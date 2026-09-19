@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -22,18 +22,16 @@ else:
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import theme_templates, theme_meta, web_notifications, admin_log, system_flags, dev_settings, analytics as analytics_repo
-from FastAPI.auth import verify_login_widget, create_session_token, verify_session_token, verify_webapp_data
+from FastAPI.auth import (verify_login_widget, create_session_token,
+                          verify_preprod_browser_ticket, verify_session_token,
+                          verify_webapp_data)
+from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
 from FastAPI import notifications
-from FastAPI.routers import (profile, top, inventory, shop, zoo, gacha,
-                              craft, quests, auction, duels, achievements,
-                              themes, streak, exchange, dark_mora,
-                              marriage, daily_deal, promocodes, wallet,
-                              events, admin, vip, battle_pass, global_admin,
-                              dev_console, payments, relics, cosmetics, clans,
-                              legal, analytics as analytics_router, showcase,
-                              skill_games, clans2, dev_overlay, appeals, account,
-                              barracks as barracks_router,
-                              reconstruction as reconstruction_router)
+from FastAPI.routers import (profile, marriage, wallet,
+                              admin, global_admin, dev_console, payments,
+                              legal, analytics as analytics_router,
+                              dev_overlay, appeals, account,
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
@@ -54,6 +52,24 @@ from infrastructure.repositories.reconstruction_settlements import ensure_table 
 from infrastructure.repositories.reconstruction_units import ensure_tables as ensure_reconstruction_units
 from infrastructure.repositories.companions_v3 import ensure_tables as ensure_companions_v3
 from infrastructure.repositories.alliance_v3 import ensure_table as ensure_alliance_v3
+from infrastructure.repositories.retention_v3 import ensure_tables as ensure_retention_v3
+from infrastructure.repositories.weekly_case_v1 import ensure_tables as ensure_weekly_case_v1
+from infrastructure.repositories.chat_echo_v1 import ensure_tables as ensure_chat_echo_v1
+from infrastructure.repositories.scar_map_v1 import ensure_tables as ensure_scar_map_v1
+from infrastructure.repositories.feats_v1 import ensure_table as ensure_feats_v1
+from infrastructure.repositories.sky_v1 import ensure_tables as ensure_sky_v1
+from infrastructure.repositories.star_payments_v1 import ensure_tables as ensure_star_payments_v1
+from infrastructure.repositories.rhythm_v2 import ensure_tables as ensure_rhythm_v2
+from infrastructure.repositories.supporter_cosmetics_v1 import ensure_tables as ensure_supporter_cosmetics_v1
+from infrastructure.repositories.minesweeper_v2 import ensure_tables as ensure_minesweeper_v2
+from infrastructure.repositories.mafia_v1 import ensure_tables as ensure_mafia_v1
+from infrastructure.repositories.pets_v1 import ensure_tables as ensure_pets_v1
+from infrastructure.repositories.quests_v1 import ensure_tables as ensure_quests_v1
+from infrastructure.repositories.echo_shards_v1 import ensure_tables as ensure_echo_shards_v1
+from infrastructure.repositories.achievements_v1 import ensure_tables as ensure_achievements_v1
+from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensure_public_profiles_v1
+from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
+from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from FastAPI.deps import require_tab_enabled
 from loguru import logger as _log
 
@@ -95,6 +111,24 @@ async def lifespan(app: FastAPI):
             (ensure_reconstruction_units,     "reconstruction_unit_progress"),
             (ensure_companions_v3,             "companions_v3"),
             (ensure_alliance_v3,               "alliance_v3_shadow"),
+            (ensure_retention_v3,              "retention_v3"),
+            (ensure_weekly_case_v1,            "weekly_case_v1"),
+            (ensure_chat_echo_v1,              "chat_echo_v1"),
+            (ensure_scar_map_v1,               "scar_map_v1"),
+            (ensure_feats_v1,                  "chronicle_feat_receipts_v1"),
+            (ensure_sky_v1,                    "harbinger_sky_v1"),
+            (ensure_star_payments_v1,          "stars_payment_receipts_v1"),
+            (ensure_rhythm_v2,                  "rhythm_v2"),
+            (ensure_supporter_cosmetics_v1,    "supporter_cosmetics_v1"),
+            (ensure_minesweeper_v2,             "minesweeper_v2"),
+            (ensure_mafia_v1,                    "mafia_v1"),
+            (ensure_chests_v1,                   "chests_v1"),
+            (ensure_pets_v1,                     "pets_v1"),
+            (ensure_quests_v1,                    "quests_v1"),
+            (ensure_echo_shards_v1,                "echo_shards_v1"),
+            (ensure_achievements_v1,                "achievements_v1"),
+            (ensure_public_profiles_v1,             "public_profiles_v1"),
+            (ensure_global_skins_v1,                 "global_skins_v1"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -119,17 +153,15 @@ app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-for r in [profile.router, top.router, inventory.router, shop.router, zoo.router,
-          gacha.router, craft.router, quests.router, auction.router, duels.router,
-          achievements.router, themes.router, streak.router, exchange.router,
-          dark_mora.router, marriage.router, daily_deal.router,
-          promocodes.router, wallet.router, events.router, admin.router, vip.router,
-          battle_pass.router, global_admin.router, dev_console.router,
-          payments.router, relics.router, cosmetics.router,
-          clans.router, legal.router, notif_router.router,
-          analytics_router.router, showcase.router, skill_games.router,
-          clans2.router, dev_overlay.router, appeals.router, account.router,
-          barracks_router.router, reconstruction_router.router]:
+# Release Mini App boundary.  Historical game/economy routers are intentionally
+# not registered: hiding their buttons is not sufficient because a cached
+# client can still call a public endpoint directly.  Their data stays in the
+# database solely for the owner-approved final compensation audit.
+for r in [profile.router, marriage.router, wallet.router,
+          admin.router, global_admin.router, dev_console.router,
+          payments.router, legal.router, notif_router.router,
+          analytics_router.router, dev_overlay.router, appeals.router, account.router,
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(legacy_combat_retirement_router.router)
 
@@ -204,37 +236,16 @@ async def ready():
     return {"status": "ready"}
 
 
-@app.get("/profile/{user_id}")
-async def legacy_profile(user_id: int):
-    await create_pool()
-    async with get_pool().acquire() as conn:
-        db = PGAdapter(conn)
-        async with db.execute(
-            "SELECT user_tg_id, user_tg_username, global_rank, "
-            "user_balance_mora, user_balance_diamonds FROM users WHERE user_tg_id = ?",
-            (user_id,)
-        ) as c:
-            row = await c.fetchone()
-    if not row:
-        raise HTTPException(404, "Not found")
-    return dict(row)
-
-
 @app.get("/api/events")
 async def api_events():
-    await create_pool()
-    async with get_pool().acquire() as conn:
-        db = PGAdapter(conn)
-        async with db.execute("SELECT * FROM exchange_events WHERE status='active' LIMIT 1") as c:
-            active = await c.fetchone()
-        async with db.execute("SELECT * FROM exchange_events WHERE status='scheduled' ORDER BY starts_at LIMIT 1") as c:
-            scheduled = await c.fetchone()
-    if active:
-        return {"exchange": {"active": True, "ends_at": str(dict(active).get("ends_at",""))[:16]}}
-    if scheduled:
-        s = dict(scheduled)
-        return {"exchange": {"active": False, "scheduled": True, "starts_at": str(s.get("starts_at",""))[:16]}}
-    return {"exchange": {"active": False, "scheduled": False}}
+    # Legacy reader must obey the same retirement boundary as /events/. Do not
+    # inspect exchange_events: an old row must never resurrect a premium or
+    # progression conversion through an unmaintained endpoint.
+    return {
+        "retired": True,
+        "message": "Старые валютные события закрыты.",
+        "exchange_retired": True,
+    }
 
 
 # ── Mini App HTML ──────────────────────────────────────────────────────────────
@@ -267,21 +278,40 @@ def _read_static(name: str) -> str:
 # КРИТИЧНО: части СКЛЕИВАЮТСЯ в ОДИН скрипт и отдаются одним <script>, а НЕ N тегами —
 # top-level let/const классического скрипта живут в ОДНОЙ лексической области, и
 # раздача отдельными тегами сломала бы cross-file ссылки. Порядок = порядок в исходнике.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in range(1, 12)]  # app.01.js … app.11.js
+# app.03.js and app.05.js contained only retired pet, Battle-Pass and old
+# economy UI.  They are intentionally no longer delivered; archival database
+# records remain.
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13)]
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
     *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "reconstruction-lab.js")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.js")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.js")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "global-skins-v1.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "global-skins-v1.js")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "skins", "lunar-archive-v1.webp")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "skins", "void-atlas-v1.webp")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
 _ASSET_BASE = os.getenv("ROOT_PATH", "").rstrip("/")
+_BOT_USERNAME = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot").strip().lstrip("@")
+_LOGIN_SURFACE = (
+    f'<a class="login-open-bot" href="https://t.me/{_BOT_USERNAME}?startapp=game">'
+    'Открыть тестовый Mini App в Telegram <b>›</b></a>'
+    if os.getenv("PREDVESTNIK_ENV", "").strip().lower() == "preprod"
+    else '<div id="tg-login-widget"><script src="https://telegram.org/js/telegram-widget.js?22" '
+         f'data-telegram-login="{_BOT_USERNAME}" data-size="large" data-radius="14" '
+         'data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script></div>'
+)
 _INDEX_HTML = (
     _read_static("index.html")
-    .replace("{{BOT_USERNAME}}", os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot"))
+    .replace("{{BOT_USERNAME}}", _BOT_USERNAME)
+    .replace("{{LOGIN_SURFACE}}", _LOGIN_SURFACE)
     .replace("{{ASSET_VER}}", _ASSET_VER)
     .replace("{{BASE}}", _ASSET_BASE)
 )
@@ -290,25 +320,26 @@ _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
 # БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
 # после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
 _APP_DEVMODE_JS = _read_static("app.devmode.js")
-_RECONSTRUCTION_CSS = _read_static("reconstruction-lab.css")
-_RECONSTRUCTION_JS = _read_static("reconstruction-lab.js")
-# Compatibility shim for the pre-2026-08-24 saved-look delete button.  The
-# current stylesheet does not reference this asset; retain it for one release
-# because an already-open Telegram WebView can still have its old CSS cached.
-_LEGACY_CLOSE_ICON_SVG = _read_static("icons/x.svg")
-_RECONSTRUCTION_HTML = (
-    _read_static("reconstruction-lab.html")
-    .replace('data-runtime="preview"', 'data-runtime="production"')
-    .replace('data-api-base="/__reconstruction"', 'data-api-base=""')
+_RHYTHM_V2_HTML = (
+    _read_static("rhythm-v2.html")
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
-    .replace(
-        'href="/static/reconstruction-lab.css"',
-        f'href="{_ASSET_BASE}/static/reconstruction-lab.css?v={_ASSET_VER}"',
-    )
-    .replace(
-        'src="/static/reconstruction-lab.js"',
-        f'src="{_ASSET_BASE}/static/reconstruction-lab.js?v={_ASSET_VER}"',
-    )
+    # The Mini App is mounted under /predvestnik in the local and tunnelled
+    # environments.  A literal href="/" leaves that mount and reaches a
+    # non-existent host root, which is the source of the visible 404 on ‹.
+    .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
+    .replace('href="/static/global-skins-v1.css"', f'href="{_ASSET_BASE}/static/global-skins-v1.css?v={_ASSET_VER}"')
+    .replace('src="/static/global-skins-v1.js"', f'src="{_ASSET_BASE}/static/global-skins-v1.js?v={_ASSET_VER}"')
+    .replace('src="/static/rhythm-v2.js"', f'src="{_ASSET_BASE}/static/rhythm-v2.js?v={_ASSET_VER}"')
+)
+_MINESWEEPER_V2_HTML = (
+    _read_static("minesweeper-v2.html")
+    .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
+    .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
+    .replace('href="/static/global-skins-v1.css"', f'href="{_ASSET_BASE}/static/global-skins-v1.css?v={_ASSET_VER}"')
+    .replace('src="/static/global-skins-v1.js"', f'src="{_ASSET_BASE}/static/global-skins-v1.js?v={_ASSET_VER}"')
+    .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
 )
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
 # (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
@@ -320,13 +351,57 @@ async def mini_app():
     return HTMLResponse(_INDEX_HTML)
 
 
-@app.get(
-    "/game",
-    response_class=HTMLResponse,
-    dependencies=[Depends(require_tab_enabled("game_reconstruction_v1"))],
-)
-async def reconstruction_game():
-    return HTMLResponse(_RECONSTRUCTION_HTML)
+@app.get("/__preprod/activate", response_class=RedirectResponse)
+async def activate_preprod_browser_persona(ticket: str = ""):
+    """Set the local test cookie only after a short signed loopback hand-off.
+
+    The route is absent outside isolated preprod.  The ticket is purpose-bound,
+    short-lived and only authorizes the artificial test identity, never a real
+    Telegram account or a general browser session.
+    """
+    user_id = verify_preprod_browser_ticket(ticket)
+    if not is_preprod() or user_id != PREPROD_BROWSER_TEST_USER_ID:
+        raise HTTPException(404, "not found")
+    response = RedirectResponse(f"{_ASSET_BASE}/", status_code=303)
+    response.set_cookie(
+        key="predvestnik_preprod_test_session",
+        value=create_session_token(user_id),
+        max_age=20 * 60,
+        httponly=True,
+        secure=False,
+        samesite="strict",
+        path=f"{_ASSET_BASE}/" or "/",
+    )
+    # Some automation WebViews intentionally isolate cookies during a
+    # cross-port localhost redirect.  Their client consumes this short ticket
+    # once and immediately removes it from the address bar; normal browsers
+    # simply use the HttpOnly cookie above.
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Location"] = f"{_ASSET_BASE}/?__preprod_ticket={ticket}"
+    return response
+
+
+@app.get("/game", response_class=RedirectResponse)
+async def retired_reconstruction_game():
+    """Compatibility URL: never reopen the retired Reconstruction client."""
+    return RedirectResponse(f"{_ASSET_BASE}/?startapp=games", status_code=307)
+
+
+@app.get("/rhythm-v2", response_class=HTMLResponse)
+async def rhythm_v2_game():
+    # Telegram supplies initData to the WebApp JavaScript, not to this initial
+    # document navigation.  The authenticated, feature-gated API router below
+    # remains the security boundary; gating this static shell would reject a
+    # legitimate Mini App before it can attach x-init-data.
+    return HTMLResponse(_RHYTHM_V2_HTML)
+
+
+@app.get("/minesweeper", response_class=HTMLResponse)
+async def minesweeper_game():
+    # The initial document must load before Telegram JavaScript exposes initData.
+    # Its server-owned run and leaderboard APIs independently require the
+    # authenticated, feature-gated contract; this shell exposes no economy.
+    return HTMLResponse(_MINESWEEPER_V2_HTML)
 
 
 @app.get("/updates.json")
@@ -349,17 +424,43 @@ async def static_devmode_js():
     return Response(_APP_DEVMODE_JS, media_type="application/javascript; charset=utf-8")
 
 
-@app.get("/static/reconstruction-lab.css")
-async def reconstruction_css():
-    return Response(_RECONSTRUCTION_CSS, media_type="text/css; charset=utf-8")
+@app.get("/static/rhythm-v2.css")
+async def rhythm_v2_css():
+    return Response(_read_static("rhythm-v2.css"), media_type="text/css; charset=utf-8")
 
 
-@app.get("/static/reconstruction-lab.js")
-async def reconstruction_js():
-    return Response(_RECONSTRUCTION_JS, media_type="application/javascript; charset=utf-8")
+@app.get("/static/rhythm-v2.js")
+async def rhythm_v2_js():
+    return Response(_read_static("rhythm-v2.js"), media_type="application/javascript; charset=utf-8")
 
 
-@app.get("/static/icons/x.svg")
-async def static_close_icon():
-    """Serve the one-release cache-compatibility asset for an older stylesheet."""
-    return Response(_LEGACY_CLOSE_ICON_SVG, media_type="image/svg+xml")
+@app.get("/static/minesweeper-v2.css")
+async def minesweeper_css():
+    return Response(_read_static("minesweeper-v2.css"), media_type="text/css; charset=utf-8")
+
+
+@app.get("/static/global-skins-v1.css")
+async def global_skins_css():
+    return Response(_read_static("global-skins-v1.css"), media_type="text/css; charset=utf-8")
+
+
+@app.get("/static/global-skins-v1.js")
+async def global_skins_js():
+    return Response(_read_static("global-skins-v1.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/skins/lunar-archive-v1.webp")
+async def lunar_archive_skin_asset():
+    with open(os.path.join(_STATIC_DIR, "skins", "lunar-archive-v1.webp"), "rb") as asset:
+        return Response(asset.read(), media_type="image/webp")
+
+
+@app.get("/static/skins/void-atlas-v1.webp")
+async def void_atlas_skin_asset():
+    with open(os.path.join(_STATIC_DIR, "skins", "void-atlas-v1.webp"), "rb") as asset:
+        return Response(asset.read(), media_type="image/webp")
+
+
+@app.get("/static/minesweeper-v2.js")
+async def minesweeper_js():
+    return Response(_read_static("minesweeper-v2.js"), media_type="application/javascript; charset=utf-8")

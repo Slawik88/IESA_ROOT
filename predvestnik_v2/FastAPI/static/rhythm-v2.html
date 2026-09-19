@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Ритм — Предвестник</title>
+  <link rel="stylesheet" href="/static/rhythm-v2.css">
+  <link rel="stylesheet" href="/static/global-skins-v1.css">
+</head>
+<body data-app-base="">
+  <main class="rhythm-shell">
+    <header><a href="/" aria-label="Назад в Предвестник">‹</a><div><small>ПРЕДВЕСТНИК</small><h1>Ритм</h1></div><output id="connection">●</output></header>
+    <section id="intro" class="panel">
+      <p class="eyebrow">БЕСКОНЕЧНЫЙ ЗАБЕГ</p><h2>Нажимай руны точно</h2>
+      <p>Скорость растёт плавно. Ошибки забирают здоровье. Результат считает сервер.</p>
+      <div class="mode-actions"><button data-mode="normal">Обычный режим</button><button class="secondary" data-mode="augments">С аугментациями</button></div>
+      <section class="leaderboard" aria-labelledby="leaderboard-title">
+        <div class="leaderboard-head"><h3 id="leaderboard-title">Лидеры</h3><div class="leaderboard-tabs" role="tablist" aria-label="Режим таблицы"><button type="button" data-leaderboard-mode="normal" aria-selected="true">Обычный</button><button type="button" data-leaderboard-mode="augments" aria-selected="false">Аугменты</button></div></div>
+        <ol id="leaderboard-list" aria-live="polite"><li>Загружаем результаты…</li></ol>
+        <p id="leaderboard-personal">Ваш результат появится после первого завершённого забега.</p>
+      </section>
+    </section>
+    <section id="choice" class="panel hidden"><p class="eyebrow">ПЕРЕД ЗАБЕГОМ</p><h2>Выбери 2 дара и 2 испытания</h2><p>Каждый вариант действует весь забег.</p><div id="positive" class="augment-list"></div><div id="negative" class="augment-list"></div><button id="confirm" disabled>Начать забег</button></section>
+    <section id="run" class="hidden">
+      <div class="metrics"><div><small>ЗДОРОВЬЕ</small><b id="health">♥♥♥</b></div><div><small>СЧЁТ</small><b id="score">0</b></div><div><small>СЕРИЯ</small><b id="combo">0</b></div></div>
+      <div class="pace"><span>Ускорение</span><b id="speed">100%</b><div><i id="timebar"></i></div></div>
+      <p id="instruction" aria-live="polite">Нажми нужную руну</p><div class="runes" role="group" aria-label="Руны"><button data-rune="left">ᚠ</button><button data-rune="center">ᚱ</button><button data-rune="right">ᚦ</button></div>
+      <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
+    </section>
+    <section id="result" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p><h2 id="final-score">0 очков</h2><p id="final-detail"></p><button id="again">Ещё раз</button><button id="results-leaderboard" class="secondary" type="button">Показать лидеров</button></section>
+    <p id="error" role="alert"></p>
+  </main><script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/static/global-skins-v1.js"></script><script src="/static/rhythm-v2.js" defer></script>
+</body></html>

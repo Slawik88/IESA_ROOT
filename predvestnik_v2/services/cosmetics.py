@@ -15,6 +15,7 @@ from core.cosmetics import (
 from core.constants import (
     COSMETIC_CHESTS, COSMETIC_DUPE_SHARDS, COSMETIC_CRAFT_SHARDS,
 )
+from core.global_skins_v1 import shop_items_for_lineup
 from core.registry import ITEMS_REGISTRY
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories.economy_ledger import (
@@ -22,11 +23,56 @@ from infrastructure.repositories.economy_ledger import (
     find_balance_replay,
     find_reference_replay,
 )
+from infrastructure.repositories import global_skins_v1 as global_skin_repo
 from services.vip import is_vip_active, is_vip_active_batch
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
 # без записи владения — гейт по VIP, а не по обладанию).
 _WELCOME_SLOT = "welcome"
+
+# A player's six stored slots are intentionally not six independent visual
+# effects.  The UI consumes this compact composition contract so a collection
+# changes the whole card without stacking two competing avatar rings.
+_COMPOSITION_TONE_ORDER = (
+    "profile_bg", "card_fx", "title", "name_glow", "avatar_frame", "avatar_halo",
+)
+
+
+def appearance_composition(loadout: dict[str, str]) -> dict:
+    """Derive a safe, whole-card appearance plan from a durable loadout.
+
+    Ownership and equipped slots remain backward compatible.  ``identity``
+    reports at most one leading avatar accent; when frame and halo coexist the
+    halo is promoted to the card-wide atmospheric layer rather than becoming a
+    second outline around the same identity anchor.
+    """
+    layers: dict[str, dict] = {}
+    for slot, cosmetic_id in (loadout or {}).items():
+        if slot == _WELCOME_SLOT:
+            continue
+        cosmetic = COSMETICS.get(cosmetic_id)
+        if cosmetic and cosmetic.get("slot") == slot:
+            layers[slot] = {
+                "id": cosmetic_id,
+                "lineup": cosmetic.get("lineup"),
+                "name": cosmetic["name"],
+            }
+    dominant_slot = next(
+        (slot for slot in _COMPOSITION_TONE_ORDER if layers.get(slot, {}).get("lineup")),
+        None,
+    )
+    lead_identity = "avatar_frame" if "avatar_frame" in layers else (
+        "avatar_halo" if "avatar_halo" in layers else None
+    )
+    return {
+        "dominant_lineup": layers.get(dominant_slot, {}).get("lineup"),
+        "dominant_slot": dominant_slot,
+        "identity": {
+            "lead_slot": lead_identity,
+            "ambient_slot": "avatar_halo" if lead_identity == "avatar_frame" and "avatar_halo" in layers else None,
+        },
+        "layer_count": len(layers),
+    }
 
 # Валюты косметики → колонка баланса в users (whitelist: имя колонки НЕ из ввода).
 _CUR_COL = {
@@ -182,7 +228,7 @@ def _public(cid: str, cos: dict, owned: set[str], loadout: dict[str, str], vip: 
         "css": cos.get("css"),
         "text": cos.get("text"),
         "desc": cos.get("desc", ""),
-        "vip_required": bool(cos.get("vip_required")),
+        "vip_required": is_vip_locked(cos),
         "source": cos.get("source", "shop"),
         "price": cos.get("price"),
         "owned": is_owned,
@@ -424,7 +470,11 @@ async def buy(db, user_id: int, cosmetic_id: str, option_index: int = 0,
     return True, msg
 
 
-def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
+def lineup_buy_quote(
+    lineup_id: str,
+    owned: set[str],
+    owned_skins: set[str] | None = None,
+) -> dict | None:
     """Раскладка покупки «всё недостающее» для линейки (Стадия 3 косметики):
     {"missing": [id,...], "price_min": int, "price_max": int, "total": int}.
     Цена считается по каждому реальному предмету: титул, рамка, фон и эффект
@@ -434,7 +484,9 @@ def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
         return None
     items = lineup_items(lineup_id)
     missing = [cid for cid in items if cid not in owned]
-    if not missing:
+    skins = shop_items_for_lineup(lineup_id)
+    skin_missing = [skin_id for skin_id in skins if skin_id not in (owned_skins or set())]
+    if not missing and not skin_missing:
         return None
     prices = []
     for cosmetic_id in missing:
@@ -442,8 +494,10 @@ def lineup_buy_quote(lineup_id: str, owned: set[str]) -> dict | None:
         if not price_opt or "zarniki" not in price_opt:
             return None
         prices.append(int(price_opt["zarniki"]))
+    prices.extend(int(skins[skin_id]["price_zarniki"]) for skin_id in skin_missing)
     return {
         "missing": missing,
+        "skin_missing": skin_missing,
         "price_min": min(prices),
         "price_max": max(prices),
         "total": sum(prices),
@@ -473,6 +527,7 @@ async def buy_lineup(
 
     mutation = None
     missing: list[str] = []
+    skin_missing: list[str] = []
     total = 0
     try:
         async with db.connection.transaction():
@@ -494,23 +549,36 @@ async def buy_lineup(
             if mutation is not None:
                 return True, f"Покупка коллекции «{meta['name']}» уже обработана."
 
-            quote = lineup_buy_quote(lineup_id, await _owned(db, user_id))
+            await global_skin_repo.ensure_tables(db)
+            quote = lineup_buy_quote(
+                lineup_id,
+                await _owned(db, user_id),
+                await global_skin_repo.owned_ids(db, user_id),
+            )
             if not quote:
                 return False, "Эта линейка уже собрана полностью или недоступна для покупки."
-            missing, total = quote["missing"], quote["total"]
+            missing, skin_missing, total = quote["missing"], quote["skin_missing"], quote["total"]
             mutation = await apply_balance_change(
                 db, user_id, {"zarniki": -total},
                 reason_code="cosmetic_lineup_purchase",
                 idempotency_key=idempotency_key,
                 source_type="cosmetics", reference_type="lineup",
                 reference_id=lineup_id,
-                metadata={"lineup_id": lineup_id, "cosmetic_ids": missing},
-                note=f"{lineup_id}×{len(missing)}",
+                metadata={
+                    "lineup_id": lineup_id,
+                    "cosmetic_ids": missing,
+                    "global_skin_ids": skin_missing,
+                },
+                note=f"{lineup_id}×{len(missing) + len(skin_missing)}",
             )
             for cid in missing:
                 await db.execute(
                     "INSERT INTO user_cosmetics (user_id, cosmetic_id) VALUES (?, ?) "
                     "ON CONFLICT DO NOTHING", (user_id, cid))
+            for skin_id in skin_missing:
+                await global_skin_repo.grant(
+                    db, user_id, skin_id, source="cosmetic_lineup_purchase"
+                )
     except InsufficientBalance:
         return False, f"Нужно {total}✨ за всю линейку."
     except IdempotencyConflict:
@@ -527,7 +595,8 @@ async def buy_lineup(
     except Exception:
         pass
 
-    return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {len(missing)} шт. за {total}✨"
+    purchased_count = len(missing) + len(skin_missing)
+    return True, f"🎨 «{meta['name']}» собрана полностью! Докуплено {purchased_count} шт. за {total}✨"
 
 
 async def buy_many(
@@ -612,21 +681,28 @@ async def buy_many(
 
 
 async def get_active_cosmetics(db, user_id: int) -> dict:
-    """Надетая косметика для рендера профиля (веб + титул в боте).
+    """Надетая косметика для публичного рендера (веб + титул в боте).
     → {"name_glow": {"css","name","lineup"}, "avatar_frame": {...},
        "title": "текст", "lineage": {"id","source_slot"}}
-    VIP-гейт: косметика с is_vip_locked() показывается только при активной VIP —
-    без неё «спит» (выбор слота в БД не трогаем, чтобы при продлении VIP она
-    вернулась сама, без переэкипировки)."""
+    Купленная магазинная косметика видна независимо от VIP. Только конкретные
+    предметы с ``vip_required`` засыпают без подписки; их сохранённый loadout не
+    меняется и возвращается после продления. Эта функция — единственная
+    публичная проекция; примерочная получает сохранённый образ через
+    ``get_fitting_cosmetics`` ниже.
+    """
     loadout = await _loadout(db, user_id)
+    vip_active = await is_vip_active(db, user_id)
     out: dict = {}
-    locked: dict[str, bool] = {}
+    effective_loadout: dict[str, str] = {}
     for slot, cid in loadout.items():
         if slot == _WELCOME_SLOT:
             continue
         cos = COSMETICS.get(cid)
         if not cos:
             continue
+        if is_vip_locked(cos) and not vip_active:
+            continue
+        effective_loadout[slot] = cid
         if slot == "title":
             out["title"] = cos.get("text") or cos["name"]
             if cos.get("css"):
@@ -637,20 +713,8 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
                 "name": cos["name"],
                 "lineup": cos.get("lineup"),
             }
-        locked[slot] = is_vip_locked(cos)
-
-    chosen = loadout.get(_WELCOME_SLOT)
-    anim = WELCOME_ANIMATIONS.get(chosen) if chosen else None
-    welcome_vip_locked = bool(anim and anim.get("vip_required"))
-
-    vip = await is_vip_active(db, user_id) if (any(locked.values()) or welcome_vip_locked) else False
-    out["welcome"] = (chosen if vip else WELCOME_DEFAULT) if welcome_vip_locked else (chosen if anim else WELCOME_DEFAULT)
-
-    for slot, is_locked in locked.items():
-        if is_locked and not vip:
-            out.pop(slot, None)
-            if slot == "title":
-                out.pop("title_css", None)
+    out["welcome"] = _effective_welcome(loadout, vip_active)
+    out["composition"] = appearance_composition(effective_loadout)
 
     # Родословная образа вычисляется ПОСЛЕ VIP-фильтра: профиль не должен
     # подсвечиваться цветом предмета, который сейчас «спит». Приоритет отражает
@@ -665,6 +729,85 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
     return out
 
 
+async def get_fitting_cosmetics(db, user_id: int) -> dict:
+    """Return an owner's stored look without making it public.
+
+    This projection deliberately has no target-user argument.  A non-VIP owner
+    may inspect and prepare their purchased look in the fitting room, while all
+    public readers continue to receive the neutral result from
+    :func:`get_active_cosmetics`.
+    """
+    loadout = await _loadout(db, user_id)
+    selected: dict[str, dict | str] = {}
+    for slot, cid in loadout.items():
+        if slot == _WELCOME_SLOT:
+            continue
+        cosmetic = COSMETICS.get(cid)
+        if not cosmetic or cosmetic.get("slot") != slot:
+            continue
+        if slot == "title":
+            selected["title"] = {
+                "id": cid,
+                "text": cosmetic.get("text") or cosmetic["name"],
+                "css": cosmetic.get("css"),
+                "name": cosmetic["name"],
+                "lineup": cosmetic.get("lineup"),
+            }
+        else:
+            selected[slot] = {
+                "id": cid,
+                "css": cosmetic.get("css"),
+                "name": cosmetic["name"],
+                "lineup": cosmetic.get("lineup"),
+            }
+    chosen = loadout.get(_WELCOME_SLOT)
+    welcome = chosen if chosen in WELCOME_ANIMATIONS else WELCOME_DEFAULT
+    vip = await is_vip_active(db, user_id)
+    has_sleeping_item = any(
+        is_vip_locked(COSMETICS.get(cid, {})) for slot, cid in loadout.items()
+        if slot != _WELCOME_SLOT
+    )
+    return {
+        "vip_active": vip,
+        "vip_inactive": has_sleeping_item and not vip,
+        "cosmetics": selected,
+        "composition": appearance_composition(loadout),
+        "welcome": welcome,
+    }
+
+
+async def get_fitting_inventory(db, user_id: int) -> dict:
+    """Private, non-commercial wardrobe data for the release fitting room.
+
+    This deliberately does not call :func:`sync_auto_grants` and exposes no
+    checkout data.  The player may inspect and equip only items already in the
+    durable inventory; sales belong to the later shared Zarniki shop.
+    """
+    owned = await _owned(db, user_id)
+    loadout = await _loadout(db, user_id)
+    vip = await is_vip_active(db, user_id)
+    slots: dict[str, list[dict]] = {slot: [] for slot in COSMETIC_SLOTS}
+    for cosmetic_id, cosmetic in COSMETICS.items():
+        slot = cosmetic["slot"]
+        slots[slot].append({
+            "id": cosmetic_id,
+            "name": cosmetic["name"],
+            "slot": slot,
+            "css": cosmetic.get("css"),
+            "text": cosmetic.get("text"),
+            "desc": cosmetic.get("desc", ""),
+            "lineup": cosmetic.get("lineup"),
+            "owned": cosmetic_id in owned,
+            "equipped": loadout.get(slot) == cosmetic_id,
+        })
+    return {
+        "vip_active": vip,
+        "slots": slots,
+        "saved_look": await get_fitting_cosmetics(db, user_id),
+        "transfers": {"available": False, "message": "Передача косметики — в разработке."},
+    }
+
+
 async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
     """БЛОК21: лёгкая косметика для «флекса» в топах/списках — ник-глоу (css) + титул,
     ОДНИМ запросом на всех. → {user_id: {"glow": css|None, "title": str|None}}.
@@ -673,7 +816,7 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
     if not ids:
         return {}
     out: dict[int, dict] = {}
-    pending_vip_check: set[int] = set()  # юзеры с хотя бы 1 VIP-locked косметикой в выборке
+    vip_ids = await is_vip_active_batch(db, ids)
     ph = ",".join(["?"] * len(ids))
     async with db.execute(
         f"SELECT user_id, slot, cosmetic_id FROM user_cosmetic_loadout "
@@ -686,6 +829,8 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
         cos = COSMETICS.get(cid)
         if not cos:
             continue
+        if is_vip_locked(cos) and uid not in vip_ids:
+            continue
         d = out.setdefault(uid, {})
         if slot == "title":
             d["title"] = cos.get("text") or cos["name"]
@@ -693,23 +838,6 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
                 d["title_css"] = cos["css"]
         elif slot == "name_glow":
             d["glow"] = cos.get("css")
-        if is_vip_locked(cos):
-            pending_vip_check.add(uid)
-    if pending_vip_check:
-        vip_ids = await is_vip_active_batch(db, list(pending_vip_check))
-        for uid in pending_vip_check - vip_ids:
-            d = out.get(uid)
-            if not d:
-                continue
-            cid_glow = next((r[2] for r in rows if int(r[0]) == uid and r[1] == "name_glow"), None)
-            cid_title = next((r[2] for r in rows if int(r[0]) == uid and r[1] == "title"), None)
-            if cid_glow and is_vip_locked(COSMETICS.get(cid_glow, {})):
-                d.pop("glow", None)
-            if cid_title and is_vip_locked(COSMETICS.get(cid_title, {})):
-                d.pop("title", None)
-                d.pop("title_css", None)
-            if not d:
-                out.pop(uid, None)
     return out
 
 

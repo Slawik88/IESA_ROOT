@@ -123,9 +123,15 @@ def _metadata_json(metadata: Mapping[str, Any] | None) -> str:
 def _validate_premium_origin(
     deltas: Mapping[str, Decimal],
     reason_code: str,
+    *,
+    allow_custody_zarniki_credit: bool = False,
 ) -> None:
     """Prevent free creation of paid currency after owner-v3 reconciliation."""
     if deltas.get("zarniki", Decimal("0")) <= 0:
+        return
+    if allow_custody_zarniki_credit:
+        if reason_code != "family_transfer_withdrawal":
+            raise InvalidEconomicMutation("Custody credit has an invalid reason code.")
         return
     try:
         validate_positive_zarniki_source(reason_code)
@@ -303,6 +309,7 @@ async def apply_balance_change(
     chat_id: int | None = None,
     target_id: int | None = None,
     note: str | None = None,
+    allow_custody_zarniki_credit: bool = False,
 ) -> BalanceMutation:
     """Apply a multi-currency mutation exactly once and record its full arithmetic.
 
@@ -315,7 +322,10 @@ async def apply_balance_change(
         raise InvalidEconomicMutation("At least one non-zero currency delta is required.")
 
     reason = validate_reason_code(reason_code)
-    _validate_premium_origin(normalized, reason)
+    _validate_premium_origin(
+        normalized, reason,
+        allow_custody_zarniki_credit=allow_custody_zarniki_credit,
+    )
     source = validate_reason_code(source_type)
     ref_type = validate_reason_code(reference_type) if reference_type else None
     ref_id = str(reference_id) if reference_id is not None else None
@@ -332,6 +342,21 @@ async def apply_balance_change(
     metadata_json = _metadata_json(metadata)
 
     async with db.connection.transaction():
+        if allow_custody_zarniki_credit:
+            if not (ref_type == "family_operation" and ref_id):
+                raise InvalidEconomicMutation("Custody Zarniki credit requires a family operation reference.")
+            async with db.execute(
+                "SELECT 1 FROM family_wallet_ledger ledger "
+                "JOIN family_wallet_operations operation ON operation.id = ledger.operation_id "
+                "WHERE ledger.operation_id = ? AND ledger.currency = 'zarniki' "
+                "AND ledger.delta < 0 AND operation.actor_id = ? "
+                "AND operation.action = 'withdrawal'",
+                (ref_id, user_id),
+            ) as cursor:
+                if not await cursor.fetchone():
+                    raise InvalidEconomicMutation(
+                        "Custody Zarniki credit has no matching family withdrawal."
+                    )
         await db.execute(
             "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING",
             (user_id,),

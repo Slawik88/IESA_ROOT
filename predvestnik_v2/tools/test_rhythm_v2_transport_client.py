@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""The shipped Rhythm client must use only the trusted server-timed channel."""
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+CLIENT = (ROOT / "FastAPI/static/rhythm-v2.js").read_text(encoding="utf-8")
+SERVICE = (ROOT / "services/rhythm_v2.py").read_text(encoding="utf-8")
+ROUTER = (ROOT / "FastAPI/routers/rhythm_v2.py").read_text(encoding="utf-8")
+
+assert "/transport-ticket" in CLIENT
+assert "new WebSocket(target)" in CLIENT
+assert "type:'authenticate'" in CLIENT
+assert "type:'tap'" in CLIENT
+assert "pendingTap.actionId" in CLIENT
+assert "scheduleReconnect" in CLIENT
+assert "/offline-packet" not in CLIENT
+assert "/finalize" not in CLIENT
+assert "predvestnik-rhythm-v2-local" in CLIENT  # cleanup only
+assert '"remaining_ms": remaining_ms' in SERVICE
+assert 'integrity_status="review_required"' in SERVICE
+assert "server_timed_transport_pending_review" in SERVICE
+assert 'integrity_status="clear", integrity_reason="server_timed_transport"' not in SERVICE
+assert "await game.review_run(" in ROUTER
+assert '@router.get("/integrity/reviews")' in ROUTER
+assert '@router.post("/integrity/reviews/{run_id}")' in ROUTER
+assert "DEVELOPER_GLOBAL_RANK" in ROUTER
+assert "ожидает проверки" in CLIENT
+assert "await repo.lock_integrity_review_id(db, review_id=review_id)" in SERVICE
+
+print("OK: shipped Rhythm uses ticketed WS, stable replay, authoritative timing and gated review")

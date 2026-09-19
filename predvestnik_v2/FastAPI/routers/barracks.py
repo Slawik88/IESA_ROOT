@@ -21,7 +21,7 @@ async def overview(user=Depends(require_tg_user)):
 
 
 def _closed() -> None:
-    raise HTTPException(410, "Старая Казарма закрыта. Откройте Разлом колокола.")
+    raise HTTPException(410, "Старая Казарма закрыта. Откройте Центр Предвестника.")
 
 
 @router.post("/starter")

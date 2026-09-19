@@ -43,8 +43,8 @@ $miniappUrl = if ($fileEnv["PREPROD_MINIAPP_URL"]) {
 if ($miniappUrl -notmatch '^https://') {
     throw ".env.test requires an HTTPS MINIAPP_URL or PREPROD_MINIAPP_URL."
 }
-if (-not $miniappUrl.TrimEnd('/').EndsWith('/predvestnik')) {
-    throw "The preprod Mini App URL must end with /predvestnik."
+if ($miniappUrl -notmatch '/predvestnik(?:/[^?#]+)?/?(?:[?#]|$)') {
+    throw "The preprod Mini App URL must stay under /predvestnik."
 }
 
 $dbPort = if ($env:PREPROD_PG_PORT) { $env:PREPROD_PG_PORT } else { "55432" }

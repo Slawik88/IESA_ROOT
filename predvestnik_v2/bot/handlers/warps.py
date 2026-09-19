@@ -17,6 +17,7 @@ router = Router(name="warps_router")
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 from bot.keyboards.cta import answer_group_only
 router.message.middleware(ModuleCheckMiddleware("module_warps"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_warps"))
 
 
 def _extract_quote(message: types.Message) -> str:

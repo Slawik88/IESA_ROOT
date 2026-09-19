@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_tab_enabled
 from core.themes import THEMES, THEME_RARITY_META, RARITY_ORDER
 from infrastructure.repositories.themes import list_owned, set_active_theme, get_active_theme, owns_theme
 from services.themes import (
@@ -13,7 +13,11 @@ from services.themes import (
     purchase_direct_theme,
 )
 
-router = APIRouter(prefix="/themes", tags=["themes"])
+router = APIRouter(
+    prefix="/themes",
+    tags=["themes"],
+    dependencies=[Depends(require_tab_enabled("tab_cosmetics"))],
+)
 
 
 @router.get("/")

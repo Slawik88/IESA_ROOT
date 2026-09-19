@@ -22,6 +22,7 @@ from core.economy_v3 import (
 )
 from core.companions_v3 import public_companion_manifest
 from core.alliance_v3 import public_manifest as public_alliance_manifest
+from core.retention_v3 import public_manifest as public_retention_manifest
 from core.reconstruction_progression import (
     branch_by_id,
     mastery_proofs_from_terminal,
@@ -41,6 +42,8 @@ from infrastructure.repositories import reconstruction_units as unit_repo
 from services import reconstruction_combat as combat
 from services import reconstruction_integrity as integrity
 from services import reconstruction_timing as timing
+from services import retention_v3 as retention
+from services import scar_map_v1 as scar_map
 
 
 FIRST_ENCOUNTER = "e01_two_bells"
@@ -54,6 +57,15 @@ class ReconstructionError(ValueError):
 
 class ReconstructionConflict(ReconstructionError):
     pass
+
+
+def _eligible_clear_win(state: dict[str, Any], terminal: dict[str, Any]) -> bool:
+    """Only an authoritative clear campaign win may advance durable story state."""
+    return (
+        state.get("status") == "won"
+        and state.get("run_kind") != "practice"
+        and (terminal.get("integrity") or {}).get("status") == "clear"
+    )
 
 
 def content_manifest() -> dict[str, Any]:
@@ -103,6 +115,7 @@ def content_manifest() -> dict[str, Any]:
         "unit_progression": public_progression_manifest(),
         "companions": public_companion_manifest(),
         "alliance": public_alliance_manifest(),
+        "retention": public_retention_manifest(),
         "starter_units": units,
         "clicker_upgrades": [
             {"id": upgrade_id, **copy.deepcopy(upgrade)}
@@ -360,6 +373,7 @@ async def start_encounter(
             unit_branches=selected_branches,
             companion_role_id=companion_role_id,
             difficulty_id=selected_difficulty,
+            memories=list(progress.get("memories") or []),
         )
         timing.attach_server_clock(state)
         state["run_kind"] = "practice" if practice else "campaign"
@@ -401,7 +415,8 @@ async def start_encounter(
                     branch_id
                     for branch_ids in selected_branches.values()
                     for branch_id in branch_ids
-                ) + ([f"companion:{companion_role_id}"] if companion_role_id else []),
+                ) + ([f"companion:{companion_role_id}"] if companion_role_id else [])
+                + [f"memory:{memory_id}" for memory_id in state.get("memories", [])],
                 **_difficulty_telemetry(state),
             },
             idempotency_key=f"run:{run_id}:started",
@@ -701,16 +716,6 @@ async def apply_run_action(
                 state=state,
                 terminal=terminal,
             )
-            if state["status"] == "won" and state.get("run_kind") != "practice":
-                recorded_proofs = await unit_repo.record_mastery_proofs(
-                    db,
-                    user_id=user_id,
-                    game_version=GAME_VERSION,
-                    terminal_result_id=terminal["id"],
-                    encounter_id=run["encounter_id"],
-                    challenge_ids=mastery_proofs_from_terminal(state),
-                )
-                mastery_proofs = sorted(recorded_proofs)
             await event_repo.record_event(
                 db,
                 user_id=user_id,
@@ -744,12 +749,57 @@ async def apply_run_action(
                 },
                 idempotency_key=f"run:{run_id}:ended",
             )
+            eligible_clear_win = _eligible_clear_win(state, terminal)
+            if eligible_clear_win:
+                recorded_proofs = await unit_repo.record_mastery_proofs(
+                    db,
+                    user_id=user_id,
+                    game_version=GAME_VERSION,
+                    terminal_result_id=terminal["id"],
+                    encounter_id=run["encounter_id"],
+                    challenge_ids=mastery_proofs_from_terminal(state),
+                )
+                mastery_proofs = sorted(recorded_proofs)
+            elif state["status"] == "won":
+                mastery_proofs = []
+            meaningful_for_rhythm = (
+                state.get("run_kind") != "practice"
+                and terminal["integrity"]["status"] == "clear"
+                and (
+                    int(state["mastery"].get("correct_taps", 0))
+                    + int(state["mastery"].get("mistakes", 0))
+                    + int(state["mastery"].get("missed_signals", 0))
+                ) > 0
+            )
+            await retention.apply_terminal_run(
+                db,
+                user_id=user_id,
+                run_id=run_id,
+                encounter_id=run["encounter_id"],
+                outcome=state["status"],
+                mastery={
+                    **state["mastery"],
+                    "max_combo": int(state["combo"]["max"]),
+                },
+                upgrades=list(state.get("upgrades") or []),
+                meaningful=meaningful_for_rhythm,
+                source=source,
+            )
+            await scar_map.apply_battle_end(
+                db,
+                user_id=user_id,
+                run_id=str(run_id),
+                encounter_id=run["encounter_id"],
+                outcome=state["status"],
+                mastery={**state["mastery"], "max_combo": int(state["combo"]["max"])},
+                meaningful=meaningful_for_rhythm,
+                source=source,
+            )
             # Проигрыш остаётся battle_end попытки, но не закрывает шаг онбординга.
             # Иначе фиксированный ключ шага запомнит `lost`, а последующая победа
             # справедливо станет idempotency-конфликтом с другим payload.
             if (
-                state["status"] == "won"
-                and state.get("run_kind") != "practice"
+                eligible_clear_win
                 and run["encounter_id"] == FIRST_ENCOUNTER
             ):
                 await event_repo.record_event(
@@ -776,7 +826,7 @@ async def apply_run_action(
                 best_combo=int(state["combo"]["max"]),
                 upgrades=list(state["upgrades"]),
             )
-            if state["status"] == "won" and state.get("run_kind") != "practice":
+            if eligible_clear_win:
                 progress = await repo.ensure_progress(db, user_id, GAME_VERSION, FIRST_ENCOUNTER)
                 completed = list(dict.fromkeys([*progress["completed"], run["encounter_id"]]))
                 await repo.save_progress(

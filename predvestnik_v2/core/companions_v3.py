@@ -14,6 +14,8 @@ import hashlib
 
 
 POLICY_VERSION: Final = "companions-v3-provisional-1"
+ARCHIVE_VERSION: Final = "companion-archive-v1-2026-08-27"
+ARCHIVE_DISCOVERY_IDS_IMMUTABLE: Final = True
 SETTLEMENT_MODE: Final = "shadow_only"
 REAL_REWARDS_ENABLED: Final = False
 
@@ -28,6 +30,96 @@ EXPEDITION_DISCOVERIES: Final = (
     "drowned_name", "mirror_shard", "tide_formula", "quiet_key",
     "archive_thread", "lantern_glass", "garden_mark", "sealed_route",
 )
+EXPEDITION_DISCOVERY_TEXT: Final[Mapping[str, str]] = MappingProxyType({
+    "bell_fragment": "В песке звякнул осколок колокола; на нём вырезан незнакомый ритм.",
+    "salt_map": "Соль проступила линиями карты и указала на закрытый берег.",
+    "ink_trace": "Чернила не высохли: кто-то записал здесь половину имени.",
+    "ash_seed": "В пепле сохранилось семя, которое не принадлежит этому костру.",
+    "drowned_name": "Вода вернула имя, но стёрла последнюю букву.",
+    "mirror_shard": "Осколок отражает не лицо, а путь, которым ты ещё не шёл.",
+    "tide_formula": "На камне осталась формула прилива с одним пропущенным знаком.",
+    "quiet_key": "Тихий ключ не открывает дверь — он открывает услышанный вопрос.",
+    "archive_thread": "Нить архива ведёт к странице, которой нет в каталоге.",
+    "lantern_glass": "Стекло Фонаря хранит тёплый свет даже в полной темноте.",
+    "garden_mark": "На коре появилась метка сада, совпадающая с символом спутника.",
+    "sealed_route": "Запечатанный путь отмечен датой следующего прилива.",
+})
+EXPEDITION_DISCOVERY_NAMES: Final[Mapping[str, str]] = MappingProxyType({
+    "bell_fragment": "Осколок колокола", "salt_map": "Соляная карта",
+    "ink_trace": "Чернильный след", "ash_seed": "Семя пепла",
+    "drowned_name": "Утонувшее имя", "mirror_shard": "Осколок зеркала",
+    "tide_formula": "Формула прилива", "quiet_key": "Тихий ключ",
+    "archive_thread": "Нить архива", "lantern_glass": "Стекло Фонаря",
+    "garden_mark": "Метка сада", "sealed_route": "Запечатанный путь",
+})
+
+# Duration is a visible route choice, not a hidden drop-rate multiplier. Each
+# route advances one four-piece story set; this prevents the 2h route from being
+# the universal optimal strategy for the whole Archive.
+ARCHIVE_SETS: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
+    "small_signs": {
+        "name": "Малые знаки", "duration_hours": 2, "route_id": "quick_feedback",
+        "discoveries": ("bell_fragment", "quiet_key", "mirror_shard", "garden_mark"),
+        "finale": "Четыре малых знака складываются в предупреждение: Колокол отвечает не громкости, а вниманию.",
+    },
+    "lost_names": {
+        "name": "Потерянные имена", "duration_hours": 6, "route_id": "story_clue",
+        "discoveries": ("ink_trace", "drowned_name", "archive_thread", "lantern_glass"),
+        "finale": "Страница возвращает утонувшее имя и оставляет место для того, кто дочитает его вслух.",
+    },
+    "sealed_routes": {
+        "name": "Запечатанные пути", "duration_hours": 12, "route_id": "schematic",
+        "discoveries": ("salt_map", "ash_seed", "tide_formula", "sealed_route"),
+        "finale": "Карта, семя и формула отмечают путь, который открывается только между двумя приливами.",
+    },
+})
+ARCHIVE_SET_BY_DURATION: Final = {
+    int(meta["duration_hours"]): set_id for set_id, meta in ARCHIVE_SETS.items()
+}
+
+# Permanent, earned visual variants. They never enter the paid cosmetics
+# registry and therefore cannot inherit VIP locks, set bonuses or combat stats.
+COMPANION_SKIN_VERSION: Final = "companion-skins-v1-2026-08-28"
+COMPANION_SKINS: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
+    "natural": {
+        "name": "Верный облик", "mark": "◌", "accent": "mist",
+        "required_sets": (), "hint": "Доступен каждому владельцу спутника.",
+    },
+    "inkbound": {
+        "name": "Чернильный след", "mark": "⌁", "accent": "ink",
+        "required_sets": ("lost_names",), "hint": "Заверши «Потерянные имена».",
+    },
+    "tideglass": {
+        "name": "Стекло прилива", "mark": "◇", "accent": "tide",
+        "required_sets": ("sealed_routes",), "hint": "Заверши «Запечатанные пути».",
+    },
+    "bellkeeper": {
+        "name": "Хранитель знаков", "mark": "✦", "accent": "bell",
+        "required_sets": ("small_signs", "lost_names", "sealed_routes"),
+        "hint": "Собери весь Архив находок.",
+    },
+})
+
+
+def companion_skin_catalog(archive: Mapping[str, Any]) -> list[dict[str, Any]]:
+    completed = {
+        str(item["id"]) for item in archive.get("sets", []) if item.get("completed")
+    }
+    return [
+        {
+            "id": skin_id,
+            **dict(meta),
+            "unlocked": set(meta["required_sets"]).issubset(completed),
+        }
+        for skin_id, meta in COMPANION_SKINS.items()
+    ]
+
+
+def archive_set_id_for_discovery(discovery_id: str) -> str:
+    for set_id, meta in ARCHIVE_SETS.items():
+        if str(discovery_id) in meta["discoveries"]:
+            return set_id
+    raise CompanionPolicyError("Unknown Archive discovery.")
 
 
 COMPANION_ROLES: Final[Mapping[str, Mapping[str, Any]]] = MappingProxyType({
@@ -197,15 +289,65 @@ def expedition_slot_count(first_chapter_complete: bool) -> int:
     return 2 if first_chapter_complete else 1
 
 
-def expedition_discovery(seed_digest: str, duration_hours: int) -> str:
-    """Map a committed server seed to a bounded discovery catalog."""
+def expedition_discovery(
+    seed_digest: str,
+    duration_hours: int,
+    committed_discovery_ids: tuple[str, ...] | list[str] | set[str] = (),
+) -> str:
+    """Choose a missing route fragment first, then a deterministic duplicate."""
     digest = str(seed_digest or "").strip().lower()
     if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
         raise CompanionPolicyError("seed_digest must be a SHA-256 hex digest.")
     if duration_hours not in EXPEDITION_OPTIONS:
         raise CompanionPolicyError("duration_hours must be 2, 6 or 12.")
-    mixed = hashlib.sha256(f"{digest}:{duration_hours}".encode("ascii")).digest()
-    return EXPEDITION_DISCOVERIES[int.from_bytes(mixed[:4], "big") % len(EXPEDITION_DISCOVERIES)]
+    set_id = ARCHIVE_SET_BY_DURATION[duration_hours]
+    pool = tuple(ARCHIVE_SETS[set_id]["discoveries"])
+    committed = {str(item) for item in committed_discovery_ids}
+    candidates = tuple(item for item in pool if item not in committed) or pool
+    mixed = hashlib.sha256(
+        f"{ARCHIVE_VERSION}:{digest}:{duration_hours}".encode("ascii")
+    ).digest()
+    return candidates[int.from_bytes(mixed[:4], "big") % len(candidates)]
+
+
+def archive_view(discovery_counts: Mapping[str, int]) -> dict[str, Any]:
+    """Return a spoiler-safe collection view from durable ownership/history."""
+    normalized = {
+        str(discovery_id): max(0, int(count))
+        for discovery_id, count in discovery_counts.items()
+        if str(discovery_id) in EXPEDITION_DISCOVERIES
+    }
+    sets: list[dict[str, Any]] = []
+    for set_id, meta in ARCHIVE_SETS.items():
+        items = []
+        for discovery_id in meta["discoveries"]:
+            count = normalized.get(discovery_id, 0)
+            items.append({
+                "id": discovery_id,
+                "name": EXPEDITION_DISCOVERY_NAMES[discovery_id] if count else None,
+                "text": EXPEDITION_DISCOVERY_TEXT[discovery_id] if count else None,
+                "found": count > 0,
+                "duplicates": max(0, count - 1),
+            })
+        progress = sum(item["found"] for item in items)
+        target = len(items)
+        sets.append({
+            "id": set_id, "name": meta["name"],
+            "duration_hours": int(meta["duration_hours"]),
+            "route_id": meta["route_id"], "progress": progress, "target": target,
+            "completed": progress == target,
+            "finale": meta["finale"] if progress == target else None,
+            "items": items,
+        })
+    return {
+        "version": ARCHIVE_VERSION,
+        "new_currency": False,
+        "rewards_enabled": False,
+        "found": sum(item["found"] for story_set in sets for item in story_set["items"]),
+        "total": len(EXPEDITION_DISCOVERIES),
+        "completed_sets": sum(story_set["completed"] for story_set in sets),
+        "sets": sets,
+    }
 
 
 def public_companion_manifest() -> dict[str, Any]:
@@ -229,5 +371,52 @@ def public_companion_manifest() -> dict[str, Any]:
             "cancel_rerolls": False,
             "second_slot_encounter": SECOND_EXPEDITION_SLOT_ENCOUNTER,
             "discoveries": list(EXPEDITION_DISCOVERIES),
+            "discovery_text": dict(EXPEDITION_DISCOVERY_TEXT),
+            "archive": {
+                "version": ARCHIVE_VERSION,
+                "discovery_ids_immutable": ARCHIVE_DISCOVERY_IDS_IMMUTABLE,
+                "id_reuse_forbidden": True,
+                "sets": [
+                    {
+                        "id": set_id, "name": meta["name"],
+                        "duration_hours": int(meta["duration_hours"]),
+                        "route_id": meta["route_id"],
+                        "target": len(meta["discoveries"]),
+                    }
+                    for set_id, meta in ARCHIVE_SETS.items()
+                ],
+                "new_currency": False,
+                "result_hidden_until_claim": True,
+            },
+        },
+        "skins": {
+            "version": COMPANION_SKIN_VERSION,
+            "paid": False,
+            "combat_power": False,
+            "random": False,
+            "items": [{"id": skin_id, **dict(meta)} for skin_id, meta in COMPANION_SKINS.items()],
         },
     }
+
+
+def validate_archive_content() -> list[str]:
+    errors: list[str] = []
+    flattened = [item for meta in ARCHIVE_SETS.values() for item in meta["discoveries"]]
+    if len(flattened) != len(set(flattened)) or set(flattened) != set(EXPEDITION_DISCOVERIES):
+        errors.append("Archive sets must partition all expedition discoveries exactly once.")
+    if set(ARCHIVE_SET_BY_DURATION) != set(EXPEDITION_OPTIONS):
+        errors.append("Every expedition duration must own exactly one Archive set.")
+    if set(EXPEDITION_DISCOVERY_NAMES) != set(EXPEDITION_DISCOVERIES):
+        errors.append("Every discovery needs a player-facing name.")
+    if not ARCHIVE_DISCOVERY_IDS_IMMUTABLE:
+        errors.append("Archive discovery ids must be globally immutable.")
+    known_sets = set(ARCHIVE_SETS)
+    for skin_id, skin in COMPANION_SKINS.items():
+        if not set(skin["required_sets"]).issubset(known_sets):
+            errors.append(f"Companion skin {skin_id} references an unknown Archive set.")
+    return errors
+
+
+_ARCHIVE_ERRORS = validate_archive_content()
+if _ARCHIVE_ERRORS:
+    raise RuntimeError("Invalid companion Archive: " + "; ".join(_ARCHIVE_ERRORS))

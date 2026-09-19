@@ -285,19 +285,6 @@ DAILY_DEAL_POOL_MORA: list = [
     {"item_id": "star_dust_l",         "qty_range": (1, 2), "base_price_mora": 3000},
 ]
 
-# Чёрный Рынок (R8): еженедельная ротация 3 слотов за 🌑 Тёмную Мору.
-# Только зелья/ускорители — регулярный слив 🌑 между крупными покупками
-# (реликвии 500–2000 🌑, теневые темы 100–350 🌑). Цены калиброваны под доход:
-# Врата ~5–15 🌑/бой, ритуал 10–20 🌑/мес, контрабанда — рискованная мелочь.
-DARK_MARKET_POOL: list = [
-    {"item_id": "potion_luck_s",  "qty_range": (1, 2), "base_price_dark": 45},
-    {"item_id": "exp_boost_1h",   "qty_range": (1, 2), "base_price_dark": 40},
-    {"item_id": "exp_boost_2h",   "qty_range": (1, 2), "base_price_dark": 70},
-    {"item_id": "food_elite",     "qty_range": (1, 3), "base_price_dark": 35},
-    {"item_id": "lucky_charm",    "qty_range": (1, 2), "base_price_dark": 55},
-    {"item_id": "star_dust_l",    "qty_range": (1, 1), "base_price_dark": 130},
-]
-
 DAILY_DEAL_POOL_DIAMOND: list = [
     {"item_id": "food_diamond",       "qty_range": (1, 3), "base_price_dia": 12},
     {"item_id": "spin_token",         "qty_range": (1, 2), "base_price_dia": 5},

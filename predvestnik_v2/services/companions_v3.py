@@ -7,6 +7,7 @@ import hashlib
 import secrets
 
 from core.companions_v3 import (
+    ARCHIVE_VERSION,
     COMPANION_ROLES,
     EXPEDITION_OPTIONS,
     bond_progress,
@@ -17,15 +18,34 @@ from core.companions_v3 import (
     expedition_discovery,
     expedition_slot_count,
     SECOND_EXPEDITION_SLOT_ENCOUNTER,
+    EXPEDITION_DISCOVERY_TEXT,
+    EXPEDITION_DISCOVERY_NAMES,
+    archive_set_id_for_discovery,
+    archive_view,
+    COMPANION_SKINS,
+    COMPANION_SKIN_VERSION,
+    companion_skin_catalog,
 )
 from infrastructure.repositories import companions_v3 as repo
 from core.reconstruction import GAME_VERSION
+from core.reconstruction import BALANCE_VERSION
+from infrastructure.repositories import gameplay_events as event_repo
+from services import scar_map_v1 as scar_map
 
 
 CARE_ACTIONS = {
     "feed": ("Покормить", "Спутник запомнил спокойный ритуал."),
     "play": ("Поиграть", "В следующей сцене спутник станет смелее."),
     "groom": ("Привести в порядок", "Спутник встретит следующую сцену собраннее."),
+}
+
+# Choice must change the next scene, not grant a hidden combat modifier. The
+# deterministic pick keeps web/chat/preview parity while avoiding a random
+# outcome that could feel like a penalty for choosing the "wrong" care action.
+CARE_SCENES: dict[str, tuple[tuple[str, str], ...]] = {
+    "feed": (("shared_meal", "Спутник запомнил тёплый запах трав."), ("quiet_bowl", "Спутник оставил тебе маленький знак благодарности.")),
+    "play": (("ripple_chase", "Спутник увёл игру к воде и открыл короткую тропу."), ("bell_game", "Спутник повторил твой ритм и спрятал смешной жест в Хронике.")),
+    "groom": (("rain_brush", "Спутник спокойно пережил дождь и доверился твоим рукам."), ("silver_fur", "На шерсти блеснул след старого серебра — безымянная находка.")),
 }
 
 
@@ -66,8 +86,34 @@ def _pet_view(pet: dict[str, Any], bond: dict[str, Any] | None, active_pet_id: i
         "bond": bond_progress(points),
         "care_bank": care_bank,
         "last_care_action": (bond or {}).get("last_care_action"),
+        "last_care_scene": (bond or {}).get("last_care_scene"),
         "active_companion": int(pet["id"]) == active_pet_id,
     }
+
+
+def _public_expedition_view(contract: dict[str, Any]) -> dict[str, Any]:
+    """Never reveal a committed Archive outcome before an explicit claim."""
+    view = dict(contract)
+    discovery_id = str(view.pop("discovery_id", "") or "")
+    if view.get("status") == "claimed" and discovery_id in EXPEDITION_DISCOVERY_NAMES:
+        view.update({
+            "discovery_id": discovery_id,
+            "discovery_name": EXPEDITION_DISCOVERY_NAMES.get(discovery_id),
+            "discovery_text": EXPEDITION_DISCOVERY_TEXT.get(discovery_id),
+            "archive_set_id": archive_set_id_for_discovery(discovery_id),
+        })
+    elif view.get("status") == "claimed":
+        view.update({
+            "discovery_id": None,
+            "discovery_name": "Запись старой версии",
+            "discovery_text": "Результат будет восстановлен при получении без потери договора.",
+            "archive_set_id": None,
+        })
+    return view
+
+
+async def archive_overview(db, user_id: int) -> dict[str, Any]:
+    return archive_view(await repo.list_archive_discovery_counts(db, user_id))
 
 
 async def overview(db, user_id: int) -> dict[str, Any]:
@@ -85,6 +131,12 @@ async def overview(db, user_id: int) -> dict[str, Any]:
     )
     expedition_slots = expedition_slot_count(second_slot)
     expeditions = await repo.list_expeditions(db, user_id)
+    archive = await archive_overview(db, user_id)
+    skins = companion_skin_catalog(archive)
+    unlocked_skin_ids = {item["id"] for item in skins if item["unlocked"]}
+    selected_skin_id = str((profile or {}).get("selected_skin_id") or "natural")
+    if selected_skin_id not in unlocked_skin_ids:
+        selected_skin_id = "natural"
     open_expeditions = sum(item["status"] in ("active", "ready") for item in expeditions)
     reserved_mora = await repo.reserved_mora_last_7_days(db, user_id)
     return {
@@ -94,6 +146,8 @@ async def overview(db, user_id: int) -> dict[str, Any]:
         "next_role_day": next((day for day in public_companion_manifest()["role_unlock_days"] if day > meaningful_days), None),
         "unlocked_roles": unlocked,
         "selected_role_id": (profile or {}).get("selected_role_id"),
+        "selected_skin_id": selected_skin_id,
+        "skins": skins,
         "active_pet_id": active_pet_id,
         "pets": [_pet_view(pet, bonds.get(int(pet["id"])), active_pet_id) for pet in pets],
         "care_actions": [
@@ -112,11 +166,12 @@ async def overview(db, user_id: int) -> dict[str, Any]:
             "open_slots": max(0, expedition_slots - open_expeditions),
             "weekly_reserved_mora": reserved_mora,
             "options": [asdict(quote_expedition(hours, reserved_mora)) for hours in EXPEDITION_OPTIONS],
-            "contracts": expeditions,
+            "contracts": [_public_expedition_view(item) for item in expeditions],
             "ready_count": sum(item["status"] == "ready" for item in expeditions),
             "legacy_active": legacy_expeditions,
             "legacy_contracts_preserved": True,
         },
+        "archive": archive,
     }
 
 
@@ -152,20 +207,42 @@ async def start_expedition(
         reserved = await repo.reserved_mora_last_7_days(db, user_id)
         quote = quote_expedition(duration_hours, reserved)
         seed_digest = hashlib.sha256(secrets.token_bytes(32)).hexdigest()
-        discovery_id = expedition_discovery(seed_digest, duration_hours)
+        committed_discoveries = await repo.list_committed_discovery_ids(db, user_id)
+        discovery_id = expedition_discovery(
+            seed_digest, duration_hours, committed_discoveries
+        )
         row = await repo.create_expedition(
             db, user_id=user_id, pet_id=pet_id, duration_hours=duration_hours,
             route_id=quote.route, fixed_mora=quote.projected_mora,
             seed_digest=seed_digest, discovery_id=discovery_id,
+            discovery_policy_version=ARCHIVE_VERSION,
         )
         response = {
             "ok": True, "contract_id": int(row["id"]), "pet_id": int(pet_id),
             "duration_hours": duration_hours, "route_id": quote.route,
-            "projected_mora": quote.projected_mora, "discovery_id": discovery_id,
+            "projected_mora": quote.projected_mora,
+            "archive_version": ARCHIVE_VERSION,
+            "archive_set_id": archive_set_id_for_discovery(discovery_id),
             "ends_at": row["ends_at"].isoformat(), "settled": False,
             "economic_reward": None,
         }
         await repo.save_action(db, user_id, action_id, "expedition_start", request, response)
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="expedition_started",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source="mini_app",
+            payload={
+                "contract_id": int(row["id"]), "pet_id": int(pet_id),
+                "duration_hours": int(duration_hours), "route_id": quote.route,
+                "projected_mora": int(quote.projected_mora),
+                "archive_version": ARCHIVE_VERSION,
+                "archive_set_id": archive_set_id_for_discovery(discovery_id),
+            },
+            idempotency_key=f"expedition-start:{GAME_VERSION}:{user_id}:{action_id}",
+        )
     return response
 
 
@@ -181,20 +258,98 @@ async def claim_expeditions(db, user_id: int, action_id: str) -> dict[str, Any]:
             if cached["request"] != request:
                 raise CompanionConflict("action_id уже использован для другого действия.")
             return {**cached["response"], "idempotent_replay": True}
+        archive_before = await archive_overview(db, user_id)
         claimed = await repo.mark_ready_and_claim(db, user_id)
         if not claimed:
             raise CompanionConflict("Готовых походов пока нет.")
-        response = {
-            "ok": True,
-            "claimed": [{
+        enriched_claims = []
+        new_ids: list[str] = []
+        duplicate_ids: list[str] = []
+        committed_ids = set(await repo.list_committed_discovery_ids(db, user_id))
+        for item in claimed:
+            discovery_id = str(item["discovery_id"])
+            if discovery_id not in EXPEDITION_DISCOVERY_NAMES:
+                seed_digest = str(item.get("seed_digest") or "")
+                if len(seed_digest) != 64 or any(char not in "0123456789abcdef" for char in seed_digest.lower()):
+                    seed_digest = hashlib.sha256(
+                        f"legacy:{user_id}:{item['id']}:{item['duration_hours']}".encode("ascii")
+                    ).hexdigest()
+                discovery_id = expedition_discovery(
+                    seed_digest, int(item["duration_hours"]), committed_ids
+                )
+                await repo.repair_expedition_discovery(
+                    db, user_id, int(item["id"]), discovery_id, ARCHIVE_VERSION
+                )
+                item["discovery_id"] = discovery_id
+            committed_ids.add(discovery_id)
+            is_new = await repo.claim_archive_discovery(
+                db, user_id, discovery_id, int(item["id"])
+            )
+            (new_ids if is_new else duplicate_ids).append(discovery_id)
+            enriched_claims.append({
                 "contract_id": int(item["id"]), "pet_id": int(item["pet_id"]),
                 "projected_mora": int(item["fixed_mora"]),
-                "discovery_id": item["discovery_id"],
-            } for item in claimed],
+                "discovery_id": discovery_id,
+                "discovery_name": EXPEDITION_DISCOVERY_NAMES[discovery_id],
+                "discovery_text": EXPEDITION_DISCOVERY_TEXT[discovery_id],
+                "archive_set_id": archive_set_id_for_discovery(discovery_id),
+                "is_new": is_new,
+            })
+        archive_after = await archive_overview(db, user_id)
+        completed_before = {
+            item["id"] for item in archive_before["sets"] if item["completed"]
+        }
+        newly_completed_sets = [
+            item["id"] for item in archive_after["sets"]
+            if item["completed"] and item["id"] not in completed_before
+        ]
+        response = {
+            "ok": True,
+            "claimed": enriched_claims,
             "projected_mora_total": sum(int(item["fixed_mora"]) for item in claimed),
+            "archive": archive_after,
+            "new_discovery_ids": new_ids,
+            "duplicate_discovery_ids": duplicate_ids,
+            "newly_completed_set_ids": newly_completed_sets,
             "settled": False, "economic_reward": None,
         }
         await repo.save_action(db, user_id, action_id, "expedition_claim", request, response)
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="expedition_claimed",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source="mini_app",
+            payload={
+                "claimed_count": len(response["claimed"]),
+                "projected_mora_total": int(response["projected_mora_total"]),
+                "contract_ids": [item["contract_id"] for item in response["claimed"]],
+                "discovery_ids": [item["discovery_id"] for item in response["claimed"]],
+            },
+            idempotency_key=f"expedition-claim:{GAME_VERSION}:{user_id}:{action_id}",
+        )
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="archive_progressed",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source="mini_app",
+            payload={
+                "archive_version": ARCHIVE_VERSION,
+                "contract_ids": [item["contract_id"] for item in enriched_claims],
+                "new_discovery_ids": new_ids,
+                "duplicate_discovery_ids": duplicate_ids,
+                "completed_set_ids": newly_completed_sets,
+                "found_total": int(archive_after["found"]),
+            },
+            idempotency_key=f"archive-claim:{ARCHIVE_VERSION}:{user_id}:{action_id}",
+        )
+        await scar_map.apply_archive_claim(
+            db, user_id=user_id, action_id=action_id,
+            new_discovery_count=len(new_ids), source="mini_app",
+        )
     return response
 
 
@@ -233,8 +388,48 @@ async def select_role(db, user_id: int, role_id: str) -> dict[str, Any]:
     return await overview(db, user_id)
 
 
+async def select_skin(
+    db, user_id: int, skin_id: str, *, source: str = "mini_app"
+) -> dict[str, Any]:
+    skin_id = str(skin_id or "").strip()
+    if skin_id not in COMPANION_SKINS:
+        raise CompanionError("Неизвестный облик спутника.")
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        pets = await repo.list_owned_pets(db, user_id)
+        if not pets:
+            raise CompanionError("Сначала нужен хотя бы один спутник.")
+        default_pet = next(
+            (int(pet["id"]) for pet in pets if pet.get("placement") == "active"),
+            int(pets[0]["id"]),
+        )
+        profile = await repo.ensure_profile(db, user_id, default_pet)
+        archive = await archive_overview(db, user_id)
+        available = {item["id"] for item in companion_skin_catalog(archive) if item["unlocked"]}
+        if skin_id not in available:
+            raise CompanionConflict(str(COMPANION_SKINS[skin_id]["hint"]))
+        changed = str(profile.get("selected_skin_id") or "natural") != skin_id
+        if changed:
+            await repo.save_selected_skin(db, user_id, skin_id)
+            await event_repo.record_event(
+                db,
+                user_id=user_id,
+                event_name="companion_skin_selected",
+                game_version=GAME_VERSION,
+                balance_version=BALANCE_VERSION,
+                source=source,
+                payload={"skin_id": skin_id, "skin_version": COMPANION_SKIN_VERSION},
+                # State transition is the idempotency boundary: a network replay
+                # sees the already-selected skin and never enters this branch.
+                # A→B→A is a real second transition and therefore a new event.
+                idempotency_key=None,
+            )
+    return await overview(db, user_id)
+
+
 async def care(
-    db, user_id: int, pet_id: int, action: str, action_id: str
+    db, user_id: int, pet_id: int, action: str, action_id: str,
+    *, source: str = "mini_app",
 ) -> dict[str, Any]:
     action_id = str(action_id or "").strip()
     if not action_id or len(action_id) > 96:
@@ -262,54 +457,35 @@ async def care(
         await repo.save_care(
             db, user_id, pet_id, bond_points=points, care_bank=bank - 1,
             bank_updated_at=anchor, action=action,
+            scene_id=CARE_SCENES[action][(points + int(pet_id)) % len(CARE_SCENES[action])][0],
         )
         label, scene_hint = CARE_ACTIONS[action]
+        scene_id, scene_text = CARE_SCENES[action][(points + int(pet_id)) % len(CARE_SCENES[action])]
         response = {
             "ok": True,
             "pet_id": int(pet_id),
             "action": action,
             "action_name": label,
             "scene_hint": scene_hint,
+            "scene_id": scene_id,
+            "scene_text": scene_text,
             "bond": bond_progress(points),
             "care_bank": bank - 1,
             "economic_reward": None,
         }
         await repo.save_action(db, user_id, action_id, "care", request, response)
+        await event_repo.record_event(
+            db,
+            user_id=user_id,
+            event_name="companion_care",
+            game_version=GAME_VERSION,
+            balance_version=BALANCE_VERSION,
+            source=source,
+            payload={
+                "pet_id": int(pet_id), "action": action,
+                "scene_id": scene_id, "bond_points": points,
+                "care_bank": bank - 1,
+            },
+            idempotency_key=f"companion-care:{GAME_VERSION}:{user_id}:{action_id}",
+        )
     return response
-
-
-def preview_overview() -> dict[str, Any]:
-    """Representative local-only state; never used as production player data."""
-    policy = public_companion_manifest()
-    pets = [
-        {"id": 901, "name": "Мокко", "species_id": "fox", "rarity": "epic",
-         "legacy": {"level": 7, "duplicates": 13, "copy_index": 1, "placement": "active", "fatigue": 22}},
-        {"id": 902, "name": "Тихий Шорох", "species_id": "owl", "rarity": "rare",
-         "legacy": {"level": 4, "duplicates": 5, "copy_index": 1, "placement": "passive", "fatigue": 0}},
-        {"id": 903, "name": "Искра", "species_id": "dragon", "rarity": "legendary",
-         "legacy": {"level": 10, "duplicates": 27, "copy_index": 1, "placement": "storage", "fatigue": 61}},
-    ]
-    for index, pet in enumerate(pets):
-        pet.update({
-            "bond": bond_progress(6 if index == 0 else 0),
-            "care_bank": 3 if index == 0 else 1,
-            "last_care_action": "play" if index == 0 else None,
-            "active_companion": index == 0,
-        })
-    return {
-        "policy": policy, "meaningful_days": 25, "role_slots": 6, "next_role_day": 30,
-        "unlocked_roles": ["lantern", "guardian", "rhythm_keeper", "echo", "navigator", "archivist"], "selected_role_id": "lantern",
-        "active_pet_id": 901, "pets": pets,
-        "care_actions": [
-            {"id": key, "name": value[0], "scene_hint": value[1]}
-            for key, value in CARE_ACTIONS.items()
-        ],
-        "expeditions": {
-            "mode": "shadow_only", "start_enabled": True,
-            "reason": "Тестовый результат появится здесь, но кошелёк не изменится.",
-            "options": [asdict(quote_expedition(hours)) for hours in EXPEDITION_OPTIONS],
-            "slots": 2, "open_slots": 2, "weekly_reserved_mora": 0,
-            "contracts": [], "ready_count": 0,
-            "legacy_active": [], "legacy_contracts_preserved": True,
-        },
-    }

@@ -4,13 +4,16 @@ from aiogram.filters.callback_data import CallbackData
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import economy as eco_db
+from infrastructure.repositories import zarniki_exchange_v1 as exchange_repo
+from services import zarniki_exchange_v1
+from core.zarniki_exchange_v1 import ZarnikiExchangePolicyError
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories import marriages as marriages_db
 from infrastructure.repositories.dark_mora import get_dark_mora_balance
 from services import global_moderation
 from services.admin_service import give_resource, set_resource
 from services.utils import safe_html, format_currency, feature_guard
 from core.registry import ITEMS_REGISTRY
-from core.constants import ZARNIKI_TO_MORA_RATE
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="eco_router")
@@ -68,26 +71,43 @@ async def cmd_exchange_zarniki(message: types.Message, db, text_args: str = None
         return await message.answer(global_moderation.restriction_message(restriction))
     if not text_args:
         return await message.answer(
-            "💱 <b>ЗАРНИКИ → МОРА</b>\n\n"
-            "Формат: «бот обмен зарников, &lt;сумма&gt; мора»\n"
-            f"Курс: 1✨ = {ZARNIKI_TO_MORA_RATE:g}🪙. Обмен необратим.\n"
-            "Алмазы этим способом получить нельзя.",
+            "💱 <b>ОБМЕН ЗАРНИКОВ</b>\n\n"
+            "1✨ = 10🪙 или 0,01💎. Общий лимит — 50✨ в UTC-день.\n"
+            "Формат: <code>бот обмен зарников, 10 мора</code> или <code>10 алмазы</code>.\n"
+            "После выполнения обмен необратим; при проверке платежа обмен временно замораживается.",
             parse_mode="HTML",
         )
     parts = text_args.split()
     if len(parts) != 2:
-        return await message.answer("Формат: «бот обмен зарников, &lt;сумма&gt; мора»")
+        return await message.answer("Формат: «бот обмен зарников, &lt;целое число&gt; мора|алмазы»")
     try:
-        amount = float(parts[0].replace(",", "."))
-    except ValueError:
-        return await message.answer("Сумма должна быть числом.")
-    if parts[1].lower() not in ("мора", "моры", "мору", "mora"):
-        return await message.answer("После суммы укажи «мора». Алмазы за Зарники не продаются.")
-    ok, msg = await eco_db.exchange_zarniki(
-        db, message.from_user.id, amount, "mora", chat_id=message.chat.id,
-        idempotency_key=f"telegram:{message.chat.id}:{message.message_id}",
+        if parts[0].strip() != str(int(parts[0])):
+            raise ValueError
+        amount = int(parts[0])
+    except (ValueError, OverflowError):
+        return await message.answer("Сумма должна быть положительным целым числом Зарников.")
+    aliases = {
+        "мора": "mora", "моры": "mora", "мору": "mora", "mora": "mora",
+        "алмазы": "diamonds", "алмаз": "diamonds", "алмазов": "diamonds", "diamonds": "diamonds",
+    }
+    target = aliases.get(parts[1].lower())
+    if not target:
+        return await message.answer("После суммы укажи «мора» или «алмазы».")
+    try:
+        await exchange_repo.ensure_tables(db)
+        result = await zarniki_exchange_v1.exchange(
+            db, user_id=int(message.from_user.id), zarniki=amount, target=target,
+            action_id=f"telegram:{message.chat.id}:{message.message_id}",
+        )
+    except (ZarnikiExchangePolicyError, IdempotencyConflict, InsufficientBalance) as error:
+        return await message.answer(f"❌ {error}")
+    icon = "🪙" if target == "mora" else "💎"
+    label = "Моры" if target == "mora" else "Алмазов"
+    replay = " (повтор не списал валюту второй раз)" if result["idempotent_replay"] else ""
+    await message.answer(
+        f"✅ Обменено <b>{result['zarniki_spent']}✨</b> → <b>{result['amount_received']:g}{icon} {label}</b>."
+        f"{replay}", parse_mode="HTML",
     )
-    await message.answer(msg)
 
 
 @router.message(TextCmd(["перевод", "перевести", "дать", "скинуть"]))

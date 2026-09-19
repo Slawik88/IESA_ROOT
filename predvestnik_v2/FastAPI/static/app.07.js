@@ -241,26 +241,10 @@ function loadAdminSettings() {
     </div>`;
     el('adm-settings').innerHTML=`
       <div class="card">
-        <div class="card-title">🔧 Модули</div>
-        ${tog('module_shop','🛒 Магазин',s.module_shop)}
-        ${tog('module_gacha','🎲 Гача',s.module_gacha)}
-        ${tog('module_zoo','🐾 Зоопарк',s.module_zoo)}
-        ${tog('module_expeditions','🗺 Экспедиции',s.module_expeditions)}
-        ${tog('module_auction','🏛 Аукцион',s.module_auction)}
+        <div class="card-title">🔧 Функции чата</div>
         ${tog('module_games','🎮 Игры',s.module_games)}
-        ${tog('module_exchange','💱 Обмен',s.module_exchange)}
-        ${tog('module_quests','📋 Квесты',s.module_quests)}
-        ${tog('module_daily_deal','🏷 Акция дня',s.module_daily_deal)}
-        ${tog('events_enabled','🎪 Ивенты',s.events_enabled)}
+        ${tog('module_warps','🤝 Варп-команды',s.module_warps)}
         ${tog('nsfw_warps_allowed','🔞 NSFW варпы',s.nsfw_warps_allowed)}
-      </div>
-      <div class="card">
-        <div class="card-title">🔔 Игровые уведомления в чат</div>
-        <div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">Глушится только сообщение в чат — механики и личные уведомления работают. Административные сообщения (модерация/чистка) шлются всегда, тумблера нет.</div>
-        ${tog('notif_auction','🏛 Новые лоты аукциона',s.notif_auction)}
-        ${tog('notif_gacha','🎰 Крутки гачи',s.notif_gacha)}
-        ${tog('notif_expeditions','💫 Возврат из походов',s.notif_expeditions)}
-        ${tog('notif_quests','📋 Выполненные квесты',s.notif_quests)}
       </div>
       <div class="card">
         <div class="card-title">⚖️ Минимальный ранг для действий</div>
@@ -581,8 +565,7 @@ function refreshPage() {
   const rb = document.querySelector('.hdr-refresh');
   if (rb) { rb.classList.remove('spinning'); void rb.offsetWidth; rb.classList.add('spinning'); }
   const loaders = {
-    profile:loadProfile, zoo:()=>{_zooData=null;loadZoo();}, arena:loadArena, market:loadMarket,
-    bp:loadBattlePass, auction:loadAuctionPage,
+    profile:loadProfile, arena:loadArena,
     admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal, console:loadConsole
   };
   if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }

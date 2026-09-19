@@ -6,6 +6,20 @@ session may only be refunded at face value and closed, atomically and once.
 from infrastructure.repositories.economy import add_balance
 
 
+async def get_active_session_summary(db, user_id: int) -> dict:
+    """Return the bounded recovery obligation without exposing session state."""
+    async with db.execute(
+        "SELECT COUNT(*) AS count, COALESCE(SUM(GREATEST(stake, 0)), 0) AS stake "
+        "FROM minigame_sessions WHERE user_id = ? AND status = 'active'",
+        (user_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {
+        "active_count": int(row["count"] or 0) if row else 0,
+        "refundable_mora": round(float(row["stake"] or 0), 2) if row else 0.0,
+    }
+
+
 async def refund_active_sessions(db, user_id: int) -> dict:
     """Refund and close every active legacy session for one player."""
     refunded = 0.0

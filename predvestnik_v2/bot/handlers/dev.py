@@ -181,60 +181,14 @@ async def cmd_dev_reset_streak(message: types.Message, db, text_args: str = None
     )
 
 
-# ── Dev force events ──────────────────────────────────────────────────────────
-# «dev ивент сундук» / «dev chest» — команда переехала в bot/handlers/events_info.py
-# ::cmd_force_chest (там же «форс сундук»). Была дублирующая копия ЗДЕСЬ с
-# ХАРДКОЖЕННЫМИ фейковыми числами (70/65/60/55→10), которые НЕ совпадали с
-# реальными наградами (300/260/220/… из CHEST_REWARDS_BY_POSITION) — тестовый
-# сундук обещал одно, а платил другое. Удалена, чтобы не плодить второй источник
-# правды по одному и тому же тексту (найдено при аудите «не весь лут отображается»).
-
-
-@router.message(TextCmd(["dev ивент обмен", "dev exchange"]))
-async def cmd_dev_exchange(message: types.Message, db):
-    from datetime import datetime, timezone, timedelta
-    from infrastructure.repositories.exchange import create_event, activate_event
-    now = datetime.now(timezone.utc)
-    starts = now.strftime("%Y-%m-%d %H:%M:%S")
-    ends = (now + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-    eid = await create_event(db, starts, ends)
-    await activate_event(db, eid)
-    await db.commit()
-    from core.constants import EXCHANGE_RATE_MORA_PER_DIAMOND, EXCHANGE_DAILY_CAP_DIAMONDS
-    await message.answer(
-        f"✅ <b>Ивент обмена запущен</b> (24ч)\n"
-        f"├ Курс: {int(EXCHANGE_RATE_MORA_PER_DIAMOND)} 🪙 = 1 💎\n"
-        f"└ Лимит: {int(EXCHANGE_DAILY_CAP_DIAMONDS)} 💎/день\n\n"
-        f"<code>бот обмен</code>",
-        parse_mode="HTML",
-    )
-
-
-@router.message(TextCmd(["dev акция", "dev deal"]))
-async def cmd_dev_deal(message: types.Message, db):
-    from services.daily_deal import generate_deal_slots
-    from infrastructure.repositories.daily_deal import save_deals
-    from datetime import datetime, timezone
-    slots = generate_deal_slots()
-    await save_deals(db, slots, datetime.now(timezone.utc).strftime("%Y-%m-%d"))
-    await message.answer("✅ Акция дня принудительно обновлена.\n<code>бот акция</code>", parse_mode="HTML")
-
-
 # ── C1-C: Global blacklist ────────────────────────────────────────────────────
 
 # ── C2: Global module toggles ─────────────────────────────────────────────────
 
-_MODULE_KEYS = [
-    "module_shop", "module_gacha", "module_expeditions", "module_auction",
-    "module_games", "module_exchange", "module_quests", "module_zoo",
-    "module_warps", "module_daily_deal",
-]
-_MODULE_EMOJI = {
-    "module_shop": "🛒", "module_gacha": "🎰", "module_expeditions": "🗺",
-    "module_auction": "🏛", "module_games": "🎲", "module_exchange": "💱",
-    "module_quests": "📋", "module_zoo": "🐾", "module_warps": "🤝",
-    "module_daily_deal": "🏷",
-}
+from core.chat_modules import CHAT_MODULES
+
+_MODULE_KEYS = list(CHAT_MODULES)
+_MODULE_EMOJI = {key: str(spec["icon"]) for key, spec in CHAT_MODULES.items()}
 
 
 @router.message(TextCmd(["dev модули", "dev modules"]))

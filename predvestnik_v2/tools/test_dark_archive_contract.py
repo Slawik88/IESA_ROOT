@@ -15,7 +15,7 @@ def main() -> None:
     bot = read("bot/handlers/dark_mora.py")
     repo = read("infrastructure/repositories/dark_mora.py")
     startup = read("bot/__main__.py")
-    ui = read("FastAPI/static/app.05.js")
+    ui = read("FastAPI/static/app.04.js") + read("FastAPI/static/app.06.js")
     relic_repo = read("infrastructure/repositories/relics.py")
     relic_api = read("FastAPI/routers/relics.py")
     registry = read("core/registry.py")

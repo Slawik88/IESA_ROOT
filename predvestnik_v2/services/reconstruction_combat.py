@@ -9,6 +9,7 @@ wall clock; production-адаптер дополнительно огранич�
 from __future__ import annotations
 
 import copy
+from functools import reduce
 import hashlib
 import json
 from typing import Any
@@ -18,6 +19,8 @@ from core.reconstruction import (
     CLICKER_UPGRADES,
     ENCOUNTERS,
     GAME_VERSION,
+    MEMORY_RUNTIME_EFFECTS,
+    MEMORIES,
     STARTER_SQUAD,
     STARTER_UNITS,
     validate_content,
@@ -440,7 +443,8 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     now = int(state["wave"]["elapsed_ms"])
     if first:
         delay = 420 if _is_sequence_objective(objective) else 650
-    opens_at = now + delay
+    memory_state = state.get("memory_state") or {}
+    opens_at = now + delay + (150 if memory_state.get("golden_window_bonus_ms") else 0)
     branch = _branch_state(state)
     penalty_ms = max(0, int(branch.get("next_signal_penalty_ms", 0)))
     state["challenge"] = {
@@ -454,7 +458,7 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
             620,
             int(_waves(state)[state["round"] - 1]["signal_ms"])
             + int(state["team"]["signal_window_bonus_ms"])
-            - penalty_ms,
+            - penalty_ms + int(memory_state.get("golden_window_bonus_ms", 0)),
         ),
     }
     if objective.get("kind") == "archivist_boss" and objective.get("phase") == "tide":
@@ -478,12 +482,14 @@ def _schedule_challenge(state: dict[str, Any], *, first: bool = False) -> None:
     branch["next_signal_penalty_ms"] = 0
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
+    memory_state["golden_window_bonus_ms"] = 0
     if objective.get("kind") == "ink_decipher":
         objective["reflection_cue"] = None
 
 
 def _wave_runtime(
-    state: dict[str, Any], index: int, round_bonus_ms: int, *, mistake_guard: bool = False
+    state: dict[str, Any], index: int, round_bonus_ms: int, *, mistake_guard: bool = False,
+    first_miss_guard: bool = False,
 ) -> dict[str, Any]:
     meta = _waves(state)[index]
     return {
@@ -493,6 +499,7 @@ def _wave_runtime(
         "elapsed_ms": 0,
         "last_stand_used": False,
         "mistake_guard_available": bool(mistake_guard),
+        "memory_miss_guard_available": bool(first_miss_guard),
     }
 
 
@@ -503,6 +510,7 @@ def new_encounter(
     unit_branches: dict[str, str | list[str]] | None = None,
     companion_role_id: str | None = None,
     difficulty_id: str | None = None,
+    memories: list[str] | None = None,
 ) -> dict[str, Any]:
     errors = validate_content()
     if errors:
@@ -530,6 +538,11 @@ def new_encounter(
                 raise ValueError("Ветка мастерства не принадлежит выбранному юниту.")
             normalized.append(str(branch_id))
         selected_branches[str(unit_id)] = list(dict.fromkeys(normalized))
+    selected_memories = list(dict.fromkeys(str(item) for item in (memories or [])))
+    unknown_memories = [item for item in selected_memories if item not in MEMORIES]
+    if unknown_memories:
+        raise ValueError("Неизвестная Память: " + ", ".join(unknown_memories))
+    effects = [MEMORY_RUNTIME_EFFECTS[item] for item in selected_memories]
     team: dict[str, Any] = {
         "tap_power": 65.0,
         "auto_dps": 3.0,
@@ -553,6 +566,10 @@ def new_encounter(
             for unit_id in STARTER_SQUAD
         ],
     }
+    team["critical_multiplier"] += float(sum(float(item.get("critical_multiplier_delta", 0)) for item in effects))
+    team["auto_dps"] *= float(reduce(lambda x, item: x * float(item.get("auto_dps_multiplier", 1)), effects, 1.0))
+    team["combo_step_multiplier"] *= float(reduce(lambda x, item: x * float(item.get("combo_step_multiplier", 1)), effects, 1.0))
+    team["overdrive_multiplier"] = float(reduce(lambda x, item: x * float(item.get("discharge_multiplier", 1)), effects, 1.0))
     state: dict[str, Any] = {
         "game_version": GAME_VERSION,
         "balance_version": BALANCE_VERSION,
@@ -570,6 +587,15 @@ def new_encounter(
         "seam_ready": False,
         "unit_branches": selected_branches,
         "companion_role_id": companion_role_id,
+        "memories": selected_memories,
+        "memory_state": {
+            "first_error_guard_available": any(item.get("first_error_guard") for item in effects),
+            "resonant_correct_count": 0,
+            "golden_followup_hits": 0,
+            "fifth_charge_bonus": sum(float(item.get("fifth_charge_bonus", 0)) for item in effects),
+            "disable_fifth_damage_bonus": any(item.get("disable_fifth_damage_bonus") for item in effects),
+            "golden_window_bonus_ms": 0,
+        },
         "companion_state": {
             "lantern_marks": 0,
             "guardian_used_rounds": [],
@@ -681,7 +707,11 @@ def new_encounter(
         ]
     if _has_companion_role(state, "navigator"):
         state["companion_state"]["navigator_forecast"] = _navigator_forecast(state)
-    state["wave"] = _wave_runtime(state, 0, 0)
+    state["wave"] = _wave_runtime(
+        state, 0, 0,
+        mistake_guard=bool(state["memory_state"].get("first_error_guard_available")),
+        first_miss_guard=any(item.get("first_miss_guard") for item in effects),
+    )
     if encounter_id == "e04_drowned_names":
         _begin_sequence_preview(state)
     elif encounter_id == "e06_archivist":
@@ -720,6 +750,13 @@ def _deal(state: dict[str, Any], amount: float, source: str) -> float:
 def _complete_wave(state: dict[str, Any]) -> None:
     state["log"].append(f"✦ {state['wave']['name']} рассыпается. Волна {state['round']} пройдена.")
     state["challenge"] = None
+    # Auto-DPS может закрыть волну сразу после постановки ручного разряда.
+    # Нельзя оставлять stale branch-action в состоянии reward/won: следующий
+    # клиентский клик должен быть безопасным no-op/ошибкой новой фазы, а не
+    # ссылаться на уже закрытый раунд.
+    branch = _branch_state(state)
+    branch["manual_discharge"] = None
+    branch["decision"] = None
     objective = state.get("objective_state") or {}
     if objective.get("kind") == "archivist_boss":
         objective["phases_completed"] = max(
@@ -798,7 +835,8 @@ def _start_next_wave(state: dict[str, Any]) -> None:
         state,
         state["round"] - 1,
         state["team"]["round_bonus_ms"],
-        mistake_guard=state["team"]["mistake_guard"],
+        mistake_guard=bool(state["team"]["mistake_guard"] or "m_mobile_oath" in state.get("memories", [])),
+        first_miss_guard="m_safe_current" in state.get("memories", []),
     )
     state["reward_options"] = []
     state["seam_ready"] = False
@@ -812,6 +850,8 @@ def _start_next_wave(state: dict[str, Any]) -> None:
     branch["tide_swap_used"] = False
     branch["hide_signal_timer"] = False
     branch["family_preview"] = None
+    if "m_resonant_guard" in state.get("memories", []):
+        state.setdefault("memory_state", {})["resonant_correct_count"] = 0
     companion = state.get("companion_state") or {}
     companion["echo_offer_challenge"] = None
     companion["echo_offer_symbol"] = None
@@ -883,12 +923,19 @@ def _miss_signal(
     if wrong_tap:
         state["mastery"]["mistakes"] += 1
         state["mastery"]["total_taps"] += 1
+        memory_state = state.get("memory_state") or {}
+        resonant_guard = int(memory_state.get("resonant_correct_count", 0)) >= 3
         guarded = bool(state["wave"].get("mistake_guard_available"))
         if guarded:
             state["wave"]["mistake_guard_available"] = False
             label = "КЛЯТВА УДЕРЖАЛА УДАР"
             state["team"]["charge"] = _round_number(float(state["team"]["charge"]) * 0.5)
             state["log"].append("◌ Клятва поглотила лечение цели и сохранила половину заряда.")
+        elif resonant_guard:
+            memory_state["resonant_correct_count"] = 0
+            state["team"]["charge"] = 0.0
+            label = "ОТВЕТНЫЙ ЗВОН: ЦЕЛЬ НЕ ЛЕЧИТСЯ"
+            state["log"].append("◌ Ответный звон отменил лечение, но весь заряд потерян.")
         else:
             label = "НЕ ТА РУНА"
             restored = 35 + state["round"] * 5 + int(state["team"]["wrong_heal_bonus"])
@@ -900,7 +947,13 @@ def _miss_signal(
                 state["team"]["charge"] = 0.0
     else:
         state["mastery"]["missed_signals"] += 1
-        label = "РИТМ СОХРАНЁН" if rhythm_guarded else "СИГНАЛ УШЁЛ"
+        memory_state = state.get("memory_state") or {}
+        if state["wave"].get("memory_miss_guard_available"):
+            state["wave"]["memory_miss_guard_available"] = False
+            rhythm_guarded = True
+            label = "ТИХАЯ ЗАВОДЬ: СЕРИЯ СОХРАНЕНА"
+        else:
+            label = "РИТМ СОХРАНЁН" if rhythm_guarded else "СИГНАЛ УШЁЛ"
     state["combo"]["count"] = 0
     if rhythm_guarded:
         companion["rhythm_guard_challenge"] = None
@@ -1096,7 +1149,7 @@ def _advance_time(state: dict[str, Any], delta_ms: int) -> None:
 
 def _discharge(state: dict[str, Any]) -> float:
     state["team"]["charge"] -= CHARGE_MAX
-    damage = float(state["team"]["overdrive_power"])
+    damage = float(state["team"]["overdrive_power"]) * float(state["team"].get("overdrive_multiplier", 1.0))
     if state["seam_ready"]:
         damage += 35.0
         state["seam_ready"] = False
@@ -1139,6 +1192,11 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     state["mastery"]["reaction_count"] = int(
         state["mastery"].get("reaction_count", 0)
     ) + 1
+    memory_state = state.get("memory_state") or {}
+    if "m_resonant_guard" in state.get("memories", []):
+        memory_state["resonant_correct_count"] = int(
+            memory_state.get("resonant_correct_count", 0)
+        ) + 1
     _consume_manual_discharge_window(state, int(challenge["id"]))
     branch = _branch_state(state)
     state["combo"]["count"] += 1
@@ -1198,6 +1256,13 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
     if critical:
         multiplier *= float(state["team"]["critical_multiplier"])
         state["mastery"]["critical_taps"] += 1
+        memory_state = state.get("memory_state") or {}
+        memory_state["golden_followup_hits"] = max(
+            int(memory_state.get("golden_followup_hits", 0)),
+            2 if "m_long_seam" in state.get("memories", []) else 0,
+        )
+        if "m_reverse_flow" in state.get("memories", []):
+            memory_state["golden_window_bonus_ms"] = 300
         if _has_branch(state, "seam_cross_stitch"):
             branch["stored_seam_slot"] = slot
         else:
@@ -1222,7 +1287,11 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
         companion_state["echo_insight"] = int(companion_state.get("echo_insight", 0)) + 1
         state["log"].append("◍ Ускоренное Эхо прочитано; после волны появится ещё один вариант.")
     damage = float(state["team"]["tap_power"]) * multiplier + seam_bonus
-    if state["combo"]["count"] % 5 == 0:
+    memory_state = state.get("memory_state") or {}
+    if int(memory_state.get("golden_followup_hits", 0)) > 0:
+        damage += float(state["team"]["tap_power"]) * 0.35
+        memory_state["golden_followup_hits"] -= 1
+    if state["combo"]["count"] % 5 == 0 and not memory_state.get("disable_fifth_damage_bonus"):
         damage += float(state["team"]["tap_power"]) * 0.75
     companion_result = "echo_repeat_success" if echo_completed else None
     if (
@@ -1239,6 +1308,8 @@ def _strike(state: dict[str, Any], challenge_id: int, slot: str) -> dict[str, An
         and state["status"] == "active"
     ):
         dealt = _round_number(dealt + _deal(state, state["wave"]["hp"], "tap"))
+    if state["combo"]["count"] % 5 == 0:
+        state["team"]["charge"] = min(CHARGE_MAX * 2 - 0.01, float(state["team"]["charge"]) + float(memory_state.get("fifth_charge_bonus", 0)))
     state["team"]["charge"] = min(
         CHARGE_MAX * 2 - 0.01,
         state["team"]["charge"] + float(state["team"]["charge_per_hit"]),

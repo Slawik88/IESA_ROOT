@@ -14,17 +14,14 @@ from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
 from bot.middlewares.purge_gate_mw import purge_gate_middleware
-from bot.middlewares.pet_bonuses_mw import pet_bonuses_middleware
-from bot.middlewares.streak_mw import streak_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
 from bot.handlers.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
+from infrastructure.preprod import is_preprod
 from services.scheduler import (
-    expedition_background_task, daily_deal_task,
-    duel_and_auction_task,
-    smart_pulse_task,
-    crypto_alerts_task,
+    maintenance_task,
+    mafia_phase_task,
 )
 
 # Unique advisory lock key for this bot (arbitrary fixed integer).
@@ -83,8 +80,30 @@ def _configure_safe_logging() -> None:
             handler.setFormatter(_SecretRedactingFormatter(formatter))
 
 
+def _spawn_supervised(name: str, coroutine, *, failed: asyncio.Event | None = None) -> asyncio.Task:
+    """Keep a durable handle and make an unexpected task exit impossible to miss."""
+    task = asyncio.create_task(coroutine, name=f"predvestnik:{name}")
+
+    def _report_done(done: asyncio.Task) -> None:
+        if done.cancelled():
+            logger.info("Background task {} stopped by shutdown", name)
+            return
+        error = done.exception()
+        if error is None:
+            logger.critical("Background task {} exited unexpectedly", name)
+        else:
+            logger.opt(exception=error).critical("Background task {} crashed", name)
+        if failed is not None:
+            failed.set()
+
+    task.add_done_callback(_report_done)
+    return task
+
+
 async def main():
     _configure_safe_logging()
+    background_tasks: list[asyncio.Task] = []
+    background_failed = asyncio.Event()
 
     logger.info("═" * 50)
     logger.info("🔮 ПРЕДВЕСТНИК V2 — ЗАПУСК СИСТЕМЫ")
@@ -101,11 +120,6 @@ async def main():
             import uvicorn
             from FastAPI.main import app as _fastapi_app
             from FastAPI.prefix import strip_prefix_middleware
-            from FastAPI.notifications import notify as _ws_notify
-            from services.scheduler import set_ws_notify as _set_ws_notify
-
-            _set_ws_notify(_ws_notify)
-
             _root_path = os.getenv("ROOT_PATH", "").rstrip("/")
             _mounted_app = (
                 strip_prefix_middleware(_fastapi_app, _root_path)
@@ -118,8 +132,23 @@ async def main():
                 log_level="warning",
                 lifespan="off",
             )
-            asyncio.ensure_future(uvicorn.Server(_api_cfg).serve())
+            background_tasks.append(_spawn_supervised(
+                "miniapp", uvicorn.Server(_api_cfg).serve(), failed=background_failed,
+            ))
             logger.info(f"🌐 FastAPI мини-апп запущен на порту {_api_port} (prefix='{_root_path}')")
+            if is_preprod():
+                # This second app is bound to loopback only and is never put
+                # behind the Quick Tunnel.  It gives the automated browser one
+                # synthetic identity without forging Telegram WebApp initData.
+                from FastAPI.preprod_test_auth import TEST_AUTH_PORT, app as _test_auth_app
+                _test_cfg = uvicorn.Config(
+                    _test_auth_app, host="127.0.0.1", port=TEST_AUTH_PORT,
+                    log_level="warning", lifespan="off",
+                )
+                background_tasks.append(_spawn_supervised(
+                    "preprod-browser-auth", uvicorn.Server(_test_cfg).serve(), failed=background_failed,
+                ))
+                logger.info(f"🧪 Loopback browser-test auth started on 127.0.0.1:{TEST_AUTH_PORT}")
         except Exception as _e:
             logger.warning(f"FastAPI не запущен: {_e}")
     # ─────────────────────────────────────────────────────────────────────────
@@ -129,6 +158,28 @@ async def main():
 
     logger.info("🗄️  Инициализация схемы БД...")
     await init_db()
+    # FastAPI is deliberately co-hosted with lifespan disabled so that the bot
+    # owns startup.  New Mini App tables/feature flags therefore must be
+    # initialised here too; otherwise they exist only in a standalone ASGI run.
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import system_flags
+    from infrastructure.repositories import rhythm_v2 as rhythm_v2_repo
+    from infrastructure.repositories import mafia_v1 as mafia_v1_repo
+    from infrastructure.repositories import minesweeper_v2 as minesweeper_v2_repo
+    from infrastructure.repositories import pets_v1 as pets_v1_repo
+    from infrastructure.repositories import achievements_v1 as achievements_v1_repo
+    from infrastructure.repositories import public_profiles_v1 as public_profiles_v1_repo
+    from infrastructure.repositories import global_skins_v1 as global_skins_v1_repo
+    async with pool.acquire() as _startup_connection:
+        _startup_db = PGAdapter(_startup_connection)
+        await system_flags.ensure_table(_startup_db)
+        await rhythm_v2_repo.ensure_tables(_startup_db)
+        await mafia_v1_repo.ensure_tables(_startup_db)
+        await minesweeper_v2_repo.ensure_tables(_startup_db)
+        await pets_v1_repo.ensure_tables(_startup_db)
+        await achievements_v1_repo.ensure_tables(_startup_db)
+        await public_profiles_v1_repo.ensure_tables(_startup_db)
+        await global_skins_v1_repo.ensure_tables(_startup_db)
     logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
@@ -157,8 +208,6 @@ async def main():
     dp.update.middleware(db_middleware)
     dp.update.middleware(global_sanctions_middleware)
     dp.update.middleware(purge_gate_middleware)   # admin_audit B5: режим письма при чистке
-    dp.update.middleware(pet_bonuses_middleware)
-    dp.update.middleware(streak_middleware)
 
     logger.info("📡 Регистрация роутеров...")
     dp.include_router(main_router)
@@ -211,16 +260,35 @@ async def main():
         logger.info("🟢 БОТ ГОТОВ К ПРИЕМУ СООБЩЕНИЙ")
         logger.info("═" * 50)
 
-        asyncio.create_task(expedition_background_task(bot))
-        asyncio.create_task(daily_deal_task())
-        asyncio.create_task(duel_and_auction_task(bot))
-        asyncio.create_task(smart_pulse_task(bot))
-        asyncio.create_task(crypto_alerts_task(bot))    # VIP-алерты цен биржи
-        asyncio.create_task(star_payment_reconciliation_task(bot, pool))
+        background_tasks.extend([
+            _spawn_supervised("maintenance", maintenance_task(), failed=background_failed),
+            _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
+        ])
+        # Preprod intentionally has no Stars history/reconciliation access.
+        # Do not spawn a coroutine that correctly returns immediately and then
+        # misclassify that policy as a supervisor crash.
+        if is_preprod():
+            logger.info("Stars reconciliation is intentionally not scheduled on isolated preprod.")
+        else:
+            background_tasks.append(_spawn_supervised(
+                "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
+            ))
 
-        await dp.start_polling(bot)
+        polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
+        failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
+        done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        if failed_wait in done:
+            raise RuntimeError("background task stopped; terminating for supervisor restart")
+        await polling
     finally:
         logger.warning("🛑 Завершение сессии бота...")
+        for task in background_tasks:
+            task.cancel()
+        if background_tasks:
+            await asyncio.gather(*background_tasks, return_exceptions=True)
         await bot.session.close()
         # Release advisory lock by closing the dedicated connection
         try:

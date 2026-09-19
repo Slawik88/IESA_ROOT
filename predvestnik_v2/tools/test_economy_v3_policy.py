@@ -21,6 +21,7 @@ from core.economy_v3 import (  # noqa: E402
     UNIT_LEVEL_CAP_XP,
     UNIT_XP_REQUIREMENTS,
     WALLET_POLICIES,
+    PLANNED_WALLET_POLICIES,
     evaluate_reconstruction_reward_shadow,
     quote_zarniki_to_mora,
     public_policy_manifest,
@@ -149,7 +150,7 @@ def assert_unit_curve():
 
 def assert_zarniki_contract():
     quote = quote_zarniki_to_mora(7)
-    assert (quote.zarniki_spent, quote.mora_received, quote.rate) == (7, 1050, 150)
+    assert (quote.zarniki_spent, quote.mora_received, quote.rate) == (7, 70, 10)
     assert quote.provenance == "paid_exchange" and not quote.reversible
     assert validate_positive_zarniki_source("stars_purchase") == "stars_purchase"
     for invalid in ("promo", "gameplay_reward", "refund", "", None):
@@ -167,8 +168,8 @@ def assert_zarniki_contract():
         else:
             raise AssertionError(f"Invalid Zarniki exchange accepted: {invalid_amount!r}")
     assert validate_exchange_route("zarniki", "mora") == ("zarniki", "mora")
+    assert validate_exchange_route("zarniki", "diamonds") == ("zarniki", "diamonds")
     for source, target in (
-        ("zarniki", "diamonds"),
         ("mora", "diamonds"),
         ("diamonds", "mora"),
         ("mora", "zarniki"),
@@ -192,8 +193,12 @@ def assert_public_gate():
     assert manifest["unit_level_cap_xp"] == 36_096
     assert manifest["zarniki_positive_source"] == "stars_purchase"
     assert [wallet.code for wallet in WALLET_POLICIES] == ["mora", "diamonds", "zarniki"]
+    assert [wallet.code for wallet in PLANNED_WALLET_POLICIES] == ["echo_shards"]
+    shard = PLANNED_WALLET_POLICIES[0]
+    assert shard.label == "Осколки Эха"
+    assert shard.lifecycle == "planned_compensation"
     assert [wallet["code"] for wallet in manifest["wallets"]] == ["mora", "diamonds", "zarniki"]
-    assert manifest["allowed_exchange_routes"] == [["zarniki", "mora"]]
+    assert manifest["allowed_exchange_routes"] == [["zarniki", "mora"], ["zarniki", "diamonds"]]
     assert manifest["legacy_balances"][0]["lifecycle"] == "legacy_spend_only"
     assert [tier["unit_xp_percent"] for tier in manifest["reward_tiers"]] == [100, 100, 60]
     assert [(tier.first_ordinal, tier.last_ordinal) for tier in REWARD_TIERS] == [

@@ -127,8 +127,7 @@ async def battle_pass_status(db=Depends(get_db), user=Depends(require_tg_user)):
 
     return {
         "active": True,
-        "retired": True,
-        "retired_message": "Прогресс и покупка уровней закрыты. Уже заработанные награды можно забрать.",
+        "retired": False,
         "frozen": _frozen,
         "season_label": season["label"],
         "season_starts": season.get("starts_at"),

@@ -36,6 +36,17 @@ assert q_none_owned["total"] == sum(forest_prices.values())
 q_all_owned = lineup_buy_quote("forest", forest_ids)
 assert q_all_owned is None, "вся линейка уже куплена → None (нечего докупать)"
 
+# The premium whole-app background is a first-class member of Void.  Owning
+# every legacy profile item must still leave exactly the Atlas price in the
+# collection quote; once the skin is owned the collection is complete.
+void_ids = set(lineup_items("void"))
+q_void_skin_only = lineup_buy_quote("void", void_ids, owned_skins=set())
+assert q_void_skin_only is not None
+assert q_void_skin_only["missing"] == []
+assert q_void_skin_only["skin_missing"] == ["void_atlas"]
+assert q_void_skin_only["total"] == 1600
+assert lineup_buy_quote("void", void_ids, owned_skins={"void_atlas"}) is None
+
 one_owned = {next(iter(forest_ids))}
 q_partial = lineup_buy_quote("forest", one_owned)
 assert q_partial is not None
@@ -43,7 +54,8 @@ assert len(q_partial["missing"]) == len(forest_ids) - 1
 assert q_partial["total"] == sum(price for cid, price in forest_prices.items() if cid not in one_owned)
 
 print("OK: lineup_buy_quote — None на неизвестной/полностью собранной линейке, "
-      "верная сумма реальных цен недостающих предметов")
+      "верная сумма реальных цен недостающих предметов; Атлас Бездны входит "
+      "в полную покупку Void как отдельный фон приложения")
 
 # Новые японские линейки: не минимальные 6 заглушек, а по 15 самостоятельных
 # предметов, при этом все визуальные слоты реально покрыты.
@@ -117,6 +129,7 @@ class FakeDB:
         self.executed = []
         self.balance = balance
         self.granted = set()   # имитирует строки user_cosmetics, персистентно между вызовами
+        self.skin_sources = {}
 
     def execute(self, sql, args=()):
         self.executed.append((sql.strip(), tuple(args)))
@@ -124,6 +137,13 @@ class FakeDB:
             return FakeCursor((self.balance,))
         if "SELECT cosmetic_id FROM user_cosmetics" in sql:
             return FakeCursor(rows=[(cid,) for cid in self.granted])
+        if "SELECT skin_id FROM global_skin_v1_owned" in sql:
+            return FakeCursor(rows=[(skin_id,) for skin_id in self.skin_sources])
+        if sql.startswith("INSERT INTO global_skin_v1_owned"):
+            self.skin_sources.setdefault(args[1], args[2])
+            return FakeCursor(None)
+        if "SELECT source FROM global_skin_v1_owned" in sql:
+            return FakeCursor((self.skin_sources.get(args[1]),))
         if sql.startswith("UPDATE users"):
             self.balance -= args[0]
             return FakeCursor(None)
@@ -180,6 +200,17 @@ async def main():
         print("OK: buy_lineup — отказ без побочных эффектов при нехватке баланса; "
               "при достатке — 1 списание + по 1 выдаче на каждый недостающий предмет, "
               "сообщение содержит количество и сумму")
+
+        # A user who already owns all twelve profile items pays only for the
+        # whole-app Atlas, and receives it inside the same transaction path.
+        db_void = FakeDB(balance=1600)
+        db_void.granted = set(void_ids)
+        ok, msg = await buy_lineup(db_void, 778, "void")
+        assert ok is True and "1600" in msg
+        assert db_void.balance == 0
+        assert db_void.skin_sources == {"void_atlas": "cosmetic_lineup_purchase"}
+        assert len([1 for sql, _ in db_void.executed if sql.startswith("UPDATE users")]) == 1
+        print("OK: buy_lineup Void — Атлас выдан вместе с одной атомарной оплатой коллекции")
 
         # ── Регресс-тест финального ревью Стадии 3: владение ОБЯЗАНО читаться
         # ПОСЛЕ SELECT...FOR UPDATE, не до. В реальном Postgres второй

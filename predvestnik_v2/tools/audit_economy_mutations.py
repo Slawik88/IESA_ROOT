@@ -41,7 +41,6 @@ LEGACY_WRITERS = {
     "infrastructure/repositories/shadow_merchant.py",
     "infrastructure/repositories/zoo.py",
     "services/cosmetics.py",
-    "services/dark_market.py",
     "services/scheduler.py",
 }
 

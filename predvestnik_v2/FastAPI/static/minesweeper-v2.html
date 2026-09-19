@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Сапёр — Предвестник</title><link rel="stylesheet" href="/static/minesweeper-v2.css"><link rel="stylesheet" href="/static/global-skins-v1.css">
+</head>
+<body data-app-base="">
+  <main class="mine-shell">
+    <header><a href="/" aria-label="Назад в Предвестник">‹</a><div><small>ПРЕДВЕСТНИК · MINI APP</small><h1>Сапёр</h1></div></header>
+    <section class="mine-panel">
+      <div class="mine-head"><div><span class="eyebrow">КЛАССИЧЕСКОЕ ПОЛЕ</span><h2 id="mine-status">Готовим поле…</h2></div><button id="new-game" type="button">Новая партия</button></div>
+      <div class="mine-difficulties" role="tablist" aria-label="Сложность"><button type="button" data-difficulty="easy" aria-selected="false">Лёгкий<small>6×6 · 6 мин</small></button><button type="button" data-difficulty="normal" aria-selected="true">Обычный<small>9×9 · 10 мин</small></button><button type="button" data-difficulty="hard" aria-selected="false">Сложный<small>9×9 · 18 мин</small></button></div>
+      <p id="mine-copy" class="mine-copy">Первый ход и клетки вокруг него всегда безопасны.</p>
+      <div class="mine-metrics"><div><small>МИНЫ</small><b id="mines-left">—</b></div><div><small>ВРЕМЯ</small><b id="timer">0:00</b></div><div><small>ОТКРЫТО</small><b id="opened">—</b></div></div>
+      <div class="mine-mode" role="group" aria-label="Действие на клетке"><button type="button" data-mode="open" aria-pressed="true">Открывать</button><button type="button" data-mode="flag" aria-pressed="false">Помечать флагом</button></div>
+      <p id="mine-hint" aria-live="polite">Касание открывает клетку. Удерживай её, чтобы поставить флаг.</p>
+      <div id="mine-board" class="mine-board" role="grid" aria-label="Игровое поле Сапёра"></div>
+      <p class="mine-foot">Касание — открыть · удержание — флаг. Таблица учитывает только победы.</p>
+      <section class="mine-leaderboard" aria-labelledby="leaderboard-title"><div><h3 id="leaderboard-title">Лидеры</h3><span id="leaderboard-difficulty">Обычный</span></div><ol id="leaderboard-list" aria-live="polite"><li>Загружаем…</li></ol><p id="leaderboard-personal">Победи, чтобы попасть в таблицу.</p></section>
+    </section>
+  </main>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/static/global-skins-v1.js"></script><script type="module" src="/static/minesweeper-v2.js"></script>
+</body></html>

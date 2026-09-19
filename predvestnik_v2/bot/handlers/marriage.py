@@ -1,4 +1,4 @@
-from aiogram import Router, types
+from aiogram import Bot, Router, types
 from services.utils import resolve_target, safe_html, parse_dt, check_callback_owner
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -8,6 +8,13 @@ from infrastructure.repositories import marriages, users
 from infrastructure.repositories.marriages import (
     create_proposal, update_proposal_status, FAMILY_CURRENCIES,
 )
+from infrastructure.repositories.family_wallet_v1 import (
+    FamilyTransferIntentError,
+    consume_telegram_transfer_intent,
+    create_telegram_transfer_intent,
+)
+from infrastructure.repositories import divorce_v1
+from core.economy_contract import IdempotencyConflict, InsufficientBalance, InvalidEconomicMutation
 from core.registry import PARTNER_GIFTS
 from infrastructure.repositories.moderation import get_chat_settings
 from infrastructure.repositories.chat import get_chat_stats
@@ -26,14 +33,11 @@ class MarriageAction(CallbackData, prefix="marry"):
 
 class DivorceConfirm(CallbackData, prefix="divorce"):
     action: str  # "confirm" | "cancel"
-    user_id: int = 0
+    intent_id: str
 
 class FamilyBankCB(CallbackData, prefix="fbank"):
-    action: str       # deposit / withdraw
     cur: str          # mora / diamonds / dark_mora / zarniki
-    amount: float
-    user_id: int
-    marriage_id: int
+    intent_id: str
 
 class GiftBuyCB(CallbackData, prefix="gbuy"):
     gift_id: str
@@ -48,13 +52,12 @@ def _gift_price_str(gift: dict) -> str:
     return "—"
 
 
-def _family_currency_kb(action: str, amount: float, user_id: int, marriage_id: int):
-    """Клавиатура выбора валюты для вложить/снять (2×2)."""
+def _family_currency_kb(intent_id: str):
+    """Currency choices for one persisted, owner-bound transfer intent."""
     b = InlineKeyboardBuilder()
     for cur, meta in FAMILY_CURRENCIES.items():
         b.button(text=f"{meta['icon']} {meta['label']}",
-                 callback_data=FamilyBankCB(action=action, cur=cur, amount=amount,
-                                            user_id=user_id, marriage_id=marriage_id))
+                 callback_data=FamilyBankCB(cur=cur, intent_id=intent_id))
     b.adjust(2, 2)
     return b
 
@@ -166,11 +169,21 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
 
     initiator_name = await users.get_user_name(db, callback_data.initiator_id)
     
-    await marriages.create_marriage(
-        db, callback.message.chat.id,
-        callback_data.initiator_id, initiator_name,
-        callback_data.target_id, target_name
-    )
+    try:
+        await marriages.create_marriage(
+            db, callback.message.chat.id,
+            callback_data.initiator_id, initiator_name,
+            callback_data.target_id, target_name
+        )
+    except marriages.MarriageConflict as exc:
+        await callback.message.edit_text(f"❌ {exc}", parse_mode="HTML")
+        return await callback.answer()
+    except RuntimeError:
+        await callback.message.edit_text(
+            "⚠️ Создание брака временно остановлено для безопасного переноса данных.",
+            parse_mode="HTML",
+        )
+        return await callback.answer()
     try:
         await update_proposal_status(db, callback.message.chat.id, callback_data.initiator_id, callback_data.target_id, "accepted")
     except Exception:
@@ -194,58 +207,69 @@ async def process_marriage_action(callback: types.CallbackQuery, callback_data: 
 # ==========================================
 @router.message(TextCmd(["развод", "расстаться"]))
 async def cmd_divorce(message: types.Message, db):
-    marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage:
+    try:
+        intent = await divorce_v1.create_intent(db, actor_id=message.from_user.id)
+    except divorce_v1.DivorceError:
         return await message.answer("💔 Вы и так свободны как ветер.", parse_mode="HTML")
 
-    partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
-    partner_name = marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name']
-    partner_link = f'<a href="tg://user?id={partner_id}">{safe_html(partner_name)}</a>'
+    partner_link = f'<a href="tg://user?id={intent["partner_id"]}">{safe_html(intent["partner_name"])}</a>'
+    blocked = any(float(value or 0) != 0 for value in (
+        *intent["legacy_balances"], *intent["custody_balances"],
+    )) or int(intent["family_pet_count"]) > 0
 
     builder = InlineKeyboardBuilder()
-    builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm", user_id=message.from_user.id))
-    builder.button(text="❌ Нет, остаться", callback_data=DivorceConfirm(action="cancel", user_id=message.from_user.id))
+    if not blocked:
+        builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm", intent_id=intent["id"]))
+    builder.button(text="❌ Нет, остаться", callback_data=DivorceConfirm(action="cancel", intent_id=intent["id"]))
     builder.adjust(2)
 
+    asset_note = (
+        "\n\n🏦 <b>Развод пока заблокирован:</b> в семье остались средства или семейные питомцы. "
+        "Сначала распределите их — бот ничего не удалит автоматически."
+        if blocked else "\n\nПосле подтверждения брак будет закрыт, а оба игрока смогут создать новую семью."
+    )
     await message.answer(
         f"💔 <b>ПОДТВЕРЖДЕНИЕ РАЗВОДА</b>\n\n"
         f"Вы уверены, что хотите расстаться с {partner_link}?\n"
-        f"<i>Семейный бюджет будет заморожен.</i>",
+        f"<i>Подтверждение действует 15 минут.</i>{asset_note}",
         reply_markup=builder.as_markup(),
         parse_mode="HTML"
     )
 
 
 @router.callback_query(DivorceConfirm.filter())
-async def process_divorce_confirm(callback: types.CallbackQuery, callback_data: DivorceConfirm, db):
-    if not await check_callback_owner(callback, callback_data.user_id):
-        return
+async def process_divorce_confirm(
+    callback: types.CallbackQuery, callback_data: DivorceConfirm, db, bot: Bot,
+):
     if callback_data.action == "cancel":
+        cancelled = await divorce_v1.cancel_intent(
+            db, intent_id=callback_data.intent_id, actor_id=callback.from_user.id,
+        )
+        if not cancelled:
+            return await callback.answer("Подтверждение уже обработано или принадлежит другому игроку.", show_alert=True)
         await callback.message.edit_text("💍 <b>Развод отменён.</b> Семья сохранена.", parse_mode="HTML")
         return await callback.answer()
-
-    marriage = await marriages.get_user_marriage(db, callback.from_user.id)
-    if not marriage:
-        await callback.message.edit_text("💔 Брак уже был расторгнут.", parse_mode="HTML")
-        return await callback.answer()
-
-    balances = [
-        float(marriage.get("family_balance", 0) or 0),
-        float(marriage.get("family_balance_diamonds", 0) or 0),
-        float(marriage.get("family_balance_dark_mora", 0) or 0),
-        float(marriage.get("family_balance_zarniki", 0) or 0),
-    ]
-    async with db.execute("SELECT 1 FROM pets WHERE marriage_id = ? LIMIT 1", (marriage["id"],)) as cursor:
-        has_family_pet = await cursor.fetchone() is not None
-    if any(value > 0 for value in balances) or has_family_pet:
-        await callback.message.edit_text(
-            "🏦 <b>Развод пока не выполнен.</b> Сначала нужно безопасно разделить семейный кошелёк и питомцев. Ничего не удалено.",
-            parse_mode="HTML",
+    try:
+        result = await divorce_v1.settle_intent(
+            db, intent_id=callback_data.intent_id, actor_id=callback.from_user.id,
         )
+    except divorce_v1.DivorceError as exc:
+        await callback.message.edit_text(f"🏦 <b>Развод не выполнен.</b> {safe_html(str(exc))}", parse_mode="HTML")
         return await callback.answer()
-
-    await marriages.delete_marriage(db, callback.from_user.id)
-    await callback.message.edit_text("💔 <b>Брак расторгнут.</b> Вы снова свободны.", parse_mode="HTML")
+    replay = " Повторного изменения не было." if not result.applied else ""
+    await callback.message.edit_text(
+        f"💔 <b>Брак расторгнут.</b> Вы снова свободны.\n"
+        f"Квитанция: <code>{result.receipt_id}</code>{replay}", parse_mode="HTML",
+    )
+    if result.applied:
+        try:
+            await bot.send_message(
+                result.partner_id,
+                "💔 Ваш брак был расторгнут партнёром. Семейная история сохранена, "
+                f"квитанция: <code>{result.receipt_id}</code>.", parse_mode="HTML",
+            )
+        except Exception:
+            pass
     await callback.answer()
 
 # ==========================================
@@ -323,7 +347,6 @@ def _parse_bank_amount(text_args: str | None):
 
 @router.message(TextCmd(["вложить", "в общак"]))
 async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
-    return await message.answer("🏦 Семейный кошелёк сохранён и временно заморожен для безопасного переноса. Новые вклады не принимаются.")
     if message.chat.type == "private":
         return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
@@ -333,10 +356,13 @@ async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
             parse_mode="HTML")
     if amount <= 0:
         return await message.answer("❌ Сумма должна быть больше нуля.")
-    marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage:
-        return await message.answer("❌ Вы не состоите в браке.")
-    kb = _family_currency_kb("deposit", amount, message.from_user.id, marriage["id"])
+    try:
+        intent_id = await create_telegram_transfer_intent(
+            db, actor_id=message.from_user.id, action="deposit", amount=amount,
+        )
+    except (FamilyTransferIntentError, InvalidEconomicMutation) as exc:
+        return await message.answer(f"❌ {safe_html(str(exc))}", parse_mode="HTML")
+    kb = _family_currency_kb(intent_id)
     await message.answer(
         f"📥 Вложить <b>{format_currency(amount)}</b> в семейный кошелёк — какой валютой?",
         reply_markup=kb.as_markup(), parse_mode="HTML")
@@ -344,7 +370,6 @@ async def cmd_family_deposit(message: types.Message, db, text_args: str = None):
 
 @router.message(TextCmd(["снять", "из общака"]))
 async def cmd_family_withdraw(message: types.Message, db, text_args: str = None):
-    return await message.answer("🏦 Семейный кошелёк сохранён и временно заморожен. Вывод будет доступен только через проверяемое урегулирование.")
     if message.chat.type == "private":
         return await answer_group_only(message)
     amount = _parse_bank_amount(text_args)
@@ -354,10 +379,13 @@ async def cmd_family_withdraw(message: types.Message, db, text_args: str = None)
             parse_mode="HTML")
     if amount <= 0:
         return await message.answer("❌ Сумма должна быть больше нуля.")
-    marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage:
-        return await message.answer("❌ Вы не состоите в браке.")
-    kb = _family_currency_kb("withdraw", amount, message.from_user.id, marriage["id"])
+    try:
+        intent_id = await create_telegram_transfer_intent(
+            db, actor_id=message.from_user.id, action="withdrawal", amount=amount,
+        )
+    except (FamilyTransferIntentError, InvalidEconomicMutation) as exc:
+        return await message.answer(f"❌ {safe_html(str(exc))}", parse_mode="HTML")
+    kb = _family_currency_kb(intent_id)
     await message.answer(
         f"📤 Снять <b>{format_currency(amount)}</b> из семейного кошелька — какой валютой?",
         reply_markup=kb.as_markup(), parse_mode="HTML")
@@ -365,22 +393,26 @@ async def cmd_family_withdraw(message: types.Message, db, text_args: str = None)
 
 @router.callback_query(FamilyBankCB.filter())
 async def cb_family_bank(query: types.CallbackQuery, callback_data: FamilyBankCB, db):
-    return await query.answer("Кошелёк заморожен для безопасного переноса.", show_alert=True)
-    if query.from_user.id != callback_data.user_id:
-        return await query.answer("Это не ваша операция.", show_alert=True)
     meta = FAMILY_CURRENCIES.get(callback_data.cur)
     if not meta:
         return await query.answer("Неизвестная валюта.", show_alert=True)
-    ok, msg = await marriages.family_bank_transaction(
-        db, callback_data.marriage_id, callback_data.user_id,
-        callback_data.amount, callback_data.action, callback_data.cur,
-    )
-    verb = "вложили в" if callback_data.action == "deposit" else "сняли из"
-    if ok:
-        text = (f"🏦 Вы {verb} семейн{'ый' if callback_data.action=='deposit' else 'ого'} кошель{'ёк' if callback_data.action=='deposit' else 'ка'} "
-                f"<code>{format_currency(callback_data.amount)}</code> {meta['icon']} {meta['label']}.")
+    try:
+        result = await consume_telegram_transfer_intent(
+            db, intent_id=callback_data.intent_id, actor_id=query.from_user.id,
+            currency=callback_data.cur,
+        )
+    except FamilyTransferIntentError as exc:
+        return await query.answer(str(exc), show_alert=True)
+    except InsufficientBalance as exc:
+        return await query.answer(str(exc), show_alert=True)
+    except (IdempotencyConflict, InvalidEconomicMutation) as exc:
+        return await query.answer(str(exc), show_alert=True)
+    if not result.applied:
+        text = "✅ <b>Этот выбор уже обработан.</b> Повторного перевода не было."
     else:
-        text = f"❌ <b>Отказ:</b> {msg}"
+        verb = "вложили в" if result.action == "deposit" else "сняли из"
+        wallet = "семейный кошелёк" if result.action == "deposit" else "семейного кошелька"
+        text = f"🏦 Вы {verb} {wallet}: <code>{format_currency(result.amount)}</code> {meta['icon']} {meta['label']}."
     try:
         await query.message.edit_text(text, parse_mode="HTML")
     except Exception:
@@ -424,8 +456,8 @@ async def cmd_family_info(message: types.Message, db):
         f"├ ⏳ В браке с: <code>{date_str}</code>\n"
         f"└ ❤️ Вместе: <code>{days_together} дн.</code>\n\n"
         f"💰 <b>КОШЕЛЁК:</b> {wallet_str}\n\n"
-        f"<i>Баланс сохранён и заморожен до проверяемого переноса.\n"
-        f"Памятный подарок партнёру: «бот подарки»</i>"
+        f"<i>Внести: «бот вложить, сумма» · снять: «бот снять, сумма».\n"
+        f"Каждый перевод получает отдельную квитанцию. Памятный подарок: «бот подарки»</i>"
     )
     await message.answer(text, parse_mode="HTML")
 

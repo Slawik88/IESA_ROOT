@@ -264,10 +264,6 @@ def _assert_schema_and_boundaries_wired():
     assert "async def reconcile_star_payments" in payments
     assert "pay_purchase_commission" not in payments
 
-    referral = (ROOT / "services/referral.py").read_text(encoding="utf-8")
-    assert "referral_commission" not in referral
-    assert "zarniki=" not in referral
-
     promo_repository = (ROOT / "infrastructure/repositories/promocodes.py").read_text(
         encoding="utf-8"
     )
@@ -277,11 +273,10 @@ def _assert_schema_and_boundaries_wired():
     )
     shop_router = (ROOT / "FastAPI/routers/shop.py").read_text(encoding="utf-8")
     shop_client = (ROOT / "FastAPI/static/app.04.js").read_text(encoding="utf-8")
-    bot_shop = (ROOT / "bot/handlers/shop.py").read_text(encoding="utf-8")
     assert "cover_with_zarniki" not in shop_repository + shop_router + shop_client
     assert "/shop/checkout-quote" not in shop_router + shop_client
     assert 'Header(alias="Idempotency-Key")' in shop_router
-    assert 'idempotency_key=f"shop:telegram:{query.id}"' in bot_shop
+    assert not (ROOT / "bot/handlers/shop.py").exists()
 
     exchange = (ROOT / "FastAPI/routers/exchange.py").read_text(encoding="utf-8")
     assert "Покупка и продажа Алмазов за Мору отключены" in exchange
@@ -418,27 +413,27 @@ async def _assert_apply_replay_conflict_and_rollback():
     assert purchase.applied and db.users[7]["zarniki"] == 60.0
 
 
-async def _assert_paid_exchange_is_atomic_and_idempotent():
+async def _assert_paid_exchange_is_retired_without_mutation():
     db = FakeLedgerDB()
     db.users[11] = {"mora": 0.0, "diamonds": 0.0, "dark_mora": 0.0, "zarniki": 25.0}
 
     ok, message = await exchange_zarniki(
         db, 11, 20, "mora", idempotency_key="request-77"
     )
-    assert ok is True and "3,000" in message
+    assert ok is False and message
     after_first = dict(db.users[11])
-    assert after_first["zarniki"] == 5.0
-    assert after_first["mora"] == 3000.0
+    assert after_first["zarniki"] == 25.0
+    assert after_first["mora"] == 0.0
 
     ok, message = await exchange_zarniki(
         db, 11, 20, "mora", idempotency_key="request-77"
     )
-    assert ok is True and "уже" in message.lower()
+    assert ok is False and message
     assert db.users[11] == after_first
-    assert len(db.wallet) == 1
+    assert len(db.wallet) == 0
 
     ok, message = await exchange_zarniki(db, 11, 1, "diamonds")
-    assert ok is False and "не продаются" in message.lower()
+    assert ok is False and message
     assert db.users[11] == after_first
 
 
@@ -530,7 +525,7 @@ async def main():
     _assert_contract_validation()
     _assert_schema_and_boundaries_wired()
     await _assert_apply_replay_conflict_and_rollback()
-    await _assert_paid_exchange_is_atomic_and_idempotent()
+    await _assert_paid_exchange_is_retired_without_mutation()
     await _assert_shop_and_spend_use_one_ledger_operation()
     await _assert_dynamic_reference_replay()
     await _assert_direct_transfers_are_closed()

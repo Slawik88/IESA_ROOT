@@ -106,6 +106,41 @@ async def get_mastery_proofs(
     }
 
 
+async def get_clear_mastery_proof_ids_all_versions(db, user_id: int) -> set[str]:
+    """Return only proofs backed by a durable clear-integrity terminal event."""
+    async with db.execute(
+        "SELECT DISTINCT p.challenge_id FROM reconstruction_mastery_proofs p "
+        "WHERE p.user_id = ? AND EXISTS ("
+        "SELECT 1 FROM gameplay_events e WHERE e.user_id = p.user_id "
+        "AND e.game_version = p.game_version AND e.event_name = 'battle_end' "
+        "AND jsonb_extract_path_text(e.payload_json::jsonb, 'terminal_result', 'id') = p.terminal_result_id "
+        "AND jsonb_extract_path_text(e.payload_json::jsonb, 'terminal_result', 'integrity', 'status') = 'clear'"
+        ") ORDER BY p.challenge_id",
+        (int(user_id),),
+    ) as cursor:
+        rows = await cursor.fetchall()
+        return {str(row[0]) for row in rows}
+
+
+async def get_clear_mastery_proof_ids_for_versions(
+    db, user_id: int, game_versions: tuple[str, ...]
+) -> set[str]:
+    if not game_versions:
+        return set()
+    placeholders = ",".join("?" for _ in game_versions)
+    async with db.execute(
+        "SELECT DISTINCT p.challenge_id FROM reconstruction_mastery_proofs p "
+        f"WHERE p.user_id=? AND p.game_version IN ({placeholders}) AND EXISTS ("
+        "SELECT 1 FROM gameplay_events e WHERE e.user_id=p.user_id "
+        "AND e.game_version=p.game_version AND e.event_name='battle_end' "
+        "AND jsonb_extract_path_text(e.payload_json::jsonb,'terminal_result','id')=p.terminal_result_id "
+        "AND jsonb_extract_path_text(e.payload_json::jsonb,'terminal_result','integrity','status')='clear') "
+        "ORDER BY p.challenge_id",
+        (int(user_id), *game_versions),
+    ) as cursor:
+        return {str(row[0]) for row in await cursor.fetchall()}
+
+
 async def record_mastery_proofs(
     db,
     *,

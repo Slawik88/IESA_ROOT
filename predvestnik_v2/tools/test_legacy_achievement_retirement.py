@@ -21,8 +21,10 @@ assert '"retired": True' in api
 assert '"next_reward": None' in api
 
 ui = (ROOT / "FastAPI/static/app.02.js").read_text(encoding="utf-8")
-assert "Архив достижений" in ui
+assert "Архив старых достижений" in ui
 assert "Новые действия не меняют этот результат" in ui
-assert "!_achRetired&&!a.completed&&rwParts" in ui
+assert "Крутите гачу" not in ui
+assert "Пишите сообщения в чатах с ботом" not in ui
+assert "_featData" in ui and "openFeatModal" in ui
 
-print("OK: achievement events/page views cannot mint rewards; history stays visible")
+print("OK: Chronicle is separate; legacy history is frozen and has no dead-loop instructions")

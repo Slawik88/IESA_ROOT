@@ -1,6 +1,4 @@
-"""FastAPI/routers/shop.py — каталог и покупки.
-purchase_item() из services.economy — та же функция что и у бота.
-"""
+"""Mini App catalog and purchase adapter over the shared economy service."""
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from FastAPI.deps import get_db, require_tg_user, require_module
@@ -13,8 +11,7 @@ router = APIRouter(prefix="/shop", tags=["shop"], dependencies=[Depends(require_
 
 _BUYABLE_CATEGORIES = {"food", "utility", "booster", "donate"}
 
-# Per-category bulk-buy caps — same limits as bot/handlers/shop.py::QTY_MAX_CAP,
-# so the website can't bulk-buy past what the bot allows in one click.
+# Per-category bulk-buy caps for the only remaining shop surface.
 _QTY_MAX_CAP = {"food": 99, "utility": 5}
 
 

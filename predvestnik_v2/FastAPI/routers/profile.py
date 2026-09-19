@@ -4,7 +4,8 @@
 import os
 import base64
 import time
-from datetime import datetime, timezone
+import asyncio
+from datetime import date, datetime, timedelta, timezone
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -15,14 +16,25 @@ from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.leveling import account_progress
 from services.formatting import safe_html
 from services.vip import is_vip_active, get_vip_info
-from services.cosmetics import get_active_cosmetics
+from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
+from services.global_skins_v1 import state as global_skin_state
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname, get_first_seen
-from infrastructure.repositories.achievements import get_achievement, get_all_achievements
+from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
 from infrastructure.repositories import global_moderation as gmod_repo
 from services.global_moderation import SANCTION_LABELS
 from core.registry import ACHIEVEMENTS
+from core.sky_v1 import NODE_BY_ID, SIGIL_IDS
+from infrastructure.repositories import sky_v1 as sky_repo
+from infrastructure.repositories import public_profiles_v1 as public_profiles
+from infrastructure.repositories import echo_shards_v1 as echo_shards
+from infrastructure.repositories import achievements_v1 as achievements_v1_repo
+from infrastructure.repositories import mafia_v1 as mafia_v1_repo
+from infrastructure.repositories import minesweeper_v2 as minesweeper_v2_repo
+from infrastructure.repositories import pets_v1 as pets_v1_repo
+from infrastructure.repositories import rhythm_v2 as rhythm_v2_repo
+from core import achievements_v1 as achievement_rules
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 
@@ -30,6 +42,32 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+
+
+async def _sky_sigil(db, user_id: int) -> dict | None:
+    """Public cosmetic projection; never materializes feats or progression."""
+    if not await is_vip_active(db, user_id):
+        return None
+    try:
+        allocated, sigil, _, _ = sky_repo.decode(await sky_repo.get_state(db, int(user_id)))
+    except Exception:
+        return None
+    if sigil not in SIGIL_IDS or sigil not in allocated:
+        return None
+    node = NODE_BY_ID[sigil]
+    return {"id": sigil, "name": node["name"], "branch": node["branch"]}
+
+
+async def _supporter_badge(db, user_id: int) -> dict | None:
+    # Supporter seals are cosmetic too: ownership is retained, but they are not
+    # displayed on a public profile while the VIP display entitlement is idle.
+    if not await is_vip_active(db, user_id):
+        return None
+    try:
+        from services.supporter_cosmetics_v1 import active_public
+        return await active_public(db, int(user_id))
+    except Exception:
+        return None
 
 
 async def _fetch_tg_avatar(user_id: int) -> str | None:
@@ -92,12 +130,179 @@ _RANK_NAMES = GLOBAL_RANKS_MAP
 
 _MIN_NICK_LEN = 2
 _MAX_NICK_LEN = 20
+_PROFILE_TABLES_READY = False
+_PROFILE_TABLES_LOCK = asyncio.Lock()
+
+
+async def _ensure_profile_tables(db) -> None:
+    """Rolling-deploy guard for profile readers when ASGI lifespan is off."""
+    global _PROFILE_TABLES_READY
+    if _PROFILE_TABLES_READY:
+        return
+    async with _PROFILE_TABLES_LOCK:
+        if _PROFILE_TABLES_READY:
+            return
+        for ensure in (
+            rhythm_v2_repo.ensure_tables,
+            minesweeper_v2_repo.ensure_tables,
+            mafia_v1_repo.ensure_tables,
+            pets_v1_repo.ensure_tables,
+            achievements_v1_repo.ensure_tables,
+        ):
+            await ensure(db)
+        _PROFILE_TABLES_READY = True
+
+
+def _iso(value) -> str | None:
+    return value.isoformat() if hasattr(value, "isoformat") else value
+
+
+async def _profile_pets(db, user_id: int) -> list[dict]:
+    """Current pet-v1 projection without legacy fatigue/placement fields."""
+    async with db.execute(
+        "SELECT p.name,p.rarity,COALESCE(s.level,1) AS level,"
+        "(pv.active_pet_id=p.id) AS active "
+        "FROM pets p "
+        "LEFT JOIN pet_v1_state s ON s.user_id=p.owner_id AND s.pet_id=p.id "
+        "LEFT JOIN pet_v1_profiles pv ON pv.user_id=p.owner_id "
+        "WHERE p.owner_id=? ORDER BY (pv.active_pet_id=p.id) DESC,p.created_at,p.id LIMIT 24",
+        (int(user_id),),
+    ) as cursor:
+        return [
+            {
+                "name": row["name"] or "Питомец",
+                "rarity": row["rarity"],
+                "level": int(row["level"] or 1),
+                "active": bool(row["active"]),
+            }
+            for row in await cursor.fetchall()
+        ]
+
+
+async def _achievement_paths(db, user_id: int) -> dict:
+    """Small public-safe summary of the current 1–40 achievement families."""
+    async with db.execute(
+        "SELECT family,completed_events,active_weeks,level "
+        "FROM achievement_v1_progress WHERE user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        rows = {str(row["family"]): dict(row) for row in await cursor.fetchall()}
+    families = []
+    for family, definition in achievement_rules.FAMILIES.items():
+        row = rows.get(family) or {}
+        families.append({
+            "id": family,
+            "title": definition["title"],
+            "level": int(row.get("level") or 0),
+            "max_level": achievement_rules.MAX_LEVEL,
+            "completed_events": int(row.get("completed_events") or 0),
+            "active_weeks": int(row.get("active_weeks") or 0),
+        })
+    return {"total_levels": sum(item["level"] for item in families), "families": families}
+
+
+async def _game_results(db, user_id: int, *, include_private: bool) -> dict:
+    """Results from the three approved games; Rhythm trust stays explicit."""
+    async with db.execute(
+        "SELECT "
+        "COUNT(*) FILTER (WHERE status='finished' AND integrity_status='clear') AS verified_runs,"
+        "MAX(score) FILTER (WHERE status='finished' AND integrity_status='clear') AS best_verified_score,"
+        "COUNT(*) FILTER (WHERE status='finished' AND integrity_status<>'clear') AS unranked_runs "
+        "FROM rhythm_v2_runs WHERE user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        rhythm = dict(await cursor.fetchone())
+    rhythm_view = {
+        "verified_runs": int(rhythm.get("verified_runs") or 0),
+        "best_verified_score": int(rhythm["best_verified_score"]) if rhythm.get("best_verified_score") is not None else None,
+    }
+    if include_private:
+        rhythm_view["personal_unranked_runs"] = int(rhythm.get("unranked_runs") or 0)
+
+    async with db.execute(
+        "SELECT COUNT(*) FILTER (WHERE status IN ('won','lost')) AS played,"
+        "COUNT(*) FILTER (WHERE status='won') AS wins,"
+        "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='easy') AS easy_best_ms,"
+        "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='normal') AS normal_best_ms,"
+        "MIN(elapsed_ms) FILTER (WHERE status='won' AND difficulty='hard') AS hard_best_ms "
+        "FROM minesweeper_v2_runs WHERE user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        mines = dict(await cursor.fetchone())
+
+    async with db.execute(
+        "SELECT COUNT(*) FILTER (WHERE m.phase='finished') AS played,"
+        "COUNT(*) FILTER (WHERE m.phase='finished' AND "
+        "((m.winner='mafia' AND p.role IN ('mafia','don')) OR "
+        "(m.winner='town' AND p.role IN ('citizen','doctor','detective')))) AS wins "
+        "FROM mafia_v1_players p JOIN mafia_v1_matches m ON m.id=p.match_id WHERE p.user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        mafia = dict(await cursor.fetchone())
+
+    def _best(key: str) -> int | None:
+        return int(mines[key]) if mines.get(key) is not None else None
+
+    return {
+        "rhythm": rhythm_view,
+        "minesweeper": {
+            "played": int(mines.get("played") or 0),
+            "wins": int(mines.get("wins") or 0),
+            "best_ms": {"easy": _best("easy_best_ms"), "normal": _best("normal_best_ms"), "hard": _best("hard_best_ms")},
+        },
+        "mafia": {"played": int(mafia.get("played") or 0), "wins": int(mafia.get("wins") or 0)},
+    }
+
+
+async def _sanctions(db, user_id: int, *, include_private: bool) -> dict:
+    """Owner-approved public projection; moderator/database identifiers omitted."""
+    active_row = await gmod_repo.get_active_restriction(db, "user", int(user_id))
+    active = None
+    if active_row:
+        active = {
+            "type": active_row["sanction_type"],
+            "label": SANCTION_LABELS.get(active_row["sanction_type"], active_row["sanction_type"]),
+            **({"reason": active_row.get("reason")} if include_private else {}),
+            "expires_at": _iso(active_row.get("expires_at")),
+        }
+    async with db.execute(
+        "SELECT sanction_type,reason,created_at,expires_at,revoked_at "
+        "FROM global_sanctions WHERE target_type='user' AND target_id=? "
+        "ORDER BY id DESC LIMIT ?",
+        (int(user_id), 50 if include_private else 20),
+    ) as cursor:
+        sanction_rows = [dict(row) for row in await cursor.fetchall()]
+    history = [
+        {
+            "type": item["sanction_type"],
+            "label": SANCTION_LABELS.get(item["sanction_type"], item["sanction_type"]),
+            **({"reason": item.get("reason")} if include_private else {}),
+            "created_at": _iso(item.get("created_at")),
+            "expires_at": _iso(item.get("expires_at")),
+            "revoked_at": _iso(item.get("revoked_at")),
+        }
+        for item in sanction_rows
+    ]
+    async with db.execute(
+        "SELECT COALESCE(SUM(warnings),0) AS total_warnings,"
+        "MAX(CASE WHEN muted_until>NOW() THEN muted_until END) AS mute_until "
+        "FROM user_chat_stats WHERE user_tg_id=? AND is_left=FALSE",
+        (int(user_id),),
+    ) as cursor:
+        chat = dict(await cursor.fetchone())
+    return {
+        "active_global": active,
+        "history": history,
+        "chat_warning_total": int(chat.get("total_warnings") or 0),
+        "chat_mute_until": _iso(chat.get("mute_until")),
+    }
 
 
 @router.get("/me")
 async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     """Полный профиль текущего пользователя."""
     user_id = user["id"]
+    await _ensure_profile_tables(db)
 
     async with db.execute(
         "SELECT u.user_tg_id, u.user_tg_username, u.global_rank, "
@@ -130,14 +335,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     ) as c:
         chats = [dict(r) for r in await c.fetchall()]
 
-    # Питомцы
-    async with db.execute(
-        "SELECT id, name, species_id, rarity, placement, fatigue, "
-        "COALESCE(pet_level, 1) AS pet_level "
-        "FROM pets WHERE owner_id = ?",
-        (user_id,),
-    ) as c:
-        pets = [dict(r) for r in await c.fetchall()]
+    pets = await _profile_pets(db, user_id)
 
     # Стрик (максимальный по всем чатам)
     async with db.execute(
@@ -161,12 +359,21 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "FROM marriages m "
         "JOIN users p2 ON p2.user_tg_id = CASE "
         "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
-        "WHERE m.user1_id = ? OR m.user2_id = ? "
+        "WHERE (m.user1_id = ? OR m.user2_id = ?) AND m.ended_at IS NULL "
         "ORDER BY m.marriage_date DESC LIMIT 1",
         (user_id, user_id, user_id),
     ) as c:
         partner_row = await c.fetchone()
     partner = partner_row[0] if partner_row else None
+
+    async with db.execute(
+        "SELECT COALESCE(SUM(user_messages_count_all_time),0) AS messages_all_time "
+        "FROM user_chat_stats WHERE user_tg_id=?",
+        (user_id,),
+    ) as c:
+        activity_row = dict(await c.fetchone())
+    vip_info = await get_vip_info(db, user_id)
+    joined_date = await get_first_seen(db, user_id)
 
     # whatsnew_seen_id вынесен из основного запроса и достаётся отдельно с мягкой
     # деградацией: колонка создаётся миграцией init_db, но на проде FastAPI работает
@@ -197,6 +404,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "diamonds":     float(row["user_balance_diamonds"] or 0),
         "dark_mora":    float(row["user_balance_dark_mora"] or 0),
         "zarniki":      float(row["user_balance_zarniki"] or 0),
+        "echo_shards":  await echo_shards.get_balance(db, user_id),
         "streak":       (dict(streak_row)["streak"] or 0) if streak_row else 0,
         "achievements": ach_count,
         # R0: уровень аккаунта — глобальный, экспоненциальная кривая.
@@ -213,13 +421,148 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
+        "avatar":       await _vip_avatar(db, user_id),
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "partner":      partner,
+        "messages_all_time": int(activity_row.get("messages_all_time") or 0),
+        "joined_date": _iso(joined_date),
+        "vip": {
+            "tier": vip_info["tier"],
+            "label": vip_info["tier_label"],
+            "days_left": vip_info["days_left"],
+        } if vip_info else None,
+        "sanctions": await _sanctions(db, user_id, include_private=True),
+        "game_results": await _game_results(db, user_id, include_private=True),
+        "achievement_paths": await _achievement_paths(db, user_id),
         "cosmetics":    await get_active_cosmetics(db, user_id),
+        "global_skin": await global_skin_state(db, user_id),
         "system_flags": await _system_flags.get_all(db),
         "whatsnew_seen_id": whatsnew_seen_id,
+        "sky_sigil": await _sky_sigil(db, user_id),
+        "supporter_badge": await _supporter_badge(db, user_id),
     }
+
+
+@router.get("/me/chat-tracker")
+async def my_chat_tracker(
+    limit: int = 20,
+    offset: int = 0,
+    query: str = "",
+    sort: str = "recent",
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+):
+    """Private, paged activity tracker for the current player's active chats.
+
+    A tracker row is deliberately scoped by ``user_tg_id = current user``. It
+    describes the player's own activity and moderation state in that chat; it
+    is not a chat directory and never returns another member's statistics.
+    """
+    query = str(query or "").strip()
+    sort_orders = {
+        "recent": "ucs.last_message_at DESC NULLS LAST, ucs.user_messages_count_all_time DESC, ucs.chat_tg_id ASC",
+        "week": "ucs.user_messages_count_per_week DESC, ucs.last_message_at DESC NULLS LAST, ucs.chat_tg_id ASC",
+        "messages": "ucs.user_messages_count_all_time DESC, ucs.last_message_at DESC NULLS LAST, ucs.chat_tg_id ASC",
+        "rank": "ucs.local_rank DESC NULLS LAST, ucs.last_message_at DESC NULLS LAST, ucs.chat_tg_id ASC",
+    }
+    if not 1 <= limit <= 30 or offset < 0 or len(query) > 64 or sort not in sort_orders:
+        raise HTTPException(400, "Некорректные параметры страницы трекера.")
+    user_id = int(user["id"])
+    async with db.execute(
+        "SELECT COUNT(*) AS chat_count, "
+        "COALESCE(SUM(user_messages_count_all_time), 0) AS messages_all_time, "
+        "COALESCE(SUM(user_messages_count_per_week), 0) AS messages_week "
+        "FROM user_chat_stats WHERE user_tg_id = ? AND is_left = FALSE",
+        (user_id,),
+    ) as cursor:
+        summary = dict(await cursor.fetchone())
+    search_sql = " AND LOWER(COALESCE(cs.chat_title, '')) LIKE ? ESCAPE '\\'" if query else ""
+    escaped_query = query.lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    search_args = (f"%{escaped_query}%",) if query else ()
+    async with db.execute(
+        "SELECT COUNT(*) FROM user_chat_stats ucs "
+        "LEFT JOIN chat_settings cs ON cs.chat_id=ucs.chat_tg_id "
+        "WHERE ucs.user_tg_id=? AND ucs.is_left=FALSE" + search_sql,
+        (user_id, *search_args),
+    ) as cursor:
+        filtered_count = int((await cursor.fetchone())[0] or 0)
+    async with db.execute(
+        "SELECT ucs.chat_tg_id, "
+        "COALESCE(NULLIF(BTRIM(cs.chat_title), ''), 'Чат без названия') AS chat_title, "
+        "ucs.user_level, ucs.user_xp, ucs.local_rank, "
+        "ucs.user_messages_count_per_day, ucs.user_messages_count_per_week, "
+        "ucs.user_messages_count_per_month, ucs.user_messages_count_all_time, "
+        "ucs.last_message_at, ucs.membership_since, ucs.joined_at, "
+        "ucs.warnings, ucs.muted_until "
+        "FROM user_chat_stats ucs "
+        "LEFT JOIN chat_settings cs ON cs.chat_id = ucs.chat_tg_id "
+        "WHERE ucs.user_tg_id = ? AND ucs.is_left = FALSE " + search_sql +
+        " ORDER BY " + sort_orders[sort] + " "
+        "LIMIT ? OFFSET ?",
+        (user_id, *search_args, limit, offset),
+    ) as cursor:
+        chats = [dict(row) for row in await cursor.fetchall()]
+    chat_ids = [int(row["chat_tg_id"]) for row in chats]
+    activity_dates: dict[int, set[date]] = {chat_id: set() for chat_id in chat_ids}
+    sanction_history: dict[int, list[dict]] = {chat_id: [] for chat_id in chat_ids}
+    if chat_ids:
+        placeholders = ",".join("?" for _ in chat_ids)
+        async with db.execute(
+            f"SELECT chat_id,date FROM daily_user_stats WHERE user_id=? AND chat_id IN ({placeholders})",
+            (user_id, *chat_ids),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                try:
+                    activity_dates[int(row["chat_id"])].add(date.fromisoformat(str(row["date"])[:10]))
+                except (TypeError, ValueError):
+                    continue
+        async with db.execute(
+            "SELECT chat_id,action,created_at FROM ("
+            "SELECT chat_id,action,created_at,ROW_NUMBER() OVER (PARTITION BY chat_id ORDER BY created_at DESC,id DESC) AS row_no "
+            f"FROM moderation_logs WHERE user_id=? AND chat_id IN ({placeholders})"
+            ") own_history WHERE row_no<=5 ORDER BY chat_id,created_at DESC",
+            (user_id, *chat_ids),
+        ) as cursor:
+            for row in await cursor.fetchall():
+                sanction_history[int(row["chat_id"])].append({
+                    "action": str(row["action"] or "moderation"),
+                    "created_at": _iso(row["created_at"]),
+                })
+    today = datetime.now(timezone.utc).date()
+    for row in chats:
+        chat_id = int(row.pop("chat_tg_id"))
+        days = activity_dates.get(chat_id, set())
+        cursor_day = today if today in days else today - timedelta(days=1)
+        streak = 0
+        while cursor_day in days:
+            streak += 1
+            cursor_day -= timedelta(days=1)
+        row["activity_streak_days"] = streak
+        row["sanction_history"] = sanction_history.get(chat_id, [])
+    return {
+        "summary": {
+            "chat_count": int(summary["chat_count"] or 0),
+            "messages_all_time": int(summary["messages_all_time"] or 0),
+            "messages_week": int(summary["messages_week"] or 0),
+        },
+        "query": query,
+        "sort": sort,
+        "filtered_count": filtered_count,
+        "items": chats,
+        "next_offset": offset + len(chats) if offset + len(chats) < filtered_count else None,
+    }
+
+
+@router.get("/me/fitting-cosmetics")
+async def my_fitting_cosmetics(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Private saved-look projection for the fitting room.
+
+    This endpoint intentionally cannot inspect another player.  It is the only
+    place where a non-VIP owner may see stored cosmetic identifiers and CSS;
+    public profile endpoints always use the VIP-filtered projection.
+    """
+    return await get_fitting_cosmetics(db, int(user["id"]))
 
 
 class WhatsNewSeenRequest(BaseModel):
@@ -250,13 +593,22 @@ async def set_whatsnew_seen(body: WhatsNewSeenRequest, db=Depends(get_db), user=
     return {"ok": True}
 
 
-@router.get("/u/{target_id}")
-async def public_profile(target_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Глобальный публичный профиль игрока (БЛОК19 Часть3, GlobalUserProfile).
-    БЕЗ балансов (приватны) — только публичная витрина: ранг, уровень, стрик, ачивки,
-    клан, питомцы, надетая косметика."""
+@router.get("/public/{profile_ref}")
+async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Глобальная карточка игрока с owner-approved прозрачной статистикой.
+
+    Это сознательно не «обрезанная визитка»: игра показывает другим игрокам те же
+    игровые показатели, что видит владелец. Технические идентификаторы, данные
+    сессии, платёжные идентификаторы и служебные поля модерации не возвращаются.
+    """
+    await _ensure_profile_tables(db)
+    target_id = await public_profiles.resolve_reference(db, profile_ref=profile_ref)
+    if target_id is None:
+        raise HTTPException(404, "Игрок не найден.")
     async with db.execute(
         "SELECT u.user_tg_id, u.user_tg_username, u.global_rank, "
+        "u.user_balance_mora, u.user_balance_diamonds, "
+        "u.user_balance_dark_mora, u.user_balance_zarniki, "
         "COALESCE(u.account_xp, 0) AS account_xp, "
         "(v.user_id IS NOT NULL) AS is_vip "
         "FROM users u "
@@ -275,15 +627,10 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
         (target_id,),
     ) as c:
         agg = dict(await c.fetchone())
-    agg["lvl"] = account_progress(int(row["account_xp"] or 0))["level"]
+    public_progress = account_progress(int(row["account_xp"] or 0))
+    agg["lvl"] = public_progress["level"]
 
-    async with db.execute(
-        "SELECT name, species_id, rarity, placement, COALESCE(pet_level, 1) AS pet_level "
-        "FROM pets WHERE owner_id = ? "
-        "ORDER BY (placement = 'active') DESC, COALESCE(pet_level,1) DESC LIMIT 12",
-        (target_id,),
-    ) as c:
-        pets = [dict(r) for r in await c.fetchall()]
+    pets = await _profile_pets(db, target_id)
 
     streak_row = await get_global_streak(db, target_id)
     streak = streak_row["streak"]
@@ -295,48 +642,21 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
     from infrastructure.repositories import clans as clans_repo
     clan = await clans_repo.get_user_clan(db, target_id)
 
-    # Глобальные санкции (варн/ресракт/бан) видны ВСЕМ в публичном профиле —
-    # прозрачность модерации, а не только приватный блок экономических команд.
-    sanction_row = await gmod_repo.get_active_restriction(db, "user", target_id)
-    sanction = None
-    if sanction_row:
-        sanction = {
-            "type":       sanction_row["sanction_type"],   # "restrict" | "ban"
-            "label":      SANCTION_LABELS.get(sanction_row["sanction_type"], sanction_row["sanction_type"]),
-            "reason":     sanction_row.get("reason"),
-            "expires_at": sanction_row["expires_at"].isoformat() if sanction_row.get("expires_at") else None,
-        }
+    sanctions = await _sanctions(db, target_id, include_private=False)
 
-    # Локальные санкции (варны/мут по чатам, где ещё состоит) — суммарно, без
-    # привязки к конкретному чату (профиль глобальный). Более мягкий сигнал,
-    # чем глобальная санкция выше, но тоже должен быть виден всем.
+    # Партнёр, историческая лучшая ачивка, VIP и стаж остаются видимыми; игровые
+    # результаты ниже берутся только из трёх утверждённых v1/v2 систем.
     async with db.execute(
-        "SELECT COALESCE(SUM(warnings), 0) AS total_warnings, "
-        "MAX(CASE WHEN muted_until > NOW() THEN muted_until END) AS mute_until "
-        "FROM user_chat_stats WHERE user_tg_id = ? AND is_left = FALSE",
-        (target_id,),
-    ) as c:
-        chat_sanc = dict(await c.fetchone())
-    mute_until = chat_sanc.get("mute_until")
-
-    # «Настоящий профиль»: партнёр по браку (публично, как и в /me), побед в дуэлях
-    # (raw-прогресс метрики duel_wins, не капается порогами ачивки), лучшая ачивка
-    # (по уровню, для престиж-бейджа), VIP-тир (не просто корона) и дата первого
-    # сообщения (стаж игрока). Legacy Gates and CP are not read here.
-    async with db.execute(
-        "SELECT p2.user_tg_username "
+        "SELECT 1 "
         "FROM marriages m "
         "JOIN users p2 ON p2.user_tg_id = CASE "
         "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
-        "WHERE m.user1_id = ? OR m.user2_id = ? "
+        "WHERE (m.user1_id = ? OR m.user2_id = ?) AND m.ended_at IS NULL "
         "ORDER BY m.marriage_date DESC LIMIT 1",
         (target_id, target_id, target_id),
     ) as c:
         partner_row = await c.fetchone()
-    partner = partner_row[0] if partner_row else None
-
-    duel_ach = await get_achievement(db, target_id, "duelist")
-    duel_wins = int(duel_ach["progress"]) if duel_ach else 0
+    partner = "Есть" if partner_row else None
 
     all_ach = await get_all_achievements(db, target_id)
     best_achievement = None
@@ -351,33 +671,48 @@ async def public_profile(target_id: int, db=Depends(get_db), user=Depends(requir
     joined_date = await get_first_seen(db, target_id)
 
     return {
-        "user_id":      target_id,
-        "username":     row["user_tg_username"] or f"id{target_id}",
+        "profile_ref":  profile_ref,
+        "display_name": public_profiles.display_name(row["user_tg_username"], profile_ref),
         "rank":         _RANK_NAMES.get(row["global_rank"] or 0, "👤 Пользователь"),
-        "global_rank":  row["global_rank"] or 0,
-        "level":        agg["lvl"],
-        "combat_power": None,
-        "messages":     int(agg["msgs"] or 0),
+        "balances": {
+            "mora": float(row["user_balance_mora"] or 0),
+            "diamonds": float(row["user_balance_diamonds"] or 0),
+            "dark_mora": float(row["user_balance_dark_mora"] or 0),
+            "zarniki": float(row["user_balance_zarniki"] or 0),
+            "echo_shards": await echo_shards.get_balance(db, target_id),
+        },
+        "account_level": agg["lvl"],
+        "account_xp": int(row["account_xp"] or 0),
+        "xp_into": int(public_progress["xp_into"]),
+        "xp_to_next": int(public_progress["xp_need"]),
+        "messages_all_time": int(agg["msgs"] or 0),
         "streak":       streak,
         "achievements": ach,
-        "achievements_total": len(ACHIEVEMENTS),
+        "pets": pets,
+        "clan": ({
+            "name": clan.get("name"),
+            "tag": clan.get("tag"),
+            "emblem": clan.get("emblem"),
+            "role": clan.get("role"),
+        } if clan else None),
+        "partner": partner,
         "best_achievement": best_achievement,
+        "joined_date": _iso(joined_date),
+        "sanctions": sanctions,
+        "game_results": await _game_results(db, target_id, include_private=False),
+        "achievement_paths": await _achievement_paths(db, target_id),
         "is_vip":       bool(row["is_vip"]),
+        "vip": {
+            "tier": vip_info["tier"],
+            "label": vip_info["tier_label"],
+            "days_left": vip_info["days_left"],
+        } if vip_info else None,
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).
         "avatar":       await _vip_avatar(db, target_id),
-        "vip_tier_label": vip_info["tier_label"] if vip_info else None,
-        "gates_floor":  None,
-        "joined_date":  joined_date,
-        "partner":      partner,
-        "duel_wins":    duel_wins,
-        "pets":         pets,
-        "clan":         ({"name": clan["name"], "tag": clan["tag"],
-                          "emblem": clan["emblem"], "role": clan["role"]} if clan else None),
         "cosmetics":    await get_active_cosmetics(db, target_id),
-        "sanction":     sanction,
-        "chat_warnings": int(chat_sanc.get("total_warnings") or 0),
-        "muted_until":   mute_until.isoformat() if mute_until else None,
+        "sky_sigil":     await _sky_sigil(db, target_id),
+        "supporter_badge": await _supporter_badge(db, target_id),
     }
 
 

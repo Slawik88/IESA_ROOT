@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from core.cosmetics import COSMETICS, COSMETIC_SLOT_PRICES, LINEUPS, lineup_items
+from core.global_skins_v1 import shop_items_for_lineup
 from services.cosmetics import lineup_buy_quote
 
 
@@ -19,7 +20,7 @@ EXPECTED_LINEUP_TOTALS = {
     "inferno": 7700,
     "hanami": 10130,
     "celestial": 10700,
-    "void": 12200,
+    "void": 13800,
     "artifact": 16350,
     "moon_lotus": 20250,
     "ryujin_tide": 20250,
@@ -49,8 +50,12 @@ for lineup_id, meta in LINEUPS.items():
     quote = lineup_buy_quote(lineup_id, set())
     assert quote is not None
     assert quote["total"] == EXPECTED_LINEUP_TOTALS[lineup_id]
-    assert quote["price_min"] == min(matrix.values())
-    assert quote["price_max"] == max(matrix.values())
+    collection_prices = list(matrix.values()) + [
+        int(item["price_zarniki"])
+        for item in shop_items_for_lineup(lineup_id).values()
+    ]
+    assert quote["price_min"] == min(collection_prices)
+    assert quote["price_max"] == max(collection_prices)
 
 old_uniform_total = sum(
     int(LINEUPS[item["lineup"]]["price"][0]["zarniki"])

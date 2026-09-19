@@ -67,6 +67,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(purge_write_rank, 0) AS purge_write_rank, "
         "COALESCE(events_enabled, 1) AS events_enabled, "
         "COALESCE(nsfw_warps_allowed, 1) AS nsfw_warps_allowed, "
+        "COALESCE(echo_events_enabled, 0) AS echo_events_enabled, "
         "COALESCE(auction_min_rank, 0) AS auction_min_rank, "
         "COALESCE(rank_duel, 0) AS rank_duel, "
         "COALESCE(rank_marriage, 0) AS rank_marriage, "
@@ -81,6 +82,11 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(module_zoo, 1) AS module_zoo, "
         "COALESCE(module_warps, 1) AS module_warps, "
         "COALESCE(module_daily_deal, 1) AS module_daily_deal, "
+        "COALESCE(module_mafia, 1) AS module_mafia, "
+        "COALESCE(module_rhythm, 1) AS module_rhythm, "
+        "COALESCE(module_pets, 1) AS module_pets, "
+        "COALESCE(module_echo, 0) AS module_echo, "
+        "COALESCE(include_in_global_top, 1) AS include_in_global_top, "
         "COALESCE(notif_auction, 1) AS notif_auction, "
         "COALESCE(notif_gacha, 1) AS notif_gacha, "
         "COALESCE(notif_expeditions, 1) AS notif_expeditions, "
@@ -97,10 +103,13 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "rank_warn": 2, "rank_mute": 1, "rank_kick": 1, "rank_ban": 2,
             "rank_shield": 4, "rank_immune": 5, "purge_write_rank": 0,
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
+            "echo_events_enabled": 0,
             "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
             "module_shop": 1, "module_gacha": 1, "module_expeditions": 1,
             "module_auction": 1, "module_games": 1, "module_exchange": 1,
             "module_quests": 1, "module_zoo": 1, "module_warps": 1, "module_daily_deal": 1,
+            "module_mafia": 1, "module_rhythm": 1, "module_pets": 1, "module_echo": 0,
+            "include_in_global_top": 1,
             "notif_auction": 1, "notif_gacha": 1, "notif_expeditions": 1, "notif_quests": 1,
         }
 
@@ -125,6 +134,21 @@ async def chat_notif_enabled(db: aiosqlite.Connection, chat_id: int, key: str) -
 async def update_chat_settings(db: aiosqlite.Connection, chat_id: int, **kwargs):
     if not kwargs:
         return
+    allowed = {
+        "shield_duration_days", "max_warnings", "is_purging", "purge_min_rank",
+        "purge_action_rank", "purge_write_rank", "rank_chat_lock", "rank_warn",
+        "rank_mute", "rank_kick", "rank_ban", "rank_shield", "rank_immune",
+        "rank_marriage", "nsfw_warps_allowed", "echo_events_enabled",
+        "module_mafia", "module_rhythm", "module_pets", "module_quests",
+        "module_warps", "module_echo", "include_in_global_top",
+        "events_enabled", "auction_min_rank", "rank_duel", "rank_give",
+        "module_shop", "module_gacha", "module_expeditions", "module_auction",
+        "module_games", "module_exchange", "module_zoo", "module_daily_deal",
+        "notif_auction", "notif_gacha", "notif_expeditions", "notif_quests",
+    }
+    unknown = set(kwargs) - allowed
+    if unknown:
+        raise ValueError(f"unsupported chat settings: {', '.join(sorted(unknown))}")
     # Ensure row exists so UPDATE below isn't silently a no-op for new chats
     await db.execute(
         "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",

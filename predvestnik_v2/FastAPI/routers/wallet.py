@@ -1,9 +1,12 @@
 """FastAPI/routers/wallet.py — история транзакций кошелька."""
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictInt
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.wallet_log import get_recent
-from infrastructure.repositories.economy import exchange_zarniki
+from infrastructure.repositories import zarniki_exchange_v1 as exchange_repo
+from services import zarniki_exchange_v1
+from core.zarniki_exchange_v1 import ZarnikiExchangePolicyError
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
@@ -90,8 +93,8 @@ async def wallet_history(
 
 
 class ExchangeZarnikiRequest(BaseModel):
-    amount: float = Field(gt=0)
-    to: str
+    amount: StrictInt = Field(ge=1, le=50)
+    to: str = Field(pattern="^(mora|diamonds)$")
 
 
 @router.post("/exchange-zarniki")
@@ -101,16 +104,14 @@ async def exchange_zarniki_endpoint(
     user=Depends(require_tg_user),
     request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Необратимо обменять целые Зарники только на Мору."""
-    if body.to != "mora":
-        raise HTTPException(400, "Алмазы за Зарники не продаются.")
+    """Exchange already-held whole Zarniki under the versioned daily policy."""
     if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
         raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
-    ok, message = await exchange_zarniki(
-        db, user["id"], body.amount, body.to,
-        idempotency_key=request_key.strip(),
-    )
-    if not ok:
-        raise HTTPException(400, message)
-    await db.commit()
-    return {"ok": True, "message": message}
+    try:
+        await exchange_repo.ensure_tables(db)
+        return await zarniki_exchange_v1.exchange(
+            db, user_id=int(user["id"]), zarniki=body.amount, target=body.to,
+            action_id=request_key.strip(),
+        )
+    except (ZarnikiExchangePolicyError, IdempotencyConflict, InsufficientBalance) as error:
+        raise HTTPException(409, str(error))

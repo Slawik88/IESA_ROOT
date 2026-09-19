@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/global-skins-v1.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -21,7 +22,7 @@
   <div class="pl-skip">нажми, чтобы пропустить</div>
 </div>
 
-<!-- ═══ ХЕДЕР (двухслойный): 1) игрок + «Что нового», 2) валюты во всю ширину ═══ -->
+<!-- ═══ ХЕДЕР: личность игрока и служебные действия ═══ -->
 <header id="app-header">
   <div class="hdr-row hdr-row-top">
     <div class="hdr-user" onclick="goTo('profile')">
@@ -39,17 +40,6 @@
       <button class="hdr-refresh" onclick="refreshPage()" aria-label="Обновить">🔄</button>
     </div>
   </div>
-  <div class="hdr-row hdr-row-curr">
-    <div id="curr-bar" aria-label="Ваши валюты — нажмите для подробностей">
-      <span class="cb-item"><span>🪙</span><span class="cb-val" id="cb-mora">0</span></span>
-      <span class="cb-item"><span>💎</span><span class="cb-val" id="cb-dia">0.0</span></span>
-      <span class="cb-item cb-zar"><span>✨</span><span class="cb-val" id="cb-zar">0</span>
-        <button class="cb-plus" onclick="event.stopPropagation();goTo('market','vip')" aria-label="Пополнить">+</button>
-      </span>
-      <span class="cb-item" id="cb-dark-item" style="display:none"><span>🌑</span><span class="cb-val" id="cb-dark">0</span></span>
-      <span class="cb-info">ⓘ</span>
-    </div>
-  </div>
 </header>
 
 <aside class="development-notice" aria-label="Статус разработки">
@@ -63,18 +53,14 @@
 <div id="login-ov" class="login-ov hidden">
   <div class="login-orb">🔮</div>
   <h1>Предвестник</h1>
-  <p>Войдите через Telegram, чтобы открыть свой игровой профиль, питомцев и магазин.</p>
-  <div id="tg-login-widget">
-    <script src="https://telegram.org/js/telegram-widget.js?22"
-            data-telegram-login="{{BOT_USERNAME}}" data-size="large" data-radius="14"
-            data-onauth="onTelegramWidgetAuth(user)" data-request-access="write"></script>
-  </div>
+  <p>Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
+  {{LOGIN_SURFACE}}
   <div id="login-err" class="err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
   <p style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
 </div>
 
 <!-- ═══ МОДАЛКА → BOTTOM SHEET ═══ -->
-<dialog id="modal">
+<dialog id="modal" aria-labelledby="mt">
   <div class="sheet">
     <div class="sheet-grip"></div>
     <div class="mhead"><span id="mt" class="mtitle"></span><button class="mclose" onclick="CM()" aria-label="Закрыть">✕</button></div>
@@ -85,105 +71,15 @@
 
 <!-- ═══ 1. ПРОФИЛЬ ═══ -->
 <div id="pg-profile" class="page active">
-  <div class="tabs tabs-scroll">
-    <button class="tb active" onclick="switchPro('main',this)">👤 Обзор</button>
-    <button class="tb" onclick="switchPro('inv',this)">🎒 Инвентарь</button>
-    <button class="tb" onclick="switchPro('themes',this)">🎨 Темы</button>
-    <button class="tb" onclick="switchPro('quests',this)">📜 История</button>
-    <button class="tb" onclick="switchPro('ach',this)">🏆 Ачивки</button>
-    <button class="tb" onclick="switchPro('hof',this)">👑 Топ</button>
-  </div>
   <div id="pro-main">
     <div class="sk" style="height:140px;border-radius:22px;margin-bottom:12px"></div>
     <div class="sk" style="height:70px;border-radius:16px"></div>
   </div>
-  <div id="pro-inv" style="display:none">
-    <div id="inv-items"><div id="mkt-inv"></div></div>
-  </div>
-  <div id="pro-themes" style="display:none"><div id="col-themes"><div class="loader">Загрузка...</div></div></div>
-  <div id="pro-quests" style="display:none">
-    <div class="tabs tab-inner">
-      <button class="tb active" onclick="swQuests('quests',this)">📋 Задания</button>
-      <button class="tb" onclick="swQuests('streak',this)">🔥 Серия</button>
-    </div>
-    <div id="quests-content"><div id="qc"></div></div>
-    <div id="pro-streak" style="display:none"></div>
-  </div>
-  <div id="pro-ach" style="display:none"></div>
-  <div id="pro-hof" style="display:none">
-    <div class="tabs tab-inner">
-      <button class="tb active" onclick="switchTop('local',this)">🏘 Чат</button>
-      <button class="tb" onclick="switchTop('global',this)">🌍 Глобально</button>
-    </div>
-    <div id="top-c"></div>
-  </div>
 </div>
 
-<!-- ═══ 2. ПИТОМЦЫ (Питомцы 2.0: единый экран — слоты + весь ростер гридом) ═══ -->
-<div id="pg-zoo" class="page">
-  <div id="zoo-exp-wrap"></div>
-  <div class="tabs">
-    <button class="tb active" onclick="swZoo('nursery',this)">🐾 Мои питомцы</button>
-    <button class="tb" onclick="swZoo('bestiary',this)">📖 Бестиарий</button>
-  </div>
-  <div id="zoo-c"></div>
-  <div id="zoo-bestiary" style="display:none"><div id="best-c"></div></div>
-</div>
-
-<!-- ═══ 3. ИГРА (Reconstruction 3.0: точный автокликер) ═══ -->
+<!-- ═══ Центр активностей ═══ -->
 <div id="pg-arena" class="page">
   <div id="ar-game"><div id="game-hub"></div></div>
-</div>
-
-<!-- ═══ 4. МАГАЗИН: Гача / Премиум / Расходники / Акции дня ═══ -->
-<div id="pg-market" class="page">
-  <div class="tabs">
-    <button class="tb active" onclick="swMkt('gacha',this)">🗃 Архив</button>
-    <button class="tb" onclick="_trackSubtab('market/cosmetics');openLooksModal()">🎨 Образы</button>
-    <button class="tb" onclick="swMkt('vip',this)">✨ Премиум</button>
-    <button class="tb" onclick="swMkt('goods',this)">🧰 Снабжение</button>
-    <button class="tb" onclick="swMkt('deal',this)">🏷 Витрина</button>
-  </div>
-  <div id="balrow" class="balrow" style="display:none"></div>
-  <div id="mkt-gacha"><div id="gc"><div class="loader">Загрузка...</div></div></div>
-  <div id="mkt-vip" style="display:none"><div class="loader">Загрузка...</div></div>
-  <div id="mkt-goods" style="display:none">
-    <div class="tabs">
-      <button class="tb active" onclick="swGoods('shop',this)">🛒 Обычный</button>
-      <button class="tb" onclick="swGoods('dark',this)">🌑 Тёмный</button>
-    </div>
-    <div id="mkt-shop"></div>
-    <div id="mkt-dark" style="display:none"><div id="dkc"></div></div>
-  </div>
-  <div id="mkt-deal" style="display:none"><div class="loader">Загрузка...</div></div>
-</div>
-
-<!-- ═══ 5+6. БЕСТИАРИЙ и КРАФТ → перенесены в Питомцы/Инвентарь ═══ -->
-<div id="pg-bestiary" class="page" style="display:none!important"></div>
-<div id="pg-craft" class="page" style="display:none!important"></div>
-
-<!-- ═══ 7. АУКЦИОН & ОБМЕННИК ═══ -->
-<div id="pg-auction" class="page">
-  <div class="card-title" style="margin-bottom:10px">⚖️ Аукцион · Валюты · Биржа</div>
-  <div class="tabs">
-    <button class="tb active" onclick="swAuction('auc',this)">🏛 Аукцион</button>
-    <button class="tb" onclick="swAuction('exch',this)">🪙 Валюты</button>
-    <button class="tb" onclick="swAuction('crypto',this)">📈 Биржа</button>
-  </div>
-  <div id="mkt-auc"><div class="loader">Загрузка...</div></div>
-  <div id="mkt-exch" style="display:none"><div class="loader">Загрузка...</div></div>
-  <div id="mkt-crypto" style="display:none"><div class="loader">Загрузка...</div></div>
-</div>
-
-<!-- ═══ 8+10+11. КВЕСТЫ / АЧИВКИ / ЗАЛ СЛАВЫ → перенесены в Профиль ═══ -->
-<div id="pg-quests" class="page" style="display:none!important"></div>
-<div id="pg-ach"    class="page" style="display:none!important"></div>
-<div id="pg-hof"   class="page" style="display:none!important"></div>
-
-<!-- ═══ 9. БОЕВОЙ ПРОПУСК ═══ -->
-<div id="pg-bp" class="page">
-  <div class="card-title" style="margin-bottom:10px">🎫 Боевой пропуск</div>
-  <div id="pro-bp"></div>
 </div>
 
 <!-- ═══ 12. АДМИНКА ═══ -->
@@ -226,87 +122,44 @@
   <div id="console-c"><div class="loader">Загрузка...</div></div>
 </div>
 
+<div id="pg-questlog" class="page"></div>
+<div id="pg-achievements-v1" class="page"></div>
+
 <!-- ═══ 14. ПОМОЩЬ ═══ -->
 <div id="pg-help" class="page">
   <div class="card-title" style="margin-bottom:10px">🆘 Помощь</div>
 
   <div class="card">
-    <div class="card-title">🪙 Валюты</div>
+    <div class="card-title">🎮 Центр активностей</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">🪙 Мора</b> — оборотная валюта подготовки, торговли и проектов; не покупает XP или победу.<br>
-      <b style="color:var(--bright)">💎 Алмазы</b> — редкие заработанные права выбора; купить или обменять их нельзя.<br>
-      <b style="color:var(--bright)">✨ Зарники</b> — косметика, VIP-сервис и необратимый обмен в Мору.<br>
-      <b style="color:var(--bright)">🌑 Архив Ночи</b> — сохранённый баланс Тёмной Моры; новых начислений нет, остаток тратится на архивные предметы.
+      В разделе <b style="color:var(--bright)">Игра</b> доступны три формата: <b style="color:var(--bright)">Ритм</b> для реакции,
+      <b style="color:var(--bright)">Сапёр</b> для логики и <b style="color:var(--bright)">Мафия</b> для игры прямо в Telegram-чате.
+      Выберите активность — у каждой свои правила и таблица лидеров.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">🐾 Спутники</div>
+    <div class="card-title">👤 Профиль и история</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Все прежние питомцы, имена и редкость сохранены. Во вкладке <b style="color:var(--bright)">Игра → Спутник</b> выбирается активный спутник и его роль.<br>
-      Роль меняет решение или информацию во время забега, но не даёт пассивный процент силы. Связь растёт от заботы и совместной игры без штрафа за пропущенный день.<br>
-      Походы на 2/6/12 часов запускаются там же; несколько готовых результатов забираются одной кнопкой.
+      Здесь находятся личный профиль, семья, квесты, питомцы и история операций.
+      Питомец уже можно выбрать активным; забота, походы и экспедиции появятся после отдельной проверки правил и экономики.
     </div>
   </div>
 
   <div class="card">
-    <div class="card-title">🔔 Разлом</div>
+    <div class="card-title">💎 Валюты и покупки</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Разлом колокола</b> — короткий боевой автокликер, где важна правильная руна, а не скорость спама.<br>
-      Между волнами ты выбираешь усиления с компромиссами и собираешь собственную комбинацию. Неверные и лишние нажатия ухудшают результат.<br>
-      Награды пока считаются в режиме проверки и не меняют кошелёк.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🎨 Внешний вид и сервис</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">🎨 Образы</b> — заранее известная косметика только за Зарники; силы она не даёт.<br>
-      <b style="color:var(--bright)">✨ Премиум</b> — пополнение Зарников и VIP-сервис без игровых преимуществ.<br>
-      <b style="color:var(--bright)">🗃 Архив находок</b> — сохранённые жетоны и гарант закрытой системы; новых круток нет.<br>
-      Старая Мастерская и случайная Акция дня закрыты, поэтому баланс там не списывается.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">📜 История прогресса</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Старые задания, серия и сезонный прогресс сохранены для истории, но больше не создают награды.<br>
-      Уже заработанные награды старого сезона можно забрать; купить уровень за Алмазы нельзя.<br>
-      Новый сезон появится только с опубликованными правилами и заранее показанными наградами.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">⚖️ Доска и Биржа</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Новые лоты и ставки временно закрыты; существующие лоты, резервы и возвраты не удаляются.<br>
-      <b style="color:var(--bright)">Биржа</b> сохраняет лорные активы и серверную цену.<br>
-      Единственный валютный обмен — необратимый <b style="color:var(--bright)">Зарники → Мора</b> по показанному курсу.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🔨 Крафт</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Создание предметов из ингредиентов по рецептам — расходники, бустеры и редкие вещи.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">🏆 Ачивки и 👑 Зал Славы</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--bright)">Ачивки</b> — достижения за активность и успехи в игре.<br>
-      <b style="color:var(--bright)">Зал Славы</b> — топы игроков по чату и глобально.
+      На релизе магазин и новые источники наград появляются только после публикации правил.
+      Старые игровые способы заработка больше не используются.
     </div>
   </div>
 
   <div class="card" id="help-staff" style="display:none">
-    <div class="card-title">⚙️ Для персонала</div>
+    <div class="card-title">⚙️ Центр администраторов</div>
     <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Раздел «Ещё → Управление» открывает админку чата (модерация, настройки, журнал)
-      и/или глобальную модерацию сети чатов — в зависимости от ваших прав.<br>
-      Команда «<b style="color:var(--bright)">бот чистка</b>» в чате запускает быструю очистку служебных сообщений бота.
+      В разделе <b style="color:var(--bright)">Ещё → Управление чатами</b> доступны только те инструменты,
+      на которые у вас есть права: модерация, настройки, журнал и управление сетью чатов.
+      Быстрая очистка запускается в группе командой <b style="color:var(--bright)">бот чистка</b>.
     </div>
   </div>
 </div>
@@ -315,26 +168,28 @@
 <div id="pg-news" class="page"></div>
 
 <div id="pg-looks" class="page looks-screen"></div>
+<div id="pg-pets" class="page"></div>
+<div id="pg-chests" class="page"></div>
+<div id="pg-public-profile" class="page"></div>
+<div id="pg-chat-tracker" class="page"></div>
 
 <div id="pg-more" class="page">
   <div class="cc-grid">
-    <div class="cc-card cc-bp" onclick="goTo('bp')"><span class="cc-ic">🎫</span><span class="cc-t">Архив сезона</span><span class="cc-s">сохранённые права</span></div>
-    <div class="cc-card" onclick="goTo('auction')"><span class="cc-ic">⚖️</span><span class="cc-t">Доска</span><span class="cc-s">старые расчёты</span></div>
-    <div class="cc-card" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление</span><span class="cc-s">Админка</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
-    <div class="cc-card" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Помощь</span><span class="cc-s">Гайды</span></div>
+    <div class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
+    <div class="cc-card cc-wide" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Как пользоваться</span><span class="cc-s">Игры, профиль и управление</span></div>
   </div>
 </div>
 
-<!-- ═══ НИЖНИЙ ДОК (5 слотов под большой палец — UX-лимит 3-5) ═══ -->
+<!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
 <nav class="nav">
   <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
-  <div class="nb" data-page="zoo" onclick="switchPage('zoo')"><span class="ni">🐾</span>Питомцы</div>
   <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">🔔</span>Игра</div>
-  <div class="nb nb-shop" data-page="market" onclick="switchPage('market')"><span class="ni">💎</span>Магазин</div>
+  <div class="nb nb-looks" data-page="looks" onclick="openLooksModal()"><span class="ni">🎨</span>Образы</div>
   <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
 </nav>
 
+<script src="{{BASE}}/static/global-skins-v1.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
 <script src="{{BASE}}/static/app.devmode.js?v={{ASSET_VER}}" defer></script>

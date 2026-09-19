@@ -4,7 +4,8 @@ Levenshtein-based "did you mean?" for misspelled bot commands.
 """
 
 # ── Known canonical command forms ────────────────────────────────────────────
-# Only primary aliases (shortest/most recognisable). Full alias lists live in handlers.
+# Core commands remain explicit; product surfaces are sourced from the same
+# parity registry as chat/web redirects so discovery cannot drift after a rename.
 KNOWN_COMMANDS: list[str] = [
     # Profile & identity
     "профиль", "я", "кто", "анкета", "инфо",
@@ -42,6 +43,13 @@ KNOWN_COMMANDS: list[str] = [
     # Profile themes
     "темы", "мои темы",
 ]
+
+from core.surface_parity import SURFACES  # noqa: E402  (registry is data-only)
+
+for _surface_spec in SURFACES:
+    for _alias in _surface_spec.aliases:
+        if _alias not in KNOWN_COMMANDS:
+            KNOWN_COMMANDS.append(_alias)
 
 _SORTED_KNOWN = sorted(KNOWN_COMMANDS, key=len)
 

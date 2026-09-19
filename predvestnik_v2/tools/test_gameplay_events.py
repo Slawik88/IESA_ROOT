@@ -90,8 +90,72 @@ async def main():
             "server_revision": 23,
             "integrity": {"status": "clear", "automatic_ban": False},
         },
+        "signals_resolved": 12,
+        "companion_role_id": "lantern",
+        "upgrades": ["heavy_echo"],
+        "exit_wave_elapsed_ms": 4312,
     })
     assert '"reconstruction:41:terminal"' in terminal_json
+    assert '"exit_wave_elapsed_ms":4312' in terminal_json
+
+    _, rhythm_json = canonical_event_payload("daily_contract_selected", {
+        "day_key": "2026-08-26",
+        "contract_id": "steady_hand",
+        "category": "mastery",
+        "offered_ids": ["steady_hand", "charged_bell", "living_build"],
+        "target": 1,
+    })
+    assert '"contract_id":"steady_hand"' in rhythm_json
+
+    _, surface_json = canonical_event_payload(
+        "product_surface_opened", {"surface_id": "inventory"}
+    )
+    _, preference_json = canonical_event_payload(
+        "player_preference_changed", {"preference": "vip_expiry", "enabled": False}
+    )
+    assert '"surface_id":"inventory"' in surface_json
+    assert '"enabled":false' in preference_json
+    _, care_json = canonical_event_payload("companion_care", {
+        "pet_id": 11, "action": "play", "scene_id": "bell_game",
+        "bond_points": 1, "care_bank": 0,
+    })
+    assert '"scene_id":"bell_game"' in care_json
+    _, expedition_start_json = canonical_event_payload("expedition_started", {
+        "contract_id": 3, "pet_id": 11, "duration_hours": 6,
+        "route_id": "story_clue", "projected_mora": 145,
+        "archive_version": "companion-archive-v1-2026-08-27",
+        "archive_set_id": "lost_names",
+    })
+    _, expedition_claim_json = canonical_event_payload("expedition_claimed", {
+        "claimed_count": 1, "projected_mora_total": 145,
+        "contract_ids": [3], "discovery_ids": ["ash_map"],
+    })
+    assert '"duration_hours":6' in expedition_start_json
+    assert '"claimed_count":1' in expedition_claim_json
+    _, archive_json = canonical_event_payload("archive_progressed", {
+        "archive_version": "companion-archive-v1-2026-08-27",
+        "contract_ids": [3], "new_discovery_ids": ["ink_trace"],
+        "duplicate_discovery_ids": [], "completed_set_ids": [], "found_total": 1,
+    })
+    assert '"found_total":1' in archive_json
+    assert '"discovery_id"' not in expedition_start_json
+    _, weekly_json = canonical_event_payload("weekly_case_progressed", {
+        "policy_version": "weekly-case-v1-2026-08-27", "case_id": "bell_beneath_water",
+        "path_id": "follow_bell", "day_key": "2026-08-27",
+        "progress": 1, "target": 3, "completed": False,
+    })
+    assert '"progress":1' in weekly_json
+    _, weekly_done_json = canonical_event_payload("weekly_case_completed", {
+        "policy_version": "weekly-case-v1-2026-08-27", "case_id": "bell_beneath_water",
+        "path_id": "follow_bell", "finale_id": "many_voices",
+        "completion_trigger": "meaningful_day",
+    })
+    assert '"finale_id":"many_voices"' in weekly_done_json
+    _, echo_json = canonical_event_payload("chat_echo_contributed", {
+        "event_id": 9, "policy_version": "chat-echo-v1-2026-08-27",
+        "symbol_id": "bell", "total": 2, "target": 3, "completed": False,
+    })
+    assert '"symbol_id":"bell"' in echo_json
 
     for invalid in (
         {**battle_start_payload(), "username": "private"},
@@ -163,7 +227,7 @@ async def main():
     assert await record_event(db, **milestone) is True
     assert await record_event(db, **milestone) is False
 
-    print("OK: gameplay events validate schema/PII and reject conflicting replays")
+print("OK: gameplay events validate schema/PII and reject conflicting replays")
 
 
 asyncio.run(main())

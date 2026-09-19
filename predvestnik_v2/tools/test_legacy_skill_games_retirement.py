@@ -34,6 +34,9 @@ class Cursor:
     async def fetchall(self):
         return self.rows
 
+    async def fetchone(self):
+        return self.rows[0] if self.rows else None
+
 
 class Tx:
     def __init__(self, db):
@@ -65,6 +68,11 @@ class DB:
         ]
 
     def execute(self, sql, args=()):
+        if "COUNT(*) AS count" in sql:
+            return Cursor([{
+                "count": len(self.active),
+                "stake": sum(max(0.0, float(row["stake"])) for row in self.active),
+            }])
         if "SELECT id, game, stake" in sql:
             return Cursor(list(self.active))
         if "UPDATE minigame_sessions" in sql:
@@ -84,6 +92,9 @@ async def main():
         credits.append((user_id, kwargs))
 
     skill_games.add_balance = fake_add_balance
+    assert await skill_games.get_active_session_summary(db, 7) == {
+        "active_count": 2, "refundable_mora": 205.0,
+    }
     first = await skill_games.refund_active_sessions(db, 7)
     second = await skill_games.refund_active_sessions(db, 7)
 
@@ -95,10 +106,16 @@ async def main():
 
     router = pathlib.Path("FastAPI/routers/skill_games.py").read_text(encoding="utf-8")
     ui = pathlib.Path("FastAPI/static/index.html").read_text(encoding="utf-8")
+    client = pathlib.Path("FastAPI/static/app.04.js").read_text(encoding="utf-8")
     bot = pathlib.Path("bot/handlers/games.py").read_text(encoding="utf-8")
     assert "HTTPException(410" in router
     assert "swArena('games'" not in ui and 'id="ar-games"' not in ui
-    assert "Разлом колокола" in bot and "Сапёр, Сейф и Алхимия со ставками закрыты" in bot
+    # Refund support is kept server-side for the compensation audit, while all
+    # former wager-game controls are deliberately absent from the release UI.
+    assert "/games2/retire-active" not in client and "loadSkillGames" not in client
+    assert "Игры Предвестника" in bot and "Сапёр" in bot
+    assert "Сапёр, Сейф и Алхимия со ставками закрыты" not in bot
+    assert "check_callback_owner" in bot
 
     print("OK: wager games are closed; active stakes refund atomically and once")
 

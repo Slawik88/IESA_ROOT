@@ -132,6 +132,19 @@ async def get_stats(db, user_id: int, game_version: str) -> dict[str, Any]:
     return data
 
 
+async def list_stats_versions(db, user_id: int) -> list[dict[str, Any]]:
+    """Read durable career aggregates across compatible Reconstruction versions."""
+    async with db.execute(
+        "SELECT game_version, upgrades_json FROM gameplay_stats WHERE user_id = ?",
+        (int(user_id),),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [
+        {"game_version": str(row[0]), "upgrades": json.loads(row[1] or "{}")}
+        for row in rows
+    ]
+
+
 async def record_run_started(db, user_id: int, game_version: str) -> dict[str, Any]:
     await db.execute(
         "INSERT INTO gameplay_stats (user_id, game_version, runs_started) VALUES (?, ?, 1) "
@@ -211,6 +224,16 @@ async def get_progress(db, user_id: int, game_version: str) -> dict[str, Any] | 
         (user_id, game_version),
     ) as cursor:
         return _decode_progress(await cursor.fetchone())
+
+
+async def list_progress_versions(db, user_id: int) -> list[dict[str, Any]]:
+    """Read every durable v3 progress row so feats survive a version bump."""
+    async with db.execute(
+        "SELECT * FROM gameplay_progress WHERE user_id = ? ORDER BY game_version",
+        (int(user_id),),
+    ) as cursor:
+        rows = await cursor.fetchall()
+    return [decoded for row in rows if (decoded := _decode_progress(row)) is not None]
 
 
 async def ensure_progress(

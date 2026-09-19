@@ -15,6 +15,10 @@ _DEFAULTS = [
     ("tab_cosmetics",          "🎨 Косметика / Образы", True),
     ("tab_quests",             "📋 Квесты", True),
     ("game_reconstruction_v1", "🧭 Reconstruction 3.0 (dev)", False),
+    ("game_rhythm_v2",         "ᚱ Новый Ритм (dev)", False),
+    ("game_minesweeper_v2",    "💣 Новый Сапёр (dev)", False),
+    ("game_mafia_v1",          "🕵️ Мафия (dev)", False),
+    ("content_chests_v1",       "🗝 Сундуки питомцев (canary)", False),
     # Видимость игры и финансовая выдача не могут быть одним переключателем.
     ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
 ]

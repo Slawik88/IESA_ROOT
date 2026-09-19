@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user, require_module
-from services.skill_games import refund_active_sessions
+from services.skill_games import get_active_session_summary, refund_active_sessions
 
 router = APIRouter(
     prefix="/games2",
@@ -31,17 +31,11 @@ class AlchemySubmitRequest(BaseModel):
 
 @router.get("/state")
 async def skill_state(db=Depends(get_db), user=Depends(require_tg_user)):
-    async with db.execute(
-        "SELECT COUNT(*) AS count, COALESCE(SUM(stake), 0) AS stake "
-        "FROM minigame_sessions WHERE user_id = ? AND status = 'active'",
-        (user["id"],),
-    ) as cursor:
-        row = await cursor.fetchone()
+    recovery = await get_active_session_summary(db, user["id"])
     return {
         "retired": True,
-        "message": "Сапёр, Сейф и Алхимия со ставками закрыты. Основная игра — Разлом колокола.",
-        "active_count": int(row["count"] or 0) if row else 0,
-        "refundable_mora": float(row["stake"] or 0) if row else 0.0,
+        "message": "Сапёр, Сейф и Алхимия со ставками закрыты. Актуальные игры находятся в Центре Предвестника.",
+        **recovery,
     }
 
 
@@ -56,7 +50,7 @@ async def retire_active(db=Depends(get_db), user=Depends(require_tg_user)):
 
 
 def _closed() -> None:
-    raise HTTPException(410, "Старая игра со ставками закрыта. Откройте Разлом колокола.")
+    raise HTTPException(410, "Старая игра со ставками закрыта. Откройте Центр Предвестника.")
 
 
 @router.post("/sapper/start")

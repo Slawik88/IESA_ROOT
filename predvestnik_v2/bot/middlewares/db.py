@@ -10,6 +10,7 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import users
 from infrastructure.repositories.streak import get_chat_timezone
 from services import leveling
+from bot.middlewares.global_sanctions_mw import evaluate_global_sanctions
 
 anti_spam_cache: dict[int, float] = {}
 
@@ -50,6 +51,20 @@ async def db_middleware(
         # 2026-07-03: посторонние ID в списке на выдачу «Пакета Обновления 2.0»).
         is_bot_sender = bool(user and getattr(user, "is_bot", False))
 
+        # This must run before *any* automatic writer below.  A failure is
+        # fail-closed: logging it and continuing would let a banned user alter
+        # activity-derived state while sanction storage is unavailable.
+        try:
+            if not await evaluate_global_sanctions(db, event, data):
+                return
+        except Exception as exc:
+            logger.error(f"Global-sanction gate failed closed: {exc}")
+            return
+
+        # Appeals/help from a banned user are deliberately allowed to reach
+        # their handlers, but must not refresh profile/activity automatically.
+        automatic_writes_allowed = not bool(data.get("user_banned"))
+
         try:
             if user or chat_obj:
                 blocked = False
@@ -68,7 +83,7 @@ async def db_middleware(
                 if blocked:
                     return
 
-            if user and not is_bot_sender:
+            if user and not is_bot_sender and automatic_writes_allowed:
                 await users.update_user(db, user.id, user.username)
                 if config.developer_id and user.id == config.developer_id:
                     await db.execute(
@@ -82,7 +97,50 @@ async def db_middleware(
             # строк chat_settings — иначе в админ-панелях появляются «фантомные чаты-цифры».
             _is_group = getattr(chat_obj, "type", None) in ("group", "supergroup") if chat_obj else False
 
-            if user and not is_bot_sender and chat_obj and event.message and _is_group:
+            if (
+                user
+                and not is_bot_sender
+                and automatic_writes_allowed
+                and chat_obj
+                and event.message
+                and _is_group
+            ):
+                # Mafia's phase gate is evaluated before this middleware counts
+                # ordinary activity. During discussion only living players may
+                # speak; at night/voting only everyone else may speak. This is
+                # intentionally separate from the old purge mechanics.
+                from services import mafia_v1 as _mafia
+                from infrastructure.repositories import system_flags as _system_flags
+                _topic_id = getattr(event.message, "message_thread_id", None)
+                _gate = "allow"
+                if await _system_flags.is_enabled(db, "game_mafia_v1"):
+                    _gate = await _mafia.message_gate(
+                        db, chat_id=int(chat_obj.id), topic_id=_topic_id, user_id=int(user.id)
+                    )
+                if _gate == "suppress":
+                    try:
+                        await event.message.delete()
+                    except Exception:
+                        # Lost delete rights mean we must not silently continue
+                        # claiming a protected phase. Pause instead of changing
+                        # any group permissions or overriding moderation.
+                        from infrastructure.repositories import mafia_v1 as _mafia_repo
+                        _active = await _mafia_repo.active_match(db, chat_id=int(chat_obj.id), topic_id=_topic_id)
+                        if _active:
+                            await _mafia.pause_for_moderation_intervention(db, match_id=int(_active["id"]))
+                            # Show the durable pause immediately; otherwise a
+                            # stale "night" card leaves players guessing why
+                            # their messages disappeared.
+                            try:
+                                from bot.handlers.mafia_v1 import publish_phase
+                                _view = await _mafia.current_view(db, match_id=int(_active["id"]))
+                                if _view and data.get("bot"):
+                                    await publish_phase(data["bot"], db, _view)
+                            except Exception as _mafia_pause_card_error:
+                                logger.debug(f"Mafia pause card update failed: {_mafia_pause_card_error}")
+                        return await handler(event, data)
+                    return
+
                 async with db.execute(
                     "SELECT is_purging, purge_min_rank FROM chat_settings WHERE chat_id = ?",
                     (chat_obj.id,),
@@ -90,6 +148,22 @@ async def db_middleware(
                     settings = await cursor.fetchone()
 
                 if settings and settings["is_purging"]:
+                    # A purge and a game gate cannot safely control the same
+                    # messages at once. Preserve both systems' state: the
+                    # purge continues under its own rules and the active game
+                    # pauses before it can claim a protected phase.
+                    if await _system_flags.is_enabled(db, "game_mafia_v1"):
+                        from infrastructure.repositories import mafia_v1 as _mafia_repo
+                        _active = await _mafia_repo.active_match(db, chat_id=int(chat_obj.id), topic_id=_topic_id)
+                        if _active:
+                            await _mafia.pause_for_moderation_intervention(db, match_id=int(_active["id"]))
+                            try:
+                                from bot.handlers.mafia_v1 import publish_phase
+                                _view = await _mafia.current_view(db, match_id=int(_active["id"]))
+                                if _view and data.get("bot"):
+                                    await publish_phase(data["bot"], db, _view)
+                            except Exception as _mafia_pause_card_error:
+                                logger.debug(f"Mafia purge pause card update failed: {_mafia_pause_card_error}")
                     async with db.execute(
                         "SELECT local_rank FROM user_chat_stats "
                         "WHERE user_tg_id = ? AND chat_tg_id = ?",
@@ -144,6 +218,25 @@ async def db_middleware(
                             _notify_ai_hint(data.get("bot"), chat_obj.id, user)
                     except Exception:
                         pass
+
+                # Every tenth ordinary human message moves the lobby card to
+                # the bottom without creating a second match or resetting its
+                # settings. Sending happens only after activity persistence.
+                _lobby = await _mafia.note_lobby_human_message(
+                    db, chat_id=int(chat_obj.id), topic_id=_topic_id
+                ) if await _system_flags.is_enabled(db, "game_mafia_v1") else None
+                if _lobby and data.get("bot"):
+                    try:
+                        from bot.handlers.mafia_v1 import _lobby_keyboard, _lobby_text
+                        sent = await data["bot"].send_message(
+                            int(chat_obj.id), _lobby_text(_lobby),
+                            reply_markup=_lobby_keyboard(_lobby), parse_mode="HTML",
+                            message_thread_id=_topic_id,
+                        )
+                        from infrastructure.repositories import mafia_v1 as _mafia_repo
+                        await _mafia_repo.bind_lobby_message(db, match_id=int(_lobby["match_id"]), message_id=int(sent.message_id))
+                    except Exception as _mafia_repost_error:
+                        logger.debug(f"Mafia lobby repost failed: {_mafia_repost_error}")
 
         except Exception as e:
             # Сбой в трекинге (XP/квесты/ачивки/чат-статы) НЕ должен блокировать сам

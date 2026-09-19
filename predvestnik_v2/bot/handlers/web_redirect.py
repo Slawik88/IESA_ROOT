@@ -1,12 +1,9 @@
-"""bot/handlers/web_redirect.py — БЛОК19 Часть1 «Web First».
+"""Registry-driven redirect boundary for surfaces that genuinely need Mini App.
 
-Тяжёлые механики (магазин, гача, аукцион, кастомизация, БП, квесты, инвентарь,
-кланы и т.п.) переехали в мини-апп. Чтобы не было «мёртвых» команд (Правило
-Консистентности), ловим старые алиасы и отдаём ТОНКИЙ редирект — кнопку, которая
-открывает нужный раздел Web App через `startapp=<section>` (его парсит app.js).
-
-ОСТАВЛЕНЫ в чате (не здесь): лёгкие/соц (я/профиль/поход/топ/стрик/ник/варпы/брак/
-контрабанда/промо/вип), мини-игры (нет веб-UI), god-логи (dev), вся админка.
+The parity registry is the source of truth: lightweight actions and summaries
+are handled by chat adapters, while only complex interactions receive a
+`startapp=<section>` deep-link. Retired surfaces return an honest archive
+message instead of pretending that a dead command still works.
 """
 import os
 
@@ -14,40 +11,15 @@ from aiogram import Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from core.surface_parity import surfaces_for_redirect
 
 router = Router(name="web_redirect_router")
 _BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 
 # (алиасы, section-для-startapp, заголовок)
-_REDIRECTS: list[tuple[list[str], str, str]] = [
-    (["магазин", "лавка", "шоп"], "shop", "🛒 Магазин"),
-    (["акция", "акция дня", "магазин дня", "ежедневный магазин"], "deal", "🏷 Акции дня"),
-    (["крутка", "гача", "гаша", "лутбокс", "пити", "pity", "мои пити"], "gacha", "🗃 Архив находок"),
-    (["аукцион", "аукцион выставить", "аукцион создать", "аукцион мои", "аукцион ставка"],
-     "auction", "🏛 Аукцион"),
-    (["темы", "тема профиля", "профиль темы"], "themes", "🎨 Темы профиля"),
-    (["крафт", "craft", "скрафтить", "создать предмет"], "craft", "🔨 Крафт"),
-    (["реликвии", "реликвия", "relics"], "relics", "🏛 Реликвии"),
-    (["обмен", "конвертация", "обменять"], "exchange", "💱 Обменник"),
-    (["биржа", "крипто", "crypto", "криптобиржа"], "crypto", "📈 Крипто-Биржа"),
-    (["дуэль", "дуэли", "pvp"], "game", "🔔 Разлом колокола"),
-    (["бп", "боевой пропуск", "пропуск"], "bp", "🎫 Боевой пропуск"),
-    (["задания", "квесты", "дейлики"], "quests", "📋 Квесты"),
-    (["инвентарь", "рюкзак", "вещи", "использовать", "открыть"], "inventory", "🎒 Инвентарь"),
-    (["достижения", "ачивки", "ачивменты"], "ach", "🏆 Достижения"),
-    (["питомец", "мой питомец", "активный питомец", "зоопарк", "питомник",
-      "питомцы", "питомци", "мои питомцы", "мои питомци"], "zoo", "🐾 Питомцы"),
-    (["поход", "походы", "экспедиция", "экспедиции", "ускорить поход"],
-     "game", "🗺 Поход спутника"),
-    (["уведомления", "настройки уведомлений", "нотификации"], "notifications", "🔔 Уведомления"),
-    (["клан", "кланы", "гильдия", "гильдии", "клан создать", "клан основать",
-      "клан выйти", "клан покинуть"], "clans", "🛡 Кланы"),
-    (["косметика", "внешний вид", "скин", "облик", "образ", "looks"], "cosmetics", "🎨 Косметика"),
-    # Старые юниты и Казарма выведены из продукта. Не оставляем битый deep-link:
-    # показываем актуальную игру, не старую витрину владения.
-    (["казарма", "юниты", "юнит", "отряд", "призыв", "призыв юнита", "боевые юниты"],
-     "game", "🔔 Разлом колокола"),
-    (["врата", "бездна", "битва", "бой", "арена"], "game", "🔔 Разлом колокола"),
+_REDIRECTS = [
+    (list(spec.aliases), spec.start_param, spec.title, spec.chat_mode)
+    for spec in surfaces_for_redirect()
 ]
 
 
@@ -72,16 +44,21 @@ def _kb(section: str, *, private: bool) -> types.InlineKeyboardMarkup:
     return b.as_markup()
 
 
-def _make(section: str, title: str):
+def _make(section: str, title: str, mode: str):
     # UX_AUDIT Б4: в ЛС тоже отвечаем — кнопка мини-аппа работает откуда угодно.
     async def handler(message: types.Message, text_args: str = ""):
+        status = (
+            "<i>Эта старая механика закрыта: новых покупок, наград или прогресса нет. "
+            "В Mini App доступен только честный архив и сохранённые права.</i>"
+            if mode == "retired"
+            else "<i>Сложное управление доступно в Mini App; состояние общее с чатом.</i>"
+        )
         await message.answer(
-            f"<b>{title}</b> теперь в мини-аппе 📱\n"
-            "<i>Тяжёлый контент переехал в Web App — там удобнее и нагляднее.</i>",
+            f"<b>{title}</b>\n{status}",
             reply_markup=_kb(section, private=message.chat.type == "private"), parse_mode="HTML",
         )
     return handler
 
 
-for _aliases, _section, _title in _REDIRECTS:
-    router.message(TextCmd(_aliases))(_make(_section, _title))
+for _aliases, _section, _title, _mode in _REDIRECTS:
+    router.message(TextCmd(_aliases))(_make(_section, _title, _mode))

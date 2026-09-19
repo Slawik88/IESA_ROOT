@@ -220,12 +220,8 @@ async def grant_duplicate(db, user_id: int, species_id: str, initial_placement: 
     """Process one duplicate of `species_id` for `user_id`.
 
     `initial_placement`: placement для СОВСЕМ НОВОГО питомца (Case 1 ниже),
-    когда у игрока ещё нет ни одной копии этого вида. По умолчанию 'storage' —
-    так ведёт себя обычный дроп гачи. Онбординг (services/onboarding.py) передаёт
-    'active', чтобы стартовый питомец сразу был готов к «бот поход» без ручного
-    похода в зоопарк (Growth-полиш 2026-07-13, находка 02: официальный «быстрый
-    старт» рекомендовал «бот поход» первой командой, а она отказывала, пока
-    питомец лежал на складе).
+    когда у игрока ещё нет ни одной копии этого вида. По умолчанию `storage`;
+    параметр сохранён для явных административных/migration-вызовов.
 
     Logic:
     1) Look up the species rarity from PET_SPECIES.

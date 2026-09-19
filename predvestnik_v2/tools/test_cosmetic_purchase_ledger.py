@@ -28,13 +28,16 @@ assert "cosmetics/buy-lineup',{method:'POST',headers:" in client
 assert "cosmetics/buy-many',{method:'POST',headers:" in client
 assert "cosmetics/chest/buy',{method:'POST',headers:" in client
 gift_client = (ROOT / "FastAPI/static/app.06.js").read_text(encoding="utf-8")
-assert "cosmetics/gift',{method:'POST',headers:" in gift_client
+# Cosmetics are intentionally not released before the separate owner-approved
+# cosmetics pass. Ledger safety remains covered above; no buy/gift surface may
+# leak from the current public profile.
+assert "cosmetics/gift',{method:'POST',headers:" not in gift_client
 assert "if not applied:" in router
 showcase = (ROOT / "FastAPI/routers/showcase.py").read_text(encoding="utf-8")
 assert "UPDATE users SET user_balance" not in showcase
 assert "apply_balance_change(" in showcase
 assert "find_reference_replay(" in showcase
-assert "showcase/buy-bundle',{method:'POST',headers:" in gift_client
-assert "showcase/buy',{method:'POST',headers:" in gift_client
+assert "showcase/buy-bundle',{method:'POST',headers:" not in gift_client
+assert "showcase/buy',{method:'POST',headers:" not in gift_client
 
 print("cosmetic purchase ledger contract: OK")

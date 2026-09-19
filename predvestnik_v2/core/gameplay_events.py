@@ -77,12 +77,125 @@ GAMEPLAY_EVENT_SPECS: Final[dict[str, EventSpec]] = {
         frozenset({"mode", "encounter_id", "result", "rounds", "metrics"}),
         frozenset({
             "outcome_reason", "terminal_result", "shadow_reward", "branches",
-            "difficulty_profile", "difficulty_policy_version",
+            "difficulty_profile", "difficulty_policy_version", "signals_resolved",
+            "companion_role_id", "upgrades", "exit_wave_elapsed_ms",
         }),
     ),
     "progression_upgrade": EventSpec(
         1,
         frozenset({"entity", "from_value", "to_value", "resource_cost", "trigger"}),
+    ),
+    "daily_contract_selected": EventSpec(
+        1,
+        frozenset({"day_key", "contract_id", "category", "offered_ids", "target"}),
+    ),
+    "daily_contract_progressed": EventSpec(
+        1,
+        frozenset({"day_key", "contract_id", "delta", "progress", "target", "completed"}),
+    ),
+    "weekly_case_path_chosen": EventSpec(
+        1,
+        frozenset({"policy_version", "case_id", "path_id"}),
+    ),
+    "weekly_case_progressed": EventSpec(
+        1,
+        frozenset({
+            "policy_version", "case_id", "path_id", "day_key",
+            "progress", "target", "completed",
+        }),
+    ),
+    "weekly_case_completed": EventSpec(
+        1,
+        frozenset({
+            "policy_version", "case_id", "path_id", "finale_id",
+            "completion_trigger",
+        }),
+    ),
+    "chat_echo_started": EventSpec(
+        1,
+        frozenset({"event_id", "policy_version", "target", "quorum", "active_members_7d"}),
+    ),
+    "chat_echo_contributed": EventSpec(
+        1,
+        frozenset({"event_id", "policy_version", "symbol_id", "total", "target", "completed"}),
+    ),
+    "chat_echo_completed": EventSpec(
+        1,
+        frozenset({"event_id", "policy_version", "finale_id", "total", "target"}),
+    ),
+    "chat_echo_opt_changed": EventSpec(
+        1,
+        frozenset({"enabled"}),
+    ),
+    "store_offer_viewed": EventSpec(
+        1,
+        frozenset({"surface", "offer_id", "offer_type", "price_stars"}),
+        frozenset({"owned", "eligibility", "placement"}),
+    ),
+    "store_purchase_result": EventSpec(
+        1,
+        frozenset({"offer_id", "offer_type", "price_stars", "result"}),
+        frozenset({"operation_id", "failure_code", "entitlement_ids"}),
+    ),
+    "product_surface_opened": EventSpec(
+        1,
+        frozenset({"surface_id"}),
+    ),
+    "player_preference_changed": EventSpec(
+        1,
+        frozenset({"preference", "enabled"}),
+    ),
+    "companion_care": EventSpec(
+        1,
+        frozenset({"pet_id", "action", "scene_id", "bond_points"}),
+        frozenset({"care_bank"}),
+    ),
+    "companion_skin_selected": EventSpec(
+        1,
+        frozenset({"skin_id", "skin_version"}),
+    ),
+    "expedition_started": EventSpec(
+        1,
+        frozenset({"contract_id", "pet_id", "duration_hours", "route_id", "projected_mora"}),
+        frozenset({"discovery_id", "archive_version", "archive_set_id"}),
+    ),
+    "expedition_claimed": EventSpec(
+        1,
+        frozenset({"claimed_count", "projected_mora_total", "contract_ids", "discovery_ids"}),
+    ),
+    "archive_progressed": EventSpec(
+        1,
+        frozenset({
+            "archive_version", "contract_ids", "new_discovery_ids",
+            "duplicate_discovery_ids", "completed_set_ids", "found_total",
+        }),
+    ),
+    "scar_map_started": EventSpec(
+        1,
+        frozenset({"policy_version", "cycle_no", "duration_days", "final_required"}),
+    ),
+    "scar_map_progressed": EventSpec(
+        1,
+        frozenset({
+            "policy_version", "cycle_no", "trigger_type", "unlocked_node_ids",
+            "unlocked_count", "final_required",
+        }),
+    ),
+    "scar_map_completed": EventSpec(
+        1,
+        frozenset({"policy_version", "cycle_no", "unlocked_count", "final_required"}),
+    ),
+    "sky_node_allocated": EventSpec(
+        1,
+        frozenset({"policy_version", "node_id", "branch", "allocated_count", "path_slots"}),
+    ),
+    "sky_sigil_selected": EventSpec(
+        1,
+        frozenset({"policy_version", "node_id"}),
+    ),
+    "sky_eclipse_used": EventSpec(
+        1,
+        frozenset({"policy_version", "cycle_no"}),
     ),
 }
 

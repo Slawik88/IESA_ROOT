@@ -14,6 +14,10 @@ from urllib.parse import urlparse
 PREPROD_ENV = "preprod"
 PREPROD_DATABASE = "predvestnik_preprod"
 _LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+# This is an intentionally artificial identity.  It is never a Telegram user,
+# never listed in PREPROD_ALLOWED_TG_IDS and is accepted only from the separate
+# loopback-only browser-auth listener below.
+PREPROD_BROWSER_TEST_USER_ID = 990_000_001
 
 
 def is_preprod(env: Mapping[str, str] | None = None) -> bool:
@@ -64,6 +68,22 @@ def require_preprod_user(user_id: int, env: Mapping[str, str] | None = None) -> 
     return user_id in allowed
 
 
+def is_preprod_browser_test_user(user_id: int, env: Mapping[str, str] | None = None) -> bool:
+    """Whether this is the one synthetic user permitted by local test auth."""
+    return is_preprod(env) and int(user_id) == PREPROD_BROWSER_TEST_USER_ID
+
+
 def stars_invoice_issuance_allowed(env: Mapping[str, str] | None = None) -> bool:
-    """Preprod never calls Telegram Stars APIs that can initiate a payment."""
-    return not is_preprod(env)
+    """Legacy fungible Stars→Zarniki invoices are permanently retired."""
+    return False
+
+
+def direct_stars_cosmetics_allowed(env: Mapping[str, str] | None = None) -> bool:
+    """New direct-Stars cosmetic invoices are permanently retired.
+
+    The released product sells digital goods for Zarniki only.  Existing
+    direct-Stars orders remain readable and deliverable by their frozen payload
+    handlers so an already paid invoice is never stranded, but no environment
+    flag may reopen new direct-Star cosmetic sales.
+    """
+    return False

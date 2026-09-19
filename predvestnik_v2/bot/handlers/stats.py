@@ -5,6 +5,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from infrastructure.repositories import stats
+from infrastructure.repositories import moderation as moderation_repo
 from infrastructure.repositories.streak import get_chat_timezone
 from services.utils import safe_html, format_currency, check_callback_owner
 from services.profile_render import format_display_name
@@ -28,6 +29,172 @@ def _trunc_name(s: str) -> str:
 
 
 router = Router(name="stats_router")
+
+
+class MessageTopV2(CallbackData, prefix="msgtop"):
+    scope: str = "local"   # local | global | chats
+    period: str = "week"   # day | week | month | all_time
+    user_id: int = 0
+    page: int = 0
+
+
+_V2_PERIOD_NAMES = {
+    "day": "Сегодня", "week": "Неделя", "month": "Месяц", "all_time": "Всё время",
+}
+_V2_SCOPE_NAMES = {
+    "local": "Этот чат", "global": "Все игроки", "chats": "Топ чатов",
+}
+
+
+def _period_dates(now: datetime, period: str) -> tuple[str, str] | None:
+    if period == "all_time":
+        return None
+    if period == "day":
+        start = end = now.date()
+    elif period == "week":
+        start, end = now.date() - timedelta(days=now.weekday()), now.date()
+    elif period == "month":
+        start = now.date().replace(day=1)
+        end = now.date()
+    else:
+        raise ValueError("unsupported top period")
+    return start.isoformat(), end.isoformat()
+
+
+def _previous_dates(dates: tuple[str, str] | None) -> tuple[str, str] | None:
+    if dates is None:
+        return None
+    start = datetime.fromisoformat(dates[0]).date()
+    end = datetime.fromisoformat(dates[1]).date()
+    span = end - start
+    previous_end = start - timedelta(days=1)
+    return (previous_end - span).isoformat(), previous_end.isoformat()
+
+
+async def _top_v2_rows(db, chat_id: int, scope: str, period: str) -> list[dict]:
+    # Local periods follow the chat's configured day boundary. Global player
+    # and chat rankings use UTC so the same board cannot change by caller chat.
+    tz_offset = await get_chat_timezone(db, chat_id) if scope == "local" else 0
+    now = datetime.now(timezone.utc) + timedelta(hours=tz_offset)
+    dates = _period_dates(now, period)
+    if scope == "local":
+        return (await stats.get_top_messages(db, chat_id, "all_time") if dates is None
+                else await stats.get_top_messages_for_dates(db, chat_id, *dates))
+    if scope == "global":
+        return (await stats.get_top_messages_global_all_time(db) if dates is None
+                else await stats.get_top_messages_global_for_dates(db, *dates))
+    if scope == "chats":
+        return (await stats.get_top_chats_all_time(db) if dates is None
+                else await stats.get_top_chats_for_dates(db, *dates))
+    raise ValueError("unsupported top scope")
+
+
+def _top_v2_keyboard(scope: str, period: str, user_id: int, page: int, pages: int):
+    b = InlineKeyboardBuilder()
+    for value, label in _V2_SCOPE_NAMES.items():
+        b.button(text=("✓ " if value == scope else "") + label,
+                 callback_data=MessageTopV2(scope=value, period=period, user_id=user_id, page=0))
+    for value, label in _V2_PERIOD_NAMES.items():
+        b.button(text=("✓ " if value == period else "") + label,
+                 callback_data=MessageTopV2(scope=scope, period=value, user_id=user_id, page=0))
+    b.adjust(3, 2, 2)
+    if pages > 1:
+        if page > 0:
+            b.button(text="◀", callback_data=MessageTopV2(scope=scope, period=period, user_id=user_id, page=page - 1))
+        b.button(text=f"{page + 1}/{pages}", callback_data=MessageTopV2(scope=scope, period=period, user_id=user_id, page=page))
+        if page + 1 < pages:
+            b.button(text="▶", callback_data=MessageTopV2(scope=scope, period=period, user_id=user_id, page=page + 1))
+        b.adjust(3, 2, 2, 3)
+    return b.as_markup()
+
+
+async def _render_top_v2(
+    db, chat_id: int, scope: str, period: str, page: int, actor_id: int,
+):
+    rows = await _top_v2_rows(db, chat_id, scope, period)
+    self_id = bot_tg_id()
+    if scope != "chats" and self_id is not None:
+        rows = [row for row in rows if int(row["user_tg_id"]) != int(self_id)]
+    if scope == "local" and rows:
+        left = await prune_ghosts(db, chat_id, [int(row["user_tg_id"]) for row in rows])
+        rows = [row for row in rows if int(row["user_tg_id"]) not in left]
+    pages = max(1, -(-len(rows) // _TOP_PAGE_SIZE))
+    page = max(0, min(page, pages - 1))
+    visible = rows[page * _TOP_PAGE_SIZE:(page + 1) * _TOP_PAGE_SIZE]
+    lines = ["🏆 <b>ТОП ПО СООБЩЕНИЯМ</b>",
+             f"{_V2_SCOPE_NAMES[scope]} · {_V2_PERIOD_NAMES[period]}", ""]
+    if not visible:
+        lines.append("<i>За этот период сообщений пока нет.</i>")
+    for offset, row in enumerate(visible, start=page * _TOP_PAGE_SIZE + 1):
+        medal = "🥇" if offset == 1 else "🥈" if offset == 2 else "🥉" if offset == 3 else f"{offset}."
+        if scope == "chats":
+            raw_title = str(row.get("chat_title") or "Чат")
+            title = safe_html(raw_title if len(raw_title) <= 32 else raw_title[:31] + "…")
+            lines.append(f"{medal} <code>{int(row['msg_count'])}</code> · <b>{title}</b> · {int(row['active_users'])} уч.")
+        else:
+            uid = int(row["user_tg_id"])
+            name = safe_html(_trunc_name(str(row.get("user_tg_username") or f"Игрок {uid}")))
+            lines.append(f'{medal} <code>{int(row["msg_count"])}</code> · <a href="tg://user?id={uid}">{name}</a>')
+    tz_offset = await get_chat_timezone(db, chat_id) if scope == "local" else 0
+    dates = _period_dates(datetime.now(timezone.utc) + timedelta(hours=tz_offset), period)
+    entity_id = chat_id if scope == "chats" else actor_id
+    position = await stats.get_message_top_position(
+        db, scope=scope, entity_id=entity_id, chat_id=chat_id,
+        date_start=dates[0] if dates else None, date_end=dates[1] if dates else None,
+        excluded_user_id=self_id,
+    )
+    lines.append("")
+    if scope == "chats" and not bool((await moderation_repo.get_chat_settings(db, chat_id)).get("include_in_global_top", 1)):
+        lines.append("<i>Этот чат не участвует в глобальном топе по настройке администрации.</i>")
+    elif position:
+        subject = "Этот чат" if scope == "chats" else "Ваш результат"
+        summary = (
+            f"{subject}: <b>#{int(position['place'])}</b> из {int(position['total_count'])} · "
+            f"<code>{int(position['msg_count'])}</code> сообщ."
+        )
+        previous = _previous_dates(dates)
+        if previous:
+            previous_position = await stats.get_message_top_position(
+                db, scope=scope, entity_id=entity_id, chat_id=chat_id,
+                date_start=previous[0], date_end=previous[1], excluded_user_id=self_id,
+            )
+            previous_count = int(previous_position["msg_count"]) if previous_position else 0
+            delta = int(position["msg_count"]) - previous_count
+            summary += f" · к прошлому периоду: <b>{delta:+d}</b>"
+        lines.append(summary)
+    else:
+        lines.append("<i>У вас пока нет сообщений за выбранный период.</i>" if scope != "chats" else
+                     "<i>У этого чата пока нет сообщений за выбранный период.</i>")
+    return "\n".join(lines), page, pages
+
+
+@router.message(TopCmd(["топ", "лидеры"], [
+    "день", "сегодня", "неделя", "месяц", "все время", "всё время",
+    "глобальный", "глобально", "все игроки", "топ чатов", "чатов",
+]))
+async def cmd_message_top_v2(message: types.Message, db, text_args: str = None):
+    if message.chat.type == "private":
+        return await answer_group_only(message)
+    raw = str(message.text or "").lower()
+    scope = "chats" if "чатов" in raw else "global" if "глоб" in raw or "все игрок" in raw else "local"
+    period = "month" if "месяц" in raw else "day" if "сегодня" in raw or "день" in raw else "all_time" if "всё время" in raw or "все время" in raw else "week"
+    text, page, pages = await _render_top_v2(db, message.chat.id, scope, period, 0, message.from_user.id)
+    await message.answer(text, reply_markup=_top_v2_keyboard(scope, period, message.from_user.id, page, pages), parse_mode="HTML")
+
+
+@router.callback_query(MessageTopV2.filter())
+async def cb_message_top_v2(query: types.CallbackQuery, callback_data: MessageTopV2, db):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+    text, page, pages = await _render_top_v2(
+        db, query.message.chat.id, callback_data.scope, callback_data.period,
+        callback_data.page, callback_data.user_id,
+    )
+    try:
+        await query.message.edit_text(text, reply_markup=_top_v2_keyboard(callback_data.scope, callback_data.period, callback_data.user_id, page, pages), parse_mode="HTML")
+    except TelegramBadRequest:
+        pass
+    await query.answer()
 
 # Фабрика кнопок для переключения периодов в ТОПе
 class TopPeriodData(CallbackData, prefix="top"):
@@ -162,7 +329,6 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
 # ==========================================
 # КОМАНДА: /top
 # ==========================================
-@router.message(TopCmd(["топ", "лидеры"], list(TEXT_PERIOD_MAP.keys())))
 async def cmd_top(message: types.Message, db, text_args: str = None):
     if message.chat.type == "private":
         return await answer_group_only(message)
@@ -184,7 +350,6 @@ async def cmd_top(message: types.Message, db, text_args: str = None):
     await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 # Обработчик кнопок ТОПа
-@router.callback_query(TopPeriodData.filter())
 async def process_top_period(callback: types.CallbackQuery, callback_data: TopPeriodData, db):
     if not await check_callback_owner(callback, callback_data.user_id):
         return
@@ -321,8 +486,11 @@ async def cb_top_cat(query: types.CallbackQuery, callback_data: TopCatCB, db):
 
 @router.callback_query(TopCatCB.filter(F.cat == "activity"))
 async def cb_top_activity(query: types.CallbackQuery, callback_data: TopCatCB, db):
-    text, total_pages = await build_top_text(db, query.message.chat.id, "all_time", page=0)
-    kb = generate_top_keyboard("all_time", user_id=query.from_user.id, page=0, total_pages=total_pages)
+    scope = "global" if callback_data.mode == "global" else "local"
+    text, page, pages = await _render_top_v2(
+        db, query.message.chat.id, scope, "week", 0, query.from_user.id,
+    )
+    kb = _top_v2_keyboard(scope, "week", query.from_user.id, page, pages)
     try:
         await query.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
     except TelegramBadRequest:

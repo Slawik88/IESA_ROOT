@@ -12,7 +12,7 @@ async def active_events(db=Depends(get_db), user=Depends(require_tg_user)):
     del db, user
     return {
         "retired": True,
-        "message": "Старые случайные события закрыты. Текущая активность — Разлом колокола.",
+        "message": "Старые случайные события закрыты. Новые игровые события будут опубликованы после утверждения правил.",
         "exchange_retired": True,
         "daily_deals": [],
         "gacha_types": [],

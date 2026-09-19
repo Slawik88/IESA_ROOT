@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static contract: retired currency conversions cannot mutate a wallet."""
+"""Static boundary: only approved Zarniki conversion may reach the ledger."""
 from pathlib import Path
 
 
@@ -14,37 +14,32 @@ def main() -> None:
     fixed_api = read("FastAPI/routers/exchange.py")
     event_api = read("FastAPI/routers/events.py")
     wallet_api = read("FastAPI/routers/wallet.py")
-    bot_exchange = read("bot/handlers/exchange.py")
     bot_economy = read("bot/handlers/economy.py")
-    economy_repo = read("infrastructure/repositories/economy.py")
     profile_ui = read("FastAPI/static/app.02.js")
-    market_ui = read("FastAPI/static/app.05.js")
-    shared_ui = read("FastAPI/static/app.06.js")
-    help_copy = read("bot/handlers/common.py")
+    exchange_policy = read("core/zarniki_exchange_v1.py")
+    exchange_service = read("services/zarniki_exchange_v1.py")
+    fastapi_main = read("FastAPI/main.py")
+    assert not (ROOT / "bot/handlers/exchange.py").exists()
 
     assert fixed_api.count("HTTPException(") >= 2
     assert '"exchange_retired": True' in event_api
     assert "exchange_active" not in event_api
     assert "exchange_next" not in event_api
 
-    assert "Алмазы за Зарники не продаются" in wallet_api
-    assert "await exchange_zarniki(" in wallet_api
-    assert "quote_zarniki_to_mora" in economy_repo
-    assert "validate_exchange_route" in economy_repo
-    assert "await eco_db.exchange_zarniki" in bot_economy
-
-    assert "add_balance" not in bot_exchange
-    assert "3 000 🪙 = 1 💎" not in help_copy
-    assert "1 💎 = 2 000 🪙" not in help_copy
-    assert "Мора и Алмазы не обмениваются" in help_copy
-
-    assert "openExchangeZarnikiModal()':" in profile_ui
-    assert "/wallet/exchange-zarniki" in shared_ui
-    assert "doExchangeZarniki" in shared_ui
-    assert "Алмазы выдаются только за испытания и сезонные рубежи" in shared_ui
-    assert "Косметика, сервисные возможности и необратимый обмен в Мору" in market_ui
-
-    print("currency exchange retirement contract: OK")
+    assert "StrictInt" in wallet_api and "mora|diamonds" in wallet_api
+    assert "zarniki_exchange_v1.exchange" in wallet_api
+    assert "zarniki_exchange_v1.exchange" in bot_economy
+    assert "DAILY_ZARNIKI_CAP: Final = 50" in exchange_policy
+    assert "Decimal(\"10\")" in exchange_policy and "Decimal(\"0.01\")" in exchange_policy
+    assert "find_balance_replay" in exchange_service
+    assert "has_open_premium_hold" in exchange_service
+    assert "apply_balance_change" in exchange_service and "add_usage_today" in exchange_service
+    assert "Stars" not in exchange_service and "invoice" not in exchange_service
+    assert "/wallet/exchange-zarniki" in profile_ui
+    legacy_events = fastapi_main[fastapi_main.index('@app.get("/api/events")'):fastapi_main.index('# ── Mini App HTML', fastapi_main.index('@app.get("/api/events")'))]
+    assert "SELECT * FROM exchange_events" not in legacy_events
+    assert '"exchange_retired": True' in legacy_events
+    print("approved Zarniki exchange boundary: OK")
 
 
 if __name__ == "__main__":

@@ -45,8 +45,11 @@ for marker in (
     "Новые ставки закрыты",
 ):
     assert marker in router
-assert "_aucOpen?'<button" in client
-assert "_aucOpen?'💰 Ставка':'Завершается'" in client_cards
-assert "${_aucOpen?`onclick=\"openBidModal" in client_cards
+
+# The accounting code stays archived for support and future compensation audits,
+# but reconstruction explicitly removes the old auction from every public screen.
+for retired_ui_marker in ("openBidModal", "loadAuction", "Создать лот", "💰 Ставка"):
+    assert retired_ui_marker not in client
+    assert retired_ui_marker not in client_cards
 
 print("auction settlement boundary: OK")

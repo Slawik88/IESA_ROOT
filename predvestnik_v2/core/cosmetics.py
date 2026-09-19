@@ -28,10 +28,9 @@ rarity/price — см. LINEUPS/комментарии по секциям), 78 �
 удалены из каталога целиком (был полный wipe — владельцу принадлежать было
 уже некому, терять было нечего).
 
-VIP-гейт ТОЛЬКО на отображение (не на покупку):
-  Все предметы выше Обычного показываются ТОЛЬКО при активной VIP.
-  Покупка доступна без VIP — но до активации VIP косметика «спит».
-  При обновлении VIP предмет возвращается без переэкипировки.
+VIP-гейт не применяется к платным магазинным предметам: покупка за Зарники
+навсегда даёт видимую косметику. ``vip_required`` допустим только для
+непродаваемых сервисных прав (например, приветствий).
 
 price: список вариантов оплаты. price=None → предмет не продаётся (выдаётся
   другим источником: VIP/БП). Все предметы можно купить за зарники.
@@ -46,8 +45,8 @@ ID: строгий формат cos_{slot}_{имя} (рефакторинг 2026
   задним числом. Старые ID мигрируются АВТОМАТИЧЕСКИ при старте процесса
   (services/cosmetics.migrate_legacy_ids, one-shot через schema_migrations).
 
-vip_required: НЕ блокирует ПОКУПКУ, отдельное от is_vip_locked() (та смотрит
-  на rarity/source) декоративное поле — исторически True только у Артефакта.
+vip_required: эффективно True только у непродаваемого права. Исторические
+  флаги в литералах магазина нормализуются при материализации цен.
 
 slot: "name_glow" | "avatar_frame" | "title" | "avatar_halo" | "profile_bg" | "card_fx"
 Визуальные слоты — только веб. Титул (title) — веб + бот-карточка.
@@ -1039,6 +1038,9 @@ def _apply_slot_prices() -> None:
         if not slot_prices or slot not in slot_prices:
             raise ValueError(f"{cosmetic_id}: нет цены для сегмента {base} и слота {slot!r}")
         cosmetic["price"] = [{"zarniki": slot_prices[slot]}]
+        # A durable purchase is the entitlement.  A stale historical flag must
+        # never turn a paid item into a second, undisclosed VIP paywall.
+        cosmetic["vip_required"] = False
 
     for lineup in LINEUPS.values():
         base = int((lineup.get("price") or [{}])[0].get("zarniki", 0))
@@ -1047,6 +1049,7 @@ def _apply_slot_prices() -> None:
             "min": min(values.values()),
             "max": max(values.values()),
         }
+        lineup["vip_required"] = False
 
 
 _apply_slot_prices()
@@ -1138,8 +1141,8 @@ def cosmetics_by_slot(slot: str) -> dict[str, dict]:
 
 
 def is_vip_locked(cos: dict) -> bool:
-    """Owned cosmetics never disappear when a service term expires."""
-    return False
+    """Only non-purchasable service entitlements may sleep with inactive VIP."""
+    return bool(cos.get("vip_required")) and not bool(cos.get("price"))
 
 
 # ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────

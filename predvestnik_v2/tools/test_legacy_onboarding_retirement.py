@@ -11,21 +11,11 @@ def read(path: str) -> str:
 
 
 def main() -> None:
-    onboarding = read("services/onboarding.py")
     users = read("infrastructure/repositories/users.py")
     middleware = read("bot/middlewares/db.py")
     reconstruction = read("services/reconstruction.py")
 
-    for forbidden in (
-        "STARTER_MORA",
-        "STARTER_DIAMONDS",
-        "STARTER_SPIN_TOKENS",
-        "add_balance(",
-        "add_item(",
-        "grant_duplicate(",
-        "random.choice",
-    ):
-        assert forbidden not in onboarding
+    assert not (ROOT / "services/onboarding.py").exists()
 
     assert "VALUES (?, ?, TRUE, FALSE)" in users
     assert "onboarded = TRUE" in users

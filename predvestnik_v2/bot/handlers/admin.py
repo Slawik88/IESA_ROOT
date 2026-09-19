@@ -2,7 +2,7 @@ from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from infrastructure.repositories import users, chat
+from infrastructure.repositories import users, chat, rank_requests
 from infrastructure.repositories.moderation import log_moderation_action
 from services import roles
 from services.utils import safe_html, resolve_target as smart_resolve
@@ -12,9 +12,7 @@ from bot.keyboards.cta import answer_group_only
 router = Router(name="admin_router")
 
 class RankConfirmData(CallbackData, prefix="rank_conf"):
-    target_id: int
-    new_rank_id: int
-    initiator_id: int
+    token: str
 
 
 # ==========================================
@@ -124,10 +122,14 @@ async def cmd_setrank(message: types.Message, db, text_args: str = None, develop
     if not can_assign:
         return await message.answer(error_msg, parse_mode="HTML")
 
+    token = await rank_requests.create(
+        db, chat_id=chat_id, initiator_id=initiator_id, target_id=target_id,
+        target_rank_before=target_current_rank, new_rank_id=new_rank_id,
+    )
     builder = InlineKeyboardBuilder()
     builder.button(
         text="✅ Подтвердить выдачу", 
-        callback_data=RankConfirmData(target_id=target_id, new_rank_id=new_rank_id, initiator_id=initiator_id)
+        callback_data=RankConfirmData(token=token)
     )
     
     rank_name = roles.LOCAL_RANKS_MAP[new_rank_id]
@@ -151,24 +153,45 @@ async def process_rank_confirmation(callback: types.CallbackQuery, callback_data
     approver_id = callback.from_user.id
     chat_id = callback.message.chat.id
 
+    request = await rank_requests.get_open(db, token=callback_data.token, chat_id=chat_id)
+    if not request:
+        return await callback.answer("⌛ Заявка устарела или уже была использована.", show_alert=True)
+
     approver_stats = await chat.get_chat_stats(db, approver_id, chat_id)
     approver_rank = approver_stats.get('local_rank', 0)
 
     if not roles.can_confirm_rank(approver_id, approver_rank, developer_id=developer_id):
         return await callback.answer("❌ У вас нет прав для подтверждения ранга!", show_alert=True)
 
-    await chat.set_local_rank(db, callback_data.target_id, chat_id, callback_data.new_rank_id)
+    request = await rank_requests.consume(
+        db, token=callback_data.token, chat_id=chat_id, approved_by=approver_id,
+    )
+    if not request:
+        return await callback.answer("⌛ Заявка уже подтверждается другим администратором.", show_alert=True)
+
+    initiator_stats = await chat.get_chat_stats(db, int(request["initiator_id"]), chat_id)
+    target_stats = await chat.get_chat_stats(db, int(request["target_id"]), chat_id)
+    can_assign, error_msg = roles.can_assign_local_rank(
+        int(request["initiator_id"]), initiator_stats.get("local_rank", 0),
+        target_stats.get("local_rank", 0), int(request["new_rank_id"]), developer_id=developer_id,
+    )
+    if not can_assign or int(target_stats.get("local_rank", 0)) != int(request["target_rank_before"]):
+        return await callback.answer(
+            "⌛ Состояние рангов изменилось — создайте новую заявку.", show_alert=True,
+        )
+
+    await chat.set_local_rank(db, int(request["target_id"]), chat_id, int(request["new_rank_id"]))
     # журнал как на сайте (admin_set_rank пишет rank_{N})
     await log_moderation_action(
-        db, chat_id, callback_data.target_id, approver_id,
-        f"rank_{callback_data.new_rank_id}")
+        db, chat_id, int(request["target_id"]), approver_id,
+        f"rank_{request['new_rank_id']}")
 
     approver_name = safe_html(callback.from_user.first_name)
     approver_link = f'<a href="tg://user?id={approver_id}">{approver_name}</a>'
-    rank_name = roles.LOCAL_RANKS_MAP[callback_data.new_rank_id]
+    rank_name = roles.LOCAL_RANKS_MAP[int(request["new_rank_id"])]
     
-    initiator_link = f'<a href="tg://user?id={callback_data.initiator_id}">Инициатор (ID: {callback_data.initiator_id})</a>'
-    target_link = f'<a href="tg://user?id={callback_data.target_id}">Пользователь (ID: {callback_data.target_id})</a>'
+    initiator_link = f"<a href='tg://user?id={request['initiator_id']}'>Инициатор (ID: {request['initiator_id']})</a>"
+    target_link = f"<a href='tg://user?id={request['target_id']}'>Пользователь (ID: {request['target_id']})</a>"
 
     text = (
         f"✅ <b>ЛОКАЛЬНЫЙ РАНГ УСПЕШНО ВЫДАН!</b>\n\n"

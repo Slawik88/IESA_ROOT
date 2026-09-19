@@ -7,7 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from infrastructure.preprod import (
     assert_preprod_environment,
+    is_preprod_browser_test_user,
     require_preprod_user,
+    direct_stars_cosmetics_allowed,
     stars_invoice_issuance_allowed,
 )
 
@@ -37,6 +39,14 @@ rejected({"DATABASE_URL": "sqlite:///tmp/test.db"})
 assert require_preprod_user(101, BASE)
 assert not require_preprod_user(303, BASE)
 assert require_preprod_user(303, {"PREDVESTNIK_ENV": "production"})
+assert is_preprod_browser_test_user(990_000_001, BASE)
+assert not is_preprod_browser_test_user(990_000_001, {"PREDVESTNIK_ENV": "production"})
+assert not is_preprod_browser_test_user(101, BASE)
 assert not stars_invoice_issuance_allowed(BASE)
-assert stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
+assert not stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
+assert not direct_stars_cosmetics_allowed({"PREDVESTNIK_ENV": "production"})
+assert not direct_stars_cosmetics_allowed({
+    "PREDVESTNIK_ENV": "production", "STARS_REFUND_RAIL_V1": "1",
+    "STARS_DIRECT_ENTITLEMENTS_V1": "1",
+})
 print("OK: preprod DB isolation and Telegram allowlist fail closed")

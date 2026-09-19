@@ -309,8 +309,6 @@ DAILY_DEAL_MIN_SLOTS: int = 3                      # минимум слотов
 DAILY_DEAL_MAX_SLOTS: int = 7                      # максимум слотов за ротацию
 DAILY_DEAL_MAX_QTY: int = 4                        # макс. кол-во товара в одном слоте
 DAILY_DEAL_ROTATION_HOURS: int = 12               # обновление каждые 12 часов
-# Чёрный Рынок (R8): товары за 🌑, ротация раз в ISO-неделю (понедельник 00:00 UTC)
-DARK_MARKET_SLOTS: int = 3
 # (устаревшие, оставлены для совместимости импортов)
 DAILY_DEAL_MORA_SLOTS: int = 6
 DAILY_DEAL_DIAMOND_SLOTS: int = 1
@@ -349,18 +347,6 @@ DEFAULT_PURGE_PERIOD_DAYS: int = 7  # evaluation window for purge activity check
 # ── Chat timezone ────────────────────────────────────────────────────────────
 CHAT_TIMEZONE_MIN: int = -12
 CHAT_TIMEZONE_MAX: int = 14
-
-# ── Daily Streak (§21) ────────────────────────────────────────────────────────
-# Стрик ЕДИНЫЙ на все чаты (глобальный). Граница «дня» считается в одной таймзоне
-# (МСК, UTC+3) — единый день для всех чатов, чтобы стрик не дробился по часовым поясам.
-STREAK_TIMEZONE_OFFSET: int = 3
-STREAK_BLOCK_SIZE: int = 7
-STREAK_RECOVERY_DIAMONDS: float = 1.5
-STREAK_RECOVERY_MORA: float = 100.0
-STREAK_BASE_MORA_REWARD: float = 70.0
-STREAK_BASE_DIAMONDS_REWARD: float = 0.15
-STREAK_BLOCK_BONUS_MULT: float = 4.0
-STREAK_RECOVERY_WINDOW_HOURS: int = 48
 
 # ── Stats ──────────────────────────────────────────────────────────────────────
 INACTIVE_THRESHOLD_DAYS: int = 4
@@ -452,9 +438,8 @@ STARS_PACKAGES: list[tuple[int, int, int]] = [
 ]
 STARS_MOST_POPULAR: int = 100           # пакет со звёздочкой "самое популярное"
 
-# Owner-v3: единственный разрешённый валютный маршрут — необратимый ✨→🪙.
-# Алмазы выдаются за опубликованные испытания и сезонные рубежи, поэтому их
-# нельзя купить Зарниками или автоматически покрыть ими дефицит покупки.
+# Retired legacy rate. Premium→progression exchange is closed by owner-v3;
+# this constant remains only for old read-only reports and migration tooling.
 ZARNIKI_TO_MORA_RATE: float = 150.0
 
 # ── БЛОК21 #3: сундуки-сюрпризы, осколки косметик-крафта ─────────────────────────
@@ -590,20 +575,6 @@ PUSH_EVENT_TTL_SEC: dict[str, int] = {
     "bid_outbid_final": 900,   # окно финала ~10 мин + запас
 }
 
-# ── R7: интеллектуальные мини-игры (services/skill_games.py) ───────────────────
-# Server-authoritative: раскладка/секрет живут в minigame_sessions.state_json,
-# клиенту не доверяем. Дневной кап выигрыша ОБЩИЙ с казино (GAMBLE_DAILY_CAP,
-# get/add_daily_winnings) — скилл-игры не обходят лимит.
-SKILL_GAME_COOLDOWN_MIN: int = 10      # между стартами сессий любых скилл-игр
-SAPPER_GRID: int = 25                  # поле 5×5
-SAPPER_MINES: int = 3
-SAPPER_MIN_BET: float = 100.0
-SAPPER_MAX_BET: float = 2_000.0
-SAPPER_EDGE: float = 0.96              # множитель = fair-гипергеометрия × эдж 4%
-SAFE_MIN_BET: float = 100.0
-SAFE_MAX_BET: float = 2_000.0
-SAFE_ATTEMPTS: int = 6                 # попыток взлома
-
 # ── ИИ-помощник (Q&A по функциям бота — services/ai_assistant.py) ──────────────
 # Срабатывает только когда "бот <текст>" не похож ни на одну известную команду
 # (fallback после cmd_suggest). Кулдаун+кап — т.к. каждый вопрос стоит денег
@@ -617,10 +588,6 @@ AI_ASSISTANT_DAILY_CAP_BY_VIP: dict[str, int] = {
     "1m": 7, "2m": 10, "3m": 10, "8m": 10, "12m": 10,
 }
 AI_ASSISTANT_MAX_QUESTION_LEN: int = 300   # символов, длиннее — просим сократить
-ALCHEMY_MIN_BET: float = 100.0
-ALCHEMY_MAX_BET: float = 2_000.0       # payout = ставка × min(3.0, счёт/1000) — см. services/alchemy.py
-SAFE_WIN_MULT: float = 1.6             # скилловый винрейт ~60% → EV ≈ 0.96
-
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────
 # РЕБАЛАНС 2026-07-09 (репорт пользователя: полуактивный игрок не проходит БП
 # за сезон). Диагноз: прогресс был завязан ТОЛЬКО на хардкорные капанные

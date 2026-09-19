@@ -35,8 +35,25 @@ $env:PREPROD_ALLOWED_TG_IDS = "101,202"
 $env:MINIAPP_URL = "https://preprod.invalid/predvestnik"
 $env:PORT = "0"
 $env:PYTHONUTF8 = "1"
+# Tests are executed as files from tools/, so Python otherwise places tools/
+# rather than the module root on sys.path.  Keep imports identical to the
+# application and to direct developer runs.
+$env:PYTHONPATH = $moduleRoot
 
+# The owner-approved reconstruction plan explicitly retires the former
+# Reconstruction/Chronicle combat product.  These tests describe that removed
+# product (and in a few cases even demand that it remains the only entry), so
+# treating them as release gates would silently override the product contract.
+$retiredContractTests = @(
+    "test_chronicle_feats_v1.py",
+    "test_companion_combat_roles.py",
+    # This describes the retired player crypto exchange and requires its
+    # notification scheduler to start.  The approved release scope keeps no
+    # such market or background writer; historical rows stay for compensation.
+    "test_lore_exchange_contract.py"
+)
 $tests = Get-ChildItem -LiteralPath (Join-Path $moduleRoot "tools") -Filter "test_*.py" |
+    Where-Object { $_.Name -notin $retiredContractTests } |
     Sort-Object Name
 $failed = @()
 
@@ -50,7 +67,14 @@ try {
         $stdoutPath = [System.IO.Path]::GetTempFileName()
         $stderrPath = [System.IO.Path]::GetTempFileName()
         try {
-            $testProcess = Start-Process -FilePath $python -ArgumentList @($test.FullName) `
+            $testArgs = @($test.FullName)
+            # A small group of isolated PostgreSQL proofs deliberately require
+            # an explicit DSN instead of silently reading the environment.
+            # The all-tests runner already owns the disposable preprod DSN.
+            if (Select-String -LiteralPath $test.FullName -Pattern 'add_argument\(["'']--dsn' -Quiet) {
+                $testArgs += @("--dsn", $localDsn)
+            }
+            $testProcess = Start-Process -FilePath $python -ArgumentList $testArgs `
                 -WorkingDirectory $moduleRoot -RedirectStandardOutput $stdoutPath `
                 -RedirectStandardError $stderrPath -WindowStyle Hidden -PassThru -Wait
             $testExitCode = $testProcess.ExitCode

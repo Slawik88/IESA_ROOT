@@ -15,8 +15,6 @@ def main() -> None:
     web = read("FastAPI/routers/themes.py")
     client = read("FastAPI/static/app.10.js")
     bot = read("bot/handlers/themes.py")
-    preview = read("tools/preview_server.mjs")
-    verifier = read("tools/verify_preview_theme_purchase.mjs")
 
     assert "async def purchase_direct_theme(" in service
     assert "async with db.connection.transaction():" in service
@@ -45,14 +43,6 @@ def main() -> None:
     assert "purchase_direct_theme(" in bot
     assert 'idempotency_key=f"theme:callback:{query.id}"' in bot
     assert "spend_dark_mora" not in bot
-
-    assert "PREVIEW_THEME_PURCHASES" in preview
-    assert "Idempotency-Key должен содержать 1–180 символов." in preview
-    assert "replayed: true" in preview
-    assert "already_owned: true" in preview
-    assert "headers: {'Idempotency-Key': requestKey}" in verifier
-    assert "Purchase retry must replay without a second debit" in verifier
-    assert "A purchase key may not be rebound" in verifier
 
     print("theme purchase contract: atomic service + replay-safe adapters OK")
 

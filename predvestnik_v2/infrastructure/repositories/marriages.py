@@ -1,5 +1,6 @@
 # infrastructure/repositories/marriages.py
 import aiosqlite
+from asyncpg.exceptions import UndefinedTableError, UniqueViolationError
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
 
@@ -21,6 +22,10 @@ FAMILY_CURRENCIES: dict[str, dict] = {
 }
 
 
+class MarriageConflict(RuntimeError):
+    """The global marriage invariant rejected a create/accept action."""
+
+
 async def get_user_marriage(
     db: aiosqlite.Connection, user_id: int
 ) -> dict | None:
@@ -31,9 +36,10 @@ async def get_user_marriage(
         "COALESCE(family_balance_diamonds, 0)  AS family_balance_diamonds, "
         "COALESCE(family_balance_dark_mora, 0) AS family_balance_dark_mora, "
         "COALESCE(family_balance_zarniki, 0)   AS family_balance_zarniki "
-        "FROM marriages WHERE user1_id = ? OR user2_id = ? "
-        "ORDER BY marriage_date DESC LIMIT 1",
-        (user_id, user_id),
+        "FROM marriage_members mm JOIN marriages m ON m.id = mm.marriage_id "
+        "WHERE mm.user_id = ? AND m.ended_at IS NULL "
+        "ORDER BY m.marriage_date DESC LIMIT 1",
+        (user_id,),
     ) as cursor:
         row = await cursor.fetchone()
         return dict(row) if row else None
@@ -69,6 +75,10 @@ async def family_bank_transaction(
     """Депозит/вывод любой из 4 валют между личным балансом и семейным кошельком.
     Любой супруг может тратить ВСЮ сумму семейного кошелька (общий пул).
     R8: 🪙-часть общака ограничена капом (get_family_bank_mora_cap)."""
+    # The former direct-column writer has no idempotency or premium-custody
+    # proof.  Keep every old caller fail-closed while the reviewed ledger path
+    # is completed; public endpoints must use family_wallet_v1 afterwards.
+    return False, "Семейный кошелёк временно закрыт для проверяемого переноса."
     meta = FAMILY_CURRENCIES.get(currency)
     if not meta:
         return False, "Неизвестная валюта."
@@ -169,7 +179,7 @@ async def purchase_partner_gift(
             if replay:
                 return True, gift["msg"], gift
             async with db.execute(
-                "SELECT 1 FROM marriages WHERE "
+                "SELECT 1 FROM marriages WHERE ended_at IS NULL AND "
                 "(user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) "
                 "FOR SHARE",
                 (buyer_id, partner_id, partner_id, buyer_id),
@@ -215,26 +225,106 @@ async def create_marriage(
     u1_name: str,
     u2_id: int,
     u2_name: str,
-):
-    await db.execute(
-        "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (chat_id, u1_id, u1_name, u2_id, u2_name),
-    )
-    await db.commit()
+    *,
+    proposal_id: int | None = None,
+) -> int:
+    """Create a global marriage and claim both accounts atomically.
+
+    ``marriage_members.user_id`` is the final authority, so two simultaneous
+    accepts involving the same account cannot create two marriages.  The
+    registry is installed only by the reviewed operator migration; failing
+    closed here is safer than falling back to the legacy unconstrained table.
+    """
+    if int(u1_id) == int(u2_id):
+        raise MarriageConflict("Нельзя заключить брак с самим собой.")
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT user_id FROM marriage_members WHERE user_id IN (?, ?) FOR UPDATE",
+                (u1_id, u2_id),
+            ) as cursor:
+                if await cursor.fetchone():
+                    raise MarriageConflict("Один из игроков уже состоит в браке.")
+            async with db.execute(
+                "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) "
+                "VALUES (?, ?, ?, ?, ?) RETURNING id",
+                (chat_id, u1_id, u1_name, u2_id, u2_name),
+            ) as cursor:
+                marriage_id = int((await cursor.fetchone())[0])
+            await db.execute(
+                "INSERT INTO marriage_members (user_id, marriage_id) VALUES (?, ?), (?, ?)",
+                (u1_id, marriage_id, u2_id, marriage_id),
+            )
+            if proposal_id is not None:
+                async with db.execute(
+                    "UPDATE marriage_proposals SET status = 'accepted' "
+                    "WHERE id = ? AND status = 'pending' RETURNING id",
+                    (proposal_id,),
+                ) as cursor:
+                    if not await cursor.fetchone():
+                        raise MarriageConflict("Предложение уже обработано.")
+        return marriage_id
+    except UniqueViolationError as exc:
+        raise MarriageConflict("Один из игроков уже состоит в браке.") from exc
+    except UndefinedTableError as exc:
+        raise RuntimeError(
+            "Реестр браков ещё не мигрирован; создание новых браков остановлено безопасно."
+        ) from exc
 
 
-async def delete_marriage(db: aiosqlite.Connection, user_id: int):
-    await db.execute(
-        "DELETE FROM marriages WHERE user1_id = ? OR user2_id = ?",
-        (user_id, user_id),
-    )
-    await db.commit()
+async def delete_marriage(db: aiosqlite.Connection, user_id: int) -> bool:
+    """Close, never delete, the active marriage of ``user_id``.
+
+    Family-wallet and payment records retain the marriage ID forever.  We only
+    release the two active membership claims after verifying that no property
+    is still attached to that family.  This is deliberately defensive even
+    though bot/API adapters perform the same user-facing check.
+    """
+    try:
+        async with db.connection.transaction():
+            async with db.execute(
+                "SELECT m.id, COALESCE(m.family_balance, 0), "
+                "COALESCE(m.family_balance_diamonds, 0), "
+                "COALESCE(m.family_balance_dark_mora, 0), "
+                "COALESCE(m.family_balance_zarniki, 0) "
+                "FROM marriage_members mm JOIN marriages m ON m.id = mm.marriage_id "
+                "WHERE mm.user_id = ? AND m.ended_at IS NULL FOR UPDATE",
+                (user_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            if not row:
+                return False
+            marriage_id = int(row[0])
+            if any(float(value or 0) > 0 for value in row[1:]):
+                raise MarriageConflict("Семейный кошелёк необходимо урегулировать до развода.")
+            async with db.execute(
+                "SELECT 1 FROM pets WHERE marriage_id = ? LIMIT 1 FOR SHARE", (marriage_id,)
+            ) as cursor:
+                if await cursor.fetchone():
+                    raise MarriageConflict("Семейных питомцев необходимо урегулировать до развода.")
+            try:
+                async with db.execute(
+                    "SELECT mora, diamonds, dark_mora, zarniki FROM family_wallet_balances "
+                    "WHERE marriage_id = ? FOR UPDATE",
+                    (marriage_id,),
+                ) as cursor:
+                    custody = await cursor.fetchone()
+                if custody and any(float(value or 0) > 0 for value in custody):
+                    raise MarriageConflict("Семейный кошелёк необходимо урегулировать до развода.")
+            except UndefinedTableError:
+                # Pre-ledger installations are protected by the legacy balance
+                # check above; migration itself remains deployable in stages.
+                pass
+            await db.execute("UPDATE marriages SET ended_at = NOW() WHERE id = ?", (marriage_id,))
+            await db.execute("DELETE FROM marriage_members WHERE marriage_id = ?", (marriage_id,))
+        return True
+    except UndefinedTableError as exc:
+        raise RuntimeError("Реестр браков ещё не мигрирован; развод остановлен безопасно.") from exc
 
 
 async def get_all_marriages(db: aiosqlite.Connection, chat_id: int) -> list[dict]:
     async with db.execute(
-        "SELECT * FROM marriages WHERE chat_id = ? ORDER BY marriage_date DESC",
+        "SELECT * FROM marriages WHERE chat_id = ? AND ended_at IS NULL ORDER BY marriage_date DESC",
         (chat_id,),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]

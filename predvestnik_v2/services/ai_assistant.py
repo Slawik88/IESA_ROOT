@@ -161,12 +161,13 @@ _TOOLS = [{"functionDeclarations": [
     },
     {
         "name": "get_quests_today",
-        "description": "Дневные квесты игрока в этом чате: метрика, цель, прогресс, награда.",
+        "description": ("Состояние замены старых дневных квестов: они закрыты без новых "
+                        "назначений; возвращает общий Ритм дня и его прогресс."),
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
         "name": "get_streak_status",
-        "description": "Текущий стрик активности игрока в этом чате (дней подряд).",
+        "description": "Единый глобальный стрик активности игрока (дней подряд во всех чатах).",
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
@@ -342,21 +343,33 @@ async def _tool_get_inventory(db, user_id: int, chat_id: int) -> dict:
 
 
 async def _tool_get_quests_today(db, user_id: int, chat_id: int) -> dict:
-    if chat_id and chat_id < 0:
-        from services.quests import get_or_assign_quests
-        quests = await get_or_assign_quests(db, user_id, chat_id)
-        return {"quests": [
-            {"metric": q.get("metric"), "target": q.get("target"),
-             "progress": q.get("progress", 0), "done": bool(q.get("completed")),
-             "reward": q.get("reward")}
-            for q in quests
-        ]}
-    return {"error": "Квесты дня привязаны к групповому чату — предложи игроку спросить там."}
+    del chat_id
+    from services.retention_v3 import overview
+
+    rhythm = await overview(db, user_id)
+    return {
+        "retired": True,
+        "message": "Старые ежедневные квесты закрыты и больше не назначаются.",
+        "replacement": "Ритм дня",
+        "rhythm": {
+            "day_key": rhythm["day_key"],
+            "offers": [
+                {"id": offer["id"], "name": offer["name"], "target": offer["target"]}
+                for offer in rhythm.get("offers", [])
+            ],
+            "selected_contract": rhythm.get("selected_contract"),
+            "progress": rhythm.get("progress", 0),
+            "target": rhythm.get("target", 0),
+            "completed": bool(rhythm.get("completed")),
+            "weekly_cadence": rhythm.get("weekly_cadence"),
+        },
+    }
 
 
 async def _tool_get_streak_status(db, user_id: int, chat_id: int) -> dict:
-    from infrastructure.repositories.streak import get_streak
-    streak_row = await get_streak(db, user_id, chat_id)
+    del chat_id
+    from infrastructure.repositories.streak import get_global_streak
+    streak_row = await get_global_streak(db, user_id)
     return {"streak_days": streak_row.get("streak", 0)}
 
 

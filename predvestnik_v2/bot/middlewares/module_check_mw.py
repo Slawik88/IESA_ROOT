@@ -10,9 +10,34 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 
+from core.chat_modules import CHAT_MODULE_KEYS
+
+
+async def module_disabled_reason(db, chat_id: int, module_key: str) -> str | None:
+    """Return the effective disable reason from the canonical two-level policy."""
+    if module_key not in CHAT_MODULE_KEYS:
+        raise ValueError(f"unknown chat module: {module_key}")
+    async with db.execute(
+        f"SELECT {module_key} FROM chat_settings WHERE chat_id = ?",
+        (chat_id,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row is not None and row[0] == 0:
+        return "Этот раздел временно недоступен в данном чате."
+    async with db.execute(
+        "SELECT enabled, disabled_reason FROM global_module_toggles WHERE module_key = ?",
+        (module_key,),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if row is not None and row[0] == 0:
+        return str(row[1] or "Этот раздел временно отключён глобально.")
+    return None
+
 
 class ModuleCheckMiddleware(BaseMiddleware):
     def __init__(self, module_key: str) -> None:
+        if module_key not in CHAT_MODULE_KEYS:
+            raise ValueError(f"unknown chat module: {module_key}")
         self.module_key = module_key
 
     async def __call__(
@@ -25,30 +50,12 @@ class ModuleCheckMiddleware(BaseMiddleware):
         chat = data.get("event_chat")
 
         if db and chat:
-            # Per-chat check
-            async with db.execute(
-                f"SELECT {self.module_key} FROM chat_settings WHERE chat_id = ?",
-                (chat.id,),
-            ) as c:
-                row = await c.fetchone()
-            if row is not None and row[0] == 0:
+            reason = await module_disabled_reason(db, int(chat.id), self.module_key)
+            if reason:
                 if isinstance(event, Message):
-                    await event.answer("🔧 Этот раздел временно недоступен в данном чате.")
+                    await event.answer(f"🔧 {reason}")
                 elif isinstance(event, CallbackQuery):
-                    await event.answer("🔧 Этот раздел временно недоступен в данном чате.", show_alert=True)
-                return
-
-            # Global check
-            async with db.execute(
-                "SELECT enabled FROM global_module_toggles WHERE module_key = ?",
-                (self.module_key,),
-            ) as c:
-                grow = await c.fetchone()
-            if grow is not None and grow[0] == 0:
-                if isinstance(event, Message):
-                    await event.answer("🔧 Этот раздел временно отключён глобально.")
-                elif isinstance(event, CallbackQuery):
-                    await event.answer("🔧 Этот раздел временно отключён глобально.", show_alert=True)
+                    await event.answer(f"🔧 {reason}", show_alert=True)
                 return
 
         return await handler(event, data)

@@ -116,6 +116,11 @@ def _manual(category: dict[str, object], *reasons: str) -> dict[str, object]:
     return category
 
 
+def _legacy_utc_timestamp(cutoff: datetime) -> datetime:
+    """Old production tables store UTC as timestamp without time zone."""
+    return cutoff.astimezone(timezone.utc).replace(tzinfo=None)
+
+
 async def audit_units(conn, catalog) -> dict[str, object]:
     requirements = {
         "user_units": {"user_id", "unit_id", "level", "shards", "obtained_at"},
@@ -205,7 +210,7 @@ async def audit_duel_escrow(conn, catalog, cutoff: datetime) -> dict[str, object
                (SELECT coalesce(sum(reserved_mora), 0)::numeric FROM predvestnik.user_reserve) AS all_reserve,
                count(*) FILTER (WHERE stake < 0)::bigint AS invalid_stake_rows
         FROM pending""",
-        cutoff,
+        _legacy_utc_timestamp(cutoff),
     )
     payload = _category("ok", **dict(row))
     reasons = []
@@ -237,7 +242,7 @@ async def audit_legacy_expeditions(conn, catalog, cutoff: datetime) -> dict[str,
                count(*) FILTER (WHERE p.id IS NULL)::bigint AS orphan_pet_rows
         FROM predvestnik.active_expeditions e
         LEFT JOIN predvestnik.pets p ON p.id = e.pet_id""",
-        cutoff,
+        _legacy_utc_timestamp(cutoff),
     )
     payload = _category("ok", early_finish_column_present=has_early_finish, **dict(row))
     return _manual(
@@ -264,11 +269,11 @@ async def audit_shadow_gates(conn, catalog, cutoff: datetime) -> dict[str, objec
              LEFT JOIN predvestnik.pets p ON p.id = g.pet_id
             WHERE g.status = 'active' AND p.id IS NULL) AS orphan_pet_rows,
           (SELECT count(*)::bigint FROM predvestnik.shadow_gate_runs
-            WHERE status = 'active' AND started_at <= $1 - interval '12 hours') AS cap_exceeded_rows,
+            WHERE status = 'active' AND started_at <= $1::timestamp - interval '12 hours') AS cap_exceeded_rows,
           (SELECT count(*)::bigint FROM predvestnik.pets p
              LEFT JOIN predvestnik.shadow_gate_runs g ON g.pet_id = p.id AND g.status = 'active'
             WHERE p.placement = 'gates' AND g.pet_id IS NULL) AS placement_without_run_rows""",
-        cutoff,
+        _legacy_utc_timestamp(cutoff),
     )
     payload = _category("ok", **dict(row))
     return _manual(
@@ -298,7 +303,7 @@ async def audit_raids(conn, catalog, cutoff: datetime) -> dict[str, object]:
           (SELECT count(*)::bigint FROM predvestnik.raid_contributions c
              LEFT JOIN predvestnik.clan_raids r ON r.raid_id = c.raid_id
             WHERE r.raid_id IS NULL) AS orphan_contribution_rows""",
-        cutoff,
+        _legacy_utc_timestamp(cutoff),
     )
     payload = _category("ok", **dict(row))
     return _manual(
@@ -356,7 +361,7 @@ async def audit_clan_wars(conn, catalog, cutoff: datetime) -> dict[str, object]:
           (SELECT count(*)::bigint FROM predvestnik.clan_war_attacks a
              LEFT JOIN predvestnik.clan_wars2 w ON w.id = a.war_id
             WHERE w.id IS NULL) AS orphan_attack_rows""",
-        cutoff,
+        _legacy_utc_timestamp(cutoff),
     )
     payload = _category("ok", **dict(row))
     return _manual(

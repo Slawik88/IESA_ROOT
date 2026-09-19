@@ -12,6 +12,30 @@ try{ if(localStorage.getItem('pv_no_fx')==='1') document.body.classList.add('no-
 const INIT_DATA = tg?.initData || '';
 const SK = 'pv_sess';
 const UK = 'pv_uid';
+// The isolated preprod launcher issues a host-only HttpOnly test cookie on
+// 127.0.0.1:8404.  The API, not this flag, validates it.  This only prevents
+// the browser UI from showing a false login overlay before its first request;
+// quick tunnels and production never match this loopback address.
+const LOCAL_PREPROD_TEST = location.hostname === '127.0.0.1' && location.port === '8403';
+let _localPreprodTicket = '';
+if (LOCAL_PREPROD_TEST) {
+  try {
+    const url = new URL(location.href);
+    const handedOff = url.searchParams.get('__preprod_ticket') || '';
+    if (handedOff) {
+      sessionStorage.setItem('pv_preprod_ticket', handedOff);
+      url.searchParams.delete('__preprod_ticket');
+      history.replaceState(null, '', url.pathname + url.search + url.hash);
+    }
+    _localPreprodTicket = sessionStorage.getItem('pv_preprod_ticket') || '';
+  } catch (_) {}
+}
+// The loopback persona is cookie-authenticated. A token left by an unrelated
+// browser-login test would take header precedence on the server and silently
+// turn @codex_test into that stale account. It is safe to discard only here.
+if (LOCAL_PREPROD_TEST) {
+  try { localStorage.removeItem(SK); localStorage.removeItem(UK); } catch (_) {}
+}
 // Смена активного Telegram-аккаунта в приложении: если initData сейчас называет
 // другого пользователя, чем закэширован pv_uid — старый браузерный токен (7 дней,
 // x-session-token) мог остаться от прошлого аккаунта на этом же устройстве.
@@ -35,6 +59,7 @@ const RC = {common:'rc-common',uncommon:'rc-uncommon',rare:'rc-rare',
 // Множественные формы для фильтров ("Редкие", с эмодзи) — отдельно в app.04.js, другой контекст.
 const RARITY_META = {
   common:    {label:'Обычный',    color:'#9aa7b8'},
+  uncommon:  {label:'Необычный',  color:'#79b98b'},
   rare:      {label:'Редкий',     color:'#5b9bd5'},
   epic:      {label:'Эпический',  color:'#b07ad6'},
   legendary: {label:'Легендарный',color:'#e8c45a'},
@@ -56,7 +81,7 @@ const _initChatTitle = _tgChat?.title || '';
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='game';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
-let _achData=null, _achSort='default', _achRetired=false, _achMessage='', _invSearch='', _themeFilter='all';
+let _featData=null, _achData=null, _achSort='default', _achRetired=false, _achMessage='', _invSearch='', _themeFilter='all';
 let _bpData=null;
 let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,16);
 
@@ -77,6 +102,7 @@ const hdrs = () => {
   const h={'content-type':'application/json'};
   if (INIT_DATA) h['x-init-data']=INIT_DATA;
   if (sess()) h['x-session-token']=sess();
+  if (_localPreprodTicket) h['x-preprod-browser-ticket']=_localPreprodTicket;
   if (CLIENT_FP) h['x-client-fp']=CLIENT_FP;
   return h;
 };
@@ -105,7 +131,7 @@ function _scheduleReactiveRefresh(){
 function api(path, opts={}) {
   return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
     .then(r=>{
-      if(r.status===401){localStorage.removeItem(SK);el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
+      if(r.status===401){localStorage.removeItem(SK);try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){};_localPreprodTicket='';el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
       // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
       const _m=(opts.method||'GET').toUpperCase();
       if(r.ok && _m!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
@@ -168,7 +194,7 @@ window.onTelegramWidgetAuth = u => {
       else { try{ toast('Не получилось войти: '+err, false); }catch(_){} }
     });
 };
-if (!INIT_DATA && !sess()) el('login-ov').classList.remove('hidden');
+if (!INIT_DATA && !sess() && !LOCAL_PREPROD_TEST) el('login-ov').classList.remove('hidden');
 // Явная смена Telegram-аккаунта в браузере (Настройки → Аккаунт). Внутри Telegram
 // кнопка скрыта — там аккаунт и так всегда актуальный (initData подписывается заново
 // при каждом запуске мини-аппа). В чистом браузере Telegram не даёт сайту узнать,
@@ -201,8 +227,9 @@ function showWsNotif(event) {
   }
   // Возврат питомца из похода → «чек награды» (БЛОК 3) вместо углового уведомления
   if (event.type === 'expedition_done') {
-    showExpeditionReceipt(event);
-    if (_loaded.has('zoo')) { _zooData = null; loadZoo(); }
+    // Old expeditions are archival only.  Do not surface or restart the
+    // retired pet UI if a delayed historic event is received.
+    toast('Старое уведомление экспедиции сохранено в архиве.', false);
     return;
   }
   const div = document.createElement('div');
@@ -388,7 +415,9 @@ function fmtDurShort(sec){
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
+let _modalReturnFocus=null;
 function OM(title,body,btns=[]) {
+  _modalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
   el('mt').textContent=title;
   el('mb').innerHTML=body;
@@ -405,9 +434,11 @@ const CM=()=>{
   try{ if(typeof lotLiveLeave==='function') lotLiveLeave(); }catch(e){}
   // Move toast back to body in case it was reparented inside the dialog for z-order
   const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);
+  const returnFocus=_modalReturnFocus;_modalReturnFocus=null;
+  requestAnimationFrame(()=>{if(returnFocus?.isConnected) returnFocus.focus();});
 };
 el('modal').addEventListener('click',e=>{if(e.target===el('modal'))CM();});
-el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);});
+el('modal').addEventListener('cancel',()=>{el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');const t=el('toast');if(t&&t.parentElement!==document.body)document.body.appendChild(t);const returnFocus=_modalReturnFocus;_modalReturnFocus=null;requestAnimationFrame(()=>{if(returnFocus?.isConnected)returnFocus.focus();});});
 
 // EPIC6: базовый haptic на КАЖДОЙ кнопке .btn — один делегированный листенер
 // вместо ручной расстановки _haptic() по сотням onclick по всему приложению.
@@ -477,14 +508,13 @@ const _navStack=[];
 // вторичные разделы (открытые через «Ещё») подсвечивают «Ещё».
 let _activePage = 'profile';
 const _PAGE_LOADERS = {
-  zoo:loadZoo, arena:loadArena, market:loadMarket,
-  bp:loadBattlePass, auction:loadAuctionPage,
+  arena:loadArena,
   admin:loadAdmin, global:loadGlobal, console:loadConsole, help:()=>{},
   news:loadWhatsNew
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
-const _PAGE_FLAG = {zoo:'tab_zoo', market:'tab_market', bp:'tab_bp', auction:'tab_auction'};
+const _PAGE_FLAG = {};
 let _sysFlags = {};  // заполняется из /profile/me (system_flags) при loadProfile()
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
@@ -507,6 +537,12 @@ function _showMaintenance(pg) {
 }
 
 function switchPage(name, _btn, _viaBack) {
+  // Old game/economy pages are deliberately absent from the release surface.
+  // Cached clients and stale deep links return to the current hub safely.
+  if (['market','bp','auction','bestiary','craft','quests','ach','hof'].includes(name)) {
+    name='arena';
+    toast('Этот старый раздел больше не используется.', false);
+  }
   if(!el('pg-'+name)) return;
   // Любой выход из «Внешнего вида» (включая нижнюю навигацию) сначала даёт
   // примерочной сохранить выбранную экипировку и подготовить профиль-превью.
@@ -554,17 +590,18 @@ function _syncBackButton(){
       if(has) tg.BackButton.show(); else tg.BackButton.hide();
     }catch(e){}
   }
-  // «Внешний вид» уже даёт собственную стрелку в шапке. Браузерный fallback
-  // внизу экрана там дублирует выход и перекрывает каталог/примерочную.
-  const hasLocalAppearanceExit=_activePage==='looks';
+  // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
+  // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
+  // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker'].includes(_activePage);
   let btn=el('nav-back');
-  if(!btn && has && !inTg && !hasLocalAppearanceExit){
+  if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
     btn.id='nav-back'; btn.type='button'; btn.setAttribute('aria-label','Назад');
     btn.innerHTML='‹ Назад'; btn.onclick=navBack;
     document.body.appendChild(btn);
   }
-  if(btn) btn.classList.toggle('hidden', !has || inTg || hasLocalAppearanceExit);
+  if(btn) btn.classList.toggle('hidden', !has || inTg || suppressBrowserBack);
 }
 function navBack(){
   if(!_navStack.length) return;
@@ -586,22 +623,18 @@ setInterval(()=>{
 function goTo(page, tab) {
   CM();
   // Редиректы: страницы, которые переехали в подвкладки других разделов
-  if (page==='quests'||page==='ach'||page==='hof') {
-    const proTab = page==='hof'?'hof':page==='ach'?'ach':'quests';
+  if (['quests','ach','hof'].includes(page)) { switchPage('arena'); toast('Этот старый раздел больше не используется.',false); return; }
+  if (page==='zoo'||page==='pets'||page==='bestiary') {
     switchPage('profile');
-    setTimeout(()=>{
-      const btn = document.querySelector(`#pg-profile > .tabs > .tb[onclick*="'${proTab}'"]`);
-      if(btn) btn.click();
-      if(tab) setTimeout(()=>{
-        const sub = document.querySelector(`#pro-${proTab} .tab-inner .tb[onclick*="'${tab}'"]`);
-        if(sub) sub.click();
-      },80);
-    },80);
+    toast('Новая система питомцев готовится.',false);
     return;
   }
-  if (page==='bestiary') {
-    switchPage('zoo');
-    setTimeout(()=>{ const b=document.querySelector('#pg-zoo > .tabs > .tb[onclick*="bestiary"]'); if(b) b.click(); },80);
+  // Old player-facing game surfaces are no longer part of Predvestnik.
+  // Keep stale deep links harmless while the historic data remains available
+  // for the final compensation audit.
+  if (['bp','auction','exchange','craft','chronicle','sky','reconstruction'].includes(page)) {
+    switchPage('profile');
+    toast('Этот старый раздел больше не используется.',false);
     return;
   }
   if (page==='craft') {
@@ -618,6 +651,10 @@ function goTo(page, tab) {
     if (tabBtn) tabBtn.click();
   }, 80);
 }
+
+// Historical profile/onboarding cards still call this helper.  It must point
+// at the approved current games hub, not at a retired Reconstruction screen.
+function openReconstructionGame(){ goTo('arena','game'); }
 
 // ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Глобальную/Консоль ──
 // БЛОК 21.2 W4.1: три полноценных входа; Консоль — по правам (gp из app.07),

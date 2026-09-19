@@ -12,8 +12,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user, require_tab_enabled
 from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
-    chest_catalog, open_chest, craft_catalog, craft_cosmetic,
-    giftable_cosmetics, gift_cosmetic, buy_chest,
+    craft_catalog, craft_cosmetic, giftable_cosmetics, gift_cosmetic,
     list_presets, save_preset, rename_preset, apply_preset, delete_preset,
     buy_lineup, buy_many,
 )
@@ -153,7 +152,11 @@ async def cosmetics_welcome(body: WelcomeRequest, db=Depends(get_db), user=Depen
 
 @router.get("/chests")
 async def cosmetics_chests(db=Depends(get_db), user=Depends(require_tg_user)):
-    return {"chests": await chest_catalog(db, user["id"])}
+    del db, user
+    raise HTTPException(
+        410,
+        "Архивные косметические сундуки закрыты. Новые сундуки питомцев используют отдельный серверный каталог.",
+    )
 
 
 class ChestOpenRequest(BaseModel):

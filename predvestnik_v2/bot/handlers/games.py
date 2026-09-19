@@ -1,37 +1,68 @@
-# bot/handlers/games.py — R7: старое казино (кости/монетка/угадай число/рулетка,
-# чисто удача) снесено. Заменено скилл-играми в мини-аппе (Сапёр/Сейф/Алхимия —
-# реальный навык вместо голого рандома). Хендлер оставлен только как
-# редирект в единственную новую игровую петлю — Разлом колокола.
+# bot/handlers/games.py — прежние режимы со ставками закрыты. Этот адаптер
+# сохраняет только безопасный возврат их зависших сессий и ведёт игрока в
+# утверждённый раздел Mini App: Ритм и один новый Сапёр.
 import os
 
 from aiogram import Router, types
+from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.filters.text_commands import TextCmd
-from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 from bot.keyboards.cta import answer_group_only
+from services.skill_games import get_active_session_summary, refund_active_sessions
+from services.utils import check_callback_owner
 
 router = Router(name="games_router")
-router.message.middleware(ModuleCheckMiddleware("module_games"))
 
 
-def _arena_games_kb() -> InlineKeyboardMarkup | None:
+class LegacyGameRefundCB(CallbackData, prefix="game_refund"):
+    user_id: int
+
+
+def _arena_games_kb(user_id: int, active_count: int) -> InlineKeyboardMarkup | None:
     bot_username = os.getenv("BOT_USERNAME", "")
-    if not bot_username:
+    rows = []
+    if active_count > 0:
+        rows.append([InlineKeyboardButton(
+            text="↩ Вернуть старую ставку",
+            callback_data=LegacyGameRefundCB(user_id=user_id).pack(),
+        )])
+    if bot_username:
+        rows.append([InlineKeyboardButton(
+            text="🎮 Открыть игры",
+            url=f"https://t.me/{bot_username}?startapp=game")])
+    if not rows:
         return None
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
-        text="🔔 Открыть Разлом",
-        url=f"https://t.me/{bot_username}?startapp=game")]])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 @router.message(TextCmd(["игры", "казино", "азарт", "кости", "монетка",
                          "числа", "угадай число", "рулетка"]))
-async def cmd_games_moved(message: types.Message):
+async def cmd_games_moved(message: types.Message, db):
     if message.chat.type == "private":
         return await answer_group_only(message)
+    recovery = await get_active_session_summary(db, message.from_user.id)
+    recovery_text = (
+        f"\n\nУ тебя осталось старых ставок: <b>{recovery['active_count']}</b>. "
+        f"К возврату: <b>{recovery['refundable_mora']:g} 🪙</b>."
+        if recovery["active_count"] else ""
+    )
     await message.answer(
-        "🎲 <b>Старое казино ушло в историю.</b>\n"
-        "Кости, монетка, Сапёр, Сейф и Алхимия со ставками закрыты. "
-        "Основная игра теперь одна: 🔔 Разлом колокола — важен правильный выбор руны, а не спам.\n"
-        "Открой мини-апп → Игра → Разлом.",
-        reply_markup=_arena_games_kb(), parse_mode="HTML")
+        "🎮 <b>Игры Предвестника</b>\n"
+        "🔔 <b>Ритм</b> — бесконечный забег на реакцию.\n"
+        "💣 <b>Сапёр</b> — логическая игра с тремя сложностями и таблицами лидеров.\n"
+        f"Открой Mini App → Игра, чтобы выбрать режим.{recovery_text}",
+        reply_markup=_arena_games_kb(message.from_user.id, recovery["active_count"]),
+        parse_mode="HTML")
+
+
+@router.callback_query(LegacyGameRefundCB.filter())
+async def cb_refund_legacy_games(
+    query: types.CallbackQuery, callback_data: LegacyGameRefundCB, db
+):
+    if not await check_callback_owner(query, callback_data.user_id):
+        return
+    result = await refund_active_sessions(db, query.from_user.id)
+    await query.answer("Возврат выполнен." if result["count"] else "Возвращать уже нечего.")
+    if query.message:
+        await query.message.edit_reply_markup(reply_markup=_arena_games_kb(query.from_user.id, 0))

@@ -5,7 +5,7 @@
 // наверх, чтобы увидеть «как оно будет выглядеть» — теперь ни то, ни другое.
 const _LOOKS_SLOTS=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx'];
 const _LOOKS_SLOT_LABEL={name_glow:'✨ Ореол имени',avatar_frame:'🖼 Рамка аватара',avatar_halo:'🌟 Гало аватара',title:'🏷 Титул',profile_bg:'🖌 Фон профиля',card_fx:'❄️ Частицы карточки'};
-const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход',themes:'🎭 Темы'};
+const _LOOKS_ANCHOR_LABEL={name_glow:'✨ Ореол',avatar_frame:'🖼 Рамка',avatar_halo:'🌟 Гало',title:'🏷 Титул',profile_bg:'🖌 Фон',card_fx:'❄️ Частицы',welcome:'🎬 Вход'};
 const _LOOKS_TRIAL_KEY='pv_looks_trial_v1';
 function _looksLoadTrialState(){
   try{
@@ -218,27 +218,25 @@ function renderLooks(){
     +(isDetail?'':_looksPresetsHtml())
     +(isDetail?'':_looksQuickLinksHtml())
     +`<div id="looks-mode-body">${modeBody}</div>`
-    +(isDetail?'':`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}${_looksThemesSectionHtml()}</div>`)
-    +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Цифровые товары возврату не подлежат.</div>`;
+    +(isDetail?'':`<div id="looks-common-sections">${_looksWelcomeSectionHtml()}</div>`)
+    +`<div class="pay-terms">Покупая косметику, вы соглашаетесь с <a href="${BASE}/legal/tos" target="_blank" rel="noopener">Соглашением</a>. Возврат не автоматический: платёжный спор вручную рассматривается через <code>/paysupport</code> по правилам Telegram.</div>`;
   if(!isDetail){
     _playWelcomePreview(_looksData.welcome&&_looksData.welcome.current);
-    _looksThemesEnsureLoaded();
   }
   _looksSyncStickyH();
   _looksObserveSwatches();
   _looksRenderFab();
 }
-// Быстрые переходы остаются доступными и в «По коллекциям»: «Вход» и «Темы» —
-// полноценные части внешнего вида, а не нижний хвост каталога. В слотах рядом с
-// ними доступны все шесть слотов; в коллекциях остаются только две общие секции.
+// Быстрый переход к анимации входа остаётся доступен в обоих режимах.
+// Старые profile themes не включаем: whole-app skins v1 имеют отдельный контракт.
 function _looksQuickLinksHtml(){
-  const ids=_looksMode==='slots'?[..._LOOKS_SLOTS,'welcome','themes']:['welcome','themes'];
+  const ids=_looksMode==='slots'?[..._LOOKS_SLOTS,'welcome']:['welcome'];
   return `<div class="looks-anchors" id="looks-quick-links" aria-label="Быстрые переходы по внешнему виду">${ids.map(id=>
     `<button class="looks-anchor-chip" type="button" data-looks-jump="${id}" onclick="_looksJump('${id}')">${_LOOKS_ANCHOR_LABEL[id]}</button>`
   ).join('')}</div>`;
 }
 // Режим «По слотам» — умный ряд (фильтр) живёт в .looks-sticky (рендерится в
-// renderLooks), здесь только секции слотов. «Вход»/«Темы» общие, рендерятся
+// renderLooks), здесь только секции слотов. «Вход» рендерится
 // отдельно в renderLooks().
 function _looksSlotsViewHtml(){
   return `<div id="looks-sections">${_LOOKS_SLOTS.map(s=>_looksSectionHtml(s)).join('')}</div>`;
@@ -1237,7 +1235,7 @@ let _looksThemeSel=null, _looksThemeFilter='all';
 const _looksThemePurchaseKeys=new Map();
 function _looksThemesEnsureLoaded(){
   if(_themeData){ _looksRenderThemesGrid(); _looksThemeShowInitialPreview(); return; }
-  api('/themes/').then(themes=>{ _themeData=themes; _looksRenderThemesGrid(); _looksThemeShowInitialPreview(); })
+  Promise.reject('Старые темы закрыты.').then(themes=>{ _themeData=themes; _looksRenderThemesGrid(); _looksThemeShowInitialPreview(); })
     .catch(e=>{ const g=el('looks-grid-themes'); if(g) g.innerHTML=`<div class="err">${e}</div>`; });
 }
 // У темы всегда есть контекст: после возврата на экран восстанавливаем последний
@@ -1313,7 +1311,7 @@ function _looksThemeTap(tid){
   });
   const box=el('looks-theme-preview'); if(!box) return;
   box.innerHTML='<div class="loader">Загрузка превью…</div>';
-  api(`/themes/preview/${tid}`).then(r=>{
+  Promise.reject('Старые темы закрыты.').then(r=>{
     const price=t.price_mora?`${fmt(t.price_mora)} 🪙`:t.price_diamonds?`${t.price_diamonds} 💎`
       :t.price_zarniki?`${fmt(t.price_zarniki)} ✨`:t.price_dark?`${t.price_dark} 🌑`:null;
     const buyable=price&&(t.source==='shop_mora'||t.source==='shop_diamond'||t.source==='zarniki'||t.source==='dark');
@@ -1332,7 +1330,7 @@ function _looksThemeBuy(tid,btn){
   const requestKey=_looksThemePurchaseKeys.get(tid)||economyRequestKey(`theme-${tid}`);
   _looksThemePurchaseKeys.set(tid,requestKey);
   if(btn) btn.disabled=true;
-  api('/themes/buy',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({theme_id:tid})})
+  Promise.reject('Старые темы закрыты.')
     .then(r=>{
       _looksThemePurchaseKeys.delete(tid);
       const message=r.replayed?'Покупка уже обработана':r.already_owned?'Тема уже есть в коллекции':`${r.theme_name} куплена`;
@@ -1342,7 +1340,7 @@ function _looksThemeBuy(tid,btn){
     .catch(e=>{if(btn)btn.disabled=false;toast(e,false);});
 }
 function _looksThemeEquip(tid){
-  api('/themes/equip',{method:'POST',body:JSON.stringify({theme_id:tid})})
+  Promise.reject('Старые темы закрыты.')
     .then(()=>{ toast('✅ Тема активирована!'); _themeData=null; loadProfile();
       _looksThemesEnsureLoaded(); _looksThemeTap(tid); })
     .catch(e=>toast(e,false));

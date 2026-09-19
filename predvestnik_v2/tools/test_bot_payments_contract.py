@@ -100,6 +100,13 @@ def _star_transaction(*, payload, amount=20, charge="charge-history", user_id=70
 
 
 async def _run() -> None:
+    from infrastructure.preprod import direct_stars_cosmetics_allowed, stars_invoice_issuance_allowed
+    assert not stars_invoice_issuance_allowed({})
+    assert not stars_invoice_issuance_allowed({"STARS_REFUND_RAIL_V1": "1", "STARS_DIRECT_ENTITLEMENTS_V1": "1"})
+    assert not direct_stars_cosmetics_allowed({"STARS_REFUND_RAIL_V1": "1"})
+    assert not direct_stars_cosmetics_allowed({
+        "STARS_REFUND_RAIL_V1": "1", "STARS_DIRECT_ENTITLEMENTS_V1": "1",
+    })
     payments.is_preprod = lambda: True
     blocked_message = FakeMessage(
         payment=_payment(payload="zarniki:v1:p:20:215", charge="preprod-blocked")
@@ -173,11 +180,11 @@ async def _run() -> None:
     for payload, currency, total in invalid:
         assert payments._quote_from_paid_invoice(payload, currency, total) is None, payload
         checkout = FakePreCheckout(payload, currency, total)
-        await payments.process_pre_checkout(checkout)
+        await payments.process_pre_checkout(checkout, None)
         assert checkout.answers == [{"ok": False, "error_message": "Параметры платежа не прошли проверку. Откройте покупку заново."}]
 
     checkout = FakePreCheckout("zarniki:v1:p:20:215", "XTR", 20)
-    await payments.process_pre_checkout(checkout)
+    await payments.process_pre_checkout(checkout, None)
     assert checkout.answers == [{"ok": True}]
 
     invoice_bot = FakeBot()
@@ -240,26 +247,40 @@ async def _run() -> None:
     assert "личном чате" in group_query.message.answers[0][0]
 
     original_add_balance = payments.eco_db.add_balance
+    original_record_credit = payments.payment_repo.record_credit
     credits: dict[str, dict] = {}
+
+    class _Tx:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): return False
+
+    class _Connection:
+        def transaction(self): return _Tx()
+
+    fake_db = SimpleNamespace(connection=_Connection())
 
     async def idempotent_add_balance(_db, user_id, **kwargs):
         key = kwargs["idempotency_key"]
         if key in credits:
-            return SimpleNamespace(applied=False)
-        credits[key] = {"user_id": user_id, **kwargs}
-        return SimpleNamespace(applied=True)
+            return SimpleNamespace(applied=False, operation_id=credits[key]["operation_id"])
+        credits[key] = {"user_id": user_id, "operation_id": "op-" + key, **kwargs}
+        return SimpleNamespace(applied=True, operation_id=credits[key]["operation_id"])
+
+    async def record_credit(*_args, **_kwargs):
+        return None
 
     payments.eco_db.add_balance = idempotent_add_balance
+    payments.payment_repo.record_credit = record_credit
     try:
         purchase_message = FakeMessage(payment=_payment(payload="zarniki:v1:p:20:215"))
-        await payments.on_successful_payment(purchase_message, object(), invoice_bot)
-        await payments.on_successful_payment(purchase_message, object(), invoice_bot)
+        await payments.on_successful_payment(purchase_message, fake_db, invoice_bot)
+        await payments.on_successful_payment(purchase_message, fake_db, invoice_bot)
         assert list(credits) == ["stars_purchase:charge-1"]
         assert credits["stars_purchase:charge-1"]["zarniki"] == 215
         assert "уже был обработан" in purchase_message.answers[-1][0]
 
         invalid_message = FakeMessage(payment=_payment(payload="zarniki:215:extra", charge="invalid"))
-        await payments.on_successful_payment(invalid_message, object(), invoice_bot)
+        await payments.on_successful_payment(invalid_message, fake_db, invoice_bot)
         assert "stars_purchase:invalid" not in credits
         assert "Не оплачивайте повторно" in invalid_message.answers[0][0]
 
@@ -274,7 +295,7 @@ async def _run() -> None:
 
         payments.eco_db.add_balance = fail_once
         try:
-            await payments.on_successful_payment(failed_message, object(), invoice_bot)
+            await payments.on_successful_payment(failed_message, fake_db, invoice_bot)
         except RuntimeError:
             pass
         else:
@@ -282,31 +303,20 @@ async def _run() -> None:
 
         payments.eco_db.add_balance = idempotent_add_balance
         recovery_bot = FakeBot([_star_transaction(payload="zarniki:v1:c:20:200", charge="recover-me")])
-        first_recovery = await payments.reconcile_star_payments(recovery_bot, object(), max_pages=1)
-        second_recovery = await payments.reconcile_star_payments(recovery_bot, object(), max_pages=1)
+        first_recovery = await payments.reconcile_star_payments(recovery_bot, fake_db, max_pages=1)
+        second_recovery = await payments.reconcile_star_payments(recovery_bot, fake_db, max_pages=1)
         assert first_recovery.credited == 1 and first_recovery.failed == 0
         assert second_recovery.replayed == 1 and second_recovery.credited == 0
         assert credits["stars_purchase:recover-me"]["zarniki"] == 200
         assert len(recovery_bot.messages) == 1
     finally:
         payments.eco_db.add_balance = original_add_balance
+        payments.payment_repo.record_credit = original_record_credit
 
     startup_source = (ROOT / "bot" / "__main__.py").read_text(encoding="utf-8")
     assert "delete_webhook(drop_pending_updates=True)" not in startup_source
     assert "delete_webhook(drop_pending_updates=False)" in startup_source
     assert "star_payment_reconciliation_task(bot, pool)" in startup_source
-
-    preview_source = (ROOT / "tools" / "preview_server.mjs").read_text(encoding="utf-8")
-    assert f"per_star: {payment_contract.ZARNIKI_PER_STAR}" in preview_source
-    assert f"custom_min: 1, custom_max: {payment_contract.MAX_STARS}" in preview_source
-    for stars, base, bonus in payment_contract.STARS_PACKAGES:
-        total = base + bonus
-        expected = (
-            f"{{ stars: {stars}, zarniki: {base}, bonus: {bonus}, total: {total}, "
-            f"popular: {str(stars == payments.STARS_MOST_POPULAR).lower()} }}"
-        )
-        assert expected in preview_source, expected
-
 
 if __name__ == "__main__":
     asyncio.run(_run())

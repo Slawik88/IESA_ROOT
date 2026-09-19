@@ -1,5 +1,99 @@
 // ── Profile ───────────────────────────────────────────────────────────────────
 // switchPro() defined later with marriage + wallet tabs
+function _profileEsc(value){ return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function _profileCss(value){ return String(value||'').split(/\s+/).filter(token=>/^[A-Za-z0-9_-]{1,80}$/.test(token)).join(' '); }
+function renderProfileShowcase(data, cosmetics, options={}) {
+  const d=data||{}, c=cosmetics||{};
+  const item=slot=>(c[slot]&&typeof c[slot]==='object'?c[slot]:null);
+  const title=typeof c.title==='object'?c.title:(c.title?{text:c.title,css:c.title_css}:null);
+  const frame=item('avatar_frame'), halo=item('avatar_halo'), bg=item('profile_bg'), fx=item('card_fx'), glow=item('name_glow');
+  const level=Math.max(1,Number(d.account_level)||1), xp=Math.max(0,Number(d.xp_into)||0), xpNeed=Math.max(1,Number(d.xp_to_next)||Number(d.xp_per_level)||1);
+  const xpPercent=Math.min(100,Math.round(xp/xpNeed*100));
+  const wallet=(d.balances&&typeof d.balances==='object')?d.balances:d;
+  const avatar=d.is_vip?'👑':'🔮', titleText=title?(title.text||title.name):'';
+  const avatarImage=typeof d.avatar==='string'&&/^data:image\/(?:png|jpe?g|webp);base64,/i.test(d.avatar)
+    ?`<img src="${_profileEsc(d.avatar)}" alt="" decoding="async">`:avatar;
+  const publicName=String(d.display_name||'').trim();
+  const profileName=String(d.username||'Игрок').trim()||'Игрок';
+  const shownName=publicName||(profileName.startsWith('@')?profileName:`@${profileName.replace(/^@+/, '')}`);
+  const lineage=_profileCss(c.composition?.dominant_lineup||c.lineage?.id||bg?.lineup||frame?.lineup||halo?.lineup||fx?.lineup||'');
+  // The lead item names the identity accent, while both independently owned
+  // classes remain on the avatar.  The paired CSS assigns frame and halo to
+  // separate orbits; dropping the ambient class would make a saved item vanish.
+  const accent=(c.composition?.identity?.lead_slot==='avatar_halo'?halo:frame)||halo;
+  const identityCss=[frame?.css,halo?.css].map(_profileCss).filter(Boolean).join(' ');
+  const accentName=accent?.name||bg?.name||titleText||'Базовый образ';
+  const cardClass=`hero profile-showcase-card ${options.compact?'profile-showcase-card--fitting':''} ${_profileCss(bg?.css)} ${lineage?`profile-tone-${lineage}`:''}`;
+  const caption=options.caption||'Личный профиль';
+  const stageTag=options.openLooks?'button':'div';
+  const stageAttrs=options.openLooks
+    ?`type="button" onclick="openLooksModal()" aria-label="Открыть примерочную"`
+    :`aria-label="${_profileEsc(caption)}"`;
+  return `<div class="${cardClass}">
+    <div class="profile-showcase-head">
+      <div class="profile-copy"><div class="pname ${_profileCss(glow?.css)}">${_profileEsc(shownName)}</div>
+      <div class="prank">${_profileEsc(d.rank||caption)}</div>${titleText?`<div class="ptitle ${_profileCss(title?.css)}">${_profileEsc(titleText)}</div>`:''}</div>
+      ${options.openLooks?'<button type="button" class="profile-looks-link" onclick="openLooksModal()">Примерочная</button>':''}
+    </div>
+    <div class="profile-showcase-main">
+      <${stageTag} class="character-showcase-area hero ${_profileCss(bg?.css)}" ${stageAttrs}>
+        ${fx?`<span class="card-fx ${_profileCss(fx.css)}" aria-hidden="true"></span>`:''}
+        <span class="character-showcase-portrait ava ${identityCss?'profile-identity-accent':''} ${identityCss}" aria-hidden="true">${avatarImage}</span>
+        <span class="character-showcase-caption" aria-hidden="true"><strong>${_profileEsc(caption)}</strong><small>${_profileEsc(accentName)}</small></span>
+      </${stageTag}>
+      <aside class="player-data-rail player-data-rail--compact" aria-label="Основные показатели игрока">
+        <div class="player-rail-item player-rail-item--level"><span class="player-rail-kicker">Уровень</span><strong>LV${level}</strong><div class="hero-xp"><div class="xp-bar"><div class="xp-fill" style="width:${xpPercent}%"></div></div><div class="xp-lbl"><span>${fmt(xp)} XP</span><span>до следующего</span></div></div></div>
+        <div class="player-rail-item"><span class="player-rail-kicker">🔥 Серия</span><strong>${fmt(d.streak||0)}</strong><small>лучший результат</small></div>
+        <div class="player-rail-item"><span class="player-rail-kicker">🏅 Достижения</span><strong>${fmt(d.achievements||0)}</strong><small>открыто</small></div>
+      </aside>
+    </div>
+    <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
+      <div class="stat"><div>🪙</div><div class="sv">${fmt(wallet.mora||0)}</div><div class="sl">Мора</div></div>
+      <div class="stat"><div>💎</div><div class="sv">${fmtF(wallet.diamonds||0)}</div><div class="sl">Алмазы</div></div>
+      <div class="stat"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">Зарники</div></div>
+      <div class="stat"><div>🌑</div><div class="sv">${fmt(wallet.dark_mora||0)}</div><div class="sl">Тёмная мора</div></div>
+      <div class="stat"><div>◈</div><div class="sv">${fmt(wallet.echo_shards||0)}</div><div class="sl">Осколки Эха</div></div>
+    </div>
+  </div>`;
+}
+function _profileDate(value){
+  if(!value) return '—';
+  const parsed=new Date(value);
+  return Number.isNaN(parsed.getTime())?_profileEsc(String(value).replace('T',' ').slice(0,16)):parsed.toLocaleDateString('ru-RU');
+}
+function _profileDuration(ms){
+  if(ms===null||ms===undefined) return '—';
+  const seconds=Math.max(0,Math.round(Number(ms)/1000));
+  return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
+}
+function _profileSanctions(data){
+  const sanctions=data?.sanctions||{}, active=sanctions.active_global;
+  const activeHtml=active
+    ?`<div class="profile-detail-alert"><b>${_profileEsc(active.label||active.type||'Ограничение')}</b>${active.reason?`<span>${_profileEsc(active.reason)}</span>`:''}${active.expires_at?`<small>до ${_profileDate(active.expires_at)}</small>`:''}</div>`
+    :'<p class="profile-detail-muted">Активных глобальных ограничений нет.</p>';
+  const history=(sanctions.history||[]).map(item=>`<li><b>${_profileEsc(item.label||item.type||'Ограничение')}</b>${item.reason?` — ${_profileEsc(item.reason)}`:''}<small>${_profileDate(item.created_at)}${item.revoked_at?' · снято':''}${item.expires_at?` · до ${_profileDate(item.expires_at)}`:''}</small></li>`).join('')||'<li>История ограничений пуста.</li>';
+  return `<section class="profile-detail-section"><h3>Санкции</h3>${activeHtml}<div class="profile-detail-pairs"><span>Предупреждения в чатах</span><b>${fmt(sanctions.chat_warning_total||0)}</b><span>Активный мут</span><b>${sanctions.chat_mute_until?_profileDate(sanctions.chat_mute_until):'Нет'}</b></div><details class="profile-history"><summary>История санкций</summary><ul>${history}</ul></details></section>`;
+}
+function renderProfileDetails(data,{owner=false}={}){
+  const d=data||{}, games=d.game_results||{}, rhythm=games.rhythm||{}, mines=games.minesweeper||{}, mafia=games.mafia||{};
+  const best=mines.best_ms||{};
+  const unranked=owner&&Number(rhythm.personal_unranked_runs)>0
+    ?`<small>${fmt(rhythm.personal_unranked_runs)} личных забегов не участвуют в рейтинге</small>`:'';
+  const gameCards=`<div class="profile-game-grid">
+    <article><b>ᚱ Ритм</b><strong>${rhythm.best_verified_score==null?'—':fmt(rhythm.best_verified_score)}</strong><span>лучший подтверждённый счёт</span><small>${fmt(rhythm.verified_runs||0)} подтверждённых забегов</small>${unranked}</article>
+    <article><b>▦ Сапёр</b><strong>${fmt(mines.wins||0)} / ${fmt(mines.played||0)}</strong><span>победы / партии</span><small>Лучшее: ${_profileDuration(best.easy)} · ${_profileDuration(best.normal)} · ${_profileDuration(best.hard)}</small></article>
+    <article><b>◈ Мафия</b><strong>${fmt(mafia.wins||0)} / ${fmt(mafia.played||0)}</strong><span>победы / завершённые матчи</span><small>Только завершённые партии</small></article>
+  </div>`;
+  const paths=d.achievement_paths?.families||[];
+  const achievementRows=paths.map(path=>`<li><b>${_profileEsc(path.title||path.id)}</b><span>ур. ${fmt(path.level||0)} / ${fmt(path.max_level||40)} · событий ${fmt(path.completed_events||0)} · недель ${fmt(path.active_weeks||0)}</span></li>`).join('')||'<li>Прогресс достижений пока не начат.</li>';
+  const pets=(d.pets||[]).map(pet=>`<li><b>${pet.active?'● ':''}${_profileEsc(pet.name||'Питомец')}</b><span>${_profileEsc(pet.rarity||'')}${pet.level?` · ур. ${fmt(pet.level)}`:''}${pet.active?' · активный':''}</span></li>`).join('')||'<li>Питомцев пока нет.</li>';
+  const vip=d.vip?`${_profileEsc(d.vip.label||d.vip.tier||'VIP')} · ещё ${fmt(d.vip.days_left||0)} дн.`:'Не активна';
+  const clan=d.clan?`${_profileEsc(d.clan.emblem||'')} ${_profileEsc(d.clan.name||d.clan.tag||'Клан')}`.trim():'Нет';
+  return `<section class="profile-detail-section"><h3>Утверждённые игры</h3>${gameCards}</section>
+    <section class="profile-detail-section"><h3>Прогресс и достижения</h3><div class="profile-detail-pairs"><span>Сообщения во всех чатах</span><b>${fmt(d.messages_all_time||0)}</b><span>Уровни текущих достижений</span><b>${fmt(d.achievement_paths?.total_levels||0)}</b><span>В проекте с</span><b>${_profileDate(d.joined_date)}</b></div><ul class="profile-collection">${achievementRows}</ul></section>
+    <section class="profile-detail-section"><h3>Статус и питомцы</h3><div class="profile-detail-pairs"><span>VIP</span><b>${vip}</b><span>Статус</span><b>${_profileEsc(d.rank||'Игрок')}</b>${owner?'':`<span>Клан</span><b>${clan}</b>`}<span>Партнёр</span><b>${_profileEsc(d.partner||'Нет')}</b></div><ul class="profile-collection">${pets}</ul></section>
+    ${_profileSanctions(d)}`;
+}
 function loadProfile() {
   el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
   return api('/profile/me').then(d=>{
@@ -7,159 +101,48 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
-    const cosmetics = typeof window._looksProfileCosmeticsPreview==='function'
-      ? window._looksProfileCosmeticsPreview(d.cosmetics||{})
-      : (d.cosmetics||{});
-    const looksTrial = typeof window._looksProfileTrialSummary==='function'
-      ? window._looksProfileTrialSummary()
-      : null;
-    const lineageStyle = typeof window._looksLineageStyle==='function'
-      ? window._looksLineageStyle(cosmetics)
-      : '';
-    _applySysFlags(d.system_flags);
-    checkWhatsNewBadge();   // «Что нового»: золотая точка на 📣, если есть непрочитанное
-    _tosGate(d);   // БЛОК22: блок-экран принятия ToS/Privacy для не принявших
-    const pets=d.pets.filter(p=>p.placement!=='storage').slice(0,6);
+    _applyGlobalSkin(d.global_skin);
+    // A profile response is authoritative. Optional decorations must never
+    // turn it into the misleading “write the bot to create a profile” state.
+    try { _applySysFlags(d.system_flags); } catch (_) {}
     const uid = d.user_id || _uid;
-    // Сохранённый уровень старой прогрессии. Он больше не растёт от сообщений.
-    const lvl = d.account_level || d.chats?.[0]?.user_level || 1;
-    const xpPerLvl = d.xp_to_next || d.xp_per_level || 3000;
-    const xpInLvl = (typeof d.xp_into==='number') ? d.xp_into : ((d.chats?.[0]?.user_xp||0) % xpPerLvl);
-    const xpPct = Math.min(100, Math.round(xpInLvl/xpPerLvl*100));
-    // Шкала остаётся частью исторического профиля и не обещает новый level-up.
-    const animateXp = !_xpAnimated; _xpAnimated = true;
-    if (animateXp) setTimeout(() => {
-      const f = el('pro-main')?.querySelector('.xp-fill');
-      if (f) f.style.width = (f.dataset.pct || 0) + '%';
-    }, 40);
-    const looksEntryMeta=looksTrial?`${looksTrial.count} ${looksTrial.noun} сохранено`:'Примерочная и образы';
-    const outfitCount=['name_glow','avatar_frame','avatar_halo','title','profile_bg','card_fx']
-      .filter(slot=>Boolean(cosmetics[slot])).length;
-    // The stage must describe only layers that are actually visible there.
-    // Name glow and title deliberately live in the identity header; saying
-    // "фон и эффекты уже здесь" for a 3/6 header+frame outfit was false.
-    const stageParts=[
-      ['avatar_frame','рамка'], ['avatar_halo','ореол'],
-      ['profile_bg','фон'], ['card_fx','эффекты'],
-    ].filter(([slot])=>Boolean(cosmetics[slot])).map(([,label])=>label);
-    const looksStageMeta=looksTrial
-      ?`Черновик: ${looksEntryMeta}`
-      :stageParts.length===4?'Полный образ на сцене'
-      :stageParts.length?`На сцене: ${stageParts.join(' · ')}`
-      :outfitCount?'Детали образа — в шапке профиля':'Собери свой первый образ';
-    const looksCanvasLabel=looksTrial
-      ?`Продолжить примерку: ${looksEntryMeta}.`
-      :`Открыть образы. Сейчас экипировано ${outfitCount} из 6 предметов.`;
     el('pro-main').innerHTML=`
-      <div class="hero profile-showcase-card ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}">
-        <div class="profile-showcase-head">
-          <div class="hero-head${lineageStyle?' lineage-link':''}"${lineageStyle?` style="${lineageStyle}"`:''}>
-            <div class="ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-ava">${d.is_vip?'👑':'🔮'}</div>
-            <div class="profile-copy">
-              <div class="pname ${cosmetics.name_glow?cosmetics.name_glow.css:''}">@${vipName(d.username||'Игрок', d.is_vip)}</div>
-              <div class="prank">${d.rank}</div>
-              ${cosmetics.title?`<div class="ptitle${cosmetics.title_css?' '+cosmetics.title_css:''}">${esc(cosmetics.title)}</div>`:''}
-            </div>
-          </div>
-        </div>
-
-        <div class="profile-showcase-main">
-          <button class="character-showcase-area hero ${cosmetics.profile_bg?cosmetics.profile_bg.css:''}" type="button" onclick="openLooksModal()" data-open-looks="profile-showcase" aria-label="${looksCanvasLabel}">
-            ${cosmetics.card_fx?`<span class="card-fx ${cosmetics.card_fx.css}" aria-hidden="true"></span>`:''}
-            <span class="character-showcase-portrait ava ${cosmetics.avatar_frame?cosmetics.avatar_frame.css:''} ${cosmetics.avatar_halo?cosmetics.avatar_halo.css:''}" id="pro-showcase-ava" aria-hidden="true">${d.is_vip?'👑':'🔮'}</span>
-            <span class="character-showcase-caption" aria-hidden="true"><strong>${looksTrial?'Продолжить примерку':`Открыть образы · ${outfitCount} из 6`}</strong><small>${looksStageMeta}</small></span>
-          </button>
-          <aside class="player-data-rail player-data-rail--compact" aria-label="Основные показатели игрока">
-            <div class="player-rail-item player-rail-item--level">
-              <span class="player-rail-kicker">Уровень профиля</span><strong>LV${lvl}</strong>
-              <div class="hero-xp">
-                <div class="xp-bar"><div class="xp-fill" data-pct="${xpPct}" style="width:${animateXp?0:xpPct}%"></div></div>
-                <div class="xp-lbl"><span>${fmt(xpInLvl)} XP</span><span>сохранено</span></div>
-              </div>
-            </div>
-            <button class="player-rail-item" type="button" onclick="goTo('quests','streak')">
-              <span class="player-rail-kicker">🔥 Рекорд серии</span><strong id="pro-stat-streak">${d.streak}</strong><small>сохранено</small>
-            </button>
-            <button class="player-rail-item" type="button" onclick="goTo('ach')">
-              <span class="player-rail-kicker">🏆 Ачивки</span><strong>${d.achievements}</strong><small>Открыть ›</small>
-            </button>
-          </aside>
-        </div>
-
-        <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
-          <div class="stat clickable" onclick="openExchangeCurrencyModal('buy')"><div>🪙</div><div class="sv" id="pro-stat-mora">${fmt(d.mora)}</div><div class="sl">Мора</div></div>
-          <div class="stat clickable" onclick="openExchangeCurrencyModal('sell')"><div>💎</div><div class="sv" id="pro-stat-dia">${fmtF(d.diamonds)}</div><div class="sl">Алмазы</div></div>
-          <div class="stat clickable" onclick="${(d.zarniki||0)>0?'openExchangeZarnikiModal()':"goTo('market','vip')"}"><div>✨</div><div class="sv" id="pro-stat-zar">${Math.floor(d.zarniki||0)}</div><div class="sl">${(d.zarniki||0)>0?'Зарники':'Зарники +'}</div></div>
-          <div class="stat clickable" onclick="goTo('ach')"><div>🏆</div><div class="sv" id="pro-stat-ach">${d.achievements}</div><div class="sl">Ачивки ›</div></div>
-        </div>
-        <div class="profile-showcase-meta">
-          <span>🆔 <code>${uid}</code></span>
-          <button class="profile-copy-id" type="button" onclick="copyUid(${uid})">Копировать</button>
-        </div>
-      </div>
+      ${renderProfileShowcase(d,d.cosmetics,{caption:'Личный профиль',openLooks:true})}
 
       <div class="profile-card-actions" aria-label="Настройки профиля">
-        <button type="button" onclick="openClansModal()"><span aria-hidden="true">🛡</span><span>Клан</span></button>
-        <button type="button" onclick="openPromoModal()"><span aria-hidden="true">🎟</span><span>Промокод</span></button>
         <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>
+        <button type="button" onclick="openPetsV1()"><span aria-hidden="true">🐾</span><span>Питомцы</span></button>
+        <button type="button" onclick="openQuestsV1()"><span aria-hidden="true">🧭</span><span>Квесты</span></button>
+        ${_sysFlags.content_chests_v1?'<button type="button" onclick="openChestsV1()"><span aria-hidden="true">🗝</span><span>Сундуки</span></button>':''}
+        <button type="button" onclick="openAchievementsV1()"><span aria-hidden="true">🏅</span><span>Достижения</span></button>
+        <button type="button" onclick="openChatTracker()"><span aria-hidden="true">💬</span><span>Мои чаты</span></button>
       </div>
 
-      <!-- Быстрые действия: актуальные маршруты первого релиза -->
-      <div class="qa-row">
-        <div class="qa qa-hot" onclick="goTo('arena','game')"><span>🔔</span>Разлом</div>
-        <div class="qa" onclick="openReconstructionGame()"><span>🐾</span>Спутник</div>
-        <div class="qa" onclick="goTo('auction','crypto')"><span>📈</span>Биржа</div>
-        <div class="qa" onclick="openPromoModal()"><span>🎟</span>Промокод</div>
+      ${renderProfileDetails(d,{owner:true})}
+
+      <!-- Главный вход: сейчас здесь только реально доступные форматы. -->
+      <div class="qa-row profile-activity-row">
+        <button class="qa qa-hot qa-hub" type="button" onclick="goTo('arena','game')" aria-label="Открыть Центр Предвестника и выбрать игру">
+          <span class="qa-hub-icon" aria-hidden="true">🎮</span>
+          <span class="qa-hub-copy"><strong>Центр Предвестника</strong><small>Ритм · Сапёр · Мафия</small></span>
+          <span class="qa-hub-arrow" aria-hidden="true">›</span>
+        </button>
       </div>
-
-      <!-- Топ-3 игроков (loadTop3) — соревнование на видном месте (block 11) -->
-      <div id="pro-top3"></div>
-
-      <!-- Активные баффы (заполняется loadActiveBuffs) -->
-      <div id="pro-buffs"></div>
-
-      ${d.is_vip?'':`<div class="vip-banner" onclick="goTo('market','vip')">
-        <span class="vb-crown">👑</span>
-        <div><div class="vb-title">VIP-сервис</div><div class="vb-sub">Образы, история и удобство · без игровой силы</div></div>
-        <span class="vb-cta">›</span>
-      </div>`}
 
       <!-- Карточка брака (заполняется loadMarriageCard) -->
       <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
       <!-- Карточка ника (заполняется loadNickCard) -->
       <div id="pro-nick-card"></div>
-      ${pets.length?`<details class="profile-fold">
-        <summary><span class="profile-fold-title">🐾 Питомники</span><span class="profile-fold-meta">${pets.length} активн.</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
-        <div class="profile-fold-body">
-        ${pets.map(p=>`
-        <div class="pcard" onclick="goTo('zoo')" style="cursor:pointer"><div class="pcol">
-          <div class="pn">${p.name||p.species_id} ${rc(p.rarity)}</div>
-          <div class="ps">История: ранг ${p.pet_level} · владение сохранено</div>
-        </div></div>`).join('')}
-        <div class="shortcut-row">
-          <span class="shortcut-link" onclick="goTo('zoo')">Управлять питомцами →</span>
-        </div>
-        </div>
-      </details>`:`<details class="profile-fold"><summary><span class="profile-fold-title">🐾 Спутники</span><span class="profile-fold-meta">Нет спутника</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary><div class="profile-fold-body"><div class="empty-state"><div class="es-icon">🐾</div><div class="es-title">Спутника пока нет</div><div class="es-sub">Первый спутник появится во вступлении Хроники.</div><button class="btn btn-gold btn-sm" style="margin-top:10px" onclick="openReconstructionGame()">Открыть игру</button></div></div></details>`}
-      ${d.chats.length?`<details class="profile-fold">
-        <summary><span class="profile-fold-title">💬 Активность</span><span class="profile-fold-meta">${d.chats.length} ${d.chats.length===1?'чат':'чата'}</span><span class="profile-fold-arrow" aria-hidden="true">›</span></summary>
-        <div class="profile-fold-body">
-        ${d.chats.map(c=>`<div class="irow"><span class="ik">${esc(c.chat_title||'Чат')}</span><span class="iv">Lv${c.user_level} · ${fmt(c.user_messages_count_all_time)}</span></div>`).join('')}
-        <div class="shortcut-row">
-          <span class="shortcut-link" onclick="goTo('hof')">Посмотреть топ →</span>
-        </div>
-        </div>
-      </details>`:''}
       <div id="wallet-mini"></div>`;
-    loadMarriageCard();
-    loadNickCard();
-    loadTop3();
-    loadActiveBuffs();
-    loadWalletMini();
-    if(!_ws && _uid) connectWS();
-    updateCurrBar(d);          // populate sticky currency bar from profile data
-    if(!_adminChats) checkAdminAccess();
-    checkGlobalAccess();
+    try { checkWhatsNewBadge(); } catch (_) {}
+    try { _tosGate(d); } catch (_) {}
+    try { loadMarriageCard(); } catch (_) {}
+    try { loadNickCard(); } catch (_) {}
+    try { loadWalletMini(); } catch (_) {}
+    try { if(!_ws && _uid) connectWS(); } catch (_) {}
+    try { updateCurrBar(d); } catch (_) {}
+    try { if(!_adminChats) checkAdminAccess(); } catch (_) {}
+    try { checkGlobalAccess(); } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 // ── Топ-3 игроков на профиле (block 11): соревнование на видном месте ──────────
@@ -210,19 +193,14 @@ function openLegalDoc(slug){
 }
 function openSettingsModal(){
   const noFx=document.body.classList.contains('no-fx');
-  const easyInp=_easyInput();
   OM('⚙️ Настройки',`
     <div class="set-sec-t">Внешний вид</div>
+    ${_globalSkinSettingsHtml()}
     <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
       <input type="checkbox" ${noFx?'checked':''} onchange="_toggleNoFx(this.checked)"/>
       <span style="font-size:12.5px">Отключить анимации косметики</span>
     </label>
     <div class="set-hint">Свечения, рамки и частицы станут статичными — полезно на слабых телефонах.</div>
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
-      <input type="checkbox" ${easyInp?'checked':''} onchange="_toggleEasyInput(this.checked)"/>
-      <span style="font-size:12.5px">Комфортный ввод в Разломе</span>
-    </label>
-    <div class="set-hint">Увеличивает окна реакции и уменьшает резкие движения интерфейса. Точность всё равно считается по обработанным сигналам.</div>
     <div class="set-sec-t" style="margin-top:14px">🔔 Уведомления от бота</div>
     <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
     <div class="set-hint">Личные напоминания в ЛС. Групповые события чата приходят всем и здесь не отключаются.</div>
@@ -238,6 +216,31 @@ function openSettingsModal(){
     [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
   _loadNotifPrefs();
   _loadAccountSection();
+}
+let _globalSkinBusy=false;
+function _applyGlobalSkin(state){
+  if(typeof window.applyGlobalSkinV1==='function') window.applyGlobalSkinV1(state);
+}
+function _globalSkinSettingsHtml(){
+  const state=_profileData&&_profileData.global_skin;
+  if(!state||!Array.isArray(state.items)) return '<div class="set-hint">Скины приложения временно недоступны.</div>';
+  const rows=state.items.filter(item=>item.owned||item.price_zarniki).map(item=>{
+    const action=item.owned?`_selectGlobalSkin('${item.id}')`:`CM();openLooksModal()`;
+    const status=item.active?'Активен':item.selected?'Сохранён':item.owned?'Выбрать':`${item.price_zarniki}✨`;
+    return `<button class="skin-choice${item.selected?' selected':''}" type="button" onclick="${action}" ${_globalSkinBusy?'disabled':''}><span><b>${_profileEsc(item.name)}</b><small>${_profileEsc(item.description)}</small></span><em>${status}</em></button>`;
+  }).join('');
+  const selected=state.items.find(item=>item.id===state.selected_skin_id);
+  const gate=!state.vip_active&&selected?.vip_required
+    ?'<div class="set-hint">Выбор сохранён. На всём приложении он включится вместе с активным VIP.</div>'
+    :'<div class="set-hint">Скин меняет только палитру и фон. Доступ, цены, расположение элементов и правила игр не меняются.</div>';
+  return `<div class="skin-settings">${rows}</div>${gate}`;
+}
+function _selectGlobalSkin(skinId){
+  if(_globalSkinBusy) return;
+  _globalSkinBusy=true;
+  api('/global-skins-v1/select',{method:'POST',body:JSON.stringify({skin_id:skinId})})
+    .then(state=>{_globalSkinBusy=false;if(_profileData)_profileData.global_skin=state;_applyGlobalSkin(state);toast(state.active_skin_id===skinId?'Скин приложения включён':'Выбор сохранён до активации VIP');CM();openSettingsModal();})
+    .catch(error=>{_globalSkinBusy=false;toast(error,false);});
 }
 // admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
 function _loadAccountSection(){
@@ -360,12 +363,11 @@ function _showWelcome(){
   try{ if(localStorage.getItem('pv_welcomed')) return; localStorage.setItem('pv_welcomed','1'); }catch(e){}
   setTimeout(()=>OM('👋 Коротко о главном', `
     <div style="font-size:12px;line-height:1.6">
-      <p><b>Разлом колокола</b> — основная игра: находи правильный сигнал, удерживай серию и собирай отряд. Скорость нажатий сама по себе не помогает.</p>
-      <p>🪙 <b>Мора</b> нужна для подготовки и мира. 💎 <b>Алмазы</b> выдаются за редкие испытания. ✨ <b>Зарники</b> покупаются за Stars и тратятся на внешний вид и сервис.</p>
-      <p>Питомцы, кланы, семья, биржа и косметика связаны с одним профилем. Владение и прежние достижения сохранены.</p>
-      <p style="color:var(--gold2)">Первый шаг: открой «Игра» и пройди короткое вступление.</p>
+      <p><b>Предвестник</b> собирает разные форматы игры в одном месте: Ритм для реакции, Сапёр для логики и Мафию для живого чата.</p>
+      <p>Питомцы, кланы, экономика и косметика будут добавляться по мере утверждения правил. Никаких скрытых преимуществ или обязательных таймеров.</p>
+      <p style="color:var(--gold2)">Первый шаг: открой «Игра» и выбери формат под настроение.</p>
     </div>`, [
-    {l:'🔔 Открыть игру', c:'btn-gold', f:'CM();openReconstructionGame()'},
+    {l:'🎮 Открыть игры', c:'btn-gold', f:"CM();goTo('arena','game')"},
     {l:'Позже', c:'btn-ghost', f:'CM()'},
   ]), 500);
 }
@@ -541,8 +543,9 @@ function _runPreloader() {
 }
 _runPreloader();
 
-// БЛОК19 Web-First: бот-редиректы открывают мини-апп через ?startapp=<section> →
-// доводим юзера до нужного раздела (раньше start_param игнорировался).
+// Parity registry: bot redirects open the Mini App through
+// ?startapp=<section>; lightweight chat surfaces remain in chat and do not
+// need a web hop. The start parameter only selects the complex destination.
 function _handleStartParam(){
   let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
   // Фолбэк: обычная HTTPS-ссылка ?startapp=<section> (не t.me-диплинк) не несёт
@@ -553,20 +556,29 @@ function _handleStartParam(){
   const base=p.split('_')[0];
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
   if(base==='clans'){ run(()=>openClansModal()); return; }
+  if(base==='quests'){ run(()=>openQuestsV1()); return; }
+  if(base==='achievements'||base==='achievement'){ run(()=>openAchievementsV1()); return; }
+  if(base==='pets'){ run(()=>openPetsV1()); return; }
   if(base==='cosmetics'||base==='looks'){ run(()=>openLooksModal()); return; }
+  if(base==='public'){
+    let ref=''; try{ ref=new URLSearchParams(location.search).get('profile')||''; }catch(e){}
+    if(ref) run(()=>openPublicProfile(ref));
+    return;
+  }
   if(base==='exchange'||base==='exch'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('exch')}catch(e){}},220); }); return; }
   if(base==='crypto'||base==='birzha'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('crypto')}catch(e){}},220); }); return; }
   // БЛОК 36.1: «бот уведомления» раньше вёл на голую вкладку профиля — теперь
   // сразу открывает «⚙️ Настройки» с чекбоксами уведомлений.
   if(base==='notifications'||base==='notifprefs'){ run(()=>{ switchPage('profile'); setTimeout(()=>{try{openSettingsModal()}catch(e){}},260); }); return; }
+  if(base==='relics'){ run(()=>{ try{ _goodsTab='dark'; goTo('market','goods'); }catch(e){} }); return; }
   const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
     vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
-    quests:['quests'],ach:['ach'],achievements:['ach'],zoo:['zoo'],pets:['zoo'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','game'],casino:['arena','game'],relics:['market'],
+    ach:['ach'],achievements:['ach'],zoo:['profile'],bp:['bp'],auction:['auction'],
+    arena:['arena'],games:['arena','game'],casino:['arena','game'],
     barracks:['arena','game'],gates:['arena','game'],game:['arena','game'] };
   const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
 }
-if(INIT_DATA||sess()){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
+if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 
 // ── Sticky currency bar ───────────────────────────────────────────────────────
 // Редизайн v5: хедер с валютами виден ВСЕГДА (см. showCurrBar ниже — параметр show
@@ -614,7 +626,7 @@ function updateCurrBar(data) {
   if (data?.username !== undefined) {
     const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
     const sub=el('hdr-sub');
-    if(sub) sub.textContent=`Наследие ${data.account_level||data.chats?.[0]?.user_level||1} · 🔥${data.streak||0}`;
+    if(sub) sub.textContent='Профиль Предвестника';
     const av=el('hdr-ava'); if(av && data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
   }
 }
@@ -668,10 +680,30 @@ function showCurrModal() {
       <div class="cm-icon">✨</div>
       <div class="cm-info">
         <div class="cm-name">Зарники <span class="cm-val">${fmtF(zar)}</span></div>
-        <div class="cm-desc">Донат-валюта — нельзя заработать в игре. Открывает эксклюзивные темы и предметы.</div>
+        <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
       </div>
     </div>
+    <div class="cm-block" style="display:block">
+      <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
+      <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
+      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="num-input" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="num-input" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
+      <button id="zar-exchange-submit" class="btn btn-gold btn-full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
+    </div>
   </div>`, [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+}
+
+function exchangeZarnikiV1(){
+  const input=el('zar-exchange-amount'),button=el('zar-exchange-submit');
+  const raw=(input?.value||'').trim(), amount=Number(raw), target=el('zar-exchange-target')?.value;
+  if(!/^\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>50)return toast('Введите целое число от 1 до 50.',false);
+  if(target!=='mora'&&target!=='diamonds')return toast('Выбери Мору или Алмазы.',false);
+  if(button?.dataset.busy==='1')return;
+  const key=button?.dataset.requestKey||(globalThis.crypto?.randomUUID?.()||`zar-exchange-${Date.now()}`);
+  if(button){button.dataset.busy='1';button.dataset.requestKey=key;button.disabled=true;}
+  api('/wallet/exchange-zarniki',{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({amount,to:target})}).then(r=>{
+    const icon=target==='mora'?'🪙':'💎';toast(`Обменено ${r.zarniki_spent}✨ → ${fmtF(r.amount_received)}${icon}`);refreshCurrBar();
+    if(input)input.value='';if(button)delete button.dataset.requestKey;
+  }).catch(e=>toast(e,false)).finally(()=>{if(button){delete button.dataset.busy;button.disabled=false;}});
 }
 
 function showCurrBar(show) {
@@ -738,129 +770,52 @@ function loadStreak() {
   }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${typeof e==='string'?esc(e):'Ошибка загрузки'}</div>`;});
 }
 
-// What each achievement tracks and how to earn it
-const ACH_HOW = {
-  gacha_addict:{
-    how:   'Крутите гачу',
-    where: 'Арена → Гача → выберите тип крутки',
-    note:  'Засчитывается каждый спин, включая жетоны',
-  },
-  collector:   {
-    how:   'Получите новые виды питомцев',
-    where: 'Крутите Гачу — каждый новый вид засчитывается',
-    note:  'Важен именно НОВЫЙ вид, не дубликаты существующего',
-  },
-  trainer:     {
-    how:   'Прокачайте питомца до максимального Lv10',
-    where: 'Получайте дубликаты из Гачи — уровень растёт',
-    note:  'Нужны дубликаты: Common ×10→Lv10, Epic ×4→Lv10 и т.д.',
-  },
-  wanderer:    {
-    how:   'Отправляйте питомцев в экспедиции',
-    where: 'Зоопарк → нажмите на питомца → «бот поход»',
-    note:  'Засчитывается каждое завершение похода (не старт)',
-  },
-  persistent:  {
-    how:   'Сохранённый рекорд старой серии',
-    where: 'Результат уже записан в истории профиля',
-    note:  'Новые сообщения не меняют рекорд и не создают награды',
-  },
-  vow_keeper:  {
-    how:   'Пробудьте в браке суммарно N дней',
-    where: 'Оформите брак: «бот брак, @username» в чате',
-    note:  'Счётчик идёт автоматически каждый день пока вы в браке. Суммируется по всем бракам.',
-  },
-  patron:      {
-    how:   'Потратьте Мору в магазине бота',
-    where: 'Рынок → Магазин → купите любые предметы',
-    note:  'Засчитывается сумма всех покупок в магазине (бот магазин)',
-  },
-  magnate:     {
-    how:   'Накопите максимальный баланс Моры',
-    where: 'Зарабатывайте Мору всеми способами, не тратьте',
-    note:  'Трекается МАКСИМАЛЬНЫЙ баланс когда-либо, не текущий',
-  },
-  treasury:    {
-    how:   'Накопите максимальный баланс Алмазов',
-    where: 'Алмазы доступны только в явно указанных наградах и покупках',
-    note:  'Трекается МАКСИМАЛЬНЫЙ баланс когда-либо, не текущий',
-  },
-  dealer:      {
-    how:   'Продайте лоты на аукционе',
-    where: 'Рынок → Аукцион → «+ Выставить» → дождитесь покупки',
-    note:  'Засчитывается только успешная продажа (кто-то купил)',
-  },
-  lucky_one:   {
-    how:   'Сохранённый рекорд старых мини-игр',
-    where: 'Старые игры со ставками закрыты',
-    note:  'Прежние победы остаются в истории профиля',
-  },
-  duelist:     {
-    how:   'Сохранённый рекорд старых дуэлей',
-    where: 'Новые дуэли закрыты; прежние победы остаются в истории профиля',
-    note:  'Засчитывается только победа, не ничья',
-  },
-  talker:      {
-    how:   'Пишите сообщения в чатах с ботом',
-    where: 'Любой чат где есть бот — просто общайтесь',
-    note:  'Суммируются сообщения из ВСЕХ чатов (глобальный счётчик)',
-  },
-  star:        {
-    how:   'Будьте топ-1 в чате по активности за неделю',
-    where: 'Пишите больше всех в чате в течение недели',
-    note:  'Засчитывается каждая неделя когда вы на 1-м месте',
-  },
-  star_gacha:  {
-    how:   'Выбивайте легендарных и мифических питомцев из гачи',
-    where: 'Арена → Гача — одиночные и мульти-крутки',
-    note:  'Считаются legendary и mythic из любой крутки',
-  },
-  fashionista: {
-    how:   'Покупайте предметы косметики',
-    where: 'Профиль → Внешний вид — ореолы, рамки, гало, фоны, частицы, титулы',
-    note:  'Косметика, что у вас уже есть, тоже засчитана',
-  },
-  gate_conqueror:{
-    how:   'Побеждайте во Вратах',
-    where: 'Арена → Врата — PvE-лестница по этажам',
-    note:  'Прошлые победы во Вратах тоже засчитаны',
-  },
-};
+// Legacy achievement instructions were deliberately removed: several pointed
+// players to retired gacha, gates, spending and message-spam loops.
 
 function loadAch() {
   el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
   api('/achievements/').then(payload=>{
     _achRetired=Boolean(payload&&payload.retired);
     _achMessage=payload&&payload.message||'';
+    _featData=payload&&payload.chronicle||null;
     _achData=Array.isArray(payload)?payload:(payload.achievements||[]);
     renderAch();
   }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
 }
 function setAchSort(s){_achSort=s;renderAch();}
 function renderAch() {
-  if(!_achData) return;
+  if(!_achData||!_featData) return;
+  const feats=[...(_featData.feats||[])].sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct||a.order-b.order);
   let achs=[..._achData];
   if(_achSort==='progress') achs.sort((a,b)=>b.pct-a.pct);
   else if(_achSort==='todo') achs.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct);
-  const done=achs.filter(a=>a.completed).length;
+  const legacyDone=achs.filter(a=>a.level>0).length;
   el('pro-ach').innerHTML=`
-    ${_achRetired?`<div class="card" style="margin-bottom:8px"><div class="card-title">🏆 Архив достижений</div><div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(_achMessage)}</div></div>`:''}
+    <div class="card" style="margin-bottom:8px">
+      <div class="card-title">▤ Хроника подвигов <span style="font-size:9px;font-weight:400;color:var(--muted)">${_featData.completed} / ${_featData.total}</span></div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(_featData.message)}</div>
+      <div style="font-size:10px;color:var(--teal);margin-top:6px">Личные отметки · не рейтинг · не продаются · не дают силу</div>
+    </div>
+    <div class="card" style="margin-bottom:10px">
+      ${feats.map(a=>`<div class="ach-item" style="cursor:pointer" data-feat-id="${esc(a.id)}">
+        <div class="ach-head"><div class="ach-icon">${esc(a.icon)}</div><div class="ach-name">${esc(a.name)}</div><div class="ach-lvl" style="color:${a.completed?'var(--gold)':'var(--muted)'}">${a.completed?'★ ГОТОВО':`${a.progress}/${a.target}`}</div></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${esc(a.description)}</div>
+        <div class="ach-bar"><div class="ach-fill ${a.completed?'high':a.pct>=50?'':'low'}" style="width:${a.pct}%"></div></div>
+      </div>`).join('')}
+    </div>
+    <details class="card">
+      <summary class="card-title" style="cursor:pointer">🏆 Архив старых достижений · ${legacyDone}/${achs.length}</summary>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 10px">${esc(_achMessage)}</div>
     <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
       <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
       <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('default')">По умолч.</button>
       <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('progress')">% прогресса</button>
       <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('todo')">Сначала активные</button>
     </div>
-    <div class="card">
-      <div class="card-title">Достижения <span style="font-size:9px;font-weight:400;color:${done===achs.length?'var(--green)':'var(--muted)'}">${done} / ${achs.length} ✅</span></div>
       ${achs.map(a=>{
-        const hw=ACH_HOW[a.id]||{};
         const fc=a.completed?'high':a.pct>=60?'high':a.pct>=25?'':'low';
-        // UX-аудит: награда следующего уровня была видна только после
-        // открытия модалки — показываем сразу на карточке в списке.
-        const rw=a.next_reward||{};
-        const rwParts=[rw.mora&&`+${fmt(rw.mora)} 🪙`,rw.diamonds&&`+${rw.diamonds} 💎`].filter(Boolean).join(', ');
-        return `<div class="ach-item" style="cursor:pointer" onclick="openAchModal(${JSON.stringify(a).replace(/"/g,"'")})">
+        return `<div class="ach-item" style="cursor:pointer" data-legacy-ach-id="${esc(a.id)}">
           <div class="ach-head">
             <div class="ach-icon">${a.icon}</div>
             <div class="ach-name">${a.name}</div>
@@ -868,18 +823,28 @@ function renderAch() {
               ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
             </div>
           </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${_achRetired?'Сохранённый прогресс':(hw.how||'')}${!_achRetired&&!a.completed&&rwParts?` · <span style="color:var(--gold)">Далее: ${rwParts}</span>`:''}</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">Сохранённый прогресс · система закрыта</div>
           <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
           <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
         </div>`;
       }).join('')}
-    </div>`;
+    </details>`;
 }
 
-function openAchModal(a) {
-  const hw=ACH_HOW[a.id]||{};
-  const rw=a.next_reward||{};
-  const rwParts=[rw.mora&&`+${fmt(rw.mora)} 🪙`,rw.diamonds&&`+${rw.diamonds} 💎`].filter(Boolean).join(', ');
+function openFeatModal(id) {
+  const a=(_featData?.feats||[]).find(item=>item.id===id);
+  if(!a) return;
+  OM(`${a.icon} ${esc(a.name)}`,`
+    <div style="font-size:13px;line-height:1.5">${esc(a.description)}</div>
+    <div class="ach-bar" style="height:8px;margin:12px 0 4px"><div class="ach-fill ${a.completed?'high':''}" style="width:${a.pct}%"></div></div>
+    <div style="font-size:12px;color:var(--muted);text-align:center">${a.progress} / ${a.target}${a.completed?' · выполнено':''}</div>
+    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.4">Подвиг вычисляется из подтверждённого состояния игры. Его нельзя купить, забрать повторно или обменять на силу.</div>
+  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+}
+
+function openAchModal(id) {
+  const a=(_achData||[]).find(item=>item.id===id);
+  if(!a) return;
   OM(`${a.icon} ${a.name}`,`
     <div style="text-align:center;padding:8px 0 14px">
       <div style="font-size:28px;font-weight:800;color:${a.completed?'var(--gold)':'var(--text)'}">
@@ -891,15 +856,16 @@ function openAchModal(a) {
       <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
     </div>
     <div class="divider"></div>
-    ${_achRetired?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">Уровень и счётчик сохранены. Новые действия не меняют этот результат.</div>`:`
-      <div class="irow"><span class="ik">Что нужно</span><span style="color:var(--text);text-align:right;max-width:65%;font-size:11px">${hw.how||a.desc||'—'}</span></div>
-      <div class="irow"><span class="ik">Где</span><span style="color:var(--teal);text-align:right;max-width:65%;font-size:11px">${hw.where||'—'}</span></div>
-      ${hw.note?`<div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">💡 ${hw.note}</div>`:''}
-      ${!a.completed&&rwParts?`<div class="irow" style="margin-top:8px"><span class="ik">Награда Lv${a.level+1}</span><span style="color:var(--gold)">${rwParts}</span></div>`:''}
-    `}
-    ${a.completed?`<div style="text-align:center;padding:10px;color:var(--gold);font-size:13px;font-weight:600">🏆 Выполнено полностью!</div>`:''}
+    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">Уровень и счётчик сохранены как история. Новые действия не меняют этот результат и не выдают наград.</div>
   `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
 }
+
+document.addEventListener('click',event=>{
+  const feat=event.target.closest('[data-feat-id]');
+  if(feat) return openFeatModal(feat.dataset.featId);
+  const legacy=event.target.closest('[data-legacy-ach-id]');
+  if(legacy) openAchModal(legacy.dataset.legacyAchId);
+});
 
 
 // ══ Кланы: переход к общей системе Союза ══════════════════════════════════════
@@ -917,12 +883,12 @@ function _clan2NavHtml(active){
 }
 function showClanTransition(section){
   const copy={
-    alliance:['Союз Предвестников','Сейчас все кланы вместе открывают первую общую цель в «Разломе». Вклад засчитывается только за честные забеги.'],
+    alliance:['Союз Предвестников','Совместная цель появится после утверждения клановых правил и экономики.'],
     projects:['Клановые проекты','Откроются, когда в игре будет не меньше трёх активных кланов. Так проекты станут совместной игрой, а не пустой шкалой.'],
     competition:['Клановое состязание','Откроется при восьми активных кланах. До этого не будет фиктивной войны с пустыми соперниками.'],
   }[section]||['Кланы','Раздел готовится к новой экономике.'];
   OM(`◈ ${copy[0]}`,`<div class="looks-hint">${copy[1]}</div>`,[
-    {l:'Открыть Разлом',c:'btn-gold',f:'CM();openReconstructionGame()'},
+    {l:'Открыть игры',c:'btn-gold',f:"CM();goTo('arena','game')"},
     {l:'Закрыть',c:'btn-ghost',f:'CM()'},
   ]);
 }

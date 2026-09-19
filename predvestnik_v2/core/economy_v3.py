@@ -13,12 +13,20 @@ from types import MappingProxyType
 from typing import Final, Literal, Mapping
 
 
-POLICY_VERSION: Final = "owner-v3-partial-loss-2"
+POLICY_VERSION: Final = "owner-v4-zarniki-exchange-v1"
 SETTLEMENT_MODE: Final = "shadow_only"
 REAL_REWARDS_ENABLED: Final = False
 
-ZARNIKI_TO_MORA_RATE: Final = 150
+ZARNIKI_TO_MORA_RATE: Final = 10
 ZARNIKI_POSITIVE_SOURCE: Final = "stars_purchase"
+ZARNIKI_REWARD_SOURCES: Final = (
+    ZARNIKI_POSITIVE_SOURCE,
+    "chest_v1_reward",
+    "chest_key_refund",
+    # Owner-approved one-time retirement migration. No public adapter accepts
+    # a reason code; the dedicated importer binds this to a frozen snapshot.
+    "retirement_compensation_v2",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,7 +43,7 @@ WALLET_POLICIES: Final[tuple[WalletPolicy, ...]] = (
         "mora",
         "Мора",
         "оборотные игровые расходы",
-        "валидная игра, торговля и необратимый обмен Зарников",
+        "валидная игра и торговля; лимитированный обмен уже купленных Зарников",
     ),
     WalletPolicy(
         "diamonds",
@@ -46,8 +54,8 @@ WALLET_POLICIES: Final[tuple[WalletPolicy, ...]] = (
     WalletPolicy(
         "zarniki",
         "Зарники",
-        "косметика и сервис без боевой силы",
-        "только подтверждённая покупка за Telegram Stars",
+        "косметика, сервис и лимитированный обмен",
+        "только подтверждённая покупка Stars; обмен — отдельный server-side policy",
     ),
 )
 LEGACY_BALANCE_POLICIES: Final[tuple[WalletPolicy, ...]] = (
@@ -59,7 +67,22 @@ LEGACY_BALANCE_POLICIES: Final[tuple[WalletPolicy, ...]] = (
         lifecycle="legacy_spend_only",
     ),
 )
-ALLOWED_EXCHANGE_ROUTES: Final = (("zarniki", "mora"),)
+# This is intentionally separate from ``WALLET_POLICIES``.  A currency only
+# joins the live ledger after every gain source and its duplicate-compensation
+# rate are server-authoritative and tested.  Publishing the name must not
+# accidentally create a balance, a conversion route, or a Stars purchase path.
+PLANNED_WALLET_POLICIES: Final[tuple[WalletPolicy, ...]] = (
+    WalletPolicy(
+        "echo_shards",
+        "Осколки Эха",
+        "универсальная компенсация за дубликат предмета на текущем максимуме",
+        "только подтверждённая сервером компенсация; не покупается за Stars и не обменивается",
+        lifecycle="planned_compensation",
+    ),
+)
+# The active exchange is rate-limited by ``core.zarniki_exchange_v1``.  Adapters
+# must still call its service; this tuple only records the public route surface.
+ALLOWED_EXCHANGE_ROUTES: Final = (("zarniki", "mora"), ("zarniki", "diamonds"))
 
 UNIT_LEVEL_CAP: Final = 30
 UNIT_BRANCH_LEVELS: Final = (5, 10, 15, 20, 25, 30)
@@ -361,7 +384,7 @@ def unit_level_progress(total_xp: int) -> UnitLevelProgress:
 
 
 def quote_zarniki_to_mora(zarniki: int) -> ZarnikiExchangeQuote:
-    """Return the irreversible owner-v3 quote without mutating a wallet."""
+    """Compatibility quote; settlement belongs to zarniki_exchange_v1."""
     amount = _integer(zarniki, "zarniki", minimum=1)
     return ZarnikiExchangeQuote(
         zarniki_spent=amount,
@@ -372,21 +395,21 @@ def quote_zarniki_to_mora(zarniki: int) -> ZarnikiExchangeQuote:
 
 
 def validate_positive_zarniki_source(source: str) -> str:
-    """Allow positive Zarniki only from a confirmed Telegram Stars purchase."""
+    """Allow a paid origin or the published, low-probability chest cashback."""
     normalized = str(source or "").strip().lower()
-    if normalized != ZARNIKI_POSITIVE_SOURCE:
+    if normalized not in ZARNIKI_REWARD_SOURCES:
         raise EconomyV3PolicyError(
-            "Positive Zarniki may only originate from a confirmed stars_purchase."
+            "Positive Zarniki need a paid-source, chest-reward or purchase-refund receipt."
         )
     return normalized
 
 
 def validate_exchange_route(source: str, target: str) -> tuple[str, str]:
-    """Fail closed for every currency conversion not present in owner-v3."""
+    """Allow only the owner-approved Zarniki conversion routes."""
     route = (str(source or "").strip().lower(), str(target or "").strip().lower())
     if route not in ALLOWED_EXCHANGE_ROUTES:
         raise EconomyV3PolicyError(
-            "Owner-v3 permits only the irreversible Zarniki-to-Mora exchange."
+            "This currency conversion is not available."
         )
     return route
 

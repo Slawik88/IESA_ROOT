@@ -1,7 +1,5 @@
-# DEPRECATED — МЁРТВЫЙ КОД (БЛОК19 «Web First»): роутер этого файла НЕ зарегистрирован
-# в bot/handlers/__init__.py::main_router — ни одна команда/кнопка отсюда не выполняется.
-# Механика живёт в мини-аппе (FastAPI/), чат-алиасы ловит web_redirect.py.
-# Файл оставлен как референс. НЕ подключать без ревизии: тексты/поля могли устареть.
+# Chat adapter for profile themes.  Catalog, ownership and purchase state are
+# shared with FastAPI/services.themes; the same global tab flag gates both.
 """
 bot/handlers/themes.py
 Темы профиля: просмотр по редкостям, покупка, надевание.
@@ -22,8 +20,7 @@ from services.themes import (
     get_effective_theme,
     purchase_direct_theme,
 )
-from services.utils import check_callback_owner, safe_html
-from bot.keyboards.cta import answer_group_only
+from services.utils import check_callback_owner, safe_html, feature_guard
 
 router = Router(name="themes_router")
 
@@ -102,8 +99,8 @@ async def _render_menu(db, user_id: int, target, is_edit: bool):
 
 @router.message(TextCmd(["темы", "тема профиля", "профиль темы"]))
 async def cmd_themes(message: types.Message, db):
-    if message.chat.type == "private":
-        return await answer_group_only(message)
+    if not await feature_guard(message, db, "tab_cosmetics", "Темы профиля"):
+        return
     await _render_menu(db, message.from_user.id, message, is_edit=False)
 
 
@@ -188,10 +185,12 @@ async def cb_view(query: types.CallbackQuery, callback_data: ThemeCB, db):
         b.button(text="✅ Надеть", callback_data=ThemeCB(action="equip", theme_id=tid, rarity=callback_data.rarity, user_id=user_id))
     else:
         currency, amount = _price_and_currency(theme)
-        if currency:
+        if currency and theme.get("source") in WEB_DIRECT_THEME_SOURCES:
             cur_icon = {"mora": "🪙", "diamonds": "💎", "dark": "🌑", "zarniki": "✨"}[currency]
             b.button(text=f"🛒 Купить за {int(amount)} {cur_icon}",
                      callback_data=ThemeCB(action="buy", theme_id=tid, rarity=callback_data.rarity, user_id=user_id))
+        elif currency:
+            lines.append("\n🗄 <i>Старая покупка закрыта; уже полученные темы сохранены.</i>")
         else:
             lines.append("\n🔒 <i>Эту тему нельзя купить — только особым способом.</i>")
 
@@ -224,9 +223,8 @@ async def cb_buy(query: types.CallbackQuery, callback_data: ThemeCB, db):
     if not currency:
         return await query.answer("🔒 Эту тему нельзя купить.", show_alert=True)
 
-    # The router is currently unregistered (Web First), but retain it as a
-    # safe adapter: any future reactivation must use the same atomic service as
-    # the Mini App, never a separate debit → grant sequence.
+    # The same atomic service as the Mini App owns debit + ownership; this
+    # callback never performs a separate balance mutation.
     try:
         result = await purchase_direct_theme(
             db,

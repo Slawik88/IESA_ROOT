@@ -12,12 +12,33 @@ from bot.keyboards.cta import answer_group_only
 router = Router(name="routing_router")
 
 
+async def _live_admin(bot: Bot, chat_id: int, user_id: int, developer_id: int = 0) -> bool:
+    if developer_id and int(user_id) == int(developer_id):
+        return True
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+    except Exception:
+        return False
+    return member.status in {"creator", "administrator"} and (
+        member.status == "creator" or bool(getattr(member, "can_manage_chat", False))
+    )
+
+
+async def _bot_can_serve(bot: Bot, chat_id: int) -> bool:
+    try:
+        me = await bot.get_me()
+        member = await bot.get_chat_member(chat_id, me.id)
+    except Exception:
+        return False
+    return member.status in {"creator", "administrator"}
+
+
 # ==========================================
 # ШАГ 1: ГЕНЕРАЦИЯ КОДА (В основном чате)
 # ==========================================
 @router.message(TextCmd(["привязать админ чат", "связать", "привязать"]))
-async def cmd_bind_admin(message: types.Message, db, developer_id: int = 0):
-    if message.chat.type == "private":
+async def cmd_bind_admin(message: types.Message, db, bot: Bot, developer_id: int = 0):
+    if message.chat.type not in {"group", "supergroup"}:
         return await answer_group_only(message)
 
     can_mod, err = await mod_service.check_admin_rights(
@@ -25,16 +46,18 @@ async def cmd_bind_admin(message: types.Message, db, developer_id: int = 0):
     )
     if not can_mod:
         return await message.answer(err, parse_mode="HTML")
+    if not await _live_admin(bot, message.chat.id, message.from_user.id, developer_id):
+        return await message.answer("❌ Нужны актуальные Telegram-права администратора в этом чате.")
 
-    token = await routing.create_bind_token(db, message.chat.id, message.chat.title)
-    command_to_copy = f"бот принять связь, {token}"
+    nonce = await routing.create_bind_request(db, message.chat.id, message.chat.title, message.from_user.id)
+    command_to_copy = f"бот принять связь, {nonce}"
 
     text = (
         f"🔗 <b>ПРИВЯЗКА ЧАТА АДМИНИСТРАЦИИ</b>\n\n"
         f"Чтобы все отчёты о модерации отправлялись в админский чат, "
         f"скопируйте команду ниже и просто отправьте её туда:\n\n"
         f"<code>{command_to_copy}</code>\n\n"
-        f"<i>⏳ Команда является одноразовой.</i>"
+        f"<i>⏳ Запрос действует 10 минут и подтвердить его может только создавший модератор.</i>"
     )
     await message.answer(text, parse_mode="HTML")
 
@@ -43,8 +66,8 @@ async def cmd_bind_admin(message: types.Message, db, developer_id: int = 0):
 # ШАГ 2: ПРИЕМ КОДА (В Админ-чате)
 # ==========================================
 @router.message(TextCmd(["принять связь", "accept bind"]))
-async def cmd_accept_bind(message: types.Message, db, bot: Bot, text_args: str = None):
-    if message.chat.type == "private":
+async def cmd_accept_bind(message: types.Message, db, bot: Bot, text_args: str = None, developer_id: int = 0):
+    if message.chat.type not in {"group", "supergroup"}:
         return await message.answer("❌ Чат администрации должен быть группой.")
 
     token = (text_args or "").strip()
@@ -54,18 +77,26 @@ async def cmd_accept_bind(message: types.Message, db, bot: Bot, text_args: str =
             parse_mode="HTML",
         )
 
-    bind_data = await routing.get_and_delete_token(db, token)
-    if not bind_data:
-        return await message.answer(
-            "❌ <b>Ошибка:</b> Код недействителен или уже был использован.",
-            parse_mode="HTML",
+    if not await _live_admin(bot, message.chat.id, message.from_user.id, developer_id):
+        return await message.answer("❌ Нужны актуальные Telegram-права администратора в этом чате.")
+    if not await _bot_can_serve(bot, message.chat.id):
+        return await message.answer("❌ Боту нужны права администратора в этом чате.")
+    try:
+        pending = await routing.peek_bind_request(
+            db, nonce=token, creator_id=message.from_user.id,
         )
-
-    main_chat_id = bind_data['main_chat_id']
-    main_chat_title = bind_data['main_chat_title']
-    admin_chat_id = message.chat.id
-
-    await routing.bind_admin_chat(db, main_chat_id, admin_chat_id)
+        if pending.main_chat_id == message.chat.id:
+            return await message.answer("❌ Основной и админ-чат должны быть разными.")
+        if not await _live_admin(bot, pending.main_chat_id, message.from_user.id, developer_id):
+            return await message.answer("❌ Права в основном чате больше не подтверждены.")
+        # Repository verifies creator identity and atomically writes the route.
+        request = await routing.consume_bind_request(
+            db, nonce=token, creator_id=message.from_user.id, admin_chat_id=message.chat.id,
+        )
+    except routing.BindRequestError as exc:
+        return await message.answer(f"❌ <b>Ошибка:</b> {safe_html(str(exc))}", parse_mode="HTML")
+    main_chat_id = request.main_chat_id
+    main_chat_title = request.main_chat_title
 
     await message.answer(
         f"✅ <b>СИСТЕМА УСПЕШНО НАСТРОЕНА!</b>\n\n"

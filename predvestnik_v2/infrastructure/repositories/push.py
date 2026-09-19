@@ -19,6 +19,11 @@ async def ensure_table(db) -> None:
             priority     INTEGER NOT NULL DEFAULT 0,
             payload_json TEXT NOT NULL DEFAULT '{}',
             sent         BOOLEAN NOT NULL DEFAULT FALSE,
+            lease_token TEXT NULL,
+            lease_expires_at TIMESTAMPTZ NULL,
+            delivery_attempts INTEGER NOT NULL DEFAULT 0,
+            delivered_at TIMESTAMPTZ NULL,
+            permanent_failure TEXT NULL,
             created_at   TIMESTAMP NOT NULL DEFAULT NOW()
         )
     """)
@@ -31,6 +36,12 @@ async def ensure_table(db) -> None:
         )
     except Exception:
         pass
+    for column, definition in (
+        ("lease_token", "TEXT NULL"), ("lease_expires_at", "TIMESTAMPTZ NULL"),
+        ("delivery_attempts", "INTEGER NOT NULL DEFAULT 0"),
+        ("delivered_at", "TIMESTAMPTZ NULL"), ("permanent_failure", "TEXT NULL"),
+    ):
+        await db.execute(f"ALTER TABLE push_queue ADD COLUMN IF NOT EXISTS {column} {definition}")
     await db.commit()
 
 
@@ -52,7 +63,8 @@ async def users_ready_for_push(db, min_interval_sec: int) -> list[int]:
     async with db.execute(
         "SELECT DISTINCT q.user_id FROM push_queue q "
         "JOIN users u ON u.user_tg_id = q.user_id "
-        "WHERE q.sent = FALSE AND (u.last_push_at IS NULL "
+        "WHERE q.sent = FALSE AND (q.lease_expires_at IS NULL OR q.lease_expires_at<NOW()) "
+        "AND (u.last_push_at IS NULL "
         "OR u.last_push_at <= NOW() - INTERVAL '1 second' * ?)",
         (min_interval_sec,),
     ) as c:
@@ -78,12 +90,59 @@ async def pending_for_user(db, user_id: int) -> list[dict]:
     return rows
 
 
-async def mark_all_sent(db, user_id: int) -> None:
+async def lease_event(db, *, event_id: int, user_id: int, token: str) -> bool:
+    """Atomically claim exactly one event before attempting its Telegram DM."""
+    async with db.execute(
+        "UPDATE push_queue SET lease_token=?,lease_expires_at=NOW()+INTERVAL '10 minutes',"
+        "delivery_attempts=delivery_attempts+1 WHERE id=? AND user_id=? AND sent=FALSE "
+        "AND (lease_expires_at IS NULL OR lease_expires_at<NOW()) RETURNING id",
+        (str(token), int(event_id), int(user_id)),
+    ) as cursor:
+        return bool(await cursor.fetchone())
+
+
+async def mark_delivery_succeeded(db, *, event_id: int, user_id: int, token: str) -> bool:
+    """Complete the leased event only after Telegram accepted the DM."""
+    async with db.connection.transaction():
+        async with db.execute(
+            "UPDATE push_queue SET sent=TRUE,delivered_at=NOW(),lease_token=NULL,lease_expires_at=NULL "
+            "WHERE id=? AND user_id=? AND sent=FALSE AND lease_token=? RETURNING id",
+            (int(event_id), int(user_id), str(token)),
+        ) as cursor:
+            delivered = bool(await cursor.fetchone())
+        if not delivered:
+            return False
+        await db.execute(
+            "UPDATE push_queue SET sent=TRUE,lease_token=NULL,lease_expires_at=NULL "
+            "WHERE user_id=? AND sent=FALSE AND id<>?", (int(user_id), int(event_id)),
+        )
+        await db.execute("UPDATE users SET last_push_at=NOW() WHERE user_tg_id=?", (int(user_id),))
+        return True
+
+
+async def release_transient_failure(db, *, event_id: int, user_id: int, token: str) -> bool:
+    async with db.execute(
+        "UPDATE push_queue SET lease_token=NULL,lease_expires_at=NULL WHERE id=? AND user_id=? "
+        "AND sent=FALSE AND lease_token=? RETURNING id",
+        (int(event_id), int(user_id), str(token)),
+    ) as cursor:
+        return bool(await cursor.fetchone())
+
+
+async def mark_permanent_failure(db, *, user_id: int, token: str, reason: str) -> int:
+    """Stop retrying a user who cannot receive DMs; preserve audit evidence."""
+    async with db.execute(
+        "UPDATE push_queue SET sent=TRUE,permanent_failure=?,lease_token=NULL,lease_expires_at=NULL "
+        "WHERE user_id=? AND sent=FALSE AND EXISTS (SELECT 1 FROM push_queue leased "
+        "WHERE leased.user_id=? AND leased.sent=FALSE AND leased.lease_token=?) RETURNING id",
+        (str(reason)[:200], int(user_id), int(user_id), str(token)),
+    ) as cursor:
+        return len(await cursor.fetchall())
+
+
+async def discard_unavailable(db, user_id: int) -> None:
+    """Discard opted-out/expired events without pretending a DM was sent."""
     await db.execute(
         "UPDATE push_queue SET sent = TRUE WHERE user_id = ? AND sent = FALSE",
         (user_id,),
     )
-    await db.execute(
-        "UPDATE users SET last_push_at = NOW() WHERE user_tg_id = ?", (user_id,)
-    )
-    await db.commit()

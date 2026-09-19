@@ -19,12 +19,12 @@ async def check_callback_owner(
     query: types.CallbackQuery, owner_user_id: int
 ) -> bool:
     """
-    Return True if the query is from the expected user; answer with error otherwise.
-    If owner_user_id == 0 (legacy button without user_id), allows anyone (backwards compat).
+    Return True only if the callback embeds the current owner's Telegram id.
+
+    Owner-less legacy buttons fail closed: accepting ``0`` used to let any chat
+    member operate another player's stale inline menu.
     """
-    if owner_user_id == 0:
-        return True  # no restriction on old-style buttons
-    if query.from_user.id != owner_user_id:
+    if owner_user_id <= 0 or query.from_user.id != owner_user_id:
         await query.answer("❌ Это не ваше меню.", show_alert=True)
         return False
     return True

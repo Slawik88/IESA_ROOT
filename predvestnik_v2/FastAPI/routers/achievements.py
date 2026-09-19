@@ -1,16 +1,18 @@
-"""Read-only gallery of legacy achievement progress."""
+"""Chronicle feats plus a read-only gallery of legacy achievement progress."""
 from fastapi import APIRouter, Depends
 
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import ACHIEVEMENTS
 from infrastructure.repositories.achievements import get_all_achievements
+from services.feats_v1 import get_user_feats
 
 router = APIRouter(prefix="/achievements", tags=["achievements"])
 
 
 @router.get("/")
 async def my_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Return saved progress without backfill, mutation, or reward promises."""
+    """Return derived v1 feats and frozen history without claim-side effects."""
+    chronicle = await get_user_feats(db, int(user["id"]))
     progress = await get_all_achievements(db, user["id"])
     result = []
     for ach_id, meta in ACHIEVEMENTS.items():
@@ -37,6 +39,7 @@ async def my_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
 
     result.sort(key=lambda item: (item["completed"], -item["pct"]))
     return {
+        "chronicle": chronicle,
         "retired": True,
         "message": "Достижения сохранены как история. Новые действия не меняют прогресс и не выдают награды.",
         "achievements": result,

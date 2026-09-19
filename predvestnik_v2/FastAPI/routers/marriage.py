@@ -1,12 +1,14 @@
 """FastAPI/routers/marriage.py — брак и семейный банк."""
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
-    get_user_marriage, family_bank_transaction, delete_marriage, FAMILY_CURRENCIES,
-    get_received_gifts, purchase_partner_gift,
+    get_user_marriage, delete_marriage, FAMILY_CURRENCIES,
+    get_received_gifts, purchase_partner_gift, create_marriage, MarriageConflict,
 )
+from infrastructure.repositories.family_wallet_v1 import transfer_between_personal_and_family
+from core.economy_contract import IdempotencyConflict, InsufficientBalance, InvalidEconomicMutation
 from core.registry import PARTNER_GIFTS
 from services.achievements import backfill_metric
 from services.vip import is_vip_active
@@ -71,50 +73,76 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
 
 
 class BankRequest(BaseModel):
-    marriage_id: int
+    model_config = ConfigDict(extra="forbid")
     amount: float
     action: str            # "deposit" | "withdraw"
     currency: str = "mora"  # mora | diamonds | dark_mora | zarniki
 
 
 @router.post("/bank")
-async def family_bank(body: BankRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def family_bank(
+    body: BankRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
     """Депозит или вывод любой из 4 валют семейного кошелька."""
-    raise HTTPException(409, "Семейный кошелёк заморожен для безопасного переноса. Баланс виден и не пропадёт; новые переводы не принимаются.")
     if body.action not in ("deposit", "withdraw"):
         raise HTTPException(400, "action: 'deposit' или 'withdraw'")
     if body.currency not in FAMILY_CURRENCIES:
         raise HTTPException(400, "Неизвестная валюта.")
-    ok, msg = await family_bank_transaction(db, body.marriage_id, user["id"],
-                                            body.amount, body.action, body.currency)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    if not request_key:
+        raise HTTPException(400, "Нужен Idempotency-Key для перевода.")
+    try:
+        result = await transfer_between_personal_and_family(
+            db, actor_id=user["id"], currency=body.currency, amount=body.amount,
+            action="deposit" if body.action == "deposit" else "withdrawal",
+            idempotency_key=request_key,
+        )
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот ключ уже привязан к другому переводу.") from exc
+    except InsufficientBalance as exc:
+        raise HTTPException(400, "Недостаточно средств для перевода.") from exc
+    except InvalidEconomicMutation as exc:
+        raise HTTPException(400, str(exc)) from exc
+    verb = "Внесено в семейный кошелёк" if body.action == "deposit" else "Выведено из семейного кошелька"
+    return {"ok": True, "message": verb, "operation_id": result.operation_id, "replayed": not result.applied}
 
 
 class FundRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     currency: str = "mora"
     amount: float
 
 
 @router.post("/fund")
-async def fund_from_family(body: FundRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def fund_from_family(
+    body: FundRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+    request_key: str | None = Header(default=None, alias="Idempotency-Key"),
+):
     """Block 5.2 (авто-перевод): перенести сумму из семейного кошелька на личный
     счёт перед покупкой. marriage_id резолвится сервером. Излишек (если была
     скидка) просто останется на личном — деньги не теряются."""
-    raise HTTPException(409, "Оплата из семейного кошелька временно закрыта: сохранённый баланс переносится отдельной проверяемой операцией.")
     if body.currency not in FAMILY_CURRENCIES:
         raise HTTPException(400, "Неизвестная валюта.")
     if body.amount <= 0:
         raise HTTPException(400, "Сумма должна быть больше нуля.")
-    m = await get_user_marriage(db, user["id"])
-    if not m:
-        raise HTTPException(400, "Вы не состоите в браке.")
-    ok, msg = await family_bank_transaction(db, m["id"], user["id"],
-                                            body.amount, "withdraw", body.currency)
-    if not ok:
-        raise HTTPException(400, msg)
-    return {"ok": True, "message": msg}
+    if not request_key:
+        raise HTTPException(400, "Нужен Idempotency-Key для перевода.")
+    try:
+        result = await transfer_between_personal_and_family(
+            db, actor_id=user["id"], currency=body.currency, amount=body.amount,
+            action="withdrawal", idempotency_key=request_key,
+        )
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот ключ уже привязан к другому переводу.") from exc
+    except InsufficientBalance as exc:
+        raise HTTPException(400, "Недостаточно средств в семейном кошельке.") from exc
+    except InvalidEconomicMutation as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"ok": True, "message": "Переведено из семейного кошелька", "operation_id": result.operation_id, "replayed": not result.applied}
 
 
 # ── Подарки партнёру (Block 5.4 — паритет с ботом `бот подарки`) ──────────────
@@ -215,7 +243,14 @@ async def divorce(db=Depends(get_db), user=Depends(require_tg_user)):
         has_family_pet = await c.fetchone() is not None
     if any(value > 0 for value in balances) or has_family_pet:
         raise HTTPException(409, "Сначала требуется безопасно разделить семейный кошелёк и питомцев. Данные сохранены; удалять их молча нельзя.")
-    await delete_marriage(db, user["id"])
+    try:
+        closed = await delete_marriage(db, user["id"])
+    except MarriageConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    if not closed:
+        raise HTTPException(409, "Брак уже изменился; обновите страницу и повторите попытку.")
     return {"ok": True}
 
 
@@ -277,17 +312,15 @@ async def accept_proposal(body: ProposalActionRequest, db=Depends(get_db), user=
         pr_row = await c.fetchone()
     proposer_name = pr_row[0] if pr_row and pr_row[0] else f"ID{prop['proposer_id']}"
 
-    # Wrap creation + proposal-status update atomically — otherwise a failure
-    # after INSERT could leave the proposal "pending" and acceptable again,
-    # producing a duplicate marriage row.
-    async with db.connection.transaction():
-        await db.execute(
-            "INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name) VALUES (?,?,?,?,?)",
-            (prop["chat_id"], prop["proposer_id"], proposer_name, user["id"], my_name),
+    try:
+        await create_marriage(
+            db, prop["chat_id"], prop["proposer_id"], proposer_name, user["id"], my_name,
+            proposal_id=body.proposal_id,
         )
-        await db.execute(
-            "UPDATE marriage_proposals SET status = 'accepted' WHERE id = ?", (body.proposal_id,)
-        )
+    except MarriageConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
     return {"ok": True}
 
 

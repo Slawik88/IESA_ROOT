@@ -1,10 +1,10 @@
-"""FastAPI/routers/vip.py — статус и покупка VIP-подписки (Implementation Block 2.5)."""
+"""Read-only status for existing VIP entitlements."""
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_TIERS, VIP_PERKS_PITCH
-from services.vip import get_vip_info, get_vip_seniority_days, purchase_vip
+from services.vip import get_vip_info, get_vip_seniority_days
 
 router = APIRouter(prefix="/vip", tags=["vip"])
 
@@ -16,10 +16,8 @@ def _tiers_payload() -> list[dict]:
             "label": info["label"],
             "tagline": info.get("tagline", ""),
             "duration_days": info["duration_days"],
-            "price_zarniki": info["price_zarniki"],
-            "base_price_zarniki": info.get("base_price_zarniki", info["price_zarniki"]),
-            "savings_zarniki": info.get("base_price_zarniki", info["price_zarniki"]) - info["price_zarniki"],
-            "service_only": True,
+            "purchasable": False,
+            "retired": True,
         }
         for tier, info in VIP_TIERS.items()
     ]
@@ -40,6 +38,7 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
             "seniority_months": seniority // 30,
             "perks": VIP_PERKS_PITCH,
             "tiers": _tiers_payload(),
+            "purchase_retired": True,
         }
     return {
         "active": False,
@@ -51,6 +50,7 @@ async def vip_status(db=Depends(get_db), user=Depends(require_tg_user)):
         "seniority_months": seniority // 30,
         "perks": VIP_PERKS_PITCH,
         "tiers": _tiers_payload(),
+        "purchase_retired": True,
     }
 
 
@@ -59,13 +59,12 @@ class PurchaseVipRequest(BaseModel):
 
 
 @router.post("/purchase")
-async def purchase_vip_endpoint(body: PurchaseVipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    if body.tier not in VIP_TIERS:
-        raise HTTPException(status_code=400, detail="Неизвестный тариф VIP.")
-
-    ok, message = await purchase_vip(db, user["id"], body.tier)
-    if not ok:
-        raise HTTPException(status_code=400, detail=message)
-
-    await db.commit()
-    return {"ok": True, "message": message}
+async def purchase_vip_endpoint(
+    body: PurchaseVipRequest,
+    db=Depends(get_db),
+    user=Depends(require_tg_user),
+):
+    raise HTTPException(
+        status_code=410,
+        detail="Новые VIP-покупки закрыты: legacy VIP открывал платный progression-трек. Существующий срок сохранён.",
+    )

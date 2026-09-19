@@ -1,4 +1,4 @@
-from aiogram import Router, types, F
+from aiogram import Bot, Router, types, F
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -10,6 +10,7 @@ from services import roles
 from services.utils import check_callback_owner
 from core.constants import CHAT_TIMEZONE_MIN, CHAT_TIMEZONE_MAX
 from bot.keyboards.cta import answer_group_only
+from core.chat_modules import CHAT_MODULES
 
 router = Router(name="chat_settings_router")
 
@@ -38,32 +39,12 @@ _RANK_SETTINGS: dict = {
 }
 
 _TOGGLE_SETTINGS: dict = {
-    "events_enabled":     ("🎁", "Сундуки и случайные события"),
     "nsfw_warps_allowed": ("🔞", "18+ варп-команды в чате"),
-}
-
-# Категорийные тумблеры ИГРОВЫХ уведомлений (2026-07-12). Выключение глушит
-# только сообщения в ЧАТ — сами механики и личные уведомления работают как
-# обычно. Административные сообщения (модерация/чистка/апелляции) тумблера
-# не имеют — шлются всегда.
-_NOTIF_SETTINGS: dict = {
-    "notif_auction":     ("🏛", "Уведомления: новые лоты аукциона"),
-    "notif_gacha":       ("🎰", "Уведомления: крутки гачи"),
-    "notif_expeditions": ("💫", "Уведомления: возврат из походов"),
-    "notif_quests":      ("📋", "Уведомления: выполненные квесты"),
+    "include_in_global_top": ("🏆", "Участие чата в глобальном топе"),
 }
 
 _MODULE_SETTINGS: dict = {
-    "module_shop":        ("🛒", "Магазин"),
-    "module_gacha":       ("🎰", "Гача"),
-    "module_expeditions": ("🗺", "Экспедиции"),
-    "module_auction":     ("🏛", "Аукцион"),
-    "module_games":       ("🎲", "Мини-игры"),
-    "module_exchange":    ("💱", "Конвертер"),
-    "module_quests":      ("📋", "Квесты"),
-    "module_zoo":         ("🐾", "Зоопарк"),
-    "module_warps":       ("🤝", "Варп-команды"),
-    "module_daily_deal":  ("🏷", "Акция дня"),
+    key: (str(spec["icon"]), str(spec["name"])) for key, spec in CHAT_MODULES.items()
 }
 
 _RANK_NAMES = roles.LOCAL_RANKS_MAP
@@ -74,88 +55,104 @@ def _rank_label(rank_id: int) -> str:
     return f"{name} ({rank_id}+)"
 
 
+async def _can_use_settings_callback(
+    query: types.CallbackQuery,
+    callback_data: ChatSettingsCB,
+    db,
+    bot: Bot,
+    developer_id: int = 0,
+) -> bool:
+    """Re-check current local and Telegram authority for retained buttons."""
+    if not await check_callback_owner(query, callback_data.user_id):
+        return False
+    message = query.message
+    user = query.from_user
+    if not message or not user or message.chat.type not in {"group", "supergroup"}:
+        await query.answer("❌ Карточка настроек больше недействительна.", show_alert=True)
+        return False
+    if developer_id and int(user.id) == int(developer_id):
+        return True
+
+    stats = await chat_repo.get_chat_stats(db, user.id, message.chat.id)
+    if int(stats.get("local_rank") or 0) < 5:
+        await query.answer("❌ Ваш текущий ранг больше не позволяет менять настройки.", show_alert=True)
+        return False
+    try:
+        member = await bot.get_chat_member(message.chat.id, user.id)
+    except Exception:
+        member = None
+    if not member or not (
+        member.status == "creator"
+        or (member.status == "administrator" and bool(getattr(member, "can_manage_chat", False)))
+    ):
+        await query.answer("❌ Права Telegram-администратора больше не подтверждаются.", show_alert=True)
+        return False
+    return True
+
+
 async def _build_menu_text(db, chat_id: int) -> str:
     s = await mod_db.get_chat_settings(db, chat_id)
     tz_offset = await get_chat_timezone(db, chat_id)
     tz_sign = "+" if tz_offset >= 0 else ""
     tz_label = f"UTC{tz_sign}{tz_offset}"
 
-    lines = [f"⚙️ <b>НАСТРОЙКИ ЧАТА</b>\n🕐 <b>Часовой пояс:</b> <code>{tz_label}</code>  "
-             f"<i>— бот часовой пояс, +3</i>\n"]
-
-    # Rank permissions section
-    lines.append("🛡 <b>Кто может выполнять действия:</b>")
-    rank_items = list(_RANK_SETTINGS.items())
-    for i, (key, (icon, desc, _key)) in enumerate(rank_items):
-        val = s.get(key, 0)
-        prefix = "└" if i == len(rank_items) - 1 else "├"
-        lines.append(f"{prefix} {icon} {desc}: <b>{_rank_label(val)}</b>")
-
-    lines.append("")
-
-    # Toggle section
-    lines.append("⚡ <b>Функции чата:</b>")
-    toggle_items = list(_TOGGLE_SETTINGS.items())
-    for i, (key, (icon, desc)) in enumerate(toggle_items):
-        val = s.get(key, 1)
-        status = "✅ Включено" if val else "❌ Выключено"
-        prefix = "├"
-        lines.append(f"{prefix} {icon} {desc}: {status}")
-
-    auc_rank = s.get("auction_min_rank", 0)
-    auc_rank_label = _rank_label(auc_rank) if auc_rank > 0 else "Все участники (0)"
-    lines.append(f"└ 🏛 Выставлять на аукцион: <b>{auc_rank_label}</b>")
-
-    lines.append("")
-    lines.append("🔔 <b>Игровые уведомления в чат</b> <i>(админ-сообщения — всегда)</i>:")
-    notif_items = list(_NOTIF_SETTINGS.items())
-    for i, (key, (icon, desc)) in enumerate(notif_items):
-        val = s.get(key, 1)
-        status = "✅" if val else "❌"
-        prefix = "└" if i == len(notif_items) - 1 else "├"
-        lines.append(f"{prefix} {icon} {desc.replace('Уведомления: ', '')}: {status}")
-
-    lines.append("")
-    lines.append("🧩 <b>Модули чата:</b>")
-    mod_items = list(_MODULE_SETTINGS.items())
-    for i, (key, (icon, name)) in enumerate(mod_items):
-        val = s.get(key, 1)
-        status = "✅" if val else "❌"
-        prefix = "└" if i == len(mod_items) - 1 else "├"
-        lines.append(f"{prefix} {icon} {name}: {status}")
-
-    lines.append("\n<i>Нажмите кнопку ниже, чтобы изменить настройку.</i>")
+    lines = ["⚙️ <b>УПРАВЛЕНИЕ ЧАТОМ</b>",
+             f"🕐 Периоды активности: <b>{tz_label}</b>", "",
+             "Настройки разделены по задачам — выберите нужный раздел.",
+             "Изменения доступны только действующему Telegram-администратору."]
     return "\n".join(lines)
 
 
 def _settings_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
-    for key, (icon, desc, _key) in _RANK_SETTINGS.items():
-        b.button(
-            text=f"✏️ {icon} {desc}",
-            callback_data=ChatSettingsCB(action="set_rank", key=key, user_id=user_id),
-        )
-    for key, (icon, desc) in _TOGGLE_SETTINGS.items():
-        b.button(
-            text=f"🔄 {icon} {desc}",
-            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
-        )
-    b.button(
-        text="✏️ 🏛 Минимальный ранг для аукциона",
-        callback_data=ChatSettingsCB(action="set_rank", key="auction_min_rank", user_id=user_id),
-    )
-    for key, (icon, desc) in _NOTIF_SETTINGS.items():
-        b.button(
-            text=f"🔔 {icon} {desc.replace('Уведомления: ', '')}",
-            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
-        )
-    for key, (icon, name) in _MODULE_SETTINGS.items():
-        b.button(
-            text=f"🔄 {icon} {name}",
-            callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id),
-        )
+    for key, label in (("moderation", "🛡 Модерация и наказания"),
+                       ("permissions", "👑 Ранги и права"),
+                       ("features", "🧩 Функции чата"),
+                       ("activity", "🏆 Активность и время"),
+                       ("routing", "🔗 Админ-чат и журналы")):
+        b.button(text=label, callback_data=ChatSettingsCB(action="section", key=key, user_id=user_id))
     b.adjust(1)
     return b.as_markup()
+
+
+def _section_keys(section: str) -> tuple[str, ...]:
+    return {
+        "moderation": ("rank_warn", "rank_mute", "rank_kick", "rank_ban", "rank_shield", "rank_immune"),
+        "permissions": ("purge_action_rank", "purge_write_rank", "rank_chat_lock", "rank_marriage"),
+        "features": tuple(_TOGGLE_SETTINGS) + tuple(_MODULE_SETTINGS),
+    }.get(section, ())
+
+
+async def _section_view(db, chat_id: int, section: str, user_id: int):
+    settings = await mod_db.get_chat_settings(db, chat_id)
+    b = InlineKeyboardBuilder()
+    labels = {"moderation": "🛡 МОДЕРАЦИЯ", "permissions": "👑 РАНГИ И ПРАВА",
+              "features": "🧩 ФУНКЦИИ", "activity": "🏆 АКТИВНОСТЬ",
+              "routing": "🔗 АДМИН-ЧАТ"}
+    lines = [f"<b>{labels.get(section, 'НАСТРОЙКИ')}</b>", ""]
+    if section in {"moderation", "permissions"}:
+        for key in _section_keys(section):
+            icon, desc, _ = _RANK_SETTINGS[key]
+            lines.append(f"{icon} {desc}: <b>{_rank_label(int(settings.get(key, 0)))}</b>")
+            b.button(text=f"{icon} {desc}", callback_data=ChatSettingsCB(action="set_rank", key=key, user_id=user_id))
+    elif section == "features":
+        for key in _section_keys(section):
+            icon, desc = (_TOGGLE_SETTINGS | _MODULE_SETTINGS)[key]
+            enabled = bool(settings.get(key, 1))
+            lines.append(f"{icon} {desc}: <b>{'включено' if enabled else 'выключено'}</b>")
+            b.button(text=f"{'✅' if enabled else '❌'} {desc}", callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id))
+    elif section == "activity":
+        tz = await get_chat_timezone(db, chat_id)
+        lines.extend([f"Часовой пояс локальных топов: <b>UTC{tz:+d}</b>",
+                      "Глобальные топы используют UTC для всех чатов.", "",
+                      "Изменить: <code>бот часовой пояс, +3</code>"])
+    else:
+        lines.extend(["Привязка отделяет публичный чат от журнала модерации.", "",
+                      "Создать: <code>бот привязать админ чат</code>",
+                      "Проверить: <code>бот инфо чата</code>"])
+    b.button(text="⬅️ Все настройки", callback_data=ChatSettingsCB(action="menu", user_id=user_id))
+    b.adjust(1)
+    return "\n".join(lines), b.as_markup()
 
 
 def _rank_picker_kb(key: str, current: int, label: str, user_id: int = 0) -> types.InlineKeyboardMarkup:
@@ -172,7 +169,7 @@ def _rank_picker_kb(key: str, current: int, label: str, user_id: int = 0) -> typ
 
 
 @router.message(TextCmd(["настройки чата", "настройка чата", "settings"]))
-async def cmd_chat_settings(message: types.Message, db, developer_id: int = 0):
+async def cmd_chat_settings(message: types.Message, db, bot: Bot, developer_id: int = 0):
     if message.chat.type == "private":
         return await answer_group_only(message)
 
@@ -184,14 +181,29 @@ async def cmd_chat_settings(message: types.Message, db, developer_id: int = 0):
             "❌ <b>Отказ:</b> Требуется ранг <b>Совладелец</b> (5) или выше.",
             parse_mode="HTML",
         )
+    if not (developer_id and message.from_user.id == developer_id):
+        try:
+            member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+        except Exception:
+            member = None
+        if not member or not (
+            member.status == "creator"
+            or (member.status == "administrator" and bool(getattr(member, "can_manage_chat", False)))
+        ):
+            return await message.answer(
+                "❌ Нужны актуальные права Telegram-администратора с разрешением управлять чатом."
+            )
 
     text = await _build_menu_text(db, message.chat.id)
     await message.answer(text, reply_markup=_settings_kb(user_id=message.from_user.id), parse_mode="HTML")
 
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "menu"))
-async def cb_settings_menu(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
-    if not await check_callback_owner(query, callback_data.user_id):
+async def cb_settings_menu(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
         return
     text = await _build_menu_text(db, query.message.chat.id)
     uid = callback_data.user_id
@@ -199,13 +211,35 @@ async def cb_settings_menu(query: types.CallbackQuery, callback_data: ChatSettin
     await query.answer()
 
 
+@router.callback_query(ChatSettingsCB.filter(F.action == "section"))
+async def cb_settings_section(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    if callback_data.key not in {"moderation", "permissions", "features", "activity", "routing"}:
+        return await query.answer("Раздел больше не используется.", show_alert=True)
+    text, keyboard = await _section_view(db, query.message.chat.id, callback_data.key, callback_data.user_id)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await query.answer()
+
+
 @router.callback_query(ChatSettingsCB.filter(F.action == "set_rank"))
-async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
-    if not await check_callback_owner(query, callback_data.user_id):
+async def cb_set_rank(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
         return
     chat_id = query.message.chat.id
     key = callback_data.key
     uid = callback_data.user_id
+
+    # Both callback stages must use the same allowlist.  A retained or crafted
+    # legacy button may not turn an arbitrary database column into a rank setting.
+    if key not in _RANK_SETTINGS:
+        return await query.answer("❌ Эта старая настройка больше не используется.", show_alert=True)
 
     if callback_data.value != "":
         try:
@@ -216,7 +250,10 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
         valid_ranks = set(roles.LOCAL_RANKS_MAP.keys())
         if new_val not in valid_ranks:
             return await query.answer("❌ Недопустимый ранг.", show_alert=True)
-        await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
+        updates = {key: new_val}
+        if key == "module_echo":
+            updates["echo_events_enabled"] = new_val
+        await mod_db.update_chat_settings(db, chat_id, **updates)
         await db.commit()
         await query.answer("✅ Сохранено!", show_alert=False)
         text = await _build_menu_text(db, chat_id)
@@ -226,11 +263,8 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
     s = await mod_db.get_chat_settings(db, chat_id)
     current = s.get(key, 0)
 
-    if key in _RANK_SETTINGS:
-        icon, desc, _ = _RANK_SETTINGS[key]
-        label = f"{icon} {desc}"
-    else:
-        label = "🏛 Аукцион — минимальный ранг"
+    icon, desc, _ = _RANK_SETTINGS[key]
+    label = f"{icon} {desc}"
 
     await query.message.edit_text(
         f"✏️ <b>{label}</b>\n\n"
@@ -243,24 +277,25 @@ async def cb_set_rank(query: types.CallbackQuery, callback_data: ChatSettingsCB,
 
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "toggle"))
-async def cb_toggle_setting(query: types.CallbackQuery, callback_data: ChatSettingsCB, db):
-    if not await check_callback_owner(query, callback_data.user_id):
+async def cb_toggle_setting(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
         return
     chat_id = query.message.chat.id
     key = callback_data.key
     uid = callback_data.user_id
     # Whitelist: key уходит именем колонки в UPDATE (f-string в update_chat_settings) —
     # крафтовый callback с произвольным key не должен туда долетать.
-    if key not in {**_TOGGLE_SETTINGS, **_NOTIF_SETTINGS, **_MODULE_SETTINGS}:
-        return await query.answer("❌ Неизвестная настройка.", show_alert=True)
+    if key not in {**_TOGGLE_SETTINGS, **_MODULE_SETTINGS}:
+        return await query.answer("❌ Эта старая настройка больше не используется.", show_alert=True)
     s = await mod_db.get_chat_settings(db, chat_id)
     new_val = 0 if s.get(key, 1) else 1
     await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
     await db.commit()
     if key in _TOGGLE_SETTINGS:
         icon, desc = _TOGGLE_SETTINGS[key]
-    elif key in _NOTIF_SETTINGS:
-        icon, desc = _NOTIF_SETTINGS[key]
     else:
         icon, name = _MODULE_SETTINGS.get(key, ("🧩", key))
         desc = f"Модуль «{name}»"

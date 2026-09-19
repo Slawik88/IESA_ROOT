@@ -37,34 +37,59 @@ def _banned_allowlist_match(event: TelegramObject) -> bool:
     return False
 
 
-async def global_sanctions_middleware(
-    handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
-    event: TelegramObject,
-    data: Dict[str, Any],
-) -> Any:
-    db = data["db"]
+async def evaluate_global_sanctions(
+    db, event: TelegramObject, data: Dict[str, Any]
+) -> bool:
+    """Evaluate sanctions once, before any automatic activity writer.
+
+    ``db_middleware`` owns the one connection used by the whole update.  It
+    calls this helper before account/chat statistics are touched; this wrapper
+    then reuses the recorded result instead of performing a second check.
+    """
+    if data.get("_sanctions_evaluated"):
+        return not bool(data.get("_sanctions_blocked"))
+
     user = data.get("event_from_user")
     chat_obj = data.get("event_chat")
-
     user_banned = False
+
     if user:
         actor_rank = await get_global_rank(db, user.id)
         if actor_rank >= DEVELOPER_GLOBAL_RANK:
-            return await handler(event, data)  # Разработчик — иммунитет
+            data["_sanctions_evaluated"] = True
+            data["_sanctions_blocked"] = False
+            return True  # Preserve the existing developer immunity semantics.
 
         if await global_moderation.is_user_banned(db, user.id):
             if not _banned_allowlist_match(event):
-                return  # игровые команды/кнопки: бот молчит
-            user_banned = True  # справочная команда — пропускаем дальше
+                data["_sanctions_evaluated"] = True
+                data["_sanctions_blocked"] = True
+                return False
+            user_banned = True
 
     if chat_obj:
         if await global_moderation.is_chat_banned(db, chat_obj.id):
-            return  # бан целого чата глушит всё, allowlist не действует
-
-        data["chat_restricted"] = await global_moderation.get_chat_restriction(db, chat_obj.id)
+            data["_sanctions_evaluated"] = True
+            data["_sanctions_blocked"] = True
+            return False
+        data["chat_restricted"] = await global_moderation.get_chat_restriction(
+            db, chat_obj.id
+        )
 
     if user:
         data["user_restricted"] = await global_moderation.get_user_restriction(db, user.id)
         data["user_banned"] = user_banned
 
+    data["_sanctions_evaluated"] = True
+    data["_sanctions_blocked"] = False
+    return True
+
+
+async def global_sanctions_middleware(
+    handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+    event: TelegramObject,
+    data: Dict[str, Any],
+) -> Any:
+    if not await evaluate_global_sanctions(data["db"], event, data):
+        return
     return await handler(event, data)

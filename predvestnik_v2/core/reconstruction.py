@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-GAME_VERSION: Final = "3.0.0-alpha.3"
-BALANCE_VERSION: Final = "r16-2026-08-22-archivist-offer-rotation"
+GAME_VERSION: Final = "3.0.0-alpha.4"
+BALANCE_VERSION: Final = "r17-2026-08-26-rhythm-contracts"
 FEATURE_FLAG_KEY: Final = "game_reconstruction_v1"
 CAMPAIGN_ID: Final = "echoes_of_the_drowned_bell"
 
@@ -323,6 +323,17 @@ MEMORIES: dict[str, dict[str, str]] = {
         "effect": "После золотого удара следующий сигнал открывается медленнее и живёт дольше.",
         "tradeoff": "Серия растёт медленнее в обычных окнах.",
     },
+}
+
+# Машиночитаемый слой того же контракта: UI показывает MEMORIES, бой применяет
+# только эти числовые модификаторы. Это не новые валюты и не скрытая сила доната.
+MEMORY_RUNTIME_EFFECTS: dict[str, dict[str, Any]] = {
+    "m_mobile_oath": {"first_error_guard": True, "discharge_multiplier": 0.85},
+    "m_long_seam": {"critical_multiplier_delta": -0.15, "golden_followup_hits": 2},
+    "m_safe_current": {"first_miss_guard": True, "auto_dps_multiplier": 0.8},
+    "m_resonant_guard": {"resonant_error_after": 3},
+    "m_cross_stitch": {"fifth_charge_bonus": 25.0, "disable_fifth_damage_bonus": True},
+    "m_reverse_flow": {"golden_window_bonus_ms": 300, "combo_step_multiplier": 0.9},
 }
 
 

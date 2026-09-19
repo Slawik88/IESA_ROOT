@@ -1,0 +1,84 @@
+body.skin-lunar-archive{
+  --bg0:#070913;--bg1:#0d1120;--bg2:#141a2c;--bg3:#1b2440;
+  --text:#cbd3e8;--bright:#f3f5ff;--ink:#eef1ff;--muted:#8995b3;--dim:#202942;
+  --gold:#d7c7ff;--gold2:#e2dcff;--gold-dim:rgba(170,145,235,.14);--gold-rgb:200,184,255;
+  --violet:#879de8;--violet-dim:rgba(135,157,232,.15);
+  --border:rgba(190,183,238,.30);--border2:rgba(207,219,255,.09);
+  --bg:#090c18;--panel:#171d31;--line:#3b456a;--accent:#b9aff4;
+  --skin-panel:rgba(23,29,49,.94);--skin-panel-strong:#11172a;--skin-control:#252e4a;
+  --skin-control-active:#493f69;--skin-cell:#2b3655;--skin-cell-open:#151d33;
+  --skin-cell-flag:#423b52;
+  background-color:var(--bg)!important;
+  background-image:linear-gradient(#070916aa,#070916e8),url("./skins/lunar-archive-v1.webp")!important;
+  background-position:center top!important;background-size:cover!important;background-repeat:no-repeat!important;
+}
+body.skin-lunar-archive #app-header{background:linear-gradient(180deg,rgba(7,9,19,.97),rgba(10,13,27,.88))}
+body.skin-lunar-archive .nav{background:rgba(10,13,27,.94)}
+body.skin-lunar-archive .panel,body.skin-lunar-archive .mine-panel{background:var(--skin-panel)}
+body.skin-lunar-archive button.secondary,body.skin-lunar-archive .augment,
+body.skin-lunar-archive .leaderboard-tabs button,body.skin-lunar-archive .mine-head button,
+body.skin-lunar-archive .mine-mode button{background:var(--skin-control)}
+body.skin-lunar-archive .metrics,body.skin-lunar-archive .leaderboard li,
+body.skin-lunar-archive .mine-metrics,body.skin-lunar-archive .mine-leaderboard li,
+body.skin-lunar-archive .mine-difficulties button{background:var(--skin-panel-strong)}
+body.skin-lunar-archive .pace div{background:var(--skin-control)}
+body.skin-lunar-archive .mine-cell{background:var(--skin-cell);border-color:var(--line)}
+body.skin-lunar-archive .mine-cell:active{background:var(--skin-control-active)}
+body.skin-lunar-archive .mine-cell.open{background:var(--skin-cell-open);border-color:var(--line)}
+body.skin-lunar-archive .mine-cell.flag{background:var(--skin-cell-flag);border-color:var(--gold)}
+body.skin-lunar-archive .mine-difficulties button[aria-selected="true"]{background:var(--skin-control-active);color:var(--ink)}
+
+body.skin-void-atlas{
+  --bg0:#050711;--bg1:#090d1a;--bg2:#121827;--bg3:#192137;
+  --text:#ccd3e7;--bright:#f4f6ff;--ink:#eef2ff;--muted:#8e98b2;--dim:#202a42;
+  --gold:#aeb8ee;--gold2:#d9ddff;--gold-dim:rgba(151,164,224,.14);--gold-rgb:177,188,238;
+  --violet:#8092d4;--violet-dim:rgba(128,146,212,.15);
+  --border:rgba(169,181,229,.28);--border2:rgba(203,213,246,.10);
+  --bg:#060914;--panel:#141b2d;--line:#3c496f;--accent:#aeb9ee;
+  --skin-panel:rgba(14,20,35,.91);--skin-panel-strong:rgba(9,14,27,.94);--skin-control:#222c47;
+  --skin-control-active:#3b4568;--skin-cell:#27334f;--skin-cell-open:#121a2d;--skin-cell-flag:#343a55;
+  background-color:var(--bg)!important;
+  background-image:linear-gradient(180deg,rgba(5,7,17,.58),rgba(5,7,17,.84)),url("./skins/void-atlas-v1.webp")!important;
+  background-position:center top!important;background-size:cover!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
+}
+body.skin-void-atlas #app-header{background:linear-gradient(180deg,rgba(5,8,18,.96),rgba(8,12,24,.82))}
+body.skin-void-atlas .nav{background:rgba(7,11,22,.94)}
+body.skin-void-atlas .panel,body.skin-void-atlas .mine-panel{background:var(--skin-panel)}
+body.skin-void-atlas button.secondary,body.skin-void-atlas .augment,
+body.skin-void-atlas .leaderboard-tabs button,body.skin-void-atlas .mine-head button,
+body.skin-void-atlas .mine-mode button{background:var(--skin-control)}
+body.skin-void-atlas .metrics,body.skin-void-atlas .leaderboard li,
+body.skin-void-atlas .mine-metrics,body.skin-void-atlas .mine-leaderboard li,
+body.skin-void-atlas .mine-difficulties button{background:var(--skin-panel-strong)}
+body.skin-void-atlas .pace div{background:var(--skin-control)}
+body.skin-void-atlas .mine-cell{background:var(--skin-cell);border-color:var(--line)}
+body.skin-void-atlas .mine-cell:active{background:var(--skin-control-active)}
+body.skin-void-atlas .mine-cell.open{background:var(--skin-cell-open);border-color:var(--line)}
+body.skin-void-atlas .mine-cell.flag{background:var(--skin-cell-flag);border-color:var(--gold)}
+body.skin-void-atlas .mine-difficulties button[aria-selected="true"]{background:var(--skin-control-active);color:var(--ink)}
+body.skin-void-atlas .profile-showcase-card[class*="profile-tone-"]{
+  box-shadow:0 0 0 1px rgba(154,168,225,.14),0 18px 50px rgba(0,0,0,.42),inset 0 1px 0 rgba(226,232,255,.08);
+}
+body.skin-void-atlas .profile-showcase-main{border-color:rgba(155,169,226,.20)}
+/* The premium background continues into the player's card through its existing
+   line/surface tokens. It does not add a competing effect layer, so equipped
+   Void cosmetics still read as one collection instead of a pasted-on skin. */
+body.skin-void-atlas .profile-showcase-card.profile-tone-void,
+.store-detail-hero--void .profile-showcase-card.profile-tone-void{
+  --appearance-line:rgba(157,174,231,.34);
+  --appearance-highlight:rgba(202,213,255,.11);
+  --appearance-surface-top:rgba(19,25,45,.98);
+  --appearance-surface-bottom:rgba(7,11,23,.99);
+  --appearance-header:rgba(72,85,135,.28);
+  --appearance-rail:rgba(30,40,72,.28);
+  --appearance-button:rgba(113,132,194,.14);
+}
+body.skin-void-atlas .profile-showcase-card.profile-tone-void .profile-identity-accent,
+.store-detail-hero--void .profile-showcase-card.profile-tone-void .profile-identity-accent{
+  border-color:rgba(164,179,231,.68);
+  box-shadow:0 12px 30px rgba(0,0,0,.32),0 0 0 5px rgba(119,137,202,.10);
+}
+body.skin-void-atlas .profile-showcase-card.profile-tone-void .character-showcase-area,
+.store-detail-hero--void .profile-showcase-card.profile-tone-void .character-showcase-area{
+  box-shadow:inset 0 1px 0 rgba(212,220,255,.08),inset 0 0 42px rgba(71,88,151,.09);
+}

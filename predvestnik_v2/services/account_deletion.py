@@ -23,6 +23,7 @@ import random
 
 import httpx
 from loguru import logger
+from infrastructure.repositories import chests_v1 as chest_repo
 
 from core.constants import (
     ACCOUNT_DELETE_COOLING_HOURS, ACCOUNT_DELETE_INACTIVITY_CHOICES,
@@ -59,6 +60,16 @@ async def get_state(db, user_id: int) -> dict:
     }
 
 
+async def _has_active_marriage(db, user_id: int) -> bool:
+    """Account deletion must never dissolve a family as a side effect."""
+    async with db.execute(
+        "SELECT 1 FROM marriage_members mm JOIN marriages m ON m.id = mm.marriage_id "
+        "WHERE mm.user_id = ? AND m.ended_at IS NULL LIMIT 1",
+        (user_id,),
+    ) as cursor:
+        return await cursor.fetchone() is not None
+
+
 async def set_inactivity_days(db, user_id: int, days: int) -> tuple[bool, str]:
     if days not in ACCOUNT_DELETE_INACTIVITY_CHOICES:
         return False, f"Допустимо: {', '.join(map(str, ACCOUNT_DELETE_INACTIVITY_CHOICES))} дней."
@@ -71,6 +82,11 @@ async def set_inactivity_days(db, user_id: int, days: int) -> tuple[bool, str]:
 
 async def request_deletion(db, user_id: int) -> tuple[bool, str]:
     """Шаг 1: код в ЛС бота."""
+    if await _has_active_marriage(db, user_id):
+        return False, (
+            "Нельзя удалить аккаунт, пока он состоит в браке: это могло бы удалить "
+            "семейное состояние партнёра. Сначала завершите брак безопасно."
+        )
     st = await get_state(db, user_id)
     if st["deleted_at"]:
         return False, "Аккаунт уже удалён — доступно восстановление."
@@ -149,21 +165,42 @@ async def restore_account(db, user_id: int) -> tuple[bool, str]:
     return True, "🎉 Аккаунт восстановлен! Всё на месте — с возвращением."
 
 
-async def _mark_deleted(db, user_id: int) -> None:
+async def _mark_deleted(db, user_id: int) -> bool:
+    if await _has_active_marriage(db, user_id):
+        await db.execute(
+            "UPDATE account_deletions SET status = 'cancelled' WHERE user_id = ?", (user_id,)
+        )
+        return False
     await db.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = ?", (user_id,))
     await db.execute(
         "UPDATE account_deletions SET status = 'pending_restore', deleted_at = NOW(), "
         "restore_deadline = NOW() + make_interval(days => ?) WHERE user_id = ?",
         (ACCOUNT_DELETE_RESTORE_DAYS, user_id),
     )
+    return True
 
 
 async def _finalize(db, user_id: int) -> None:
     """Очистка игровых данных. Аудит-таблицы (wallet_log, moderation_logs,
     global_sanctions, admin_grant_log) намеренно НЕ трогаются."""
+    if await _has_active_marriage(db, user_id):
+        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
+        await db.execute(
+            "UPDATE account_deletions SET status = 'cancelled', deleted_at = NULL, "
+            "restore_deadline = NULL WHERE user_id = ?",
+            (user_id,),
+        )
+        logger.warning("account finalization cancelled for {}: active marriage", user_id)
+        return
+    # Chest history is append-only audit evidence. Move the account to a fresh
+    # epoch and zero its spendable keys so old pending opens can never be
+    # revealed by a surviving session or a later re-registration.
+    await chest_repo.retire_account(db, user_id)
     for sql, args in [
         ("DELETE FROM pets WHERE owner_id = ?", (user_id,)),
         ("DELETE FROM inventory WHERE user_id = ?", (user_id,)),
+        ("DELETE FROM global_skin_v1_selection WHERE user_id = ?", (user_id,)),
+        ("DELETE FROM global_skin_v1_owned WHERE user_id = ?", (user_id,)),
         ("DELETE FROM user_cosmetics WHERE user_id = ?", (user_id,)),
         ("DELETE FROM user_cosmetic_loadout WHERE user_id = ?", (user_id,)),
         ("DELETE FROM cosmetic_presets WHERE user_id = ?", (user_id,)),
@@ -174,9 +211,8 @@ async def _finalize(db, user_id: int) -> None:
         ("DELETE FROM daily_quests WHERE user_id = ?", (user_id,)),
         ("DELETE FROM crypto_holdings WHERE user_id = ?", (user_id,)),
         ("DELETE FROM crypto_watchlist WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_nicknames WHERE user_tg_id = ?", (user_id,)),
+        ("DELETE FROM user_nicknames WHERE user_id = ?", (user_id,)),
         ("DELETE FROM clan_members WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM marriages WHERE user1_id = ? OR user2_id = ?", (user_id, user_id)),
         ("UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = ?", (user_id,)),
         ("UPDATE users SET user_balance_mora = 0, user_balance_diamonds = 0, "
          "user_balance_zarniki = 0, user_balance_dark_mora = 0, account_xp = 0, "
@@ -201,10 +237,10 @@ async def daily_tick(db) -> None:
         "WHERE status = 'cooling' AND cooling_until <= NOW()"
     ) as c:
         for r in [dict(x) for x in await c.fetchall()]:
-            await _mark_deleted(db, r["user_id"])
-            await _tg("sendMessage", chat_id=r["user_id"], parse_mode="HTML", text=(
-                f"🗑 <b>Аккаунт удалён.</b> Восстановление доступно "
-                f"{ACCOUNT_DELETE_RESTORE_DAYS} дней: <code>бот восстановить аккаунт</code>."))
+            if await _mark_deleted(db, r["user_id"]):
+                await _tg("sendMessage", chat_id=r["user_id"], parse_mode="HTML", text=(
+                    f"🗑 <b>Аккаунт удалён.</b> Восстановление доступно "
+                    f"{ACCOUNT_DELETE_RESTORE_DAYS} дней: <code>бот восстановить аккаунт</code>."))
 
     # 2) авто-неактив: предупреждение за N дней
     async with db.execute(
@@ -255,10 +291,10 @@ async def daily_tick(db) -> None:
         "LIMIT 50"
     ) as c:
         for r in [dict(x) for x in await c.fetchall()]:
-            await _mark_deleted(db, r["user_tg_id"])
-            await _tg("sendMessage", chat_id=r["user_tg_id"], parse_mode="HTML", text=(
-                f"🗑 <b>Аккаунт удалён за неактив.</b> Восстановление доступно "
-                f"{ACCOUNT_DELETE_RESTORE_DAYS} дней: <code>бот восстановить аккаунт</code>."))
+            if await _mark_deleted(db, r["user_tg_id"]):
+                await _tg("sendMessage", chat_id=r["user_tg_id"], parse_mode="HTML", text=(
+                    f"🗑 <b>Аккаунт удалён за неактив.</b> Восстановление доступно "
+                    f"{ACCOUNT_DELETE_RESTORE_DAYS} дней: <code>бот восстановить аккаунт</code>."))
 
     # 4) окно восстановления истекло → финализация
     async with db.execute(

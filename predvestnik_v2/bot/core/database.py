@@ -44,6 +44,8 @@ async def _init_users_and_chats(db):
             user_messages_count_per_last_week   INTEGER DEFAULT 0,
             user_messages_count_per_last_month  INTEGER DEFAULT 0,
             last_message_at  TIMESTAMP DEFAULT NOW(),
+            membership_since TIMESTAMPTZ DEFAULT NOW(),
+            is_bot           BOOLEAN DEFAULT FALSE,
             is_left          BOOLEAN DEFAULT FALSE,
             joined_at        TIMESTAMP DEFAULT NOW(),
             immune_until     TIMESTAMP DEFAULT NULL,
@@ -84,6 +86,7 @@ async def _init_users_and_chats(db):
             rank_shield          INTEGER DEFAULT 4,
             rank_immune          INTEGER DEFAULT 5,
             events_enabled       INTEGER DEFAULT 1,
+            echo_events_enabled  INTEGER DEFAULT 0,
             nsfw_warps_allowed   INTEGER DEFAULT 1,
             auction_min_rank     INTEGER DEFAULT 0,
             module_shop          INTEGER DEFAULT 1,
@@ -96,6 +99,11 @@ async def _init_users_and_chats(db):
             module_zoo           INTEGER DEFAULT 1,
             module_warps         INTEGER DEFAULT 1,
             module_daily_deal    INTEGER DEFAULT 1,
+            module_mafia         INTEGER DEFAULT 1,
+            module_rhythm        INTEGER DEFAULT 1,
+            module_pets          INTEGER DEFAULT 1,
+            module_echo          INTEGER DEFAULT 0,
+            include_in_global_top INTEGER DEFAULT 1,
             rank_duel            INTEGER DEFAULT 0,
             rank_marriage        INTEGER DEFAULT 0,
             rank_give            INTEGER DEFAULT 0
@@ -110,6 +118,9 @@ async def _init_users_and_chats(db):
         # шлются всегда, у них нет тумблера в принципе.
         ("notif_auction", 1), ("notif_gacha", 1),
         ("notif_expeditions", 1), ("notif_quests", 1),
+        ("echo_events_enabled", 0),
+        ("module_mafia", 1), ("module_rhythm", 1), ("module_pets", 1),
+        ("module_echo", 0), ("include_in_global_top", 1),
     ]:
         try:
             await db.execute(
@@ -143,10 +154,8 @@ async def _init_users_and_chats(db):
         # already existing column until a separately approved data plan.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_xp BIGINT DEFAULT 0",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS account_level INTEGER DEFAULT 1",
-        # Growth-полиш 2026-07-13: кто привёл игрока (referral deep-link /start ref<id>).
-        # NULL по умолчанию = не по рефералке / уже играл до фичи. DEFAULT NULL —
-        # атомарный гард на выдачу сигнап-бонуса делает services/referral.py по
-        # "WHERE referred_by IS NULL".
+        # Историческая referral-связь остаётся только для audit/twin detection.
+        # Новые регистрации её не записывают и награды за неё не начисляются.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by BIGINT DEFAULT NULL",
         # Онбординг боя 2026-07-21 / «Что нового» 2026-07-23. КРИТИЧНО, что они здесь:
         # на проде FastAPI стартует с lifespan="off" (bot/__main__.py), поэтому
@@ -254,6 +263,13 @@ async def _init_users_and_chats(db):
             added_at      TIMESTAMP DEFAULT NOW()
         )
     """)
+    # The admin-routing readers assume one destination per source and one
+    # source per destination.  If legacy data violates this, startup must stop
+    # for an operator audit instead of choosing a recipient silently.
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_chat_links_admin_chat "
+        "ON chat_links (admin_chat_id) WHERE admin_chat_id IS NOT NULL"
+    )
 
     # 9. Chat bind tokens
     await db.execute("""
@@ -264,6 +280,34 @@ async def _init_users_and_chats(db):
             created_at      TIMESTAMP DEFAULT NOW()
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS chat_bind_requests (
+            nonce TEXT PRIMARY KEY,
+            main_chat_id BIGINT NOT NULL,
+            main_chat_title TEXT NOT NULL,
+            creator_id BIGINT NOT NULL,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chat_bind_requests_source "
+        "ON chat_bind_requests (main_chat_id, expires_at DESC)"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS chat_bind_audit (
+            id BIGSERIAL PRIMARY KEY,
+            main_chat_id BIGINT NOT NULL,
+            previous_admin_chat_id BIGINT,
+            admin_chat_id BIGINT NOT NULL,
+            actor_id BIGINT NOT NULL,
+            bound_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_chat_bind_audit_source "
+        "ON chat_bind_audit (main_chat_id, bound_at DESC)"
+    )
 
 
 async def _init_inventory_and_pets(db):
@@ -458,17 +502,6 @@ async def _init_progression_and_economy(db):
             date      TEXT,
             total_won FLOAT8 DEFAULT 0,
             PRIMARY KEY (user_id, date)
-        )
-    """)
-
-    # 21. NSFW consents
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS user_nsfw_consents (
-            target_user_id BIGINT,
-            chat_id        BIGINT,
-            status         TEXT NOT NULL,
-            set_at         TIMESTAMP DEFAULT NOW(),
-            PRIMARY KEY (target_user_id, chat_id)
         )
     """)
 
@@ -872,6 +905,8 @@ async def _init_features_extra(db):
             status      TEXT DEFAULT 'pending'
         )
     """)
+    from infrastructure.repositories.divorce_v1 import install_schema as install_divorce_schema
+    await install_divorce_schema(db)
 
     # VIP subscriptions (Implementation Block 2.1)
     await db.execute("""
@@ -1138,6 +1173,8 @@ async def _init_features_extra(db):
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP DEFAULT NULL",
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_count INTEGER DEFAULT 0",
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW()",
+        "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS membership_since TIMESTAMPTZ DEFAULT NOW()",
+        "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE",
         # «Стаж VIP» — суммарно оплаченных дней за всё время
         "ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS total_days INTEGER DEFAULT 0",
         # Прошлый деплой мог уже создать theme_metadata_overrides со старым именем колонки
@@ -1489,6 +1526,17 @@ async def init_db():
         from infrastructure.repositories.reconstruction_units import ensure_tables as _ensure_reconstruction_units
         from infrastructure.repositories.companions_v3 import ensure_tables as _ensure_companions_v3
         from infrastructure.repositories.alliance_v3 import ensure_table as _ensure_alliance_v3
+        from infrastructure.repositories.retention_v3 import ensure_tables as _ensure_retention_v3
+        from infrastructure.repositories.weekly_case_v1 import ensure_tables as _ensure_weekly_case_v1
+        from infrastructure.repositories.chat_echo_v1 import ensure_tables as _ensure_chat_echo_v1
+        from infrastructure.repositories.scar_map_v1 import ensure_tables as _ensure_scar_map_v1
+        from infrastructure.repositories.feats_v1 import ensure_table as _ensure_feats_v1
+        from infrastructure.repositories.sky_v1 import ensure_tables as _ensure_sky_v1
+        from infrastructure.repositories.star_payments_v1 import ensure_tables as _ensure_star_payments_v1
+        from infrastructure.repositories.supporter_cosmetics_v1 import ensure_tables as _ensure_supporter_cosmetics_v1
+        from infrastructure.repositories.echo_shards_v1 import ensure_tables as _ensure_echo_shards_v1
+        from infrastructure.repositories.chests_v1 import ensure_tables as _ensure_chests_v1
+        from infrastructure.repositories.achievements_v1 import ensure_tables as _ensure_achievements_v1
         for _ensure_current in (
             _ensure_reconstruction,
             _ensure_gameplay_events,
@@ -1497,6 +1545,17 @@ async def init_db():
             _ensure_reconstruction_units,
             _ensure_companions_v3,
             _ensure_alliance_v3,
+            _ensure_retention_v3,
+            _ensure_weekly_case_v1,
+            _ensure_chat_echo_v1,
+            _ensure_scar_map_v1,
+            _ensure_feats_v1,
+            _ensure_sky_v1,
+            _ensure_star_payments_v1,
+            _ensure_supporter_cosmetics_v1,
+            _ensure_echo_shards_v1,
+            _ensure_chests_v1,
+            _ensure_achievements_v1,
         ):
             await _ensure_current(_LedgerPGAdapter(db))
         await _init_progression_and_economy(db)

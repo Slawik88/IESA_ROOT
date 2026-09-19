@@ -15,6 +15,7 @@ import time
 from urllib.parse import unquote
 
 _SESSION_TTL = 7 * 24 * 3600  # session valid 7 days
+_PREPROD_BROWSER_TICKET_TTL = 120
 
 
 def _bot_token() -> str:
@@ -115,6 +116,40 @@ def verify_session_token(token: str) -> int | None:
         if not hmac.compare_digest(expected, sig):
             return None
         if time.time() > int(expires_str):
+            return None
+        return int(user_id_str)
+    except Exception:
+        return None
+
+
+# ── Isolated-preprod browser ticket ──────────────────────────────────────────
+
+def _preprod_browser_ticket_secret() -> bytes:
+    """A separate purpose key; a normal browser session is never a ticket."""
+    return hashlib.sha256((_bot_token() + "preprod-browser-ticket").encode()).digest()
+
+
+def create_preprod_browser_ticket(user_id: int) -> str:
+    """Create a very short-lived hand-off token for the loopback test login.
+
+    It deliberately has a different key and lifetime from the regular seven-day
+    session token because it travels once in a localhost redirect URL.
+    """
+    expires = int(time.time()) + _PREPROD_BROWSER_TICKET_TTL
+    payload = f"{int(user_id)}:{expires}"
+    sig = hmac.new(_preprod_browser_ticket_secret(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
+
+
+def verify_preprod_browser_ticket(ticket: str) -> int | None:
+    """Verify the short-lived, purpose-bound loopback hand-off ticket."""
+    try:
+        user_id_str, expires_str, signature = ticket.split(":")
+        payload = f"{user_id_str}:{expires_str}"
+        expected = hmac.new(
+            _preprod_browser_ticket_secret(), payload.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, signature) or time.time() > int(expires_str):
             return None
         return int(user_id_str)
     except Exception:
