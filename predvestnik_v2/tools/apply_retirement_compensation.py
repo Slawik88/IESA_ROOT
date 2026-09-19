@@ -114,7 +114,10 @@ async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
             current = int(current_row[0])
         if current == 0:
             delta = final_zarniki
-        elif current == carry:
+        elif current >= carry:
+            # Production remains online during the migration. Preserve every
+            # post-snapshot credit/debit already reflected in the live balance
+            # and add only the frozen conversion component.
             delta = conversion_total
         else:
             raise RuntimeError(
@@ -129,10 +132,12 @@ async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
             source_value = float(snapshot[currency])
             if abs(current_value) < 1e-9:
                 currency_deltas[currency] = target
-            elif abs(current_value - source_value) < 1e-6:
-                currency_deltas[currency] = target - current_value
             else:
-                raise RuntimeError(f"unexpected {currency} baseline for user {user_id}: {current_value}")
+                # Apply the frozen replacement as a delta, not an assignment:
+                # current + (target - snapshot) keeps legitimate activity that
+                # happened after the snapshot. Never drive a live balance below
+                # zero if a player already spent more than the retired amount.
+                currency_deltas[currency] = max(-current_value, target - source_value)
         if abs(float(current_row[4])) > 1e-9:
             raise RuntimeError(f"legacy crystals require an explicit policy for user {user_id}")
         mutation = None
