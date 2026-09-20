@@ -5,17 +5,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 profile = (ROOT / "FastAPI/static/app.02.js").read_text(encoding="utf-8")
+shell = (ROOT / "FastAPI/static/app.01.js").read_text(encoding="utf-8")
 pets = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
 css = (ROOT / "FastAPI/static/app.css").read_text(encoding="utf-8")
 skin = (ROOT / "FastAPI/static/global-skins-v1.css").read_text(encoding="utf-8")
 router = (ROOT / "FastAPI/routers/profile.py").read_text(encoding="utf-8")
 service = (ROOT / "services/pets_v1.py").read_text(encoding="utf-8")
+constants = (ROOT / "core/constants.py").read_text(encoding="utf-8")
 updates = (ROOT / "FastAPI/static/updates.json").read_text(encoding="utf-8")
 index = (ROOT / "FastAPI/static/index.html").read_text(encoding="utf-8")
 
 assert "_profileVipCard(d.vip)" in profile
 assert "expires_at" in router and "_compensation_receipt" in router
 assert "retirement_compensation_receipts_v2" in router
+assert "to_regclass('retirement_compensation_receipts_v2')" in router
 assert "json.loads(raw_compensation)" in router
 assert "localStorage" in profile and "replayCompensationAnimation" in profile
 assert "old.mora" in profile and "old.diamonds" in profile
@@ -32,5 +35,16 @@ assert "2026-09-20-clearer-interface" in updates
 assert "help-hero" in index and "help-card" in index and "more-hero" in index
 assert "settings-panel" in profile and "settings-toggle" in profile
 assert ".help-card" in css and ".settings-panel" in css
+assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
+assert 'aria-label="Основные разделы"' in index
+assert index.count('type="button" class="nb') == 4
+assert "setAttribute('aria-current','page')" in shell
+assert "2026-09-20-navigation-and-player-hub" in updates
+assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
+for action in ("openSettingsModal()", "openZarnikiTopup()", "openWhatsNew()", "openChatTracker()"):
+    assert action in index
+notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):constants.index("# ── ИИ-помощник")]
+assert '"vip_expiry"' in notification_block
+assert '"bp_reminder"' not in notification_block and '"bid_outbid_final"' not in notification_block
 
 print("OK: mobile skin, visible VIP, immutable compensation story and pet bestiary are wired")

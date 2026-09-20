@@ -555,24 +555,6 @@ VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder th
 # в чат (сундуки, годовщины) — не пер-юзерные, здесь не управляются.
 NOTIFICATION_CATEGORIES: dict[str, str] = {
     "vip_expiry":  "⏳ Напоминание об истечении VIP",
-    "bp_reminder": "🎫 Напоминание о конце сезона БП",
-    "bid_outbid_final": "🔨 Перебитая ставка (финал лота)",
-}
-
-# ── R6 «Умный Пульс» (services/scheduler.smart_pulse_task) ─────────────────────
-# Не чаще 1 DM в PUSH_MIN_INTERVAL_SEC на игрока; из накопившихся событий
-# отправляется самое приоритетное, остальные пачки «сгорают» (видны на сайте).
-PUSH_MIN_INTERVAL_SEC: int = 7200
-PUSH_PRIORITIES: dict[str, int] = {
-    "bid_outbid_final": 100,
-    "vip_expiry": 30,
-    "bp_reminder": 20,
-}
-# TTL события в очереди: если игрок был в 2ч-кулдауне и событие «протухло»
-# (лот давно закрыт) — не отправлять, иначе пуш «финал через 10 минут» приходит
-# после конца лота и только злит. 0/нет ключа = не протухает.
-PUSH_EVENT_TTL_SEC: dict[str, int] = {
-    "bid_outbid_final": 900,   # окно финала ~10 мин + запас
 }
 
 # ── ИИ-помощник (Q&A по функциям бота — services/ai_assistant.py) ──────────────

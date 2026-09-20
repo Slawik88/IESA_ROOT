@@ -1,11 +1,8 @@
-"""
-infrastructure/repositories/push.py — очередь «Умного Пульса».
+"""Archived durable queue primitives for explicitly invoked DM delivery.
 
-Единый ритм DM-уведомлений: источники кладут события в push_queue, задача
-smart_pulse_task (services/scheduler.py) раз в 5 минут выбирает для каждого
-игрока САМОЕ приоритетное несент-событие и шлёт ОДИН DM — не чаще, чем раз
-в PUSH_MIN_INTERVAL_SEC (2 часа). Остальные события пачки помечаются sent
-(«сгорают» — игрок увидит их в web_notifications при заходе на сайт).
+The current scheduler does not consume this queue automatically. Keeping the
+repository allows historical rows and focused recovery tests to remain
+readable without advertising the retired Smart Pulse product.
 """
 import json
 

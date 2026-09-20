@@ -147,20 +147,24 @@
 <div id="pg-chat-tracker" class="page"></div>
 
 <div id="pg-more" class="page">
-  <section class="more-hero"><small>Центр управления</small><h1>Ещё</h1><p>Помощь и инструменты вашего сообщества — без длинного списка команд.</p></section>
-  <div class="cc-grid">
-    <div class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
-    <div class="cc-card cc-wide" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Как пользоваться</span><span class="cc-s">Игры, профиль и управление</span></div>
+  <section class="more-hero"><small>Все нужное рядом</small><h1>Ещё</h1><p>Настройки, покупки, новости и помощь — в одном месте.</p></section>
+  <div class="cc-grid" aria-label="Дополнительные разделы">
+    <button type="button" class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></button>
+    <button type="button" class="cc-card" onclick="openSettingsModal()"><span class="cc-ic">⚙️</span><span class="cc-t">Настройки</span><span class="cc-s">Вид, уведомления и аккаунт</span></button>
+    <button type="button" class="cc-card" onclick="openZarnikiTopup()"><span class="cc-ic">✨</span><span class="cc-t">Пополнить</span><span class="cc-s">Купить Зарники за Stars</span></button>
+    <button type="button" class="cc-card" onclick="openWhatsNew()"><span class="cc-ic">📣</span><span class="cc-t">Что нового</span><span class="cc-s">Свежие изменения без сложных слов</span></button>
+    <button type="button" class="cc-card" onclick="openChatTracker()"><span class="cc-ic">💬</span><span class="cc-t">Мои чаты</span><span class="cc-s">Активность и история</span></button>
+    <button type="button" class="cc-card cc-wide" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Как пользоваться</span><span class="cc-s">Короткие ответы и быстрые переходы</span></button>
   </div>
 </div>
 
 <!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
-<nav class="nav">
-  <div class="nb active" data-page="profile" onclick="switchPage('profile')"><span class="ni">👤</span>Профиль</div>
-  <div class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni">🔔</span>Игра</div>
-  <div class="nb nb-looks" data-page="looks" onclick="openLooksModal()"><span class="ni">🎨</span>Образы</div>
-  <div class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni">🎛</span>Ещё</div>
+<nav class="nav" aria-label="Основные разделы">
+  <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><span class="ni" aria-hidden="true">👤</span>Профиль</button>
+  <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni" aria-hidden="true">🔔</span>Игра</button>
+  <button type="button" class="nb nb-looks" data-page="looks" onclick="openLooksModal()"><span class="ni" aria-hidden="true">🎨</span>Образы</button>
+  <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni" aria-hidden="true">🎛</span>Ещё</button>
 </nav>
 
 <script src="{{BASE}}/static/global-skins-v1.js?v={{ASSET_VER}}"></script>

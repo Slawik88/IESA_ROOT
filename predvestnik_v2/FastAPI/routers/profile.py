@@ -258,6 +258,13 @@ async def _game_results(db, user_id: int, *, include_private: bool) -> dict:
 async def _compensation_receipt(db, user_id: int) -> dict | None:
     compensation = None
     try:
+        # This one-off migration table is intentionally absent from a fresh
+        # isolated database. Avoid an error-level query on every profile poll.
+        async with db.execute(
+            "SELECT to_regclass('retirement_compensation_receipts_v2')"
+        ) as c:
+            if not (await c.fetchone())[0]:
+                return None
         async with db.execute(
             "SELECT to_jsonb(r) FROM retirement_compensation_receipts_v2 r "
             "WHERE user_id=? ORDER BY applied_at DESC LIMIT 1",
@@ -852,9 +859,7 @@ async def get_nickname_endpoint(chat_id: int = 0, db=Depends(get_db), user=Depen
     return {"nickname": row[0] if row else None}
 
 
-# ── R6 «Умный Пульс»: настройки персональных DM-уведомлений ────────────────────
-# Закрывает дыру БЛОК 36.1: раньше vip_expiry/bp_reminder нельзя было отключить
-# нигде (бот-хендлер мёртв, веб-UI не существовал).
+# ── Настройки актуальных персональных DM-уведомлений ───────────────────────────
 
 class NotifPrefRequest(BaseModel):
     category: str

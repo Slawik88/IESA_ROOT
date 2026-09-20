@@ -629,6 +629,18 @@ function fmtBar(v){
 }
 function updateCurrBar(data) {
   const bar = el('curr-bar');
+  // Identity belongs to the header, not to the optional compact currency bar.
+  // The profile no longer renders that bar on its main page, so returning here
+  // used to leave the header stuck at the loading placeholder "Игрок / …".
+  if (data?.username !== undefined) {
+    const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
+    const sub=el('hdr-sub'); if(sub) sub.textContent='Профиль Предвестника';
+    const av=el('hdr-ava');
+    if(av){
+      if(data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
+      else if(!_vipAvatar) av.textContent='🔮';
+    }
+  }
   if (!bar) return;
   const set = (id, val, fmt2) => {
     const v=el(id); if(!v) return;
@@ -649,13 +661,6 @@ function updateCurrBar(data) {
   const darkItem = el('cb-dark-item');
   if (darkItem) darkItem.style.display = (data?.dark_mora > 0) ? '' : 'none';
   _currInited = true;
-  // Хедер: имя + уровень/ранг игрока
-  if (data?.username !== undefined) {
-    const nm=el('hdr-name'); if(nm) nm.textContent=(data.is_vip?'👑 ':'')+(data.username||'Игрок');
-    const sub=el('hdr-sub');
-    if(sub) sub.textContent='Профиль Предвестника';
-    const av=el('hdr-ava'); if(av && data.is_vip){ av.textContent='👑'; _ensureVipAvatar(); }
-  }
 }
 
 // ── VIP Telegram avatar (Block 3) ──────────────────────────────────────────────
@@ -973,6 +978,10 @@ function _banAppealSend() {
 // server-side значения (см. _wnSeenId). Записи newest-first; новее прочитанной — «Новое».
 let _wnData = null;                         // кэш ленты (массив записей)
 const _WN_SEEN_KEY = 'wn_seen_id';
+// Everything from this entry downward describes the retired pre-relaunch
+// product (Gates, gacha, auction and Battle Pass). Keep the source history in
+// updates.json, but never mix it into the current player feed.
+const _WN_ARCHIVE_BOUNDARY = '2026-08-23-reconstruction-first-release';
 const _WN_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля',
   'августа','сентября','октября','ноября','декабря'];
 const _WN_TAG = {
@@ -984,7 +993,12 @@ const _WN_TAG = {
 
 function _wnFetch(){
   if (_wnData) return Promise.resolve(_wnData);
-  return api('/updates.json').then(d => { _wnData = (d && d.updates) || []; return _wnData; });
+  return api('/updates.json').then(d => {
+    const all=(d && Array.isArray(d.updates))?d.updates:[];
+    const archiveAt=all.findIndex(u=>u.id===_WN_ARCHIVE_BOUNDARY);
+    _wnData=archiveAt<0?all:all.slice(0,archiveAt);
+    return _wnData;
+  });
 }
 function _wnSeenId(){
   const server = _profileData && _profileData.whatsnew_seen_id;

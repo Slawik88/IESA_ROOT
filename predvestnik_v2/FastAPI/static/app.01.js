@@ -561,10 +561,15 @@ function switchPage(name, _btn, _viaBack) {
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   const looksDock=el('looks-dock'); if(looksDock && name!=='looks') looksDock.innerHTML='';
-  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nb').forEach(b=>{
+    b.classList.remove('active');
+    b.removeAttribute('aria-current');
+  });
   el('pg-'+name).classList.add('active');
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
-  (prim || el('nb-more'))?.classList.add('active');
+  const activeNav=prim || el('nb-more');
+  activeNav?.classList.add('active');
+  activeNav?.setAttribute('aria-current','page');
   showCurrBar(name !== 'profile');
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}
