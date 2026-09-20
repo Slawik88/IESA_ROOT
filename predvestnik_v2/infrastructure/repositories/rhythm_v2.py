@@ -200,6 +200,20 @@ async def integrity_status(db, *, run_id: str) -> str:
     return str(row[0]) if row and row[0] else "legacy_unverified"
 
 
+async def promote_authenticated_transport_reviews(db) -> list[dict]:
+    """Promote stranded results that have a consumed one-use live ticket."""
+    async with db.execute(
+        "UPDATE rhythm_v2_runs r SET integrity_status='clear',"
+        "integrity_reason='server_timed_transport',integrity_checked_at=CLOCK_TIMESTAMP() "
+        "WHERE r.status='finished' AND r.integrity_status='review_required' "
+        "AND r.integrity_reason='server_timed_transport_pending_review' "
+        "AND EXISTS (SELECT 1 FROM rhythm_v2_transport_tickets t "
+        "WHERE t.run_id=r.run_id AND t.user_id=r.user_id AND t.consumed_at IS NOT NULL) "
+        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score"
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
 async def lock_run(db, *, run_id: str) -> dict | None:
     async with db.execute(
         "SELECT *,CLOCK_TIMESTAMP() AS server_now FROM rhythm_v2_runs WHERE run_id=? FOR UPDATE",

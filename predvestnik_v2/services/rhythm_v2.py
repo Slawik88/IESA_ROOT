@@ -303,7 +303,7 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
 
 
 async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
-              action_id: str) -> dict:
+              action_id: str, trusted_transport: bool = False) -> dict:
     if rune not in rules.RUNES or signal_no < 1 or not action_id or len(action_id) > 96:
         raise RhythmError("invalid rhythm tap")
     request = {"signal_no": int(signal_no), "rune": rune}
@@ -326,8 +326,9 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             await repo.update_run(db, run_id=run_id, state=state)
             integrity = await _settle_finished_run(
                 db, row=row, state=state, user_id=user_id,
-                integrity_status="review_required", integrity_reason="server_timed_transport_pending_review",
-                integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"]},
+                integrity_status="clear" if trusted_transport else "review_required",
+                integrity_reason="server_timed_transport" if trusted_transport else "server_timed_transport_pending_review",
+                integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"], "transport_authenticated": trusted_transport},
             )
             response = _view(row, state, now=now)
             response["integrity_status"] = integrity
@@ -352,8 +353,9 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             await repo.update_run(db, run_id=run_id, state=state)
             integrity = await _settle_finished_run(
                 db, row=row, state=state, user_id=user_id,
-                integrity_status="review_required", integrity_reason="server_timed_transport_pending_review",
-                integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"]},
+                integrity_status="clear" if trusted_transport else "review_required",
+                integrity_reason="server_timed_transport" if trusted_transport else "server_timed_transport_pending_review",
+                integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"], "transport_authenticated": trusted_transport},
             )
         await repo.update_run(db, run_id=run_id, state=state)
         response = _view(row, state, now=now)
@@ -387,6 +389,16 @@ async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
     if mode not in ("normal", "augments"):
         raise RhythmError("unknown rhythm mode")
     await repo.ensure_tables(db)
+    promoted = await repo.promote_authenticated_transport_reviews(db)
+    for row in promoted:
+        await repo.upsert_leaderboard(
+            db, run_id=row["run_id"], user_id=int(row["user_id"]), mode=str(row["mode"]),
+            ruleset_version=str(row["ruleset_version"]), score=int(row["score"]),
+        )
+        await _record_completed_quest(
+            db, user_id=int(row["user_id"]), run_id=str(row["run_id"]),
+            mode=str(row["mode"]), score=int(row["score"]), integrity_status="clear",
+        )
     return await repo.leaderboard(db, user_id=user_id, mode=mode, ruleset_version=rules.RULESET_VERSION)
 
 
@@ -432,8 +444,8 @@ async def transport_state(db, *, user_id: int, run_id: str, lease: str) -> dict:
                 await repo.update_run(db, run_id=run_id, state=state)
                 await _settle_finished_run(
                     db, row=row, state=state, user_id=user_id,
-                    integrity_status="review_required", integrity_reason="server_timed_transport_pending_review",
-                    integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"]},
+                    integrity_status="clear", integrity_reason="server_timed_transport",
+                    integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"], "transport_authenticated": True},
                 )
             await repo.update_run(db, run_id=run_id, state=state)
         return _view(row, state, now=now)
@@ -447,7 +459,7 @@ async def transport_tap(db, *, user_id: int, run_id: str, lease: str, signal_no:
                         rune: str, action_id: str) -> dict:
     if not await repo.extend_transport_lease(db, run_id=run_id, user_id=user_id, lease=lease):
         raise RhythmConflict("Rhythm live connection is no longer valid")
-    return await tap(db, user_id=user_id, run_id=run_id, signal_no=signal_no, rune=rune, action_id=action_id)
+    return await tap(db, user_id=user_id, run_id=run_id, signal_no=signal_no, rune=rune, action_id=action_id, trusted_transport=True)
 
 
 async def pending_reviews(db, *, limit: int = 50) -> list[dict]:

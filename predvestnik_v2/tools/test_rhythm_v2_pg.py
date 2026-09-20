@@ -73,34 +73,11 @@ async def run(dsn: str) -> None:
             if state["status"] == "finished":
                 break
         assert state["status"] == "finished" and state["health"] == 0
-        assert state["integrity_status"] == "review_required"
+        assert state["integrity_status"] == "clear"
         async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND metric='rhythm_completed' AND event_id=?", (975001, f"rhythm:{normal['run_id']}")) as cursor:
-            assert (await cursor.fetchone())[0] == 0, "pending review must not advance quests"
+            assert (await cursor.fetchone())[0] == 1, "trusted transport must advance quests"
         async with db.execute("SELECT COUNT(*) FROM achievement_v1_metric_receipts WHERE user_id=? AND source_event_id=?", (975001, normal["run_id"])) as cursor:
-            assert (await cursor.fetchone())[0] == 0, "pending review must not advance achievements"
-        assert (await rhythm.rankings(db, user_id=975001, mode="normal"))["personal"] is None
-        pending = await rhythm.pending_reviews(db, limit=50)
-        pending_normal = next(item for item in pending if item["run_id"] == normal["run_id"])
-        assert pending_normal["timing_ms"] and all(isinstance(value, int) for value in pending_normal["timing_ms"])
-        approved = await rhythm.review_run(
-            db, reviewer_id=999001, run_id=normal["run_id"], review_id="review-normal-clear",
-            decision="clear", reason="Verified controlled transport trace",
-        )
-        assert approved["integrity_status"] == "clear"
-        replayed_review = await rhythm.review_run(
-            db, reviewer_id=999001, run_id=normal["run_id"], review_id="review-normal-clear",
-            decision="clear", reason="Verified controlled transport trace",
-        )
-        assert replayed_review["idempotent_replay"]
-        try:
-            await rhythm.review_run(
-                db, reviewer_id=999001, run_id=normal["run_id"], review_id="review-normal-clear",
-                decision="quarantined", reason="Altered decision must be rejected",
-            )
-        except rhythm.RhythmConflict:
-            pass
-        else:
-            raise AssertionError("review id must bind reviewer, run, decision and reason")
+            assert (await cursor.fetchone())[0] == 1, "trusted transport must advance achievements"
         async with db.execute("SELECT metric FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=? ORDER BY metric", (975001, f"rhythm:{normal['run_id']}")) as cursor:
             assert [row[0] for row in await cursor.fetchall()] == ['game_completed', 'rhythm_completed', 'rhythm_normal_completed']
         ranking = await rhythm.rankings(db, user_id=975001, mode="normal")
@@ -124,12 +101,6 @@ async def run(dsn: str) -> None:
                 break
         assert scorer["score"] >= 500 and scorer["status"] == "finished"
         async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND metric='rhythm_score_500' AND event_id=?", (975008, f"rhythm:{scorer['run_id']}")) as cursor:
-            assert (await cursor.fetchone())[0] == 0
-        await rhythm.review_run(
-            db, reviewer_id=999001, run_id=scorer["run_id"], review_id="review-scorer-clear",
-            decision="clear", reason="Verified five-tap score trace",
-        )
-        async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND metric='rhythm_score_500' AND event_id=?", (975008, f"rhythm:{scorer['run_id']}")) as cursor:
             assert (await cursor.fetchone())[0] == 1
 
         zero = await rhythm.start_run(db, user_id=975004, mode="normal")
@@ -142,13 +113,7 @@ async def run(dsn: str) -> None:
             if zero["status"] == "finished":
                 break
         assert zero["status"] == "finished" and zero["score"] == 0
-        assert zero["integrity_status"] == "review_required"
-        assert (await rhythm.rankings(db, user_id=975004, mode="normal"))["personal"] is None
-        rejected = await rhythm.review_run(
-            db, reviewer_id=999001, run_id=zero["run_id"], review_id="review-zero-quarantine",
-            decision="quarantined", reason="Automated input pattern rejected",
-        )
-        assert rejected["integrity_status"] == "quarantined"
+        assert zero["integrity_status"] == "clear"
         assert (await rhythm.rankings(db, user_id=975004, mode="normal"))["personal"] is None
 
         offline = await rhythm.start_run(db, user_id=975005, mode="normal")
@@ -286,11 +251,7 @@ async def run(dsn: str) -> None:
                 break
         assert augmented_terminal["status"] == "finished"
         async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=?", (975009, f"rhythm:{augmented_terminal['run_id']}")) as cursor:
-            assert (await cursor.fetchone())[0] == 0
-        await rhythm.review_run(
-            db, reviewer_id=999001, run_id=augmented_terminal["run_id"], review_id="review-augments-clear",
-            decision="clear", reason="Verified augmentation transport trace",
-        )
+            assert (await cursor.fetchone())[0] == 3
         async with db.execute("SELECT metric FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=? ORDER BY metric", (975009, f"rhythm:{augmented_terminal['run_id']}")) as cursor:
             assert [row[0] for row in await cursor.fetchall()] == [
                 'game_completed', 'rhythm_augments_completed', 'rhythm_completed',

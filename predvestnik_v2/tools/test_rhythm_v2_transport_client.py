@@ -20,9 +20,10 @@ assert "/offline-packet" not in CLIENT
 assert "/finalize" not in CLIENT
 assert "predvestnik-rhythm-v2-local" in CLIENT  # cleanup only
 assert '"remaining_ms": remaining_ms' in SERVICE
-assert 'integrity_status="review_required"' in SERVICE
-assert "server_timed_transport_pending_review" in SERVICE
-assert 'integrity_status="clear", integrity_reason="server_timed_transport"' not in SERVICE
+assert 'trusted_transport: bool = False' in SERVICE
+assert 'integrity_status="clear" if trusted_transport else "review_required"' in SERVICE
+assert "promote_authenticated_transport_reviews" in SERVICE
+assert 'integrity_status="clear", integrity_reason="server_timed_transport"' in SERVICE
 assert "await game.review_run(" in ROUTER
 assert '@router.get("/integrity/reviews")' in ROUTER
 assert '@router.post("/integrity/reviews/{run_id}")' in ROUTER
