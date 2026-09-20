@@ -5632,8 +5632,12 @@ button.character-showcase-area { cursor: pointer; }
 .store-head span { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .store-head h1 { margin: 2px 0 0; color: var(--bright); font-size: 20px; line-height: 1; }
 .store-balance { min-height: 44px; display: flex!important; align-items: center; gap: 6px; padding: 0 11px; border: 1px solid rgba(220,200,137,.22); border-radius: 12px; background: rgba(220,200,137,.08); }
+button.store-balance { color: inherit; font: inherit; cursor: pointer; }
 .store-balance i { color: var(--gold2); font-style: normal; }
 .store-balance b { color: var(--bright); font-size: 12px; font-variant-numeric: tabular-nums; }
+.store-balance span { color: var(--gold2); font-size: 16px; line-height: 1; }
+.profile-zarniki-topup { width: 100%; border: 0; border-right: 1px solid var(--appearance-line, var(--border2)); color: inherit; font: inherit; cursor: pointer; }
+.profile-zarniki-topup .sl { color: var(--gold2); font-weight: 800; }
 .store-tabs { position: sticky; top: 58px; z-index: 23; display: grid; grid-template-columns: repeat(3,1fr); gap: 3px; margin: 0 0 10px; padding: 3px; border: 1px solid var(--border2); border-radius: 13px; background: rgba(12,17,27,.95); backdrop-filter: blur(14px); }
 .store-tabs button { min-height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); font: 750 13px/1 inherit; }
 .store-tabs button[aria-selected="true"] { background: var(--gold-dim); color: var(--gold2); box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb),.13); }

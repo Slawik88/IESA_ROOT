@@ -229,6 +229,21 @@ async def cmd_buy_zarniki(message: types.Message):
 async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot):
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
+    if command.args and command.args.startswith("miniapp_"):
+        from core.miniapp_links import miniapp_web_url
+        target = miniapp_web_url(command.args.removeprefix("miniapp_"))
+        if target:
+            builder = InlineKeyboardBuilder()
+            builder.button(
+                text="🔮 Открыть мини-апп",
+                web_app=types.WebAppInfo(url=target),
+            )
+            return await message.answer(
+                "🔮 <b>Предвестник готов.</b>\n\n"
+                "Нажми кнопку ниже — приложение откроется внутри Telegram.",
+                reply_markup=builder.as_markup(),
+                parse_mode="HTML",
+            )
 
     # UX_AUDIT Б1: первый экран бота — с действиями, а не голым текстом.
     await message.answer(

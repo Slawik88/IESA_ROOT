@@ -101,8 +101,9 @@ def _star_transaction(*, payload, amount=20, charge="charge-history", user_id=70
 
 async def _run() -> None:
     from infrastructure.preprod import direct_stars_cosmetics_allowed, stars_invoice_issuance_allowed
-    assert not stars_invoice_issuance_allowed({})
-    assert not stars_invoice_issuance_allowed({"STARS_REFUND_RAIL_V1": "1", "STARS_DIRECT_ENTITLEMENTS_V1": "1"})
+    assert stars_invoice_issuance_allowed({})
+    assert stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
+    assert not stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "preprod"})
     assert not direct_stars_cosmetics_allowed({"STARS_REFUND_RAIL_V1": "1"})
     assert not direct_stars_cosmetics_allowed({
         "STARS_REFUND_RAIL_V1": "1", "STARS_DIRECT_ENTITLEMENTS_V1": "1",

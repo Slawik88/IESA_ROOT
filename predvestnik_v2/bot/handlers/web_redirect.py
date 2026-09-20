@@ -10,7 +10,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from core.surface_parity import surfaces_for_redirect
-from core.miniapp_links import miniapp_url
+from core.miniapp_links import miniapp_url, miniapp_web_url
 
 router = Router(name="web_redirect_router")
 
@@ -21,7 +21,7 @@ _REDIRECTS = [
 ]
 
 
-_MINIAPP_URL = miniapp_url()
+_MINIAPP_URL = miniapp_web_url()
 
 
 def section_url(section: str) -> str:

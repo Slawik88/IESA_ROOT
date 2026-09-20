@@ -120,7 +120,7 @@
       <span class="store-collection-copy"><strong>${e(meta.name||id)}</strong><small>${totals.mine}/${totals.total} · ${pct}% собрано</small><span>${totals.price?`от ${Math.min(...totals.missing.map(x=>x.price_zarniki))}✨`:'Коллекция собрана'}</span></span>
     </button>`;
   }
-  function balanceHtml(){ return `<span class="store-balance" aria-label="Баланс зарников"><i>✨</i><b>${currentBalance()}</b></span>`; }
+  function balanceHtml(){ return `<button type="button" class="store-balance" data-store-topup aria-label="Пополнить Зарники. Баланс ${currentBalance()}"><i>✨</i><b>${currentBalance()}</b><span>＋</span></button>`; }
   function tabsHtml(){
     return `<div class="store-tabs" role="tablist" aria-label="Навигация по косметике">
       ${[['collections','Коллекции'],['catalog','Каталог'],['mine','Мои']].map(([id,label])=>`<button type="button" role="tab" aria-selected="${mode===id}" aria-controls="store-panel" tabindex="${mode===id?'0':'-1'}" data-store-mode="${id}">${label}</button>`).join('')}
@@ -307,6 +307,10 @@
     const root=el('pg-looks');if(root)root.innerHTML='<div class="loader" style="margin-top:44px">Открываем витрину…</div>';
     try{await reload();render();}
     catch(error){if(root)root.innerHTML=`<div class="err" style="margin:16px">${e(error)}</div>`;}
+  };
+  window.openZarnikiTopup=async function(){
+    await window.openLooksModal();
+    await openTopup();
   };
   globalThis.navBack=function(){
     if(_activePage==='looks'&&topup){closeTopup();return;}

@@ -43,7 +43,7 @@ assert is_preprod_browser_test_user(990_000_001, BASE)
 assert not is_preprod_browser_test_user(990_000_001, {"PREDVESTNIK_ENV": "production"})
 assert not is_preprod_browser_test_user(101, BASE)
 assert not stars_invoice_issuance_allowed(BASE)
-assert not stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
+assert stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
 assert not direct_stars_cosmetics_allowed({"PREDVESTNIK_ENV": "production"})
 assert not direct_stars_cosmetics_allowed({
     "PREDVESTNIK_ENV": "production", "STARS_REFUND_RAIL_V1": "1",

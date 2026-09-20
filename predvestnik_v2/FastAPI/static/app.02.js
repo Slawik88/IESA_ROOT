@@ -50,7 +50,7 @@ function renderProfileShowcase(data, cosmetics, options={}) {
     <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
       <div class="stat"><div>🪙</div><div class="sv">${fmt(wallet.mora||0)}</div><div class="sl">Мора</div></div>
       <div class="stat"><div>💎</div><div class="sv">${fmtF(wallet.diamonds||0)}</div><div class="sl">Алмазы</div></div>
-      <div class="stat"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">Зарники</div></div>
+      ${options.openLooks?`<button type="button" class="stat profile-zarniki-topup" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki||0)}"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">+ Пополнить</div></button>`:`<div class="stat"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">Зарники</div></div>`}
       <div class="stat"><div>🌑</div><div class="sv">${fmt(wallet.dark_mora||0)}</div><div class="sl">Тёмная мора</div></div>
       <div class="stat"><div>◈</div><div class="sv">${fmt(wallet.echo_shards||0)}</div><div class="sl">Осколки Эха</div></div>
     </div>

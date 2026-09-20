@@ -8,12 +8,12 @@ import os
 
 from aiogram import types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from core.miniapp_links import miniapp_url
+from core.miniapp_links import miniapp_web_url
 
 _BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 
 ADD_TO_GROUP_URL = f"https://t.me/{_BOT}?startgroup=true"
-MINIAPP_URL = miniapp_url()
+MINIAPP_URL = miniapp_web_url()
 
 GROUP_ONLY_TEXT = (
     "🌘 Эта команда живёт в <b>группе</b> — там идёт игра.\n\n"
@@ -28,7 +28,7 @@ def dm_cta_kb() -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(text="➕ Добавить бота в группу", url=ADD_TO_GROUP_URL)
     if MINIAPP_URL:
-        b.button(text="🌐 Открыть мини-апп", url=MINIAPP_URL)
+        b.button(text="🌐 Открыть мини-апп", web_app=types.WebAppInfo(url=MINIAPP_URL))
     b.adjust(1)
     return b.as_markup()
 

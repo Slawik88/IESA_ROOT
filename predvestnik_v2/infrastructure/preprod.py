@@ -74,8 +74,12 @@ def is_preprod_browser_test_user(user_id: int, env: Mapping[str, str] | None = N
 
 
 def stars_invoice_issuance_allowed(env: Mapping[str, str] | None = None) -> bool:
-    """Legacy fungible Stars→Zarniki invoices are permanently retired."""
-    return False
+    """Allow the frozen v1 Stars→Zarniki contract only in production.
+
+    Isolated pre-production must never call Telegram's real payment API. The
+    production quote and callback validators remain versioned and immutable.
+    """
+    return not is_preprod(env)
 
 
 def direct_stars_cosmetics_allowed(env: Mapping[str, str] | None = None) -> bool:

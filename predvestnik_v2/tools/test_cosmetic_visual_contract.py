@@ -86,6 +86,8 @@ assert "[frame?.css,halo?.css].map(_profileCss).filter(Boolean).join(' ')" in pr
 assert "const current=_profileData?.cosmetics||{}" in store_js
 assert "const look={...current}" in store_js
 assert "look[selected.slot]=projectedItem(selected)" in store_js
+assert 'data-store-topup aria-label="Пополнить Зарники' in store_js
+assert "window.openZarnikiTopup=async function()" in store_js
 selected_look = store_js.split("function selectedLook(){", 1)[1].split("function previewHtml", 1)[0]
 assert "cosmeticLook(selected.lineup)" not in selected_look
 assert '${identityCss}' in profile_renderer
