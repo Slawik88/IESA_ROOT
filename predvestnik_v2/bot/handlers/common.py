@@ -10,6 +10,7 @@ from bot.filters.text_commands import TextCmd, WrongSyntaxCmd, UnknownBotCmd, Ai
 from services.utils import check_callback_owner
 from core.registry import ITEMS_REGISTRY
 from core.constants import CHEST_REWARDS_BY_POSITION
+from core.miniapp_links import miniapp_url
 from html import escape as _he
 from bot.keyboards.cta import answer_group_only
 
@@ -18,7 +19,7 @@ _CHEST_POS = CHEST_REWARDS_BY_POSITION  # честные цифры сундук
 _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "")
 # Dedicated Mini App URL — MUST be set explicitly. Never falls back to WEB_BASE_URL
 # because that variable points to the IESA platform, not Predvestnik.
-_MINIAPP_URL = os.getenv("MINIAPP_URL", "")
+_MINIAPP_URL = miniapp_url()
 
 router = Router(name="common_router")
 
@@ -460,10 +461,9 @@ async def cmd_web(message: types.Message):
     else:
         # A direct app HTTPS link opens an external browser from group chats.
         # Telegram's bot deep link keeps the experience inside Telegram.
-        _bot_username = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
         builder.button(
             text="🔮 Открыть мини-апп",
-            url=f"https://t.me/{_bot_username}?startapp=home",
+            url=miniapp_url("home"),
         )
 
     await message.answer(

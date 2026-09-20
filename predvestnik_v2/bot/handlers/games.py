@@ -1,14 +1,13 @@
 # bot/handlers/games.py — прежние режимы со ставками закрыты. Этот адаптер
 # сохраняет только безопасный возврат их зависших сессий и ведёт игрока в
 # утверждённый раздел Mini App: Ритм и один новый Сапёр.
-import os
-
 from aiogram import Router, types
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.filters.text_commands import TextCmd
 from bot.keyboards.cta import answer_group_only
+from core.miniapp_links import miniapp_url
 from services.skill_games import get_active_session_summary, refund_active_sessions
 from services.utils import check_callback_owner
 
@@ -20,17 +19,17 @@ class LegacyGameRefundCB(CallbackData, prefix="game_refund"):
 
 
 def _arena_games_kb(user_id: int, active_count: int) -> InlineKeyboardMarkup | None:
-    bot_username = os.getenv("BOT_USERNAME", "")
     rows = []
     if active_count > 0:
         rows.append([InlineKeyboardButton(
             text="↩ Вернуть старую ставку",
             callback_data=LegacyGameRefundCB(user_id=user_id).pack(),
         )])
-    if bot_username:
+    games_url = miniapp_url("game")
+    if games_url:
         rows.append([InlineKeyboardButton(
             text="🎮 Открыть игры",
-            url=f"https://t.me/{bot_username}?startapp=game")])
+            url=games_url)])
     if not rows:
         return None
     return InlineKeyboardMarkup(inline_keyboard=rows)

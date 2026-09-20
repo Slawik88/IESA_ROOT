@@ -18,6 +18,7 @@ from core.constants import NOTIFICATION_CATEGORIES
 from core.registry import ACHIEVEMENTS, PET_SPECIES
 from core.companions_v3 import EXPEDITION_DISCOVERY_TEXT
 from core.surface_parity import surface
+from core.miniapp_links import miniapp_url
 from infrastructure.repositories import achievements as achievements_repo
 from infrastructure.repositories import notifications as notifications_repo
 from infrastructure.repositories.economy import get_inventory
@@ -63,7 +64,7 @@ class WeeklyPathCB(CallbackData, prefix="wcase"):
 def _web_button(surface_id: str, text: str = "🚀 Открыть подробнее") -> types.InlineKeyboardMarkup:
     spec = surface(surface_id)
     builder = InlineKeyboardBuilder()
-    builder.button(text=text, url=f"https://t.me/{_BOT}?startapp={spec.start_param}")
+    builder.button(text=text, url=miniapp_url(spec.start_param))
     return builder.as_markup()
 
 
@@ -86,7 +87,7 @@ async def _notification_view(db, user_id: int) -> tuple[str, types.InlineKeyboar
         )
     builder.button(
         text="⚙️ Открыть все настройки",
-        url=f"https://t.me/{_BOT}?startapp={surface('notifications').start_param}",
+        url=miniapp_url(surface('notifications').start_param),
     )
     builder.adjust(1)
     return "\n".join(lines), builder.as_markup()
@@ -214,7 +215,7 @@ async def _rhythm_view(db, user_id: int) -> tuple[str, types.InlineKeyboardMarku
                 text=str(path["name"]),
                 callback_data=WeeklyPathCB(path_id=str(path["id"]), case_token=str(case["case_token"]), step=0, user_id=user_id),
             )
-    builder.button(text="◌ Открыть Ритм", url=f"https://t.me/{_BOT}?startapp={surface('rhythm').start_param}")
+    builder.button(text="◌ Открыть Ритм", url=miniapp_url(surface('rhythm').start_param))
     builder.adjust(1)
     return "\n".join(lines), builder.as_markup()
 
@@ -319,7 +320,7 @@ async def cmd_companion_summary(message: types.Message, db):
         lines.append("<i>Спутников пока нет.</i>")
     lines.append("\nКормление, размещение и развитие — в Mini App.")
     await record_surface_open(db, int(message.from_user.id), "companions", "telegram_chat")
-    builder.button(text="🐾 Управлять спутниками", url=f"https://t.me/{_BOT}?startapp={surface('companions').start_param}")
+    builder.button(text="🐾 Управлять спутниками", url=miniapp_url(surface('companions').start_param))
     builder.adjust(1)
     await message.answer("\n".join(lines), reply_markup=builder.as_markup(), parse_mode="HTML")
 

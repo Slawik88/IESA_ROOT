@@ -5,16 +5,14 @@ are handled by chat adapters, while only complex interactions receive a
 `startapp=<section>` deep-link. Retired surfaces return an honest archive
 message instead of pretending that a dead command still works.
 """
-import os
-
 from aiogram import Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from core.surface_parity import surfaces_for_redirect
+from core.miniapp_links import miniapp_url
 
 router = Router(name="web_redirect_router")
-_BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 
 # (алиасы, section-для-startapp, заголовок)
 _REDIRECTS = [
@@ -23,12 +21,12 @@ _REDIRECTS = [
 ]
 
 
-_MINIAPP_URL = os.getenv("MINIAPP_URL", "")
+_MINIAPP_URL = miniapp_url()
 
 
 def section_url(section: str) -> str:
     """Telegram deep link that opens the registered Mini App, not a browser tab."""
-    return f"https://t.me/{_BOT}?startapp={section}"
+    return miniapp_url(section)
 
 
 def _kb(section: str, *, private: bool) -> types.InlineKeyboardMarkup:

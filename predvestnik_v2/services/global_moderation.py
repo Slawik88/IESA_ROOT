@@ -2,8 +2,11 @@
 # Глобальная модерация экосистемы бота (Implementation Block 6.3).
 # Без bot.* / FastAPI.* импортов — bot передаётся параметром (aiogram.Bot) для отправки уведомлений.
 
+import os
+
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
+from core.miniapp_links import miniapp_url
 from infrastructure.repositories import global_moderation as repo
 from infrastructure.repositories import users as users_repo
 from services import global_permissions as gperm
@@ -120,7 +123,6 @@ async def issue_global_sanction(db, bot, actor_id: int, actor_rank: int, target_
 # FastAPI-роутеров (у веба нет живого aiogram.Bot).
 
 async def _tg(method: str, **kwargs) -> dict:
-    import os
     import httpx
     token = os.getenv("BOT_TOKEN", "")
     if not token:
@@ -134,8 +136,7 @@ async def _tg(method: str, **kwargs) -> dict:
 
 
 def _webapp_url() -> str:
-    import os
-    return f"https://t.me/{os.getenv('BOT_USERNAME', 'IIIPredvestnikIIIBot')}?startapp=appeal"
+    return miniapp_url("appeal")
 
 
 async def send_appeal_instruction(db, user_id: int, sanction: dict) -> bool:

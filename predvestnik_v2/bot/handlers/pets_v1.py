@@ -8,6 +8,7 @@ from aiogram import Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from core.miniapp_links import miniapp_url
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 from infrastructure.repositories.pets_v1 import ensure_tables
 from services import pets_v1
@@ -89,7 +90,7 @@ async def cmd_pets_v1(message: types.Message, db, text_args: str = "") -> None:
     await ensure_tables(db)
     view = await pets_v1.overview(db, user_id)
     keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="🐾 Открыть питомцев", url=f"https://t.me/{_BOT}?startapp=pets")
+    keyboard.button(text="🐾 Открыть питомцев", url=miniapp_url("pets"))
     await message.answer(render_pet_overview(view), reply_markup=keyboard.as_markup(), parse_mode="HTML")
 
 

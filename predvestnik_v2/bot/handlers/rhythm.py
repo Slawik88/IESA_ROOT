@@ -13,6 +13,7 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from core.miniapp_links import miniapp_url
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 
 
@@ -24,7 +25,7 @@ _BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot").strip().lstrip("@")
 
 def _hub_markup() -> types.InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="🎮 Открыть Центр Предвестника", url=f"https://t.me/{_BOT}?startapp=games")
+    builder.button(text="🎮 Открыть Центр Предвестника", url=miniapp_url("games"))
     return builder.as_markup()
 
 

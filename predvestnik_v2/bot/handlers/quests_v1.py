@@ -7,6 +7,7 @@ from aiogram import Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
+from core.miniapp_links import miniapp_url
 from bot.middlewares.module_check_mw import ModuleCheckMiddleware
 from infrastructure.repositories.quests_v1 import ensure_tables
 from services import quests_v1
@@ -64,5 +65,5 @@ async def cmd_quests_v1(message: types.Message, db, text_args: str = "") -> None
     await ensure_tables(db)
     view = await quests_v1.overview(db, user_id=user_id, vip_active=await is_vip_active(db, user_id))
     keyboard = InlineKeyboardBuilder()
-    keyboard.button(text="🧭 Открыть квесты", url=f"https://t.me/{_BOT}?startapp=quests")
+    keyboard.button(text="🧭 Открыть квесты", url=miniapp_url("quests"))
     await message.answer(render_quest_overview(view), reply_markup=keyboard.as_markup(), parse_mode="HTML")

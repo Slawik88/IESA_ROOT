@@ -54,10 +54,10 @@ for retained_job in ("maintenance_task", "mafia_phase_task"):
 for forbidden in ("ПИТОМЦ", "Мора", "Алмаз", "Ритм дня", "Небосвод"):
     assert forbidden not in profile, forbidden
 assert "Центр активностей" in profile
-assert "startapp=quests" in quests
+assert 'miniapp_url("quests")' in quests
 assert "reward_parts" in quests and "Награды доступны в Mini App" in quests
 assert "record_metric" not in quests
-assert "startapp=pets" in pets
+assert 'miniapp_url("pets")' in pets
 assert "select_active_pet" not in pets
 
 print("OK: Telegram public routes match the approved release scope")

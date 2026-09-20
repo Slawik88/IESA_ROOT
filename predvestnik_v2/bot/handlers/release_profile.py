@@ -6,22 +6,20 @@ only presents identity, family status and the approved activity hub.
 """
 from __future__ import annotations
 
-import os
-
 from aiogram import Router, types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import marriages
+from core.miniapp_links import miniapp_url
 from services.utils import safe_html
 
 router = Router(name="release_profile_router")
-_BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot").strip().lstrip("@")
 
 
 def _hub_keyboard() -> types.InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
-    kb.button(text="🎮 Открыть Центр активностей", url=f"https://t.me/{_BOT}?startapp=game")
+    kb.button(text="🎮 Открыть Центр активностей", url=miniapp_url("game"))
     return kb.as_markup()
 
 
