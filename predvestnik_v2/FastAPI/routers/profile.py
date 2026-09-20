@@ -2,6 +2,7 @@
 Тонкий адаптер: только вызовы infrastructure/, только JSON.
 """
 import os
+import json
 import base64
 import time
 import asyncio
@@ -254,6 +255,38 @@ async def _game_results(db, user_id: int, *, include_private: bool) -> dict:
     }
 
 
+async def _compensation_receipt(db, user_id: int) -> dict | None:
+    compensation = None
+    try:
+        async with db.execute(
+            "SELECT to_jsonb(r) FROM retirement_compensation_receipts_v2 r "
+            "WHERE user_id=? ORDER BY applied_at DESC LIMIT 1",
+            (user_id,),
+        ) as c:
+            compensation_row = await c.fetchone()
+        if compensation_row:
+            raw_compensation = compensation_row[0]
+            compensation = json.loads(raw_compensation) if isinstance(raw_compensation, str) else dict(raw_compensation)
+            compensation["applied_at"] = _iso(compensation["applied_at"])
+            compensation["zarniki_added"] = sum(int(compensation[key] or 0) for key in (
+                "cosmetics_zarniki", "themes_zarniki", "donate_inventory_zarniki",
+                "retired_exchange_zarniki"))
+            compensation["vip_preserved_days"] = round(int(compensation.get("vip_preserved_seconds") or 0) / 86400, 2)
+            compensation["vip_bonus_days"] = round(int(compensation.get("vip_bonus_seconds") or 0) / 86400, 2)
+    except Exception:
+        # The one-off production receipt table may not exist in an older
+        # isolated database. Compensation UI is optional; profile is not.
+        raw = getattr(db, "connection", None)
+        if raw is not None:
+            try:
+                if raw.is_in_transaction():
+                    await raw.execute("ROLLBACK")
+            except Exception:
+                pass
+
+    return compensation
+
+
 async def _sanctions(db, user_id: int, *, include_private: bool) -> dict:
     """Owner-approved public projection; moderator/database identifiers omitted."""
     active_row = await gmod_repo.get_active_restriction(db, "user", int(user_id))
@@ -431,7 +464,9 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
             "tier": vip_info["tier"],
             "label": vip_info["tier_label"],
             "days_left": vip_info["days_left"],
+            "expires_at": _iso(vip_info["expires_at"]),
         } if vip_info else None,
+        "compensation": await _compensation_receipt(db, user_id),
         "sanctions": await _sanctions(db, user_id, include_private=True),
         "game_results": await _game_results(db, user_id, include_private=True),
         "achievement_paths": await _achievement_paths(db, user_id),

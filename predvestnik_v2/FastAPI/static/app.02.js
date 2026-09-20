@@ -87,13 +87,37 @@ function renderProfileDetails(data,{owner=false}={}){
   const paths=d.achievement_paths?.families||[];
   const achievementRows=paths.map(path=>`<li><b>${_profileEsc(path.title||path.id)}</b><span>ур. ${fmt(path.level||0)} / ${fmt(path.max_level||40)} · событий ${fmt(path.completed_events||0)} · недель ${fmt(path.active_weeks||0)}</span></li>`).join('')||'<li>Прогресс достижений пока не начат.</li>';
   const pets=(d.pets||[]).map(pet=>`<li><b>${pet.active?'● ':''}${_profileEsc(pet.name||'Питомец')}</b><span>${_profileEsc(pet.rarity||'')}${pet.level?` · ур. ${fmt(pet.level)}`:''}${pet.active?' · активный':''}</span></li>`).join('')||'<li>Питомцев пока нет.</li>';
-  const vip=d.vip?`${_profileEsc(d.vip.label||d.vip.tier||'VIP')} · ещё ${fmt(d.vip.days_left||0)} дн.`:'Не активна';
   const clan=d.clan?`${_profileEsc(d.clan.emblem||'')} ${_profileEsc(d.clan.name||d.clan.tag||'Клан')}`.trim():'Нет';
+  const publicVip=!owner&&d.vip?`<span>VIP</span><b>${_profileEsc(d.vip.label||d.vip.tier||'Активен')} · ${fmt(d.vip.days_left||0)} дн.</b>`:'';
   return `<section class="profile-detail-section"><h3>Утверждённые игры</h3>${gameCards}</section>
     <section class="profile-detail-section"><h3>Прогресс и достижения</h3><div class="profile-detail-pairs"><span>Сообщения во всех чатах</span><b>${fmt(d.messages_all_time||0)}</b><span>Уровни текущих достижений</span><b>${fmt(d.achievement_paths?.total_levels||0)}</b><span>В проекте с</span><b>${_profileDate(d.joined_date)}</b></div><ul class="profile-collection">${achievementRows}</ul></section>
-    <section class="profile-detail-section"><h3>Статус и питомцы</h3><div class="profile-detail-pairs"><span>VIP</span><b>${vip}</b><span>Статус</span><b>${_profileEsc(d.rank||'Игрок')}</b>${owner?'':`<span>Клан</span><b>${clan}</b>`}<span>Партнёр</span><b>${_profileEsc(d.partner||'Нет')}</b></div><ul class="profile-collection">${pets}</ul></section>
+    <section class="profile-detail-section"><h3>Социальный профиль</h3><div class="profile-detail-pairs">${publicVip}<span>Статус</span><b>${_profileEsc(d.rank||'Игрок')}</b>${owner?'':`<span>Клан</span><b>${clan}</b>`}<span>Партнёр</span><b>${_profileEsc(d.partner||'Нет')}</b></div><ul class="profile-collection">${pets}</ul></section>
     ${_profileSanctions(d)}`;
 }
+function _profileVipCard(vip){
+  if(!vip)return `<section class="profile-vip-card profile-vip-card--inactive"><span aria-hidden="true">◇</span><div><small>Статус аккаунта</small><b>Обычный профиль</b><p>VIP сейчас не активен</p></div></section>`;
+  const expires=vip.expires_at?_profileDate(vip.expires_at):'';
+  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
+}
+function _profileCompensationCard(c,userId){
+  if(!c)return'';
+  const total=Number(c.zarniki_added)||0,summary=c.source_summary||{},old=summary.old_balances||{},counts=summary.retired_counts||{};
+  const sources=[['🎨','Косметика',c.cosmetics_zarniki],['🌌','Темы',c.themes_zarniki],['🎁','Донат-предметы',c.donate_inventory_zarniki],['↺','Обмен Зарников',c.retired_exchange_zarniki]].filter(x=>Number(x[2])>0);
+  const retired=[['Предметы',counts.inventory],['Питомцы',counts.pets],['Боевые единицы',counts.units],['Реликвии',counts.relics]].filter(x=>Number(x[1])>0);
+  const key=`predvestnik-compensation-seen:${userId}:${c.snapshot_id}`;
+  let first=false;try{first=!localStorage.getItem(key);if(first)localStorage.setItem(key,'1');}catch(_){ }
+  return `<section class="migration-card${first?' is-animating':''}" data-compensation-card>
+    <header><span aria-hidden="true">✦</span><div><small>Переход завершён</small><h3>Ваши ресурсы сохранены</h3></div><button type="button" onclick="replayCompensationAnimation(this)" aria-label="Повторить анимацию переноса">↻</button></header>
+    <p>Старые системы закрыты, но их ценность не пропала. Вот ваша личная квитанция переноса.</p>
+    <div class="migration-result"><span>✨</span><div><small>Компенсация в Зарниках</small><b>+${fmt(total)}</b><p>${fmt(c.zarniki_carry||0)} прежних Зарников сохранены отдельно</p></div></div>
+    ${sources.length?`<div class="migration-sources">${sources.map(x=>`<div class="migration-source"><span>${x[0]}</span><b>${_profileEsc(x[1])}</b><small>→ ${fmt(x[2])} ✨</small></div>`).join('')}</div>`:''}
+    <div class="migration-balance-flow"><div><span>🪙 Мора</span><b>${fmt(old.mora||0)} <i>→</i> ${fmt(c.mora_compensation||0)}</b><small>по снимку переноса</small></div><div><span>💎 Алмазы</span><b>${fmt(old.diamonds||0)} <i>→</i> ${fmt(c.diamonds_compensation||0)}</b><small>по снимку переноса</small></div></div>
+    ${retired.length?`<div class="migration-retired"><small>Старый прогресс учтён</small>${retired.map(x=>`<span><b>${fmt(x[1])}</b> ${_profileEsc(x[0])}</span>`).join('')}</div>`:''}
+    <div class="migration-awards"><div><span>👑</span><b>${fmt(c.vip_preserved_days||0)}</b><small>дн. VIP сохранено</small></div><div><span>✦</span><b>+${fmt(c.vip_bonus_days||0)}</b><small>дн. VIP за прогресс</small></div><div><span>◈</span><b>${fmt(c.legacy_score||0)}</b><small>баллов учтено</small></div></div>
+    <details><summary>Как рассчитано</summary><p>Обычные предметы, питомцы, боевые единицы, реликвии и старые валюты переведены в общий балл прогресса. По зафиксированному снимку из него рассчитаны ограниченные значения Моры и Алмазов, а оставшаяся ценность — бонусный VIP с уменьшающимся курсом. Действия после снимка сохраняются отдельно, поэтому текущий кошелёк может отличаться. Тёмная Мора (${fmt(old.dark_mora||0)}) и старые кристаллы (${fmt(old.crystals||0)}) больше не являются активными валютами.</p></details>
+  </section>`;
+}
+window.replayCompensationAnimation=function(button){const card=button?.closest('[data-compensation-card]');if(!card)return;card.classList.remove('is-animating');void card.offsetWidth;card.classList.add('is-animating');};
 function loadProfile() {
   el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
   return api('/profile/me').then(d=>{
@@ -108,6 +132,9 @@ function loadProfile() {
     const uid = d.user_id || _uid;
     el('pro-main').innerHTML=`
       ${renderProfileShowcase(d,d.cosmetics,{caption:'Личный профиль',openLooks:true})}
+
+      ${_profileVipCard(d.vip)}
+      ${_profileCompensationCard(d.compensation,uid)}
 
       <div class="profile-card-actions" aria-label="Настройки профиля">
         <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>

@@ -38,12 +38,18 @@ body.skin-void-atlas{
   --skin-panel:rgba(14,20,35,.91);--skin-panel-strong:rgba(9,14,27,.94);--skin-control:#222c47;
   --skin-control-active:#3b4568;--skin-cell:#27334f;--skin-cell-open:#121a2d;--skin-cell-flag:#343a55;
   background-color:var(--bg)!important;
-  background-image:linear-gradient(180deg,rgba(5,7,17,.58),rgba(5,7,17,.84)),url("./skins/void-atlas-v1.webp")!important;
-  background-position:center top!important;background-size:cover!important;background-repeat:no-repeat!important;background-attachment:scroll!important;
+  background-image:linear-gradient(180deg,rgba(5,7,17,.40),rgba(5,7,17,.72)),url("./skins/void-atlas-v1.webp")!important;
+  background-position:center top!important;background-size:auto max(100svh,1200px)!important;background-repeat:repeat-y!important;background-attachment:scroll!important;
 }
-body.skin-void-atlas #app-header{background:linear-gradient(180deg,rgba(5,8,18,.96),rgba(8,12,24,.82))}
-body.skin-void-atlas .nav{background:rgba(7,11,22,.94)}
-body.skin-void-atlas .panel,body.skin-void-atlas .mine-panel{background:var(--skin-panel)}
+body.skin-void-atlas #app-header{background:linear-gradient(180deg,rgba(5,8,18,.90),rgba(8,12,24,.70));backdrop-filter:blur(14px)}
+body.skin-void-atlas .nav{background:rgba(7,11,22,.86);backdrop-filter:blur(18px)}
+body.skin-void-atlas .panel,body.skin-void-atlas .mine-panel{background:rgba(14,20,35,.84);backdrop-filter:blur(10px)}
+body.skin-void-atlas .profile-detail-section,
+body.skin-void-atlas .looks-release-section,
+body.skin-void-atlas .card{background:linear-gradient(145deg,rgba(20,27,46,.86),rgba(8,13,27,.82));backdrop-filter:blur(12px)}
+@media (max-width:600px){
+  body.skin-void-atlas{background-size:auto 100svh!important;background-position:42% top!important;background-repeat:repeat-y!important}
+}
 body.skin-void-atlas button.secondary,body.skin-void-atlas .augment,
 body.skin-void-atlas .leaderboard-tabs button,body.skin-void-atlas .mine-head button,
 body.skin-void-atlas .mine-mode button{background:var(--skin-control)}

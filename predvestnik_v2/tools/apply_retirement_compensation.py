@@ -51,6 +51,9 @@ async def ensure_receipts(db: PGAdapter) -> None:
             retired_exchange_zarniki INTEGER NOT NULL CHECK(retired_exchange_zarniki >= 0),
             legacy_score BIGINT NOT NULL CHECK(legacy_score >= 0),
             vip_seconds INTEGER NOT NULL CHECK(vip_seconds >= 0),
+            vip_preserved_seconds INTEGER NOT NULL DEFAULT 0 CHECK(vip_preserved_seconds >= 0),
+            vip_bonus_seconds INTEGER NOT NULL DEFAULT 0 CHECK(vip_bonus_seconds >= 0),
+            source_summary JSONB NULL,
             economy_operation_id TEXT NULL UNIQUE
               REFERENCES economic_operations(id) ON DELETE RESTRICT,
             applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -61,6 +64,9 @@ async def ensure_receipts(db: PGAdapter) -> None:
         "ALTER TABLE retirement_compensation_receipts_v2 "
         "ALTER COLUMN economy_operation_id DROP NOT NULL"
     )
+    await db.execute("ALTER TABLE retirement_compensation_receipts_v2 ADD COLUMN IF NOT EXISTS vip_preserved_seconds INTEGER NOT NULL DEFAULT 0 CHECK(vip_preserved_seconds >= 0)")
+    await db.execute("ALTER TABLE retirement_compensation_receipts_v2 ADD COLUMN IF NOT EXISTS vip_bonus_seconds INTEGER NOT NULL DEFAULT 0 CHECK(vip_bonus_seconds >= 0)")
+    await db.execute("ALTER TABLE retirement_compensation_receipts_v2 ADD COLUMN IF NOT EXISTS source_summary JSONB NULL")
 
 
 async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
@@ -83,6 +89,18 @@ async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
     final_zarniki = int(record["zarniki_after_compensation"])
     vip = record["protected_carry"]["vip_after_update"]
     vip_seconds = int(vip["total_seconds_from_migration"])
+    vip_preserved_seconds = int(vip["preserved_seconds"])
+    vip_bonus_seconds = int(vip["update_bonus_seconds"])
+    snapshot = record["legacy_snapshot"]
+    source_summary = {
+        "old_balances": {key: snapshot[key] for key in ("mora", "diamonds", "dark_mora", "crystals")},
+        "retired_counts": {
+            "inventory": len(snapshot["inventory"]), "pets": len(snapshot["pets"]),
+            "units": len(snapshot["units"]), "relics": len(snapshot["relics"]),
+            "cosmetics": len(conversion["cosmetics"]), "themes": len(conversion["themes"]),
+        },
+        "score_breakdown": progress["score_breakdown"],
+    }
 
     async with db.connection.transaction():
         async with db.execute(
@@ -123,7 +141,6 @@ async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
             raise RuntimeError(
                 f"unexpected Zarniki baseline for user {user_id}: {current}; expected 0 or {carry}"
             )
-        snapshot = record["legacy_snapshot"]
         currency_deltas = {"zarniki": delta}
         for index, currency, target in ((1, "mora", mora_compensation),
                                         (2, "diamonds", diamonds_compensation),
@@ -202,12 +219,14 @@ async def apply_user(db: PGAdapter, inventory: dict, record: dict) -> str:
             "INSERT INTO retirement_compensation_receipts_v2 "
             "(snapshot_id,user_id,policy_version,source_fingerprint,zarniki_carry,"
             "cosmetics_zarniki,themes_zarniki,donate_inventory_zarniki,mora_compensation,"
-            "diamonds_compensation,retired_exchange_zarniki,legacy_score,vip_seconds,economy_operation_id) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "diamonds_compensation,retired_exchange_zarniki,legacy_score,vip_seconds,economy_operation_id,"
+            "vip_preserved_seconds,vip_bonus_seconds,source_summary) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (snapshot_id, user_id, policy, fingerprint, carry, cosmetics_zarniki,
              themes_zarniki, donate_inventory_zarniki, mora_compensation,
              diamonds_compensation, retired_exchange_zarniki, legacy_score,
-             vip_seconds, mutation.operation_id if mutation else None),
+             vip_seconds, mutation.operation_id if mutation else None,
+             vip_preserved_seconds, vip_bonus_seconds, source_summary),
         )
     return "applied"
 
