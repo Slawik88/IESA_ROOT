@@ -4,12 +4,21 @@ let _adminPage=1, _adminSearch='', _adminSort='messages', _adminSearchTimer=null
 const _RANK_NAMES={0:'👤',1:'👁 Мод.',2:'👮 Мл.Адм',3:'👮 Адм',4:'🕵️ Ст.Адм',5:'👑 Совл.',6:'👑 Влад.'};
 
 function loadAdmin() {
-  if(_adminChats) { renderAdminChatSel(); return; }
+  if(_adminChats) {
+    if(!_adminChats.length){
+      el('adm-dash').innerHTML='<div class="admin-empty"><span>🛡</span><b>Админка недоступна</b><p>У вас нет прав модератора ни в одном чате.</p></div>';
+      return;
+    }
+    if(!_adminChats.some(chat=>chat.chat_tg_id==_adminChatId)) _adminChatId=_adminChats[0].chat_tg_id;
+    renderAdminChatSel();
+    swAdmin(_adminTab,document.querySelector(`#pg-admin .tb[onclick*="'${_adminTab}'"]`)||document.querySelector('#pg-admin .tb'));
+    return;
+  }
   el('adm-dash').innerHTML='<div class="loader">Загрузка...</div>';
   api('/admin/my-chats').then(d=>{
     _adminChats=d.chats||[];
     if(!_adminChats.length){
-      el('adm-dash').innerHTML='<div class="card" style="text-align:center;padding:24px;color:var(--muted)">У вас нет прав модератора ни в одном чате.<br>Обратитесь к администратору чата.</div>';
+      el('adm-dash').innerHTML='<div class="admin-empty"><span>🛡</span><b>Админка недоступна</b><p>У вас нет прав модератора ни в одном чате. Обратитесь к администратору.</p></div>';
       return;
     }
     _updateMoreCard();
