@@ -1,8 +1,9 @@
 (() => {
   const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
   const base = document.body.dataset.appBase || location.pathname.replace(/\/rhythm-v2\/?$/, '');
-  const init = tg?.initData || '', headers = {'Content-Type':'application/json'};
+  const init = tg?.initData || '', session = localStorage.getItem('pv_sess') || '', headers = {'Content-Type':'application/json'};
   if (init) headers['x-init-data'] = init;
+  if (session) headers['x-session-token'] = session;
   const $ = id => document.getElementById(id), storageKey = 'predvestnik-rhythm-v2-live';
   let state = null, socket = null, pendingTap = null, selection = {positive:new Set(), negative:new Set()}, timer = null, reconnectTimer = null, reconnectAttempt = 0, leaderboardMode = 'normal', leaving = false;
   const show = id => ['intro','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));

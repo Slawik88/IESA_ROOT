@@ -13,5 +13,7 @@ assert "await api(`/runs/${encodeURIComponent(request.runId)}`)" in CLIENT
 assert "Number(current.revision)!==Number(request.expectedRevision)" in CLIENT
 assert "uncertain?'Восстановить ход':'Новая партия'" in CLIENT
 assert "button.disabled=busy||Boolean(uncertain)" in CLIENT
+assert "localStorage.getItem('pv_sess')" in CLIENT
+assert "headers['x-session-token']=session" in CLIENT
 
 print("OK: uncertain Minesweeper actions reuse their id and refetch authority")

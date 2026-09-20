@@ -72,10 +72,17 @@
   }
   function selectedLook(){
     if(!selected)return null;
-    const look=cosmeticLook(selected.lineup);
-    if(selected.kind==='cosmetic')look[selected.slot]=projectedItem(selected);
-    look.composition={dominant_lineup:selected.lineup,layer_count:Object.keys(look).length};
-    look.lineage={id:selected.lineup,source_slot:selected.slot};
+    // Preview one offer over the player's authoritative current look.  The old
+    // implementation filled every slot from the offer's collection, so trying
+    // one background also showed a fictional title, frame, halo and card FX
+    // that the one-slot Equip operation never saved.
+    const current=_profileData?.cosmetics||{};
+    const look={...current};
+    if(selected.kind==='cosmetic'){
+      look[selected.slot]=projectedItem(selected);
+      look.composition={...(current.composition||{}),dominant_lineup:selected.lineup};
+      look.lineage={id:selected.lineup,source_slot:selected.slot};
+    }
     return look;
   }
   function previewHtml(lineup,caption){
@@ -161,7 +168,7 @@
     return `<div class="store-preview-backdrop" data-store-preview-backdrop><aside class="store-preview-sheet" role="dialog" aria-modal="true" aria-labelledby="store-preview-title">
       <header><span><small>${e(SLOT_LABELS[selected.slot]||'Предмет')}</small><b id="store-preview-title">${e(selected.name)}</b></span><button type="button" data-store-preview-close aria-label="Закрыть примерку">×</button></header>
       <div class="store-preview-card">${preview}</div>
-      <footer><small>${selected.kind==='skin'?'Фон временно включён на всём экране. Закрытие вернёт ваш текущий фон.':'Так предмет выглядит внутри своей коллекции.'}</small>${!isOwned&&!enough?'<button type="button" data-store-topup>Пополнить</button>':`<button type="button" data-store-primary-action ${busy||isEquipped?'disabled':''}>${e(label)}</button>`}</footer>
+      <footer><small>${selected.kind==='skin'?'Фон временно включён на всём экране. Закрытие вернёт ваш текущий фон.':'Показан именно этот предмет поверх вашего текущего образа.'}</small>${!isOwned&&!enough?'<button type="button" data-store-topup>Пополнить</button>':`<button type="button" data-store-primary-action ${busy||isEquipped?'disabled':''}>${e(label)}</button>`}</footer>
     </aside></div>`;
   }
   function topupHtml(){

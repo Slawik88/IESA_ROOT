@@ -14,6 +14,8 @@ assert "type:'authenticate'" in CLIENT
 assert "type:'tap'" in CLIENT
 assert "pendingTap.actionId" in CLIENT
 assert "scheduleReconnect" in CLIENT
+assert "localStorage.getItem('pv_sess')" in CLIENT
+assert "headers['x-session-token'] = session" in CLIENT
 assert "/offline-packet" not in CLIENT
 assert "/finalize" not in CLIENT
 assert "predvestnik-rhythm-v2-local" in CLIENT  # cleanup only

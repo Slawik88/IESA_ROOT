@@ -32,6 +32,7 @@ TOKEN_PREFIX = {
 
 css = (ROOT / "FastAPI" / "static" / "app.css").read_text(encoding="utf-8")
 release_js = (ROOT / "FastAPI" / "static" / "app.12.js").read_text(encoding="utf-8")
+store_js = (ROOT / "FastAPI" / "static" / "app.13.js").read_text(encoding="utf-8")
 
 assert len(COSMETICS) == 134
 assert Counter(item["slot"] for item in COSMETICS.values()) == EXPECTED_COUNTS
@@ -82,6 +83,11 @@ assert "renderProfileShowcase(d,look,{caption,compact:true})" in release_js
 
 profile_renderer = (ROOT / "FastAPI" / "static" / "app.02.js").read_text(encoding="utf-8")
 assert "[frame?.css,halo?.css].map(_profileCss).filter(Boolean).join(' ')" in profile_renderer
+assert "const current=_profileData?.cosmetics||{}" in store_js
+assert "const look={...current}" in store_js
+assert "look[selected.slot]=projectedItem(selected)" in store_js
+selected_look = store_js.split("function selectedLook(){", 1)[1].split("function previewHtml", 1)[0]
+assert "cosmeticLook(selected.lineup)" not in selected_look
 assert '${identityCss}' in profile_renderer
 
 print("Cosmetic visual contract: 134/134 tokens, slots, lineups and motion fallback OK")

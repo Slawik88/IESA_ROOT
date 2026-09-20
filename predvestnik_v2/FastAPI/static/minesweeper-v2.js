@@ -1,7 +1,7 @@
 (() => {
   const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();
   const base=document.body.dataset.appBase||location.pathname.replace(/\/minesweeper\/?$/,'');
-  const init=tg?.initData||'', headers={'Content-Type':'application/json'};if(init)headers['x-init-data']=init;
+  const init=tg?.initData||'',session=localStorage.getItem('pv_sess')||'',headers={'Content-Type':'application/json'};if(init)headers['x-init-data']=init;if(session)headers['x-session-token']=session;
   const $=id=>document.getElementById(id),board=$('mine-board'),labels={easy:'Лёгкий',normal:'Обычный',hard:'Сложный'};
   let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,pending=null,uncertain=null,ticker=null,clockAt=0,clockBase=0,longPress=null,skipClick=false;
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
