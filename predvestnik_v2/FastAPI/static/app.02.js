@@ -221,25 +221,25 @@ function openLegalDoc(slug){
 function openSettingsModal(){
   const noFx=document.body.classList.contains('no-fx');
   OM('⚙️ Настройки',`
-    <div class="set-sec-t">Внешний вид</div>
+    <section class="settings-panel"><div class="set-sec-t"><span>🎨</span> Внешний вид</div>
     ${_globalSkinSettingsHtml()}
-    <label style="display:flex;align-items:center;gap:8px;padding:8px 2px;cursor:pointer">
+    <label class="settings-toggle">
       <input type="checkbox" ${noFx?'checked':''} onchange="_toggleNoFx(this.checked)"/>
-      <span style="font-size:12.5px">Отключить анимации косметики</span>
+      <span><b>Спокойный режим</b><small>Отключить анимации косметики</small></span>
     </label>
-    <div class="set-hint">Свечения, рамки и частицы станут статичными — полезно на слабых телефонах.</div>
-    <div class="set-sec-t" style="margin-top:14px">🔔 Уведомления от бота</div>
+    <div class="set-hint">Свечения, рамки и частицы станут статичными. Полезно на слабых телефонах.</div></section>
+    <section class="settings-panel"><div class="set-sec-t"><span>🔔</span> Уведомления</div>
     <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
-    <div class="set-hint">Личные напоминания в ЛС. Групповые события чата приходят всем и здесь не отключаются.</div>
-    <div class="set-sec-t" style="margin-top:14px">Юридические документы</div>
+    <div class="set-hint">Здесь настраиваются только личные сообщения от бота.</div></section>
+    <section class="settings-panel"><div class="set-sec-t"><span>📄</span> Документы</div>
     <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
     <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
-    <div class="set-hint">Документы также доступны по прямой ссылке и в боте.</div>
-    ${!INIT_DATA?`<div class="set-sec-t" style="margin-top:14px">🔀 Вход</div>
+    <div class="set-hint">Откроются прямо здесь.</div></section>
+    ${!INIT_DATA?`<section class="settings-panel"><div class="set-sec-t"><span>🔀</span> Вход</div>
     <div class="set-hint">Сейчас: Telegram @${esc((_profileData&&_profileData.username)||'—')}. Сайт открыт в браузере — если сменили активный аккаунт в приложении Telegram, страница сама этого не узнает.</div>
-    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button>`:''}
-    <div class="set-sec-t" style="margin-top:14px">👤 Аккаунт</div>
-    <div id="set-account"><div class="loader">Загрузка...</div></div>`,
+    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button></section>`:''}
+    <section class="settings-panel settings-panel--danger"><div class="set-sec-t"><span>👤</span> Аккаунт</div>
+    <div id="set-account"><div class="loader">Загрузка...</div></div></section>`,
     [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
   _loadNotifPrefs();
   _loadAccountSection();

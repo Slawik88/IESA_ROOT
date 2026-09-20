@@ -5084,6 +5084,51 @@ dialog .sheet {
   .profile-showcase-card *, .profile-card-actions *, .qa-row * { scroll-behavior: auto; }
 }
 
+/* UX wave: shared non-game surfaces use depth, grouping and clear entry points. */
+.card {
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(var(--gold-rgb),.11);
+  background:radial-gradient(circle at 100% 0,rgba(var(--gold-rgb),.065),transparent 38%),linear-gradient(145deg,rgba(24,30,48,.94),rgba(12,17,29,.96));
+  box-shadow:0 10px 26px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.025);
+}
+.card-title { color:var(--bright);font-weight:800;letter-spacing:.01em; }
+.irow { min-height:46px;padding:9px 2px;gap:10px; }
+.irow .ik { line-height:1.35; }
+.tabs { background:rgba(8,12,22,.82);backdrop-filter:blur(12px);box-shadow:0 8px 22px rgba(0,0,0,.12); }
+input,select,textarea,.num-input { border-color:rgba(255,255,255,.09);background:rgba(7,11,21,.72); }
+input:focus,select:focus,textarea:focus,.num-input:focus { border-color:rgba(var(--gold-rgb),.42);box-shadow:0 0 0 3px rgba(var(--gold-rgb),.08);outline:0; }
+
+.help-hero,.more-hero { position:relative;overflow:hidden;margin:2px 0 12px;padding:17px;border:1px solid rgba(139,108,240,.25);border-radius:20px;background:radial-gradient(circle at 90% 0,rgba(139,108,240,.25),transparent 44%),linear-gradient(145deg,rgba(34,29,65,.96),rgba(13,18,32,.98));box-shadow:0 16px 36px rgba(0,0,0,.22); }
+.help-hero { min-height:120px;display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:13px; }
+.help-hero>span { width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(183,165,244,.3);border-radius:17px;background:rgba(164,139,240,.13);color:#d9d0ff;font-size:26px;font-weight:900; }
+.help-hero small,.more-hero small { color:#b7a7ef;font-size:9px;font-weight:850;letter-spacing:.09em;text-transform:uppercase; }
+.help-hero h1,.more-hero h1 { margin:3px 0;color:var(--bright);font-size:24px;letter-spacing:-.025em; }
+.help-hero p,.more-hero p { margin:0;color:var(--muted);font-size:10.5px;line-height:1.45; }
+.help-grid { display:grid;gap:8px; }
+.help-card { overflow:hidden;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:linear-gradient(145deg,rgba(23,29,47,.94),rgba(12,17,29,.96));box-shadow:0 9px 22px rgba(0,0,0,.12); }
+.help-card summary { min-height:66px;display:grid;grid-template-columns:42px minmax(0,1fr) 28px;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;list-style:none; }
+.help-card summary::-webkit-details-marker{display:none}.help-card summary>span{width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:rgba(var(--gold-rgb),.07);font-size:20px}.help-card summary>div{min-width:0;display:grid;gap:3px}.help-card summary b{color:var(--bright);font-size:13px}.help-card summary small{color:var(--muted);font-size:9px}.help-card summary i{color:var(--muted);font-style:normal;font-size:16px;transition:transform .18s}.help-card[open] summary i{transform:rotate(180deg)}
+.help-card p { margin:0;padding:0 13px 10px;color:var(--muted);font-size:11px;line-height:1.55; }.help-card p b{color:var(--text)}
+.help-card>button { min-height:42px;margin:0 13px 13px;padding:0 12px;border:1px solid rgba(var(--gold-rgb),.22);border-radius:11px;background:var(--gold-dim);color:var(--gold2);font:800 11px/1 inherit; }
+.more-hero { min-height:112px;display:grid;align-content:center; }
+.cc-grid { gap:9px; }
+.cc-card { position:relative;min-height:112px;align-items:flex-start;justify-content:center;padding:16px;text-align:left;border-color:rgba(255,255,255,.08);background:radial-gradient(circle at 100% 0,rgba(var(--gold-rgb),.08),transparent 45%),linear-gradient(145deg,rgba(24,30,48,.96),rgba(12,17,29,.97));box-shadow:0 12px 28px rgba(0,0,0,.18); }
+.cc-card::after { content:'›';position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--gold2);font-size:22px; }
+.cc-card .cc-ic { width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:rgba(var(--gold-rgb),.08);font-size:20px; }.cc-card .cc-t{font-size:13px}.cc-card .cc-s{font-size:9.5px}
+
+.settings-panel { margin-bottom:10px;padding:12px;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:linear-gradient(145deg,rgba(24,30,48,.9),rgba(12,17,29,.94)); }
+.settings-panel .set-sec-t { display:flex;align-items:center;gap:7px;margin-bottom:10px;color:var(--text);font-size:10px;font-weight:850; }
+.settings-panel .set-sec-t span { font-size:15px; }
+.settings-panel .set-hint { margin:8px 1px 0;text-align:left;font-size:9.5px; }
+.settings-toggle { min-height:52px;display:flex;align-items:center;gap:10px;padding:8px 2px;cursor:pointer; }
+.settings-toggle input { min-height:20px;width:20px;height:20px;flex:none;accent-color:var(--gold); }
+.settings-toggle>span { display:grid;gap:2px; }.settings-toggle b{color:var(--bright);font-size:12px}.settings-toggle small{color:var(--muted);font-size:9px}
+.settings-panel--danger { border-color:rgba(239,99,99,.15); }
+dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08),transparent 34%),linear-gradient(180deg,rgba(23,29,46,.99),rgba(10,14,25,.99)); }
+
+@media (max-width:340px){.help-hero{grid-template-columns:44px minmax(0,1fr);padding:13px}.help-hero>span{width:44px;height:44px}.help-hero h1,.more-hero h1{font-size:21px}.cc-card{padding:13px}}
+
 /* Reconstruction 3.0 — neutral entry point; the battle owns its full-screen canvas. */
 .recon-entry-card {
   position: relative;

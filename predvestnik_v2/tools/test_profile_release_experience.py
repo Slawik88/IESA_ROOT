@@ -11,6 +11,7 @@ skin = (ROOT / "FastAPI/static/global-skins-v1.css").read_text(encoding="utf-8")
 router = (ROOT / "FastAPI/routers/profile.py").read_text(encoding="utf-8")
 service = (ROOT / "services/pets_v1.py").read_text(encoding="utf-8")
 updates = (ROOT / "FastAPI/static/updates.json").read_text(encoding="utf-8")
+index = (ROOT / "FastAPI/static/index.html").read_text(encoding="utf-8")
 
 assert "_profileVipCard(d.vip)" in profile
 assert "expires_at" in router and "_compensation_receipt" in router
@@ -27,5 +28,9 @@ assert "bestiary_owned" in service and "PET_SPECIES" in service
 assert "showPetPanel('bestiary'" in pets and "Неизвестный питомец" in pets
 assert "background-size:auto 100svh" in skin and "backdrop-filter:blur" in skin
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
+assert "2026-09-20-clearer-interface" in updates
+assert "help-hero" in index and "help-card" in index and "more-hero" in index
+assert "settings-panel" in profile and "settings-toggle" in profile
+assert ".help-card" in css and ".settings-panel" in css
 
 print("OK: mobile skin, visible VIP, immutable compensation story and pet bestiary are wired")

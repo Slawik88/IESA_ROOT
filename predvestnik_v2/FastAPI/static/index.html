@@ -127,40 +127,13 @@
 
 <!-- ═══ 14. ПОМОЩЬ ═══ -->
 <div id="pg-help" class="page">
-  <div class="card-title" style="margin-bottom:10px">🆘 Помощь</div>
-
-  <div class="card">
-    <div class="card-title">🎮 Центр активностей</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      В разделе <b style="color:var(--bright)">Игра</b> доступны три формата: <b style="color:var(--bright)">Ритм</b> для реакции,
-      <b style="color:var(--bright)">Сапёр</b> для логики и <b style="color:var(--bright)">Мафия</b> для игры прямо в Telegram-чате.
-      Выберите активность — у каждой свои правила и таблица лидеров.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">👤 Профиль и история</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      Здесь находятся личный профиль, семья, квесты, питомцы и история операций.
-      Питомца можно выбрать активным, покормить и отправить в поход или экспедицию. Во вкладке «Бестиарий» видна вся коллекция и найденные виды.
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-title">💎 Валюты и покупки</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      На релизе магазин и новые источники наград появляются только после публикации правил.
-      Старые игровые способы заработка больше не используются.
-    </div>
-  </div>
-
-  <div class="card" id="help-staff" style="display:none">
-    <div class="card-title">⚙️ Центр администраторов</div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.6">
-      В разделе <b style="color:var(--bright)">Ещё → Управление чатами</b> доступны только те инструменты,
-      на которые у вас есть права: модерация, настройки, журнал и управление сетью чатов.
-      Быстрая очистка запускается в группе командой <b style="color:var(--bright)">бот чистка</b>.
-    </div>
+  <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — главное видно сразу, подробности можно раскрыть.</p></div></section>
+  <div class="help-grid">
+    <details class="help-card" open><summary><span>🎮</span><div><b>Игры</b><small>Ритм, Сапёр и Мафия</small></div><i>⌄</i></summary><p><b>Ритм</b> проверяет реакцию, <b>Сапёр</b> — логику, а <b>Мафия</b> проходит прямо в чате. Откройте вкладку «Игра», выберите режим и нажмите основную кнопку.</p><button type="button" onclick="goTo('arena','game')">Открыть игры</button></details>
+    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Быстрые кнопки ведут к квестам, достижениям и истории чатов.</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
+    <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
+    <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «+» рядом с Зарниками в шапке или кнопку пополнения в профиле. Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
+    <details class="help-card" id="help-staff" style="display:none"><summary><span>⚙️</span><div><b>Управление чатом</b><small>Для администраторов</small></div><i>⌄</i></summary><p>В разделе «Ещё» откройте управление чатами. Там находятся участники, модерация, настройки и журнал. Показываются только доступные вам действия.</p><button type="button" onclick="openManageMenu()">Открыть управление</button></details>
   </div>
 </div>
 
@@ -174,6 +147,7 @@
 <div id="pg-chat-tracker" class="page"></div>
 
 <div id="pg-more" class="page">
+  <section class="more-hero"><small>Центр управления</small><h1>Ещё</h1><p>Помощь и инструменты вашего сообщества — без длинного списка команд.</p></section>
   <div class="cc-grid">
     <div class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic">⚙️</span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></div>
     <div class="cc-card cc-wide" onclick="goTo('help')"><span class="cc-ic">🆘</span><span class="cc-t">Как пользоваться</span><span class="cc-s">Игры, профиль и управление</span></div>
