@@ -5,6 +5,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import chat as chat_repo
+from infrastructure.repositories import chat_module_audit
 from infrastructure.repositories.streak import get_chat_timezone, set_chat_timezone
 from services import roles
 from services.utils import check_callback_owner
@@ -292,8 +293,31 @@ async def cb_toggle_setting(
         return await query.answer("❌ Эта старая настройка больше не используется.", show_alert=True)
     s = await mod_db.get_chat_settings(db, chat_id)
     new_val = 0 if s.get(key, 1) else 1
-    await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
-    await db.commit()
+    if key in _MODULE_SETTINGS and not new_val:
+        icon, name = _MODULE_SETTINGS[key]
+        b = InlineKeyboardBuilder()
+        b.button(
+            text=f"Отключить {icon} {name}",
+            callback_data=ChatSettingsCB(action="confirm_off", key=key, user_id=uid),
+        )
+        b.button(
+            text="Отмена",
+            callback_data=ChatSettingsCB(action="section", key="features", user_id=uid),
+        )
+        b.adjust(1)
+        await query.message.edit_text(
+            f"⚠️ <b>Отключить модуль «{name}»?</b>\n\n"
+            "Он сразу перестанет работать в этом чате. Действие сохранится в журнале.",
+            reply_markup=b.as_markup(), parse_mode="HTML",
+        )
+        return await query.answer()
+    if key in _MODULE_SETTINGS:
+        await chat_module_audit.set_chat_module(
+            db, chat_id=chat_id, module_key=key, enabled=bool(new_val),
+            actor_id=int(query.from_user.id), source="telegram_chat_settings",
+        )
+    else:
+        await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
     if key in _TOGGLE_SETTINGS:
         icon, desc = _TOGGLE_SETTINGS[key]
     else:
@@ -303,6 +327,30 @@ async def cb_toggle_setting(
     await query.answer(f"{icon} {desc} — {status}!", show_alert=not new_val)
     text = await _build_menu_text(db, chat_id)
     await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "confirm_off"))
+async def cb_confirm_module_off(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    key = callback_data.key
+    if key not in _MODULE_SETTINGS:
+        return await query.answer("❌ Эта настройка больше не используется.", show_alert=True)
+    chat_id = query.message.chat.id
+    settings = await mod_db.get_chat_settings(db, chat_id)
+    if not bool(settings.get(key, 1)):
+        return await query.answer("Модуль уже выключен.", show_alert=True)
+    await chat_module_audit.set_chat_module(
+        db, chat_id=chat_id, module_key=key, enabled=False,
+        actor_id=int(query.from_user.id), source="telegram_chat_settings",
+    )
+    icon, name = _MODULE_SETTINGS[key]
+    text, keyboard = await _section_view(db, chat_id, "features", callback_data.user_id)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await query.answer(f"{icon} {name} — выключено", show_alert=True)
 
 
 # ── Timezone command ─────────────────────────────────────────────────────────

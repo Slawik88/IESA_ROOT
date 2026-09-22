@@ -34,9 +34,13 @@ function _devSysTabHtml(){
   if(!gpAny(['console_overview','flags_manage','modules_manage'])) return '';
   return `<div id="dev-t-sys" style="display:none">
     ${gp('console_overview')?`<div id="dev-overview"><div class="loader">Загрузка...</div></div>`:''}
-    ${gp('flags_manage')?`<div class="card">
-      <div class="card-title">🔌 Глобальные модули <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Отключение блокирует и бот-команды, и вкладку на сайте.</div>
+    ${gp('flags_manage')?`<div class="card module-control-card">
+      <div class="card-title">🔌 Глобальные модули <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevGlobalModules()">🔄</button></div>
+      <div class="module-control-help">Главный рубильник: выключение блокирует модуль во всех чатах. Для отключения можно указать причину.</div>
+      <div id="dev-global-modules"><div class="loader">Загрузка...</div></div>
+    </div><div class="card">
+      <div class="card-title">🧪 Флаги запуска <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevFlags()">🔄</button></div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Отдельные экраны и контролируемые запуски. Это не модули чата.</div>
       <div id="dev-flags"><div class="loader">Загрузка...</div></div>
     </div>`:''}
     ${gp('modules_manage')?`<div class="card">
@@ -517,7 +521,7 @@ function loadConsole() {
   if(gp('bp_manage')) { devLoadSeasons(); loadBpSeasons(); loadBpXpActions(); }
   if(gp('themes_manage')) devTLInit();
   if(gp('log_admin_view')) loadDevLog();
-  if(gp('flags_manage')) loadDevFlags();
+  if(gp('flags_manage')) { loadDevGlobalModules(); loadDevFlags(); }
   if(gp('dossier_view')) devLoadChats();
   if(gp('modules_manage')) devLoadChatsMod();
   if(gp('metrics_view')) loadDevMetrics();
@@ -1251,21 +1255,42 @@ function devLoadChatMods(chatId) {
   if(!chatId){box.innerHTML='<div style="color:var(--muted);font-size:11px">Выберите чат.</div>';return;}
   box.innerHTML='<div class="loader">Загрузка...</div>';
   api('/admin/dev/chat-modules/'+encodeURIComponent(chatId)).then(d=>{
-    const mods=[
-      ['module_shop','🛒','Магазин'],['module_gacha','🎰','Гача'],
-      ['module_expeditions','🗺','Экспедиции'],['module_auction','🏛','Аукцион'],
-      ['module_games','🎲','Мини-игры'],['module_exchange','💱','Конвертер'],
-      ['module_quests','📋','Квесты'],['module_zoo','🐾','Зоопарк'],
-      ['module_warps','🤝','Варп-команды'],['module_daily_deal','🏷','Акция дня'],
-    ];
-    box.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:4px">'+mods.map(function(m){
-      const key=m[0],icon=m[1],name=m[2];
+    const mods=d.catalog||[];
+    box.innerHTML='<div class="module-switch-grid">'+mods.map(function(m){
+      const key=m.key,icon=m.icon,name=m.name;
       const on=(d.modules[key]!==undefined?d.modules[key]:1)===1;
-      return '<button class="btn '+(on?'btn-gold':'btn-ghost')+'" style="font-size:11px;padding:4px 8px" onclick="devSetChatMod('+chatId+',\''+key+'\','+(on?0:1)+')">'+icon+' '+name+': '+(on?'✅':'❌')+'</button>';
-    }).join('')+'</div>';
+      return '<button type="button" class="module-switch '+(on?'is-on':'is-off')+'" onclick="devSetChatMod('+chatId+',\''+key+'\','+(on?0:1)+')"><span>'+icon+'</span><div><b>'+esc(name)+'</b><small>'+esc(m.description||'')+'</small></div><i>'+(on?'ВКЛ':'ВЫКЛ')+'</i></button>';
+    }).join('')+'</div>'+_moduleAuditHtml(d.audit||[]);
   }).catch(function(e){box.innerHTML='<div class="err">'+esc(String(e))+'</div>';});
 }
+function _moduleAuditHtml(rows){
+  if(!rows.length)return '<div class="module-audit-empty">Изменений ещё не было.</div>';
+  return '<details class="module-audit"><summary>Последние изменения · '+rows.length+'</summary>'+rows.map(r=>'<div><span>'+(r.after_enabled?'↗':'↘')+'</span><p><b>'+esc((r.module||{}).name||r.module_key)+'</b><small>@'+esc(r.actor_name||String(r.actor_id))+' · '+fmtUTC(r.created_at)+(r.reason?' · '+esc(r.reason):'')+'</small></p><strong>'+(r.after_enabled?'включён':'выключен')+'</strong></div>').join('')+'</details>';
+}
+function loadDevGlobalModules(){
+  const box=el('dev-global-modules');if(!box)return;box.innerHTML='<div class="loader">Загрузка...</div>';
+  api('/admin/dev/global-modules').then(d=>{box.innerHTML='<div class="module-switch-grid">'+(d.catalog||[]).map(m=>{const state=d.modules?.[m.key]||{},on=!!state.enabled;return `<button type="button" class="module-switch ${on?'is-on':'is-off'}" onclick="devSetGlobalModule('${m.key}',${on?0:1})"><span>${m.icon}</span><div><b>${esc(m.name)}</b><small>${esc(state.reason||m.description||'')}</small></div><i>${on?'ВКЛ':'ВЫКЛ'}</i></button>`;}).join('')+'</div>'+_moduleAuditHtml(d.audit||[]);}).catch(e=>box.innerHTML='<div class="err">'+esc(String(e))+'</div>');
+}
+let _pendingGlobalModule=null;
+function devSetGlobalModule(key,val){
+  const enabled=val===1;_pendingGlobalModule={key,enabled};
+  const body=enabled?'<p class="cx-dim">Модуль сразу станет доступен во всех чатах, где он не выключен отдельно.</p>':`<p class="cx-dim">Он перестанет работать сразу во всех чатах. Укажите причину — она будет видна администраторам.</p><label class="field-label" for="global-module-reason">Причина</label><input id="global-module-reason" class="num-input" maxlength="160" value="Технические работы"/>`;
+  OM(enabled?'Включить модуль':'Отключить модуль',body,[{l:enabled?'Включить':'Отключить',c:enabled?'btn-gold':'btn-red',f:'devConfirmGlobalModule()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+}
+function devConfirmGlobalModule(){const pending=_pendingGlobalModule;if(!pending)return CM();const reason=pending.enabled?null:(el('global-module-reason')?.value||'').trim();if(!pending.enabled&&!reason)return toast('Укажите причину.',false);CM();devCommitGlobalModule(pending.key,pending.enabled,reason);}
+function devCommitGlobalModule(key,enabled,reason){
+  api('/admin/dev/global-modules/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({enabled,reason})}).then(()=>{toast(enabled?'✅ Модуль включён':'🔴 Модуль выключен');loadDevGlobalModules();}).catch(e=>toast(e,false));
+}
 function devSetChatMod(chatId, key, val) {
+  if(val!==1){
+    OM('Отключить модуль в чате?','<div style="padding:10px 0;color:var(--muted);line-height:1.5">Изменение вступит в силу сразу. Оно попадёт в журнал действий.</div>',[
+      {l:'Отключить',c:'btn-red',f:`CM();devCommitChatMod(${chatId},'${key}',0)`},
+      {l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    return;
+  }
+  devCommitChatMod(chatId,key,val);
+}
+function devCommitChatMod(chatId, key, val) {
   api('/admin/dev/chat-modules/'+encodeURIComponent(chatId),{
     method:'POST',body:JSON.stringify({module_key:key,enabled:val===1})
   }).then(function(){toast(val?'✅ '+key+' включён':'🔴 '+key+' выключен');devLoadChatMods(chatId);})

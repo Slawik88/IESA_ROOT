@@ -10,7 +10,7 @@ from typing import Any, Awaitable, Callable, Dict
 from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 
-from core.chat_modules import CHAT_MODULE_KEYS
+from core.chat_modules import CHAT_MODULE_KEYS, chat_module_default
 
 
 async def module_disabled_reason(db, chat_id: int, module_key: str) -> str | None:
@@ -29,7 +29,10 @@ async def module_disabled_reason(db, chat_id: int, module_key: str) -> str | Non
         (module_key,),
     ) as cursor:
         row = await cursor.fetchone()
-    if row is not None and row[0] == 0:
+    globally_enabled = bool(row[0]) if row is not None else chat_module_default(module_key)
+    if not globally_enabled:
+        if row is None:
+            return "Этот раздел пока не включён глобально."
         return str(row[1] or "Этот раздел временно отключён глобально.")
     return None
 

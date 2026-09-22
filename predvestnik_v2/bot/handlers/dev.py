@@ -8,6 +8,7 @@ from bot.config import config
 from bot.filters.text_commands import TextCmd
 from core.registry import ITEMS_REGISTRY
 from services.utils import resolve_target, safe_html, format_currency
+from infrastructure.repositories import chat_module_audit
 
 router = Router()
 router.message.filter(F.from_user.id == config.developer_id)
@@ -185,7 +186,7 @@ async def cmd_dev_reset_streak(message: types.Message, db, text_args: str = None
 
 # ── C2: Global module toggles ─────────────────────────────────────────────────
 
-from core.chat_modules import CHAT_MODULES
+from core.chat_modules import CHAT_MODULES, chat_module_default
 
 _MODULE_KEYS = list(CHAT_MODULES)
 _MODULE_EMOJI = {key: str(spec["icon"]) for key, spec in CHAT_MODULES.items()}
@@ -200,7 +201,7 @@ async def cmd_dev_modules(message: types.Message, db):
             (key,),
         ) as c:
             row = await c.fetchone()
-        enabled = row[0] if row else 1
+        enabled = row[0] if row else chat_module_default(key)
         reason = f" ({row[1]})" if row and row[1] else ""
         status = "✅" if enabled else "❌"
         emoji = _MODULE_EMOJI.get(key, "•")
@@ -217,12 +218,10 @@ async def cmd_dev_module_on(message: types.Message, db, text_args: str = None):
     key = text_args.strip().lower()
     if key not in _MODULE_KEYS:
         return await message.answer(f"❌ Неизвестный ключ. Доступные: {', '.join(_MODULE_KEYS)}", parse_mode="HTML")
-    await db.execute(
-        "INSERT INTO global_module_toggles (module_key, enabled, updated_at) VALUES (?, 1, CURRENT_TIMESTAMP) "
-        "ON CONFLICT(module_key) DO UPDATE SET enabled=1, disabled_reason=NULL, updated_at=CURRENT_TIMESTAMP",
-        (key,),
+    await chat_module_audit.set_global_module(
+        db, module_key=key, enabled=True, actor_id=int(message.from_user.id),
+        reason=None, source="telegram_dev_command",
     )
-    await db.commit()
     await message.answer(f"✅ Модуль <code>{key}</code> включён глобально.", parse_mode="HTML")
 
 
@@ -235,13 +234,10 @@ async def cmd_dev_module_off(message: types.Message, db, text_args: str = None):
     reason = parts[1] if len(parts) > 1 else None
     if key not in _MODULE_KEYS:
         return await message.answer("❌ Неизвестный ключ.", parse_mode="HTML")
-    await db.execute(
-        "INSERT INTO global_module_toggles (module_key, enabled, disabled_reason, updated_at) "
-        "VALUES (?, 0, ?, CURRENT_TIMESTAMP) "
-        "ON CONFLICT(module_key) DO UPDATE SET enabled=0, disabled_reason=excluded.disabled_reason, updated_at=CURRENT_TIMESTAMP",
-        (key, reason),
+    await chat_module_audit.set_global_module(
+        db, module_key=key, enabled=False, actor_id=int(message.from_user.id),
+        reason=reason, source="telegram_dev_command",
     )
-    await db.commit()
     reason_str = f" Причина: {safe_html(reason)}" if reason else ""
     await message.answer(f"❌ Модуль <code>{key}</code> отключён глобально.{reason_str}", parse_mode="HTML")
 

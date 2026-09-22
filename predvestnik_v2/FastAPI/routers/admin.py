@@ -15,6 +15,8 @@ from infrastructure.repositories.moderation import (
 from infrastructure.repositories.blacklist import get_chat_blacklist
 from infrastructure.repositories.chat import set_local_rank
 from infrastructure.repositories.routing import get_admin_chat
+from infrastructure.repositories import chat_module_audit as module_audit
+from core.chat_modules import CHAT_MODULE_KEYS
 from services import moderation as mod_service
 from services import roles
 from services.utils import resolve_display_name
@@ -312,7 +314,12 @@ async def admin_users(
 @router.get("/{chat_id}/settings")
 async def admin_get_settings(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     await _require_admin(db, user["id"], chat_id)
-    return await get_chat_settings(db, chat_id)
+    settings = await get_chat_settings(db, chat_id)
+    settings["module_catalog"] = module_audit.catalog()
+    settings["module_audit"] = await module_audit.recent(
+        db, scope="chat", chat_id=chat_id, limit=12,
+    )
+    return settings
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -332,16 +339,12 @@ class SettingsUpdateRequest(BaseModel):
     purge_write_rank: Optional[int] = None   # admin_audit B5: 0 = пишут все
     rank_chat_lock: Optional[int] = None
     events_enabled: Optional[int] = None
-    module_shop: Optional[int] = None
-    module_gacha: Optional[int] = None
-    module_expeditions: Optional[int] = None
-    module_auction: Optional[int] = None
-    module_games: Optional[int] = None
-    module_exchange: Optional[int] = None
+    module_mafia: Optional[int] = None
+    module_rhythm: Optional[int] = None
+    module_pets: Optional[int] = None
     module_quests: Optional[int] = None
-    module_zoo: Optional[int] = None
     module_warps: Optional[int] = None
-    module_daily_deal: Optional[int] = None
+    module_echo: Optional[int] = None
     nsfw_warps_allowed: Optional[int] = None
     # Категорийные тумблеры игровых уведомлений чата (2026-07-12)
     notif_auction: Optional[int] = None
@@ -363,7 +366,15 @@ async def admin_update_settings(
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
     if not updates:
         return {"ok": True}
-    await update_chat_settings(db, chat_id, **updates)
+    module_updates = {key: bool(updates.pop(key)) for key in list(updates) if key in CHAT_MODULE_KEYS}
+    async with db.connection.transaction():
+        if updates:
+            await update_chat_settings(db, chat_id, **updates)
+        for key, enabled in module_updates.items():
+            await module_audit.set_chat_module(
+                db, chat_id=chat_id, module_key=key, enabled=enabled,
+                actor_id=int(user["id"]), source="miniapp_chat_admin",
+            )
     return {"ok": True}
 
 

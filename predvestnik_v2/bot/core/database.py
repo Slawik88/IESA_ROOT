@@ -907,6 +907,8 @@ async def _init_features_extra(db):
     """)
     from infrastructure.repositories.divorce_v1 import install_schema as install_divorce_schema
     await install_divorce_schema(db)
+    from infrastructure.repositories.chat_module_audit import install_schema as install_chat_module_audit_schema
+    await install_chat_module_audit_schema(db)
 
     # VIP subscriptions (Implementation Block 2.1)
     await db.execute("""

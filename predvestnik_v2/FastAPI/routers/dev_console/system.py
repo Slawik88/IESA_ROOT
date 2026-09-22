@@ -5,15 +5,10 @@ from FastAPI.deps import get_db, require_tg_user
 from ._common import require_console_perm
 from infrastructure.repositories import system_flags as _flags_repo
 from infrastructure.repositories import dev_settings as _num_repo
+from infrastructure.repositories import chat_module_audit as _module_repo
+from core.chat_modules import CHAT_MODULES, CHAT_MODULE_KEYS, chat_module_default
 
 router = APIRouter()
-
-_CHAT_MODULES = [
-    "module_shop", "module_gacha", "module_expeditions", "module_auction",
-    "module_games", "module_exchange", "module_quests", "module_zoo",
-    "module_warps", "module_daily_deal",
-]
-
 
 class FlagBody(BaseModel):
     enabled: bool
@@ -65,14 +60,20 @@ async def dev_set_numeric_setting(
 @router.get("/chat-modules/{chat_id}")
 async def dev_get_chat_modules(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     await require_console_perm(db, user, "modules_manage")
-    cols = ", ".join(f"COALESCE({m}, 1)" for m in _CHAT_MODULES)
+    keys = list(CHAT_MODULES)
+    cols = ", ".join(
+        f"COALESCE({key}, {int(chat_module_default(key))}) AS {key}" for key in keys
+    )
     async with db.execute(
         f"SELECT {cols} FROM chat_settings WHERE chat_id = ?", (chat_id,)
     ) as c:
         row = await c.fetchone()
     if not row:
-        return {"modules": {m: 1 for m in _CHAT_MODULES}}
-    return {"modules": {m: row[i] for i, m in enumerate(_CHAT_MODULES)}}
+        modules = {key: int(chat_module_default(key)) for key in keys}
+    else:
+        modules = {key: int(row[key]) for key in keys}
+    return {"modules": modules, "catalog": _module_repo.catalog(),
+            "audit": await _module_repo.recent(db, scope="chat", chat_id=chat_id, limit=12)}
 
 
 @router.post("/chat-modules/{chat_id}")
@@ -80,19 +81,48 @@ async def dev_set_chat_module(
     chat_id: int, body: _ModuleBody, db=Depends(get_db), user=Depends(require_tg_user)
 ):
     await require_console_perm(db, user, "modules_manage")
-    if body.module_key not in _CHAT_MODULES:
+    if body.module_key not in CHAT_MODULE_KEYS:
         raise HTTPException(400, "Неизвестный модуль")
-    val = 1 if body.enabled else 0
-    await db.execute(
-        "INSERT INTO chat_settings (chat_id) VALUES (?) ON CONFLICT (chat_id) DO NOTHING",
-        (chat_id,),
+    result = await _module_repo.set_chat_module(
+        db, chat_id=chat_id, module_key=body.module_key, enabled=body.enabled,
+        actor_id=int(user["id"]), source="miniapp_console",
     )
-    await db.execute(
-        f"UPDATE chat_settings SET {body.module_key} = ? WHERE chat_id = ?",
-        (val, chat_id),
+    return {"ok": True, **result}
+
+
+@router.get("/global-modules")
+async def dev_get_global_modules(db=Depends(get_db), user=Depends(require_tg_user)):
+    await require_console_perm(db, user, "flags_manage")
+    modules = {}
+    for key in CHAT_MODULES:
+        async with db.execute(
+            "SELECT enabled,disabled_reason FROM global_module_toggles WHERE module_key=?", (key,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        modules[key] = {"enabled": bool(row["enabled"]) if row else chat_module_default(key),
+                        "reason": row["disabled_reason"] if row else None}
+    return {"catalog": _module_repo.catalog(), "modules": modules,
+            "audit": await _module_repo.recent(db, scope="global", limit=12)}
+
+
+class _GlobalModuleBody(BaseModel):
+    enabled: bool
+    reason: str | None = None
+
+
+@router.post("/global-modules/{module_key}")
+async def dev_set_global_module(
+    module_key: str, body: _GlobalModuleBody,
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    await require_console_perm(db, user, "flags_manage")
+    if module_key not in CHAT_MODULE_KEYS:
+        raise HTTPException(400, "Неизвестный модуль")
+    result = await _module_repo.set_global_module(
+        db, module_key=module_key, enabled=body.enabled, actor_id=int(user["id"]),
+        reason=body.reason, source="miniapp_console",
     )
-    await db.commit()
-    return {"ok": True}
+    return {"ok": True, **result}
 
 
 # ── 5б. Системные ресурсы (исключая девелопера) ─────────────────────────────────

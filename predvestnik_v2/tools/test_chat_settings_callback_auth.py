@@ -15,6 +15,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://offline@127.0.0.1:55432/offl
 ROOT = Path(__file__).resolve().parents[1]
 
 from bot.handlers import chat_settings
+from bot.middlewares.module_check_mw import module_disabled_reason
 
 
 class Query:
@@ -108,12 +109,48 @@ async def run() -> None:
             "nsfw_warps_allowed", "include_in_global_top",
         }
 
+        class Cursor:
+            def __init__(self, row):
+                self.row = row
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, *_args):
+                return None
+            async def fetchone(self):
+                return self.row
+
+        class MissingGlobalRowDB:
+            def __init__(self):
+                self.calls = 0
+            def execute(self, _sql, _args=()):
+                self.calls += 1
+                # Chat has no local override; global row is also absent.
+                return Cursor(None)
+
+        assert "не включён глобально" in await module_disabled_reason(
+            MissingGlobalRowDB(), -100700, "module_echo"
+        )
+        assert await module_disabled_reason(
+            MissingGlobalRowDB(), -100700, "module_mafia"
+        ) is None
+
         admin_ui = (ROOT / "FastAPI" / "static" / "app.07.js").read_text(encoding="utf-8")
-        assert "tog('module_games'" in admin_ui
-        assert "tog('module_warps'" in admin_ui
+        assert "module_catalog" in admin_ui
+        assert "'module_mafia','module_rhythm','module_pets','module_quests','module_warps','module_echo'" in admin_ui
+        assert "tog('module_games'" not in admin_ui
         assert "tog('module_auction'" not in admin_ui
         assert "tog('module_expeditions'" not in admin_ui
         assert "tog('notif_auction'" not in admin_ui
+        console_ui = (ROOT / "FastAPI" / "static" / "app.08.js").read_text(encoding="utf-8")
+        assert "d.catalog||[]" in console_ui
+        assert "module_shop','🛒'" not in console_ui
+        assert "/admin/dev/global-modules" in console_ui
+        assert "devCommitChatMod" in console_ui and "Отключить модуль в чате?" in console_ui
+        repo_source = (ROOT / "infrastructure" / "repositories" / "chat_module_audit.py").read_text(encoding="utf-8")
+        assert "pg_advisory_xact_lock" in repo_source
+        assert "DROP TRIGGER" not in repo_source
+        admin_source = (ROOT / "FastAPI" / "routers" / "admin.py").read_text(encoding="utf-8")
+        assert "async with db.connection.transaction():" in admin_source
     finally:
         chat_settings.check_callback_owner = original_owner
         chat_settings.chat_repo.get_chat_stats = original_stats
