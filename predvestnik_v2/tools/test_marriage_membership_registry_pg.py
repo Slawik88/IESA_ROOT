@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from uuid import uuid4
 from urllib.parse import urlparse
 
 import asyncpg
@@ -24,7 +25,9 @@ from infrastructure.repositories.marriages import (
     delete_marriage,
     get_user_marriage,
 )
-from infrastructure.repositories.divorce_v1 import create_intent, install_schema, settle_intent
+from infrastructure.repositories.divorce_v1 import (
+    allocate_property, create_intent, install_schema, settle_intent,
+)
 
 
 def local_dsn(value: str) -> str:
@@ -103,10 +106,71 @@ async def run(dsn: str) -> None:
         )
         assert later_id != created_id
         await install_schema(db)
+        await db.execute(
+            "UPDATE marriages SET family_balance=5,family_balance_zarniki=3 WHERE id=?",
+            (later_id,),
+        )
+        await db.execute(
+            "INSERT INTO family_wallet_balances(marriage_id,mora,zarniki) VALUES (?,5,3) "
+            "ON CONFLICT(marriage_id) DO UPDATE SET mora=5,zarniki=3",
+            (later_id,),
+        )
+        async with db.execute(
+            "INSERT INTO pets(owner_id,marriage_id,name,species_id,rarity) "
+            "VALUES (?,?, 'family-test-pet','cat','common') RETURNING id",
+            (910000000006, later_id),
+        ) as cursor:
+            family_pet_id = int((await cursor.fetchone())[0])
         intent = await create_intent(db, actor_id=910000000006)
         assert intent["marriage_id"] == later_id and intent["partner_id"] == 910000000009
+        allocation = await allocate_property(
+            db, intent_id=intent["id"], actor_id=910000000006,
+        )
+        assert allocation.applied
+        replayed_allocation = await allocate_property(
+            db, intent_id=intent["id"], actor_id=910000000006,
+        )
+        assert not replayed_allocation.applied and replayed_allocation.receipt_id == allocation.receipt_id
+        async with db.execute(
+            "SELECT family_balance,family_balance_zarniki FROM marriages WHERE id=?", (later_id,),
+        ) as cursor:
+            emptied = await cursor.fetchone()
+        assert float(emptied[0]) == 0 and float(emptied[1]) == 0
+        async with db.execute(
+            "SELECT owner_id,marriage_id FROM pets WHERE id=?", (family_pet_id,),
+        ) as cursor:
+            pet = await cursor.fetchone()
+        assert int(pet[0]) == 910000000006 and pet[1] is None
+        async with db.execute(
+            "SELECT user_tg_id,user_balance_mora,user_balance_zarniki FROM users "
+            "WHERE user_tg_id IN (?,?) ORDER BY user_tg_id",
+            (910000000006, 910000000009),
+        ) as cursor:
+            personal = await cursor.fetchall()
+        assert [(int(r[0]), float(r[1]), float(r[2])) for r in personal] == [
+            (910000000006, 2.5, 2.0), (910000000009, 2.5, 1.0),
+        ]
+        async with db.execute(
+            "SELECT COUNT(*),COUNT(DISTINCT family_operation_id),"
+            "COUNT(DISTINCT personal_operation_id),MIN(initiator_id),MAX(initiator_id) "
+            "FROM divorce_property_allocation_legs WHERE receipt_id=?",
+            (allocation.receipt_id,),
+        ) as cursor:
+            legs = await cursor.fetchone()
+        assert tuple(int(value) for value in legs) == (4, 4, 4, 910000000006, 910000000006)
+        savepoint = connection.transaction()
+        await savepoint.start()
+        try:
+            await db.execute(
+                "DELETE FROM divorce_property_allocation_legs WHERE receipt_id=?",
+                (allocation.receipt_id,),
+            )
+        except asyncpg.RaiseError:
+            await savepoint.rollback()
+        else:
+            raise AssertionError("allocation legs must be append-only")
         settled = await settle_intent(db, intent_id=intent["id"], actor_id=910000000006)
-        assert settled.applied and settled.marriage_id == later_id
+        assert not settled.applied and settled.marriage_id == later_id
         replay = await settle_intent(db, intent_id=intent["id"], actor_id=910000000006)
         assert not replay.applied and replay.receipt_id == settled.receipt_id
         async with db.execute(
@@ -132,8 +196,70 @@ async def run(dsn: str) -> None:
         await connection.close()
 
 
+async def run_lock_race(dsn: str) -> None:
+    """Two-connection proof of membership-before-custody lock ordering."""
+    schema = f"divorce_race_{uuid4().hex}"
+    admin = await asyncpg.connect(dsn)
+    first = await asyncpg.connect(dsn)
+    second = await asyncpg.connect(dsn)
+    try:
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        for conn in (first, second):
+            await conn.execute(f'SET search_path TO "{schema}"')
+        await first.execute("CREATE TABLE marriages(id BIGINT PRIMARY KEY, ended_at TIMESTAMPTZ)")
+        await first.execute("CREATE TABLE marriage_members(user_id BIGINT PRIMARY KEY,marriage_id BIGINT)")
+        await first.execute("CREATE TABLE pets(id BIGINT PRIMARY KEY,marriage_id BIGINT)")
+        await first.execute("CREATE TABLE family_wallet_balances(marriage_id BIGINT PRIMARY KEY,mora NUMERIC)")
+
+        for offset in (0, 10):
+            marriage_id = 7000 + offset
+            await first.execute("INSERT INTO marriages VALUES($1,NULL)", marriage_id)
+            await first.execute(
+                "INSERT INTO marriage_members VALUES($1,$3),($2,$3)",
+                8001 + offset, 8002 + offset, marriage_id,
+            )
+            await first.execute("INSERT INTO family_wallet_balances VALUES($1,1)", marriage_id)
+            membership_locked = asyncio.Event()
+
+            async def divorce_path():
+                async with first.transaction():
+                    await first.fetchrow("SELECT id FROM marriages WHERE id=$1 FOR UPDATE", marriage_id)
+                    await first.fetch(
+                        "SELECT user_id FROM marriage_members WHERE marriage_id=$1 ORDER BY user_id FOR UPDATE",
+                        marriage_id,
+                    )
+                    membership_locked.set()
+                    await asyncio.sleep(0.05)
+                    await first.fetch("SELECT id FROM pets WHERE marriage_id=$1 ORDER BY id FOR UPDATE", marriage_id)
+                    await first.fetchrow(
+                        "SELECT mora FROM family_wallet_balances WHERE marriage_id=$1 FOR UPDATE", marriage_id,
+                    )
+                    await first.execute("DELETE FROM marriage_members WHERE marriage_id=$1", marriage_id)
+
+            async def concurrent_transfer():
+                await membership_locked.wait()
+                async with second.transaction():
+                    await second.fetchrow(
+                        "SELECT marriage_id FROM marriage_members WHERE user_id=$1 FOR SHARE",
+                        8001 + offset,
+                    )
+                    await second.fetchrow(
+                        "SELECT mora FROM family_wallet_balances WHERE marriage_id=$1 FOR UPDATE", marriage_id,
+                    )
+
+            await asyncio.wait_for(
+                asyncio.gather(divorce_path(), concurrent_transfer()), timeout=5,
+            )
+    finally:
+        await first.close()
+        await second.close()
+        await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        await admin.close()
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
+asyncio.run(run_lock_race(args.dsn))
 print("marriage registry: real PostgreSQL rollback proof OK")

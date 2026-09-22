@@ -220,12 +220,18 @@ async def cmd_divorce(message: types.Message, db):
     builder = InlineKeyboardBuilder()
     if not blocked:
         builder.button(text="✅ Да, развестись", callback_data=DivorceConfirm(action="confirm", intent_id=intent["id"]))
+    else:
+        builder.button(
+            text="⚖️ Разделить и развестись",
+            callback_data=DivorceConfirm(action="split", intent_id=intent["id"]),
+        )
     builder.button(text="❌ Нет, остаться", callback_data=DivorceConfirm(action="cancel", intent_id=intent["id"]))
     builder.adjust(2)
 
     asset_note = (
         "\n\n🏦 <b>Развод пока заблокирован:</b> в семье остались средства или семейные питомцы. "
-        "Сначала распределите их — бот ничего не удалит автоматически."
+            "Кнопка ниже поровну распределит средства, передаст питомцев и сразу завершит брак. "
+            "Это необратимое действие; бот ничего не удалит и сохранит квитанции."
         if blocked else "\n\nПосле подтверждения брак будет закрыт, а оба игрока смогут создать новую семью."
     )
     await message.answer(
@@ -241,6 +247,37 @@ async def cmd_divorce(message: types.Message, db):
 async def process_divorce_confirm(
     callback: types.CallbackQuery, callback_data: DivorceConfirm, db, bot: Bot,
 ):
+    if callback_data.action == "split":
+        try:
+            allocation = await divorce_v1.allocate_property(
+                db, intent_id=callback_data.intent_id, actor_id=callback.from_user.id,
+            )
+        except divorce_v1.DivorceError as exc:
+            await callback.message.edit_text(
+                f"⚖️ <b>Раздел не выполнен.</b> {safe_html(str(exc))}", parse_mode="HTML",
+            )
+            return await callback.answer()
+        replay = " Повторного перевода не было." if not allocation.applied else ""
+        await callback.message.edit_text(
+            "💔 <b>Брак расторгнут, имущество распределено.</b>\n\n"
+            "Средства разделены поровну, а питомцы по очереди переданы обоим бывшим партнёрам.\n"
+            f"Квитанция имущества: <code>{allocation.receipt_id}</code>\n"
+            f"Квитанция развода: <code>{allocation.divorce_receipt_id}</code>{replay}",
+            parse_mode="HTML",
+        )
+        if allocation.applied:
+            try:
+                await bot.send_message(
+                    allocation.partner_id,
+                    "💔 Ваш брак завершён партнёром. Семейные средства распределены поровну, "
+                    "питомцы переданы владельцам, ничего не удалено.\n"
+                    f"Квитанция имущества: <code>{allocation.receipt_id}</code>\n"
+                    f"Квитанция развода: <code>{allocation.divorce_receipt_id}</code>",
+                    parse_mode="HTML",
+                )
+            except Exception:
+                pass
+        return await callback.answer("Имущество распределено, брак завершён")
     if callback_data.action == "cancel":
         cancelled = await divorce_v1.cancel_intent(
             db, intent_id=callback_data.intent_id, actor_id=callback.from_user.id,

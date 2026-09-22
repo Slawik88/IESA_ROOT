@@ -8,6 +8,7 @@ from infrastructure.repositories.marriages import (
     get_received_gifts, purchase_partner_gift, create_marriage, MarriageConflict,
 )
 from infrastructure.repositories.family_wallet_v1 import transfer_between_personal_and_family
+from infrastructure.repositories import divorce_v1
 from core.economy_contract import IdempotencyConflict, InsufficientBalance, InvalidEconomicMutation
 from core.registry import PARTNER_GIFTS
 from services.achievements import backfill_metric
@@ -229,29 +230,56 @@ async def send_partner_gift(
 
 @router.post("/divorce")
 async def divorce(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Развод — удаляет брак текущего пользователя."""
-    m = await get_user_marriage(db, user["id"])
-    if not m:
-        raise HTTPException(404, "Вы не состоите в браке.")
-    balances = (
-        float(m.get("family_balance", 0) or 0),
-        float(m.get("family_balance_diamonds", 0) or 0),
-        float(m.get("family_balance_dark_mora", 0) or 0),
-        float(m.get("family_balance_zarniki", 0) or 0),
-    )
-    async with db.execute("SELECT 1 FROM pets WHERE marriage_id = ? LIMIT 1", (m["id"],)) as c:
-        has_family_pet = await c.fetchone() is not None
-    if any(value > 0 for value in balances) or has_family_pet:
-        raise HTTPException(409, "Сначала требуется безопасно разделить семейный кошелёк и питомцев. Данные сохранены; удалять их молча нельзя.")
+    """Compatibility endpoint: safe close for an already-empty family only."""
     try:
-        closed = await delete_marriage(db, user["id"])
-    except MarriageConflict as exc:
+        intent = await divorce_v1.create_intent(db, actor_id=user["id"])
+        result = await divorce_v1.settle_intent(
+            db, intent_id=intent["id"], actor_id=user["id"],
+        )
+    except divorce_v1.DivorceError as exc:
         raise HTTPException(409, str(exc)) from exc
-    except RuntimeError as exc:
-        raise HTTPException(503, str(exc)) from exc
-    if not closed:
-        raise HTTPException(409, "Брак уже изменился; обновите страницу и повторите попытку.")
-    return {"ok": True}
+    return {"ok": True, "receipt_id": result.receipt_id, "replayed": not result.applied}
+
+
+@router.post("/divorce/intent")
+async def create_divorce_intent(db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        intent = await divorce_v1.create_intent(db, actor_id=user["id"])
+    except divorce_v1.DivorceError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    blocked = any(float(value or 0) != 0 for value in (
+        *intent["legacy_balances"], *intent["custody_balances"],
+    )) or int(intent["family_pet_count"]) > 0
+    return {"intent_id": intent["id"], "partner_name": intent["partner_name"],
+            "needs_allocation": blocked, "family_pet_count": intent["family_pet_count"]}
+
+
+@router.post("/divorce/{intent_id}/allocate")
+async def allocate_divorce_property(
+    intent_id: str, db=Depends(get_db), user=Depends(require_tg_user),
+):
+    try:
+        result = await divorce_v1.allocate_property(
+            db, intent_id=intent_id, actor_id=user["id"],
+        )
+    except divorce_v1.DivorceError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"ok": True, "receipt_id": result.receipt_id,
+            "divorce_receipt_id": result.divorce_receipt_id,
+            "replayed": not result.applied, "pet_count": len(result.pet_owners)}
+
+
+@router.post("/divorce/{intent_id}/confirm")
+async def confirm_divorce(
+    intent_id: str, db=Depends(get_db), user=Depends(require_tg_user),
+):
+    try:
+        result = await divorce_v1.settle_intent(
+            db, intent_id=intent_id, actor_id=user["id"],
+        )
+    except divorce_v1.DivorceError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    return {"ok": True, "receipt_id": result.receipt_id, "replayed": not result.applied}
 
 
 @router.get("/proposals")
