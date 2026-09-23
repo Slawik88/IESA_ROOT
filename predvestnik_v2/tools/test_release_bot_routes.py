@@ -9,12 +9,14 @@ scheduler = (ROOT / "services/scheduler.py").read_text(encoding="utf-8")
 profile = (ROOT / "bot/handlers/release_profile.py").read_text(encoding="utf-8")
 quests = (ROOT / "bot/handlers/quests_v1.py").read_text(encoding="utf-8")
 pets = (ROOT / "bot/handlers/pets_v1.py").read_text(encoding="utf-8")
+account = (ROOT / "bot/handlers/account.py").read_text(encoding="utf-8")
 
 for approved in (
     "release_profile_router",
     "quests_v1_router",
     "pets_v1_router",
     "payments_router",
+    "account_router",
     "marriage_router",
     "mafia_v1_router",
     "rhythm_router",
@@ -36,6 +38,9 @@ for retired in (
     "web_redirect_router",
 ):
     assert retired not in handlers, retired
+
+for retired_file in ("profile.py", "identity.py", "vip.py"):
+    assert not (ROOT / "bot" / "handlers" / retired_file).exists(), retired_file
 
 assert "pet_bonuses_middleware" not in startup
 assert "streak_middleware" not in startup
@@ -59,5 +64,9 @@ assert "reward_parts" in quests and "Награды доступны в Mini App
 assert "record_metric" not in quests
 assert 'miniapp_url("pets")' in pets
 assert "select_active_pet" not in pets
+assert 'TextCmd(["отменить удаление", "отмена удаления"])' in account
+assert 'TextCmd(["восстановить аккаунт", "восстановление аккаунта"])' in account
+assert "account_deletion.cancel_deletion" in account
+assert "account_deletion.restore_account" in account
 
 print("OK: Telegram public routes match the approved release scope")

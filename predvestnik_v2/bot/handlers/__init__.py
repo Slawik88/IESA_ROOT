@@ -1,6 +1,7 @@
 from aiogram import Router
 from .common import router as common_router, fallback_router, unknown_cmd_router
 from .payments import router as payments_router
+from .account import router as account_router
 from .release_profile import router as release_profile_router
 from .quests_v1 import router as quests_v1_router
 from .pets_v1 import router as pets_v1_router
@@ -33,6 +34,7 @@ main_router.include_routers(
     common_router,
     admin_router,
     payments_router,   # B-Donate-1: покупка ✨ за Stars, /start?buyzarniki
+    account_router,    # отмена удаления и восстановление в срок
     release_profile_router,
     quests_v1_router,
     pets_v1_router,

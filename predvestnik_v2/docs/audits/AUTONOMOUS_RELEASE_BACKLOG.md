@@ -96,6 +96,16 @@ chat-scoped achievement source decision.
 
 ## Next safe wave
 
+### LEGACY-DELETE-001 — dependency-proven removal (2026-09-23)
+
+The unreachable FastAPI routers for barracks, clans v2, craft, daily deal,
+events, legacy quests/streak/top and the superseded Telegram identity/profile/VIP
+handlers are physically removed. Release-contract tests now require those files
+to remain absent while preserving the canonical release profile, current quests,
+games, compensation and economy surfaces. Repository import search,
+`compileall`, `git diff --check` and the full isolated preprod gate pass
+**107/107**. Independent read-only review is the final commit gate.
+
 The authorization/payment/background waves above are implemented but still require
 their listed manual production gates. For gameplay, use only the current owner
 scope in `PROJECT_RECONSTRUCTION_MASTER_PLAN.md`: Rune Rhythm, Minesweeper and

@@ -50,4 +50,10 @@ for raw_user_id in (1, 990000001, 9223372036854775807):
     response = client.get(f"/profile/{raw_user_id}")
     assert response.status_code == 404, (raw_user_id, response.status_code, response.text)
 
+for retired_file in (
+    "barracks.py", "clans2.py", "craft.py", "daily_deal.py", "events.py",
+    "quests.py", "streak.py", "top.py",
+):
+    assert not (ROOT / "FastAPI" / "routers" / retired_file).exists(), retired_file
+
 print("OK: public Mini App routes match the approved release scope")

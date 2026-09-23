@@ -12,7 +12,6 @@ def read(path: str) -> str:
 
 def main() -> None:
     fixed_api = read("FastAPI/routers/exchange.py")
-    event_api = read("FastAPI/routers/events.py")
     wallet_api = read("FastAPI/routers/wallet.py")
     bot_economy = read("bot/handlers/economy.py")
     profile_ui = read("FastAPI/static/app.02.js")
@@ -20,12 +19,9 @@ def main() -> None:
     exchange_service = read("services/zarniki_exchange_v1.py")
     fastapi_main = read("FastAPI/main.py")
     assert not (ROOT / "bot/handlers/exchange.py").exists()
+    assert not (ROOT / "FastAPI/routers/events.py").exists()
 
     assert fixed_api.count("HTTPException(") >= 2
-    assert '"exchange_retired": True' in event_api
-    assert "exchange_active" not in event_api
-    assert "exchange_next" not in event_api
-
     assert "StrictInt" in wallet_api and "mora|diamonds" in wallet_api
     assert "zarniki_exchange_v1.exchange" in wallet_api
     assert "zarniki_exchange_v1.exchange" in bot_economy
