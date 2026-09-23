@@ -33,16 +33,18 @@
 | **CONTENT-001** | **Resolved locally · compensation deferred** | The chest store now uses one versioned mixed catalogue for free and paid keys: 12 stable pet species, five food items, pet-card packs, Mora, Diamonds, Jokers, Zarniki and the pinned VIP reward pool. A key costs 10 Zarniki, with two purchases per UTC day and exactly the same odds as free keys. Purchase, entitlement, prepare, typed delivery, reveal and unused-paid-key refund are idempotent and transaction-bound. The UI discloses star odds, every conditional reward weight, exact amounts/ranges, rarity tables, species/VIP pools and owned-pool fallback before purchase; a confirmation sheet repeats price/quota/refund terms. Daily/weekly set completion and completed pet activities mint typed keys, but a chest quest is eligible only when a key already exists and random card drops never gate set completion. Pet activities atomically spend 25/40/55 endurance, respect the chest flag/readiness guard and preserve completed runs for later settlement when disabled. Existing canonical pet ownership is reconciled instead of creating a duplicate. | One-million seeded simulation gives conservative EV 9.52 per 10-Zarniki key; transactional tests cover purchase races, replay, stale catalogue, every delivery type, unused-key refund, legacy pet ownership, disabled feature settlement, exhausted pets and no duplicate compensation call. Live isolated preprod at 320/390/430 px covered confirmation/cancel, exact 10★ disclosure, sealed prepare/reveal, quest progress and 38→13 endurance debit. Final isolated preprod gate: **96/96**. Duplicate/max-level compensation remains intentionally last before production, per owner instruction. |
 | **ACH-002** | **Resolved locally** | The durable 1–40 model now has five server-terminal families: Rhythm, Minesweeper, Mafia, chests and pet activities. The mobile collection is browsable by **All / Games / Adventures**, shows two independent meters to the exact next level, explains which condition still blocks progress, and exposes levels 1/5/10/20/30/40 without turning the page into a reward wall. Rewards remain Mora-only. | Immutable terminal and reward receipts reject replay or altered facts; the received-Mora summary uses the amount actually stored in historical receipts rather than recalculating history through the current policy. Level 40 still requires the family event cap and 156 active weeks, and excess lifetime events do not rewrite the displayed cap. Live 320/390/430 px evidence shows zero horizontal overflow, one Back, 44 px actions, focus-preserving filters and readable partial progress. Independent review accepted all corrections. Final isolated gate: **97/97**. |
 | **GAME-001** | **Resolved locally** | The shipped client now uses a one-use REST ticket and server-timed WebSocket with stable tap IDs and reconnect continuity; it no longer requests the exposed offline packet. Every terminal live run becomes `review_required`, so script-echoed runes cannot directly write the leaderboard, quests or achievements. | A developer-only review API records one append-only clear/quarantine decision. Transaction-scoped locking linearizes concurrent reuse of the global review ID; only `clear` writes trusted ranking/progression, idempotently. PostgreSQL counterexamples cover pre-review zero writes, clear, quarantine, replay and altered decision; live 390 px shows the pending-review result and a populated opaque-profile leaderboard. Independent re-review found a concurrency race, then returned ACCEPT after the lock fix. Real Telegram transport/reconnect remains in QA-001. |
-| **REL-001** | **Stop-ship** | A preprod Quick Tunnel works only while its local process lives. The only discoverable stable DigitalOcean URL serves a stale legacy client. The owner says a production domain exists, but its exact hostname/deployment configuration is not present in this workspace. | Obtain the exact domain/deployment location, deploy only through the owner-approved release path (never a GitHub push), set the bot menu to the verified HTTPS `/predvestnik/` URL, and run authenticated Telegram, payment, route and rollback gates. No endpoint is to be guessed or repointed. |
-| **QA-001** | **P1 · local matrix active** | The maintained matrix below now separates automated, fresh browser and external production evidence. Its adversarial passes disproved `97/97 = release-ready`: they found a raw-ID profile leak, overlapping browser Back controls and retry IDs that changed after uncertain responses. | The leak/navigation defects are fixed. Feed, reroll, chest prepare/purchase and pet activation/activity/decision now retain an operation ID until confirmed success; failed pet mutations refetch server authority. Independent review selected lost-response pet activity as the highest-risk residual and the full isolated gate is **103/103**. Continue remaining responsive/browser cases, then run the real Telegram Mini App, Stars and rollback gates. |
-| **LCB-002** | **Ready to apply after target DB initialization** | Value-preserving v4 carries current Zarniki once, refunds 13,852 Zarniki proven spent by six users in the retired exchange, converts retired paid rights to Zarniki, caps liquid progression and converts every remaining score point continuously into diminishing VIP time. Existing VIP is preserved; no universal 21-day grant or randomized-key settlement. | Frozen snapshot: 253 users; 164,489 Zarniki, 131,449 Mora, 1,139 Diamonds and 25,007,699 score → 2,057.41 aggregate VIP days (median 3.32d, p99 64.11d, max 97.87d). Hash-confirmed v4 importer: 253 applied, then 253 replayed. Production has not been written. |
-| **CHAT-001** | **Active · wave 1 implemented** | Rebuild Telegram as a coherent chat product: one home/help concept, message-only rankings, separated activity/admin rank/game/VIP concepts, sectional settings, complete social settlement and dependency-proven legacy removal. | Bare `бот` now opens structured help; discoverable archive/event tabs are gone. Tops support local players / globally aggregated players / chats × today / week / month / all time, with local timezone and canonical UTC global periods. Settings entry now checks live Telegram authority and UI is sectional. Broken unregistered event handler plus retired dev exchange/deal writers removed. Focused auth/route/compile checks pass; snapshot aggregate SQL returns all four new boards. Remaining: module registry/audit, placement/trends/privacy, divorce workflow, deeper legacy deletion and real Telegram UX. |
+| **REL-001** | **P0 · one live monetary gate** | The owner supplied the stable production domain and confirmed that `master` deploys automatically. DigitalOcean now preserves the full `/predvestnik` path; the bot menu targets the same HTTPS Mini App. | Production `health`/`ready`, legal/static/update delivery, protected-auth boundaries and retired-route 404s pass the repeatable `tools/verify_production_http.py` gate (**26/26**). The deployed bundle contains commit `436f90fe` markers. Real test-chat transport verifies administrator rights, send/edit, callback/URL keyboards and cleanup. Before a formal public launch, perform one owner-authorized minimum Stars purchase, verify exactly one credit and history receipt, then confirm cancellation produces no credit. Automation cannot spend the owner's Stars. |
+| **QA-001** | **Resolved for current release scope** | The adversarial matrix found and removed the raw-ID profile leak, overlapping Back controls, uncertain-response action-ID changes, undersized touch targets and a long-name header overflow risk. | Full isolated preprod passes **108/108**. Authenticated browser checks at 320 px cover profile, store, games, More, settings, pets, quests, chests, achievements and chat tracker with zero horizontal overflow; primary controls are at least 44 px. Independent review returned ACCEPT after the long-name correction. Production route/static markers and real Telegram transport are green. |
+| **LCB-002** | **Applied and reconciled** | Value-preserving v4 carries current Zarniki once, refunds 13,852 Zarniki proven spent by six users in the retired exchange, converts retired paid rights to Zarniki, caps liquid progression and converts every remaining score point continuously into diminishing VIP time. Existing VIP is preserved; no universal 21-day grant or randomized-key settlement. | Production contains 253 immutable matching receipts. Aggregate credits match the frozen v4 inventory; converted legacy inventory is absent. A deployment recovery bug replayed six historical Stars purchases, and six canonical correction operations removed the duplicate 29,060 Zarniki; registered charge history prevents another replay. |
+| **CHAT-001** | **Resolved for release scope** | Telegram now has one home/help concept, local/global player message tops and chat tops across today/week/month/all time, separated ranks/activity, sectional settings, audited module controls and complete divorce settlement. | Module writes are audited and authority-checked; placement/trends/privacy and deterministic family-property split are implemented. Retired event/economy handlers and dependency-proven legacy files are removed. Real test-chat transport and the **108/108** preprod gate pass. New game content remains a separate owner-approved post-release track. |
 
 **Execution order:** `SOCIAL-001`, `UI-001`, `UI-002`, `COS-002`, `QUEST-002`,
-`CONTENT-001`, `ACH-002` and `GAME-001` are complete locally. Continue with final
-`QA-001` / `REL-001`; duplicate compensation is explicitly the final economy
-wave immediately before production. `SOCIAL-002` retains only its explicit
-chat-scoped achievement source decision.
+`CONTENT-001`, `ACH-002`, `GAME-001`, `QA-001`, `LCB-002` and the current
+`CHAT-001` release scope are complete. `REL-001` is reduced to one explicit
+owner-authorized monetary acceptance check. `SOCIAL-002` retains only its
+chat-scoped achievement source decision. New gameplay, VIP benefits, chest
+presentation and the monolithic visual redesign require separate concept
+approval before implementation.
 
 ### QA-001 current release evidence matrix — 2026-09-13
 
@@ -100,17 +102,40 @@ chat-scoped achievement source decision.
 
 The unreachable FastAPI routers for barracks, clans v2, craft, daily deal,
 events, legacy quests/streak/top and the superseded Telegram identity/profile/VIP
-handlers are physically removed. Release-contract tests now require those files
-to remain absent while preserving the canonical release profile, current quests,
-games, compensation and economy surfaces. Repository import search,
-`compileall`, `git diff --check` and the full isolated preprod gate pass
-**107/107**. Independent read-only review is the final commit gate.
+handlers are physically removed. Account recovery remains in its dedicated
+router. Release contracts, repository import search, `compileall`,
+`git diff --check` and the full isolated preprod gate pass **108/108**.
+Independent review returned ACCEPT; commit `f8da5d43` is deployed.
 
-The authorization/payment/background waves above are implemented but still require
-their listed manual production gates. For gameplay, use only the current owner
-scope in `PROJECT_RECONSTRUCTION_MASTER_PLAN.md`: Rune Rhythm, Minesweeper and
-Mafia. Do not restore or extend retired campaign mechanics while the new game
-contracts and economy are intentionally deferred.
+The only remaining release gate that automation cannot complete is the live
+Stars acceptance check in `REL-001`; it must not spend the owner's Stars without
+explicit approval. For gameplay, use only the current owner scope in
+`PROJECT_RECONSTRUCTION_MASTER_PLAN.md`: Rune Rhythm, Minesweeper and Mafia. Do
+not restore or extend retired campaign mechanics while new game contracts and
+economy remain owner-approved work.
+
+### Rollback compatibility rehearsal and runbook — 2026-09-24
+
+The currently deployed change from `f8da5d43` to `436f90fe` is application-only:
+its diff contains payment/rollout copy, Mini App layout/styles, patch notes and
+tests, with no schema or migration changes. A detached checkout of `f8da5d43`
+was run against the current post-release preprod PostgreSQL schema. All **107
+application tests passed**; the sole excluded failure among the runner's 108
+entries was `test_current_game_docs.py`, which asserts the presence/content of
+the newer workspace-only `AGENTS.md` router and does not import or exercise the
+application.
+
+This proves application/schema backward compatibility; it is not a claim that a
+DigitalOcean rollback was performed. If this release must be rolled back, revert `436f90fe` with a normal Git revert
+commit on `master` and let DigitalOcean deploy that new commit. Never reset or
+force-push `master`, and never restore the database: compensation receipts,
+ledger rows and Stars reconciliation history must remain intact. After the
+deployment, run `tools/verify_production_http.py --profile rollback-f8da5d43`
+and the real test-chat
+send/edit/callback/URL-keyboard/cleanup probe. Forward-fix and redeploy if either
+gate fails. This proof is valid for the schema-neutral `436f90fe` release only;
+every future schema-changing release requires its own forward/backward
+compatibility and backup plan.
 
 ## Owner decisions — activity and pet direction (2026-09-05)
 
