@@ -95,7 +95,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
    получает всю ширину и не скроллится; числа ≥10к компактятся в JS (12,3к/1,2М). */
 .hdr-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .hdr-actions { display: flex; align-items: center; gap: 6px; flex: none; }
-.hdr-user { display: flex; align-items: center; gap: 8px; flex: none; cursor: pointer; transition: transform .15s; min-width: 0; }
+.hdr-user { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; overflow: hidden; cursor: pointer; transition: transform .15s; min-width: 0; }
 .hdr-user:active { transform: scale(.96); }
 .hdr-ava {
   width: 34px; height: 34px; border-radius: 12px; flex: none;
@@ -103,8 +103,8 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   background: linear-gradient(135deg, var(--violet-dim), var(--gold-dim));
   border: 1px solid var(--border2); overflow: hidden;
 }
-.hdr-id { min-width: 0; }
-.hdr-name { font-size: 13px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
+.hdr-id { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+.hdr-name { width: 100%; max-width: 100%; font-size: 13px; font-weight: 700; color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hdr-sub { font-size: 9.5px; color: var(--muted); white-space: nowrap; }
 
 /* Слой 2 шапки: валюты кластером слева во всю ширину ряда, ⓘ прижата к правому
@@ -149,7 +149,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .hdr-news {
   position: relative;
   border: 1px solid var(--border2); background: var(--bg2); color: var(--muted);
-  width: 30px; height: 30px; border-radius: 10px; font-size: 15px; cursor: pointer; flex: none;
+  width: 44px; height: 44px; border-radius: 12px; font-size: 15px; cursor: pointer; flex: none;
   display: flex; align-items: center; justify-content: center;
   transition: transform .15s, border-color .15s;
 }
@@ -164,7 +164,7 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 .hn-dot[hidden] { display: none; }
 .hdr-refresh {
   border: 1px solid var(--border2); background: var(--bg2); color: var(--muted);
-  width: 30px; height: 30px; border-radius: 10px; font-size: 13px; cursor: pointer; flex: none;
+  width: 44px; height: 44px; border-radius: 12px; font-size: 13px; cursor: pointer; flex: none;
   transition: transform .3s;
 }
 .hdr-refresh:active { transform: rotate(180deg) scale(.9); }
@@ -4279,7 +4279,7 @@ body.no-fx .wn-pop { animation: none; }
 /* ═══ Экран «Внешний вид» (полноэкранный, был модалкой) ══════════════════════ */
 .looks-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
 .looks-back {
-  width: 34px; height: 34px; border-radius: 11px; flex: none;
+  width: 44px; height: 44px; border-radius: 12px; flex: none;
   border: 1px solid var(--border2); background: var(--bg2); color: var(--bright);
   font-size: 20px; line-height: 1; cursor: pointer; transition: transform .15s;
   display: flex; align-items: center; justify-content: center;
@@ -4614,9 +4614,9 @@ body {
 .hdr-name { font-size: 12.5px; }
 .hdr-sub { color: var(--muted); }
 .hdr-news, .hdr-refresh {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   background: var(--bg2);
   border-color: var(--border2);
 }
@@ -5223,7 +5223,7 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .profile-showcase-head .prank { font-size: 10px; color: var(--dim); }
 .profile-showcase-head .ptitle { min-height: 15px; color: var(--gold2); font-size: 10px; font-weight: 700; }
 .profile-looks-link {
-  min-height: 35px;
+  min-height: 44px;
   padding: 0 10px;
   border: 1px solid rgba(150, 166, 202, .26);
   border-radius: 10px;
@@ -5672,7 +5672,7 @@ button.character-showcase-area { cursor: pointer; }
 .profile-zone > header small { display:block; color:var(--zone); font-size:10px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }
 .profile-zone > header h3 { margin:2px 0 0; font-size:14px; }
 .profile-zone > header h3::before { display:none; }
-.profile-zone > header button { min-height:36px; padding:0 9px; border:1px solid color-mix(in srgb,var(--zone) 24%,transparent); border-radius:10px; background:color-mix(in srgb,var(--zone) 8%,transparent); color:var(--text); font:800 10px/1 inherit; cursor:pointer; }
+.profile-zone > header button { min-height:44px; padding:0 9px; border:1px solid color-mix(in srgb,var(--zone) 24%,transparent); border-radius:10px; background:color-mix(in srgb,var(--zone) 8%,transparent); color:var(--text); font:800 10px/1 inherit; cursor:pointer; }
 .profile-zone--games { --zone:#94a8ff; background:radial-gradient(circle at 90% 0,rgba(112,133,231,.18),transparent 40%),linear-gradient(145deg,rgba(24,29,52,.98),rgba(12,17,29,.96)); }
 .profile-zone--progress { --zone:#e0b45c; background:radial-gradient(circle at 10% 100%,rgba(224,180,92,.13),transparent 42%),linear-gradient(145deg,rgba(34,28,35,.98),rgba(15,17,27,.96)); }
 .profile-zone--social { --zone:#b890ea; background:radial-gradient(circle at 100% 15%,rgba(159,111,221,.17),transparent 42%),linear-gradient(145deg,rgba(31,24,49,.98),rgba(13,17,29,.96)); }

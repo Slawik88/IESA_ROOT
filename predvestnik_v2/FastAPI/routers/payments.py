@@ -45,8 +45,10 @@ async def _tg_call(method: str, **kwargs) -> dict:
 @router.get("/zarniki/packages")
 async def zarniki_packages(user=Depends(require_tg_user)):
     """Пакеты Stars→Зарники + параметры произвольной суммы (для донат-витрины)."""
+    purchase_enabled = stars_invoice_issuance_allowed()
     return {
-        "purchase_enabled": stars_invoice_issuance_allowed(),
+        "purchase_enabled": purchase_enabled,
+        "purchase_disabled_reason": None if purchase_enabled else "preprod",
         "per_star": ZARNIKI_PER_STAR,
         "packages": [
             {

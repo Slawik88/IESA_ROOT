@@ -104,6 +104,10 @@ async def _run() -> None:
     assert stars_invoice_issuance_allowed({})
     assert stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "production"})
     assert not stars_invoice_issuance_allowed({"PREDVESTNIK_ENV": "preprod"})
+    web_payments.stars_invoice_issuance_allowed = lambda: False
+    preprod_packages = await web_payments.zarniki_packages(user={"id": 701})
+    assert preprod_packages["purchase_enabled"] is False
+    assert preprod_packages["purchase_disabled_reason"] == "preprod"
     assert not direct_stars_cosmetics_allowed({"STARS_REFUND_RAIL_V1": "1"})
     assert not direct_stars_cosmetics_allowed({
         "STARS_REFUND_RAIL_V1": "1", "STARS_DIRECT_ENTITLEMENTS_V1": "1",
@@ -126,6 +130,9 @@ async def _run() -> None:
     payments.is_preprod = lambda: False
     payments.stars_invoice_issuance_allowed = lambda: True
     web_payments.stars_invoice_issuance_allowed = lambda: True
+    production_packages = await web_payments.zarniki_packages(user={"id": 701})
+    assert production_packages["purchase_enabled"] is True
+    assert production_packages["purchase_disabled_reason"] is None
 
     assert payment_contract.is_stars_amount(True) is False
     assert payment_contract.is_stars_amount(0) is False

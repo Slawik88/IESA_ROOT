@@ -88,6 +88,14 @@ assert "const look={...current}" in store_js
 assert "look[selected.slot]=projectedItem(selected)" in store_js
 assert 'data-store-topup aria-label="Пополнить Зарники' in store_js
 assert "window.openZarnikiTopup=async function()" in store_js
+assert "В продакшене пополнение работает" in store_js
+for selector in (".hdr-news", ".hdr-refresh", ".looks-back", ".profile-looks-link"):
+    assert selector in css
+assert ".looks-back {\n  width: 44px; height: 44px" in css
+assert ".profile-looks-link {\n  min-height: 44px" in css
+assert ".hdr-user { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; overflow: hidden;" in css
+assert ".hdr-id { flex: 1 1 auto; min-width: 0; overflow: hidden; }" in css
+assert ".hdr-name { width: 100%; max-width: 100%;" in css
 selected_look = store_js.split("function selectedLook(){", 1)[1].split("function previewHtml", 1)[0]
 assert "cosmeticLook(selected.lineup)" not in selected_look
 assert '${identityCss}' in profile_renderer

@@ -174,7 +174,10 @@
   function topupHtml(){
     if(!topup)return '';
     const packages=Array.isArray(topup.packages)?topup.packages:[];
-    const content=topup.loading?'<div class="loader">Загружаем безопасные пакеты…</div>':topup.error?`<p class="err">${e(topup.error)}</p>`:topup.purchase_enabled===false?'<p class="store-topup-unavailable">Пополнение временно закрыто до завершения безопасного учёта платежей.</p>':`<div class="store-topup-packages">${packages.map(p=>`<button type="button" data-zarniki-stars="${Number(p.stars)}" ${topupBusy?'disabled':''}><span><b>${Number(p.total)}✨</b>${p.popular?'<small>Популярный</small>':''}</span><strong>${Number(p.stars)}⭐</strong></button>`).join('')}</div><p>Оплата откроется в защищённом окне Telegram. Покупку подтверждаете только вы.</p>`;
+    const disabledText=topup.purchase_disabled_reason==='preprod'
+      ?'На тестовом стенде реальные платежи отключены. В продакшене пополнение работает.'
+      :'Пополнение временно недоступно.';
+    const content=topup.loading?'<div class="loader">Загружаем безопасные пакеты…</div>':topup.error?`<p class="err">${e(topup.error)}</p>`:topup.purchase_enabled===false?`<p class="store-topup-unavailable">${disabledText}</p>`:`<div class="store-topup-packages">${packages.map(p=>`<button type="button" data-zarniki-stars="${Number(p.stars)}" ${topupBusy?'disabled':''}><span><b>${Number(p.total)}✨</b>${p.popular?'<small>Популярный</small>':''}</span><strong>${Number(p.stars)}⭐</strong></button>`).join('')}</div><p>Оплата откроется в защищённом окне Telegram. Покупку подтверждаете только вы.</p>`;
     return `<div class="store-topup-backdrop"><section class="store-topup" role="dialog" aria-modal="true" aria-labelledby="store-topup-title"><header><div><small>Баланс ${currentBalance()}✨</small><h2 id="store-topup-title">Пополнить Зарники</h2></div><button type="button" data-store-topup-close aria-label="Закрыть пополнение">×</button></header>${content}</section></div>`;
   }
   function syncSkinPreview(){

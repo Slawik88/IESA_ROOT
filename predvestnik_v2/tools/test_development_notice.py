@@ -12,6 +12,9 @@ def main() -> None:
     assert 'class="development-notice"' in index
     assert "Предвестник в активной разработке" in index
     assert "Предвестник находится в активной разработке" in start_handler
+    for source in (index, start_handler):
+        assert "Обновление ещё не вышло" in source
+        assert "Большая часть функций пока скрыта" in source
     print("OK: public Mini App and /start disclose active development")
 
 
