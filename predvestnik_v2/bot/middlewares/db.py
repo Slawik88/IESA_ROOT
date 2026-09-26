@@ -65,6 +65,13 @@ async def db_middleware(
         # their handlers, but must not refresh profile/activity automatically.
         automatic_writes_allowed = not bool(data.get("user_banned"))
 
+        if (
+            user and not is_bot_sender and automatic_writes_allowed and chat_obj
+            and getattr(chat_obj, "type", None) == "private"
+        ):
+            from infrastructure.repositories import vip_v2 as vip_v2_repo
+            await vip_v2_repo.mark_private_contact(db, user_id=int(user.id))
+
         try:
             if user or chat_obj:
                 blocked = False

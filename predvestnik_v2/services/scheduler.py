@@ -4,6 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 
 from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 from loguru import logger
 
 from infrastructure.database import get_pool
@@ -90,6 +91,10 @@ async def maintenance_task(bot: Bot) -> None:
                         await record_daily_reminder_sent(db, user_id=user_id)
                         await db.commit()
                     except Exception as reminder_error:
+                        if isinstance(reminder_error, (TelegramBadRequest, TelegramForbiddenError)):
+                            from infrastructure.repositories import vip_v2 as vip_v2_repo
+                            await vip_v2_repo.mark_private_contact_unreachable(db, user_id=user_id)
+                            await db.commit()
                         logger.warning(f"VIP reminder {user_id} failed: {reminder_error}")
         except Exception as exc:
             logger.error(f"Ошибка в задаче обслуживания: {exc}")

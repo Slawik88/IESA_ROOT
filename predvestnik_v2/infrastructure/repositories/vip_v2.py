@@ -33,6 +33,16 @@ async def _schema_ready(db) -> bool:
                SELECT 1 FROM pg_trigger WHERE tgname='vip_v2_daily_receipts_append_only'
                  AND tgrelid=to_regclass('vip_v2_daily_receipts') AND NOT tgisinternal
            )
+           AND EXISTS (
+               SELECT 1 FROM information_schema.columns
+               WHERE table_schema=current_schema() AND table_name='vip_v2_preferences'
+                 AND column_name='dm_confirmed_at'
+           )
+           AND EXISTS (
+               SELECT 1 FROM information_schema.columns
+               WHERE table_schema=current_schema() AND table_name='vip_v2_preferences'
+                 AND column_name='dm_disabled_at'
+           )
         """
     ) as cursor:
         row = await cursor.fetchone()
@@ -96,12 +106,16 @@ async def _ensure_tables_unlocked(db) -> None:
             reminder_enabled BOOLEAN NOT NULL DEFAULT TRUE,
             missed_reminders SMALLINT NOT NULL DEFAULT 0 CHECK (missed_reminders BETWEEN 0 AND 2),
             last_reminder_day DATE,
+            dm_confirmed_at TIMESTAMPTZ,
+            dm_disabled_at TIMESTAMPTZ,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
         """
     )
     await db.execute("ALTER TABLE vip_v2_preferences ADD COLUMN IF NOT EXISTS missed_reminders SMALLINT NOT NULL DEFAULT 0")
     await db.execute("ALTER TABLE vip_v2_preferences ADD COLUMN IF NOT EXISTS last_reminder_day DATE")
+    await db.execute("ALTER TABLE vip_v2_preferences ADD COLUMN IF NOT EXISTS dm_confirmed_at TIMESTAMPTZ")
+    await db.execute("ALTER TABLE vip_v2_preferences ADD COLUMN IF NOT EXISTS dm_disabled_at TIMESTAMPTZ")
     await db.execute(
         """
         CREATE TABLE IF NOT EXISTS vip_v2_daily_progress (
@@ -300,6 +314,7 @@ async def reminder_candidates(db, *, day_key: str) -> list[dict]:
         LEFT JOIN vip_v2_daily_receipts r ON r.user_id=v.user_id AND r.day_key=?::text::date
         WHERE v.expires_at>NOW() AND r.user_id IS NULL
           AND COALESCE(p.reminder_enabled,TRUE)=TRUE
+          AND p.dm_confirmed_at IS NOT NULL AND p.dm_disabled_at IS NULL
           AND COALESCE(p.missed_reminders,0)<2
           AND (p.last_reminder_day IS NULL OR p.last_reminder_day<?::text::date)
         ORDER BY v.user_id
@@ -320,4 +335,23 @@ async def mark_reminder_sent(db, *, user_id: int, day_key: str) -> None:
         WHERE vip_v2_preferences.last_reminder_day IS NULL
            OR vip_v2_preferences.last_reminder_day<EXCLUDED.last_reminder_day
         """, (int(user_id), day_key),
+    )
+
+
+async def mark_private_contact(db, *, user_id: int) -> None:
+    await db.execute(
+        """
+        INSERT INTO vip_v2_preferences(user_id,dm_confirmed_at,dm_disabled_at,updated_at)
+        VALUES (?,NOW(),NULL,NOW())
+        ON CONFLICT (user_id) DO UPDATE SET
+            dm_confirmed_at=NOW(),dm_disabled_at=NULL,updated_at=NOW()
+        """,
+        (int(user_id),),
+    )
+
+
+async def mark_private_contact_unreachable(db, *, user_id: int) -> None:
+    await db.execute(
+        "UPDATE vip_v2_preferences SET dm_disabled_at=NOW(),updated_at=NOW() WHERE user_id=?",
+        (int(user_id),),
     )

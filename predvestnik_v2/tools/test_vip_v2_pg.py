@@ -214,7 +214,12 @@ async def run(dsn: str) -> None:
         before_evening = datetime(2026, 9, 26, 17, 59, tzinfo=timezone.utc)
         assert await vip.daily_reminder_candidates(db, now=before_evening) == []
         first_evening = datetime(2026, 9, 26, 18, 0, tzinfo=timezone.utc)
+        assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening)
+        await vip_repo.mark_private_contact(db, user_id=reminder_user)
         assert reminder_user in await vip.daily_reminder_candidates(db, now=first_evening)
+        await vip_repo.mark_private_contact_unreachable(db, user_id=reminder_user)
+        assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening)
+        await vip_repo.mark_private_contact(db, user_id=reminder_user)
         await vip.record_daily_reminder_sent(db, user_id=reminder_user, now=first_evening)
         assert reminder_user not in await vip.daily_reminder_candidates(db, now=first_evening)
         second_evening = first_evening + timedelta(days=1)

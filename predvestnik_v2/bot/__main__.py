@@ -170,6 +170,7 @@ async def main():
     from infrastructure.repositories import achievements_v1 as achievements_v1_repo
     from infrastructure.repositories import public_profiles_v1 as public_profiles_v1_repo
     from infrastructure.repositories import global_skins_v1 as global_skins_v1_repo
+    from infrastructure.repositories import vip_v2 as vip_v2_repo
     async with pool.acquire() as _startup_connection:
         _startup_db = PGAdapter(_startup_connection)
         await system_flags.ensure_table(_startup_db)
@@ -180,6 +181,7 @@ async def main():
         await achievements_v1_repo.ensure_tables(_startup_db)
         await public_profiles_v1_repo.ensure_tables(_startup_db)
         await global_skins_v1_repo.ensure_tables(_startup_db)
+        await vip_v2_repo.ensure_tables(_startup_db)
     logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
