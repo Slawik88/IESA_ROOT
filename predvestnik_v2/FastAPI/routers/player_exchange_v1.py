@@ -1,0 +1,44 @@
+"""Authenticated, fail-closed API for the player-created exchange."""
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from FastAPI.deps import get_db, require_tg_user
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from core.player_exchange_v1 import PlayerExchangePolicyError
+from infrastructure.repositories import player_exchange_v1 as repo
+from services import player_exchange_v1 as service
+
+
+router = APIRouter(prefix="/player-exchange/v1", tags=["player-exchange-v1"])
+
+
+class CoinCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    ticker: str = Field(min_length=1, max_length=12)
+    initial_mora: int
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+@router.get("/coins")
+async def coins(db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        await service.require_enabled(db)
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return {"items": await repo.list_coins(db), "notice": "Игровые активы без вывода в деньги."}
+
+
+@router.post("/coins")
+async def create_coin(payload: CoinCreateRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        coin = await service.create_coin(
+            db, owner_id=int(user["id"]), name=payload.name, ticker=payload.ticker,
+            initial_mora=payload.initial_mora, action_id=payload.action_id,
+        )
+        return {"coin": coin, "notice": "Игровой актив без вывода в деньги."}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc

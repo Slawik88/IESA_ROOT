@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               admin, global_admin, dev_console, payments,
                               legal, analytics as analytics_router,
                               dev_overlay, appeals, account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
@@ -70,6 +70,7 @@ from infrastructure.repositories.achievements_v1 import ensure_tables as ensure_
 from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensure_public_profiles_v1
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
+from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
 from FastAPI.deps import require_tab_enabled
 from loguru import logger as _log
 
@@ -129,11 +130,25 @@ async def lifespan(app: FastAPI):
             (ensure_achievements_v1,                "achievements_v1"),
             (ensure_public_profiles_v1,             "public_profiles_v1"),
             (ensure_global_skins_v1,                 "global_skins_v1"),
+            (ensure_player_exchange_v1,              "player_exchange_v1"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
             except Exception as _e:
                 _log.error(f"[lifespan] {_label}.ensure_table failed: {_e}")
+                if _label == "player_exchange_v1":
+                    try:
+                        if conn.is_in_transaction():
+                            await conn.execute("ROLLBACK")
+                        _enabled = await conn.fetchval(
+                            "SELECT enabled FROM system_flags WHERE key='economy_player_exchange_v1'"
+                        )
+                    except Exception:
+                        _enabled = False
+                    if _enabled:
+                        raise RuntimeError(
+                            "Enabled player exchange schema failed to initialize."
+                        ) from _e
             finally:
                 # Любой ensure мог оставить общее соединение в aborted-transaction
                 # (multi-statement execute, гонка ON CONFLICT и т.п.). Тогда КАЖДЫЙ
@@ -163,6 +178,7 @@ for r in [profile.router, marriage.router, wallet.router,
           analytics_router.router, dev_overlay.router, appeals.router, account.router,
           rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
+app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
 
 
