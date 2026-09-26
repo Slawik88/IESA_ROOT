@@ -598,7 +598,7 @@ async def answer_question(
     if count_today >= daily_cap:
         # Подсказку про VIP показываем только тем, кто ещё не на максимуме лимита.
         tip = "" if daily_cap >= max(AI_ASSISTANT_DAILY_CAP_BY_VIP.values()) \
-            else " 👑 С VIP лимит больше — до 10 вопросов в день."
+            else " ✦ С VIP лимит больше — до 10 вопросов в день."
         return (f"🤖 На сегодня вопросы к помощнику закончились (лимит {daily_cap}/день) — "
                 f"обновится в полночь.{tip}"), None, None
     if last_at is not None:

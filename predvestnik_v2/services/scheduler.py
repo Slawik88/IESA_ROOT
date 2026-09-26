@@ -71,13 +71,26 @@ async def _daily_gc(db) -> None:
         logger.warning(f"account deletion tick error: {exc}")
 
 
-async def maintenance_task() -> None:
+async def maintenance_task(bot: Bot) -> None:
     """Keep operational maintenance alive without reviving retired systems."""
     logger.info("Фоновая задача обслуживания запущена.")
     while True:
         try:
             async with get_pool().acquire() as connection:
-                await _daily_gc(PGAdapter(connection))
+                db = PGAdapter(connection)
+                await _daily_gc(db)
+                from services.vip import daily_reminder_candidates, record_daily_reminder_sent
+                for user_id in await daily_reminder_candidates(db):
+                    try:
+                        await bot.send_message(
+                            user_id,
+                            "✦ VIP-поручение ещё ждёт: заверши одну игру сегодня. "
+                            "Прогресс серии не сгорит, если пропустишь день.",
+                        )
+                        await record_daily_reminder_sent(db, user_id=user_id)
+                        await db.commit()
+                    except Exception as reminder_error:
+                        logger.warning(f"VIP reminder {user_id} failed: {reminder_error}")
         except Exception as exc:
             logger.error(f"Ошибка в задаче обслуживания: {exc}")
             await asyncio.sleep(30)

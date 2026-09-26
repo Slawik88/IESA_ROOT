@@ -16,7 +16,7 @@ from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.leveling import account_progress
 from services.formatting import safe_html
-from services.vip import is_vip_active, get_vip_info
+from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
 from services.global_skins_v1 import state as global_skin_state
 from infrastructure.repositories.economy import get_item_quantity, remove_item
@@ -413,6 +413,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
     ) as c:
         activity_row = dict(await c.fetchone())
     vip_info = await get_vip_info(db, user_id)
+    vip_preferences = await get_preferences(db, user_id=user_id) if vip_info else None
     joined_date = await get_first_seen(db, user_id)
 
     # whatsnew_seen_id вынесен из основного запроса и достаётся отдельно с мягкой
@@ -472,6 +473,9 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
             "label": vip_info["tier_label"],
             "days_left": vip_info["days_left"],
             "expires_at": _iso(vip_info["expires_at"]),
+            "badge": VIP_BADGES.get(vip_preferences["badge_id"], VIP_BADGES["spark"]),
+            "badge_id": vip_preferences["badge_id"],
+            "badge_position": vip_preferences["badge_position"],
         } if vip_info else None,
         "compensation": await _compensation_receipt(db, user_id),
         "sanctions": await _sanctions(db, user_id, include_private=True),
@@ -709,6 +713,7 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
             best_achievement = {"icon": ACHIEVEMENTS[aid]["icon"], "name": ACHIEVEMENTS[aid]["name"], "level": a["level"]}
 
     vip_info = await get_vip_info(db, target_id)
+    vip_preferences = await get_preferences(db, user_id=target_id) if vip_info else None
 
     joined_date = await get_first_seen(db, target_id)
 
@@ -748,6 +753,9 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
             "tier": vip_info["tier"],
             "label": vip_info["tier_label"],
             "days_left": vip_info["days_left"],
+            "badge": VIP_BADGES.get(vip_preferences["badge_id"], VIP_BADGES["spark"]),
+            "badge_id": vip_preferences["badge_id"],
+            "badge_position": vip_preferences["badge_position"],
         } if vip_info else None,
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).

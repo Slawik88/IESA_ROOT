@@ -9,6 +9,8 @@ from infrastructure.repositories import chests_v1 as chest_repo
 from infrastructure.repositories import pets_v1 as pets_repo
 from infrastructure.repositories import economy_ledger, quests_v1 as repo, system_flags
 from services.chests_v1 import grant_quest_completion_key_in_transaction
+from services.vip import complete_daily_mission_from_game, is_vip_active
+from infrastructure.repositories import vip_v2 as vip_repo
 
 
 class QuestError(Exception):
@@ -27,6 +29,12 @@ REWARD_MORA = {'daily': 20, 'weekly': 100, 'combined': 75}
 REWARD_KEYS = {'daily': 1, 'weekly': 1, 'combined': 0}
 
 
+def reward_mora(kind: str, *, vip_active: bool) -> int:
+    """VIP boosts only the ordinary daily and weekly completion rewards."""
+    base = int(REWARD_MORA[kind])
+    return base + (base // 10 if vip_active and kind in {'daily', 'weekly'} else 0)
+
+
 def _unavailable_overview(*, vip_active: bool) -> dict:
     keys = period_keys()
     limit = rules.VIP_WEEKLY_REROLLS if vip_active else rules.STANDARD_WEEKLY_REROLLS
@@ -38,7 +46,7 @@ def _unavailable_overview(*, vip_active: bool) -> dict:
         'completion': {'daily': False, 'weekly': False, 'combined': False},
         'rewards': {
             'policy_version': REWARD_POLICY_VERSION, 'currency': 'mora',
-            'items': {kind: {'amount_mora': REWARD_MORA[kind], 'amount_keys': REWARD_KEYS[kind],
+            'items': {kind: {'amount_mora': reward_mora(kind, vip_active=vip_active), 'amount_keys': REWARD_KEYS[kind],
                              'claimed': False, 'claimable': False}
                       for kind in ('daily', 'weekly', 'combined')},
             'key_balance': 0,
@@ -256,7 +264,7 @@ async def _overview_locked(db, *, user_id: int, keys: dict[str, str], vip_active
     completion = {'daily': all_daily, 'weekly': all_weekly, 'combined': all_daily and all_weekly}
     rewards = {
         kind: {
-            'amount_mora': REWARD_MORA[kind],
+            'amount_mora': reward_mora(kind, vip_active=vip_active),
             'amount_keys': (1 if claimed[kind] and actual_key_grants.get(kind) else
                             REWARD_KEYS[kind] if not claimed[kind] and chests_enabled else 0),
             'claimed': claimed[kind],
@@ -347,6 +355,9 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
     keys = period_keys()
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
+        # Re-read after the user lock: purchase/expiry at the boundary must not
+        # make the displayed bonus differ from the immutable credited amount.
+        vip_active = await is_vip_active(db, user_id)
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
         reward = state['rewards']['items'][kind]
         if reward['claimed']:
@@ -359,16 +370,17 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
             db, user_id=user_id, reward_id=reward_id, reward_kind=kind,
             quest_policy_version=rules.POLICY_VERSION,
             reward_policy_version=REWARD_POLICY_VERSION,
-            amount_mora=REWARD_MORA[kind],
+            amount_mora=reward_mora(kind, vip_active=vip_active),
         ):
             return {**await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources),
                     'reward_result': {'kind': kind, 'already_claimed': True}}
         mutation = await economy_ledger.apply_balance_change(
-            db, user_id, {'mora': REWARD_MORA[kind]}, reason_code='quest_reward',
+            db, user_id, {'mora': reward_mora(kind, vip_active=vip_active)}, reason_code='quest_reward',
             idempotency_key=f'quest-v1:{reward_id}', source_type='quest',
             reference_type='quest_reward', reference_id=reward_id,
             metadata={'policy_version': REWARD_POLICY_VERSION, 'reward_kind': kind,
-                      'reward_id': reward_id, 'amount_mora': REWARD_MORA[kind]},
+                      'reward_id': reward_id, 'amount_mora': reward_mora(kind, vip_active=vip_active),
+                      'vip_bonus_percent': 10 if vip_active and kind in {'daily', 'weekly'} else 0},
             note=f'Квесты: {kind} награда',
         )
         key_receipt = None
@@ -379,7 +391,7 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
             )
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
     return {**state, 'reward_result': {'kind': kind, 'already_claimed': False,
-                                        'amount_mora': REWARD_MORA[kind],
+                                        'amount_mora': reward_mora(kind, vip_active=vip_active),
                                         'amount_keys': REWARD_KEYS[kind] if chests_enabled else 0,
                                         'key_grant_id': key_receipt.grant_id if key_receipt else None,
                                         'operation_id': mutation.operation_id}}
@@ -394,11 +406,22 @@ async def record_metric(db, *, user_id: int, metric: str, event_id: str, vip_act
     if not event_id or len(event_id) > 128:
         raise QuestError('invalid quest event id')
     keys = period_keys()
+    await chest_repo.ensure_tables(db)
+    await vip_repo.ensure_tables(db)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
+        vip_active = await is_vip_active(db, user_id)
         if not await repo.save_metric_receipt(db, user_id=user_id, metric=metric, event_id=event_id):
             return await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
         for period in ('daily', 'weekly'):
             await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)
             await repo.increment_metric(db, user_id=user_id, period=period, period_key=keys[period], metric=metric)
-        return await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
+        vip_daily = None
+        if metric in {'rhythm_completed', 'minesweeper_completed', 'mafia_completed'}:
+            vip_daily = await complete_daily_mission_from_game(
+                db, user_id=user_id, source_event_id=f"{metric}:{event_id}", day_key=keys['daily'],
+            )
+        result = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
+        if vip_daily:
+            result['vip_daily'] = vip_daily
+        return result

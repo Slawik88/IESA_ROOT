@@ -18,9 +18,18 @@ from services.utils import safe_html, resolve_display_name
 
 # ── VIP badge (Implementation Block 3.1) ────────────────────────────────────────
 
-def format_display_name(name: str, is_vip: bool) -> str:
-    """Единственное место, определяющее как выглядит VIP-бейдж."""
-    return f"👑 {name}" if is_vip else name
+def format_display_name(
+    name: str, is_vip: bool, *, badge: str = "✦", position: str = "left",
+) -> str:
+    """One safe renderer for the persisted VIP badge placement."""
+    if not is_vip or position == "hidden":
+        return name
+    mark = badge if badge else "✦"
+    if position == "right":
+        return f"{name} {mark}"
+    if position == "both":
+        return f"{mark} {name} {mark}"
+    return f"{mark} {name}"
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────

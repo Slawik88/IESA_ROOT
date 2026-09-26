@@ -1,5 +1,5 @@
-"""Block 8: дневной лимит вопросов к ИИ-помощнику зависит от VIP.
-Без VIP — базовый (5), VIP-1М — 7, VIP-2М и любой более длинный пак — 10.
+"""Дневной лимит вопросов к ИИ-помощнику зависит от активного VIP.
+Без VIP — базовый (5), любой сохранённый или новый VIP — 10.
 
 Тест бьёт по логике выбора лимита в answer_question через мок get_vip_info и
 repo.get_usage_today: разные тиры дают разный порог отказа и разный остаток.
@@ -52,30 +52,30 @@ async def run_case(tier, count_today):
 async def main():
     base = AI_ASSISTANT_DAILY_CAP
     assert base == 5, f"ожидали базовый лимит 5, в конфиге {base}"
-    assert AI_ASSISTANT_DAILY_CAP_BY_VIP["1m"] == 7
+    assert AI_ASSISTANT_DAILY_CAP_BY_VIP["vip"] == 10
+    assert AI_ASSISTANT_DAILY_CAP_BY_VIP["1m"] == 10
     assert AI_ASSISTANT_DAILY_CAP_BY_VIP["2m"] == 10
 
     # На пороге-1 запрос ещё проходит, remaining = cap - count - 1
-    for tier, cap in [(None, 5), ("1m", 7), ("2m", 10), ("12m", 10)]:
+    for tier, cap in [(None, 5), ("vip", 10), ("1m", 10), ("2m", 10), ("12m", 10)]:
         text, remaining = await run_case(tier, cap - 1)
         assert remaining == 0, f"{tier}: на последнем вопросе remaining ожидали 0, получили {remaining}"
         assert "закончились" not in text, f"{tier}: последний вопрос не должен отбиваться ({text!r})"
 
     # На пороге запрос отбивается сообщением про лимит
-    for tier, cap in [(None, 5), ("1m", 7), ("2m", 10)]:
+    for tier, cap in [(None, 5), ("vip", 10), ("1m", 10), ("2m", 10)]:
         text, remaining = await run_case(tier, cap)
         assert remaining is None and "закончились" in text, \
             f"{tier}: на лимите {cap} ожидали отказ, получили {text!r}"
         assert f"{cap}/день" in text, f"{tier}: в тексте нет актуального лимита {cap}/день: {text!r}"
 
-    # Базовый и VIP-1М видят подсказку про VIP, максимум (10) — нет
+    # Только базовый лимит показывает подсказку про VIP.
     text_base, _ = await run_case(None, 5)
     assert "С VIP лимит больше" in text_base, "без VIP должна быть подсказка про VIP"
     text_max, _ = await run_case("2m", 10)
     assert "С VIP лимит больше" not in text_max, "на максимуме подсказки про VIP быть не должно"
 
-    print("OK: лимит ИИ 5(база)/7(VIP-1М)/10(VIP-2М+) — порог и остаток считаются по тиру, "
-          "подсказка про VIP только у не-максимальных")
+    print("OK: лимит ИИ 5 без VIP / 10 с любым активным VIP")
 
 
 asyncio.run(main())

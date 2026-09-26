@@ -17,6 +17,7 @@ KEY_SOURCE_AMOUNTS: Final = {
     "zarniki_purchase": 1,
     "pet_trek_complete": 1,
     "pet_expedition_complete": 1,
+    "vip_daily_milestone": 1,
 }
 STAR_WEIGHTS: Final = {
     1: 3500, 2: 2700, 3: 1800, 4: 900, 5: 500,

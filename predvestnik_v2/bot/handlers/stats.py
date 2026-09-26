@@ -309,14 +309,19 @@ async def build_top_text(db, chat_id: int, period: str, page: int = 0) -> tuple[
     page_users = all_users[slice_start:slice_end]
 
     _suffixes = await suffixes_for(chat_id, [u["user_tg_id"] for u in page_users])
+    from services.vip import VIP_BADGES, get_preferences_batch
+    vip_preferences = await get_preferences_batch(db, user_ids=[u["user_tg_id"] for u in page_users])
     lines = [f"🏆 <b>ТОП АКТИВНОСТИ</b>\n📅 <b>Период:</b> {period_name}\n"]
     for local_idx, user in enumerate(page_users, 1):
         global_idx = slice_start + local_idx
         medal = "🥇" if global_idx == 1 else "🥈" if global_idx == 2 else "🥉" if global_idx == 3 else "🏅" if global_idx <= 10 else f"{global_idx}."
         uname = user["user_tg_username"]
+        preference = vip_preferences.get(int(user["user_tg_id"]), {})
         name = format_display_name(
             safe_html(_trunc_name(uname) if uname else f"Пользователь {user['user_tg_id']}"),
             user["is_vip"],
+            badge=VIP_BADGES.get(preference.get("badge_id"), "✦"),
+            position=preference.get("badge_position", "left"),
         )
         name += _suffixes.get(user["user_tg_id"], "")
         link = f'<a href="tg://user?id={user["user_tg_id"]}">{name}</a>'

@@ -38,13 +38,18 @@ async def resolve_display_name(
 ) -> str:
     """Return the user's local nickname if set, otherwise `fallback` (first_name/username).
     Always pass through safe_html so callers can embed the result in HTML directly.
-    Prefixes with 👑 if the user has an active VIP subscription (Implementation Block 3.2)."""
+    Applies the player's configured VIP badge when the subscription is active."""
     from infrastructure.repositories.users import get_nickname
-    from services.vip import is_vip_active
+    from services.vip import VIP_BADGES, get_preferences, is_vip_active
     from services.profile_render import format_display_name
     nick = await get_nickname(db, user_id, chat_id)
     name = safe_html(nick if nick else fallback)
-    name = format_display_name(name, await is_vip_active(db, user_id))
+    active = await is_vip_active(db, user_id)
+    preferences = await get_preferences(db, user_id=user_id) if active else {}
+    name = format_display_name(
+        name, active, badge=VIP_BADGES.get(preferences.get("badge_id"), "✦"),
+        position=preferences.get("badge_position", "left"),
+    )
     # Кастом-тайтл TG-админа («Владелец»/«Модератор»/свой) — та же подпись,
     # что видна рядом с именем в самой группе. Только в группах (chat_id < 0).
     if chat_id and chat_id < 0:

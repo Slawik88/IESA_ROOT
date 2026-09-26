@@ -360,7 +360,12 @@ function showLevelUp(lvl) {
 const fmt = n => Number(n).toLocaleString('ru');
 // Float-формат валют/цен: разделители тысяч + до 2 знаков после запятой (без хвостовых нулей).
 const fmtF = n => (Number(n)||0).toLocaleString('ru',{maximumFractionDigits:2});
-function vipName(name, isVip) { return isVip ? `👑 ${name}` : name; }
+function vipName(name, isVip, badge='✦', position='left') {
+  if (!isVip || position === 'hidden') return name;
+  if (position === 'right') return `${name} ${badge}`;
+  if (position === 'both') return `${badge} ${name} ${badge}`;
+  return `${badge} ${name}`;
+}
 function fmtUTC(s) {
   if (!s) return '';
   const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');

@@ -567,7 +567,7 @@ AI_ASSISTANT_DAILY_CAP: int = 5            # вопросов в сутки БЕ
 # более длинный пак → 10. Ключи — id тиров из registry.VIP_TIERS; отсутствующий
 # тир (или нет активного VIP) падает на базовый AI_ASSISTANT_DAILY_CAP.
 AI_ASSISTANT_DAILY_CAP_BY_VIP: dict[str, int] = {
-    "1m": 7, "2m": 10, "3m": 10, "8m": 10, "12m": 10,
+    "vip": 10, "1m": 10, "2m": 10, "3m": 10, "8m": 10, "12m": 10,
 }
 AI_ASSISTANT_MAX_QUESTION_LEN: int = 300   # символов, длиннее — просим сократить
 # ── Battle Pass (Implementation Block 5) ───────────────────────────────────────

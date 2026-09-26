@@ -261,7 +261,7 @@ async def main():
         logger.info("═" * 50)
 
         background_tasks.extend([
-            _spawn_supervised("maintenance", maintenance_task(), failed=background_failed),
+            _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
         # Preprod intentionally has no Stars history/reconciliation access.

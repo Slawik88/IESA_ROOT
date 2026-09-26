@@ -10,12 +10,14 @@ function renderProfileShowcase(data, cosmetics, options={}) {
   const level=Math.max(1,Number(d.account_level)||1), xp=Math.max(0,Number(d.xp_into)||0), xpNeed=Math.max(1,Number(d.xp_to_next)||Number(d.xp_per_level)||1);
   const xpPercent=Math.min(100,Math.round(xp/xpNeed*100));
   const wallet=(d.balances&&typeof d.balances==='object')?d.balances:d;
-  const avatar=d.is_vip?'👑':'🔮', titleText=title?(title.text||title.name):'';
+  const vipBadge=d.vip?.badge||'✦';
+  const avatar=d.is_vip?vipBadge:'🔮', titleText=title?(title.text||title.name):'';
   const avatarImage=typeof d.avatar==='string'&&/^data:image\/(?:png|jpe?g|webp);base64,/i.test(d.avatar)
     ?`<img src="${_profileEsc(d.avatar)}" alt="" decoding="async">`:avatar;
   const publicName=String(d.display_name||'').trim();
   const profileName=String(d.username||'Игрок').trim()||'Игрок';
-  const shownName=publicName||(profileName.startsWith('@')?profileName:`@${profileName.replace(/^@+/, '')}`);
+  const rawName=publicName||(profileName.startsWith('@')?profileName:`@${profileName.replace(/^@+/, '')}`);
+  const shownName=vipName(rawName,d.is_vip,vipBadge,d.vip?.badge_position||'left');
   const lineage=_profileCss(c.composition?.dominant_lineup||c.lineage?.id||bg?.lineup||frame?.lineup||halo?.lineup||fx?.lineup||'');
   // The lead item names the identity accent, while both independently owned
   // classes remain on the avatar.  The paired CSS assigns frame and halo to
@@ -95,9 +97,41 @@ function renderProfileDetails(data,{owner=false}={}){
     ${_profileSanctions(d)}`;
 }
 function _profileVipCard(vip){
-  if(!vip)return `<section class="profile-vip-card profile-vip-card--inactive"><span aria-hidden="true">◇</span><div><small>Статус аккаунта</small><b>Обычный профиль</b><p>VIP сейчас не активен</p></div></section>`;
+  if(!vip)return `<section class="profile-vip-card profile-vip-card--inactive"><span aria-hidden="true">◇</span><div><small>Статус аккаунта</small><b>Обычный профиль</b><p>VIP сейчас не активен</p></div><button type="button" class="btn btn-sm btn-gold" onclick="openVipModal()">Выбрать срок</button></section>`;
   const expires=vip.expires_at?_profileDate(vip.expires_at):'';
-  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
+  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p><button type="button" class="btn btn-sm btn-ghost" onclick="openVipModal()">Настроить или продлить</button></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
+}
+function openVipModal(){
+  OM('VIP','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  api('/vip/status').then(d=>{
+    const packages=(d.tiers||[]).map(p=>`<button type="button" class="btn btn-ghost btn-full" style="margin-top:8px" data-vip-days="${Number(p.duration_days)||0}" onclick="buyVipPackage(this)"><b>${fmt(p.duration_days)} дней</b> · ${fmt(p.price_zarniki)} ✨</button>`).join('');
+    const badges=(d.badges||[]).map(b=>`<option value="${_profileEsc(b.id)}"${d.preferences?.badge_id===b.id?' selected':''}>${_profileEsc(b.symbol)} ${_profileEsc(b.id)}</option>`).join('');
+    const pos=d.preferences?.badge_position||'left';
+    const body=`<div class="looks-hint">Один VIP без уровней силы. Все варианты отличаются только сроком.</div>
+      <div class="irow"><span class="ik">Статус</span><span class="iv">${d.active?`до ${_profileDate(d.expires_at)}`:'не активен'}</span></div>
+      ${packages}
+      <div style="height:12px"></div><b>Значок у ника</b>
+      <select id="vip-badge" class="num-input">${badges}</select>
+      <select id="vip-badge-pos" class="num-input"><option value="left"${pos==='left'?' selected':''}>Слева</option><option value="right"${pos==='right'?' selected':''}>Справа</option><option value="both"${pos==='both'?' selected':''}>С двух сторон</option><option value="hidden"${pos==='hidden'?' selected':''}>Не показывать</option></select>
+      <label class="irow"><span class="ik">Напоминания</span><input id="vip-reminders" type="checkbox"${d.preferences?.reminder_enabled!==false?' checked':''}></label>
+      <button type="button" class="btn btn-gold btn-full" onclick="saveVipPreferences(this)"${d.active?'':' disabled'}>Сохранить настройки</button>`;
+    const mb=el('mb'); if(mb) mb.innerHTML=body;
+  }).catch(e=>{const mb=el('mb');if(mb)mb.innerHTML=`<div class="looks-hint">${_profileEsc(e?.message||e||'Не удалось загрузить VIP')}</div>`;});
+}
+function buyVipPackage(button){
+  if(!button||button.disabled)return;
+  const days=Number(button.dataset.vipDays)||0;
+  const action=button.dataset.actionId||(globalThis.crypto?.randomUUID?.()||`vip-${Date.now()}`);
+  button.dataset.actionId=action;button.disabled=true;
+  api('/vip/purchase',{method:'POST',body:JSON.stringify({package_days:days,action_id:action})})
+    .then(r=>{toast(`VIP продлён на ${fmt(r.package_days)} дней`);CM();loadProfile();})
+    .catch(e=>{button.disabled=false;toast(e?.message||e||'Покупка не выполнена',false);});
+}
+function saveVipPreferences(button){
+  if(!button||button.disabled)return;button.disabled=true;
+  api('/vip/preferences',{method:'PUT',body:JSON.stringify({badge_id:el('vip-badge')?.value||'spark',badge_position:el('vip-badge-pos')?.value||'left',reminder_enabled:!!el('vip-reminders')?.checked})})
+    .then(()=>{toast('Настройки VIP сохранены');CM();loadProfile();})
+    .catch(e=>{button.disabled=false;toast(e?.message||e||'Не удалось сохранить',false);});
 }
 function _profileCompensationCard(c,userId){
   if(!c)return'';
