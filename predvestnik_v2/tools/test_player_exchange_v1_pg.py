@@ -59,6 +59,13 @@ async def prepare(dsn: str):
             );
             CREATE TABLE user_reserve (user_id BIGINT PRIMARY KEY,reserved_mora NUMERIC(24,6) NOT NULL DEFAULT 0)
         """)
+        await conn.execute("""
+            CREATE TABLE user_login_signals (
+                user_id BIGINT NOT NULL,kind TEXT NOT NULL,value_hash TEXT NOT NULL,
+                first_seen TIMESTAMP NOT NULL DEFAULT NOW(),last_seen TIMESTAMP NOT NULL DEFAULT NOW(),
+                hits INTEGER NOT NULL DEFAULT 1,PRIMARY KEY(user_id,kind,value_hash)
+            )
+        """)
         db = PGAdapter(conn)
         await economy_ledger.ensure_tables(db)
         await system_flags.ensure_table(db)
@@ -72,7 +79,9 @@ async def prepare(dsn: str):
         await db.execute(
             "INSERT INTO users(user_tg_id,user_balance_mora,user_balance_zarniki) VALUES "
             "(1,100000,10000),(2,100000,10000),(3,100,100),(4,100000,10000),"
-            "(5,100000,10000),(6,100000,10000)"
+            "(5,100000,10000),(6,100000,10000),(7,100000,10000),"
+            "(8,100000,10000),(9,100000,10000),(10,100000,10000),"
+            "(11,100000,10000),(12,100000,10000)"
         )
         await db.commit()
     finally:
@@ -83,6 +92,14 @@ async def create(dsn: str, user: int, name: str, ticker: str, action: str):
     conn, db = await connect(dsn)
     try:
         return await service.create_coin(db, owner_id=user, name=name, ticker=ticker, initial_mora=10000, action_id=action)
+    finally:
+        await conn.close()
+
+
+async def settle(dsn: str, coin_id: str):
+    conn, db = await connect(dsn)
+    try:
+        return await service.settle_auction(db, coin_id=coin_id)
     finally:
         await conn.close()
 
@@ -141,6 +158,80 @@ async def main(dsn: str):
     except service.PlayerExchangeUnavailable:
         pass
 
+    conn, db = await connect(dsn)
+    try:
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
+        launched = await service.create_coin(
+            db, owner_id=7, name="Рыночная монета", ticker="MARKT",
+            initial_mora=10000, action_id="create-action-0009",
+        )
+        await service.place_auction_bid(
+            db, bidder_id=8, coin_id=launched["id"], max_price_mora="1",
+            escrow_mora=20000, action_id="bid-action-0001",
+        )
+        await service.place_auction_bid(
+            db, bidder_id=9, coin_id=launched["id"], max_price_mora="1",
+            escrow_mora=20000, action_id="bid-action-0002",
+        )
+        try:
+            await service.place_auction_bid(
+                db, bidder_id=8, coin_id=launched["id"], max_price_mora="2",
+                escrow_mora=100, action_id="bid-action-second",
+            )
+            raise AssertionError("second bid was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        try:
+            await service.place_auction_bid(
+                db, bidder_id=11, coin_id=launched["id"], max_price_mora="Infinity",
+                escrow_mora=100, action_id="bid-action-infinite",
+            )
+            raise AssertionError("non-finite price was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute(
+            "INSERT INTO user_login_signals(user_id,kind,value_hash,hits) VALUES "
+            "(7,'ip','same-ip',2),(11,'ip','same-ip',2),"
+            "(7,'fp','same-fp',2),(12,'ip','same-ip',2),(12,'fp','same-fp',2)"
+        )
+        assert await repo.bidder_has_shared_owner_signal(db, bidder_id=11, owner_id=7) is False
+        assert await repo.bidder_has_shared_owner_signal(db, bidder_id=12, owner_id=7) is True
+        await db.execute(
+            "UPDATE player_coins_v1 SET auction_starts_at=NOW()-INTERVAL '2 hours',"
+            "auction_ends_at=NOW()-INTERVAL '1 second' WHERE id=?", (launched["id"],)
+        )
+        await db.commit()
+        concurrent_settlements = await asyncio.gather(
+            settle(dsn, launched["id"]), settle(dsn, launched["id"]),
+        )
+        settled = next(item for item in concurrent_settlements if not item["replayed"])
+        replayed_settlement = next(item for item in concurrent_settlements if item["replayed"])
+        assert settled["success"] is True and replayed_settlement["replayed"] is True
+        assert int(settled["sold_units"]) == 40_000_000
+        assert float(await conn.fetchval("SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"])) == 50000
+        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=8") == 1
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_events_v1 WHERE coin_id=$1 AND event_type IN ('auction_bid_placed','auction_bid_settled')",
+            launched["id"],
+        ) == 4
+
+        failed = await service.create_coin(
+            db, owner_id=10, name="Тихая монета", ticker="QUIET",
+            initial_mora=10000, action_id="create-action-0010",
+        )
+        await db.execute(
+            "UPDATE player_coins_v1 SET auction_starts_at=NOW()-INTERVAL '2 hours',"
+            "auction_ends_at=NOW()-INTERVAL '1 second' WHERE id=?", (failed["id"],)
+        )
+        await db.commit()
+        failed_result = await service.settle_auction(db, coin_id=failed["id"])
+        assert failed_result["success"] is False
+        owner = await conn.fetchrow("SELECT user_balance_mora,user_balance_zarniki FROM users WHERE user_tg_id=10")
+        assert float(owner[0]) == 100000 and float(owner[1]) == 8000
+    finally:
+        await conn.close()
+
     conn, _ = await connect(dsn)
     try:
         row = await conn.fetchrow("SELECT user_balance_mora,user_balance_zarniki FROM users WHERE user_tg_id=2")
@@ -165,6 +256,23 @@ async def main(dsn: str):
             pass
     finally:
         await conn.close()
+    original_due = repo.due_auction_ids
+    original_settle = service.settle_auction
+    async def fake_due(_db, limit=20):
+        return ["poison", "healthy"]
+    async def fake_settle(_db, *, coin_id):
+        if coin_id == "poison":
+            raise RuntimeError("broken row")
+        return {"coin_id": coin_id, "success": True}
+    repo.due_auction_ids = fake_due
+    service.settle_auction = fake_settle
+    try:
+        isolated = await service.settle_due_auctions(None)
+        assert isolated[0]["coin_id"] == "poison" and "error" in isolated[0]
+        assert isolated[1] == {"coin_id": "healthy", "success": True}
+    finally:
+        repo.due_auction_ids = original_due
+        service.settle_auction = original_settle
     print("PLAYER_EXCHANGE_V1_PG_OK")
 
 

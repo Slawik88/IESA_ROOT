@@ -19,6 +19,12 @@ class CoinCreateRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class AuctionBidRequest(BaseModel):
+    max_price_mora: str = Field(min_length=1, max_length=32)
+    escrow_mora: int
+    action_id: str = Field(min_length=8, max_length=128)
+
+
 @router.get("/coins")
 async def coins(db=Depends(get_db), user=Depends(require_tg_user)):
     try:
@@ -36,6 +42,24 @@ async def create_coin(payload: CoinCreateRequest, db=Depends(get_db), user=Depen
             initial_mora=payload.initial_mora, action_id=payload.action_id,
         )
         return {"coin": coin, "notice": "Игровой актив без вывода в деньги."}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/auction-bids")
+async def auction_bid(coin_id: str, payload: AuctionBidRequest,
+                      db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        bid = await service.place_auction_bid(
+            db, bidder_id=int(user["id"]), coin_id=coin_id,
+            max_price_mora=payload.max_price_mora, escrow_mora=payload.escrow_mora,
+            action_id=payload.action_id,
+        )
+        return {"bid": bid, "notice": "Мора зарезервирована до закрытия аукциона."}
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc
     except (PlayerExchangePolicyError, InsufficientBalance) as exc:

@@ -80,6 +80,19 @@ async def maintenance_task(bot: Bot) -> None:
             async with get_pool().acquire() as connection:
                 db = PGAdapter(connection)
                 await _daily_gc(db)
+                from services.player_exchange_v1 import settle_due_auctions
+                for settlement in await settle_due_auctions(db, limit=20):
+                    if settlement.get("error"):
+                        logger.error(
+                            "Player exchange auction settlement failed: coin={} error={}",
+                            settlement.get("coin_id"), settlement.get("error"),
+                        )
+                        continue
+                    logger.info(
+                        "Player exchange auction settled: coin={} success={} sold={}",
+                        settlement.get("coin_id"), settlement.get("success"),
+                        settlement.get("sold_units"),
+                    )
                 from services.vip import daily_reminder_candidates, record_daily_reminder_sent
                 for user_id in await daily_reminder_candidates(db):
                     try:

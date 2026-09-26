@@ -17,6 +17,10 @@ CREATION_FEE_ZARNIKI: Final = 2_000
 MIN_INITIAL_MORA: Final = 10_000
 MAX_INITIAL_MORA: Final = 1_000_000
 AUCTION_HOURS: Final = 24
+PRICE_SCALE: Final = 1_000_000
+MAX_PRICE_MICROMORA: Final = 1_000_000 * PRICE_SCALE
+MIN_AUCTION_SOLD_UNITS: Final = 30_000 * TOKEN_SCALE
+MIN_AUCTION_RAISED_MORA: Final = 10_000
 
 GENESIS_ALLOCATION: Final = {
     "auction": 30,
@@ -37,6 +41,22 @@ class CoinDraft:
     name: str
     ticker: str
     initial_mora: int
+
+
+@dataclass(frozen=True)
+class AuctionBid:
+    bid_id: str
+    max_price_micromora: int
+    escrow_mora: int
+
+
+@dataclass(frozen=True)
+class AuctionClearing:
+    clearing_price_micromora: int
+    allocations: dict[str, int]
+    costs_mora: dict[str, Decimal]
+    sold_units: int
+    raised_mora: Decimal
 
 
 def normalize_name(value: str) -> str:
@@ -83,3 +103,51 @@ def parse_token_amount(value: str | int | Decimal) -> int:
     if amount <= 0 or Decimal(units) / TOKEN_SCALE != amount:
         raise PlayerExchangePolicyError("Количество должно быть положительным, точность — до 3 знаков.")
     return units
+
+
+def clear_uniform_auction(bids: list[AuctionBid], supply_units: int) -> AuctionClearing:
+    """Deterministic uniform-price clearing with stable pro-rata remainders."""
+    valid = [b for b in bids if b.max_price_micromora > 0 and b.escrow_mora > 0]
+    if not valid or supply_units <= 0:
+        return AuctionClearing(0, {}, {}, 0, Decimal("0"))
+    prices = sorted({b.max_price_micromora for b in valid}, reverse=True)
+
+    def demand(bid: AuctionBid, price: int) -> int:
+        return bid.escrow_mora * PRICE_SCALE * TOKEN_SCALE // price
+
+    clearing = prices[-1]
+    for price in prices:
+        eligible = [b for b in valid if b.max_price_micromora >= price]
+        if sum(demand(b, price) for b in eligible) >= supply_units:
+            clearing = price
+            break
+
+    higher = sorted((b for b in valid if b.max_price_micromora > clearing), key=lambda b: b.bid_id)
+    marginal = sorted((b for b in valid if b.max_price_micromora == clearing), key=lambda b: b.bid_id)
+    allocations: dict[str, int] = {}
+    remaining = supply_units
+    for bid in higher:
+        fill = min(demand(bid, clearing), remaining)
+        allocations[bid.bid_id] = fill
+        remaining -= fill
+    marginal_demands = {b.bid_id: demand(b, clearing) for b in marginal}
+    marginal_total = sum(marginal_demands.values())
+    if remaining > 0 and marginal_total:
+        distributable = min(remaining, marginal_total)
+        for bid in marginal:
+            allocations[bid.bid_id] = distributable * marginal_demands[bid.bid_id] // marginal_total
+        leftover = distributable - sum(allocations.get(b.bid_id, 0) for b in marginal)
+        for bid in marginal:
+            if leftover <= 0:
+                break
+            if allocations[bid.bid_id] < marginal_demands[bid.bid_id]:
+                allocations[bid.bid_id] += 1
+                leftover -= 1
+    allocations = {key: value for key, value in allocations.items() if value > 0}
+    costs = {
+        key: (Decimal(units) * Decimal(clearing) / Decimal(TOKEN_SCALE * PRICE_SCALE)).quantize(Decimal("0.000001"))
+        for key, units in allocations.items()
+    }
+    sold = sum(allocations.values())
+    raised = sum(costs.values(), Decimal("0"))
+    return AuctionClearing(clearing, allocations, costs, sold, raised)

@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from core.player_exchange_v1 import (
-    GENESIS_UNITS, PlayerExchangePolicyError, allocation_units,
+    AuctionBid, GENESIS_UNITS, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
     parse_token_amount, validate_coin_draft,
 )
 
@@ -28,4 +28,16 @@ rejects(validate_coin_draft, name="Нормальная", ticker="АБВ", initi
 rejects(validate_coin_draft, name="Нормальная", ticker="ABC", initial_mora=9_999)
 rejects(parse_token_amount, "1.2345")
 rejects(parse_token_amount, 0)
+clearing = clear_uniform_auction([
+    AuctionBid("a", 2_000_000, 100),
+    AuctionBid("b", 1_000_000, 100),
+], 100_000)
+assert clearing.clearing_price_micromora == 1_000_000
+assert clearing.allocations == {"a": 100_000}
+assert clearing.raised_mora == 100
+tie = clear_uniform_auction([
+    AuctionBid("a", 1_000_000, 100), AuctionBid("b", 1_000_000, 100),
+], 101_001)
+assert tie.allocations == {"a": 50_501, "b": 50_500}
+assert sum(tie.allocations.values()) == 101_001
 print("PLAYER_EXCHANGE_V1_RULES_OK")

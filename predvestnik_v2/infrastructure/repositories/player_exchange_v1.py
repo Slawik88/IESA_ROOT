@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from uuid import uuid4
 
-SCHEMA_VERSION = "player-exchange-schema-v1-2026-09-26"
+SCHEMA_VERSION = "player-exchange-schema-v2-auction-2026-09-26"
 
 
 async def ensure_tables(db) -> None:
@@ -64,6 +64,34 @@ async def ensure_tables(db) -> None:
             treasury_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (treasury_mora >= 0),
             insurance_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (insurance_mora >= 0),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_auction_bids_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            bidder_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            action_id TEXT NOT NULL,
+            max_price_micromora BIGINT NOT NULL CHECK (max_price_micromora > 0),
+            escrow_mora BIGINT NOT NULL CHECK (escrow_mora > 0),
+            economy_operation_id TEXT NOT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','won','refunded')),
+            allocated_units BIGINT NOT NULL DEFAULT 0 CHECK (allocated_units >= 0),
+            cost_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (cost_mora >= 0),
+            refund_operation_id TEXT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (bidder_id, action_id),
+            UNIQUE (coin_id, bidder_id)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_auction_settlements_v1 (
+            coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            success BOOLEAN NOT NULL,
+            clearing_price_micromora BIGINT NOT NULL,
+            sold_units BIGINT NOT NULL,
+            raised_mora NUMERIC(24,6) NOT NULL,
+            settled_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
     await db.execute("""
@@ -209,6 +237,176 @@ async def list_coins(db) -> list[dict]:
         "WHERE status<>'archived' ORDER BY created_at DESC"
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
+
+
+async def get_coin(db, coin_id: str, *, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute("SELECT * FROM player_coins_v1 WHERE id=?" + suffix, (coin_id,)) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_bid_replay(db, *, bidder_id: int, action_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_auction_bids_v1 WHERE bidder_id=? AND action_id=?",
+        (int(bidder_id), action_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def bidder_has_shared_owner_signal(db, *, bidder_id: int, owner_id: int) -> bool:
+    async with db.execute(
+        "SELECT COUNT(DISTINCT a.kind)=2 FROM user_login_signals a JOIN user_login_signals b "
+        "ON a.kind=b.kind AND a.value_hash=b.value_hash "
+        "WHERE a.user_id=? AND b.user_id=? AND a.kind IN ('ip','fp') "
+        "AND a.hits>=2 AND b.hits>=2 AND a.last_seen>=NOW()-INTERVAL '30 days' "
+        "AND b.last_seen>=NOW()-INTERVAL '30 days'",
+        (int(bidder_id), int(owner_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row and row[0])
+
+
+async def get_coin_bid_for_bidder(db, *, coin_id: str, bidder_id: int):
+    async with db.execute(
+        "SELECT * FROM player_coin_auction_bids_v1 WHERE coin_id=? AND bidder_id=?",
+        (coin_id, int(bidder_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def insert_bid(db, *, coin_id: str, bidder_id: int, action_id: str,
+                     max_price_micromora: int, escrow_mora: int, economy_operation_id: str) -> dict:
+    bid_id = uuid4().hex
+    async with db.execute(
+        "INSERT INTO player_coin_auction_bids_v1 "
+        "(id,coin_id,bidder_id,action_id,max_price_micromora,escrow_mora,economy_operation_id) "
+        "VALUES (?,?,?,?,?,?,?) RETURNING *",
+        (bid_id, coin_id, int(bidder_id), action_id, int(max_price_micromora),
+         int(escrow_mora), economy_operation_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    await db.execute(
+        "INSERT INTO player_coin_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+        "VALUES (?,?,?,'auction_bid_placed',?,?::jsonb)",
+        (uuid4().hex, coin_id, int(bidder_id), f"bid-placed:{action_id}", json.dumps({
+            "bid_id": bid_id, "max_price_micromora": int(max_price_micromora),
+            "escrow_mora": int(escrow_mora), "economy_operation_id": economy_operation_id,
+        }, sort_keys=True, separators=(",", ":"))),
+    )
+    return dict(row)
+
+
+async def list_open_bids(db, coin_id: str) -> list[dict]:
+    async with db.execute(
+        "SELECT * FROM player_coin_auction_bids_v1 WHERE coin_id=? AND status='open' "
+        "ORDER BY created_at,id FOR UPDATE", (coin_id,),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def due_auction_ids(db, limit: int = 20) -> list[str]:
+    async with db.execute(
+        "SELECT id FROM player_coins_v1 WHERE status='auction' AND auction_ends_at<=NOW() "
+        "ORDER BY auction_ends_at,id LIMIT ?", (int(limit),),
+    ) as cursor:
+        return [str(row[0]) for row in await cursor.fetchall()]
+
+
+async def get_settlement(db, coin_id: str):
+    async with db.execute("SELECT * FROM player_coin_auction_settlements_v1 WHERE coin_id=?", (coin_id,)) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def credit_bid_tokens(db, *, coin_id: str, bidder_id: int, units: int) -> None:
+    key = f"player:{int(bidder_id)}"
+    await db.execute(
+        "INSERT INTO player_coin_accounts_v1 "
+        "(coin_id,account_key,account_kind,user_id,available_units,reserved_units) "
+        "VALUES (?,?,'player',?,?,0) ON CONFLICT(coin_id,account_key) DO UPDATE "
+        "SET available_units=player_coin_accounts_v1.available_units+EXCLUDED.available_units,updated_at=NOW()",
+        (coin_id, key, int(bidder_id), int(units)),
+    )
+
+
+async def finish_bid(db, *, bid_id: str, allocated_units: int, cost_mora, refund_operation_id: str | None) -> None:
+    await db.execute(
+        "UPDATE player_coin_auction_bids_v1 SET status=?,allocated_units=?,cost_mora=?,refund_operation_id=? "
+        "WHERE id=? AND status='open'",
+        ("won" if allocated_units else "refunded", int(allocated_units), cost_mora,
+         refund_operation_id, bid_id),
+    )
+    async with db.execute(
+        "SELECT coin_id,bidder_id,escrow_mora FROM player_coin_auction_bids_v1 WHERE id=?", (bid_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    await db.execute(
+        "INSERT INTO player_coin_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+        "VALUES (?,?,?,'auction_bid_settled',?,?::jsonb)",
+        (uuid4().hex, str(row[0]), int(row[1]), f"bid-settled:{bid_id}", json.dumps({
+            "bid_id": bid_id, "escrow_mora": int(row[2]), "allocated_units": int(allocated_units),
+            "cost_mora": str(cost_mora), "refund_operation_id": refund_operation_id,
+        }, sort_keys=True, separators=(",", ":"))),
+    )
+
+
+async def finish_auction(db, *, coin: dict, success: bool, clearing_price: int,
+                         sold_units: int, raised_mora, action_id: str) -> dict:
+    coin_id = str(coin["id"])
+    if success:
+        await db.execute(
+            "UPDATE player_coin_accounts_v1 SET available_units=available_units-? "
+            "WHERE coin_id=? AND account_kind='auction' AND available_units>=?",
+            (int(sold_units), coin_id, int(sold_units)),
+        )
+        await db.execute(
+            "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora+?,updated_at=NOW() WHERE coin_id=?",
+            (raised_mora, coin_id),
+        )
+        if raised_mora > 0:
+            await db.execute(
+                "INSERT INTO player_coin_mora_ledger_v1 "
+                "(id,coin_id,bucket,delta,balance_before,balance_after,reason_code) "
+                "SELECT ?,?,'treasury',?,treasury_mora-?,treasury_mora,'auction_proceeds' "
+                "FROM player_coin_mora_accounts_v1 WHERE coin_id=?",
+                (uuid4().hex, coin_id, raised_mora, raised_mora, coin_id),
+            )
+        await db.execute(
+            "UPDATE player_coins_v1 SET status='active',circulating_units=? WHERE id=?",
+            (int(sold_units), coin_id),
+        )
+    else:
+        await db.execute("UPDATE player_coins_v1 SET status='failed' WHERE id=?", (coin_id,))
+    await db.execute(
+        "INSERT INTO player_coin_auction_settlements_v1 "
+        "(coin_id,success,clearing_price_micromora,sold_units,raised_mora) VALUES (?,?,?,?,?)",
+        (coin_id, bool(success), int(clearing_price), int(sold_units), raised_mora),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+        "VALUES (?,?,NULL,'auction_settled',?,?::jsonb)",
+        (uuid4().hex, coin_id, action_id, json.dumps({"success": bool(success),
+         "clearing_price_micromora": int(clearing_price), "sold_units": int(sold_units),
+         "raised_mora": str(raised_mora)}, sort_keys=True, separators=(",", ":"))),
+    )
+    return await get_settlement(db, coin_id)
+
+
+async def release_failed_initial_liquidity(db, *, coin_id: str, amount: int, economy_operation_id: str) -> None:
+    await db.execute(
+        "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora-?,updated_at=NOW() "
+        "WHERE coin_id=? AND treasury_mora>=?", (int(amount), coin_id, int(amount)),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_mora_ledger_v1 "
+        "(id,coin_id,economy_operation_id,bucket,delta,balance_before,balance_after,reason_code) "
+        "SELECT ?,?,?,'treasury',-(?::numeric),treasury_mora+(?::numeric),treasury_mora,'failed_auction_owner_refund' "
+        "FROM player_coin_mora_accounts_v1 WHERE coin_id=?",
+        (uuid4().hex, coin_id, economy_operation_id, int(amount), int(amount), coin_id),
+    )
 
 
 async def schema_ready(db) -> bool:
