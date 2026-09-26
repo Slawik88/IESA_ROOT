@@ -340,6 +340,8 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
             coin = await repo.get_coin(db, coin_id, for_update=True)
             if not coin or coin["status"] != "active":
                 return completed
+            if (await repo.market_halt(db, coin_id))["active"]:
+                return completed
             pair = await repo.best_cross(db, coin_id)
             if not pair:
                 break
@@ -385,6 +387,25 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
                 db, trade_id=trade_id, coin_id=coin_id, buy_order=buy, sell_order=sell,
                 units=units, price=price, gross=gross, buyer_fee=buyer_fee, seller_fee=seller_fee,
             )
+            current_5m = await repo.vwap_window(db, coin_id=coin_id, minutes=5)
+            baseline_5m = await repo.vwap_window(db, coin_id=coin_id, minutes=5, offset_minutes=5)
+            current_1h = await repo.vwap_window(db, coin_id=coin_id, minutes=60)
+            baseline_1h = await repo.vwap_window(db, coin_id=coin_id, minutes=60, offset_minutes=60)
+            meaningful = Decimal("100")
+            if (current_1h["volume_mora"] >= meaningful and baseline_1h["volume_mora"] >= meaningful
+                    and abs(current_1h["vwap_price_micromora"] - baseline_1h["vwap_price_micromora"]) * 100
+                    >= baseline_1h["vwap_price_micromora"] * 40):
+                await repo.set_market_halt(
+                    db, coin_id=coin_id, minutes=30, reason="price_move_40pct_1h",
+                    reference_price=baseline_1h["vwap_price_micromora"],
+                )
+            elif (current_5m["volume_mora"] >= meaningful and baseline_5m["volume_mora"] >= meaningful
+                    and abs(current_5m["vwap_price_micromora"] - baseline_5m["vwap_price_micromora"]) * 100
+                    >= baseline_5m["vwap_price_micromora"] * 20):
+                await repo.set_market_halt(
+                    db, coin_id=coin_id, minutes=5, reason="price_move_20pct_5m",
+                    reference_price=baseline_5m["vwap_price_micromora"],
+                )
             if buy_after["status"] == "filled" and Decimal(buy_after["reserved_mora"]) > 0:
                 mutation = await economy_ledger.apply_balance_change(
                     db, int(buy_after["user_id"]), {"mora": Decimal(buy_after["reserved_mora"])},
@@ -410,3 +431,19 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
                 pass
             completed.append({"trade_id": trade_id, "units": units, "price_micromora": price})
     return completed
+
+
+async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50) -> dict:
+    await require_enabled(db)
+    coin = await repo.get_coin(db, coin_id)
+    if not coin or coin["status"] not in {"active", "halted"}:
+        raise PlayerExchangePolicyError("Рынок не найден.")
+    return {
+        "coin": {key: coin[key] for key in (
+            "id", "name", "ticker", "status", "genesis_units", "circulating_units"
+        )},
+        "order_book": await repo.public_order_book(db, coin_id, levels),
+        "recent_trades": await repo.public_recent_trades(db, coin_id, trades),
+        "stats_24h": await repo.public_market_stats(db, coin_id),
+        "notice": "Игровой актив без вывода в деньги.",
+    }

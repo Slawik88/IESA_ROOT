@@ -5,7 +5,9 @@ import json
 from decimal import Decimal
 from uuid import uuid4
 
-SCHEMA_VERSION = "player-exchange-schema-v3-spot-2026-09-27"
+from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE
+
+SCHEMA_VERSION = "player-exchange-schema-v4-market-safety-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -147,6 +149,15 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "INSERT INTO player_exchange_fee_fund_v1(singleton) VALUES(TRUE) ON CONFLICT DO NOTHING"
     )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_market_state_v1 (
+            coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            halted_until TIMESTAMPTZ NULL,
+            halt_reason TEXT NULL,
+            halt_reference_price_micromora BIGINT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
     await db.execute("""
         CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
@@ -674,3 +685,93 @@ async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell
                            "price_micromora": int(price), "gross_mora": str(gross),
                            "buyer_fee_mora": str(buyer_fee), "seller_fee_mora": str(seller_fee),
                        })
+
+
+async def market_halt(db, coin_id: str) -> dict:
+    async with db.execute(
+        "SELECT halted_until,halt_reason,halt_reference_price_micromora,"
+        "(halted_until IS NOT NULL AND halted_until>NOW()) AS active "
+        "FROM player_coin_market_state_v1 WHERE coin_id=?", (coin_id,)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return {"active": False, "halted_until": None, "reason": None, "reference_price_micromora": None}
+    return {"halted_until": row[0], "reason": row[1],
+            "reference_price_micromora": row[2], "active": bool(row[3])}
+
+
+async def vwap_window(db, *, coin_id: str, minutes: int, offset_minutes: int = 0) -> dict:
+    async with db.execute(
+        "SELECT COALESCE(SUM(gross_mora),0),CASE WHEN COALESCE(SUM(units),0)>0 THEN "
+        "ROUND(SUM(gross_mora)*(?::numeric) / (SUM(units)::numeric/(?::numeric)))::bigint ELSE NULL END "
+        "FROM player_coin_trades_v1 WHERE coin_id=? "
+        "AND created_at<=NOW()-((?::integer) * INTERVAL '1 minute') "
+        "AND created_at>NOW()-(((?::integer)+(?::integer)) * INTERVAL '1 minute')",
+        (PRICE_SCALE, TOKEN_SCALE, coin_id, int(offset_minutes), int(offset_minutes), int(minutes)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {"volume_mora": Decimal(row[0] or 0),
+            "vwap_price_micromora": int(row[1]) if row and row[1] is not None else None}
+
+
+async def set_market_halt(db, *, coin_id: str, minutes: int, reason: str, reference_price: int) -> None:
+    await db.execute(
+        "INSERT INTO player_coin_market_state_v1"
+        "(coin_id,halted_until,halt_reason,halt_reference_price_micromora,updated_at) "
+        "VALUES(?,NOW()+(? * INTERVAL '1 minute'),?,?,NOW()) "
+        "ON CONFLICT(coin_id) DO UPDATE SET halted_until=GREATEST("
+        "COALESCE(player_coin_market_state_v1.halted_until,NOW()),EXCLUDED.halted_until),"
+        "halt_reason=EXCLUDED.halt_reason,halt_reference_price_micromora=EXCLUDED.halt_reference_price_micromora,"
+        "updated_at=NOW()",
+        (coin_id, int(minutes), reason, int(reference_price)),
+    )
+    await append_event(db, coin_id=coin_id, actor_id=None, event_type="market_halted",
+                       action_id=f"market-halt:{uuid4().hex}", payload={
+                           "minutes": int(minutes), "reason": reason,
+                           "reference_price_micromora": int(reference_price),
+                       })
+
+
+async def public_order_book(db, coin_id: str, levels: int = 20) -> dict:
+    level_limit = max(1, min(int(levels), 50))
+    async with db.execute(
+        "SELECT side,limit_price_micromora,SUM(remaining_units) AS units,COUNT(*) AS orders "
+        "FROM player_coin_orders_v1 WHERE coin_id=? AND status='open' AND remaining_units>0 "
+        "GROUP BY side,limit_price_micromora",
+        (coin_id,),
+    ) as cursor:
+        rows = [dict(row) for row in await cursor.fetchall()]
+    bids = sorted((r for r in rows if r["side"] == "buy"),
+                  key=lambda r: int(r["limit_price_micromora"]), reverse=True)[:level_limit]
+    asks = sorted((r for r in rows if r["side"] == "sell"),
+                  key=lambda r: int(r["limit_price_micromora"]))[:level_limit]
+    return {"bids": bids, "asks": asks}
+
+
+async def public_recent_trades(db, coin_id: str, limit: int = 50) -> list[dict]:
+    async with db.execute(
+        "SELECT id,units,price_micromora,gross_mora,created_at FROM player_coin_trades_v1 "
+        "WHERE coin_id=? ORDER BY created_at DESC,id DESC LIMIT ?",
+        (coin_id, max(1, min(int(limit), 100))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def public_market_stats(db, coin_id: str) -> dict:
+    async with db.execute("""
+        SELECT COUNT(*) AS trades,COALESCE(SUM(gross_mora),0) AS volume_mora,
+               COALESCE(SUM(units),0) AS units,
+               MIN(price_micromora) AS low_price_micromora,
+               MAX(price_micromora) AS high_price_micromora,
+               (ARRAY_AGG(price_micromora ORDER BY created_at DESC,id DESC))[1] AS last_price_micromora
+        FROM player_coin_trades_v1 WHERE coin_id=? AND created_at>=NOW()-INTERVAL '24 hours'
+    """, (coin_id,)) as cursor:
+        row = await cursor.fetchone()
+    result = dict(row)
+    total_units = int(result.pop("units") or 0)
+    result["vwap_price_micromora"] = (
+        int((Decimal(result["volume_mora"]) * Decimal(PRICE_SCALE) * Decimal(TOKEN_SCALE)
+             / Decimal(total_units)).quantize(Decimal("1"))) if total_units else None
+    )
+    result["halt"] = await market_halt(db, coin_id)
+    return result

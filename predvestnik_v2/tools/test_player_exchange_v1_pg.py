@@ -304,6 +304,38 @@ async def main(dsn: str):
         assert (await repo.get_order(db, dust_buy["id"]))["status"] == "cancelled"
         assert (await repo.get_order(db, dust_sell["id"]))["status"] == "open"
         await service.cancel_order(db, user_id=9, order_id=dust_sell["id"])
+        for suffix, age in (("5m", 7), ("1h", 70)):
+            await conn.execute(
+                "INSERT INTO player_coin_trades_v1"
+                "(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,units,price_micromora,"
+                "gross_mora,buyer_fee_mora,seller_fee_mora,created_at) "
+                "VALUES($1,$2,$3,$4,9,8,100000,2000000,200,0,0,NOW()-($5::integer*INTERVAL '1 minute'))",
+                f"baseline-{suffix}", launched["id"], partial_buy["id"], sell_order["id"], age,
+            )
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
+            limit_price_mora="3", time_in_force="gtc", action_id="order-halt-sell01",
+        )
+        await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="5",
+            limit_price_mora="3", time_in_force="gtc", action_id="order-halt-buy001",
+        )
+        assert len(await service.match_market(db, coin_id=launched["id"])) == 1
+        assert (await repo.market_halt(db, launched["id"]))["active"] is False
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="40",
+            limit_price_mora="3", time_in_force="gtc", action_id="order-halt-sell02",
+        )
+        await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="40",
+            limit_price_mora="3", time_in_force="gtc", action_id="order-halt-buy002",
+        )
+        assert len(await service.match_market(db, coin_id=launched["id"])) == 1
+        halt = await repo.market_halt(db, launched["id"])
+        assert halt["active"] is True and halt["reason"] == "price_move_20pct_5m"
+        market = await service.public_market(db, coin_id=launched["id"])
+        assert "owner_id" not in market["coin"]
+        assert all("user_id" not in row and "buyer_id" not in row for row in market["recent_trades"])
 
         failed = await service.create_coin(
             db, owner_id=10, name="Тихая монета", ticker="QUIET",

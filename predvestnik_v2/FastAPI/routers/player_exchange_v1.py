@@ -100,3 +100,14 @@ async def cancel_order(order_id: str, db=Depends(get_db), user=Depends(require_t
         return {"order": await service.cancel_order(db, user_id=int(user["id"]), order_id=order_id)}
     except PlayerExchangePolicyError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/coins/{coin_id}/market")
+async def market(coin_id: str, levels: int = 20, trades: int = 50,
+                 db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.public_market(db, coin_id=coin_id, levels=levels, trades=trades)
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(404, str(exc)) from exc
