@@ -83,4 +83,3 @@ def parse_token_amount(value: str | int | Decimal) -> int:
     if amount <= 0 or Decimal(units) / TOKEN_SCALE != amount:
         raise PlayerExchangePolicyError("Количество должно быть положительным, точность — до 3 знаков.")
     return units
-
