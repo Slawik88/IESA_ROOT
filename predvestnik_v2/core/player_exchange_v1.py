@@ -179,3 +179,15 @@ def buy_reserve(units: int, limit_price_micromora: int) -> Decimal:
     # Reserve that deterministic ceiling; unused Mora is returned on close.
     fee_ceiling = Decimal("0") if notional < MIN_FEE_NOTIONAL_MORA else notional / Decimal("10")
     return (notional + max(fee_ceiling, trade_fee(notional, maker=False))).quantize(Decimal("0.000001"))
+
+
+def protected_limit_price(*, side: str, quote_micromora: int, slippage_percent: int) -> int:
+    if side not in {"buy", "sell"} or slippage_percent not in {1, 3, 5} or quote_micromora <= 0:
+        raise PlayerExchangePolicyError("Некорректные параметры защищённой заявки.")
+    if side == "buy":
+        price = quote_micromora * (100 + slippage_percent) // 100
+    else:
+        price = (quote_micromora * (100 - slippage_percent) + 99) // 100
+    if not 1 <= price <= MAX_PRICE_MICROMORA:
+        raise PlayerExchangePolicyError("Защитная цена выходит за пределы рынка.")
+    return price

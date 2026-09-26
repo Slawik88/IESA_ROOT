@@ -8,7 +8,7 @@ from core.player_exchange_v1 import (
     AUCTION_HOURS, CREATION_FEE_ZARNIKI, FEATURE_FLAG_KEY, GENESIS_UNITS,
     MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
-    buy_reserve, parse_token_amount, trade_fee, trade_notional, validate_coin_draft,
+    buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional, validate_coin_draft,
 )
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
@@ -447,3 +447,71 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
         "stats_24h": await repo.public_market_stats(db, coin_id),
         "notice": "Игровой актив без вывода в деньги.",
     }
+
+
+async def place_protected_market_order(
+    db, *, user_id: int, coin_id: str, side: str, amount: str,
+    slippage_percent: int, action_id: str,
+) -> dict:
+    """Place, match and close an IOC order inside one outer transaction."""
+    await require_enabled(db)
+    side = str(side).lower()
+    if side not in {"buy", "sell"} or int(slippage_percent) not in {1, 3, 5}:
+        raise PlayerExchangePolicyError("Выберите направление и предел цены 1%, 3% или 5%.")
+    units = parse_token_amount(amount)
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_order_replay(db, user_id=int(user_id), action_id=action_id)
+        if replay:
+            if (str(replay["coin_id"]), replay["side"], int(replay["original_units"])) != (
+                coin_id, side, units,
+            ) or replay["time_in_force"] != "ioc" or int(replay["slippage_percent"] or 0) != int(slippage_percent):
+                raise IdempotencyConflict("Action id is bound to another order.")
+            replay["replayed"] = True
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or coin["status"] != "active":
+            raise PlayerExchangePolicyError("Торги этой монетой недоступны.")
+        if (await repo.market_halt(db, coin_id))["active"]:
+            raise PlayerExchangePolicyError("Рынок временно остановлен. Отменять заявки по-прежнему можно.")
+        quote = await repo.best_quote(db, coin_id=coin_id, side=side)
+        if not quote:
+            raise PlayerExchangePolicyError("В стакане пока нет встречных заявок.")
+        slip = int(slippage_percent)
+        price_micro = protected_limit_price(
+            side=side, quote_micromora=quote["price_micromora"], slippage_percent=slip,
+        )
+        if trade_notional(units, price_micro) < Decimal("10"):
+            raise PlayerExchangePolicyError("Минимальная сумма заявки — 10 Моры.")
+        reserved = Decimal("0")
+        reserve_op = None
+        if side == "buy":
+            reserved = buy_reserve(units, price_micro)
+            mutation = await economy_ledger.apply_balance_change(
+                db, int(user_id), {"mora": -reserved}, reason_code="player_coin_order_reserve",
+                idempotency_key=f"player-coin:order:{action_id}", source_type="player_exchange",
+                reference_type="spot_order", reference_id=action_id,
+                metadata={"coin_id": coin_id, "side": side, "units": units,
+                          "protected_price_micromora": price_micro, "slippage_percent": slip},
+                note=f"Рыночная заявка {coin['ticker']}",
+            )
+            reserve_op = str(mutation.operation_id)
+        else:
+            try:
+                await repo.reserve_sell_units(db, coin_id=coin_id, user_id=int(user_id), units=units)
+            except ValueError as exc:
+                raise PlayerExchangePolicyError("Недостаточно монет для продажи.") from exc
+        order = await repo.insert_order(
+            db, coin_id=coin_id, user_id=int(user_id), action_id=action_id, side=side,
+            time_in_force="ioc", price=price_micro, units=units, reserved_mora=reserved,
+            reserve_operation_id=reserve_op, slippage_percent=slip,
+        )
+        await match_market(db, coin_id=coin_id, max_trades=100)
+        current = await repo.get_order(db, str(order["id"]), for_update=True)
+        if current and current["status"] == "open":
+            await _release_order(db, current, reason="ioc_unfilled_remainder")
+        result = await repo.get_order(db, str(order["id"]))
+        result["replayed"] = False
+        return result

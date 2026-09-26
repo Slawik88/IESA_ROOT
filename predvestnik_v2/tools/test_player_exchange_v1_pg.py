@@ -292,6 +292,32 @@ async def main(dsn: str):
         partial_trades = await service.match_market(db, coin_id=launched["id"])
         assert len(partial_trades) == 2
         assert (await repo.get_order(db, partial_buy["id"]))["reserved_mora"] == 0
+        ioc_seller_mora_before = float(await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=8"))
+        ioc_buyer_mora_before = float(await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=9"))
+        ioc_seller_tokens_before = int((await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8))["available_units"])
+        ioc_buyer_tokens_before = int((await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=9))["available_units"])
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-ioc-sell001",
+        )
+        ioc = await service.place_protected_market_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="20",
+            slippage_percent=3, action_id="order-ioc-buy0001",
+        )
+        assert ioc["time_in_force"] == "ioc" and ioc["status"] == "cancelled"
+        assert int(ioc["original_units"]) == 20_000 and int(ioc["remaining_units"]) == 0
+        assert float(ioc["reserved_mora"]) == 0
+        ioc_replay = await service.place_protected_market_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="20",
+            slippage_percent=3, action_id="order-ioc-buy0001",
+        )
+        assert ioc_replay["id"] == ioc["id"] and ioc_replay["replayed"] is True
+        assert float(await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=8")) == ioc_seller_mora_before + 19
+        assert float(await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=9")) == ioc_buyer_mora_before - 21
+        ioc_seller_tokens_after = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
+        ioc_buyer_tokens_after = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=9)
+        assert int(ioc_seller_tokens_after["available_units"]) == ioc_seller_tokens_before - 10_000
+        assert int(ioc_buyer_tokens_after["available_units"]) == ioc_buyer_tokens_before + 10_000
         dust_sell = await service.place_limit_order(
             db, user_id=9, coin_id=launched["id"], side="sell", amount="20000",
             limit_price_mora="0.0005", time_in_force="gtc", action_id="order-cross-dust-s",

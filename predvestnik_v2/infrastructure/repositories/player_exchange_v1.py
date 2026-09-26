@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE
 
-SCHEMA_VERSION = "player-exchange-schema-v4-market-safety-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v5-protected-ioc-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -105,6 +105,7 @@ async def ensure_tables(db) -> None:
             action_id TEXT NOT NULL,
             side TEXT NOT NULL CHECK (side IN ('buy','sell')),
             time_in_force TEXT NOT NULL CHECK (time_in_force IN ('gtc','ioc')),
+            slippage_percent INTEGER NULL CHECK (slippage_percent IN (1,3,5)),
             limit_price_micromora BIGINT NOT NULL CHECK (limit_price_micromora > 0),
             original_units BIGINT NOT NULL CHECK (original_units > 0),
             remaining_units BIGINT NOT NULL CHECK (remaining_units >= 0),
@@ -118,6 +119,10 @@ async def ensure_tables(db) -> None:
             UNIQUE (user_id,action_id)
         )
     """)
+    await db.execute(
+        "ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS slippage_percent INTEGER NULL "
+        "CHECK (slippage_percent IN (1,3,5))"
+    )
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_player_coin_order_book_v1 ON player_coin_orders_v1"
         "(coin_id,status,side,limit_price_micromora,created_at,id)"
@@ -545,19 +550,20 @@ async def reserve_sell_units(db, *, coin_id: str, user_id: int, units: int) -> N
 
 async def insert_order(db, *, coin_id: str, user_id: int, action_id: str, side: str,
                        time_in_force: str, price: int, units: int, reserved_mora,
-                       reserve_operation_id: str | None) -> dict:
+                       reserve_operation_id: str | None, slippage_percent: int | None = None) -> dict:
     order_id = uuid4().hex
     async with db.execute(
-        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,action_id,side,time_in_force,"
+        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,action_id,side,time_in_force,slippage_percent,"
         "limit_price_micromora,original_units,remaining_units,reserved_mora,reserve_operation_id) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
-        (order_id, coin_id, int(user_id), action_id, side, time_in_force, int(price),
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
+        (order_id, coin_id, int(user_id), action_id, side, time_in_force, slippage_percent, int(price),
          int(units), int(units), reserved_mora, reserve_operation_id),
     ) as cursor:
         row = await cursor.fetchone()
     await append_event(db, coin_id=coin_id, actor_id=user_id, event_type="order_placed",
                        action_id=f"order-placed:{action_id}", payload={
                            "order_id": order_id, "side": side, "time_in_force": time_in_force,
+                           "slippage_percent": slippage_percent,
                            "price_micromora": int(price), "units": int(units),
                            "reserved_mora": str(reserved_mora),
                            "reserve_operation_id": reserve_operation_id,
@@ -746,6 +752,19 @@ async def public_order_book(db, coin_id: str, levels: int = 20) -> dict:
     asks = sorted((r for r in rows if r["side"] == "sell"),
                   key=lambda r: int(r["limit_price_micromora"]))[:level_limit]
     return {"bids": bids, "asks": asks}
+
+
+async def best_quote(db, *, coin_id: str, side: str):
+    opposite = "sell" if side == "buy" else "buy"
+    direction = "ASC" if side == "buy" else "DESC"
+    async with db.execute(
+        f"SELECT limit_price_micromora,remaining_units FROM player_coin_orders_v1 "
+        f"WHERE coin_id=? AND status='open' AND side=? AND remaining_units>0 "
+        f"ORDER BY limit_price_micromora {direction},created_at,id LIMIT 1",
+        (coin_id, opposite),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {"price_micromora": int(row[0]), "units": int(row[1])} if row else None
 
 
 async def public_recent_trades(db, coin_id: str, limit: int = 50) -> list[dict]:
