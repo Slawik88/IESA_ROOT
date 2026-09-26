@@ -362,6 +362,43 @@ async def main(dsn: str):
         market = await service.public_market(db, coin_id=launched["id"])
         assert "owner_id" not in market["coin"]
         assert all("user_id" not in row and "buyer_id" not in row for row in market["recent_trades"])
+        manual_halt = await service.manually_halt_market(
+            db, actor_id=1, coin_id=launched["id"], minutes=60,
+            public_reason="Техническая проверка расчётов рынка.", action_id="manual-halt-action-0001",
+        )
+        assert manual_halt["active"] is True and manual_halt["kind"] == "manual"
+        assert manual_halt["public_reason"] == "Техническая проверка расчётов рынка."
+        await repo.set_market_halt(
+            db, coin_id=launched["id"], minutes=5, reason="price_move_20pct_5m",
+            reference_price=2_000_000,
+        )
+        protected_manual_halt = await repo.market_halt(db, launched["id"])
+        assert protected_manual_halt["kind"] == "manual"
+        assert protected_manual_halt["public_reason"] == "Техническая проверка расчётов рынка."
+        manual_replay = await service.manually_halt_market(
+            db, actor_id=1, coin_id=launched["id"], minutes=60,
+            public_reason="Техническая проверка расчётов рынка.", action_id="manual-halt-action-0001",
+        )
+        assert manual_replay["replayed"] is True
+        try:
+            await service.manually_halt_market(
+                db, actor_id=1, coin_id=launched["id"], minutes=120,
+                public_reason="Другая причина остановки рынка.", action_id="manual-halt-action-0001",
+            )
+            raise AssertionError("changed manual-halt replay was accepted")
+        except IdempotencyConflict:
+            pass
+        public_halt = (await service.public_market(db, coin_id=launched["id"]))["stats_24h"]["halt"]
+        assert public_halt["public_reason"] == "Техническая проверка расчётов рынка."
+        assert set(public_halt) == {"active", "halted_until", "kind", "public_reason"}
+        assert (await conn.fetchrow(
+            "SELECT halt_reference_price_micromora FROM player_coin_market_state_v1 WHERE coin_id=$1",
+            launched["id"],
+        ))[0] is None
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_events_v1 WHERE coin_id=$1 AND event_type='market_halted_manual'",
+            launched["id"],
+        ) == 1
 
         failed = await service.create_coin(
             db, owner_id=10, name="Тихая монета", ticker="QUIET",

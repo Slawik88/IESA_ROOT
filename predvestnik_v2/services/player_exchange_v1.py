@@ -449,6 +449,46 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
     }
 
 
+async def manually_halt_market(
+    db, *, actor_id: int, coin_id: str, minutes: int, public_reason: str, action_id: str,
+) -> dict:
+    """Stop trading without granting any power over prices, balances or history."""
+    await require_enabled(db)
+    reason = " ".join(str(public_reason).strip().split())
+    if not 5 <= int(minutes) <= 1_440:
+        raise PlayerExchangePolicyError("Остановка рынка — от 5 минут до 24 часов.")
+    if not 10 <= len(reason) <= 160:
+        raise PlayerExchangePolicyError("Публичная причина должна содержать от 10 до 160 символов.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or coin["status"] not in {"active", "halted"}:
+            raise PlayerExchangePolicyError("Рынок не найден.")
+        replay = await repo.get_event_by_action(db, actor_id=int(actor_id), action_id=str(action_id))
+        if replay:
+            payload = replay["payload_json"]
+            if isinstance(payload, str):
+                import json
+                payload = json.loads(payload)
+            if (str(replay["coin_id"]), int(payload.get("minutes", -1)), payload.get("public_reason")) != (
+                str(coin_id), int(minutes), reason,
+            ):
+                raise IdempotencyConflict("Action id is bound to another market halt.")
+            result = await repo.market_halt(db, coin_id)
+            result["replayed"] = True
+            return result
+        result = await repo.set_manual_market_halt(
+            db, coin_id=coin_id, actor_id=int(actor_id), minutes=int(minutes),
+            public_reason=reason, action_id=str(action_id),
+        )
+        result["replayed"] = False
+        return result
+
+
 async def place_protected_market_order(
     db, *, user_id: int, coin_id: str, side: str, amount: str,
     slippage_percent: int, action_id: str,

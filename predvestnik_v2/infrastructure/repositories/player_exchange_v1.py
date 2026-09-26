@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE
 
-SCHEMA_VERSION = "player-exchange-schema-v5-protected-ioc-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v6-public-manual-halt-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -159,9 +159,23 @@ async def ensure_tables(db) -> None:
             coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             halted_until TIMESTAMPTZ NULL,
             halt_reason TEXT NULL,
+            halt_public_reason TEXT NULL,
+            halt_kind TEXT NULL CHECK (halt_kind IN ('automatic','manual')),
+            halted_by BIGINT NULL,
             halt_reference_price_micromora BIGINT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+    """)
+    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_public_reason TEXT NULL")
+    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_kind TEXT NULL")
+    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halted_by BIGINT NULL")
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_halt_kind_v1') THEN
+                ALTER TABLE player_coin_market_state_v1 ADD CONSTRAINT ck_player_coin_halt_kind_v1
+                CHECK (halt_kind IN ('automatic','manual'));
+            END IF;
+        END $$
     """)
     await db.execute("""
         CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
@@ -581,6 +595,15 @@ async def append_event(db, *, coin_id: str, actor_id: int | None, event_type: st
     )
 
 
+async def get_event_by_action(db, *, actor_id: int, action_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_events_v1 WHERE actor_id=? AND action_id=?",
+        (int(actor_id), action_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
 async def get_order(db, order_id: str, *, for_update: bool = False):
     suffix = " FOR UPDATE" if for_update else ""
     async with db.execute("SELECT * FROM player_coin_orders_v1 WHERE id=?" + suffix, (order_id,)) as cursor:
@@ -695,15 +718,17 @@ async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell
 
 async def market_halt(db, coin_id: str) -> dict:
     async with db.execute(
-        "SELECT halted_until,halt_reason,halt_reference_price_micromora,"
+        "SELECT halted_until,halt_reason,halt_public_reason,halt_kind,halted_by,halt_reference_price_micromora,"
         "(halted_until IS NOT NULL AND halted_until>NOW()) AS active "
         "FROM player_coin_market_state_v1 WHERE coin_id=?", (coin_id,)
     ) as cursor:
         row = await cursor.fetchone()
     if not row:
-        return {"active": False, "halted_until": None, "reason": None, "reference_price_micromora": None}
-    return {"halted_until": row[0], "reason": row[1],
-            "reference_price_micromora": row[2], "active": bool(row[3])}
+        return {"active": False, "halted_until": None, "reason": None, "public_reason": None,
+                "kind": None, "reference_price_micromora": None}
+    return {"halted_until": row[0], "reason": row[1], "public_reason": row[2],
+            "kind": row[3], "reference_price_micromora": row[5],
+            "active": bool(row[6])}
 
 
 async def vwap_window(db, *, coin_id: str, minutes: int, offset_minutes: int = 0) -> dict:
@@ -723,19 +748,51 @@ async def vwap_window(db, *, coin_id: str, minutes: int, offset_minutes: int = 0
 async def set_market_halt(db, *, coin_id: str, minutes: int, reason: str, reference_price: int) -> None:
     await db.execute(
         "INSERT INTO player_coin_market_state_v1"
-        "(coin_id,halted_until,halt_reason,halt_reference_price_micromora,updated_at) "
-        "VALUES(?,NOW()+(? * INTERVAL '1 minute'),?,?,NOW()) "
+        "(coin_id,halted_until,halt_reason,halt_public_reason,halt_kind,halted_by,halt_reference_price_micromora,updated_at) "
+        "VALUES(?,NOW()+(? * INTERVAL '1 minute'),?,?,'automatic',NULL,?,NOW()) "
         "ON CONFLICT(coin_id) DO UPDATE SET halted_until=GREATEST("
         "COALESCE(player_coin_market_state_v1.halted_until,NOW()),EXCLUDED.halted_until),"
-        "halt_reason=EXCLUDED.halt_reason,halt_reference_price_micromora=EXCLUDED.halt_reference_price_micromora,"
+        "halt_reason=CASE WHEN player_coin_market_state_v1.halt_kind='manual' "
+        "AND player_coin_market_state_v1.halted_until>NOW() THEN player_coin_market_state_v1.halt_reason "
+        "ELSE EXCLUDED.halt_reason END,"
+        "halt_public_reason=CASE WHEN player_coin_market_state_v1.halt_kind='manual' "
+        "AND player_coin_market_state_v1.halted_until>NOW() THEN player_coin_market_state_v1.halt_public_reason "
+        "ELSE EXCLUDED.halt_public_reason END,"
+        "halt_kind=CASE WHEN player_coin_market_state_v1.halt_kind='manual' "
+        "AND player_coin_market_state_v1.halted_until>NOW() THEN 'manual' ELSE EXCLUDED.halt_kind END,"
+        "halted_by=CASE WHEN player_coin_market_state_v1.halt_kind='manual' "
+        "AND player_coin_market_state_v1.halted_until>NOW() THEN player_coin_market_state_v1.halted_by ELSE NULL END,"
+        "halt_reference_price_micromora=CASE WHEN player_coin_market_state_v1.halt_kind='manual' "
+        "AND player_coin_market_state_v1.halted_until>NOW() THEN player_coin_market_state_v1.halt_reference_price_micromora "
+        "ELSE EXCLUDED.halt_reference_price_micromora END,"
         "updated_at=NOW()",
-        (coin_id, int(minutes), reason, int(reference_price)),
+        (coin_id, int(minutes), reason, "Резкое изменение цены: торги временно приостановлены.", int(reference_price)),
     )
     await append_event(db, coin_id=coin_id, actor_id=None, event_type="market_halted",
                        action_id=f"market-halt:{uuid4().hex}", payload={
                            "minutes": int(minutes), "reason": reason,
                            "reference_price_micromora": int(reference_price),
                        })
+
+
+async def set_manual_market_halt(
+    db, *, coin_id: str, actor_id: int, minutes: int, public_reason: str, action_id: str,
+) -> dict:
+    await db.execute(
+        "INSERT INTO player_coin_market_state_v1"
+        "(coin_id,halted_until,halt_reason,halt_public_reason,halt_kind,halted_by,updated_at) "
+        "VALUES(?,NOW()+(? * INTERVAL '1 minute'),'manual_admin_halt',?,'manual',?,NOW()) "
+        "ON CONFLICT(coin_id) DO UPDATE SET halted_until=GREATEST("
+        "COALESCE(player_coin_market_state_v1.halted_until,NOW()),EXCLUDED.halted_until),"
+        "halt_reason=EXCLUDED.halt_reason,halt_public_reason=EXCLUDED.halt_public_reason,"
+        "halt_kind='manual',halted_by=EXCLUDED.halted_by,halt_reference_price_micromora=NULL,updated_at=NOW()",
+        (coin_id, int(minutes), public_reason, int(actor_id)),
+    )
+    await append_event(
+        db, coin_id=coin_id, actor_id=int(actor_id), event_type="market_halted_manual",
+        action_id=action_id, payload={"minutes": int(minutes), "public_reason": public_reason},
+    )
+    return await market_halt(db, coin_id)
 
 
 async def public_order_book(db, coin_id: str, levels: int = 20) -> dict:
@@ -792,5 +849,6 @@ async def public_market_stats(db, coin_id: str) -> dict:
         int((Decimal(result["volume_mora"]) * Decimal(PRICE_SCALE) * Decimal(TOKEN_SCALE)
              / Decimal(total_units)).quantize(Decimal("1"))) if total_units else None
     )
-    result["halt"] = await market_halt(db, coin_id)
+    halt = await market_halt(db, coin_id)
+    result["halt"] = {key: halt[key] for key in ("active", "halted_until", "kind", "public_reason")}
     return result
