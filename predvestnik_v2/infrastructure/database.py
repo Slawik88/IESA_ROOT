@@ -19,7 +19,17 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.preprod import assert_preprod_environment, is_preprod
 
 _pool: asyncpg.Pool | None = None
+_pool_create_lock = asyncio.Lock()
 _SCHEMA = "predvestnik"
+
+
+def _pool_max_size() -> int:
+    """Keep one app process inside a small share of managed-Postgres slots."""
+    try:
+        configured = int(os.environ.get("DB_POOL_MAX_SIZE", "5"))
+    except ValueError:
+        configured = 5
+    return max(2, min(configured, 10))
 
 
 def _mask_url(url: str) -> str:
@@ -69,6 +79,17 @@ async def _diagnose(host: str, port: int, label: str = "") -> None:
 
 
 async def create_pool() -> asyncpg.Pool:
+    """Create the process pool once, even under concurrent startup probes."""
+    global _pool
+    if _pool is not None:
+        return _pool
+    async with _pool_create_lock:
+        if _pool is None:
+            _pool = await _create_pool_unlocked()
+    return _pool
+
+
+async def _create_pool_unlocked() -> asyncpg.Pool:
     """Idempotent — returns the existing pool if already initialised.
 
     Tries every available connection-string source in order:
@@ -128,17 +149,20 @@ async def create_pool() -> asyncpg.Pool:
         for attempt in range(1, 3):
             logger.info(f"🐘 [{_name}] asyncpg create_pool — попытка {attempt}/2 (timeout=30s)...")
             try:
-                _pool = await asyncpg.create_pool(
+                pool = await asyncpg.create_pool(
                     _url,
                     min_size=1,
-                    max_size=15,
+                    max_size=_pool_max_size(),
                     statement_cache_size=0,   # required for DO managed PG / pgbouncer
                     timeout=30,
                     server_settings={"search_path": f"{_SCHEMA},public"},
                     init=_set_schema,
                 )
-                logger.info(f"✅ PostgreSQL pool готов через [{_name}] (min=1 max=15, schema={_SCHEMA})")
-                return _pool
+                logger.info(
+                    f"✅ PostgreSQL pool готов через [{_name}] "
+                    f"(min=1 max={_pool_max_size()}, schema={_SCHEMA})"
+                )
+                return pool
             except Exception as exc:
                 last_exc = exc
                 logger.warning(
