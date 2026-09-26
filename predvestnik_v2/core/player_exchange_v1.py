@@ -19,6 +19,10 @@ MAX_INITIAL_MORA: Final = 1_000_000
 AUCTION_HOURS: Final = 24
 PRICE_SCALE: Final = 1_000_000
 MAX_PRICE_MICROMORA: Final = 1_000_000 * PRICE_SCALE
+MAKER_FEE_BPS: Final = 10
+TAKER_FEE_BPS: Final = 25
+FEE_BPS_SCALE: Final = 10_000
+MIN_FEE_NOTIONAL_MORA: Final = Decimal("10")
 MIN_AUCTION_SOLD_UNITS: Final = 30_000 * TOKEN_SCALE
 MIN_AUCTION_RAISED_MORA: Final = 10_000
 
@@ -151,3 +155,27 @@ def clear_uniform_auction(bids: list[AuctionBid], supply_units: int) -> AuctionC
     sold = sum(allocations.values())
     raised = sum(costs.values(), Decimal("0"))
     return AuctionClearing(clearing, allocations, costs, sold, raised)
+
+
+def trade_notional(units: int, price_micromora: int) -> Decimal:
+    if units <= 0 or price_micromora <= 0:
+        raise PlayerExchangePolicyError("Количество и цена сделки должны быть положительными.")
+    return (Decimal(units) * Decimal(price_micromora) / Decimal(TOKEN_SCALE * PRICE_SCALE)).quantize(
+        Decimal("0.000001")
+    )
+
+
+def trade_fee(notional: Decimal, *, maker: bool) -> Decimal:
+    if notional < MIN_FEE_NOTIONAL_MORA:
+        return Decimal("0")
+    bps = MAKER_FEE_BPS if maker else TAKER_FEE_BPS
+    proportional = (notional * Decimal(bps) / Decimal(FEE_BPS_SCALE)).quantize(Decimal("0.000001"))
+    return max(Decimal("1"), proportional)
+
+
+def buy_reserve(units: int, limit_price_micromora: int) -> Decimal:
+    notional = trade_notional(units, limit_price_micromora)
+    # Minimum-per-fill fees can reach 10% if liquidity arrives in 10-Mora lots.
+    # Reserve that deterministic ceiling; unused Mora is returned on close.
+    fee_ceiling = Decimal("0") if notional < MIN_FEE_NOTIONAL_MORA else notional / Decimal("10")
+    return (notional + max(fee_ceiling, trade_fee(notional, maker=False))).quantize(Decimal("0.000001"))

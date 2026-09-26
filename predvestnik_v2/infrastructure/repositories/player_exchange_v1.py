@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from uuid import uuid4
 
-SCHEMA_VERSION = "player-exchange-schema-v2-auction-2026-09-26"
+SCHEMA_VERSION = "player-exchange-schema-v3-spot-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -95,6 +96,74 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_orders_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            user_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            action_id TEXT NOT NULL,
+            side TEXT NOT NULL CHECK (side IN ('buy','sell')),
+            time_in_force TEXT NOT NULL CHECK (time_in_force IN ('gtc','ioc')),
+            limit_price_micromora BIGINT NOT NULL CHECK (limit_price_micromora > 0),
+            original_units BIGINT NOT NULL CHECK (original_units > 0),
+            remaining_units BIGINT NOT NULL CHECK (remaining_units >= 0),
+            reserved_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (reserved_mora >= 0),
+            spent_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (spent_mora >= 0),
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','filled','cancelled')),
+            reserve_operation_id TEXT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            release_operation_id TEXT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            closed_at TIMESTAMPTZ NULL,
+            UNIQUE (user_id,action_id)
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_player_coin_order_book_v1 ON player_coin_orders_v1"
+        "(coin_id,status,side,limit_price_micromora,created_at,id)"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_trades_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            buy_order_id TEXT NOT NULL REFERENCES player_coin_orders_v1(id) ON DELETE RESTRICT,
+            sell_order_id TEXT NOT NULL REFERENCES player_coin_orders_v1(id) ON DELETE RESTRICT,
+            buyer_id BIGINT NOT NULL,
+            seller_id BIGINT NOT NULL,
+            units BIGINT NOT NULL CHECK (units > 0),
+            price_micromora BIGINT NOT NULL CHECK (price_micromora > 0),
+            gross_mora NUMERIC(24,6) NOT NULL CHECK (gross_mora > 0),
+            buyer_fee_mora NUMERIC(24,6) NOT NULL CHECK (buyer_fee_mora >= 0),
+            seller_fee_mora NUMERIC(24,6) NOT NULL CHECK (seller_fee_mora >= 0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CHECK (buyer_id <> seller_id)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_exchange_fee_fund_v1 (
+            singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(singleton),
+            insurance_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK(insurance_mora >= 0),
+            burned_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK(burned_mora >= 0)
+        )
+    """)
+    await db.execute(
+        "INSERT INTO player_exchange_fee_fund_v1(singleton) VALUES(TRUE) ON CONFLICT DO NOTHING"
+    )
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'player_coin_trades_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_trades_immutable_v1'
+                AND tgrelid='player_coin_trades_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_trades_immutable_v1
+                BEFORE UPDATE OR DELETE ON player_coin_trades_v1
+                FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_trade_mutation_v1();
+            END IF;
+        END $$
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_mora_ledger_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -162,6 +231,13 @@ async def lock_owner(db, user_id: int) -> None:
     ) as cursor:
         await cursor.fetchone()
     async with db.execute("SELECT pg_advisory_xact_lock(?)", (int(user_id),)) as cursor:
+        await cursor.fetchone()
+
+
+async def lock_spot(db) -> None:
+    async with db.execute(
+        "SELECT pg_advisory_xact_lock(hashtextextended('player_exchange_v1:spot',0))"
+    ) as cursor:
         await cursor.fetchone()
 
 
@@ -424,3 +500,177 @@ async def lock_enabled_flag(db, key: str) -> bool:
     async with db.execute("SELECT enabled FROM system_flags WHERE key=? FOR SHARE", (key,)) as cursor:
         row = await cursor.fetchone()
     return bool(row and row[0])
+
+
+async def get_order_replay(db, *, user_id: int, action_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_orders_v1 WHERE user_id=? AND action_id=?",
+        (int(user_id), action_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_player_coin_account(db, *, coin_id: str, user_id: int, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_accounts_v1 WHERE coin_id=? AND account_key=?" + suffix,
+        (coin_id, f"player:{int(user_id)}"),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def reserve_sell_units(db, *, coin_id: str, user_id: int, units: int) -> None:
+    account = await get_player_coin_account(db, coin_id=coin_id, user_id=user_id, for_update=True)
+    if not account or int(account["available_units"]) < int(units):
+        raise ValueError("insufficient_coin_balance")
+    await db.execute(
+        "UPDATE player_coin_accounts_v1 SET available_units=available_units-?,"
+        "reserved_units=reserved_units+?,updated_at=NOW() WHERE coin_id=? AND account_key=?",
+        (int(units), int(units), coin_id, f"player:{int(user_id)}"),
+    )
+
+
+async def insert_order(db, *, coin_id: str, user_id: int, action_id: str, side: str,
+                       time_in_force: str, price: int, units: int, reserved_mora,
+                       reserve_operation_id: str | None) -> dict:
+    order_id = uuid4().hex
+    async with db.execute(
+        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,action_id,side,time_in_force,"
+        "limit_price_micromora,original_units,remaining_units,reserved_mora,reserve_operation_id) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
+        (order_id, coin_id, int(user_id), action_id, side, time_in_force, int(price),
+         int(units), int(units), reserved_mora, reserve_operation_id),
+    ) as cursor:
+        row = await cursor.fetchone()
+    await append_event(db, coin_id=coin_id, actor_id=user_id, event_type="order_placed",
+                       action_id=f"order-placed:{action_id}", payload={
+                           "order_id": order_id, "side": side, "time_in_force": time_in_force,
+                           "price_micromora": int(price), "units": int(units),
+                           "reserved_mora": str(reserved_mora),
+                           "reserve_operation_id": reserve_operation_id,
+                       })
+    return dict(row)
+
+
+async def append_event(db, *, coin_id: str, actor_id: int | None, event_type: str,
+                       action_id: str, payload: dict) -> None:
+    await db.execute(
+        "INSERT INTO player_coin_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+        "VALUES(?,?,?,?,?,?::jsonb)",
+        (uuid4().hex, coin_id, actor_id, event_type, action_id,
+         json.dumps(payload, sort_keys=True, separators=(",", ":"))),
+    )
+
+
+async def get_order(db, order_id: str, *, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute("SELECT * FROM player_coin_orders_v1 WHERE id=?" + suffix, (order_id,)) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def best_cross(db, coin_id: str):
+    async with db.execute("""
+        SELECT b.id AS buy_id,s.id AS sell_id
+        FROM player_coin_orders_v1 b CROSS JOIN LATERAL (
+            SELECT id,limit_price_micromora,created_at FROM player_coin_orders_v1
+            WHERE coin_id=? AND status='open' AND side='sell' AND remaining_units>0
+            ORDER BY limit_price_micromora,created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED
+        ) s
+        WHERE b.coin_id=? AND b.status='open' AND b.side='buy' AND b.remaining_units>0
+          AND b.limit_price_micromora>=s.limit_price_micromora
+        ORDER BY b.limit_price_micromora DESC,b.created_at,b.id LIMIT 1 FOR UPDATE OF b
+    """, (coin_id, coin_id)) as cursor:
+        row = await cursor.fetchone()
+    return (str(row[0]), str(row[1])) if row else None
+
+
+async def active_market_ids(db) -> list[str]:
+    async with db.execute(
+        "SELECT DISTINCT coin_id FROM player_coin_orders_v1 WHERE status='open' ORDER BY coin_id"
+    ) as cursor:
+        return [str(row[0]) for row in await cursor.fetchall()]
+
+
+async def release_sell_units(db, *, coin_id: str, user_id: int, units: int) -> None:
+    async with db.execute(
+        "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,"
+        "available_units=available_units+?,updated_at=NOW() "
+        "WHERE coin_id=? AND account_key=? AND reserved_units>=? RETURNING 1",
+        (int(units), int(units), coin_id, f"player:{int(user_id)}", int(units)),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Sell reserve release invariant failed.")
+
+
+async def transfer_trade_tokens(db, *, coin_id: str, seller_id: int, buyer_id: int, units: int) -> None:
+    async with db.execute(
+        "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,updated_at=NOW() "
+        "WHERE coin_id=? AND account_key=? AND reserved_units>=? RETURNING 1",
+        (int(units), coin_id, f"player:{int(seller_id)}", int(units)),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Trade token reserve invariant failed.")
+    await credit_bid_tokens(db, coin_id=coin_id, bidder_id=int(buyer_id), units=int(units))
+
+
+async def update_order_fill(db, *, order_id: str, units: int, mora_charge=0) -> dict:
+    async with db.execute(
+        "UPDATE player_coin_orders_v1 SET remaining_units=remaining_units-?,"
+        "reserved_mora=reserved_mora-(?::numeric),spent_mora=spent_mora+(?::numeric),"
+        "status=CASE WHEN remaining_units-?=0 THEN 'filled' ELSE 'open' END,"
+        "closed_at=CASE WHEN remaining_units-?=0 THEN NOW() ELSE NULL END "
+        "WHERE id=? AND status='open' AND remaining_units>=? AND reserved_mora>=(?::numeric) RETURNING *",
+        (int(units), mora_charge, mora_charge, int(units), int(units), order_id,
+         int(units), mora_charge),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise RuntimeError("Order reserve invariant failed.")
+    return dict(row)
+
+
+async def close_order(db, *, order_id: str, release_operation_id: str | None) -> None:
+    async with db.execute(
+        "UPDATE player_coin_orders_v1 SET status='cancelled',remaining_units=0,reserved_mora=0,"
+        "release_operation_id=?,closed_at=NOW() WHERE id=? AND status='open' RETURNING 1",
+        (release_operation_id, order_id),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Order close invariant failed.")
+
+
+async def release_filled_buy_remainder(db, *, order_id: str, release_operation_id: str) -> None:
+    async with db.execute(
+        "UPDATE player_coin_orders_v1 SET reserved_mora=0,release_operation_id=? "
+        "WHERE id=? AND status='filled' AND reserved_mora>0 RETURNING 1",
+        (release_operation_id, order_id),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Filled buy release invariant failed.")
+
+
+async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell_order: dict,
+                       units: int, price: int, gross, buyer_fee, seller_fee) -> None:
+    await db.execute(
+        "INSERT INTO player_coin_trades_v1(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,"
+        "units,price_micromora,gross_mora,buyer_fee_mora,seller_fee_mora) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        (trade_id, coin_id, buy_order["id"], sell_order["id"], int(buy_order["user_id"]),
+         int(sell_order["user_id"]), int(units), int(price), gross, buyer_fee, seller_fee),
+    )
+    total_fee = buyer_fee + seller_fee
+    insurance = (total_fee * 3 / 10).quantize(Decimal("0.000001"))
+    burned = total_fee - insurance
+    await db.execute(
+        "UPDATE player_exchange_fee_fund_v1 SET insurance_mora=insurance_mora+?,burned_mora=burned_mora+? "
+        "WHERE singleton=TRUE", (insurance, burned),
+    )
+    await append_event(db, coin_id=coin_id, actor_id=None, event_type="spot_trade",
+                       action_id=f"trade:{trade_id}", payload={
+                           "trade_id": trade_id, "buy_order_id": buy_order["id"],
+                           "sell_order_id": sell_order["id"], "units": int(units),
+                           "price_micromora": int(price), "gross_mora": str(gross),
+                           "buyer_fee_mora": str(buyer_fee), "seller_fee_mora": str(seller_fee),
+                       })

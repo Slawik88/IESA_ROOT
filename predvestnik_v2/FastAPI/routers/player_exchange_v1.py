@@ -25,6 +25,14 @@ class AuctionBidRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class LimitOrderRequest(BaseModel):
+    side: str
+    amount: str
+    limit_price_mora: str
+    time_in_force: str = "gtc"
+    action_id: str = Field(min_length=8, max_length=128)
+
+
 @router.get("/coins")
 async def coins(db=Depends(get_db), user=Depends(require_tg_user)):
     try:
@@ -66,3 +74,29 @@ async def auction_bid(coin_id: str, payload: AuctionBidRequest,
         raise HTTPException(400, str(exc)) from exc
     except IdempotencyConflict as exc:
         raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/orders")
+async def place_order(coin_id: str, payload: LimitOrderRequest,
+                      db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        order = await service.place_limit_order(
+            db, user_id=int(user["id"]), coin_id=coin_id, side=payload.side,
+            amount=payload.amount, limit_price_mora=payload.limit_price_mora,
+            time_in_force=payload.time_in_force, action_id=payload.action_id,
+        )
+        return {"order": order}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"order": await service.cancel_order(db, user_id=int(user["id"]), order_id=order_id)}
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc

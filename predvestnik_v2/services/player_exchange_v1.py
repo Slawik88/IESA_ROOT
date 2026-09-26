@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from uuid import uuid4
 
 from core.player_exchange_v1 import (
     AUCTION_HOURS, CREATION_FEE_ZARNIKI, FEATURE_FLAG_KEY, GENESIS_UNITS,
     MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
-    validate_coin_draft,
+    buy_reserve, parse_token_amount, trade_fee, trade_notional, validate_coin_draft,
 )
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
@@ -229,3 +230,183 @@ async def settle_due_auctions(db, *, limit: int = 20) -> list[dict]:
         except Exception as exc:
             results.append({"coin_id": coin_id, "error": f"{type(exc).__name__}: {exc}"})
     return results
+
+
+async def place_limit_order(db, *, user_id: int, coin_id: str, side: str,
+                            amount: str, limit_price_mora: str, time_in_force: str,
+                            action_id: str) -> dict:
+    await require_enabled(db)
+    side = str(side).lower()
+    tif = str(time_in_force).lower()
+    if side not in {"buy", "sell"} or tif != "gtc":
+        raise PlayerExchangePolicyError("Некорректный тип заявки.")
+    units = parse_token_amount(amount)
+    try:
+        price = Decimal(str(limit_price_mora))
+        price_micro = int((price * PRICE_SCALE).to_integral_exact())
+    except (InvalidOperation, ValueError, TypeError, OverflowError) as exc:
+        raise PlayerExchangePolicyError("Некорректная цена заявки.") from exc
+    if (not price.is_finite() or price_micro <= 0 or price_micro > MAX_PRICE_MICROMORA
+            or Decimal(price_micro) / PRICE_SCALE != price):
+        raise PlayerExchangePolicyError("Цена должна быть положительной, точность — до 6 знаков.")
+    if trade_notional(units, price_micro) < Decimal("10"):
+        raise PlayerExchangePolicyError("Минимальная сумма заявки — 10 Моры.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_order_replay(db, user_id=int(user_id), action_id=action_id)
+        if replay:
+            identity = (str(replay["coin_id"]), replay["side"], replay["time_in_force"],
+                        int(replay["limit_price_micromora"]), int(replay["original_units"]))
+            if identity != (coin_id, side, tif, price_micro, units):
+                raise IdempotencyConflict("Action id is bound to another order.")
+            replay["replayed"] = True
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or coin["status"] != "active":
+            raise PlayerExchangePolicyError("Торги этой монетой недоступны.")
+        reserved = Decimal("0")
+        reserve_op = None
+        if side == "buy":
+            reserved = buy_reserve(units, price_micro)
+            mutation = await economy_ledger.apply_balance_change(
+                db, int(user_id), {"mora": -reserved}, reason_code="player_coin_order_reserve",
+                idempotency_key=f"player-coin:order:{action_id}", source_type="player_exchange",
+                reference_type="spot_order", reference_id=action_id,
+                metadata={"coin_id": coin_id, "side": side, "units": units,
+                          "price_micromora": price_micro, "time_in_force": tif},
+                note=f"Заявка на покупку {coin['ticker']}",
+            )
+            reserve_op = str(mutation.operation_id)
+        else:
+            try:
+                await repo.reserve_sell_units(db, coin_id=coin_id, user_id=int(user_id), units=units)
+            except ValueError as exc:
+                raise PlayerExchangePolicyError("Недостаточно монет для продажи.") from exc
+        result = await repo.insert_order(
+            db, coin_id=coin_id, user_id=int(user_id), action_id=action_id, side=side,
+            time_in_force=tif, price=price_micro, units=units, reserved_mora=reserved,
+            reserve_operation_id=reserve_op,
+        )
+        result["replayed"] = False
+    return result
+
+
+async def _release_order(db, order: dict, *, reason: str) -> None:
+    release_op = None
+    if order["side"] == "buy" and Decimal(order["reserved_mora"]) > 0:
+        mutation = await economy_ledger.apply_balance_change(
+            db, int(order["user_id"]), {"mora": Decimal(order["reserved_mora"])},
+            reason_code="player_coin_order_release",
+            idempotency_key=f"player-coin:order-release:{order['id']}", source_type="player_exchange",
+            reference_type="spot_order", reference_id=str(order["id"]),
+            metadata={"reason": reason, "coin_id": str(order["coin_id"])},
+            note="Возврат резерва биржевой заявки",
+        )
+        release_op = str(mutation.operation_id)
+    elif order["side"] == "sell" and int(order["remaining_units"]) > 0:
+        await repo.release_sell_units(
+            db, coin_id=str(order["coin_id"]), user_id=int(order["user_id"]),
+            units=int(order["remaining_units"]),
+        )
+    await repo.close_order(db, order_id=str(order["id"]), release_operation_id=release_op)
+    await repo.append_event(
+        db, coin_id=str(order["coin_id"]), actor_id=int(order["user_id"]),
+        event_type="order_closed", action_id=f"order-closed:{order['id']}",
+        payload={"order_id": str(order["id"]), "reason": reason,
+                 "released_mora": str(order["reserved_mora"]),
+                 "released_units": int(order["remaining_units"]) if order["side"] == "sell" else 0},
+    )
+
+
+async def cancel_order(db, *, user_id: int, order_id: str) -> dict:
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        order = await repo.get_order(db, order_id, for_update=True)
+        if not order or int(order["user_id"]) != int(user_id):
+            raise PlayerExchangePolicyError("Заявка не найдена.")
+        if order["status"] != "open":
+            return order
+        await _release_order(db, order, reason="user_cancelled")
+        return await repo.get_order(db, order_id)
+
+
+async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]:
+    completed = []
+    for _ in range(max(1, min(int(max_trades), 500))):
+        async with db.connection.transaction():
+            await repo.lock_spot(db)
+            coin = await repo.get_coin(db, coin_id, for_update=True)
+            if not coin or coin["status"] != "active":
+                return completed
+            pair = await repo.best_cross(db, coin_id)
+            if not pair:
+                break
+            buy = await repo.get_order(db, pair[0], for_update=True)
+            sell = await repo.get_order(db, pair[1], for_update=True)
+            if int(buy["user_id"]) == int(sell["user_id"]):
+                newer = buy if (buy["created_at"], buy["id"]) > (sell["created_at"], sell["id"]) else sell
+                await _release_order(db, newer, reason="self_trade_prevented")
+                continue
+            buy_is_maker = (buy["created_at"], buy["id"]) < (sell["created_at"], sell["id"])
+            maker = buy if buy_is_maker else sell
+            units = min(int(buy["remaining_units"]), int(sell["remaining_units"]))
+            price = int(maker["limit_price_micromora"])
+            gross = trade_notional(units, price)
+            if gross <= 0:
+                newer = buy if (buy["created_at"], buy["id"]) > (sell["created_at"], sell["id"]) else sell
+                await _release_order(db, newer, reason="unexecutable_dust_cross")
+                continue
+            buyer_fee = trade_fee(gross, maker=buy_is_maker)
+            seller_fee = trade_fee(gross, maker=not buy_is_maker)
+            buyer_charge = gross + buyer_fee
+            trade_id = uuid4().hex
+            buy_after = await repo.update_order_fill(
+                db, order_id=str(buy["id"]), units=units, mora_charge=buyer_charge,
+            )
+            sell_after = await repo.update_order_fill(
+                db, order_id=str(sell["id"]), units=units, mora_charge=Decimal("0"),
+            )
+            await repo.transfer_trade_tokens(
+                db, coin_id=coin_id, seller_id=int(sell["user_id"]),
+                buyer_id=int(buy["user_id"]), units=units,
+            )
+            await economy_ledger.apply_balance_change(
+                db, int(sell["user_id"]), {"mora": gross - seller_fee},
+                reason_code="player_coin_trade_proceeds",
+                idempotency_key=f"player-coin:trade:{trade_id}", source_type="player_exchange",
+                reference_type="spot_trade", reference_id=trade_id,
+                metadata={"coin_id": coin_id, "units": units, "price_micromora": price,
+                          "gross_mora": str(gross), "seller_fee_mora": str(seller_fee)},
+                note=f"Продажа {coin['ticker']}",
+            )
+            await repo.record_trade(
+                db, trade_id=trade_id, coin_id=coin_id, buy_order=buy, sell_order=sell,
+                units=units, price=price, gross=gross, buyer_fee=buyer_fee, seller_fee=seller_fee,
+            )
+            if buy_after["status"] == "filled" and Decimal(buy_after["reserved_mora"]) > 0:
+                mutation = await economy_ledger.apply_balance_change(
+                    db, int(buy_after["user_id"]), {"mora": Decimal(buy_after["reserved_mora"])},
+                    reason_code="player_coin_order_release",
+                    idempotency_key=f"player-coin:order-release:{buy_after['id']}",
+                    source_type="player_exchange", reference_type="spot_order",
+                    reference_id=str(buy_after["id"]),
+                    metadata={"reason": "filled_price_improvement", "coin_id": coin_id},
+                    note="Возврат остатка резерва биржевой заявки",
+                )
+                await repo.release_filled_buy_remainder(
+                    db, order_id=str(buy_after["id"]),
+                    release_operation_id=str(mutation.operation_id),
+                )
+                await repo.append_event(
+                    db, coin_id=coin_id, actor_id=int(buy_after["user_id"]),
+                    event_type="order_closed", action_id=f"order-closed:{buy_after['id']}",
+                    payload={"order_id": str(buy_after["id"]), "reason": "filled",
+                             "released_mora": str(buy_after["reserved_mora"]), "released_units": 0},
+                )
+            if sell_after["status"] == "filled":
+                # No remaining token reserve; status is already final.
+                pass
+            completed.append({"trade_id": trade_id, "units": units, "price_micromora": price})
+    return completed

@@ -216,6 +216,95 @@ async def main(dsn: str):
             launched["id"],
         ) == 4
 
+        sell_order = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-sell-0001",
+        )
+        buy_order = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-buy-0001",
+        )
+        trades = await service.match_market(db, coin_id=launched["id"])
+        assert len(trades) == 1 and trades[0]["units"] == 10_000
+        sell_final = await repo.get_order(db, sell_order["id"])
+        buy_final = await repo.get_order(db, buy_order["id"])
+        assert sell_final["status"] == "filled" and buy_final["status"] == "filled"
+        assert float(buy_final["reserved_mora"]) == 0
+        assert await conn.fetchval("SELECT COUNT(*) FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"]) == 1
+        fee_fund = await conn.fetchrow(
+            "SELECT insurance_mora,burned_mora FROM player_exchange_fee_fund_v1 WHERE singleton=TRUE"
+        )
+        assert float(fee_fund[0]) == 0.6 and float(fee_fund[1]) == 1.4
+        trader8 = await conn.fetchrow("SELECT user_balance_mora FROM users WHERE user_tg_id=8")
+        trader9 = await conn.fetchrow("SELECT user_balance_mora FROM users WHERE user_tg_id=9")
+        assert float(trader8[0]) == 80019 and float(trader9[0]) == 79979
+        token8 = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
+        token9 = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=9)
+        assert int(token8["available_units"]) == 19_990_000 and int(token8["reserved_units"]) == 0
+        assert int(token9["available_units"]) == 20_010_000 and int(token9["reserved_units"]) == 0
+        try:
+            await conn.execute("DELETE FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"])
+            raise AssertionError("append-only trade was mutable")
+        except asyncpg.RaiseError:
+            pass
+        cancellable = await service.place_limit_order(
+            db, user_id=11, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="1", time_in_force="gtc", action_id="order-cancel-0001",
+        )
+        cancelled = await service.cancel_order(db, user_id=11, order_id=cancellable["id"])
+        assert cancelled["status"] == "cancelled"
+        assert float(await conn.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=11")) == 100000
+        try:
+            await service.place_limit_order(
+                db, user_id=11, coin_id=launched["id"], side="buy", amount="0.001",
+                limit_price_mora="0.000001", time_in_force="gtc", action_id="order-dust-00001",
+            )
+            raise AssertionError("dust order was accepted")
+        except PlayerExchangePolicyError:
+            pass
+
+        self_sell = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="10",
+            limit_price_mora="1", time_in_force="gtc", action_id="order-self-sell",
+        )
+        self_buy = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="1", time_in_force="gtc", action_id="order-self-buy-1",
+        )
+        assert await service.match_market(db, coin_id=launched["id"]) == []
+        assert (await repo.get_order(db, self_buy["id"]))["status"] == "cancelled"
+        assert (await repo.get_order(db, self_sell["id"]))["status"] == "open"
+        await service.cancel_order(db, user_id=8, order_id=self_sell["id"])
+        token8_after = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
+        assert int(token8_after["available_units"]) == 19_990_000
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-part-sell1",
+        )
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-part-sell2",
+        )
+        partial_buy = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-part-buy01",
+        )
+        partial_trades = await service.match_market(db, coin_id=launched["id"])
+        assert len(partial_trades) == 2
+        assert (await repo.get_order(db, partial_buy["id"]))["reserved_mora"] == 0
+        dust_sell = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="sell", amount="20000",
+            limit_price_mora="0.0005", time_in_force="gtc", action_id="order-cross-dust-s",
+        )
+        dust_buy = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="buy", amount="0.001",
+            limit_price_mora="10000", time_in_force="gtc", action_id="order-cross-dust-b",
+        )
+        assert await service.match_market(db, coin_id=launched["id"]) == []
+        assert (await repo.get_order(db, dust_buy["id"]))["status"] == "cancelled"
+        assert (await repo.get_order(db, dust_sell["id"]))["status"] == "open"
+        await service.cancel_order(db, user_id=9, order_id=dust_sell["id"])
+
         failed = await service.create_coin(
             db, owner_id=10, name="Тихая монета", ticker="QUIET",
             initial_mora=10000, action_id="create-action-0010",

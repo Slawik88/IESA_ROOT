@@ -11,6 +11,29 @@ from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
 
 
+async def player_exchange_match_task() -> None:
+    """Batch-match enabled player markets on the approved 15-second cadence."""
+    logger.info("Player exchange matcher started.")
+    while True:
+        await asyncio.sleep(15)
+        try:
+            from infrastructure.repositories import player_exchange_v1 as repo, system_flags
+            from services import player_exchange_v1 as exchange
+            async with get_pool().acquire() as conn:
+                db = PGAdapter(conn)
+                if not await system_flags.is_enabled(db, "economy_player_exchange_v1"):
+                    continue
+                for coin_id in await repo.active_market_ids(db):
+                    try:
+                        await exchange.match_market(db, coin_id=coin_id, max_trades=100)
+                    except Exception as market_error:
+                        logger.exception(
+                            f"Player exchange market {coin_id} failed: {market_error}"
+                        )
+        except Exception as exc:
+            logger.exception(f"Player exchange matcher error: {exc}")
+
+
 async def mafia_phase_task(bot: Bot) -> None:
     """Durably close enabled Mafia phases from PostgreSQL deadlines."""
     logger.info("Mafia phase scheduler started.")

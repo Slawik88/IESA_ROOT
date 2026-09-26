@@ -22,6 +22,7 @@ from infrastructure.preprod import is_preprod
 from services.scheduler import (
     maintenance_task,
     mafia_phase_task,
+    player_exchange_match_task,
 )
 
 # Unique advisory lock key for this bot (arbitrary fixed integer).
@@ -267,6 +268,7 @@ async def main():
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
+            _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
         ])
         # Preprod intentionally has no Stars history/reconciliation access.
         # Do not spawn a coroutine that correctly returns immediately and then
