@@ -412,6 +412,23 @@ async def main(dsn: str):
         assert (await repo.get_order(db, dust_buy["id"]))["status"] == "cancelled"
         assert (await repo.get_order(db, dust_sell["id"]))["status"] == "open"
         await service.cancel_order(db, user_id=9, order_id=dust_sell["id"])
+        disabled_sell = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-disabled-sell",
+        )
+        disabled_buy = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-disabled-buy1",
+        )
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
+        assert await service.match_market(db, coin_id=launched["id"]) == []
+        assert (await repo.get_order(db, disabled_sell["id"]))["status"] == "open"
+        assert (await repo.get_order(db, disabled_buy["id"]))["status"] == "open"
+        assert (await service.cancel_order(db, user_id=8, order_id=disabled_sell["id"]))["status"] == "cancelled"
+        assert (await service.cancel_order(db, user_id=9, order_id=disabled_buy["id"]))["status"] == "cancelled"
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
         for suffix, age in (("5m", 7), ("1h", 70)):
             baseline_price = 1_000_000 if suffix == "5m" else 2_000_000
             baseline_gross = 100 if suffix == "5m" else 200

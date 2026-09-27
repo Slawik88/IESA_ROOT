@@ -365,6 +365,8 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
     for _ in range(max(1, min(int(max_trades), 500))):
         async with db.connection.transaction():
             await repo.lock_spot(db)
+            if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+                return completed
             coin = await repo.get_coin(db, coin_id, for_update=True)
             if not coin or coin["status"] != "active":
                 return completed
