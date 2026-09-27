@@ -515,7 +515,7 @@ let _activePage = 'profile';
 const _PAGE_LOADERS = {
   arena:loadArena,
   admin:loadAdmin, global:loadGlobal, console:loadConsole, help:()=>{},
-  news:loadWhatsNew
+  news:loadWhatsNew, 'exchange-v1':loadPlayerExchangeV1
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
@@ -523,6 +523,7 @@ const _PAGE_FLAG = {};
 let _sysFlags = {};  // заполняется из /profile/me (system_flags) при loadProfile()
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
+  try { syncPlayerExchangeEntry(); } catch (_) {}
 }
 function _isFeatureEnabled(key) {
   return _sysFlags[key] !== false;  // undefined = профиль ещё загружается
@@ -603,7 +604,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','exchange-v1'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
