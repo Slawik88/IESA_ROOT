@@ -47,6 +47,16 @@ class ManualMarketHaltRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class EmissionRequest(BaseModel):
+    amount: str = Field(min_length=1, max_length=32)
+    reason: str = Field(min_length=10, max_length=160)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+class EmissionCancelRequest(BaseModel):
+    action_id: str = Field(min_length=8, max_length=128)
+
+
 @router.get("/me")
 async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
                             orders_cursor: str | None = None, bids_cursor: str | None = None,
@@ -174,6 +184,37 @@ async def halt_market(coin_id: str, payload: ManualMarketHaltRequest,
         return {"halt": await service.manually_halt_market(
             db, actor_id=int(user["id"]), coin_id=coin_id, minutes=payload.minutes,
             public_reason=payload.public_reason, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/emissions")
+async def request_emission(coin_id: str, payload: EmissionRequest,
+                           db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"emission": await service.request_emission(
+            db, owner_id=int(user["id"]), coin_id=coin_id, amount=payload.amount,
+            reason=payload.reason, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/emissions/{emission_id}/cancel")
+async def cancel_emission(emission_id: str, payload: EmissionCancelRequest,
+                          db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"emission": await service.cancel_emission(
+            db, owner_id=int(user["id"]), emission_id=emission_id, action_id=payload.action_id,
         )}
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc

@@ -581,6 +581,113 @@ async def main(dsn: str):
             launched["id"],
         ) == 1
 
+        # Owner emissions are public, delayed, capped and treasury-only.
+        circulation = int(await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ))
+        await repo.credit_bid_tokens(db, coin_id=launched["id"], bidder_id=7, units=20_000)
+        owner_sell = await service.place_limit_order(
+            db, user_id=7, coin_id=launched["id"], side="sell", amount="20",
+            limit_price_mora="1", time_in_force="gtc", action_id="emission-owner-sell-before",
+        )
+        try:
+            await service.request_emission(
+                db, owner_id=7, coin_id=launched["id"], amount="1000",
+                reason="Плановое расширение публичной казны.", action_id="emission-request-with-sell",
+            )
+            raise AssertionError("emission with an existing owner sell was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        await service.cancel_order(db, user_id=7, order_id=owner_sell["id"])
+        emission = await service.request_emission(
+            db, owner_id=7, coin_id=launched["id"], amount="1000",
+            reason="Плановое расширение публичной казны.", action_id="emission-request-0001",
+        )
+        replayed_emission = await service.request_emission(
+            db, owner_id=7, coin_id=launched["id"], amount="1000",
+            reason="Плановое расширение публичной казны.", action_id="emission-request-0001",
+        )
+        assert replayed_emission["id"] == emission["id"] and replayed_emission["replayed"] is True
+        assert emission["circulation_snapshot_units"] == circulation
+        assert emission["projected_total_supply_units"] == int(await conn.fetchval(
+            "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        )) + 1_000_000
+        owner_buy = await service.place_limit_order(
+            db, user_id=7, coin_id=launched["id"], side="buy", amount="20",
+            limit_price_mora="0.5", time_in_force="gtc", action_id="emission-owner-buy-ok",
+        )
+        assert owner_buy["status"] == "open"
+        await service.cancel_order(db, user_id=7, order_id=owner_buy["id"])
+        try:
+            await service.place_limit_order(
+                db, user_id=7, coin_id=launched["id"], side="sell", amount="20",
+                limit_price_mora="1", time_in_force="gtc", action_id="emission-owner-sell-blocked",
+            )
+            raise AssertionError("owner sold while emission was pending")
+        except PlayerExchangePolicyError:
+            pass
+        try:
+            await service.place_protected_market_order(
+                db, user_id=7, coin_id=launched["id"], side="sell", amount="20",
+                slippage_percent=3, action_id="emission-owner-ioc-sell-blocked",
+            )
+            raise AssertionError("owner protected-sold while emission was pending")
+        except PlayerExchangePolicyError:
+            pass
+        try:
+            await service.request_emission(
+                db, owner_id=7, coin_id=launched["id"], amount=str(circulation // 1000),
+                reason="Слишком большая попытка эмиссии монеты.", action_id="emission-request-too-large",
+            )
+            raise AssertionError("oversized emission was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        try:
+            await service.cancel_emission(
+                db, owner_id=8, emission_id=emission["id"], action_id="emission-cancel-foreign",
+            )
+            raise AssertionError("foreign owner cancelled emission")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
+        cancelled = await service.cancel_emission(
+            db, owner_id=7, emission_id=emission["id"], action_id="emission-cancel-0001",
+        )
+        assert cancelled["status"] == "cancelled"
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.execute(
+            "UPDATE player_coin_emissions_v1 SET requested_at=NOW()-INTERVAL '8 days' WHERE id=?",
+            (emission["id"],),
+        )
+        await db.commit()
+        due = await service.request_emission(
+            db, owner_id=7, coin_id=launched["id"], amount="2000",
+            reason="Вторая публичная эмиссия после периода ожидания.", action_id="emission-request-0002",
+        )
+        supply_before = int(await conn.fetchval(
+            "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ))
+        treasury_before = int(await conn.fetchval(
+            "SELECT available_units FROM player_coin_accounts_v1 WHERE coin_id=$1 AND account_kind='treasury'",
+            launched["id"],
+        ))
+        await db.execute("UPDATE player_coin_emissions_v1 SET executes_at=NOW()-INTERVAL '1 second' WHERE id=?", (due["id"],))
+        await db.commit()
+        executed = await service.execute_due_emissions(db)
+        assert any(row.get("id") == due["id"] and row["status"] == "executed" for row in executed)
+        assert int(await conn.fetchval(
+            "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        )) == supply_before + 2_000_000
+        assert int(await conn.fetchval(
+            "SELECT available_units FROM player_coin_accounts_v1 WHERE coin_id=$1 AND account_kind='treasury'",
+            launched["id"],
+        )) == treasury_before + 2_000_000
+        public_emissions = (await service.public_market(db, coin_id=launched["id"]))["emissions"]
+        assert public_emissions[0]["status"] == "executed" and "owner_id" not in public_emissions[0]
+        assert public_emissions[0]["circulation_snapshot_units"] == circulation
+        assert public_emissions[0]["projected_total_supply_units"] == supply_before + 2_000_000
+
         failed = await service.create_coin(
             db, owner_id=10, name="Тихая монета", ticker="QUIET",
             initial_mora=10000, action_id="create-action-0010",

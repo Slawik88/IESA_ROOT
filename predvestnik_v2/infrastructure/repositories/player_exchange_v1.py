@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v8-market-analytics-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v9-owner-emission-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -34,6 +35,17 @@ async def ensure_tables(db) -> None:
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_owner_live_v1 "
         "ON player_coins_v1(owner_id) WHERE status IN ('auction','active','halted')"
     )
+    await db.execute("ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS total_supply_units BIGINT")
+    await db.execute("UPDATE player_coins_v1 SET total_supply_units=genesis_units WHERE total_supply_units IS NULL")
+    await db.execute("ALTER TABLE player_coins_v1 ALTER COLUMN total_supply_units SET NOT NULL")
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_total_supply_v1') THEN
+                ALTER TABLE player_coins_v1 ADD CONSTRAINT ck_player_coin_total_supply_v1
+                CHECK (total_supply_units>=genesis_units);
+            END IF;
+        END $$
+    """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_accounts_v1 (
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -200,6 +212,30 @@ async def ensure_tables(db) -> None:
         END $$
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_emissions_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            owner_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            action_id TEXT NOT NULL,
+            requested_units BIGINT NOT NULL CHECK (requested_units>0),
+            circulation_snapshot_units BIGINT NOT NULL CHECK (circulation_snapshot_units>0),
+            projected_total_supply_units BIGINT NOT NULL CHECK (projected_total_supply_units>0),
+            reason TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','cancelled','executed')),
+            requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            executes_at TIMESTAMPTZ NOT NULL,
+            cancel_action_id TEXT NULL,
+            cancelled_at TIMESTAMPTZ NULL,
+            executed_at TIMESTAMPTZ NULL,
+            UNIQUE(owner_id,action_id),
+            UNIQUE(owner_id,cancel_action_id)
+        )
+    """)
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_emission_v1 "
+        "ON player_coin_emissions_v1(coin_id) WHERE status='pending'"
+    )
+    await db.execute("""
         CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_trades_v1 is append-only'; END; $$
@@ -322,11 +358,11 @@ async def create_coin_rows(
     coin_id = uuid4().hex
     async with db.execute(
         "INSERT INTO player_coins_v1 "
-        "(id,owner_id,name,name_key,ticker,status,rules_version,genesis_units,initial_mora,"
+        "(id,owner_id,name,name_key,ticker,status,rules_version,genesis_units,total_supply_units,initial_mora,"
         "creation_operation_id,auction_ends_at) "
-        "VALUES (?,?,?,LOWER(?),?,'auction',?,?,?,?,NOW()+(? * INTERVAL '1 hour')) RETURNING *",
+        "VALUES (?,?,?,LOWER(?),?,'auction',?,?,?,?,?,NOW()+(? * INTERVAL '1 hour')) RETURNING *",
         (coin_id, int(owner_id), name, name, ticker, rules_version, int(genesis_units),
-         int(initial_mora), str(economy_operation_id), int(auction_hours)),
+         int(genesis_units), int(initial_mora), str(economy_operation_id), int(auction_hours)),
     ) as cursor:
         row = await cursor.fetchone()
     for kind, units in allocations.items():
@@ -360,7 +396,7 @@ async def create_coin_rows(
 
 async def list_coins(db) -> list[dict]:
     async with db.execute(
-        "SELECT id,name,ticker,status,genesis_units,circulating_units,initial_mora,"
+        "SELECT id,name,ticker,status,genesis_units,total_supply_units,circulating_units,initial_mora,"
         "auction_starts_at,auction_ends_at FROM player_coins_v1 "
         "WHERE status<>'archived' ORDER BY created_at DESC"
     ) as cursor:
@@ -1094,3 +1130,137 @@ async def public_market_stats(db, coin_id: str) -> dict:
     halt = await market_halt(db, coin_id)
     result["halt"] = {key: halt[key] for key in ("active", "halted_until", "kind", "public_reason")}
     return result
+
+
+async def get_emission_by_action(db, *, owner_id: int, action_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_emissions_v1 WHERE owner_id=? AND (action_id=? OR cancel_action_id=?)",
+        (int(owner_id), str(action_id), str(action_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_emission(db, emission_id: str, *, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute("SELECT * FROM player_coin_emissions_v1 WHERE id=?" + suffix, (str(emission_id),)) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def pending_emission(db, coin_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_emissions_v1 WHERE coin_id=? AND status='pending' ORDER BY requested_at DESC LIMIT 1",
+        (str(coin_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def owner_has_open_sell(db, *, coin_id: str, owner_id: int) -> bool:
+    async with db.execute(
+        "SELECT EXISTS(SELECT 1 FROM player_coin_orders_v1 WHERE coin_id=? AND user_id=? "
+        "AND actor_kind='player' AND side='sell' AND status='open' AND remaining_units>0)",
+        (str(coin_id), int(owner_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row and row[0])
+
+
+async def emission_cooldown_active(db, coin_id: str) -> bool:
+    async with db.execute(
+        "SELECT EXISTS(SELECT 1 FROM player_coin_emissions_v1 WHERE coin_id=? "
+        "AND requested_at>NOW()-INTERVAL '7 days')", (str(coin_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row and row[0])
+
+
+async def create_emission(db, *, coin_id: str, owner_id: int, units: int,
+                          circulation_snapshot_units: int, projected_total_supply_units: int,
+                          reason: str, action_id: str, wait_hours: int) -> dict:
+    emission_id = uuid4().hex
+    async with db.execute(
+        "INSERT INTO player_coin_emissions_v1"
+        "(id,coin_id,owner_id,action_id,requested_units,circulation_snapshot_units,"
+        "projected_total_supply_units,reason,executes_at) "
+        "VALUES(?,?,?,?,?,?,?,?,NOW()+(? * INTERVAL '1 hour')) RETURNING *",
+        (emission_id, str(coin_id), int(owner_id), str(action_id), int(units),
+         int(circulation_snapshot_units), int(projected_total_supply_units), reason, int(wait_hours)),
+    ) as cursor:
+        row = dict(await cursor.fetchone())
+    await append_event(
+        db, coin_id=str(coin_id), actor_id=int(owner_id), event_type="emission_requested",
+        action_id=str(action_id), payload={"emission_id": emission_id, "units": int(units),
+            "circulation_snapshot_units": int(circulation_snapshot_units),
+            "projected_total_supply_units": int(projected_total_supply_units),
+            "reason": reason, "executes_at": row["executes_at"].isoformat()},
+    )
+    return row
+
+
+async def cancel_emission(db, *, emission_id: str, owner_id: int, action_id: str) -> dict:
+    async with db.execute(
+        "UPDATE player_coin_emissions_v1 SET status='cancelled',cancel_action_id=?,cancelled_at=NOW() "
+        "WHERE id=? AND owner_id=? AND status='pending' "
+        "AND executes_at>NOW()+INTERVAL '60 minutes' RETURNING *",
+        (str(action_id), str(emission_id), int(owner_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("Emission cannot be cancelled")
+    result = dict(row)
+    await append_event(
+        db, coin_id=str(result["coin_id"]), actor_id=int(owner_id), event_type="emission_cancelled",
+        action_id=str(action_id), payload={"emission_id": str(emission_id), "units": int(result["requested_units"])},
+    )
+    return result
+
+
+async def due_emission_ids(db, *, limit: int = 20) -> list[str]:
+    async with db.execute(
+        "SELECT id FROM player_coin_emissions_v1 WHERE status='pending' AND executes_at<=NOW() "
+        "ORDER BY executes_at,id LIMIT ?", (max(1, min(int(limit), 100)),),
+    ) as cursor:
+        return [str(row[0]) for row in await cursor.fetchall()]
+
+
+async def execute_emission(db, *, emission_id: str) -> dict:
+    emission = await get_emission(db, emission_id, for_update=True)
+    if not emission or emission["status"] != "pending":
+        return emission or {}
+    if emission["executes_at"] > datetime.now(emission["executes_at"].tzinfo):
+        raise ValueError("Emission is not due")
+    units = int(emission["requested_units"])
+    async with db.execute(
+        "UPDATE player_coin_accounts_v1 SET available_units=available_units+?,updated_at=NOW() "
+        "WHERE coin_id=? AND account_kind='treasury' RETURNING 1",
+        (units, str(emission["coin_id"])),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Treasury emission account missing")
+    await db.execute(
+        "UPDATE player_coins_v1 SET total_supply_units=total_supply_units+? WHERE id=?",
+        (units, str(emission["coin_id"])),
+    )
+    async with db.execute(
+        "UPDATE player_coin_emissions_v1 SET status='executed',executed_at=NOW() "
+        "WHERE id=? AND status='pending' RETURNING *", (str(emission_id),),
+    ) as cursor:
+        result = dict(await cursor.fetchone())
+    await append_event(
+        db, coin_id=str(result["coin_id"]), actor_id=int(result["owner_id"]),
+        event_type="emission_executed", action_id=f"emission-execute:{emission_id}",
+        payload={"emission_id": str(emission_id), "units": units, "destination": "treasury"},
+    )
+    return result
+
+
+async def public_emissions(db, coin_id: str, *, limit: int = 20) -> list[dict]:
+    async with db.execute(
+        "SELECT id,requested_units,circulation_snapshot_units,projected_total_supply_units,"
+        "reason,status,requested_at,executes_at,cancelled_at,executed_at "
+        "FROM player_coin_emissions_v1 WHERE coin_id=? ORDER BY requested_at DESC,id DESC LIMIT ?",
+        (str(coin_id), max(1, min(int(limit), 50))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]

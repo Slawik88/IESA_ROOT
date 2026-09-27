@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from core.player_exchange_v1 import (
     AuctionBid, GENESIS_UNITS, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
     depth_band_bounds, parse_token_amount, protected_limit_price, treasury_ladder_prices,
-    validate_coin_draft,
+    validate_coin_draft, validate_emission,
 )
 
 
@@ -29,6 +29,14 @@ rejects(validate_coin_draft, name="Нормальная", ticker="АБВ", initi
 rejects(validate_coin_draft, name="Нормальная", ticker="ABC", initial_mora=9_999)
 rejects(parse_token_amount, "1.2345")
 rejects(parse_token_amount, 0)
+assert validate_emission(
+    amount="100", circulating_units=1_000_000,
+    reason="Публичное расширение казны монеты.",
+) == (100_000, "Публичное расширение казны монеты.")
+rejects(validate_emission, amount="100.001", circulating_units=1_000_000,
+        reason="Публичное расширение казны монеты.")
+rejects(validate_emission, amount="10", circulating_units=0,
+        reason="Публичное расширение казны монеты.")
 clearing = clear_uniform_auction([
     AuctionBid("a", 2_000_000, 100),
     AuctionBid("b", 1_000_000, 100),

@@ -8,11 +8,11 @@ from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from core.player_exchange_v1 import (
-    AUCTION_HOURS, CREATION_FEE_ZARNIKI, FEATURE_FLAG_KEY, GENESIS_UNITS,
+    AUCTION_HOURS, CREATION_FEE_ZARNIKI, EMISSION_WAIT_HOURS, FEATURE_FLAG_KEY, GENESIS_UNITS,
     MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
     buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
-    treasury_ladder_prices, validate_coin_draft,
+    treasury_ladder_prices, validate_coin_draft, validate_emission,
 )
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
@@ -370,6 +370,8 @@ async def place_limit_order(db, *, user_id: int, coin_id: str, side: str,
         coin = await repo.get_coin(db, coin_id, for_update=True)
         if not coin or coin["status"] != "active":
             raise PlayerExchangePolicyError("Торги этой монетой недоступны.")
+        if side == "sell" and int(coin["owner_id"]) == int(user_id) and await repo.pending_emission(db, coin_id):
+            raise PlayerExchangePolicyError("Владелец не может продавать монету, пока эмиссия ожидает исполнения.")
         reserved = Decimal("0")
         reserve_op = None
         if side == "buy":
@@ -563,13 +565,98 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
         raise PlayerExchangePolicyError("Рынок не найден.")
     return {
         "coin": {key: coin[key] for key in (
-            "id", "name", "ticker", "status", "genesis_units", "circulating_units"
+            "id", "name", "ticker", "status", "genesis_units", "total_supply_units", "circulating_units"
         )},
         "order_book": await repo.public_order_book(db, coin_id, levels),
         "recent_trades": await repo.public_recent_trades(db, coin_id, trades),
         "stats_24h": await repo.public_market_stats(db, coin_id),
+        "emissions": await repo.public_emissions(db, coin_id),
         "notice": "Игровой актив без вывода в деньги.",
     }
+
+
+async def request_emission(db, *, owner_id: int, coin_id: str, amount: str,
+                           reason: str, action_id: str) -> dict:
+    await require_enabled(db)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_emission_by_action(db, owner_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            units, clean_reason = validate_emission(
+                amount=amount, circulating_units=max(int(replay["requested_units"]) * 10, 1), reason=reason,
+            )
+            if (str(replay["coin_id"]), int(replay["requested_units"]), replay["reason"]) != (
+                str(coin_id), units, clean_reason,
+            ):
+                raise IdempotencyConflict("Action id is bound to another emission request.")
+            replay["replayed"] = True
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or int(coin["owner_id"]) != int(owner_id) or coin["status"] not in {"active", "halted"}:
+            raise PlayerExchangePolicyError("Управлять эмиссией может только владелец активной монеты.")
+        units, clean_reason = validate_emission(
+            amount=amount, circulating_units=int(coin["circulating_units"]), reason=reason,
+        )
+        if await repo.pending_emission(db, coin_id):
+            raise PlayerExchangePolicyError("У монеты уже есть ожидающая эмиссия.")
+        if await repo.owner_has_open_sell(db, coin_id=coin_id, owner_id=int(owner_id)):
+            raise PlayerExchangePolicyError("Перед эмиссией владелец должен отменить все свои заявки на продажу этой монеты.")
+        if await repo.emission_cooldown_active(db, coin_id):
+            raise PlayerExchangePolicyError("Между эмиссиями должно пройти 7 дней.")
+        result = await repo.create_emission(
+            db, coin_id=coin_id, owner_id=int(owner_id), units=units, reason=clean_reason,
+            circulation_snapshot_units=int(coin["circulating_units"]),
+            projected_total_supply_units=int(coin["total_supply_units"]) + units,
+            action_id=str(action_id), wait_hours=EMISSION_WAIT_HOURS,
+        )
+        result["replayed"] = False
+        return result
+
+
+async def cancel_emission(db, *, owner_id: int, emission_id: str, action_id: str) -> dict:
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        replay = await repo.get_emission_by_action(db, owner_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            if str(replay["id"]) != str(emission_id) or replay.get("cancel_action_id") != str(action_id):
+                raise IdempotencyConflict("Action id is bound to another emission operation.")
+            replay["replayed"] = True
+            return replay
+        emission = await repo.get_emission(db, emission_id, for_update=True)
+        if not emission or int(emission["owner_id"]) != int(owner_id):
+            raise PlayerExchangePolicyError("Запрос эмиссии не найден.")
+        try:
+            result = await repo.cancel_emission(
+                db, emission_id=str(emission_id), owner_id=int(owner_id), action_id=str(action_id),
+            )
+        except ValueError as exc:
+            raise PlayerExchangePolicyError("Эмиссию нельзя отменить в последний час или после исполнения.") from exc
+        result["replayed"] = False
+        return result
+
+
+async def execute_due_emissions(db, *, limit: int = 20) -> list[dict]:
+    if not await system_flags.is_enabled(db, FEATURE_FLAG_KEY):
+        return []
+    results = []
+    for emission_id in await repo.due_emission_ids(db, limit=limit):
+        try:
+            async with db.connection.transaction():
+                await repo.lock_spot(db)
+                if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+                    return results
+                results.append(await repo.execute_emission(db, emission_id=emission_id))
+        except Exception as exc:
+            results.append({"emission_id": emission_id, "error": f"{type(exc).__name__}: {exc}"})
+    return results
 
 
 async def manually_halt_market(
@@ -637,6 +724,8 @@ async def place_protected_market_order(
         coin = await repo.get_coin(db, coin_id, for_update=True)
         if not coin or coin["status"] != "active":
             raise PlayerExchangePolicyError("Торги этой монетой недоступны.")
+        if side == "sell" and int(coin["owner_id"]) == int(user_id) and await repo.pending_emission(db, coin_id):
+            raise PlayerExchangePolicyError("Владелец не может продавать монету, пока эмиссия ожидает исполнения.")
         if (await repo.market_halt(db, coin_id))["active"]:
             raise PlayerExchangePolicyError("Рынок временно остановлен. Отменять заявки по-прежнему можно.")
         quote = await repo.best_quote(db, coin_id=coin_id, side=side)

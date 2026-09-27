@@ -26,6 +26,10 @@ MIN_FEE_NOTIONAL_MORA: Final = Decimal("10")
 MIN_AUCTION_SOLD_UNITS: Final = 30_000 * TOKEN_SCALE
 MIN_AUCTION_RAISED_MORA: Final = 10_000
 TREASURY_LADDER_OFFSETS_PCT: Final = (2, 4, 6, 8, 10)
+EMISSION_WAIT_HOURS: Final = 24
+EMISSION_COOLDOWN_DAYS: Final = 7
+EMISSION_MAX_BPS: Final = 1_000
+EMISSION_CANCEL_LOCK_MINUTES: Final = 60
 
 GENESIS_ALLOCATION: Final = {
     "auction": 30,
@@ -108,6 +112,17 @@ def parse_token_amount(value: str | int | Decimal) -> int:
     if amount <= 0 or Decimal(units) / TOKEN_SCALE != amount:
         raise PlayerExchangePolicyError("Количество должно быть положительным, точность — до 3 знаков.")
     return units
+
+
+def validate_emission(*, amount: str | int | Decimal, circulating_units: int, reason: str) -> tuple[int, str]:
+    units = parse_token_amount(amount)
+    maximum = int(circulating_units) * EMISSION_MAX_BPS // FEE_BPS_SCALE
+    if maximum <= 0 or units > maximum:
+        raise PlayerExchangePolicyError("За одну операцию можно выпустить не более 10% текущего обращения.")
+    clean_reason = " ".join(str(reason).strip().split())
+    if not 10 <= len(clean_reason) <= 160:
+        raise PlayerExchangePolicyError("Причина эмиссии должна содержать от 10 до 160 символов.")
+    return units, clean_reason
 
 
 def clear_uniform_auction(bids: list[AuctionBid], supply_units: int) -> AuctionClearing:
