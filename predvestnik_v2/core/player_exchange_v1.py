@@ -25,6 +25,7 @@ FEE_BPS_SCALE: Final = 10_000
 MIN_FEE_NOTIONAL_MORA: Final = Decimal("10")
 MIN_AUCTION_SOLD_UNITS: Final = 30_000 * TOKEN_SCALE
 MIN_AUCTION_RAISED_MORA: Final = 10_000
+TREASURY_LADDER_OFFSETS_PCT: Final = (2, 4, 6, 8, 10)
 
 GENESIS_ALLOCATION: Final = {
     "auction": 30,
@@ -191,3 +192,13 @@ def protected_limit_price(*, side: str, quote_micromora: int, slippage_percent: 
     if not 1 <= price <= MAX_PRICE_MICROMORA:
         raise PlayerExchangePolicyError("Защитная цена выходит за пределы рынка.")
     return price
+
+
+def treasury_ladder_prices(clearing_price_micromora: int) -> list[tuple[str, int]]:
+    if clearing_price_micromora <= 0:
+        raise PlayerExchangePolicyError("Цена запуска должна быть положительной.")
+    rows = []
+    for offset in TREASURY_LADDER_OFFSETS_PCT:
+        rows.append(("buy", max(1, clearing_price_micromora * (100 - offset) // 100)))
+        rows.append(("sell", min(MAX_PRICE_MICROMORA, (clearing_price_micromora * (100 + offset) + 99) // 100)))
+    return rows

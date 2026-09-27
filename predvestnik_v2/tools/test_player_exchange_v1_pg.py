@@ -209,8 +209,75 @@ async def main(dsn: str):
         replayed_settlement = next(item for item in concurrent_settlements if item["replayed"])
         assert settled["success"] is True and replayed_settlement["replayed"] is True
         assert int(settled["sold_units"]) == 40_000_000
-        assert float(await conn.fetchval("SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"])) == 50000
-        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=8") == 1
+        ladder_rows = await conn.fetch(
+            "SELECT * FROM player_coin_orders_v1 WHERE coin_id=$1 AND actor_kind='treasury' ORDER BY side,limit_price_micromora",
+            launched["id"],
+        )
+        assert len(ladder_rows) == 10
+        assert sum(1 for row in ladder_rows if row["side"] == "buy") == 5
+        assert sum(1 for row in ladder_rows if row["side"] == "sell") == 5
+        treasury_free = await conn.fetchval(
+            "SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"],
+        )
+        treasury_reserved = sum(row["reserved_mora"] for row in ladder_rows)
+        assert float(treasury_free + treasury_reserved) == 50000
+        assert sum(int(row["remaining_units"]) for row in ladder_rows if row["side"] == "sell") == 300_000_000
+        public_ladder = await repo.public_order_book(db, launched["id"])
+        assert sum(int(row["treasury_units"]) for row in public_ladder["asks"]) == 300_000_000
+        owner_cross = await service.place_limit_order(
+            db, user_id=7, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-owner-cross01",
+        )
+        assert await service.match_market(db, coin_id=launched["id"]) == []
+        assert (await repo.get_order(db, owner_cross["id"]))["status"] == "cancelled"
+        circulation_before = await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        )
+        treasury_before_trade = await conn.fetchval(
+            "SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"],
+        )
+        await service.place_limit_order(
+            db, user_id=12, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="order-treasury-buy1",
+        )
+        treasury_trades = await service.match_market(db, coin_id=launched["id"])
+        assert len(treasury_trades) == 1
+        assert await conn.fetchval(
+            "SELECT seller_kind FROM player_coin_trades_v1 WHERE id=$1", treasury_trades[0]["trade_id"],
+        ) == "treasury"
+        assert await conn.fetchval(
+            "SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"],
+        ) > treasury_before_trade
+        assert await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ) == circulation_before + 10_000
+        await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="20",
+            limit_price_mora="0.5", time_in_force="gtc", action_id="order-treasury-sell1",
+        )
+        treasury_buy_trades = await service.match_market(db, coin_id=launched["id"])
+        assert len(treasury_buy_trades) == 1
+        assert await conn.fetchval(
+            "SELECT buyer_kind FROM player_coin_trades_v1 WHERE id=$1", treasury_buy_trades[0]["trade_id"],
+        ) == "treasury"
+        assert await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ) == circulation_before - 10_000
+        ladder_rows = await conn.fetch(
+            "SELECT * FROM player_coin_orders_v1 WHERE coin_id=$1 AND actor_kind='treasury' AND status='open'",
+            launched["id"],
+        )
+        for row in ladder_rows:
+            try:
+                await service.cancel_order(db, user_id=7, order_id=str(row["id"]))
+                raise AssertionError("owner cancelled a treasury order through the player endpoint")
+            except PlayerExchangePolicyError:
+                pass
+            await service._release_order(db, dict(row), reason="contract_cleanup")
+        assert float(await conn.fetchval(
+            "SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", launched["id"],
+        )) == 49988.6
+        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=8") == 2
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_events_v1 WHERE coin_id=$1 AND event_type IN ('auction_bid_placed','auction_bid_settled')",
             launched["id"],
@@ -230,17 +297,17 @@ async def main(dsn: str):
         buy_final = await repo.get_order(db, buy_order["id"])
         assert sell_final["status"] == "filled" and buy_final["status"] == "filled"
         assert float(buy_final["reserved_mora"]) == 0
-        assert await conn.fetchval("SELECT COUNT(*) FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"]) == 1
+        assert await conn.fetchval("SELECT COUNT(*) FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"]) == 3
         fee_fund = await conn.fetchrow(
             "SELECT insurance_mora,burned_mora FROM player_exchange_fee_fund_v1 WHERE singleton=TRUE"
         )
-        assert float(fee_fund[0]) == 0.6 and float(fee_fund[1]) == 1.4
+        assert float(fee_fund[0]) == 1.8 and float(fee_fund[1]) == 4.2
         trader8 = await conn.fetchrow("SELECT user_balance_mora FROM users WHERE user_tg_id=8")
         trader9 = await conn.fetchrow("SELECT user_balance_mora FROM users WHERE user_tg_id=9")
-        assert float(trader8[0]) == 80019 and float(trader9[0]) == 79979
+        assert float(trader8[0]) == 80037.6 and float(trader9[0]) == 79979
         token8 = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
         token9 = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=9)
-        assert int(token8["available_units"]) == 19_990_000 and int(token8["reserved_units"]) == 0
+        assert int(token8["available_units"]) == 19_970_000 and int(token8["reserved_units"]) == 0
         assert int(token9["available_units"]) == 20_010_000 and int(token9["reserved_units"]) == 0
         try:
             await conn.execute("DELETE FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"])
@@ -276,7 +343,7 @@ async def main(dsn: str):
         assert (await repo.get_order(db, self_sell["id"]))["status"] == "open"
         await service.cancel_order(db, user_id=8, order_id=self_sell["id"])
         token8_after = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
-        assert int(token8_after["available_units"]) == 19_990_000
+        assert int(token8_after["available_units"]) == 19_970_000
         await service.place_limit_order(
             db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
             limit_price_mora="2", time_in_force="gtc", action_id="order-part-sell1",
@@ -331,12 +398,15 @@ async def main(dsn: str):
         assert (await repo.get_order(db, dust_sell["id"]))["status"] == "open"
         await service.cancel_order(db, user_id=9, order_id=dust_sell["id"])
         for suffix, age in (("5m", 7), ("1h", 70)):
+            baseline_price = 1_000_000 if suffix == "5m" else 2_000_000
+            baseline_gross = 100 if suffix == "5m" else 200
             await conn.execute(
                 "INSERT INTO player_coin_trades_v1"
                 "(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,units,price_micromora,"
                 "gross_mora,buyer_fee_mora,seller_fee_mora,created_at) "
-                "VALUES($1,$2,$3,$4,9,8,100000,2000000,200,0,0,NOW()-($5::integer*INTERVAL '1 minute'))",
-                f"baseline-{suffix}", launched["id"], partial_buy["id"], sell_order["id"], age,
+                "VALUES($1,$2,$3,$4,9,8,100000,$5,$6,0,0,NOW()-($7::integer*INTERVAL '1 minute'))",
+                f"baseline-{suffix}", launched["id"], partial_buy["id"], sell_order["id"],
+                baseline_price, baseline_gross, age,
             )
         await service.place_limit_order(
             db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
@@ -347,7 +417,8 @@ async def main(dsn: str):
             limit_price_mora="3", time_in_force="gtc", action_id="order-halt-buy001",
         )
         assert len(await service.match_market(db, coin_id=launched["id"])) == 1
-        assert (await repo.market_halt(db, launched["id"]))["active"] is False
+        await db.execute("DELETE FROM player_coin_market_state_v1 WHERE coin_id=?", (launched["id"],))
+        await db.commit()
         await service.place_limit_order(
             db, user_id=8, coin_id=launched["id"], side="sell", amount="40",
             limit_price_mora="3", time_in_force="gtc", action_id="order-halt-sell02",

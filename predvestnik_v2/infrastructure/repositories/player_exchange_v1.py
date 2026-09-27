@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE
 
-SCHEMA_VERSION = "player-exchange-schema-v6-public-manual-halt-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v7-treasury-ladder-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -102,6 +102,7 @@ async def ensure_tables(db) -> None:
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             user_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            actor_kind TEXT NOT NULL DEFAULT 'player' CHECK (actor_kind IN ('player','treasury')),
             action_id TEXT NOT NULL,
             side TEXT NOT NULL CHECK (side IN ('buy','sell')),
             time_in_force TEXT NOT NULL CHECK (time_in_force IN ('gtc','ioc')),
@@ -123,6 +124,15 @@ async def ensure_tables(db) -> None:
         "ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS slippage_percent INTEGER NULL "
         "CHECK (slippage_percent IN (1,3,5))"
     )
+    await db.execute("ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS actor_kind TEXT NOT NULL DEFAULT 'player'")
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_order_actor_kind_v1') THEN
+                ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_actor_kind_v1
+                CHECK (actor_kind IN ('player','treasury'));
+            END IF;
+        END $$
+    """)
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_player_coin_order_book_v1 ON player_coin_orders_v1"
         "(coin_id,status,side,limit_price_micromora,created_at,id)"
@@ -135,6 +145,8 @@ async def ensure_tables(db) -> None:
             sell_order_id TEXT NOT NULL REFERENCES player_coin_orders_v1(id) ON DELETE RESTRICT,
             buyer_id BIGINT NOT NULL,
             seller_id BIGINT NOT NULL,
+            buyer_kind TEXT NOT NULL DEFAULT 'player',
+            seller_kind TEXT NOT NULL DEFAULT 'player',
             units BIGINT NOT NULL CHECK (units > 0),
             price_micromora BIGINT NOT NULL CHECK (price_micromora > 0),
             gross_mora NUMERIC(24,6) NOT NULL CHECK (gross_mora > 0),
@@ -143,6 +155,16 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CHECK (buyer_id <> seller_id)
         )
+    """)
+    await db.execute("ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS buyer_kind TEXT NOT NULL DEFAULT 'player'")
+    await db.execute("ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS seller_kind TEXT NOT NULL DEFAULT 'player'")
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_trade_actor_kinds_v1') THEN
+                ALTER TABLE player_coin_trades_v1 ADD CONSTRAINT ck_player_coin_trade_actor_kinds_v1
+                CHECK (buyer_kind IN ('player','treasury') AND seller_kind IN ('player','treasury'));
+            END IF;
+        END $$
     """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_exchange_fee_fund_v1 (
@@ -501,6 +523,57 @@ async def finish_auction(db, *, coin: dict, success: bool, clearing_price: int,
     return await get_settlement(db, coin_id)
 
 
+async def create_treasury_ladder(
+    db, *, coin: dict, clearing_price: int, buy_levels: list[tuple[int, int, Decimal]],
+    sell_levels: list[tuple[int, int]],
+) -> None:
+    coin_id = str(coin["id"])
+    owner_id = int(coin["owner_id"])
+    total_buy = sum((row[2] for row in buy_levels), Decimal("0"))
+    total_sell = sum(row[1] for row in sell_levels)
+    if total_buy:
+        async with db.execute(
+            "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora-(?::numeric),updated_at=NOW() "
+            "WHERE coin_id=? AND treasury_mora>=(?::numeric) RETURNING treasury_mora",
+            (total_buy, coin_id, total_buy),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            raise RuntimeError("Treasury Mora ladder reserve invariant failed.")
+        await db.execute(
+            "INSERT INTO player_coin_mora_ledger_v1(id,coin_id,bucket,delta,balance_before,balance_after,reason_code) "
+            "VALUES(?,?,'treasury',-(?::numeric),(?::numeric)+(?::numeric),?,'launch_ladder_reserve')",
+            (uuid4().hex, coin_id, total_buy, row[0], total_buy, row[0]),
+        )
+    if total_sell:
+        async with db.execute(
+            "UPDATE player_coin_accounts_v1 SET available_units=available_units-?,reserved_units=reserved_units+?,updated_at=NOW() "
+            "WHERE coin_id=? AND account_kind='market_reserve' AND available_units>=? RETURNING 1",
+            (total_sell, total_sell, coin_id, total_sell),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Treasury token ladder reserve invariant failed.")
+    for index, (price, units, reserve) in enumerate(buy_levels, 1):
+        await insert_order(
+            db, coin_id=coin_id, user_id=owner_id, action_id=f"treasury-ladder-buy-{coin_id}-{index}",
+            side="buy", time_in_force="gtc", price=price, units=units, reserved_mora=reserve,
+            reserve_operation_id=None, actor_kind="treasury",
+        )
+    for index, (price, units) in enumerate(sell_levels, 1):
+        await insert_order(
+            db, coin_id=coin_id, user_id=owner_id, action_id=f"treasury-ladder-sell-{coin_id}-{index}",
+            side="sell", time_in_force="gtc", price=price, units=units, reserved_mora=Decimal("0"),
+            reserve_operation_id=None, actor_kind="treasury",
+        )
+    await append_event(
+        db, coin_id=coin_id, actor_id=None, event_type="treasury_ladder_created",
+        action_id=f"treasury-ladder:{coin_id}", payload={
+            "clearing_price_micromora": int(clearing_price), "buy_levels": len(buy_levels),
+            "sell_levels": len(sell_levels), "reserved_mora": str(total_buy), "reserved_units": total_sell,
+        },
+    )
+
+
 async def release_failed_initial_liquidity(db, *, coin_id: str, amount: int, economy_operation_id: str) -> None:
     await db.execute(
         "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora-?,updated_at=NOW() "
@@ -564,19 +637,20 @@ async def reserve_sell_units(db, *, coin_id: str, user_id: int, units: int) -> N
 
 async def insert_order(db, *, coin_id: str, user_id: int, action_id: str, side: str,
                        time_in_force: str, price: int, units: int, reserved_mora,
-                       reserve_operation_id: str | None, slippage_percent: int | None = None) -> dict:
+                       reserve_operation_id: str | None, slippage_percent: int | None = None,
+                       actor_kind: str = "player") -> dict:
     order_id = uuid4().hex
     async with db.execute(
-        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,action_id,side,time_in_force,slippage_percent,"
+        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,actor_kind,action_id,side,time_in_force,slippage_percent,"
         "limit_price_micromora,original_units,remaining_units,reserved_mora,reserve_operation_id) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
-        (order_id, coin_id, int(user_id), action_id, side, time_in_force, slippage_percent, int(price),
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
+        (order_id, coin_id, int(user_id), actor_kind, action_id, side, time_in_force, slippage_percent, int(price),
          int(units), int(units), reserved_mora, reserve_operation_id),
     ) as cursor:
         row = await cursor.fetchone()
     await append_event(db, coin_id=coin_id, actor_id=user_id, event_type="order_placed",
                        action_id=f"order-placed:{action_id}", payload={
-                           "order_id": order_id, "side": side, "time_in_force": time_in_force,
+                           "order_id": order_id, "actor_kind": actor_kind, "side": side, "time_in_force": time_in_force,
                            "slippage_percent": slippage_percent,
                            "price_micromora": int(price), "units": int(units),
                            "reserved_mora": str(reserved_mora),
@@ -645,15 +719,69 @@ async def release_sell_units(db, *, coin_id: str, user_id: int, units: int) -> N
             raise RuntimeError("Sell reserve release invariant failed.")
 
 
-async def transfer_trade_tokens(db, *, coin_id: str, seller_id: int, buyer_id: int, units: int) -> None:
+async def transfer_trade_tokens(db, *, coin_id: str, sell_order: dict, buy_order: dict, units: int) -> None:
+    seller_key = "market_reserve" if sell_order.get("actor_kind") == "treasury" else f"player:{int(sell_order['user_id'])}"
     async with db.execute(
         "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,updated_at=NOW() "
         "WHERE coin_id=? AND account_key=? AND reserved_units>=? RETURNING 1",
-        (int(units), coin_id, f"player:{int(seller_id)}", int(units)),
+        (int(units), coin_id, seller_key, int(units)),
     ) as cursor:
         if not await cursor.fetchone():
             raise RuntimeError("Trade token reserve invariant failed.")
-    await credit_bid_tokens(db, coin_id=coin_id, bidder_id=int(buyer_id), units=int(units))
+    if buy_order.get("actor_kind") == "treasury":
+        async with db.execute(
+            "UPDATE player_coin_accounts_v1 SET available_units=available_units+?,updated_at=NOW() "
+            "WHERE coin_id=? AND account_kind='treasury' RETURNING 1", (int(units), coin_id),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Treasury token credit invariant failed.")
+    else:
+        await credit_bid_tokens(db, coin_id=coin_id, bidder_id=int(buy_order["user_id"]), units=int(units))
+    circulation_delta = (
+        int(units) if sell_order.get("actor_kind") == "treasury"
+        else -int(units) if buy_order.get("actor_kind") == "treasury" else 0
+    )
+    if circulation_delta:
+        async with db.execute(
+            "UPDATE player_coins_v1 SET circulating_units=circulating_units+? "
+            "WHERE id=? AND circulating_units+?>=0 RETURNING 1",
+            (circulation_delta, coin_id, circulation_delta),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Coin circulation invariant failed.")
+
+
+async def credit_treasury_mora(db, *, coin_id: str, amount, reason: str) -> None:
+    async with db.execute(
+        "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora+(?::numeric),updated_at=NOW() "
+        "WHERE coin_id=? RETURNING 1",
+        (amount, coin_id),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Treasury Mora credit invariant failed.")
+    await db.execute(
+        "INSERT INTO player_coin_mora_ledger_v1(id,coin_id,bucket,delta,balance_before,balance_after,reason_code) "
+        "SELECT ?,?,'treasury',?,treasury_mora-?,treasury_mora,? FROM player_coin_mora_accounts_v1 WHERE coin_id=?",
+        (uuid4().hex, coin_id, amount, amount, reason, coin_id),
+    )
+
+
+async def release_treasury_order(db, *, order: dict, reason: str, filled: bool = False) -> None:
+    if order["side"] == "buy" and Decimal(order["reserved_mora"]) > 0:
+        await credit_treasury_mora(
+            db, coin_id=str(order["coin_id"]), amount=Decimal(order["reserved_mora"]),
+            reason="treasury_order_release",
+        )
+    elif order["side"] == "sell" and int(order["remaining_units"]) > 0:
+        async with db.execute(
+            "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,available_units=available_units+?,updated_at=NOW() "
+            "WHERE coin_id=? AND account_kind='market_reserve' AND reserved_units>=? RETURNING 1",
+            (int(order["remaining_units"]), int(order["remaining_units"]), str(order["coin_id"]), int(order["remaining_units"])),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Treasury sell release invariant failed.")
+    if filled:
+        await db.execute("UPDATE player_coin_orders_v1 SET reserved_mora=0 WHERE id=?", (str(order["id"]),))
 
 
 async def update_order_fill(db, *, order_id: str, units: int, mora_charge=0) -> dict:
@@ -696,9 +824,11 @@ async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell
                        units: int, price: int, gross, buyer_fee, seller_fee) -> None:
     await db.execute(
         "INSERT INTO player_coin_trades_v1(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,"
-        "units,price_micromora,gross_mora,buyer_fee_mora,seller_fee_mora) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+        "units,price_micromora,gross_mora,buyer_fee_mora,seller_fee_mora,buyer_kind,seller_kind) "
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (trade_id, coin_id, buy_order["id"], sell_order["id"], int(buy_order["user_id"]),
-         int(sell_order["user_id"]), int(units), int(price), gross, buyer_fee, seller_fee),
+         int(sell_order["user_id"]), int(units), int(price), gross, buyer_fee, seller_fee,
+         buy_order.get("actor_kind", "player"), sell_order.get("actor_kind", "player")),
     )
     total_fee = buyer_fee + seller_fee
     insurance = (total_fee * 3 / 10).quantize(Decimal("0.000001"))
@@ -798,7 +928,8 @@ async def set_manual_market_halt(
 async def public_order_book(db, coin_id: str, levels: int = 20) -> dict:
     level_limit = max(1, min(int(levels), 50))
     async with db.execute(
-        "SELECT side,limit_price_micromora,SUM(remaining_units) AS units,COUNT(*) AS orders "
+        "SELECT side,limit_price_micromora,SUM(remaining_units) AS units,COUNT(*) AS orders,"
+        "SUM(CASE WHEN actor_kind='treasury' THEN remaining_units ELSE 0 END) AS treasury_units "
         "FROM player_coin_orders_v1 WHERE coin_id=? AND status='open' AND remaining_units>0 "
         "GROUP BY side,limit_price_micromora",
         (coin_id,),

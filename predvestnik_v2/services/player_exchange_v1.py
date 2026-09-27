@@ -8,7 +8,8 @@ from core.player_exchange_v1 import (
     AUCTION_HOURS, CREATION_FEE_ZARNIKI, FEATURE_FLAG_KEY, GENESIS_UNITS,
     MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
-    buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional, validate_coin_draft,
+    buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
+    treasury_ladder_prices, validate_coin_draft,
 )
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
@@ -218,6 +219,29 @@ async def settle_auction(db, *, coin_id: str) -> dict:
             raised_mora=clearing.raised_mora if success else Decimal("0"),
             action_id=f"auction-settle:{coin_id}",
         )
+        if success:
+            prices = treasury_ladder_prices(clearing.clearing_price_micromora)
+            buy_budget = (Decimal(int(coin["initial_mora"])) * Decimal("0.18")).quantize(Decimal("0.000001"))
+            buy_levels = []
+            sell_prices = [price for side, price in prices if side == "sell"]
+            sell_total = allocation_units()["market_reserve"]
+            base_sell = sell_total // len(sell_prices)
+            sell_levels = []
+            for index, price in enumerate(sell_prices):
+                sell_levels.append((price, base_sell + (sell_total % len(sell_prices) if index == 0 else 0)))
+            for side, price in prices:
+                if side != "buy":
+                    continue
+                units = int((buy_budget * PRICE_SCALE * 10 * 9 * 1000 / (Decimal(price) * 100)).to_integral_value())
+                while units > 0 and buy_reserve(units, price) > buy_budget:
+                    units -= 1
+                if units <= 0:
+                    raise RuntimeError("Launch ladder buy level is too small.")
+                buy_levels.append((price, units, buy_reserve(units, price)))
+            await repo.create_treasury_ladder(
+                db, coin=coin, clearing_price=clearing.clearing_price_micromora,
+                buy_levels=buy_levels, sell_levels=sell_levels,
+            )
         result["replayed"] = False
         return result
 
@@ -295,7 +319,9 @@ async def place_limit_order(db, *, user_id: int, coin_id: str, side: str,
 
 async def _release_order(db, order: dict, *, reason: str) -> None:
     release_op = None
-    if order["side"] == "buy" and Decimal(order["reserved_mora"]) > 0:
+    if order.get("actor_kind") == "treasury":
+        await repo.release_treasury_order(db, order=order, reason=reason)
+    elif order["side"] == "buy" and Decimal(order["reserved_mora"]) > 0:
         mutation = await economy_ledger.apply_balance_change(
             db, int(order["user_id"]), {"mora": Decimal(order["reserved_mora"])},
             reason_code="player_coin_order_release",
@@ -326,6 +352,8 @@ async def cancel_order(db, *, user_id: int, order_id: str) -> dict:
         order = await repo.get_order(db, order_id, for_update=True)
         if not order or int(order["user_id"]) != int(user_id):
             raise PlayerExchangePolicyError("Заявка не найдена.")
+        if order.get("actor_kind") == "treasury":
+            raise PlayerExchangePolicyError("Заявки казны управляются только отдельной публичной операцией.")
         if order["status"] != "open":
             return order
         await _release_order(db, order, reason="user_cancelled")
@@ -347,7 +375,13 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
                 break
             buy = await repo.get_order(db, pair[0], for_update=True)
             sell = await repo.get_order(db, pair[1], for_update=True)
-            if int(buy["user_id"]) == int(sell["user_id"]):
+            if ((buy.get("actor_kind") == "treasury") != (sell.get("actor_kind") == "treasury")
+                    and int(buy["user_id"]) == int(sell["user_id"])):
+                player_order = sell if buy.get("actor_kind") == "treasury" else buy
+                await _release_order(db, player_order, reason="owner_treasury_cross_prevented")
+                continue
+            if (buy.get("actor_kind") == "player" and sell.get("actor_kind") == "player"
+                    and int(buy["user_id"]) == int(sell["user_id"])):
                 newer = buy if (buy["created_at"], buy["id"]) > (sell["created_at"], sell["id"]) else sell
                 await _release_order(db, newer, reason="self_trade_prevented")
                 continue
@@ -370,19 +404,21 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
             sell_after = await repo.update_order_fill(
                 db, order_id=str(sell["id"]), units=units, mora_charge=Decimal("0"),
             )
-            await repo.transfer_trade_tokens(
-                db, coin_id=coin_id, seller_id=int(sell["user_id"]),
-                buyer_id=int(buy["user_id"]), units=units,
-            )
-            await economy_ledger.apply_balance_change(
-                db, int(sell["user_id"]), {"mora": gross - seller_fee},
-                reason_code="player_coin_trade_proceeds",
-                idempotency_key=f"player-coin:trade:{trade_id}", source_type="player_exchange",
-                reference_type="spot_trade", reference_id=trade_id,
-                metadata={"coin_id": coin_id, "units": units, "price_micromora": price,
-                          "gross_mora": str(gross), "seller_fee_mora": str(seller_fee)},
-                note=f"Продажа {coin['ticker']}",
-            )
+            await repo.transfer_trade_tokens(db, coin_id=coin_id, sell_order=sell, buy_order=buy, units=units)
+            if sell.get("actor_kind") == "treasury":
+                await repo.credit_treasury_mora(
+                    db, coin_id=coin_id, amount=gross - seller_fee, reason="treasury_spot_sale",
+                )
+            else:
+                await economy_ledger.apply_balance_change(
+                    db, int(sell["user_id"]), {"mora": gross - seller_fee},
+                    reason_code="player_coin_trade_proceeds",
+                    idempotency_key=f"player-coin:trade:{trade_id}", source_type="player_exchange",
+                    reference_type="spot_trade", reference_id=trade_id,
+                    metadata={"coin_id": coin_id, "units": units, "price_micromora": price,
+                              "gross_mora": str(gross), "seller_fee_mora": str(seller_fee)},
+                    note=f"Продажа {coin['ticker']}",
+                )
             await repo.record_trade(
                 db, trade_id=trade_id, coin_id=coin_id, buy_order=buy, sell_order=sell,
                 units=units, price=price, gross=gross, buyer_fee=buyer_fee, seller_fee=seller_fee,
@@ -406,7 +442,12 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
                     db, coin_id=coin_id, minutes=5, reason="price_move_20pct_5m",
                     reference_price=baseline_5m["vwap_price_micromora"],
                 )
-            if buy_after["status"] == "filled" and Decimal(buy_after["reserved_mora"]) > 0:
+            if (buy_after["status"] == "filled" and Decimal(buy_after["reserved_mora"]) > 0
+                    and buy_after.get("actor_kind") == "treasury"):
+                await repo.release_treasury_order(
+                    db, order=buy_after, reason="filled_price_improvement", filled=True,
+                )
+            elif buy_after["status"] == "filled" and Decimal(buy_after["reserved_mora"]) > 0:
                 mutation = await economy_ledger.apply_balance_change(
                     db, int(buy_after["user_id"]), {"mora": Decimal(buy_after["reserved_mora"])},
                     reason_code="player_coin_order_release",

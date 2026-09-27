@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from core.player_exchange_v1 import (
     AuctionBid, GENESIS_UNITS, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
-    parse_token_amount, protected_limit_price, validate_coin_draft,
+    parse_token_amount, protected_limit_price, treasury_ladder_prices, validate_coin_draft,
 )
 
 
@@ -40,6 +40,12 @@ tie = clear_uniform_auction([
 ], 101_001)
 assert tie.allocations == {"a": 50_501, "b": 50_500}
 assert sum(tie.allocations.values()) == 101_001
+ladder = treasury_ladder_prices(1_000_000)
+assert ladder == [
+    ("buy", 980_000), ("sell", 1_020_000), ("buy", 960_000), ("sell", 1_040_000),
+    ("buy", 940_000), ("sell", 1_060_000), ("buy", 920_000), ("sell", 1_080_000),
+    ("buy", 900_000), ("sell", 1_100_000),
+]
 for quote in (1, 2, 7, 101):
     for slip in (1, 3, 5):
         buy_limit = protected_limit_price(side="buy", quote_micromora=quote, slippage_percent=slip)
