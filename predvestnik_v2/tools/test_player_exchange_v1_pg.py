@@ -212,6 +212,24 @@ async def main(dsn: str):
         replayed_settlement = next(item for item in concurrent_settlements if item["replayed"])
         assert settled["success"] is True and replayed_settlement["replayed"] is True
         assert int(settled["sold_units"]) == 40_000_000
+        await db.execute(
+            "UPDATE player_coin_auction_settlements_v1 SET settled_at=NOW()-INTERVAL '10 days' WHERE coin_id=?",
+            (launched["id"],),
+        )
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NULL,"
+            "auction_starts_at=NOW()-INTERVAL '21 days',auction_ends_at=NOW()-INTERVAL '20 days' WHERE id=?",
+            (launched["id"],),
+        )
+        await repo.ensure_tables(db)
+        await db.commit()
+        launch_times = await conn.fetchrow(
+            "SELECT c.launched_at,s.settled_at,c.auction_ends_at FROM player_coins_v1 c "
+            "JOIN player_coin_auction_settlements_v1 s ON s.coin_id=c.id WHERE c.id=$1",
+            launched["id"],
+        )
+        assert launch_times["launched_at"] == launch_times["settled_at"]
+        assert launch_times["launched_at"] != launch_times["auction_ends_at"]
         ladder_rows = await conn.fetch(
             "SELECT * FROM player_coin_orders_v1 WHERE coin_id=$1 AND actor_kind='treasury' ORDER BY side,limit_price_micromora",
             launched["id"],
@@ -580,6 +598,71 @@ async def main(dsn: str):
             "SELECT COUNT(*) FROM player_coin_events_v1 WHERE coin_id=$1 AND event_type='market_halted_manual'",
             launched["id"],
         ) == 1
+
+        # The owner's 20% allocation has a 30-day cliff, then vests linearly for 180 days.
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '120 days' WHERE id=?",
+            (launched["id"],),
+        )
+        await db.commit()
+        circulation_before_vesting = int(await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ))
+        vesting_quote = service._project_owner_vesting(
+            await repo.owner_vesting_state(db, launched["id"])
+        )
+        confirmed_vesting_units = int(vesting_quote["claimable_units"])
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=launched_at-INTERVAL '1 day' WHERE id=?",
+            (launched["id"],),
+        )
+        await db.commit()
+        vesting_claim = await service.claim_owner_vesting(
+            db, owner_id=7, coin_id=launched["id"], units=confirmed_vesting_units,
+            action_id="owner-vesting-claim-0001",
+        )
+        assert vesting_claim["units"] == confirmed_vesting_units
+        assert 99_000_000 <= vesting_claim["units"] <= 101_000_000
+        assert vesting_claim["replayed"] is False
+        vesting_replay = await service.claim_owner_vesting(
+            db, owner_id=7, coin_id=launched["id"], units=confirmed_vesting_units,
+            action_id="owner-vesting-claim-0001",
+        )
+        assert vesting_replay["units"] == vesting_claim["units"] and vesting_replay["replayed"] is True
+        try:
+            await service.claim_owner_vesting(
+                db, owner_id=7, coin_id=launched["id"], units=confirmed_vesting_units + 1,
+                action_id="owner-vesting-claim-0001",
+            )
+            raise AssertionError("vesting replay accepted another confirmed amount")
+        except IdempotencyConflict:
+            pass
+        assert int(await conn.fetchval(
+            "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        )) == circulation_before_vesting + vesting_claim["units"]
+        try:
+            await service.claim_owner_vesting(
+                db, owner_id=8, coin_id=launched["id"], units=1,
+                action_id="owner-vesting-foreign",
+            )
+            raise AssertionError("foreign owner claimed vesting")
+        except PlayerExchangePolicyError:
+            pass
+        for index in range(60):
+            await repo.append_event(
+                db, coin_id=launched["id"], actor_id=None, event_type="spot_trade",
+                action_id=f"journal-noise-trade-{index}",
+                payload={"units": 1000, "price_micromora": 1_000_000, "gross_mora": "1"},
+            )
+        await db.commit()
+        vesting_market = await service.public_market(db, coin_id=launched["id"])
+        assert vesting_market["owner_vesting"]["claimed_units"] == vesting_claim["units"]
+        vesting_events = [
+            row for row in vesting_market["journal"] if row["event_type"] == "owner_vesting_claimed"
+        ]
+        assert vesting_events and vesting_events[0]["details"]["units"] == vesting_claim["units"]
+        created_events = [row for row in vesting_market["journal"] if row["event_type"] == "coin_created"]
+        assert created_events and "economy_operation_id" not in created_events[0]["details"]
 
         # Owner emissions are public, delayed, capped and treasury-only.
         circulation = int(await conn.fetchval(

@@ -33,4 +33,7 @@ assert "emission_can_cancel===true" in js and "e.can_cancel===true" in js
 assert "e.executed_at" in js and "e.cancelled_at" in js
 assert "Максимум сейчас" in js and "попадут в казну" in js
 assert "Отмена закрыта" in js and "_pxEmissionCancelActions" in js
+assert "owner-vesting/claim" in js and "_pxOpenVestingClaim" in js and "_pxClaimVesting" in js
+assert "Операция публична и необратима" in js and "_pxVestingSubmitting" in js
+assert "Публичный журнал" in js and "owner_vesting_claimed" in js
 print("PLAYER_EXCHANGE_V1_UI_CONTRACT_OK")

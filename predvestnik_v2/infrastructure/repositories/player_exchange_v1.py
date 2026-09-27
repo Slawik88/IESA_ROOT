@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v9-owner-emission-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v10-owner-vesting-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -36,6 +36,7 @@ async def ensure_tables(db) -> None:
         "ON player_coins_v1(owner_id) WHERE status IN ('auction','active','halted')"
     )
     await db.execute("ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS total_supply_units BIGINT")
+    await db.execute("ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS launched_at TIMESTAMPTZ NULL")
     await db.execute("UPDATE player_coins_v1 SET total_supply_units=genesis_units WHERE total_supply_units IS NULL")
     await db.execute("ALTER TABLE player_coins_v1 ALTER COLUMN total_supply_units SET NOT NULL")
     await db.execute("""
@@ -109,6 +110,11 @@ async def ensure_tables(db) -> None:
             settled_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
+    await db.execute(
+        "UPDATE player_coins_v1 c SET launched_at=s.settled_at "
+        "FROM player_coin_auction_settlements_v1 s "
+        "WHERE c.id=s.coin_id AND s.success=TRUE AND c.launched_at IS NULL"
+    )
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_orders_v1 (
             id TEXT PRIMARY KEY,
@@ -598,7 +604,7 @@ async def finish_auction(db, *, coin: dict, success: bool, clearing_price: int,
                 (uuid4().hex, coin_id, raised_mora, raised_mora, coin_id),
             )
         await db.execute(
-            "UPDATE player_coins_v1 SET status='active',circulating_units=? WHERE id=?",
+            "UPDATE player_coins_v1 SET status='active',circulating_units=?,launched_at=NOW() WHERE id=?",
             (int(sold_units), coin_id),
         )
     else:
@@ -1271,5 +1277,59 @@ async def public_emissions(db, coin_id: str, *, limit: int = 20) -> list[dict]:
         "(status='pending' AND executes_at>NOW()+INTERVAL '1 hour') AS can_cancel "
         "FROM player_coin_emissions_v1 WHERE coin_id=? ORDER BY requested_at DESC,id DESC LIMIT ?",
         (str(coin_id), max(1, min(int(limit), 50))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def owner_vesting_state(db, coin_id: str, *, for_update: bool = False) -> dict | None:
+    suffix = " FOR UPDATE OF c,a" if for_update else ""
+    async with db.execute(
+        "SELECT c.id AS coin_id,c.owner_id,c.status,c.launched_at,c.genesis_units,"
+        "a.available_units AS locked_units,a.reserved_units,"
+        "GREATEST(0,EXTRACT(EPOCH FROM (NOW()-c.launched_at))) AS age_seconds,"
+        "NOW() AS server_now FROM player_coins_v1 c "
+        "JOIN player_coin_accounts_v1 a ON a.coin_id=c.id AND a.account_kind='owner_locked' "
+        "WHERE c.id=?" + suffix,
+        (str(coin_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def transfer_vested_owner_units(db, *, coin_id: str, owner_id: int, units: int) -> None:
+    async with db.execute(
+        "UPDATE player_coin_accounts_v1 SET available_units=available_units-?,updated_at=NOW() "
+        "WHERE coin_id=? AND account_kind='owner_locked' AND available_units>=? RETURNING 1",
+        (int(units), str(coin_id), int(units)),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Owner vesting lock invariant failed.")
+    await db.execute(
+        "INSERT INTO player_coin_accounts_v1"
+        "(coin_id,account_key,account_kind,user_id,available_units,reserved_units) "
+        "VALUES(?,?,'player',?,?,0) ON CONFLICT(coin_id,account_key) DO UPDATE SET "
+        "available_units=player_coin_accounts_v1.available_units+EXCLUDED.available_units,updated_at=NOW()",
+        (str(coin_id), f"player:{int(owner_id)}", int(owner_id), int(units)),
+    )
+    async with db.execute(
+        "UPDATE player_coins_v1 SET circulating_units=circulating_units+? WHERE id=? RETURNING 1",
+        (int(units), str(coin_id)),
+    ) as cursor:
+        if not await cursor.fetchone():
+            raise RuntimeError("Owner vesting circulation invariant failed.")
+
+
+async def public_owner_journal(db, coin_id: str, *, limit: int = 50) -> list[dict]:
+    public_types = (
+        "coin_created", "auction_settled", "treasury_ladder_created",
+        "market_halted", "market_halted_manual", "emission_requested",
+        "emission_cancelled", "emission_executed", "owner_vesting_claimed",
+    )
+    placeholders = ",".join("?" for _ in public_types)
+    async with db.execute(
+        "SELECT id,event_type,payload_json,created_at FROM player_coin_events_v1 "
+        f"WHERE coin_id=? AND event_type IN ({placeholders}) "
+        "ORDER BY created_at DESC,id DESC LIMIT ?",
+        (str(coin_id), *public_types, max(1, min(int(limit), 100))),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]

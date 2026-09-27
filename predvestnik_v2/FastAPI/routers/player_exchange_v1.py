@@ -57,6 +57,11 @@ class EmissionCancelRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class OwnerVestingClaimRequest(BaseModel):
+    action_id: str = Field(min_length=8, max_length=128)
+    units: int = Field(gt=0)
+
+
 @router.get("/me")
 async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
                             orders_cursor: str | None = None, bids_cursor: str | None = None,
@@ -215,6 +220,22 @@ async def cancel_emission(emission_id: str, payload: EmissionCancelRequest,
     try:
         return {"emission": await service.cancel_emission(
             db, owner_id=int(user["id"]), emission_id=emission_id, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/owner-vesting/claim")
+async def claim_owner_vesting(coin_id: str, payload: OwnerVestingClaimRequest,
+                              db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"vesting": await service.claim_owner_vesting(
+            db, owner_id=int(user["id"]), coin_id=coin_id, units=payload.units,
+            action_id=payload.action_id,
         )}
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc

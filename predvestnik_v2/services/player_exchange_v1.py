@@ -9,7 +9,8 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import (
     AUCTION_HOURS, CREATION_FEE_ZARNIKI, EMISSION_WAIT_HOURS, FEATURE_FLAG_KEY, GENESIS_UNITS,
-    MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS, PRICE_SCALE, RULES_VERSION,
+    MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS,
+    OWNER_VESTING_CLIFF_DAYS, OWNER_VESTING_LINEAR_DAYS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
     buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
     treasury_ladder_prices, validate_coin_draft, validate_emission,
@@ -563,6 +564,7 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
     coin = await repo.get_coin(db, coin_id)
     if not coin or coin["status"] not in {"active", "halted"}:
         raise PlayerExchangePolicyError("Рынок не найден.")
+    vesting = _project_owner_vesting(await repo.owner_vesting_state(db, coin_id))
     return {
         "coin": {key: coin[key] for key in (
             "id", "name", "ticker", "status", "genesis_units", "total_supply_units", "circulating_units"
@@ -571,8 +573,106 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
         "recent_trades": await repo.public_recent_trades(db, coin_id, trades),
         "stats_24h": await repo.public_market_stats(db, coin_id),
         "emissions": await repo.public_emissions(db, coin_id),
+        "owner_vesting": vesting,
+        "journal": _public_journal(await repo.public_owner_journal(db, coin_id)),
         "notice": "Игровой актив без вывода в деньги.",
     }
+
+
+def _project_owner_vesting(state: dict | None) -> dict | None:
+    if not state or state.get("launched_at") is None:
+        return None
+    allocation = allocation_units()["owner_locked"]
+    age_seconds = max(0, int(Decimal(str(state.get("age_seconds") or 0))))
+    cliff_seconds = OWNER_VESTING_CLIFF_DAYS * 86_400
+    linear_seconds = OWNER_VESTING_LINEAR_DAYS * 86_400
+    vested = 0 if age_seconds < cliff_seconds else min(
+        allocation, allocation * (age_seconds - cliff_seconds) // linear_seconds,
+    )
+    locked = int(state["locked_units"])
+    claimed = allocation - locked
+    return {
+        "allocation_units": allocation,
+        "locked_units": locked,
+        "vested_units": vested,
+        "claimed_units": claimed,
+        "claimable_units": max(0, vested - claimed),
+        "cliff_days": OWNER_VESTING_CLIFF_DAYS,
+        "linear_days": OWNER_VESTING_LINEAR_DAYS,
+        "launched_at": state["launched_at"],
+        "server_now": state["server_now"],
+    }
+
+
+_PUBLIC_JOURNAL_KEYS = {
+    "coin_created": {"name", "ticker", "initial_mora", "genesis_units", "allocations", "rules_version"},
+    "auction_settled": {"success", "clearing_price_micromora", "sold_units", "raised_mora"},
+    "treasury_ladder_created": {"clearing_price_micromora", "buy_levels", "sell_levels", "reserved_mora", "reserved_units"},
+    "market_halted": {"minutes", "reason", "reference_price_micromora"},
+    "market_halted_manual": {"minutes", "public_reason"},
+    "emission_requested": {"units", "circulation_snapshot_units", "projected_total_supply_units", "reason", "executes_at"},
+    "emission_cancelled": {"units"},
+    "emission_executed": {"units", "destination"},
+    "owner_vesting_claimed": {"units", "vested_units", "claimed_units"},
+}
+
+
+def _public_journal(rows: list[dict]) -> list[dict]:
+    result = []
+    for row in rows:
+        payload = row.get("payload_json") or {}
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        allowed = _PUBLIC_JOURNAL_KEYS.get(str(row["event_type"]), set())
+        result.append({
+            "id": str(row["id"]), "event_type": str(row["event_type"]),
+            "created_at": row["created_at"],
+            "details": {key: payload[key] for key in allowed if key in payload},
+        })
+    return result
+
+
+async def claim_owner_vesting(db, *, owner_id: int, coin_id: str, units: int, action_id: str) -> dict:
+    await require_enabled(db)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    requested_units = int(units)
+    if requested_units <= 0:
+        raise PlayerExchangePolicyError("Количество должно быть положительным.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_event_by_action(db, actor_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            if replay["event_type"] != "owner_vesting_claimed" or str(replay["coin_id"]) != str(coin_id):
+                raise IdempotencyConflict("Action id is bound to another owner operation.")
+            payload = replay["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if int(payload.get("units", 0)) != requested_units:
+                raise IdempotencyConflict("Action id is bound to another vesting amount.")
+            return {**payload, "replayed": True}
+        state = await repo.owner_vesting_state(db, coin_id, for_update=True)
+        if (not state or int(state["owner_id"]) != int(owner_id)
+                or state["status"] not in {"active", "halted"}):
+            raise PlayerExchangePolicyError("Получить долю может только владелец активной монеты.")
+        projection = _project_owner_vesting(state)
+        claimable_units = int(projection["claimable_units"])
+        if requested_units > claimable_units:
+            raise PlayerExchangePolicyError("Подтверждённая сумма больше доступной доли. Обновите экран.")
+        await repo.transfer_vested_owner_units(
+            db, coin_id=str(coin_id), owner_id=int(owner_id), units=requested_units,
+        )
+        payload = {
+            "units": requested_units, "vested_units": int(projection["vested_units"]),
+            "claimed_units": int(projection["claimed_units"]) + requested_units,
+        }
+        await repo.append_event(
+            db, coin_id=str(coin_id), actor_id=int(owner_id), event_type="owner_vesting_claimed",
+            action_id=str(action_id), payload=payload,
+        )
+        return {**payload, "replayed": False}
 
 
 async def request_emission(db, *, owner_id: int, coin_id: str, amount: str,
