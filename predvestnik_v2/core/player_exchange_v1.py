@@ -202,3 +202,12 @@ def treasury_ladder_prices(clearing_price_micromora: int) -> list[tuple[str, int
         rows.append(("buy", max(1, clearing_price_micromora * (100 - offset) // 100)))
         rows.append(("sell", min(MAX_PRICE_MICROMORA, (clearing_price_micromora * (100 + offset) + 99) // 100)))
     return rows
+
+
+def depth_band_bounds(reference_price_micromora: int) -> tuple[int, int]:
+    if reference_price_micromora <= 0:
+        raise PlayerExchangePolicyError("Опорная цена должна быть положительной.")
+    return (
+        (reference_price_micromora * 95 + 99) // 100,
+        reference_price_micromora * 105 // 100,
+    )

@@ -224,6 +224,14 @@ async def main(dsn: str):
         assert sum(int(row["remaining_units"]) for row in ladder_rows if row["side"] == "sell") == 300_000_000
         public_ladder = await repo.public_order_book(db, launched["id"])
         assert sum(int(row["treasury_units"]) for row in public_ladder["asks"]) == 300_000_000
+        launch_stats = (await service.public_market(db, coin_id=launched["id"]))["stats_24h"]
+        assert launch_stats["vwap_5m_price_micromora"] is None
+        assert launch_stats["reference_price_micromora"] == 1_000_000
+        assert launch_stats["market_cap_mora"] == 40_000
+        assert launch_stats["best_bid_micromora"] == 980_000
+        assert launch_stats["best_ask_micromora"] == 1_020_000
+        assert launch_stats["spread_micromora"] == 40_000
+        assert launch_stats["spread_percent"] == 4
         owner_cross = await service.place_limit_order(
             db, user_id=7, coin_id=launched["id"], side="buy", amount="10",
             limit_price_mora="2", time_in_force="gtc", action_id="order-owner-cross01",
@@ -263,6 +271,13 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
         ) == circulation_before - 10_000
+        live_stats = (await service.public_market(db, coin_id=launched["id"]))["stats_24h"]
+        assert live_stats["best_bid_micromora"] is not None and live_stats["best_ask_micromora"] is not None
+        assert live_stats["spread_micromora"] == live_stats["best_ask_micromora"] - live_stats["best_bid_micromora"]
+        assert live_stats["vwap_5m_price_micromora"] is not None
+        assert live_stats["volume_5m_mora"] > 0
+        assert live_stats["depth_5pct"]["total_mora"] > 0
+        assert live_stats["market_cap_mora"] > 0
         ladder_rows = await conn.fetch(
             "SELECT * FROM player_coin_orders_v1 WHERE coin_id=$1 AND actor_kind='treasury' AND status='open'",
             launched["id"],
@@ -433,6 +448,11 @@ async def main(dsn: str):
         market = await service.public_market(db, coin_id=launched["id"])
         assert "owner_id" not in market["coin"]
         assert all("user_id" not in row and "buyer_id" not in row for row in market["recent_trades"])
+        stats = market["stats_24h"]
+        assert stats["vwap_5m_price_micromora"] is not None
+        assert stats["volume_5m_mora"] > 0
+        assert stats["depth_5pct"]["total_mora"] >= 0
+        assert stats["market_cap_mora"] > 0
         manual_halt = await service.manually_halt_market(
             db, actor_id=1, coin_id=launched["id"], minutes=60,
             public_reason="Техническая проверка расчётов рынка.", action_id="manual-halt-action-0001",

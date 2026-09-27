@@ -5,7 +5,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from core.player_exchange_v1 import (
     AuctionBid, GENESIS_UNITS, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
-    parse_token_amount, protected_limit_price, treasury_ladder_prices, validate_coin_draft,
+    depth_band_bounds, parse_token_amount, protected_limit_price, treasury_ladder_prices,
+    validate_coin_draft,
 )
 
 
@@ -46,6 +47,9 @@ assert ladder == [
     ("buy", 940_000), ("sell", 1_060_000), ("buy", 920_000), ("sell", 1_080_000),
     ("buy", 900_000), ("sell", 1_100_000),
 ]
+assert depth_band_bounds(101) == (96, 106)
+assert depth_band_bounds(1) == (1, 1)
+assert depth_band_bounds(100) == (95, 105)
 for quote in (1, 2, 7, 101):
     for slip in (1, 3, 5):
         buy_limit = protected_limit_price(side="buy", quote_micromora=quote, slippage_percent=slip)

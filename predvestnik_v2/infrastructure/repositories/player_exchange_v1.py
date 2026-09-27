@@ -5,9 +5,9 @@ import json
 from decimal import Decimal
 from uuid import uuid4
 
-from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE
+from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v7-treasury-ladder-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v8-market-analytics-2026-09-27"
 
 
 async def ensure_tables(db) -> None:
@@ -980,6 +980,66 @@ async def public_market_stats(db, coin_id: str) -> dict:
         int((Decimal(result["volume_mora"]) * Decimal(PRICE_SCALE) * Decimal(TOKEN_SCALE)
              / Decimal(total_units)).quantize(Decimal("1"))) if total_units else None
     )
+    async with db.execute(
+        "SELECT MAX(limit_price_micromora) FILTER (WHERE side='buy'),"
+        "MIN(limit_price_micromora) FILTER (WHERE side='sell') "
+        "FROM player_coin_orders_v1 WHERE coin_id=? AND status='open' AND remaining_units>0",
+        (coin_id,),
+    ) as cursor:
+        quote_row = await cursor.fetchone()
+    best_bid = int(quote_row[0]) if quote_row and quote_row[0] is not None else None
+    best_ask = int(quote_row[1]) if quote_row and quote_row[1] is not None else None
+    result["best_bid_micromora"] = best_bid
+    result["best_ask_micromora"] = best_ask
+    result["spread_micromora"] = best_ask - best_bid if best_bid is not None and best_ask is not None else None
+    if result["spread_micromora"] is not None and best_bid + best_ask > 0:
+        result["spread_percent"] = (
+            Decimal(result["spread_micromora"] * 200) / Decimal(best_bid + best_ask)
+        ).quantize(Decimal("0.0001"))
+    else:
+        result["spread_percent"] = None
+    five_minute = await vwap_window(db, coin_id=coin_id, minutes=5)
+    result["vwap_5m_price_micromora"] = five_minute["vwap_price_micromora"]
+    result["volume_5m_mora"] = five_minute["volume_mora"]
+    async with db.execute(
+        "SELECT COALESCE((SELECT price_micromora FROM player_coin_trades_v1 WHERE coin_id=? "
+        "ORDER BY created_at DESC,id DESC LIMIT 1),(SELECT clearing_price_micromora "
+        "FROM player_coin_auction_settlements_v1 WHERE coin_id=? AND success=TRUE))",
+        (coin_id, coin_id),
+    ) as cursor:
+        reference_row = await cursor.fetchone()
+    reference = (
+        five_minute["vwap_price_micromora"]
+        or (int(reference_row[0]) if reference_row and reference_row[0] is not None else None)
+    )
+    result["reference_price_micromora"] = reference
+    if reference:
+        bid_floor, ask_ceiling = depth_band_bounds(reference)
+        async with db.execute(
+            "SELECT COALESCE(SUM(CASE WHEN side='buy' AND limit_price_micromora>=? THEN "
+            "remaining_units::numeric*limit_price_micromora ELSE 0 END),0),"
+            "COALESCE(SUM(CASE WHEN side='sell' AND limit_price_micromora<=? THEN "
+            "remaining_units::numeric*limit_price_micromora ELSE 0 END),0) "
+            "FROM player_coin_orders_v1 WHERE coin_id=? AND status='open' AND remaining_units>0",
+            (bid_floor, ask_ceiling, coin_id),
+        ) as cursor:
+            depth = await cursor.fetchone()
+        divisor = Decimal(TOKEN_SCALE * PRICE_SCALE)
+        buy_depth = (Decimal(depth[0]) / divisor).quantize(Decimal("0.000001"))
+        sell_depth = (Decimal(depth[1]) / divisor).quantize(Decimal("0.000001"))
+        result["depth_5pct"] = {
+            "buy_mora": buy_depth, "sell_mora": sell_depth,
+            "total_mora": buy_depth + sell_depth,
+        }
+        async with db.execute("SELECT circulating_units FROM player_coins_v1 WHERE id=?", (coin_id,)) as cursor:
+            circulation = await cursor.fetchone()
+        result["market_cap_mora"] = (
+            Decimal(int(circulation[0])) * Decimal(reference) / divisor
+        ).quantize(Decimal("0.000001"))
+    else:
+        result["depth_5pct"] = {"buy_mora": Decimal("0"), "sell_mora": Decimal("0"),
+                                  "total_mora": Decimal("0")}
+        result["market_cap_mora"] = None
     halt = await market_halt(db, coin_id)
     result["halt"] = {key: halt[key] for key in ("active", "halted_until", "kind", "public_reason")}
     return result
