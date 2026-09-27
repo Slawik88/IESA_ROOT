@@ -651,6 +651,17 @@ async def main(dsn: str):
             pass
         await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (service.FEATURE_FLAG_KEY,))
         await db.commit()
+        disabled_owner_recovery = await service.player_recovery_state(db, user_id=7)
+        recovered_owned_coin = next(
+            row for row in disabled_owner_recovery["owned_coins"]["items"]
+            if row["coin_id"] == launched["id"]
+        )
+        assert disabled_owner_recovery["trading_enabled"] is False
+        assert recovered_owned_coin["pending_emission_id"] == emission["id"]
+        assert recovered_owned_coin["pending_emission_units"] == 1_000_000
+        assert recovered_owned_coin["emission_requested_at"] is not None
+        assert recovered_owned_coin["emission_executes_at"] is not None
+        assert recovered_owned_coin["emission_can_cancel"] is True
         cancelled = await service.cancel_emission(
             db, owner_id=7, emission_id=emission["id"], action_id="emission-cancel-0001",
         )
@@ -685,6 +696,8 @@ async def main(dsn: str):
         )) == treasury_before + 2_000_000
         public_emissions = (await service.public_market(db, coin_id=launched["id"]))["emissions"]
         assert public_emissions[0]["status"] == "executed" and "owner_id" not in public_emissions[0]
+        assert public_emissions[0]["can_cancel"] is False
+        assert public_emissions[0]["executed_at"] is not None
         assert public_emissions[0]["circulation_snapshot_units"] == circulation
         assert public_emissions[0]["projected_total_supply_units"] == supply_before + 2_000_000
 

@@ -25,4 +25,12 @@ assert "Подтвердите" in js
 assert "_pxConfirmBid" in js
 assert "maker 0,10%, taker 0,25%" in js
 assert "Отменить заявку нельзя" in js
+assert "_pxOpenEmission" in js and "/emissions" in js
+assert "_pxConfirmEmission" in js and "_pxPendingEmission" in js
+assert "circulation_snapshot_units" in js and "projected_total_supply_units" in js
+assert "emission_executes_at" in js and "data-px-emission-cancel" in js
+assert "emission_can_cancel===true" in js and "e.can_cancel===true" in js
+assert "e.executed_at" in js and "e.cancelled_at" in js
+assert "Максимум сейчас" in js and "попадут в казну" in js
+assert "Отмена закрыта" in js and "_pxEmissionCancelActions" in js
 print("PLAYER_EXCHANGE_V1_UI_CONTRACT_OK")

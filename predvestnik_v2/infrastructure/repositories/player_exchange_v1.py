@@ -444,9 +444,17 @@ async def player_recovery_state(
         bids = [dict(row) for row in await cursor.fetchall()]
     cc_time, cc_id = coins_cursor or (None, None)
     async with db.execute(
-        "SELECT id AS coin_id,name,ticker,status,auction_ends_at,created_at FROM player_coins_v1 "
-        "WHERE owner_id=? AND (?::text IS NULL OR (created_at,id)<((?::text)::timestamptz,?)) "
-        "ORDER BY created_at DESC,id DESC LIMIT ?",
+        "SELECT c.id AS coin_id,c.name,c.ticker,c.status,c.auction_ends_at,c.created_at,"
+        "e.id AS pending_emission_id,e.requested_units AS pending_emission_units,"
+        "e.circulation_snapshot_units AS emission_circulation_snapshot_units,"
+        "e.projected_total_supply_units AS emission_projected_total_supply_units,"
+        "e.reason AS pending_emission_reason,e.requested_at AS emission_requested_at,"
+        "e.executes_at AS emission_executes_at,"
+        "COALESCE(e.executes_at>NOW()+INTERVAL '1 hour',FALSE) AS emission_can_cancel "
+        "FROM player_coins_v1 c "
+        "LEFT JOIN player_coin_emissions_v1 e ON e.coin_id=c.id AND e.status='pending' "
+        "WHERE c.owner_id=? AND (?::text IS NULL OR (c.created_at,c.id)<((?::text)::timestamptz,?)) "
+        "ORDER BY c.created_at DESC,c.id DESC LIMIT ?",
         (int(user_id), cc_time, cc_time, cc_id, row_limit),
     ) as cursor:
         owned_coins = [dict(row) for row in await cursor.fetchall()]
@@ -1259,7 +1267,8 @@ async def execute_emission(db, *, emission_id: str) -> dict:
 async def public_emissions(db, coin_id: str, *, limit: int = 20) -> list[dict]:
     async with db.execute(
         "SELECT id,requested_units,circulation_snapshot_units,projected_total_supply_units,"
-        "reason,status,requested_at,executes_at,cancelled_at,executed_at "
+        "reason,status,requested_at,executes_at,cancelled_at,executed_at,"
+        "(status='pending' AND executes_at>NOW()+INTERVAL '1 hour') AS can_cancel "
         "FROM player_coin_emissions_v1 WHERE coin_id=? ORDER BY requested_at DESC,id DESC LIMIT ?",
         (str(coin_id), max(1, min(int(limit), 50))),
     ) as cursor:
