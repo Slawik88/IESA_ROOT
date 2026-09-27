@@ -47,6 +47,27 @@ class ManualMarketHaltRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+@router.get("/me")
+async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
+                            orders_cursor: str | None = None, bids_cursor: str | None = None,
+                            coins_cursor: str | None = None,
+                            db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        state = await service.player_recovery_state(
+            db, user_id=int(user["id"]), limit=limit, holdings_cursor=holdings_cursor,
+            orders_cursor=orders_cursor, bids_cursor=bids_cursor,
+            coins_cursor=coins_cursor,
+        )
+        return {
+            **state,
+            "notice": "Игровые активы без вывода в деньги.",
+        }
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @router.get("/coins")
 async def coins(db=Depends(get_db), user=Depends(require_tg_user)):
     try:

@@ -367,6 +367,57 @@ async def list_coins(db) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def player_recovery_state(
+    db, *, user_id: int, limit: int = 50, holdings_cursor=None, orders_cursor=None,
+    bids_cursor=None, coins_cursor=None,
+) -> dict:
+    row_limit = max(1, min(int(limit), 100)) + 1
+    hc_time, hc_id = holdings_cursor or (None, None)
+    async with db.execute(
+        "SELECT c.id AS coin_id,c.name,c.ticker,c.status,a.available_units,a.reserved_units,c.created_at "
+        "FROM player_coin_accounts_v1 a JOIN player_coins_v1 c ON c.id=a.coin_id "
+        "WHERE a.account_kind='player' AND a.user_id=? "
+        "AND (a.available_units>0 OR a.reserved_units>0) "
+        "AND (?::text IS NULL OR (c.created_at,c.id)<((?::text)::timestamptz,?)) "
+        "ORDER BY c.created_at DESC,c.id DESC LIMIT ?",
+        (int(user_id), hc_time, hc_time, hc_id, row_limit),
+    ) as cursor:
+        holdings = [dict(row) for row in await cursor.fetchall()]
+    oc_rank, oc_time, oc_id = orders_cursor or (None, None, None)
+    async with db.execute(
+        "SELECT o.id,o.coin_id,c.name,c.ticker,o.side,o.time_in_force,o.slippage_percent,"
+        "o.limit_price_micromora,o.original_units,o.remaining_units,o.reserved_mora,o.spent_mora,"
+        "o.status,o.created_at,o.closed_at FROM player_coin_orders_v1 o "
+        "JOIN player_coins_v1 c ON c.id=o.coin_id WHERE o.user_id=? AND o.actor_kind='player' "
+        "AND (?::integer IS NULL OR (CASE WHEN o.status='open' THEN 1 ELSE 0 END,o.created_at,o.id)"
+        "<(?::integer,(?::text)::timestamptz,?)) "
+        "ORDER BY (o.status='open') DESC,o.created_at DESC,o.id DESC LIMIT ?",
+        (int(user_id), oc_rank, oc_rank, oc_time, oc_id, row_limit),
+    ) as cursor:
+        orders = [dict(row) for row in await cursor.fetchall()]
+    bc_rank, bc_time, bc_id = bids_cursor or (None, None, None)
+    async with db.execute(
+        "SELECT b.id,b.coin_id,c.name,c.ticker,b.max_price_micromora,b.escrow_mora,b.status,"
+        "b.allocated_units,b.cost_mora,b.created_at,c.auction_ends_at "
+        "FROM player_coin_auction_bids_v1 b JOIN player_coins_v1 c ON c.id=b.coin_id "
+        "WHERE b.bidder_id=? AND (?::integer IS NULL OR "
+        "(CASE WHEN b.status='open' THEN 1 ELSE 0 END,b.created_at,b.id)<(?::integer,(?::text)::timestamptz,?)) "
+        "ORDER BY (b.status='open') DESC,b.created_at DESC,b.id DESC LIMIT ?",
+        (int(user_id), bc_rank, bc_rank, bc_time, bc_id, row_limit),
+    ) as cursor:
+        bids = [dict(row) for row in await cursor.fetchall()]
+    cc_time, cc_id = coins_cursor or (None, None)
+    async with db.execute(
+        "SELECT id AS coin_id,name,ticker,status,auction_ends_at,created_at FROM player_coins_v1 "
+        "WHERE owner_id=? AND (?::text IS NULL OR (created_at,id)<((?::text)::timestamptz,?)) "
+        "ORDER BY created_at DESC,id DESC LIMIT ?",
+        (int(user_id), cc_time, cc_time, cc_id, row_limit),
+    ) as cursor:
+        owned_coins = [dict(row) for row in await cursor.fetchall()]
+    return {"holdings": holdings, "orders": orders, "auction_bids": bids,
+            "owned_coins": owned_coins}
+
+
 async def get_coin(db, coin_id: str, *, for_update: bool = False):
     suffix = " FOR UPDATE" if for_update else ""
     async with db.execute("SELECT * FROM player_coins_v1 WHERE id=?" + suffix, (coin_id,)) as cursor:

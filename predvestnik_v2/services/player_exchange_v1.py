@@ -1,6 +1,9 @@
 """Transactional application service for the player-created exchange."""
 from __future__ import annotations
 
+import base64
+import json
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
@@ -24,6 +27,83 @@ async def require_enabled(db) -> None:
         raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
     if not await repo.schema_ready(db):
         raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+
+
+def _decode_recovery_cursor(value: str | None, *, kind: str):
+    if not value:
+        return None
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
+        expected_keys = {"k", "t", "i"} if kind in {"holdings", "coins"} else {"k", "r", "t", "i"}
+        if not isinstance(payload, dict) or set(payload) != expected_keys or payload.get("k") != kind:
+            raise ValueError
+        row_id = payload.get("i")
+        if not isinstance(row_id, str) or not row_id or len(row_id) > 128:
+            raise ValueError
+        raw_time = payload.get("t")
+        if not isinstance(raw_time, str):
+            raise ValueError
+        timestamp = datetime.fromisoformat(raw_time)
+        if timestamp.tzinfo is None or timestamp.utcoffset() is None:
+            raise ValueError
+        if kind in {"holdings", "coins"}:
+            return timestamp.isoformat(), row_id
+        rank = payload.get("r")
+        if isinstance(rank, bool) or not isinstance(rank, int) or rank not in {0, 1}:
+            raise ValueError
+        return rank, timestamp.isoformat(), row_id
+    except Exception as exc:
+        raise PlayerExchangePolicyError("Некорректный курсор списка.") from exc
+
+
+def _encode_recovery_cursor(*, kind: str, row: dict) -> str:
+    payload = {"k": kind, "t": row["created_at"].isoformat(),
+               "i": str(row.get("id") or row["coin_id"])}
+    if kind not in {"holdings", "coins"}:
+        payload["r"] = 1 if row["status"] == "open" else 0
+    return base64.urlsafe_b64encode(
+        json.dumps(payload, separators=(",", ":")).encode()
+    ).decode().rstrip("=")
+
+
+def _recovery_page(rows: list[dict], *, limit: int, kind: str) -> dict:
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = (
+        _encode_recovery_cursor(kind=kind, row=items[-1]) if has_more and items else None
+    )
+    if kind == "bids":
+        items = [{key: value for key, value in row.items() if key != "id"} for row in items]
+    return {"items": items, "next_cursor": next_cursor}
+
+
+async def player_recovery_state(
+    db, *, user_id: int, limit: int = 50, holdings_cursor: str | None = None,
+    orders_cursor: str | None = None, bids_cursor: str | None = None,
+    coins_cursor: str | None = None,
+) -> dict:
+    """Return only the actor's recoverable exchange state, even during a kill switch."""
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    page_limit = max(1, min(int(limit), 100))
+    state = await repo.player_recovery_state(
+        db, user_id=int(user_id), limit=page_limit,
+        holdings_cursor=_decode_recovery_cursor(holdings_cursor, kind="holdings"),
+        orders_cursor=_decode_recovery_cursor(orders_cursor, kind="orders"),
+        bids_cursor=_decode_recovery_cursor(bids_cursor, kind="bids"),
+        coins_cursor=_decode_recovery_cursor(coins_cursor, kind="coins"),
+    )
+    enabled = await system_flags.is_enabled(db, FEATURE_FLAG_KEY)
+    if not enabled and not any(state.values()):
+        raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+    return {
+        "holdings": _recovery_page(state["holdings"], limit=page_limit, kind="holdings"),
+        "orders": _recovery_page(state["orders"], limit=page_limit, kind="orders"),
+        "auction_bids": _recovery_page(state["auction_bids"], limit=page_limit, kind="bids"),
+        "owned_coins": _recovery_page(state["owned_coins"], limit=page_limit, kind="coins"),
+        "trading_enabled": bool(enabled),
+        "can_cancel_open_orders": True,
+    }
 
 
 async def create_coin(

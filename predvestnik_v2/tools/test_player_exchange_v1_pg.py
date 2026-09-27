@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
+import json
 from pathlib import Path
 import sys
 from urllib.parse import urlparse
 
 import asyncpg
+from fastapi.encoders import jsonable_encoder
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -425,6 +428,76 @@ async def main(dsn: str):
         assert await service.match_market(db, coin_id=launched["id"]) == []
         assert (await repo.get_order(db, disabled_sell["id"]))["status"] == "open"
         assert (await repo.get_order(db, disabled_buy["id"]))["status"] == "open"
+        recovery8 = await service.player_recovery_state(db, user_id=8)
+        assert recovery8["trading_enabled"] is False and recovery8["can_cancel_open_orders"] is True
+        recovery8_orders = recovery8["orders"]["items"]
+        assert any(row["id"] == disabled_sell["id"] for row in recovery8_orders)
+        assert all(row["id"] != disabled_buy["id"] for row in recovery8_orders)
+        assert all("user_id" not in row and "action_id" not in row for row in recovery8_orders)
+        assert recovery8["holdings"]["items"] and recovery8["auction_bids"]["items"]
+        assert all("id" not in row for row in recovery8["auction_bids"]["items"])
+        json.dumps(jsonable_encoder(recovery8))
+        try:
+            await service.player_recovery_state(db, user_id=8, orders_cursor="not-a-cursor")
+            raise AssertionError("invalid recovery cursor accepted")
+        except PlayerExchangePolicyError:
+            pass
+        wrong_kind_cursor = base64.urlsafe_b64encode(json.dumps({
+            "k": "bids", "r": 1, "t": "2026-01-01T00:00:00+00:00", "i": "bid",
+        }).encode()).decode().rstrip("=")
+        try:
+            await service.player_recovery_state(db, user_id=8, orders_cursor=wrong_kind_cursor)
+            raise AssertionError("cross-list recovery cursor accepted")
+        except PlayerExchangePolicyError:
+            pass
+        malformed_cursors = [
+            {"k": "orders", "r": 1, "t": "not-a-time", "i": "order"},
+            {"k": "orders", "r": True, "t": "2026-01-01T00:00:00+00:00", "i": "order"},
+            {"k": "orders", "r": 2, "t": "2026-01-01T00:00:00+00:00", "i": "order"},
+            {"k": "orders", "r": 1, "t": "2026-01-01T00:00:00", "i": "order"},
+            {"k": "orders", "r": 1, "t": "2026-01-01T00:00:00+00:00", "i": ""},
+            {"k": "orders", "r": 1, "t": "2026-01-01T00:00:00+00:00", "i": "order", "x": 1},
+        ]
+        for malformed in malformed_cursors:
+            encoded = base64.urlsafe_b64encode(json.dumps(malformed).encode()).decode().rstrip("=")
+            try:
+                await service.player_recovery_state(db, user_id=8, orders_cursor=encoded)
+                raise AssertionError(f"structured malformed cursor accepted: {malformed}")
+            except PlayerExchangePolicyError:
+                pass
+        try:
+            await service.player_recovery_state(db, user_id=3)
+            raise AssertionError("empty disabled recovery disclosed hidden exchange")
+        except service.PlayerExchangeUnavailable:
+            pass
+
+        recovery_order_ids = {f"recovery-page-{index:03d}" for index in range(101)}
+        await conn.executemany(
+            "INSERT INTO player_coin_orders_v1"
+            "(id,coin_id,user_id,actor_kind,action_id,side,time_in_force,limit_price_micromora,"
+            "original_units,remaining_units,status,created_at) "
+            "VALUES($1,$2,11,'player',$3,'sell','gtc',2000000,10000,10000,'open',"
+            "NOW()-($4::integer*INTERVAL '1 millisecond'))",
+            [(order_id, launched["id"], f"recovery-action-{index:03d}", index)
+             for index, order_id in enumerate(sorted(recovery_order_ids))],
+        )
+        seen_recovery_ids = []
+        cursor = None
+        for _ in range(3):
+            page = await service.player_recovery_state(
+                db, user_id=11, limit=100, orders_cursor=cursor,
+            )
+            seen_recovery_ids.extend(
+                row["id"] for row in page["orders"]["items"] if row["id"] in recovery_order_ids
+            )
+            cursor = page["orders"]["next_cursor"]
+            if not cursor:
+                break
+        assert set(seen_recovery_ids) == recovery_order_ids
+        assert len(seen_recovery_ids) == len(set(seen_recovery_ids)) == 101
+        recovery9 = await service.player_recovery_state(db, user_id=9)
+        assert all(row["id"] != disabled_sell["id"] for row in recovery9["orders"]["items"])
+        await conn.execute("DELETE FROM player_coin_orders_v1 WHERE id LIKE 'recovery-page-%'")
         assert (await service.cancel_order(db, user_id=8, order_id=disabled_sell["id"]))["status"] == "cancelled"
         assert (await service.cancel_order(db, user_id=9, order_id=disabled_buy["id"]))["status"] == "cancelled"
         await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
