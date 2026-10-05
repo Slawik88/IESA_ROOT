@@ -664,6 +664,66 @@ async def main(dsn: str):
         created_events = [row for row in vesting_market["journal"] if row["event_type"] == "coin_created"]
         assert created_events and "economy_operation_id" not in created_events[0]["details"]
 
+        # Owner treasury actions reserve only public treasury balances and have public receipts.
+        treasury_token_before = int(await conn.fetchval(
+            "SELECT available_units FROM player_coin_accounts_v1 "
+            "WHERE coin_id=$1 AND account_kind='treasury'", launched["id"],
+        ))
+        supply_before_burn = int(await conn.fetchval(
+            "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        ))
+        burned = await service.burn_treasury(
+            db, owner_id=7, coin_id=launched["id"], amount="1000",
+            action_id="treasury-burn-0001",
+        )
+        assert burned["units"] == 1_000_000 and burned["replayed"] is False
+        burned_replay = await service.burn_treasury(
+            db, owner_id=7, coin_id=launched["id"], amount="1000",
+            action_id="treasury-burn-0001",
+        )
+        assert burned_replay["replayed"] is True
+        assert int(await conn.fetchval(
+            "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
+        )) == supply_before_burn - 1_000_000
+        assert int(await conn.fetchval(
+            "SELECT available_units FROM player_coin_accounts_v1 "
+            "WHERE coin_id=$1 AND account_kind='treasury'", launched["id"],
+        )) == treasury_token_before - 1_000_000
+        treasury_sell = await service.place_treasury_order(
+            db, owner_id=7, coin_id=launched["id"], side="sell", amount="100",
+            limit_price_mora="999", action_id="treasury-sell-0001",
+        )
+        assert treasury_sell["actor_kind"] == "treasury"
+        assert treasury_sell["treasury_token_bucket"] == "treasury"
+        treasury_sell_cancelled = await service.cancel_treasury_order(
+            db, owner_id=7, order_id=treasury_sell["id"], action_id="treasury-sell-cancel-0001",
+        )
+        assert treasury_sell_cancelled["status"] == "cancelled"
+        try:
+            await service.place_treasury_order(
+                db, owner_id=7, coin_id=launched["id"], side="buy", amount="10",
+                limit_price_mora="0.000001", action_id="treasury-dust-buy",
+            )
+            raise AssertionError("dust treasury order accepted")
+        except PlayerExchangePolicyError:
+            pass
+        treasury_buy = await service.place_treasury_order(
+            db, owner_id=7, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="1", action_id="treasury-buy-0001",
+        )
+        assert treasury_buy["actor_kind"] == "treasury" and treasury_buy["status"] == "open"
+        try:
+            await service.place_treasury_order(
+                db, owner_id=8, coin_id=launched["id"], side="buy", amount="1",
+                limit_price_mora="10", action_id="treasury-foreign-buy",
+            )
+            raise AssertionError("foreign owner managed treasury")
+        except PlayerExchangePolicyError:
+            pass
+        treasury_market = await service.public_market(db, coin_id=launched["id"])
+        assert any(row["event_type"] == "treasury_burned" for row in treasury_market["journal"])
+        assert any(row["event_type"] == "treasury_order_placed" for row in treasury_market["journal"])
+
         # Owner emissions are public, delayed, capped and treasury-only.
         circulation = int(await conn.fetchval(
             "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
@@ -695,6 +755,13 @@ async def main(dsn: str):
         assert emission["projected_total_supply_units"] == int(await conn.fetchval(
             "SELECT total_supply_units FROM player_coins_v1 WHERE id=$1", launched["id"],
         )) + 1_000_000
+        try:
+            await service.cancel_treasury_order(
+                db, owner_id=7, order_id=treasury_buy["id"], action_id="treasury-buy-cancel-blocked",
+            )
+            raise AssertionError("supporting treasury buy cancelled during pending emission")
+        except PlayerExchangePolicyError:
+            pass
         owner_buy = await service.place_limit_order(
             db, user_id=7, coin_id=launched["id"], side="buy", amount="20",
             limit_price_mora="0.5", time_in_force="gtc", action_id="emission-owner-buy-ok",
@@ -745,10 +812,19 @@ async def main(dsn: str):
         assert recovered_owned_coin["emission_requested_at"] is not None
         assert recovered_owned_coin["emission_executes_at"] is not None
         assert recovered_owned_coin["emission_can_cancel"] is True
+        recovered_treasury_buy = next(
+            row for row in disabled_owner_recovery["orders"]["items"]
+            if row["id"] == treasury_buy["id"]
+        )
+        assert recovered_treasury_buy["actor_kind"] == "treasury"
         cancelled = await service.cancel_emission(
             db, owner_id=7, emission_id=emission["id"], action_id="emission-cancel-0001",
         )
         assert cancelled["status"] == "cancelled"
+        treasury_buy_cancelled = await service.cancel_treasury_order(
+            db, owner_id=7, order_id=treasury_buy["id"], action_id="treasury-buy-cancel-0001",
+        )
+        assert treasury_buy_cancelled["status"] == "cancelled"
         await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
         await db.execute(
             "UPDATE player_coin_emissions_v1 SET requested_at=NOW()-INTERVAL '8 days' WHERE id=?",

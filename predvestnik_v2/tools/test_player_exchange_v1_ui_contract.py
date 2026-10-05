@@ -36,4 +36,7 @@ assert "Отмена закрыта" in js and "_pxEmissionCancelActions" in js
 assert "owner-vesting/claim" in js and "_pxOpenVestingClaim" in js and "_pxClaimVesting" in js
 assert "Операция публична и необратима" in js and "_pxVestingSubmitting" in js
 assert "Публичный журнал" in js and "owner_vesting_claimed" in js
+assert "treasury/orders" in js and "treasury/burn" in js
+assert "_pxReviewTreasuryOrder" in js and "_pxReviewTreasuryBurn" in js
+assert "Публичная казна" in js and "Операция публична и необратима" in js
 print("PLAYER_EXCHANGE_V1_UI_CONTRACT_OK")

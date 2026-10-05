@@ -62,6 +62,18 @@ class OwnerVestingClaimRequest(BaseModel):
     units: int = Field(gt=0)
 
 
+class TreasuryOrderRequest(BaseModel):
+    side: str
+    amount: str = Field(min_length=1, max_length=32)
+    limit_price_mora: str = Field(min_length=1, max_length=32)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+class TreasuryBurnRequest(BaseModel):
+    amount: str = Field(min_length=1, max_length=32)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
 @router.get("/me")
 async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
                             orders_cursor: str | None = None, bids_cursor: str | None = None,
@@ -236,6 +248,54 @@ async def claim_owner_vesting(coin_id: str, payload: OwnerVestingClaimRequest,
         return {"vesting": await service.claim_owner_vesting(
             db, owner_id=int(user["id"]), coin_id=coin_id, units=payload.units,
             action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/treasury/orders")
+async def place_treasury_order(coin_id: str, payload: TreasuryOrderRequest,
+                               db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"order": await service.place_treasury_order(
+            db, owner_id=int(user["id"]), coin_id=coin_id, side=payload.side,
+            amount=payload.amount, limit_price_mora=payload.limit_price_mora,
+            action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/treasury/orders/{order_id}/cancel")
+async def cancel_treasury_order(order_id: str, payload: EmissionCancelRequest,
+                                db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"order": await service.cancel_treasury_order(
+            db, owner_id=int(user["id"]), order_id=order_id, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/treasury/burn")
+async def burn_treasury(coin_id: str, payload: TreasuryBurnRequest,
+                        db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"burn": await service.burn_treasury(
+            db, owner_id=int(user["id"]), coin_id=coin_id,
+            amount=payload.amount, action_id=payload.action_id,
         )}
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc

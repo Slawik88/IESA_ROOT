@@ -574,6 +574,8 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
         "stats_24h": await repo.public_market_stats(db, coin_id),
         "emissions": await repo.public_emissions(db, coin_id),
         "owner_vesting": vesting,
+        "treasury": await repo.public_treasury_state(db, coin_id),
+        "treasury_orders": await repo.public_treasury_orders(db, coin_id),
         "journal": _public_journal(await repo.public_owner_journal(db, coin_id)),
         "notice": "Игровой актив без вывода в деньги.",
     }
@@ -614,6 +616,9 @@ _PUBLIC_JOURNAL_KEYS = {
     "emission_cancelled": {"units"},
     "emission_executed": {"units", "destination"},
     "owner_vesting_claimed": {"units", "vested_units", "claimed_units"},
+    "treasury_order_placed": {"side", "units", "limit_price_micromora", "reserved_mora"},
+    "treasury_order_cancelled": {"side", "remaining_units"},
+    "treasury_burned": {"units", "total_supply_units"},
 }
 
 
@@ -670,6 +675,152 @@ async def claim_owner_vesting(db, *, owner_id: int, coin_id: str, units: int, ac
         }
         await repo.append_event(
             db, coin_id=str(coin_id), actor_id=int(owner_id), event_type="owner_vesting_claimed",
+            action_id=str(action_id), payload=payload,
+        )
+        return {**payload, "replayed": False}
+
+
+async def place_treasury_order(
+    db, *, owner_id: int, coin_id: str, side: str, amount: str,
+    limit_price_mora: str, action_id: str,
+) -> dict:
+    await require_enabled(db)
+    side = str(side).lower()
+    if side not in {"buy", "sell"}:
+        raise PlayerExchangePolicyError("Направление должно быть buy или sell.")
+    units = parse_token_amount(amount)
+    try:
+        price_value = Decimal(str(limit_price_mora))
+        price = int((price_value * PRICE_SCALE).to_integral_exact())
+    except (InvalidOperation, ValueError, TypeError, OverflowError) as exc:
+        raise PlayerExchangePolicyError("Некорректная цена заявки.") from exc
+    if (not price_value.is_finite() or price <= 0 or price > MAX_PRICE_MICROMORA
+            or Decimal(price) / PRICE_SCALE != price_value):
+        raise PlayerExchangePolicyError("Цена должна быть положительной, точность — до 6 знаков.")
+    if trade_notional(units, price) < Decimal("10"):
+        raise PlayerExchangePolicyError("Минимальная сумма заявки — 10 Моры.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_order_replay(db, user_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            identity = (str(replay["coin_id"]), replay["side"], int(replay["original_units"]),
+                        int(replay["limit_price_micromora"]), replay.get("actor_kind"))
+            if identity != (str(coin_id), side, units, price, "treasury"):
+                raise IdempotencyConflict("Action id is bound to another treasury order.")
+            replay["replayed"] = True
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if (not coin or int(coin["owner_id"]) != int(owner_id)
+                or coin["status"] not in {"active", "halted"}):
+            raise PlayerExchangePolicyError("Управлять казной может только владелец активной монеты.")
+        if side == "sell" and await repo.pending_emission(db, coin_id):
+            raise PlayerExchangePolicyError("Продажа из казны недоступна, пока эмиссия ожидает исполнения.")
+        reserved_mora = Decimal("0")
+        token_bucket = None
+        if side == "buy":
+            reserved_mora = buy_reserve(units, price)
+            try:
+                await repo.reserve_treasury_mora(
+                    db, coin_id=coin_id, amount=reserved_mora, reason="owner_treasury_buy_reserve",
+                )
+            except ValueError as exc:
+                raise PlayerExchangePolicyError("В казне недостаточно Моры.") from exc
+        else:
+            token_bucket = "treasury"
+            try:
+                await repo.reserve_treasury_tokens(db, coin_id=coin_id, units=units, bucket=token_bucket)
+            except ValueError as exc:
+                raise PlayerExchangePolicyError("В казне недостаточно монет.") from exc
+        order = await repo.insert_order(
+            db, coin_id=coin_id, user_id=int(owner_id), action_id=str(action_id), side=side,
+            time_in_force="gtc", price=price, units=units, reserved_mora=reserved_mora,
+            reserve_operation_id=None, actor_kind="treasury", treasury_token_bucket=token_bucket,
+        )
+        await repo.append_event(
+            db, coin_id=coin_id, actor_id=int(owner_id), event_type="treasury_order_placed",
+            action_id=f"treasury-public:{action_id}", payload={
+                "order_id": order["id"], "side": side, "units": units,
+                "limit_price_micromora": price, "reserved_mora": str(reserved_mora),
+            },
+        )
+        order["replayed"] = False
+        return order
+
+
+async def cancel_treasury_order(
+    db, *, owner_id: int, order_id: str, action_id: str,
+) -> dict:
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        replay = await repo.get_event_by_action(db, actor_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            payload = replay["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if replay["event_type"] != "treasury_order_cancelled" or payload.get("order_id") != str(order_id):
+                raise IdempotencyConflict("Action id is bound to another treasury cancellation.")
+            order = await repo.get_order(db, order_id)
+            return {**order, "replayed": True}
+        order = await repo.get_order(db, order_id, for_update=True)
+        if (not order or int(order["user_id"]) != int(owner_id)
+                or order.get("actor_kind") != "treasury"):
+            raise PlayerExchangePolicyError("Заявка казны не найдена.")
+        coin = await repo.get_coin(db, str(order["coin_id"]), for_update=True)
+        if not coin or int(coin["owner_id"]) != int(owner_id):
+            raise PlayerExchangePolicyError("Заявка казны не найдена.")
+        if order["status"] != "open":
+            raise PlayerExchangePolicyError("Заявка казны уже закрыта.")
+        if order["side"] == "buy" and await repo.pending_emission(db, str(order["coin_id"])):
+            raise PlayerExchangePolicyError("Поддерживающую покупку нельзя отменить, пока эмиссия ожидает исполнения.")
+        await _release_order(db, order, reason="owner_treasury_cancelled")
+        await repo.append_event(
+            db, coin_id=str(order["coin_id"]), actor_id=int(owner_id),
+            event_type="treasury_order_cancelled", action_id=str(action_id),
+            payload={"order_id": str(order_id), "side": order["side"],
+                     "remaining_units": int(order["remaining_units"])},
+        )
+        result = await repo.get_order(db, order_id)
+        result["replayed"] = False
+        return result
+
+
+async def burn_treasury(db, *, owner_id: int, coin_id: str, amount: str, action_id: str) -> dict:
+    await require_enabled(db)
+    units = parse_token_amount(amount)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_event_by_action(db, actor_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            payload = replay["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if (replay["event_type"] != "treasury_burned" or str(replay["coin_id"]) != str(coin_id)
+                    or int(payload.get("units", 0)) != units):
+                raise IdempotencyConflict("Action id is bound to another treasury burn.")
+            return {**payload, "replayed": True}
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if (not coin or int(coin["owner_id"]) != int(owner_id)
+                or coin["status"] not in {"active", "halted"}):
+            raise PlayerExchangePolicyError("Управлять казной может только владелец активной монеты.")
+        try:
+            await repo.burn_treasury_tokens(db, coin_id=coin_id, units=units)
+        except ValueError as exc:
+            raise PlayerExchangePolicyError("В казне недостаточно свободных монет для сжигания.") from exc
+        payload = {"units": units, "total_supply_units": int(coin["total_supply_units"]) - units}
+        await repo.append_event(
+            db, coin_id=coin_id, actor_id=int(owner_id), event_type="treasury_burned",
             action_id=str(action_id), payload=payload,
         )
         return {**payload, "replayed": False}
