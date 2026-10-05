@@ -1325,6 +1325,20 @@ async def main(dsn: str):
         assert int(opened_position["outstanding_debt_units"]) == 3_000
         assert Decimal(opened_position["posted_collateral_mora"]) == Decimal("30.000000")
         assert Decimal(opened_position["locked_sale_proceeds_mora"]) < Decimal("12")
+        assert Decimal(opened_position["cash_escrow_mora"]) == (
+            Decimal(opened_position["posted_collateral_mora"])
+            + Decimal(opened_position["locked_sale_proceeds_mora"])
+        )
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_cash_ledger_v1 WHERE position_id=$1", opened_position["id"],
+        ) == 2
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_cash_ledger_v1 SET delta_mora=0 WHERE position_id=$1", opened_position["id"],
+            )
+            raise AssertionError("Short escrow receipt was mutable")
+        except asyncpg.RaiseError:
+            pass
         assert await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
         ) == borrower_mora_before - Decimal("30.000000")

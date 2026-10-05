@@ -350,6 +350,10 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
             action_id=str(action_id), units=units, collateral_mora=collateral,
             collateral_operation_id=str(collateral_mutation.operation_id),
         )
+        await repo.change_short_cash_escrow(
+            db, position_id=position_id, amount=collateral, source_type="collateral",
+            source_id=str(collateral_mutation.operation_id),
+        )
         await repo.allocate_lending_units(db, coin_id=str(coin_id), position_id=position_id, units=units)
         order = await repo.insert_order(
             db, coin_id=str(coin_id), user_id=int(user_id), action_id=f"short-sale:{action_id}",
@@ -379,7 +383,7 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
             )
             net_proceeds = gross - seller_fee
             await repo.credit_short_sale_proceeds(
-                db, position_id=position_id, amount=net_proceeds,
+                db, position_id=position_id, amount=net_proceeds, source_id=f"short-sale:{trade_id}",
             )
             await repo.record_trade(
                 db, trade_id=trade_id, coin_id=str(coin_id), buy_order=buy, sell_order=order,

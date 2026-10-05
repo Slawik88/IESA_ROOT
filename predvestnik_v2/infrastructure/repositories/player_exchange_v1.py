@@ -9,7 +9,7 @@ from uuid import uuid4
 from core.player_exchange_shorts_v1 import pro_rata_lender_allocations
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v14-shorts-atomic-sale-foundation-2026-10-05"
+SCHEMA_VERSION = "player-exchange-schema-v15-shorts-escrow-foundation-2026-10-05"
 
 
 async def ensure_tables(db) -> None:
@@ -193,7 +193,7 @@ async def ensure_tables(db) -> None:
                 DROP CONSTRAINT IF EXISTS player_coin_trades_v1_buyer_kind_check,
                 DROP CONSTRAINT IF EXISTS player_coin_trades_v1_seller_kind_check;
             ALTER TABLE player_coin_trades_v1 ADD CONSTRAINT ck_player_coin_trade_actor_kinds_v1
-                CHECK (buyer_kind IN ('player','treasury') AND seller_kind IN ('player','treasury','short'));
+                CHECK (buyer_kind IN ('player','treasury','short') AND seller_kind IN ('player','treasury','short'));
         END $$
     """)
     await db.execute("""
@@ -375,7 +375,10 @@ async def ensure_tables(db) -> None:
             outstanding_debt_units BIGINT NOT NULL CHECK (outstanding_debt_units>=0),
             posted_collateral_mora NUMERIC(24,6) NOT NULL CHECK (posted_collateral_mora>=0),
             locked_sale_proceeds_mora NUMERIC(24,6) NOT NULL CHECK (locked_sale_proceeds_mora>=0),
+            cash_escrow_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (cash_escrow_mora>=0),
             accrued_interest_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (accrued_interest_mora>=0),
+            last_interest_accrued_at TIMESTAMPTZ NULL,
+            open_apr_bps INTEGER NULL CHECK (open_apr_bps>=0),
             opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             closed_at TIMESTAMPTZ NULL,
             UNIQUE (borrower_id,action_id),
@@ -389,6 +392,16 @@ async def ensure_tables(db) -> None:
         "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS collateral_operation_id TEXT NULL "
         "UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT"
     )
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS cash_escrow_mora NUMERIC(24,6) NOT NULL DEFAULT 0 "
+        "CHECK (cash_escrow_mora>=0)"
+    )
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS last_interest_accrued_at TIMESTAMPTZ NULL"
+    )
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS open_apr_bps INTEGER NULL CHECK (open_apr_bps>=0)"
+    )
     await db.execute("""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_player_coin_order_short_position_v1') THEN
@@ -398,11 +411,52 @@ async def ensure_tables(db) -> None:
             END IF;
             ALTER TABLE player_coin_orders_v1 DROP CONSTRAINT IF EXISTS ck_player_coin_order_short_binding_v1;
             ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_short_binding_v1 CHECK (
-                (actor_kind='short' AND short_position_id IS NOT NULL AND side='sell'
+                (actor_kind='short' AND short_position_id IS NOT NULL AND side IN ('buy','sell')
                  AND time_in_force='ioc' AND reserved_mora=0 AND reserve_operation_id IS NULL)
                 OR
                 (actor_kind<>'short' AND short_position_id IS NULL)
             );
+        END $$
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_cash_ledger_v1 (
+            id TEXT PRIMARY KEY,
+            position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
+            source_type TEXT NOT NULL CHECK (source_type IN
+                ('collateral','sale_proceeds','buyback_spend','interest_charge','lender_interest','borrower_release','liquidation_penalty')),
+            source_id TEXT NOT NULL,
+            delta_mora NUMERIC(24,6) NOT NULL CHECK (delta_mora<>0),
+            balance_before NUMERIC(24,6) NOT NULL CHECK (balance_before>=0),
+            balance_after NUMERIC(24,6) NOT NULL CHECK (balance_after>=0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (source_type,source_id),
+            CHECK (balance_after=balance_before+delta_mora)
+        )
+    """)
+    # A pre-v15 position can only be an isolated test/rehearsal row. Its old
+    # counters are imported once, before the new append-only escrow journal is
+    # used. New writer paths always append real collateral/proceeds receipts.
+    await db.execute("""
+        UPDATE player_coin_short_positions_v1 p SET cash_escrow_mora=
+            p.posted_collateral_mora+p.locked_sale_proceeds_mora
+        WHERE p.cash_escrow_mora=0
+          AND (p.posted_collateral_mora+p.locked_sale_proceeds_mora)>0
+          AND NOT EXISTS (SELECT 1 FROM player_coin_short_cash_ledger_v1 e WHERE e.position_id=p.id)
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION prevent_player_coin_short_cash_ledger_mutation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'player_coin_short_cash_ledger_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_cash_ledger_immutable_v1'
+                AND tgrelid='player_coin_short_cash_ledger_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_cash_ledger_immutable_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_cash_ledger_v1
+                FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_cash_ledger_mutation_v1();
+            END IF;
         END $$
     """)
     await db.execute("""
@@ -1154,16 +1208,52 @@ async def create_short_position(db, *, position_id: str, coin_id: str, borrower_
         return dict(await cursor.fetchone())
 
 
-async def credit_short_sale_proceeds(db, *, position_id: str, amount: Decimal) -> dict:
+async def change_short_cash_escrow(db, *, position_id: str, amount: Decimal,
+                                   source_type: str, source_id: str) -> dict:
+    """Move position cash through one append-only, non-negative escrow receipt."""
+    delta = Decimal(amount).quantize(Decimal("0.000001"))
+    if not delta:
+        raise ValueError("Short escrow receipt needs a non-zero amount.")
+    async with db.execute(
+        "SELECT cash_escrow_mora FROM player_coin_short_positions_v1 WHERE id=? FOR UPDATE", (str(position_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise RuntimeError("Short position is missing for escrow receipt.")
+    before = Decimal(row[0])
+    after = before + delta
+    if after < 0:
+        raise ValueError("Short escrow cannot become negative.")
+    await db.execute(
+        "UPDATE player_coin_short_positions_v1 SET cash_escrow_mora=? WHERE id=?", (after, str(position_id))
+    )
+    await db.execute(
+        "INSERT INTO player_coin_short_cash_ledger_v1"
+        "(id,position_id,source_type,source_id,delta_mora,balance_before,balance_after) "
+        "VALUES(?,?,?,?,?,?,?)",
+        (uuid4().hex, str(position_id), str(source_type), str(source_id), delta, before, after),
+    )
+    async with db.execute(
+        "SELECT * FROM player_coin_short_positions_v1 WHERE id=?", (str(position_id),)
+    ) as cursor:
+        return dict(await cursor.fetchone())
+
+
+async def credit_short_sale_proceeds(db, *, position_id: str, amount: Decimal, source_id: str) -> dict:
+    net = Decimal(amount).quantize(Decimal("0.000001"))
+    if net <= 0:
+        raise ValueError("Short sale proceeds must be positive.")
     async with db.execute(
         "UPDATE player_coin_short_positions_v1 SET locked_sale_proceeds_mora="
         "locked_sale_proceeds_mora+(?::numeric) WHERE id=? AND status='open' RETURNING *",
-        (Decimal(amount), str(position_id)),
+        (net, str(position_id)),
     ) as cursor:
         row = await cursor.fetchone()
     if not row:
         raise RuntimeError("Short sale proceeds cannot be credited to a closed position.")
-    return dict(row)
+    return await change_short_cash_escrow(
+        db, position_id=str(position_id), amount=net, source_type="sale_proceeds", source_id=str(source_id),
+    )
 
 
 async def allocate_lending_units(db, *, coin_id: str, position_id: str, units: int) -> list[dict]:
