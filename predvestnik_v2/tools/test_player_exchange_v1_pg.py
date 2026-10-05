@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from core.player_exchange_shorts_v1 import SHORTS_FEATURE_FLAG_KEY
 from core.player_exchange_v1 import PlayerExchangePolicyError
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
@@ -74,6 +75,7 @@ async def prepare(dsn: str):
         await economy_ledger.ensure_tables(db)
         await system_flags.ensure_table(db)
         await repo.ensure_tables(db)
+        assert await system_flags.is_enabled(db, SHORTS_FEATURE_FLAG_KEY) is False
         assert await repo.schema_ready(db) is True
         await db.execute("DELETE FROM player_exchange_schema_v1")
         await db.commit()
@@ -170,6 +172,110 @@ async def main(dsn: str):
             db, owner_id=7, name="Рыночная монета", ticker="MARKT",
             initial_mora=10000, action_id="create-action-0009",
         )
+        short_reserve = await conn.fetchrow(
+            "SELECT available_mora,shorts_paused "
+            "FROM player_coin_short_reserves_v1 WHERE coin_id=$1", launched["id"],
+        )
+        assert dict(short_reserve) == {
+            "available_mora": Decimal("0"), "shorts_paused": False,
+        }
+        # Schema-only Shorts foundation: exact lender allocation cannot drift,
+        # a frozen claim pauses new opens, and cross-lender claims are rejected.
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO player_coin_lending_positions_v1(coin_id,lender_id,loaned_units) VALUES($1,8,100)",
+                launched["id"],
+            )
+            await conn.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora) "
+                "VALUES('short-foundation-position',$1,9,'short-foundation-open','open',100,100,2,2)",
+                launched["id"],
+            )
+            await conn.execute(
+                "INSERT INTO player_coin_short_loans_v1"
+                "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+                "VALUES('short-foundation-loan',$1,'short-foundation-position',8,100,100)", launched["id"],
+            )
+        try:
+            await conn.execute(
+                "INSERT INTO player_coin_short_frozen_claims_v1"
+                "(id,coin_id,position_id,loan_id,lender_id,principal_units,remaining_units) "
+                "VALUES('short-foundation-cross',$1,'short-foundation-position','short-foundation-loan',9,100,100)",
+                launched["id"],
+            )
+            raise AssertionError("cross-lender frozen claim was accepted")
+        except asyncpg.ForeignKeyViolationError:
+            pass
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE player_coin_lending_positions_v1 SET loaned_units=0,frozen_units=100 "
+                "WHERE coin_id=$1 AND lender_id=8", launched["id"],
+            )
+            await conn.execute(
+                "UPDATE player_coin_short_positions_v1 SET status='frozen',outstanding_debt_units=0,closed_at=NOW() "
+                "WHERE id='short-foundation-position'",
+            )
+            await conn.execute(
+                "UPDATE player_coin_short_loans_v1 SET outstanding_units=0,frozen_units=100,closed_at=NOW() "
+                "WHERE id='short-foundation-loan'",
+            )
+            await conn.execute(
+                "INSERT INTO player_coin_short_frozen_claims_v1"
+                "(id,coin_id,position_id,loan_id,lender_id,principal_units,remaining_units) "
+                "VALUES('short-foundation-claim',$1,'short-foundation-position','short-foundation-loan',8,100,100)",
+                launched["id"],
+            )
+        assert await conn.fetchval(
+            "SELECT shorts_paused FROM player_coin_short_reserves_v1 WHERE coin_id=$1", launched["id"],
+        ) is True
+        for sql, args in (
+            (
+                "UPDATE player_coin_lending_positions_v1 SET frozen_units=0 WHERE coin_id=$1 AND lender_id=8",
+                (launched["id"],),
+            ),
+            (
+                "UPDATE player_coin_short_positions_v1 SET outstanding_debt_units=1 WHERE id='short-foundation-position'",
+                (),
+            ),
+            (
+                "UPDATE player_coin_short_reserves_v1 SET available_mora=-1 WHERE coin_id=$1",
+                (launched["id"],),
+            ),
+        ):
+            try:
+                await conn.execute(sql, *args)
+                raise AssertionError("inconsistent Shorts state was accepted")
+            except (asyncpg.CheckViolationError, asyncpg.RaiseError):
+                pass
+        await conn.execute(
+            "INSERT INTO player_coin_short_buyback_cycles_v1"
+            "(coin_id,cycle_hour,reserve_snapshot_mora,budget_mora,action_id) "
+            "VALUES($1,date_trunc('hour',NOW()),100,5,'short-foundation-cycle')", launched["id"],
+        )
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_buyback_cycles_v1 SET spent_mora=6 "
+                "WHERE coin_id=$1 AND action_id='short-foundation-cycle'", launched["id"],
+            )
+            raise AssertionError("cycle spent beyond its fixed budget was accepted")
+        except asyncpg.CheckViolationError:
+            pass
+        await conn.execute(
+            "INSERT INTO player_coin_short_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+            "VALUES('short-foundation-event-1',$1,NULL,'foundation','short-foundation-event','{}'::jsonb)",
+            launched["id"],
+        )
+        try:
+            await conn.execute(
+                "INSERT INTO player_coin_short_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+                "VALUES('short-foundation-event-2',$1,NULL,'foundation','short-foundation-event','{}'::jsonb)",
+                launched["id"],
+            )
+            raise AssertionError("duplicate system Shorts receipt was accepted")
+        except asyncpg.UniqueViolationError:
+            pass
         await service.place_auction_bid(
             db, bidder_id=8, coin_id=launched["id"], max_price_mora="1",
             escrow_mora=20000, action_id="bid-action-0001",
@@ -346,6 +452,35 @@ async def main(dsn: str):
         token9 = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=9)
         assert int(token8["available_units"]) == 19_970_000 and int(token8["reserved_units"]) == 0
         assert int(token9["available_units"]) == 20_010_000 and int(token9["reserved_units"]) == 0
+        # Once the separate Shorts flag is deliberately enabled, new fee insurance
+        # stays with this coin and cannot subsidise a different market.
+        global_insurance_before = await conn.fetchval(
+            "SELECT insurance_mora FROM player_exchange_fee_fund_v1 WHERE singleton=TRUE"
+        )
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        fee_short_sell = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="shorts-fee-sell-0001",
+        )
+        fee_short_buy = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="10",
+            limit_price_mora="2", time_in_force="gtc", action_id="shorts-fee-buy-0001",
+        )
+        assert await service.match_market(db, coin_id=launched["id"])
+        assert fee_short_sell["id"] != fee_short_buy["id"]
+        assert await conn.fetchval(
+            "SELECT insurance_mora FROM player_exchange_fee_fund_v1 WHERE singleton=TRUE"
+        ) == global_insurance_before
+        assert await conn.fetchval(
+            "SELECT available_mora FROM player_coin_short_reserves_v1 WHERE coin_id=$1", launched["id"],
+        ) > 0
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_reserve_ledger_v1 "
+            "WHERE coin_id=$1 AND source_type='spot_fee'", launched["id"],
+        ) == 1
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
         try:
             await conn.execute("DELETE FROM player_coin_trades_v1 WHERE coin_id=$1", launched["id"])
             raise AssertionError("append-only trade was mutable")
@@ -380,7 +515,7 @@ async def main(dsn: str):
         assert (await repo.get_order(db, self_sell["id"]))["status"] == "open"
         await service.cancel_order(db, user_id=8, order_id=self_sell["id"])
         token8_after = await repo.get_player_coin_account(db, coin_id=launched["id"], user_id=8)
-        assert int(token8_after["available_units"]) == 19_970_000
+        assert int(token8_after["available_units"]) == 19_960_000
         await service.place_limit_order(
             db, user_id=8, coin_id=launched["id"], side="sell", amount="5",
             limit_price_mora="2", time_in_force="gtc", action_id="order-part-sell1",

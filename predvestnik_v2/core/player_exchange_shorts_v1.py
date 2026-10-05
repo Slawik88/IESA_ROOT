@@ -13,6 +13,7 @@ from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, trade_notional
 
 
 SHORTS_RULES_VERSION: Final = "player-exchange-shorts-model-2026-10-05"
+SHORTS_FEATURE_FLAG_KEY: Final = "economy_player_exchange_shorts_v1"
 MIN_TRADING_DAYS: Final = 7
 MIN_VERIFIED_TRADES: Final = 100
 MIN_UNIQUE_TRADERS: Final = 20

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v12-liquidity-controls-2026-10-05"
+SCHEMA_VERSION = "player-exchange-schema-v13-shorts-foundation-2026-10-05"
 
 
 async def ensure_tables(db) -> None:
@@ -332,6 +332,255 @@ async def ensure_tables(db) -> None:
             END IF;
         END $$
     """)
+    # Shorts stay behind their own disabled flag. These tables only preserve
+    # segregated state; no balance writer or player route uses them in this wave.
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_reserves_v1 (
+            coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            available_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (available_mora>=0),
+            shorts_paused BOOLEAN NOT NULL DEFAULT FALSE,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute(
+        "INSERT INTO player_coin_short_reserves_v1(coin_id) SELECT id FROM player_coins_v1 "
+        "ON CONFLICT(coin_id) DO NOTHING"
+    )
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_lending_positions_v1 (
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            lender_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            available_units BIGINT NOT NULL DEFAULT 0 CHECK (available_units>=0),
+            loaned_units BIGINT NOT NULL DEFAULT 0 CHECK (loaned_units>=0),
+            frozen_units BIGINT NOT NULL DEFAULT 0 CHECK (frozen_units>=0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (coin_id,lender_id)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_positions_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            borrower_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            action_id TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('open','closing','closed','frozen')),
+            initial_debt_units BIGINT NOT NULL CHECK (initial_debt_units>0),
+            outstanding_debt_units BIGINT NOT NULL CHECK (outstanding_debt_units>=0),
+            posted_collateral_mora NUMERIC(24,6) NOT NULL CHECK (posted_collateral_mora>=0),
+            locked_sale_proceeds_mora NUMERIC(24,6) NOT NULL CHECK (locked_sale_proceeds_mora>=0),
+            accrued_interest_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (accrued_interest_mora>=0),
+            opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            closed_at TIMESTAMPTZ NULL,
+            UNIQUE (borrower_id,action_id),
+            UNIQUE (id,coin_id),
+            CHECK (outstanding_debt_units<=initial_debt_units),
+            CHECK ((status IN ('open','closing') AND outstanding_debt_units>0 AND closed_at IS NULL) OR
+                   (status IN ('closed','frozen') AND outstanding_debt_units=0 AND closed_at IS NOT NULL))
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_loans_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
+            lender_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            principal_units BIGINT NOT NULL CHECK (principal_units>0),
+            outstanding_units BIGINT NOT NULL CHECK (outstanding_units>=0),
+            repaid_units BIGINT NOT NULL DEFAULT 0 CHECK (repaid_units>=0),
+            frozen_units BIGINT NOT NULL DEFAULT 0 CHECK (frozen_units>=0),
+            opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            closed_at TIMESTAMPTZ NULL,
+            UNIQUE (position_id,lender_id),
+            UNIQUE (id,coin_id,position_id,lender_id),
+            FOREIGN KEY (position_id,coin_id) REFERENCES player_coin_short_positions_v1(id,coin_id) ON DELETE RESTRICT,
+            CHECK (principal_units=outstanding_units+repaid_units+frozen_units)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_frozen_claims_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            position_id TEXT NOT NULL,
+            loan_id TEXT NOT NULL UNIQUE,
+            lender_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            principal_units BIGINT NOT NULL CHECK (principal_units>0),
+            remaining_units BIGINT NOT NULL CHECK (remaining_units>=0 AND remaining_units<=principal_units),
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','settled')),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            settled_at TIMESTAMPTZ NULL,
+            FOREIGN KEY (position_id,coin_id) REFERENCES player_coin_short_positions_v1(id,coin_id) ON DELETE RESTRICT,
+            FOREIGN KEY (loan_id,coin_id,position_id,lender_id)
+                REFERENCES player_coin_short_loans_v1(id,coin_id,position_id,lender_id) ON DELETE RESTRICT,
+            CHECK ((status='open' AND remaining_units>0 AND settled_at IS NULL) OR
+                   (status='settled' AND remaining_units=0 AND settled_at IS NOT NULL))
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_reserve_ledger_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            source_type TEXT NOT NULL CHECK (source_type IN ('spot_fee','liquidation_penalty','claim_buyback')),
+            source_id TEXT NOT NULL,
+            buyback_cycle_hour TIMESTAMPTZ NULL,
+            delta_mora NUMERIC(24,6) NOT NULL CHECK (delta_mora<>0),
+            balance_before NUMERIC(24,6) NOT NULL CHECK (balance_before>=0),
+            balance_after NUMERIC(24,6) NOT NULL CHECK (balance_after>=0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (source_type,source_id),
+            CHECK (balance_after=balance_before+delta_mora)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_buyback_cycles_v1 (
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            cycle_hour TIMESTAMPTZ NOT NULL,
+            reserve_snapshot_mora NUMERIC(24,6) NOT NULL CHECK (reserve_snapshot_mora>=0),
+            budget_mora NUMERIC(24,6) NOT NULL CHECK (budget_mora>=0),
+            spent_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (spent_mora>=0),
+            action_id TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (coin_id,cycle_hour),
+            CHECK (cycle_hour=date_trunc('hour',cycle_hour)),
+            CHECK (budget_mora=reserve_snapshot_mora*5/100),
+            CHECK (spent_mora<=budget_mora)
+        )
+    """)
+    await db.execute(
+        "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS buyback_cycle_hour TIMESTAMPTZ NULL"
+    )
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_reserve_ledger_cycle_v1') THEN
+                ALTER TABLE player_coin_short_reserve_ledger_v1
+                ADD CONSTRAINT fk_short_reserve_ledger_cycle_v1
+                FOREIGN KEY (coin_id,buyback_cycle_hour)
+                REFERENCES player_coin_short_buyback_cycles_v1(coin_id,cycle_hour) ON DELETE RESTRICT;
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_events_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            actor_id BIGINT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            event_type TEXT NOT NULL,
+            action_id TEXT NOT NULL,
+            payload_json JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (action_id)
+        )
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION sync_player_coin_short_pause_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE affected_coin TEXT;
+        BEGIN
+            affected_coin := COALESCE(NEW.coin_id,OLD.coin_id);
+            IF TG_OP <> 'DELETE' AND NEW.status='open' THEN
+                UPDATE player_coin_short_reserves_v1 SET shorts_paused=TRUE,updated_at=NOW()
+                WHERE coin_id=affected_coin;
+            ELSIF NOT EXISTS (SELECT 1 FROM player_coin_short_frozen_claims_v1
+                              WHERE coin_id=affected_coin AND status='open') THEN
+                UPDATE player_coin_short_reserves_v1 SET shorts_paused=FALSE,updated_at=NOW()
+                WHERE coin_id=affected_coin;
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_pause_v1'
+                AND tgrelid='player_coin_short_frozen_claims_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_pause_v1
+                AFTER INSERT OR UPDATE OR DELETE ON player_coin_short_frozen_claims_v1
+                FOR EACH ROW EXECUTE FUNCTION sync_player_coin_short_pause_v1();
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION assert_player_coin_short_reconciliation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE affected_coin TEXT; affected_lender BIGINT; affected_position TEXT;
+        DECLARE want_loaned BIGINT; want_frozen BIGINT; actual_loaned BIGINT; actual_frozen BIGINT;
+        DECLARE want_debt BIGINT; actual_debt BIGINT;
+        DECLARE payload_new JSONB; payload_old JSONB;
+        BEGIN
+            payload_new := to_jsonb(NEW);
+            payload_old := to_jsonb(OLD);
+            affected_coin := COALESCE(payload_new->>'coin_id',payload_old->>'coin_id');
+            affected_lender := COALESCE(payload_new->>'lender_id',payload_old->>'lender_id')::BIGINT;
+            IF TG_TABLE_NAME='player_coin_short_positions_v1' THEN
+                affected_position := COALESCE(payload_new->>'id',payload_old->>'id');
+            ELSE
+                affected_position := COALESCE(payload_new->>'position_id',payload_old->>'position_id');
+            END IF;
+            SELECT COALESCE(SUM(outstanding_units),0),COALESCE(SUM(frozen_units),0)
+              INTO want_loaned,want_frozen FROM player_coin_short_loans_v1
+              WHERE coin_id=affected_coin AND lender_id=affected_lender;
+            SELECT loaned_units,frozen_units INTO actual_loaned,actual_frozen
+              FROM player_coin_lending_positions_v1
+              WHERE coin_id=affected_coin AND lender_id=affected_lender;
+            IF actual_loaned IS NOT NULL AND (actual_loaned<>want_loaned OR actual_frozen<>want_frozen) THEN
+                RAISE EXCEPTION 'player_coin_short lending totals are inconsistent';
+            END IF;
+            SELECT COALESCE(SUM(outstanding_units),0) INTO want_debt
+              FROM player_coin_short_loans_v1 WHERE position_id=affected_position AND coin_id=affected_coin;
+            SELECT outstanding_debt_units INTO actual_debt FROM player_coin_short_positions_v1
+              WHERE id=affected_position AND coin_id=affected_coin;
+            IF actual_debt IS NOT NULL AND actual_debt<>want_debt THEN
+                RAISE EXCEPTION 'player_coin_short position debt is inconsistent';
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE rel TEXT; BEGIN
+            FOREACH rel IN ARRAY ARRAY['player_coin_lending_positions_v1','player_coin_short_positions_v1',
+                                       'player_coin_short_loans_v1','player_coin_short_frozen_claims_v1'] LOOP
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='trg_short_reconcile_' || rel
+                               AND tgrelid=rel::regclass AND NOT tgisinternal) THEN
+                    EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                                   || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW '
+                                   || 'EXECUTE FUNCTION assert_player_coin_short_reconciliation_v1()',
+                                   'trg_short_reconcile_' || rel, rel);
+                END IF;
+            END LOOP;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION prevent_player_coin_short_event_mutation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'player_coin_short_events_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_events_immutable_v1'
+                AND tgrelid='player_coin_short_events_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_events_immutable_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_events_v1
+                FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_event_mutation_v1();
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION prevent_player_coin_short_reserve_ledger_mutation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'player_coin_short_reserve_ledger_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_reserve_ledger_immutable_v1'
+                AND tgrelid='player_coin_short_reserve_ledger_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_reserve_ledger_immutable_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_reserve_ledger_v1
+                FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_reserve_ledger_mutation_v1();
+            END IF;
+        END $$
+    """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_exchange_schema_v1 (
             singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
@@ -410,6 +659,10 @@ async def create_coin_rows(
     await db.execute(
         "INSERT INTO player_coin_mora_accounts_v1(coin_id,treasury_mora,insurance_mora) VALUES (?,?,0)",
         (coin_id, int(initial_mora)),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_short_reserves_v1(coin_id) VALUES(?) ON CONFLICT(coin_id) DO NOTHING",
+        (coin_id,),
     )
     await db.execute(
         "INSERT INTO player_coin_mora_ledger_v1 "
@@ -1045,8 +1298,35 @@ async def release_filled_buy_remainder(db, *, order_id: str, release_operation_i
             raise RuntimeError("Filled buy release invariant failed.")
 
 
+async def credit_short_reserve(db, *, coin_id: str, amount: Decimal, source_type: str,
+                              source_id: str, buyback_cycle_hour=None) -> None:
+    """Append one segregated, non-negative Shorts reserve receipt under the Spot lock."""
+    if Decimal(amount) <= 0:
+        return
+    async with db.execute(
+        "SELECT available_mora FROM player_coin_short_reserves_v1 WHERE coin_id=? FOR UPDATE", (str(coin_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise RuntimeError("Shorts reserve is missing for coin.")
+    before = Decimal(row[0])
+    after = before + Decimal(amount)
+    await db.execute(
+        "UPDATE player_coin_short_reserves_v1 SET available_mora=?,updated_at=NOW() WHERE coin_id=?",
+        (after, str(coin_id)),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_short_reserve_ledger_v1"
+        "(id,coin_id,source_type,source_id,buyback_cycle_hour,delta_mora,balance_before,balance_after) "
+        "VALUES(?,?,?,?,?,?,?,?)",
+        (uuid4().hex, str(coin_id), str(source_type), str(source_id), buyback_cycle_hour,
+         Decimal(amount), before, after),
+    )
+
+
 async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell_order: dict,
-                       units: int, price: int, gross, buyer_fee, seller_fee) -> None:
+                       units: int, price: int, gross, buyer_fee, seller_fee,
+                       shorts_reserve_enabled: bool = False) -> None:
     await db.execute(
         "INSERT INTO player_coin_trades_v1(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,"
         "units,price_micromora,gross_mora,buyer_fee_mora,seller_fee_mora,buyer_kind,seller_kind) "
@@ -1058,10 +1338,18 @@ async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell
     total_fee = buyer_fee + seller_fee
     insurance = (total_fee * 3 / 10).quantize(Decimal("0.000001"))
     burned = total_fee - insurance
-    await db.execute(
-        "UPDATE player_exchange_fee_fund_v1 SET insurance_mora=insurance_mora+?,burned_mora=burned_mora+? "
-        "WHERE singleton=TRUE", (insurance, burned),
-    )
+    if shorts_reserve_enabled:
+        await credit_short_reserve(
+            db, coin_id=str(coin_id), amount=insurance, source_type="spot_fee", source_id=str(trade_id),
+        )
+        await db.execute(
+            "UPDATE player_exchange_fee_fund_v1 SET burned_mora=burned_mora+? WHERE singleton=TRUE", (burned,),
+        )
+    else:
+        await db.execute(
+            "UPDATE player_exchange_fee_fund_v1 SET insurance_mora=insurance_mora+?,burned_mora=burned_mora+? "
+            "WHERE singleton=TRUE", (insurance, burned),
+        )
     await append_event(db, coin_id=coin_id, actor_id=None, event_type="spot_trade",
                        action_id=f"trade:{trade_id}", payload={
                            "trade_id": trade_id, "buy_order_id": buy_order["id"],

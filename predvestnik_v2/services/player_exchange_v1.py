@@ -17,6 +17,7 @@ from core.player_exchange_v1 import (
     buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
     treasury_ladder_prices, validate_coin_draft, validate_emission,
 )
+from core.player_exchange_shorts_v1 import SHORTS_FEATURE_FLAG_KEY
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
 
@@ -452,6 +453,7 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
             await repo.lock_spot(db)
             if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
                 return completed
+            shorts_reserve_enabled = await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY)
             coin = await repo.get_coin(db, coin_id, for_update=True)
             if not coin or coin["status"] != "active":
                 return completed
@@ -516,6 +518,7 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
             await repo.record_trade(
                 db, trade_id=trade_id, coin_id=coin_id, buy_order=buy, sell_order=sell,
                 units=units, price=price, gross=gross, buyer_fee=buyer_fee, seller_fee=seller_fee,
+                shorts_reserve_enabled=shorts_reserve_enabled,
             )
             current_5m = await repo.vwap_window(db, coin_id=coin_id, minutes=5)
             baseline_5m = await repo.vwap_window(db, coin_id=coin_id, minutes=5, offset_minutes=5)
