@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import base64
 import json
+from decimal import Decimal
 from pathlib import Path
 import sys
 from urllib.parse import urlparse
@@ -723,6 +724,103 @@ async def main(dsn: str):
         treasury_market = await service.public_market(db, coin_id=launched["id"])
         assert any(row["event_type"] == "treasury_burned" for row in treasury_market["journal"])
         assert any(row["event_type"] == "treasury_order_placed" for row in treasury_market["journal"])
+
+        # An owner may add Mora, while withdrawal is delayed, capped, cancellable and replay-safe.
+        owner_mora_before_add = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7",
+        )))
+        treasury_before_add = Decimal(str((await repo.public_treasury_state(db, launched["id"]))["treasury_mora"]))
+        liquidity_add = await service.add_treasury_liquidity(
+            db, owner_id=7, coin_id=launched["id"], amount_mora="1000",
+            action_id="liquidity-add-0001",
+        )
+        assert Decimal(liquidity_add["amount_mora"]) == Decimal("1000") and not liquidity_add["replayed"]
+        liquidity_add_replay = await service.add_treasury_liquidity(
+            db, owner_id=7, coin_id=launched["id"], amount_mora="1000",
+            action_id="liquidity-add-0001",
+        )
+        assert liquidity_add_replay["replayed"] is True
+        assert Decimal(str((await repo.public_treasury_state(db, launched["id"]))["treasury_mora"])) == treasury_before_add + Decimal("1000")
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7",
+        ))) == owner_mora_before_add - Decimal("1000")
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '29 days' WHERE id=?", (launched["id"],),
+        )
+        await db.commit()
+        try:
+            await service.request_liquidity_withdrawal(
+                db, owner_id=7, coin_id=launched["id"], amount_mora="1", action_id="liquidity-lock-reject",
+            )
+            raise AssertionError("liquidity withdrew before 30-day lock")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '31 days' WHERE id=?", (launched["id"],),
+        )
+        await db.commit()
+        treasury_for_withdrawal = Decimal(str((await repo.public_treasury_state(db, launched["id"]))["treasury_mora"]))
+        withdrawal_amount = (treasury_for_withdrawal * Decimal("0.1")).quantize(Decimal("0.000001"))
+        try:
+            await service.request_liquidity_withdrawal(
+                db, owner_id=7, coin_id=launched["id"], amount_mora=str(withdrawal_amount + 1),
+                action_id="liquidity-cap-reject",
+            )
+            raise AssertionError("liquidity withdrawal exceeded 10% cap")
+        except PlayerExchangePolicyError:
+            pass
+        withdrawal = await service.request_liquidity_withdrawal(
+            db, owner_id=7, coin_id=launched["id"], amount_mora=str(withdrawal_amount),
+            action_id="liquidity-withdraw-0001",
+        )
+        assert withdrawal["status"] == "pending" and not withdrawal["replayed"]
+        withdrawal_replay = await service.request_liquidity_withdrawal(
+            db, owner_id=7, coin_id=launched["id"], amount_mora=str(withdrawal_amount),
+            action_id="liquidity-withdraw-0001",
+        )
+        assert withdrawal_replay["id"] == withdrawal["id"] and withdrawal_replay["replayed"] is True
+        try:
+            await service.cancel_liquidity_withdrawal(
+                db, owner_id=8, withdrawal_id=withdrawal["id"], action_id="liquidity-cancel-foreign",
+            )
+            raise AssertionError("foreign owner cancelled liquidity withdrawal")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
+        cancelled_withdrawal = await service.cancel_liquidity_withdrawal(
+            db, owner_id=7, withdrawal_id=withdrawal["id"], action_id="liquidity-cancel-0001",
+        )
+        assert cancelled_withdrawal["status"] == "cancelled"
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (service.FEATURE_FLAG_KEY,))
+        await db.commit()
+        due_withdrawal = await service.request_liquidity_withdrawal(
+            db, owner_id=7, coin_id=launched["id"], amount_mora=str(withdrawal_amount),
+            action_id="liquidity-withdraw-0002",
+        )
+        owner_mora_before_withdrawal = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7",
+        )))
+        await db.execute(
+            "UPDATE player_coin_liquidity_withdrawals_v1 SET executes_at=NOW()-INTERVAL '1 second' WHERE id=?",
+            (due_withdrawal["id"],),
+        )
+        await db.commit()
+        executed_withdrawals = await service.execute_due_liquidity_withdrawals(db)
+        assert any(row.get("id") == due_withdrawal["id"] and row["status"] == "executed" for row in executed_withdrawals)
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7",
+        ))) == owner_mora_before_withdrawal + withdrawal_amount
+        try:
+            await service.request_liquidity_withdrawal(
+                db, owner_id=7, coin_id=launched["id"], amount_mora="1", action_id="liquidity-cooldown-reject",
+            )
+            raise AssertionError("liquidity withdrawal ignored 7-day cooldown")
+        except PlayerExchangePolicyError:
+            pass
+        liquidity_market = await service.public_market(db, coin_id=launched["id"])
+        assert any(row["status"] == "executed" for row in liquidity_market["liquidity_withdrawals"])
+        assert any(row["event_type"] == "liquidity_withdrawal_executed" for row in liquidity_market["journal"])
 
         # Owner emissions are public, delayed, capped and treasury-only.
         circulation = int(await conn.fetchval(

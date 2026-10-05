@@ -74,6 +74,11 @@ class TreasuryBurnRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class LiquidityAmountRequest(BaseModel):
+    amount_mora: str = Field(min_length=1, max_length=32)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
 @router.get("/me")
 async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
                             orders_cursor: str | None = None, bids_cursor: str | None = None,
@@ -296,6 +301,53 @@ async def burn_treasury(coin_id: str, payload: TreasuryBurnRequest,
         return {"burn": await service.burn_treasury(
             db, owner_id=int(user["id"]), coin_id=coin_id,
             amount=payload.amount, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/liquidity/add")
+async def add_liquidity(coin_id: str, payload: LiquidityAmountRequest,
+                        db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"liquidity": await service.add_treasury_liquidity(
+            db, owner_id=int(user["id"]), coin_id=coin_id,
+            amount_mora=payload.amount_mora, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/coins/{coin_id}/liquidity/withdrawals")
+async def request_liquidity_withdrawal(coin_id: str, payload: LiquidityAmountRequest,
+                                       db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"withdrawal": await service.request_liquidity_withdrawal(
+            db, owner_id=int(user["id"]), coin_id=coin_id,
+            amount_mora=payload.amount_mora, action_id=payload.action_id,
+        )}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/liquidity/withdrawals/{withdrawal_id}/cancel")
+async def cancel_liquidity_withdrawal(withdrawal_id: str, payload: EmissionCancelRequest,
+                                      db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"withdrawal": await service.cancel_liquidity_withdrawal(
+            db, owner_id=int(user["id"]), withdrawal_id=withdrawal_id, action_id=payload.action_id,
         )}
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc

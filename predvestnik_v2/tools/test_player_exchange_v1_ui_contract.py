@@ -39,4 +39,8 @@ assert "Публичный журнал" in js and "owner_vesting_claimed" in js
 assert "treasury/orders" in js and "treasury/burn" in js
 assert "_pxReviewTreasuryOrder" in js and "_pxReviewTreasuryBurn" in js
 assert "Публичная казна" in js and "Операция публична и необратима" in js
+assert "/liquidity/add" in js and "/liquidity/withdrawals" in js
+assert "_pxReviewLiquidityAdd" in js and "_pxReviewLiquidityWithdrawal" in js
+assert "24 часа" in js and "10% текущей казны" in js
+assert "pending_liquidity_withdrawal_id" in js and "_pxCancelLiquidityWithdrawal" in js
 print("PLAYER_EXCHANGE_V1_UI_CONTRACT_OK")

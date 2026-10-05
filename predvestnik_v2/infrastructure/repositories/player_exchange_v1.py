@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v11-treasury-controls-2026-09-27"
+SCHEMA_VERSION = "player-exchange-schema-v12-liquidity-controls-2026-10-05"
 
 
 async def ensure_tables(db) -> None:
@@ -248,6 +248,29 @@ async def ensure_tables(db) -> None:
         "ON player_coin_emissions_v1(coin_id) WHERE status='pending'"
     )
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_liquidity_withdrawals_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            owner_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
+            action_id TEXT NOT NULL,
+            amount_mora NUMERIC(24,6) NOT NULL CHECK (amount_mora>0),
+            treasury_snapshot_mora NUMERIC(24,6) NOT NULL CHECK (treasury_snapshot_mora>=0),
+            max_amount_mora NUMERIC(24,6) NOT NULL CHECK (max_amount_mora>=amount_mora),
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','cancelled','executed')),
+            requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            executes_at TIMESTAMPTZ NOT NULL,
+            cancelled_at TIMESTAMPTZ NULL,
+            cancel_action_id TEXT NULL,
+            executed_at TIMESTAMPTZ NULL,
+            economy_operation_id TEXT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            UNIQUE(owner_id,action_id)
+        )
+    """)
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_liquidity_withdrawal_v1 "
+        "ON player_coin_liquidity_withdrawals_v1(coin_id) WHERE status='pending'"
+    )
+    await db.execute("""
         CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_trades_v1 is append-only'; END; $$
@@ -463,9 +486,13 @@ async def player_recovery_state(
         "e.projected_total_supply_units AS emission_projected_total_supply_units,"
         "e.reason AS pending_emission_reason,e.requested_at AS emission_requested_at,"
         "e.executes_at AS emission_executes_at,"
-        "COALESCE(e.executes_at>NOW()+INTERVAL '1 hour',FALSE) AS emission_can_cancel "
+        "COALESCE(e.executes_at>NOW()+INTERVAL '1 hour',FALSE) AS emission_can_cancel,"
+        "w.id AS pending_liquidity_withdrawal_id,w.amount_mora AS pending_liquidity_withdrawal_mora,"
+        "w.requested_at AS liquidity_withdrawal_requested_at,w.executes_at AS liquidity_withdrawal_executes_at,"
+        "COALESCE(w.status='pending',FALSE) AS liquidity_withdrawal_can_cancel "
         "FROM player_coins_v1 c "
         "LEFT JOIN player_coin_emissions_v1 e ON e.coin_id=c.id AND e.status='pending' "
+        "LEFT JOIN player_coin_liquidity_withdrawals_v1 w ON w.coin_id=c.id AND w.status='pending' "
         "WHERE c.owner_id=? AND (?::text IS NULL OR (c.created_at,c.id)<((?::text)::timestamptz,?)) "
         "ORDER BY c.created_at DESC,c.id DESC LIMIT ?",
         (int(user_id), cc_time, cc_time, cc_id, row_limit),
@@ -864,7 +891,9 @@ async def transfer_trade_tokens(db, *, coin_id: str, sell_order: dict, buy_order
                 raise RuntimeError("Coin circulation invariant failed.")
 
 
-async def credit_treasury_mora(db, *, coin_id: str, amount, reason: str) -> None:
+async def credit_treasury_mora(
+    db, *, coin_id: str, amount, reason: str, economy_operation_id: str | None = None,
+) -> None:
     async with db.execute(
         "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora+(?::numeric),updated_at=NOW() "
         "WHERE coin_id=? RETURNING 1",
@@ -873,9 +902,11 @@ async def credit_treasury_mora(db, *, coin_id: str, amount, reason: str) -> None
         if not await cursor.fetchone():
             raise RuntimeError("Treasury Mora credit invariant failed.")
     await db.execute(
-        "INSERT INTO player_coin_mora_ledger_v1(id,coin_id,bucket,delta,balance_before,balance_after,reason_code) "
-        "SELECT ?,?,'treasury',?,treasury_mora-?,treasury_mora,? FROM player_coin_mora_accounts_v1 WHERE coin_id=?",
-        (uuid4().hex, coin_id, amount, amount, reason, coin_id),
+        "INSERT INTO player_coin_mora_ledger_v1"
+        "(id,coin_id,economy_operation_id,bucket,delta,balance_before,balance_after,reason_code) "
+        "SELECT ?,?,?,'treasury',?,treasury_mora-?,treasury_mora,? "
+        "FROM player_coin_mora_accounts_v1 WHERE coin_id=?",
+        (uuid4().hex, coin_id, economy_operation_id, amount, amount, reason, coin_id),
     )
 
 
@@ -892,6 +923,25 @@ async def reserve_treasury_mora(db, *, coin_id: str, amount, reason: str) -> Non
         "INSERT INTO player_coin_mora_ledger_v1(id,coin_id,bucket,delta,balance_before,balance_after,reason_code) "
         "VALUES(?,?,'treasury',-(?::numeric),(?::numeric)+(?::numeric),?,?)",
         (uuid4().hex, str(coin_id), amount, row[0], amount, row[0], reason),
+    )
+
+
+async def withdraw_treasury_mora(
+    db, *, coin_id: str, amount, reason: str, economy_operation_id: str,
+) -> None:
+    async with db.execute(
+        "UPDATE player_coin_mora_accounts_v1 SET treasury_mora=treasury_mora-(?::numeric),updated_at=NOW() "
+        "WHERE coin_id=? AND treasury_mora>=(?::numeric) RETURNING treasury_mora",
+        (amount, str(coin_id), amount),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("insufficient_treasury_mora")
+    await db.execute(
+        "INSERT INTO player_coin_mora_ledger_v1"
+        "(id,coin_id,economy_operation_id,bucket,delta,balance_before,balance_after,reason_code) "
+        "VALUES(?,?,?,'treasury',-(?::numeric),(?::numeric)+(?::numeric),?,?)",
+        (uuid4().hex, str(coin_id), str(economy_operation_id), amount, row[0], amount, row[0], reason),
     )
 
 
@@ -1341,6 +1391,105 @@ async def public_emissions(db, coin_id: str, *, limit: int = 20) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def get_liquidity_withdrawal_by_action(db, *, owner_id: int, action_id: str) -> dict | None:
+    async with db.execute(
+        "SELECT * FROM player_coin_liquidity_withdrawals_v1 "
+        "WHERE owner_id=? AND (action_id=? OR cancel_action_id=?)",
+        (int(owner_id), str(action_id), str(action_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_liquidity_withdrawal(db, withdrawal_id: str, *, for_update: bool = False) -> dict | None:
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_liquidity_withdrawals_v1 WHERE id=?" + suffix,
+        (str(withdrawal_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def pending_liquidity_withdrawal(db, coin_id: str) -> dict | None:
+    async with db.execute(
+        "SELECT * FROM player_coin_liquidity_withdrawals_v1 WHERE coin_id=? AND status='pending' "
+        "ORDER BY requested_at DESC LIMIT 1",
+        (str(coin_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def liquidity_withdrawal_cooldown_active(db, coin_id: str, *, days: int) -> bool:
+    async with db.execute(
+        "SELECT EXISTS(SELECT 1 FROM player_coin_liquidity_withdrawals_v1 "
+        "WHERE coin_id=? AND status='executed' AND executed_at>NOW()-(? * INTERVAL '1 day'))",
+        (str(coin_id), int(days)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row[0])
+
+
+async def create_liquidity_withdrawal(
+    db, *, coin_id: str, owner_id: int, amount_mora, treasury_snapshot_mora,
+    max_amount_mora, action_id: str, wait_hours: int,
+) -> dict:
+    withdrawal_id = uuid4().hex
+    async with db.execute(
+        "INSERT INTO player_coin_liquidity_withdrawals_v1"
+        "(id,coin_id,owner_id,action_id,amount_mora,treasury_snapshot_mora,max_amount_mora,executes_at) "
+        "VALUES(?,?,?,?,?,?,?,NOW()+(? * INTERVAL '1 hour')) RETURNING *",
+        (withdrawal_id, str(coin_id), int(owner_id), str(action_id), amount_mora,
+         treasury_snapshot_mora, max_amount_mora, int(wait_hours)),
+    ) as cursor:
+        return dict(await cursor.fetchone())
+
+
+async def cancel_liquidity_withdrawal(db, *, withdrawal_id: str, owner_id: int, action_id: str) -> dict:
+    async with db.execute(
+        "UPDATE player_coin_liquidity_withdrawals_v1 SET status='cancelled',cancel_action_id=?,cancelled_at=NOW() "
+        "WHERE id=? AND owner_id=? AND status='pending' RETURNING *",
+        (str(action_id), str(withdrawal_id), int(owner_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("withdrawal cannot be cancelled")
+    return dict(row)
+
+
+async def due_liquidity_withdrawal_ids(db, *, limit: int = 20) -> list[str]:
+    async with db.execute(
+        "SELECT id FROM player_coin_liquidity_withdrawals_v1 WHERE status='pending' AND executes_at<=NOW() "
+        "ORDER BY executes_at,id LIMIT ?",
+        (max(1, min(int(limit), 100)),),
+    ) as cursor:
+        return [str(row[0]) for row in await cursor.fetchall()]
+
+
+async def mark_liquidity_withdrawal_executed(
+    db, *, withdrawal_id: str, economy_operation_id: str,
+) -> dict:
+    async with db.execute(
+        "UPDATE player_coin_liquidity_withdrawals_v1 SET status='executed',economy_operation_id=?,executed_at=NOW() "
+        "WHERE id=? AND status='pending' RETURNING *",
+        (str(economy_operation_id), str(withdrawal_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("withdrawal is no longer pending")
+    return dict(row)
+
+
+async def public_liquidity_withdrawals(db, coin_id: str, *, limit: int = 20) -> list[dict]:
+    async with db.execute(
+        "SELECT id,amount_mora,treasury_snapshot_mora,max_amount_mora,status,requested_at,executes_at,cancelled_at,executed_at "
+        "FROM player_coin_liquidity_withdrawals_v1 WHERE coin_id=? ORDER BY requested_at DESC,id DESC LIMIT ?",
+        (str(coin_id), max(1, min(int(limit), 50))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
 async def owner_vesting_state(db, coin_id: str, *, for_update: bool = False) -> dict | None:
     suffix = " FOR UPDATE OF c,a" if for_update else ""
     async with db.execute(
@@ -1385,6 +1534,8 @@ async def public_owner_journal(db, coin_id: str, *, limit: int = 50) -> list[dic
         "market_halted", "market_halted_manual", "emission_requested",
         "emission_cancelled", "emission_executed", "owner_vesting_claimed",
         "treasury_order_placed", "treasury_order_cancelled", "treasury_burned",
+        "liquidity_added", "liquidity_withdrawal_requested", "liquidity_withdrawal_cancelled",
+        "liquidity_withdrawal_executed",
     )
     placeholders = ",".join("?" for _ in public_types)
     async with db.execute(

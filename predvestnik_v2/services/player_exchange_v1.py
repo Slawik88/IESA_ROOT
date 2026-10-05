@@ -10,6 +10,8 @@ from uuid import uuid4
 from core.player_exchange_v1 import (
     AUCTION_HOURS, CREATION_FEE_ZARNIKI, EMISSION_WAIT_HOURS, FEATURE_FLAG_KEY, GENESIS_UNITS,
     MAX_PRICE_MICROMORA, MIN_AUCTION_RAISED_MORA, MIN_AUCTION_SOLD_UNITS,
+    LIQUIDITY_WITHDRAWAL_COOLDOWN_DAYS, LIQUIDITY_WITHDRAWAL_LOCK_DAYS,
+    LIQUIDITY_WITHDRAWAL_MAX_BPS, LIQUIDITY_WITHDRAWAL_WAIT_HOURS,
     OWNER_VESTING_CLIFF_DAYS, OWNER_VESTING_LINEAR_DAYS, PRICE_SCALE, RULES_VERSION,
     AuctionBid, PlayerExchangePolicyError, allocation_units, clear_uniform_auction,
     buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
@@ -576,6 +578,7 @@ async def public_market(db, *, coin_id: str, levels: int = 20, trades: int = 50)
         "owner_vesting": vesting,
         "treasury": await repo.public_treasury_state(db, coin_id),
         "treasury_orders": await repo.public_treasury_orders(db, coin_id),
+        "liquidity_withdrawals": await repo.public_liquidity_withdrawals(db, coin_id),
         "journal": _public_journal(await repo.public_owner_journal(db, coin_id)),
         "notice": "Игровой актив без вывода в деньги.",
     }
@@ -619,6 +622,10 @@ _PUBLIC_JOURNAL_KEYS = {
     "treasury_order_placed": {"side", "units", "limit_price_micromora", "reserved_mora"},
     "treasury_order_cancelled": {"side", "remaining_units"},
     "treasury_burned": {"units", "total_supply_units"},
+    "liquidity_added": {"amount_mora"},
+    "liquidity_withdrawal_requested": {"amount_mora", "treasury_snapshot_mora", "max_amount_mora", "executes_at"},
+    "liquidity_withdrawal_cancelled": {"amount_mora"},
+    "liquidity_withdrawal_executed": {"amount_mora"},
 }
 
 
@@ -824,6 +831,187 @@ async def burn_treasury(db, *, owner_id: int, coin_id: str, amount: str, action_
             action_id=str(action_id), payload=payload,
         )
         return {**payload, "replayed": False}
+
+
+def _parse_mora_amount(value: str) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise PlayerExchangePolicyError("Некорректная сумма Моры.") from exc
+    normalized = amount.quantize(Decimal("0.000001"))
+    if not amount.is_finite() or amount < Decimal("1") or normalized != amount:
+        raise PlayerExchangePolicyError("Сумма должна быть не меньше 1 Моры, точность — до 6 знаков.")
+    return normalized
+
+
+async def add_treasury_liquidity(
+    db, *, owner_id: int, coin_id: str, amount_mora: str, action_id: str,
+) -> dict:
+    await require_enabled(db)
+    amount = _parse_mora_amount(amount_mora)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_event_by_action(db, actor_id=int(owner_id), action_id=str(action_id))
+        if replay:
+            payload = replay["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if (replay["event_type"] != "liquidity_added" or str(replay["coin_id"]) != str(coin_id)
+                    or Decimal(str(payload.get("amount_mora"))) != amount):
+                raise IdempotencyConflict("Action id is bound to another liquidity operation.")
+            return {**payload, "replayed": True}
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if (not coin or int(coin["owner_id"]) != int(owner_id)
+                or coin["status"] not in {"active", "halted"}):
+            raise PlayerExchangePolicyError("Добавить ликвидность может только владелец активной монеты.")
+        mutation = await economy_ledger.apply_balance_change(
+            db, int(owner_id), {"mora": -amount}, reason_code="player_coin_liquidity_add",
+            idempotency_key=f"player-coin:liquidity-add:{action_id}", source_type="player_exchange",
+            reference_type="coin_liquidity", reference_id=str(coin_id),
+            metadata={"coin_id": str(coin_id), "amount_mora": str(amount)},
+            note=f"Ликвидность казны {coin['ticker']}",
+        )
+        await repo.credit_treasury_mora(
+            db, coin_id=coin_id, amount=amount, reason="owner_liquidity_add",
+            economy_operation_id=str(mutation.operation_id),
+        )
+        payload = {"amount_mora": str(amount)}
+        await repo.append_event(
+            db, coin_id=coin_id, actor_id=int(owner_id), event_type="liquidity_added",
+            action_id=str(action_id), payload=payload,
+        )
+        return {**payload, "replayed": False}
+
+
+async def request_liquidity_withdrawal(
+    db, *, owner_id: int, coin_id: str, amount_mora: str, action_id: str,
+) -> dict:
+    await require_enabled(db)
+    amount = _parse_mora_amount(amount_mora)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Биржа монет пока закрыта для игроков.")
+        replay = await repo.get_liquidity_withdrawal_by_action(
+            db, owner_id=int(owner_id), action_id=str(action_id),
+        )
+        if replay:
+            if (str(replay["coin_id"]), Decimal(str(replay["amount_mora"])), replay["action_id"]) != (
+                str(coin_id), amount, str(action_id),
+            ):
+                raise IdempotencyConflict("Action id is bound to another liquidity withdrawal.")
+            return {**replay, "replayed": True}
+        state = await repo.owner_vesting_state(db, coin_id, for_update=True)
+        if (not state or int(state["owner_id"]) != int(owner_id)
+                or state["status"] not in {"active", "halted"}):
+            raise PlayerExchangePolicyError("Выводить ликвидность может только владелец активной монеты.")
+        if int(Decimal(str(state["age_seconds"]))) < LIQUIDITY_WITHDRAWAL_LOCK_DAYS * 86_400:
+            raise PlayerExchangePolicyError("Стартовую ликвидность нельзя выводить первые 30 дней.")
+        if await repo.pending_liquidity_withdrawal(db, coin_id):
+            raise PlayerExchangePolicyError("У монеты уже есть ожидающий вывод ликвидности.")
+        if await repo.liquidity_withdrawal_cooldown_active(
+            db, coin_id, days=LIQUIDITY_WITHDRAWAL_COOLDOWN_DAYS,
+        ):
+            raise PlayerExchangePolicyError("Следующий вывод доступен через 7 дней после предыдущего.")
+        treasury = await repo.public_treasury_state(db, coin_id)
+        snapshot = Decimal(str(treasury.get("treasury_mora") or 0))
+        maximum = (snapshot * Decimal(LIQUIDITY_WITHDRAWAL_MAX_BPS) / Decimal(10_000)).quantize(Decimal("0.000001"))
+        if amount > maximum:
+            raise PlayerExchangePolicyError("За 7 дней можно запросить не больше 10% текущей Моры казны.")
+        result = await repo.create_liquidity_withdrawal(
+            db, coin_id=coin_id, owner_id=int(owner_id), amount_mora=amount,
+            treasury_snapshot_mora=snapshot, max_amount_mora=maximum, action_id=str(action_id),
+            wait_hours=LIQUIDITY_WITHDRAWAL_WAIT_HOURS,
+        )
+        await repo.append_event(
+            db, coin_id=coin_id, actor_id=int(owner_id), event_type="liquidity_withdrawal_requested",
+            action_id=str(action_id), payload={
+                "amount_mora": str(amount), "treasury_snapshot_mora": str(snapshot),
+                "max_amount_mora": str(maximum), "executes_at": result["executes_at"].isoformat(),
+            },
+        )
+        return {**result, "replayed": False}
+
+
+async def cancel_liquidity_withdrawal(
+    db, *, owner_id: int, withdrawal_id: str, action_id: str,
+) -> dict:
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        replay = await repo.get_liquidity_withdrawal_by_action(
+            db, owner_id=int(owner_id), action_id=str(action_id),
+        )
+        if replay:
+            if str(replay["id"]) != str(withdrawal_id) or replay.get("cancel_action_id") != str(action_id):
+                raise IdempotencyConflict("Action id is bound to another withdrawal cancellation.")
+            return {**replay, "replayed": True}
+        withdrawal = await repo.get_liquidity_withdrawal(db, withdrawal_id, for_update=True)
+        if not withdrawal or int(withdrawal["owner_id"]) != int(owner_id):
+            raise PlayerExchangePolicyError("Запрос вывода не найден.")
+        try:
+            result = await repo.cancel_liquidity_withdrawal(
+                db, withdrawal_id=str(withdrawal_id), owner_id=int(owner_id), action_id=str(action_id),
+            )
+        except ValueError as exc:
+            raise PlayerExchangePolicyError("Запрос вывода уже нельзя отменить.") from exc
+        await repo.append_event(
+            db, coin_id=str(result["coin_id"]), actor_id=int(owner_id),
+            event_type="liquidity_withdrawal_cancelled", action_id=str(action_id),
+            payload={"amount_mora": str(result["amount_mora"])},
+        )
+        return {**result, "replayed": False}
+
+
+async def execute_due_liquidity_withdrawals(db, *, limit: int = 20) -> list[dict]:
+    if not await system_flags.is_enabled(db, FEATURE_FLAG_KEY):
+        return []
+    results = []
+    for withdrawal_id in await repo.due_liquidity_withdrawal_ids(db, limit=limit):
+        try:
+            async with db.connection.transaction():
+                await repo.lock_spot(db)
+                if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY):
+                    return results
+                withdrawal = await repo.get_liquidity_withdrawal(db, withdrawal_id, for_update=True)
+                if not withdrawal or withdrawal["status"] != "pending":
+                    continue
+                amount = Decimal(str(withdrawal["amount_mora"]))
+                mutation = await economy_ledger.apply_balance_change(
+                    db, int(withdrawal["owner_id"]), {"mora": amount},
+                    reason_code="player_coin_liquidity_withdrawal",
+                    idempotency_key=f"player-coin:liquidity-withdraw:{withdrawal_id}",
+                    source_type="player_exchange", reference_type="coin_liquidity_withdrawal",
+                    reference_id=str(withdrawal_id), metadata={
+                        "coin_id": str(withdrawal["coin_id"]), "amount_mora": str(amount),
+                    }, note="Вывод ликвидности казны",
+                )
+                await repo.withdraw_treasury_mora(
+                    db, coin_id=str(withdrawal["coin_id"]), amount=amount,
+                    reason="owner_liquidity_withdrawal", economy_operation_id=str(mutation.operation_id),
+                )
+                result = await repo.mark_liquidity_withdrawal_executed(
+                    db, withdrawal_id=str(withdrawal_id), economy_operation_id=str(mutation.operation_id),
+                )
+                await repo.append_event(
+                    db, coin_id=str(result["coin_id"]), actor_id=int(result["owner_id"]),
+                    event_type="liquidity_withdrawal_executed",
+                    action_id=f"liquidity-withdraw-execute:{withdrawal_id}",
+                    payload={"amount_mora": str(amount)},
+                )
+                results.append(result)
+        except Exception as exc:
+            results.append({"withdrawal_id": withdrawal_id, "error": f"{type(exc).__name__}: {exc}"})
+    return results
 
 
 async def request_emission(db, *, owner_id: int, coin_id: str, amount: str,

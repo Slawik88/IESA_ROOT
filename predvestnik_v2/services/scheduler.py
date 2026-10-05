@@ -103,7 +103,9 @@ async def maintenance_task(bot: Bot) -> None:
             async with get_pool().acquire() as connection:
                 db = PGAdapter(connection)
                 await _daily_gc(db)
-                from services.player_exchange_v1 import execute_due_emissions, settle_due_auctions
+                from services.player_exchange_v1 import (
+                    execute_due_emissions, execute_due_liquidity_withdrawals, settle_due_auctions,
+                )
                 for settlement in await settle_due_auctions(db, limit=20):
                     if settlement.get("error"):
                         logger.error(
@@ -122,6 +124,12 @@ async def maintenance_task(bot: Bot) -> None:
                     elif emission:
                         logger.info("Player exchange emission executed: emission={} coin={} units={}",
                                     emission.get("id"), emission.get("coin_id"), emission.get("requested_units"))
+                for withdrawal in await execute_due_liquidity_withdrawals(db, limit=20):
+                    if withdrawal.get("error"):
+                        logger.error("Player exchange liquidity withdrawal failed: {}", withdrawal)
+                    elif withdrawal:
+                        logger.info("Player exchange liquidity withdrawal executed: withdrawal={} coin={} mora={}",
+                                    withdrawal.get("id"), withdrawal.get("coin_id"), withdrawal.get("amount_mora"))
                 from services.vip import daily_reminder_candidates, record_daily_reminder_sent
                 for user_id in await daily_reminder_candidates(db):
                     try:
