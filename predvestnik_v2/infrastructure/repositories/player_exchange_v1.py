@@ -1570,6 +1570,34 @@ async def public_recent_trades(db, coin_id: str, limit: int = 50) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def short_eligibility_metrics(db, *, coin_id: str) -> dict:
+    """Server-owned eligibility inputs; callers must evaluate them under the Spot lock."""
+    async with db.execute(
+        "SELECT GREATEST(0,EXTRACT(EPOCH FROM (NOW()-launched_at))/86400)::INTEGER AS trading_days "
+        "FROM player_coins_v1 WHERE id=?", (str(coin_id),)
+    ) as cursor:
+        launched = await cursor.fetchone()
+    if not launched or launched[0] is None:
+        return {"trading_days": 0, "verified_trades": 0, "unique_traders": 0,
+                "weekly_volume_mora": Decimal("0"), "depth_5pct_mora": Decimal("0")}
+    async with db.execute(
+        "SELECT COUNT(*),COALESCE(SUM(gross_mora) FILTER (WHERE created_at>=NOW()-INTERVAL '7 days'),0) "
+        "FROM player_coin_trades_v1 WHERE coin_id=?", (str(coin_id),)
+    ) as cursor:
+        trades = await cursor.fetchone()
+    async with db.execute(
+        "SELECT COUNT(DISTINCT participant_id) FROM ("
+        "SELECT buyer_id AS participant_id FROM player_coin_trades_v1 WHERE coin_id=? UNION ALL "
+        "SELECT seller_id AS participant_id FROM player_coin_trades_v1 WHERE coin_id=?) participants",
+        (str(coin_id), str(coin_id)),
+    ) as cursor:
+        participant_row = await cursor.fetchone()
+    stats = await public_market_stats(db, str(coin_id))
+    return {"trading_days": int(launched[0]), "verified_trades": int(trades[0]),
+            "unique_traders": int(participant_row[0]), "weekly_volume_mora": Decimal(trades[1]),
+            "depth_5pct_mora": Decimal(stats["depth_5pct"]["total_mora"])}
+
+
 async def public_market_stats(db, coin_id: str) -> dict:
     async with db.execute("""
         SELECT COUNT(*) AS trades,COALESCE(SUM(gross_mora),0) AS volume_mora,
