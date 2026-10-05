@@ -156,6 +156,14 @@ def conservative_mark_price_micromora(*, vwap_5m_micromora: int | None,
     return max(vwap, buyback)
 
 
+def required_initial_collateral_mora(*, debt_units: int, conservative_price_micromora: int) -> Decimal:
+    """The server-only 200% cash collateral needed before a Short can open."""
+    debt = trade_notional(int(debt_units), int(conservative_price_micromora))
+    if debt <= 0:
+        raise ShortsPolicyError("Initial collateral needs positive debt and price.")
+    return (debt * Decimal(INITIAL_MARGIN_BPS) / Decimal(10_000)).quantize(Decimal("0.000001"))
+
+
 def equity_mora(*, posted_collateral_mora: Decimal, locked_sale_proceeds_mora: Decimal,
                 debt_units: int, mark_price_micromora: int, accrued_interest_mora: Decimal) -> Decimal:
     debt = trade_notional(int(debt_units), int(mark_price_micromora))
