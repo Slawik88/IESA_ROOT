@@ -337,6 +337,17 @@ async def main(dsn: str):
         )
         assert launch_times["launched_at"] == launch_times["settled_at"]
         assert launch_times["launched_at"] != launch_times["auction_ends_at"]
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '6 days 23 hours' WHERE id=?",
+            (launched["id"],),
+        )
+        await db.commit()
+        assert (await repo.short_eligibility_metrics(db, coin_id=launched["id"]))["trading_days"] == 6
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=(SELECT settled_at FROM player_coin_auction_settlements_v1 WHERE coin_id=?) "
+            "WHERE id=?", (launched["id"], launched["id"]),
+        )
+        await db.commit()
         ladder_rows = await conn.fetch(
             "SELECT * FROM player_coin_orders_v1 WHERE coin_id=$1 AND actor_kind='treasury' ORDER BY side,limit_price_micromora",
             launched["id"],
