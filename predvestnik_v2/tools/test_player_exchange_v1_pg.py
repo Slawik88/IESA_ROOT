@@ -600,6 +600,35 @@ async def main(dsn: str):
             launched["id"],
         ) == 1
 
+        # Full kill-switch exercise: crossed orders stay untouched during a
+        # manual halt, cancellation stays available, and matching resumes only
+        # after the server-owned deadline has elapsed.
+        halt_sell = await service.place_limit_order(
+            db, user_id=8, coin_id=launched["id"], side="sell", amount="100",
+            limit_price_mora="0.1", time_in_force="gtc", action_id="halt-e2e-sell-0001",
+        )
+        halt_buy = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="100",
+            limit_price_mora="10", time_in_force="gtc", action_id="halt-e2e-buy-0001",
+        )
+        assert await service.match_market(db, coin_id=launched["id"]) == []
+        assert (await repo.get_order(db, halt_sell["id"]))["status"] == "open"
+        assert (await repo.get_order(db, halt_buy["id"]))["status"] == "open"
+        assert (await service.cancel_order(db, user_id=9, order_id=halt_buy["id"]))["status"] == "cancelled"
+        await db.execute(
+            "UPDATE player_coin_market_state_v1 SET halted_until=NOW()-INTERVAL '1 second' WHERE coin_id=?",
+            (launched["id"],),
+        )
+        await db.commit()
+        resume_buy = await service.place_limit_order(
+            db, user_id=9, coin_id=launched["id"], side="buy", amount="100",
+            limit_price_mora="10", time_in_force="gtc", action_id="halt-e2e-resume-buy",
+        )
+        resumed_trades = await service.match_market(db, coin_id=launched["id"])
+        assert resumed_trades
+        assert (await repo.get_order(db, halt_sell["id"]))["status"] == "filled"
+        assert (await repo.get_order(db, resume_buy["id"]))["status"] in {"filled", "open"}
+
         # The owner's 20% allocation has a 30-day cliff, then vests linearly for 180 days.
         await db.execute(
             "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '120 days' WHERE id=?",
