@@ -1573,7 +1573,7 @@ async def public_recent_trades(db, coin_id: str, limit: int = 50) -> list[dict]:
 async def short_eligibility_metrics(db, *, coin_id: str) -> dict:
     """Server-owned eligibility inputs; callers must evaluate them under the Spot lock."""
     async with db.execute(
-        "SELECT GREATEST(0,EXTRACT(EPOCH FROM (NOW()-launched_at))/86400)::INTEGER AS trading_days "
+        "SELECT FLOOR(GREATEST(0,EXTRACT(EPOCH FROM (NOW()-launched_at))/86400))::INTEGER AS trading_days "
         "FROM player_coins_v1 WHERE id=?", (str(coin_id),)
     ) as cursor:
         launched = await cursor.fetchone()
