@@ -838,6 +838,20 @@ async def best_cross(db, coin_id: str):
     return (str(row[0]), str(row[1])) if row else None
 
 
+async def treasury_has_crossing_opposite_order(db, *, coin_id: str, side: str, price: int) -> bool:
+    """Return whether a new treasury order would cross its own open liquidity."""
+    opposite_side = "sell" if side == "buy" else "buy"
+    comparator = "<=" if side == "buy" else ">="
+    async with db.execute(
+        "SELECT EXISTS(SELECT 1 FROM player_coin_orders_v1 "
+        "WHERE coin_id=? AND actor_kind='treasury' AND side=? AND status='open' "
+        f"AND remaining_units>0 AND limit_price_micromora{comparator}?)",
+        (str(coin_id), opposite_side, int(price)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return bool(row[0])
+
+
 async def active_market_ids(db) -> list[str]:
     async with db.execute(
         "SELECT DISTINCT coin_id FROM player_coin_orders_v1 WHERE status='open' ORDER BY coin_id"
@@ -1284,7 +1298,7 @@ async def pending_emission(db, coin_id: str):
 async def owner_has_open_sell(db, *, coin_id: str, owner_id: int) -> bool:
     async with db.execute(
         "SELECT EXISTS(SELECT 1 FROM player_coin_orders_v1 WHERE coin_id=? AND user_id=? "
-        "AND actor_kind='player' AND side='sell' AND status='open' AND remaining_units>0)",
+        "AND side='sell' AND status='open' AND remaining_units>0)",
         (str(coin_id), int(owner_id)),
     ) as cursor:
         row = await cursor.fetchone()

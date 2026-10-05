@@ -744,6 +744,33 @@ async def main(dsn: str):
         assert treasury_buy["actor_kind"] == "treasury" and treasury_buy["status"] == "open"
         try:
             await service.place_treasury_order(
+                db, owner_id=7, coin_id=launched["id"], side="sell", amount="10",
+                limit_price_mora="1", action_id="treasury-self-cross-rejected",
+            )
+            raise AssertionError("crossing treasury sell was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        # A crossed treasury pair from an older deployment is released instead
+        # of repeatedly rolling back against the immutable no-self-trade check.
+        await repo.reserve_treasury_tokens(
+            db, coin_id=launched["id"], units=10_000, bucket="treasury",
+        )
+        legacy_treasury_sell = await repo.insert_order(
+            db, coin_id=launched["id"], user_id=7, action_id="legacy-treasury-self-cross",
+            side="sell", time_in_force="gtc", price=1_000_000, units=10_000,
+            reserved_mora=Decimal("0"), reserve_operation_id=None, actor_kind="treasury",
+            treasury_token_bucket="treasury",
+        )
+        await db.execute(
+            "UPDATE player_coin_market_state_v1 SET halted_until=NOW()-INTERVAL '1 second' WHERE coin_id=?",
+            (launched["id"],),
+        )
+        await db.commit()
+        await service.match_market(db, coin_id=launched["id"], max_trades=500)
+        assert (await repo.get_order(db, legacy_treasury_sell["id"]))["status"] == "cancelled"
+        assert (await repo.get_order(db, treasury_buy["id"]))["status"] == "open"
+        try:
+            await service.place_treasury_order(
                 db, owner_id=8, coin_id=launched["id"], side="buy", amount="1",
                 limit_price_mora="10", action_id="treasury-foreign-buy",
             )
@@ -855,6 +882,22 @@ async def main(dsn: str):
         circulation = int(await conn.fetchval(
             "SELECT circulating_units FROM player_coins_v1 WHERE id=$1", launched["id"],
         ))
+        treasury_sell_before_emission = await service.place_treasury_order(
+            db, owner_id=7, coin_id=launched["id"], side="sell", amount="20",
+            limit_price_mora="999", action_id="emission-treasury-sell-before",
+        )
+        try:
+            await service.request_emission(
+                db, owner_id=7, coin_id=launched["id"], amount="1000",
+                reason="Плановое расширение публичной казны.", action_id="emission-request-with-treasury-sell",
+            )
+            raise AssertionError("emission with an existing treasury sell was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        await service.cancel_treasury_order(
+            db, owner_id=7, order_id=treasury_sell_before_emission["id"],
+            action_id="emission-treasury-sell-before-cancel",
+        )
         await repo.credit_bid_tokens(db, coin_id=launched["id"], bidder_id=7, units=20_000)
         owner_sell = await service.place_limit_order(
             db, user_id=7, coin_id=launched["id"], side="sell", amount="20",

@@ -472,6 +472,13 @@ async def match_market(db, *, coin_id: str, max_trades: int = 100) -> list[dict]
                 newer = buy if (buy["created_at"], buy["id"]) > (sell["created_at"], sell["id"]) else sell
                 await _release_order(db, newer, reason="self_trade_prevented")
                 continue
+            if (buy.get("actor_kind") == "treasury" and sell.get("actor_kind") == "treasury"
+                    and int(buy["user_id"]) == int(sell["user_id"])):
+                # Old data may predate the placement guard.  Never try to write a
+                # treasury-to-itself trade: the immutable trade ledger forbids it.
+                newer = buy if (buy["created_at"], buy["id"]) > (sell["created_at"], sell["id"]) else sell
+                await _release_order(db, newer, reason="treasury_self_trade_prevented")
+                continue
             buy_is_maker = (buy["created_at"], buy["id"]) < (sell["created_at"], sell["id"])
             maker = buy if buy_is_maker else sell
             units = min(int(buy["remaining_units"]), int(sell["remaining_units"]))
@@ -726,6 +733,8 @@ async def place_treasury_order(
             raise PlayerExchangePolicyError("Управлять казной может только владелец активной монеты.")
         if side == "sell" and await repo.pending_emission(db, coin_id):
             raise PlayerExchangePolicyError("Продажа из казны недоступна, пока эмиссия ожидает исполнения.")
+        if await repo.treasury_has_crossing_opposite_order(db, coin_id=coin_id, side=side, price=price):
+            raise PlayerExchangePolicyError("Заявка казны пересечётся с другой заявкой этой же казны.")
         reserved_mora = Decimal("0")
         token_bucket = None
         if side == "buy":
