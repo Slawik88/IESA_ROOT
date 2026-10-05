@@ -1012,6 +1012,65 @@ async def get_player_coin_account(db, *, coin_id: str, user_id: int, for_update:
     return dict(row) if row else None
 
 
+async def get_lending_position(db, *, coin_id: str, lender_id: int, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_lending_positions_v1 WHERE coin_id=? AND lender_id=?" + suffix,
+        (str(coin_id), int(lender_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def move_player_units_to_lending(db, *, coin_id: str, lender_id: int, units: int) -> dict:
+    account = await get_player_coin_account(db, coin_id=coin_id, user_id=lender_id, for_update=True)
+    if not account or int(account["available_units"]) < int(units):
+        raise ValueError("insufficient_coin_balance")
+    await db.execute(
+        "UPDATE player_coin_accounts_v1 SET available_units=available_units-?,updated_at=NOW() "
+        "WHERE coin_id=? AND account_key=?",
+        (int(units), str(coin_id), f"player:{int(lender_id)}"),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_lending_positions_v1(coin_id,lender_id,available_units) VALUES(?,?,?) "
+        "ON CONFLICT(coin_id,lender_id) DO UPDATE SET available_units="
+        "player_coin_lending_positions_v1.available_units+EXCLUDED.available_units,updated_at=NOW()",
+        (str(coin_id), int(lender_id), int(units)),
+    )
+    return await get_lending_position(db, coin_id=coin_id, lender_id=lender_id, for_update=True)
+
+
+async def move_lending_units_to_player(db, *, coin_id: str, lender_id: int, units: int) -> dict:
+    position = await get_lending_position(db, coin_id=coin_id, lender_id=lender_id, for_update=True)
+    if not position or int(position["available_units"]) < int(units):
+        raise ValueError("insufficient_lending_available")
+    await db.execute(
+        "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-?,updated_at=NOW() "
+        "WHERE coin_id=? AND lender_id=?",
+        (int(units), str(coin_id), int(lender_id)),
+    )
+    await credit_bid_tokens(db, coin_id=str(coin_id), bidder_id=int(lender_id), units=int(units))
+    return await get_lending_position(db, coin_id=coin_id, lender_id=lender_id, for_update=True)
+
+
+async def get_short_event_by_action(db, *, action_id: str):
+    async with db.execute(
+        "SELECT * FROM player_coin_short_events_v1 WHERE action_id=?", (str(action_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def append_short_event(db, *, coin_id: str, actor_id: int | None, event_type: str,
+                             action_id: str, payload: dict) -> None:
+    await db.execute(
+        "INSERT INTO player_coin_short_events_v1(id,coin_id,actor_id,event_type,action_id,payload_json) "
+        "VALUES(?,?,?,?,?,?::jsonb)",
+        (uuid4().hex, str(coin_id), actor_id, str(event_type), str(action_id),
+         json.dumps(payload, sort_keys=True, separators=(",", ":"))),
+    )
+
+
 async def reserve_sell_units(db, *, coin_id: str, user_id: int, units: int) -> None:
     account = await get_player_coin_account(db, coin_id=coin_id, user_id=user_id, for_update=True)
     if not account or int(account["available_units"]) < int(units):

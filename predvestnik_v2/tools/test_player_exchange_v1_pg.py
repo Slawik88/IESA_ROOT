@@ -1165,6 +1165,45 @@ async def main(dsn: str):
         assert public_emissions[0]["circulation_snapshot_units"] == circulation
         assert public_emissions[0]["projected_total_supply_units"] == supply_before + 2_000_000
 
+        # The first live Shorts writer is the voluntary pool only: it must be
+        # explicitly enabled, replay-safe and unable to return unavailable units.
+        lender_tokens_before = int((await repo.get_player_coin_account(
+            db, coin_id=launched["id"], user_id=8,
+        ))["available_units"])
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        deposited = await service.deposit_lending_units(
+            db, user_id=8, coin_id=launched["id"], amount="10", action_id="lending-deposit-0001",
+        )
+        assert deposited["replayed"] is False and int(deposited["position"]["available_units"]) == 10_000
+        deposit_replay = await service.deposit_lending_units(
+            db, user_id=8, coin_id=launched["id"], amount="10", action_id="lending-deposit-0001",
+        )
+        assert deposit_replay["replayed"] is True
+        withdrawn = await service.withdraw_lending_units(
+            db, user_id=8, coin_id=launched["id"], amount="4", action_id="lending-withdraw-0001",
+        )
+        assert withdrawn["replayed"] is False and int(withdrawn["position"]["available_units"]) == 6_000
+        try:
+            await service.withdraw_lending_units(
+                db, user_id=8, coin_id=launched["id"], amount="7", action_id="lending-withdraw-excess",
+            )
+            raise AssertionError("withdrawal above free lender balance was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        assert int((await repo.get_player_coin_account(
+            db, coin_id=launched["id"], user_id=8,
+        ))["available_units"]) == lender_tokens_before - 6_000
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        try:
+            await service.deposit_lending_units(
+                db, user_id=8, coin_id=launched["id"], amount="1", action_id="lending-disabled-0001",
+            )
+            raise AssertionError("disabled Shorts pool accepted a deposit")
+        except service.PlayerExchangeUnavailable:
+            pass
+
         failed = await service.create_coin(
             db, owner_id=10, name="Тихая монета", ticker="QUIET",
             initial_mora=10000, action_id="create-action-0010",

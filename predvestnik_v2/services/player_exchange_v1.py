@@ -33,6 +33,12 @@ async def require_enabled(db) -> None:
         raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
 
 
+async def require_shorts_enabled(db) -> None:
+    await require_enabled(db)
+    if not await system_flags.is_enabled(db, SHORTS_FEATURE_FLAG_KEY):
+        raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
+
+
 def _decode_recovery_cursor(value: str | None, *, kind: str):
     if not value:
         return None
@@ -108,6 +114,83 @@ async def player_recovery_state(
         "trading_enabled": bool(enabled),
         "can_cancel_open_orders": True,
     }
+
+
+async def _lending_replay(db, *, user_id: int, coin_id: str, action_id: str,
+                          event_type: str, units: int) -> dict | None:
+    event = await repo.get_short_event_by_action(db, action_id=str(action_id))
+    if not event:
+        return None
+    payload = event["payload_json"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    if (event["event_type"] != event_type or int(event["actor_id"] or 0) != int(user_id)
+            or str(event["coin_id"]) != str(coin_id) or int(payload.get("units", -1)) != int(units)):
+        raise IdempotencyConflict("Action id is bound to another Shorts operation.")
+    position = await repo.get_lending_position(db, coin_id=coin_id, lender_id=user_id)
+    return {"position": position, "replayed": True}
+
+
+async def deposit_lending_units(db, *, user_id: int, coin_id: str, amount: str, action_id: str) -> dict:
+    """Move owned units into the disabled-by-default voluntary lending pool."""
+    await require_shorts_enabled(db)
+    units = parse_token_amount(amount)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY) or not await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
+        replay = await _lending_replay(
+            db, user_id=user_id, coin_id=coin_id, action_id=action_id, event_type="lending_deposited", units=units,
+        )
+        if replay:
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or coin["status"] != "active":
+            raise PlayerExchangePolicyError("Пул этой монеты пока недоступен.")
+        try:
+            position = await repo.move_player_units_to_lending(
+                db, coin_id=coin_id, lender_id=int(user_id), units=units,
+            )
+        except ValueError as exc:
+            raise PlayerExchangePolicyError("Недостаточно свободных монет для пула.") from exc
+        await repo.append_short_event(
+            db, coin_id=coin_id, actor_id=int(user_id), event_type="lending_deposited", action_id=str(action_id),
+            payload={"units": units},
+        )
+        return {"position": position, "replayed": False}
+
+
+async def withdraw_lending_units(db, *, user_id: int, coin_id: str, amount: str, action_id: str) -> dict:
+    """Withdraw only free lender units; loaned and frozen units cannot be withdrawn."""
+    await require_shorts_enabled(db)
+    units = parse_token_amount(amount)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY) or not await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY):
+            raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
+        replay = await _lending_replay(
+            db, user_id=user_id, coin_id=coin_id, action_id=action_id, event_type="lending_withdrawn", units=units,
+        )
+        if replay:
+            return replay
+        coin = await repo.get_coin(db, coin_id, for_update=True)
+        if not coin or coin["status"] != "active":
+            raise PlayerExchangePolicyError("Пул этой монеты пока недоступен.")
+        try:
+            position = await repo.move_lending_units_to_player(
+                db, coin_id=coin_id, lender_id=int(user_id), units=units,
+            )
+        except ValueError as exc:
+            raise PlayerExchangePolicyError("Можно забрать только свободные, не выданные в заём монеты.") from exc
+        await repo.append_short_event(
+            db, coin_id=coin_id, actor_id=int(user_id), event_type="lending_withdrawn", action_id=str(action_id),
+            payload={"units": units},
+        )
+        return {"position": position, "replayed": False}
 
 
 async def create_coin(
