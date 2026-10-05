@@ -90,6 +90,31 @@ def validate_short_open(*, requested_units: int, circulating_units: int, lending
         raise ShortsPolicyError("Short size exceeds the player or aggregate lending limit.")
 
 
+def pro_rata_lender_allocations(*, requested_units: int,
+                                lenders: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Split one loan deterministically by free pool share, then lender id."""
+    requested = int(requested_units)
+    clean = [(int(lender_id), int(available)) for lender_id, available in lenders]
+    if requested <= 0 or any(lender_id <= 0 or available < 0 for lender_id, available in clean):
+        raise ShortsPolicyError("Invalid lending allocation.")
+    if len({lender_id for lender_id, _ in clean}) != len(clean):
+        raise ShortsPolicyError("Lender allocation contains a duplicate lender.")
+    total = sum(available for _, available in clean)
+    if requested > total:
+        raise ShortsPolicyError("Lending pool has insufficient free units.")
+    base = [(lender_id, available * requested // total, available * requested % total)
+            for lender_id, available in clean if available]
+    allocated = sum(units for _, units, _ in base)
+    remainder = requested - allocated
+    winners = {
+        lender_id for lender_id, _, _ in sorted(base, key=lambda row: (-row[2], row[0]))[:remainder]
+    }
+    result = [(lender_id, units + (1 if lender_id in winners else 0)) for lender_id, units, _ in base]
+    if sum(units for _, units in result) != requested or any(units < 0 for _, units in result):
+        raise ShortsPolicyError("Lending allocation invariant failed.")
+    return [(lender_id, units) for lender_id, units in result if units]
+
+
 def pool_utilisation_bps(*, lending_pool_units: int, borrowed_units: int) -> int:
     capacity = usable_lending_capacity_units(lending_pool_units)
     borrowed = int(borrowed_units)

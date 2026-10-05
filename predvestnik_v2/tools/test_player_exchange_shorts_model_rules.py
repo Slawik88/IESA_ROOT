@@ -10,7 +10,7 @@ from core.player_exchange_shorts_v1 import (  # noqa: E402
     ShortsPolicyError, borrow_apr_bps, conservative_mark_price_micromora,
     equity_mora, is_short_eligible, liquidation_penalty_split, liquidation_state,
     margin_ratio_bps, minute_interest_mora, minimum_partial_liquidation_units,
-    pool_utilisation_bps, short_limits_units, validate_short_open,
+    pool_utilisation_bps, pro_rata_lender_allocations, short_limits_units, validate_short_open,
 )
 
 
@@ -40,6 +40,13 @@ validate_short_open(
 )
 rejects(validate_short_open, requested_units=1, circulating_units=1_000_000,
         lending_pool_units=400_000, already_borrowed_units=0, actor_is_owner_or_linked=True)
+assert pro_rata_lender_allocations(
+    requested_units=10, lenders=[(11, 5), (8, 3), (99, 2)],
+) == [(11, 5), (8, 3), (99, 2)]
+assert pro_rata_lender_allocations(
+    requested_units=7, lenders=[(11, 5), (8, 3), (99, 2)],
+) == [(11, 4), (8, 2), (99, 1)]
+rejects(pro_rata_lender_allocations, requested_units=11, lenders=[(8, 10)])
 assert pool_utilisation_bps(lending_pool_units=400_000, borrowed_units=100_000) == 5_000
 assert borrow_apr_bps(utilisation_bps=0) == 1_000
 assert borrow_apr_bps(utilisation_bps=7_000) == 3_000
