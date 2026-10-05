@@ -17,7 +17,7 @@ from core.player_exchange_v1 import (
     buy_reserve, parse_token_amount, protected_limit_price, trade_fee, trade_notional,
     treasury_ladder_prices, validate_coin_draft, validate_emission,
 )
-from core.player_exchange_shorts_v1 import SHORTS_FEATURE_FLAG_KEY
+from core.player_exchange_shorts_v1 import SHORTS_FEATURE_FLAG_KEY, is_short_eligible
 from core.economy_contract import IdempotencyConflict
 from infrastructure.repositories import economy_ledger, player_exchange_v1 as repo, system_flags
 
@@ -37,6 +37,18 @@ async def require_shorts_enabled(db) -> None:
     await require_enabled(db)
     if not await system_flags.is_enabled(db, SHORTS_FEATURE_FLAG_KEY):
         raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
+
+
+async def short_eligibility(db, *, coin_id: str) -> dict:
+    """One server-owned verdict; later writers re-read it under the Spot lock."""
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    metrics = await repo.short_eligibility_metrics(db, coin_id=str(coin_id))
+    return {
+        **metrics,
+        "eligible": is_short_eligible(**metrics),
+        "shorts_enabled": bool(await system_flags.is_enabled(db, SHORTS_FEATURE_FLAG_KEY)),
+    }
 
 
 def _decode_recovery_cursor(value: str | None, *, kind: str):

@@ -343,6 +343,8 @@ async def main(dsn: str):
         )
         await db.commit()
         assert (await repo.short_eligibility_metrics(db, coin_id=launched["id"]))["trading_days"] == 6
+        short_gate = await service.short_eligibility(db, coin_id=launched["id"])
+        assert short_gate["eligible"] is False and short_gate["shorts_enabled"] is False
         await db.execute(
             "UPDATE player_coins_v1 SET launched_at=(SELECT settled_at FROM player_coin_auction_settlements_v1 WHERE coin_id=?) "
             "WHERE id=?", (launched["id"], launched["id"]),
