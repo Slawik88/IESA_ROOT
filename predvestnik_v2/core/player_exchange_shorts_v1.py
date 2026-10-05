@@ -164,6 +164,22 @@ def required_initial_collateral_mora(*, debt_units: int, conservative_price_micr
     return (debt * Decimal(INITIAL_MARGIN_BPS) / Decimal(10_000)).quantize(Decimal("0.000001"))
 
 
+def executable_sell_limit_price(*, units: int, bids: list[tuple[int, int]]) -> int | None:
+    """Worst executable bid for the whole requested sale; None means no full fill."""
+    remaining = int(units)
+    if remaining <= 0:
+        raise ShortsPolicyError("Executable sale needs positive units.")
+    for price, level_units in sorted(((int(p), int(u)) for p, u in bids), reverse=True):
+        if price <= 0 or level_units < 0:
+            raise ShortsPolicyError("Invalid bid depth.")
+        if not level_units:
+            continue
+        remaining -= min(remaining, level_units)
+        if remaining == 0:
+            return price
+    return None
+
+
 def equity_mora(*, posted_collateral_mora: Decimal, locked_sale_proceeds_mora: Decimal,
                 debt_units: int, mark_price_micromora: int, accrued_interest_mora: Decimal) -> Decimal:
     debt = trade_notional(int(debt_units), int(mark_price_micromora))
