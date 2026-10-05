@@ -1118,6 +1118,28 @@ async def eligible_short_sell_bids(db, *, coin_id: str, borrower_id: int,
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def eligible_short_buyback_asks(db, *, coin_id: str, borrower_id: int,
+                                      owner_id: int) -> list[dict]:
+    """Lock genuine offers usable for the conservative opening buyback mark."""
+    async with db.execute("""
+        SELECT o.*
+        FROM player_coin_orders_v1 o
+        WHERE o.coin_id=? AND o.status='open' AND o.side='sell' AND o.remaining_units>0
+          AND o.actor_kind='player' AND o.user_id<>? AND o.user_id<>?
+          AND NOT EXISTS (
+              SELECT 1 FROM user_login_signals a JOIN user_login_signals b
+              ON a.kind=b.kind AND a.value_hash=b.value_hash
+              WHERE a.user_id=o.user_id AND b.user_id=? AND a.kind IN ('ip','fp')
+                AND a.hits>=2 AND b.hits>=2 AND a.last_seen>=NOW()-INTERVAL '30 days'
+                AND b.last_seen>=NOW()-INTERVAL '30 days'
+              GROUP BY a.user_id HAVING COUNT(DISTINCT a.kind)=2
+          )
+        ORDER BY o.limit_price_micromora,o.created_at,o.id
+        FOR UPDATE
+    """, (str(coin_id), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
 async def create_short_position(db, *, position_id: str, coin_id: str, borrower_id: int,
                                 action_id: str, units: int, collateral_mora: Decimal,
                                 collateral_operation_id: str) -> dict:
@@ -1240,13 +1262,14 @@ async def reserve_sell_units(db, *, coin_id: str, user_id: int, units: int) -> N
 async def insert_order(db, *, coin_id: str, user_id: int, action_id: str, side: str,
                        time_in_force: str, price: int, units: int, reserved_mora,
                        reserve_operation_id: str | None, slippage_percent: int | None = None,
-                       actor_kind: str = "player", treasury_token_bucket: str | None = None) -> dict:
+                       actor_kind: str = "player", treasury_token_bucket: str | None = None,
+                       short_position_id: str | None = None) -> dict:
     order_id = uuid4().hex
     async with db.execute(
-        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,actor_kind,treasury_token_bucket,action_id,side,time_in_force,slippage_percent,"
+        "INSERT INTO player_coin_orders_v1(id,coin_id,user_id,actor_kind,treasury_token_bucket,short_position_id,action_id,side,time_in_force,slippage_percent,"
         "limit_price_micromora,original_units,remaining_units,reserved_mora,reserve_operation_id) "
-        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
-        (order_id, coin_id, int(user_id), actor_kind, treasury_token_bucket, action_id, side, time_in_force, slippage_percent, int(price),
+        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *",
+        (order_id, coin_id, int(user_id), actor_kind, treasury_token_bucket, short_position_id, action_id, side, time_in_force, slippage_percent, int(price),
          int(units), int(units), reserved_mora, reserve_operation_id),
     ) as cursor:
         row = await cursor.fetchone()
@@ -1254,6 +1277,7 @@ async def insert_order(db, *, coin_id: str, user_id: int, action_id: str, side: 
                        action_id=f"order-placed:{action_id}", payload={
                            "order_id": order_id, "actor_kind": actor_kind,
                            "treasury_token_bucket": treasury_token_bucket,
+                           "short_position_id": short_position_id,
                            "side": side, "time_in_force": time_in_force,
                            "slippage_percent": slippage_percent,
                            "price_micromora": int(price), "units": int(units),
@@ -1338,17 +1362,23 @@ async def release_sell_units(db, *, coin_id: str, user_id: int, units: int) -> N
 
 
 async def transfer_trade_tokens(db, *, coin_id: str, sell_order: dict, buy_order: dict, units: int) -> None:
-    seller_key = (
-        str(sell_order.get("treasury_token_bucket") or "market_reserve")
-        if sell_order.get("actor_kind") == "treasury" else f"player:{int(sell_order['user_id'])}"
-    )
-    async with db.execute(
-        "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,updated_at=NOW() "
-        "WHERE coin_id=? AND account_key=? AND reserved_units>=? RETURNING 1",
-        (int(units), coin_id, seller_key, int(units)),
-    ) as cursor:
-        if not await cursor.fetchone():
-            raise RuntimeError("Trade token reserve invariant failed.")
+    if sell_order.get("actor_kind") == "short":
+        # The debt is represented by position-bound loans, not by a player's
+        # reserve account. The same borrowed units are delivered to the buyer.
+        if not sell_order.get("short_position_id"):
+            raise RuntimeError("Short trade lacks its position binding.")
+    else:
+        seller_key = (
+            str(sell_order.get("treasury_token_bucket") or "market_reserve")
+            if sell_order.get("actor_kind") == "treasury" else f"player:{int(sell_order['user_id'])}"
+        )
+        async with db.execute(
+            "UPDATE player_coin_accounts_v1 SET reserved_units=reserved_units-?,updated_at=NOW() "
+            "WHERE coin_id=? AND account_key=? AND reserved_units>=? RETURNING 1",
+            (int(units), coin_id, seller_key, int(units)),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Trade token reserve invariant failed.")
     if buy_order.get("actor_kind") == "treasury":
         async with db.execute(
             "UPDATE player_coin_accounts_v1 SET available_units=available_units+?,updated_at=NOW() "

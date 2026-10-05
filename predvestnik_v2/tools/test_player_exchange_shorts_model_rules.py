@@ -10,7 +10,8 @@ from core.player_exchange_shorts_v1 import (  # noqa: E402
     ShortsPolicyError, borrow_apr_bps, conservative_mark_price_micromora,
     equity_mora, is_short_eligible, liquidation_penalty_split, liquidation_state,
     margin_ratio_bps, minute_interest_mora, minimum_partial_liquidation_units,
-    executable_sell_limit_price, pool_utilisation_bps, pro_rata_lender_allocations, required_initial_collateral_mora,
+    executable_buyback_limit_price, executable_sell_limit_price, pool_utilisation_bps,
+    pro_rata_lender_allocations, required_initial_collateral_mora,
     short_limits_units, validate_short_open,
 )
 
@@ -66,6 +67,8 @@ assert required_initial_collateral_mora(
 ) == Decimal("200.000000")
 assert executable_sell_limit_price(units=9, bids=[(100, 4), (90, 5), (80, 100)]) == 90
 assert executable_sell_limit_price(units=10, bids=[(100, 4), (90, 5)]) is None
+assert executable_buyback_limit_price(units=9, asks=[(90, 4), (100, 5), (120, 100)]) == 100
+assert executable_buyback_limit_price(units=10, asks=[(90, 4), (100, 5)]) is None
 assert minute_interest_mora(debt_units=100_000, mark_price_micromora=1_000_000, apr_bps=15_000) > 0
 assert equity_mora(
     posted_collateral_mora=Decimal("200"), locked_sale_proceeds_mora=Decimal("100"),

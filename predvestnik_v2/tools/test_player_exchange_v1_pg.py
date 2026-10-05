@@ -1251,8 +1251,136 @@ async def main(dsn: str):
         except service.PlayerExchangeUnavailable:
             pass
 
+        # Atomic Shorts opening: qualified historical market, three voluntary
+        # lenders, locked full bid depth, a conservative executable buyback
+        # mark and an exact retry. The feature stays default-off outside this
+        # isolated contract.
+        await db.execute(
+            "INSERT INTO users(user_tg_id,user_balance_mora,user_balance_zarniki) "
+            "SELECT value,100000,10000 FROM generate_series(13,32) AS value"
+        )
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        short_coin = await service.create_coin(
+            db, owner_id=10, name="Контракт шорта", ticker="SHORTX",
+            initial_mora=10000, action_id="short-open-coin-0001",
+        )
+        for bidder_id in (4, 5, 8):
+            await service.place_auction_bid(
+                db, bidder_id=bidder_id, coin_id=short_coin["id"], max_price_mora="1",
+                escrow_mora=20_000, action_id=f"short-open-bid-{bidder_id}",
+            )
+        await db.execute(
+            "UPDATE player_coins_v1 SET auction_starts_at=NOW()-INTERVAL '2 hours',"
+            "auction_ends_at=NOW()-INTERVAL '1 second' WHERE id=?", (short_coin["id"],)
+        )
+        await db.commit()
+        short_settlement = await service.settle_auction(db, coin_id=short_coin["id"])
+        assert short_settlement["success"] is True
+        await db.execute(
+            "UPDATE player_coins_v1 SET launched_at=NOW()-INTERVAL '8 days' WHERE id=?", (short_coin["id"],)
+        )
+        await conn.execute(
+            "INSERT INTO player_coin_orders_v1"
+            "(id,coin_id,user_id,action_id,side,time_in_force,limit_price_micromora,"
+            "original_units,remaining_units,reserved_mora,status,closed_at) VALUES "
+            "('short-history-buy',$1,13,'short-history-buy','buy','gtc',4000000,500000,0,0,'filled',NOW()),"
+            "('short-history-sell',$1,14,'short-history-sell','sell','gtc',4000000,500000,0,0,'filled',NOW())",
+            short_coin["id"],
+        )
+        history = [
+            (f"short-history-trade-{idx}", short_coin["id"], 13 + idx % 20, 13 + (idx + 1) % 20)
+            for idx in range(100)
+        ]
+        await conn.executemany(
+            "INSERT INTO player_coin_trades_v1"
+            "(id,coin_id,buy_order_id,sell_order_id,buyer_id,seller_id,units,price_micromora,"
+            "gross_mora,buyer_fee_mora,seller_fee_mora,buyer_kind,seller_kind) "
+            "VALUES($1,$2,'short-history-buy','short-history-sell',$3,$4,500000,4000000,2000,0,0,'player','player')",
+            history,
+        )
+        await db.commit()
+        short_gate = await service.short_eligibility(db, coin_id=short_coin["id"])
+        assert short_gate["eligible"] is True
+        for lender_id in (4, 5, 8):
+            await service.deposit_lending_units(
+                db, user_id=lender_id, coin_id=short_coin["id"], amount="10",
+                action_id=f"short-open-lend-{lender_id}",
+            )
+        protected_bid = await service.place_limit_order(
+            db, user_id=5, coin_id=short_coin["id"], side="buy", amount="3",
+            limit_price_mora="4", time_in_force="gtc", action_id="short-open-protected-bid",
+        )
+        protected_ask = await service.place_limit_order(
+            db, user_id=8, coin_id=short_coin["id"], side="sell", amount="3",
+            limit_price_mora="5", time_in_force="gtc", action_id="short-open-protected-ask",
+        )
+        borrower_mora_before = await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        )
+        opened = await service.open_short(
+            db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-0001",
+        )
+        assert opened["replayed"] is False
+        opened_position = opened["position"]
+        assert int(opened_position["outstanding_debt_units"]) == 3_000
+        assert Decimal(opened_position["posted_collateral_mora"]) == Decimal("30.000000")
+        assert Decimal(opened_position["locked_sale_proceeds_mora"]) < Decimal("12")
+        assert await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        ) == borrower_mora_before - Decimal("30.000000")
+        assert (await repo.get_order(db, protected_bid["id"]))["status"] == "filled"
+        assert (await repo.get_order(db, protected_ask["id"]))["status"] == "open"
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_loans_v1 WHERE position_id=$1", opened_position["id"],
+        ) == 3
+        retry = await service.open_short(
+            db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-0001",
+        )
+        assert retry["replayed"] is True and retry["position"]["id"] == opened_position["id"]
+        positions_before_rejected_short = await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
+        )
+        borrower_mora_before_rejected_short = await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        )
+        try:
+            await service.open_short(
+                db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-no-depth",
+            )
+            raise AssertionError("Short opened from incomplete protected bid depth")
+        except PlayerExchangePolicyError:
+            pass
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
+        ) == positions_before_rejected_short
+        assert await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        ) == borrower_mora_before_rejected_short
+        rollback_bid = await service.place_limit_order(
+            db, user_id=5, coin_id=short_coin["id"], side="buy", amount="1",
+            limit_price_mora="10", time_in_force="gtc", action_id="short-open-rollback-bid",
+        )
+        await conn.execute(
+            "INSERT INTO player_coin_orders_v1"
+            "(id,coin_id,user_id,action_id,side,time_in_force,limit_price_micromora,"
+            "original_units,remaining_units,reserved_mora) "
+            "VALUES('short-open-corrupt-bid',$1,13,'short-open-corrupt-bid','buy','gtc',10000000,1000,1000,0)",
+            short_coin["id"],
+        )
+        try:
+            await service.open_short(
+                db, user_id=6, coin_id=short_coin["id"], amount="2", action_id="short-open-rollback",
+            )
+            raise AssertionError("Short did not roll back after a later bid settlement failure")
+        except RuntimeError:
+            pass
+        assert (await repo.get_order(db, rollback_bid["id"]))["status"] == "open"
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
+        ) == positions_before_rejected_short
+
         failed = await service.create_coin(
-            db, owner_id=10, name="Тихая монета", ticker="QUIET",
+            db, owner_id=11, name="Тихая монета", ticker="QUIET",
             initial_mora=10000, action_id="create-action-0010",
         )
         await db.execute(
@@ -1262,7 +1390,7 @@ async def main(dsn: str):
         await db.commit()
         failed_result = await service.settle_auction(db, coin_id=failed["id"])
         assert failed_result["success"] is False
-        owner = await conn.fetchrow("SELECT user_balance_mora,user_balance_zarniki FROM users WHERE user_tg_id=10")
+        owner = await conn.fetchrow("SELECT user_balance_mora,user_balance_zarniki FROM users WHERE user_tg_id=11")
         assert float(owner[0]) == 100000 and float(owner[1]) == 8000
     finally:
         await conn.close()
@@ -1277,7 +1405,7 @@ async def main(dsn: str):
         assert float(await conn.fetchval("SELECT treasury_mora FROM player_coin_mora_accounts_v1 WHERE coin_id=$1", first["id"])) == 10000
         assert float(await conn.fetchval("SELECT SUM(delta) FROM player_coin_mora_ledger_v1 WHERE coin_id=$1", first["id"])) == 10000
         assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=3") == 0
-        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=4") == 0
+        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=4") >= 1
         assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=6") == 0
         try:
             await conn.execute("UPDATE player_coin_events_v1 SET event_type='tampered' WHERE coin_id=$1", first["id"])
