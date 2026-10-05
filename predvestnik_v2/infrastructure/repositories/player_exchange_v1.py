@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from core.player_exchange_shorts_v1 import pro_rata_lender_allocations
+from core.player_exchange_shorts_v1 import pro_rata_lender_allocations, pro_rata_loan_repayments
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
 SCHEMA_VERSION = "player-exchange-schema-v15-shorts-escrow-foundation-2026-10-05"
@@ -1110,6 +1110,78 @@ async def get_short_position_by_action(db, *, borrower_id: int, action_id: str, 
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def get_short_position(db, *, position_id: str, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_short_positions_v1 WHERE id=?" + suffix, (str(position_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def repay_short_loans(db, *, position_id: str, units: int, close_position: bool) -> dict:
+    """Return exact bought-back units to every lender and reconcile position debt.
+
+    The caller owns the shared Spot lock and must have performed the actual
+    protected buyback first. A final repayment is allowed only when the caller
+    explicitly closes the position in this same transaction.
+    """
+    position = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not position or position["status"] not in {"open", "closing"}:
+        raise ValueError("short_position_not_open")
+    requested = int(units)
+    debt = int(position["outstanding_debt_units"])
+    if requested <= 0 or requested > debt:
+        raise ValueError("invalid_short_repayment")
+    async with db.execute(
+        "SELECT * FROM player_coin_short_loans_v1 WHERE position_id=? AND outstanding_units>0 "
+        "ORDER BY lender_id,id FOR UPDATE",
+        (str(position_id),),
+    ) as cursor:
+        loans = [dict(row) for row in await cursor.fetchall()]
+    repayments = pro_rata_loan_repayments(
+        requested_units=requested,
+        loans=[(int(row["lender_id"]), int(row["outstanding_units"])) for row in loans],
+    )
+    by_lender = {lender_id: repaid for lender_id, repaid in repayments}
+    for loan in loans:
+        repaid = by_lender.get(int(loan["lender_id"]), 0)
+        if not repaid:
+            continue
+        async with db.execute(
+            "UPDATE player_coin_short_loans_v1 SET outstanding_units=outstanding_units-?,"
+            "repaid_units=repaid_units+?,closed_at=CASE WHEN outstanding_units-?=0 THEN NOW() ELSE NULL END "
+            "WHERE id=? AND outstanding_units>=? RETURNING 1",
+            (repaid, repaid, repaid, str(loan["id"]), repaid),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Short loan repayment invariant failed.")
+        async with db.execute(
+            "UPDATE player_coin_lending_positions_v1 SET loaned_units=loaned_units-?,available_units=available_units+?,"
+            "updated_at=NOW() WHERE coin_id=? AND lender_id=? AND loaned_units>=? RETURNING 1",
+            (repaid, repaid, str(position["coin_id"]), int(loan["lender_id"]), repaid),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Lender repayment invariant failed.")
+    remaining = debt - requested
+    if remaining == 0:
+        if not close_position:
+            raise ValueError("final_short_repayment_requires_close")
+        await db.execute(
+            "UPDATE player_coin_short_positions_v1 SET outstanding_debt_units=0,status='closed',closed_at=NOW() "
+            "WHERE id=? AND status IN ('open','closing') RETURNING 1", (str(position_id),)
+        )
+    else:
+        await db.execute(
+            "UPDATE player_coin_short_positions_v1 SET outstanding_debt_units=? WHERE id=? AND status='open' RETURNING 1",
+            (remaining, str(position_id)),
+        )
+    result = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not result:
+        raise RuntimeError("Short position disappeared during repayment.")
+    return {"position": result, "repayments": repayments}
 
 
 async def get_short_reserve(db, *, coin_id: str, for_update: bool = False) -> dict | None:

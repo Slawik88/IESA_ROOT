@@ -1392,6 +1392,24 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
         ) == positions_before_rejected_short
+        async with db.connection.transaction():
+            partial_repayment = await repo.repay_short_loans(
+                db, position_id=opened_position["id"], units=1_000, close_position=False,
+            )
+        assert int(partial_repayment["position"]["outstanding_debt_units"]) == 2_000
+        assert sum(units for _, units in partial_repayment["repayments"]) == 1_000
+        assert int((await repo.get_lending_position(
+            db, coin_id=short_coin["id"], lender_id=4,
+        ))["available_units"]) == 9_334
+        async with db.connection.transaction():
+            final_repayment = await repo.repay_short_loans(
+                db, position_id=opened_position["id"], units=2_000, close_position=True,
+            )
+        assert final_repayment["position"]["status"] == "closed"
+        assert int(final_repayment["position"]["outstanding_debt_units"]) == 0
+        assert await conn.fetchval(
+            "SELECT SUM(outstanding_units) FROM player_coin_short_loans_v1 WHERE position_id=$1", opened_position["id"],
+        ) == 0
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",

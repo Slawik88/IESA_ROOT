@@ -115,6 +115,31 @@ def pro_rata_lender_allocations(*, requested_units: int,
     return [(lender_id, units) for lender_id, units in result if units]
 
 
+def pro_rata_loan_repayments(*, requested_units: int,
+                              loans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Return borrower-bought units to lenders proportionally and deterministically."""
+    requested = int(requested_units)
+    clean = [(int(lender_id), int(outstanding)) for lender_id, outstanding in loans]
+    if requested <= 0 or any(lender_id <= 0 or outstanding < 0 for lender_id, outstanding in clean):
+        raise ShortsPolicyError("Invalid loan repayment.")
+    if len({lender_id for lender_id, _ in clean}) != len(clean):
+        raise ShortsPolicyError("Loan repayment contains a duplicate lender.")
+    total = sum(outstanding for _, outstanding in clean)
+    if requested > total:
+        raise ShortsPolicyError("Loan repayment exceeds outstanding principal.")
+    base = [(lender_id, outstanding * requested // total, outstanding * requested % total)
+            for lender_id, outstanding in clean if outstanding]
+    allocated = sum(units for _, units, _ in base)
+    remainder = requested - allocated
+    winners = {
+        lender_id for lender_id, _, _ in sorted(base, key=lambda row: (-row[2], row[0]))[:remainder]
+    }
+    result = [(lender_id, units + (1 if lender_id in winners else 0)) for lender_id, units, _ in base]
+    if sum(units for _, units in result) != requested or any(units < 0 for _, units in result):
+        raise ShortsPolicyError("Loan repayment invariant failed.")
+    return [(lender_id, units) for lender_id, units in result if units]
+
+
 def pool_utilisation_bps(*, lending_pool_units: int, borrowed_units: int) -> int:
     capacity = usable_lending_capacity_units(lending_pool_units)
     borrowed = int(borrowed_units)
