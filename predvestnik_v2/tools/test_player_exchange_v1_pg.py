@@ -198,6 +198,26 @@ async def main(dsn: str):
                 "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
                 "VALUES('short-foundation-loan',$1,'short-foundation-position',8,100,100)", launched["id"],
             )
+        await conn.execute(
+            "INSERT INTO player_coin_orders_v1"
+            "(id,coin_id,user_id,actor_kind,short_position_id,action_id,side,time_in_force,"
+            "limit_price_micromora,original_units,remaining_units,reserved_mora,status,closed_at) "
+            "VALUES('short-foundation-sale',$1,9,'short','short-foundation-position',"
+            "'short-foundation-sale','sell','ioc',100,100,0,0,'filled',NOW())",
+            launched["id"],
+        )
+        try:
+            await conn.execute(
+                "INSERT INTO player_coin_orders_v1"
+                "(id,coin_id,user_id,actor_kind,short_position_id,action_id,side,time_in_force,"
+                "limit_price_micromora,original_units,remaining_units,reserved_mora) "
+                "VALUES('short-foundation-invalid',$1,9,'player','short-foundation-position',"
+                "'short-foundation-invalid','sell','ioc',100,100,100,0)",
+                launched["id"],
+            )
+            raise AssertionError("player order was allowed to bind a Shorts position")
+        except asyncpg.CheckViolationError:
+            pass
         try:
             await conn.execute(
                 "INSERT INTO player_coin_short_frozen_claims_v1"

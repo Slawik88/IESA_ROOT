@@ -9,7 +9,7 @@ from uuid import uuid4
 from core.player_exchange_shorts_v1 import pro_rata_lender_allocations
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v13-shorts-foundation-2026-10-05"
+SCHEMA_VERSION = "player-exchange-schema-v14-shorts-atomic-sale-foundation-2026-10-05"
 
 
 async def ensure_tables(db) -> None:
@@ -122,8 +122,9 @@ async def ensure_tables(db) -> None:
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             user_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
-            actor_kind TEXT NOT NULL DEFAULT 'player' CHECK (actor_kind IN ('player','treasury')),
+            actor_kind TEXT NOT NULL DEFAULT 'player' CHECK (actor_kind IN ('player','treasury','short')),
             treasury_token_bucket TEXT NULL CHECK (treasury_token_bucket IN ('treasury','market_reserve')),
+            short_position_id TEXT NULL,
             action_id TEXT NOT NULL,
             side TEXT NOT NULL CHECK (side IN ('buy','sell')),
             time_in_force TEXT NOT NULL CHECK (time_in_force IN ('gtc','ioc')),
@@ -150,12 +151,14 @@ async def ensure_tables(db) -> None:
         "ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS treasury_token_bucket TEXT NULL "
         "CHECK (treasury_token_bucket IN ('treasury','market_reserve'))"
     )
+    await db.execute("ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS short_position_id TEXT NULL")
     await db.execute("""
         DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_order_actor_kind_v1') THEN
-                ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_actor_kind_v1
-                CHECK (actor_kind IN ('player','treasury'));
-            END IF;
+            ALTER TABLE player_coin_orders_v1
+                DROP CONSTRAINT IF EXISTS ck_player_coin_order_actor_kind_v1,
+                DROP CONSTRAINT IF EXISTS player_coin_orders_v1_actor_kind_check;
+            ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_actor_kind_v1
+                CHECK (actor_kind IN ('player','treasury','short'));
         END $$
     """)
     await db.execute(
@@ -185,10 +188,12 @@ async def ensure_tables(db) -> None:
     await db.execute("ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS seller_kind TEXT NOT NULL DEFAULT 'player'")
     await db.execute("""
         DO $$ BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_trade_actor_kinds_v1') THEN
-                ALTER TABLE player_coin_trades_v1 ADD CONSTRAINT ck_player_coin_trade_actor_kinds_v1
-                CHECK (buyer_kind IN ('player','treasury') AND seller_kind IN ('player','treasury'));
-            END IF;
+            ALTER TABLE player_coin_trades_v1
+                DROP CONSTRAINT IF EXISTS ck_player_coin_trade_actor_kinds_v1,
+                DROP CONSTRAINT IF EXISTS player_coin_trades_v1_buyer_kind_check,
+                DROP CONSTRAINT IF EXISTS player_coin_trades_v1_seller_kind_check;
+            ALTER TABLE player_coin_trades_v1 ADD CONSTRAINT ck_player_coin_trade_actor_kinds_v1
+                CHECK (buyer_kind IN ('player','treasury') AND seller_kind IN ('player','treasury','short'));
         END $$
     """)
     await db.execute("""
@@ -379,6 +384,26 @@ async def ensure_tables(db) -> None:
             CHECK ((status IN ('open','closing') AND outstanding_debt_units>0 AND closed_at IS NULL) OR
                    (status IN ('closed','frozen') AND outstanding_debt_units=0 AND closed_at IS NOT NULL))
         )
+    """)
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS collateral_operation_id TEXT NULL "
+        "UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT"
+    )
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_player_coin_order_short_position_v1') THEN
+                ALTER TABLE player_coin_orders_v1
+                    ADD CONSTRAINT fk_player_coin_order_short_position_v1
+                    FOREIGN KEY (short_position_id) REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT;
+            END IF;
+            ALTER TABLE player_coin_orders_v1 DROP CONSTRAINT IF EXISTS ck_player_coin_order_short_binding_v1;
+            ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_short_binding_v1 CHECK (
+                (actor_kind='short' AND short_position_id IS NOT NULL AND side='sell'
+                 AND time_in_force='ioc' AND reserved_mora=0 AND reserve_operation_id IS NULL)
+                OR
+                (actor_kind<>'short' AND short_position_id IS NULL)
+            );
+        END $$
     """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_short_loans_v1 (
@@ -1021,6 +1046,102 @@ async def get_lending_position(db, *, coin_id: str, lender_id: int, for_update: 
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def get_short_position_by_action(db, *, borrower_id: int, action_id: str, for_update: bool = False):
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_short_positions_v1 WHERE borrower_id=? AND action_id=?" + suffix,
+        (int(borrower_id), str(action_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def get_short_reserve(db, *, coin_id: str, for_update: bool = False) -> dict | None:
+    suffix = " FOR UPDATE" if for_update else ""
+    async with db.execute(
+        "SELECT * FROM player_coin_short_reserves_v1 WHERE coin_id=?" + suffix, (str(coin_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def short_pool_state(db, *, coin_id: str, borrower_id: int) -> dict:
+    """Locked caller gets the pool and this borrower's active debt in token units."""
+    async with db.execute(
+        "SELECT COALESCE(SUM(available_units+loaned_units+frozen_units),0),"
+        "COALESCE(SUM(loaned_units),0),COALESCE(SUM(available_units),0) "
+        "FROM player_coin_lending_positions_v1 WHERE coin_id=?",
+        (str(coin_id),),
+    ) as cursor:
+        pool = await cursor.fetchone()
+    async with db.execute(
+        "SELECT COALESCE(SUM(outstanding_debt_units),0) FROM player_coin_short_positions_v1 "
+        "WHERE coin_id=? AND borrower_id=? AND status IN ('open','closing')",
+        (str(coin_id), int(borrower_id)),
+    ) as cursor:
+        borrower = await cursor.fetchone()
+    return {
+        "lending_pool_units": int(pool[0]),
+        "already_borrowed_units": int(pool[1]),
+        "available_units": int(pool[2]),
+        "borrower_debt_units": int(borrower[0]),
+    }
+
+
+async def eligible_short_sell_bids(db, *, coin_id: str, borrower_id: int,
+                                   owner_id: int, limit_price: int) -> list[dict]:
+    """Lock only bids that a protected Short is allowed to consume.
+
+    Owner, treasury, borrower and recent dual-signal owner-linked bids are
+    excluded before depth is calculated.  This is deliberately not the public
+    order book: its rows must stay untouched when they are ineligible.
+    """
+    async with db.execute("""
+        SELECT o.*
+        FROM player_coin_orders_v1 o
+        WHERE o.coin_id=? AND o.status='open' AND o.side='buy' AND o.remaining_units>0
+          AND o.actor_kind='player' AND o.limit_price_micromora>=?
+          AND o.user_id<>? AND o.user_id<>?
+          AND NOT EXISTS (
+              SELECT 1 FROM user_login_signals a JOIN user_login_signals b
+              ON a.kind=b.kind AND a.value_hash=b.value_hash
+              WHERE a.user_id=o.user_id AND b.user_id=? AND a.kind IN ('ip','fp')
+                AND a.hits>=2 AND b.hits>=2 AND a.last_seen>=NOW()-INTERVAL '30 days'
+                AND b.last_seen>=NOW()-INTERVAL '30 days'
+              GROUP BY a.user_id HAVING COUNT(DISTINCT a.kind)=2
+          )
+        ORDER BY o.limit_price_micromora DESC,o.created_at,o.id
+        FOR UPDATE
+    """, (str(coin_id), int(limit_price), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def create_short_position(db, *, position_id: str, coin_id: str, borrower_id: int,
+                                action_id: str, units: int, collateral_mora: Decimal,
+                                collateral_operation_id: str) -> dict:
+    async with db.execute(
+        "INSERT INTO player_coin_short_positions_v1"
+        "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+        "posted_collateral_mora,locked_sale_proceeds_mora,collateral_operation_id) "
+        "VALUES(?,?,? ,?,'open',?,?,?,0,?) RETURNING *",
+        (str(position_id), str(coin_id), int(borrower_id), str(action_id), int(units), int(units),
+         Decimal(collateral_mora), str(collateral_operation_id)),
+    ) as cursor:
+        return dict(await cursor.fetchone())
+
+
+async def credit_short_sale_proceeds(db, *, position_id: str, amount: Decimal) -> dict:
+    async with db.execute(
+        "UPDATE player_coin_short_positions_v1 SET locked_sale_proceeds_mora="
+        "locked_sale_proceeds_mora+(?::numeric) WHERE id=? AND status='open' RETURNING *",
+        (Decimal(amount), str(position_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise RuntimeError("Short sale proceeds cannot be credited to a closed position.")
+    return dict(row)
 
 
 async def allocate_lending_units(db, *, coin_id: str, position_id: str, units: int) -> list[dict]:
