@@ -1194,6 +1194,20 @@ async def main(dsn: str):
         assert int((await repo.get_player_coin_account(
             db, coin_id=launched["id"], user_id=8,
         ))["available_units"]) == lender_tokens_before - 6_000
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora) "
+                "VALUES('short-allocation-position',$1,9,'short-allocation-open','open',4000,4000,8,4)",
+                launched["id"],
+            )
+            allocation = await repo.allocate_lending_units(
+                db, coin_id=launched["id"], position_id="short-allocation-position", units=4_000,
+            )
+        assert [(row["lender_id"], row["principal_units"]) for row in allocation] == [(8, 4_000)]
+        allocated_lender = await repo.get_lending_position(db, coin_id=launched["id"], lender_id=8)
+        assert int(allocated_lender["available_units"]) == 2_000 and int(allocated_lender["loaned_units"]) == 4_000
         await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
         await db.commit()
         try:

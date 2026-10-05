@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
+from core.player_exchange_shorts_v1 import pro_rata_lender_allocations
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
 SCHEMA_VERSION = "player-exchange-schema-v13-shorts-foundation-2026-10-05"
@@ -1020,6 +1021,39 @@ async def get_lending_position(db, *, coin_id: str, lender_id: int, for_update: 
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def allocate_lending_units(db, *, coin_id: str, position_id: str, units: int) -> list[dict]:
+    """Allocate one loan from free lender balances under the shared Spot lock."""
+    async with db.execute(
+        "SELECT lender_id,available_units FROM player_coin_lending_positions_v1 "
+        "WHERE coin_id=? AND available_units>0 ORDER BY created_at,lender_id FOR UPDATE",
+        (str(coin_id),),
+    ) as cursor:
+        lenders = [dict(row) for row in await cursor.fetchall()]
+    allocations = pro_rata_lender_allocations(
+        requested_units=int(units),
+        lenders=[(int(row["lender_id"]), int(row["available_units"])) for row in lenders],
+    )
+    records = []
+    for lender_id, allocated_units in allocations:
+        await db.execute(
+            "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-?,"
+            "loaned_units=loaned_units+?,updated_at=NOW() WHERE coin_id=? AND lender_id=? "
+            "AND available_units>=?",
+            (int(allocated_units), int(allocated_units), str(coin_id), int(lender_id), int(allocated_units)),
+        )
+        loan_id = uuid4().hex
+        async with db.execute(
+            "INSERT INTO player_coin_short_loans_v1"
+            "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+            "VALUES(?,?,?,?,?,?) RETURNING *",
+            (loan_id, str(coin_id), str(position_id), int(lender_id), int(allocated_units), int(allocated_units)),
+        ) as cursor:
+            records.append(dict(await cursor.fetchone()))
+    if sum(int(row["principal_units"]) for row in records) != int(units):
+        raise RuntimeError("Short loan allocation invariant failed.")
+    return records
 
 
 async def move_player_units_to_lending(db, *, coin_id: str, lender_id: int, units: int) -> dict:
