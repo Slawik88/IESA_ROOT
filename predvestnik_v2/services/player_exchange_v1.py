@@ -355,6 +355,7 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
             db, position_id=position_id, coin_id=str(coin_id), borrower_id=int(user_id),
             action_id=str(action_id), units=units, collateral_mora=collateral,
             collateral_operation_id=str(collateral_mutation.operation_id), open_apr_bps=opening_apr_bps,
+            interest_mark_price_micromora=int(mark),
         )
         await repo.change_short_cash_escrow(
             db, position_id=position_id, amount=collateral, source_type="collateral",
@@ -417,6 +418,242 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
                      "locked_sale_proceeds_mora": str(proceeds_total)},
         )
         return {"position": position, "order_id": str(order["id"]), "replayed": False}
+
+
+async def _short_close_replay(db, *, user_id: int, position_id: str, action_id: str,
+                              requested_units: int) -> dict | None:
+    event = await repo.get_short_event_by_action(db, action_id=str(action_id))
+    if not event:
+        return None
+    payload = event["payload_json"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    if (event["event_type"] not in {"short_reduced", "short_closed"}
+            or int(event["actor_id"] or 0) != int(user_id)
+            or str(payload.get("position_id")) != str(position_id)
+            or int(payload.get("units", -1)) != int(requested_units)):
+        raise IdempotencyConflict("Action id is bound to another Shorts operation.")
+    position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+    if not position:
+        raise RuntimeError("Short close replay receipt has no position.")
+    return {"position": position, "order_id": payload.get("order_id"), "replayed": True}
+
+
+async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
+                          action_id: str) -> dict:
+    """Atomically reduce or close a Short against already-locked genuine asks.
+
+    This stays intentionally service-only.  Unlike an ordinary buy, its cash is
+    never reserved from a player wallet and the tokens never reach a player
+    account: escrow funds the fill and the exact units go straight back to the
+    lenders recorded on this position.
+    """
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    requested = int(units)
+    if requested <= 0 or not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректные параметры закрытия шорта.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        if not position or int(position["borrower_id"]) != int(user_id):
+            raise PlayerExchangePolicyError("Шорт не найден.")
+        replay = await _short_close_replay(
+            db, user_id=int(user_id), position_id=str(position_id), action_id=str(action_id),
+            requested_units=requested,
+        )
+        if replay:
+            return replay
+        if position["status"] != "open" or requested > int(position["outstanding_debt_units"]):
+            raise PlayerExchangePolicyError("Этот объём уже нельзя выкупить из шорта.")
+        coin = await repo.get_coin(db, str(position["coin_id"]), for_update=True)
+        if not coin or coin["status"] != "active":
+            raise PlayerExchangePolicyError("Рынок этой монеты сейчас недоступен для закрытия шорта.")
+        asks = await repo.eligible_short_buyback_asks(
+            db, coin_id=str(coin["id"]), borrower_id=int(user_id), owner_id=int(coin["owner_id"]),
+        )
+        buyback_limit = executable_buyback_limit_price(
+            units=requested,
+            asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+        )
+        if buyback_limit is None:
+            raise PlayerExchangePolicyError("В стакане нет полного защищённого предложения для выкупа шорта.")
+        remaining = requested
+        planned_charge = Decimal("0")
+        for sell in asks:
+            if remaining <= 0:
+                break
+            fill_units = min(remaining, int(sell["remaining_units"]))
+            gross = trade_notional(fill_units, int(sell["limit_price_micromora"]))
+            planned_charge += gross + trade_fee(gross, maker=False)
+            remaining -= fill_units
+        if remaining:
+            raise RuntimeError("Protected Short buyback depth changed after its locked preflight.")
+        # Closing stays available during the kill switch and a halt because it
+        # only reduces existing risk. Interest itself freezes unless there is a
+        # fresh, qualified conservative mark; it is never repriced from a lone
+        # close-side ask.
+        halt = await repo.market_halt(db, str(coin["id"]))
+        vwap = await repo.vwap_window(db, coin_id=str(coin["id"]), minutes=5)
+        current_mark = conservative_mark_price_micromora(
+            vwap_5m_micromora=vwap["vwap_price_micromora"], vwap_5m_volume_mora=vwap["volume_mora"],
+            executable_buyback_micromora=buyback_limit,
+        )
+        # An active halt is represented by a durable pause interval.  We still
+        # charge the active minutes immediately *before* that interval at the
+        # prior server mark, but never charge the halted minutes themselves.
+        # A missing qualified mark outside a halt freezes the clock entirely.
+        await repo.accrue_short_interest(
+            db, position_id=str(position_id), mark_price_micromora=current_mark,
+            charge_allowed=bool(halt["active"] or current_mark is not None),
+        )
+        position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        if not position:
+            raise RuntimeError("Short position disappeared during close.")
+        closing = requested == int(position["outstanding_debt_units"])
+        escrow = Decimal(position["cash_escrow_mora"])
+        accrued_interest = Decimal(position["accrued_interest_mora"])
+        if planned_charge > escrow:
+            raise PlayerExchangePolicyError("Escrow шорта не покрывает защищённый выкуп.")
+        if closing and planned_charge + accrued_interest > escrow:
+            raise PlayerExchangePolicyError(
+                "Полное закрытие пока не покрывает начисленные проценты; сначала уменьшите шорт."
+            )
+        # Interest receives only escrow that remains after the already locked
+        # principal buyback. This makes a partial close an unconditional
+        # risk-reducing route even for an underwater position.
+        await repo.settle_short_interest(
+            db, position_id=str(position_id), action_id=f"short-close-interest:{action_id}",
+            max_amount=escrow - planned_charge,
+        )
+        order = await repo.insert_order(
+            db, coin_id=str(coin["id"]), user_id=int(user_id), action_id=f"short-buyback:{action_id}",
+            side="buy", time_in_force="ioc", price=int(buyback_limit), units=requested,
+            reserved_mora=Decimal("0"), reserve_operation_id=None, actor_kind="short",
+            short_position_id=str(position_id),
+        )
+        remaining = requested
+        total_charge = Decimal("0")
+        shorts_reserve_enabled = await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY)
+        for sell in asks:
+            if remaining <= 0:
+                break
+            fill_units = min(remaining, int(sell["remaining_units"]))
+            price = int(sell["limit_price_micromora"])
+            gross = trade_notional(fill_units, price)
+            buyer_fee = trade_fee(gross, maker=False)
+            seller_fee = trade_fee(gross, maker=True)
+            buyer_charge = gross + buyer_fee
+            trade_id = uuid4().hex
+            buy_after = await repo.update_order_fill(
+                db, order_id=str(order["id"]), units=fill_units, mora_charge=Decimal("0"),
+            )
+            sell_after = await repo.update_order_fill(
+                db, order_id=str(sell["id"]), units=fill_units, mora_charge=Decimal("0"),
+            )
+            await repo.transfer_trade_tokens(
+                db, coin_id=str(coin["id"]), sell_order=sell, buy_order=order, units=fill_units,
+            )
+            await repo.change_short_cash_escrow(
+                db, position_id=str(position_id), amount=-buyer_charge, source_type="buyback_spend",
+                source_id=f"short-buyback:{trade_id}",
+            )
+            await economy_ledger.apply_balance_change(
+                db, int(sell["user_id"]), {"mora": gross - seller_fee},
+                reason_code="player_coin_trade_proceeds",
+                idempotency_key=f"player-coin:trade:{trade_id}", source_type="player_exchange",
+                reference_type="spot_trade", reference_id=trade_id,
+                metadata={"coin_id": str(coin["id"]), "units": fill_units,
+                          "price_micromora": price, "gross_mora": str(gross),
+                          "seller_fee_mora": str(seller_fee), "short_position_id": str(position_id)},
+                note=f"Выкуп шорта {coin['ticker']}",
+            )
+            await repo.record_trade(
+                db, trade_id=trade_id, coin_id=str(coin["id"]), buy_order=order, sell_order=sell,
+                units=fill_units, price=price, gross=gross, buyer_fee=buyer_fee, seller_fee=seller_fee,
+                shorts_reserve_enabled=shorts_reserve_enabled,
+            )
+            if sell_after["status"] == "filled":
+                # A filled sell has no Mora reserve and its token reserve was
+                # consumed by transfer_trade_tokens, so there is nothing else
+                # to release.
+                pass
+            if buy_after["status"] not in {"open", "filled"}:
+                raise RuntimeError("Protected Short buyback order entered an invalid state.")
+            total_charge += buyer_charge
+            remaining -= fill_units
+        if remaining:
+            raise RuntimeError("Protected Short buyback depth changed after its locked preflight.")
+        final_order = await repo.get_order(db, str(order["id"]), for_update=True)
+        if not final_order or final_order["status"] != "filled":
+            raise RuntimeError("Protected Short buyback did not reach terminal fill.")
+        repaid = await repo.repay_short_loans(
+            db, position_id=str(position_id), units=requested, close_position=closing,
+        )
+        final_position = repaid["position"]
+        borrower_release = Decimal("0")
+        if closing:
+            borrower_release = Decimal(final_position["cash_escrow_mora"])
+            if borrower_release > 0:
+                await repo.change_short_cash_escrow(
+                    db, position_id=str(position_id), amount=-borrower_release,
+                    source_type="borrower_release", source_id=f"short-close-release:{action_id}",
+                )
+                await economy_ledger.apply_balance_change(
+                    db, int(user_id), {"mora": borrower_release},
+                    reason_code="player_coin_short_collateral_release",
+                    idempotency_key=f"player-coin:short-release:{action_id}", source_type="player_exchange",
+                    reference_type="short_position", reference_id=str(position_id),
+                    metadata={"coin_id": str(coin["id"]), "position_id": str(position_id),
+                              "release_mora": str(borrower_release)},
+                    note=f"Возврат остатка залога шорта {coin['ticker']}",
+                )
+            final_position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        event_type = "short_closed" if closing else "short_reduced"
+        await repo.append_short_event(
+            db, coin_id=str(coin["id"]), actor_id=int(user_id), event_type=event_type,
+            action_id=str(action_id), payload={
+                "position_id": str(position_id), "order_id": str(order["id"]), "units": requested,
+                "buyback_limit_price_micromora": int(buyback_limit), "spent_mora": str(total_charge),
+                "borrower_release_mora": str(borrower_release),
+            },
+        )
+        return {"position": final_position, "order_id": str(order["id"]), "replayed": False}
+
+
+async def reduce_short(db, *, user_id: int, position_id: str, amount: str, action_id: str) -> dict:
+    """Buy back a strict part of an open Short; no collateral is released yet."""
+    return await _buy_back_short(
+        db, user_id=int(user_id), position_id=str(position_id), units=parse_token_amount(amount), action_id=str(action_id),
+    )
+
+
+async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> dict:
+    """Buy back every remaining unit and return only the verified escrow surplus."""
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    event = await repo.get_short_event_by_action(db, action_id=str(action_id))
+    if event:
+        payload = event["payload_json"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        position = await repo.get_short_position(db, position_id=str(position_id))
+        if (event["event_type"] != "short_closed" or int(event["actor_id"] or 0) != int(user_id)
+                or str(payload.get("position_id")) != str(position_id) or not position):
+            raise IdempotencyConflict("Action id is bound to another Shorts operation.")
+        return {"position": position, "order_id": payload.get("order_id"), "replayed": True}
+    position = await repo.get_short_position(db, position_id=str(position_id))
+    if not position or int(position["borrower_id"]) != int(user_id):
+        raise PlayerExchangePolicyError("Шорт не найден.")
+    # A replay is resolved inside _buy_back_short after the shared transaction
+    # guard.  A new close always binds to the debt observed immediately before
+    # it enters that transaction.
+    return await _buy_back_short(
+        db, user_id=int(user_id), position_id=str(position_id),
+        units=int(position["outstanding_debt_units"]), action_id=str(action_id),
+    )
 
 
 async def create_coin(

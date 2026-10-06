@@ -1393,21 +1393,31 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
         ) == positions_before_rejected_short
-        async with db.connection.transaction():
-            partial_repayment = await repo.repay_short_loans(
-                db, position_id=opened_position["id"], units=1_000, close_position=False,
-            )
+        partial_repayment = await service.reduce_short(
+            db, user_id=9, position_id=opened_position["id"], amount="1", action_id="short-reduce-0001",
+        )
+        assert partial_repayment["replayed"] is False
         assert int(partial_repayment["position"]["outstanding_debt_units"]) == 2_000
-        assert sum(units for _, units in partial_repayment["repayments"]) == 1_000
         assert int((await repo.get_lending_position(
             db, coin_id=short_coin["id"], lender_id=4,
         ))["available_units"]) == 9_334
-        async with db.connection.transaction():
-            final_repayment = await repo.repay_short_loans(
-                db, position_id=opened_position["id"], units=2_000, close_position=True,
-            )
+        borrower_before_close = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        )))
+        final_repayment = await service.close_short(
+            db, user_id=9, position_id=opened_position["id"], action_id="short-close-0001",
+        )
+        assert final_repayment["replayed"] is False
         assert final_repayment["position"]["status"] == "closed"
         assert int(final_repayment["position"]["outstanding_debt_units"]) == 0
+        assert Decimal(final_repayment["position"]["cash_escrow_mora"]) == 0
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        ))) > borrower_before_close
+        final_repayment_replay = await service.close_short(
+            db, user_id=9, position_id=opened_position["id"], action_id="short-close-0001",
+        )
+        assert final_repayment_replay["replayed"] is True
         assert await conn.fetchval(
             "SELECT SUM(outstanding_units) FROM player_coin_short_loans_v1 WHERE position_id=$1", opened_position["id"],
         ) == 0
@@ -1462,6 +1472,30 @@ async def main(dsn: str):
                 db, position_id="short-interest-position", action_id="short-interest-settle-0001",
             )
         assert interest_replay["settled_mora"] == 0
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_interest_claims_v1 SET amount_mora=0 "
+                "WHERE position_id='short-interest-position'"
+            )
+            raise AssertionError("Short interest claim was mutable")
+        except asyncpg.RaiseError:
+            pass
+        await conn.execute(
+            "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=NOW()-INTERVAL '3 minutes' "
+            "WHERE id='short-interest-position'"
+        )
+        await conn.execute(
+            "INSERT INTO player_coin_short_interest_pauses_v1"
+            "(id,coin_id,starts_at,ends_at,source_event_id) "
+            "VALUES('short-interest-pause',$1,NOW()-INTERVAL '4 minutes',NOW()+INTERVAL '4 minutes',"
+            "'short-interest-pause-event')",
+            short_coin["id"],
+        )
+        async with db.connection.transaction():
+            paused_interest = await repo.accrue_short_interest(
+                db, position_id="short-interest-position", mark_price_micromora=1_000_000,
+            )
+        assert paused_interest["minutes"] == 0 and paused_interest["accrued_mora"] == 0
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",

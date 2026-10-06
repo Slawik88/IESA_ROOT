@@ -12,7 +12,7 @@ from core.player_exchange_shorts_v1 import (
 )
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v16-shorts-interest-foundation-2026-10-05"
+SCHEMA_VERSION = "player-exchange-schema-v17-shorts-close-safety-2026-10-06"
 
 
 async def ensure_tables(db) -> None:
@@ -405,6 +405,14 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS open_apr_bps INTEGER NULL CHECK (open_apr_bps>=0)"
     )
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_mark_price_micromora BIGINT NULL "
+        "CHECK (interest_mark_price_micromora>0)"
+    )
+    await db.execute(
+        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_remainder_seconds INTEGER NOT NULL DEFAULT 0 "
+        "CHECK (interest_remainder_seconds>=0 AND interest_remainder_seconds<60)"
+    )
     await db.execute("""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_player_coin_order_short_position_v1') THEN
@@ -451,6 +459,17 @@ async def ensure_tables(db) -> None:
             CHECK (accrued_to>accrued_from)
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_interest_pauses_v1 (
+            id TEXT PRIMARY KEY,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            starts_at TIMESTAMPTZ NOT NULL,
+            ends_at TIMESTAMPTZ NOT NULL,
+            source_event_id TEXT NOT NULL UNIQUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            CHECK (ends_at>starts_at)
+        )
+    """)
     # A pre-v15 position can only be an isolated test/rehearsal row. Its old
     # counters are imported once, before the new append-only escrow journal is
     # used. New writer paths always append real collateral/proceeds receipts.
@@ -470,6 +489,21 @@ async def ensure_tables(db) -> None:
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_interest_accrual_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_interest_accruals_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION guard_player_coin_short_interest_claim_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            IF TG_OP='DELETE' THEN
+                RAISE EXCEPTION 'player_coin_short_interest_claims_v1 cannot be deleted';
+            END IF;
+            IF NEW.id<>OLD.id OR NEW.accrual_id<>OLD.accrual_id OR NEW.coin_id<>OLD.coin_id OR NEW.position_id<>OLD.position_id
+               OR NEW.loan_id<>OLD.loan_id OR NEW.lender_id<>OLD.lender_id OR NEW.amount_mora<>OLD.amount_mora
+               OR NEW.created_at<>OLD.created_at OR NEW.settled_mora<OLD.settled_mora THEN
+                RAISE EXCEPTION 'player_coin_short_interest_claims_v1 has an invalid mutation';
+            END IF;
+            RETURN NEW;
+        END $$
     """)
     await db.execute("""
         DO $$ BEGIN
@@ -510,6 +544,84 @@ async def ensure_tables(db) -> None:
             FOREIGN KEY (position_id,coin_id) REFERENCES player_coin_short_positions_v1(id,coin_id) ON DELETE RESTRICT,
             CHECK (principal_units=outstanding_units+repaid_units+frozen_units)
         )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_interest_claims_v1 (
+            id TEXT PRIMARY KEY,
+            accrual_id TEXT NOT NULL REFERENCES player_coin_short_interest_accruals_v1(id) ON DELETE RESTRICT,
+            coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
+            position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
+            loan_id TEXT NOT NULL,
+            lender_id BIGINT NOT NULL,
+            amount_mora NUMERIC(24,6) NOT NULL CHECK (amount_mora>0),
+            settled_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (settled_mora>=0 AND settled_mora<=amount_mora),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE(accrual_id,loan_id),
+            FOREIGN KEY (loan_id,coin_id,position_id,lender_id)
+                REFERENCES player_coin_short_loans_v1(id,coin_id,position_id,lender_id) ON DELETE RESTRICT
+        )
+    """)
+    await db.execute("ALTER TABLE player_coin_short_interest_claims_v1 ADD COLUMN IF NOT EXISTS coin_id TEXT NULL")
+    await db.execute("""
+        UPDATE player_coin_short_interest_claims_v1 c SET coin_id=p.coin_id
+        FROM player_coin_short_positions_v1 p WHERE p.id=c.position_id AND c.coin_id IS NULL
+    """)
+    await db.execute("ALTER TABLE player_coin_short_interest_claims_v1 ALTER COLUMN coin_id SET NOT NULL")
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_interest_claim_loan_identity_v1') THEN
+                ALTER TABLE player_coin_short_interest_claims_v1
+                    ADD CONSTRAINT fk_short_interest_claim_loan_identity_v1
+                    FOREIGN KEY (loan_id,coin_id,position_id,lender_id)
+                    REFERENCES player_coin_short_loans_v1(id,coin_id,position_id,lender_id) ON DELETE RESTRICT;
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_interest_claim_guard_v1'
+                AND tgrelid='player_coin_short_interest_claims_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_interest_claim_guard_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_interest_claims_v1
+                FOR EACH ROW EXECUTE FUNCTION guard_player_coin_short_interest_claim_v1();
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION assert_player_coin_short_interest_reconciliation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE position_key TEXT; expected NUMERIC; actual NUMERIC;
+        BEGIN
+            IF TG_TABLE_NAME='player_coin_short_positions_v1' THEN
+                position_key := COALESCE(NEW.id,OLD.id);
+            ELSE
+                position_key := COALESCE(NEW.position_id,OLD.position_id);
+            END IF;
+            SELECT accrued_interest_mora INTO expected FROM player_coin_short_positions_v1 WHERE id=position_key;
+            IF expected IS NULL THEN RETURN NULL; END IF;
+            SELECT COALESCE(SUM(amount_mora-settled_mora),0) INTO actual
+            FROM player_coin_short_interest_claims_v1 WHERE position_id=position_key;
+            IF expected<>actual THEN
+                RAISE EXCEPTION 'player_coin_short interest claims are inconsistent';
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE rel TEXT; trigger_name TEXT; BEGIN
+            FOREACH rel IN ARRAY ARRAY['player_coin_short_positions_v1','player_coin_short_interest_claims_v1'] LOOP
+                trigger_name := CASE WHEN rel='player_coin_short_positions_v1'
+                    THEN 'trg_short_interest_pos_v1' ELSE 'trg_short_interest_claim_v1' END;
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=trigger_name
+                               AND tgrelid=rel::regclass AND NOT tgisinternal) THEN
+                    EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                                   || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW '
+                                   || 'EXECUTE FUNCTION assert_player_coin_short_interest_reconciliation_v1()',
+                                   trigger_name, rel);
+                END IF;
+            END LOOP;
+        END $$
     """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_short_frozen_claims_v1 (
@@ -1220,50 +1332,92 @@ async def repay_short_loans(db, *, position_id: str, units: int, close_position:
     return {"position": result, "repayments": repayments}
 
 
-async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: int) -> dict:
-    """Accrue only whole elapsed server minutes, once, with an immutable receipt."""
+async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: int | None,
+                                charge_allowed: bool = True) -> dict:
+    """Accrue active whole minutes using a prior qualified mark snapshot.
+
+    A halt or a missing qualified mark advances the clock without charging it.
+    Explicit halt intervals are removed from elapsed wall time, and sub-minute
+    active time is carried in the position rather than silently rounded away.
+    """
     position = await get_short_position(db, position_id=str(position_id), for_update=True)
     if not position or position["status"] not in {"open", "closing"}:
         raise ValueError("short_position_not_open")
-    if int(mark_price_micromora) <= 0:
+    if mark_price_micromora is not None and int(mark_price_micromora) <= 0:
         raise ValueError("invalid_short_interest_mark")
     if position["last_interest_accrued_at"] is None or position["open_apr_bps"] is None:
         raise ValueError("short_interest_terms_missing")
+    accrued_from = position["last_interest_accrued_at"]
+    # Let PostgreSQL measure both wall time and overlapping pause unions.  The
+    # adapter intentionally normalizes datetimes, so doing this arithmetic
+    # after a Python round trip can shift an otherwise correct pause window.
     async with db.execute(
-        "SELECT (?::timestamptz)+(FLOOR(GREATEST(0,EXTRACT(EPOCH FROM "
-        "(NOW()-(?::timestamptz)))/60))::INTEGER * INTERVAL '1 minute'),"
-        "FLOOR(GREATEST(0,EXTRACT(EPOCH FROM (NOW()-(?::timestamptz)))/60))::INTEGER",
-        (position["last_interest_accrued_at"], position["last_interest_accrued_at"],
-         position["last_interest_accrued_at"]),
+        "SELECT NOW(), FLOOR(GREATEST(0, EXTRACT(EPOCH FROM (NOW()-p.last_interest_accrued_at)) - "
+        "COALESCE((SELECT SUM(EXTRACT(EPOCH FROM upper(r)-lower(r))) FROM unnest(("
+        "SELECT range_agg(tstzrange(GREATEST(h.starts_at,p.last_interest_accrued_at),LEAST(h.ends_at,NOW()),'[)')) "
+        "FROM player_coin_short_interest_pauses_v1 h WHERE h.coin_id=p.coin_id "
+        "AND h.ends_at>p.last_interest_accrued_at AND h.starts_at<NOW()"
+        ")) AS r),0)))::BIGINT "
+        "FROM player_coin_short_positions_v1 p WHERE p.id=? FOR UPDATE",
+        (str(position_id),),
     ) as cursor:
-        now, minutes = await cursor.fetchone()
-    minutes = int(minutes)
-    if minutes <= 0:
-        return {"position": position, "accrued_mora": Decimal("0"), "minutes": 0}
+        now, active_seconds = await cursor.fetchone()
+    active_seconds = int(active_seconds)
+    if not charge_allowed:
+        await db.execute(
+            "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=? WHERE id=?",
+            (now, str(position_id)),
+        )
+        result = await get_short_position(db, position_id=str(position_id), for_update=True)
+        return {"position": result, "accrued_mora": Decimal("0"), "minutes": 0}
+    mark = int(position["interest_mark_price_micromora"] or mark_price_micromora or 0)
+    if mark <= 0:
+        raise ValueError("short_interest_mark_missing")
+    total_seconds = active_seconds + int(position["interest_remainder_seconds"] or 0)
+    minutes, remainder_seconds = divmod(total_seconds, 60)
     amount = minute_interest_mora(
-        debt_units=int(position["outstanding_debt_units"]), mark_price_micromora=int(mark_price_micromora),
+        debt_units=int(position["outstanding_debt_units"]), mark_price_micromora=mark,
         apr_bps=int(position["open_apr_bps"]),
     ) * minutes
     amount = amount.quantize(Decimal("0.000001"))
-    accrued_from = position["last_interest_accrued_at"]
-    accrued_to = now
     if amount > 0:
+        accrual_id = uuid4().hex
         await db.execute(
             "INSERT INTO player_coin_short_interest_accruals_v1"
             "(id,position_id,accrued_from,accrued_to,minutes,apr_bps,mark_price_micromora,amount_mora) "
             "VALUES(?,?,?,?,?,?,?,?)",
-            (uuid4().hex, str(position_id), accrued_from, accrued_to, minutes,
-             int(position["open_apr_bps"]), int(mark_price_micromora), amount),
+            (accrual_id, str(position_id), accrued_from, now, minutes,
+             int(position["open_apr_bps"]), mark, amount),
         )
+        async with db.execute(
+            "SELECT id,lender_id,outstanding_units FROM player_coin_short_loans_v1 "
+            "WHERE position_id=? AND outstanding_units>0 ORDER BY lender_id,id FOR UPDATE",
+            (str(position_id),),
+        ) as cursor:
+            loans = [dict(row) for row in await cursor.fetchall()]
+        allocations = pro_rata_mora_allocations(
+            amount=amount, loans=[(int(row["lender_id"]), int(row["outstanding_units"])) for row in loans],
+        )
+        by_lender = dict(allocations)
+        for loan in loans:
+            allocation = by_lender.get(int(loan["lender_id"]), Decimal("0"))
+            if allocation > 0:
+                await db.execute(
+                    "INSERT INTO player_coin_short_interest_claims_v1"
+                    "(id,accrual_id,coin_id,position_id,loan_id,lender_id,amount_mora) VALUES(?,?,?,?,?,?,?)",
+                    (uuid4().hex, accrual_id, str(position["coin_id"]), str(position_id), str(loan["id"]),
+                     int(loan["lender_id"]), allocation),
+                )
         await db.execute(
             "UPDATE player_coin_short_positions_v1 SET accrued_interest_mora=accrued_interest_mora+(?::numeric),"
-            "last_interest_accrued_at=? WHERE id=?",
-            (amount, accrued_to, str(position_id)),
+            "last_interest_accrued_at=?,interest_remainder_seconds=?,interest_mark_price_micromora=? WHERE id=?",
+            (amount, now, remainder_seconds, int(mark_price_micromora or mark), str(position_id)),
         )
     else:
         await db.execute(
-            "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=? WHERE id=?",
-            (accrued_to, str(position_id)),
+            "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=?,interest_remainder_seconds=?,"
+            "interest_mark_price_micromora=? WHERE id=?",
+            (now, remainder_seconds, int(mark_price_micromora or mark), str(position_id)),
         )
     result = await get_short_position(db, position_id=str(position_id), for_update=True)
     if not result:
@@ -1271,8 +1425,9 @@ async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: i
     return {"position": result, "accrued_mora": amount, "minutes": minutes}
 
 
-async def settle_short_interest(db, *, position_id: str, action_id: str) -> dict:
-    """Pay accrued interest from a position's escrow to its live lenders exactly once."""
+async def settle_short_interest(db, *, position_id: str, action_id: str,
+                                max_amount: Decimal | None = None) -> dict:
+    """Pay accrued lender-specific claims from escrow, optionally only up to a cap."""
     # Keep the wallet writer as a late import: this repository owns the short
     # custody tables, while the canonical ledger owns player Mora balances.
     from infrastructure.repositories import economy_ledger
@@ -1280,39 +1435,61 @@ async def settle_short_interest(db, *, position_id: str, action_id: str) -> dict
     position = await get_short_position(db, position_id=str(position_id), for_update=True)
     if not position or position["status"] not in {"open", "closing"}:
         raise ValueError("short_position_not_open")
-    amount = Decimal(position["accrued_interest_mora"])
-    if amount <= 0:
+    accrued = Decimal(position["accrued_interest_mora"])
+    if accrued <= 0:
         return {"position": position, "allocations": [], "settled_mora": Decimal("0")}
     async with db.execute(
-        "SELECT lender_id,outstanding_units FROM player_coin_short_loans_v1 "
-        "WHERE position_id=? AND outstanding_units>0 ORDER BY lender_id FOR UPDATE",
+        "SELECT id,lender_id,amount_mora-settled_mora AS due_mora "
+        "FROM player_coin_short_interest_claims_v1 WHERE position_id=? AND amount_mora>settled_mora "
+        "ORDER BY created_at,id FOR UPDATE",
         (str(position_id),),
     ) as cursor:
-        loans = [dict(row) for row in await cursor.fetchall()]
-    allocations = pro_rata_mora_allocations(
-        amount=amount, loans=[(int(row["lender_id"]), int(row["outstanding_units"])) for row in loans],
-    )
+        claims = [dict(row) for row in await cursor.fetchall()]
+    due = sum((Decimal(row["due_mora"]) for row in claims), Decimal("0"))
+    if due != accrued:
+        raise RuntimeError("Short accrued-interest claim reconciliation failed.")
+    cap = accrued if max_amount is None else max(Decimal("0"), Decimal(max_amount))
+    amount = min(accrued, cap, Decimal(position["cash_escrow_mora"])).quantize(Decimal("0.000001"))
+    if amount <= 0:
+        return {"position": position, "allocations": [], "settled_mora": Decimal("0")}
+    remaining = amount
+    allocations = []
+    for claim in claims:
+        allocation = min(remaining, Decimal(claim["due_mora"]))
+        if allocation <= 0:
+            break
+        allocations.append((str(claim["id"]), int(claim["lender_id"]), allocation))
+        remaining -= allocation
+    if remaining:
+        raise RuntimeError("Short interest settlement allocation failed.")
     await change_short_cash_escrow(
         db, position_id=str(position_id), amount=-amount, source_type="interest_charge",
         source_id=f"short-interest-charge:{action_id}",
     )
-    for lender_id, allocation in allocations:
+    for claim_id, lender_id, allocation in allocations:
         await economy_ledger.apply_balance_change(
             db, int(lender_id), {"mora": allocation}, reason_code="player_coin_short_interest",
-            idempotency_key=f"player-coin:short-interest:{position_id}:{action_id}:{lender_id}",
+            idempotency_key=f"player-coin:short-interest:{position_id}:{action_id}:{claim_id}",
             source_type="player_exchange", reference_type="short_position", reference_id=str(position_id),
             metadata={"position_id": str(position_id), "settlement_action_id": str(action_id),
                       "interest_mora": str(allocation)},
             note="Проценты по пулу шорта",
         )
+        await db.execute(
+            "UPDATE player_coin_short_interest_claims_v1 SET settled_mora=settled_mora+(?::numeric) "
+            "WHERE id=? AND settled_mora+(?::numeric)<=amount_mora RETURNING 1",
+            (allocation, claim_id, allocation),
+        )
     await db.execute(
-        "UPDATE player_coin_short_positions_v1 SET accrued_interest_mora=0 WHERE id=? AND accrued_interest_mora=? RETURNING 1",
-        (str(position_id), amount),
+        "UPDATE player_coin_short_positions_v1 SET accrued_interest_mora=accrued_interest_mora-(?::numeric) "
+        "WHERE id=? AND accrued_interest_mora>=? RETURNING 1",
+        (amount, str(position_id), amount),
     )
     result = await get_short_position(db, position_id=str(position_id), for_update=True)
     if not result:
         raise RuntimeError("Short position disappeared during interest settlement.")
-    return {"position": result, "allocations": allocations, "settled_mora": amount}
+    return {"position": result, "allocations": [(lender_id, allocation) for _, lender_id, allocation in allocations],
+            "settled_mora": amount}
 
 
 async def get_short_reserve(db, *, coin_id: str, for_update: bool = False) -> dict | None:
@@ -1399,14 +1576,15 @@ async def eligible_short_buyback_asks(db, *, coin_id: str, borrower_id: int,
 
 async def create_short_position(db, *, position_id: str, coin_id: str, borrower_id: int,
                                 action_id: str, units: int, collateral_mora: Decimal,
-                                collateral_operation_id: str, open_apr_bps: int) -> dict:
+                                collateral_operation_id: str, open_apr_bps: int,
+                                interest_mark_price_micromora: int) -> dict:
     async with db.execute(
         "INSERT INTO player_coin_short_positions_v1"
         "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
-        "posted_collateral_mora,locked_sale_proceeds_mora,collateral_operation_id,last_interest_accrued_at,open_apr_bps) "
-        "VALUES(?,?,? ,?,'open',?,?,?,0,?,NOW(),?) RETURNING *",
+        "posted_collateral_mora,locked_sale_proceeds_mora,collateral_operation_id,last_interest_accrued_at,open_apr_bps,interest_mark_price_micromora) "
+        "VALUES(?,?,? ,?,'open',?,?,?,0,?,NOW(),?,?) RETURNING *",
         (str(position_id), str(coin_id), int(borrower_id), str(action_id), int(units), int(units),
-         Decimal(collateral_mora), str(collateral_operation_id), int(open_apr_bps)),
+         Decimal(collateral_mora), str(collateral_operation_id), int(open_apr_bps), int(interest_mark_price_micromora)),
     ) as cursor:
         return dict(await cursor.fetchone())
 
@@ -1672,7 +1850,12 @@ async def transfer_trade_tokens(db, *, coin_id: str, sell_order: dict, buy_order
         ) as cursor:
             if not await cursor.fetchone():
                 raise RuntimeError("Trade token reserve invariant failed.")
-    if buy_order.get("actor_kind") == "treasury":
+    if buy_order.get("actor_kind") == "short":
+        # A close-side Short never owns the bought token.  The atomic Shorts
+        # executor immediately returns it to the position's lenders.
+        if not buy_order.get("short_position_id"):
+            raise RuntimeError("Short buy lacks its position binding.")
+    elif buy_order.get("actor_kind") == "treasury":
         async with db.execute(
             "UPDATE player_coin_accounts_v1 SET available_units=available_units+?,updated_at=NOW() "
             "WHERE coin_id=? AND account_kind='treasury' RETURNING 1", (int(units), coin_id),
@@ -1926,6 +2109,7 @@ async def vwap_window(db, *, coin_id: str, minutes: int, offset_minutes: int = 0
 
 
 async def set_market_halt(db, *, coin_id: str, minutes: int, reason: str, reference_price: int) -> None:
+    halt_action_id = f"market-halt:{uuid4().hex}"
     await db.execute(
         "INSERT INTO player_coin_market_state_v1"
         "(coin_id,halted_until,halt_reason,halt_public_reason,halt_kind,halted_by,halt_reference_price_micromora,updated_at) "
@@ -1948,8 +2132,12 @@ async def set_market_halt(db, *, coin_id: str, minutes: int, reason: str, refere
         "updated_at=NOW()",
         (coin_id, int(minutes), reason, "Резкое изменение цены: торги временно приостановлены.", int(reference_price)),
     )
+    state = await market_halt(db, coin_id)
+    await record_short_interest_pause(
+        db, coin_id=str(coin_id), ends_at=state["halted_until"], source_event_id=halt_action_id,
+    )
     await append_event(db, coin_id=coin_id, actor_id=None, event_type="market_halted",
-                       action_id=f"market-halt:{uuid4().hex}", payload={
+                       action_id=halt_action_id, payload={
                            "minutes": int(minutes), "reason": reason,
                            "reference_price_micromora": int(reference_price),
                        })
@@ -1968,11 +2156,26 @@ async def set_manual_market_halt(
         "halt_kind='manual',halted_by=EXCLUDED.halted_by,halt_reference_price_micromora=NULL,updated_at=NOW()",
         (coin_id, int(minutes), public_reason, int(actor_id)),
     )
+    state = await market_halt(db, coin_id)
+    await record_short_interest_pause(
+        db, coin_id=str(coin_id), ends_at=state["halted_until"], source_event_id=str(action_id),
+    )
     await append_event(
         db, coin_id=coin_id, actor_id=int(actor_id), event_type="market_halted_manual",
         action_id=action_id, payload={"minutes": int(minutes), "public_reason": public_reason},
     )
-    return await market_halt(db, coin_id)
+    return state
+
+
+async def record_short_interest_pause(db, *, coin_id: str, ends_at, source_event_id: str) -> None:
+    """Persist every halt window so future interest excludes it even after resume."""
+    if ends_at is None:
+        return
+    await db.execute(
+        "INSERT INTO player_coin_short_interest_pauses_v1(id,coin_id,starts_at,ends_at,source_event_id) "
+        "SELECT ?,?,NOW(),?,? WHERE ? > NOW() ON CONFLICT(source_event_id) DO NOTHING",
+        (uuid4().hex, str(coin_id), ends_at, str(source_event_id), ends_at),
+    )
 
 
 async def public_order_book(db, coin_id: str, levels: int = 20) -> dict:
