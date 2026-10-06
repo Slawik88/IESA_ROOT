@@ -20,7 +20,8 @@ from core.player_exchange_v1 import (
 from core.player_exchange_shorts_v1 import (
     SHORTS_FEATURE_FLAG_KEY, conservative_mark_price_micromora,
     executable_buyback_limit_price, executable_sell_limit_price,
-    borrow_apr_bps, is_short_eligible, pool_utilisation_bps, required_initial_collateral_mora, short_limits_units,
+    borrow_apr_bps, frozen_claim_units_for_budget, is_short_eligible, pool_utilisation_bps,
+    required_initial_collateral_mora, short_limits_units,
     validate_short_open,
 )
 from core.economy_contract import IdempotencyConflict
@@ -654,6 +655,83 @@ async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> 
         db, user_id=int(user_id), position_id=str(position_id),
         units=int(position["outstanding_debt_units"]), action_id=str(action_id),
     )
+
+
+async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) -> dict:
+    """Server-only hourly, FIFO recovery for lender claims after an unrecoverable Short.
+
+    This deliberately does not require either public exchange flag: turning off a
+    market must never stop already-frozen lenders from receiving reserve-funded
+    recovery.  A halt or absent qualified mark simply performs no forced action.
+    """
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    limit = max(1, min(int(max_claims), 100))
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        coin = await repo.get_coin(db, str(coin_id), for_update=True)
+        if not coin:
+            raise PlayerExchangePolicyError("Монета не найдена.")
+        halt = await repo.market_halt(db, str(coin_id))
+        if halt["active"]:
+            return {"coin_id": str(coin_id), "status": "market_halted", "settled": []}
+        cycle = await repo.begin_frozen_claim_buyback_cycle(db, coin_id=str(coin_id))
+        claims = await repo.list_open_frozen_claims(db, coin_id=str(coin_id))
+        vwap = await repo.vwap_window(db, coin_id=str(coin_id), minutes=5)
+        settled: list[dict] = []
+        for claim in claims[:limit]:
+            remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
+            if remaining_budget <= 0:
+                break
+            asks = await repo.eligible_short_buyback_asks(
+                db, coin_id=str(coin_id), borrower_id=int(claim["borrower_id"]), owner_id=int(coin["owner_id"]),
+            )
+            executable = executable_buyback_limit_price(
+                units=int(claim["remaining_units"]),
+                asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+            )
+            mark = conservative_mark_price_micromora(
+                vwap_5m_micromora=vwap["vwap_price_micromora"], vwap_5m_volume_mora=vwap["volume_mora"],
+                executable_buyback_micromora=executable,
+            )
+            # Strict FIFO: a younger lender never receives a preferred recovery
+            # price while the oldest open claim has no qualified market mark.
+            if mark is None:
+                break
+            units = frozen_claim_units_for_budget(
+                remaining_units=int(claim["remaining_units"]), mark_price_micromora=mark,
+                budget_mora=remaining_budget,
+            )
+            if units <= 0:
+                break
+            payout = trade_notional(units, mark)
+            cycle_key = str(cycle["action_id"])
+            source_id = f"short-frozen-buyback:{coin_id}:{cycle_key}:{claim['id']}"
+            await economy_ledger.apply_balance_change(
+                db, int(claim["lender_id"]), {"mora": payout},
+                reason_code="player_coin_short_frozen_claim_buyback",
+                idempotency_key=f"player-coin:{source_id}", source_type="player_exchange",
+                reference_type="short_frozen_claim", reference_id=str(claim["id"]),
+                metadata={"coin_id": str(coin_id), "claim_id": str(claim["id"]), "units": units,
+                          "mark_price_micromora": mark, "cycle_hour": cycle_key},
+                note=f"Выкуп замороженного требования {coin['ticker']}",
+            )
+            updated = await repo.settle_frozen_claim_buyback(
+                db, claim_id=str(claim["id"]), cycle=cycle, units=units, payout_mora=payout,
+                source_id=source_id,
+            )
+            cycle["spent_mora"] = Decimal(cycle["spent_mora"]) + payout
+            await repo.append_short_event(
+                db, coin_id=str(coin_id), actor_id=None, event_type="frozen_claim_buyback",
+                action_id=source_id,
+                payload={"claim_id": str(claim["id"]), "lender_id": int(claim["lender_id"]), "units": units,
+                         "payout_mora": str(payout), "mark_price_micromora": mark, "cycle_hour": cycle_key},
+            )
+            settled.append({"claim_id": str(claim["id"]), "units": units, "payout_mora": payout,
+                            "remaining_units": int(updated["remaining_units"])})
+        return {"coin_id": str(coin_id), "status": "ok", "cycle_hour": cycle["cycle_hour"],
+                "budget_mora": Decimal(cycle["budget_mora"]), "spent_mora": Decimal(cycle["spent_mora"]),
+                "settled": settled}
 
 
 async def create_coin(

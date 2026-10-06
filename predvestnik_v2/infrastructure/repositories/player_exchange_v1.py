@@ -12,7 +12,7 @@ from core.player_exchange_shorts_v1 import (
 )
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v17-shorts-close-safety-2026-10-06"
+SCHEMA_VERSION = "player-exchange-schema-v18-frozen-claim-buyback-2026-10-06"
 
 
 async def ensure_tables(db) -> None:
@@ -658,6 +658,38 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE OR REPLACE FUNCTION guard_player_coin_short_frozen_claim_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            IF TG_OP='DELETE' THEN
+                RAISE EXCEPTION 'player_coin_short_frozen_claims_v1 is append-only';
+            END IF;
+            IF NEW.id<>OLD.id OR NEW.coin_id<>OLD.coin_id OR NEW.position_id<>OLD.position_id
+               OR NEW.loan_id<>OLD.loan_id OR NEW.lender_id<>OLD.lender_id
+               OR NEW.principal_units<>OLD.principal_units OR NEW.created_at<>OLD.created_at
+               OR NEW.remaining_units>OLD.remaining_units THEN
+                RAISE EXCEPTION 'player_coin_short frozen claim identity is immutable';
+            END IF;
+            IF OLD.status='settled' OR (NEW.status NOT IN ('open','settled'))
+               OR (NEW.status='open' AND (NEW.remaining_units<=0 OR NEW.settled_at IS NOT NULL))
+               OR (NEW.status='settled' AND (NEW.remaining_units<>0 OR NEW.settled_at IS NULL)) THEN
+                RAISE EXCEPTION 'invalid player_coin_short frozen claim settlement';
+            END IF;
+            RETURN NEW;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_frozen_claim_guard_v1'
+                AND tgrelid='player_coin_short_frozen_claims_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_frozen_claim_guard_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_frozen_claims_v1
+                FOR EACH ROW EXECUTE FUNCTION guard_player_coin_short_frozen_claim_v1();
+            END IF;
+        END $$
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_short_buyback_cycles_v1 (
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             cycle_hour TIMESTAMPTZ NOT NULL,
@@ -668,9 +700,38 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (coin_id,cycle_hour),
             CHECK (cycle_hour=date_trunc('hour',cycle_hour)),
-            CHECK (budget_mora=reserve_snapshot_mora*5/100),
+            CHECK (budget_mora=floor(reserve_snapshot_mora*5*1000000/100)/1000000),
             CHECK (spent_mora<=budget_mora)
         )
+    """)
+    await db.execute("""
+        ALTER TABLE player_coin_short_buyback_cycles_v1
+        DROP CONSTRAINT IF EXISTS player_coin_short_buyback_cycles_v1_check
+    """)
+    await db.execute("""
+        DO $$ DECLARE old_name TEXT; BEGIN
+            SELECT c.conname INTO old_name
+            FROM pg_constraint c
+            WHERE c.conrelid='player_coin_short_buyback_cycles_v1'::regclass AND c.contype='c'
+              AND pg_get_constraintdef(c.oid) LIKE '%budget_mora =%'
+              AND pg_get_constraintdef(c.oid) LIKE '%reserve_snapshot_mora%'
+            LIMIT 1;
+            IF old_name IS NOT NULL THEN
+                EXECUTE format('ALTER TABLE player_coin_short_buyback_cycles_v1 DROP CONSTRAINT %I', old_name);
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_short_buyback_cycle_budget_v1') THEN
+                ALTER TABLE player_coin_short_buyback_cycles_v1 ADD CONSTRAINT ck_short_buyback_cycle_budget_v1
+                CHECK (budget_mora=floor(reserve_snapshot_mora*5*1000000/100)/1000000);
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_short_buyback_cycle_hour_v1') THEN
+                ALTER TABLE player_coin_short_buyback_cycles_v1 ADD CONSTRAINT ck_short_buyback_cycle_hour_v1
+                CHECK (cycle_hour=date_trunc('hour',cycle_hour));
+            END IF;
+        END $$
     """)
     await db.execute(
         "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS buyback_cycle_hour TIMESTAMPTZ NULL"
@@ -771,6 +832,41 @@ async def ensure_tables(db) -> None:
                                    || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW '
                                    || 'EXECUTE FUNCTION assert_player_coin_short_reconciliation_v1()',
                                    'trg_short_reconcile_' || rel, rel);
+                END IF;
+            END LOOP;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION assert_player_coin_short_frozen_claim_reconciliation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE loan_key TEXT; expected BIGINT; actual BIGINT;
+        BEGIN
+            IF TG_TABLE_NAME='player_coin_short_loans_v1' THEN
+                loan_key := COALESCE(NEW.id,OLD.id);
+            ELSE
+                loan_key := COALESCE(NEW.loan_id,OLD.loan_id);
+            END IF;
+            SELECT frozen_units INTO expected FROM player_coin_short_loans_v1 WHERE id=loan_key;
+            IF expected IS NULL THEN RETURN NULL; END IF;
+            SELECT COALESCE(SUM(remaining_units),0) INTO actual
+              FROM player_coin_short_frozen_claims_v1 WHERE loan_id=loan_key;
+            IF expected<>actual THEN
+                RAISE EXCEPTION 'player_coin_short frozen claim custody is inconsistent';
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE rel TEXT; trigger_name TEXT; BEGIN
+            FOREACH rel IN ARRAY ARRAY['player_coin_short_loans_v1','player_coin_short_frozen_claims_v1'] LOOP
+                trigger_name := CASE WHEN rel='player_coin_short_loans_v1'
+                    THEN 'trg_short_frozen_loan_v1' ELSE 'trg_short_frozen_claim_reconcile_v1' END;
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=trigger_name
+                               AND tgrelid=rel::regclass AND NOT tgisinternal) THEN
+                    EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                                   || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW '
+                                   || 'EXECUTE FUNCTION assert_player_coin_short_frozen_claim_reconciliation_v1()',
+                                   trigger_name, rel);
                 END IF;
             END LOOP;
         END $$
@@ -2045,11 +2141,18 @@ async def credit_short_reserve(db, *, coin_id: str, amount: Decimal, source_type
 
 
 async def debit_short_reserve(db, *, coin_id: str, amount: Decimal, source_id: str,
-                              buyback_cycle_hour) -> None:
+                              buyback_cycle_action_id: str) -> None:
     """Spend an already-snapshotted claim-buyback budget; reserve never goes below zero."""
     value = Decimal(amount).quantize(Decimal("0.000001"))
     if value <= 0:
         raise ValueError("Short reserve debit must be positive.")
+    async with db.execute(
+        "SELECT * FROM player_coin_short_buyback_cycles_v1 WHERE coin_id=? AND action_id=? FOR UPDATE",
+        (str(coin_id), str(buyback_cycle_action_id)),
+    ) as cursor:
+        cycle = await cursor.fetchone()
+    if not cycle or Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"]) < value:
+        raise ValueError("short_reserve_buyback_budget_exhausted")
     async with db.execute(
         "SELECT available_mora FROM player_coin_short_reserves_v1 WHERE coin_id=? FOR UPDATE", (str(coin_id),)
     ) as cursor:
@@ -2063,12 +2166,103 @@ async def debit_short_reserve(db, *, coin_id: str, amount: Decimal, source_id: s
         (after, str(coin_id)),
     )
     await db.execute(
+        "UPDATE player_coin_short_buyback_cycles_v1 SET spent_mora=spent_mora+(?::numeric) "
+        "WHERE coin_id=? AND action_id=? AND spent_mora+(?::numeric)<=budget_mora RETURNING 1",
+        (value, str(coin_id), str(buyback_cycle_action_id), value),
+    )
+    await db.execute(
         "INSERT INTO player_coin_short_reserve_ledger_v1"
         "(id,coin_id,source_type,source_id,buyback_cycle_hour,delta_mora,balance_before,balance_after) "
-        "VALUES(?,?,?,?,?,?,?,?)",
-        (uuid4().hex, str(coin_id), "claim_buyback", str(source_id), buyback_cycle_hour,
-         -value, before, after),
+        "VALUES(?,?,?,? ,(SELECT cycle_hour FROM player_coin_short_buyback_cycles_v1 "
+        "WHERE coin_id=? AND action_id=?),?,?,?)",
+        (uuid4().hex, str(coin_id), "claim_buyback", str(source_id), str(coin_id),
+         str(buyback_cycle_action_id), -value, before, after),
     )
+
+
+async def begin_frozen_claim_buyback_cycle(db, *, coin_id: str) -> dict:
+    """Lock one UTC-hour reserve snapshot; later deposits never enlarge this hour."""
+    reserve = await get_short_reserve(db, coin_id=str(coin_id), for_update=True)
+    if not reserve:
+        raise RuntimeError("Shorts reserve is missing for coin.")
+    snapshot = Decimal(reserve["available_mora"]).quantize(Decimal("0.000001"))
+    await db.execute(
+        "INSERT INTO player_coin_short_buyback_cycles_v1"
+        "(coin_id,cycle_hour,reserve_snapshot_mora,budget_mora,action_id) "
+        "SELECT ?,date_trunc('hour',NOW()),?,floor(?::numeric*5*1000000/100)/1000000,"
+        "'short-frozen-buyback-cycle:' || ? || ':' || to_char(date_trunc('hour',NOW()),'YYYYMMDDHH24') "
+        "ON CONFLICT(coin_id,cycle_hour) DO NOTHING",
+        (str(coin_id), snapshot, snapshot, str(coin_id)),
+    )
+    async with db.execute(
+        "SELECT * FROM player_coin_short_buyback_cycles_v1 WHERE coin_id=? "
+        "AND cycle_hour=date_trunc('hour',NOW()) FOR UPDATE",
+        (str(coin_id),),
+    ) as cursor:
+        result = await cursor.fetchone()
+    if not result:
+        raise RuntimeError("Frozen claim buyback cycle disappeared.")
+    return dict(result)
+
+
+async def list_open_frozen_claims(db, *, coin_id: str) -> list[dict]:
+    async with db.execute(
+        "SELECT c.*,p.borrower_id FROM player_coin_short_frozen_claims_v1 c "
+        "JOIN player_coin_short_positions_v1 p ON p.id=c.position_id "
+        "WHERE c.coin_id=? AND c.status='open' ORDER BY c.created_at,c.id FOR UPDATE",
+        (str(coin_id),),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def settle_frozen_claim_buyback(db, *, claim_id: str, cycle: dict, units: int,
+                                      payout_mora: Decimal, source_id: str) -> dict:
+    """Convert part of an immutable token claim into Mora from its fixed-hour reserve budget."""
+    requested_units = int(units)
+    payout = Decimal(payout_mora).quantize(Decimal("0.000001"))
+    if requested_units <= 0 or payout <= 0:
+        raise ValueError("Frozen claim buyback must be positive.")
+    async with db.execute(
+        "SELECT * FROM player_coin_short_frozen_claims_v1 WHERE id=? FOR UPDATE", (str(claim_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("frozen_claim_not_found")
+    claim = dict(row)
+    if claim["status"] != "open" or requested_units > int(claim["remaining_units"]):
+        raise ValueError("frozen_claim_not_open")
+    if str(claim["coin_id"]) != str(cycle["coin_id"]):
+        raise ValueError("frozen_claim_wrong_coin")
+    available_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
+    if payout > available_budget:
+        raise ValueError("frozen_claim_cycle_budget_exceeded")
+    await debit_short_reserve(
+        db, coin_id=str(claim["coin_id"]), amount=payout, source_id=str(source_id),
+        buyback_cycle_action_id=str(cycle["action_id"]),
+    )
+    remaining = int(claim["remaining_units"]) - requested_units
+    status = "settled" if remaining == 0 else "open"
+    await db.execute(
+        "UPDATE player_coin_short_frozen_claims_v1 SET remaining_units=?,status=?,"
+        "settled_at=CASE WHEN ?='settled' THEN NOW() ELSE NULL END WHERE id=?",
+        (remaining, status, status, str(claim_id)),
+    )
+    await db.execute(
+        "UPDATE player_coin_short_loans_v1 SET frozen_units=frozen_units-?,repaid_units=repaid_units+?,"
+        "closed_at=CASE WHEN frozen_units-?=0 THEN NOW() ELSE closed_at END "
+        "WHERE id=? AND frozen_units>=?",
+        (requested_units, requested_units, requested_units, str(claim["loan_id"]), requested_units),
+    )
+    await db.execute(
+        "UPDATE player_coin_lending_positions_v1 SET frozen_units=frozen_units-?,updated_at=NOW() "
+        "WHERE coin_id=? AND lender_id=? AND frozen_units>=?",
+        (requested_units, str(claim["coin_id"]), int(claim["lender_id"]), requested_units),
+    )
+    async with db.execute("SELECT * FROM player_coin_short_frozen_claims_v1 WHERE id=?", (str(claim_id),)) as cursor:
+        result = await cursor.fetchone()
+    if not result:
+        raise RuntimeError("Frozen claim disappeared after buyback.")
+    return dict(result)
 
 
 async def freeze_short_position(db, *, position_id: str, action_id: str) -> dict:
@@ -2076,6 +2270,8 @@ async def freeze_short_position(db, *, position_id: str, action_id: str) -> dict
     position = await get_short_position(db, position_id=str(position_id), for_update=True)
     if not position or position["status"] not in {"open", "closing"}:
         raise ValueError("short_position_not_open")
+    if Decimal(position["accrued_interest_mora"]) != 0:
+        raise ValueError("short_position_unsettled_interest")
     async with db.execute(
         "SELECT * FROM player_coin_short_loans_v1 WHERE position_id=? AND outstanding_units>0 "
         "ORDER BY lender_id,id FOR UPDATE", (str(position_id),),

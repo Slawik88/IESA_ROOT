@@ -1496,6 +1496,25 @@ async def main(dsn: str):
                 db, position_id="short-interest-position", mark_price_micromora=1_000_000,
             )
         assert paused_interest["minutes"] == 0 and paused_interest["accrued_mora"] == 0
+        try:
+            async with db.connection.transaction():
+                await db.execute(
+                    "UPDATE player_coin_short_interest_pauses_v1 SET ends_at=NOW()-INTERVAL '3 minutes' "
+                    "WHERE id='short-interest-pause'"
+                )
+                await db.execute(
+                    "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=NOW()-INTERVAL '2 minutes',"
+                    "interest_remainder_seconds=0 WHERE id='short-interest-position'"
+                )
+                await repo.accrue_short_interest(
+                    db, position_id="short-interest-position", mark_price_micromora=1_000_000,
+                )
+                await repo.freeze_short_position(
+                    db, position_id="short-interest-position", action_id="short-freeze-unpaid-interest",
+                )
+            raise AssertionError("Frozen Short stranded unpaid interest")
+        except ValueError as exc:
+            assert str(exc) == "short_position_unsettled_interest"
         async with db.connection.transaction():
             frozen_position = await repo.freeze_short_position(
                 db, position_id="short-interest-position", action_id="short-freeze-0001",
@@ -1505,6 +1524,34 @@ async def main(dsn: str):
             "SELECT COUNT(*) FROM player_coin_short_frozen_claims_v1 WHERE position_id='short-interest-position'"
         ) == 1
         assert (await repo.get_short_reserve(db, coin_id=short_coin["id"]))["shorts_paused"] is True
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_frozen_claims_v1 SET remaining_units=0,status='settled',settled_at=NOW() "
+                "WHERE position_id='short-interest-position'"
+            )
+            raise AssertionError("Frozen claim could be settled without reserve buyback")
+        except asyncpg.RaiseError:
+            pass
+        await service.place_limit_order(
+            db, user_id=5, coin_id=short_coin["id"], side="sell", amount="10", limit_price_mora="1",
+            time_in_force="gtc", action_id="short-frozen-buyback-mark-ask",
+        )
+        frozen_lender_before = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
+        )))
+        frozen_buyback = await service.settle_frozen_short_claims(db, coin_id=short_coin["id"])
+        assert frozen_buyback["status"] == "ok" and len(frozen_buyback["settled"]) == 1
+        assert Decimal(frozen_buyback["spent_mora"]) <= Decimal(frozen_buyback["budget_mora"])
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
+        ))) > frozen_lender_before
+        frozen_claim = await conn.fetchrow(
+            "SELECT remaining_units,principal_units FROM player_coin_short_frozen_claims_v1 "
+            "WHERE position_id='short-interest-position'"
+        )
+        assert 0 < int(frozen_claim["remaining_units"]) < int(frozen_claim["principal_units"])
+        same_cycle = await service.settle_frozen_short_claims(db, coin_id=short_coin["id"])
+        assert Decimal(same_cycle["spent_mora"]) == Decimal(frozen_buyback["spent_mora"])
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",

@@ -209,6 +209,25 @@ def conservative_mark_price_micromora(*, vwap_5m_micromora: int | None,
     return max(vwap, buyback)
 
 
+def frozen_claim_units_for_budget(*, remaining_units: int, mark_price_micromora: int,
+                                  budget_mora: Decimal) -> int:
+    """Largest whole-token-unit claim slice payable within a six-decimal Mora budget."""
+    remaining = int(remaining_units)
+    budget = Decimal(str(budget_mora)).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+    if remaining <= 0 or int(mark_price_micromora) <= 0 or budget <= 0:
+        return 0
+    low, high, result = 1, remaining, 0
+    while low <= high:
+        middle = (low + high) // 2
+        cost = trade_notional(middle, int(mark_price_micromora))
+        if cost <= budget:
+            result = middle
+            low = middle + 1
+        else:
+            high = middle - 1
+    return result if result > 0 and trade_notional(result, int(mark_price_micromora)) > 0 else 0
+
+
 def required_initial_collateral_mora(*, debt_units: int, conservative_price_micromora: int) -> Decimal:
     """The server-only 200% cash collateral needed before a Short can open."""
     debt = trade_notional(int(debt_units), int(conservative_price_micromora))
