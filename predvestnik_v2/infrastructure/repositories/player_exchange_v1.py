@@ -1357,6 +1357,65 @@ async def player_recovery_state(
             "owned_coins": owned_coins}
 
 
+async def short_recovery_state(
+    db, *, user_id: int, limit: int = 50, lending_cursor=None,
+    positions_cursor=None, principal_cursor=None, interest_cursor=None,
+) -> dict:
+    """Owner-only Shorts state, including debt that survives a disabled flag."""
+    row_limit = max(1, min(int(limit), 100)) + 1
+    lc_time, lc_id = lending_cursor or (None, None)
+    async with db.execute(
+        "SELECT p.coin_id,c.name,c.ticker,c.status AS coin_status,p.available_units,"
+        "p.loaned_units,p.frozen_units,c.created_at "
+        "FROM player_coin_lending_positions_v1 p JOIN player_coins_v1 c ON c.id=p.coin_id "
+        "WHERE p.lender_id=? AND (p.available_units>0 OR p.loaned_units>0 OR p.frozen_units>0) "
+        "AND (?::text IS NULL OR (c.created_at,c.id)<((?::text)::timestamptz,?)) "
+        "ORDER BY c.created_at DESC,c.id DESC LIMIT ?",
+        (int(user_id), lc_time, lc_time, lc_id, row_limit),
+    ) as cursor:
+        lending = [dict(row) for row in await cursor.fetchall()]
+    pc_rank, pc_time, pc_id = positions_cursor or (None, None, None)
+    async with db.execute(
+        "SELECT p.id,p.coin_id,c.name,c.ticker,p.status,p.initial_debt_units,"
+        "p.outstanding_debt_units,p.posted_collateral_mora,p.locked_sale_proceeds_mora,"
+        "p.cash_escrow_mora,p.accrued_interest_mora,p.open_apr_bps,p.opened_at AS created_at,p.closed_at "
+        "FROM player_coin_short_positions_v1 p JOIN player_coins_v1 c ON c.id=p.coin_id "
+        "WHERE p.borrower_id=? AND (?::integer IS NULL OR "
+        "(CASE WHEN p.status IN ('open','closing') THEN 1 ELSE 0 END,p.opened_at,p.id)"
+        "<(?::integer,(?::text)::timestamptz,?)) "
+        "ORDER BY (p.status IN ('open','closing')) DESC,p.opened_at DESC,p.id DESC LIMIT ?",
+        (int(user_id), pc_rank, pc_rank, pc_time, pc_id, row_limit),
+    ) as cursor:
+        positions = [dict(row) for row in await cursor.fetchall()]
+    fc_rank, fc_time, fc_id = principal_cursor or (None, None, None)
+    async with db.execute(
+        "SELECT f.id,f.coin_id,c.name,c.ticker,f.position_id,f.status,f.principal_units,"
+        "f.remaining_units,f.created_at,f.settled_at "
+        "FROM player_coin_short_frozen_claims_v1 f JOIN player_coins_v1 c ON c.id=f.coin_id "
+        "WHERE f.lender_id=? AND (?::integer IS NULL OR "
+        "(CASE WHEN f.status='open' THEN 1 ELSE 0 END,f.created_at,f.id)"
+        "<(?::integer,(?::text)::timestamptz,?)) "
+        "ORDER BY (f.status='open') DESC,f.created_at DESC,f.id DESC LIMIT ?",
+        (int(user_id), fc_rank, fc_rank, fc_time, fc_id, row_limit),
+    ) as cursor:
+        principal_claims = [dict(row) for row in await cursor.fetchall()]
+    ic_rank, ic_time, ic_id = interest_cursor or (None, None, None)
+    async with db.execute(
+        "SELECT f.id,f.coin_id,c.name,c.ticker,f.position_id,f.status,f.principal_mora,"
+        "f.remaining_mora,f.created_at,f.settled_at "
+        "FROM player_coin_short_frozen_interest_claims_v1 f "
+        "JOIN player_coins_v1 c ON c.id=f.coin_id "
+        "WHERE f.lender_id=? AND (?::integer IS NULL OR "
+        "(CASE WHEN f.status='open' THEN 1 ELSE 0 END,f.created_at,f.id)"
+        "<(?::integer,(?::text)::timestamptz,?)) "
+        "ORDER BY (f.status='open') DESC,f.created_at DESC,f.id DESC LIMIT ?",
+        (int(user_id), ic_rank, ic_rank, ic_time, ic_id, row_limit),
+    ) as cursor:
+        interest_claims = [dict(row) for row in await cursor.fetchall()]
+    return {"lending": lending, "positions": positions,
+            "principal_claims": principal_claims, "interest_claims": interest_claims}
+
+
 async def get_coin(db, coin_id: str, *, for_update: bool = False):
     suffix = " FOR UPDATE" if for_update else ""
     async with db.execute("SELECT * FROM player_coins_v1 WHERE id=?" + suffix, (coin_id,)) as cursor:
@@ -1801,6 +1860,37 @@ async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: i
     return {"position": result, "accrued_mora": amount, "minutes": minutes}
 
 
+async def projected_short_interest(db, *, position: dict, transit_minutes: int = 1) -> Decimal:
+    """Read-only upper estimate for a confirmation made immediately after a quote."""
+    if position["last_interest_accrued_at"] is None or position["open_apr_bps"] is None:
+        return Decimal(position["accrued_interest_mora"])
+    mark = int(position["interest_mark_price_micromora"] or 0)
+    if mark <= 0:
+        return Decimal(position["accrued_interest_mora"])
+    async with db.execute(
+        "SELECT FLOOR(GREATEST(0, EXTRACT(EPOCH FROM (NOW()-p.last_interest_accrued_at)) - "
+        "COALESCE((SELECT SUM(EXTRACT(EPOCH FROM upper(r)-lower(r))) FROM unnest(("
+        "SELECT range_agg(tstzrange(GREATEST(h.starts_at,p.last_interest_accrued_at),LEAST(h.ends_at,NOW()),'[)')) "
+        "FROM player_coin_short_interest_pauses_v1 h WHERE h.coin_id=p.coin_id "
+        "AND h.ends_at>p.last_interest_accrued_at AND h.starts_at<NOW()"
+        ")) AS r),0)))::BIGINT "
+        "FROM player_coin_short_positions_v1 p WHERE p.id=?",
+        (str(position["id"]),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    seconds = int(row[0]) + int(position["interest_remainder_seconds"] or 0)
+    # One extra minute covers the quote-to-confirm transit. A longer pause may
+    # invalidate the bound, in which case the writer asks for a fresh quote.
+    minutes = seconds // 60 + max(0, int(transit_minutes))
+    return Decimal(position["accrued_interest_mora"]) + (
+        minute_interest_mora(
+            debt_units=int(position["outstanding_debt_units"]),
+            mark_price_micromora=mark,
+            apr_bps=int(position["open_apr_bps"]),
+        ) * minutes
+    ).quantize(Decimal("0.000001"))
+
+
 async def settle_short_interest(db, *, position_id: str, action_id: str,
                                 max_amount: Decimal | None = None) -> dict:
     """Pay accrued lender-specific claims from escrow, optionally only up to a cap."""
@@ -1901,14 +1991,15 @@ async def short_pool_state(db, *, coin_id: str, borrower_id: int) -> dict:
 
 
 async def eligible_short_sell_bids(db, *, coin_id: str, borrower_id: int,
-                                   owner_id: int, limit_price: int) -> list[dict]:
-    """Lock only bids that a protected Short is allowed to consume.
+                                   owner_id: int, limit_price: int,
+                                   lock: bool = True) -> list[dict]:
+    """Return only bids that a protected Short is allowed to consume.
 
     Owner, treasury, borrower and recent dual-signal owner-linked bids are
     excluded before depth is calculated.  This is deliberately not the public
     order book: its rows must stay untouched when they are ineligible.
     """
-    async with db.execute("""
+    query = """
         SELECT o.*
         FROM player_coin_orders_v1 o
         WHERE o.coin_id=? AND o.status='open' AND o.side='buy' AND o.remaining_units>0
@@ -1923,15 +2014,15 @@ async def eligible_short_sell_bids(db, *, coin_id: str, borrower_id: int,
               GROUP BY a.user_id HAVING COUNT(DISTINCT a.kind)=2
           )
         ORDER BY o.limit_price_micromora DESC,o.created_at,o.id
-        FOR UPDATE
-    """, (str(coin_id), int(limit_price), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
+    """ + (" FOR UPDATE" if lock else "")
+    async with db.execute(query, (str(coin_id), int(limit_price), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
 
 async def eligible_short_buyback_asks(db, *, coin_id: str, borrower_id: int,
-                                      owner_id: int) -> list[dict]:
-    """Lock genuine offers usable for the conservative opening buyback mark."""
-    async with db.execute("""
+                                      owner_id: int, lock: bool = True) -> list[dict]:
+    """Return genuine offers; executors lock rows, previews never do."""
+    query = """
         SELECT o.*
         FROM player_coin_orders_v1 o
         WHERE o.coin_id=? AND o.status='open' AND o.side='sell' AND o.remaining_units>0
@@ -1945,8 +2036,8 @@ async def eligible_short_buyback_asks(db, *, coin_id: str, borrower_id: int,
               GROUP BY a.user_id HAVING COUNT(DISTINCT a.kind)=2
           )
         ORDER BY o.limit_price_micromora,o.created_at,o.id
-        FOR UPDATE
-    """, (str(coin_id), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
+    """ + (" FOR UPDATE" if lock else "")
+    async with db.execute(query, (str(coin_id), int(borrower_id), int(owner_id), int(owner_id))) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
 
@@ -2083,6 +2174,42 @@ async def get_short_event_by_action(db, *, action_id: str):
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def recent_short_risk_marks(db, *, coin_id: str, limit: int = 20) -> list[dict]:
+    async with db.execute(
+        "SELECT DISTINCT ON (p.id) p.id AS position_id,c.ticker,"
+        "(e.payload_json->>'margin_bps')::integer AS marked_margin_bps,"
+        "e.payload_json->>'decision' AS marked_decision,e.created_at AS marked_at "
+        "FROM player_coin_short_events_v1 e "
+        "JOIN player_coin_short_positions_v1 p ON p.id=e.payload_json->>'position_id' "
+        "JOIN player_coins_v1 c ON c.id=p.coin_id "
+        "WHERE e.event_type='short_risk_marked' AND p.status='open' "
+        "AND p.coin_id=? AND e.created_at>=NOW()-INTERVAL '5 minutes' "
+        "ORDER BY p.id,e.created_at DESC LIMIT ?",
+        (str(coin_id), max(1, min(int(limit), 50))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def add_short_collateral(db, *, position_id: str, amount: Decimal,
+                               operation_id: str) -> dict:
+    """Bind an extra wallet debit to position collateral and cash custody."""
+    value = Decimal(amount).quantize(Decimal("0.000001"))
+    if value <= 0:
+        raise ValueError("Short collateral must be positive.")
+    async with db.execute(
+        "UPDATE player_coin_short_positions_v1 SET posted_collateral_mora="
+        "posted_collateral_mora+(?::numeric) WHERE id=? AND status='open' RETURNING id",
+        (value, str(position_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise ValueError("short_position_not_open")
+    return await change_short_cash_escrow(
+        db, position_id=str(position_id), amount=value,
+        source_type="collateral", source_id=str(operation_id),
+    )
 
 
 async def append_short_event(db, *, coin_id: str, actor_id: int | None, event_type: str,

@@ -21,9 +21,21 @@ if ($port -notmatch '^\d+$') {
 
 $pgBin = $env:PREDVESTNIK_PG_BIN
 if (-not $pgBin) {
-    $install = Get-ChildItem -LiteralPath "C:\Program Files\PostgreSQL" -Directory -ErrorAction SilentlyContinue |
-        Sort-Object { if ($_.Name -match '^\d+$') { [int]$_.Name } else { -1 } } -Descending |
-        Select-Object -First 1
+    $dataVersionFile = Join-Path $dataDir "PG_VERSION"
+    $dataVersion = if (Test-Path -LiteralPath $dataVersionFile) {
+        (Get-Content -LiteralPath $dataVersionFile -TotalCount 1).Trim()
+    } else { $null }
+    $installations = Get-ChildItem -LiteralPath "C:\Program Files\PostgreSQL" -Directory -ErrorAction SilentlyContinue
+    $install = if ($dataVersion) {
+        $installations | Where-Object { $_.Name -eq $dataVersion } | Select-Object -First 1
+    } else {
+        $installations |
+            Sort-Object { if ($_.Name -match '^\d+$') { [int]$_.Name } else { -1 } } -Descending |
+            Select-Object -First 1
+    }
+    if ($dataVersion -and -not $install) {
+        throw "PostgreSQL $dataVersion is required by the existing preprod data directory."
+    }
     if ($install) {
         $pgBin = Join-Path $install.FullName "bin"
     }

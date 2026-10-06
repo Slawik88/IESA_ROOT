@@ -79,6 +79,39 @@ class LiquidityAmountRequest(BaseModel):
     action_id: str = Field(min_length=8, max_length=128)
 
 
+class ShortCollateralRequest(BaseModel):
+    amount_mora: str = Field(min_length=1, max_length=32)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+class ShortUnitsRequest(BaseModel):
+    amount: str = Field(min_length=1, max_length=32)
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+class ShortOpenRequest(ShortUnitsRequest):
+    max_collateral_mora: str = Field(min_length=1, max_length=32)
+    min_sale_price_micromora: int = Field(gt=0)
+    max_apr_bps: int = Field(ge=0)
+
+
+class ShortActionRequest(BaseModel):
+    action_id: str = Field(min_length=8, max_length=128)
+
+
+class ShortCloseRequest(ShortActionRequest):
+    max_buyback_price_micromora: int = Field(gt=0)
+    max_escrow_debit_mora: str = Field(min_length=1, max_length=32)
+
+
+class ShortReduceRequest(ShortCloseRequest):
+    amount: str = Field(min_length=1, max_length=32)
+
+
+class ShortLiquidationRequest(ShortActionRequest):
+    pass
+
+
 @router.get("/me")
 async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
                             orders_cursor: str | None = None, bids_cursor: str | None = None,
@@ -98,6 +131,175 @@ async def my_exchange_state(limit: int = 50, holdings_cursor: str | None = None,
         raise HTTPException(404, str(exc)) from exc
     except PlayerExchangePolicyError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/shorts/me")
+async def my_short_state(limit: int = 50, lending_cursor: str | None = None,
+                         positions_cursor: str | None = None,
+                         principal_cursor: str | None = None,
+                         interest_cursor: str | None = None,
+                         db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.short_recovery_state(
+            db, user_id=int(user["id"]), limit=limit, lending_cursor=lending_cursor,
+            positions_cursor=positions_cursor, principal_cursor=principal_cursor,
+            interest_cursor=interest_cursor,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/shorts/coins/{coin_id}/liquidations")
+async def short_liquidation_candidates(coin_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return {"items": await service.short_liquidation_candidates(db, coin_id=coin_id)}
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/shorts/positions/{position_id}/liquidate")
+async def execute_short_liquidation(position_id: str, payload: ShortLiquidationRequest,
+                                    db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.liquidate_short(
+            db, executor_id=int(user["id"]), position_id=position_id, action_id=payload.action_id,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/shorts/positions/{position_id}/collateral")
+async def top_up_short_collateral(position_id: str, payload: ShortCollateralRequest,
+                                  db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.add_short_collateral(
+            db, user_id=int(user["id"]), position_id=position_id,
+            amount_mora=payload.amount_mora, action_id=payload.action_id,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/shorts/coins/{coin_id}/lending/deposit")
+async def deposit_short_lending(coin_id: str, payload: ShortUnitsRequest,
+                                db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.deposit_lending_units(
+            db, user_id=int(user["id"]), coin_id=coin_id,
+            amount=payload.amount, action_id=payload.action_id,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/shorts/coins/{coin_id}/lending/withdraw")
+async def withdraw_short_lending(coin_id: str, payload: ShortUnitsRequest,
+                                 db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.withdraw_lending_units(
+            db, user_id=int(user["id"]), coin_id=coin_id,
+            amount=payload.amount, action_id=payload.action_id,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.post("/shorts/coins/{coin_id}/positions")
+async def open_short_position(coin_id: str, payload: ShortOpenRequest,
+                              db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.open_short(
+            db, user_id=int(user["id"]), coin_id=coin_id,
+            amount=payload.amount, action_id=payload.action_id,
+            max_collateral_mora=payload.max_collateral_mora,
+            min_sale_price_micromora=payload.min_sale_price_micromora,
+            max_apr_bps=payload.max_apr_bps,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (PlayerExchangePolicyError, InsufficientBalance) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.get("/shorts/coins/{coin_id}/open-quote")
+async def quote_short_open(coin_id: str, amount: str,
+                           db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.short_open_quote(
+            db, user_id=int(user["id"]), coin_id=coin_id, amount=amount,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/shorts/positions/{position_id}/reduce")
+async def reduce_short_position(position_id: str, payload: ShortReduceRequest,
+                                db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.reduce_short(
+            db, user_id=int(user["id"]), position_id=position_id,
+            amount=payload.amount, action_id=payload.action_id,
+            max_buyback_price_micromora=payload.max_buyback_price_micromora,
+            max_escrow_debit_mora=payload.max_escrow_debit_mora,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
+
+
+@router.get("/shorts/positions/{position_id}/close-quote")
+async def quote_short_close(position_id: str, amount: str | None = None,
+                            db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.short_close_quote(
+            db, user_id=int(user["id"]), position_id=position_id, amount=amount,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/shorts/positions/{position_id}/close")
+async def close_short_position(position_id: str, payload: ShortCloseRequest,
+                               db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await service.close_short(
+            db, user_id=int(user["id"]), position_id=position_id, action_id=payload.action_id,
+            max_buyback_price_micromora=payload.max_buyback_price_micromora,
+            max_escrow_debit_mora=payload.max_escrow_debit_mora,
+        )
+    except service.PlayerExchangeUnavailable as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except PlayerExchangePolicyError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
 
 
 @router.get("/coins")

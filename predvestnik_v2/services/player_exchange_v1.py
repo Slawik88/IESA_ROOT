@@ -58,12 +58,94 @@ async def short_eligibility(db, *, coin_id: str) -> dict:
     }
 
 
+async def short_open_quote(db, *, user_id: int, coin_id: str, amount: str) -> dict:
+    """Non-binding admission and collateral preview for an authenticated borrower."""
+    await require_shorts_enabled(db)
+    units = parse_token_amount(amount)
+    coin = await repo.get_coin(db, str(coin_id))
+    if not coin or coin["status"] != "active":
+        raise PlayerExchangePolicyError("Шорт этой монеты сейчас недоступен.")
+    reserve = await repo.get_short_reserve(db, coin_id=str(coin_id))
+    if not reserve or reserve["shorts_paused"]:
+        raise PlayerExchangePolicyError("Шорты этой монеты остановлены до расчёта прежних требований.")
+    if (int(coin["owner_id"]) == int(user_id)
+            or await repo.bidder_has_shared_owner_signal(
+                db, bidder_id=int(user_id), owner_id=int(coin["owner_id"]),
+            )):
+        raise PlayerExchangePolicyError("Владелец монеты и связанные аккаунты не могут открывать шорт.")
+    if (await repo.market_halt(db, str(coin_id)))["active"]:
+        raise PlayerExchangePolicyError("Рынок временно остановлен: шорты не открываются.")
+    metrics = await repo.short_eligibility_metrics(db, coin_id=str(coin_id))
+    if not is_short_eligible(**metrics):
+        raise PlayerExchangePolicyError("Монета ещё не набрала безопасную историю для шортов.")
+    pool = await repo.short_pool_state(db, coin_id=str(coin_id), borrower_id=int(user_id))
+    try:
+        validate_short_open(
+            requested_units=units, circulating_units=int(coin["circulating_units"]),
+            lending_pool_units=pool["lending_pool_units"],
+            already_borrowed_units=pool["already_borrowed_units"],
+            actor_is_owner_or_linked=False,
+        )
+        per_player, aggregate_remaining = short_limits_units(
+            circulating_units=int(coin["circulating_units"]),
+            lending_pool_units=pool["lending_pool_units"],
+            already_borrowed_units=pool["already_borrowed_units"],
+        )
+    except ValueError as exc:
+        raise PlayerExchangePolicyError("Размер шорта не соответствует лимитам рынка.") from exc
+    if (pool["borrower_debt_units"] + units > per_player or units > aggregate_remaining
+            or units > pool["available_units"]):
+        raise PlayerExchangePolicyError("Недостаточно свободного пула или лимита для этого шорта.")
+    bids = await repo.eligible_short_sell_bids(
+        db, coin_id=str(coin_id), borrower_id=int(user_id),
+        owner_id=int(coin["owner_id"]), limit_price=1, lock=False,
+    )
+    sale_limit = executable_sell_limit_price(
+        units=units,
+        bids=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in bids],
+    )
+    if sale_limit is None or trade_notional(units, sale_limit) < Decimal("10"):
+        raise PlayerExchangePolicyError("В стакане нет полного защищённого спроса для этого шорта.")
+    asks = await repo.eligible_short_buyback_asks(
+        db, coin_id=str(coin_id), borrower_id=int(user_id),
+        owner_id=int(coin["owner_id"]), lock=False,
+    )
+    buyback_limit = executable_buyback_limit_price(
+        units=units,
+        asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+    )
+    vwap = await repo.vwap_window(db, coin_id=str(coin_id), minutes=5)
+    mark = conservative_mark_price_micromora(
+        vwap_5m_micromora=vwap["vwap_price_micromora"],
+        vwap_5m_volume_mora=vwap["volume_mora"], executable_buyback_micromora=buyback_limit,
+    )
+    if mark is None:
+        raise PlayerExchangePolicyError("Рынку не хватает свежей ликвидности для безопасной оценки шорта.")
+    collateral = required_initial_collateral_mora(
+        debt_units=units, conservative_price_micromora=mark,
+    )
+    opening_apr_bps = borrow_apr_bps(
+        utilisation_bps=pool_utilisation_bps(
+            lending_pool_units=pool["lending_pool_units"],
+            borrowed_units=pool["already_borrowed_units"] + units,
+        )
+    )
+    return {
+        "units": units, "collateral_mora": str(collateral),
+        "sale_limit_price_micromora": int(sale_limit),
+        "buyback_limit_price_micromora": int(buyback_limit),
+        "mark_price_micromora": int(mark), "open_apr_bps": int(opening_apr_bps),
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "notice": "Оценка по текущему стакану. Открытие атомарно проверит все лимиты и заблокирует залог с выручкой.",
+    }
+
+
 def _decode_recovery_cursor(value: str | None, *, kind: str):
     if not value:
         return None
     try:
         payload = json.loads(base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)))
-        expected_keys = {"k", "t", "i"} if kind in {"holdings", "coins"} else {"k", "r", "t", "i"}
+        expected_keys = {"k", "t", "i"} if kind in {"holdings", "coins", "lending"} else {"k", "r", "t", "i"}
         if not isinstance(payload, dict) or set(payload) != expected_keys or payload.get("k") != kind:
             raise ValueError
         row_id = payload.get("i")
@@ -75,7 +157,7 @@ def _decode_recovery_cursor(value: str | None, *, kind: str):
         timestamp = datetime.fromisoformat(raw_time)
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             raise ValueError
-        if kind in {"holdings", "coins"}:
+        if kind in {"holdings", "coins", "lending"}:
             return timestamp.isoformat(), row_id
         rank = payload.get("r")
         if isinstance(rank, bool) or not isinstance(rank, int) or rank not in {0, 1}:
@@ -88,8 +170,8 @@ def _decode_recovery_cursor(value: str | None, *, kind: str):
 def _encode_recovery_cursor(*, kind: str, row: dict) -> str:
     payload = {"k": kind, "t": row["created_at"].isoformat(),
                "i": str(row.get("id") or row["coin_id"])}
-    if kind not in {"holdings", "coins"}:
-        payload["r"] = 1 if row["status"] == "open" else 0
+    if kind not in {"holdings", "coins", "lending"}:
+        payload["r"] = 1 if row["status"] in ({"open", "closing"} if kind == "positions" else {"open"}) else 0
     return base64.urlsafe_b64encode(
         json.dumps(payload, separators=(",", ":")).encode()
     ).decode().rstrip("=")
@@ -132,6 +214,36 @@ async def player_recovery_state(
         "owned_coins": _recovery_page(state["owned_coins"], limit=page_limit, kind="coins"),
         "trading_enabled": bool(enabled),
         "can_cancel_open_orders": True,
+    }
+
+
+async def short_recovery_state(
+    db, *, user_id: int, limit: int = 50, lending_cursor: str | None = None,
+    positions_cursor: str | None = None, principal_cursor: str | None = None,
+    interest_cursor: str | None = None,
+) -> dict:
+    """Keep lender and borrower recovery visible when new Shorts are disabled."""
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Шорты временно недоступны: хранилище не готово.")
+    page_limit = max(1, min(int(limit), 100))
+    state = await repo.short_recovery_state(
+        db, user_id=int(user_id), limit=page_limit,
+        lending_cursor=_decode_recovery_cursor(lending_cursor, kind="lending"),
+        positions_cursor=_decode_recovery_cursor(positions_cursor, kind="positions"),
+        principal_cursor=_decode_recovery_cursor(principal_cursor, kind="principal_claims"),
+        interest_cursor=_decode_recovery_cursor(interest_cursor, kind="interest_claims"),
+    )
+    spot_enabled = bool(await system_flags.is_enabled(db, FEATURE_FLAG_KEY))
+    shorts_enabled = spot_enabled and bool(await system_flags.is_enabled(db, SHORTS_FEATURE_FLAG_KEY))
+    if not shorts_enabled and not any(state.values()):
+        raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
+    return {
+        "lending": _recovery_page(state["lending"], limit=page_limit, kind="lending"),
+        "positions": _recovery_page(state["positions"], limit=page_limit, kind="positions"),
+        "principal_claims": _recovery_page(state["principal_claims"], limit=page_limit, kind="principal_claims"),
+        "interest_claims": _recovery_page(state["interest_claims"], limit=page_limit, kind="interest_claims"),
+        "shorts_enabled": shorts_enabled,
+        "notice": "Монеты в frozen-claim не списаны, но временно заблокированы; дата возврата не гарантирована.",
     }
 
 
@@ -183,22 +295,21 @@ async def deposit_lending_units(db, *, user_id: int, coin_id: str, amount: str, 
 
 async def withdraw_lending_units(db, *, user_id: int, coin_id: str, amount: str, action_id: str) -> dict:
     """Withdraw only free lender units; loaned and frozen units cannot be withdrawn."""
-    await require_shorts_enabled(db)
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
     units = parse_token_amount(amount)
     if not 8 <= len(str(action_id)) <= 128:
         raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
     async with db.connection.transaction():
         await repo.lock_spot(db)
-        if not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY) or not await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY):
-            raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
         replay = await _lending_replay(
             db, user_id=user_id, coin_id=coin_id, action_id=action_id, event_type="lending_withdrawn", units=units,
         )
         if replay:
             return replay
         coin = await repo.get_coin(db, coin_id, for_update=True)
-        if not coin or coin["status"] != "active":
-            raise PlayerExchangePolicyError("Пул этой монеты пока недоступен.")
+        if not coin:
+            raise PlayerExchangePolicyError("Монета не найдена.")
         try:
             position = await repo.move_lending_units_to_player(
                 db, coin_id=coin_id, lender_id=int(user_id), units=units,
@@ -213,7 +324,9 @@ async def withdraw_lending_units(db, *, user_id: int, coin_id: str, amount: str,
 
 
 async def _short_open_replay(db, *, user_id: int, coin_id: str, action_id: str,
-                             units: int) -> dict | None:
+                             units: int, max_collateral_mora: Decimal | None = None,
+                             min_sale_price_micromora: int | None = None,
+                             max_apr_bps: int | None = None) -> dict | None:
     event = await repo.get_short_event_by_action(db, action_id=str(action_id))
     if not event:
         return None
@@ -221,7 +334,10 @@ async def _short_open_replay(db, *, user_id: int, coin_id: str, action_id: str,
     if isinstance(payload, str):
         payload = json.loads(payload)
     if (event["event_type"] != "short_opened" or int(event["actor_id"] or 0) != int(user_id)
-            or str(event["coin_id"]) != str(coin_id) or int(payload.get("units", -1)) != int(units)):
+            or str(event["coin_id"]) != str(coin_id) or int(payload.get("units", -1)) != int(units)
+            or payload.get("max_collateral_mora") != (str(max_collateral_mora) if max_collateral_mora is not None else None)
+            or payload.get("min_sale_price_micromora") != min_sale_price_micromora
+            or payload.get("max_apr_bps") != max_apr_bps):
         raise IdempotencyConflict("Action id is bound to another Shorts operation.")
     position = await repo.get_short_position_by_action(
         db, borrower_id=int(user_id), action_id=str(action_id), for_update=True,
@@ -258,7 +374,10 @@ async def _release_filled_buy_remainder(db, *, order: dict, coin_id: str) -> Non
     )
 
 
-async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: str) -> dict:
+async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: str,
+                     max_collateral_mora: str | None = None,
+                     min_sale_price_micromora: int | None = None,
+                     max_apr_bps: int | None = None) -> dict:
     """Open a fully-filled, position-bound Short or roll every write back.
 
     This writer deliberately has no HTTP or Mini App route yet.  Its only valid
@@ -267,6 +386,12 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
     """
     await require_shorts_enabled(db)
     units = parse_token_amount(amount)
+    collateral_ceiling = _parse_mora_amount(max_collateral_mora) if max_collateral_mora is not None else None
+    if min_sale_price_micromora is not None and (isinstance(min_sale_price_micromora, bool)
+                                                 or int(min_sale_price_micromora) <= 0):
+        raise PlayerExchangePolicyError("Некорректный предел цены продажи.")
+    if max_apr_bps is not None and (isinstance(max_apr_bps, bool) or int(max_apr_bps) < 0):
+        raise PlayerExchangePolicyError("Некорректный предел ставки займа.")
     if not 8 <= len(str(action_id)) <= 128:
         raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
     async with db.connection.transaction():
@@ -276,6 +401,8 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
             raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
         replay = await _short_open_replay(
             db, user_id=int(user_id), coin_id=str(coin_id), action_id=str(action_id), units=units,
+            max_collateral_mora=collateral_ceiling,
+            min_sale_price_micromora=min_sale_price_micromora, max_apr_bps=max_apr_bps,
         )
         if replay:
             return replay
@@ -344,6 +471,10 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
                 borrowed_units=pool["already_borrowed_units"] + units,
             )
         )
+        if (collateral_ceiling is not None and collateral > collateral_ceiling
+                or min_sale_price_micromora is not None and sale_limit < int(min_sale_price_micromora)
+                or max_apr_bps is not None and opening_apr_bps > int(max_apr_bps)):
+            raise PlayerExchangePolicyError("Условия шорта изменились. Получите новую котировку.")
         collateral_mutation = await economy_ledger.apply_balance_change(
             db, int(user_id), {"mora": -collateral}, reason_code="player_coin_short_collateral",
             idempotency_key=f"player-coin:short-collateral:{action_id}", source_type="player_exchange",
@@ -417,13 +548,17 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
             payload={"position_id": position_id, "order_id": str(order["id"]), "units": units,
                      "sale_limit_price_micromora": int(sale_limit), "mark_price_micromora": int(mark),
                      "collateral_mora": str(collateral), "gross_sale_mora": str(gross_total),
-                     "locked_sale_proceeds_mora": str(proceeds_total)},
+                     "locked_sale_proceeds_mora": str(proceeds_total),
+                     "max_collateral_mora": str(collateral_ceiling) if collateral_ceiling is not None else None,
+                     "min_sale_price_micromora": min_sale_price_micromora,
+                     "max_apr_bps": max_apr_bps},
         )
         return {"position": position, "order_id": str(order["id"]), "replayed": False}
 
 
 async def _short_close_replay(db, *, user_id: int, position_id: str, action_id: str,
-                              requested_units: int) -> dict | None:
+                              requested_units: int, max_buyback_price_micromora: int | None = None,
+                              max_escrow_debit_mora: Decimal | None = None) -> dict | None:
     event = await repo.get_short_event_by_action(db, action_id=str(action_id))
     if not event:
         return None
@@ -433,7 +568,11 @@ async def _short_close_replay(db, *, user_id: int, position_id: str, action_id: 
     if (event["event_type"] not in {"short_reduced", "short_closed"}
             or int(event["actor_id"] or 0) != int(user_id)
             or str(payload.get("position_id")) != str(position_id)
-            or int(payload.get("units", -1)) != int(requested_units)):
+            or int(payload.get("units", -1)) != int(requested_units)
+            or payload.get("max_buyback_price_micromora") != max_buyback_price_micromora
+            or payload.get("max_escrow_debit_mora") != (
+                str(max_escrow_debit_mora) if max_escrow_debit_mora is not None else None
+            )):
         raise IdempotencyConflict("Action id is bound to another Shorts operation.")
     position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
     if not position:
@@ -442,7 +581,10 @@ async def _short_close_replay(db, *, user_id: int, position_id: str, action_id: 
 
 
 async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
-                          action_id: str, liquidation: bool = False) -> dict:
+                          action_id: str, liquidation: bool = False,
+                          liquidation_executor_id: int | None = None,
+                          max_buyback_price_micromora: int | None = None,
+                          max_escrow_debit_mora: Decimal | None = None) -> dict:
     """Atomically reduce or close a Short against already-locked genuine asks.
 
     This stays intentionally service-only.  Unlike an ordinary buy, its cash is
@@ -464,6 +606,8 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
             replay = await _short_close_replay(
                 db, user_id=int(user_id), position_id=str(position_id), action_id=str(action_id),
                 requested_units=requested,
+                max_buyback_price_micromora=max_buyback_price_micromora,
+                max_escrow_debit_mora=max_escrow_debit_mora,
             )
             if replay:
                 return replay
@@ -481,6 +625,8 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
         )
         if buyback_limit is None:
             raise PlayerExchangePolicyError("В стакане нет полного защищённого предложения для выкупа шорта.")
+        if max_buyback_price_micromora is not None and buyback_limit > max_buyback_price_micromora:
+            raise PlayerExchangePolicyError("Цена выкупа изменилась. Получите новую котировку.")
         remaining = requested
         planned_charge = Decimal("0")
         for sell in asks:
@@ -522,6 +668,10 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
             raise PlayerExchangePolicyError(
                 "Полное закрытие пока не покрывает начисленные проценты; сначала уменьшите шорт."
             )
+        planned_interest_payment = min(accrued_interest, escrow - planned_charge)
+        if (max_escrow_debit_mora is not None
+                and planned_charge + planned_interest_payment > max_escrow_debit_mora):
+            raise PlayerExchangePolicyError("Расход шорта изменился. Получите новую котировку.")
         # Interest receives only escrow that remains after the already locked
         # principal buyback. This makes a partial close an unconditional
         # risk-reducing route even for an underwater position.
@@ -595,24 +745,41 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
         )
         final_position = repaid["position"]
         liquidation_penalty = Decimal("0")
+        executor_reward = Decimal("0")
+        reserve_penalty = Decimal("0")
         if liquidation:
+            if liquidation_executor_id is None:
+                raise RuntimeError("A player executor is required for liquidation.")
             executor_share, reserve_share = liquidation_penalty_split(
                 posted_collateral_mora=Decimal(final_position["posted_collateral_mora"]),
-                closed_units=requested, original_debt_units=int(position["outstanding_debt_units"]),
+                closed_units=requested, original_debt_units=int(position["initial_debt_units"]),
             )
-            # Forced reduction never creates a new debt: the penalty is capped
-            # by actual post-buyback escrow and goes only to the segregated
-            # reserve while the public liquidator programme is still disabled.
+            # Forced reduction never creates a new debt. If the remaining
+            # escrow cannot cover the whole penalty, split what exists 5:3.
             liquidation_penalty = min(executor_share + reserve_share, Decimal(final_position["cash_escrow_mora"]))
             if liquidation_penalty > 0:
+                executor_reward = (liquidation_penalty * Decimal(5) / Decimal(8)).quantize(Decimal("0.000001"))
+                reserve_penalty = liquidation_penalty - executor_reward
                 await repo.change_short_cash_escrow(
                     db, position_id=str(position_id), amount=-liquidation_penalty,
                     source_type="liquidation_penalty", source_id=f"short-liquidation-penalty:{action_id}",
                 )
-                await repo.credit_short_reserve(
-                    db, coin_id=str(coin["id"]), amount=liquidation_penalty,
-                    source_type="liquidation_penalty", source_id=f"short-liquidation-penalty:{action_id}",
-                )
+                if reserve_penalty > 0:
+                    await repo.credit_short_reserve(
+                        db, coin_id=str(coin["id"]), amount=reserve_penalty,
+                        source_type="liquidation_penalty", source_id=f"short-liquidation-penalty:{action_id}",
+                    )
+                if executor_reward > 0:
+                    await economy_ledger.apply_balance_change(
+                        db, int(liquidation_executor_id), {"mora": executor_reward},
+                        reason_code="player_coin_short_liquidation_reward",
+                        idempotency_key=f"player-coin:short-liquidation-reward:{action_id}",
+                        source_type="player_exchange", reference_type="short_position",
+                        reference_id=str(position_id),
+                        metadata={"coin_id": str(coin["id"]), "position_id": str(position_id),
+                                  "reward_mora": str(executor_reward)},
+                        note=f"Награда за ликвидацию шорта {coin['ticker']}",
+                    )
                 final_position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
                 if not final_position:
                     raise RuntimeError("Short position disappeared during liquidation penalty.")
@@ -636,29 +803,109 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
             final_position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
         event_type = "short_liquidated" if liquidation else ("short_closed" if closing else "short_reduced")
         await repo.append_short_event(
-            db, coin_id=str(coin["id"]), actor_id=None if liquidation else int(user_id), event_type=event_type,
+            db, coin_id=str(coin["id"]), actor_id=int(liquidation_executor_id) if liquidation else int(user_id), event_type=event_type,
             action_id=str(action_id), payload={
                 "position_id": str(position_id), "order_id": str(order["id"]), "units": requested,
                 "buyback_limit_price_micromora": int(buyback_limit), "spent_mora": str(total_charge),
                 "borrower_release_mora": str(borrower_release), "liquidation_penalty_mora": str(liquidation_penalty),
+                "executor_reward_mora": str(executor_reward), "reserve_penalty_mora": str(reserve_penalty),
+                "max_buyback_price_micromora": max_buyback_price_micromora,
+                "max_escrow_debit_mora": str(max_escrow_debit_mora) if max_escrow_debit_mora is not None else None,
             },
         )
         return {"position": final_position, "order_id": str(order["id"]), "replayed": False}
 
 
-async def reduce_short(db, *, user_id: int, position_id: str, amount: str, action_id: str) -> dict:
+async def reduce_short(db, *, user_id: int, position_id: str, amount: str, action_id: str,
+                       max_buyback_price_micromora: int | None = None,
+                       max_escrow_debit_mora: str | None = None) -> dict:
     """Buy back a strict part of an open Short; no collateral is released yet."""
+    debit_ceiling = (_parse_mora_ceiling(max_escrow_debit_mora)
+                     if max_escrow_debit_mora is not None else None)
     return await _buy_back_short(
         db, user_id=int(user_id), position_id=str(position_id), units=parse_token_amount(amount), action_id=str(action_id),
+        max_buyback_price_micromora=max_buyback_price_micromora,
+        max_escrow_debit_mora=debit_ceiling,
     )
 
 
-async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> dict:
+async def short_close_quote(db, *, user_id: int, position_id: str, amount: str | None = None) -> dict:
+    """Show a borrower a non-binding protected buyback estimate."""
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    position = await repo.get_short_position(db, position_id=str(position_id))
+    if not position or int(position["borrower_id"]) != int(user_id):
+        raise PlayerExchangePolicyError("Шорт не найден.")
+    if position["status"] != "open":
+        raise PlayerExchangePolicyError("Позиция уже закрыта.")
+    debt = int(position["outstanding_debt_units"])
+    requested = parse_token_amount(amount) if amount is not None else debt
+    if requested > debt:
+        raise PlayerExchangePolicyError("Объём больше оставшегося долга.")
+    coin = await repo.get_coin(db, str(position["coin_id"]))
+    if not coin or coin["status"] != "active":
+        return {"available": False, "reason": "Рынок сейчас недоступен для выкупа."}
+    asks = await repo.eligible_short_buyback_asks(
+        db, coin_id=str(coin["id"]), borrower_id=int(user_id),
+        owner_id=int(coin["owner_id"]), lock=False,
+    )
+    limit_price = executable_buyback_limit_price(
+        units=requested,
+        asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+    )
+    if limit_price is None:
+        return {"available": False, "reason": "В стакане недостаточно допустимых заявок для всего объёма."}
+    remaining = requested
+    gross_total = Decimal("0")
+    fee_total = Decimal("0")
+    for ask in asks:
+        if remaining <= 0:
+            break
+        fill_units = min(remaining, int(ask["remaining_units"]))
+        gross = trade_notional(fill_units, int(ask["limit_price_micromora"]))
+        gross_total += gross
+        fee_total += trade_fee(gross, maker=False)
+        remaining -= fill_units
+    charge = gross_total + fee_total
+    escrow = Decimal(position["cash_escrow_mora"])
+    halt = await repo.market_halt(db, str(coin["id"]))
+    vwap = await repo.vwap_window(db, coin_id=str(coin["id"]), minutes=5)
+    current_mark = conservative_mark_price_micromora(
+        vwap_5m_micromora=vwap["vwap_price_micromora"], vwap_5m_volume_mora=vwap["volume_mora"],
+        executable_buyback_micromora=limit_price,
+    )
+    interest = (await repo.projected_short_interest(db, position=position)
+                if halt["active"] or current_mark is not None
+                else Decimal(position["accrued_interest_mora"]))
+    enough = charge <= escrow and (requested < debt or charge + interest <= escrow)
+    expected_debit = charge + min(interest, max(Decimal("0"), escrow - charge))
+    return {
+        "available": enough,
+        "reason": None if enough else "Заблокированной Моры не хватает для этого выкупа и процентов.",
+        "units": requested,
+        "max_price_micromora": int(limit_price),
+        "estimated_gross_mora": str(gross_total),
+        "estimated_fee_mora": str(fee_total),
+        "estimated_total_mora": str(charge),
+        "estimated_escrow_debit_mora": str(expected_debit),
+        "accrued_interest_mora": str(interest),
+        "cash_escrow_mora": str(escrow),
+        "complete_close": requested == debt,
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "notice": "Лимит по текущему стакану и процентам с запасом на минуту. При подтверждении сервер заново проверит цену, объём и проценты.",
+    }
+
+
+async def close_short(db, *, user_id: int, position_id: str, action_id: str,
+                      max_buyback_price_micromora: int | None = None,
+                      max_escrow_debit_mora: str | None = None) -> dict:
     """Buy back every remaining unit and return only the verified escrow surplus."""
     if not 8 <= len(str(action_id)) <= 128:
         raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
     if not await repo.schema_ready(db):
         raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    debit_ceiling = (_parse_mora_ceiling(max_escrow_debit_mora)
+                     if max_escrow_debit_mora is not None else None)
     event = await repo.get_short_event_by_action(db, action_id=str(action_id))
     if event:
         payload = event["payload_json"]
@@ -666,7 +913,11 @@ async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> 
             payload = json.loads(payload)
         position = await repo.get_short_position(db, position_id=str(position_id))
         if (event["event_type"] != "short_closed" or int(event["actor_id"] or 0) != int(user_id)
-                or str(payload.get("position_id")) != str(position_id) or not position):
+                or str(payload.get("position_id")) != str(position_id) or not position
+                or payload.get("max_buyback_price_micromora") != max_buyback_price_micromora
+                or payload.get("max_escrow_debit_mora") != (
+                    str(debit_ceiling) if debit_ceiling is not None else None
+                )):
             raise IdempotencyConflict("Action id is bound to another Shorts operation.")
         return {"position": position, "order_id": payload.get("order_id"), "replayed": True}
     position = await repo.get_short_position(db, position_id=str(position_id))
@@ -678,11 +929,68 @@ async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> 
     return await _buy_back_short(
         db, user_id=int(user_id), position_id=str(position_id),
         units=int(position["outstanding_debt_units"]), action_id=str(action_id),
+        max_buyback_price_micromora=max_buyback_price_micromora,
+        max_escrow_debit_mora=debit_ceiling,
     )
 
 
-async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
-    """Run one server-owned, reduce-only liquidation decision.
+async def add_short_collateral(
+    db, *, user_id: int, position_id: str, amount_mora: str, action_id: str,
+) -> dict:
+    """An existing borrower may improve margin even while new trades are off."""
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    amount = _parse_mora_amount(amount_mora)
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор запроса.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        event = await repo.get_short_event_by_action(db, action_id=str(action_id))
+        if event:
+            payload = event["payload_json"]
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            if (event["event_type"] != "short_collateral_added"
+                    or int(event["actor_id"] or 0) != int(user_id)
+                    or str(payload.get("position_id")) != str(position_id)
+                    or Decimal(str(payload.get("amount_mora"))) != amount):
+                raise IdempotencyConflict("Action id is bound to another Shorts operation.")
+            position = await repo.get_short_position(db, position_id=str(position_id))
+            return {"position": position, "replayed": True}
+        position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        if not position or int(position["borrower_id"]) != int(user_id):
+            raise PlayerExchangePolicyError("Шорт не найден.")
+        if position["status"] != "open":
+            raise PlayerExchangePolicyError("Позиция уже закрыта.")
+        mutation = await economy_ledger.apply_balance_change(
+            db, int(user_id), {"mora": -amount},
+            reason_code="player_coin_short_collateral_topup",
+            idempotency_key=f"player-coin:short-collateral-topup:{action_id}",
+            source_type="player_exchange", reference_type="short_position",
+            reference_id=str(position_id),
+            metadata={"coin_id": str(position["coin_id"]), "amount_mora": str(amount)},
+            note="Дополнительный залог шорта",
+        )
+        updated = await repo.add_short_collateral(
+            db, position_id=str(position_id), amount=amount,
+            operation_id=str(mutation.operation_id),
+        )
+        await repo.append_short_event(
+            db, coin_id=str(position["coin_id"]), actor_id=int(user_id),
+            event_type="short_collateral_added", action_id=str(action_id),
+            payload={"position_id": str(position_id), "amount_mora": str(amount),
+                     "operation_id": str(mutation.operation_id)},
+        )
+        return {"position": updated, "replayed": False}
+
+
+async def short_liquidation_candidates(db, *, coin_id: str) -> list[dict]:
+    await require_shorts_enabled(db)
+    return await repo.recent_short_risk_marks(db, coin_id=str(coin_id))
+
+
+async def liquidate_short(db, *, executor_id: int, position_id: str, action_id: str) -> dict:
+    """Run a player-triggered, server-verified reduce-only liquidation.
 
     It is intentionally not a player endpoint.  A halted market or an
     unqualified mark performs no forced operation.  When a qualified market
@@ -692,13 +1000,22 @@ async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
     """
     if not await repo.schema_ready(db):
         raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    await require_shorts_enabled(db)
     if not 8 <= len(str(action_id)) <= 128:
         raise PlayerExchangePolicyError("Некорректный идентификатор ликвидации.")
     async with db.connection.transaction():
         await repo.lock_spot(db)
+        if (not await repo.lock_enabled_flag(db, FEATURE_FLAG_KEY)
+                or not await repo.lock_enabled_flag(db, SHORTS_FEATURE_FLAG_KEY)):
+            raise PlayerExchangeUnavailable("Шорты пока закрыты для игроков.")
         prior = await repo.get_short_event_by_action(db, action_id=str(action_id))
         if prior:
-            if prior["event_type"] not in {"short_liquidated", "short_frozen"}:
+            prior_payload = prior["payload_json"]
+            if isinstance(prior_payload, str):
+                prior_payload = json.loads(prior_payload)
+            if (prior["event_type"] not in {"short_liquidated", "short_frozen"}
+                    or int(prior["actor_id"] or 0) != int(executor_id)
+                    or str(prior_payload["position_id"]) != str(position_id)):
                 raise IdempotencyConflict("Action id is bound to another Shorts operation.")
             position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
             if not position:
@@ -712,6 +1029,13 @@ async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
         coin = await repo.get_coin(db, str(position["coin_id"]), for_update=True)
         if not coin:
             raise RuntimeError("Short coin disappeared.")
+        if (int(executor_id) in {int(position["borrower_id"]), int(coin["owner_id"])}
+                or await repo.bidder_has_shared_owner_signal(
+                    db, bidder_id=int(executor_id), owner_id=int(coin["owner_id"]),
+                ) or await repo.bidder_has_shared_owner_signal(
+                    db, bidder_id=int(executor_id), owner_id=int(position["borrower_id"]),
+                )):
+            raise PlayerExchangePolicyError("Связанный аккаунт не может получать награду за ликвидацию.")
         halt = await repo.market_halt(db, str(coin["id"]))
         asks = await repo.eligible_short_buyback_asks(
             db, coin_id=str(coin["id"]), borrower_id=int(position["borrower_id"]), owner_id=int(coin["owner_id"]),
@@ -776,7 +1100,7 @@ async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
             cash_after_interest_and_buyback = cash - accrued - charge
             requested_executor, requested_reserve = liquidation_penalty_split(
                 posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
-                closed_units=candidate_units, original_debt_units=debt_units,
+                closed_units=candidate_units, original_debt_units=int(position["initial_debt_units"]),
             )
             penalty = min(requested_executor + requested_reserve, max(Decimal("0"), cash_after_interest_and_buyback))
             equity_after = cash_after_interest_and_buyback - penalty
@@ -818,7 +1142,7 @@ async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
                 )
                 frozen = await repo.freeze_short_position(db, position_id=str(position_id), action_id=str(action_id))
                 await repo.append_short_event(
-                    db, coin_id=str(coin["id"]), actor_id=None, event_type="short_frozen", action_id=str(action_id),
+                    db, coin_id=str(coin["id"]), actor_id=int(executor_id), event_type="short_frozen", action_id=str(action_id),
                     payload={"position_id": str(position_id), "margin_bps": margin,
                              "mark_price_micromora": mark, "reason": "qualified_mark_no_depth"},
                 )
@@ -834,14 +1158,14 @@ async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
                 raise RuntimeError("Short position disappeared before frozen recovery.")
             frozen = await repo.freeze_short_position(db, position_id=str(position_id), action_id=str(action_id))
             await repo.append_short_event(
-                db, coin_id=str(coin["id"]), actor_id=None, event_type="short_frozen", action_id=str(action_id),
+                db, coin_id=str(coin["id"]), actor_id=int(executor_id), event_type="short_frozen", action_id=str(action_id),
                 payload={"position_id": str(position_id), "margin_bps": margin,
                          "mark_price_micromora": mark, "planned_charge_mora": str(planned_charge)},
             )
             return {"position": frozen, "decision": "short_frozen", "margin_bps": margin, "replayed": False}
         result = await _buy_back_short(
             db, user_id=int(position["borrower_id"]), position_id=str(position_id), units=units,
-            action_id=str(action_id), liquidation=True,
+            action_id=str(action_id), liquidation=True, liquidation_executor_id=int(executor_id),
         )
         return {**result, "decision": "short_liquidated", "margin_bps": margin}
 
@@ -865,34 +1189,9 @@ async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) 
         if halt["active"]:
             return {"coin_id": str(coin_id), "status": "market_halted", "settled": []}
         cycle = await repo.begin_frozen_claim_buyback_cycle(db, coin_id=str(coin_id))
-        frozen_interest = await repo.list_open_frozen_interest_claims(db, coin_id=str(coin_id))
         claims = await repo.list_open_frozen_claims(db, coin_id=str(coin_id))
         vwap = await repo.vwap_window(db, coin_id=str(coin_id), minutes=5)
         settled: list[dict] = []
-        for claim in frozen_interest[:limit]:
-            remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
-            payout = min(Decimal(claim["remaining_mora"]), remaining_budget)
-            if payout <= 0:
-                break
-            source_id = f"short-frozen-interest:{coin_id}:{cycle['action_id']}:{claim['id']}:{claim['remaining_mora']}"
-            await economy_ledger.apply_balance_change(
-                db, int(claim["lender_id"]), {"mora": payout},
-                reason_code="player_coin_short_frozen_interest_buyback",
-                idempotency_key=f"player-coin:{source_id}", source_type="player_exchange",
-                reference_type="short_frozen_interest_claim", reference_id=str(claim["id"]),
-                metadata={"coin_id": str(coin_id), "claim_id": str(claim["id"]), "cycle": str(cycle["action_id"])},
-                note=f"Возврат процентов по шорту {coin['ticker']}",
-            )
-            updated = await repo.settle_frozen_interest_claim_buyback(
-                db, claim_id=str(claim["id"]), cycle=cycle, payout_mora=payout, source_id=source_id,
-            )
-            cycle["spent_mora"] = Decimal(cycle["spent_mora"]) + payout
-            await repo.append_short_event(
-                db, coin_id=str(coin_id), actor_id=None, event_type="frozen_interest_buyback", action_id=source_id,
-                payload={"claim_id": str(claim["id"]), "payout_mora": str(payout), "cycle": str(cycle["action_id"])},
-            )
-            settled.append({"claim_id": str(claim["id"]), "kind": "interest", "payout_mora": payout,
-                            "remaining_mora": Decimal(updated["remaining_mora"])})
         for claim in claims[:limit]:
             remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
             if remaining_budget <= 0:
@@ -938,20 +1237,97 @@ async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) 
             )
             settled.append({"claim_id": str(claim["id"]), "units": units, "payout_mora": payout,
                             "remaining_units": int(updated["remaining_units"])})
+        # Interest cannot consume reserve while even one principal claim remains.
+        if not await repo.list_open_frozen_claims(db, coin_id=str(coin_id)):
+            frozen_interest = await repo.list_open_frozen_interest_claims(db, coin_id=str(coin_id))
+            for claim in frozen_interest[:limit]:
+                remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
+                payout = min(Decimal(claim["remaining_mora"]), remaining_budget)
+                if payout <= 0:
+                    break
+                source_id = f"short-frozen-interest:{coin_id}:{cycle['action_id']}:{claim['id']}:{claim['remaining_mora']}"
+                await economy_ledger.apply_balance_change(
+                    db, int(claim["lender_id"]), {"mora": payout},
+                    reason_code="player_coin_short_frozen_interest_buyback",
+                    idempotency_key=f"player-coin:{source_id}", source_type="player_exchange",
+                    reference_type="short_frozen_interest_claim", reference_id=str(claim["id"]),
+                    metadata={"coin_id": str(coin_id), "claim_id": str(claim["id"]), "cycle": str(cycle["action_id"])},
+                    note=f"Возврат процентов по шорту {coin['ticker']}",
+                )
+                updated = await repo.settle_frozen_interest_claim_buyback(
+                    db, claim_id=str(claim["id"]), cycle=cycle, payout_mora=payout, source_id=source_id,
+                )
+                cycle["spent_mora"] = Decimal(cycle["spent_mora"]) + payout
+                await repo.append_short_event(
+                    db, coin_id=str(coin_id), actor_id=None, event_type="frozen_interest_buyback", action_id=source_id,
+                    payload={"claim_id": str(claim["id"]), "payout_mora": str(payout), "cycle": str(cycle["action_id"])},
+                )
+                settled.append({"claim_id": str(claim["id"]), "kind": "interest", "payout_mora": payout,
+                                "remaining_mora": Decimal(updated["remaining_mora"])})
         return {"coin_id": str(coin_id), "status": "ok", "cycle_hour": cycle["cycle_hour"],
                 "budget_mora": Decimal(cycle["budget_mora"]), "spent_mora": Decimal(cycle["spent_mora"]),
                 "settled": settled}
 
 
 async def run_short_risk_maintenance(db, *, limit: int = 50) -> list[dict]:
-    """Bounded recovery worker; it remains active even if new Shorts are disabled."""
+    """Mark risky positions and recover frozen claims; never earn executor fees."""
     if not await repo.schema_ready(db):
         return []
     results: list[dict] = []
     for position_id in await repo.next_open_short_position_ids(db, limit=limit):
-        action_id = f"short-liquidation:{position_id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
         try:
-            results.append(await liquidate_short(db, position_id=position_id, action_id=action_id))
+            position = await repo.get_short_position(db, position_id=position_id)
+            if not position or position["status"] != "open":
+                continue
+            coin = await repo.get_coin(db, str(position["coin_id"]))
+            if not coin or coin["status"] != "active":
+                continue
+            halt = await repo.market_halt(db, str(coin["id"]))
+            asks = await repo.eligible_short_buyback_asks(
+                db, coin_id=str(coin["id"]), borrower_id=int(position["borrower_id"]),
+                owner_id=int(coin["owner_id"]), lock=False,
+            )
+            buyback = executable_buyback_limit_price(
+                units=int(position["outstanding_debt_units"]),
+                asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+            )
+            vwap = await repo.vwap_window(db, coin_id=str(coin["id"]), minutes=5)
+            mark = conservative_mark_price_micromora(
+                vwap_5m_micromora=vwap["vwap_price_micromora"],
+                vwap_5m_volume_mora=vwap["volume_mora"],
+                executable_buyback_micromora=buyback,
+            )
+            if mark is None and vwap["vwap_price_micromora"] and Decimal(vwap["volume_mora"]) >= Decimal("100"):
+                # A qualified trade mark can reveal a full default even when
+                # no complete ask path remains. The executor may freeze debt.
+                mark = int(vwap["vwap_price_micromora"])
+            if halt["active"] or mark is None:
+                continue
+            projected_interest = await repo.projected_short_interest(
+                db, position=position, transit_minutes=0,
+            )
+            margin = margin_ratio_bps(
+                posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
+                locked_sale_proceeds_mora=Decimal(position["locked_sale_proceeds_mora"]),
+                cash_escrow_mora=Decimal(position["cash_escrow_mora"]),
+                debt_units=int(position["outstanding_debt_units"]),
+                mark_price_micromora=mark, accrued_interest_mora=projected_interest,
+            )
+            decision = liquidation_state(margin_bps=margin, market_halted=False, mark_available=True)
+            marked = False
+            if decision in {"partial", "full"}:
+                action_id = f"short-risk:{position_id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+                async with db.connection.transaction():
+                    if not await repo.get_short_event_by_action(db, action_id=action_id):
+                        await repo.append_short_event(
+                            db, coin_id=str(coin["id"]), actor_id=None,
+                            event_type="short_risk_marked", action_id=action_id,
+                            payload={"position_id": position_id, "margin_bps": margin,
+                                     "decision": decision, "mark_price_micromora": mark},
+                        )
+                        marked = True
+            results.append({"position_id": position_id, "decision": decision,
+                            "margin_bps": margin, "marked": marked})
         except Exception as exc:
             results.append({"position_id": position_id, "error": str(exc)})
     for coin_id in await repo.next_frozen_claim_coin_ids(db, limit=limit):
@@ -1704,11 +2080,26 @@ async def burn_treasury(db, *, owner_id: int, coin_id: str, amount: str, action_
 def _parse_mora_amount(value: str) -> Decimal:
     try:
         amount = Decimal(str(value))
+        if not amount.is_finite():
+            raise InvalidOperation
+        normalized = amount.quantize(Decimal("0.000001"))
     except (InvalidOperation, ValueError, TypeError) as exc:
         raise PlayerExchangePolicyError("Некорректная сумма Моры.") from exc
-    normalized = amount.quantize(Decimal("0.000001"))
-    if not amount.is_finite() or amount < Decimal("1") or normalized != amount:
+    if amount < Decimal("1") or normalized != amount:
         raise PlayerExchangePolicyError("Сумма должна быть не меньше 1 Моры, точность — до 6 знаков.")
+    return normalized
+
+
+def _parse_mora_ceiling(value: str) -> Decimal:
+    try:
+        amount = Decimal(str(value))
+        if not amount.is_finite():
+            raise InvalidOperation
+        normalized = amount.quantize(Decimal("0.000001"))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise PlayerExchangePolicyError("Некорректный предел расхода Моры.") from exc
+    if amount <= 0 or normalized != amount:
+        raise PlayerExchangePolicyError("Предел расхода должен быть положительным с точностью до 6 знаков.")
     return normalized
 
 

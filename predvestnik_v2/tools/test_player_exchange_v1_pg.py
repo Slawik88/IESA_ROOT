@@ -1244,6 +1244,20 @@ async def main(dsn: str):
         await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
         await db.commit()
         try:
+            await service.liquidate_short(
+                db, executor_id=7, position_id="short-allocation-position",
+                action_id="short-disabled-liquidation",
+            )
+            raise AssertionError("Public liquidation bypassed the disabled Shorts flag")
+        except service.PlayerExchangeUnavailable:
+            pass
+        free_recovery = await service.withdraw_lending_units(
+            db, user_id=8, coin_id=launched["id"], amount="1",
+            action_id="lending-withdraw-disabled-0001",
+        )
+        assert int(free_recovery["position"]["available_units"]) == 1_000
+        assert int(free_recovery["position"]["loaned_units"]) == 4_000
+        try:
             await service.deposit_lending_units(
                 db, user_id=8, coin_id=launched["id"], amount="1", action_id="lending-disabled-0001",
             )
@@ -1317,8 +1331,30 @@ async def main(dsn: str):
         borrower_mora_before = await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
         )
+        opening_quote = await service.short_open_quote(
+            db, user_id=9, coin_id=short_coin["id"], amount="3",
+        )
+        assert int(opening_quote["units"]) == 3_000
+        assert Decimal(opening_quote["collateral_mora"]) == Decimal("30")
+        try:
+            await service.open_short(
+                db, user_id=9, coin_id=short_coin["id"], amount="3",
+                action_id="short-open-over-confirmed-0001",
+                max_collateral_mora="29",
+                min_sale_price_micromora=opening_quote["sale_limit_price_micromora"],
+                max_apr_bps=opening_quote["open_apr_bps"],
+            )
+            raise AssertionError("Short exceeded confirmed collateral")
+        except PlayerExchangePolicyError:
+            pass
+        assert await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        ) == borrower_mora_before
         opened = await service.open_short(
             db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-0001",
+            max_collateral_mora=opening_quote["collateral_mora"],
+            min_sale_price_micromora=opening_quote["sale_limit_price_micromora"],
+            max_apr_bps=opening_quote["open_apr_bps"],
         )
         assert opened["replayed"] is False
         opened_position = opened["position"]
@@ -1330,6 +1366,30 @@ async def main(dsn: str):
             Decimal(opened_position["posted_collateral_mora"])
             + Decimal(opened_position["locked_sale_proceeds_mora"])
         )
+        close_quote = await service.short_close_quote(
+            db, user_id=9, position_id=opened_position["id"],
+        )
+        assert close_quote["available"] is True and close_quote["complete_close"] is True
+        assert int(close_quote["units"]) == 3_000
+        assert Decimal(close_quote["estimated_total_mora"]) > Decimal("0")
+        try:
+            await service.close_short(
+                db, user_id=9, position_id=opened_position["id"],
+                action_id="short-close-over-confirmed-0001",
+                max_buyback_price_micromora=close_quote["max_price_micromora"],
+                max_escrow_debit_mora="1",
+            )
+            raise AssertionError("Short close exceeded confirmed escrow debit")
+        except PlayerExchangePolicyError:
+            pass
+        assert int((await repo.get_short_position(
+            db, position_id=opened_position["id"],
+        ))["outstanding_debt_units"]) == 3_000
+        try:
+            await service.short_close_quote(db, user_id=8, position_id=opened_position["id"])
+            raise AssertionError("foreign borrower read a protected Short quote")
+        except PlayerExchangePolicyError:
+            pass
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_cash_ledger_v1 WHERE position_id=$1", opened_position["id"],
         ) == 2
@@ -1343,6 +1403,44 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
         ) == borrower_mora_before - Decimal("30.000000")
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        topped = await service.add_short_collateral(
+            db, user_id=9, position_id=opened_position["id"], amount_mora="5",
+            action_id="short-collateral-topup-0001",
+        )
+        assert topped["replayed"] is False
+        assert Decimal(topped["position"]["posted_collateral_mora"]) == Decimal("35")
+        assert Decimal(topped["position"]["cash_escrow_mora"]) == (
+            Decimal(opened_position["cash_escrow_mora"]) + Decimal("5")
+        )
+        replay_topup = await service.add_short_collateral(
+            db, user_id=9, position_id=opened_position["id"], amount_mora="5",
+            action_id="short-collateral-topup-0001",
+        )
+        assert replay_topup["replayed"] is True
+        assert await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
+        ) == borrower_mora_before - Decimal("35.000000")
+        for actor, amount in ((9, "6"), (8, "5")):
+            try:
+                await service.add_short_collateral(
+                    db, user_id=actor, position_id=opened_position["id"],
+                    amount_mora=amount, action_id="short-collateral-topup-0001",
+                )
+                raise AssertionError("collateral action was reused with a different owner or amount")
+            except IdempotencyConflict:
+                pass
+        try:
+            await service.add_short_collateral(
+                db, user_id=8, position_id=opened_position["id"], amount_mora="5",
+                action_id="short-collateral-foreign-0001",
+            )
+            raise AssertionError("foreign borrower added collateral")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
         assert (await repo.get_order(db, protected_bid["id"]))["status"] == "filled"
         assert (await repo.get_order(db, protected_ask["id"]))["status"] == "open"
         assert await conn.fetchval(
@@ -1350,8 +1448,21 @@ async def main(dsn: str):
         ) == 3
         retry = await service.open_short(
             db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-0001",
+            max_collateral_mora=opening_quote["collateral_mora"],
+            min_sale_price_micromora=opening_quote["sale_limit_price_micromora"],
+            max_apr_bps=opening_quote["open_apr_bps"],
         )
         assert retry["replayed"] is True and retry["position"]["id"] == opened_position["id"]
+        try:
+            await service.open_short(
+                db, user_id=9, coin_id=short_coin["id"], amount="3", action_id="short-open-0001",
+                max_collateral_mora="31",
+                min_sale_price_micromora=opening_quote["sale_limit_price_micromora"],
+                max_apr_bps=opening_quote["open_apr_bps"],
+            )
+            raise AssertionError("changed Short confirmation replayed")
+        except IdempotencyConflict:
+            pass
         positions_before_rejected_short = await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
         )
@@ -1393,8 +1504,14 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_positions_v1 WHERE coin_id=$1", short_coin["id"],
         ) == positions_before_rejected_short
+        partial_quote = await service.short_close_quote(
+            db, user_id=9, position_id=opened_position["id"], amount="1",
+        )
+        assert partial_quote["available"] is True
         partial_repayment = await service.reduce_short(
             db, user_id=9, position_id=opened_position["id"], amount="1", action_id="short-reduce-0001",
+            max_buyback_price_micromora=partial_quote["max_price_micromora"],
+            max_escrow_debit_mora=partial_quote["estimated_escrow_debit_mora"],
         )
         assert partial_repayment["replayed"] is False
         assert int(partial_repayment["position"]["outstanding_debt_units"]) == 2_000
@@ -1404,8 +1521,14 @@ async def main(dsn: str):
         borrower_before_close = Decimal(str(await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=9"
         )))
+        final_quote = await service.short_close_quote(
+            db, user_id=9, position_id=opened_position["id"],
+        )
+        assert final_quote["available"] is True
         final_repayment = await service.close_short(
             db, user_id=9, position_id=opened_position["id"], action_id="short-close-0001",
+            max_buyback_price_micromora=final_quote["max_price_micromora"],
+            max_escrow_debit_mora=final_quote["estimated_escrow_debit_mora"],
         )
         assert final_repayment["replayed"] is False
         assert final_repayment["position"]["status"] == "closed"
@@ -1416,6 +1539,8 @@ async def main(dsn: str):
         ))) > borrower_before_close
         final_repayment_replay = await service.close_short(
             db, user_id=9, position_id=opened_position["id"], action_id="short-close-0001",
+            max_buyback_price_micromora=final_quote["max_price_micromora"],
+            max_escrow_debit_mora=final_quote["estimated_escrow_debit_mora"],
         )
         assert final_repayment_replay["replayed"] is True
         assert await conn.fetchval(
@@ -1567,7 +1692,13 @@ async def main(dsn: str):
             "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
         )))
         frozen_buyback = await service.settle_frozen_short_claims(db, coin_id=short_coin["id"])
-        assert frozen_buyback["status"] == "ok" and len(frozen_buyback["settled"]) >= 2
+        assert frozen_buyback["status"] == "ok" and frozen_buyback["settled"]
+        assert all(item.get("kind") != "interest" for item in frozen_buyback["settled"])
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_frozen_interest_settlements_v1 s "
+            "JOIN player_coin_short_frozen_interest_claims_v1 c ON c.id=s.claim_id "
+            "WHERE c.position_id='short-interest-position'"
+        ) == 0
         assert Decimal(frozen_buyback["spent_mora"]) <= Decimal(frozen_buyback["budget_mora"])
         assert Decimal(str(await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
@@ -1597,19 +1728,50 @@ async def main(dsn: str):
                 "VALUES('short-liquidation-loan',?,'short-liquidation-position',8,1000,1000)",
                 (short_coin["id"],),
             )
+        executor_before = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7"
+        )))
         liquidation = await service.liquidate_short(
-            db, position_id="short-liquidation-position", action_id="short-liquidation-0001",
+            db, executor_id=7, position_id="short-liquidation-position", action_id="short-liquidation-0001",
         )
         assert liquidation["decision"] == "short_liquidated"
         assert liquidation["position"]["status"] == "closed"
+        executor_after = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7"
+        )))
+        assert executor_after > executor_before
+        liquidation_event = await repo.get_short_event_by_action(db, action_id="short-liquidation-0001")
+        liquidation_payload = json.loads(liquidation_event["payload_json"])
+        assert Decimal(liquidation_payload["executor_reward_mora"]) == executor_after - executor_before
+        assert (Decimal(liquidation_payload["executor_reward_mora"])
+                + Decimal(liquidation_payload["reserve_penalty_mora"])
+                == Decimal(liquidation_payload["liquidation_penalty_mora"]))
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_reserve_ledger_v1 "
             "WHERE source_id='short-liquidation-penalty:short-liquidation-0001'"
         ) == 1
         liquidation_replay = await service.liquidate_short(
-            db, position_id="short-liquidation-position", action_id="short-liquidation-0001",
+            db, executor_id=7, position_id="short-liquidation-position", action_id="short-liquidation-0001",
         )
         assert liquidation_replay["replayed"] is True
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=7"
+        ))) == executor_after
+        try:
+            await service.liquidate_short(
+                db, executor_id=8, position_id="short-liquidation-position", action_id="short-liquidation-0001",
+            )
+            raise AssertionError("Another executor replayed liquidation reward")
+        except IdempotencyConflict:
+            pass
+        await repo.append_short_event(
+            db, coin_id=str(launched["id"]), actor_id=None,
+            event_type="short_risk_marked", action_id="short-risk-list-contract",
+            payload={"position_id": "short-allocation-position", "margin_bps": 11000,
+                     "decision": "full", "mark_price_micromora": 4000000},
+        )
+        candidates = await service.short_liquidation_candidates(db, coin_id=launched["id"])
+        assert any(row["position_id"] == "short-allocation-position" for row in candidates)
         async with db.connection.transaction():
             await db.execute(
                 "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-1000,loaned_units=loaned_units+1000 "
@@ -1628,13 +1790,90 @@ async def main(dsn: str):
                 "VALUES('short-liquidation-freeze-loan',?,'short-liquidation-freeze',8,1000,1000)",
                 (short_coin["id"],),
             )
+        for forbidden_executor in (6, 10):
+            try:
+                await service.liquidate_short(
+                    db, executor_id=forbidden_executor,
+                    position_id="short-liquidation-freeze", action_id=f"short-forbidden-{forbidden_executor}",
+                )
+                raise AssertionError("Borrower or coin owner could liquidate own position")
+            except PlayerExchangePolicyError:
+                pass
         frozen_liquidation = await service.liquidate_short(
-            db, position_id="short-liquidation-freeze", action_id="short-liquidation-freeze-0001",
+            db, executor_id=7, position_id="short-liquidation-freeze", action_id="short-liquidation-freeze-0001",
         )
         assert frozen_liquidation["decision"] == "short_frozen"
         assert frozen_liquidation["position"]["status"] == "frozen"
-        maintenance = await service.run_short_risk_maintenance(db, limit=50)
+        await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        lender_recovery = await service.short_recovery_state(db, user_id=8, limit=1)
+        assert lender_recovery["shorts_enabled"] is False
+        assert lender_recovery["lending"]["items"]
+        assert any(c["position_id"] == "short-liquidation-freeze"
+                   for c in lender_recovery["principal_claims"]["items"])
+        borrower_recovery = await service.short_recovery_state(db, user_id=6, limit=1)
+        assert borrower_recovery["positions"]["items"]
+        if borrower_recovery["positions"]["next_cursor"]:
+            later = await service.short_recovery_state(
+                db, user_id=6, limit=1,
+                positions_cursor=borrower_recovery["positions"]["next_cursor"],
+            )
+            assert later["positions"]["items"][0]["id"] != borrower_recovery["positions"]["items"][0]["id"]
+        try:
+            await service.short_recovery_state(db, user_id=12, limit=1)
+            raise AssertionError("empty outsider could read disabled Shorts")
+        except service.PlayerExchangeUnavailable:
+            pass
+        try:
+            await service.short_recovery_state(
+                db, user_id=8, principal_cursor=borrower_recovery["positions"]["next_cursor"] or "bad",
+            )
+            raise AssertionError("cross-list Shorts cursor was accepted")
+        except PlayerExchangePolicyError:
+            pass
+        await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (SHORTS_FEATURE_FLAG_KEY,))
+        await db.commit()
+        qualified_vwap = await repo.vwap_window(db, coin_id=short_coin["id"], minutes=5)
+        assert qualified_vwap["vwap_price_micromora"] and Decimal(qualified_vwap["volume_mora"]) >= 100
+        async with db.connection.transaction():
+            await db.execute(
+                "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-1000,"
+                "loaned_units=loaned_units+1000 WHERE coin_id=? AND lender_id=8 AND available_units>=1000",
+                (short_coin["id"],),
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora,cash_escrow_mora,"
+                "last_interest_accrued_at,open_apr_bps,interest_mark_price_micromora) "
+                "VALUES('short-no-depth-risk',?,6,'short-no-depth-risk-open','open',1000,1000,"
+                "0.1,0,0.1,NOW(),0,1000000)", (short_coin["id"],),
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_loans_v1"
+                "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+                "VALUES('short-no-depth-risk-loan',?,'short-no-depth-risk',8,1000,1000)",
+                (short_coin["id"],),
+            )
+        liquidations_before_maintenance = await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_events_v1 WHERE event_type='short_liquidated'"
+        )
+        original_asks = repo.eligible_short_buyback_asks
+        async def no_asks(*args, **kwargs):
+            if kwargs.get("coin_id") == short_coin["id"]:
+                return []
+            return await original_asks(*args, **kwargs)
+        repo.eligible_short_buyback_asks = no_asks
+        try:
+            maintenance = await service.run_short_risk_maintenance(db, limit=50)
+        finally:
+            repo.eligible_short_buyback_asks = original_asks
         assert maintenance and not any(item.get("error") for item in maintenance), maintenance
+        assert any(item.get("position_id") == "short-no-depth-risk" and item.get("marked")
+                   for item in maintenance), maintenance
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_events_v1 WHERE event_type='short_liquidated'"
+        ) == liquidations_before_maintenance
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",

@@ -134,8 +134,8 @@ async def maintenance_task(bot: Bot) -> None:
                 for short_result in await run_short_risk_maintenance(db, limit=50):
                     if short_result.get("error"):
                         logger.error("Short risk maintenance failed: {}", short_result)
-                    elif short_result.get("decision") in {"short_liquidated", "short_frozen"}:
-                        logger.warning("Short risk maintenance action: {}", short_result)
+                    elif short_result.get("marked"):
+                        logger.warning("Short risk marked for player liquidation: {}", short_result)
                 from services.vip import daily_reminder_candidates, record_daily_reminder_sent
                 for user_id in await daily_reminder_candidates(db):
                     try:
