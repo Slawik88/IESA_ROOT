@@ -227,6 +227,15 @@ async def cmd_buy_zarniki(message: types.Message):
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot):
+    if message.chat.type == "private" and message.from_user:
+        # Telegram has just delivered a private message from this user, so
+        # the bot can address them. Do not require a second Mafia-only tap.
+        from services import mafia_v1 as mafia
+        from bot.handlers.mafia_v1 import _refresh_ready_lobbies
+        await mafia.confirm_dm_ready(db, user_id=int(message.from_user.id))
+        await _refresh_ready_lobbies(bot, db, user_id=int(message.from_user.id))
+        if command.args == "mafia_ready":
+            return await message.answer("✅ Личка подтверждена. Теперь можно начать Мафию в группе.")
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
     if command.args and command.args.startswith("miniapp_"):

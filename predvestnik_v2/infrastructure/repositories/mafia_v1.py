@@ -160,6 +160,16 @@ async def dm_ready_users(db, *, user_ids: list[int]) -> set[int]:
         return {int(row[0]) for row in await cursor.fetchall()}
 
 
+async def active_lobbies_for_player(db, *, user_id: int) -> list[int]:
+    async with db.execute(
+        "SELECT m.id FROM mafia_v1_matches AS m "
+        "JOIN mafia_v1_players AS p ON p.match_id=m.id "
+        "WHERE p.user_id=? AND m.phase='lobby' AND m.lobby_message_id IS NOT NULL",
+        (int(user_id),),
+    ) as cursor:
+        return [int(row[0]) for row in await cursor.fetchall()]
+
+
 async def create_match(db, *, chat_id: int, topic_id: int | None, initiator_id: int, max_players: int,
                        enabled_roles: tuple[str, ...], vote_mode: str, ruleset_version: str) -> dict:
     async with db.execute(
@@ -171,8 +181,12 @@ async def create_match(db, *, chat_id: int, topic_id: int | None, initiator_id: 
 
 
 async def players(db, *, match_id: int, for_update: bool = False) -> list[dict]:
-    suffix = " FOR UPDATE" if for_update else ""
-    async with db.execute("SELECT * FROM mafia_v1_players WHERE match_id=? ORDER BY join_order" + suffix, (int(match_id),)) as cursor:
+    suffix = " FOR UPDATE OF p" if for_update else ""
+    async with db.execute(
+        "SELECT p.*, (r.confirmed_at>CLOCK_TIMESTAMP()-INTERVAL '30 days') AS dm_confirmed "
+        "FROM mafia_v1_players AS p LEFT JOIN mafia_v1_dm_ready AS r ON r.user_id=p.user_id "
+        "WHERE p.match_id=? ORDER BY p.join_order" + suffix, (int(match_id),),
+    ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
 

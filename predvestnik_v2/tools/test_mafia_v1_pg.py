@@ -15,6 +15,7 @@ from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import mafia_v1 as repo
 from services import mafia_v1 as mafia
 from bot.handlers.mafia_v1 import _lobby_text, _phase_keyboard, _phase_text, _send_night_prompts, _settings_keyboard, notify_phase_transition, publish_phase
+from bot.handlers.payments import cmd_start
 
 
 class FakeBot:
@@ -58,18 +59,31 @@ async def run(dsn: str) -> None:
             db, chat_id=-998877, topic_id=None, initiator_id=7101, username="one", display_name="One", max_players=4,
         )
         match_id = view["match_id"]
-        for user_id, name in ((7102, "Two"), (7103, "Three"), (7104, "Four")):
+        assert "До старта ещё 3" in _lobby_text(view)
+        for user_id, name, missing in ((7102, "Two", 2), (7103, "Three", 1), (7104, "Four", 0)):
             view = await mafia.join_lobby(db, match_id=match_id, chat_id=-998877, topic_id=None,
                                           user_id=user_id, username=name.lower(), display_name=name)
+            if missing:
+                assert f"До старта ещё {missing}" in _lobby_text(view)
+            else:
+                assert "Для 4 игроков" in _lobby_text(view)
         assert len(view["players"]) == 4
+        view = await mafia.leave_lobby(db, match_id=match_id, chat_id=-998877, user_id=7104)
+        assert "До старта ещё 1" in _lobby_text(view)
+        view = await mafia.join_lobby(db, match_id=match_id, chat_id=-998877, topic_id=None,
+                                      user_id=7104, username="four", display_name="Four")
+        assert "Для 4 игроков" in _lobby_text(view)
         assert "Что делать" in _lobby_text(view), "the lobby must explain the next action without command documentation"
         view = await mafia.change_settings(
             db, match_id=match_id, chat_id=-998877, topic_id=None, actor_id=7101,
             max_players=6, enabled_roles=("doctor",), vote_mode="open",
         )
         assert view["max_players"] == 6 and view["enabled_roles"] == ("doctor",) and view["vote_mode"] == "open"
-        assert [len(row) for row in _settings_keyboard(view).inline_keyboard] == [1, 1, 1, 1], "the main settings screen must remain a readable menu"
-        assert [len(row) for row in _settings_keyboard(view, "players").inline_keyboard] == [3, 1], "the player picker must offer a simple previous/current/next control"
+        assert [len(row) for row in _settings_keyboard(view).inline_keyboard] == [1, 1, 1, 1, 2], "the main settings screen must keep entry buttons while settings are open"
+        assert [len(row) for row in _settings_keyboard(view, "players").inline_keyboard] == [3, 1, 2], "the player picker must keep entry buttons"
+        for section in (None, "players", "roles", "vote"):
+            labels = [button.text for row in _settings_keyboard(view, section).inline_keyboard for button in row]
+            assert "➕ Войти" in labels and "↩️ Выйти" in labels, "every settings view must let players update the lobby"
         try:
             await mafia.change_settings(
                 db, match_id=match_id, chat_id=-998877, topic_id=42, actor_id=7102,
@@ -198,10 +212,49 @@ async def run(dsn: str) -> None:
             assert (await cursor.fetchone())[0] == 4
         history = await mafia.player_history(db, user_id=7101)
         assert history["matches"] and history["matches"][0]["role"] == roles[7101], "history exposes only the player's own role"
+        # Reproduce a six-person group with eight available seats. The lobby
+        # must show DM readiness, and six confirmed players must start.
+        six = await mafia.create_lobby(
+            db, chat_id=-998878, topic_id=None, initiator_id=7201,
+            username="host", display_name="Host", max_players=8,
+        )
+        for user_id in range(7202, 7207):
+            six = await mafia.join_lobby(
+                db, match_id=six["match_id"], chat_id=-998878, topic_id=None,
+                user_id=user_id, username=f"p{user_id}", display_name=f"Player {user_id}",
+            )
+        await repo.bind_lobby_message(db, match_id=six["match_id"], message_id=880001)
+        assert "Личка подтверждена: <b>0/6</b>" in _lobby_text(six)
+        six_bot = FakeBot()
+        class PrivateStart:
+            chat = SimpleNamespace(type="private")
+            from_user = SimpleNamespace(id=7201)
+            async def answer(self, text, **kwargs):
+                return text
+        response = await cmd_start(PrivateStart(), SimpleNamespace(args="mafia_ready"), db, six_bot)
+        assert "Личка подтверждена" in response
+        assert six_bot.edits and "1/6" in six_bot.edits[-1]["text"], "private /start must refresh group readiness"
+        try:
+            await mafia.start_match(db, match_id=six["match_id"], chat_id=-998878, actor_id=7201)
+        except mafia.MafiaConflict as exc:
+            assert "Личку" in str(exc)
+        else:
+            raise AssertionError("six-player lobby must wait for DM confirmation")
+        for user_id in range(7202, 7207):
+            await mafia.confirm_dm_ready(db, user_id=user_id)
+        six = await mafia.current_view(db, match_id=six["match_id"])
+        assert six and "Личка подтверждена: <b>6/6</b>" in _lobby_text(six)
+        started_six, six_roles = await mafia.start_match(db, match_id=six["match_id"], chat_id=-998878, actor_id=7201)
+        assert started_six["phase"] == "night" and len(six_roles) == 6
+        assert not await _send_night_prompts(
+            six_bot, match_id=six["match_id"], phase_number=started_six["phase_number"],
+            roles_by_user=six_roles, players=await repo.players(db, match_id=six["match_id"]), include_role=True,
+        )
+        assert {message["chat_id"] for message in six_bot.sent} == set(six_roles)
     finally:
         await transaction.rollback(); await connection.close()
 
 
 parser = argparse.ArgumentParser(); parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args(); asyncio.run(run(args.dsn))
-print("mafia_v1: four virtual players, private roles, phase card, gate and votes OK")
+print("mafia_v1: four- and six-player lobbies, DM readiness, private roles, phase card, gate and votes OK")

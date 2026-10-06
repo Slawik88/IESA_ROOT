@@ -33,6 +33,32 @@ def mafia_slots(player_count: int) -> int:
     return max(1, int(player_count) // 4)
 
 
+def recommended_settings(player_count: int) -> dict:
+    """Advisory settings for the players present, never an automatic rule change."""
+    count = int(player_count)
+    if not 0 <= count <= MAX_PLAYERS:
+        raise MafiaRuleError("party size is outside the approved range")
+    target = max(MIN_PLAYERS, count)
+    roles = []
+    if target >= 8:
+        roles.append("don")
+    if target >= 6:
+        roles.append("doctor")
+    if target >= 10:
+        roles.append("detective")
+    enabled = validate_settings(
+        max_players=target, enabled_roles=roles,
+        vote_mode="open" if target < 8 else "secret",
+    )
+    return {
+        "for_players": target,
+        "missing_players": max(0, MIN_PLAYERS - count),
+        "mafia_slots": mafia_slots(target),
+        "enabled_roles": enabled,
+        "vote_mode": "open" if target < 8 else "secret",
+    }
+
+
 def validate_settings(*, max_players: int, enabled_roles: Iterable[str], vote_mode: str) -> tuple[str, ...]:
     if not MIN_PLAYERS <= int(max_players) <= MAX_PLAYERS:
         raise MafiaRuleError("choose from 4 to 20 seats")

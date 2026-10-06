@@ -57,6 +57,7 @@ def _public(row: dict, players: list[dict]) -> dict:
         "phase_message_id": row["phase_message_id"], "lobby_human_messages": int(row["lobby_human_messages"]),
         "players": [{"user_id": int(player["user_id"]), "username": player["username"],
                      "display_name": player["display_name"], "alive": bool(player["alive"]),
+                     "dm_ready": bool(player.get("dm_confirmed")),
                      "join_order": int(player["join_order"])} for player in players],
         "alive_count": len(alive), "server_time": row.get("server_now"),
     }
@@ -167,7 +168,6 @@ async def start_match(db, *, match_id: int, chat_id: int, actor_id: int) -> tupl
 
 
 async def confirm_dm_ready(db, *, user_id: int) -> None:
-    await repo.ensure_tables(db)
     await repo.mark_dm_ready(db, user_id=user_id)
 
 

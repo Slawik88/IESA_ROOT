@@ -1,8 +1,10 @@
 """Telegram adapter for the approved group-chat Mafia v1 lobby."""
 from __future__ import annotations
 
+import os
+
 from aiogram import Bot, Router, types
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -55,27 +57,69 @@ def _lobby_text(view: dict) -> str:
     roles = set(view["enabled_roles"])
     role_label = " · ".join(["Мирные", "Мафия"] + [rules.public_role_name(role) for role in rules.OPTIONAL_ROLES if role in roles])
     members = "\n".join(
-        f"{index}. {safe_html(player['display_name'])}" for index, player in enumerate(players, start=1)
+        f"{index}. {safe_html(player['display_name'])} {'✅' if player.get('dm_ready') else '⏳ личка'}"
+        for index, player in enumerate(players, start=1)
     ) or "Пока никто не вошёл."
     vote = "открытое" if view["vote_mode"] == "open" else "скрытое"
+    recommendation = _recommendation_text(view)
+    ready_count = sum(bool(player.get("dm_ready")) for player in players)
     return (
         "🕵️ <b>МАФИЯ — ЛОББИ</b>\n"
         f"Места: <b>{len(players)}/{view['max_players']}</b> · голосование: <b>{vote}</b>\n"
-        f"Роли: <i>{role_label}</i>\n\n"
+        f"Роли: <i>{role_label}</i>\n"
+        f"{recommendation}\n\n"
+        f"Личка подтверждена: <b>{ready_count}/{len(players)}</b>\n"
         f"{members}\n\n"
-        "<b>Что делать:</b> 1) нажми «Войти»; 2) открой личку с ботом и нажми «Я готов»; 3) создатель начнёт партию."
+        "<b>Что делать:</b> 1) нажми «Войти»; 2) открой личку и отправь боту /start; 3) создатель начнёт партию."
     )
+
+
+def _recommendation_text(view: dict) -> str:
+    count = len(view["players"])
+    choice = rules.recommended_settings(count)
+    roles = ", ".join(rules.public_role_name(role) for role in rules.OPTIONAL_ROLES
+                      if role in choice["enabled_roles"]) or "без дополнительных ролей"
+    vote = "открытое" if choice["vote_mode"] == "open" else "скрытое"
+    lead = (f"Когда соберутся {choice['for_players']} игрока" if choice["missing_players"]
+            else f"Для {choice['for_players']} игроков")
+    line = (f"💡 {lead}: мафия — {choice['mafia_slots']}, "
+            f"{roles}, голосование — {vote}.")
+    if choice["missing_players"]:
+        line += f" До старта ещё {choice['missing_players']}."
+    else:
+        try:
+            rules.validate_settings(max_players=count, enabled_roles=view["enabled_roles"], vote_mode=view["vote_mode"])
+        except rules.MafiaRuleError:
+            line += " ⚠️ Текущие роли не подходят для этого состава; измени их в настройках."
+    return line
 
 
 def _lobby_keyboard(view: dict) -> types.InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.button(text="➕ Войти", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="join"))
     builder.button(text="↩️ Выйти", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="leave"))
+    username = os.getenv("BOT_USERNAME", "").strip().lstrip("@")
+    if username:
+        builder.button(text="✉️ Подтвердить личку", url=f"https://t.me/{username}?start=mafia_ready")
     builder.button(text="⚙️ Настройки", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="settings"))
     builder.button(text="▶️ Начать", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="start"))
     builder.button(text="✖️ Отменить лобби", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="cancel"))
-    builder.adjust(2, 2, 1)
+    builder.adjust(2, 1, 2, 1)
     return builder.as_markup()
+
+
+async def _refresh_ready_lobbies(bot: Bot, db, *, user_id: int) -> None:
+    from infrastructure.repositories import mafia_v1 as repo
+    for match_id in await repo.active_lobbies_for_player(db, user_id=user_id):
+        view = await mafia.current_view(db, match_id=match_id)
+        if view and view["phase"] == "lobby":
+            try:
+                await bot.edit_message_text(
+                    _lobby_text(view), chat_id=view["chat_id"], message_id=view["lobby_message_id"],
+                    reply_markup=_lobby_keyboard(view), parse_mode="HTML",
+                )
+            except TelegramAPIError:
+                pass  # A stale card must not prevent private-chat confirmation.
 
 
 def _settings_text(view: dict, section: str | None = None) -> str:
@@ -97,12 +141,17 @@ def _settings_text(view: dict, section: str | None = None) -> str:
         f"👥 <b>Игроков:</b> {view['max_players']}\n"
         f"🎭 <b>Доп. роли:</b> {role_label}\n"
         f"🗳 <b>Голосование:</b> {vote}\n\n"
-        "Нажми строку, чтобы изменить параметр. Изменения сохраняются сразу."
+        f"{_recommendation_text(view)}\n\n"
+        "Совет учитывает игроков в лобби, настройки меняет создатель."
     )
 
 
 def _settings_keyboard(view: dict, section: str | None = None) -> types.InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
+    def add_entry_buttons() -> None:
+        builder.button(text="➕ Войти", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="join"))
+        builder.button(text="↩️ Выйти", callback_data=MafiaLobbyCB(match_id=view["match_id"], action="leave"))
+
     if section is None:
         role_count = len(view["enabled_roles"])
         vote = "Открыто" if view["vote_mode"] == "open" else "Скрыто"
@@ -111,7 +160,8 @@ def _settings_keyboard(view: dict, section: str | None = None) -> types.InlineKe
         builder.button(text=f"🎭 Роли · {role_summary}", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="open_roles"))
         builder.button(text=f"🗳 Голосование · {vote}", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="open_vote"))
         builder.button(text="✓ Готово — к лобби", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="back"))
-        builder.adjust(1, 1, 1, 1)
+        add_entry_buttons()
+        builder.adjust(1, 1, 1, 1, 2)
         return builder.as_markup()
     if section == "players":
         seats = int(view["max_players"])
@@ -122,7 +172,8 @@ def _settings_keyboard(view: dict, section: str | None = None) -> types.InlineKe
         builder.button(text=f"✓ {seats} игроков", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="slots_current"))
         builder.button(text=f"{following} ›", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="slots_next"))
         builder.button(text="← Назад", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="menu"))
-        builder.adjust(3, 1)
+        add_entry_buttons()
+        builder.adjust(3, 1, 2)
         return builder.as_markup()
     if section == "roles":
         selected_roles = set(view["enabled_roles"])
@@ -132,14 +183,16 @@ def _settings_keyboard(view: dict, section: str | None = None) -> types.InlineKe
                 callback_data=MafiaSettingsCB(match_id=view["match_id"], action=f"role_{role}"),
             )
         builder.button(text="← Назад", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="menu"))
-        builder.adjust(1, 1, 1, 1)
+        add_entry_buttons()
+        builder.adjust(1, 1, 1, 1, 2)
         return builder.as_markup()
     if section == "vote":
         for vote_mode, label in (("secret", "Скрытое"), ("open", "Открытое")):
             builder.button(text=("✓ " if view["vote_mode"] == vote_mode else "") + label,
                            callback_data=MafiaSettingsCB(match_id=view["match_id"], action=f"vote_{vote_mode}"))
         builder.button(text="← Назад", callback_data=MafiaSettingsCB(match_id=view["match_id"], action="menu"))
-        builder.adjust(2, 1)
+        add_entry_buttons()
+        builder.adjust(2, 1, 2)
         return builder.as_markup()
     return builder.as_markup()
 
@@ -346,6 +399,7 @@ async def cmd_mafia(message: types.Message, db, bot: Bot, text_args: str = ""):
     if message.chat.type == "private":
         if (text_args or "").strip().lower() in {"готов", "ready"}:
             await mafia.confirm_dm_ready(db, user_id=int(message.from_user.id))
+            await _refresh_ready_lobbies(bot, db, user_id=int(message.from_user.id))
             return await message.answer("✅ Готово. Теперь можно вступать в лобби Мафии в группе.")
         keyboard = InlineKeyboardBuilder()
         keyboard.button(text="✅ Я готов получать роль", callback_data=MafiaReadyCB(action="ready"))
@@ -410,7 +464,7 @@ async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB
                 db, match_id=callback_data.match_id, chat_id=chat_id, topic_id=_topic(message), user_id=user_id,
                 username=query.from_user.username, display_name=query.from_user.full_name,
             )
-            notice = "Ты в лобби. Не забудь подтвердить личку с ботом."
+            notice = "Ты в лобби. Если рядом с именем ⏳, подтверди личку с ботом."
         elif action == "leave":
             view = await mafia.leave_lobby(db, match_id=callback_data.match_id, chat_id=chat_id, user_id=user_id)
             notice = "Ты вышел из лобби."
@@ -469,7 +523,7 @@ async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB
 
 
 @router.callback_query(MafiaReadyCB.filter())
-async def cb_mafia_ready(query: types.CallbackQuery, callback_data: MafiaReadyCB, db):
+async def cb_mafia_ready(query: types.CallbackQuery, callback_data: MafiaReadyCB, db, bot: Bot):
     message = query.message
     if not message or message.chat.type != "private" or callback_data.action != "ready":
         return await query.answer("Эта кнопка работает только в личке с ботом.", show_alert=True)
@@ -477,6 +531,7 @@ async def cb_mafia_ready(query: types.CallbackQuery, callback_data: MafiaReadyCB
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return await query.answer("Мафия пока выключена разработчиком.", show_alert=True)
     await mafia.confirm_dm_ready(db, user_id=int(query.from_user.id))
+    await _refresh_ready_lobbies(bot, db, user_id=int(query.from_user.id))
     try:
         await message.edit_text("✅ <b>Личка готова.</b> Теперь вернись в группу и нажми «Войти» в лобби.", parse_mode="HTML")
     except Exception:
