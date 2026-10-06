@@ -6,10 +6,12 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from core.player_exchange_shorts_v1 import pro_rata_lender_allocations, pro_rata_loan_repayments
+from core.player_exchange_shorts_v1 import (
+    minute_interest_mora, pro_rata_lender_allocations, pro_rata_loan_repayments,
+)
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v15-shorts-escrow-foundation-2026-10-05"
+SCHEMA_VERSION = "player-exchange-schema-v16-shorts-interest-foundation-2026-10-05"
 
 
 async def ensure_tables(db) -> None:
@@ -433,6 +435,21 @@ async def ensure_tables(db) -> None:
             CHECK (balance_after=balance_before+delta_mora)
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_interest_accruals_v1 (
+            id TEXT PRIMARY KEY,
+            position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
+            accrued_from TIMESTAMPTZ NOT NULL,
+            accrued_to TIMESTAMPTZ NOT NULL,
+            minutes INTEGER NOT NULL CHECK (minutes>0),
+            apr_bps INTEGER NOT NULL CHECK (apr_bps>=0),
+            mark_price_micromora BIGINT NOT NULL CHECK (mark_price_micromora>0),
+            amount_mora NUMERIC(24,6) NOT NULL CHECK (amount_mora>0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (position_id,accrued_from,accrued_to),
+            CHECK (accrued_to>accrued_from)
+        )
+    """)
     # A pre-v15 position can only be an isolated test/rehearsal row. Its old
     # counters are imported once, before the new append-only escrow journal is
     # used. New writer paths always append real collateral/proceeds receipts.
@@ -447,6 +464,22 @@ async def ensure_tables(db) -> None:
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_cash_ledger_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_cash_ledger_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION prevent_player_coin_short_interest_accrual_mutation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN RAISE EXCEPTION 'player_coin_short_interest_accruals_v1 is append-only'; END; $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_trigger
+                WHERE tgname='trg_player_coin_short_interest_accrual_immutable_v1'
+                AND tgrelid='player_coin_short_interest_accruals_v1'::regclass AND NOT tgisinternal) THEN
+                CREATE TRIGGER trg_player_coin_short_interest_accrual_immutable_v1
+                BEFORE UPDATE OR DELETE ON player_coin_short_interest_accruals_v1
+                FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_interest_accrual_mutation_v1();
+            END IF;
+        END $$
     """)
     await db.execute("""
         DO $$ BEGIN
@@ -1135,6 +1168,8 @@ async def repay_short_loans(db, *, position_id: str, units: int, close_position:
     debt = int(position["outstanding_debt_units"])
     if requested <= 0 or requested > debt:
         raise ValueError("invalid_short_repayment")
+    if close_position and requested == debt and Decimal(position["accrued_interest_mora"]) > 0:
+        raise ValueError("short_interest_must_settle_before_close")
     async with db.execute(
         "SELECT * FROM player_coin_short_loans_v1 WHERE position_id=? AND outstanding_units>0 "
         "ORDER BY lender_id,id FOR UPDATE",
@@ -1182,6 +1217,57 @@ async def repay_short_loans(db, *, position_id: str, units: int, close_position:
     if not result:
         raise RuntimeError("Short position disappeared during repayment.")
     return {"position": result, "repayments": repayments}
+
+
+async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: int) -> dict:
+    """Accrue only whole elapsed server minutes, once, with an immutable receipt."""
+    position = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not position or position["status"] not in {"open", "closing"}:
+        raise ValueError("short_position_not_open")
+    if int(mark_price_micromora) <= 0:
+        raise ValueError("invalid_short_interest_mark")
+    if position["last_interest_accrued_at"] is None or position["open_apr_bps"] is None:
+        raise ValueError("short_interest_terms_missing")
+    async with db.execute(
+        "SELECT (?::timestamptz)+(FLOOR(GREATEST(0,EXTRACT(EPOCH FROM "
+        "(NOW()-(?::timestamptz)))/60))::INTEGER * INTERVAL '1 minute'),"
+        "FLOOR(GREATEST(0,EXTRACT(EPOCH FROM (NOW()-(?::timestamptz)))/60))::INTEGER",
+        (position["last_interest_accrued_at"], position["last_interest_accrued_at"],
+         position["last_interest_accrued_at"]),
+    ) as cursor:
+        now, minutes = await cursor.fetchone()
+    minutes = int(minutes)
+    if minutes <= 0:
+        return {"position": position, "accrued_mora": Decimal("0"), "minutes": 0}
+    amount = minute_interest_mora(
+        debt_units=int(position["outstanding_debt_units"]), mark_price_micromora=int(mark_price_micromora),
+        apr_bps=int(position["open_apr_bps"]),
+    ) * minutes
+    amount = amount.quantize(Decimal("0.000001"))
+    accrued_from = position["last_interest_accrued_at"]
+    accrued_to = now
+    if amount > 0:
+        await db.execute(
+            "INSERT INTO player_coin_short_interest_accruals_v1"
+            "(id,position_id,accrued_from,accrued_to,minutes,apr_bps,mark_price_micromora,amount_mora) "
+            "VALUES(?,?,?,?,?,?,?,?)",
+            (uuid4().hex, str(position_id), accrued_from, accrued_to, minutes,
+             int(position["open_apr_bps"]), int(mark_price_micromora), amount),
+        )
+        await db.execute(
+            "UPDATE player_coin_short_positions_v1 SET accrued_interest_mora=accrued_interest_mora+(?::numeric),"
+            "last_interest_accrued_at=? WHERE id=?",
+            (amount, accrued_to, str(position_id)),
+        )
+    else:
+        await db.execute(
+            "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=? WHERE id=?",
+            (accrued_to, str(position_id)),
+        )
+    result = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not result:
+        raise RuntimeError("Short position disappeared during interest accrual.")
+    return {"position": result, "accrued_mora": amount, "minutes": minutes}
 
 
 async def get_short_reserve(db, *, coin_id: str, for_update: bool = False) -> dict | None:
@@ -1268,14 +1354,14 @@ async def eligible_short_buyback_asks(db, *, coin_id: str, borrower_id: int,
 
 async def create_short_position(db, *, position_id: str, coin_id: str, borrower_id: int,
                                 action_id: str, units: int, collateral_mora: Decimal,
-                                collateral_operation_id: str) -> dict:
+                                collateral_operation_id: str, open_apr_bps: int) -> dict:
     async with db.execute(
         "INSERT INTO player_coin_short_positions_v1"
         "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
-        "posted_collateral_mora,locked_sale_proceeds_mora,collateral_operation_id) "
-        "VALUES(?,?,? ,?,'open',?,?,?,0,?) RETURNING *",
+        "posted_collateral_mora,locked_sale_proceeds_mora,collateral_operation_id,last_interest_accrued_at,open_apr_bps) "
+        "VALUES(?,?,? ,?,'open',?,?,?,0,?,NOW(),?) RETURNING *",
         (str(position_id), str(coin_id), int(borrower_id), str(action_id), int(units), int(units),
-         Decimal(collateral_mora), str(collateral_operation_id)),
+         Decimal(collateral_mora), str(collateral_operation_id), int(open_apr_bps)),
     ) as cursor:
         return dict(await cursor.fetchone())
 

@@ -11,7 +11,8 @@ from core.player_exchange_shorts_v1 import (  # noqa: E402
     equity_mora, is_short_eligible, liquidation_penalty_split, liquidation_state,
     margin_ratio_bps, minute_interest_mora, minimum_partial_liquidation_units,
     executable_buyback_limit_price, executable_sell_limit_price, pool_utilisation_bps,
-    pro_rata_lender_allocations, pro_rata_loan_repayments, required_initial_collateral_mora,
+    pro_rata_lender_allocations, pro_rata_loan_repayments, pro_rata_mora_allocations,
+    required_initial_collateral_mora,
     short_limits_units, validate_short_open,
 )
 
@@ -53,6 +54,9 @@ assert pro_rata_loan_repayments(
     requested_units=5, loans=[(9, 5), (7, 3), (8, 2)],
 ) == [(9, 2), (7, 2), (8, 1)]
 rejects(pro_rata_loan_repayments, requested_units=11, loans=[(8, 10)])
+assert pro_rata_mora_allocations(
+    amount=Decimal("0.000005"), loans=[(9, 5), (7, 3), (8, 2)],
+) == [(9, Decimal("0.000002")), (7, Decimal("0.000002")), (8, Decimal("0.000001"))]
 assert pool_utilisation_bps(lending_pool_units=400_000, borrowed_units=100_000) == 5_000
 assert borrow_apr_bps(utilisation_bps=0) == 1_000
 assert borrow_apr_bps(utilisation_bps=7_000) == 3_000

@@ -140,6 +140,34 @@ def pro_rata_loan_repayments(*, requested_units: int,
     return [(lender_id, units) for lender_id, units in result if units]
 
 
+def pro_rata_mora_allocations(*, amount: Decimal,
+                               loans: list[tuple[int, int]]) -> list[tuple[int, Decimal]]:
+    """Split an exact six-decimal Mora amount by current loan principal."""
+    value = Decimal(str(amount)).quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+    micro = int(value * Decimal(1_000_000))
+    clean = [(int(lender_id), int(outstanding)) for lender_id, outstanding in loans]
+    if micro < 0 or any(lender_id <= 0 or outstanding < 0 for lender_id, outstanding in clean):
+        raise ShortsPolicyError("Invalid lender Mora allocation.")
+    if len({lender_id for lender_id, _ in clean}) != len(clean):
+        raise ShortsPolicyError("Lender Mora allocation contains a duplicate lender.")
+    total = sum(outstanding for _, outstanding in clean)
+    if micro and total <= 0:
+        raise ShortsPolicyError("Lender Mora allocation has no outstanding loans.")
+    base = [(lender_id, outstanding * micro // total, outstanding * micro % total)
+            for lender_id, outstanding in clean if outstanding]
+    allocated = sum(units for _, units, _ in base)
+    winners = {
+        lender_id for lender_id, _, _ in sorted(base, key=lambda row: (-row[2], row[0]))[:micro - allocated]
+    }
+    result = [
+        (lender_id, (units + (1 if lender_id in winners else 0)) / Decimal(1_000_000))
+        for lender_id, units, _ in base
+    ]
+    if sum(value for _, value in result) != value:
+        raise ShortsPolicyError("Lender Mora allocation invariant failed.")
+    return [(lender_id, allocation) for lender_id, allocation in result if allocation]
+
+
 def pool_utilisation_bps(*, lending_pool_units: int, borrowed_units: int) -> int:
     capacity = usable_lending_capacity_units(lending_pool_units)
     borrowed = int(borrowed_units)

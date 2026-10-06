@@ -20,7 +20,7 @@ from core.player_exchange_v1 import (
 from core.player_exchange_shorts_v1 import (
     SHORTS_FEATURE_FLAG_KEY, conservative_mark_price_micromora,
     executable_buyback_limit_price, executable_sell_limit_price,
-    is_short_eligible, required_initial_collateral_mora, short_limits_units,
+    borrow_apr_bps, is_short_eligible, pool_utilisation_bps, required_initial_collateral_mora, short_limits_units,
     validate_short_open,
 )
 from core.economy_contract import IdempotencyConflict
@@ -336,6 +336,12 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
         collateral = required_initial_collateral_mora(
             debt_units=units, conservative_price_micromora=mark,
         )
+        opening_apr_bps = borrow_apr_bps(
+            utilisation_bps=pool_utilisation_bps(
+                lending_pool_units=pool["lending_pool_units"],
+                borrowed_units=pool["already_borrowed_units"] + units,
+            )
+        )
         collateral_mutation = await economy_ledger.apply_balance_change(
             db, int(user_id), {"mora": -collateral}, reason_code="player_coin_short_collateral",
             idempotency_key=f"player-coin:short-collateral:{action_id}", source_type="player_exchange",
@@ -348,7 +354,7 @@ async def open_short(db, *, user_id: int, coin_id: str, amount: str, action_id: 
         await repo.create_short_position(
             db, position_id=position_id, coin_id=str(coin_id), borrower_id=int(user_id),
             action_id=str(action_id), units=units, collateral_mora=collateral,
-            collateral_operation_id=str(collateral_mutation.operation_id),
+            collateral_operation_id=str(collateral_mutation.operation_id), open_apr_bps=opening_apr_bps,
         )
         await repo.change_short_cash_escrow(
             db, position_id=position_id, amount=collateral, source_type="collateral",

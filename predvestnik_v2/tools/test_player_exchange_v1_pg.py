@@ -1324,6 +1324,7 @@ async def main(dsn: str):
         opened_position = opened["position"]
         assert int(opened_position["outstanding_debt_units"]) == 3_000
         assert Decimal(opened_position["posted_collateral_mora"]) == Decimal("30.000000")
+        assert int(opened_position["open_apr_bps"]) > 0 and opened_position["last_interest_accrued_at"] is not None
         assert Decimal(opened_position["locked_sale_proceeds_mora"]) < Decimal("12")
         assert Decimal(opened_position["cash_escrow_mora"]) == (
             Decimal(opened_position["posted_collateral_mora"])
@@ -1410,6 +1411,37 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT SUM(outstanding_units) FROM player_coin_short_loans_v1 WHERE position_id=$1", opened_position["id"],
         ) == 0
+        async with db.connection.transaction():
+            await db.execute(
+                "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-10000,loaned_units=loaned_units+10000 "
+                "WHERE coin_id=? AND lender_id=4", (short_coin["id"],)
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora,cash_escrow_mora,last_interest_accrued_at,open_apr_bps) "
+                "VALUES('short-interest-position',?,6,'short-interest-open','open',10000,10000,1,0,1,"
+                "NOW()-INTERVAL '3 minutes',10000)", (short_coin["id"],),
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_loans_v1"
+                "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+                "VALUES('short-interest-loan',?,'short-interest-position',4,10000,10000)",
+                (short_coin["id"],),
+            )
+        async with db.connection.transaction():
+            interest = await repo.accrue_short_interest(
+                db, position_id="short-interest-position", mark_price_micromora=1_000_000,
+            )
+        assert interest["minutes"] >= 3 and interest["accrued_mora"] >= Decimal("0.000003")
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_interest_accruals_v1 SET amount_mora=0 "
+                "WHERE position_id='short-interest-position'"
+            )
+            raise AssertionError("Short interest receipt was mutable")
+        except asyncpg.RaiseError:
+            pass
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",
