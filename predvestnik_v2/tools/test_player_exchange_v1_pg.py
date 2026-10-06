@@ -1442,6 +1442,26 @@ async def main(dsn: str):
             raise AssertionError("Short interest receipt was mutable")
         except asyncpg.RaiseError:
             pass
+        lender_interest_before = Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
+        )))
+        async with db.connection.transaction():
+            settled_interest = await repo.settle_short_interest(
+                db, position_id="short-interest-position", action_id="short-interest-settle-0001",
+            )
+        assert settled_interest["settled_mora"] == interest["accrued_mora"]
+        assert settled_interest["position"]["accrued_interest_mora"] == 0
+        assert Decimal(str(await conn.fetchval(
+            "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
+        ))) == lender_interest_before + interest["accrued_mora"]
+        assert Decimal(str((await repo.get_short_position(
+            db, position_id="short-interest-position",
+        ))["cash_escrow_mora"])) == Decimal("1") - interest["accrued_mora"]
+        async with db.connection.transaction():
+            interest_replay = await repo.settle_short_interest(
+                db, position_id="short-interest-position", action_id="short-interest-settle-0001",
+            )
+        assert interest_replay["settled_mora"] == 0
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",

@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from core.player_exchange_shorts_v1 import (
     minute_interest_mora, pro_rata_lender_allocations, pro_rata_loan_repayments,
+    pro_rata_mora_allocations,
 )
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
@@ -1268,6 +1269,50 @@ async def accrue_short_interest(db, *, position_id: str, mark_price_micromora: i
     if not result:
         raise RuntimeError("Short position disappeared during interest accrual.")
     return {"position": result, "accrued_mora": amount, "minutes": minutes}
+
+
+async def settle_short_interest(db, *, position_id: str, action_id: str) -> dict:
+    """Pay accrued interest from a position's escrow to its live lenders exactly once."""
+    # Keep the wallet writer as a late import: this repository owns the short
+    # custody tables, while the canonical ledger owns player Mora balances.
+    from infrastructure.repositories import economy_ledger
+
+    position = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not position or position["status"] not in {"open", "closing"}:
+        raise ValueError("short_position_not_open")
+    amount = Decimal(position["accrued_interest_mora"])
+    if amount <= 0:
+        return {"position": position, "allocations": [], "settled_mora": Decimal("0")}
+    async with db.execute(
+        "SELECT lender_id,outstanding_units FROM player_coin_short_loans_v1 "
+        "WHERE position_id=? AND outstanding_units>0 ORDER BY lender_id FOR UPDATE",
+        (str(position_id),),
+    ) as cursor:
+        loans = [dict(row) for row in await cursor.fetchall()]
+    allocations = pro_rata_mora_allocations(
+        amount=amount, loans=[(int(row["lender_id"]), int(row["outstanding_units"])) for row in loans],
+    )
+    await change_short_cash_escrow(
+        db, position_id=str(position_id), amount=-amount, source_type="interest_charge",
+        source_id=f"short-interest-charge:{action_id}",
+    )
+    for lender_id, allocation in allocations:
+        await economy_ledger.apply_balance_change(
+            db, int(lender_id), {"mora": allocation}, reason_code="player_coin_short_interest",
+            idempotency_key=f"player-coin:short-interest:{position_id}:{action_id}:{lender_id}",
+            source_type="player_exchange", reference_type="short_position", reference_id=str(position_id),
+            metadata={"position_id": str(position_id), "settlement_action_id": str(action_id),
+                      "interest_mora": str(allocation)},
+            note="Проценты по пулу шорта",
+        )
+    await db.execute(
+        "UPDATE player_coin_short_positions_v1 SET accrued_interest_mora=0 WHERE id=? AND accrued_interest_mora=? RETURNING 1",
+        (str(position_id), amount),
+    )
+    result = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not result:
+        raise RuntimeError("Short position disappeared during interest settlement.")
+    return {"position": result, "allocations": allocations, "settled_mora": amount}
 
 
 async def get_short_reserve(db, *, coin_id: str, for_update: bool = False) -> dict | None:
