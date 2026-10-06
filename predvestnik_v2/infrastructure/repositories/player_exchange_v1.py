@@ -2044,6 +2044,82 @@ async def credit_short_reserve(db, *, coin_id: str, amount: Decimal, source_type
     )
 
 
+async def debit_short_reserve(db, *, coin_id: str, amount: Decimal, source_id: str,
+                              buyback_cycle_hour) -> None:
+    """Spend an already-snapshotted claim-buyback budget; reserve never goes below zero."""
+    value = Decimal(amount).quantize(Decimal("0.000001"))
+    if value <= 0:
+        raise ValueError("Short reserve debit must be positive.")
+    async with db.execute(
+        "SELECT available_mora FROM player_coin_short_reserves_v1 WHERE coin_id=? FOR UPDATE", (str(coin_id),)
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row or Decimal(row[0]) < value:
+        raise ValueError("insufficient_short_reserve")
+    before = Decimal(row[0])
+    after = before - value
+    await db.execute(
+        "UPDATE player_coin_short_reserves_v1 SET available_mora=?,updated_at=NOW() WHERE coin_id=?",
+        (after, str(coin_id)),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_short_reserve_ledger_v1"
+        "(id,coin_id,source_type,source_id,buyback_cycle_hour,delta_mora,balance_before,balance_after) "
+        "VALUES(?,?,?,?,?,?,?,?)",
+        (uuid4().hex, str(coin_id), "claim_buyback", str(source_id), buyback_cycle_hour,
+         -value, before, after),
+    )
+
+
+async def freeze_short_position(db, *, position_id: str, action_id: str) -> dict:
+    """Turn unrecoverable principal into immutable per-loan claims without a write-off."""
+    position = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not position or position["status"] not in {"open", "closing"}:
+        raise ValueError("short_position_not_open")
+    async with db.execute(
+        "SELECT * FROM player_coin_short_loans_v1 WHERE position_id=? AND outstanding_units>0 "
+        "ORDER BY lender_id,id FOR UPDATE", (str(position_id),),
+    ) as cursor:
+        loans = [dict(row) for row in await cursor.fetchall()]
+    if not loans:
+        raise RuntimeError("Unrecoverable Short has no lender loans.")
+    for loan in loans:
+        units = int(loan["outstanding_units"])
+        await db.execute(
+            "UPDATE player_coin_short_loans_v1 SET outstanding_units=0,frozen_units=frozen_units+?,closed_at=NOW() "
+            "WHERE id=? AND outstanding_units=?", (units, str(loan["id"]), units),
+        )
+        await db.execute(
+            "UPDATE player_coin_lending_positions_v1 SET loaned_units=loaned_units-?,frozen_units=frozen_units+?,"
+            "updated_at=NOW() WHERE coin_id=? AND lender_id=? AND loaned_units>=?",
+            (units, units, str(position["coin_id"]), int(loan["lender_id"]), units),
+        )
+        await db.execute(
+            "INSERT INTO player_coin_short_frozen_claims_v1"
+            "(id,coin_id,position_id,loan_id,lender_id,principal_units,remaining_units) VALUES(?,?,?,?,?,?,?)",
+            (uuid4().hex, str(position["coin_id"]), str(position_id), str(loan["id"]),
+             int(loan["lender_id"]), units, units),
+        )
+    cash = Decimal(position["cash_escrow_mora"])
+    if cash > 0:
+        await change_short_cash_escrow(
+            db, position_id=str(position_id), amount=-cash, source_type="liquidation_penalty",
+            source_id=f"short-freeze-cash:{action_id}",
+        )
+        await credit_short_reserve(
+            db, coin_id=str(position["coin_id"]), amount=cash, source_type="liquidation_penalty",
+            source_id=f"short-freeze-cash:{action_id}",
+        )
+    await db.execute(
+        "UPDATE player_coin_short_positions_v1 SET outstanding_debt_units=0,status='frozen',closed_at=NOW() "
+        "WHERE id=? AND status IN ('open','closing')", (str(position_id),),
+    )
+    result = await get_short_position(db, position_id=str(position_id), for_update=True)
+    if not result:
+        raise RuntimeError("Frozen Short disappeared.")
+    return result
+
+
 async def record_trade(db, *, trade_id: str, coin_id: str, buy_order: dict, sell_order: dict,
                        units: int, price: int, gross, buyer_fee, seller_fee,
                        shorts_reserve_enabled: bool = False) -> None:

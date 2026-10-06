@@ -1496,6 +1496,15 @@ async def main(dsn: str):
                 db, position_id="short-interest-position", mark_price_micromora=1_000_000,
             )
         assert paused_interest["minutes"] == 0 and paused_interest["accrued_mora"] == 0
+        async with db.connection.transaction():
+            frozen_position = await repo.freeze_short_position(
+                db, position_id="short-interest-position", action_id="short-freeze-0001",
+            )
+        assert frozen_position["status"] == "frozen" and frozen_position["outstanding_debt_units"] == 0
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_frozen_claims_v1 WHERE position_id='short-interest-position'"
+        ) == 1
+        assert (await repo.get_short_reserve(db, coin_id=short_coin["id"]))["shorts_paused"] is True
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",
