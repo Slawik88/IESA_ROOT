@@ -954,7 +954,7 @@ async def run_short_risk_maintenance(db, *, limit: int = 50) -> list[dict]:
             results.append(await liquidate_short(db, position_id=position_id, action_id=action_id))
         except Exception as exc:
             results.append({"position_id": position_id, "error": str(exc)})
-    for coin_id in await repo.frozen_claim_coin_ids(db, limit=limit):
+    for coin_id in await repo.next_frozen_claim_coin_ids(db, limit=limit):
         try:
             results.append(await settle_frozen_short_claims(db, coin_id=coin_id))
         except Exception as exc:

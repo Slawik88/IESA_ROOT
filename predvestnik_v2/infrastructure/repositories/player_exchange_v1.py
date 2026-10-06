@@ -12,7 +12,7 @@ from core.player_exchange_shorts_v1 import (
 )
 from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 
-SCHEMA_VERSION = "player-exchange-schema-v18-frozen-claim-buyback-2026-10-06"
+SCHEMA_VERSION = "player-exchange-schema-v20-short-recovery-receipts-2026-10-06"
 
 
 async def ensure_tables(db) -> None:
@@ -672,6 +672,16 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS player_coin_short_frozen_interest_settlements_v1 (
+            id TEXT PRIMARY KEY,
+            claim_id TEXT NOT NULL REFERENCES player_coin_short_frozen_interest_claims_v1(id) ON DELETE RESTRICT,
+            source_id TEXT NOT NULL UNIQUE,
+            reserve_ledger_id TEXT NULL,
+            payout_mora NUMERIC(24,6) NOT NULL CHECK (payout_mora>0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute("""
         CREATE OR REPLACE FUNCTION guard_player_coin_short_frozen_interest_claim_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -697,11 +707,57 @@ async def ensure_tables(db) -> None:
         END $$
     """)
     await db.execute("""
+        CREATE OR REPLACE FUNCTION assert_frozen_interest_settlement_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE claim_key TEXT; expected NUMERIC; actual NUMERIC;
+        BEGIN
+            IF TG_TABLE_NAME='player_coin_short_frozen_interest_claims_v1' THEN
+                claim_key := COALESCE(to_jsonb(NEW)->>'id',to_jsonb(OLD)->>'id');
+            ELSE
+                claim_key := COALESCE(to_jsonb(NEW)->>'claim_id',to_jsonb(OLD)->>'claim_id');
+            END IF;
+            SELECT principal_mora-remaining_mora INTO expected
+            FROM player_coin_short_frozen_interest_claims_v1 WHERE id=claim_key;
+            IF expected IS NULL THEN RETURN NULL; END IF;
+            SELECT COALESCE(SUM(payout_mora),0) INTO actual
+            FROM player_coin_short_frozen_interest_settlements_v1 WHERE claim_id=claim_key;
+            IF expected<>actual THEN RAISE EXCEPTION 'frozen interest settlement is inconsistent'; END IF;
+            IF EXISTS (
+                SELECT 1
+                FROM player_coin_short_frozen_interest_settlements_v1 s
+                JOIN player_coin_short_frozen_interest_claims_v1 c ON c.id=s.claim_id
+                LEFT JOIN player_coin_short_reserve_ledger_v1 r ON r.id=s.reserve_ledger_id
+                WHERE s.claim_id=claim_key
+                  AND (r.id IS NULL OR r.coin_id IS DISTINCT FROM c.coin_id
+                       OR r.source_type<>'claim_buyback' OR r.source_id IS DISTINCT FROM s.source_id
+                       OR r.frozen_interest_claim_id IS DISTINCT FROM s.claim_id
+                       OR r.delta_mora<>-s.payout_mora)
+            ) THEN
+                RAISE EXCEPTION 'frozen interest settlement lacks matching reserve debit';
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE rel TEXT; name TEXT; BEGIN
+            FOREACH rel IN ARRAY ARRAY['player_coin_short_frozen_interest_claims_v1',
+                                       'player_coin_short_frozen_interest_settlements_v1'] LOOP
+                name := CASE WHEN rel='player_coin_short_frozen_interest_claims_v1'
+                    THEN 'trg_frozen_interest_claim_settle_v1' ELSE 'trg_frozen_interest_receipt_settle_v1' END;
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=name AND tgrelid=rel::regclass AND NOT tgisinternal) THEN
+                    EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                      || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_frozen_interest_settlement_v1()',name,rel);
+                END IF;
+            END LOOP;
+        END $$
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS player_coin_short_reserve_ledger_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             source_type TEXT NOT NULL CHECK (source_type IN ('spot_fee','liquidation_penalty','claim_buyback')),
             source_id TEXT NOT NULL,
+            frozen_interest_claim_id TEXT NULL,
             buyback_cycle_hour TIMESTAMPTZ NULL,
             delta_mora NUMERIC(24,6) NOT NULL CHECK (delta_mora<>0),
             balance_before NUMERIC(24,6) NOT NULL CHECK (balance_before>=0),
@@ -790,6 +846,33 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS buyback_cycle_hour TIMESTAMPTZ NULL"
     )
+    await db.execute(
+        "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS frozen_interest_claim_id TEXT NULL"
+    )
+    await db.execute(
+        "ALTER TABLE player_coin_short_frozen_interest_settlements_v1 ADD COLUMN IF NOT EXISTS reserve_ledger_id TEXT NULL"
+    )
+    await db.execute("""
+        DO $$ BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_reserve_ledger_frozen_interest_v1') THEN
+                ALTER TABLE player_coin_short_reserve_ledger_v1
+                ADD CONSTRAINT fk_short_reserve_ledger_frozen_interest_v1
+                FOREIGN KEY (frozen_interest_claim_id)
+                REFERENCES player_coin_short_frozen_interest_claims_v1(id) ON DELETE RESTRICT;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_frozen_interest_settlement_ledger_v1') THEN
+                ALTER TABLE player_coin_short_frozen_interest_settlements_v1
+                ADD CONSTRAINT fk_short_frozen_interest_settlement_ledger_v1
+                FOREIGN KEY (reserve_ledger_id)
+                REFERENCES player_coin_short_reserve_ledger_v1(id) ON DELETE RESTRICT;
+            END IF;
+        END $$
+    """)
+    await db.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_short_frozen_interest_settlement_ledger_v1
+        ON player_coin_short_frozen_interest_settlements_v1(reserve_ledger_id)
+        WHERE reserve_ledger_id IS NOT NULL
+    """)
     await db.execute("""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_reserve_ledger_cycle_v1') THEN
@@ -816,9 +899,13 @@ async def ensure_tables(db) -> None:
         CREATE TABLE IF NOT EXISTS player_coin_short_maintenance_cursor_v1 (
             singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
             last_position_id TEXT NULL,
+            last_frozen_coin_id TEXT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
+    await db.execute(
+        "ALTER TABLE player_coin_short_maintenance_cursor_v1 ADD COLUMN IF NOT EXISTS last_frozen_coin_id TEXT NULL"
+    )
     await db.execute(
         "INSERT INTO player_coin_short_maintenance_cursor_v1(singleton) VALUES(TRUE) ON CONFLICT(singleton) DO NOTHING"
     )
@@ -839,6 +926,46 @@ async def ensure_tables(db) -> None:
                 WHERE coin_id=affected_coin;
             END IF;
             RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION assert_frozen_interest_claim_reconciliation_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        DECLARE interest_key TEXT; expected NUMERIC; actual NUMERIC;
+        BEGIN
+            IF TG_TABLE_NAME='player_coin_short_interest_claims_v1' THEN
+                interest_key := COALESCE(to_jsonb(NEW)->>'id',to_jsonb(OLD)->>'id');
+            ELSE
+                interest_key := COALESCE(to_jsonb(NEW)->>'interest_claim_id',to_jsonb(OLD)->>'interest_claim_id');
+            END IF;
+            SELECT frozen_mora INTO expected FROM player_coin_short_interest_claims_v1 WHERE id=interest_key;
+            IF expected IS NULL THEN RETURN NULL; END IF;
+            SELECT COALESCE(SUM(principal_mora),0) INTO actual
+            FROM player_coin_short_frozen_interest_claims_v1 WHERE interest_claim_id=interest_key;
+            IF expected<>actual THEN RAISE EXCEPTION 'frozen interest claim amount is inconsistent'; END IF;
+            IF EXISTS (
+                SELECT 1 FROM player_coin_short_frozen_interest_claims_v1 f
+                JOIN player_coin_short_interest_claims_v1 i ON i.id=f.interest_claim_id
+                WHERE f.interest_claim_id=interest_key
+                  AND (f.coin_id IS DISTINCT FROM i.coin_id OR f.position_id IS DISTINCT FROM i.position_id
+                       OR f.lender_id IS DISTINCT FROM i.lender_id)
+            ) THEN
+                RAISE EXCEPTION 'frozen interest claim identity is inconsistent';
+            END IF;
+            RETURN NULL;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE rel TEXT; name TEXT; BEGIN
+            FOREACH rel IN ARRAY ARRAY['player_coin_short_interest_claims_v1',
+                                       'player_coin_short_frozen_interest_claims_v1'] LOOP
+                name := CASE WHEN rel='player_coin_short_interest_claims_v1'
+                    THEN 'trg_short_interest_frozen_source_v1' ELSE 'trg_short_interest_frozen_claim_v1' END;
+                IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=name AND tgrelid=rel::regclass AND NOT tgisinternal) THEN
+                    EXECUTE format('CREATE CONSTRAINT TRIGGER %I AFTER INSERT OR UPDATE OR DELETE ON %I '
+                      || 'DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_frozen_interest_claim_reconciliation_v1()',name,rel);
+                END IF;
+            END LOOP;
         END $$
     """)
     await db.execute("""
@@ -1099,6 +1226,35 @@ async def frozen_claim_coin_ids(db, *, limit: int = 50) -> list[str]:
         (max(1, min(int(limit), 200)),),
     ) as cursor:
         return [str(row[0]) for row in await cursor.fetchall()]
+
+
+async def next_frozen_claim_coin_ids(db, *, limit: int = 50) -> list[str]:
+    row_limit = max(1, min(int(limit), 200))
+    async with db.execute(
+        "SELECT last_frozen_coin_id FROM player_coin_short_maintenance_cursor_v1 WHERE singleton=TRUE FOR UPDATE"
+    ) as cursor:
+        state = await cursor.fetchone()
+    last = state[0] if state else None
+    pending = (
+        "SELECT coin_id FROM (SELECT coin_id,created_at FROM player_coin_short_frozen_claims_v1 WHERE status='open' "
+        "UNION ALL SELECT coin_id,created_at FROM player_coin_short_frozen_interest_claims_v1 WHERE status='open') pending "
+        "GROUP BY coin_id"
+    )
+    async with db.execute(
+        pending + " HAVING ?::text IS NULL OR coin_id>? ORDER BY coin_id LIMIT ?", (last, last, row_limit)
+    ) as cursor:
+        result = [str(row[0]) for row in await cursor.fetchall()]
+    if len(result) < row_limit and last is not None:
+        async with db.execute(
+            pending + " HAVING coin_id<=? ORDER BY coin_id LIMIT ?", (last, row_limit - len(result))
+        ) as cursor:
+            result.extend(str(row[0]) for row in await cursor.fetchall())
+    if result:
+        await db.execute(
+            "UPDATE player_coin_short_maintenance_cursor_v1 SET last_frozen_coin_id=?,updated_at=NOW() WHERE singleton=TRUE",
+            (result[-1],),
+        )
+    return result
 
 
 async def open_short_position_ids(db, *, limit: int = 100) -> list[str]:
@@ -2265,7 +2421,8 @@ async def credit_short_reserve(db, *, coin_id: str, amount: Decimal, source_type
 
 
 async def debit_short_reserve(db, *, coin_id: str, amount: Decimal, source_id: str,
-                              buyback_cycle_action_id: str) -> None:
+                              buyback_cycle_action_id: str,
+                              frozen_interest_claim_id: str | None = None) -> str:
     """Spend an already-snapshotted claim-buyback budget; reserve never goes below zero."""
     value = Decimal(amount).quantize(Decimal("0.000001"))
     if value <= 0:
@@ -2296,14 +2453,16 @@ async def debit_short_reserve(db, *, coin_id: str, amount: Decimal, source_id: s
     ) as cursor:
         if not await cursor.fetchone():
             raise RuntimeError("Short reserve cycle budget changed after lock.")
+    ledger_id = uuid4().hex
     await db.execute(
         "INSERT INTO player_coin_short_reserve_ledger_v1"
-        "(id,coin_id,source_type,source_id,buyback_cycle_hour,delta_mora,balance_before,balance_after) "
-        "VALUES(?,?,?,? ,(SELECT cycle_hour FROM player_coin_short_buyback_cycles_v1 "
+        "(id,coin_id,source_type,source_id,frozen_interest_claim_id,buyback_cycle_hour,delta_mora,balance_before,balance_after) "
+        "VALUES(?,?,?,?,? ,(SELECT cycle_hour FROM player_coin_short_buyback_cycles_v1 "
         "WHERE coin_id=? AND action_id=?),?,?,?)",
-        (uuid4().hex, str(coin_id), "claim_buyback", str(source_id), str(coin_id),
+        (ledger_id, str(coin_id), "claim_buyback", str(source_id), frozen_interest_claim_id, str(coin_id),
          str(buyback_cycle_action_id), -value, before, after),
     )
+    return ledger_id
 
 
 async def begin_frozen_claim_buyback_cycle(db, *, coin_id: str) -> dict:
@@ -2366,9 +2525,14 @@ async def settle_frozen_interest_claim_buyback(db, *, claim_id: str, cycle: dict
         raise ValueError("frozen_interest_claim_not_open")
     if str(claim["coin_id"]) != str(cycle["coin_id"]):
         raise ValueError("frozen_interest_claim_wrong_coin")
-    await debit_short_reserve(
+    reserve_ledger_id = await debit_short_reserve(
         db, coin_id=str(claim["coin_id"]), amount=payout, source_id=str(source_id),
-        buyback_cycle_action_id=str(cycle["action_id"]),
+        buyback_cycle_action_id=str(cycle["action_id"]), frozen_interest_claim_id=str(claim_id),
+    )
+    await db.execute(
+        "INSERT INTO player_coin_short_frozen_interest_settlements_v1"
+        "(id,claim_id,source_id,reserve_ledger_id,payout_mora) VALUES(?,?,?,?,?)",
+        (uuid4().hex, str(claim_id), str(source_id), reserve_ledger_id, payout),
     )
     remaining = Decimal(claim["remaining_mora"]) - payout
     status = "settled" if remaining == 0 else "open"

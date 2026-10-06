@@ -1515,6 +1515,38 @@ async def main(dsn: str):
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_frozen_interest_claims_v1 WHERE position_id='short-interest-position'"
         ) == 1
+        try:
+            await conn.execute(
+                "UPDATE player_coin_short_frozen_interest_claims_v1 SET remaining_mora=0,status='settled',settled_at=NOW() "
+                "WHERE position_id='short-interest-position'"
+            )
+            raise AssertionError("Frozen interest could be settled without a reserve receipt")
+        except asyncpg.RaiseError:
+            pass
+        forged_interest_claim = await conn.fetchrow(
+            "SELECT id,principal_mora FROM player_coin_short_frozen_interest_claims_v1 "
+            "WHERE position_id='short-interest-position'"
+        )
+        unrelated_reserve_ledger_id = await conn.fetchval(
+            "SELECT id FROM player_coin_short_reserve_ledger_v1 WHERE coin_id=$1 ORDER BY created_at,id LIMIT 1",
+            short_coin["id"],
+        )
+        try:
+            async with conn.transaction():
+                await conn.execute(
+                    "INSERT INTO player_coin_short_frozen_interest_settlements_v1"
+                    "(id,claim_id,source_id,reserve_ledger_id,payout_mora) VALUES($1,$2,$3,$4,$5)",
+                    "forged-frozen-interest-settlement", forged_interest_claim["id"],
+                    "forged-frozen-interest-source", unrelated_reserve_ledger_id,
+                    forged_interest_claim["principal_mora"],
+                )
+                await conn.execute(
+                    "UPDATE player_coin_short_frozen_interest_claims_v1 SET remaining_mora=0,status='settled',settled_at=NOW() "
+                    "WHERE id=$1", forged_interest_claim["id"],
+                )
+            raise AssertionError("Frozen interest accepted an unrelated reserve ledger receipt")
+        except asyncpg.RaiseError:
+            pass
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_frozen_claims_v1 WHERE position_id='short-interest-position'"
         ) == 1
