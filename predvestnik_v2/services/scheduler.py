@@ -104,7 +104,8 @@ async def maintenance_task(bot: Bot) -> None:
                 db = PGAdapter(connection)
                 await _daily_gc(db)
                 from services.player_exchange_v1 import (
-                    execute_due_emissions, execute_due_liquidity_withdrawals, settle_due_auctions,
+                    execute_due_emissions, execute_due_liquidity_withdrawals, run_short_risk_maintenance,
+                    settle_due_auctions,
                 )
                 for settlement in await settle_due_auctions(db, limit=20):
                     if settlement.get("error"):
@@ -130,6 +131,11 @@ async def maintenance_task(bot: Bot) -> None:
                     elif withdrawal:
                         logger.info("Player exchange liquidity withdrawal executed: withdrawal={} coin={} mora={}",
                                     withdrawal.get("id"), withdrawal.get("coin_id"), withdrawal.get("amount_mora"))
+                for short_result in await run_short_risk_maintenance(db, limit=50):
+                    if short_result.get("error"):
+                        logger.error("Short risk maintenance failed: {}", short_result)
+                    elif short_result.get("decision") in {"short_liquidated", "short_frozen"}:
+                        logger.warning("Short risk maintenance action: {}", short_result)
                 from services.vip import daily_reminder_candidates, record_daily_reminder_sent
                 for user_id in await daily_reminder_candidates(db):
                     try:

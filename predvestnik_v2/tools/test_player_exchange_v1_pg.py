@@ -1496,30 +1496,25 @@ async def main(dsn: str):
                 db, position_id="short-interest-position", mark_price_micromora=1_000_000,
             )
         assert paused_interest["minutes"] == 0 and paused_interest["accrued_mora"] == 0
-        try:
-            async with db.connection.transaction():
-                await db.execute(
-                    "UPDATE player_coin_short_interest_pauses_v1 SET ends_at=NOW()-INTERVAL '3 minutes' "
-                    "WHERE id='short-interest-pause'"
-                )
-                await db.execute(
-                    "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=NOW()-INTERVAL '2 minutes',"
-                    "interest_remainder_seconds=0 WHERE id='short-interest-position'"
-                )
-                await repo.accrue_short_interest(
-                    db, position_id="short-interest-position", mark_price_micromora=1_000_000,
-                )
-                await repo.freeze_short_position(
-                    db, position_id="short-interest-position", action_id="short-freeze-unpaid-interest",
-                )
-            raise AssertionError("Frozen Short stranded unpaid interest")
-        except ValueError as exc:
-            assert str(exc) == "short_position_unsettled_interest"
         async with db.connection.transaction():
+            await db.execute(
+                "UPDATE player_coin_short_interest_pauses_v1 SET ends_at=NOW()-INTERVAL '3 minutes' "
+                "WHERE id='short-interest-pause'"
+            )
+            await db.execute(
+                "UPDATE player_coin_short_positions_v1 SET last_interest_accrued_at=NOW()-INTERVAL '2 minutes',"
+                "interest_remainder_seconds=0 WHERE id='short-interest-position'"
+            )
+            await repo.accrue_short_interest(
+                db, position_id="short-interest-position", mark_price_micromora=1_000_000,
+            )
             frozen_position = await repo.freeze_short_position(
                 db, position_id="short-interest-position", action_id="short-freeze-0001",
             )
         assert frozen_position["status"] == "frozen" and frozen_position["outstanding_debt_units"] == 0
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_frozen_interest_claims_v1 WHERE position_id='short-interest-position'"
+        ) == 1
         assert await conn.fetchval(
             "SELECT COUNT(*) FROM player_coin_short_frozen_claims_v1 WHERE position_id='short-interest-position'"
         ) == 1
@@ -1540,7 +1535,7 @@ async def main(dsn: str):
             "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
         )))
         frozen_buyback = await service.settle_frozen_short_claims(db, coin_id=short_coin["id"])
-        assert frozen_buyback["status"] == "ok" and len(frozen_buyback["settled"]) == 1
+        assert frozen_buyback["status"] == "ok" and len(frozen_buyback["settled"]) >= 2
         assert Decimal(frozen_buyback["spent_mora"]) <= Decimal(frozen_buyback["budget_mora"])
         assert Decimal(str(await conn.fetchval(
             "SELECT user_balance_mora FROM users WHERE user_tg_id=4"
@@ -1552,6 +1547,62 @@ async def main(dsn: str):
         assert 0 < int(frozen_claim["remaining_units"]) < int(frozen_claim["principal_units"])
         same_cycle = await service.settle_frozen_short_claims(db, coin_id=short_coin["id"])
         assert Decimal(same_cycle["spent_mora"]) == Decimal(frozen_buyback["spent_mora"])
+        async with db.connection.transaction():
+            await db.execute(
+                "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-1000,loaned_units=loaned_units+1000 "
+                "WHERE coin_id=? AND lender_id=8 AND available_units>=1000", (short_coin["id"],)
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora,cash_escrow_mora,last_interest_accrued_at,open_apr_bps,interest_mark_price_micromora) "
+                "VALUES('short-liquidation-position',?,6,'short-liquidation-open','open',1000,1000,1,0,1.1,NOW(),0,4000000)",
+                (short_coin["id"],),
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_loans_v1"
+                "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+                "VALUES('short-liquidation-loan',?,'short-liquidation-position',8,1000,1000)",
+                (short_coin["id"],),
+            )
+        liquidation = await service.liquidate_short(
+            db, position_id="short-liquidation-position", action_id="short-liquidation-0001",
+        )
+        assert liquidation["decision"] == "short_liquidated"
+        assert liquidation["position"]["status"] == "closed"
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM player_coin_short_reserve_ledger_v1 "
+            "WHERE source_id='short-liquidation-penalty:short-liquidation-0001'"
+        ) == 1
+        liquidation_replay = await service.liquidate_short(
+            db, position_id="short-liquidation-position", action_id="short-liquidation-0001",
+        )
+        assert liquidation_replay["replayed"] is True
+        async with db.connection.transaction():
+            await db.execute(
+                "UPDATE player_coin_lending_positions_v1 SET available_units=available_units-1000,loaned_units=loaned_units+1000 "
+                "WHERE coin_id=? AND lender_id=8 AND available_units>=1000", (short_coin["id"],)
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_positions_v1"
+                "(id,coin_id,borrower_id,action_id,status,initial_debt_units,outstanding_debt_units,"
+                "posted_collateral_mora,locked_sale_proceeds_mora,cash_escrow_mora,last_interest_accrued_at,open_apr_bps,interest_mark_price_micromora) "
+                "VALUES('short-liquidation-freeze',?,6,'short-liquidation-freeze-open','open',1000,1000,1,0,0.5,NOW(),0,4000000)",
+                (short_coin["id"],),
+            )
+            await db.execute(
+                "INSERT INTO player_coin_short_loans_v1"
+                "(id,coin_id,position_id,lender_id,principal_units,outstanding_units) "
+                "VALUES('short-liquidation-freeze-loan',?,'short-liquidation-freeze',8,1000,1000)",
+                (short_coin["id"],),
+            )
+        frozen_liquidation = await service.liquidate_short(
+            db, position_id="short-liquidation-freeze", action_id="short-liquidation-freeze-0001",
+        )
+        assert frozen_liquidation["decision"] == "short_frozen"
+        assert frozen_liquidation["position"]["status"] == "frozen"
+        maintenance = await service.run_short_risk_maintenance(db, limit=50)
+        assert maintenance and not any(item.get("error") for item in maintenance), maintenance
 
         failed = await service.create_coin(
             db, owner_id=11, name="Тихая монета", ticker="QUIET",
@@ -1580,7 +1631,10 @@ async def main(dsn: str):
         assert float(await conn.fetchval("SELECT SUM(delta) FROM player_coin_mora_ledger_v1 WHERE coin_id=$1", first["id"])) == 10000
         assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=3") == 0
         assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=4") >= 1
-        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=6") == 0
+        assert await conn.fetchval(
+            "SELECT COUNT(*) FROM economic_operations WHERE user_id=6 "
+            "AND reason_code='player_coin_short_collateral_release'"
+        ) == 1
         try:
             await conn.execute("UPDATE player_coin_events_v1 SET event_type='tampered' WHERE coin_id=$1", first["id"])
             raise AssertionError("append-only event was mutable")

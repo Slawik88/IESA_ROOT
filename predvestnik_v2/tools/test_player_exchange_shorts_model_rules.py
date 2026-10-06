@@ -87,6 +87,11 @@ ratio = margin_ratio_bps(
     debt_units=100_000, mark_price_micromora=1_000_000, accrued_interest_mora=Decimal("0"),
 )
 assert ratio == INITIAL_MARGIN_BPS
+assert margin_ratio_bps(
+    posted_collateral_mora=Decimal("200"), locked_sale_proceeds_mora=Decimal("100"),
+    cash_escrow_mora=Decimal("180"), debt_units=100_000,
+    mark_price_micromora=1_000_000, accrued_interest_mora=Decimal("0"),
+) == 8_000
 assert liquidation_state(margin_bps=PARTIAL_LIQUIDATION_BPS, market_halted=False, mark_available=True) == "healthy"
 assert liquidation_state(margin_bps=PARTIAL_LIQUIDATION_BPS - 1, market_halted=False, mark_available=True) == "partial"
 assert liquidation_state(margin_bps=FULL_LIQUIDATION_BPS, market_halted=False, mark_available=True) == "partial"

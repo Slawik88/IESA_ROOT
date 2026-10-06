@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
@@ -20,8 +20,9 @@ from core.player_exchange_v1 import (
 from core.player_exchange_shorts_v1 import (
     SHORTS_FEATURE_FLAG_KEY, conservative_mark_price_micromora,
     executable_buyback_limit_price, executable_sell_limit_price,
-    borrow_apr_bps, frozen_claim_units_for_budget, is_short_eligible, pool_utilisation_bps,
-    required_initial_collateral_mora, short_limits_units,
+    borrow_apr_bps, frozen_claim_buyback_mark_micromora, frozen_claim_units_for_budget, is_short_eligible, pool_utilisation_bps,
+    equity_mora, liquidation_penalty_split, liquidation_state, margin_ratio_bps,
+    minimum_partial_liquidation_units, required_initial_collateral_mora, short_limits_units,
     validate_short_open,
 )
 from core.economy_contract import IdempotencyConflict
@@ -441,7 +442,7 @@ async def _short_close_replay(db, *, user_id: int, position_id: str, action_id: 
 
 
 async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
-                          action_id: str) -> dict:
+                          action_id: str, liquidation: bool = False) -> dict:
     """Atomically reduce or close a Short against already-locked genuine asks.
 
     This stays intentionally service-only.  Unlike an ordinary buy, its cash is
@@ -459,12 +460,13 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
         position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
         if not position or int(position["borrower_id"]) != int(user_id):
             raise PlayerExchangePolicyError("Шорт не найден.")
-        replay = await _short_close_replay(
-            db, user_id=int(user_id), position_id=str(position_id), action_id=str(action_id),
-            requested_units=requested,
-        )
-        if replay:
-            return replay
+        if not liquidation:
+            replay = await _short_close_replay(
+                db, user_id=int(user_id), position_id=str(position_id), action_id=str(action_id),
+                requested_units=requested,
+            )
+            if replay:
+                return replay
         if position["status"] != "open" or requested > int(position["outstanding_debt_units"]):
             raise PlayerExchangePolicyError("Этот объём уже нельзя выкупить из шорта.")
         coin = await repo.get_coin(db, str(position["coin_id"]), for_update=True)
@@ -592,6 +594,28 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
             db, position_id=str(position_id), units=requested, close_position=closing,
         )
         final_position = repaid["position"]
+        liquidation_penalty = Decimal("0")
+        if liquidation:
+            executor_share, reserve_share = liquidation_penalty_split(
+                posted_collateral_mora=Decimal(final_position["posted_collateral_mora"]),
+                closed_units=requested, original_debt_units=int(position["outstanding_debt_units"]),
+            )
+            # Forced reduction never creates a new debt: the penalty is capped
+            # by actual post-buyback escrow and goes only to the segregated
+            # reserve while the public liquidator programme is still disabled.
+            liquidation_penalty = min(executor_share + reserve_share, Decimal(final_position["cash_escrow_mora"]))
+            if liquidation_penalty > 0:
+                await repo.change_short_cash_escrow(
+                    db, position_id=str(position_id), amount=-liquidation_penalty,
+                    source_type="liquidation_penalty", source_id=f"short-liquidation-penalty:{action_id}",
+                )
+                await repo.credit_short_reserve(
+                    db, coin_id=str(coin["id"]), amount=liquidation_penalty,
+                    source_type="liquidation_penalty", source_id=f"short-liquidation-penalty:{action_id}",
+                )
+                final_position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+                if not final_position:
+                    raise RuntimeError("Short position disappeared during liquidation penalty.")
         borrower_release = Decimal("0")
         if closing:
             borrower_release = Decimal(final_position["cash_escrow_mora"])
@@ -610,13 +634,13 @@ async def _buy_back_short(db, *, user_id: int, position_id: str, units: int,
                     note=f"Возврат остатка залога шорта {coin['ticker']}",
                 )
             final_position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
-        event_type = "short_closed" if closing else "short_reduced"
+        event_type = "short_liquidated" if liquidation else ("short_closed" if closing else "short_reduced")
         await repo.append_short_event(
-            db, coin_id=str(coin["id"]), actor_id=int(user_id), event_type=event_type,
+            db, coin_id=str(coin["id"]), actor_id=None if liquidation else int(user_id), event_type=event_type,
             action_id=str(action_id), payload={
                 "position_id": str(position_id), "order_id": str(order["id"]), "units": requested,
                 "buyback_limit_price_micromora": int(buyback_limit), "spent_mora": str(total_charge),
-                "borrower_release_mora": str(borrower_release),
+                "borrower_release_mora": str(borrower_release), "liquidation_penalty_mora": str(liquidation_penalty),
             },
         )
         return {"position": final_position, "order_id": str(order["id"]), "replayed": False}
@@ -657,6 +681,171 @@ async def close_short(db, *, user_id: int, position_id: str, action_id: str) -> 
     )
 
 
+async def liquidate_short(db, *, position_id: str, action_id: str) -> dict:
+    """Run one server-owned, reduce-only liquidation decision.
+
+    It is intentionally not a player endpoint.  A halted market or an
+    unqualified mark performs no forced operation.  When a qualified market
+    exists but escrow cannot fund even the required protected reduction, lender
+    principal becomes an immutable frozen claim only after every accrued
+    interest claim has been settled; otherwise the position remains untouched.
+    """
+    if not await repo.schema_ready(db):
+        raise PlayerExchangeUnavailable("Биржа временно недоступна: хранилище не готово.")
+    if not 8 <= len(str(action_id)) <= 128:
+        raise PlayerExchangePolicyError("Некорректный идентификатор ликвидации.")
+    async with db.connection.transaction():
+        await repo.lock_spot(db)
+        prior = await repo.get_short_event_by_action(db, action_id=str(action_id))
+        if prior:
+            if prior["event_type"] not in {"short_liquidated", "short_frozen"}:
+                raise IdempotencyConflict("Action id is bound to another Shorts operation.")
+            position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+            if not position:
+                raise RuntimeError("Short liquidation replay has no position.")
+            return {"position": position, "decision": prior["event_type"], "replayed": True}
+        position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        if not position:
+            raise PlayerExchangePolicyError("Шорт не найден.")
+        if position["status"] != "open":
+            return {"position": position, "decision": "not_open", "replayed": False}
+        coin = await repo.get_coin(db, str(position["coin_id"]), for_update=True)
+        if not coin:
+            raise RuntimeError("Short coin disappeared.")
+        halt = await repo.market_halt(db, str(coin["id"]))
+        asks = await repo.eligible_short_buyback_asks(
+            db, coin_id=str(coin["id"]), borrower_id=int(position["borrower_id"]), owner_id=int(coin["owner_id"]),
+        )
+        full_buyback = executable_buyback_limit_price(
+            units=int(position["outstanding_debt_units"]),
+            asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+        )
+        vwap = await repo.vwap_window(db, coin_id=str(coin["id"]), minutes=5)
+        mark = conservative_mark_price_micromora(
+            vwap_5m_micromora=vwap["vwap_price_micromora"], vwap_5m_volume_mora=vwap["volume_mora"],
+            executable_buyback_micromora=full_buyback,
+        )
+        # A meaningful trade mark may prove full insolvency even after the
+        # protected ask depth has vanished.  It never triggers a forced trade;
+        # it only permits the documented claim-freeze default path below.
+        no_depth_mark = (int(vwap["vwap_price_micromora"]) if vwap["vwap_price_micromora"]
+                         and Decimal(vwap["volume_mora"]) >= Decimal("100") else None)
+        mark = mark or no_depth_mark
+        if liquidation_state(margin_bps=0, market_halted=bool(halt["active"]), mark_available=mark is not None) == "frozen":
+            return {"position": position, "decision": "market_frozen", "replayed": False}
+        if position["open_apr_bps"] is None or position["interest_mark_price_micromora"] is None:
+            # A pre-interest migration row has no immutable terms.  It must be
+            # reconciled explicitly, never liquidated under guessed economics.
+            return {"position": position, "decision": "legacy_terms_missing", "replayed": False}
+        await repo.accrue_short_interest(db, position_id=str(position_id), mark_price_micromora=mark)
+        position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+        if not position:
+            raise RuntimeError("Short position disappeared during liquidation accrual.")
+        margin = margin_ratio_bps(
+            posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
+            locked_sale_proceeds_mora=Decimal(position["locked_sale_proceeds_mora"]),
+            cash_escrow_mora=Decimal(position["cash_escrow_mora"]),
+            debt_units=int(position["outstanding_debt_units"]), mark_price_micromora=mark,
+            accrued_interest_mora=Decimal(position["accrued_interest_mora"]),
+        )
+        decision = liquidation_state(margin_bps=margin, market_halted=False, mark_available=True)
+        if decision == "healthy":
+            return {"position": position, "decision": "healthy", "margin_bps": margin, "replayed": False}
+        units = int(position["outstanding_debt_units"])
+        debt_units = int(position["outstanding_debt_units"])
+        cash = Decimal(position["cash_escrow_mora"])
+        accrued = Decimal(position["accrued_interest_mora"])
+
+        def planned_buyback_charge(candidate_units: int) -> Decimal:
+            remaining_units, charge = int(candidate_units), Decimal("0")
+            for ask in asks:
+                if remaining_units <= 0:
+                    break
+                fill = min(remaining_units, int(ask["remaining_units"]))
+                gross = trade_notional(fill, int(ask["limit_price_micromora"]))
+                charge += gross + trade_fee(gross, maker=False)
+                remaining_units -= fill
+            if remaining_units:
+                raise RuntimeError("Liquidation depth changed after lock.")
+            return charge
+
+        def projected_margin_bps(candidate_units: int) -> int:
+            if candidate_units >= debt_units:
+                return 10**9
+            charge = planned_buyback_charge(candidate_units)
+            cash_after_interest_and_buyback = cash - accrued - charge
+            requested_executor, requested_reserve = liquidation_penalty_split(
+                posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
+                closed_units=candidate_units, original_debt_units=debt_units,
+            )
+            penalty = min(requested_executor + requested_reserve, max(Decimal("0"), cash_after_interest_and_buyback))
+            equity_after = cash_after_interest_and_buyback - penalty
+            debt_after = trade_notional(debt_units - candidate_units, mark)
+            return int((equity_after * Decimal(10_000) / debt_after).to_integral_value(rounding="ROUND_DOWN"))
+
+        if decision == "partial":
+            equity = equity_mora(
+                posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
+                locked_sale_proceeds_mora=Decimal(position["locked_sale_proceeds_mora"]),
+                cash_escrow_mora=Decimal(position["cash_escrow_mora"]),
+                debt_units=units, mark_price_micromora=mark,
+                accrued_interest_mora=Decimal(position["accrued_interest_mora"]),
+            )
+            units = minimum_partial_liquidation_units(
+                debt_units=units, mark_price_micromora=mark, current_equity_mora=equity,
+                posted_collateral_mora=Decimal(position["posted_collateral_mora"]),
+            )
+            # The pure lower bound intentionally knows nothing about book fees.
+            # Reprice against the locked real asks and expand it until the live
+            # post-trade escrow is actually back at 200%, or close in full.
+            if units < debt_units and projected_margin_bps(units) < 20_000:
+                low, high, chosen = units + 1, debt_units - 1, debt_units
+                while low <= high:
+                    candidate = (low + high) // 2
+                    if projected_margin_bps(candidate) >= 20_000:
+                        chosen = candidate
+                        high = candidate - 1
+                    else:
+                        low = candidate + 1
+                units = chosen
+        protected_price = executable_buyback_limit_price(
+            units=units, asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
+        )
+        if protected_price is None:
+            if decision == "full":
+                await repo.settle_short_interest(
+                    db, position_id=str(position_id), action_id=f"short-no-depth-interest:{action_id}",
+                )
+                frozen = await repo.freeze_short_position(db, position_id=str(position_id), action_id=str(action_id))
+                await repo.append_short_event(
+                    db, coin_id=str(coin["id"]), actor_id=None, event_type="short_frozen", action_id=str(action_id),
+                    payload={"position_id": str(position_id), "margin_bps": margin,
+                             "mark_price_micromora": mark, "reason": "qualified_mark_no_depth"},
+                )
+                return {"position": frozen, "decision": "short_frozen", "margin_bps": margin, "replayed": False}
+            return {"position": position, "decision": "market_frozen", "margin_bps": margin, "replayed": False}
+        planned_charge = planned_buyback_charge(units)
+        if planned_charge > Decimal(position["cash_escrow_mora"]):
+            await repo.settle_short_interest(
+                db, position_id=str(position_id), action_id=f"short-freeze-interest:{action_id}",
+            )
+            position = await repo.get_short_position(db, position_id=str(position_id), for_update=True)
+            if not position:
+                raise RuntimeError("Short position disappeared before frozen recovery.")
+            frozen = await repo.freeze_short_position(db, position_id=str(position_id), action_id=str(action_id))
+            await repo.append_short_event(
+                db, coin_id=str(coin["id"]), actor_id=None, event_type="short_frozen", action_id=str(action_id),
+                payload={"position_id": str(position_id), "margin_bps": margin,
+                         "mark_price_micromora": mark, "planned_charge_mora": str(planned_charge)},
+            )
+            return {"position": frozen, "decision": "short_frozen", "margin_bps": margin, "replayed": False}
+        result = await _buy_back_short(
+            db, user_id=int(position["borrower_id"]), position_id=str(position_id), units=units,
+            action_id=str(action_id), liquidation=True,
+        )
+        return {**result, "decision": "short_liquidated", "margin_bps": margin}
+
+
 async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) -> dict:
     """Server-only hourly, FIFO recovery for lender claims after an unrecoverable Short.
 
@@ -676,26 +865,43 @@ async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) 
         if halt["active"]:
             return {"coin_id": str(coin_id), "status": "market_halted", "settled": []}
         cycle = await repo.begin_frozen_claim_buyback_cycle(db, coin_id=str(coin_id))
+        frozen_interest = await repo.list_open_frozen_interest_claims(db, coin_id=str(coin_id))
         claims = await repo.list_open_frozen_claims(db, coin_id=str(coin_id))
         vwap = await repo.vwap_window(db, coin_id=str(coin_id), minutes=5)
         settled: list[dict] = []
+        for claim in frozen_interest[:limit]:
+            remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
+            payout = min(Decimal(claim["remaining_mora"]), remaining_budget)
+            if payout <= 0:
+                break
+            source_id = f"short-frozen-interest:{coin_id}:{cycle['action_id']}:{claim['id']}:{claim['remaining_mora']}"
+            await economy_ledger.apply_balance_change(
+                db, int(claim["lender_id"]), {"mora": payout},
+                reason_code="player_coin_short_frozen_interest_buyback",
+                idempotency_key=f"player-coin:{source_id}", source_type="player_exchange",
+                reference_type="short_frozen_interest_claim", reference_id=str(claim["id"]),
+                metadata={"coin_id": str(coin_id), "claim_id": str(claim["id"]), "cycle": str(cycle["action_id"])},
+                note=f"Возврат процентов по шорту {coin['ticker']}",
+            )
+            updated = await repo.settle_frozen_interest_claim_buyback(
+                db, claim_id=str(claim["id"]), cycle=cycle, payout_mora=payout, source_id=source_id,
+            )
+            cycle["spent_mora"] = Decimal(cycle["spent_mora"]) + payout
+            await repo.append_short_event(
+                db, coin_id=str(coin_id), actor_id=None, event_type="frozen_interest_buyback", action_id=source_id,
+                payload={"claim_id": str(claim["id"]), "payout_mora": str(payout), "cycle": str(cycle["action_id"])},
+            )
+            settled.append({"claim_id": str(claim["id"]), "kind": "interest", "payout_mora": payout,
+                            "remaining_mora": Decimal(updated["remaining_mora"])})
         for claim in claims[:limit]:
             remaining_budget = Decimal(cycle["budget_mora"]) - Decimal(cycle["spent_mora"])
             if remaining_budget <= 0:
                 break
-            asks = await repo.eligible_short_buyback_asks(
-                db, coin_id=str(coin_id), borrower_id=int(claim["borrower_id"]), owner_id=int(coin["owner_id"]),
-            )
-            executable = executable_buyback_limit_price(
-                units=int(claim["remaining_units"]),
-                asks=[(int(row["limit_price_micromora"]), int(row["remaining_units"])) for row in asks],
-            )
-            mark = conservative_mark_price_micromora(
+            mark = frozen_claim_buyback_mark_micromora(
                 vwap_5m_micromora=vwap["vwap_price_micromora"], vwap_5m_volume_mora=vwap["volume_mora"],
-                executable_buyback_micromora=executable,
             )
             # Strict FIFO: a younger lender never receives a preferred recovery
-            # price while the oldest open claim has no qualified market mark.
+            # price while the oldest open claim has no qualified historical mark.
             if mark is None:
                 break
             units = frozen_claim_units_for_budget(
@@ -706,7 +912,10 @@ async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) 
                 break
             payout = trade_notional(units, mark)
             cycle_key = str(cycle["action_id"])
-            source_id = f"short-frozen-buyback:{coin_id}:{cycle_key}:{claim['id']}"
+            # The pre-settlement remaining amount is an immutable slice key.
+            # A partially paid claim may receive a second, independently
+            # journalled tranche in the same hour if the mark later improves.
+            source_id = f"short-frozen-buyback:{coin_id}:{cycle_key}:{claim['id']}:{claim['remaining_units']}"
             await economy_ledger.apply_balance_change(
                 db, int(claim["lender_id"]), {"mora": payout},
                 reason_code="player_coin_short_frozen_claim_buyback",
@@ -732,6 +941,25 @@ async def settle_frozen_short_claims(db, *, coin_id: str, max_claims: int = 25) 
         return {"coin_id": str(coin_id), "status": "ok", "cycle_hour": cycle["cycle_hour"],
                 "budget_mora": Decimal(cycle["budget_mora"]), "spent_mora": Decimal(cycle["spent_mora"]),
                 "settled": settled}
+
+
+async def run_short_risk_maintenance(db, *, limit: int = 50) -> list[dict]:
+    """Bounded recovery worker; it remains active even if new Shorts are disabled."""
+    if not await repo.schema_ready(db):
+        return []
+    results: list[dict] = []
+    for position_id in await repo.next_open_short_position_ids(db, limit=limit):
+        action_id = f"short-liquidation:{position_id}:{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
+        try:
+            results.append(await liquidate_short(db, position_id=position_id, action_id=action_id))
+        except Exception as exc:
+            results.append({"position_id": position_id, "error": str(exc)})
+    for coin_id in await repo.frozen_claim_coin_ids(db, limit=limit):
+        try:
+            results.append(await settle_frozen_short_claims(db, coin_id=coin_id))
+        except Exception as exc:
+            results.append({"coin_id": coin_id, "error": str(exc)})
+    return results
 
 
 async def create_coin(

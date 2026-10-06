@@ -228,6 +228,15 @@ def frozen_claim_units_for_budget(*, remaining_units: int, mark_price_micromora:
     return result if result > 0 and trade_notional(result, int(mark_price_micromora)) > 0 else 0
 
 
+def frozen_claim_buyback_mark_micromora(*, vwap_5m_micromora: int | None,
+                                        vwap_5m_volume_mora: Decimal) -> int | None:
+    """Cash claims never trust unexecuted asks; use only a meaningful trade VWAP with a 5% haircut."""
+    price = int(vwap_5m_micromora or 0)
+    if price <= 0 or Decimal(str(vwap_5m_volume_mora)) < MIN_QUALIFIED_VWAP_VOLUME_MORA:
+        return None
+    return price * 9_500 // 10_000
+
+
 def required_initial_collateral_mora(*, debt_units: int, conservative_price_micromora: int) -> Decimal:
     """The server-only 200% cash collateral needed before a Short can open."""
     debt = trade_notional(int(debt_units), int(conservative_price_micromora))
@@ -269,17 +278,20 @@ def executable_buyback_limit_price(*, units: int, asks: list[tuple[int, int]]) -
 
 
 def equity_mora(*, posted_collateral_mora: Decimal, locked_sale_proceeds_mora: Decimal,
-                debt_units: int, mark_price_micromora: int, accrued_interest_mora: Decimal) -> Decimal:
+                debt_units: int, mark_price_micromora: int, accrued_interest_mora: Decimal,
+                cash_escrow_mora: Decimal | None = None) -> Decimal:
+    """Current marked equity; live liquidation must use the mutable escrow balance."""
     debt = trade_notional(int(debt_units), int(mark_price_micromora))
+    cash = (Decimal(str(cash_escrow_mora)) if cash_escrow_mora is not None else
+            Decimal(str(posted_collateral_mora)) + Decimal(str(locked_sale_proceeds_mora)))
     return (
-        Decimal(str(posted_collateral_mora)) + Decimal(str(locked_sale_proceeds_mora))
-        - debt - Decimal(str(accrued_interest_mora))
+        cash - debt - Decimal(str(accrued_interest_mora))
     ).quantize(Decimal("0.000001"))
 
 
 def margin_ratio_bps(*, posted_collateral_mora: Decimal, locked_sale_proceeds_mora: Decimal,
                      debt_units: int, mark_price_micromora: int,
-                     accrued_interest_mora: Decimal) -> int:
+                     accrued_interest_mora: Decimal, cash_escrow_mora: Decimal | None = None) -> int:
     debt = trade_notional(int(debt_units), int(mark_price_micromora))
     if debt <= 0:
         raise ShortsPolicyError("Margin ratio requires positive marked debt.")
@@ -287,7 +299,7 @@ def margin_ratio_bps(*, posted_collateral_mora: Decimal, locked_sale_proceeds_mo
         posted_collateral_mora=posted_collateral_mora,
         locked_sale_proceeds_mora=locked_sale_proceeds_mora,
         debt_units=debt_units, mark_price_micromora=mark_price_micromora,
-        accrued_interest_mora=accrued_interest_mora,
+        accrued_interest_mora=accrued_interest_mora, cash_escrow_mora=cash_escrow_mora,
     )
     return int((equity * Decimal(10_000) / debt).to_integral_value(rounding=ROUND_DOWN))
 
