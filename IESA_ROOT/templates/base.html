@@ -88,11 +88,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
           crossorigin="anonymous">
 
-    <!-- Lightbox CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/css/lightbox.min.css"
-          crossorigin="anonymous">
-    <link rel="stylesheet" href="{% static 'css/lightbox-custom.css' %}">
-
     <!-- IESA CSS v3.0: variables → base → layout → components → pages → utilities → animations → homepage → responsive → dark-theme-fixes -->
     <!-- cmd-bar loaded separately (used only on blog/events pages) -->
     <link rel="stylesheet" href="{% static 'css/variables.css' %}">
@@ -171,8 +166,10 @@
             if (csrf) evt.detail.headers['X-CSRFToken'] = csrf;
         });
 
-        /* View Transitions API */
-        if (typeof htmx !== 'undefined') htmx.config.globalViewTransitions = true;
+        /* Глобальные view transitions для HTMX выключены: каждый swap (в т.ч. polling раз в 60 с) снимал
+           снимок всей страницы и на ~0.3 с блокировал ввод. Навигацию между страницами делает CSS @view-transition,
+           а частичные обновления — .htmx-settling (opacity/transform). */
+        if (typeof htmx !== 'undefined') htmx.config.globalViewTransitions = false;
 
         /* Dynamic toast helper (U2-01) */
         function showToast(message, type) {
@@ -346,9 +343,6 @@
     })();
     </script>
 
-    <!-- Lightbox JS РґР»СЏ РіР°Р»РµСЂРµРё -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lightbox2/2.11.3/js/lightbox-plus-jquery.min.js"></script>
-    
 <!-- Touch Gestures (Swipe РЅР° РјРѕР±РёР»РєР°С…) -->
     <script src="{% static 'js/touch-gestures.js' %}"></script>
 

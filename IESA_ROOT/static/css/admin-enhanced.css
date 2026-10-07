@@ -135,7 +135,8 @@ body.dark-mode .ck-content {
     background: rgba(220, 38, 38, 0.02);
     border: 1px solid #fecaca;
     border-radius: 8px;
-    transition: all 0.3s ease;
+    transition: 0.3s ease;
+    transition-property: var(--transition-props);
 }
 
 .form-row > .fieldWrapper:focus-within {
@@ -174,7 +175,8 @@ fieldset > legend {
     border-radius: 8px !important;
     padding: 10px 12px !important;
     font-size: 14px !important;
-    transition: all 0.3s ease !important;
+    transition: 0.3s ease !important;
+    transition-property: var(--transition-props) !important;
 }
 
 .admin input[type="text"]:focus,
@@ -206,7 +208,8 @@ fieldset > legend {
     font-weight: 600 !important;
     font-size: 15px !important;
     cursor: pointer !important;
-    transition: all 0.3s ease !important;
+    transition: 0.3s ease !important;
+    transition-property: var(--transition-props) !important;
     box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2) !important;
 }
 

@@ -292,8 +292,21 @@
   --transition-smooth: 300ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: 300ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
+  /* Motion tokens. Анимируем только transform/opacity и «дешёвые» paint-свойства;
+     геометрию (width/height/margin/padding/top/left) не анимируем никогда. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 320ms;
+  /* Вместо "transition: all" пишем: transition: <длительность easing>; transition-property: var(--transition-props); */
+  --transition-props: color, background-color, border-color, box-shadow, opacity, transform, filter;
+
   /* Card hover lift — single source of truth (U4-17) */
   --card-hover-lift: -3px;
+
+  /* Минимальная зона нажатия (WCAG 2.5.5 / Apple HIG) */
+  --tap-min: 44px;
   
   /* ====================================================
      8. Z-INDEX

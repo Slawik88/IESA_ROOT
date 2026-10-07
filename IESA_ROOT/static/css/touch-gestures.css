@@ -10,7 +10,8 @@
 [data-swipe] {
     touch-action: manipulation;
     cursor: grab;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-property: var(--transition-props);
 }
 
 [data-swipe]:active {
@@ -68,7 +69,8 @@
 [data-swipe-dismiss] {
     position: relative;
     touch-action: pan-y;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-property: var(--transition-props);
 }
 
 [data-swipe-dismiss]::before {
@@ -147,7 +149,8 @@
     font-size: 0.9rem;
     font-weight: 500;
     text-align: center;
-    transition: all 0.3s ease;
+    transition: 0.3s ease;
+    transition-property: var(--transition-props);
 }
 
 /* Pulling state */
@@ -162,7 +165,8 @@
 [data-refresh] {
     position: relative;
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-property: var(--transition-props);
 }
 
 [data-refresh]:disabled {

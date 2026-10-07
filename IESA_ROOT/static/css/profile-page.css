@@ -111,11 +111,15 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     border: 2px solid #0a0a0f;
     position: absolute; bottom: 4px; right: 4px;
     box-shadow: 0 0 8px rgba(34,197,94,.6);
-    animation: pulse-dot 2s ease-in-out infinite;
 }
-@keyframes pulse-dot {
-    0%, 100% { box-shadow: 0 0 8px rgba(34,197,94,.6); }
-    50%       { box-shadow: 0 0 16px rgba(34,197,94,.9); }
+.cab-online-dot::after {
+    content: ''; position: absolute; inset: -2px; border-radius: 50%;
+    background: rgba(34,197,94,.55); pointer-events: none;
+    animation: online-dot-ring 2s ease-out infinite;
+}
+@keyframes online-dot-ring {
+    0%   { transform: scale(1); opacity: .7; }
+    100% { transform: scale(2.4); opacity: 0; }
 }
 .cab-name {
     font-size: 2rem; font-weight: 900; color: #fff;
@@ -152,7 +156,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     background: rgba(255,255,255,.06); color: var(--text);
     border: 1px solid var(--bdr); border-radius: 10px;
     padding: .55rem 1.25rem; font-size: .88rem; font-weight: 600;
-    text-decoration: none; transition: all .2s;
+    text-decoration: none; transition: .2s; transition-property: var(--transition-props);
 }
 .btn-cab-outline:hover { background: rgba(255,255,255,.11); color: #fff; border-color: rgba(255,255,255,.2); }
 
@@ -162,7 +166,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     display: inline-flex; align-items: center; gap: .45rem;
     background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
     border-radius: 9px; color: rgba(255,255,255,.65); font-size: .82rem; font-weight: 600;
-    padding: .42rem .9rem; text-decoration: none; transition: all .2s; white-space: nowrap;
+    padding: .42rem .9rem; text-decoration: none; transition: .2s; transition-property: var(--transition-props); white-space: nowrap;
 }
 .btn-hero-quick:hover { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.2); }
 /* 2a: на мобиле (< 600px) — только иконка, текст скрыт через title tooltip */
@@ -264,14 +268,14 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     margin-left: auto; flex-shrink: 0;
     background: rgba(41,168,235,.15); color: #29a8eb; border: 1px solid rgba(41,168,235,.30);
     border-radius: 8px; padding: .38rem .9rem; font-size: .83rem; font-weight: 700;
-    text-decoration: none; transition: all .18s; white-space: nowrap;
+    text-decoration: none; transition: .18s; transition-property: var(--transition-props); white-space: nowrap;
 }
 .btn-tg-connect:hover { background: rgba(41,168,235,.28); color: #7dd3fc; }
 .btn-tg-disconnect {
     margin-left: auto; flex-shrink: 0;
     background: rgba(239,68,68,.10); color: #f87171; border: 1px solid rgba(239,68,68,.22);
     border-radius: 8px; padding: .38rem .9rem; font-size: .83rem; font-weight: 600;
-    cursor: pointer; transition: all .18s; white-space: nowrap;
+    cursor: pointer; transition: .18s; transition-property: var(--transition-props); white-space: nowrap;
 }
 .btn-tg-disconnect:hover { background: rgba(239,68,68,.18); color: #fca5a5; }
 
@@ -301,7 +305,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.10);
     color: rgba(255,255,255,.6); border-radius: 8px;
     padding: .3rem .8rem; font-size: .82rem; font-weight: 600;
-    cursor: pointer; display: flex; align-items: center; gap: .4rem; transition: all .18s;
+    cursor: pointer; display: flex; align-items: center; gap: .4rem; transition: .18s; transition-property: var(--transition-props);
 }
 .btn-pin-copy:hover { background: rgba(255,255,255,.10); color: #fff; }
 .btn-pin-copy.copied { background: rgba(34,197,94,.10); border-color: rgba(34,197,94,.28); color: #4ade80; }
@@ -366,7 +370,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
     color: rgba(255,255,255,.72); border-radius: 10px;
     padding: .42rem .95rem; font-size: .83rem; font-weight: 600;
-    text-decoration: none; transition: all .2s;
+    text-decoration: none; transition: .2s; transition-property: var(--transition-props);
 }
 .link-chip:hover { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.22); }
 
@@ -398,7 +402,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
 .qa-item {
     display: flex; align-items: center; gap: .85rem;
     background: rgba(255,255,255,.04); border: 1px solid var(--bdr);
-    border-radius: 14px; padding: 1rem 1.1rem; text-decoration: none; transition: all .2s;
+    border-radius: 14px; padding: 1rem 1.1rem; text-decoration: none; transition: .2s; transition-property: var(--transition-props);
 }
 .qa-item:hover { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.15); transform: translateY(-1px); }
 .qa-icon { width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: .85rem; color: #fff; }
@@ -917,4 +921,18 @@ body:has(.cab-page) {
 }
 @media (max-width: 359.98px) {
     .cab-sub span[aria-hidden="true"], .cab-sub span:last-child { display:none; }
+}
+
+/* ══════════════════════════════════════════════
+   ЕДИНЫЙ РЕЙЛ: блоки «прогресс профиля» и «быстрые действия» стоят на той же
+   внутренней колонке, что и .cab-wrap (раньше сидели на 24px левее остальных карточек).
+══════════════════════════════════════════════ */
+:root { --cab-gutter: 1.5rem; }
+@media (max-width: 767.98px) { :root { --cab-gutter: 1rem; } }
+.pcp-wrap,
+.qa-onb-section {
+    max-width: none !important;
+    width: min(100% - 2 * var(--cab-gutter), 1140px - 2 * var(--cab-gutter));
+    margin-left: auto !important;
+    margin-right: auto !important;
 }

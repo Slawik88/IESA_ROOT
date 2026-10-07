@@ -106,7 +106,8 @@ mark {
   border-radius: 16px;
   box-shadow: var(--shadow-card-lg);
   padding: 30px;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
 }
 
 .profile-edit-card:hover {
@@ -173,7 +174,8 @@ mark {
   border-radius: 10px !important;
   padding: 10px 12px !important;
   font-size: 0.9rem !important;
-  transition: all var(--transition-fast) !important;
+  transition: var(--transition-fast) !important;
+  transition-property: var(--transition-props) !important;
   background: rgba(255, 255, 255, 0.06) !important;
   color: var(--text-primary) !important;
 }
@@ -197,7 +199,8 @@ mark {
   padding: 20px;
   background: var(--gray-50);
   margin-bottom: 20px;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
 }
 
 .card-section:hover {
@@ -229,7 +232,8 @@ mark {
   padding: 10px 24px;
   font-weight: 600;
   border-radius: 8px;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
 }
 
 .edit-actions .btn-primary {
@@ -428,7 +432,8 @@ mark {
   border-radius: var(--radius-card);
   padding: var(--space-4);
   height: 100%;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   cursor: pointer;
 }
 
@@ -602,7 +607,8 @@ mark {
   background: var(--card-bg, #fff);
   color: var(--text-primary);
   font-weight: var(--font-medium);
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .link-chip:hover {
@@ -744,7 +750,8 @@ mark {
 
 /* Follow Button States */
 .follow-btn {
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   position: relative;
   overflow: hidden;
 }
@@ -777,7 +784,8 @@ mark {
 
 /* Send Message Button */
 .send-message-btn {
-  transition: all 0.3s ease;
+  transition: 0.3s ease;
+  transition-property: var(--transition-props);
 }
 
 .send-message-btn:hover {
@@ -821,7 +829,8 @@ mark {
   padding: var(--space-3) var(--space-6);
   border-radius: var(--radius-btn);
   font-weight: var(--font-semibold);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
 }
 
 /* Stats Cards */
@@ -829,7 +838,8 @@ mark {
   border-radius: var(--radius-card);
   padding: var(--space-8);
   text-align: center;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   cursor: pointer;
 }
 
@@ -981,7 +991,8 @@ mark {
 .post-card {
   border-radius: var(--radius-card);
   overflow: hidden;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   height: 100%;
 }
 
@@ -1061,7 +1072,8 @@ mark {
 /* Event Card Compact (горизонтальная) */
 .event-card-compact {
   border-radius: var(--radius-xl);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
 }
 
 .event-card-compact:hover {
@@ -1231,7 +1243,8 @@ mark {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .gallery-nav-btn:hover {
@@ -1497,7 +1510,8 @@ mark {
   border-radius: 18px;
   background: var(--card-bg, #fff);
   cursor: pointer;
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   overflow: hidden;
 }
 
@@ -2768,10 +2782,12 @@ mark {
     text-decoration: none;
     letter-spacing: .015em;
     white-space: nowrap;
-    transition: background .2s, border-color .2s, color .2s, transform .22s, box-shadow .22s, gap .22s;
+    transition: background .2s, border-color .2s, color .2s, transform .22s, box-shadow .22s;
     position: relative;
     overflow: hidden;
 }
+.art-btn i, .art-btn svg { transition: transform .22s; }
+.art-btn:hover i, .art-btn:hover svg { transform: translateX(3px); }
 .art-btn::before {
     content: '';
     position: absolute;
@@ -2786,7 +2802,6 @@ mark {
     color: #fca5a5;
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(220,38,38,.18);
-    gap: .65rem;
 }
 .art-btn:hover::before { opacity: 1; }
 
@@ -3030,7 +3045,8 @@ mark {
   font-weight: 700;
   font-size: .95rem;
   text-decoration: none;
-  transition: all .2s;
+  transition: .2s;
+  transition-property: var(--transition-props);
 }
 .pm-btn-primary:hover {
   color: #fff;
@@ -3093,7 +3109,8 @@ mark {
   font-weight: 600;
   font-size: .85rem;
   text-decoration: none;
-  transition: all .2s;
+  transition: .2s;
+  transition-property: var(--transition-props);
 }
 .pm-btn-ghost:hover {
   color: #fff;
@@ -3261,7 +3278,7 @@ mark {
 .vh-pill {
   padding:.28rem .85rem;border-radius:100px;font-size:.72rem;font-weight:700;
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
-  color:rgba(255,255,255,.55);cursor:pointer;transition:all .15s;white-space:nowrap;
+  color:rgba(255,255,255,.55);cursor:pointer;transition: .15s; transition-property: var(--transition-props);white-space:nowrap;
 }
 .vh-pill:hover { background:rgba(255,255,255,.1);color:#fff; }
 .vh-pill--active { background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4);color:#f87171; }

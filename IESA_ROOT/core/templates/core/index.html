@@ -32,9 +32,7 @@
 .hp-container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
 
 /* ── REVEAL ────────────────────────────────────────────────────── */
-/* V3: прячем только при работающем JS (класс .js ставит base.html) — иначе контент виден сразу */
-html.js [data-reveal] { opacity: 0; transform: translateY(32px); transition: opacity .65s cubic-bezier(.22,1,.36,1), transform .65s cubic-bezier(.22,1,.36,1); }
-html.js [data-reveal].revealed { opacity: 1; transform: none; }
+/* Сам эффект ([data-reveal]) — в animations.css, логика — в page-effects.js */
 [data-delay="1"] { transition-delay: .1s !important; }
 [data-delay="2"] { transition-delay: .2s !important; }
 [data-delay="3"] { transition-delay: .3s !important; }
@@ -1024,9 +1022,17 @@ html.js .don-fill.animated { width:45%; }
             const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
             if(d<100){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.strokeStyle=`rgba(220,38,38,${.12*(1-d/100)})`; ctx.lineWidth=.6; ctx.stroke(); }
         }
-        requestAnimationFrame(draw);
+        raf = requestAnimationFrame(draw);
     }
-    draw();
+    let raf = 0, inView = true;
+    function sync(){
+        const run = inView && !document.hidden;
+        if(run && !raf) raf = requestAnimationFrame(draw);
+        else if(!run && raf){ cancelAnimationFrame(raf); raf = 0; }
+    }
+    new IntersectionObserver(es=>{ inView = es[0].isIntersecting; sync(); }).observe(c);
+    document.addEventListener('visibilitychange', sync);
+    sync();
 })();
 
 /* ── 2. WORD SWAP ──────────────── */
@@ -1040,33 +1046,8 @@ html.js .don-fill.animated { width:45%; }
     }, 2600);
 })();
 
-/* ── 3. COUNTER UTIL ───────────── */
-function animCnt(el, target, dur){
-    const s=performance.now();
-    (function step(now){ const p=Math.min((now-s)/dur,1); el.textContent=Math.round((1-Math.pow(1-p,3))*target); if(p<1)requestAnimationFrame(step); else el.textContent=target; })(s);
-}
-
-/* ── 4. SCROLL REVEAL ──────────── */
-const revIO = new IntersectionObserver(entries=>entries.forEach(e=>{ if(!e.isIntersecting) return; e.target.classList.add('revealed'); revIO.unobserve(e.target); }),{threshold:.12});
-document.querySelectorAll('[data-reveal]').forEach(el=>revIO.observe(el));
-
-/* Band counters */
-const statsEl=document.getElementById('hp-stats');
-if(statsEl){ const io=new IntersectionObserver(entries=>{ if(!entries[0].isIntersecting) return; document.querySelectorAll('.cnt-b').forEach(c=>animCnt(c,+c.dataset.count,1600)); io.disconnect(); },{threshold:.4}); io.observe(statsEl); }
-
-/* ── 5. TILT 3D — только на устройствах с мышью (4f) ── */
-if(window.matchMedia('(hover:hover) and (pointer:fine)').matches){
-    document.querySelectorAll('.tilt3d').forEach(card=>{
-        card.addEventListener('mousemove',e=>{ const r=card.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-.5, y=(e.clientY-r.top)/r.height-.5; card.style.transform=`perspective(600px) rotateY(${x*10}deg) rotateX(${-y*10}deg) scale(1.02)`; });
-        card.addEventListener('mouseleave',()=>card.style.transform='');
-    });
-}
-
-/* ── 6. MAGNETIC BUTTONS ───────── */
-document.querySelectorAll('.mag-btn').forEach(btn=>{
-    btn.addEventListener('mousemove',e=>{ const r=btn.getBoundingClientRect(); btn.style.transform=`translate(${(e.clientX-r.left-r.width/2)*.25}px,${(e.clientY-r.top-r.height/2)*.25}px)`; });
-    btn.addEventListener('mouseleave',()=>btn.style.transform='');
-});
+/* Scroll reveal, счётчики ([data-count]), tilt (.tilt3d) и magnetic (.mag-btn) —
+   общий код в static/js/page-effects.js (раньше здесь дублировался и дрался с ним). */
 
 /* ── 7. DONATE BAR ─────────────── */
 (function(){ const b=document.getElementById('don-fill'); if(!b) return; const io=new IntersectionObserver(e=>{ if(!e[0].isIntersecting) return; setTimeout(()=>b.classList.add('animated'),300); io.disconnect(); },{threshold:.5}); io.observe(b); })();

@@ -27,7 +27,8 @@
   font-weight: var(--font-semibold);
   border-radius: var(--radius-btn);
   padding: var(--space-3) var(--space-5);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   cursor: pointer;
   border: 1px solid transparent;
   text-decoration: none;
@@ -334,7 +335,8 @@
   border: 1px solid var(--border-color-light);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   position: relative;
   overflow: hidden;
 }
@@ -419,7 +421,8 @@
   background-color: var(--bg-surface) !important;
   border: 1px solid var(--border-color);
   border-radius: var(--radius-input);
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .form-control:hover {
@@ -462,7 +465,8 @@
   border: 1px solid var(--border-color);
   border-radius: var(--radius-input);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
   appearance: none;
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
   background-repeat: no-repeat;
@@ -841,12 +845,7 @@ textarea.form-control {
 
 /* Skeleton screens */
 .skeleton {
-  background: linear-gradient(90deg, 
-    var(--gray-200) 0%, 
-    var(--gray-100) 50%, 
-    var(--gray-200) 100%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s ease-in-out infinite;
+  background: var(--gray-200);
   border-radius: var(--radius-md);
 }
 
@@ -986,16 +985,21 @@ textarea:focus-visible {
 
 /* Animated Progress */
 .progress-bar-animated {
+  position: relative;
+  overflow: hidden;
+}
+.progress-bar-animated::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.28) 50%, transparent 100%);
+  transform: translateX(-100%);
   animation: progress-animation 1.5s ease-in-out infinite;
 }
 
 @keyframes progress-animation {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 40px 0;
-  }
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
 }
 
 /* ====================================================
@@ -1243,7 +1247,8 @@ textarea:focus-visible {
   border-radius: 12px;
   margin-bottom: 0.5rem;
   padding: 0.875rem 1rem;
-  transition: all var(--transition-base);
+  transition: var(--transition-base);
+  transition-property: var(--transition-props);
 }
 
 .search-item:hover {
@@ -1260,7 +1265,8 @@ textarea:focus-visible {
 .partner-card-compact {
   border: 1px solid var(--border-dark);
   border-radius: var(--radius-card);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   background: var(--bg-surface);
 }
 
@@ -1367,7 +1373,8 @@ textarea:focus-visible {
     border-radius: 16px;
     overflow: hidden;
     box-shadow: var(--shadow-card-lg);
-    transition: all var(--transition-smooth);
+    transition: var(--transition-smooth);
+    transition-property: var(--transition-props);
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -1444,7 +1451,8 @@ textarea:focus-visible {
     border-radius: 16px;
     overflow: hidden;
     box-shadow: var(--shadow-card-lg);
-    transition: all var(--transition-smooth);
+    transition: var(--transition-smooth);
+    transition-property: var(--transition-props);
     height: 100%;
     display: flex;
     flex-direction: column;

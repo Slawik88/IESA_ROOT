@@ -67,7 +67,6 @@ article:target {
 .card {
     transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), 
                 box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    will-change: transform, box-shadow;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -150,36 +149,21 @@ html.htmx-request::view-transition-new(root) {
 }
 
 @keyframes page-fade-out {
-    0% { 
-        opacity: 1; 
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-    }
-    100% { 
-        opacity: 0; 
-        transform: translateY(-8px) scale(0.99);
-        filter: blur(2px);
-    }
+    0%   { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-8px) scale(0.99); }
 }
 
 @keyframes page-fade-in {
-    0% { 
-        opacity: 0; 
-        transform: translateY(12px) scale(0.99);
-        filter: blur(2px);
-    }
-    100% { 
-        opacity: 1; 
-        transform: translateY(0) scale(1);
-        filter: blur(0);
-    }
+    0%   { opacity: 0; transform: translateY(12px) scale(0.99); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* Fallback для браузеров без View Transitions */
 .htmx-swapping {
     opacity: 0.85;
     transform: translateY(-4px);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-property: var(--transition-props);
 }
 
 /* Анимация появления нового контента через HTMX */
@@ -219,15 +203,9 @@ html.htmx-request::view-transition-new(root) {
    5. SKELETON LOADING (вместо skeleton-loading.js)
    Мягкая пульсация, не раздражающая глаза
    ============================================================ */
+/* Базовый вид; движение блика (::after + translateX) — одно на весь сайт, см. responsive.css */
 .skeleton {
-    background: linear-gradient(
-        110deg, 
-        rgba(255, 255, 255, 0.06) 8%, 
-        rgba(255, 255, 255, 0.1) 18%, 
-        rgba(255, 255, 255, 0.06) 33%
-    );
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.8s ease-in-out infinite;
+    background: rgba(255, 255, 255, 0.07);
     border-radius: 6px;
 }
 
@@ -260,10 +238,6 @@ html.htmx-request::view-transition-new(root) {
     border-radius: 6px;
 }
 
-@keyframes skeleton-shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-}
 
 /* Пульсирующий skeleton (альтернатива) */
 .skeleton-pulse {
@@ -280,14 +254,40 @@ html.htmx-request::view-transition-new(root) {
    6. LAZY LOADING IMAGES (вместо lazy-loading.js)
    Используем нативный loading="lazy" + CSS fade-in
    ============================================================ */
+/* Прячем только при работающем JS (html.js); page-effects.js ставит .iesa-loaded на load/error */
 img[loading="lazy"] {
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
 }
 
-img[loading="lazy"].loaded,
-img[loading="lazy"]:not([data-src]) {
-    opacity: 1;
+html.js img[loading="lazy"]:not(.iesa-loaded):not(.loaded) {
+    opacity: 0;
+}
+
+/* ============================================================
+   6b. SCROLL REVEAL ([data-reveal], page-effects.js)
+   Скрыто с первого кадра (html.js ставится синхронно в <head>) → нет вспышки.
+   ============================================================ */
+html.js [data-reveal] {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity .65s var(--ease-out), transform .65s var(--ease-out);
+}
+html.js [data-reveal].revealed { opacity: 1; transform: none; }
+html.js [data-reveal][data-delay="1"] { transition-delay: .08s; }
+html.js [data-reveal][data-delay="2"] { transition-delay: .16s; }
+html.js [data-reveal][data-delay="3"] { transition-delay: .24s; }
+html.js [data-reveal][data-delay="4"] { transition-delay: .32s; }
+html.js [data-reveal][data-delay="5"] { transition-delay: .40s; }
+html.js [data-reveal][data-delay="6"] { transition-delay: .48s; }
+html.js [data-reveal][data-delay="7"] { transition-delay: .56s; }
+html.js [data-reveal][data-delay="8"] { transition-delay: .64s; }
+html.js [data-reveal][data-delay="9"] { transition-delay: .72s; }
+
+/* Нажатие на пилюли фильтров: мгновенный отклик без JS */
+.nav-pills .nav-link:active,
+.ev-filters-bar .nav-link:active,
+.pl-filters-bar .nav-link:active {
+    transform: scale(.95);
 }
 
 /* Placeholder пока изображение загружается */
@@ -437,7 +437,8 @@ button.htmx-request::after {
    Мягкие, приятные эффекты для кнопок
    ============================================================ */
 .btn {
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition-property: var(--transition-props);
     position: relative;
     overflow: hidden;
 }
@@ -591,7 +592,8 @@ a:not(.btn):not(.nav-link):hover {
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: 0.2s ease;
+    transition-property: var(--transition-props);
 }
 
 .engage-btn:hover {

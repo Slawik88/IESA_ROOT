@@ -679,8 +679,10 @@
 
 /* Skeleton */
 :root[data-theme="light"] .skeleton {
-    background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
-    background-size: 200% 100%;
+    background: #e2e8f0;
+}
+:root[data-theme="light"] .skeleton::after {
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.7) 50%, transparent 100%);
 }
 
 /* Toast container — alerts */

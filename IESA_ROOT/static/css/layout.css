@@ -250,7 +250,7 @@
   padding: .35rem .85rem; border-radius: 8px;
   border: 1px solid rgba(255,255,255,.18);
   color: rgba(255,255,255,.7); font-size: .875rem; font-weight: 600;
-  text-decoration: none; transition: all .15s; white-space: nowrap;
+  text-decoration: none; transition: .15s; transition-property: var(--transition-props); white-space: nowrap;
 }
 .btn-nav-ghost:hover { background: rgba(255,255,255,.07); color: #fff; border-color: rgba(255,255,255,.3); }
 .btn-nav-primary {
@@ -433,7 +433,8 @@
   color: var(--text-primary);
   font-weight: var(--font-medium);
   font-size: .875rem;
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
   display: flex;
   align-items: center;
 }
@@ -545,7 +546,8 @@ main {
   border-radius: var(--radius-lg);
   color: var(--gray-400);
   font-size: var(--text-lg);
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .footer-social:hover {
@@ -575,7 +577,8 @@ main {
   opacity: 0;
   visibility: hidden;
   transform: translateY(20px);
-  transition: all var(--transition-smooth);
+  transition: var(--transition-smooth);
+  transition-property: var(--transition-props);
   box-shadow: var(--shadow-primary);
   z-index: var(--z-back-to-top);
 }
@@ -607,7 +610,8 @@ main {
   font-weight: var(--font-medium);
   background: transparent;
   border: 1px solid transparent;
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .nav-pills .nav-link:hover {
@@ -683,7 +687,8 @@ main {
   color: var(--text-secondary);
   font-weight: var(--font-medium);
   padding: var(--space-2) var(--space-4);
-  transition: all var(--transition-fast);
+  transition: var(--transition-fast);
+  transition-property: var(--transition-props);
 }
 
 .page-item .page-link:hover {
@@ -899,7 +904,8 @@ main {
 /* Messaging Button Styles */
 .messaging-btn {
   position: relative;
-  transition: all 0.2s ease;
+  transition: 0.2s ease;
+  transition-property: var(--transition-props);
 }
 
 .messaging-btn:hover {
@@ -974,3 +980,46 @@ body {
    Перенесено в секцию 2 (новый navbar). Старые дубликаты удалены.
    ==================================================== */
 /* Все .prof-nav-drop-menu, .pnd-* стили — в секции 2 выше */
+
+/* ====================================================
+   TOUCH TARGETS (≥ 44px)
+   Невидимый ::before увеличивает зону нажатия, внешний вид не меняется.
+   ==================================================== */
+.iesa-navbar .navbar-nav .nav-link,
+.btn-nav-icon,
+.btn-nav-ghost,
+.btn-nav-primary,
+.iesa-brand {
+  position: relative;
+}
+.iesa-navbar .navbar-nav .nav-link::before,
+.btn-nav-icon::before,
+.btn-nav-ghost::before,
+.btn-nav-primary::before,
+.iesa-brand::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, var(--tap-min));
+  height: max(100%, var(--tap-min));
+  transform: translate(-50%, -50%);
+}
+
+/* Тач-экраны: реальные размеры, а не только зона нажатия */
+@media (pointer: coarse) {
+  .btn { padding-block: 0.5625rem; }        /* 24 + 18 + 2 = 44 */
+  .btn-sm { padding-block: 0.6875rem; }
+  .form-control:not(textarea),
+  .form-select { min-height: var(--tap-min); }
+  .page-link {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .footer-links li { margin-bottom: 0 !important; }
+  .footer-links a { min-height: var(--tap-min); }
+  .footer-social { width: var(--tap-min); height: var(--tap-min); flex-shrink: 0; }
+}

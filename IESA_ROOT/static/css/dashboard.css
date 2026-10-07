@@ -421,7 +421,8 @@
         border: 1px solid rgba(255,255,255,.1);
         border-radius: 100px; color: rgba(255,255,255,.55);
         font-size: .78rem; font-weight: 700; cursor: pointer;
-        transition: all .15s; display: flex; align-items: center;
+        transition: .15s;
+        transition-property: var(--transition-props); display: flex; align-items: center;
         justify-content: center; gap: .4rem; white-space: nowrap;
     }
     .dtt-btn--active {

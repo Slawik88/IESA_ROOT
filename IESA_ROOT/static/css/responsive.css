@@ -1107,19 +1107,14 @@ p, h1, h2, h3, h4, h5, h6,
   #back-to-top {
     bottom: calc(80px + env(safe-area-inset-bottom));
     right: 1rem;
-    width: 40px;
-    height: 40px;
+    width: var(--tap-min);
+    height: var(--tap-min);
     font-size: 0.875rem;
   }
 
   /* Dropdown меню */
   .dropdown-menu {
     max-width: calc(100vw - 1rem);
-  }
-
-  /* Skeleton size */
-  .skeleton {
-    height: 160px !important;
   }
 }
 
@@ -1355,9 +1350,10 @@ header {
   to   { transform: rotate(360deg); }
 }
 
+/* Блик скелетона двигается только transform'ом (композитор, без перерисовки) */
 @keyframes skeleton-loading {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
 }
 
 .animate-fade-in      { animation: fadeIn 0.3s ease-out; }
@@ -1383,15 +1379,21 @@ header {
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,.06) 25%,
-    rgba(255,255,255,.1) 50%,
-    rgba(255,255,255,.06) 75%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
+  position: relative;
+  overflow: hidden;
+  background: rgba(255,255,255,.06);
   border-radius: 8px;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.09) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; opacity: 0; }
 }
 
 /* ═══════════════════════════════════════════════════════════════

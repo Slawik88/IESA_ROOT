@@ -774,9 +774,9 @@
 .backdrop-blur-sm { backdrop-filter: blur(4px) !important; }
 .backdrop-blur-lg { backdrop-filter: blur(16px) !important; }
 
-.transition-all { transition: all 0.3s ease !important; }
-.transition-fast { transition: all 0.15s ease !important; }
-.transition-slow { transition: all 0.5s ease !important; }
+.transition-all { transition: 0.3s ease !important; transition-property: var(--transition-props) !important; }
+.transition-fast { transition: 0.15s ease !important; transition-property: var(--transition-props) !important; }
+.transition-slow { transition: 0.5s ease !important; transition-property: var(--transition-props) !important; }
 .transition-none { transition: none !important; }
 
 /* ====================================================

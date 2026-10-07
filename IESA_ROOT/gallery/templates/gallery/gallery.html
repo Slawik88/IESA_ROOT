@@ -139,17 +139,19 @@
 }
 /* 4g: Анимированная пунктирная рамка для empty state */
 .gal-empty--animated {
+    position: relative;
     background: rgba(255,255,255,.02);
     border: 2px dashed rgba(255,255,255,.12);
-    animation: dash-border 3s linear infinite;
     background-clip: padding-box;
 }
+.gal-empty--animated::after {
+    content: ''; position: absolute; inset: -2px; border-radius: inherit;
+    border: 2px dashed rgba(220,38,38,.25); pointer-events: none;
+    animation: dash-border 1.5s linear infinite;
+}
 @keyframes dash-border {
-    0%   { border-color: rgba(220,38,38,.25); }
-    25%  { border-color: rgba(255,255,255,.12); }
-    50%  { border-color: rgba(220,38,38,.25); }
-    75%  { border-color: rgba(255,255,255,.12); }
-    100% { border-color: rgba(220,38,38,.25); }
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
 }
 .gal-empty-icon {
     font-size: 3rem; margin-bottom: 1.25rem; display: block;
