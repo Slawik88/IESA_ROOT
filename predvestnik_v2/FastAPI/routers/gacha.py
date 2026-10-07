@@ -68,7 +68,7 @@ async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
     bal = await get_balance(db, user["id"])
     saved_tokens = 0
     saved_pity = []
-    for spin_type, cost in SPIN_COSTS.items():
+    for spin_type in SPIN_COSTS:
         token_qty = await get_item_quantity(db, user["id"], SPIN_TOKEN_IDS.get(spin_type, ""))
         pity = await get_pity(db, user["id"], spin_type)
         saved_tokens += int(token_qty or 0)

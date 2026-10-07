@@ -6,6 +6,7 @@ represent a player decision, a progression boundary or a completed outcome.
 from __future__ import annotations
 
 import json
+import math
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -206,7 +207,7 @@ def _validate_value(value: Any, path: str, depth: int = 0) -> None:
     if value is None or isinstance(value, (bool, int)):
         return
     if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
+        if not math.isfinite(value):
             raise GameplayEventError(f"{path}: non-finite number is forbidden")
         return
     if isinstance(value, str):
