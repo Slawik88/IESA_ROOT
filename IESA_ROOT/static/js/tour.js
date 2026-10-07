@@ -34,6 +34,7 @@
 
     var current = 0;
     var overlay, spotlight, tip;
+    var lastFocus = null;
 
     function createElements() {
         overlay = document.createElement('div');
@@ -49,7 +50,9 @@
         tip = document.createElement('div');
         tip.className = 'iesa-tour-tip';
         tip.setAttribute('role', 'dialog');
-        tip.setAttribute('aria-live', 'polite');
+        tip.setAttribute('aria-modal', 'true');
+        tip.setAttribute('aria-labelledby', 'iesa-tour-title');
+        lastFocus = document.activeElement;
 
         document.body.appendChild(overlay);
         document.body.appendChild(spotlight);
@@ -62,7 +65,9 @@
     function onKey(e) {
         if (e.key === 'Escape') finishTour(true);
         if (e.key === 'Enter' || e.key === ' ') {
-            if (document.activeElement && document.activeElement.closest('.iesa-tour-tip')) {
+            // Enter/Space на кнопках (Назад / Пропустить / ✕) должны делать своё действие, а не «Далее»
+            var t = document.activeElement;
+            if (t && t.closest('.iesa-tour-tip') && !t.closest('button, a')) {
                 e.preventDefault();
                 nextStep();
             }
@@ -74,6 +79,10 @@
         [overlay, spotlight, tip].forEach(function (el) {
             if (el && el.parentNode) el.parentNode.removeChild(el);
         });
+        // Вернуть фокус туда, где пользователь был до тура
+        if (lastFocus && document.contains(lastFocus) && lastFocus.focus) {
+            try { lastFocus.focus({ preventScroll: true }); } catch (e) { /* ignore */ }
+        }
     }
 
     function renderStep(idx) {
@@ -116,12 +125,12 @@
             // Подождать прокрутку и пере-вычислить позицию
             setTimeout(function () {
                 renderTipContent(idx, step);
-                positionUI(el, step);
+                positionUI(el, step, true);
             }, 400);
             return;
         }
         renderTipContent(idx, step);
-        positionUI(el, step);
+        positionUI(el, step, true);
     }
 
     function renderTipContent(idx, step) {
@@ -145,7 +154,7 @@
                     '<i class="fas fa-times" aria-hidden="true"></i>' +
                 '</button>' +
             '</div>' +
-            '<h3 class="iesa-tour-title">' + escapeHtml(step.title || '') + '</h3>' +
+            '<h3 class="iesa-tour-title" id="iesa-tour-title">' + escapeHtml(step.title || '') + '</h3>' +
             '<p class="iesa-tour-text">' + escapeHtml(step.text || '') + '</p>' +
             '<div class="iesa-tour-foot">' +
                 '<div class="iesa-tour-progress">' + dotsHtml + '</div>' +
@@ -166,6 +175,8 @@
             finishTour(true);
         });
         tip.querySelector('[data-tour-next]').addEventListener('click', nextStep);
+        // Диалог принимает фокус: клавиатура и скринридер сразу попадают в подсказку
+        try { tip.querySelector('[data-tour-next]').focus({ preventScroll: true }); } catch (e) { /* ignore */ }
         var backBtn = tip.querySelector('[data-tour-back]');
         if (backBtn) backBtn.addEventListener('click', prevStep);
         var skipBtn = tip.querySelector('[data-tour-skip]');
@@ -185,15 +196,24 @@
         tip.classList.add('visible');
     }
 
-    function positionUI(el, step) {
+    function positionUI(el, step, animate) {
         var rect = el.getBoundingClientRect();
         var pad = 8;
 
-        // Spotlight
-        spotlight.style.top    = (rect.top - pad) + 'px';
-        spotlight.style.left   = (rect.left - pad) + 'px';
-        spotlight.style.width  = (rect.width + pad * 2) + 'px';
-        spotlight.style.height = (rect.height + pad * 2) + 'px';
+        // Spotlight: между шагами — быстрое затухание/появление (opacity); top/left/width/height
+        // больше не анимируются (а у прожектора ещё и 9999px тени — перерисовка на каждом кадре).
+        var applyRect = function () {
+            spotlight.style.top    = (rect.top - pad) + 'px';
+            spotlight.style.left   = (rect.left - pad) + 'px';
+            spotlight.style.width  = (rect.width + pad * 2) + 'px';
+            spotlight.style.height = (rect.height + pad * 2) + 'px';
+        };
+        if (animate && spotlight.classList.contains('visible')) {
+            spotlight.classList.add('moving');
+            setTimeout(function () { applyRect(); spotlight.classList.remove('moving'); }, 150);
+        } else {
+            applyRect();
+        }
         spotlight.classList.add('visible');
         overlay.classList.add('has-spot');
         overlay.classList.add('visible');
@@ -284,7 +304,9 @@
         createElements();
         renderStep(0);
         // Re-position on resize/scroll
-        var rePosition = function () {
+        var queued = false;
+        var rePositionNow = function () {
+            queued = false;
             var step = data.steps[current];
             if (!step) return;
             // Centered step (welcome/finish) — без selector или с 'center'
@@ -293,7 +315,11 @@
                 return;
             }
             var el = document.querySelector(step.selector);
-            if (el) positionUI(el, step);
+            if (el) positionUI(el, step, false);
+        };
+        // scroll/resize стреляют десятками раз в секунду — пересчитываем раз в кадр
+        var rePosition = function () {
+            if (!queued) { queued = true; requestAnimationFrame(rePositionNow); }
         };
         window.addEventListener('resize', rePosition);
         window.addEventListener('scroll', rePosition, { passive: true });
