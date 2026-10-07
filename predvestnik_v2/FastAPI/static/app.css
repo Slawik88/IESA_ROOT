@@ -5500,6 +5500,22 @@ button.character-showcase-area { cursor: pointer; }
   .quest-reward { grid-template-columns:30px minmax(0,1fr) auto; }
   .quest-reward-go { grid-column:2 / -1; width:100%; }
 }
+
+/* One featured game, then compact routes. The hub communicates hierarchy
+   instead of repeating the same large card three times. */
+#game-hub { display:grid; gap:0; }
+.recon-entry-card--hero { min-height:300px; margin:0 0 8px; }
+.recon-entry-card--hero .recon-entry-facts span { color:var(--muted); font-size:10px; }
+.recon-entry-card--compact { min-height:148px; display:grid; grid-template-columns:54px minmax(0,1fr) auto; grid-template-rows:auto; align-items:center; gap:12px; margin:0; padding:18px 2px; overflow:visible; border:0; border-top:1px solid var(--border2); border-radius:0; background:transparent; }
+.recon-entry-card--compact::before { display:none; }
+.recon-entry-card--compact .recon-entry-mark { width:48px; height:48px; border-radius:14px; font-size:22px; }
+.recon-entry-card--compact .recon-entry-copy { min-width:0; max-width:none; margin:0; }
+.recon-entry-card--compact .recon-entry-copy h2 { margin:3px 0; font-size:18px; }
+.recon-entry-card--compact .recon-entry-copy p { display:-webkit-box; overflow:hidden; color:var(--muted); font-size:12px; line-height:1.45; -webkit-box-orient:vertical; -webkit-line-clamp:3; }
+.recon-entry-card--compact .recon-entry-facts { margin-top:6px; gap:10px; }
+.recon-entry-card--compact .recon-entry-facts span { padding:0; border:0; border-radius:0; color:var(--muted); font-size:10px; }
+.recon-entry-card--compact .recon-entry-action { min-width:74px; min-height:44px; margin:0; padding:0 10px; border:1px solid var(--border2); background:transparent; color:var(--bright); }
+@media(max-width:349px){.recon-entry-card--compact{min-height:158px;grid-template-columns:46px minmax(0,1fr) auto;gap:9px}.recon-entry-card--compact .recon-entry-mark{width:42px;height:42px}.recon-entry-card--compact .recon-entry-facts{display:none}.recon-entry-card--compact .recon-entry-action{max-width:78px;min-width:60px;padding-inline:8px;font-size:9px;line-height:1.2}}
 @media (prefers-reduced-motion: reduce) {
   .profile-showcase-card .card-fx { animation: none !important; opacity: .12; }
 }
