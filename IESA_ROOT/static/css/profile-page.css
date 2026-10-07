@@ -663,8 +663,7 @@ body:has(.cab-page) {
     position: sticky;
     top: var(--header-height, 60px);
     z-index: 25;
-    background: rgba(7,7,14,.92);
-    backdrop-filter: blur(16px);
+    background: rgba(7,7,14,.97); /* было .92 + blur(16px); blur под почти непрозрачным фоном лишний */
 }
 .cab-quick-nav {
     gap: 1.4rem !important;

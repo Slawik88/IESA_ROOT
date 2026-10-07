@@ -372,3 +372,6 @@ figcaption {
   --bg-surface: #ffffff;
   color: #1f2937;
 }
+
+/* «Skip to main content» переводит фокус на <main> (tabindex=-1) — рамку вокруг всей страницы не рисуем */
+main:focus { outline: none; }

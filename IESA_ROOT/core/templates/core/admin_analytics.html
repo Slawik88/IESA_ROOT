@@ -11,7 +11,7 @@
 }
 .aa-section-title {
     font-size: .68rem; font-weight: 700; letter-spacing: .15em;
-    text-transform: uppercase; color: var(--primary);
+    text-transform: uppercase; color: var(--primary-text);
     font-family: var(--font-mono); margin-bottom: 1rem;
     padding-bottom: .5rem; border-bottom: 1px solid var(--border-faint);
 }
@@ -70,7 +70,7 @@
     margin-bottom: .65rem;
     display: flex; align-items: center; gap: .45rem;
 }
-.aa-list-title i { color: var(--primary); }
+.aa-list-title i { color: var(--primary-text); }
 .aa-list-row {
     display: flex; align-items: center; gap: .6rem;
     padding: .5rem 0;
@@ -80,7 +80,7 @@
 }
 .aa-list-row:last-child { border-bottom: none; }
 .aa-list-row a { color: var(--text-primary); text-decoration: none; }
-.aa-list-row a:hover { color: var(--primary); }
+.aa-list-row a:hover { color: var(--primary-text); }
 .aa-list-row .aa-list-meta { margin-left: auto; font-size: .72rem; color: var(--text-muted); }
 .aa-list-empty { color: var(--text-muted); font-size: .85rem; padding: .85rem 0; text-align: center; }
 
@@ -100,7 +100,7 @@
     font-size: .8rem; font-weight: 600;
     transition: background var(--transition-base), color var(--transition-base);
 }
-.aa-quick a:hover { background: rgba(220,38,38,.10); color: var(--primary); border-color: rgba(220,38,38,.25); }
+.aa-quick a:hover { background: rgba(220,38,38,.10); color: var(--primary-text); border-color: rgba(220,38,38,.25); }
 .aa-quick a i { font-size: .72rem; margin-right: .3rem; }
 </style>
 {% endblock %}
@@ -110,7 +110,7 @@
 
     <div class="mb-4">
         <h1 style="font-size:1.5rem;font-weight:900;color:var(--text-primary);margin:0;">
-            <i class="fas fa-chart-line" style="color:var(--primary);margin-right:.5rem;"></i>
+            <i class="fas fa-chart-line" style="color: var(--primary-text);margin-right:.5rem;"></i>
             IESA Analytics
         </h1>
         <div style="font-size:.78rem;color:var(--text-muted);font-family:var(--font-mono);margin-top:.25rem;">
