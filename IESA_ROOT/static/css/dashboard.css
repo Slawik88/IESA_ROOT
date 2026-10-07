@@ -39,7 +39,7 @@
     flex-shrink: 0;
 }
 .dash-sidebar__brand-name {
-    font-size: .65rem;
+    font-size: .6875rem;
     font-weight: 700;
     letter-spacing: .2em;
     text-transform: uppercase;
@@ -64,7 +64,7 @@
     margin-bottom: 1rem;
 }
 .dash-nav-section-label {
-    font-size: .62rem;
+    font-size: .6875rem;
     font-weight: 700;
     letter-spacing: .14em;
     text-transform: uppercase;
@@ -262,7 +262,7 @@
 /* ── Visit table ─────────────────────────────── */
 .dash-table { width: 100%; border-collapse: collapse; }
 .dash-table th {
-    font-size: .65rem; font-weight: 700;
+    font-size: .6875rem; font-weight: 700;
     letter-spacing: .12em; text-transform: uppercase;
     color: rgba(255,255,255,.5);
     padding: .55rem 1rem;
@@ -409,7 +409,7 @@
     }
     .dash-stat-icon { width: 36px; height: 36px; }
     .dash-stat-val { font-size: 1.25rem; }
-    .dash-stat-lbl { font-size: .61rem; line-height: 1.25; }
+    .dash-stat-lbl { font-size: .6875rem; line-height: 1.25; }
 
     .dash-content { padding: .75rem; }
 

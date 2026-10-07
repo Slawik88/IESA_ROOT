@@ -646,7 +646,7 @@
    28. TYPOGRAPHY SIZES
    ==================================================== */
 
-.text-2xs { font-size: 0.65rem !important; }
+.text-2xs { font-size: .6875rem !important; }
 .text-xs { font-size: 0.75rem !important; }
 .text-xs-plus { font-size: 0.8125rem !important; }
 .text-sm { font-size: 0.875rem !important; }

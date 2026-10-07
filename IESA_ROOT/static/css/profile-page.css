@@ -472,7 +472,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
 @media (max-width: 575.98px) { .acc-info-grid { grid-template-columns: 1fr; } }
 .acc-field { display: flex; flex-direction: column; gap: .15rem; }
 .acc-lbl {
-    font-size: .65rem; text-transform: uppercase; letter-spacing: .1em;
+    font-size: .6875rem; text-transform: uppercase; letter-spacing: .1em;
     color: var(--muted); font-weight: 700;
 }
 .acc-val {
@@ -511,7 +511,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; }
     .stat-box { padding: .8rem; gap: .6rem; border-radius: 13px; }
     .stat-icon { width: 34px; height: 34px; border-radius: 10px; }
-    .stat-lbl { font-size: .6rem; letter-spacing: .06em; line-height: 1.2; }
+    .stat-lbl { font-size: .6875rem; letter-spacing: .06em; line-height: 1.2; }
     .stat-val { font-size: 1.2rem; }
     .cab-card { padding: 1.15rem; border-radius: 16px; }
     .cab-name { font-size: 1.45rem; }
@@ -629,7 +629,7 @@ body:has(.cab-page) {
     padding: .2rem .6rem;
     border-radius: 999px;
     background: transparent;
-    font-size: .67rem;
+    font-size: .6875rem;
     letter-spacing: .025em;
 }
 .sb-member { color: #f87171; border-color: rgba(220,38,38,.34); background: rgba(220,38,38,.08); }
@@ -724,7 +724,7 @@ body:has(.cab-page) {
     font-size: .78rem;
 }
 .stat-val { font-size: 1.25rem; }
-.stat-lbl { font-size: .61rem; letter-spacing: .09em; }
+.stat-lbl { font-size: .6875rem; letter-spacing: .09em; }
 
 .cab-card {
     padding: 1.5rem;
@@ -779,7 +779,7 @@ body:has(.cab-page) {
 .pin-display-label {
     margin-bottom: .7rem !important;
     color: rgba(255,255,255,.56) !important;
-    font-size: .66rem !important;
+    font-size: .6875rem !important;
     letter-spacing: .1em !important;
 }
 .pin-display-digits { gap: .35rem !important; margin: 0 0 .75rem !important; }
@@ -914,7 +914,7 @@ body:has(.cab-page) {
     .cab-avatar,
     .cab-avatar-fallback { width: 56px; height: 56px; }
     .cab-name { font-size: 1.28rem; }
-    .sb { font-size: .62rem; }
+    .sb { font-size: .6875rem; }
     .hero-actions { grid-template-columns: 1fr; }
     .hero-actions > :last-child:nth-child(odd) { grid-column: auto; }
     .pin-display-digit { width: 1.9rem !important; height: 2.35rem !important; }

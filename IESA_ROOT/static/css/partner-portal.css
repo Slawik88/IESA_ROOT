@@ -19,7 +19,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   --pp-line-strong: rgba(255, 255, 255, .14);
   --pp-text: #f3f4f6;
   --pp-muted: rgba(236, 238, 244, .56);
-  --pp-faint: rgba(236, 238, 244, .34);
+  --pp-faint: rgba(236, 238, 244, .54);
   --pp-red: #dc2626;
   --pp-red-bright: #ef3434;
   --pp-red-soft: rgba(220, 38, 38, .12);
@@ -57,8 +57,8 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 }
 
 .partner-portal-shell .dash-sidebar__brand-name {
-  color: rgba(239, 52, 52, .82);
-  font-size: 10px;
+  color: var(--primary-text);
+  font-size: .6875rem;
   letter-spacing: .16em;
 }
 
@@ -87,7 +87,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   padding: 0 10px;
   margin-bottom: 8px;
   color: var(--pp-faint);
-  font-size: 10px;
+  font-size: .6875rem;
   letter-spacing: .14em;
 }
 
@@ -168,7 +168,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 .partner-sidebar-summary span {
   margin-top: 3px;
   color: var(--pp-faint);
-  font-size: 9px;
+  font-size: .6875rem;
   font-weight: 760;
   letter-spacing: .07em;
   text-transform: uppercase;
@@ -190,8 +190,8 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 
 .dash-topbar__eyebrow {
   margin-bottom: 5px;
-  color: rgba(239, 52, 52, .76);
-  font-size: 10px;
+  color: var(--primary-text);
+  font-size: .6875rem;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
@@ -380,7 +380,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   margin-top: 5px;
   color: var(--pp-faint);
   font-family: inherit;
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 780;
   letter-spacing: .09em;
   line-height: 1.35;
@@ -440,7 +440,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 }
 
 .partner-portal-shell .dash-empty i {
-  color: rgba(239, 52, 52, .58);
+  color: var(--primary-text);
   font-size: 24px;
   opacity: 1;
 }
@@ -463,7 +463,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 .partner-command__eyebrow {
   margin-bottom: 7px;
   color: #ef5353;
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
@@ -494,7 +494,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   z-index: 2;
   top: 50%;
   left: 16px;
-  color: rgba(243, 244, 246, .34);
+  color: rgba(243, 244, 246, .54);
   font-size: 13px;
   pointer-events: none;
   transform: translateY(-50%);
@@ -562,7 +562,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 
 .partner-portal-shell input::placeholder,
 .partner-portal-shell textarea::placeholder {
-  color: rgba(236, 238, 244, .28) !important;
+  color: rgba(236, 238, 244, .54) !important;
 }
 
 .partner-portal-shell select option {
@@ -611,7 +611,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 .partner-portal-shell .mac-status {
   padding: 2px 6px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: .6875rem;
   letter-spacing: .06em;
 }
 
@@ -649,7 +649,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 
 .partner-row-actions a {
   color: var(--pp-muted);
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 680;
   text-decoration: none;
 }
@@ -744,7 +744,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   border: 1px solid var(--pp-line);
   border-radius: 7px;
   color: var(--pp-muted);
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 700;
   text-decoration: none;
 }
@@ -832,7 +832,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   display: block;
   margin-top: 2px;
   color: var(--pp-faint);
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 500;
 }
 
@@ -878,7 +878,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   display: block;
   margin-top: 3px;
   color: var(--pp-faint);
-  font-size: 10px;
+  font-size: .6875rem;
   font-style: normal;
 }
 
@@ -888,7 +888,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 }
 
 .partner-table-empty {
-  color: rgba(243, 244, 246, .2);
+  color: rgba(243, 244, 246, .54);
 }
 
 .partner-table-actions {
@@ -958,7 +958,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   background: rgba(255, 255, 255, .012);
   color: var(--pp-faint);
   font-family: inherit;
-  font-size: 9px;
+  font-size: .6875rem;
   font-weight: 800;
   letter-spacing: .11em;
 }
@@ -1064,7 +1064,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   margin-bottom: 7px;
   color: rgba(243, 244, 246, .5);
   font-family: inherit;
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 800;
   letter-spacing: .1em;
 }
@@ -1152,7 +1152,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 .partner-portal-shell .pp-visit-label {
   color: var(--pp-faint);
   font-family: inherit;
-  font-size: 9px;
+  font-size: .6875rem;
   font-weight: 800;
 }
 
@@ -1208,7 +1208,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   border: 1px solid var(--pp-line);
   border-radius: 6px;
   color: var(--pp-muted);
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 720;
 }
 
@@ -1295,7 +1295,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 .partner-portal-shell .pmv-stat-label {
   color: var(--pp-faint);
   font-family: inherit;
-  font-size: 9px;
+  font-size: .6875rem;
 }
 
 .partner-portal-shell .pmv-stat-val {
@@ -1337,7 +1337,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   margin-bottom: 14px;
   color: var(--pp-faint);
   font-family: inherit;
-  font-size: 10px;
+  font-size: .6875rem;
   font-weight: 800;
 }
 
@@ -2071,4 +2071,27 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
     grid-column: 1 / -1 !important;
     min-width: 0;
   }
+}
+
+/* ══════════════════════════════════════════════
+   ТАЧ-ЭКРАНЫ: поля ≥16px (иначе iOS приближает страницу при фокусе) и зоны нажатия 44px
+══════════════════════════════════════════════ */
+.dash-nav-item { min-height: var(--tap-min); }
+@media (pointer: coarse) {
+  /* .partner-portal-shell.partner-portal-shell: удвоенный класс — иначе проигрываем `.partner-portal-shell .cal-input { 14px !important }` */
+  .partner-portal-shell.partner-portal-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  .partner-portal-shell.partner-portal-shell select,
+  .partner-portal-shell.partner-portal-shell textarea { font-size: 16px !important; }
+  .partner-portal-shell .cal-month-cell,
+  .partner-portal-shell .cal-mnav-btn,
+  .partner-portal-shell .cal-day-nav-btn,
+  .partner-portal-shell .cal-date-quick,
+  .partner-portal-shell .vh-pill { min-width: var(--tap-min); min-height: var(--tap-min); }
+  .partner-portal-shell .partner-member-link { display: inline-flex; align-items: center; min-height: var(--tap-min); }
+  .partner-portal-shell .pp-btn,
+  .partner-portal-shell .pp-btn-ghost,
+  .partner-portal-shell .cal-submit,
+  .partner-portal-shell .cal-no-meetings-btn,
+  .partner-portal-shell .dtt-btn,
+  .partner-portal-shell .email-verify-banner__button { min-height: var(--tap-min); }
 }
