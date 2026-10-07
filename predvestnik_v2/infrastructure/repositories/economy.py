@@ -179,27 +179,24 @@ async def remove_item(
     db: PGAdapter, user_id: int, item_id: str, quantity: int = 1, commit: bool = True
 ) -> bool:
     """Atomically remove items. Returns False if insufficient quantity."""
-    try:
-        async with db.connection.transaction():
-            async with db.execute(
-                "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
-                (user_id, item_id),
-            ) as c:
-                row = await c.fetchone()
-            if not row or row[0] < quantity:
-                return False
-            await db.execute(
-                "UPDATE inventory SET quantity = quantity - ? "
-                "WHERE user_id = ? AND item_id = ?",
-                (quantity, user_id, item_id),
-            )
-            await db.execute(
-                "DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0",
-                (user_id, item_id),
-            )
-        return True
-    except Exception:
-        return False
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ? FOR UPDATE",
+            (user_id, item_id),
+        ) as c:
+            row = await c.fetchone()
+        if not row or row[0] < quantity:
+            return False
+        await db.execute(
+            "UPDATE inventory SET quantity = quantity - ? "
+            "WHERE user_id = ? AND item_id = ?",
+            (quantity, user_id, item_id),
+        )
+        await db.execute(
+            "DELETE FROM inventory WHERE user_id = ? AND item_id = ? AND quantity <= 0",
+            (user_id, item_id),
+        )
+    return True
 
 
 async def get_item_quantity(db: PGAdapter, user_id: int, item_id: str) -> int:
