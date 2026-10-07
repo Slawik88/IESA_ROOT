@@ -5,6 +5,7 @@ from django.core.cache import cache
 from products.models import Product
 from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
 from core.forms import AdminAppealForm
+from users.ratelimit_utils import safe_ratelimit
 from blog.models import Event
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
@@ -12,6 +13,7 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 
 
+@safe_ratelimit(group='appeal', rate='10/h')
 def submit_appeal(request):
     """Handle admin appeal form submission. Works with HTMX and plain POST."""
     if request.method != 'POST':

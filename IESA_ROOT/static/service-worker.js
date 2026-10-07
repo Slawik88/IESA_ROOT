@@ -6,7 +6,7 @@
  * Offline fallback: /offline/
  */
 
-const CACHE_VERSION = 'iesa-v3';
+const CACHE_VERSION = 'iesa-v4'; // v4: auth pages are never cached; old caches (incl. stale register forms) are purged
 const STATIC_CACHE  = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
@@ -43,6 +43,9 @@ const NO_CACHE_PATTERNS = [
   /^\/admin\//,
   /^\/auth\/login\//,
   /^\/auth\/logout\//,
+  /^\/auth\/register\//,        // форма регистрации: офлайн-копия = просроченный CSRF-токен
+  /^\/auth\/password-reset\//,   // сброс пароля: токены в ссылках, кэшировать нельзя
+  /^\/auth\/email\//,
   /\/api\//,
   /\.json$/,
 ];

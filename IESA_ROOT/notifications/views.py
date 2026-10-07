@@ -76,7 +76,7 @@ def mark_all_read(request):
 async def notification_stream(request):
     """
     10e: Server-Sent Events endpoint.
-    Отправляет unread_count каждые 30с.
+    Отправляет unread_count каждые 10с, поток живёт ~25с.
 
     BLOCK 10 (audit v3): async generator + asyncio.sleep + sync_to_async.
     HOTFIX 2026-05-22: request.user.pk триггерит sync ORM call внутри async-view
@@ -105,8 +105,11 @@ async def notification_stream(request):
             badge = str(count) if count > 0 else '0'
             yield f"event: badge\ndata: {badge}\n\n"
 
-            while loop.time() - start < 50:  # < Heroku 55s timeout
-                await asyncio.sleep(30)
+            # Daphne стартует с `-t 30` и убивает ответ дольше 30с (в логах —
+            # "Application timed out while sending response"). Закрываем поток
+            # сами раньше; EventSource переподключается автоматически.
+            while loop.time() - start < 20:
+                await asyncio.sleep(10)
                 count = await _get_count()
                 if count != last_count:
                     last_count = count

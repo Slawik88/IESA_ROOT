@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Privacy policy" %} | IESA{% endblock %}
+{% block meta_description %}{% trans "The IESA Sport privacy policy is being prepared. Registration and sign-in are not affected." %}{% endblock %}
+
+{% block extra_css %}
+<style>
+.pv-page { max-width: 760px; margin: 0 auto; padding: 3rem 1rem 4rem; }
+.pv-badge {
+    display: inline-flex; align-items: center; gap: .5rem; padding: .4rem .9rem; border-radius: 50px;
+    background: rgba(251,191,36,.14); border: 1px solid rgba(251,191,36,.45); color: #fcd34d;
+    font-size: .85rem; font-weight: 700; margin-bottom: 1.25rem;
+}
+.pv-title { color: #fff; font-size: clamp(1.7rem, 5vw, 2.3rem); font-weight: 900; letter-spacing: -.02em; margin-bottom: 1rem; }
+.pv-lead { color: rgba(255,255,255,.88); font-size: 1.1rem; line-height: 1.65; margin-bottom: 2rem; }
+.pv-card {
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); border-radius: 16px;
+    padding: 1.5rem; margin-bottom: 1.25rem;
+}
+.pv-card h2 { color: #fff; font-size: 1.1rem; font-weight: 800; margin: 0 0 .6rem; }
+.pv-card p, .pv-card li { color: rgba(255,255,255,.82); font-size: 1rem; line-height: 1.65; }
+.pv-card ul { margin: 0; padding-left: 1.2rem; }
+.pv-card a { color: #f87171; }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="pv-page">
+    <div class="pv-badge"><i class="fas fa-hammer" aria-hidden="true"></i>{% trans "In preparation" %}</div>
+    <h1 class="pv-title">{% trans "Privacy policy" %}</h1>
+    <p class="pv-lead">{% trans "Our privacy policy is not ready yet — we are still writing it. You can register and sign in as usual; nothing is blocked while it is in preparation." %}</p>
+
+    <section class="pv-card">
+        <h2>{% trans "We will tell you when it is ready" %}</h2>
+        <p>{% trans "As soon as the policy is published, we will notify every member by e-mail and on this site." %}</p>
+    </section>
+
+    <section class="pv-card">
+        <h2>{% trans "What we keep in the meantime" %}</h2>
+        <ul>
+            <li>{% trans "The details you give when you register: username, e-mail address and the profile information you choose to add." %}</li>
+            <li>{% trans "Your membership activity on IESA: visits logged by partners, posts, comments and event registrations." %}</li>
+        </ul>
+        <p style="margin-top:.75rem;">{% trans "We use this only to run your IESA membership." %}</p>
+    </section>
+
+    <section class="pv-card">
+        <h2>{% trans "Questions or requests" %}</h2>
+        <p>{% trans "If you want to see, correct or delete your data now, write to" %} <a href="mailto:iesa@iesasport.ch">iesa@iesasport.ch</a>.</p>
+    </section>
+</main>
+{% endblock %}

@@ -8,7 +8,7 @@
     position: fixed;
     inset: 0;
     z-index: 9998;
-    background: rgba(0, 0, 0, 0.78);
+    background: rgba(0, 0, 0, 0.62);
     pointer-events: auto;
     opacity: 0;
     transition: opacity .25s ease;
@@ -17,6 +17,10 @@
        blur весь UI становится нечитабельным. */
 }
 .iesa-tour-overlay.visible { opacity: 1; }
+/* While an element is highlighted, the spotlight's own box-shadow does the dimming.
+   Keeping this layer dark as well put the highlighted element UNDER a ~95% black veil,
+   which is what made the whole page unreadable. The layer stays only to catch taps. */
+.iesa-tour-overlay.has-spot { background: transparent; }
 
 /* Spotlight = cut-out around the highlighted element.
    Implemented via box-shadow inset trick on a positioned element. */
@@ -26,7 +30,7 @@
     border-radius: 12px;
     box-shadow:
         0 0 0 4px rgba(220, 38, 38, 0.55),
-        0 0 0 9999px rgba(0, 0, 0, 0.72),
+        0 0 0 9999px rgba(0, 0, 0, 0.6),
         0 0 40px rgba(220, 38, 38, 0.35);
     transition: top .35s cubic-bezier(.22, 1, .36, 1),
                 left .35s cubic-bezier(.22, 1, .36, 1),
@@ -57,8 +61,8 @@
     position: fixed;
     z-index: 10000;
     width: min(380px, calc(100vw - 32px));
-    background: linear-gradient(145deg, #1a1a26, #12121c);
-    border: 1px solid rgba(220, 38, 38, 0.35);
+    background: linear-gradient(145deg, #232333, #181824);
+    border: 1px solid rgba(248, 113, 113, 0.5);
     border-radius: 16px;
     padding: 1.5rem 1.5rem 1.2rem;
     color: #fff;
@@ -135,20 +139,19 @@
     margin-bottom: .6rem;
 }
 .iesa-tour-counter {
-    font-size: .68rem;
+    font-size: .8rem;
     font-weight: 700;
-    letter-spacing: .12em;
+    letter-spacing: .06em;
     text-transform: uppercase;
-    color: #ef4444;
-    font-family: 'Courier New', monospace;
+    color: #fca5a5;
 }
 .iesa-tour-close {
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.55);
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.85);
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -166,17 +169,17 @@
 
 /* Body */
 .iesa-tour-title {
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     font-weight: 800;
-    margin: 0 0 .45rem;
+    margin: 0 0 .5rem;
     color: #fff;
     line-height: 1.3;
 }
 .iesa-tour-text {
-    font-size: .88rem;
-    color: rgba(255, 255, 255, 0.72);
-    line-height: 1.5;
-    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.92);
+    line-height: 1.55;
+    margin: 0 0 1.1rem;
 }
 
 /* Footer row: progress + actions */
@@ -192,17 +195,17 @@
     flex: 0 0 auto;
 }
 .iesa-tour-dot {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.3);
     transition: background .2s, transform .2s;
 }
 .iesa-tour-dot.active {
     background: #ef4444;
     transform: scale(1.4);
 }
-.iesa-tour-dot.done { background: rgba(220, 38, 38, 0.45); }
+.iesa-tour-dot.done { background: rgba(248, 113, 113, 0.7); }
 
 .iesa-tour-actions {
     display: flex;
@@ -212,10 +215,11 @@
     background: linear-gradient(135deg, #dc2626, #b91c1c);
     border: none;
     color: #fff;
-    font-size: .82rem;
+    font-size: .95rem;
     font-weight: 700;
-    border-radius: 9px;
-    padding: .5rem 1.1rem;
+    border-radius: 10px;
+    padding: .6rem 1.25rem;
+    min-height: 44px;
     cursor: pointer;
     transition: filter .15s, transform .15s;
     letter-spacing: .02em;
@@ -225,13 +229,27 @@
 .iesa-tour-btn:active { transform: translateY(0); }
 .iesa-tour-btn-secondary {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    color: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: rgba(255, 255, 255, 0.9);
 }
 .iesa-tour-btn-secondary:hover {
     background: rgba(255, 255, 255, 0.1);
     color: #fff;
 }
+
+.iesa-tour-skip {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.75);
+    font: inherit;
+    font-size: .9rem;
+    text-decoration: underline;
+    cursor: pointer;
+    padding: .5rem .25rem;
+    margin: .25rem 0 0;
+}
+.iesa-tour-skip:hover { color: #fff; }
+.iesa-tour-tip[data-pos="center"] .iesa-tour-skip { align-self: center; }
 
 /* ── MOBILE — фиксим положение tooltip + размер spotlight ──────────── */
 @media (max-width: 640px) {
@@ -265,14 +283,16 @@
     /* Стрелка не имеет смысла на mobile fixed-bottom — скрываем */
     .iesa-tour-tip::before { display: none; }
 
-    .iesa-tour-title { font-size: 1rem; }
-    .iesa-tour-text  { font-size: .82rem; line-height: 1.45; margin-bottom: .85rem; }
+    .iesa-tour-title { font-size: 1.1rem; }
+    .iesa-tour-text  { font-size: .95rem; line-height: 1.5; margin-bottom: .9rem; }
+    .iesa-tour-foot  { flex-wrap: wrap; }
+    .iesa-tour-actions { margin-left: auto; }
 
     /* На mobile spotlight чуть толще rim для читаемости */
     .iesa-tour-spotlight {
         box-shadow:
             0 0 0 3px rgba(220, 38, 38, 0.6),
-            0 0 0 9999px rgba(0, 0, 0, 0.78),
+            0 0 0 9999px rgba(0, 0, 0, 0.62),
             0 0 30px rgba(220, 38, 38, 0.4);
     }
 }

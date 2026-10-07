@@ -26,13 +26,16 @@ class SecurityHeadersMiddleware:
         # 'unsafe-inline' нужен для inline-стилей в шаблонах + Bootstrap
         # 'unsafe-eval' нужен для HTMX и некоторых динамических скриптов
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
-        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+        "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com",
         "style-src 'self' 'unsafe-inline' "
         "https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
         "img-src 'self' data: blob: https: ",
         "font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net",
         # connect-src: HTMX requests + map tiles + наш API
-        "connect-src 'self' https://api.telegram.org https://*.tile.openstreetmap.org",
+        "connect-src 'self' https://api.telegram.org https://*.tile.openstreetmap.org "
+        "https://challenges.cloudflare.com",
+        # Cloudflare Turnstile (anti-bot widget on register / password reset) renders in an iframe
+        "frame-src https://challenges.cloudflare.com",
         "media-src 'self' data: blob:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
