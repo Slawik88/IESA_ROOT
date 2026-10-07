@@ -51,29 +51,30 @@ class _StripPrefix:
                     headers = list(message.get("headers", []))
                     rewritten = []
                     changed = False
-                    for name, value in headers:
+                    for name, header_value in headers:
                         if name.lower() != b"location":
-                            rewritten.append((name, value))
+                            rewritten.append((name, header_value))
                             continue
-                        location = value.decode("latin-1")
+                        location = header_value.decode("latin-1")
                         try:
                             parsed = urlsplit(location)
                         except ValueError:
-                            rewritten.append((name, value))
+                            rewritten.append((name, header_value))
                             continue
                         same_origin = not parsed.netloc or parsed.netloc == request_host
                         automatic_slash_target = parsed.path == stripped_path[:-1]
                         path_without_prefix = parsed.path and not (
                             parsed.path == public_prefix or parsed.path.startswith(f"{public_prefix}/")
                         )
+                        rewritten_value = header_value
                         if same_origin and automatic_slash_target and path_without_prefix:
                             location = urlunsplit((
                                 parsed.scheme, parsed.netloc, f"{public_prefix}{parsed.path}",
                                 parsed.query, parsed.fragment,
                             ))
-                            value = location.encode("latin-1")
+                            rewritten_value = location.encode("latin-1")
                             changed = True
-                        rewritten.append((name, value))
+                        rewritten.append((name, rewritten_value))
                     if changed:
                         message = {**message, "headers": rewritten}
                     await send(message)

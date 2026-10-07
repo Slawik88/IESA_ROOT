@@ -385,7 +385,7 @@ async def activate_preprod_browser_persona(ticket: str = ""):
         httponly=True,
         secure=False,
         samesite="strict",
-        path=f"{_ASSET_BASE}/" or "/",
+        path=f"{_ASSET_BASE}/",
     )
     # Some automation WebViews intentionally isolate cookies during a
     # cross-port localhost redirect.  Their client consumes this short ticket
