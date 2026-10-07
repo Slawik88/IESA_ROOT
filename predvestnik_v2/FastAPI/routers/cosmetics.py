@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user, require_tab_enabled
 from services.cosmetics import (
     buy, equip, get_catalog, set_welcome, unequip,
-    craft_catalog, craft_cosmetic, giftable_cosmetics, gift_cosmetic,
+    craft_catalog, giftable_cosmetics, gift_cosmetic,
     list_presets, save_preset, rename_preset, apply_preset, delete_preset,
     buy_lineup, buy_many,
 )

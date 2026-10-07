@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 import math
 from types import MappingProxyType
-from typing import Any, Final, Mapping
+from typing import Any, Final
 
 DIFFICULTY_POLICY_VERSION: Final = "difficulty-e01-v1"
 DEFAULT_DIFFICULTY_ID: Final = "standard"

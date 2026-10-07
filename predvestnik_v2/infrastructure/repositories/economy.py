@@ -12,7 +12,6 @@ no-op); оставлен для совместимости вызовов. Вн�
 """
 from contextlib import asynccontextmanager
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
-from infrastructure.repositories.wallet_log import log_wallet
 from infrastructure.repositories.economy_ledger import apply_balance_change, BalanceMutation
 from infrastructure.pg_adapter import PGAdapter
 

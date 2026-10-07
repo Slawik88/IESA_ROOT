@@ -9,7 +9,6 @@ from services.themes import (
     WEB_DIRECT_THEME_SOURCES,
     ThemePurchaseError,
     get_all_effective_themes,
-    get_effective_theme,
     purchase_direct_theme,
 )
 

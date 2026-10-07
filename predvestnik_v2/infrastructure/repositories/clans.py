@@ -2,7 +2,7 @@
 # Один клан на игрока (PK clan_members.user_id). Атомарные операции — через
 # db.connection.transaction() + FOR UPDATE (как marriages/economy).
 from core.constants import (
-    CLAN_CREATE_COST_MORA, CLAN_MAX_MEMBERS,
+    CLAN_MAX_MEMBERS,
     CLAN_XP_PER_LEVEL, CLAN_MAX_LEVEL, CLAN_BUILDINGS, CLAN_HQ_SLOTS_PER_LEVEL,
     CLAN_REQUEST_QTY_BASE, CLAN_REQUEST_QTY_PER_LEVEL,
     CLAN_REQUEST_ACTIVE_BASE, CLAN_REQUEST_ACTIVE_PER_3LVL,

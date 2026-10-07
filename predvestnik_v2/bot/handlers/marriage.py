@@ -1,5 +1,5 @@
 from aiogram import Bot, Router, types
-from services.utils import resolve_target, safe_html, parse_dt, check_callback_owner
+from services.utils import resolve_target, safe_html, parse_dt
 from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime

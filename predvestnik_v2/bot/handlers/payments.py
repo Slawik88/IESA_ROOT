@@ -41,7 +41,7 @@ from core.supporter_cosmetics_v1 import OFFER_BY_ID as SUPPORTER_OFFERS, parse_i
 from services import supporter_cosmetics_v1
 from services import supporter_refunds_v1
 from infrastructure.repositories import supporter_cosmetics_v1 as supporter_repo
-from infrastructure.preprod import direct_stars_cosmetics_allowed, is_preprod, stars_invoice_issuance_allowed
+from infrastructure.preprod import is_preprod, stars_invoice_issuance_allowed
 
 router = Router(name="payments_router")
 _CUSTOM_AMOUNT_MARKER = "✏️ Введите количество ⭐ для покупки Зарников"
