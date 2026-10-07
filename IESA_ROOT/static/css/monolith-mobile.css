@@ -1,0 +1,117 @@
+/* ====================================================
+   MONOLITH MOBILE — единый мобильный слой (грузится ПОСЛЕ extra_css страниц)
+   Принципы: компактные отступы, edge-to-edge без карточных рамок,
+   горизонтальные табы, липкая панель Save/Cancel, ровная шапка.
+   Только transform/opacity в анимациях; цвета — из токенов страниц.
+   ==================================================== */
+
+:root {
+  --mono-bottom-nav: 64px;            /* высота .mobile-bottom-nav без safe-area */
+  --mono-line: rgba(255, 255, 255, .07);
+}
+
+/* ── Шапка: бургер строго по центру, хитбокс 44×44 ───────────── */
+.iesa-nav-mobile-wrap { align-items: center; }
+.iesa-toggler {
+  width: 44px; height: 44px; padding: 0;
+  align-items: center; justify-content: center;
+  margin: 0;
+}
+.iesa-toggler:focus-visible { outline: 2px solid #f87171; outline-offset: 2px; border-radius: 10px; }
+.iesa-header { padding-top: env(safe-area-inset-top, 0px); }
+
+/* ── Табы: одна горизонтальная прокручиваемая полоса ─────────── */
+.edit-tabs, .cmd-tabs, .dash-today-tabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.edit-tabs::-webkit-scrollbar, .cmd-tabs::-webkit-scrollbar, .dash-today-tabs::-webkit-scrollbar { display: none; }
+.edit-tab, .cmd-tab, .dash-today-tabs > * { white-space: nowrap; flex: 0 0 auto; scroll-snap-align: start; }
+
+@media (max-width: 767.98px) {
+
+  /* ── AUTH: login / register / invite — edge-to-edge, без «карточки в пустоте» ── */
+  .auth-page, .reg-page {
+    padding: 0; align-items: stretch; justify-content: flex-start;
+    min-height: 100vh; min-height: 100dvh;
+  }
+  .auth-card {
+    max-width: none; border: 0; border-radius: 0; box-shadow: none; min-height: 100dvh;
+  }
+  .reg-wrap { max-width: none; display: flex; flex-direction: column; flex: 1; }
+  .reg-top {
+    margin: 0; padding: .9rem 1.1rem;
+    border-bottom: 1px solid var(--mono-line);
+  }
+  .reg-card {
+    flex: 1; border: 0; border-radius: 0; box-shadow: none; background: transparent;
+  }
+  .reg-card-head { padding: 1.1rem 1.1rem 0; }
+  .reg-eyebrow { margin-bottom: .5rem; font-size: .68rem; }
+  .reg-title { font-size: 1.45rem; }
+  .reg-desc { font-size: .92rem; margin-bottom: 1rem; }
+  .reg-steps { width: 100%; margin-bottom: 1.1rem; }
+  .reg-body { padding: 0 1.1rem 1.25rem; }
+  .reg-grid { gap: .85rem; }
+  .rf label, .af label { margin-bottom: .3rem; font-size: .85rem; }
+  .rf-wrap input, .rf-wrap select, .af-wrap input { min-height: 46px; padding-top: .55rem; padding-bottom: .55rem; }
+  .reg-actions { margin-top: 1.1rem; gap: .75rem; }
+  .reg-step-nav { margin-top: 1rem; }
+  .reg-review { padding: 1rem; margin-bottom: 1rem; border-radius: 12px; }
+  .reg-alert { padding: .65rem .85rem; font-size: .88rem; margin-bottom: .85rem; }
+  .reg-footer { padding: .85rem 1.1rem; gap: .5rem 1rem; }
+  .reg-fp { font-size: .8rem; }
+  /* Кнопки шагов — липкая панель над клавиатурой/краем экрана */
+  .reg-step-nav, .reg-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    margin-left: -1.1rem; margin-right: -1.1rem; padding: .7rem 1.1rem calc(.7rem + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to top, #07070e 70%, rgba(7, 7, 14, 0));
+  }
+  .auth-card .ar { padding: 1.4rem 1.1rem calc(1.4rem + env(safe-area-inset-bottom, 0px)); flex: 1; }
+  .auth-card .al { padding: 1rem 1.1rem; }
+  .ar-title { font-size: 1.5rem; }
+  .ar-desc { font-size: .92rem; margin-bottom: 1.1rem; }
+  .af { margin-bottom: .85rem; }
+  .ar-div { margin: 1rem 0; }
+
+  /* ── PROFILE EDIT: плоская страница вместо карточки ───────────── */
+  .profile-edit-page { padding: 0 0 calc(var(--mono-bottom-nav) + 1rem) !important; background-image: none !important; }
+  .profile-edit-page .container-limited { padding-left: 0; padding-right: 0; }
+  .profile-edit-page .row { margin-left: 0; margin-right: 0; }
+  .profile-edit-page .row > * { padding-left: 0; padding-right: 0; }
+  .profile-edit-page .page-bc { margin: 0 !important; padding: .6rem 1rem; }
+  .profile-edit-card {
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important;
+  }
+  .edit-card-header { padding: .85rem 1rem !important; }
+  .edit-subtitle { display: none; }
+  .edit-tabs { padding: 0 1rem !important; gap: 1.25rem !important; }
+  .card-section { padding: 1rem !important; }
+  .section-heading { margin-bottom: .85rem !important; }
+  .edit-form .row { --bs-gutter-y: .65rem; --bs-gutter-x: .75rem; }
+  .edit-form .form-label { margin-bottom: .2rem; }
+  .edit-form .form-control, .edit-form .form-select, .edit-form textarea { min-height: 44px; padding: .5rem .75rem; font-size: 16px; }
+  .link-format-hint { padding: .5rem .65rem; margin-bottom: .65rem; font-size: .74rem; }
+  #avatar-drop-zone { padding: .85rem !important; min-height: 0 !important; }
+  .profile-draft-status { padding: 0 1rem .5rem !important; }
+
+  /* Save/Cancel — липкая 50/50 панель над нижней навигацией */
+  .edit-actions {
+    position: sticky; z-index: 30;
+    bottom: calc(var(--mono-bottom-nav) + env(safe-area-inset-bottom, 0px));
+    display: grid !important; grid-template-columns: 1fr 1fr; gap: .6rem;
+    padding: .65rem 1rem !important;
+    background: rgba(9, 9, 16, .96) !important;
+    border-top: 1px solid var(--mono-line) !important;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  .edit-actions .btn { width: 100%; min-height: 46px; padding-left: .5rem !important; padding-right: .5rem !important; }
+  .edit-actions [type="submit"] { order: 2; }
+  /* Дублирующая кнопка в шапке и плавающая плашка больше не нужны */
+  .edit-header-save { display: none; }
+  .edit-save-dock { bottom: calc(var(--mono-bottom-nav) + 64px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 1.5rem); }
+}

@@ -119,6 +119,8 @@
 
     <!-- Per-page CSS: override 'extra_css' block in child templates -->
     {% block extra_css %}{% endblock %}
+    {# Mobile monolith layer: после page-CSS, чтобы выравнивать все страницы единообразно #}
+    <link rel="stylesheet" href="{% static 'css/monolith-mobile.css' %}">
 </head>
 <body>
     <!-- Skip to main content (Accessibility) -->
