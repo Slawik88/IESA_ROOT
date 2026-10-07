@@ -358,29 +358,125 @@
     root.innerHTML = '<div class="loader" style="margin-top:44px">Собираем статистику чатов…</div>';
     loadChatTracker();
   };
-  window.openPetsV1=function(){
-    switchPage('pets'); const root=el('pg-pets'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка питомцев…</div>';
-    api('/pets-v1/me').then(d=>{
-      const foods=d.food||[];
-      const cards=(d.pets||[]).map(p=>{
-        const foodButtons=Number(p.endurance)<100&&foods.length?`<div class="pet-food-row" aria-label="Покормить ${esc(p.name)}">${foods.map(f=>`<button type="button" onclick="petsV1Feed(${p.id},'${esc(f.id)}')" title="+${f.restore} выносливости"><span>${esc(f.icon)}</span><b>+${f.restore}</b><small>${f.quantity} шт.</small></button>`).join('')}</div>`:'';
-        return`<article class="pcard pet-release-card"><header><b>🐾 ${esc(p.name)}</b>${p.active?'<span>Активный</span>':''}</header><div class="pet-endurance"><div><i style="width:${Math.max(0,Math.min(100,Number(p.endurance)||0))}%"></i></div><b>${p.endurance}/100</b></div><p>Уровень ${p.level}/16 · ${esc(p.effects.visual_stage)} · маршрут +${p.effects.expedition_route_bonus_percent}%</p>${foodButtons}${p.active?'':`<button class="btn btn-ghost pet-activate" onclick="petsV1Activate(${p.id})">Сделать активным</button>`}</article>`;
-      }).join('');
-      const a=d.activity;
-      const activePet=(d.pets||[]).find(p=>p.active),activityCosts=d.activity_costs||{};
-      const decisionLabels={careful:'Осторожный маршрут',steady:'Ровный маршрут',bold:'Рискованный маршрут'};
-      const timer=a?`<section class="looks-release-section pet-activity"><h3>${a.kind==='trek'?'Поход':'Экспедиция'}</h3><p>${a.status==='ready'?(a.kind==='expedition'&&!a.decision?`Таймер завершён. Выбери маршрут:`:'Награда уже получена.'):`Питомец занят до ${esc(String(a.ends_at).replace('T',' ').slice(0,16))}.`}</p>${a.status==='ready'&&a.kind==='expedition'&&!a.decision?`<div class="pet-route-grid">${['careful','steady','bold'].map(x=>`<button class="btn btn-ghost" onclick="petsV1Choose('${x}')">${decisionLabels[x]}</button>`).join('')}</div>`:''}</section>`:
-        (d.active_pet_id?`<section class="looks-release-section pet-activity"><h3>Отправить питомца</h3><p>${esc(d.activity_reward_label||'За завершение — один ключ.')} Выносливость списывается при старте.</p><div class="pet-activity-grid">${['trek','expedition'].map(kind=>d.durations.map(hours=>{const cost=Number(activityCosts[hours])||0,locked=!activePet||Number(activePet.endurance)<cost,hoursWord=Number(hours)===3?'часа':'часов';return`<button class="btn btn-ghost" onclick="petsV1Start('${kind}',${hours})" ${locked?'disabled':''} aria-label="${kind==='trek'?'Поход':'Экспедиция'} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ"><b>${kind==='trek'?'Поход':'Экспедиция'}</b><small>${hours} ч · ${cost} ⚡ · 1 🗝</small></button>`;}).join('')).join('')}</div></section>`:'');
-      const earned=(d.activity_rewards||[]).length?`<div class="pet-key-earned" role="status"><b>🗝 Ключ получен</b><span>Завершённая активность уже зачислена в сундуки.</span><button type="button" onclick="openChestsV1()">К сундукам</button></div>`:'';
-      const bestiary=(d.bestiary||[]).map(p=>`<article class="bestiary-card ${p.owned?'is-owned':'is-locked'}"><span aria-hidden="true">${p.owned?esc(p.icon):'?'}</span><div><b>${p.owned?esc(p.name):'Неизвестный питомец'}</b><small>${esc(p.rarity)} · ${p.owned?'открыт':'не найден'}</small></div>${p.owned?'<i aria-label="Открыт">✓</i>':''}</article>`).join('');
-      root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
-        <section class="pet-hero"><div><small>Коллекция спутников</small><h2>${fmt(d.bestiary_owned||0)} из ${fmt(d.bestiary_total||0)}</h2><p>Открывай сундуки, находи карточки и собирай весь бестиарий.</p></div><strong>${Math.round(100*Number(d.bestiary_owned||0)/Math.max(1,Number(d.bestiary_total||0)))}%</strong></section>
-        <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="true" onclick="showPetPanel('owned',this)">Мои питомцы</button><button type="button" role="tab" aria-selected="false" onclick="showPetPanel('bestiary',this)">Бестиарий</button></div>
-        <div data-pet-panel="owned"><div class="looks-hint">Выносливость уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу; смена активного питомца стоит 5.</div>${earned}${cards||'<div class="empty">Первую карточку питомца можно найти в сундуке.</div>'}${timer}</div>
-        <div data-pet-panel="bestiary" hidden><div class="bestiary-grid">${bestiary}</div></div>`;
-    }).catch(e=>root.innerHTML=`<div class="err" style="margin:16px">${esc(e)}</div>`);
+  const PET_ACTIVITY_KINDS = Object.freeze(['trek', 'expedition']);
+  const PET_ROUTE_LABELS = Object.freeze({
+    careful: 'Осторожный маршрут',
+    steady: 'Ровный маршрут',
+    bold: 'Рискованный маршрут',
+  });
+
+  function petFoodButtons(pet, foods) {
+    if (Number(pet.endurance) >= 100 || !foods.length) return '';
+    const buttons = foods.map((food) => (
+      `<button type="button" onclick="petsV1Feed(${pet.id},'${esc(food.id)}')"`
+      + ` title="+${food.restore} выносливости"><span>${esc(food.icon)}</span>`
+      + `<b>+${food.restore}</b><small>${food.quantity} шт.</small></button>`
+    )).join('');
+    return `<div class="pet-food-row" aria-label="Покормить ${esc(pet.name)}">${buttons}</div>`;
+  }
+
+  function petCard(pet, foods) {
+    const endurance = Math.max(0, Math.min(100, Number(pet.endurance) || 0));
+    const activate = pet.active
+      ? ''
+      : `<button class="btn btn-ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
+    return `<article class="pcard pet-release-card">
+      <header><b>🐾 ${esc(pet.name)}</b>${pet.active ? '<span>Активный</span>' : ''}</header>
+      <div class="pet-endurance"><div><i style="width:${endurance}%"></i></div><b>${pet.endurance}/100</b></div>
+      <p>Уровень ${pet.level}/16 · ${esc(pet.effects.visual_stage)} · маршрут +${pet.effects.expedition_route_bonus_percent}%</p>
+      ${petFoodButtons(pet, foods)}${activate}
+    </article>`;
+  }
+
+  function activePetActivity(activity) {
+    const title = activity.kind === 'trek' ? 'Поход' : 'Экспедиция';
+    const needsDecision = activity.status === 'ready'
+      && activity.kind === 'expedition'
+      && !activity.decision;
+    const status = activity.status === 'ready'
+      ? (needsDecision ? 'Таймер завершён. Выбери маршрут:' : 'Награда уже получена.')
+      : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
+    const routes = needsDecision
+      ? `<div class="pet-route-grid">${Object.entries(PET_ROUTE_LABELS).map(([id, label]) => (
+        `<button class="btn btn-ghost" onclick="petsV1Choose('${id}')">${label}</button>`
+      )).join('')}</div>`
+      : '';
+    return `<section class="looks-release-section pet-activity"><h3>${title}</h3><p>${status}</p>${routes}</section>`;
+  }
+
+  function petActivityChoices(data, activePet) {
+    if (!data.active_pet_id) return '';
+    const costs = data.activity_costs || {};
+    const buttons = PET_ACTIVITY_KINDS.flatMap((kind) => (
+      data.durations.map((hours) => {
+        const cost = Number(costs[hours]) || 0;
+        const locked = !activePet || Number(activePet.endurance) < cost;
+        const title = kind === 'trek' ? 'Поход' : 'Экспедиция';
+        const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
+        return `<button class="btn btn-ghost" onclick="petsV1Start('${kind}',${hours})"`
+          + ` ${locked ? 'disabled' : ''} aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
+          + `<b>${title}</b><small>${hours} ч · ${cost} ⚡ · 1 🗝</small></button>`;
+      })
+    )).join('');
+    return `<section class="looks-release-section pet-activity">
+      <h3>Отправить питомца</h3>
+      <p>${esc(data.activity_reward_label || 'За завершение — один ключ.')} Выносливость списывается при старте.</p>
+      <div class="pet-activity-grid">${buttons}</div>
+    </section>`;
+  }
+
+  function petBestiaryCard(pet) {
+    const state = pet.owned ? 'is-owned' : 'is-locked';
+    const icon = pet.owned ? esc(pet.icon) : '?';
+    const name = pet.owned ? esc(pet.name) : 'Неизвестный питомец';
+    return `<article class="bestiary-card ${state}"><span aria-hidden="true">${icon}</span>`
+      + `<div><b>${name}</b><small>${esc(pet.rarity)} · ${pet.owned ? 'открыт' : 'не найден'}</small></div>`
+      + `${pet.owned ? '<i aria-label="Открыт">✓</i>' : ''}</article>`;
+  }
+
+  function renderPetsV1(root, data) {
+    const pets = data.pets || [];
+    const foods = data.food || [];
+    const activePet = pets.find((pet) => pet.active);
+    const cards = pets.map((pet) => petCard(pet, foods)).join('')
+      || '<div class="empty">Первую карточку питомца можно найти в сундуке.</div>';
+    const activity = data.activity
+      ? activePetActivity(data.activity)
+      : petActivityChoices(data, activePet);
+    const earned = (data.activity_rewards || []).length
+      ? '<div class="pet-key-earned" role="status"><b>🗝 Ключ получен</b><span>Завершённая активность уже зачислена в сундуки.</span><button type="button" onclick="openChestsV1()">К сундукам</button></div>'
+      : '';
+    const bestiary = (data.bestiary || []).map(petBestiaryCard).join('');
+    const completion = Math.round(
+      100 * Number(data.bestiary_owned || 0) / Math.max(1, Number(data.bestiary_total || 0)),
+    );
+
+    root.innerHTML = `<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
+      <section class="pet-hero"><div><small>Коллекция спутников</small><h2>${fmt(data.bestiary_owned || 0)} из ${fmt(data.bestiary_total || 0)}</h2><p>Открывай сундуки, находи карточки и собирай весь бестиарий.</p></div><strong>${completion}%</strong></section>
+      <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="true" onclick="showPetPanel('owned',this)">Мои питомцы</button><button type="button" role="tab" aria-selected="false" onclick="showPetPanel('bestiary',this)">Бестиарий</button></div>
+      <div data-pet-panel="owned"><div class="looks-hint">Выносливость уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу; смена активного питомца стоит 5.</div>${earned}${cards}${activity}</div>
+      <div data-pet-panel="bestiary" hidden><div class="bestiary-grid">${bestiary}</div></div>`;
+  }
+
+  window.openPetsV1 = async function () {
+    switchPage('pets');
+    const root = el('pg-pets');
+    root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка питомцев…</div>';
+    try {
+      renderPetsV1(root, await api('/pets-v1/me'));
+    } catch (error) {
+      root.innerHTML = `<div class="err" style="margin:16px">${esc(error)}</div>`;
+    }
   };
-  window.showPetPanel=function(name,button){const root=el('pg-pets');root.querySelectorAll('[data-pet-panel]').forEach(x=>x.hidden=x.dataset.petPanel!==name);root.querySelectorAll('.pet-tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===button)));};
+  window.showPetPanel = function (name, button) {
+    const root = el('pg-pets');
+    root.querySelectorAll('[data-pet-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.petPanel !== name;
+    });
+    root.querySelectorAll('.pet-tabs button').forEach((tab) => {
+      tab.setAttribute('aria-selected', String(tab === button));
+    });
+  };
   const _petsV1PendingActions=new Map();
   const _questsV1PendingActions=new Map();
   const _chestsV1PendingActions=new Map();
