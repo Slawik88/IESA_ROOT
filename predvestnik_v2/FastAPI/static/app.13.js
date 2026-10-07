@@ -117,7 +117,7 @@
     const skin=totals.offers.find(item=>item.kind==='skin'), asset=skinAsset(skin);
     return `<button class="store-collection" type="button" data-collection="${e(id)}" style="--store-accent:${c};${asset?`--store-art:url('${e(asset)}')`:''}">
       <span class="store-collection-art">${asset?'':`<b>${e(String(meta.name||id).slice(0,2))}</b>`}</span>
-      <span class="store-collection-copy"><strong>${e(meta.name||id)}</strong><small>${totals.mine}/${totals.total} · ${pct}% собрано</small><span>${totals.price?`от ${Math.min(...totals.missing.map(x=>x.price_zarniki))}✨`:'Коллекция собрана'}</span></span>
+      <span class="store-collection-copy"><strong>${e(meta.name||id)}</strong><small>${totals.mine}/${totals.total} · ${pct}% собрано</small><i style="--store-progress:${pct}%"><span></span></i><span>${totals.price?`от ${Math.min(...totals.missing.map(x=>x.price_zarniki))}✨`:'Коллекция собрана'}</span></span>
     </button>`;
   }
   function balanceHtml(){ return `<button type="button" class="store-balance" data-store-topup aria-label="Пополнить Зарники. Баланс ${currentBalance()}"><i>✨</i><b>${currentBalance()}</b><span>＋</span></button>`; }
