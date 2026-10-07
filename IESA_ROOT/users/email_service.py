@@ -193,6 +193,19 @@ def _send(subject, plain_text, html_content, recipients):
     from .cleverreach_client import is_configured as cr_is_configured
     from .cleverreach_client import send_cleverreach_email as cr_send
 
+    if getattr(settings, 'EMAIL_PREFER_SMTP', False):
+        # Real SMTP is configured (e.g. Google Workspace): use it first, CleverReach only as backup.
+        delivered_count = 0
+        for email_addr in recipients:
+            if _smtp_send(subject, plain_text, html_content, [email_addr]):
+                delivered_count += 1
+            elif cr_is_configured():
+                logger.warning('SMTP delivery failed for %s — trying CleverReach', email_addr)
+                if cr_send(to_email=email_addr, to_name=email_addr, subject=subject,
+                           html=html_content, text=plain_text):
+                    delivered_count += 1
+        return delivered_count
+
     if cr_is_configured():
         delivered_count = 0
         for email_addr in recipients:

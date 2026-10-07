@@ -10,6 +10,31 @@
 
 Локально (`settings_dev.py`) письма печатаются в консоль.
 
+### Порядок каналов (важно)
+
+1. **SMTP — основной, если заданы `EMAIL_HOST` + `EMAIL_HOST_PASSWORD`** (код: `settings_addon.py`,
+   `users/email_service.py::_send`; флаг `EMAIL_PREFER_SMTP`). CleverReach тогда — только запасной.
+2. Иначе (так было до 2026-10-07 и пока переменных нет) — CleverReach, запасной SMTP.
+
+**Инцидент 2026-10-07:** CleverReach отвечал `401 Unauthorized` на `POST /v3/mailings.json`, а запасного SMTP
+не было (`Connection refused`) → письма подтверждения и сброса пароля не уходили. Причина 401 не установлена
+(токен/refresh-токен приложения CleverReach). Способ отправки через CleverReach — «рассылка + sendpreview» —
+хрупкий, он рассчитан не на транзакционные письма; надёжнее настоящий SMTP.
+
+### Как включить SMTP через Google Workspace (рекомендуемо)
+
+1. В аккаунте `iesa@iesasport.ch`: myaccount.google.com → Безопасность → включить двухэтапную проверку →
+   «Пароли приложений» → создать пароль «IESA site» (16 символов; показывается один раз). Если пункта нет —
+   его закрыл администратор Workspace (admin.google.com → Безопасность).
+2. DigitalOcean → App-Level Environment Variables (см. `03-hosting-and-deploy.md`):
+   `EMAIL_HOST=smtp.gmail.com`, `EMAIL_PORT=587`, `EMAIL_HOST_USER=iesa@iesasport.ch`,
+   `EMAIL_HOST_PASSWORD=<пароль приложения, Encrypt>`, `EMAIL_FROM=IESA Sport <iesa@iesasport.ch>`.
+   (Адрес `noreply@` как отправитель потребует отдельного алиаса «Отправлять как» — отправляй с `iesa@`.)
+3. После деплоя проверка в Console: `python manage.py cr_test_send --to <адрес>` (команда использует общий
+   путь `_send`) и письмо «Resend confirmation» из профиля.
+SPF/DKIM для Google уже настроены (см. таблицу DNS ниже), отдельно ничего добавлять не нужно.
+Лимит Workspace — порядка 2000 писем/сутки на ящик; для объёмов больше — Resend/Postmark + DNS-записи.
+
 ## DNS-зона
 
 Зона `iesasport.ch` — в **DigitalOcean**: `https://cloud.digitalocean.com/networking/domains/iesasport.ch`

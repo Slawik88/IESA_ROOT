@@ -41,6 +41,9 @@ LOGGING = {
             'handlers': ['console'],
             'level': 'INFO',
         },
+        # httpx logs every request URL at INFO — and Telegram URLs contain the bot token.
+        'httpx': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
+        'httpcore': {'handlers': ['console'], 'level': 'WARNING', 'propagate': False},
         'users.telegram': {
             'handlers': ['console'],
             'level': 'DEBUG',
@@ -88,6 +91,23 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
     DEFAULT_FROM_EMAIL = 'IESA Sport <noreply@iesasport.ch>'
 
+# Generic SMTP (e.g. Google Workspace: EMAIL_HOST=smtp.gmail.com + an app password).
+# When EMAIL_HOST and EMAIL_HOST_PASSWORD are set in the environment this becomes the PRIMARY
+# mail channel (CleverReach stays as the fallback in users/email_service.py::_send).
+# Without them nothing changes.
+EMAIL_PREFER_SMTP = False
+if _os.environ.get('EMAIL_HOST') and _os.environ.get('EMAIL_HOST_PASSWORD'):
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = _os.environ['EMAIL_HOST'].strip()
+    EMAIL_PORT = int(_os.environ.get('EMAIL_PORT', '587'))
+    EMAIL_USE_SSL = EMAIL_PORT == 465
+    EMAIL_USE_TLS = not EMAIL_USE_SSL
+    EMAIL_HOST_USER = _os.environ.get('EMAIL_HOST_USER', '').strip()
+    EMAIL_HOST_PASSWORD = _os.environ['EMAIL_HOST_PASSWORD'].strip()
+    EMAIL_TIMEOUT = 15
+    DEFAULT_FROM_EMAIL = _os.environ.get('EMAIL_FROM', '').strip() or 'IESA Sport <noreply@iesasport.ch>'
+    EMAIL_PREFER_SMTP = True
+
 # ---------------------------------------------------------------------------
 # Telegram Bot notifications
 # Переменные окружения (DigitalOcean → App → Settings → App-Level Env Vars):
@@ -110,5 +130,5 @@ CLEVERREACH_SENDER_NAME = _os.environ.get('CLEVERREACH_SENDER_NAME', 'IESA Sport
 # When CleverReach is configured, replace the email backend so that ALL Django emails
 # (password reset, verification, transactional, admin alerts) go through CleverReach.
 # The backend falls back to SMTP automatically on any CleverReach API error.
-if CLEVERREACH_CLIENT_ID and CLEVERREACH_ACCESS_TOKEN:
+if CLEVERREACH_CLIENT_ID and CLEVERREACH_ACCESS_TOKEN and not EMAIL_PREFER_SMTP:
     EMAIL_BACKEND = 'IESA_ROOT.cleverreach_email_backend.CleverReachEmailBackend'
