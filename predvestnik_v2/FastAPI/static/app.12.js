@@ -135,56 +135,228 @@
       root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><h1 class="looks-htitle">Публичный профиль</h1></div>${renderProfileShowcase(d,d.cosmetics,{caption:'Публичный профиль'})}${renderProfileDetails(d)}`;
     } catch(error) { root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><h1 class="looks-htitle">Профиль игрока</h1></div><div class="err" style="margin:16px">${esc(error)}</div>`; }
   };
-  const chatTracker={query:'',sort:'recent',items:[],nextOffset:null,summary:{},filteredCount:0,busy:false,debounce:null,requestGeneration:0,error:'',pendingFocus:''};
-  const CHAT_SORTS={recent:'Недавние',week:'За неделю',messages:'За всё время',rank:'По рангу'};
-  function sanctionLabel(action){return ({warn:'Предупреждение',mute:'Мут',kick:'Исключение',ban:'Блокировка'})[action]||'Модерация';}
-  function chatTrackerCard(chat){
-    const history=(chat.sanction_history||[]).map(x=>`<li><span>${esc(sanctionLabel(x.action))}</span><time>${dateLabel(x.created_at)}</time></li>`).join('');
-    const mute=chat.muted_until?`Мут до ${dateLabel(chat.muted_until)}`:(chat.warnings?`Предупреждений: ${fmt(chat.warnings)}`:'Санкций сейчас нет');
+  const chatTracker = {
+    query: '',
+    sort: 'recent',
+    items: [],
+    nextOffset: null,
+    summary: {},
+    filteredCount: 0,
+    busy: false,
+    debounce: null,
+    requestGeneration: 0,
+    error: '',
+    pendingFocus: '',
+  };
+  const CHAT_SORTS = Object.freeze({
+    recent: 'Недавние',
+    week: 'За неделю',
+    messages: 'За всё время',
+    rank: 'По рангу',
+  });
+  const SANCTION_LABELS = Object.freeze({
+    warn: 'Предупреждение',
+    mute: 'Мут',
+    kick: 'Исключение',
+    ban: 'Блокировка',
+  });
+
+  function sanctionLabel(action) {
+    return SANCTION_LABELS[action] || 'Модерация';
+  }
+
+  function chatTrackerSanctionSummary(chat) {
+    if (chat.muted_until) return `Мут до ${dateLabel(chat.muted_until)}`;
+    if (chat.warnings) return `Предупреждений: ${fmt(chat.warnings)}`;
+    return 'Санкций сейчас нет';
+  }
+
+  function chatTrackerHistory(chat) {
+    const entries = chat.sanction_history || [];
+    if (!entries.length) return '';
+
+    const rows = entries.map((entry) => (
+      `<li><span>${esc(sanctionLabel(entry.action))}</span>`
+      + `<time>${dateLabel(entry.created_at)}</time></li>`
+    )).join('');
+    return `<details class="chat-tracker-history">`
+      + `<summary>История модерации · ${entries.length}</summary>`
+      + `<ul>${rows}</ul></details>`;
+  }
+
+  function chatTrackerCard(chat) {
+    const hasSanction = Boolean(chat.warnings || chat.muted_until);
+    const streak = chat.activity_streak_days
+      ? `<span class="chat-tracker-streak" title="Дни активности подряд">🔥 ${fmt(chat.activity_streak_days)}</span>`
+      : '';
+
     return `<article class="chat-tracker-card">
-      <header><div><h2>${esc(chat.chat_title||'Чат без названия')}</h2><small>Активность ${dateLabel(chat.last_message_at)}</small></div>${chat.activity_streak_days?`<span class="chat-tracker-streak" title="Дни активности подряд">🔥 ${fmt(chat.activity_streak_days)}</span>`:''}</header>
-      <div class="chat-tracker-metrics"><span><b>${fmt(chat.user_messages_count_per_day||0)}</b><small>сегодня</small></span><span><b>${fmt(chat.user_messages_count_per_week||0)}</b><small>за неделю</small></span><span><b>${fmt(chat.user_messages_count_all_time||0)}</b><small>всего</small></span></div>
-      <div class="chat-tracker-meta"><span>Уровень ${fmt(chat.user_level||1)}</span><span>${chat.local_rank?`Ранг ${fmt(chat.local_rank)}`:'Ранг ещё не получен'}</span><span class="${chat.warnings||chat.muted_until?'has-sanction':''}">${mute}</span></div>
-      ${history?`<details class="chat-tracker-history"><summary>История модерации · ${history.match(/<li>/g)?.length||0}</summary><ul>${history}</ul></details>`:''}
+      <header>
+        <div>
+          <h2>${esc(chat.chat_title || 'Чат без названия')}</h2>
+          <small>Активность ${dateLabel(chat.last_message_at)}</small>
+        </div>
+        ${streak}
+      </header>
+      <div class="chat-tracker-metrics">
+        <span><b>${fmt(chat.user_messages_count_per_day || 0)}</b><small>сегодня</small></span>
+        <span><b>${fmt(chat.user_messages_count_per_week || 0)}</b><small>за неделю</small></span>
+        <span><b>${fmt(chat.user_messages_count_all_time || 0)}</b><small>всего</small></span>
+      </div>
+      <div class="chat-tracker-meta">
+        <span>Уровень ${fmt(chat.user_level || 1)}</span>
+        <span>${chat.local_rank ? `Ранг ${fmt(chat.local_rank)}` : 'Ранг ещё не получен'}</span>
+        <span class="${hasSanction ? 'has-sanction' : ''}">${chatTrackerSanctionSummary(chat)}</span>
+      </div>
+      ${chatTrackerHistory(chat)}
     </article>`;
   }
-  function renderChatTracker(){
-    const root=el('pg-chat-tracker');if(!root)return;
-    const active=document.activeElement,restoreSearch=active?.matches?.('.chat-tracker-tools input'),selection=restoreSearch?[active.selectionStart,active.selectionEnd]:null;
-    const restoreSort=active?.dataset?.chatSort||'',restoreMore=active?.dataset?.chatMore==='true'||chatTracker.pendingFocus==='more';
-    const summary=chatTracker.summary||{},hasQuery=Boolean(chatTracker.query),rows=chatTracker.items.map(chatTrackerCard).join('');
-    const empty=hasQuery?'По этому запросу активных чатов не найдено.':'Ты пока не состоишь в активных чатах с собранной статистикой.';
-    const emptyContent=chatTracker.error
-      ?`<div class="chat-tracker-empty is-error"><b>Не удалось загрузить чаты</b><span>${esc(chatTracker.error)}</span><button type="button" onclick="loadChatTracker()">Повторить</button></div>`
-      :`<div class="chat-tracker-empty"><b>${hasQuery?'Ничего не найдено':'Здесь пока тихо'}</b><span>${empty}</span></div>`;
-    root.innerHTML=`<div class="chat-tracker-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div><h1>Трекер чатов</h1><p>Твоя активность, прогресс и санкции — отдельно по каждому чату.</p></div></div>
-      <section class="chat-tracker-summary" aria-label="Сводка"><div><b>${fmt(summary.chat_count||0)}</b><span>активных чатов</span></div><div><b>${fmt(summary.messages_week||0)}</b><span>сообщений за неделю</span></div><div><b>${fmt(summary.messages_all_time||0)}</b><span>сообщений всего</span></div></section>
-      <section class="chat-tracker-tools"><label><span class="sr-only">Найти чат</span><input type="search" value="${esc(chatTracker.query)}" maxlength="64" placeholder="Найти чат по названию" oninput="chatTrackerSearch(this.value)"></label><div class="chat-tracker-sorts" role="group" aria-label="Сортировка">${Object.entries(CHAT_SORTS).map(([key,label])=>`<button type="button" data-chat-sort="${key}" class="${chatTracker.sort===key?'is-active':''}" aria-pressed="${chatTracker.sort===key}" onclick="chatTrackerSort('${key}')">${label}</button>`).join('')}</div><p class="chat-tracker-status" tabindex="-1" role="status" aria-live="polite">${chatTracker.busy?'Обновляем…':(hasQuery?`Найдено: ${fmt(chatTracker.filteredCount)}`:`Показано: ${fmt(chatTracker.items.length)} из ${fmt(chatTracker.filteredCount)}`)}</p></section>
-      <section class="chat-tracker-list">${rows||emptyContent}</section>
-      ${chatTracker.error&&rows?`<div class="chat-tracker-page-error" role="alert"><span>Следующую страницу загрузить не удалось.</span><button type="button" onclick="chatTrackerLoadMore()">Повторить</button></div>`:''}
-      ${chatTracker.nextOffset!==null?`<button type="button" data-chat-more="true" class="chat-tracker-more" onclick="chatTrackerLoadMore()" ${chatTracker.busy?'disabled':''}>${chatTracker.busy?'Загружаем…':'Показать ещё'}</button>`:''}`;
-    if(restoreSearch){const input=root.querySelector('.chat-tracker-tools input');input?.focus({preventScroll:true});if(selection)input?.setSelectionRange(selection[0],selection[1]);}
-    else if(restoreSort)root.querySelector(`[data-chat-sort="${restoreSort}"]`)?.focus({preventScroll:true});
-    else if(restoreMore&&!chatTracker.busy){(root.querySelector('[data-chat-more="true"]')||root.querySelector('.chat-tracker-status'))?.focus({preventScroll:true});chatTracker.pendingFocus='';}
+
+  function chatTrackerEmptyState(hasQuery) {
+    if (chatTracker.error) {
+      return `<div class="chat-tracker-empty is-error">
+        <b>Не удалось загрузить чаты</b>
+        <span>${esc(chatTracker.error)}</span>
+        <button type="button" onclick="loadChatTracker()">Повторить</button>
+      </div>`;
+    }
+
+    const title = hasQuery ? 'Ничего не найдено' : 'Здесь пока тихо';
+    const message = hasQuery
+      ? 'По этому запросу активных чатов не найдено.'
+      : 'Ты пока не состоишь в активных чатах с собранной статистикой.';
+    return `<div class="chat-tracker-empty"><b>${title}</b><span>${message}</span></div>`;
   }
-  async function loadChatTracker({append=false}={}){
-    const generation=++chatTracker.requestGeneration;chatTracker.busy=true;chatTracker.error='';if(append)renderChatTracker();
-    const offset=append?chatTracker.nextOffset||0:0;
-    try{
-      const d=await api(`/profile/me/chat-tracker?limit=12&offset=${offset}&sort=${encodeURIComponent(chatTracker.sort)}&query=${encodeURIComponent(chatTracker.query)}`);
-      if(generation!==chatTracker.requestGeneration)return;
-      chatTracker.summary=d.summary||{};chatTracker.filteredCount=Number(d.filtered_count)||0;chatTracker.nextOffset=d.next_offset;
-      chatTracker.items=append?chatTracker.items.concat(d.items||[]):(d.items||[]);
-    }catch(error){if(generation!==chatTracker.requestGeneration)return;chatTracker.error=String(error||'Неизвестная ошибка');toast(error,false);if(!append){chatTracker.items=[];chatTracker.filteredCount=0;}}
-    finally{if(generation===chatTracker.requestGeneration){chatTracker.busy=false;renderChatTracker();}}
+
+  function chatTrackerStatus(hasQuery) {
+    if (chatTracker.busy) return 'Обновляем…';
+    if (hasQuery) return `Найдено: ${fmt(chatTracker.filteredCount)}`;
+    return `Показано: ${fmt(chatTracker.items.length)} из ${fmt(chatTracker.filteredCount)}`;
   }
-  window.chatTrackerSearch=function(value){chatTracker.query=String(value||'').slice(0,64);clearTimeout(chatTracker.debounce);chatTracker.debounce=setTimeout(()=>loadChatTracker(),260);};
-  window.chatTrackerSort=function(value){if(!CHAT_SORTS[value]||value===chatTracker.sort)return;chatTracker.sort=value;loadChatTracker();};
-  window.chatTrackerLoadMore=function(){if(!chatTracker.busy&&chatTracker.nextOffset!==null){chatTracker.pendingFocus='more';loadChatTracker({append:true});}};
-  window.loadChatTracker=loadChatTracker;
-  window.openChatTracker=function(){
-    switchPage('chat-tracker');const root=el('pg-chat-tracker');if(!root)return;
-    root.innerHTML='<div class="loader" style="margin-top:44px">Собираем статистику чатов…</div>';loadChatTracker();
+
+  function restoreChatTrackerFocus(root, focusState) {
+    if (focusState.search) {
+      const input = root.querySelector('.chat-tracker-tools input');
+      input?.focus({ preventScroll: true });
+      if (focusState.selection) {
+        input?.setSelectionRange(focusState.selection[0], focusState.selection[1]);
+      }
+      return;
+    }
+    if (focusState.sort) {
+      root.querySelector(`[data-chat-sort="${focusState.sort}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    if (focusState.more && !chatTracker.busy) {
+      const target = root.querySelector('[data-chat-more="true"]')
+        || root.querySelector('.chat-tracker-status');
+      target?.focus({ preventScroll: true });
+      chatTracker.pendingFocus = '';
+    }
+  }
+
+  function renderChatTracker() {
+    const root = el('pg-chat-tracker');
+    if (!root) return;
+
+    const active = document.activeElement;
+    const restoreSearch = active?.matches?.('.chat-tracker-tools input');
+    const focusState = {
+      search: restoreSearch,
+      selection: restoreSearch ? [active.selectionStart, active.selectionEnd] : null,
+      sort: active?.dataset?.chatSort || '',
+      more: active?.dataset?.chatMore === 'true' || chatTracker.pendingFocus === 'more',
+    };
+    const summary = chatTracker.summary || {};
+    const hasQuery = Boolean(chatTracker.query);
+    const rows = chatTracker.items.map(chatTrackerCard).join('');
+    const sortButtons = Object.entries(CHAT_SORTS).map(([key, label]) => (
+      `<button type="button" data-chat-sort="${key}" class="${chatTracker.sort === key ? 'is-active' : ''}"`
+      + ` aria-pressed="${chatTracker.sort === key}" onclick="chatTrackerSort('${key}')">${label}</button>`
+    )).join('');
+
+    root.innerHTML = `<div class="chat-tracker-head">
+        <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
+        <div><h1>Трекер чатов</h1><p>Твоя активность, прогресс и санкции — отдельно по каждому чату.</p></div>
+      </div>
+      <section class="chat-tracker-summary" aria-label="Сводка">
+        <div><b>${fmt(summary.chat_count || 0)}</b><span>активных чатов</span></div>
+        <div><b>${fmt(summary.messages_week || 0)}</b><span>сообщений за неделю</span></div>
+        <div><b>${fmt(summary.messages_all_time || 0)}</b><span>сообщений всего</span></div>
+      </section>
+      <section class="chat-tracker-tools">
+        <label><span class="sr-only">Найти чат</span><input type="search" value="${esc(chatTracker.query)}" maxlength="64" placeholder="Найти чат по названию" oninput="chatTrackerSearch(this.value)"></label>
+        <div class="chat-tracker-sorts" role="group" aria-label="Сортировка">${sortButtons}</div>
+        <p class="chat-tracker-status" tabindex="-1" role="status" aria-live="polite">${chatTrackerStatus(hasQuery)}</p>
+      </section>
+      <section class="chat-tracker-list">${rows || chatTrackerEmptyState(hasQuery)}</section>
+      ${chatTracker.error && rows ? `<div class="chat-tracker-page-error" role="alert"><span>Следующую страницу загрузить не удалось.</span><button type="button" onclick="chatTrackerLoadMore()">Повторить</button></div>` : ''}
+      ${chatTracker.nextOffset !== null ? `<button type="button" data-chat-more="true" class="chat-tracker-more" onclick="chatTrackerLoadMore()" ${chatTracker.busy ? 'disabled' : ''}>${chatTracker.busy ? 'Загружаем…' : 'Показать ещё'}</button>` : ''}`;
+
+    restoreChatTrackerFocus(root, focusState);
+  }
+
+  async function loadChatTracker({ append = false } = {}) {
+    const generation = ++chatTracker.requestGeneration;
+    chatTracker.busy = true;
+    chatTracker.error = '';
+    if (append) renderChatTracker();
+
+    const offset = append ? chatTracker.nextOffset || 0 : 0;
+    const query = new URLSearchParams({
+      limit: '12',
+      offset: String(offset),
+      sort: chatTracker.sort,
+      query: chatTracker.query,
+    });
+    try {
+      const data = await api(`/profile/me/chat-tracker?${query}`);
+      if (generation !== chatTracker.requestGeneration) return;
+
+      chatTracker.summary = data.summary || {};
+      chatTracker.filteredCount = Number(data.filtered_count) || 0;
+      chatTracker.nextOffset = data.next_offset;
+      chatTracker.items = append
+        ? chatTracker.items.concat(data.items || [])
+        : (data.items || []);
+    } catch (error) {
+      if (generation !== chatTracker.requestGeneration) return;
+      chatTracker.error = String(error || 'Неизвестная ошибка');
+      toast(error, false);
+      if (!append) {
+        chatTracker.items = [];
+        chatTracker.filteredCount = 0;
+      }
+    } finally {
+      if (generation === chatTracker.requestGeneration) {
+        chatTracker.busy = false;
+        renderChatTracker();
+      }
+    }
+  }
+
+  window.chatTrackerSearch = function (value) {
+    chatTracker.query = String(value || '').slice(0, 64);
+    clearTimeout(chatTracker.debounce);
+    chatTracker.debounce = setTimeout(() => loadChatTracker(), 260);
+  };
+  window.chatTrackerSort = function (value) {
+    if (!CHAT_SORTS[value] || value === chatTracker.sort) return;
+    chatTracker.sort = value;
+    loadChatTracker();
+  };
+  window.chatTrackerLoadMore = function () {
+    if (chatTracker.busy || chatTracker.nextOffset === null) return;
+    chatTracker.pendingFocus = 'more';
+    loadChatTracker({ append: true });
+  };
+  window.loadChatTracker = loadChatTracker;
+  window.openChatTracker = function () {
+    switchPage('chat-tracker');
+    const root = el('pg-chat-tracker');
+    if (!root) return;
+    root.innerHTML = '<div class="loader" style="margin-top:44px">Собираем статистику чатов…</div>';
+    loadChatTracker();
   };
   window.openPetsV1=function(){
     switchPage('pets'); const root=el('pg-pets'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка питомцев…</div>';
