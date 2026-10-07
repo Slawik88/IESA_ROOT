@@ -38,6 +38,7 @@ from infrastructure.repositories.economy_ledger import (  # noqa: E402
 from infrastructure.repositories.economy import (  # noqa: E402
     buy_item,
     exchange_zarniki,
+    remove_item,
     spend_diamonds,
     spend_mora,
     transfer_currency,
@@ -499,6 +500,21 @@ async def _assert_dynamic_reference_replay():
         raise AssertionError("Dynamic replay accepted a different reference")
 
 
+async def _assert_inventory_database_errors_are_not_insufficient_stock():
+    class BrokenInventoryDB(FakeLedgerDB):
+        def _run(self, sql, args):
+            if "SELECT quantity FROM inventory" in sql:
+                raise RuntimeError("simulated inventory outage")
+            return super()._run(sql, args)
+
+    try:
+        await remove_item(BrokenInventoryDB(), 21, "ration")
+    except RuntimeError as error:
+        assert str(error) == "simulated inventory outage"
+    else:
+        raise AssertionError("Inventory outage was mistaken for insufficient stock")
+
+
 async def _assert_direct_transfers_are_closed():
     class NoDatabaseAccess:
         def __getattr__(self, name):
@@ -528,6 +544,7 @@ async def main():
     await _assert_paid_exchange_is_retired_without_mutation()
     await _assert_shop_and_spend_use_one_ledger_operation()
     await _assert_dynamic_reference_replay()
+    await _assert_inventory_database_errors_are_not_insufficient_stock()
     await _assert_direct_transfers_are_closed()
     print("economy ledger tests: OK")
 
