@@ -87,6 +87,7 @@
             spotlight.classList.remove('visible');
             spotlight.style.width = '0';
             spotlight.style.height = '0';
+            overlay.classList.remove('has-spot');
             overlay.classList.add('visible');
             renderTipContent(idx, step);
             positionTipCentered();
@@ -99,11 +100,19 @@
             return nextStep();
         }
 
-        // Прокрутить элемент в viewport, если он не виден
+        // Прокрутить элемент в viewport, если он не виден.
+        // На телефоне подсказка лежит внизу экрана — поднимаем элемент в верхнюю часть,
+        // иначе карточка закрывает именно то, о чём она рассказывает.
         var rect = el.getBoundingClientRect();
         var vh = window.innerHeight;
-        if (rect.top < 80 || rect.bottom > vh - 80) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var narrow = window.innerWidth <= 640;
+        var limit = narrow ? vh * 0.45 : vh - 80;
+        if (rect.top < 80 || rect.bottom > limit) {
+            if (narrow) {
+                window.scrollTo({ top: Math.max(0, window.pageYOffset + rect.top - 96), behavior: 'smooth' });
+            } else {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
             // Подождать прокрутку и пере-вычислить позицию
             setTimeout(function () {
                 renderTipContent(idx, step);
@@ -141,18 +150,26 @@
             '<div class="iesa-tour-foot">' +
                 '<div class="iesa-tour-progress">' + dotsHtml + '</div>' +
                 '<div class="iesa-tour-actions">' +
-                    '<button type="button" class="iesa-tour-btn">' +
+                    (idx > 0 ? '<button type="button" class="iesa-tour-btn iesa-tour-btn-secondary" data-tour-back>' +
+                        escapeHtml(data.labels.back || 'Back') + '</button>' : '') +
+                    '<button type="button" class="iesa-tour-btn" data-tour-next>' +
                         escapeHtml(isLast ? (data.labels.finish || 'Done') :
-                                            (data.labels.next || 'Got it')) +
+                                            (data.labels.next || 'Next')) +
                     '</button>' +
                 '</div>' +
-            '</div>';
+            '</div>' +
+            (isLast ? '' : '<button type="button" class="iesa-tour-skip" data-tour-skip>' +
+                escapeHtml(data.labels.skip || 'Skip') + '</button>');
 
         // Wire events
         tip.querySelector('.iesa-tour-close').addEventListener('click', function () {
             finishTour(true);
         });
-        tip.querySelector('.iesa-tour-btn').addEventListener('click', nextStep);
+        tip.querySelector('[data-tour-next]').addEventListener('click', nextStep);
+        var backBtn = tip.querySelector('[data-tour-back]');
+        if (backBtn) backBtn.addEventListener('click', prevStep);
+        var skipBtn = tip.querySelector('[data-tour-skip]');
+        if (skipBtn) skipBtn.addEventListener('click', function () { finishTour(true); });
     }
 
     function positionTipCentered() {
@@ -178,6 +195,7 @@
         spotlight.style.width  = (rect.width + pad * 2) + 'px';
         spotlight.style.height = (rect.height + pad * 2) + 'px';
         spotlight.classList.add('visible');
+        overlay.classList.add('has-spot');
         overlay.classList.add('visible');
 
         // Tooltip position: вычисляется после рендера контента
@@ -216,6 +234,12 @@
         tip.style.left = left + 'px';
         tip.setAttribute('data-pos', pos);
         tip.classList.add('visible');
+    }
+
+    function prevStep() {
+        if (current <= 0) return;
+        current--;
+        renderStep(current);
     }
 
     function nextStep() {

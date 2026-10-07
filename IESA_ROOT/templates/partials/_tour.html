@@ -16,7 +16,7 @@ Interactive Tour partial — подсказки для разных ролей.
     {# ── Tour: NEW MEMBER (на странице профиля) ─────────────────── #}
     {% if tour_name == "user" %}
     {% trans "Welcome to IESA Sport!" as t_user_1_title %}
-    {% trans "Let us walk you through the key features. Click 'Got it' to continue or 'Skip' to close." as t_user_1_text %}
+    {% trans "Let us walk you through the key features. Press 'Next' to continue or 'Skip' to close." as t_user_1_text %}
     {% trans "Your PIN code" as t_user_2_title %}
     {% trans "This 6-digit code is your access pass. Show it to staff at any IESA partner location to log your visit. It refreshes automatically every 12 minutes." as t_user_2_text %}
     {% trans "Your digital membership card" as t_user_3_title %}
@@ -38,7 +38,8 @@ Interactive Tour partial — подсказки для разных ролей.
       "complete_url": "{% url 'users:mark_tour_completed' 'user' %}",
       "csrf_token": "{{ csrf_token }}",
       "labels": {
-        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "next":   "{% filter escapejs %}{% trans 'Next' %}{% endfilter %}",
+        "back":   "{% filter escapejs %}{% trans 'Back' %}{% endfilter %}",
         "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
         "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
         "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"
@@ -106,7 +107,8 @@ Interactive Tour partial — подсказки для разных ролей.
       "complete_url": "{% url 'users:mark_tour_completed' 'partner' %}",
       "csrf_token": "{{ csrf_token }}",
       "labels": {
-        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "next":   "{% filter escapejs %}{% trans 'Next' %}{% endfilter %}",
+        "back":   "{% filter escapejs %}{% trans 'Back' %}{% endfilter %}",
         "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
         "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
         "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"
@@ -170,7 +172,8 @@ Interactive Tour partial — подсказки для разных ролей.
       "complete_url": "{% url 'users:mark_tour_completed' 'president' %}",
       "csrf_token": "{{ csrf_token }}",
       "labels": {
-        "next":   "{% filter escapejs %}{% trans 'Got it' %}{% endfilter %}",
+        "next":   "{% filter escapejs %}{% trans 'Next' %}{% endfilter %}",
+        "back":   "{% filter escapejs %}{% trans 'Back' %}{% endfilter %}",
         "skip":   "{% filter escapejs %}{% trans 'Skip' %}{% endfilter %}",
         "finish": "{% filter escapejs %}{% trans 'Done' %}{% endfilter %}",
         "of":     "{% filter escapejs %}{% trans 'of' %}{% endfilter %}"

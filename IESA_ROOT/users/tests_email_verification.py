@@ -9,6 +9,7 @@ from django.utils import timezone
 from users.forms import CustomUserCreationForm, UserProfileEditForm
 from users.forms_verification import InviteRegisterForm
 from users.models import User
+from users.tests_support import human_fields
 from users.services.email_verification import (
     EmailVerificationConflict,
     EmailVerificationExpired,
@@ -106,10 +107,12 @@ class EmailVerificationViewTests(TestCase):
             'password1': 'Strong!Pass123',
             'password2': 'Strong!Pass123',
             'membership_consent': True,
+            **human_fields(),
         })
 
-        self.assertRedirects(response, reverse('users:login'))
+        self.assertRedirects(response, reverse('users:profile'), fetch_redirect_response=False)
         created = User.objects.get(username='new-rider')
+        self.assertEqual(int(self.client.session['_auth_user_id']), created.pk)
         self.assertEqual(created.email, 'new.rider@example.com')
         send_mock.assert_called_once_with(created, response.wsgi_request)
 

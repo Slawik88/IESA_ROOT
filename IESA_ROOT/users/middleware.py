@@ -81,16 +81,21 @@ class BlockScannerMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    # Substrings that never occur on this site, wherever they sit in the path.
+    _BLOCKED_FRAGMENTS = ('/wp-includes/', '/wp-admin/', '/wp-content/', 'wlwmanifest.xml', 'xmlrpc')
+
     def _is_scanner_path(self, path_lower):
         return bool(
             path_lower in self._BLOCKED_FILES
+            or any(f in path_lower for f in self._BLOCKED_FRAGMENTS)
             or any(path_lower.endswith(s) for s in self._BLOCKED_SUFFIXES)
             or any(path_lower.startswith(p) for p in self._BLOCKED_PREFIXES)
             or self._BLOCKED_PATTERN.match(path_lower)
         )
 
     def __call__(self, request):
-        path_lower = request.path.lower()
+        # Scanners probe '//site/wp-includes/...' (double slash) to dodge prefix checks.
+        path_lower = re.sub(r'/{2,}', '/', request.path.lower())
         if not self._is_scanner_path(path_lower):
             return self.get_response(request)
 

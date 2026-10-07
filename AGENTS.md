@@ -1,3 +1,9 @@
-@predvestnik_v2/BASE_PROMPT.md
-@predvestnik_v2/AUTONOMOUS_MODE.md
-@predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md
+# IESA_ROOT agent router
+
+Рабочий код Predvestnik находится только в `predvestnik_v2/`. Для задач внутри
+этого каталога сначала прочитать `predvestnik_v2/AGENTS.md`. Большие документы
+проекта не загружать автоматически: читать только файл или раздел, выбранный
+маршрутизатором для текущей задачи.
+
+`IESA_ROOT/` и `frontend/` — отдельные треки. Не менять их при работе с
+`predvestnik_v2/`.

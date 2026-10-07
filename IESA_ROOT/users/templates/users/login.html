@@ -80,27 +80,30 @@
 }
 .ar-ey::before,.ar-ey::after { content:''; flex:0 0 30px; height:1px; background:rgba(220,38,38,.38); }
 .ar-title { font-size:1.8rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
-.ar-desc  { color:rgba(255,255,255,.58); font-size:.875rem; margin-bottom:2rem; }
+.ar-desc  { color:rgba(255,255,255,.78); font-size:1rem; line-height:1.55; margin-bottom:1.75rem; }
 /* inputs */
 .af { margin-bottom:1.2rem; }
-.af label { display:block; font-size:.63rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.64); font-family:var(--font-mono); margin-bottom:.45rem; }
+.af label { display:block; font-size:.9rem; font-weight:600; color:rgba(255,255,255,.88); margin-bottom:.45rem; }
 .af-wrap { position:relative; }
-.af-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.22); font-size:.82rem; pointer-events:none; transition:color .2s; }
+.af-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.45); font-size:.82rem; pointer-events:none; transition:color .2s; }
 .af-wrap input {
     width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
-    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem;
-    color:#fff; font-size:.95rem;
+    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem; min-height:48px;
+    color:#fff; font-size:16px; /* 16px: iOS Safari zooms the page into smaller fields */
     transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
 }
 .af-wrap input:focus { border-color:rgba(220,38,38,.6); background:rgba(255,255,255,.06); box-shadow:0 0 0 3px rgba(220,38,38,.10); }
 .af-wrap input:focus + .af-ic { color:#ef4444; }
 .af-wrap input.inv { border-color:rgba(239,68,68,.5); box-shadow:0 0 0 3px rgba(239,68,68,.1); }
-.af-wrap input::placeholder { color:rgba(255,255,255,.18); }
+.af-wrap input::placeholder { color:rgba(255,255,255,.4); }
 .af-wrap input:-webkit-autofill,.af-wrap input:-webkit-autofill:focus { -webkit-box-shadow:0 0 0 1000px #12111c inset; -webkit-text-fill-color:#fff; border-color:rgba(255,255,255,.14); }
-.af-pw-btn { position:absolute; right:.9rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.25); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
-.af-pw-btn:hover { color:rgba(255,255,255,.6); }
+.af-pw-btn { position:absolute; right:.2rem; top:50%; transform:translateY(-50%); width:44px; height:44px; background:none; border:none; color:rgba(255,255,255,.55); cursor:pointer; font-size:.95rem; transition:color .2s; line-height:1; }
+.af-pw-btn:hover { color:rgba(255,255,255,.85); }
+.af-forgot { display:block; text-align:right; margin:-.55rem 0 1rem; font-size:.9rem; }
+.af-forgot a { color:#f87171; text-decoration:none; font-weight:600; }
+.af-forgot a:hover { text-decoration:underline; }
 .af-wrap input.has-pw { padding-right:2.6rem; }
-.af-err { color:#f87171; font-size:.73rem; margin-top:.32rem; display:flex; align-items:center; gap:.3rem; }
+.af-err { color:#fca5a5; font-size:.88rem; margin-top:.32rem; display:flex; align-items:center; gap:.3rem; }
 /* error banner */
 .auth-err-bar { background:rgba(220,38,38,.1); border:1px solid rgba(220,38,38,.28); border-radius:10px; padding:.75rem 1rem; color:#fca5a5; font-size:.875rem; display:flex; align-items:center; gap:.6rem; margin-bottom:1.7rem; }
 /* submit */
@@ -115,9 +118,9 @@
 .auth-btn:hover { filter:brightness(1.1); box-shadow:0 6px 30px rgba(220,38,38,.5); transform:translateY(-1px); }
 .auth-btn:active { transform:translateY(0); }
 /* divider + link */
-.ar-div { display:flex; align-items:center; gap:.75rem; color:rgba(255,255,255,.18); font-size:.73rem; margin:1.7rem 0; }
+.ar-div { display:flex; align-items:center; gap:.75rem; color:rgba(255,255,255,.5); font-size:.85rem; margin:1.5rem 0; }
 .ar-div::before,.ar-div::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.07); }
-.ar-link { text-align:center; color:rgba(255,255,255,.58); font-size:.875rem; }
+.ar-link { text-align:center; color:rgba(255,255,255,.75); font-size:1rem; }
 .ar-link a { color:#ef4444; font-weight:700; text-decoration:none; transition:color .2s; }
 .ar-link a:hover { color:#f87171; text-decoration:underline; }
 /* mobile */
@@ -171,7 +174,14 @@
         <div class="ar">
             <div class="ar-ey">{% trans "SIGN IN" %}</div>
             <h1 class="ar-title">{% trans "Access your account" %}</h1>
-            <p class="ar-desc">{% trans "Enter your credentials to continue." %}</p>
+            <p class="ar-desc">{% trans "Sign in with your username or e-mail address." %}</p>
+
+            {% if adding_account %}
+            <div class="auth-err-bar" style="background:rgba(59,130,246,.12);border-color:rgba(96,165,250,.45);color:#bfdbfe;" role="status">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                <span>{% blocktrans with name=request.user.username %}You are signed in as {{ name }}. Sign in to the other account here — you will be able to switch between the two from the menu.{% endblocktrans %}</span>
+            </div>
+            {% endif %}
 
             {% if form.errors %}
             <div class="auth-err-bar" role="alert" aria-live="assertive">
@@ -180,6 +190,7 @@
             </div>
             {% endif %}
 
+            {% if not adding_account %}{% include "users/partials/_social_login.html" %}{% endif %}
             <form method="post" novalidate>
                 {% csrf_token %}
                 {% for field in form %}
@@ -191,7 +202,8 @@
                             <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
                                    class="has-pw{% if field.errors %} inv{% endif %}"
                                    {% if field.errors %}aria-invalid="true" aria-describedby="err-{{ field.html_name }}"{% endif %}
-                                   autocomplete="current-password" placeholder="••••••••">
+                                   autocomplete="current-password" placeholder="••••••••"
+                                   autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go">
                             <button type="button" class="af-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                         {% else %}
                             <i class="fas fa-user af-ic" aria-hidden="true"></i>
@@ -199,14 +211,17 @@
                                    {% if field.value %}value="{{ field.value }}"{% endif %}
                                    class="{% if field.errors %}inv{% endif %}"
                                    {% if field.errors %}aria-invalid="true" aria-describedby="err-{{ field.html_name }}"{% endif %}
-                                   autocomplete="username" placeholder="{{ field.label }}" autofocus>
+                                   autocomplete="username" placeholder="{{ field.label }}" autofocus
+                                   autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next">
                         {% endif %}
                     </div>
                     {% for error in field.errors %}<div id="err-{{ field.html_name }}" class="af-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ error }}</div>{% endfor %}
                 </div>
                 {% endfor %}
+                <div class="af-forgot"><a href="{% url 'users:password_reset' %}">{% trans "Forgot your password?" %}</a></div>
                 <input type="hidden" name="next" value="{{ next }}">
-                <button type="submit" class="auth-btn">
+                {% if adding_account %}<input type="hidden" name="add_account" value="1">{% endif %}
+                <button type="submit" class="auth-btn" id="login-submit-btn">
                     <i class="fas fa-right-to-bracket"></i>{% trans "Sign In" %}
                 </button>
             </form>
@@ -228,5 +243,12 @@ function togglePw(btn){
     if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
     else{i.type='password';ic.className='fas fa-eye';}
 }
+/* One tap = one request: slow mobile connections invite double taps. */
+(function(){
+    var f=document.querySelector('.ar form'), b=document.getElementById('login-submit-btn');
+    if(!f||!b) return;
+    f.addEventListener('submit',function(){ if(b.disabled) return; setTimeout(function(){ b.disabled=true; b.style.opacity='.7'; },0); });
+    window.addEventListener('pageshow',function(e){ if(e.persisted){ b.disabled=false; b.style.opacity=''; } });
+})();
 </script>
 {% endblock %}
