@@ -21,7 +21,6 @@ from infrastructure.repositories.chat import get_chat_stats
 from services import marriage as marriage_service
 from bot.filters.text_commands import TextCmd
 from services.utils import format_currency, resolve_display_name
-from bot.handlers.economy import PayCB  # переиспользуем выбор валюты для «подарка» партнёру
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="marriage_router")
@@ -501,33 +500,8 @@ async def cmd_family_info(message: types.Message, db):
 
 @router.message(TextCmd(["подарок", "подарить партнёру", "подарить партнеру", "подарок партнёру"]))
 async def cmd_gift_partner(message: types.Message, db, text_args: str = None):
-    """Подарить партнёру любую валюту (Block 5.3). Авто-цель — супруг.
-    Переиспользует PayCB / cb_pay_currency из economy.py."""
+    """Keep direct currency gifts closed; social keepsakes remain available."""
     return await message.answer("🎁 Прямые переводы валюты закрыты. Памятные подарки без игровой силы доступны по команде «бот подарки».")
-    if message.chat.type == "private":
-        return await answer_group_only(message)
-    amount = _parse_bank_amount(text_args)
-    if amount is None:
-        return await message.answer(
-            "ℹ️ <b>Использование:</b> <code>бот подарок, [сумма]</code>\nПодарок валютой вашему партнёру.",
-            parse_mode="HTML")
-    if amount <= 0:
-        return await message.answer("❌ Сумма должна быть больше нуля.")
-    marriage = await marriages.get_user_marriage(db, message.from_user.id)
-    if not marriage:
-        return await message.answer("💔 Вы не состоите в браке.")
-    partner_id = marriage['user2_id'] if marriage['user1_id'] == message.from_user.id else marriage['user1_id']
-    partner_name = await resolve_display_name(db, partner_id, message.chat.id,
-                                              marriage['user2_name'] if marriage['user1_id'] == message.from_user.id else marriage['user1_name'])
-    b = InlineKeyboardBuilder()
-    for cur, meta in FAMILY_CURRENCIES.items():
-        b.button(text=f"{meta['icon']} {meta['label']}",
-                 callback_data=PayCB(cur=cur, target_id=partner_id, amount=amount,
-                                     sender_id=message.from_user.id))
-    b.adjust(2, 2)
-    await message.answer(
-        f"🎁 Подарить <b>{format_currency(amount)}</b> партнёру <b>{partner_name}</b> — какой валютой?",
-        reply_markup=b.as_markup(), parse_mode="HTML")
 
 
 # ── Каталог подарков партнёру (Block 5.4) ────────────────────────────────────
