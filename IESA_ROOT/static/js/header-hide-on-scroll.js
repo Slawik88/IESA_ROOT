@@ -22,8 +22,12 @@
 
     function isMobile() { return window.innerWidth < MOBILE_BP; }
 
+    /* Страницы со своим sticky-подменю (профиль, редактирование) стоят под шапкой на top:60px:
+       если шапка уезжает, над подменю остаётся пустая полоса, через которую виден контент. */
+    var keepHeader = !!document.querySelector('.cab-nav-shell, .edit-tabs, [data-keep-header]');
+
     function hide() {
-        if (hidden) return;
+        if (hidden || keepHeader) return;
         hidden = true;
         header.classList.add('hhs-hidden');
     }

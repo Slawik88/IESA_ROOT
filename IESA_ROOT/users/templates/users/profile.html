@@ -663,7 +663,7 @@
   .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.5); }
   .pcp-pct    { font-size: .72rem; font-weight: 800; }
   .pcp-track  { height: 5px; background: rgba(255,255,255,.07); border-radius: 100px; overflow: hidden; }
-  .pcp-fill   { height: 100%; border-radius: 100px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .pcp-fill   { height: 100%; width: 100%; transform: translateX(calc(var(--p, 0) * 1% - 100%)); border-radius: 100px; transition: transform .6s cubic-bezier(.4,0,.2,1); }
 
   .pcp-steps  { display: none; padding-top: .75rem; gap: .4rem; flex-direction: column; }
   .pcp-steps.open { display: flex; }
@@ -785,7 +785,7 @@
       </span>
     </div>
     <div class="pcp-track">
-      <div class="pcp-fill" id="pcp-fill" style="width:0%;
+      <div class="pcp-fill" id="pcp-fill" style="--p:0;
         background:{% if profile_completeness.percent >= 80 %}linear-gradient(90deg,#16a34a,#4ade80){% elif profile_completeness.percent >= 40 %}linear-gradient(90deg,#d97706,#fbbf24){% else %}linear-gradient(90deg,#dc2626,#f87171){% endif %}">
       </div>
     </div>
@@ -917,7 +917,7 @@
               {% blocktrans with level=level_info.next_level %}To {{ level }}:{% endblocktrans %}
             </p>
             <div class="progress-dark">
-              <div class="progress-dark-fill" id="level-bar" style="width:0%"></div>
+              <div class="progress-dark-fill" id="level-bar" style="--p:0"></div>
             </div>
             <p style="font-size:.77rem;color:rgba(255,255,255,.45);font-weight:700;margin-top:.3rem;">{{ level_info.progress }}%</p>
           </div>
@@ -1375,7 +1375,7 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ── progress bar ── */
   var bar = document.getElementById('level-bar');
   {% with level_info=profile_user.get_achievement_level %}{% if level_info.next_level %}
-  if (bar) setTimeout(function(){ bar.style.width='{{ level_info.progress }}%'; }, 400);
+  if (bar) setTimeout(function(){ bar.style.setProperty('--p', '{{ level_info.progress }}'); }, 400);
   {% endif %}{% endwith %}
 
   /* ── PIN countdown ── */
@@ -1931,7 +1931,7 @@ document.addEventListener('DOMContentLoaded', function () {
   var fillEl = document.getElementById('pcp-fill');
   if (fillEl) {
     setTimeout(function () {
-      fillEl.style.width = '{{ profile_completeness.percent }}%';
+      fillEl.style.setProperty('--p', '{{ profile_completeness.percent }}');
     }, 400);
   }
   var toggleBtn = document.getElementById('pcp-toggle-btn');

@@ -146,7 +146,8 @@
 {% block content %}
 {# 8b: Reading Progress Bar — тонкая полоска вверху страницы #}
 <div id="reading-progress"
-     style="position:fixed;top:0;left:0;height:2px;width:0%;background:var(--primary,#dc2626);z-index:9999;transition:width .1s linear;pointer-events:none;"></div>
+     role="progressbar" aria-hidden="true"
+     style="position:fixed;top:0;left:0;height:3px;width:100%;background:var(--primary,#dc2626);z-index:9999;transform:scaleX(0);transform-origin:left center;will-change:transform;pointer-events:none;"></div>
 
 {# 8a: Время чтения — показывается в meta #}
 <div class="container-limited pd-wrap">
@@ -288,13 +289,20 @@
 (function(){
   var bar = document.getElementById('reading-progress');
   if (!bar) return;
-  function update() {
-    var scrollTop = window.scrollY || document.documentElement.scrollTop;
-    var docH = document.documentElement.scrollHeight - window.innerHeight;
-    bar.style.width = docH > 0 ? Math.min(100, scrollTop / docH * 100) + '%' : '100%';
+  /* transform вместо width (композитор), высота документа кэшируется, запись — раз в кадр */
+  var docH = 0, ticking = false;
+  function measure() { docH = document.documentElement.scrollHeight - window.innerHeight; }
+  function paint() {
+    ticking = false;
+    var p = docH > 0 ? Math.min(1, (window.scrollY || 0) / docH) : 1;
+    bar.style.transform = 'scaleX(' + p + ')';
   }
-  window.addEventListener('scroll', update, { passive: true });
-  update();
+  function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(paint); } }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', function () { measure(); onScroll(); }, { passive: true });
+  window.addEventListener('load', function () { measure(); onScroll(); });
+  measure();
+  paint();
 })();
 </script>
 {% endblock %}

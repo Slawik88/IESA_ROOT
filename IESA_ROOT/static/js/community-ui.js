@@ -135,7 +135,7 @@
             var views = parseInt(bar.dataset.views, 10) || 0;
             // Scale: 500 views = 100%, minimum 15%
             var pct = Math.min(97, Math.max(15, Math.round(views / 500 * 100)));
-            setTimeout(function () { bar.style.width = pct + '%'; }, 300);
+            setTimeout(function () { bar.style.setProperty('--p', pct); }, 300);
           }
           obs.unobserve(entry.target);
         }

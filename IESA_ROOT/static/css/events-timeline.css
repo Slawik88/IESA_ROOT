@@ -235,10 +235,10 @@
 }
 .tl-cap-fill {
     height: 100%;
-    width: 0%;
+    width: 100%; transform: translateX(calc(var(--p, 0) * 1% - 100%));
     background: linear-gradient(90deg, #22c55e, #4ade80);
     border-radius: 3px;
-    transition: width 1.2s cubic-bezier(.22,1,.36,1);
+    transition: transform 1.2s cubic-bezier(.22,1,.36,1);
 }
 .tl-cap-fill--warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
 .tl-cap-fill--full { background: linear-gradient(90deg, #ef4444, #f87171); }

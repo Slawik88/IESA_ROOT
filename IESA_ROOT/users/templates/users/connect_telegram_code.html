@@ -340,10 +340,10 @@
 }
 .otp-progress-bar {
     height: 100%;
-    width: 0%;
+    width: 100%; transform: translateX(calc(var(--p, 0) * 1% - 100%));
     background: linear-gradient(90deg, var(--tg-dark), var(--tg-color));
     border-radius: 1px;
-    transition: width .2s ease;
+    transition: transform .2s ease;
 }
 
 /* Submit button */
@@ -576,7 +576,7 @@
         const done = val.length === 6 && /^\d{6}$/.test(val);
         submit.disabled = !done;
         const filled = boxes.filter(b => /\d/.test(b.value)).length;
-        progress.style.width = (filled / 6 * 100) + '%';
+        progress.style.setProperty('--p', filled / 6 * 100);
         boxes.forEach(b => {
             b.classList.toggle('filled', b.value.length === 1 && /\d/.test(b.value));
         });

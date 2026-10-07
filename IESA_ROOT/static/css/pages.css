@@ -2736,10 +2736,10 @@ mark {
 }
 .art-progress-bar {
     height: 100%;
-    width: 0%;
+    width: 100%; transform: translateX(calc(var(--p, 0) * 1% - 100%));
     background: linear-gradient(90deg, #dc2626, #f87171);
     border-radius: 2px;
-    transition: width 1.3s cubic-bezier(.22,1,.36,1);
+    transition: transform 1.3s cubic-bezier(.22,1,.36,1);
 }
 
 /* Meta row */

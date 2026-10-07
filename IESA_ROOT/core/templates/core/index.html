@@ -360,9 +360,8 @@
 .don-prog-head strong { color:#fff; }
 .don-track { height:8px; background:rgba(255,255,255,.1); border-radius:50px; overflow:hidden; }
 /* V8: без JS бар сразу показывает значение; с JS (html.js) — анимируется от нуля */
-.don-fill { height:100%; width:45%; background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:width 1.6s cubic-bezier(.22,1,.36,1); }
-html.js .don-fill { width:0; }
-html.js .don-fill.animated { width:45%; }
+.don-fill { height:100%; width:100%; --p:45; transform:translateX(calc(var(--p) * 1% - 100%)); background:linear-gradient(90deg,#dc2626,#f87171); border-radius:50px; transition:transform 1.6s cubic-bezier(.22,1,.36,1); }
+html.js .don-fill:not(.animated) { transform:translateX(-100%); }
 .don-meta { display:flex; gap:1.5rem; margin-top:.85rem; }
 .d-m { font-size:.75rem; color:rgba(255,255,255,.5); display:flex; align-items:center; gap:.3rem; }
 .d-m i { color:var(--primary-text); }
@@ -1062,7 +1061,7 @@ html.js .don-fill.animated { width:45%; }
    общий код в static/js/page-effects.js (раньше здесь дублировался и дрался с ним). */
 
 /* ── 7. DONATE BAR ─────────────── */
-(function(){ const b=document.getElementById('don-fill'); if(!b) return; const io=new IntersectionObserver(e=>{ if(!e[0].isIntersecting) return; setTimeout(()=>b.classList.add('animated'),300); io.disconnect(); },{threshold:.5}); io.observe(b); })();
+(function(){ const b=document.getElementById('don-fill'); if(!b) return; const io=new IntersectionObserver(e=>{ if(!e[0].isIntersecting) return; setTimeout(()=>b.classList.add('animated'),300); io.disconnect(); },{threshold:.5}); io.observe(b.parentElement); /* трек, не заливка: заливка сдвинута за overflow и IO её не видит */ })();
 
 /* ── 8. MEMBER MODAL ───────────── */
 function openMemberModal(el){
