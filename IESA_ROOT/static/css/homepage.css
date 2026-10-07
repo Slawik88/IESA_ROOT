@@ -540,14 +540,14 @@ body {
 
 .badge-primary {
     background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-    color: var(--soft-red-hover);
+    color: #991b1b; /* на светло-розовом чипе: 7.4:1 (var(--soft-red-hover) давал 2.8:1) */
     border: 1px solid var(--soft-red-border);
     font-weight: 600;
 }
 
 .badge-secondary {
     background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-    color: var(--soft-blue-hover);
+    color: #1e3a8a; /* на светло-голубом чипе: 8.6:1 */
     border: 1px solid #93c5fd;
     font-weight: 600;
 }
@@ -991,30 +991,32 @@ body {
     transform: translate(-50%, -50%) scale(1);
 }
 
+/* Основная кнопка = фирменный красный (белый текст на #dc2626 = 4.8:1).
+   Раньше здесь был коралловый градиент #f87171 с белым текстом (2.4:1) — и кнопки отличались от героя главной. */
 .btn-primary {
-    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    background: var(--gradient-primary);
     border: none;
-    color: white;
+    color: #fff;
     position: relative;
     z-index: 2;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #f87171 0%, #fb7185 100%);
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(248, 113, 113, 0.3);
-    color: white;
+    box-shadow: 0 12px 32px rgba(220, 38, 38, 0.35);
+    color: #fff;
 }
 
 .btn-outline-primary {
-    border: 2px solid #f87171;
-    color: #f87171;
+    border: 2px solid var(--primary);
+    color: var(--primary-text);
 }
 
 .btn-outline-primary:hover {
-    background: #f87171;
-    border-color: #f87171;
-    color: white;
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
     transform: translateY(-2px);
 }
 

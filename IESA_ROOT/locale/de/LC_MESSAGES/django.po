@@ -7095,3 +7095,6 @@ msgstr ""
 
 #~ msgid "Personal Cabinet · IESA Sport"
 #~ msgstr "Persönlicher Bereich · IESA Sport"
+
+msgid "Delete this comment? This cannot be undone."
+msgstr "Diesen Kommentar löschen? Das kann nicht rückgängig gemacht werden."

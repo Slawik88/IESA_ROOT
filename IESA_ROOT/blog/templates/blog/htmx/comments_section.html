@@ -91,7 +91,9 @@
 
                 {# Delete button #}
                 {% if user == comment.author or user.is_staff %}
+                {% trans "Delete this comment? This cannot be undone." as delete_comment_msg %}
                 <form hx-post="{% url 'blog:delete_comment' pk=post.pk comment_pk=comment.pk %}"
+                      hx-confirm="{{ delete_comment_msg }}"
                       hx-target="#comments-container"
                       hx-swap="innerHTML"
                       style="display:inline;">

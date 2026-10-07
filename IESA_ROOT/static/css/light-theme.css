@@ -727,14 +727,23 @@
 }
 
 /* На dark тоже плавный переход — иначе при включении light всё дёргается */
-:root body,
+:root body {
+    transition:
+        background-color .25s ease,
+        border-color .25s ease,
+        color .25s ease;
+}
+/* Карточки: `transition` здесь раньше ПЕРЕБИВАЛ hover-подъём из animations.css (transform/box-shadow
+   переключались мгновенно) — поэтому transform и тень остаются в списке. */
 :root .card,
 :root .cab-card,
 :root .pp-card {
     transition:
         background-color .25s ease,
         border-color .25s ease,
-        color .25s ease;
+        color .25s ease,
+        transform .3s var(--ease-out, ease),
+        box-shadow .3s var(--ease-out, ease);
 }
 
 /* Логотип — на светлой теме нет blend (определено в dark-theme-fixes.css блок 22) */

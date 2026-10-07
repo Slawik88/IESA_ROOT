@@ -39,7 +39,12 @@
     border-bottom: 1.5px solid rgba(255,255,255,.06);
 }
 .pd-article__body { padding: 2rem 2.25rem 2.25rem; }
+/* Читаемая колонка (≈760px) по центру карточки: раньше заголовок/мета тянулись на всю ширину, а текст жался влево */
+@media(min-width:992px) { .pd-article__body { padding-inline: max(2.25rem, calc((100% - 760px) / 2)); } }
 @media(max-width:575.98px) { .pd-article__body { padding: 1.25rem; } }
+/* Кнопка лайка подгружается HTMX после загрузки: резервируем место, чтобы не было сдвига макета */
+.pd-actions { min-height: 50px; }
+#like-button-container:empty { width: 130px; height: 50px; }
 .pd-status-badge {
     display: inline-flex;
     align-items: center;

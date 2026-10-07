@@ -256,7 +256,7 @@ mark {
 .edit-actions .btn-outline-secondary:hover {
   background: #fef2f2;
   border-color: #dc2626;
-  color: var(--primary-text);
+  color: #dc2626;
 }
 
 /* Form validation styling */

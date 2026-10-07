@@ -6355,3 +6355,6 @@ msgstr ""
 
 #~ msgid "Personal Cabinet · IESA Sport"
 #~ msgstr "Особистий кабінет · IESA Sport"
+
+msgid "Delete this comment? This cannot be undone."
+msgstr "Видалити цей коментар? Цю дію неможливо скасувати."

@@ -255,6 +255,15 @@ a:focus-visible {
   outline-offset: var(--focus-ring-offset);
 }
 
+/* Интерактивные элементы: кольцо фокуса с клавиатуры ВСЕГДА видно.
+   Bootstrap (.nav-link:focus-visible { outline:0 }) и ad-hoc правила его гасили — навбар был «слепым» для Tab.
+   Текстовые поля не трогаем: у них фокус показывает рамка + свечение. */
+:is(a, button, summary, [role="button"], [tabindex]:not([tabindex="-1"]),
+    input[type="checkbox"], input[type="radio"], input[type="range"], .btn):focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
+  outline-offset: var(--focus-ring-offset) !important;
+}
+
 /* Убираем outline для мыши */
 :focus:not(:focus-visible) {
   outline: none;

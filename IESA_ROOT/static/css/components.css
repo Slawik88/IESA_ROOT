@@ -432,7 +432,7 @@
 .form-control:focus {
   border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring-color);
+  box-shadow: 0 0 0 3px var(--focus-glow);
   background-color: var(--bg-surface) !important;
   color: var(--text-primary) !important;
 }
@@ -481,7 +481,7 @@
 .form-select:focus {
   border-color: var(--primary);
   outline: none;
-  box-shadow: 0 0 0 3px var(--focus-ring-color);
+  box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
 .form-select-sm {
