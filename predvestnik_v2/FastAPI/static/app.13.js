@@ -174,10 +174,16 @@
   function topupHtml(){
     if(!topup)return '';
     const packages=Array.isArray(topup.packages)?topup.packages:[];
+    const selected=packages.find(p=>Number(p.stars)===Number(topup.selectedStars))||null;
     const disabledText=topup.purchase_disabled_reason==='preprod'
       ?'На тестовом стенде реальные платежи отключены. В продакшене пополнение работает.'
       :'Пополнение временно недоступно.';
-    const content=topup.loading?'<div class="loader">Загружаем безопасные пакеты…</div>':topup.error?`<p class="err">${e(topup.error)}</p>`:topup.purchase_enabled===false?`<p class="store-topup-unavailable">${disabledText}</p>`:`<div class="store-topup-packages">${packages.map(p=>`<button type="button" data-zarniki-stars="${Number(p.stars)}" ${topupBusy?'disabled':''}><span><b>${Number(p.total)}✨</b>${p.popular?'<small>Популярный</small>':''}</span><strong>${Number(p.stars)}⭐</strong></button>`).join('')}</div><p>Оплата откроется в защищённом окне Telegram. Покупку подтверждаете только вы.</p>`;
+    const content=topup.loading?'<div class="loader">Загружаем безопасные пакеты…</div>':topup.error?`<p class="err">${e(topup.error)}</p>`:topup.purchase_enabled===false?`<p class="store-topup-unavailable">${disabledText}</p>`:`
+      <div class="store-topup-packages" role="radiogroup" aria-label="Количество Зарников">
+        ${packages.map(p=>{const active=Number(p.stars)===Number(topup.selectedStars);return `<button type="button" role="radio" aria-checked="${active}" class="${active?'is-selected':''}" data-zarniki-select="${Number(p.stars)}" ${topupBusy?'disabled':''}><span><b>${Number(p.total)}✨</b><small>${p.popular?'Популярный пакет':'Зарников на баланс'}</small></span><strong>${Number(p.stars)}⭐</strong><i aria-hidden="true">${active?'✓':''}</i></button>`;}).join('')}
+      </div>
+      ${selected?`<div class="store-topup-summary"><span>Вы получите <b>${Number(selected.total)} Зарников</b></span><span>Telegram спишет <b>${Number(selected.stars)} Stars</b></span></div><button type="button" class="store-topup-primary" data-zarniki-confirm="${Number(selected.stars)}" ${topupBusy?'disabled':''}>${topupBusy?'Открываем оплату…':`Купить ${Number(selected.total)} Зарников за ${Number(selected.stars)} Stars`}</button>`:'<p class="store-topup-prompt">Выберите подходящий пакет.</p>'}
+      <div class="store-topup-reassurance"><span>↗ Оплата откроется внутри Telegram</span><span>✓ Баланс обновится автоматически</span></div>`;
     return `<div class="store-topup-backdrop"><section class="store-topup" role="dialog" aria-modal="true" aria-labelledby="store-topup-title"><header><div><small>Баланс ${currentBalance()}✨</small><h2 id="store-topup-title">Пополнить Зарники</h2></div><button type="button" data-store-topup-close aria-label="Закрыть пополнение">×</button></header>${content}</section></div>`;
   }
   function syncSkinPreview(){
@@ -242,7 +248,8 @@
     root.querySelector('[data-store-preview-backdrop]')?.addEventListener('click',event=>{if(event.target===event.currentTarget)closeSelection();});
     root.querySelectorAll('[data-store-topup]').forEach(btn=>btn.addEventListener('click',openTopup));
     root.querySelector('[data-store-topup-close]')?.addEventListener('click',closeTopup);
-    root.querySelectorAll('[data-zarniki-stars]').forEach(btn=>btn.addEventListener('click',()=>purchaseZarniki(Number(btn.dataset.zarnikiStars))));
+    root.querySelectorAll('[data-zarniki-select]').forEach(btn=>btn.addEventListener('click',()=>{topup.selectedStars=Number(btn.dataset.zarnikiSelect);render();}));
+    root.querySelector('[data-zarniki-confirm]')?.addEventListener('click',event=>purchaseZarniki(Number(event.currentTarget.dataset.zarnikiConfirm)));
     root.onkeydown=event=>{
       if(event.key==='Escape'){
         if(topup){event.preventDefault();closeTopup();}
@@ -262,7 +269,13 @@
   }
   async function openTopup(){
     topup={loading:true};focusTopup=true;render();
-    try{topup=await api('/payments/zarniki/packages');focusTopup=true;render();}
+    try{
+      topup=await api('/payments/zarniki/packages');
+      const packages=Array.isArray(topup.packages)?topup.packages:[];
+      const initial=packages.find(item=>item.popular)||packages[0];
+      topup.selectedStars=initial?Number(initial.stars):null;
+      focusTopup=true;render();
+    }
     catch(error){topup={error:String(error)};focusTopup=true;render();}
   }
   async function purchaseZarniki(stars){
