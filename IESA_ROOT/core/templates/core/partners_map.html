@@ -26,7 +26,7 @@
   letter-spacing:.08em; margin-bottom:10px;
 }
 .map-hero-title { font-size:1.4rem; font-weight:700; color:#fff; margin:0 0 4px; position:relative; }
-.map-hero-sub { font-size:.82rem; color:rgba(255,255,255,.4); font-family:monospace; }
+.map-hero-sub { font-size:.82rem; color:rgba(255,255,255,.5); font-family:monospace; }
 #partner-map {
   height: calc(100vh - 220px);
   min-height: 400px;
@@ -59,7 +59,7 @@
 .map-geolocate:hover { background:#2a2a3a; color:#fff; }
 .map-no-coords {
   padding:2.5rem 1.5rem; text-align:center;
-  color:rgba(255,255,255,.3); font-family:monospace; font-size:.82rem;
+  color:rgba(255,255,255,.5); font-family:monospace; font-size:.82rem;
 }
 </style>
 {% endblock %}
@@ -79,7 +79,7 @@
 
   {% if partners_count == 0 %}
   <div class="map-no-coords">
-    <div style="font-size:2.2rem;margin-bottom:.75rem;color:rgba(220,38,38,.62);"><i class="fas fa-map-location-dot" aria-hidden="true"></i></div>
+    <div style="font-size:2.2rem;margin-bottom:.75rem;color:var(--primary-text);"><i class="fas fa-map-location-dot" aria-hidden="true"></i></div>
     <div style="font-size:.9rem;color:rgba(255,255,255,.5);margin-bottom:.35rem;">{% trans "No partners with map coordinates yet" %}</div>
     <div>{% trans "Partners can add their address in their profile settings." %}</div>
   </div>

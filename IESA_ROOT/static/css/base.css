@@ -165,13 +165,13 @@ strong,
    ==================================================== */
 
 a {
-  color: var(--primary);
+  color: var(--primary-text);
   text-decoration: none;
   transition: color var(--transition-fast);
 }
 
 a:hover {
-  color: var(--primary-hover);
+  color: var(--primary-text-hover);
 }
 
 a:focus-visible {
@@ -298,7 +298,7 @@ code {
   background: rgba(255, 255, 255, 0.1);
   padding: 0.2em 0.4em;
   border-radius: var(--radius-sm);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 pre {

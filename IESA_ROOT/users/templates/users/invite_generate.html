@@ -7,13 +7,13 @@
 <div class="container-limited" style="max-width:560px;padding-top:2.5rem;padding-bottom:4rem;">
 
     <div style="margin-bottom:2rem;">
-        <a href="{% url 'users:invite_list' %}" style="color:rgba(255,255,255,.4);font-size:.85rem;text-decoration:none;">
+        <a href="{% url 'users:invite_list' %}" style="color:rgba(255,255,255,.5);font-size:.85rem;text-decoration:none;">
             <i class="fas fa-arrow-left me-1"></i>{% trans "Back to invite list" %}
         </a>
     </div>
 
     <div style="background:#111118;border:1.5px solid rgba(255,255,255,.08);border-radius:var(--radius-card);padding:2rem 2rem 2.5rem;">
-        <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(220,38,38,.7);margin-bottom:.5rem;">
+        <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--primary-text);margin-bottom:.5rem;">
             {% trans "ADMIN PANEL" %}
         </div>
         <h1 style="font-size:1.5rem;font-weight:800;color:#f1f5f9;margin-bottom:1.75rem;">
@@ -25,18 +25,18 @@
             <div style="display:flex;flex-direction:column;gap:1.25rem;">
 
                 <div>
-                    <label for="{{ form.partner_type.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                    <label for="{{ form.partner_type.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.35rem;">
                         {{ form.partner_type.label }}
                     </label>
                     {{ form.partner_type }}
                     {{ form.partner_type.errors }}
                     {% if form.partner_type.help_text %}
-                    <div style="font-size:.75rem;color:rgba(255,255,255,.3);margin-top:.3rem;">{{ form.partner_type.help_text }}</div>
+                    <div style="font-size:.75rem;color:rgba(255,255,255,.5);margin-top:.3rem;">{{ form.partner_type.help_text }}</div>
                     {% endif %}
                 </div>
 
                 <div>
-                    <label for="{{ form.company_name.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                    <label for="{{ form.company_name.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.35rem;">
                         {{ form.company_name.label }}
                     </label>
                     {{ form.company_name }}
@@ -44,7 +44,7 @@
                 </div>
 
                 <div>
-                    <label for="{{ form.note.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                    <label for="{{ form.note.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.35rem;">
                         {{ form.note.label }}
                     </label>
                     {{ form.note }}
@@ -53,20 +53,20 @@
 
                 <div class="row g-3">
                     <div class="col-6">
-                        <label for="{{ form.expires_days.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                        <label for="{{ form.expires_days.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.35rem;">
                             {{ form.expires_days.label }}
                         </label>
                         {{ form.expires_days }}
                         {{ form.expires_days.errors }}
                     </div>
                     <div class="col-6">
-                        <label for="{{ form.max_uses.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.42);margin-bottom:.35rem;">
+                        <label for="{{ form.max_uses.id_for_label }}" style="display:block;font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.35rem;">
                             {{ form.max_uses.label }}
                         </label>
                         {{ form.max_uses }}
                         {{ form.max_uses.errors }}
                         {% if form.max_uses.help_text %}
-                        <div style="font-size:.73rem;color:rgba(255,255,255,.3);margin-top:.25rem;">{{ form.max_uses.help_text }}</div>
+                        <div style="font-size:.73rem;color:rgba(255,255,255,.5);margin-top:.25rem;">{{ form.max_uses.help_text }}</div>
                         {% endif %}
                     </div>
                 </div>

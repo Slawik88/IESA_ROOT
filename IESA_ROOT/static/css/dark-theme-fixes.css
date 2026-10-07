@@ -325,7 +325,7 @@ code {
   background: rgba(220,38,38,.05) !important;
   border-color: rgba(220,38,38,.3) !important;
 }
-.search-item .text-muted { color: rgba(255,255,255,.4) !important; }
+.search-item .text-muted { color: rgba(255,255,255,.5) !important; }
 .search-section + .search-section { margin-top: 8px; }
 .search-result-text { color: rgba(255,255,255,.9); }
 .verified-check { color: #4ade80; font-size: .7rem; }
@@ -363,7 +363,7 @@ code {
 
 .card-modern .text-muted,
 .comment-card .text-muted,
-.reply-card .text-muted { color: rgba(255, 255, 255, 0.42) !important; }
+.reply-card .text-muted { color: rgba(255, 255, 255, .5) !important; }
 
 /* Вложенные ответы (comment thread) */
 .comment-thread .card,
@@ -424,7 +424,7 @@ code {
 
 .page-item.disabled .page-link {
   background: rgba(255, 255, 255, 0.03) !important;
-  color: rgba(255, 255, 255, 0.25) !important;
+  color: rgba(255, 255, 255, .5) !important;
 }
 
 /* ── Post card custom (без Bootstrap .card) ──────────────── */
@@ -527,7 +527,7 @@ input:-moz-autofill {
 .form-select::placeholder,
 input::placeholder,
 textarea::placeholder {
-  color: rgba(255, 255, 255, 0.28) !important;
+  color: rgba(255, 255, 255, .5) !important;
   opacity: 1 !important;
 }
 

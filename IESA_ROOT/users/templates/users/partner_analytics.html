@@ -27,7 +27,7 @@
   }
   .pp-table tbody td { display: block; border: none; padding: .1rem 0; font-size: .82rem; }
   .pp-table tbody td:first-child { grid-column: 1/-1; font-weight: 700; color: #f1f5f9; margin-bottom: .2rem; font-size: .88rem; }
-  .pp-table tbody td.pp-rank { grid-column: 1/-1; font-size: .65rem; color: rgba(255,255,255,.28); }
+  .pp-table tbody td.pp-rank { grid-column: 1/-1; font-size: .65rem; color: rgba(255,255,255,.5); }
 }
 </style>
 {% endblock %}
@@ -69,7 +69,7 @@
   <div class="dash-card__body" style="text-align:center;padding:3rem 2rem;">
     <div class="partner-empty-illustration" aria-hidden="true"><i class="fas fa-chart-column"></i></div>
     <div style="font-size:1rem;font-weight:700;color:rgba(255,255,255,.65);margin-bottom:.4rem;">{% trans "No data for the last 30 days" %}</div>
-    <div style="font-size:.8rem;color:rgba(255,255,255,.3);margin-bottom:1.4rem;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.55;">
+    <div style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:1.4rem;max-width:340px;margin-left:auto;margin-right:auto;line-height:1.55;">
       {% trans "Start logging visits and within a few days the analytics will fill with insights." %}
     </div>
     <a href="{% url 'users:partner_dashboard' %}#search-section"
@@ -83,7 +83,7 @@
 <div class="dash-card" style="margin-top:1.25rem;">
   <div class="dash-card__header">
     <span class="dash-card__title">
-      <i class="fas fa-chart-bar" style="color:var(--primary);"></i>
+      <i class="fas fa-chart-bar" style="color:var(--primary-text);"></i>
       {% trans "Charts" %}
     </span>
   </div>
@@ -108,7 +108,7 @@
 <div class="dash-card" style="margin-top:1.25rem;">
   <div class="dash-card__header">
     <span class="dash-card__title">
-      <i class="fas fa-layer-group" style="color:var(--primary);"></i>
+      <i class="fas fa-layer-group" style="color:var(--primary-text);"></i>
       {% trans "Service Breakdown" %}
     </span>
   </div>
@@ -149,10 +149,10 @@
 <div class="dash-card" style="margin-top:1.25rem;">
   <div class="dash-card__header">
     <span class="dash-card__title">
-      <i class="fas fa-trophy" style="color:var(--primary);"></i>
+      <i class="fas fa-trophy" style="color:var(--primary-text);"></i>
       {% trans "Top Members" %}
     </span>
-    <span style="font-size:.75rem;color:rgba(255,255,255,.3);">{% trans "last 90 days" %}</span>
+    <span style="font-size:.75rem;color:rgba(255,255,255,.5);">{% trans "last 90 days" %}</span>
   </div>
   <div class="dash-card__body" style="padding:0;">
     <div class="pp-table-wrap">
@@ -177,7 +177,7 @@
                   {{ m.member__username }}
                 {% endif %}
               </span>
-              {% if m.member__pseudonym %}<br><span style="font-size:.72rem;color:rgba(255,255,255,.3);">@{{ m.member__pseudonym }}</span>{% endif %}
+              {% if m.member__pseudonym %}<br><span style="font-size:.72rem;color:rgba(255,255,255,.5);">@{{ m.member__pseudonym }}</span>{% endif %}
             </td>
             <td style="color:#ef4444;font-weight:700;">{{ m.visit_count }}</td>
             <td>{% if m.total_spent %}{{ m.total_spent|floatformat:0 }}{% else %}—{% endif %}</td>

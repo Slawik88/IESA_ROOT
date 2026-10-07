@@ -42,7 +42,7 @@
     flex-shrink: 0;
 }
 .pp-name-row h1 { font-size: clamp(1.4rem,3.5vw,1.9rem); font-weight: 800; color: #f1f5f9; margin: 0 0 .2rem; }
-.pp-username { color: rgba(255,255,255,.4); font-size: .9rem; margin-bottom: .5rem; }
+.pp-username { color: rgba(255,255,255,.5); font-size: .9rem; margin-bottom: .5rem; }
 .pp-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .75rem; }
 .pp-badge { display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .65rem; border-radius: 100px; font-size: .72rem; font-weight: 700; }
 .pp-badge-verified { background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
@@ -54,17 +54,17 @@
 .info-pill-pp { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: .75rem 1rem; }
 .info-pill-pp .pv2-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
 .info-pill-pp .pv2-value { font-size: .9rem; font-weight: 700; color: #f1f5f9; }
-.pp-joined .pv2-label { color: rgba(99,102,241,.8); }
-.pp-age    .pv2-label { color: rgba(234,179,8,.8); }
-.pp-phone  .pv2-label { color: rgba(34,197,94,.8); }
+.pp-joined .pv2-label { color: #a5b4fc; }
+.pp-age    .pv2-label { color: #fde047; }
+.pp-phone  .pv2-label { color: #4ade80; }
 .pp-content-area { max-width: 1100px; margin: -2.5rem auto 0; padding: 0 1.5rem 4rem; position: relative; z-index: 2; }
 .pp-card-dark { background: #111118; border: 1.5px solid rgba(255,255,255,.07); border-radius: 18px; padding: 1.5rem 1.75rem; margin-bottom: 1.25rem; }
-.pp-card-title { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: #dc2626; margin-bottom: 1.1rem; display: block; }
+.pp-card-title { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; color: var(--primary-text); margin-bottom: 1.1rem; display: block; }
 .stat-chips-pp { display: grid; grid-template-columns: repeat(4,1fr); gap: .65rem; margin-bottom: 1.25rem; }
 @media(max-width:640px){ .stat-chips-pp { grid-template-columns: repeat(2,1fr); } }
 .stat-chip-pp { background: rgba(255,255,255,.05); border: 1.5px solid rgba(255,255,255,.07); border-radius: 14px; padding: .85rem; text-align: center; }
 .stat-chip-pp .sc-val { font-size: 1.45rem; font-weight: 800; line-height: 1; }
-.stat-chip-pp .sc-lbl { font-size: .72rem; color: rgba(255,255,255,.4); margin-top: .25rem; }
+.stat-chip-pp .sc-lbl { font-size: .72rem; color: rgba(255,255,255,.5); margin-top: .25rem; }
 .scp-red   { border-color: rgba(220,38,38,.25); } .scp-red   .sc-val { color: #f87171; }
 .scp-amber { border-color: rgba(234,179,8,.2); }  .scp-amber .sc-val { color: #fbbf24; }
 .scp-grn   { border-color: rgba(34,197,94,.2); }  .scp-grn   .sc-val { color: #4ade80; }
@@ -86,9 +86,9 @@
 .pp-post-thumb { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
 .pp-post-thumb-ph { width: 56px; height: 56px; border-radius: 8px; background: rgba(255,255,255,.06); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .pp-post-title { font-size: .9rem; font-weight: 700; color: #f1f5f9; margin-bottom: .2rem; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.pp-post-excerpt { font-size: .78rem; color: rgba(255,255,255,.38); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-.pp-post-date { font-size: .72rem; color: rgba(255,255,255,.25); margin-top: .18rem; }
-.pp-empty { text-align: center; padding: 2.5rem 1rem; color: rgba(255,255,255,.3); font-size: .9rem; }
+.pp-post-excerpt { font-size: .78rem; color: rgba(255,255,255,.5); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.pp-post-date { font-size: .72rem; color: rgba(255,255,255,.5); margin-top: .18rem; }
+.pp-empty { text-align: center; padding: 2.5rem 1rem; color: rgba(255,255,255,.5); font-size: .9rem; }
 .pp-bio { color: rgba(255,255,255,.65); font-size: .9rem; line-height: 1.7; }
 .pp-admin-link { display: inline-flex; align-items: center; gap: .4rem; background: rgba(255,255,255,.06); border: 1.5px solid rgba(255,255,255,.1); border-radius: 8px; padding: .3rem .85rem; font-size: .8rem; color: rgba(255,255,255,.5); text-decoration: none; transition: background .15s; }
 .pp-admin-link:hover { background: rgba(255,255,255,.12); color: #fff; }
@@ -156,7 +156,7 @@
                     <div class="pv2-value" style="font-size:.82rem;">
                         {% if user_obj.phone_number %}
                             {% if user_obj.is_phone_hidden and not user.is_staff and user != user_obj %}
-                                <i class="fas fa-eye-slash" style="color:rgba(255,255,255,.3);"></i> {% trans "Hidden" %}
+                                <i class="fas fa-eye-slash" style="color:rgba(255,255,255,.5);"></i> {% trans "Hidden" %}
                             {% else %}{{ user_obj.phone_number }}{% endif %}
                         {% else %}—{% endif %}
                     </div>
@@ -179,12 +179,12 @@
                             {% if level_info.level == 'Legend' %}<i class="fas fa-crown"></i>{% elif level_info.level == 'Expert' %}<i class="fas fa-star"></i>{% elif level_info.level == 'Advanced' %}<i class="fas fa-rocket"></i>{% elif level_info.level == 'Intermediate' %}<i class="fas fa-fire"></i>{% else %}<i class="fas fa-leaf"></i>{% endif %}
                             {{ level_info.level }}
                         </span>
-                        <span style="font-size:.8rem;color:rgba(255,255,255,.35);">{{ level_info.points|default:0 }} pts</span>
+                        <span style="font-size:.8rem;color:rgba(255,255,255,.5);">{{ level_info.points|default:0 }} pts</span>
                     </div>
                     <div class="progress-pp">
                         <div class="progress-pp-fill" style="width:{% if level_info.progress_pct %}{{ level_info.progress_pct }}{% else %}20{% endif %}%;"></div>
                     </div>
-                    <div style="display:flex;justify-content:space-between;font-size:.72rem;color:rgba(255,255,255,.3);">
+                    <div style="display:flex;justify-content:space-between;font-size:.72rem;color:rgba(255,255,255,.5);">
                         <span>{{ level_info.current_threshold|default:0 }}</span>
                         <span>{{ level_info.next_threshold|default:"max" }}</span>
                     </div>

@@ -46,14 +46,14 @@
 }
 .acr-eyebrow::before,.acr-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.4); }
 .acr-title { font-size:1.6rem; font-weight:900; color:#fff; margin-bottom:.4rem; letter-spacing:-.02em; }
-.acr-desc  { color:rgba(255,255,255,.42); font-size:.9rem; line-height:1.6; }
+.acr-desc  { color:rgba(255,255,255,.5); font-size:.9rem; line-height:1.6; }
 
 /* Fields */
 .acr-field { margin-bottom:1.4rem; }
 .acr-label {
   display:block; font-size:.63rem; font-weight:700;
   letter-spacing:.15em; text-transform:uppercase;
-  color:rgba(255,255,255,.38); font-family:var(--font-mono); margin-bottom:.5rem;
+  color:rgba(255,255,255,.5); font-family:var(--font-mono); margin-bottom:.5rem;
 }
 .acr-select-wrap { position:relative; }
 .acr-select {
@@ -65,7 +65,7 @@
 }
 .acr-select:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
 .acr-select option { background:#12111c; color:#fff; }
-.acr-select-arrow { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.28); pointer-events:none; font-size:.8rem; }
+.acr-select-arrow { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.5); pointer-events:none; font-size:.8rem; }
 
 /* HOTFIX 2026-05-23 — Searchable combobox для категории бизнеса */
 .acr-combo { position: relative; }
@@ -84,8 +84,8 @@
 }
 .acr-combo-btn:hover, .acr-combo-btn:focus { border-color: rgba(220,38,38,.4); outline: none; }
 .acr-combo-btn .acr-combo-current { color: #fff; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.acr-combo-btn .acr-combo-current.empty { color: rgba(255,255,255,.30); font-style: italic; }
-.acr-combo-btn i.fa-chevron-down { color: rgba(255,255,255,.4); font-size: .75rem; transition: transform .2s; }
+.acr-combo-btn .acr-combo-current.empty { color: rgba(255,255,255,.5); font-style: italic; }
+.acr-combo-btn i.fa-chevron-down { color: rgba(255,255,255,.5); font-size: .75rem; transition: transform .2s; }
 .acr-combo.open .acr-combo-btn { border-color: rgba(220,38,38,.55); box-shadow: 0 0 0 3px rgba(220,38,38,.10); }
 .acr-combo.open .acr-combo-btn i.fa-chevron-down { transform: rotate(180deg); }
 .acr-combo-dropdown {
@@ -112,7 +112,7 @@
 .acr-combo-search-wrap i.fa-search {
     position: absolute;
     left: 1.4rem; top: 50%; transform: translateY(-50%);
-    color: rgba(255,255,255,.30);
+    color: rgba(255,255,255,.5);
     font-size: .82rem;
     pointer-events: none;
 }
@@ -126,13 +126,13 @@
     outline: none;
 }
 .acr-combo-search:focus { border-color: rgba(220,38,38,.5); background: rgba(255,255,255,.07); }
-.acr-combo-search::placeholder { color: rgba(255,255,255,.30); }
+.acr-combo-search::placeholder { color: rgba(255,255,255,.5); }
 .acr-combo-list { overflow-y: auto; flex: 1; padding: .4rem 0; }
 .acr-combo-list::-webkit-scrollbar { width: 8px; }
 .acr-combo-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.10); border-radius: 4px; }
 .acr-combo-group-label {
     font-size: .62rem; font-weight: 700; letter-spacing: .14em;
-    text-transform: uppercase; color: rgba(220,38,38,.7);
+    text-transform: uppercase; color: var(--primary-text);
     font-family: var(--font-mono);
     padding: .65rem .9rem .35rem;
     background: rgba(220,38,38,.04);
@@ -171,7 +171,7 @@
 .acr-combo-empty {
     padding: 1.5rem;
     text-align: center;
-    color: rgba(255,255,255,.40);
+    color: rgba(255,255,255,.5);
     font-size: .9rem;
 }
 .acr-combo-empty i { display: block; margin-bottom: .5rem; font-size: 1.4rem; color: rgba(255,255,255,.20); }
@@ -185,7 +185,7 @@
 }
 .acr-textarea:focus { border-color:rgba(220,38,38,.6); background:rgba(220,38,38,.05); box-shadow:0 0 0 3px rgba(220,38,38,.12); }
 .acr-textarea::placeholder { color:rgba(255,255,255,.18); }
-.acr-hint { font-size:.7rem; color:rgba(255,255,255,.25); margin-top:.35rem; font-family:var(--font-mono); }
+.acr-hint { font-size:.7rem; color:rgba(255,255,255,.5); margin-top:.35rem; font-family:var(--font-mono); }
 .acr-input {
   width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
   border-radius:10px; color:#fff; font-size:.92rem;
@@ -196,15 +196,15 @@
 /* BLOCK 3 (audit v4): placeholder явно отличается от введённого — italic + opacity */
 .acr-input::placeholder,
 .acr-textarea::placeholder {
-  color: rgba(255,255,255,.30) !important;
+  color: rgba(255,255,255,.5) !important;
   font-style: italic !important;
   opacity: 1 !important; /* Firefox по умолчанию делает 0.5 */
   font-weight: 400 !important;
 }
 .acr-input::-webkit-input-placeholder,
-.acr-textarea::-webkit-input-placeholder { color: rgba(255,255,255,.30); font-style: italic; }
+.acr-textarea::-webkit-input-placeholder { color: rgba(255,255,255,.5); font-style: italic; }
 .acr-input::-moz-placeholder,
-.acr-textarea::-moz-placeholder { color: rgba(255,255,255,.30); font-style: italic; opacity: 1; }
+.acr-textarea::-moz-placeholder { color: rgba(255,255,255,.5); font-style: italic; opacity: 1; }
 /* Error state для полей с ошибками валидации */
 .acr-input.acr-field-invalid,
 .acr-textarea.acr-field-invalid {
@@ -257,7 +257,7 @@
 @media(max-width:640px){ .acr-grid-2 { grid-template-columns:1fr; } }
 .acr-section-title {
   font-size:.62rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
-  color:rgba(255,255,255,.28); font-family:var(--font-mono);
+  color:rgba(255,255,255,.5); font-family:var(--font-mono);
   display:flex; align-items:center; gap:.5rem;
   margin: 1.5rem 0 .85rem;
 }
@@ -387,7 +387,7 @@
   display:inline-flex; align-items:center; justify-content:center; margin-bottom:.5rem;
 }
 .step-title { font-size:.82rem; font-weight:700; color:rgba(255,255,255,.85); margin-bottom:.25rem; }
-.step-desc  { font-size:.75rem; color:rgba(255,255,255,.42); line-height:1.5; }
+.step-desc  { font-size:.75rem; color:rgba(255,255,255,.5); line-height:1.5; }
 
 /* ── Visit history ──────────────────────────────────────── */
 .vh-list { padding:0 0 .5rem; }
@@ -407,7 +407,7 @@
 .vh-status-badge.active    { background:rgba(34,197,94,.12); color:#4ade80; }
 .vh-status-badge.edited    { background:rgba(245,158,11,.12); color:#fbbf24; }
 .vh-status-badge.cancelled { background:rgba(148,163,184,.1); color:#94a3b8; }
-.vh-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.35); font-size:.88rem; }
+.vh-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.5); font-size:.88rem; }
 .vh-empty i { font-size:2rem; margin-bottom:.6rem; display:block; opacity:.35; }
 
 /* Успех */
@@ -431,7 +431,7 @@
 .acr-pn-title { font-size:1rem; font-weight:800; color:#fff; margin-bottom:.35rem; }
 .acr-pn-sub { font-size:.875rem; color:rgba(255,255,255,.55); line-height:1.6; margin-bottom:.5rem; }
 .acr-pn-sub strong { color:#fbbf24; }
-.acr-pn-date { font-size:.75rem; color:rgba(255,255,255,.32); font-family:var(--font-mono); }
+.acr-pn-date { font-size:.75rem; color:rgba(255,255,255,.5); font-family:var(--font-mono); }
 </style>
 <link rel="stylesheet" href="{% static 'css/profile-page.css' %}?v=block04-strict">
 {% endblock %}
@@ -631,7 +631,7 @@
     box-shadow: 0 4px 20px rgba(220,38,38,.35); margin-bottom: .75rem;
   }
   .onb-btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-  .onb-btn-skip { background: none; border: none; color: rgba(255,255,255,.3); font-size: .82rem; cursor: pointer; padding: .25rem; transition: color .15s; }
+  .onb-btn-skip { background: none; border: none; color: rgba(255,255,255,.5); font-size: .82rem; cursor: pointer; padding: .25rem; transition: color .15s; }
   .onb-btn-skip:hover { color: rgba(255,255,255,.6); }
   @media (max-width: 480px), (max-height: 700px) {
     .onb-backdrop { padding: .75rem; align-items: flex-end; }
@@ -660,7 +660,7 @@
     .pcp-toggle { margin-left:.15rem; }
   }
   .pcp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
-  .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.38); }
+  .pcp-label  { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.5); }
   .pcp-pct    { font-size: .72rem; font-weight: 800; }
   .pcp-track  { height: 5px; background: rgba(255,255,255,.07); border-radius: 100px; overflow: hidden; }
   .pcp-fill   { height: 100%; border-radius: 100px; transition: width .6s cubic-bezier(.4,0,.2,1); }
@@ -675,8 +675,8 @@
     transition: background .12s;
   }
   .pcp-step-item:hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.85); }
-  .pcp-step-item i { width: 14px; text-align: center; color: rgba(220,38,38,.7); flex-shrink: 0; }
-  .pcp-toggle { background: none; border: none; color: rgba(255,255,255,.3); font-size: .75rem; cursor: pointer; padding: 0; transition: color .15s; margin-left: .35rem; }
+  .pcp-step-item i { width: 14px; text-align: center; color: var(--primary-text); flex-shrink: 0; }
+  .pcp-toggle { background: none; border: none; color: rgba(255,255,255,.5); font-size: .75rem; cursor: pointer; padding: 0; transition: color .15s; margin-left: .35rem; }
   .pcp-toggle:hover { color: rgba(255,255,255,.6); }
 
   /* ── Contextual Tooltips (1c) ────────────────────────────────────── */
@@ -714,7 +714,7 @@
   @media (max-width: 1180px) {
     .qa-onb-section { margin-left: 1.25rem; margin-right: 1.25rem; }
   }
-  .qa-onb-header { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.28); margin-bottom: .6rem; }
+  .qa-onb-header { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.5); margin-bottom: .6rem; }
   .qa-onb-scroll { display: flex; gap: .6rem; overflow-x: auto; scrollbar-width: none; padding-bottom: .25rem; }
   .qa-onb-scroll::-webkit-scrollbar { display: none; }
   .qa-onb-card {
@@ -780,7 +780,7 @@
           <i class="fas fa-chevron-down" id="pcp-chevron"></i>
         </button>
       </span>
-      <span style="font-size:.72rem;color:rgba(255,255,255,.3);">
+      <span style="font-size:.72rem;color:rgba(255,255,255,.5);">
         {{ profile_completeness.done }}/{{ profile_completeness.total }} {% trans "steps" %}
       </span>
     </div>

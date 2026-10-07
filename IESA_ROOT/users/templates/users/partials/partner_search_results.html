@@ -46,7 +46,7 @@
                   </a>
                   <a href="{% url 'users:partner_member_visits' member.id %}"
                      title="{% trans 'Visit history' %}"
-                     style="padding:12px 14px;color:rgba(255,255,255,.3);text-decoration:none;font-size:.8rem;border-left:1px solid rgba(255,255,255,.07);flex-shrink:0;"
+                     style="padding:12px 14px;color:rgba(255,255,255,.5);text-decoration:none;font-size:.8rem;border-left:1px solid rgba(255,255,255,.07);flex-shrink:0;"
                      onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='rgba(255,255,255,.3)'">
                     <i class="fas fa-history"></i>
                   </a>
@@ -61,7 +61,7 @@
     {% endif %}
 {% else %}
     <div class="psr-empty-hint fade-in">
-        <i class="fas fa-info-circle fa-xl mb-3" style="color:rgba(220,38,38,.5);"></i>
+        <i class="fas fa-info-circle fa-xl mb-3" style="color:var(--primary-text);"></i>
         <p class="mb-0">{% trans "Enter member name, username, or ID to search" %}</p>
     </div>
 {% endif %}

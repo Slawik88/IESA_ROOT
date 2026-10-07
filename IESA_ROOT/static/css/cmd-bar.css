@@ -41,7 +41,7 @@
     font-weight: 700;
     letter-spacing: .12em;
     text-transform: uppercase;
-    color: rgba(255,255,255,.38);
+    color: rgba(255,255,255,.5);
     text-decoration: none;
     border-right: 1px solid rgba(255,255,255,.07);
     transition: color .2s, background .2s;
@@ -93,9 +93,9 @@
 .cmd-lbl {
     display: block;
     font-family: var(--font-mono);
-    font-size: .58rem;
-    letter-spacing: .15em;
-    color: rgba(220,38,38,.7);
+    font-size: .68rem;
+    letter-spacing: .12em;
+    color: var(--primary-text);
     margin-bottom: .15rem;
     line-height: 1;
 }
@@ -114,10 +114,8 @@
     transition: border-color .2s;
 }
 
-.cmd-input::placeholder { color: rgba(255,255,255,.42) !important; font-style: italic; }
-@media (pointer: coarse) {
-    .cmd-input { font-size: 1rem !important; min-height: var(--tap-min); }
-}
+.cmd-input::placeholder { color: rgba(255,255,255,.5) !important; font-style: italic; }
+
 .cmd-input:focus { border-bottom-color: var(--primary) !important; }
 
 /* ── Filter groups ────────────────────── */
@@ -167,7 +165,7 @@
     font-weight: 700;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(220,38,38,.85);
+    color: var(--primary-text);
     text-decoration: none;
     border-left: 1px solid rgba(255,255,255,.07);
     flex-shrink: 0;
@@ -183,7 +181,7 @@
     display: none;
     align-items: center;
     padding: 0 .9rem;
-    color: var(--primary);
+    color: var(--primary-text);
     font-size: .75rem;
     opacity: .7;
 }
@@ -221,4 +219,11 @@
     .cmd-cta     { display: none; }
     .cmd-search  { padding: .55rem .9rem; border-bottom: none; }
     .cmd-filter-toggle { display: flex; }
+}
+
+/* Тач-экраны: шрифт ≥16px (иначе iOS приближает страницу при фокусе) и зона нажатия 44px.
+   Блок стоит в конце файла, чтобы выигрывать у `.cmd-select { font-size: .82rem !important }`. */
+@media (pointer: coarse) {
+    .cmd-input,
+    .cmd-select { font-size: 1rem !important; min-height: var(--tap-min); }
 }

@@ -33,7 +33,7 @@
     color: #f1f5f9;
     box-shadow: 0 0 0 3px rgba(220,38,38,.15);
 }
-.pc-card .form-control::placeholder { color: rgba(255,255,255,.25); }
+.pc-card .form-control::placeholder { color: rgba(255,255,255,.5); }
 /* Quill dark */
 .ql-toolbar.ql-snow { background: #1a1a24; border: 1.5px solid rgba(255,255,255,.1); border-radius: 10px 10px 0 0; }
 .ql-toolbar.ql-snow .ql-stroke { stroke: rgba(255,255,255,.55); }
@@ -44,7 +44,7 @@
 .ql-toolbar.ql-snow .ql-picker-options { background: #1a1a24; border-color: rgba(255,255,255,.1); color: #f1f5f9; }
 .ql-container.ql-snow { background: #16161f; border: 1.5px solid rgba(255,255,255,.1); border-top: none; border-radius: 0 0 10px 10px; min-height: 200px; }
 .ql-editor { color: rgba(255,255,255,.8); min-height: 200px; }
-.ql-editor.ql-blank::before { color: rgba(255,255,255,.25); font-style: normal; }
+.ql-editor.ql-blank::before { color: rgba(255,255,255,.5); font-style: normal; }
 /* Preview card */
 .pc-preview-card {
     background: #0f0f18;
@@ -127,7 +127,7 @@
                     <div class="mb-4">
                         <label for="{{ form.title.id_for_label }}" class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.title.label }}</span>
-                            <span id="title-char-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
+                            <span id="title-char-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);font-weight:400;text-transform:none;letter-spacing:0;">0 / 200</span>
                         </label>
                         {{ form.title }}
                         {% if form.title.errors %}<div class="text-danger small mt-1">{{ form.title.errors }}</div>{% endif %}
@@ -136,11 +136,11 @@
                     <div class="mb-4">
                         <label for="{{ form.text.id_for_label }}" class="pc-form-label d-flex justify-content-between align-items-baseline">
                             <span>{{ form.text.label }}</span>
-                            <span id="content-word-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.3);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
+                            <span id="content-word-counter" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);font-weight:400;text-transform:none;letter-spacing:0;">0 {% trans "words" %}</span>
                         </label>
                         {{ form.text }}
                         {% if form.text.errors %}<div class="text-danger small mt-1">{{ form.text.errors }}</div>{% endif %}
-                        <small style="color:rgba(255,255,255,.3);">{% trans "Rich formatting: headings, lists, links, quotes, text and background colors." %}</small>
+                        <small style="color:rgba(255,255,255,.5);">{% trans "Rich formatting: headings, lists, links, quotes, text and background colors." %}</small>
                     </div>
 
                     <div class="mb-4">
@@ -150,7 +150,7 @@
                     </div>
 
                     <!-- Draft status indicator (U2-08) -->
-                    <div id="draft-status" role="status" aria-live="polite" aria-atomic="true" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.28);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
+                    <div id="draft-status" role="status" aria-live="polite" aria-atomic="true" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
 
                     <div class="pc-actions">
                         <button type="button" id="preview-btn" class="pc-btn-preview">{% trans "Preview" %}</button>

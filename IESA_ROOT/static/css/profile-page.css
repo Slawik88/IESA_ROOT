@@ -12,7 +12,7 @@
     --bdr:   rgba(255,255,255,0.08);
     --bdr-h: rgba(220,38,38,0.45);
     --text:  rgba(255,255,255,0.88);
-    --muted: rgba(255,255,255,0.42);
+    --muted: rgba(255,255,255,0.56);
     --red:   #dc2626;
     --red-g: rgba(220,38,38,0.30);
     --green: #22c55e;
@@ -296,7 +296,7 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
     from { opacity: 0; transform: scale(.6) translateY(12px); }
     to   { opacity: 1; transform: none; }
 }
-.pin-sep { color: rgba(220,38,38,.4); font-size: 1.5rem; font-weight: 300; margin: 0 .05rem; }
+.pin-sep { color: var(--primary-text); font-size: 1.5rem; font-weight: 300; margin: 0 .05rem; }
 .pin-foot { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-top: .75rem; border-top: 1px solid rgba(255,255,255,.06); }
 .pin-timer { display: flex; align-items: center; gap: .35rem; font-size: .82rem; color: var(--muted); font-weight: 600; }
 .pin-timer span { color: #f87171; font-weight: 900; min-width: 2ch; display: inline-block; }
@@ -452,11 +452,11 @@ html.js [data-reveal].revealed { opacity: 1; transform: none; }
 }
 .post-card-meta {
     display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
-    font-size: .75rem; color: rgba(255,255,255,.38);
+    font-size: .75rem; color: rgba(255,255,255,.5);
 }
 .post-card-meta i { font-size: .7rem; }
 .post-card-view {
-    margin-left: auto; color: rgba(220,38,38,.7); text-decoration: none;
+    margin-left: auto; color: var(--primary-text); text-decoration: none;
     font-size: .75rem; font-weight: 600; transition: color .15s;
 }
 .post-card-view:hover { color: #f87171; }
@@ -545,7 +545,7 @@ body:has(.cab-page) {
     --cab-line-strong: rgba(255,255,255,.14);
     --cab-copy: rgba(255,255,255,.92);
     --cab-copy-muted: rgba(255,255,255,.52);
-    --cab-copy-faint: rgba(255,255,255,.34);
+    --cab-copy-faint: rgba(255,255,255,.5);
     --cab-red: #dc2626;
     --cab-red-soft: #f87171;
     background-color: var(--cab-canvas);
@@ -677,7 +677,7 @@ body:has(.cab-page) {
     border-radius: 0 !important;
     border-bottom: 2px solid transparent;
     background: transparent !important;
-    color: rgba(255,255,255,.42) !important;
+    color: rgba(255,255,255,.5) !important;
     font-size: .78rem !important;
 }
 .cab-qn-item:hover { color: rgba(255,255,255,.76) !important; }
@@ -935,4 +935,10 @@ body:has(.cab-page) {
     width: min(100% - 2 * var(--cab-gutter), 1140px - 2 * var(--cab-gutter));
     margin-left: auto !important;
     margin-right: auto !important;
+}
+
+@media (pointer: coarse) {
+  .btn-cab-primary,
+  .btn-cab-outline,
+  .email-verify-banner__button { min-height: var(--tap-min); }
 }

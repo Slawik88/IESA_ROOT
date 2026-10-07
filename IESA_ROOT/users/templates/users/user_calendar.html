@@ -11,11 +11,11 @@
 <style>
 .ucal-wrap { max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 5rem; }
 .ucal-title { font-size: 1.5rem; font-weight: 800; color: #f1f5f9; margin-bottom: .35rem; }
-.ucal-sub   { font-size: .88rem; color: rgba(255,255,255,.38); margin-bottom: 2rem; }
+.ucal-sub   { font-size: .88rem; color: rgba(255,255,255,.5); margin-bottom: 2rem; }
 
 .ucal-section-label {
     font-size: .65rem; font-weight: 700; letter-spacing: .15em;
-    text-transform: uppercase; color: rgba(220,38,38,.7);
+    text-transform: uppercase; color: var(--primary-text);
     display: flex; align-items: center; gap: .5rem;
     margin-bottom: .85rem;
 }
@@ -45,24 +45,24 @@
     flex-shrink: 0;
 }
 .ucal-day  { font-size: 1.8rem; font-weight: 900; color: #f87171; line-height: 1; }
-.ucal-mon  { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.4); margin-top: .15rem; }
+.ucal-mon  { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.5); margin-top: .15rem; }
 .ucal-body { padding: 1rem 1.25rem; flex: 1; min-width: 0; }
 .ucal-meeting-title { font-size: .95rem; font-weight: 700; color: #f1f5f9; margin-bottom: .3rem; }
 .ucal-partner { font-size: .8rem; color: rgba(255,255,255,.5); margin-bottom: .35rem; }
 .ucal-meta { display: flex; flex-wrap: wrap; gap: .65rem; }
 .ucal-meta-item { display: flex; align-items: center; gap: .35rem; font-size: .78rem; color: rgba(255,255,255,.45); }
-.ucal-meta-item i { color: rgba(220,38,38,.6); font-size: .72rem; }
+.ucal-meta-item i { color: var(--primary-text); font-size: .72rem; }
 .ucal-badge {
     font-size: .65rem; font-weight: 700;
     border-radius: 100px; padding: 2px 9px; border: 1px solid;
     align-self: flex-start; margin-top: .75rem;
 }
 .ucal-badge--upcoming { background: rgba(99,102,241,.12); color: #a5b4fc; border-color: rgba(99,102,241,.25); }
-.ucal-badge--past     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.35); border-color: rgba(255,255,255,.1); }
+.ucal-badge--past     { background: rgba(255,255,255,.06); color: rgba(255,255,255,.5); border-color: rgba(255,255,255,.1); }
 
 .ucal-empty {
     text-align: center; padding: 2rem 1.25rem;
-    color: rgba(255,255,255,.42); border:1px dashed rgba(255,255,255,.1);
+    color: rgba(255,255,255,.5); border:1px dashed rgba(255,255,255,.1);
     border-radius:16px; background:rgba(255,255,255,.02);
 }
 .ucal-empty > i { font-size: 2.5rem; margin-bottom: 1rem; display: block; opacity: .3; }
@@ -140,7 +140,7 @@ body:has(.ucal-wrap) { background:#07070e !important; }
 }
 .ucal-empty > i { color:rgba(255,255,255,.2); font-size:2.1rem; }
 .ucal-empty h2 { font-size:1.2rem !important; }
-.ucal-empty p { max-width:30rem; color:rgba(255,255,255,.44); }
+.ucal-empty p { max-width:30rem; color:rgba(255,255,255,.5); }
 .ucal-empty-actions .btn { min-height:42px; border-radius:9px; }
 .ucal-empty-actions .btn-primary { background:linear-gradient(135deg,#dc2626,#b91c1c); box-shadow:none; }
 
@@ -194,7 +194,7 @@ body:has(.ucal-wrap) { background:#07070e !important; }
             <div class="ucal-body">
                 <div class="ucal-meeting-title">{{ meeting.title }}</div>
                 <div class="ucal-partner">
-                    <i class="fas fa-store me-1" style="color:rgba(220,38,38,.5);"></i>
+                    <i class="fas fa-store me-1" style="color:var(--primary-text);"></i>
                     {{ meeting.partner.company_name }}
                 </div>
                 <div class="ucal-meta">
@@ -240,7 +240,7 @@ body:has(.ucal-wrap) { background:#07070e !important; }
     <div class="ucal-card" style="opacity:.6;">
         <div class="ucal-card-inner">
             <div class="ucal-date-block" style="background:rgba(255,255,255,.04);">
-                <div class="ucal-day" style="color:rgba(255,255,255,.4);">{{ meeting.date|date:"d" }}</div>
+                <div class="ucal-day" style="color:rgba(255,255,255,.5);">{{ meeting.date|date:"d" }}</div>
                 <div class="ucal-mon">{{ meeting.date|date:"M Y" }}</div>
             </div>
             <div class="ucal-body">

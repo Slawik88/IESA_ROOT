@@ -6,13 +6,13 @@ All parameters are optional.
 {% endcomment %}
 <div class="empty-state-wrap text-center" style="padding:2.5rem 1.5rem;">
   <div style="width:56px;height:56px;border-radius:16px;background:rgba(220,38,38,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
-    <i class="{{ icon|default:'fas fa-inbox' }}" style="font-size:1.4rem;color:rgba(220,38,38,.65);"></i>
+    <i class="{{ icon|default:'fas fa-inbox' }}" style="font-size:1.4rem;color:var(--primary-text);"></i>
   </div>
   <h4 style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.75);margin-bottom:.35rem;">
     {{ title|default:_("Nothing here yet") }}
   </h4>
   {% if subtitle %}
-  <p style="font-size:.82rem;color:rgba(255,255,255,.38);max-width:280px;margin:0 auto{% if action_url %} 1rem{% endif %};">
+  <p style="font-size:.82rem;color:rgba(255,255,255,.5);max-width:280px;margin:0 auto{% if action_url %} 1rem{% endif %};">
     {{ subtitle }}
   </p>
   {% endif %}

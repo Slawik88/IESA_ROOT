@@ -15,7 +15,7 @@
     background: rgba(17,17,28,.95);
     border: 1.5px solid rgba(255,255,255,.08);
     border-radius: 20px;
-    overflow: hidden;
+    overflow: clip; /* hidden создавал scroll-контейнер и ломал position: sticky у .edit-tabs */
     box-shadow: 0 16px 56px rgba(0,0,0,.5);
 }
 .edit-card-header {
@@ -43,7 +43,7 @@
     font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 .2rem;
     letter-spacing: -.02em;
 }
-.edit-subtitle { font-size: .82rem; color: rgba(255,255,255,.42); margin: 0; }
+.edit-subtitle { font-size: .82rem; color: rgba(255,255,255,.5); margin: 0; }
 
 .edit-form { padding: 0; }
 
@@ -72,19 +72,19 @@
 /* BLOCK 7b (audit v3): placeholder явно отличается от введённого текста — italic + тусклее */
 .edit-form .form-control::placeholder,
 .edit-form textarea::placeholder {
-    color: rgba(255,255,255,.22) !important;
+    color: rgba(255,255,255,.5) !important;
     font-style: italic !important;
     opacity: 1 !important; /* Firefox по умолчанию делает .5 — переопределяем */
     font-weight: 400 !important;
 }
 .edit-form .form-control:-ms-input-placeholder,
 .edit-form textarea:-ms-input-placeholder {
-    color: rgba(255,255,255,.22) !important;
+    color: rgba(255,255,255,.5) !important;
     font-style: italic !important;
 }
 .edit-form .form-control::-webkit-input-placeholder,
 .edit-form textarea::-webkit-input-placeholder {
-    color: rgba(255,255,255,.22) !important;
+    color: rgba(255,255,255,.5) !important;
     font-style: italic !important;
 }
 .edit-form .form-control:focus,
@@ -96,7 +96,7 @@
     color: #fff !important;
 }
 .edit-form .form-select option { background: #16162a; color: #fff; }
-.edit-form .form-text { color: rgba(255,255,255,.28) !important; }
+.edit-form .form-text { color: rgba(255,255,255,.5) !important; }
 .edit-form .form-check-input {
     background-color: rgba(255,255,255,.08) !important;
     border-color: rgba(255,255,255,.2) !important;
@@ -188,7 +188,7 @@
     font-weight: 700;
     letter-spacing: .06em;
     text-transform: uppercase;
-    color: rgba(255,255,255,.38);
+    color: rgba(255,255,255,.5);
     text-decoration: none;
     border-bottom: 2px solid transparent;
     transition: color .15s, border-color .15s;
@@ -209,7 +209,7 @@
 }
 .link-format-hint i { color:#f87171; margin-top:.15rem; }
 .link-format-hint code { font-size:.74rem; overflow-wrap:anywhere; }
-.profile-draft-status { padding:0 2rem; color:rgba(255,255,255,.38); font-size:.72rem; min-height:1.2em; transition:opacity .3s; }
+.profile-draft-status { padding:0 2rem; color:rgba(255,255,255,.5); font-size:.72rem; min-height:1.2em; transition:opacity .3s; }
 .edit-save-dock {
     position:fixed; z-index:1035; left:50%; bottom:1rem; transform:translate(-50%, 140%);
     width:min(560px, calc(100vw - 2rem)); display:flex; align-items:center; gap:.85rem;
@@ -227,8 +227,9 @@
     .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
     .edit-tab { padding: .6rem .85rem; font-size: .7rem; }
     .edit-card-header { align-items:flex-start; }
-    .edit-header-save { width:40px; padding:.5rem; flex:0 0 40px; }
-    .edit-header-save span { display:none; }
+    .edit-header-save { width:var(--tap-min); min-height:var(--tap-min); padding:.5rem; flex:0 0 var(--tap-min); }
+    /* визуально скрыт, но остаётся accessible name кнопки (display:none его убирал) */
+    .edit-header-save span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
     .edit-tabs { overflow-x:auto; scrollbar-width:none; }
     .edit-tabs::-webkit-scrollbar { display:none; }
     .edit-tab { white-space:nowrap; flex:1 0 auto; justify-content:center; }
@@ -286,7 +287,7 @@ body:has(.profile-edit-page) { background:#07070e !important; }
 .edit-tab {
     min-height:50px; padding:0;
     font-size:.7rem; letter-spacing:.08em;
-    color:rgba(255,255,255,.38);
+    color:rgba(255,255,255,.5);
 }
 .edit-tab.active { color:#fff; border-bottom-color:#dc2626; }
 .card-section {
@@ -328,7 +329,7 @@ body:has(.profile-edit-page) { background:#07070e !important; }
     background-color:#dc2626 !important;
     border-color:#dc2626 !important;
 }
-.email-security-hint { color:rgba(255,255,255,.43); }
+.email-security-hint { color:rgba(255,255,255,.5); }
 #avatar-drop-zone {
     border-width:1px !important;
     border-color:rgba(255,255,255,.12) !important;
@@ -338,7 +339,7 @@ body:has(.profile-edit-page) { background:#07070e !important; }
 .link-format-hint {
     border-radius:9px;
     background:rgba(255,255,255,.018);
-    color:rgba(255,255,255,.43);
+    color:rgba(255,255,255,.5);
 }
 .edit-actions {
     padding:1.35rem 2rem;
@@ -363,7 +364,7 @@ body:has(.profile-edit-page) { background:#07070e !important; }
     .edit-header-icon { width:34px; height:34px; }
     .edit-title { font-size:1.25rem; }
     .edit-subtitle { font-size:.77rem; line-height:1.45; }
-    .edit-header-save { width:38px; min-height:38px; flex-basis:38px; border-radius:8px; }
+    .edit-header-save { width:var(--tap-min); min-height:var(--tap-min); flex-basis:var(--tap-min); border-radius:8px; }
     .edit-tabs { top:52px; padding:0 1.2rem; gap:1.25rem; }
     .edit-tab { min-height:46px; }
     .card-section { padding:1.35rem 1.2rem !important; }
@@ -491,10 +492,10 @@ body:has(.profile-edit-page) { background:#07070e !important; }
                                         </div>
 
                                         <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;">
-                                          <i class="fas fa-cloud-upload-alt me-1" style="color:rgba(220,38,38,.6);"></i>
+                                          <i class="fas fa-cloud-upload-alt me-1" style="color:var(--primary-text);"></i>
                                           {% trans "Drag & drop or click to upload" %}
                                         </div>
-                                        <div style="font-size:.7rem;color:rgba(255,255,255,.25);">
+                                        <div style="font-size:.7rem;color:rgba(255,255,255,.5);">
                                           {% trans "JPG, PNG, WebP · Max 5 MB" %}
                                         </div>
 
@@ -505,7 +506,7 @@ body:has(.profile-edit-page) { background:#07070e !important; }
                                                aria-label="{% trans 'Upload avatar' %}">
                                     </div>
                                     {% include 'partials/form_field_errors.html' with field=form.avatar %}
-                                    <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.35);margin-top:.4rem;"></div>
+                                    <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.5);margin-top:.4rem;"></div>
                             </div></div>
                         </div>
 

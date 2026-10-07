@@ -134,7 +134,7 @@
          style="background:rgba(255,255,255,.025);border:1.5px dashed rgba(255,255,255,.08);border-radius:20px;padding:3.5rem 2rem;max-width:480px;margin:2rem auto;">
         <div style="font-size:3rem;margin-bottom:.9rem;animation:gal-float 3s ease-in-out infinite;">🔍</div>
         <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:.4rem;">{% trans "No posts found for your query" %}</div>
-        <p style="font-size:.82rem;color:rgba(255,255,255,.35);margin-bottom:1.3rem;">{% trans "Try a different keyword or remove the filters." %}</p>
+        <p style="font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:1.3rem;">{% trans "Try a different keyword or remove the filters." %}</p>
         <button type="button"
                 hx-get="{% url 'blog:post_search' %}"
                 hx-target="#posts-container"

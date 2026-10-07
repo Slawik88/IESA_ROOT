@@ -25,7 +25,7 @@
         left: 0;
         width: max-content;
         padding: .6rem 1rem;
-        color: rgba(255,255,255,.4);
+        color: rgba(255,255,255,.5);
         font-size: .72rem;
     }
 }
@@ -37,7 +37,7 @@
 
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;flex-wrap:wrap;gap:1rem;">
         <div>
-            <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(220,38,38,.7);margin-bottom:.35rem;">
+            <div style="font-size:.68rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--primary-text);margin-bottom:.35rem;">
                 {% trans "ADMIN PANEL" %}
             </div>
             <h1 style="font-size:1.6rem;font-weight:800;color:#f1f5f9;margin:0;">{% trans "Invite Links" %}</h1>
@@ -62,15 +62,15 @@
             <caption class="visually-hidden">{% trans "Generated partner invite links" %}</caption>
             <thead>
                 <tr style="border-bottom:1px solid rgba(255,255,255,.07);">
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Type" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Company" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Note" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Created by" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Used by" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Uses" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Expires" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Active" %}</th>
-                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);text-align:left;white-space:nowrap;">{% trans "Link" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Type" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Company" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Note" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Created by" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Used by" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Uses" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Expires" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Active" %}</th>
+                    <th scope="col" style="padding:.65rem 1rem;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.5);text-align:left;white-space:nowrap;">{% trans "Link" %}</th>
                 </tr>
             </thead>
             <tbody>
@@ -93,12 +93,12 @@
                         {% if inv.is_valid %}
                         <span style="color:#4ade80;font-size:.75rem;">✓ Active</span>
                         {% else %}
-                        <span style="color:rgba(255,255,255,.3);font-size:.75rem;">Inactive</span>
+                        <span style="color:rgba(255,255,255,.5);font-size:.75rem;">Inactive</span>
                         {% endif %}
                     </td>
                     <td style="padding:.7rem 1rem;">
                         <a href="{% url 'users:invite_register' inv.token %}"
-                           style="font-size:.78rem;color:rgba(220,38,38,.7);font-family:var(--font-mono);word-break:break-all;"
+                           style="font-size:.78rem;color:var(--primary-text);font-family:var(--font-mono);word-break:break-all;"
                            title="Copy this link">/invite/{{ inv.token|truncatechars:12 }}</a>
                     </td>
                 </tr>
@@ -107,7 +107,7 @@
         </table>
     </div>
     {% else %}
-    <div style="text-align:center;padding:3rem;color:rgba(255,255,255,.3);">
+    <div style="text-align:center;padding:3rem;color:rgba(255,255,255,.5);">
         <i class="fas fa-envelope-open" style="font-size:2.5rem;margin-bottom:1rem;display:block;"></i>
         <p style="font-size:.9rem;">{% trans "No invite links yet." %}</p>
     </div>

@@ -13,7 +13,7 @@
     --dark-input: #1a1a28;
     --dark-border: rgba(255,255,255,0.08);
     --dark-border-tg: rgba(41,168,235,0.22);
-    --muted: rgba(255,255,255,0.38);
+    --muted: rgba(255,255,255,0.56);
 }
 
 .tg-page {
@@ -93,7 +93,7 @@
     margin-bottom: 1.4rem;
     display: flex; align-items: center; gap: .55rem;
 }
-.tg-error i { color: #dc2626; flex-shrink: 0; }
+.tg-error i { color: var(--primary-text); flex-shrink: 0; }
 
 /* Bot link banner */
 .tg-bot-banner {
@@ -167,7 +167,7 @@
     font-weight: 900;
     font-size: .65rem;
     transition: transform .2s;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255,255,255,.5);
 }
 .tg-fallback[open] summary::before { transform: rotate(-180deg); }
 .tg-fallback summary:hover { color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.02); }
@@ -205,7 +205,7 @@
     font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,.5);
     margin-bottom: .75rem;
 }
 
@@ -269,7 +269,7 @@
     border: 1px solid rgba(255,255,255,0.05);
     border-radius: 10px;
     font-size: .78rem;
-    color: rgba(255,255,255,0.28);
+    color: rgba(255,255,255,.5);
     margin-bottom: 1.4rem;
 }
 .tg-security-note i { flex-shrink: 0; color: rgba(255,255,255,0.2); }
@@ -281,7 +281,7 @@
     font-weight: 600;
     letter-spacing: .1em;
     text-transform: uppercase;
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,.5);
     margin-bottom: .85rem;
 }
 
@@ -296,7 +296,7 @@
 #code-hidden { display: none; }
 
 .otp-box {
-    width: 48px; height: 58px;
+    width: 48px; min-width: 44px; height: 58px; flex-shrink: 0;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
     font-size: 1.75rem; font-weight: 700;
@@ -428,7 +428,7 @@
     margin-top: 1rem;
 }
 .tg-back a {
-    color: rgba(255,255,255,0.25);
+    color: rgba(255,255,255,.5);
     font-size: .83rem;
     text-decoration: none;
     transition: color .2s;

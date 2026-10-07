@@ -932,7 +932,7 @@ body {
 }
 
 #about-section .section-title {
-    color: #991b1b;
+    color: var(--primary-text);
     font-weight: 800;
 }
 
@@ -2023,7 +2023,7 @@ body {
     padding: 0.35rem 0.8rem;
     border-radius: 999px;
     background: rgba(248, 113, 113, 0.12);
-    color: #b91c1c;
+    color: var(--primary-text);
     font-weight: 700;
     font-size: 0.75rem;
     letter-spacing: 0.05em;

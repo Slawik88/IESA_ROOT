@@ -689,7 +689,7 @@
       {# QR Code — главное действие для активных членов #}
       {% if user.permanent_id %}
       <div style="padding:1.1rem 1.25rem .5rem;text-align:center;border-bottom:1px solid rgba(255,255,255,.06);">
-        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.65rem;">{% trans "YOUR MEMBERSHIP" %}</div>
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.65rem;">{% trans "YOUR MEMBERSHIP" %}</div>
         <button type="button" id="center-show-qr"
                 style="display:inline-flex;align-items:center;gap:.6rem;padding:.7rem 1.4rem;background:linear-gradient(135deg,#dc2626,#991b1b);border:none;border-radius:12px;color:#fff;font-size:.92rem;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(220,38,38,.40);">
           <i class="fas fa-qrcode" aria-hidden="true"></i> {% trans "Show QR Code" %}
@@ -700,7 +700,7 @@
       {# Quick Visit — только для партнёров #}
       {% if user.is_partner %}
       <div style="padding:.85rem 1.25rem .5rem;">
-        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "PARTNER ACTIONS" %}</div>
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "PARTNER ACTIONS" %}</div>
         <a href="{% url 'users:partner_dashboard' %}#search-section"
            style="display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;background:rgba(245,158,11,.10);border:1px solid rgba(245,158,11,.25);border-radius:12px;text-decoration:none;color:#fbbf24;font-size:.88rem;font-weight:700;">
           <i class="fas fa-user-plus" aria-hidden="true" style="font-size:1rem;width:18px;text-align:center;"></i>
@@ -711,7 +711,7 @@
 
       {# Общие действия для всех — Quick Actions grid #}
       <div style="padding:.85rem 1.25rem .5rem;">
-        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "QUICK ACTIONS" %}</div>
+        <div style="font-size:.66rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.55rem;">{% trans "QUICK ACTIONS" %}</div>
       </div>
       <div style="padding:0 .85rem .5rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
         <a href="{% url 'blog:post_create' %}"

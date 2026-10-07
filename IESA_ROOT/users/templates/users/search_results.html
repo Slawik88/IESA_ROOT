@@ -141,12 +141,12 @@
     {% empty %}
       {# 4e: Улучшенный empty state с предложением пригласить #}
       <div style="text-align:center;padding:3rem 1.5rem;background:rgba(255,255,255,.025);border:1.5px dashed rgba(255,255,255,.08);border-radius:20px;margin-top:.75rem;">
-        <div style="font-size:2.4rem;margin-bottom:.8rem;color:rgba(220,38,38,.6);"><i class="fas fa-user-group" aria-hidden="true"></i></div>
+        <div style="font-size:2.4rem;margin-bottom:.8rem;color:var(--primary-text);"><i class="fas fa-user-group" aria-hidden="true"></i></div>
         {% if query %}
         <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.7);margin-bottom:.35rem;">
           {% blocktrans with q=query %}No results for "{{ q }}"{% endblocktrans %}
         </div>
-        <p style="font-size:.8rem;color:rgba(255,255,255,.35);margin-bottom:1.2rem;">{% trans "This person might not be a member yet." %}</p>
+        <p style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:1.2rem;">{% trans "This person might not be a member yet." %}</p>
         {% if user.is_authenticated %}
         <a href="{% url 'users:invite_generate' %}"
            style="display:inline-flex;align-items:center;gap:.45rem;padding:.45rem 1.1rem;background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.25);border-radius:8px;color:#f87171;font-size:.8rem;font-weight:700;text-decoration:none;transition:background .15s;"
@@ -156,7 +156,7 @@
         {% endif %}
         {% else %}
         <div style="font-size:.95rem;font-weight:700;color:rgba(255,255,255,.72);margin-bottom:.35rem;">{% trans "Find a member" %}</div>
-        <p style="font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:0;">{% trans "Search by name or username" %}</p>
+        <p style="font-size:.8rem;color:rgba(255,255,255,.5);margin-bottom:0;">{% trans "Search by name or username" %}</p>
         {% endif %}
       </div>
     {% endfor %}

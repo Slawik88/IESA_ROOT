@@ -48,9 +48,9 @@
 
   {% if not partners %}
   <div class="text-center py-5">
-    <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;color:var(--primary);" aria-hidden="true"><i class="fas fa-handshake"></i></div>
+    <div style="font-size:2.5rem;margin-bottom:12px;opacity:.3;color:var(--primary-text);" aria-hidden="true"><i class="fas fa-handshake"></i></div>
     <h5 style="color:rgba(255,255,255,.5);">{% trans "No Partners Yet" %}</h5>
-    <p style="color:rgba(255,255,255,.3);">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
+    <p style="color:rgba(255,255,255,.5);">{% trans "We're working on establishing partnerships. Check back soon!" %}</p>
   </div>
   {% endif %}
 </div>
@@ -66,7 +66,7 @@
       <div class="modal-body p-0" id="partner-modal-body">
         <!-- HTMX will load content here -->
         <div class="text-center py-5">
-          <div class="spinner-border" style="color:var(--primary);" role="status">
+          <div class="spinner-border" style="color:var(--primary-text);" role="status">
             <span class="visually-hidden">{% trans "Loading…" %}</span>
           </div>
         </div>
@@ -135,7 +135,7 @@
   line-height: 1.3;
 }
 .p-card-desc {
-  color: rgba(255,255,255,.4);
+  color: rgba(255,255,255,.5);
   font-size: .88rem;
   line-height: 1.55;
   margin: 0;

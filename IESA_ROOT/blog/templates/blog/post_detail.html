@@ -104,7 +104,7 @@
     color: #f1f5f9;
     box-shadow: 0 0 0 3px rgba(220,38,38,.15);
 }
-.pd-comment-form textarea::placeholder { color: rgba(255,255,255,.3); }
+.pd-comment-form textarea::placeholder { color: rgba(255,255,255,.5); }
 .pd-auth-notice {
     background: rgba(234,179,8,.08);
     border: 1.5px solid rgba(234,179,8,.2);
@@ -139,7 +139,7 @@
 .pd-rec-card__no-img { height: 80px; background: #1a1a24; display: flex; align-items: center; justify-content: center; }
 .pd-rec-card__body { padding: .875rem 1rem; }
 .pd-rec-card__title { font-size: .9rem; font-weight: 700; color: #f1f5f9; margin-bottom: .35rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.pd-rec-card__meta { font-size: .78rem; color: rgba(255,255,255,.35); display: flex; gap: .75rem; }
+.pd-rec-card__meta { font-size: .78rem; color: rgba(255,255,255,.5); display: flex; gap: .75rem; }
 </style>
 {% endblock %}
 
@@ -217,7 +217,7 @@
                           method="post">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <textarea name="text" class="form-control" id="comment-textarea" rows="3" placeholder="{% trans "Your comment..." %}" required></textarea>
+                            <textarea name="text" class="form-control" id="comment-textarea" rows="3" placeholder="{% trans "Your comment..." %}" aria-label="{% trans "Your comment..." %}" required></textarea>
                         </div>
                         <button type="submit" class="btn hero-btn-p btn-sm">{% trans "Send comment" %}</button>
                     </form>

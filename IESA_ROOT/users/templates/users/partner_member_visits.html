@@ -66,10 +66,10 @@
 <div class="dash-card">
   <div class="dash-card__header">
     <span class="dash-card__title">
-      <i class="fas fa-history" style="color:var(--primary);"></i>
+      <i class="fas fa-history" style="color:var(--primary-text);"></i>
       {% trans "Visit History" %}
     </span>
-    <span style="font-size:.75rem;color:rgba(255,255,255,.3);">{{ total }} {% trans "total" %}</span>
+    <span style="font-size:.75rem;color:rgba(255,255,255,.5);">{{ total }} {% trans "total" %}</span>
   </div>
   <div class="dash-card__body" style="padding:0;">
 
@@ -96,7 +96,7 @@
                 <td data-label="{% trans 'SERVICE' %}" style="color:rgba(255,255,255,.75);">
                   {{ visit.get_service_type_display }}
                   {% if visit.service_description %}
-                    <br><span style="font-size:.71rem;color:rgba(255,255,255,.32);font-style:italic;">{{ visit.service_description|truncatechars:50 }}</span>
+                    <br><span style="font-size:.71rem;color:rgba(255,255,255,.5);font-style:italic;">{{ visit.service_description|truncatechars:50 }}</span>
                   {% endif %}
                 </td>
                 <td data-label="CHF">
@@ -118,7 +118,7 @@
                 </td>
                 <td data-label="{% trans 'NOTES' %}" style="max-width:160px;">
                   {% if visit.comments %}
-                    <span style="font-size:.73rem;color:rgba(255,255,255,.4);font-style:italic;">{{ visit.comments|truncatechars:60 }}</span>
+                    <span style="font-size:.73rem;color:rgba(255,255,255,.5);font-style:italic;">{{ visit.comments|truncatechars:60 }}</span>
                   {% else %}
                     <span style="color:rgba(255,255,255,.15);">—</span>
                   {% endif %}

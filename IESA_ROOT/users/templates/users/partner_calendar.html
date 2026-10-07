@@ -26,7 +26,7 @@
   text-align: left;
 }
 .cal-mobile-date-btn:hover { background: rgba(255,255,255,.11); }
-.cal-mobile-date-btn i { color: var(--primary); font-size: 1rem; }
+.cal-mobile-date-btn i { color: var(--primary-text); font-size: 1rem; }
 
 /* Полноэкранный оверлей с мини-календарём */
 .cal-date-overlay {
@@ -107,8 +107,8 @@
 .cal-jump-btn:hover { background: rgba(220,38,38,.22); }
 .cal-month-grid { padding: .5rem .6rem .6rem; }
 .cal-month-dow-row { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: .2rem; }
-.cal-month-dow { text-align: center; font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.25); padding: .1rem 0; }
-.cal-month-dow:last-child { color: rgba(220,38,38,.5); }
+.cal-month-dow { text-align: center; font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.5); padding: .1rem 0; }
+.cal-month-dow:last-child { color: var(--primary-text); }
 .cal-month-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
 .cal-month-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: .2rem .1rem .15rem; border-radius: 7px; cursor: pointer; text-decoration: none; transition: background .12s; position: relative; overflow: hidden; }
 .cal-month-cell:hover { background: rgba(255,255,255,.07); }
@@ -126,21 +126,21 @@
 .cal-mini-dot-row { display: flex; justify-content: center; gap: 2px; margin-top: 2px; min-height: 5px; }
 .cal-mini-dot { width: 4px; height: 4px; border-radius: 50%; background: rgba(220,38,38,.6); }
 .cal-upcoming { background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.07); border-radius: 14px; overflow: hidden; max-height: 380px; overflow-y: auto; scrollbar-width: thin; }
-.cal-upcoming-head { padding: .65rem 1rem; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.3); border-bottom: 1px solid rgba(255,255,255,.06); position: sticky; top: 0; background: #0e0e18; }
+.cal-upcoming-head { padding: .65rem 1rem; font-size: .68rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.5); border-bottom: 1px solid rgba(255,255,255,.06); position: sticky; top: 0; background: #0e0e18; }
 .cal-upcoming-item { display: flex; align-items: flex-start; gap: .75rem; padding: .7rem 1rem; border-bottom: 1px solid rgba(255,255,255,.05); text-decoration: none; transition: background .12s; cursor: pointer; }
 .cal-upcoming-item:hover { background: rgba(255,255,255,.04); }
 .cal-upcoming-item:last-child { border-bottom: none; }
 .cal-upcoming-date { min-width: 44px; text-align: center; background: rgba(220,38,38,.1); border-radius: 8px; padding: .3rem .2rem; flex-shrink: 0; }
 .cal-upcoming-date-day { font-size: 1rem; font-weight: 900; color: #f87171; line-height: 1; }
-.cal-upcoming-date-mon { font-size: .6rem; color: rgba(255,255,255,.4); text-transform: uppercase; }
+.cal-upcoming-date-mon { font-size: .6rem; color: rgba(255,255,255,.5); text-transform: uppercase; }
 .cal-upcoming-info { flex: 1; min-width: 0; }
 .cal-upcoming-title { font-size: .83rem; font-weight: 600; color: #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cal-upcoming-member { font-size: .75rem; color: rgba(255,255,255,.4); }
-.cal-upcoming-time   { font-size: .72rem; color: rgba(255,255,255,.35); font-family: var(--font-mono); }
+.cal-upcoming-member { font-size: .75rem; color: rgba(255,255,255,.5); }
+.cal-upcoming-time   { font-size: .72rem; color: rgba(255,255,255,.5); font-family: var(--font-mono); }
 .cal-right { display: flex; flex-direction: column; gap: .85rem; }
 .cal-day-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; }
 .cal-day-title { font-size: 1.2rem; font-weight: 800; color: #f1f5f9; }
-.cal-day-sub   { font-size: .8rem; color: rgba(255,255,255,.38); }
+.cal-day-sub   { font-size: .8rem; color: rgba(255,255,255,.5); }
 .cal-day-nav   { display: flex; align-items: center; gap: .4rem; }
 .cal-day-nav-btn { display: inline-flex; align-items: center; gap: .3rem; padding: .35rem .75rem; border-radius: 8px; border: 1px solid rgba(255,255,255,.12); background: none; color: rgba(255,255,255,.6); font-size: .8rem; font-weight: 600; text-decoration: none; cursor: pointer; transition: .15s; transition-property: var(--transition-props); }
 .cal-day-nav-btn:hover { background: rgba(255,255,255,.07); color: #fff; }
@@ -149,10 +149,10 @@
 .cal-hour-row { display: flex; min-height: 64px; border-bottom: 1px solid rgba(255,255,255,.04); position: relative; }
 .cal-hour-row:last-child { border-bottom: none; }
 .cal-hour-row:hover .cal-hour-slot-btn { opacity: 1; }
-.cal-hour-label { width: 62px; flex-shrink: 0; padding: .4rem .75rem 0; font-size: .68rem; font-weight: 600; color: rgba(255,255,255,.28); font-family: var(--font-mono); border-right: 1px solid rgba(255,255,255,.04); }
+.cal-hour-label { width: 62px; flex-shrink: 0; padding: .4rem .75rem 0; font-size: .68rem; font-weight: 600; color: rgba(255,255,255,.5); font-family: var(--font-mono); border-right: 1px solid rgba(255,255,255,.04); }
 .cal-hour-content { flex: 1; position: relative; min-height: 64px; }
-.cal-hour-slot-btn { position: absolute; inset: 2px; background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 6px; opacity: 0; cursor: pointer; transition: opacity .15s, background .15s; display: flex; align-items: center; justify-content: center; font-size: .7rem; color: rgba(255,255,255,.3); text-decoration: none; }
-.cal-hour-slot-btn:hover { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); color: rgba(220,38,38,.6); opacity: 1 !important; }
+.cal-hour-slot-btn { position: absolute; inset: 2px; background: rgba(255,255,255,.02); border: 1px dashed rgba(255,255,255,.08); border-radius: 6px; opacity: 0; cursor: pointer; transition: opacity .15s, background .15s; display: flex; align-items: center; justify-content: center; font-size: .7rem; color: rgba(255,255,255,.5); text-decoration: none; }
+.cal-hour-slot-btn:hover { background: rgba(220,38,38,.06); border-color: rgba(220,38,38,.25); color: var(--primary-text); opacity: 1 !important; }
 #cal-now-line { position: absolute; left: 62px; right: 0; height: 2px; background: #f87171; z-index: 10; pointer-events: none; }
 #cal-now-line::before { content: ''; position: absolute; left: -6px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #f87171; }
 .cal-meeting-block { position: absolute; left: 4px; right: 4px; border-radius: 8px; padding: .35rem .6rem; overflow: hidden; cursor: pointer; z-index: 5; transition: filter .15s, transform .15s; min-height: 30px; }
@@ -164,18 +164,18 @@
 .cal-meeting-block--no-time    { background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.25); position: static !important; height: auto !important; margin: .3rem; }
 .cal-mb-title  { font-size: .75rem; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cal-mb-member { font-size: .67rem; color: rgba(255,255,255,.55); }
-.cal-mb-time   { font-size: .65rem; color: rgba(255,255,255,.4); font-family: var(--font-mono); }
+.cal-mb-time   { font-size: .65rem; color: rgba(255,255,255,.5); font-family: var(--font-mono); }
 .cal-mb-icon   { font-size: .6rem; margin-right: 3px; }
 .cal-no-time-meetings { padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.02); }
-.cal-no-time-label { font-size: .65rem; color: rgba(255,255,255,.28); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .4rem; }
+.cal-no-time-label { font-size: .65rem; color: rgba(255,255,255,.5); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .4rem; }
 .cal-form-card { background: #111118; border: 1.5px solid rgba(255,255,255,.08); border-radius: 14px; overflow: hidden; }
 .cal-form-head { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.1rem; border-bottom: 1px solid rgba(255,255,255,.06); cursor: pointer; }
 .cal-form-head-title { font-size: .75rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.45); display: flex; align-items: center; gap: .5rem; }
-.cal-form-head-title i { color: var(--primary); }
+.cal-form-head-title i { color: var(--primary-text); }
 .cal-form-body { padding: 1rem; }
 .cal-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 @media(max-width:640px) { .cal-form-grid { grid-template-columns: 1fr; } }
-.cal-field-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.35); display: block; margin-bottom: .3rem; }
+.cal-field-label { font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.5); display: block; margin-bottom: .3rem; }
 .cal-input { width: 100%; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: #fff; font-size: .875rem; padding: .52rem .8rem; transition: border-color .15s; outline: none; }
 .cal-input:focus { border-color: rgba(220,38,38,.5); }
 .cal-input::placeholder { color: rgba(255,255,255,.2); }
@@ -185,7 +185,7 @@
 .cal-cn-head { font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgba(99,102,241,.7); margin-bottom: .6rem; }
 .cal-cn-item { font-size: .82rem; color: rgba(255,255,255,.65); padding: .35rem 0; border-bottom: 1px solid rgba(255,255,255,.06); }
 .cal-cn-item:last-child { border-bottom: none; }
-.cal-cn-date { font-size: .68rem; color: rgba(255,255,255,.3); font-family: var(--font-mono); }
+.cal-cn-date { font-size: .68rem; color: rgba(255,255,255,.5); font-family: var(--font-mono); }
 .cal-date-quick { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 6px; color: rgba(255,255,255,.6); font-size: .7rem; font-weight: 700; padding: .22rem .6rem; cursor: pointer; font-family: var(--font-mono); transition: background .15s, color .15s; }
 .cal-date-quick:hover { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.3); color: #fff; }
 .badge-recurring { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.25); border-radius: 100px; padding: 1px 7px; font-size: .62rem; font-weight: 700; }
@@ -194,7 +194,7 @@
 .cal-no-meetings-icon { font-size: 2.5rem; margin-bottom: .75rem; animation: float-icon 3.5s ease-in-out infinite; }
 @keyframes float-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
 .cal-no-meetings-title { font-size: .9rem; font-weight: 700; color: rgba(255,255,255,.5); margin-bottom: .35rem; }
-.cal-no-meetings-sub { font-size: .75rem; color: rgba(255,255,255,.25); margin-bottom: 1rem; }
+.cal-no-meetings-sub { font-size: .75rem; color: rgba(255,255,255,.5); margin-bottom: 1rem; }
 .cal-no-meetings-btn { pointer-events: all; display: inline-flex; align-items: center; gap: .4rem; padding: .4rem 1rem; background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.25); border-radius: 8px; color: #f87171; font-size: .8rem; font-weight: 700; text-decoration: none; cursor: pointer; transition: background .15s; }
 .cal-no-meetings-btn:hover { background: rgba(220,38,38,.2); }
 </style>
@@ -214,11 +214,11 @@
 <div style="padding:.75rem .9rem;border-top:1px solid rgba(255,255,255,.06);display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
   <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
     <div style="font-size:1.1rem;font-weight:900;color:#f87171;">{{ month_meetings }}</div>
-    <div style="font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "This month" %}</div>
+    <div style="font-size:.6rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;">{% trans "This month" %}</div>
   </div>
   <div style="text-align:center;padding:.5rem;background:rgba(255,255,255,.03);border-radius:8px;">
     <div style="font-size:1.1rem;font-weight:900;color:#4ade80;">{{ total_meetings }}</div>
-    <div style="font-size:.6rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.06em;">{% trans "Total" %}</div>
+    <div style="font-size:.6rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;">{% trans "Total" %}</div>
   </div>
 </div>
 {% endblock %}
@@ -486,7 +486,7 @@
           <i class="fas fa-plus-circle"></i>
           {% trans "SCHEDULE A MEETING" %}
         </div>
-        <i class="fas fa-chevron-down" id="cal-form-arrow" style="font-size:.75rem;color:rgba(255,255,255,.3);transition:transform .2s;"></i>
+        <i class="fas fa-chevron-down" id="cal-form-arrow" style="font-size:.75rem;color:rgba(255,255,255,.5);transition:transform .2s;"></i>
       </label>
       <input type="checkbox" id="cal-form-toggle" style="display:none;" checked>
 
@@ -494,7 +494,7 @@
       {# Кнопка закрытия drawer — только на мобиле #}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;" class="cal-drawer-header">
         <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.45);">
-          <i class="fas fa-calendar-plus" style="color:var(--primary);margin-right:.35rem;"></i>
+          <i class="fas fa-calendar-plus" style="color:var(--primary-text);margin-right:.35rem;"></i>
           {% trans "Schedule Meeting" %}
         </div>
         <button type="button" class="partner-icon-button" onclick="closeFormDrawer()" aria-label="{% trans 'Close meeting form' %}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
@@ -516,12 +516,12 @@
               <input type="text" name="title" id="meeting-title" class="cal-input" placeholder="{% trans 'Personal training, Consultation, Insurance review...' %}" required>
             </div>
             <div>
-              <label class="cal-field-label" for="meeting-date">{% trans "DATE" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
+              <label class="cal-field-label" for="meeting-date">{% trans "DATE" %} <span style="color:rgba(255,255,255,.5);font-weight:400;font-size:.62rem;">({% trans "optional" %})</span></label>
               <input type="date" name="date" id="meeting-date" class="cal-input" value="{{ prefill_date }}">
               <div style="display:flex;gap:.4rem;margin-top:.4rem;">
                 <button type="button" class="cal-date-quick" id="cal-today-btn">{% trans "Today" %}</button>
                 <button type="button" class="cal-date-quick" id="cal-tomorrow-btn">{% trans "Tomorrow" %}</button>
-                <button type="button" class="cal-date-quick" id="cal-clear-btn" style="color:rgba(255,255,255,.3);">{% trans "Clear" %}</button>
+                <button type="button" class="cal-date-quick" id="cal-clear-btn" style="color:rgba(255,255,255,.5);">{% trans "Clear" %}</button>
               </div>
               <div id="cal-date-warn" style="display:none;font-size:.7rem;color:#f87171;margin-top:.3rem;">
                 <i class="fas fa-exclamation-circle me-1"></i>{% trans "Date is in the past" %}
@@ -533,7 +533,7 @@
                 <input type="time" name="start_time" id="meeting-start" class="cal-input" value="{{ prefill_time }}">
               </div>
               <div>
-                <label class="cal-field-label" for="meeting-end">{% trans "END" %} <span style="color:rgba(255,255,255,.3);font-size:.6rem;" id="cal-duration-label"></span></label>
+                <label class="cal-field-label" for="meeting-end">{% trans "END" %} <span style="color:rgba(255,255,255,.5);font-size:.6rem;" id="cal-duration-label"></span></label>
                 <input type="time" name="end_time" id="meeting-end" class="cal-input">
               </div>
             </div>
@@ -542,7 +542,7 @@
               <input id="meeting-address" type="text" name="address" class="cal-input" placeholder="{% trans 'Street, city...' %}">
             </div>
             <div>
-              <label class="cal-field-label" for="meeting-series">{% trans "SERIES LABEL" %} <span style="color:rgba(255,255,255,.3);font-weight:400;font-size:.6rem;">{% trans "(for long-term clients)" %}</span></label>
+              <label class="cal-field-label" for="meeting-series">{% trans "SERIES LABEL" %} <span style="color:rgba(255,255,255,.5);font-weight:400;font-size:.6rem;">{% trans "(for long-term clients)" %}</span></label>
               <input id="meeting-series" type="text" name="series_label" class="cal-input" placeholder="{% trans 'e.g. Insurance case #123, Rehab Q1' %}">
             </div>
             <div style="grid-column:span 2;">
@@ -582,7 +582,7 @@
   <div id="popup-member" style="font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:.4rem;"></div>
   <div id="popup-time"   style="font-size:.78rem;color:#f87171;font-family:var(--font-mono);margin-bottom:.4rem;"></div>
   <div id="popup-addr"   style="font-size:.78rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;"></div>
-  <div id="popup-notes"  style="font-size:.78rem;color:rgba(255,255,255,.38);font-style:italic;margin-bottom:.65rem;"></div>
+  <div id="popup-notes"  style="font-size:.78rem;color:rgba(255,255,255,.5);font-style:italic;margin-bottom:.65rem;"></div>
   <div style="display:flex;gap:.5rem;">
     <a id="popup-cancel-btn" href="#" style="font-size:.75rem;color:#f87171;text-decoration:none;padding:.3rem .65rem;border:1px solid rgba(220,38,38,.3);border-radius:7px;transition:background .15s;"
        onmouseover="this.style.background='rgba(220,38,38,.12)'" onmouseout="this.style.background=''">

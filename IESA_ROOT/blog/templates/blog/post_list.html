@@ -21,7 +21,7 @@
 }
 /* ── 8a: Search loading state ──────────────────── */
 .cmd-search-spinner {
-    color: rgba(220,38,38,.7);
+    color: var(--primary-text);
     font-size: .75rem;
     padding: 0 .35rem;
     flex-shrink: 0;
@@ -42,7 +42,7 @@
     color: rgba(255,255,255,.55);
     margin-top: 1.2rem;
 }
-.pl-counter-chip i { color: var(--primary); }
+.pl-counter-chip i { color: var(--primary-text); }
 </style>
 {% endblock %}
 
@@ -141,7 +141,7 @@
     {# 5a: Bottom sheet с фильтрами для мобильных #}
     <div class="iesa-bottom-sheet" id="cmd-filters-sheet" style="padding:1.5rem 1.25rem 2rem;">
         <div class="bs-handle"></div>
-        <div style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
+        <div style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
             {% trans "FILTERS" %}
         </div>
 
@@ -159,7 +159,7 @@
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
             <div>
-                <label for="mob-status" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">STATUS_</label>
+                <label for="mob-status" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:var(--primary-text);letter-spacing:.12em;margin-bottom:.4rem;">STATUS_</label>
                 <select id="mob-status" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"
@@ -172,7 +172,7 @@
                 </select>
             </div>
             <div>
-                <label for="mob-sort" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:rgba(220,38,38,.7);letter-spacing:.12em;margin-bottom:.4rem;">ORDER_</label>
+                <label for="mob-sort" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:var(--primary-text);letter-spacing:.12em;margin-bottom:.4rem;">ORDER_</label>
                 <select id="mob-sort" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"
@@ -230,7 +230,7 @@
             <div class="text-center p-5 rounded-4" style="background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.07);" data-reveal>
                 <div style="font-size:3rem;margin-bottom:1rem;animation:gal-float 3s ease-in-out infinite;">📝</div>
                 <h5 class="fw-bold mb-2" style="color:rgba(255,255,255,.75);">{% trans "No Posts Yet" %}</h5>
-                <p style="color:rgba(255,255,255,.35);" class="mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
+                <p style="color:rgba(255,255,255,.5);" class="mb-4">{% trans "Be the first to share news or ideas with the community" %}</p>
                 {% if user.is_authenticated %}
                     <a href="{% url 'blog:post_create' %}" class="btn hero-btn-p">
                         <i class="fas fa-plus me-2"></i>{% trans "Create First Post" %}

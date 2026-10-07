@@ -216,7 +216,7 @@
 /* Outline Buttons */
 .btn-outline-primary {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-text);
   border-color: var(--primary);
 }
 
@@ -605,32 +605,32 @@ textarea.form-control {
 
 .badge-success,
 .bg-success {
-  background: var(--success);
+  background: var(--success-active);
   color: var(--white);
 }
 
 .badge-warning,
 .bg-warning {
-  background: var(--warning);
+  background: var(--warning-hover);
   color: var(--white);
 }
 
 .badge-danger,
 .bg-danger {
-  background: var(--danger);
+  background: var(--danger-hover);
   color: var(--white);
 }
 
 .badge-info,
 .bg-info {
-  background: var(--info);
+  background: var(--info-hover);
   color: var(--white);
 }
 
 /* Subtle Badges */
 .bg-primary-subtle {
   background: var(--primary-100);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .bg-secondary-subtle {
@@ -645,7 +645,7 @@ textarea.form-control {
 
 .bg-warning-subtle {
   background: var(--warning-100);
-  color: var(--warning-hover);
+  color: #fbbf24;
 }
 
 .bg-danger-subtle {
@@ -1474,7 +1474,7 @@ textarea:focus-visible {
     align-items: center;
     justify-content: center;
     font-size: 2.5rem;
-    color: var(--primary);
+    color: var(--primary-text);
 }
 
 .benefit-card-content {
@@ -1492,7 +1492,7 @@ textarea:focus-visible {
 .benefit-card-category {
     display: inline-block;
     background: var(--primary-100);
-    color: var(--primary);
+    color: var(--primary-text);
     padding: 0.25rem 0.75rem;
     border-radius: 20px;
     font-size: 0.75rem;
@@ -1640,7 +1640,7 @@ textarea:focus-visible {
   align-items: center;
   gap: .35rem;
   margin-top: .35rem;
-  color: rgba(255, 255, 255, .38);
+  color: rgba(255, 255, 255, .5);
   font-size: .7rem;
 }
 .email-verify-banner__actions {

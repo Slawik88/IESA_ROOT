@@ -17,11 +17,11 @@
 /* ── 7c: Inline Breadcrumbs для обычных страниц ── */
 .page-bc { padding: .65rem 0 .25rem; }
 .page-bc ol { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
-.page-bc li { display: flex; align-items: center; gap: .3rem; font-size: .78rem; color: rgba(255,255,255,.4); }
-.page-bc li a { color: rgba(255,255,255,.4); text-decoration: none; transition: color .15s; }
+.page-bc li { display: flex; align-items: center; gap: .3rem; font-size: .78rem; color: rgba(255,255,255,.5); }
+.page-bc li a { color: rgba(255,255,255,.5); text-decoration: none; transition: color .15s; }
 .page-bc li a:hover { color: rgba(255,255,255,.75); }
 .page-bc li:last-child { color: rgba(255,255,255,.7); font-weight: 600; }
-.page-bc .bc-sep { font-size: .5rem; color: rgba(255,255,255,.22); }
+.page-bc .bc-sep { font-size: .5rem; color: rgba(255,255,255,.5); }
 
 /* ── Unified Page Hero (replaces .pl-hero, .ev-page-hero, .gal-hero, .prod-hero, .ben-hero) ── */
 .page-hero {
@@ -46,7 +46,7 @@
   font-weight: 800;
   letter-spacing: .1em;
   text-transform: uppercase;
-  color: var(--primary);
+  color: var(--primary-text);
   margin-bottom: 1rem;
   display: block;
 }
@@ -69,7 +69,7 @@
 .search-results .list-group-item-action h6,
 .search-results .list-group-item-action strong { color: #fff !important; }
 
-.search-results .text-muted { color: rgba(255,255,255,.4) !important; }
+.search-results .text-muted { color: rgba(255,255,255,.5) !important; }
 .search-results .search-avatar-fallback { background: var(--primary) !important; }
 .search-results .search-partner-fallback {
   background: rgba(255,255,255,.08) !important;
@@ -110,9 +110,9 @@ mark {
   transition-property: var(--transition-props);
 }
 
+/* Большой контейнер с формой не должен «подпрыгивать» под курсором */
 .profile-edit-card:hover {
-  box-shadow: 0 15px 50px rgba(220, 38, 38, 0.15);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-lg);
 }
 
 .edit-card-header {
@@ -160,7 +160,7 @@ mark {
 }
 
 .edit-form .form-label i {
-  color: #dc2626;
+  color: var(--primary-text);
 }
 
 .edit-form input[type="text"],
@@ -210,7 +210,7 @@ mark {
 
 .section-heading {
   font-weight: 700;
-  color: #dc2626;
+  color: var(--primary-text);
   margin-bottom: 15px;
   display: flex;
   align-items: center;
@@ -256,7 +256,7 @@ mark {
 .edit-actions .btn-outline-secondary:hover {
   background: #fef2f2;
   border-color: #dc2626;
-  color: #dc2626;
+  color: var(--primary-text);
 }
 
 /* Form validation styling */
@@ -563,7 +563,7 @@ mark {
 .profile-activity-points {
   font-size: 2.5rem;
   font-weight: var(--font-extrabold);
-  color: var(--primary);
+  color: var(--primary-text);
   letter-spacing: var(--tracking-tight);
 }
 
@@ -634,7 +634,7 @@ mark {
 }
 
 .other-link-item {
-  color: var(--primary);
+  color: var(--primary-text);
   font-weight: var(--font-medium);
   word-break: break-all;
 }
@@ -1093,14 +1093,14 @@ mark {
 .event-date-day {
   font-size: var(--text-2xl);
   font-weight: var(--font-extrabold);
-  color: var(--primary);
+  color: var(--primary-text);
   line-height: 1;
 }
 
 .event-date-month {
   font-size: var(--text-xs);
   font-weight: var(--font-bold);
-  color: var(--primary);
+  color: var(--primary-text);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wider);
 }
@@ -1132,7 +1132,7 @@ mark {
 }
 
 .event-meta i {
-  color: var(--primary);
+  color: var(--primary-text);
   margin-right: var(--space-1);
 }
 
@@ -1858,7 +1858,7 @@ mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, .5);
 }
 
 .post-rec-excerpt {
@@ -2180,7 +2180,7 @@ mark {
 /* ── Excerpt ── */
 .pc-excerpt {
   font-size: .82rem;
-  color: rgba(255,255,255,.42);
+  color: rgba(255,255,255,.5);
   margin: 0 0 .55rem;
   line-height: 1.5;
   display: -webkit-box;
@@ -2393,7 +2393,7 @@ mark {
 }
 
 .cm-reply-time {
-  color: rgba(255,255,255,.3);
+  color: rgba(255,255,255,.5);
   font-size: .7rem;
   margin-left: auto;
 }
@@ -2424,7 +2424,7 @@ mark {
 }
 
 .cm-btn:hover { border-color: rgba(255,255,255,.28); color: rgba(255,255,255,.85); }
-.cm-btn--liked { color: var(--primary); border-color: rgba(220,38,38,.3); }
+.cm-btn--liked { color: var(--primary-text); border-color: rgba(220,38,38,.3); }
 .cm-btn--delete { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.22); color: #f87171; }
 .cm-btn--delete:hover { background: rgba(239,68,68,.18); color: #fca5a5; }
 
@@ -2456,7 +2456,7 @@ mark {
 }
 
 .cm-reply-textarea:focus { border-color: rgba(220,38,38,.45); box-shadow: 0 0 0 2px rgba(220,38,38,.1); }
-.cm-reply-textarea::placeholder { color: rgba(255,255,255,.25); }
+.cm-reply-textarea::placeholder { color: rgba(255,255,255,.5); }
 
 .cm-submit {
   background: rgba(220,38,38,.15);
@@ -2535,13 +2535,20 @@ mark {
 .iesa-article.article-visible:hover { transform: translateY(-6px); }
 
 /* ── Featured (first post) — wide horizontal card ── */
+/* Сетка вместо row-flex: картинка слева на обе строки, справа тело и футер ДРУГ ПОД ДРУГОМ
+   (раньше .art-footer становился третьей колонкой и сжимал текст до 230px) */
 .iesa-article--featured {
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: 46% minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
     min-height: 300px;
 }
+.iesa-article--featured > .art-img-wrap,
+.iesa-article--featured > .art-no-image { grid-column: 1; grid-row: 1 / span 2; }
+.iesa-article--featured > .art-body   { grid-column: 2; grid-row: 1; }
+.iesa-article--featured > .art-footer { grid-column: 2; grid-row: 2; }
 .iesa-article--featured .art-img-wrap {
-    width: 46%;
-    flex-shrink: 0;
+    width: auto;
     border-bottom: none;
     border-right: 1.5px solid rgba(255,255,255,.06);
 }
@@ -2562,7 +2569,7 @@ mark {
     font-size: .9rem;
 }
 @media (max-width: 767px) {
-    .iesa-article--featured { flex-direction: column; min-height: unset; }
+    .iesa-article--featured { display: flex; flex-direction: column; min-height: unset; }
     .iesa-article--featured .art-img-wrap { width: 100%; border-right: none; border-bottom: 1.5px solid rgba(255,255,255,.06); }
     .iesa-article--featured .art-img { height: 220px; min-height: unset; }
 }
@@ -2626,7 +2633,7 @@ mark {
     line-height: 1;
 }
 .iesa-article--featured .art-index {
-    color: rgba(255,255,255,.3);
+    color: rgba(255,255,255,.5);
     font-size: .85rem;
 }
 
@@ -2667,7 +2674,23 @@ mark {
     background: radial-gradient(ellipse at 50% 100%, rgba(220,38,38,.06), transparent 70%);
 }
 .art-no-image i { font-size: 2rem; color: rgba(255,255,255,.08); position: relative; }
-.iesa-article--featured .art-no-image { height: 100%; min-height: 280px; }
+/* Featured без картинки: плейсхолдер занимает те же 46%, что и .art-img-wrap
+   (раньше схлопывался в 32px-полоску, а бейджи вылезали за край карточки) */
+.iesa-article--featured .art-no-image {
+    width: auto;
+    height: auto;
+    min-height: 280px;
+    border-bottom: none;
+    border-right: 1.5px solid rgba(255,255,255,.06);
+}
+@media (max-width: 767px) {
+    .iesa-article--featured .art-no-image {
+        width: 100%;
+        min-height: 150px;
+        border-right: none;
+        border-bottom: 1.5px solid rgba(255,255,255,.06);
+    }
+}
 
 /* ── Body ── */
 .art-body {
@@ -2693,7 +2716,7 @@ mark {
 .iesa-article:hover .art-title { color: #fff; }
 .art-excerpt {
     font-size: .855rem;
-    color: rgba(255,255,255,.43);
+    color: rgba(255,255,255,.5);
     line-height: 1.6;
     flex: 1;
     display: -webkit-box;
@@ -2726,7 +2749,7 @@ mark {
     flex-wrap: wrap;
     gap: .6rem;
     font-size: .78rem;
-    color: rgba(255,255,255,.3);
+    color: rgba(255,255,255,.5);
     border-top: 1px solid rgba(255,255,255,.06);
     padding-top: .65rem;
 }
@@ -2750,7 +2773,7 @@ mark {
 }
 .art-author {
     font-size: .77rem;
-    color: rgba(255,255,255,.28);
+    color: rgba(255,255,255,.5);
     display: flex;
     align-items: center;
     gap: .35rem;
@@ -2896,7 +2919,7 @@ mark {
     align-items: center;
     gap: .75rem;
     font-size: .8rem;
-    color: rgba(255,255,255,.35);
+    color: rgba(255,255,255,.5);
     border-top: 1px solid rgba(255,255,255,.06);
     padding-top: .75rem;
 }
@@ -2918,7 +2941,7 @@ mark {
 }
 .post-card__author {
     font-size: .78rem;
-    color: rgba(255,255,255,.35);
+    color: rgba(255,255,255,.5);
 }
 .post-card__btn {
     background: rgba(220,38,38,.15);
@@ -3163,7 +3186,7 @@ mark {
     justify-content: space-between;
     margin-bottom: 14px;
 }
-.psr-label { color: var(--primary); font-weight: 700; font-size: .9rem; }
+.psr-label { color: var(--primary-text); font-weight: 700; font-size: .9rem; }
 .psr-count {
     background: rgba(220,38,38,.12);
     border: 1px solid rgba(220,38,38,.25);
@@ -3217,14 +3240,14 @@ mark {
     border: 2.5px solid rgba(220,38,38,.3);
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    color: rgba(220,38,38,.7);
+    color: var(--primary-text);
     font-size: 1.3rem;
 }
 
 /* Text */
 .psr-name  { color: #fff; font-weight: 700; font-size: .95rem; }
-.psr-meta  { color: rgba(255,255,255,.4); font-size: .78rem; margin-top: 2px; }
-.psr-arrow { color: rgba(220,38,38,.5); font-size: 1rem; flex-shrink: 0; }
+.psr-meta  { color: rgba(255,255,255,.5); font-size: .78rem; margin-top: 2px; }
+.psr-arrow { color: var(--primary-text); font-size: 1rem; flex-shrink: 0; }
 
 /* Badges */
 .psr-badge {
@@ -3235,7 +3258,7 @@ mark {
     font-weight: 700;
 }
 .psr-badge-active   { background: rgba(74,222,128,.1);  border: 1px solid rgba(74,222,128,.25);  color: #4ade80; }
-.psr-badge-inactive { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.4); }
+.psr-badge-inactive { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.5); }
 
 /* Alert */
 .psr-alert {
@@ -3257,7 +3280,7 @@ mark {
     background: rgba(220,38,38,.04);
     border: 1.5px solid rgba(220,38,38,.12);
     border-radius: 14px;
-    color: rgba(255,255,255,.4);
+    color: rgba(255,255,255,.5);
     font-size: .88rem;
     display: flex; flex-direction: column; align-items: center;
 }
@@ -3331,7 +3354,7 @@ mark {
   /* td 1: дата — мелко, сверху */
   .dash-table tbody td:nth-child(1) {
     font-size: .7rem;
-    color: rgba(255,255,255,.35);
+    color: rgba(255,255,255,.5);
     font-family: var(--font-mono);
     margin-bottom: .3rem;
   }
@@ -3391,7 +3414,7 @@ mark {
 .nd-icon.nd-warning { background:rgba(251,191,36,.15); color:#fbbf24; }
 .nd-icon.nd-primary { background:rgba(220,38,38,.15);  color:#f87171; }
 .nd-msg  { font-size:.82rem; color:rgba(255,255,255,.8); line-height:1.4; }
-.nd-meta { font-size:.7rem;  color:rgba(255,255,255,.3); margin-top:.2rem; }
+.nd-meta { font-size:.7rem;  color:rgba(255,255,255,.5); margin-top:.2rem; }
 .nd-del  {
     background:none; border:none; padding:0 2px; cursor:pointer;
     color:rgba(255,255,255,.2); font-size:1rem; line-height:1;
@@ -3415,5 +3438,16 @@ mark {
 .nd-btn:hover { background:rgba(255,255,255,.1); color:#fff; }
 .nd-btn.nd-btn-red { border-color:rgba(220,38,38,.3); color:#f87171; background:rgba(220,38,38,.08); }
 .nd-btn.nd-btn-red:hover { background:rgba(220,38,38,.18); }
-.nd-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.25); }
+.nd-empty { text-align:center; padding:2.5rem 1rem; color:rgba(255,255,255,.5); }
 .nd-empty i { display:block; font-size:1.8rem; margin-bottom:.6rem; }
+
+/* Тач-экраны: поля формы редактирования ≥16px (иначе iOS приближает страницу при фокусе) */
+@media (pointer: coarse) {
+  .edit-form input[type="text"],
+  .edit-form input[type="email"],
+  .edit-form input[type="date"],
+  .edit-form input[type="tel"],
+  .edit-form input[type="url"],
+  .edit-form textarea,
+  .edit-form select { font-size: 1rem !important; }
+}

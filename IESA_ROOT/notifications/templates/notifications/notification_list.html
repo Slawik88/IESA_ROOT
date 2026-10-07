@@ -66,7 +66,7 @@
 .notification-icon.info     { background: rgba(59,130,246,.14); color: #93c5fd; border: 1px solid rgba(59,130,246,.2); }
 .notification-icon.primary  { background: rgba(220,38,38,.14);  color: #f87171; border: 1px solid rgba(220,38,38,.2); }
 .notification-icon.secondary{ background: rgba(99,102,241,.13); color: #a5b4fc; border: 1px solid rgba(99,102,241,.2); }
-.notification-icon.default  { background: rgba(255,255,255,.07); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.1); }
+.notification-icon.default  { background: rgba(255,255,255,.07); color: rgba(255,255,255,.5); border: 1px solid rgba(255,255,255,.1); }
 
 .notification-content { min-width: 0; flex-grow: 1; }
 
@@ -90,11 +90,11 @@
 .notification-page-head { max-width:760px; margin:0 auto 1.5rem; display:flex; align-items:flex-end; gap:1rem; }
 .notification-page-copy { flex:1; min-width:0; }
 .notification-page-copy h1 { color:#fff; font-size:1.45rem; font-weight:800; margin:0 0 .25rem; }
-.notification-page-copy p { color:rgba(255,255,255,.4); font-size:.86rem; margin:0; }
-.notification-back { white-space:nowrap; min-height:40px; display:inline-flex; align-items:center; }
+.notification-page-copy p { color:rgba(255,255,255,.5); font-size:.86rem; margin:0; }
+.notification-back { white-space:nowrap; min-height:var(--tap-min); min-width:var(--tap-min); justify-content:center; display:inline-flex; align-items:center; }
 
 .notification-meta { margin-top: .3rem; }
-.notification-meta .text-muted { color: rgba(255,255,255,.28) !important; font-size: .75rem; }
+.notification-meta .text-muted { color: rgba(255,255,255,.5) !important; font-size: .75rem; }
 
 .notification-actions { display: flex; gap: .45rem; flex-shrink: 0; margin-left: auto; align-items: flex-start; }
 
@@ -125,7 +125,7 @@
     color: #f87171 !important; border-radius: 12px !important;
 }
 #notification-actions .btn-outline-primary:hover { background: rgba(220,38,38,.22) !important; color: #fff !important; }
-#notification-actions .text-muted { color: rgba(255,255,255,.35) !important; }
+#notification-actions .text-muted { color: rgba(255,255,255,.5) !important; }
 
 /* Pagination */
 .page-link { background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.1) !important; color: rgba(255,255,255,.65) !important; border-radius: 8px !important; }
@@ -135,13 +135,13 @@
 /* Page hero text */
 .text-primary { color: #f87171 !important; }
 .container-limited > .text-center h1 { color: #fff; }
-.container-limited > .text-center p { color: rgba(255,255,255,.4); }
+.container-limited > .text-center p { color: rgba(255,255,255,.5); }
 
 /* Empty state */
 .empty-state { padding: 4rem 1rem; }
 .empty-state i { opacity: .2; color: rgba(255,255,255,.6); }
 .empty-state h5 { color: rgba(255,255,255,.75); }
-.empty-state p  { color: rgba(255,255,255,.35); }
+.empty-state p  { color: rgba(255,255,255,.5); }
 .empty-state .btn-primary {
     background: linear-gradient(135deg,#dc2626,#991b1b) !important;
     border: none !important; border-radius: 12px !important;
@@ -158,7 +158,8 @@
     .notification-actions .btn { min-height:38px; display:inline-flex; align-items:center; justify-content:center; }
     .notification-page-head { align-items:flex-start; margin-bottom:1.25rem; }
     .notification-page-copy h1 { font-size:1.2rem; }
-    .notification-back span { display:none; }
+    /* визуально скрыт, но остаётся accessible name кнопки (display:none его убирал) */
+    .notification-back span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
     #notification-actions { align-items:flex-start !important; gap:.75rem; }
 }
 
@@ -397,7 +398,7 @@ body:has(.notification-list) { background:#07070e !important; }
         {% else %}
         {# Никогда не было уведомлений #}
         <div class="empty-state text-center py-5">
-            <div class="mb-4" style="font-size:2.6rem;color:var(--primary);opacity:.75;animation:float-notif 3s ease-in-out infinite;"><i class="fas fa-bell"></i></div>
+            <div class="mb-4" style="font-size:2.6rem;color:var(--primary-text);opacity:.75;animation:float-notif 3s ease-in-out infinite;"><i class="fas fa-bell"></i></div>
             <h5 class="fw-bold mb-2" style="color:rgba(255,255,255,.75);">{% trans "No notifications yet" %}</h5>
             <p class="text-muted mb-3">{% trans "Notifications appear here when someone likes your post, comments, or follows you." %}</p>
             <p class="text-muted small mb-4">{% trans "Get started by writing your first post or exploring the community." %}</p>
