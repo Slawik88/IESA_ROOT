@@ -545,42 +545,182 @@
       _questsV1Data=d;const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
     }).catch(e=>toast(e,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
-  let _achievementsV1Data=null,_achievementsV1Filter='all';
-  const _achievementAction={rhythm:'openRhythmV2Game()',minesweeper:'openMinesweeperGame()',mafia:'openMafiaStats()',chests:'openChestsV1()',pets:'openPetsV1()'};
-  function achievementPct(value,target){return target?Math.max(0,Math.min(100,Math.round(Number(value||0)*100/Number(target)))):100;}
-  function achievementWord(value,one,few,many){const n=Math.abs(Number(value))%100,n1=n%10;return n>10&&n<20?many:n1===1?one:n1>=2&&n1<=4?few:many;}
-  function achievementFamilyCard(f){
-    const next=f.next,weeksMax=Number(_achievementsV1Data?.max_active_weeks)||156;
-    const finalMilestone=(f.milestones||[]).find(m=>Number(m.level)===Number(f.max_level));
-    const eventTarget=Number(next?.events_required)||Number(finalMilestone?.events_required)||1,weekTarget=Number(next?.weeks_required)||weeksMax;
-    const eventPct=achievementPct(f.completed_events,eventTarget),weekPct=achievementPct(f.active_weeks,weekTarget);
-    const remainingEvents=Math.max(0,eventTarget-Number(f.completed_events||0)),remainingWeeks=Math.max(0,weekTarget-Number(f.active_weeks||0));
-    const remaining=[];
-    if(remainingEvents)remaining.push(`${remainingEvents} ${achievementWord(remainingEvents,'завершение','завершения','завершений')}`);
-    if(remainingWeeks)remaining.push(`${remainingWeeks} ${achievementWord(remainingWeeks,'активная неделя','активные недели','активных недель')}`);
-    const nextCopy=next?`До уровня ${next.level}: ${remaining.length?'ещё '+remaining.join(' и '):'условия выполнены'}.`:'Все 40 уровней пути завершены.';
-    const eventCopy=Number(f.completed_events)>=eventTarget?`${fmt(f.completed_events)} · цель ${fmt(eventTarget)} ✓`:`${fmt(f.completed_events)} / ${fmt(eventTarget)}`;
-    const weekCopy=Number(f.active_weeks)>=weekTarget?`${fmt(f.active_weeks)} · цель ${fmt(weekTarget)} ✓`:`${fmt(f.active_weeks)} / ${fmt(weekTarget)}`;
-    const milestones=(f.milestones||[]).map(m=>`<li class="achievement-milestone is-${esc(m.status)}"><span>${m.status==='claimed'?'✓':m.status==='reached'?'•':'○'}</span><b>${m.level} ур.</b><small>${fmt(m.events_required)} ${achievementWord(m.events_required,'завершение','завершения','завершений')} · ${m.weeks_required} нед.</small><em>+${fmt(m.reward_mora)} 🪙</em></li>`).join('');
-    return `<article class="achievement-card" data-category="${esc(f.category)}">
-      <header class="achievement-card-head"><span class="achievement-icon" aria-hidden="true">${esc(f.icon)}</span><div><small>${f.category==='games'?'Игры':'Приключения'}</small><h2>${esc(f.title)}</h2><p>${esc(f.help)}</p></div><strong>${f.level}<small>/ ${f.max_level}</small></strong></header>
-      <div class="achievement-next"><b>${next?`Следующий уровень · +${fmt(next.reward_mora)} Моры`:'Путь завершён'}</b><span>${esc(nextCopy)}</span></div>
-      <div class="achievement-meter"><label><span>Завершения</span><b>${eventCopy}</b></label><div role="progressbar" aria-label="${esc(f.title)}: завершения" aria-valuemin="0" aria-valuemax="${eventTarget}" aria-valuenow="${Math.min(Number(f.completed_events),eventTarget)}"><i style="width:${eventPct}%"></i></div></div>
-      <div class="achievement-meter"><label><span>Активные недели</span><b>${weekCopy}</b></label><div role="progressbar" aria-label="${esc(f.title)}: активные недели" aria-valuemin="0" aria-valuemax="${weekTarget}" aria-valuenow="${Math.min(Number(f.active_weeks),weekTarget)}"><i style="width:${weekPct}%"></i></div></div>
-      <div class="achievement-card-actions"><button type="button" onclick="${_achievementAction[f.id]||"goTo('activities')"}">${esc(f.action_label||'К активности')}</button><details><summary aria-label="Вехи: ${esc(f.title)}">Вехи</summary><p>Мора указана за достижение самого уровня.</p><ul>${milestones}</ul></details></div>
+  let _achievementsV1Data = null;
+  let _achievementsV1Filter = 'all';
+  const ACHIEVEMENT_FILTERS = Object.freeze(['all', 'games', 'collection']);
+  const ACHIEVEMENT_ACTIONS = Object.freeze({
+    rhythm: 'openRhythmV2Game()',
+    minesweeper: 'openMinesweeperGame()',
+    mafia: 'openMafiaStats()',
+    chests: 'openChestsV1()',
+    pets: 'openPetsV1()',
+  });
+
+  function achievementPct(value, target) {
+    if (!target) return 100;
+    const percent = Math.round(Number(value || 0) * 100 / Number(target));
+    return Math.max(0, Math.min(100, percent));
+  }
+
+  function achievementWord(value, one, few, many) {
+    const lastTwoDigits = Math.abs(Number(value)) % 100;
+    const lastDigit = lastTwoDigits % 10;
+    if (lastTwoDigits > 10 && lastTwoDigits < 20) return many;
+    if (lastDigit === 1) return one;
+    if (lastDigit >= 2 && lastDigit <= 4) return few;
+    return many;
+  }
+
+  function achievementProgressCopy(value, target) {
+    if (Number(value) >= target) return `${fmt(value)} · цель ${fmt(target)} ✓`;
+    return `${fmt(value)} / ${fmt(target)}`;
+  }
+
+  function achievementNextCopy(family, eventTarget, weekTarget) {
+    if (!family.next) return 'Все 40 уровней пути завершены.';
+
+    const remaining = [];
+    const events = Math.max(0, eventTarget - Number(family.completed_events || 0));
+    const weeks = Math.max(0, weekTarget - Number(family.active_weeks || 0));
+    if (events) {
+      remaining.push(`${events} ${achievementWord(events, 'завершение', 'завершения', 'завершений')}`);
+    }
+    if (weeks) {
+      remaining.push(`${weeks} ${achievementWord(weeks, 'активная неделя', 'активные недели', 'активных недель')}`);
+    }
+    const requirement = remaining.length ? `ещё ${remaining.join(' и ')}` : 'условия выполнены';
+    return `До уровня ${family.next.level}: ${requirement}.`;
+  }
+
+  function achievementMilestones(family) {
+    return (family.milestones || []).map((milestone) => {
+      const marker = milestone.status === 'claimed'
+        ? '✓'
+        : (milestone.status === 'reached' ? '•' : '○');
+      const events = achievementWord(
+        milestone.events_required,
+        'завершение',
+        'завершения',
+        'завершений',
+      );
+      return `<li class="achievement-milestone is-${esc(milestone.status)}">
+        <span>${marker}</span>
+        <b>${milestone.level} ур.</b>
+        <small>${fmt(milestone.events_required)} ${events} · ${milestone.weeks_required} нед.</small>
+        <em>+${fmt(milestone.reward_mora)} 🪙</em>
+      </li>`;
+    }).join('');
+  }
+
+  function achievementFamilyCard(family) {
+    const next = family.next;
+    const maxActiveWeeks = Number(_achievementsV1Data?.max_active_weeks) || 156;
+    const finalMilestone = (family.milestones || []).find(
+      (milestone) => Number(milestone.level) === Number(family.max_level),
+    );
+    const eventTarget = Number(next?.events_required)
+      || Number(finalMilestone?.events_required)
+      || 1;
+    const weekTarget = Number(next?.weeks_required) || maxActiveWeeks;
+    const eventValue = Number(family.completed_events || 0);
+    const weekValue = Number(family.active_weeks || 0);
+    const category = family.category === 'games' ? 'Игры' : 'Приключения';
+    const action = ACHIEVEMENT_ACTIONS[family.id] || "goTo('activities')";
+    const nextTitle = next
+      ? `Следующий уровень · +${fmt(next.reward_mora)} Моры`
+      : 'Путь завершён';
+
+    return `<article class="achievement-card" data-category="${esc(family.category)}">
+      <header class="achievement-card-head">
+        <span class="achievement-icon" aria-hidden="true">${esc(family.icon)}</span>
+        <div><small>${category}</small><h2>${esc(family.title)}</h2><p>${esc(family.help)}</p></div>
+        <strong>${family.level}<small>/ ${family.max_level}</small></strong>
+      </header>
+      <div class="achievement-next">
+        <b>${nextTitle}</b>
+        <span>${esc(achievementNextCopy(family, eventTarget, weekTarget))}</span>
+      </div>
+      <div class="achievement-meter">
+        <label><span>Завершения</span><b>${achievementProgressCopy(eventValue, eventTarget)}</b></label>
+        <div role="progressbar" aria-label="${esc(family.title)}: завершения" aria-valuemin="0" aria-valuemax="${eventTarget}" aria-valuenow="${Math.min(eventValue, eventTarget)}"><i style="width:${achievementPct(eventValue, eventTarget)}%"></i></div>
+      </div>
+      <div class="achievement-meter">
+        <label><span>Активные недели</span><b>${achievementProgressCopy(weekValue, weekTarget)}</b></label>
+        <div role="progressbar" aria-label="${esc(family.title)}: активные недели" aria-valuemin="0" aria-valuemax="${weekTarget}" aria-valuenow="${Math.min(weekValue, weekTarget)}"><i style="width:${achievementPct(weekValue, weekTarget)}%"></i></div>
+      </div>
+      <div class="achievement-card-actions">
+        <button type="button" onclick="${action}">${esc(family.action_label || 'К активности')}</button>
+        <details>
+          <summary aria-label="Вехи: ${esc(family.title)}">Вехи</summary>
+          <p>Мора указана за достижение самого уровня.</p>
+          <ul>${achievementMilestones(family)}</ul>
+        </details>
+      </div>
     </article>`;
   }
-  function renderAchievementsV1(){
-    const root=el('pg-achievements-v1'); if(!root||!_achievementsV1Data)return;
-    const all=_achievementsV1Data.families||[],shown=_achievementsV1Filter==='all'?all:all.filter(f=>f.category===_achievementsV1Filter),summary=_achievementsV1Data.summary||{};
-    root.innerHTML=`<div class="looks-head achievement-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><h1 class="looks-htitle">🏅 Достижения</h1></div>
-      <section class="achievement-hero"><div><span>Общий путь</span><strong>${fmt(summary.total_levels||0)} <small>/ ${fmt((summary.families||5)*40)} уровней</small></strong></div><div><span>Получено за уровни</span><strong>${fmt(summary.claimed_mora||0)} 🪙</strong></div><p>Засчитываются только подтверждённые завершения. Награда — Мора, без скрытой косметики.</p></section>
-      <nav class="achievement-filters" aria-label="Категории достижений">${[['all','Все',all.length],['games','Игры',all.filter(f=>f.category==='games').length],['collection','Приключения',all.filter(f=>f.category==='collection').length]].map(([id,label,count])=>`<button type="button" data-achievement-filter="${id}" class="${_achievementsV1Filter===id?'is-active':''}" aria-pressed="${_achievementsV1Filter===id}" onclick="achievementsV1Filter('${id}')">${label}<span>${count}</span></button>`).join('')}</nav>
-      <p class="sr-only" role="status" aria-live="polite">Показано путей: ${shown.length}</p><section class="achievement-list">${shown.map(achievementFamilyCard).join('')||'<p class="empty">В этой категории пока нет путей.</p>'}</section>`;
+
+  function achievementFilterButtons(families) {
+    const filters = [
+      ['all', 'Все', families.length],
+      ['games', 'Игры', families.filter((family) => family.category === 'games').length],
+      ['collection', 'Приключения', families.filter((family) => family.category === 'collection').length],
+    ];
+    return filters.map(([id, label, count]) => (
+      `<button type="button" data-achievement-filter="${id}"`
+      + ` class="${_achievementsV1Filter === id ? 'is-active' : ''}"`
+      + ` aria-pressed="${_achievementsV1Filter === id}"`
+      + ` onclick="achievementsV1Filter('${id}')">${label}<span>${count}</span></button>`
+    )).join('');
   }
-  window.achievementsV1Filter=function(category){_achievementsV1Filter=['all','games','collection'].includes(category)?category:'all';renderAchievementsV1();requestAnimationFrame(()=>el('pg-achievements-v1')?.querySelector(`[data-achievement-filter="${_achievementsV1Filter}"]`)?.focus());};
-  window.openAchievementsV1=function(){
-    switchPage('achievements-v1'); const root=el('pg-achievements-v1'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка достижений…</div>';
-    api('/achievements-v1/me').then(d=>{_achievementsV1Data=d;_achievementsV1Filter='all';renderAchievementsV1();}).catch(e=>root.innerHTML=`<div class="err quest-load-error" role="alert"><b>Достижения не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openAchievementsV1()">Повторить</button></div>`);
+
+  function renderAchievementsV1() {
+    const root = el('pg-achievements-v1');
+    if (!root || !_achievementsV1Data) return;
+
+    const families = _achievementsV1Data.families || [];
+    const shown = _achievementsV1Filter === 'all'
+      ? families
+      : families.filter((family) => family.category === _achievementsV1Filter);
+    const summary = _achievementsV1Data.summary || {};
+    const cards = shown.map(achievementFamilyCard).join('')
+      || '<p class="empty">В этой категории пока нет путей.</p>';
+
+    root.innerHTML = `<div class="looks-head achievement-head">
+        <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
+        <h1 class="looks-htitle">🏅 Достижения</h1>
+      </div>
+      <section class="achievement-hero">
+        <div><span>Общий путь</span><strong>${fmt(summary.total_levels || 0)} <small>/ ${fmt((summary.families || 5) * 40)} уровней</small></strong></div>
+        <div><span>Получено за уровни</span><strong>${fmt(summary.claimed_mora || 0)} 🪙</strong></div>
+        <p>Засчитываются только подтверждённые завершения. Награда — Мора, без скрытой косметики.</p>
+      </section>
+      <nav class="achievement-filters" aria-label="Категории достижений">${achievementFilterButtons(families)}</nav>
+      <p class="sr-only" role="status" aria-live="polite">Показано путей: ${shown.length}</p>
+      <section class="achievement-list">${cards}</section>`;
+  }
+
+  window.achievementsV1Filter = function (category) {
+    _achievementsV1Filter = ACHIEVEMENT_FILTERS.includes(category) ? category : 'all';
+    renderAchievementsV1();
+    requestAnimationFrame(() => {
+      el('pg-achievements-v1')
+        ?.querySelector(`[data-achievement-filter="${_achievementsV1Filter}"]`)
+        ?.focus();
+    });
+  };
+  window.openAchievementsV1 = async function () {
+    switchPage('achievements-v1');
+    const root = el('pg-achievements-v1');
+    root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка достижений…</div>';
+    try {
+      _achievementsV1Data = await api('/achievements-v1/me');
+      _achievementsV1Filter = 'all';
+      renderAchievementsV1();
+    } catch (error) {
+      root.innerHTML = `<div class="err quest-load-error" role="alert">
+        <b>Достижения не загрузились</b><span>${esc(error)}</span>
+        <button type="button" onclick="openAchievementsV1()">Повторить</button>
+      </div>`;
+    }
   };
 })();
