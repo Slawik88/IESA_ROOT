@@ -98,7 +98,9 @@ article:target {
 
 /* Появление карточек при загрузке */
 .card {
-    animation: card-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+    /* backwards (не both): после анимации не остаётся transform: translate(0) scale(1) —
+       он создавал containing block/stacking context на каждой карточке и ломал position: sticky/fixed внутри */
+    animation: card-appear 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
 
 /* Задержки для каскадного появления */

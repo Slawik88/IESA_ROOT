@@ -87,6 +87,8 @@
       card.dataset.staggerInit = '1';
       // Parent already reveals itself
       if (card.closest('[data-reveal]') && !card.hasAttribute('data-reveal')) return;
+      // Components with their own reveal (community-ui.js: timeline items, magazine articles)
+      if (card.classList.contains('tl-item') || card.querySelector('.iesa-article, .tl-inner')) return;
       if (card.getBoundingClientRect().top < vh) return;
       card.classList.add('iesa-stagger');
       card.style.transitionDelay = `${Math.min(i++ * 0.07, 0.6)}s`;
@@ -128,6 +130,13 @@
       el.style.transition = restTransition; // ease back to rest
       el.style.transform = '';
       el.style.willChange = '';
+      // Give the element's own CSS transitions (shadow, border…) back once the ease-back is done
+      const done = e => {
+        if (e && e.target !== el) return;
+        el.style.transition = '';
+        el.removeEventListener('transitionend', done);
+      };
+      el.addEventListener('transitionend', done);
     });
   }
 

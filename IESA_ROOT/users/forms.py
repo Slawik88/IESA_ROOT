@@ -196,6 +196,23 @@ class UserProfileEditForm(forms.ModelForm):
         model = User
         fields = ('first_name', 'last_name', 'email', 'date_of_birth', 'phone_number', 'is_phone_hidden', 'avatar', 'github_url', 'discord_url', 'telegram_url', 'website_url', 'other_links')
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Подсказки браузеру/мобильной клавиатуре: нужная раскладка (tel/numeric) и автозаполнение
+        hints = {
+            'first_name': {'autocomplete': 'given-name'},
+            'last_name': {'autocomplete': 'family-name'},
+            'phone_number': {'inputmode': 'tel', 'autocomplete': 'tel'},
+            'date_of_birth': {'inputmode': 'numeric', 'autocomplete': 'bday'},
+            'github_url': {'autocomplete': 'url'},
+            'website_url': {'autocomplete': 'url'},
+        }
+        for name, attrs in hints.items():
+            if name in self.fields:
+                self.fields[name].widget.attrs.update(attrs)
+        if 'phone_number' in self.fields:
+            self.fields['phone_number'].widget.input_type = 'tel'  # numeric/phone keypad on phones
+
     def clean_phone_number(self):
         phone = self.cleaned_data.get('phone_number')
         if phone:

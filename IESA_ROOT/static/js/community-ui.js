@@ -49,15 +49,15 @@
 
   /* ─── 2. Capacity Progress Bars ─────────────────────────────────────────── */
   function initCapacityBars() {
-    document.querySelectorAll('.tl-capacity-fill[data-filled]').forEach(function (bar) {
+    /* Раньше искали несуществующий `.tl-capacity-fill` — амбер/красный уровни заполнения не включались никогда.
+       Ширину (--p) рендерит сервер; здесь только цветовые уровни. */
+    document.querySelectorAll('.tl-cap-fill[data-filled]').forEach(function (bar) {
       var filled = parseInt(bar.dataset.filled, 10) || 0;
       var max    = parseInt(bar.dataset.max,    10) || 0;
       if (!max) return;
       var pct = Math.min(100, Math.round(filled / max * 100));
-      if (pct >= 100) bar.classList.add('tl-capacity-fill--full');
-      else if (pct >= 75) bar.classList.add('tl-capacity-fill--warn');
-      // Animate after a small delay so the transition is visible
-      setTimeout(function () { bar.style.width = pct + '%'; }, 350);
+      if (pct >= 100) bar.classList.add('tl-cap-fill--full');
+      else if (pct >= 75) bar.classList.add('tl-cap-fill--warn');
     });
   }
 

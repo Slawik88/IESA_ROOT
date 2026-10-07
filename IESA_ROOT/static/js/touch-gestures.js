@@ -355,6 +355,11 @@
 (function () {
     'use strict';
 
+    // В обычном браузере у iOS/Android уже есть системный жест «назад» от края экрана — наш второй
+    // history.back() уводил на ДВЕ страницы назад. Включаем только в установленном PWA (standalone).
+    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    if (!standalone) return;
+
     // Страницы-корни — на них свайп назад не включаем
     var ROOT_PATHS = ['/', '/blog/', '/gallery/', '/products/', '/auth/profile/', '/auth/partner/dashboard/'];
     var currentPath = window.location.pathname;

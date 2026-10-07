@@ -5,15 +5,14 @@
 
 /* ── Timeline item (col-12 wrapper) ── */
 .tl-item {
-    opacity: 0;
-    transform: translateX(-18px);
     transition:
         opacity .5s cubic-bezier(.22,1,.36,1),
         transform .5s cubic-bezier(.22,1,.36,1);
 }
-.tl-item.tl-visible {
-    opacity: 1;
-    transform: translateX(0);
+/* Скрываем только при работающем JS (html.js) — без него список событий оставался бы невидимым */
+html.js .tl-item:not(.tl-visible) {
+    opacity: 0;
+    transform: translateX(-18px);
 }
 
 /* ── Inner grid: dot-column + card-column ── */
@@ -300,7 +299,8 @@
 @media (max-width: 575.98px) {
     .tl-inner { grid-template-columns: 28px 1fr; gap: 0 .65rem; }
     .tl-thumb { width: 70px; }
-    .tl-thumb-ph { width: 55px; }
+    /* Пустая заглушка-иконка без картинки съедала ~55px из ~300 и сжимала текст события в узкую колонку */
+    .tl-thumb-ph { display: none; }
     .tl-date-chip { min-width: 48px; }
     .tl-date-day { font-size: 1.3rem; }
     .tl-title { white-space: normal; }

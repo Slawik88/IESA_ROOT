@@ -53,7 +53,7 @@
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="IESA">
-    <meta property="og:locale" content="ru_RU">
+    <meta property="og:locale" content="{% if LANGUAGE_CODE == 'uk' %}uk_UA{% elif LANGUAGE_CODE == 'de' %}de_CH{% elif LANGUAGE_CODE == 'fr' %}fr_CH{% else %}en_US{% endif %}">
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="{% block twitter_card %}summary_large_image{% endblock %}">
@@ -92,7 +92,6 @@
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
     <link rel="stylesheet" href="{% static 'css/animations.css' %}">
-    <link rel="stylesheet" href="{% static 'css/product-cards.css' %}">
     <link rel="stylesheet" href="{% static 'css/homepage.css' %}">
     <!-- V11: WCAG-фиксы контраста (создан аудитом v3, но линк забыли — файл был мёртвым) -->
     <link rel="stylesheet" href="{% static 'css/ui-ux-improvements.css' %}">
@@ -1133,19 +1132,33 @@
         var badgeMob = document.getElementById('navbar-notif-badge-mob');
         if (!window.EventSource) return;
 
-        var es = new EventSource('{% url "notifications:notification_stream" %}');
-        es.addEventListener('badge', function(e){
-            var count = parseInt(e.data, 10) || 0;
-            var html = count > 0 ? '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>' : '';
-            if (badge)    badge.innerHTML    = html;
-            if (badgeMob) badgeMob.innerHTML = html;
-        });
-        es.onerror = function(){
-            /* При ошибке SSE закрываем — hx polling подхватит */
-            es.close();
-        };
-        /* Страница выгружается → закрываем соединение */
-        window.addEventListener('beforeunload', function(){ es.close(); });
+        var url = '{% url "notifications:notification_stream" %}';
+        var es = null, retries = 0;
+
+        function open() {
+            if (es || document.hidden) return;
+            es = new EventSource(url);
+            es.addEventListener('badge', function(e){
+                retries = 0;
+                var count = parseInt(e.data, 10) || 0;
+                var html = count > 0 ? '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>' : '';
+                if (badge)    badge.innerHTML    = html;
+                if (badgeMob) badgeMob.innerHTML = html;
+            });
+            es.onerror = function(){
+                /* При ошибке закрываем; пробуем снова с нарастающей паузой (макс. 3 раза), дальше работает hx-polling */
+                close();
+                if (++retries <= 3) setTimeout(open, retries * 20000);
+            };
+        }
+        function close() { if (es) { es.close(); es = null; } }
+
+        open();
+        /* Фоновая вкладка не держит соединение (экономит сервер и батарею); pagehide, а не beforeunload —
+           так страница остаётся пригодной для bfcache (мгновенный «назад») */
+        document.addEventListener('visibilitychange', function(){ document.hidden ? close() : open(); });
+        window.addEventListener('pagehide', close);
+        window.addEventListener('pageshow', function(e){ if (e.persisted) open(); });
     })();
     {% endif %}
     </script>

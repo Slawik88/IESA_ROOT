@@ -204,8 +204,12 @@
      у которых нет атрибута
      ───────────────────────────────────────── */
   function initLazyImages() {
+    /* Только изображения ниже первого экрана: логотип/hero в видимой области должны грузиться сразу —
+       loading=lazy на них откладывал LCP и (вместе с fade-in) мог надолго оставлять их прозрачными. */
+    const fold = window.innerHeight * 1.25;
     const imgs = document.querySelectorAll('img:not([loading]):not([src^="data:"])');
     imgs.forEach(function (img) {
+      if (img.getBoundingClientRect().top <= fold) { img.decoding = 'async'; return; }
       img.loading = 'lazy';
       img.decoding = 'async';
     });
