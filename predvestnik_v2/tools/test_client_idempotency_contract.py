@@ -5,19 +5,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
+COMPACT_CLIENT = "".join(CLIENT.split())
 
-assert "const _petsV1PendingActions=new Map()" in CLIENT
-assert "const _questsV1PendingActions=new Map()" in CLIENT
-assert "_pendingAction(_petsV1PendingActions,key,'pet-feed-')" in CLIENT
-assert "_pendingAction(_petsV1PendingActions,key,'pet-activate-')" in CLIENT
-assert "_pendingAction(_petsV1PendingActions,key,'pet-activity-')" in CLIENT
-assert "_pendingAction(_petsV1PendingActions,key,'pet-decision-')" in CLIENT
+assert "const_petsV1PendingActions=newMap()" in COMPACT_CLIENT
+assert "const_questsV1PendingActions=newMap()" in COMPACT_CLIENT
+assert "_pendingAction(_petsV1PendingActions,key,'pet-feed-')" in COMPACT_CLIENT
+assert "_pendingAction(_petsV1PendingActions,key,'pet-activate-')" in COMPACT_CLIENT
+assert "_pendingAction(_petsV1PendingActions,key,'pet-activity-')" in COMPACT_CLIENT
+assert "_pendingAction(_petsV1PendingActions,key,'pet-decision-')" in COMPACT_CLIENT
 assert CLIENT.count("_petsV1PendingActions.delete(key)") == 4
 assert "Проверяем запущенный таймер" in CLIENT
-assert "_pendingAction(_questsV1PendingActions,key,'quest-reroll-')" in CLIENT
+assert "_pendingAction(_questsV1PendingActions,key,'quest-reroll-')" in COMPACT_CLIENT
 assert "_questsV1PendingActions.delete(key)" in CLIENT
-assert "_pendingAction(_chestsV1PendingActions,key,'chest-open-')" in CLIENT
-assert "_pendingAction(_chestsV1PendingActions,key,'chest-buy-')" in CLIENT
+assert "_pendingAction(_chestsV1PendingActions,key,'chest-open-')" in COMPACT_CLIENT
+assert "_pendingAction(_chestsV1PendingActions,key,'chest-buy-')" in COMPACT_CLIENT
 assert CLIENT.count("_chestsV1PendingActions.delete(key)") == 2
 assert "const action='chest-open-'" not in CLIENT
 assert "const action='chest-buy-'" not in CLIENT
@@ -25,16 +26,16 @@ assert "Повтори: запрос будет отправлен с тем ж�
 assert "Повтори: лимит не спишется второй раз" in CLIENT
 assert '<h1 class="looks-htitle">Публичный профиль</h1>' in CLIENT
 assert '<h1>Трекер чатов</h1>' in CLIENT
-assert "window.chatTrackerSearch=" in CLIENT
-assert "window.chatTrackerSort=" in CLIENT
-assert "window.chatTrackerLoadMore=" in CLIENT
+assert "window.chatTrackerSearch=" in COMPACT_CLIENT
+assert "window.chatTrackerSort=" in COMPACT_CLIENT
+assert "window.chatTrackerLoadMore=" in COMPACT_CLIENT
 assert "requestGeneration" in CLIENT
-assert "generation!==chatTracker.requestGeneration" in CLIENT
+assert "generation!==chatTracker.requestGeneration" in COMPACT_CLIENT
 assert "setSelectionRange" in CLIENT
 assert 'role="status" aria-live="polite"' in CLIENT
 assert 'class="chat-tracker-list"' in CLIENT
 assert "Не удалось загрузить чаты" in CLIENT
-assert "pendingFocus:''" in CLIENT
+assert "pendingFocus:''" in COMPACT_CLIENT
 assert "Следующую страницу загрузить не удалось" in CLIENT
 assert "root.querySelector('.chat-tracker-status')" in CLIENT
 
