@@ -273,7 +273,7 @@ class InviteRegisterForm(forms.Form):
     def clean_username(self):
         from .models import User
         username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise ValidationError(_('This username is already taken.'))
         return username
 

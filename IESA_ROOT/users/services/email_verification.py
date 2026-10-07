@@ -1,5 +1,6 @@
 """Signed, expiring e-mail ownership verification for IESA accounts."""
 
+import logging
 from dataclasses import dataclass
 
 from django.conf import settings
@@ -9,9 +10,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 
+from users import antispam
 from users.email_service import _send
 from users.models import User
 
+
+logger = logging.getLogger(__name__)
 
 TOKEN_SALT = 'users.email-verification.v1'
 DEFAULT_MAX_AGE = 48 * 60 * 60
@@ -92,6 +96,17 @@ def verify_email_token(token):
 def send_email_verification(user, request=None):
     """Send the verification link and record a successful delivery attempt."""
     if not user.email:
+        return False
+
+    # The site must never become a tool for mailing strangers: cap what one
+    # address, one account and the whole site may receive per window. Hitting a
+    # cap reports "not delivered", exactly like an SMTP failure.
+    if not (
+        antispam.throttle('ev-email', user.email, 3, 3600)
+        and antispam.throttle('ev-user', user.pk, 10, 24 * 3600)
+        and antispam.throttle('ev-global', 'all', 300, 3600)
+    ):
+        logger.warning('E-mail verification throttled for user %s', user.pk)
         return False
 
     token = make_email_verification_token(user)

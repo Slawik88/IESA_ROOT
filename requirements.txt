@@ -68,3 +68,8 @@ uvicorn[standard]==0.34.3
 
 # Translation sync
 polib==1.2.0
+
+# Social login (Google / Apple / Facebook / Microsoft)
+django-allauth==65.19.7
+PyJWT[crypto]==2.15.1
+oauthlib==4.0.0

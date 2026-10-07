@@ -53,12 +53,12 @@
 }
 .reg-eyebrow {
     display:flex; align-items:center; gap:.6rem;
-    font-size:.63rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
-    color:#ef4444; font-family:'Courier New',monospace; margin-bottom:1.2rem;
+    font-size:.75rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:#f87171; margin-bottom:1rem;
 }
 .reg-eyebrow::before,.reg-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.35); }
 .reg-title { font-size:1.9rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
-.reg-desc  { color:rgba(255,255,255,.58); font-size:.875rem; margin-bottom:2rem; }
+.reg-desc  { color:rgba(255,255,255,.78); font-size:1rem; line-height:1.55; margin-bottom:1.5rem; }
 
 /* ── Steps bar ──────────────────────────────────── */
 .reg-steps {
@@ -67,13 +67,13 @@
     width:fit-content;
 }
 .reg-step {
-    padding:.3rem .9rem; border-radius:50px; font-size:.65rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
-    font-family:'Courier New',monospace; color:rgba(255,255,255,.25); transition:all .2s;
+    padding:.4rem .9rem; border-radius:50px; font-size:.78rem; font-weight:700; letter-spacing:.04em;
+    color:rgba(255,255,255,.6); transition:all .2s;
     display:flex; align-items:center; gap:.4rem;
 }
-.reg-step.active { background:rgba(220,38,38,.18); color:#ef4444; }
-.reg-step.done   { color:rgba(34,197,94,.7); }
-.reg-step-num { width:16px;height:16px; border-radius:50%; background:rgba(255,255,255,.1); display:flex;align-items:center;justify-content:center; font-size:.6rem; }
+.reg-step.active { background:rgba(220,38,38,.22); color:#fecaca; }
+.reg-step.done   { color:#4ade80; }
+.reg-step-num { width:20px;height:20px; border-radius:50%; background:rgba(255,255,255,.14); display:flex;align-items:center;justify-content:center; font-size:.72rem; }
 .reg-step.active .reg-step-num { background:rgba(220,38,38,.3); }
 .reg-step.done .reg-step-num   { background:rgba(34,197,94,.25); }
 
@@ -85,14 +85,14 @@
 .reg-step-nav { display:flex; gap:.75rem; margin-top:1.5rem; }
 .reg-btn-back {
     background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.1);
-    color:rgba(255,255,255,.6); border-radius:10px; padding:.7rem 1.25rem;
-    font-size:.88rem; font-weight:600; cursor:pointer; transition:all .18s;
+    color:rgba(255,255,255,.8); border-radius:10px; padding:.7rem 1.25rem; min-height:48px;
+    font-size:1rem; font-weight:600; cursor:pointer; transition:all .18s;
 }
 .reg-btn-back:hover { background:rgba(255,255,255,.1); color:#fff; }
 .reg-btn-next {
-    flex:1; background:rgba(220,38,38,.15); border:1.5px solid rgba(220,38,38,.35);
-    color:#f87171; border-radius:10px; padding:.7rem 1.25rem;
-    font-size:.88rem; font-weight:700; cursor:pointer; transition:all .18s;
+    flex:1; background:rgba(220,38,38,.32); border:1.5px solid rgba(248,113,113,.55);
+    color:#fecaca; border-radius:10px; padding:.7rem 1.25rem; min-height:48px;
+    font-size:1rem; font-weight:700; cursor:pointer; transition:all .18s;
 }
 .reg-btn-next:hover { background:rgba(220,38,38,.28); color:#fca5a5; }
 
@@ -100,8 +100,8 @@
 .reg-review { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
 .reg-review-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid rgba(255,255,255,.05); }
 .reg-review-row:last-child { border-bottom:none; }
-.reg-review-label { font-size:.68rem; font-family:'Courier New',monospace; text-transform:uppercase; letter-spacing:.1em; color:rgba(255,255,255,.38); width:90px; flex-shrink:0; }
-.reg-review-val { font-size:.88rem; color:rgba(255,255,255,.8); word-break:break-all; }
+.reg-review-label { font-size:.8rem; font-weight:600; color:rgba(255,255,255,.6); width:90px; flex-shrink:0; }
+.reg-review-val { font-size:1rem; color:#fff; word-break:break-all; }
 
 /* ── Form grid ──────────────────────────────────── */
 .reg-body { padding:0 3rem 3rem; }
@@ -110,22 +110,22 @@
 
 /* ── Field ──────────────────────────────────────── */
 .rf { }
-.rf label { display:block; font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.64); font-family:'Courier New',monospace; margin-bottom:.45rem; }
+.rf label { display:block; font-size:.9rem; font-weight:600; color:rgba(255,255,255,.88); margin-bottom:.45rem; }
 .rf-wrap { position:relative; }
-.rf-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.2); font-size:.82rem; pointer-events:none; transition:color .2s; }
+.rf-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.45); font-size:.82rem; pointer-events:none; transition:color .2s; }
 .rf-wrap input,.rf-wrap select {
     width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09);
-    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem;
-    color:#fff; font-size:.95rem;
+    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem; min-height:48px;
+    color:#fff; font-size:16px; /* 16px: iOS Safari zooms the page into smaller fields */
     transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
 }
 .rf-wrap input:focus,.rf-wrap select:focus { border-color:rgba(220,38,38,.55); background:rgba(255,255,255,.06); box-shadow:0 0 0 3px rgba(220,38,38,.10); }
 .rf-wrap input.inv { border-color:rgba(239,68,68,.45); box-shadow:0 0 0 3px rgba(239,68,68,.08); }
-.rf-wrap input::placeholder { color:rgba(255,255,255,.16); }
+.rf-wrap input::placeholder { color:rgba(255,255,255,.4); }
 .rf-wrap input:-webkit-autofill,.rf-wrap input:-webkit-autofill:hover,.rf-wrap input:-webkit-autofill:focus,.rf-wrap input:-webkit-autofill:active { -webkit-box-shadow:0 0 0 1000px #12111c inset !important; -webkit-text-fill-color:#fff !important; caret-color:#fff; }
 
 /* 3a: Password criteria chips */
-.pw-crit { font-size:.68rem; color:rgba(255,255,255,.28); font-family:var(--font-mono); display:flex; align-items:center; gap:.3rem; transition:color .2s; padding:.15rem 0; }
+.pw-crit { font-size:.85rem; color:rgba(255,255,255,.65); display:flex; align-items:center; gap:.3rem; transition:color .2s; padding:.15rem 0; }
 .pw-crit.met { color:#4ade80; }
 .pw-crit.met i { color:#4ade80; }
 /* 3a: Live check status icons */
@@ -133,25 +133,30 @@
 .lv-err { color:#f87171; }
 .lv-loading { color:rgba(255,255,255,.3); font-size:.7rem; }
 /* BLOCK 2 (audit v3): локальный override-блок удалён — все правила теперь в dark-theme-fixes.css */
-.rf-pw-btn { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); background:none; border:none; color:rgba(255,255,255,.22); cursor:pointer; padding:.2rem; font-size:.82rem; transition:color .2s; line-height:1; }
-.rf-pw-btn:hover { color:rgba(255,255,255,.55); }
-.rf-wrap input.has-pw { padding-right:2.6rem; }
-.rf-hint { color:rgba(255,255,255,.52); font-size:.72rem; margin-top:.3rem; line-height:1.4; }
-.rf-err  { color:#f87171; font-size:.72rem; margin-top:.3rem; display:flex; align-items:flex-start; gap:.3rem; flex-wrap:wrap; }
+.rf-pw-btn { position:absolute; right:.2rem; top:50%; transform:translateY(-50%); width:44px; height:44px; background:none; border:none; color:rgba(255,255,255,.6); cursor:pointer; font-size:.95rem; transition:color .2s; line-height:1; }
+.rf-pw-btn:hover { color:rgba(255,255,255,.9); }
+.rf-wrap input.has-pw { padding-right:3.2rem; }
+.rf-hint { color:rgba(255,255,255,.7); font-size:.85rem; margin-top:.35rem; line-height:1.45; }
+.rf-err  { color:#fca5a5; font-size:.88rem; margin-top:.35rem; display:flex; align-items:flex-start; gap:.3rem; flex-wrap:wrap; }
+
+/* server / client alert box */
+.reg-alert { background:rgba(220,38,38,.12); border:1px solid rgba(220,38,38,.4); border-radius:12px; padding:.8rem 1rem; color:#fecaca; font-size:.95rem; line-height:1.5; margin-bottom:1.25rem; }
+.reg-alert ul { margin:.3rem 0 0; padding-left:1.1rem; }
+.reg-alert[hidden] { display:none; }
 
 /* ── Submit ─────────────────────────────────────── */
 .reg-actions { display:flex; flex-direction:column; gap:1rem; margin-top:2rem; }
 .reg-submit {
     width:100%; background:linear-gradient(135deg,#dc2626,#b91c1c);
-    border:none; border-radius:10px; padding:.9rem 1.5rem;
-    color:#fff; font-size:1rem; font-weight:700; cursor:pointer;
+    border:none; border-radius:10px; padding:.9rem 1.5rem; min-height:52px;
+    color:#fff; font-size:1.05rem; font-weight:700; cursor:pointer;
     transition:transform .15s,box-shadow .2s,filter .2s;
     display:flex; align-items:center; justify-content:center; gap:.65rem;
     box-shadow:0 4px 22px rgba(220,38,38,.35); letter-spacing:.02em;
 }
 .reg-submit:hover { filter:brightness(1.1); box-shadow:0 6px 32px rgba(220,38,38,.5); transform:translateY(-1px); }
 .reg-submit:active { transform:translateY(0); }
-.reg-login { text-align:center; color:rgba(255,255,255,.58); font-size:.875rem; }
+.reg-login { text-align:center; color:rgba(255,255,255,.75); font-size:1rem; }
 .reg-login a { color:#ef4444; font-weight:700; text-decoration:none; }
 .reg-login a:hover { color:#f87171; text-decoration:underline; }
 
@@ -160,7 +165,7 @@
     background:rgba(220,38,38,.05); border-top:1px solid rgba(220,38,38,.12);
     padding:1.2rem 3rem; display:flex; gap:2rem; flex-wrap:wrap;
 }
-.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.58); font-size:.78rem; }
+.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.75); font-size:.85rem; }
 .reg-fp i { color:rgba(220,38,38,.7); }
 
 /* mobile */
@@ -177,8 +182,8 @@
     .reg-footer { padding:1rem 1.25rem; gap:1rem; display:grid; grid-template-columns:1fr 1fr; }
     .reg-top { margin-bottom:1rem; }
     .reg-title { font-size:1.5rem; }
-    .reg-steps { font-size:.6rem; }
-    .reg-step { padding:.25rem .65rem; }
+    .reg-steps { width:100%; }
+    .reg-step { flex:1; justify-content:center; padding:.4rem .25rem; font-size:.74rem; gap:.3rem; }
 }
 </style>
 {% endblock %}
@@ -231,7 +236,11 @@
                 </div>
                 {% endif %}
 
-                <form method="post" id="reg-form" novalidate>
+                {# Outside the form on purpose: each provider button is its own <form>, and forms cannot nest. #}
+                <div id="social-block">{% include "users/partials/_social_login.html" with social_intro=True %}</div>
+
+                <form method="post" id="reg-form" novalidate
+                      data-start-step="{% if form.username.errors or form.email.errors %}1{% elif form.password1.errors or form.password2.errors %}2{% elif form.errors %}3{% endif %}">
                     {% csrf_token %}
 
                     {# ── Step 1: Account ───────────────────────── #}
@@ -246,7 +255,8 @@
                                            value="{{ form.username.value|default:'' }}"
                                            class="{% if form.username.errors %}inv{% endif %}"
                                            {% if form.username.errors %}aria-invalid="true" aria-describedby="err-username"{% endif %}
-                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}" autofocus
+                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}"
+                                           autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
                                            tabindex="1" data-live-check="username">
                                     <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
                                 </div>
@@ -265,7 +275,8 @@
                                            class="{% if form.email.errors %}inv{% endif %}"
                                            {% if form.email.errors %}aria-invalid="true" aria-describedby="err-email"{% endif %}
                                            tabindex="2"
-                                           autocomplete="email" placeholder="your@email.com"
+                                           autocomplete="email" placeholder="your@email.com" inputmode="email"
+                                           autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
                                            data-live-check="email">
                                     <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
                                 </div>
@@ -282,6 +293,12 @@
 
                     {# ── Step 2: Password ──────────────────────── #}
                     <div class="reg-step-panel" data-step="2">
+                        <div class="reg-alert" id="pw-alert" role="alert" {% if not form.password1.errors and not form.password2.errors %}hidden{% endif %}>
+                            {% if form.password1.errors or form.password2.errors %}
+                            <strong>{% trans "We could not accept this password:" %}</strong>
+                            <ul>{% for err in form.password1.errors %}<li>{{ err }}</li>{% endfor %}{% for err in form.password2.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+                            {% endif %}
+                        </div>
                         <div class="reg-grid">
                             {# ── 3a: Индикатор силы пароля ── #}
                             <div class="rf reg-full">
@@ -295,21 +312,16 @@
                                            tabindex="3">
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
-                                {# Полоска силы пароля #}
-                                <div style="margin-top:.5rem;">
-                                    <div style="height:4px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden;">
-                                        <div id="pw-strength-bar" style="height:100%;width:0;border-radius:2px;transition:width .3s,background .3s;"></div>
+                                {# Полоска силы пароля — только подсказка, блокирует лишь длина < 8 #}
+                                <div style="margin-top:.6rem;">
+                                    <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;">
+                                        <div id="pw-strength-bar" style="height:100%;width:0;border-radius:3px;transition:width .3s,background .3s;"></div>
                                     </div>
-                                    <div id="pw-strength-label" style="font-size:.7rem;color:rgba(255,255,255,.3);margin-top:.3rem;font-family:var(--font-mono);min-height:1em;"></div>
+                                    <div id="pw-strength-label" style="font-size:.85rem;color:rgba(255,255,255,.7);margin-top:.35rem;min-height:1.2em;" aria-live="polite"></div>
                                 </div>
-                                <div style="margin-top:.5rem;display:grid;grid-template-columns:1fr 1fr;gap:.25rem;" id="pw-criteria">
-                                    <div id="crit-len"  class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> ≥ 8 {% trans "characters" %}</div>
-                                    <div id="crit-upper" class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> A–Z {% trans "uppercase" %}</div>
-                                    <div id="crit-num"  class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> 0–9 {% trans "number" %}</div>
-                                    <div id="crit-spec" class="pw-crit"><i class="fas fa-circle" style="font-size:.45rem;"></i> !@# {% trans "special char" %}</div>
-                                </div>
-                                {% if form.password1.help_text %}<div class="rf-hint" style="margin-top:.5rem;">{{ form.password1.help_text }}</div>{% endif %}
-                                {% for err in form.password1.errors %}<div id="err-password1" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
+                                <div id="crit-len" class="pw-crit" style="margin-top:.4rem;"><i class="fas fa-circle" style="font-size:.5rem;" aria-hidden="true"></i> {% trans "At least 8 characters" %}</div>
+                                <div class="rf-hint">{% trans "Tip: a longer password is a stronger one. The one suggested by your phone works fine." %}</div>
+                                
                             </div>
                             <div class="rf reg-full">
                                 <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
@@ -323,7 +335,7 @@
                                     <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
                                 </div>
                                 <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;" aria-live="polite"></div>
-                                {% for err in form.password2.errors %}<div id="err-password2" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
+                                
                             </div>
                         </div>
                         <div class="reg-step-nav">
@@ -356,12 +368,13 @@
                         </div>
                         {# HOTFIX 2026-05-23: чекбокс согласия — PIN активируется сразу после регистрации #}
                         <div class="reg-consent" style="margin:1.25rem 0;padding:1rem 1.1rem;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.18);border-radius:12px;">
-                            <label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;font-size:.85rem;color:rgba(255,255,255,.78);line-height:1.55;">
+                            <label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;font-size:.95rem;color:rgba(255,255,255,.88);line-height:1.55;">
                                 <input type="checkbox" name="membership_consent" id="id_membership_consent" required
-                                       style="margin-top:.18rem;width:18px;height:18px;flex-shrink:0;accent-color:var(--primary);">
+                                       style="margin-top:.1rem;width:24px;height:24px;flex-shrink:0;accent-color:var(--primary);">
                                 <span>
-                                    {% trans "I agree to become a member of IESA Sport and accept the" %}
-                                    <a href="{% url 'users:how_it_works' %}" target="_blank" style="color:#f87171;" rel="noopener noreferrer">{% trans "privacy policy" %}</a>.
+                                    {% trans "I agree to become a member of IESA Sport." %}
+                                    {% trans "The privacy policy is still being prepared — we will notify every member as soon as it is published." %}
+                                    <a href="{% url 'core:privacy' %}" target="_blank" style="color:#f87171;" rel="noopener noreferrer">{% trans "Details" %}</a>.
                                     {% trans "After registration, the PIN-code is available immediately. The physical card is issued later upon request." %}
                                 </span>
                             </label>
@@ -380,7 +393,9 @@
                                     <i class="fas fa-arrow-left me-1"></i>{% trans "Edit" %}
                                 </button>
                             </div>
-                            <button type="submit" class="reg-submit" id="reg-submit-btn" disabled>
+                            {% include "users/partials/_antibot.html" %}
+                            <div class="reg-alert" id="consent-alert" role="alert" hidden></div>
+                            <button type="submit" class="reg-submit" id="reg-submit-btn">
                                 <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
                             </button>
                             <p class="reg-login">
@@ -411,385 +426,236 @@ function togglePw(btn){
     else{i.type='password';ic.className='fas fa-eye';}
 }
 
-/* HOTFIX 2026-05-23 + BLOCK 5 audit v4: блокируем финальный submit пока:
-   1) Чекбокс согласия НЕ отмечен, ИЛИ
-   2) Шаги 1+2 не валидны (username/email/password). */
-(function(){
-    var consent = document.getElementById('id_membership_consent');
-    var submit  = document.getElementById('reg-submit-btn');
-    if (!consent || !submit) return;
-    function sync(){
-        /* FIX 2026-05-27: tri-state — блокируем только при явном false (не при null).
-           Пароль остаётся bool (sync проверка). */
-        var V = window._regValidity || {};
-        var unOk = V.un !== false;
-        var emOk = V.em !== false;
-        var stepsOk = unOk && emOk && V.pw_strong && V.pw_match;
-        submit.disabled = !(consent.checked && stepsOk);
-        submit.style.opacity = submit.disabled ? '.55' : '';
-        submit.style.cursor  = submit.disabled ? 'not-allowed' : '';
-    }
-    consent.addEventListener('change', sync);
-    /* Также реагируем на изменение глобального state через event */
-    document.addEventListener('input', sync);
-    document.addEventListener('change', sync);
-    sync();
-})();
+(function () {
+    'use strict';
 
-/* ── Multi-step registration (U2-04, BLOCK 5 audit v4) ─── */
+    /* ── i18n strings ─────────────────────────────── */
+    var T = {
+        unShort:   '{% filter escapejs %}{% trans "Username must be at least 3 characters" %}{% endfilter %}',
+        checking:  '{% filter escapejs %}{% trans "Checking…" %}{% endfilter %}',
+        unOk:      '{% filter escapejs %}{% trans "Available" %}{% endfilter %}',
+        unTaken:   '{% filter escapejs %}{% trans "Username already taken" %}{% endfilter %}',
+        badEmail:  '{% filter escapejs %}{% trans "Invalid email format" %}{% endfilter %}',
+        emOk:      '{% filter escapejs %}{% trans "Email available" %}{% endfilter %}',
+        emTaken:   '{% filter escapejs %}{% trans "This email is already registered" %}{% endfilter %}',
+        pwShort:   '{% filter escapejs %}{% trans "Too short" %}{% endfilter %}',
+        pwFair:    '{% filter escapejs %}{% trans "Fair" %}{% endfilter %}',
+        pwStrong:  '{% filter escapejs %}{% trans "Strong" %}{% endfilter %}',
+        pwVery:    '{% filter escapejs %}{% trans "Very strong" %}{% endfilter %}',
+        match:     '{% filter escapejs %}{% trans "Passwords match" %}{% endfilter %}',
+        noMatch:   '{% filter escapejs %}{% trans "Passwords do not match" %}{% endfilter %}',
+        needPw:    '{% filter escapejs %}{% trans "Enter a password of at least 8 characters." %}{% endfilter %}',
+        needSame:  '{% filter escapejs %}{% trans "Repeat the same password in the second field." %}{% endfilter %}',
+        needConsent: '{% filter escapejs %}{% trans "You must agree to become a member to register." %}{% endfilter %}',
+        needEmail: '{% filter escapejs %}{% trans "Please enter a valid e-mail address." %}{% endfilter %}',
+        verifying: '{% filter escapejs %}{% trans "Verifying that you are human… please try again in a second." %}{% endfilter %}',
+        needUser:  '{% filter escapejs %}{% trans "Please choose a username (at least 3 characters)." %}{% endfilter %}'
+    };
+    var MIN_PW = 8;
+    var emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/* BLOCK 5 (audit v4) + FIX 2026-05-27: глобальный validity-state — tri-state.
-   null  = ещё не проверили / сеть упала (НЕ блокируем — server-side валидация поймает при submit)
-   true  = API подтвердил доступность
-   false = API подтвердил занятость (ТОЛЬКО это блокирует переход) */
-window._regValidity = window._regValidity || {
-    un: null, em: null,
-    pw_strong: false, pw_match: false,
-};
-
-(function(){
+    /* ── elements ─────────────────────────────────── */
+    var $ = function (id) { return document.getElementById(id); };
+    var form = $('reg-form'), submitBtn = $('reg-submit-btn');
+    var unInput = $('id_username'), emInput = $('id_email');
+    var pw1 = $('id_password1'), pw2 = $('id_password2'), consent = $('id_membership_consent');
+    var unStatus = $('un-status'), unMsg = $('un-msg'), emStatus = $('em-status'), emMsg = $('em-msg');
+    var pwBar = $('pw-strength-bar'), pwLabel = $('pw-strength-label'), pwMatch = $('pw-match-msg');
+    var pwAlert = $('pw-alert'), consentAlert = $('consent-alert'), critLen = $('crit-len');
     var panels = document.querySelectorAll('.reg-step-panel');
     var indicators = document.querySelectorAll('[data-step-ind]');
     var currentStep = 1;
 
-    /* If there are server-side field errors, jump to the right step */
-    function hasErrors(step) {
-        var fields = { 1: ['id_username','id_email'], 2: ['id_password1','id_password2'] }[step] || [];
-        return fields.some(function(id){ return document.querySelector('#'+id+'.inv'); });
-    }
-    if (hasErrors(2)) currentStep = 2;
-    else if (hasErrors(1)) currentStep = 1;
+    /* Availability from the API: true / false / null (unknown — never blocks;
+       the server re-checks on submit). */
+    var avail = { un: null, em: null };
+    var timers = {};
 
-    function showStep(n) {
-        panels.forEach(function(p){
-            var isActive = +p.dataset.step === n;
-            p.classList.toggle('active', isActive);
-            if (isActive) {
-                p.classList.remove('active-anim');
-                void p.offsetWidth; /* reflow */
-                p.classList.add('active-anim');
-            }
-        });
-        indicators.forEach(function(ind){
-            var s = +ind.dataset.stepInd;
-            ind.classList.remove('active','done');
-            if (s === n) ind.classList.add('active');
-            else if (s < n) ind.classList.add('done');
-        });
-        currentStep = n;
-        updateButtonsState();
+    /* ── state read straight from the DOM ──────────────
+       Phone autofill / password-manager fills do not always fire `input`
+       events, so validity is recomputed from the real field values each time
+       instead of being cached from events. */
+    function pwOk()    { return !!pw1 && pw1.value.length >= MIN_PW; }
+    function matchOk() { return !!pw1 && !!pw2 && pw2.value.length > 0 && pw1.value === pw2.value; }
+
+    function setAlert(el, text) {
+        if (!el) return;
+        el.textContent = text || '';
+        el.hidden = !text;
     }
 
-    /* BLOCK 5 + FIX 2026-05-27: tri-state валидация шага.
-       Разрешаем переход если поля валидны по формату — server-side валидация
-       поймёт реальные конфликты при submit. Блокируем только когда live-check
-       ЯВНО вернул занятость (V.x === false), но НЕ когда null (не проверили). */
-    function isStepValid(n) {
-        var V = window._regValidity;
-        if (n === 1) {
-            var u = document.getElementById('id_username');
-            var e = document.getElementById('id_email');
-            var uv = u.value.trim();
-            var ev = e.value.trim();
-            /* Базовые требования: оба поля + формат */
-            if (!uv || !ev) return false;
-            if (uv.length < 3) return false;
-            if (!/\S+@\S+\.\S+/.test(ev)) return false;
-            /* Блок ТОЛЬКО при явном negative от API (null = неизвестно, пропускаем) */
-            if (V.un === false) return false;
-            if (V.em === false) return false;
-            return true;
-        }
-        if (n === 2) {
-            var p1 = document.getElementById('id_password1');
-            var p2 = document.getElementById('id_password2');
-            if (!p1.value || !p2.value) return false;
-            if (!V.pw_strong) return false;       /* пароль слабый */
-            if (!V.pw_match)  return false;       /* пароли не совпадают */
-            return true;
-        }
-        if (n === 3) {
-            var consent = document.getElementById('id_membership_consent');
-            return !!(consent && consent.checked);
-        }
-        return true;
-    }
-
-    /* BLOCK 5: показать ошибку рядом с конкретным полем + scroll/focus */
-    function markInvalid(n) {
-        var V = window._regValidity;
-        if (n === 1) {
-            var u = document.getElementById('id_username');
-            var e = document.getElementById('id_email');
-            if (!u.value.trim() || (V.un === false && u.value.trim().length >= 3)) {
-                u.classList.add('inv'); u.focus(); return;
-            }
-            if (!e.value.trim() || !/\S+@\S+\.\S+/.test(e.value.trim()) || V.em === false) {
-                e.classList.add('inv'); e.focus(); return;
-            }
-        } else if (n === 2) {
-            var p1 = document.getElementById('id_password1');
-            var p2 = document.getElementById('id_password2');
-            if (!p1.value || !V.pw_strong) { p1.classList.add('inv'); p1.focus(); return; }
-            if (!p2.value || !V.pw_match)  { p2.classList.add('inv'); p2.focus(); return; }
-        }
-    }
-
-    /* FIX 2026-05-27 v2: НЕ дисэйблим кнопку Continue — позволяем клик всегда.
-       При невалидности на клик markInvalid() покажет ошибку рядом с полем.
-       Раньше disabled=true ломал клик-event-delegation, и кнопка казалась
-       "не реагирующей". Также autofill браузера не триггерит input-event,
-       и кнопка оставалась disabled навсегда. */
-    function updateButtonsState() {
-        var btns = document.querySelectorAll('[data-next]');
-        var ok = isStepValid(currentStep);
-        btns.forEach(function(b){
-            /* НЕ ставим disabled — кнопка всегда кликабельна.
-               Просто меняем визуальную «активность». */
-            b.disabled = false;
-            b.style.opacity = ok ? '' : '.65';
-        });
-    }
-
-    function updateReview() {
-        var u = document.getElementById('id_username');
-        var e = document.getElementById('id_email');
-        var rvU = document.getElementById('rv-username');
-        var rvE = document.getElementById('rv-email');
-        if (rvU && u) rvU.textContent = u.value || '—';
-        if (rvE && e) rvE.textContent = e.value || '—';
-    }
-
-    document.addEventListener('click', function(evt){
-        var next = evt.target.closest('[data-next]');
-        if (next) {
-            var target = +next.dataset.next;
-            if (!isStepValid(currentStep)) {
-                markInvalid(currentStep);
-                return;
-            }
-            if (target === 3) updateReview();
-            showStep(target);
-            return;
-        }
-        var back = evt.target.closest('[data-back]');
-        if (back) {
-            showStep(+back.dataset.back);
-        }
-    });
-
-    /* BLOCK 5: при изменении полей — обновляем состояние кнопок + снимаем .inv */
-    document.addEventListener('input', function(evt){
-        if (evt.target.matches('input, textarea, select')) {
-            evt.target.classList.remove('inv');
-            updateButtonsState();
-        }
-    });
-    document.addEventListener('change', updateButtonsState);
-
-    /* Экспортируем для использования из live-check замыкания */
-    window._regUpdateButtonsState = updateButtonsState;
-
-    showStep(currentStep);
-})();
-
-/* ═══════════════════════════════════════════════
-   Block 3a — Live-валидация полей регистрации
-   ═══════════════════════════════════════════════ */
-(function () {
-    'use strict';
-
-    /* ── Username availability ─── */
-    var unInput  = document.getElementById('id_username');
-    var unStatus = document.getElementById('un-status');
-    var unMsg    = document.getElementById('un-msg');
-    var unOk     = false;
-    var unTimer;
-
-    function checkUsername(val) {
-        if (!val || val.length < 3) {
-            setStatus(unStatus, unMsg, null, '{% filter escapejs %}{% trans "Username must be at least 3 characters" %}{% endfilter %}');
-            /* FIX 2026-05-27: state = null когда длина < 3 (не блокируем кнопку явно, isStepValid сам проверит длину) */
-            if (window._regValidity) window._regValidity.un = null;
-            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-            return;
-        }
-        /* FIX 2026-05-27: loading state ВСЁ время пока fetch не вернётся */
-        setStatus(unStatus, unMsg, 'loading', '{% filter escapejs %}{% trans "Checking…" %}{% endfilter %}');
-        clearTimeout(unTimer);
-        /* FIX 2026-05-27: debounce 300ms (раньше 500) — быстрее реагирует */
-        unTimer = setTimeout(function () {
-            fetch('{% url "users:username_available" %}?u=' + encodeURIComponent(val))
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    /* FIX 2026-05-27: tri-state — null означает «неопределённость»,
-                       не блокируем кнопку (длина уже проверяется в isStepValid). */
-                    var newState = null;
-                    if (d.available === true) {
-                        setStatus(unStatus, unMsg, 'ok', '✓ {% filter escapejs %}{% trans "Available" %}{% endfilter %}');
-                        newState = true;
-                    } else if (d.available === false) {
-                        setStatus(unStatus, unMsg, 'err', '✗ {% filter escapejs %}{% trans "Username already taken" %}{% endfilter %}');
-                        newState = false;
-                    } else {
-                        setStatus(unStatus, unMsg, null, d.hint === 'min_length' ? '{% filter escapejs %}{% trans "At least 3 characters" %}{% endfilter %}' : '');
-                        newState = null;
-                    }
-                    if (window._regValidity) window._regValidity.un = newState;
-                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                }).catch(function () {
-                    /* FIX 2026-05-27: при network error — state = null (не блокируем кнопку,
-                       server-side validation поймает занятость при submit) */
-                    setStatus(unStatus, unMsg, null, '');
-                    if (window._regValidity) window._regValidity.un = null;
-                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                });
-        }, 300);
-    }
-
-    if (unInput) {
-        unInput.addEventListener('input', function () { checkUsername(this.value.trim()); });
-        if (unInput.value) checkUsername(unInput.value.trim());
-    }
-
-    /* ── Email availability ─── */
-    var emInput  = document.getElementById('id_email');
-    var emStatus = document.getElementById('em-status');
-    var emMsg    = document.getElementById('em-msg');
-    var emOk     = false;
-    var emTimer;
-    var emailRe  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    function checkEmail(val) {
-        if (!val) {
-            setStatus(emStatus, emMsg, null, '');
-            if (window._regValidity) window._regValidity.em = null;
-            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-            return;
-        }
-        if (!emailRe.test(val)) {
-            setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "Invalid email format" %}{% endfilter %}');
-            /* FIX 2026-05-27: формат проверяется в isStepValid отдельно — state = null */
-            if (window._regValidity) window._regValidity.em = null;
-            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-            return;
-        }
-        /* FIX 2026-05-27: persistent loading */
-        setStatus(emStatus, emMsg, 'loading', '{% filter escapejs %}{% trans "Checking…" %}{% endfilter %}');
-        clearTimeout(emTimer);
-        /* FIX 2026-05-27: debounce 300ms */
-        emTimer = setTimeout(function () {
-            fetch('{% url "users:email_available" %}?e=' + encodeURIComponent(val))
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    /* FIX 2026-05-27: tri-state — формат проверяется в isStepValid. */
-                    var newState = null;
-                    if (d.available === true) {
-                        setStatus(emStatus, emMsg, 'ok', '✓ {% filter escapejs %}{% trans "Email available" %}{% endfilter %}');
-                        newState = true;
-                    } else if (d.available === false) {
-                        setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "This email is already registered" %}{% endfilter %}');
-                        newState = false;
-                    } else {
-                        setStatus(emStatus, emMsg, 'err', '✗ {% filter escapejs %}{% trans "Invalid email format" %}{% endfilter %}');
-                        newState = null;
-                    }
-                    if (window._regValidity) window._regValidity.em = newState;
-                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                }).catch(function () {
-                    /* FIX 2026-05-27: при network error — state = null */
-                    setStatus(emStatus, emMsg, null, '');
-                    if (window._regValidity) window._regValidity.em = null;
-                    if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-                });
-        }, 300);
-    }
-
-    if (emInput) {
-        emInput.addEventListener('input', function () { checkEmail(this.value.trim()); });
-        if (emInput.value) checkEmail(emInput.value.trim());
-    }
-
-    /* ── Password strength ─── */
-    var pw1     = document.getElementById('id_password1');
-    var pw2     = document.getElementById('id_password2');
-    var pwBar   = document.getElementById('pw-strength-bar');
-    var pwLabel = document.getElementById('pw-strength-label');
-    var pwMatch = document.getElementById('pw-match-msg');
-
-    var criteria = {
-        len:   document.getElementById('crit-len'),
-        upper: document.getElementById('crit-upper'),
-        num:   document.getElementById('crit-num'),
-        spec:  document.getElementById('crit-spec'),
-    };
-
-    var LEVELS = [
-        { label: '{% filter escapejs %}{% trans "Too weak" %}{% endfilter %}',  color: '#f87171',  pct: 25  },
-        { label: '{% filter escapejs %}{% trans "Fair" %}{% endfilter %}',      color: '#fbbf24',  pct: 50  },
-        { label: '{% filter escapejs %}{% trans "Strong" %}{% endfilter %}',    color: '#34d399',  pct: 75  },
-        { label: '{% filter escapejs %}{% trans "Very strong" %}{% endfilter %}', color: '#4ade80', pct: 100 },
-    ];
-
-    function checkPassword(val) {
-        var met = {
-            len:   val.length >= 8,
-            upper: /[A-Z]/.test(val),
-            num:   /[0-9]/.test(val),
-            spec:  /[!@#$%^&*()\-_=+\[\]{};:'",.<>?/\\|`~]/.test(val),
-        };
-        Object.keys(met).forEach(function (k) {
-            if (criteria[k]) criteria[k].classList.toggle('met', met[k]);
-        });
-        var score = Object.values(met).filter(Boolean).length;
-        if (!val) { score = 0; }
-        if (pwBar) {
-            pwBar.style.width  = score ? LEVELS[score-1].pct + '%' : '0%';
-            pwBar.style.background = score ? LEVELS[score-1].color : 'transparent';
-        }
-        if (pwLabel) {
-            pwLabel.textContent = score ? LEVELS[score-1].label : '';
-            pwLabel.style.color = score ? LEVELS[score-1].color : 'rgba(255,255,255,.3)';
-        }
-        /* BLOCK 5 (audit v4): пароль "достаточно сильный" — все 4 критерия выполнены */
-        if (window._regValidity) window._regValidity.pw_strong = (score === 4);
-        if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-        checkMatch();
-    }
-
-    function checkMatch() {
-        if (!pw2 || !pw2.value) {
-            if (pwMatch) pwMatch.textContent = '';
-            if (window._regValidity) window._regValidity.pw_match = false;
-            if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-            return;
-        }
-        var match = pw1.value === pw2.value;
-        if (pwMatch) {
-            pwMatch.textContent = match ? '✓ {% filter escapejs %}{% trans "Passwords match" %}{% endfilter %}' : '✗ {% filter escapejs %}{% trans "Passwords do not match" %}{% endfilter %}';
-            pwMatch.style.color = match ? '#4ade80' : '#f87171';
-        }
-        /* BLOCK 5: sync с глобальным state */
-        if (window._regValidity) window._regValidity.pw_match = match;
-        if (window._regUpdateButtonsState) window._regUpdateButtonsState();
-    }
-
-    if (pw1) pw1.addEventListener('input', function () { checkPassword(this.value); });
-    if (pw2) pw2.addEventListener('input', checkMatch);
-
-    /* ── Helper: set status ─── */
+    /* ── status helper ─── */
     function setStatus(iconEl, msgEl, state, msg) {
         if (iconEl) {
             iconEl.className = '';
-            if (state === 'ok')      { iconEl.textContent = '✓'; iconEl.className = 'lv-ok'; }
-            else if (state === 'err'){ iconEl.textContent = '✗'; iconEl.className = 'lv-err'; }
+            if (state === 'ok')           { iconEl.textContent = '✓'; iconEl.className = 'lv-ok'; }
+            else if (state === 'err')     { iconEl.textContent = '✗'; iconEl.className = 'lv-err'; }
             else if (state === 'loading') { iconEl.textContent = '…'; iconEl.className = 'lv-loading'; }
             else iconEl.textContent = '';
         }
         if (msgEl) {
             msgEl.textContent = msg || '';
-            msgEl.style.color = state === 'ok' ? '#4ade80' : state === 'err' ? '#f87171' : 'rgba(255,255,255,.3)';
+            msgEl.style.color = state === 'ok' ? '#4ade80' : state === 'err' ? '#fca5a5' : 'rgba(255,255,255,.7)';
         }
+    }
+
+    /* ── live availability checks ─── */
+    function liveCheck(key, input, url, param, okMsg, takenMsg, statusEl, msgEl) {
+        var val = input.value.trim();
+        clearTimeout(timers[key]);
+        avail[key] = null;
+        if (key === 'un' && val.length < 3) { setStatus(statusEl, msgEl, null, val ? T.unShort : ''); return; }
+        if (key === 'em') {
+            if (!val) { setStatus(statusEl, msgEl, null, ''); return; }
+            if (!emailRe.test(val)) { setStatus(statusEl, msgEl, 'err', '✗ ' + T.badEmail); return; }
+        }
+        setStatus(statusEl, msgEl, 'loading', T.checking);
+        timers[key] = setTimeout(function () {
+            fetch(url + '?' + param + '=' + encodeURIComponent(val), { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (input.value.trim() !== val) return;          /* stale answer */
+                    if (d.available === true)       { avail[key] = true;  setStatus(statusEl, msgEl, 'ok',  '✓ ' + okMsg); }
+                    else if (d.available === false) { avail[key] = false; setStatus(statusEl, msgEl, 'err', '✗ ' + takenMsg); }
+                    else setStatus(statusEl, msgEl, null, '');
+                })
+                .catch(function () { setStatus(statusEl, msgEl, null, ''); });   /* offline: don't block */
+        }, 300);
+    }
+    function checkUsername() { liveCheck('un', unInput, '{% url "users:username_available" %}', 'u', T.unOk, T.unTaken, unStatus, unMsg); }
+    function checkEmail()    { liveCheck('em', emInput, '{% url "users:email_available" %}',    'e', T.emOk, T.emTaken, emStatus, emMsg); }
+
+    /* ── password strength (advisory — only length < 8 blocks) ─── */
+    var LEVELS = [
+        { label: T.pwShort,  color: '#f87171', pct: 25  },
+        { label: T.pwFair,   color: '#fbbf24', pct: 50  },
+        { label: T.pwStrong, color: '#34d399', pct: 75  },
+        { label: T.pwVery,   color: '#4ade80', pct: 100 }
+    ];
+    function renderStrength() {
+        var v = pw1.value, lvl = -1;
+        if (v) {
+            var classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter(function (re) { return re.test(v); }).length;
+            if (v.length < MIN_PW) lvl = 0;
+            else if (v.length >= 16 || (v.length >= 12 && classes >= 3)) lvl = 3;
+            else if (v.length >= 10 && classes >= 2) lvl = 2;
+            else lvl = 1;
+        }
+        if (pwBar) {
+            pwBar.style.width = lvl >= 0 ? LEVELS[lvl].pct + '%' : '0%';
+            pwBar.style.background = lvl >= 0 ? LEVELS[lvl].color : 'transparent';
+        }
+        if (pwLabel) {
+            pwLabel.textContent = lvl >= 0 ? LEVELS[lvl].label : '';
+            pwLabel.style.color = lvl >= 0 ? LEVELS[lvl].color : 'rgba(255,255,255,.7)';
+        }
+        if (critLen) critLen.classList.toggle('met', pwOk());
+    }
+    function renderMatch() {
+        if (!pwMatch) return;
+        if (!pw2.value) { pwMatch.textContent = ''; return; }
+        var ok = matchOk();
+        pwMatch.textContent = ok ? '✓ ' + T.match : '✗ ' + T.noMatch;
+        pwMatch.style.color = ok ? '#4ade80' : '#fca5a5';
+    }
+    function refreshPassword() { renderStrength(); renderMatch(); }
+
+    /* ── steps ─── */
+    function showStep(n) {
+        panels.forEach(function (p) {
+            var on = +p.dataset.step === n;
+            p.classList.toggle('active', on);
+            if (on) { p.classList.remove('active-anim'); void p.offsetWidth; p.classList.add('active-anim'); }
+        });
+        indicators.forEach(function (ind) {
+            var st = +ind.dataset.stepInd;
+            ind.classList.remove('active', 'done');
+            if (st === n) ind.classList.add('active'); else if (st < n) ind.classList.add('done');
+        });
+        currentStep = n;
+        var socialBlock = $('social-block');
+        if (socialBlock) socialBlock.hidden = n !== 1;       /* provider buttons only on the first step */
+        if (n === 3) {
+            $('rv-username').textContent = unInput.value.trim() || '—';
+            $('rv-email').textContent = emInput.value.trim() || '—';
+        }
+        var top = form.getBoundingClientRect().top + window.pageYOffset - 90;
+        if (window.pageYOffset > top) window.scrollTo(0, Math.max(0, top));
+    }
+
+    function flagInvalid(input) { if (input) { input.classList.add('inv'); input.focus(); } }
+
+    /* Returns true when the step may be left; otherwise explains why next to the field. */
+    function validateStep(n) {
+        if (n === 1) {
+            if (unInput.value.trim().length < 3) { setStatus(unStatus, unMsg, 'err', '✗ ' + T.needUser); flagInvalid(unInput); return false; }
+            if (avail.un === false) { flagInvalid(unInput); return false; }
+            if (!emailRe.test(emInput.value.trim())) { setStatus(emStatus, emMsg, 'err', '✗ ' + T.needEmail); flagInvalid(emInput); return false; }
+            if (avail.em === false) { flagInvalid(emInput); return false; }
+            return true;
+        }
+        if (n === 2) {
+            refreshPassword();
+            if (!pwOk()) { setAlert(pwAlert, T.needPw); flagInvalid(pw1); return false; }
+            if (!matchOk()) { setAlert(pwAlert, T.needSame); flagInvalid(pw2); return false; }
+            setAlert(pwAlert, '');
+            return true;
+        }
+        return true;
+    }
+
+    document.addEventListener('click', function (evt) {
+        var next = evt.target.closest('[data-next]');
+        if (next) {
+            if (validateStep(currentStep)) showStep(+next.dataset.next);
+            return;
+        }
+        var back = evt.target.closest('[data-back]');
+        if (back) showStep(+back.dataset.back);
+    });
+
+    /* ── final submit ─── */
+    var submitting = false;
+    if (form) form.addEventListener('submit', function (evt) {
+        if (submitting) { evt.preventDefault(); return; }
+        var bad = !validateStep(1) ? 1 : (!validateStep(2) ? 2 : 0);
+        if (bad) { evt.preventDefault(); showStep(bad); validateStep(bad); return; }
+        if (!consent.checked) {
+            evt.preventDefault();
+            setAlert(consentAlert, T.needConsent);
+            consent.focus();
+            return;
+        }
+        var tsField = form.querySelector('[name="cf-turnstile-response"]');
+        if (form.querySelector('.cf-turnstile') && (!tsField || !tsField.value)) {
+            evt.preventDefault();
+            setAlert(consentAlert, T.verifying);
+            return;
+        }
+        submitting = true;                       /* one tap = one request on slow mobile networks */
+        setTimeout(function () { submitBtn.disabled = true; submitBtn.style.opacity = '.7'; }, 0);
+    });
+    if (consent) consent.addEventListener('change', function () { if (consent.checked) setAlert(consentAlert, ''); });
+    /* Coming back via the browser's Back button must not leave a dead, disabled button. */
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) { submitting = false; submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+    });
+
+    /* ── wire events (input + change + blur: autofill fires some of them, not always input) ─── */
+    function on(el, names, fn) { if (el) names.split(' ').forEach(function (n) { el.addEventListener(n, fn); }); }
+    on(unInput, 'input change blur', function () { unInput.classList.remove('inv'); checkUsername(); });
+    on(emInput, 'input change blur', function () { emInput.classList.remove('inv'); checkEmail(); });
+    on(pw1, 'input change blur', function () { pw1.classList.remove('inv'); setAlert(pwAlert, ''); refreshPassword(); });
+    on(pw2, 'input change blur', function () { pw2.classList.remove('inv'); setAlert(pwAlert, ''); refreshPassword(); });
+
+    /* ── boot ─── */
+    var start = +(form && form.dataset.startStep) || 1;
+    if (unInput.value) checkUsername();
+    if (emInput.value) checkEmail();
+    refreshPassword();
+    showStep(start);
+    if (start === 1 && window.matchMedia && window.matchMedia('(pointer: fine)').matches && !unInput.value) {
+        unInput.focus();                         /* desktop only: on phones the keyboard would cover the page */
     }
 })();
 </script>
