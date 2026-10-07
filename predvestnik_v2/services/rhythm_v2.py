@@ -1,7 +1,7 @@
 """Server-owned execution of the approved endless Rune Rhythm."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import hashlib
 import secrets
 from uuid import uuid4

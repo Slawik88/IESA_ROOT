@@ -6,7 +6,7 @@ SQL — в infrastructure/repositories/clans.py.
 import re
 
 from core.constants import (
-    CLAN_CREATE_COST_MORA, CLAN_MAX_MEMBERS,
+    CLAN_MAX_MEMBERS,
     CLAN_NAME_MIN, CLAN_NAME_MAX, CLAN_TAG_MIN, CLAN_TAG_MAX,
     CLAN_DESC_MAX, CLAN_EMBLEMS, CLAN_REQUEST_ITEM_CATEGORIES,
     CLAN_SHOP,

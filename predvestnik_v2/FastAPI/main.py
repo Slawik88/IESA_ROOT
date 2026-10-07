@@ -3,7 +3,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
@@ -71,7 +71,6 @@ from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensu
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
-from FastAPI.deps import require_tab_enabled
 from loguru import logger as _log
 
 

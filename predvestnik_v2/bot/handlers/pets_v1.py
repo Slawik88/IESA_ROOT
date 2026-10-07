@@ -98,13 +98,12 @@ async def _start_activity(message: types.Message, db, *, kind: str, text_args: s
     try:
         hours = parse_activity_hours(text_args)
         await ensure_tables(db)
-        result = await pets_v1.start_activity(
+        await pets_v1.start_activity(
             db, user_id=int(message.from_user.id), kind=kind, hours=hours, action_id=f"chat:{uuid4().hex}",
         )
     except (ValueError, pets_v1.PetPolicyError, pets_v1.PetConflict) as error:
         await message.answer(f"❌ {safe_html(str(error))}", parse_mode="HTML")
         return
-    activity = result["activity"]
     title = "Поход" if kind == "trek" else "Экспедиция"
     await message.answer(
         f"🐾 <b>{title} начат</b>\nДлительность: <b>{hours} ч</b>.\n"

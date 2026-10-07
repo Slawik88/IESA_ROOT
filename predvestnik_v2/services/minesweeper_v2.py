@@ -1,7 +1,7 @@
 """Server-authoritative Minesweeper flow. No rewards or economy writers."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 import secrets
 from uuid import uuid4
 

@@ -9,7 +9,7 @@ from core.cosmetics import COSMETICS
 from core.themes import THEMES
 from services.battle_pass import (
     claim_reward, get_active_season, get_progress, level_status, refresh_seasons_cache,
-    _opt_to_reward, reward_short_text, buy_next_level, is_bp_frozen,
+    _opt_to_reward, reward_short_text, is_bp_frozen,
 )
 
 router = APIRouter(prefix="/battle_pass", tags=["battle_pass"])

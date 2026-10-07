@@ -1,7 +1,6 @@
 """One authoritative Zarniki exchange writer for HTTP and Telegram."""
 from __future__ import annotations
 
-from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.zarniki_exchange_v1 import DAILY_ZARNIKI_CAP, ZarnikiExchangePolicyError, quote
 from infrastructure.repositories import economy_ledger, star_payments_v1, zarniki_exchange_v1 as repo
 

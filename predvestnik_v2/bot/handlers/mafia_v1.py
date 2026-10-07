@@ -9,7 +9,6 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
-from bot.keyboards.cta import answer_group_only
 from bot.middlewares.module_check_mw import module_disabled_reason
 from core import mafia_v1 as rules
 from services import mafia_v1 as mafia

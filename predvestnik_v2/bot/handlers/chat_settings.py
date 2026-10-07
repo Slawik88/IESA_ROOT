@@ -92,7 +92,6 @@ async def _can_use_settings_callback(
 
 
 async def _build_menu_text(db, chat_id: int) -> str:
-    s = await mod_db.get_chat_settings(db, chat_id)
     tz_offset = await get_chat_timezone(db, chat_id)
     tz_sign = "+" if tz_offset >= 0 else ""
     tz_label = f"UTC{tz_sign}{tz_offset}"

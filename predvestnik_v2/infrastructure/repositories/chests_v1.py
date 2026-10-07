@@ -552,7 +552,6 @@ async def create_purchase(
 async def vip_cosmetic_candidates(db, *, user_id: int, allowed_ids: tuple[str, ...]) -> list[str]:
     if not allowed_ids:
         return []
-    placeholders = ",".join("?" for _ in allowed_ids)
     async with db.execute(
         f"SELECT candidate.id FROM (VALUES {','.join('( ? )' for _ in allowed_ids)}) AS candidate(id) "
         "WHERE NOT EXISTS (SELECT 1 FROM user_cosmetics u WHERE u.user_id=? AND u.cosmetic_id=candidate.id) "

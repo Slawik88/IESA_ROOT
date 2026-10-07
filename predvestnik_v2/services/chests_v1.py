@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from core.chests_v1 import (
     CATALOG_VERSION, FOODS, PAID_KEY_DAILY_LIMIT, PAID_KEY_PRICE_ZARNIKI,
-    PET_SPECIES, POLICY_VERSION, REWARD_WEIGHTS, STAR_WEIGHTS, VIP_COSMETIC_POOL, KeyGrant,
+    PET_SPECIES, POLICY_VERSION, STAR_WEIGHTS, VIP_COSMETIC_POOL, KeyGrant,
     catalog_digest, canonical_snapshot_fingerprint, public_reward_rows, roll_outcome,
     validate_key_grant,
 )

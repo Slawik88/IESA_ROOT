@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.marriages import (
-    get_user_marriage, delete_marriage, FAMILY_CURRENCIES,
+    get_user_marriage, FAMILY_CURRENCIES,
     get_received_gifts, purchase_partner_gift, create_marriage, MarriageConflict,
 )
 from infrastructure.repositories.family_wallet_v1 import transfer_between_personal_and_family
