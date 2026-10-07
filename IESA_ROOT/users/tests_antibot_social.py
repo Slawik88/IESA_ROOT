@@ -209,6 +209,16 @@ class SocialLoginTests(TestCase):
         self.assertIn('id="reg-submit-btn"', inside)
         self.assertIn(f'name="{antispam.TIMER_FIELD}"', inside)
 
+    def test_csp_lets_the_provider_redirect_through(self):
+        """form-action also applies to the 302 after a form POST: without the provider host the
+        browser blocks the redirect and the sign-in button spins forever."""
+        csp = self.client.get(reverse('users:login'))['Content-Security-Policy']
+        form_action = next(d for d in csp.split(';') if d.strip().startswith('form-action'))
+        for host in ('https://accounts.google.com', 'https://login.microsoftonline.com',
+                     'https://www.facebook.com', 'https://appleid.apple.com'):
+            self.assertIn(host, form_action)
+        self.assertIn("'self'", form_action)
+
     def test_no_buttons_without_keys(self):
         self.assertNotContains(self.client.get(reverse('users:login')), 'soc-btn')
 

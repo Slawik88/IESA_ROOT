@@ -39,7 +39,11 @@ class SecurityHeadersMiddleware:
         "media-src 'self' data: blob:",
         "frame-ancestors 'none'",
         "base-uri 'self'",
-        "form-action 'self'",
+        # form-action is also enforced on the redirect that follows a form POST. The social
+        # sign-in buttons POST to our server, which answers 302 → the provider; without the
+        # provider hosts here the browser silently blocks that redirect (button spins forever).
+        "form-action 'self' https://accounts.google.com https://login.microsoftonline.com "
+        "https://www.facebook.com https://appleid.apple.com",
         "object-src 'none'",
     ]
 
