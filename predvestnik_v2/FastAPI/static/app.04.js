@@ -25,15 +25,15 @@ function openMafiaStats(){
 
 function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
-  host.innerHTML=`<section class="recon-entry-card">
+  host.innerHTML=`<section class="recon-entry-card recon-entry-card--hero">
     <div class="recon-entry-mark">ᚱ</div><div class="recon-entry-copy"><span class="recon-entry-kicker">БЕСКОНЕЧНЫЙ ЗАБЕГ</span><h2>Ритм</h2><p>Нажимай руны точно. Скорость растёт плавно, а каждый режим имеет собственную таблицу лидеров.</p><div class="recon-entry-facts"><span>реакция</span><span>2 режима</span><span>топ игроков</span></div></div>
     <button class="btn btn-gold recon-entry-action" onclick="openRhythmV2Game()">Играть <b>›</b></button></section>
-  <section class="recon-entry-card" style="margin-top:10px">
-    <div class="recon-entry-mark">⚑</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ЛОГИЧЕСКАЯ ИГРА</span><h2>Сапёр</h2><p>Открывай безопасные клетки, ставь флаги и проходи три уровня сложности. Победы попадают в таблицу лидеров.</p><div class="recon-entry-facts"><span>6×6 · 9×9</span><span>3 сложности</span><span>топ игроков</span></div></div>
+  <section class="recon-entry-card recon-entry-card--compact recon-entry-card--mines">
+    <div class="recon-entry-mark">⚑</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ЛОГИЧЕСКАЯ ИГРА</span><h2>Сапёр</h2><p>Открывай клетки, ставь флаги и выбери сложность. Победы попадают в топ.</p><div class="recon-entry-facts"><span>6×6 · 9×9</span><span>3 сложности</span><span>топ игроков</span></div></div>
     <button class="btn btn-gold recon-entry-action" onclick="openMinesweeperGame()">Играть <b>›</b></button></section>
-  <section class="recon-entry-card" style="margin-top:10px">
-    <div class="recon-entry-mark">🕵️</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ГРУППОВАЯ ИГРА В ЧАТЕ</span><h2>Мафия</h2><p>Партия идёт в Telegram-группе: напиши там «бот мафия». Здесь — только твоя история и статистика.</p><div class="recon-entry-facts"><span>группа</span><span>роли в личке</span><span>история</span></div></div>
-    <button class="btn btn-gold recon-entry-action" onclick="openMafiaStats()">История <b>›</b></button></section>`;
+  <section class="recon-entry-card recon-entry-card--compact recon-entry-card--mafia">
+    <div class="recon-entry-mark">◈</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ИГРА В ЧАТЕ · ЗДЕСЬ ИСТОРИЯ</span><h2>Мафия</h2><p>В группе напиши «бот мафия». Здесь — твои партии и статистика.</p><div class="recon-entry-facts"><span>группа</span><span>роли в личке</span><span>история</span></div></div>
+    <button class="btn btn-gold recon-entry-action" onclick="openMafiaStats()">Мои партии <b>›</b></button></section>`;
 }
 
 function loadArena(){ swArena('game'); }
