@@ -5991,6 +5991,44 @@ button.store-balance { color: inherit; font: inherit; cursor: pointer; }
 .nb.active::after { display:none; }
 .nb .ni { font-size:20px; }
 @media (max-width:340px){.nb{font-size:10px}.nb .ni{font-size:18px}}
+
+/* Profile follows the same monolithic rule: one authored showcase, then a
+   continuous information document. Containers no longer compete as cards. */
+.profile-card-actions { grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; margin:0 0 12px; padding:6px 0; border-block:1px solid var(--border2); }
+.profile-card-actions button { min-height:52px; border:0; border-right:1px solid var(--border2); border-radius:0; background:transparent; color:#aeb5c9; font-size:11px; }
+.profile-card-actions button:nth-child(3n) { border-right:0; }
+.profile-card-actions button:active { background:rgba(255,255,255,.025); color:var(--bright); }
+.profile-detail-section,.profile-zone { margin:0; padding:22px 2px; border:0; border-bottom:1px solid var(--border2); border-radius:0; background:none; box-shadow:none; }
+.profile-detail-section::before,.profile-zone::before { display:none; }
+.profile-zone > header { margin-bottom:14px; grid-template-columns:32px minmax(0,1fr) auto; }
+.profile-zone > header > span { width:32px; height:32px; border:0; border-radius:0; background:transparent; font-size:19px; }
+.profile-zone > header small { font-size:11px; }
+.profile-zone > header h3 { font-size:17px; }
+.profile-zone > header button { border:0; background:transparent; color:var(--zone); font-size:11px; }
+.profile-game-grid { gap:0; }
+.profile-game-grid article,.profile-game { min-height:76px; padding:12px 0; border:0; border-top:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-game::after { display:none; }
+.profile-game .profile-game-icon { width:40px; height:40px; border-radius:12px; }
+.profile-progress-summary { gap:0; padding:4px 0 12px; }
+.profile-progress-summary > span { padding:6px 10px; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-progress-summary > span:first-child { padding-left:0; }
+.profile-progress-summary > span:last-child { border-right:0; }
+.profile-paths { gap:0; }
+.profile-paths li { min-height:62px; padding:10px 0; border:0; border-top:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-social-identity { gap:0; padding:2px 0 10px; }
+.profile-social-identity > span { min-width:50%; padding:7px 10px; border:0; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-social-identity > span:nth-child(2n) { border-right:0; }
+.profile-social-pets { gap:0; }
+.profile-social-pet { padding:11px 0; border:0; border-top:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-clean-state { padding:11px 0; border:0; border-radius:0; background:transparent; }
+.profile-safety-stats { gap:0; }
+.profile-safety-stats > span { padding:9px 10px; border-right:1px solid var(--border2); border-radius:0; background:transparent; }
+.profile-safety-stats > span:first-child { padding-left:0; }
+.profile-safety-stats > span:last-child { border-right:0; }
+.profile-vip-card--inactive { min-height:68px; grid-template-columns:42px minmax(0,1fr) auto; margin:0; padding:12px 2px; border:0; border-bottom:1px solid var(--border2); border-radius:0; background:transparent; box-shadow:none; }
+.profile-vip-card--inactive > span { width:42px; height:42px; border-radius:50%; }
+.profile-vip-card--inactive > button { min-height:44px; padding:0 11px; border:1px solid var(--border2); border-radius:11px; background:transparent; color:#d7dced; font:800 11px/1 inherit; }
+@media(max-width:340px){.profile-detail-section,.profile-zone{padding-inline:0}.profile-card-actions button{font-size:10px}.profile-zone>header{grid-template-columns:30px minmax(0,1fr) auto}.profile-zone>header>span{width:30px;height:30px}}
 .store-action-dock { position: fixed; left: 50%; bottom: calc(75px + var(--safe-b)); z-index: 88; width: min(calc(100vw - 20px),472px); min-height: 62px; box-sizing: border-box; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 9px 10px 9px 13px; border: 1px solid var(--border); border-radius: 16px; background: rgba(13,18,30,.96); box-shadow: 0 16px 42px rgba(0,0,0,.42); transform: translateX(-50%); backdrop-filter: blur(18px); }
 .store-action-dock > span { min-width: 0; display: grid; gap: 3px; }
 .store-action-dock small { color: var(--muted); font-size: 7px; }
