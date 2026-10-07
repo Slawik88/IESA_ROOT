@@ -15,22 +15,20 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from bot.filters.text_commands import TextCmd
 from core.constants import NOTIFICATION_CATEGORIES
-from core.registry import ACHIEVEMENTS, PET_SPECIES
-from core.companions_v3 import EXPEDITION_DISCOVERY_TEXT
+from core.registry import ACHIEVEMENTS
 from core.surface_parity import surface
 from core.miniapp_links import miniapp_url
 from infrastructure.repositories import achievements as achievements_repo
 from infrastructure.repositories import notifications as notifications_repo
 from infrastructure.repositories.economy import get_inventory
 from services import clans as clans_service
-from services import companions_v3 as companions_service
 from services import feats_v1 as feats_service
 from services import retention_v3 as retention_service
 from services import weekly_case_v1 as weekly_case_service
 from services import scar_map_v1 as scar_map_service
 from services.inventory_resolve import item_display_name
 from services.surface_telemetry import record_preference_change, record_surface_open
-from services.utils import check_callback_owner, feature_guard, safe_html
+from services.utils import check_callback_owner, safe_html
 
 
 router = Router(name="product_surfaces_router")
@@ -267,11 +265,6 @@ async def cb_weekly_path(query: types.CallbackQuery, callback_data: WeeklyPathCB
     await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
-async def _companion_snapshot(db, user_id: int) -> dict:
-    """Read the same v3 source used by Mini App, never the retired zoo tables."""
-    return await companions_service.overview(db, user_id)
-
-
 @router.message(TextCmd(list(surface("companions").aliases)))
 async def cmd_companion_summary(message: types.Message, db):
     # Historical pet state stays in the database for the pre-release audit, but
@@ -282,105 +275,18 @@ async def cmd_companion_summary(message: types.Message, db):
         "Прежняя коллекция сохранена для будущей компенсации, но старый уход, роли и походы закрыты.",
         parse_mode="HTML",
     )
-    return
-    snapshot = await _companion_snapshot(db, int(message.from_user.id))
-    pets = snapshot.get("pets") or []
-    expedition_view = snapshot.get("expeditions") or {}
-    expeditions = expedition_view.get("contracts") or []
-    legacy_active = expedition_view.get("legacy_active") or []
-    active = [pet for pet in pets if pet.get("active_companion")]
-    lines = ["🐾 <b>СПУТНИКИ</b>", f"В коллекции: <b>{len(pets)}</b> · В походе: <b>{len(expeditions) + len(legacy_active)}</b>", ""]
-    builder = InlineKeyboardBuilder()
-    if active:
-        pet = active[0]
-        species = PET_SPECIES.get(str(pet.get("species_id")), {})
-        lines.append(f"Активный: <b>{safe_html(str(pet.get('name') or species.get('name') or 'Спутник'))}</b>")
-        legacy = pet.get("legacy") or {}
-        lines.append(f"Уровень <b>{int(legacy.get('level') or 1)}</b> · {safe_html(str(species.get('rarity', pet.get('rarity', ''))))}")
-        if int(pet.get("care_bank", 0)) > 0:
-            for action in ("feed", "play", "groom"):
-                label = {"feed": "🍖 Покормить", "play": "🎲 Поиграть", "groom": "🧽 Ухаживать"}[action]
-                builder.button(text=label, callback_data=CompanionCareCB(action=action, pet_id=int(pet["id"]), user_id=int(message.from_user.id)))
-        skins = snapshot.get("skins") or []
-        selected_skin_id = str(snapshot.get("selected_skin_id") or "natural")
-        selected_skin = next((item for item in skins if item.get("id") == selected_skin_id), None)
-        if selected_skin:
-            lines.append(f"Облик: <b>{safe_html(str(selected_skin.get('name') or 'Верный облик'))}</b>")
-        for skin in skins:
-            if skin.get("unlocked") and str(skin.get("id")) != selected_skin_id:
-                builder.button(
-                    text=f"{skin.get('mark') or '◌'} {skin.get('name')}",
-                    callback_data=CompanionSkinCB(
-                        skin_id=str(skin["id"]), user_id=int(message.from_user.id)
-                    ),
-                )
-    elif pets:
-        lines.append("<i>Активный спутник не выбран.</i>")
-    else:
-        lines.append("<i>Спутников пока нет.</i>")
-    lines.append("\nКормление, размещение и развитие — в Mini App.")
-    await record_surface_open(db, int(message.from_user.id), "companions", "telegram_chat")
-    builder.button(text="🐾 Управлять спутниками", url=miniapp_url(surface('companions').start_param))
-    builder.adjust(1)
-    await message.answer("\n".join(lines), reply_markup=builder.as_markup(), parse_mode="HTML")
 
 
 @router.callback_query(CompanionCareCB.filter())
 async def cb_companion_care(query: types.CallbackQuery, callback_data: CompanionCareCB, db):
     del callback_data, db
     await query.answer("Старый уход за питомцами закрыт.", show_alert=True)
-    return
-    if not await check_callback_owner(query, callback_data.user_id):
-        return
-    try:
-        result = await companions_service.care(
-            db, int(query.from_user.id), int(callback_data.pet_id),
-            callback_data.action,
-            f"telegram:care:{query.message.chat.id}:{query.message.message_id}:{callback_data.pet_id}:{callback_data.action}"[:96],
-            source="telegram_chat",
-        )
-    except companions_service.CompanionError as exc:
-        return await query.answer(str(exc), show_alert=True)
-    await query.answer(result.get("scene_text") or result.get("scene_hint") or "Связь выросла")
-    snapshot = await _companion_snapshot(db, int(query.from_user.id))
-    pets = snapshot.get("pets") or []
-    expedition_view = snapshot.get("expeditions") or {}
-    expeditions = expedition_view.get("contracts") or []
-    legacy_active = expedition_view.get("legacy_active") or []
-    active = [pet for pet in pets if pet.get("active_companion")]
-    lines = ["🐾 <b>СПУТНИКИ</b>", f"В коллекции: <b>{len(pets)}</b> · В походе: <b>{len(expeditions) + len(legacy_active)}</b>", ""]
-    if active:
-        pet = active[0]
-        lines.append(f"Активный: <b>{safe_html(str(pet.get('name') or 'Спутник'))}</b>")
-    lines.append(f"✨ {safe_html(str(result.get('scene_text') or result.get('scene_hint') or 'Связь стала крепче.'))}")
-    await query.message.edit_text("\n".join(lines), reply_markup=_web_button("companions", "🐾 Открыть спутников"), parse_mode="HTML")
 
 
 @router.callback_query(CompanionSkinCB.filter())
 async def cb_companion_skin(query: types.CallbackQuery, callback_data: CompanionSkinCB, db):
     del callback_data, db
     await query.answer("Старые облики питомцев закрыты.", show_alert=True)
-    return
-    if not await check_callback_owner(query, callback_data.user_id):
-        return
-    try:
-        snapshot = await companions_service.select_skin(
-            db, int(query.from_user.id), callback_data.skin_id, source="telegram_chat"
-        )
-    except companions_service.CompanionError as exc:
-        return await query.answer(str(exc), show_alert=True)
-    selected = next(
-        (item for item in snapshot.get("skins") or [] if item.get("id") == snapshot.get("selected_skin_id")),
-        None,
-    )
-    await query.answer("Облик выбран")
-    await query.message.edit_text(
-        "🐾 <b>СПУТНИКИ</b>\n\n"
-        f"Облик активного спутника: <b>{safe_html(str((selected or {}).get('name') or 'Верный облик'))}</b>.\n"
-        "Он не меняет характеристики или награды.",
-        reply_markup=_web_button("companions", "🐾 Открыть спутников"),
-        parse_mode="HTML",
-    )
 
 
 @router.message(TextCmd(list(surface("expeditions").aliases)))
@@ -390,43 +296,6 @@ async def cmd_expedition_summary(message: types.Message, db):
         "🗺 <b>ПОХОДЫ</b>\n\nСтарая система походов закрыта. Новые Походы и Экспедиции появятся вместе с утверждённой системой питомцев.",
         parse_mode="HTML",
     )
-    return
-    snapshot = await _companion_snapshot(db, int(message.from_user.id))
-    expedition_view = snapshot.get("expeditions") or {}
-    archive = snapshot.get("archive") or {}
-    expeditions = expedition_view.get("contracts") or []
-    legacy_active = expedition_view.get("legacy_active") or []
-    lines = ["🗺 <b>ПОХОДЫ СПУТНИКОВ</b>", ""]
-    if not expeditions and not legacy_active:
-        lines.append("<i>Сейчас никто не в походе.</i>")
-    for expedition in expeditions[:5]:
-        remaining = int(expedition.get("remaining_sec") or 0)
-        state = str(expedition.get("status") or "active")
-        if state == "claimed":
-            status = "📜 получено"
-        elif state == "ready" or (state == "active" and remaining <= 0):
-            status = "✅ готово"
-        else:
-            status = f"ещё {remaining // 3600}ч {(remaining % 3600) // 60}м"
-        name = expedition.get("name") or PET_SPECIES.get(str(expedition.get("species_id")), {}).get("name", "Спутник")
-        lines.append(f"• <b>{safe_html(str(name))}</b> — {status}")
-        if state == "claimed":
-            clue = EXPEDITION_DISCOVERY_TEXT.get(str(expedition.get("discovery_id")))
-            if clue:
-                lines.append(f"  <i>{safe_html(clue)}</i>")
-    if legacy_active:
-        lines.append("• <i>Старый поход сохраняется по прежнему договору; управление — в Mini App.</i>")
-    if archive:
-        lines.append(f"\n▤ <b>Архив находок: {int(archive.get('found') or 0)}/{int(archive.get('total') or 12)}</b>")
-        for story_set in archive.get("sets") or []:
-            marker = "✅" if story_set.get("completed") else "·"
-            lines.append(
-                f"{marker} {safe_html(str(story_set.get('name') or 'Набор'))}: "
-                f"<b>{int(story_set.get('progress') or 0)}/{int(story_set.get('target') or 4)}</b>"
-            )
-    lines.append("\nЗапуск похода, раскрытие находки и полный Архив — в Mini App.")
-    await record_surface_open(db, int(message.from_user.id), "expeditions", "telegram_chat")
-    await message.answer("\n".join(lines), reply_markup=_web_button("expeditions", "🗺 Открыть походы"), parse_mode="HTML")
 
 
 @router.message(TextCmd(list(surface("clans").aliases)))
