@@ -1,60 +1,23 @@
-"""FastAPI/routers/gacha.py — крутки гачи."""
+"""Read-only compatibility surface for the retired random-reward system."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from core.constants import (SPIN_COSTS, SPIN_TYPE_LABELS, SPIN_TOKEN_IDS,
-                             SPIN_MULTI_COUNT)
-from FastAPI.deps import get_db, require_tg_user, require_module
+
+from FastAPI.deps import get_db, require_module, require_tg_user
+from core.constants import SPIN_COSTS, SPIN_TOKEN_IDS
 from infrastructure.repositories.economy import get_balance, get_item_quantity
 from infrastructure.repositories.gacha import get_pity
-from core.registry import GACHA_TABLES
-from services.gacha import roll_single, roll_multi, maybe_grant_theme_drop
 
-router = APIRouter(prefix="/gacha", tags=["gacha"], dependencies=[Depends(require_module("module_gacha"))])
-
-
-def _compute_rates(spin_type: str) -> dict:
-    """Compute pet rarity drop rates (%) from GACHA_TABLES for display."""
-    table = GACHA_TABLES.get(spin_type, [])
-    total = sum(e.get("weight", 0) for e in table)
-    if not total:
-        return {}
-    rw: dict = {}
-    for e in table:
-        if e.get("type") in ("pet_dup", "pet_dup_multi"):
-            r = e.get("rarity", "common")
-            rw[r] = rw.get(r, 0) + e.get("weight", 0)
-    order = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
-    return {r: round(rw[r] / total * 100, 1) for r in order if rw.get(r, 0) > 0}
-
-
-def _odds_label(e: dict, reg: dict) -> str:
-    """Человеко-читаемая подпись записи таблицы дропа."""
-    t = e.get("type")
-    if t == "mora":
-        return f"🪙 Мора {int(e.get('min', 0))}–{int(e.get('max', 0))}"
-    if t == "diamond":
-        return f"💎 Алмазы ×{e.get('qty', 0)}"
-    if t == "pet_dup":
-        return f"🐾 Дубликат питомца ({e.get('rarity', 'common')})"
-    if t == "pet_dup_multi":
-        return f"🐾 ×{e.get('count', 2)} дубликата ({e.get('rarity', 'common')})"
-    if t == "item":
-        nm = reg.get(e.get("id", ""), {}).get("name", e.get("id", ""))
-        return f"{nm} ×{e.get('qty', 1)}"
-    if t == "combo":
-        parts = []
-        for it in e.get("items", []):
-            nm = reg.get(it.get("id", ""), {}).get("name", it.get("id", ""))
-            parts.append(f"{nm}×{it.get('qty', 1)}")
-        if e.get("diamond_bonus"):
-            parts.append(f"💎×{e['diamond_bonus']}")
-        return " + ".join(parts)
-    return "—"
+router = APIRouter(
+    prefix="/gacha",
+    tags=["gacha"],
+    dependencies=[Depends(require_module("module_gacha"))],
+)
 
 
 @router.get("/odds")
 async def gacha_odds():
-    """Fail-closed compatibility response for the retired random reward catalog."""
+    """Return an explicit closure receipt instead of obsolete odds."""
     return {
         "retired": True,
         "tables": {},
@@ -64,12 +27,13 @@ async def gacha_odds():
 
 @router.get("/")
 async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Read-only receipt for saved tokens/pity while Archive conversion is pending."""
-    bal = await get_balance(db, user["id"])
+    """Show saved tokens and pity while Archive conversion is pending."""
+    balance = await get_balance(db, user["id"])
     saved_tokens = 0
     saved_pity = []
     for spin_type in SPIN_COSTS:
-        token_qty = await get_item_quantity(db, user["id"], SPIN_TOKEN_IDS.get(spin_type, ""))
+        token_id = SPIN_TOKEN_IDS.get(spin_type, "")
+        token_qty = await get_item_quantity(db, user["id"], token_id)
         pity = await get_pity(db, user["id"], spin_type)
         saved_tokens += int(token_qty or 0)
         if pity:
@@ -78,183 +42,26 @@ async def gacha_info(db=Depends(get_db), user=Depends(require_tg_user)):
         "retired": True,
         "archive_pending": True,
         "message": "Крутки больше не продают силу и валюту. Жетоны и накопленный гарант сохранены для прозрачного разбора в Архиве.",
-        "mora":      float(bal["user_balance_mora"] or 0),
-        "diamonds":  float(bal["user_balance_diamonds"] or 0),
+        "mora": float(balance["user_balance_mora"] or 0),
+        "diamonds": float(balance["user_balance_diamonds"] or 0),
         "spin_types": [],
         "saved_tokens": saved_tokens,
         "saved_pity": saved_pity,
     }
 
 
-import time as _time
-
-# Спам-фикс (2026-07-09): каждая крутка слала своё сообщение в чат — игрок,
-# скрутивший 10+ жетонов подряд (или несколько игроков разом), заваливал чат
-# десятком строк "выпало 40 Моры". Ценные дропы (is_valuable из roll_single/
-# roll_multi — то же поле, что двигает pity) редки сами по себе и шлются всегда;
-# рядовые прогоняются через кулдаун на чат — не чаще одного сообщения в окно.
-_SPIN_NOTIFY_COOLDOWN_S = 20.0
-_last_spin_notify: dict[int, float] = {}
-
-
-async def _notify_chat_spin(db, user_id: int, chat_id: int, spin_type: str, result: dict,
-                            multi_count: int = 0, is_valuable: bool = False) -> None:
-    """Best-effort: notify the originating chat about a gacha spin result.
-    Рядовые (не is_valuable) дропы гасятся кулдауном на чат, чтобы не спамить —
-    ценные дропы шлются всегда (сами по себе редкие, это и есть хайп-момент)."""
-    # Категорийный тумблер игровых уведомлений чата (бот настройки чата → 🔔)
-    from infrastructure.repositories.moderation import chat_notif_enabled
-    if not await chat_notif_enabled(db, chat_id, "notif_gacha"):
-        return
-    if not is_valuable:
-        now = _time.monotonic()
-        last = _last_spin_notify.get(chat_id, 0.0)
-        if now - last < _SPIN_NOTIFY_COOLDOWN_S:
-            return
-        _last_spin_notify[chat_id] = now
-    try:
-        import os, httpx
-        token = os.getenv("BOT_TOKEN", "")
-        if not token:
-            return
-        from infrastructure.repositories.users import get_user_name as _gname
-        _raw = await _gname(db, user_id)
-        username = f"@{_raw}" if _raw else f"Игрок #{user_id}"
-        label = SPIN_TYPE_LABELS.get(spin_type, spin_type)
-        from core.registry import PET_SPECIES as _PS, ITEMS_REGISTRY as _IR
-        _RARITY_ORDER = ["common", "uncommon", "rare", "epic", "legendary", "mythic"]
-        dups = result.get("dup_outcomes", [])
-        if dups:
-            top = max(dups, key=lambda d: _RARITY_ORDER.index(d.get("rarity", "common")) if d.get("rarity") in _RARITY_ORDER else 0)
-            sp_name = _PS.get(top['species_id'], {}).get('name', top.get('species_id', '?'))
-            drop_str = f"🐾 {sp_name} [{top['rarity']}]"
-        elif result.get('mora', 0) > 0:
-            drop_str = f"🪙 {result['mora']:.0f} Мора"
-        elif result.get('diamonds', 0) > 0:
-            drop_str = f"💎 {result['diamonds']} Алмазов"
-        elif result.get('items'):
-            first = result['items'][0]
-            drop_str = f"{_IR.get(first['id'], {}).get('name', first['id'])} ×{first['qty']}"
-        else:
-            drop_str = "—"
-        suffix = f" ×{multi_count}" if multi_count else ""
-        label_line = "Лучшее" if multi_count else "Выпало"
-        text = f"🎲 <b>{username}</b> крутанул <b>{label}</b>{suffix}\n└ {label_line}: {drop_str}"
-        async with httpx.AsyncClient(timeout=3) as c:
-            await c.post(f"https://api.telegram.org/bot{token}/sendMessage",
-                         json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"})
-    except Exception:
-        pass
-
-
 class SpinRequest(BaseModel):
     spin_type: str
-    chat_id: int = 0   # optional: send bot notification to this chat
+    chat_id: int = 0
 
 
 @router.post("/spin")
 async def spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Один спин выбранного типа крутки."""
+    """Reject retired single spins without invoking legacy writers."""
     raise HTTPException(410, "Случайные крутки закрыты. Жетоны и гарант сохранены для Архива.")
-    ok, result = await roll_single(db, user["id"], body.spin_type)
-    if not ok:
-        raise HTTPException(400, result)
-    await db.commit()
-
-    # Track quest metric: gacha_spins_today + дериваты дублей
-    if body.chat_id:
-        try:
-            from services.quests import increment_metric as _q_incr
-            await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=1.0)
-            dups = result.get("dup_outcomes", [])
-            level_ups = sum(1 for d in dups if d.get("outcome") == "leveled_up")
-            if level_ups:
-                await _q_incr(db, user["id"], body.chat_id,
-                              "pet_level_ups_today", delta=float(level_ups))
-            rare_dups = sum(1 for d in dups if d.get("outcome") in ("added", "leveled_up")
-                           and d.get("rarity") in ("rare", "epic", "legendary"))
-            if rare_dups:
-                await _q_incr(db, user["id"], body.chat_id,
-                              "rare_or_better_pet_dups_today", delta=float(rare_dups))
-            await db.commit()
-        except Exception:
-            pass
-
-    # Theme drop (rare cosmetic bonus) — same chance as the bot's gacha,
-    # otherwise website spins never grant profile themes.
-    theme_drop = await maybe_grant_theme_drop(db, user["id"], body.spin_type)
-    if theme_drop:
-        try:
-            await db.commit()
-        except Exception:
-            pass
-        result["theme_drop"] = theme_drop
-
-    # Send bot notification to chat (best-effort)
-    if body.chat_id:
-        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, result,
-                                is_valuable=bool(result.get("is_valuable")))
-
-    return result
 
 
 @router.post("/multi-spin")
 async def multi_spin(body: SpinRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """10× мультикрутка со скидкой."""
+    """Reject retired multi-spins without invoking legacy writers."""
     raise HTTPException(410, "Случайные крутки закрыты. Жетоны и гарант сохранены для Архива.")
-    ok, results = await roll_multi(db, user["id"], body.spin_type, count=SPIN_MULTI_COUNT)
-    if not ok:
-        raise HTTPException(400, results)
-    await db.commit()
-
-    if body.chat_id:
-        try:
-            from services.quests import increment_metric as _q_incr
-            await _q_incr(db, user["id"], body.chat_id, "gacha_spins_today", delta=float(SPIN_MULTI_COUNT))
-            all_dups = [d for r in results for d in r.get("dup_outcomes", [])]
-            level_ups = sum(1 for d in all_dups if d.get("outcome") == "leveled_up")
-            if level_ups:
-                await _q_incr(db, user["id"], body.chat_id,
-                              "pet_level_ups_today", delta=float(level_ups))
-            rare_dups = sum(1 for d in all_dups if d.get("outcome") in ("added", "leveled_up")
-                           and d.get("rarity") in ("rare", "epic", "legendary"))
-            if rare_dups:
-                await _q_incr(db, user["id"], body.chat_id,
-                              "rare_or_better_pet_dups_today", delta=float(rare_dups))
-            await db.commit()
-        except Exception:
-            pass
-
-    # Aggregate results for frontend
-    total_mora = sum(r.get("mora", 0) for r in results)
-    total_dia  = sum(r.get("diamonds", 0) for r in results)
-    all_dups   = [d for r in results for d in (r.get("dup_outcomes") or [])]
-    all_items  = [i for r in results for i in (r.get("items") or [])]
-    summary = {
-        "mora":     total_mora,
-        "diamonds": total_dia,
-        "dup_outcomes": all_dups,
-        "items":    all_items,
-        "count":    len(results),
-        "tokens_used": sum(1 for r in results if r.get("used_token")),
-    }
-
-    # Theme drop — 10x spins roll the chance 10 times (slightly better odds),
-    # same as the bot's multi-spin. Otherwise website multi-spins never
-    # grant profile themes.
-    for _ in range(SPIN_MULTI_COUNT):
-        theme_drop = await maybe_grant_theme_drop(db, user["id"], body.spin_type)
-        if theme_drop:
-            try:
-                await db.commit()
-            except Exception:
-                pass
-            summary["theme_drop"] = theme_drop
-            break
-
-    if body.chat_id:
-        any_valuable = any(r.get("is_valuable") for r in results)
-        await _notify_chat_spin(db, user["id"], body.chat_id, body.spin_type, summary,
-                                multi_count=SPIN_MULTI_COUNT, is_valuable=any_valuable)
-
-    return {"results": results, "summary": summary}

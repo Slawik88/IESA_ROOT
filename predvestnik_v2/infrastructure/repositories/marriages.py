@@ -72,80 +72,11 @@ async def family_bank_transaction(
     action: str,
     currency: str = "mora",
 ) -> tuple[bool, str]:
-    """Депозит/вывод любой из 4 валют между личным балансом и семейным кошельком.
-    Любой супруг может тратить ВСЮ сумму семейного кошелька (общий пул).
-    R8: 🪙-часть общака ограничена капом (get_family_bank_mora_cap)."""
+    """Reject the retired direct-column wallet writer."""
     # The former direct-column writer has no idempotency or premium-custody
     # proof.  Keep every old caller fail-closed while the reviewed ledger path
     # is completed; public endpoints must use family_wallet_v1 afterwards.
     return False, "Семейный кошелёк временно закрыт для проверяемого переноса."
-    meta = FAMILY_CURRENCIES.get(currency)
-    if not meta:
-        return False, "Неизвестная валюта."
-    if amount <= 0:
-        return False, "Сумма должна быть больше нуля."
-    user_col, fam_col = meta["user_col"], meta["fam_col"]
-
-    try:
-        async with db.connection.transaction():
-            # FOR UPDATE на строке брака — защита от гонки двух супругов
-            async with db.execute(
-                f"SELECT COALESCE({fam_col}, 0) FROM marriages WHERE id = ? FOR UPDATE",
-                (marriage_id,),
-            ) as cursor:
-                m_row = await cursor.fetchone()
-                if not m_row:
-                    return False, "Брак не найден."
-                family_balance = float(m_row[0])
-
-            if action == "deposit":
-                if currency == "mora":
-                    cap = await get_family_bank_mora_cap(db, marriage_id)
-                    free = max(0.0, cap - family_balance)
-                    if amount > free:
-                        _cap_s = f"{int(cap):,}".replace(",", " ")
-                        _free_s = f"{int(free):,}".replace(",", " ")
-                        return False, (
-                            f"🏦 Кап общака: {_cap_s} 🪙 (свободно {_free_s}). "
-                            f"Кап поднимает Дракон в питомнике."
-                        )
-                async with db.execute(
-                    f"SELECT COALESCE({user_col}, 0) FROM users WHERE user_tg_id = ? FOR UPDATE",
-                    (user_id,),
-                ) as c:
-                    u_row = await c.fetchone()
-                user_bal = float(u_row[0]) if u_row else 0.0
-                if user_bal < amount:
-                    return False, f"Недостаточно личной валюты: {meta['icon']} {meta['label']}."
-                await db.execute(
-                    f"UPDATE users SET {user_col} = COALESCE({user_col}, 0) - ? WHERE user_tg_id = ?",
-                    (amount, user_id),
-                )
-                await db.execute(
-                    f"UPDATE marriages SET {fam_col} = COALESCE({fam_col}, 0) + ? WHERE id = ?",
-                    (amount, marriage_id),
-                )
-            elif action == "withdraw":
-                if family_balance < amount:
-                    return False, f"Недостаточно в семейном кошельке: {meta['icon']} {meta['label']}."
-                await db.execute(
-                    f"UPDATE marriages SET {fam_col} = COALESCE({fam_col}, 0) - ? WHERE id = ?",
-                    (amount, marriage_id),
-                )
-                await db.execute(
-                    "INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING",
-                    (user_id,),
-                )
-                await db.execute(
-                    f"UPDATE users SET {user_col} = COALESCE({user_col}, 0) + ? WHERE user_tg_id = ?",
-                    (amount, user_id),
-                )
-            else:
-                return False, "Неизвестное действие."
-
-        return True, "Успешно."
-    except Exception as e:
-        return False, f"Ошибка: {e}"
 
 
 async def purchase_partner_gift(

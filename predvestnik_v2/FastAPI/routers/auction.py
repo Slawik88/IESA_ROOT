@@ -3,21 +3,11 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 
 from FastAPI.deps import get_db, require_tg_user, require_module
-from core.constants import AUCTION_COMMISSION, AUCTION_MIN_BID
-from core.registry import ITEMS_REGISTRY, PET_SPECIES
-# ITEMS_REGISTRY used both here and inside loops for item metadata
-from infrastructure.repositories.economy import get_item_quantity
+from core.constants import AUCTION_MIN_BID
+from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories.auction import get_reserve
-from services.auction import place_bid, create_auction_lot, queue_lot_announcement
 
 router = APIRouter(prefix="/auction", tags=["auction"], dependencies=[Depends(require_module("module_auction"))])
-
-
-def _economic_key(value: str, scope: str) -> str:
-    key = value.strip()
-    if not key or len(key) > 120:
-        raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
-    return f"{scope}:{key}"
 
 
 @router.get("/lots")
@@ -135,33 +125,6 @@ async def create_lot(
 ):
     """Выставить предмет из инвентаря на аукцион."""
     raise HTTPException(410, "Новые лоты откроются после проверки происхождения разрешённых товаров.")
-    item = ITEMS_REGISTRY.get(body.item_id)
-    if not item:
-        raise HTTPException(400, "Предмет не найден.")
-    if body.min_bid < AUCTION_MIN_BID:
-        raise HTTPException(400, f"Минимальная ставка: {AUCTION_MIN_BID} 🪙.")
-
-    have = await get_item_quantity(db, user["id"], body.item_id)
-    if have < body.quantity:
-        raise HTTPException(400, f"В инвентаре только {have} шт.")
-
-    # item_name format: "Display Name||real_item_id" — used by resolve_lot to restore item
-    display = f"{item['name']} ×{body.quantity}" if body.quantity > 1 else item["name"]
-    item_name_with_id = f"{display}||{body.item_id}"
-    ok, result, applied = await create_auction_lot(
-        db, user["id"], item.get("category", "item"),
-        "inventory", abs(hash(body.item_id)) % (10**9), body.quantity,
-        item_name_with_id,
-        body.min_bid, body.buyout,
-        idempotency_key=_economic_key(request_key, "auction-listing"),
-    )
-    if not ok:
-        raise HTTPException(400, str(result))
-
-    await db.commit()
-    if applied:
-        queue_lot_announcement(result)
-    return {"ok": True, "lot_id": result, "replayed": not applied}
 
 
 class CreatePetLotRequest(BaseModel):
@@ -175,42 +138,8 @@ async def create_pet_lot(
     body: CreatePetLotRequest, db=Depends(get_db), user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
-    """Выставить питомца со склада на аукцион (web-паритет с ботом).
-
-    Эскроу-first: питомец атомарно переводится из placement='storage' в
-    'auction' (RETURNING-guard от гонки/двойного листинга), и только потом
-    создаётся лот. Если лот не создался — эскроу откатывается.
-    """
+    """Reject retired pet listings without invoking their legacy escrow writer."""
     raise HTTPException(410, "Питомцы не продаются: владение и связь со спутником привязаны к игроку.")
-    if body.min_bid < AUCTION_MIN_BID:
-        raise HTTPException(400, f"Минимальная ставка: {AUCTION_MIN_BID} 🪙.")
-
-    async with db.execute(
-        "SELECT species_id, COALESCE(pet_level, 1), placement "
-        "FROM pets WHERE id = ? AND owner_id = ?",
-        (body.pet_id, user["id"]),
-    ) as c:
-        row = await c.fetchone()
-    if not row:
-        raise HTTPException(400, "Питомец не найден.")
-    if row[2] != "storage":
-        raise HTTPException(400, "Выставить можно только питомца со склада — убери его из слотов питомника.")
-
-    sp = PET_SPECIES.get(row[0], {})
-    item_name = f"{sp.get('name', row[0])} Lv{row[1]}"
-
-    ok, result, applied = await create_auction_lot(
-        db, user["id"], "pets", "pet", body.pet_id, 1, item_name,
-        body.min_bid, body.buyout,
-        idempotency_key=_economic_key(request_key, "auction-pet-listing"),
-    )
-    if not ok:
-        raise HTTPException(400, str(result))
-
-    await db.commit()
-    if applied:
-        queue_lot_announcement(result)
-    return {"ok": True, "lot_id": result, "replayed": not applied}
 
 
 class CancelLotRequest(BaseModel):
@@ -242,59 +171,3 @@ async def bid(
 ):
     """Поставить ставку; доступная сумма проверяется под блокировкой в сервисе."""
     raise HTTPException(410, "Новые ставки закрыты до безопасного запуска рынка. Текущие резервы будут урегулированы автоматически.")
-    result = await place_bid(
-        db, body.lot_id, user["id"], body.amount,
-        idempotency_key=_economic_key(request_key, "auction-bid"),
-    )
-    if not result.get("ok"):
-        raise HTTPException(400, result.get("error", "Ошибка ставки."))
-
-    await db.commit()
-
-    # R5 «Молот Аукциона»: live-событие зрителям комнаты лота. Ставки из БОТА
-    # сюда не попадают (WS-хаб живёт в веб-процессе) — комната дополнительно
-    # опирается на серверный remaining_sec при каждом событии.
-    if result.get("applied"):
-        try:
-            from FastAPI.notifications import broadcast_lot, lot_viewers
-            async with db.execute(
-                "SELECT CAST(EXTRACT(EPOCH FROM (ends_at - NOW())) AS BIGINT) "
-                "FROM auction_lots WHERE id = ?", (body.lot_id,),
-            ) as c:
-                _rem_row = await c.fetchone()
-            await broadcast_lot(body.lot_id, {
-                "type": "lot_bid",
-                "lot_id": body.lot_id,
-                "amount": float(result.get("amount", body.amount)),
-                "bidder_name": user.get("username") or "Игрок",
-                "remaining_sec": int(_rem_row[0]) if _rem_row and _rem_row[0] is not None else 0,
-                "extended": bool(result.get("extended")),
-                "is_buyout": bool(result.get("is_buyout")),
-                "viewers": lot_viewers(body.lot_id),
-            })
-        except Exception:
-            pass  # live-комната не должна ломать саму ставку
-
-    # Quest & achievement tracking (same as bot handler does)
-    try:
-        from services.quests import increment_metric as _q_incr
-        # Get user's primary chat_id for quest context (use any active chat)
-        async with db.execute(
-            "SELECT chat_tg_id FROM user_chat_stats WHERE user_tg_id = ? "
-            "ORDER BY user_messages_count_all_time DESC LIMIT 1",
-            (user["id"],),
-        ) as c:
-            _chat_row = await c.fetchone()
-        if _chat_row and result.get("applied"):
-            await _q_incr(db, user["id"], _chat_row[0], "auction_bids_today", delta=1.0)
-            await db.commit()
-    except Exception:
-        pass
-
-    return {
-        "ok": True,
-        "is_buyout": result.get("is_buyout", False),
-        "amount": result.get("amount", body.amount),
-        "replayed": not result.get("applied", True),
-        "commission_pct": AUCTION_COMMISSION * 100,
-    }
