@@ -1,0 +1,631 @@
+# Predvestnik release / «Что нового» audit
+
+**Status: READY**
+
+- Candidate: `8b69ee36e4b99f5c0c96df1fddd44c52b9265b0f`
+- Declared production base: `origin/master`
+- Live feed: `https://iesaroot-app-8kuyb.ondigitalocean.app/predvestnik/updates.json`
+- Commits in candidate: 60
+- Changed files: 541 (291 classified as release-relevant runtime)
+- New update IDs: 2026-08-23-reconstruction-first-release
+
+## Blocking findings
+
+- None.
+
+## Warnings
+
+- None.
+
+## Commits
+
+- `8b69ee36 fix(predvestnik): harden Windows preview parity`
+- `763aa7df feat(predvestnik): add isolated Windows preprod stand`
+- `055ec39e chore(windows): remove invalid empty filename`
+- `7abdf2f8 Backup before OS reinstall: snapshot backup/no-deploy-2026-08-25-195138`
+- `1fb0c5c5 feat(game): retire wager mini games`
+- `788597a5 feat(economy): archive legacy achievements`
+- `04076d5b feat(economy): archive legacy quests and battle pass`
+- `ad12edf6 feat(economy): retire passive chat progression`
+- `bbba99c5 feat(economy): retire message streak rewards`
+- `7ab5f866 feat(economy): retire passive legacy faucets`
+- `5ae54b49 feat(game): retire legacy wager duels`
+- `15e06b93 feat(economy): close direct currency transfers`
+- `3af26614 feat(economy): make auction lifecycle atomic`
+- `501756e0 feat(economy): ledger weekly cosmetic showcase`
+- `e6c10ad9 feat(economy): ledger cosmetic gifts and chests`
+- `602222be feat(economy): ledger cosmetic collection purchases`
+- `8bb51d2d feat(economy): ledger single cosmetic purchases`
+- `83cf5e5a feat(economy): make shop purchases ledger-safe`
+- `5f9abd11 feat(game): diversify clicker build offers`
+- `2ac72f7f feat(game): add Archivist companion review`
+- `e14fcf60 feat(economy): enforce v3 wallet boundaries`
+- `b3db4753 feat(game): polish clicker combat ergonomics`
+- `53c9596f feat(game): add alliance shadow persistence`
+- `6975ec5d feat(game): add shadow alliance foundation`
+- `415078f0 feat(game): add navigator companion forecast`
+- `790cf21d feat(game): add echo companion risk contract`
+- `2d4484a9 feat(game): add rhythm keeper companion contract`
+- `99b01cc7 feat(game): connect first companion combat roles`
+- `f19649bc feat(game): add shadow scouting contracts`
+- `cb8dbd1e feat(game): add companion v3 foundation`
+- `478f4156 feat(game): complete first chronicle act`
+- `b3ba4963 feat(game): add mirror courtyard encounter`
+- `7ec51d8d feat(game): add drowned names encounter`
+- `64727859 feat(game): add first chronicle branch`
+- `dd1119e4 feat(game): implement first mastery branches`
+- `7f8d45d0 feat(game): connect unit mastery choices`
+- `48880061 feat(game): add second reconstruction encounter`
+- `14cd3fad feat(game): scaffold v3 unit mastery progression`
+- `1ecb0829 feat(economy): record reconstruction shadow rewards`
+- `0c1559b5 feat(game): protect reconstruction terminal results`
+- `c1c1cab9 feat(game): make reconstruction time server-authoritative`
+- `6a107ea0 feat(economy): add owner v3 shadow policy`
+- `128a00f7 docs(economy): adopt owner v3 decisions`
+- `335e6434 feat(game): integrate reconstruction MVP into mini app`
+- `eda2bd55 docs(economy): add production-backed masterplan`
+- `acd5f866 docs(economy): replace draft with audited blueprint`
+- `9eac7202 docs(economy): simplify owner decision report`
+- `0e7e3e65 docs(economy): propose integrated game ecosystem`
+- `06f01fd8 fix(game): reconcile completed combat tutorial`
+- `6a96ce2d feat(game): add meaningful gameplay event contract`
+- `f07a977c chore(release): gate deploys on whats-new audit`
+- `36ed64a4 fix(ui): keep bottom dock inside viewport`
+- `9f57bcae feat(economy): add canonical idempotent ledger`
+- `0526a672 feat(game): finish reconstruction clicker MVP`
+- `64b6b7b8 feat(game): build precise clicker vertical slice`
+- `fe00c387 docs(game): validate rebuild audit with production baseline`
+- `942bb244 docs(game): audit economy and rebuild strategy`
+- `1086679b feat(ui): introduce quiet stage redesign`
+- `49031ce0 feat(cosmetics): balance prices by visual weight`
+- `37e404af docs(themes): complete full registry audit`
+
+## Changed files
+
+- `??` `.codex/CURRENT_STATE.md`
+- `??` `.codex/MEMORY_INDEX.md`
+- `??` `.codex/design-audit-2026-09-02/01-profile.png`
+- `??` `.codex/design-audit-2026-09-02/02-more.png`
+- `??` `.codex/design-audit-2026-09-02/03-more-after.png`
+- `??` `.codex/design-audit-2026-09-02/04-more-live.png`
+- `??` `.gitignore`
+- `??` `AGENTS.md`
+- `D` `AI_KNOWLEDGE.md`
+- `A` `AUTONOMOUS_AGENT_POLICY.md`
+- `M` `AUTONOMOUS_MODE.md`
+- `D` `BASE_PROMPT.md`
+- `D` `BATTLE_REWORK_CONCEPT.md`
+- `D` `BATTLE_VFX_CONCEPT.md`
+- `D` `BOT_AUDIT.md`
+- `D` `CODE_STRUCTURE_AUDIT.md`
+- `D` `COMBAT_AUDIT.md`
+- `D` `COMMUNITY_CHANNEL_CONCEPT.md`
+- `D` `COSMETICS_COLLECTION_DESIGN_RULES.md`
+- `D` `COSMETICS_LIFECYCLE_POLICY.md`
+- `D` `DESIGN.md`
+- `D` `FUTURE_IDEAS.md`
+- `M` `FastAPI/auth.py` — release-relevant runtime
+- `M` `FastAPI/deps.py` — release-relevant runtime
+- `M` `FastAPI/main.py` — release-relevant runtime
+- `M` `FastAPI/prefix.py` — release-relevant runtime
+- `??` `FastAPI/preprod_test_auth.py` — release-relevant runtime
+- `M` `FastAPI/routers/achievements.py` — release-relevant runtime
+- `??` `FastAPI/routers/achievements_v1.py` — release-relevant runtime
+- `??` `FastAPI/routers/appearance.py` — release-relevant runtime
+- `M` `FastAPI/routers/auction.py` — release-relevant runtime
+- `M` `FastAPI/routers/barracks.py` — release-relevant runtime
+- `D` `FastAPI/routers/battle.py` — release-relevant runtime
+- `M` `FastAPI/routers/battle_pass.py` — release-relevant runtime
+- `??` `FastAPI/routers/chests_v1.py` — release-relevant runtime
+- `M` `FastAPI/routers/clans.py` — release-relevant runtime
+- `M` `FastAPI/routers/clans2.py` — release-relevant runtime
+- `D` `FastAPI/routers/combat.py` — release-relevant runtime
+- `M` `FastAPI/routers/cosmetics.py` — release-relevant runtime
+- `M` `FastAPI/routers/craft.py` — release-relevant runtime
+- `M` `FastAPI/routers/daily_deal.py` — release-relevant runtime
+- `M` `FastAPI/routers/dark_mora.py` — release-relevant runtime
+- `M` `FastAPI/routers/dev_console/player.py` — release-relevant runtime
+- `M` `FastAPI/routers/dev_console/promocodes.py` — release-relevant runtime
+- `M` `FastAPI/routers/dev_console/vip.py` — release-relevant runtime
+- `M` `FastAPI/routers/dev_overlay.py` — release-relevant runtime
+- `M` `FastAPI/routers/duels.py` — release-relevant runtime
+- `M` `FastAPI/routers/events.py` — release-relevant runtime
+- `M` `FastAPI/routers/exchange.py` — release-relevant runtime
+- `M` `FastAPI/routers/gacha.py` — release-relevant runtime
+- `??` `FastAPI/routers/global_skins_v1.py` — release-relevant runtime
+- `??` `FastAPI/routers/hub.py` — release-relevant runtime
+- `M` `FastAPI/routers/inventory.py` — release-relevant runtime
+- `A` `FastAPI/routers/legacy_combat_retirement.py` — release-relevant runtime
+- `??` `FastAPI/routers/mafia_v1.py` — release-relevant runtime
+- `M` `FastAPI/routers/marriage.py` — release-relevant runtime
+- `??` `FastAPI/routers/minesweeper_v2.py` — release-relevant runtime
+- `M` `FastAPI/routers/payments.py` — release-relevant runtime
+- `??` `FastAPI/routers/pets_v1.py` — release-relevant runtime
+- `M` `FastAPI/routers/profile.py` — release-relevant runtime
+- `M` `FastAPI/routers/quests.py` — release-relevant runtime
+- `??` `FastAPI/routers/quests_v1.py` — release-relevant runtime
+- `M` `FastAPI/routers/relics.py` — release-relevant runtime
+- `??` `FastAPI/routers/rhythm_v2.py` — release-relevant runtime
+- `M` `FastAPI/routers/shop.py` — release-relevant runtime
+- `M` `FastAPI/routers/showcase.py` — release-relevant runtime
+- `M` `FastAPI/routers/skill_games.py` — release-relevant runtime
+- `M` `FastAPI/routers/themes.py` — release-relevant runtime
+- `M` `FastAPI/routers/vip.py` — release-relevant runtime
+- `M` `FastAPI/routers/wallet.py` — release-relevant runtime
+- `D` `FastAPI/routers/zoo.py` — release-relevant runtime
+- `M` `FastAPI/static/app.01.js` — release-relevant runtime
+- `M` `FastAPI/static/app.02.js` — release-relevant runtime
+- `D` `FastAPI/static/app.03.js` — release-relevant runtime
+- `M` `FastAPI/static/app.04.js` — release-relevant runtime
+- `D` `FastAPI/static/app.05.js` — release-relevant runtime
+- `M` `FastAPI/static/app.06.js` — release-relevant runtime
+- `M` `FastAPI/static/app.07.js` — release-relevant runtime
+- `M` `FastAPI/static/app.08.js` — release-relevant runtime
+- `M` `FastAPI/static/app.09.js` — release-relevant runtime
+- `M` `FastAPI/static/app.10.js` — release-relevant runtime
+- `M` `FastAPI/static/app.11.js` — release-relevant runtime
+- `??` `FastAPI/static/app.12.js` — release-relevant runtime
+- `??` `FastAPI/static/app.13.js` — release-relevant runtime
+- `M` `FastAPI/static/app.css` — release-relevant runtime
+- `M` `FastAPI/static/app.devmode.js` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/production-grounded/01-production-clean.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/production-grounded/02-adaptive-stage.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/production-grounded/03-cosmetic-canopy.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/profile-card/01-open-central-stage.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/profile-card/02-stage-data-rail.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/profile-card/03-wide-stage-anchors.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/radical/01-porcelain-journal.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/radical/02-pulse-bento.png` — release-relevant runtime
+- `A` `FastAPI/static/design-concepts/radical/03-living-skin.png` — release-relevant runtime
+- `??` `FastAPI/static/global-skins-v1.css` — release-relevant runtime
+- `??` `FastAPI/static/global-skins-v1.js` — release-relevant runtime
+- `D` `FastAPI/static/icons/x.svg` — release-relevant runtime
+- `M` `FastAPI/static/index.html` — release-relevant runtime
+- `??` `FastAPI/static/minesweeper-v2.css` — release-relevant runtime
+- `??` `FastAPI/static/minesweeper-v2.html` — release-relevant runtime
+- `??` `FastAPI/static/minesweeper-v2.js` — release-relevant runtime
+- `??` `FastAPI/static/rhythm-v2.css` — release-relevant runtime
+- `??` `FastAPI/static/rhythm-v2.html` — release-relevant runtime
+- `??` `FastAPI/static/rhythm-v2.js` — release-relevant runtime
+- `??` `FastAPI/static/skins/lunar-archive-v1.webp` — release-relevant runtime
+- `??` `FastAPI/static/skins/void-atlas-v1.webp` — release-relevant runtime
+- `M` `FastAPI/static/updates.json`
+- `D` `GAME_BIBLE.md`
+- `D` `GDD_REBUILD_PLAN.md`
+- `D` `IMPLEMENTATION_BLOCKS.md`
+- `D` `LOCAL_PREVIEW.md`
+- `D` `NOT_IMPLEMENTED.md`
+- `D` `PETS_REDESIGN_CONCEPT.md`
+- `D` `PRODUCT.md`
+- `D` `SESSION_HANDOFF.md`
+- `D` `TALENT_TREE_CONCEPT.html`
+- `D` `UX_AUDIT.md`
+- `D` `admin_audit.md`
+- `M` `ai_knowledge/clans.md`
+- `M` `ai_knowledge/combat.md`
+- `M` `ai_knowledge/dark_mora.md`
+- `M` `ai_knowledge/economy.md`
+- `M` `ai_knowledge/expeditions.md`
+- `M` `ai_knowledge/gacha.md`
+- `M` `ai_knowledge/games.md`
+- `M` `ai_knowledge/marriage.md`
+- `M` `ai_knowledge/themes_cosmetics.md`
+- `M` `bot/__main__.py` — release-relevant runtime
+- `D` `bot/backup.py` — release-relevant runtime
+- `M` `bot/config.py` — release-relevant runtime
+- `M` `bot/core/database.py` — release-relevant runtime
+- `M` `bot/filters/text_commands.py` — release-relevant runtime
+- `M` `bot/handlers/__init__.py` — release-relevant runtime
+- `D` `bot/handlers/achievements.py` — release-relevant runtime
+- `M` `bot/handlers/admin.py` — release-relevant runtime
+- `D` `bot/handlers/auction.py` — release-relevant runtime
+- `D` `bot/handlers/battle_pass.py` — release-relevant runtime
+- `??` `bot/handlers/chat_echo.py` — release-relevant runtime
+- `M` `bot/handlers/chat_settings.py` — release-relevant runtime
+- `D` `bot/handlers/clans.py` — release-relevant runtime
+- `M` `bot/handlers/common.py` — release-relevant runtime
+- `D` `bot/handlers/craft.py` — release-relevant runtime
+- `D` `bot/handlers/daily_deal.py` — release-relevant runtime
+- `M` `bot/handlers/dark_mora.py` — release-relevant runtime
+- `M` `bot/handlers/dev.py` — release-relevant runtime
+- `D` `bot/handlers/duel.py` — release-relevant runtime
+- `M` `bot/handlers/economy.py` — release-relevant runtime
+- `D` `bot/handlers/events.py` — release-relevant runtime
+- `D` `bot/handlers/events_info.py` — release-relevant runtime
+- `D` `bot/handlers/exchange.py` — release-relevant runtime
+- `D` `bot/handlers/expeditions.py` — release-relevant runtime
+- `D` `bot/handlers/gacha.py` — release-relevant runtime
+- `M` `bot/handlers/games.py` — release-relevant runtime
+- `D` `bot/handlers/inventory.py` — release-relevant runtime
+- `??` `bot/handlers/mafia_v1.py` — release-relevant runtime
+- `M` `bot/handlers/marriage.py` — release-relevant runtime
+- `D` `bot/handlers/notifications.py` — release-relevant runtime
+- `M` `bot/handlers/payments.py` — release-relevant runtime
+- `D` `bot/handlers/pet_showcase.py` — release-relevant runtime
+- `??` `bot/handlers/pets_v1.py` — release-relevant runtime
+- `??` `bot/handlers/product_surfaces.py` — release-relevant runtime
+- `M` `bot/handlers/promocodes.py` — release-relevant runtime
+- `D` `bot/handlers/quests.py` — release-relevant runtime
+- `??` `bot/handlers/quests_v1.py` — release-relevant runtime
+- `??` `bot/handlers/release_profile.py` — release-relevant runtime
+- `D` `bot/handlers/relics.py` — release-relevant runtime
+- `??` `bot/handlers/rhythm.py` — release-relevant runtime
+- `M` `bot/handlers/routing.py` — release-relevant runtime
+- `D` `bot/handlers/shop.py` — release-relevant runtime
+- `M` `bot/handlers/stats.py` — release-relevant runtime
+- `M` `bot/handlers/streak.py` — release-relevant runtime
+- `M` `bot/handlers/themes.py` — release-relevant runtime
+- `M` `bot/handlers/vip.py` — release-relevant runtime
+- `M` `bot/handlers/warps.py` — release-relevant runtime
+- `M` `bot/handlers/web_redirect.py` — release-relevant runtime
+- `D` `bot/handlers/zoo.py` — release-relevant runtime
+- `D` `bot/keyboards/inline_kbs.py` — release-relevant runtime
+- `D` `bot/keyboards/shop_kbs.py` — release-relevant runtime
+- `D` `bot/lexicon/__init__.py` — release-relevant runtime
+- `D` `bot/lexicon/strings.py` — release-relevant runtime
+- `M` `bot/middlewares/db.py` — release-relevant runtime
+- `M` `bot/middlewares/global_sanctions_mw.py` — release-relevant runtime
+- `M` `bot/middlewares/module_check_mw.py` — release-relevant runtime
+- `A` `bot/middlewares/preprod_gate_mw.py` — release-relevant runtime
+- `D` `bot/middlewares/streak_mw.py` — release-relevant runtime
+- `D` `bot/shop_kbs.py` — release-relevant runtime
+- `??` `core/achievements_v1.py` — release-relevant runtime
+- `A` `core/alliance_v3.py` — release-relevant runtime
+- `??` `core/chat_echo_v1.py` — release-relevant runtime
+- `??` `core/chat_modules.py` — release-relevant runtime
+- `??` `core/chests_v1.py` — release-relevant runtime
+- `A` `core/companions_v3.py` — release-relevant runtime
+- `M` `core/constants.py` — release-relevant runtime
+- `M` `core/cosmetics.py` — release-relevant runtime
+- `??` `core/echo_shards_v1.py` — release-relevant runtime
+- `A` `core/economy_contract.py` — release-relevant runtime
+- `A` `core/economy_v3.py` — release-relevant runtime
+- `??` `core/feats_v1.py` — release-relevant runtime
+- `A` `core/gameplay_events.py` — release-relevant runtime
+- `??` `core/global_skins_v1.py` — release-relevant runtime
+- `M` `core/legal.py` — release-relevant runtime
+- `??` `core/mafia_v1.py` — release-relevant runtime
+- `??` `core/minesweeper_v2.py` — release-relevant runtime
+- `A` `core/payment_contract.py` — release-relevant runtime
+- `??` `core/pets_v1.py` — release-relevant runtime
+- `??` `core/quests_v1.py` — release-relevant runtime
+- `A` `core/reconstruction.py` — release-relevant runtime
+- `A` `core/reconstruction_difficulty.py` — release-relevant runtime
+- `A` `core/reconstruction_progression.py` — release-relevant runtime
+- `M` `core/registry.py` — release-relevant runtime
+- `??` `core/retention_v3.py` — release-relevant runtime
+- `??` `core/rhythm_v2.py` — release-relevant runtime
+- `??` `core/scar_map_v1.py` — release-relevant runtime
+- `??` `core/sky_v1.py` — release-relevant runtime
+- `??` `core/supporter_cosmetics_v1.py` — release-relevant runtime
+- `??` `core/surface_parity.py` — release-relevant runtime
+- `M` `core/units.py` — release-relevant runtime
+- `??` `core/weekly_case_v1.py` — release-relevant runtime
+- `??` `core/zarniki_exchange_v1.py` — release-relevant runtime
+- `A` `design-qa.md`
+- `??` `docs/PROJECT_RECONSTRUCTION_MASTER_PLAN.md`
+- `D` `docs/audits/2026-08-02-themes/01-active-classic.png`
+- `D` `docs/audits/2026-08-02-themes/02-premium-preview.png`
+- `D` `docs/audits/2026-08-02-themes/03-premium-filter-long-copy.png`
+- `D` `docs/audits/2026-08-02-themes/04-purchased-ready-to-equip.png`
+- `D` `docs/audits/2026-08-02-themes/05-equipped-success.png`
+- `D` `docs/audits/2026-08-02-themes/06-narrow-bloodmoon.png`
+- `D` `docs/audits/2026-08-02-themes/THEMES_AUDIT.md`
+- `D` `docs/audits/2026-08-02-themes/evidence.json`
+- `A` `docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md`
+- `??` `docs/audits/BOT_WEAKNESSES_FRESH_START_2026-08-29.md`
+- `??` `docs/audits/GAMEPLAY_ECONOMY_AUDIT_2026-08-29.md`
+- `D` `docs/superpowers/plans/2026-07-19-ai-assistant-discovery.md`
+- `D` `docs/superpowers/plans/2026-07-20-combat4-grid-tactics.md`
+- `D` `docs/superpowers/plans/2026-07-21-combat-onboarding.md`
+- `D` `docs/superpowers/plans/2026-07-29-cosmetics-slots-mode-refresh.md`
+- `D` `docs/superpowers/plans/2026-07-30-cosmetics-collection-detail-stage3.md`
+- `D` `docs/superpowers/plans/2026-07-30-cosmetics-collections-mode.md`
+- `D` `docs/superpowers/plans/2026-07-31-cosmetics-fitting-room.md`
+- `D` `docs/superpowers/plans/2026-07-31-cosmetics-polish-audit.md`
+- `D` `docs/superpowers/plans/2026-07-31-fitting-room-dock-action.md`
+- `D` `docs/superpowers/plans/2026-07-31-local-cosmetics-pricing.md`
+- `D` `docs/superpowers/plans/2026-07-31-puppeteer-regression-stability.md`
+- `D` `docs/superpowers/specs/2026-07-18-theme-sync-design.md`
+- `D` `docs/superpowers/specs/2026-07-19-ai-assistant-discovery-design.md`
+- `D` `docs/superpowers/specs/2026-07-20-ai-transfer-action-design.md`
+- `D` `docs/superpowers/specs/2026-07-20-combat4-grid-tactics-design.md`
+- `D` `docs/superpowers/specs/2026-07-21-combat-onboarding-design.md`
+- `D` `docs/superpowers/specs/2026-07-22-appearance-header-updates-redesign.md`
+- `D` `docs/superpowers/specs/2026-07-23-remaining-work-and-cosmetics-redesign.md`
+- `D` `docs/superpowers/specs/2026-07-29-cosmetics-tab-redesign-design.md`
+- `D` `docs/superpowers/specs/2026-07-31-cosmetics-fitting-room-and-harmony-design.md`
+- `M` `infrastructure/database.py` — release-relevant runtime
+- `A` `infrastructure/preprod.py` — release-relevant runtime
+- `??` `infrastructure/repositories/achievements_v1.py` — release-relevant runtime
+- `A` `infrastructure/repositories/alliance_v3.py` — release-relevant runtime
+- `M` `infrastructure/repositories/auction.py` — release-relevant runtime
+- `M` `infrastructure/repositories/battles.py` — release-relevant runtime
+- `M` `infrastructure/repositories/chat.py` — release-relevant runtime
+- `??` `infrastructure/repositories/chat_echo_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/chests_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/clans.py` — release-relevant runtime
+- `M` `infrastructure/repositories/clans2.py` — release-relevant runtime
+- `A` `infrastructure/repositories/companions_v3.py` — release-relevant runtime
+- `M` `infrastructure/repositories/crypto.py` — release-relevant runtime
+- `D` `infrastructure/repositories/dark_market.py` — release-relevant runtime
+- `M` `infrastructure/repositories/dark_mora.py` — release-relevant runtime
+- `??` `infrastructure/repositories/divorce_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/echo_shards_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/economy.py` — release-relevant runtime
+- `A` `infrastructure/repositories/economy_ledger.py` — release-relevant runtime
+- `A` `infrastructure/repositories/economy_shadow.py` — release-relevant runtime
+- `??` `infrastructure/repositories/family_wallet_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/feats_v1.py` — release-relevant runtime
+- `A` `infrastructure/repositories/gameplay_events.py` — release-relevant runtime
+- `??` `infrastructure/repositories/global_skins_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/mafia_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/marriage_integrity.py` — release-relevant runtime
+- `M` `infrastructure/repositories/marriages.py` — release-relevant runtime
+- `??` `infrastructure/repositories/minesweeper_v2.py` — release-relevant runtime
+- `M` `infrastructure/repositories/minigames.py` — release-relevant runtime
+- `M` `infrastructure/repositories/moderation.py` — release-relevant runtime
+- `D` `infrastructure/repositories/nsfw_consent.py` — release-relevant runtime
+- `??` `infrastructure/repositories/pets_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/promocodes.py` — release-relevant runtime
+- `??` `infrastructure/repositories/public_profiles_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/push.py` — release-relevant runtime
+- `??` `infrastructure/repositories/quests_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/rank_requests.py` — release-relevant runtime
+- `A` `infrastructure/repositories/reconstruction.py` — release-relevant runtime
+- `A` `infrastructure/repositories/reconstruction_settlements.py` — release-relevant runtime
+- `A` `infrastructure/repositories/reconstruction_units.py` — release-relevant runtime
+- `M` `infrastructure/repositories/relics.py` — release-relevant runtime
+- `??` `infrastructure/repositories/retention_v3.py` — release-relevant runtime
+- `??` `infrastructure/repositories/rhythm_v2.py` — release-relevant runtime
+- `M` `infrastructure/repositories/routing.py` — release-relevant runtime
+- `??` `infrastructure/repositories/scar_map_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/shadow_merchant.py` — release-relevant runtime
+- `M` `infrastructure/repositories/showcase.py` — release-relevant runtime
+- `??` `infrastructure/repositories/sky_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/star_payments_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/stats.py` — release-relevant runtime
+- `??` `infrastructure/repositories/supporter_cosmetics_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/system_flags.py` — release-relevant runtime
+- `M` `infrastructure/repositories/users.py` — release-relevant runtime
+- `M` `infrastructure/repositories/wallet_log.py` — release-relevant runtime
+- `??` `infrastructure/repositories/weekly_case_v1.py` — release-relevant runtime
+- `??` `infrastructure/repositories/zarniki_exchange_v1.py` — release-relevant runtime
+- `M` `infrastructure/repositories/zoo.py` — release-relevant runtime
+- `D` `package-lock.json`
+- `D` `package.json`
+- `D` `politiki.md`
+- `M` `scripts/migrate_account_levels.py` — release-relevant runtime
+- `M` `services/account_deletion.py` — release-relevant runtime
+- `M` `services/achievements.py` — release-relevant runtime
+- `??` `services/achievements_v1.py` — release-relevant runtime
+- `M` `services/ai_assistant.py` — release-relevant runtime
+- `M` `services/ai_hint.py` — release-relevant runtime
+- `D` `services/alchemy.py` — release-relevant runtime
+- `M` `services/auction.py` — release-relevant runtime
+- `M` `services/battle.py` — release-relevant runtime
+- `D` `services/battle3.py` — release-relevant runtime
+- `D` `services/battle_grid.py` — release-relevant runtime
+- `M` `services/battle_pass.py` — release-relevant runtime
+- `??` `services/chat_echo_v1.py` — release-relevant runtime
+- `??` `services/chests_v1.py` — release-relevant runtime
+- `M` `services/clans.py` — release-relevant runtime
+- `M` `services/combat_power.py` — release-relevant runtime
+- `M` `services/command_suggester.py` — release-relevant runtime
+- `A` `services/companions_v3.py` — release-relevant runtime
+- `M` `services/cosmetics.py` — release-relevant runtime
+- `M` `services/crypto_exchange.py` — release-relevant runtime
+- `D` `services/dark_market.py` — release-relevant runtime
+- `M` `services/duel.py` — release-relevant runtime
+- `??` `services/echo_shards_v1.py` — release-relevant runtime
+- `M` `services/economy.py` — release-relevant runtime
+- `??` `services/feats_v1.py` — release-relevant runtime
+- `??` `services/global_skins_v1.py` — release-relevant runtime
+- `??` `services/hub_v1.py` — release-relevant runtime
+- `M` `services/leveling.py` — release-relevant runtime
+- `??` `services/mafia_v1.py` — release-relevant runtime
+- `??` `services/minesweeper_v2.py` — release-relevant runtime
+- `D` `services/onboarding.py` — release-relevant runtime
+- `??` `services/pets_v1.py` — release-relevant runtime
+- `M` `services/promocodes.py` — release-relevant runtime
+- `M` `services/quests.py` — release-relevant runtime
+- `??` `services/quests_v1.py` — release-relevant runtime
+- `A` `services/reconstruction.py` — release-relevant runtime
+- `A` `services/reconstruction_combat.py` — release-relevant runtime
+- `A` `services/reconstruction_integrity.py` — release-relevant runtime
+- `A` `services/reconstruction_timing.py` — release-relevant runtime
+- `D` `services/referral.py` — release-relevant runtime
+- `??` `services/retention_v3.py` — release-relevant runtime
+- `??` `services/rhythm_v2.py` — release-relevant runtime
+- `??` `services/scar_map_v1.py` — release-relevant runtime
+- `M` `services/scheduler.py` — release-relevant runtime
+- `M` `services/skill_games.py` — release-relevant runtime
+- `??` `services/sky_v1.py` — release-relevant runtime
+- `D` `services/smart_checkout.py` — release-relevant runtime
+- `D` `services/streak.py` — release-relevant runtime
+- `??` `services/supporter_cosmetics_v1.py` — release-relevant runtime
+- `??` `services/supporter_refunds_v1.py` — release-relevant runtime
+- `??` `services/surface_telemetry.py` — release-relevant runtime
+- `M` `services/themes.py` — release-relevant runtime
+- `M` `services/utils.py` — release-relevant runtime
+- `M` `services/vip.py` — release-relevant runtime
+- `??` `services/weekly_case_v1.py` — release-relevant runtime
+- `??` `services/zarniki_exchange_v1.py` — release-relevant runtime
+- `M` `services/zoo.py` — release-relevant runtime
+- `??` `tools/apply_retirement_compensation.py`
+- `A` `tools/audit_economy_mutations.py`
+- `??` `tools/audit_family_migration.py`
+- `A` `tools/audit_production_gameplay_readonly.sql`
+- `A` `tools/audit_production_migration_obligations_readonly.sql`
+- `A` `tools/audit_release_whatsnew.py`
+- `A` `tools/audit_retirement_compensation.py`
+- `??` `tools/build_compensation_inventory.py`
+- `D` `tools/capture_all_cosmetic_lineups_audit.mjs`
+- `D` `tools/capture_avatar_pair_audit.mjs`
+- `D` `tools/capture_cosmetic_cross_surface_audit.mjs`
+- `D` `tools/capture_cosmetics_flow_audit.mjs`
+- `D` `tools/capture_curated_cosmetics_audit.mjs`
+- `D` `tools/capture_fitting_room_full_audit.mjs`
+- `D` `tools/capture_mobile_compactness_audit.mjs`
+- `??` `tools/migrate_family_wallet_v1.py`
+- `??` `tools/migrate_marriage_members_v1.py`
+- `A` `tools/preprod_postgres.ps1`
+- `A` `tools/preprod_postgres.sh`
+- `D` `tools/preview_server.mjs`
+- `A` `tools/run_preprod.ps1`
+- `A` `tools/run_preprod.sh`
+- `A` `tools/run_preprod_tests.ps1`
+- `A` `tools/run_preprod_tunnel.ps1`
+- `D` `tools/run_ui_regressions.mjs`
+- `??` `tools/test_account_deletion_family_guard_pg.py`
+- `??` `tools/test_achievements_v1_pg.py`
+- `??` `tools/test_achievements_v1_rules.py`
+- `??` `tools/test_achievements_v1_visual_contract.py`
+- `D` `tools/test_action_b1.py`
+- `D` `tools/test_action_b2a.py`
+- `??` `tools/test_admin_bind_repository_pg.py`
+- `A` `tools/test_alliance_v3_policy.py`
+- `A` `tools/test_auction_economy_contract.py`
+- `D` `tools/test_battle_finalize_resilience.py`
+- `D` `tools/test_battle_grid.py`
+- `D` `tools/test_battle_state.py`
+- `D` `tools/test_battle_timeline.py`
+- `D` `tools/test_battle_tutorial.py`
+- `A` `tools/test_bot_payments_contract.py`
+- `M` `tools/test_buy_lineup.py`
+- `M` `tools/test_buy_many.py`
+- `??` `tools/test_chat_echo_v1.py`
+- `??` `tools/test_chat_settings_callback_auth.py`
+- `??` `tools/test_chat_tracker_pg.py`
+- `??` `tools/test_chests_v1_economy.py`
+- `??` `tools/test_chests_v1_http_contract.py`
+- `??` `tools/test_chests_v1_mixed_pg.py`
+- `??` `tools/test_chests_v1_pg.py`
+- `??` `tools/test_chests_v1_rules.py`
+- `??` `tools/test_chests_v1_visual_contract.py`
+- `??` `tools/test_chronicle_feats_v1.py`
+- `??` `tools/test_client_idempotency_contract.py`
+- `A` `tools/test_companion_combat_roles.py`
+- `M` `tools/test_cosmetic_lineage.py`
+- `A` `tools/test_cosmetic_presets.py`
+- `A` `tools/test_cosmetic_presets_postgres.py`
+- `A` `tools/test_cosmetic_price_balance.py`
+- `A` `tools/test_cosmetic_purchase_ledger.py`
+- `??` `tools/test_cosmetic_visual_contract.py`
+- `A` `tools/test_currency_exchange_retirement.py`
+- `A` `tools/test_current_game_docs.py`
+- `A` `tools/test_dark_archive_contract.py`
+- `A` `tools/test_development_notice.py`
+- `??` `tools/test_echo_shards_v1_pg.py`
+- `A` `tools/test_economy_ledger.py`
+- `A` `tools/test_economy_shadow.py`
+- `A` `tools/test_economy_v3_policy.py`
+- `D` `tools/test_enemy_ai.py`
+- `M` `tools/test_ensure_account_columns_recovers.py`
+- `??` `tools/test_family_wallet_http_contract.py`
+- `??` `tools/test_family_wallet_schema_pg.py`
+- `??` `tools/test_family_wallet_telegram_intent_pg.py`
+- `??` `tools/test_family_wallet_transfer_pg.py`
+- `A` `tools/test_gameplay_events.py`
+- `??` `tools/test_global_sanctions_gate.py`
+- `??` `tools/test_global_skins_v1_pg.py`
+- `??` `tools/test_hub_v1.py`
+- `A` `tools/test_legacy_achievement_retirement.py`
+- `A` `tools/test_legacy_duel_retirement.py`
+- `A` `tools/test_legacy_onboarding_retirement.py`
+- `A` `tools/test_legacy_skill_games_retirement.py`
+- `A` `tools/test_lore_exchange_contract.py`
+- `??` `tools/test_mafia_v1_pg.py`
+- `??` `tools/test_mafia_v1_rules.py`
+- `??` `tools/test_marriage_integrity.py`
+- `??` `tools/test_marriage_membership_registry_pg.py`
+- `??` `tools/test_message_tops_pg.py`
+- `??` `tools/test_minesweeper_v2_client_recovery.py`
+- `??` `tools/test_minesweeper_v2_pg.py`
+- `??` `tools/test_minesweeper_v2_rules.py`
+- `M` `tools/test_new_achievements.py`
+- `A` `tools/test_passive_progression_retirement.py`
+- `??` `tools/test_pets_v1_bot.py`
+- `??` `tools/test_pets_v1_pg.py`
+- `??` `tools/test_pets_v1_rules.py`
+- `A` `tools/test_preprod_bot_gate.py`
+- `A` `tools/test_preprod_environment.py`
+- `??` `tools/test_product_surface_parity.py`
+- `??` `tools/test_profile_current_projection_pg.py`
+- `A` `tools/test_promocode_v3_contract.py`
+- `D` `tools/test_public_state_d1.py`
+- `??` `tools/test_push_delivery_pg.py`
+- `??` `tools/test_questlog_visual_contract.py`
+- `??` `tools/test_quests_v1_bot.py`
+- `??` `tools/test_quests_v1_pg.py`
+- `??` `tools/test_quests_v1_rules.py`
+- `??` `tools/test_rank_requests_pg.py`
+- `??` `tools/test_release_bot_routes.py`
+- `??` `tools/test_release_navigation_contract.py`
+- `??` `tools/test_release_public_routes.py`
+- `A` `tools/test_release_whatsnew.py`
+- `??` `tools/test_retention_v3.py`
+- `A` `tools/test_retirement_compensation_audit.py`
+- `??` `tools/test_rhythm_v2_pg.py`
+- `??` `tools/test_rhythm_v2_review_auth.py`
+- `??` `tools/test_rhythm_v2_rules.py`
+- `??` `tools/test_rhythm_v2_transport_client.py`
+- `A` `tools/test_safe_logging.py`
+- `D` `tools/test_skills_b2b.py`
+- `??` `tools/test_sky_v1.py`
+- `??` `tools/test_stars_reconciliation_state_pg.py`
+- `??` `tools/test_stars_zarniki_refund_review_pg.py`
+- `A` `tools/test_static_delivery_asgi.py`
+- `M` `tools/test_streak_atomicity.py`
+- `??` `tools/test_supporter_cosmetics_v1.py`
+- `D` `tools/test_taunt_enemy_ai.py`
+- `A` `tools/test_theme_purchase_contract.py`
+- `A` `tools/test_theme_purchase_postgres.py`
+- `??` `tools/test_weekly_case_v1.py`
+- `??` `tools/test_zarniki_exchange_v1_pg.py`
+- `??` `tools/test_zarniki_exchange_v1_rules.py`
+- `D` `tools/verify_chest_craft_isolation.mjs`
+- `D` `tools/verify_collection_detail_atmo.mjs`
+- `D` `tools/verify_collection_detail_header.mjs`
+- `D` `tools/verify_collections_cards.mjs`
+- `D` `tools/verify_collections_navigation.mjs`
+- `D` `tools/verify_collections_nofx.mjs`
+- `D` `tools/verify_collections_toggle.mjs`
+- `D` `tools/verify_cosmetic_avatar_layers.mjs`
+- `D` `tools/verify_cosmetic_cross_surface.mjs`
+- `D` `tools/verify_cosmetic_effect_static_quality.mjs`
+- `D` `tools/verify_cosmetic_profile_legibility.mjs`
+- `D` `tools/verify_curated_cosmetic_looks.mjs`
+- `D` `tools/verify_fitting_room.mjs`
+- `D` `tools/verify_fitting_room_access.mjs`
+- `D` `tools/verify_fitting_room_full_layout.mjs`
+- `D` `tools/verify_fitting_room_persistence.mjs`
+- `D` `tools/verify_live_reload.mjs`
+- `D` `tools/verify_live_swatch.mjs`
+- `D` `tools/verify_local_cosmetics_pricing.mjs`
+- `D` `tools/verify_looks_exit_navigation.mjs`
+- `D` `tools/verify_looks_narrow_mobile.mjs`
+- `D` `tools/verify_looks_no_jump.mjs`
+- `D` `tools/verify_looks_presets.mjs`
+- `D` `tools/verify_looks_quick_links.mjs`
+- `D` `tools/verify_looks_surprises_entry.mjs`
+- `D` `tools/verify_looks_theme_purchase_ui.mjs`
+- `D` `tools/verify_looks_themes.mjs`
+- `D` `tools/verify_looks_welcome.mjs`
+- `D` `tools/verify_market_looks_entry.mjs`
+- `??` `tools/verify_preprod_menu_url.py`
+- `??` `tools/verify_preprod_smoke.py`
+- `D` `tools/verify_preview_server.mjs`
+- `D` `tools/verify_preview_theme_purchase.mjs`
+- `D` `tools/verify_public_profile_outfit_cta.mjs`
+- `D` `tools/verify_slots_accent.mjs`
+- `D` `tools/verify_slots_empty.mjs`
+- `D` `tools/verify_slots_meter.mjs`
+- `D` `tools/verify_slots_smartrow.mjs`
+- `D` `tools/verify_slots_spacing.mjs`
+
+## Required human pass
+
+- Read the diff by subsystem; do not turn commit messages into player copy mechanically.
+- Exclude dev-only/feature-flagged work and describe only behavior shipped in this release.
+- Re-run this audit after updating `FastAPI/static/updates.json`.

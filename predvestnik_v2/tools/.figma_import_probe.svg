@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="150" height="100" viewBox="0 0 150 100">
+  <rect width="150" height="100" fill="#111827"/>
+  <rect x="10" y="10" width="130" height="35" rx="9" fill="#263447"/>
+  <text x="20" y="33" fill="#ffffff" font-family="Arial" font-size="14">Тестовый текст</text>
+</svg>

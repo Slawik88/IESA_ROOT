@@ -78,6 +78,16 @@ INSTALLED_APPS = [
     'django_ckeditor_5', # Безопасный WYSIWYG редактор CKEditor 5
     'imagekit', # Image optimization and thumbnails
     'storages',  # For DigitalOcean Spaces / S3 storage
+
+    # Вход через соцсети (Google / Microsoft / Facebook / Apple).
+    # Показываются только провайдеры, для которых заданы ключи в окружении.
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'allauth.socialaccount.providers.microsoft',
+    'allauth.socialaccount.providers.facebook',
+    'allauth.socialaccount.providers.apple',
 ]
 
 # Dev-only HTTPS server support (optional): add sslserver in DEBUG
@@ -98,10 +108,12 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     
     # Custom Middleware
     'users.middleware.LastOnlineMiddleware', 
+    'users.account_switch.LinkedAccountsMiddleware',
 
     # HTMX middleware
     'django_htmx.middleware.HtmxMiddleware',
@@ -124,6 +136,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'notifications.context_processors.unread_notifications',
                 'core.context_processors.social_networks',
+                'users.account_switch.context_processor',
             ],
         },
     },
@@ -183,11 +196,13 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'users.validators.UppercaseValidator',
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
-    {
-        'NAME': 'users.validators.SpecialCharacterValidator',
-    },
+    # 2026-10: UppercaseValidator / SpecialCharacterValidator сняты с регистрации.
+    # Пароли из менеджеров паролей телефонов (Safari: "abcdef-ghijkl-mnopqr",
+    # Chrome: только буквы+цифры) не проходили эти правила, и люди с телефона
+    # не могли создать аккаунт. Классы остаются в users/validators.py — вернуть
+    # правила можно, добавив их обратно в этот список.
 ]
 
 LANGUAGE_CODE = 'en-us'
@@ -456,6 +471,75 @@ CSRF_HEADER_NAME = 'HTTP_X_CSRFTOKEN'
 
 # Allow CSRF from same site
 CSRF_USE_SESSIONS = False
+
+# Вход без учёта регистра имени + вход по e-mail (телефоны ставят заглавную
+# первую букву и подставляют e-mail из автозаполнения).
+# ModelBackend ОБЯЗАН остаться в списке: уже выданные сессии и login(...,
+# backend='...ModelBackend') в invites/impersonate ссылаются на него — без него
+# все текущие сессии разлогинятся при деплое. Бэкенд allauth намеренно НЕ подключён:
+# он пускал бы по e-mail даже при двух совпадающих аккаунтах; соцвход ему не нужен.
+AUTHENTICATION_BACKENDS = [
+    'users.auth_backends.CaseInsensitiveModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# ── Соцвход (allauth) ───────────────────────────────────────────────────────
+# allauth используется ТОЛЬКО для OAuth-потока. Его собственные страницы
+# входа/регистрации/пароля не подключены (см. users/allauth_urls.py), поэтому
+# обойти нашу антибот-защиту через /accounts/signup/ нельзя.
+ACCOUNT_ADAPTER = 'users.social.IESAAccountAdapter'
+SOCIALACCOUNT_ADAPTER = 'users.social.IESASocialAccountAdapter'
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = 'none'          # e-mail подтверждает сам провайдер
+SOCIALACCOUNT_AUTO_SIGNUP = True             # без лишней формы, если провайдер дал e-mail
+SOCIALACCOUNT_LOGIN_ON_GET = False           # только POST (защита от CSRF-входа)
+SOCIALACCOUNT_STORE_TOKENS = False           # токены провайдера нам не нужны
+SOCIALACCOUNT_QUERY_EMAIL = True
+
+
+def _oauth_app(prefix, **extra):
+    """Конфиг провайдера из окружения; пусто, если ключи не заданы (кнопка не показывается)."""
+    client_id = os.getenv(f'{prefix}_CLIENT_ID', '').strip()
+    secret = os.getenv(f'{prefix}_CLIENT_SECRET', '').strip()
+    if not (client_id and secret):
+        return None
+    config = {'APP': {'client_id': client_id, 'secret': secret, 'key': ''}}
+    config.update(extra)
+    return config
+
+
+SOCIALACCOUNT_PROVIDERS = {}
+for _name, _cfg in (
+    ('google', _oauth_app('GOOGLE', SCOPE=['openid', 'email', 'profile'], AUTH_PARAMS={'prompt': 'select_account'})),
+    ('microsoft', _oauth_app('MICROSOFT', TENANT='common', SCOPE=['User.Read'])),
+    ('facebook', _oauth_app('FACEBOOK', METHOD='oauth2', SCOPE=['email', 'public_profile'])),
+):
+    if _cfg:
+        SOCIALACCOUNT_PROVIDERS[_name] = _cfg
+
+# Apple: client_id = Services ID, secret = Team ID, key = Key ID, certificate_key = содержимое .p8
+_apple_id = os.getenv('APPLE_CLIENT_ID', '').strip()
+# В переменной окружения ключ хранится одной строкой с литеральными "\n".
+_apple_key = os.getenv('APPLE_PRIVATE_KEY', '').replace('\\n', '\n').strip()
+if _apple_id and _apple_key and os.getenv('APPLE_TEAM_ID') and os.getenv('APPLE_KEY_ID'):
+    SOCIALACCOUNT_PROVIDERS['apple'] = {
+        'APP': {
+            'client_id': _apple_id,
+            'secret': os.getenv('APPLE_TEAM_ID').strip(),
+            'key': os.getenv('APPLE_KEY_ID').strip(),
+            'settings': {'certificate_key': _apple_key},
+        },
+    }
+
+# ── Антибот (подробности — users/antispam.py) ───────────────────────────────
+# Cloudflare Turnstile: бесплатная невидимая капча. Пока ключи не заданы, проверка
+# выключена (остальные защиты — honeypot, таймер, лимиты — работают всегда).
+TURNSTILE_SITE_KEY = os.getenv('TURNSTILE_SITE_KEY', '').strip()
+TURNSTILE_SECRET_KEY = os.getenv('TURNSTILE_SECRET_KEY', '').strip()
+
+# Ссылка сброса пароля живёт 2 часа (по умолчанию Django — 3 дня).
+PASSWORD_RESET_TIMEOUT = 2 * 60 * 60
 
 # Настройки авторизации/перенаправления
 LOGIN_URL = 'users:login'
