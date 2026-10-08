@@ -13,8 +13,10 @@
    Это единственная анимация фона (background-position), остальные только transform/opacity; включается при ap-t4+ под .ap-anim. */
 .ap-name { --ap-hl: linear-gradient(100deg, transparent 28%, rgba(255,255,255,.06) 36%, rgba(255,255,255,.3) 44%, rgba(255,255,255,.8) 50%, rgba(255,255,255,.3) 56%, rgba(255,255,255,.06) 64%, transparent 72%); --ap-hl-w: 50%; --ap-glint: 6s; }   /* плавный профиль света: без ступеней нет и видимой кромки */
 .ap-title { --ap-glint: 6s; }
-@keyframes apglint { 0%, 55% { background-position: -70% 0, 0 0; } 100% { background-position: 170% 0, 0 0; } }
-.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink, .ap-nm-lens, .ap-nm-comet):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { background-image: var(--ap-hl), var(--ap-base, linear-gradient(transparent, transparent)); background-size: var(--ap-hl-w) 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; animation: apglint var(--ap-glint) ease-in-out infinite; will-change: transform; }   /* свой слой: блик двигает фон текста (перерисовка), без слоя он перерисовывал всю страницу ~45 раз в секунду */
+/* Пауза между проходами блика это animation-delay, а не неподвижный отрезок ключевых кадров: анимация без эффекта, но «идущая», будит страницу каждый кадр (60 раз в секунду впустую);
+   отложенная спит. После прохода app.18.js (слушатель animationend) запускает её заново: период тот же, 55% пауза и 45% ход. */
+@keyframes apglint { from { background-position: -70% 0, 0 0; } to { background-position: 170% 0, 0 0; } }
+.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink, .ap-nm-lens, .ap-nm-comet):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { background-image: var(--ap-hl), var(--ap-base, linear-gradient(transparent, transparent)); background-size: var(--ap-hl-w) 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; animation: apglint calc(var(--ap-glint) * .45) ease-in-out calc(var(--ap-glint) * .55); will-change: transform; }   /* свой слой: блик двигает фон текста (перерисовка), без слоя он перерисовывал всю страницу ~45 раз в секунду */
 
 /* блик титула: широкая мягкая полоса идёт по таблетке и обрезается её скруглением. Профиль света плавный (ступеней много, края сходят на ноль),
    поэтому кромки нет, а само движение это только transform и opacity. */
