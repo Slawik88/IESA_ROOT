@@ -186,6 +186,17 @@ def resolve_vote(votes: Iterable[int | None]) -> int | None:
     return leaders[0] if len(leaders) == 1 else None
 
 
+def resolve_day_vote(votes: Iterable[int | None]) -> int | None:
+    """Day vote where «Никого» is a real option: a player leaves only with MORE votes than every
+    rival *and* than the abstentions (one vote against five «Никого» removes nobody)."""
+    cast = list(votes)
+    abstain = sum(vote is None for vote in cast)
+    leader = resolve_vote(cast)
+    if leader is None:
+        return None
+    return leader if sum(int(vote) == leader for vote in cast if vote is not None) > abstain else None
+
+
 def public_role_name(role: str) -> str:
     return {
         "citizen": "Мирный житель", "mafia": "Мафия", "don": "Дон",

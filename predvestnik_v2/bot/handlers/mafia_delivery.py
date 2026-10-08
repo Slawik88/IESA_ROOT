@@ -21,10 +21,15 @@ from bot.handlers.mafia_filters import bot_username
 from infrastructure.repositories import mafia_v1 as repo
 from infrastructure.repositories import mafia_v1_ops as ops
 from infrastructure.repositories import system_flags
+from services.formatting import safe_html
 from services import mafia_v1 as mafia
 
 MAX_ATTEMPTS = 15
 Step = tuple[str, Callable[[], Awaitable[bool]]]
+
+
+class StopDelivery(Exception):
+    """The event was replaced by a newer one (e.g. an abort): stop this one without clearing."""
 
 
 async def group_say(bot: Bot, view: dict, text: str, markup=None) -> bool:
@@ -48,7 +53,8 @@ class PhaseDelivery:
 
     def steps(self) -> list[Step]:
         return [("announce", self.announce), ("checks", self.checks), ("eliminated", self.eliminated),
-                ("strip", self.strip), ("prompts", self.prompts), ("card", self.card), ("final", self.final)]
+                ("strip", self.strip), ("prompts", self.prompts), ("card", self.card), ("final", self.final),
+                ("rewards", self.rewards)]
 
     def _victim(self) -> dict | None:
         uid = self.event.get("eliminated_user_id")
@@ -101,6 +107,44 @@ class PhaseDelivery:
         return True
 
 
+    async def rewards(self) -> bool:
+        """Last on purpose: players see the result even while quests/achievements are unhealthy."""
+        if self.view["phase"] != "finished":
+            return True
+        return await mafia.record_terminal_rewards(self.db, match_id=self.view["match_id"])
+
+
+class StartDelivery(PhaseDelivery):
+    """Roles to every DM, retire the lobby card, post the first night card."""
+
+    def steps(self) -> list[Step]:
+        return [("roles", self.roles), ("lobby_card", self.lobby_card), ("card", self.card)]
+
+    async def roles(self) -> bool:
+        async with self.db.execute("SELECT chat_title FROM chat_settings WHERE chat_id=?", (self.view["chat_id"],)) as cursor:
+            row = await cursor.fetchone()
+        failed = await dm.send_role_cards(self.bot, self.db, self.view, chat_title=row[0] if row else None)
+        if not failed:
+            return True
+        names = ", ".join(safe_html(p["display_name"]) for p in self.view["players"] if int(p["user_id"]) in failed)
+        await mafia.abort_match(self.db, match_id=self.view["match_id"], reason="private_role_delivery_failed")
+        await group_say(self.bot, self.view, f"❌ Партия отменена: роль не дошла до {names}. Пусть откроют бота и нажмут «Старт», "
+                                             "затем соберите лобби заново: «бот мафия».")
+        raise StopDelivery
+
+    async def lobby_card(self) -> bool:
+        message_id = self.view.get("lobby_message_id")
+        if message_id:
+            roster = " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in self.view["players"])
+            try:
+                await self.bot.edit_message_text(
+                    f"🕵️ <b>МАФИЯ НАЧАЛАСЬ</b>\n\nИгроки: {roster}\n\nРоли разосланы в личные сообщения. Сейчас ночь — в чат не пишем.",
+                    chat_id=self.view["chat_id"], message_id=message_id, reply_markup=None, parse_mode="HTML")
+            except TelegramAPIError as exc:
+                logger.debug(f"Mafia lobby card not retired: {exc}")
+        return True
+
+
 class ClosedDelivery(PhaseDelivery):
     """A lobby that timed out, or a match stopped by its host/admin."""
 
@@ -138,7 +182,7 @@ async def deliver_for_match(bot: Bot, db, match_id: int) -> bool:
         logger.error(f"Mafia event for match {match_id} abandoned after repeated failures")
         await ops.clear_pending_event(db, match_id=match_id)
         return True
-    cls = PhaseDelivery if event.get("kind") == "phase" else ClosedDelivery
+    cls = {"phase": PhaseDelivery, "started": StartDelivery}.get(event.get("kind"), ClosedDelivery)
     delivery = cls(bot, db, view, event)
     done = list(event.get("done", []))
     for name, step in delivery.steps():
@@ -146,6 +190,8 @@ async def deliver_for_match(bot: Bot, db, match_id: int) -> bool:
             continue
         try:
             ok = await step()
+        except StopDelivery:
+            return await deliver_for_match(bot, db, match_id)  # the replacement event (e.g. the abort notice)
         except dm.RetryLater as exc:
             logger.warning(f"Mafia step {name} postponed: {exc}")
             ok = False

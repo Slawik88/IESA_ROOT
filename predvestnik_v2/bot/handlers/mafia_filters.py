@@ -31,6 +31,21 @@ def topic_of(message: types.Message | None) -> int | None:
     return getattr(message, "message_thread_id", None)
 
 
+ANONYMOUS_SENDER_IDS = frozenset({1087968824, 136817688})  # GroupAnonymousBot, Channel_Bot
+
+
+def posts_anonymously(message: types.Message) -> bool:
+    """Admin writing «as the group»/channel: Telegram shows a service bot, not a person."""
+    return bool(getattr(message, "sender_chat", None)) or (
+        message.from_user is not None and int(message.from_user.id) in ANONYMOUS_SENDER_IDS)
+
+
+def is_anonymous_admin(message: types.Message) -> bool:
+    """Anonymous administrator of this very group (their messages carry the group as sender)."""
+    sender = getattr(message, "sender_chat", None)
+    return bool(sender) and int(sender.id) == int(message.chat.id)
+
+
 def clip_alert(text: str) -> str:
     """Telegram rejects callback alerts longer than 200 characters."""
     return text if len(text) <= ALERT_LIMIT else text[: ALERT_LIMIT - 1] + "…"

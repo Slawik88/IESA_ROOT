@@ -32,6 +32,12 @@ for players in range(rules.MIN_PLAYERS, rules.MAX_PLAYERS + 1):
 assert rules.auto_roles(5) == () and "don" not in rules.auto_roles(7) and "don" in rules.auto_roles(8)
 assert rules.DEFAULT_SEATS >= 8, "a fresh lobby must hold a typical table of friends"
 
+# ── day vote: «Никого» counts, one vote cannot beat the abstainers ───────────
+day = rules.resolve_day_vote
+assert day([1, 1, 2]) == 1 and day([1, None]) is None and day([None, None, 3]) is None
+assert day([3, None, None, None, None, None]) is None, "five abstentions beat one accusation"
+assert day([3, 3, None]) == 3 and day([3, 3, None, None]) is None and day([]) is None
+
 # ── night kill: plurality, then the Don, then the earliest choice ───────────
 vote = rules.NightVote
 assert rules.resolve_night_kill([]) is None and rules.resolve_night_kill([vote("mafia", None, 1)]) is None

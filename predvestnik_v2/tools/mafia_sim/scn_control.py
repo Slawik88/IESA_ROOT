@@ -144,3 +144,15 @@ async def busy_chat_card_bump(h: Harness) -> None:
     new = h.world.last(t.chat, "ОБСУЖДЕНИЕ")
     ok(new.message_id != old.message_id and old.deleted, "the game card follows a busy chat down")
     ok(len([m for m in h.world.live(t.chat) if "ОБСУЖДЕНИЕ" in m.text]) == 1, "never two game cards")
+
+
+@scenario
+async def anonymous_admin(h: Harness) -> None:
+    """An admin writing «as the group» must not become the lobby host (a service bot cannot press buttons)."""
+    admin = h.user("Админ")
+    chat = h.new_chat([admin], admins=[admin])
+    await h.say(admin, chat, "бот мафия", anonymous=True)
+    ok(not h.world.last(chat, "набор игроков") and h.world.last(chat, "от своего имени"), "an anonymous creator is asked to write as themselves")
+    t = await _night_table(h)
+    await h.say(admin, t.chat, "бот мафия стоп", anonymous=True)  # only admins can post as the group
+    ok(await t.phase() == "cancelled", "an anonymous admin of this group may stop a stuck game")

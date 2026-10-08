@@ -13,7 +13,7 @@ from bot.handlers.mafia_cards import post_lobby, publish_phase
 from bot.handlers.mafia_cb import MafiaLobbyCB, MafiaReadyCB, MafiaRulesCB, MafiaSettingsCB
 from bot.handlers.mafia_delivery import deliver_for_match, group_say
 from bot.handlers.mafia_filters import (MafiaCmd, answer, bot_can_moderate, bot_username, cannot_write, dm_reachable,
-                                        is_chat_admin, topic_of, unreachable_players)
+                                        is_anonymous_admin, is_chat_admin, posts_anonymously, topic_of, unreachable_players)
 from bot.handlers.mafia_play import resume_flow, router as play_router, stop_flow
 from bot.handlers.mafia_views import (LOBBY_SIZE_OPTIONS, PRESETS, join_url, lobby_keyboard, lobby_text, rules_keyboard,
                                       rules_url, settings_keyboard, settings_text)
@@ -29,6 +29,7 @@ from services.utils import feature_guard
 router = Router(name="mafia_v1_router")
 router.include_router(play_router)
 _OFF = "Мафия пока выключена разработчиком."
+_TOO_OLD = "Эта карточка слишком старая. Напиши «бот мафия», чтобы открыть актуальную."
 _NEED_ADMIN = ("❌ Чтобы играть в Мафию, боту нужны права администратора с правом «Удалять сообщения» — "
                "иначе он не сможет убирать сообщения в ночные фазы.\n\n"
                "1) Откройте настройки группы → Администраторы → Бот.\n2) Включите «Удалять сообщения».\n3) Напишите «бот мафия» ещё раз.")
@@ -63,6 +64,8 @@ async def _send_lobby(bot: Bot, db, view: dict, topic: int | None) -> None:
 
 async def _create(message: types.Message, db, bot: Bot, args: str) -> None:
     chat_id, topic = int(message.chat.id), topic_of(message)
+    if posts_anonymously(message):
+        return await message.answer("Напиши «бот мафия» от своего имени, не анонимным админом: хозяину лобби нужно уметь нажимать кнопки.")
     if not await bot_can_moderate(bot, chat_id):
         return await message.answer(_NEED_ADMIN)
     reason = await module_disabled_reason(db, chat_id, "module_mafia")
@@ -114,14 +117,14 @@ async def _rules_in_group(message: types.Message, bot: Bot) -> None:
 async def _control_command(message: types.Message, db, bot: Bot, kind: str) -> None:
     chat_id, topic, user_id = int(message.chat.id), topic_of(message), int(message.from_user.id)
     if kind == "stop":
-        error = await stop_flow(bot, db, chat_id=chat_id, topic_id=topic, actor_id=user_id,
+        error = await stop_flow(bot, db, chat_id=chat_id, topic_id=topic, actor_id=user_id, force_admin=is_anonymous_admin(message),
                                 text="🛑 <b>Игра остановлена.</b> Чтобы сыграть снова, напишите «бот мафия».")
         return await message.answer(f"❌ {error}") if error else None
     if not await bot_can_moderate(bot, chat_id):
         return await message.answer("❌ Для продолжения Мафии боту всё ещё нужны права на удаление сообщений.")
     try:
         view = await mafia.resume_match(db, chat_id=chat_id, topic_id=topic, actor_id=user_id,
-                                        is_admin=await is_chat_admin(bot, chat_id, user_id))
+                                        is_admin=is_anonymous_admin(message) or await is_chat_admin(bot, chat_id, user_id))
     except mafia.MafiaError as exc:
         return await message.answer(f"❌ {exc}")
     await resume_flow(bot, db, view)
@@ -179,28 +182,23 @@ async def _start(query, db, bot: Bot, data: MafiaLobbyCB) -> None:
         view, _ = await mafia.start_match(db, match_id=data.match_id, chat_id=int(message.chat.id), actor_id=user_id)
     except mafia.MafiaError as exc:
         return await answer(query, str(exc), alert=True)
-    failed = await dm.send_role_cards(bot, db, view, chat_title=message.chat.title)
-    if failed:
-        await mafia.abort_match(db, match_id=view["match_id"], reason="private_role_delivery_failed")
-        names = ", ".join(p["display_name"] for p in view["players"] if int(p["user_id"]) in failed)
-        await group_say(bot, view, f"❌ Партия отменена: роль не дошла до {safe_html(names)}. Пусть откроют бота и нажмут «Старт», "
-                                   "затем соберите лобби заново: «бот мафия».")
-        await deliver_for_match(bot, db, view["match_id"])
+    # Roles, the retired lobby card and the first night card are one stored event: a Telegram
+    # flood in the middle of 20 DMs resumes on the next scheduler pass instead of losing anyone.
+    await deliver_for_match(bot, db, view["match_id"])
+    now = await mafia.current_view(db, match_id=view["match_id"])
+    if now and now["phase"] == "cancelled":
         return await answer(query, "Не всем удалось доставить роль — партия отменена.", alert=True)
-    roster = " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in view["players"])
-    try:
-        await message.edit_text(f"🕵️ <b>МАФИЯ НАЧАЛАСЬ</b>\n\nИгроки: {roster}\n\nРоли разосланы в личные сообщения. "
-                                "Сейчас ночь — в чат не пишем.", reply_markup=None, parse_mode="HTML")
-    except TelegramAPIError as exc:
-        logger.debug(f"Mafia lobby card not retired: {exc}")
-    await publish_phase(bot, db, view, gap=0)
-    await answer(query, "Роли отправлены в личку. Начинается ночь.")
+    delayed = (await repo.get_match(db, match_id=view["match_id"]) or {}).get("pending_event_json") is not None
+    await answer(query, "Роли рассылаются — через несколько секунд всё будет готово." if delayed
+                 else "Роли отправлены в личку. Начинается ночь.")
 
 
 @router.callback_query(MafiaLobbyCB.filter())
 async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB, db, bot: Bot):
     message = query.message
-    if not message or message.chat.type == "private":
+    if not isinstance(message, types.Message):
+        return await answer(query, _TOO_OLD, alert=True)
+    if message.chat.type == "private":
         return await answer(query, "Эта кнопка работает только в игровой группе.", alert=True)
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return await answer(query, _OFF, alert=True)
@@ -226,7 +224,8 @@ async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB
             return await answer(query, "Неизвестное действие.", alert=True)
     except mafia.MafiaError as exc:
         return await answer(query, str(exc), alert=True)
-    await _redraw(message, lobby_text(view), lobby_keyboard(view, await bot_username(bot)))
+    if not await _redraw(message, lobby_text(view), lobby_keyboard(view, await bot_username(bot))):
+        await post_lobby(bot, db, view, topic_of(message))
     await answer(query, notice)
 
 
@@ -240,12 +239,17 @@ async def _open_settings(query, db, data: MafiaLobbyCB, user_id: int) -> None:
     await answer(query, "Настрой лобби кнопками.")
 
 
-async def _redraw(message: types.Message, text: str, markup) -> None:
+async def _redraw(message: types.Message, text: str, markup) -> bool:
+    """Edit the card.  False when the card is gone (deleted by an admin) and must be re-posted."""
     try:
         await message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     except TelegramBadRequest as exc:
-        if "not modified" not in str(exc).lower():
-            logger.debug(f"Mafia card redraw skipped: {exc}")
+        lowered = str(exc).lower()
+        if "not modified" in lowered:
+            return True
+        logger.debug(f"Mafia card redraw failed: {exc}")
+        return not any(marker in lowered for marker in ("not found", "can't be edited", "message_id_invalid"))
+    return True
 
 
 # ── settings buttons ────────────────────────────────────────────────────────
@@ -287,7 +291,9 @@ def apply_setting(view: dict, action: str) -> NewSettings:
 async def cb_mafia_settings(query: types.CallbackQuery, callback_data: MafiaSettingsCB, db, bot: Bot):
     """Host-only settings flow, kept on the lobby card."""
     message = query.message
-    if not message or message.chat.type == "private":
+    if not isinstance(message, types.Message):
+        return await answer(query, _TOO_OLD, alert=True)
+    if message.chat.type == "private":
         return await answer(query, "Настройки доступны только в игровой группе.", alert=True)
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return await answer(query, _OFF, alert=True)

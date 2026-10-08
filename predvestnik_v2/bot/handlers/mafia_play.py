@@ -41,11 +41,12 @@ async def resume_flow(bot: Bot, db, view: dict) -> bool:
     return True
 
 
-async def stop_flow(bot: Bot, db, *, chat_id: int, topic_id: int | None, actor_id: int, text: str) -> str:
+async def stop_flow(bot: Bot, db, *, chat_id: int, topic_id: int | None, actor_id: int, text: str,
+                    force_admin: bool = False) -> str:
     """Cancel via the service, announce it and deliver the stored cleanup.  Returns an error text or ''."""
     try:
         view = await mafia.cancel_match(db, chat_id=chat_id, topic_id=topic_id, actor_id=actor_id,
-                                        is_admin=await is_chat_admin(bot, chat_id, actor_id))
+                                        is_admin=force_admin or await is_chat_admin(bot, chat_id, actor_id))
     except mafia.MafiaError as exc:
         return str(exc)
     await group_say(bot, view, text)
@@ -201,7 +202,9 @@ async def _again(query, db, bot: Bot, data: MafiaControlCB) -> None:
 @router.callback_query(MafiaControlCB.filter())
 async def cb_mafia_control(query: types.CallbackQuery, callback_data: MafiaControlCB, db, bot: Bot):
     message = query.message
-    if not message or message.chat.type == "private":
+    if not isinstance(message, types.Message):
+        return await answer(query, "Эта карточка слишком старая. Напиши «бот мафия статус», чтобы открыть актуальную.", alert=True)
+    if message.chat.type == "private":
         return await answer(query, "Эта кнопка работает только в игровой группе.", alert=True)
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return await answer(query, _OFF, alert=True)

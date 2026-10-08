@@ -46,7 +46,7 @@ async def send_role_cards(bot: Bot, db, view: dict, *, chat_title: str | None) -
     """First message of a game: role, goal, how to act (+ team for mafia).  Returns unreachable ids."""
     players, failed = await repo.players(db, match_id=view["match_id"]), []
     seconds = rules.phase_seconds(view["tempo"], "night")
-    for me in players:
+    for me in (p for p in players if p.get("role_sent_at") is None):  # a retry never repeats a delivered card
         role = me["role"]
         mates = [(p["display_name"], p["role"]) for p in players
                  if role in ("mafia", "don") and p["role"] in ("mafia", "don") and p["user_id"] != me["user_id"]]
@@ -60,6 +60,7 @@ async def send_role_cards(bot: Bot, db, view: dict, *, chat_title: str | None) -
         await _remember(db, view, int(me["user_id"]), "action", sent if markup else None)
         if role in ("mafia", "don"):
             await _send_board(bot, db, view, int(me["user_id"]))
+        await ops.mark_role_sent(db, match_id=view["match_id"], user_id=int(me["user_id"]))
     return failed
 
 

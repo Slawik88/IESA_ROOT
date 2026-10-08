@@ -213,6 +213,8 @@ async def check_finish(db, match_id: int, roles: dict[int, str]) -> None:
     await db.execute("UPDATE mafia_v1_matches SET phase='night',phase_deadline=CLOCK_TIMESTAMP()-INTERVAL '1 second' WHERE id=?", (match_id,))
     done = await mafia.advance_due_match(db, match_id=match_id)
     assert done and done["view"]["phase"] == "finished" and done["view"]["roles_reveal"], "the end reveals every role"
+    assert await mafia.record_terminal_rewards(db, match_id=match_id), "receipts are issued after the phase has committed"
+    assert await mafia.record_terminal_rewards(db, match_id=match_id), "and a retry changes nothing"
     count = lambda metric: db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE metric=? AND event_id=?", (metric, f"mafia:{match_id}"))  # noqa: E731
     for metric, expected in (("mafia_completed", 4), ("game_completed", 4), ("mafia_win", sum(r in ("mafia", "don") for r in roles.values()))):
         async with count(metric) as cursor:

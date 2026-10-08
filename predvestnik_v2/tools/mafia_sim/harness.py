@@ -155,11 +155,15 @@ class Harness:
         await self.dp.feed_update(self.bot, update)
 
     async def say(self, user: SimUser, chat_id: int, text: str, *, topic: int | None = None,
-                  forum: bool = True) -> int:
-        """A player writes ``text``.  ``topic`` set + ``forum`` False models a plain reply thread."""
+                  forum: bool = True, anonymous: bool = False) -> int:
+        """A player writes ``text``.  ``topic`` set + ``forum`` False models a plain reply thread;
+        ``anonymous`` is an admin posting «as the group» (Telegram shows GroupAnonymousBot)."""
         message_id = self.world.next_id = self.world.next_id + 1
         message = {"message_id": message_id, "date": int(time.time()), "chat": self._chat_json(chat_id, user),
                    "from": user.json(), "text": text}
+        if anonymous:
+            message["from"] = {"id": 1087968824, "is_bot": True, "first_name": "Group", "username": "GroupAnonymousBot"}
+            message["sender_chat"] = self._chat_json(chat_id, user)
         if topic:
             message["message_thread_id"] = topic
             if forum:

@@ -66,7 +66,7 @@ async def pending_event_ids(db, *, limit: int = 25) -> list[int]:
         return [int(row[0]) for row in await cursor.fetchall()]
 
 
-async def claim_event(db, *, match_id: int, lease_seconds: int = 20) -> dict | None:
+async def claim_event(db, *, match_id: int, lease_seconds: int = 45) -> dict | None:
     """Lease the stored event to one deliverer; also counts the attempt.  None = nothing to do."""
     async with db.execute(
         "UPDATE mafia_v1_matches SET pending_event_json=jsonb_set(jsonb_set(pending_event_json,'{lease}',"
@@ -135,3 +135,7 @@ async def acted_pairs(db, *, match_id: int, phase_number: int) -> list[tuple[int
         (int(match_id), int(phase_number)),
     ) as cursor:
         return [(int(r[0]), str(r[1])) for r in await cursor.fetchall()]
+
+
+async def mark_role_sent(db, *, match_id: int, user_id: int) -> None:
+    await db.execute("UPDATE mafia_v1_players SET role_sent_at=CLOCK_TIMESTAMP() WHERE match_id=? AND user_id=?", (int(match_id), int(user_id)))

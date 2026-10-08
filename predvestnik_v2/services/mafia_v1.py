@@ -11,7 +11,7 @@ from services.mafia_common import (  # noqa: F401  (re-exported for handlers and
     MafiaConflict, MafiaError, MafiaForbidden, enabled_roles as _enabled, may_control, phase_deadline, public_view as _public,
 )
 from services.mafia_phases import (  # noqa: F401
-    abort_match, advance_due_match, close_early_if_complete, expire_stale_lobbies, skip_discussion,
+    abort_match, advance_due_match, close_early_if_complete, expire_stale_lobbies, record_terminal_rewards, skip_discussion,
 )
 
 _SETTING_ERRORS = {
@@ -150,6 +150,7 @@ async def start_match(db, *, match_id: int, chat_id: int, actor_id: int) -> tupl
         await repo.update_match(db, match_id=match_id, phase="night", phase_number=1,
                                 deadline=phase_deadline(row, "night"), started=True)
         await repo.audit(db, match_id=match_id, event_type="started", actor_id=actor_id)
+        await ops.set_pending_event(db, match_id=match_id, event={"kind": "started", "match_id": int(match_id), "done": []})
         row = await repo.lock_match(db, match_id=match_id)
         players = await repo.players(db, match_id=match_id)
     return _public(row, players), roles_by_user

@@ -100,6 +100,7 @@ async def _ensure_v2_columns(db) -> None:
         "last_bump_at TIMESTAMPTZ NULL",
     ):
         await db.execute(f"ALTER TABLE mafia_v1_matches ADD COLUMN IF NOT EXISTS {column}")
+    await db.execute("ALTER TABLE mafia_v1_players ADD COLUMN IF NOT EXISTS role_sent_at TIMESTAMPTZ NULL")
     await db.execute("""
         CREATE INDEX IF NOT EXISTS mafia_v1_pending_events
         ON mafia_v1_matches(id) WHERE pending_event_json IS NOT NULL

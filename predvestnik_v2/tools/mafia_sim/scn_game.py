@@ -172,3 +172,19 @@ async def _chatter_ok(h: Harness, t: Table, user, phase: str, alive: set[int]) -
     is_player = user in t.users
     muted = is_player and ((phase == "night" and user.id in alive) or (phase in ("discussion", "voting") and user.id not in alive))
     return h.is_deleted(t.chat, mid) == muted
+
+
+@scenario
+async def abstainers_outvote_a_lone_accuser(h: Harness) -> None:
+    t = await Table.create(h, 5)
+    await t.start_with_roles(FIVE)
+    u = t.users
+    await t.pick(u[1], u[4])
+    await t.next_phase()
+    await t.press(t.host, "К голосованию", "ОБСУЖДЕНИЕ")
+    await t.vote(u[0], u[2])
+    for voter in (u[1], u[2], u[3]):
+        await t.vote(voter, None)
+    await t.next_phase()
+    ok(await t.phase() == "night", "nobody was eliminated, the game goes on")
+    ok("никто не выбыл" in h.world.last(t.chat, "Итог голосования").text, "one accusation against three abstentions removes nobody")
