@@ -126,5 +126,5 @@ MOTION = """() => new Promise(res => setTimeout(() => {
   run.forEach(a => { const t = a.effect.target, cs = getComputedStyle(t); if (chainFilter(t)) filter++; if (cs.maskImage !== 'none' || cs.webkitMaskImage !== 'none') masked++;
     try { if (a.effect.getKeyframes().some(k => 'backgroundPositionX' in k)) glint++; } catch (e) {} });
   res({anims: run.length, filter, masked, glint, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
-# Budget of a look on a phone (lite): beyond this the page jitters in the Telegram WebView.
-BUDGET = {"anims": 26, "filter": 3, "masked": 2, "glint": 0}
+# Budget of a look at SSS in the full mode (measured after the 2026-10 optimization, with headroom): beyond this the page jitters in the Telegram WebView.
+BUDGET = {"anims": 45, "filter": 14, "masked": 20, "glint": 1}

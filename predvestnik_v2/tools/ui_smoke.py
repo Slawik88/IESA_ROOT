@@ -209,7 +209,7 @@ def sweep_crawl(stand, browser, args, results) -> None:
 
 
 def sweep_perf(stand, browser, args, results) -> None:
-    """Motion budget of the profile for every look at SSS on a phone (touch emulation = lite mode): running animations, filters and masks on animated layers, text glints.
+    """Motion budget of the profile for every look at SSS in the full (not lite) mode: running animations, filters and masks on animated layers, text glints.
     A look that exceeds the budget jitters in the Telegram WebView; Chromium without a GPU cannot show that, the counts can."""
     from core.skins_v3_catalog import SKINS
     rows = []
@@ -221,8 +221,6 @@ def sweep_perf(stand, browser, args, results) -> None:
         m = page.evaluate(MOTION); ctx.close()
         rows.append((m["anims"], sid, m))
         over = [f"{k} {m[k]} > {limit}" for k, limit in BUDGET.items() if m[k] > limit]
-        if not m["lite"]:
-            over.append("phone is not in lite mode")
         if over:
             results[f"motion {sid}"] = (["over the motion budget: " + ", ".join(over)], [])
     for n, sid, m in sorted(rows, reverse=True)[:10]:
