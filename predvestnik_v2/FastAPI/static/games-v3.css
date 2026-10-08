@@ -1,0 +1,70 @@
+/* ═══ GAMES V3 · страницы Ритма и Сапёра в монолитном виде ═══
+   Те же правила, что в docs/MONOLITH_V3.md: нет плашки вокруг секции, цифры и строки таблицы; группы держатся на отступах, крупных цифрах и тонких линиях.
+   Игровые элементы (руны, клетки поля) остаются нажимаемыми плитками: это поле игры, а не оформление.
+   Подключается после skin-runtime-v3.css, который красит страницы палитрой надетого образа (--v3-*). */
+
+:root { --g-faint: var(--v3-faint, rgba(255,255,255,.09)); --g-track: var(--v3-track, rgba(255,255,255,.22)); --g-dim: var(--v3-dim, #8a90a2); --g-acc: var(--v3-acc, #d8cffd); --g-on: var(--v3-on-acc, #15112b); }
+body { font-family: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+:is(.rhythm-shell, .mine-shell) { padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
+
+/* шапка: стрелка назад с зоной нажатия 44px, заголовок крупно */
+header { margin-bottom: 18px; }
+header a { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -12px; color: var(--g-dim); font-size: 30px; line-height: 1; }
+header small { color: var(--g-dim); letter-spacing: .14em; }
+h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+h2 { font-weight: 600; letter-spacing: -.01em; }
+.eyebrow { color: var(--g-dim); letter-spacing: .14em; }
+
+/* секции без коробок */
+:is(body, body.skin-v3) :is(.panel, .mine-panel) { padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+:is(body, body.skin-v3) .panel p { color: var(--g-dim); }
+
+/* кнопки: главное действие пилюлей, второстепенное контуром */
+:is(body, body.skin-v3) :is(button, .mine-head button) { border-radius: 99px; }
+:is(body, body.skin-v3) button { background: var(--g-acc); color: var(--g-on); font-weight: 650; }
+:is(body, body.skin-v3) button.secondary { background: none; box-shadow: inset 0 0 0 1.5px var(--g-track); color: var(--ink, #f3f4f7); }
+:is(body, body.skin-v3) .mine-head button { background: var(--g-acc); color: var(--g-on); }
+button:disabled { opacity: .4; }
+
+/* показатели: три крупные цифры на холсте */
+:is(body, body.skin-v3) :is(.metrics, .mine-metrics) { gap: 0; padding: 14px 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--g-faint), 0 -1px 0 var(--g-faint); }
+:is(.metrics, .mine-metrics) small { color: var(--g-dim); letter-spacing: .14em; }
+:is(.metrics, .mine-metrics) b { margin-top: 6px; font-size: 28px; font-weight: 300; letter-spacing: -.02em; }
+.pace div { height: 4px; }
+.pace i { background: var(--g-acc); }
+
+/* выбор даров и испытаний: строки, выбранная отмечена кольцом */
+:is(body, body.skin-v3) .augment { min-height: 52px; border: 0; border-radius: 0; background: none; box-shadow: 0 -1px 0 var(--g-faint); color: var(--ink, #f3f4f7); }
+.augment-list { gap: 0; }
+.augment[data-polarity="positive"].chosen, .augment[data-polarity="negative"].chosen { outline: 0; background: color-mix(in srgb, var(--g-acc) 10%, transparent); }
+.augment[data-polarity="positive"].chosen { box-shadow: inset 3px 0 0 var(--good, #7fd6a4); }
+.augment[data-polarity="negative"].chosen { box-shadow: inset 3px 0 0 var(--bad, #ff8a8a); }
+
+/* руны: поле игры, лёгкий контур без заливки */
+:is(body, body.skin-v3) .runes button { border-width: 1.5px; border-radius: 22px; background: transparent; text-shadow: none; color: var(--rune); }
+:is(body, body.skin-v3) .runes button:active, :is(body, body.skin-v3) .runes button.pending { background: var(--rune); color: #101321; }
+
+/* вкладки таблицы лидеров, сложность и режим: текстовые вкладки с подчёркиванием, выбранный режим пилюлей */
+:is(body, body.skin-v3) .leaderboard-tabs button { position: relative; min-height: 44px; padding: 0 8px; border-radius: 0; background: none; color: var(--g-dim); font-size: 13px; font-weight: 600; }
+.leaderboard-tabs button[aria-selected="true"], body.skin-v3 .leaderboard-tabs button[aria-selected="true"] { background: none; color: var(--ink, #f3f4f7); }
+.leaderboard-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: 6px; height: 2px; border-radius: 2px; background: var(--g-acc); }
+.mine-difficulties { gap: 0; margin-top: 12px; box-shadow: 0 1px 0 var(--g-faint); }
+:is(body, body.skin-v3) .mine-difficulties button { position: relative; border: 0; border-radius: 0; background: none; color: var(--g-dim); font-size: 14px; }
+:is(body, body.skin-v3) .mine-difficulties button[aria-selected="true"] { background: none; color: var(--ink, #f3f4f7); }
+.mine-difficulties button[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; border-radius: 2px; background: var(--g-acc); }
+.mine-difficulties small, .mine-difficulties button[aria-selected="true"] small { color: var(--g-dim); }
+:is(body, body.skin-v3) .mine-mode button { background: none; box-shadow: inset 0 0 0 1.5px var(--g-track); color: var(--ink, #f3f4f7); }
+:is(body, body.skin-v3) .mine-mode button[aria-pressed="true"] { background: var(--g-acc); box-shadow: none; color: var(--g-on); }
+
+/* таблица лидеров: строки с тонкими линиями */
+.leaderboard, .mine-leaderboard { border-top: 0; }
+:is(.leaderboard, .mine-leaderboard) ol { gap: 0; }
+:is(body, body.skin-v3) :is(.leaderboard, .mine-leaderboard) li { padding: 12px 0; border-radius: 0; background: none; }
+:is(.leaderboard, .mine-leaderboard) li + li { box-shadow: 0 -1px 0 var(--g-faint); }
+:is(.leaderboard, .mine-leaderboard) h3 { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--g-dim); }
+.leaderboard-empty { color: var(--g-dim); }
+
+/* поле Сапёра: плитки без рамки, цвет клетки несёт состояние */
+:is(body, body.skin-v3) .mine-board .mine-cell { border: 0; border-radius: 9px; }
+:is(.leaderboard, .mine-leaderboard) li:only-child { grid-template-columns: 1fr; }
+.mine-cell.pending { outline-width: 2px; }

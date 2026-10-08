@@ -38,6 +38,9 @@ SCREENS = [
     ("public", "openPublicCardV3(PEER_ID)"),
 ]
 
+# Standalone pages outside the single-page app (no dock): the two games and the public legal pages.
+PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
+
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
 DOCK_TABS = ("arena", "looks", "questlog", "top", "more", "profile")
 
@@ -46,6 +49,9 @@ EXPECTED_HTTP = [
     ("/admin/dev-overlay/", 403),
     ("/player-exchange/v1/", 404),
 ]
+# Known open product question (reported to the owner, not a bug of the stand): the /vip router is deliberately not registered (tools/test_release_public_routes.py
+# lists /vip as retired), while the Zarniki/VIP page still asks it. Shown as a warning so that it does not hide new findings.
+KNOWN_OPEN = [("/vip/", 404)]
 # Console noise of the sandbox itself (no internet: web fonts, telegram-web-app.js) and of the cookie-login persona (no socket token).
 EXPECTED_CONSOLE = ("ERR_TUNNEL_CONNECTION_FAILED", "ERR_NAME_NOT_RESOLVED", "Failed to load resource", "WebSocket connection")
 
@@ -102,3 +108,8 @@ CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];
     const label = (e.getAttribute('aria-label') || e.textContent || e.className || '').trim().replace(/\\s+/g, ' ');
     if (re.test(label) || !label) return; out.push([i, label]); });
   return out; }"""
+
+# Press the control found at `index` by CANDIDATES, but only when it still has the same label (a list that loads late shifts the order). Returns whether it pressed.
+PRESS = """([i, label]) => { const norm = e => (e.getAttribute('aria-label') || e.textContent || e.className || '').trim().replace(/\\s+/g, ' ');
+  const all = [...document.querySelectorAll('button, summary, [onclick], a[href]')]; let e = all[i]; if (!e || norm(e) !== label) e = all.find(x => norm(x) === label);
+  if (!e) return false; e.click(); return true; }"""

@@ -186,7 +186,7 @@ async def run(dsn: str) -> None:
         _, state = await skins.upgrade(db, climber, "forest", idempotency_key="c-up-5")
         forest = next(i for i in state["items"] if i["id"] == "forest")
         assert forest["level"] == "SSS" and forest["maxed"] and forest["next"] is None and forest["rarity"] == "D" and forest["ceiling"] == "SSS"
-        assert [e["kind"] for e in state["events"]] == ["tier", "badge"] and state["events"][0]["maxed"] and not state["events"][0]["sig"], "a D skin has no signature yet; the badge comes with the first SSS"
+        assert [e["kind"] for e in state["events"]] == ["tier", "badge"] and state["events"][0]["maxed"] and state["events"][0]["sig"], "every skin has a signature drawn for its SSS; a D skin gets it, and the badge, with its first SSS"
         assert state["collection"]["maxed"] == 1 and state["collection"]["maxed_badge"] == "Огранщик"
         await expect_conflict(skins.upgrade(db, climber, "forest", idempotency_key="c-up-6"), "максимальном")
         assert (await repo.essence_balance(db, climber)) == 0, "the chain was paid in full and nothing more"

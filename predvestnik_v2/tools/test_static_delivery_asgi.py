@@ -45,6 +45,7 @@ ALLOWED = {
     "/static/monolith-v3.css": "text/css",
     "/static/monolith-player-v3.css": "text/css",
     "/static/admin-legacy.css": "text/css",
+    "/static/games-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",
@@ -144,6 +145,7 @@ def main() -> None:
     assert '/static/minesweeper-v2.js?v=' in minesweeper.text
     assert '/static/skin-runtime-v3.css?v=' in minesweeper.text
     assert '/static/skin-runtime-v3.js?v=' in minesweeper.text
+    assert '/static/games-v3.css?v=' in minesweeper.text
     base = os.environ.get("ROOT_PATH", "").rstrip("/")
     assert f'href="{base}/"' in minesweeper.text
     rhythm = direct.get("/rhythm-v2")
@@ -151,6 +153,7 @@ def main() -> None:
     assert f'href="{base}/"' in rhythm.text
     assert '/static/skin-runtime-v3.css?v=' in rhythm.text
     assert '/static/skin-runtime-v3.js?v=' in rhythm.text
+    assert '/static/games-v3.css?v=' in rhythm.text
 
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
         rooted = TestClient(strip_prefix_middleware(app, "/predvestnik"))

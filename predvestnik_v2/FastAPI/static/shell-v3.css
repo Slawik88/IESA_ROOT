@@ -53,6 +53,8 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: 
 .development-notice { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; padding: 0; border: 0; background: none; color: var(--v3-dim); font-size: 11.5px; line-height: 1.4; }
 .development-notice strong { color: var(--v3-ink); font-weight: 600; }
 .development-notice > span:nth-child(2) { flex: 1; min-width: 0; }
+/* Страницы-сцены («Образы», «Зарники и VIP», чужая карточка) красят фон до самого верха экрана и закрывали плашку разработки наполовину: на них она скрыта, как после закрытия */
+body:has(.page.active .v3-scope) .development-notice { display: none; }
 .dn-close { flex: none; width: 44px; height: 44px; margin: -12px -14px -12px 0; border: 0; background: none; color: var(--v3-dim); font-size: 18px; cursor: pointer; }
 .dn-close:active { transform: scale(.88); }
 

@@ -741,65 +741,33 @@ body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
   background: linear-gradient(90deg, var(--bg2) 25%, var(--bg3) 50%, var(--bg2) 75%);
   background-size: 900px 100%; animation: shimmer 1.4s infinite linear; border-radius: var(--r-sm);
 }
+/* Документы (Правила, Конфиденциальность) в окне и на экране принятия: текст на холсте, разделы отделены тонкой линией */
 .legal-doc { max-height: 62vh; overflow-y: auto; padding-right: 4px; }
-.legal-doc h2 { font-size: 15px; color: var(--gold2); margin: 4px 0 10px; }
-.legal-doc h3 { font-size: 13px; color: var(--bright); margin: 14px 0 5px; }
-.legal-doc p  { font-size: 12.5px; color: var(--text); margin: 4px 0; line-height: 1.55; }
-.legal-link { font-size: 10.5px; color: var(--muted); margin-top: 12px; border-top: 1px solid var(--border2); padding-top: 10px; word-break: break-all; }
-.legal-link a { color: var(--gold2); }
-/* Блок-экран: неубираемый оверлей до принятия документов */
-.tos-gate {
-  position: fixed; inset: 0; z-index: 400;
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-  background: radial-gradient(700px 360px at 50% -10%, rgba(139,108,240,.18), transparent 60%), rgba(6,7,12,.92);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-}
-.tos-gate-box {
-  width: 100%; max-width: 360px; text-align: center;
-   
-   padding: 24px 20px;
-  
-}
-.tos-gate-emoji { font-size: 40px; margin-bottom: 8px; }
-.tos-gate-title { font-size: 18px; font-weight: 900; color: var(--gold2); margin-bottom: 6px; }
-.tos-gate-sub { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-bottom: 16px; }
-.tos-gate-links { display: flex; gap: 8px; margin-bottom: 12px; }
-.tos-gate-links .v3-pill { flex: 1; font-size: 12px; }
-.tos-gate-hint { font-size: 10px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+.legal-doc h2 { margin: 4px 0 12px; color: var(--v3-ink); font: 600 18px/1.25 var(--v3-font); letter-spacing: -.01em; }
+.legal-doc h3 { margin: 18px 0 6px; padding-top: 14px; box-shadow: 0 -1px 0 var(--v3-faint); color: var(--v3-ink); font: 600 14px/1.3 var(--v3-font); }
+.legal-doc p { margin: 5px 0; color: var(--v3-dim); font-size: 13px; line-height: 1.6; }
+.legal-link { margin-top: 12px; padding-top: 10px; box-shadow: 0 -1px 0 var(--v3-faint); color: var(--v3-dim); font-size: 11.5px; word-break: break-all; }
+.legal-link a { color: var(--v3-acc); }
 
-/* ═══ ЛОГИН ═════════════════════════════════════════════════════════════════
-   Полиш 2026-07-13 (Growth-полиш, Уровень 3): только визуал — вход остаётся
-   Telegram-only через initData/виджет, как и был. Ритм отступов вместо плоских
-   14px (DESIGN.md: «варьируй интервалы»), мягкое появление вместо статичного
-   попапа, рамка вокруг виджета — TG-кнопка не висит сиротой на космическом фоне. */
-.login-ov {
-  position: fixed; inset: 0; z-index: 300;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background:
-    radial-gradient(700px 360px at 50% -10%, rgba(139,108,240,.16), transparent 60%),
-    var(--bg0);
-  text-align: center; padding: 24px;
-}
+/* Вход и принятие документов: полноэкранный лист без рамки и плашки, заголовок крупно */
+.tos-gate, .login-ov { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--v3-wash), var(--v3-bg); }
+.tos-gate { z-index: 400; }
+.login-ov { z-index: 300; flex-direction: column; text-align: center; }
 .login-ov.hidden { display: none; }
-.login-ov > * { animation: loginRise .4s cubic-bezier(.16,1,.3,1) both; }
+.tos-gate-box { width: 100%; max-width: 360px; text-align: center; }
+.tos-gate-emoji, .login-orb { margin-bottom: 14px; font-size: 44px; }
+.tos-gate-title, .login-ov h1 { margin: 0 0 8px; color: var(--v3-ink); font: 600 26px/1.15 var(--v3-font); letter-spacing: -.02em; }
+.tos-gate-sub, .login-ov p { margin: 0 auto 18px; max-width: 290px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.55; }
+.tos-gate-links { display: flex; gap: 8px; margin-bottom: 12px; }
+.tos-gate-links .v3-pill { flex: 1; font-size: 12.5px; }
+.tos-gate-hint, .login-ov .tos-gate-hint, .login-ov > p:last-child { margin: 14px auto 0; color: var(--v3-dim); font-size: 11px; line-height: 1.5; }
+.login-ov > * { animation: loginRise .4s var(--v3-ease) both; }
 .login-ov > *:nth-child(2) { animation-delay: .05s; }
 .login-ov > *:nth-child(3) { animation-delay: .1s; }
 .login-ov > *:nth-child(4) { animation-delay: .15s; }
 .login-ov > *:nth-child(5) { animation-delay: .2s; }
 @keyframes loginRise { 0% { transform: translateY(10px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) {
-  .login-ov > * { animation: none; }
-}
-.login-orb { font-size: 56px; margin-bottom: 6px; animation: glow 2.2s infinite, floaty 4s infinite; }
-/* UX_AUDIT С17: правило стоит ПОСЛЕ .login-orb — иначе при равной специфичности
-   каскад оставлял орб анимированным даже при reduced-motion */
-@media (prefers-reduced-motion: reduce) { .login-orb { animation: none; } }
-.no-fx .login-orb { animation: none; }
-/* Полиш 2026-07: градиентный текст на заголовке убран (Don't в DESIGN.md) —
-   градиент-текст остаётся только у продаваемой косметики (.glow-*, .title-*) */
-.login-ov h1 { margin: 0 0 8px; font-size: 24px; font-weight: 900; color: var(--gold2); }
-.login-ov p { margin: 0 0 18px; font-size: 12px; color: var(--muted); max-width: 270px; line-height: 1.6; }
-.login-ov .tos-gate-hint, .login-ov > p:last-child { margin: 14px 0 0; }
+@media (prefers-reduced-motion: reduce) { .login-ov > * { animation: none; } }
 
 /* ═══ УТИЛИТЫ / ДЕСКТОП ═════════════════════════════════════════════════════ */
 .hidden { display: none !important; }

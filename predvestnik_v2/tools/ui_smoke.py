@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from ui_smoke_checks import (BLOCKS, CANDIDATES, SKIP_CLICK, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, SCREENS, TAP)  # noqa: E402
+from ui_smoke_checks import (BLOCKS, CANDIDATES, PAGES, PRESS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, KNOWN_OPEN, SCREENS, SKIP_CLICK, TAP)  # noqa: E402
 from ui_stand import DEFAULT_DSN, PEER_ID, Stand, seed_persona, set_game_flags  # noqa: E402
 
 FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
@@ -52,6 +52,7 @@ class Probe:
 
     def __init__(self, page) -> None:
         self.problems: list[str] = []
+        self.known: list[str] = []
         page.on("pageerror", lambda e: self.problems.append("js error: " + str(e)[:140]))
         page.on("console", lambda m: self._console(m))
         page.on("response", lambda r: self._response(r))
@@ -61,12 +62,18 @@ class Probe:
             self.problems.append("console: " + msg.text[:140])
 
     def _response(self, resp) -> None:
-        if resp.status >= 400 and not any(path in resp.url and resp.status == code for path, code in EXPECTED_HTTP):
-            self.problems.append(f"http {resp.status}: {resp.url[-80:]}")
+        if resp.status < 400 or any(path in resp.url and resp.status == code for path, code in EXPECTED_HTTP):
+            return
+        known = any(path in resp.url and resp.status == code for path, code in KNOWN_OPEN)
+        (self.known if known else self.problems).append(f"http {resp.status}: {resp.url[-80:]}")
 
     def take(self) -> list[str]:
-        out, self.problems = self.problems, []
+        out, self.problems, self.known = self.problems, [], []
         return out
+
+    def take_known(self) -> list[str]:
+        out, self.known = sorted(set(self.known)), []
+        return ["known open: " + x for x in out]
 
 
 def open_app(stand: Stand, browser, width: int):
@@ -78,6 +85,7 @@ def open_app(stand: Stand, browser, width: int):
     page.wait_for_function(PROFILE_READY, timeout=20000)
     page.wait_for_timeout(1200)
     probe.take()
+    page.home = stand.base + "/"      # a tap may leave the app (a game page, an external link): every screen starts again from here
     return ctx, page, probe
 
 
@@ -100,7 +108,7 @@ def settle(page) -> None:
 
 def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path | None) -> tuple[list[str], list[str]]:
     fails: list[str] = []; warns: list[str] = []
-    page.goto(page.url.split("#")[0])
+    page.goto(page.home)
     page.wait_for_function(PROFILE_READY, timeout=20000)
     page.wait_for_timeout(500)
     probe.take()
@@ -113,6 +121,7 @@ def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path
     for item in page.evaluate(BLOCKS):
         (fails if item.startswith("UA-DEFAULT") else warns).append(item)
     warns += ["small: " + x for x in page.evaluate(TAP)]
+    warns += probe.take_known()
     fails += probe.take()
     if shots:
         page.screenshot(path=str(shots / f"{name}-{width}.png"), full_page=True)
@@ -147,6 +156,15 @@ def sweep_screens(stand, browser, args, results) -> None:
                 continue
             fails, warns = check_screen(page, probe, name, js, width, shots)
             results[f"{name} @{width}"] = (fails, warns if name.startswith("profile") else [w for w in warns if w not in baseline])
+        for path in PAGES:
+            if args.only and path not in args.only:
+                continue
+            page.goto(stand.base + path); settle(page); probe.take()
+            page.goto(stand.base + path); settle(page)
+            fails = [g for g in page.evaluate(GEOMETRY, width) if "dock" not in g] + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
+            results[f"{path} @{width}"] = (fails, [])
+            if shots:
+                page.screenshot(path=str(shots / f"page{path.replace('/', '-')}-{width}.png"), full_page=True)
         ctx.close()
 
 
@@ -159,19 +177,22 @@ def sweep_crawl(stand, browser, args, results) -> None:
         for name, js in SCREENS:
             if args.only and name not in args.only:
                 continue
-            page.goto(page.url.split("#")[0]); page.wait_for_function(PROFILE_READY, timeout=20000)
+            page.goto(page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
             run_js(page, js); settle(page)
             labels = page.evaluate(CANDIDATES, SKIP_CLICK)[: args.taps]
             for index, label in labels:
-                page.goto(page.url.split("#")[0]); page.wait_for_function(PROFILE_READY, timeout=20000)
+                page.goto(page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
                 run_js(page, js); settle(page); probe.take()
                 fails: list[str] = []
                 try:
-                    page.evaluate("(i) => { const e = document.querySelectorAll('button, summary, [onclick], a[href]')[i]; e && e.click(); return null; }", index)
+                    pressed = page.evaluate(PRESS, [index, label])
+                    if not pressed:
+                        continue          # the screen drew itself differently this time: the control is not there, nothing to judge
                 except Exception as exc:  # noqa: BLE001
                     fails.append("click threw: " + str(exc).splitlines()[0][:100])
                 settle(page)
-                fails += page.evaluate(GEOMETRY, width) + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
+                on_app = page.evaluate("() => !!document.querySelector('.nav')")        # a tap may open a game page or leave the app: those have no dock
+                fails += [g for g in page.evaluate(GEOMETRY, width) if on_app or "dock" not in g] + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
                 if fails:
                     results[f"{name} > {label[:40]} @{width}"] = (fails, [])
         ctx.close()
