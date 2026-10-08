@@ -11,8 +11,11 @@ warps.register_all(WARPS)
 
 
 async def _feature_gate(ctx) -> str | None:
-    """Выключатели из админки: команда не запускается, если она (или её раздел, или весь бот) выключена."""
+    """Админка: заблокированному игроку бот не отвечает; выключенная команда (раздел, весь бот) не запускается."""
     from services import feature_switches as fs
+    from services import global_moderation
+    if await global_moderation.is_blocked(ctx.db, ctx.user_id):
+        return ""   # игрок заблокирован в боте из админки — молчим
     chat = ctx.message.chat
     chat_id = chat.id if chat.type in ("group", "supergroup") else None
     cmd = ctx.command

@@ -290,16 +290,18 @@ async def cmd_mute(ctx: Ctx) -> None:
 @moderation_command("снять мут", aliases=("размут",), usage="бот снять мут, @ник", summary="Вернуть право писать.")
 async def cmd_unmute(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unmute", "бот снять мут, @ник", punish=False)
-    chat_id = ctx.message.chat.id
-    chat = await ctx.bot.get_chat(chat_id)
-    perms = chat.permissions or ChatPermissions(can_send_messages=True)
-    await ctx.bot.restrict_chat_member(chat_id, target.user_id, permissions=perms)
-    await ctx.db.execute(
-        "UPDATE user_chat_stats SET muted_until = NULL WHERE chat_tg_id = ? AND user_tg_id = ?",
-        (chat_id, target.user_id))
-    await log(ctx.db, chat_id, target.user_id, ctx.user_id, "unmute")
-    await commit(ctx.db)
+    await do_unmute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
     await ctx.reply(f"🔊 {esc(target.label())} снова может писать.")
+
+
+async def do_unmute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> None:
+    chat = await bot.get_chat(chat_id)
+    perms = chat.permissions or ChatPermissions(can_send_messages=True)
+    await bot.restrict_chat_member(chat_id, user_id, permissions=perms)
+    await db.execute(
+        "UPDATE user_chat_stats SET muted_until = NULL WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+    await log(db, chat_id, user_id, admin_id, "unmute")
+    await commit(db)
 
 
 # ── Кик и бан ─────────────────────────────────────────────────────────────
@@ -336,7 +338,7 @@ async def do_ban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, r
 
 async def is_blacklisted(db, chat_id: int, user_id: int) -> bool:
     async with db.execute(
-        "SELECT 1 FROM chat_blacklist WHERE chat_id = ? AND user_id = ? "
+        "SELECT 1 FROM chat_blacklist WHERE chat_id IN (?, 0) AND user_id = ? "   # 0 — глобальный бан
         "AND (expires_at IS NULL OR expires_at > NOW())", (chat_id, user_id)) as cur:
         return await cur.fetchone() is not None
 

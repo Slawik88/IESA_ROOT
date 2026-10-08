@@ -49,6 +49,251 @@ document.addEventListener('click', e => {
   if (tab) open(tab.dataset.tab);
 });
 
+// ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
+
+const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
+const PEOPLE = {query: '', stack: []};   // stack — откуда пришли (для «Назад»)
+
+function sheet(title, body, submitText, onSubmit) {
+  const box = $('#sheet');
+  box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${body}
+    <div class="actions" style="margin-top:12px"><button class="btn primary" id="sok">${esc(submitText)}</button>
+      <button class="btn" id="scancel">Отмена</button></div></div>`;
+  box.hidden = false;
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  $('#scancel').onclick = close;
+  box.onclick = e => { if (e.target === box) close(); };
+  $('#sok').onclick = async () => {
+    $('#sok').disabled = true;
+    try { await onSubmit(box); close(); } catch (e) { toast(e.message, true); $('#sok').disabled = false; }
+  };
+}
+
+const DURATIONS = [[15, '15 минут'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
+const durationField = (def = 60) => `<div class="field"><label>Срок</label><select id="fmin">
+  ${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+const reasonField = (required = false) => `<div class="field"><label>Причина${required ? '' : ' (необязательно)'}</label>
+  <input id="freason" maxlength="200"/></div>`;
+
+// Форма под каждое действие: поля + что отправить.
+function actionForm(key, ctx) {
+  const v = id => ($('#' + id) || {}).value;
+  switch (key) {
+    case 'mute': return [durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'ban': return [durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'kick': case 'global_ban': return [reasonField(), () => ({reason: v('freason')})];
+    case 'block': return [`<div class="field"><label>На сколько</label><select id="fdays">
+        <option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option>
+        <option value="0" selected>пока не снимут</option></select></div>` + reasonField(),
+      () => ({days: +v('fdays'), reason: v('freason')})];
+    case 'balance': return [`<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
+        ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
+        <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
+        ${reasonField(true)}`,
+      () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
+              request_id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())})];
+    case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
+        <input id="fdays" type="number" min="1" max="3650" value="7"/></div>` + reasonField(),
+      () => ({days: +v('fdays'), reason: v('freason')})];
+    case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
+        ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
+        + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
+    case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
+        <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
+    case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
+      () => ({text: v('ftext')})];
+    default: return ['<div class="sub">Подтвердите действие.</div>', () => ({})];
+  }
+}
+
+function runAction(action, target, ctx, extra, after) {
+  const [body, collect] = actionForm(action.key, ctx);
+  const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
+  sheet(action.title, place + body, 'Выполнить', async () => {
+    const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
+    const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
+    toast(res.message || 'Готово');
+    after();
+  });
+}
+
+function back(main) {
+  const prev = PEOPLE.stack.pop();
+  if (!prev) return peopleSearch(main, PEOPLE.query);
+  return prev.type === 'player' ? playerView(main, prev.id, false) : chatView(main, prev.id, false);
+}
+
+function backBar(label = '← Назад') {
+  return `<div class="bar"><button class="btn" id="pback">${label}</button>
+    <button class="btn" id="psearch">🔍 Поиск</button></div>`;
+}
+
+function wireBack(main) {
+  $('#pback').onclick = () => back(main);
+  $('#psearch').onclick = () => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
+}
+
+function historyCard(items) {
+  if (!items.length) return '<div class="card"><h3>Журнал</h3><div class="sub">Пока пусто.</div></div>';
+  return `<div class="card"><h3>Журнал</h3>${items.map(x => `
+    <div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
+      <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? who(x.actor.id, x.actor.username) : 'бот'}
+        ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) : ''}</div></div>`).join('')}</div>`;
+}
+
+async function peopleSearch(main, query = '') {
+  PEOPLE.query = query;
+  main.innerHTML = `
+    <div class="bar"><input id="pplq" placeholder="ID, @ник или название чата" value="${esc(query)}" autocomplete="off"/></div>
+    <div id="pplres"><div class="empty">Загрузка…</div></div>`;
+  let timer;
+  $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
+  async function load(q) {
+    PEOPLE.query = q;
+    const {players, chats} = await api(`/search?q=${encodeURIComponent(q.trim())}`);
+    const head = q.trim() ? '' : '<div class="sub" style="margin-bottom:8px">Недавно активные</div>';
+    $('#pplres').innerHTML = head + `
+      <h3 class="sec">Игроки · ${players.length}</h3>
+      <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
+        <div class="head"><b>${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
+        <div class="sub">ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
+        || '<div class="sub">Никого</div>'}</div>
+      <h3 class="sec">Чаты · ${chats.length}</h3>
+      <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
+        <div class="head"><b>${esc(c.title)}</b><span class="sub">${num(c.members)} уч.</span></div>
+        <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
+        || '<div class="sub">Ничего</div>'}</div>`;
+  }
+  $('#pplres').onclick = e => {
+    const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
+    PEOPLE.stack = [];
+    if (p) playerView(main, +p.dataset.player);
+    else if (c) chatView(main, +c.dataset.chat);
+  };
+  load(query).catch(e => toast(e.message, true));
+}
+
+async function playerView(main, id, push = true, from = null) {
+  const p = await api(`/player/${id}`).catch(e => { toast(e.message, true); return null; });
+  if (!p) return;
+  if (push && from) PEOPLE.stack.push(from);
+  const reopen = () => playerView(main, id, false);
+  const b = p.balances;
+  const fam = p.family;
+  const chips = [
+    `<span class="chip">${esc(p.rank_name)}</span>`,
+    p.vip ? `<span class="chip ok">👑 VIP · ${p.vip.days_left} дн.</span>` : '',
+    p.sponsor ? '<span class="chip ok">спонсор</span>' : '',
+    p.blocked ? `<span class="chip bad">🙈 бот не отвечает${p.blocked.until ? ' до ' + when(p.blocked.until) : ''}</span>` : '',
+    p.global_ban ? '<span class="chip bad">🚫 бан во всех чатах</span>' : '',
+    p.deleted_at ? '<span class="chip warn">аккаунт удаляется</span>' : '',
+  ].join(' ');
+  // Глобальные действия — без взаимоисключающих пар.
+  const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  const globalActs = p.actions.player.filter(a => !hide.has(a.key));
+  const memberActs = c => p.actions.member.filter(a =>
+    !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
+    && !(a.key === 'ban' && c.ban) && !(a.key === 'kick' && (c.left || c.ban)) && !(a.key === 'unwarn_all' && !c.warns));
+  main.innerHTML = `${backBar()}
+    <div class="card">
+      <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <span style="font-size:20px;font-weight:700">${who(p.id, p.username)}</span><span class="sub">ID ${p.id}</span></div>
+      <div class="chips">${chips}</div>
+      <div class="stats">
+        <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
+        <div><span>🔮 Эссенция</span><b>${num(b.essence)}</b></div><div><span>✨ Зарники</span><b>${num(b.zarniki)}</b></div>
+        <div><span>💬 Сегодня / 7 дней</span><b>${num(p.messages.today)} / ${num(p.messages.week)}</b></div>
+        <div><span>💬 Всего</span><b>${num(p.messages.total)}</b></div>
+        <div><span>🔥 Стрик</span><b>${p.streak.current} <small>(лучший ${p.streak.best})</small></b></div>
+        <div><span>🏆 Достижения</span><b>${p.achievements.count} <small>· ур. ${p.achievements.levels}</small></b></div>
+      </div>
+      ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
+          ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
+          : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
+      ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
+      ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
+      ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
+        `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
+    </div>
+    <div class="card"><h3>Чаты · ${p.chats.length}</h3>
+      ${p.chats.map(c => `<div class="member">
+        <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
+        <div class="sub">сообщений ${num(c.messages)}${c.last ? ' · ' + when(c.last) : ''}</div>
+        <div class="chips">${c.left ? '<span class="chip off">не в чате</span>' : ''}
+          ${c.muted ? `<span class="chip warn">🔇 мут${c.muted_until ? ' до ' + when(c.muted_until) : ' навсегда'}</span>` : ''}
+          ${c.ban ? `<span class="chip bad">⛔ бан${c.ban.until ? ' до ' + when(c.ban.until) : ''}</span>` : ''}
+          ${c.warns ? `<span class="chip warn">⚠️ варнов: ${c.warns}</span>` : ''}</div>
+        ${memberActs(c).length ? `<div class="actions">${memberActs(c).map(a =>
+          `<button class="btn small" data-mact="${a.key}" data-cid="${c.id}" data-ctitle="${esc(c.title)}">${esc(a.title)}</button>`).join('')}</div>` : ''}
+      </div>`).join('') || '<div class="sub">Не писал ни в одном чате с ботом.</div>'}
+    </div>
+    ${historyCard(p.history)}`;
+  wireBack(main);
+  const here = {type: 'player', id};
+  main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
+    runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
+  main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
+    runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, p,
+      {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));
+  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
+  main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
+}
+
+async function chatView(main, id, push = true, from = null) {
+  const c = await api(`/chat/${id}`).catch(e => { toast(e.message, true); return null; });
+  if (!c) return;
+  if (push && from) PEOPLE.stack.push(from);
+  const reopen = () => chatView(main, id, false);
+  const m = c.messages;
+  const acts = c.actions.chat.filter(a => !(a.key === 'close' && c.closed) && !(a.key === 'open' && !c.closed));
+  const can = key => c.actions.member.find(a => a.key === key);
+  const person = x => `<a href="#" data-player="${x.user}">${who(x.user, x.username)}</a>`;
+  const sanction = (title, rows, line, undo) => rows.length ? `<h3 class="sec">${title} · ${rows.length}</h3>${rows.map(x => `
+      <div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
+      ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`).join('')}` : '';
+  const s = c.sanctions;
+  main.innerHTML = `${backBar()}
+    <div class="card">
+      <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
+      <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
+        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span>
+        ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
+      <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
+        ${c.admin_chat ? ` · админ-чат: <a href="#" data-chat="${c.admin_chat.id}">${esc(c.admin_chat.title)}</a>` : ''}</div>
+      <div class="stats">
+        <div><span>👥 Участников</span><b>${num(c.members)}</b></div><div><span>💬 Всего</span><b>${num(m.total)}</b></div>
+        <div><span>Сегодня</span><b>${num(m.today.messages)} <small>· ${m.today.active} чел.</small></b></div>
+        <div><span>7 дней</span><b>${num(m.week.messages)} <small>· ${m.week.active} чел.</small></b></div>
+        <div><span>30 дней</span><b>${num(m.month.messages)} <small>· ${m.month.active} чел.</small></b></div>
+      </div>
+      <div class="actions" style="margin-top:12px">${acts.map(a =>
+        `<button class="btn small ${a.key === 'leave' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}
+        ${ME.sections.some(x => x.key === 'switches') ? '<button class="btn small" id="cswitch">⚙️ Функции чата</button>' : ''}</div>
+      ${c.switched_off.length ? `<div class="sub" style="margin-top:8px">Выключено: ${c.switched_off.map(x =>
+        esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
+    </div>
+    <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username})}</div>
+      <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
+    ${s.bans.length || s.mutes.length || s.warns.length ? `<div class="card">
+      ${sanction('⛔ Баны', s.bans, x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban')}
+      ${sanction('🔇 Муты', s.mutes, x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute')}
+      ${sanction('⚠️ Варны', s.warns, x => 'действующих: ' + x.count, 'unwarn_all')}</div>` : ''}
+    ${historyCard(c.history)}`;
+  wireBack(main);
+  const here = {type: 'chat', id};
+  main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
+    runAction(c.actions.chat.find(a => a.key === btn.dataset.act), `/chat/${id}/action`, c, {}, reopen));
+  main.querySelectorAll('[data-undo]').forEach(btn => btn.onclick = () =>
+    runAction(can(btn.dataset.undo), `/player/${btn.dataset.uid}/action`, c, {chat_id: id, chat_title: c.title}, reopen));
+  main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
+  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
+  const sw = $('#cswitch');
+  if (sw) sw.onclick = () => { tabs('switches'); switchesView(main, {id: c.id, title: c.title}); };
+}
+
+SECTIONS.people = main => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
+
 // ── Промокоды ────────────────────────────────────────────────────────────────
 
 let OPTIONS = null;
