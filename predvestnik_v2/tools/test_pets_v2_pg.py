@@ -257,6 +257,28 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("two tracks per day")
+        # Испытание недели
+        week = service._week_start((await repo.clock(db))["day"])
+        tags = rules.weekly_trial(week.toordinal())
+        full_traits = ["night_walk" if tags["tempo"] == 9 else "sprinter", "careful" if tags["style"] == "careful" else "reckless"]
+        route_kind = next(k for k, (plus, _) in rules.TALISMANS.items() if plus == tags["route"])
+        await repo.add_talisman(db, user, "tr-t", route_kind, 1)
+        await db.execute("UPDATE pet_v2_state SET level=25 WHERE user_id=? AND pet_id=?", (user, fox))
+        await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (user,))
+        await rejects(service.submit_trial(db, user_id=user, pet_id=beetle, difficulty=3, action_id="tl0"))
+        await service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=full_traits, talisman_ids=["tr-t"], action_id="tb")
+        before = await skins_v3.essence_balance(db, user)
+        solved = await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=3, action_id="tl1")
+        assert solved["matches"] == 3 and solved["essence"] == 20
+        assert await skins_v3.essence_balance(db, user) >= before + 20
+        assert (await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=3, action_id="tl1"))["idempotent_replay"]
+        try:
+            async with db.connection.transaction():
+                await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=1, action_id="tl2")
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("one trial per week")
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

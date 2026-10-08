@@ -92,6 +92,13 @@ async def ensure_tables(db) -> None:
     """)
     await db.execute("CREATE INDEX IF NOT EXISTS idx_pet_v2_tracks_user_day ON pet_v2_tracks(user_id, day)")
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_trials (
+            user_id BIGINT NOT NULL, week DATE NOT NULL, pet_id BIGINT NOT NULL,
+            difficulty SMALLINT NOT NULL CHECK(difficulty BETWEEN 1 AND 3), essence INTEGER NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY(user_id, week)
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_actions (
             user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
             request_json TEXT NOT NULL, response_json TEXT NOT NULL,
@@ -350,4 +357,16 @@ async def save_track(db, track_id: str, *, opened: list, points: int, status: st
     await db.execute(
         "UPDATE pet_v2_tracks SET opened=?::jsonb,points=?,status=?,result=?::jsonb WHERE id=?",
         (json.dumps(opened), int(points), status, json.dumps(result) if result is not None else None, track_id),
+    )
+
+
+async def trial_done(db, user_id: int, week) -> bool:
+    async with db.execute("SELECT 1 FROM pet_v2_trials WHERE user_id=? AND week=?", (int(user_id), week)) as c:
+        return await c.fetchone() is not None
+
+
+async def save_trial(db, user_id: int, week, pet_id: int, difficulty: int, essence: int) -> None:
+    await db.execute(
+        "INSERT INTO pet_v2_trials(user_id,week,pet_id,difficulty,essence) VALUES (?,?,?,?,?)",
+        (int(user_id), week, int(pet_id), int(difficulty), int(essence)),
     )

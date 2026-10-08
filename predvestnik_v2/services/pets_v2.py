@@ -150,6 +150,7 @@ async def overview(db, user_id: int) -> dict:
         "durations": {"run": list(rules.RUN_HOURS), "watch": list(rules.WATCH_HOURS)}, "routes": list(rules.ROUTES),
         "talismans": [{"id": t["id"], "kind": t["kind"], "tier": int(t["tier"]), "pet_id": t["pet_id"]} for t in all_talismans],
         "camp": await _camp_view(db, user_id, camp),
+        "trial": await trial_view(db, user_id),
         "callings": list(rules.AVAILABLE_CALLINGS), "traits": list(rules.AVAILABLE_TRAITS),
     }
 
@@ -331,21 +332,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         await repo.save_daily(db, user_id, day, raw=daily["raw"] + raw, credited=daily["credited"] + credited, finds=finds)
 
         level_before = level
-        xp += credited
-        stage_essence = 0
-        limit = rules.ceiling(bond)
-        while level < min(limit, rules.MAX_LEVEL) and xp >= rules.level_cost(level, rarity):
-            xp -= rules.level_cost(level, rarity)
-            if level in rules.STAGE_ESSENCE and await repo.save_stage_reward(db, user_id, int(pet["id"]), level, rules.STAGE_ESSENCE[level]):
-                from services.skins_v3 import grant_essence_in_transaction
-                stage_essence += await grant_essence_in_transaction(
-                    db, user_id, rules.STAGE_ESSENCE[level], reason="pet_v2_stage", reference=f"{pet['id']}:{level}",
-                )
-            level += 1
-        if level >= rules.MAX_LEVEL:
-            xp = 0.0
-        elif level >= limit:
-            xp = min(xp, float(rules.level_cost(level, rarity)))
+        level, xp, stage_essence, limit = await _apply_xp(db, user_id, int(pet["id"]), rarity, level, xp + credited, bond)
         await repo.save_state(db, user_id, int(pet["id"]), level=level, xp=xp, energy=energy, pity=pity)
 
         result = {
@@ -653,3 +640,75 @@ async def open_track_cell(db, *, user_id: int, track_id: str, cell: int, action_
                     "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
     return response
+
+
+async def _apply_xp(db, user_id: int, pet_id: int, rarity: str, level: int, xp: float, bond: int) -> tuple[int, float, int, int]:
+    """Повышение уровней до потолка Связи; Эссенция за пройденные ступени. Возвращает (уровень, Следы, Эссенция, потолок)."""
+    stage_essence = 0
+    limit = rules.ceiling(bond)
+    while level < min(limit, rules.MAX_LEVEL) and xp >= rules.level_cost(level, rarity):
+        xp -= rules.level_cost(level, rarity)
+        if level in rules.STAGE_ESSENCE and await repo.save_stage_reward(db, user_id, pet_id, level, rules.STAGE_ESSENCE[level]):
+            from services.skins_v3 import grant_essence_in_transaction
+            stage_essence += await grant_essence_in_transaction(
+                db, user_id, rules.STAGE_ESSENCE[level], reason="pet_v2_stage", reference=f"{pet_id}:{level}",
+            )
+        level += 1
+    if level >= rules.MAX_LEVEL:
+        xp = 0.0
+    elif level >= limit:
+        xp = min(xp, float(rules.level_cost(level, rarity)))
+    return level, xp, stage_essence, limit
+
+
+async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action_id: str) -> dict:
+    """Испытание недели: одна сдача в неделю на аккаунт. Награда зависит от совпадения сборки с тегами недели."""
+    action_id = _action(action_id)
+    if difficulty not in rules.TRIAL_ESSENCE:
+        raise PetV2PolicyError("Сложность 1, 2 или 3.")
+    request = {"type": "trial", "pet_id": int(pet_id), "difficulty": int(difficulty)}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
+        rarity, favorite, _, _, _ = _species_row(pet)
+        clock = await repo.clock(db)
+        week = _week_start(clock["day"])
+        if await repo.trial_done(db, user_id, week):
+            raise PetV2Conflict("Испытание этой недели уже сдано.")
+        state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
+        build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), await repo.camp_levels(db, user_id))
+        trial = rules.weekly_trial(week.toordinal())
+        matches = rules.trial_matches(trial, favorite, build["traits"], build["talismans"])
+        if matches < difficulty:
+            raise PetV2PolicyError(f"Сборка совпадает с тегами недели на {matches} из 3, нужно {difficulty}.")
+        essence = rules.TRIAL_ESSENCE[difficulty]
+        daily = await repo.get_daily(db, user_id, clock["day"])
+        credited = rules.pool_credit(daily["raw"], rules.TRIAL_XP)
+        await repo.save_daily(db, user_id, clock["day"], raw=daily["raw"] + rules.TRIAL_XP, credited=daily["credited"] + credited, finds=daily["finds"])
+        bond = await repo.bond_days(db, user_id, pet_id)
+        level_before = int(state["level"])
+        level, xp, stage_essence, _ = await _apply_xp(db, user_id, pet_id, rarity, level_before, float(state["xp"]) + credited, bond)
+        await repo.save_state(db, user_id, pet_id, level=level, xp=xp, energy=float(state["energy"]), pity=int(state["pity"]))
+        from services.skins_v3 import grant_essence_in_transaction
+        await grant_essence_in_transaction(db, user_id, essence, reason="pet_v2_trial", reference=week.isoformat())
+        await repo.save_trial(db, user_id, week, pet_id, difficulty, essence)
+        response = {"ok": True, "week": week.isoformat(), "matches": matches, "difficulty": int(difficulty), "essence": essence,
+                    "xp_credited": round(credited, 2), "level_before": level_before, "level_after": level,
+                    "stage_essence": stage_essence, "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response
+
+
+async def trial_view(db, user_id: int) -> dict:
+    clock = await repo.clock(db)
+    week = _week_start(clock["day"])
+    trial = rules.weekly_trial(week.toordinal())
+    return {"week": week.isoformat(), "tags": trial, "done": await repo.trial_done(db, user_id, week),
+            "xp": rules.TRIAL_XP, "essence": rules.TRIAL_ESSENCE}

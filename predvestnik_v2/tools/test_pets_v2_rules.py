@@ -103,6 +103,11 @@ def main() -> None:
     assert [p.track_points(l, "moss_cat") for l in (1, 8, 16)] == [3, 4, 5] and p.track_points(1, "mirror_owl") == 4
     assert p.track_heat(4, 4) == "found" and p.track_heat(4, 0) == "warm" and p.track_heat(0, 8) == "cold" and p.track_heat(0, 2) == "cold"
     must_fail(lambda: p.track_heat(9, 0))
+    trial = p.weekly_trial(740000)
+    assert trial == p.weekly_trial(740000) and trial["route"] in p.ROUTES and trial["tempo"] in (3, 9)
+    full = {"route": "forest", "tempo": 9, "style": "careful"}
+    assert p.trial_matches(full, "forest", ("night_walk", "careful")) == 3 and p.trial_matches(full, "pass", ()) == 0
+    assert p.trial_matches(full, "pass", (), (("forest_fang", 1),)) == 1 and p.trial_matches(full, "any", ("sprinter",)) == 1
     # применение билда
     plain = p.build_effects(None, (), hours=9, route="forest")
     assert plain["xp_mult"] == 1.0 and plain["find_mods"] == {} and not plain["guardian"]

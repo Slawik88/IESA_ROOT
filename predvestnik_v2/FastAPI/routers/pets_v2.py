@@ -53,6 +53,12 @@ class TrackOpenRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class TrialRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    difficulty: int = Field(ge=1, le=3)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 async def _ready(db) -> None:
     if not await system_flags.is_enabled(db, "pets_v2"):
         raise HTTPException(404, "Тропа пока закрыта.")
@@ -127,5 +133,14 @@ async def track_open(body: TrackOpenRequest, db=Depends(get_db), user=Depends(re
     await _ready(db)
     try:
         return await service.open_track_cell(db, user_id=int(user["id"]), track_id=body.track_id, cell=body.cell, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/trial")
+async def trial(body: TrialRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.submit_trial(db, user_id=int(user["id"]), pet_id=body.pet_id, difficulty=body.difficulty, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))

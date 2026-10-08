@@ -349,6 +349,30 @@ def track_heat(hidden: int, cell: int) -> str:
     return "warm" if max(abs(hidden // 3 - cell // 3), abs(hidden % 3 - cell % 3)) == 1 else "cold"
 
 
+# ── Испытание недели ─────────────────────────────────────────────────────────
+TRIAL_XP: Final = 300
+TRIAL_ESSENCE: Final = {1: 5, 2: 12, 3: 20}   # награда по сложности; сложность = число совпавших тегов
+
+
+def weekly_trial(week_ordinal: int) -> dict:
+    """Теги недели: маршрут, темп (3 или 9 ч) и стиль решений. Одинаковы у всех игроков недели."""
+    import random
+    rng = random.Random(f"pets-v2-trial-{int(week_ordinal)}")
+    return {"route": rng.choice(ROUTES), "tempo": rng.choice((3, 9)), "style": rng.choice(("careful", "bold"))}
+
+
+def trial_matches(trial: dict, favorite_route: str, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = ()) -> int:
+    """Сколько тегов закрывает питомец: любимый маршрут или талисман маршрута; черта темпа; черта стиля."""
+    count = 0
+    if favorite_route in (trial["route"], "any") or any(TALISMANS[kind][0] == trial["route"] for kind, _ in talismans if kind in TALISMANS):
+        count += 1
+    if ("night_walk" if trial["tempo"] == 9 else "sprinter") in traits:
+        count += 1
+    if ("careful" if trial["style"] == "careful" else "reckless") in traits:
+        count += 1
+    return count
+
+
 # ── Призвания и черты (данные; применение — в писателе занятий) ───────────────
 CALLINGS: Final = ("tracker", "feeder", "guardian", "seeker")
 TRAIT_SLOT_LEVELS: Final = (5, 15, 25)
