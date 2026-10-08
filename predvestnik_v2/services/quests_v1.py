@@ -5,10 +5,12 @@ from datetime import datetime, timedelta, timezone
 import secrets
 
 from core import quests_v1 as rules
+from core.skins_v3 import ESSENCE_QUEST_REWARD
 from infrastructure.repositories import chests_v1 as chest_repo
 from infrastructure.repositories import pets_v1 as pets_repo
 from infrastructure.repositories import economy_ledger, quests_v1 as repo, system_flags
 from services.chests_v1 import grant_quest_completion_key_in_transaction
+from services import skins_v3 as skins_service
 from services.vip import complete_daily_mission_from_game, is_vip_active
 from infrastructure.repositories import vip_v2 as vip_repo
 
@@ -27,6 +29,8 @@ class QuestConflict(QuestError):
 REWARD_POLICY_VERSION = 'quest-rewards-v1-2026-09-06'
 REWARD_MORA = {'daily': 20, 'weekly': 100, 'combined': 75}
 REWARD_KEYS = {'daily': 1, 'weekly': 1, 'combined': 0}
+# Essence (skin upgrades only, see core/skins_v3.py) is the quest-side source of that currency.
+REWARD_ESSENCE = ESSENCE_QUEST_REWARD
 
 
 def reward_mora(kind: str, *, vip_active: bool) -> int:
@@ -47,7 +51,7 @@ def _unavailable_overview(*, vip_active: bool) -> dict:
         'rewards': {
             'policy_version': REWARD_POLICY_VERSION, 'currency': 'mora',
             'items': {kind: {'amount_mora': reward_mora(kind, vip_active=vip_active), 'amount_keys': REWARD_KEYS[kind],
-                             'claimed': False, 'claimable': False}
+                             'amount_essence': REWARD_ESSENCE[kind], 'claimed': False, 'claimable': False}
                       for kind in ('daily', 'weekly', 'combined')},
             'key_balance': 0,
             'message': 'Квесты появятся, когда будет доступна хотя бы одна подтверждаемая игра.',
@@ -265,6 +269,7 @@ async def _overview_locked(db, *, user_id: int, keys: dict[str, str], vip_active
     rewards = {
         kind: {
             'amount_mora': reward_mora(kind, vip_active=vip_active),
+            'amount_essence': REWARD_ESSENCE[kind],
             'amount_keys': (1 if claimed[kind] and actual_key_grants.get(kind) else
                             REWARD_KEYS[kind] if not claimed[kind] and chests_enabled else 0),
             'claimed': claimed[kind],
@@ -389,9 +394,18 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
             key_receipt = await grant_quest_completion_key_in_transaction(
                 db, user_id=user_id, reward_kind=kind, reward_id=reward_id,
             )
+        essence = 0
+        try:
+            # Savepoint: a skins-table hiccup must never take the Mora reward down with it.
+            async with db.connection.transaction():
+                essence = await skins_service.grant_essence_in_transaction(
+                    db, user_id, REWARD_ESSENCE[kind], reason='quest_reward', reference=reward_id)
+        except Exception:
+            essence = 0
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
     return {**state, 'reward_result': {'kind': kind, 'already_claimed': False,
                                         'amount_mora': reward_mora(kind, vip_active=vip_active),
+                                        'amount_essence': essence,
                                         'amount_keys': REWARD_KEYS[kind] if chests_enabled else 0,
                                         'key_grant_id': key_receipt.grant_id if key_receipt else None,
                                         'operation_id': mutation.operation_id}}

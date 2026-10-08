@@ -24,6 +24,9 @@ def _economic_key(value: str) -> str:
     return f"global-skin:{key}"
 
 
+_RETIRED = "Старые скины заменены новой системой «Образы». Обнови приложение."
+
+
 @router.get("/me")
 async def my_skin(db=Depends(get_db), user=Depends(require_tg_user)):
     return await skins.state(db, int(user["id"]))
@@ -31,6 +34,7 @@ async def my_skin(db=Depends(get_db), user=Depends(require_tg_user)):
 
 @router.post("/select")
 async def select_skin(body: SelectRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    raise HTTPException(410, _RETIRED)
     try:
         return await skins.select(db, int(user["id"]), body.skin_id)
     except skins.SkinConflict as exc:
@@ -44,6 +48,7 @@ async def buy_skin(
     user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
+    raise HTTPException(410, _RETIRED)
     try:
         message, state = await skins.buy(
             db,

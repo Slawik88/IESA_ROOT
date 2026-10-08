@@ -27,6 +27,15 @@ router = APIRouter(prefix="/cosmetics", tags=["cosmetics"],
                     dependencies=[Depends(require_tab_enabled("tab_cosmetics"))])
 
 
+_RETIRED = ("Старые скины и косметика заменены новой системой «Образы». "
+            "Зарники, потраченные на них, возвращены. Обнови приложение.")
+
+
+def _retired():
+    """Skins v3 replaced this purchase flow; the migration already refunded old purchases."""
+    raise HTTPException(410, _RETIRED)
+
+
 def _economic_key(value: str, scope: str) -> str:
     key = value.strip()
     if not key or len(key) > 120:
@@ -64,6 +73,7 @@ async def cosmetics_buy(
     user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
+    _retired()
     ok, msg = await buy(
         db, user["id"], body.cosmetic_id, body.option_index,
         idempotency_key=_economic_key(request_key, "cosmetic"),
@@ -83,6 +93,7 @@ async def cosmetics_buy_lineup(
     body: BuyLineupRequest, db=Depends(get_db), user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
+    _retired()
     ok, msg = await buy_lineup(
         db, user["id"], body.lineup,
         idempotency_key=_economic_key(request_key, "cosmetic-lineup"),
@@ -102,6 +113,7 @@ async def cosmetics_buy_many(
     body: BuyManyRequest, db=Depends(get_db), user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
+    _retired()
     ok, msg = await buy_many(
         db, user["id"], body.cosmetic_ids,
         idempotency_key=_economic_key(request_key, "cosmetic-many"),
@@ -118,6 +130,7 @@ class EquipRequest(BaseModel):
 
 @router.post("/equip")
 async def cosmetics_equip(body: EquipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    _retired()
     ok, msg = await equip(db, user["id"], body.cosmetic_id)
     if not ok:
         raise HTTPException(400, msg)
@@ -130,6 +143,7 @@ class UnequipRequest(BaseModel):
 
 @router.post("/unequip")
 async def cosmetics_unequip(body: UnequipRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    _retired()
     ok, msg = await unequip(db, user["id"], body.slot)
     if not ok:
         raise HTTPException(400, msg)
@@ -200,6 +214,7 @@ async def cosmetics_gift(
     body: GiftRequest, db=Depends(get_db), user=Depends(require_tg_user),
     request_key: str = Header(alias="Idempotency-Key"),
 ):
+    _retired()
     ok, msg, cname, applied = await gift_cosmetic(
         db, user["id"], body.recipient_id, body.cosmetic_id,
         idempotency_key=_economic_key(request_key, "cosmetic-gift"),
@@ -249,6 +264,7 @@ class PresetSaveRequest(BaseModel):
 
 @router.post("/presets")
 async def cosmetics_save_preset(body: PresetSaveRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    _retired()
     ok, msg, preset = await save_preset(db, user["id"], body.name)
     if not ok:
         raise HTTPException(400, msg)
@@ -274,6 +290,7 @@ async def cosmetics_rename_preset(
 
 @router.post("/presets/{preset_id}/apply")
 async def cosmetics_apply_preset(preset_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    _retired()
     ok, msg = await apply_preset(db, user["id"], preset_id)
     if not ok:
         raise HTTPException(400, msg)

@@ -8,6 +8,7 @@ import time
 import asyncio
 from datetime import date, datetime, timedelta, timezone
 import httpx
+from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
@@ -18,7 +19,8 @@ from services.leveling import account_progress
 from services.formatting import safe_html
 from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
-from services.global_skins_v1 import state as global_skin_state
+from services import skins_v3 as skins_v3_service
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname, get_first_seen
 from infrastructure.repositories.achievements import get_all_achievements
@@ -100,6 +102,31 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
             return f"data:image/jpeg;base64,{b64}"
     except Exception:
         return None
+
+
+def _server_clock() -> dict:
+    """The bot's own clock (TIMEZONE_OFFSET, UTC+3 by default). The client greets by its own time and falls back to this."""
+    import re
+    match = re.search(r"([+-]?\d{1,2})", os.getenv("TIMEZONE_OFFSET", "+3"))
+    hours = max(-12, min(14, int(match.group(1)))) if match else 3
+    now = datetime.now(timezone(timedelta(hours=hours)))
+    return {"iso": now.isoformat(), "hour": now.hour, "offset_min": hours * 60}
+
+
+async def _own_look(db, user_id: int) -> dict | None:
+    try:
+        return await skins_v3_service.own_look(db, user_id)
+    except Exception:
+        logger.exception("own look failed")      # a skins hiccup must never take the whole profile down
+        return None
+
+
+async def _essence_balance(db, user_id: int) -> int:
+    try:
+        await skins_v3_repo.ensure_tables(db)
+        return await skins_v3_repo.essence_balance(db, user_id)
+    except Exception:
+        return 0
 
 
 async def _vip_avatar(db, user_id: int) -> str | None:
@@ -481,8 +508,10 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "sanctions": await _sanctions(db, user_id, include_private=True),
         "game_results": await _game_results(db, user_id, include_private=True),
         "achievement_paths": await _achievement_paths(db, user_id),
-        "cosmetics":    await get_active_cosmetics(db, user_id),
-        "global_skin": await global_skin_state(db, user_id),
+        "cosmetics":    await get_active_cosmetics(db, user_id),   # welcome animation only; skins live in "look"
+        "look":         await _own_look(db, user_id),
+        "essence":      await _essence_balance(db, user_id),
+        "server_clock": _server_clock(),
         "system_flags": await _system_flags.get_all(db),
         "whatsnew_seen_id": whatsnew_seen_id,
         "sky_sigil": await _sky_sigil(db, user_id),
@@ -760,8 +789,7 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).
         "avatar":       await _vip_avatar(db, target_id),
-        # others see an owner's look only while the owner has VIP (core/appearance_v3.py)
-        "cosmetics":    await get_active_cosmetics(db, target_id) if row["is_vip"] else {},
+        # the look of another player is served by /public-profile-v3 (VIP-gated, core/appearance_v3.py)
         "sky_sigil":     await _sky_sigil(db, target_id),
         "supporter_badge": await _supporter_badge(db, target_id),
     }

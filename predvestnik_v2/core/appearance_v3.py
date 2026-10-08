@@ -9,7 +9,7 @@ Tier of a cosmetic follows its collection (lineup) rarity, so no per-item table 
 """
 from __future__ import annotations
 
-from core.cosmetics import LINEUPS
+from core.cosmetics import LINEUPS  # legacy lineup rarity, still used by the retired cosmetics modules
 
 TIERS = ("D", "C", "B", "A", "S", "SS", "SSS")
 RARITY_TIER = {"common": "D", "rare": "C", "epic": "B", "legendary": "A", "mythic": "S", "artifact": "SS"}
@@ -27,6 +27,12 @@ def tier_of_cosmetic(cosmetic: dict | None) -> str | None:
 
 def usable_without_vip(tier: str | None) -> bool:
     return tier in USABLE_WITHOUT_VIP
+
+
+def cap_tier(tier: str | None, vip: bool) -> str:
+    """A skin may be upgraded to SSS only with VIP; without VIP it is shown at SS at most."""
+    tier = tier if tier in TIERS else "D"
+    return tier if vip or tier in USABLE_WITHOUT_VIP else "SS"
 
 
 def visible_to_others(owner_has_vip: bool) -> bool:

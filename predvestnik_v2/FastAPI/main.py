@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               admin, global_admin, dev_console, payments,
                               legal, analytics as analytics_router,
                               dev_overlay, appeals, account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, skins_v3 as skins_v3_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
@@ -69,9 +69,24 @@ from infrastructure.repositories.echo_shards_v1 import ensure_tables as ensure_e
 from infrastructure.repositories.achievements_v1 import ensure_tables as ensure_achievements_v1
 from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensure_public_profiles_v1
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
+from infrastructure.repositories.skins_v3 import ensure_tables as ensure_skins_v3
+from services import skins_v3_migration
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
 from loguru import logger as _log
+
+
+async def _run_skins_v3_migration() -> None:
+    """One-off launch job: refund Zarniki spent on retired skins and archive the old ownership. Idempotent, set SKINS_V3_MIGRATION=off to skip."""
+    try:
+        await asyncio.sleep(8)       # let the app start serving first
+        async with get_pool().acquire() as conn:
+            await conn.execute("SET search_path TO predvestnik, public")
+            await skins_v3_migration.run(PGAdapter(conn))
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        _log.error(f"[skins_v3] migration aborted, will retry on next start: {exc}")
 
 
 @asynccontextmanager
@@ -129,6 +144,7 @@ async def lifespan(app: FastAPI):
             (ensure_achievements_v1,                "achievements_v1"),
             (ensure_public_profiles_v1,             "public_profiles_v1"),
             (ensure_global_skins_v1,                 "global_skins_v1"),
+            (ensure_skins_v3,                        "skins_v3"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
         ]:
             try:
@@ -160,7 +176,14 @@ async def lifespan(app: FastAPI):
                         await conn.execute("ROLLBACK")
                 except Exception:
                     pass
+    migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     yield
+    if migration_task:
+        migration_task.cancel()
+        try:
+            await migration_task
+        except BaseException:
+            pass
 
 
 app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)
@@ -175,7 +198,7 @@ for r in [profile.router, marriage.router, wallet.router,
           admin.router, global_admin.router, dev_console.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, dev_overlay.router, appeals.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, skins_v3_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)

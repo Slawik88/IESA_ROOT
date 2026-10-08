@@ -63,7 +63,7 @@ lb.bot_tg_id = lambda: 999
 
 
 async def fake_styles(db, ids):
-    return {1: {"glow": {"lineup": "forest", "tier": "D", "text": "Лунный свет"}}}
+    return {1: {"id": "forest", "name": "Лесной Странник", "tier": "D", "ceiling": "D", "pal": ["#6fdc98", "#2e9a68", "#d9c28f"], "kinds": {"name": "grad"}, "sig": None, "title": "t"}}
 
 
 lb.appearance_public_v3.nick_styles = fake_styles
@@ -75,7 +75,7 @@ async def main() -> None:
     assert page0["pages"] == 3 and len(page0["items"]) == 10 and page0["items"][0]["place"] == 1
     assert all(item["name"] != "P999" for item in page0["items"]), "bot account must be excluded"
     assert page0["items"][2]["is_me"] and page0["items"][0]["is_vip"]
-    assert page0["items"][0]["style"]["glow"]["tier"] == "D" and page0["items"][1]["style"] is None
+    assert page0["items"][0]["look"]["tier"] == "D" and page0["items"][1]["look"] is None
     assert page0["items"][0]["ref"] == "r1"
     assert page0["personal"]["place"] == 3 and "delta" in page0["personal"]
     page_last = await lb.message_top_page(db, user_id=3, scope="global", period="all_time", page=99, now=THURSDAY)

@@ -52,13 +52,13 @@ def previous_bounds(bounds: tuple[str, str] | None) -> tuple[str, str] | None:
 async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> list[dict]:
     ids = [int(r["user_tg_id"]) for r in rows]
     players = await public_profiles.player_projection(db, user_ids=ids)
-    styles = await appearance_public_v3.nick_styles(db, ids)   # VIP owners only
+    looks = await appearance_public_v3.nick_styles(db, ids)   # VIP owners only
     return [
         {
             "place": first_place + index,
             "name": players[int(row["user_tg_id"])]["display_name"],
             "ref": players[int(row["user_tg_id"])]["profile_ref"],
-            "style": styles.get(int(row["user_tg_id"])),
+            "look": looks.get(int(row["user_tg_id"])),
             "count": int(row["msg_count"]),
             "is_vip": bool(row.get("is_vip")),
             "is_me": int(row["user_tg_id"]) == int(user_id),
