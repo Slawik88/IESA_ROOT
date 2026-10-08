@@ -18,9 +18,9 @@ function openMafiaStats(){
     const s=d.stats||{};
     const role={citizen:'Мирный житель',mafia:'Мафия',don:'Дон',doctor:'Доктор',detective:'Детектив'};
     const state={finished:'Завершена',cancelled:'Отменена',lobby:'Лобби',night:'Ночь',discussion:'Обсуждение',voting:'Голосование',paused:'На паузе'};
-    const rows=(d.matches||[]).map(m=>`<div class="pcard"><b>${esc(role[m.role]||'Роль ещё не выдана')}</b><br><small>Партия #${Number(m.match_id)} · ${esc(state[m.phase]||m.phase)}${m.winner?` · победили ${m.winner==='town'?'мирные':'мафия'}`:''}</small></div>`).join('')||'<div class="empty-state"><div class="es-icon">🕵️</div><div class="es-title">Партий пока нет</div><div class="es-sub">В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div></div>';
-    el('mb').innerHTML=`<div class="card"><div class="card-title">Моя статистика</div><b>${Number(s.wins||0)}</b> побед · <b>${Number(s.played||0)}</b> завершённых партий</div>${rows}`;
-  }).catch(e=>{ el('mb').innerHTML=`<div class="err">${esc(String(e))}</div>`; });
+    const rows=(d.matches||[]).map(m=>`<div class="v3-line"><span><b>${esc(role[m.role]||'Роль ещё не выдана')}</b><br><small>Партия #${Number(m.match_id)} · ${esc(state[m.phase]||m.phase)}${m.winner?` · победили ${m.winner==='town'?'мирные':'мафия'}`:''}</small></span></div>`).join('')||'<div class="v3-empty">🕵️<b>Партий пока нет</b>В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div>';
+    el('mb').innerHTML=`<div class="v3-eyebrow">Моя статистика</div><p class="v3-stat-line"><b>${Number(s.wins||0)}</b> побед · <b>${Number(s.played||0)}</b> завершённых партий</p>${rows}`;
+  }).catch(e=>{ el('mb').innerHTML=`<div class="v3-err">${esc(String(e))}</div>`; });
 }
 
 // Каждый режим показывается только при включённом серверном флаге (по умолчанию все выключены).

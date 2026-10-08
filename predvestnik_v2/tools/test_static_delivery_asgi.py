@@ -44,6 +44,7 @@ ALLOWED = {
     "/static/confirm-v3.css": "text/css",
     "/static/monolith-v3.css": "text/css",
     "/static/monolith-player-v3.css": "text/css",
+    "/static/admin-legacy.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",

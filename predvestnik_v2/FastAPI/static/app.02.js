@@ -106,11 +106,11 @@ function loadProfile() {
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
 function openLegalDoc(slug){
   const t={tos:'📖 Пользовательское соглашение',privacy:'🔒 Политика конфиденциальности'};
-  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/legal/'+slug+'/text').then(d=>{
     el('mb').innerHTML=`<div class="legal-doc">${d.html}</div>
       <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;
-  }).catch(e=>{ el('mb').innerHTML=`<div class="err">${e}</div>`; });
+  }).catch(e=>{ el('mb').innerHTML=`<div class="v3-err">${e}</div>`; });
 }
 // admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
 function _accSetInactivity(v){
@@ -123,16 +123,16 @@ function _accDeleteStart(){
       Будут удалены: питомцы, инвентарь, косметика, балансы, прогресс.<br>
       <b>14 дней</b> после удаления всё можно вернуть («бот восстановить аккаунт»).<br><br>
       Сейчас в <b>ЛС бота</b> придёт код подтверждения.</div>`,
-    [{l:'📨 Получить код',c:'btn-red',f:'_accDeleteRequest()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    [{l:'📨 Получить код',c:'danger',f:'_accDeleteRequest()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
 }
 function _accDeleteRequest(){
   api('/account/delete/request',{method:'POST'}).then(()=>{
     OM('🗑 Удаление — шаг 2 из 3',
       `<div style="font-size:12px;color:var(--muted);padding:4px 0">Код отправлен в ЛС бота.</div>
-       <input id="acc-del-code" class="num-input" inputmode="numeric" style="margin:6px 0" placeholder="Код из ЛС (6 цифр)"/>
-       <input id="acc-del-phrase" class="num-input" style="margin:0 0 4px" placeholder="Введите вручную: УДАЛИТЬ АККАУНТ"/>
-       <div class="set-hint">Шаг 3 — автоматический: 24 часа «остывания», в течение которых удаление можно отменить (в ЛС придёт напоминание как).</div>`,
-      [{l:'Подтвердить удаление',c:'btn-red',f:'_accDeleteConfirm()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+       <input id="acc-del-code" class="v3-field" inputmode="numeric" style="margin:6px 0" placeholder="Код из ЛС (6 цифр)"/>
+       <input id="acc-del-phrase" class="v3-field" style="margin:0 0 4px" placeholder="Введите вручную: УДАЛИТЬ АККАУНТ"/>
+       <div class="v3-dim">Шаг 3 — автоматический: 24 часа «остывания», в течение которых удаление можно отменить (в ЛС придёт напоминание как).</div>`,
+      [{l:'Подтвердить удаление',c:'danger',f:'_accDeleteConfirm()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
   }).catch(e=>toast(e,false));
 }
 function _accDeleteConfirm(){
@@ -170,10 +170,10 @@ function _tosGate(d){
     <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
     <div class="tos-gate-sub">Чтобы продолжить, ознакомьтесь и примите наши документы.</div>
     <div class="tos-gate-links">
-      <button class="btn btn-ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
-      <button class="btn btn-ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
     </div>
-    <button class="btn btn-gold btn-full" onclick="_tosAccept(this)">✅ Принять и играть</button>
+    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">✅ Принять и играть</button>
     <div class="tos-gate-hint">Нажимая «Принять», вы соглашаетесь с Пользовательским соглашением и Политикой конфиденциальности.</div>
   </div>`;
   document.body.appendChild(g);
@@ -200,8 +200,8 @@ function _showWelcome(){
       <p>Питомцы, кланы, экономика и косметика будут добавляться по мере утверждения правил. Никаких скрытых преимуществ или обязательных таймеров.</p>
       <p style="color:var(--gold2)">Первый шаг: открой «Игра» и выбери формат под настроение.</p>
     </div>`, [
-    {l:'🎮 Открыть игры', c:'btn-gold', f:"CM();goTo('arena','game')"},
-    {l:'Позже', c:'btn-ghost', f:'CM()'},
+    {l:'🎮 Открыть игры', c:'primary', f:"CM();goTo('arena','game')"},
+    {l:'Позже', c:'ghost', f:'CM()'},
   ]), 500);
 }
 
@@ -388,10 +388,10 @@ function showCurrModal() {
     <div class="cm-block" style="display:block">
       <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
       <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
-      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="num-input" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="num-input" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
-      <button id="zar-exchange-submit" class="btn btn-gold btn-full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
+      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="v3-field" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
+      <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
-  </div>`, [{l:'Пополнить Зарники', c:'btn-gold', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+  </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
 }
 
 // Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос
@@ -470,10 +470,10 @@ function openBanAppealModal() {
         ${s?`Санкция: <b>${s.type==='ban'?'глобальный бан':'ограничение'}</b> (${until}).<br>Причина: ${esc(s.reason||'не указана')}`:'Активная санкция не найдена.'}
        </div>
        ${thread?`<div style="max-height:30vh;overflow:auto;margin-bottom:6px">${thread}</div>`:''}
-       <textarea id="ban-apl-text" class="num-input" style="min-height:80px;resize:vertical;margin:0 0 6px" placeholder="Почему санкцию стоит пересмотреть…" maxlength="9999"></textarea>
-       <input id="ban-apl-file" type="file" accept="image/*" class="num-input" style="margin:0 0 4px;padding:6px"/>
+       <textarea id="ban-apl-text" class="v3-field" style="min-height:80px;resize:vertical;margin:0 0 6px" placeholder="Почему санкцию стоит пересмотреть…" maxlength="9999"></textarea>
+       <input id="ban-apl-file" type="file" accept="image/*" class="v3-field" style="margin:0 0 4px;padding:6px"/>
        <div style="font-size:10px;color:var(--muted)">Можно и в ЛС бота: <code>бот апелляция, текст</code> (фото — с подписью). Диалог общий.</div>`,
-      [{l:'📨 Отправить',c:'btn-gold',f:'_banAppealSend()'},{l:'Закрыть',c:'btn-ghost',f:'_banAppealClose()'}]);
+      [{l:'📨 Отправить',c:'primary',f:'_banAppealSend()'},{l:'Закрыть',c:'ghost',f:'_banAppealClose()'}]);
   }).catch(()=>{_banAppealOpen=false;});
 }
 function _banAppealClose(){_banAppealOpen=false;CM();}
@@ -632,13 +632,12 @@ function loadWhatsNew(){
         <div class="wn-htitle">📣 Что нового</div>
       </div>`;
     if(!list.length){
-      box.innerHTML = head + `<div class="empty-state"><div class="es-icon">📣</div>
-        <div class="es-title">Пока тихо</div><div class="es-sub">Обновления появятся здесь</div></div>`;
+      box.innerHTML = head + `<div class="v3-empty">📣<b>Пока тихо</b>Обновления появятся здесь</div>`;
       return;
     }
     const newCount = _wnNewCount(list);
     const cards = list.map((u,i) => _wnCard(u, i < newCount)).join('');
     box.innerHTML = head + `<div class="wn-list">${cards}</div>`;
     _wnMarkSeen(list);   // открыл ленту → всё прочитано, badge гаснет
-  }).catch(e => { box.innerHTML = `<div class="err" style="margin:12px">${e}</div>`; });
+  }).catch(e => { box.innerHTML = `<div class="v3-err" style="margin:12px">${e}</div>`; });
 }

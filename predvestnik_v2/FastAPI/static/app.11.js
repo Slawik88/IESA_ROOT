@@ -28,12 +28,12 @@ function showItemDetail(key, override) {
   OM(`${info.emoji} ${esc(info.name)}`, `
     ${info.type ? `<div class="ii-chip">${esc(info.type)}</div>` : ''}
     <div class="looks-slot-t">Что это</div>
-    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.what)}</div>
+    <div class="v3-dim" style="font-size:12px;line-height:1.45">${esc(info.what)}</div>
     <div class="looks-slot-t" style="margin-top:8px">Зачем нужно</div>
-    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.why)}</div>
+    <div class="v3-dim" style="font-size:12px;line-height:1.45">${esc(info.why)}</div>
     <div class="looks-slot-t" style="margin-top:8px">Где взять</div>
-    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.where_get)}</div>
+    <div class="v3-dim" style="font-size:12px;line-height:1.45">${esc(info.where_get)}</div>
     <div class="looks-slot-t" style="margin-top:8px">Где применить</div>
-    <div class="cx-dim" style="font-size:12px;line-height:1.45">${esc(info.where_use)}</div>
-  `, [{ l: 'Закрыть', c: 'btn-ghost', f: 'CM()' }]);
+    <div class="v3-dim" style="font-size:12px;line-height:1.45">${esc(info.where_use)}</div>
+  `, [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
 }

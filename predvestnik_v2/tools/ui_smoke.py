@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from ui_smoke_checks import (BLOCKS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, SCREENS, TAP)  # noqa: E402
+from ui_smoke_checks import (BLOCKS, CANDIDATES, SKIP_CLICK, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, SCREENS, TAP)  # noqa: E402
 from ui_stand import DEFAULT_DSN, PEER_ID, Stand, seed_persona, set_game_flags  # noqa: E402
 
 FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
@@ -89,6 +89,15 @@ def run_js(page, js: str) -> str | None:
         return "opener threw: " + str(exc).splitlines()[0][:140]
 
 
+def settle(page) -> None:
+    """Let the screen's own requests finish: a list that renders after the first second must still be judged."""
+    try:
+        page.wait_for_load_state("networkidle", timeout=5000)
+    except Exception:  # noqa: BLE001 - a long poll is not a finding
+        pass
+    page.wait_for_timeout(500)
+
+
 def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path | None) -> tuple[list[str], list[str]]:
     fails: list[str] = []; warns: list[str] = []
     page.goto(page.url.split("#")[0])
@@ -98,7 +107,7 @@ def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path
     err = run_js(page, js)
     if err:
         fails.append(err)
-    page.wait_for_timeout(900)
+    settle(page)
     fails += page.evaluate(GEOMETRY, width)
     page.add_style_tag(content=FREEZE)
     for item in page.evaluate(BLOCKS):
@@ -141,6 +150,34 @@ def sweep_screens(stand, browser, args, results) -> None:
         ctx.close()
 
 
+def sweep_crawl(stand, browser, args, results) -> None:
+    """Tap through each screen: every visible control (up to --taps) is pressed once on a fresh screen and the resulting state is judged like a screen.
+    Controls that spend money or change the account are skipped by their label; a purchase confirm sheet opens but is never confirmed."""
+    reseed(args.dsn, skin="void", tier="SSS")
+    for width in args.widths:
+        ctx, page, probe = open_app(stand, browser, width)
+        for name, js in SCREENS:
+            if args.only and name not in args.only:
+                continue
+            page.goto(page.url.split("#")[0]); page.wait_for_function(PROFILE_READY, timeout=20000)
+            run_js(page, js); settle(page)
+            labels = page.evaluate(CANDIDATES, SKIP_CLICK)[: args.taps]
+            for index, label in labels:
+                page.goto(page.url.split("#")[0]); page.wait_for_function(PROFILE_READY, timeout=20000)
+                run_js(page, js); settle(page); probe.take()
+                fails: list[str] = []
+                try:
+                    page.evaluate("(i) => { const e = document.querySelectorAll('button, summary, [onclick], a[href]')[i]; e && e.click(); return null; }", index)
+                except Exception as exc:  # noqa: BLE001
+                    fails.append("click threw: " + str(exc).splitlines()[0][:100])
+                settle(page)
+                fails += page.evaluate(GEOMETRY, width) + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
+                if fails:
+                    results[f"{name} > {label[:40]} @{width}"] = (fails, [])
+        ctx.close()
+    results.setdefault("crawl", ([], []))
+
+
 def sweep_skins(stand, browser, args, results) -> None:
     from core.skins_v3_catalog import SKINS
     for sid in SKINS:
@@ -160,6 +197,8 @@ def sweep_skins(stand, browser, args, results) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skins", action="store_true", help="sweep every look instead of every screen")
+    parser.add_argument("--crawl", action="store_true", help="press every control of every screen once and judge the state it opens")
+    parser.add_argument("--taps", type=int, default=14, help="controls per screen in --crawl mode")
     parser.add_argument("--widths", type=lambda s: [int(x) for x in s.split(",")], default=None)
     parser.add_argument("--only", type=lambda s: set(s.split(",")), default=None, help="screen names (or skin ids with --skins)")
     parser.add_argument("--shots", help="directory for full-page screenshots (screens mode)")
@@ -178,7 +217,7 @@ def main() -> int:
         EXPECTED_HTTP.append(("", 403))      # a closed module answers 403 "temporarily disabled"; the screen must show that, not break
     with Stand(args.port, args.dsn, skin="void", tier="SSS", rich=True) as stand, sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chromium_path())
-        (sweep_skins if args.skins else sweep_screens)(stand, browser, args, results)
+        (sweep_skins if args.skins else sweep_crawl if args.crawl else sweep_screens)(stand, browser, args, results)
         browser.close()
     failed = warned = 0
     for key, (fails, warns) in results.items():

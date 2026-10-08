@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/admin-legacy.css?v={{ASSET_VER}}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap" media="print" onload="this.media='all'"/>
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap"/></noscript>
@@ -80,7 +81,7 @@
   <h1>Предвестник</h1>
   <p>Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
   {{LOGIN_SURFACE}}
-  <div id="login-err" class="err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
+  <div id="login-err" class="v3-err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
   <p style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
 </div>
 

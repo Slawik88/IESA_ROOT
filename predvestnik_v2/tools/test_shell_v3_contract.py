@@ -187,6 +187,20 @@ assert "monolith-v3.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8
 mono = (STATIC / "monolith-v3.css").read_text(encoding="utf-8")
 for page in ("#pg-chests", "#pg-pets", "#pg-achievements-v1", "#pg-help", "#pg-looks"):
     assert page in mono, f"{page} must be flattened in monolith-v3.css"
+# 100% new design on the player side: the old control/card classes live only in admin-legacy.css for the admin, moderation and console screens (rewritten elsewhere).
+# A player screen (every JS part except app.07/08/09, and index.html outside the admin pages) may not use them: use v3-pill, v3-field, v3-err, v3-dim, v3-line, v3-empty, v3-row.
+assert "admin-legacy.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8") and "admin-legacy.css" in (STATIC / "index.html").read_text(encoding="utf-8")
+LEGACY_CONTROLS = {"btn", "btn-sm", "btn-gold", "btn-ghost", "btn-red", "btn-full", "btn-teal", "num-input", "err", "card", "card-title", "irow", "ik", "iv", "empty-state", "es-icon", "es-title", "es-sub", "cx-dim", "set-hint", "pcard"}
+_html = (STATIC / "index.html").read_text(encoding="utf-8")
+_player_html = re.sub(r'<div id="pg-(?:admin|global|console)".*?(?=<div id="pg-(?!admin|global|console))', "", _html, flags=re.S)
+_player_sources = {"index.html": _player_html}
+for _js in sorted(STATIC.glob("app.[0-9][0-9].js")):
+    if _js.name not in ("app.07.js", "app.08.js", "app.09.js"):
+        _player_sources[_js.name] = _js.read_text(encoding="utf-8")
+for _name, _src in _player_sources.items():
+    for _m in re.finditer(r"class(?:Name)?\s*=\s*['\"`]([^'\"`]*)", _src):
+        _bad = LEGACY_CONTROLS.intersection(_m.group(1).split())
+        assert not _bad, f"{_name} uses the legacy class {sorted(_bad)} (admin-only): {_m.group(0)[:80]}"
 # A page must never be wider than the phone: effects of a look that reach past the edge widen the document, the mobile browser then widens the viewport
 # and the fixed dock lands below the visible screen (reported on production). The document clips sideways and may not be zoomed out.
 shell_css_text = (STATIC / "shell-v3.css").read_text(encoding="utf-8")

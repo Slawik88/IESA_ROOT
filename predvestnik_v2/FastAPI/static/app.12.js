@@ -250,8 +250,8 @@
     const endurance = Math.max(0, Math.min(100, Number(pet.endurance) || 0));
     const activate = pet.active
       ? ''
-      : `<button class="btn btn-ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
-    return `<article class="pcard pet-release-card">
+      : `<button class="v3-pill v3-pill--ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
+    return `<article class="pet-release-card">
       <header><b>🐾 ${esc(pet.name)}</b>${pet.active ? '<span>Активный</span>' : ''}</header>
       <div class="pet-endurance"><div><i style="width:${endurance}%"></i></div><b>${pet.endurance}/100</b></div>
       <p>Уровень ${pet.level}/16 · ${esc(pet.effects.visual_stage)} · маршрут +${pet.effects.expedition_route_bonus_percent}%</p>
@@ -269,7 +269,7 @@
       : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
     const routes = needsDecision
       ? `<div class="pet-route-grid">${Object.entries(PET_ROUTE_LABELS).map(([id, label]) => (
-        `<button class="btn btn-ghost" onclick="petsV1Choose('${id}')">${label}</button>`
+        `<button class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${id}')">${label}</button>`
       )).join('')}</div>`
       : '';
     return `<section class="looks-release-section pet-activity"><h3>${title}</h3><p>${status}</p>${routes}</section>`;
@@ -284,7 +284,7 @@
         const locked = !activePet || Number(activePet.endurance) < cost;
         const title = kind === 'trek' ? 'Поход' : 'Экспедиция';
         const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
-        return `<button class="btn btn-ghost" onclick="petsV1Start('${kind}',${hours})"`
+        return `<button class="v3-pill v3-pill--ghost" onclick="petsV1Start('${kind}',${hours})"`
           + ` ${locked ? 'disabled' : ''} aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
           + `<b>${title}</b><small>${hours} ч · ${cost} ⚡ · 1 🗝</small></button>`;
       })
@@ -336,7 +336,7 @@
     try {
       renderPetsV1(root, await api('/pets-v1/me'));
     } catch (error) {
-      root.innerHTML = `<div class="err" style="margin:16px">${esc(error)}</div>`;
+      root.innerHTML = `<div class="v3-err" style="margin:16px">${esc(error)}</div>`;
     }
   };
   window.showPetPanel = function (name, button) {
@@ -406,11 +406,11 @@
     const inv=d.inventory||{},owned=Object.keys(inv.unlocked_pets||{}).length,cards=Object.values(inv.pet_cards||{}).reduce((a,b)=>a+Number(b||0),0),food=Object.values(inv.foods||{}).reduce((a,b)=>a+Number(b||0),0),jokers=Object.values(inv.jokers||{}).reduce((a,b)=>a+Number(b||0),0);
     const prepared=_chestsV1Prepared?`<section class="chest-reveal-zone"><button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук"><span aria-hidden="true">✦</span><b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button></section>`:'';
     const result=_chestsV1LastResult?`<section class="chest-result" role="status"><span>${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span><b>Получено: ${chestRewardText(_chestsV1LastResult.reward)}</b><small>Доставлено и записано · каталог ${esc(_chestsV1LastResult.catalog_version||'')}</small></section>`:'';
-    root.innerHTML=`<header class="looks-head chest-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад в профиль">‹</button><div><h1>🗝 Сундуки</h1><small>Одна попытка — одна честно зафиксированная награда</small></div></header><section class="chest-balance"><span>Твои ключи</span><b>${fmt(d.key_balance||0)} 🗝</b><small>Ещё по ключу дают полный день и неделя квестов</small></section><section class="chest-inventory" aria-label="Коллекция из сундуков"><span><b>${owned}/12</b> питомцев</span><span><b>${cards}</b> карт</span><span><b>${food}</b> еды</span><span><b>${jokers}</b> джокеров</span></section>${prepared}${!prepared?result:''}<div class="chest-actions"><button type="button" class="btn chest-open-btn" onclick="chestsV1Prepare()" ${_chestsV1Busy||_chestsV1Prepared||Number(d.key_balance||0)<1?'disabled':''}>${Number(d.key_balance||0)<1?'Сначала получи ключ':'Открыть за 1 ключ'}</button><button type="button" class="chest-buy-btn" onclick="chestsV1AskBuy(this)" ${_chestsV1Busy||_chestsV1Prepared||remaining<1?'disabled':''}><span>Купить ключ</span><b>${price} ✨</b><small>${remaining?`доступно сегодня: ${remaining} из ${paid.daily_limit}`:'лимит на сегодня исчерпан'}</small></button></div><p class="chest-policy">${esc(d.message||'')}</p><details class="chest-odds"><summary>Точные шансы и размеры наград</summary><div><section><h2>Шанс звёздности</h2><ul>${odds}</ul></section><section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section></div><p>Сначала сервер выбирает звёздность, затем одну награду по процентам внутри неё. Бесплатные и купленные ключи равны; скорость тапов ничего не меняет.</p></details><div class="chest-canary-note"><b>Карты не пропадут</b><span>${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</span></div>`;
+    root.innerHTML=`<header class="looks-head chest-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад в профиль">‹</button><div><h1>🗝 Сундуки</h1><small>Одна попытка — одна честно зафиксированная награда</small></div></header><section class="chest-balance"><span>Твои ключи</span><b>${fmt(d.key_balance||0)} 🗝</b><small>Ещё по ключу дают полный день и неделя квестов</small></section><section class="chest-inventory" aria-label="Коллекция из сундуков"><span><b>${owned}/12</b> питомцев</span><span><b>${cards}</b> карт</span><span><b>${food}</b> еды</span><span><b>${jokers}</b> джокеров</span></section>${prepared}${!prepared?result:''}<div class="chest-actions"><button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${_chestsV1Busy||_chestsV1Prepared||Number(d.key_balance||0)<1?'disabled':''}>${Number(d.key_balance||0)<1?'Сначала получи ключ':'Открыть за 1 ключ'}</button><button type="button" class="chest-buy-btn" onclick="chestsV1AskBuy(this)" ${_chestsV1Busy||_chestsV1Prepared||remaining<1?'disabled':''}><span>Купить ключ</span><b>${price} ✨</b><small>${remaining?`доступно сегодня: ${remaining} из ${paid.daily_limit}`:'лимит на сегодня исчерпан'}</small></button></div><p class="chest-policy">${esc(d.message||'')}</p><details class="chest-odds"><summary>Точные шансы и размеры наград</summary><div><section><h2>Шанс звёздности</h2><ul>${odds}</ul></section><section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section></div><p>Сначала сервер выбирает звёздность, затем одну награду по процентам внутри неё. Бесплатные и купленные ключи равны; скорость тапов ничего не меняет.</p></details><div class="chest-canary-note"><b>Карты не пропадут</b><span>${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</span></div>`;
   }
   window.openChestsV1=function(){
     switchPage('chests');const root=el('pg-chests');root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка сундуков…</div>';
-    api('/chests-v1/me').then(d=>{_chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>root.innerHTML=`<div class="err quest-load-error" role="alert"><b>Сундуки не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openChestsV1()">Повторить</button></div>`);
+    api('/chests-v1/me').then(d=>{_chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>root.innerHTML=`<div class="v3-err quest-load-error" role="alert"><b>Сундуки не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openChestsV1()">Повторить</button></div>`);
   };
   window.chestsV1Prepare=function(){
     if(_chestsV1Busy||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;renderChestsV1();
@@ -426,7 +426,7 @@
     if(_chestsV1Busy||!_chestsV1Data)return;
     const funding=_chestsV1Data.funding||{},price=Number(funding.price_zarniki)||0,remaining=Number(funding.remaining_today)||0;
     if(trigger)trigger.dataset.modalTrigger='true';
-    OM('Купить ключ',`<div class="chest-buy-confirm"><b>1 ключ за ${fmt(price)} ✨</b><p>Шансы полностью совпадают с бесплатным ключом. Сегодня после покупки останется ${Math.max(0,remaining-1)} из ${funding.daily_limit||0} покупок.</p><small>Неиспользованный купленный ключ можно вернуть через поддержку.</small></div>`,[{l:`Купить за ${fmt(price)} ✨`,c:'btn-gold',f:'chestsV1Buy();CM()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    OM('Купить ключ',`<div class="chest-buy-confirm"><b>1 ключ за ${fmt(price)} ✨</b><p>Шансы полностью совпадают с бесплатным ключом. Сегодня после покупки останется ${Math.max(0,remaining-1)} из ${funding.daily_limit||0} покупок.</p><small>Неиспользованный купленный ключ можно вернуть через поддержку.</small></div>`,[{l:`Купить за ${fmt(price)} ✨`,c:'primary',f:'chestsV1Buy();CM()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.chestsV1Reveal=function(){
     if(_chestsV1Busy||!_chestsV1Prepared)return;_chestsV1Busy=true;renderChestsV1();
@@ -489,7 +489,7 @@
   window.openQuestsV1=function(tab){
     if(['daily','weekly','rewards'].includes(tab))_questsV1Tab=tab;
     switchPage('questlog'); const root=el('pg-questlog'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка квестов…</div>';
-    api('/quests-v1/me').then(d=>{_questsV1Data=d;renderQuestsV1();}).catch(e=>root.innerHTML=`<div class="err quest-load-error" role="alert"><b>Квесты не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openQuestsV1('${_questsV1Tab}')">Повторить</button></div>`);
+    api('/quests-v1/me').then(d=>{_questsV1Data=d;renderQuestsV1();}).catch(e=>root.innerHTML=`<div class="v3-err quest-load-error" role="alert"><b>Квесты не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openQuestsV1('${_questsV1Tab}')">Повторить</button></div>`);
   };
   window.questsV1AskReroll=function(period,slot,trigger){
     if(_questsV1Busy){toast('Дождись завершения текущего действия.',false);return;}
@@ -498,7 +498,7 @@
     const remaining=Number(_questsV1Data?.rerolls?.remaining)||0;
     if(remaining<=0){toast('Лимит замен на эту неделю исчерпан.',false);return;}
     if(trigger)trigger.dataset.modalTrigger='true';
-    OM('↻ Заменить квест',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'btn-gold',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    OM('↻ Заменить квест',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'primary',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.questsV1Reroll=function(period,slot){
     if(_questsV1Busy)return;
@@ -686,7 +686,7 @@
       _achievementsV1Filter = 'all';
       renderAchievementsV1();
     } catch (error) {
-      root.innerHTML = `<div class="err quest-load-error" role="alert">
+      root.innerHTML = `<div class="v3-err quest-load-error" role="alert">
         <b>Достижения не загрузились</b><span>${esc(error)}</span>
         <button type="button" onclick="openAchievementsV1()">Повторить</button>
       </div>`;

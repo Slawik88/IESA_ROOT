@@ -277,7 +277,7 @@ function showExpeditionReceipt(e) {
        <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
      </div>
      <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>${earlyNote}`,
-    [{l:'🎁 Забрать', c:'btn-gold', f:'CM();_nextModal()'}]);
+    [{l:'🎁 Забрать', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Очередь модалок: если при входе ждут и подарки, и чеки походов — показываем
@@ -327,7 +327,7 @@ function showWelcomeBack(items) {
        <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
      </div>
      <div style="font-size:10px;color:var(--green);text-align:center">✓ Всё уже зачислено</div>`,
-    [{l:'🎁 Отлично!', c:'btn-gold', f:'CM();_nextModal()'}]);
+    [{l:'🎁 Отлично!', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Левел-ап игрока (БЛОК 3): детект между загрузками профиля + торжественная модалка.
@@ -358,6 +358,8 @@ function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 let _modalReturnFocus=null;
+// Кнопки подвала окна: primary / ghost / danger. Окна консоли и модерации ещё передают старые имена btn-gold / btn-ghost / btn-red: такой подвал рисуется по-старому целиком.
+const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost',danger:' v3-pill--danger'};
 function OM(title,body,btns=[]) {
   _modalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
@@ -365,7 +367,8 @@ function OM(title,body,btns=[]) {
   el('mb').innerHTML=body;
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
   // кнопка молча умирала (напр. «Да, начать» чистку с выбранными датами).
-  el('mf').innerHTML=btns.map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
+  const legacyFoot=btns.some(b=>/^btn-/.test(b.c||''));
+  el('mf').innerHTML=btns.map(b=>`<button class="${legacyFoot?`btn btn-sm ${b.c||'btn-ghost'}`:`v3-pill${_MF_VARIANT[b.c]??' v3-pill--ghost'}`}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
   el('modal').showModal();
   document.body.classList.add('modal-open');
 }
