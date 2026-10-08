@@ -48,14 +48,14 @@ function _lkAction(item, st) {
 
 // ── Разметка ─────────────────────────────────────────────────────────────────────
 function _lkMini(item) {
-  const ap = apFromLook({ ...item, tier: item.ceiling });
+  const ap = apFromLook({ ...item, tier: item.rarity || item.ceiling });   // плитка показывает образ в его начальной редкости: так он узнаваем и недорог в отрисовке
   return `<span class="lk-mini"><span class="v3-ring">${apHalo(ap)}<svg viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="35" stroke="var(--v3-faint)"/></svg><span class="v3-ava"></span>${apFrame(ap)}</span></span>`;
 }
 function _lkStrip(st) {
   let last = '';
   const week = _lkWeekId(st);
   return `<nav class="lk-strip" aria-label="Скины">${st.items.map(i => {
-    const grp = i.exclusive ? 'личный' : i.season ? 'сезон' : i.ceiling, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
+    const grp = i.exclusive ? 'личный' : i.season ? 'сезон' : i.rarity, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
     const mark = i.equipped ? '<i class="lk-dot is-on" title="Надет"></i>' : i.owned ? '<i class="lk-dot" title="Куплен"></i>' : '';
     return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : i.buyable === false ? 'сезон закрыт' : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
   }).join('')}</nav>`;
@@ -97,12 +97,12 @@ function _lkRender(anim) {
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
     <p class="lk-blurb">${_profileEsc(item.blurb)}</p>
-    <div class="lk-tags"><span class="lk-tag lk-tag--tier">Тир ${_lk.tier}</span><span class="lk-tag">потолок ${item.ceiling}</span>${setTag}${dayTag}${seasonTag}</div>
+    <div class="lk-tags"><span class="lk-tag lk-tag--tier">Тир ${_lk.tier}</span><span class="lk-tag">редкость ${item.rarity}</span>${setTag}${dayTag}${seasonTag}</div>
     ${_lkSteps(item)}
     <p class="lk-note" aria-live="polite">${_profileEsc(note)}</p>
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>
       ${item.equipped ? '<button type="button" class="v3-link" onclick="lkAct(\'unequip\')">Снять образ</button>' : ''}</div>
-    <p class="lk-fine">${item.ceiling === 'D' ? 'Этот образ не растёт: его потолок D.' : `Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨.`} Эссенция тратится только на тиры образов.</p>${owner}
+    <p class="lk-fine">Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨. Эссенция тратится только на тиры образов.</p>${owner}
     ${lkGoalHtml(st)}${lkWeekHtml(st)}${lkSoonHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
@@ -123,7 +123,7 @@ function _lkSync() {                           // новый скин сразу
 // Что показать в подтверждении: образ за Зарники, тир за Эссенцию, набор Эссенции за Зарники
 function _lkConfirmSpec(kind, item, arg) {
   const st = _lk.st; if (!st) return null;
-  if (kind === 'buy') return { title: 'Покупка образа', visual: _svAva(item), name: item.name, sub: `Потолок ${item.ceiling}. Начнёт с тира D, дальше растёт за Эссенцию`, price: item.price_zarniki, icon: '✨', have: st.zarniki, cta: `Купить за ${fmt(item.price_zarniki)} ✨`, note: 'Образ остаётся у вас навсегда.' };
+  if (kind === 'buy') return { title: 'Покупка образа', visual: _svAva(item), name: item.name, sub: `Начнёт с тира D и вырастет до ${item.ceiling} за Эссенцию`, price: item.price_zarniki, icon: '✨', have: st.zarniki, cta: `Купить за ${fmt(item.price_zarniki)} ✨`, note: 'Образ остаётся у вас навсегда.' };
   if (kind === 'upgrade') return { title: 'Улучшение тира', visual: _svAva(item), name: `${item.name}: тир ${item.next.tier}`, sub: `Сейчас тир ${item.level}`, price: item.next.essence, icon: '💧', have: st.essence.balance, cta: `Улучшить за ${fmt(item.next.essence)} 💧` };
   const per = Number(st.essence.per_zarnik) || 1;
   return { title: 'Набор Эссенции', visual: '💧', name: `${fmt(arg * per)} 💧 Эссенции`, sub: 'Растит образы по тирам', price: arg, icon: '✨', have: st.zarniki, cta: `Взять за ${fmt(arg)} ✨`, note: 'Курс один для всех наборов: больше берёте, но цена за единицу не меняется.' };
@@ -151,7 +151,7 @@ async function lkAct(kind, arg) {
     if (kind === 'buy' || kind === 'upgrade' || kind === 'equip') _lk.tier = now.level;
     _lkSync();
     if (reply.message && kind !== 'buy' && kind !== 'upgrade') toast(reply.message);   // покупку и тир рассказывает раскрытие
-    if (kind === 'buy' || kind === 'upgrade') lkReveal([...(kind === 'buy' ? [{ kind: 'owned', name: now.name, ceiling: now.ceiling }] : []), ...(reply.state.events || [])]);
+    if (kind === 'buy' || kind === 'upgrade') lkReveal([...(kind === 'buy' ? [{ kind: 'owned', name: now.name, rarity: now.rarity, ceiling: now.ceiling }] : []), ...(reply.state.events || [])]);
     else if (kind === 'pack') v3Reward(el('pg-looks')?.querySelector('.lk-packs .v3-pill'));
     else _haptic('success');
   } catch (e) {

@@ -4,7 +4,7 @@
 What this proves, in Zarniki (1 Zarnik = ESSENCE_PER_ZARNIK Essence at every pack size):
   * a skin is never cheaper than the old launch price times two, and never dearer than times four;
   * buying every Essence step with Zarniki costs exactly the chain / rate: no pack discounts the rate;
-  * the cheapest way to a look of tier T is the skin whose rarity is T, and its full price rises with T;
+  * every skin is raised to SSS by the same Essence chain; the rarity only sets the entry price, so the full price rises with it;
   * free Essence (quests, sets, rarity rows, collection steps, skin of the week) is a small share of what it costs to own.
 """
 from __future__ import annotations
@@ -14,9 +14,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK,  # noqa: E402
+from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, CEILING, signature_tier, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK,  # noqa: E402
                            TIERS, UPGRADE_ESSENCE, essence_zarniki, free_weeks, full_price, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SEASONS, SETS, SKINS  # noqa: E402
+from services.skins_v3 import look_payload  # noqa: E402
 from core.skins_v3_collection import (PERMANENT, ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, season_window, set_bonus,  # noqa: E402
                                       total_one_time_essence, week_index)
 
@@ -50,22 +51,26 @@ def essence_rate_has_no_discount() -> None:
         check(essence_zarniki(UPGRADE_ESSENCE[tier]) * ESSENCE_PER_ZARNIK >= UPGRADE_ESSENCE[tier], f"{tier}: rounding must never favour the buyer")
 
 
-def cheapest_road_is_the_matching_rarity() -> None:
+def every_skin_reaches_the_last_tier() -> None:
+    """The rarity of a skin only sets what it costs to start and which collection row it sits in: every skin is raised to SSS by the same chain."""
+    check(CEILING == TIERS[-1] == "SSS", "the common ceiling is the last tier")
     full = [full_price(t) for t in TIERS]
     check(full == sorted(set(full)), f"the full price must strictly rise with rarity: {full}")
-    for target in TIERS:
-        roads = []
-        for ceiling in TIERS:
-            if tier_index(ceiling) < tier_index(target):
-                continue                                           # the look cannot reach that tier at all
-            chain = sum(UPGRADE_ESSENCE[t] for t in TIERS[1:tier_index(target)])
-            roads.append((BUY_PRICE_ZARNIKI[ceiling] + essence_zarniki(chain), ceiling))
-        check(min(roads)[1] == target, f"tier {target} must be cheapest on a {target} skin, roads: {sorted(roads)}")
-    for tier in TIERS[3:]:   # from A the upgrade is a real part of the price (C and B are cheap on purpose, see free_farm_is_long)
-        share = essence_zarniki(total_upgrade_cost(tier)) / BUY_PRICE_ZARNIKI[tier]
-        check(share >= 0.15, f"{tier}: raising the skin is only {share:.0%} of its price, Essence would be pocket change")
-    check(essence_zarniki(total_upgrade_cost("SSS")) / BUY_PRICE_ZARNIKI["SSS"] >= 0.35, "a top skin must keep a substantial Essence chain")
-    check(upgrade_cost("D", "D") is None and upgrade_cost("SS", "SS") is None, "a skin never grows past its rarity")
+    chain = essence_zarniki(total_upgrade_cost(CEILING))
+    check(all(full_price(t) == BUY_PRICE_ZARNIKI[t] + chain for t in TIERS), "full price is the entry price of the rarity plus one common chain")
+    check(chain >= 0.35 * BUY_PRICE_ZARNIKI["SSS"] and chain >= 3 * BUY_PRICE_ZARNIKI["D"], "the climb to SSS stays a substantial part of the price on every rarity")
+    for sid, skin in SKINS.items():
+        road, tier = [], "D"
+        while (step := upgrade_cost(tier, CEILING)):
+            tier = step[0]; road.append(tier)
+        check(road == list(TIERS[1:]), f"{sid}: the road from D must lead through every tier to SSS, got {road}")
+        look = look_payload(sid, "D")
+        check(look["ceiling"] == "SSS" and look["rarity"] == skin["tier"] and look["sig_from"] == signature_tier(skin["tier"]), f"{sid}: look payload ceiling/rarity/sig_from")
+    check(upgrade_cost("SSS", CEILING) is None, "nothing grows past SSS")
+    check({signature_tier(t) for t in TIERS[:4]} == {"SSS"} and [signature_tier(t) for t in TIERS[4:]] == ["S", "SS", "SSS"], "a signature appears at the rarity from S up and at SSS below it")
+    for sid, skin in SKINS.items():
+        if skin["sig"]:
+            check(tier_index(signature_tier(skin["tier"])) >= tier_index(skin["tier"]), f"{sid}: its signature cannot show below its own rarity")
 
 
 def free_essence_is_small() -> None:
@@ -162,7 +167,7 @@ def seasons_are_bounded() -> None:
 def main() -> None:
     prices()
     essence_rate_has_no_discount()
-    cheapest_road_is_the_matching_rarity()
+    every_skin_reaches_the_last_tier()
     free_essence_is_small()
     free_farm_is_long()
     skin_of_the_week_is_fair()

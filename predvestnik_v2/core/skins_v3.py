@@ -1,8 +1,8 @@
 """Skins V3 rules: tiers, prices, upgrade costs, Essence, and app-palette derivation.
 
 A skin is a complete look: the app palette plus the profile cosmetics (nickname style, title, frame, halo,
-background, particles). Every skin is obtained at tier D and is raised step by step with Essence up to its own
-ceiling (its rarity). The current tier decides how rich the look is and how many effects run (core/appearance_v3.py
+background, particles). Every skin is obtained at tier D and is raised step by step with Essence up to the common
+ceiling SSS (the rarity of a skin only sets its price and its collection row). The current tier decides how rich the look is and how many effects run (core/appearance_v3.py
 keeps the visibility rule: others see a look only while the owner has VIP).
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Final
 
 TIERS: Final = ("D", "C", "B", "A", "S", "SS", "SSS")
+CEILING: Final = "SSS"      # every skin can be raised to the last tier; the tier written in the catalog is the skin's RARITY (price and collection row)
 DEFAULT_SKIN_ID: Final = "default"
 
 # ── Prices ─────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -62,9 +63,14 @@ def essence_zarniki(essence: int) -> int:
     return -(-int(essence) // ESSENCE_PER_ZARNIK)
 
 
-def full_price(ceiling: str) -> int:
-    """Zarniki to own a skin of this rarity fully raised when everything is bought: skin + all Essence steps."""
-    return BUY_PRICE_ZARNIKI[ceiling] + essence_zarniki(total_upgrade_cost(ceiling))
+def full_price(rarity: str, ceiling: str = CEILING) -> int:
+    """Zarniki to own a skin of this rarity fully raised when everything is bought: skin (by rarity) + all Essence steps up to the ceiling."""
+    return BUY_PRICE_ZARNIKI[rarity] + essence_zarniki(total_upgrade_cost(ceiling))
+
+
+def signature_tier(rarity: str) -> str:
+    """Tier at which a skin's signature (its own drawn detail) appears: the skin's rarity from S up, SSS for the rest (their signature crowns the whole climb)."""
+    return rarity if tier_index(rarity) >= tier_index("S") else CEILING
 
 
 def free_weeks(essence: int) -> float:

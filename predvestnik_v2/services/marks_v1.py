@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from core.marks_v1 import GRANTABLE, LIVE_WINDOWS, MARKS, PLAYER_NAME, compose, earned_state, live_state, ordered, public, staff_hint, stored
+from core.skins_v3 import CEILING
 from core.skins_v3_catalog import SKINS
 from core.skins_v3_collection import PERMANENT
 from infrastructure.repositories import marks_v1 as repo
@@ -40,7 +41,7 @@ async def facts_for(db, user_id: int, *, streak=0, joined=None) -> dict:
     `streak` is the current one; the fact is the best known: the current, the one lost at the last break, or the legacy best."""
     await skins_repo.ensure_tables(db)
     owned = await skins_repo.owned(db, user_id)
-    maxed = sum(1 for sid, tier in owned.items() if sid in SKINS and SKINS[sid]["tier"] != "D" and tier == SKINS[sid]["tier"])
+    maxed = sum(1 for sid, tier in owned.items() if sid in SKINS and tier == CEILING)
     seasons = {SKINS[sid]["season"] for sid in owned if sid in SKINS and SKINS[sid].get("season")}
     best = max(int(streak or 0), await repo.best_streak_before(db, user_id))
     return {"streak": best, "joined_days": _joined_days(joined), **_recent_facts((await repo.messages_recent_batch(db, [user_id])).get(int(user_id))),

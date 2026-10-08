@@ -44,7 +44,7 @@ function _svTop() {
 // Маленький неподвижный знак из палитры образа: кольцо толще и со вторым ободком с тиром. Полный образ (ореолы, детали) в строке не рисуется: он выходит за свои границы
 function _svAva(item) {
   const [a, b, c] = Array.isArray(item.pal) && item.pal.length >= 3 && item.pal.every(x => /^#[0-9a-f]{6}$/i.test(x)) ? item.pal : ['#d8cffd', '#8a7be0', '#fff'];
-  const idx = Math.max(0, ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'].indexOf(item.ceiling));
+  const idx = Math.max(0, ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'].indexOf(item.rarity || item.ceiling));
   return `<span class="sv-ava" data-t="${idx}" style="--a:${a};--b:${b};--c:${c};--w:${(2 + idx * .35).toFixed(1)}px" aria-hidden="true"></span>`;
 }
 function svOpenSkin(id) { if (typeof _lk !== 'undefined') _lk.sel = id; openLooksModal(); }
@@ -69,7 +69,7 @@ function _svReachHtml(pack) {
   if (!list.length) return head;
   return `${head}<div class="sv-sec"><span class="v3-eyebrow">Хватит на</span><small>на счёте будет ${fmt(money)} ✨</small></div>
     <div class="sv-reach">${list.map(i => `<button type="button" class="v3-row sv-go" onclick="svOpenSkin('${i.id}')" aria-label="${_profileEsc(i.name)}, ${fmt(i.price_zarniki)} Зарников. Открыть образ">${_svAva(i)}
-      <span><b>${_profileEsc(i.name)}</b><small>до тира <em class="sv-tier">${_profileEsc(i.ceiling)}</em></small></span><span class="v3-end">${fmt(i.price_zarniki)} ✨ ${_v3Icon('chev')}</span></button>`).join('')}</div>`;
+      <span><b>${_profileEsc(i.name)}</b><small>редкость <em class="sv-tier">${_profileEsc(i.rarity)}</em></small></span><span class="v3-end">${fmt(i.price_zarniki)} ✨ ${_v3Icon('chev')}</span></button>`).join('')}</div>`;
 }
 function _svZarniki() {
   const pk = _sv.pk, pack = (pk?.packages || []).find(p => Number(p.stars) === _sv.sel);

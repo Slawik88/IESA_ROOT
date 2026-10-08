@@ -1,7 +1,7 @@
 // ── Skins V3 · рендер образа: ник, титул, рамка, ореол, сцена ─────────────────────
 // Образ приходит с сервера одним объектом: {tier, ceiling, pal:[a,b,c], kinds:{frame,halo,pt,name,bg}, sig, title}.
-// Палитра и форма берутся из скина, богатство — из тира (D…SSS = 1…7). Фирменная деталь (sig) открывается,
-// когда скин прокачан до своего потолка. Без VIP чужой образ приходит без pal/kinds, тогда ap = null и рисуется базовый вид.
+// Палитра и форма берутся из скина, богатство — из тира (D…SSS = 1…7). Потолок у всех один, SSS; редкость (rarity) задаёт только цену и ряд коллекции.
+// Фирменная деталь (sig) открывается с тира sig_from: у образов редкости S и выше со своей редкости, у остальных на SSS. Без VIP чужой образ приходит без pal/kinds, тогда ap = null и рисуется базовый вид.
 const _AP_TIERS = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const _AP_WORD = /^[a-z_]{2,16}$/, _AP_HEX = /^#[0-9a-f]{6}$/i;
 const _AP_POWER = [0, .4, .5, .6, .72, .85, .95, 1];
@@ -14,7 +14,7 @@ function apFromLook(look) {
   return {
     look, ti, tier: look.tier, id: String(look.id || ''), title: String(look.title || ''),
     k: { frame: word(kinds.frame), halo: word(kinds.halo), pt: word(kinds.pt), name: word(kinds.name), bg: word(kinds.bg) },
-    sig: look.sig && look.tier === look.ceiling && _AP_WORD.test(look.sig) ? look.sig : '',
+    sig: look.sig && ti >= _apTi(look.sig_from || look.ceiling) && _AP_WORD.test(look.sig) ? look.sig : '',
     vars: `--ap-a:${pal[0]};--ap-b:${pal[1]};--ap-c:${pal[2]};--ap-i:${_AP_POWER[ti]}`,
   };
 }

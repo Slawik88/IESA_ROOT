@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 from core.appearance_v3 import cap_tier
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
-from core.skins_v3 import (BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS, UPGRADE_ESSENCE, full_price,
+from core.skins_v3 import (BUY_PRICE_ZARNIKI, CEILING, signature_tier, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS, UPGRADE_ESSENCE, full_price,
                            next_tier, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SETS, SKINS
 from core.skins_v3_collection import (BASE_RANK, MAXED_BADGES, PERMANENT, SET_GLYPH, featured, maxed_badge, milestones, owned_permanent, rank_for, row_bonus,
@@ -44,8 +44,8 @@ def crest_for(skin_id: str, owned: dict) -> dict | None:
 def look_payload(skin_id: str, tier: str, *, compact: bool = False, crest: dict | None = None) -> dict:
     """What a client needs to draw a skin at a tier. Compact form is used for rows in lists."""
     skin = SKINS[skin_id]
-    look = {"id": skin_id, "name": skin["name"], "tier": tier, "ceiling": skin["tier"], "pal": list(skin["pal"]),
-            "kinds": dict(skin["kinds"]), "sig": skin["sig"], "title": skin["items"]["title"]}
+    look = {"id": skin_id, "name": skin["name"], "tier": tier, "ceiling": CEILING, "rarity": skin["tier"], "pal": list(skin["pal"]),
+            "kinds": dict(skin["kinds"]), "sig": skin["sig"], "sig_from": signature_tier(skin["tier"]), "title": skin["items"]["title"]}
     if crest:
         look["crest"] = crest
     if not compact:
@@ -57,13 +57,13 @@ def look_payload(skin_id: str, tier: str, *, compact: bool = False, crest: dict 
 def _item(skin_id: str, owned_tier: str | None, equipped: str | None, vip: bool, owned: dict) -> dict:
     skin = SKINS[skin_id]
     season = season_of(skin_id, _now())
-    nxt = upgrade_cost(owned_tier, skin["tier"]) if owned_tier else None
+    nxt = upgrade_cost(owned_tier, CEILING) if owned_tier else None
     shown = cap_tier(owned_tier, vip) if owned_tier else "D"
     return {
         **look_payload(skin_id, shown, crest=crest_for(skin_id, owned)), "blurb": skin["blurb"], "price_zarniki": BUY_PRICE_ZARNIKI[skin["tier"]],
         "set": skin["set"], "owned": owned_tier is not None, "level": owned_tier, "shown_tier": shown, "equipped": skin_id == equipped,
         "next": {"tier": nxt[0], "essence": nxt[1], "needs_vip": nxt[0] == "SSS" and not vip} if nxt else None,
-        "maxed": owned_tier is not None and nxt is None, "total_upgrade_essence": total_upgrade_cost(skin["tier"]),
+        "maxed": owned_tier is not None and nxt is None, "total_upgrade_essence": total_upgrade_cost(CEILING),
         "full_price_zarniki": full_price(skin["tier"]), "season": season, "buyable": (season is None or season["open"]) and not skin["exclusive"],
         "exclusive": skin["exclusive"],
     }
@@ -78,8 +78,8 @@ def _sets_state(owned: dict) -> list[dict]:
 
 
 def _maxed_count(owned: dict) -> int:
-    """Skins raised all the way to their ceiling. A D skin has no road to climb, so it never counts."""
-    return sum(1 for sid, tier in owned.items() if sid in SKINS and SKINS[sid]["tier"] != "D" and tier == SKINS[sid]["tier"])
+    """Skins raised all the way to the ceiling (SSS)."""
+    return sum(1 for sid, tier in owned.items() if sid in SKINS and tier == CEILING)
 
 
 def collection_summary(owned: dict) -> dict:
@@ -208,7 +208,7 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
                 await economy_ledger.apply_balance_change(
                     db, int(user_id), {"zarniki": -price}, reason_code="skin_v3_purchase", idempotency_key=idempotency_key,
                     source_type="skins_v3", reference_type="skin_v3", reference_id=skin_id,
-                    metadata={"skin_id": skin_id, "ceiling": skin["tier"], "price_zarniki": price}, note=skin_id)
+                    metadata={"skin_id": skin_id, "rarity": skin["tier"], "price_zarniki": price}, note=skin_id)
                 await repo.grant(db, user_id, skin_id)
                 events = await _purchase_rewards(db, user_id, skin_id, await repo.owned(db, user_id))
             await repo.set_equipped(db, user_id, skin_id)
@@ -248,7 +248,7 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
         current = await repo.owned_tier_locked(db, user_id, skin_id)
         if current is None:
             raise SkinConflict("Сначала купите этот скин.")
-        step = upgrade_cost(current, skin["tier"])
+        step = upgrade_cost(current, CEILING)
         if step is None:
             raise SkinConflict("Скин уже на своём максимальном тире.")
         target, cost = step
@@ -263,7 +263,7 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
             before = _maxed_count(await repo.owned(db, user_id))
             await repo.set_tier(db, user_id, skin_id, target)
             owned_now = await repo.owned(db, user_id)
-            events.append({"kind": "tier", "skin_id": skin_id, "name": skin["name"], "tier": target, "maxed": target == skin["tier"], "sig": bool(skin["sig"]) and target == skin["tier"]})
+            events.append({"kind": "tier", "skin_id": skin_id, "name": skin["name"], "tier": target, "maxed": target == CEILING, "sig": bool(skin["sig"]) and target == signature_tier(skin["tier"])})
             after = _maxed_count(owned_now)
             if after > before and maxed_badge(after) != maxed_badge(before):
                 events.append({"kind": "badge", "title": maxed_badge(after), "maxed": after})
@@ -281,7 +281,7 @@ async def exclusive_view(db) -> dict:
     """For the console: every personal skin with its holders (EXCLUSIVE_HOLDERS is how many it may have)."""
     await repo.ensure_tables(db)
     return {"holders_max": EXCLUSIVE_HOLDERS, "skins": [
-        {"id": sid, "name": SKINS[sid]["name"], "blurb": SKINS[sid]["blurb"], "ceiling": SKINS[sid]["tier"], "pal": list(SKINS[sid]["pal"]),
+        {"id": sid, "name": SKINS[sid]["name"], "blurb": SKINS[sid]["blurb"], "ceiling": CEILING, "rarity": SKINS[sid]["tier"], "pal": list(SKINS[sid]["pal"]),
          "holders": await repo.holders(db, sid)} for sid in exclusive_ids()]}
 
 

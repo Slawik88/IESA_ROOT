@@ -16,12 +16,13 @@ sys.path.insert(0, str(ROOT))
 
 from unittest import mock  # noqa: E402
 
-from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, UPGRADE_ESSENCE  # noqa: E402
+from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, TIERS, UPGRADE_ESSENCE  # noqa: E402
 from core.skins_v3_collection import featured_bonus, milestones, row_bonus, set_bonus  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
 from infrastructure.repositories import global_skins_v1 as old_skins  # noqa: E402
 from infrastructure.repositories import skins_v3 as repo  # noqa: E402
+from infrastructure.repositories import vip_v2 as vip_repo  # noqa: E402
 from services import skins_v3 as skins  # noqa: E402
 from services import skins_v3_migration as migration  # noqa: E402
 
@@ -84,11 +85,11 @@ async def run(dsn: str) -> None:
         _, state = await skins.upgrade(db, user, "threshold", idempotency_key="u1")
         item = next(i for i in state["items"] if i["id"] == "threshold")
         left = pack * ESSENCE_PER_ZARNIK - UPGRADE_ESSENCE["C"]
-        assert item["level"] == "C" and item["maxed"] and state["essence"]["balance"] == left
-        assert [e["kind"] for e in state["events"]] == ["tier", "badge"] and state["events"][0]["tier"] == "C" and state["events"][0]["maxed"], "the first skin at its ceiling earns a badge"
+        assert item["level"] == "C" and not item["maxed"] and item["next"]["tier"] == "B" and state["essence"]["balance"] == left, "every skin keeps growing past its rarity"
+        assert [e["kind"] for e in state["events"]] == ["tier"] and state["events"][0]["tier"] == "C" and not state["events"][0]["maxed"]
         await skins.upgrade(db, user, "threshold", idempotency_key="u1")
         assert (await skins.state(db, user))["essence"]["balance"] == left, "upgrade replay must not charge again"
-        await expect_conflict(skins.upgrade(db, user, "threshold", idempotency_key="u2"), "максимальном")
+        await expect_conflict(skins.upgrade(db, user, "threshold", idempotency_key="u2"), "Эссенции")   # tier B needs more than is left
         await expect_conflict(skins.upgrade(db, user, "void", idempotency_key="u3"), "Сначала купите")
 
         # equip / unequip, and ownership is required
@@ -134,7 +135,7 @@ async def run(dsn: str) -> None:
             assert "row" in kinds and await repo.essence_balance(db, user) == before_row + row_bonus("D") + steps[6] * ("rank" in kinds), (kinds, state["events"])
             col = state["collection"]
             assert col["owned"] == 7 and col["rank"] == "Коллекционер" and col["rows"][0]["done"] and col["milestones"][0]["done"] and not col["milestones"][-1]["done"]
-            assert col["sets_done"] == [{"id": "lotus", "name": "Сад Лотоса", "glyph": "🪷"}] and col["maxed"] == 1 and col["maxed_badge"] == "Огранщик"
+            assert col["sets_done"] == [{"id": "lotus", "name": "Сад Лотоса", "glyph": "🪷"}] and col["maxed"] == 0 and col["maxed_badge"] is None
             # skin of the week: the gift is paid once, only for that skin and only inside its week
             before_week = await repo.essence_balance(db, user)
             _, state = await skins.buy(db, user, "starheart", idempotency_key="week-1")
@@ -169,6 +170,26 @@ async def run(dsn: str) -> None:
         from services import appearance_public_v3 as public
         view = await public.public_view(db, user)
         assert view["collection"]["owned"] == 8 and "ids" not in view["collection"] and all(not isinstance(v, (list, dict)) or k == "sets_done" for k, v in view["collection"].items())
+
+        # ── every skin reaches SSS: a D skin climbs the same chain as an SSS one; the last step needs VIP; the first maxed skin earns the badge ──
+        climber = 981060
+        await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (climber, "climber", 5000))
+        await skins.buy(db, climber, "forest", idempotency_key="c-buy")
+        chain = sum(UPGRADE_ESSENCE[t] for t in TIERS[1:])
+        await repo.essence_apply(db, climber, chain, reason="seed", reference=None, idempotency_key="c-seed")
+        for n, tier in enumerate(TIERS[1:6]):
+            _, state = await skins.upgrade(db, climber, "forest", idempotency_key=f"c-up-{n}")
+            assert state["events"][0]["tier"] == tier and not state["events"][0]["maxed"]
+        await expect_conflict(skins.upgrade(db, climber, "forest", idempotency_key="c-up-5"), "VIP")
+        await vip_repo.ensure_tables(db)
+        await db.execute("INSERT INTO vip_subscriptions(user_id, tier, expires_at) VALUES (?,?, NOW() + INTERVAL '30 days') ON CONFLICT (user_id) DO UPDATE SET expires_at=EXCLUDED.expires_at", (climber, "1m"))
+        _, state = await skins.upgrade(db, climber, "forest", idempotency_key="c-up-5")
+        forest = next(i for i in state["items"] if i["id"] == "forest")
+        assert forest["level"] == "SSS" and forest["maxed"] and forest["next"] is None and forest["rarity"] == "D" and forest["ceiling"] == "SSS"
+        assert [e["kind"] for e in state["events"]] == ["tier", "badge"] and state["events"][0]["maxed"] and not state["events"][0]["sig"], "a D skin has no signature yet; the badge comes with the first SSS"
+        assert state["collection"]["maxed"] == 1 and state["collection"]["maxed_badge"] == "Огранщик"
+        await expect_conflict(skins.upgrade(db, climber, "forest", idempotency_key="c-up-6"), "максимальном")
+        assert (await repo.essence_balance(db, climber)) == 0, "the chain was paid in full and nothing more"
 
         # ── personal skins: never sold, invisible in the shop, given and taken back by hand, one holder each ──────────────────────────
         pal_owner, other, stranger = 981050, 981051, 981052

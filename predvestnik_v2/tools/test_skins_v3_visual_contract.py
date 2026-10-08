@@ -19,7 +19,7 @@ every = "".join(css.values())
 decor = (STATIC / "app.22.js").read_text(encoding="utf-8")
 renderer = (STATIC / "app.20.js").read_text(encoding="utf-8")
 
-# Shape of the catalog: three or more skins on every ceiling tier, each with a palette that reads on its background.
+# Shape of the catalog: three or more skins of every rarity, each with a palette that reads on its background.
 per_tier = {tier: [s for s in SKINS.values() if s["tier"] == tier] for tier in TIERS}
 assert all(len(items) >= 3 for items in per_tier.values()), {t: len(v) for t, v in per_tier.items()}
 assert len(SKINS) >= 25 and len({s["name"] for s in SKINS.values()}) == len(SKINS)
@@ -89,7 +89,7 @@ home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 assert re.search(r"\.v3-top-list \.v3-rowbtn > span \{[^}]*padding: 14px 24px; margin: -14px -24px", home_css), "top list rows clip the glow of a look"
 
 # The renderer never trusts the payload: palette and kinds are validated before they reach a class or a style.
-assert "_AP_HEX.test" in renderer and "_AP_WORD" in renderer and "look.tier === look.ceiling" in renderer
+assert "_AP_HEX.test" in renderer and "_AP_WORD" in renderer and "ti >= _apTi(look.sig_from || look.ceiling)" in renderer
 assert "_v3SafeValue" in decor and "url\\(" in decor
 # Readability: the nickname is large text (3:1 needed), the title is small (4.5:1). Letters take the dark end of the palette through --ap-nb (b pulled toward a),
 # measured against the skin's own background; the real stage is a little brighter than that, hence the margin over the minimum.
