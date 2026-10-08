@@ -75,7 +75,7 @@ def make_handler(warp: Warp):
 
 def register_all(warps: tuple[Warp, ...]) -> None:
     for w in warps:
-        registry.command(w.name, aliases=w.aliases, bare=True,
+        registry.command(w.name, aliases=w.aliases, bare=True, group="warps",
                          usage=f"бот {w.name}, @ник")(make_handler(w))
 
 

@@ -239,6 +239,102 @@ async function promoEdit(main, p) {
 
 SECTIONS.promo = main => promoList(main);
 
+// ── Функции: выключатели бота и сайта ────────────────────────────────────────
+
+async function switchesView(main, chat = null) {
+  const data = await api(`/switches?chat_id=${chat ? chat.id : 0}`).catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  const off = data.state;   // {global: {key: {reason}}, chat: {...}}
+  const scopeName = chat ? `в чате «${esc(chat.title)}»` : 'везде';
+  const row = (item, nested = false) => {
+    if (!item.key) return '';
+    const globalOff = off.global[item.key];
+    const localOff = chat ? off.chat[item.key] : globalOff;
+    const enabled = !localOff && !(chat && globalOff);
+    const locked = chat && globalOff;
+    const why = (localOff || globalOff || {}).reason;
+    return `<div class="sw-row ${enabled ? '' : 'off'}">
+      <div class="t"><b>${esc(item.title)}</b>${item.hint ? `<div class="sub">${esc(item.hint)}</div>` : ''}
+        ${locked ? '<div class="locked">выключено везде — включается только во «Везде»</div>' : ''}
+        ${!enabled && why ? `<div class="sub">Причина: ${esc(why)}</div>` : ''}</div>
+      <label class="toggle"><input type="checkbox" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span></span></label>
+    </div>`;
+  };
+  const group = item => item.items && item.items.length
+    ? `<details class="sw-group"><summary>${row(item) || `<div class="sw-row"><div class="t"><b>${esc(item.title)}</b></div></div>`}</summary>
+        <div class="sw-sub">${item.items.map(x => row(x, true)).join('')}</div></details>`
+    : row(item);
+  main.innerHTML = `
+    <div class="scope"><span class="sub">Где:</span>
+      <button class="btn small ${chat ? '' : 'primary'}" id="sglobal">Везде</button>
+      ${chat ? `<span class="chip ok">${esc(chat.title)}</span>` : ''}
+      <input id="schatq" placeholder="Выбрать чат…" style="flex:1;min-width:140px"/></div>
+    <div class="found" id="schatfound"></div>
+    <div class="field"><label>Причина для игроков, когда выключаете (необязательно)</label>
+      <input id="sreason" maxlength="200" placeholder="Например: чиним, вернём вечером"/></div>
+    ${data.catalog.filter(g => !(chat && g.scope === 'site')).map(g => `
+      <div class="card"><h3>${esc(g.title)} · ${scopeName}</h3>${g.items.map(group).join('')}</div>`).join('')}
+    ${chat ? '<div class="sub">Сайт выключается только целиком для всех — переключитесь на «Везде».</div>' : ''}`;
+  $('#sglobal').onclick = () => switchesView(main, null);
+  let t;
+  $('#schatq').oninput = e => {
+    clearTimeout(t);
+    const q = e.target.value.trim();
+    if (!q) { $('#schatfound').innerHTML = ''; return; }
+    t = setTimeout(async () => {
+      const {items} = await api(`/chats?q=${encodeURIComponent(q)}`);
+      $('#schatfound').innerHTML = items.map(c => `<button data-pick="${c.id}" data-title="${esc(c.title)}">${esc(c.title)} <span class="sub">${c.id}</span></button>`).join('') || '<span class="sub">Не найдено</span>';
+    }, 250);
+  };
+  $('#schatfound').onclick = e => {
+    const b = e.target.closest('[data-pick]');
+    if (b) switchesView(main, {id: +b.dataset.pick, title: b.dataset.title});
+  };
+  main.querySelectorAll('[data-sw]').forEach(input => {
+    input.addEventListener('click', e => e.stopPropagation());
+    input.onchange = async () => {
+      const enabled = input.checked;
+      if (!enabled && input.dataset.sw === 'all' || !enabled && input.dataset.sw === 'site') {
+        if (!confirm(input.dataset.sw === 'all' ? 'Выключить весь бот ' + (chat ? 'в этом чате' : 'во всех чатах') + '?' : 'Закрыть весь сайт для игроков?')) {
+          input.checked = true; return;
+        }
+      }
+      try {
+        await api('/switches', {method: 'POST', body: JSON.stringify({
+          feature: input.dataset.sw, chat_id: chat ? chat.id : 0, enabled, reason: $('#sreason').value})});
+        toast(enabled ? 'Включено' : 'Выключено');
+        switchesView(main, chat);
+      } catch (err) { toast(err.message, true); input.checked = !enabled; }
+    };
+  });
+}
+
+SECTIONS.switches = main => switchesView(main);
+
+// ── Настройки бота ───────────────────────────────────────────────────────────
+
+async function settingsView(main) {
+  const data = await api('/settings').catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  main.innerHTML = `
+    <div class="card"><h3>Переводы между игроками</h3>
+      <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
+      ${data.transfer.map(c => `<div class="sw-row ${c.enabled ? '' : 'off'}">
+        <div class="t"><b>${esc(c.title)}</b>${c.locked ? '<div class="sub">Переводить нельзя никогда</div>' : ''}</div>
+        <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
+      </div>`).join('')}
+    </div>`;
+  main.querySelectorAll('[data-cur]').forEach(input => {
+    input.onchange = async () => {
+      const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
+      try { await api('/settings/transfer', {method: 'POST', body: JSON.stringify({currencies})}); toast('Сохранено'); settingsView(main); }
+      catch (e) { toast(e.message, true); input.checked = !input.checked; }
+    };
+  });
+}
+
+SECTIONS.settings = main => settingsView(main);
+
 // ── Старт ────────────────────────────────────────────────────────────────────
 
 (async () => {

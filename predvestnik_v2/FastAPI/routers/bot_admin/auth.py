@@ -11,6 +11,8 @@ from infrastructure.preprod import require_preprod_user
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 SECTIONS: dict[str, tuple[str, int]] = {
     "promo": ("Промокоды", 5),
+    "switches": ("Функции", 5),
+    "settings": ("Настройки", 5),
 }
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
 

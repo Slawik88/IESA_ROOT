@@ -207,6 +207,7 @@ for r in [profile.router, marriage.router, wallet.router,
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
+app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────

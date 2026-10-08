@@ -48,6 +48,8 @@ class Command:
     section: str = ""             # блок в «бот помощь»; пусто — не показывать
     summary: str = ""             # одна строка: что делает
     example: str = ""             # пример вызова
+    group: str = ""               # общий выключатель для набора команд (например, все варпы)
+    always_on: bool = False       # выключателями не выключается (вход в админку)
 
     def all_names(self) -> tuple[str, ...]:
         return (self.name, *self.aliases)
@@ -79,6 +81,8 @@ class Ctx:
 class Registry:
     def __init__(self) -> None:
         self._by_name: dict[str, Command] = {}
+        # Проверка выключателей перед командой: None — можно, "" — молча нет, текст — ответить им.
+        self.gate: Callable[["Ctx"], Awaitable[str | None]] | None = None
 
     def register(self, cmd: Command) -> Command:
         for n in cmd.all_names():
@@ -224,6 +228,12 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
         await message.reply("Эта команда работает только в группе.")
         return True
     ctx = Ctx(message, bot, db, cmd, parsed.args, parsed.prefixed)
+    if registry.gate is not None and not cmd.always_on:
+        blocked = await registry.gate(ctx)
+        if blocked is not None:
+            if blocked and parsed.prefixed:
+                await message.reply(blocked, parse_mode="HTML")
+            return True
     try:
         await cmd.handler(ctx)
     except UsageError as e:

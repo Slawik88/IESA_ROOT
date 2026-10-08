@@ -91,7 +91,7 @@ async def http_checks():
     assert me["sections"] == [], me
     assert (await client.get("/bot-admin/api/promo", headers=helper)).status_code == 403
     me = (await client.get("/bot-admin/api/me", headers=dev)).json()
-    assert [s["key"] for s in me["sections"]] == ["promo"] and me["creator"], me
+    assert [s["key"] for s in me["sections"]] == ["promo", "switches", "settings"] and me["creator"], me
 
     opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
     skin = opts["skins"][0]["id"]

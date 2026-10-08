@@ -220,9 +220,13 @@ def announcement(name: str, ups: list[Up]) -> str:
     return f"🏆 {name}: новый уровень достижений\n" + "\n".join(parts)
 
 
-async def announce(message: Message, name: str, ups: list[Up]) -> None:
+async def announce(db, message: Message, name: str, ups: list[Up]) -> None:
     if not ups:
         return
+    from services import feature_switches
+    chat_id = message.chat.id if message.chat.type in ("group", "supergroup") else None
+    if await feature_switches.disabled(db, ["all", "notice:achievements"], chat_id):
+        return   # уровни и эссенция уже записаны, просто без объявления
     try:
         await message.answer(announcement(html.escape(name), ups), parse_mode="HTML")
     except Exception as exc:   # объявление не должно ломать обработку сообщения
@@ -252,7 +256,7 @@ async def after_message(db, message: Message) -> None:
     except Exception:
         logger.exception("achievements after_message failed")
         return
-    await announce(message, quiet_name(user.username, user.first_name), ups)
+    await announce(db, message, quiet_name(user.username, user.first_name), ups)
 
 
 async def after_warp(db, message: Message, actor_id: int, target_id: int, target_name: str) -> None:
@@ -262,16 +266,16 @@ async def after_warp(db, message: Message, actor_id: int, target_id: int, target
         await bump(db, actor_id, "warps_sent")
         await bump(db, target_id, "warps_received")
         actor = message.from_user
-        await announce(message, quiet_name(actor.username, actor.first_name),
+        await announce(db, message, quiet_name(actor.username, actor.first_name),
                        await evaluate(db, actor_id, {"warps"}))
-        await announce(message, target_name, await evaluate(db, target_id, {"warps"}))
+        await announce(db, message, target_name, await evaluate(db, target_id, {"warps"}))
     except Exception:
         logger.exception("achievements after_warp failed")
 
 
 async def after_transfer(db, message: Message, user_id: int, name: str) -> None:
     try:
-        await announce(message, name, await evaluate(db, user_id, {"transfers"}))
+        await announce(db, message, name, await evaluate(db, user_id, {"transfers"}))
     except Exception:
         logger.exception("achievements after_transfer failed")
 

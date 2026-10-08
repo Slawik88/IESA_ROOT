@@ -50,7 +50,7 @@ def admin_url() -> str:
     return f"{url}/bot-admin" if url.startswith("https://") else ""
 
 
-@registry.command("админка", aliases=("админ панель", "панель"), usage="бот админка")
+@registry.command("админка", aliases=("админ панель", "панель"), usage="бот админка", always_on=True)
 async def cmd_admin_panel(ctx: Ctx) -> None:
     from bot.chat.global_ranks import get_bot_rank
     if await get_bot_rank(ctx.db, ctx.user_id) <= 0:
