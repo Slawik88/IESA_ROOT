@@ -10,6 +10,7 @@ from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
+from services import vip as vip_service
 from bot.chat import family, global_ranks, ranks
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
@@ -107,6 +108,8 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
         roles.append(global_ranks.bot_rank_name(bot_rank))
     if await global_ranks.is_sponsor(db, uid):
         roles.append("💖 Спонсор")
+    if await vip_service.is_vip_active(db, uid):
+        roles.append("👑 VIP")
     if roles:
         lines.append("\n" + " · ".join(roles))
 

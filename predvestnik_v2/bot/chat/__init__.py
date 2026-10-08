@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, moderation, profile, promo, purge, rank_commands, sanctions, site, streak, top, transfer, warps  # noqa: F401
+from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, moderation, profile, promo, purge, rank_commands, sanctions, site, streak, top, transfer, vip, warps  # noqa: F401
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 from bot.chat.warps_data import WARPS
@@ -10,7 +10,7 @@ from bot.chat.warps_data import WARPS
 warps.register_all(WARPS)
 
 router = Router(name="chat")
-for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router):
+for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router):
     router.include_router(sub)
 
 

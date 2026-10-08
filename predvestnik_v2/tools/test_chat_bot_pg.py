@@ -617,6 +617,49 @@ async def achievements_flow(db, bot):
     out = await say("бот достижение болтун", uid=7003, username="veteran")
     assert "на 40-м уровне — 40 🔮" in out, out
     print("OK: achievements")
+    await vip_flow(db, bot)
+
+
+async def vip_flow(db, bot):
+    from bot.chat import vip
+    from infrastructure.repositories import vip_v2 as vip_v2_repo
+    await vip_v2_repo.ensure_tables(db)
+
+    async def say(text, uid=7001, username="achiever"):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username)
+        kbs = []
+        async def reply(text, **kw):
+            m.replies.append(text); kbs.append(kw.get("reply_markup"))
+        m.reply = reply
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies), kbs[0] if kbs else None
+
+    await db.execute("UPDATE users SET user_balance_zarniki = 1000 WHERE user_tg_id = 7001")
+    out, kb = await say("бот вип")
+    assert "VIP не активен" in out and "140 ✨" in kb.inline_keyboard[0][0].text, out
+    pick = vip.VipCB.unpack(kb.inline_keyboard[0][0].callback_data)
+    c = Call(7002); await vip.on_vip(c, pick, db)
+    assert "не ваша" in c.alerts[0]
+    c = Call(7001, msg_id=900); await vip.on_vip(c, pick, db)
+    assert "за <b>140</b>" in c.edited[0], c.edited
+    confirm = pick.model_copy(update={"ok": True})
+    c = Call(7001, msg_id=900); await vip.on_vip(c, confirm, db)
+    assert "VIP продлён на 7 дней" in c.edited[0], (c.edited, c.alerts)
+    c = Call(7001, msg_id=900); await vip.on_vip(c, confirm, db)        # повторное нажатие — без второго списания
+    async with db.execute("SELECT user_balance_zarniki FROM users WHERE user_tg_id = 7001") as cur:
+        assert float((await cur.fetchone())[0]) == 860
+    big = vip.VipCB(uid=7001, days=365, ok=True)
+    c = Call(7001, msg_id=901); await vip.on_vip(c, big, db)
+    assert "Не хватает Зарников" in c.alerts[0], c.alerts
+    out, _ = await say("бот вип")
+    assert "VIP до" in out and ("осталось 7 дней" in out or "осталось 8 дней" in out), out
+    out, _ = await say("бот я")
+    assert "👑 VIP" in out, out
+    out, _ = await say("бот вип @achiever", uid=2002, username="talker")
+    assert "@\u200bachiever: 👑 VIP до" in out, out
+    print("OK: vip")
 
 
 asyncio.run(main())
