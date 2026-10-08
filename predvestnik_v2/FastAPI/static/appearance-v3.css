@@ -14,7 +14,7 @@
 .ap-l-ryujin_tide { --ap-a: #52e6cc; --ap-b: #e9c45d; --ap-c: #8fe9ff; }
 
 /* ── Ник: цвет → градиент → свечение → блик → блеск ── */
-.ap-name { position: relative; display: inline-block; max-width: 100%; }
+.ap-name { position: relative; display: inline-block; max-width: 100%; overflow: hidden; vertical-align: top; padding: 3px 6px; margin: -3px -6px; }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось */
 .ap-name.ap-t1 { color: var(--ap-a); text-shadow: 0 0 12px color-mix(in srgb, var(--ap-a) 30%, transparent); }
 .ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6) { background: linear-gradient(100deg, var(--ap-a), var(--ap-b)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 45%, transparent)); }
