@@ -42,6 +42,17 @@ class ReforgeRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class TrackStartRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class TrackOpenRequest(BaseModel):
+    track_id: str = Field(min_length=1, max_length=64)
+    cell: int = Field(ge=0, le=8)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 async def _ready(db) -> None:
     if not await system_flags.is_enabled(db, "pets_v2"):
         raise HTTPException(404, "Тропа пока закрыта.")
@@ -98,5 +109,23 @@ async def reforge(body: ReforgeRequest, db=Depends(get_db), user=Depends(require
     await _ready(db)
     try:
         return await service.reforge_talisman(db, user_id=int(user["id"]), talisman_id=body.talisman_id, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/track/start")
+async def track_start(body: TrackStartRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.start_track(db, user_id=int(user["id"]), pet_id=body.pet_id, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/track/open")
+async def track_open(body: TrackOpenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.open_track_cell(db, user_id=int(user["id"]), track_id=body.track_id, cell=body.cell, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))

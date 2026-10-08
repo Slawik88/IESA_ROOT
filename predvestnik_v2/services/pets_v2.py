@@ -195,6 +195,36 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
     return response
 
 
+async def _roll_finds(db, user_id: int, day, source_id: str, count: int, *, pet: dict, level: int, mods: dict,
+                      rng, finds: dict, base_xp: float = 0.0, with_bonus_xp: bool = True) -> tuple[dict, float]:
+    """Броски находок с суточными и недельными потолками; `finds` обновляется на месте, награды выдаются здесь."""
+    shares = rules.find_shares(mods, species_id=pet["species_id"], level=level)
+    if not with_bonus_xp:
+        shares = {k: v for k, v in shares.items() if k != "bonus_xp"}
+    categories, weights = list(shares), list(shares.values())
+    granted: dict[str, int] = {}
+    bonus_raw = 0.0
+    for _ in range(count):
+        category = rng.choices(categories, weights)[0]
+        if category == "bonus_xp":
+            bonus_raw += base_xp * 0.05
+            continue
+        lo, hi = _FIND_AMOUNT.get(category, (1, 1))
+        amount = rng.randint(lo, hi)
+        allowed = floor(rules.cap_find(
+            category, amount, today=float(finds.get(category, 0)),
+            this_week=await repo.week_find_total(db, user_id, day, category) if category in rules.FIND_WEEKLY_CAP else 0.0,
+        ))
+        if category in rules.FIND_DAILY_CAP and allowed <= 0:
+            continue
+        if category in ("mora", "diamond", "essence"):
+            finds[category] = float(finds.get(category, 0)) + allowed
+        granted[category] = granted.get(category, 0) + allowed
+    for category, amount in granted.items():
+        await _grant_find(db, user_id, source_id, category, amount, level, rng)
+    return granted, bonus_raw
+
+
 async def _grant_find(db, user_id: int, run_id: str, category: str, amount: int, level: int, rng) -> None:
     if category == "talisman":
         for i in range(amount):
@@ -280,28 +310,10 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
 
         daily = await repo.get_daily(db, user_id, day)
         finds = dict(daily["finds"])
-        shares = rules.find_shares(fx["find_mods"], species_id=pet["species_id"], level=level)
-        categories, weights = list(shares), list(shares.values())
-        granted: dict[str, int] = {}
-        bonus_raw = 0.0
-        for _ in range(_roll_count(rolls, mult if expedition else 1.0, rng)):
-            category = rng.choices(categories, weights)[0]
-            if category == "bonus_xp":
-                bonus_raw += base * 0.05
-                continue
-            lo, hi = _FIND_AMOUNT.get(category, (1, 1))
-            amount = rng.randint(lo, hi)
-            allowed = floor(rules.cap_find(
-                category, amount, today=float(finds.get(category, 0)),
-                this_week=await repo.week_find_total(db, user_id, day, category) if category in rules.FIND_WEEKLY_CAP else 0.0,
-            ))
-            if category in rules.FIND_DAILY_CAP and allowed <= 0:
-                continue
-            if category in ("mora", "diamond", "essence"):
-                finds[category] = float(finds.get(category, 0)) + allowed
-            granted[category] = granted.get(category, 0) + allowed
-        for category, amount in granted.items():
-            await _grant_find(db, user_id, run["id"], category, amount, level, rng)
+        granted, bonus_raw = await _roll_finds(
+            db, user_id, day, run["id"], _roll_count(rolls, mult if expedition else 1.0, rng),
+            pet=pet, level=level, mods=fx["find_mods"], rng=rng, finds=finds, base_xp=base,
+        )
 
         key_granted = 0
         if run["kind"] != "watch" and not finds.get("key"):
@@ -550,5 +562,94 @@ async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str
             raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost}.") from exc
         await repo.set_talisman_tier(db, user_id, talisman_id, tier + 1)
         response = {"ok": True, "talisman_id": str(talisman_id), "tier": tier + 1, "essence_spent": cost, "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response
+
+
+def _track_view(track: dict) -> dict:
+    """Клиенту никогда не уходит `hidden` пока выслеживание открыто."""
+    view = {"id": track["id"], "pet_id": int(track["pet_id"]), "status": track["status"], "points": int(track["points"]),
+            "opened": track["opened"], "result": track.get("result")}
+    if track["status"] != "open":
+        view["hidden"] = int(track["hidden"])
+    return view
+
+
+async def start_track(db, *, user_id: int, pet_id: int, action_id: str, rng=None) -> dict:
+    """Выслеживание: сервер прячет находку в сетке 3×3 и открывает три бесплатные подсказки. 2 попытки в сутки."""
+    action_id = _action(action_id)
+    rng = rng or random.SystemRandom()
+    request = {"type": "track_start", "pet_id": int(pet_id)}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
+        _species_row(pet)
+        day = (await repo.clock(db))["day"]
+        today = await repo.tracks_today(db, user_id, day)
+        if any(t["status"] == "open" for t in today):
+            raise PetV2Conflict("Сначала закончи текущее выслеживание.")
+        if len(today) >= rules.TRACK_DAILY:
+            raise PetV2Conflict("На сегодня попытки закончились.")
+        state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
+        hidden = rng.randrange(9)
+        clues = rng.sample([c for c in range(9) if c != hidden], rules.TRACK_FREE_CLUES)
+        opened = [{"cell": c, "heat": rules.track_heat(hidden, c), "free": True} for c in sorted(clues)]
+        track_id = uuid4().hex
+        points = rules.track_points(int(state["level"]), pet["species_id"])
+        await repo.create_track(db, track_id=track_id, user_id=user_id, pet_id=pet_id, day=day, hidden=hidden, opened=opened, points=points)
+        response = {"ok": True, "track": _track_view({"id": track_id, "pet_id": pet_id, "status": "open", "points": points,
+                                                        "opened": opened, "hidden": hidden}), "attempts_left": rules.TRACK_DAILY - len(today) - 1,
+                    "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response
+
+
+async def open_track_cell(db, *, user_id: int, track_id: str, cell: int, action_id: str, rng=None) -> dict:
+    action_id = _action(action_id)
+    rng = rng or random.SystemRandom()
+    request = {"type": "track_open", "track_id": str(track_id), "cell": int(cell)}
+    if not 0 <= int(cell) < 9:
+        raise PetV2PolicyError("Клетка вне сетки 3×3.")
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        clock = await repo.clock(db)
+        track = next((t for t in await repo.tracks_today(db, user_id, clock["day"]) if t["id"] == str(track_id)), None)
+        if not track or track["status"] != "open":
+            raise PetV2Conflict("Выслеживание не найдено или уже закончено.")
+        if any(o["cell"] == int(cell) for o in track["opened"]):
+            raise PetV2PolicyError("Эта клетка уже открыта.")
+        heat = rules.track_heat(int(track["hidden"]), int(cell))
+        opened = [*track["opened"], {"cell": int(cell), "heat": heat, "free": False}]
+        points = int(track["points"]) - 1
+        status, result = "open", None
+        if heat == "found" or points == 0:
+            status = "won" if heat == "found" else "lost"
+        if status == "won":
+            pet = await repo.get_owned_pet(db, user_id, int(track["pet_id"]))
+            state = await repo.ensure_state(db, user_id, int(track["pet_id"]), rules.energy_max(1, pet["species_id"]))
+            build = _build(state, await repo.equipped_talismans(db, user_id, int(track["pet_id"])))
+            daily = await repo.get_daily(db, user_id, clock["day"])
+            finds = dict(daily["finds"])
+            granted, _ = await _roll_finds(
+                db, user_id, clock["day"], f"track:{track['id']}", rules.TRACK_ROLLS, pet=pet, level=int(state["level"]),
+                mods=_fx(build)["find_mods"], rng=rng, finds=finds, with_bonus_xp=False,
+            )
+            await repo.save_daily(db, user_id, clock["day"], raw=daily["raw"], credited=daily["credited"], finds=finds)
+            result = {"finds": granted}
+        await repo.save_track(db, track["id"], opened=opened, points=max(points, 0), status=status, result=result)
+        response = {"ok": True, "track": _track_view({**track, "opened": opened, "points": max(points, 0), "status": status, "result": result}),
+                    "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
     return response

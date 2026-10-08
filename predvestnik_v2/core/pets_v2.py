@@ -328,6 +328,27 @@ def reforge_cost(from_tier: int) -> int:
     return REFORGE_ESSENCE[from_tier]
 
 
+# ── Выслеживание: сетка 3×3 ──────────────────────────────────────────────────
+TRACK_DAILY: Final = 2
+TRACK_FREE_CLUES: Final = 3
+TRACK_ROLLS: Final = 2
+
+
+def track_points(level: int, species_id: str) -> int:
+    """Очки внимания на открытие клеток: 3, +1 с 8 уровня, +1 с 16, сова +1."""
+    _species(species_id)
+    return 3 + (int(level) >= 8) + (int(level) >= 16) + (species_id == "mirror_owl")
+
+
+def track_heat(hidden: int, cell: int) -> str:
+    """Подсказка клетки: найдено / тепло (рядом, включая диагональ) / холодно."""
+    if not (0 <= hidden < 9 and 0 <= cell < 9):
+        raise PetV2PolicyError("Клетка вне сетки 3×3.")
+    if hidden == cell:
+        return "found"
+    return "warm" if max(abs(hidden // 3 - cell // 3), abs(hidden % 3 - cell % 3)) == 1 else "cold"
+
+
 # ── Призвания и черты (данные; применение — в писателе занятий) ───────────────
 CALLINGS: Final = ("tracker", "feeder", "guardian", "seeker")
 TRAIT_SLOT_LEVELS: Final = (5, 15, 25)

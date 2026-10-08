@@ -82,6 +82,16 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_tracks (
+            id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL, day DATE NOT NULL,
+            hidden SMALLINT NOT NULL CHECK(hidden BETWEEN 0 AND 8),
+            opened JSONB NOT NULL DEFAULT '[]'::jsonb, points SMALLINT NOT NULL CHECK(points >= 0),
+            status TEXT NOT NULL CHECK(status IN ('open','won','lost')), result JSONB NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_pet_v2_tracks_user_day ON pet_v2_tracks(user_id, day)")
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_actions (
             user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
             request_json TEXT NOT NULL, response_json TEXT NOT NULL,
@@ -319,3 +329,25 @@ async def get_talisman(db, user_id: int, talisman_id: str) -> dict[str, Any] | N
 
 async def set_talisman_tier(db, user_id: int, talisman_id: str, tier: int) -> None:
     await db.execute("UPDATE pet_v2_talismans SET tier=? WHERE user_id=? AND id=?", (int(tier), int(user_id), str(talisman_id)))
+
+
+async def tracks_today(db, user_id: int, day) -> list[dict[str, Any]]:
+    async with db.execute("SELECT * FROM pet_v2_tracks WHERE user_id=? AND day=? ORDER BY created_at,id FOR UPDATE", (int(user_id), day)) as c:
+        rows = [dict(row) for row in await c.fetchall()]
+    for row in rows:
+        row["opened"] = json.loads(row["opened"]) if isinstance(row["opened"], str) else list(row["opened"])
+    return rows
+
+
+async def create_track(db, *, track_id: str, user_id: int, pet_id: int, day, hidden: int, opened: list, points: int) -> None:
+    await db.execute(
+        "INSERT INTO pet_v2_tracks(id,user_id,pet_id,day,hidden,opened,points,status) VALUES (?,?,?,?,?,?::jsonb,?,'open')",
+        (track_id, int(user_id), int(pet_id), day, int(hidden), json.dumps(opened), int(points)),
+    )
+
+
+async def save_track(db, track_id: str, *, opened: list, points: int, status: str, result: dict | None) -> None:
+    await db.execute(
+        "UPDATE pet_v2_tracks SET opened=?::jsonb,points=?,status=?,result=?::jsonb WHERE id=?",
+        (json.dumps(opened), int(points), status, json.dumps(result) if result is not None else None, track_id),
+    )

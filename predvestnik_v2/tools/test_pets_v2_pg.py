@@ -221,6 +221,42 @@ async def run(dsn: str) -> None:
         await service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu3")
         view = await service.overview(db, user)
         assert view["camp"]["levels"]["workshop"] == 2 and view["camp"]["job"]["building"] == "lounge"
+        # Выслеживание: сервер прячет находку, тайна не утекает, 2 попытки в сутки
+        await db.execute("DELETE FROM pet_v2_tracks WHERE user_id=?", (user,))
+        t_rng = random.Random(3)
+        begun = await service.start_track(db, user_id=user, pet_id=owl, action_id="tr0", rng=t_rng)
+        assert "hidden" not in begun["track"] and len(begun["track"]["opened"]) == 3 and begun["track"]["points"] == rules.track_points(1, "mirror_owl")
+        assert (await service.start_track(db, user_id=user, pet_id=owl, action_id="tr0", rng=t_rng))["idempotent_replay"]
+        try:
+            async with db.connection.transaction():
+                await service.start_track(db, user_id=user, pet_id=owl, action_id="tr1", rng=t_rng)
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("only one open track at a time")
+        async with db.execute("SELECT hidden FROM pet_v2_tracks WHERE id=?", (begun["track"]["id"],)) as c:
+            hidden = (await c.fetchone())[0]
+        seen = {o["cell"] for o in begun["track"]["opened"]}
+        assert hidden not in seen
+        rest = [c for c in range(9) if c not in seen and c != hidden]
+        first = await service.open_track_cell(db, user_id=user, track_id=begun["track"]["id"], cell=rest[0], action_id="to0", rng=t_rng)
+        assert first["track"]["points"] == begun["track"]["points"] - 1 and first["track"]["opened"][-1]["heat"] in ("warm", "cold")
+        await rejects(service.open_track_cell(db, user_id=user, track_id=begun["track"]["id"], cell=rest[0], action_id="to1", rng=t_rng))
+        won = await service.open_track_cell(db, user_id=user, track_id=begun["track"]["id"], cell=hidden, action_id="to2", rng=t_rng)
+        assert won["track"]["status"] == "won" and won["track"]["hidden"] == hidden and "finds" in won["track"]["result"]
+        second = await service.start_track(db, user_id=user, pet_id=cat, action_id="tr2", rng=t_rng)
+        for i, cell in enumerate(c for c in range(9) if c not in {o["cell"] for o in second["track"]["opened"]}):
+            res = await service.open_track_cell(db, user_id=user, track_id=second["track"]["id"], cell=cell, action_id=f"tq{i}", rng=t_rng)
+            if res["track"]["status"] != "open":
+                break
+        assert res["track"]["status"] in ("won", "lost")
+        try:
+            async with db.connection.transaction():
+                await service.start_track(db, user_id=user, pet_id=cat, action_id="tr3", rng=t_rng)
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("two tracks per day")
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()
