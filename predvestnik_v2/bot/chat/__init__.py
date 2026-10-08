@@ -1,12 +1,13 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.chat import top  # noqa: F401  (регистрирует команду «топ»)
+from bot.chat import help, site, top  # noqa: F401  (регистрируют команды)
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 
 router = Router(name="chat")
 router.include_router(top.router)
+router.include_router(help.router)
 
 
 @router.message()

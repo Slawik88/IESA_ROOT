@@ -126,7 +126,10 @@ async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str,
     return render(title, rows, page, pages, period, scope), pages
 
 
-@registry.command("топ", usage="бот топ", aliases=("top",))
+@registry.command(
+    "топ", usage="бот топ", aliases=("top",), section="stats",
+    summary="Рейтинг по сообщениям: чат, все игроки или топ чатов. Период переключается кнопками.",
+)
 async def cmd_top(ctx: Ctx) -> None:
     chat = ctx.message.chat
     scope = "c" if chat.type in ("group", "supergroup") else "g"

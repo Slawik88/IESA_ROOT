@@ -36,3 +36,12 @@ assert not may_sanction(1, 42, actor_has_right=True)    # на разработ�
 assert may_sanction(42, 7, actor_has_right=False)       # разработчик обходит права
 assert not may_sanction(1, 7, actor_has_right=False)
 print("OK: chat framework")
+
+import bot.chat  # noqa: E402  реальный реестр
+from bot.chat import help as chat_help  # noqa: E402
+from bot.chat.framework import registry as real  # noqa: E402
+assert parse(real, "бот помощь топ").command.name == "помощь"
+assert parse(real, "бот сайт").command.name == "сайт"
+assert "бот топ" in chat_help.section_text("stats")
+assert chat_help.main_keyboard(1).inline_keyboard
+print("OK: help")

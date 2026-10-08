@@ -45,6 +45,9 @@ class Command:
     aliases: tuple[str, ...] = ()
     bare: bool = False            # работает и без слова «бот»
     private: bool = True          # доступна в личке с ботом
+    section: str = ""             # блок в «бот помощь»; пусто — не показывать
+    summary: str = ""             # одна строка: что делает
+    example: str = ""             # пример вызова
 
     def all_names(self) -> tuple[str, ...]:
         return (self.name, *self.aliases)
@@ -88,6 +91,12 @@ class Registry:
             self.register(Command(name=name, handler=fn, **kw))
             return fn
         return deco
+
+    def commands(self) -> list[Command]:
+        seen: dict[str, Command] = {}
+        for c in self._by_name.values():
+            seen.setdefault(c.name, c)
+        return list(seen.values())
 
     @property
     def names(self) -> list[str]:
