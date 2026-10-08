@@ -227,6 +227,36 @@ async def purge_flow(db, bot):
     assert await dispatch(registry, m, bot, db)
     assert answers and "чат открыт" in answers[0] and "Кикнуто: 1" in answers[0], answers
     assert await purge.active_session(db, -100) is None
+    await sanctions_flow(db, bot)
+
+
+async def sanctions_flow(db, bot):
+    from bot.chat import sanctions
+    out = await run(db, bot, "бот бан, @silent 3д")
+    assert "забанен" in out, out
+    out = await run(db, bot, "бот мут, @talker 1ч")
+    out = await run(db, bot, "бот варн, @talker")
+    text, kb = await sanctions.list_view(db, 1001, -100, "ban", 0)
+    assert "silent" in text, text
+    text, _ = await sanctions.list_view(db, 1001, -100, "mute", 0)
+    assert "talker" in text, text
+    text, _ = await sanctions.list_view(db, 1001, -100, "warn", 0)
+    assert "talker" in text, text
+    text, _ = await sanctions.list_view(db, 1001, -100, "shield", 0)
+    assert "иммунитет" in text, text
+    text, _ = await sanctions.list_view(db, 1001, -100, "kick", 0)
+    assert "silent" not in text or "Кики" in text
+    text, kb = await sanctions.card_view(db, 1001, -100, "mute", 0, 2002)
+    assert "Мут" in text and "Варнов: 1" in text, text
+    await sanctions._apply(bot, db, -100, 2002, 1001, "unmute")
+    await sanctions._apply(bot, db, -100, 2002, 1001, "unwarn")
+    await sanctions._apply(bot, db, -100, 2001, 1001, "unban")
+    text, _ = await sanctions.card_view(db, 1001, -100, "mute", 0, 2002)
+    assert "нет" in text, text
+    text, _ = await sanctions.list_view(db, 1001, -100, "ban", 0)
+    assert "silent" not in text, text
+    out = await run(db, bot, "бот санкции", uid=2002, username="talker")
+    assert "нет права" in out, out
 
 
 asyncio.run(main())
