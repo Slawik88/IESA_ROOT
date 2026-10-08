@@ -253,10 +253,8 @@ async def _tool_get_balance(db, user_id: int, chat_id: int) -> dict:
 
 
 async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
-    from infrastructure.repositories import zoo as zoo_db
-    # Все строки владения сохраняются. Старые сила, усталость и дубликаты не
-    # выдаются модели как актуальная прогрессия, чтобы она не советовала закрытые действия.
-    pets = await zoo_db.get_user_pets(db, user_id)
+    from infrastructure.repositories import pets_v1 as pets_repo
+    pets = await pets_repo.list_owned_pets(db, user_id)
     if not pets:
         return {"has_pets": False}
 
@@ -265,15 +263,15 @@ async def _tool_get_pets_status(db, user_id: int, chat_id: int) -> dict:
             "name": p.get("name", "?"),
             "species": p.get("species_id") or p.get("species") or "unknown",
             "rarity": p.get("rarity", "common") or "common",
-            "historic_level": p.get("pet_level", 1) or 1,
-            "status": "владение сохранено; роль выбирается в Игра → Спутник",
+            "level": p.get("level") or 1,
+            "endurance": p.get("endurance") if p.get("endurance") is not None else 100,
         }
 
     infos = [_pet_info(p) for p in pets]
     return {
         "has_pets": True,
         "total": len(infos),
-        "next_step": "открыть Игра → Спутник",
+        "next_step": "открыть раздел питомцев в Mini App",
         "pets": infos,
     }
 

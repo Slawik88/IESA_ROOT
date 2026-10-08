@@ -451,7 +451,6 @@ async def build_profile_text(
     from infrastructure.repositories import dark_mora as dark_mora_repo
     from infrastructure.repositories import chat as chat_repo
     from infrastructure.repositories import users as users_repo
-    from infrastructure.repositories import zoo as zoo_db
     from infrastructure.repositories import marriages as marriage_repo
     from infrastructure.repositories import achievements as ach_repo
     from infrastructure.repositories.streak import get_streak
@@ -466,10 +465,10 @@ async def build_profile_text(
     stats          = await chat_repo.get_chat_stats(db, user_id, chat_id)
     global_rank_id = await users_repo.get_global_rank(db, user_id)
     first_seen_raw = await users_repo.get_first_seen(db, user_id)
-    nursery_pets   = await zoo_db.get_user_pets(db, user_id, placement="nursery")
+    nursery_pets: list = []  # питомник удалён; питомцы v1 живут в Mini App
     streak_row     = await get_streak(db, user_id, chat_id)
     marriage       = await marriage_repo.get_user_marriage(db, user_id)
-    hamster_inc    = await zoo_db.get_pending_hamster_income(db, user_id)
+    hamster_inc    = 0
     ach_count      = await ach_repo.get_user_achievements_count(db, user_id)
     is_vip         = await is_vip_active(db, user_id)
     account        = await users_repo.get_account_progress(db, user_id)
