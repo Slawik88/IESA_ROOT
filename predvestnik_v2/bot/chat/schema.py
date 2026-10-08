@@ -52,6 +52,8 @@ async def ensure_chat_schema() -> None:
         db = PGAdapter(conn)
         for sql in STATEMENTS:
             await db.execute(sql)
+        from infrastructure.repositories import mafia_v1
+        await mafia_v1.ensure_tables(db)   # ворота сообщений Мафии читают их в каждом сообщении
         from bot.chat.family import ensure_family_schema
         try:
             await ensure_family_schema(db)

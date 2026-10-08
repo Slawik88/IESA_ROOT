@@ -17,6 +17,7 @@ from bot.handlers import main_router
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
+    mafia_phase_task,
     maintenance_task,
     player_exchange_match_task,
 )
@@ -264,6 +265,7 @@ async def main():
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
+            _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
         polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")

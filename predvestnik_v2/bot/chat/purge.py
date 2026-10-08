@@ -266,6 +266,8 @@ async def cmd_purge(ctx: Ctx) -> None:
         "ON CONFLICT (chat_id) DO UPDATE SET is_purging = TRUE", (chat.id,))
     await log(ctx.db, chat.id, 0, ctx.user_id, "purge_start", f"норма {plan.norm}")
     await commit(ctx.db)
+    from bot.chat import mafia   # чистка и партия Мафии не делят одни сообщения
+    await mafia.pause_for_purge(ctx.db, ctx.bot, chat.id, getattr(ctx.message, "message_thread_id", None))
     _hush[chat.id] = 0
     await ctx.reply(
         "🧹 <b>Чистка началась</b>\n"

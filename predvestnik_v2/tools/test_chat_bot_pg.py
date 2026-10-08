@@ -518,6 +518,26 @@ async def family_flow(db, bot):
     out, _ = await say("бот брак, @kid_y", 6003, "kid_x")             # ребёнок свободен после развода
     assert "предложение" in out, out
     print("OK: family")
+    await games_flow(db, bot)
+
+
+async def games_flow(db, bot):
+    from bot.chat import mafia
+    await db.execute("INSERT INTO system_flags (key, enabled) VALUES ('game_mafia_v1', 1) "
+                     "ON CONFLICT (key) DO UPDATE SET enabled = 1")
+    m = FakeMessage("бот игры", 1001, "alpha")
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+    await dispatch(registry, m, bot, db)
+    assert "Игры Предвестника" in m.replies[0], m.replies
+    m = FakeMessage("бот мафия", 1001, "alpha")
+    m.message_thread_id = None
+    await dispatch(registry, m, bot, db)
+    assert "права администратора" in m.replies[0], m.replies              # у бота нет прав на удаление
+    m = FakeMessage("обычное сообщение", 1001, "alpha")
+    m.message_thread_id = None
+    assert not await mafia.gate_message(db, bot, m) and not m.deleted     # партии нет — писать можно
+    print("OK: games")
 
 
 asyncio.run(main())

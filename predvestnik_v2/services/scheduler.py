@@ -121,3 +121,30 @@ async def maintenance_task(bot: Bot) -> None:
             logger.error(f"Ошибка в задаче обслуживания: {exc}")
             await asyncio.sleep(30)
         await asyncio.sleep(600)
+
+
+async def mafia_phase_task(bot: Bot) -> None:
+    """Durably close enabled Mafia phases from PostgreSQL deadlines."""
+    logger.info("Mafia phase scheduler started.")
+    while True:
+        await asyncio.sleep(5)
+        try:
+            from bot.chat.mafia import notify_phase_transition, publish_phase
+            from infrastructure.repositories import mafia_v1 as repo
+            from infrastructure.repositories import system_flags
+            from services import mafia_v1 as mafia
+
+            async with get_pool().acquire() as conn:
+                db = PGAdapter(conn)
+                if not await system_flags.is_enabled(db, "game_mafia_v1"):
+                    continue
+                for match_id in await repo.due_match_ids(db):
+                    event = await mafia.advance_due_match(db, match_id=match_id)
+                    if event:
+                        await notify_phase_transition(bot, db, event)
+                for row in await repo.timed_matches(db):
+                    view = await mafia.current_view(db, match_id=int(row["id"]))
+                    if view:
+                        await publish_phase(bot, db, view)
+        except Exception as exc:
+            logger.exception(f"Mafia phase scheduler error: {exc}")
