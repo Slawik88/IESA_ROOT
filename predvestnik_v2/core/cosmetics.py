@@ -1141,8 +1141,15 @@ def cosmetics_by_slot(slot: str) -> dict[str, dict]:
 
 
 def is_vip_locked(cos: dict) -> bool:
-    """Only non-purchasable service entitlements may sleep with inactive VIP."""
-    return bool(cos.get("vip_required")) and not bool(cos.get("price"))
+    """Only non-purchasable service entitlements may sleep with inactive VIP.
+
+    Items of any collection tier (D..SS) never sleep: they are usable without VIP
+    (core/appearance_v3.py); only other players' view of them depends on VIP.
+    """
+    if not cos.get("vip_required") or cos.get("price"):
+        return False
+    rarity = (LINEUPS.get(cos.get("lineup") or "") or {}).get("rarity")
+    return rarity not in ("common", "rare", "epic", "legendary", "mythic", "artifact")
 
 
 # ── Приветственные анимации (вход / прелоадер) ──────────────────────────────────

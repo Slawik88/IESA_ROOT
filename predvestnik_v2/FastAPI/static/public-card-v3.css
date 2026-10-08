@@ -1,0 +1,39 @@
+/* ═══ PUBLIC CARD V3 · публичная карточка игрока ═══
+   .v3-scope растёт до краёв экрана и красится палитрой владельца (только при его VIP, иначе pp-neutral).
+   Сцена героя растворяется сверху и снизу (appearance-stage-v3.css), поэтому под верхней панелью нет жёстких кромок. */
+
+.v3-scope { position: relative; isolation: isolate; margin: calc(-1 * (var(--v3-bar-h) + var(--v3-safe-t) + 14px)) -22px 0; padding: calc(var(--v3-bar-h) + var(--v3-safe-t) + 14px) 22px calc(96px + var(--v3-safe-b)); background: var(--v3-bg); color: var(--v3-ink); overflow-x: clip; }
+.v3-scope::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--v3-wash); }
+.pp-back { margin-left: -4px; }
+.pp-self { margin: 2px 0 0; }
+
+/* герой */
+.pp-hero.v3-id { flex-direction: column; justify-content: center; gap: 0; padding: 22px 0 12px; text-align: center; }
+.pp-ring { margin: 20px 0 30px; transform: scale(1.22); }
+.pp-name { max-width: 100%; font-size: 28px; }
+.pp-title-row { margin-top: 10px; }
+.pp-hero .v3-sub { margin-top: 8px; }
+.pp-hero .v3-seal { margin: 12px auto 0; }
+.pp-xp { color: var(--v3-dim); }
+.pp-presence { display: inline-flex; align-items: center; gap: 7px; margin-top: 8px; color: var(--v3-dim); font-size: 12.5px; }
+.pp-presence i { width: 7px; height: 7px; border-radius: 50%; background: var(--v3-track); }
+.pp-change { min-height: 32px; margin-left: 4px; padding: 0 6px; color: var(--v3-acc); font-size: 12.5px; }
+.pp-presence.is-online { color: var(--v3-ok); } .pp-presence.is-online i { background: var(--v3-ok); box-shadow: 0 0 8px var(--v3-ok); }
+
+/* игры: три колонки без карточек */
+.pp-games { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; align-items: start; text-align: center; }
+.pp-game { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.pp-big { display: grid; place-items: center; min-height: 76px; font: var(--v3-w-num) 26px var(--v3-font); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.pp-gl { font-size: 13px; font-weight: 600; } .pp-game small { color: var(--v3-dim); font-size: 11.5px; line-height: 1.3; }
+
+/* питомец и образ */
+.pp-pet { padding: 6px 0 10px; } .pp-pet b { display: block; font-size: 16px; font-weight: 600; } .pp-pet small { color: var(--v3-dim); font-size: 12.5px; }
+.pp-look { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.pp-look > span:nth-child(2), .pp-look--hidden > span { flex: 1; min-width: 0; }
+.pp-look b { display: block; font-size: 16px; font-weight: 600; } .pp-look small { display: flex; align-items: center; margin-top: 2px; color: var(--v3-dim); font-size: 12.5px; }
+.pp-look .v3-pill { min-height: 38px; padding: 0 16px; font-size: 14px; }
+.v3-lock { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; color: var(--v3-dim); font-size: 13px; }
+.v3-lock svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+.v3-tier { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.6 var(--v3-font); letter-spacing: .06em; }
+.v3-rowbtn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: opacity .15s; }
+.v3-rowbtn:active { opacity: .55; }

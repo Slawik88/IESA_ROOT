@@ -200,9 +200,10 @@ class UserProfileEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Подсказки браузеру/мобильной клавиатуре: нужная раскладка (tel/numeric) и автозаполнение
         hints = {
-            'first_name': {'autocomplete': 'given-name'},
-            'last_name': {'autocomplete': 'family-name'},
-            'phone_number': {'inputmode': 'tel', 'autocomplete': 'tel'},
+            'first_name': {'class': 'form-control', 'autocomplete': 'given-name'},
+            'last_name': {'class': 'form-control', 'autocomplete': 'family-name'},
+            'phone_number': {'class': 'form-control', 'inputmode': 'tel', 'autocomplete': 'tel'},
+            'is_phone_hidden': {'class': 'form-check-input'},
             'date_of_birth': {'inputmode': 'numeric', 'autocomplete': 'bday'},
             'github_url': {'autocomplete': 'url'},
             'website_url': {'autocomplete': 'url'},

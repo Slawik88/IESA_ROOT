@@ -92,6 +92,8 @@ async def require_tg_user_base(
     if not _SITE_OPEN and not (_DEV_ID and int(user["id"]) == _DEV_ID):
         raise HTTPException(status_code=503, detail="Сайт временно закрыт: идёт переработка. Скоро вернёмся.")
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
+    from services import presence_v1
+    _fire_and_forget(presence_v1.note_activity(int(user["id"])))   # «был(а) в сети»: одна запись в минуту
     return user
 
 

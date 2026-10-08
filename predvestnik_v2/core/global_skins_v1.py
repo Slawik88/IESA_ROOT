@@ -4,10 +4,14 @@ from __future__ import annotations
 VERSION = "global-skins-v1-2026-09-09"
 DEFAULT_SKIN_ID = "default"
 
+# Skin tier = ceiling for visual effects (see docs/SKINS_V3.md). Visual only: never changes rules or prices.
+TIERS = ("D", "C", "B", "A", "S", "SS", "SSS")
+
 SKINS = {
     DEFAULT_SKIN_ID: {
         "name": "Базовый Предвестник",
         "description": "Стандартная спокойная палитра приложения.",
+        "tier": "D",
         "css_class": "",
         "asset": None,
         "lineup": None,
@@ -17,6 +21,7 @@ SKINS = {
     "lunar_archive": {
         "name": "Лунный архив",
         "description": "Ночная индиго-палитра с тихой картой небес.",
+        "tier": "B",
         "css_class": "skin-lunar-archive",
         "asset": "static/skins/lunar-archive-v1.webp",
         "lineup": "moon_lotus",
@@ -26,6 +31,7 @@ SKINS = {
     "void_atlas": {
         "name": "Атлас Бездны",
         "description": "Космическая карта с планетами и тонкими орбитами на всём фоне приложения.",
+        "tier": "A",
         "css_class": "skin-void-atlas",
         "asset": "static/skins/void-atlas-v1.webp",
         "lineup": "void",

@@ -1,23 +1,25 @@
-{% extends "users/password_reset_base.html" %}
+{% extends "users/auth_shell.html" %}
 {% load i18n %}
 {% block title %}{% trans "One more step" %} | IESA{% endblock %}
-{% block pr_body %}
-<div class="pr-icon"><i class="fas fa-user-check" aria-hidden="true"></i></div>
-<h1 class="pr-title">{% trans "One more step" %}</h1>
-<p class="pr-text">{% blocktrans with provider=account.get_provider.name %}{{ provider }} did not share an e-mail address with us. Enter yours to finish creating your IESA account.{% endblocktrans %}</p>
+{% block au_main %}
+<div class="au-head">
+    <div class="au-icon"><i class="fas fa-user-check" aria-hidden="true"></i></div>
+    <h1 class="au-title">{% trans "One more step" %}</h1>
+</div>
+<p class="au-lead">{% blocktrans with provider=account.get_provider.name %}{{ provider }} did not share an e-mail address with us. Enter yours to finish creating your IESA account.{% endblocktrans %}</p>
 <form method="post" action="{% url 'socialaccount_signup' %}" novalidate>
     {% csrf_token %}
     {{ redirect_field }}
-    {% if form.non_field_errors %}<div class="pr-alert" role="alert">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>{% endif %}
+    {% if form.non_field_errors %}<div class="au-alert" role="alert">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>{% endif %}
     {% for field in form.visible_fields %}
-    <div class="pr-field">
+    <div class="au-field">
         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-        <div class="pr-wrap">{{ field }}</div>
-        {% for err in field.errors %}<div class="pr-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
+        {{ field }}
+        {% for err in field.errors %}<div class="au-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
     </div>
     {% endfor %}
     {% for field in form.hidden_fields %}{{ field }}{% endfor %}
-    <p class="pr-hint" style="margin-bottom:1.1rem;">{% trans "By continuing you agree to become a member of IESA Sport. The privacy policy is still being prepared — we will notify every member as soon as it is published." %} <a href="{% url 'core:privacy' %}" style="color:#f87171;">{% trans "Details" %}</a></p>
-    <button type="submit" class="pr-btn">{% trans "Create my account" %}</button>
+    <p class="au-note">{% trans "By continuing you agree to become a member of IESA Sport. The privacy policy is still being prepared — we will notify every member as soon as it is published." %} <a href="{% url 'core:privacy' %}" style="color:var(--primary-text);">{% trans "Details" %}</a></p>
+    <button type="submit" class="au-btn">{% trans "Create my account" %}</button>
 </form>
 {% endblock %}

@@ -1,0 +1,6 @@
+{% comment %}Bulletproof button: a table cell with a background carries the colour, so it still renders as a button when the client strips CSS. Needs: url, label. Optional: base (prefix for a relative url), color (default red).{% endcomment %}<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:6px 0 4px;"><tr>
+  <td align="center" bgcolor="{{ color|default:'#dc2626' }}" style="border-radius:12px;background:{{ color|default:'#dc2626' }};">
+    <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ base }}{{ url }}" style="height:52px;v-text-anchor:middle;width:520px;" arcsize="23%" stroke="f" fillcolor="{{ color|default:'#dc2626' }}"><center style="color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:bold;">{{ label }}</center></v:roundrect><![endif]-->
+    <!--[if !mso]><!--><a href="{{ base }}{{ url }}" target="_blank" style="display:block;padding:16px 24px;border-radius:12px;font-size:16px;font-weight:800;letter-spacing:.01em;line-height:1.2;color:#ffffff;text-decoration:none;text-align:center;">{{ label }}</a><!--<![endif]-->
+  </td>
+</tr></table>

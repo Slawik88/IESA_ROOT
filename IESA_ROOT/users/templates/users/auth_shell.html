@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n static %}
+{% comment %}
+Shared frame for every public account page (login, register, password reset, invite).
+Split-screen card on desktop, flat full-bleed form on phones. Styles: static/css/auth-shell.css.
+
+Blocks:
+  au_side  — brand panel (desktop only). Defaults to the "Members Portal" text.
+  au_main  — the form side. Start with .au-eyebrow / .au-title / .au-lead, then .au-field rows.
+  au_css / au_js — page extras.
+Forms marked data-au-once get their submit button locked after the first tap (see auth-shell.js).
+{% endcomment %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/auth-shell.css' %}">
+{% block au_css %}{% endblock %}
+{% endblock %}
+
+{% block container_wrap_start %}{% endblock %}
+{% block container_wrap_end %}{% endblock %}
+{% block pwa_install_prompt %}{% endblock %}
+{% block mobile_bottom_navigation %}{% endblock %}
+
+{% block content %}
+<div class="au-page">
+    <div class="au-orb au-orb-1" aria-hidden="true"></div>
+    <div class="au-orb au-orb-2" aria-hidden="true"></div>
+
+    <div class="au-card">
+        <aside class="au-side">
+            <a href="{% url 'core:home' %}" class="au-logo al-logo">
+                <img src="{% static 'img/logo.png' %}" alt="IESA" width="36" height="36">
+                <span>IESA</span>
+            </a>
+            {% block au_side %}
+            <div class="au-side-body">
+                <div class="au-badge"><i class="fas fa-bolt" aria-hidden="true"></i>{% trans "Members Portal" %}</div>
+                <h2 class="au-h">{% blocktrans %}Welcome<br><span>Back</span>{% endblocktrans %}</h2>
+                <p class="au-side-desc">{% trans "Sign in and connect with the IESA community — posts, events, benefits and more." %}</p>
+                <ul class="au-perks">
+                    <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-id-card" aria-hidden="true"></i></div>{% trans "Digital card & PIN code" %}</li>
+                    <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-newspaper" aria-hidden="true"></i></div>{% trans "Posts, feed & community" %}</li>
+                    <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-calendar-alt" aria-hidden="true"></i></div>{% trans "Events, RSVPs & benefits" %}</li>
+                </ul>
+            </div>
+            <div class="au-stats">
+                <div><div class="au-stat-val">IESA</div><div class="au-stat-lbl">{% trans "Platform" %}</div></div>
+                <div><div class="au-stat-val">24/7</div><div class="au-stat-lbl">{% trans "Access" %}</div></div>
+                <div><div class="au-stat-val">100%</div><div class="au-stat-lbl">{% trans "Secure" %}</div></div>
+            </div>
+            {% endblock %}
+        </aside>
+
+        <section class="au-main">
+            {% block au_main %}{% endblock %}
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/auth-shell.js' %}" defer></script>
+{% block au_js %}{% endblock %}
+{% endblock %}

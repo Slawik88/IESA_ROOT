@@ -1,0 +1,16 @@
+{% extends "users/email/_layout.html" %}{% load i18n %}
+{% block title %}{% trans "Visit cancelled" %}{% endblock %}
+{% block preheader %}{{ partner }} · {{ when }}{% endblock %}
+{% block badge %}&#10005;{% endblock %}
+{% block heading %}{% trans "Visit cancelled" %}{% endblock %}
+{% block intro %}{% blocktrans %}Hello {{ name }}. Your visit at {{ partner }} (originally logged on {{ when }}) has been cancelled.{% endblocktrans %}{% endblock %}
+{% block body %}
+<tr><td class="px" style="padding:20px 40px 0;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    {% trans "Service" as k1 %}{% include "users/email/_row.html" with k=k1 v=service %}
+    {% trans "Cost" as k2 %}{% include "users/email/_row.html" with k=k2 v=cost %}
+    {% trans "Reason" as k3 %}{% include "users/email/_row.html" with k=k3 v=reason %}
+  </table>
+</td></tr>
+{% endblock %}
+{% block after %}<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">{% trans "If you believe this is an error, please contact the partner." %}</p>{% endblock %}

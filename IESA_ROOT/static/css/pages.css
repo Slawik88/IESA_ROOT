@@ -94,251 +94,7 @@ mark {
   min-height: 100vh;
 }
 
-/* Profile Edit Page */
-.profile-edit-page {
-  background: var(--gradient-page);
-  padding: 20px 0;
-}
-
-.profile-edit-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-dark);
-  border-radius: 16px;
-  box-shadow: var(--shadow-card-lg);
-  padding: 30px;
-  transition: var(--transition-smooth);
-  transition-property: var(--transition-props);
-}
-
-/* Большой контейнер с формой не должен «подпрыгивать» под курсором */
-.profile-edit-card:hover {
-  box-shadow: var(--shadow-card-lg);
-}
-
-.edit-card-header {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  margin-bottom: 25px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border-dark);
-}
-
-.edit-header-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-  color: #fff;
-  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
-  font-size: 24px;
-}
-
-.edit-title {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.3px;
-}
-
-.edit-subtitle {
-  margin: 4px 0 0;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.edit-form .form-label {
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.edit-form .form-label i {
-  color: var(--primary-text);
-}
-
-.edit-form input[type="text"],
-.edit-form input[type="email"],
-.edit-form input[type="date"],
-.edit-form input[type="tel"],
-.edit-form input[type="url"],
-.edit-form textarea,
-.edit-form select {
-  border: 1.5px solid var(--border-color) !important;
-  border-radius: 10px !important;
-  padding: 10px 12px !important;
-  font-size: 0.9rem !important;
-  transition: var(--transition-fast) !important;
-  transition-property: var(--transition-props) !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  color: var(--text-primary) !important;
-}
-
-.edit-form input[type="text"]:focus,
-.edit-form input[type="email"]:focus,
-.edit-form input[type="date"]:focus,
-.edit-form input[type="tel"]:focus,
-.edit-form input[type="url"]:focus,
-.edit-form textarea:focus,
-.edit-form select:focus {
-  border-color: rgba(220, 38, 38, 0.5) !important;
-  background: rgba(255, 255, 255, 0.09) !important;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
-  outline: none !important;
-}
-
-.card-section {
-  border: 1px solid var(--border-dark);
-  border-radius: 12px;
-  padding: 20px;
-  background: var(--gray-50);
-  margin-bottom: 20px;
-  transition: var(--transition-smooth);
-  transition-property: var(--transition-props);
-}
-
-.card-section:hover {
-  background: var(--gray-100);
-  border-color: var(--border-dark-hover);
-}
-
-.section-heading {
-  font-weight: 700;
-  color: var(--primary-text);
-  margin-bottom: 15px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.1rem;
-  letter-spacing: -0.3px;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  padding-top: 20px;
-  margin-top: 20px;
-  border-top: 2px solid #fecaca;
-}
-
-.edit-actions .btn {
-  padding: 10px 24px;
-  font-weight: 600;
-  border-radius: 8px;
-  transition: var(--transition-smooth);
-  transition-property: var(--transition-props);
-}
-
-.edit-actions .btn-primary {
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
-}
-
-.edit-actions .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(220, 38, 38, 0.3);
-}
-
-.edit-actions .btn-outline-secondary {
-  border: 2px solid #fecaca;
-  color: #2d3748;
-  background: transparent;
-}
-
-.edit-actions .btn-outline-secondary:hover {
-  background: #fef2f2;
-  border-color: #dc2626;
-  color: #dc2626;
-}
-
-/* Form validation styling */
-.form-text {
-  font-size: 0.85rem;
-  color: #6b7280;
-  margin-top: 6px;
-  display: block;
-}
-
-.invalid-feedback {
-  color: #ef4444;
-  font-size: 0.85rem;
-  margin-top: 6px;
-  display: block;
-}
-
-/* Checkbox styling */
-.form-check {
-  padding: 8px 0;
-}
-
-.form-check input[type="checkbox"] {
-  border: 2px solid #fecaca;
-  border-radius: 4px;
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.form-check input[type="checkbox"]:checked {
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-  border-color: #dc2626;
-}
-
-.form-check-label {
-  font-weight: 500;
-  color: #2d3748;
-  cursor: pointer;
-  margin-left: 8px;
-}
-
-/* Avatar preview — scoped to profile-edit form only (prevents overriding global .avatar-sm system) */
-.edit-form .avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 3px solid rgba(220,38,38,.4);
-  object-fit: cover;
-  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
-}
-
-.edit-form .avatar-lg {
-  width: 120px;
-  height: 120px;
-}
-
-.avatar-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
-  color: white;
-  font-weight: 700;
-  font-size: 2rem;
-}
-
-@media (max-width: 576px) {
-  .profile-edit-card { 
-    padding: 20px; 
-  }
-  .edit-card-header { 
-    flex-wrap: wrap; 
-  }
-  .edit-actions { 
-    flex-direction: column;
-  }
-  .edit-actions .btn {
-    width: 100%;
-    text-align: center;
-  }
-}
+/* Profile Edit Page: static/css/profile-edit.css */
 
 /* Profile Header Card */
 .profile-header {
@@ -2282,12 +2038,7 @@ mark {
   font-size: .85rem;
 }
 
-/* ── Mobile ── */
-@media (max-width: 575.98px) {
-  .pc-layout { flex-direction: column; min-height: auto; }
-  .pc-thumb   { width: 100% !important; height: 160px; }
-  .pc-thumb--empty { width: 100%; height: 80px; }
-}
+/* ── Mobile: see "MOBILE PAGES" at the end of this file ── */
 
 /* ====================================================
    COMMENTS SECTION (.cm-*) — Б1-07/08: extracted from HTMX partial
@@ -3449,4 +3200,92 @@ html.js .iesa-article:not(.article-visible) {
   .edit-form input[type="url"],
   .edit-form textarea,
   .edit-form select { font-size: 1rem !important; }
+}
+
+/* ====================================================
+   MOBILE PAGES (UI audit 2026-10, stage 3) — the section pages (Community, Events, Benefits, Gallery …)
+   on phones: compact left-aligned hero, flat list rows instead of boxed cards, no decorative timeline.
+   ==================================================== */
+@media (max-width: 767.98px) {
+  /* hero: a title bar, not a poster */
+  .page-hero { padding: 1rem 0 .85rem; text-align: left; }
+  .page-hero::before { background: radial-gradient(ellipse 90% 100% at 0% 0%, rgba(220, 38, 38, .16) 0%, transparent 70%); }
+  .page-hero > .container { padding-inline: var(--flow-gutter); max-width: none; }
+  .page-hero .hp-label { width: auto !important; margin: 0 0 .4rem !important; justify-content: flex-start; font-size: .68rem; }
+  .page-hero .hp-label::after { display: none; }
+  .page-hero .hp-h2 { margin: 0 !important; font-size: clamp(1.45rem, 6.8vw, 1.85rem) !important; line-height: 1.12; text-align: left !important; }
+  .page-hero .hp-sub { max-width: none !important; margin: .35rem 0 0 !important; font-size: .88rem; line-height: 1.45; text-align: left !important; }
+  .ben-stats { justify-content: flex-start; gap: 1.5rem; margin-top: .85rem; }
+  .ben-stat { text-align: left; }
+  .ben-stat-num { font-size: 1.4rem; }
+
+  /* sign-in notices: a strip, not a card */
+  .pl-auth-notice, .ev-auth-notice { margin: .75rem calc(var(--flow-gutter) * -1) 1rem !important; padding: .8rem var(--flow-gutter) !important; border-width: 1px 0 !important; border-radius: 0 !important; }
+
+  /* community posts: flat rows with a small thumbnail */
+  .iesa-post-card { background: none; border: 0; border-top: 1px solid var(--border-faint); border-radius: 0; box-shadow: none; margin: 0 !important; }
+  .iesa-post-card:hover { transform: none; box-shadow: none; border-color: var(--border-faint); }
+  .pc-layout { flex-direction: row; min-height: 0; gap: .8rem; padding: .85rem 0; }
+  .pc-thumb { width: 88px !important; height: 88px; min-height: 0; border-radius: 12px; align-self: flex-start; }
+  .pc-thumb--empty { display: none; }
+  .pc-body { padding: 0; justify-content: flex-start; }
+  .pc-badge--published { display: none; }
+  .pc-badges { margin-bottom: .25rem; }
+  .pc-badges:empty { display: none; }
+  .pc-title { font-size: 1rem; margin-bottom: .25rem; }
+  .pc-excerpt { font-size: .84rem; margin-bottom: .4rem; }
+  .pc-stats { font-size: .75rem; }
+  #posts-container > .iesa-post-card:first-child { border-top: 0; }
+
+  /* community feed (.iesa-article): thumbnail left, text right, whole row is the link */
+  #posts-container .row { --bs-gutter-x: 0; --bs-gutter-y: 0; }
+  .iesa-article, .iesa-article--featured {
+    display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); column-gap: .85rem; row-gap: .3rem; align-items: start;
+    height: auto; padding: .9rem 0; background: none; border: 0; border-top: 1px solid var(--border-faint); border-radius: 0; box-shadow: none;
+  }
+  .iesa-article:hover, .iesa-article.article-visible:hover { transform: none; box-shadow: none; border-color: var(--border-faint); }
+  .iesa-article > .art-img-wrap { grid-column: 1; grid-row: 1 / span 2; width: 5.5rem; height: 5.5rem; aspect-ratio: 1; border-radius: .8rem; }
+  .iesa-article > .art-body { grid-column: 2; grid-row: 1; padding: 0; }
+  .iesa-article > .art-footer { grid-column: 2; grid-row: 2; padding: 0; border: 0; background: none; }
+  .iesa-article > .art-no-image { display: none; }
+  .iesa-article:has(> .art-no-image) { grid-template-columns: minmax(0, 1fr); }
+  .iesa-article:has(> .art-no-image) > .art-body, .iesa-article:has(> .art-no-image) > .art-footer { grid-column: 1; }
+  .iesa-article::after { display: none; }
+  .art-progress-wrap, .art-index, .art-read-time, .art-img-overlay { display: none !important; }
+  .art-cat { position: static; display: inline-flex; margin-bottom: .3rem; font-size: .66rem; padding: .15rem .5rem; }
+  .art-img-wrap .art-cat { display: none; }          /* the thumbnail stays clean; the star badge shows only on image-less rows */
+  .art-title, .iesa-article--featured .art-title { font-size: 1rem; line-height: 1.3; margin-bottom: .25rem; }
+  .art-excerpt, .iesa-article--featured .art-excerpt { font-size: .83rem; line-height: 1.45; -webkit-line-clamp: 2; margin-bottom: .35rem; }
+  .art-meta { font-size: .74rem; gap: .75rem; margin: 0; }
+  .art-footer { align-items: center; }
+  .art-btn { position: static; padding: .3rem .75rem; min-height: 0; font-size: .78rem; }
+  .art-btn::after { content: ''; position: absolute; inset: 0; z-index: 1; }   /* stretch the link over the card */
+
+  /* events: no timeline furniture, a compact card with date chip, title, meta and two buttons */
+  .tl-item { margin-bottom: .75rem; }
+  .tl-item .tl-inner { display: block; }
+  .tl-item .tl-conn { display: none; }
+  .tl-item .tl-card { border-radius: 1rem; }
+  .tl-item .tl-card-inner { padding: .85rem; gap: .75rem; }
+  .tl-item .tl-thumb { display: none; }
+  .tl-item .tl-desc, .tl-item .tl-cap-wrap, .tl-item .tl-badge--cap, .tl-item .tl-badge--age { display: none; }
+  .tl-item .tl-badges { margin-bottom: .45rem; }
+  .tl-item .tl-meta { font-size: .78rem; margin-bottom: .35rem; }
+  .tl-item .tl-actions > * { flex: 1 1 0; text-align: center; justify-content: center; min-height: var(--tap-min); display: inline-flex; align-items: center; }
+
+  /* benefits: flat rows */
+  .ben-grid-wrap { padding-top: .5rem !important; }
+  .ben-grid-wrap .row { --bs-gutter-y: 0; --bs-gutter-x: 0; }
+  .ben-grid-wrap .ben-card { background: none; border: 0; border-top: 1px solid var(--border-faint); border-radius: 0; box-shadow: none; transform: none !important; height: auto; }
+  .ben-grid-wrap .ben-card:hover { box-shadow: none; border-color: var(--border-faint); }
+  .ben-grid-wrap .ben-card::after, .ben-grid-wrap .ben-card-top-bar { display: none; }
+  .ben-grid-wrap .ben-card .card-body { padding: .9rem 0 !important; }
+  .ben-grid-wrap .ben-card .mb-3 { margin-bottom: .6rem !important; }
+  .ben-grid-wrap .ben-icon-wrap { width: 40px; height: 40px; border-radius: 11px; font-size: 1rem; }
+  .ben-grid-wrap .ben-card p.text-muted { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: .6rem !important; }
+  .ben-grid-wrap .ben-discount { padding: .35rem .65rem; font-size: .8rem; margin-bottom: .5rem !important; }
+  .ben-grid-wrap .ben-card .border-top { margin-top: .5rem !important; padding-top: .5rem !important; }
+  .ben-grid-wrap .ben-card summary { min-height: var(--tap-min); display: flex; align-items: center; }
+  .ben-cta { padding: 1.5rem 1.1rem; margin: 1.25rem 0; border-radius: 1.1rem; }
+  .ben-cta .hero-btn-p, .ben-cta .hero-btn-g { width: 100%; justify-content: center; }
 }

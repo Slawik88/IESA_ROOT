@@ -310,6 +310,15 @@
 
   /* Минимальная зона нажатия (WCAG 2.5.5 / Apple HIG) */
   --tap-min: 44px;
+
+  /* Flow layout (mobile = monolithic: blocks run edge-to-edge and are split by hairlines, not boxed) */
+  --flow-gutter: 1rem;            /* side padding of a full-bleed mobile section */
+  --flow-gap: 1rem;               /* vertical padding of a section on phones */
+  --field-gap: .75rem;            /* pitch between two form rows (compact forms) */
+  --label-gap: .25rem;            /* label -> field */
+  --field-h: 48px;                /* input height: 44px target + 16px text */
+  --bottom-nav-h: calc(60px + env(safe-area-inset-bottom));  /* .mobile-bottom-nav */
+  --bar-h: 64px;                  /* sticky .action-bar */
   
   /* ====================================================
      8. Z-INDEX

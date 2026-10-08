@@ -30,3 +30,16 @@ class PublicShellRegressionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<h1 class="map-hero-title">', html=False)
+
+
+class HtmlStartsCleanTests(TestCase):
+    """A stray BOM (U+FEFF) in a template leaks into the response before <!DOCTYPE>: browsers then switch to
+    quirks mode and move <head> into <body> (the homepage did exactly that)."""
+
+    def test_public_pages_start_with_the_doctype(self):
+        for name in ('core:home', 'users:login', 'users:register', 'users:password_reset', 'core:benefits'):
+            response = self.client.get(reverse(name))
+            self.assertEqual(response.status_code, 200, name)
+            head = response.content[:200]
+            self.assertTrue(head.lstrip().lower().startswith(b'<!doctype html'), (name, head[:40]))
+            self.assertNotIn(bytes([0xEF, 0xBB, 0xBF]), head, name)

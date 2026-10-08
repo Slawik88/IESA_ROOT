@@ -1,431 +1,182 @@
-{% extends "base.html" %}
-{% load i18n static %}
+{% extends "users/auth_shell.html" %}
+{% load i18n %}
 
 {% block title %}{% trans "Register" %} | IESA{% endblock %}
 {% block meta_description %}{% trans "Join IESA — Switzerland extreme sports community. Free membership in 1 minute: digital card, PIN code, partner discounts, events." %}{% endblock %}
 
-{% block extra_css %}
-<style>
-/* ── Page ───────────────────────────────────────── */
-.reg-page {
-    min-height:100vh; background:#07070e;
-    display:flex; align-items:center; justify-content:center;
-    padding:2rem 1rem; position:relative; overflow:hidden;
-}
-.reg-orb { position:absolute; border-radius:50%; filter:blur(120px); pointer-events:none; animation:rOrb 9s ease-in-out infinite; }
-.reg-orb-1 { width:500px;height:500px; background:radial-gradient(circle,rgba(220,38,38,.2) 0%,transparent 70%); top:-20%;right:-10%; }
-.reg-orb-2 { width:380px;height:380px; background:radial-gradient(circle,rgba(220,38,38,.12) 0%,transparent 70%); bottom:-15%;left:-8%; animation-delay:4s; }
-@keyframes rOrb { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-25px)} }
-.reg-page::before {
-    content:''; position:absolute; inset:0;
-    background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
-    background-size:52px 52px; pointer-events:none;
-}
-
-/* ── Wrapper ────────────────────────────────────── */
-.reg-wrap { position:relative;z-index:2; width:100%; max-width:900px; }
-
-/* ── Top branding strip ─────────────────────────── */
-.reg-top {
-    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
-    margin-bottom:2rem;
-}
-.reg-logo { display:flex; align-items:center; gap:.7rem; text-decoration:none; }
-.reg-logo img { height:34px; } /* filter + mix-blend-mode → dark-theme-fixes.css (audit v3 #1) */
-.reg-logo span { font-size:1rem; font-weight:900; color:#fff; letter-spacing:.04em; }
-.reg-tag {
-    display:flex; align-items:center; gap:.45rem;
-    background:rgba(220,38,38,.13); color:#ef4444; border:1px solid rgba(220,38,38,.28);
-    border-radius:50px; padding:.28rem .85rem;
-    font-size:.67rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; font-family:'Courier New',monospace;
-}
-
-/* ── Card ───────────────────────────────────────── */
-.reg-card {
-    background:rgba(255,255,255,.025);
-    border:1px solid rgba(255,255,255,.07);
-    border-radius:24px; overflow:hidden;
-    box-shadow:0 0 0 1px rgba(220,38,38,.09), 0 40px 90px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.05);
-    border-top:2px solid rgba(220,38,38,.5);
-}
-.reg-card-head {
-    padding:2.5rem 3rem 0;
-}
-.reg-eyebrow {
-    display:flex; align-items:center; gap:.6rem;
-    font-size:.75rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
-    color:#f87171; margin-bottom:1rem;
-}
-.reg-eyebrow::before,.reg-eyebrow::after { content:''; flex:0 0 28px; height:1px; background:rgba(220,38,38,.35); }
-.reg-title { font-size:1.9rem; font-weight:900; color:#fff; margin-bottom:.3rem; letter-spacing:-.02em; }
-.reg-desc  { color:rgba(255,255,255,.78); font-size:1rem; line-height:1.55; margin-bottom:1.5rem; }
-
-/* ── Steps bar ──────────────────────────────────── */
-.reg-steps {
-    display:flex; align-items:center; gap:0; margin-bottom:2.5rem;
-    background:rgba(255,255,255,.03); border-radius:50px; padding:.35rem;
-    width:fit-content;
-}
-.reg-step {
-    padding:.4rem .9rem; border-radius:50px; font-size:.78rem; font-weight:700; letter-spacing:.04em;
-    color:rgba(255,255,255,.6); transition:all .2s;
-    display:flex; align-items:center; gap:.4rem;
-}
-.reg-step.active { background:rgba(220,38,38,.22); color:#fecaca; }
-.reg-step.done   { color:#4ade80; }
-.reg-step-num { width:20px;height:20px; border-radius:50%; background:rgba(255,255,255,.14); display:flex;align-items:center;justify-content:center; font-size:.72rem; }
-.reg-step.active .reg-step-num { background:rgba(220,38,38,.3); }
-.reg-step.done .reg-step-num   { background:rgba(34,197,94,.25); }
-
-/* ── Step panels ─────────────────────────────────── */
-.reg-step-panel { display:none; }
-.reg-step-panel.active { display:block; }
-.reg-step-panel.active-anim { animation:step-fade-in .3s cubic-bezier(.22,1,.36,1) both; }
-@keyframes step-fade-in { from{opacity:0;transform:translateX(12px)} to{opacity:1;transform:none} }
-.reg-step-nav { display:flex; gap:.75rem; margin-top:1.5rem; }
-.reg-btn-back {
-    background:rgba(255,255,255,.05); border:1.5px solid rgba(255,255,255,.1);
-    color:rgba(255,255,255,.8); border-radius:10px; padding:.7rem 1.25rem; min-height:48px;
-    font-size:1rem; font-weight:600; cursor:pointer; transition:all .18s;
-}
-.reg-btn-back:hover { background:rgba(255,255,255,.1); color:#fff; }
-.reg-btn-next {
-    flex:1; background:rgba(220,38,38,.32); border:1.5px solid rgba(248,113,113,.55);
-    color:#fecaca; border-radius:10px; padding:.7rem 1.25rem; min-height:48px;
-    font-size:1rem; font-weight:700; cursor:pointer; transition:all .18s;
-}
-.reg-btn-next:hover { background:rgba(220,38,38,.28); color:#fca5a5; }
-
-/* ── Step 3 review ───────────────────────────────── */
-.reg-review { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:1.5rem; margin-bottom:1.5rem; }
-.reg-review-row { display:flex; align-items:center; gap:.75rem; padding:.55rem 0; border-bottom:1px solid rgba(255,255,255,.05); }
-.reg-review-row:last-child { border-bottom:none; }
-.reg-review-label { font-size:.8rem; font-weight:600; color:rgba(255,255,255,.6); width:90px; flex-shrink:0; }
-.reg-review-val { font-size:1rem; color:#fff; word-break:break-all; }
-
-/* ── Form grid ──────────────────────────────────── */
-.reg-body { padding:0 3rem 3rem; }
-.reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem 1.8rem; }
-.reg-full { grid-column:1/-1; }
-
-/* ── Field ──────────────────────────────────────── */
-.rf { }
-.rf label { display:block; font-size:.9rem; font-weight:600; color:rgba(255,255,255,.88); margin-bottom:.45rem; }
-.rf-wrap { position:relative; }
-.rf-ic { position:absolute; left:.9rem; top:50%; transform:translateY(-50%); color:rgba(255,255,255,.45); font-size:.82rem; pointer-events:none; transition:color .2s; }
-.rf-wrap input,.rf-wrap select {
-    width:100%; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.09);
-    border-radius:10px; padding:.72rem 1rem .72rem 2.6rem; min-height:48px;
-    color:#fff; font-size:16px; /* 16px: iOS Safari zooms the page into smaller fields */
-    transition:border-color .2s,box-shadow .2s,background .2s; outline:none; -webkit-appearance:none;
-}
-.rf-wrap input:focus,.rf-wrap select:focus { border-color:rgba(220,38,38,.55); background:rgba(255,255,255,.06); box-shadow:0 0 0 3px rgba(220,38,38,.10); }
-.rf-wrap input.inv { border-color:rgba(239,68,68,.45); box-shadow:0 0 0 3px rgba(239,68,68,.08); }
-.rf-wrap input::placeholder { color:rgba(255,255,255,.4); }
-.rf-wrap input:-webkit-autofill,.rf-wrap input:-webkit-autofill:hover,.rf-wrap input:-webkit-autofill:focus,.rf-wrap input:-webkit-autofill:active { -webkit-box-shadow:0 0 0 1000px #12111c inset !important; -webkit-text-fill-color:#fff !important; caret-color:#fff; }
-
-/* 3a: Password criteria chips */
-.pw-crit { font-size:.85rem; color:rgba(255,255,255,.65); display:flex; align-items:center; gap:.3rem; transition:color .2s; padding:.15rem 0; }
-.pw-crit.met { color:#4ade80; }
-.pw-crit.met i { color:#4ade80; }
-/* 3a: Live check status icons */
-.lv-ok  { color:#4ade80; }
-.lv-err { color:#f87171; }
-.lv-loading { color:rgba(255,255,255,.3); font-size:.7rem; }
-/* BLOCK 2 (audit v3): локальный override-блок удалён — все правила теперь в dark-theme-fixes.css */
-.rf-pw-btn { position:absolute; right:.2rem; top:50%; transform:translateY(-50%); width:44px; height:44px; background:none; border:none; color:rgba(255,255,255,.6); cursor:pointer; font-size:.95rem; transition:color .2s; line-height:1; }
-.rf-pw-btn:hover { color:rgba(255,255,255,.9); }
-.rf-wrap input.has-pw { padding-right:3.2rem; }
-.rf-hint { color:rgba(255,255,255,.7); font-size:.85rem; margin-top:.35rem; line-height:1.45; }
-.rf-err  { color:#fca5a5; font-size:.88rem; margin-top:.35rem; display:flex; align-items:flex-start; gap:.3rem; flex-wrap:wrap; }
-
-/* server / client alert box */
-.reg-alert { background:rgba(220,38,38,.12); border:1px solid rgba(220,38,38,.4); border-radius:12px; padding:.8rem 1rem; color:#fecaca; font-size:.95rem; line-height:1.5; margin-bottom:1.25rem; }
-.reg-alert ul { margin:.3rem 0 0; padding-left:1.1rem; }
-.reg-alert[hidden] { display:none; }
-
-/* ── Submit ─────────────────────────────────────── */
-.reg-actions { display:flex; flex-direction:column; gap:1rem; margin-top:2rem; }
-.reg-submit {
-    width:100%; background:linear-gradient(135deg,#dc2626,#b91c1c);
-    border:none; border-radius:10px; padding:.9rem 1.5rem; min-height:52px;
-    color:#fff; font-size:1.05rem; font-weight:700; cursor:pointer;
-    transition:transform .15s,box-shadow .2s,filter .2s;
-    display:flex; align-items:center; justify-content:center; gap:.65rem;
-    box-shadow:0 4px 22px rgba(220,38,38,.35); letter-spacing:.02em;
-}
-.reg-submit:hover { filter:brightness(1.1); box-shadow:0 6px 32px rgba(220,38,38,.5); transform:translateY(-1px); }
-.reg-submit:active { transform:translateY(0); }
-.reg-login { text-align:center; color:rgba(255,255,255,.75); font-size:1rem; }
-.reg-login a { color:#ef4444; font-weight:700; text-decoration:none; }
-.reg-login a:hover { color:#f87171; text-decoration:underline; }
-
-/* ── Perks footer strip ─────────────────────────── */
-.reg-footer {
-    background:rgba(220,38,38,.05); border-top:1px solid rgba(220,38,38,.12);
-    padding:1.2rem 3rem; display:flex; gap:2rem; flex-wrap:wrap;
-}
-.reg-fp { display:flex; align-items:center; gap:.55rem; color:rgba(255,255,255,.75); font-size:.85rem; }
-.reg-fp i { color:rgba(220,38,38,.7); }
-
-/* mobile */
-@media(max-width:768px){
-    /* 6a: скрываем декоративные orbs — тяжёлые для GPU */
-    .reg-orb { display: none; }
-}
-@media(max-width:640px){
-    /* 6b: компактные padding-и для регистрации на мобиле */
-    .reg-card-head { padding: 1.25rem 1.25rem 0; }
-    .reg-body { padding: 0 1.25rem 1.5rem; }
-    .reg-grid { grid-template-columns:1fr; }
-    .reg-full { grid-column:1; }
-    .reg-footer { padding:1rem 1.25rem; gap:1rem; display:grid; grid-template-columns:1fr 1fr; }
-    .reg-top { margin-bottom:1rem; }
-    .reg-title { font-size:1.5rem; }
-    .reg-steps { width:100%; }
-    .reg-step { flex:1; justify-content:center; padding:.4rem .25rem; font-size:.74rem; gap:.3rem; }
-}
-</style>
-{% endblock %}
-
-{% block container_wrap_start %}{% endblock %}
-{% block container_wrap_end %}{% endblock %}
-{% block pwa_install_prompt %}{% endblock %}
-{% block mobile_bottom_navigation %}{% endblock %}
-
-{% block content %}
-<div class="reg-page">
-    <div class="reg-orb reg-orb-1"></div>
-    <div class="reg-orb reg-orb-2"></div>
-
-    <div class="reg-wrap">
-        <!-- Branding strip -->
-        <div class="reg-top">
-            <a href="{% url 'core:home' %}" class="reg-logo">
-                <img src="{% static 'img/logo.png' %}" alt="IESA">
-                <span>IESA</span>
-            </a>
-            <div class="reg-tag"><i class="fas fa-user-plus"></i>{% trans "New Member" %}</div>
-        </div>
-
-        <!-- Card -->
-        <div class="reg-card">
-            <div class="reg-card-head">
-                <div class="reg-eyebrow">{% trans "REGISTER" %}</div>
-                <h1 class="reg-title">{% trans "Join the Community" %}</h1>
-                <p class="reg-desc">{% trans "Create your account and become part of IESA." %}</p>
-                <!-- Steps indicator -->
-                <div class="reg-steps" id="reg-steps-bar">
-                    <div class="reg-step active" data-step-ind="1">
-                        <span class="reg-step-num">1</span>{% trans "Account" %}
-                    </div>
-                    <div class="reg-step" data-step-ind="2">
-                        <span class="reg-step-num">2</span>{% trans "Password" %}
-                    </div>
-                    <div class="reg-step" data-step-ind="3">
-                        <span class="reg-step-num">3</span>{% trans "Confirm" %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="reg-body">
-                {% if form.non_field_errors %}
-                <div style="background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.28);border-radius:10px;padding:.75rem 1rem;color:#fca5a5;font-size:.875rem;display:flex;align-items:center;gap:.6rem;margin-bottom:1.5rem;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>{% for err in form.non_field_errors %}{{ err }}{% endfor %}</span>
-                </div>
-                {% endif %}
-
-                {# Outside the form on purpose: each provider button is its own <form>, and forms cannot nest. #}
-                <div id="social-block">{% include "users/partials/_social_login.html" with social_intro=True %}</div>
-
-                <form method="post" id="reg-form" novalidate
-                      data-start-step="{% if form.username.errors or form.email.errors %}1{% elif form.password1.errors or form.password2.errors %}2{% elif form.errors %}3{% endif %}">
-                    {% csrf_token %}
-
-                    {# ── Step 1: Account ───────────────────────── #}
-                    <div class="reg-step-panel active" data-step="1">
-                        <div class="reg-grid">
-                            {# ── 3a: Username с live-проверкой ── #}
-                            <div class="rf reg-full">
-                                <label for="{{ form.username.id_for_label }}">{{ form.username.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
-                                <div class="rf-wrap" style="position:relative;">
-                                    <i class="fas fa-at rf-ic" aria-hidden="true"></i>
-                                    <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
-                                           value="{{ form.username.value|default:'' }}"
-                                           class="{% if form.username.errors %}inv{% endif %}"
-                                           {% if form.username.errors %}aria-invalid="true" aria-describedby="err-username"{% endif %}
-                                           autocomplete="username" placeholder="{% trans "e.g. johndoe" %}"
-                                           autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
-                                           tabindex="1" data-live-check="username">
-                                    <span id="un-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
-                                </div>
-                                <div id="un-msg" class="rf-hint" style="min-height:1.2em;" aria-live="polite"></div>
-                                {% if form.username.help_text %}<div class="rf-hint">{{ form.username.help_text }}</div>{% endif %}
-                                {% for err in form.username.errors %}<div id="err-username" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
-                            </div>
-
-                            {# ── 3a: Email с live-проверкой ── #}
-                            <div class="rf reg-full">
-                                <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
-                                <div class="rf-wrap" style="position:relative;">
-                                    <i class="fas fa-envelope rf-ic" aria-hidden="true"></i>
-                                    <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
-                                           value="{{ form.email.value|default:'' }}"
-                                           class="{% if form.email.errors %}inv{% endif %}"
-                                           {% if form.email.errors %}aria-invalid="true" aria-describedby="err-email"{% endif %}
-                                           tabindex="2"
-                                           autocomplete="email" placeholder="your@email.com" inputmode="email"
-                                           autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
-                                           data-live-check="email">
-                                    <span id="em-status" style="position:absolute;right:.85rem;top:50%;transform:translateY(-50%);font-size:.85rem;" aria-live="polite" aria-atomic="true"></span>
-                                </div>
-                                <div id="em-msg" class="rf-hint" style="min-height:1.2em;" aria-live="polite"></div>
-                                {% for err in form.email.errors %}<div id="err-email" class="rf-err" role="alert"><i class="fas fa-times-circle" style="flex-shrink:0;margin-top:.1rem;" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
-                            </div>
-                        </div>
-                        <div class="reg-step-nav">
-                            <button type="button" class="reg-btn-next" id="step1-next-btn" data-next="2">
-                                {% trans "Continue" %} <i class="fas fa-arrow-right ms-1"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    {# ── Step 2: Password ──────────────────────── #}
-                    <div class="reg-step-panel" data-step="2">
-                        <div class="reg-alert" id="pw-alert" role="alert" {% if not form.password1.errors and not form.password2.errors %}hidden{% endif %}>
-                            {% if form.password1.errors or form.password2.errors %}
-                            <strong>{% trans "We could not accept this password:" %}</strong>
-                            <ul>{% for err in form.password1.errors %}<li>{{ err }}</li>{% endfor %}{% for err in form.password2.errors %}<li>{{ err }}</li>{% endfor %}</ul>
-                            {% endif %}
-                        </div>
-                        <div class="reg-grid">
-                            {# ── 3a: Индикатор силы пароля ── #}
-                            <div class="rf reg-full">
-                                <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }} <span style="color:#f87171;font-weight:700;" aria-hidden="true">*</span></label>
-                                <div class="rf-wrap">
-                                    <i class="fas fa-lock rf-ic" aria-hidden="true"></i>
-                                    <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
-                                           class="has-pw{% if form.password1.errors %} inv{% endif %}"
-                                           {% if form.password1.errors %}aria-invalid="true" aria-describedby="err-password1"{% endif %}
-                                           autocomplete="new-password" placeholder="••••••••"
-                                           tabindex="3">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                                </div>
-                                {# Полоска силы пароля — только подсказка, блокирует лишь длина < 8 #}
-                                <div style="margin-top:.6rem;">
-                                    <div style="height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;">
-                                        <div id="pw-strength-bar" style="height:100%;width:0;border-radius:3px;transition:width .3s,background .3s;"></div>
-                                    </div>
-                                    <div id="pw-strength-label" style="font-size:.85rem;color:rgba(255,255,255,.7);margin-top:.35rem;min-height:1.2em;" aria-live="polite"></div>
-                                </div>
-                                <div id="crit-len" class="pw-crit" style="margin-top:.4rem;"><i class="fas fa-circle" style="font-size:.5rem;" aria-hidden="true"></i> {% trans "At least 8 characters" %}</div>
-                                <div class="rf-hint">{% trans "Tip: a longer password is a stronger one. The one suggested by your phone works fine." %}</div>
-                                
-                            </div>
-                            <div class="rf reg-full">
-                                <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
-                                <div class="rf-wrap">
-                                    <i class="fas fa-lock rf-ic" aria-hidden="true"></i>
-                                    <input type="password" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}"
-                                           class="has-pw{% if form.password2.errors %} inv{% endif %}"
-                                           {% if form.password2.errors %}aria-invalid="true" aria-describedby="err-password2"{% endif %}
-                                           autocomplete="new-password" placeholder="••••••••"
-                                           tabindex="4">
-                                    <button type="button" class="rf-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
-                                </div>
-                                <div id="pw-match-msg" style="font-size:.72rem;margin-top:.3rem;min-height:1em;" aria-live="polite"></div>
-                                
-                            </div>
-                        </div>
-                        <div class="reg-step-nav">
-                            <button type="button" class="reg-btn-back" data-back="1">
-                                <i class="fas fa-arrow-left me-1"></i>{% trans "Back" %}
-                            </button>
-                            <button type="button" class="reg-btn-next" data-next="3">
-                                {% trans "Review" %} <i class="fas fa-arrow-right ms-1"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    {# ── Step 3: Review & Submit ───────────────── #}
-                    <div class="reg-step-panel" data-step="3">
-                        <div class="reg-review">
-                            <div class="reg-review-row">
-                                <span class="reg-review-label">{% trans "Username" %}</span>
-                                <span class="reg-review-val" id="rv-username">—</span>
-                            </div>
-                            <div class="reg-review-row">
-                                <span class="reg-review-label">{% trans "Email" %}</span>
-                                <span class="reg-review-val" id="rv-email">—</span>
-                            </div>
-                            <div class="reg-review-row">
-                                <span class="reg-review-label">{% trans "Password" %}</span>
-                                <span class="reg-review-val" style="color:rgba(34,197,94,.8);">
-                                    <i class="fas fa-check-circle me-1"></i>{% trans "Set" %}
-                                </span>
-                            </div>
-                        </div>
-                        {# HOTFIX 2026-05-23: чекбокс согласия — PIN активируется сразу после регистрации #}
-                        <div class="reg-consent" style="margin:1.25rem 0;padding:1rem 1.1rem;background:rgba(220,38,38,.05);border:1px solid rgba(220,38,38,.18);border-radius:12px;">
-                            <label style="display:flex;align-items:flex-start;gap:.65rem;cursor:pointer;font-size:.95rem;color:rgba(255,255,255,.88);line-height:1.55;">
-                                <input type="checkbox" name="membership_consent" id="id_membership_consent" required
-                                       style="margin-top:.1rem;width:24px;height:24px;flex-shrink:0;accent-color:var(--primary);">
-                                <span>
-                                    {% trans "I agree to become a member of IESA Sport." %}
-                                    {% trans "The privacy policy is still being prepared — we will notify every member as soon as it is published." %}
-                                    <a href="{% url 'core:privacy' %}" target="_blank" style="color:#f87171;" rel="noopener noreferrer">{% trans "Details" %}</a>.
-                                    {% trans "After registration, the PIN-code is available immediately. The physical card is issued later upon request." %}
-                                </span>
-                            </label>
-                            {% if form.membership_consent.errors %}
-                                {% for err in form.membership_consent.errors %}
-                                <div class="rf-err" role="alert" style="margin-top:.5rem;">
-                                    <i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}
-                                </div>
-                                {% endfor %}
-                            {% endif %}
-                        </div>
-
-                        <div class="reg-actions">
-                            <div class="reg-step-nav mb-3">
-                                <button type="button" class="reg-btn-back" data-back="2">
-                                    <i class="fas fa-arrow-left me-1"></i>{% trans "Edit" %}
-                                </button>
-                            </div>
-                            {% include "users/partials/_antibot.html" %}
-                            <div class="reg-alert" id="consent-alert" role="alert" hidden></div>
-                            <button type="submit" class="reg-submit" id="reg-submit-btn">
-                                <i class="fas fa-user-plus"></i>{% trans "Create Account" %}
-                            </button>
-                            <p class="reg-login">
-                                {% trans "Already have an account?" %}
-                                <a href="{% url 'users:login' %}">{% trans "Sign In" %}</a>
-                            </p>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Footer strip -->
-            <div class="reg-footer">
-                <div class="reg-fp"><i class="fas fa-shield-alt"></i>{% trans "Secure registration" %}</div>
-                <div class="reg-fp"><i class="fas fa-id-card"></i>{% trans "Digital membership card" %}</div>
-                <div class="reg-fp"><i class="fas fa-bolt"></i>{% trans "Instant community access" %}</div>
-            </div>
-        </div>
-    </div>
+{% block au_side %}
+<div class="au-side-body">
+    <div class="au-badge"><i class="fas fa-user-plus" aria-hidden="true"></i>{% trans "New Member" %}</div>
+    <h2 class="au-h"><span>{% trans "Join the Community" %}</span></h2>
+    <p class="au-side-desc">{% trans "Create your account and become part of IESA." %}</p>
+    <ul class="au-perks">
+        <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-shield-alt" aria-hidden="true"></i></div>{% trans "Secure registration" %}</li>
+        <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-id-card" aria-hidden="true"></i></div>{% trans "Digital membership card" %}</li>
+        <li class="au-perk"><div class="au-perk-ic"><i class="fas fa-bolt" aria-hidden="true"></i></div>{% trans "Instant community access" %}</li>
+    </ul>
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-function togglePw(btn){
-    var i=btn.previousElementSibling, ic=btn.querySelector('i');
-    if(i.type==='password'){i.type='text';ic.className='fas fa-eye-slash';}
-    else{i.type='password';ic.className='fas fa-eye';}
-}
+{% block au_main %}
+<div class="au-eyebrow">{% trans "REGISTER" %}</div>
+<h1 class="au-title">{% trans "Create your account" %}</h1>
 
+<ol class="au-steps" id="reg-steps-bar" aria-label="{% trans 'Join the Community' %}">
+    <li class="au-step active" data-step-ind="1"><span class="au-step-num">1</span>{% trans "Account" %}</li>
+    <li class="au-step" data-step-ind="2"><span class="au-step-num">2</span>{% trans "Password" %}</li>
+    <li class="au-step" data-step-ind="3"><span class="au-step-num">3</span>{% trans "Confirm" %}</li>
+</ol>
+
+{% if form.non_field_errors %}
+<div class="au-alert" role="alert">
+    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+    <span>{% for err in form.non_field_errors %}{{ err }}{% endfor %}</span>
+</div>
+{% endif %}
+
+{# Outside the form on purpose: each provider button is its own <form>, and forms cannot nest. #}
+<div id="social-block">{% include "users/partials/_social_login.html" with social_intro=True %}</div>
+
+<form method="post" id="reg-form" novalidate
+      data-start-step="{% if form.username.errors or form.email.errors %}1{% elif form.password1.errors or form.password2.errors %}2{% elif form.errors %}3{% endif %}">
+    {% csrf_token %}
+
+    {# ── Step 1: Account ───────────────────────── #}
+    <div class="reg-step-panel active" data-step="1">
+        <div class="au-field">
+            <label for="{{ form.username.id_for_label }}">{{ form.username.label }} <span class="au-req" aria-hidden="true">*</span></label>
+            <div class="au-wrap">
+                <input type="text" name="{{ form.username.html_name }}" id="{{ form.username.id_for_label }}"
+                       value="{{ form.username.value|default:'' }}"
+                       class="has-status{% if form.username.errors %} inv{% endif %}"
+                       {% if form.username.errors %}aria-invalid="true" aria-describedby="err-username"{% endif %}
+                       autocomplete="username" placeholder="{% trans "e.g. johndoe" %}"
+                       autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
+                       data-live-check="username">
+                <i class="fas fa-at au-ic" aria-hidden="true"></i>
+                <span id="un-status" class="au-status" aria-live="polite" aria-atomic="true"></span>
+            </div>
+            <div id="un-msg" class="au-hint au-hint--live" aria-live="polite"{% if form.username.help_text %} data-default="{{ form.username.help_text|striptags }}"{% endif %}>{{ form.username.help_text|striptags }}</div>
+            {% for err in form.username.errors %}<div id="err-username" class="au-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
+        </div>
+
+        <div class="au-field">
+            <label for="{{ form.email.id_for_label }}">{{ form.email.label }} <span class="au-req" aria-hidden="true">*</span></label>
+            <div class="au-wrap">
+                <input type="email" name="{{ form.email.html_name }}" id="{{ form.email.id_for_label }}"
+                       value="{{ form.email.value|default:'' }}"
+                       class="has-status{% if form.email.errors %} inv{% endif %}"
+                       {% if form.email.errors %}aria-invalid="true" aria-describedby="err-email"{% endif %}
+                       autocomplete="email" placeholder="your@email.com" inputmode="email"
+                       autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next"
+                       data-live-check="email">
+                <i class="fas fa-envelope au-ic" aria-hidden="true"></i>
+                <span id="em-status" class="au-status" aria-live="polite" aria-atomic="true"></span>
+            </div>
+            <div id="em-msg" class="au-hint au-hint--live" aria-live="polite"></div>
+            {% for err in form.email.errors %}<div id="err-email" class="au-err" role="alert"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}</div>{% endfor %}
+        </div>
+        <div class="au-nav">
+            <button type="button" class="au-btn" id="step1-next-btn" data-next="2">
+                {% trans "Continue" %} <i class="fas fa-arrow-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+
+    {# ── Step 2: Password ──────────────────────── #}
+    <div class="reg-step-panel" data-step="2">
+        <div class="au-alert" id="pw-alert" role="alert" {% if not form.password1.errors and not form.password2.errors %}hidden{% endif %}>
+            {% if form.password1.errors or form.password2.errors %}
+            <div>
+                <strong>{% trans "We could not accept this password:" %}</strong>
+                <ul>{% for err in form.password1.errors %}<li>{{ err }}</li>{% endfor %}{% for err in form.password2.errors %}<li>{{ err }}</li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+        </div>
+        <div class="au-field">
+            <label for="{{ form.password1.id_for_label }}">{{ form.password1.label }} <span class="au-req" aria-hidden="true">*</span></label>
+            <div class="au-wrap">
+                <input type="password" name="{{ form.password1.html_name }}" id="{{ form.password1.id_for_label }}"
+                       class="has-pw{% if form.password1.errors %} inv{% endif %}"
+                       {% if form.password1.errors %}aria-invalid="true" aria-describedby="err-password1"{% endif %}
+                       autocomplete="new-password" placeholder="••••••••">
+                <i class="fas fa-lock au-ic" aria-hidden="true"></i>
+                <button type="button" class="au-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+            </div>
+            {# Strength is only a hint — nothing but length < 8 blocks #}
+            <div class="au-meter"><div class="au-meter-bar" id="pw-strength-bar"></div></div>
+            <div class="au-meter-row">
+                <div id="crit-len" class="pw-crit"><i class="fas fa-circle" style="font-size:.5rem;" aria-hidden="true"></i> {% trans "At least 8 characters" %}</div>
+                <div id="pw-strength-label" aria-live="polite"></div>
+            </div>
+            <div class="au-hint">{% trans "Tip: a longer password is a stronger one. The one suggested by your phone works fine." %}</div>
+        </div>
+        <div class="au-field">
+            <label for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+            <div class="au-wrap">
+                <input type="password" name="{{ form.password2.html_name }}" id="{{ form.password2.id_for_label }}"
+                       class="has-pw{% if form.password2.errors %} inv{% endif %}"
+                       {% if form.password2.errors %}aria-invalid="true" aria-describedby="err-password2"{% endif %}
+                       autocomplete="new-password" placeholder="••••••••">
+                <i class="fas fa-lock au-ic" aria-hidden="true"></i>
+                <button type="button" class="au-pw-btn" onclick="togglePw(this)" aria-label="{% trans 'Toggle password visibility' %}"><i class="fas fa-eye" aria-hidden="true"></i></button>
+            </div>
+            <div id="pw-match-msg" class="au-hint au-hint--live" aria-live="polite"></div>
+        </div>
+        <div class="au-nav">
+            <button type="button" class="au-btn au-btn--ghost" data-back="1">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>{% trans "Back" %}
+            </button>
+            <button type="button" class="au-btn" data-next="3">
+                {% trans "Review" %} <i class="fas fa-arrow-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    </div>
+
+    {# ── Step 3: Review & Submit ───────────────── #}
+    <div class="reg-step-panel" data-step="3">
+        <ul class="au-review">
+            <li><span class="au-review-k">{% trans "Username" %}</span><span class="au-review-v" id="rv-username">—</span></li>
+            <li><span class="au-review-k">{% trans "Email" %}</span><span class="au-review-v" id="rv-email">—</span></li>
+            <li><span class="au-review-k">{% trans "Password" %}</span><span class="au-review-v lv-ok"><i class="fas fa-check-circle" aria-hidden="true"></i> {% trans "Set" %}</span></li>
+        </ul>
+        {# HOTFIX 2026-05-23: consent checkbox — the PIN is activated right after registration #}
+        <label class="au-consent">
+            <input type="checkbox" name="membership_consent" id="id_membership_consent" required>
+            <span>
+                {% trans "I agree to become a member of IESA Sport." %}
+                <small>
+                    {% trans "The privacy policy is still being prepared — we will notify every member as soon as it is published." %}
+                    <a href="{% url 'core:privacy' %}" target="_blank" rel="noopener noreferrer">{% trans "Details" %}</a>.
+                    {% trans "After registration, the PIN-code is available immediately. The physical card is issued later upon request." %}
+                </small>
+            </span>
+        </label>
+        {% for err in form.membership_consent.errors %}
+        <div class="au-err" role="alert" style="margin:-.5rem 0 1rem;"><i class="fas fa-times-circle" aria-hidden="true"></i>{{ err }}</div>
+        {% endfor %}
+
+        {% include "users/partials/_antibot.html" %}
+        <div class="au-alert" id="consent-alert" role="alert" hidden></div>
+        <div class="au-nav">
+            <button type="button" class="au-btn au-btn--ghost" data-back="2">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>{% trans "Edit" %}
+            </button>
+            <button type="submit" class="au-btn" id="reg-submit-btn">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>{% trans "Create Account" %}
+            </button>
+        </div>
+    </div>
+</form>
+
+<p class="au-link">
+    {% trans "Already have an account?" %}
+    <a href="{% url 'users:login' %}">{% trans "Sign In" %}</a>
+</p>
+{% endblock %}
+
+{% block au_js %}
+<script>
 (function () {
     'use strict';
 
@@ -487,15 +238,15 @@ function togglePw(btn){
     /* ── status helper ─── */
     function setStatus(iconEl, msgEl, state, msg) {
         if (iconEl) {
-            iconEl.className = '';
-            if (state === 'ok')           { iconEl.textContent = '✓'; iconEl.className = 'lv-ok'; }
-            else if (state === 'err')     { iconEl.textContent = '✗'; iconEl.className = 'lv-err'; }
-            else if (state === 'loading') { iconEl.textContent = '…'; iconEl.className = 'lv-loading'; }
+            iconEl.className = 'au-status';
+            if (state === 'ok')           { iconEl.textContent = '✓'; iconEl.classList.add('lv-ok'); }
+            else if (state === 'err')     { iconEl.textContent = '✗'; iconEl.classList.add('lv-err'); }
+            else if (state === 'loading') { iconEl.textContent = '…'; iconEl.classList.add('lv-loading'); }
             else iconEl.textContent = '';
         }
         if (msgEl) {
-            msgEl.textContent = msg || '';
-            msgEl.style.color = state === 'ok' ? '#4ade80' : state === 'err' ? '#fca5a5' : 'rgba(255,255,255,.7)';
+            msgEl.textContent = msg || msgEl.dataset.default || '';
+            msgEl.style.color = state === 'ok' ? '#4ade80' : state === 'err' ? '#fca5a5' : '';
         }
     }
 
@@ -542,12 +293,13 @@ function togglePw(btn){
             else lvl = 1;
         }
         if (pwBar) {
-            pwBar.style.width = lvl >= 0 ? LEVELS[lvl].pct + '%' : '0%';
-            pwBar.style.background = lvl >= 0 ? LEVELS[lvl].color : 'transparent';
+            /* transform, not width: the fill is always 100% wide and slides in */
+            pwBar.style.transform = 'translateX(' + ((lvl >= 0 ? LEVELS[lvl].pct : 0) - 100) + '%)';
+            pwBar.style.backgroundColor = lvl >= 0 ? LEVELS[lvl].color : 'transparent';
         }
         if (pwLabel) {
             pwLabel.textContent = lvl >= 0 ? LEVELS[lvl].label : '';
-            pwLabel.style.color = lvl >= 0 ? LEVELS[lvl].color : 'rgba(255,255,255,.7)';
+            pwLabel.style.color = lvl >= 0 ? LEVELS[lvl].color : '';
         }
         if (critLen) critLen.classList.toggle('met', pwOk());
     }
@@ -563,14 +315,14 @@ function togglePw(btn){
     /* ── steps ─── */
     function showStep(n) {
         panels.forEach(function (p) {
-            var on = +p.dataset.step === n;
-            p.classList.toggle('active', on);
-            if (on) { p.classList.remove('active-anim'); void p.offsetWidth; p.classList.add('active-anim'); }
+            p.classList.toggle('active', +p.dataset.step === n);
         });
         indicators.forEach(function (ind) {
             var st = +ind.dataset.stepInd;
             ind.classList.remove('active', 'done');
-            if (st === n) ind.classList.add('active'); else if (st < n) ind.classList.add('done');
+            ind.removeAttribute('aria-current');
+            if (st === n) { ind.classList.add('active'); ind.setAttribute('aria-current', 'step'); }
+            else if (st < n) ind.classList.add('done');
         });
         currentStep = n;
         var socialBlock = $('social-block');
@@ -633,12 +385,12 @@ function togglePw(btn){
             return;
         }
         submitting = true;                       /* one tap = one request on slow mobile networks */
-        setTimeout(function () { submitBtn.disabled = true; submitBtn.style.opacity = '.7'; }, 0);
+        setTimeout(function () { submitBtn.disabled = true; }, 0);
     });
     if (consent) consent.addEventListener('change', function () { if (consent.checked) setAlert(consentAlert, ''); });
     /* Coming back via the browser's Back button must not leave a dead, disabled button. */
     window.addEventListener('pageshow', function (e) {
-        if (e.persisted) { submitting = false; submitBtn.disabled = false; submitBtn.style.opacity = ''; }
+        if (e.persisted) { submitting = false; submitBtn.disabled = false; }
     });
 
     /* ── wire events (input + change + blur: autofill fires some of them, not always input) ─── */

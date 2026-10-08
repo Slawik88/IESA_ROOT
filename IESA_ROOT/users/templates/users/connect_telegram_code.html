@@ -436,10 +436,33 @@
 }
 .tg-back a:hover { color: rgba(255,255,255,0.55); }
 
-@media (max-width: 480px) {
-    .otp-box { width: 40px; height: 50px; font-size: 1.5rem; border-radius: 8px; }
-    .tg-body { padding: 1.5rem 1.3rem 1.7rem; }
-    .tg-header { padding: 1.8rem 1.3rem 1.4rem; }
+/* Phones: flat page (no card inside a card inside a card), icon + title in one row, pinned submit */
+@media (max-width: 767.98px) {
+    .tg-page { min-height: 0; display: block; padding: 0; background: none; }
+    .tg-card { max-width: none; border: 0; border-radius: 0; box-shadow: none; background: none; overflow: visible; }
+    .tg-card::before { display: none; }
+    .tg-header { display: flex; align-items: center; gap: .75rem; padding: .9rem var(--flow-gutter) .6rem; text-align: left; border-bottom: 0; }
+    .tg-icon { width: 44px; height: 44px; flex: 0 0 44px; margin: 0; font-size: 1.3rem; border-radius: 11px; }
+    .tg-header h1 { font-size: 1.25rem; margin: 0; }
+    .tg-header p { display: none; }
+    .tg-body { padding: 0 var(--flow-gutter) 1rem; }
+    .tg-error { margin-bottom: .75rem; }
+    .tg-bot-banner { margin: 0 calc(var(--flow-gutter) * -1) .5rem; padding: .65rem var(--flow-gutter); border-width: 1px 0; border-radius: 0; }
+    .tg-fallback { margin: 0 0 .75rem; border: 0; background: none; }
+    .tg-fallback summary { min-height: var(--tap-min); padding-inline: 0; }
+    .tg-fallback-body { padding-inline: 0; }
+    .tg-section-label { margin-bottom: .25rem; }
+    .tg-steps { margin-bottom: .6rem; border: 0; border-radius: 0; }
+    .tg-step { padding: .45rem 0; background: none; font-size: .85rem; }
+    .tg-step:hover { background: none; }
+    .tg-security-note { margin-bottom: .9rem; padding: 0; border: 0; background: none; }
+    .otp-label { margin-bottom: .5rem; }
+    .otp-wrap { gap: .35rem; margin-bottom: 1rem; }
+    .otp-box { flex: 1 1 0; width: auto; min-width: 0; max-width: 52px; height: 52px; font-size: 1.5rem; border-radius: 8px; }
+    .otp-sep { line-height: 52px; }
+    .otp-progress { margin: -.4rem 0 0; }
+    .tg-back { margin-top: .25rem; }
+    .tg-back a { min-height: var(--tap-min); }
 }
 </style>
 {% endblock %}
@@ -546,9 +569,11 @@
                 </div>
                 <div class="otp-progress"><div class="otp-progress-bar" id="otp-progress-bar"></div></div>
 
-                <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
-                    <i class="fas fa-link"></i> {% trans "Confirm & Connect" %}
-                </button>
+                <div class="action-bar">
+                    <button type="submit" class="btn-tg-submit" id="submit-btn" disabled>
+                        <i class="fas fa-link"></i> {% trans "Confirm & Connect" %}
+                    </button>
+                </div>
             </form>
 
             <div class="tg-back">

@@ -1,0 +1,125 @@
+/* ============================================================
+   PROFILE EDIT — flat on phones, one card from 768px.
+   Built on the shared primitives in layout.css: .seg (segmented tabs), .form-compact, .action-bar.
+   ============================================================ */
+
+.profile-edit-page { padding: .75rem 0 1.5rem; }
+.edit-shell { max-width: 720px; margin: 0 auto; }
+
+.edit-head { display: flex; align-items: center; gap: .75rem; margin: 0 0 .75rem; }
+.edit-head-icon {
+    width: 36px; height: 36px; flex: 0 0 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(220, 38, 38, .08); border: 1px solid rgba(220, 38, 38, .24);
+    color: var(--primary-text); font-size: .95rem;
+}
+.edit-title { margin: 0; font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; color: #fff; }
+.edit-subtitle { margin: .1rem 0 0; font-size: .82rem; color: var(--text-muted); }
+
+/* panels: with JS only the active one is shown; without JS they simply stack */
+html.js .edit-panel:not(.is-active) { display: none; }
+html:not(.js) .edit-tabs { display: none; }
+.edit-panel { padding-top: .9rem; }
+.edit-panel:focus { outline: none; }
+
+/* inputs: same dark fields as the auth pages */
+.edit-form .form-control,
+.edit-form .form-select,
+.edit-form textarea {
+    min-height: var(--field-h);
+    padding: .5rem .85rem;
+    border-radius: 10px;
+}
+.edit-form textarea { min-height: 5.25rem; }
+.edit-form .form-control::placeholder,
+.edit-form textarea::placeholder { color: rgba(255, 255, 255, .5); opacity: 1; font-weight: 400; }
+.edit-form .form-label i { width: 1.1em; text-align: center; margin-right: .35rem; color: var(--text-muted); }
+.edit-form .form-label .field-sub { font-weight: 400; color: var(--text-muted); }
+.edit-form .field-errors { margin: .25rem 0 0; font-size: .8rem; }
+
+/* name / date+phone pairs stay side by side on phones */
+.edit-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 .75rem; }
+.edit-links { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 .75rem; }
+
+.email-security-hint { display: flex; align-items: flex-start; gap: .4rem; margin-top: .25rem; color: var(--text-muted); font-size: .78rem; line-height: 1.35; }
+.email-security-hint i { color: #fbbf24; margin-top: .15rem; }
+
+.edit-form .form-check { display: flex; align-items: center; gap: .6rem; min-height: var(--tap-min); margin: 0; padding: 0; }
+.edit-form .form-check-input { float: none; margin: 0; width: 1.35rem; height: 1.35rem; flex: 0 0 auto; background-color: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .25); }
+.edit-form .form-check-input:checked { background-color: #dc2626; border-color: #dc2626; }
+.edit-form .form-check-label { margin: 0; color: var(--text-secondary); font-size: .88rem; line-height: 1.35; }
+
+/* avatar: one compact row instead of a tall dashed drop zone */
+.avatar-row {
+    position: relative; display: flex; align-items: center; gap: .9rem;
+    padding: .75rem .9rem; border: 1px dashed rgba(255, 255, 255, .16); border-radius: 12px;
+    background: rgba(255, 255, 255, .02); cursor: pointer;
+    transition-property: border-color, background-color; transition-duration: var(--dur-fast); transition-timing-function: var(--ease-out);
+}
+.avatar-row.is-over { border-color: #dc2626; background: rgba(220, 38, 38, .06); }
+.avatar-row.is-done { border-color: #4ade80; }
+.avatar-row-img { flex: 0 0 64px; width: 64px; height: 64px; }
+.avatar-row-img img, .avatar-row-img .avatar-fallback {
+    width: 64px; height: 64px; border-radius: 50%; object-fit: cover; display: block;
+    background: rgba(255, 255, 255, .07); border: 2px solid rgba(255, 255, 255, .12);
+}
+.avatar-row-img .avatar-fallback {
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #dc2626, #7f1d1d); color: #fff; font-weight: 800; font-size: 1.4rem;
+}
+.avatar-row-text { min-width: 0; flex: 1; }
+.avatar-row-title { display: block; font-size: .88rem; font-weight: 600; color: rgba(255, 255, 255, .88); }
+.avatar-row-title i { color: var(--primary-text); margin-right: .35rem; }
+.avatar-row-sub { display: block; margin-top: .15rem; font-size: .78rem; color: var(--text-muted); }
+.avatar-row-input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.avatar-file-name { margin-top: .35rem; font-size: .78rem; color: var(--text-muted); }
+.avatar-file-name:empty { display: none; }
+
+.link-format-hint { display: flex; align-items: flex-start; gap: .5rem; margin: 0 0 .75rem; color: var(--text-muted); font-size: .8rem; line-height: 1.4; }
+.link-format-hint i { color: var(--primary-text); margin-top: .15rem; }
+.link-format-hint code { font-size: .76rem; overflow-wrap: anywhere; }
+
+.profile-draft-status { min-height: 0; margin: .5rem 0 0; color: var(--text-muted); font-size: .78rem; transition: opacity .3s; }
+.profile-draft-status:empty { display: none; }
+.edit-form .alert-danger { margin-top: .75rem; border-radius: 10px; }
+
+/* action bar: Cancel / Save 50-50, with the "unsaved" note on its own line while the form is dirty */
+.edit-actions { flex-wrap: wrap; }
+.edit-actions .action-note {
+    flex: 0 0 100%; margin: 0; color: #fecaca; font-size: .8rem; font-weight: 600; line-height: 1.2;
+}
+.edit-actions .action-note[hidden] { display: none; }
+.edit-actions .btn-primary { background: linear-gradient(135deg, #dc2626, #b91c1c); border: 0; font-weight: 700; border-radius: 10px; }
+.edit-actions .btn-outline-secondary { background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .14); color: rgba(255, 255, 255, .8); border-radius: 10px; }
+.edit-actions .btn-outline-secondary:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+
+/* phones: no breadcrumb row (the header already has a back arrow), no subtitle */
+@media (max-width: 767.98px) {
+    .profile-edit-page .page-bc { display: none; }
+    .edit-subtitle { display: none; }
+    .edit-pair .form-label { white-space: nowrap; }
+}
+@media (min-width: 576px) {
+    .edit-links { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .edit-links .edit-wide { grid-column: 1 / -1; }
+}
+
+/* desktop: the whole form is one card */
+@media (min-width: 768px) {
+    .profile-edit-page { padding: 2.5rem 0 4rem; }
+    body:has(.profile-edit-page) { background: #07070e; }
+    .edit-shell {
+        padding: 1.75rem 2rem;
+        background: rgba(255, 255, 255, .022);
+        border: 1px solid var(--border-soft);
+        border-top: 2px solid rgba(220, 38, 38, .72);
+        border-radius: 20px;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+    }
+    .edit-head { margin-bottom: 1rem; }
+    .edit-title { font-size: 1.45rem; }
+    .edit-actions { margin-top: 1.25rem; }
+    .edit-actions .btn { flex: 0 0 auto; min-width: 150px; }
+    .edit-actions .action-note { flex: 1 1 auto; text-align: right; align-self: center; }
+}
+.avatar-row-img [hidden] { display: none; }

@@ -6,7 +6,7 @@
   let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,pending=null,uncertain=null,ticker=null,clockAt=0,clockBase=0,longPress=null,skipClick=false;
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
   async function api(path,options={}){const response=await fetch(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.detail||'Не удалось связаться с сервером.');return data;}
-  fetch(base+'/global-skins-v1/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV1?.(skin)).catch(()=>{});
+  fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function format(ms){const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
   function time(){return clockBase+(clockAt?Date.now()-clockAt:0);}
   function updateClock(){if(run)$('timer').textContent=format(time());}

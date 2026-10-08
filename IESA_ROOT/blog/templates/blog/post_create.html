@@ -99,6 +99,26 @@
 #postPreviewModal .modal-header { border-bottom: 1px solid rgba(255,255,255,.07); }
 #postPreviewModal .btn-close { filter: invert(1) brightness(2); }
 #postPreviewModal .modal-footer { border-top: 1px solid rgba(255,255,255,.07); }
+
+/* Phones: no hero, no card; the editor gets the full width and the buttons are pinned above the bottom nav */
+@media (max-width: 767.98px) {
+    .pc-wrap { padding: .75rem var(--flow-gutter) 1rem; }
+    .pc-hero { text-align: left; margin-bottom: .75rem; }
+    .pc-hero .hp-label, .pc-hero p { display: none; }
+    .pc-hero h1 { font-size: 1.3rem; margin: 0; }
+    .pc-card { padding: 0; border: 0; border-radius: 0; background: none; }
+    .pc-card .mb-4 { margin-bottom: .75rem !important; }
+    .pc-form-label { margin-bottom: .25rem; }
+    .pc-card input[type="text"], .pc-card .form-control { min-height: var(--field-h); }
+    .ql-container.ql-snow, .ql-editor { min-height: 150px; }
+    #quill-editor { min-height: 150px !important; }
+    #draft-status { margin-bottom: .25rem !important; min-height: 0 !important; }
+    #draft-status:empty { display: none; }
+    .pc-actions { margin-top: .5rem; }
+    .pc-actions .pc-btn-preview, .pc-actions .pc-btn-submit { min-height: var(--tap-min); padding-block: .5rem; }
+    .pc-actions .pc-btn-submit { background: linear-gradient(135deg, #dc2626, #b91c1c); border-color: transparent; color: #fff; }
+    .pc-preview-card { display: none; }   /* the Preview button opens the same content in a modal */
+}
 </style>
 {% endblock %}
 
@@ -152,7 +172,7 @@
                     <!-- Draft status indicator (U2-08) -->
                     <div id="draft-status" role="status" aria-live="polite" aria-atomic="true" style="font-size:.72rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);margin-bottom:.75rem;min-height:1.2em;transition:opacity .3s;"></div>
 
-                    <div class="pc-actions">
+                    <div class="pc-actions action-bar">
                         <button type="button" id="preview-btn" class="pc-btn-preview">{% trans "Preview" %}</button>
                         <button type="submit" class="pc-btn-submit" id="submit-btn">
                             <span class="submit-text">{% trans "Create and submit for review" %}</span>

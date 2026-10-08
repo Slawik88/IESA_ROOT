@@ -143,6 +143,28 @@
   color: rgba(255,255,255,.82);
   text-decoration: none;
 }
+.deact-wrap { max-width: 660px; padding: 2.5rem 1.5rem 4rem; }
+.deact-body { padding: 1.75rem 1.5rem; }
+.deact-actions { gap: .75rem; }
+.deact-actions .btn-deact-confirm, .deact-actions .btn-deact-ghost { width: auto; flex: 1 1 0; }
+.deact-input { min-height: var(--field-h); }
+
+/* Phones: one flat surface; Cancel / Deactivate side by side in the pinned bar */
+@media (max-width: 767.98px) {
+  .deact-hero { padding: .9rem 0 .25rem; }
+  .deact-hero::before { display: none; }
+  .deact-hero .hp-label, .deact-hero .hp-sub { display: none; }
+  .deact-hero .hp-container { padding-inline: var(--flow-gutter); }
+  .deact-wrap { padding: .5rem var(--flow-gutter) 1rem; }
+  .deact-card { border: 0; border-radius: 0; background: none; overflow: visible; }  /* overflow:hidden would make the card the scroll container of the sticky bar */
+  .deact-card-header { margin: 0 calc(var(--flow-gutter) * -1); padding: .7rem var(--flow-gutter); border-width: 1px 0; }
+  .deact-body { padding: .9rem 0 0; }
+  .deact-warning { padding: .7rem .85rem; font-size: .85rem; margin-bottom: .75rem !important; }
+  .deact-list { margin-bottom: .75rem !important; }
+  .deact-list li { padding: .4rem 0; font-size: .85rem; }
+  .deact-card .mb-4 { margin-bottom: .5rem !important; }
+  .btn-deact-confirm, .btn-deact-ghost { padding: .7rem .75rem; font-size: .92rem; }
+}
 </style>
 {% endblock %}
 
@@ -161,7 +183,7 @@
   </div>
 
   <!-- Main content -->
-  <div class="hp-container" style="max-width:660px; padding: 2.5rem 1.5rem 4rem;">
+  <div class="hp-container deact-wrap">
 
     <div class="deact-card">
       <div class="deact-card-header">
@@ -174,7 +196,7 @@
         </div>
       </div>
 
-      <div style="padding: 1.75rem 1.5rem;">
+      <div class="deact-body">
 
         <!-- Warning box -->
         <div class="deact-warning mb-4">
@@ -208,15 +230,16 @@
             </div>
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: .75rem;">
-            <button type="submit" class="btn-deact-confirm">
-              <i class="fas fa-times"></i>
-              {% trans "Yes, Deactivate My Account" %}
-            </button>
+          {# Cancel first: the safe choice is on the left / is the default thumb target #}
+          <div class="action-bar deact-actions">
             <a href="{% url 'users:profile' %}" class="btn-deact-ghost">
               <i class="fas fa-arrow-left"></i>
               {% trans "Cancel" %}
             </a>
+            <button type="submit" class="btn-deact-confirm">
+              <i class="fas fa-times"></i>
+              {% trans "Yes, Deactivate My Account" %}
+            </button>
           </div>
         </form>
 

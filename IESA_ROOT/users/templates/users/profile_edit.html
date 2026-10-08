@@ -4,616 +4,230 @@
 {% block title %}{% trans "Edit profile" %} | IESA{% endblock %}
 
 {% block extra_css %}
-<style>
-/* ── Profile Edit — Dark ──────────────────────────── */
-.profile-edit-page {
-    min-height: 100vh;
-    padding: 3.5rem 0 5rem;
-    background: #0e0e18;
-}
-.profile-edit-card {
-    background: rgba(17,17,28,.95);
-    border: 1.5px solid rgba(255,255,255,.08);
-    border-radius: 20px;
-    overflow: clip; /* hidden создавал scroll-контейнер и ломал position: sticky у .edit-tabs */
-    box-shadow: 0 16px 56px rgba(0,0,0,.5);
-}
-.edit-card-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.75rem 2rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,.07);
-    background: linear-gradient(135deg, rgba(220,38,38,.08) 0%, transparent 60%);
-}
-.edit-card-heading { min-width:0; flex:1; }
-.edit-header-save {
-    display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
-    min-height:40px; padding:.5rem .9rem; border:0; border-radius:10px;
-    background:linear-gradient(135deg,#dc2626,#991b1b); color:#fff;
-    font-size:.8rem; font-weight:700; white-space:nowrap;
-}
-.edit-header-icon {
-    width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
-    background: rgba(220,38,38,.15); border: 1.5px solid rgba(220,38,38,.3);
-    color: #f87171; font-size: 1.2rem;
-    display: flex; align-items: center; justify-content: center;
-}
-.edit-title {
-    font-size: 1.25rem; font-weight: 800; color: #fff; margin: 0 0 .2rem;
-    letter-spacing: -.02em;
-}
-.edit-subtitle { font-size: .82rem; color: rgba(255,255,255,.5); margin: 0; }
-
-.edit-form { padding: 0; }
-
-.card-section {
-    padding: 1.5rem 2rem;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-}
-.card-section:last-of-type { border-bottom: none; }
-
-.section-heading {
-    font-size: .72rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .16em; color: rgba(255,255,255,.45);
-    margin-bottom: 1.25rem; display: flex; align-items: center; gap: .5rem;
-}
-
-/* Inputs & select */
-.edit-form .form-label { color: rgba(255,255,255,.65); font-size: .82rem; font-weight: 600; margin-bottom: .35rem; }
-.edit-form .form-control,
-.edit-form .form-select,
-.edit-form textarea {
-    background: rgba(255,255,255,.06) !important;
-    border: 1.5px solid rgba(255,255,255,.1) !important;
-    color: #fff !important;
-    border-radius: 10px !important;
-}
-/* BLOCK 7b (audit v3): placeholder явно отличается от введённого текста — italic + тусклее */
-.edit-form .form-control::placeholder,
-.edit-form textarea::placeholder {
-    color: rgba(255,255,255,.5) !important;
-    font-style: italic !important;
-    opacity: 1 !important; /* Firefox по умолчанию делает .5 — переопределяем */
-    font-weight: 400 !important;
-}
-.edit-form .form-control:-ms-input-placeholder,
-.edit-form textarea:-ms-input-placeholder {
-    color: rgba(255,255,255,.5) !important;
-    font-style: italic !important;
-}
-.edit-form .form-control::-webkit-input-placeholder,
-.edit-form textarea::-webkit-input-placeholder {
-    color: rgba(255,255,255,.5) !important;
-    font-style: italic !important;
-}
-.edit-form .form-control:focus,
-.edit-form .form-select:focus,
-.edit-form textarea:focus {
-    background: rgba(255,255,255,.09) !important;
-    border-color: rgba(220,38,38,.45) !important;
-    box-shadow: 0 0 0 3px rgba(220,38,38,.14) !important;
-    color: #fff !important;
-}
-.edit-form .form-select option { background: #16162a; color: #fff; }
-.edit-form .form-text { color: rgba(255,255,255,.5) !important; }
-.edit-form .form-check-input {
-    background-color: rgba(255,255,255,.08) !important;
-    border-color: rgba(255,255,255,.2) !important;
-}
-.edit-form .form-check-input:checked { background-color: #dc2626 !important; border-color: #dc2626 !important; }
-.edit-form .form-check-label { color: rgba(255,255,255,.6); font-size: .85rem; }
-.field-errors {
-    list-style: none; margin: .4rem 0 0; padding: 0;
-    color: #fca5a5; font-size: .76rem; line-height: 1.4;
-}
-.field-errors li { display: flex; gap: .35rem; }
-.field-errors li::before { content: '\f06a'; font-family: 'Font Awesome 6 Free'; font-weight: 900; }
-.email-security-hint {
-    display: flex; align-items: flex-start; gap: .45rem;
-    margin-top: .45rem; color: rgba(255,255,255,.58);
-    font-size: .72rem; line-height: 1.45;
-}
-.email-security-hint i { color: #fbbf24; margin-top: .15rem; }
-
-/* Current avatar */
-.edit-form .avatar { background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.12); }
-.edit-form .avatar img { border-radius: 50%; }
-.edit-form .avatar-fallback {
-    background: linear-gradient(135deg,#dc2626,#7f1d1d); color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 1.4rem;
-}
-
-/* Examples hint block */
-.edit-form [style*="background: #f8f9fa"],
-.edit-form [style*="background:#f8f9fa"] {
-    background: rgba(255,255,255,.05) !important;
-    border-left-color: #dc2626 !important;
-    color: rgba(255,255,255,.7) !important;
-}
-.edit-form [style*="background: white"],
-.edit-form [style*="background:white"],
-.edit-form code { background: rgba(255,255,255,.1) !important; color: #f1f5f9 !important; }
-
-/* Buttons */
-.edit-actions {
-    display: flex;
-    gap: .75rem;
-    padding: 1.5rem 2rem;
-    border-top: 1px solid rgba(255,255,255,.07);
-    background: rgba(255,255,255,.02);
-}
-.edit-actions .btn-primary {
-    background: linear-gradient(135deg,#dc2626,#991b1b) !important;
-    border: none !important;
-    font-weight: 700 !important; border-radius: 12px !important;
-    padding: .6rem 1.6rem !important;
-}
-.edit-actions .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
-.edit-actions .btn-outline-secondary {
-    background: rgba(255,255,255,.06) !important;
-    border: 1.5px solid rgba(255,255,255,.12) !important;
-    color: rgba(255,255,255,.65) !important;
-    border-radius: 12px !important;
-    padding: .6rem 1.6rem !important;
-}
-.edit-actions .btn-outline-secondary:hover {
-    background: rgba(255,255,255,.12) !important;
-    color: #fff !important;
-}
-
-/* Error alert */
-.edit-form .alert-danger {
-    background: rgba(220,38,38,.1) !important;
-    border-color: rgba(220,38,38,.3) !important;
-    color: #f87171 !important;
-    border-radius: 12px !important;
-}
-
-/* 6c: Tab navigation */
-.edit-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid rgba(255,255,255,.07);
-    position: sticky;
-    top: 56px;
-    z-index: 20;
-    background: rgba(17,17,28,.98);
-    backdrop-filter: blur(10px);
-}
-.edit-tab {
-    padding: .7rem 1.25rem;
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.5);
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-    transition: color .15s, border-color .15s;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    cursor: pointer;
-}
-.edit-tab:hover { color: rgba(255,255,255,.7); }
-.edit-tab.active { color: #f87171; border-bottom-color: var(--primary); }
-.edit-tab i { font-size: .72rem; }
-.card-section { scroll-margin-top: 124px; }
-.link-format-hint {
-    display:flex; align-items:flex-start; gap:.65rem; padding:.75rem .9rem;
-    margin-bottom:1rem; border:1px solid rgba(255,255,255,.08); border-radius:10px;
-    background:rgba(255,255,255,.035); color:rgba(255,255,255,.48);
-    font-size:.78rem; line-height:1.5;
-}
-.link-format-hint i { color:#f87171; margin-top:.15rem; }
-.link-format-hint code { font-size:.74rem; overflow-wrap:anywhere; }
-.profile-draft-status { padding:0 2rem; color:rgba(255,255,255,.5); font-size:.72rem; min-height:1.2em; transition:opacity .3s; }
-.edit-save-dock {
-    position:fixed; z-index:1035; left:50%; bottom:1rem; transform:translate(-50%, 140%);
-    width:min(560px, calc(100vw - 2rem)); display:flex; align-items:center; gap:.85rem;
-    padding:.65rem .75rem .65rem 1rem; border:1px solid rgba(220,38,38,.3); border-radius:14px;
-    background:rgba(17,17,28,.97); box-shadow:0 14px 40px rgba(0,0,0,.5);
-    opacity:0; pointer-events:none; transition:transform .2s, opacity .2s;
-}
-.edit-save-dock.visible { transform:translate(-50%, 0); opacity:1; pointer-events:auto; }
-.edit-save-dock span { color:rgba(255,255,255,.72); font-size:.78rem; font-weight:600; flex:1; }
-.edit-save-dock button { border:0; border-radius:9px; background:#dc2626; color:#fff; min-height:40px; padding:.45rem .85rem; font-size:.78rem; font-weight:700; }
-
-@media(max-width:576px){
-    .edit-card-header { padding: 1.25rem 1.25rem 1rem; }
-    .card-section { padding: 1.25rem; }
-    .edit-actions { padding: 1.25rem; flex-wrap: wrap; }
-    .edit-tab { padding: .6rem .85rem; font-size: .7rem; }
-    .edit-card-header { align-items:flex-start; }
-    .edit-header-save { width:var(--tap-min); min-height:var(--tap-min); padding:.5rem; flex:0 0 var(--tap-min); }
-    /* визуально скрыт, но остаётся accessible name кнопки (display:none его убирал) */
-    .edit-header-save span { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-    .edit-tabs { overflow-x:auto; scrollbar-width:none; }
-    .edit-tabs::-webkit-scrollbar { display:none; }
-    .edit-tab { white-space:nowrap; flex:1 0 auto; justify-content:center; }
-    .profile-draft-status { padding:0 1.25rem; }
-    .edit-save-dock { bottom:calc(76px + env(safe-area-inset-bottom)); }
-}
-
-/* Strict member settings — same brand, calmer hierarchy. */
-body:has(.profile-edit-page) { background:#07070e !important; }
-.profile-edit-page {
-    position:relative;
-    padding:3rem 0 6rem !important;
-    background-color:#07070e;
-    background-image:
-        linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
-    background-size:52px 52px;
-}
-.profile-edit-card {
-    background:rgba(255,255,255,.022);
-    border:1px solid rgba(255,255,255,.085);
-    border-top:2px solid rgba(220,38,38,.72);
-    border-radius:20px;
-    box-shadow:0 24px 70px rgba(0,0,0,.28);
-    padding:0 !important;
-}
-.edit-card-header {
-    padding:1.65rem 2rem;
-    background:transparent;
-    border-bottom:1px solid rgba(255,255,255,.075);
-    margin-bottom:0 !important;
-}
-.edit-header-icon {
-    width:38px; height:38px; border-radius:9px;
-    background:rgba(220,38,38,.08);
-    border:1px solid rgba(220,38,38,.24);
-    font-size:.95rem; box-shadow:none !important;
-}
-.edit-title { font-size:1.45rem; font-weight:800; }
-.edit-subtitle { color:rgba(255,255,255,.48); }
-.edit-header-save {
-    min-height:42px; padding:.55rem 1rem; border-radius:9px;
-    background:linear-gradient(135deg,#dc2626,#b91c1c);
-    box-shadow:0 8px 24px rgba(220,38,38,.16);
-}
-.edit-tabs {
-    position:sticky;
-    top:var(--header-height,60px);
-    padding:0 2rem;
-    gap:1.5rem;
-    background:rgba(9,9,16,.96);
-    border-bottom-color:rgba(255,255,255,.075);
-    backdrop-filter:blur(16px);
-}
-.edit-tab {
-    min-height:50px; padding:0;
-    font-size:.7rem; letter-spacing:.08em;
-    color:rgba(255,255,255,.5);
-}
-.edit-tab.active { color:#fff; border-bottom-color:#dc2626; }
-.card-section {
-    padding:1.75rem 2rem !important;
-    background:transparent !important;
-    border:0 !important;
-    border-bottom:1px solid rgba(255,255,255,.065) !important;
-    border-radius:0 !important;
-    box-shadow:none !important;
-    margin-bottom:0 !important;
-}
-.section-heading {
-    margin-bottom:1.35rem;
-    color:rgba(255,255,255,.48);
-    font-size:.6875rem;
-    letter-spacing:.11em;
-}
-.section-heading::before {
-    content:''; width:12px; height:1px; background:#dc2626;
-}
-.edit-form .form-label { color:rgba(255,255,255,.68); font-size:.78rem; }
-.edit-form .form-control,
-.edit-form .form-select,
-.edit-form textarea {
-    min-height:46px;
-    padding:.68rem .85rem;
-    background:rgba(255,255,255,.045) !important;
-    border:1px solid rgba(255,255,255,.11) !important;
-    border-radius:9px !important;
-}
-.edit-form .form-control:focus,
-.edit-form .form-select:focus,
-.edit-form textarea:focus {
-    background:rgba(255,255,255,.055) !important;
-    border-color:rgba(220,38,38,.58) !important;
-    box-shadow:0 0 0 3px rgba(220,38,38,.09) !important;
-}
-#profile-edit-form .form-check-input:checked {
-    background-color:#dc2626 !important;
-    border-color:#dc2626 !important;
-}
-.email-security-hint { color:rgba(255,255,255,.5); }
-#avatar-drop-zone {
-    border-width:1px !important;
-    border-color:rgba(255,255,255,.12) !important;
-    border-radius:10px !important;
-    background:rgba(255,255,255,.018) !important;
-}
-.link-format-hint {
-    border-radius:9px;
-    background:rgba(255,255,255,.018);
-    color:rgba(255,255,255,.5);
-}
-.edit-actions {
-    padding:1.35rem 2rem;
-    background:rgba(255,255,255,.012);
-    border-top:0;
-}
-.edit-actions .btn-primary,
-.edit-actions .btn-outline-secondary { min-height:42px; border-radius:9px !important; }
-.profile-draft-status { padding:0 2rem 1rem; }
-.edit-save-dock {
-    border:1px solid rgba(255,255,255,.12);
-    border-top:2px solid rgba(220,38,38,.7);
-    border-radius:12px;
-    background:rgba(11,10,17,.98);
-    box-shadow:0 18px 50px rgba(0,0,0,.55);
-}
-
-@media(max-width:576px){
-    .profile-edit-page { padding:1.5rem 0 6rem !important; }
-    .profile-edit-card { border-radius:16px; }
-    .edit-card-header { padding:1.15rem 1.2rem; gap:.75rem; }
-    .edit-header-icon { width:34px; height:34px; }
-    .edit-title { font-size:1.25rem; }
-    .edit-subtitle { font-size:.77rem; line-height:1.45; }
-    .edit-header-save { width:var(--tap-min); min-height:var(--tap-min); flex-basis:var(--tap-min); border-radius:8px; }
-    .edit-tabs { top:52px; padding:0 1.2rem; gap:1.25rem; }
-    .edit-tab { min-height:46px; }
-    .card-section { padding:1.35rem 1.2rem !important; }
-    .edit-actions { padding:1.2rem; }
-    .profile-draft-status { padding:0 1.2rem .8rem; }
-}
-</style>
+<link rel="stylesheet" href="{% static 'css/profile-edit.css' %}">
 {% endblock %}
 
 {% block container_wrap_start %}{% endblock %}
 {% block container_wrap_end %}{% endblock %}
 
 {% block content %}
-<div class="profile-edit-page py-5">
+<div class="profile-edit-page">
     <div class="container-limited">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-xl-7">
-                {# 7c: Breadcrumbs #}
-                <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-3">
-                    <ol>
-                        <li><a href="{% url 'users:profile' %}">{% trans "Profile" %}</a><span class="bc-sep"><i class="fas fa-chevron-right"></i></span></li>
-                        <li><span>{% trans "Edit Profile" %}</span></li>
-                    </ol>
-                </nav>
+        <div class="edit-shell">
+            {# 7c: Breadcrumbs (desktop; phones have the header back arrow) #}
+            <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-2">
+                <ol>
+                    <li><a href="{% url 'users:profile' %}">{% trans "Profile" %}</a><span class="bc-sep"><i class="fas fa-chevron-right"></i></span></li>
+                    <li><span>{% trans "Edit Profile" %}</span></li>
+                </ol>
+            </nav>
 
-                <div class="profile-edit-card">
-                    <div class="edit-card-header">
-                        <div class="edit-header-icon"><i class="fas fa-user-cog"></i></div>
-                        <div class="edit-card-heading">
-                            <h1 class="edit-title">{% trans "Edit profile" %}</h1>
-                            <p class="edit-subtitle">{% trans "Refresh your info, avatar and social links." %}</p>
-                        </div>
-                        <button type="submit" class="edit-header-save" form="profile-edit-form">
-                            <i class="fas fa-check" aria-hidden="true"></i><span>{% trans "Save" %}</span>
-                        </button>
-                    </div>
-
-                    {# 6c: Sticky tab навигация по секциям #}
-                    <nav class="edit-tabs" aria-label="{% trans 'Form sections' %}">
-                        <a class="edit-tab active" href="#sec-basic" data-section="sec-basic">
-                            <i class="fas fa-user"></i> {% trans "Personal" %}
-                        </a>
-                        <a class="edit-tab" href="#sec-avatar" data-section="sec-avatar">
-                            <i class="fas fa-camera"></i> {% trans "Avatar" %}
-                        </a>
-                        <a class="edit-tab" href="#sec-social" data-section="sec-social">
-                            <i class="fas fa-link"></i> {% trans "Links" %}
-                        </a>
-                    </nav>
-
-                    <form method="post" enctype="multipart/form-data" class="edit-form" id="profile-edit-form">
-                        {% csrf_token %}
-
-                        <div class="card-section" id="sec-basic">
-                            <div class="section-heading">{% trans "Basic info" %}</div>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="id_first_name" class="form-label">{% trans "First name" %}</label>
-                                    {{ form.first_name }}
-                                    {% include 'partials/form_field_errors.html' with field=form.first_name %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_last_name" class="form-label">{% trans "Last name" %}</label>
-                                    {{ form.last_name }}
-                                    {% include 'partials/form_field_errors.html' with field=form.last_name %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_email" class="form-label">{% trans "Email" %}</label>
-                                    {{ form.email }}
-                                    {% include 'partials/form_field_errors.html' with field=form.email %}
-                                    <div class="email-security-hint">
-                                        <i class="fas fa-shield-halved" aria-hidden="true"></i>
-                                        <span>
-                                        {% if request.user.is_email_verified %}
-                                          {% trans "Your current address is confirmed. If you change it, the new address must be confirmed again." %}
-                                        {% else %}
-                                          {% trans "This address is not confirmed yet. We will send a confirmation link after you save it." %}
-                                        {% endif %}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_date_of_birth" class="form-label">{% trans "Date of birth" %}</label>
-                                    {{ form.date_of_birth }}
-                                    {% include 'partials/form_field_errors.html' with field=form.date_of_birth %}
-                                    <small class="form-text text-muted d-block mt-1">{% trans "Format: DD.MM.YYYY" %}</small>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_phone_number" class="form-label">{% trans "Phone Number" %}</label>
-                                    {{ form.phone_number }}
-                                    {% include 'partials/form_field_errors.html' with field=form.phone_number %}
-                                    <small class="form-text text-muted d-block mt-1">{% trans "Example: +41 XX XXX XX XX" %}</small>
-                                </div>
-                                <div class="col-12">
-                                    <div class="form-check">
-                                        {{ form.is_phone_hidden }}
-                                        <label class="form-check-label" for="id_is_phone_hidden">
-                                            {% trans "Hide phone number (only admins can see it)" %}
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card-section" id="sec-avatar">
-                            <div class="section-heading"><i class="fas fa-camera me-2" aria-hidden="true"></i>{% trans "Profile photo" %}</div>
-                            {# 3g: Avatar drag-and-drop zone #}
-                            <div class="row"><div class="col-12">
-                                    <label class="form-label">{% trans "Avatar" %}</label>
-                                    <div id="avatar-drop-zone" style="
-                                        border: 2px dashed rgba(255,255,255,.15); border-radius: 14px;
-                                        padding: 1.5rem 1rem; text-align: center; cursor: pointer;
-                                        transition: border-color .2s, background .2s; position: relative;
-                                        background: rgba(255,255,255,.02);">
-                                        {# Превью #}
-                                        <div id="avatar-preview-wrap">
-                                          {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
-                                            <img id="avatar-preview-img" src="{{ form.instance.avatar.url }}" alt=""
-                                                 style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:.75rem;display:block;margin-left:auto;margin-right:auto;">
-                                          {% else %}
-                                            <span class="avatar avatar-lg avatar-fallback mx-auto mb-2"
-                                                  style="display:flex;">{{ request.user.username|slice:":1"|upper }}</span>
-                                            <img id="avatar-preview-img" src="" alt="" style="display:none;width:80px;height:80px;border-radius:50%;object-fit:cover;margin-bottom:.75rem;margin:0 auto .75rem;">
-                                          {% endif %}
-                                        </div>
-
-                                        <div style="font-size:.82rem;color:rgba(255,255,255,.45);margin-bottom:.5rem;">
-                                          <i class="fas fa-cloud-upload-alt me-1" style="color:var(--primary-text);"></i>
-                                          {% trans "Drag & drop or click to upload" %}
-                                        </div>
-                                        <div style="font-size:.7rem;color:rgba(255,255,255,.5);">
-                                          {% trans "JPG, PNG, WebP · Max 5 MB" %}
-                                        </div>
-
-                                        {# Реальный input скрыт #}
-                                        <div style="display:none;">{{ form.avatar }}</div>
-                                        <input type="file" id="avatar-drop-input" accept="image/*"
-                                               style="position:absolute;inset:0;opacity:0;cursor:pointer;"
-                                               aria-label="{% trans 'Upload avatar' %}">
-                                    </div>
-                                    {% include 'partials/form_field_errors.html' with field=form.avatar %}
-                                    <div id="avatar-file-name" style="font-size:.72rem;color:rgba(255,255,255,.5);margin-top:.4rem;"></div>
-                            </div></div>
-                        </div>
-
-                        <div class="card-section" id="sec-social">
-                            <div class="section-heading">
-                                <i class="fas fa-link me-2"></i>{% trans "Social & links" %}
-                            </div>
-                            <div class="link-format-hint">
-                                <i class="fas fa-circle-info" aria-hidden="true"></i>
-                                <span>{% trans "Use a full link beginning with https:// — for example" %} <code>https://t.me/username</code>.</span>
-                            </div>
-                            
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="id_github_url" class="form-label">
-                                        <i class="fab fa-github me-2"></i>{% trans "GitHub" %}
-                                    </label>
-                                    {{ form.github_url }}
-                                    {% include 'partials/form_field_errors.html' with field=form.github_url %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_website_url" class="form-label">
-                                        <i class="fas fa-globe me-2"></i>{% trans "Website" %}
-                                    </label>
-                                    {{ form.website_url }}
-                                    {% include 'partials/form_field_errors.html' with field=form.website_url %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_telegram_url" class="form-label">
-                                        <i class="fab fa-telegram me-2"></i>{% trans "Telegram" %}
-                                    </label>
-                                    {{ form.telegram_url }}
-                                    {% include 'partials/form_field_errors.html' with field=form.telegram_url %}
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="id_discord_url" class="form-label">
-                                        <i class="fab fa-discord me-2"></i>{% trans "Discord" %}
-                                    </label>
-                                    {{ form.discord_url }}
-                                    {% include 'partials/form_field_errors.html' with field=form.discord_url %}
-                                </div>
-                                <div class="col-12">
-                                    <label for="id_other_links" class="form-label">
-                                        <i class="fas fa-list me-2"></i>{% trans "Other links" %}
-                                        <span class="text-muted" style="font-size: 0.85rem;">({% trans "one per line" %})</span>
-                                    </label>
-                                    {{ form.other_links }}
-                                    {% include 'partials/form_field_errors.html' with field=form.other_links %}
-                                    <small class="form-text text-muted d-block mt-2">
-                                        {% trans "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc." %}
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-
-                        {% if form.non_field_errors %}
-                            <div class="alert alert-danger" role="alert">
-                                {% for error in form.non_field_errors %}
-                                    <p class="mb-0">{{ error }}</p>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-
-                        <div id="profile-draft-status" class="profile-draft-status" role="status" aria-live="polite"></div>
-                        <div class="edit-actions">
-                            <button type="submit" class="btn btn-primary btn-modern">{% trans "Save changes" %}</button>
-                            <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary btn-modern" data-cancel-profile>{% trans "Cancel" %}</a>
-                        </div>
-                    </form>
+            <div class="edit-head">
+                <div class="edit-head-icon" aria-hidden="true"><i class="fas fa-user-cog"></i></div>
+                <div>
+                    <h1 class="edit-title">{% trans "Edit profile" %}</h1>
+                    <p class="edit-subtitle">{% trans "Refresh your info, avatar and social links." %}</p>
                 </div>
             </div>
+
+            {# Real tabs: one panel at a time, so the form is never an endless scroll #}
+            <div class="seg edit-tabs" role="tablist" aria-label="{% trans 'Form sections' %}">
+                <button type="button" class="seg-btn" role="tab" id="tab-basic" data-panel="basic" aria-controls="panel-basic" aria-selected="true">
+                    <i class="fas fa-user" aria-hidden="true"></i>{% trans "Personal" %}
+                </button>
+                <button type="button" class="seg-btn" role="tab" id="tab-avatar" data-panel="avatar" aria-controls="panel-avatar" aria-selected="false" tabindex="-1">
+                    <i class="fas fa-camera" aria-hidden="true"></i>{% trans "Avatar" %}
+                </button>
+                <button type="button" class="seg-btn" role="tab" id="tab-social" data-panel="social" aria-controls="panel-social" aria-selected="false" tabindex="-1">
+                    <i class="fas fa-link" aria-hidden="true"></i>{% trans "Links" %}
+                </button>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="edit-form form-compact" id="profile-edit-form">
+                {% csrf_token %}
+
+                <section class="edit-panel is-active" id="panel-basic" role="tabpanel" aria-labelledby="tab-basic" tabindex="-1">
+                    <div class="edit-pair">
+                        <div class="form-row">
+                            <label for="id_first_name" class="form-label">{% trans "First name" %}</label>
+                            {{ form.first_name }}
+                            {% include 'partials/form_field_errors.html' with field=form.first_name %}
+                        </div>
+                        <div class="form-row">
+                            <label for="id_last_name" class="form-label">{% trans "Last name" %}</label>
+                            {{ form.last_name }}
+                            {% include 'partials/form_field_errors.html' with field=form.last_name %}
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label for="id_email" class="form-label">{% trans "Email" %}</label>
+                        {{ form.email }}
+                        {% include 'partials/form_field_errors.html' with field=form.email %}
+                        <div class="email-security-hint">
+                            <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                            <span>
+                            {% if request.user.is_email_verified %}
+                              {% trans "Your current address is confirmed. If you change it, the new address must be confirmed again." %}
+                            {% else %}
+                              {% trans "This address is not confirmed yet. We will send a confirmation link after you save it." %}
+                            {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="edit-pair">
+                        <div class="form-row">
+                            <label for="id_date_of_birth" class="form-label">{% trans "Date of birth" %}</label>
+                            {{ form.date_of_birth }}
+                            {% include 'partials/form_field_errors.html' with field=form.date_of_birth %}
+                        </div>
+                        <div class="form-row">
+                            <label for="id_phone_number" class="form-label">{% trans "Phone Number" %}</label>
+                            {{ form.phone_number }}
+                            {% include 'partials/form_field_errors.html' with field=form.phone_number %}
+                        </div>
+                    </div>
+                    <div class="form-check">
+                        {{ form.is_phone_hidden }}
+                        <label class="form-check-label" for="id_is_phone_hidden">
+                            {% trans "Hide phone number (only admins can see it)" %}
+                        </label>
+                    </div>
+                </section>
+
+                <section class="edit-panel" id="panel-avatar" role="tabpanel" aria-labelledby="tab-avatar" tabindex="-1">
+                    {# 3g: Avatar — one compact tappable row (drag & drop still works on desktop) #}
+                    <div id="avatar-drop-zone" class="avatar-row">
+                        <div id="avatar-preview-wrap" class="avatar-row-img">
+                          {% if form.instance.avatar and form.instance.avatar.name != 'avatars/default.png' %}
+                            <img id="avatar-preview-img" src="{{ form.instance.avatar.url }}" alt="" width="64" height="64">
+                          {% else %}
+                            <span class="avatar-fallback" id="avatar-fallback">{{ request.user.username|slice:":1"|upper }}</span>
+                            <img id="avatar-preview-img" src="" alt="" width="64" height="64" hidden>
+                          {% endif %}
+                        </div>
+                        <div class="avatar-row-text">
+                            <span class="avatar-row-title"><i class="fas fa-cloud-upload-alt" aria-hidden="true"></i>{% trans "Drag & drop or click to upload" %}</span>
+                            <span class="avatar-row-sub">{% trans "JPG, PNG, WebP · Max 5 MB" %}</span>
+                        </div>
+                        {# The real Django input stays hidden; this overlay input feeds it #}
+                        <div hidden>{{ form.avatar }}</div>
+                        <input type="file" id="avatar-drop-input" class="avatar-row-input" accept="image/*"
+                               aria-label="{% trans 'Upload avatar' %}">
+                    </div>
+                    {% include 'partials/form_field_errors.html' with field=form.avatar %}
+                    <div id="avatar-file-name" class="avatar-file-name" role="status"></div>
+                </section>
+
+                <section class="edit-panel" id="panel-social" role="tabpanel" aria-labelledby="tab-social" tabindex="-1">
+                    <p class="link-format-hint">
+                        <i class="fas fa-circle-info" aria-hidden="true"></i>
+                        <span>{% trans "Use a full link beginning with https:// — for example" %} <code>https://t.me/username</code>.</span>
+                    </p>
+                    <div class="edit-links">
+                        <div class="form-row">
+                            <label for="id_github_url" class="form-label"><i class="fab fa-github" aria-hidden="true"></i>{% trans "GitHub" %}</label>
+                            {{ form.github_url }}
+                            {% include 'partials/form_field_errors.html' with field=form.github_url %}
+                        </div>
+                        <div class="form-row">
+                            <label for="id_website_url" class="form-label"><i class="fas fa-globe" aria-hidden="true"></i>{% trans "Website" %}</label>
+                            {{ form.website_url }}
+                            {% include 'partials/form_field_errors.html' with field=form.website_url %}
+                        </div>
+                        <div class="form-row">
+                            <label for="id_telegram_url" class="form-label"><i class="fab fa-telegram" aria-hidden="true"></i>{% trans "Telegram" %}</label>
+                            {{ form.telegram_url }}
+                            {% include 'partials/form_field_errors.html' with field=form.telegram_url %}
+                        </div>
+                        <div class="form-row">
+                            <label for="id_discord_url" class="form-label"><i class="fab fa-discord" aria-hidden="true"></i>{% trans "Discord" %}</label>
+                            {{ form.discord_url }}
+                            {% include 'partials/form_field_errors.html' with field=form.discord_url %}
+                        </div>
+                        <div class="form-row edit-wide">
+                            <label for="id_other_links" class="form-label">
+                                <i class="fas fa-list" aria-hidden="true"></i>{% trans "Other links" %}
+                                <span class="field-sub">({% trans "one per line" %})</span>
+                            </label>
+                            {{ form.other_links }}
+                            {% include 'partials/form_field_errors.html' with field=form.other_links %}
+                            <small class="form-text d-block">{% trans "Examples: LinkedIn, Reddit, Twitter, YouTube, TikTok, Instagram, Twitch, Medium, etc." %}</small>
+                        </div>
+                    </div>
+                </section>
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger" role="alert">
+                        {% for error in form.non_field_errors %}
+                            <p class="mb-0">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div id="profile-draft-status" class="profile-draft-status" role="status" aria-live="polite"></div>
+
+                {# One save button for the whole form: pinned above the bottom nav on phones, 50/50 with Cancel #}
+                <div class="action-bar edit-actions">
+                    <p class="action-note" id="edit-dirty-note" role="status" hidden><i class="fas fa-circle-exclamation me-1" aria-hidden="true"></i>{% trans "You have unsaved changes" %}</p>
+                    <a href="{% url 'users:profile' %}" class="btn btn-outline-secondary" data-cancel-profile>{% trans "Cancel" %}</a>
+                    <button type="submit" class="btn btn-primary">{% trans "Save changes" %}</button>
+                </div>
+            </form>
         </div>
     </div>
-</div>
-<div class="edit-save-dock" id="edit-save-dock" aria-hidden="true">
-    <span><i class="fas fa-circle-exclamation me-1" aria-hidden="true"></i>{% trans "You have unsaved changes" %}</span>
-    <button type="submit" form="profile-edit-form"><i class="fas fa-check me-1" aria-hidden="true"></i>{% trans "Save" %}</button>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-/* ── 6c: Tab navigation highlight on scroll ── */
-(function(){
-    var tabs = document.querySelectorAll('.edit-tab[data-section]');
-    var sections = [];
-    tabs.forEach(function(tab){
-        var sec = document.getElementById(tab.dataset.section);
-        if (sec) sections.push({ tab: tab, sec: sec });
-    });
-    if (!sections.length) return;
-    function updateActive(){
-        var scrollY = window.scrollY + 120;
-        var active = sections[0];
-        sections.forEach(function(s){ if (s.sec.offsetTop <= scrollY) active = s; });
-        tabs.forEach(function(t){ t.classList.remove('active'); t.removeAttribute('aria-current'); });
-        active.tab.classList.add('active');
-        active.tab.setAttribute('aria-current', 'location');
+/* ── Tabs: one panel at a time (arrows move between tabs, Home/End jump) ── */
+(function () {
+    var tabs = [].slice.call(document.querySelectorAll('.edit-tabs [role="tab"]'));
+    if (!tabs.length) return;
+    var panels = tabs.map(function (t) { return document.getElementById(t.getAttribute('aria-controls')); });
+    var form = document.getElementById('profile-edit-form');
+
+    function select(i, focus) {
+        tabs.forEach(function (t, j) {
+            var on = j === i;
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+            t.tabIndex = on ? 0 : -1;
+            panels[j].classList.toggle('is-active', on);
+        });
+        if (focus) tabs[i].focus();
+        if (tabs[i].scrollIntoView) tabs[i].scrollIntoView({ inline: 'center', block: 'nearest' });
+        try { history.replaceState(null, '', '#' + tabs[i].dataset.panel); } catch (e) {}
     }
-    window.addEventListener('scroll', updateActive, { passive: true });
-    tabs.forEach(function(tab){
-        tab.addEventListener('click', function(e){
+    function indexOfPanel(el) {
+        for (var i = 0; i < panels.length; i++) if (panels[i].contains(el)) return i;
+        return -1;
+    }
+
+    tabs.forEach(function (t, i) {
+        t.addEventListener('click', function () { select(i); });
+        t.addEventListener('keydown', function (e) {
+            var n = null;
+            if (e.key === 'ArrowRight') n = (i + 1) % tabs.length;
+            else if (e.key === 'ArrowLeft') n = (i - 1 + tabs.length) % tabs.length;
+            else if (e.key === 'Home') n = 0;
+            else if (e.key === 'End') n = tabs.length - 1;
+            if (n === null) return;
             e.preventDefault();
-            var sec = document.getElementById(tab.dataset.section);
-            if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            select(n, true);
         });
     });
+
+    /* The browser cannot focus a field inside a hidden panel: show that panel when validation fails. */
+    if (form) form.addEventListener('invalid', function (e) {
+        var i = indexOfPanel(e.target);
+        if (i > -1) select(i);
+    }, true);
+
+    /* Start on the panel named in the URL (#social, or the old #sec-social) or the first one with a server error. */
+    var start = 0, hash = (location.hash || '').replace('#', '').replace('sec-', '');
+    tabs.forEach(function (t, i) { if (t.dataset.panel === hash) start = i; });
+    if (!hash) panels.forEach(function (p, i) { if (start === 0 && p.querySelector('.field-errors')) start = i; });
+    select(start);
 })();
 
 /* ── Profile edit auto-save (U2-08) ── */
@@ -692,18 +306,17 @@ body:has(.profile-edit-page) { background:#07070e !important; }
     setInterval(saveDraft, 30000);
 })();
 
-/* Explicit save UX: reveal a dock and guard navigation when the form is dirty. */
+/* Explicit save UX: show a note in the action bar and guard navigation when the form is dirty. */
 (function(){
     var form = document.getElementById('profile-edit-form');
-    var dock = document.getElementById('edit-save-dock');
+    var note = document.getElementById('edit-dirty-note');
     var cancel = document.querySelector('[data-cancel-profile]');
     var dirty = false;
-    if (!form || !dock) return;
+    if (!form) return;
 
     function markDirty(){
         dirty = true;
-        dock.classList.add('visible');
-        dock.setAttribute('aria-hidden', 'false');
+        if (note) note.hidden = false;
     }
     form.addEventListener('input', markDirty);
     form.addEventListener('change', markDirty);
@@ -725,29 +338,20 @@ body:has(.profile-edit-page) { background:#07070e !important; }
     var zone    = document.getElementById('avatar-drop-zone');
     var fileInp = document.getElementById('avatar-drop-input');
     var preview = document.getElementById('avatar-preview-img');
+    var fallback= document.getElementById('avatar-fallback');
     var label   = document.getElementById('avatar-file-name');
     var realInp = document.getElementById('id_avatar');
     if (!zone || !fileInp) return;
 
-    // Drag events
-    zone.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        zone.style.borderColor = '#dc2626';
-        zone.style.background  = 'rgba(220,38,38,.06)';
-    });
-    zone.addEventListener('dragleave', function () {
-        zone.style.borderColor = 'rgba(255,255,255,.15)';
-        zone.style.background  = 'rgba(255,255,255,.02)';
-    });
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('is-over'); });
+    zone.addEventListener('dragleave', function () { zone.classList.remove('is-over'); });
     zone.addEventListener('drop', function (e) {
         e.preventDefault();
-        zone.style.borderColor = 'rgba(255,255,255,.15)';
-        zone.style.background  = 'rgba(255,255,255,.02)';
+        zone.classList.remove('is-over');
         var file = e.dataTransfer.files[0];
         if (file) handleFile(file);
     });
 
-    // Click → file input
     fileInp.addEventListener('change', function () {
         if (this.files[0]) handleFile(this.files[0]);
     });
@@ -761,23 +365,22 @@ body:has(.profile-edit-page) { background:#07070e !important; }
             if (label) label.textContent = '{% trans "File too large (max 5 MB)" %}';
             return;
         }
-        // Preview
         var reader = new FileReader();
         reader.onload = function (ev) {
-            if (preview) { preview.src = ev.target.result; preview.style.display = 'block'; }
+            if (preview) { preview.src = ev.target.result; preview.hidden = false; }
+            if (fallback) fallback.hidden = true;
         };
         reader.readAsDataURL(file);
 
-        // Copy to real Django form input
+        // Copy to the real Django form input
         if (realInp) {
             var dt = new DataTransfer();
             dt.items.add(file);
             realInp.files = dt.files;
         }
         if (label) label.textContent = file.name + ' (' + (file.size / 1024).toFixed(0) + ' KB)';
-        // Зелёная рамка
-        zone.style.borderColor = '#4ade80';
-        setTimeout(function () { zone.style.borderColor = 'rgba(255,255,255,.15)'; }, 2000);
+        zone.classList.add('is-done');
+        setTimeout(function () { zone.classList.remove('is-done'); }, 2000);
     }
 })();
 
@@ -786,6 +389,5 @@ body:has(.profile-edit-page) { background:#07070e !important; }
     var phoneEl = document.getElementById('id_phone_number');
     if (phoneEl && window._applyPhoneMask) window._applyPhoneMask(phoneEl);
 })();
-
 </script>
 {% endblock %}

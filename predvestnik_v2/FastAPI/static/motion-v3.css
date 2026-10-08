@@ -1,0 +1,35 @@
+/* ═══ MOTION V3 · движение с назначением ═══
+   Каждая анимация сообщает о событии: деньги пришли или ушли, награда долетела, страница пришла справа или слева, образ сменился.
+   Всё одноразовое, только transform и opacity. Слабому телефону JS не создаёт ничего (app.31.js), «Спокойному режиму» CSS ничего не оставляет. */
+
+/* баланс: пульс числа и «+120» под чипом */
+.v3-chip.is-tick b { display: inline-block; animation: v3tick .5s var(--v3-ease); }
+@keyframes v3tick { 0% { transform: scale(1); } 35% { transform: scale(1.22); } 100% { transform: scale(1); } }
+.v3-delta { position: fixed; z-index: 90; pointer-events: none; font: 700 12px var(--v3-font); font-style: normal; font-variant-numeric: tabular-nums; color: var(--v3-acc); text-shadow: 0 1px 6px var(--v3-bg); transform: translate(-50%, 0); animation: v3delta 1.3s var(--v3-ease) both; }
+.v3-delta.is-down { color: var(--v3-dim); }
+@keyframes v3delta { 0% { opacity: 0; transform: translate(-50%, -6px); } 18% { opacity: 1; transform: translate(-50%, 3px); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 16px); } }
+
+/* награда летит в чип */
+.v3-fly { position: fixed; left: 0; top: 0; z-index: 320; margin: -8px 0 0 -8px; font: 16px/1 var(--v3-font); font-style: normal; color: var(--v3-acc); pointer-events: none; will-change: transform, opacity; }
+
+/* задание выполнено: значок подпрыгивает, надпись «выполнено» поднимается */
+@keyframes v3check { 0% { transform: scale(1); } 35% { transform: scale(1.22) rotate(-6deg); } 100% { transform: none; } }
+.quest-card.is-fresh .quest-card-icon { animation: v3check .6s var(--v3-ease) both; }
+.quest-card.is-fresh .quest-complete-note { animation: v3rise .45s var(--v3-ease) .2s backwards; }
+
+/* страницы приходят с той стороны, куда ушёл игрок по доку: вперёд справа, назад слева. Страницы с каскадом секций (v3-stagger) анимируют секции сами */
+@keyframes v3in-f { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes v3in-b { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
+@keyframes v3fade { from { opacity: 0; } to { opacity: 1; } }
+body[data-dir="f"] .page.active:not(:has(.v3-stagger)) { animation: v3in-f var(--v3-dur) var(--v3-ease) backwards; }
+body[data-dir="b"] .page.active:not(:has(.v3-stagger)) { animation: v3in-b var(--v3-dur) var(--v3-ease) backwards; }
+body[data-dev="low"][data-dir] .page.active:not(:has(.v3-stagger)) { animation: v3fade .16s ease-out backwards; }   /* слабый телефон: только появление, без сдвига */
+
+/* смена образа: палитра перетекает (View Transitions, где они есть) */
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .34s; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .v3-chip.is-tick b, .v3-delta, .v3-fly, body[data-dir] .page.active, .cn-pop, .mk-row--new .mk-tile, .mk-bar i, .quest-card.is-fresh .quest-card-icon, .quest-card.is-fresh .quest-complete-note { animation: none !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
+.no-fx .v3-chip.is-tick b, .no-fx .v3-delta, .no-fx .v3-fly, .no-fx[data-dir] .page.active, .no-fx .cn-pop, .no-fx .mk-row--new .mk-tile, .no-fx .mk-bar i, .no-fx .quest-card.is-fresh .quest-card-icon, .no-fx .quest-card.is-fresh .quest-complete-note { animation: none !important; }
