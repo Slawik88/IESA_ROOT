@@ -46,6 +46,17 @@ assert "бот топ" in chat_help.section_text("stats")
 assert chat_help.main_keyboard(1).inline_keyboard
 print("OK: help")
 
+# Подсказки при опечатке: лучшая первой, основные названия, без слабого шума.
+assert parse(real, "бот деньги").suggestions[0] == "баланс"            # по смыслу
+assert parse(real, "бот ban, @user").suggestions == ("бан",)           # латиница
+assert parse(real, "бот снять мту").suggestions[0] == "снять мут"      # опечатка в двух словах
+assert parse(real, "бот санкц").suggestions == ("санкции",)            # начало слова
+assert parse(real, "бот ачивк").suggestions == ("достижения",)         # синоним
+assert parse(real, "ище топ").command.name == "топ"                    # «bot» в русской раскладке
+assert parse(real, ",jn ,fkfyc").command.name == "баланс"              # «бот баланс» в английской
+assert parse(real, "бот ыыыыыыыыы").suggestions == ()
+print("OK: suggestions")
+
 from bot.chat import ranks  # noqa: E402
 assert ranks.find_rank("модератор") == 4 and ranks.find_rank("ст. модератор") == 5
 assert ranks.find_rank("мл модератор") == 3 and ranks.find_rank("7") == 7 and ranks.find_rank("10") is None

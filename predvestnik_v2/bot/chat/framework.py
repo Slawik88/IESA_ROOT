@@ -16,7 +16,8 @@ from aiogram.types import Message
 
 from bot.chat.access import is_developer
 
-_PREFIX_RE = re.compile(r"^\s*(?:бот|bot)(?![\w])[\s,:;.!-]*", re.IGNORECASE)
+# «бот», «bot» и они же в чужой раскладке («ище», «,jn»). После «,jn» запятая — это буква «б».
+_PREFIX_RE = re.compile(r"^\s*(?:(?:бот|bot|ище)(?![\w])[\s,:;.!-]*|,jn(?![\w])\s*)", re.IGNORECASE)
 _TOKEN_RE = re.compile(r"\S+")
 
 _EN = "qwertyuiop[]asdfghjkl;'zxcvbnm,./`"
@@ -153,23 +154,97 @@ def _consume(rest: str, n: int) -> str:
     return re.sub(r"^[\s,;:]+", "", rest[pos:])
 
 
-def suggest(registry: Registry, typed: str, limit: int = 3) -> tuple[str, ...]:
-    """Ближайшие команды к набранному (опечатки, раскладка, лишние буквы)."""
-    names = registry.names
+_TRANSLIT = (("sch", "щ"), ("zh", "ж"), ("ch", "ч"), ("sh", "ш"), ("ts", "ц"), ("yu", "ю"), ("ya", "я"),
+             ("yo", "е"), ("a", "а"), ("b", "б"), ("v", "в"), ("w", "в"), ("g", "г"), ("d", "д"), ("e", "е"),
+             ("z", "з"), ("i", "и"), ("y", "ы"), ("j", "й"), ("k", "к"), ("c", "к"), ("q", "к"), ("l", "л"),
+             ("m", "м"), ("n", "н"), ("o", "о"), ("p", "п"), ("r", "р"), ("s", "с"), ("t", "т"), ("u", "у"),
+             ("f", "ф"), ("h", "х"), ("x", "кс"))
+
+# Слова «по смыслу», которых нет среди названий команд: что человек, скорее всего, хотел.
+SYNONYMS: dict[str, tuple[str, ...]] = {
+    "помоги": ("помощь",), "команды": ("помощь",), "хелп": ("помощь",), "help": ("помощь",), "меню": ("помощь",),
+    "умеешь": ("помощь",), "деньги": ("баланс",), "валюта": ("баланс",), "монеты": ("баланс",),
+    "мора": ("баланс", "перевод"), "алмазы": ("баланс",), "отправить": ("перевод",), "передать": ("перевод",),
+    "скинуть": ("перевод",), "кинуть": ("перевод",), "жениться": ("брак",), "свадьба": ("брак",),
+    "пожениться": ("брак",), "рейтинг": ("топ",), "лидеры": ("топ",), "статистика": ("я", "топ"),
+    "профиль": ("я",), "ачивки": ("достижения",), "задания": ("квесты",), "ссылка": ("сайт",),
+    "приложение": ("сайт",), "апп": ("сайт",), "предупреждение": ("варн",), "заткнуть": ("мут",),
+    "выгнать": ("кик",), "забанить": ("бан",), "разбанить": ("снять бан",), "размутить": ("снять мут",),
+}
+
+
+def translit(word: str) -> str:
+    """«ban» -> «бан»: русское слово латиницей."""
+    out = word.lower()
+    for lat, cyr in _TRANSLIT:
+        out = out.replace(lat, cyr)
+    return out
+
+
+def _stem(word: str) -> str:
+    return word[:5] if len(word) > 5 else word
+
+
+def suggest(registry: Registry, *typed: str, limit: int = 3) -> tuple[str, ...]:
+    """Ближайшие команды к набранному: опечатка, раскладка, латиница, начало слова, смысл.
+
+    Можно передать несколько вариантов (первое слово, первые два) — берётся лучший счёт.
+    Возвращает основные названия команд (без дублей через синонимы), лучшие первыми.
+    """
+    scores: dict[str, float] = {}
+    for t in typed:
+        for name, score in _scores(registry, t).items():
+            scores[name] = max(score, scores.get(name, 0))
+    ranked = sorted(scores.items(), key=lambda kv: (-kv[1], kv[0]))
+    if not ranked:
+        return ()
+    floor = max(0.6, ranked[0][1] - 0.2)   # при явном попадании слабые варианты не показываем
+    return tuple(name for name, score in ranked if score >= floor)[:limit]
+
+
+def _scores(registry: Registry, typed: str) -> dict[str, float]:
     typed_n = " ".join(norm(w) for w in typed.split())
-    out: list[str] = []
-    candidates = {typed_n, fix_layout(typed_n)}
-    for cand in candidates:
-        if cand in names and cand not in out:
-            out.append(cand)
-        for m in difflib.get_close_matches(cand, names, n=limit, cutoff=0.6):
-            if m not in out:
-                out.append(m)
-        # префикс: «блэклист» ~ «блэк»
-        for n in names:
-            if len(cand) >= 3 and (n.startswith(cand) or cand.startswith(n)) and n not in out:
-                out.append(n)
-    return tuple(out[:limit])
+    if not typed_n:
+        return {}
+    variants = {typed_n, fix_layout(typed_n)}
+    if re.fullmatch(r"[a-z ]+", typed_n):
+        variants.add(translit(typed_n))
+    scores: dict[str, float] = {}
+
+    def give(cmd: Command, score: float) -> None:
+        if score > scores.get(cmd.name, 0):
+            scores[cmd.name] = score
+
+    for key in registry.names:
+        cmd = registry.get(key)
+        for v in variants:
+            if v == key:
+                give(cmd, 1.0 if v == typed_n else 0.98)
+                continue
+            ratio = difflib.SequenceMatcher(None, v, key).ratio()
+            first = key.split()[0]
+            if " " in key and " " not in v:
+                ratio = max(ratio, difflib.SequenceMatcher(None, v, first).ratio() * 0.78)   # только первое слово
+            if ratio >= 0.6:
+                give(cmd, ratio)
+            # начало слова: «дост» -> «достижения», «санкц» -> «санкции»
+            if len(v) >= 3 and (key.startswith(v) or v.startswith(key) and len(key) >= 3):
+                give(cmd, 0.7 + min(len(v), len(key)) / max(len(v), len(key)) * 0.2)
+    # По смыслу: словарь и слова из описаний команд.
+    words = typed_n.split()
+    for w in words:
+        for name in SYNONYMS.get(w, ()):
+            cmd = registry.get(name)
+            if cmd:
+                give(cmd, 0.85)
+    stems = {_stem(w) for w in words[:1] if len(w) >= 5}   # дальше обычно значения, а не команда
+    if stems:
+        for cmd in registry.commands():
+            text = f"{cmd.summary} {cmd.name}".lower().replace("ё", "е")
+            hits = stems & {_stem(t) for t in re.findall(r"[а-яa-z]+", text) if len(t) >= 4}
+            if hits:
+                give(cmd, 0.55 + 0.05 * len(hits))
+    return scores
 
 
 def parse(registry: Registry, text: str, bot_username: str | None = None) -> Parsed | Unknown | None:
@@ -180,12 +255,13 @@ def parse(registry: Registry, text: str, bot_username: str | None = None) -> Par
     rest = rest.strip()
     if not rest:
         return None
-    tokens = [norm(t) for t in _TOKEN_RE.findall(rest)]
+    raw = _TOKEN_RE.findall(rest)
+    tokens = [norm(t) for t in raw]
     for n in range(min(registry.max_words(), len(tokens)), 0, -1):
         key = " ".join(tokens[:n])
         cmd = registry.get(key)
         if cmd is None:
-            fixed = " ".join(fix_layout(t) for t in tokens[:n])
+            fixed = " ".join(norm(fix_layout(t)) for t in raw[:n])   # «,fkfyc»: запятая — это «б»
             cmd = registry.get(fixed) if prefixed else None
         if cmd is None:
             continue
@@ -195,12 +271,8 @@ def parse(registry: Registry, text: str, bot_username: str | None = None) -> Par
     if not prefixed:
         return None
     typed = " ".join(tokens[:2]) if len(tokens) > 1 else tokens[0]
-    sugg = suggest(registry, tokens[0])
-    if len(tokens) > 1:
-        for s in suggest(registry, " ".join(tokens[:2])):
-            if s not in sugg:
-                sugg = (s, *sugg)
-    return Unknown(tokens[0], sugg[:3])
+    sugg = suggest(registry, *([tokens[0], " ".join(tokens[:2])] if len(tokens) > 1 else [tokens[0]]))
+    return Unknown(tokens[0], sugg)
 
 
 async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
@@ -214,7 +286,11 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
         return False
     if isinstance(parsed, Unknown):
         if parsed.suggestions:
-            hint = "\n".join(f"• <code>бот {s}</code>" for s in parsed.suggestions)
+            def line(name: str) -> str:
+                cmd = registry.get(name)
+                about = f" — {_esc(cmd.summary)}" if cmd and cmd.summary else ""
+                return f"• <code>бот {_esc(name)}</code>{about}"
+            hint = "\n".join(line(s) for s in parsed.suggestions)
             await message.reply(
                 f"🤔 Не знаю команду «{_esc(parsed.typed)}». Возможно, вы имели в виду:\n{hint}",
                 parse_mode="HTML",
