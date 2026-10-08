@@ -1,0 +1,22 @@
+{
+  "viewport": 390,
+  "cosmetics": "void SSS, animations enabled",
+  "warm": {
+    "cached": true,
+    "looks": true,
+    "fx": true
+  },
+  "instant": {
+    "ms": 9,
+    "active": "looks",
+    "paint": true
+  },
+  "selection": {
+    "stripPreserved": true,
+    "packsPreserved": true,
+    "note": true,
+    "fit": true
+  },
+  "details": true,
+  "errors": []
+}

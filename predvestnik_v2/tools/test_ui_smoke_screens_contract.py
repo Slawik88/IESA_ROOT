@@ -11,9 +11,9 @@ from ui_smoke_checks import DOCK_TABS, SCREENS  # noqa: E402
 
 STATIC = ROOT / "FastAPI/static"
 main_py = (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")
-parts = re.search(r"_APP_JS_PARTS = \[f\"app\.\{i:02d\}\.js\" for i in \(([^)]*)\)\]", main_py)
+parts = re.search(r"_APP_JS_PARTS = \[\"app.load-scheduler.js\"\] \+ \[f\"app\.\{i:02d\}\.js\" for i in \(([^)]*)\)\]", main_py)
 assert parts, "the part list of the app script changed: update this test"
-js = "\n".join((STATIC / f"app.{int(n):02d}.js").read_text(encoding="utf-8") for n in parts.group(1).split(","))
+js = (STATIC / 'app.load-scheduler.js').read_text(encoding='utf-8') + "\n" + "\n".join((STATIC / f"app.{int(n):02d}.js").read_text(encoding="utf-8") for n in parts.group(1).split(","))
 html = (STATIC / "index.html").read_text(encoding="utf-8")
 
 defined = set(re.findall(r"function\s+([A-Za-z_$][\w$]*)\s*\(", js)) | set(re.findall(r"window\.([A-Za-z_$][\w$]*)\s*=", js)) | set(re.findall(r"(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\()", js))

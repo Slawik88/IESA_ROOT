@@ -2,6 +2,19 @@
 from __future__ import annotations
 
 import json
+from infrastructure.schema_readiness import ensure_read_schema as ensure_schema
+
+
+async def ensure_read_schema(db) -> None:
+    await ensure_schema(
+        db, install=ensure_tables, name='quests-v1',
+        tables=('quest_v1_assignments', 'quest_v1_rerolls', 'quest_v1_actions',
+                'quest_v1_metric_receipts', 'quest_v1_reward_receipts'),
+        columns=tuple(('quest_v1_reward_receipts', name) for name in
+                      ('reward_kind', 'quest_policy_version', 'reward_policy_version', 'amount_mora')),
+        triggers=(('quest_v1_reward_receipts', 'quest_v1_reward_receipts_append_only',
+                   'reject_quest_reward_receipt_rewrite_v1'),),
+    )
 
 
 def _load(value):

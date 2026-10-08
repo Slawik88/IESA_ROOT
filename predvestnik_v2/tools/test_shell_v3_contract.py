@@ -218,7 +218,7 @@ if shutil.which("node"):
     parts = _re.findall(r"app\.(\d\d)\.js", _re.search(r"_APP_JS_PARTS = \[([^\]]*)\]", (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")).group(1)) or \
         [f"{int(n):02d}" for n in _re.search(r"for i in \(([^)]*)\)", (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")).group(1).split(",")]
     with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tmp:
-        tmp.write("\n".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in parts))
+        tmp.write((STATIC / 'app.load-scheduler.js').read_text(encoding='utf-8') + "\n" + "\n".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in parts))
     done = subprocess.run(["node", "--check", tmp.name], capture_output=True, text=True)
     Path(tmp.name).unlink()
     assert done.returncode == 0, done.stderr[:600]

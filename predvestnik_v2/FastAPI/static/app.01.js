@@ -127,13 +127,31 @@ function _scheduleReactiveRefresh(){
   }, 350);
 }
 function api(path, opts={}) {
-  return fetch(BASE+path,{...opts,headers:{...hdrs(),...(opts.headers||{})}})
-    .then(r=>{
-      if(r.status===401){localStorage.removeItem(SK);try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){};_localPreprodTicket='';el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
+  const auth = JSON.stringify(hdrs()), headers = {...hdrs(),...(opts.headers||{})};
+  const method = (opts.method||'GET').toUpperCase();
+  const mutates = method!=='GET' && !path.startsWith('/analytics');
+  if(mutates) pvInvalidateReads();
+  const readEpoch = _pvReadEpoch;
+  const load = () => fetch(BASE+path,{...opts,headers})
+    .then(async r=>{
+      // A late response from a previous login cannot clear or repaint this one.
+      if(auth!==JSON.stringify(hdrs())) throw new DOMException('Session changed','AbortError');
+      if(r.status===401){localStorage.removeItem(SK);try{sessionStorage.removeItem('pv_preprod_ticket');}catch(_){};_localPreprodTicket='';pvInvalidateReads();el('login-ov').classList.remove('hidden');return Promise.reject('Войдите снова.');}
       // авто-refresh только на успешных мутациях; GET/аналитику/сам /profile/me не триггерим (без петель)
       const _m=(opts.method||'GET').toUpperCase();
+      if(r.ok && mutates) pvInvalidateReads();
       if(r.ok && _m!=='GET' && path.indexOf('/analytics')!==0 && path.indexOf('/profile/me')!==0) _scheduleReactiveRefresh();
-      return r.ok?r.json():r.text().then(t=>{
+      if(r.ok){
+        if(method==='GET') await pvAfterTransition();
+        if(auth!==JSON.stringify(hdrs())) throw new DOMException('Session changed','AbortError');
+        const data = await r.json();
+        if(auth!==JSON.stringify(hdrs())) throw new DOMException('Session changed','AbortError');
+        // Parsing also yields: a purchase may finish while this read is queued.
+        if(method==='GET' && readEpoch!==_pvReadEpoch) return api(path,opts);
+        return data;
+      }
+      return r.text().then(t=>{
+        if(auth!==JSON.stringify(hdrs())) throw new DOMException('Session changed','AbortError');
         try{
           const e=JSON.parse(t);
           const d=e.detail;
@@ -145,6 +163,10 @@ function api(path, opts={}) {
         }
       });
     });
+  // A caller-owned AbortSignal must never cancel another consumer's read.
+  const key = path + ':' + JSON.stringify(Object.entries(headers).sort()) +
+              ':' + JSON.stringify([opts.cache,opts.credentials,opts.mode]);
+  return method==='GET' && !opts.signal && !opts.body ? pvRead(key,load) : load();
 }
 // UX_AUDIT С9: сырые/англоязычные detail (Pydantic и пр.) не долетают до игрока.
 // Русские сообщения сервера показываем как есть, техжаргон — прячем в консоль.
@@ -400,7 +422,11 @@ function _updateTabMasks(){
 }
 window.addEventListener('resize', _updateTabMasks);
 window.addEventListener('load', _updateTabMasks);
-document.addEventListener('click', ()=>{ setTimeout(_updateTabMasks, 350); }, true);
+let _tabMaskTimer=null;
+document.addEventListener('click', ()=>{
+  clearTimeout(_tabMaskTimer);
+  _tabMaskTimer=setTimeout(()=>pvAfterTransition().then(_updateTabMasks),100);
+}, true);
 
 // ── Артефакт: интерактивная голо-фольга (block 10 v2) ───────────────────────────
 // Единственный интерактивный косметический эффект в игре — карта наклоняется и
@@ -486,6 +512,10 @@ function switchPage(name, _btn, _viaBack) {
     toast('Этот старый раздел больше не используется.', false);
   }
   if(!el('pg-'+name)) return;
+  if(name===_activePage && _loaded.has(name) && el('pg-'+name).classList.contains('active')){
+    _syncBackButton(); return;
+  }
+  pvTransitionStarted();
   // История для «Назад»: перед уходом кладём ТЕКУЩУЮ страницу (кроме перехода
   // назад и повторного клика по той же). Без дублей подряд, кап 25.
   if(!_viaBack && _activePage && _activePage !== name &&
@@ -496,6 +526,9 @@ function switchPage(name, _btn, _viaBack) {
   { const tabs=[...document.querySelectorAll('.nb[data-page]')].map(b=>b.dataset.page), from=tabs.indexOf(_activePage), to=tabs.indexOf(name);   // страница приходит с той стороны, куда ушёл игрок по доку (motion-v3.css)
     document.body.dataset.dir = from>=0 && to>=0 && from!==to ? (to>from?'f':'b') : ''; }
   _activePage = name;
+  // Read/reset the old page's scroll before changing display. Focusing the new
+  // heading here forced its entire cosmetic layout inside the tap handler.
+  try { window.scrollTo(0, 0); } catch(e) {}
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');
@@ -503,7 +536,7 @@ function switchPage(name, _btn, _viaBack) {
   });
   if(typeof v3EnterReset==='function')v3EnterReset(el('pg-'+name));   // каскад секций на этой странице снова сыграет один раз
   el('pg-'+name).classList.add('active');
-  { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
+  { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; pvAfterTransition().then(()=>{if(_activePage===name && head.isConnected)head.focus({preventScroll:true});}); } }   // экранный диктор озвучивает новый экран после перехода
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
   const _profileChildren=['pets','chests','achievements-v1','public-profile','store'];
@@ -513,7 +546,6 @@ function switchPage(name, _btn, _viaBack) {
   if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
   showCurrBar(name !== 'profile');
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
-  try { window.scrollTo(0, 0); } catch(e) {}
   api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
   if(!_loaded.has(name)){
     _loaded.add(name);

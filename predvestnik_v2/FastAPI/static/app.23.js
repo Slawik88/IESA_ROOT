@@ -5,6 +5,7 @@
 // Сервер считает всё сам (/skins-v3/*), здесь только показ и повторяемые запросы с Idempotency-Key.
 const _LK_TIERS = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 let _lk = { st: null, sel: null, tier: 'D', busy: false, failed: '', seq: 0, keys: {}, view: 'shop' };
+let _lkFetchedAt = 0, _lkCacheEpoch = -1;
 const _lkUuid = () => globalThis.crypto?.randomUUID?.() || `lk-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const _lkItem = id => _lk.st?.items.find(i => i.id === id) || null;
 const _lkPrice = z => `${fmt(z)} ✨`;
@@ -13,14 +14,30 @@ const _lkWeekId = st => st.featured?.skin_id || st.items[0].id;   // «обра�
 function openLooksModal() {
   switchPage('looks');
   const root = el('pg-looks'); if (!root) return Promise.resolve();
+  if(_lk.st && _lkCacheEpoch===_pvReadEpoch && Date.now()-_lkFetchedAt<20000){
+    lkMainButton(); lkTourOnce(_lk.st); return Promise.resolve(_lk.st);
+  }
   if (!_lk.st) root.innerHTML = '<div class="v3-scope lk-scope"><div class="sk" style="height:330px;border-radius:18px"></div><div class="sk" style="height:60px;border-radius:30px;margin-top:22px"></div></div>';
   const mine = ++_lk.seq;
   return api('/skins-v3/me').then(st => {
     if (mine !== _lk.seq) return;
     _lk.st = st; _lk.failed = '';
+    _lkFetchedAt=Date.now(); _lkCacheEpoch=_pvReadEpoch;
     _lkPick(_lk.sel && _lkItem(_lk.sel) ? _lk.sel : (st.equipped || _lkWeekId(st)));
     lkTourOnce(st);
   }).catch(e => { if (mine !== _lk.seq) return; _lk.failed = String(e || 'Ошибка'); _lkRender(); });
+}
+function warmLooksV3(){
+  if(_activePage==='looks' || _lk.busy || _lk.st) return;
+  const mine=++_lk.seq, epoch=_pvReadEpoch;
+  return api('/skins-v3/me').then(st=>{
+    if(mine!==_lk.seq || epoch!==_pvReadEpoch || _activePage==='looks') return;
+    _lk.st=st; _lkFetchedAt=Date.now(); _lkCacheEpoch=epoch;
+    const item=st.items.find(i=>i.id===st.equipped)||st.items.find(i=>i.id===_lkWeekId(st));
+    if(!item)return;
+    _lk.sel=item.id; _lk.tier=item.owned?item.level:item.ceiling;
+    _lkRender('',true);
+  });
 }
 function _lkPick(id, fromUser) {
   const item = _lkItem(id); if (!item) return;
@@ -73,7 +90,7 @@ function _lkTop(st) {
 }
 function lkTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
-function _lkRender(anim) {
+function _lkRender(anim, prepare=false) {
   const root = el('pg-looks'); if (!root) return;
   const st = _lk.st;
   if (!st) { root.innerHTML = `<div class="v3-scope lk-scope"><div class="v3-empty">${_profileEsc(_lk.failed || 'Загрузка…')} <button type="button" class="v3-link" onclick="openLooksModal()">Повторить</button></div></div>`; return; }
@@ -92,8 +109,7 @@ function _lkRender(anim) {
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
   const total = Math.ceil(item.total_upgrade_essence / st.essence.per_zarnik);
   const owner = st.vip ? '' : '<p class="lk-fine">Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его всегда. <button type="button" class="v3-link" onclick="openStoreV3(\'vip\')">Что даёт VIP ›</button></p>';
-  root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">
-    ${_lkTop(st)}
+  const selectionHtml = `
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
     <p class="lk-blurb">${_profileEsc(item.blurb)}</p>
@@ -102,16 +118,43 @@ function _lkRender(anim) {
     <p class="lk-note" aria-live="polite">${_profileEsc(note)}</p>
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>
       ${item.equipped ? '<button type="button" class="v3-link" onclick="lkAct(\'unequip\')">Снять образ</button>' : ''}</div>
-    <p class="lk-fine">Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨. Эссенция тратится только на тиры образов.</p>${owner}
+    <p class="lk-fine">Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨. Эссенция тратится только на тиры образов.</p>${owner}`;
+  const selection=root.querySelector('.lk-selection');
+  if(anim && selection && root._lkRenderedState===st){
+    root.querySelector('.lk-scope').style.cssText=tokens;
+    selection.innerHTML=selectionHtml;
+    root.querySelector('.lk-fit-note').innerHTML=lkFitNote(st,item);
+    const fit=lkFitPack(st,item);
+    root.querySelectorAll('.lk-packs button').forEach((button,index)=>button.classList.toggle('is-fit',st.essence.packs[index].zarniki===fit));
+    root.querySelectorAll('.lk-pick').forEach(button=>{
+      const selected=button.dataset.id===_lk.sel;
+      button.classList.toggle('is-sel',selected); button.setAttribute('aria-pressed',String(selected));
+    });
+    lkMainButton();
+    const strip=root.querySelector('.lk-strip');
+    requestAnimationFrame(()=>{
+      if(!strip?.isConnected || _activePage!=='looks')return;
+      const on=strip.querySelector('.is-sel');
+      if(on)strip.scrollTo({left:on.offsetLeft-strip.clientWidth/2+on.clientWidth/2,behavior:'smooth'});
+    });
+    return;
+  }
+  root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">
+    ${_lkTop(st)}<div class="lk-selection">${selectionHtml}</div>
     ${lkGoalHtml(st)}${lkWeekHtml(st)}${lkSoonHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span><button type="button" class="v3-link" onclick="lkTour()">Как это работает</button></div>
     <p class="lk-fine">Валюта прокачки. Её дают задания (+${st.essence.quest_reward.daily} за день, +${st.essence.quest_reward.weekly} за неделю, +${st.essence.quest_reward.combined} за всё) или обмен: 1 ✨ = ${st.essence.per_zarnik} Эссенции.</p>
-    ${lkFitNote(st, item)}<div class="lk-packs">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
+    <div class="lk-fit-note">${lkFitNote(st, item)}</div><div class="lk-packs">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
   const strip = root.querySelector('.lk-strip');
-  lkMainButton();
-  if (strip) { strip.scrollLeft = stripScroll; if (!stripScroll || anim) { const on = strip.querySelector('.is-sel'); if (on) strip.scrollTo({ left: on.offsetLeft - strip.clientWidth / 2 + on.clientWidth / 2, behavior: stripScroll ? 'smooth' : 'auto' }); } }
+  root._lkRenderedState=st;
+  if(!prepare)lkMainButton();
+  if(strip && !prepare)requestAnimationFrame(()=>{
+    if(!strip.isConnected || _activePage!=='looks')return;
+    strip.scrollLeft=stripScroll;
+    if(!stripScroll||anim){const on=strip.querySelector('.is-sel');if(on)strip.scrollTo({left:on.offsetLeft-strip.clientWidth/2+on.clientWidth/2,behavior:stripScroll?'smooth':'auto'});}
+  });
 }
 
 // ── Действия ─────────────────────────────────────────────────────────────────────

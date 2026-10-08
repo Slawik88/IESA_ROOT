@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
-from infrastructure.repositories.quests_v1 import ensure_tables
+from infrastructure.repositories.quests_v1 import ensure_read_schema as ensure_tables
 from infrastructure.repositories.economy_ledger import ensure_tables as ensure_ledger_tables
 from services import quests_v1 as quests
 from services.vip import is_vip_active

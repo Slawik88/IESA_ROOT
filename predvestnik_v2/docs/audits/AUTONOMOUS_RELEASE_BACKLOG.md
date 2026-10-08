@@ -79,6 +79,30 @@ approval before implementation.
 
 ## P1
 
+### PERF-001 — mobile navigation and read-path capacity (2026-10-09)
+
+Implemented on `codex/predvestnik-smooth-navigation` from current Cloud Code
+`origin/master` (`2ccd3ed5`), matching the deployed V3 bundle. Cosmetics remain
+enabled. Hot quest/achievement schema checks use one SQL each; opaque refs for
+30 existing players use two SQL; wallet polling uses one compact query instead
+of rebuilding the rich profile. Own-avatar network I/O releases the DB connection.
+Background loads are serialized after transitions, reads share in-flight work,
+and old responses retry after mutations or abort after authentication changes.
+Looks are prepared gradually and selection preserves the strip DOM. Navigation
+focus moves after the animation to avoid synchronous cosmetic layout in the tap.
+
+Evidence: real PostgreSQL cold concurrency, rollback and disabled-trigger
+recovery pass; JS scheduler/mutation/session races and shipped-script syntax
+pass. At 390x844 with Void SSS and animations enabled, cached looks need no new
+request, selection/purchase guidance stays correct, profile details open and
+there are zero JS errors. Local opening-handler observation: 238 ms before the
+focus fix, 9 ms after; these are desktop browser observations, not Redmi FPS.
+Full preprod: **99/115**. All **16** remaining failures reproduce using unchanged
+`2ccd3ed5` source (retired family schema, bot/admin fixtures, catalogue/docs
+contracts). Production has not been deployed. Next release gate: resolve or
+explicitly reconcile these existing contracts, then deploy and measure on the
+owner's Redmi/Telegram WebView. See `2026-10-08-mobile-microfreezes.md`.
+
 | ID | User path | Confirmed root cause | Safe resolution | Evidence / residual risk |
 | --- | --- | --- | --- | --- |
 | BOT-003 | Globally banned user sends an update. | The database middleware used to refresh profile/activity before the later sanction gate suppressed the handler. | Implemented: one shared-connection sanction evaluation now runs before every automatic writer and records its result for the later middleware. An allowed appeal/help command reaches its handler without refreshing profile, chat settings, counters or hint state; any sanction-check failure stops the update. | 2026-08-30 contract proof covers blocked text, allowed appeal, one-shot evaluation and zero automatic writer calls; compile, preprod gate and external HTTPS smoke passed after test-bot restart. Residual: a message whose evaluation began before a concurrently committed new ban can still finish its automatic writes; absolute cross-transaction ordering needs a separate shared lock/change to sanction issuance. |

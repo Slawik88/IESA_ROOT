@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends
 
 from FastAPI.deps import get_db, require_tg_user
-from infrastructure.repositories.achievements_v1 import ensure_tables
+from infrastructure.repositories.achievements_v1 import ensure_read_schema as ensure_tables
 from services import achievements_v1 as achievements
 
 

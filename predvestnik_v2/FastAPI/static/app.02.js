@@ -64,9 +64,12 @@ function _profileCompensationCard(c,userId){
   </section>`;
 }
 window.replayCompensationAnimation=function(button){const card=button?.closest('[data-compensation-card]');if(!card)return;card.classList.remove('is-animating');void card.offsetWidth;card.classList.add('is-animating');};
+let _profileLoadSeq = 0;
 function loadProfile() {
+  const seq = ++_profileLoadSeq;
   setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
   return api('/profile/me').then(d=>{
+    if(seq!==_profileLoadSeq) return;
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
@@ -80,24 +83,32 @@ function loadProfile() {
     el('pro-main').innerHTML=`
       ${renderProfileHome(d)}
       ${_profileCompensationCard(d.compensation,uid)}
-      <details class="v3-more"><summary>Подробнее о профиле</summary>
-        ${_profileVipCard(d.vip)}
-        ${renderProfileDetails(d,{owner:true})}
-        <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
-        <div id="pro-nick-card"></div>
-        <div id="wallet-mini"></div>
-      </details>`;
+      <details class="v3-more"><summary>Подробнее о профиле</summary><div class="profile-details-body"></div></details>`;
+    pvTransitionStarted(700);
+    const detail = el('pro-main').querySelector('.v3-more');
+    detail?.addEventListener('toggle',()=>{
+      if(!detail.open || detail.dataset.loaded || seq!==_profileLoadSeq) return;
+      detail.dataset.loaded='1';
+      detail.querySelector('.profile-details-body').innerHTML =
+        `${_profileVipCard(d.vip)}${renderProfileDetails(d,{owner:true})}
+         <div id="pro-marriage-card"></div><div id="pro-nick-card"></div><div id="wallet-mini"></div>`;
+      const valid=()=>seq===_profileLoadSeq && detail.isConnected;
+      pvBackground('profile-marriage:'+seq,loadMarriageCard,valid);
+      pvBackground('profile-nickname:'+seq,loadNickCard,valid);
+      pvBackground('profile-wallet:'+seq,loadWalletMini,valid);
+    });
     if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
-    try { checkWhatsNewBadge(); } catch (_) {}
+    const valid=()=>seq===_profileLoadSeq;
+    pvBackground('profile-news:'+seq,checkWhatsNewBadge,valid);
     try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
-    try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
+    pvBackground('profile-today:'+seq,loadV3Today,valid);
+    pvBackground('profile-path:'+seq,loadV3Path,valid);
+    pvBackground('profile-top:'+seq,()=>{_v3TopCache={};v3LazyTop();},valid);
+    pvBackground('profile-looks:'+seq,()=>warmLooksV3(),valid);
     try { _tosGate(d); } catch (_) {}
-    try { loadMarriageCard(); } catch (_) {}
-    try { loadNickCard(); } catch (_) {}
-    try { loadWalletMini(); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
     try { updateCurrBar(d); } catch (_) {}
-  }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+  }).catch(e=>{if(seq===_profileLoadSeq && e?.name!=='AbortError')el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
@@ -339,9 +350,9 @@ function _ensureVipAvatar() {
   if (_vipAvatar) { _applyVipAvatar(); return; }
   if (_vipAvatarTried) return;
   _vipAvatarTried = true;
-  api('/profile/avatar').then(r => {
+  pvBackground('profile-avatar',()=>api('/profile/avatar').then(r => {
     if (r && r.avatar) { _vipAvatar = r.avatar; _applyVipAvatar(); }
-  }).catch(()=>{});
+  }).catch(()=>{_vipAvatarTried=false;}));
 }
 
 function showCurrModal() {
@@ -425,14 +436,13 @@ el('curr-bar')?.addEventListener('click', showCurrModal);
 // Refresh bar data from server (called on a slow timer + реактивно после мутаций, см. app.01.js api())
 function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
-  api('/profile/me').then(d => {
+  return api('/profile/balances').then(d => {
     updateCurrBar(d);
-      if(d.mora!==undefined) _profileData = {...(_profileData||{}),
-        mora:d.mora, diamonds:d.diamonds, zarniki:d.zarniki, dark_mora:d.dark_mora};
+    if(d.mora!==undefined) _profileData = {...(_profileData||{}),...d};
     _profileSyncStats(d);
   }).catch(()=>{});
 }
-setInterval(refreshCurrBar, 90000); // every 90s
+setInterval(()=>{if(!document.hidden)pvBackground('profile-balances',refreshCurrBar);}, 90000);
 // Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Стрик) —
 // БЕЗ полного loadProfile() (это дёрнуло бы скелетон-лоадер и пересборку всей карточки).
 // Раньше эти карточки обновлялись только раз в 5 мин (setInterval в app.06.js) или
@@ -498,7 +508,7 @@ function _wnNewCount(list){
 }
 // Бейдж в шапке (вызывается из loadProfile). Тихо игнорит ошибки сети.
 function checkWhatsNewBadge(){
-  _wnFetch().then(list => {
+  return _wnFetch().then(list => {
     const unseen = _wnNewCount(list) > 0;
     document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = !unseen; });
     document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.toggle('has-new', unseen));

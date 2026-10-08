@@ -3,6 +3,17 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from infrastructure.schema_readiness import ensure_read_schema as ensure_schema
+
+
+async def ensure_read_schema(db) -> None:
+    tables = ('achievement_v1_metric_receipts', 'achievement_v1_active_weeks',
+              'achievement_v1_progress', 'achievement_v1_reward_receipts')
+    await ensure_schema(
+        db, install=ensure_tables, name='achievements-v1', tables=tables,
+        triggers=tuple((table, table + '_append_only', 'reject_achievement_v1_receipt_rewrite')
+                       for table in (tables[0], tables[1], tables[3])),
+    )
 
 
 def _snapshot_value(value: Any) -> dict[str, Any]:

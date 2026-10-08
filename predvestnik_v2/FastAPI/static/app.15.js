@@ -199,10 +199,10 @@ function v3ClaimQuestReward(kind) {
 let _v3BalanceAt = 0;
 function _v3RefreshBalance() {
   _v3BalanceAt = Date.now();
-  return api('/profile/me').then(p => {
-    _profileData = p;
+  return api('/profile/balances').then(p => {
+    _profileData = {...(_profileData||{}),...p};
     const mora = document.querySelector('.v3-num'); if (mora) { mora.dataset.n = String((p.balances || p).mora || 0); v3CountUp(mora.parentElement); }
-    renderV3Bar(p);
+    renderV3Bar(_profileData);
   }).catch(() => { /* баланс обновится при следующем открытии профиля */ });
 }
 document.addEventListener('click', e => {

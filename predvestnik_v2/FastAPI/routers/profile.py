@@ -11,7 +11,9 @@ import httpx
 from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import get_db, require_tg_user, require_tg_user_base
+from infrastructure.database import create_pool, get_pool
+from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
@@ -46,6 +48,43 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+_AVATAR_MISS_TTL = 60
+_AVATAR_PENDING: dict[int, asyncio.Task] = {}
+_AVATAR_SLOTS = asyncio.Semaphore(4)
+
+
+def _cached_avatar(user_id: int) -> str | None:
+    cached = _AVATAR_CACHE.get(user_id)
+    if cached and time.time() - cached[1] < (_AVATAR_TTL if cached[0] else _AVATAR_MISS_TTL):
+        return cached[0]
+    return None
+
+
+async def _load_avatar_cached(user_id: int) -> str | None:
+    cached = _AVATAR_CACHE.get(user_id)
+    if cached and time.time() - cached[1] < (_AVATAR_TTL if cached[0] else _AVATAR_MISS_TTL):
+        return cached[0]
+
+    async def load():
+        async with _AVATAR_SLOTS:
+            try:
+                avatar = await asyncio.wait_for(_fetch_tg_avatar(user_id), timeout=12)
+            except Exception:
+                avatar = None
+            if len(_AVATAR_CACHE) >= 512:
+                _AVATAR_CACHE.pop(next(iter(_AVATAR_CACHE)))
+            _AVATAR_CACHE[user_id] = (avatar, time.time())
+            return avatar
+
+    pending = _AVATAR_PENDING.get(user_id)
+    if pending is None:
+        if len(_AVATAR_PENDING) >= 64:
+            return None
+        pending = asyncio.create_task(load())
+        _AVATAR_PENDING[user_id] = pending
+        pending.add_done_callback(lambda task: _AVATAR_PENDING.pop(user_id, None))
+    # One disconnected client must not cancel the image shared by other readers.
+    return await asyncio.shield(pending)
 
 
 async def _sky_sigil(db, user_id: int) -> dict | None:
@@ -137,20 +176,30 @@ async def _vip_avatar(db, user_id: int) -> str | None:
     карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде."""
     if not await is_vip_active(db, user_id):
         return None
-    now = time.time()
-    cached = _AVATAR_CACHE.get(user_id)
-    if cached and now - cached[1] < _AVATAR_TTL:
-        return cached[0]
-    avatar = await _fetch_tg_avatar(user_id)
-    _AVATAR_CACHE[user_id] = (avatar, now)
-    return avatar
+    return await _load_avatar_cached(user_id)
+
+
+async def _avatar_access(user=Depends(require_tg_user_base)):
+    await create_pool()
+    async with get_pool().acquire() as connection:
+        db = PGAdapter(connection)
+        async with db.execute(
+            "SELECT u.deleted_at,(v.user_id IS NOT NULL) AS vip FROM users u "
+            "LEFT JOIN vip_subscriptions v ON v.user_id=u.user_tg_id AND v.expires_at>NOW() "
+            "WHERE u.user_tg_id=?", (int(user["id"]),),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row and row["deleted_at"] is not None:
+            raise HTTPException(403, "ACCOUNT_DELETED: игровые действия закрыты до восстановления аккаунта.")
+        return int(user["id"]), bool(row and row["vip"])
 
 
 @router.get("/avatar")
-async def my_avatar(db=Depends(get_db), user=Depends(require_tg_user)):
+async def my_avatar(access=Depends(_avatar_access)):
     """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null."""
-    vip = await is_vip_active(db, user["id"])
-    avatar = await _vip_avatar(db, user["id"]) if vip else None
+    # Authorization's connection has already been returned before Telegram I/O.
+    user_id, vip = access
+    avatar = await _load_avatar_cached(user_id) if vip else None
     return {"avatar": avatar, "vip": vip}
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
@@ -176,7 +225,7 @@ async def _ensure_profile_tables(db) -> None:
             minesweeper_v2_repo.ensure_tables,
             mafia_v1_repo.ensure_tables,
             pets_v1_repo.ensure_tables,
-            achievements_v1_repo.ensure_tables,
+            achievements_v1_repo.ensure_read_schema,
         ):
             await ensure(db)
         _PROFILE_TABLES_READY = True
@@ -490,7 +539,9 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       bool(row["is_vip"]),
-        "avatar":       await _vip_avatar(db, user_id),
+        # Telegram I/O is outside the profile critical path. The client loads
+        # /avatar separately; an already cached image is still immediately usable.
+        "avatar":       _cached_avatar(user_id) if row["is_vip"] else None,
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "partner":      partner,
@@ -518,6 +569,30 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "sky_sigil": await _sky_sigil(db, user_id),
         "supporter_badge": await _supporter_badge(db, user_id),
         "marks": await marks_service.marks_for(db, user_id, streak=(dict(streak_row)["streak"] or 0) if streak_row else 0, joined=joined_date),
+    }
+
+
+@router.get("/balances")
+async def my_balances(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Fresh wallet + account progress, without assembling the full profile."""
+    async with db.execute(
+        "SELECT user_balance_mora,user_balance_diamonds,"
+        "COALESCE(user_balance_dark_mora,0) AS dark_mora,"
+        "COALESCE(user_balance_zarniki,0) AS zarniki,"
+        "COALESCE(account_xp,0) AS account_xp FROM users WHERE user_tg_id=?",
+        (int(user["id"]),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        raise HTTPException(404, "Профиль не найден.")
+    progress = account_progress(int(row["account_xp"]))
+    return {
+        "mora": float(row["user_balance_mora"] or 0),
+        "diamonds": float(row["user_balance_diamonds"] or 0),
+        "dark_mora": float(row["dark_mora"]), "zarniki": float(row["zarniki"]),
+        "account_xp": int(row["account_xp"]), "account_level": progress["level"],
+        "xp_into": progress["xp_into"], "xp_to_next": progress["xp_need"],
+        "xp_per_level": progress["xp_need"] or 1,
     }
 
 

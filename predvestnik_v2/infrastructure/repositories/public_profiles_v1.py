@@ -8,9 +8,14 @@ from __future__ import annotations
 
 import secrets
 from collections.abc import Iterable
+from infrastructure.schema_readiness import ensure_read_schema
 
 
 async def ensure_tables(db) -> None:
+    await ensure_read_schema(db, install=_install_tables, name='public-profile-v1', tables=('public_profile_v1_refs',))
+
+
+async def _install_tables(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS public_profile_v1_refs (
             user_id BIGINT PRIMARY KEY,
@@ -32,38 +37,38 @@ def display_name(username: object, profile_ref: str) -> str:
 
 
 async def ensure_reference(db, *, user_id: int) -> str:
-    """Return one random public reference; races never produce a second one."""
-    await ensure_tables(db)
-    uid = int(user_id)
-    async with db.execute(
-        "SELECT profile_ref FROM public_profile_v1_refs WHERE user_id=?", (uid,)
-    ) as cursor:
-        existing = await cursor.fetchone()
-    if existing:
-        return str(existing["profile_ref"])
-    for _ in range(5):
-        candidate = secrets.token_urlsafe(18)
-        async with db.execute(
-            "INSERT INTO public_profile_v1_refs(user_id,profile_ref) VALUES (?,?) "
-            "ON CONFLICT(user_id) DO NOTHING RETURNING profile_ref",
-            (uid, candidate),
-        ) as cursor:
-            created = await cursor.fetchone()
-        if created:
-            return str(created["profile_ref"])
-        async with db.execute(
-            "SELECT profile_ref FROM public_profile_v1_refs WHERE user_id=?", (uid,)
-        ) as cursor:
-            winner = await cursor.fetchone()
-        if winner:
-            return str(winner["profile_ref"])
-    raise RuntimeError("could not allocate public profile reference")
+    """Return the winning opaque reference, including under concurrent inserts."""
+    return (await ensure_references(db, [int(user_id)]))[int(user_id)]
 
 
 async def ensure_references(db, user_ids: Iterable[int]) -> dict[int, str]:
-    refs: dict[int, str] = {}
-    for user_id in dict.fromkeys(int(value) for value in user_ids):
-        refs[user_id] = await ensure_reference(db, user_id=user_id)
+    ids = list(dict.fromkeys(int(value) for value in user_ids))
+    if not ids:
+        return {}
+    await ensure_tables(db)
+    async with db.execute(
+        "SELECT user_id,profile_ref FROM public_profile_v1_refs WHERE user_id=ANY(?::bigint[])",
+        (ids,),
+    ) as cursor:
+        refs = {int(row["user_id"]): str(row["profile_ref"]) for row in await cursor.fetchall()}
+    # Both existing and first-time players are batched. DO NOTHING handles a
+    # random-reference collision too, without aborting the caller's transaction.
+    for _ in range(5):
+        missing = [user_id for user_id in ids if user_id not in refs]
+        if not missing:
+            return refs
+        await db.execute(
+            "INSERT INTO public_profile_v1_refs(user_id,profile_ref) "
+            "SELECT * FROM unnest(?::bigint[],?::text[]) ON CONFLICT DO NOTHING",
+            (missing, [secrets.token_urlsafe(18) for _ in missing]),
+        )
+        async with db.execute(
+            "SELECT user_id,profile_ref FROM public_profile_v1_refs WHERE user_id=ANY(?::bigint[])",
+            (missing,),
+        ) as cursor:
+            refs.update({int(row["user_id"]): str(row["profile_ref"]) for row in await cursor.fetchall()})
+    if len(refs) != len(ids):
+        raise RuntimeError("could not allocate public profile references")
     return refs
 
 
