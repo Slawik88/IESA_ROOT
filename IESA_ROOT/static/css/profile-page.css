@@ -636,7 +636,7 @@ body:has(.cab-page) {
 .sb-verified { color: #86efac; border-color: rgba(34,197,94,.25); background: rgba(34,197,94,.06); }
 .sb-grey { color: rgba(255,255,255,.48); border-color: rgba(255,255,255,.11); background: rgba(255,255,255,.025); }
 
-.hero-actions { justify-content: flex-end; gap: .6rem; max-width: 440px; }
+.hero-actions { justify-content: flex-end; gap: .6rem; max-width: 560px; }
 .btn-cab-primary,
 .btn-cab-outline {
     min-height: 42px;
@@ -940,4 +940,70 @@ body:has(.cab-page) {
   .btn-cab-primary,
   .btn-cab-outline,
   .email-verify-banner__button { min-height: var(--tap-min); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FLOW (UI audit 2026-10, stage 2) — phones are one monolithic surface:
+   no hero card, no boxed sections; blocks run edge-to-edge and are split by hairlines.
+   Desktop keeps the cards above.
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 767.98px) {
+    body:has(.cab-page) { background: var(--bg-body) !important; }
+    .cab-page { background-image: none; background-color: transparent; }
+
+    /* hero: identity + one row of badges + one row of actions */
+    .cab-hero { padding: .75rem 0 0; }
+    .cab-hero-inner { padding: 0 var(--cab-gutter) .75rem; min-height: 0; gap: .65rem; border: 0; border-radius: 0; background: none; box-shadow: none; }
+    .cab-identity { row-gap: .55rem; }
+    .cab-badges { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(var(--cab-gutter) * -1); padding: 0 var(--cab-gutter); }
+    .cab-badges::-webkit-scrollbar { display: none; }
+    .cab-badges .sb { flex: 0 0 auto; white-space: nowrap; }
+    .hero-actions { display: flex; flex-wrap: nowrap; gap: .5rem; width: 100%; }
+    .hero-actions > .btn-cab-primary { flex: 1 1 0; width: auto; min-width: 0; }
+    .hero-actions > .btn-cab-outline { flex: 0 0 var(--tap-min); width: var(--tap-min); padding: 0; position: relative; }
+    .hero-act-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .hero-dup { display: none !important; }   /* already in the sticky quick-nav below */
+
+    /* strips */
+    .cab-page .pcp-wrap,
+    .cab-page .qa-onb-section {
+        width: auto !important; margin: 0 !important;
+        padding: .7rem var(--cab-gutter) !important;
+        border: 0 !important; border-top: 1px solid var(--cab-line) !important;
+        border-radius: 0 !important; background: none !important;
+    }
+    .cab-wrap--verification { padding-top: 0; }
+
+    /* the four numbers: one compact row instead of a 2x2 grid */
+    .stat-row { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0 calc(var(--cab-gutter) * -1); border: 0; border-top: 1px solid var(--cab-line); border-radius: 0; background: none; }
+    .stat-box { flex-direction: column; align-items: center; gap: .1rem; padding: .7rem .15rem; text-align: center; border: 0 !important; }
+    .stat-box + .stat-box { border-left: 1px solid var(--cab-line) !important; }
+    .stat-icon { display: none; }
+    .stat-box > div:not(.stat-icon) { display: flex; flex-direction: column-reverse; align-items: center; }
+    .stat-lbl { font-size: .7rem; letter-spacing: 0; text-transform: none; line-height: 1.2; }
+    .stat-val { font-size: 1.15rem; }
+
+    /* sections */
+    .cab-dashboard-grid { row-gap: 0 !important; }
+    .cab-card, .acr-disclosure {
+        margin-inline: calc(var(--cab-gutter) * -1);
+        padding: 1rem var(--cab-gutter);
+        border: 0; border-top: 1px solid var(--cab-line) !important;
+        border-radius: 0; background: none;
+    }
+    .cab-card:hover { border-color: var(--cab-line); }
+    .cab-card-title { margin-bottom: .75rem; }
+    .acr-disclosure { margin-top: 0; }
+    .acr-disclosure > summary { padding: .85rem 0; }
+
+    /* empty states: a line of text, not a 200px illustration */
+    .cab-page .empty-state,
+    .cab-page .vh-empty { padding: .25rem 0 .5rem; }
+    .cab-page .empty-state > i,
+    .cab-page .vh-empty > i { display: none; }
+
+    /* nested boxes inside sections */
+    .pin-display-card { padding: .25rem 0 !important; border: 0 !important; background: none !important; }
+    .qr-wrap { padding: .25rem 0; background: none; }
+    .steps-grid, .posts-grid { border: 0; border-radius: 0; }
 }

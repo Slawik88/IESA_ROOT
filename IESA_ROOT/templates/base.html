@@ -475,8 +475,20 @@
             var btn = document.getElementById('back-to-top');
             if (btn) {
                 btn.addEventListener('click', function() { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+                /* Shown only after ~1.2 screens. On phones it also appears just while scrolling UP and
+                   fades 2.5 s later, so it never sits on top of content you are reading or tapping. */
+                var phone = window.matchMedia('(max-width: 767.98px)');
+                var lastY = window.scrollY, hideTimer = null;
                 window.addEventListener('scroll', function() {
-                    btn.classList.toggle('visible', window.scrollY > 300);
+                    var y = window.scrollY, far = y > Math.max(400, window.innerHeight * 1.2);
+                    if (!phone.matches) { btn.classList.toggle('visible', far); lastY = y; return; }
+                    if (!far) { btn.classList.remove('visible'); }
+                    else if (y < lastY - 6) {
+                        btn.classList.add('visible');
+                        clearTimeout(hideTimer);
+                        hideTimer = setTimeout(function() { btn.classList.remove('visible'); }, 2500);
+                    } else if (y > lastY + 6) { btn.classList.remove('visible'); }
+                    lastY = y;
                 }, { passive: true });
             }
         });

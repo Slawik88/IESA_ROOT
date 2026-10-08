@@ -46,10 +46,20 @@ img {
 
 /* Минимальные tap-targets — только на touch-устройствах (U1-01) */
 @media (hover: none) and (pointer: coarse) {
-  a, button, [role="button"], label[for],
-  input[type="checkbox"], input[type="radio"] {
+  a, button, [role="button"] {
     min-height: 44px;
     min-width: 44px;
+  }
+  /* Controls keep their natural size; the row (label) around a checkbox/radio is the 44px target.
+     A plain text-field label is not a target, so it must not be 44px tall (it doubled the label->input gap). */
+  input[type="checkbox"], input[type="radio"] {
+    min-height: 24px;
+    min-width: 24px;
+  }
+  label:has(> input[type="checkbox"]), label:has(> input[type="radio"]), .form-check-label {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 }
 
@@ -655,25 +665,7 @@ p, h1, h2, h3, h4, h5, h6,
     width: 100%;
   }
 
-  /* Profile edit form */
-  .edit-actions {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .edit-actions .btn {
-    width: 100%;
-    text-align: center;
-  }
-
-  .profile-edit-card {
-    padding: 1.25rem;
-  }
-
-  .edit-card-header {
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
+  /* Profile edit form: see profile-edit.css (.action-bar) */
 }
 
 
@@ -1054,30 +1046,7 @@ p, h1, h2, h3, h4, h5, h6,
    17. ФУТЕР
    ============================================================ */
 
-@media (max-width: 767.98px) {
-  .footer-enhanced {
-    text-align: center;
-  }
-
-  .footer-enhanced .col-6 {
-    text-align: center;
-  }
-
-  .footer-links {
-    text-align: center;
-  }
-
-  .footer-social {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto;
-  }
-
-  .footer-about-text {
-    max-width: 100%;
-    font-size: 0.9rem;
-  }
-}
+/* Footer: see layout.css (FOOTER) */
 
 
 /* ============================================================

@@ -494,17 +494,17 @@
         {% if profile_user.permanent_id %}
           <button type="button" class="btn-cab-outline" data-tour="qr"
                   onclick="if(window.IESAOpenQR){window.IESAOpenQR(this);}">
-            <i class="fas fa-qrcode" aria-hidden="true"></i> {% trans "Show QR" %}
+            <i class="fas fa-qrcode" aria-hidden="true"></i> <span class="hero-act-label">{% trans "Show QR" %}</span>
           </button>
         {% endif %}
         {% if profile_user.is_partner or profile_user.partner_profile %}
-          <a href="{% url 'users:partner_dashboard' %}" class="btn-cab-outline">
-            <i class="fas fa-tachometer-alt"></i> {% trans "Partner Dashboard" %}
+          <a href="{% url 'users:partner_dashboard' %}" class="btn-cab-outline hero-dup">
+            <i class="fas fa-tachometer-alt"></i> <span class="hero-act-label">{% trans "Partner Dashboard" %}</span>
           </a>
         {% endif %}
         {# BLOCK 3a (audit v3): PIN/Card доступны всем (TOTP + permanent_id есть у каждого) #}
-        <a href="#pin-section" class="btn-cab-outline">
-          <i class="fas fa-fingerprint"></i> {% trans "PIN & Card" %}
+        <a href="#pin-section" class="btn-cab-outline hero-dup">
+          <i class="fas fa-fingerprint"></i> <span class="hero-act-label">{% trans "PIN & Card" %}</span>
         </a>
 
       </div>

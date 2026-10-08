@@ -7075,3 +7075,6 @@ msgstr ""
 
 msgid "Delete this comment? This cannot be undone."
 msgstr "Supprimer ce commentaire ? Cette action est irréversible."
+
+msgid "Footer"
+msgstr "Pied de page"

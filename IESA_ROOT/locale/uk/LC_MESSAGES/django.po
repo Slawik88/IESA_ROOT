@@ -6358,3 +6358,6 @@ msgstr ""
 
 msgid "Delete this comment? This cannot be undone."
 msgstr "Видалити цей коментар? Цю дію неможливо скасувати."
+
+msgid "Footer"
+msgstr "Підвал сайту"

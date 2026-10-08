@@ -1678,17 +1678,31 @@ textarea:focus-visible {
 @media (max-width: 767.98px) {
   .email-verify-banner {
     grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    padding: .9rem;
+    align-items: center;
+    gap: .5rem .75rem;
+    margin: .5rem 0 .75rem;
+    padding: .7rem 0;
+    border-width: 1px 0;
+    border-radius: 0;
+    background: rgba(245, 158, 11, .07);
   }
+  .email-verify-banner__content p {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .email-verify-banner__meta { display: none; }
   .email-verify-banner__actions {
     grid-column: 1 / -1;
-    justify-content: stretch;
+    justify-content: space-between;
+    flex-wrap: nowrap;
   }
-  .email-verify-banner__actions form,
-  .email-verify-banner__button { width: 100%; }
-  .email-verify-banner__button { justify-content: center; }
-  .email-verify-banner__link { margin: 0 auto; }
+  .email-verify-banner__actions form { flex: 1 1 auto; }
+  .email-verify-banner__button { width: 100%; justify-content: center; }
+  .email-verify-banner__link { flex: 0 0 auto; padding: .6rem .25rem; }
+  /* on the cabinet the strip is full-bleed; its own padding replaces the page gutter */
+  .cab-wrap--verification .email-verify-banner { margin-inline: calc(var(--cab-gutter, 1rem) * -1); padding-inline: var(--cab-gutter, 1rem); }
 }
 @media (max-width: 575.98px) {
   .email-verify-banner { gap: .7rem; margin: .7rem 0 1rem; }
