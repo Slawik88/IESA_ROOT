@@ -109,6 +109,11 @@ order = [chips.index(f'id="vb-{k}"') for k in ("mora", "dia", "ess", "zar")]
 assert chips.count('<button type="button" class="v3-chip') == 4 and order == sorted(order), "order: Mora, Diamonds, the other currencies, Zarniki last"
 assert 'class="v3-chip v3-chip--zar" onclick="openZarnikiTopup()"' in chips and chips.count('onclick="showCurrModal()"') == 2 and 'onclick="openLooksModal()"' in chips
 assert ".v3-chips:active" not in home_css and ".v3-chip:active" in home_css and ".v3-bar .v3-chip:active" in home_css and ".v3-bar .v3-chip { background: none; }" in home_css
+# The header never loses a digit: chips do not shrink, the row tightens in steps (fit-1..3) and only then scrolls with a fade.
+bar_js = (STATIC / "app.16.js").read_text(encoding="utf-8")
+assert ".v3-chip { flex: none;" in home_css and "flex: 0 1 auto" not in home_css.split(".v3-chip { flex: none;")[1][:40], "chips must not shrink their numbers away"
+assert all(f".v3-bar.fit-{n}" in home_css for n in (1, 2, 3)) and "classList.add('fit-1')" in bar_js and "classList.add('fit-3')" in bar_js and "_v3BarNumbers(true)" in bar_js
+assert re.search(r"fit-3 \.v3-chip-plus \{ display: none", home_css) and not re.search(r"@media[^{]*\{[^}]*v3-chip-plus \{ display: none", home_css), "the plus survives until the last step"
 # Marks: shown in both heroes and next to names in lists; everything from the server is validated and escaped before it reaches markup.
 marks_js = (STATIC / "app.29.js").read_text(encoding="utf-8")
 assert "v3MarksHtml(d.marks, { own: true })" in (STATIC / "app.15.js").read_text(encoding="utf-8") and "v3MarksHtml(d.marks)" in card

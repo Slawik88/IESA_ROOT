@@ -26,7 +26,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-chip svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--v3-acc); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .v3-chip b { font-weight: 600; }
 .v3-chip-plus { flex: none; display: grid; place-items: center; width: 15px; height: 15px; margin-right: -3px; border-radius: 50%; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 12px; font-style: normal; font-weight: 800; line-height: 1; }   /* Зарники ведут на пополнение */
-.v3-chip { flex: 0 1 auto; min-width: 0; }
+.v3-chip { flex: none; }   /* цифра никогда не режется: ряд либо влезает (уплотняясь), либо прокручивается */
 .v3-chip u { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .v3-bell { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--v3-ink) !important; transition: transform .15s; }
 .v3-bell svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -102,7 +102,15 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-top-me { margin-top: 6px; color: var(--v3-dim); font-size: 12.5px; }
 
 @media (max-width: 400px) { .v3-chip { padding: 0 8px; gap: 5px; font-size: 12.5px; } .v3-chip svg { width: 13px; height: 13px; } .v3-chip-plus { width: 14px; height: 14px; margin-right: -2px; } }
-@media (max-width: 359px) { .v3-chip { padding: 0 6px; gap: 4px; font-size: 12px; } .v3-chip-plus { display: none; } }
+@media (max-width: 359px) { .v3-chip { padding: 0 6px; gap: 4px; font-size: 12px; } }
+/* Если ряд валют не влезает (почти на любом телефоне с живыми суммами), JS (v3ChipsFade) ставит fit-1, fit-2, fit-3 (суммы от тысячи сокращены, у Зарников нет «+»): те же чипы, но плотнее. Затухание края остаётся запасным вариантом */
+.v3-bar.fit-1 { gap: 4px; padding-left: 12px; padding-right: 8px; }
+.v3-bar.fit-1 .v3-chip { padding: 0 4px; gap: 4px; }
+.v3-bar.fit-1 .v3-chip-plus { margin-right: -1px; }
+.v3-bar.fit-2 { padding-left: 8px; padding-right: 4px; }
+.v3-bar.fit-2 .v3-chip { padding: 0 3px; gap: 3px; font-size: 12px; }
+.v3-bar.fit-2 .v3-chip svg { width: 12px; height: 12px; }
+.v3-bar.fit-3 .v3-chip-plus { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .v3-id::before, .v3-id.is-vip .v3-ring::before { animation: none; }

@@ -1,16 +1,33 @@
 // ── Shell V3 · постоянная панель, «Дальше», печать VIP, путь по аспектам ─────────
 function _v3Wallet(d) { return (d && typeof d.balances === 'object' && d.balances) ? d.balances : (d || {}); }
-function _v3Short(n) {
+function _v3Short(n, from = 1e4) {
   const v = Number(n) || 0;
   if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace('.', ',').replace(',0', '')}М`;
-  if (v >= 1e4) return `${(v / 1e3).toFixed(1).replace('.', ',').replace(',0', '')}к`;
+  if (v >= from) return `${(v / 1e3).toFixed(1).replace('.', ',').replace(',0', '')}к`;
   return fmt(Math.round(v));
 }
-// Если «Мора, Алмазы, остальные» не влезают, край затухает, а ряд прокручивается; Зарники закреплены справа
+// Цифры валют не должны теряться. Не влезает ряд: сначала чипы уплотняются (fit-1, затем fit-2), и только если и так не помещается,
+// край ряда затухает и ряд прокручивается; Зарники закреплены справа
 function v3ChipsFade() {
-  const main = el('v3-chips-main'); if (main) main.classList.toggle('has-more', main.scrollWidth > main.clientWidth + 2);
+  const bar = el('v3-bar'), main = el('v3-chips-main'); if (!bar || !main) return;
+  const over = () => main.scrollWidth > main.clientWidth + 1;
+  if (bar.classList.contains('fit-3')) _v3BarNumbers(false);
+  bar.classList.remove('fit-1', 'fit-2', 'fit-3');
+  if (over()) {
+    bar.classList.add('fit-1');
+    if (over()) { bar.classList.add('fit-2'); if (over()) { bar.classList.add('fit-3'); _v3BarNumbers(true); } }   // fit-3: суммы от тысячи сокращаются
+  }
+  main.classList.toggle('has-more', over());
+}
+// Суммы в панели; compact сокращает уже от тысячи («2,6к»), обычный вид только от десяти тысяч
+let _v3BarVals = null;
+function _v3BarNumbers(compact) {
+  const v = _v3BarVals; if (!v) return;
+  const set = (id, value) => { const node = el(id); if (node) node.textContent = _v3Short(value, compact ? 1e3 : 1e4); };
+  set('vb-mora', v.mora); set('vb-dia', v.diamonds); set('vb-ess', v.essence); set('vb-zar', v.zarniki);   // порядок как на экране: Мора, Алмазы, остальные, Зарники
 }
 window.addEventListener('resize', v3ChipsFade);
+document.fonts?.ready?.then(v3ChipsFade);   // шрифт приходит позже первой отрисовки и меняет ширину цифр
 // Панель не зависит от вкладки: игрок всегда видит свой уровень, ресурсы и «Что нового»
 function renderV3Bar(d) {
   const bar = el('v3-bar'); if (!bar || !d) return;
@@ -21,8 +38,8 @@ function renderV3Bar(d) {
     me.innerHTML = `${_v3Ring(need ? xp / need * 100 : 100)}<span class="v3-bar-lv">${level}</span>`;
     me.classList.toggle('is-vip', !!d.vip);
   }
-  const set = (id, value) => { const node = el(id); if (node) node.textContent = _v3Short(value); };
-  set('vb-mora', wallet.mora); set('vb-dia', wallet.diamonds); set('vb-ess', d.essence); set('vb-zar', wallet.zarniki);   // порядок как на экране: Мора, Алмазы, остальные, Зарники
+  _v3BarVals = { mora: wallet.mora, diamonds: wallet.diamonds, essence: d.essence, zarniki: wallet.zarniki };
+  _v3BarNumbers(false);
   v3ChipsFade();
   bar.classList.add('is-ready');
 }
