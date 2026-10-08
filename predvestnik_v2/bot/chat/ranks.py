@@ -27,15 +27,6 @@ RANKS: tuple[tuple[str, str], ...] = (
 OWNER = 9
 DEV_LEVEL = 100
 
-# Старая шкала local_rank -> новая (решение владельца бота: перенести).
-LEGACY_MAP = {0: 0, 1: 4, 2: 5, 3: 6, 4: 7}
-
-
-def legacy_rank(old: int | None) -> int:
-    old = int(old or 0)
-    return LEGACY_MAP.get(old, 8 if old >= 5 else 0)
-
-
 def rank_name(rank: int) -> str:
     if rank >= DEV_LEVEL:
         return "🛠 Разработчик бота"
@@ -150,14 +141,14 @@ async def get_rank(db, chat_id: int, user_id: int) -> int:
         return DEV_LEVEL
     if await get_owner(db, chat_id) == user_id:
         return OWNER
+    # Ранги начаты с нуля (решение владельца бота): старая колонка local_rank
+    # не читается, NULL в chat_rank = «Участник».
     async with db.execute(
-        "SELECT chat_rank, local_rank FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?",
+        "SELECT chat_rank FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?",
         (chat_id, user_id),
     ) as cur:
         row = await cur.fetchone()
-    if not row:
-        return 0
-    rank = int(row[0]) if row[0] is not None else legacy_rank(row[1])
+    rank = int(row[0]) if row and row[0] is not None else 0
     return min(rank, OWNER - 1)   # владелец только через Telegram
 
 

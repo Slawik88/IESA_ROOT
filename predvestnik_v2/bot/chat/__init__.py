@@ -1,22 +1,27 @@
-from aiogram import F, Router
+from aiogram import Router
 from aiogram.types import Message
 
-from bot.chat import help, rank_commands, site, top  # noqa: F401  (регистрируют команды)
+# Импорт модулей регистрирует их команды в общем реестре.
+from bot.chat import admin_chat, help, members, moderation, rank_commands, site, top  # noqa: F401
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 
 router = Router(name="chat")
-router.include_router(top.router)
-router.include_router(help.router)
-router.include_router(rank_commands.router)
+for sub in (top.router, help.router, rank_commands.router, moderation.router, members.router):
+    router.include_router(sub)
 
 
 @router.message()
 async def on_message(message: Message, bot, db) -> None:
-    """Каждое сообщение: учёт активности, затем попытка выполнить команду."""
+    """Каждое сообщение: закрытый чат, учёт активности, затем команда."""
+    from loguru import logger
+    try:
+        if await moderation.closed_gate(db, bot, message):
+            return
+    except Exception as exc:
+        logger.warning(f"closed-chat gate failed: {exc}")
     try:
         await record_message(db, message)
     except Exception as exc:  # учёт не должен ломать команды
-        from loguru import logger
         logger.warning(f"message tracking failed: {exc}")
     await dispatch(registry, message, bot, db)

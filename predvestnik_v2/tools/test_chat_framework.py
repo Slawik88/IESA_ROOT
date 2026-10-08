@@ -49,7 +49,6 @@ print("OK: help")
 from bot.chat import ranks  # noqa: E402
 assert ranks.find_rank("модератор") == 4 and ranks.find_rank("ст. модератор") == 5
 assert ranks.find_rank("мл модератор") == 3 and ranks.find_rank("7") == 7 and ranks.find_rank("10") is None
-assert ranks.legacy_rank(1) == 4 and ranks.legacy_rank(5) == 8 and ranks.legacy_rank(None) == 0
 assert ranks.check_assign(7, 2, 9) is not None          # владельца не выдать командой
 assert ranks.check_assign(6, 6, 2) is not None          # равному нельзя
 assert ranks.check_assign(6, 2, 6) is not None          # свой ранг выдать нельзя
@@ -58,3 +57,24 @@ assert ranks.check_assign(ranks.DEV_LEVEL, 8, 8) is None  # разработчи
 assert parse(real, "бот снять ранг, @user").command.name == "снять ранг"
 assert parse(real, "бот ранг @user 4").command.name == "ранг"
 print("OK: ranks")
+
+from datetime import timedelta  # noqa: E402
+from bot.chat.durations import FOREVER, human, split_duration  # noqa: E402
+assert split_duration("5д спам") == (timedelta(days=5), "спам")
+assert split_duration("1д12ч") == (timedelta(days=1, hours=12), "")
+assert split_duration("2 часа флуд в чате") == (timedelta(hours=2), "флуд в чате")
+assert split_duration("навсегда, мат") == (FOREVER, "мат")
+assert split_duration("просто причина") == (None, "просто причина")
+try:
+    split_duration("5х")
+    raise AssertionError
+except ValueError:
+    pass
+assert human(timedelta(days=8, hours=3)) == "1н 1д 3ч"
+for text, name in (("бот мут, @u 2ч", "мут"), ("бот снять мут @u", "снять мут"), ("бот размут @u", "снять мут"),
+                   ("+чат", "открыть чат"), ("-чат", "закрыть чат"), ("бот снять варны @u", "снять варны"),
+                   ("бот лимит варнов, 5", "лимит варнов"), ("бот админ-чат abc", "привязать админ чат")):
+    got = parse(real, text)
+    assert isinstance(got, Parsed) and got.command.name == name, (text, got)
+assert parse(real, "бан @u") is None and parse(real, "мут") is None
+print("OK: moderation parsing")

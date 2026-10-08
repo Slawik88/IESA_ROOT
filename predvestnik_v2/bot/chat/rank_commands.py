@@ -2,9 +2,9 @@
 Плюс синхронизация владельца чата с Telegram."""
 from __future__ import annotations
 
-from aiogram import Bot, Router
+from aiogram import Router
 from aiogram.filters.callback_data import CallbackData
-from aiogram.types import CallbackQuery, ChatMemberUpdated, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.chat import ranks
 from bot.chat.framework import Ctx, UsageError, registry
@@ -84,17 +84,17 @@ async def cmd_ranks(ctx: Ctx) -> None:
     chat_id = ctx.message.chat.id
     owner = await ranks.sync_owner(ctx.db, ctx.bot, chat_id)
     async with ctx.db.execute(
-        "SELECT s.user_tg_id, u.user_tg_username, s.chat_rank, s.local_rank "
+        "SELECT s.user_tg_id, u.user_tg_username, s.chat_rank "
         "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
         "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
-        "AND (COALESCE(s.chat_rank, 0) > 0 OR (s.chat_rank IS NULL AND COALESCE(s.local_rank, 0) > 0))",
+        "AND COALESCE(s.chat_rank, 0) > 0",
         (chat_id,),
     ) as cur:
         rows = await cur.fetchall()
     groups: dict[int, list[str]] = {}
     names: dict[int, str] = {}
-    for uid, uname, cr, lr in rows:
-        rank = int(cr) if cr is not None else ranks.legacy_rank(lr)
+    for uid, uname, cr in rows:
+        rank = int(cr or 0)
         label = f"@​{uname}" if uname else f"id{uid}"
         names[int(uid)] = label
         if int(uid) != owner and rank > 0:
@@ -192,21 +192,3 @@ async def on_rights(call: CallbackQuery, callback_data: RightsCB, db) -> None:
     except Exception:
         pass
     await call.answer()
-
-
-# ── Владелец чата: синхронизация с Telegram ───────────────────────────────
-
-@router.my_chat_member()
-async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
-    """Бота добавили в группу или повысили — сразу узнаём владельца."""
-    if event.chat.type in ("group", "supergroup") and event.new_chat_member.status in ("member", "administrator"):
-        await ranks.sync_owner(db, bot, event.chat.id, force=True)
-
-
-@router.chat_member()
-async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
-    """Передача прав на группу в Telegram -> новый владелец в боте."""
-    if event.new_chat_member.status == "creator":
-        await ranks.set_owner(db, event.chat.id, event.new_chat_member.user.id)
-    elif event.old_chat_member.status == "creator":
-        await ranks.sync_owner(db, bot, event.chat.id, force=True)
