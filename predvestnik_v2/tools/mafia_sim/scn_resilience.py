@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import random
 import re
 from unittest import mock
 
@@ -12,7 +13,7 @@ from services import mafia_v1 as mafia
 from tools.mafia_sim.harness import Harness
 from tools.mafia_sim.registry import ok, scenario
 from tools.mafia_sim.table import Table
-from tools.mafia_sim.world import TgError
+from tools.mafia_sim.world import NETWORK_FAULT, TgError
 
 FIVE = ["citizen", "mafia", "citizen", "citizen", "citizen"]
 SIX = ["citizen", "mafia", "doctor", "detective", "citizen", "citizen"]
@@ -237,3 +238,56 @@ async def undeliverable_role_cancels_cleanly(h: Harness) -> None:
     ok(all(t.action_message(u) is None for u in t.users), "no live night buttons remain")
     await h.say(t.host, t.chat, "бот мафия")
     ok(h.world.last(t.chat, "набор игроков"), "a new lobby can be opened right away")
+
+
+@scenario
+async def chaos_during_delivery(h: Harness) -> None:
+    """Telegram randomly floods / drops the connection while the scheduler delivers; games still end cleanly."""
+    rng = random.Random(7)
+    faults = (FLOOD, TgError(NETWORK_FAULT, "network"))
+
+    def chaos(name: str, params: dict):
+        return rng.choice(faults) if name in ("SendMessage", "EditMessageText", "EditMessageReplyMarkup", "DeleteMessage") and rng.random() < 0.15 else None
+
+    for size in (5, 6, 8):
+        t = await Table.create(h, size, command=f"бот мафия {size}")
+        await t.ready()
+        for _ in range(60):
+            if await t.phase() in ("finished", "cancelled"):
+                break
+            phase = await t.phase()
+            if phase in ("night", "voting"):
+                for user in t.users:
+                    msg = t.action_message(user)
+                    if msg and rng.random() < 0.9:
+                        buttons = [b for b in msg.buttons() if b.get("callback_data", "").startswith("mfa:")]
+                        await h.click(user, user.id, msg, data_prefix="mfa:", index=rng.randrange(len(buttons)))
+            await h.expire(t.chat)
+            h.world.chaos = chaos
+            for _ in range(3):
+                await h.tick()
+            h.world.chaos = None
+            await h.tick()
+        h.world.chaos = None
+        for _ in range(4):  # let the retries settle
+            await h.tick()
+        row = await t.match()
+        ok(row["phase"] in ("finished", "cancelled"), f"size {size}: the game must end despite faults, phase={row['phase']}")
+        ok(row["pending_event_json"] is None, f"size {size}: queued events must drain: {row['pending_event_json']}")
+        await _no_duplicates(h, t, size)
+
+
+async def _no_duplicates(h: Harness, t: Table, size: int) -> None:
+    row = await t.match()
+    resolved = await h.sql("SELECT payload_json->>'previous_phase' AS p FROM predvestnik.mafia_v1_audit_events WHERE match_id=$1 AND event_type='phase_advanced'", row["id"])
+    nights = sum(r["p"] == "night" for r in resolved)
+    votes = sum(r["p"] == "voting" for r in resolved)
+    texts = [m.text for m in h.world.live(t.chat)]
+    ok(sum("Рассвет" in x for x in texts) == nights, f"size {size}: one dawn message per night ({nights}), got {sum('Рассвет' in x for x in texts)}")
+    ok(sum("Итог голосования" in x for x in texts) == votes, f"size {size}: one result per vote ({votes})")
+    for user in t.users:
+        own = [m.text for m in h.dm(user)]
+        ok(sum("Партия Мафии" in x for x in own) == 1, f"size {size}: {user.name} must have exactly one role card")
+        prompts = [m.group(1) for x in own for m in [re.search(r"🌙 Ночь (\d+)\.", x)] if m and "Партия Мафии" not in x]
+        ok(len(prompts) == len(set(prompts)), f"size {size}: {user.name} got a night prompt twice: {prompts}")
+        ok(sum("Ты выбыл" in x for x in own) <= 1, f"size {size}: {user.name} told twice that they are out")

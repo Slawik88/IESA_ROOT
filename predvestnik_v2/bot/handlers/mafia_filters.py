@@ -4,7 +4,8 @@ from __future__ import annotations
 import asyncio
 
 from aiogram import Bot, types
-from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramForbiddenError, TelegramNetworkError,
+                                TelegramRetryAfter, TelegramServerError)
 from aiogram.filters import BaseFilter
 from loguru import logger
 
@@ -74,6 +75,19 @@ async def bot_can_moderate(bot: Bot, chat_id: int) -> bool:
     except TelegramAPIError:
         return False
     return member.status in {"administrator", "creator"} and bool(getattr(member, "can_delete_messages", False))
+
+
+async def deletion_blocked(bot: Bot | None, chat_id: int, error: Exception) -> bool:
+    """True when a failed delete means the bot really lost its right (pause the game).
+
+    Benign: the author already deleted the message, a flood limit, a network hiccup.  For anything
+    else Telegram's error text is not reliable enough, so ask Telegram whether the right is gone.
+    """
+    if isinstance(error, (TelegramRetryAfter, TelegramNetworkError, TelegramServerError)):
+        return False
+    if isinstance(error, TelegramBadRequest) and "not found" in str(error).lower():
+        return False
+    return bot is None or not await bot_can_moderate(bot, chat_id)
 
 
 async def dm_reachable(bot: Bot, user_id: int) -> bool:

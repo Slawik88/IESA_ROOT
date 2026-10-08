@@ -12,6 +12,27 @@ const _ARENA_TABS=['game'];
 function openRhythmV2Game(){ location.href=BASE+'/rhythm-v2'; }
 function openMinesweeperGame(){ location.href=BASE+'/minesweeper'; }
 
+// «Как играть» for people who have never played Mafia: plain steps + one line per role.
+// Keep the markup semantic (details/ol/dl); styling hooks are listed in docs/MAFIA_DESIGN_HANDOFF.md.
+const MAFIA_HOWTO_STEPS=[
+  ['Напиши в группе «бот мафия»','Появится лобби. Все, кто хочет играть, нажимают «Войти». Нужно от 4 игроков.'],
+  ['Получи роль в личке с ботом','Бот пришлёт её сам. Если не пишет — открой бота и нажми Start.'],
+  ['Играй: ночь, обсуждение, голосование','Ночью роли с действиями жмут кнопки в личке. Днём все спорят в чате и голосуют кнопкой.'],
+  ['Победа','Мирные побеждают, когда мафии не осталось. Мафия — когда её не меньше, чем остальных.']
+];
+const MAFIA_HOWTO_ROLES=[
+  ['🧑','Мирный житель','Днём ищет мафию и голосует.'],
+  ['🔫','Мафия','Ночью выбирает, кого убрать.'],
+  ['🎩','Дон','Главный в мафии: решает, если мафиози спорят.'],
+  ['💉','Доктор','Ночью лечит одного игрока.'],
+  ['🔎','Детектив','Ночью проверяет, мафия ли игрок.']
+];
+function mafiaHowTo(){
+  const steps=MAFIA_HOWTO_STEPS.map(x=>`<li class="mafia-howto-step"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></li>`).join('');
+  const roles=MAFIA_HOWTO_ROLES.map(x=>`<div class="mafia-howto-role"><dt>${x[0]} ${esc(x[1])}</dt><dd>${esc(x[2])}</dd></div>`).join('');
+  return `<details class="mafia-howto card"><summary class="mafia-howto-title">Как играть в Мафию</summary><ol class="mafia-howto-steps">${steps}</ol><dl class="mafia-howto-roles">${roles}</dl></details>`;
+}
+
 function openMafiaStats(){
   OM('🕵️ Мафия — моя история','<div class="loader">Загружаем историю…</div>',[{l:'Закрыть',f:'CM()'}]);
   api('/mafia-v1/me').then(d=>{
@@ -19,7 +40,7 @@ function openMafiaStats(){
     const role={citizen:'Мирный житель',mafia:'Мафия',don:'Дон',doctor:'Доктор',detective:'Детектив'};
     const state={finished:'Завершена',cancelled:'Отменена',lobby:'Лобби',night:'Ночь',discussion:'Обсуждение',voting:'Голосование',paused:'На паузе'};
     const rows=(d.matches||[]).map(m=>`<div class="pcard"><b>${esc(role[m.role]||'Роль ещё не выдана')}</b><br><small>Партия #${Number(m.match_id)} · ${esc(state[m.phase]||m.phase)}${m.winner?` · победили ${m.winner==='town'?'мирные':'мафия'}`:''}</small></div>`).join('')||'<div class="empty-state"><div class="es-icon">🕵️</div><div class="es-title">Партий пока нет</div><div class="es-sub">В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div></div>';
-    el('mb').innerHTML=`<div class="card"><div class="card-title">Моя статистика</div><b>${Number(s.wins||0)}</b> побед · <b>${Number(s.played||0)}</b> завершённых партий</div>${rows}`;
+    el('mb').innerHTML=`${mafiaHowTo()}<div class="card"><div class="card-title">Моя статистика</div><b>${Number(s.wins||0)}</b> побед · <b>${Number(s.played||0)}</b> завершённых партий</div>${rows}`;
   }).catch(e=>{ el('mb').innerHTML=`<div class="err">${esc(String(e))}</div>`; });
 }
 

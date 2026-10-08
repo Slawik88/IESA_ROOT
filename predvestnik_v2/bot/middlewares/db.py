@@ -134,10 +134,16 @@ async def db_middleware(
                 if _gate == "suppress":
                     try:
                         await event.message.delete()
-                    except Exception:
+                    except Exception as _delete_error:
                         # Lost delete rights mean we must not silently continue
                         # claiming a protected phase. Pause instead of changing
-                        # any group permissions or overriding moderation.
+                        # any group permissions or overriding moderation.  A message the
+                        # author already removed, a flood limit or a network hiccup is not
+                        # a lost right: the message simply stays and the game continues.
+                        from bot.handlers.mafia_filters import deletion_blocked as _deletion_blocked
+                        if not await _deletion_blocked(data.get("bot"), int(chat_obj.id), _delete_error):
+                            logger.debug(f"Mafia gate: message not removed ({_delete_error}); rights are fine, game continues")
+                            return
                         from infrastructure.repositories import mafia_v1 as _mafia_repo
                         _active = await _mafia_repo.active_match(db, chat_id=int(chat_obj.id), topic_id=_topic_id)
                         if _active:

@@ -38,8 +38,10 @@ async def _remember(db, view: dict, user_id: int, kind: str, message) -> None:
 
 
 async def _send_board(bot: Bot, db, view: dict, user_id: int) -> None:
+    """The coordination board only makes sense with at least two living mafia-side players."""
     rows, lead = await private.team_board(db, match_id=view["match_id"], phase_number=view["phase_number"])
-    await _remember(db, view, user_id, "team", await send_dm(bot, user_id, copy.team_board(rows, lead)))
+    if len(rows) >= 2:
+        await _remember(db, view, user_id, "team", await send_dm(bot, user_id, copy.team_board(rows, lead)))
 
 
 async def send_role_cards(bot: Bot, db, view: dict, *, chat_title: str | None) -> list[int]:

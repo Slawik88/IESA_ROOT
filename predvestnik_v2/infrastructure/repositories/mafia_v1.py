@@ -149,11 +149,11 @@ async def update_settings(db, *, match_id: int, max_players: int, enabled_roles:
 
 
 async def bind_lobby_message(db, *, match_id: int, message_id: int) -> None:
-    await db.execute("UPDATE mafia_v1_matches SET lobby_message_id=?,lobby_human_messages=0,state_version=state_version+1 WHERE id=?", (int(message_id), int(match_id)))
+    await db.execute("UPDATE mafia_v1_matches SET lobby_message_id=?,lobby_human_messages=0,last_bump_at=CLOCK_TIMESTAMP(),state_version=state_version+1 WHERE id=?", (int(message_id), int(match_id)))
 
 
 async def bind_phase_message(db, *, match_id: int, message_id: int) -> None:
-    await db.execute("UPDATE mafia_v1_matches SET phase_message_id=?,lobby_human_messages=0 WHERE id=?", (int(message_id), int(match_id)))
+    await db.execute("UPDATE mafia_v1_matches SET phase_message_id=?,lobby_human_messages=0,last_bump_at=CLOCK_TIMESTAMP() WHERE id=?", (int(message_id), int(match_id)))
 
 
 async def timed_matches(db, *, limit: int = 25) -> list[dict]:

@@ -30,7 +30,7 @@ async def town_wins(h: Harness) -> None:
     ok("Выбор принят" in pick.text and "закончится через" in pick.text, f"the lone mafioso finishing the night closes it early: {pick.text}")
     ok("Выбрано: #3 Игрок3" in t.action_message(u2).text and "✅ #3 Игрок3" in [b["text"] for b in t.action_message(u2).buttons()],
        "the DM must confirm the choice and mark the button")
-    ok(any("Игрок3" in m.text for m in h.dm(u2) if "Команда мафии" in m.text), "the mafia board must show the pick")
+    ok(not any("Команда мафии" in m.text for m in h.dm(u2)), "a lone mafioso gets no team board (nothing to coordinate)")
     ok(0 < await _remaining(h, t) <= rules.NIGHT_MIN_SECONDS, "the early close respects the floor")
     await t.pick(u2, u4)  # changed mind
     await t.next_phase()
@@ -49,11 +49,14 @@ async def town_wins(h: Harness) -> None:
     ok(all(any("Голосование" in m.text for m in h.dm(u)) for u in (u1, u2, u3, u5)), "every living player gets a ballot in DM")
     await t.vote(u1, u2)
     await h.click(u3, u3.id, t.action_message(u3), "#2 Игрок2")  # vote from DM
+    ballot = t.action_message(u3).text
+    ok("до конца голосования" in ballot and "до рассвета" not in ballot, f"a ballot must not talk about the dawn: {ballot}")
     await t.vote(u5, u2)
     last = await t.vote(u2, u1)
     ok("закончится через" in last.text, "the last ballot closes the vote early")
     await t.next_phase()
     ok(await t.phase() == "finished", f"killing the only mafioso ends the game: {await t.phase()}")
+    ok(not any("Ты выбыл" in m.text for m in h.dm(u2)), "no «you may only watch» notice once the game is already over")
     final = h.world.last(t.chat, "победили мирные")
     ok(final and "Игрок2 — 🔫 Мафия" in final.text, f"final message reveals roles: {final and final.text}")
     row = await t.match()
@@ -188,3 +191,20 @@ async def abstainers_outvote_a_lone_accuser(h: Harness) -> None:
     await t.next_phase()
     ok(await t.phase() == "night", "nobody was eliminated, the game goes on")
     ok("никто не выбыл" in h.world.last(t.chat, "Итог голосования").text, "one accusation against three abstentions removes nobody")
+
+
+@scenario
+async def open_voting_shows_every_choice(h: Harness) -> None:
+    t = await Table.create(h, 5, command="бот мафия 5 открытое")
+    await t.start_with_roles(FIVE)
+    u = t.users
+    await t.pick(u[1], u[4])
+    await t.next_phase()
+    await t.press(t.host, "К голосованию", "ОБСУЖДЕНИЕ")
+    await t.vote(u[0], u[2])
+    await t.vote(u[1], None)
+    await h.sql("UPDATE predvestnik.mafia_v1_matches SET card_updated_at=NULL WHERE chat_id=$1", t.chat)
+    await h.tick()  # the scheduler catches the card up even if the burst of votes was paced
+    card = h.world.last(t.chat, "ГОЛОСОВАНИЕ")
+    ok("Кто за кого" in card.text and "Игрок1" in card.text and "• Никого: Игрок2" in card.text, f"open mode lists choices and abstainers: {card.text}")
+    ok(any("3. Игрок3 · 1" in b["text"] for b in card.buttons()), "vote counts appear on the buttons")

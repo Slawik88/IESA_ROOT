@@ -253,13 +253,14 @@ async def current_view(db, *, match_id: int) -> dict | None:
 
 
 def _open_votes(players: list[dict], actions: list[dict]) -> list[dict]:
-    """Open mode shows only current public vote choices, never roles or night moves."""
+    """Open mode shows only current public vote choices, never roles or night moves.
+    «Никого» is listed too (target 0) so abstainers are visible like everybody else."""
     names = {int(p["user_id"]): p["display_name"] for p in players}
     grouped: dict[int, list[str]] = {}
     for action in actions:
-        if action["target_user_id"] is not None:
-            grouped.setdefault(int(action["target_user_id"]), []).append(names.get(int(action["user_id"]), "Игрок"))
-    return [{"target_user_id": tid, "target_name": names.get(tid, "Игрок"), "voters": voters}
+        target = int(action["target_user_id"]) if action["target_user_id"] is not None else 0
+        grouped.setdefault(target, []).append(names.get(int(action["user_id"]), "Игрок"))
+    return [{"target_user_id": tid, "target_name": names.get(tid, "Никого"), "voters": voters}
             for tid, voters in sorted(grouped.items())]
 
 

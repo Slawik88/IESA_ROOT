@@ -33,6 +33,7 @@ LOBBY_IDLE_SECONDS: Final = 30 * 60
 IDLE_PHASES_TO_ABANDON: Final = 4
 # Group-card edit pacing (Telegram allows ~20 messages/min per group).
 CARD_REFRESH_SECONDS: Final = 8
+CARD_VOTING_REFRESH_SECONDS: Final = 4  # votes change the card; keep the counter close to reality
 CARD_EVENT_GAP_SECONDS: Final = 1.5
 
 Role = Literal["citizen", "mafia", "don", "doctor", "detective"]

@@ -70,8 +70,9 @@ async def _edit_chosen(query: types.CallbackQuery, db, data: MafiaActionCB, targ
     if not label:
         return
     base = (query.message.html_text or "").split(CHOSEN_MARK)[0]
+    line = copy.vote_chosen(label) if data.action == "vote" else copy.night_chosen(label)
     try:
-        await query.message.edit_text(f"{base}\n\n{copy.night_chosen(label)}", reply_markup=markup, parse_mode="HTML")
+        await query.message.edit_text(f"{base}\n\n{line}", reply_markup=markup, parse_mode="HTML")
     except TelegramBadRequest as exc:
         logger.debug(f"Mafia DM confirmation not shown: {exc}")
 

@@ -21,6 +21,7 @@ from bot.middlewares.module_check_mw import module_disabled_reason
 from core import mafia_command, mafia_copy as copy
 from core import mafia_v1 as rules
 from infrastructure.repositories import mafia_v1 as repo
+from infrastructure.repositories import mafia_v1_ops as ops
 from infrastructure.repositories import system_flags
 from services import mafia_v1 as mafia
 from services.formatting import safe_html
@@ -54,7 +55,7 @@ def parse_create_args(raw: str) -> tuple[int, tuple[str, ...], str, str]:
         elif part in _TEMPO_WORDS:
             tempo = _TEMPO_WORDS[part]
         else:
-            raise mafia.MafiaConflict(f"Не понял слово «{safe_html(part)[:30]}».")
+            raise mafia.MafiaConflict(f"Не понял слово «{safe_html(part[:30])}».")
     return seats, tuple(sorted(roles)), vote, tempo
 
 
@@ -66,6 +67,8 @@ async def _create(message: types.Message, db, bot: Bot, args: str) -> None:
     chat_id, topic = int(message.chat.id), topic_of(message)
     if posts_anonymously(message):
         return await message.answer("Напиши «бот мафия» от своего имени, не анонимным админом: хозяину лобби нужно уметь нажимать кнопки.")
+    if await repo.active_match(db, chat_id=chat_id, topic_id=topic):
+        return await _status(message, db, bot)  # "бот мафия" while a game exists means "where is it?"
     if not await bot_can_moderate(bot, chat_id):
         return await message.answer(_NEED_ADMIN)
     reason = await module_disabled_reason(db, chat_id, "module_mafia")
@@ -96,12 +99,15 @@ async def _private_entry(message: types.Message, db, kind: str) -> None:
 
 
 async def _status(message: types.Message, db, bot: Bot) -> None:
+    """Show the chat's current game again (the lobby or the phase card), at most once per 30 s."""
     row = await repo.active_match(db, chat_id=int(message.chat.id), topic_id=topic_of(message))
     if not row:
         return await message.answer("Сейчас в этом чате нет игры в Мафию. Напишите «бот мафия», чтобы собрать лобби.")
+    if not await ops.claim_bump(db, match_id=int(row["id"]), gap_seconds=30):
+        return await message.answer("Игра уже идёт — её карточка чуть выше. Если не видно, повторите через полминуты.")
     view = await mafia.current_view(db, match_id=int(row["id"]))
     if view["phase"] == "lobby":
-        return await _send_lobby(bot, db, view, topic_of(message))
+        return await post_lobby(bot, db, view, topic_of(message), retire_old=True)
     await publish_phase(bot, db, view, gap=0, repost=True)
 
 
@@ -175,6 +181,8 @@ async def _preflight(bot: Bot, db, chat_id: int, match_id: int) -> str:
 
 async def _start(query, db, bot: Bot, data: MafiaLobbyCB) -> None:
     message, user_id = query.message, int(query.from_user.id)
+    if not await bot_can_moderate(bot, int(message.chat.id)):
+        return await answer(query, "Боту больше нельзя удалять сообщения. Верни ему право «Удалять сообщения» и нажми «Начать» снова.", alert=True)
     problem = await _preflight(bot, db, int(message.chat.id), data.match_id)
     if problem:
         return await answer(query, problem, alert=True)
@@ -385,7 +393,7 @@ async def handle_start_payload(message: types.Message, payload: str, db, bot: Bo
         await send_rules(message)
     elif payload == "mr":
         await _private_entry(message, db, "ready")
-    elif payload.startswith("mj") and payload[2:].isdigit():
+    elif payload.startswith("mj") and payload[2:].isdigit() and len(payload) <= 20:
         await _deep_join(message, db, bot, int(payload[2:]))
     else:
         return False

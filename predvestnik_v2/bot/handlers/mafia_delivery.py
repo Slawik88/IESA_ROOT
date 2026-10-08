@@ -18,6 +18,7 @@ from bot.handlers.mafia_card_views import (abandoned_text, dawn_text, finished_t
                                            phase_keyboard, vote_result_text)
 from bot.handlers.mafia_cards import publish_phase
 from bot.handlers.mafia_filters import bot_username
+from core import mafia_v1 as rules
 from infrastructure.repositories import mafia_v1 as repo
 from infrastructure.repositories import mafia_v1_ops as ops
 from infrastructure.repositories import system_flags
@@ -73,6 +74,8 @@ class PhaseDelivery:
         return True
 
     async def eliminated(self) -> bool:
+        if self.view["phase"] in ("finished", "cancelled"):
+            return True  # "you may only watch" is wrong news once the game is over
         await dm.notify_eliminated(self.bot, self.event.get("eliminated_user_id"))
         return True
 
@@ -228,4 +231,5 @@ async def tick(bot: Bot, db) -> None:
     for row in await repo.timed_matches(db):
         view = await mafia.current_view(db, match_id=int(row["id"]))
         if view:
-            await _guarded(f"refresh {row['id']}", publish_phase(bot, db, view))
+            gap = rules.CARD_VOTING_REFRESH_SECONDS if view["phase"] == "voting" else rules.CARD_REFRESH_SECONDS
+            await _guarded(f"refresh {row['id']}", publish_phase(bot, db, view, gap=gap))

@@ -85,6 +85,10 @@ def night_chosen(label: str, *, can_change: bool = True) -> str:
     return f"✅ Выбрано: <b>{_esc(label)}</b>.{tail}"
 
 
+def vote_chosen(label: str) -> str:
+    return f"✅ Выбрано: <b>{_esc(label)}</b>. Передумал? Нажми другое имя — голос можно менять до конца голосования."
+
+
 def team_board(rows: Sequence[tuple[str, str, str | None]], leading: str | None) -> str:
     """Mafia-only status: (name, role, chosen target label or None)."""
     lines = []

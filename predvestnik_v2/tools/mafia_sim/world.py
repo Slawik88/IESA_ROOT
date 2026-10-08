@@ -14,9 +14,11 @@ from html.parser import HTMLParser
 from typing import Any, AsyncGenerator, Callable
 
 from aiogram.client.session.base import BaseSession
+from aiogram.exceptions import TelegramNetworkError
 
 BOT_ID = 123456
 BOT_USERNAME = "predvestnik_test_bot"
+NETWORK_FAULT = 599  # TgError code that surfaces as aiogram's TelegramNetworkError
 _ENTITY_TYPES = {"b": "bold", "strong": "bold", "i": "italic", "em": "italic", "u": "underline", "ins": "underline",
                  "s": "strikethrough", "strike": "strikethrough", "del": "strikethrough", "code": "code", "pre": "pre",
                  "a": "text_link", "tg-spoiler": "spoiler", "blockquote": "blockquote"}
@@ -102,6 +104,7 @@ class World:
     failures: list[tuple[Callable[[str, dict], bool], TgError, list[int]]] = field(default_factory=list)
     next_id: int = 1000
     answers: list[dict] = field(default_factory=list)
+    chaos: Callable[[str, dict], "TgError | None"] | None = None  # random fault injection (stress scenarios)
 
     # ── configuration helpers ───────────────────────────────────────────────
     def set_member(self, chat_id: int, user_id: int, status: str = "member", **flags: Any) -> None:
@@ -128,6 +131,10 @@ class World:
             if left[0] > 0 and when(name, params):
                 left[0] -= 1
                 raise error
+        if self.chaos is not None:
+            fault = self.chaos(name, params)
+            if fault is not None:
+                raise fault
         handler = getattr(self, f"_m_{name}", None)
         return handler(params) if handler else True
 
@@ -287,6 +294,8 @@ class FakeSession(BaseSession):
             result = self.world.handle(name, params)
             status, body = 200, {"ok": True, "result": result}
         except TgError as error:
+            if error.code == NETWORK_FAULT:
+                raise TelegramNetworkError(method=method, message="simulated network failure") from error
             status = error.code
             body = {"ok": False, "error_code": error.code, "description": error.description}
             if error.retry_after:

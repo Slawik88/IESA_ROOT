@@ -105,6 +105,7 @@ async def _forum_table(h: Harness) -> Table:
 @scenario
 async def lost_delete_rights_pause_and_resume(h: Harness) -> None:
     t = await _night_table(h)
+    h.world.set_member(t.chat, 123456, "administrator", can_delete_messages=False)  # the right was really taken away
     h.world.fail(lambda name, params: name == "DeleteMessage", TgError(400, "Bad Request: message can't be deleted"), times=1)
     await h.say(t.users[2], t.chat, "шёпотом")
     ok(await t.phase() == "paused", "if the bot cannot delete, the game pauses instead of pretending")
@@ -126,6 +127,7 @@ async def busy_chat_card_bump(h: Harness) -> None:
     crowd = [t.add_bystander(f"Болтун{i}") for i in range(5)]
     await t.join_all()
     first = t.lobby()
+    await h.sql("UPDATE predvestnik.mafia_v1_matches SET last_bump_at=CLOCK_TIMESTAMP()-INTERVAL '5 minutes' WHERE chat_id=$1", t.chat)
     for i in range(26):
         await h.say(crowd[i % 5], t.chat, f"флуд {i}")
     cards = [m for m in h.world.live(t.chat) if "набор игроков" in m.text]
@@ -156,3 +158,14 @@ async def anonymous_admin(h: Harness) -> None:
     t = await _night_table(h)
     await h.say(admin, t.chat, "бот мафия стоп", anonymous=True)  # only admins can post as the group
     ok(await t.phase() == "cancelled", "an anonymous admin of this group may stop a stuck game")
+
+
+@scenario
+async def harmless_delete_failures_do_not_pause(h: Harness) -> None:
+    """A player deleting their own message, a flood limit or a hiccup are not 'lost rights'."""
+    t = await _night_table(h)
+    for error in (TgError(400, "Bad Request: message to delete not found"), TgError(429, "Too Many Requests: retry after 2", 2),
+                  TgError(400, "Bad Request: message can't be deleted for everyone")):
+        h.world.fail(lambda name, params: name == "DeleteMessage", error, times=1)
+        await h.say(t.users[2], t.chat, "шёпотом")
+        ok(await t.phase() == "night", f"a harmless delete failure ({error.description}) must not pause the game")
