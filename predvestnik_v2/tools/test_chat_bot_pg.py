@@ -292,7 +292,7 @@ async def transfer_flow(db, bot):
 
     class Call:
         def __init__(self, uid, cur, amount="300", msg_id=77):
-            self.from_user = SimpleNamespace(id=uid)
+            self.from_user = SimpleNamespace(id=uid, username=None, full_name=f"U{uid}")
             self.data_cb = transfer.TransferCB(uid=2002, to=1001, amount=amount, cur=cur)
             self.edited, self.alerts = [], []
             async def edit_text(text, **kw):
@@ -537,6 +537,67 @@ async def games_flow(db, bot):
     m.message_thread_id = None
     assert not await mafia.gate_message(db, bot, m) and not m.deleted     # партии нет — писать можно
     print("OK: games")
+    await achievements_flow(db, bot)
+
+
+async def achievements_flow(db, bot):
+    from bot.chat import achievements as ach
+    from bot.chat.tracking import record_message
+    from bot.chat.achievements_data import ACHIEVEMENTS, MAX_LEVELS, MIN_LEVELS
+    for a in ACHIEVEMENTS:                                              # 20–80 уровней, пороги растут
+        assert MIN_LEVELS <= a.max_level <= MAX_LEVELS, (a.id, a.max_level)
+        assert list(a.thresholds) == sorted(set(a.thresholds)) and a.thresholds[0] > 0, a.id
+    assert len({a.id for a in ACHIEVEMENTS}) == len(ACHIEVEMENTS) == len(ach.SOURCES)
+    assert ach.find("Болтун").id == "messages" and ach.find("сапер").id == "minesweeper_wins"
+
+    async def say(text, uid=7001, username="achiever", **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    await record_message(db, msg(7001, -100, "achiever"))
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 99 WHERE user_tg_id = 7001")
+    assert await ach.evaluate(db, 7001) == []                           # первый подсчёт — тихий
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 150 WHERE user_tg_id = 7001")
+    ach._last_full.clear(); ach._last_chat.clear()
+    m = FakeMessage("ещё одно", 7001, "achiever")
+    await ach.after_message(db, m)
+    assert len(m.replies) == 1 and "Болтун — ур. 3/49" in m.replies[0], m.replies
+    assert "@\u200bachiever" in m.replies[0], m.replies               # без пинга
+    await ach.after_message(db, m)                                      # чаще раза в минуту — не считаем
+    assert len(m.replies) == 1, m.replies
+    assert await ach.evaluate(db, 7001) == []                           # уровень уже объявлен
+
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 50 WHERE user_tg_id = 7001")
+    out = await say("бот достижения")
+    assert "Ваши достижения" in out and "Болтун</b> — ур. 3/49" in out, out   # уровень не падает
+    out = await say("бот достижение болтун")
+    assert "Следующие пороги: 200 → 250" in out and "50</b> сообщений" in out, out
+    out = await say("бот достижение ерунда")
+    assert "Нет такого достижения" in out, out
+
+    await ach.evaluate(db, 7001)
+    await db.execute("INSERT INTO chat_achievement_counters (user_id, counter, value) VALUES (7001, 'warps_sent', 9)")
+    out = await say("бот обнять, @talker")
+    assert "Заводила — ур. 1/" in out, out                             # 10-й варп
+    out = await say("бот достижения @achiever", uid=2002, username="talker")
+    assert "@\u200bachiever достижения" in out and "Заводила</b> — ур. 1/" in out, out
+
+    async with db.execute(
+        "INSERT INTO mafia_v1_matches (chat_id, initiator_id, ruleset_version, max_players, vote_mode, phase, "
+        "winner, started_at, finished_at) VALUES (-100, 7001, 't', 4, 'open', 'finished', 'town', NOW(), NOW()) "
+        "RETURNING id") as cur:
+        match = (await cur.fetchone())[0]
+    await db.execute("INSERT INTO mafia_v1_players (match_id, user_id, join_order, display_name, role) "
+                     "VALUES (?, 7001, 1, 'A', 'citizen'), (?, 7002, 2, 'B', 'mafia')", (match, match))
+    ups = {a.id: lvl for a, lvl in await ach.evaluate(db, 7001, {"games"})}
+    assert ups == {"mafia_games": 1, "mafia_wins": 1}, ups
+    ups = {a.id: lvl for a, lvl in await ach.evaluate(db, 7002, {"games"})}
+    assert ups == {}, ups                                               # 7002 — первый подсчёт
+    assert await ach.value_of(db, 7002, ach.BY_ID["mafia_wins"]) == 0
+    print("OK: achievements")
 
 
 asyncio.run(main())

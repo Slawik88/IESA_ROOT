@@ -115,3 +115,6 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     await call.message.edit_text(
         f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
     await call.answer("Готово")
+    from bot.chat import achievements
+    u = call.from_user
+    await achievements.after_transfer(db, call.message, cb.uid, achievements.quiet_name(u.username, u.full_name))

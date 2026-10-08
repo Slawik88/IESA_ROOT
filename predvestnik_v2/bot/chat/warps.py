@@ -68,6 +68,8 @@ def make_handler(warp: Warp):
         if rest.strip():
             text += f"\n💬 «{html.escape(rest.strip()[:200])}»"
         await ctx.message.answer(text, parse_mode="HTML", disable_web_page_preview=True)
+        from bot.chat import achievements
+        await achievements.after_warp(ctx.db, ctx.message, actor.id, target.user_id, target.label())
     return handler
 
 

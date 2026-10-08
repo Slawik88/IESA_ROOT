@@ -56,6 +56,8 @@ async def ensure_chat_schema() -> None:
         await mafia_v1.ensure_tables(db)   # ворота сообщений Мафии читают их в каждом сообщении
         from infrastructure.repositories import skins_v3
         await skins_v3.ensure_tables(db)   # счёт эссенции: «бот баланс» и семейный кошелёк
+        from bot.chat.achievements import ensure_schema as ensure_achievements
+        await ensure_achievements(db)
         from bot.chat.family import ensure_family_schema
         try:
             await ensure_family_schema(db)
