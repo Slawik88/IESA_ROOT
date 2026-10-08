@@ -43,8 +43,8 @@ def _json_list(value) -> list:
     return list(value or [])
 
 
-def _build(state: dict, talismans: list[dict]) -> dict:
-    return {"calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
+def _build(state: dict, talismans: list[dict], camp: dict | None = None) -> dict:
+    return {"camp": camp or {}, "calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
             "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans)}
 
 
@@ -56,7 +56,7 @@ def _rest(state: dict, pet: dict, now, build: dict) -> float:
     hours = max(0.0, (now - state["energy_at"]).total_seconds() / 3600)
     fx = _fx(build)
     return rules.energy_after_rest(float(state["energy"]), hours=hours, level=int(state["level"]), species_id=pet["species_id"],
-                                   bonus=fx["energy_bonus"], delta=fx["regen_delta"])
+                                   camp_bonus=rules.camp_bonus("lounge", build["camp"].get("lounge", 0)), bonus=fx["energy_bonus"], delta=fx["regen_delta"])
 
 
 def _terrain(pet: dict, route: str | None) -> bool:
@@ -102,13 +102,14 @@ async def overview(db, user_id: int) -> dict:
     pets = []
     owned = await repo.list_owned_pets(db, user_id)
     all_talismans = await repo.list_talismans(db, user_id)
+    camp = await repo.camp_levels(db, user_id)
     builds: dict[int, dict] = {}
     for pet in owned:
         if pet.get("species_id") not in rules.SPECIES:
             continue
         level = int(pet["level"] or 1)
         mine = [t for t in all_talismans if t["pet_id"] is not None and int(t["pet_id"]) == int(pet["id"])]
-        build = builds[int(pet["id"])] = _build(pet, mine)
+        build = builds[int(pet["id"])] = _build(pet, mine, camp)
         fx = _fx(build)
         energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
         energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
@@ -148,6 +149,7 @@ async def overview(db, user_id: int) -> dict:
         "daily": {"raw": round(daily["raw"], 1), "credited": round(daily["credited"], 1), "max": rules.DAILY_MAX},
         "durations": {"run": list(rules.RUN_HOURS), "watch": list(rules.WATCH_HOURS)}, "routes": list(rules.ROUTES),
         "talismans": [{"id": t["id"], "kind": t["kind"], "tier": int(t["tier"]), "pet_id": t["pet_id"]} for t in all_talismans],
+        "camp": await _camp_view(db, user_id, camp),
         "callings": list(rules.AVAILABLE_CALLINGS), "traits": list(rules.AVAILABLE_TRAITS),
     }
 
@@ -184,7 +186,7 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
             raise PetV2Conflict("Все слоты заняты.")
         clock = await repo.clock(db)
         state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
-        build = _build(state, await repo.equipped_talismans(db, user_id, pet_id))
+        build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), await repo.camp_levels(db, user_id))
         energy = rules.spend_energy(_rest(state, pet, clock["now"], build), energy_kind, hours)
         await repo.save_state(db, user_id, pet_id, level=int(state["level"]), xp=float(state["xp"]), energy=energy, pity=int(state["pity"]))
         run = await repo.create_run(db, run_id=uuid4().hex, user_id=user_id, pet_id=pet_id, kind=kind, hours=hours, route=route)
@@ -209,10 +211,10 @@ async def _grant_find(db, user_id: int, run_id: str, category: str, amount: int,
         await repo.add_food(db, user_id, food, amount)
 
 
-async def _ledger(db, user_id: int, deltas: dict, run_id: str, label: str) -> None:
+async def _ledger(db, user_id: int, deltas: dict, run_id: str, label: str, reason: str = "pet_find") -> None:
     from infrastructure.repositories.economy_ledger import apply_balance_change
     await apply_balance_change(
-        db, user_id, deltas, reason_code="pet_find", idempotency_key=f"pet_v2:{run_id}:{label}",
+        db, user_id, deltas, reason_code=reason, idempotency_key=f"pet_v2:{run_id}:{label}",
         source_type="pets", reference_type="pet_v2_run", reference_id=run_id,
     )
 
@@ -243,7 +245,8 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         clock = await repo.clock(db)
         day = clock["day"]
         state = await repo.ensure_state(db, user_id, int(pet["id"]), rules.energy_max(1, pet["species_id"]))
-        build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])))
+        camp = await repo.camp_levels(db, user_id)
+        build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])), camp)
         fx = _fx(build, int(run["hours"]), run["route"])
         energy = _rest(state, pet, clock["now"], build)
         level, xp, pity = int(state["level"]), float(state["xp"]), int(state["pity"])
@@ -269,6 +272,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         else:
             base = rules.run_xp_raw(
                 hours, expedition=expedition, favorite_route=match, stars=stars, trait_mult=fx["xp_mult"],
+                repeat_decay=rules.markers_decay(camp["markers"]),
                 repeats_today=await repo.routes_claimed_today(db, user_id, day, run["route"]),
             )
             rolls = rules.ROLLS[("run", hours)]
@@ -467,3 +471,84 @@ async def _grant_key(db, user_id: int, run: dict) -> bool:
         balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
     )
     return True
+
+
+async def _camp_view(db, user_id: int, levels: dict) -> dict:
+    job = await repo.camp_job(db, user_id)
+    return {
+        "levels": levels,
+        "job": {"building": job["building"], "to_level": int(job["to_level"]), "ends_at": str(job["ends_at"]), "done": bool(job["done"])} if job else None,
+        "next_costs": {b: rules.camp_upgrade_cost(b, levels[b] + 1) if levels[b] < 5 else None for b in rules.CAMP_BUILDINGS},
+    }
+
+
+async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> dict:
+    """Начать стройку: Мора и Эссенция списываются сразу, постройка готова через указанное время. Одна стройка за раз."""
+    action_id = _action(action_id)
+    if building not in rules.CAMP_BUILDINGS:
+        raise PetV2PolicyError("Неизвестная постройка.")
+    request = {"type": "camp_upgrade", "building": building}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        await repo.settle_camp(db, user_id)
+        if await repo.camp_job(db, user_id):
+            raise PetV2Conflict("Сначала дождись окончания текущей стройки.")
+        levels = await repo.camp_levels(db, user_id)
+        if levels[building] >= 5:
+            raise PetV2PolicyError("Постройка уже на максимальном уровне.")
+        cost = rules.camp_upgrade_cost(building, levels[building] + 1)
+        from core.economy_contract import InsufficientBalance
+        try:
+            await _ledger(db, user_id, {"mora": -cost["mora"]}, f"{building}:{levels[building] + 1}:{action_id}", "camp", reason="pet_camp")
+        except InsufficientBalance as exc:
+            raise PetV2PolicyError(f"Не хватает Моры: нужно {cost['mora']}.") from exc
+        from infrastructure.repositories import skins_v3 as essence_repo
+        try:
+            await essence_repo.essence_apply(
+                db, user_id, -cost["essence"], reason="pet_v2_camp", reference=f"{building}:{levels[building] + 1}",
+                idempotency_key=f"pet_v2:camp:{user_id}:{action_id}",
+            )
+        except ValueError as exc:
+            raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost['essence']}.") from exc
+        await repo.start_camp_job(db, user_id, building, levels[building] + 1, cost["hours"])
+        response = {"ok": True, "building": building, "to_level": levels[building] + 1, "cost": cost, "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response
+
+
+async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str) -> dict:
+    """Перековка: талисман на тир выше за Эссенцию, если позволяет Мастерская."""
+    action_id = _action(action_id)
+    request = {"type": "reforge", "talisman_id": str(talisman_id)}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        talisman = await repo.get_talisman(db, user_id, talisman_id)
+        if not talisman:
+            raise PetV2PolicyError("Талисман не найден.")
+        tier = int(talisman["tier"])
+        workshop = (await repo.camp_levels(db, user_id))["workshop"]
+        if tier >= rules.workshop_max_tier(workshop):
+            raise PetV2PolicyError("Мастерская пока не позволяет поднять тир.")
+        cost = rules.reforge_cost(tier)
+        from infrastructure.repositories import skins_v3 as essence_repo
+        try:
+            await essence_repo.essence_apply(
+                db, user_id, -cost, reason="pet_v2_reforge", reference=str(talisman_id),
+                idempotency_key=f"pet_v2:reforge:{user_id}:{action_id}",
+            )
+        except ValueError as exc:
+            raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost}.") from exc
+        await repo.set_talisman_tier(db, user_id, talisman_id, tier + 1)
+        response = {"ok": True, "talisman_id": str(talisman_id), "tier": tier + 1, "essence_spent": cost, "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response

@@ -97,6 +97,9 @@ def main() -> None:
     assert [p.trait_slots(l) for l in (1, 5, 14, 15, 24, 25, 30)] == [0, 1, 1, 2, 2, 3, 3]
     assert abs(p.trait_xp_multiplier(("night_walk", "nose"), 9) - 1.15 * 0.95) < 1e-9
     assert sum(p.STAGE_ESSENCE.values()) == 80
+    assert p.markers_decay(0) == 0.75 and abs(p.markers_decay(5) - 0.85) < 1e-9
+    assert [p.workshop_max_tier(l) for l in range(6)] == [1, 1, 2, 2, 3, 3] and p.reforge_cost(1) == 10 and p.reforge_cost(2) == 20
+    assert p.run_xp_raw(3, repeats_today=2, repeat_decay=0.85) > p.run_xp_raw(3, repeats_today=2)
     # применение билда
     plain = p.build_effects(None, (), hours=9, route="forest")
     assert plain["xp_mult"] == 1.0 and plain["find_mods"] == {} and not plain["guardian"]

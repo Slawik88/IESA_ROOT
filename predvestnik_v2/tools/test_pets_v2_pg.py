@@ -196,6 +196,31 @@ async def run(dsn: str) -> None:
         assert await skins_v3.essence_balance(db, user) < 15, "paid swap must debit essence"
         await rejects(service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=["bogus"], talisman_ids=[], action_id="b6"))
         await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["zz"], action_id="b7"))
+        # Лагерь и перековка
+        await rejects(service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu0"))  # нет Моры и Эссенции
+        await db.execute("UPDATE skins_v3_essence_accounts SET balance=1000 WHERE user_id=?", (user,))
+        await db.execute("UPDATE users SET user_balance_mora=user_balance_mora+5000 WHERE user_tg_id=?", (user,))
+        built_camp = await service.camp_upgrade(db, user_id=user, building="workshop", action_id="cu1")
+        assert built_camp["to_level"] == 1 and built_camp["cost"]["mora"] == 100
+        assert (await service.camp_upgrade(db, user_id=user, building="workshop", action_id="cu1"))["idempotent_replay"]
+        try:
+            async with db.connection.transaction():
+                await service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu2")
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("one construction at a time")
+        await rejects(service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf0"))   # Мастерская ещё не позволяет
+        await db.execute("UPDATE pet_v2_camp_jobs SET ends_at=NOW()-INTERVAL '1 minute' WHERE user_id=?", (user,))
+        assert (await repo.camp_levels(db, user))["workshop"] == 1
+        await db.execute("UPDATE pet_v2_camp_jobs SET to_level=2 WHERE user_id=?", (user,))
+        reforged = await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1")
+        assert reforged["tier"] == 2 and reforged["essence_spent"] == 10
+        assert (await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1"))["idempotent_replay"]
+        await rejects(service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf2"))  # тир III нужен 4 уровень
+        await service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu3")
+        view = await service.overview(db, user)
+        assert view["camp"]["levels"]["workshop"] == 2 and view["camp"]["job"]["building"] == "lounge"
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

@@ -32,6 +32,16 @@ class BuildRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class CampRequest(BaseModel):
+    building: str = Field(pattern="^(lounge|markers|workshop)$")
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class ReforgeRequest(BaseModel):
+    talisman_id: str = Field(min_length=1, max_length=96)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 async def _ready(db) -> None:
     if not await system_flags.is_enabled(db, "pets_v2"):
         raise HTTPException(404, "Тропа пока закрыта.")
@@ -70,5 +80,23 @@ async def build(body: BuildRequest, db=Depends(get_db), user=Depends(require_tg_
     try:
         return await service.set_build(db, user_id=int(user["id"]), pet_id=body.pet_id, calling=body.calling,
                                        traits=body.traits, talisman_ids=body.talismans, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/camp/upgrade")
+async def camp_upgrade(body: CampRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.camp_upgrade(db, user_id=int(user["id"]), building=body.building, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/talisman/reforge")
+async def reforge(body: ReforgeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.reforge_talisman(db, user_id=int(user["id"]), talisman_id=body.talisman_id, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))

@@ -80,13 +80,13 @@ def pool_credit(before_raw: float, raw: float) -> float:
 
 
 def run_xp_raw(hours: int, *, expedition: bool = False, repeats_today: int = 0,
-               favorite_route: bool = False, stars: int = 0, trait_mult: float = 1.0) -> float:
+               favorite_route: bool = False, stars: int = 0, trait_mult: float = 1.0, repeat_decay: float = REPEAT_DECAY) -> float:
     """«Сырые» Следы похода до суточной нормы."""
     if hours not in RUN_XP:
         raise PetV2PolicyError("Поход: только 3, 6 или 9 часов.")
     if repeats_today < 0 or not 0 <= stars <= 5:
         raise PetV2PolicyError("Некорректные повторы или звёзды.")
-    value = RUN_XP[hours] * (REPEAT_DECAY ** repeats_today) * trait_mult
+    value = RUN_XP[hours] * (repeat_decay ** repeats_today) * trait_mult
     if expedition:
         value *= EXPEDITION_MULT
     value *= 1 + (AFFINITY_BONUS if favorite_route else 0) + SEAL_BONUS_PER_STAR * stars
@@ -305,6 +305,27 @@ def camp_bonus(building: str, level: int) -> float:
     if building not in CAMP_BUILDINGS or not 0 <= int(level) <= 5:
         raise PetV2PolicyError("Неизвестная постройка или уровень.")
     return round(0.04 * int(level), 2) if building == "lounge" else round(0.05 * int(level), 2)
+
+
+def markers_decay(level: int) -> float:
+    """Указатели: повтор маршрута дешевеет слабее (×0.75 → ×0.85 на 5 уровне)."""
+    if not 0 <= int(level) <= 5:
+        raise PetV2PolicyError("Уровень постройки 0–5.")
+    return REPEAT_DECAY + 0.02 * int(level)
+
+
+def workshop_max_tier(level: int) -> int:
+    """Мастерская: тир талисманов I–III (II с 2 уровня, III с 4)."""
+    if not 0 <= int(level) <= 5:
+        raise PetV2PolicyError("Уровень постройки 0–5.")
+    return min(3, 1 + int(level) // 2)
+
+
+def reforge_cost(from_tier: int) -> int:
+    """Эссенция за перековку талисмана на тир выше."""
+    if from_tier not in (1, 2):
+        raise PetV2PolicyError("Перековать можно тир I или II.")
+    return REFORGE_ESSENCE[from_tier]
 
 
 # ── Призвания и черты (данные; применение — в писателе занятий) ───────────────

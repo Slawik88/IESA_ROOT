@@ -69,6 +69,19 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_camp (
+            user_id BIGINT NOT NULL, building TEXT NOT NULL CHECK(building IN ('lounge','markers','workshop')),
+            level SMALLINT NOT NULL DEFAULT 0 CHECK(level BETWEEN 0 AND 5),
+            PRIMARY KEY(user_id, building)
+        )
+    """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_camp_jobs (
+            user_id BIGINT PRIMARY KEY, building TEXT NOT NULL, to_level SMALLINT NOT NULL CHECK(to_level BETWEEN 1 AND 5),
+            ends_at TIMESTAMPTZ NOT NULL
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_actions (
             user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
             request_json TEXT NOT NULL, response_json TEXT NOT NULL,
@@ -259,3 +272,50 @@ async def save_build(db, user_id: int, pet_id: int, *, calling, traits: list[str
         "UPDATE pet_v2_state SET calling=?,traits=?::jsonb,calling_changed_at=?,traits_changed_at=? WHERE user_id=? AND pet_id=?",
         (calling, json.dumps(traits), calling_changed, traits_changed, int(user_id), int(pet_id)),
     )
+
+
+async def camp_levels(db, user_id: int) -> dict[str, int]:
+    """Уровни построек с учётом уже завершённой стройки (без записи)."""
+    levels = {"lounge": 0, "markers": 0, "workshop": 0}
+    async with db.execute("SELECT building,level FROM pet_v2_camp WHERE user_id=?", (int(user_id),)) as c:
+        for row in await c.fetchall():
+            levels[row["building"]] = int(row["level"])
+    async with db.execute("SELECT building,to_level FROM pet_v2_camp_jobs WHERE user_id=? AND ends_at<=NOW()", (int(user_id),)) as c:
+        row = await c.fetchone()
+    if row:
+        levels[row["building"]] = max(levels[row["building"]], int(row["to_level"]))
+    return levels
+
+
+async def camp_job(db, user_id: int) -> dict[str, Any] | None:
+    async with db.execute("SELECT building,to_level,ends_at,ends_at<=NOW() AS done FROM pet_v2_camp_jobs WHERE user_id=?", (int(user_id),)) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def settle_camp(db, user_id: int) -> None:
+    job = await camp_job(db, user_id)
+    if job and job["done"]:
+        await db.execute(
+            "INSERT INTO pet_v2_camp(user_id,building,level) VALUES (?,?,?) "
+            "ON CONFLICT(user_id,building) DO UPDATE SET level=GREATEST(pet_v2_camp.level,EXCLUDED.level)",
+            (int(user_id), job["building"], int(job["to_level"])),
+        )
+        await db.execute("DELETE FROM pet_v2_camp_jobs WHERE user_id=?", (int(user_id),))
+
+
+async def start_camp_job(db, user_id: int, building: str, to_level: int, hours: int) -> None:
+    await db.execute(
+        "INSERT INTO pet_v2_camp_jobs(user_id,building,to_level,ends_at) VALUES (?,?,?,NOW()+(?*INTERVAL '1 hour'))",
+        (int(user_id), building, int(to_level), int(hours)),
+    )
+
+
+async def get_talisman(db, user_id: int, talisman_id: str) -> dict[str, Any] | None:
+    async with db.execute("SELECT id,kind,tier,pet_id FROM pet_v2_talismans WHERE user_id=? AND id=? FOR UPDATE", (int(user_id), str(talisman_id))) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def set_talisman_tier(db, user_id: int, talisman_id: str, tier: int) -> None:
+    await db.execute("UPDATE pet_v2_talismans SET tier=? WHERE user_id=? AND id=?", (int(tier), int(user_id), str(talisman_id)))
