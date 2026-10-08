@@ -67,7 +67,6 @@ const RARITY_META = {
   artifact:  {label:'Артефакт',   color:'#3fe0e0'},
 };
 function rarLabel(r){ return (RARITY_META[r]||{}).label || r; }
-function rarColor(r){ return (RARITY_META[r]||{}).color || '#9aa7b8'; }
 
 // Chat where the mini app was opened from: bot encodes ?chat_id= for group
 // launches (Telegram WebApp context alone isn't reliable for group buttons).
@@ -81,7 +80,6 @@ const _initChatTitle = _tgChat?.title || '';
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='game';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
-let _featData=null, _achData=null, _achSort='default', _achRetired=false, _achMessage='', _invSearch='', _themeFilter='all';
 let _bpData=null;
 let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,16);
 
@@ -113,7 +111,7 @@ const hdrs = () => {
 let _reactiveTimer=null;
 const _reactiveSubs=new Set();
 function onReactiveRefresh(fn){ if(typeof fn==='function') _reactiveSubs.add(fn); return fn; }
-function offReactiveRefresh(fn){ _reactiveSubs.delete(fn); }
+
 function economyRequestKey(scope){
   let nonce='';
   try{ nonce=globalThis.crypto?.randomUUID?.()||''; }catch(_){ nonce=''; }
@@ -206,8 +204,27 @@ function switchTgAccount(){
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let _ws=null;
-// connectWS() defined later with browser-notification + ping/pong support
+let _ws=null, _wsTries=0, _wsTimer=0;
+// События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
+// Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
+function connectWS() {
+  if (_ws || !_uid || typeof WebSocket === 'undefined') return;
+  const auth = INIT_DATA ? `init=${encodeURIComponent(INIT_DATA)}` : `token=${encodeURIComponent(sess())}`;
+  let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}?${auth}`); } catch (e) { return; }
+  _ws = ws;
+  ws.onopen = () => { _wsTries = 0; };
+  ws.onmessage = ev => {
+    let event; try { event = JSON.parse(ev.data); } catch (e) { return; }
+    if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
+  };
+  ws.onclose = () => {
+    if (_ws === ws) _ws = null;
+    clearTimeout(_wsTimer); _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
+  };
+  ws.onerror = () => { try { ws.close(); } catch (e) { /* уже закрыт */ } };
+}
+setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });
 function showWsNotif(event) {
   const titles = {
     expedition_done: '⚔️ Поход завершён!',
@@ -318,23 +335,6 @@ function showWelcomeBack(items) {
 // сравниваем уровень с прошлой загрузкой (localStorage). _xpAnimated — флаг анимации
 // заливки XP-шкалы (один раз за сессию), объявлен здесь до первого вызова loadProfile.
 let _xpAnimated = false;
-function _checkLevelUp(lvl) {
-  try {
-    const prev = parseInt(localStorage.getItem('pv_last_level') || '0');
-    localStorage.setItem('pv_last_level', String(lvl));
-    if (prev && lvl > prev) showLevelUp(lvl);
-  } catch (e) {}
-}
-function showLevelUp(lvl) {
-  if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
-  OM('🎉 Новый уровень!',
-    `<div style="text-align:center;padding:6px 0">
-       <div style="font-size:54px;animation:floaty 1.6s ease-in-out infinite">⭐</div>
-       <div style="font-size:30px;font-weight:800;color:var(--gold2);margin:6px 0">Уровень ${lvl}</div>
-       <div style="font-size:12px;color:var(--muted)">Так держать! Общайся в чате, чтобы расти дальше.</div>
-     </div>`,
-    [{l:'🔥 Дальше!', c:'btn-gold', f:'CM()'}]);
-}
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('ru');
@@ -351,42 +351,10 @@ function fmtUTC(s) {
   const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
   return isNaN(d) ? s.slice(0,16) : d.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
-const fatC = f => f<40?'var(--green)':f<70?'var(--gold)':'var(--red)';
+
 function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
 // toast() живёт в app.28.js: вид зависит от надетого образа
-
-function copyUid(uid) {
-  navigator.clipboard?.writeText(String(uid))
-    .then(()=>toast('🆔 ID скопирован!'))
-    .catch(()=>toast('Буфер обмена недоступен',false));
-}
-
-// Дедлайн экспедиции: строится ОДИН раз из серверного remaining_sec (разность
-// внутри БД — не зависит ни от таймзоны naive-строки ends_at, ни от часов
-// устройства игрока; фикс бага «Готово ✓» при ещё идущем походе). Парсинг
-// абсолютной строки — только фолбэк для старых/кэшированных ответов без поля.
-function expDeadlineMs(e){
-  if(e._dl===undefined){
-    e._dl=(typeof e.remaining_sec==='number')
-      ? Date.now()+e.remaining_sec*1000
-      : new Date((e.ends_at+'').includes('T')?e.ends_at:e.ends_at+'Z').getTime();
-  }
-  return e._dl;
-}
-function countdownMs(deadlineMs) {
-  const diff=Math.max(0,Math.floor((deadlineMs-Date.now())/1000));
-  if(diff<=0)return'<span style="color:var(--green)">Готово ✓</span>';
-  const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
-  const str=h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;
-  return `<span class="exp-timer${diff<300?' urgent':''}">${str}</span>`;
-}
-// Короткая длительность для подписей: «2ч 15м» / «45м»
-function fmtDurShort(sec){
-  sec=Math.max(0,Math.floor(sec||0));
-  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
-  return h?`${h}ч ${String(m).padStart(2,'0')}м`:`${m}м`;
-}
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 let _modalReturnFocus=null;
@@ -631,10 +599,6 @@ function goTo(page, tab) {
     if (tabBtn) tabBtn.click();
   }, 80);
 }
-
-// Historical profile/onboarding cards still call this helper.  It must point
-// at the approved current games hub, not at a retired Reconstruction screen.
-function openReconstructionGame(){ goTo('arena','game'); }
 
 // ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Глобальную/Консоль ──
 // БЛОК 21.2 W4.1: три полноценных входа; Консоль — по правам (gp из app.07),

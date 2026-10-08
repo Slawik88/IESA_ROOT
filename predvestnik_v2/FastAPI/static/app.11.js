@@ -23,11 +23,6 @@ function itemLink(key, label) {
   return `<span class="tlink" onclick="event.stopPropagation();showItemDetail('${key}')">${value}</span>`;
 }
 
-function tabLink(label, page, tab) {
-  const targetTab = tab ? `,'${tab}'` : '';
-  return `<span class="tlink tlink--go" onclick="event.stopPropagation();goTo('${page}'${targetTab})">${esc(label)}</span>`;
-}
-
 function showItemDetail(key, override) {
   const info = Object.assign({}, ITEM_INFO[key] || ITEM_INFO._fallback, override || {});
   OM(`${info.emoji} ${esc(info.name)}`, `

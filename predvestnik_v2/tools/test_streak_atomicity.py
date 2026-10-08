@@ -16,7 +16,6 @@ for marker in ("add_balance", "spend_balance", "spin_token", "UPDATE users"):
 ui_source = (ROOT / "FastAPI/static/app.02.js").read_text(encoding="utf-8")
 for stale_copy in ("Следующая награда", "бот стрик восстановить", "Алмазы из стрика"):
     assert stale_copy not in ui_source, f"UI still promises retired streak reward: {stale_copy}"
-assert "число сообщений не усиливает награду" in ui_source
-assert "сохранённый рекорд старой системы" in ui_source
+assert "loadStreak" not in ui_source and "/streak/calendar" not in ui_source, "the old streak screen is gone from the client"
 
 print("OK: legacy streak is read-only and has no runtime middleware")

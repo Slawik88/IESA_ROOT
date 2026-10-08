@@ -168,7 +168,7 @@ confirm_js = (STATIC / "app.28.js").read_text(encoding="utf-8")
 assert "function v3Confirm(" in confirm_js and "role=\"alertdialog\"" in confirm_js and "Escape" in confirm_js and "Promise" in confirm_js and (STATIC / "confirm-v3.css").exists()
 assert "await v3Confirm(spec)" in (STATIC / "app.23.js").read_text(encoding="utf-8") and "_lkConfirmSpec('" not in "" and "function _lkConfirmSpec(" in (STATIC / "app.23.js").read_text(encoding="utf-8")
 assert store_js.count("await v3Confirm(") == 2, "Zarniki packs and VIP are confirmed before any request"
-assert "await v3Confirm(" in (STATIC / "app.02.js").read_text(encoding="utf-8") and (STATIC / "app.02.js").read_text(encoding="utf-8").count("v3Confirm(") >= 2, "clan shop and Zarniki exchange"
+assert "await v3Confirm(" in (STATIC / "app.02.js").read_text(encoding="utf-8"), "Zarniki exchange"
 assert "await v3Confirm(" in (STATIC / "app.06.js").read_text(encoding="utf-8"), "partner gifts"
 # Loading placeholders appear after a delay and softly; the top screen keeps the previous list instead of flashing a grey block.
 assert re.search(r"\.sk \{[^}]*animation: v3skel \.3s ease \.22s backwards", css) and "@keyframes v3skel" in css

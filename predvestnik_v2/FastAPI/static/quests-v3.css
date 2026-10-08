@@ -3,9 +3,10 @@
 
 #pg-questlog .quest-head { display: block; margin: 6px 0 14px; }
 #pg-questlog .quest-head .v3-title { margin: 4px 0 0; }
-#pg-questlog .quest-tabs { display: flex; gap: 4px; margin: 0 0 18px; padding: 3px; border: 0; border-radius: 99px; background: var(--v3-faint); }
-#pg-questlog .quest-tabs button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 99px; background: none; box-shadow: none; color: var(--v3-dim); font: 600 13.5px var(--v3-font); }
-#pg-questlog .quest-tabs button.is-active { background: var(--v3-acc); color: var(--v3-on-acc); box-shadow: none; }
+#pg-questlog .quest-tabs { display: flex; gap: 22px; margin: 0 0 18px; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-questlog .quest-tabs button { position: relative; flex: none; min-height: 44px; padding: 0 2px; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--v3-dim); font: 600 14.5px var(--v3-font); }
+#pg-questlog .quest-tabs button.is-active { background: none; color: var(--v3-ink); box-shadow: none; }
+#pg-questlog .quest-tabs button.is-active::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 0; height: 2px; border-radius: 2px; background: var(--v3-acc); }
 #pg-questlog .quest-tabs button span { margin-left: 4px; color: inherit; font-size: 11px; opacity: .7; font-variant-numeric: tabular-nums; }
 
 #pg-questlog .quest-section-head { margin: 0 0 6px; }

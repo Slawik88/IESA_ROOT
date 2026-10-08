@@ -1,7 +1,7 @@
 // ── Profile ───────────────────────────────────────────────────────────────────
 // switchPro() defined later with marriage + wallet tabs
 function _profileEsc(value){ return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-function _profileCss(value){ return String(value||'').split(/\s+/).filter(token=>/^[A-Za-z0-9_-]{1,80}$/.test(token)).join(' '); }
+
 function _profileDate(value){
   if(!value) return '—';
   const parsed=new Date(value);
@@ -101,42 +101,7 @@ function loadProfile() {
     try { checkGlobalAccess(); } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
-// ── Топ-3 игроков на профиле (block 11): соревнование на видном месте ──────────
-// Глобальный подиум + СВОЁ место и дистанция до топ-3 — главный крючок вовлечения.
-function loadTop3(){
-  const box=el('pro-top3'); if(!box) return;
-  api('/top/global').then(rows=>{
-    if(!Array.isArray(rows) || rows.length<3){ box.innerHTML=''; return; }  // нужен полный подиум
-    const top3=rows.slice(0,3);
-    const meIdx=rows.findIndex(r=>String(r.user_id)===String(typeof _uid!=='undefined'?_uid:''));
-    const meRank=meIdx>=0?meIdx+1:null;
-    const rowsHtml=top3.map((r,i)=>`<div class="t3-row${meRank===i+1?' t3-row--me':''}">
-        <span class="t3-medal">${MEDALS[i]||(i+1)}</span>
-        <span class="t3-name">${_topName(r)}</span>
-        <span class="t3-cnt">${fmt(r.count)} 💬</span>
-      </div>`).join('');
-    let you;
-    if(meRank && meRank>3){
-      const gap=Math.max(1,(top3[2].count||0)-(rows[meIdx].count||0)+1);
-      you=`<span>Ты <b>#${meRank}</b></span><span>до топ-3: <b>+${fmt(gap)}</b> 💬</span>`;
-    } else if(meRank){
-      you=`<span>🔥 Ты в топ-3 — <b>#${meRank}</b></span><span>удержи место</span>`;
-    } else {
-      you=`<span>Ты пока вне топ-200</span><span>активнее в чатах →</span>`;
-    }
-    box.innerHTML=`<div class="card t3-card" onclick="openTop3Full()">
-      <div class="t3-head"><span class="t3-title">🏆 Топ игроков</span><span class="t3-all">весь топ ›</span></div>
-      ${rowsHtml}
-      <div class="t3-you">${you}</div>
-    </div>`;
-  }).catch(()=>{box.innerHTML='';});
-}
-function openTop3Full(){
-  goTo('hof');
-  // виджет глобальный → открываем глобальную вкладку (2-я кнопка в свитчере топа)
-  const btns=document.querySelectorAll('#pro-hof .tab-inner .tb');
-  if(btns[1]) switchTop('global', btns[1]);
-}
+
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
 function openLegalDoc(slug){
@@ -240,139 +205,6 @@ function _showWelcome(){
   ]), 500);
 }
 
-
-// ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
-let _clansData=null, _clanEmblemSel='🛡';
-function openClansModal(){
-  OM('🛡 Кланы','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-ghost',f:'CM()'}]);
-  api('/clans/').then(d=>{_clansData=d; _clanEmblemSel=(d.emblems&&d.emblems[0])||'🛡'; renderClans();})
-    .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
-}
-function renderClans(){
-  const b=el('mb'); if(!b||!_clansData) return;
-  b.innerHTML=(_clansData.my_clan?_clanMyHtml():_clanCreateHtml())+_clanTopHtml();
-}
-function _clanMyHtml(){
-  const c=_clansData.my_clan;
-  const lp=c.level_progress||{level:c.level||1,xp_into:0,xp_needed:0,is_max:false};
-  const pct=lp.is_max?100:(lp.xp_needed?Math.min(100,Math.round(lp.xp_into/lp.xp_needed*100)):0);
-  const emax=c.effective_max||_clansData.max_members;
-  const members=(c.members||[]).map(m=>{
-    const lead=m.role==='owner';
-    const title=m.title?`<div class="top-title">${esc(m.title)}</div>`:'';
-    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false, m.glow)}${title}</span>
-      <span class="clan-mrole">🎖 ${fmtF(m.clan_coins||0)}</span></div>`;
-  }).join('');
-  return `<div class="clan-card">
-      <div class="clan-emblem">${c.emblem||'🛡'}</div>
-      <div class="clan-name">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></div>
-      ${c.description?`<div class="clan-desc">${esc(c.description)}</div>`:''}
-      <div class="clan-lvlrow"><span class="clan-lvlbadge">🏛 Основание клана</span>
-        <span class="clan-lvlxp">${fmtF(c.foundation_score||c.total_xp||0)} истории</span></div>
-      <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${emax} участников</div>
-        <div>роли и состав сохранены</div></div>
-    </div>
-    ${_clan2NavHtml()}
-    <div class="looks-hint">Старая сила и здания не дают преимущества. Совместные цели идут через Союз, а клан сохраняет имя, состав и историю.</div>
-    <div class="looks-slot-t" style="margin-top:12px">Состав</div>
-    <div class="clan-members">${members}</div>
-    <button class="btn btn-full btn-ghost" style="margin-top:12px" onclick="_clanLeave()">🚪 Покинуть клан</button>`;
-}
-function _clanBuildingsHtml(){
-  const c=_clansData.my_clan;
-  const bs=(c&&c.buildings)||[];
-  if(!bs.length) return '';
-  const lvl=(c.level)||1;
-  const cards=bs.map(b=>`<div class="clan-bld">
-    <div class="clan-bld-ico">${b.emoji||'🏛'}</div>
-    <div class="clan-bld-body">
-      <div class="clan-bld-name">${esc(b.name)}</div>
-      <div class="clan-bld-eff">${esc(b.effect||'')}</div>
-      ${b.next_effect?`<div class="clan-bld-next">↑ ур.${lvl+1}: ${esc(b.next_effect)}</div>`:`<div class="clan-bld-next clan-bld-max">★ максимум</div>`}
-    </div></div>`).join('');
-  return `<div class="looks-slot-t" style="margin-top:12px">🏛 Штаб клана · ур.${lvl}</div>
-    <div class="clan-blds">${cards}</div>`;
-}
-function _clanCreateHtml(){
-  const emblems=(_clansData.emblems||[]).map(e=>`<span class="clan-emb-opt ${e===_clanEmblemSel?'sel':''}" onclick="_clanPickEmblem('${e}')">${e}</span>`).join('');
-  return `<div class="looks-hint">Создай свой клан или вступи в существующий ниже. Один клан на игрока.</div>
-    <div class="clan-form">
-      <div class="looks-slot-t">Эмблема</div>
-      <div class="clan-emblems">${emblems}</div>
-      <input id="clan-name" type="text" class="num-input" maxlength="${_clansData.name_max||24}" placeholder="Название клана"/>
-      <input id="clan-tag" type="text" class="num-input" maxlength="${_clansData.tag_max||5}" placeholder="Тег (2–5, напр. WOLF)" style="text-transform:uppercase"/>
-      <input id="clan-desc" type="text" class="num-input" maxlength="120" placeholder="Девиз (необязательно)"/>
-      <button class="btn btn-full btn-gold" onclick="_clanCreate()">🛡 Основать клан</button>
-    </div>`;
-}
-function _clanTopHtml(){
-  const top=_clansData.top||[]; if(!top.length) return '';
-  const inClan=!!_clansData.my_clan;
-  const rows=top.map((c,i)=>{
-    const mine=_clansData.my_clan&&_clansData.my_clan.clan_id===c.clan_id;
-    const join=(!inClan)?`<button class="btn btn-sm btn-gold" onclick="_clanJoin(${c.clan_id})">Вступить</button>`:(mine?'<span class="clan-you">ты тут</span>':'');
-    return `<div class="clan-trow${mine?' clan-mine':''}"><span class="clan-trank">${i+1}</span>
-      <span class="clan-temblem">${c.emblem||'🛡'}</span>
-      <span class="clan-tname">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></span>
-      <span class="clan-txp">${c.member_count}/${c.effective_max||_clansData.max_members} участников · ${fmtF(c.total_xp||0)} истории</span>
-      ${join}</div>`;
-  }).join('');
-  return `<div class="looks-slot-t" style="margin-top:14px">🏆 Топ кланов</div><div class="clan-top">${rows}</div>`;
-}
-function _clanPickEmblem(e){ _clanEmblemSel=e; renderClans(); }
-function _clanCreate(){
-  const name=(el('clan-name')||{}).value||'', tag=(el('clan-tag')||{}).value||'', desc=(el('clan-desc')||{}).value||'';
-  api('/clans/create',{method:'POST',body:JSON.stringify({name,tag,description:desc,emblem:_clanEmblemSel})})
-    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();})
-    .catch(e=>toast(e,false));
-}
-function _clanJoin(id){
-  api('/clans/join',{method:'POST',body:JSON.stringify({clan_id:id})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
-}
-function _clanLeave(){
-  OM('🚪 Покинуть клан','<div style="padding:6px 2px;font-size:13px">Точно выйти? Если ты лидер — лидерство перейдёт старейшему участнику, а без участников клан распустится.</div>',
-    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Выйти',c:'btn-gold',f:'_clanLeaveDo()'}]);
-}
-function _clanLeaveDo(){
-  api('/clans/leave',{method:'POST',body:JSON.stringify({})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>{toast(e,false); openClansModal();});
-}
-// ── Доска Запросов: создать / помочь / снять ────────────────────────────────────
-function _clanReqCreateDo(){
-  const item=(el('creq-item')||{}).value||'';
-  const qty=parseInt((el('creq-qty')||{}).value||'1',10)||1;
-  api('/clans/request/create',{method:'POST',body:JSON.stringify({item_id:item,qty:qty})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
-}
-// ── Клан-лавка (сток clan_coins) ────────────────────────────────────────────────
-function _clanShopHtml(){
-  const c=_clansData.my_clan;
-  const shop=(c&&c.shop)||[];
-  if(!shop.length) return '';
-  const coins=c.clan_coins||0;
-  const rows=shop.map(s=>{
-    const afford=coins+1e-9>=s.cost;
-    const btn=afford
-      ?`<button class="btn btn-sm btn-gold" onclick="_clanShopBuy('${s.id}')">${fmtF(s.cost)} 🎖</button>`
-      :`<button class="btn btn-sm btn-ghost" disabled style="opacity:.5">${fmtF(s.cost)} 🎖</button>`;
-    return `<div class="clan-req">
-      <div class="clan-req-top"><span class="clan-req-name">${s.emoji||'🎖'} ${esc(s.name)}</span>
-        <span class="clan-req-act">${btn}</span></div>
-      <div class="clan-board-hint" style="margin:2px 0 0">${esc(s.desc||'')}</div>
-    </div>`;
-  }).join('');
-  return `<div class="clan-board-head"><span class="looks-slot-t" style="margin:0">🎖 Клан-лавка</span>
-      <span class="clan-coin-note">у тебя ${fmtF(coins)} 🎖</span></div>
-    <div class="clan-board-hint">Трать клан-монеты, заработанные помощью по Доске.</div>
-    <div class="clan-board">${rows}</div>`;
-}
-async function _clanShopBuy(id){
-  const c=_clansData?.my_clan,item=((c&&c.shop)||[]).find(x=>x.id===id);
-  if(item&&!(await v3Confirm({title:'Покупка в клан-лавке',visual:item.emoji||'🎖',name:item.name,sub:item.desc||'',price:item.cost,icon:'🎖',have:c.clan_coins||0,cta:`Купить за ${fmt(item.cost)} 🎖`})))return;
-  api('/clans/shop/buy',{method:'POST',body:JSON.stringify({shop_id:id})})
-    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
-}
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {
   const pl = el('preloader');
@@ -414,35 +246,27 @@ _runPreloader();
 // need a web hop. The start parameter only selects the complex destination.
 function _handleStartParam(){
   let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
-  // Фолбэк: обычная HTTPS-ссылка ?startapp=<section> (не t.me-диплинк) не несёт
-  // нативный start_param — Telegram его просто не заполняет. Раздел в этом
-  // случае лежит в query самой страницы.
+  // Обычная HTTPS-ссылка ?startapp=<раздел> не несёт нативный start_param: раздел лежит в query страницы.
   if(!p){ try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
-  if(base==='clans'){ run(()=>openClansModal()); return; }
-  if(base==='quests'){ run(()=>openQuestsV1()); return; }
-  if(base==='achievements'||base==='achievement'){ run(()=>openAchievementsV1()); return; }
-  if(base==='pets'){ run(()=>openPetsV1()); return; }
-  if(base==='cosmetics'||base==='looks'){ run(()=>openLooksModal()); return; }
+  const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
+  // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
+  const LINKS={
+    quests:openQuestsV1, achievements:openAchievementsV1, achievement:openAchievementsV1, pets:openPetsV1, zoo:openPetsV1,
+    looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openLooksModal, inv:openLooksModal,
+    vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
+    exchange:openPlayerExchangeV1, exch:openPlayerExchangeV1, crypto:openPlayerExchangeV1, birzha:openPlayerExchangeV1,
+    notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew,
+  };
   if(base==='public'){
     let ref=''; try{ ref=new URLSearchParams(location.search).get('profile')||''; }catch(e){}
     if(ref) run(()=>openPublicProfile(ref));
     return;
   }
-  if(base==='exchange'||base==='exch'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('exch')}catch(e){}},220); }); return; }
-  if(base==='crypto'||base==='birzha'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('crypto')}catch(e){}},220); }); return; }
-  // БЛОК 36.1: «бот уведомления» раньше вёл на голую вкладку профиля — теперь
-  // сразу открывает «⚙️ Настройки» с чекбоксами уведомлений.
-  if(base==='notifications'||base==='notifprefs'){ run(()=>{ switchPage('profile'); setTimeout(()=>{try{openSettingsModal()}catch(e){}},260); }); return; }
-  if(base==='relics'){ run(()=>{ try{ _goodsTab='dark'; goTo('market','goods'); }catch(e){} }); return; }
-  const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
-    vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
-    ach:['ach'],achievements:['ach'],zoo:['profile'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','game'],casino:['arena','game'],
-    barracks:['arena','game'],gates:['arena','game'],game:['arena','game'] };
-  const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
+  if(LINKS[base]) { run(LINKS[base]); return; }
+  if(['arena','games','game','casino','barracks','gates','gacha','deal','craft','bp','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
 }
 if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 
@@ -625,160 +449,9 @@ function _profileSyncStats(d){
   set('pro-stat-streak', d.streak);
 }
 
-function plDays(n){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return'дней';if(d===1)return'день';if(d>=2&&d<=4)return'дня';return'дней';}
-function loadStreak() {
-  el('pro-streak').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/streak/calendar').then(d=>{
-    const today=new Date().toISOString().slice(0,10);
-    const streak=d.streak||0;
-    // История присутствия, без награды за объём сообщений.
-    const cells=d.calendar.map(day=>{
-      const active=Boolean(day.active);
-      return `<div class="st-cell l${active?2:0}${day.date===today?' today':''}" title="${day.date}: ${active?'был активен':'нет активности'}"></div>`;
-    }).join('');
-
-    el('pro-streak').innerHTML=`
-    <div class="st-hero">
-      <div class="st-flame">🔥</div>
-      <div class="st-big">${streak}</div>
-      <div class="st-sub">${plDays(streak)} · сохранённый рекорд старой системы</div>
-    </div>
-
-    <div class="card" style="margin-top:10px">
-      <div class="card-title">Что изменилось</div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5">Рекорд не стирается и не уменьшается. Сообщения больше не дают Мору, Алмазы или жетоны, а платного восстановления нет.</div>
-    </div>
-
-    <div class="card" style="margin-top:10px">
-      <div class="card-title">📅 Присутствие в чатах · 60 дней</div>
-      <div class="st-heat">${cells}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:7px">Показан только факт активности за день; число сообщений не усиливает награду.</div>
-    </div>`;
-  }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${typeof e==='string'?esc(e):'Ошибка загрузки'}</div>`;});
-}
-
 // Legacy achievement instructions were deliberately removed: several pointed
 // players to retired gacha, gates, spending and message-spam loops.
 
-function loadAch() {
-  el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/achievements/').then(payload=>{
-    _achRetired=Boolean(payload&&payload.retired);
-    _achMessage=payload&&payload.message||'';
-    _featData=payload&&payload.chronicle||null;
-    _achData=Array.isArray(payload)?payload:(payload.achievements||[]);
-    renderAch();
-  }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
-}
-function setAchSort(s){_achSort=s;renderAch();}
-function renderAch() {
-  if(!_achData||!_featData) return;
-  const feats=[...(_featData.feats||[])].sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct||a.order-b.order);
-  let achs=[..._achData];
-  if(_achSort==='progress') achs.sort((a,b)=>b.pct-a.pct);
-  else if(_achSort==='todo') achs.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct);
-  const legacyDone=achs.filter(a=>a.level>0).length;
-  el('pro-ach').innerHTML=`
-    <div class="card" style="margin-bottom:8px">
-      <div class="card-title">▤ Хроника подвигов <span style="font-size:9px;font-weight:400;color:var(--muted)">${_featData.completed} / ${_featData.total}</span></div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(_featData.message)}</div>
-      <div style="font-size:10px;color:var(--teal);margin-top:6px">Личные отметки · не рейтинг · не продаются · не дают силу</div>
-    </div>
-    <div class="card" style="margin-bottom:10px">
-      ${feats.map(a=>`<div class="ach-item" style="cursor:pointer" data-feat-id="${esc(a.id)}">
-        <div class="ach-head"><div class="ach-icon">${esc(a.icon)}</div><div class="ach-name">${esc(a.name)}</div><div class="ach-lvl" style="color:${a.completed?'var(--gold)':'var(--muted)'}">${a.completed?'★ ГОТОВО':`${a.progress}/${a.target}`}</div></div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${esc(a.description)}</div>
-        <div class="ach-bar"><div class="ach-fill ${a.completed?'high':a.pct>=50?'':'low'}" style="width:${a.pct}%"></div></div>
-      </div>`).join('')}
-    </div>
-    <details class="card">
-      <summary class="card-title" style="cursor:pointer">🏆 Архив старых достижений · ${legacyDone}/${achs.length}</summary>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 10px">${esc(_achMessage)}</div>
-    <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
-      <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('default')">По умолч.</button>
-      <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('progress')">% прогресса</button>
-      <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('todo')">Сначала активные</button>
-    </div>
-      ${achs.map(a=>{
-        const fc=a.completed?'high':a.pct>=60?'high':a.pct>=25?'':'low';
-        return `<div class="ach-item" style="cursor:pointer" data-legacy-ach-id="${esc(a.id)}">
-          <div class="ach-head">
-            <div class="ach-icon">${a.icon}</div>
-            <div class="ach-name">${a.name}</div>
-            <div class="ach-lvl" style="color:${a.completed?'var(--gold)':a.level>0?'var(--green)':'var(--muted)'}">
-              ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
-            </div>
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">Сохранённый прогресс · система закрыта</div>
-          <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
-          <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
-        </div>`;
-      }).join('')}
-    </details>`;
-}
-
-function openFeatModal(id) {
-  const a=(_featData?.feats||[]).find(item=>item.id===id);
-  if(!a) return;
-  OM(`${a.icon} ${esc(a.name)}`,`
-    <div style="font-size:13px;line-height:1.5">${esc(a.description)}</div>
-    <div class="ach-bar" style="height:8px;margin:12px 0 4px"><div class="ach-fill ${a.completed?'high':''}" style="width:${a.pct}%"></div></div>
-    <div style="font-size:12px;color:var(--muted);text-align:center">${a.progress} / ${a.target}${a.completed?' · выполнено':''}</div>
-    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.4">Подвиг вычисляется из подтверждённого состояния игры. Его нельзя купить, забрать повторно или обменять на силу.</div>
-  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-}
-
-function openAchModal(id) {
-  const a=(_achData||[]).find(item=>item.id===id);
-  if(!a) return;
-  OM(`${a.icon} ${a.name}`,`
-    <div style="text-align:center;padding:8px 0 14px">
-      <div style="font-size:28px;font-weight:800;color:${a.completed?'var(--gold)':'var(--text)'}">
-        ${a.completed?'★ МАКСИМУМ':`Lv${a.level} / ${a.max_level}`}
-      </div>
-      <div class="ach-bar" style="height:8px;margin:10px 0 4px">
-        <div class="ach-fill" style="width:${a.pct}%"></div>
-      </div>
-      <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
-    </div>
-    <div class="divider"></div>
-    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">Уровень и счётчик сохранены как история. Новые действия не меняют этот результат и не выдают наград.</div>
-  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-}
-
-document.addEventListener('click',event=>{
-  const feat=event.target.closest('[data-feat-id]');
-  if(feat) return openFeatModal(feat.dataset.featId);
-  const legacy=event.target.closest('[data-legacy-ach-id]');
-  if(legacy) openAchModal(legacy.dataset.legacyAchId);
-});
-
-
-// ══ Кланы: переход к общей системе Союза ══════════════════════════════════════
-// Базовый клан, состав и владение остаются в /clans. Старые Бездна, здания за
-// осколки и клеточные войны закрыты: они нарушали новую экономику и возвращали
-// удалённую боёвку. До аудиторных порогов кланы играют вместе через Союз.
-function _clan2NavHtml(active){
-  const item=(key,icon,label,sub)=>
-    `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="showClanTransition('${key}')">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
-  return `<div class="clan2-nav">
-    ${item('alliance','◈','Союз','общая цель')}
-    ${item('projects','▦','Проекты','после 3 кланов')}
-    ${item('competition','◇','Состязание','после 8 кланов')}
-  </div>`;
-}
-function showClanTransition(section){
-  const copy={
-    alliance:['Союз Предвестников','Совместная цель появится после утверждения клановых правил и экономики.'],
-    projects:['Клановые проекты','Откроются, когда в игре будет не меньше трёх активных кланов. Так проекты станут совместной игрой, а не пустой шкалой.'],
-    competition:['Клановое состязание','Откроется при восьми активных кланах. До этого не будет фиктивной войны с пустыми соперниками.'],
-  }[section]||['Кланы','Раздел готовится к новой экономике.'];
-  OM(`◈ ${copy[0]}`,`<div class="looks-hint">${copy[1]}</div>`,[
-    {l:'Открыть игры',c:'btn-gold',f:"CM();goTo('arena','game')"},
-    {l:'Закрыть',c:'btn-ghost',f:'CM()'},
-  ]);
-}
 // ── admin_audit B1: форма апелляции для забаненного (открывается по 403) ──────
 let _banAppealOpen=false;
 function openBanAppealModal() {

@@ -328,7 +328,7 @@ _APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 15
 # Shell V3 stylesheets (loaded after app.css, in this order); each is served at /static/<name>.
 _SHELL_V3_CSS = ("shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css",
-                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css")
+                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css")
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(

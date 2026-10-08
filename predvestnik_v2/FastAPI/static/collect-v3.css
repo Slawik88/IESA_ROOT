@@ -9,10 +9,11 @@
 @keyframes apcrest { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 .ap-anim .ap-crest { animation: apcrest 3.6s ease-in-out infinite; }
 
-/* переключатель «Образы / Коллекция» */
-.lk-seg { display: flex; gap: 4px; width: fit-content; margin: 14px auto 0; padding: 3px; border-radius: 99px; background: var(--v3-faint); }
-.lk-seg button { min-height: 34px; padding: 0 18px; border: 0; border-radius: 99px; background: none; color: var(--v3-dim); font: 600 13px var(--v3-font); cursor: pointer; }
-.lk-seg button.is-on { background: var(--v3-acc); color: var(--v3-on-acc); }
+/* вкладки «Образы / Коллекция»: текст и акцентная черта, как «Зарники / VIP» */
+.lk-seg { display: flex; gap: 22px; margin: 6px 0 0; padding: 0; box-shadow: 0 1px 0 var(--v3-faint); }
+.lk-seg button { position: relative; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--v3-dim); font: 600 15px var(--v3-font); cursor: pointer; }
+.lk-seg button.is-on { color: var(--v3-ink); }
+.lk-seg button.is-on::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 0; height: 2px; border-radius: 2px; background: var(--v3-acc); }
 
 /* образ недели и ближайшая цель: строки, а не карточки */
 .lk-week, .lk-goal { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 10px; padding: 8px 10px 8px 6px; border: 0; border-radius: 16px; color: var(--v3-ink); font: inherit; text-align: left; cursor: pointer; }

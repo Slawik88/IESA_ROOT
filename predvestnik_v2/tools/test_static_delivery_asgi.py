@@ -43,6 +43,7 @@ ALLOWED = {
     "/static/motion-v3.css": "text/css",
     "/static/confirm-v3.css": "text/css",
     "/static/monolith-v3.css": "text/css",
+    "/static/monolith-player-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",
@@ -117,12 +118,7 @@ def main() -> None:
     assert_prefix_redirect_scope()
     css = direct.get("/static/app.css")
     assert "icons/x.svg" not in css.text
-    assert re.search(
-        r"\.profile-showcase-main\s*>\s*\.character-showcase-area\s*,\s*"
-        r"\.profile-showcase-main\s*>\s*\.player-data-rail\s*\{"
-        r"\s*height:\s*100%;\s*min-height:\s*0;\s*\}",
-        css.text,
-    )
+    assert "profile-showcase" not in css.text and "character-showcase" not in css.text, "the old profile showcase layout is gone"
     assert direct.get("/static/icons/x.svg").status_code == 404
     app_js = direct.get("/static/app.js").text
     assert "window.openPublicProfile = openPublicCardV3" in app_js and "renderPublicProfileHero" not in app_js

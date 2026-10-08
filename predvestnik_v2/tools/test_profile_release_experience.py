@@ -37,7 +37,7 @@ assert "2026-09-20-clearer-interface" in updates
 assert "help-hero" in index and "help-card" in index and "v3-title" in index
 settings = (ROOT / "FastAPI/static/app.26.js").read_text(encoding="utf-8")
 assert "st-switch" in settings and "st-sec" in settings and "_accDeleteStart()" in settings
-assert ".help-card" in css and ".settings-panel" in css
+assert ".help-card" in css
 assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
 assert 'aria-label="Основные разделы"' in index
 assert index.count('type="button" class="nb') == 6
