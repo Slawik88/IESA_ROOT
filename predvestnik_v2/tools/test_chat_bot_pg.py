@@ -274,6 +274,49 @@ async def profile_flow(db, bot):
     assert "Не нашёл" in out, out
     out = await run(db, bot, "бот баланс", uid=2002, username="talker")
     assert "Мора" in out and "Зарники" in out and "Тёмная" not in out, out
+    await transfer_flow(db, bot)
+
+
+async def transfer_flow(db, bot):
+    from bot.chat import transfer
+    out = await run(db, bot, "бот перевод, @alpha 300", uid=2002, username="talker")
+    assert "Какую валюту" in out, out
+
+    class Call:
+        def __init__(self, uid, cur, amount="300", msg_id=77):
+            self.from_user = SimpleNamespace(id=uid)
+            self.data_cb = transfer.TransferCB(uid=2002, to=1001, amount=amount, cur=cur)
+            self.edited, self.alerts = [], []
+            async def edit_text(text, **kw):
+                self.edited.append(text)
+            self.message = SimpleNamespace(chat=SimpleNamespace(id=-100), message_id=msg_id, edit_text=edit_text)
+        async def answer(self, text=None, show_alert=False):
+            self.alerts.append(text)
+
+    async def bal(uid):
+        async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id = ?", (uid,)) as cur:
+            return float((await cur.fetchone())[0] or 0)
+
+    a0, b0 = await bal(2002), await bal(1001)
+    c = Call(1001, "mora")
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "не ваш" in c.alerts[0]                                   # чужая кнопка
+    c = Call(2002, "zarniki")
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "нельзя" in c.alerts[0]
+    c = Call(2002, "mora")
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "Переведено" in c.edited[0], (c.edited, c.alerts)
+    c = Call(2002, "mora")                                            # повторное нажатие той же кнопки
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert await bal(2002) == a0 - 300 and await bal(1001) == b0 + 300
+    c = Call(2002, "mora", amount="99999", msg_id=78)
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "Не хватает" in c.alerts[0] and await bal(2002) == a0 - 300
+    c = Call(2002, "mora", amount="1.5", msg_id=79)
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "целым" in c.alerts[0]
+    assert transfer.parse_amount("@ник 12,5") == transfer.Decimal("12.5") and transfer.parse_amount("0") is None
 
 
 asyncio.run(main())

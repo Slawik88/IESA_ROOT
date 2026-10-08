@@ -24,6 +24,13 @@ STATEMENTS = (
     # Глобальная роль в боте (новая шкала, с нуля). Старая колонка global_rank не читается.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS bot_rank SMALLINT DEFAULT 0",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_sponsor BOOLEAN DEFAULT FALSE",
+    # Настройки бота, которые меняет владелец бота (например, валюты для переводов).
+    """CREATE TABLE IF NOT EXISTS bot_settings (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_by BIGINT,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    )""",
     # Какой минимальный ранг нужен для действия в конкретном чате.
     """CREATE TABLE IF NOT EXISTS chat_rank_rights (
         chat_id    BIGINT   NOT NULL,
