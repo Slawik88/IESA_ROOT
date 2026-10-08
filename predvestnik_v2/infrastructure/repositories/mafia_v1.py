@@ -13,86 +13,8 @@ def load(value):
 
 
 async def ensure_tables(db) -> None:
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS mafia_v1_matches (
-            id BIGSERIAL PRIMARY KEY,
-            chat_id BIGINT NOT NULL,
-            topic_id BIGINT NULL,
-            initiator_id BIGINT NOT NULL,
-            ruleset_version TEXT NOT NULL,
-            max_players INTEGER NOT NULL CHECK (max_players BETWEEN 4 AND 20),
-            enabled_roles_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-            vote_mode TEXT NOT NULL CHECK (vote_mode IN ('open','secret')),
-            phase TEXT NOT NULL CHECK (phase IN ('lobby','night','discussion','voting','paused','finished','cancelled')),
-            phase_number INTEGER NOT NULL DEFAULT 0 CHECK (phase_number >= 0),
-            phase_deadline TIMESTAMPTZ NULL,
-            state_version INTEGER NOT NULL DEFAULT 1 CHECK (state_version > 0),
-            lobby_message_id BIGINT NULL,
-            phase_message_id BIGINT NULL,
-            lobby_human_messages INTEGER NOT NULL DEFAULT 0 CHECK (lobby_human_messages >= 0),
-            winner TEXT NULL CHECK (winner IN ('town','mafia','draw')),
-            finished_reason TEXT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            started_at TIMESTAMPTZ NULL,
-            finished_at TIMESTAMPTZ NULL,
-            paused_at TIMESTAMPTZ NULL,
-            paused_phase TEXT NULL CHECK (paused_phase IS NULL OR paused_phase IN ('night','discussion','voting')),
-            paused_remaining_seconds INTEGER NULL CHECK (paused_remaining_seconds IS NULL OR paused_remaining_seconds >= 0)
-        )
-    """)
-    # Existing databases need the same pause provenance as new installs.
-    await db.execute(
-        "ALTER TABLE mafia_v1_matches ADD COLUMN IF NOT EXISTS paused_phase TEXT NULL "
-        "CHECK (paused_phase IS NULL OR paused_phase IN ('night','discussion','voting'))"
-    )
-    await db.execute("""
-        CREATE UNIQUE INDEX IF NOT EXISTS mafia_v1_one_active_match_per_chat_topic
-        ON mafia_v1_matches(chat_id, COALESCE(topic_id, 0))
-        WHERE phase IN ('lobby','night','discussion','voting','paused')
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS mafia_v1_players (
-            match_id BIGINT NOT NULL REFERENCES mafia_v1_matches(id) ON DELETE RESTRICT,
-            user_id BIGINT NOT NULL,
-            join_order INTEGER NOT NULL CHECK (join_order > 0),
-            username TEXT NULL,
-            display_name TEXT NOT NULL,
-            role TEXT NULL CHECK (role IS NULL OR role IN ('citizen','mafia','don','doctor','detective')),
-            alive BOOLEAN NOT NULL DEFAULT TRUE,
-            left_chat_at TIMESTAMPTZ NULL,
-            dm_ready BOOLEAN NOT NULL DEFAULT FALSE,
-            PRIMARY KEY(match_id, user_id),
-            UNIQUE(match_id, join_order)
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS mafia_v1_dm_ready (
-            user_id BIGINT PRIMARY KEY,
-            confirmed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS mafia_v1_actions (
-            match_id BIGINT NOT NULL REFERENCES mafia_v1_matches(id) ON DELETE RESTRICT,
-            phase_number INTEGER NOT NULL CHECK (phase_number > 0),
-            user_id BIGINT NOT NULL,
-            action_type TEXT NOT NULL CHECK (action_type IN ('vote','mafia_target','doctor_save','detective_check')),
-            target_user_id BIGINT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            PRIMARY KEY(match_id, phase_number, user_id, action_type)
-        )
-    """)
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS mafia_v1_audit_events (
-            id BIGSERIAL PRIMARY KEY,
-            match_id BIGINT NOT NULL REFERENCES mafia_v1_matches(id) ON DELETE RESTRICT,
-            event_type TEXT NOT NULL,
-            actor_id BIGINT NULL,
-            payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        )
-    """)
-    await db.execute("CREATE INDEX IF NOT EXISTS mafia_v1_due_phases ON mafia_v1_matches(phase_deadline) WHERE phase IN ('night','discussion','voting')")
+    from infrastructure.repositories.mafia_v1_schema import ensure_schema
+    await ensure_schema(db)
 
 
 async def lock_chat(db, *, chat_id: int, topic_id: int | None) -> None:
@@ -161,11 +83,13 @@ async def dm_ready_users(db, *, user_ids: list[int]) -> set[int]:
 
 
 async def create_match(db, *, chat_id: int, topic_id: int | None, initiator_id: int, max_players: int,
-                       enabled_roles: tuple[str, ...], vote_mode: str, ruleset_version: str) -> dict:
+                       enabled_roles: tuple[str, ...], vote_mode: str, ruleset_version: str, tempo: str = "normal",
+                       roles_auto: bool = True) -> dict:
     async with db.execute(
-        "INSERT INTO mafia_v1_matches(chat_id,topic_id,initiator_id,ruleset_version,max_players,enabled_roles_json,vote_mode,phase) "
-        "VALUES (?,?,?,?,?,?::jsonb,?,'lobby') RETURNING *,CLOCK_TIMESTAMP() AS server_now",
-        (int(chat_id), topic_id, int(initiator_id), ruleset_version, int(max_players), dumps(list(enabled_roles)), str(vote_mode)),
+        "INSERT INTO mafia_v1_matches(chat_id,topic_id,initiator_id,ruleset_version,max_players,enabled_roles_json,vote_mode,tempo,roles_auto,phase) "
+        "VALUES (?,?,?,?,?,?::jsonb,?,?,?,'lobby') RETURNING *,CLOCK_TIMESTAMP() AS server_now",
+        (int(chat_id), topic_id, int(initiator_id), ruleset_version, int(max_players), dumps(list(enabled_roles)), str(vote_mode), str(tempo),
+         bool(roles_auto)),
     ) as cursor:
         return dict(await cursor.fetchone())
 
@@ -200,20 +124,27 @@ async def remove_player(db, *, match_id: int, user_id: int) -> bool:
 
 async def update_match(db, *, match_id: int, phase: str, phase_number: int, deadline, winner: str | None = None,
                        finished_reason: str | None = None, started: bool = False, paused_phase: str | None = None,
-                       paused_remaining_seconds: int | None = None) -> None:
+                       paused_remaining_seconds: int | None = None, keep_clock: bool = False,
+                       pause_detail: str | None = None) -> None:
+    """Move a match to ``phase``; ``keep_clock`` leaves phase_started_at (pause/resume)."""
     await db.execute(
         "UPDATE mafia_v1_matches SET phase=?,phase_number=?,phase_deadline=(?::timestamp AT TIME ZONE 'UTC'),winner=?,finished_reason=?,"
         "started_at=CASE WHEN ? THEN COALESCE(started_at,CLOCK_TIMESTAMP()) ELSE started_at END,"
         "finished_at=CASE WHEN ? IN ('finished','cancelled') THEN CLOCK_TIMESTAMP() ELSE finished_at END,"
-        "paused_at=CASE WHEN ?='paused' THEN CLOCK_TIMESTAMP() ELSE NULL END,paused_phase=?,paused_remaining_seconds=?,state_version=state_version+1 WHERE id=?",
-        (str(phase), int(phase_number), deadline, winner, finished_reason, bool(started), str(phase), str(phase), paused_phase, paused_remaining_seconds, int(match_id)),
+        "paused_at=CASE WHEN ?='paused' THEN CLOCK_TIMESTAMP() ELSE NULL END,paused_phase=?,paused_remaining_seconds=?,"
+        "phase_started_at=CASE WHEN ? THEN phase_started_at ELSE CLOCK_TIMESTAMP() END,pause_detail=?,"
+        "state_version=state_version+1 WHERE id=?",
+        (str(phase), int(phase_number), deadline, winner, finished_reason, bool(started), str(phase), str(phase),
+         paused_phase, paused_remaining_seconds, bool(keep_clock), pause_detail, int(match_id)),
     )
 
 
-async def update_settings(db, *, match_id: int, max_players: int, enabled_roles: tuple[str, ...], vote_mode: str) -> None:
+async def update_settings(db, *, match_id: int, max_players: int, enabled_roles: tuple[str, ...], vote_mode: str,
+                          tempo: str = "normal", roles_auto: bool = True) -> None:
     await db.execute(
-        "UPDATE mafia_v1_matches SET max_players=?,enabled_roles_json=?::jsonb,vote_mode=?,state_version=state_version+1 WHERE id=? AND phase='lobby'",
-        (int(max_players), dumps(list(enabled_roles)), str(vote_mode), int(match_id)),
+        "UPDATE mafia_v1_matches SET max_players=?,enabled_roles_json=?::jsonb,vote_mode=?,tempo=?,roles_auto=?,"
+        "last_activity_at=CLOCK_TIMESTAMP(),state_version=state_version+1 WHERE id=? AND phase='lobby'",
+        (int(max_players), dumps(list(enabled_roles)), str(vote_mode), str(tempo), bool(roles_auto), int(match_id)),
     )
 
 
@@ -222,7 +153,7 @@ async def bind_lobby_message(db, *, match_id: int, message_id: int) -> None:
 
 
 async def bind_phase_message(db, *, match_id: int, message_id: int) -> None:
-    await db.execute("UPDATE mafia_v1_matches SET phase_message_id=? WHERE id=?", (int(message_id), int(match_id)))
+    await db.execute("UPDATE mafia_v1_matches SET phase_message_id=?,lobby_human_messages=0 WHERE id=?", (int(message_id), int(match_id)))
 
 
 async def timed_matches(db, *, limit: int = 25) -> list[dict]:
@@ -233,10 +164,11 @@ async def timed_matches(db, *, limit: int = 25) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
-async def note_lobby_message(db, *, chat_id: int, topic_id: int | None) -> dict | None:
+async def note_chat_message(db, *, chat_id: int, topic_id: int | None) -> dict | None:
+    """Count one human chat message toward the next card bump of the chat's active match."""
     async with db.execute(
         "UPDATE mafia_v1_matches SET lobby_human_messages=lobby_human_messages+1 "
-        "WHERE chat_id=? AND COALESCE(topic_id,0)=COALESCE(?,0) AND phase='lobby' "
+        "WHERE chat_id=? AND COALESCE(topic_id,0)=COALESCE(?,0) AND phase IN ('lobby','night','discussion','voting') "
         "RETURNING *,CLOCK_TIMESTAMP() AS server_now", (int(chat_id), topic_id),
     ) as cursor:
         row = await cursor.fetchone()

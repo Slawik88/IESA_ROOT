@@ -2,16 +2,38 @@
 from __future__ import annotations
 
 from collections import Counter
-from typing import Final, Iterable, Literal
+from typing import Final, Iterable, Literal, NamedTuple
 
 
 RULESET_VERSION: Final = "mafia-v1"
 MIN_PLAYERS: Final = 4
 MAX_PLAYERS: Final = 20
-LOBBY_REPOST_EVERY_MESSAGES: Final = 10
+# Seats of a fresh lobby: a table of friends should never hit "lobby full" before the host finds settings.
+DEFAULT_SEATS: Final = 12
+# A busy chat buries the card: bring it back after this many human messages, but never more
+# often than CARD_BUMP_MIN_GAP_SECONDS (a 40-person chat writes 10 messages in a minute).
+LOBBY_REPOST_EVERY_MESSAGES: Final = 25
+GAME_CARD_BUMP_EVERY_MESSAGES: Final = 30
+CARD_BUMP_MIN_GAP_SECONDS: Final = 90
 NIGHT_SECONDS: Final = 60
 DISCUSSION_SECONDS: Final = 180
 VOTING_SECONDS: Final = 60
+# Game tempo presets: (night, discussion, voting) seconds.  "normal" equals the
+# historical constants so an existing lobby behaves exactly as before.
+TEMPOS: Final = {"fast": (40, 90, 40), "normal": (NIGHT_SECONDS, DISCUSSION_SECONDS, VOTING_SECONDS), "slow": (90, 300, 90)}
+DEFAULT_TEMPO: Final = "normal"
+# A phase ends early once every required player has acted.  The floors hide
+# which roles exist (a night never ends instantly) and the grace window lets the
+# last player fix a misclick.
+EARLY_CLOSE_GRACE_SECONDS: Final = 5
+NIGHT_MIN_SECONDS: Final = 20
+VOTING_MIN_SECONDS: Final = 15
+# Abandoned-game safety nets.
+LOBBY_IDLE_SECONDS: Final = 30 * 60
+IDLE_PHASES_TO_ABANDON: Final = 4
+# Group-card edit pacing (Telegram allows ~20 messages/min per group).
+CARD_REFRESH_SECONDS: Final = 8
+CARD_EVENT_GAP_SECONDS: Final = 1.5
 
 Role = Literal["citizen", "mafia", "don", "doctor", "detective"]
 Phase = Literal["lobby", "night", "discussion", "voting", "paused", "finished", "cancelled"]
@@ -21,10 +43,68 @@ OPTIONAL_ROLES: Final = ("don", "doctor", "detective")
 ALL_ROLES: Final = ("citizen", "mafia", *OPTIONAL_ROLES)
 OPEN_PHASES: Final = frozenset({"lobby", "discussion"})
 CLOSED_PLAYER_PHASES: Final = frozenset({"night", "voting"})
+# Phases in which some participants are asked to keep out of the chat (see services.message_gate).
+QUIET_PHASES: Final = frozenset({"night", "discussion", "voting"})
 
 
 class MafiaRuleError(ValueError):
     pass
+
+
+class NightVote(NamedTuple):
+    """One mafia-side night choice; ``order`` is any sortable "chosen at" key."""
+
+    role: str
+    target: int | None
+    order: object
+
+
+def phase_seconds(tempo: str, phase: str) -> int:
+    night, discussion, voting = TEMPOS.get(tempo, TEMPOS[DEFAULT_TEMPO])
+    return {"night": night, "discussion": discussion, "voting": voting}[phase]
+
+
+def round_number(phase_number: int) -> int:
+    """Night 1/Day 1 share round 1: phases cycle night, discussion, voting."""
+    return (max(1, int(phase_number)) - 1) // 3 + 1
+
+
+def resolve_night_kill(votes: Iterable[NightVote]) -> int | None:
+    """Mafia plurality; a tie goes to the Don, otherwise to the earliest choice."""
+    cast = [vote for vote in votes if vote.target is not None]
+    if not cast:
+        return None
+    counts = Counter(int(vote.target) for vote in cast)
+    top = max(counts.values())
+    leaders = {target for target, count in counts.items() if count == top}
+    if len(leaders) == 1:
+        return next(iter(leaders))
+    for vote in cast:
+        if vote.role == "don" and int(vote.target) in leaders:
+            return int(vote.target)
+    return int(min((vote for vote in cast if int(vote.target) in leaders), key=lambda vote: vote.order).target)
+
+
+_NIGHT_ACTION = {"mafia": "mafia_target", "don": "mafia_target", "doctor": "doctor_save", "detective": "detective_check"}
+
+
+def night_action_for(role: str) -> str | None:
+    return _NIGHT_ACTION.get(role)
+
+
+def is_phase_complete(phase: str, players: Iterable[tuple[int, str, bool]], acted: Iterable[tuple[int, str]]) -> bool:
+    """True when every living player the phase waits for has submitted a move.
+
+    ``players``: (user_id, role, alive); ``acted``: (user_id, action_type).
+    """
+    done = set(acted)
+    alive = [(uid, role) for uid, role, is_alive in players if is_alive]
+    if phase == "voting":
+        return bool(alive) and all((uid, "vote") in done for uid, _ in alive)
+    if phase == "night":
+        waiting = [(uid, night_action_for(role)) for uid, role in alive if night_action_for(role)]
+        return bool(waiting) and all((uid, action) in done for uid, action in waiting)
+    return False
 
 
 def mafia_slots(player_count: int) -> int:
@@ -67,6 +147,14 @@ def role_deck(*, player_count: int, enabled_roles: Iterable[str]) -> tuple[Role,
     if len(deck) != int(player_count) or deck.count("mafia") < 1:
         raise MafiaRuleError("invalid role deck")
     return tuple(deck)
+
+
+def auto_roles(player_count: int) -> tuple[str, ...]:
+    """Optional roles a game gets when the host leaves the setting on «авто» (no configuring)."""
+    count = int(player_count)
+    if count < 6:
+        return ()
+    return ("detective", "doctor") if count < 8 else ("detective", "doctor", "don")
 
 
 def faction(role: str) -> str:

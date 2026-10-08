@@ -229,6 +229,11 @@ async def cmd_buy_zarniki(message: types.Message):
 async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot):
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
+    if command.args and command.args[0] == "m":
+        # Mafia deep links («mrules», «mr», «mj<lobby id>») come from the group lobby card.
+        from bot.handlers.mafia_v1 import handle_start_payload
+        if await handle_start_payload(message, command.args, db, bot):
+            return
     if command.args and command.args.startswith("miniapp_"):
         from core.miniapp_links import miniapp_web_url
         target = miniapp_web_url(command.args.removeprefix("miniapp_"))

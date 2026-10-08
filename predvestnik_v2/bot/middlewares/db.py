@@ -118,12 +118,19 @@ async def db_middleware(
                 # intentionally separate from the old purge mechanics.
                 from services import mafia_v1 as _mafia
                 from infrastructure.repositories import system_flags as _system_flags
-                _topic_id = getattr(event.message, "message_thread_id", None)
+                from bot.handlers.mafia_filters import topic_of as _mafia_topic_of
+                from core.mafia_command import GATE_BYPASS_KINDS as _MAFIA_BYPASS, parse as _mafia_parse
+                _topic_id = _mafia_topic_of(event.message)
                 _gate = "allow"
                 if await _system_flags.is_enabled(db, "game_mafia_v1"):
                     _gate = await _mafia.message_gate(
                         db, chat_id=int(chat_obj.id), topic_id=_topic_id, user_id=int(user.id)
                     )
+                    # «бот мафия стоп / правила / статус» must reach the handler even in a
+                    # silent phase: otherwise the host cannot stop a stuck night.
+                    _mafia_cmd = _mafia_parse(getattr(event.message, "text", None))
+                    if _gate == "suppress" and _mafia_cmd and _mafia_cmd.kind in _MAFIA_BYPASS:
+                        _gate = "allow"
                 if _gate == "suppress":
                     try:
                         await event.message.delete()
@@ -139,10 +146,10 @@ async def db_middleware(
                             # stale "night" card leaves players guessing why
                             # their messages disappeared.
                             try:
-                                from bot.handlers.mafia_v1 import publish_phase
+                                from bot.handlers.mafia_cards import publish_phase
                                 _view = await _mafia.current_view(db, match_id=int(_active["id"]))
                                 if _view and data.get("bot"):
-                                    await publish_phase(data["bot"], db, _view)
+                                    await publish_phase(data["bot"], db, _view, gap=0)
                             except Exception as _mafia_pause_card_error:
                                 logger.debug(f"Mafia pause card update failed: {_mafia_pause_card_error}")
                         return await handler(event, data)
@@ -165,10 +172,10 @@ async def db_middleware(
                         if _active:
                             await _mafia.pause_for_moderation_intervention(db, match_id=int(_active["id"]))
                             try:
-                                from bot.handlers.mafia_v1 import publish_phase
+                                from bot.handlers.mafia_cards import publish_phase
                                 _view = await _mafia.current_view(db, match_id=int(_active["id"]))
                                 if _view and data.get("bot"):
-                                    await publish_phase(data["bot"], db, _view)
+                                    await publish_phase(data["bot"], db, _view, gap=0)
                             except Exception as _mafia_pause_card_error:
                                 logger.debug(f"Mafia purge pause card update failed: {_mafia_pause_card_error}")
                     async with db.execute(
@@ -226,24 +233,16 @@ async def db_middleware(
                     except Exception:
                         pass
 
-                # Every tenth ordinary human message moves the lobby card to
-                # the bottom without creating a second match or resetting its
-                # settings. Sending happens only after activity persistence.
-                _lobby = await _mafia.note_lobby_human_message(
-                    db, chat_id=int(chat_obj.id), topic_id=_topic_id
-                ) if await _system_flags.is_enabled(db, "game_mafia_v1") else None
-                if _lobby and data.get("bot"):
+                # In a busy chat the lobby/game card is buried; bring it back (rate-limited,
+                # old copy removed).  Counting happens after activity persistence.
+                if await _system_flags.is_enabled(db, "game_mafia_v1"):
                     try:
-                        from bot.handlers.mafia_v1 import _lobby_keyboard, _lobby_text
-                        sent = await data["bot"].send_message(
-                            int(chat_obj.id), _lobby_text(_lobby),
-                            reply_markup=_lobby_keyboard(_lobby), parse_mode="HTML",
-                            message_thread_id=_topic_id,
-                        )
-                        from infrastructure.repositories import mafia_v1 as _mafia_repo
-                        await _mafia_repo.bind_lobby_message(db, match_id=int(_lobby["match_id"]), message_id=int(sent.message_id))
-                    except Exception as _mafia_repost_error:
-                        logger.debug(f"Mafia lobby repost failed: {_mafia_repost_error}")
+                        _bump = await _mafia.note_chat_message(db, chat_id=int(chat_obj.id), topic_id=_topic_id)
+                        if _bump and data.get("bot"):
+                            from bot.handlers.mafia_cards import bump_card
+                            await bump_card(data["bot"], db, _bump)
+                    except Exception as _mafia_bump_error:
+                        logger.debug(f"Mafia card bump failed: {_mafia_bump_error}")
 
         except Exception as e:
             # Сбой в трекинге (XP/квесты/ачивки/чат-статы) НЕ должен блокировать сам
