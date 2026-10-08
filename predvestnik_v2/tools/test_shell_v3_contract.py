@@ -187,6 +187,11 @@ assert "monolith-v3.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8
 mono = (STATIC / "monolith-v3.css").read_text(encoding="utf-8")
 for page in ("#pg-chests", "#pg-pets", "#pg-achievements-v1", "#pg-help", "#pg-looks"):
     assert page in mono, f"{page} must be flattened in monolith-v3.css"
+# A page must never be wider than the phone: effects of a look that reach past the edge widen the document, the mobile browser then widens the viewport
+# and the fixed dock lands below the visible screen (reported on production). The document clips sideways and may not be zoomed out.
+shell_css_text = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
+assert re.search(r"html, body \{ overflow-x: clip; \}", shell_css_text), "html and body must clip sideways"
+assert re.search(r'<meta name="viewport" content="[^"]*minimum-scale=1(\.0)?[^"]*"', (STATIC / "index.html").read_text(encoding="utf-8")), "the page may not be zoomed out"
 # The app is one classic script made of numbered parts (FastAPI/main.py, _APP_JS_PARTS): one syntax error in any part kills every function, so the whole is parsed here.
 import re as _re, shutil, subprocess, tempfile  # noqa: E401
 if shutil.which("node"):

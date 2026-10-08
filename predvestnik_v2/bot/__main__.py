@@ -173,6 +173,9 @@ async def main():
     from infrastructure.repositories import global_skins_v1 as global_skins_v1_repo
     from infrastructure.repositories import vip_v2 as vip_v2_repo
     from infrastructure.repositories import player_exchange_v1 as player_exchange_v1_repo
+    from infrastructure.repositories import skins_v3 as skins_v3_repo
+    from infrastructure.repositories import marks_v1 as marks_v1_repo
+    from infrastructure.repositories import presence_v1 as presence_v1_repo
     async with pool.acquire() as _startup_connection:
         _startup_db = PGAdapter(_startup_connection)
         await system_flags.ensure_table(_startup_db)
@@ -185,6 +188,9 @@ async def main():
         await global_skins_v1_repo.ensure_tables(_startup_db)
         await vip_v2_repo.ensure_tables(_startup_db)
         await player_exchange_v1_repo.ensure_tables(_startup_db)
+        await skins_v3_repo.ensure_tables(_startup_db)      # образы, Эссенция: профиль читает их в первом же запросе
+        await marks_v1_repo.ensure_tables(_startup_db)      # регалии
+        await presence_v1_repo.ensure_tables(_startup_db)   # «был в сети»
     logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────

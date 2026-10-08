@@ -116,6 +116,7 @@ def _server_clock() -> dict:
 
 async def _own_look(db, user_id: int) -> dict | None:
     try:
+        await skins_v3_repo.ensure_tables(db)
         return await skins_v3_service.own_look(db, user_id)
     except Exception:
         logger.exception("own look failed")      # a skins hiccup must never take the whole profile down
@@ -124,7 +125,6 @@ async def _own_look(db, user_id: int) -> dict | None:
 
 async def _essence_balance(db, user_id: int) -> int:
     try:
-        await skins_v3_repo.ensure_tables(db)
         return await skins_v3_repo.essence_balance(db, user_id)
     except Exception:
         return 0
