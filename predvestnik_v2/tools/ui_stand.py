@@ -58,6 +58,9 @@ async def set_game_flags(dsn: str, enabled: bool) -> None:
     try:
         await conn.execute("SET search_path TO predvestnik, public")
         db = PGAdapter(conn)
+        if enabled:       # the exchange keeps its own tables behind its flag; production creates them when the owner opens it
+            from infrastructure.repositories import player_exchange_v1
+            await player_exchange_v1.ensure_tables(db)
         for key in GAME_FLAGS:
             await system_flags.set_flag(db, key, enabled)
     finally:
