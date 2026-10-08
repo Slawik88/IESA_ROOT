@@ -299,6 +299,17 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         for category, amount in granted.items():
             await _grant_find(db, user_id, run["id"], category, amount, level, rng)
 
+        key_granted = 0
+        if run["kind"] != "watch" and not finds.get("key"):
+            try:
+                async with db.connection.transaction():
+                    key_granted = 1 if await _grant_key(db, user_id, run) else 0
+            except Exception as exc:  # noqa: BLE001 — сундуки не должны блокировать награду
+                from loguru import logger
+                logger.warning("pets_v2: ключ не выдан для {}: {}", run["id"], exc)
+            if key_granted:
+                finds["key"] = 1.0
+
         raw = base + bonus_raw
         credited = rules.pool_credit(daily["raw"], raw)
         await repo.save_daily(db, user_id, day, raw=daily["raw"] + raw, credited=daily["credited"] + credited, finds=finds)
@@ -326,7 +337,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
             "chance": round(chance, 1) if chance is not None else None, "reward_mult": mult,
             "xp_raw": round(raw, 2), "xp_credited": round(credited, 2), "daily_credited": round(daily["credited"] + credited, 1),
             "level_before": level_before, "level_after": level, "ceiling": limit, "bond_days": bond,
-            "energy": round(energy, 1), "energy_loss": energy_loss, "finds": granted, "stage_essence": stage_essence,
+            "energy": round(energy, 1), "energy_loss": energy_loss, "finds": granted, "key": key_granted, "stage_essence": stage_essence,
             "idempotent_replay": False,
         }
         await repo.finish_run(db, run["id"], result)
@@ -435,3 +446,24 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
                     "essence_spent": cost, "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
     return response
+
+
+async def _grant_key(db, user_id: int, run: dict) -> bool:
+    """Один ключ сундука в сутки за первый завершённый поход или экспедицию (пока сундуки включены)."""
+    from infrastructure.repositories import chests_v1 as chest_repo, system_flags
+    if not await system_flags.is_enabled(db, "content_chests_v1"):
+        return False
+    from core.chests_v1 import POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
+    await chest_repo.assert_delivery_ready(db)
+    grant = validate_key_grant(KeyGrant(
+        source_kind=f"pet_{'expedition' if run['kind'] == 'expedition' else 'trek'}_complete", source_event_id=f"v2:{run['id']}", amount=1,
+        source_snapshot={"run_id": str(run["id"]), "activity_kind": run["kind"], "duration_hours": int(run["hours"]), "pet_id": int(run["pet_id"])},
+    ))
+    account = await chest_repo.lock_account(db, int(user_id))
+    await chest_repo.apply_grant(
+        db, grant_id=uuid4().hex, user_id=int(user_id), source_kind=grant.source_kind, source_event_id=grant.source_event_id,
+        amount=1, policy_version=CHEST_POLICY_VERSION, source_snapshot=dict(grant.source_snapshot),
+        source_snapshot_hash=canonical_snapshot_fingerprint(grant.source_snapshot),
+        balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
+    )
+    return True

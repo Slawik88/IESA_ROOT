@@ -150,6 +150,20 @@ async def run(dsn: str) -> None:
         # потолок ступени: без дней Связи выше 5 не поднимется
         async with db.execute("SELECT level FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
             assert (await c.fetchone())[0] <= rules.ceiling(1)
+        # ключ сундука: один в сутки, только при включённых сундуках
+        from infrastructure.repositories import system_flags
+        await system_flags.ensure_table(db)
+        await system_flags.set_flag(db, "content_chests_v1", True)
+        await db.execute("DELETE FROM pet_v2_daily WHERE user_id=?", (user,))
+        keys = 0
+        for i in range(3):
+            await db.execute("UPDATE pet_v2_state SET energy=? WHERE user_id=? AND pet_id=?", (rules.energy_max(1, "stone_beetle"), user, beetle))
+            started_key = await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id=f"k{i}")
+            await finish_now(db, started_key["run_id"])
+            keys += (await service.claim_run(db, user_id=user, run_id=started_key["run_id"], action_id=f"kc{i}", rng=rng))["key"]
+        assert keys == 1, f"exactly one key per day, got {keys}"
+        async with db.execute("SELECT COALESCE(SUM(balance),0) FROM chest_key_accounts_v1 WHERE user_id=?", (user,)) as c:
+            assert (await c.fetchone())[0] == 1
         # билды: слоты, призвание, цена замены, талисманы, идемпотентность
         async def rejects(coro):
             try:
