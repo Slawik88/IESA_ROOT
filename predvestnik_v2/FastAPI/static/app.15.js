@@ -16,7 +16,7 @@ const _V3_PATHS = {
   play: '<path d="M8 5.5v13l10.5-6.5z"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
   manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
-  essence: '<path d="M12 3l6 7-6 11-6-11zM6 10h12M10 10l2 11M14 10l-2 11"/>'
+  essence: '<path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/>'
 };
 function _v3Icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${_V3_PATHS[name] || ''}</svg>`;

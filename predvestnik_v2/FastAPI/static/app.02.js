@@ -574,6 +574,13 @@ function showCurrModal() {
       </div>
     </div>
     <div class="cm-block">
+      <div class="cm-icon">💧</div>
+      <div class="cm-info">
+        <div class="cm-name">Эссенция <span class="cm-val">${fmtF(d.essence ?? 0)}</span></div>
+        <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
+      </div>
+    </div>
+    <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
         <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
@@ -593,7 +600,7 @@ function showCurrModal() {
       <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="num-input" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="num-input" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
       <button id="zar-exchange-submit" class="btn btn-gold btn-full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
-  </div>`, [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+  </div>`, [{l:'Пополнить Зарники', c:'btn-gold', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
 }
 
 function exchangeZarnikiV1(){

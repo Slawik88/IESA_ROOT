@@ -27,6 +27,7 @@
 <link rel="stylesheet" href="{{BASE}}/static/public-card-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -44,9 +45,12 @@
 <header class="v3-bar" id="v3-bar">
   <button type="button" class="v3-bar-me" id="v3-bar-me" onclick="switchPage('profile')" aria-label="Мой профиль"></button>
   <div class="v3-chips" role="group" aria-label="Баланс">
-    <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Мора. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 12h6"/></svg><b id="vb-mora">·</b><u>Мора</u></button>
+    <div class="v3-chips-main" id="v3-chips-main">
+      <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Мора. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 12h6"/></svg><b id="vb-mora">·</b><u>Мора</u></button>
+      <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Алмазы. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12l3 5-9 11L3 9z"/></svg><b id="vb-dia">·</b><u>Алмазы</u></button>
+      <button type="button" class="v3-chip" onclick="openLooksModal()" aria-label="Эссенция. Открыть образы"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/></svg><b id="vb-ess">·</b><u>Эссенция</u></button>
+    </div>
     <button type="button" class="v3-chip v3-chip--zar" onclick="openZarnikiTopup()" aria-label="Зарники. Пополнить"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><b id="vb-zar">·</b><i class="v3-chip-plus" aria-hidden="true">+</i><u>Зарники</u></button>
-    <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Алмазы. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12l3 5-9 11L3 9z"/></svg><b id="vb-dia">·</b><u>Алмазы</u></button>
   </div>
   <button type="button" class="v3-bell" data-wn-btn onclick="openWhatsNew()" aria-label="Что нового"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg><span class="v3-bell-dot" data-wn-dot hidden></span></button>
 </header>

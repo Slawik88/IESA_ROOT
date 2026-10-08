@@ -28,7 +28,7 @@ assert "_questsV1Busy=true;renderQuestsV1()" in JS
 assert "finally(()=>{_questsV1Busy=false;renderQuestsV1();})" in JS
 assert "rewardKinds.reduce" in JS and "195 🪙" not in JS
 assert "${target.done}/${target.total} заданий" in JS
-assert '<h1>🧭 Квесты</h1>' in JS and '<h2>${active.done}/${active.total}' in JS
+assert '<h1 class="v3-title">Задания</h1>' in JS and '<h2>${active.done}/${active.total}' in JS and 'amount_essence' in JS, "quests show the Essence reward next to Mora"
 assert "quest-overview" not in JS
 assert "Квесты не загрузились" in JS and "Повторить" in JS
 assert "questsV1TabKey(event)" in JS and "event.key==='ArrowRight'" in JS
@@ -41,6 +41,7 @@ assert "min-height: 44px" in CSS
 assert ".quest-progress" in CSS
 assert "#pg-questlog { padding-bottom: calc(86px + var(--safe-b)); }" in CSS
 assert ".quest-card-meta" in CSS and "font-size: 11px" in CSS
-assert ".quest-head .looks-back { width: 44px; height: 44px; }" in CSS
+V3 = (ROOT / "FastAPI" / "static" / "quests-v3.css").read_text(encoding="utf-8")
+assert "#pg-questlog .quest-tabs" in V3 and "var(--v3-acc)" in V3 and "min-height: 44px" in V3, "quests use the v3 language"
 
 print("OK: quest log mobile hierarchy and authoritative action contract")
