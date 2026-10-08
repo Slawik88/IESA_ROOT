@@ -175,6 +175,7 @@ function loadProfile() {
         <div id="wallet-mini"></div>
       </details>`;
     try { checkWhatsNewBadge(); } catch (_) {}
+    try { loadV3Today(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { loadMarriageCard(); } catch (_) {}
     try { loadNickCard(); } catch (_) {}

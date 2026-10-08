@@ -525,6 +525,7 @@ let _sysFlags = {};  // заполняется из /profile/me (system_flags) �
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
   try { syncPlayerExchangeEntry(); } catch (_) {}
+  try { if (el('game-hub')?.childElementCount) loadActivitiesHub(); } catch (_) {}   // флаги пришли позже первого показа центра игр
 }
 function _isFeatureEnabled(key) {
   return _sysFlags[key] !== false;  // undefined = профиль ещё загружается

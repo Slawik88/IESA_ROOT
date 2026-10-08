@@ -23,17 +23,28 @@ function openMafiaStats(){
   }).catch(e=>{ el('mb').innerHTML=`<div class="err">${esc(String(e))}</div>`; });
 }
 
+// Каждый режим показывается только при включённом серверном флаге (по умолчанию все выключены).
+const _V3_GAMES = [
+  {flag:'game_rhythm_v2', name:'Ритм', desc:'Бесконечный забег. Жми руны точно, скорость растёт.', hint:'Бесконечный забег, рейтинг подтверждённых результатов', cta:'Играть', open:'openRhythmV2Game()'},
+  {flag:'game_minesweeper_v2', name:'Сапёр', desc:'Открывай клетки и ставь флаги. В рейтинг попадают только победы.', hint:'Логика, победы попадают в топ', cta:'Играть', open:'openMinesweeperGame()'},
+  {flag:'game_mafia_v1', name:'Мафия', desc:'Играется в групповом чате: напиши «бот мафия». Здесь история ваших партий.', hint:'Играется в чате, здесь ваши партии', cta:'Мои партии', open:'openMafiaStats()'}
+];
 function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
   const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const open=_V3_GAMES.filter(g=>_sysFlags[g.flag]===true);
+  if(!open.length){
+    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:40px">Скоро</div>
+      <p class="v3-gdesc">Игровые режимы сейчас закрыты на время тестирования. Прогресс и квесты сохраняются.</p>
+      <button type="button" class="v3-pill" onclick="switchPage('profile')">К профилю</button></section>`;
+    return;
+  }
+  const [lead,...rest]=open;
   host.innerHTML=`<div class="v3-eyebrow">Играть</div>
-    <section class="v3-lead" aria-label="Ритм"><div class="v3-gname">Ритм</div>
-      <p class="v3-gdesc">Бесконечный забег. Жми руны точно, скорость растёт.</p>
-      <button type="button" class="v3-pill" onclick="openRhythmV2Game()">${_v3Icon('play')}Играть</button></section>
-    <section class="v3-games" aria-label="Другие игры">
-      <button type="button" class="v3-game" onclick="openMinesweeperGame()"><span><b>Сапёр</b><small>Логика, победы попадают в топ</small></span>${chev}</button>
-      <button type="button" class="v3-game" onclick="openMafiaStats()"><span><b>Мафия</b><small>Играется в чате: напиши «бот мафия». Здесь ваши партии</small></span>${chev}</button>
-    </section>`;
+    <section class="v3-lead" aria-label="${lead.name}"><div class="v3-gname">${lead.name}</div>
+      <p class="v3-gdesc">${lead.desc}</p>
+      <button type="button" class="v3-pill" onclick="${lead.open}">${_v3Icon('play')}${lead.cta}</button></section>
+    ${rest.length?`<section class="v3-games" aria-label="Другие игры">${rest.map(g=>`<button type="button" class="v3-game" onclick="${g.open}"><span><b>${g.name}</b><small>${g.hint}</small></span>${chev}</button>`).join('')}</section>`:''}`;
 }
 
 function loadArena(){ swArena('game'); }

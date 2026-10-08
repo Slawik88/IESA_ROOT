@@ -55,7 +55,8 @@ function renderProfileHome(data) {
     <section class="v3-bal" aria-label="Баланс"><div class="v3-eyebrow">Мора</div><div class="v3-num">${fmt(wallet.mora || 0)}</div>
       <div class="v3-acts"><button type="button" class="v3-pill" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button>
       <button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк</button></div></section>
-    <section class="v3-stats" aria-label="Достижения игрока"><div><b>${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(d.achievements || 0)}</b><span>достижений</span></div></section>
+    <section class="v3-stats" aria-label="Показатели игрока"><div><b>${fmtF(wallet.diamonds || 0)}</b><span>алмазов</span></div><div><b>${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(d.achievements || 0)}</b><span>достижений</span></div></section>
+    ${_v3TodayShell()}
     <nav class="v3-list" aria-label="Разделы профиля">
       ${_v3Row('hanger', 'Примерочная', 'openLooksModal()', 'Рамки, титулы, образы')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
@@ -119,4 +120,48 @@ function v3Reward(anchor) {
     ], { duration: 650 + Math.random() * 250, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
     run.onfinish = () => p.remove();
   }
+}
+
+// ── «Сегодня»: дневные квесты прямо на профиле, награда забирается в один тап ───
+let _v3Quests = null, _v3Claiming = false;
+function _v3TodayShell() {
+  const row = '<div class="sk" style="height:46px;border-radius:12px;margin-top:10px"></div>';
+  return `<section class="v3-today" id="v3-today" aria-live="polite" aria-label="Сегодня"><div class="v3-sec"><span class="v3-eyebrow">Сегодня</span></div>${row}${row}${row}</section>`;
+}
+function loadV3Today() {
+  return api('/quests-v1/me').then(d => { _v3Quests = d; renderV3Today(); }).catch(() => renderV3Today(true));
+}
+function _v3QuestRow(q) {
+  const target = Math.max(1, Number(q.target) || 1), progress = Math.min(target, Math.max(0, Number(q.progress) || 0));
+  const done = !!q.completed, ratio = (done ? 1 : progress / target).toFixed(3);
+  return `<button type="button" class="v3-quest${done ? ' is-done' : ''}" onclick="openQuestsV1()" aria-label="${_profileEsc(q.title)}: ${done ? 'выполнено' : `${progress} из ${target}`}">
+    <span class="v3-qt">${_profileEsc(q.title)}</span><span class="v3-qn">${done ? 'Готово ✓' : `${progress} / ${target}`}</span>
+    <span class="v3-qbar" aria-hidden="true"><i style="transform:scaleX(${ratio})"></i></span></button>`;
+}
+function renderV3Today(failed) {
+  const host = el('v3-today'); if (!host) return;
+  const head = '<div class="v3-sec"><span class="v3-eyebrow">Сегодня</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все квесты</button></div>';
+  if (failed) { host.innerHTML = `${head}<div class="v3-empty">Квесты не загрузились. <button type="button" class="v3-link" onclick="loadV3Today()">Повторить</button></div>`; return; }
+  const quests = _v3Quests?.daily?.quests || [];
+  const items = _v3Quests?.rewards?.items || {};
+  const ready = ['daily', 'weekly', 'combined'].find(kind => items[kind]?.claimable);
+  const claim = ready
+    ? `<button type="button" class="v3-pill v3-glow" id="v3-claim" onclick="v3ClaimQuestReward('${ready}')">Забрать ${fmt(items[ready].amount_mora || 0)} Моры</button>` : '';
+  host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Задания на сегодня появятся позже.</div>'}${claim}`;
+}
+// Оптимистично: кнопка и статус меняются сразу, при ошибке состояние откатывается
+function v3ClaimQuestReward(kind) {
+  if (_v3Claiming || !_v3Quests?.rewards?.items?.[kind]) return;
+  _v3Claiming = true;
+  const anchor = el('v3-claim'), before = JSON.parse(JSON.stringify(_v3Quests));
+  Object.assign(_v3Quests.rewards.items[kind], { claimable: false, claimed: true });
+  _haptic('medium'); renderV3Today();
+  api('/quests-v1/claim-reward', { method: 'POST', body: JSON.stringify({ kind }) }).then(d => {
+    _v3Quests = d; renderV3Today();
+    const reward = d.reward_result || {};
+    toast(reward.already_claimed ? 'Награда уже получена' : `Получено: ${fmt(reward.amount_mora || 0)} Моры`);
+    if (!reward.already_claimed) v3Reward(anchor);
+    return api('/profile/me').then(p => { _profileData = p; const num = document.querySelector('.v3-num'); if (num) num.textContent = fmt((p.balances || p).mora || 0); });
+  }).catch(e => { _v3Quests = before; renderV3Today(); toast(e, false); })
+    .finally(() => { _v3Claiming = false; });
 }
