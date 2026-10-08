@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, TIERS,  # noqa: E402
                            UPGRADE_ESSENCE, essence_zarniki, full_price, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import SETS, SKINS  # noqa: E402
-from core.skins_v3_collection import (ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, set_bonus,  # noqa: E402
+from core.skins_v3_collection import (PERMANENT, ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, season_window, set_bonus,  # noqa: E402
                                       total_one_time_essence, week_index)
 
 LAUNCH_PRICES = {"D": 100, "C": 160, "B": 240, "A": 340, "S": 480, "SS": 650, "SSS": 900}
@@ -91,7 +91,7 @@ def free_essence_is_small() -> None:
         check(essence_zarniki(featured_bonus(sid)) <= 0.06 * price + 3, f"{sid}: skin-of-the-week gift {featured_bonus(sid)} is over 6% of the price")
     check(BONUS_SHARE <= 0.05 and ROW_SHARE <= 0.05 and FEATURED_SHARE <= 0.06, "bonus shares were raised above the agreed ceiling")
     check(all(a["at"] < b["at"] for a, b in zip(milestones(), milestones()[1:])), "collection steps must ascend")
-    check(milestones()[-1]["at"] == len(SKINS), "the last collection step is every skin")
+    check(milestones()[-1]["at"] == len(PERMANENT), "the last collection step is every permanent skin")
 
 
 def skin_of_the_week_is_fair() -> None:
@@ -100,10 +100,25 @@ def skin_of_the_week_is_fair() -> None:
     a, b = featured(start), featured(start + timedelta(days=6, hours=23))
     check(a == b, "the whole week shows the same skin")
     check(featured(start + timedelta(days=7))["skin_id"] != a["skin_id"], "the next week shows another skin")
-    seen = {featured(start + timedelta(days=7 * n))["skin_id"] for n in range(len(SKINS))}
-    check(seen == set(SKINS), "in one cycle every skin is featured exactly once")
+    seen = {featured(start + timedelta(days=7 * n))["skin_id"] for n in range(len(PERMANENT))}
+    check(seen == set(PERMANENT), "in one cycle every permanent skin is featured exactly once, season skins never")
     check(week_index(start) + 1 == week_index(start + timedelta(days=7)), "week index steps by one")
     check(datetime.fromisoformat(a["ends_at"]) - start == timedelta(days=7), "a week lasts seven days from Monday")
+
+
+def seasons_are_bounded() -> None:
+    from datetime import datetime, timedelta, timezone
+    for sid, st in SETS.items():
+        if not st.get("season"):
+            continue
+        win = season_window(st["season"], datetime(2026, 10, 20, tzinfo=timezone.utc))
+        start, end = datetime.fromisoformat(win["starts_at"]), datetime.fromisoformat(win["ends_at"])
+        check(timedelta(days=14) <= end - start <= timedelta(days=60), f"{sid}: a season lasts two weeks to two months")
+        check(season_window(st["season"], start - timedelta(seconds=1))["state"] == "soon" and season_window(st["season"], start)["open"], "a season opens at its start")
+        check(season_window(st["season"], end - timedelta(seconds=1))["open"] and season_window(st["season"], end)["state"] == "over", "a season ends exactly at its end")
+        check(all(SKINS[m]["season"] == st["season"] for m in st["members"]), f"{sid}: every member sells in the same window")
+        check(not any(m in PERMANENT for m in st["members"]), f"{sid}: a season skin is not part of the permanent collection")
+    check(all(SKINS[sid]["season"] in {None, *[s["season"] for s in SETS.values() if s.get("season")]} for sid in SKINS), "a season skin belongs to a season set")
 
 
 def main() -> None:
@@ -112,6 +127,7 @@ def main() -> None:
     cheapest_road_is_the_matching_rarity()
     free_essence_is_small()
     skin_of_the_week_is_fair()
+    seasons_are_bounded()
     catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values())
     print(f"OK: skins v3 economy. Catalog {catalog_price} Zarniki; full price by rarity "
           + ", ".join(f"{t} {full_price(t)}" for t in TIERS) + f"; free one-time Essence {total_one_time_essence()} (~{essence_zarniki(total_one_time_essence())} Zarniki)")

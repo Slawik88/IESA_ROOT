@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Final
 
 from core.skins_v3 import BONUS_SHARE, BUY_PRICE_ZARNIKI, FEATURED_SHARE, TIERS, bonus_essence
-from core.skins_v3_catalog import SETS, SKINS
+from core.skins_v3_catalog import SEASONS, SETS, SKINS
 
 ROW_SHARE: Final = 0.02
 
@@ -23,12 +23,14 @@ BASE_RANK: Final = "Новичок витрины"
 # (skins raised to their ceiling, badge)
 MAXED_BADGES: Final = ((1, "Огранщик"), (3, "Мастер тиров"), (6, "Виртуоз"), (10, "Вершина"))
 
-SET_GLYPH: Final = {"lotus": "🪷", "sakura": "🌸"}
+SET_GLYPH: Final = {"lotus": "🪷", "sakura": "🌸", "night_pumpkins": "🎃"}
+# Ranks, rarity rows and the skin of the week count only permanent skins; a season skin earns its own set and crest.
+PERMANENT: Final = tuple(sid for sid, skin in SKINS.items() if not skin.get("season"))
 
 
 def milestones() -> list[dict]:
     steps = [{"id": f"own:{at}", "at": at, "essence": essence, "rank": rank} for at, essence, rank in _STEPS]
-    steps.append({"id": "own:all", "at": len(SKINS), "essence": _ALL[0], "rank": _ALL[1]})
+    steps.append({"id": "own:all", "at": len(PERMANENT), "essence": _ALL[0], "rank": _ALL[1]})
     return steps
 
 
@@ -48,8 +50,12 @@ def maxed_badge(maxed_count: int) -> str | None:
     return title
 
 
+def owned_permanent(owned) -> int:
+    return sum(1 for sid in owned if sid in PERMANENT)
+
+
 def row_members(rarity: str) -> list[str]:
-    return [sid for sid, skin in SKINS.items() if skin["tier"] == rarity]
+    return [sid for sid in PERMANENT if SKINS[sid]["tier"] == rarity]
 
 
 def row_bonus(rarity: str) -> int:
@@ -68,6 +74,24 @@ def total_one_time_essence() -> int:
     """Every Essence bonus a player can ever collect for owning skins (the economy test caps this)."""
     return (sum(m["essence"] for m in milestones()) + sum(row_bonus(r) for r in TIERS if row_members(r))
             + sum(set_bonus(s) for s in SETS))
+
+
+# ── Seasons ──────────────────────────────────────────────────────────────────────────────────────────────────
+def _utc(day: str) -> datetime:
+    return datetime.fromisoformat(day).replace(tzinfo=timezone.utc)
+
+
+def season_window(season_id: str, now: datetime | None = None) -> dict:
+    spec = SEASONS[season_id]
+    moment = now.astimezone(timezone.utc) if now else datetime.now(timezone.utc)
+    start, end = _utc(spec["starts"]), _utc(spec["ends"])
+    return {"id": season_id, "name": spec["name"], "starts_at": start.isoformat(), "ends_at": end.isoformat(), "open": start <= moment < end,
+            "state": "soon" if moment < start else "open" if moment < end else "over"}
+
+
+def season_of(skin_id: str, now: datetime | None = None) -> dict | None:
+    season_id = SKINS[skin_id].get("season")
+    return season_window(season_id, now) if season_id else None
 
 
 # ── Skin of the week ─────────────────────────────────────────────────────────────────────────────────────────────

@@ -60,7 +60,7 @@ async def run(dsn: str) -> None:
         await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 3000))
 
         initial = await skins.state(db, user)
-        assert len(initial["items"]) == 25 and len(initial["sets"]) == 2 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
+        assert len(initial["items"]) == 28 and len(initial["sets"]) == 3 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
         assert initial["equipped"] is None and initial["zarniki"] == 3000
 
         # buy: charged once, owned at D, equipped; repeating the same request does not charge twice
@@ -144,6 +144,27 @@ async def run(dsn: str) -> None:
             before_replay = await repo.essence_balance(db, user)
             await skins.buy(db, user, "starheart", idempotency_key="week-1")
             assert await repo.essence_balance(db, user) == before_replay, "the weekly gift is never paid twice"
+        # seasons: sold only inside their window, a purchase made in time stays, a retry after the end is still a replay
+        from datetime import datetime, timezone
+        await db.execute("UPDATE users SET user_balance_zarniki=30000 WHERE user_tg_id=?", (user,))
+        during, after = datetime(2026, 10, 20, tzinfo=timezone.utc), datetime(2026, 11, 20, tzinfo=timezone.utc)
+        with mock.patch.object(skins, "_now", lambda: after):
+            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "закончился")
+            lantern = next(i for i in (await skins.state(db, user))["items"] if i["id"] == "pumpkin_lantern")
+            assert lantern["season"]["state"] == "over" and lantern["buyable"] is False and not lantern["owned"]
+        with mock.patch.object(skins, "_now", lambda: datetime(2026, 9, 1, tzinfo=timezone.utc)):
+            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "ещё не начался")
+        owned_before = (await skins.state(db, user))["collection"]["owned"]
+        with mock.patch.object(skins, "_now", lambda: during):
+            _, state = await skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-1")
+            assert state["collection"]["owned"] == owned_before, "a season skin is outside the permanent collection count"
+            for n, sid in enumerate(("cobweb", "witch_hour")):
+                message, state = await skins.buy(db, user, sid, idempotency_key=f"s-{n + 2}")
+        assert any(e["kind"] == "set" and e["id"] == "night_pumpkins" for e in state["events"]) and "Ночь Тыкв" in message
+        with mock.patch.object(skins, "_now", lambda: after):
+            await skins.buy(db, user, "witch_hour", idempotency_key="s-3")            # retry of the purchase made in time: a replay, not an error
+            look = await skins.own_look(db, user)
+            assert look["crest"]["id"] == "night_pumpkins" and look["crest"]["glyph"] == "🎃"
         # the collection summary shown to other players has no skin ids
         from services import appearance_public_v3 as public
         view = await public.public_view(db, user)

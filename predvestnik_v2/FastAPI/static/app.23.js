@@ -33,6 +33,7 @@ function lkTier(tier) { if (_LK_TIERS.includes(tier)) { _lk.tier = tier; _haptic
 function _lkAction(item, st) {
   const z = st.zarniki, e = st.essence.balance;
   if (!item.owned) {
+    if (item.buyable === false) return { t: item.season?.state === 'soon' ? 'Сезон скоро начнётся' : 'Сезон закончился', a: '', sub: `«${item.season?.name || 'Сезонный образ'}» больше не продаётся, купленные остаются навсегда` };
     return z >= item.price_zarniki ? { t: `Купить за ${_lkPrice(item.price_zarniki)}`, a: 'buy', sub: 'Начнёт с тира D, дальше растёт за Эссенцию' }
       : { t: `Не хватает ${_lkPrice(item.price_zarniki - z)}`, a: 'topup', sub: `Цена ${_lkPrice(item.price_zarniki)}, нажмите, чтобы пополнить` };
   }
@@ -53,9 +54,9 @@ function _lkStrip(st) {
   let last = '';
   const week = _lkWeekId(st);
   return `<nav class="lk-strip" aria-label="Скины">${st.items.map(i => {
-    const label = last !== i.ceiling ? `<span class="lk-grp" aria-hidden="true">${i.ceiling}</span>` : ''; last = i.ceiling;
+    const grp = i.season ? 'сезон' : i.ceiling, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
     const mark = i.equipped ? '<i class="lk-dot is-on" title="Надет"></i>' : i.owned ? '<i class="lk-dot" title="Куплен"></i>' : '';
-    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
+    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : i.buyable === false ? 'сезон прошёл' : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
   }).join('')}</nav>`;
 }
 function _lkSteps(item) {
@@ -84,6 +85,7 @@ function _lkRender(anim) {
   const identity = `<div class="lk-id"><div class="v3-ring lk-ring">${apHalo(ap)}${_v3Ring(72)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}</div>
     <div class="v3-name lk-name">${apName(ap, name)}</div><div class="pp-title-row">${apTitle(ap)}</div></div>`;
   const setTag = item.set ? `<span class="lk-tag">${_profileEsc(st.sets.find(s => s.id === item.set)?.name || '')}</span>` : '';
+  const seasonTag = item.season ? `<span class="lk-tag lk-tag--day">${item.season.open ? `Сезон · ещё ${_lkLeft(item.season.ends_at)}` : item.season.state === 'soon' ? 'Сезон скоро' : 'Сезон прошёл'}</span>` : '';
   const dayTag = item.id === _lkWeekId(st) ? '<span class="lk-tag lk-tag--day">Образ недели</span>' : '';
   const note = !item.owned ? (_lk.tier === 'D' ? 'Так образ выглядит на старте.' : `Превью тира ${_lk.tier}. Куплен он начнёт с D и дорастёт до этого вида.`)
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
@@ -94,7 +96,7 @@ function _lkRender(anim) {
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
     <p class="lk-blurb">${_profileEsc(item.blurb)}</p>
-    <div class="lk-tags"><span class="lk-tag lk-tag--tier">Тир ${_lk.tier}</span><span class="lk-tag">потолок ${item.ceiling}</span>${setTag}${dayTag}</div>
+    <div class="lk-tags"><span class="lk-tag lk-tag--tier">Тир ${_lk.tier}</span><span class="lk-tag">потолок ${item.ceiling}</span>${setTag}${dayTag}${seasonTag}</div>
     ${_lkSteps(item)}
     <p class="lk-note" aria-live="polite">${_profileEsc(note)}</p>
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>

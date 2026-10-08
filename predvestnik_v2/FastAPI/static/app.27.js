@@ -24,13 +24,19 @@ function lkWeekHtml(st) {
     <em>За покупку на этой неделе +${fmt(w.bonus_essence)} Эссенции в подарок</em></span><i>${item.ceiling}</i></button>`;
 }
 function _lkGoal(st) {
-  const c = st.collection, set = st.sets.filter(s => !s.complete && s.have > 0).sort((a, b) => b.have / b.members.length - a.have / a.members.length)[0];
+  const c = st.collection, hot = st.sets.find(x => x.season?.open && !x.complete);
+  if (hot) {
+    const miss = _lkItem(hot.missing[0]);
+    return { p: Math.round(100 * hot.have / hot.members.length), n: `${hot.have}/${hot.members.length}`, t: `Сезон «${hot.name}»: ещё ${_lkLeft(hot.season.ends_at)}`,
+      s: hot.have ? `Осталось «${miss.name}» за ${_lkPrice(miss.price_zarniki)}. Награда: знак сета ${hot.glyph} и +${fmt(hot.bonus_essence)} Эссенции` : `${hot.members.length} образа, которые можно купить только в сезон. Знак сета ${hot.glyph} и +${fmt(hot.bonus_essence)} Эссенции за сбор`, pick: miss.id };
+  }
+  const set = st.sets.filter(s => !s.complete && s.have > 0).sort((a, b) => b.have / b.members.length - a.have / a.members.length)[0];
   if (set) {
     const miss = _lkItem(set.missing[0]);
     return { p: Math.round(100 * set.have / set.members.length), n: `${set.have}/${set.members.length}`, t: `${set.name}: ${set.have} из ${set.members.length}`,
       s: `Осталось «${miss.name}» за ${_lkPrice(miss.price_zarniki)}. Награда: знак сета ${set.glyph} и +${fmt(set.bonus_essence)} Эссенции`, pick: miss.id };
   }
-  const row = c.rows.find(r => !r.done && r.have > 0 && r.total - r.have === 1), left = row && st.items.find(i => i.ceiling === row.rarity && !i.owned);
+  const row = c.rows.find(r => !r.done && r.have > 0 && r.total - r.have === 1), left = row && st.items.find(i => i.ceiling === row.rarity && !i.season && !i.owned);
   if (left) return { p: Math.round(100 * row.have / row.total), n: `${row.have}/${row.total}`, t: `Редкость ${row.rarity}: не хватает одного`, s: `«${left.name}» за ${_lkPrice(left.price_zarniki)}, награда +${fmt(row.bonus_essence)} Эссенции`, pick: left.id };
   const next = c.next_milestone;
   if (next && c.owned > 0 && next.at - c.owned <= 3) return { p: Math.round(100 * c.owned / next.at), n: `${c.owned}/${next.at}`, t: `До ранга «${next.rank}» ещё ${next.at - c.owned}`, s: `Награда +${fmt(next.essence)} Эссенции`, pick: '' };
@@ -46,8 +52,8 @@ function lkGoalHtml(st) {
 function _lkSets(st) {
   return st.sets.map(s => `<div class="lk-set"><div><b>${s.glyph} ${_profileEsc(s.name)}</b><small>${_profileEsc(s.blurb)}</small>
       <div class="lk-set-meter" aria-hidden="true">${s.members.map(id => `<i class="${s.missing.includes(id) ? '' : 'is-on'}"></i>`).join('')}</div></div>
-    <div class="lk-set-end"><span>${s.have} из ${s.members.length}</span><small class="lk-set-prize">${s.complete ? 'Сет собран' : `Знак сета и +${fmt(s.bonus_essence)} Эссенции`}</small></div>
-    <div class="lk-set-row">${s.members.map(id => { const i = _lkItem(id); return `<button type="button" class="lk-pick${id === _lk.sel ? ' is-sel' : ''}${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${id}',true);lkTop()">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : `${i.ceiling} · ${_lkPrice(i.price_zarniki)}`}</small></button>`; }).join('')}</div></div>`).join('');
+    <div class="lk-set-end"><span>${s.have} из ${s.members.length}</span><small class="lk-set-prize">${s.complete ? 'Сет собран' : s.season && !s.season.open ? 'Сезон прошёл' : `Знак сета и +${fmt(s.bonus_essence)} Эссенции`}</small>${s.season?.open && !s.complete ? `<small>Сезон, ещё ${_lkLeft(s.season.ends_at)}</small>` : ''}</div>
+    <div class="lk-set-row">${s.members.map(id => { const i = _lkItem(id); return `<button type="button" class="lk-pick${id === _lk.sel ? ' is-sel' : ''}${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${id}',true);lkTop()">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : i.buyable === false ? 'не продаётся' : `${i.ceiling} · ${_lkPrice(i.price_zarniki)}`}</small></button>`; }).join('')}</div></div>`).join('');
 }
 
 // ── Набор Эссенции под ближайший тир ─────────────────────────────────────────────
@@ -68,7 +74,7 @@ function lkAlbumHtml(st) {
   const hint = next ? `До «${next.rank}» ещё ${next.at - c.owned}. Награда +${fmt(next.essence)} Эссенции.` : 'Вы собрали всю коллекцию.';
   const ladder = c.milestones.map(m => `<li class="${m.done ? 'is-done' : ''}"><i>${m.done ? '✓' : ''}</i><b>${m.at === c.total ? 'Все образы' : `${m.at} образов`}</b><span>${_profileEsc(m.rank)}</span><em>+${fmt(m.essence)}</em></li>`).join('');
   const rows = c.rows.map(r => `<div class="lk-rar"><div class="lk-rar-head"><b>${r.rarity}</b><span>${r.have} из ${r.total}</span><small class="${r.done ? 'is-done' : ''}">${r.done ? 'Собрано ✓' : `+${fmt(r.bonus_essence)} Эссенции за все`}</small></div>
-    <div class="lk-set-row">${st.items.filter(i => i.ceiling === r.rarity).map(i => `<button type="button" class="lk-pick${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${i.id}',true);lkView('shop')">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : _lkPrice(i.price_zarniki)}</small></button>`).join('')}</div></div>`).join('');
+    <div class="lk-set-row">${st.items.filter(i => i.ceiling === r.rarity && !i.season).map(i => `<button type="button" class="lk-pick${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${i.id}',true);lkView('shop')">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : _lkPrice(i.price_zarniki)}</small></button>`).join('')}</div></div>`).join('');
   const badges = c.maxed_badges.map(b => `<span class="lk-badge${b.done ? ' is-done' : ''}">${b.done ? '✦ ' : ''}${_profileEsc(b.title)} · ${b.at}</span>`).join('');
   return `<div class="lk-rank"><div class="lk-rank-ring" style="--p:${pct}"><span><b>${c.owned}</b><small>из ${c.total}</small></span></div><h2>${_profileEsc(c.rank)}</h2><p>${_profileEsc(hint)}</p></div>
     <div class="v3-sec"><span class="v3-eyebrow">Ранги</span></div><ul class="lk-ladder">${ladder}</ul>

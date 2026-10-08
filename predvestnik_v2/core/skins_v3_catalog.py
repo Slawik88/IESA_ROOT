@@ -1,4 +1,4 @@
-"""Skins V3 catalog: 25 skins, at least three for every ceiling tier D … SSS, and two themed sets (Lotus, Sakura).
+"""Skins V3 catalog: 25 permanent skins (at least three for every ceiling tier D … SSS), seasonal skins, and themed sets (Lotus, Sakura, Night of Pumpkins).
 
 Data only. `kinds` pick the shape of each part (frame, halo, particles, nickname effect, background); the effects
 themselves are CSS in FastAPI/static/appearance-v3.css and skin-signatures-v3.css. `sig` names a hand-made detail set
@@ -11,10 +11,10 @@ from core.skins_v3 import app_tokens
 SLOTS = ("name_glow", "title", "avatar_frame", "avatar_halo", "profile_bg", "card_fx")
 
 
-def _skin(skin_id, name, tier, blurb, bg, acc, g1, g2, pal, frame, halo, pt, nm, back, items, sig=None, set_id=None):
+def _skin(skin_id, name, tier, blurb, bg, acc, g1, g2, pal, frame, halo, pt, nm, back, items, sig=None, set_id=None, season=None):
     spec = {"bg": bg, "acc": acc, "g1": g1, "g2": g2}
     return skin_id, {
-        "id": skin_id, "name": name, "tier": tier, "blurb": blurb, "pal": pal, "sig": sig, "set": set_id,
+        "id": skin_id, "name": name, "tier": tier, "blurb": blurb, "pal": pal, "sig": sig, "set": set_id, "season": season,
         "kinds": {"frame": frame, "halo": halo, "pt": pt, "name": nm, "bg": back},
         "items": dict(zip(SLOTS, items)), "tokens": app_tokens(spec),
     }
@@ -128,14 +128,34 @@ SKINS = dict([
           "rgba(255,111,176,.26)", "rgba(255,240,176,.10)", ("#fff0b0", "#ff6fb0", "#ffffff"),
           "double", "rays", "spark", "foil", "rays",
           ("Свет сердца звезды", "💫 Носитель Сердца Звезды", "Пульс короны", "Расходящийся свет", "Ядро сверхновой", "Вспышки рождения"), "heart"),
+    # ── Сезон: Ночь Тыкв (продаётся только в окне SEASONS, купленное остаётся навсегда) ───────────────────────────────
+    _skin("pumpkin_lantern", "Тыквенный Фонарь", "C", "Свеча внутри, резная улыбка снаружи и тёплый свет на пороге.", "#120905", "#ff9a3c",
+          "rgba(255,120,30,.28)", "rgba(120,60,200,.12)", ("#ff9a3c", "#c2410c", "#ffe2a8"),
+          "dash", "flame", "ember", "glow", "wash",
+          ("Свет изнутри", "🎃 Хранитель Фонаря", "Резная оправа", "Тёплое пламя", "Тыквенное поле", "Искры свечи"), set_id="night_pumpkins", season="halloween-2026"),
+    _skin("cobweb", "Паутина Полуночи", "B", "Серебряные нити между ветвями, и в каждой дрожит по звезде.", "#0b0a14", "#cbb8ff",
+          "rgba(120,90,220,.26)", "rgba(200,200,255,.08)", ("#cbb8ff", "#6d4fd6", "#f1ecff"),
+          "seg", "eclipse", "glint", "shimmer", "grid",
+          ("Шёлк на ветру", "🕸 Страж Паутины", "Узел паутины", "Затмение над садом", "Нити полуночи", "Росинки на шёлке"), set_id="night_pumpkins", season="halloween-2026"),
+    _skin("witch_hour", "Час Ведьм", "A", "Зелёный огонь под котлом и фиолетовый вихрь над крышами.", "#07100a", "#8dff9c",
+          "rgba(80,230,120,.24)", "rgba(150,60,255,.18)", ("#8dff9c", "#8a3dff", "#ffd36b"),
+          "double", "orbit", "spark", "foil", "vortex",
+          ("Зелёный огонь", "🧙 Хозяйка Часа Ведьм", "Кольцо заклятья", "Орбита метёл", "Вихрь над крышами", "Искры заклинаний"), set_id="night_pumpkins", season="halloween-2026"),
 ])
 
+
+# Окно продаж сезона: с `starts` по `ends` (дата UTC, `ends` не включается). После окна скин нельзя купить, но купленный остаётся и растёт.
+SEASONS = {
+    "halloween-2026": {"name": "Ночь Тыкв", "starts": "2026-10-08", "ends": "2026-11-09"},
+}
 
 SETS = {
     "lotus": {"name": "Сад Лотоса", "blurb": "Пруд, золото рассвета и лунная вода: один лотос в трёх временах суток.",
               "members": ("lotus_pond", "lotus_gold", "moon_lotus")},
     "sakura": {"name": "Сад Сакуры", "blurb": "От бутона на голой ветке до бури цветения.",
                "members": ("sakura_bud", "hanami", "sakura_storm")},
+    "night_pumpkins": {"name": "Ночь Тыкв", "blurb": "Фонарь на пороге, паутина в ветвях и зелёный огонь под котлом: одна ночь осени в трёх образах.",
+                       "members": ("pumpkin_lantern", "cobweb", "witch_hour"), "season": "halloween-2026"},
 }
 
 

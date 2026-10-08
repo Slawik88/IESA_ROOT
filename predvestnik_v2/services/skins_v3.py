@@ -6,19 +6,24 @@ Zarniki always move through the shared economy ledger; Essence moves through its
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 
 from core.appearance_v3 import cap_tier
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.skins_v3 import (BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS, UPGRADE_ESSENCE, full_price,
                            next_tier, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import SETS, SKINS
-from core.skins_v3_collection import (MAXED_BADGES, SET_GLYPH, featured, maxed_badge, milestones, rank_for, row_bonus, row_members, set_bonus,
-                                      BASE_RANK)
+from core.skins_v3_collection import (BASE_RANK, MAXED_BADGES, PERMANENT, SET_GLYPH, featured, maxed_badge, milestones, owned_permanent, rank_for, row_bonus,
+                                      row_members, season_of, season_window, set_bonus)
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import skins_v3 as repo
 from services.vip import is_vip_active
 
 VERSION = "skins-v3-2026-10"
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class SkinConflict(RuntimeError):
@@ -48,6 +53,7 @@ def look_payload(skin_id: str, tier: str, *, compact: bool = False, crest: dict 
 
 def _item(skin_id: str, owned_tier: str | None, equipped: str | None, vip: bool, owned: dict) -> dict:
     skin = SKINS[skin_id]
+    season = season_of(skin_id, _now())
     nxt = upgrade_cost(owned_tier, skin["tier"]) if owned_tier else None
     shown = cap_tier(owned_tier, vip) if owned_tier else "D"
     return {
@@ -55,14 +61,15 @@ def _item(skin_id: str, owned_tier: str | None, equipped: str | None, vip: bool,
         "set": skin["set"], "owned": owned_tier is not None, "level": owned_tier, "shown_tier": shown, "equipped": skin_id == equipped,
         "next": {"tier": nxt[0], "essence": nxt[1], "needs_vip": nxt[0] == "SSS" and not vip} if nxt else None,
         "maxed": owned_tier is not None and nxt is None, "total_upgrade_essence": total_upgrade_cost(skin["tier"]),
-        "full_price_zarniki": full_price(skin["tier"]),
+        "full_price_zarniki": full_price(skin["tier"]), "season": season, "buyable": season is None or season["open"],
     }
 
 
 def _sets_state(owned: dict) -> list[dict]:
     return [{"id": sid, "name": st["name"], "blurb": st["blurb"], "glyph": SET_GLYPH.get(sid, "◈"), "members": list(st["members"]),
              "bonus_essence": set_bonus(sid), "have": sum(1 for m in st["members"] if m in owned),
-             "missing": [m for m in st["members"] if m not in owned], "complete": all(m in owned for m in st["members"])}
+             "missing": [m for m in st["members"] if m not in owned], "complete": all(m in owned for m in st["members"]),
+             "season": season_window(st["season"], _now()) if st.get("season") else None}
             for sid, st in SETS.items()]
 
 
@@ -73,13 +80,13 @@ def _maxed_count(owned: dict) -> int:
 
 def collection_summary(owned: dict) -> dict:
     """Counts only (no skin ids): safe to show on a public profile."""
-    maxed = _maxed_count(owned)
-    return {"owned": len(owned), "total": len(SKINS), "rank": rank_for(len(owned)), "maxed": maxed, "maxed_badge": maxed_badge(maxed),
+    maxed, have = _maxed_count(owned), owned_permanent(owned)
+    return {"owned": have, "total": len(PERMANENT), "rank": rank_for(have), "maxed": maxed, "maxed_badge": maxed_badge(maxed),
             "sets_done": [{"id": sid, "name": st["name"], "glyph": SET_GLYPH.get(sid, "◈")} for sid, st in SETS.items() if all(m in owned for m in st["members"])]}
 
 
 def _collection_state(owned: dict) -> dict:
-    maxed, count = _maxed_count(owned), len(owned)
+    maxed, count = _maxed_count(owned), owned_permanent(owned)
     steps = [{**s, "done": count >= s["at"]} for s in milestones()]
     rows = []
     for rarity in TIERS:
@@ -110,7 +117,7 @@ async def _purchase_rewards(db, user_id: int, skin_id: str, owned: dict) -> list
         if await _grant_bonus(db, user_id, amount, reason="row_bonus", reference=rarity, key=f"skin-v3:row:{rarity}"):
             events.append({"kind": "row", "rarity": rarity, "essence": amount})
     for step in milestones():
-        if len(owned) >= step["at"] and await _grant_bonus(db, user_id, step["essence"], reason="milestone_bonus", reference=step["id"], key=f"skin-v3:{step['id']}"):
+        if owned_permanent(owned) >= step["at"] and await _grant_bonus(db, user_id, step["essence"], reason="milestone_bonus", reference=step["id"], key=f"skin-v3:{step['id']}"):
             events.append({"kind": "rank", "rank": step["rank"], "at": step["at"], "essence": step["essence"]})
     week = featured()
     if week["skin_id"] == skin_id and await _grant_bonus(db, user_id, week["bonus_essence"], reason="featured_bonus", reference=skin_id,
@@ -187,6 +194,9 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
             if replay is None:
                 if skin_id in await repo.owned(db, user_id):
                     raise SkinConflict("Этот скин уже у вас.")
+                season = season_of(skin_id, _now())      # checked here, so a retry of a purchase made in time is still a replay
+                if season and not season["open"]:
+                    raise SkinConflict(f"Сезон «{season['name']}» ещё не начался." if season["state"] == "soon" else f"Сезон «{season['name']}» закончился: этот образ больше нельзя купить.")
                 await economy_ledger.apply_balance_change(
                     db, int(user_id), {"zarniki": -price}, reason_code="skin_v3_purchase", idempotency_key=idempotency_key,
                     source_type="skins_v3", reference_type="skin_v3", reference_id=skin_id,
