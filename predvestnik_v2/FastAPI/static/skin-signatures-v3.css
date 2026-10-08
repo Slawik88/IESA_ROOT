@@ -6,26 +6,39 @@
 .ap-frame u { position: absolute; display: block; pointer-events: none; }
 @keyframes sgorbit { from { transform: rotate(var(--o, 0deg)) translateY(calc(var(--r) * -1)); } to { transform: rotate(calc(var(--o, 0deg) + 360deg)) translateY(calc(var(--r) * -1)); } }
 
-/* ── Бездна: аккреционный диск за аватаром и дуга гравитационной линзы над ним ── */
+/* ── Бездна: чёрная дыра. Свет идёт с одной стороны: приближающийся край диска (слева) ярче и горячее, удаляющийся тусклее и темнее.
+   Тень горизонта с тонкой каймой, диск за аватаром, дуга линзы над тенью и слабая под ней. Движения почти нет: дыра не дышит, меняется только накал ── */
 .ap-sig-void.ap-frame { filter: none; }
-.ap-sig-void .sg-disk { z-index: -1; left: -38%; right: -38%; top: 33%; height: 34%; border-radius: 50%; transform: rotate(-16deg); mix-blend-mode: screen; background: radial-gradient(closest-side, transparent 46%, var(--ap-c) 60%, var(--ap-a) 76%, transparent 100%); opacity: .95; }
-.ap-sig-void .sg-arc { left: -9%; right: -9%; top: -16%; height: 58%; border-radius: 50%; border-top: 2px solid var(--ap-c); transform: rotate(-16deg); filter: drop-shadow(0 0 5px var(--ap-a)); -webkit-mask: linear-gradient(90deg, transparent, #000 26%, #000 74%, transparent); mask: linear-gradient(90deg, transparent, #000 26%, #000 74%, transparent); }
-@keyframes sgdisk { from { transform: rotate(-19deg) scaleX(.98); opacity: .75; } to { transform: rotate(-13deg) scaleX(1.03); opacity: 1; } }
-.ap-anim .ap-sig-void .sg-disk { animation: sgdisk 6s ease-in-out infinite alternate; }
-.ap-anim .ap-sig-void .sg-arc { animation: apbreath 4s ease-in-out infinite alternate; }
-.ap-sig-void.ap-bg-vortex b:nth-child(2) { background: radial-gradient(closest-side, #000 62%, color-mix(in srgb, var(--ap-a) 30%, transparent) 86%, transparent); opacity: .85; }
+.ap-sig-void .sg-shadow { z-index: -1; inset: -8%; border-radius: 50%; background: #000; box-shadow: 0 0 9px 0 color-mix(in srgb, var(--ap-a) 42%, transparent), 0 0 30px 6px color-mix(in srgb, var(--ap-b) 22%, transparent); }
+.ap-sig-void .sg-disk { z-index: -1; left: -82%; right: -82%; top: 33%; height: 34%; border-radius: 50%; transform: rotate(-14deg); mix-blend-mode: screen; opacity: .95;
+  background: radial-gradient(closest-side, transparent 47%, var(--ap-c) 53%, var(--ap-a) 63%, color-mix(in srgb, var(--ap-b) 50%, transparent) 80%, transparent);
+  -webkit-mask: linear-gradient(90deg, transparent, rgba(0, 0, 0, .4) 12%, #000 30%, rgba(0, 0, 0, .74) 62%, rgba(0, 0, 0, .2) 90%, transparent); mask: linear-gradient(90deg, transparent, rgba(0, 0, 0, .4) 12%, #000 30%, rgba(0, 0, 0, .74) 62%, rgba(0, 0, 0, .2) 90%, transparent); }
+.ap-sig-void .sg-arc { inset: -22%; border-radius: 50%; transform: rotate(-14deg); background: conic-gradient(var(--ap-c), color-mix(in srgb, var(--ap-a) 80%, transparent) 34deg, transparent 84deg 276deg, color-mix(in srgb, var(--ap-a) 80%, transparent) 326deg, var(--ap-c));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ap-a) 70%, transparent)); }
+.ap-sig-void .sg-arc--low { inset: -13%; opacity: .5; background: conic-gradient(transparent 0 106deg, color-mix(in srgb, var(--ap-a) 70%, transparent) 150deg, var(--ap-c) 180deg, color-mix(in srgb, var(--ap-a) 70%, transparent) 210deg, transparent 254deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px)); }
+/* фотонное кольцо: тонкое и сплошное, ярче со стороны, где диск приближается; бегущие штрихи остаются только на младших тирах */
+.ap-sig-void.ap-fr-dash::before { --w: 2px; background: conic-gradient(from 200deg, var(--ap-c), var(--ap-a) 70deg, color-mix(in srgb, var(--ap-b) 55%, transparent) 160deg, var(--ap-a) 260deg, var(--ap-c)); }
+.ap-sig-void.ap-fr-dash::after { display: none; }
+@keyframes sgdisk { from { opacity: .8; } to { opacity: 1; } }
+.ap-anim .ap-sig-void .sg-disk { animation: sgdisk 7s ease-in-out infinite alternate; }
+.ap-anim .ap-sig-void .sg-arc:not(.sg-arc--low) { animation: apbreath 5s ease-in-out infinite alternate; }
+.ap-anim .ap-sig-void.ap-fr-dash::before { animation: none; }
+.ap-sig-void.ap-bg-vortex b:nth-child(1) { opacity: .4; }
+.ap-sig-void.ap-bg-vortex b:nth-child(2) { display: none; }   /* тень теперь у аватара и всегда под ним: фоновый диск показывал дыру не там, где человек */
 .ap-sig-void.ap-name { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
 
 /* ── Северное сияние: широкие вуали поднимаются над аватаром и качаются ── */
 .ap-sig-aurora.ap-frame { filter: none; }
-.ap-sig-aurora .sg-veil { z-index: -1; bottom: 54%; width: 40%; height: 130%; border-radius: 50% 50% 0 0 / 80% 80% 0 0; filter: blur(5px); transform-origin: 50% 100%; opacity: .75; -webkit-mask: linear-gradient(0deg, #000 30%, transparent); mask: linear-gradient(0deg, #000 30%, transparent); }
-.ap-sig-aurora .sg-veil:nth-child(1) { left: -2%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-a) 80%, transparent), transparent); transform: rotate(-5deg); }
-.ap-sig-aurora .sg-veil:nth-child(2) { left: 30%; height: 160%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-b) 75%, transparent), color-mix(in srgb, var(--ap-a) 20%, transparent) 70%, transparent); }
-.ap-sig-aurora .sg-veil:nth-child(3) { right: -2%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-c) 65%, transparent), transparent); transform: rotate(6deg); }
+.ap-sig-aurora .sg-veil { z-index: -1; bottom: 40%; width: 56%; height: 92%; border-radius: 50% 50% 0 0 / 62% 62% 0 0; filter: blur(2.5px); transform-origin: 50% 100%; opacity: .95;
+  -webkit-mask: radial-gradient(ellipse 58% 100% at 50% 100%, #000 52%, transparent 100%); mask: radial-gradient(ellipse 58% 100% at 50% 100%, #000 52%, transparent 100%); }   /* занавес тает к краям и к верху, без прямоугольного силуэта; тонкие вертикальные лучи поверх цвета */
+.ap-sig-aurora .sg-veil:nth-child(1) { left: -10%; background: repeating-linear-gradient(90deg, transparent 0 7px, rgba(255, 255, 255, .14) 7px 8.5px), linear-gradient(0deg, color-mix(in srgb, var(--ap-a) 88%, transparent), color-mix(in srgb, var(--ap-a) 45%, transparent) 50%, transparent); transform: rotate(-5deg); }
+.ap-sig-aurora .sg-veil:nth-child(2) { left: 22%; height: 118%; background: repeating-linear-gradient(90deg, transparent 0 9px, rgba(255, 255, 255, .12) 9px 10.5px), linear-gradient(0deg, color-mix(in srgb, var(--ap-b) 84%, transparent), color-mix(in srgb, var(--ap-a) 38%, transparent) 55%, transparent); }
+.ap-sig-aurora .sg-veil:nth-child(3) { right: -10%; background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(255, 255, 255, .13) 8px 9.5px), linear-gradient(0deg, color-mix(in srgb, var(--ap-c) 74%, transparent), color-mix(in srgb, var(--ap-c) 34%, transparent) 50%, transparent); transform: rotate(6deg); }
 @keyframes sgveil { from { transform: rotate(calc(var(--v, 0deg) - 4deg)) scaleY(.9); } to { transform: rotate(calc(var(--v, 0deg) + 5deg)) scaleY(1.08); } }
 .ap-anim .ap-sig-aurora .sg-veil { animation: sgveil 5.5s ease-in-out infinite alternate; }
 .ap-anim .ap-sig-aurora .sg-veil:nth-child(1) { --v: -5deg; } .ap-anim .ap-sig-aurora .sg-veil:nth-child(2) { --v: 0deg; animation-duration: 7.5s; animation-delay: -2s; } .ap-anim .ap-sig-aurora .sg-veil:nth-child(3) { --v: 6deg; animation-delay: -3.5s; }
-.ap-sig-aurora.ap-name { background-image: linear-gradient(100deg, var(--ap-a), var(--ap-c) 30%, var(--ap-b) 60%, var(--ap-a)); }
+.ap-sig-aurora.ap-name { background-image: linear-gradient(100deg, var(--ap-a), var(--ap-c) 30%, var(--ap-nb) 60%, var(--ap-a)); }
 
 /* ── Расплавленное Солнце: протуберанцы вокруг кольца ── */
 .ap-sig-solar .sg-prom { left: 50%; top: 50%; width: 11px; height: calc(24px * var(--l)); margin: calc(-12px * var(--l)) 0 0 -5.5px; background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); clip-path: polygon(50% 0, 57% 16%, 67% 30%, 79% 46%, 88% 64%, 90% 80%, 80% 94%, 64% 100%, 36% 100%, 20% 94%, 10% 80%, 12% 64%, 21% 46%, 33% 30%, 43% 16%); transform: rotate(var(--o)) translateY(-45px); transform-origin: 50% 50%; filter: drop-shadow(0 0 4px var(--ap-a)); }
@@ -43,7 +56,7 @@
 
 /* ── Лунный Лотос: два яруса лепестков держат аватар, как цветок на воде; над ним тонкий месяц ── */
 .ap-sig-lotus.ap-frame { filter: none; }
-.ap-sig-lotus .sg-bloom { z-index: -1; left: -22%; right: -22%; top: 38%; bottom: -28%; transform-origin: 50% 100%; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 55%, transparent)); }
+.ap-sig-lotus .sg-bloom { z-index: -1; left: -22%; right: -22%; top: 38%; bottom: -28%; transform-origin: 50% 100%; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 55%, transparent)); -webkit-mask: linear-gradient(180deg, #000 52%, transparent 84%); mask: linear-gradient(180deg, #000 52%, transparent 84%); }   /* низ цветка тает: ник под ним читается */
 .ap-sig-lotus .sg-leaf { left: 50%; bottom: 0; width: 19%; height: 80%; margin-left: -9.5%; transform-origin: 50% 100%; transform: rotate(var(--o)); clip-path: polygon(50% 0, 80% 32%, 100% 70%, 50% 100%, 0 70%, 20% 32%); background: linear-gradient(0deg, transparent 8%, color-mix(in srgb, var(--ap-b) 70%, transparent) 40%, var(--ap-a) 78%, var(--ap-c)); opacity: .6; }
 .ap-sig-lotus .sg-leaf--f { height: 62%; width: 24%; margin-left: -12%; opacity: .95; background: linear-gradient(0deg, transparent 6%, color-mix(in srgb, var(--ap-a) 80%, transparent) 46%, var(--ap-c)); }
 .ap-sig-lotus .sg-moon { right: -12%; top: -16%; width: 24%; aspect-ratio: 1; border-radius: 50%; box-shadow: 5px -3px 0 0 var(--ap-c); filter: drop-shadow(0 0 6px var(--ap-a)); }

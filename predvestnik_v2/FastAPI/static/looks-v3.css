@@ -15,7 +15,7 @@
 .lk-hero.is-swap .lk-id { animation: lkswap .34s var(--v3-ease) both; }
 .lk-id { display: flex; flex-direction: column; align-items: center; padding: 38px 0 14px; text-align: center; }
 .lk-ring { margin: 26px 0 36px; transform: scale(1.35); }
-.lk-name { font-size: 28px; max-width: 100%; overflow-wrap: anywhere; }   /* длинный ник идёт в две строки, дальше многоточие (appearance-v3.css) */
+.lk-name { align-self: stretch; font-size: 28px; max-width: 100%; overflow-wrap: anywhere; }   /* на всю ширину колонки: у сжатой по содержимому коробки overflow-wrap: anywhere делал ширину в одну букву («Игор / ь») */   /* длинный ник идёт в две строки, дальше многоточие (appearance-v3.css) */
 .lk-id .pp-title-row { margin-top: 8px; min-height: 22px; }
 .lk-title { margin: 14px 0 0; font: var(--v3-w-head) 22px/1.2 var(--v3-font); letter-spacing: -.02em; text-align: center; }
 .lk-blurb { margin: 6px auto 0; max-width: 30ch; color: var(--v3-dim); font-size: 14px; line-height: 1.4; text-align: center; }
@@ -59,6 +59,8 @@
 .lk-mini { position: relative; display: block; width: 62px; height: 62px; }
 .lk-mini .v3-ring { position: absolute; left: 0; top: 0; transform: scale(.72); transform-origin: 0 0; margin: 6px 0 0 6px; }
 .lk-mini .v3-ava { background: var(--v3-faint); }
+/* Превью в ленте образов неподвижны: три десятка живых колец, ореолов и деталей разом (сотни анимаций) роняли кадр на средних телефонах. Движется только большой образ над лентой. */
+.lk-mini *, .lk-mini *::before, .lk-mini *::after { animation: none !important; }
 
 /* сеты и Эссенция */
 .lk-set { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 12px 0; }

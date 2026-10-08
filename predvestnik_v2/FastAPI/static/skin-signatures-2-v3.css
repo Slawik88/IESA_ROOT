@@ -47,8 +47,10 @@
 .ap-sig-chrono .sg-hand--min { background: conic-gradient(from -14deg, transparent 0 4deg, var(--ap-a) 14deg, #fff 14.6deg, transparent 15deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); filter: drop-shadow(0 0 4px var(--ap-a)); }
 .ap-sig-chrono .sg-hand--hour { transform: rotate(120deg); }
 .ap-sig-chrono .sg-hand--hour::after { content: ""; position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; margin-left: -4px; transform: rotate(45deg); background: var(--ap-c); box-shadow: 0 0 8px var(--ap-b); }
-.ap-sig-chrono .sg-cog { left: -14%; bottom: -8%; width: 22%; aspect-ratio: 1; border-radius: 50%; background: repeating-conic-gradient(var(--ap-a) 0 14deg, transparent 14deg 30deg); -webkit-mask: radial-gradient(circle, transparent 28%, #000 30%, #000 100%); mask: radial-gradient(circle, transparent 28%, #000 30%, #000 100%); opacity: .9; }
-.ap-sig-chrono .sg-cog--r { left: auto; right: -14%; bottom: -12%; width: 16%; background: repeating-conic-gradient(var(--ap-b) 0 15deg, transparent 15deg 30deg); }
+.ap-sig-chrono .sg-cog { left: -14%; bottom: -8%; width: 22%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, transparent 30%, var(--ap-a) 33% 58%, transparent 60%); opacity: .9; }
+.ap-sig-chrono .sg-cog::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(var(--ap-a) 0 17deg, transparent 17deg 45deg); -webkit-mask: radial-gradient(closest-side, transparent 52%, #000 54% 80%, transparent 82%); mask: radial-gradient(closest-side, transparent 52%, #000 54% 80%, transparent 82%); }   /* шестерня: кольцо-тело и восемь зубьев по краю */
+.ap-sig-chrono .sg-cog--r { left: auto; right: -14%; bottom: -12%; width: 16%; background: radial-gradient(closest-side, transparent 30%, var(--ap-b) 33% 58%, transparent 60%); }
+.ap-sig-chrono .sg-cog--r::before { background: repeating-conic-gradient(var(--ap-b) 0 20deg, transparent 20deg 60deg); }
 .ap-anim .ap-sig-chrono .sg-hand--min { animation: apturn 60s steps(60) infinite; }
 .ap-anim .ap-sig-chrono .sg-hand--hour { animation: sghour 720s linear infinite; }
 @keyframes sghour { from { transform: rotate(120deg); } to { transform: rotate(480deg); } }

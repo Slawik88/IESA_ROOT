@@ -61,7 +61,7 @@ function renderPublicCardV3(d) {
   const lv = d.level || {}, capped = !(lv.xp_to_next > 0), level = lv.level || 1;
   const rank = String(d.rank || '').replace(/^[\p{Extended_Pictographic}\s]+/u, '');
   const joined = d.stats?.joined_date ? ` · с нами с ${_profileDate(d.stats.joined_date)}` : '';
-  const avatar = _v3Avatar({ avatar: d.avatar, display_name: d.name, is_vip: !!d.vip, vip: d.vip });
+  const avatar = _v3Avatar({ avatar: d.avatar, display_name: d.name, is_vip: !!d.vip, vip: d.vip, seed: d.ref, level });
   const name = vipName(d.name, !!d.vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left');
   const hero = `<section class="pp-hero v3-id${d.vip ? ' is-vip' : ''}${ap ? ' has-look' : ''}" aria-label="Игрок">
       <div class="v3-ring pp-ring">${apHalo(ap)}${_v3Ring(capped ? 100 : lv.xp_into / lv.xp_to_next * 100)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}<span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>

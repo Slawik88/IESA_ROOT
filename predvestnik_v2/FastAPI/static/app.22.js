@@ -29,7 +29,7 @@ function v3ApplyLook(look) {
 const _AP_DECOR = (() => {
   const many = (cls, count, vars) => Array.from({ length: count }, (_, i) => `<u class="${cls}" style="${vars(i)}"></u>`).join('');
   return {
-    void: '<u class="sg-disk"></u><u class="sg-arc"></u>',
+    void: '<u class="sg-shadow"></u><u class="sg-disk"></u><u class="sg-arc"></u><u class="sg-arc sg-arc--low"></u>',
     aurora: '<u class="sg-veil"></u><u class="sg-veil"></u><u class="sg-veil"></u>',
     solar: many('sg-prom', 7, i => `--o:${i * 51.4}deg;--d:${(2.2 + (i % 3) * .5).toFixed(1)}s;--l:${(.7 + (i % 3) * .18).toFixed(2)}`),
     petalstorm: many('sg-pet', 9, i => `--o:${i * 40}deg;--r:${44 + (i % 3) * 8}px;--d:${(9 + (i % 4) * 2).toFixed(0)}s`),

@@ -32,8 +32,7 @@ function _v3Ring(percent) {
 function _v3Avatar(d) {
   const img = typeof d.avatar === 'string' && /^data:image\/(?:png|jpe?g|webp);base64,/i.test(d.avatar)
     ? `<img src="${_profileEsc(d.avatar)}" alt="" decoding="async">` : null;
-  const initial = String(d.display_name || d.username || 'И').replace(/^@+/, '').trim().charAt(0).toUpperCase() || 'И';
-  return img || (d.is_vip ? (d.vip?.badge || '✦') : _profileEsc(initial));
+  return img || _v3Constellation(d.seed ?? d.user_id ?? d.display_name ?? d.username, d.account_level ?? d.level, !!d.is_vip);   // без фото: личное созвездие (app.20.js)
 }
 function renderProfileHome(data) {
   const d = data || {};

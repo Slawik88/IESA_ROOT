@@ -64,7 +64,7 @@ def strip_blocks(text: str, head: str) -> str:
 for name in ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css"):
     body = strip_blocks(strip_blocks(css[name], "@keyframes"), "@media")
     for selector, rules in re.findall(r"([^{}]+)\{([^{}]*)\}", body):
-        if re.search(r"animation(?:-name)?\s*:\s*(?!none)", rules):
+        if re.search(r"animation(?:-name)?\s*:\s*+(?!none)", rules):
             assert ".ap-anim" in selector, f"{name}: ungated animation in {selector.strip()[:80]}"
     assert "prefers-reduced-motion" in css[name], name
 for name, text in css.items():
@@ -91,4 +91,18 @@ assert re.search(r"\.v3-top-list \.v3-rowbtn > span \{[^}]*padding: 14px 24px; m
 # The renderer never trusts the payload: palette and kinds are validated before they reach a class or a style.
 assert "_AP_HEX.test" in renderer and "_AP_WORD" in renderer and "look.tier === look.ceiling" in renderer
 assert "_v3SafeValue" in decor and "url\\(" in decor
+# Readability: the nickname is large text (3:1 needed), the title is small (4.5:1). Letters take the dark end of the palette through --ap-nb (b pulled toward a),
+# measured against the skin's own background; the real stage is a little brighter than that, hence the margin over the minimum.
+from core.skins_v3 import contrast, mix  # noqa: E402
+assert "--ap-nb: color-mix(in srgb, var(--ap-b) 62%, var(--ap-a))" in css["appearance-v3.css"] and "var(--ap-nb)" in css["appearance-v3.css"]
+assert not re.search(r"\.ap-name[^{}]*\{[^{}]*background-image: [^;]*var\(--ap-b\)", css["appearance-v3.css"]), "name gradients use --ap-nb, not the dark end of the palette"
+for skin_id, skin in SKINS.items():
+    bg, (a, b, c) = skin["tokens"]["--v3-bg"], skin["pal"]
+    assert contrast(mix(b, a, .38), bg) >= 3.8, f"{skin_id}: the darkest letters of the nickname must stay readable on {bg}"
+    assert contrast(a, bg) >= 5.0, f"{skin_id}: title text colour must clear 4.5:1 with margin"
+# Placeholder avatar (no photo): a personal constellation, not a glyph; one twinkle class, only under .ap-anim.
+assert "function _v3Constellation(" in renderer and "_cnRand" in renderer and "Math.min(9, 4 +" in renderer, "the star count grows with the level up to nine"
+shell_css = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
+assert ".ap-anim .cn-tw" in shell_css and not re.search(r"(?<!\.ap-anim )\.cn-tw[^{]*\{[^}]*animation", shell_css), "the constellation twinkles only under .ap-anim"
+assert "_v3Constellation(" in (STATIC / "app.15.js").read_text(encoding="utf-8") and "seed: d.ref" in (STATIC / "app.21.js").read_text(encoding="utf-8")
 print("OK: skins v3 visuals: kinds, signatures, sets, gated motion")

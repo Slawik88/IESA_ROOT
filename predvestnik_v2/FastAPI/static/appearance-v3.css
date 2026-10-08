@@ -3,11 +3,11 @@
    Ник: цвет → градиент → фирменный приём вида (nm-*). Движение включает .ap-anim на body (app.18.js:
    «Спокойный режим» и слабое устройство его не получают). Анимируются transform и opacity; исключение одно: блик по буквам (apglint). */
 
-.ap-name { --ap-px: 6px; position: relative; display: inline-block; max-width: calc(100% + var(--ap-px) * 2); overflow: hidden; vertical-align: top; padding: 3px var(--ap-px); margin: -3px calc(var(--ap-px) * -1); color: var(--ap-a); }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось */
+.ap-name { --ap-px: 6px; position: relative; display: inline-block; max-width: calc(100% + var(--ap-px) * 2); overflow: hidden; vertical-align: top; padding: 3px var(--ap-px); margin: -3px calc(var(--ap-px) * -1); color: var(--ap-a); --ap-nb: color-mix(in srgb, var(--ap-b) 62%, var(--ap-a)); }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось. --ap-nb: тёмный конец палитры для букв подтянут к светлому, иначе на тёмном фоне он не читается */
 .ap-name.ap-t1 { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 34%, transparent)); }   /* свечение только через filter: text-shadow резался бы рамкой имени */
-.ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-a), var(--ap-b)); background-image: var(--ap-base); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-a), var(--ap-nb)); background-image: var(--ap-base); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 42%, transparent)); }
-.ap-name:is(.ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-b) 70%, var(--ap-c)); background-image: var(--ap-base); }
+.ap-name:is(.ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-nb) 70%, var(--ap-c)); background-image: var(--ap-base); }
 
 /* блик: светлая полоса лежит ВТОРЫМ СЛОЕМ фона самого текста, поэтому подсвечиваются только буквы и нет ни квадрата, ни кромки.
    Это единственная анимация фона (background-position), остальные только transform/opacity; включается при ap-t4+ под .ap-anim. */
@@ -24,7 +24,7 @@
 .ap-anim .ap-title:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: aptsheen var(--ap-glint) ease-in-out infinite; }
 
 /* foil: металлическая фольга, полосы цвета с жёсткими границами */
-.ap-nm-foil:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c) 0%, var(--ap-a) 28%, var(--ap-b) 52%, var(--ap-a) 74%, var(--ap-c) 100%); background-image: var(--ap-base); }
+.ap-nm-foil:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c) 0%, var(--ap-a) 28%, var(--ap-nb) 52%, var(--ap-a) 74%, var(--ap-c) 100%); background-image: var(--ap-base); }
 .ap-nm-foil { --ap-hl: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%); --ap-hl-w: 38%; }
 
 /* glow: неоновая трубка. Свечение это filter (его не режет рамка имени), дыхание это opacity всего имени */
@@ -65,6 +65,7 @@
 .v3-id.has-look .v3-name { background: none; -webkit-text-fill-color: initial; }   /* золотой VIP-градиент имени не перекрывает цвет скина */
 .v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
+.v3-who .ap-name, .v3-who .ap-title, .v3-who .ap-title::after { animation: none !important; }   /* в списках блики не бегают: двадцать строк с перерисовкой текста на каждом кадре дороги, а в строке они не нужны */
 
 /* Длинные ники. В списках одна строка с многоточием (ник и значок VIP делят строку, титул уходит под него), в шапках не больше двух строк.
    Ограничение ставится на сам .ap-name: у него свечение идёт через filter, поэтому у родителей overflow не нужен и тень не режется. */
