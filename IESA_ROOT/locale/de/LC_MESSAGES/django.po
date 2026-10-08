@@ -7101,3 +7101,6 @@ msgstr "Diesen Kommentar löschen? Das kann nicht rückgängig gemacht werden."
 
 msgid "Footer"
 msgstr "Fußbereich"
+
+msgid "Quick links"
+msgstr "Schnellzugriff"

@@ -6361,3 +6361,6 @@ msgstr "Видалити цей коментар? Цю дію неможливо
 
 msgid "Footer"
 msgstr "Підвал сайту"
+
+msgid "Quick links"
+msgstr "Швидкі посилання"

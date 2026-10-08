@@ -7078,3 +7078,6 @@ msgstr "Supprimer ce commentaire ? Cette action est irréversible."
 
 msgid "Footer"
 msgstr "Pied de page"
+
+msgid "Quick links"
+msgstr "Liens rapides"

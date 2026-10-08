@@ -1,0 +1,187 @@
+/* ============================================================
+   HOME — phone experience (<= 767.98px). Desktop keeps the layout from core/index.html.
+   Idea: an app-like page, not a long article. Immersive first screen, a row of shortcuts into the
+   site's sections, and every list of cards becomes a swipeable snap row with dots, so the page is
+   ~7 screens instead of ~17. Motion is transform/opacity only. Uses ids to win over the page's
+   `!important` card rules.
+   ============================================================ */
+
+/* shared bits (hidden on desktop) */
+.hero-ticker, .home-shortcuts, .m-dots, .hero-orbit { display: none; }
+
+@media (max-width: 767.98px) {
+  :root { --hp-gut: 1.25rem; }
+  .hp-container { padding-inline: var(--hp-gut); }
+  .hp-section { padding: 2.25rem 0; }
+
+  /* ── hero: fills the first screen, one thumb-reach CTA block ───────────────────────── */
+  #hp-hero { min-height: calc(100svh - 53px - 60px - env(safe-area-inset-bottom)); align-items: stretch; }
+  #hp-hero::before { top: -140px; left: -160px; width: 520px; height: 520px; animation: hp-drift 14s ease-in-out infinite alternate; }
+  #hp-hero::after { bottom: -140px; right: -160px; width: 420px; height: 420px; animation: hp-drift 18s ease-in-out infinite alternate-reverse; }
+  @keyframes hp-drift { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(24px, 30px, 0) scale(1.12); } }
+  /* decorative orbit in the empty upper half of the first screen: transform-only, clipped by the edge */
+  .hero-orbit { display: grid; place-items: center; position: absolute; z-index: 0; top: .5rem; right: -3.5rem; width: 14.5rem; height: 14.5rem; pointer-events: none; }
+  .hero-orbit .ring { position: absolute; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .09); }
+  .hero-orbit .r1 { inset: 0; animation: hp-spin 46s linear infinite; }
+  .hero-orbit .r2 { inset: 2rem; border: 1px dashed rgba(248, 113, 113, .28); animation: hp-spin 32s linear infinite reverse; }
+  .hero-orbit .r3 { inset: 4rem; border-color: rgba(248, 113, 113, .16); animation: hp-spin 22s linear infinite; }
+  .hero-orbit .ring::after { content: ''; position: absolute; top: -4px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--primary-text); box-shadow: 0 0 14px 2px rgba(248, 113, 113, .55); }
+  .hero-orbit .r2::after { width: 6px; height: 6px; background: #fbbf24; box-shadow: 0 0 12px 2px rgba(251, 191, 36, .45); }
+  .hero-orbit .r3::after { background: #60a5fa; box-shadow: 0 0 12px 2px rgba(96, 165, 250, .45); }
+  .hero-orbit > i { font-size: 2.1rem; color: rgba(248, 113, 113, .85); filter: drop-shadow(0 0 18px rgba(220, 38, 38, .55)); }
+  @keyframes hp-spin { to { transform: rotate(360deg); } }
+  .hero-inner { display: flex; flex-direction: column; justify-content: flex-end; padding-top: 1.5rem !important; padding-bottom: 1.1rem !important; }
+  .hero-kicker { align-self: flex-start; margin-bottom: .9rem; padding: .35rem .85rem; border-radius: .9rem; font-size: .66rem; line-height: 1.35; letter-spacing: .08em; }
+  .hero-h1 { font-size: clamp(2.5rem, 12.4vw, 3.6rem); line-height: .98; margin-bottom: .85rem; text-wrap: balance; }
+  .hero-desc { font-size: 1rem; line-height: 1.55; margin-bottom: 1.25rem; color: rgba(255, 255, 255, .72); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .hero-ctas { flex-direction: column; align-items: stretch; gap: .6rem; margin-bottom: 1.1rem; }
+  .hero-ctas .hero-btn-p, .hero-ctas .hero-btn-g { width: 100%; justify-content: center; min-height: 52px; padding: .8rem 1.25rem; font-size: 1rem; }
+  .hero-ctas .hero-btn-g { min-height: 48px; border-color: rgba(255, 255, 255, .16); background: rgba(255, 255, 255, .04); }
+
+  .hero-ticker {
+    display: block; overflow: hidden; margin: 0 calc(var(--hp-gut) * -1) 1rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+            mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  }
+  .hero-ticker-track { display: flex; gap: .5rem; width: max-content; animation: hp-ticker 26s linear infinite; }
+  .hero-chip {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .85rem;
+    border: 1px solid rgba(255, 255, 255, .12); border-radius: 999px; background: rgba(255, 255, 255, .05);
+    color: rgba(255, 255, 255, .85); font-size: .82rem; font-weight: 600; white-space: nowrap;
+  }
+  .hero-chip i { color: var(--primary-text); font-size: .72rem; }
+  @keyframes hp-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  .hero-stats { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 !important; padding-top: .9rem !important; border-top: 1px solid rgba(255, 255, 255, .1); }
+  .hero-stats > div { text-align: center; }
+  .hero-stats > div + div { border-left: 1px solid rgba(255, 255, 255, .08); }
+  .hero-stat-num { font-size: 1.55rem !important; }
+  .hero-stat-label { margin-top: .15rem; font-size: .7rem !important; letter-spacing: 0; text-transform: none; line-height: 1.2; }
+  .hero-scroll { display: none; }
+
+  /* ── shortcuts: the site's sections as app tiles ────────────────────────────────────── */
+  .home-shortcuts { display: block; background: #0a0a0f; border-bottom: 1px solid rgba(255, 255, 255, .06); padding: 1rem 0 .95rem; }
+  .hs-row { display: flex; gap: .85rem; overflow-x: auto; padding: 0 var(--hp-gut); scrollbar-width: none; overscroll-behavior-x: contain; scroll-snap-type: x proximity; }
+  .hs-row::-webkit-scrollbar { display: none; }
+  .hs-item { flex: 0 0 auto; width: 4.6rem; display: flex; flex-direction: column; align-items: center; gap: .4rem; text-decoration: none; color: rgba(255, 255, 255, .82); font-size: .74rem; font-weight: 600; text-align: center; scroll-snap-align: start; }
+  .hs-ic { width: 3.5rem; height: 3.5rem; border-radius: 1.1rem; display: grid; place-items: center; font-size: 1.3rem; color: var(--c, #f87171); background: color-mix(in srgb, var(--c, #f87171) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c, #f87171) 32%, transparent); transition: transform var(--dur-fast) var(--ease-out); }
+  .hs-item:active .hs-ic { transform: scale(.92); }
+  .hs-item:nth-child(1) { --c: #f87171; }
+  .hs-item:nth-child(2) { --c: #fbbf24; }
+  .hs-item:nth-child(3) { --c: #4ade80; }
+  .hs-item:nth-child(4) { --c: #60a5fa; }
+  .hs-item:nth-child(5) { --c: #c4b5fd; }
+
+  /* ── section headings: left aligned, compact ───────────────────────────────────────── */
+  .hp-section .text-center, #hp-about .text-center { text-align: left !important; }
+  .hp-label { margin-bottom: .55rem; font-size: .7rem; }
+  .hp-label::before { flex: 0 0 18px; }
+  .hp-label::after, .hp-divider { display: none; }
+  .hp-h2 { font-size: clamp(1.6rem, 7.4vw, 2rem); text-align: left !important; max-width: none !important; margin: 0 !important; text-wrap: balance; }
+  .hp-sub { margin: .5rem 0 0 !important; font-size: .92rem; line-height: 1.55; text-align: left !important; }
+
+  /* ── swipeable rows (dots come from static/js/mobile-showcase.js) ──────────────────── */
+  [data-snap] {
+    display: flex !important; gap: .8rem; margin: 1.1rem calc(var(--hp-gut) * -1) 0 !important; padding: 0 var(--hp-gut) .35rem;
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--hp-gut);
+    overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  [data-snap]::-webkit-scrollbar { display: none; }
+  [data-snap] > * { flex: 0 0 80%; max-width: 20rem; scroll-snap-align: start; margin: 0 !important; }
+  [data-snap] [data-reveal], [data-snap][data-reveal] { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .m-dots { display: flex; justify-content: center; gap: .4rem; margin-top: .6rem; }
+  .m-dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, .22); transition-property: transform, background-color; transition-duration: var(--dur-fast); }
+  .m-dots i.on { background: var(--primary-text); transform: scale(1.4); }
+
+  /* cards inside the rows: soft glass, no hard frames */
+  #hp-offers .iesa-do-item, #hp-mission .mission-panel, #hp-products .prod-card, #hp-events .ev-card,
+  #hp-benefits .bcard, #hp-partners .pc-v2, #hp-about .mc-v2 {
+    background: linear-gradient(160deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .015)) !important;
+    border: 1px solid rgba(255, 255, 255, .08) !important; border-top-color: rgba(220, 38, 38, .38) !important;
+    box-shadow: none !important; border-radius: 1.1rem !important;
+  }
+
+  /* offers */
+  #hp-offers .iesa-do-item { flex-direction: column; gap: .75rem; padding: 1.15rem; }
+  #hp-offers .iesa-do-icon { width: 2.75rem; height: 2.75rem; font-size: 1.15rem; }
+  #hp-offers .iesa-do-content h3 { font-size: 1rem; }
+  #hp-offers .iesa-do-content p { font-size: .84rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .iesa-also-does { display: block; margin-top: 1.1rem; }
+  .iad-label { margin-bottom: .45rem; }
+  .iad-list { flex-wrap: nowrap; overflow-x: auto; gap: .45rem; margin: 0 calc(var(--hp-gut) * -1); padding: 0 var(--hp-gut); scrollbar-width: none; }
+  .iad-list::-webkit-scrollbar { display: none; }
+  .iad-list li { flex: 0 0 auto; padding: .4rem .8rem; border: 1px solid rgba(255, 255, 255, .1); border-radius: 999px; background: rgba(255, 255, 255, .04); color: rgba(255, 255, 255, .72); white-space: nowrap; }
+  #hp-offers .iesa-tagline { margin: 1.25rem 0 0; padding: 0 0 0 1rem; text-align: left; background: none !important; border: 0 !important; border-left: 3px solid var(--primary) !important; border-radius: 0; box-shadow: none !important; }
+  .iesa-tagline .tagline-main { font-size: 1.12rem; line-height: 1.4; }
+  .offers-footer { display: none; }
+
+  /* numbers band: 2x2 tiles */
+  #hp-stats { padding: 1.75rem 0; }
+  #hp-stats .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; border-radius: 1.1rem; }
+  #hp-stats .stat-cell { padding: 1.1rem .75rem; border-right: 0 !important; border-bottom: 0 !important; }
+  #hp-stats .stat-cell:nth-child(odd) { border-right: 1px solid rgba(255, 255, 255, .06) !important; }
+  #hp-stats .stat-cell:nth-child(-n+2) { border-bottom: 1px solid rgba(255, 255, 255, .06) !important; }
+  #hp-stats .stat-ic { font-size: 1.35rem; margin-bottom: .35rem; }
+  #hp-stats .stat-value { font-size: 1.1rem !important; margin-bottom: .25rem; letter-spacing: -.02em; }
+  #hp-stats .stat-label { font-size: .7rem; letter-spacing: .02em; text-transform: none; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* mission */
+  .mission-grid { gap: 0 !important; }
+  .mission-list { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; margin: 1.1rem 0 1.25rem; }
+  .mission-list li { flex-direction: column; gap: .45rem; padding: .85rem; font-size: .84rem; line-height: 1.35; border: 1px solid rgba(255, 255, 255, .08); border-radius: .9rem; background: rgba(255, 255, 255, .03); }
+  .mission-lhs .hero-btn-p { width: 100% !important; justify-content: center; min-height: 50px; }
+  .mission-rhs { margin-top: 1.5rem; }
+  #hp-mission .mission-panel { padding: 1.15rem; }
+  .mp-icon { width: 2.5rem; height: 2.5rem; margin-bottom: .6rem; }
+
+  /* products / events: image-led cards */
+  #hp-products .products-grid, #hp-events .events-grid { margin-top: 1.1rem; }
+  #hp-events .ev-card { flex: 0 0 84%; }
+  .ev-img { aspect-ratio: 16 / 10; }
+  .ev-body { padding: 1rem 1.1rem 1.1rem; }
+  .ev-title { font-size: 1.02rem; }
+  .ev-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: 0 1 auto; }
+  .ev-foot { display: none; }
+  #hp-events .text-center:last-child, #hp-benefits .text-center:last-child { margin-top: 1.1rem !important; }
+  #hp-events .hero-btn-p, #hp-benefits .hero-btn-p { width: 100%; justify-content: center; min-height: 50px; }
+
+  /* team */
+  #hp-about .pres-hero { grid-template-columns: auto 1fr; gap: 1rem; margin: 1.25rem 0 0; padding: 1.1rem; text-align: left; border-radius: 1.1rem; }
+  #hp-about .pres-photo, #hp-about .pres-init { width: 76px; height: 76px; font-size: 2rem; box-shadow: none; margin: 0; }
+  #hp-about .pres-name { font-size: 1.25rem; margin-bottom: .1rem; }
+  #hp-about .pres-role { margin-bottom: .5rem; font-size: .82rem; }
+  #hp-about .pres-hero > :first-child { grid-row: 1; }
+  #hp-about .pres-head { align-self: center; }
+  #hp-about .pres-bio { grid-column: 1 / -1; font-size: .86rem; line-height: 1.55; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+  #hp-about .text-center[style] { margin-top: 1.75rem !important; margin-bottom: 0 !important; }
+  #hp-about .members-grid { grid-template-columns: none !important; }
+  #hp-about .mc-v2 { flex: 0 0 42% !important; max-width: 11rem !important; flex-direction: column; text-align: center; gap: .6rem; padding: 1rem .75rem; }
+  .mc-photo, .mc-ava { width: 64px; height: 64px; }
+  .mc-desc, .mc-more { display: none !important; }
+  .mc-pos { margin-bottom: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* partners */
+  .marquee-wrap { margin: 1.1rem 0 0; }
+  #hp-partners .partners-grid-v2 { margin-top: 1rem; }
+
+  /* benefits */
+  #hp-benefits .benefits-grid { margin-top: 1.1rem; }
+  #hp-benefits .bcard { padding: 1.15rem; }
+  .bi { width: 2.75rem; height: 2.75rem; margin-bottom: .7rem; }
+  .b-desc { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+  /* donate */
+  #hp-donate { padding: 2.25rem 0; }
+  .don-grid { gap: 1.25rem !important; }
+  .don-desc { margin: .6rem 0 1rem; font-size: .92rem; }
+  .don-prog-wrap { padding: 1rem; margin-bottom: 1rem; }
+  .don-btn { width: 100%; justify-content: center; min-height: 50px; }
+  #hp-donate .don-pillar { display: grid; grid-template-columns: auto 1fr; column-gap: .85rem; align-items: center; padding: .85rem 0; border: 0; border-top: 1px solid rgba(255, 255, 255, .07); border-radius: 0; background: none; }
+  #hp-donate .dp-icon { grid-row: span 2; margin: 0; font-size: 1.25rem; width: 2.5rem; text-align: center; }
+  #hp-donate .dp-title { margin: 0; }
+  #hp-donate [data-reveal][style] { gap: 0 !important; }
+}
+
+@media (max-width: 767.98px) and (prefers-reduced-motion: reduce) {
+  .hero-ticker-track, #hp-hero::before, #hp-hero::after, .hero-orbit .ring { animation: none; }
+}
