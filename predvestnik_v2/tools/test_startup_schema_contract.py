@@ -9,9 +9,10 @@ boot = (ROOT / "bot/__main__.py").read_text(encoding="utf-8")
 profile = (ROOT / "FastAPI/routers/profile.py").read_text(encoding="utf-8")
 
 assert re.search(r'lifespan="off"', boot), "the premise of this test: the bot hosts FastAPI without lifespan"
-startup = boot.split("async with pool.acquire() as _startup_connection:", 1)[1].split('logger.info("✅ База данных готова!")', 1)[0]
+assert "await ensure_runtime_schema(pool)" in boot, "the bot start-up runs the shared schema step"
+schema = (ROOT / "bot/startup_schema.py").read_text(encoding="utf-8")
 for repo in ("skins_v3", "marks_v1", "presence_v1", "vip_v2", "public_profiles_v1", "achievements_v1"):
-    assert re.search(rf"await {repo}_repo\.ensure_tables\(_startup_db\)", startup), f"{repo} tables must be created by the bot start-up step"
+    assert f'("{repo}", {repo}_repo.ensure_tables)' in schema, f"{repo} tables must be created by the bot start-up step"
 
 # The profile read of the worn look creates the tables itself before reading (belt and braces for a stand or a database that missed the start-up step).
 own_look = profile.split("async def _own_look(", 1)[1].split("async def ", 1)[0]

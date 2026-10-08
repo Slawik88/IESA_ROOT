@@ -159,38 +159,10 @@ async def main():
 
     logger.info("🗄️  Инициализация схемы БД...")
     await init_db()
-    # FastAPI is deliberately co-hosted with lifespan disabled so that the bot
-    # owns startup.  New Mini App tables/feature flags therefore must be
-    # initialised here too; otherwise they exist only in a standalone ASGI run.
-    from infrastructure.pg_adapter import PGAdapter
-    from infrastructure.repositories import system_flags
-    from infrastructure.repositories import rhythm_v2 as rhythm_v2_repo
-    from infrastructure.repositories import mafia_v1 as mafia_v1_repo
-    from infrastructure.repositories import minesweeper_v2 as minesweeper_v2_repo
-    from infrastructure.repositories import pets_v1 as pets_v1_repo
-    from infrastructure.repositories import achievements_v1 as achievements_v1_repo
-    from infrastructure.repositories import public_profiles_v1 as public_profiles_v1_repo
-    from infrastructure.repositories import global_skins_v1 as global_skins_v1_repo
-    from infrastructure.repositories import vip_v2 as vip_v2_repo
-    from infrastructure.repositories import player_exchange_v1 as player_exchange_v1_repo
-    from infrastructure.repositories import skins_v3 as skins_v3_repo
-    from infrastructure.repositories import marks_v1 as marks_v1_repo
-    from infrastructure.repositories import presence_v1 as presence_v1_repo
-    async with pool.acquire() as _startup_connection:
-        _startup_db = PGAdapter(_startup_connection)
-        await system_flags.ensure_table(_startup_db)
-        await rhythm_v2_repo.ensure_tables(_startup_db)
-        await mafia_v1_repo.ensure_tables(_startup_db)
-        await minesweeper_v2_repo.ensure_tables(_startup_db)
-        await pets_v1_repo.ensure_tables(_startup_db)
-        await achievements_v1_repo.ensure_tables(_startup_db)
-        await public_profiles_v1_repo.ensure_tables(_startup_db)
-        await global_skins_v1_repo.ensure_tables(_startup_db)
-        await vip_v2_repo.ensure_tables(_startup_db)
-        await player_exchange_v1_repo.ensure_tables(_startup_db)
-        await skins_v3_repo.ensure_tables(_startup_db)      # образы, Эссенция: профиль читает их в первом же запросе
-        await marks_v1_repo.ensure_tables(_startup_db)      # регалии
-        await presence_v1_repo.ensure_tables(_startup_db)   # «был в сети»
+    # FastAPI is deliberately co-hosted with lifespan disabled so that the bot owns startup:
+    # the tables and flags the Mini App reads on its first requests are created here (bot/startup_schema.py, shared with the local stand).
+    from bot.startup_schema import ensure_runtime_schema
+    await ensure_runtime_schema(pool)
     logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
