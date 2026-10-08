@@ -80,7 +80,7 @@ async def main() -> None:
     assert without_frame["composition"]["dominant_lineup"] == "forest"
     assert without_frame["composition"]["identity"] == {"lead_slot": "avatar_halo", "ambient_slot": None}
 
-    # Paid shop cosmetics remain visible without a hidden global VIP paywall.
+    # Owner view: paid shop cosmetics are usable without VIP (others' view is gated in appearance_public_v3).
     inactive_public = await _active({
         "avatar_frame": "cos_avatar_frame_moon_lotus",
         "profile_bg": "cos_profile_bg_forest",
@@ -122,17 +122,17 @@ async def main() -> None:
     assert wardrobe["saved_look"]["vip_inactive"] is False
     assert wardrobe["transfers"]["available"] is False
 
-    # Compact leaderboard/clan projection must follow the same entitlement
-    # rule as the full public profile; it previously hid every non-VIP row.
+    # Policy 2026-10 (core/appearance_v3.py): the owner always sees their own look, but the compact
+    # projection used for other players' rows shows a nickname style only while the owner has VIP.
+    rows = [(42, "name_glow", "cos_name_glow_moon"), (42, "title", "cos_title_forest_wanderer")]
     with patch("services.cosmetics.is_vip_active_batch", new=AsyncMock(return_value=set())):
-        flex = await get_flex_cosmetics_batch(
-            _RowsDb([(42, "name_glow", "cos_name_glow_moon"), (42, "title", "cos_title_forest_wanderer")]),
-            [42],
-        )
+        assert await get_flex_cosmetics_batch(_RowsDb(rows), [42]) == {}
+    with patch("services.cosmetics.is_vip_active_batch", new=AsyncMock(return_value={42})):
+        flex = await get_flex_cosmetics_batch(_RowsDb(rows), [42])
     assert flex[42]["glow"] == COSMETICS["cos_name_glow_moon"]["css"]
     assert flex[42]["title"] == COSMETICS["cos_title_forest_wanderer"]["text"]
 
-    print("OK: paid cosmetics stay public without VIP; per-item gates and private wardrobe remain intact")
+    print("OK: owner sees own look without VIP; others see nickname styles only with VIP; wardrobe stays private")
 
 
 if __name__ == "__main__":

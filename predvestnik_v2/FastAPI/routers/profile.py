@@ -760,7 +760,8 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).
         "avatar":       await _vip_avatar(db, target_id),
-        "cosmetics":    await get_active_cosmetics(db, target_id),
+        # others see an owner's look only while the owner has VIP (core/appearance_v3.py)
+        "cosmetics":    await get_active_cosmetics(db, target_id) if row["is_vip"] else {},
         "sky_sigil":     await _sky_sigil(db, target_id),
         "supporter_badge": await _supporter_badge(db, target_id),
     }

@@ -27,8 +27,8 @@ function v3FullSet(key, value) {
   _haptic('select'); loadTopV3();
 }
 function _v3FullRow(r, scope) {
-  const sub = scope === 'chats' ? `<small>${fmt(r.users)} уч.</small>` : '';
-  return `<li class="${r.is_me ? 'is-me' : ''}"><i>${r.place}</i><span>${_profileEsc(r.name)}${r.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}${sub}</span><b>${fmt(r.count)}</b></li>`;
+  if (scope === 'chats') return `<li><div class="v3-rowbtn"><i>${r.place}</i><span>${_profileEsc(r.name)}<small>${fmt(r.users)} уч.</small></span><b>${fmt(r.count)}</b></div></li>`;
+  return `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.count)}</li>`;
 }
 function renderTopV3() {
   const host = el('pg-top'); if (!host) return;

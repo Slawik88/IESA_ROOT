@@ -11,10 +11,10 @@ function _v3TopShell() {
 // Ответы двух API приводятся к одному виду: {top:[{place,name,value,is_vip,is_me}], personal:{place,value}|null}
 function _v3TopNormalize(id, d) {
   if (id === 'rhythm') {
-    return { top: (d.top || []).slice(0, 5).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', value: r.best_score, is_vip: false, is_me: false })),
+    return { top: (d.top || []).slice(0, 5).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: false, is_me: false, style: null })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
   }
-  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, value: r.count, is_vip: r.is_vip, is_me: r.is_me })),
+  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, style: r.style })),
     personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
 }
 function _v3TopTabs() {
@@ -34,7 +34,7 @@ function renderV3Top(state) {
   else if (!data.top.length) body = '<div class="v3-empty">Пока никого в рейтинге. Станьте первым.</div>';
   else {
     const inTop = data.top.some(r => r.is_me);
-    body = `<ol class="v3-top-list">${data.top.map(r => `<li class="${r.is_me ? 'is-me' : ''}"><i>${r.place}</i><span>${_profileEsc(r.name)}${r.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}</span><b>${fmt(r.value)}</b></li>`).join('')}</ol>
+    body = `<ol class="v3-top-list">${data.top.map(r => `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.value)}</li>`).join('')}</ol>
       <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span>${tab.id !== 'rhythm' ? `<button type="button" class="v3-link" onclick="openTopV3('global','${tab.id}')">Весь топ ›</button>` : ''}</div>`;
   }
   host.innerHTML = `${head}<div class="v3-top-body">${body}</div>`;
@@ -63,4 +63,10 @@ function v3LazyTop() {
     if (entries.some(entry => entry.isIntersecting)) { observer.disconnect(); loadV3Top(); }
   }, { rootMargin: '240px 0px' });
   _v3TopObserver.observe(host);
+}
+
+// Строка рейтинга: нажатие открывает публичную карточку игрока (ник со стилем виден только у VIP)
+function _v3RowButton(row, value) {
+  const open = row.ref && /^[A-Za-z0-9_-]{16,64}$/.test(row.ref) ? ` onclick="openPublicProfile('${row.ref}')"` : ' disabled';
+  return `<button type="button" class="v3-rowbtn"${open} aria-label="Профиль игрока ${_profileEsc(row.name)}"><i>${row.place}</i><span>${apWho(row)}</span><b>${fmt(value)}</b></button>`;
 }

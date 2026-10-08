@@ -56,8 +56,36 @@ for level in range(1, 8):
 controller = (STATIC / "app.18.js").read_text(encoding="utf-8")
 assert "fx-${i}" in controller and "v3_fx_cap" in controller and "visibilitychange" in controller
 assert not re.search(r"classList\.add\([`'\"]skin-", controller), "tier classes must not use the skin- prefix"
-for frame in re.findall(r"@keyframes [a-z0-9]+ \{(.*?)\}\s*(?=\n|$)", fx, re.S):
-    props = set(re.findall(r"([a-z-]+)\s*:", frame))
-    assert props <= {"transform", "opacity"}, props
+def keyframe_props(css: str) -> dict[str, set[str]]:
+    result, pos = {}, 0
+    while (start := css.find("@keyframes", pos)) != -1:
+        name = css[start:].split("{", 1)[0].split()[1]
+        depth, i = 0, css.index("{", start)
+        for j in range(i, len(css)):
+            depth += css[j] == "{"
+            depth -= css[j] == "}"
+            if depth == 0:
+                break
+        result[name] = set(re.findall(r"([a-z-]+)\s*:", css[i + 1:j]))
+        pos = j
+    return result
+
+
+appearance = (STATIC / "appearance-v3.css").read_text(encoding="utf-8")
+home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
+for sheet in (fx, appearance, home_css, css):
+    for name, props in keyframe_props(sheet).items():
+        assert props <= {"transform", "opacity"}, (name, props)
+assert len(keyframe_props(fx)) >= 4 and len(keyframe_props(appearance)) >= 4
+for level in range(1, 7):
+    assert f".ap-t{level}" in appearance, level
 assert 'skins-v3.css' in index and 'fx-tiers-v3.css' in index
+# Public card: skins scoped to the card, new card replaces the legacy opener, rows are clickable.
+skins_css = (STATIC / "skins-v3.css").read_text(encoding="utf-8")
+assert all(f".v3-scope.skin-{name}" in skins_css for name in ("deep-water", "neon-lime", "lunar-archive", "void-atlas", "default"))
+card = (STATIC / "app.21.js").read_text(encoding="utf-8")
+assert "window.openPublicProfile = openPublicCardV3" in card and "/public-profile-v3/" in card
+assert "look.visible" in card and "skin-default" in card, "hidden look must fall back to the neutral palette"
+top = (STATIC / "app.17.js").read_text(encoding="utf-8")
+assert "_v3RowButton" in top and "openPublicProfile(" in top and "appearance-v3.css" in index
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

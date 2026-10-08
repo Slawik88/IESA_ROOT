@@ -1,6 +1,7 @@
 """Policy for visual-only whole-app skin selection and VIP visibility."""
 from __future__ import annotations
 
+from core.appearance_v3 import usable_without_vip
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.global_skins_v1 import DEFAULT_SKIN_ID, SKINS, VERSION, is_known
 from infrastructure.repositories.economy_ledger import apply_balance_change, find_reference_replay
@@ -40,7 +41,8 @@ async def state(db, user_id: int) -> dict:
         await repo.set_selection(db, int(user_id), saved)
     vip_active = await is_vip_active(db, int(user_id))
     saved_definition = SKINS[saved]
-    active = saved if saved == DEFAULT_SKIN_ID or not saved_definition.get("vip_required") or vip_active else DEFAULT_SKIN_ID
+    needs_vip = bool(saved_definition.get("vip_required")) and not usable_without_vip(saved_definition.get("tier"))
+    active = saved if saved == DEFAULT_SKIN_ID or not needs_vip or vip_active else DEFAULT_SKIN_ID
     return {
         "version": VERSION,
         "vip_active": vip_active,

@@ -50,15 +50,18 @@ function renderProfileHome(data) {
   const uname = String(d.username || '').replace(/^@+/, '');
   const rawName = publicName || (uname ? `@${uname}` : 'Игрок');
   const title = typeof d.cosmetics?.title === 'object' ? (d.cosmetics.title.text || d.cosmetics.title.name) : d.cosmetics?.title;
+  const ap = apFromOwner(d.cosmetics);
   const chests = (typeof _sysFlags !== 'undefined' && _sysFlags.content_chests_v1)
     ? _v3Row('chest', 'Сундуки', 'openChestsV1()') : '';
-  return `<section class="v3-id${d.vip ? ' is-vip' : ''}" aria-label="Профиль игрока">
-      <div class="v3-ring">${_v3Ring(capped ? 100 : xp / xpNeed * 100)}<div class="v3-ava" id="pro-showcase-ava">${_v3Avatar(d)}</div><span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
-      <div style="min-width:0"><div class="v3-greet">${_v3Greeting()}</div><div class="v3-name">${_profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left'))}</div>
-      <div class="v3-sub">${_profileEsc([rank, title].filter(Boolean).join(' · ') || 'Игрок')}</div>
+  const identity = `<section class="v3-id${d.vip ? ' is-vip' : ''}${ap.glow ? ' has-glow' : ''}" aria-label="Профиль игрока">
+      <div class="v3-ring">${apHalo(ap)}${_v3Ring(capped ? 100 : xp / xpNeed * 100)}<div class="v3-ava" id="pro-showcase-ava">${_v3Avatar(d)}</div>${apFrame(ap)}<span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
+      <div style="min-width:0"><div class="v3-greet">${_v3Greeting()}</div><div class="v3-name">${apName(ap, _profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left')))}</div>
+      ${apTitle(ap) ? `<div class="pp-title-row">${apTitle(ap)}</div>` : ''}
+      <div class="v3-sub">${_profileEsc([rank, apTitle(ap) ? '' : title].filter(Boolean).join(' · ') || 'Игрок')}</div>
       ${_v3VipSeal(d.vip)}
       <div class="v3-sub" style="margin-top:2px">${capped ? 'Максимальный уровень' : `${fmt(left)} XP до ${level + 1} уровня`}</div></div>
-    </section>
+    </section>`;
+  return `${apStage(ap, identity)}
     <section class="v3-next-wrap" id="v3-next" aria-live="polite"><div class="sk" style="height:76px;border-radius:14px"></div></section>
     ${_v3TodayShell()}
     <section class="v3-bal" aria-label="Баланс">
