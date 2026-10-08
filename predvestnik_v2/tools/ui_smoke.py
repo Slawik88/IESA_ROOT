@@ -81,7 +81,7 @@ def open_app(stand: Stand, browser, width: int):
     page = ctx.new_page()
     page.add_init_script(INIT)
     probe = Probe(page)
-    page.goto(stand.url)
+    go(page, stand.url)
     page.wait_for_function(PROFILE_READY, timeout=20000)
     page.wait_for_timeout(1200)
     probe.take()
@@ -97,6 +97,11 @@ def run_js(page, js: str) -> str | None:
         return "opener threw: " + str(exc).splitlines()[0][:140]
 
 
+def go(page, url: str) -> None:
+    """Navigate without waiting for the `load` event: the sandbox has no internet, so web fonts and telegram-web-app.js may hang it. The app readiness is awaited separately."""
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+
+
 def settle(page) -> None:
     """Let the screen's own requests finish: a list that renders after the first second must still be judged."""
     try:
@@ -108,7 +113,7 @@ def settle(page) -> None:
 
 def check_screen(page, probe: Probe, name: str, js: str, width: int, shots: Path | None) -> tuple[list[str], list[str]]:
     fails: list[str] = []; warns: list[str] = []
-    page.goto(page.home)
+    go(page, page.home)
     page.wait_for_function(PROFILE_READY, timeout=20000)
     page.wait_for_timeout(500)
     probe.take()
@@ -159,8 +164,8 @@ def sweep_screens(stand, browser, args, results) -> None:
         for path in PAGES:
             if args.only and path not in args.only:
                 continue
-            page.goto(stand.base + path); settle(page); probe.take()
-            page.goto(stand.base + path); settle(page)
+            go(page, stand.base + path); settle(page); probe.take()
+            go(page, stand.base + path); settle(page)
             fails = [g for g in page.evaluate(GEOMETRY, width) if "dock" not in g] + [x for x in page.evaluate(BLOCKS) if x.startswith("UA-DEFAULT")] + probe.take()
             results[f"{path} @{width}"] = (fails, [])
             if shots:
@@ -177,12 +182,16 @@ def sweep_crawl(stand, browser, args, results) -> None:
         for name, js in SCREENS:
             if args.only and name not in args.only:
                 continue
-            page.goto(page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
+            go(page, page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
             run_js(page, js); settle(page)
             labels = page.evaluate(CANDIDATES, SKIP_CLICK)[: args.taps]
             for index, label in labels:
-                page.goto(page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
-                run_js(page, js); settle(page); probe.take()
+                try:
+                    go(page, page.home); page.wait_for_function(PROFILE_READY, timeout=20000)
+                    run_js(page, js); settle(page); probe.take()
+                except Exception as exc:  # noqa: BLE001 - a slow load of the shell is the sandbox, not a finding of this control
+                    results[f"{name} > {label[:40]} @{width}"] = ([], ["could not start: " + str(exc).splitlines()[0][:100]])
+                    continue
                 fails: list[str] = []
                 try:
                     pressed = page.evaluate(PRESS, [index, label])
@@ -207,7 +216,11 @@ def sweep_skins(stand, browser, args, results) -> None:
         for tier in ("D", "SSS"):
             reseed(args.dsn, skin=sid, tier=tier)
             for width in args.widths:
-                ctx, page, probe = open_app(stand, browser, width)
+                try:
+                    ctx, page, probe = open_app(stand, browser, width)
+                except Exception as exc:  # noqa: BLE001 - the app did not come up for this look: that is a finding
+                    results[f"{sid} {tier} @{width}"] = (["app did not start: " + str(exc).splitlines()[0][:120]], [])
+                    continue
                 fails = page.evaluate(GEOMETRY, width) + check_dock(page, width)
                 run_js(page, "openLooksModal()"); page.wait_for_timeout(900)
                 fails += page.evaluate(GEOMETRY, width) + probe.take()
