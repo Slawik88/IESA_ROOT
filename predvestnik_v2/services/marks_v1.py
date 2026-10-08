@@ -1,14 +1,13 @@
-"""Player marks: composition for the profile hero, public card, lists and the «all marks» sheet; hand-given marks for the console.
+"""Player marks («Регалии» for players): composition for the profile hero, public card, lists and the «all» sheet; hand-given marks for the console.
 
-Rules live in core/marks_v1.py. Staff marks come from the global rank, granted marks from the table, earned marks from the player's own
-facts (streak, joined date, messages, collection, season skins), so a mark can never be forged or go stale.
+Rules live in core/marks_v1.py. Staff and special marks are only what the console gave. Earned marks are awarded by this module the first time the
+player's own facts meet a rule (the best streak ever counts) and stay stored, so nothing is lost when a streak breaks and nothing is farmed twice.
 """
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 
-from core.marks_v1 import GRANTABLE, MARKS, compose, earned_state, ordered, public, staff_mark
+from core.marks_v1 import GRANTABLE, MARKS, PLAYER_NAME, compose, earned_state, ordered, public, staff_hint
 from core.skins_v3_catalog import SKINS
 from core.skins_v3_collection import PERMANENT
 from infrastructure.repositories import marks_v1 as repo
@@ -17,10 +16,6 @@ from infrastructure.repositories import skins_v3 as skins_repo
 
 class MarkConflict(RuntimeError):
     """A request that cannot be applied; the message is shown to the admin."""
-
-
-def developer_id() -> int:
-    return int(os.getenv("DEVELOPER_ID", "0") or 0)
 
 
 def _joined_days(joined) -> int:
@@ -36,57 +31,60 @@ def _joined_days(joined) -> int:
 
 
 async def facts_for(db, user_id: int, *, streak=0, joined=None, messages=0) -> dict:
-    """The numbers earned marks are computed from. The caller passes what the profile already loaded; skins are read here."""
+    """The numbers earned marks are computed from. The caller passes what the profile already loaded; skins and the streak history are read here.
+    `streak` is the current one; the fact is the best known: the current, the one lost at the last break, or the legacy best."""
     await skins_repo.ensure_tables(db)
     owned = await skins_repo.owned(db, user_id)
     maxed = sum(1 for sid, tier in owned.items() if sid in SKINS and SKINS[sid]["tier"] != "D" and tier == SKINS[sid]["tier"])
     seasons = {SKINS[sid]["season"] for sid in owned if sid in SKINS and SKINS[sid].get("season")}
-    return {"streak": int(streak or 0), "joined_days": _joined_days(joined), "messages": int(messages or 0),
+    best = max(int(streak or 0), await repo.best_streak_before(db, user_id))
+    return {"streak": best, "joined_days": _joined_days(joined), "messages": int(messages or 0),
             "owned_permanent": sum(1 for sid in owned if sid in PERMANENT), "maxed": maxed, "seasons": seasons}
 
 
-async def marks_for(db, user_id: int, *, global_rank: int, streak=0, joined=None, messages=0) -> list[dict]:
+async def _worn(db, user_id: int, facts: dict) -> list[dict]:
+    """Stored marks plus earned ones that the facts already satisfy; those are stored on the spot so they are kept for good."""
+    held = await repo.held(db, user_id)
+    for state in earned_state(facts):
+        if state["done"] and state["id"] not in held:
+            try:
+                await repo.award(db, user_id, state["id"])
+            except Exception:
+                pass          # shown anyway through compose; the next view tries to store it again
+    return compose(held_ids=held, facts=facts)
+
+
+async def marks_for(db, user_id: int, *, streak=0, joined=None, messages=0) -> list[dict]:
     """The marks a player wears, heaviest first. Never raises: a broken lookup must not take the profile down."""
     try:
         await repo.ensure_tables(db)
-        facts = await facts_for(db, user_id, streak=streak, joined=joined, messages=messages)
-        return compose(global_rank=global_rank, is_developer=bool(developer_id()) and int(user_id) == developer_id(),
-                       granted_ids=await repo.granted(db, user_id), facts=facts)
+        return await _worn(db, user_id, await facts_for(db, user_id, streak=streak, joined=joined, messages=messages))
     except Exception:
         return []
 
 
-async def sheet(db, user_id: int, *, global_rank: int, streak=0, joined=None, messages=0) -> dict:
-    """Own «all marks» view: worn marks and the earned ones still ahead, with progress."""
+async def sheet(db, user_id: int, *, streak=0, joined=None, messages=0) -> dict:
+    """Own «all» view: worn marks and the earned ones still ahead, with progress."""
     await repo.ensure_tables(db)
     facts = await facts_for(db, user_id, streak=streak, joined=joined, messages=messages)
-    worn = compose(global_rank=global_rank, is_developer=bool(developer_id()) and int(user_id) == developer_id(),
-                   granted_ids=await repo.granted(db, user_id), facts=facts)
+    worn = await _worn(db, user_id, facts)
     ahead = [{**public(s["id"]), "how": MARKS[s["id"]]["how"], "have": s["have"], "need": s["need"]}
              for s in sorted(earned_state(facts), key=lambda s: -MARKS[s["id"]]["weight"]) if not s["done"]]
-    return {"marks": worn, "ahead": ahead, "special": "Метки хелперов и разработчиков идут вместе с рангом, а особые метки выдают разработчики."}
+    return {"marks": worn, "ahead": ahead, "name": PLAYER_NAME,
+            "special": "Заслуженные регалии приходят сами и остаются навсегда, даже за то, что вы сделали раньше. Особые выдают разработчики."}
 
 
 async def top_mark_batch(db, user_ids: list[int]) -> dict[int, dict]:
-    """One compact mark per player for list rows: staff and hand-given marks only (earned ones would cost a query per player)."""
+    """One compact mark per player for list rows: the heaviest stored one (staff, special, or earned and already awarded)."""
     ids = [int(u) for u in dict.fromkeys(user_ids or [])]
     if not ids:
         return {}
     try:
         await repo.ensure_tables(db)
-        marks = ",".join("?" for _ in ids)
-        async with db.execute(f"SELECT user_tg_id, COALESCE(global_rank, 0) FROM users WHERE user_tg_id IN ({marks})", tuple(ids)) as c:
-            ranks = {int(r[0]): int(r[1]) for r in await c.fetchall()}
-        given = await repo.granted_batch(db, ids)
-        dev = developer_id()
+        held = await repo.held_batch(db, ids)
         out = {}
         for uid in ids:
-            found: list[str] = []
-            staff = staff_mark(ranks.get(uid, 0), is_developer=bool(dev) and uid == dev)
-            if staff:
-                found.append(staff)
-            found.extend(m for m in given.get(uid, []) if m in MARKS and MARKS[m]["kind"] == "granted")
-            top = ordered(found)
+            top = ordered(held.get(uid, []))
             if top:
                 out[uid] = {"id": top[0]["id"], "title": top[0]["title"], "glyph": top[0]["glyph"], "tone": top[0]["tone"]}
         return out
@@ -98,8 +96,7 @@ async def grant(db, user_id: int, mark_id: str, actor_id: int, reason: str) -> s
     """Give a hand-given mark. Returns the mark title; raises MarkConflict with a message for the admin."""
     if mark_id not in GRANTABLE:
         kind = MARKS.get(mark_id, {}).get("kind")
-        raise MarkConflict("Эта метка идёт вместе с рангом и не выдаётся вручную." if kind == "staff"
-                           else "Эта метка считается сама по данным игрока." if kind == "earned" else "Такой метки нет.")
+        raise MarkConflict("Эту метку сервер выдаёт сам, когда игрок её заслужит, и она остаётся навсегда." if kind == "earned" else "Такой метки нет.")
     reason = (reason or "").strip()[:200]
     if not reason:
         raise MarkConflict("Укажите причину: она попадёт в журнал.")
@@ -125,6 +122,13 @@ async def revoke(db, user_id: int, mark_id: str, actor_id: int, reason: str) -> 
 
 
 async def admin_view(db, user_id: int) -> dict:
+    """What the console shows for a player: given marks, earned ones the server stored, the log, what can be given, and a hint for the bot rank."""
     await repo.ensure_tables(db)
-    return {"given": [public(m) for m in await repo.granted(db, user_id) if m in MARKS], "history": await repo.history(db, user_id),
-            "grantable": [{"id": m, "title": MARKS[m]["title"], "glyph": MARKS[m]["glyph"], "desc": MARKS[m]["desc"]} for m in GRANTABLE]}
+    held = [m for m in await repo.held(db, user_id) if m in MARKS]
+    async with db.execute("SELECT COALESCE(global_rank, 0) FROM users WHERE user_tg_id=?", (int(user_id),)) as c:
+        row = await c.fetchone()
+    rank = int(row[0]) if row else 0
+    hint = staff_hint(rank)
+    return {"given": [public(m) for m in held if MARKS[m]["kind"] != "earned"], "earned": [public(m) for m in held if MARKS[m]["kind"] == "earned"],
+            "history": await repo.history(db, user_id), "rank": rank, "rank_hint": public(hint) if hint and hint not in held else None,
+            "grantable": [{"id": m, "title": MARKS[m]["title"], "glyph": MARKS[m]["glyph"], "desc": MARKS[m]["desc"], "kind": MARKS[m]["kind"]} for m in GRANTABLE]}

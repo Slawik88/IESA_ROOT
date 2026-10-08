@@ -1,6 +1,6 @@
 // ── Мелочи, от которых приятно ───────────────────────────────────────────────────
-// Приветствие по времени игрока (если часы устройства сбиты, берётся время бота), тёплая строка под ним
-// (годовщина, возвращение, серия), счёт чисел при открытии, поздравления с уровнем и серией, пасхалка.
+// Приветствие по времени игрока (если часы устройства сбиты, берётся время бота; в годовщину и после долгого отсутствия оно меняется),
+// счёт чисел при открытии, поздравления с уровнем и серией, пасхалка.
 const _V3_LS = { visit: 'pv_last_visit', level: 'pv_last_level', streak: 'pv_streak_step', anniv: 'pv_anniv_seen', counts: 'pv_counts_v3' };
 const _lsGet = key => { try { return localStorage.getItem(key); } catch (_) { return null; } };
 const _lsSet = (key, value) => { try { localStorage.setItem(key, value); } catch (_) { /* приватный режим: просто без памяти */ } };
@@ -22,18 +22,18 @@ function _v3Hello() {
   const h = v3Hour();
   return h >= 23 || h < 2 ? 'Доброй ночи' : h < 5 ? 'Не спится? Доброй ночи' : h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер';
 }
-function _v3GreetNote(d) {
+// Приветствие подводит к имени, которое стоит строкой ниже: «Добрый день, <ник>». Серия не вставляется в приветствие: она есть в показателях
+// под шапкой и в поздравлении на рубеже, а «приветствие + цифра» читается как галочка. Исключения: годовщина и возвращение, это слова человеку.
+function _v3GreetLead(d) {
   const joined = d?.joined_date ? new Date(d.joined_date) : null, now = new Date();
   if (joined && !Number.isNaN(joined.getTime()) && joined.getMonth() === now.getMonth() && joined.getDate() === now.getDate() && now.getFullYear() > joined.getFullYear()) {
     const years = now.getFullYear() - joined.getFullYear();
-    return `сегодня ${years} ${_v3Plural(years, 'год', 'года', 'лет')} с нами`;
+    return `Сегодня ${years} ${_v3Plural(years, 'год', 'года', 'лет')} с нами`;
   }
-  if (_v3Gap != null && _v3Gap >= 3) return `вас не было ${_v3Gap} ${_v3Plural(_v3Gap, 'день', 'дня', 'дней')}`;
-  const streak = Number(d?.streak) || 0;
-  if (streak >= 2) return `${streak} ${_v3Plural(streak, 'день', 'дня', 'дней')} подряд`;
-  return '';
+  if (_v3Gap != null && _v3Gap >= 3) return 'С возвращением';
+  return _v3Hello();
 }
-function v3GreetHtml(d) { const note = _v3GreetNote(d); return `${_v3Hello()}${note ? ` · ${_profileEsc(note)}` : ''}`; }
+function v3GreetHtml(d) { return `${_profileEsc(_v3GreetLead(d))},`; }
 
 // Сколько осталось до обновления заданий (период считается по UTC)
 function v3UntilReset() {
@@ -56,7 +56,7 @@ function v3CountUp(root) {
   _lsSet(_V3_LS.counts, JSON.stringify({ ...prevAll, ...seen }));
 }
 
-// Один раз за запуск: возвращение, новый уровень, серия, годовщина
+// Один раз за запуск: возвращение, новый уровень, серия, годовщина, новые регалии
 const _V3_STREAK_STEPS = [3, 7, 14, 30, 50, 100, 200, 365];
 function v3Delights(d) {
   const today = new Date().toISOString().slice(0, 10), level = Number(d.account_level) || 1, streak = Number(d.streak) || 0;
@@ -64,8 +64,9 @@ function v3Delights(d) {
   if (prevLevel && level > prevLevel) { setTimeout(() => { toast(`Новый уровень: ${level}`); v3Reward(el('pro-showcase-ava')); }, 700); }
   _lsSet(_V3_LS.level, String(level));
   const step = _V3_STREAK_STEPS.filter(n => streak >= n).pop() || 0, done = Number(_lsGet(_V3_LS.streak)) || 0;
-  if (step > done) setTimeout(() => { toast(`${streak} ${_v3Plural(streak, 'день', 'дня', 'дней')} подряд. Так держать`); v3Reward(el('pro-showcase-ava')); }, 1300);
+  if (step > done) setTimeout(() => { toast(`${streak} ${_v3Plural(streak, 'день', 'дня', 'дней')} подряд. Спасибо, что вы с нами`); v3Reward(el('pro-showcase-ava')); }, 1300);
   if (step !== done) _lsSet(_V3_LS.streak, String(step));   // серия сорвалась: праздник снова станет доступен
+  if (typeof v3MarksNotice === 'function') setTimeout(() => v3MarksNotice(d.marks), 3200);   // после поздравлений: тост один и заменяет предыдущий
   const joined = d.joined_date ? new Date(d.joined_date) : null, now = new Date();
   if (joined && joined.getMonth() === now.getMonth() && joined.getDate() === now.getDate() && now.getFullYear() > joined.getFullYear() && _lsGet(_V3_LS.anniv) !== today) {
     _lsSet(_V3_LS.anniv, today); setTimeout(() => v3Reward(el('pro-showcase-ava')), 1000);

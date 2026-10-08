@@ -1,14 +1,16 @@
-"""Player marks («метки»): short status tags shown in a profile hero and, for the most important one, next to a name in lists.
+"""Player marks. Players see them as «Регалии» (the word «метки» stays between us: code, console, docs).
 
-Three kinds, and the kind decides who may give a mark (nobody can award themselves anything):
+A mark is a short badge shown in a profile hero and, for the heaviest one, next to a name in lists. Three kinds, and the kind decides who may give it
+(nobody can award themselves anything):
 
-* staff    : follows the global rank of the bot (helper, senior helper, developer). Never stored: promote or demote the rank and the
-             mark follows. The only way to wear one is to hold the rank.
-* granted  : given by hand by a developer through the console (permission `marks_manage`), with a reason and a log entry; can be taken back.
-* earned   : computed from the player's own data every time it is shown (a streak, years with the project, a collection, a season skin).
-             Nothing is stored, so it can never go stale and never needs a migration.
+* staff    : who runs the bot (developer, senior helper, helper). Given by hand through the console (permission `marks_manage`), never automatically:
+             the rank in the bot and the badge in the profile are separate decisions.
+* granted  : special marks (founder, partner, champion…), also by hand, with a reason and a log entry; can be taken back.
+* earned   : given by the server the first time the player's own data satisfies the rule (a streak, years with the project, a collection, a season
+             skin) and kept for good: «retroactive» (the best streak ever counts, not only the current one) and sticky (a streak that breaks later
+             takes nothing away). The player never has to farm the same thing twice.
 
-Display: weight decides the order (staff first), a hero shows the first three and a count of the rest, a list row shows one glyph.
+Display: weight decides the order (staff first), a hero shows the two heaviest as chips and all the rest as small icons, a list row shows one glyph.
 Everything here is pure; storage is infrastructure/repositories/marks_v1.py, composition is services/marks_v1.py.
 """
 from __future__ import annotations
@@ -16,16 +18,16 @@ from __future__ import annotations
 from typing import Final
 
 KINDS: Final = ("staff", "granted", "earned")
+PLAYER_NAME: Final = "Регалии"
 # CSS tone of the chip (marks-v3.css); staff tones are fixed colours so that staff are recognisable on any skin
 TONES: Final = ("dev", "staff", "gold", "green", "pink", "orange", "violet", "acc")
-HERO_LIMIT: Final = 3
 
 # id: (title, glyph, kind, tone, weight, what it means, how it is obtained)
 _ROWS: Final = {
-    # staff: from users.global_rank (3 is also the developer id)
-    "developer":     ("Разработчик", "🌌", "staff", "dev", 1000, "Создаёт и ведёт Предвестника.", "Выдаётся автоматически главному разработчику."),
-    "senior_helper": ("Старший хелпер", "⚔️", "staff", "staff", 900, "Следит за порядком во всех чатах бота.", "Выдаётся автоматически вместе с рангом старшего хелпера."),
-    "helper":        ("Хелпер", "🛡", "staff", "staff", 800, "Помогает игрокам и следит за порядком.", "Выдаётся автоматически вместе с рангом хелпера."),
+    # staff: by hand
+    "developer":     ("Разработчик", "🌌", "staff", "dev", 1000, "Создаёт и ведёт Предвестника.", "Выдают разработчики."),
+    "senior_helper": ("Старший хелпер", "⚔️", "staff", "staff", 900, "Следит за порядком во всех чатах бота.", "Выдают разработчики."),
+    "helper":        ("Хелпер", "🛡", "staff", "staff", 800, "Помогает игрокам и следит за порядком.", "Выдают разработчики."),
     # granted by hand
     "founder":  ("Основатель", "👑", "granted", "gold", 700, "Был с проектом с самого начала.", "Выдают разработчики."),
     "partner":  ("Партнёр", "🤝", "granted", "pink", 650, "Ведёт сообщество или делает контент вместе с проектом.", "Выдают разработчики."),
@@ -48,14 +50,13 @@ EARNED_RULES: Final = {
     "tier_master": ("maxed", 3), "collector": ("owned_permanent", 10), "streak30": ("streak", 30), "veteran": ("joined_days", 365),
     "chatter": ("messages", 10_000), "halloween": ("season:halloween", 1), "new_year": ("season:new_year", 1),
 }
-GRANTABLE: Final = tuple(k for k, m in MARKS.items() if m["kind"] == "granted")
+# what the console may give and take back: everything except earned marks
+GRANTABLE: Final = tuple(k for k, m in MARKS.items() if m["kind"] != "earned")
 
 
-def staff_mark(global_rank: int, *, is_developer: bool = False) -> str | None:
-    """Mark id for a bot role, or None for an ordinary player."""
-    if is_developer or int(global_rank or 0) >= 3:
-        return "developer"
-    return {2: "senior_helper", 1: "helper"}.get(int(global_rank or 0))
+def staff_hint(global_rank: int) -> str | None:
+    """The staff mark that matches a bot rank. Only a hint for the console («this helper has no badge yet»): it never shows anything by itself."""
+    return {3: "developer", 2: "senior_helper", 1: "helper"}.get(min(3, max(0, int(global_rank or 0))))
 
 
 def _have(facts: dict, fact: str) -> int:
@@ -85,11 +86,8 @@ def ordered(ids) -> list[dict]:
     return [public(i) for i in sorted(seen, key=lambda i: -MARKS[i]["weight"])]
 
 
-def compose(*, global_rank: int, is_developer: bool, granted_ids, facts: dict) -> list[dict]:
-    ids: list[str] = []
-    staff = staff_mark(global_rank, is_developer=is_developer)
-    if staff:
-        ids.append(staff)
-    ids.extend(i for i in granted_ids if i in MARKS and MARKS[i]["kind"] == "granted")
+def compose(*, held_ids, facts: dict) -> list[dict]:
+    """What a player wears: every stored mark plus every earned rule already met (the server stores those on sight, see services/marks_v1.py)."""
+    ids = [i for i in held_ids if i in MARKS]
     ids.extend(s["id"] for s in earned_state(facts) if s["done"])
     return ordered(ids)

@@ -115,4 +115,25 @@ assert "v3MarksHtml(d.marks, { own: true })" in (STATIC / "app.15.js").read_text
 assert "v3MarkDot(row.mark)" in (STATIC / "app.20.js").read_text(encoding="utf-8") and "mark: r.mark" in top
 assert "_mkSafe" in marks_js and "_MK_TONES.has(m.tone)" in marks_js and "_profileEsc(m.glyph)" in marks_js and "_profileEsc(m.title)" in marks_js and "textContent" not in marks_js
 assert "marks-v3.css" in index and ".v3-mark " in (STATIC / "marks-v3.css").read_text(encoding="utf-8")
+marks_css = (STATIC / "marks-v3.css").read_text(encoding="utf-8")
+# Players see «Регалии», never «метки», and the hero shows every regalia: two chips, the rest as icons, with a cap far above the catalog.
+visible = re.sub(r"//[^\n]*", "", marks_js)
+assert "Регалии" in marks_js and not re.search(r"Метк|метк", visible), "players never see the word «метки»"
+assert "_MK_FULL = 2" in marks_js and "v3-mark--ico" in marks_css and "_MK_ICONS = 18" in marks_js
+assert "mk-head" in marks_css and "position: sticky" in marks_css and "mk-tile" in marks_js and "m.desc" in marks_js, "the sheet keeps its header and spells out every description"
+assert "_profileData" in marks_js and "/marks-v1/me" in marks_js and marks_js.index("_mkShow(known") < marks_js.index("api('/marks-v1/me')"), "the own sheet opens before the request returns"
+assert "v3MarksNotice(d.marks)" in (STATIC / "app.25.js").read_text(encoding="utf-8")
+# The hero greeting leads into the nickname below it; the streak is not glued to it («Добрый день · 12 дней подряд» read as a formality).
+greet_js = (STATIC / "app.25.js").read_text(encoding="utf-8")
+assert "function _v3GreetLead(" in greet_js and "подряд" not in greet_js.split("function v3GreetHtml")[0].split("function _v3GreetLead")[1] and "${_profileEsc(_v3GreetLead(d))}," in greet_js
+# One kind of pill in the hero: regalia. The skin title stays in the preview and in lists, not in the hero next to them.
+assert "apTitle(ap)" not in (STATIC / "app.15.js").read_text(encoding="utf-8") and "apTitle(ap)" not in card
+# Zarniki and VIP are one page that sells itself; the old top-up sheet and VIP modal are gone and every entry point leads to the page.
+store_js = (STATIC / "app.30.js").read_text(encoding="utf-8")
+assert 'id="pg-store"' in index and "store-v3.css" in index and not (STATIC / "app.24.js").exists()
+assert "function openStoreV3(" in store_js and "window.openZarnikiTopup" in store_js and "window.openVipModal" in store_js and "/payments/zarniki/invoice" in store_js and "/vip/purchase" in store_js
+assert "_svReach" in store_js and "_svRecommended" in store_js and "_svSee" in store_js and "apWho(" in store_js, "the page shows what a pack buys and how others see a VIP"
+assert "function openVipModal" not in (STATIC / "app.02.js").read_text(encoding="utf-8") and "_ztPay" not in store_js
+assert "openStoreV3('vip')" in (STATIC / "app.16.js").read_text(encoding="utf-8") and "openStoreV3('zarniki'" in (STATIC / "app.23.js").read_text(encoding="utf-8")
+assert "openStoreV3('zarniki')" in index and "openStoreV3('vip')" in index
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

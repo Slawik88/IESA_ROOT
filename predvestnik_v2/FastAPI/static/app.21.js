@@ -66,7 +66,6 @@ function renderPublicCardV3(d) {
   const hero = `<section class="pp-hero v3-id${d.vip ? ' is-vip' : ''}${ap ? ' has-look' : ''}" aria-label="Игрок">
       <div class="v3-ring pp-ring">${apHalo(ap)}${_v3Ring(capped ? 100 : lv.xp_into / lv.xp_to_next * 100)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}<span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
       <div class="v3-name pp-name">${apName(ap, _profileEsc(name))}</div>
-      ${apTitle(ap) ? `<div class="pp-title-row">${apTitle(ap)}</div>` : ''}
       <div class="v3-sub">${_profileEsc(rank || 'Игрок')}${_profileEsc(joined)}</div>
       ${v3MarksHtml(d.marks)}
       ${_ppPresence(d.presence, d)}${_v3VipSeal(d.vip)}
