@@ -140,3 +140,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-stats b { font-size: 21px; }
 .v3-qring svg, .v3-aspect-ring svg { stroke-width: 6; }
 .v3-bar-me svg { stroke-width: 5; }
+
+/* пока грузится другой период, прежний список чуть тускнеет, но только если ответ задержался (быстрый ответ заменяет список до начала анимации) */
+@keyframes v3dim { to { opacity: .5; } }
+.v3-top-body.is-loading { animation: v3dim .25s ease .25s forwards; }

@@ -1,49 +1,131 @@
 /* ═══ STORE V3 · «Зарники и VIP» ═══
-   Страница-витрина в языке каркаса: строки без карточек, один главный CTA, под выбранный пакет сразу видно, на что хватит.
-   Использует каркас лент витрины образов (.lk-top, .lk-seg, .lk-wallet) и токены текущего образа. Движения нет. */
+   Компактные карточки вместо длинных списков: пакеты 2×2, плитки «хватит на», шесть-семь плиток «что даёт», срок четырьмя кнопками, значок сеткой.
+   Каркас (.lk-top, .lk-seg, .lk-wallet) общий с витриной образов; цвета берутся из токенов текущего образа. Движения нет, кроме одноразового (motion-v3.css). */
 
-.sv-scope .v3-title { margin-top: 18px; }
-.sv-scope .v3-sub { max-width: 40ch; }
-.sv-ok { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 16px 0 0; padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, var(--v3-ok) 14%, transparent); color: var(--v3-ink); font-size: 14px; }
-.sv-ok b { color: var(--v3-ok); font-size: 17px; }
-.sv-goal { margin: 16px 0 0; color: var(--v3-ink); font-size: 14.5px; line-height: 1.4; }
-
-/* пакеты Stars */
-.sv-packs { display: grid; margin-top: 4px; }
-.sv-pack, .sv-vip { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 64px; padding: 10px 14px; border: 0; border-radius: 16px; background: none; color: var(--v3-ink); font: inherit; text-align: left; cursor: pointer; }
-.sv-pack + .sv-pack, .sv-vip + .sv-vip { margin-top: 2px; }
-.sv-pack b, .sv-vip b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.sv-pack small, .sv-vip small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.35; }
-.sv-pack-end, .sv-vip-end { flex: none; text-align: right; }
-.sv-pack-end small { color: var(--v3-acc); font-weight: 600; }
-.sv-pack.is-on { background: color-mix(in srgb, var(--v3-acc) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }
-.sv-pack:active, .sv-vip:active { opacity: .7; }
-.sv-buy { width: 100%; min-height: 54px; margin-top: 16px; font-size: 16px; }
+.sv-scope { display: grid; align-content: start; gap: 14px; }
+.sv-scope .lk-seg { margin: 0; }
+.sv-sec { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 6px 0 -4px; }
+.sv-sec small { color: var(--v3-dim); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-fine { margin: 0; color: var(--v3-dim); font-size: 11.5px; line-height: 1.45; text-align: center; }
+.sv-fine--tight { margin-top: -6px; text-align: left; }
+.sv-goal { margin: 0; color: var(--v3-ink); font-size: 14px; line-height: 1.4; }
+.sv-ok { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: 14px; background: color-mix(in srgb, var(--v3-ok) 14%, transparent); font-size: 14px; }
+.sv-ok b { color: var(--v3-ok); font-size: 16px; }
+.sv-buy { width: 100%; min-height: 54px; font-size: 16px; }
 .sv-buy.is-busy { opacity: .6; }
 
-/* «на что хватит» */
-.sv-reach { list-style: none; margin: 0; padding: 0; }
-.sv-reach li { display: flex; align-items: center; gap: 10px; min-height: 64px; }
-.sv-reach li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
-.sv-reach b { display: block; font-size: 15px; font-weight: 600; }
-.sv-reach small { color: var(--v3-dim); font-size: 12.5px; }
+/* общая подложка карточки */
+.sv-hero, .sv-pack, .sv-tile, .sv-status, .sv-mission, .sv-perks li, .sv-term, .sv-badge { background: color-mix(in srgb, var(--v3-ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
 
-/* VIP */
-.sv-state { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: var(--v3-faint); }
-.sv-state b { font-size: 16px; } .sv-state span { color: var(--v3-dim); font-size: 13px; }
-.sv-state.is-on { background: color-mix(in srgb, var(--v3-vip, #f1cf7e) 16%, transparent); } .sv-state.is-on b { color: var(--v3-vip, #f1cf7e); }
-.sv-see { list-style: none; margin: 4px 0 0; padding: 0; }
-.sv-see li { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 52px; font-size: 15px; }
-.sv-see li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
-.sv-see i { color: var(--v3-dim); font-size: 12px; font-style: normal; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.sv-see .v3-who-wrap { min-width: 0; }
-.sv-perks { list-style: none; margin: 4px 0 0; padding: 0; }
-.sv-perks li { position: relative; padding: 10px 0 10px 26px; color: var(--v3-ink); font-size: 14.5px; line-height: 1.4; }
-.sv-perks li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
-.sv-perks li::before { content: "✓"; position: absolute; left: 4px; top: 10px; color: var(--v3-acc); font-weight: 800; }
-.sv-vip-list { display: grid; margin-top: 4px; }
-.sv-vip { background: color-mix(in srgb, var(--v3-acc) 10%, transparent); }
-.sv-vip.is-short { background: none; box-shadow: inset 0 0 0 1px var(--v3-faint); }
-.sv-vip:disabled { opacity: .5; cursor: default; }
-.sv-badge { display: grid; gap: 8px; margin-top: 6px; }
-.sv-badge .v3-pill { justify-self: start; }
+/* ── Зарники ── */
+.sv-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 16px; padding: 14px 16px; border-radius: 20px; background: linear-gradient(135deg, color-mix(in srgb, var(--v3-acc) 18%, transparent), color-mix(in srgb, var(--v3-acc) 5%, transparent)); }
+.sv-hero .v3-eyebrow { display: block; margin-bottom: 4px; }
+.sv-bal { display: block; font: 600 34px/1 var(--v3-font); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.sv-bal i, .sv-pack b i { font-style: normal; font-size: .62em; }
+.sv-hero p { flex: 1 1 150px; max-width: 24ch; margin: 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
+.sv-packs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sv-pack { position: relative; display: grid; gap: 12px; padding: 12px 14px 11px; border: 0; border-radius: 18px; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background .15s, box-shadow .15s; }
+.sv-pack:active, .sv-tile:active, .sv-term:active { opacity: .75; }
+.sv-pack-n { display: flex; align-items: center; min-width: 0; padding-right: 22px; }
+.sv-pack b { font: 600 22px/1.1 var(--v3-font); font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+.sv-pack-hit { position: absolute; top: -8px; left: 12px; padding: 0 8px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 9.5px/16px var(--v3-font); font-style: normal; letter-spacing: .06em; text-transform: uppercase; }
+.sv-pack-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.sv-pack small { color: var(--v3-dim); font-size: 11.5px; white-space: nowrap; }
+.sv-pack small span { color: var(--v3-ok); font-weight: 600; }
+.sv-pack-price { color: var(--v3-ink); font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-pack.is-on { background: color-mix(in srgb, var(--v3-acc) 15%, transparent); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }
+.sv-pack.is-on::after { content: "✓"; position: absolute; top: 12px; right: 12px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 12px; font-weight: 800; }
+.sv-pack:focus-visible, .sv-tile:focus-visible, .sv-term:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
+
+/* на что хватит: три плитки в ряд, знак образа маленький и неподвижный */
+.sv-reach { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; }
+.sv-tile { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 100%; padding: 12px 6px 10px; border: 0; border-radius: 18px; color: inherit; font: inherit; cursor: pointer; }
+.sv-tile b { max-width: 100%; overflow: hidden; font-size: 12.5px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.sv-tile small { display: flex; align-items: center; gap: 6px; color: var(--v3-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-tier { padding: 0 6px; border-radius: 99px; background: color-mix(in srgb, var(--v3-acc) 18%, transparent); color: var(--v3-acc); font: 700 10px/16px var(--v3-font); font-style: normal; letter-spacing: .05em; }
+.sv-ava { position: relative; flex: none; width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--a) 24%, #05060a), #05060a 72%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 26%, transparent); }
+.sv-ava::before { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: conic-gradient(from 210deg, var(--c), var(--a), var(--b), var(--a), var(--c));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--w)), #000 calc(100% - var(--w) + .5px)); mask: radial-gradient(farthest-side, transparent calc(100% - var(--w)), #000 calc(100% - var(--w) + .5px)); }
+.sv-ava::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--c) 75%, transparent), transparent 72%); }
+.sv-ava:is([data-t="4"], [data-t="5"], [data-t="6"]) { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 26%, transparent), 0 0 0 3px #05060a, 0 0 0 4px color-mix(in srgb, var(--a) 46%, transparent); }   /* S и выше: второй тонкий ободок */
+.sv-ava:is([data-t="5"], [data-t="6"]) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--a) 50%, transparent)); }
+
+/* ── VIP ── */
+.sv-status { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 20px; }
+.sv-status b { display: block; font-size: 16px; }
+.sv-status span { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 13px; }
+.sv-status.is-on { background: linear-gradient(135deg, color-mix(in srgb, var(--v3-vip, #f1cf7e) 22%, transparent), color-mix(in srgb, var(--v3-vip, #f1cf7e) 6%, transparent)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-vip, #f1cf7e) 34%, transparent); }
+.sv-status.is-on b { color: var(--v3-vip, #f1cf7e); }
+.sv-ring { flex: none; width: 44px; height: 44px; fill: none; }
+.sv-ring circle { transform: rotate(-90deg); transform-origin: 50% 50%; stroke-width: 3; }
+.sv-ring-track { stroke: var(--v3-track); }
+.sv-ring-arc { stroke: var(--v3-vip, #f1cf7e); stroke-linecap: round; }
+.sv-ring-crown { fill: var(--v3-vip, #f1cf7e); }
+.sv-status:not(.is-on) .sv-ring-crown { fill: var(--v3-dim); }
+
+.sv-mission { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 18px; }
+.sv-mission b { display: block; font-size: 14px; }
+.sv-mission small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; line-height: 1.4; }
+.sv-mission-end { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.sv-dots { display: flex; gap: 4px; }
+.sv-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--v3-track); }
+.sv-dots i.is-on { background: var(--v3-vip, #f1cf7e); }
+.sv-mission-end em { color: var(--v3-dim); font-size: 11.5px; font-style: normal; }
+.sv-mission-end em.is-done { color: var(--v3-ok); }
+
+.sv-see { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sv-prev { position: relative; display: grid; place-items: center; min-height: 206px; padding: 34px 6px 16px; overflow: hidden; isolation: isolate; border-radius: 20px; background: color-mix(in srgb, var(--v3-ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.sv-prev > i { position: absolute; top: 12px; left: 14px; z-index: 3; color: var(--v3-dim); font-size: 10.5px; font-style: normal; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.sv-prev.is-vip { background: var(--v3-bg); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-vip, #f1cf7e) 38%, transparent); }
+.sv-prev.is-vip > i { color: var(--v3-vip, #f1cf7e); }
+.sv-prev .ap-stage { position: absolute; inset: 0; display: grid; place-items: center; padding-top: 18px; --bleed: 0px; }
+.sv-prev .ap-bg { inset: 0; -webkit-mask-image: none; mask-image: none; }
+.sv-prev-id { display: grid; justify-items: center; gap: 9px; min-width: 0; max-width: 100%; }
+.sv-prev .v3-ring { margin: 4px 0 2px; }
+.sv-prev-name { max-width: 100%; font: 600 18px/1.15 var(--v3-font); letter-spacing: -.02em; text-align: center; }
+.sv-prev-name .ap-plain { display: block; }
+.sv-prev-dim { color: var(--v3-dim); font-size: 11.5px; }
+.sv-prev:not(.is-vip) .v3-ring::after { display: none; }
+.sv-prev .ap-title { font-size: 10.5px; padding: 1px 8px; }
+.sv-perks { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 0; }
+.sv-perks li { display: grid; align-content: start; gap: 4px; padding: 12px; border-radius: 18px; }
+.sv-perks li:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.sv-pi { display: grid; place-items: center; width: 30px; height: 30px; margin-bottom: 4px; border-radius: 10px; background: color-mix(in srgb, var(--v3-acc) 16%, transparent); font-size: 16px; line-height: 1; }
+.sv-perks b { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+.sv-perks small { color: var(--v3-dim); font-size: 11.5px; line-height: 1.4; }
+
+.sv-terms { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.sv-term { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 10px 2px 9px; border: 0; border-radius: 16px; color: inherit; font: inherit; cursor: pointer; transition: background .15s, box-shadow .15s; }
+.sv-term b { font: 600 20px/1.15 var(--v3-font); font-variant-numeric: tabular-nums; }
+.sv-term small { color: var(--v3-dim); font-size: 10.5px; }
+.sv-term span { margin-top: 4px; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-term.is-on { background: color-mix(in srgb, var(--v3-acc) 15%, transparent); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }
+
+/* значок у ника */
+.sv-saved { min-width: 7ch; color: var(--v3-ok); text-align: right; opacity: 0; transition: opacity .2s; }
+.sv-saved.is-on { opacity: 1; }
+.sv-badge { display: grid; gap: 12px; padding: 14px; border-radius: 20px; }
+.sv-preview { margin: 0; padding: 10px 12px; overflow: hidden; border-radius: 14px; background: var(--v3-faint); font: 600 17px/1.3 var(--v3-font); text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.sv-glyphs { display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr)); gap: 6px; }
+.sv-g { aspect-ratio: 1; min-width: 0; border: 0; border-radius: 12px; background: var(--v3-faint); color: var(--v3-ink); font: 16px/1 var(--v3-font); cursor: pointer; }
+.sv-g.is-on { background: var(--v3-acc); color: var(--v3-on-acc); }
+.sv-pos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 14px; background: var(--v3-faint); }
+.sv-pos button { min-height: 36px; padding: 0 2px; border: 0; border-radius: 11px; background: none; color: var(--v3-dim); font: 600 11.5px var(--v3-font); cursor: pointer; }
+.sv-pos button.is-on { background: var(--v3-acc); color: var(--v3-on-acc); }
+.sv-switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.sv-switch b { display: block; font-size: 14px; font-weight: 600; }
+.sv-switch small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; line-height: 1.4; }
+.sv-switch i { position: relative; flex: none; width: 46px; height: 28px; border-radius: 99px; background: var(--v3-track); transition: background .2s; }
+.sv-switch i::after { content: ""; position: absolute; left: 3px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s var(--v3-ease); }
+.sv-switch[aria-checked="true"] i { background: var(--v3-acc); }
+.sv-switch[aria-checked="true"] i::after { transform: translateX(18px); }
+.sv-g:focus-visible, .sv-pos button:focus-visible, .sv-switch:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; }
+
+/* загрузка: тихие блоки той же формы, без мерцания */
+.sv-skel { display: grid; gap: 10px; opacity: .55; animation: v3skel .3s ease .22s backwards; }   /* как .sk: быстрый ответ заглушку не покажет */
+.sv-skel i { display: block; height: 64px; border-radius: 20px; background: var(--v3-faint); }
+.sv-skel > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sv-skel > div i { height: 104px; border-radius: 18px; }
+.sv-skel > i:last-child { height: 54px; border-radius: 99px; }
+
+@media (max-width: 359px) { .sv-bw { display: none; } .sv-bal { font-size: 30px; } .sv-pack b { font-size: 21px; } .sv-pos button { font-size: 10.5px; } .sv-term b { font-size: 18px; } }

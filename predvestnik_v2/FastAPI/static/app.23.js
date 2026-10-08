@@ -120,6 +120,14 @@ function _lkSync() {                           // новый скин сразу
   if (_profileData) { _profileData.look = look; _profileData.zarniki = st.zarniki; _profileData.essence = st.essence.balance; v3SaveProfileCache(_profileData); renderV3Bar(_profileData); }
   if (typeof v3Morph === 'function' && document.body.dataset.skin !== (look?.id || '')) v3Morph(() => v3ApplyLook(look)); else v3ApplyLook(look);   // смена образа: палитра перетекает (app.31.js)
 }
+// Что показать в подтверждении: образ за Зарники, тир за Эссенцию, набор Эссенции за Зарники
+function _lkConfirmSpec(kind, item, arg) {
+  const st = _lk.st; if (!st) return null;
+  if (kind === 'buy') return { title: 'Покупка образа', visual: _svAva(item), name: item.name, sub: `Потолок ${item.ceiling}. Начнёт с тира D, дальше растёт за Эссенцию`, price: item.price_zarniki, icon: '✨', have: st.zarniki, cta: `Купить за ${fmt(item.price_zarniki)} ✨`, note: 'Образ остаётся у вас навсегда.' };
+  if (kind === 'upgrade') return { title: 'Улучшение тира', visual: _svAva(item), name: `${item.name}: тир ${item.next.tier}`, sub: `Сейчас тир ${item.level}`, price: item.next.essence, icon: '💧', have: st.essence.balance, cta: `Улучшить за ${fmt(item.next.essence)} 💧` };
+  const per = Number(st.essence.per_zarnik) || 1;
+  return { title: 'Набор Эссенции', visual: '💧', name: `${fmt(arg * per)} 💧 Эссенции`, sub: 'Растит образы по тирам', price: arg, icon: '✨', have: st.zarniki, cta: `Взять за ${fmt(arg)} ✨`, note: 'Курс один для всех наборов: больше берёте, но цена за единицу не меняется.' };
+}
 async function lkAct(kind, arg) {
   if (_lk.busy) return;
   const item = _lkItem(_lk.sel);
@@ -134,6 +142,7 @@ async function lkAct(kind, arg) {
     unequip: () => api('/skins-v3/equip', { method: 'POST', body: JSON.stringify({ skin_id: null }) }).then(state => ({ state })),
   };
   if (!calls[kind]) return;
+  if (kind === 'buy' || kind === 'upgrade' || kind === 'pack') { const spec = _lkConfirmSpec(kind, item, arg); if (spec && !(await v3Confirm(spec))) return; }   // трата идёт только после второго нажатия
   _lk.busy = true; _lkRender();
   try {
     const reply = await calls[kind]();

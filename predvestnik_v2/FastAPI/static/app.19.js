@@ -1,7 +1,7 @@
 // ── Shell V3 · экран «Топ»: то же, что «бот топ» в чате, но на сайте ─────────────
 const _V3_TOP_SCOPES = [{ id: 'global', label: 'Все игроки' }, { id: 'chats', label: 'Чаты' }, { id: 'local', label: 'Мой чат' }];
 const _V3_TOP_PERIODS = [{ id: 'day', label: 'Сегодня' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'all_time', label: 'Всё время' }];
-let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false }, _v3FullSeq = 0;
+let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false, loading: false }, _v3FullSeq = 0;
 
 function openTopV3(scope, period) {
   if (scope) _v3Full.scope = scope;
@@ -14,12 +14,12 @@ function loadTopV3() {
   if (f.scope === 'local' && f.chat == null) { const first = _profileData?.chats?.[0]?.chat_tg_id; if (first) f.chat = Number(first); }
   const query = new URLSearchParams({ scope: f.scope, period: f.period, page: String(f.page) });
   if (f.scope === 'local' && f.chat != null) query.set('chat_id', String(f.chat));
-  f.data = null; f.failed = false; renderTopV3();
+  f.failed = false; f.loading = true; renderTopV3();   // прежний список остаётся на экране, пока идёт запрос: серого блока на долю секунды больше нет
   return api(`/leaderboards/messages/full?${query}`).then(d => {
     if (mine !== _v3FullSeq) return;
-    f.data = d; f.failed = false; if (f.scope === 'local' && f.chat == null && d.chats?.length) f.chat = d.chats[0].chat_id;
+    f.data = d; f.failed = false; f.loading = false; if (f.scope === 'local' && f.chat == null && d.chats?.length) f.chat = d.chats[0].chat_id;
     renderTopV3();
-  }).catch(e => { if (mine !== _v3FullSeq) return; f.failed = String(e || 'Ошибка'); renderTopV3(); });
+  }).catch(e => { if (mine !== _v3FullSeq) return; f.failed = String(e || 'Ошибка'); f.loading = false; renderTopV3(); });
 }
 function v3FullSet(key, value) {
   const f = _v3Full; if (f[key] === value) return;
@@ -51,5 +51,5 @@ function renderTopV3() {
     <h1 class="v3-title">Топ</h1><p class="v3-sub">Те же рейтинги, что в чате по команде «бот топ».</p>
     <div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Область рейтинга">${seg(scopes, f.scope, 'scope')}</div>
     <div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Период">${seg(_V3_TOP_PERIODS, f.period, 'period')}</div>
-    ${chatPick}<div class="v3-top-body" aria-live="polite">${body}</div>`;
+    ${chatPick}<div class="v3-top-body${f.loading && d ? ' is-loading' : ''}" aria-live="polite" aria-busy="${!!f.loading}">${body}</div>`;
 }

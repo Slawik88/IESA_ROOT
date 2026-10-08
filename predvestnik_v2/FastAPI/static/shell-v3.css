@@ -172,9 +172,12 @@ input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-sele
 button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .v3-pill:active, .v3-game:active, .nb:active { transform: scale(.96); }
 
-/* ── Скелетоны: двигается только transform слоя ── */
-.sk { position: relative; overflow: hidden; background: var(--v3-faint); animation: none; }
-.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); transform: translateX(-100%); animation: v3shim 1.4s linear infinite; }
+/* ── Скелетоны: двигается только transform слоя ──
+   Заглушка появляется с задержкой 220 мс и мягко (opacity), а цвет тихий: ответ быстрее не покажет её вовсе. Раньше серый блок вспыхивал на долю секунды
+   и бил по глазам, например при смене периода в «Топе». */
+@keyframes v3skel { from { opacity: 0; } }
+.sk { position: relative; overflow: hidden; background: color-mix(in srgb, var(--v3-ink) 5%, transparent); animation: v3skel .3s ease .22s backwards; }
+.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.04), transparent); transform: translateX(-100%); animation: v3shim 1.6s linear .5s infinite; }
 @keyframes v3shim { to { transform: translateX(100%); } }
 
 /* ── Момент награды: свечение и частицы (transform/opacity) ── */
@@ -186,5 +189,6 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 @media (prefers-reduced-motion: reduce) {
   .sk::after, .v3-glow::before { animation: none; }
   .page.active, .nb, .nb svg, .nav::before, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
+  .sk, .sv-skel { animation-duration: .01s; }   /* задержка остаётся, плавного появления нет */
 }
 @media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { font-size: 9.5px; } .nb svg { width: 20px; height: 20px; } }

@@ -83,3 +83,14 @@ function v3RingIn(root, prevAll, seen) {
   ring.style.strokeDashoffset = start; void ring.getBoundingClientRect();
   ring.style.transition = 'stroke-dashoffset .9s cubic-bezier(.22, 1, .36, 1)'; ring.style.strokeDashoffset = target;
 }
+
+// Каскад секций (v3-stagger) играет один раз за заход на страницу. Страница часто перерисовывается сразу после показа (сначала кэш, потом свежие данные):
+// без этого секции исчезали и появлялись заново, это и было «мерцанием» при открытии профиля. v3EnterSync вызывается после записи innerHTML: первая запись заход
+// начинает, следующие продолжают каскад с того же места (--enter-skip), а поздние вообще не анимируются. Заход сбрасывается в switchPage.
+function v3EnterSync(root) {
+  if (!root) return;
+  const at = Number(root.dataset.enterAt) || 0, now = performance.now();
+  if (!at) { root.dataset.enterAt = String(now); root.style.removeProperty('--enter-skip'); return; }
+  root.style.setProperty('--enter-skip', `${Math.round(now - at)}ms`);
+}
+function v3EnterReset(page) { page?.querySelectorAll('.v3-stagger').forEach(n => { delete n.dataset.enterAt; n.style.removeProperty('--enter-skip'); }); if (page?.classList.contains('v3-stagger')) { delete page.dataset.enterAt; page.style.removeProperty('--enter-skip'); } }

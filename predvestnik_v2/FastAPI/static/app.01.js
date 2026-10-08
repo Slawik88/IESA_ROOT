@@ -550,6 +550,7 @@ function switchPage(name, _btn, _viaBack) {
     b.classList.remove('active');
     b.removeAttribute('aria-current');
   });
+  if(typeof v3EnterReset==='function')v3EnterReset(el('pg-'+name));   // каскад секций на этой странице снова сыграет один раз
   el('pg-'+name).classList.add('active');
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);

@@ -439,19 +439,10 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
 @keyframes plwReveal { to { opacity: 1; transform: none; filter: none; } }
 @keyframes plwShine { 0%,100% { background-position: 0 0; } 50% { background-position: 100% 0; } }
 .pl-skip { position: fixed; bottom: 22px; font-size: 9.5px; color: var(--muted); letter-spacing: .3px; }
-/* Вход → вкладка = одно целое: контент профиля «всплывает» каскадом, пока
-   прелоадер растворяется (триггерится в _plSkip). */
-.pg-enter #pro-main > * { animation: pgRise .55s cubic-bezier(.22,1,.36,1) both; }
-.pg-enter #pro-main > *:nth-child(2) { animation-delay: .07s; }
-.pg-enter #pro-main > *:nth-child(3) { animation-delay: .14s; }
-.pg-enter #pro-main > *:nth-child(4) { animation-delay: .21s; }
-.pg-enter #pro-main > *:nth-child(n+5) { animation-delay: .28s; }
-@keyframes pgRise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .pl-orb, .pl-ring, .pl-core::before { animation: none; }
   .pl-lines .pl-line, .pl-welcome.show, .plw-hi { animation: none; opacity: 1; }
   .plw-nick { animation: none; opacity: 1; transform: none; filter: none; }
-  .pg-enter #pro-main > * { animation: none; }
 }
 
 /* ═══ Приветственные анимации (режимы прелоадера, VIP-выбор) ═══════════════════ */

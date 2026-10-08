@@ -87,6 +87,7 @@ function loadProfile() {
         <div id="pro-nick-card"></div>
         <div id="wallet-mini"></div>
       </details>`;
+    if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
     try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
@@ -366,7 +367,9 @@ function _clanShopHtml(){
     <div class="clan-board-hint">Трать клан-монеты, заработанные помощью по Доске.</div>
     <div class="clan-board">${rows}</div>`;
 }
-function _clanShopBuy(id){
+async function _clanShopBuy(id){
+  const c=_clansData?.my_clan,item=((c&&c.shop)||[]).find(x=>x.id===id);
+  if(item&&!(await v3Confirm({title:'Покупка в клан-лавке',visual:item.emoji||'🎖',name:item.name,sub:item.desc||'',price:item.cost,icon:'🎖',have:c.clan_coins||0,cta:`Купить за ${fmt(item.cost)} 🎖`})))return;
   api('/clans/shop/buy',{method:'POST',body:JSON.stringify({shop_id:id})})
     .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
 }
@@ -375,10 +378,6 @@ function _plSkip() {
   const pl = el('preloader');
   if(!pl || pl.classList.contains('pl-done')) return;
   pl.classList.add('pl-done');
-  // Вход → вкладка = одно целое: активная страница «всплывает» каскадом,
-  // пока прелоадер растворяется.
-  const pg = document.querySelector('.page.active');
-  if(pg){ pg.classList.add('pg-enter'); setTimeout(()=>pg.classList.remove('pg-enter'), 1000); }
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
 function _runPreloader() {
@@ -571,7 +570,16 @@ function showCurrModal() {
   </div>`, [{l:'Пополнить Зарники', c:'btn-gold', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
 }
 
-function exchangeZarnikiV1(){
+// Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос
+async function exchangeZarnikiV1(){
+  const raw=(el('zar-exchange-amount')?.value||'').trim(),amount=Number(raw),target=el('zar-exchange-target')?.value;
+  if(/^\d+$/.test(raw)&&Number.isSafeInteger(amount)&&amount>=1&&amount<=50&&(target==='mora'||target==='diamonds')){
+    const got=target==='mora'?`${fmt(amount*10)} 🪙 Моры`:`${(amount/100).toLocaleString('ru')} 💎 Алмазов`;
+    if(!(await v3Confirm({title:'Обмен Зарников',visual:'💱',name:`${fmt(amount)} ✨ → ${got}`,sub:'По курсу сервера',rows:[['Отдадите',`${fmt(amount)} ✨`],['Получите',got,true]],cta:'Обменять',note:'Обмен необратим. Лимит: 50 ✨ суммарно за сутки по UTC.'})))return;
+  }
+  return _exchangeZarnikiRun();
+}
+function _exchangeZarnikiRun(){
   const input=el('zar-exchange-amount'),button=el('zar-exchange-submit');
   const raw=(input?.value||'').trim(), amount=Number(raw), target=el('zar-exchange-target')?.value;
   if(!/^\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>50)return toast('Введите целое число от 1 до 50.',false);

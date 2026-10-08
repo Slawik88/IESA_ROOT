@@ -137,7 +137,7 @@ assert "apTitle(ap)" not in (STATIC / "app.15.js").read_text(encoding="utf-8") a
 store_js = (STATIC / "app.30.js").read_text(encoding="utf-8")
 assert 'id="pg-store"' in index and "store-v3.css" in index and not (STATIC / "app.24.js").exists()
 assert "function openStoreV3(" in store_js and "window.openZarnikiTopup" in store_js and "window.openVipModal" in store_js and "/payments/zarniki/invoice" in store_js and "/vip/purchase" in store_js
-assert "_svReach" in store_js and "_svRecommended" in store_js and "_svSee" in store_js and "apWho(" in store_js, "the page shows what a pack buys and how others see a VIP"
+assert "_svReach" in store_js and "_svRecommended" in store_js and "_svSee" in store_js and "apStage(" in store_js, "the page shows what a pack buys and how others see a VIP"
 assert "function openVipModal" not in (STATIC / "app.02.js").read_text(encoding="utf-8") and "_ztPay" not in store_js
 assert "openStoreV3('vip')" in (STATIC / "app.16.js").read_text(encoding="utf-8") and "openStoreV3('zarniki'" in (STATIC / "app.23.js").read_text(encoding="utf-8")
 assert "openStoreV3('zarniki')" in index and "openStoreV3('vip')" in index
@@ -162,4 +162,21 @@ assert re.search(r"\.lk-mini \*, \.lk-mini \*::before, \.lk-mini \*::after \{ an
 assert re.search(r"\.v3-who \.ap-name, \.v3-who \.ap-title, \.v3-who \.ap-title::after \{ animation: none !important; \}", (STATIC / "appearance-v3.css").read_text(encoding="utf-8"))
 assert ".ap-lite .ap-bg b" in fx and ".ap-lite .ap-fx i:nth-child(even)" in fx
 assert "function _v3Class()" in controller and "_V3_LITE_KEY" in controller and "ap-lite" in controller and "measure(lower)" in controller and "cap = 5" in controller
+# Every spend goes through one confirmation sheet (what, price, balance, what remains); cancelling does nothing. Chests keep their own confirm (OM) and the exchange
+# of the player market its own pending-confirm flow.
+confirm_js = (STATIC / "app.28.js").read_text(encoding="utf-8")
+assert "function v3Confirm(" in confirm_js and "role=\"alertdialog\"" in confirm_js and "Escape" in confirm_js and "Promise" in confirm_js and (STATIC / "confirm-v3.css").exists()
+assert "await v3Confirm(spec)" in (STATIC / "app.23.js").read_text(encoding="utf-8") and "_lkConfirmSpec('" not in "" and "function _lkConfirmSpec(" in (STATIC / "app.23.js").read_text(encoding="utf-8")
+assert store_js.count("await v3Confirm(") == 2, "Zarniki packs and VIP are confirmed before any request"
+assert "await v3Confirm(" in (STATIC / "app.02.js").read_text(encoding="utf-8") and (STATIC / "app.02.js").read_text(encoding="utf-8").count("v3Confirm(") >= 2, "clan shop and Zarniki exchange"
+assert "await v3Confirm(" in (STATIC / "app.06.js").read_text(encoding="utf-8"), "partner gifts"
+# Loading placeholders appear after a delay and softly; the top screen keeps the previous list instead of flashing a grey block.
+assert re.search(r"\.sk \{[^}]*animation: v3skel \.3s ease \.22s backwards", css) and "@keyframes v3skel" in css
+top_js = (STATIC / "app.19.js").read_text(encoding="utf-8")
+assert "f.data = null; f.failed = false; renderTopV3();" not in top_js and "is-loading" in top_js and ".v3-top-body.is-loading" in home_css
+# A cascade plays once per visit: a re-render right after the first one continues it instead of restarting it (the profile used to flicker on open).
+assert "function v3EnterSync(" in motion_js and "--enter-skip" in fx and "v3EnterSync(" in (STATIC / "app.02.js").read_text(encoding="utf-8") and "v3EnterReset(" in (STATIC / "app.01.js").read_text(encoding="utf-8")
+assert "pg-enter" not in (STATIC / "app.css").read_text(encoding="utf-8"), "the old second cascade is gone"
+# VIP page: facts come from the server list, the reminder switch names what it really does, the comparison shows the whole look.
+assert "Напоминать о поручении дня" in store_js and "о конце срока" not in store_js and "apStage(ap" in store_js and "sv-prev" in store_js
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

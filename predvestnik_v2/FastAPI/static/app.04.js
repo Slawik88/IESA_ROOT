@@ -45,6 +45,7 @@ function loadActivitiesHub(){
       <p class="v3-gdesc">${lead.desc}</p>
       <button type="button" class="v3-pill" onclick="${lead.open}">${_v3Icon('play')}${lead.cta}</button></section>
     ${rest.length?`<section class="v3-games" aria-label="Другие игры">${rest.map(g=>`<button type="button" class="v3-game" onclick="${g.open}"><span><b>${g.name}</b><small>${g.hint}</small></span>${chev}</button>`).join('')}</section>`:''}`;
+  if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
 }
 
 function loadArena(){ swArena('game'); }
