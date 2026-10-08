@@ -10,6 +10,15 @@ function _lkLeft(iso) {
   const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5);
   return d ? `${d} д ${h} ч` : `${h || 1} ч`;
 }
+function _lkDate(iso) { const d = new Date(iso); return Number.isNaN(+d) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', timeZone: 'UTC' }); }
+// Сезон, до которого осталось меньше двух недель: заранее видно, что он откроется сам
+function lkSoonHtml(st) {
+  const next = st.sets.filter(x => x.season && !x.season.open && !x.complete && Date.parse(x.season.starts_at) - Date.now() < 14 * 864e5)
+    .sort((a, b) => Date.parse(a.season.starts_at) - Date.parse(b.season.starts_at))[0];
+  if (!next) return '';
+  return `<button type="button" class="lk-week" onclick="_lkPick('${next.members[0]}',true);lkTop()"><span class="lk-pring" style="--p:100" aria-hidden="true">${next.glyph}</span><span><small>Скоро сезон · ${_lkDate(next.season.starts_at)}</small><b>${_profileEsc(next.name)}</b>
+    <em>Откроется сам через ${_lkLeft(next.season.starts_at)}: ${next.members.length} образа, знак сета и +${fmt(next.bonus_essence)} Эссенции</em></span><i>›</i></button>`;
+}
 function lkViewSwitch() {
   const tab = (v, t) => `<button type="button" role="tab" aria-selected="${_lk.view === v}" class="${_lk.view === v ? 'is-on' : ''}" onclick="lkView('${v}')">${t}</button>`;
   return `<div class="lk-seg" role="tablist" aria-label="Раздел">${tab('shop', 'Образы')}${tab('album', 'Коллекция')}</div>`;
@@ -52,7 +61,7 @@ function lkGoalHtml(st) {
 function _lkSets(st) {
   return st.sets.map(s => `<div class="lk-set"><div><b>${s.glyph} ${_profileEsc(s.name)}</b><small>${_profileEsc(s.blurb)}</small>
       <div class="lk-set-meter" aria-hidden="true">${s.members.map(id => `<i class="${s.missing.includes(id) ? '' : 'is-on'}"></i>`).join('')}</div></div>
-    <div class="lk-set-end"><span>${s.have} из ${s.members.length}</span><small class="lk-set-prize">${s.complete ? 'Сет собран' : s.season && !s.season.open ? 'Сезон прошёл' : `Знак сета и +${fmt(s.bonus_essence)} Эссенции`}</small>${s.season?.open && !s.complete ? `<small>Сезон, ещё ${_lkLeft(s.season.ends_at)}</small>` : ''}</div>
+    <div class="lk-set-end"><span>${s.have} из ${s.members.length}</span><small class="lk-set-prize">${s.complete ? 'Сет собран' : s.season && !s.season.open ? `Откроется через ${_lkLeft(s.season.starts_at)}` : `Знак сета и +${fmt(s.bonus_essence)} Эссенции`}</small>${s.season?.open && !s.complete ? `<small>Сезон, ещё ${_lkLeft(s.season.ends_at)}</small>` : ''}</div>
     <div class="lk-set-row">${s.members.map(id => { const i = _lkItem(id); return `<button type="button" class="lk-pick${id === _lk.sel ? ' is-sel' : ''}${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${id}',true);lkTop()">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : i.buyable === false ? 'не продаётся' : `${i.ceiling} · ${_lkPrice(i.price_zarniki)}`}</small></button>`; }).join('')}</div></div>`).join('');
 }
 

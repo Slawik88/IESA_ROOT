@@ -70,6 +70,20 @@ for name in ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3
 for name, text in css.items():
     assert text.count("\n") <= 300, f"{name} is over 300 lines"
 
+# No visible rectangles: the glow of a nickname is a filter (a name box with overflow:hidden and every list row clip text-shadow along their
+# straight edges), the title pill has no light band, and the rows of the top list leave room for a glow inside the ellipsis box.
+names_css = css["appearance-v3.css"]
+for selector, rules in re.findall(r"([^{}]+)\{([^{}]*)\}", strip_blocks(names_css, "@keyframes")):
+    if ".ap-name" in selector:
+        assert not re.search(r"text-shadow\s*:\s*(?!none)", rules), f"text-shadow is clipped by the name box: {selector.strip()[:80]}"
+assert ".ap-nm-glow::before" not in names_css, "the blurred copy of a glowing name is cut by the name box"
+assert not re.search(r"\.ap-title[^{}]*\{[^{}]*apglint", names_css), "a title is never lit through background-position"
+sheen = re.search(r"\.ap-title::after \{[^}]*gradient\(([^;]*)\); \}", names_css)
+assert sheen and sheen.group(1).count("rgba(") >= 7, "the title sheen needs a smooth many-step profile, a two-step ramp shows its edges"
+assert re.search(r"@keyframes aptsheen \{[^}]*opacity[^}]*transform", names_css) and ".ap-anim .ap-title:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after" in names_css
+home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
+assert re.search(r"\.v3-top-list \.v3-rowbtn > span \{[^}]*padding: 14px 24px; margin: -14px -24px", home_css), "top list rows clip the glow of a look"
+
 # The renderer never trusts the payload: palette and kinds are validated before they reach a class or a style.
 assert "_AP_HEX.test" in renderer and "_AP_WORD" in renderer and "look.tier === look.ceiling" in renderer
 assert "_v3SafeValue" in decor and "url\\(" in decor

@@ -22,6 +22,9 @@ from services.vip import is_vip_active
 VERSION = "skins-v3-2026-10"
 
 
+_MONTHS = ("января", "февраля", "марта", "апреля", "мая", "июня", "июля", "августа", "сентября", "октября", "ноября", "декабря")
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -196,7 +199,8 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
                     raise SkinConflict("Этот скин уже у вас.")
                 season = season_of(skin_id, _now())      # checked here, so a retry of a purchase made in time is still a replay
                 if season and not season["open"]:
-                    raise SkinConflict(f"Сезон «{season['name']}» ещё не начался." if season["state"] == "soon" else f"Сезон «{season['name']}» закончился: этот образ больше нельзя купить.")
+                    opens = datetime.fromisoformat(season["starts_at"])
+                    raise SkinConflict(f"Сезон «{season['name']}» сейчас закрыт. Он откроется сам {opens.day} {_MONTHS[opens.month - 1]}.")
                 await economy_ledger.apply_balance_change(
                     db, int(user_id), {"zarniki": -price}, reason_code="skin_v3_purchase", idempotency_key=idempotency_key,
                     source_type="skins_v3", reference_type="skin_v3", reference_id=skin_id,

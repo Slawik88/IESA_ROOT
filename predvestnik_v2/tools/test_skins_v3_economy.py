@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, TIERS,  # noqa: E402
                            UPGRADE_ESSENCE, essence_zarniki, full_price, tier_index, total_upgrade_cost, upgrade_cost)
-from core.skins_v3_catalog import SETS, SKINS  # noqa: E402
+from core.skins_v3_catalog import SEASONS, SETS, SKINS  # noqa: E402
 from core.skins_v3_collection import (PERMANENT, ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, season_window, set_bonus,  # noqa: E402
                                       total_one_time_essence, week_index)
 
@@ -108,17 +108,32 @@ def skin_of_the_week_is_fair() -> None:
 
 def seasons_are_bounded() -> None:
     from datetime import datetime, timedelta, timezone
+    at = lambda *a: datetime(*a, tzinfo=timezone.utc)
     for sid, st in SETS.items():
         if not st.get("season"):
             continue
-        win = season_window(st["season"], datetime(2026, 10, 20, tzinfo=timezone.utc))
-        start, end = datetime.fromisoformat(win["starts_at"]), datetime.fromisoformat(win["ends_at"])
-        check(timedelta(days=14) <= end - start <= timedelta(days=60), f"{sid}: a season lasts two weeks to two months")
-        check(season_window(st["season"], start - timedelta(seconds=1))["state"] == "soon" and season_window(st["season"], start)["open"], "a season opens at its start")
-        check(season_window(st["season"], end - timedelta(seconds=1))["open"] and season_window(st["season"], end)["state"] == "over", "a season ends exactly at its end")
         check(all(SKINS[m]["season"] == st["season"] for m in st["members"]), f"{sid}: every member sells in the same window")
         check(not any(m in PERMANENT for m in st["members"]), f"{sid}: a season skin is not part of the permanent collection")
     check(all(SKINS[sid]["season"] in {None, *[s["season"] for s in SETS.values() if s.get("season")]} for sid in SKINS), "a season skin belongs to a season set")
+    # the calendar does the work: every year, and a window can cross New Year
+    check(season_window("halloween", at(2026, 10, 16, 23, 59, 59))["state"] == "soon" and season_window("halloween", at(2026, 10, 17))["open"], "Halloween opens on its day")
+    check(season_window("halloween", at(2026, 11, 3, 23, 59, 59))["open"] and not season_window("halloween", at(2026, 11, 4))["open"], "Halloween closes on its end day")
+    check(season_window("halloween", at(2027, 10, 25))["open"] and season_window("halloween", at(2030, 10, 31))["open"], "it comes back every year with no edit")
+    soon = season_window("halloween", at(2026, 11, 20))
+    check(soon["state"] == "soon" and soon["starts_at"].startswith("2027-10-17"), "after the window the next opening is a year later")
+    check(season_window("new_year", at(2026, 12, 20))["open"] and season_window("new_year", at(2027, 1, 5))["open"] and not season_window("new_year", at(2027, 1, 11))["open"], "New Year crosses the year edge")
+    check(season_window("new_year", at(2027, 1, 5))["starts_at"].startswith("2026-12-15") and season_window("new_year", at(2027, 1, 5))["ends_at"].startswith("2027-01-11"), "the window crossing the year keeps its true dates")
+    for season_id in SEASONS:
+        win = season_window(season_id, at(2026, 6, 1))
+        length = datetime.fromisoformat(win["ends_at"]) - datetime.fromisoformat(win["starts_at"])
+        check(timedelta(days=14) <= length <= timedelta(days=60), f"{season_id}: a season lasts two weeks to two months")
+    import os
+    os.environ["SKINS_V3_SEASONS_OPEN"] = "halloween"
+    try:
+        check(season_window("halloween", at(2026, 3, 1))["open"] and not season_window("new_year", at(2026, 3, 1))["open"], "the test-stand switch opens only the named season")
+    finally:
+        os.environ.pop("SKINS_V3_SEASONS_OPEN", None)
+    check(not season_window("halloween", at(2026, 3, 1))["open"], "the switch is off by default")
 
 
 def main() -> None:

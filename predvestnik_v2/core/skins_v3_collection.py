@@ -7,6 +7,7 @@ share of what the owned skins cost, so collecting never becomes a cheaper road t
 """
 from __future__ import annotations
 
+import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Final
 
@@ -23,7 +24,7 @@ BASE_RANK: Final = "Новичок витрины"
 # (skins raised to their ceiling, badge)
 MAXED_BADGES: Final = ((1, "Огранщик"), (3, "Мастер тиров"), (6, "Виртуоз"), (10, "Вершина"))
 
-SET_GLYPH: Final = {"lotus": "🪷", "sakura": "🌸", "night_pumpkins": "🎃"}
+SET_GLYPH: Final = {"lotus": "🪷", "sakura": "🌸", "night_pumpkins": "🎃", "new_year": "🎄"}
 # Ranks, rarity rows and the skin of the week count only permanent skins; a season skin earns its own set and crest.
 PERMANENT: Final = tuple(sid for sid, skin in SKINS.items() if not skin.get("season"))
 
@@ -77,16 +78,33 @@ def total_one_time_essence() -> int:
 
 
 # ── Seasons ──────────────────────────────────────────────────────────────────────────────────────────────────
-def _utc(day: str) -> datetime:
-    return datetime.fromisoformat(day).replace(tzinfo=timezone.utc)
+# A season is a yearly window (SEASONS in the catalog: month-day from, month-day to, UTC). The server compares the date on every
+# purchase and every storefront read, so a season opens and closes by itself and comes back every year; nobody switches it by hand.
+# For a test stand only: SKINS_V3_SEASONS_OPEN=halloween,new_year forces those seasons open.
+def _bounds(spec: dict, year: int) -> tuple[datetime, datetime]:
+    start_month, start_day = (int(x) for x in spec["from"].split("-"))
+    end_month, end_day = (int(x) for x in spec["to"].split("-"))
+    start = datetime(year, start_month, start_day, tzinfo=timezone.utc)
+    end = datetime(year + (1 if (end_month, end_day) <= (start_month, start_day) else 0), end_month, end_day, tzinfo=timezone.utc)
+    return start, end
+
+
+def _forced_open() -> set[str]:
+    return {x.strip() for x in os.getenv("SKINS_V3_SEASONS_OPEN", "").split(",") if x.strip()}
 
 
 def season_window(season_id: str, now: datetime | None = None) -> dict:
+    """The window to show: the current one while it is open, otherwise the next one that will open (state 'soon')."""
     spec = SEASONS[season_id]
     moment = now.astimezone(timezone.utc) if now else datetime.now(timezone.utc)
-    start, end = _utc(spec["starts"]), _utc(spec["ends"])
-    return {"id": season_id, "name": spec["name"], "starts_at": start.isoformat(), "ends_at": end.isoformat(), "open": start <= moment < end,
-            "state": "soon" if moment < start else "open" if moment < end else "over"}
+    if season_id in _forced_open():
+        return {"id": season_id, "name": spec["name"], "starts_at": (moment - timedelta(days=1)).isoformat(), "ends_at": (moment + timedelta(days=14)).isoformat(),
+                "open": True, "state": "open"}
+    windows = sorted(_bounds(spec, year) for year in (moment.year - 1, moment.year, moment.year + 1))
+    current = next((w for w in windows if w[0] <= moment < w[1]), None)
+    start, end = current or next(w for w in windows if w[0] > moment)
+    return {"id": season_id, "name": spec["name"], "starts_at": start.isoformat(), "ends_at": end.isoformat(), "open": current is not None,
+            "state": "open" if current else "soon"}
 
 
 def season_of(skin_id: str, now: datetime | None = None) -> dict | None:

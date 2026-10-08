@@ -83,7 +83,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-top-list li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
 .v3-top-list i { width: 18px; color: var(--v3-dim); font-size: 12px; font-style: normal; }
 .v3-top-list li:nth-child(-n+3) i { color: var(--v3-acc); font-weight: 700; }
-.v3-top-list .v3-rowbtn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-top-list .v3-rowbtn > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 14px 24px; margin: -14px -24px; }   /* многоточие режет по рамке, поэтому свечению образа оставлен запас: иначе у свечения видны прямые края */
 .v3-top-list b { font-weight: 600; }
 .v3-top-list .is-me { color: var(--v3-acc); }
 .v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip); vertical-align: middle; }

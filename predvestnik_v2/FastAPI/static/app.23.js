@@ -33,7 +33,7 @@ function lkTier(tier) { if (_LK_TIERS.includes(tier)) { _lk.tier = tier; _haptic
 function _lkAction(item, st) {
   const z = st.zarniki, e = st.essence.balance;
   if (!item.owned) {
-    if (item.buyable === false) return { t: item.season?.state === 'soon' ? 'Сезон скоро начнётся' : 'Сезон закончился', a: '', sub: `«${item.season?.name || 'Сезонный образ'}» больше не продаётся, купленные остаются навсегда` };
+    if (item.buyable === false) return { t: 'Сезон закрыт', a: '', sub: `«${item.season?.name || 'Сезонный образ'}» откроется сам ${_lkDate(item.season?.starts_at)}, через ${_lkLeft(item.season?.starts_at)}. Купленное остаётся навсегда` };
     return z >= item.price_zarniki ? { t: `Купить за ${_lkPrice(item.price_zarniki)}`, a: 'buy', sub: 'Начнёт с тира D, дальше растёт за Эссенцию' }
       : { t: `Не хватает ${_lkPrice(item.price_zarniki - z)}`, a: 'topup', sub: `Цена ${_lkPrice(item.price_zarniki)}, нажмите, чтобы пополнить` };
   }
@@ -56,7 +56,7 @@ function _lkStrip(st) {
   return `<nav class="lk-strip" aria-label="Скины">${st.items.map(i => {
     const grp = i.season ? 'сезон' : i.ceiling, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
     const mark = i.equipped ? '<i class="lk-dot is-on" title="Надет"></i>' : i.owned ? '<i class="lk-dot" title="Куплен"></i>' : '';
-    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : i.buyable === false ? 'сезон прошёл' : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
+    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : i.buyable === false ? 'сезон закрыт' : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
   }).join('')}</nav>`;
 }
 function _lkSteps(item) {
@@ -85,7 +85,7 @@ function _lkRender(anim) {
   const identity = `<div class="lk-id"><div class="v3-ring lk-ring">${apHalo(ap)}${_v3Ring(72)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}</div>
     <div class="v3-name lk-name">${apName(ap, name)}</div><div class="pp-title-row">${apTitle(ap)}</div></div>`;
   const setTag = item.set ? `<span class="lk-tag">${_profileEsc(st.sets.find(s => s.id === item.set)?.name || '')}</span>` : '';
-  const seasonTag = item.season ? `<span class="lk-tag lk-tag--day">${item.season.open ? `Сезон · ещё ${_lkLeft(item.season.ends_at)}` : item.season.state === 'soon' ? 'Сезон скоро' : 'Сезон прошёл'}</span>` : '';
+  const seasonTag = item.season ? `<span class="lk-tag lk-tag--day">${item.season.open ? `Сезон · ещё ${_lkLeft(item.season.ends_at)}` : `Откроется через ${_lkLeft(item.season.starts_at)}`}</span>` : '';
   const dayTag = item.id === _lkWeekId(st) ? '<span class="lk-tag lk-tag--day">Образ недели</span>' : '';
   const note = !item.owned ? (_lk.tier === 'D' ? 'Так образ выглядит на старте.' : `Превью тира ${_lk.tier}. Куплен он начнёт с D и дорастёт до этого вида.`)
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
@@ -102,7 +102,7 @@ function _lkRender(anim) {
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>
       ${item.equipped ? '<button type="button" class="v3-link" onclick="lkAct(\'unequip\')">Снять образ</button>' : ''}</div>
     <p class="lk-fine">${item.ceiling === 'D' ? 'Этот образ не растёт: его потолок D.' : `Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨.`} Эссенция тратится только на тиры образов.</p>${owner}
-    ${lkGoalHtml(st)}${lkWeekHtml(st)}
+    ${lkGoalHtml(st)}${lkWeekHtml(st)}${lkSoonHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span></div>

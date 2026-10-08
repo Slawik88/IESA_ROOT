@@ -1,4 +1,4 @@
-"""Skins V3 catalog: 25 permanent skins (at least three for every ceiling tier D … SSS), seasonal skins, and themed sets (Lotus, Sakura, Night of Pumpkins).
+"""Skins V3 catalog: 25 permanent skins (at least three for every ceiling tier D … SSS), seasonal skins, and themed sets (Lotus, Sakura) and yearly seasonal sets (Night of Pumpkins, New Year).
 
 Data only. `kinds` pick the shape of each part (frame, halo, particles, nickname effect, background); the effects
 themselves are CSS in FastAPI/static/appearance-v3.css and skin-signatures-v3.css. `sig` names a hand-made detail set
@@ -132,21 +132,37 @@ SKINS = dict([
     _skin("pumpkin_lantern", "Тыквенный Фонарь", "C", "Свеча внутри, резная улыбка снаружи и тёплый свет на пороге.", "#120905", "#ff9a3c",
           "rgba(255,120,30,.28)", "rgba(120,60,200,.12)", ("#ff9a3c", "#c2410c", "#ffe2a8"),
           "dash", "flame", "ember", "glow", "wash",
-          ("Свет изнутри", "🎃 Хранитель Фонаря", "Резная оправа", "Тёплое пламя", "Тыквенное поле", "Искры свечи"), set_id="night_pumpkins", season="halloween-2026"),
+          ("Свет изнутри", "🎃 Хранитель Фонаря", "Резная оправа", "Тёплое пламя", "Тыквенное поле", "Искры свечи"), set_id="night_pumpkins", season="halloween"),
     _skin("cobweb", "Паутина Полуночи", "B", "Серебряные нити между ветвями, и в каждой дрожит по звезде.", "#0b0a14", "#cbb8ff",
           "rgba(120,90,220,.26)", "rgba(200,200,255,.08)", ("#cbb8ff", "#6d4fd6", "#f1ecff"),
           "seg", "eclipse", "glint", "shimmer", "grid",
-          ("Шёлк на ветру", "🕸 Страж Паутины", "Узел паутины", "Затмение над садом", "Нити полуночи", "Росинки на шёлке"), set_id="night_pumpkins", season="halloween-2026"),
+          ("Шёлк на ветру", "🕸 Страж Паутины", "Узел паутины", "Затмение над садом", "Нити полуночи", "Росинки на шёлке"), set_id="night_pumpkins", season="halloween"),
     _skin("witch_hour", "Час Ведьм", "A", "Зелёный огонь под котлом и фиолетовый вихрь над крышами.", "#07100a", "#8dff9c",
           "rgba(80,230,120,.24)", "rgba(150,60,255,.18)", ("#8dff9c", "#8a3dff", "#ffd36b"),
           "double", "orbit", "spark", "foil", "vortex",
-          ("Зелёный огонь", "🧙 Хозяйка Часа Ведьм", "Кольцо заклятья", "Орбита метёл", "Вихрь над крышами", "Искры заклинаний"), set_id="night_pumpkins", season="halloween-2026"),
+          ("Зелёный огонь", "🧙 Хозяйка Часа Ведьм", "Кольцо заклятья", "Орбита метёл", "Вихрь над крышами", "Искры заклинаний"), set_id="night_pumpkins", season="halloween"),
+    # ── Сезон: Новогодняя Ночь ───────────────────────────────────────────────────────────────────────────────────────
+    _skin("snow_globe", "Снежный Шар", "C", "Встряхнули, и над крошечным городом пошёл снег.", "#080c14", "#bfe4ff",
+          "rgba(120,180,255,.26)", "rgba(255,255,255,.08)", ("#bfe4ff", "#5d8fd6", "#ffffff"),
+          "ring", "soft", "snow", "grad", "wash",
+          ("Иней на стекле", "❄ Хранитель Снежного Шара", "Стеклянная оправа", "Лёгкая метель", "Зимний вечер", "Падающий снег"), set_id="new_year", season="new_year"),
+    _skin("garland", "Огни Гирлянды", "B", "Бегущие огни на ёлке и тёплое мерцание на стёклах.", "#0c0810", "#ff6b8a",
+          "rgba(255,90,120,.24)", "rgba(80,230,140,.16)", ("#ff6b8a", "#35d68a", "#ffe9a6"),
+          "dash", "ripple", "glint", "shimmer", "mesh",
+          ("Бегущие огни", "🎄 Хозяин Гирлянды", "Цепочка огней", "Мерцание ёлки", "Ночь перед праздником", "Блёстки гирлянды"), set_id="new_year", season="new_year"),
+    _skin("midnight_chimes", "Бой Курантов", "A", "Двенадцатый удар, золото в бокалах и первый салют над крышами.", "#0b0905", "#ffd36b",
+          "rgba(255,200,90,.24)", "rgba(255,255,255,.07)", ("#ffd36b", "#c9863a", "#fff6dc"),
+          "double", "rays", "spark", "foil", "rays",
+          ("Золото полуночи", "🥂 Встречающий Полночь", "Золочёный обод", "Лучи салюта", "Бой курантов", "Искры салюта"), set_id="new_year", season="new_year"),
 ])
 
 
-# Окно продаж сезона: с `starts` по `ends` (дата UTC, `ends` не включается). После окна скин нельзя купить, но купленный остаётся и растёт.
+# Сезоны повторяются каждый год сами: окно с `from` по `to` (месяц-день, UTC, `to` не включается; если `to` раньше `from`,
+# окно переходит через Новый год). Ничего включать вручную не нужно: сервер сверяет дату при каждой покупке и показе витрины.
+# Купленный образ остаётся навсегда и растёт как обычный.
 SEASONS = {
-    "halloween-2026": {"name": "Ночь Тыкв", "starts": "2026-10-08", "ends": "2026-11-09"},
+    "halloween": {"name": "Ночь Тыкв", "from": "10-17", "to": "11-04"},
+    "new_year": {"name": "Новогодняя Ночь", "from": "12-15", "to": "01-11"},
 }
 
 SETS = {
@@ -155,7 +171,9 @@ SETS = {
     "sakura": {"name": "Сад Сакуры", "blurb": "От бутона на голой ветке до бури цветения.",
                "members": ("sakura_bud", "hanami", "sakura_storm")},
     "night_pumpkins": {"name": "Ночь Тыкв", "blurb": "Фонарь на пороге, паутина в ветвях и зелёный огонь под котлом: одна ночь осени в трёх образах.",
-                       "members": ("pumpkin_lantern", "cobweb", "witch_hour"), "season": "halloween-2026"},
+                       "members": ("pumpkin_lantern", "cobweb", "witch_hour"), "season": "halloween"},
+    "new_year": {"name": "Новогодняя Ночь", "blurb": "Снег в шаре, огни на ёлке и бой курантов: от первой снежинки до первого салюта.",
+                 "members": ("snow_globe", "garland", "midnight_chimes"), "season": "new_year"},
 }
 
 

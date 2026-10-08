@@ -60,7 +60,7 @@ async def run(dsn: str) -> None:
         await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 3000))
 
         initial = await skins.state(db, user)
-        assert len(initial["items"]) == 28 and len(initial["sets"]) == 3 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
+        assert len(initial["items"]) == 31 and len(initial["sets"]) == 4 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
         assert initial["equipped"] is None and initial["zarniki"] == 3000
 
         # buy: charged once, owned at D, equipped; repeating the same request does not charge twice
@@ -149,11 +149,11 @@ async def run(dsn: str) -> None:
         await db.execute("UPDATE users SET user_balance_zarniki=30000 WHERE user_tg_id=?", (user,))
         during, after = datetime(2026, 10, 20, tzinfo=timezone.utc), datetime(2026, 11, 20, tzinfo=timezone.utc)
         with mock.patch.object(skins, "_now", lambda: after):
-            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "закончился")
+            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "откроется сам 17 октября")
             lantern = next(i for i in (await skins.state(db, user))["items"] if i["id"] == "pumpkin_lantern")
-            assert lantern["season"]["state"] == "over" and lantern["buyable"] is False and not lantern["owned"]
+            assert lantern["season"]["state"] == "soon" and lantern["season"]["starts_at"].startswith("2027-10-17") and lantern["buyable"] is False and not lantern["owned"]
         with mock.patch.object(skins, "_now", lambda: datetime(2026, 9, 1, tzinfo=timezone.utc)):
-            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "ещё не начался")
+            await expect_conflict(skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-0"), "откроется сам 17 октября")
         owned_before = (await skins.state(db, user))["collection"]["owned"]
         with mock.patch.object(skins, "_now", lambda: during):
             _, state = await skins.buy(db, user, "pumpkin_lantern", idempotency_key="s-1")
