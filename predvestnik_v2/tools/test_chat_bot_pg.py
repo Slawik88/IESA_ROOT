@@ -265,7 +265,9 @@ async def sanctions_flow(db, bot):
 
 
 async def profile_flow(db, bot):
-    await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5, user_balance_essence = 7 WHERE user_tg_id = 2002")
+    await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5 WHERE user_tg_id = 2002")
+    from infrastructure.repositories import skins_v3 as skins_v3_repo
+    await skins_v3_repo.essence_apply(db, 2002, 7, reason="test", reference=None, idempotency_key="test-essence-0")
     async with db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
                           "VALUES (-100, 2002, 'Talker', 1001, 'Alpha', NOW()) RETURNING id") as cur:
         mid = (await cur.fetchone())[0]
@@ -311,11 +313,8 @@ async def transfer_flow(db, bot):
         c = Call(2002, cur)
         await transfer.on_transfer(c, c.data_cb, db)
         assert "нельзя" in c.alerts[0], (cur, c.alerts)
-    from infrastructure.repositories.economy_ledger import apply_balance_change
-    await apply_balance_change(db, 2002, {"essence": 5}, reason_code="test_essence",
-                               idempotency_key="test-essence-1", source_type="test")
-    async with db.execute("SELECT user_balance_essence FROM users WHERE user_tg_id = 2002") as cur:
-        assert float((await cur.fetchone())[0]) == 12
+    out = await run(db, bot, "бот баланс", uid=2002, username="talker")
+    assert "Эссенция: <b>7</b>" in out, out                          # тот же счёт, что в Mini App
     c = Call(2002, "mora")
     await transfer.on_transfer(c, c.data_cb, db)
     assert "Переведено" in c.edited[0], (c.edited, c.alerts)
@@ -434,7 +433,9 @@ async def family_flow(db, bot):
 
     for uid, name in ((6001, "mom_x"), (6002, "dad_x"), (6003, "kid_x"), (6004, "kid_y")):
         await record_message(db, msg(uid, -100, name))
-    await db.execute("UPDATE users SET user_balance_mora = 1000, user_balance_essence = 11 WHERE user_tg_id = 6001")
+    await db.execute("UPDATE users SET user_balance_mora = 1000 WHERE user_tg_id = 6001")
+    from infrastructure.repositories import skins_v3 as skins_v3_repo
+    await skins_v3_repo.essence_apply(db, 6001, 11, reason="test", reference=None, idempotency_key="test-essence-6001")
 
     async def say(text, uid, username, **kw):
         from bot.chat import registry
@@ -512,9 +513,7 @@ async def family_flow(db, bot):
     async with db.execute("SELECT user_tg_id, user_balance_mora FROM users WHERE user_tg_id IN (6001, 6002) "
                           "ORDER BY user_tg_id") as cur:
         assert [float(r[1]) for r in await cur.fetchall()] == [950, 50]
-    async with db.execute("SELECT user_balance_essence FROM users WHERE user_tg_id IN (6001, 6002) "
-                          "ORDER BY user_tg_id") as cur:
-        assert [float(r[0]) for r in await cur.fetchall()] == [6, 5]
+    assert [await skins_v3_repo.essence_balance(db, u) for u in (6001, 6002)] == [6, 5]
     out, _ = await say("бот брак, @kid_y", 6003, "kid_x")             # ребёнок свободен после развода
     assert "предложение" in out, out
     print("OK: family")

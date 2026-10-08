@@ -168,22 +168,19 @@ class FakeLedgerDB:
 
         if upper.startswith("SELECT COALESCE(USER_BALANCE_MORA") and "FOR UPDATE" in upper:
             balances = self.users[int(args[0])]
-            return _Cursor([{"essence": 0.0, **balances}])
+            return _Cursor([dict(balances)])
 
         if upper.startswith("SELECT COALESCE(RESERVED_MORA"):
             return _Cursor([(self.reserves.get(int(args[0]), 0.0),)])
 
         if upper.startswith("UPDATE USERS SET USER_BALANCE_MORA = ?"):
-            mora, diamonds, dark_mora, zarniki, essence, user_id = args
-            previous = self.users.get(int(user_id), {})
+            mora, diamonds, dark_mora, zarniki, user_id = args
             self.users[int(user_id)] = {
                 "mora": float(mora),
                 "diamonds": float(diamonds),
                 "dark_mora": float(dark_mora),
                 "zarniki": float(zarniki),
             }
-            if float(essence) or "essence" in previous:
-                self.users[int(user_id)]["essence"] = float(essence)
             return _Cursor()
 
         if upper.startswith("INSERT INTO ECONOMIC_LEDGER"):

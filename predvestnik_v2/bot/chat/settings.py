@@ -2,6 +2,15 @@
 from __future__ import annotations
 
 import json
+from types import MappingProxyType
+
+from core.economy_contract import CURRENCY_SPECS, CurrencySpec
+
+# Эссенция живёт на своём счёте (skins_v3_essence_accounts, общий с Mini App),
+# а не в общем леджере валют: здесь только её подпись для бота.
+ESSENCE = CurrencySpec(code="essence", label="Эссенция", icon="🔮", balance_column="",
+                       wallet_delta_column="", wallet_after_column="", role="cosmetics", display_decimals=0)
+CURRENCY_VIEW = MappingProxyType({**CURRENCY_SPECS, "essence": ESSENCE})
 
 TRANSFERABLE_KEY = "transfer_currencies"
 # Зарники (премиальная валюта за Stars) и эссенцию переводить нельзя никогда.

@@ -17,10 +17,11 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from loguru import logger
 
-from core.economy_contract import CURRENCY_SPECS, EconomyContractError, InsufficientBalance
+from core.economy_contract import EconomyContractError, InsufficientBalance
 from infrastructure.repositories import divorce_v1, family_wallet_v1
 from infrastructure.repositories.marriages import MarriageConflict, create_marriage, create_proposal
 from bot.chat import settings
+from bot.chat.settings import CURRENCY_VIEW
 from bot.chat.framework import Ctx, UsageError, norm, registry
 from bot.chat.targets import resolve_target
 from bot.chat.transfer import fmt, parse_amount
@@ -244,7 +245,7 @@ async def card(db, fam: Family) -> str:
     shown = [c for c in WALLET_CURRENCIES if c in WALLET_BUTTONS or bal[c]]
     lines.append("\n🏦 <b>Общий кошелёк</b>")
     for c in shown:
-        spec = CURRENCY_SPECS[c]
+        spec = CURRENCY_VIEW[c]
         lines.append(f"{spec.icon} {spec.label}: <b>{fmt_amount(bal[c], spec.display_decimals)}</b>")
     return "\n".join(lines)
 
@@ -510,7 +511,7 @@ async def _wallet_command(ctx: Ctx, action: str) -> None:
     codes = list(WALLET_BUTTONS)
     if action == "withdrawal" and (await wallet_balances(ctx.db, fam.marriage_id))["dark_mora"] > 0:
         codes.append("dark_mora")
-    buttons = [InlineKeyboardButton(text=f"{CURRENCY_SPECS[c].icon} {CURRENCY_SPECS[c].label}",
+    buttons = [InlineKeyboardButton(text=f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}",
                                     callback_data=WalletCB(uid=ctx.user_id, intent=intent, cur=c).pack())
                for c in codes]
     rows = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
@@ -543,7 +544,7 @@ async def on_wallet(call: CallbackQuery, callback_data: WalletCB, db) -> None:
         await call.message.edit_text("✖️ Отменено.")
         await call.answer()
         return
-    spec = CURRENCY_SPECS.get(cb.cur)
+    spec = CURRENCY_VIEW.get(cb.cur)
     if spec is None or cb.cur not in WALLET_CURRENCIES:
         await call.answer()
         return

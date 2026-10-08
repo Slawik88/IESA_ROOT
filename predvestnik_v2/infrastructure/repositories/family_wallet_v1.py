@@ -21,6 +21,7 @@ from core.economy_contract import (
     validate_idempotency_key,
 )
 from infrastructure.repositories.economy_ledger import apply_balance_change
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.marriage_integrity import (
     audit_family_migration_readiness,
     migration_is_safe,
@@ -47,6 +48,7 @@ _BALANCE_COLUMNS = {
     "dark_mora": "dark_mora",
     "zarniki": "zarniki",
     # Эссенция (2026-10): колонку и CHECK добавляет ensure_essence_custody().
+    # Личная сторона — счёт skins_v3_essence_accounts, а не общий леджер.
     "essence": "essence",
 }
 # Старые колонки семейного баланса в marriages; у эссенции такой нет.
@@ -90,8 +92,8 @@ async def transfer_between_personal_and_family(
     normalized_amount = as_ledger_amount(amount)
     if normalized_amount <= 0:
         raise InvalidEconomicMutation("Family wallet amount must be positive.")
-    if currency == "zarniki" and normalized_amount != normalized_amount.to_integral_value():
-        raise InvalidEconomicMutation("Zarniki transfers must use a whole amount.")
+    if currency in ("zarniki", "essence") and normalized_amount != normalized_amount.to_integral_value():
+        raise InvalidEconomicMutation("Zarniki and Essence transfers must use a whole amount.")
     key = validate_idempotency_key(idempotency_key)
     fingerprint = _fingerprint(action=action, currency=currency, amount=normalized_amount)
 
@@ -165,6 +167,17 @@ async def transfer_between_personal_and_family(
             )
 
         personal_delta = -normalized_amount if action == "deposit" else normalized_amount
+        if currency == "essence":
+            personal_operation_id = await _essence_leg(
+                db, actor_id, int(personal_delta), action=action, key=key, operation_id=operation_id)
+            await db.execute(
+                "UPDATE family_wallet_ledger SET source_personal_operation_id = ? WHERE operation_id = ?",
+                (personal_operation_id, operation_id),
+            )
+            return FamilyTransfer(
+                operation_id=operation_id, marriage_id=marriage_id, currency=currency,
+                amount=normalized_amount, action=action, applied=True,
+            )
         personal = await apply_balance_change(
             db, actor_id, {currency: personal_delta},
             reason_code=f"family_transfer_{action}",
@@ -185,6 +198,23 @@ async def transfer_between_personal_and_family(
         operation_id=operation_id, marriage_id=marriage_id, currency=currency,
         amount=normalized_amount, action=action, applied=True,
     )
+
+
+async def _essence_leg(db: Any, actor_id: int, delta: int, *, action: str, key: str, operation_id: str) -> str:
+    """Личная сторона перевода эссенции: счёт Mini App. Возвращает id строки его журнала."""
+    idempotency_key = f"family:{key}"
+    if delta < 0 and await skins_v3_repo.essence_balance(db, actor_id) < -delta:
+        raise InsufficientBalance("Insufficient essence.")
+    await skins_v3_repo.essence_apply(
+        db, actor_id, delta, reason=f"family_transfer_{action}",
+        reference=operation_id, idempotency_key=idempotency_key,
+    )
+    async with db.execute(
+        "SELECT id FROM skins_v3_essence_ledger WHERE user_id = ? AND idempotency_key = ?",
+        (actor_id, idempotency_key),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return f"essence:{row[0]}"
 
 
 async def create_telegram_transfer_intent(

@@ -9,9 +9,11 @@ import html
 from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat import family, global_ranks, ranks
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
+from bot.chat.settings import CURRENCY_VIEW
 from bot.chat.targets import Target, resolve_target
 from bot.chat.tracking import local_now
 
@@ -41,14 +43,16 @@ def days_word(n: int) -> str:
 
 
 async def balances(db, user_id: int) -> list[str]:
-    cols = ", ".join(CURRENCY_SPECS[c].balance_column for c in SHOWN_CURRENCIES)
+    ledger = [c for c in SHOWN_CURRENCIES if c in CURRENCY_SPECS]
+    cols = ", ".join(CURRENCY_SPECS[c].balance_column for c in ledger)
     async with db.execute(f"SELECT {cols} FROM users WHERE user_tg_id = ?", (user_id,)) as cur:
         row = await cur.fetchone()
+    values = {c: float(row[i] or 0) if row else 0.0 for i, c in enumerate(ledger)}
+    values["essence"] = float(await skins_v3_repo.essence_balance(db, user_id))
     out = []
-    for i, code in enumerate(SHOWN_CURRENCIES):
-        spec = CURRENCY_SPECS[code]
-        value = float(row[i] or 0) if row else 0.0
-        out.append(f"{spec.icon} {spec.label}: <b>{fmt_num(value, spec.display_decimals)}</b>")
+    for code in SHOWN_CURRENCIES:
+        spec = CURRENCY_VIEW[code]
+        out.append(f"{spec.icon} {spec.label}: <b>{fmt_num(values[code], spec.display_decimals)}</b>")
     return out
 
 
