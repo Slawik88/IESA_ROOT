@@ -86,6 +86,18 @@ _CURRENCY_SPECS = {
         role="premium_cosmetics",
         display_decimals=0,
     ),
+    # Новая валюта (2026-10). Колонку и CHECK в economic_ledger добавляет
+    # economy_ledger.ensure_tables(); тёмная мора — легаси.
+    "essence": CurrencySpec(
+        code="essence",
+        label="Эссенция",
+        icon="🔮",
+        balance_column="user_balance_essence",
+        wallet_delta_column="delta_essence",
+        wallet_after_column="balance_essence_after",
+        role="progression",
+        display_decimals=0,
+    ),
 }
 
 CURRENCY_SPECS: Mapping[str, CurrencySpec] = MappingProxyType(_CURRENCY_SPECS)

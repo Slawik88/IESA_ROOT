@@ -4,8 +4,8 @@ from __future__ import annotations
 import json
 
 TRANSFERABLE_KEY = "transfer_currencies"
-# Зарники переводить нельзя никогда — это премиальная валюта за Stars.
-NEVER_TRANSFERABLE = frozenset({"zarniki"})
+# Зарники (премиальная валюта за Stars) и эссенцию переводить нельзя никогда.
+NEVER_TRANSFERABLE = frozenset({"zarniki", "essence"})
 DEFAULT_TRANSFERABLE = ("mora", "diamonds")
 
 

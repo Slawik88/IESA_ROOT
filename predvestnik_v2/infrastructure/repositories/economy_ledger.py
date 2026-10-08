@@ -62,7 +62,7 @@ async def ensure_tables(db) -> None:
             operation_id   TEXT NOT NULL REFERENCES economic_operations(id) ON DELETE RESTRICT,
             user_id        BIGINT NOT NULL,
             currency       TEXT NOT NULL CHECK (
-                currency IN ('mora', 'diamonds', 'dark_mora', 'zarniki')
+                currency IN ('mora', 'diamonds', 'dark_mora', 'zarniki', 'essence')
             ),
             delta          NUMERIC(24, 6) NOT NULL CHECK (delta <> 0),
             balance_before NUMERIC(24, 6) NOT NULL,
@@ -73,6 +73,7 @@ async def ensure_tables(db) -> None:
             CHECK (balance_after = balance_before + delta)
         )
     """)
+    await _ensure_essence(db)
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_economic_ledger_user_created "
         "ON economic_ledger (user_id, created_at DESC)"
@@ -81,6 +82,44 @@ async def ensure_tables(db) -> None:
         "CREATE INDEX IF NOT EXISTS idx_economic_ledger_reason_created "
         "ON economic_ledger (reason_code, created_at DESC)"
     )
+
+
+_ESSENCE_READY = False
+
+
+async def _ensure_essence(db) -> None:
+    """Эссенция (2026-10): колонка баланса и расширенный CHECK валют в уже
+    существующей таблице. Только добавляет — данные не трогает. Сначала смотрим
+    в каталог: ensure_tables() зовут часто, а ALTER берёт блокировку на users."""
+    global _ESSENCE_READY
+    if _ESSENCE_READY:
+        return
+    async with db.execute(
+        "SELECT to_regclass('users') IS NOT NULL, EXISTS (SELECT 1 FROM information_schema.columns "
+        "WHERE table_schema = current_schema() AND table_name = 'users' "
+        "AND column_name = 'user_balance_essence')"
+    ) as cursor:
+        has_users, has_column = await cursor.fetchone()
+    if has_users and not has_column:
+        await db.execute(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_balance_essence FLOAT8 DEFAULT 0.0"
+        )
+    async with db.execute(
+        "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+        "WHERE conrelid = 'economic_ledger'::regclass AND contype = 'c' "
+        "AND pg_get_constraintdef(oid) LIKE '%currency%'"
+    ) as cursor:
+        checks = await cursor.fetchall()
+    if not any("essence" in definition for _, definition in checks):
+        # Одной командой: бот и сайт стартуют одновременно, и второй просто
+        # повторит ту же замену под блокировкой таблицы.
+        names = {name for name, _ in checks} | {"economic_ledger_currency_check"}
+        drops = ", ".join(f'DROP CONSTRAINT IF EXISTS "{name}"' for name in sorted(names))
+        await db.execute(
+            f"ALTER TABLE economic_ledger {drops}, ADD CONSTRAINT economic_ledger_currency_check "
+            "CHECK (currency IN ('mora', 'diamonds', 'dark_mora', 'zarniki', 'essence'))"
+        )
+    _ESSENCE_READY = True
 
 
 def _request_fingerprint(

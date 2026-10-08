@@ -16,7 +16,7 @@ from bot.chat.targets import Target, resolve_target
 from bot.chat.tracking import local_now
 
 # Валюты, которые сейчас в игре (остальные — легаси и не показываются).
-SHOWN_CURRENCIES = ("mora", "diamonds", "zarniki")
+SHOWN_CURRENCIES = ("mora", "diamonds", "essence", "zarniki")
 
 
 def esc(s) -> str:

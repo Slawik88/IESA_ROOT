@@ -95,12 +95,16 @@ class FakeBot:
 class FakeMessage:
     def __init__(self, text, uid, username, chat=-100, reply_to=None):
         self.text, self.caption, self.entities = text, None, []
-        self.from_user = SimpleNamespace(id=uid, is_bot=False, username=username, full_name=username)
+        self.from_user = SimpleNamespace(id=uid, is_bot=False, username=username, full_name=username,
+                                         first_name=username.title())
         self.chat = SimpleNamespace(id=chat, type="supergroup", title="Тест")
         self.reply_to_message = reply_to
         self.replies, self.deleted = [], False
 
     async def reply(self, text, **kw):
+        self.replies.append(text)
+
+    async def answer(self, text, **kw):
         self.replies.append(text)
 
     async def delete(self):
@@ -261,7 +265,7 @@ async def sanctions_flow(db, bot):
 
 
 async def profile_flow(db, bot):
-    await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5 WHERE user_tg_id = 2002")
+    await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5, user_balance_essence = 7 WHERE user_tg_id = 2002")
     await db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
                      "VALUES (-100, 2002, 'Talker', 1001, 'Alpha', NOW())")
     out = await run(db, bot, "бот я", uid=2002, username="talker")
@@ -273,7 +277,7 @@ async def profile_flow(db, bot):
     out = await run(db, bot, "бот кто @nobody_here")
     assert "Не нашёл" in out, out
     out = await run(db, bot, "бот баланс", uid=2002, username="talker")
-    assert "Мора" in out and "Зарники" in out and "Тёмная" not in out, out
+    assert "Мора" in out and "Зарники" in out and "Эссенция" in out and "Тёмная" not in out, out
     await transfer_flow(db, bot)
 
 
@@ -301,9 +305,15 @@ async def transfer_flow(db, bot):
     c = Call(1001, "mora")
     await transfer.on_transfer(c, c.data_cb, db)
     assert "не ваш" in c.alerts[0]                                   # чужая кнопка
-    c = Call(2002, "zarniki")
-    await transfer.on_transfer(c, c.data_cb, db)
-    assert "нельзя" in c.alerts[0]
+    for cur in ("zarniki", "essence"):
+        c = Call(2002, cur)
+        await transfer.on_transfer(c, c.data_cb, db)
+        assert "нельзя" in c.alerts[0], (cur, c.alerts)
+    from infrastructure.repositories.economy_ledger import apply_balance_change
+    await apply_balance_change(db, 2002, {"essence": 5}, reason_code="test_essence",
+                               idempotency_key="test-essence-1", source_type="test")
+    async with db.execute("SELECT user_balance_essence FROM users WHERE user_tg_id = 2002") as cur:
+        assert float((await cur.fetchone())[0]) == 12
     c = Call(2002, "mora")
     await transfer.on_transfer(c, c.data_cb, db)
     assert "Переведено" in c.edited[0], (c.edited, c.alerts)
@@ -338,6 +348,52 @@ async def streak_flow(db, bot):
     assert (await streak.streak_of(db, 3001, today))[:2] == (1, 2)
     out = await run(db, bot, "бот стрик", uid=3001, username="streaker")
     assert "стрик: 1" in out and "Лучший: 2" in out and "🟥" in out, out
+    await warps_flow(db, bot)
+
+
+async def warps_flow(db, bot):
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+    from bot.chat.warps_data import WARPS
+    assert len(WARPS) >= 120 and sum(w.adult for w in WARPS) >= 15, len(WARPS)
+
+    async def say(text, uid=1001, username="alpha", **kw):
+        m = FakeMessage(text, uid, username, **kw)
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies)
+
+    out = await say("бот обнять, @talker")
+    assert 'tg://user?id=1001' in out and 'tg://user?id=2002' in out, out
+    target = FakeMessage("привет", 2002, "talker")
+    out = await say("обнять", reply_to=target)                        # без «бот», ответом
+    assert 'tg://user?id=2002' in out, out
+    out = await say("Обнимашки @talker крепко-крепко")                # алиас, @ник и подпись
+    assert "💬" in out and "крепко-крепко" in out, out
+    assert await say("обнять") == ""                                  # просто слово в разговоре
+    assert await say("обнять бы кого-нибудь сегодня вечером под пледом", reply_to=target) == ""
+    out = await say("бот обнять")
+    assert "Формат" in out, out
+    out = await say("бот обнять, @alpha")
+    assert "сам(а) себя" in out, out
+
+    # 18+: только если цель разрешила, и чат не запретил.
+    out = await say("бот шлёпнуть, @talker")
+    assert "не разрешил" in out, out
+    assert await say("шлепнуть", reply_to=target) == ""                # без «бот» — молча
+    out = await say("бот 18+ вкл", uid=2002, username="talker")
+    assert "разрешены" in out, out
+    out = await say("бот шлепнуть, @talker")
+    assert 'tg://user?id=2002' in out, out
+    await db.execute("UPDATE chat_settings SET nsfw_warps_allowed = 0 WHERE chat_id = -100")
+    out = await say("бот шлёпнуть, @talker")
+    assert "выключены" in out, out
+    await db.execute("UPDATE chat_settings SET nsfw_warps_allowed = 1 WHERE chat_id = -100")
+    out = await say("бот 18+", uid=2002, username="talker")
+    assert "включены" in out, out
+    out = await say("бот варпы")
+    assert "обнять" in out and "шлёпнуть" not in out, out
+    out = await say("бот варпы 18+")
+    assert "шлёпнуть" in out and "обнять" not in out, out
 
 
 asyncio.run(main())

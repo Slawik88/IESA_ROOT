@@ -83,6 +83,9 @@ class Registry:
     def register(self, cmd: Command) -> Command:
         for n in cmd.all_names():
             key = " ".join(norm(w) for w in n.split())
+            old = self._by_name.get(key)
+            if old is not None and old.name != cmd.name:
+                raise ValueError(f"команда «{key}» уже занята: {old.name}")
             self._by_name[key] = cmd
         return cmd
 

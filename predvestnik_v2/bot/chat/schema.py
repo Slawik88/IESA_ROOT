@@ -33,6 +33,8 @@ STATEMENTS = (
     )""",
     # Лучший стрик за всё время (текущий хранится в daily_login.streak, строка chat_id = 0).
     "ALTER TABLE daily_login ADD COLUMN IF NOT EXISTS best_streak INTEGER DEFAULT 0",
+    # Согласие игрока на 18+ варп-команды в свой адрес (по умолчанию выключено).
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS allow_adult_warps BOOLEAN DEFAULT FALSE",
     # Какой минимальный ранг нужен для действия в конкретном чате.
     """CREATE TABLE IF NOT EXISTS chat_rank_rights (
         chat_id    BIGINT   NOT NULL,
