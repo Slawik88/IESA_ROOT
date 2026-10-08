@@ -153,7 +153,7 @@ function _profileCompensationCard(c,userId){
 }
 window.replayCompensationAnimation=function(button){const card=button?.closest('[data-compensation-card]');if(!card)return;card.classList.remove('is-animating');void card.offsetWidth;card.classList.add('is-animating');};
 function loadProfile() {
-  el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
+  setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
   return api('/profile/me').then(d=>{
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
@@ -175,7 +175,8 @@ function loadProfile() {
         <div id="wallet-mini"></div>
       </details>`;
     try { checkWhatsNewBadge(); } catch (_) {}
-    try { loadV3Today(); } catch (_) {}
+    try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; } catch (_) {}
+    try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { loadMarriageCard(); } catch (_) {}
     try { loadNickCard(); } catch (_) {}
@@ -268,7 +269,7 @@ function _globalSkinSettingsHtml(){
   const rows=state.items.filter(item=>item.owned||item.price_zarniki).map(item=>{
     const action=item.owned?`_selectGlobalSkin('${item.id}')`:`CM();openLooksModal()`;
     const status=item.active?'Активен':item.selected?'Сохранён':item.owned?'Выбрать':`${item.price_zarniki}✨`;
-    return `<button class="skin-choice${item.selected?' selected':''}" type="button" onclick="${action}" ${_globalSkinBusy?'disabled':''}><span><b>${_profileEsc(item.name)}</b><small>${_profileEsc(item.description)}</small></span><em>${status}</em></button>`;
+    return `<button class="skin-choice${item.selected?' selected':''}" type="button" onclick="${action}" ${_globalSkinBusy?'disabled':''}><span><b>${item.tier?`<i class="tier-badge" aria-label="Тир ${_profileEsc(item.tier)}">${_profileEsc(item.tier)}</i>`:''}${_profileEsc(item.name)}</b><small>${_profileEsc(item.description)}</small></span><em>${status}</em></button>`;
   }).join('');
   const selected=state.items.find(item=>item.id===state.selected_skin_id);
   const gate=!state.vip_active&&selected?.vip_required
@@ -1031,9 +1032,8 @@ function _wnNewCount(list){
 function checkWhatsNewBadge(){
   _wnFetch().then(list => {
     const unseen = _wnNewCount(list) > 0;
-    const dot = el('whatsnew-dot'), btn = el('whatsnew-btn');
-    if (dot) dot.hidden = !unseen;
-    if (btn) btn.classList.toggle('has-new', unseen);
+    document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = !unseen; });
+    document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.toggle('has-new', unseen));
   }).catch(()=>{});
 }
 function _wnMarkSeen(list){
@@ -1043,9 +1043,8 @@ function _wnMarkSeen(list){
     try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch(_){}   // офлайн-подстраховка
     api('/profile/whatsnew-seen', {method:'POST', body: JSON.stringify({seen_id: latest})}).catch(()=>{});
   }
-  const dot = el('whatsnew-dot'), btn = el('whatsnew-btn');
-  if (dot) dot.hidden = true;
-  if (btn) btn.classList.remove('has-new');
+  document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = true; });
+  document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.remove('has-new'));
 }
 function _wnDate(iso){
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');

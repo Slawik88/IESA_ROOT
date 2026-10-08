@@ -36,25 +36,6 @@ body {
   padding: calc(20px + var(--v3-safe-t)) 22px calc(104px + var(--v3-safe-b));
   max-width: 520px; margin-inline: auto;
 }
-/* скин Г «Неон-лайм»: холодный чёрный и салатово-жёлтый акцент */
-body.skin-neon-lime {
-  --v3-bg: #090a08; --v3-ink: #f4f6ee; --v3-dim: #98a08a; --v3-faint: rgba(230,255,120,.10);
-  --v3-acc: #d4ff3a; --v3-on-acc: #121a00; --v3-ok: #9be86a;
-  --v3-sheet: #12140d; --v3-dock: rgba(18,20,13,.97); --v3-dock-on: rgba(212,255,58,.12);
-  --v3-wash: radial-gradient(110% 45% at 85% -8%, rgba(212,255,58,.14), transparent 60%),
-             radial-gradient(70% 38% at 0% 105%, rgba(212,255,58,.06), transparent 60%);
-  --acc-rgb: 212,255,58; --v3-track: rgba(230,255,120,.26);
-}
-/* скин В «Глубокая вода» */
-body.skin-deep-water {
-  --v3-font: 'Sora', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --v3-bg: #071114; --v3-ink: #eaf2f1; --v3-dim: #93adae; --v3-faint: rgba(190,235,230,.11);
-  --v3-acc: #e8d7b0; --v3-on-acc: #241b08; --v3-ok: #6fd8c4;
-  --v3-sheet: #0c1c20; --v3-dock: rgba(14,30,34,.97); --v3-dock-on: rgba(190,235,230,.12);
-  --v3-wash: radial-gradient(110% 45% at 15% -8%, rgba(40,170,160,.28), transparent 60%),
-             radial-gradient(70% 38% at 100% 100%, rgba(232,215,176,.09), transparent 60%);
-  --v3-w-num: 200; --v3-w-head: 500; --acc-rgb: 232,215,176; --v3-track: rgba(190,235,230,.28);
-}
 /* свет скина: фиксированный слой без перерисовки при скролле */
 body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--v3-wash); pointer-events: none; transform: translateZ(0); }
 ::selection { background: rgba(var(--acc-rgb), .3); }

@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               admin, global_admin, dev_console, payments,
                               legal, analytics as analytics_router,
                               dev_overlay, appeals, account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
@@ -175,7 +175,7 @@ for r in [profile.router, marriage.router, wallet.router,
           admin.router, global_admin.router, dev_console.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, dev_overlay.router, appeals.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
@@ -296,13 +296,16 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)]
+
+# Shell V3 stylesheets (loaded after app.css, in this order); each is served at /static/<name>.
+_SHELL_V3_CSS = ("shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css")
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
     *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "shell-v3.css")),
+    *[os.path.getmtime(os.path.join(_STATIC_DIR, name)) for name in _SHELL_V3_CSS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.css")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.js")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.css")),
@@ -455,9 +458,14 @@ async def minesweeper_css():
     return Response(_read_static("minesweeper-v2.css"), media_type="text/css; charset=utf-8")
 
 
-@app.get("/static/shell-v3.css")
-async def shell_v3_css():
-    return Response(_read_static("shell-v3.css"), media_type="text/css; charset=utf-8")
+def _register_shell_css(name: str) -> None:
+    async def _serve() -> Response:
+        return Response(_read_static(name), media_type="text/css; charset=utf-8")
+    app.add_api_route(f"/static/{name}", _serve, methods=["GET"], include_in_schema=False)
+
+
+for _css_name in _SHELL_V3_CSS:
+    _register_shell_css(_css_name)
 
 
 @app.get("/static/global-skins-v1.css")

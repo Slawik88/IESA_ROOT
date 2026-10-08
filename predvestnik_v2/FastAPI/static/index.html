@@ -15,6 +15,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap" media="print" onload="this.media='all'"/>
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap"/></noscript>
 <link rel="stylesheet" href="{{BASE}}/static/shell-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skins-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/shell-v3-home.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/fx-tiers-v3.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -27,6 +30,17 @@
 </div>
 
 
+
+<!-- ═══ Постоянная панель: уровень, ресурсы и «Что нового» всегда под рукой ═══ -->
+<header class="v3-bar" id="v3-bar">
+  <button type="button" class="v3-bar-me" id="v3-bar-me" onclick="switchPage('profile')" aria-label="Мой профиль"></button>
+  <button type="button" class="v3-chips" onclick="showCurrModal()" aria-label="Открыть кошелёк">
+    <span class="v3-chip"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 12h6"/></svg><b id="vb-mora">·</b><u>Мора</u></span>
+    <span class="v3-chip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><b id="vb-zar">·</b><u>Зарники</u></span>
+    <span class="v3-chip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12l3 5-9 11L3 9z"/></svg><b id="vb-dia">·</b><u>Алмазы</u></span>
+  </button>
+  <button type="button" class="v3-bell" data-wn-btn onclick="openWhatsNew()" aria-label="Что нового"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg><span class="v3-bell-dot" data-wn-dot hidden></span></button>
+</header>
 
 <aside class="development-notice" id="dev-notice" aria-label="Статус разработки">
   <span aria-hidden="true">🛠</span>
@@ -58,15 +72,16 @@
 
 <!-- ═══ 1. ПРОФИЛЬ ═══ -->
 <div id="pg-profile" class="page active">
-  <div id="pro-main">
-    <div class="sk" style="height:76px;border-radius:38px;margin-bottom:28px"></div>
-    <div class="sk" style="height:96px;border-radius:16px"></div>
+  <div id="pro-main" class="v3-stagger">
+    <div class="sk" style="height:76px;border-radius:38px;margin-bottom:22px"></div>
+    <div class="sk" style="height:76px;border-radius:14px;margin-bottom:22px"></div>
+    <div class="sk" style="height:150px;border-radius:14px"></div>
   </div>
 </div>
 
 <!-- ═══ Центр активностей ═══ -->
 <div id="pg-arena" class="page">
-  <div id="ar-game"><div id="game-hub"></div></div>
+  <div id="ar-game"><div id="game-hub" class="v3-stagger"></div></div>
 </div>
 
 <!-- ═══ 12. АДМИНКА ═══ -->
@@ -126,6 +141,7 @@
 
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
 <div id="pg-news" class="page"></div>
+<div id="pg-top" class="page"></div>
 
 <div id="pg-looks" class="page looks-screen"></div>
 <div id="pg-pets" class="page"></div>
@@ -134,7 +150,7 @@
 <div id="pg-chat-tracker" class="page"></div>
 <div id="pg-exchange-v1" class="page"></div>
 
-<div id="pg-more" class="page">
+<div id="pg-more" class="page v3-stagger">
   <div class="v3-eyebrow">Меню</div><h1 class="v3-title">Ещё</h1>
   <section class="v3-group" id="cc-manage" style="display:none"><span class="v3-eyebrow">Управление</span>
     <button type="button" class="v3-row" onclick="openManageMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg><span>Управление чатами<small>Модерация и настройки</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
@@ -145,7 +161,8 @@
   <section class="v3-group" id="cc-exchange-v1" hidden><span class="v3-eyebrow">Рынок</span>
     <button type="button" class="v3-row" onclick="openPlayerExchangeV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 3.5 3.5L20 7M15 7h5v5"/></svg><span>Биржа монет<small>Портфель, заявки и монеты игроков</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
   <section class="v3-group"><span class="v3-eyebrow">Информация</span>
-    <button type="button" class="v3-row" id="whatsnew-btn" onclick="openWhatsNew()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Что нового<small>Свежие изменения</small></span><span class="v3-end"><span id="whatsnew-dot" class="v3-badge" hidden>•</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="openTopV3()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M9 20h6"/></svg><span>Топ<small>Игроки и чаты: сообщения за день, неделю, месяц</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" id="whatsnew-btn" data-wn-btn onclick="openWhatsNew()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Что нового<small>Свежие изменения</small></span><span class="v3-end"><span id="whatsnew-dot" class="v3-badge" data-wn-dot hidden>•</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="goTo('help')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9.2a2.4 2.4 0 1 1 3.3 2.2c-.8.4-1.1.9-1.1 1.8M12 17h.01"/></svg><span>Как пользоваться<small>Короткие ответы и быстрые переходы</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="refreshPage()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4.5L20 15M20 20v-5h-5"/></svg><span>Обновить данные</span></button></section>
 </div>

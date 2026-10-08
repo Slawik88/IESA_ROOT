@@ -18,6 +18,7 @@ def _item(skin_id: str, *, owned: bool, selected: bool, active: bool) -> dict:
         "id": skin_id,
         "name": definition["name"],
         "description": definition["description"],
+        "tier": definition["tier"],
         "css_class": definition["css_class"],
         "asset": definition["asset"],
         "lineup": definition.get("lineup"),

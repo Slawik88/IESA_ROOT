@@ -34,6 +34,10 @@ function _v3Avatar(d) {
   const initial = String(d.display_name || d.username || 'И').replace(/^@+/, '').trim().charAt(0).toUpperCase() || 'И';
   return img || (d.is_vip ? (d.vip?.badge || '✦') : _profileEsc(initial));
 }
+function _v3Greeting() {
+  const hour = new Date().getHours();
+  return hour >= 5 && hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
+}
 function renderProfileHome(data) {
   const d = data || {};
   const wallet = (d.balances && typeof d.balances === 'object') ? d.balances : d;
@@ -48,17 +52,23 @@ function renderProfileHome(data) {
   const title = typeof d.cosmetics?.title === 'object' ? (d.cosmetics.title.text || d.cosmetics.title.name) : d.cosmetics?.title;
   const chests = (typeof _sysFlags !== 'undefined' && _sysFlags.content_chests_v1)
     ? _v3Row('chest', 'Сундуки', 'openChestsV1()') : '';
-  return `<section class="v3-id" aria-label="Профиль игрока">
+  return `<section class="v3-id${d.vip ? ' is-vip' : ''}" aria-label="Профиль игрока">
       <div class="v3-ring">${_v3Ring(capped ? 100 : xp / xpNeed * 100)}<div class="v3-ava" id="pro-showcase-ava">${_v3Avatar(d)}</div><span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
-      <div style="min-width:0"><div class="v3-name">${_profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left'))}</div>
+      <div style="min-width:0"><div class="v3-greet">${_v3Greeting()}</div><div class="v3-name">${_profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left'))}</div>
       <div class="v3-sub">${_profileEsc([rank, title].filter(Boolean).join(' · ') || 'Игрок')}</div>
+      ${_v3VipSeal(d.vip)}
       <div class="v3-sub" style="margin-top:2px">${capped ? 'Максимальный уровень' : `${fmt(left)} XP до ${level + 1} уровня`}</div></div>
     </section>
-    <section class="v3-bal" aria-label="Баланс"><div class="v3-eyebrow">Мора</div><div class="v3-num">${fmt(wallet.mora || 0)}</div>
-      <div class="v3-acts"><button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button>
-      <button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк</button></div></section>
-    <section class="v3-stats" aria-label="Показатели игрока"><div><b>${fmtF(wallet.diamonds || 0)}</b><span>алмазов</span></div><div><b>${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(d.achievements || 0)}</b><span>достижений</span></div></section>
+    <section class="v3-next-wrap" id="v3-next" aria-live="polite"><div class="sk" style="height:76px;border-radius:14px"></div></section>
     ${_v3TodayShell()}
+    <section class="v3-bal" aria-label="Баланс">
+      <div class="v3-bal-head"><span class="v3-eyebrow">Мора</span><button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк ›</button></div>
+      <div class="v3-bal-row"><div class="v3-num">${fmt(wallet.mora || 0)}</div>
+        <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
+    </section>
+    <section class="v3-stats" aria-label="Показатели игрока"><div><b>${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b>${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
+    ${_v3PathShell()}
+    ${_v3TopShell()}
     <nav class="v3-list" aria-label="Разделы профиля">
       ${_v3Row('hanger', 'Образы', 'openLooksModal()', 'Примерочная: рамки, титулы, фоны')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
@@ -120,12 +130,19 @@ document.addEventListener('click', e => {
 function v3Reward(anchor) {
   _haptic('success');
   if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const level = typeof v3FxLevelNow === 'function' ? v3FxLevelNow() : 1;   // чем выше тир скина, тем щедрее эффект
+  const count = level >= 5 ? 28 : level >= 3 ? 18 : 12;
   const pt = anchor && 'x' in anchor ? anchor : null;
   const r = pt ? null : anchor?.getBoundingClientRect?.();
   const x = pt ? pt.x : r ? r.left + r.width / 2 : innerWidth / 2, y = pt ? pt.y : r ? r.top + r.height / 2 : innerHeight * 0.4;
-  for (let i = 0; i < 14; i++) {
+  if (level >= 7) {
+    const shock = document.createElement('i'); shock.className = 'v3-shock'; document.body.appendChild(shock);
+    const wave = shock.animate([{ transform: `translate(${x}px,${y}px) scale(.3)`, opacity: .9 }, { transform: `translate(${x}px,${y}px) scale(5)`, opacity: 0 }], { duration: 800, easing: 'cubic-bezier(.22,1,.36,1)' });
+    wave.onfinish = () => shock.remove();
+  }
+  for (let i = 0; i < count; i++) {
     const p = document.createElement('i'); p.className = 'v3-burst'; document.body.appendChild(p);
-    const a = (Math.PI * 2 * i) / 14 + Math.random() * 0.4, d = 70 + Math.random() * 70;
+    const a = (Math.PI * 2 * i) / count + Math.random() * 0.4, d = 70 + Math.random() * (level >= 5 ? 130 : 70);
     const run = p.animate([
       { transform: `translate(${x}px,${y}px) scale(1)`, opacity: 1 },
       { transform: `translate(${x + Math.cos(a) * d}px,${y + Math.sin(a) * d}px) scale(.2)`, opacity: 0 }
@@ -147,27 +164,24 @@ function loadV3Today() {
 }
 function _v3QuestRow(q) {
   const target = Math.max(1, Number(q.target) || 1), progress = Math.min(target, Math.max(0, Number(q.progress) || 0));
-  const done = !!q.completed, ratio = (done ? 1 : progress / target).toFixed(3);
-  return `<button type="button" class="v3-quest${done ? ' is-done' : ''}" onclick="openQuestsV1()" aria-label="${_profileEsc(q.title)}: ${done ? 'выполнено' : `${progress} из ${target}`}">
-    <span class="v3-qt">${_profileEsc(q.title)}</span><span class="v3-qn">${done ? 'Готово ✓' : `${progress} / ${target}`}</span>
-    <span class="v3-qbar" aria-hidden="true"><i style="transform:scaleX(${ratio})"></i></span></button>`;
+  const done = !!q.completed, share = done ? 100 : progress / target * 100;
+  return `<button type="button" class="v3-quest${done ? ' is-done' : ''}" onclick="${_v3QuestRoute(q.metric)}" aria-label="${_profileEsc(q.title)}: ${done ? 'выполнено' : `${progress} из ${target}`}">
+    <span class="v3-qring">${_v3Ring(share)}${done ? '<b>✓</b>' : ''}</span>
+    <span class="v3-qt">${_profileEsc(q.title)}</span><span class="v3-qn">${done ? 'Готово' : `${progress} / ${target}`}</span></button>`;
 }
 function renderV3Today(failed) {
   const host = el('v3-today'); if (!host) return;
   const head = '<div class="v3-sec"><span class="v3-eyebrow">Сегодня</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все квесты</button></div>';
   if (failed) { host.innerHTML = `${head}<div class="v3-empty">Квесты не загрузились. <button type="button" class="v3-link" onclick="loadV3Today()">Повторить</button></div>`; return; }
   const quests = _v3Quests?.daily?.quests || [];
-  const items = _v3Quests?.rewards?.items || {};
-  const ready = ['daily', 'weekly', 'combined'].find(kind => items[kind]?.claimable);
-  const claim = ready
-    ? `<button type="button" class="v3-pill v3-glow" id="v3-claim" data-kind="${_profileEsc(ready)}" onclick="v3ClaimQuestReward(this.dataset.kind)" ${_v3Claiming ? 'disabled aria-busy="true"' : ''}>${{ daily: 'Награда за день', weekly: 'Награда за неделю', combined: 'Награда за всё' }[ready]}: +${fmt(items[ready].amount_mora || 0)} Моры${(typeof _sysFlags !== 'undefined' && _sysFlags.content_chests_v1 && items[ready].amount_keys) ? ` и ключ` : ''}</button>` : '';
-  host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Задания на сегодня появятся позже.</div>'}${claim}`;
+  host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Задания на сегодня появятся позже.</div>'}`;
+  renderV3Next();
 }
 // Оптимистично: награда помечается полученной сразу; откат только если сам claim не удался
 function v3ClaimQuestReward(kind) {
   if (_v3Claiming || !_v3Quests?.rewards?.items?.[kind]) return;
   _v3Claiming = true;
-  const btn = el('v3-claim'), box = btn?.getBoundingClientRect();
+  const btn = el('v3-claim'), box = btn?.querySelector('.v3-next-go')?.getBoundingClientRect() || btn?.getBoundingClientRect();
   const origin = box ? { x: box.left + box.width / 2, y: box.top + box.height / 2 } : null;
   const before = JSON.parse(JSON.stringify(_v3Quests));
   Object.assign(_v3Quests.rewards.items[kind], { claimable: false, claimed: true });
@@ -190,6 +204,7 @@ function _v3RefreshBalance() {
   return api('/profile/me').then(p => {
     _profileData = p;
     const mora = document.querySelector('.v3-num'); if (mora) mora.textContent = fmt((p.balances || p).mora || 0);
+    renderV3Bar(p);
   }).catch(() => { /* баланс обновится при следующем открытии профиля */ });
 }
 document.addEventListener('click', e => {

@@ -1,0 +1,64 @@
+/* ═══ FX TIERS V3 — эффекты накапливаются: класс fx-N на body означает «уровень N и выше» ═══
+   D=fx-1 · C=fx-2 · B=fx-3 · A=fx-4 · S=fx-5 · SS=fx-6 · SSS=fx-7.
+   Класс ставит app.18.js по тиру скина с учётом слабого устройства и «Спокойного режима».
+   Правило: анимируются только transform и opacity. Скин может менять темп через --v3-dur / --v3-ease. */
+
+body { --v3-fx-a: var(--v3-acc); --v3-fx-b: var(--v3-vip, var(--v3-acc)); --v3-dur: .28s; }
+.v3-paused *, .v3-paused *::before, .v3-paused *::after { animation-play-state: paused !important; }
+
+/* Слой эффектов: создаётся JS, лежит под контентом */
+.v3-fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict; }
+.v3-fx > * { position: absolute; pointer-events: none; will-change: transform, opacity; }
+
+/* D · fx-1: статичная палитра, быстрый переход экранов */
+.page.active { animation-duration: var(--v3-dur); }
+
+/* C · fx-2: дрейф ауры за профилем */
+.fx-2 .v3-id::before { animation: v3drift calc(14s * var(--v3-loop, 1)) ease-in-out infinite alternate; }
+body:not(.fx-2) .v3-id::before { animation: none; }
+
+/* B · fx-3: дыхание фона, каскад секций, блик на кнопках */
+.v3-fx-breath { inset: -10%; background: radial-gradient(60% 40% at 50% 0%, rgba(var(--acc-rgb), .20), transparent 70%); animation: v3breath calc(9s * var(--v3-loop, 1)) ease-in-out infinite alternate; }
+@keyframes v3breath { from { opacity: .35; transform: scale(1); } to { opacity: 1; transform: scale(1.08); } }
+.fx-3 .page.active { animation: none; }
+.fx-3 .v3-stagger > * { animation: v3rise calc(var(--v3-dur) + .14s) var(--v3-ease) backwards; }
+.fx-3 .v3-stagger > :nth-child(2) { animation-delay: .05s; } .fx-3 .v3-stagger > :nth-child(3) { animation-delay: .10s; }
+.fx-3 .v3-stagger > :nth-child(4) { animation-delay: .15s; } .fx-3 .v3-stagger > :nth-child(5) { animation-delay: .20s; }
+.fx-3 .v3-stagger > :nth-child(n+6) { animation-delay: .25s; }
+.v3-pill { position: relative; overflow: hidden; }
+.fx-3 .v3-pill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.38) 50%, transparent 70%); transform: translateX(-120%); }
+.fx-3 .v3-pill:active::after { transform: translateX(120%); transition: transform .5s var(--v3-ease); }
+
+/* A · fx-4: зерно, блик кольца уровня, стеклянная кромка дока */
+.v3-fx-grain { inset: 0; opacity: .07; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .9 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
+.fx-4 .v3-ring::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: conic-gradient(transparent 0 78%, rgba(var(--acc-rgb), .85) 95%, transparent); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); animation: v3spin calc(6s * var(--v3-loop, 1)) linear infinite; }
+.fx-4 .nav { box-shadow: 0 0 0 1px var(--v3-faint), inset 0 1px 0 rgba(255,255,255,.09); }
+
+/* S · fx-5: плывущие частицы, блеск на крупных заголовках, мощнее награда */
+.v3-fx-dots > i { left: var(--x); bottom: -12px; width: var(--s); height: var(--s); border-radius: 50%; background: var(--v3-fx-a); opacity: 0; animation: v3float var(--d) linear var(--delay) infinite; }
+@keyframes v3float { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: .55; } 88% { opacity: .35; } 100% { transform: translate3d(var(--dx), -105vh, 0); opacity: 0; } }
+.fx-5 .v3-gname, .fx-5 .v3-title { position: relative; overflow: hidden; }
+.fx-5 .v3-gname::after, .fx-5 .v3-title::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.22) 50%, transparent 60%); mix-blend-mode: overlay; transform: translateX(-130%); animation: v3sheen calc(8s * var(--v3-loop, 1)) ease-in-out infinite; pointer-events: none; }
+@keyframes v3sheen { 0%, 60% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+
+/* SS · fx-6: параллакс по наклону/указателю, боковой переход экранов, световое пятно на доке */
+.v3-fx-tilt { inset: -6%; transform: translate3d(calc(var(--tilt-x, 0) * 18px), calc(var(--tilt-y, 0) * 18px), 0); transition: transform .25s var(--v3-ease); }
+.v3-fx-tilt::before, .v3-fx-tilt::after { content: ""; position: absolute; width: 60%; height: 40%; border-radius: 50%; filter: blur(48px); opacity: .22; }
+.v3-fx-tilt::before { left: 5%; top: 8%; background: var(--v3-fx-a); } .v3-fx-tilt::after { right: 0; bottom: 12%; background: var(--v3-fx-b); opacity: .14; }
+@keyframes v3slide { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+.fx-6 .page.active { animation: v3slide var(--v3-dur) var(--v3-ease) backwards; }
+.fx-6 .page.active.v3-stagger, .fx-6 .page.active:has(.v3-stagger) { animation: none; }
+.fx-6 .nav::after { content: ""; position: absolute; inset: 0; border-radius: 99px; pointer-events: none; background: radial-gradient(70px 36px at calc(50% + var(--tilt-x, 0) * 60px) 0, rgba(255,255,255,.2), transparent); }
+
+/* SSS · fx-7: вращающиеся ленты света, круги от касаний, кольцо-ударная волна награды */
+.v3-fx-ribbon { left: 50%; top: 50%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; border-radius: 50%; opacity: .12; filter: blur(60px); background: conic-gradient(from 0deg, transparent 0 20%, var(--v3-fx-a) 32%, transparent 46% 62%, var(--v3-fx-b) 76%, transparent 90%); animation: v3spin calc(48s * var(--v3-loop, 1)) linear infinite; }
+.v3-fx-ribbon + .v3-fx-ribbon { opacity: .08; animation-duration: calc(76s * var(--v3-loop, 1)); animation-direction: reverse; }
+.v3-ripple { position: fixed; left: 0; top: 0; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; z-index: 300; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .32), transparent); will-change: transform, opacity; }
+.v3-shock { position: fixed; left: 0; top: 0; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; z-index: 399; pointer-events: none; box-shadow: 0 0 0 2px var(--v3-acc), 0 0 24px rgba(var(--acc-rgb), .7); will-change: transform, opacity; }
+
+/* Бейдж тира в выборе скина */
+.tier-badge { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.4 var(--v3-font); font-style: normal; letter-spacing: .06em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v3-fx *, .fx-3 .v3-stagger > *, .fx-4 .v3-ring::after, .fx-5 .v3-gname::after, .fx-5 .v3-title::after { animation: none !important; }
+}
