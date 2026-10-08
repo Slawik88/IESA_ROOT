@@ -1,63 +1,7 @@
 // ── Profile ───────────────────────────────────────────────────────────────────
 // switchPro() defined later with marriage + wallet tabs
 function _profileEsc(value){ return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-function _profileCss(value){ return String(value||'').split(/\s+/).filter(token=>/^[A-Za-z0-9_-]{1,80}$/.test(token)).join(' '); }
-function renderProfileShowcase(data, cosmetics, options={}) {
-  const d=data||{}, c=cosmetics||{};
-  const item=slot=>(c[slot]&&typeof c[slot]==='object'?c[slot]:null);
-  const title=typeof c.title==='object'?c.title:(c.title?{text:c.title,css:c.title_css}:null);
-  const frame=item('avatar_frame'), halo=item('avatar_halo'), bg=item('profile_bg'), fx=item('card_fx'), glow=item('name_glow');
-  const level=Math.max(1,Number(d.account_level)||1), xp=Math.max(0,Number(d.xp_into)||0), xpNeed=Math.max(1,Number(d.xp_to_next)||Number(d.xp_per_level)||1);
-  const xpPercent=Math.min(100,Math.round(xp/xpNeed*100));
-  const wallet=(d.balances&&typeof d.balances==='object')?d.balances:d;
-  const vipBadge=d.vip?.badge||'✦';
-  const avatar=d.is_vip?vipBadge:'🔮', titleText=title?(title.text||title.name):'';
-  const avatarImage=typeof d.avatar==='string'&&/^data:image\/(?:png|jpe?g|webp);base64,/i.test(d.avatar)
-    ?`<img src="${_profileEsc(d.avatar)}" alt="" decoding="async">`:avatar;
-  const publicName=String(d.display_name||'').trim();
-  const profileName=String(d.username||'Игрок').trim()||'Игрок';
-  const rawName=publicName||(profileName.startsWith('@')?profileName:`@${profileName.replace(/^@+/, '')}`);
-  const shownName=vipName(rawName,d.is_vip,vipBadge,d.vip?.badge_position||'left');
-  const lineage=_profileCss(c.composition?.dominant_lineup||c.lineage?.id||bg?.lineup||frame?.lineup||halo?.lineup||fx?.lineup||'');
-  // The lead item names the identity accent, while both independently owned
-  // classes remain on the avatar.  The paired CSS assigns frame and halo to
-  // separate orbits; dropping the ambient class would make a saved item vanish.
-  const accent=(c.composition?.identity?.lead_slot==='avatar_halo'?halo:frame)||halo;
-  const identityCss=[frame?.css,halo?.css].map(_profileCss).filter(Boolean).join(' ');
-  const accentName=accent?.name||bg?.name||titleText||'Базовый образ';
-  const cardClass=`hero profile-showcase-card ${options.compact?'profile-showcase-card--fitting':''} ${_profileCss(bg?.css)} ${lineage?`profile-tone-${lineage}`:''}`;
-  const caption=options.caption||'Личный профиль';
-  const stageTag=options.openLooks?'button':'div';
-  const stageAttrs=options.openLooks
-    ?`type="button" onclick="openLooksModal()" aria-label="Открыть примерочную"`
-    :`aria-label="${_profileEsc(caption)}"`;
-  return `<div class="${cardClass}">
-    <div class="profile-showcase-head">
-      <div class="profile-copy"><div class="pname ${_profileCss(glow?.css)}">${_profileEsc(shownName)}</div>
-      <div class="prank">${_profileEsc(d.rank||caption)}</div>${titleText?`<div class="ptitle ${_profileCss(title?.css)}">${_profileEsc(titleText)}</div>`:''}</div>
-      ${options.openLooks?'<button type="button" class="profile-looks-link" onclick="openLooksModal()">Примерочная</button>':''}
-    </div>
-    <div class="profile-showcase-main">
-      <${stageTag} class="character-showcase-area hero ${_profileCss(bg?.css)}" ${stageAttrs}>
-        ${fx?`<span class="card-fx ${_profileCss(fx.css)}" aria-hidden="true"></span>`:''}
-        <span class="character-showcase-portrait ava ${identityCss?'profile-identity-accent':''} ${identityCss}" aria-hidden="true">${avatarImage}</span>
-        <span class="character-showcase-caption" aria-hidden="true"><strong>${_profileEsc(caption)}</strong><small>${_profileEsc(accentName)}</small></span>
-      </${stageTag}>
-      <aside class="player-data-rail player-data-rail--compact" aria-label="Основные показатели игрока">
-        <div class="player-rail-item player-rail-item--level"><span class="player-rail-kicker">Уровень</span><strong>LV${level}</strong><div class="hero-xp"><div class="xp-bar"><div class="xp-fill" style="width:${xpPercent}%"></div></div><div class="xp-lbl"><span>${fmt(xp)} XP</span><span>до следующего</span></div></div></div>
-        <div class="player-rail-item"><span class="player-rail-kicker">🔥 Серия</span><strong>${fmt(d.streak||0)}</strong><small>лучший результат</small></div>
-        <div class="player-rail-item"><span class="player-rail-kicker">🏅 Достижения</span><strong>${fmt(d.achievements||0)}</strong><small>открыто</small></div>
-      </aside>
-    </div>
-    <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
-      <div class="stat"><div>🪙</div><div class="sv">${fmt(wallet.mora||0)}</div><div class="sl">Мора</div></div>
-      <div class="stat"><div>💎</div><div class="sv">${fmtF(wallet.diamonds||0)}</div><div class="sl">Алмазы</div></div>
-      ${options.openLooks?`<button type="button" class="stat profile-zarniki-topup" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki||0)}"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">+ Пополнить</div></button>`:`<div class="stat"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">Зарники</div></div>`}
-      <div class="stat"><div>🌑</div><div class="sv">${fmt(wallet.dark_mora||0)}</div><div class="sl">Тёмная мора</div></div>
-      <div class="stat"><div>◈</div><div class="sv">${fmt(wallet.echo_shards||0)}</div><div class="sl">Осколки Эха</div></div>
-    </div>
-  </div>`;
-}
+
 function _profileDate(value){
   if(!value) return '—';
   const parsed=new Date(value);
@@ -97,41 +41,9 @@ function renderProfileDetails(data,{owner=false}={}){
     ${_profileSanctions(d)}`;
 }
 function _profileVipCard(vip){
-  if(!vip)return `<section class="profile-vip-card profile-vip-card--inactive"><span aria-hidden="true">◇</span><div><small>Статус аккаунта</small><b>Обычный профиль</b><p>VIP сейчас не активен</p></div><button type="button" class="btn btn-sm btn-gold" onclick="openVipModal()">Выбрать срок</button></section>`;
+  if(!vip)return '';   // покупка VIP недоступна: роутер /vip/* не подключён
   const expires=vip.expires_at?_profileDate(vip.expires_at):'';
-  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p><button type="button" class="btn btn-sm btn-ghost" onclick="openVipModal()">Настроить или продлить</button></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
-}
-function openVipModal(){
-  OM('VIP','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-  api('/vip/status').then(d=>{
-    const packages=(d.tiers||[]).map(p=>`<button type="button" class="btn btn-ghost btn-full" style="margin-top:8px" data-vip-days="${Number(p.duration_days)||0}" onclick="buyVipPackage(this)"><b>${fmt(p.duration_days)} дней</b> · ${fmt(p.price_zarniki)} ✨</button>`).join('');
-    const badges=(d.badges||[]).map(b=>`<option value="${_profileEsc(b.id)}"${d.preferences?.badge_id===b.id?' selected':''}>${_profileEsc(b.symbol)} ${_profileEsc(b.id)}</option>`).join('');
-    const pos=d.preferences?.badge_position||'left';
-    const body=`<div class="looks-hint">Один VIP без уровней силы. Все варианты отличаются только сроком.</div>
-      <div class="irow"><span class="ik">Статус</span><span class="iv">${d.active?`до ${_profileDate(d.expires_at)}`:'не активен'}</span></div>
-      ${packages}
-      <div style="height:12px"></div><b>Значок у ника</b>
-      <select id="vip-badge" class="num-input">${badges}</select>
-      <select id="vip-badge-pos" class="num-input"><option value="left"${pos==='left'?' selected':''}>Слева</option><option value="right"${pos==='right'?' selected':''}>Справа</option><option value="both"${pos==='both'?' selected':''}>С двух сторон</option><option value="hidden"${pos==='hidden'?' selected':''}>Не показывать</option></select>
-      <label class="irow"><span class="ik">Напоминания</span><input id="vip-reminders" type="checkbox"${d.preferences?.reminder_enabled!==false?' checked':''}></label>
-      <button type="button" class="btn btn-gold btn-full" onclick="saveVipPreferences(this)"${d.active?'':' disabled'}>Сохранить настройки</button>`;
-    const mb=el('mb'); if(mb) mb.innerHTML=body;
-  }).catch(e=>{const mb=el('mb');if(mb)mb.innerHTML=`<div class="looks-hint">${_profileEsc(e?.message||e||'Не удалось загрузить VIP')}</div>`;});
-}
-function buyVipPackage(button){
-  if(!button||button.disabled)return;
-  const days=Number(button.dataset.vipDays)||0;
-  const action=button.dataset.actionId||(globalThis.crypto?.randomUUID?.()||`vip-${Date.now()}`);
-  button.dataset.actionId=action;button.disabled=true;
-  api('/vip/purchase',{method:'POST',body:JSON.stringify({package_days:days,action_id:action})})
-    .then(r=>{toast(`VIP продлён на ${fmt(r.package_days)} дней`);CM();loadProfile();})
-    .catch(e=>{button.disabled=false;toast(e?.message||e||'Покупка не выполнена',false);});
-}
-function saveVipPreferences(button){
-  if(!button||button.disabled)return;button.disabled=true;
-  api('/vip/preferences',{method:'PUT',body:JSON.stringify({badge_id:el('vip-badge')?.value||'spark',badge_position:el('vip-badge-pos')?.value||'left',reminder_enabled:!!el('vip-reminders')?.checked})})
-    .then(()=>{toast('Настройки VIP сохранены');CM();loadProfile();})
-    .catch(e=>{button.disabled=false;toast(e?.message||e||'Не удалось сохранить',false);});
+  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
 }
 function _profileCompensationCard(c,userId){
   if(!c)return'';
@@ -153,49 +65,32 @@ function _profileCompensationCard(c,userId){
 }
 window.replayCompensationAnimation=function(button){const card=button?.closest('[data-compensation-card]');if(!card)return;card.classList.remove('is-animating');void card.offsetWidth;card.classList.add('is-animating');};
 function loadProfile() {
-  el('pro-main').innerHTML='<div class="sk" style="height:120px;border-radius:var(--r);margin-bottom:8px"></div><div class="sk" style="height:60px;border-radius:var(--r)"></div>';
+  setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
   return api('/profile/me').then(d=>{
     if(!d || typeof d !== 'object') throw new Error('Неверный формат ответа сервера');
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
-    _applyGlobalSkin(d.global_skin);
+    if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
+    if(typeof v3ApplyLook==='function') v3ApplyLook(d.look);
     // A profile response is authoritative. Optional decorations must never
     // turn it into the misleading “write the bot to create a profile” state.
     try { _applySysFlags(d.system_flags); } catch (_) {}
     const uid = d.user_id || _uid;
     el('pro-main').innerHTML=`
-      ${renderProfileShowcase(d,d.cosmetics,{caption:'Личный профиль',openLooks:true})}
-
-      ${_profileVipCard(d.vip)}
+      ${renderProfileHome(d)}
       ${_profileCompensationCard(d.compensation,uid)}
-
-      <div class="profile-card-actions" aria-label="Настройки профиля">
-        <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>
-        <button type="button" onclick="openPetsV1()"><span aria-hidden="true">🐾</span><span>Питомцы</span></button>
-        <button type="button" onclick="openQuestsV1()"><span aria-hidden="true">🧭</span><span>Квесты</span></button>
-        ${_sysFlags.content_chests_v1?'<button type="button" onclick="openChestsV1()"><span aria-hidden="true">🗝</span><span>Сундуки</span></button>':''}
-        <button type="button" onclick="openAchievementsV1()"><span aria-hidden="true">🏅</span><span>Достижения</span></button>
-        <button type="button" onclick="openChatTracker()"><span aria-hidden="true">💬</span><span>Мои чаты</span></button>
-      </div>
-
-      ${renderProfileDetails(d,{owner:true})}
-
-      <!-- Главный вход: сейчас здесь только реально доступные форматы. -->
-      <div class="qa-row profile-activity-row">
-        <button class="qa qa-hot qa-hub" type="button" onclick="goTo('arena','game')" aria-label="Открыть Центр Предвестника и выбрать игру">
-          <span class="qa-hub-icon" aria-hidden="true">🎮</span>
-          <span class="qa-hub-copy"><strong>Центр Предвестника</strong><small>Ритм · Сапёр · Мафия</small></span>
-          <span class="qa-hub-arrow" aria-hidden="true">›</span>
-        </button>
-      </div>
-
-      <!-- Карточка брака (заполняется loadMarriageCard) -->
-      <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
-      <!-- Карточка ника (заполняется loadNickCard) -->
-      <div id="pro-nick-card"></div>
-      <div id="wallet-mini"></div>`;
+      <details class="v3-more"><summary>Подробнее о профиле</summary>
+        ${_profileVipCard(d.vip)}
+        ${renderProfileDetails(d,{owner:true})}
+        <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
+        <div id="pro-nick-card"></div>
+        <div id="wallet-mini"></div>
+      </details>`;
+    if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
+    try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
+    try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { loadMarriageCard(); } catch (_) {}
     try { loadNickCard(); } catch (_) {}
@@ -206,125 +101,18 @@ function loadProfile() {
     try { checkGlobalAccess(); } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
-// ── Топ-3 игроков на профиле (block 11): соревнование на видном месте ──────────
-// Глобальный подиум + СВОЁ место и дистанция до топ-3 — главный крючок вовлечения.
-function loadTop3(){
-  const box=el('pro-top3'); if(!box) return;
-  api('/top/global').then(rows=>{
-    if(!Array.isArray(rows) || rows.length<3){ box.innerHTML=''; return; }  // нужен полный подиум
-    const top3=rows.slice(0,3);
-    const meIdx=rows.findIndex(r=>String(r.user_id)===String(typeof _uid!=='undefined'?_uid:''));
-    const meRank=meIdx>=0?meIdx+1:null;
-    const rowsHtml=top3.map((r,i)=>`<div class="t3-row${meRank===i+1?' t3-row--me':''}">
-        <span class="t3-medal">${MEDALS[i]||(i+1)}</span>
-        <span class="t3-name">${_topName(r)}</span>
-        <span class="t3-cnt">${fmt(r.count)} 💬</span>
-      </div>`).join('');
-    let you;
-    if(meRank && meRank>3){
-      const gap=Math.max(1,(top3[2].count||0)-(rows[meIdx].count||0)+1);
-      you=`<span>Ты <b>#${meRank}</b></span><span>до топ-3: <b>+${fmt(gap)}</b> 💬</span>`;
-    } else if(meRank){
-      you=`<span>🔥 Ты в топ-3 — <b>#${meRank}</b></span><span>удержи место</span>`;
-    } else {
-      you=`<span>Ты пока вне топ-200</span><span>активнее в чатах →</span>`;
-    }
-    box.innerHTML=`<div class="card t3-card" onclick="openTop3Full()">
-      <div class="t3-head"><span class="t3-title">🏆 Топ игроков</span><span class="t3-all">весь топ ›</span></div>
-      ${rowsHtml}
-      <div class="t3-you">${you}</div>
-    </div>`;
-  }).catch(()=>{box.innerHTML='';});
-}
-function openTop3Full(){
-  goTo('hof');
-  // виджет глобальный → открываем глобальную вкладку (2-я кнопка в свитчере топа)
-  const btns=document.querySelectorAll('#pro-hof .tab-inner .tb');
-  if(btns[1]) switchTop('global', btns[1]);
-}
+
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
 function _legalUrl(slug){ return BASE+'/legal/'+slug; }   // прямая публичная ссылка
 function openLegalDoc(slug){
   const t={tos:'📖 Пользовательское соглашение',privacy:'🔒 Политика конфиденциальности'};
-  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
+  OM(t[slug]||'Документ','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/legal/'+slug+'/text').then(d=>{
     el('mb').innerHTML=`<div class="legal-doc">${d.html}</div>
       <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;
-  }).catch(e=>{ el('mb').innerHTML=`<div class="err">${e}</div>`; });
-}
-function openSettingsModal(){
-  const noFx=document.body.classList.contains('no-fx');
-  OM('⚙️ Настройки',`
-    <section class="settings-panel"><div class="set-sec-t"><span>🎨</span> Внешний вид</div>
-    ${_globalSkinSettingsHtml()}
-    <label class="settings-toggle">
-      <input type="checkbox" ${noFx?'checked':''} onchange="_toggleNoFx(this.checked)"/>
-      <span><b>Спокойный режим</b><small>Отключить анимации косметики</small></span>
-    </label>
-    <div class="set-hint">Свечения, рамки и частицы станут статичными. Полезно на слабых телефонах.</div></section>
-    <section class="settings-panel"><div class="set-sec-t"><span>🔔</span> Уведомления</div>
-    <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
-    <div class="set-hint">Здесь настраиваются только личные сообщения от бота.</div></section>
-    <section class="settings-panel"><div class="set-sec-t"><span>📄</span> Документы</div>
-    <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
-    <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
-    <div class="set-hint">Откроются прямо здесь.</div></section>
-    ${!INIT_DATA?`<section class="settings-panel"><div class="set-sec-t"><span>🔀</span> Вход</div>
-    <div class="set-hint">Сейчас: Telegram @${esc((_profileData&&_profileData.username)||'—')}. Сайт открыт в браузере — если сменили активный аккаунт в приложении Telegram, страница сама этого не узнает.</div>
-    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button></section>`:''}
-    <section class="settings-panel settings-panel--danger"><div class="set-sec-t"><span>👤</span> Аккаунт</div>
-    <div id="set-account"><div class="loader">Загрузка...</div></div></section>`,
-    [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
-  _loadNotifPrefs();
-  _loadAccountSection();
-}
-let _globalSkinBusy=false;
-function _applyGlobalSkin(state){
-  if(typeof window.applyGlobalSkinV1==='function') window.applyGlobalSkinV1(state);
-}
-function _globalSkinSettingsHtml(){
-  const state=_profileData&&_profileData.global_skin;
-  if(!state||!Array.isArray(state.items)) return '<div class="set-hint">Скины приложения временно недоступны.</div>';
-  const rows=state.items.filter(item=>item.owned||item.price_zarniki).map(item=>{
-    const action=item.owned?`_selectGlobalSkin('${item.id}')`:`CM();openLooksModal()`;
-    const status=item.active?'Активен':item.selected?'Сохранён':item.owned?'Выбрать':`${item.price_zarniki}✨`;
-    return `<button class="skin-choice${item.selected?' selected':''}" type="button" onclick="${action}" ${_globalSkinBusy?'disabled':''}><span><b>${_profileEsc(item.name)}</b><small>${_profileEsc(item.description)}</small></span><em>${status}</em></button>`;
-  }).join('');
-  const selected=state.items.find(item=>item.id===state.selected_skin_id);
-  const gate=!state.vip_active&&selected?.vip_required
-    ?'<div class="set-hint">Выбор сохранён. На всём приложении он включится вместе с активным VIP.</div>'
-    :'<div class="set-hint">Скин меняет только палитру и фон. Доступ, цены, расположение элементов и правила игр не меняются.</div>';
-  return `<div class="skin-settings">${rows}</div>${gate}`;
-}
-function _selectGlobalSkin(skinId){
-  if(_globalSkinBusy) return;
-  _globalSkinBusy=true;
-  api('/global-skins-v1/select',{method:'POST',body:JSON.stringify({skin_id:skinId})})
-    .then(state=>{_globalSkinBusy=false;if(_profileData)_profileData.global_skin=state;_applyGlobalSkin(state);toast(state.active_skin_id===skinId?'Скин приложения включён':'Выбор сохранён до активации VIP');CM();openSettingsModal();})
-    .catch(error=>{_globalSkinBusy=false;toast(error,false);});
+  }).catch(e=>{ el('mb').innerHTML=`<div class="v3-err">${e}</div>`; });
 }
 // admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
-function _loadAccountSection(){
-  const box=el('set-account'); if(!box) return;
-  api('/account/deletion-status').then(d=>{
-    const days=d.delete_after_days||365;
-    const proc=d.process_status;
-    let procHtml='';
-    if(proc==='confirming') procHtml=`<div class="set-hint" style="color:var(--gold2)">⏳ Ожидается код из ЛС бота.</div>
-      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить процесс</button>`;
-    if(proc==='cooling') procHtml=`<div class="set-hint" style="color:var(--red)">⏳ Удаление запланировано — период «остывания».</div>
-      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить удаление</button>`;
-    box.innerHTML=`
-      <div style="font-size:12px;margin-bottom:4px">Удалять аккаунт после неактива:</div>
-      <select class="num-input" style="margin:0 0 4px" onchange="_accSetInactivity(this.value)">
-        <option value="180" ${days===180?'selected':''}>6 месяцев</option>
-        <option value="365" ${days===365?'selected':''}>1 год (по умолчанию)</option>
-        <option value="730" ${days===730?'selected':''}>2 года</option>
-      </select>
-      <div class="set-hint">За 14 дней до срока придёт предупреждение в ЛС; любое сообщение в чате отменяет отсчёт. После удаления — 14 дней на восстановление.</div>
-      ${procHtml||`<button class="btn btn-ghost btn-full" style="margin-top:6px;color:var(--red)" onclick="_accDeleteStart()">🗑 Удалить аккаунт…</button>`}`;
-  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
-}
 function _accSetInactivity(v){
   api('/account/set-inactivity',{method:'POST',body:JSON.stringify({days:parseInt(v,10)})})
     .then(r=>toast(r.message||'✅')).catch(e=>toast(e,false));
@@ -335,16 +123,16 @@ function _accDeleteStart(){
       Будут удалены: питомцы, инвентарь, косметика, балансы, прогресс.<br>
       <b>14 дней</b> после удаления всё можно вернуть («бот восстановить аккаунт»).<br><br>
       Сейчас в <b>ЛС бота</b> придёт код подтверждения.</div>`,
-    [{l:'📨 Получить код',c:'btn-red',f:'_accDeleteRequest()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    [{l:'📨 Получить код',c:'danger',f:'_accDeleteRequest()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
 }
 function _accDeleteRequest(){
   api('/account/delete/request',{method:'POST'}).then(()=>{
     OM('🗑 Удаление — шаг 2 из 3',
       `<div style="font-size:12px;color:var(--muted);padding:4px 0">Код отправлен в ЛС бота.</div>
-       <input id="acc-del-code" class="num-input" inputmode="numeric" style="margin:6px 0" placeholder="Код из ЛС (6 цифр)"/>
-       <input id="acc-del-phrase" class="num-input" style="margin:0 0 4px" placeholder="Введите вручную: УДАЛИТЬ АККАУНТ"/>
-       <div class="set-hint">Шаг 3 — автоматический: 24 часа «остывания», в течение которых удаление можно отменить (в ЛС придёт напоминание как).</div>`,
-      [{l:'Подтвердить удаление',c:'btn-red',f:'_accDeleteConfirm()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+       <input id="acc-del-code" class="v3-field" inputmode="numeric" style="margin:6px 0" placeholder="Код из ЛС (6 цифр)"/>
+       <input id="acc-del-phrase" class="v3-field" style="margin:0 0 4px" placeholder="Введите вручную: УДАЛИТЬ АККАУНТ"/>
+       <div class="v3-dim">Шаг 3 — автоматический: 24 часа «остывания», в течение которых удаление можно отменить (в ЛС придёт напоминание как).</div>`,
+      [{l:'Подтвердить удаление',c:'danger',f:'_accDeleteConfirm()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
   }).catch(e=>toast(e,false));
 }
 function _accDeleteConfirm(){
@@ -355,29 +143,13 @@ function _accDeleteConfirm(){
 }
 function _accCancel(){
   api('/account/delete/cancel',{method:'POST'})
-    .then(r=>{toast(r.message||'✅ Отменено');_loadAccountSection();})
+    .then(r=>{toast(r.message||'✅ Отменено');if(typeof _stLoad==='function')_stLoad('account');})
     .catch(e=>toast(e,false));
-}
-// R6 «Умный Пульс»: тумблеры персональных DM-уведомлений (раньше их нельзя было
-// отключить нигде — БЛОК 36.1)
-function _loadNotifPrefs(){
-  const box=el('set-notif-prefs'); if(!box) return;
-  api('/profile/notification-prefs').then(d=>{
-    box.innerHTML=(d.categories||[]).map(c=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;cursor:pointer">
-        <input type="checkbox" ${c.enabled?'checked':''} onchange="_setNotifPref('${c.key}',this.checked)"/>
-        <span style="font-size:12.5px">${esc(c.label)}</span>
-      </label>`).join('')||'<div class="set-hint">Категорий пока нет.</div>';
-  }).catch(()=>{box.innerHTML='<div class="set-hint" style="color:var(--red)">Не удалось загрузить настройки.</div>';});
-}
-function _setNotifPref(key,on){
-  api('/profile/notification-prefs',{method:'POST',body:JSON.stringify({category:key,enabled:on})})
-    .then(()=>toast(on?'🔔 Включено':'🔕 Выключено'))
-    .catch(e=>{toast(e,false);_loadNotifPrefs();});
 }
 function _toggleNoFx(on){
   document.body.classList.toggle('no-fx',on);
   try{ localStorage.setItem('pv_no_fx',on?'1':'0'); }catch(e){}
+  if(typeof applySkinTier==='function') applySkinTier(_v3Skin);   // движение образов и уровень эффектов пересчитываются сразу
 }
 // UX_AUDIT С23: облегчённый ввод для игроков с моторными/реакционными ограничениями.
 // Потребители: гача (app.04 — спин тапом вместо удержания) и бой (app.11 — мягче QTE).
@@ -398,10 +170,10 @@ function _tosGate(d){
     <div class="tos-gate-title">Добро пожаловать в PREDVESTNIK</div>
     <div class="tos-gate-sub">Чтобы продолжить, ознакомьтесь и примите наши документы.</div>
     <div class="tos-gate-links">
-      <button class="btn btn-ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
-      <button class="btn btn-ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('tos')">📖 Правила (ToS)</button>
+      <button class="v3-pill v3-pill--ghost" onclick="openLegalDoc('privacy')">🔒 Конфиденциальность</button>
     </div>
-    <button class="btn btn-gold btn-full" onclick="_tosAccept(this)">✅ Принять и играть</button>
+    <button class="v3-pill v3-pill--full" onclick="_tosAccept(this)">✅ Принять и играть</button>
     <div class="tos-gate-hint">Нажимая «Принять», вы соглашаетесь с Пользовательским соглашением и Политикой конфиденциальности.</div>
   </div>`;
   document.body.appendChild(g);
@@ -428,151 +200,16 @@ function _showWelcome(){
       <p>Питомцы, кланы, экономика и косметика будут добавляться по мере утверждения правил. Никаких скрытых преимуществ или обязательных таймеров.</p>
       <p style="color:var(--gold2)">Первый шаг: открой «Игра» и выбери формат под настроение.</p>
     </div>`, [
-    {l:'🎮 Открыть игры', c:'btn-gold', f:"CM();goTo('arena','game')"},
-    {l:'Позже', c:'btn-ghost', f:'CM()'},
+    {l:'🎮 Открыть игры', c:'primary', f:"CM();goTo('arena','game')"},
+    {l:'Позже', c:'ghost', f:'CM()'},
   ]), 500);
 }
 
-
-// ── Кланы / Гильдии ─────────────────────────────────────────────────────────────
-let _clansData=null, _clanEmblemSel='🛡';
-function openClansModal(){
-  OM('🛡 Кланы','<div class="loader">Загрузка...</div>',[{l:'Готово',c:'btn-ghost',f:'CM()'}]);
-  api('/clans/').then(d=>{_clansData=d; _clanEmblemSel=(d.emblems&&d.emblems[0])||'🛡'; renderClans();})
-    .catch(e=>{const b=el('mb'); if(b)b.innerHTML=`<div class="err">${e}</div>`;});
-}
-function renderClans(){
-  const b=el('mb'); if(!b||!_clansData) return;
-  b.innerHTML=(_clansData.my_clan?_clanMyHtml():_clanCreateHtml())+_clanTopHtml();
-}
-function _clanMyHtml(){
-  const c=_clansData.my_clan;
-  const lp=c.level_progress||{level:c.level||1,xp_into:0,xp_needed:0,is_max:false};
-  const pct=lp.is_max?100:(lp.xp_needed?Math.min(100,Math.round(lp.xp_into/lp.xp_needed*100)):0);
-  const emax=c.effective_max||_clansData.max_members;
-  const members=(c.members||[]).map(m=>{
-    const lead=m.role==='owner';
-    const title=m.title?`<div class="top-title">${esc(m.title)}</div>`:'';
-    return `<div class="clan-mrow"><span class="clan-mname">${lead?'👑 ':''}${unameLink(m.user_id, m.username, false, m.glow)}${title}</span>
-      <span class="clan-mrole">🎖 ${fmtF(m.clan_coins||0)}</span></div>`;
-  }).join('');
-  return `<div class="clan-card">
-      <div class="clan-emblem">${c.emblem||'🛡'}</div>
-      <div class="clan-name">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></div>
-      ${c.description?`<div class="clan-desc">${esc(c.description)}</div>`:''}
-      <div class="clan-lvlrow"><span class="clan-lvlbadge">🏛 Основание клана</span>
-        <span class="clan-lvlxp">${fmtF(c.foundation_score||c.total_xp||0)} истории</span></div>
-      <div class="clan-stats"><div><b>${(c.members||[]).length}</b>/${emax} участников</div>
-        <div>роли и состав сохранены</div></div>
-    </div>
-    ${_clan2NavHtml()}
-    <div class="looks-hint">Старая сила и здания не дают преимущества. Совместные цели идут через Союз, а клан сохраняет имя, состав и историю.</div>
-    <div class="looks-slot-t" style="margin-top:12px">Состав</div>
-    <div class="clan-members">${members}</div>
-    <button class="btn btn-full btn-ghost" style="margin-top:12px" onclick="_clanLeave()">🚪 Покинуть клан</button>`;
-}
-function _clanBuildingsHtml(){
-  const c=_clansData.my_clan;
-  const bs=(c&&c.buildings)||[];
-  if(!bs.length) return '';
-  const lvl=(c.level)||1;
-  const cards=bs.map(b=>`<div class="clan-bld">
-    <div class="clan-bld-ico">${b.emoji||'🏛'}</div>
-    <div class="clan-bld-body">
-      <div class="clan-bld-name">${esc(b.name)}</div>
-      <div class="clan-bld-eff">${esc(b.effect||'')}</div>
-      ${b.next_effect?`<div class="clan-bld-next">↑ ур.${lvl+1}: ${esc(b.next_effect)}</div>`:`<div class="clan-bld-next clan-bld-max">★ максимум</div>`}
-    </div></div>`).join('');
-  return `<div class="looks-slot-t" style="margin-top:12px">🏛 Штаб клана · ур.${lvl}</div>
-    <div class="clan-blds">${cards}</div>`;
-}
-function _clanCreateHtml(){
-  const emblems=(_clansData.emblems||[]).map(e=>`<span class="clan-emb-opt ${e===_clanEmblemSel?'sel':''}" onclick="_clanPickEmblem('${e}')">${e}</span>`).join('');
-  return `<div class="looks-hint">Создай свой клан или вступи в существующий ниже. Один клан на игрока.</div>
-    <div class="clan-form">
-      <div class="looks-slot-t">Эмблема</div>
-      <div class="clan-emblems">${emblems}</div>
-      <input id="clan-name" type="text" class="num-input" maxlength="${_clansData.name_max||24}" placeholder="Название клана"/>
-      <input id="clan-tag" type="text" class="num-input" maxlength="${_clansData.tag_max||5}" placeholder="Тег (2–5, напр. WOLF)" style="text-transform:uppercase"/>
-      <input id="clan-desc" type="text" class="num-input" maxlength="120" placeholder="Девиз (необязательно)"/>
-      <button class="btn btn-full btn-gold" onclick="_clanCreate()">🛡 Основать клан</button>
-    </div>`;
-}
-function _clanTopHtml(){
-  const top=_clansData.top||[]; if(!top.length) return '';
-  const inClan=!!_clansData.my_clan;
-  const rows=top.map((c,i)=>{
-    const mine=_clansData.my_clan&&_clansData.my_clan.clan_id===c.clan_id;
-    const join=(!inClan)?`<button class="btn btn-sm btn-gold" onclick="_clanJoin(${c.clan_id})">Вступить</button>`:(mine?'<span class="clan-you">ты тут</span>':'');
-    return `<div class="clan-trow${mine?' clan-mine':''}"><span class="clan-trank">${i+1}</span>
-      <span class="clan-temblem">${c.emblem||'🛡'}</span>
-      <span class="clan-tname">${esc(c.name)} <span class="clan-tag">[${esc(c.tag)}]</span></span>
-      <span class="clan-txp">${c.member_count}/${c.effective_max||_clansData.max_members} участников · ${fmtF(c.total_xp||0)} истории</span>
-      ${join}</div>`;
-  }).join('');
-  return `<div class="looks-slot-t" style="margin-top:14px">🏆 Топ кланов</div><div class="clan-top">${rows}</div>`;
-}
-function _clanPickEmblem(e){ _clanEmblemSel=e; renderClans(); }
-function _clanCreate(){
-  const name=(el('clan-name')||{}).value||'', tag=(el('clan-tag')||{}).value||'', desc=(el('clan-desc')||{}).value||'';
-  api('/clans/create',{method:'POST',body:JSON.stringify({name,tag,description:desc,emblem:_clanEmblemSel})})
-    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();})
-    .catch(e=>toast(e,false));
-}
-function _clanJoin(id){
-  api('/clans/join',{method:'POST',body:JSON.stringify({clan_id:id})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
-}
-function _clanLeave(){
-  OM('🚪 Покинуть клан','<div style="padding:6px 2px;font-size:13px">Точно выйти? Если ты лидер — лидерство перейдёт старейшему участнику, а без участников клан распустится.</div>',
-    [{l:'Отмена',c:'btn-ghost',f:'openClansModal()'},{l:'Выйти',c:'btn-gold',f:'_clanLeaveDo()'}]);
-}
-function _clanLeaveDo(){
-  api('/clans/leave',{method:'POST',body:JSON.stringify({})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>{toast(e,false); openClansModal();});
-}
-// ── Доска Запросов: создать / помочь / снять ────────────────────────────────────
-function _clanReqCreateDo(){
-  const item=(el('creq-item')||{}).value||'';
-  const qty=parseInt((el('creq-qty')||{}).value||'1',10)||1;
-  api('/clans/request/create',{method:'POST',body:JSON.stringify({item_id:item,qty:qty})})
-    .then(r=>{toast(r.message); openClansModal();}).catch(e=>toast(e,false));
-}
-// ── Клан-лавка (сток clan_coins) ────────────────────────────────────────────────
-function _clanShopHtml(){
-  const c=_clansData.my_clan;
-  const shop=(c&&c.shop)||[];
-  if(!shop.length) return '';
-  const coins=c.clan_coins||0;
-  const rows=shop.map(s=>{
-    const afford=coins+1e-9>=s.cost;
-    const btn=afford
-      ?`<button class="btn btn-sm btn-gold" onclick="_clanShopBuy('${s.id}')">${fmtF(s.cost)} 🎖</button>`
-      :`<button class="btn btn-sm btn-ghost" disabled style="opacity:.5">${fmtF(s.cost)} 🎖</button>`;
-    return `<div class="clan-req">
-      <div class="clan-req-top"><span class="clan-req-name">${s.emoji||'🎖'} ${esc(s.name)}</span>
-        <span class="clan-req-act">${btn}</span></div>
-      <div class="clan-board-hint" style="margin:2px 0 0">${esc(s.desc||'')}</div>
-    </div>`;
-  }).join('');
-  return `<div class="clan-board-head"><span class="looks-slot-t" style="margin:0">🎖 Клан-лавка</span>
-      <span class="clan-coin-note">у тебя ${fmtF(coins)} 🎖</span></div>
-    <div class="clan-board-hint">Трать клан-монеты, заработанные помощью по Доске.</div>
-    <div class="clan-board">${rows}</div>`;
-}
-function _clanShopBuy(id){
-  api('/clans/shop/buy',{method:'POST',body:JSON.stringify({shop_id:id})})
-    .then(r=>{toast(r.message); refreshCurrBar(); openClansModal();}).catch(e=>toast(e,false));
-}
 // ── Preloader: эффектный холодный старт (БЛОК 9.2) ──────────────────────────────
 function _plSkip() {
   const pl = el('preloader');
   if(!pl || pl.classList.contains('pl-done')) return;
   pl.classList.add('pl-done');
-  // Вход → вкладка = одно целое: активная страница «всплывает» каскадом,
-  // пока прелоадер растворяется.
-  const pg = document.querySelector('.page.active');
-  if(pg){ pg.classList.add('pg-enter'); setTimeout(()=>pg.classList.remove('pg-enter'), 1000); }
   setTimeout(()=>{ const p=el('preloader'); if(p) p.remove(); }, 600);
 }
 function _runPreloader() {
@@ -599,8 +236,8 @@ function _runPreloader() {
       ? `<span class="plw-hi">Добро пожаловать,</span><span class="plw-nick">@${esc(nick)}</span>`
       : `<span class="plw-nick" style="font-size:23px">Добро пожаловать!</span>`;
     w.classList.add('show');
-  }, reduce ? 220 : 1500);
-  setTimeout(_plSkip, reduce ? 650 : 3200);
+  }, reduce ? 150 : 500);
+  setTimeout(_plSkip, reduce ? 400 : 1300);
 }
 _runPreloader();
 
@@ -609,35 +246,27 @@ _runPreloader();
 // need a web hop. The start parameter only selects the complex destination.
 function _handleStartParam(){
   let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
-  // Фолбэк: обычная HTTPS-ссылка ?startapp=<section> (не t.me-диплинк) не несёт
-  // нативный start_param — Telegram его просто не заполняет. Раздел в этом
-  // случае лежит в query самой страницы.
+  // Обычная HTTPS-ссылка ?startapp=<раздел> не несёт нативный start_param: раздел лежит в query страницы.
   if(!p){ try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
-  if(base==='clans'){ run(()=>openClansModal()); return; }
-  if(base==='quests'){ run(()=>openQuestsV1()); return; }
-  if(base==='achievements'||base==='achievement'){ run(()=>openAchievementsV1()); return; }
-  if(base==='pets'){ run(()=>openPetsV1()); return; }
-  if(base==='cosmetics'||base==='looks'){ run(()=>openLooksModal()); return; }
+  const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
+  // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
+  const LINKS={
+    quests:openQuestsV1, achievements:openAchievementsV1, achievement:openAchievementsV1, pets:openPetsV1, zoo:openPetsV1,
+    looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openLooksModal, inv:openLooksModal,
+    vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
+    exchange:openPlayerExchangeV1, exch:openPlayerExchangeV1, crypto:openPlayerExchangeV1, birzha:openPlayerExchangeV1,
+    notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew,
+  };
   if(base==='public'){
     let ref=''; try{ ref=new URLSearchParams(location.search).get('profile')||''; }catch(e){}
     if(ref) run(()=>openPublicProfile(ref));
     return;
   }
-  if(base==='exchange'||base==='exch'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('exch')}catch(e){}},220); }); return; }
-  if(base==='crypto'||base==='birzha'){ run(()=>{ switchPage('auction'); setTimeout(()=>{try{swAuction('crypto')}catch(e){}},220); }); return; }
-  // БЛОК 36.1: «бот уведомления» раньше вёл на голую вкладку профиля — теперь
-  // сразу открывает «⚙️ Настройки» с чекбоксами уведомлений.
-  if(base==='notifications'||base==='notifprefs'){ run(()=>{ switchPage('profile'); setTimeout(()=>{try{openSettingsModal()}catch(e){}},260); }); return; }
-  if(base==='relics'){ run(()=>{ try{ _goodsTab='dark'; goTo('market','goods'); }catch(e){} }); return; }
-  const M={ shop:['market','goods'],goods:['market','goods'],gacha:['market','gacha'],deal:['market','deal'],
-    vip:['market','vip'],themes:['profile','themes'],craft:['craft'],inventory:['profile','inv'],inv:['profile','inv'],
-    ach:['ach'],achievements:['ach'],zoo:['profile'],bp:['bp'],auction:['auction'],
-    arena:['arena'],games:['arena','game'],casino:['arena','game'],
-    barracks:['arena','game'],gates:['arena','game'],game:['arena','game'] };
-  const t=M[base]; if(t) run(()=>goTo(t[0],t[1]));
+  if(LINKS[base]) { run(LINKS[base]); return; }
+  if(['arena','games','game','casino','barracks','gates','gacha','deal','craft','bp','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
 }
 if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 
@@ -725,21 +354,28 @@ function showCurrModal() {
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
         <div class="cm-name">Мора <span class="cm-val">${fmtF(mora)}</span></div>
-        <div class="cm-desc">Основная валюта для расходников, комиссий и разрешённых торгов.</div>
+        <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
         <div class="cm-name">Алмазы <span class="cm-val">${fmtF(dia)}</span></div>
-        <div class="cm-desc">Премиум валюта. Покупай в Магазине или получай за достижения и ивенты.</div>
+        <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
+      </div>
+    </div>
+    <div class="cm-block">
+      <div class="cm-icon">💧</div>
+      <div class="cm-info">
+        <div class="cm-name">Эссенция <span class="cm-val">${fmtF(d.essence ?? 0)}</span></div>
+        <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
         <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
-        <div class="cm-desc">Редкая валюта тёмного рынка. Получай через Контрабанду (раз в 4 дня).</div>
+        <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
       </div>
     </div>
     <div class="cm-block">
@@ -752,13 +388,22 @@ function showCurrModal() {
     <div class="cm-block" style="display:block">
       <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
       <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
-      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="num-input" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="num-input" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
-      <button id="zar-exchange-submit" class="btn btn-gold btn-full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
+      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="v3-field" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
+      <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
-  </div>`, [{l:'Закрыть', c:'btn-ghost', f:'CM()'}]);
+  </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
 }
 
-function exchangeZarnikiV1(){
+// Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос
+async function exchangeZarnikiV1(){
+  const raw=(el('zar-exchange-amount')?.value||'').trim(),amount=Number(raw),target=el('zar-exchange-target')?.value;
+  if(/^\d+$/.test(raw)&&Number.isSafeInteger(amount)&&amount>=1&&amount<=50&&(target==='mora'||target==='diamonds')){
+    const got=target==='mora'?`${fmt(amount*10)} 🪙 Моры`:`${(amount/100).toLocaleString('ru')} 💎 Алмазов`;
+    if(!(await v3Confirm({title:'Обмен Зарников',visual:'💱',name:`${fmt(amount)} ✨ → ${got}`,sub:'По курсу сервера',rows:[['Отдадите',`${fmt(amount)} ✨`],['Получите',got,true]],cta:'Обменять',note:'Обмен необратим. Лимит: 50 ✨ суммарно за сутки по UTC.'})))return;
+  }
+  return _exchangeZarnikiRun();
+}
+function _exchangeZarnikiRun(){
   const input=el('zar-exchange-amount'),button=el('zar-exchange-submit');
   const raw=(input?.value||'').trim(), amount=Number(raw), target=el('zar-exchange-target')?.value;
   if(!/^\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>50)return toast('Введите целое число от 1 до 50.',false);
@@ -804,160 +449,9 @@ function _profileSyncStats(d){
   set('pro-stat-streak', d.streak);
 }
 
-function plDays(n){n=Math.abs(n)%100;const d=n%10;if(n>10&&n<20)return'дней';if(d===1)return'день';if(d>=2&&d<=4)return'дня';return'дней';}
-function loadStreak() {
-  el('pro-streak').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/streak/calendar').then(d=>{
-    const today=new Date().toISOString().slice(0,10);
-    const streak=d.streak||0;
-    // История присутствия, без награды за объём сообщений.
-    const cells=d.calendar.map(day=>{
-      const active=Boolean(day.active);
-      return `<div class="st-cell l${active?2:0}${day.date===today?' today':''}" title="${day.date}: ${active?'был активен':'нет активности'}"></div>`;
-    }).join('');
-
-    el('pro-streak').innerHTML=`
-    <div class="st-hero">
-      <div class="st-flame">🔥</div>
-      <div class="st-big">${streak}</div>
-      <div class="st-sub">${plDays(streak)} · сохранённый рекорд старой системы</div>
-    </div>
-
-    <div class="card" style="margin-top:10px">
-      <div class="card-title">Что изменилось</div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5">Рекорд не стирается и не уменьшается. Сообщения больше не дают Мору, Алмазы или жетоны, а платного восстановления нет.</div>
-    </div>
-
-    <div class="card" style="margin-top:10px">
-      <div class="card-title">📅 Присутствие в чатах · 60 дней</div>
-      <div class="st-heat">${cells}</div>
-      <div style="font-size:10px;color:var(--muted);margin-top:7px">Показан только факт активности за день; число сообщений не усиливает награду.</div>
-    </div>`;
-  }).catch(e=>{el('pro-streak').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${typeof e==='string'?esc(e):'Ошибка загрузки'}</div>`;});
-}
-
 // Legacy achievement instructions were deliberately removed: several pointed
 // players to retired gacha, gates, spending and message-spam loops.
 
-function loadAch() {
-  el('pro-ach').innerHTML='<div class="loader">Загрузка...</div>';
-  api('/achievements/').then(payload=>{
-    _achRetired=Boolean(payload&&payload.retired);
-    _achMessage=payload&&payload.message||'';
-    _featData=payload&&payload.chronicle||null;
-    _achData=Array.isArray(payload)?payload:(payload.achievements||[]);
-    renderAch();
-  }).catch(e=>{el('pro-ach').innerHTML=`<div style="color:var(--red);padding:10px;font-size:12px">${e}</div>`;});
-}
-function setAchSort(s){_achSort=s;renderAch();}
-function renderAch() {
-  if(!_achData||!_featData) return;
-  const feats=[...(_featData.feats||[])].sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct||a.order-b.order);
-  let achs=[..._achData];
-  if(_achSort==='progress') achs.sort((a,b)=>b.pct-a.pct);
-  else if(_achSort==='todo') achs.sort((a,b)=>(a.completed?1:0)-(b.completed?1:0)||b.pct-a.pct);
-  const legacyDone=achs.filter(a=>a.level>0).length;
-  el('pro-ach').innerHTML=`
-    <div class="card" style="margin-bottom:8px">
-      <div class="card-title">▤ Хроника подвигов <span style="font-size:9px;font-weight:400;color:var(--muted)">${_featData.completed} / ${_featData.total}</span></div>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5">${esc(_featData.message)}</div>
-      <div style="font-size:10px;color:var(--teal);margin-top:6px">Личные отметки · не рейтинг · не продаются · не дают силу</div>
-    </div>
-    <div class="card" style="margin-bottom:10px">
-      ${feats.map(a=>`<div class="ach-item" style="cursor:pointer" data-feat-id="${esc(a.id)}">
-        <div class="ach-head"><div class="ach-icon">${esc(a.icon)}</div><div class="ach-name">${esc(a.name)}</div><div class="ach-lvl" style="color:${a.completed?'var(--gold)':'var(--muted)'}">${a.completed?'★ ГОТОВО':`${a.progress}/${a.target}`}</div></div>
-        <div style="font-size:10px;color:var(--muted);margin-bottom:5px">${esc(a.description)}</div>
-        <div class="ach-bar"><div class="ach-fill ${a.completed?'high':a.pct>=50?'':'low'}" style="width:${a.pct}%"></div></div>
-      </div>`).join('')}
-    </div>
-    <details class="card">
-      <summary class="card-title" style="cursor:pointer">🏆 Архив старых достижений · ${legacyDone}/${achs.length}</summary>
-      <div style="font-size:11px;color:var(--muted);line-height:1.5;margin:6px 0 10px">${esc(_achMessage)}</div>
-    <div style="display:flex;gap:4px;margin-bottom:10px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:10px;color:var(--muted);margin-right:2px">Сорт:</span>
-      <button class="btn btn-sm ${_achSort==='default'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('default')">По умолч.</button>
-      <button class="btn btn-sm ${_achSort==='progress'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('progress')">% прогресса</button>
-      <button class="btn btn-sm ${_achSort==='todo'?'btn-gold':'btn-ghost'}" style="padding:4px 8px;font-size:10px" onclick="setAchSort('todo')">Сначала активные</button>
-    </div>
-      ${achs.map(a=>{
-        const fc=a.completed?'high':a.pct>=60?'high':a.pct>=25?'':'low';
-        return `<div class="ach-item" style="cursor:pointer" data-legacy-ach-id="${esc(a.id)}">
-          <div class="ach-head">
-            <div class="ach-icon">${a.icon}</div>
-            <div class="ach-name">${a.name}</div>
-            <div class="ach-lvl" style="color:${a.completed?'var(--gold)':a.level>0?'var(--green)':'var(--muted)'}">
-              ${a.completed?'★ MAX':a.level>0?`Lv${a.level}`:'—'}
-            </div>
-          </div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:5px">Сохранённый прогресс · система закрыта</div>
-          <div class="ach-bar"><div class="ach-fill ${fc}" style="width:${a.pct}%"></div></div>
-          <div class="ach-prog">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}${a.completed?' ✅':''}</div>
-        </div>`;
-      }).join('')}
-    </details>`;
-}
-
-function openFeatModal(id) {
-  const a=(_featData?.feats||[]).find(item=>item.id===id);
-  if(!a) return;
-  OM(`${a.icon} ${esc(a.name)}`,`
-    <div style="font-size:13px;line-height:1.5">${esc(a.description)}</div>
-    <div class="ach-bar" style="height:8px;margin:12px 0 4px"><div class="ach-fill ${a.completed?'high':''}" style="width:${a.pct}%"></div></div>
-    <div style="font-size:12px;color:var(--muted);text-align:center">${a.progress} / ${a.target}${a.completed?' · выполнено':''}</div>
-    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:10px;font-size:11px;color:var(--muted);line-height:1.4">Подвиг вычисляется из подтверждённого состояния игры. Его нельзя купить, забрать повторно или обменять на силу.</div>
-  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-}
-
-function openAchModal(id) {
-  const a=(_achData||[]).find(item=>item.id===id);
-  if(!a) return;
-  OM(`${a.icon} ${a.name}`,`
-    <div style="text-align:center;padding:8px 0 14px">
-      <div style="font-size:28px;font-weight:800;color:${a.completed?'var(--gold)':'var(--text)'}">
-        ${a.completed?'★ МАКСИМУМ':`Lv${a.level} / ${a.max_level}`}
-      </div>
-      <div class="ach-bar" style="height:8px;margin:10px 0 4px">
-        <div class="ach-fill" style="width:${a.pct}%"></div>
-      </div>
-      <div style="font-size:12px;color:var(--muted)">${fmt(a.progress)} / ${fmt(a.next_threshold||a.progress)}</div>
-    </div>
-    <div class="divider"></div>
-    <div style="background:var(--dim);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4">Уровень и счётчик сохранены как история. Новые действия не меняют этот результат и не выдают наград.</div>
-  `,[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
-}
-
-document.addEventListener('click',event=>{
-  const feat=event.target.closest('[data-feat-id]');
-  if(feat) return openFeatModal(feat.dataset.featId);
-  const legacy=event.target.closest('[data-legacy-ach-id]');
-  if(legacy) openAchModal(legacy.dataset.legacyAchId);
-});
-
-
-// ══ Кланы: переход к общей системе Союза ══════════════════════════════════════
-// Базовый клан, состав и владение остаются в /clans. Старые Бездна, здания за
-// осколки и клеточные войны закрыты: они нарушали новую экономику и возвращали
-// удалённую боёвку. До аудиторных порогов кланы играют вместе через Союз.
-function _clan2NavHtml(active){
-  const item=(key,icon,label,sub)=>
-    `<button class="btn ${active===key?'btn-gold':'btn-ghost'}" onclick="showClanTransition('${key}')">${icon} ${label}<span class="clan2-nav-sub">${sub}</span></button>`;
-  return `<div class="clan2-nav">
-    ${item('alliance','◈','Союз','общая цель')}
-    ${item('projects','▦','Проекты','после 3 кланов')}
-    ${item('competition','◇','Состязание','после 8 кланов')}
-  </div>`;
-}
-function showClanTransition(section){
-  const copy={
-    alliance:['Союз Предвестников','Совместная цель появится после утверждения клановых правил и экономики.'],
-    projects:['Клановые проекты','Откроются, когда в игре будет не меньше трёх активных кланов. Так проекты станут совместной игрой, а не пустой шкалой.'],
-    competition:['Клановое состязание','Откроется при восьми активных кланах. До этого не будет фиктивной войны с пустыми соперниками.'],
-  }[section]||['Кланы','Раздел готовится к новой экономике.'];
-  OM(`◈ ${copy[0]}`,`<div class="looks-hint">${copy[1]}</div>`,[
-    {l:'Открыть игры',c:'btn-gold',f:"CM();goTo('arena','game')"},
-    {l:'Закрыть',c:'btn-ghost',f:'CM()'},
-  ]);
-}
 // ── admin_audit B1: форма апелляции для забаненного (открывается по 403) ──────
 let _banAppealOpen=false;
 function openBanAppealModal() {
@@ -976,10 +470,10 @@ function openBanAppealModal() {
         ${s?`Санкция: <b>${s.type==='ban'?'глобальный бан':'ограничение'}</b> (${until}).<br>Причина: ${esc(s.reason||'не указана')}`:'Активная санкция не найдена.'}
        </div>
        ${thread?`<div style="max-height:30vh;overflow:auto;margin-bottom:6px">${thread}</div>`:''}
-       <textarea id="ban-apl-text" class="num-input" style="min-height:80px;resize:vertical;margin:0 0 6px" placeholder="Почему санкцию стоит пересмотреть…" maxlength="9999"></textarea>
-       <input id="ban-apl-file" type="file" accept="image/*" class="num-input" style="margin:0 0 4px;padding:6px"/>
+       <textarea id="ban-apl-text" class="v3-field" style="min-height:80px;resize:vertical;margin:0 0 6px" placeholder="Почему санкцию стоит пересмотреть…" maxlength="9999"></textarea>
+       <input id="ban-apl-file" type="file" accept="image/*" class="v3-field" style="margin:0 0 4px;padding:6px"/>
        <div style="font-size:10px;color:var(--muted)">Можно и в ЛС бота: <code>бот апелляция, текст</code> (фото — с подписью). Диалог общий.</div>`,
-      [{l:'📨 Отправить',c:'btn-gold',f:'_banAppealSend()'},{l:'Закрыть',c:'btn-ghost',f:'_banAppealClose()'}]);
+      [{l:'📨 Отправить',c:'primary',f:'_banAppealSend()'},{l:'Закрыть',c:'ghost',f:'_banAppealClose()'}]);
   }).catch(()=>{_banAppealOpen=false;});
 }
 function _banAppealClose(){_banAppealOpen=false;CM();}
@@ -1051,9 +545,8 @@ function _wnNewCount(list){
 function checkWhatsNewBadge(){
   _wnFetch().then(list => {
     const unseen = _wnNewCount(list) > 0;
-    const dot = el('whatsnew-dot'), btn = el('whatsnew-btn');
-    if (dot) dot.hidden = !unseen;
-    if (btn) btn.classList.toggle('has-new', unseen);
+    document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = !unseen; });
+    document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.toggle('has-new', unseen));
   }).catch(()=>{});
 }
 function _wnMarkSeen(list){
@@ -1063,9 +556,8 @@ function _wnMarkSeen(list){
     try { localStorage.setItem(_WN_SEEN_KEY, latest); } catch(_){}   // офлайн-подстраховка
     api('/profile/whatsnew-seen', {method:'POST', body: JSON.stringify({seen_id: latest})}).catch(()=>{});
   }
-  const dot = el('whatsnew-dot'), btn = el('whatsnew-btn');
-  if (dot) dot.hidden = true;
-  if (btn) btn.classList.remove('has-new');
+  document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = true; });
+  document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.remove('has-new'));
 }
 function _wnDate(iso){
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');
@@ -1140,13 +632,12 @@ function loadWhatsNew(){
         <div class="wn-htitle">📣 Что нового</div>
       </div>`;
     if(!list.length){
-      box.innerHTML = head + `<div class="empty-state"><div class="es-icon">📣</div>
-        <div class="es-title">Пока тихо</div><div class="es-sub">Обновления появятся здесь</div></div>`;
+      box.innerHTML = head + `<div class="v3-empty">📣<b>Пока тихо</b>Обновления появятся здесь</div>`;
       return;
     }
     const newCount = _wnNewCount(list);
     const cards = list.map((u,i) => _wnCard(u, i < newCount)).join('');
     box.innerHTML = head + `<div class="wn-list">${cards}</div>`;
     _wnMarkSeen(list);   // открыл ленту → всё прочитано, badge гаснет
-  }).catch(e => { box.innerHTML = `<div class="err" style="margin:12px">${e}</div>`; });
+  }).catch(e => { box.innerHTML = `<div class="v3-err" style="margin:12px">${e}</div>`; });
 }

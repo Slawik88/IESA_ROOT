@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static release contract for the hidden player-exchange Mini App surface."""
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,8 @@ assert "Игровой актив без вывода в деньги" in js
 assert "Цена может резко вырасти или упасть" in js
 assert 'aria-pressed="${_pxSide===\'buy\'}"' in js
 assert "min-height:44px" in css
-assert "app.{i:02d}.js\" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14)" in main
+parts = [int(n) for n in re.search(r'app\.\{i:02d\}\.js" for i in \(([^)]*)\)', main).group(1).split(",")]
+assert 14 in parts and 15 in parts and parts == sorted(parts), "the exchange client must stay in the concatenated bundle"
 assert "/player-exchange/v1/me?limit=100" in js
 assert "/cancel" in js
 assert "_pxRecoveryCoins" in js

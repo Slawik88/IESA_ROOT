@@ -1,0 +1,78 @@
+/* ═══ APPEARANCE V3 · сцена профиля: фон (bg-*) и частицы (pt-*) ═══
+   Сцена лежит под блоком личности и растёт до краёв экрана, поэтому края фона растворяются сверху и снизу
+   (никакой жёсткой кромки под верхней панелью). Сила эффекта — от --ap-i, число частиц задаёт JS по тиру. */
+
+.ap-stage { position: relative; isolation: isolate; --bleed: calc(var(--v3-bar-h, 0px) + var(--v3-safe-t, 0px) + 18px); }
+.ap-bg { position: absolute; inset: calc(var(--bleed) * -1) -22px -26px; z-index: -2; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 58%, transparent), linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); -webkit-mask-composite: source-in; mask-image: linear-gradient(transparent, #000 22%, #000 58%, transparent), linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-composite: intersect; opacity: calc(.45 + var(--ap-i) * .55); }
+.ap-bg b { position: absolute; display: block; pointer-events: none; }
+
+/* wash: вертикальная акварель */
+.ap-bg-wash { background: radial-gradient(90% 55% at 20% 18%, color-mix(in srgb, var(--ap-a) 30%, transparent), transparent 70%), radial-gradient(70% 45% at 90% 34%, color-mix(in srgb, var(--ap-b) 22%, transparent), transparent 70%); }
+
+/* mesh: три мягких пятна цвета, на старших тирах дрейфуют */
+.ap-bg-mesh b:nth-child(1) { inset: 6% 38% 40% -10%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 42%, transparent), transparent); }
+.ap-bg-mesh b:nth-child(2) { inset: 16% -12% 30% 48%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 36%, transparent), transparent); }
+.ap-bg-mesh::after { content: ""; position: absolute; inset: 52% 10% 0; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-c) 14%, transparent), transparent); }
+@keyframes apdrift { to { transform: translate3d(7%, 8%, 0) scale(1.14); } }
+.ap-anim .ap-bg-mesh:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) b { animation: apdrift 16s ease-in-out infinite alternate; }
+.ap-anim .ap-bg-mesh b:nth-child(2) { animation-duration: 21s; animation-direction: alternate-reverse; }
+
+/* grid: тонкая сетка с «лучом» сканера */
+.ap-bg-grid { background: linear-gradient(color-mix(in srgb, var(--ap-a) 14%, transparent) 1px, transparent 1px) 0 0 / 100% 26px, linear-gradient(90deg, color-mix(in srgb, var(--ap-a) 14%, transparent) 1px, transparent 1px) 0 0 / 26px 100%, radial-gradient(80% 50% at 50% 20%, color-mix(in srgb, var(--ap-b) 20%, transparent), transparent 70%); -webkit-mask-image: radial-gradient(70% 70% at 50% 30%, #000, transparent); mask-image: radial-gradient(70% 70% at 50% 30%, #000, transparent); }
+.ap-bg-grid b:nth-child(1) { left: 0; right: 0; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--ap-a), transparent); opacity: 0; }
+@keyframes apscan { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .75; } 100% { transform: translateY(420px); opacity: 0; } }
+.ap-anim .ap-bg-grid:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apscan 7s ease-in infinite; }
+
+/* rays: веер лучей из-за верхнего края */
+.ap-bg-rays { background: repeating-conic-gradient(from -42deg at 50% -8%, color-mix(in srgb, var(--ap-a) 24%, transparent) 0 3deg, transparent 3deg 10deg); -webkit-mask-image: linear-gradient(transparent 0, #000 16%, transparent 78%); mask-image: linear-gradient(transparent 0, #000 16%, transparent 78%); }
+.ap-bg-rays::after { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 40% at 50% 8%, color-mix(in srgb, var(--ap-c) 22%, transparent), transparent); }
+@keyframes apsway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+.ap-anim .ap-bg-rays:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { inset: 0; background: repeating-conic-gradient(from -30deg at 50% -8%, color-mix(in srgb, var(--ap-b) 18%, transparent) 0 2deg, transparent 2deg 14deg); transform-origin: 50% -8%; animation: apsway 12s ease-in-out infinite alternate; }
+
+/* vortex: тёмная воронка и закрученный свет */
+.ap-bg-vortex b:nth-child(1) { left: 50%; top: 30%; width: 150vmin; height: 150vmin; margin: -75vmin 0 0 -75vmin; border-radius: 50%; opacity: .55; filter: blur(22px); background: conic-gradient(from 0deg, transparent 0 14%, var(--ap-a) 24%, transparent 36% 56%, var(--ap-b) 70%, transparent 84%); }
+.ap-bg-vortex b:nth-child(2) { left: 50%; top: 30%; width: 38vmin; height: 38vmin; margin: -19vmin 0 0 -19vmin; border-radius: 50%; background: radial-gradient(closest-side, #000 55%, transparent); opacity: .7; }
+.ap-anim .ap-bg-vortex:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apturn 50s linear infinite; }
+
+/* aurora: три вуали света качаются на ветру */
+.ap-bg-aurora b { top: -10%; bottom: 20%; width: 46%; filter: blur(26px); opacity: .8; border-radius: 50%; transform-origin: 50% 0; }
+.ap-bg-aurora b:nth-child(1) { left: -6%; background: linear-gradient(180deg, color-mix(in srgb, var(--ap-a) 54%, transparent), transparent 80%); }
+.ap-bg-aurora b:nth-child(2) { left: 30%; background: linear-gradient(180deg, color-mix(in srgb, var(--ap-b) 50%, transparent), transparent 76%); }
+.ap-bg-aurora::after { content: ""; position: absolute; top: -10%; bottom: 24%; right: -8%; width: 42%; border-radius: 50%; filter: blur(26px); background: linear-gradient(180deg, color-mix(in srgb, var(--ap-c) 38%, transparent), transparent 80%); }
+@keyframes apveil { from { transform: translateX(-6%) skewX(-4deg) scaleY(.92); } to { transform: translateX(8%) skewX(5deg) scaleY(1.08); } }
+.ap-anim .ap-bg-aurora:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b { animation: apveil 9s ease-in-out infinite alternate; }
+.ap-anim .ap-bg-aurora b:nth-child(2) { animation-duration: 12s; animation-direction: alternate-reverse; }
+
+/* stars: звёздная пыль двух размеров, один слой мерцает */
+.ap-bg-stars { background: radial-gradient(1px 1px at 12% 22%, #fff, transparent 60%), radial-gradient(1px 1px at 34% 12%, #fff, transparent 60%), radial-gradient(1.4px 1.4px at 58% 28%, #fff, transparent 60%), radial-gradient(1px 1px at 82% 16%, #fff, transparent 60%), radial-gradient(1px 1px at 92% 38%, #fff, transparent 60%), radial-gradient(1.2px 1.2px at 22% 46%, #fff, transparent 60%), radial-gradient(1px 1px at 70% 52%, #fff, transparent 60%), radial-gradient(70% 40% at 50% 0%, color-mix(in srgb, var(--ap-b) 22%, transparent), transparent 70%); }
+.ap-bg-stars b:nth-child(1) { inset: 0; background: radial-gradient(1.6px 1.6px at 20% 14%, var(--ap-c), transparent 60%), radial-gradient(1.6px 1.6px at 48% 40%, var(--ap-a), transparent 60%), radial-gradient(1.6px 1.6px at 76% 24%, var(--ap-c), transparent 60%), radial-gradient(1.6px 1.6px at 88% 56%, var(--ap-a), transparent 60%); }
+.ap-anim .ap-bg-stars:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apbreath 3.6s ease-in-out infinite alternate; }
+
+/* ── Частицы ── */
+.ap-fx { position: absolute; inset: 0 -10px -10px; z-index: -1; overflow: hidden; pointer-events: none; clip-path: inset(0); }
+.ap-fx i { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); opacity: .55; background: var(--ap-a); border-radius: 50%; }
+.ap-fx i:nth-child(3n) { background: var(--ap-c); } .ap-fx i:nth-child(3n+1) { background: var(--ap-b); }
+@keyframes aprise { 0% { transform: translate3d(0, 40px, 0); opacity: 0; } 15% { opacity: .75; } 85% { opacity: .3; } 100% { transform: translate3d(var(--dx), -190px, 0); opacity: 0; } }
+@keyframes apfall { 0% { transform: translate3d(0, -40px, 0) rotate(var(--r)); opacity: 0; } 12% { opacity: .85; } 88% { opacity: .35; } 100% { transform: translate3d(var(--dx), 230px, 0) rotate(calc(var(--r) + 300deg)); opacity: 0; } }
+@keyframes aptwinkle { 0%, 100% { transform: scale(.3) rotate(0deg); opacity: 0; } 50% { transform: scale(1) rotate(45deg); opacity: .95; } }
+@keyframes apburst { 0% { transform: scale(.2); opacity: .8; } 100% { transform: scale(2.6); opacity: 0; } }
+.ap-anim .ap-fx i { animation-delay: var(--delay); animation-duration: var(--d); animation-iteration-count: infinite; animation-timing-function: linear; }
+.ap-anim .ap-pt-dot i { animation-name: aprise; }
+.ap-pt-ember i { background: radial-gradient(closest-side, var(--ap-c), var(--ap-a) 55%, transparent); width: calc(var(--s) * 1.5); height: calc(var(--s) * 1.5); }
+.ap-anim .ap-pt-ember i { animation-name: aprise; animation-duration: calc(var(--d) * .55); }
+.ap-pt-leaf i, .ap-pt-petal i { width: calc(var(--s) * 1.7); height: calc(var(--s) * 1.1); border-radius: 100% 0 100% 0; transform: rotate(var(--r)); }
+.ap-pt-leaf i { border-radius: 0 100% 0 100%; background: var(--ap-a); }
+.ap-pt-leaf i:nth-child(2n) { background: var(--ap-c); }
+.ap-pt-petal i { background: linear-gradient(135deg, var(--ap-c), var(--ap-a)); }
+.ap-anim .ap-pt-leaf i, .ap-anim .ap-pt-petal i { animation-name: apfall; animation-timing-function: ease-in-out; }
+.ap-pt-sand i { opacity: .7; border-radius: 50%; width: calc(var(--s) * .6); height: calc(var(--s) * .6); background: var(--ap-a); }
+.ap-anim .ap-pt-sand i { animation-name: apfall; animation-duration: calc(var(--d) * 1.2); animation-timing-function: linear; }
+.ap-pt-snow i { background: #fff; opacity: .7; box-shadow: 0 0 5px rgba(255,255,255,.6); }
+.ap-anim .ap-pt-snow i { animation-name: apfall; animation-duration: calc(var(--d) * 1.5); }
+.ap-pt-spark i, .ap-pt-glint i { background: var(--ap-c); border-radius: 0; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); width: calc(var(--s) * 1.5); height: calc(var(--s) * 1.5); }
+.ap-pt-glint i { background: #fff; width: calc(var(--s) * 1.4); height: calc(var(--s) * 1.4); }
+.ap-anim .ap-pt-spark i, .ap-anim .ap-pt-glint i { animation-name: aptwinkle; animation-duration: calc(var(--d) * .4); animation-timing-function: ease-in-out; }
+.ap-pt-ring i { background: none; border: 1px solid var(--ap-a); width: calc(var(--s) * 2.4); height: calc(var(--s) * 2.4); }
+.ap-anim .ap-pt-ring i { animation-name: apburst; animation-duration: calc(var(--d) * .5); animation-timing-function: ease-out; }
+
+@media (prefers-reduced-motion: reduce) { .ap-bg b, .ap-bg::after, .ap-fx i { animation: none !important; } }

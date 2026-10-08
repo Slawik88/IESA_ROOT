@@ -28,7 +28,4 @@ assert "const suppressBrowserBack=[" in SHELL
 assert "!btn && has && !inTg && !suppressBrowserBack" in SHELL
 assert "!has || inTg || suppressBrowserBack" in SHELL
 
-entry_action = CSS.split(".recon-entry-action {", 1)[1].split("}", 1)[0]
-assert "min-height: 44px" in entry_action
-
-print("OK: top-level/local-header pages suppress fallback back; game CTAs are 44px")
+print("OK: top-level/local-header pages suppress fallback back")

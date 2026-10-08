@@ -10,7 +10,7 @@ pets = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
 admin = (ROOT / "FastAPI/static/app.07.js").read_text(encoding="utf-8")
 wallet = (ROOT / "FastAPI/routers/wallet.py").read_text(encoding="utf-8")
 css = (ROOT / "FastAPI/static/app.css").read_text(encoding="utf-8")
-skin = (ROOT / "FastAPI/static/global-skins-v1.css").read_text(encoding="utf-8")
+skin = (ROOT / "FastAPI/static/skin-runtime-v3.css").read_text(encoding="utf-8")
 router = (ROOT / "FastAPI/routers/profile.py").read_text(encoding="utf-8")
 service = (ROOT / "services/pets_v1.py").read_text(encoding="utf-8")
 constants = (ROOT / "core/constants.py").read_text(encoding="utf-8")
@@ -31,29 +31,31 @@ assert "overflow-x:auto" not in css[css.index(".migration-card"):css.index("/* P
 assert "prefers-reduced-motion:reduce" in css
 assert "bestiary_owned" in service and "PET_SPECIES" in service
 assert "showPetPanel('bestiary'" in pets and "Неизвестный питомец" in pets
-assert "background-size:auto 100svh" in skin and "backdrop-filter:blur" in skin
+assert "body.skin-v3" in skin and "var(--v3-wash)" in skin, "game pages take the equipped skin palette"
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
-assert "help-hero" in index and "help-card" in index and "more-hero" in index
-assert "settings-panel" in profile and "settings-toggle" in profile
-assert ".help-card" in css and ".settings-panel" in css
+assert "help-hero" in index and "help-card" in index and "v3-title" in index
+settings = (ROOT / "FastAPI/static/app.26.js").read_text(encoding="utf-8")
+assert "st-switch" in settings and "st-sec" in settings and "_accDeleteStart()" in settings
+assert ".help-card" in css
 assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
 assert 'aria-label="Основные разделы"' in index
-assert index.count('type="button" class="nb') == 4
+assert index.count('type="button" class="nb') == 6
 assert "setAttribute('aria-current','page')" in shell
 assert "2026-09-20-navigation-and-player-hub" in updates
 assert "2026-09-20-profile-stories-and-admin-repair" in updates
 for profile_chapter in ("profile-zone--games", "profile-zone--progress", "profile-zone--social", "profile-zone--safety"):
     assert profile_chapter in profile and profile_chapter in css
 assert "profile-paths" in profile and "--path:" in profile
-assert "openAchievementsV1()" in profile and "openPetsV1()" in profile
+home = (ROOT / "FastAPI/static/app.15.js").read_text(encoding="utf-8")
+assert "openAchievementsV1()" in home and "openPetsV1()" in home
 cached_admin = admin[admin.index("function loadAdmin()") : admin.index("function renderAdminChatSel()")]
 assert "_adminChats.some" in cached_admin
 assert "swAdmin(_adminTab" in cached_admin
 assert "renderAdminChatSel(); return;" not in cached_admin
 assert '"chest_key_purchase": "🗝 Ключ от сундука"' in wallet
 assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
-for action in ("openSettingsModal()", "openZarnikiTopup()", "openWhatsNew()", "openChatTracker()"):
+for action in ("openSettingsModal()", "openWhatsNew()", "openChatTracker()"):
     assert action in index
 notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):constants.index("# ── ИИ-помощник")]
 assert '"vip_expiry"' in notification_block

@@ -1,140 +1,11 @@
-// Release wardrobe.  It intentionally replaces the retired /cosmetics/* UI:
-// cosmetics are selected from durable ownership, while the shared shop comes later.
+// Питомцы, сундуки, квесты, достижения и трекер чатов (внешний вид теперь в app.20–24.js).
 (function(){
-  const SLOT_LABELS={name_glow:'Сияние имени',avatar_frame:'Рамка',title:'Титул',avatar_halo:'Ореол',profile_bg:'Фон профиля',card_fx:'Эффект карточки'};
-  const LINEUP_LABELS={forest:'🌲 Лесной Странник',threshold:'🔮 Порог',frost:'❄️ Изморозь',inferno:'🔥 Инферно',hanami:'🌸 Ханами',celestial:'✨ Небесное Сияние',void:'🌌 Бездна',artifact:'⚡ Артефакт',moon_lotus:'🪷 Лунный Лотос',ryujin_tide:'🐉 Прилив Рюдзина'};
-  const LINEUP_COLORS={forest:'#7dc47d',threshold:'#c084fc',frost:'#7ad4ff',inferno:'#ff7a3d',celestial:'#e8c45a',void:'#ff4d8d',artifact:'#3fe0e0',hanami:'#e8a3b6',moon_lotus:'#b9c9ff',ryujin_tide:'#69b8d6'};
   const esc=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-  let wardrobe=null, wardrobeBusy=false, wardrobePreviewMode='public', wardrobeOpenSlot='name_glow';
-
-  function previewCosmetics(){
-    const saved=wardrobe?.saved_look;
-    if(saved?.cosmetics) return {...saved.cosmetics,composition:saved.composition||{}};
-    return _profileData?.cosmetics||{};
-  }
-  function profilePreview(){
-    const d=_profileData||{}, saved=previewCosmetics(), publicLook=d.cosmetics||{};
-    const card=(look,caption)=>typeof renderProfileShowcase==='function'
-      ?renderProfileShowcase(d,look,{caption,compact:true})
-      :'<p class="empty">Предпросмотр временно недоступен.</p>';
-    if(wardrobe?.vip_active) return card(publicLook,'Образ, видимый другим');
-    const savedMode=wardrobePreviewMode==='saved';
-    return `<div class="looks-preview-switch" role="group" aria-label="Режим предпросмотра">
-      <button type="button" class="${savedMode?'':'is-active'}" aria-pressed="${savedMode?'false':'true'}" onclick="setWardrobePreview('public')">Видно другим</button>
-      <button type="button" class="${savedMode?'is-active':''}" aria-pressed="${savedMode?'true':'false'}" onclick="setWardrobePreview('saved')">Сохранённый образ</button>
-    </div>${card(savedMode?saved:publicLook,savedMode?'Сохранённый образ — вернётся с VIP':'Образ, видимый другим')}`;
-  }
-  function itemHtml(item){
-    const chosen=item.equipped?' is-equipped':'';
-    if(!item.owned) return '';
-    const lineup=LINEUP_LABELS[item.lineup]||item.lineup||'Без коллекции';
-    const color=LINEUP_COLORS[item.lineup]||'#9aa7b8';
-    const css=typeof _profileCss==='function'?_profileCss(item.css):String(item.css||'');
-    const face=_profileData?.is_vip?'👑':'🔮';
-    const swatch={
-      name_glow:`<div class="lc-sw"><span class="lc-nick ${css}">@Ник</span></div>`,
-      title:`<div class="lc-sw"><span class="lc-title ${css}">${esc(item.text||item.name)}</span></div>`,
-      avatar_frame:`<div class="lc-sw"><span class="lc-ava ${css}">${face}</span></div>`,
-      avatar_halo:`<div class="lc-sw"><span class="lc-ava ${css}">${face}</span></div>`,
-      profile_bg:`<div class="lc-sw lc-bg ${css}"><span class="looks-swatch-label">Профиль</span></div>`,
-      card_fx:`<div class="lc-sw"><span class="looks-swatch-label">Профиль</span><span class="card-fx ${css}" aria-hidden="true"></span></div>`,
-    }[item.slot]||'<div class="lc-sw"></div>';
-    return `<button type="button" class="looks-card lc-lineup-accent${chosen}" style="--lc:${color};--lcg:${color}22" data-cos="${esc(item.id)}" data-cosmetic-id="${esc(item.id)}" data-cosmetic-name="${esc(String(item.name||'').toLowerCase())}" data-lineup="${esc(item.lineup||'')}" aria-label="${esc(item.name)}. ${esc(lineup)}. ${item.equipped?'Выбрано':'Выбрать'}" aria-pressed="${item.equipped?'true':'false'}" ${item.equipped||wardrobeBusy?'disabled':''}>
-      ${swatch}<strong class="lc-name">${esc(item.name)}</strong><span class="lc-foot"><small class="lc-rar" style="color:${color}">${esc(lineup)}</small>${item.equipped?'<em class="lc-on">✓ Выбрано</em>':'<span class="looks-pick">Выбрать</span>'}</span>
-    </button>`;
-  }
-  function slotHtml(slot,items){
-    const list=items.filter(x=>x.owned);
-    if(!list.length) return '';
-    const equipped=list.find(x=>x.equipped);
-    const open=slot===wardrobeOpenSlot?' open':'';
-    return `<details class="looks-release-slot" data-wardrobe-slot="${esc(slot)}"${open}>
-      <summary><span><b>${esc(SLOT_LABELS[slot]||slot)}</b><small>${equipped?`Выбрано: ${esc(equipped.name)}`:'Ничего не выбрано'}</small></span><em>${list.length}</em></summary>
-      <div class="looks-slot-body"><div class="looks-grid looks-cards">${list.map(itemHtml).join('')}</div><button class="looks-remove" type="button" data-cosmetic-slot="${esc(slot)}" ${equipped&& !wardrobeBusy?'':'disabled'}>Снять ${esc((SLOT_LABELS[slot]||'предмет').toLowerCase())}</button></div>
-    </details>`;
-  }
-  function applyWardrobeFilters(){
-    const root=el('pg-looks'); if(!root) return;
-    const query=String(root.querySelector('[data-wardrobe-search]')?.value||'').trim().toLowerCase();
-    const lineup=root.querySelector('[data-wardrobe-lineup]')?.value||'';
-    root.querySelectorAll('[data-wardrobe-slot]').forEach(section=>{
-      let visible=0;
-      section.querySelectorAll('[data-cosmetic-id]').forEach(button=>{
-        const match=(!query||button.dataset.cosmeticName.includes(query))&&(!lineup||button.dataset.lineup===lineup);
-        button.hidden=!match; if(match) visible+=1;
-      });
-      section.hidden=visible===0;
-      if((query||lineup)&&visible) section.open=true;
-    });
-    const count=[...root.querySelectorAll('[data-cosmetic-id]')].filter(button=>!button.hidden).length;
-    const countNode=root.querySelector('[data-wardrobe-count]');
-    if(countNode) countNode.textContent=(query||lineup)?`Найдено: ${count}`:`${count} предмета · 6 разделов`;
-    const empty=root.querySelector('[data-wardrobe-empty]'); if(empty) empty.hidden=count>0;
-  }
-  function setWardrobeBusyState(busy){
-    const root=el('pg-looks'); if(!root) return;
-    root.setAttribute('aria-busy',busy?'true':'false');
-    root.querySelectorAll('[data-cosmetic-id],[data-cosmetic-slot]').forEach(button=>{button.disabled=busy||button.getAttribute('aria-pressed')==='true'||(button.hasAttribute('data-cosmetic-slot')&&!button.closest('details')?.querySelector('[aria-pressed="true"]'));});
-    const status=root.querySelector('[data-wardrobe-status]'); if(status) status.textContent=busy?'Сохраняем образ…':'';
-  }
-  function render(){
-    const root=el('pg-looks'); if(!root||!wardrobe) return;
-    const owned=Object.values(wardrobe.slots||{}).flat().filter(x=>x.owned);
-    root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🎨 Примерочная</div></div>
-      <section class="looks-release-preview"><div class="looks-eyebrow">Предпросмотр косметики</div>${profilePreview()}</section>
-      <div class="looks-hint">${wardrobe.vip_active?'VIP активна — образ виден в профиле и карточках.':'VIP не активна — образ сохранён и виден только здесь. После продления он вернётся автоматически.'}</div>
-      <section class="looks-release-section looks-wardrobe" aria-labelledby="wardrobe-title"><div class="looks-wardrobe-head"><div><h3 id="wardrobe-title">Мой гардероб</h3><p data-wardrobe-count>${owned.length} предмета · 6 разделов</p></div><span data-wardrobe-status role="status" aria-live="polite"></span></div>
-      <div class="looks-tools"><label><span>Найти предмет</span><input type="search" placeholder="Название" autocomplete="off" data-wardrobe-search></label><label><span>Коллекция</span><select data-wardrobe-lineup><option value="">Все коллекции</option>${Object.entries(LINEUP_LABELS).map(([id,name])=>`<option value="${esc(id)}">${esc(name)}</option>`).join('')}</select></label></div>
-      ${owned.length?'': '<p class="empty">Пока нет предметов в гардеробе.</p>'}<p class="empty" data-wardrobe-empty hidden>Ничего не найдено. Измени поиск или коллекцию.</p>
-      <div class="looks-slots">${Object.entries(wardrobe.slots||{}).map(([slot,items])=>slotHtml(slot,items)).join('')}</div></section>`;
-    root.querySelectorAll('[data-cosmetic-id]').forEach(button=>button.addEventListener('click',()=>appearanceEquip(button.dataset.cosmeticId)));
-    root.querySelectorAll('[data-cosmetic-slot]').forEach(button=>button.addEventListener('click',()=>appearanceUnequip(button.dataset.cosmeticSlot)));
-    root.querySelector('[data-wardrobe-search]')?.addEventListener('input',applyWardrobeFilters);
-    root.querySelector('[data-wardrobe-lineup]')?.addEventListener('change',applyWardrobeFilters);
-    root.querySelectorAll('[data-wardrobe-slot]').forEach(section=>section.addEventListener('toggle',()=>{if(!section.open)return;wardrobeOpenSlot=section.dataset.wardrobeSlot;root.querySelectorAll('[data-wardrobe-slot][open]').forEach(other=>{if(other!==section)other.open=false;});}));
-    if(typeof _looksObserveSwatches==='function') _looksObserveSwatches(root);
-    setWardrobeBusyState(wardrobeBusy);
-  }
-  async function refreshWardrobe(){
-    const fresh=await api('/appearance/me');
-    await loadProfile();
-    wardrobe=fresh; render();
-  }
-  async function mutateWardrobe(request, success){
-    if(wardrobeBusy){ toast('Предыдущая смена образа ещё сохраняется.',false); return; }
-    wardrobeBusy=true; setWardrobeBusyState(true);
-    try { await request(); await refreshWardrobe(); toast(success); }
-    catch(error) { toast(error,false); }
-    finally { wardrobeBusy=false; setWardrobeBusyState(false); }
-  }
-  window.appearanceEquip=function(id){
-    return mutateWardrobe(()=>api('/appearance/equip',{method:'POST',body:JSON.stringify({cosmetic_id:id})}),'Образ сохранён');
-  };
-  window.setWardrobePreview=function(mode){ wardrobePreviewMode=mode==='saved'?'saved':'public'; render(); };
-  window.appearanceUnequip=function(slot){
-    return mutateWardrobe(()=>api('/appearance/unequip',{method:'POST',body:JSON.stringify({slot})}),'Предмет снят');
-  };
-  window.openLooksModal=async function(){
-    switchPage('looks'); const root=el('pg-looks'); if(root)root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка гардероба…</div>';
-    try { await refreshWardrobe(); }
-    catch(error) { if(root)root.innerHTML=`<div class="err" style="margin:16px">${esc(error)}</div>`; }
-  };
   function dateLabel(value){
     if(!value) return '—';
     const parsed=new Date(value);
     return Number.isNaN(parsed.getTime())?esc(String(value).replace('T',' ').slice(0,16)):parsed.toLocaleDateString('ru-RU');
   }
-  window.openPublicProfile=async function(profileRef){
-    const ref=String(profileRef||'');
-    if(!/^[A-Za-z0-9_-]{16,64}$/.test(ref)){ toast('Ссылка на профиль недействительна.',false); return; }
-    switchPage('public-profile');
-    const root=el('pg-public-profile'); if(!root) return;
-    root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка профиля игрока…</div>';
-    try {
-      const d=await api('/profile/public/'+encodeURIComponent(ref));
-      root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><h1 class="looks-htitle">Публичный профиль</h1></div>${renderProfileShowcase(d,d.cosmetics,{caption:'Публичный профиль'})}${renderProfileDetails(d)}`;
-    } catch(error) { root.innerHTML=`<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><h1 class="looks-htitle">Профиль игрока</h1></div><div class="err" style="margin:16px">${esc(error)}</div>`; }
-  };
   const chatTracker = {
     query: '',
     sort: 'recent',
@@ -379,8 +250,8 @@
     const endurance = Math.max(0, Math.min(100, Number(pet.endurance) || 0));
     const activate = pet.active
       ? ''
-      : `<button class="btn btn-ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
-    return `<article class="pcard pet-release-card">
+      : `<button class="v3-pill v3-pill--ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
+    return `<article class="pet-release-card">
       <header><b>🐾 ${esc(pet.name)}</b>${pet.active ? '<span>Активный</span>' : ''}</header>
       <div class="pet-endurance"><div><i style="width:${endurance}%"></i></div><b>${pet.endurance}/100</b></div>
       <p>Уровень ${pet.level}/16 · ${esc(pet.effects.visual_stage)} · маршрут +${pet.effects.expedition_route_bonus_percent}%</p>
@@ -398,7 +269,7 @@
       : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
     const routes = needsDecision
       ? `<div class="pet-route-grid">${Object.entries(PET_ROUTE_LABELS).map(([id, label]) => (
-        `<button class="btn btn-ghost" onclick="petsV1Choose('${id}')">${label}</button>`
+        `<button class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${id}')">${label}</button>`
       )).join('')}</div>`
       : '';
     return `<section class="looks-release-section pet-activity"><h3>${title}</h3><p>${status}</p>${routes}</section>`;
@@ -413,7 +284,7 @@
         const locked = !activePet || Number(activePet.endurance) < cost;
         const title = kind === 'trek' ? 'Поход' : 'Экспедиция';
         const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
-        return `<button class="btn btn-ghost" onclick="petsV1Start('${kind}',${hours})"`
+        return `<button class="v3-pill v3-pill--ghost" onclick="petsV1Start('${kind}',${hours})"`
           + ` ${locked ? 'disabled' : ''} aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
           + `<b>${title}</b><small>${hours} ч · ${cost} ⚡ · 1 🗝</small></button>`;
       })
@@ -465,7 +336,7 @@
     try {
       renderPetsV1(root, await api('/pets-v1/me'));
     } catch (error) {
-      root.innerHTML = `<div class="err" style="margin:16px">${esc(error)}</div>`;
+      root.innerHTML = `<div class="v3-err" style="margin:16px">${esc(error)}</div>`;
     }
   };
   window.showPetPanel = function (name, button) {
@@ -535,11 +406,11 @@
     const inv=d.inventory||{},owned=Object.keys(inv.unlocked_pets||{}).length,cards=Object.values(inv.pet_cards||{}).reduce((a,b)=>a+Number(b||0),0),food=Object.values(inv.foods||{}).reduce((a,b)=>a+Number(b||0),0),jokers=Object.values(inv.jokers||{}).reduce((a,b)=>a+Number(b||0),0);
     const prepared=_chestsV1Prepared?`<section class="chest-reveal-zone"><button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук"><span aria-hidden="true">✦</span><b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button></section>`:'';
     const result=_chestsV1LastResult?`<section class="chest-result" role="status"><span>${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span><b>Получено: ${chestRewardText(_chestsV1LastResult.reward)}</b><small>Доставлено и записано · каталог ${esc(_chestsV1LastResult.catalog_version||'')}</small></section>`:'';
-    root.innerHTML=`<header class="looks-head chest-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад в профиль">‹</button><div><h1>🗝 Сундуки</h1><small>Одна попытка — одна честно зафиксированная награда</small></div></header><section class="chest-balance"><span>Твои ключи</span><b>${fmt(d.key_balance||0)} 🗝</b><small>Ещё по ключу дают полный день и неделя квестов</small></section><section class="chest-inventory" aria-label="Коллекция из сундуков"><span><b>${owned}/12</b> питомцев</span><span><b>${cards}</b> карт</span><span><b>${food}</b> еды</span><span><b>${jokers}</b> джокеров</span></section>${prepared}${!prepared?result:''}<div class="chest-actions"><button type="button" class="btn chest-open-btn" onclick="chestsV1Prepare()" ${_chestsV1Busy||_chestsV1Prepared||Number(d.key_balance||0)<1?'disabled':''}>${Number(d.key_balance||0)<1?'Сначала получи ключ':'Открыть за 1 ключ'}</button><button type="button" class="chest-buy-btn" onclick="chestsV1AskBuy(this)" ${_chestsV1Busy||_chestsV1Prepared||remaining<1?'disabled':''}><span>Купить ключ</span><b>${price} ✨</b><small>${remaining?`доступно сегодня: ${remaining} из ${paid.daily_limit}`:'лимит на сегодня исчерпан'}</small></button></div><p class="chest-policy">${esc(d.message||'')}</p><details class="chest-odds"><summary>Точные шансы и размеры наград</summary><div><section><h2>Шанс звёздности</h2><ul>${odds}</ul></section><section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section></div><p>Сначала сервер выбирает звёздность, затем одну награду по процентам внутри неё. Бесплатные и купленные ключи равны; скорость тапов ничего не меняет.</p></details><div class="chest-canary-note"><b>Карты не пропадут</b><span>${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</span></div>`;
+    root.innerHTML=`<header class="looks-head chest-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад в профиль">‹</button><div><h1>🗝 Сундуки</h1><small>Одна попытка — одна честно зафиксированная награда</small></div></header><section class="chest-balance"><span>Твои ключи</span><b>${fmt(d.key_balance||0)} 🗝</b><small>Ещё по ключу дают полный день и неделя квестов</small></section><section class="chest-inventory" aria-label="Коллекция из сундуков"><span><b>${owned}/12</b> питомцев</span><span><b>${cards}</b> карт</span><span><b>${food}</b> еды</span><span><b>${jokers}</b> джокеров</span></section>${prepared}${!prepared?result:''}<div class="chest-actions"><button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${_chestsV1Busy||_chestsV1Prepared||Number(d.key_balance||0)<1?'disabled':''}>${Number(d.key_balance||0)<1?'Сначала получи ключ':'Открыть за 1 ключ'}</button><button type="button" class="chest-buy-btn" onclick="chestsV1AskBuy(this)" ${_chestsV1Busy||_chestsV1Prepared||remaining<1?'disabled':''}><span>Купить ключ</span><b>${price} ✨</b><small>${remaining?`доступно сегодня: ${remaining} из ${paid.daily_limit}`:'лимит на сегодня исчерпан'}</small></button></div><p class="chest-policy">${esc(d.message||'')}</p><details class="chest-odds"><summary>Точные шансы и размеры наград</summary><div><section><h2>Шанс звёздности</h2><ul>${odds}</ul></section><section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section></div><p>Сначала сервер выбирает звёздность, затем одну награду по процентам внутри неё. Бесплатные и купленные ключи равны; скорость тапов ничего не меняет.</p></details><div class="chest-canary-note"><b>Карты не пропадут</b><span>${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</span></div>`;
   }
   window.openChestsV1=function(){
     switchPage('chests');const root=el('pg-chests');root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка сундуков…</div>';
-    api('/chests-v1/me').then(d=>{_chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>root.innerHTML=`<div class="err quest-load-error" role="alert"><b>Сундуки не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openChestsV1()">Повторить</button></div>`);
+    api('/chests-v1/me').then(d=>{_chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>root.innerHTML=`<div class="v3-err quest-load-error" role="alert"><b>Сундуки не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openChestsV1()">Повторить</button></div>`);
   };
   window.chestsV1Prepare=function(){
     if(_chestsV1Busy||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;renderChestsV1();
@@ -555,11 +426,11 @@
     if(_chestsV1Busy||!_chestsV1Data)return;
     const funding=_chestsV1Data.funding||{},price=Number(funding.price_zarniki)||0,remaining=Number(funding.remaining_today)||0;
     if(trigger)trigger.dataset.modalTrigger='true';
-    OM('Купить ключ',`<div class="chest-buy-confirm"><b>1 ключ за ${fmt(price)} ✨</b><p>Шансы полностью совпадают с бесплатным ключом. Сегодня после покупки останется ${Math.max(0,remaining-1)} из ${funding.daily_limit||0} покупок.</p><small>Неиспользованный купленный ключ можно вернуть через поддержку.</small></div>`,[{l:`Купить за ${fmt(price)} ✨`,c:'btn-gold',f:'chestsV1Buy();CM()'},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    OM('Купить ключ',`<div class="chest-buy-confirm"><b>1 ключ за ${fmt(price)} ✨</b><p>Шансы полностью совпадают с бесплатным ключом. Сегодня после покупки останется ${Math.max(0,remaining-1)} из ${funding.daily_limit||0} покупок.</p><small>Неиспользованный купленный ключ можно вернуть через поддержку.</small></div>`,[{l:`Купить за ${fmt(price)} ✨`,c:'primary',f:'chestsV1Buy();CM()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.chestsV1Reveal=function(){
     if(_chestsV1Busy||!_chestsV1Prepared)return;_chestsV1Busy=true;renderChestsV1();
-    api(`/chests-v1/${encodeURIComponent(_chestsV1Prepared.open_id)}/reveal`,{method:'POST'}).then(d=>{_chestsV1Busy=false;_chestsV1Prepared=null;_chestsV1LastResult=d;toast(`${d.stars}★ · ${chestRewardText(d.reward)}`);openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(e,false);openChestsV1();});
+    api(`/chests-v1/${encodeURIComponent(_chestsV1Prepared.open_id)}/reveal`,{method:'POST'}).then(d=>{_chestsV1Busy=false;_chestsV1Prepared=null;_chestsV1LastResult=d;toast(`${d.stars}★ · ${chestRewardText(d.reward)}`);v3Reward();openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(e,false);openChestsV1();});
   };
   let _questsV1Data=null,_questsV1Tab='daily',_questsV1Busy=false;
   function questMetricMeta(metric){
@@ -577,7 +448,7 @@
     const status=quest.completed?'<span class="quest-status is-done">Готово</span>':`<span class="quest-status">${progress} / ${target}</span>`;
     const reroll=quest.completed?'':`<button class="quest-icon-action" type="button" onclick="questsV1AskReroll('${period}',${quest.slot},this)" aria-label="Заменить квест «${esc(quest.title)}»" ${rerolls.remaining>0&&!_questsV1Busy?'':'disabled'}><span>Сменить</span> ↻</button>`;
     const action=quest.completed?'<span class="quest-complete-note">✓ Задание выполнено</span>':`<button class="quest-route" type="button" onclick="${meta.action}">${meta.label}<span aria-hidden="true">›</span></button>${reroll}`;
-    return `<article class="quest-card ${quest.completed?'is-done':''}"><div class="quest-card-icon quest-tone-${meta.tone}" aria-hidden="true">${meta.icon}</div><div class="quest-card-copy"><div class="quest-card-title"><strong>${esc(quest.title)}</strong>${status}</div><div class="quest-progress" role="progressbar" aria-label="${esc(quest.title)}: ${Math.min(progress,target)} из ${target}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${Math.min(progress,target)}"><i style="width:${percent}%"></i></div><div class="quest-card-meta"><span>${percent}%</span><span>${esc(quest.help)}</span></div><div class="quest-card-actions ${quest.completed?'is-complete':''}">${action}</div></div></article>`;
+    return `<article class="quest-card ${quest.completed?'is-done':''}" data-q="${period}-${quest.slot}"><div class="quest-card-icon quest-tone-${meta.tone}" aria-hidden="true">${meta.icon}</div><div class="quest-card-copy"><div class="quest-card-title"><strong>${esc(quest.title)}</strong>${status}</div><div class="quest-progress" role="progressbar" aria-label="${esc(quest.title)}: ${Math.min(progress,target)} из ${target}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${Math.min(progress,target)}"><i style="width:${percent}%"></i></div><div class="quest-card-meta"><span>${percent}%</span><span>${esc(quest.help)}</span></div><div class="quest-card-actions ${quest.completed?'is-complete':''}">${action}</div></div></article>`;
   }
   function questRewardCard(kind,reward,daily,weekly){
     const label={daily:'За день',weekly:'За неделю',combined:'За всё'}[kind]||kind;
@@ -585,7 +456,7 @@
     const state=reward.claimed?'Получено':reward.claimable?'Готово к выдаче':kind==='combined'?`${daily.done}/${daily.total} за день · ${weekly.done}/${weekly.total} за неделю`:`${target.done}/${target.total} заданий`;
     const destination=kind==='weekly'?'weekly':kind==='combined'&&daily.done===daily.total?'weekly':'daily';
     const button=reward.claimable?`<button class="quest-reward-claim" type="button" onclick="questsV1Claim('${kind}')" ${_questsV1Busy?'disabled':''}>${_questsV1Busy?'Подожди…':'Забрать'}</button>`:(!reward.claimed?`<button class="quest-reward-go" type="button" onclick="questsV1SetTab('${destination}')">К заданиям</button>`:'');
-    const keys=_sysFlags.content_chests_v1?Number(reward.amount_keys||0):0,value=`${reward.amount_mora} 🪙${keys?` + ${keys} 🗝`:''}`;
+    const keys=_sysFlags.content_chests_v1?Number(reward.amount_keys||0):0,value=`${reward.amount_mora} 🪙${Number(reward.amount_essence)?` + ${reward.amount_essence} Эссенции`:''}${keys?` + ${keys} 🗝`:''}`;
     return `<article class="quest-reward ${button?'has-action ':''}${reward.claimed?'is-claimed':reward.claimable?'is-ready':''}"><span class="quest-reward-mark" aria-hidden="true">${reward.claimed?'✓':keys?'🗝':'🪙'}</span><span><strong>${esc(label)}</strong><small>${esc(state)}</small></span><b>${value}</b>${button}</article>`;
   }
   function questPeriodSummary(period){
@@ -598,13 +469,14 @@
     const active=_questsV1Tab==='weekly'?weekly:daily,period=_questsV1Tab==='weekly'?'weekly':'daily';
     const tasks=(d[period]?.quests||[]).map(q=>questCard(q,period,rr)).join('');
     const rewardKinds=['daily','weekly','combined'],rewardItems=d.rewards?.items||{};
-    const rewardTotal=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_mora)||0),0);
+    const rewardTotal=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_mora)||0),0),rewardEssence=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_essence)||0),0);
     const rewards=rewardKinds.map(kind=>questRewardCard(kind,rewardItems[kind]||{amount_mora:0},daily,weekly)).join('');
-    const periodReward=Number(rewardItems[period]?.amount_mora)||0,periodKeys=_sysFlags.content_chests_v1?(Number(rewardItems[period]?.amount_keys)||0):0;
+    const periodReward=Number(rewardItems[period]?.amount_mora)||0,periodEssence=Number(rewardItems[period]?.amount_essence)||0,periodKeys=_sysFlags.content_chests_v1?(Number(rewardItems[period]?.amount_keys)||0):0;
     const keySummary=_sysFlags.content_chests_v1?' + 2 🗝 за день и неделю':'',keyBalance=_sysFlags.content_chests_v1?`<div class="quest-head-stats"><small>У тебя</small><b>${Number(d.rewards?.key_balance)||0} 🗝</b></div>`:'';
-    const content=_questsV1Tab==='rewards'?`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-rewards"><div class="quest-section-head"><div><span>Три понятные цели</span><h2>${rewardTotal} 🪙${keySummary}</h2></div>${keyBalance}</div><div class="quest-reward-list">${rewards}</div><p class="quest-policy">${esc(d.rewards?.message||'')}</p></section>`:`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${period}"><div class="quest-section-head"><div><span>${period==='daily'?'Сегодня':'Эта неделя'}</span><h2>${active.done}/${active.total} выполнено → ${periodReward} 🪙${periodKeys?` + ${periodKeys} 🗝`:''}</h2></div><div class="quest-head-stats"><b>${active.percent}%</b><small>↻ ${rr.remaining||0}/${rr.limit||0}</small></div></div><div class="quest-list">${tasks||'<div class="quest-empty"><b>Нет доступных заданий</b><span>Как только откроется доступная игра, задания появятся здесь.</span><button onclick="openQuestsV1()">Обновить</button></div>'}</div></section>`;
+    const content=_questsV1Tab==='rewards'?`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-rewards"><div class="quest-section-head"><div><span>Три понятные цели</span><h2>${rewardTotal} 🪙${rewardEssence?` + ${rewardEssence} Эссенции`:''}${keySummary}</h2></div>${keyBalance}</div><div class="quest-reward-list">${rewards}</div><p class="quest-policy">${esc(d.rewards?.message||'')}</p></section>`:`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${period}"><div class="quest-section-head"><div><span>${period==='daily'?'Сегодня':'Эта неделя'}</span><h2>${active.done}/${active.total} выполнено → ${periodReward} 🪙${periodEssence?` + ${periodEssence} Эссенции`:''}${periodKeys?` + ${periodKeys} 🗝`:''}</h2></div><div class="quest-head-stats"><b>${active.percent}%</b><small>↻ ${rr.remaining||0}/${rr.limit||0}</small></div></div><div class="quest-list">${tasks||'<div class="quest-empty"><b>Нет доступных заданий</b><span>Как только откроется доступная игра, задания появятся здесь.</span><button onclick="openQuestsV1()">Обновить</button></div>'}</div></section>`;
     const tab=(id,label)=>`<button id="quest-tab-${id}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" class="${_questsV1Tab===id?'is-active':''}" onclick="questsV1SetTab('${id}')" onkeydown="questsV1TabKey(event)" aria-controls="quest-panel">${label}</button>`;
-    root.innerHTML=`<header class="looks-head quest-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад в профиль">‹</button><div><h1>🧭 Квесты</h1><small>Разные цели, честный прогресс, понятная награда</small></div></header><nav class="quest-tabs" role="tablist" aria-label="Разделы квестов">${tab('daily',`Сегодня <span>${daily.done}/${daily.total}</span>`)}${tab('weekly',`Неделя <span>${weekly.done}/${weekly.total}</span>`)}${tab('rewards','Награды')}</nav>${content}`;
+    root.innerHTML=`<header class="quest-head"><h1 class="v3-title">Задания</h1><p class="v3-sub">Цели на день и неделю. За них дают Мору и Эссенцию для образов.</p></header><nav class="quest-tabs" role="tablist" aria-label="Разделы квестов">${tab('daily',`Сегодня <span>${daily.done}/${daily.total}</span>`)}${tab('weekly',`Неделя <span>${weekly.done}/${weekly.total}</span>`)}${tab('rewards','Награды')}</nav>${content}`;
+    if(typeof v3QuestsDone==='function')v3QuestsDone(root);
   }
   window.questsV1SetTab=function(tab){if(!['daily','weekly','rewards'].includes(tab))return;_questsV1Tab=tab;renderQuestsV1();scrollTo(0,0);requestAnimationFrame(()=>el('pg-questlog')?.querySelector('.quest-tabs .is-active')?.focus());};
   window.questsV1TabKey=function(event){
@@ -617,7 +489,7 @@
   window.openQuestsV1=function(tab){
     if(['daily','weekly','rewards'].includes(tab))_questsV1Tab=tab;
     switchPage('questlog'); const root=el('pg-questlog'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка квестов…</div>';
-    api('/quests-v1/me').then(d=>{_questsV1Data=d;renderQuestsV1();}).catch(e=>root.innerHTML=`<div class="err quest-load-error" role="alert"><b>Квесты не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openQuestsV1('${_questsV1Tab}')">Повторить</button></div>`);
+    api('/quests-v1/me').then(d=>{_questsV1Data=d;renderQuestsV1();}).catch(e=>root.innerHTML=`<div class="v3-err quest-load-error" role="alert"><b>Квесты не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openQuestsV1('${_questsV1Tab}')">Повторить</button></div>`);
   };
   window.questsV1AskReroll=function(period,slot,trigger){
     if(_questsV1Busy){toast('Дождись завершения текущего действия.',false);return;}
@@ -626,7 +498,7 @@
     const remaining=Number(_questsV1Data?.rerolls?.remaining)||0;
     if(remaining<=0){toast('Лимит замен на эту неделю исчерпан.',false);return;}
     if(trigger)trigger.dataset.modalTrigger='true';
-    OM('↻ Заменить квест',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'btn-gold',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'btn-ghost',f:'CM()'}]);
+    OM('↻ Заменить квест',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'primary',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.questsV1Reroll=function(period,slot){
     if(_questsV1Busy)return;
@@ -636,9 +508,10 @@
   };
   window.questsV1Claim=function(kind){
     if(_questsV1Busy)return;
+    const box=document.querySelector(`.quest-reward-claim[onclick*="'${kind}'"]`)?.getBoundingClientRect(),origin=box?{x:box.left+box.width/2,y:box.top+box.height/2}:null;   // откуда полетят монеты
     _questsV1Busy=true;renderQuestsV1();
     api('/quests-v1/claim-reward',{method:'POST',body:JSON.stringify({kind})}).then(d=>{
-      _questsV1Data=d;const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
+      _questsV1Data=d;if(!d.reward_result?.already_claimed&&Number(d.reward_result?.amount_mora)>0)v3Fly(origin,'mora','🪙');const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
     }).catch(e=>toast(e,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
   let _achievementsV1Data = null;
@@ -813,7 +686,7 @@
       _achievementsV1Filter = 'all';
       renderAchievementsV1();
     } catch (error) {
-      root.innerHTML = `<div class="err quest-load-error" role="alert">
+      root.innerHTML = `<div class="v3-err quest-load-error" role="alert">
         <b>Достижения не загрузились</b><span>${esc(error)}</span>
         <button type="button" onclick="openAchievementsV1()">Повторить</button>
       </div>`;

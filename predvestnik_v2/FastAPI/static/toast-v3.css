@@ -1,0 +1,48 @@
+/* ═══ TOAST V3 · уведомления ═══
+   Капсула над доком. Форма (рамка), значок (частицы), цвет (палитра) и насыщенность (тир) берутся из надетого образа:
+   разные образы дают разные уведомления. Без образа тост нейтральный. Движение: transform/opacity и только под .ap-anim. */
+
+.toast { --tv: var(--ap-a, var(--v3-acc, #d8cffd)); position: fixed; z-index: 600; left: 50%; bottom: calc(92px + var(--v3-safe-b, 0px)); display: flex; align-items: center; gap: 12px;
+  width: max-content; max-width: min(calc(100vw - 24px), 420px); min-height: 48px; box-sizing: border-box; padding: 9px 20px 9px 10px; overflow: hidden; border-radius: 18px;
+  background: var(--v3-sheet, #14161e); color: var(--v3-ink, #f1f2f6); font: 500 14px/1.35 var(--v3-font, inherit); text-align: left;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 0 0 0 1px color-mix(in srgb, var(--tv) 38%, transparent);
+  opacity: 0; pointer-events: none; transform: translate(-50%, 14px); transition: opacity .18s ease, transform .24s var(--v3-ease, ease); }
+.toast.show { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.toast.tv-err { --tv: var(--v3-err, #ff8a8a); }
+
+.tv-ic { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--tv) 18%, transparent); color: var(--tv); font-size: 15px; line-height: 1; }
+.tv-err .tv-ic { font-weight: 800; }
+.tv-reward .tv-ic { background: var(--tv); color: var(--v3-on-acc, #14161e); }
+.tv-body { display: flex; flex-direction: column; min-width: 0; }
+.tv-title { font-size: 13px; font-weight: 700; }
+.tv-tx { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; }
+.tv-time { display: none; position: absolute; left: 16px; right: 16px; bottom: 0; height: 2px; border-radius: 2px; background: var(--tv); opacity: .5; transform-origin: left; }
+
+/* форма: рамка образа */
+.toast.tv-fr-ring { border-radius: 99px; padding-right: 24px; }
+.toast.tv-fr-double { border-radius: 99px; padding-right: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 0 0 0 1px color-mix(in srgb, var(--tv) 58%, transparent), inset 0 0 0 4px var(--v3-sheet, #14161e), inset 0 0 0 5px color-mix(in srgb, var(--tv) 30%, transparent); }
+.toast.tv-fr-dash { border-radius: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, .42); outline: 1.5px dashed color-mix(in srgb, var(--tv) 62%, transparent); outline-offset: -5px; }
+.toast.tv-fr-seg { border-radius: 8px; box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 4px 0 0 var(--tv), inset 0 1px 0 color-mix(in srgb, var(--tv) 30%, transparent); }
+
+/* длинный текст: углы не превращаются в огромную «таблетку» */
+.toast.tv-long:is(.tv-fr-ring, .tv-fr-double) { border-radius: 24px; padding-right: 20px; }
+
+/* насыщенность: тир образа (D…SSS = 1…7) */
+.toast:is(.tv-t3, .tv-t4, .tv-t5, .tv-t6, .tv-t7) { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--tv) calc(var(--ap-i, .5) * 42%), transparent)); }
+.toast:is(.tv-t6, .tv-t7) .tv-ic { box-shadow: 0 0 14px color-mix(in srgb, var(--tv) 60%, transparent); }
+.toast.tv-sig::before { content: ""; position: absolute; left: 20px; right: 20px; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--ap-a), var(--ap-b), var(--ap-c), transparent); }
+.toast:is(.tv-t5, .tv-t6, .tv-t7)::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, rgba(255, 255, 255, .12) 50%, transparent 85%); opacity: 0; pointer-events: none; }
+
+@keyframes tvin { 0% { opacity: 0; transform: translate(-50%, 20px) scale(.94); } 60% { opacity: 1; transform: translate(-50%, -3px) scale(1.015); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes tvshake { 0%, 100% { transform: translate(-50%, 0); } 20% { transform: translate(calc(-50% - 6px), 0); } 45% { transform: translate(calc(-50% + 5px), 0); } 70% { transform: translate(calc(-50% - 3px), 0); } }
+@keyframes tvpop { from { opacity: 0; transform: scale(.4); } 70% { transform: scale(1.12); } to { opacity: 1; transform: none; } }
+@keyframes tvtime { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+@keyframes tvsweep { 0% { opacity: 1; transform: translateX(-100%); } 100% { opacity: 1; transform: translateX(100%); } }
+.ap-anim .toast.show { animation: tvin .42s var(--v3-ease, ease) both; }
+.ap-anim .toast.tv-err.show { animation: tvin .42s var(--v3-ease, ease) both, tvshake .36s ease-in-out .35s 1; }
+.ap-anim .toast.show .tv-ic { animation: tvpop .5s var(--v3-ease, ease) .08s both; }
+.ap-anim .toast.show .tv-time { display: block; animation: tvtime var(--tv-ms, 3s) linear both; }
+.ap-anim .toast:is(.tv-t5, .tv-t6, .tv-t7).show::after { animation: tvsweep 1.6s ease-out .35s 1 both; }
+
+@media (prefers-reduced-motion: reduce) { .toast, .toast *, .toast::after { animation: none !important; transition: opacity .01s !important; } }

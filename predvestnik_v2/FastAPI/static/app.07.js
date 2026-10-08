@@ -589,10 +589,10 @@ function refreshPage() {
   const rb = document.querySelector('.hdr-refresh');
   if (rb) { rb.classList.remove('spinning'); void rb.offsetWidth; rb.classList.add('spinning'); }
   const loaders = {
-    profile:loadProfile, arena:loadArena,
+    profile:loadProfile, more:loadProfile, arena:loadArena,
     admin:()=>{_adminChats=null;loadAdmin();}, global:loadGlobal, console:loadConsole
   };
-  if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('🔄 Обновлено!'); }
+  if(page && loaders[page]) { _loaded.delete(page); loaders[page](); toast('Данные обновлены'); }
 }
 
 // ── Global Moderation (Block 7) ──────────────────────────────────────────────────

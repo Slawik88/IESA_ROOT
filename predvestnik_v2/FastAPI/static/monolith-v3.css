@@ -1,0 +1,85 @@
+/* ═══ MONOLITH V3 · старые экраны без коробок ═══
+   Сундуки, питомцы, достижения, справка, строки «Образов» и лист подтверждения жили на карточках из app.css.
+   Здесь коробки снимаются: фон, рамка, скругление и тень уходят, группы держатся на отступах и тонких линиях (--v3-faint), как в «Ещё» и «Настройках».
+   Раскладку, размеры касаний и цвета образа это не меняет. Грузится после shell-v3.css. */
+
+/* кнопка «назад» в шапках старых экранов: просто стрелка */
+:is(#pg-chests, #pg-pets, #pg-achievements-v1) .looks-back { border: 0; background: none; color: var(--v3-dim); }
+:is(#pg-chests, #pg-pets) .looks-hint { padding: 0; border-radius: 0; background: none; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
+:is(#pg-chests, #pg-pets) .empty { padding: 18px 0; color: var(--v3-dim); font-size: 13.5px; }
+
+/* ── Сундуки ── */
+#pg-chests .chest-balance { margin: 6px 0 0; padding: 16px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-chests .chest-balance b { color: var(--v3-acc); font: var(--v3-w-num) 34px/1 var(--v3-font); }
+#pg-chests .chest-inventory { gap: 0; margin: 0; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-chests .chest-inventory span { padding: 14px 4px; border: 0; border-radius: 0; background: none; font-size: 11px; }
+#pg-chests .chest-inventory b { color: var(--v3-ink); font: var(--v3-w-head) 18px/1.2 var(--v3-font); }
+#pg-chests .chest-actions { position: static; margin: 0; padding: 14px 0 6px; border: 0; border-radius: 0; background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+#pg-chests .chest-open-btn { border-radius: 99px; }
+#pg-chests .chest-open-btn:disabled { background: var(--v3-faint); color: var(--v3-dim); box-shadow: none; opacity: 1; }
+#pg-chests .chest-buy-btn { border: 0; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1.5px var(--v3-track); }
+#pg-chests .chest-buy-btn b { color: var(--v3-acc); }
+#pg-chests .chest-buy-btn small { font-size: 10.5px; }
+#pg-chests .chest-orb { width: min(78vw, 260px); min-height: 0; aspect-ratio: 1; border: 0; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--v3-acc) 26%, transparent), transparent); box-shadow: none; }
+#pg-chests .chest-result { padding: 14px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-chests :is(.chest-odds, .chest-canary-note) { margin-top: 0; border: 0; border-radius: 0; background: none; box-shadow: 0 -1px 0 var(--v3-faint); overflow: visible; }
+#pg-chests .chest-odds summary { padding: 0; }
+#pg-chests .chest-odds > div { padding: 0 0 12px; }
+#pg-chests .chest-odds > p { padding: 0 0 14px; }
+#pg-chests .chest-canary-note { padding: 14px 0; }
+
+/* ── Питомцы ── */
+#pg-pets .pet-hero { min-height: 0; margin: 4px 0 0; padding: 18px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-pets .pet-hero small { color: var(--v3-dim); font-size: 11px; letter-spacing: .12em; }
+#pg-pets .pet-hero h2 { margin: 6px 0; color: var(--v3-ink); font: var(--v3-w-num) 40px/1 var(--v3-font); }
+#pg-pets .pet-hero p { color: var(--v3-dim); font-size: 13px; }
+#pg-pets .pet-hero > strong { border: 0; background: none; box-shadow: inset 0 0 0 2px var(--v3-acc); color: var(--v3-ink); }
+#pg-pets .pet-tabs { display: flex; gap: 22px; margin: 4px 0 8px; padding: 0; border: 0; border-radius: 0; background: none; }
+#pg-pets .pet-tabs button { position: relative; padding: 0 2px; border-radius: 0; background: none; color: var(--v3-dim); font: 600 14px/1 var(--v3-font); }
+#pg-pets .pet-tabs button[aria-selected="true"] { background: none; box-shadow: none; color: var(--v3-ink); }
+#pg-pets .pet-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 8px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
+#pg-pets .pet-key-earned { margin: 0; padding: 14px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint), 0 -1px 0 var(--v3-faint); }
+#pg-pets .pet-release-card { padding: 14px 0; }
+#pg-pets .bestiary-grid { grid-template-columns: 1fr; gap: 0; }
+#pg-pets .bestiary-card { min-height: 0; padding: 12px 0; border: 0; border-radius: 0; background: none; }
+#pg-pets .bestiary-card + .bestiary-card { box-shadow: 0 -1px 0 var(--v3-faint); }
+#pg-pets .bestiary-card > span { background: none; }
+#pg-pets .bestiary-card b { font-size: 14px; }
+#pg-pets .bestiary-card small { font-size: 11.5px; }
+
+/* ── Достижения ── */
+#pg-achievements-v1 .achievement-icon { border: 0; border-radius: 0; background: none; font-size: 26px; }
+#pg-achievements-v1 .achievement-filters { position: static; display: flex; gap: 20px; padding: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
+#pg-achievements-v1 .achievement-filters button { position: relative; flex: none; justify-content: flex-start; padding: 0 2px; border-radius: 0; background: none; color: var(--v3-dim); font: 600 13.5px/1.2 var(--v3-font); }
+#pg-achievements-v1 .achievement-filters button span { padding: 0; background: none; color: var(--v3-dim); font-size: 11px; }
+#pg-achievements-v1 .achievement-filters button.is-active { background: none; box-shadow: none; color: var(--v3-ink); }
+#pg-achievements-v1 .achievement-filters button.is-active::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 6px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
+#pg-achievements-v1 .achievement-card-actions > button, #pg-achievements-v1 .achievement-card-actions summary { justify-content: flex-start; gap: 6px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--v3-acc); font: 600 13.5px/1 var(--v3-font); }
+#pg-achievements-v1 .achievement-card-actions details[open] summary { border: 0; }
+#pg-achievements-v1 .achievement-card-actions > button::after, #pg-achievements-v1 .achievement-card-actions summary::after { content: "›"; }
+
+/* ── Справка ── */
+#pg-help .help-hero { min-height: 0; margin: 2px 0 10px; padding: 8px 0 18px; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); grid-template-columns: minmax(0, 1fr); }
+#pg-help .help-hero > span { display: none; }
+#pg-help .help-hero small { color: var(--v3-dim); font-size: 11px; letter-spacing: .14em; }
+#pg-help .help-hero h1 { margin: 6px 0; color: var(--v3-ink); font: var(--v3-w-head) 34px/1.05 var(--v3-font); letter-spacing: -.03em; }
+#pg-help .help-hero p { color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+#pg-help .help-grid { gap: 0; }
+#pg-help .help-card { overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
+#pg-help .help-card + .help-card { box-shadow: 0 -1px 0 var(--v3-faint); }
+#pg-help .help-card summary { min-height: 64px; padding: 8px 0; grid-template-columns: 34px minmax(0, 1fr) 28px; }
+#pg-help .help-card summary > span { background: none; }
+#pg-help .help-card summary b { font-size: 15px; }
+#pg-help .help-card summary small { font-size: 12.5px; }
+#pg-help .help-card p { padding: 0 0 10px 44px; font-size: 13.5px; line-height: 1.55; }
+#pg-help .help-card > button { min-height: 44px; margin: 0 0 8px 44px; padding: 0; border: 0; border-radius: 0; background: none; color: var(--v3-acc); font: 600 13.5px/1 var(--v3-font); }
+#pg-help .help-card > button::after { content: " ›"; }
+
+/* ── «Образы»: ближайшая цель, образ недели и сезон строками ── */
+#pg-looks :is(.lk-week, .lk-goal) { margin-top: 0; padding: 14px 0; border-radius: 0; background: none; }
+#pg-looks :is(.lk-week, .lk-goal) + :is(.lk-week, .lk-goal) { box-shadow: 0 -1px 0 var(--v3-faint); }
+#pg-looks .looks-release-section { padding: 12px 0; border: 0; border-radius: 0; background: none; }
+
+/* ── Лист подтверждения: предмет без рамки ── */
+.cf-item { margin-top: 12px; padding: 4px 0; border-radius: 0; background: none; box-shadow: none; }
+.cf-ico { background: none; font-size: 32px; }

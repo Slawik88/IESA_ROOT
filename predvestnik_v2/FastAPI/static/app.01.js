@@ -67,7 +67,6 @@ const RARITY_META = {
   artifact:  {label:'Артефакт',   color:'#3fe0e0'},
 };
 function rarLabel(r){ return (RARITY_META[r]||{}).label || r; }
-function rarColor(r){ return (RARITY_META[r]||{}).color || '#9aa7b8'; }
 
 // Chat where the mini app was opened from: bot encodes ?chat_id= for group
 // launches (Telegram WebApp context alone isn't reliable for group buttons).
@@ -81,7 +80,6 @@ const _initChatTitle = _tgChat?.title || '';
 let _cid = 0, _uid = 0, _actTab='duels', _zooTab='nursery', _arenaTab='game';
 let _zooData=null, _invData=[], _expTimer=null, _themeData=null, _mktTab='gacha';
 let _proTab='main', _profileData=null;
-let _featData=null, _achData=null, _achSort='default', _achRetired=false, _achMessage='', _invSearch='', _themeFilter='all';
 let _bpData=null;
 let _analyticsSession=(Date.now().toString(36)+Math.random().toString(36).slice(2)).slice(0,16);
 
@@ -113,7 +111,7 @@ const hdrs = () => {
 let _reactiveTimer=null;
 const _reactiveSubs=new Set();
 function onReactiveRefresh(fn){ if(typeof fn==='function') _reactiveSubs.add(fn); return fn; }
-function offReactiveRefresh(fn){ _reactiveSubs.delete(fn); }
+
 function economyRequestKey(scope){
   let nonce='';
   try{ nonce=globalThis.crypto?.randomUUID?.()||''; }catch(_){ nonce=''; }
@@ -206,8 +204,27 @@ function switchTgAccount(){
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let _ws=null;
-// connectWS() defined later with browser-notification + ping/pong support
+let _ws=null, _wsTries=0, _wsTimer=0;
+// События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
+// Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
+function connectWS() {
+  if (_ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
+  const auth = INIT_DATA ? `init=${encodeURIComponent(INIT_DATA)}` : `token=${encodeURIComponent(sess())}`;
+  let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}?${auth}`); } catch (e) { return; }
+  _ws = ws;
+  ws.onopen = () => { _wsTries = 0; };
+  ws.onmessage = ev => {
+    let event; try { event = JSON.parse(ev.data); } catch (e) { return; }
+    if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
+  };
+  ws.onclose = () => {
+    if (_ws === ws) _ws = null;
+    clearTimeout(_wsTimer); _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
+  };
+  ws.onerror = () => { try { ws.close(); } catch (e) { /* уже закрыт */ } };
+}
+setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });
 function showWsNotif(event) {
   const titles = {
     expedition_done: '⚔️ Поход завершён!',
@@ -232,12 +249,7 @@ function showWsNotif(event) {
     toast('Старое уведомление экспедиции сохранено в архиве.', false);
     return;
   }
-  const div = document.createElement('div');
-  div.className = 'ws-notif';
-  div.innerHTML = `<div class="wn-title">${titles[event.type]||'🔮 Уведомление'}</div>
-                   <div class="wn-body">${(bodies[event.type]||(() => ''))(event)}</div>`;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 5000);
+  toast((bodies[event.type] || (() => ''))(event) || 'Новое уведомление', true, { title: titles[event.type] || 'Уведомление' });
 }
 
 // Чек награды экспедиции: база + бонусы (питомцы/реликвии) + итого. Данные —
@@ -265,7 +277,7 @@ function showExpeditionReceipt(e) {
        <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
      </div>
      <div style="font-size:10px;color:var(--green);text-align:center">✓ Награда уже зачислена</div>${earlyNote}`,
-    [{l:'🎁 Забрать', c:'btn-gold', f:'CM();_nextModal()'}]);
+    [{l:'🎁 Забрать', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Очередь модалок: если при входе ждут и подарки, и чеки походов — показываем
@@ -293,24 +305,9 @@ function loadPendingNotifications() {
     _runModalQueue(queue);
   }).catch(() => {});
 }
-// Коробка-подарок от Администрации (БЛОК 3.4). payloads: [{reason, gifts:[{label,amount}]}]
-function showGiftBox(payloads) {
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px';
-  let body = '';
-  (payloads || []).forEach(p => {
-    const items = (p.gifts || []).map(g =>
-      `<div style="${rs}"><span>${esc(g.label || 'Награда')}</span><span style="color:var(--gold2);font-weight:700">+${fmt(g.amount)}</span></div>`
-    ).join('');
-    const reason = (p.reason || '').trim();
-    body += `<div style="margin-bottom:10px">${items}
-      ${reason ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">📝 Причина: <span style="color:var(--bright)">${esc(reason)}</span></div>` : ''}</div>`;
-  });
-  OM('🎁 Награда от Администрации!',
-    `<div style="text-align:center;font-size:46px;margin:2px 0 10px;animation:floaty 1.6s ease-in-out infinite">🎁</div>
-     ${body}
-     <div style="font-size:10px;color:var(--green);text-align:center;margin-top:2px">✓ Уже у тебя в профиле</div>`,
-    [{l:'🎉 Забрать!', c:'btn-gold', f:'CM();_nextModal()'}]);
-}
+// Подарок от Администрации (БЛОК 3.4): карточка в виде надетого образа, крупнее и дольше обычного тоста (v3GiftToast, app.28.js).
+// payloads: [{reason, gifts:[{label,amount,...}]}]. Следующее окно очереди (чек похода, возвращение) открывается, когда карточка ушла.
+function showGiftBox(payloads) { v3GiftToast(payloads, () => _nextModal()); }
 function showWelcomeBack(items) {
   if (items.length === 1) { showExpeditionReceipt(items[0]); return; }
   let totM = 0, totX = 0, totD = 0;
@@ -330,7 +327,7 @@ function showWelcomeBack(items) {
        <div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0 0;font-size:13px;font-weight:700;color:var(--gold2)"><span>Итого</span><span>${tp.join(' · ')}</span></div>
      </div>
      <div style="font-size:10px;color:var(--green);text-align:center">✓ Всё уже зачислено</div>`,
-    [{l:'🎁 Отлично!', c:'btn-gold', f:'CM();_nextModal()'}]);
+    [{l:'🎁 Отлично!', c:'primary', f:'CM();_nextModal()'}]);
 }
 
 // Левел-ап игрока (БЛОК 3): детект между загрузками профиля + торжественная модалка.
@@ -338,23 +335,6 @@ function showWelcomeBack(items) {
 // сравниваем уровень с прошлой загрузкой (localStorage). _xpAnimated — флаг анимации
 // заливки XP-шкалы (один раз за сессию), объявлен здесь до первого вызова loadProfile.
 let _xpAnimated = false;
-function _checkLevelUp(lvl) {
-  try {
-    const prev = parseInt(localStorage.getItem('pv_last_level') || '0');
-    localStorage.setItem('pv_last_level', String(lvl));
-    if (prev && lvl > prev) showLevelUp(lvl);
-  } catch (e) {}
-}
-function showLevelUp(lvl) {
-  if ('vibrate' in navigator) navigator.vibrate([100, 50, 100]);
-  OM('🎉 Новый уровень!',
-    `<div style="text-align:center;padding:6px 0">
-       <div style="font-size:54px;animation:floaty 1.6s ease-in-out infinite">⭐</div>
-       <div style="font-size:30px;font-weight:800;color:var(--gold2);margin:6px 0">Уровень ${lvl}</div>
-       <div style="font-size:12px;color:var(--muted)">Так держать! Общайся в чате, чтобы расти дальше.</div>
-     </div>`,
-    [{l:'🔥 Дальше!', c:'btn-gold', f:'CM()'}]);
-}
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
 const fmt = n => Number(n).toLocaleString('ru');
@@ -371,56 +351,15 @@ function fmtUTC(s) {
   const d = new Date(s.includes('T') ? s : s.replace(' ', 'T') + 'Z');
   return isNaN(d) ? s.slice(0,16) : d.toLocaleString('ru-RU', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 }
-const fatC = f => f<40?'var(--green)':f<70?'var(--gold)':'var(--red)';
+
 function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
-function toast(msg,ok=true) {
-  const t=el('toast');
-  // showModal() puts dialog in the browser top-layer above all z-indexes.
-  // Moving the toast node inside the open dialog keeps it visible above the overlay.
-  const dlg=el('modal');
-  if(dlg&&dlg.open){if(t.parentElement!==dlg)dlg.appendChild(t);}
-  else{if(t.parentElement!==document.body)document.body.appendChild(t);}
-  t.textContent=msg;
-  t.style.cssText=`background:${ok?'rgba(86,196,106,.92)':'rgba(239,99,99,.92)'};color:#fff;border:1px solid ${ok?'rgba(86,196,106,.5)':'rgba(239,99,99,.5)'}`;
-  t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
-  clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
-}
-
-function copyUid(uid) {
-  navigator.clipboard?.writeText(String(uid))
-    .then(()=>toast('🆔 ID скопирован!'))
-    .catch(()=>toast('Буфер обмена недоступен',false));
-}
-
-// Дедлайн экспедиции: строится ОДИН раз из серверного remaining_sec (разность
-// внутри БД — не зависит ни от таймзоны naive-строки ends_at, ни от часов
-// устройства игрока; фикс бага «Готово ✓» при ещё идущем походе). Парсинг
-// абсолютной строки — только фолбэк для старых/кэшированных ответов без поля.
-function expDeadlineMs(e){
-  if(e._dl===undefined){
-    e._dl=(typeof e.remaining_sec==='number')
-      ? Date.now()+e.remaining_sec*1000
-      : new Date((e.ends_at+'').includes('T')?e.ends_at:e.ends_at+'Z').getTime();
-  }
-  return e._dl;
-}
-function countdownMs(deadlineMs) {
-  const diff=Math.max(0,Math.floor((deadlineMs-Date.now())/1000));
-  if(diff<=0)return'<span style="color:var(--green)">Готово ✓</span>';
-  const h=Math.floor(diff/3600),m=Math.floor((diff%3600)/60),s=diff%60;
-  const str=h?`${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`:`${m}:${String(s).padStart(2,'0')}`;
-  return `<span class="exp-timer${diff<300?' urgent':''}">${str}</span>`;
-}
-// Короткая длительность для подписей: «2ч 15м» / «45м»
-function fmtDurShort(sec){
-  sec=Math.max(0,Math.floor(sec||0));
-  const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);
-  return h?`${h}ч ${String(m).padStart(2,'0')}м`:`${m}м`;
-}
+// toast() живёт в app.28.js: вид зависит от надетого образа
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
 let _modalReturnFocus=null;
+// Кнопки подвала окна: primary / ghost / danger. Окна консоли и модерации ещё передают старые имена btn-gold / btn-ghost / btn-red: такой подвал рисуется по-старому целиком.
+const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost',danger:' v3-pill--danger'};
 function OM(title,body,btns=[]) {
   _modalReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');
@@ -428,7 +367,8 @@ function OM(title,body,btns=[]) {
   el('mb').innerHTML=body;
   // Кавычки в onclick-строке (JSON.stringify-аргументы и т.п.) рвали HTML-атрибут —
   // кнопка молча умирала (напр. «Да, начать» чистку с выбранными датами).
-  el('mf').innerHTML=btns.map(b=>`<button class="btn btn-sm ${b.c||'btn-ghost'}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
+  const legacyFoot=btns.some(b=>/^btn-/.test(b.c||''));
+  el('mf').innerHTML=btns.map(b=>`<button class="${legacyFoot?`btn btn-sm ${b.c||'btn-ghost'}`:`v3-pill${_MF_VARIANT[b.c]??' v3-pill--ghost'}`}" onclick="${String(b.f||'').replace(/"/g,'&quot;')}" ${b.d?'disabled':''}>${b.l}</button>`).join('');
   el('modal').showModal();
   document.body.classList.add('modal-open');
 }
@@ -524,6 +464,7 @@ let _sysFlags = {};  // заполняется из /profile/me (system_flags) �
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
   try { syncPlayerExchangeEntry(); } catch (_) {}
+  try { if (el('game-hub')?.childElementCount) loadActivitiesHub(); } catch (_) {}   // флаги пришли позже первого показа центра игр
 }
 function _isFeatureEnabled(key) {
   return _sysFlags[key] !== false;  // undefined = профиль ещё загружается
@@ -550,13 +491,6 @@ function switchPage(name, _btn, _viaBack) {
     toast('Этот старый раздел больше не используется.', false);
   }
   if(!el('pg-'+name)) return;
-  // Любой выход из «Внешнего вида» (включая нижнюю навигацию) сначала даёт
-  // примерочной сохранить выбранную экипировку и подготовить профиль-превью.
-  // Раньше это делала только собственная стрелка _looksClose(), поэтому тап по
-  // «Профиль» обходил сохранение и визуально стирал только что собранный образ.
-  if(_activePage==='looks' && name!=='looks'
-     && typeof window._looksGuardPageLeave==='function'
-     && window._looksGuardPageLeave(()=>switchPage(name,_btn,_viaBack))) return;
   // История для «Назад»: перед уходом кладём ТЕКУЩУЮ страницу (кроме перехода
   // назад и повторного клика по той же). Без дублей подряд, кап 25.
   if(!_viaBack && _activePage && _activePage !== name &&
@@ -564,18 +498,24 @@ function switchPage(name, _btn, _viaBack) {
     _navStack.push(_activePage);
     if(_navStack.length>25) _navStack.shift();
   }
+  { const tabs=[...document.querySelectorAll('.nb[data-page]')].map(b=>b.dataset.page), from=tabs.indexOf(_activePage), to=tabs.indexOf(name);   // страница приходит с той стороны, куда ушёл игрок по доку (motion-v3.css)
+    document.body.dataset.dir = from>=0 && to>=0 && from!==to ? (to>from?'f':'b') : ''; }
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const looksDock=el('looks-dock'); if(looksDock && name!=='looks') looksDock.innerHTML='';
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');
     b.removeAttribute('aria-current');
   });
+  if(typeof v3EnterReset==='function')v3EnterReset(el('pg-'+name));   // каскад секций на этой странице снова сыграет один раз
   el('pg-'+name).classList.add('active');
+  { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
-  const activeNav=prim || el('nb-more');
+  // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
+  const _profileChildren=['pets','chests','achievements-v1','public-profile','store'];
+  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
+  if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
   showCurrBar(name !== 'profile');
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}
@@ -604,7 +544,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','exchange-v1'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
@@ -662,10 +602,6 @@ function goTo(page, tab) {
     if (tabBtn) tabBtn.click();
   }, 80);
 }
-
-// Historical profile/onboarding cards still call this helper.  It must point
-// at the approved current games hub, not at a retired Reconstruction screen.
-function openReconstructionGame(){ goTo('arena','game'); }
 
 // ── «Ещё» — Control Center: карточка «Управление» ведёт в Админку/Глобальную/Консоль ──
 // БЛОК 21.2 W4.1: три полноценных входа; Консоль — по правам (gp из app.07),

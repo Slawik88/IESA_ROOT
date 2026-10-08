@@ -2,15 +2,44 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,viewport-fit=cover"/>
 <title>Предвестник</title>
 <link rel="manifest" href="./manifest.json"/>
-<meta name="theme-color" content="#07080f"/>
+<meta name="theme-color" content="#08090c"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="{{BASE}}/static/app.css?v={{ASSET_VER}}"/>
-<link rel="stylesheet" href="{{BASE}}/static/global-skins-v1.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/admin-legacy.css?v={{ASSET_VER}}"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=Sora:wght@200;300;400;500;600&display=swap"/></noscript>
+<link rel="stylesheet" href="{{BASE}}/static/shell-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skins-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/shell-v3-home.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/fx-tiers-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/appearance-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/appearance-ring-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/appearance-stage-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/looks-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/settings-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-signatures-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-signatures-2-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skins-exclusive-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-sig-a-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-sig-b-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-sig-c-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/public-card-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/collect-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/toast-gift-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/marks-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/store-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/motion-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/confirm-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/monolith-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/monolith-player-v3.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -22,32 +51,29 @@
   <div class="pl-skip">нажми, чтобы пропустить</div>
 </div>
 
-<!-- ═══ ХЕДЕР: личность игрока и служебные действия ═══ -->
-<header id="app-header">
-  <div class="hdr-row hdr-row-top">
-    <div class="hdr-user" onclick="goTo('profile')">
-      <div class="hdr-ava" id="hdr-ava">🔮</div>
-      <div class="hdr-id">
-        <div class="hdr-name" id="hdr-name">Игрок</div>
-        <div class="hdr-sub" id="hdr-sub">…</div>
-      </div>
+
+
+<!-- ═══ Постоянная панель: уровень, ресурсы и «Что нового» всегда под рукой ═══ -->
+<header class="v3-bar" id="v3-bar">
+  <button type="button" class="v3-bar-me" id="v3-bar-me" onclick="switchPage('profile')" aria-label="Мой профиль"></button>
+  <div class="v3-chips" role="group" aria-label="Баланс">
+    <div class="v3-chips-main" id="v3-chips-main">
+      <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Мора. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9 12h6"/></svg><b id="vb-mora">·</b><u>Мора</u></button>
+      <button type="button" class="v3-chip" onclick="showCurrModal()" aria-label="Алмазы. Открыть кошелёк"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12l3 5-9 11L3 9z"/></svg><b id="vb-dia">·</b><u>Алмазы</u></button>
+      <button type="button" class="v3-chip" onclick="openLooksModal()" aria-label="Эссенция. Открыть образы"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/></svg><b id="vb-ess">·</b><u>Эссенция</u></button>
     </div>
-    <div class="hdr-actions">
-      <button class="hdr-news" id="whatsnew-btn" onclick="openWhatsNew()" aria-label="Что нового">
-        <span class="hn-ic">📣</span>
-        <span class="hn-dot" id="whatsnew-dot" hidden></span>
-      </button>
-      <button class="hdr-refresh" onclick="refreshPage()" aria-label="Обновить">🔄</button>
-    </div>
+    <button type="button" class="v3-chip v3-chip--zar" onclick="openZarnikiTopup()" aria-label="Зарники. Пополнить"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><b id="vb-zar">·</b><i class="v3-chip-plus" aria-hidden="true">+</i><u>Зарники</u></button>
   </div>
+  <button type="button" class="v3-bell" data-wn-btn onclick="openWhatsNew()" aria-label="Что нового"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg><span class="v3-bell-dot" data-wn-dot hidden></span></button>
 </header>
 
-<aside class="development-notice" aria-label="Статус разработки">
+<aside class="development-notice" id="dev-notice" aria-label="Статус разработки">
   <span aria-hidden="true">🛠</span>
   <span><strong>Предвестник в активной разработке.</strong> Обновление ещё не вышло. Большая часть функций пока скрыта на время разработки и тестирования.</span>
+  <button type="button" class="dn-close" onclick="dismissDevNotice()" aria-label="Скрыть сообщение">×</button>
 </aside>
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- ═══ ЛОГИН ═══ -->
 <div id="login-ov" class="login-ov hidden">
@@ -55,7 +81,7 @@
   <h1>Предвестник</h1>
   <p>Откройте игру через Telegram, чтобы загрузить подписанные игровые данные.</p>
   {{LOGIN_SURFACE}}
-  <div id="login-err" class="err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
+  <div id="login-err" class="v3-err hidden" style="max-width:280px;margin-top:10px" role="alert"></div>
   <p style="font-size:10px;color:var(--muted)">Данные защищены подписью Telegram.</p>
 </div>
 
@@ -71,15 +97,16 @@
 
 <!-- ═══ 1. ПРОФИЛЬ ═══ -->
 <div id="pg-profile" class="page active">
-  <div id="pro-main">
-    <div class="sk" style="height:140px;border-radius:22px;margin-bottom:12px"></div>
-    <div class="sk" style="height:70px;border-radius:16px"></div>
+  <div id="pro-main" class="v3-stagger">
+    <div class="sk" style="height:76px;border-radius:38px;margin-bottom:22px"></div>
+    <div class="sk" style="height:76px;border-radius:14px;margin-bottom:22px"></div>
+    <div class="sk" style="height:150px;border-radius:14px"></div>
   </div>
 </div>
 
 <!-- ═══ Центр активностей ═══ -->
 <div id="pg-arena" class="page">
-  <div id="ar-game"><div id="game-hub"></div></div>
+  <div id="ar-game"><div id="game-hub" class="v3-stagger"></div></div>
 </div>
 
 <!-- ═══ 12. АДМИНКА ═══ -->
@@ -130,46 +157,58 @@
   <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — главное видно сразу, подробности можно раскрыть.</p></div></section>
   <div class="help-grid">
     <details class="help-card" open><summary><span>🎮</span><div><b>Игры</b><small>Ритм, Сапёр и Мафия</small></div><i>⌄</i></summary><p><b>Ритм</b> проверяет реакцию, <b>Сапёр</b> — логику, а <b>Мафия</b> проходит прямо в чате. Откройте вкладку «Игры», выберите режим и нажмите основную кнопку.</p><button type="button" onclick="goTo('arena','game')">Открыть игры</button></details>
-    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Быстрые кнопки ведут к квестам, достижениям и истории чатов.</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
+    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Ниже идут квесты на сегодня и разделы: образы, питомцы, достижения. «Мои чаты» находятся во вкладке «Ещё».</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
     <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
-    <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «+» рядом с Зарниками в шапке или кнопку пополнения в профиле. Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
+    <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «Зарники» на главном экране профиля или откройте «Кошелёк». Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
     <details class="help-card" id="help-staff" style="display:none"><summary><span>⚙️</span><div><b>Управление чатом</b><small>Для администраторов</small></div><i>⌄</i></summary><p>В разделе «Ещё» откройте управление чатами. Там находятся участники, модерация, настройки и журнал. Показываются только доступные вам действия.</p><button type="button" onclick="openManageMenu()">Открыть управление</button></details>
   </div>
 </div>
 
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
 <div id="pg-news" class="page"></div>
+<div id="pg-top" class="page"></div>
 
-<div id="pg-looks" class="page looks-screen"></div>
+<div id="pg-looks" class="page"></div>
+<div id="pg-store" class="page"></div>
+<div id="pg-settings" class="page"></div>
 <div id="pg-pets" class="page"></div>
 <div id="pg-chests" class="page"></div>
 <div id="pg-public-profile" class="page"></div>
 <div id="pg-chat-tracker" class="page"></div>
 <div id="pg-exchange-v1" class="page"></div>
 
-<div id="pg-more" class="page">
-  <section class="more-hero"><small>Меню</small><h1>Ещё</h1><p>Настройки, покупки и помощь.</p></section>
-  <div class="cc-grid" aria-label="Дополнительные разделы">
-    <button type="button" class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg></span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></button>
-    <button type="button" class="cc-card" onclick="openSettingsModal()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7 7 0 0 0-1.8 1L5 6.1 3 9.5 5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1a7 7 0 0 0 1.8 1l.4 3h4.8l.4-3a7 7 0 0 0 1.8-1l2.4 1 2-3.5-2.1-1.5a7 7 0 0 0 .1-1Z"/></svg></span><span class="cc-t">Настройки</span><span class="cc-s">Вид, уведомления и аккаунт</span></button>
-    <button type="button" class="cc-card cc-card--zarniki" onclick="openZarnikiTopup()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></svg></span><span class="cc-t">Пополнить</span><span class="cc-s">Купить Зарники за Stars</span></button>
-    <button type="button" class="cc-card" onclick="openWhatsNew()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13V9l12-5v14L4 13Z"/><path d="M8 14v5H5l-1-6M19 8c1 1 1 3 0 4"/></svg></span><span class="cc-t">Что нового</span><span class="cc-s">Свежие изменения без сложных слов</span></button>
-    <button type="button" class="cc-card" onclick="openChatTracker()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18 3 21v-5a8 8 0 1 1 3 3Z"/></svg></span><span class="cc-t">Мои чаты</span><span class="cc-s">Активность и история</span></button>
-    <button type="button" class="cc-card cc-wide" id="cc-exchange-v1" hidden onclick="openPlayerExchangeV1()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17 10 12l3 3 6-8M14 7h5v5"/></svg></span><span class="cc-t">Биржа монет</span><span class="cc-s">Портфель, заявки и монеты игроков</span></button>
-    <button type="button" class="cc-card cc-wide" onclick="goTo('help')"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 3.3 2.2c-.8.4-1.1.9-1.1 1.8M12 17h.01"/></svg></span><span class="cc-t">Как пользоваться</span><span class="cc-s">Короткие ответы и быстрые переходы</span></button>
-  </div>
+<div id="pg-more" class="page v3-stagger">
+  <div class="v3-eyebrow">Меню</div><h1 class="v3-title">Ещё</h1>
+  <section class="v3-group"><span class="v3-eyebrow">Магазин</span>
+    <button type="button" class="v3-row" onclick="openStoreV3('zarniki')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Зарники<small>Пополнение и что на них можно взять</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
+    <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
+  </section>
+  <section class="v3-group" id="cc-manage" style="display:none"><span class="v3-eyebrow">Управление</span>
+    <button type="button" class="v3-row" onclick="openManageMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg><span>Управление чатами<small>Модерация и настройки</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
+  <section class="v3-group"><span class="v3-eyebrow">Аккаунт</span>
+    <button type="button" class="v3-row" onclick="openSettingsModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span>Настройки<small>Вид, уведомления и аккаунт</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="openChatTracker()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18l-2 3v-5.5A8 8 0 1 1 6 19z"/></svg><span>Мои чаты<small>Где вы играете: активность и история</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+</section>
+  <section class="v3-group" id="cc-exchange-v1" hidden><span class="v3-eyebrow">Рынок</span>
+    <button type="button" class="v3-row" onclick="openPlayerExchangeV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 3.5 3.5L20 7M15 7h5v5"/></svg><span>Биржа монет<small>Портфель, заявки и монеты игроков</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
+  <section class="v3-group"><span class="v3-eyebrow">Информация</span>
+    <button type="button" class="v3-row" onclick="openTopV3()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5v1a3 3 0 0 0 3 3M16 6h3v1a3 3 0 0 1-3 3M12 13v4M9 20h6"/></svg><span>Топ<small>Игроки и чаты: сообщения за день, неделю, месяц</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" id="whatsnew-btn" data-wn-btn onclick="openWhatsNew()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Что нового<small>Свежие изменения</small></span><span class="v3-end"><span id="whatsnew-dot" class="v3-badge" data-wn-dot hidden>•</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="goTo('help')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9.2a2.4 2.4 0 1 1 3.3 2.2c-.8.4-1.1.9-1.1 1.8M12 17h.01"/></svg><span>Как пользоваться<small>Короткие ответы и быстрые переходы</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="refreshPage()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4.5L20 15M20 20v-5h-5"/></svg><span>Обновить данные</span></button></section>
 </div>
 
 <!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
-<nav class="nav" aria-label="Основные разделы">
-  <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><span class="ni" aria-hidden="true">👤</span>Профиль</button>
-  <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><span class="ni" aria-hidden="true">🔔</span>Игры</button>
-  <button type="button" class="nb nb-looks" data-page="looks" onclick="openLooksModal()"><span class="ni" aria-hidden="true">🎨</span>Образы</button>
-  <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><span class="ni" aria-hidden="true">🎛</span>Ещё</button>
+<nav class="nav" aria-label="Основные разделы" style="--nav-n:6;--nav-i:0">
+  <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль</span></button>
+  <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры</span></button>
+  <button type="button" class="nb" data-page="looks" onclick="openLooksModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4h11.6L21 9l-9 11L3 9z"/><path d="M3 9h18M9.2 4 12 9l2.8-5M12 9v11"/></svg><span>Образы</span></button>
+  <button type="button" class="nb" data-page="questlog" onclick="openQuestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 6.5 1.6 1.6L9 5M4.5 12.5l1.6 1.6L9 11M4.5 18.5l1.6 1.6L9 17M13 7h6.5M13 13h6.5M13 19h6.5"/></svg><span>Задания</span></button>
+  <button type="button" class="nb" data-page="top" onclick="openTopV3()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/></svg><span>Топ</span></button>
+  <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>
 
-<script src="{{BASE}}/static/global-skins-v1.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
 <script src="{{BASE}}/static/app.devmode.js?v={{ASSET_VER}}" defer></script>

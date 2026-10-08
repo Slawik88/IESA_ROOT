@@ -1,0 +1,19 @@
+/* ═══ CONFIRM V3 · подтверждение траты ═══
+   Один лист для любой покупки (app.28.js, v3Confirm): что берём, цена, сколько на счёте и сколько останется. Основа листа (.lk-sheet-back, .lk-sheet) из looks-v3.css. */
+
+.cf-sheet { padding-bottom: calc(22px + var(--v3-safe-b)); }
+.cf-title { line-height: 1.2; }
+.cf-item { display: flex; align-items: center; gap: 14px; margin: 16px 0 0; padding: 12px 14px; border-radius: 18px; background: color-mix(in srgb, var(--v3-ink) 6%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.cf-item > div { min-width: 0; }
+.cf-ico { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: var(--v3-faint); font-size: 25px; line-height: 1; }
+.cf-item b { display: block; overflow: hidden; font-size: 16px; font-weight: 600; letter-spacing: -.01em; text-overflow: ellipsis; white-space: nowrap; }
+.cf-item small { display: block; margin-top: 3px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.35; }
+.cf-rows { margin: 12px 0 0; padding: 0; }
+.cf-rows > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 2px; font-size: 14.5px; }
+.cf-rows > div + div { box-shadow: 0 -1px 0 var(--v3-faint); }
+.cf-rows dt { color: var(--v3-dim); }
+.cf-rows dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.cf-rows .is-total dd { color: var(--v3-acc); }
+.cf-note { margin: 8px 0 0; }
+.cf-actions { display: grid; gap: 8px; margin-top: 16px; }
+.cf-actions .v3-pill { margin: 0; }

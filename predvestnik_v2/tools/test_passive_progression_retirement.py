@@ -31,7 +31,7 @@ async def main() -> None:
     assert "_checkLevelUp(lvl);" not in profile_ui
     # The release profile must not silently keep the old message/level loop
     # visible as a progression promise.  It is now an identity + family view.
-    assert "Личный профиль" in profile_ui
+    assert "Профиль игрока" in source("FastAPI/static/app.15.js")
     assert "Уровень профиля" not in profile_ui
     assert not (ROOT / "bot/handlers/inventory.py").exists()
 

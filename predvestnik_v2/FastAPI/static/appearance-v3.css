@@ -1,0 +1,79 @@
+/* ═══ APPEARANCE V3 · ник и титул ═══
+   Образ = палитра скина (--ap-a/b/c) + форма (kinds) + богатство тира (ap-t1…ap-t7 = D…SSS).
+   Ник: цвет → градиент → фирменный приём вида (nm-*). Движение включает .ap-anim на body (app.18.js:
+   «Спокойный режим» и слабое устройство его не получают). Анимируются transform и opacity; исключение одно: блик по буквам (apglint). */
+
+.ap-name { --ap-px: 6px; position: relative; display: inline-block; max-width: calc(100% + var(--ap-px) * 2); overflow: hidden; vertical-align: top; padding: 3px var(--ap-px); margin: -3px calc(var(--ap-px) * -1); color: var(--ap-a); --ap-nb: color-mix(in srgb, var(--ap-b) 62%, var(--ap-a)); }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось. --ap-nb: тёмный конец палитры для букв подтянут к светлому, иначе на тёмном фоне он не читается */
+.ap-name.ap-t1 { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 34%, transparent)); }   /* свечение только через filter: text-shadow резался бы рамкой имени */
+.ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-a), var(--ap-nb)); background-image: var(--ap-base); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 42%, transparent)); }
+.ap-name:is(.ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-nb) 70%, var(--ap-c)); background-image: var(--ap-base); }
+
+/* блик: светлая полоса лежит ВТОРЫМ СЛОЕМ фона самого текста, поэтому подсвечиваются только буквы и нет ни квадрата, ни кромки.
+   Это единственная анимация фона (background-position), остальные только transform/opacity; включается при ap-t4+ под .ap-anim. */
+.ap-name { --ap-hl: linear-gradient(100deg, transparent 28%, rgba(255,255,255,.06) 36%, rgba(255,255,255,.3) 44%, rgba(255,255,255,.8) 50%, rgba(255,255,255,.3) 56%, rgba(255,255,255,.06) 64%, transparent 72%); --ap-hl-w: 50%; --ap-glint: 6s; }   /* плавный профиль света: без ступеней нет и видимой кромки */
+.ap-title { --ap-glint: 6s; }
+@keyframes apglint { 0%, 55% { background-position: -70% 0, 0 0; } 100% { background-position: 170% 0, 0 0; } }
+.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink, .ap-nm-lens, .ap-nm-comet):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { background-image: var(--ap-hl), var(--ap-base, linear-gradient(transparent, transparent)); background-size: var(--ap-hl-w) 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; animation: apglint var(--ap-glint) ease-in-out infinite; will-change: transform; }   /* свой слой: блик двигает фон текста (перерисовка), без слоя он перерисовывал всю страницу ~45 раз в секунду */
+
+/* блик титула: широкая мягкая полоса идёт по таблетке и обрезается её скруглением. Профиль света плавный (ступеней много, края сходят на ноль),
+   поэтому кромки нет, а само движение это только transform и opacity. */
+.ap-title::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 72%; opacity: 0; pointer-events: none; transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 0%, rgba(255,255,255,.012) 12%, rgba(255,255,255,.04) 24%, rgba(255,255,255,.09) 36%, rgba(255,255,255,.15) 50%, rgba(255,255,255,.09) 64%, rgba(255,255,255,.04) 76%, rgba(255,255,255,.012) 88%, transparent 100%); }
+@keyframes aptsheen { 0%, 50% { opacity: 0; transform: translateX(-100%); } 58% { opacity: 1; } 92% { opacity: 1; } 100% { opacity: 0; transform: translateX(150%); } }
+.ap-anim .ap-title:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: aptsheen var(--ap-glint) ease-in-out infinite; }
+
+/* foil: металлическая фольга, полосы цвета с жёсткими границами */
+.ap-nm-foil:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c) 0%, var(--ap-a) 28%, var(--ap-nb) 52%, var(--ap-a) 74%, var(--ap-c) 100%); background-image: var(--ap-base); }
+.ap-nm-foil { --ap-hl: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%); --ap-hl-w: 38%; }
+
+/* glow: неоновая трубка. Свечение это filter (его не режет рамка имени), дыхание это opacity всего имени */
+.ap-nm-glow:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); text-shadow: none; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ap-a) 80%, transparent)) drop-shadow(0 0 8px color-mix(in srgb, var(--ap-b) 55%, transparent)); }
+.ap-nm-glow:is(.ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 2px var(--ap-c)) drop-shadow(0 0 7px var(--ap-a)) drop-shadow(0 0 13px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
+.ap-anim .ap-nm-glow:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { animation: apbreath 3.4s ease-in-out infinite alternate; }
+
+/* ink: тушь, под ником прорисовывается мазок кисти */
+.ap-nm-ink::before { content: ""; position: absolute; left: 6px; right: 6px; bottom: 1px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--ap-b) 18%, var(--ap-a) 70%, transparent); opacity: .85; transform-origin: left; }
+.ap-nm-ink:is(.ap-t1, .ap-t2)::before { display: none; }
+@keyframes apbrush { 0% { transform: scaleX(.02); } 24%, 86% { transform: scaleX(1); opacity: .85; } 100% { transform: scaleX(1); opacity: 0; } }
+.ap-anim .ap-nm-ink:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apbrush 7s ease-out infinite; }
+
+/* glitch: сбой сигнала, две цветовые копии съезжают на пару пикселей */
+.ap-nm-glitch:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); text-shadow: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ap-a) 40%, transparent)); }
+.ap-nm-glitch::before, .ap-nm-glitch::after { content: attr(data-t); display: none; position: absolute; inset: 3px 6px; background: none; mix-blend-mode: screen; pointer-events: none; transform: none; }
+.ap-nm-glitch::before { color: var(--ap-b); } .ap-nm-glitch::after { color: var(--ap-c); }
+.ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before, .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; opacity: .34; }
+.ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { transform: translateX(-1px); } .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { transform: translateX(1px); }
+@keyframes apglitch-a { 0%, 90%, 100% { transform: translateX(-1.5px); } 92% { transform: translateX(-5px); } 95% { transform: translateX(3px); } 97% { transform: translateX(-2px); } }
+@keyframes apglitch-b { 0%, 90%, 100% { transform: translateX(1.5px); } 93% { transform: translateX(5px); } 96% { transform: translateX(-3px); } 98% { transform: translateX(2px); } }
+.ap-anim .ap-nm-glitch:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apglitch-a 5.5s steps(1) infinite; }
+.ap-anim .ap-nm-glitch:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: apglitch-b 5.5s steps(1) infinite; }
+
+/* lens: мягкий круглый отсвет линзы бежит по буквам */
+.ap-nm-lens { --ap-hl: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,0)); --ap-hl-w: 34%; --ap-glint: 7s; }
+
+/* comet: яркая точка с хвостом пролетает по буквам */
+.ap-nm-comet { --ap-hl: linear-gradient(90deg, transparent, rgba(255,255,255,.2) 62%, rgba(255,255,255,.98) 97%, transparent); --ap-hl-w: 52%; --ap-glint: 5.5s; }
+
+/* ── Титул: таблетка, цвет и насыщенность по палитре и тиру ── */
+.ap-title { position: relative; display: inline-flex; align-items: center; overflow: hidden; padding: 2px 9px; border-radius: 99px; color: var(--ap-a); font-size: 11.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ap-a) 40%, transparent); }
+.ap-title:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, color-mix(in srgb, var(--ap-a) 22%, transparent), color-mix(in srgb, var(--ap-b) 22%, transparent)); background-image: var(--ap-base); }
+.ap-title:is(.ap-t6, .ap-t7) { box-shadow: inset 0 0 0 1px var(--ap-a), 0 0 14px color-mix(in srgb, var(--ap-a) 35%, transparent); }
+
+@keyframes apbreath { from { opacity: .72; } to { opacity: 1; } }
+
+.v3-id.has-look .v3-name { background: none; -webkit-text-fill-color: initial; }   /* золотой VIP-градиент имени не перекрывает цвет скина */
+.v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
+.v3-who .ap-name, .v3-who .ap-title, .v3-who .ap-title::after { animation: none !important; }   /* в списках блики не бегают: двадцать строк с перерисовкой текста на каждом кадре дороги, а в строке они не нужны */
+
+/* Длинные ники. В списках одна строка с многоточием (ник и значок VIP делят строку, титул уходит под него), в шапках не больше двух строк.
+   Ограничение ставится на сам .ap-name: у него свечение идёт через filter, поэтому у родителей overflow не нужен и тень не режется. */
+.v3-who > span:first-child { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.v3-who .ap-name { flex: 0 1 auto; min-width: 0; white-space: nowrap; text-overflow: ellipsis; }
+.v3-who .v3-vipdot { flex: none; }
+.ap-plain { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-name .ap-name, .pp-name .ap-name, .lk-name .ap-name { display: -webkit-inline-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+.v3-name:not(:has(.ap-name)) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) { .ap-name, .ap-title { animation: none !important; } }
