@@ -172,6 +172,7 @@ async def run(dsn: str) -> None:
 
         # ── personal skins: never sold, invisible in the shop, given and taken back by hand, one holder each ──────────────────────────
         pal_owner, other, stranger = 981050, 981051, 981052
+        await db.execute("DELETE FROM skins_v3_owned WHERE skin_id IN ('scarlet_star','crimson_dark')")   # a database used for manual runs may hold them; the rollback restores it
         for uid in (pal_owner, other, stranger):
             await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (uid, f"p{uid}", 99999))
         await expect_conflict(skins.buy(db, stranger, "scarlet_star", idempotency_key="x-1"), "не продаётся")

@@ -179,4 +179,14 @@ assert "function v3EnterSync(" in motion_js and "--enter-skip" in fx and "v3Ente
 assert "pg-enter" not in (STATIC / "app.css").read_text(encoding="utf-8"), "the old second cascade is gone"
 # VIP page: facts come from the server list, the reminder switch names what it really does, the comparison shows the whole look.
 assert "Напоминать о поручении дня" in store_js and "о конце срока" not in store_js and "apStage(ap" in store_js and "sv-prev" in store_js
+# The app is one classic script made of numbered parts (FastAPI/main.py, _APP_JS_PARTS): one syntax error in any part kills every function, so the whole is parsed here.
+import re as _re, shutil, subprocess, tempfile  # noqa: E401
+if shutil.which("node"):
+    parts = _re.findall(r"app\.(\d\d)\.js", _re.search(r"_APP_JS_PARTS = \[([^\]]*)\]", (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")).group(1)) or \
+        [f"{int(n):02d}" for n in _re.search(r"for i in \(([^)]*)\)", (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")).group(1).split(",")]
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tmp:
+        tmp.write("\n".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in parts))
+    done = subprocess.run(["node", "--check", tmp.name], capture_output=True, text=True)
+    Path(tmp.name).unlink()
+    assert done.returncode == 0, done.stderr[:600]
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")
