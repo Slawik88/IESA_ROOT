@@ -50,14 +50,6 @@ async def resolve_display_name(
         name, active, badge=VIP_BADGES.get(preferences.get("badge_id"), "✦"),
         position=preferences.get("badge_position", "left"),
     )
-    # Кастом-тайтл TG-админа («Владелец»/«Модератор»/свой) — та же подпись,
-    # что видна рядом с именем в самой группе. Только в группах (chat_id < 0).
-    if chat_id and chat_id < 0:
-        from services.admin_titles import title_suffix
-        try:
-            name += await title_suffix(chat_id, user_id)
-        except Exception:
-            pass
     return name
 
 

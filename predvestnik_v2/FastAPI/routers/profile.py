@@ -24,7 +24,7 @@ from infrastructure.repositories.users import set_nickname, get_first_seen
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
 from infrastructure.repositories import global_moderation as gmod_repo
-from services.global_moderation import SANCTION_LABELS
+SANCTION_LABELS = {"warn": "предупреждение", "restrict": "ограничение", "ban": "бан"}
 from core.registry import ACHIEVEMENTS
 from core.sky_v1 import NODE_BY_ID, SIGIL_IDS
 from infrastructure.repositories import sky_v1 as sky_repo

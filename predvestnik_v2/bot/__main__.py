@@ -12,16 +12,12 @@ from bot.core.database import init_db
 from bot.middlewares.db import db_middleware
 from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
-from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
-from bot.middlewares.purge_gate_mw import purge_gate_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
-from bot.handlers.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
     maintenance_task,
-    mafia_phase_task,
     player_exchange_match_task,
 )
 
@@ -211,8 +207,6 @@ async def main():
     # temporary Cloudflare-backed test bot is publicly reachable.
     dp.update.middleware(preprod_gate_middleware)
     dp.update.middleware(db_middleware)
-    dp.update.middleware(global_sanctions_middleware)
-    dp.update.middleware(purge_gate_middleware)   # admin_audit B5: режим письма при чистке
 
     logger.info("📡 Регистрация роутеров...")
     dp.include_router(main_router)
@@ -267,19 +261,8 @@ async def main():
 
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
-            _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
         ])
-        # Preprod intentionally has no Stars history/reconciliation access.
-        # Do not spawn a coroutine that correctly returns immediately and then
-        # misclassify that policy as a supervisor crash.
-        if is_preprod():
-            logger.info("Stars reconciliation is intentionally not scheduled on isolated preprod.")
-        else:
-            background_tasks.append(_spawn_supervised(
-                "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
-            ))
-
         polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)

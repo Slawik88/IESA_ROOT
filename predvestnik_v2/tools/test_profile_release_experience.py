@@ -7,7 +7,6 @@ ROOT = Path(__file__).resolve().parents[1]
 profile = (ROOT / "FastAPI/static/app.02.js").read_text(encoding="utf-8")
 shell = (ROOT / "FastAPI/static/app.01.js").read_text(encoding="utf-8")
 pets = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
-admin = (ROOT / "FastAPI/static/app.07.js").read_text(encoding="utf-8")
 wallet = (ROOT / "FastAPI/routers/wallet.py").read_text(encoding="utf-8")
 css = (ROOT / "FastAPI/static/app.css").read_text(encoding="utf-8")
 skin = (ROOT / "FastAPI/static/global-skins-v1.css").read_text(encoding="utf-8")
@@ -47,10 +46,6 @@ for profile_chapter in ("profile-zone--games", "profile-zone--progress", "profil
     assert profile_chapter in profile and profile_chapter in css
 assert "profile-paths" in profile and "--path:" in profile
 assert "openAchievementsV1()" in profile and "openPetsV1()" in profile
-cached_admin = admin[admin.index("function loadAdmin()") : admin.index("function renderAdminChatSel()")]
-assert "_adminChats.some" in cached_admin
-assert "swAdmin(_adminTab" in cached_admin
-assert "renderAdminChatSel(); return;" not in cached_admin
 assert '"chest_key_purchase": "🗝 Ключ от сундука"' in wallet
 assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
 for action in ("openSettingsModal()", "openZarnikiTopup()", "openWhatsNew()", "openChatTracker()"):

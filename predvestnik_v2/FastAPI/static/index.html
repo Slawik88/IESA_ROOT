@@ -82,46 +82,6 @@
   <div id="ar-game"><div id="game-hub"></div></div>
 </div>
 
-<!-- ═══ 12. АДМИНКА ═══ -->
-<div id="pg-admin" class="page">
-  <div id="adm-chat-sel" style="margin-bottom:10px"></div>
-  <div class="tabs">
-    <button class="tb active" onclick="swAdmin('dash',this)">📊 Дашборд</button>
-    <button class="tb" onclick="swAdmin('users',this)">👥 Участники</button>
-    <button class="tb" onclick="swAdmin('bl',this)">🚫 ЧС</button>
-    <button class="tb" onclick="swAdmin('mod',this)">⚡ Модерация</button>
-    <button class="tb" onclick="swAdmin('settings',this)">⚙️ Настройки</button>
-    <button class="tb" onclick="swAdmin('logs',this)">📋 Журнал</button>
-  </div>
-  <div id="adm-dash"></div>
-  <div id="adm-users"    style="display:none"></div>
-  <div id="adm-bl"       style="display:none"></div>
-  <div id="adm-mod"      style="display:none"></div>
-  <div id="adm-settings" style="display:none"></div>
-  <div id="adm-logs"     style="display:none"></div>
-</div>
-
-<!-- ═══ 13. ГЛОБАЛЬНАЯ МОДЕРАЦИЯ (Консоль — отдельная страница pg-console, БЛОК 21.2 W4) ═══ -->
-<div id="pg-global" class="page">
-  <div class="tabs tabs-scroll">
-    <button class="tb active" onclick="swGlobal('chats',this)">💬 Все чаты</button>
-    <button class="tb" id="glb-tab-sanctions" onclick="swGlobal('sanctions',this)">🚫 Санкции</button>
-    <button class="tb" onclick="swGlobal('log',this)">📋 Журнал</button>
-    <button class="tb" id="glb-tab-appeals" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
-    <button class="tb" id="glb-tab-ranks" style="display:none" onclick="swGlobal('ranks',this)">👮 Штат</button>
-  </div>
-  <div id="glb-chats"></div>
-  <div id="glb-sanctions" style="display:none"></div>
-  <div id="glb-log"       style="display:none"></div>
-  <div id="glb-appeals"   style="display:none"></div>
-  <div id="glb-ranks"     style="display:none"></div>
-</div>
-
-<!-- ═══ 13б. КОНСОЛЬ РАЗРАБОТЧИКА — самодостаточная среда (БЛОК 21.2 W4.1) ═══ -->
-<div id="pg-console" class="page">
-  <div id="console-c"><div class="loader">Загрузка...</div></div>
-</div>
-
 <div id="pg-questlog" class="page"></div>
 <div id="pg-achievements-v1" class="page"></div>
 
@@ -133,7 +93,6 @@
     <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Быстрые кнопки ведут к квестам, достижениям и истории чатов.</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
     <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
     <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «+» рядом с Зарниками в шапке или кнопку пополнения в профиле. Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
-    <details class="help-card" id="help-staff" style="display:none"><summary><span>⚙️</span><div><b>Управление чатом</b><small>Для администраторов</small></div><i>⌄</i></summary><p>В разделе «Ещё» откройте управление чатами. Там находятся участники, модерация, настройки и журнал. Показываются только доступные вам действия.</p><button type="button" onclick="openManageMenu()">Открыть управление</button></details>
   </div>
 </div>
 
@@ -150,7 +109,6 @@
 <div id="pg-more" class="page">
   <section class="more-hero"><small>Меню</small><h1>Ещё</h1><p>Настройки, покупки и помощь.</p></section>
   <div class="cc-grid" aria-label="Дополнительные разделы">
-    <button type="button" class="cc-card cc-wide" id="cc-manage" style="display:none;position:relative" onclick="openManageMenu()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg></span><span class="cc-t">Управление чатами</span><span class="cc-s">Модерация и настройки</span><span id="cc-manage-badge" style="display:none;position:absolute;top:6px;right:8px;background:var(--red);color:#fff;border-radius:999px;font-size:10px;font-weight:700;padding:1px 6px;font-variant-numeric:tabular-nums"></span></button>
     <button type="button" class="cc-card" onclick="openSettingsModal()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.8-1L14.4 3h-4.8l-.4 3.1a7 7 0 0 0-1.8 1L5 6.1 3 9.5 5.1 11a7 7 0 0 0 0 2L3 14.5 5 18l2.4-1a7 7 0 0 0 1.8 1l.4 3h4.8l.4-3a7 7 0 0 0 1.8-1l2.4 1 2-3.5-2.1-1.5a7 7 0 0 0 .1-1Z"/></svg></span><span class="cc-t">Настройки</span><span class="cc-s">Вид, уведомления и аккаунт</span></button>
     <button type="button" class="cc-card cc-card--zarniki" onclick="openZarnikiTopup()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z"/><path d="m19 16 .7 2.3L22 19l-2.3.7L19 22l-.7-2.3L16 19l2.3-.7L19 16Z"/></svg></span><span class="cc-t">Пополнить</span><span class="cc-s">Купить Зарники за Stars</span></button>
     <button type="button" class="cc-card" onclick="openWhatsNew()"><span class="cc-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13V9l12-5v14L4 13Z"/><path d="M8 14v5H5l-1-6M19 8c1 1 1 3 0 4"/></svg></span><span class="cc-t">Что нового</span><span class="cc-s">Свежие изменения без сложных слов</span></button>
@@ -172,6 +130,5 @@
 <script src="{{BASE}}/static/global-skins-v1.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
-<script src="{{BASE}}/static/app.devmode.js?v={{ASSET_VER}}" defer></script>
 </body>
 </html>

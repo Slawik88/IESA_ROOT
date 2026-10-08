@@ -18,7 +18,6 @@ from starlette.responses import RedirectResponse
 ALLOWED = {
     "/static/app.css": "text/css",
     "/static/app.js": "application/javascript",
-    "/static/app.devmode.js": "application/javascript",
     "/static/minesweeper-v2.css": "text/css",
     "/static/minesweeper-v2.js": "application/javascript",
     "/static/global-skins-v1.css": "text/css",
