@@ -28,11 +28,12 @@ from FastAPI.auth import (verify_login_widget, create_session_token,
 from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
 from FastAPI import notifications
 from FastAPI.routers import (profile, marriage, wallet,
-                              admin, global_admin, dev_console, payments,
+                              payments,
                               legal, analytics as analytics_router,
-                              dev_overlay, appeals, account,
+                              account,
                               rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
+from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -199,13 +200,14 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 # client can still call a public endpoint directly.  Their data stays in the
 # database solely for the owner-approved final compensation audit.
 for r in [profile.router, marriage.router, wallet.router,
-          admin.router, global_admin.router, dev_console.router,
           payments.router, legal.router, notif_router.router,
-          analytics_router.router, dev_overlay.router, appeals.router, account.router,
+          analytics_router.router, account.router,
           rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
+app.include_router(bot_admin_router.router)
+app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
@@ -323,7 +325,7 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
@@ -363,9 +365,6 @@ _INDEX_HTML = (
 )
 _APP_CSS = _read_static("app.css")
 _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
-# БЛОК 25: dev-оверлей — отдельный скрипт (НЕ в склейке), активируется только
-# после 200 от /admin/dev-overlay/check; данные за гейтом на бэке.
-_APP_DEVMODE_JS = _read_static("app.devmode.js")
 _RHYTHM_V2_HTML = (
     _read_static("rhythm-v2.html")
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
@@ -466,10 +465,6 @@ async def static_css():
 async def static_js():
     return Response(_APP_JS, media_type="application/javascript; charset=utf-8")
 
-
-@app.get("/static/app.devmode.js")
-async def static_devmode_js():
-    return Response(_APP_DEVMODE_JS, media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/rhythm-v2.css")

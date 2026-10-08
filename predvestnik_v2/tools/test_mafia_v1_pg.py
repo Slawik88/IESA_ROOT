@@ -14,7 +14,7 @@ from infrastructure.repositories import achievements_v1 as achievements_repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import mafia_v1 as repo
 from services import mafia_v1 as mafia
-from bot.handlers.mafia_v1 import _lobby_text, _phase_keyboard, _phase_text, _send_night_prompts, _settings_keyboard, notify_phase_transition, publish_phase
+from bot.chat.mafia import _lobby_text, _phase_keyboard, _phase_text, _send_night_prompts, _settings_keyboard, notify_phase_transition, publish_phase
 
 
 class FakeBot:

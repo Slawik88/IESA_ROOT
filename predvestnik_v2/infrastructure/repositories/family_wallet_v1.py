@@ -21,6 +21,7 @@ from core.economy_contract import (
     validate_idempotency_key,
 )
 from infrastructure.repositories.economy_ledger import apply_balance_change
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.marriage_integrity import (
     audit_family_migration_readiness,
     migration_is_safe,
@@ -46,7 +47,18 @@ _BALANCE_COLUMNS = {
     "diamonds": "diamonds",
     "dark_mora": "dark_mora",
     "zarniki": "zarniki",
+    # Эссенция (2026-10): колонку и CHECK добавляет ensure_essence_custody().
+    # Личная сторона — счёт skins_v3_essence_accounts, а не общий леджер.
+    "essence": "essence",
 }
+# Старые колонки семейного баланса в marriages; у эссенции такой нет.
+_LEGACY_COLUMNS = {
+    "mora": "family_balance",
+    "diamonds": "family_balance_diamonds",
+    "dark_mora": "family_balance_dark_mora",
+    "zarniki": "family_balance_zarniki",
+}
+CUSTODY_SELECT = ", ".join(_BALANCE_COLUMNS)
 
 
 def _fingerprint(*, action: str, currency: str, amount: Decimal) -> str:
@@ -80,8 +92,8 @@ async def transfer_between_personal_and_family(
     normalized_amount = as_ledger_amount(amount)
     if normalized_amount <= 0:
         raise InvalidEconomicMutation("Family wallet amount must be positive.")
-    if currency == "zarniki" and normalized_amount != normalized_amount.to_integral_value():
-        raise InvalidEconomicMutation("Zarniki transfers must use a whole amount.")
+    if currency in ("zarniki", "essence") and normalized_amount != normalized_amount.to_integral_value():
+        raise InvalidEconomicMutation("Zarniki and Essence transfers must use a whole amount.")
     key = validate_idempotency_key(idempotency_key)
     fingerprint = _fingerprint(action=action, currency=currency, amount=normalized_amount)
 
@@ -100,7 +112,7 @@ async def transfer_between_personal_and_family(
             (marriage_id,),
         )
         async with db.execute(
-            "SELECT mora, diamonds, dark_mora, zarniki FROM family_wallet_balances "
+            f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
             "WHERE marriage_id = ? FOR UPDATE",
             (marriage_id,),
         ) as cursor:
@@ -147,18 +159,25 @@ async def transfer_between_personal_and_family(
             f"UPDATE family_wallet_balances SET {column} = ?, updated_at = NOW() WHERE marriage_id = ?",
             (after[currency], marriage_id),
         )
-        legacy_column = {
-            "mora": "family_balance",
-            "diamonds": "family_balance_diamonds",
-            "dark_mora": "family_balance_dark_mora",
-            "zarniki": "family_balance_zarniki",
-        }[currency]
-        await db.execute(
-            f"UPDATE marriages SET {legacy_column} = ? WHERE id = ?",
-            (float(after[currency]), marriage_id),
-        )
+        legacy_column = _LEGACY_COLUMNS.get(currency)
+        if legacy_column:
+            await db.execute(
+                f"UPDATE marriages SET {legacy_column} = ? WHERE id = ?",
+                (float(after[currency]), marriage_id),
+            )
 
         personal_delta = -normalized_amount if action == "deposit" else normalized_amount
+        if currency == "essence":
+            personal_operation_id = await _essence_leg(
+                db, actor_id, int(personal_delta), action=action, key=key, operation_id=operation_id)
+            await db.execute(
+                "UPDATE family_wallet_ledger SET source_personal_operation_id = ? WHERE operation_id = ?",
+                (personal_operation_id, operation_id),
+            )
+            return FamilyTransfer(
+                operation_id=operation_id, marriage_id=marriage_id, currency=currency,
+                amount=normalized_amount, action=action, applied=True,
+            )
         personal = await apply_balance_change(
             db, actor_id, {currency: personal_delta},
             reason_code=f"family_transfer_{action}",
@@ -179,6 +198,23 @@ async def transfer_between_personal_and_family(
         operation_id=operation_id, marriage_id=marriage_id, currency=currency,
         amount=normalized_amount, action=action, applied=True,
     )
+
+
+async def _essence_leg(db: Any, actor_id: int, delta: int, *, action: str, key: str, operation_id: str) -> str:
+    """Личная сторона перевода эссенции: счёт Mini App. Возвращает id строки его журнала."""
+    idempotency_key = f"family:{key}"
+    if delta < 0 and await skins_v3_repo.essence_balance(db, actor_id) < -delta:
+        raise InsufficientBalance("Insufficient essence.")
+    await skins_v3_repo.essence_apply(
+        db, actor_id, delta, reason=f"family_transfer_{action}",
+        reference=operation_id, idempotency_key=idempotency_key,
+    )
+    async with db.execute(
+        "SELECT id FROM skins_v3_essence_ledger WHERE user_id = ? AND idempotency_key = ?",
+        (actor_id, idempotency_key),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return f"essence:{row[0]}"
 
 
 async def create_telegram_transfer_intent(
@@ -269,17 +305,23 @@ async def consume_telegram_transfer_intent(
         return result
 
 
-async def install_family_wallet_schema(db: Any) -> None:
+async def install_family_wallet_schema(db: Any, *, registry_resolves_duplicates: bool = False) -> None:
     """Create custody tables and import one immutable opening balance per family.
 
     Must run in an operator-controlled transaction.  The preflight guarantees
     that float legacy values are neither negative nor non-finite before their
     single conversion to NUMERIC(24, 6).
+
+    ``registry_resolves_duplicates``: the chat bot backfills marriage_members
+    itself (earliest marriage wins, owner's decision 2026-10), so old duplicate
+    rows no longer decide anything and must not block the wallet.
     """
     # The membership migration owns ``ended_at``.  Historic closed families
     # can legitimately share a former player with their later active family;
     # only active ownership blocks custody setup.
     audit = await audit_family_migration_readiness(db, active_only=True)
+    if registry_resolves_duplicates:
+        audit.pop("duplicate_members", None)
     if not migration_is_safe(audit):
         raise RuntimeError(f"family wallet migration blocked: {audit}")
     await db.execute("""
@@ -372,3 +414,28 @@ async def install_family_wallet_schema(db: Any) -> None:
         ) opening WHERE amount <> 0
         ON CONFLICT (operation_id, currency) DO NOTHING
     """)
+    await ensure_essence_custody(db)
+
+
+async def ensure_essence_custody(db: Any) -> None:
+    """Эссенция в семейном кошельке: колонка баланса и расширенные CHECK
+    валют. Только добавляет; повторный вызов ничего не меняет."""
+    await db.execute(
+        "ALTER TABLE family_wallet_balances ADD COLUMN IF NOT EXISTS "
+        "essence NUMERIC(24, 6) NOT NULL DEFAULT 0 CHECK (essence >= 0)"
+    )
+    allowed = "CHECK (currency IN ('mora', 'diamonds', 'dark_mora', 'zarniki', 'essence'))"
+    for table in ("family_wallet_operations", "family_wallet_ledger"):
+        async with db.execute(
+            "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+            f"WHERE conrelid = '{table}'::regclass AND contype = 'c' "
+            "AND pg_get_constraintdef(oid) LIKE '%currency%'"
+        ) as cursor:
+            checks = await cursor.fetchall()
+        if any("essence" in definition for _, definition in checks):
+            continue
+        name = f"{table}_currency_check"
+        drops = ", ".join(
+            f'DROP CONSTRAINT IF EXISTS "{n}"' for n in sorted({c for c, _ in checks} | {name})
+        )
+        await db.execute(f"ALTER TABLE {table} {drops}, ADD CONSTRAINT {name} {allowed}")

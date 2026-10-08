@@ -29,7 +29,6 @@ SCREENS = [
     ("marks", "v3MarksOpenOwn()"),
     ("mafia", "openMafiaStats()"),
     ("gifts", "openPartnerGifts()"),
-    ("appeal", "openBanAppealModal()"),
     ("confirm", "v3Confirm({title:'Покупка', name:'Образ', sub:'Описание', price:300, icon:'✨', have:1200, cta:'Купить'})"),
     ("gift-toast", "v3GiftToast([{label:'VIP', amount:7, unit:'дн.', kind:'vip', glyph:'👑'}], ()=>{})"),
     ("toast", "toast('Готово, всё сохранено')"),
@@ -44,9 +43,8 @@ PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
 DOCK_TABS = ("arena", "looks", "questlog", "top", "more", "profile")
 
-# Response statuses that are the designed answer of the stand, not bugs: admin overlay for a non-admin, closed exchange.
+# Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [
-    ("/admin/dev-overlay/", 403),
     ("/player-exchange/v1/", 404),
 ]
 # Known open product question (reported to the owner, not a bug of the stand): the /vip router is deliberately not registered (tools/test_release_public_routes.py

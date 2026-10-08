@@ -28,6 +28,11 @@ function _v3Calm() {
   return document.body.classList.contains('no-fx') || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 function _v3Rand(seed) { const x = Math.sin(seed * 9301 + 49297) * 233280; return x - Math.floor(x); }
+// Блик по буквам идёт один раз с паузой в animation-delay (спящая анимация не будит страницу каждый кадр); после прохода запускаем её заново.
+document.addEventListener('animationend', e => {
+  if (e.animationName !== 'apglint' && e.animationName !== 'v3glint') return;
+  const n = e.target; n.style.animationName = 'none'; void n.offsetWidth; n.style.animationName = '';
+}, true);
 function _v3BuildFx(level) {
   document.querySelector('.v3-fx')?.remove();
   if (level < 3) return;
@@ -35,10 +40,6 @@ function _v3BuildFx(level) {
   const add = (cls, html = '') => { const n = document.createElement('div'); n.className = cls; n.innerHTML = html; layer.appendChild(n); };
   add('v3-fx-breath');
   if (level >= 4) add('v3-fx-grain');
-  if (level >= 5) {
-    const dots = Array.from({ length: 16 }, (_, i) => `<i style="--x:${(_v3Rand(i + 1) * 100).toFixed(1)}%;--s:${(2 + _v3Rand(i + 40) * 3).toFixed(1)}px;--d:${(14 + _v3Rand(i + 80) * 14).toFixed(1)}s;--delay:-${(_v3Rand(i + 120) * 20).toFixed(1)}s;--dx:${((_v3Rand(i + 160) - .5) * 80).toFixed(0)}px"></i>`).join('');
-    add('v3-fx-dots', dots); layer.lastChild.style.cssText = 'inset:0';
-  }
   if (level >= 6) add('v3-fx-tilt');
   if (level >= 7) { add('v3-fx-ribbon'); add('v3-fx-ribbon'); }
   document.body.appendChild(layer);

@@ -6,7 +6,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from bot.handlers.quests_v1 import render_quest_overview
+from bot.chat.games import render_quest_overview
 
 view = {
     "daily": {"quests": [{"title": "Сыграй <тег>", "progress": 1, "target": 3, "completed": False}]},

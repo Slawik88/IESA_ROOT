@@ -109,46 +109,6 @@
   <div id="ar-game"><div id="game-hub" class="v3-stagger"></div></div>
 </div>
 
-<!-- ═══ 12. АДМИНКА ═══ -->
-<div id="pg-admin" class="page">
-  <div id="adm-chat-sel" style="margin-bottom:10px"></div>
-  <div class="tabs">
-    <button class="tb active" onclick="swAdmin('dash',this)">📊 Дашборд</button>
-    <button class="tb" onclick="swAdmin('users',this)">👥 Участники</button>
-    <button class="tb" onclick="swAdmin('bl',this)">🚫 ЧС</button>
-    <button class="tb" onclick="swAdmin('mod',this)">⚡ Модерация</button>
-    <button class="tb" onclick="swAdmin('settings',this)">⚙️ Настройки</button>
-    <button class="tb" onclick="swAdmin('logs',this)">📋 Журнал</button>
-  </div>
-  <div id="adm-dash"></div>
-  <div id="adm-users"    style="display:none"></div>
-  <div id="adm-bl"       style="display:none"></div>
-  <div id="adm-mod"      style="display:none"></div>
-  <div id="adm-settings" style="display:none"></div>
-  <div id="adm-logs"     style="display:none"></div>
-</div>
-
-<!-- ═══ 13. ГЛОБАЛЬНАЯ МОДЕРАЦИЯ (Консоль — отдельная страница pg-console, БЛОК 21.2 W4) ═══ -->
-<div id="pg-global" class="page">
-  <div class="tabs tabs-scroll">
-    <button class="tb active" onclick="swGlobal('chats',this)">💬 Все чаты</button>
-    <button class="tb" id="glb-tab-sanctions" onclick="swGlobal('sanctions',this)">🚫 Санкции</button>
-    <button class="tb" onclick="swGlobal('log',this)">📋 Журнал</button>
-    <button class="tb" id="glb-tab-appeals" onclick="swGlobal('appeals',this)">📨 Апелляции</button>
-    <button class="tb" id="glb-tab-ranks" style="display:none" onclick="swGlobal('ranks',this)">👮 Штат</button>
-  </div>
-  <div id="glb-chats"></div>
-  <div id="glb-sanctions" style="display:none"></div>
-  <div id="glb-log"       style="display:none"></div>
-  <div id="glb-appeals"   style="display:none"></div>
-  <div id="glb-ranks"     style="display:none"></div>
-</div>
-
-<!-- ═══ 13б. КОНСОЛЬ РАЗРАБОТЧИКА — самодостаточная среда (БЛОК 21.2 W4.1) ═══ -->
-<div id="pg-console" class="page">
-  <div id="console-c"><div class="loader">Загрузка...</div></div>
-</div>
-
 <div id="pg-questlog" class="page"></div>
 <div id="pg-achievements-v1" class="page"></div>
 
@@ -160,7 +120,6 @@
     <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Ниже идут квесты на сегодня и разделы: образы, питомцы, достижения. «Мои чаты» находятся во вкладке «Ещё».</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
     <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
     <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «Зарники» на главном экране профиля или откройте «Кошелёк». Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
-    <details class="help-card" id="help-staff" style="display:none"><summary><span>⚙️</span><div><b>Управление чатом</b><small>Для администраторов</small></div><i>⌄</i></summary><p>В разделе «Ещё» откройте управление чатами. Там находятся участники, модерация, настройки и журнал. Показываются только доступные вам действия.</p><button type="button" onclick="openManageMenu()">Открыть управление</button></details>
   </div>
 </div>
 
@@ -183,8 +142,6 @@
     <button type="button" class="v3-row" onclick="openStoreV3('zarniki')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Зарники<small>Пополнение и что на них можно взять</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
     <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
   </section>
-  <section class="v3-group" id="cc-manage" style="display:none"><span class="v3-eyebrow">Управление</span>
-    <button type="button" class="v3-row" onclick="openManageMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg><span>Управление чатами<small>Модерация и настройки</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
   <section class="v3-group"><span class="v3-eyebrow">Аккаунт</span>
     <button type="button" class="v3-row" onclick="openSettingsModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span>Настройки<small>Вид, уведомления и аккаунт</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openChatTracker()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18l-2 3v-5.5A8 8 0 1 1 6 19z"/></svg><span>Мои чаты<small>Где вы играете: активность и история</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
@@ -211,6 +168,5 @@
 
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
-<script src="{{BASE}}/static/app.devmode.js?v={{ASSET_VER}}" defer></script>
 </body>
 </html>

@@ -259,7 +259,7 @@ def _assert_schema_and_boundaries_wired():
     assert "await _ensure_ledger(_LedgerPGAdapter(db))" in bot_init
     assert '(ensure_economy_ledger,           "economy_ledger")' in web_init
 
-    payments = (ROOT / "bot/handlers/payments.py").read_text(encoding="utf-8")
+    payments = (ROOT / "bot/chat/payments.py").read_text(encoding="utf-8")
     assert "payment.telegram_payment_charge_id" in payments
     assert 'idempotency_key=f"stars_purchase:{payment_charge_id}"' in payments
     assert "async def reconcile_star_payments" in payments

@@ -6,6 +6,7 @@ Two auth flows are supported:
 """
 import asyncio
 import json
+import os
 import time
 from urllib.parse import unquote
 
@@ -17,6 +18,8 @@ from FastAPI.auth import (verify_preprod_browser_ticket, verify_webapp_data,
 from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, require_preprod_user
 
 
+_SITE_OPEN = os.getenv("SITE_OPEN_TO_PLAYERS", "").strip().lower() in ("1", "true", "yes")
+_DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
 
 
@@ -30,29 +33,6 @@ async def get_db():
     await create_pool()
     async with get_pool().acquire() as conn:
         yield PGAdapter(conn)
-
-
-# БЛОК 21.4: глобальный ban закрывает сайт целиком (403) — ссылку на мини-апп
-# можно получить и в обход бота (переслал друг), поэтому блокируем на уровне auth-deps.
-# TTL-кэш, чтобы не бить БД на каждый API-запрос (их десятки на загрузку страницы);
-# 60с — приемлемая задержка вступления бана/разбана в силу для сайта.
-_BAN_CACHE: dict[int, tuple[bool, float]] = {}
-_BAN_CACHE_TTL = 60.0
-
-
-async def _is_banned_cached(user_id: int) -> bool:
-    now = time.monotonic()
-    hit = _BAN_CACHE.get(user_id)
-    if hit and hit[1] > now:
-        return hit[0]
-    await create_pool()
-    from services.global_moderation import is_user_banned
-    async with get_pool().acquire() as conn:
-        banned = await is_user_banned(PGAdapter(conn), user_id)
-    if len(_BAN_CACHE) > 5000:   # страховка от разрастания
-        _BAN_CACHE.clear()
-    _BAN_CACHE[user_id] = (banned, now + _BAN_CACHE_TTL)
-    return banned
 
 
 async def require_tg_user_base(
@@ -107,6 +87,10 @@ async def require_tg_user_base(
         # A Quick Tunnel is public by design; only explicitly listed test
         # accounts may mutate the isolated preprod database.
         raise HTTPException(status_code=403, detail="Тестовый стенд закрыт для этого аккаунта.")
+    # Сайт закрыт для игроков: пускаем только разработчика. Открыть обратно —
+    # переменная окружения SITE_OPEN_TO_PLAYERS=1.
+    if not _SITE_OPEN and not (_DEV_ID and int(user["id"]) == _DEV_ID):
+        raise HTTPException(status_code=503, detail="Сайт временно закрыт: идёт переработка. Скоро вернёмся.")
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
     from services import presence_v1
     _fire_and_forget(presence_v1.note_activity(int(user["id"])))   # «был(а) в сети»: одна запись в минуту
@@ -171,7 +155,7 @@ async def _capture_signals(user_id: int, request: Request, client_fp: str) -> No
 
 
 async def require_tg_user(user=Depends(require_tg_user_base), db=Depends(get_db)):
-    """Auth + deletion and global-ban gates for the whole gameplay API."""
+    """Auth + account-deletion gate for the whole gameplay API."""
     async with db.execute(
         "SELECT deleted_at FROM users WHERE user_tg_id=?", (int(user["id"]),)
     ) as cursor:
@@ -181,52 +165,7 @@ async def require_tg_user(user=Depends(require_tg_user_base), db=Depends(get_db)
             status_code=403,
             detail="ACCOUNT_DELETED: игровые действия закрыты до восстановления аккаунта.",
         )
-    if await _is_banned_cached(int(user["id"])):
-        raise HTTPException(
-            status_code=403,
-            detail="GLOBAL_BAN: доступ закрыт — активный глобальный бан. "
-                   "Оспорить: «бот апелляция, текст» в ЛС бота или прямо здесь.",
-        )
     return user
-
-
-# ── БЛОК 21.2: гибкие права глобальных рангов ────────────────────────────────
-# Реестр функций — core/admin_permissions.py; эффективные наборы (дефолты +
-# БД-оверрайды) — services/global_permissions.py. Ранг 3 всегда имеет всё.
-import os as _os
-
-_DEV_ID = int(_os.getenv("DEVELOPER_ID", "0") or 0)
-
-
-async def _actor_global_rank(db, user_id: int) -> int:
-    from infrastructure.repositories.users import get_global_rank
-    rank = await get_global_rank(db, user_id) or 0
-    # Страховка: DEVELOPER_ID — ранг 3 даже если строка users ещё не проставлена
-    # бот-middleware (веб-процесс мог стартовать первым).
-    if _DEV_ID and user_id == _DEV_ID:
-        rank = max(rank, 3)
-    return rank
-
-
-async def check_global_perm(db, user_id: int, perm: str) -> int:
-    """403, если у global_rank юзера нет права `perm`. Возвращает ранг."""
-    from services import global_permissions as gperm
-    from core.admin_permissions import ADMIN_PERMISSIONS
-    rank = await _actor_global_rank(db, user_id)
-    if not await gperm.has_perm(db, rank, perm):
-        label = ADMIN_PERMISSIONS.get(perm, {}).get("label", perm)
-        raise HTTPException(403, f"Нет права: {label}")
-    return rank
-
-
-async def check_global_perm_any(db, user_id: int, perms: list[str]) -> int:
-    """403, если нет НИ ОДНОГО из прав (для эндпоинтов, питающих несколько экранов)."""
-    from services import global_permissions as gperm
-    rank = await _actor_global_rank(db, user_id)
-    for p in perms:
-        if await gperm.has_perm(db, rank, p):
-            return rank
-    raise HTTPException(403, "Нет права на этот раздел консоли.")
 
 
 def require_module(module_key: str):
