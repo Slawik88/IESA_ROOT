@@ -64,7 +64,7 @@ function renderProfileHome(data) {
       <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div>
         <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
     </section>
-    <section class="v3-stats" aria-label="Показатели игрока"><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
+    <section class="v3-stats" aria-label="Показатели игрока"><span class="v3-eyebrow v3-stats-label">Активность</span><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
     ${_v3PathShell()}
     ${_v3TopShell()}
     <nav class="v3-list" aria-label="Разделы профиля">

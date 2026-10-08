@@ -21,9 +21,9 @@
 @keyframes v3in-f { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes v3in-b { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
 @keyframes v3fade { from { opacity: 0; } to { opacity: 1; } }
-body[data-dir="f"] .page.active:not(:has(.v3-stagger)) { animation: v3in-f var(--v3-dur) var(--v3-ease) backwards; }
-body[data-dir="b"] .page.active:not(:has(.v3-stagger)) { animation: v3in-b var(--v3-dur) var(--v3-ease) backwards; }
-body[data-dev="low"][data-dir] .page.active:not(:has(.v3-stagger)) { animation: v3fade .16s ease-out backwards; }   /* слабый телефон: только появление, без сдвига */
+body[data-dir="f"] .page.active:not(.v3-stagger):not(:has(.v3-stagger)) { animation: v3in-f var(--v3-dur) var(--v3-ease) backwards; }
+body[data-dir="b"] .page.active:not(.v3-stagger):not(:has(.v3-stagger)) { animation: v3in-b var(--v3-dur) var(--v3-ease) backwards; }
+body[data-dev="low"][data-dir] .page.active:not(.v3-stagger):not(:has(.v3-stagger)) { animation: v3fade .16s ease-out backwards; }   /* слабый телефон: только появление, без сдвига */
 
 /* смена образа: палитра перетекает (View Transitions, где они есть) */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .34s; animation-timing-function: cubic-bezier(.22, 1, .36, 1); }
@@ -32,4 +32,5 @@ body[data-dev="low"][data-dir] .page.active:not(:has(.v3-stagger)) { animation: 
   .v3-chip.is-tick b, .v3-delta, .v3-fly, body[data-dir] .page.active, .cn-pop, .mk-row--new .mk-tile, .mk-bar i, .quest-card.is-fresh .quest-card-icon, .quest-card.is-fresh .quest-complete-note { animation: none !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
-.no-fx .v3-chip.is-tick b, .no-fx .v3-delta, .no-fx .v3-fly, .no-fx[data-dir] .page.active, .no-fx .cn-pop, .no-fx .mk-row--new .mk-tile, .no-fx .mk-bar i, .no-fx .quest-card.is-fresh .quest-card-icon, .no-fx .quest-card.is-fresh .quest-complete-note { animation: none !important; }
+.no-fx .v3-stagger > *, .no-fx .v3-chip.is-tick b, .no-fx .v3-delta, .no-fx .v3-fly, .no-fx[data-dir] .page.active, .no-fx .cn-pop, .no-fx .mk-row--new .mk-tile, .no-fx .mk-bar i, .no-fx .quest-card.is-fresh .quest-card-icon, .no-fx .quest-card.is-fresh .quest-complete-note { animation: none !important; }
+.page.active.v3-stagger, .page.active:has(.v3-stagger) { animation: none; }

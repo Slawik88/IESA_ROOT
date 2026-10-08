@@ -2,6 +2,12 @@
 // off, except for players who already have recoverable exchange state.
 let _pxState=null, _pxShortState=null, _pxCoins=[], _pxMarket=null, _pxSide='buy', _pxPendingOrder=null, _pxPendingBid=null, _pxPendingEmission=null, _pxPendingTreasury=null, _pxPendingLiquidity=null, _pxPendingCollateral=null, _pxPendingShortAction=null, _pxEmissionCancelActions={}, _pxLiquidityCancelActions={}, _pxOwnerActionIds={}, _pxVestingSubmitting=false;
 
+let _pxHomeTab = 'markets';
+function pxHomeTab(tab) {
+  if (!['markets', 'assets', 'loans'].includes(tab)) return;
+  _pxHomeTab = tab; _haptic('select'); _pxRenderHome();
+}
+
 async function _pxRecoveryRequest(path){
   const response=await fetch(BASE+path,{headers:hdrs()});
   if(response.status===401)return api(path);
@@ -164,16 +170,21 @@ function _pxRenderHome(){
   const ownedRows=owned.map(c=>{const cancelOpen=c.emission_can_cancel===true,liquidityCancelOpen=c.liquidity_withdrawal_can_cancel===true;return `<div class="px-asset px-owned"><span><b>${esc(c.ticker)}</b><small>${esc(c.name)}</small>${c.pending_emission_id?`<small>Эмиссия +${_pxNum(c.pending_emission_units,1000)} · ${new Date(c.emission_executes_at).toLocaleString('ru-RU')}</small>`:''}${c.pending_liquidity_withdrawal_id?`<small>Вывод ${_pxNum(c.pending_liquidity_withdrawal_mora)} моры · ${new Date(c.liquidity_withdrawal_executes_at).toLocaleString('ru-RU')}</small>`:''}</span><strong>${esc(_pxStatus(c.status))}</strong>${c.pending_emission_id?`<button type="button" ${cancelOpen?'':'disabled'} data-px-emission-cancel="${esc(c.pending_emission_id)}" data-px-emission-coin="${esc(c.coin_id)}">${cancelOpen?'Отменить эмиссию':'Отмена закрыта'}</button>`:''}${c.pending_liquidity_withdrawal_id?`<button type="button" ${liquidityCancelOpen?'':'disabled'} data-px-liquidity-cancel="${esc(c.pending_liquidity_withdrawal_id)}" data-px-liquidity-coin="${esc(c.coin_id)}">${liquidityCancelOpen?'Отменить вывод ликвидности':'Вывод уже исполнен'}</button>`:''}</div>`;}).join('');
   host.innerHTML=`<section class="px-shell">
     <header class="px-head"><div><small>Игровой рынок</small><h1>Биржа монет</h1></div><button type="button" class="px-refresh" onclick="loadPlayerExchangeV1()" aria-label="Обновить">↻</button></header>
-    <aside class="px-risk"><b>Это внутриигровые активы.</b><span>Их нельзя вывести в реальные деньги. Цена может резко вырасти или упасть.</span></aside>
+    <p class="px-lead">Монеты игроков: выбирайте рынок или управляйте своими активами.</p>
+    <details class="px-risk"><summary>Внутриигровые активы · о рисках</summary><span>Их нельзя вывести в реальные деньги. Цена может резко вырасти или упасть.</span></details>
     <div class="px-summary"><span><small>В портфеле</small><b>${holdings.length}</b></span><span><small>Открытых заявок</small><b>${openOrders.length}</b></span><span><small>Своих монет</small><b>${owned.length}</b></span></div>
+    <div class="v3-tabs px-home-tabs" role="tablist" aria-label="Раздел биржи">${[['markets','Рынок'],['assets','Мои активы'],['loans','Займы']].map(([id,label])=>`<button type="button" role="tab" class="v3-tab${_pxHomeTab===id?' on':''}" aria-selected="${_pxHomeTab===id}" aria-controls="px-home-${id}" onclick="pxHomeTab('${id}')">${label}</button>`).join('')}</div>
+    <div id="px-home-markets" role="tabpanel" aria-label="Рынок" ${_pxHomeTab==='markets'?'':'hidden'}>
+      <section class="px-flow"><h2>Монеты игроков</h2>${_pxState.trading_enabled?(markets||_pxEmpty('Пока нет монет. Создайте первую и запустите аукцион.')):_pxEmpty('Новые сделки временно закрыты. Ваши активы доступны в соседней вкладке.')}</section>
     ${_pxState.trading_enabled?`<button type="button" class="px-primary" onclick="_pxOpenCreate()">Создать свою монету</button>`:'<p class="px-halt">Новые сделки временно закрыты. Активы и отмена заявок доступны.</p>'}
+    </div><div id="px-home-assets" role="tabpanel" aria-label="Мои активы" ${_pxHomeTab==='assets'?'':'hidden'}>
     <section class="px-flow"><h2>Портфель</h2>${assets||_pxEmpty('Монет пока нет. Купленные активы появятся здесь.')}</section>
     <section class="px-flow"><h2>Открытые заявки</h2>${orderRows||_pxEmpty('Открытых заявок нет.')}${_pxState.orders?.next_cursor?'<button type="button" class="px-link" onclick="_pxLoadMoreOrders()">Показать ещё</button>':''}</section>
     ${bidRows?`<section class="px-flow"><h2>Аукционные заявки</h2>${bidRows}</section>`:''}
     ${ownedRows?`<section class="px-flow"><h2>Ваши монеты</h2>${ownedRows}</section>`:''}
-    ${_pxShortRecoveryBlock()}
-    ${_pxState.trading_enabled?`<section class="px-flow"><h2>Рынки</h2>${markets||_pxEmpty('Доступных монет пока нет.')}</section>`:''}
+    </div><div id="px-home-loans" role="tabpanel" aria-label="Займы" ${_pxHomeTab==='loans'?'':'hidden'}>${_pxShortRecoveryBlock() || _pxEmpty('Займы сейчас недоступны.')}</div>
   </section>`;
+  v3EnterSync(host.querySelector('.px-shell'));
   host.querySelectorAll('[data-px-coin]').forEach(b=>b.addEventListener('click',()=>_pxOpenCoin(b.dataset.pxCoin)));
   host.querySelectorAll('[data-px-cancel]').forEach(b=>b.addEventListener('click',()=>_pxCancel(b.dataset.pxCancel,b)));
   host.querySelectorAll('[data-px-treasury-cancel]').forEach(b=>b.addEventListener('click',()=>_pxCancelTreasury(b.dataset.pxTreasuryCancel,b.dataset.pxTreasuryCoin)));

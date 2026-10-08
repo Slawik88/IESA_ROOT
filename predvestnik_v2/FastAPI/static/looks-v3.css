@@ -2,6 +2,7 @@
    Страница окрашивается палитрой выбранного скина (токены лежат на .lk-scope), поэтому примерка видна целиком.
    Никаких карточек: герой-сцена, лента, шаги тира, одно главное действие. Анимации только transform/opacity. */
 
+#pg-looks { padding-bottom: 0; } /* отступ под док уже внутри lk-scope: внешний оставлял границу фона */
 .v3-scope.lk-scope { padding-bottom: calc(110px + var(--v3-safe-b)); }
 .lk-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lk-wallet { display: flex; gap: 6px; }

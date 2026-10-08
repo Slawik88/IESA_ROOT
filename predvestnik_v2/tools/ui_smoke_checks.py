@@ -6,7 +6,6 @@ Admin screens are deliberately absent: the admin panel is being rewritten in ano
 # Every player screen and sheet reachable from the app. (name, JS that opens it)
 SCREENS = [
     ("profile", "switchPage('profile')"),
-    ("profile-more", "switchPage('profile');document.querySelector('.v3-more').open=true"),
     ("arena", "switchPage('arena')"),
     ("looks", "openLooksModal()"),
     ("looks-album", "openLooksModal();setTimeout(()=>{ if (typeof lkView==='function') lkView('album'); },500)"),

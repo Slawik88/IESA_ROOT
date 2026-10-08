@@ -24,8 +24,14 @@ UPGRADE_ESSENCE: Final = {"C": 60, "B": 140, "A": 560, "S": 1000, "SS": 1600, "S
 
 # Essence is sold at ONE fixed rate. There is no volume bonus on purpose: whatever pack is bought, a step costs the same
 # Zarniki, so the Zarniki price of a fully raised skin is exactly buy price + chain / ESSENCE_PER_ZARNIK (full_price below).
-ESSENCE_PER_ZARNIK: Final = 4
-ESSENCE_PACKS: Final = (10, 30, 80, 200)     # Zarniki per pack; a pack gives ESSENCE_PER_ZARNIK * n Essence
+ESSENCE_PER_ZARNIK: Final = 2.5
+ESSENCE_PACKS: Final = (20, 30, 50, 80, 200, 500)
+BONUS_ESSENCE_RATE: Final = 4  # Смена курса покупки не уменьшает уже обещанные подарки коллекции.
+
+
+def purchased_essence(zarniki: int) -> int:
+    """Все пакеты чётные: расчёт 5/2 даёт целую Эссенцию без float в ledger."""
+    return int(zarniki) * 5 // 2
 
 # Free Essence is small by design. Every source is listed here so the economy test can add them up:
 #   quests: about 65 a week; a set, a rarity row and the collection milestones pay a few percent of what they cost to own.
@@ -60,7 +66,7 @@ def total_upgrade_cost(ceiling: str) -> int:
 
 def essence_zarniki(essence: int) -> int:
     """Zarniki that buy this much Essence at the fixed rate (rounded up: nobody gets Essence below the rate)."""
-    return -(-int(essence) // ESSENCE_PER_ZARNIK)
+    return (int(essence) * 2 + 4) // 5
 
 
 def full_price(rarity: str, ceiling: str = CEILING) -> int:
@@ -79,8 +85,8 @@ def free_weeks(essence: int) -> float:
 
 
 def bonus_essence(price_zarniki: int, share: float) -> int:
-    """Essence worth `share` of a Zarniki price at the fixed rate, rounded to BONUS_STEP (never below one step)."""
-    raw = price_zarniki * share * ESSENCE_PER_ZARNIK
+    """Preserve collection grants at their original rate, rounded to BONUS_STEP (never below one step)."""
+    raw = price_zarniki * share * BONUS_ESSENCE_RATE
     return max(BONUS_STEP, int(round(raw / BONUS_STEP)) * BONUS_STEP)
 
 

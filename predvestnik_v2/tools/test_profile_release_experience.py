@@ -16,16 +16,14 @@ constants = (ROOT / "core/constants.py").read_text(encoding="utf-8")
 updates = (ROOT / "FastAPI/static/updates.json").read_text(encoding="utf-8")
 index = (ROOT / "FastAPI/static/index.html").read_text(encoding="utf-8")
 
-assert "_profileVipCard(d.vip)" in profile
+assert "renderProfileHome(d)" in profile
+assert "Подробнее о профиле" not in profile
+assert "_profileVipCard" not in profile and "renderProfileDetails" not in profile
+assert "_profileCompensationCard" not in profile and "replayCompensationAnimation" not in profile
 assert "expires_at" in router and "_compensation_receipt" in router
 assert "retirement_compensation_receipts_v2" in router
 assert "to_regclass('retirement_compensation_receipts_v2')" in router
 assert "json.loads(raw_compensation)" in router
-assert "localStorage" in profile and "replayCompensationAnimation" in profile
-assert "old.mora" in profile and "old.diamonds" in profile
-assert "vip_preserved_days" in profile and "vip_bonus_days" in profile
-assert "+${fmt(c.mora_compensation" not in profile
-assert "по снимку переноса" in profile
 assert "overflow-x:auto" not in css[css.index(".migration-card"):css.index("/* Pets are a collection first")]
 assert "prefers-reduced-motion:reduce" in css
 assert "bestiary_owned" in service and "PET_SPECIES" in service
@@ -43,9 +41,8 @@ assert index.count('type="button" class="nb') == 6
 assert "setAttribute('aria-current','page')" in shell
 assert "2026-09-20-navigation-and-player-hub" in updates
 assert "2026-09-20-profile-stories-and-admin-repair" in updates
-for profile_chapter in ("profile-zone--games", "profile-zone--progress", "profile-zone--social", "profile-zone--safety"):
-    assert profile_chapter in profile and profile_chapter in css
-assert "profile-paths" in profile and "--path:" in profile
+for retired in ("profile-zone--games", "profile-zone--progress", "profile-zone--social", "profile-zone--safety"):
+    assert retired not in profile
 home = (ROOT / "FastAPI/static/app.15.js").read_text(encoding="utf-8")
 assert "openAchievementsV1()" in home and "openPetsV1()" in home
 assert '"chest_key_purchase": "🗝 Ключ от сундука"' in wallet
@@ -56,4 +53,4 @@ notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):const
 assert '"vip_expiry"' in notification_block
 assert '"bp_reminder"' not in notification_block and '"bid_outbid_final"' not in notification_block
 
-print("OK: mobile skin, visible VIP, immutable compensation story and pet bestiary are wired")
+print("OK: current profile, preserved compensation data and accessible pet bestiary are wired")

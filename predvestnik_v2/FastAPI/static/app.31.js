@@ -89,8 +89,20 @@ function v3RingIn(root, prevAll, seen) {
 // начинает, следующие продолжают каскад с того же места (--enter-skip), а поздние вообще не анимируются. Заход сбрасывается в switchPage.
 function v3EnterSync(root) {
   if (!root) return;
-  const at = Number(root.dataset.enterAt) || 0, now = performance.now();
-  if (!at) { root.dataset.enterAt = String(now); root.style.removeProperty('--enter-skip'); return; }
-  root.style.setProperty('--enter-skip', `${Math.round(now - at)}ms`);
+  const page = root.closest('.page');
+  const target = root.matches('.px-shell') ? root : page?.id === 'pg-store' ? root.querySelector('.sv-scope') : page?.id === 'pg-looks' ? root.querySelector('.lk-scope') : root;
+  if (page && target && target !== page) page.classList.remove('v3-stagger');
+  target?.classList.add('v3-stagger');
+  const clock = page || root, at = Number(clock.dataset.enterAt) || 0, now = performance.now();
+  if (!at) { clock.dataset.enterAt = String(now); clock.style.removeProperty('--enter-skip'); return; }
+  clock.style.setProperty('--enter-skip', `${Math.round(now - at)}ms`);
 }
-function v3EnterReset(page) { page?.querySelectorAll('.v3-stagger').forEach(n => { delete n.dataset.enterAt; n.style.removeProperty('--enter-skip'); }); if (page?.classList.contains('v3-stagger')) { delete page.dataset.enterAt; page.style.removeProperty('--enter-skip'); } }
+function v3EnterReset(page) {
+  const playerPages = ['pg-profile', 'pg-arena', 'pg-questlog', 'pg-achievements-v1', 'pg-help', 'pg-news', 'pg-top', 'pg-looks', 'pg-store', 'pg-settings', 'pg-pets', 'pg-chests', 'pg-public-profile', 'pg-chat-tracker', 'pg-exchange-v1', 'pg-more'];
+  if (!page || !playerPages.includes(page.id)) return;
+  const roots = { 'pg-profile': '#pro-main', 'pg-arena': '#game-hub', 'pg-looks': '.lk-scope', 'pg-store': '.sv-scope', 'pg-exchange-v1': '.px-shell' };
+  const target = (roots[page.id] ? page.querySelector(roots[page.id]) : null) || page;
+  target?.classList.add('v3-stagger');
+  page?.querySelectorAll('.v3-stagger').forEach(n => { delete n.dataset.enterAt; n.style.removeProperty('--enter-skip'); });
+  page.dataset.enterAt = String(performance.now()); page.style.removeProperty('--enter-skip');
+}

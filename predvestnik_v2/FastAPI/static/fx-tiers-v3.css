@@ -21,10 +21,10 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .v3-fx-breath { inset: -10%; background: radial-gradient(60% 40% at 50% 0%, rgba(var(--acc-rgb), .20), transparent 70%); animation: v3breath calc(9s * var(--v3-loop, 1)) ease-in-out infinite alternate; }
 @keyframes v3breath { from { opacity: .35; transform: scale(1); } to { opacity: 1; transform: scale(1.08); } }
 .fx-3 .page.active { animation: none; }
-.fx-3 .v3-stagger > * { animation: v3rise calc(var(--v3-dur) + .14s) var(--v3-ease) backwards; animation-delay: calc(0s - var(--enter-skip, 0s)); }   /* --enter-skip: перерисовка внутри каскада продолжает его, а не начинает заново (app.31.js, v3EnterSync) */
-.fx-3 .v3-stagger > :nth-child(2) { animation-delay: calc(.05s - var(--enter-skip, 0s)); } .fx-3 .v3-stagger > :nth-child(3) { animation-delay: calc(.10s - var(--enter-skip, 0s)); }
-.fx-3 .v3-stagger > :nth-child(4) { animation-delay: calc(.15s - var(--enter-skip, 0s)); } .fx-3 .v3-stagger > :nth-child(5) { animation-delay: calc(.20s - var(--enter-skip, 0s)); }
-.fx-3 .v3-stagger > :nth-child(n+6) { animation-delay: calc(.25s - var(--enter-skip, 0s)); }
+.v3-stagger > * { animation: v3rise calc(var(--v3-dur) + .14s) var(--v3-ease) backwards; animation-delay: calc(0s - var(--enter-skip, 0s)); }   /* --enter-skip: перерисовка внутри каскада продолжает его, а не начинает заново (app.31.js, v3EnterSync) */
+.v3-stagger > :nth-child(2) { animation-delay: calc(.05s - var(--enter-skip, 0s)); } .v3-stagger > :nth-child(3) { animation-delay: calc(.10s - var(--enter-skip, 0s)); }
+.v3-stagger > :nth-child(4) { animation-delay: calc(.15s - var(--enter-skip, 0s)); } .v3-stagger > :nth-child(5) { animation-delay: calc(.20s - var(--enter-skip, 0s)); }
+.v3-stagger > :nth-child(n+6) { animation-delay: calc(.25s - var(--enter-skip, 0s)); }
 .v3-pill { position: relative; overflow: hidden; }
 .fx-3 .v3-pill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.38) 50%, transparent 70%); transform: translateX(-120%); }
 .fx-3 .v3-pill:active::after { transform: translateX(120%); transition: transform .5s var(--v3-ease); }
@@ -66,5 +66,5 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .tier-badge { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.4 var(--v3-font); font-style: normal; letter-spacing: .06em; }
 
 @media (prefers-reduced-motion: reduce) {
-  .v3-fx *, .fx-3 .v3-stagger > *, .fx-4 .v3-ring::after, .fx-5 .v3-gname, .fx-5 .v3-title { animation: none !important; }
+  .v3-fx *, .v3-stagger > *, .fx-4 .v3-ring::after, .fx-5 .v3-gname, .fx-5 .v3-title { animation: none !important; }
 }

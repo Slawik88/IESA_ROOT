@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from core.appearance_v3 import cap_tier
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.skins_v3 import (BUY_PRICE_ZARNIKI, CEILING, signature_tier, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS, UPGRADE_ESSENCE, full_price,
-                           next_tier, tier_index, total_upgrade_cost, upgrade_cost)
+                           next_tier, tier_index, total_upgrade_cost, upgrade_cost, purchased_essence)
 from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SETS, SKINS
 from core.skins_v3_collection import (BASE_RANK, MAXED_BADGES, PERMANENT, SET_GLYPH, featured, maxed_badge, milestones, owned_permanent, rank_for, row_bonus,
                                       row_members, season_of, season_window, set_bonus)
@@ -159,7 +159,7 @@ async def state(db, user_id: int) -> dict:
     return {
         "version": VERSION, "equipped": wearing, "vip": vip, "zarniki": await _zarniki(db, user_id),
         "essence": {"balance": await repo.essence_balance(db, user_id), "per_zarnik": ESSENCE_PER_ZARNIK,
-                    "packs": [{"zarniki": n, "essence": n * ESSENCE_PER_ZARNIK} for n in ESSENCE_PACKS],
+                    "packs": [{"zarniki": n, "essence": purchased_essence(n)} for n in ESSENCE_PACKS],
                     "quest_reward": dict(ESSENCE_QUEST_REWARD), "costs": dict(UPGRADE_ESSENCE)},
         # a personal skin is invisible to everyone but its owner: it is not in the shop, so nobody can want what they cannot get
         "items": [_item(sid, owned.get(sid), wearing, vip, owned) for sid in SKINS if not SKINS[sid]["exclusive"] or sid in owned], "sets": _sets_state(owned),
@@ -329,16 +329,20 @@ async def revoke_exclusive(db, user_id: int, skin_id: str, reason: str) -> str:
 async def buy_essence(db, user_id: int, zarniki: int, *, idempotency_key: str) -> tuple[str, dict]:
     if int(zarniki) not in ESSENCE_PACKS:
         raise SkinConflict("Такого набора Эссенции нет.")
-    amount = int(zarniki) * ESSENCE_PER_ZARNIK
+    amount = purchased_essence(zarniki)
     await economy_ledger.ensure_tables(db)
     await repo.ensure_tables(db)
     try:
         async with db.connection.transaction():
             await _lock_user(db, user_id)
             key = f"skin-v3:essence:{idempotency_key}"
-            async with db.execute("SELECT 1 FROM skins_v3_essence_ledger WHERE user_id=? AND idempotency_key=?", (int(user_id), key)) as c:
+            async with db.execute("SELECT delta, reference FROM skins_v3_essence_ledger WHERE user_id=? AND idempotency_key=?", (int(user_id), key)) as c:
                 replay = await c.fetchone()
-            if not replay:
+            if replay:
+                if replay["reference"] != f"{int(zarniki)}z":
+                    raise SkinConflict("Этот запрос уже использован для другой покупки.")
+                amount = int(replay["delta"])  # Повтор старой покупки сообщает фактически выданную сумму.
+            else:
                 await economy_ledger.apply_balance_change(
                     db, int(user_id), {"zarniki": -int(zarniki)}, reason_code="skin_essence_purchase", idempotency_key=key,
                     source_type="skins_v3", reference_type="skin_essence", reference_id=str(zarniki),

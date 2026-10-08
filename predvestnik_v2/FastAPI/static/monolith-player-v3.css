@@ -1,41 +1,66 @@
 /* ═══ MONOLITH PLAYER V3 · остальные экраны игрока без коробок ═══
-   «Подробнее о профиле», брак и кошелёк, кланы, достижения, биржа, трекер чатов, новости и листы (app.02/06/12/14.js).
+   Профиль, рейтинг, биржа и трекер чатов.
    Правила те же, что в monolith-v3.css и docs/MONOLITH_V3.md: фон, рамка, скругление и тень вокруг групп уходят, группы держатся на отступах и тонких линиях (--v3-faint).
    Грузится после monolith-v3.css. */
 
-/* ── Профиль: «Подробнее о профиле», брак, кошелёк, перенос ── */
-#pro-main .profile-vip-card { min-height: 0; margin: 0; padding: 18px 0; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); grid-template-columns: minmax(0, 1fr) auto; }
-#pro-main .profile-vip-card > span { display: none; }
-#pro-main .profile-vip-card div small { color: var(--v3-vip, #f1cf7e); font-size: 11px; letter-spacing: .12em; }
-#pro-main .profile-vip-card div b { color: var(--v3-ink); font: var(--v3-w-head) 22px/1.2 var(--v3-font); }
-#pro-main .profile-vip-card p { color: var(--v3-dim); font-size: 12.5px; }
-#pro-main .profile-vip-card > strong { color: var(--v3-vip, #f1cf7e); font: var(--v3-w-num) 34px/1 var(--v3-font); }
-#pro-main .profile-vip-card > strong small { color: var(--v3-dim); font-size: 11px; }
-#pro-main .profile-game .profile-game-icon, #pro-main .profile-clean-state > span { background: none; }
-#pro-main .profile-paths { gap: 0; }
-#pro-main .profile-paths li { padding: 12px 0; border: 0; border-radius: 0; background: none; }
-#pro-main .profile-paths li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
-#pro-main .profile-social-identity > span, #pro-main .profile-social-pet, #pro-main .profile-clean-state { padding: 10px 0; border: 0; border-radius: 0; background: none; }
-#pro-main .profile-detail-alert { padding: 4px 0 4px 12px; border: 0; border-left: 2px solid var(--v3-err); border-radius: 0; background: none; }
-#pro-main .profile-fold { margin: 0; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: none; }
-#pro-main .profile-fold + .profile-fold, #pro-main .profile-fold + #pro-nick-card, #pro-main #pro-marriage-card + * { box-shadow: 0 -1px 0 var(--v3-faint); }
-#pro-main .profile-fold > summary { min-height: 58px; padding: 8px 0; }
-#pro-main .profile-fold-title { font-size: 15px; font-weight: 500; }
-#pro-main .profile-fold-meta { color: var(--v3-dim); font-size: 13px; }
-#pro-main .profile-fold-body { padding: 2px 0 14px; border-top: 0; }
-#pro-main .family-balance, #pro-main .family-gift, #pro-main .wtx { border: 0; border-radius: 0; background: none; padding-inline: 0; }
-#pro-main .family-balances { gap: 0 16px; }
-#pro-main .wallet-fold .wtx + .wtx, #pro-main .family-gift + .family-gift { box-shadow: 0 -1px 0 var(--v3-faint); }
-
-#pro-main .migration-card { margin: 0; padding: 18px 0; overflow: visible; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
-#pro-main .migration-card > header > span, #pro-main .migration-result > span { background: none; }
-#pro-main .migration-card header button { border: 0; background: none; }
-#pro-main .migration-result, #pro-main .migration-source, #pro-main .migration-balance-flow > div, #pro-main .migration-awards div, #pro-main .migration-retired span { border: 0; border-radius: 0; background: none; padding-inline: 0; }
-#pro-main .migration-sources { gap: 0 14px; }
-#pro-main .profile-empty-row { display: block; min-height: 0; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
-#pro-main .profile-zone > header small { font-size: 11px; letter-spacing: .12em; }
-#pro-main .profile-zone > header h3 { font: var(--v3-w-head) 20px/1.2 var(--v3-font); letter-spacing: -.02em; }
-#pro-main .profile-game b, #pro-main .profile-paths b, #pro-main .profile-social-pet b, #pro-main .profile-clean-state b { color: var(--v3-ink); font-size: 14.5px; font-weight: 600; }
-#pro-main .profile-game strong { font: var(--v3-w-num) 28px/1 var(--v3-font); }
-#pro-main :is(.profile-game small, .profile-game em, .profile-paths small, .profile-social-identity small, .profile-safety-stats small, .profile-progress-summary small, .profile-clean-state small, .profile-social-pet small, .profile-social-pet em, .profile-detail-muted, .profile-history summary, .profile-history li) { color: var(--v3-dim); font-size: 12px; font-style: normal; }
-#pro-main :is(.profile-progress-summary b, .profile-social-identity b, .profile-safety-stats b) { color: var(--v3-ink); font-size: 16px; font-weight: 600; }
+/* ── Базовая иерархия: тот же ритм строк и заголовков, что в «Ещё» ── */
+#pro-main .v3-id { margin-bottom: 10px; }
+#pro-main .v3-bal { padding-block: 18px; border-bottom: 1px solid var(--v3-faint); }
+#pro-main .v3-bal-row { align-items: center; }
+#pro-main .v3-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-block: 20px; }
+.v3-stats-label { grid-column: 1 / -1; margin-bottom: 2px; }
+#pro-main .v3-stats b { font-size: 28px; line-height: 1.1; font-weight: 650; }
+#pro-main .v3-stats div { padding-left: 12px; border-left: 1px solid var(--v3-track); }
+#pro-main .v3-stats div:first-of-type { padding-left: 0; border-left: 0; }
+#pro-main .v3-path, #pro-main .v3-top { margin-top: 20px; }
+#pro-main .v3-sec { min-height: 44px; }
+#pro-main .v3-list { margin-top: 22px; }
+.v3-screen-head { padding-block: 8px 16px; }
+.v3-screen-head .v3-title { margin-top: 8px; }
+.v3-ranking-labels { display: flex; justify-content: space-between; margin: 20px 0 4px; color: var(--v3-dim); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; }
+#pg-top .v3-tabs--wide { margin-block: 2px; }
+#pg-top .v3-top-me { margin: 18px 0 8px; padding: 12px 0 12px 12px; border-left: 2px solid var(--v3-acc); color: var(--v3-ink); font-size: 13px; line-height: 1.5; }
+#pg-top .v3-top-list--full li:nth-child(-n+3) .v3-rowbtn > i { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border-radius: 50%; background: color-mix(in srgb, var(--v3-acc) 12%, transparent); color: var(--v3-acc); }
+#pg-top .v3-top-list--full .v3-rowbtn { min-height: 64px; }
+#pg-top .v3-top-list--full b { font-size: 18px; font-weight: 650; }
+.chat-tracker-head { position: static; grid-template-columns: 32px minmax(0, 1fr); padding-block: 10px 18px; background: none; }
+.chat-tracker-head .v3-eyebrow { display: block; margin-bottom: 7px; }
+.chat-tracker-head h1 { font: var(--v3-w-head) 28px/1.15 var(--v3-font); letter-spacing: -.03em; }
+.chat-tracker-head p { margin-top: 7px; white-space: normal; font-size: 13px; }
+.chat-tracker-summary > div { justify-content: start; text-align: left; padding: 16px 10px; }
+.chat-tracker-summary > div:first-child { padding-left: 0; }
+.chat-tracker-summary b { font: var(--v3-w-num) 28px/1.1 var(--v3-font); }
+.chat-tracker-summary span { font-size: 11px; line-height: 1.35; }
+.chat-tracker-tools input { min-height: 44px; font: 16px var(--v3-font); }
+.chat-tracker-card { padding-block: 20px; }
+.chat-tracker-card header h2 { font-size: 17px; line-height: 1.3; }
+.chat-tracker-card header small { font-size: 11.5px; }
+.chat-tracker-metrics { margin-block: 14px 10px; }
+.chat-tracker-metrics b { font-size: 21px; }
+.chat-tracker-meta { line-height: 1.5; }
+.px-shell .px-head { padding-bottom: 8px; border-bottom: 0; }
+.px-shell .px-head small { font-size: 11px; }
+.px-shell .px-head h1 { font: var(--v3-w-head) 30px/1.15 var(--v3-font); letter-spacing: -.03em; }
+.px-shell > .px-lead { margin: 4px 0 12px; font-size: 13px; }
+.px-risk { display: block; margin: 0 0 12px; padding: 0; border: 0; }
+.px-risk summary { min-height: 44px; display: flex; align-items: center; color: var(--v3-dim); font-size: 12px; cursor: pointer; }
+.px-risk summary::-webkit-details-marker { display: none; }
+.px-risk summary::before { content: '+'; width: 20px; color: var(--v3-acc); font-size: 18px; }
+.px-risk[open] summary::before { content: '−'; }
+.px-risk > span { display: block; padding-bottom: 12px; }
+.px-summary { border-block: 1px solid var(--v3-faint); gap: 12px; padding: 16px 0; }
+.px-summary b { font: var(--v3-w-num) 30px/1.1 var(--v3-font); }
+.px-summary small { font-size: 11px; line-height: 1.4; }
+.px-home-tabs { margin-top: 12px; gap: 8px; }
+.px-home-tabs .v3-tab { padding-inline: 8px; font-size: 13px; }
+.px-flow { padding-top: 18px; }
+.px-flow h2 { font-size: 19px; font-weight: 600; }
+.px-empty { padding-block: 12px 20px; font-size: 13px; line-height: 1.5; }
+.px-market-row b, .px-asset b, .px-order b { font-size: 15px; }
+.px-market-row small, .px-asset small, .px-order small { font-size: 12px; }
+.px-market-row { min-height: 70px; }
+@media (max-width: 359px) {
+  .chat-tracker-head h1 { font-size: 25px; }
+  .chat-tracker-summary b, .px-summary b { font-size: 24px; }
+  #pro-main .v3-stats b { font-size: 24px; }
+}

@@ -2,7 +2,7 @@
    .v3-scope растёт до краёв экрана и красится палитрой владельца (только при его VIP, иначе pp-neutral).
    Сцена героя растворяется сверху и снизу (appearance-stage-v3.css), поэтому под верхней панелью нет жёстких кромок. */
 
-.v3-scope { position: relative; isolation: isolate; margin: calc(-1 * (var(--v3-bar-h) + var(--v3-safe-t) + 14px)) -22px 0; padding: calc(var(--v3-bar-h) + var(--v3-safe-t) + 14px) 22px calc(96px + var(--v3-safe-b)); background: var(--v3-bg); color: var(--v3-ink); overflow-x: clip; }
+.v3-scope { min-height: 100vh; min-height: 100dvh; position: relative; isolation: isolate; margin: calc(-1 * (var(--v3-bar-h) + var(--v3-safe-t) + 14px)) -22px calc(-104px - var(--v3-safe-b)); padding: calc(var(--v3-bar-h) + var(--v3-safe-t) + 14px) 22px calc(96px + var(--v3-safe-b)); background: var(--v3-bg); color: var(--v3-ink); overflow-x: clip; }
 .v3-scope::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--v3-wash); }
 .pp-back { margin-left: -4px; }
 .pp-self { margin: 2px 0 0; }
