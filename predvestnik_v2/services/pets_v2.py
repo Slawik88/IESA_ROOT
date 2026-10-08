@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import json
 import random
 from math import floor
 from uuid import uuid4
@@ -36,9 +37,26 @@ def _species_row(pet: dict) -> tuple:
     return rules.SPECIES[species]
 
 
-def _rest(state: dict, pet: dict, now) -> float:
+def _json_list(value) -> list:
+    if isinstance(value, str):
+        value = json.loads(value)
+    return list(value or [])
+
+
+def _build(state: dict, talismans: list[dict]) -> dict:
+    return {"calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
+            "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans)}
+
+
+def _fx(build: dict, hours: int = 3, route: str | None = None) -> dict:
+    return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route)
+
+
+def _rest(state: dict, pet: dict, now, build: dict) -> float:
     hours = max(0.0, (now - state["energy_at"]).total_seconds() / 3600)
-    return rules.energy_after_rest(float(state["energy"]), hours=hours, level=int(state["level"]), species_id=pet["species_id"])
+    fx = _fx(build)
+    return rules.energy_after_rest(float(state["energy"]), hours=hours, level=int(state["level"]), species_id=pet["species_id"],
+                                   bonus=fx["energy_bonus"], delta=fx["regen_delta"])
 
 
 def _terrain(pet: dict, route: str | None) -> bool:
@@ -46,10 +64,14 @@ def _terrain(pet: dict, route: str | None) -> bool:
     return bool(route) and favorite in (route, "any")
 
 
-def _chances(pet: dict, state: dict, run: dict, energy: float) -> dict[str, float]:
-    resilience = rules.resilience(int(state["level"]), energy, pet["species_id"], terrain_match=_terrain(pet, run["route"]))
+def _chances(pet: dict, state: dict, run: dict, energy: float, build: dict) -> dict[str, float]:
+    fx = _fx(build, int(run["hours"]), run["route"])
+    resilience = rules.resilience(
+        int(state["level"]), min(energy, rules.energy_max(int(state["level"]), pet["species_id"], fx["energy_bonus"])), pet["species_id"],
+        terrain_match=_terrain(pet, run["route"]), guardian=fx["guardian"], energy_bonus=fx["energy_bonus"], extra=fx["resilience_extra"],
+    )
     difficulty = rules.event_difficulty(int(run["hours"]))
-    return {path: rules.path_chance(resilience, difficulty, path, pity=int(state["pity"])) for path in _HINT_PATHS}
+    return {path: rules.path_chance(resilience, difficulty, path, pity=int(state["pity"]), bonus=fx["chance_bonus"][path]) for path in _HINT_PATHS}
 
 
 def _hints(level: int, species_id: str, chances: dict[str, float]) -> dict:
@@ -78,14 +100,20 @@ async def overview(db, user_id: int) -> dict:
     runs = await repo.open_runs(db, user_id)
     by_pet = {int(run["pet_id"]): run for run in runs}
     pets = []
-    for pet in await repo.list_owned_pets(db, user_id):
+    owned = await repo.list_owned_pets(db, user_id)
+    all_talismans = await repo.list_talismans(db, user_id)
+    builds: dict[int, dict] = {}
+    for pet in owned:
         if pet.get("species_id") not in rules.SPECIES:
             continue
         level = int(pet["level"] or 1)
-        energy_cap = rules.energy_max(level, pet["species_id"])
+        mine = [t for t in all_talismans if t["pet_id"] is not None and int(t["pet_id"]) == int(pet["id"])]
+        build = builds[int(pet["id"])] = _build(pet, mine)
+        fx = _fx(build)
+        energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
         energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
         if pet["energy_at"] is not None:
-            energy = _rest({"energy": energy, "energy_at": pet["energy_at"], "level": level}, pet, clock["now"])
+            energy = _rest({"energy": energy, "energy_at": pet["energy_at"], "level": level}, pet, clock["now"], build)
         bond = await repo.bond_days(db, user_id, int(pet["id"]))
         item = {
             "id": int(pet["id"]), "name": pet.get("name"), "species_id": pet["species_id"], "rarity": pet["rarity"],
@@ -93,8 +121,11 @@ async def overview(db, user_id: int) -> dict:
             "next_cost": rules.level_cost(level, pet["rarity"]) if level < rules.MAX_LEVEL else None,
             "ceiling": rules.ceiling(bond), "bond_days": bond,
             "energy": round(energy, 1), "energy_max": energy_cap,
-            "resilience": round(rules.resilience(level, min(energy, energy_cap), pet["species_id"]), 1),
+            "resilience": round(rules.resilience(level, min(energy, energy_cap), pet["species_id"], guardian=fx["guardian"],
+                                                 energy_bonus=fx["energy_bonus"], extra=fx["resilience_extra"]), 1),
             "favorite_route": _species_row(pet)[1], "run_id": None,
+            "calling": build["calling"], "traits": list(build["traits"]), "trait_slots": rules.trait_slots(level),
+            "talismans": [t["id"] for t in mine],
         }
         run = by_pet.get(int(pet["id"]))
         if run:
@@ -105,16 +136,19 @@ async def overview(db, user_id: int) -> dict:
         entry = {"id": run["id"], "pet_id": int(run["pet_id"]), "kind": run["kind"], "hours": int(run["hours"]),
                  "route": run["route"], "ends_at": str(run["ends_at"]), "ready": bool(run["ready"])}
         if run["kind"] == "expedition" and run["ready"]:
-            pet = next((p for p in await repo.list_owned_pets(db, user_id) if int(p["id"]) == int(run["pet_id"])), None)
+            pet = next((p for p in owned if int(p["id"]) == int(run["pet_id"])), None)
             if pet and pet["level"] is not None:
+                build = builds[int(pet["id"])]
                 state = {"level": pet["level"], "energy": pet["energy"], "energy_at": pet["energy_at"], "pity": pet["pity"]}
-                energy = _rest(state, pet, clock["now"])
-                entry["decision"] = _hints(int(pet["level"]), pet["species_id"], _chances(pet, state, run, energy))
+                energy = _rest(state, pet, clock["now"], build)
+                entry["decision"] = _hints(int(pet["level"]), pet["species_id"], _chances(pet, state, run, energy, build))
         activities.append(entry)
     return {
         "policy_version": rules.POLICY_VERSION, "slots": rules.SLOTS, "pets": pets, "activities": activities,
         "daily": {"raw": round(daily["raw"], 1), "credited": round(daily["credited"], 1), "max": rules.DAILY_MAX},
         "durations": {"run": list(rules.RUN_HOURS), "watch": list(rules.WATCH_HOURS)}, "routes": list(rules.ROUTES),
+        "talismans": [{"id": t["id"], "kind": t["kind"], "tier": int(t["tier"]), "pet_id": t["pet_id"]} for t in all_talismans],
+        "callings": list(rules.AVAILABLE_CALLINGS), "traits": list(rules.AVAILABLE_TRAITS),
     }
 
 
@@ -150,7 +184,8 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
             raise PetV2Conflict("Все слоты заняты.")
         clock = await repo.clock(db)
         state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
-        energy = rules.spend_energy(_rest(state, pet, clock["now"]), energy_kind, hours)
+        build = _build(state, await repo.equipped_talismans(db, user_id, pet_id))
+        energy = rules.spend_energy(_rest(state, pet, clock["now"], build), energy_kind, hours)
         await repo.save_state(db, user_id, pet_id, level=int(state["level"]), xp=float(state["xp"]), energy=energy, pity=int(state["pity"]))
         run = await repo.create_run(db, run_id=uuid4().hex, user_id=user_id, pet_id=pet_id, kind=kind, hours=hours, route=route)
         response = {"ok": True, "run_id": run["id"], "ends_at": str(run["ends_at"]), "energy": round(energy, 1), "idempotent_replay": False}
@@ -158,8 +193,11 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
     return response
 
 
-async def _grant_find(db, user_id: int, run_id: str, category: str, amount: int, level: int) -> None:
-    if category == "mora":
+async def _grant_find(db, user_id: int, run_id: str, category: str, amount: int, level: int, rng) -> None:
+    if category == "talisman":
+        for i in range(amount):
+            await repo.add_talisman(db, user_id, f"{run_id}:{i}", rng.choice(sorted(rules.TALISMANS)), 1)
+    elif category == "mora":
         await _ledger(db, user_id, {"mora": amount}, run_id, "mora")
     elif category == "diamond":
         await _ledger(db, user_id, {"diamonds": amount}, run_id, "diamond")
@@ -205,14 +243,16 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         clock = await repo.clock(db)
         day = clock["day"]
         state = await repo.ensure_state(db, user_id, int(pet["id"]), rules.energy_max(1, pet["species_id"]))
-        energy = _rest(state, pet, clock["now"])
+        build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])))
+        fx = _fx(build, int(run["hours"]), run["route"])
+        energy = _rest(state, pet, clock["now"], build)
         level, xp, pity = int(state["level"]), float(state["xp"]), int(state["pity"])
 
         outcome, mult, chance, energy_loss = "success", 1.0, None, 0
         if expedition:
-            chance = _chances(pet, state, run, energy)[path]
+            chance = _chances(pet, state, run, energy, build)[path]
             outcome = rules.decide_outcome(chance, rng.random() * 100)
-            mult = rules.outcome_reward_mult(path, outcome)
+            mult = rules.outcome_reward_mult(path, outcome, guardian=fx["guardian"]) * fx["reward_mult"][path]
             pity = min(3, rules.next_pity(pity, chance, outcome))
             if outcome == "fail":
                 energy_loss = rules.PATHS[path][2]
@@ -224,11 +264,11 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         match = _terrain(pet, run["route"])
         hours = int(run["hours"])
         if run["kind"] == "watch":
-            base = rules.watch_xp_raw(hours)
+            base = rules.watch_xp_raw(hours) * fx["xp_mult"]
             rolls = rules.ROLLS[("watch", hours)]
         else:
             base = rules.run_xp_raw(
-                hours, expedition=expedition, favorite_route=match, stars=stars,
+                hours, expedition=expedition, favorite_route=match, stars=stars, trait_mult=fx["xp_mult"],
                 repeats_today=await repo.routes_claimed_today(db, user_id, day, run["route"]),
             )
             rolls = rules.ROLLS[("run", hours)]
@@ -236,7 +276,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
 
         daily = await repo.get_daily(db, user_id, day)
         finds = dict(daily["finds"])
-        shares = rules.find_shares({"talisman": 0.0}, species_id=pet["species_id"], level=level)
+        shares = rules.find_shares(fx["find_mods"], species_id=pet["species_id"], level=level)
         categories, weights = list(shares), list(shares.values())
         granted: dict[str, int] = {}
         bonus_raw = 0.0
@@ -257,7 +297,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
                 finds[category] = float(finds.get(category, 0)) + allowed
             granted[category] = granted.get(category, 0) + allowed
         for category, amount in granted.items():
-            await _grant_find(db, user_id, run["id"], category, amount, level)
+            await _grant_find(db, user_id, run["id"], category, amount, level, rng)
 
         raw = base + bonus_raw
         credited = rules.pool_credit(daily["raw"], raw)
@@ -319,3 +359,79 @@ async def _record_progress_inner(db, user_id: int, run: dict) -> None:
         source_snapshot={"run_id": str(run["id"]), "activity_kind": run["kind"],
                          "duration_hours": int(run["hours"]), "pet_id": int(run["pet_id"])},
     )
+
+
+def _week_start(day):
+    from datetime import timedelta
+    return day - timedelta(days=day.weekday())
+
+
+async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, traits: list[str], talisman_ids: list[str], action_id: str) -> dict:
+    """Собрать билд: призвание (с 10 ур.), черты (слоты с 5/15/25 ур.), до 2 талисманов.
+
+    Пустой слот заполняется бесплатно. Замена призвания или черты бесплатна раз в неделю, дальше — Эссенция.
+    """
+    action_id = _action(action_id)
+    traits, talisman_ids = [str(t) for t in traits], [str(t) for t in talisman_ids]
+    request = {"type": "build", "pet_id": int(pet_id), "calling": calling, "traits": sorted(traits), "talismans": sorted(talisman_ids)}
+    if len(set(traits)) != len(traits) or len(set(talisman_ids)) != len(talisman_ids):
+        raise PetV2PolicyError("Повторы в сборке не допускаются.")
+    if any(t not in rules.AVAILABLE_TRAITS for t in traits):
+        raise PetV2PolicyError("Эта черта пока недоступна.")
+    if calling is not None and calling not in rules.AVAILABLE_CALLINGS:
+        raise PetV2PolicyError("Это призвание пока недоступно.")
+    if len(talisman_ids) > rules.TALISMAN_SLOTS:
+        raise PetV2PolicyError(f"Талисманов не больше {rules.TALISMAN_SLOTS}.")
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
+        _species_row(pet)
+        if any(int(r["pet_id"]) == int(pet_id) for r in await repo.open_runs(db, user_id)):
+            raise PetV2Conflict("Пока питомец в пути, сборку менять нельзя.")
+        state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
+        level = int(state["level"])
+        if calling and level < rules.CALLING_MIN_LEVEL:
+            raise PetV2PolicyError(f"Призвание открывается с {rules.CALLING_MIN_LEVEL} уровня.")
+        if len(traits) > rules.trait_slots(level):
+            raise PetV2PolicyError("Не хватает слотов черт.")
+        owned = {t["id"]: t for t in await repo.list_talismans(db, user_id)}
+        for talisman_id in talisman_ids:
+            row = owned.get(talisman_id)
+            if not row:
+                raise PetV2PolicyError("Талисман не найден.")
+        week = _week_start((await repo.clock(db))["day"])
+        old_calling, old_traits = state["calling"], _json_list(state["traits"])
+        calling_at, traits_at = state["calling_changed_at"], state["traits_changed_at"]
+        cost = 0
+        if old_calling and calling != old_calling:
+            if calling_at == week:
+                cost += rules.CALLING_SWAP_ESSENCE
+            calling_at = week
+        elif calling and not old_calling:
+            calling_at = calling_at or None
+        removed = [t for t in old_traits if t not in traits]
+        if removed:
+            if traits_at == week:
+                cost += rules.TRAIT_SWAP_ESSENCE * len(removed)
+            traits_at = week
+        if cost:
+            from infrastructure.repositories import skins_v3 as essence_repo
+            try:
+                await essence_repo.essence_apply(
+                    db, user_id, -cost, reason="pet_v2_build", reference=f"{pet_id}", idempotency_key=f"pet_v2:build:{user_id}:{action_id}",
+                )
+            except ValueError as exc:
+                raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost}.") from exc
+        await repo.save_build(db, user_id, pet_id, calling=calling, traits=traits, calling_changed=calling_at, traits_changed=traits_at)
+        await repo.set_talismans(db, user_id, pet_id, talisman_ids)
+        response = {"ok": True, "pet_id": int(pet_id), "calling": calling, "traits": traits, "talismans": talisman_ids,
+                    "essence_spent": cost, "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response

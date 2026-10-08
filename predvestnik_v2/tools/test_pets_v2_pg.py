@@ -150,6 +150,38 @@ async def run(dsn: str) -> None:
         # потолок ступени: без дней Связи выше 5 не поднимется
         async with db.execute("SELECT level FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
             assert (await c.fetchone())[0] <= rules.ceiling(1)
+        # билды: слоты, призвание, цена замены, талисманы, идемпотентность
+        async def rejects(coro):
+            try:
+                async with db.connection.transaction():
+                    await coro
+            except rules.PetV2PolicyError:
+                return
+            raise AssertionError("build must be rejected")
+
+        await db.execute("UPDATE pet_v2_runs SET status='claimed' WHERE user_id=? AND status='active'", (user,))
+        await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="seeker", traits=[], talisman_ids=[], action_id="b0"))
+        await rejects(service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=["hardy"], talisman_ids=[], action_id="b1"))
+        await db.execute("UPDATE pet_v2_state SET level=15 WHERE user_id=? AND pet_id=?", (user, fox))
+        await repo.add_talisman(db, user, "t1", "forest_fang", 2)
+        await repo.add_talisman(db, user, "t2", "forest_fang", 3)
+        await repo.add_talisman(db, user, "t3", "swamp_lamp", 1)
+        built = await service.set_build(db, user_id=user, pet_id=fox, calling="seeker", traits=["hardy", "careful"], talisman_ids=["t1", "t2"], action_id="b2")
+        assert built["essence_spent"] == 0
+        assert (await service.set_build(db, user_id=user, pet_id=fox, calling="seeker", traits=["hardy", "careful"], talisman_ids=["t1", "t2"], action_id="b2"))["idempotent_replay"]
+        view = await service.overview(db, user)
+        fox_view = next(p for p in view["pets"] if p["id"] == fox)
+        assert fox_view["energy_max"] == rules.energy_max(15, "salt_fox") + 15 and fox_view["calling"] == "seeker"
+        # замена призвания: первая в неделю бесплатна, вторая стоит Эссенцию
+        free = await service.set_build(db, user_id=user, pet_id=fox, calling="guardian", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b3")
+        assert free["essence_spent"] == 0
+        await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b4"))
+        await skins_v3.essence_apply(db, user, 15, reason="test", reference="t", idempotency_key="test-essence")
+        paid = await service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b5")
+        assert paid["essence_spent"] == rules.CALLING_SWAP_ESSENCE
+        assert await skins_v3.essence_balance(db, user) < 15, "paid swap must debit essence"
+        await rejects(service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=["bogus"], talisman_ids=[], action_id="b6"))
+        await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["zz"], action_id="b7"))
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

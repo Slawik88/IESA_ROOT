@@ -131,25 +131,26 @@ def _species(species_id: str) -> tuple:
     return row
 
 
-def energy_max(level: int, species_id: str) -> int:
-    """Запас сил: 70 + 2×уровень + бонус вида."""
+def energy_max(level: int, species_id: str, bonus: int = 0) -> int:
+    """Запас сил: 70 + 2×уровень + бонус вида (+ бонус черты)."""
     if not 1 <= int(level) <= MAX_LEVEL:
         raise PetV2PolicyError("Уровень вне диапазона 1–30.")
-    return 70 + 2 * int(level) + _species(species_id)[2]
+    return 70 + 2 * int(level) + _species(species_id)[2] + int(bonus)
 
 
-def energy_regen_per_hour(level: int, species_id: str, *, camp_bonus: float = 0.0) -> float:
+def energy_regen_per_hour(level: int, species_id: str, *, camp_bonus: float = 0.0, delta: float = 0.0) -> float:
     """Отдых в час: 4 + бонус вида + 0.5 за каждые 10 уровней (+ Лежанка до +20 %)."""
     if not 1 <= int(level) <= MAX_LEVEL or not 0.0 <= camp_bonus <= 0.2:
         raise PetV2PolicyError("Некорректный уровень или бонус Лагеря.")
-    return (4 + _species(species_id)[3] + 0.5 * (int(level) // 10)) * (1 + camp_bonus)
+    return max(1.0, 4 + delta + _species(species_id)[3] + 0.5 * (int(level) // 10)) * (1 + camp_bonus)
 
 
-def energy_after_rest(energy: float, *, hours: float, level: int, species_id: str, camp_bonus: float = 0.0) -> float:
-    cap = energy_max(level, species_id)
+def energy_after_rest(energy: float, *, hours: float, level: int, species_id: str, camp_bonus: float = 0.0,
+                      bonus: int = 0, delta: float = 0.0) -> float:
+    cap = energy_max(level, species_id, bonus)
     if energy < 0 or hours < 0:
         raise PetV2PolicyError("Некорректная энергия или время.")
-    return min(float(cap), energy + hours * energy_regen_per_hour(level, species_id, camp_bonus=camp_bonus))
+    return min(float(cap), energy + hours * energy_regen_per_hour(level, species_id, camp_bonus=camp_bonus, delta=delta))
 
 
 def spend_energy(energy: float, kind: str, hours: int) -> float:
@@ -180,20 +181,20 @@ def event_difficulty(hours: int) -> int:
 
 
 def resilience(level: int, energy: float, species_id: str, *, terrain_match: bool = False,
-               guardian: bool = False, favorite_treat: bool = False) -> float:
-    """Выдержка R = 10 + уровень + 10 × доля энергии + склонность(3) + Хранитель(2) + любимое лакомство(2)."""
-    cap = energy_max(level, species_id)
+               guardian: bool = False, favorite_treat: bool = False, energy_bonus: int = 0, extra: float = 0.0) -> float:
+    """Выдержка R = 10 + уровень + 10 × доля энергии + склонность(3) + Хранитель(2) + любимое лакомство(2) (+ черты)."""
+    cap = energy_max(level, species_id, energy_bonus)
     if not 0 <= energy <= cap:
         raise PetV2PolicyError("Энергия вне запаса питомца.")
-    return 10 + int(level) + 10 * (energy / cap) + (3 if terrain_match else 0) + (2 if guardian else 0) + (2 if favorite_treat else 0)
+    return 10 + int(level) + 10 * (energy / cap) + (3 if terrain_match else 0) + (2 if guardian else 0) + (2 if favorite_treat else 0) + extra
 
 
-def path_chance(resilience_value: float, difficulty: float, path: str, *, pity: int = 0) -> float:
+def path_chance(resilience_value: float, difficulty: float, path: str, *, pity: int = 0, bonus: float = 0.0) -> float:
     """Шанс успеха пути, % (5…95). pity — подряд невезений (0–3)."""
     if path not in PATHS:
         raise PetV2PolicyError("Выбери осторожный, ровный или рискованный путь.")
     gap = resilience_value - difficulty
-    chance = 50 + 3.5 * (gap + PATHS[path][0]) + min(PITY_MAX, PITY_STEP * max(0, int(pity)))
+    chance = 50 + 3.5 * (gap + PATHS[path][0]) + min(PITY_MAX, PITY_STEP * max(0, int(pity))) + bonus
     return max(5.0, min(95.0, chance))
 
 
@@ -339,6 +340,74 @@ def trait_xp_multiplier(traits: tuple[str, ...], hours: int) -> float:
 
 def trait_slots(level: int) -> int:
     return sum(1 for need in TRAIT_SLOT_LEVELS if int(level) >= need)
+
+
+# ── Применение билда: призвание, черты, талисманы ─────────────────────────────
+CALLING_MIN_LEVEL: Final = 10
+CALLING_MODS: Final = {  # множители категорий находок; tracker ждёт ключей сундуков
+    "feeder": {"treat": 2.0, "mora": 0.85},
+    "seeker": {"diamond": 1.8, "essence": 1.8, "mora": 0.85},
+}
+AVAILABLE_CALLINGS: Final = ("feeder", "guardian", "seeker")
+AVAILABLE_TRAITS: Final = tuple(t for t in TRAITS if t not in ("picky", "nose", "loner"))  # их плюс зависит от ещё не готовых механик
+TALISMANS: Final = {  # вид: (маршрут плюса, маршрут минуса)
+    "forest_fang": ("forest", "swamp"), "pass_stone": ("pass", "ruins"),
+    "ruin_lens": ("ruins", "pass"), "swamp_lamp": ("swamp", "forest"),
+}
+TALISMAN_PLUS: Final = {1: 0.10, 2: 0.15, 3: 0.20}
+TALISMAN_MINUS: Final = 0.10
+TALISMAN_SET_BONUS: Final = 0.05
+TALISMAN_SLOTS: Final = 2
+FREE_SWAP_DAYS: Final = 7
+
+
+def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = (),
+                  *, hours: int = 3, route: str | None = None) -> dict:
+    """Сводка билда: множитель Следов, множители находок, поправки Выдержки, шанса и награды путей."""
+    if calling is not None and calling not in CALLINGS:
+        raise PetV2PolicyError("Неизвестное призвание.")
+    if len(set(traits)) != len(traits) or any(t not in TRAITS for t in traits):
+        raise PetV2PolicyError("Неизвестная или повторяющаяся черта.")
+    mods: dict[str, float] = {}
+
+    def mul(key: str, value: float) -> None:
+        mods[key] = mods.get(key, 1.0) * value
+
+    for key, value in CALLING_MODS.get(calling or "", {}).items():
+        mul(key, value)
+    xp = trait_xp_multiplier(tuple(t for t in traits if t != "nose"), hours)
+    resilience_extra, energy_bonus, regen_delta = 0.0, 0, 0.0
+    chance = {"careful": 0.0, "steady": 0.0, "bold": 0.0}
+    reward = {"careful": 1.0, "steady": 1.0, "bold": 1.0}
+    for trait in traits:
+        if trait == "reckless":
+            chance["bold"] += 5; chance["careful"] -= 5
+        elif trait == "careful":
+            reward["careful"] *= 1.10; chance["bold"] -= 10
+        elif trait == "hoarder":
+            mul("treat", 1.5); resilience_extra -= 1
+        elif trait == "piggybank":
+            mul("mora", 1.3); mul("treat", 0.8)
+        elif trait == "meticulous":
+            mul("diamond", 1.8); mul("essence", 1.8); mul("bonus_xp", 0.7)
+        elif trait == "hardy":
+            energy_bonus += 15; regen_delta -= 1
+        elif trait == "lunatic" and route:
+            xp *= 1.25 if route == "swamp" else 0.85 if route == "forest" else 1.0
+    for kind, tier in talismans:
+        if kind not in TALISMANS or tier not in TALISMAN_PLUS:
+            raise PetV2PolicyError("Неизвестный талисман.")
+        plus, minus = TALISMANS[kind]
+        if route == plus:
+            xp *= 1 + TALISMAN_PLUS[tier]
+        elif route == minus:
+            xp *= 1 - TALISMAN_MINUS
+    kinds = [kind for kind, _ in talismans]
+    for kind in set(kinds):
+        if kinds.count(kind) >= 2 and route == TALISMANS[kind][0]:
+            xp *= 1 + TALISMAN_SET_BONUS
+    return {"xp_mult": xp, "find_mods": mods, "resilience_extra": resilience_extra, "energy_bonus": energy_bonus,
+            "regen_delta": regen_delta, "chance_bonus": chance, "reward_mult": reward, "guardian": calling == "guardian"}
 
 
 def validate() -> None:

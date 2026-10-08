@@ -18,6 +18,18 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY(user_id, pet_id)
         )
     """)
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS calling TEXT NULL")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS traits JSONB NOT NULL DEFAULT '[]'::jsonb")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS calling_changed_at DATE NULL")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS traits_changed_at DATE NULL")
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_talismans (
+            id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, kind TEXT NOT NULL,
+            tier SMALLINT NOT NULL DEFAULT 1 CHECK(tier BETWEEN 1 AND 3),
+            pet_id BIGINT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_pet_v2_talismans_user ON pet_v2_talismans(user_id, pet_id)")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_bond_days (
             user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL, day DATE NOT NULL,
@@ -92,7 +104,7 @@ async def save_action(db, user_id: int, action_id: str, request: dict, response:
 
 async def list_owned_pets(db, user_id: int) -> list[dict[str, Any]]:
     async with db.execute(
-        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity "
+        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits "
         "FROM pets p LEFT JOIN pet_v2_state s ON s.user_id=p.owner_id AND s.pet_id=p.id "
         "WHERE p.owner_id=? ORDER BY p.created_at,p.id", (int(user_id),)
     ) as c:
@@ -216,4 +228,34 @@ async def add_food(db, user_id: int, food_id: str, quantity: int) -> None:
         "INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?,?,?) "
         "ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=chest_food_balances_v1.quantity+EXCLUDED.quantity,updated_at=CLOCK_TIMESTAMP()",
         (int(user_id), str(food_id), int(quantity)),
+    )
+
+
+async def add_talisman(db, user_id: int, talisman_id: str, kind: str, tier: int = 1) -> None:
+    await db.execute(
+        "INSERT INTO pet_v2_talismans(id,user_id,kind,tier) VALUES (?,?,?,?) ON CONFLICT DO NOTHING",
+        (str(talisman_id), int(user_id), kind, int(tier)),
+    )
+
+
+async def list_talismans(db, user_id: int) -> list[dict[str, Any]]:
+    async with db.execute("SELECT id,kind,tier,pet_id FROM pet_v2_talismans WHERE user_id=? ORDER BY created_at,id", (int(user_id),)) as c:
+        return [dict(row) for row in await c.fetchall()]
+
+
+async def equipped_talismans(db, user_id: int, pet_id: int) -> list[dict[str, Any]]:
+    async with db.execute("SELECT id,kind,tier FROM pet_v2_talismans WHERE user_id=? AND pet_id=? ORDER BY id", (int(user_id), int(pet_id))) as c:
+        return [dict(row) for row in await c.fetchall()]
+
+
+async def set_talismans(db, user_id: int, pet_id: int, talisman_ids: list[str]) -> None:
+    await db.execute("UPDATE pet_v2_talismans SET pet_id=NULL WHERE user_id=? AND pet_id=?", (int(user_id), int(pet_id)))
+    for talisman_id in talisman_ids:
+        await db.execute("UPDATE pet_v2_talismans SET pet_id=? WHERE user_id=? AND id=?", (int(pet_id), int(user_id), talisman_id))
+
+
+async def save_build(db, user_id: int, pet_id: int, *, calling, traits: list[str], calling_changed, traits_changed) -> None:
+    await db.execute(
+        "UPDATE pet_v2_state SET calling=?,traits=?::jsonb,calling_changed_at=?,traits_changed_at=? WHERE user_id=? AND pet_id=?",
+        (calling, json.dumps(traits), calling_changed, traits_changed, int(user_id), int(pet_id)),
     )

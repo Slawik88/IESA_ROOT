@@ -97,6 +97,20 @@ def main() -> None:
     assert [p.trait_slots(l) for l in (1, 5, 14, 15, 24, 25, 30)] == [0, 1, 1, 2, 2, 3, 3]
     assert abs(p.trait_xp_multiplier(("night_walk", "nose"), 9) - 1.15 * 0.95) < 1e-9
     assert sum(p.STAGE_ESSENCE.values()) == 80
+    # применение билда
+    plain = p.build_effects(None, (), hours=9, route="forest")
+    assert plain["xp_mult"] == 1.0 and plain["find_mods"] == {} and not plain["guardian"]
+    seeker = p.build_effects("seeker", ("meticulous",), hours=3, route="pass")
+    assert seeker["find_mods"]["diamond"] == 1.8 * 1.8 and seeker["find_mods"]["bonus_xp"] == 0.7
+    assert abs(p.build_effects(None, ("night_walk",), hours=9)["xp_mult"] - 1.15) < 1e-9
+    fang = p.build_effects(None, (), (("forest_fang", 2), ("forest_fang", 3)), hours=3, route="forest")
+    assert abs(fang["xp_mult"] - 1.15 * 1.20 * 1.05) < 1e-9
+    assert abs(p.build_effects(None, (), (("forest_fang", 1),), route="swamp")["xp_mult"] - 0.9) < 1e-9
+    hardy = p.build_effects(None, ("hardy",))
+    assert hardy["energy_bonus"] == 15 and hardy["regen_delta"] == -1
+    assert p.energy_max(1, "moss_cat", 15) == p.energy_max(1, "moss_cat") + 15 and p.energy_regen_per_hour(1, "moss_cat", delta=-1) == 3
+    must_fail(lambda: p.build_effects("tamer", ())); must_fail(lambda: p.build_effects(None, ("hardy", "hardy"))); must_fail(lambda: p.build_effects(None, (), (("x", 1),)))
+    assert p.build_effects(None, ("careful",))["chance_bonus"]["bold"] == -10
     # прокачка совпадает с балансным симулятором
     bal = load("pets_v2_balance_sim")
     assert all(bal.level_cost(l) == p.level_cost(l) for l in range(1, 30))

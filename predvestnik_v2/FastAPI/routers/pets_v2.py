@@ -24,6 +24,14 @@ class ClaimRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class BuildRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    calling: str | None = Field(default=None, pattern="^(feeder|guardian|seeker)$")
+    traits: list[str] = Field(default_factory=list, max_length=3)
+    talismans: list[str] = Field(default_factory=list, max_length=2)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
 async def _ready(db) -> None:
     if not await system_flags.is_enabled(db, "pets_v2"):
         raise HTTPException(404, "Тропа пока закрыта.")
@@ -52,5 +60,15 @@ async def claim(body: ClaimRequest, db=Depends(get_db), user=Depends(require_tg_
     await _ready(db)
     try:
         return await service.claim_run(db, user_id=int(user["id"]), run_id=body.run_id, path=body.path, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/build")
+async def build(body: BuildRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.set_build(db, user_id=int(user["id"]), pet_id=body.pet_id, calling=body.calling,
+                                       traits=body.traits, talisman_ids=body.talismans, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
