@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-from ui_smoke_checks import (BLOCKS, CANDIDATES, PAGES, PRESS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, KNOWN_OPEN, SCREENS, SKIP_CLICK, TAP)  # noqa: E402
+from ui_smoke_checks import (BLOCKS, CANDIDATES, FRAMES, PAGES, PRESS, DOCK_SAMPLE, DOCK_TABS, EXPECTED_CONSOLE, EXPECTED_HTTP, GEOMETRY, KNOWN_OPEN, SCREENS, SKIP_CLICK, TAP)  # noqa: E402
 from ui_stand import DEFAULT_DSN, PEER_ID, Stand, seed_persona, set_game_flags  # noqa: E402
 
 FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
@@ -208,6 +208,29 @@ def sweep_crawl(stand, browser, args, results) -> None:
     results.setdefault("crawl", ([], []))
 
 
+def sweep_perf(stand, browser, args, results) -> None:
+    """Frame cost of the profile (the scene with the look's effects) for every look at SSS under a 4x slower CPU: a jittery look shows as long frames.
+    Headless Chromium has no GPU, so absolute numbers are pessimistic; the ranking and the outliers are what counts."""
+    from core.skins_v3_catalog import SKINS
+    rows = []
+    for sid in SKINS:
+        if args.only and sid not in args.only:
+            continue
+        reseed(args.dsn, skin=sid, tier="SSS")
+        ctx, page, probe = open_app(stand, browser, args.widths[0])
+        cdp = ctx.new_cdp_session(page); cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})
+        page.wait_for_timeout(1500)
+        frames = page.evaluate(FRAMES, 3000)
+        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
+        frames.sort(); n = len(frames)
+        med, p95, slow = frames[n // 2], frames[int(n * .95)], sum(1 for f in frames if f > 50) / n
+        rows.append((p95, sid, med, slow, n)); ctx.close()
+        if slow > .25 or p95 > 100:
+            results[f"perf {sid}"] = ([f"long frames: median {med:.0f} ms, p95 {p95:.0f} ms, {slow:.0%} over 50 ms (4x CPU)"], [])
+    for p95, sid, med, slow, n in sorted(rows, reverse=True)[:12]:
+        print(f"perf {sid:18} median {med:5.1f} ms  p95 {p95:5.1f} ms  slow {slow:4.0%}  frames {n}")
+
+
 def sweep_skins(stand, browser, args, results) -> None:
     from core.skins_v3_catalog import SKINS
     for sid in SKINS:
@@ -231,6 +254,7 @@ def sweep_skins(stand, browser, args, results) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skins", action="store_true", help="sweep every look instead of every screen")
+    parser.add_argument("--perf", action="store_true", help="frame cost of the profile for every look at SSS under a slowed CPU")
     parser.add_argument("--crawl", action="store_true", help="press every control of every screen once and judge the state it opens")
     parser.add_argument("--taps", type=int, default=14, help="controls per screen in --crawl mode")
     parser.add_argument("--widths", type=lambda s: [int(x) for x in s.split(",")], default=None)
@@ -251,7 +275,7 @@ def main() -> int:
         EXPECTED_HTTP.append(("", 403))      # a closed module answers 403 "temporarily disabled"; the screen must show that, not break
     with Stand(args.port, args.dsn, skin="void", tier="SSS", rich=True) as stand, sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=chromium_path())
-        (sweep_skins if args.skins else sweep_crawl if args.crawl else sweep_screens)(stand, browser, args, results)
+        (sweep_perf if args.perf else sweep_skins if args.skins else sweep_crawl if args.crawl else sweep_screens)(stand, browser, args, results)
         browser.close()
     failed = warned = 0
     for key, (fails, warns) in results.items():

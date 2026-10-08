@@ -113,3 +113,7 @@ CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];
 PRESS = """([i, label]) => { const norm = e => (e.getAttribute('aria-label') || e.textContent || e.className || '').trim().replace(/\\s+/g, ' ');
   const all = [...document.querySelectorAll('button, summary, [onclick], a[href]')]; let e = all[i]; if (!e || norm(e) !== label) e = all.find(x => norm(x) === label);
   if (!e) return false; e.click(); return true; }"""
+
+# Frame intervals (ms) of requestAnimationFrame for `ms` milliseconds.
+FRAMES = """(ms) => new Promise(res => { const out = []; let last = performance.now(); const t0 = last;
+  const tick = now => { out.push(now - last); last = now; if (now - t0 < ms) requestAnimationFrame(tick); else res(out.slice(3)); }; requestAnimationFrame(tick); })"""

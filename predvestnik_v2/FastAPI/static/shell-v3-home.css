@@ -8,7 +8,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-bar button { border: 0; background: none; color: inherit; font-family: var(--v3-font); cursor: pointer; }
 .v3-bar-me { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; transition: transform .15s; }
 .v3-bar-me svg { width: 40px; height: 40px; transform: rotate(-90deg); fill: none; stroke-width: 3; stroke-linecap: round; }
-.v3-bar-lv { position: absolute; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.v3-bar-lv { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }   /* цифра по центру кольца и в Safari: без inset абсолютный элемент сидит у левого края */
 .v3-bar-me.is-vip svg circle:last-child { stroke: var(--v3-vip); }
 .v3-chips { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 2px; }
 .v3-chips-main { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }   /* Мора, Алмазы, остальные валюты; на узком экране прокручиваются, а Зарники справа всегда на виду */

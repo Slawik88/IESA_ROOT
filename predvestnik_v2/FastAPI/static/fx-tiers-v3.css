@@ -42,17 +42,20 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 @keyframes v3glint { 0%, 60% { background-position: -70% 0, 0 0; } 100% { background-position: 170% 0, 0 0; } }
 
 /* SS · fx-6: параллакс по наклону/указателю, боковой переход экранов, световое пятно на доке */
-.v3-fx-tilt { inset: -6%; transform: translate3d(calc(var(--tilt-x, 0) * 18px), calc(var(--tilt-y, 0) * 18px), 0); transition: transform .25s var(--v3-ease); }
-.v3-fx-tilt::before, .v3-fx-tilt::after { content: ""; position: absolute; width: 60%; height: 40%; border-radius: 50%; filter: blur(48px); opacity: .22; }
-.v3-fx-tilt::before { left: 5%; top: 8%; background: var(--v3-fx-a); } .v3-fx-tilt::after { right: 0; bottom: 12%; background: var(--v3-fx-b); opacity: .14; }
+.v3-fx-tilt { inset: -6%; transform: translate3d(calc(var(--tilt-x, 0) * 10px), calc(var(--tilt-y, 0) * 10px), 0); }
+.v3-fx-tilt::before, .v3-fx-tilt::after { content: ""; position: absolute; width: 80%; height: 50%; border-radius: 50%; opacity: .22; }   /* мягкость даёт сам градиент, не blur */
+.v3-fx-tilt::before { left: 0; top: 4%; background: radial-gradient(closest-side, var(--v3-fx-a), transparent); } .v3-fx-tilt::after { right: -10%; bottom: 8%; background: radial-gradient(closest-side, var(--v3-fx-b), transparent); opacity: .14; }
 @keyframes v3slide { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 .fx-6 .page.active { animation: v3slide var(--v3-dur) var(--v3-ease) backwards; }
 .fx-6 .page.active.v3-stagger, .fx-6 .page.active:has(.v3-stagger) { animation: none; }
 .fx-6 .nav::after { content: ""; position: absolute; inset: 0; border-radius: 99px; pointer-events: none; background: radial-gradient(70px 36px at calc(50% + var(--tilt-x, 0) * 60px) 0, rgba(255,255,255,.2), transparent); }
 
 /* SSS · fx-7: вращающиеся ленты света, круги от касаний, кольцо-ударная волна награды */
-.v3-fx-ribbon { left: 50%; top: 50%; width: 160vmax; height: 160vmax; margin: -80vmax 0 0 -80vmax; border-radius: 50%; opacity: .12; filter: blur(60px); background: conic-gradient(from 0deg, transparent 0 20%, var(--v3-fx-a) 32%, transparent 46% 62%, var(--v3-fx-b) 76%, transparent 90%); animation: v3spin calc(48s * var(--v3-loop, 1)) linear infinite; }
-.v3-fx-ribbon + .v3-fx-ribbon { opacity: .08; animation-duration: calc(76s * var(--v3-loop, 1)); animation-direction: reverse; }
+/* Ленты света SSS: два мягких пятна размером с экран, дрейфуют transform'ом. Раньше это были два конических градиента по 160vmax (около 135 000 px) с blur(60px), которые крутились:
+   такой слой не помещается в память графики телефона, и на SSS экран мигал, элементы и нижняя панель пропадали и появлялись, всё лагало. Слой больше экрана не делаем, blur не используем. */
+.v3-fx-ribbon { left: -25%; top: -15%; width: 150%; height: 70%; border-radius: 50%; opacity: .16; background: radial-gradient(closest-side, var(--v3-fx-a), transparent); animation: v3ribbon calc(26s * var(--v3-loop, 1)) ease-in-out infinite alternate; }
+.v3-fx-ribbon + .v3-fx-ribbon { left: -25%; top: 55%; opacity: .12; background: radial-gradient(closest-side, var(--v3-fx-b), transparent); animation-duration: calc(34s * var(--v3-loop, 1)); animation-direction: alternate-reverse; }
+@keyframes v3ribbon { from { transform: translate3d(-8%, 0, 0) scale(.9); } to { transform: translate3d(8%, 6%, 0) scale(1.1); } }
 .v3-ripple { position: fixed; left: 0; top: 0; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; z-index: 300; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .32), transparent); will-change: transform, opacity; }
 .v3-shock { position: fixed; left: 0; top: 0; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; z-index: 399; pointer-events: none; box-shadow: 0 0 0 2px var(--v3-acc), 0 0 24px rgba(var(--acc-rgb), .7); will-change: transform, opacity; }
 

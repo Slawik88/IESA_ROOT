@@ -52,15 +52,17 @@ function apSigDecor(sig) { const draw = _AP_DECOR[sig]; return typeof draw === '
 // деталь с номером r появляется с тира r. Градиенты и фильтр лежат один раз в скрытом SVG страницы, поэтому их видит любая копия сцены (профиль, топ, предпросмотр).
 const _ORN_DEFS = '<svg id="orn-defs" width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>'
   + '<linearGradient id="ornBow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a90"/><stop offset=".45" stop-color="#e3183c"/><stop offset="1" stop-color="#8a0a20"/></linearGradient>'
-  + '<linearGradient id="ornBlood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a0a12"/><stop offset=".42" stop-color="#e2323c"/><stop offset="1" stop-color="#8c0d16"/></linearGradient>'
-  + '<linearGradient id="ornBand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8242e"/><stop offset="1" stop-color="#6a080f"/></linearGradient>'
-  + '<radialGradient id="ornSplat" cx=".4" cy=".4" r=".7"><stop offset="0" stop-color="#c8161f"/><stop offset="1" stop-color="#5e070d"/></radialGradient>'
+  + '<linearGradient id="ornBlood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3a0508"/><stop offset=".42" stop-color="#8e111a"/><stop offset="1" stop-color="#4a070c"/></linearGradient>'
+  + '<linearGradient id="ornBand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c0d15"/><stop offset="1" stop-color="#2e0407"/></linearGradient>'
+  + '<radialGradient id="ornSplat" cx=".4" cy=".4" r=".7"><stop offset="0" stop-color="#781019"/><stop offset="1" stop-color="#2c0306"/></radialGradient>'
   + '<filter id="ornRough" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".05" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="7"/><feGaussianBlur stdDeviation=".5"/></filter>'
   + '</defs></svg>';
 function _ornDefs() { if (!document.getElementById('orn-defs')) document.body.insertAdjacentHTML('beforeend', _ORN_DEFS); }
-const _ORN_BOW = 'M30 22C22 6 4 2 3 15c-1 15 17 23 27 7zM34 22C42 6 60 2 61 15c1 15-17 23-27 7z';
+// Бант как на образце: два широких округлых крыла, узел по центру и два хвоста с V-вырезом на концах. Хвосты рисуются первыми, крылья поверх них
+const _ORN_BOW_TAILS = ['M29.5 27L12 54.5L22 51.5L25.5 57.5L33.5 29Z', 'M34.5 27L52 54.5L42 51.5L38.5 57.5L30.5 29Z'];
+const _ORN_BOW_WINGS = ['M27 19C22 8 12 3 6 7C0 11 0 25 6 30C12 34 22 31 27 27Z', 'M37 19C42 8 52 3 58 7C64 11 64 25 58 30C52 34 42 31 37 27Z'];
 const _ORN_STAR = 'M12 2.6l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.6 6 21l1.3-6.7-5-4.7 6.8-.8z';
-function _ornBow(cls) { _ornDefs(); return `<svg class="o-bow ${cls}" viewBox="0 0 64 44" aria-hidden="true"><path d="${_ORN_BOW}"/><path class="o-fold" d="M30 22C21 16 12 14 6 16M34 22C43 16 52 14 58 16"/><path class="o-hl" d="M9 11C13 7 20 8 25 13M55 11C51 7 44 8 39 13"/><rect class="o-knot" x="27" y="15.5" width="10" height="13" rx="4"/><path class="o-hl" d="M29.5 18.5V23"/></svg>`; }
+function _ornBow(cls) { _ornDefs(); return `<svg class="o-bow ${cls}" viewBox="0 0 64 59" aria-hidden="true">${_ORN_BOW_TAILS.map(d => `<path class="o-w" d="${d}"/>`).join('')}${_ORN_BOW_WINGS.map(d => `<path class="o-w" d="${d}"/>`).join('')}<path class="o-fold" d="M26.5 22.5C23 20.5 19 20.5 15.5 22.5M37.5 22.5C41 20.5 45 20.5 48.5 22.5"/><path class="o-hl" d="M9 11C12 8 16 7 20 9M55 11C52 8 48 7 44 9"/><rect class="o-knot" x="27" y="17" width="10" height="13" rx="4"/><path class="o-hl" d="M29.5 20.5V25"/></svg>`; }
 const _ORN = (() => {
   const bow = _ornBow;
   const spark = (cls, d) => `<svg class="o-sp ${cls}" style="--d:${d}s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1l2.6 8.4L23 12l-8.4 2.6L12 23l-2.6-8.4L1 12l8.4-2.6z"/></svg>`;

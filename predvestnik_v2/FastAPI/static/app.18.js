@@ -43,14 +43,27 @@ function _v3BuildFx(level) {
   if (level >= 7) { add('v3-fx-ribbon'); add('v3-fx-ribbon'); }
   document.body.appendChild(layer);
 }
-// Наклон телефона и указатель двигают слой SS+: обновление не чаще кадра
+// Наклон телефона и указатель двигают слой SS+. В руке телефон никогда не лежит неподвижно: сырой наклон дрожит, а запись переменной в body пересчитывает стиль всей страницы.
+// Поэтому: ноль берётся из первого замера, дрожь меньше мёртвой зоны гасится, движение сглаживается и пишется только в слой эффектов и док (не в body), редко и пока есть что менять.
 function _v3BindTilt() {
   if (_v3PointerOn) return; _v3PointerOn = true;
-  let frame = 0, tx = 0, ty = 0;
-  const push = () => { frame = 0; document.body.style.setProperty('--tilt-x', tx.toFixed(3)); document.body.style.setProperty('--tilt-y', ty.toFixed(3)); };
-  const queue = () => { if (!frame) frame = requestAnimationFrame(push); };
-  window.addEventListener('deviceorientation', e => { if (_v3FxLevel < 6 || e.gamma == null) return; tx = Math.max(-1, Math.min(1, e.gamma / 30)); ty = Math.max(-1, Math.min(1, (e.beta - 45) / 30)); queue(); }, { passive: true });
-  window.addEventListener('pointermove', e => { if (_v3FxLevel < 6 || e.pointerType === 'touch') return; tx = e.clientX / innerWidth * 2 - 1; ty = e.clientY / innerHeight * 2 - 1; queue(); }, { passive: true });
+  let frame = 0, goalX = 0, goalY = 0, curX = 0, curY = 0, base = null, lastPush = 0;
+  const targets = () => [document.querySelector('.v3-fx'), document.querySelector('.nav')].filter(Boolean);
+  const push = now => {
+    frame = 0;
+    curX += (goalX - curX) * 0.1; curY += (goalY - curY) * 0.1;
+    if (now - lastPush >= 66 && (Math.abs(goalX - curX) > 0.004 || Math.abs(goalY - curY) > 0.004)) {   // не чаще 15 раз в секунду
+      lastPush = now; targets().forEach(n => { n.style.setProperty('--tilt-x', curX.toFixed(3)); n.style.setProperty('--tilt-y', curY.toFixed(3)); });
+    }
+    if (Math.abs(goalX - curX) > 0.004 || Math.abs(goalY - curY) > 0.004) frame = requestAnimationFrame(push);
+  };
+  const aim = (x, y) => { if (Math.abs(x - goalX) < 0.06 && Math.abs(y - goalY) < 0.06) return; goalX = x; goalY = y; if (!frame) frame = requestAnimationFrame(push); };
+  window.addEventListener('deviceorientation', e => {
+    if (_v3FxLevel < 6 || e.gamma == null || document.hidden) return;
+    if (!base) base = [e.gamma, e.beta];
+    aim(Math.max(-1, Math.min(1, (e.gamma - base[0]) / 40)), Math.max(-1, Math.min(1, (e.beta - base[1]) / 40)));
+  }, { passive: true });
+  window.addEventListener('pointermove', e => { if (_v3FxLevel < 6 || e.pointerType === 'touch') return; aim(e.clientX / innerWidth * 2 - 1, e.clientY / innerHeight * 2 - 1); }, { passive: true });
 }
 function applySkinTier(skin, options = {}) {
   _v3Skin = { css_class: skin?.css_class || '', tier: _V3_TIER_LIST.includes(skin?.tier) ? skin.tier : 'D' };

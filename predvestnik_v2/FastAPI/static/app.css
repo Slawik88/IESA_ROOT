@@ -130,7 +130,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   position: fixed; left: 10px; right: 10px; bottom: calc(10px + var(--safe-b)); z-index: 90;
   display: flex; justify-content: space-around; align-items: stretch;
   background: rgba(14,16,25,.92);
-  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border2); border-radius: 22px;
   padding: 6px 4px; box-shadow: var(--shadow);
 }

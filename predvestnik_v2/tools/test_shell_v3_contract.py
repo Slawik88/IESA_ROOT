@@ -201,6 +201,12 @@ for _name, _src in _player_sources.items():
     for _m in re.finditer(r"class(?:Name)?\s*=\s*['\"`]([^'\"`]*)", _src):
         _bad = LEGACY_CONTROLS.intersection(_m.group(1).split())
         assert not _bad, f"{_name} uses the legacy class {sorted(_bad)} (admin-only): {_m.group(0)[:80]}"
+# SSS made phones flash and lag (elements and the dock vanishing and returning): the light ribbons were 160vmax conic gradients with blur(60px), spinning, a layer far beyond graphics memory.
+# The effect layer may not hold a viewport-max sized layer or a big blur, and the tilt may not write into body (it re-styles the whole page).
+_fx_css = (STATIC / "fx-tiers-v3.css").read_text(encoding="utf-8")
+assert "vmax" not in re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S), "no screen-multiple layers in the effect layer"
+assert not re.search(r"blur\((4\d|[5-9]\d|\d{3,})px\)", re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S)), "no big blur in the effect layer"
+assert "document.body.style.setProperty('--tilt" not in (STATIC / "app.18.js").read_text(encoding="utf-8"), "tilt must not write into body"
 # A page must never be wider than the phone: effects of a look that reach past the edge widen the document, the mobile browser then widens the viewport
 # and the fixed dock lands below the visible screen (reported on production). The document clips sideways and may not be zoomed out.
 shell_css_text = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
