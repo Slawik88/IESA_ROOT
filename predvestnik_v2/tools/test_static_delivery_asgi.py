@@ -120,7 +120,7 @@ def main() -> None:
     assert 'role="dialog" aria-modal="true"' in app_js and "document.activeElement === last" in app_js
     assert "/payments/zarniki/packages" in app_js and "/payments/zarniki/invoice" in app_js
     assert "function navBack()" in app_js and "function v3ApplyLook(" in app_js
-    assert 'data-page="looks"' not in direct.get("/").text and 'id="pg-looks"' in direct.get("/").text
+    assert 'data-page="looks"' in direct.get("/").text and 'id="pg-looks"' in direct.get("/").text, "looks is a dock tab and a page"
     assert "api('/themes" not in app_js and "api(`/themes" not in app_js
     skin_css = direct.get("/static/skin-runtime-v3.css").text
     assert "background-attachment: scroll !important" in skin_css
