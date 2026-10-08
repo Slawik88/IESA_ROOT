@@ -551,11 +551,12 @@ function switchPage(name, _btn, _viaBack) {
   el('pg-'+name).classList.add('active');
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
-  // Подэкраны профиля (образы, питомцы, сундуки…) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['looks','pets','chests','questlog','achievements-v1','public-profile'];
+  // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
+  const _profileChildren=['pets','chests','achievements-v1','public-profile'];
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
+  if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
   showCurrBar(name !== 'profile');
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}

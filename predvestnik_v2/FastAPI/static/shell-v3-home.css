@@ -24,7 +24,6 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 /* ── Дизайнерские акценты ── */
 .v3-eyebrow::before { content: ""; display: inline-block; width: 14px; height: 1px; margin-right: 8px; vertical-align: middle; background: var(--v3-acc); opacity: .8; }
 .v3-num { background: linear-gradient(180deg, var(--v3-ink) 35%, color-mix(in srgb, var(--v3-ink) 48%, var(--v3-bg))); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.nb.active::before { content: ""; position: absolute; top: 2px; left: 50%; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--v3-acc); }
 .v3-id { position: relative; isolation: isolate; }
 .v3-id::before { content: ""; position: absolute; left: -35%; top: -70%; width: 150%; height: 240%; z-index: -1; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .15), transparent); animation: v3drift 14s ease-in-out infinite alternate; }
 @keyframes v3drift { to { transform: translate3d(6%, 5%, 0) scale(1.1); } }

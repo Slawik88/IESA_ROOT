@@ -61,11 +61,16 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: 
 .mclose::after { content: ""; position: absolute; inset: -8px; }
 dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(4,5,10,.8); }
 
-/* ── Нижний док ── */
-.nav { left: 50%; right: auto; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); bottom: calc(14px + var(--v3-safe-b)); gap: 2px; padding: 5px; border: 0; border-radius: 99px; background: var(--v3-dock); box-shadow: 0 0 0 1px var(--v3-faint); }
-.nb { flex: none; flex-direction: row; gap: 7px; min-height: 44px; padding: 0 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; color: var(--v3-dim); transition: color .2s, background-color .2s, transform .15s; }
-.nb svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-.nb.active { color: var(--v3-ink); background: var(--v3-dock-on); }
+/* ── Нижний док: шесть вкладок, текущая обозначена скользящей подсветкой, а не точкой ──
+   Подсветка это один элемент (.nav::before), её двигает только transform по индексу --nav-i, который ставит switchPage. */
+.nav { left: 50%; right: auto; display: grid; grid-template-columns: repeat(var(--nav-n, 6), 1fr); width: min(calc(100% - 20px), 440px); max-width: none; transform: translateX(-50%); bottom: calc(12px + var(--v3-safe-b)); gap: 0; padding: 5px; isolation: isolate; border: 0; border-radius: 26px; background: var(--v3-dock); box-shadow: 0 0 0 1px var(--v3-faint), 0 10px 28px rgba(0, 0, 0, .34); }
+.nav::before { content: ""; position: absolute; top: 5px; bottom: 5px; left: 5px; z-index: -1; width: calc((100% - 10px) / var(--nav-n, 6)); border-radius: 21px; background: var(--v3-dock-on);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-acc) 32%, transparent); transform: translateX(calc(var(--nav-i, 0) * 100%)); transition: transform .38s cubic-bezier(.3, 1.2, .5, 1); }
+.nb { flex: none; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; min-height: 54px; padding: 6px 0 5px; border-radius: 21px; background: none; font-size: 10.5px; font-weight: 600; letter-spacing: .01em; color: var(--v3-dim); transition: color .2s, transform .15s; }
+.nb span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; transition: transform .3s cubic-bezier(.3, 1.4, .5, 1); }
+.nb.active { color: var(--v3-ink); background: none; font-weight: 700; }
+.nb.active svg { color: var(--v3-acc); stroke-width: 1.9; transform: translateY(-1px); }
 .nb.active::after { display: none; }
 .nb:active { transform: scale(.94); }
 
@@ -166,6 +171,6 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 
 @media (prefers-reduced-motion: reduce) {
   .sk::after, .v3-glow::before { animation: none; }
-  .page.active, .nb, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
+  .page.active, .nb, .nb svg, .nav::before, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
 }
-@media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { padding: 0 12px; } }
+@media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { font-size: 9.5px; } .nb svg { width: 20px; height: 20px; } }

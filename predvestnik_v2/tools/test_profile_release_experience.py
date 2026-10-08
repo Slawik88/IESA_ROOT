@@ -40,7 +40,7 @@ assert "st-switch" in settings and "st-sec" in settings and "_accDeleteStart()" 
 assert ".help-card" in css and ".settings-panel" in css
 assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
 assert 'aria-label="Основные разделы"' in index
-assert index.count('type="button" class="nb') == 3
+assert index.count('type="button" class="nb') == 6
 assert "setAttribute('aria-current','page')" in shell
 assert "2026-09-20-navigation-and-player-hub" in updates
 assert "2026-09-20-profile-stories-and-admin-repair" in updates
