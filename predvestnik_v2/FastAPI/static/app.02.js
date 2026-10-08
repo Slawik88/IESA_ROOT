@@ -178,74 +178,7 @@ function openLegalDoc(slug){
       <div class="legal-link">Прямая ссылка: <a href="${_legalUrl(slug)}" target="_blank" rel="noopener">${_legalUrl(slug)}</a></div>`;
   }).catch(e=>{ el('mb').innerHTML=`<div class="err">${e}</div>`; });
 }
-function openSettingsModal(){
-  const noFx=document.body.classList.contains('no-fx');
-  OM('⚙️ Настройки',`
-    <section class="settings-panel"><div class="set-sec-t"><span>🎨</span> Внешний вид</div>
-    <button class="btn btn-ghost btn-full" onclick="CM();openLooksModal()">🎨 Мои образы и скины</button>
-    <label class="settings-toggle">
-      <input type="checkbox" ${noFx?'checked':''} onchange="_toggleNoFx(this.checked)"/>
-      <span><b>Спокойный режим</b><small>Отключить анимации косметики</small></span>
-    </label>
-    <div class="set-hint">Свечения, рамки и частицы станут статичными. Полезно на слабых телефонах.</div></section>
-    <section class="settings-panel"><div class="set-sec-t"><span>👁</span> Приватность</div>
-    <div id="set-presence"><div class="loader">Загрузка...</div></div></section>
-    <section class="settings-panel"><div class="set-sec-t"><span>🔔</span> Уведомления</div>
-    <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
-    <div class="set-hint">Здесь настраиваются только личные сообщения от бота.</div></section>
-    <section class="settings-panel"><div class="set-sec-t"><span>📄</span> Документы</div>
-    <button class="btn btn-ghost btn-full" onclick="openLegalDoc('tos')">📖 Пользовательское соглашение</button>
-    <button class="btn btn-ghost btn-full" style="margin-top:7px" onclick="openLegalDoc('privacy')">🔒 Политика конфиденциальности</button>
-    <div class="set-hint">Откроются прямо здесь.</div></section>
-    ${!INIT_DATA?`<section class="settings-panel"><div class="set-sec-t"><span>🔀</span> Вход</div>
-    <div class="set-hint">Сейчас: Telegram @${esc((_profileData&&_profileData.username)||'—')}. Сайт открыт в браузере — если сменили активный аккаунт в приложении Telegram, страница сама этого не узнает.</div>
-    <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="switchTgAccount()">🔀 Войти другим Telegram-аккаунтом</button></section>`:''}
-    <section class="settings-panel settings-panel--danger"><div class="set-sec-t"><span>👤</span> Аккаунт</div>
-    <div id="set-account"><div class="loader">Загрузка...</div></div></section>`,
-    [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
-  _loadNotifPrefs();
-  _loadPresenceSettings();
-  _loadAccountSection();
-}
-// «Был(а) в сети»: игрок сам решает, что видят другие (всем, примерно, никому)
-let _presenceBusy=false;
-function _presenceHtml(d){
-  const rows=(d.levels||[]).map(l=>`<button class="skin-choice${l.id===d.visibility?' selected':''}" type="button" role="radio" aria-checked="${l.id===d.visibility}" onclick="_setPresence('${l.id}')" ${_presenceBusy?'disabled':''}><span><b>${_profileEsc(l.title)}</b><small>${_profileEsc(l.hint)}</small></span><em>${l.id===d.visibility?'✓':''}</em></button>`).join('');
-  const now=d.preview?`Сейчас другие видят: «${_profileEsc(d.preview.label)}».`:'Сейчас другие не видят ничего.';
-  return `<div class="skin-settings" role="radiogroup" aria-label="Кто видит, когда вы были в сети">${rows}</div><div class="set-hint">${now} Чужое время вы видите с той же точностью, которую даёте сами: скрыли своё, значит чужое только примерно.</div>`;
-}
-function _loadPresenceSettings(){
-  const box=el('set-presence'); if(!box) return;
-  api('/presence-v1/settings').then(d=>{ const b=el('set-presence'); if(b) b.innerHTML=_presenceHtml(d); }).catch(e=>{ const b=el('set-presence'); if(b) b.innerHTML=`<div class="set-hint">${_profileEsc(e)}</div>`; });
-}
-function _setPresence(level){
-  if(_presenceBusy) return; _presenceBusy=true; _haptic('select');
-  api('/presence-v1/settings',{method:'POST',body:JSON.stringify({visibility:level})})
-    .then(d=>{ _presenceBusy=false; const b=el('set-presence'); if(b) b.innerHTML=_presenceHtml(d); toast('Сохранено'); })
-    .catch(e=>{ _presenceBusy=false; toast(e,false); _loadPresenceSettings(); });
-}
 // admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
-function _loadAccountSection(){
-  const box=el('set-account'); if(!box) return;
-  api('/account/deletion-status').then(d=>{
-    const days=d.delete_after_days||365;
-    const proc=d.process_status;
-    let procHtml='';
-    if(proc==='confirming') procHtml=`<div class="set-hint" style="color:var(--gold2)">⏳ Ожидается код из ЛС бота.</div>
-      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить процесс</button>`;
-    if(proc==='cooling') procHtml=`<div class="set-hint" style="color:var(--red)">⏳ Удаление запланировано — период «остывания».</div>
-      <button class="btn btn-teal btn-full" onclick="_accCancel()">↩ Отменить удаление</button>`;
-    box.innerHTML=`
-      <div style="font-size:12px;margin-bottom:4px">Удалять аккаунт после неактива:</div>
-      <select class="num-input" style="margin:0 0 4px" onchange="_accSetInactivity(this.value)">
-        <option value="180" ${days===180?'selected':''}>6 месяцев</option>
-        <option value="365" ${days===365?'selected':''}>1 год (по умолчанию)</option>
-        <option value="730" ${days===730?'selected':''}>2 года</option>
-      </select>
-      <div class="set-hint">За 14 дней до срока придёт предупреждение в ЛС; любое сообщение в чате отменяет отсчёт. После удаления — 14 дней на восстановление.</div>
-      ${procHtml||`<button class="btn btn-ghost btn-full" style="margin-top:6px;color:var(--red)" onclick="_accDeleteStart()">🗑 Удалить аккаунт…</button>`}`;
-  }).catch(e=>{box.innerHTML=`<div class="err">${e}</div>`;});
-}
 function _accSetInactivity(v){
   api('/account/set-inactivity',{method:'POST',body:JSON.stringify({days:parseInt(v,10)})})
     .then(r=>toast(r.message||'✅')).catch(e=>toast(e,false));
@@ -276,25 +209,8 @@ function _accDeleteConfirm(){
 }
 function _accCancel(){
   api('/account/delete/cancel',{method:'POST'})
-    .then(r=>{toast(r.message||'✅ Отменено');_loadAccountSection();})
+    .then(r=>{toast(r.message||'✅ Отменено');if(typeof _stLoad==='function')_stLoad('account');})
     .catch(e=>toast(e,false));
-}
-// R6 «Умный Пульс»: тумблеры персональных DM-уведомлений (раньше их нельзя было
-// отключить нигде — БЛОК 36.1)
-function _loadNotifPrefs(){
-  const box=el('set-notif-prefs'); if(!box) return;
-  api('/profile/notification-prefs').then(d=>{
-    box.innerHTML=(d.categories||[]).map(c=>`
-      <label style="display:flex;align-items:center;gap:8px;padding:6px 2px;cursor:pointer">
-        <input type="checkbox" ${c.enabled?'checked':''} onchange="_setNotifPref('${c.key}',this.checked)"/>
-        <span style="font-size:12.5px">${esc(c.label)}</span>
-      </label>`).join('')||'<div class="set-hint">Категорий пока нет.</div>';
-  }).catch(()=>{box.innerHTML='<div class="set-hint" style="color:var(--red)">Не удалось загрузить настройки.</div>';});
-}
-function _setNotifPref(key,on){
-  api('/profile/notification-prefs',{method:'POST',body:JSON.stringify({category:key,enabled:on})})
-    .then(()=>toast(on?'🔔 Включено':'🔕 Выключено'))
-    .catch(e=>{toast(e,false);_loadNotifPrefs();});
 }
 function _toggleNoFx(on){
   document.body.classList.toggle('no-fx',on);

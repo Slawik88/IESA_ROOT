@@ -601,7 +601,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');

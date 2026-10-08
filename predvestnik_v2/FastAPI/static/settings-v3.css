@@ -1,0 +1,33 @@
+/* ═══ SETTINGS V3 · «Настройки» в стиле каркаса: секции без карточек, строки 56px, большие переключатели ═══ */
+
+#pg-settings .v3-title { margin-top: 4px; }
+.st-sec { margin-top: 22px; }
+.st-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: none; color: var(--v3-ink); font: inherit; text-align: left; cursor: pointer; }
+.st-row + .st-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.st-row > span:first-child { min-width: 0; }
+.st-row b { display: block; font-size: 15.5px; font-weight: 500; }
+.st-row small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.35; }
+.st-row--tap:active { opacity: .6; }
+.st-end { display: grid; place-items: center; color: var(--v3-dim); }
+.st-end svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.st-danger b { color: var(--v3-err, #ff8a8a); }
+
+/* переключатель */
+.st-switch { appearance: none; -webkit-appearance: none; position: relative; flex: none; width: 50px; height: 30px; margin: 0; border-radius: 99px; background: var(--v3-track); cursor: pointer; transition: background .2s; }
+.st-switch::after { content: ""; position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: transform .22s var(--v3-ease); }
+.st-switch:checked { background: var(--v3-acc); }
+.st-switch:checked::after { transform: translateX(20px); background: var(--v3-on-acc); }
+.st-switch:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 3px; }
+
+/* сегменты: три варианта в одной «таблетке» */
+.st-field { margin-top: 6px; } .st-field b { font-size: 14px; font-weight: 500; }
+.st-seg { display: flex; gap: 4px; margin-top: 10px; padding: 4px; border-radius: 99px; background: var(--v3-faint); }
+.st-seg button { flex: 1; min-height: 40px; padding: 0 8px; border: 0; border-radius: 99px; background: none; color: var(--v3-dim); font: 600 13.5px var(--v3-font); cursor: pointer; transition: background .2s, color .2s; }
+.st-seg button.on { background: var(--v3-acc); color: var(--v3-on-acc); }
+.st-hint { margin: 10px 0 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
+.st-hint--on { color: var(--v3-ink); }
+.st-note { margin: 10px 0 0; font-size: 13px; color: var(--v3-acc); } .st-note--warn { color: var(--v3-err, #ff8a8a); }
+.st-id { display: block; width: 100%; min-height: 44px; margin-top: 28px; padding: 0; border: 0; background: none; color: var(--v3-dim); font: 12px var(--v3-font); text-align: center; cursor: pointer; }
+.st-id:active { opacity: .6; }
+
+@media (prefers-reduced-motion: reduce) { .st-switch, .st-switch::after, .st-seg button { transition: none; } }

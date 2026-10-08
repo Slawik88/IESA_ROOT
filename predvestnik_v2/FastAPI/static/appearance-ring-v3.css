@@ -68,9 +68,10 @@
 
 /* flame: венец пламени вокруг аватара, языки расходятся от центра и мерцают */
 .ap-ha-flame::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 40%, transparent), color-mix(in srgb, var(--ap-a) 16%, transparent) 62%, transparent); }
-.ap-ha-flame b { left: 50%; bottom: 50%; width: 26%; height: 50%; margin-left: -13%; transform-origin: 50% 100%; clip-path: polygon(50% 0, 74% 30%, 100% 78%, 50% 100%, 0 78%, 26% 30%); background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 50%, var(--ap-c)); opacity: .8; transform: rotate(var(--fa)); }
-.ap-ha-flame b:nth-child(1) { --fa: 0deg; height: 56%; } .ap-ha-flame b:nth-child(2) { --fa: -36deg; } .ap-ha-flame b:nth-child(3) { --fa: 36deg; }
-.ap-ha-flame:is(.ap-t1, .ap-t2) b:nth-child(n+2), .ap-ha-flame:is(.ap-t3, .ap-t4) b:nth-child(3) { display: none; }
+.ap-ha-flame b { left: 50%; bottom: 50%; width: 22%; height: 46%; margin-left: -11%; transform-origin: 50% 100%; clip-path: polygon(50% 0, 57% 16%, 67% 30%, 79% 46%, 88% 64%, 90% 80%, 80% 94%, 64% 100%, 36% 100%, 20% 94%, 10% 80%, 12% 64%, 21% 46%, 33% 30%, 43% 16%); background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); opacity: .82; transform: rotate(var(--fa)); }
+.ap-ha-flame b:nth-child(1) { --fa: 0deg; height: 50%; } .ap-ha-flame b:nth-child(2) { --fa: -34deg; } .ap-ha-flame b:nth-child(3) { --fa: 34deg; }
+.ap-ha-flame:is(.ap-t1, .ap-t2) b:nth-child(n+2) { display: none; }   /* D–C: один язык сверху, B и выше: венец из трёх */
+.ap-ha-flame:is(.ap-t3, .ap-t4) b:nth-child(n+2) { height: 36%; }
 @keyframes apflick { 0%, 100% { transform: rotate(var(--fa)) scaleY(.82); opacity: .6; } 50% { transform: rotate(var(--fa)) scaleY(1.14); opacity: .95; } }
 .ap-anim .ap-ha-flame b { animation: apflick 2.2s ease-in-out infinite; }
 .ap-anim .ap-ha-flame b:nth-child(2) { animation-delay: -.7s; } .ap-anim .ap-ha-flame b:nth-child(3) { animation-delay: -1.4s; }

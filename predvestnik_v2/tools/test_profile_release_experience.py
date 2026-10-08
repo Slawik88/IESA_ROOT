@@ -35,7 +35,8 @@ assert "body.skin-v3" in skin and "var(--v3-wash)" in skin, "game pages take the
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
 assert "help-hero" in index and "help-card" in index and "v3-title" in index
-assert "settings-panel" in profile and "settings-toggle" in profile
+settings = (ROOT / "FastAPI/static/app.26.js").read_text(encoding="utf-8")
+assert "st-switch" in settings and "st-sec" in settings and "_accDeleteStart()" in settings
 assert ".help-card" in css and ".settings-panel" in css
 assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
 assert 'aria-label="Основные разделы"' in index
