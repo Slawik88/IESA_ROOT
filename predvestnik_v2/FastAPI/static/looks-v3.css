@@ -15,7 +15,7 @@
 .lk-hero.is-swap .lk-id { animation: lkswap .34s var(--v3-ease) both; }
 .lk-id { display: flex; flex-direction: column; align-items: center; padding: 38px 0 14px; text-align: center; }
 .lk-ring { margin: 26px 0 36px; transform: scale(1.35); }
-.lk-name { font-size: 28px; max-width: 100%; white-space: nowrap; overflow-wrap: normal; }
+.lk-name { font-size: 28px; max-width: 100%; overflow-wrap: anywhere; }   /* длинный ник идёт в две строки, дальше многоточие (appearance-v3.css) */
 .lk-id .pp-title-row { margin-top: 8px; min-height: 22px; }
 .lk-title { margin: 14px 0 0; font: var(--v3-w-head) 22px/1.2 var(--v3-font); letter-spacing: -.02em; text-align: center; }
 .lk-blurb { margin: 6px auto 0; max-width: 30ch; color: var(--v3-dim); font-size: 14px; line-height: 1.4; text-align: center; }

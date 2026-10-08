@@ -14,7 +14,7 @@ function _v3TopNormalize(id, d) {
     return { top: (d.top || []).slice(0, 5).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: false, is_me: false, look: null })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
   }
-  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look })),
+  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
     personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
 }
 function _v3TopTabs() {

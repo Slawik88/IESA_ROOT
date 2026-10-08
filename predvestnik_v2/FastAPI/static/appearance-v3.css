@@ -66,4 +66,13 @@
 .v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
 
+/* Длинные ники. В списках одна строка с многоточием (ник и значок VIP делят строку, титул уходит под него), в шапках не больше двух строк.
+   Ограничение ставится на сам .ap-name: у него свечение идёт через filter, поэтому у родителей overflow не нужен и тень не режется. */
+.v3-who > span:first-child { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.v3-who .ap-name { flex: 0 1 auto; min-width: 0; white-space: nowrap; text-overflow: ellipsis; }
+.v3-who .v3-vipdot { flex: none; }
+.ap-plain { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-name .ap-name, .pp-name .ap-name, .lk-name .ap-name { display: -webkit-inline-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+.v3-name:not(:has(.ap-name)) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+
 @media (prefers-reduced-motion: reduce) { .ap-name, .ap-title { animation: none !important; } }

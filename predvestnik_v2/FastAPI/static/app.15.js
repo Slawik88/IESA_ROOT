@@ -54,6 +54,7 @@ function renderProfileHome(data) {
       <div style="min-width:0"><div class="v3-greet">${v3GreetHtml(d)}</div><div class="v3-name">${apName(ap, _profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left')))}</div>
       ${apTitle(ap) ? `<div class="pp-title-row">${apTitle(ap)}</div>` : ''}
       <div class="v3-sub">${_profileEsc(rank || 'Игрок')}</div>
+      ${v3MarksHtml(d.marks, { own: true })}
       ${_v3VipSeal(d.vip)}
       <div class="v3-sub" style="margin-top:2px">${capped ? 'Максимальный уровень' : `${fmt(left)} XP до ${level + 1} уровня`}</div></div>
     </section>`;

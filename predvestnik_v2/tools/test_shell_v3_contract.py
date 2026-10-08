@@ -109,4 +109,10 @@ order = [chips.index(f'id="vb-{k}"') for k in ("mora", "dia", "ess", "zar")]
 assert chips.count('<button type="button" class="v3-chip') == 4 and order == sorted(order), "order: Mora, Diamonds, the other currencies, Zarniki last"
 assert 'class="v3-chip v3-chip--zar" onclick="openZarnikiTopup()"' in chips and chips.count('onclick="showCurrModal()"') == 2 and 'onclick="openLooksModal()"' in chips
 assert ".v3-chips:active" not in home_css and ".v3-chip:active" in home_css and ".v3-bar .v3-chip:active" in home_css and ".v3-bar .v3-chip { background: none; }" in home_css
+# Marks: shown in both heroes and next to names in lists; everything from the server is validated and escaped before it reaches markup.
+marks_js = (STATIC / "app.29.js").read_text(encoding="utf-8")
+assert "v3MarksHtml(d.marks, { own: true })" in (STATIC / "app.15.js").read_text(encoding="utf-8") and "v3MarksHtml(d.marks)" in card
+assert "v3MarkDot(row.mark)" in (STATIC / "app.20.js").read_text(encoding="utf-8") and "mark: r.mark" in top
+assert "_mkSafe" in marks_js and "_MK_TONES.has(m.tone)" in marks_js and "_profileEsc(m.glyph)" in marks_js and "_profileEsc(m.title)" in marks_js and "textContent" not in marks_js
+assert "marks-v3.css" in index and ".v3-mark " in (STATIC / "marks-v3.css").read_text(encoding="utf-8")
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

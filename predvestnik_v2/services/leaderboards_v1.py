@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from infrastructure.repositories import public_profiles_v1 as public_profiles
-from services import appearance_public_v3
+from services import appearance_public_v3, marks_v1 as marks_service
 from infrastructure.repositories import stats as stats_repo
 from infrastructure.repositories.streak import get_chat_timezone
 from services.membership import bot_tg_id
@@ -53,12 +53,14 @@ async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> 
     ids = [int(r["user_tg_id"]) for r in rows]
     players = await public_profiles.player_projection(db, user_ids=ids)
     looks = await appearance_public_v3.nick_styles(db, ids)   # VIP owners only
+    marks = await marks_service.top_mark_batch(db, ids)       # staff and hand-given marks, one glyph per row
     return [
         {
             "place": first_place + index,
             "name": players[int(row["user_tg_id"])]["display_name"],
             "ref": players[int(row["user_tg_id"])]["profile_ref"],
             "look": looks.get(int(row["user_tg_id"])),
+            "mark": marks.get(int(row["user_tg_id"])),
             "count": int(row["msg_count"]),
             "is_vip": bool(row.get("is_vip")),
             "is_me": int(row["user_tg_id"]) == int(user_id),

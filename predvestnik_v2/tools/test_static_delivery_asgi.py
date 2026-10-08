@@ -33,6 +33,7 @@ ALLOWED = {
     "/static/collect-v3.css": "text/css",
     "/static/toast-v3.css": "text/css",
     "/static/quests-v3.css": "text/css",
+    "/static/marks-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",

@@ -68,6 +68,7 @@ function renderPublicCardV3(d) {
       <div class="v3-name pp-name">${apName(ap, _profileEsc(name))}</div>
       ${apTitle(ap) ? `<div class="pp-title-row">${apTitle(ap)}</div>` : ''}
       <div class="v3-sub">${_profileEsc(rank || 'Игрок')}${_profileEsc(joined)}</div>
+      ${v3MarksHtml(d.marks)}
       ${_ppPresence(d.presence, d)}${_v3VipSeal(d.vip)}
       <div class="v3-sub pp-xp">${capped ? 'Максимальный уровень' : `${fmt(Math.max(0, lv.xp_to_next - lv.xp_into))} XP до ${level + 1} уровня`}</div></section>`;
   const s = d.stats || {}, families = d.paths?.families || [];

@@ -52,5 +52,5 @@ function apStage(ap, inner) {
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {
   const ap = apFromLook(row.look);
-  return `<span class="v3-who"><span>${apName(ap, _profileEsc(row.name))}${row.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}</span>${apTitle(ap)}</span>`;
+  return `<span class="v3-who"><span>${ap ? apName(ap, _profileEsc(row.name)) : `<span class="ap-plain">${_profileEsc(row.name)}</span>`}${row.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}${v3MarkDot(row.mark)}</span>${apTitle(ap)}</span>`;
 }

@@ -19,6 +19,7 @@ from services.leveling import account_progress
 from services.formatting import safe_html
 from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
+from services import marks_v1 as marks_service
 from services import skins_v3 as skins_v3_service
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy import get_item_quantity, remove_item
@@ -516,6 +517,8 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "whatsnew_seen_id": whatsnew_seen_id,
         "sky_sigil": await _sky_sigil(db, user_id),
         "supporter_badge": await _supporter_badge(db, user_id),
+        "marks": await marks_service.marks_for(db, user_id, global_rank=row["global_rank"] or 0, streak=(dict(streak_row)["streak"] or 0) if streak_row else 0,
+                                               joined=joined_date, messages=int(activity_row.get("messages_all_time") or 0)),
     }
 
 
@@ -792,6 +795,7 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
         # the look of another player is served by /public-profile-v3 (VIP-gated, core/appearance_v3.py)
         "sky_sigil":     await _sky_sigil(db, target_id),
         "supporter_badge": await _supporter_badge(db, target_id),
+        "marks": await marks_service.marks_for(db, target_id, global_rank=row["global_rank"] or 0, streak=streak or 0, joined=joined_date, messages=int(agg.get("msgs") or 0)),
     }
 
 

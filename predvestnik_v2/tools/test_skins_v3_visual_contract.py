@@ -81,6 +81,10 @@ assert not re.search(r"\.ap-title[^{}]*\{[^{}]*apglint", names_css), "a title is
 sheen = re.search(r"\.ap-title::after \{[^}]*gradient\(([^;]*)\); \}", names_css)
 assert sheen and sheen.group(1).count("rgba(") >= 7, "the title sheen needs a smooth many-step profile, a two-step ramp shows its edges"
 assert re.search(r"@keyframes aptsheen \{[^}]*opacity[^}]*transform", names_css) and ".ap-anim .ap-title:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after" in names_css
+# Long nicknames never break a layout: one line with an ellipsis in lists, two lines at most in heroes.
+assert re.search(r"\.v3-who \.ap-name \{[^}]*white-space: nowrap; text-overflow: ellipsis", names_css) and ".ap-plain {" in names_css
+assert re.search(r"\.v3-name \.ap-name, \.pp-name \.ap-name, \.lk-name \.ap-name \{[^}]*-webkit-line-clamp: 2[^}]*overflow-wrap: anywhere", names_css)
+assert "white-space: nowrap" not in css["looks-v3.css"].split(".lk-name {", 1)[1].split("}", 1)[0], "the looks hero name may wrap"
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 assert re.search(r"\.v3-top-list \.v3-rowbtn > span \{[^}]*padding: 14px 24px; margin: -14px -24px", home_css), "top list rows clip the glow of a look"
 
