@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.marks_v1 import EARNED_RULES, GRANTABLE, KINDS, MARKS, PLAYER_NAME, TONES, compose, earned_state, ordered, staff_hint  # noqa: E402
+from core.marks_v1 import EARNED_RULES, GRANTABLE, KINDS, LIVE_RULES, LIVE_WINDOWS, MARKS, PLAYER_NAME, TONES, compose, earned_state, live_state, ordered, staff_hint  # noqa: E402
 from core.skins_v3_catalog import SEASONS  # noqa: E402
 
 
@@ -20,6 +20,9 @@ def catalog() -> None:
     check(all(m["kind"] in KINDS and m["tone"] in TONES and m["glyph"] and m["title"] and m["desc"] and m["how"] for m in MARKS.values()), "every mark is complete")
     check(len({m["weight"] for m in MARKS.values()}) == len(MARKS), "weights are unique, so the order never depends on dict order")
     check(set(EARNED_RULES) == {k for k, m in MARKS.items() if m["kind"] == "earned"}, "every earned mark has a rule and only earned marks do")
+    check(set(LIVE_RULES) == {k for k, m in MARKS.items() if m["kind"] == "live"}, "every dynamic mark has a rule and only dynamic marks do")
+    check(not set(EARNED_RULES) & set(LIVE_RULES), "a mark is either kept for good or dynamic, never both")
+    check(all(rule[0] in {f"messages_{d}d" for d in LIVE_WINDOWS} for rule in LIVE_RULES.values()), "dynamic rules read only windows the repository computes")
     check(set(GRANTABLE) == {k for k, m in MARKS.items() if m["kind"] in ("staff", "granted")}, "the console gives staff and special marks, never earned ones")
     check(PLAYER_NAME == "Регалии" and PLAYER_NAME.lower() not in ("титул", "статус", "метки"), "players see the marks under their own name")
     check(min(MARKS[k]["weight"] for k, m in MARKS.items() if m["kind"] == "staff") > max(m["weight"] for m in MARKS.values() if m["kind"] != "staff"), "staff always come first")
@@ -34,13 +37,24 @@ def staff() -> None:
 
 
 def composition() -> None:
-    facts = {"streak": 31, "joined_days": 400, "messages": 50, "owned_permanent": 12, "maxed": 1, "seasons": {"halloween"}}
+    facts = {"streak": 31, "joined_days": 400, "messages_30d": 50, "owned_permanent": 12, "maxed": 1, "seasons": {"halloween"}}
     got = [m["id"] for m in compose(held_ids=["tester", "founder", "helper"], facts=facts)]
     check(got == ["helper", "founder", "tester", "collector", "streak30", "veteran", "halloween"], got)
     check([m["id"] for m in compose(held_ids=[], facts={})] == [], "a new player wears nothing, whatever the bot rank")
     check([m["id"] for m in compose(held_ids=["streak30", "nonsense"], facts={"streak": 3})] == ["streak30"],
           "an earned mark that was awarded stays when the streak later breaks (sticky); unknown ids are skipped")
     check(ordered(["tester", "tester", "gone", "founder"]) == ordered(["founder", "tester"]), "unique, unknown ids skipped, heaviest first")
+
+
+def dynamic() -> None:
+    busy = {"messages_30d": 10_000, "messages_60d": 49_999}
+    check([m["id"] for m in compose(held_ids=[], facts=busy)] == ["chatter"], "10 000 in 30 days is «Душа чата»; 49 999 in 60 days is not «Личная жизнь?»")
+    check([m["id"] for m in compose(held_ids=[], facts={"messages_30d": 25_000, "messages_60d": 50_000})] == ["personal_life", "chatter"], "both can be worn, the harder one first")
+    check([m["id"] for m in compose(held_ids=[], facts={"messages_30d": 9_999, "messages_60d": 50_000})] == ["personal_life"], "the two windows are independent")
+    check(compose(held_ids=[], facts={"messages_30d": 9_999, "messages_60d": 49_999}) == [], "below both needs nothing is worn: a dynamic mark disappears")
+    check(compose(held_ids=["chatter", "personal_life"], facts={}) == [], "a stored row never keeps a dynamic mark alive")
+    check(all(not any(s["done"] for s in live_state({})) for _ in (0,)) and live_state({"messages_30d": 3_000})[0]["have"] == 3_000, "progress is reported for the sheet")
+    check(MARKS["personal_life"]["title"] == "Личная жизнь?" and MARKS["chatter"]["kind"] == "live", "both are dynamic")
 
 
 def progress() -> None:
@@ -56,6 +70,7 @@ def main() -> None:
     catalog()
     staff()
     composition()
+    dynamic()
     progress()
     print(f"OK: marks v1 rules. {len(MARKS)} marks: " + ", ".join(f"{k}={sum(1 for m in MARKS.values() if m['kind'] == k)}" for k in KINDS))
 

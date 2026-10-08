@@ -48,7 +48,7 @@ function v3MarksClose() {
 function _mkTile(m) { return `<span class="mk-tile" data-tone="${m.tone}" aria-hidden="true">${_profileEsc(m.glyph)}</span>`; }
 function _mkRow(m) {
   const fresh = window.__mkFresh?.has(m.id);
-  return `<li class="mk-row${fresh ? ' mk-row--new' : ''}">${_mkTile(m)}<div class="mk-tx"><b>${_profileEsc(m.title)}${fresh ? '<em class="mk-new">новая</em>' : ''}</b><small>${_profileEsc(m.desc || '')}</small></div></li>`;
+  return `<li class="mk-row${fresh ? ' mk-row--new' : ''}">${_mkTile(m)}<div class="mk-tx"><b>${_profileEsc(m.title)}${fresh ? '<em class="mk-new">новая</em>' : ''}${m.kind === 'live' ? '<em class="mk-live">динамическая</em>' : ''}</b><small>${_profileEsc(m.desc || '')}</small></div></li>`;
 }
 function _mkAhead(a) {
   const pct = a.need > 1 ? Math.round(100 * a.have / a.need) : 0;
@@ -56,8 +56,9 @@ function _mkAhead(a) {
 }
 function _mkGroup(title, list, row) { return list.length ? `${title ? `<h3 class="mk-sub">${title}</h3>` : ''}<ul class="mk-list">${list.map(row).join('')}</ul>` : ''; }
 function _mkBody(worn, ahead, note) {
-  const special = worn.filter(m => m.kind !== 'earned'), earned = worn.filter(m => m.kind === 'earned');
-  const lists = !worn.length ? '<p>Пока ни одной регалии.</p>' : special.length && earned.length ? `${_mkGroup('Особые', special, _mkRow)}${_mkGroup('Заслуженные', earned, _mkRow)}` : _mkGroup('', worn, _mkRow);
+  const live = worn.filter(m => m.kind === 'live'), earned = worn.filter(m => m.kind === 'earned'), special = worn.filter(m => m.kind !== 'earned' && m.kind !== 'live');
+  const groups = [['Особые', special], ['Заслуженные', earned], ['Пока держите темп', live]].filter(g => g[1].length);
+  const lists = !worn.length ? '<p>Пока ни одной регалии.</p>' : groups.length > 1 ? groups.map(g => _mkGroup(g[0], g[1], _mkRow)).join('') : _mkGroup('', worn, _mkRow);
   return `${lists}${ahead && ahead.length ? _mkGroup('Впереди', ahead, _mkAhead) : ''}${note ? `<p class="mk-note">${_profileEsc(note)}</p>` : ''}`;
 }
 // Лист открывается сразу с тем, что уже пришло с профилем; «Впереди» и пояснение подтягиваются следом на то же место

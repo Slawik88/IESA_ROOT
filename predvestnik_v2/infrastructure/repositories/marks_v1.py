@@ -1,6 +1,11 @@
 """Storage for player marks (hand-given and earned ones the server awarded) and an append-only log of every grant and revoke."""
 from __future__ import annotations
 
+import os
+
+# Same zone and same date text as the counters in infrastructure/repositories/chat.py (daily_user_stats.date is a local «YYYY-MM-DD»).
+_TZ = os.getenv("TIMEZONE_OFFSET", "+3 hours").replace("'", "")
+
 
 async def ensure_tables(db) -> None:
     async with db.execute("SELECT to_regclass('player_marks_v1') IS NOT NULL AND to_regclass('player_marks_v1_log') IS NOT NULL") as c:
@@ -91,3 +96,20 @@ async def best_streak_before(db, user_id: int) -> int:
     async with db.execute("SELECT COALESCE(progress, 0) FROM achievements WHERE user_id=? AND achievement_id='persistent'", (int(user_id),)) as c:
         legacy = await c.fetchone()
     return max(int(rows or 0), int(legacy[0]) if legacy else 0)
+
+
+def _since(days: int) -> str:
+    """SQL for the first date of a window of `days` days that ends today."""
+    return f"TO_CHAR(NOW() + INTERVAL '{_TZ}' - INTERVAL '{max(1, int(days)) - 1} days', 'YYYY-MM-DD')"
+
+
+async def messages_recent_batch(db, user_ids: list[int], windows: tuple[int, ...] = (30, 60)) -> dict[int, dict[int, int]]:
+    """Messages written in all chats per player over each window of days that ends today: {user_id: {days: count}}. One query for all of them."""
+    ids = [int(u) for u in dict.fromkeys(user_ids or [])]
+    if not ids:
+        return {}
+    marks = ",".join("?" for _ in ids)
+    sums = ", ".join(f"COALESCE(SUM(message_count) FILTER (WHERE date >= {_since(w)}), 0)" for w in windows)
+    async with db.execute(f"SELECT user_id, {sums} FROM daily_user_stats WHERE user_id IN ({marks}) AND date >= {_since(max(windows))} GROUP BY user_id",
+                          tuple(ids)) as c:
+        return {int(r[0]): {w: int(r[1 + k] or 0) for k, w in enumerate(windows)} for r in await c.fetchall()}

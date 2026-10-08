@@ -46,6 +46,7 @@
 .mk-row--ahead .mk-tile { opacity: .55; filter: saturate(.6); }
 .mk-row--ahead .mk-tx b { color: var(--v3-dim); }
 .mk-new { padding: 2px 8px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 10px var(--v3-font); font-style: normal; letter-spacing: .06em; text-transform: uppercase; }
+.mk-live { padding: 1px 7px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--v3-track); color: var(--v3-dim); font: 600 10px var(--v3-font); font-style: normal; letter-spacing: .04em; }   /* динамическая: держится, пока темп не упал */
 .mk-bar { width: 100%; height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: var(--v3-track); }
 .mk-bar i { display: block; height: 100%; border-radius: inherit; background: var(--v3-acc); transform-origin: left; animation: v3grow .7s var(--v3-ease) .15s both; }   /* полоса прогресса вырастает при открытии листа */
 @keyframes v3grow { from { transform: scaleX(0); } }
