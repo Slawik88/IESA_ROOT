@@ -19,22 +19,23 @@ function apFromLook(look) {
   };
 }
 const _apSig = ap => (ap.sig ? ` ap-sig-${ap.sig}` : '');
+const _apSk = ap => (/^[a-z_]{2,24}$/.test(ap.id || '') ? ` data-sk="${ap.id}"` : '');   // id образа на каждом слое: личные образы дорисовывают себя по нему (skins-exclusive-v3.css)
 function apName(ap, html, plain) {
   if (!ap) return html;
   const text = plain ?? String(html).replace(/<[^>]*>/g, '');
-  return `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.k.name}${_apSig(ap)}" style="${ap.vars}" data-t="${text}">${html}</span>`;
+  return `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.k.name}${_apSig(ap)}"${_apSk(ap)} style="${ap.vars}" data-t="${text}">${html}</span>`;
 }
 function apCrest(ap) {   // знак собранного сета: сервер присылает его только владельцу или тем, кто вправе видеть образ
   const c = ap?.look?.crest;
   return c && typeof c.glyph === 'string' ? `<span class="ap-crest" style="${ap.vars}" title="${_profileEsc(c.name || '')}" role="img" aria-label="${_profileEsc(c.name || 'Сет')}">${_profileEsc(c.glyph)}</span>` : '';
 }
 function apTitle(ap) {
-  const title = ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${_apSig(ap)}" style="${ap.vars}">${_profileEsc(ap.title)}</span>` : '';
+  const title = ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${_apSig(ap)}"${_apSk(ap)} style="${ap.vars}">${_profileEsc(ap.title)}</span>` : '';
   return ap ? apCrest(ap) + title : '';
 }
-function apHalo(ap) { return ap ? `<i class="ap-halo ap-t${ap.ti} ap-ha-${ap.k.halo}${_apSig(ap)}" style="${ap.vars}" aria-hidden="true"><b></b><b></b><b></b></i>` : ''; }
+function apHalo(ap) { return ap ? `<i class="ap-halo ap-t${ap.ti} ap-ha-${ap.k.halo}${_apSig(ap)}"${_apSk(ap)} style="${ap.vars}" aria-hidden="true"><b></b><b></b><b></b></i>` : ''; }
 function apFrame(ap) {
-  return ap ? `<i class="ap-frame ap-t${ap.ti} ap-fr-${ap.k.frame}${_apSig(ap)}" style="${ap.vars}" aria-hidden="true">${ap.sig && typeof apSigDecor === 'function' ? apSigDecor(ap.sig) : ''}</i>` : '';
+  return ap ? `<i class="ap-frame ap-t${ap.ti} ap-fr-${ap.k.frame}${_apSig(ap)}"${_apSk(ap)} style="${ap.vars}" aria-hidden="true">${typeof apFrameOrn === 'function' ? apFrameOrn(ap) : ''}${ap.sig && typeof apSigDecor === 'function' ? apSigDecor(ap.sig) : ''}</i>` : '';
 }
 // Частицы сцены: число растёт с тиром; положение детерминировано, чтобы кадр не прыгал при перерисовке
 function _apDust(ap) {
@@ -47,7 +48,7 @@ function _apDust(ap) {
 function apStage(ap, inner) {
   if (!ap) return inner;
   const cls = `ap-t${ap.ti}${_apSig(ap)}`;
-  return `<div class="ap-stage ${cls}" style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div><div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${inner}</div>`;
+  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div><div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}${inner}</div>`;
 }
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {

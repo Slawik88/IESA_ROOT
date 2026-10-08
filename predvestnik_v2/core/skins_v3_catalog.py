@@ -160,12 +160,12 @@ SKINS = dict([
           "rgba(255,59,92,.30)", "rgba(255,59,92,.10)", ("#ff3b5c", "#c8123a", "#ffb0c0"),
           "double", "neon", "star", "glow", "bow",
           ("Неоновый алый", "🎀 Алая Звезда", "Двойное алое кольцо", "Алая неоновая оправа", "Банты и звёзды", "Звёзды в обводке"),
-          sig="bowstar", exclusive=True, tint={"faint": "rgba(255,59,92,.16)", "track": "rgba(255,59,92,.36)"}),
+          sig="bowstar", exclusive=True, tint={"faint": "rgba(255,59,92,.30)", "track": "rgba(255,59,92,.52)"}),
     _skin("crimson_dark", "Багровый Мрак", "SSS", "Чёрный фон, кровавые подтёки, брызги и тёмно-красный шрифт.", "#070304", "#f2535a",
           "rgba(170,18,30,.34)", "rgba(120,10,20,.14)", ("#f2535a", "#c4222d", "#ffa3a7"),
           "drip", "eclipse", "drop", "ink", "grunge",
           ("Тёмная кровь", "🩸 Багровый Мрак", "Рама с подтёками", "Багровая луна", "Брызги и подтёки", "Капли крови"),
-          sig="bloodmoon", exclusive=True, tint={"faint": "rgba(242,83,90,.13)", "track": "rgba(242,83,90,.30)"}),
+          sig="bloodmoon", exclusive=True, tint={"faint": "rgba(242,83,90,.22)", "track": "rgba(242,83,90,.42)"}),
 ])
 
 

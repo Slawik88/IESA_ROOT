@@ -105,4 +105,12 @@ assert "function _v3Constellation(" in renderer and "_cnRand" in renderer and "M
 shell_css = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
 assert ".ap-anim .cn-tw" in shell_css and not re.search(r"(?<!\.ap-anim )\.cn-tw[^{]*\{[^}]*animation", shell_css), "the constellation twinkles only under .ap-anim"
 assert "_v3Constellation(" in (STATIC / "app.15.js").read_text(encoding="utf-8") and "seed: d.ref" in (STATIC / "app.21.js").read_text(encoding="utf-8")
+# Personal skins draw their own SVG layer (bows, sparkles, drips, splashes): every one has ornaments in app.22.js, CSS keyed by its id, and every gradient or filter the CSS names is defined once in the page.
+assert "_apSk(ap)" in renderer and "apOrn(ap)" in renderer and "apFrameOrn(ap)" in renderer, "layers carry data-sk and the stage and frame ask for ornaments"
+for sid, skin in SKINS.items():
+    if skin["exclusive"]:
+        assert re.search(rf"\b{sid}:", decor.split("const _ORN = ", 1)[1].split("function apOrn", 1)[0]), f"{sid}: no SVG ornaments"
+        assert f'data-sk="{sid}"' in every, f"{sid}: no CSS keyed by its id"
+for ref in set(re.findall(r"url\(#(orn\w+)\)", every + decor)):
+    assert f'id="{ref}"' in decor, f"{ref} is used but not defined in _ORN_DEFS"
 print("OK: skins v3 visuals: kinds, signatures, sets, gated motion")
