@@ -38,7 +38,7 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .v3-fx-dots > i { left: var(--x); bottom: -12px; width: var(--s); height: var(--s); border-radius: 50%; background: var(--v3-fx-a); opacity: 0; animation: v3float var(--d) linear var(--delay) infinite; }
 @keyframes v3float { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: .55; } 88% { opacity: .35; } 100% { transform: translate3d(var(--dx), -105vh, 0); opacity: 0; } }
 /* блеск лежит вторым слоем фона самого текста: подсвечиваются только буквы, без квадрата и кромки */
-.fx-5 .v3-gname, .fx-5 .v3-title { background-image: linear-gradient(100deg, transparent 38%, rgba(255,255,255,.85) 50%, transparent 62%), linear-gradient(var(--v3-ink), var(--v3-ink)); background-size: 44% 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: v3glint calc(8s * var(--v3-loop, 1)) ease-in-out infinite; }
+.fx-5 .v3-gname, .fx-5 .v3-title { background-image: linear-gradient(100deg, transparent 38%, rgba(255,255,255,.85) 50%, transparent 62%), linear-gradient(var(--v3-ink), var(--v3-ink)); background-size: 44% 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: v3glint calc(8s * var(--v3-loop, 1)) ease-in-out infinite; will-change: transform; }
 @keyframes v3glint { 0%, 60% { background-position: -70% 0, 0 0; } 100% { background-position: 170% 0, 0 0; } }
 
 /* SS · fx-6: параллакс по наклону/указателю, боковой переход экранов, световое пятно на доке */

@@ -10,7 +10,8 @@
 .ap-frame:is(.ap-t2, .ap-t3)::before { --w: 3px; background: linear-gradient(135deg, var(--ap-a), var(--ap-b)); }
 .ap-frame:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { --w: 3px; background: conic-gradient(var(--ap-a), var(--ap-b), var(--ap-c), var(--ap-b), var(--ap-a)); }
 .ap-frame:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; }
-.ap-frame:is(.ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 55%, transparent)); }
+/* свечение сидит на самих кольцах, а не на рамке: фильтр на рамке пересчитывался каждый кадр вместе со всей фирменной деталью внутри неё */
+.ap-frame:is(.ap-t5, .ap-t6, .ap-t7)::before, .ap-frame:is(.ap-t5, .ap-t6, .ap-t7)::after { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 55%, transparent)); }
 
 /* double: два кольца с воздухом между ними */
 .ap-fr-double::before { --w: 2px; inset: 2px; } .ap-fr-double::after { display: block; inset: -5px; --w: 2px; background: color-mix(in srgb, var(--ap-b) 80%, transparent); }

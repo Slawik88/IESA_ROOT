@@ -117,3 +117,14 @@ PRESS = """([i, label]) => { const norm = e => (e.getAttribute('aria-label') || 
 # Frame intervals (ms) of requestAnimationFrame for `ms` milliseconds.
 FRAMES = """(ms) => new Promise(res => { const out = []; let last = performance.now(); const t0 = last;
   const tick = now => { out.push(now - last); last = now; if (now - t0 < ms) requestAnimationFrame(tick); else res(out.slice(3)); }; requestAnimationFrame(tick); })"""
+
+# What keeps moving on the screen after it settled: the budget of a look. Elements of a toast are not counted (a toast leaves by itself).
+MOTION = """() => new Promise(res => setTimeout(() => {
+  const run = document.getAnimations().filter(a => a.playState === 'running' && a.effect && a.effect.target && !a.effect.target.closest('.toast, .v3-toast'));
+  const chainFilter = t => { for (let n = t; n && n !== document.body; n = n.parentElement) if (getComputedStyle(n).filter !== 'none') return true; return false; };
+  let filter = 0, masked = 0, glint = 0;
+  run.forEach(a => { const t = a.effect.target, cs = getComputedStyle(t); if (chainFilter(t)) filter++; if (cs.maskImage !== 'none' || cs.webkitMaskImage !== 'none') masked++;
+    try { if (a.effect.getKeyframes().some(k => 'backgroundPositionX' in k)) glint++; } catch (e) {} });
+  res({anims: run.length, filter, masked, glint, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
+# Budget of a look on a phone (lite): beyond this the page jitters in the Telegram WebView.
+BUDGET = {"anims": 26, "filter": 3, "masked": 2, "glint": 0}
