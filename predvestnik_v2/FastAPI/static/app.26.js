@@ -61,7 +61,7 @@ function _stRender() {
   const login = !INIT_DATA ? _stSec('Вход', `<p class="st-hint">Сейчас: Telegram @${_profileEsc(user.username || '—')}. Если вы сменили аккаунт в приложении Telegram, обновите вход.</p>${_stRow('Войти другим аккаунтом', 'Откроется вход через Telegram', 'switchTgAccount()')}`) : '';
   root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="navBack()" aria-label="Назад">‹ Назад</button></div>
     <h1 class="v3-title">Настройки</h1><p class="v3-sub">Всё под себя. Изменения сохраняются сразу.</p>
-    ${_stSec('Внешний вид', _stRow('Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)'))}
+    ${_stSec('Внешний вид', _stRow('Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)') + _stSwitch('Чёрный фон', 'Для OLED-экранов: фон полностью чёрный, цвета образа остаются.', _dispGet('pv_oled'), '_toggleOled(this.checked)') + _stSwitch('Крупный текст', 'Весь текст и элементы на экранах чуть крупнее.', _dispGet('pv_big'), '_toggleBig(this.checked)'))}
     ${_stSec('Приватность', _stPresence())}
     ${_stSec('Уведомления', _stNotif(), 'Здесь настраиваются только личные сообщения от бота.')}
     ${_stSec('Документы', _stRow('Пользовательское соглашение', 'Откроется прямо здесь', "openLegalDoc('tos')") + _stRow('Политика конфиденциальности', 'Откроется прямо здесь', "openLegalDoc('privacy')"))}
@@ -95,3 +95,10 @@ function _stCopyId(id) {
   const done = () => { _haptic('success'); toast('ID скопирован'); };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(String(id)).then(done).catch(() => toast('Не получилось скопировать', false)); else toast(`ID: ${id}`);
 }
+
+// ── Отображение: чёрный фон для OLED и крупный текст (хранится на устройстве) ─────────
+const _dispGet = key => _lsGet(key) === '1';
+function _dispApply() { document.body.classList.toggle('pv-oled', _dispGet('pv_oled')); document.body.classList.toggle('pv-big', _dispGet('pv_big')); }
+function _toggleOled(on) { _lsSet('pv_oled', on ? '1' : '0'); _dispApply(); _haptic('select'); }
+function _toggleBig(on) { _lsSet('pv_big', on ? '1' : '0'); _dispApply(); _haptic('select'); }
+_dispApply();

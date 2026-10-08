@@ -19,6 +19,7 @@ function openLooksModal() {
     if (mine !== _lk.seq) return;
     _lk.st = st; _lk.failed = '';
     _lkPick(_lk.sel && _lkItem(_lk.sel) ? _lk.sel : (st.equipped || _lkWeekId(st)));
+    lkTourOnce(st);
   }).catch(e => { if (mine !== _lk.seq) return; _lk.failed = String(e || 'Ошибка'); _lkRender(); });
 }
 function _lkPick(id, fromUser) {
@@ -78,7 +79,7 @@ function _lkRender(anim) {
   if (!st) { root.innerHTML = `<div class="v3-scope lk-scope"><div class="v3-empty">${_profileEsc(_lk.failed || 'Загрузка…')} <button type="button" class="v3-link" onclick="openLooksModal()">Повторить</button></div></div>`; return; }
   const item = _lkItem(_lk.sel), look = { ...item, tier: _lk.tier }, ap = apFromLook(look), act = _lkAction(item, st);
   const tokens = v3TokenStyle(item.tokens);
-  if (_lk.view === 'album') { root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">${_lkTop(st)}${lkAlbumHtml(st)}</div>`; return; }
+  if (_lk.view === 'album') { root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">${_lkTop(st)}${lkAlbumHtml(st)}</div>`; lkMainButton(); return; }
   const avatar = _v3Avatar(_profileData || {});
   const name = _profileEsc(String(_profileData?.display_name || 'Игрок'));
   const stripScroll = root.querySelector('.lk-strip')?.scrollLeft || 0;
@@ -105,10 +106,11 @@ function _lkRender(anim) {
     ${lkGoalHtml(st)}${lkWeekHtml(st)}${lkSoonHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
-    <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span></div>
+    <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span><button type="button" class="v3-link" onclick="lkTour()">Как это работает</button></div>
     <p class="lk-fine">Валюта прокачки. Её дают задания (+${st.essence.quest_reward.daily} за день, +${st.essence.quest_reward.weekly} за неделю, +${st.essence.quest_reward.combined} за всё) или обмен: 1 ✨ = ${st.essence.per_zarnik} Эссенции.</p>
     ${lkFitNote(st, item)}<div class="lk-packs">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
   const strip = root.querySelector('.lk-strip');
+  lkMainButton();
   if (strip) { strip.scrollLeft = stripScroll; if (!stripScroll || anim) { const on = strip.querySelector('.is-sel'); if (on) strip.scrollTo({ left: on.offsetLeft - strip.clientWidth / 2 + on.clientWidth / 2, behavior: stripScroll ? 'smooth' : 'auto' }); } }
 }
 

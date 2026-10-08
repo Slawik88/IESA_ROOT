@@ -31,3 +31,8 @@
 .st-id:active { opacity: .6; }
 
 @media (prefers-reduced-motion: reduce) { .st-switch, .st-switch::after, .st-seg button { transition: none; } }
+
+/* чёрный фон для OLED: цвета образа остаются, фон и листы уходят в чёрный (!important, потому что токены образа лежат в style у body) */
+body.pv-oled { --v3-bg: #000 !important; --v3-sheet: #08080b !important; --v3-dock: rgba(8, 8, 11, .97) !important; --v3-wash: none !important; }
+/* крупный текст: содержимое страниц и листов крупнее на 14%; шапка и док остаются на месте */
+body.pv-big .page, body.pv-big dialog#modal .sheet { zoom: 1.14; }

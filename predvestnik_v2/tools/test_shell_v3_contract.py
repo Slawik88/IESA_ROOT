@@ -94,4 +94,11 @@ toast_js = (STATIC / "app.28.js").read_text(encoding="utf-8")
 assert "apFromLook(_profileData?.look)" in toast_js and "tv-fr-" in toast_js and "role" in toast_js and "textContent" not in toast_js
 assert "rgb(86,196,106)" not in (STATIC / "app.01.js").read_text(encoding="utf-8") and "@keyframes toastIn" not in (STATIC / "app.css").read_text(encoding="utf-8")
 assert "toast-v3.css" in index
+# Looks: native Telegram main button only inside Telegram, a first-visit tour, and the two display options live in settings.
+looks_extra = (STATIC / "app.27.js").read_text(encoding="utf-8")
+assert "tg && tg.initData && tg.MainButton" in looks_extra and "setParams(params)" in looks_extra and "hideProgress" in looks_extra and "is-native" in looks_extra
+assert "lkTourOnce" in looks_extra and "pv_looks_tour" in looks_extra and "lkTourOnce(st)" in (STATIC / "app.23.js").read_text(encoding="utf-8")
+settings_js, settings_css = (STATIC / "app.26.js").read_text(encoding="utf-8"), (STATIC / "settings-v3.css").read_text(encoding="utf-8")
+assert "_toggleOled" in settings_js and "_toggleBig" in settings_js and "body.pv-oled" in settings_css and "!important" in settings_css.split("body.pv-oled", 1)[1].split("}", 1)[0]
+assert "body.pv-big .page" in settings_css
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

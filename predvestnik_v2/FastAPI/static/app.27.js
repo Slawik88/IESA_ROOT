@@ -1,7 +1,7 @@
 // ── Образы · жажда сбора: образ недели, цель, сеты, альбом, раскрытие наград ────────────
 // Всё считает сервер (/skins-v3/me: featured, sets, collection, events). Здесь только показ: награды видны заранее,
 // случайности нет, а каждая награда приходит один раз (ключи на сервере). Стили: collect-v3.css.
-const _RV_KINDS = new Set(['owned', 'tier', 'set', 'rank', 'row', 'badge', 'featured']);
+const _RV_KINDS = new Set(['owned', 'tier', 'set', 'rank', 'row', 'badge', 'featured', 'tour']);
 let _rv = null;
 
 function _lkLeft(iso) {
@@ -110,6 +110,7 @@ function _rvCard(e) {
     case 'rank': return { mark: '★', eyebrow: 'Новый ранг', title: e.rank, text: `${e.at} образов в коллекции. ${gift(e.essence)}` };
     case 'row': return { mark: e.rarity, eyebrow: 'Редкость собрана', title: `Все образы ${e.rarity}`, text: gift(e.essence) };
     case 'badge': return { mark: '✦', glyph: true, eyebrow: 'Новый значок', title: e.title, text: `Образов на максимуме: ${e.maxed}.` };
+    case 'tour': return { mark: e.mark, glyph: !!e.glyph, eyebrow: e.eyebrow, title: e.title, text: e.text };
     default: return { mark: '✨', glyph: true, eyebrow: 'Образ недели', title: 'Подарок за покупку', text: `+${fmt(e.essence)} Эссенции уже на счёте.` };
   }
 }
@@ -119,7 +120,7 @@ function lkReveal(events) {
 }
 function _rvRender() {
   let host = document.getElementById('lk-reveal');
-  if (!_rv) { host?.remove(); document.removeEventListener('keydown', _rvKeys, true); return; }
+  if (!_rv) { host?.remove(); document.removeEventListener('keydown', _rvKeys, true); lkMainButton(); return; }
   if (!host) { host = document.createElement('div'); host.id = 'lk-reveal'; host.className = 'lk-reveal'; document.body.appendChild(host); document.addEventListener('keydown', _rvKeys, true); }
   const card = _rvCard(_rv.list[_rv.i]), last = _rv.i === _rv.list.length - 1;
   host.setAttribute('style', _rv.tokens || ''); host.setAttribute('role', 'dialog'); host.setAttribute('aria-modal', 'true'); host.setAttribute('aria-labelledby', 'lk-rv-title');
@@ -128,6 +129,45 @@ function _rvRender() {
     <button type="button" class="v3-pill" onclick="lkRevealNext()">${last ? 'Отлично' : 'Дальше'}</button></div>`;
   host.querySelector('button')?.focus({ preventScroll: true });
   v3Reward(host.querySelector('.lk-rv-badge'));
+  lkMainButton();
 }
 function lkRevealNext() { if (!_rv) return; if (_rv.i + 1 < _rv.list.length) { _rv.i += 1; _rvRender(); } else { _rv = null; _rvRender(); } }
 function _rvKeys(e) { if (e.key === 'Escape') { e.preventDefault(); _rv = null; _rvRender(); } else if (e.key === 'Tab') { e.preventDefault(); document.querySelector('#lk-reveal button')?.focus(); } }
+
+// ── Нативная кнопка Telegram (MainButton): главное действие витрины внизу экрана ────
+// Только внутри Telegram (непустой initData). Страничная кнопка при этом прячется, в браузере остаётся она. Цвет берётся из палитры образа.
+let _lkMb = { bound: false, act: '' };
+function lkMainButton() {
+  const mb = tg && tg.initData && tg.MainButton; if (!mb) return;
+  const item = _lk.st && _lkItem(_lk.sel), here = !!item && _activePage === 'looks' && _lk.view === 'shop' && !_rv;
+  const act = here ? _lkAction(item, _lk.st) : null, show = !!(act && act.a);
+  if (!_lkMb.bound) { mb.onClick(() => { if (_lkMb.act && !_lk.busy) lkAct(_lkMb.act); }); _lkMb.bound = true; }
+  _lkMb.act = show ? act.a : '';
+  try {
+    if (!show) { mb.hideProgress?.(); mb.hide(); }
+    else {
+      const tk = item.tokens || {}, hex = v => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : null);
+      const params = { text: act.t, is_active: !_lk.busy, is_visible: true };
+      if (hex(tk['--v3-acc'])) params.color = tk['--v3-acc'];
+      if (hex(tk['--v3-on-acc'])) params.text_color = tk['--v3-on-acc'];
+      mb.setParams(params);
+      if (_lk.busy) mb.showProgress?.(false); else mb.hideProgress?.();
+    }
+  } catch (_) { /* старый клиент без setParams: остаётся страничная кнопка */ }
+  document.querySelector('#pg-looks .lk-cta')?.classList.toggle('is-native', show && !!mb.isVisible);
+}
+{ const pg = el('pg-looks'); if (pg) new MutationObserver(() => lkMainButton()).observe(pg, { attributes: true, attributeFilter: ['class'] }); }   // ушли с витрины: кнопка прячется
+
+// ── Первый вход на витрину: три карточки о том, как всё устроено (один раз на устройстве, повтор по ссылке внизу) ────
+function lkTour() {
+  const e = 'Как это работает';
+  lkReveal([
+    { kind: 'tour', mark: '✦', glyph: true, eyebrow: e, title: 'Один образ — весь вид', text: 'Цвета приложения, ник, титул, рамка аватара и фон профиля. Другие игроки видят ваш образ, пока у вас активен VIP; сами вы видите его всегда.' },
+    { kind: 'tour', mark: '↑', glyph: true, eyebrow: e, title: 'Образ растёт', text: 'Он покупается на тире D и растёт за Эссенцию до своей редкости. Эссенцию дают задания или набор за Зарники: 1 ✨ = 4 Эссенции, цена всегда видна заранее.' },
+    { kind: 'tour', mark: '🪷', glyph: true, eyebrow: e, title: 'Собирайте сеты', text: 'Знак сета рядом с титулом, ранги и награды за коллекцию. Сезонные сеты открываются сами в праздники, а купленное остаётся навсегда.' },
+  ]);
+}
+function lkTourOnce(st) {   // только тем, у кого ещё нет образов; признак «видел» хранится на устройстве
+  if (_lsGet('pv_looks_tour') === '1' || st.items.some(i => i.owned)) return;
+  _lsSet('pv_looks_tour', '1'); setTimeout(lkTour, 600);
+}
