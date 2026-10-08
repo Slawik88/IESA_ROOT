@@ -145,3 +145,23 @@ PYTHONPATH=. python tools/test_mafia_v1_sim_pg.py --dsn postgresql://predvestnik
 6. **Мест по умолчанию 12** (было 8), чтобы компания не упиралась в «лобби заполнено».
 7. Детектив видит Дона как «мафию» (как и раньше). Если нужно «Дон невидим для Детектива» — это правка одной строки в `services/mafia_phases.py::_close_night`.
 8. Выбытие игрока **не раскрывает его роль** до конца партии (как и раньше).
+
+## 8. Как поднять тестовую базу для симулятора (один раз)
+
+Симулятор (`tools/mafia_sim`) играет настоящими роутерами бота против **локальной** PostgreSQL с базой `predvestnik_preprod`
+(на чужую/боевую базу он не запустится — `assert_dev_dsn` откажет). Схему и тестовые флаги он создаёт сам.
+
+```bash
+# 1) зависимости (без psycopg2 — это зависимость сайта на Django)
+pip install -r ../requirements.txt        # или всё, кроме psycopg2-binary
+# 2) база: в репозитории уже есть скрипт (запуск не от root; на Nix: nix-shell -p postgresql --run '…')
+./tools/preprod_postgres.sh start          # слушает 127.0.0.1:55432, база predvestnik_preprod
+# 3) прогон
+export BOT_TOKEN=123456:SIM                # любое значение: настоящий токен не нужен и не используется
+PYTHONPATH=. python tools/test_mafia_v1_sim_pg.py --dsn postgresql://predvestnik_preprod@127.0.0.1:55432/predvestnik_preprod
+PYTHONPATH=. python tools/mafia_dev_sandbox.py   --dsn postgresql://predvestnik_preprod@127.0.0.1:55432/predvestnik_preprod
+```
+`--list` показывает все сценарии, `--only имя1,имя2` запускает выбранные.
+Чего симулятор **не** доказывает: поведение настоящего Telegram-клиента (отображение кнопок, открытие бота по ссылке из окна,
+реальные права админа и доставка личных сообщений). Перед включением флага `game_mafia_v1` в проде нужна одна контрольная
+партия в настоящей группе.
