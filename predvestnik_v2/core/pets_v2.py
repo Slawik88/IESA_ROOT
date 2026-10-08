@@ -35,6 +35,7 @@ FEED_XP: Final = 10
 DAILY_TASKS_XP: Final = 60
 WIND_MULT: Final = 1.25            # «Попутный ветер»: к зачисляемым Следам, но не выше DAILY_MAX
 ROUTES: Final = ("forest", "pass", "ruins", "swamp")
+SLOTS: Final = 3                  # одновременных занятий на аккаунт
 
 # ── Уровни, ступени, Связь ────────────────────────────────────────────────────
 BOND_GATES: Final = ((5, 2), (10, 21), (15, 50), (20, 90), (25, 140), (30, 200))  # (потолок, дней Связи)
@@ -169,6 +170,13 @@ PATHS: Final = {  # сдвиг разрыва, награда: успех / ча
 PARTIAL_BAND: Final = 25
 PITY_STEP: Final = 5
 PITY_MAX: Final = 15
+
+
+def event_difficulty(hours: int) -> int:
+    """Сложность события экспедиции: 3 ч — 17, 6 ч — 20, 9 ч — 23."""
+    if hours not in RUN_XP:
+        raise PetV2PolicyError("Экспедиция: только 3, 6 или 9 часов.")
+    return 14 + 3 * (int(hours) // 3)
 
 
 def resilience(level: int, energy: float, species_id: str, *, terrain_match: bool = False,
