@@ -101,3 +101,10 @@ for bad in ("", "50 01.10.2026-20.10.2026", "50 40.10.2026-41.10.2026"):
 assert purge.required_norm(100, 7, 3.5) == 50 and purge.required_norm(100, 7, 0) == 100
 assert purge.required_norm(100, 7, 10) == 0
 print("OK: purge planning")
+
+from bot.chat import streak  # noqa: E402
+hm = streak.heatmap({date(2026, 10, 8): 10, date(2026, 10, 7): 2}, date(2026, 10, 8))
+rows = hm.split("\n")
+assert len(rows) == 7 and rows[3].endswith("🟥") and rows[2].endswith("🟩") and rows[4].endswith(" ")
+assert streak.level(0, 10) == 0 and streak.level(10, 10) == 4
+print("OK: streak heatmap")

@@ -317,6 +317,27 @@ async def transfer_flow(db, bot):
     await transfer.on_transfer(c, c.data_cb, db)
     assert "целым" in c.alerts[0]
     assert transfer.parse_amount("@ник 12,5") == transfer.Decimal("12.5") and transfer.parse_amount("0") is None
+    await streak_flow(db, bot)
+
+
+async def streak_flow(db, bot):
+    from datetime import timedelta
+    from bot.chat import streak
+    from bot.chat.tracking import local_now, record_message
+    today = local_now().date()
+    await record_message(db, msg(3001, -100, "streaker"))
+    assert (await streak.streak_of(db, 3001, today))[:2] == (1, 1)
+    await record_message(db, msg(3001, -100, "streaker"))             # тот же день — не растёт
+    assert (await streak.streak_of(db, 3001, today))[0] == 1
+    await db.execute("UPDATE daily_login SET last_login = last_login - INTERVAL '1 day' WHERE user_id = 3001")
+    await record_message(db, msg(3001, -200, "streaker", "Другой"))  # вчера был — +1, любой чат
+    assert (await streak.streak_of(db, 3001, today))[:3] == (2, 2, True)
+    await db.execute("UPDATE daily_login SET last_login = last_login - INTERVAL '3 days' WHERE user_id = 3001")
+    assert (await streak.streak_of(db, 3001, today))[:2] == (0, 2)   # пропуск обнуляет показ
+    await record_message(db, msg(3001, -100, "streaker"))
+    assert (await streak.streak_of(db, 3001, today))[:2] == (1, 2)
+    out = await run(db, bot, "бот стрик", uid=3001, username="streaker")
+    assert "стрик: 1" in out and "Лучший: 2" in out and "🟥" in out, out
 
 
 asyncio.run(main())

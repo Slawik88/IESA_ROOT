@@ -31,6 +31,8 @@ STATEMENTS = (
         updated_by BIGINT,
         updated_at TIMESTAMPTZ DEFAULT NOW()
     )""",
+    # Лучший стрик за всё время (текущий хранится в daily_login.streak, строка chat_id = 0).
+    "ALTER TABLE daily_login ADD COLUMN IF NOT EXISTS best_streak INTEGER DEFAULT 0",
     # Какой минимальный ранг нужен для действия в конкретном чате.
     """CREATE TABLE IF NOT EXISTS chat_rank_rights (
         chat_id    BIGINT   NOT NULL,

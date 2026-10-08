@@ -48,6 +48,26 @@ async def record_message(db, message: Message) -> None:
         "message_count = daily_user_stats.message_count + 1",
         (user.id, chat.id, day),
     )
+    await touch_streak(db, user.id)
     commit = getattr(db, "commit", None)
     if commit:
         await commit()
+
+
+async def touch_streak(db, user_id: int) -> None:
+    """Активность в любом чате засчитывает сегодняшний день стрика (общий на все чаты).
+
+    Строка daily_login с chat_id = 0; last_login — местное время.
+    """
+    now = local_now()
+    today = now.date()
+    await db.execute(
+        "INSERT INTO daily_login (user_id, chat_id, streak, best_streak, last_login) VALUES (?, 0, 1, 1, ?) "
+        "ON CONFLICT (user_id, chat_id) DO UPDATE SET "
+        "streak = CASE WHEN daily_login.last_login::date = ? THEN daily_login.streak "
+        "  WHEN daily_login.last_login::date = ? THEN daily_login.streak + 1 ELSE 1 END, "
+        "best_streak = GREATEST(COALESCE(daily_login.best_streak, 0), daily_login.streak, "
+        "  CASE WHEN daily_login.last_login::date = ? THEN daily_login.streak + 1 ELSE 1 END), "
+        "last_login = ?",
+        (user_id, now, today, today - timedelta(days=1), today - timedelta(days=1), now),
+    )

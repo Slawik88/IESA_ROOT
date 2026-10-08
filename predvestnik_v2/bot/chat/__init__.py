@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import admin_chat, help, members, moderation, profile, purge, rank_commands, sanctions, site, top, transfer  # noqa: F401
+from bot.chat import admin_chat, help, members, moderation, profile, purge, rank_commands, sanctions, site, streak, top, transfer  # noqa: F401
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 
