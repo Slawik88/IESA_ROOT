@@ -78,3 +78,26 @@ for text, name in (("бот мут, @u 2ч", "мут"), ("бот снять му
     assert isinstance(got, Parsed) and got.command.name == name, (text, got)
 assert parse(real, "бан @u") is None and parse(real, "мут") is None
 print("OK: moderation parsing")
+
+from bot.chat import purge  # noqa: E402
+from bot.chat.framework import UsageError  # noqa: E402
+sunday, saturday = date(2026, 10, 11), date(2026, 10, 10)
+p = purge.plan_purge("100", sunday, None)
+assert (p.norm, p.start, p.end, p.days) == (100, date(2026, 10, 5), sunday, 7)
+s = purge.plan_purge("100", saturday, None)
+assert isinstance(s, str) and "бот чистка, 100 03.10.2026-09.10.2026" in s
+s = purge.plan_purge("", saturday, 80)                      # обычная норма чата
+assert "бот чистка, 80 " in s
+p = purge.plan_purge("50 01.10.2026-07.10.2026", saturday, None)
+assert (p.norm, p.start, p.end) == (50, date(2026, 10, 1), date(2026, 10, 7))
+p = purge.plan_purge("01.10-07.10, 50", saturday, None)
+assert p.norm == 50 and p.start == date(2026, 10, 1)
+for bad in ("", "50 01.10.2026-20.10.2026", "50 40.10.2026-41.10.2026"):
+    try:
+        purge.plan_purge(bad, saturday, None)
+        raise AssertionError(bad)
+    except UsageError:
+        pass
+assert purge.required_norm(100, 7, 3.5) == 50 and purge.required_norm(100, 7, 0) == 100
+assert purge.required_norm(100, 7, 10) == 0
+print("OK: purge planning")

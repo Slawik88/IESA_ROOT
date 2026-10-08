@@ -70,7 +70,7 @@ ACTIONS: tuple[Action, ...] = (
     Action("close_chat", "Закрывать и открывать чат", 6),
     Action("write_closed", "Писать в закрытый чат", 4),
     Action("purge", "Проводить чистку", 7),
-    Action("purge_write", "Писать во время чистки", 7),
+    Action("purge_write", "Писать во время чистки", 4),
     Action("set_rank", "Выдавать ранги", 7),
     Action("admin_chat", "Привязывать админ-чат", 8),
     Action("settings", "Настройки чата", 8),

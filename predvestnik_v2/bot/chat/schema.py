@@ -19,6 +19,8 @@ STATEMENTS = (
     "ALTER TABLE chat_blacklist ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP",
     # Закрытый чат: пишут только ранги с правом write_closed.
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT FALSE",
+    # Чистка: норма игрока с поправкой на мут и дату входа в чат.
+    "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS required_norm INTEGER",
     # Какой минимальный ранг нужен для действия в конкретном чате.
     """CREATE TABLE IF NOT EXISTS chat_rank_rights (
         chat_id    BIGINT   NOT NULL,

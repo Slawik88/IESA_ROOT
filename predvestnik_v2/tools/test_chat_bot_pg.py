@@ -181,6 +181,52 @@ async def moderation_flow(db):
     assert await admin_chat_of(db, -100) == -555
     out = await run(db, bot, "бот бтп")
     assert "бот топ" in out, out
+    await purge_flow(db, bot)
+
+
+async def purge_flow(db, bot):
+    from datetime import timedelta
+    from bot.chat import purge
+    from bot.chat.tracking import local_now
+    # Участники: 2001 молчал, 2002 писал, 2003 с иммунитетом, beta — админ (пишет в чистку).
+    today = local_now().date()
+    for uid, name in ((2001, "silent"), (2002, "talker"), (2003, "immune")):
+        await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, name))
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, membership_since) "
+                         "VALUES (?, -100, NOW() - INTERVAL '30 days') ON CONFLICT DO NOTHING", (uid,))
+    await db.execute("UPDATE user_chat_stats SET is_immune = TRUE WHERE user_tg_id = 2003")
+    await db.execute("INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (2002, -100, ?, 50)",
+                     ((today - timedelta(days=2)).isoformat(),))
+    a, b = today - timedelta(days=7), today - timedelta(days=1)
+    span = f"{a.strftime('%d.%m.%Y')}-{b.strftime('%d.%m.%Y')}"
+    out = await run(db, bot, f"бот чистка, 10 {span}", uid=1002, username="beta")
+    assert "нет права" in out, out
+    await asyncio.sleep(0)
+    out = await run(db, bot, f"бот чистка, 10 {span}")
+    assert "Чистка началась" in out, out
+    vs = await purge.find_violators(db, -100, purge.Plan(10, a, b))
+    ids = {v.user_id for v in vs}
+    assert 2001 in ids and 2002 not in ids and 2003 not in ids and 1002 not in ids and 1001 not in ids, ids
+    await asyncio.sleep(1.5)       # досье уходят фоном
+    assert any("Досье" in t for _, t, _ in bot.sent), [t[:30] for _, t, _ in bot.sent]
+    m = FakeMessage("болтаю", 2002, "talker")
+    assert await purge.purge_gate(db, bot, m) and m.deleted
+    m = FakeMessage("я админ", 1002, "beta")
+    assert not await purge.purge_gate(db, bot, m)
+    s = await purge.active_session(db, -100)
+    await db.execute("UPDATE purge_targets SET verdict = 'kick' WHERE session_id = ? AND user_id = 2001", (s[0],))
+    out = await run(db, bot, "бот чистка статус")
+    assert "Кикнуто: 1" in out, out
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+    m = FakeMessage("бот чистка стоп", 1001, "alpha")
+    answers = []
+    async def answer(text, **kw):
+        answers.append(text)
+    m.answer = answer
+    assert await dispatch(registry, m, bot, db)
+    assert answers and "чат открыт" in answers[0] and "Кикнуто: 1" in answers[0], answers
+    assert await purge.active_session(db, -100) is None
 
 
 asyncio.run(main())
