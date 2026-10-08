@@ -592,11 +592,30 @@ async def achievements_flow(db, bot):
         match = (await cur.fetchone())[0]
     await db.execute("INSERT INTO mafia_v1_players (match_id, user_id, join_order, display_name, role) "
                      "VALUES (?, 7001, 1, 'A', 'citizen'), (?, 7002, 2, 'B', 'mafia')", (match, match))
-    ups = {a.id: lvl for a, lvl in await ach.evaluate(db, 7001, {"games"})}
+    ups = {u.achievement.id: u.level for u in await ach.evaluate(db, 7001, {"games"})}
     assert ups == {"mafia_games": 1, "mafia_wins": 1}, ups
-    ups = {a.id: lvl for a, lvl in await ach.evaluate(db, 7002, {"games"})}
+    ups = {u.achievement.id: u.level for u in await ach.evaluate(db, 7002, {"games"})}
     assert ups == {}, ups                                               # 7002 — первый подсчёт
     assert await ach.value_of(db, 7002, ach.BY_ID["mafia_wins"]) == 0
+
+    # Эссенция за вехи: 10-й уровень — 10, 20-й — 20; первый подсчёт платит молча; повтор не платит.
+    from bot.chat.achievements_data import milestone_essence
+    from infrastructure.repositories import skins_v3 as skins_v3_repo
+    assert milestone_essence(0, 9) == [] and milestone_essence(9, 21) == [10, 20] and milestone_essence(10, 19) == []
+    await record_message(db, msg(7003, -100, "veteran"))
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 4000 WHERE user_tg_id = 7003")
+    assert await ach.evaluate(db, 7003, {"chat"}) == []                 # ур. 19 из истории — без объявления
+    assert await skins_v3_repo.essence_balance(db, 7003) == 10
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 70000 WHERE user_tg_id = 7003")
+    ups = await ach.evaluate(db, 7003, {"chat"})
+    assert [(u.achievement.id, u.level, u.essence) for u in ups] == [("messages", 34, 50)], ups
+    assert "+50 🔮" in ach.announcement("x", ups)
+    await db.execute("UPDATE chat_achievement_levels SET level = 5 WHERE user_id = 7003 AND achievement = 'messages'")
+    ups = await ach.evaluate(db, 7003, {"chat"})                        # уровень снова поднят — вехи уже оплачены
+    assert [u.essence for u in ups] == [0], ups
+    assert await skins_v3_repo.essence_balance(db, 7003) == 60
+    out = await say("бот достижение болтун", uid=7003, username="veteran")
+    assert "на 40-м уровне — 40 🔮" in out, out
     print("OK: achievements")
 
 

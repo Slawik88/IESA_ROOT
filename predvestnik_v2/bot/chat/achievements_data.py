@@ -14,6 +14,15 @@ NORMAL = (1, 1.5, 2, 3, 4, 5, 7)
 
 MIN_LEVELS, MAX_LEVELS = 20, 80
 
+# Награда — эссенция за каждый 10-й уровень: за 10-й уровень 10, за 20-й 20 и т.д.
+MILESTONE_EVERY = 10
+
+
+def milestone_essence(old_level: int, new_level: int) -> list[int]:
+    """Вехи, пройденные при подъёме с old_level до new_level (их эссенция = номер уровня)."""
+    first = (old_level // MILESTONE_EVERY + 1) * MILESTONE_EVERY
+    return list(range(first, new_level + 1, MILESTONE_EVERY))
+
 
 def ladder(start: int, end: int, steps: tuple[float, ...] = FINE) -> tuple[int, ...]:
     """Круглые пороги от start до end включительно, без повторов."""

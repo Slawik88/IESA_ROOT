@@ -17,7 +17,11 @@ from bisect import bisect_right
 from aiogram.types import Message
 from loguru import logger
 
-from bot.chat.achievements_data import ACHIEVEMENTS, BY_ID, MIN_LEVELS, Achievement, plural
+from typing import NamedTuple
+
+from bot.chat.achievements_data import (ACHIEVEMENTS, BY_ID, MILESTONE_EVERY, MIN_LEVELS, Achievement,
+                                        milestone_essence, plural)
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat.framework import Ctx, norm, registry
 from bot.chat.targets import resolve_target
 
@@ -160,19 +164,40 @@ async def stored_levels(db, user_id: int) -> dict[str, int]:
         return {r[0]: int(r[1]) for r in await cur.fetchall()}
 
 
-async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[tuple[Achievement, int]]:
+class Up(NamedTuple):
+    achievement: Achievement
+    level: int
+    essence: int     # начислено эссенции за пройденные вехи
+
+
+async def pay_milestones(db, user_id: int, a: Achievement, old: int, new: int) -> int:
+    """Эссенция за вехи между old и new. Ключ на каждую веху — повторно не платится."""
+    paid = 0
+    for level in milestone_essence(old, new):
+        async with db.connection.transaction():
+            applied, _ = await skins_v3_repo.essence_apply(
+                db, user_id, level, reason="chat_achievement", reference=f"{a.id}:{level}",
+                idempotency_key=f"chat_achievement:{a.id}:{level}")
+        paid += level if applied else 0
+    return paid
+
+
+async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]:
     """Пересчитать достижения игрока. Возвращает новые уровни, о которых надо объявить."""
     stored = await stored_levels(db, user_id)
-    ups: list[tuple[Achievement, int]] = []
+    ups: list[Up] = []
     for a in ACHIEVEMENTS:
         if groups is not None and a.group not in groups:
             continue
         level = level_of(a, await value_of(db, user_id, a))
         if a.id not in stored:
-            # Первый подсчёт — тихий. ON CONFLICT: параллельный подсчёт уже вставил строку.
-            await db.execute(
+            # Первый подсчёт — тихий (вехи из прошлого оплачиваются молча).
+            # ON CONFLICT: параллельный подсчёт уже вставил строку и заплатит сам.
+            async with db.execute(
                 "INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (?, ?, ?) "
-                "ON CONFLICT (user_id, achievement) DO NOTHING", (user_id, a.id, level))
+                "ON CONFLICT (user_id, achievement) DO NOTHING RETURNING 1", (user_id, a.id, level)) as cur:
+                if await cur.fetchone():
+                    await pay_milestones(db, user_id, a, 0, level)
             continue
         if level <= stored[a.id]:
             continue
@@ -181,18 +206,21 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[tup
             "UPDATE chat_achievement_levels SET level = ?, reached_at = NOW() "
             "WHERE user_id = ? AND achievement = ? AND level < ? RETURNING 1",
             (level, user_id, a.id, level)) as cur:
-            if await cur.fetchone():
-                ups.append((a, level))
+            claimed = await cur.fetchone()
+        if claimed:
+            ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
     return ups
 
 
-def announcement(name: str, ups: list[tuple[Achievement, int]]) -> str:
-    parts = [f"{a.icon} {a.name} — ур. {lvl}/{a.max_level}" + (" 👑" if lvl >= a.max_level else "")
-             for a, lvl in ups]
+def announcement(name: str, ups: list[Up]) -> str:
+    parts = [f"{u.achievement.icon} {u.achievement.name} — ур. {u.level}/{u.achievement.max_level}"
+             + (" 👑" if u.level >= u.achievement.max_level else "")
+             + (f" · +{u.essence} 🔮 эссенции" if u.essence else "")
+             for u in ups]
     return f"🏆 {name}: новый уровень достижений\n" + "\n".join(parts)
 
 
-async def announce(message: Message, name: str, ups: list[tuple[Achievement, int]]) -> None:
+async def announce(message: Message, name: str, ups: list[Up]) -> None:
     if not ups:
         return
     try:
@@ -274,7 +302,7 @@ GROUP_TITLES = {"chat": "Общение", "warps": "Взаимодействия
 
 async def card(db, user_id: int, who: str) -> str:
     ups = await evaluate(db, user_id)          # в карточке всегда свежие цифры
-    fresh = {a.id for a, _ in ups}
+    fresh = {u.achievement.id for u in ups}
     stored = await stored_levels(db, user_id)
     lines, total, total_max, title = [], 0, 0, None
     for a in ACHIEVEMENTS:
@@ -287,7 +315,7 @@ async def card(db, user_id: int, who: str) -> str:
             lines.append(f"\n<b>{title}</b>")
         lines.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
     return (f"🏆 <b>{who} достижения</b> · уровней: {total} из {total_max}\n" + "\n".join(lines) +
-            "\n\nПодробно: <code>бот достижение болтун</code>")
+            f"\n\nЗа каждый {MILESTONE_EVERY}-й уровень — 🔮 эссенция. Подробно: <code>бот достижение болтун</code>")
 
 
 async def detail(db, user_id: int, a: Achievement) -> str:
@@ -298,7 +326,15 @@ async def detail(db, user_id: int, a: Achievement) -> str:
     return (f"{a.icon} <b>{a.name}</b> · {medal(level, a.max_level)} ур. {level}/{a.max_level}\n"
             f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n\n"
             f"Следующие пороги: {ahead}\n"
-            f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}")
+            f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"
+            + reward_line(a, level))
+
+
+def reward_line(a: Achievement, level: int) -> str:
+    nxt = (level // MILESTONE_EVERY + 1) * MILESTONE_EVERY
+    if nxt > a.max_level:
+        return ""
+    return f"\nНаграда: на {nxt}-м уровне — {nxt} 🔮 эссенции"
 
 
 @registry.command("достижения", aliases=("достижение", "ачивки", "ачивка"),
