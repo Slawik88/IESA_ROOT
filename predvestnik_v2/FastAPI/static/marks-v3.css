@@ -4,6 +4,8 @@
 
 .v3-marks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: 100%; margin: 3px 0 0; padding: 5px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .pp-hero .v3-marks { justify-content: center; text-align: center; }   /* чужая карточка по центру: неполная строка значков тоже по центру */
+.v3-marks { position: relative; }
+.v3-marks::after { content: ""; position: absolute; inset: -7px 0; }   /* зона нажатия 44px при ряду в 30px */
 .v3-marks:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 1px; border-radius: 12px; }
 .v3-mark { --mk: var(--v3-acc); display: inline-flex; flex: none; align-items: center; gap: 4px; min-height: 20px; max-width: 100%; padding: 0 7px 0 5px; border-radius: 99px; color: var(--mk); font-size: 10.5px; font-weight: 650; letter-spacing: .01em; white-space: nowrap;
   background: color-mix(in srgb, var(--mk) 11%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mk) 26%, transparent); }

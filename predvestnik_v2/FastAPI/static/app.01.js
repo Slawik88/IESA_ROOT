@@ -208,7 +208,7 @@ let _ws=null, _wsTries=0, _wsTimer=0;
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
 // Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
-  if (_ws || !_uid || typeof WebSocket === 'undefined') return;
+  if (_ws || !_uid || typeof WebSocket === 'undefined' || (!INIT_DATA && !sess())) return;
   const auth = INIT_DATA ? `init=${encodeURIComponent(INIT_DATA)}` : `token=${encodeURIComponent(sess())}`;
   let ws; try { ws = new WebSocket(`${BASE.replace(/^http/, 'ws')}/ws/${_uid}?${auth}`); } catch (e) { return; }
   _ws = ws;

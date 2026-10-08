@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 PERSONA_ID = 990_000_001
+PEER_ID = 990_000_002          # a second player whose public card the persona can open
 DEFAULT_DSN = "postgresql://predvestnik_preprod@127.0.0.1:5433/predvestnik_preprod"
 RICH = {"mora": 48_210_000, "diamonds": 12_345, "dark_mora": 8_800, "zarniki": 123_456, "essence": 98_765}
 POOR = {"mora": 1_200, "diamonds": 3, "dark_mora": 0, "zarniki": 40, "essence": 20}
@@ -43,6 +44,24 @@ def _env(port: int, dsn: str) -> Path | None:
         return None
     path.write_text("# throwaway file of tools/ui_stand.py (git-ignored)\n", encoding="utf-8")
     return path
+
+
+GAME_FLAGS = ("content_chests_v1", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1")
+
+
+async def set_game_flags(dsn: str, enabled: bool) -> None:
+    """The owner switches these modules in the admin panel; production may have any mix. The stand can show both extremes."""
+    import asyncpg
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import system_flags
+    conn = await asyncpg.connect(dsn)
+    try:
+        await conn.execute("SET search_path TO predvestnik, public")
+        db = PGAdapter(conn)
+        for key in GAME_FLAGS:
+            await system_flags.set_flag(db, key, enabled)
+    finally:
+        await conn.close()
 
 
 async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, name: str | None, vip: bool, owned: tuple[str, ...]) -> None:
@@ -68,6 +87,7 @@ async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, nam
             "user_balance_mora=EXCLUDED.user_balance_mora, user_balance_diamonds=EXCLUDED.user_balance_diamonds, user_balance_dark_mora=EXCLUDED.user_balance_dark_mora, "
             "user_balance_zarniki=EXCLUDED.user_balance_zarniki",
             PERSONA_ID, name or "stand_player", money["mora"], money["diamonds"], money["dark_mora"], money["zarniki"])
+        await conn.execute("UPDATE users SET tos_accepted_at = COALESCE(tos_accepted_at, NOW()) WHERE user_tg_id=$1", PERSONA_ID)
         await conn.execute("DELETE FROM skins_v3_owned WHERE user_id=$1", PERSONA_ID)
         await conn.execute("DELETE FROM skins_v3_equipped WHERE user_id=$1", PERSONA_ID)
         for sid in dict.fromkeys(([skin] if skin else []) + list(owned)):
@@ -84,6 +104,15 @@ async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, nam
             await conn.execute("INSERT INTO vip_subscriptions(user_id, tier, expires_at) VALUES ($1,'1m', NOW() + INTERVAL '23 days')", PERSONA_ID)
         for mark in ("developer", "tester"):
             await marks_repo.grant(db, PERSONA_ID, mark, PERSONA_ID, "stand")
+        await conn.execute("INSERT INTO users(user_tg_id, user_tg_username, onboarded, ai_hint_shown) VALUES ($1,'stand_peer',TRUE,FALSE) "
+                           "ON CONFLICT (user_tg_id) DO UPDATE SET onboarded=TRUE", PEER_ID)
+        await conn.execute("DELETE FROM skins_v3_owned WHERE user_id=$1", PEER_ID)
+        await conn.execute("DELETE FROM skins_v3_equipped WHERE user_id=$1", PEER_ID)
+        peer_look = next((s for s in ("frost", "lotus_pond") if s in SKINS), None)
+        if peer_look:
+            await skins_repo.grant(db, PEER_ID, peer_look)
+            await skins_repo.set_tier(db, PEER_ID, peer_look, "SS")
+            await skins_repo.set_equipped(db, PEER_ID, peer_look)
     finally:
         await conn.close()
 
@@ -172,8 +201,11 @@ def main() -> None:
     parser.add_argument("--rich", action="store_true", help="production-sized balances (default: a newcomer)")
     parser.add_argument("--no-vip", action="store_true")
     parser.add_argument("--name", help="nickname of the persona")
+    parser.add_argument("--flags", choices=("on", "off", "keep"), default="keep", help="switch the game/economy modules (chests, games, exchange) on or off")
     parser.add_argument("--own", default="", help="comma separated extra skin ids to own at tier D")
     args = parser.parse_args()
+    if args.flags != "keep":
+        asyncio.run(set_game_flags(args.dsn, args.flags == "on"))
     with Stand(args.port, args.dsn, skin=args.skin, tier=args.tier, rich=args.rich, vip=not args.no_vip, name=args.name,
                owned=tuple(x for x in args.own.split(",") if x)) as stand:
         print(f"Stand is up. Open this URL once (it logs the persona in, valid 2 minutes):\n  {stand.url}\nCtrl+C to stop.")
