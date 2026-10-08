@@ -34,9 +34,9 @@ function loadActivitiesHub(){
   const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   const open=_V3_GAMES.filter(g=>_sysFlags[g.flag]===true);
   if(!open.length){
-    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:40px">Скоро</div>
-      <p class="v3-gdesc">Игровые режимы сейчас закрыты на время тестирования. Прогресс и квесты сохраняются.</p>
-      <button type="button" class="v3-pill" onclick="switchPage('profile')">К профилю</button></section>`;
+    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны</div>
+      <p class="v3-gdesc">Прогресс не потеряется. Пока можно заняться питомцами и образами.</p>
+      <button type="button" class="v3-pill" onclick="openPetsV1()">К питомцам</button></section>`;
     return;
   }
   const [lead,...rest]=open;

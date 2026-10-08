@@ -54,7 +54,7 @@ assert "swAdmin(_adminTab" in cached_admin
 assert "renderAdminChatSel(); return;" not in cached_admin
 assert '"chest_key_purchase": "🗝 Ключ от сундука"' in wallet
 assert "_WN_ARCHIVE_BOUNDARY" in profile and "all.slice(0,archiveAt)" in profile
-for action in ("openSettingsModal()", "openZarnikiTopup()", "openWhatsNew()", "openChatTracker()"):
+for action in ("openSettingsModal()", "openWhatsNew()", "openChatTracker()"):
     assert action in index
 notification_block = constants[constants.index("NOTIFICATION_CATEGORIES:"):constants.index("# ── ИИ-помощник")]
 assert '"vip_expiry"' in notification_block

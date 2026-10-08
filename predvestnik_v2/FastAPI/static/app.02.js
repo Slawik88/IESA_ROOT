@@ -97,9 +97,9 @@ function renderProfileDetails(data,{owner=false}={}){
     ${_profileSanctions(d)}`;
 }
 function _profileVipCard(vip){
-  if(!vip)return `<section class="profile-vip-card profile-vip-card--inactive"><span aria-hidden="true">◇</span><div><small>Статус аккаунта</small><b>Обычный профиль</b><p>VIP сейчас не активен</p></div><button type="button" class="btn btn-sm btn-gold" onclick="openVipModal()">Выбрать срок</button></section>`;
+  if(!vip)return '';   // покупка VIP недоступна: роутер /vip/* не подключён
   const expires=vip.expires_at?_profileDate(vip.expires_at):'';
-  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p><button type="button" class="btn btn-sm btn-ghost" onclick="openVipModal()">Настроить или продлить</button></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
+  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
 }
 function openVipModal(){
   OM('VIP','<div class="loader">Загрузка…</div>',[{l:'Закрыть',c:'btn-ghost',f:'CM()'}]);
@@ -705,21 +705,21 @@ function showCurrModal() {
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
         <div class="cm-name">Мора <span class="cm-val">${fmtF(mora)}</span></div>
-        <div class="cm-desc">Основная валюта для расходников, комиссий и разрешённых торгов.</div>
+        <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
         <div class="cm-name">Алмазы <span class="cm-val">${fmtF(dia)}</span></div>
-        <div class="cm-desc">Премиум валюта. Покупай в Магазине или получай за достижения и ивенты.</div>
+        <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
         <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
-        <div class="cm-desc">Редкая валюта тёмного рынка. Получай через Контрабанду (раз в 4 дня).</div>
+        <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
       </div>
     </div>
     <div class="cm-block">

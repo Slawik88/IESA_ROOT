@@ -383,7 +383,7 @@ function toast(msg,ok=true) {
   else{if(t.parentElement!==document.body)document.body.appendChild(t);}
   t.textContent=msg;
   if(!ok&&typeof _haptic==='function')_haptic('error');
-  t.style.cssText=`background:${ok?'rgba(86,196,106,.92)':'rgba(239,99,99,.92)'};color:#fff;border:1px solid ${ok?'rgba(86,196,106,.5)':'rgba(239,99,99,.5)'}`;
+  t.style.cssText=`background:${ok?'rgb(86,196,106)':'rgb(192,57,43)'};color:${ok?'#0b1a10':'#fff'};border:1px solid ${ok?'rgba(86,196,106,.5)':'rgba(192,57,43,.5)'}`;
   t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
 }
@@ -574,6 +574,7 @@ function switchPage(name, _btn, _viaBack) {
     b.removeAttribute('aria-current');
   });
   el('pg-'+name).classList.add('active');
+  { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // Подэкраны профиля (образы, питомцы, сундуки…) подсвечивают «Профиль», остальное — «Ещё».
   const _profileChildren=['looks','pets','chests','questlog','achievements-v1','public-profile'];
