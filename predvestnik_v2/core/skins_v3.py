@@ -16,8 +16,10 @@ DEFAULT_SKIN_ID: Final = "default"
 # Price of the skin itself (it starts at tier D); the ceiling decides how far it can grow. Launch prices were
 # 100/160/240/340/480/650/900; they are now x3.0 (D) rising to x4.0 (SSS) of that.
 BUY_PRICE_ZARNIKI: Final = {"D": 300, "C": 500, "B": 750, "A": 1100, "S": 1700, "SS": 2500, "SSS": 3600}
-# Essence needed to move a skin INTO the given tier.
-UPGRADE_ESSENCE: Final = {"C": 120, "B": 280, "A": 560, "S": 1000, "SS": 1600, "SSS": 2600}
+# Essence needed to move a skin INTO the given tier. C and B are cheap on purpose: a player who never pays sees the first tiers
+# fall within one and three weeks of quests, so free progress looks real. From A on the steps are the full ones, and the road to
+# a full set stays months long (tools/test_skins_v3_economy.py pins the number of weeks).
+UPGRADE_ESSENCE: Final = {"C": 60, "B": 140, "A": 560, "S": 1000, "SS": 1600, "SSS": 2600}
 
 # Essence is sold at ONE fixed rate. There is no volume bonus on purpose: whatever pack is bought, a step costs the same
 # Zarniki, so the Zarniki price of a fully raised skin is exactly buy price + chain / ESSENCE_PER_ZARNIK (full_price below).
@@ -27,6 +29,7 @@ ESSENCE_PACKS: Final = (10, 30, 80, 200)     # Zarniki per pack; a pack gives ES
 # Free Essence is small by design. Every source is listed here so the economy test can add them up:
 #   quests: about 65 a week; a set, a rarity row and the collection milestones pay a few percent of what they cost to own.
 ESSENCE_QUEST_REWARD: Final = {"daily": 5, "weekly": 20, "combined": 10}
+FREE_ESSENCE_PER_WEEK: Final = ESSENCE_QUEST_REWARD["daily"] * 7 + ESSENCE_QUEST_REWARD["weekly"] + ESSENCE_QUEST_REWARD["combined"]   # every quest done, every day
 BONUS_SHARE: Final = 0.03        # sets and rarity rows pay this share of the Zarniki price of their members, as Essence
 FEATURED_SHARE: Final = 0.05     # skin of the week: buying it during its week pays this share of its price, as Essence
 BONUS_STEP: Final = 10           # bonuses are rounded to this many Essence
@@ -62,6 +65,11 @@ def essence_zarniki(essence: int) -> int:
 def full_price(ceiling: str) -> int:
     """Zarniki to own a skin of this rarity fully raised when everything is bought: skin + all Essence steps."""
     return BUY_PRICE_ZARNIKI[ceiling] + essence_zarniki(total_upgrade_cost(ceiling))
+
+
+def free_weeks(essence: int) -> float:
+    """Weeks of perfect quest play (the only free Essence) needed to earn this much Essence."""
+    return essence / FREE_ESSENCE_PER_WEEK
 
 
 def bonus_essence(price_zarniki: int, share: float) -> int:

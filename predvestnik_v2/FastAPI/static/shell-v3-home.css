@@ -10,15 +10,21 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-bar-me svg { width: 40px; height: 40px; transform: rotate(-90deg); fill: none; stroke-width: 3; stroke-linecap: round; }
 .v3-bar-lv { position: absolute; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .v3-bar-me.is-vip svg circle:last-child { stroke: var(--v3-vip); }
-.v3-chips { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 6px; overflow: hidden; transition: transform .15s; }
-.v3-chip { position: relative; display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border-radius: 99px; background: var(--v3-faint); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v3-chips { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 6px; }
+.v3-chip { position: relative; display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; border: 0; border-radius: 99px; background: var(--v3-faint); color: inherit; font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; transition: transform .15s, background-color .15s; }
+.v3-chip::after { content: ""; position: absolute; inset: -6px -3px; }   /* зона нажатия 44px, а чипы остаются компактными: каждый чип отзывается сам */
+.v3-chip:active { transform: scale(.94); }
+.v3-bar .v3-chip { background: var(--v3-faint); }   /* перебивает «.v3-bar button { background: none }» */
+.v3-bar .v3-chip:active { background: var(--v3-dock-on); }
 .v3-chip svg { width: 14px; height: 14px; fill: none; stroke: var(--v3-acc); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .v3-chip b { font-weight: 600; }
+.v3-chip-plus { display: grid; place-items: center; width: 15px; height: 15px; margin-right: -3px; border-radius: 50%; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 12px; font-style: normal; font-weight: 800; line-height: 1; }   /* Зарники ведут на пополнение */
+.v3-chip { flex: 0 1 auto; min-width: 0; }
 .v3-chip u { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .v3-bell { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--v3-ink) !important; transition: transform .15s; }
 .v3-bell svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .v3-bell-dot { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 0 2px var(--v3-bg); }
-.v3-bar-me:active, .v3-chips:active, .v3-bell:active { transform: scale(.94); }
+.v3-bar-me:active, .v3-bell:active { transform: scale(.94); }
 .v3-ring svg circle:first-child, .v3-qring svg circle:first-child, .v3-aspect-ring svg circle:first-child, .v3-bar-me svg circle:first-child { stroke: var(--v3-track); }
 
 /* ── Дизайнерские акценты ── */
@@ -88,9 +94,11 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip); vertical-align: middle; }
 .v3-top-me { margin-top: 6px; color: var(--v3-dim); font-size: 12.5px; }
 
+@media (max-width: 359px) { .v3-chip { padding: 0 7px; gap: 4px; font-size: 12px; } .v3-chip svg { width: 12px; height: 12px; } .v3-chip-plus { display: none; } }
+
 @media (prefers-reduced-motion: reduce) {
   .v3-id::before, .v3-id.is-vip .v3-ring::before { animation: none; }
-  .v3-next, .v3-next-go, .v3-aspect, .v3-chips, .v3-bell, .v3-bar-me { transition: none; }
+  .v3-next, .v3-next-go, .v3-aspect, .v3-chip, .v3-bell, .v3-bar-me { transition: none; }
 }
 
 /* ── Экран «Топ» ── */

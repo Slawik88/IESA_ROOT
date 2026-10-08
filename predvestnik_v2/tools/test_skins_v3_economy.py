@@ -14,8 +14,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, TIERS,  # noqa: E402
-                           UPGRADE_ESSENCE, essence_zarniki, full_price, tier_index, total_upgrade_cost, upgrade_cost)
+from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK,  # noqa: E402
+                           TIERS, UPGRADE_ESSENCE, essence_zarniki, free_weeks, full_price, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import SEASONS, SETS, SKINS  # noqa: E402
 from core.skins_v3_collection import (PERMANENT, ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, season_window, set_bonus,  # noqa: E402
                                       total_one_time_essence, week_index)
@@ -36,7 +36,8 @@ def prices() -> None:
     check(ordered == sorted(set(ordered)), "prices must strictly rise with rarity")
     steps = [UPGRADE_ESSENCE[t] for t in TIERS[1:]]
     check(steps == sorted(set(steps)), "each Essence step must cost more than the one before it")
-    check(all(UPGRADE_ESSENCE[t] >= 4 * old for t, old in {"C": 20, "B": 45, "A": 90, "S": 160, "SS": 280, "SSS": 480}.items()), "Essence steps were asked to go up too")
+    check(all(UPGRADE_ESSENCE[t] >= 2 * old for t, old in {"C": 20, "B": 45, "A": 90, "S": 160, "SS": 280, "SSS": 480}.items()), "Essence steps went up at least twofold")
+    check(all(UPGRADE_ESSENCE[t] >= 5 * old for t, old in {"A": 90, "S": 160, "SS": 280, "SSS": 480}.items()), "from A on the full step applies")
 
 
 def essence_rate_has_no_discount() -> None:
@@ -60,9 +61,9 @@ def cheapest_road_is_the_matching_rarity() -> None:
             chain = sum(UPGRADE_ESSENCE[t] for t in TIERS[1:tier_index(target)])
             roads.append((BUY_PRICE_ZARNIKI[ceiling] + essence_zarniki(chain), ceiling))
         check(min(roads)[1] == target, f"tier {target} must be cheapest on a {target} skin, roads: {sorted(roads)}")
-    for tier in TIERS[1:]:   # the upgrade is a real part of the price from the first rarity that has one
+    for tier in TIERS[3:]:   # from A the upgrade is a real part of the price (C and B are cheap on purpose, see free_farm_is_long)
         share = essence_zarniki(total_upgrade_cost(tier)) / BUY_PRICE_ZARNIKI[tier]
-        check(share >= 0.05, f"{tier}: raising the skin is only {share:.0%} of its price, Essence would be pocket change")
+        check(share >= 0.15, f"{tier}: raising the skin is only {share:.0%} of its price, Essence would be pocket change")
     check(essence_zarniki(total_upgrade_cost("SSS")) / BUY_PRICE_ZARNIKI["SSS"] >= 0.35, "a top skin must keep a substantial Essence chain")
     check(upgrade_cost("D", "D") is None and upgrade_cost("SS", "SS") is None, "a skin never grows past its rarity")
 
@@ -74,7 +75,7 @@ def free_essence_is_small() -> None:
         if reach + UPGRADE_ESSENCE[tier] > year:
             break
         reach += UPGRADE_ESSENCE[tier]
-    check(year < total_upgrade_cost("SS"), f"a year of quests ({year}) must not raise a skin to SS ({total_upgrade_cost('SS')})")
+    check(year < total_upgrade_cost("SSS") * 0.6, f"a year of quests ({year}) must stay far from a top skin at SSS ({total_upgrade_cost('SSS')})")
     check(year < total_upgrade_cost("S") * 2, "a year of quests must stay well below two S chains")
     catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values())
     free = essence_zarniki(total_one_time_essence())
@@ -92,6 +93,23 @@ def free_essence_is_small() -> None:
     check(BONUS_SHARE <= 0.05 and ROW_SHARE <= 0.05 and FEATURED_SHARE <= 0.06, "bonus shares were raised above the agreed ceiling")
     check(all(a["at"] < b["at"] for a, b in zip(milestones(), milestones()[1:])), "collection steps must ascend")
     check(milestones()[-1]["at"] == len(PERMANENT), "the last collection step is every permanent skin")
+
+
+def free_farm_is_long() -> None:
+    """A player who never pays: the first tiers come fast (so farming feels real), but no set is finished within months."""
+    check(FREE_ESSENCE_PER_WEEK == 65, "the free Essence rate changed: re-read this test before changing it")
+    check(free_weeks(UPGRADE_ESSENCE["C"]) <= 2, "the first tier must come within two weeks of quests")
+    check(free_weeks(UPGRADE_ESSENCE["C"] + UPGRADE_ESSENCE["B"]) <= 4, "tier B must come within about a month")
+    check(free_weeks(total_upgrade_cost("A")) >= 8, f"tier A on one skin must take two months or more of quests, got {free_weeks(total_upgrade_cost('A')):.1f} weeks")
+    check(free_weeks(total_upgrade_cost("S")) >= 26, "tier S on one skin must take about half a year of quests")
+    check(free_weeks(total_upgrade_cost("SS")) >= 50, "tier SS on one skin must take about a year of daily perfect quests")
+    check(free_weeks(total_upgrade_cost("SSS")) >= 85, "tier SSS (which needs VIP too) must take well over a year")
+    for sid, st in SETS.items():
+        chain = sum(total_upgrade_cost(SKINS[m]["tier"]) for m in st["members"])
+        check(free_weeks(chain) >= 12, f"set {sid}: raising all three skins takes {free_weeks(chain):.1f} weeks of quests, it must stay over three months")
+        check(free_weeks(chain) > 4.5 * 2, f"set {sid}: a month of quests must be nowhere near a full set")
+    month = free_weeks(1) * 0 + FREE_ESSENCE_PER_WEEK * 4.35
+    check(month < min(sum(total_upgrade_cost(SKINS[m]["tier"]) for m in st["members"]) for st in SETS.values()) / 3, "a month of quests is under a third of the cheapest set")
 
 
 def skin_of_the_week_is_fair() -> None:
@@ -141,6 +159,7 @@ def main() -> None:
     essence_rate_has_no_discount()
     cheapest_road_is_the_matching_rarity()
     free_essence_is_small()
+    free_farm_is_long()
     skin_of_the_week_is_fair()
     seasons_are_bounded()
     catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values())

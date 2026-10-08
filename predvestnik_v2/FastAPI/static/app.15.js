@@ -100,7 +100,7 @@ function _haptic(kind) {
 }
 // Один делегированный слушатель на все элементы нового каркаса
 document.addEventListener('click', e => {
-  const t = e.target.closest('.nb, .v3-pill, .v3-row, .v3-game, .v3-link, .v3-more > summary');
+  const t = e.target.closest('.nb, .v3-pill, .v3-chip, .v3-row, .v3-game, .v3-link, .v3-more > summary');
   if (!t || t.disabled) return;
   _haptic(t.classList.contains('nb') ? 'select' : t.classList.contains('v3-pill') ? 'medium' : 'light');
 }, true);

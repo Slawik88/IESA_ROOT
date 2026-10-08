@@ -101,4 +101,9 @@ assert "lkTourOnce" in looks_extra and "pv_looks_tour" in looks_extra and "lkTou
 settings_js, settings_css = (STATIC / "app.26.js").read_text(encoding="utf-8"), (STATIC / "settings-v3.css").read_text(encoding="utf-8")
 assert "_toggleOled" in settings_js and "_toggleBig" in settings_js and "body.pv-oled" in settings_css and "!important" in settings_css.split("body.pv-oled", 1)[1].split("}", 1)[0]
 assert "body.pv-big .page" in settings_css
+# Balance chips are separate buttons: each reacts alone, Zarniki lead to the top-up sheet, Mora and Diamonds to the wallet.
+chips = index[index.index('<div class="v3-chips"'):index.index("</div>", index.index('<div class="v3-chips"'))]
+assert chips.count('<button type="button" class="v3-chip') == 3 and 'class="v3-chips" onclick' not in index, "the chips group itself is not a button"
+assert 'class="v3-chip v3-chip--zar" onclick="openZarnikiTopup()"' in chips and chips.count('onclick="showCurrModal()"') == 2
+assert ".v3-chips:active" not in home_css and ".v3-chip:active" in home_css and ".v3-bar .v3-chip { background" in home_css
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")
