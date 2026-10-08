@@ -14,6 +14,7 @@ from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
+from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
@@ -267,6 +268,15 @@ async def main():
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
+        # Preprod intentionally has no Stars history/reconciliation access.
+        # Do not spawn a coroutine that correctly returns immediately and then
+        # misclassify that policy as a supervisor crash.
+        if is_preprod():
+            logger.info("Stars reconciliation is intentionally not scheduled on isolated preprod.")
+        else:
+            background_tasks.append(_spawn_supervised(
+                "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
+            ))
         polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)
