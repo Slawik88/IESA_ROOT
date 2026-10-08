@@ -49,7 +49,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-id.is-vip .v3-ring > svg circle:last-child { stroke: var(--v3-vip); }
 .v3-id.is-vip .v3-lv { background: var(--v3-vip); color: #2a1f05; }
 .v3-id.is-vip .v3-name { background: linear-gradient(100deg, var(--v3-vip), #fff6dc 50%, var(--v3-vip)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.v3-seal { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--v3-vip); font-size: 12.5px; }
+.v3-seal { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 0; border: 0; background: none; color: var(--v3-vip); font: inherit; font-size: 12.5px; text-align: left; cursor: pointer; }   /* печать VIP ведёт на страницу VIP */
 .v3-seal svg { width: 28px; height: 28px; }
 .v3-seal-track { fill: none; stroke: var(--v3-track); stroke-width: 2; }
 .v3-seal-arc { fill: none; stroke: var(--v3-vip); stroke-width: 2; stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; }

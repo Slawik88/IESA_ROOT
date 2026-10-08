@@ -29,6 +29,7 @@
 <link rel="stylesheet" href="{{BASE}}/static/toast-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/marks-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/store-v3.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -158,6 +159,7 @@
 <div id="pg-top" class="page"></div>
 
 <div id="pg-looks" class="page"></div>
+<div id="pg-store" class="page"></div>
 <div id="pg-settings" class="page"></div>
 <div id="pg-pets" class="page"></div>
 <div id="pg-chests" class="page"></div>
@@ -167,6 +169,10 @@
 
 <div id="pg-more" class="page v3-stagger">
   <div class="v3-eyebrow">Меню</div><h1 class="v3-title">Ещё</h1>
+  <section class="v3-group"><span class="v3-eyebrow">Магазин</span>
+    <button type="button" class="v3-row" onclick="openStoreV3('zarniki')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Зарники<small>Пополнение и что на них можно взять</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
+    <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
+  </section>
   <section class="v3-group" id="cc-manage" style="display:none"><span class="v3-eyebrow">Управление</span>
     <button type="button" class="v3-row" onclick="openManageMenu()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg><span>Управление чатами<small>Модерация и настройки</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
   <section class="v3-group"><span class="v3-eyebrow">Аккаунт</span>

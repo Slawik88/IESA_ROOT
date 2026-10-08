@@ -552,7 +552,7 @@ function switchPage(name, _btn, _viaBack) {
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['pets','chests','achievements-v1','public-profile'];
+  const _profileChildren=['pets','chests','achievements-v1','public-profile','store'];
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
@@ -585,7 +585,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');

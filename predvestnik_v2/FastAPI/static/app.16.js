@@ -33,7 +33,7 @@ function _v3VipSeal(vip) {
   const days = Math.max(0, Number(vip.days_left) || 0), share = Math.min(1, days / 30);
   const ring = `<svg viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="11" class="v3-seal-track"/><circle cx="14" cy="14" r="11" class="v3-seal-arc" stroke-dasharray="69.1" stroke-dashoffset="${(69.1 * (1 - share)).toFixed(1)}"/><path d="M8.5 17.5l1.4-6 2.6 3 1.5-4.2 1.5 4.2 2.6-3 1.4 6z" class="v3-seal-crown"/></svg>`;
   const until = vip.expires_at ? ` · до ${_profileDate(vip.expires_at)}` : '';
-  return `<div class="v3-seal" role="status" aria-label="VIP активен, осталось ${fmt(days)} дн.">${ring}<span><b>VIP</b> ещё ${fmt(days)} дн.${until}</span></div>`;
+  return `<button type="button" class="v3-seal" onclick="openStoreV3('vip')" aria-label="VIP активен, осталось ${fmt(days)} дн. Открыть VIP">${ring}<span><b>VIP</b> ещё ${fmt(days)} дн.${until}</span></button>`;
 }
 
 // «Дальше»: одно понятное действие вместо выбора из списка

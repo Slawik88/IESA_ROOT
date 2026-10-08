@@ -40,7 +40,7 @@ function _lkAction(item, st) {
   }
   if (!item.equipped) return { t: 'Надеть', a: 'equip', sub: item.maxed ? 'Максимальный тир' : `Сейчас тир ${item.level}` };
   if (item.maxed) return { t: 'Максимальный тир', a: '', sub: 'Образ раскрыт полностью' };
-  if (item.next.needs_vip) return { t: 'Последний тир откроет VIP', a: '', sub: 'SSS доступен только с активным VIP' };
+  if (item.next.needs_vip) return { t: 'Открыть SSS с VIP', a: 'vip', sub: 'Последний тир SSS доступен только с активным VIP' };
   return e >= item.next.essence
     ? { t: `Улучшить до ${item.next.tier}`, a: 'upgrade', sub: `${fmt(item.next.essence)} Эссенции, останется ${fmt(e - item.next.essence)}`, cost: item.next.essence }
     : { t: `Не хватает ${fmt(item.next.essence - e)} Эссенции`, a: 'essence', sub: `Тир ${item.next.tier} стоит ${fmt(item.next.essence)}, нажмите, чтобы пополнить` };
@@ -91,7 +91,7 @@ function _lkRender(anim) {
   const note = !item.owned ? (_lk.tier === 'D' ? 'Так образ выглядит на старте.' : `Превью тира ${_lk.tier}. Куплен он начнёт с D и дорастёт до этого вида.`)
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
   const total = Math.ceil(item.total_upgrade_essence / st.essence.per_zarnik);
-  const owner = st.vip ? '' : '<p class="lk-fine">Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его всегда.</p>';
+  const owner = st.vip ? '' : '<p class="lk-fine">Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его всегда. <button type="button" class="v3-link" onclick="openStoreV3(\'vip\')">Что даёт VIP ›</button></p>';
   root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">
     ${_lkTop(st)}
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
@@ -123,7 +123,8 @@ function _lkSync() {                           // новый скин сразу
 async function lkAct(kind, arg) {
   if (_lk.busy) return;
   const item = _lkItem(_lk.sel);
-  if (kind === 'topup') return openZarnikiTopup();
+  if (kind === 'topup') return openStoreV3('zarniki', item?.id);
+  if (kind === 'vip') return openStoreV3('vip');
   if (kind === 'essence') return lkEssence();
   const calls = {
     buy: () => api('/skins-v3/buy', { method: 'POST', headers: { 'Idempotency-Key': _lk.keys.buy ||= _lkUuid() }, body: JSON.stringify({ skin_id: item.id }) }),
