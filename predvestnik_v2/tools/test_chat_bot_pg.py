@@ -257,6 +257,23 @@ async def sanctions_flow(db, bot):
     assert "silent" not in text, text
     out = await run(db, bot, "бот санкции", uid=2002, username="talker")
     assert "нет права" in out, out
+    await profile_flow(db, bot)
+
+
+async def profile_flow(db, bot):
+    await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5 WHERE user_tg_id = 2002")
+    await db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
+                     "VALUES (-100, 2002, 'Talker', 1001, 'Alpha', NOW())")
+    out = await run(db, bot, "бот я", uid=2002, username="talker")
+    assert "@talker" in out and "1 500" in out and "12.5" in out and "Сообщения" in out, out
+    assert "@\u200balpha" in out and "@alpha" not in out, out          # партнёр без пинга
+    assert "ID:" not in out, out                                        # обычный игрок ID не видит
+    out = await run(db, bot, "бот кто, @talker", uid=42, username="devuser")
+    assert "ID: <code>2002</code>" in out and "Создатель" not in out, out
+    out = await run(db, bot, "бот кто @nobody_here")
+    assert "Не нашёл" in out, out
+    out = await run(db, bot, "бот баланс", uid=2002, username="talker")
+    assert "Мора" in out and "Зарники" in out and "Тёмная" not in out, out
 
 
 asyncio.run(main())

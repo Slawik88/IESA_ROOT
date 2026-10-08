@@ -21,6 +21,9 @@ STATEMENTS = (
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT FALSE",
     # Чистка: норма игрока с поправкой на мут и дату входа в чат.
     "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS required_norm INTEGER",
+    # Глобальная роль в боте (новая шкала, с нуля). Старая колонка global_rank не читается.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS bot_rank SMALLINT DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_sponsor BOOLEAN DEFAULT FALSE",
     # Какой минимальный ранг нужен для действия в конкретном чате.
     """CREATE TABLE IF NOT EXISTS chat_rank_rights (
         chat_id    BIGINT   NOT NULL,
