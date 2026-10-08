@@ -4,14 +4,11 @@
 // Скин покупается на тире D и растёт до своего потолка за Эссенцию; превью выше D помечено как превью.
 // Сервер считает всё сам (/skins-v3/*), здесь только показ и повторяемые запросы с Idempotency-Key.
 const _LK_TIERS = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
-let _lk = { st: null, sel: null, tier: 'D', busy: false, failed: '', seq: 0, keys: {} };
+let _lk = { st: null, sel: null, tier: 'D', busy: false, failed: '', seq: 0, keys: {}, view: 'shop' };
 const _lkUuid = () => globalThis.crypto?.randomUUID?.() || `lk-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const _lkItem = id => _lk.st?.items.find(i => i.id === id) || null;
 const _lkPrice = z => `${fmt(z)} ✨`;
-function _lkDayId(st) {                       // «скин дня»: один для всех, меняется в полночь по UTC
-  const day = Math.floor(Date.now() / 864e5), list = st.items;
-  return list[(day * 7 + 3) % list.length].id;
-}
+const _lkWeekId = st => st.featured?.skin_id || st.items[0].id;   // «образ недели»: один для всех, считает сервер (app.27.js)
 
 function openLooksModal() {
   switchPage('looks');
@@ -21,7 +18,7 @@ function openLooksModal() {
   return api('/skins-v3/me').then(st => {
     if (mine !== _lk.seq) return;
     _lk.st = st; _lk.failed = '';
-    _lkPick(_lk.sel && _lkItem(_lk.sel) ? _lk.sel : (st.equipped || _lkDayId(st)));
+    _lkPick(_lk.sel && _lkItem(_lk.sel) ? _lk.sel : (st.equipped || _lkWeekId(st)));
   }).catch(e => { if (mine !== _lk.seq) return; _lk.failed = String(e || 'Ошибка'); _lkRender(); });
 }
 function _lkPick(id, fromUser) {
@@ -54,11 +51,11 @@ function _lkMini(item) {
 }
 function _lkStrip(st) {
   let last = '';
-  const day = _lkDayId(st);
+  const week = _lkWeekId(st);
   return `<nav class="lk-strip" aria-label="Скины">${st.items.map(i => {
     const label = last !== i.ceiling ? `<span class="lk-grp" aria-hidden="true">${i.ceiling}</span>` : ''; last = i.ceiling;
     const mark = i.equipped ? '<i class="lk-dot is-on" title="Надет"></i>' : i.owned ? '<i class="lk-dot" title="Куплен"></i>' : '';
-    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : _lkPrice(i.price_zarniki)}${i.id === day ? ' · скин дня' : ''}</small></button>`;
+    return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
   }).join('')}</nav>`;
 }
 function _lkSteps(item) {
@@ -68,10 +65,9 @@ function _lkSteps(item) {
     return `<button type="button" role="radio" aria-checked="${t === _lk.tier}" class="${cls}" onclick="lkTier('${t}')"><span>${t}</span><small>${n === 0 ? 'старт' : n <= have ? '✓' : fmt(costs[t])}</small></button>`;
   }).join('<i class="lk-link"></i>')}</div>`;
 }
-function _lkSets(st) {
-  return st.sets.map(s => `<div class="lk-set"><div><b>${_profileEsc(s.name)}</b><small>${_profileEsc(s.blurb)}</small></div>
-    <div class="lk-set-end"><span>${s.have} из ${s.members.length}</span><small>${s.complete ? 'Сет собран' : `+${s.bonus_essence} Эссенции за сбор`}</small></div>
-    <div class="lk-set-row">${s.members.map(id => { const i = _lkItem(id); return `<button type="button" class="lk-pick${id === _lk.sel ? ' is-sel' : ''}" onclick="_lkPick('${id}',true);lkTop()">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : `${i.ceiling} · ${_lkPrice(i.price_zarniki)}`}</small></button>`; }).join('')}</div></div>`).join('');
+function _lkTop(st) {
+  return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Профиль</button>
+      <div class="lk-wallet" role="group" aria-label="Баланс"><button type="button" onclick="openZarnikiTopup()" aria-label="Зарники ${fmt(st.zarniki)}. Пополнить">✨ <b>${fmt(st.zarniki)}</b></button><button type="button" onclick="lkEssence()" aria-label="Эссенция ${fmt(st.essence.balance)}. Пополнить">${_v3Icon('essence')} <b>${fmt(st.essence.balance)}</b></button></div></div>${lkViewSwitch()}`;
 }
 function lkTop() { window.scrollTo({ top: 0, behavior: 'smooth' }); }
 
@@ -81,20 +77,20 @@ function _lkRender(anim) {
   if (!st) { root.innerHTML = `<div class="v3-scope lk-scope"><div class="v3-empty">${_profileEsc(_lk.failed || 'Загрузка…')} <button type="button" class="v3-link" onclick="openLooksModal()">Повторить</button></div></div>`; return; }
   const item = _lkItem(_lk.sel), look = { ...item, tier: _lk.tier }, ap = apFromLook(look), act = _lkAction(item, st);
   const tokens = v3TokenStyle(item.tokens);
+  if (_lk.view === 'album') { root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">${_lkTop(st)}${lkAlbumHtml(st)}</div>`; return; }
   const avatar = _v3Avatar(_profileData || {});
   const name = _profileEsc(String(_profileData?.display_name || 'Игрок'));
   const stripScroll = root.querySelector('.lk-strip')?.scrollLeft || 0;
   const identity = `<div class="lk-id"><div class="v3-ring lk-ring">${apHalo(ap)}${_v3Ring(72)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}</div>
     <div class="v3-name lk-name">${apName(ap, name)}</div><div class="pp-title-row">${apTitle(ap)}</div></div>`;
   const setTag = item.set ? `<span class="lk-tag">${_profileEsc(st.sets.find(s => s.id === item.set)?.name || '')}</span>` : '';
-  const dayTag = item.id === _lkDayId(st) ? '<span class="lk-tag lk-tag--day">Скин дня</span>' : '';
+  const dayTag = item.id === _lkWeekId(st) ? '<span class="lk-tag lk-tag--day">Образ недели</span>' : '';
   const note = !item.owned ? (_lk.tier === 'D' ? 'Так образ выглядит на старте.' : `Превью тира ${_lk.tier}. Куплен он начнёт с D и дорастёт до этого вида.`)
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
   const total = Math.ceil(item.total_upgrade_essence / st.essence.per_zarnik);
   const owner = st.vip ? '' : '<p class="lk-fine">Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его всегда.</p>';
   root.innerHTML = `<div class="v3-scope lk-scope" style="${tokens}">
-    <div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Профиль</button>
-      <div class="lk-wallet" role="group" aria-label="Баланс"><button type="button" onclick="openZarnikiTopup()" aria-label="Зарники ${fmt(st.zarniki)}. Пополнить">✨ <b>${fmt(st.zarniki)}</b></button><button type="button" onclick="lkEssence()" aria-label="Эссенция ${fmt(st.essence.balance)}. Пополнить">${_v3Icon('essence')} <b>${fmt(st.essence.balance)}</b></button></div></div>
+    ${_lkTop(st)}
     <div class="lk-hero${anim ? ' is-swap' : ''}">${apStage(ap, identity)}</div>
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
     <p class="lk-blurb">${_profileEsc(item.blurb)}</p>
@@ -103,12 +99,13 @@ function _lkRender(anim) {
     <p class="lk-note" aria-live="polite">${_profileEsc(note)}</p>
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>
       ${item.equipped ? '<button type="button" class="v3-link" onclick="lkAct(\'unequip\')">Снять образ</button>' : ''}</div>
-    <p class="lk-fine">Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Эссенция тратится только на тиры образов.</p>${owner}
+    <p class="lk-fine">${item.ceiling === 'D' ? 'Этот образ не растёт: его потолок D.' : `Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨.`} Эссенция тратится только на тиры образов.</p>${owner}
+    ${lkGoalHtml(st)}${lkWeekHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Эссенция</span></div>
     <p class="lk-fine">Валюта прокачки. Её дают задания (+${st.essence.quest_reward.daily} за день, +${st.essence.quest_reward.weekly} за неделю, +${st.essence.quest_reward.combined} за всё) или обмен: 1 ✨ = ${st.essence.per_zarnik} Эссенции.</p>
-    <div class="lk-packs">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
+    ${lkFitNote(st, item)}<div class="lk-packs">${st.essence.packs.map(p => `<button type="button" class="v3-pill v3-pill--ghost${p.zarniki === lkFitPack(st, item) ? ' is-fit' : ''}" onclick="lkAct('pack',${p.zarniki})" ${_lk.busy ? 'disabled' : ''}>${p.zarniki} ✨ → ${fmt(p.essence)}</button>`).join('')}</div></div>`;
   const strip = root.querySelector('.lk-strip');
   if (strip) { strip.scrollLeft = stripScroll; if (!stripScroll || anim) { const on = strip.querySelector('.is-sel'); if (on) strip.scrollTo({ left: on.offsetLeft - strip.clientWidth / 2 + on.clientWidth / 2, behavior: stripScroll ? 'smooth' : 'auto' }); } }
 }
@@ -139,8 +136,9 @@ async function lkAct(kind, arg) {
     const now = _lkItem(_lk.sel);
     if (kind === 'buy' || kind === 'upgrade' || kind === 'equip') _lk.tier = now.level;
     _lkSync();
-    if (reply.message) toast(reply.message);
-    if (kind === 'buy' || kind === 'upgrade' || kind === 'pack') v3Reward(el('pg-looks')?.querySelector('.lk-cta .v3-pill, .lk-packs .v3-pill'));
+    if (reply.message && kind !== 'buy' && kind !== 'upgrade') toast(reply.message);   // покупку и тир рассказывает раскрытие
+    if (kind === 'buy' || kind === 'upgrade') lkReveal([...(kind === 'buy' ? [{ kind: 'owned', name: now.name, ceiling: now.ceiling }] : []), ...(reply.state.events || [])]);
+    else if (kind === 'pack') v3Reward(el('pg-looks')?.querySelector('.lk-packs .v3-pill'));
     else _haptic('success');
   } catch (e) {
     if (/запрос уже использован|Idempotency/i.test(String(e))) _lk.keys = {};

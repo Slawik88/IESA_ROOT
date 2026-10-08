@@ -12,14 +12,24 @@ from typing import Final
 TIERS: Final = ("D", "C", "B", "A", "S", "SS", "SSS")
 DEFAULT_SKIN_ID: Final = "default"
 
-# Price of the skin itself (it starts at tier D); the ceiling decides how far it can grow.
-BUY_PRICE_ZARNIKI: Final = {"D": 100, "C": 160, "B": 240, "A": 340, "S": 480, "SS": 650, "SSS": 900}
+# ── Prices ─────────────────────────────────────────────────────────────────────────────────────────────────────
+# Price of the skin itself (it starts at tier D); the ceiling decides how far it can grow. Launch prices were
+# 100/160/240/340/480/650/900; they are now x3.0 (D) rising to x4.0 (SSS) of that.
+BUY_PRICE_ZARNIKI: Final = {"D": 300, "C": 500, "B": 750, "A": 1100, "S": 1700, "SS": 2500, "SSS": 3600}
 # Essence needed to move a skin INTO the given tier.
-UPGRADE_ESSENCE: Final = {"C": 20, "B": 45, "A": 90, "S": 160, "SS": 280, "SSS": 480}
+UPGRADE_ESSENCE: Final = {"C": 120, "B": 280, "A": 560, "S": 1000, "SS": 1600, "SSS": 2600}
+
+# Essence is sold at ONE fixed rate. There is no volume bonus on purpose: whatever pack is bought, a step costs the same
+# Zarniki, so the Zarniki price of a fully raised skin is exactly buy price + chain / ESSENCE_PER_ZARNIK (full_price below).
 ESSENCE_PER_ZARNIK: Final = 4
-ESSENCE_PACKS: Final = (10, 25, 60)          # Zarniki per pack, each pack = ESSENCE_PER_ZARNIK * n Essence
-SET_BONUS_ESSENCE: Final = 40   # once per themed set, when its last skin is bought
+ESSENCE_PACKS: Final = (10, 30, 80, 200)     # Zarniki per pack; a pack gives ESSENCE_PER_ZARNIK * n Essence
+
+# Free Essence is small by design. Every source is listed here so the economy test can add them up:
+#   quests: about 65 a week; a set, a rarity row and the collection milestones pay a few percent of what they cost to own.
 ESSENCE_QUEST_REWARD: Final = {"daily": 5, "weekly": 20, "combined": 10}
+BONUS_SHARE: Final = 0.03        # sets and rarity rows pay this share of the Zarniki price of their members, as Essence
+FEATURED_SHARE: Final = 0.05     # skin of the week: buying it during its week pays this share of its price, as Essence
+BONUS_STEP: Final = 10           # bonuses are rounded to this many Essence
 
 
 def tier_index(tier: str) -> int:
@@ -42,6 +52,22 @@ def upgrade_cost(current: str, ceiling: str) -> tuple[str, int] | None:
 
 def total_upgrade_cost(ceiling: str) -> int:
     return sum(UPGRADE_ESSENCE[t] for t in TIERS[1:tier_index(ceiling)])
+
+
+def essence_zarniki(essence: int) -> int:
+    """Zarniki that buy this much Essence at the fixed rate (rounded up: nobody gets Essence below the rate)."""
+    return -(-int(essence) // ESSENCE_PER_ZARNIK)
+
+
+def full_price(ceiling: str) -> int:
+    """Zarniki to own a skin of this rarity fully raised when everything is bought: skin + all Essence steps."""
+    return BUY_PRICE_ZARNIKI[ceiling] + essence_zarniki(total_upgrade_cost(ceiling))
+
+
+def bonus_essence(price_zarniki: int, share: float) -> int:
+    """Essence worth `share` of a Zarniki price at the fixed rate, rounded to BONUS_STEP (never below one step)."""
+    raw = price_zarniki * share * ESSENCE_PER_ZARNIK
+    return max(BONUS_STEP, int(round(raw / BONUS_STEP)) * BONUS_STEP)
 
 
 # ── Colour helpers: the palette is derived from a few inputs and checked for contrast in tests ─────────────────

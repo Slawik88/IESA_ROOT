@@ -49,6 +49,12 @@ function _ppLook(d, ap) {
   const why = d.is_self ? 'Другие игроки видят ваш образ только пока у вас активен VIP. Вы сами видите его как обычно.' : 'Образ скрыт: другие игроки видят его только у владельцев VIP.';
   return `<section>${head}<div class="pp-look pp-look--hidden"><span><b>${_profileEsc(look.name || 'Образ')}</b><small><i class="v3-tier">${_profileEsc(look.tier || '')}</i></small></span></div><div class="v3-lock">${lock}<span>${why}</span></div></section>`;
 }
+function _ppCollection(d) {   // только числа и названия: что именно собрано, остальные не видят
+  const c = d.appearance?.collection; if (!c || !c.owned) return '';
+  const sets = (c.sets_done || []).map(x => `${_profileEsc(x.glyph)} ${_profileEsc(x.name)}`).join(' · '), extra = [c.maxed ? `на максимуме: ${c.maxed}` : '', sets].filter(Boolean).join(' · ');
+  return `<section><div class="v3-sec"><span class="v3-eyebrow">Коллекция</span></div><div class="pp-coll"><span class="lk-pring" style="--p:${Math.round(100 * c.owned / c.total)}">${c.owned}/${c.total}</span>
+    <span><b>${_profileEsc(c.rank)}</b><small>${_profileEsc(extra || `Образов: ${c.owned} из ${c.total}`)}</small></span></div></section>`;
+}
 function renderPublicCardV3(d) {
   const a = d.appearance || {}, ap = a.visible ? apFromLook(a.look) : null;
   const tokens = ap ? v3TokenStyle(a.look.tokens) : '';
@@ -73,5 +79,5 @@ function renderPublicCardV3(d) {
   return `<div class="v3-scope pp-scope${ap ? '' : ' pp-neutral'}" style="${tokens}">${_PP_BACK}${d.is_self ? '<p class="v3-sub pp-self">Так вас видят другие игроки.</p>' : ''}
     ${apStage(ap, hero)}
     <section class="v3-stats" aria-label="Показатели"><div><b>${fmt(s.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(s.achievements || 0)}</b><span>достижений</span></div><div><b>${_v3Short(s.messages || 0)}</b><span>сообщений</span></div></section>
-    ${path}${_ppGames(d.games || {})}${pet}${_ppLook(d, ap)}</div>`;
+    ${path}${_ppGames(d.games || {})}${pet}${_ppLook(d, ap)}${_ppCollection(d)}</div>`;
 }

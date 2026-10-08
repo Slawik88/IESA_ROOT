@@ -14,7 +14,10 @@ import asyncpg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, SET_BONUS_ESSENCE, UPGRADE_ESSENCE  # noqa: E402
+from unittest import mock  # noqa: E402
+
+from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, UPGRADE_ESSENCE  # noqa: E402
+from core.skins_v3_collection import featured_bonus, milestones, row_bonus, set_bonus  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
 from infrastructure.repositories import global_skins_v1 as old_skins  # noqa: E402
@@ -54,34 +57,37 @@ async def run(dsn: str) -> None:
     await outer.start()
     try:
         user = 981001
-        await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 1000))
+        await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 3000))
 
         initial = await skins.state(db, user)
         assert len(initial["items"]) == 25 and len(initial["sets"]) == 2 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
-        assert initial["equipped"] is None and initial["zarniki"] == 1000
+        assert initial["equipped"] is None and initial["zarniki"] == 3000
 
         # buy: charged once, owned at D, equipped; repeating the same request does not charge twice
         _, state = await skins.buy(db, user, "threshold", idempotency_key="k-buy-1")
-        assert await zarniki(db, user) == 1000 - BUY_PRICE_ZARNIKI["C"]
+        assert await zarniki(db, user) == 3000 - BUY_PRICE_ZARNIKI["C"]
         item = next(i for i in state["items"] if i["id"] == "threshold")
         assert item["owned"] and item["level"] == "D" and item["equipped"] and item["next"] == {"tier": "C", "essence": UPGRADE_ESSENCE["C"], "needs_vip": False}
         await skins.buy(db, user, "threshold", idempotency_key="k-buy-1")
-        assert await zarniki(db, user) == 1000 - BUY_PRICE_ZARNIKI["C"]
+        assert await zarniki(db, user) == 3000 - BUY_PRICE_ZARNIKI["C"]
         await expect_conflict(skins.buy(db, user, "threshold", idempotency_key="k-buy-2"), "уже у вас")
-        await expect_conflict(skins.buy(db, user, "starheart", idempotency_key="k-buy-3"), "Нужно 900")
+        await expect_conflict(skins.buy(db, user, "starheart", idempotency_key="k-buy-3"), f"Нужно {BUY_PRICE_ZARNIKI['SSS']}")
         await expect_conflict(skins.upgrade(db, user, "threshold", idempotency_key="u0"), "Эссенции")
 
         # Essence for Zarniki, then upgrades
-        _, state = await skins.buy_essence(db, user, 10, idempotency_key="e1")
-        assert state["essence"]["balance"] == 10 * ESSENCE_PER_ZARNIK and await zarniki(db, user) == 1000 - 160 - 10
-        await skins.buy_essence(db, user, 10, idempotency_key="e1")
-        assert (await skins.state(db, user))["essence"]["balance"] == 40, "essence purchase must be idempotent"
+        pack = 30
+        _, state = await skins.buy_essence(db, user, pack, idempotency_key="e1")
+        assert state["essence"]["balance"] == pack * ESSENCE_PER_ZARNIK and await zarniki(db, user) == 3000 - BUY_PRICE_ZARNIKI["C"] - pack
+        await skins.buy_essence(db, user, pack, idempotency_key="e1")
+        assert (await skins.state(db, user))["essence"]["balance"] == pack * ESSENCE_PER_ZARNIK, "essence purchase must be idempotent"
         await expect_conflict(skins.buy_essence(db, user, 7, idempotency_key="e2"), "набора")
         _, state = await skins.upgrade(db, user, "threshold", idempotency_key="u1")
         item = next(i for i in state["items"] if i["id"] == "threshold")
-        assert item["level"] == "C" and item["maxed"] and state["essence"]["balance"] == 40 - UPGRADE_ESSENCE["C"]
+        left = pack * ESSENCE_PER_ZARNIK - UPGRADE_ESSENCE["C"]
+        assert item["level"] == "C" and item["maxed"] and state["essence"]["balance"] == left
+        assert [e["kind"] for e in state["events"]] == ["tier", "badge"] and state["events"][0]["tier"] == "C" and state["events"][0]["maxed"], "the first skin at its ceiling earns a badge"
         await skins.upgrade(db, user, "threshold", idempotency_key="u1")
-        assert (await skins.state(db, user))["essence"]["balance"] == 40 - UPGRADE_ESSENCE["C"], "upgrade replay must not charge again"
+        assert (await skins.state(db, user))["essence"]["balance"] == left, "upgrade replay must not charge again"
         await expect_conflict(skins.upgrade(db, user, "threshold", idempotency_key="u2"), "максимальном")
         await expect_conflict(skins.upgrade(db, user, "void", idempotency_key="u3"), "Сначала купите")
 
@@ -95,19 +101,53 @@ async def run(dsn: str) -> None:
         # quest reward Essence is granted once per reward id
         assert await skins.grant_essence_in_transaction(db, user, 5, reason="quest_reward", reference="daily:2026-10-08") == 5
         assert await skins.grant_essence_in_transaction(db, user, 5, reason="quest_reward", reference="daily:2026-10-08") == 0
-        assert (await repo.essence_balance(db, user)) == 40 - UPGRADE_ESSENCE["C"] + 5
+        assert (await repo.essence_balance(db, user)) == left + 5
 
-        # themed set: the purchase that completes it pays Essence exactly once
-        await db.execute("UPDATE users SET user_balance_zarniki=5000 WHERE user_tg_id=?", (user,))
-        before_essence = await repo.essence_balance(db, user)
-        for n, sid in enumerate(("lotus_pond", "lotus_gold")):
-            await skins.buy(db, user, sid, idempotency_key=f"set-{n}")
-        assert await repo.essence_balance(db, user) == before_essence, "no bonus before the set is complete"
-        message, state = await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")
-        assert await repo.essence_balance(db, user) == before_essence + SET_BONUS_ESSENCE and "собран" in message
-        assert next(s for s in state["sets"] if s["id"] == "lotus")["complete"] and next(s for s in state["sets"] if s["id"] == "sakura")["have"] == 0
-        await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")           # replay
-        assert await repo.essence_balance(db, user) == before_essence + SET_BONUS_ESSENCE, "bonus is paid once"
+        # collecting: set, rarity row and collection steps pay Essence exactly once; the week's skin is pinned so the test is stable
+        steps = {m["at"]: m["essence"] for m in milestones()}
+        week = {"skin_id": "starheart", "week": "2026-10-05", "ends_at": "2026-10-12T00:00:00+00:00", "bonus_essence": featured_bonus("starheart")}
+        with mock.patch.object(skins, "featured", lambda now=None: week):
+            await db.execute("UPDATE users SET user_balance_zarniki=30000 WHERE user_tg_id=?", (user,))
+            before_essence = await repo.essence_balance(db, user)
+            await skins.buy(db, user, "lotus_pond", idempotency_key="set-0")
+            assert await repo.essence_balance(db, user) == before_essence, "two skins reach no step"
+            message, state = await skins.buy(db, user, "lotus_gold", idempotency_key="set-1")      # third skin: first collection step
+            assert await repo.essence_balance(db, user) == before_essence + steps[3] and [e["kind"] for e in state["events"]] == ["rank"]
+            message, state = await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")
+            assert await repo.essence_balance(db, user) == before_essence + steps[3] + set_bonus("lotus") and "собран" in message
+            assert [e["kind"] for e in state["events"]] == ["set"] and state["events"][0]["essence"] == set_bonus("lotus")
+            lotus = next(s for s in state["sets"] if s["id"] == "lotus")
+            assert lotus["complete"] and lotus["missing"] == [] and lotus["bonus_essence"] == set_bonus("lotus")
+            assert next(s for s in state["sets"] if s["id"] == "sakura")["have"] == 0
+            again, state = await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")        # replay
+            assert state["events"] == [] and await repo.essence_balance(db, user) == before_essence + steps[3] + set_bonus("lotus"), "bonus is paid once"
+            look = await skins.own_look(db, user)
+            assert look["id"] == "moon_lotus" and look["crest"]["id"] == "lotus", "wearing a member of a finished set shows its crest"
+            first = next(i for i in (await skins.state(db, user))["items"] if i["id"] == "threshold")
+            assert "crest" not in first, "a skin outside a finished set has no crest"
+            # rarity row: the fourth D skin completes it; the collection summary carries counts only
+            for n, sid in enumerate(("forest", "dune")):
+                await skins.buy(db, user, sid, idempotency_key=f"row-{n}")
+            before_row = await repo.essence_balance(db, user)
+            _, state = await skins.buy(db, user, "harbor", idempotency_key="row-2")
+            kinds = [e["kind"] for e in state["events"]]
+            assert "row" in kinds and await repo.essence_balance(db, user) == before_row + row_bonus("D") + steps[6] * ("rank" in kinds), (kinds, state["events"])
+            col = state["collection"]
+            assert col["owned"] == 7 and col["rank"] == "Коллекционер" and col["rows"][0]["done"] and col["milestones"][0]["done"] and not col["milestones"][-1]["done"]
+            assert col["sets_done"] == [{"id": "lotus", "name": "Сад Лотоса", "glyph": "🪷"}] and col["maxed"] == 1 and col["maxed_badge"] == "Огранщик"
+            # skin of the week: the gift is paid once, only for that skin and only inside its week
+            before_week = await repo.essence_balance(db, user)
+            _, state = await skins.buy(db, user, "starheart", idempotency_key="week-1")
+            assert any(e["kind"] == "featured" for e in state["events"]) and await repo.essence_balance(db, user) >= before_week + featured_bonus("starheart")
+            assert state["featured"]["owned"] and state["featured"]["skin_id"] == "starheart"
+            await skins.buy(db, user, "starheart", idempotency_key="week-1")
+            before_replay = await repo.essence_balance(db, user)
+            await skins.buy(db, user, "starheart", idempotency_key="week-1")
+            assert await repo.essence_balance(db, user) == before_replay, "the weekly gift is never paid twice"
+        # the collection summary shown to other players has no skin ids
+        from services import appearance_public_v3 as public
+        view = await public.public_view(db, user)
+        assert view["collection"]["owned"] == 8 and "ids" not in view["collection"] and all(not isinstance(v, (list, dict)) or k == "sets_done" for k, v in view["collection"].items())
 
         # ── launch migration ────────────────────────────────────────────────────────────────────────────────
         payer, free_user, covered = 981002, 981003, 981004

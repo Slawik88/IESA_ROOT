@@ -8,7 +8,7 @@ from __future__ import annotations
 from core.appearance_v3 import cap_tier, visible_to_others
 from core.skins_v3_catalog import SKINS
 from infrastructure.repositories import skins_v3 as skins_repo
-from services.skins_v3 import look_payload
+from services.skins_v3 import collection_summary, crest_for, look_payload
 from services.vip import is_vip_active, is_vip_active_batch
 
 
@@ -17,14 +17,16 @@ async def public_view(db, owner_id: int) -> dict:
     vip = await is_vip_active(db, int(owner_id))
     visible = visible_to_others(vip)
     worn = (await skins_repo.equipped_batch(db, [int(owner_id)])).get(int(owner_id))
-    out = {"visible": visible, "hidden_reason": None if visible else "vip_required", "worn": False, "look": None}
+    owned = await skins_repo.owned(db, int(owner_id))
+    # the collection is counts only (no ids and no pictures), so it is public whatever the VIP state is
+    out = {"visible": visible, "hidden_reason": None if visible else "vip_required", "worn": False, "look": None, "collection": collection_summary(owned)}
     if not worn or worn[0] not in SKINS:
         return out
     skin_id, tier = worn
     tier = cap_tier(tier, vip)
     out["worn"] = True
     if visible:
-        out["look"] = look_payload(skin_id, tier)
+        out["look"] = look_payload(skin_id, tier, crest=crest_for(skin_id, owned))
     else:   # names and tiers are public, anything that can be drawn is not
         out["look"] = {"name": SKINS[skin_id]["name"], "tier": tier, "ceiling": SKINS[skin_id]["tier"]}
     return out

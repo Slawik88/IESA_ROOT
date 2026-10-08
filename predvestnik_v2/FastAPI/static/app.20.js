@@ -24,8 +24,13 @@ function apName(ap, html, plain) {
   const text = plain ?? String(html).replace(/<[^>]*>/g, '');
   return `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.k.name}${_apSig(ap)}" style="${ap.vars}" data-t="${text}">${html}</span>`;
 }
+function apCrest(ap) {   // знак собранного сета: сервер присылает его только владельцу или тем, кто вправе видеть образ
+  const c = ap?.look?.crest;
+  return c && typeof c.glyph === 'string' ? `<span class="ap-crest" style="${ap.vars}" title="${_profileEsc(c.name || '')}" role="img" aria-label="${_profileEsc(c.name || 'Сет')}">${_profileEsc(c.glyph)}</span>` : '';
+}
 function apTitle(ap) {
-  return ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${_apSig(ap)}" style="${ap.vars}">${_profileEsc(ap.title)}</span>` : '';
+  const title = ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${_apSig(ap)}" style="${ap.vars}">${_profileEsc(ap.title)}</span>` : '';
+  return ap ? apCrest(ap) + title : '';
 }
 function apHalo(ap) { return ap ? `<i class="ap-halo ap-t${ap.ti} ap-ha-${ap.k.halo}${_apSig(ap)}" style="${ap.vars}" aria-hidden="true"><b></b><b></b><b></b></i>` : ''; }
 function apFrame(ap) {

@@ -36,7 +36,8 @@ def run(vip: bool, worn=("void", "SSS")) -> dict:
     async def ensure(db): return None
     async def equipped(db, ids): return {int(ids[0]): worn} if worn else {}
     look.is_vip_active = is_vip
-    look.skins_repo.equipped_batch, look.skins_repo.ensure_tables = equipped, ensure
+    async def owned(db, uid): return dict.fromkeys(("void", "forest", "dune"), "D")
+    look.skins_repo.equipped_batch, look.skins_repo.ensure_tables, look.skins_repo.owned = equipped, ensure, owned
     return asyncio.run(look.public_view(Db(), 5))
 
 
@@ -46,6 +47,9 @@ assert with_vip["look"]["pal"] and with_vip["look"]["kinds"] and with_vip["look"
 assert not without_vip["visible"] and without_vip["hidden_reason"] == "vip_required" and without_vip["worn"]
 assert set(without_vip["look"]) == {"name", "tier", "ceiling"}, "names and tiers only, nothing to render without VIP"
 assert without_vip["look"]["tier"] == "SS", "SSS is shown capped without VIP"
+# the collection shows counts only, and a hidden look carries no crest or pictures
+assert with_vip["collection"]["owned"] == 3 and without_vip["collection"]["owned"] == 3 and set(without_vip["collection"]) == {"owned", "total", "rank", "maxed", "maxed_badge", "sets_done"}
+assert "crest" not in without_vip["look"]
 assert run(True, worn=None)["look"] is None and run(True, worn=("gone", "D"))["look"] is None
 
 rows = {}
