@@ -122,8 +122,9 @@ async def run(dsn: str) -> None:
         await economy_ledger.apply_balance_change(db, payer, {"zarniki": -1600}, reason_code="global_skin_purchase", idempotency_key="old-2", source_type="global_skins_v1", reference_type="global_skin", reference_id="void_atlas")
         await economy_ledger.apply_balance_change(db, payer, {"zarniki": -77}, reason_code="shop_other", idempotency_key="old-3", source_type="other")   # unrelated spend is not refunded
         await economy_ledger.apply_balance_change(db, covered, {"zarniki": -400}, reason_code="cosmetic_purchase", idempotency_key="old-4", source_type="cosmetics", reference_type="cosmetic", reference_id="x")
-        await db.execute("CREATE TABLE IF NOT EXISTS retirement_compensation_receipts_v2 (user_id BIGINT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL)")
-        await db.execute("INSERT INTO retirement_compensation_receipts_v2(user_id, applied_at) VALUES (?, NOW() + INTERVAL '1 hour') ON CONFLICT DO NOTHING", (covered,))
+        # same shape as the real receipts table: one row per (snapshot, player), so a player can have several
+        await db.execute("CREATE TABLE IF NOT EXISTS retirement_compensation_receipts_v2 (snapshot_id TEXT NOT NULL, user_id BIGINT NOT NULL, applied_at TIMESTAMPTZ NOT NULL, cosmetics_zarniki INTEGER NOT NULL DEFAULT 0, zarniki_carry INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(snapshot_id, user_id))")
+        await db.execute("INSERT INTO retirement_compensation_receipts_v2(snapshot_id, user_id, applied_at) VALUES ('a', ?, NOW() + INTERVAL '1 hour'), ('b', ?, NOW() + INTERVAL '1 hour') ON CONFLICT DO NOTHING", (covered, covered))
 
         before = await zarniki(db, payer)
         plans = {p.user_id: p for p in await migration.build_plan(db)}
@@ -150,6 +151,38 @@ async def run(dsn: str) -> None:
         assert not ({payer, free_user, covered} & again), "migrated players must not be planned again"
         assert await migration.apply_user(db, plans[payer]) is False, "second application is a no-op"
         assert await zarniki(db, payer) == before + 1850
+        # earlier refunds are never paid twice, whatever the number of receipts; large refunds wait for the owner
+        twice, wiped, whale = 981005, 981006, 981007
+        for uid in (twice, wiped, whale):
+            await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (uid, f"mig{uid}", 5000))
+            await db.execute("INSERT INTO user_cosmetics(user_id,cosmetic_id) VALUES (?,?)", (uid, "cos_name_glow_moon"))
+        for n, (uid, amount) in enumerate(((twice, 300), (wiped, 700), (whale, 1200))):
+            await economy_ledger.apply_balance_change(db, uid, {"zarniki": -amount}, reason_code="cosmetic_purchase", idempotency_key=f"old-x{n}", source_type="cosmetics", reference_type="cosmetic", reference_id="x")
+        await db.execute("INSERT INTO retirement_compensation_receipts_v2(snapshot_id, user_id, applied_at) VALUES ('a', ?, NOW() - INTERVAL '1 hour'), ('b', ?, NOW() - INTERVAL '2 hours')", (twice, twice))
+        await db.execute("CREATE TABLE IF NOT EXISTS cosmetics_lineup_wipe_log (user_id BIGINT PRIMARY KEY, processed_at TIMESTAMP DEFAULT NOW())")
+        await db.execute("INSERT INTO cosmetics_lineup_wipe_log(user_id, processed_at) VALUES (?, NOW() + INTERVAL '1 hour')", (wiped,))
+        plans = {p.user_id: p for p in await migration.build_plan(db)}
+        assert plans[twice].refund == 300, "two receipts must not double the sum"
+        assert plans[wiped].refund == 0, "a player the July wipe already refunded is not refunded again"
+        assert plans[whale].refund == 1200
+        explained = await migration.explain(db, twice)
+        assert explained["counted_refund"] == 300 and len(explained["sources"]["compensation_receipts"]) == 2
+        old_cap = os.environ.get("SKINS_V3_REFUND_CAP"), os.environ.get("SKINS_V3_APPROVED_USERS")
+        os.environ["SKINS_V3_REFUND_CAP"] = "1000"
+        whale_before = await zarniki(db, whale)
+        try:
+            assert plans[whale].held and not plans[twice].held
+            assert await migration.apply_user(db, plans[whale]) is False and await zarniki(db, whale) == whale_before, "a held refund changes nothing"
+            async with db.execute("SELECT COUNT(*) FROM user_cosmetics WHERE user_id=?", (whale,)) as c:
+                assert int((await c.fetchone())[0]) == 1, "a held player keeps their old items until approved"
+            os.environ["SKINS_V3_APPROVED_USERS"] = str(whale)
+            assert not plans[whale].held and await migration.apply_user(db, plans[whale]) is True and await zarniki(db, whale) == whale_before + 1200
+        finally:
+            for key, value in zip(("SKINS_V3_REFUND_CAP", "SKINS_V3_APPROVED_USERS"), old_cap):
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
         print("OK: skins v3 buy/equip/upgrade/essence are idempotent; migration refunds exactly what was paid and archives the old system")
     finally:
         await outer.rollback()
