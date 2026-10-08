@@ -13,6 +13,8 @@ body {
   --v3-w-num: 300; --v3-w-head: 600;
   --v3-ease: cubic-bezier(.22,1,.36,1);
   --acc-rgb: 216,207,253;
+  --v3-safe-t: calc(max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px));
+  --v3-safe-b: max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px));
 
   /* мост: старые экраны получают токены скина через прежние имена */
   --bg0: var(--v3-bg);
@@ -31,8 +33,17 @@ body {
   font-family: var(--v3-font);
   background: var(--v3-bg);
   color: var(--v3-ink);
-  padding: calc(20px + env(safe-area-inset-top, 0px)) 22px calc(104px + var(--safe-b));
+  padding: calc(20px + var(--v3-safe-t)) 22px calc(104px + var(--v3-safe-b));
   max-width: 520px; margin-inline: auto;
+}
+/* скин Г «Неон-лайм»: холодный чёрный и салатово-жёлтый акцент */
+body.skin-neon-lime {
+  --v3-bg: #090a08; --v3-ink: #f4f6ee; --v3-dim: #98a08a; --v3-faint: rgba(230,255,120,.10);
+  --v3-acc: #d4ff3a; --v3-on-acc: #121a00; --v3-ok: #9be86a;
+  --v3-sheet: #12140d; --v3-dock: rgba(18,20,13,.9); --v3-dock-on: rgba(212,255,58,.12);
+  --v3-wash: radial-gradient(110% 45% at 85% -8%, rgba(212,255,58,.14), transparent 60%),
+             radial-gradient(70% 38% at 0% 105%, rgba(212,255,58,.06), transparent 60%);
+  --acc-rgb: 212,255,58;
 }
 /* скин В «Глубокая вода» */
 body.skin-deep-water {
@@ -60,7 +71,7 @@ body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: 
 .dn-close:active { transform: scale(.88); }
 
 /* ── Нижний док ── */
-.nav { left: 50%; right: auto; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); bottom: calc(14px + var(--safe-b)); gap: 2px; padding: 5px; border: 0; border-radius: 99px; background: var(--v3-dock); box-shadow: 0 0 0 1px var(--v3-faint); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.nav { left: 50%; right: auto; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); bottom: calc(14px + var(--v3-safe-b)); gap: 2px; padding: 5px; border: 0; border-radius: 99px; background: var(--v3-dock); box-shadow: 0 0 0 1px var(--v3-faint); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .nb { flex: none; flex-direction: row; gap: 7px; min-height: 44px; padding: 0 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; color: var(--v3-dim); transition: color .2s, background-color .2s, transform .15s; }
 .nb svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .nb.active { color: var(--v3-ink); background: var(--v3-dock-on); }
@@ -131,7 +142,26 @@ dialog#modal .sheet { background: var(--v3-sheet); border: 0; border-radius: 28p
 #preloader .pl-ring, #preloader .pl-skip { display: none; }
 #preloader .pl-orb { filter: none; animation: none; }
 
+/* ── Native feel для Telegram Mini App ── */
+html, body { overscroll-behavior: none; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+input, textarea, [contenteditable="true"] { -webkit-user-select: text; user-select: text; }
+button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.v3-pill:active, .v3-game:active, .nb:active { transform: scale(.96); }
+
+/* ── Скелетоны: двигается только transform слоя ── */
+.sk { position: relative; overflow: hidden; background: var(--v3-faint); animation: none; }
+.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); transform: translateX(-100%); animation: v3shim 1.4s linear infinite; }
+@keyframes v3shim { to { transform: translateX(100%); } }
+
+/* ── Момент награды: свечение и частицы (transform/opacity) ── */
+.v3-glow { position: relative; isolation: isolate; }
+.v3-glow::before { content: ""; position: absolute; inset: -18%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .45), transparent); opacity: .5; transform: scale(.9); animation: v3pulse 2.4s var(--v3-ease) infinite alternate; pointer-events: none; }
+@keyframes v3pulse { to { opacity: .9; transform: scale(1.08); } }
+.v3-burst { position: fixed; left: 0; top: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 10px rgba(var(--acc-rgb), .9); pointer-events: none; z-index: 400; will-change: transform, opacity; }
+
 @media (prefers-reduced-motion: reduce) {
+  .sk::after, .v3-glow::before { animation: none; }
   .page.active, .nb, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
 }
 @media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { padding: 0 12px; } }

@@ -73,3 +73,50 @@ function dismissDevNotice() {
 (function restoreDevNotice() {
   try { if (sessionStorage.getItem('v3_dev_notice_closed') === '1') { const note = el('dev-notice'); if (note) note.hidden = true; } } catch (_) { /* хранилище недоступно */ }
 })();
+
+// ── Telegram Mini App: haptics, цвета оболочки, жесты ──────────────────────────
+// До этого _haptic() нигде не был объявлен: проверки typeof в app.01.js молча ничего не делали.
+function _haptic(kind) {
+  const h = tg?.HapticFeedback; if (!h) return;
+  try {
+    if (kind === 'success' || kind === 'warning' || kind === 'error') h.notificationOccurred(kind);
+    else if (kind === 'select') h.selectionChanged();
+    else h.impactOccurred(kind || 'light');
+  } catch (err) { console.error('haptic', err); }
+}
+// Один делегированный слушатель на все элементы нового каркаса
+document.addEventListener('click', e => {
+  const t = e.target.closest('.nb, .v3-pill, .v3-row, .v3-game, .v3-link, .v3-more > summary');
+  if (!t || t.disabled) return;
+  _haptic(t.classList.contains('nb') ? 'select' : t.classList.contains('v3-pill') ? 'medium' : 'light');
+}, true);
+
+// Шапка, фон и нижняя панель Telegram берут цвет скина: никаких чужих полос по краям
+(function initTmaShell() {
+  if (!tg) return;
+  try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (err) { console.error('swipes', err); }
+  const syncChrome = () => {
+    const bg = getComputedStyle(document.body).getPropertyValue('--v3-bg').trim();
+    if (!bg) return;
+    try { tg.setHeaderColor?.(bg); tg.setBackgroundColor?.(bg); tg.setBottomBarColor?.(bg); } catch (err) { console.error('chrome', err); }
+  };
+  syncChrome();
+  new MutationObserver(syncChrome).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+})();
+
+// Момент награды: тактильный отклик + россыпь частиц из центра (или из переданного элемента)
+function v3Reward(anchor) {
+  _haptic('success');
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = anchor?.getBoundingClientRect?.();
+  const x = r ? r.left + r.width / 2 : innerWidth / 2, y = r ? r.top + r.height / 2 : innerHeight * 0.4;
+  for (let i = 0; i < 14; i++) {
+    const p = document.createElement('i'); p.className = 'v3-burst'; document.body.appendChild(p);
+    const a = (Math.PI * 2 * i) / 14 + Math.random() * 0.4, d = 70 + Math.random() * 70;
+    const run = p.animate([
+      { transform: `translate(${x}px,${y}px) scale(1)`, opacity: 1 },
+      { transform: `translate(${x + Math.cos(a) * d}px,${y + Math.sin(a) * d}px) scale(.2)`, opacity: 0 }
+    ], { duration: 650 + Math.random() * 250, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+    run.onfinish = () => p.remove();
+  }
+}
