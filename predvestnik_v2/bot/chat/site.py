@@ -43,3 +43,27 @@ async def cmd_site(ctx: Ctx) -> None:
         await ctx.reply("🔮 Мини-приложение сейчас недоступно. Попробуйте позже.")
         return
     await ctx.reply(SITE_TEXT, reply_markup=kb)
+
+
+def admin_url() -> str:
+    url = os.getenv("MINIAPP_URL", "").split("?")[0].split("#")[0].rstrip("/")
+    return f"{url}/bot-admin" if url.startswith("https://") else ""
+
+
+@registry.command("админка", aliases=("админ панель", "панель"), usage="бот админка")
+async def cmd_admin_panel(ctx: Ctx) -> None:
+    from bot.chat.global_ranks import get_bot_rank
+    if await get_bot_rank(ctx.db, ctx.user_id) <= 0:
+        await ctx.reply("🛠 Админка доступна только персоналу бота.")
+        return
+    url = admin_url()
+    if not url:
+        await ctx.reply("🛠 Адрес сайта не настроен (MINIAPP_URL).")
+        return
+    if ctx.message.chat.type == "private":
+        btn = InlineKeyboardButton(text="🛠 Открыть админку", web_app=WebAppInfo(url=url))
+        text = "🛠 <b>Админка Предвестника</b>"
+    else:
+        btn = InlineKeyboardButton(text="🛠 Открыть в браузере", url=url)
+        text = "🛠 <b>Админка Предвестника</b>\nВнутри Telegram она открывается из лички с ботом: <code>бот админка</code>"
+    await ctx.reply(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]))

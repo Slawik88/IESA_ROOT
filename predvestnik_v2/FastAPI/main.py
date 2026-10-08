@@ -33,6 +33,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               account,
                               rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
+from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -205,6 +206,7 @@ for r in [profile.router, marriage.router, wallet.router,
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
+app.include_router(bot_admin_router.router)
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
