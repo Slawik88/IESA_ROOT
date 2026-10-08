@@ -1,0 +1,137 @@
+/* ═══ SHELL V3 — монолитный интерфейс: токены скина, док, профиль, игры, «Ещё» ═══
+   Грузится ПОСЛЕ app.css. Цвета, шрифт и свет задаёт только скин (body / body.skin-*):
+   новый скин = один блок токенов, разметка не меняется. Анимируются только transform/opacity. */
+
+body {
+  /* скин А «Обсидиан» — по умолчанию */
+  --v3-font: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --v3-bg: #08090c; --v3-ink: #f3f4f7; --v3-dim: #8a90a2; --v3-faint: rgba(255,255,255,.09);
+  --v3-acc: #d8cffd; --v3-on-acc: #15112b; --v3-ok: #7fd6a4; --v3-err: #ff8a8a;
+  --v3-sheet: #14161e; --v3-dock: rgba(22,24,32,.88); --v3-dock-on: rgba(255,255,255,.1);
+  --v3-wash: radial-gradient(120% 50% at 92% -5%, rgba(120,98,255,.26), transparent 60%),
+             radial-gradient(80% 40% at 0% 105%, rgba(70,110,255,.13), transparent 60%);
+  --v3-w-num: 300; --v3-w-head: 600;
+  --v3-ease: cubic-bezier(.22,1,.36,1);
+  --acc-rgb: 216,207,253;
+
+  /* мост: старые экраны получают токены скина через прежние имена */
+  --bg0: var(--v3-bg);
+  --bg1: color-mix(in srgb, var(--v3-ink) 3%, var(--v3-bg));
+  --bg2: color-mix(in srgb, var(--v3-ink) 5%, var(--v3-bg));
+  --bg3: color-mix(in srgb, var(--v3-ink) 8%, var(--v3-bg));
+  --card: var(--bg2); --s: var(--bg3);
+  --text: color-mix(in srgb, var(--v3-ink) 86%, var(--v3-bg));
+  --bright: var(--v3-ink); --muted: var(--v3-dim); --dim: var(--v3-faint);
+  --gold: var(--v3-acc); --gold2: var(--v3-acc); --gold-rgb: var(--acc-rgb);
+  --gold-dim: rgba(var(--acc-rgb), .12); --violet: var(--v3-acc); --violet-dim: rgba(var(--acc-rgb), .12);
+  --green: var(--v3-ok); --red: var(--v3-err);
+  --border: var(--v3-faint); --border2: var(--v3-faint); --line: var(--v3-faint);
+  --r: 18px; --r-sm: 12px; --shadow: none; --shadow-sm: none; --glow-gold: none;
+
+  font-family: var(--v3-font);
+  background: var(--v3-bg);
+  color: var(--v3-ink);
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 22px calc(104px + var(--safe-b));
+  max-width: 520px; margin-inline: auto;
+}
+/* скин В «Глубокая вода» */
+body.skin-deep-water {
+  --v3-font: 'Sora', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --v3-bg: #071114; --v3-ink: #eaf2f1; --v3-dim: #7f9a9c; --v3-faint: rgba(190,235,230,.11);
+  --v3-acc: #e8d7b0; --v3-on-acc: #241b08; --v3-ok: #6fd8c4;
+  --v3-sheet: #0c1c20; --v3-dock: rgba(14,30,34,.9); --v3-dock-on: rgba(190,235,230,.12);
+  --v3-wash: radial-gradient(110% 45% at 15% -8%, rgba(40,170,160,.28), transparent 60%),
+             radial-gradient(70% 38% at 100% 100%, rgba(232,215,176,.09), transparent 60%);
+  --v3-w-num: 200; --v3-w-head: 500; --acc-rgb: 232,215,176;
+}
+/* свет скина: фиксированный слой без перерисовки при скролле */
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--v3-wash); pointer-events: none; transform: translateZ(0); }
+::selection { background: rgba(var(--acc-rgb), .3); }
+:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 2px; border-radius: 8px; }
+#app-header { display: none; }
+@keyframes v3rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.page.active { animation: v3rise .28s var(--v3-ease) both; }
+
+/* плашка разработки: тихая строка, закрывается */
+.development-notice { display: flex; align-items: center; gap: 8px; margin: 0 0 24px; padding: 0; border: 0; background: none; color: var(--v3-dim); font-size: 11.5px; line-height: 1.4; }
+.development-notice strong { color: var(--v3-ink); font-weight: 600; }
+.development-notice > span:nth-child(2) { flex: 1; min-width: 0; }
+.dn-close { flex: none; width: 44px; height: 44px; margin: -12px -14px -12px 0; border: 0; background: none; color: var(--v3-dim); font-size: 18px; cursor: pointer; }
+.dn-close:active { transform: scale(.88); }
+
+/* ── Нижний док ── */
+.nav { left: 50%; right: auto; width: max-content; max-width: calc(100% - 24px); transform: translateX(-50%); bottom: calc(14px + var(--safe-b)); gap: 2px; padding: 5px; border: 0; border-radius: 99px; background: var(--v3-dock); box-shadow: 0 0 0 1px var(--v3-faint); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.nb { flex: none; flex-direction: row; gap: 7px; min-height: 44px; padding: 0 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; color: var(--v3-dim); transition: color .2s, background-color .2s, transform .15s; }
+.nb svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.nb.active { color: var(--v3-ink); background: var(--v3-dock-on); }
+.nb.active::after { display: none; }
+.nb:active { transform: scale(.94); }
+
+/* ── Общие элементы ── */
+.v3-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--v3-dim); font-weight: 500; }
+.v3-sec { display: flex; justify-content: space-between; align-items: baseline; margin: 26px 0 2px; }
+.v3-pill { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 600 13px/1 var(--v3-font); cursor: pointer; transition: transform .15s; }
+.v3-pill svg, .v3-row svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.v3-pill svg { width: 15px; height: 15px; }
+.v3-pill:active { transform: scale(.95); }
+.v3-link { min-height: 44px; padding: 0 4px; border: 0; background: none; color: var(--v3-dim); font: 500 13px/1 var(--v3-font); cursor: pointer; }
+.v3-link:active { opacity: .6; }
+.v3-row { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 0; border: 0; background: none; color: var(--v3-ink); font: 500 15px/1.3 var(--v3-font); text-align: left; cursor: pointer; transition: opacity .15s; }
+.v3-row + .v3-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.v3-row > svg:first-child { color: var(--v3-dim); }
+.v3-row small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; font-weight: 400; }
+.v3-row .v3-end { margin-left: auto; display: flex; align-items: center; gap: 8px; color: var(--v3-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.v3-row .v3-end svg { width: 16px; height: 16px; }
+.v3-row:active { opacity: .55; }
+.v3-badge { min-width: 20px; padding: 2px 7px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 11px; font-weight: 700; text-align: center; }
+
+/* ── Профиль ── */
+.v3-id { display: flex; align-items: center; gap: 16px; }
+.v3-ring { position: relative; flex: none; width: 76px; height: 76px; }
+.v3-ring > svg { width: 76px; height: 76px; transform: rotate(-90deg); fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.v3-ava { position: absolute; inset: 8px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; background: rgba(255,255,255,.07); font-size: 24px; font-weight: var(--v3-w-head); }
+.v3-ava img { width: 100%; height: 100%; object-fit: cover; }
+.v3-lv { position: absolute; right: -4px; bottom: -2px; padding: 2px 7px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 11px; font-weight: 700; }
+.v3-name { min-width: 0; font-size: 26px; line-height: 1.1; letter-spacing: -.03em; font-weight: var(--v3-w-head); overflow-wrap: anywhere; }
+.v3-sub { margin-top: 4px; color: var(--v3-dim); font-size: 12.5px; }
+.v3-bal { margin-top: 28px; }
+.v3-num { margin-top: 6px; font-size: 54px; line-height: 1; letter-spacing: -.045em; font-weight: var(--v3-w-num); font-variant-numeric: tabular-nums; }
+.v3-acts { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.v3-stats { display: flex; gap: 32px; margin-top: 28px; }
+.v3-stats b { display: block; font-size: 24px; letter-spacing: -.02em; font-weight: var(--v3-w-head); font-variant-numeric: tabular-nums; }
+.v3-stats span { color: var(--v3-dim); font-size: 12px; }
+.v3-list { margin-top: 22px; }
+.v3-more { margin-top: 20px; }
+.v3-more > summary { display: flex; align-items: center; min-height: 44px; color: var(--v3-dim); font-size: 13px; cursor: pointer; list-style: none; }
+.v3-more > summary::-webkit-details-marker { display: none; }
+.v3-more[open] > summary { color: var(--v3-ink); }
+
+/* ── Игры ── */
+.v3-title { margin: 6px 0 0; font-size: 34px; line-height: 1.05; letter-spacing: -.03em; font-weight: var(--v3-w-head); }
+.v3-lead { margin-top: 22px; }
+.v3-gname { font-size: 60px; line-height: .95; letter-spacing: -.05em; font-weight: var(--v3-w-num); }
+.v3-gdesc { max-width: 28ch; margin-top: 10px; color: var(--v3-dim); font-size: 14px; }
+.v3-lead .v3-pill { margin-top: 22px; }
+.v3-games { margin-top: 30px; }
+.v3-game { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 76px; padding: 0; border: 0; background: none; color: var(--v3-ink); font-family: var(--v3-font); text-align: left; cursor: pointer; transition: opacity .15s; }
+.v3-game + .v3-game { box-shadow: 0 -1px 0 var(--v3-faint); }
+.v3-game b { display: block; font-size: 22px; letter-spacing: -.03em; font-weight: var(--v3-w-head); }
+.v3-game small { color: var(--v3-dim); font-size: 12.5px; }
+.v3-game > svg { margin-left: auto; width: 16px; height: 16px; fill: none; stroke: var(--v3-dim); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.v3-game:active { opacity: .55; }
+
+/* ── Ещё ── */
+.v3-group { margin-top: 26px; }
+.v3-group > .v3-eyebrow { display: block; margin-bottom: 2px; }
+
+/* ── Шторки и прелоадер: тот же материал ── */
+dialog#modal .sheet { background: var(--v3-sheet); border: 0; border-radius: 28px 28px 0 0; box-shadow: 0 -1px 0 var(--v3-faint); color: var(--v3-ink); }
+.card, .profile-detail-section { background: none; border: 0; border-radius: 0; box-shadow: none; }
+#preloader { background: var(--v3-bg); }
+#preloader .pl-ring, #preloader .pl-skip { display: none; }
+#preloader .pl-orb { filter: none; animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .page.active, .nb, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
+}
+@media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { padding: 0 12px; } }

@@ -296,12 +296,13 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)]
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
     *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
     os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "shell-v3.css")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.css")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.js")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.css")),
@@ -452,6 +453,11 @@ async def rhythm_v2_js():
 @app.get("/static/minesweeper-v2.css")
 async def minesweeper_css():
     return Response(_read_static("minesweeper-v2.css"), media_type="text/css; charset=utf-8")
+
+
+@app.get("/static/shell-v3.css")
+async def shell_v3_css():
+    return Response(_read_static("shell-v3.css"), media_type="text/css; charset=utf-8")
 
 
 @app.get("/static/global-skins-v1.css")

@@ -165,36 +165,15 @@ function loadProfile() {
     try { _applySysFlags(d.system_flags); } catch (_) {}
     const uid = d.user_id || _uid;
     el('pro-main').innerHTML=`
-      ${renderProfileShowcase(d,d.cosmetics,{caption:'Личный профиль',openLooks:true})}
-
-      ${_profileVipCard(d.vip)}
+      ${renderProfileHome(d)}
       ${_profileCompensationCard(d.compensation,uid)}
-
-      <div class="profile-card-actions" aria-label="Настройки профиля">
-        <button type="button" onclick="openSettingsModal()"><span aria-hidden="true">⚙️</span><span>Настройки</span></button>
-        <button type="button" onclick="openPetsV1()"><span aria-hidden="true">🐾</span><span>Питомцы</span></button>
-        <button type="button" onclick="openQuestsV1()"><span aria-hidden="true">🧭</span><span>Квесты</span></button>
-        ${_sysFlags.content_chests_v1?'<button type="button" onclick="openChestsV1()"><span aria-hidden="true">🗝</span><span>Сундуки</span></button>':''}
-        <button type="button" onclick="openAchievementsV1()"><span aria-hidden="true">🏅</span><span>Достижения</span></button>
-        <button type="button" onclick="openChatTracker()"><span aria-hidden="true">💬</span><span>Мои чаты</span></button>
-      </div>
-
-      ${renderProfileDetails(d,{owner:true})}
-
-      <!-- Главный вход: сейчас здесь только реально доступные форматы. -->
-      <div class="qa-row profile-activity-row">
-        <button class="qa qa-hot qa-hub" type="button" onclick="goTo('arena','game')" aria-label="Открыть Центр Предвестника и выбрать игру">
-          <span class="qa-hub-icon" aria-hidden="true">🎮</span>
-          <span class="qa-hub-copy"><strong>Центр Предвестника</strong><small>Ритм · Сапёр · Мафия</small></span>
-          <span class="qa-hub-arrow" aria-hidden="true">›</span>
-        </button>
-      </div>
-
-      <!-- Карточка брака (заполняется loadMarriageCard) -->
-      <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
-      <!-- Карточка ника (заполняется loadNickCard) -->
-      <div id="pro-nick-card"></div>
-      <div id="wallet-mini"></div>`;
+      <details class="v3-more"><summary>Подробнее о профиле</summary>
+        ${_profileVipCard(d.vip)}
+        ${renderProfileDetails(d,{owner:true})}
+        <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
+        <div id="pro-nick-card"></div>
+        <div id="wallet-mini"></div>
+      </details>`;
     try { checkWhatsNewBadge(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { loadMarriageCard(); } catch (_) {}
@@ -599,8 +578,8 @@ function _runPreloader() {
       ? `<span class="plw-hi">Добро пожаловать,</span><span class="plw-nick">@${esc(nick)}</span>`
       : `<span class="plw-nick" style="font-size:23px">Добро пожаловать!</span>`;
     w.classList.add('show');
-  }, reduce ? 220 : 1500);
-  setTimeout(_plSkip, reduce ? 650 : 3200);
+  }, reduce ? 150 : 500);
+  setTimeout(_plSkip, reduce ? 400 : 1300);
 }
 _runPreloader();
 

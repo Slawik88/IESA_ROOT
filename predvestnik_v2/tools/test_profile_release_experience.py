@@ -34,19 +34,20 @@ assert "showPetPanel('bestiary'" in pets and "Неизвестный питом�
 assert "background-size:auto 100svh" in skin and "backdrop-filter:blur" in skin
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
-assert "help-hero" in index and "help-card" in index and "more-hero" in index
+assert "help-hero" in index and "help-card" in index and "v3-title" in index
 assert "settings-panel" in profile and "settings-toggle" in profile
 assert ".help-card" in css and ".settings-panel" in css
 assert profile.index("if (data?.username !== undefined)") < profile.index("if (!bar) return")
 assert 'aria-label="Основные разделы"' in index
-assert index.count('type="button" class="nb') == 4
+assert index.count('type="button" class="nb') == 3
 assert "setAttribute('aria-current','page')" in shell
 assert "2026-09-20-navigation-and-player-hub" in updates
 assert "2026-09-20-profile-stories-and-admin-repair" in updates
 for profile_chapter in ("profile-zone--games", "profile-zone--progress", "profile-zone--social", "profile-zone--safety"):
     assert profile_chapter in profile and profile_chapter in css
 assert "profile-paths" in profile and "--path:" in profile
-assert "openAchievementsV1()" in profile and "openPetsV1()" in profile
+home = (ROOT / "FastAPI/static/app.15.js").read_text(encoding="utf-8")
+assert "openAchievementsV1()" in home and "openPetsV1()" in home
 cached_admin = admin[admin.index("function loadAdmin()") : admin.index("function renderAdminChatSel()")]
 assert "_adminChats.some" in cached_admin
 assert "swAdmin(_adminTab" in cached_admin

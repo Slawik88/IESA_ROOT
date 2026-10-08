@@ -25,15 +25,15 @@ function openMafiaStats(){
 
 function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
-  host.innerHTML=`<section class="recon-entry-card recon-entry-card--hero">
-    <div class="recon-entry-mark">ᚱ</div><div class="recon-entry-copy"><span class="recon-entry-kicker">БЕСКОНЕЧНЫЙ ЗАБЕГ</span><h2>Ритм</h2><p>Нажимай руны точно. Скорость растёт плавно, а каждый режим имеет собственную таблицу лидеров.</p><div class="recon-entry-facts"><span>реакция</span><span>2 режима</span><span>топ игроков</span></div></div>
-    <button class="btn btn-gold recon-entry-action" onclick="openRhythmV2Game()">Играть <b>›</b></button></section>
-  <section class="recon-entry-card recon-entry-card--compact recon-entry-card--mines">
-    <div class="recon-entry-mark">⚑</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ЛОГИЧЕСКАЯ ИГРА</span><h2>Сапёр</h2><p>Открывай клетки, ставь флаги и выбери сложность. Победы попадают в топ.</p><div class="recon-entry-facts"><span>6×6 · 9×9</span><span>3 сложности</span><span>топ игроков</span></div></div>
-    <button class="btn btn-gold recon-entry-action" onclick="openMinesweeperGame()">Играть <b>›</b></button></section>
-  <section class="recon-entry-card recon-entry-card--compact recon-entry-card--mafia">
-    <div class="recon-entry-mark">◈</div><div class="recon-entry-copy"><span class="recon-entry-kicker">ИГРА В ЧАТЕ · ЗДЕСЬ ИСТОРИЯ</span><h2>Мафия</h2><p>В группе напиши «бот мафия». Здесь — твои партии и статистика.</p><div class="recon-entry-facts"><span>группа</span><span>роли в личке</span><span>история</span></div></div>
-    <button class="btn btn-gold recon-entry-action" onclick="openMafiaStats()">Мои партии <b>›</b></button></section>`;
+  const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  host.innerHTML=`<div class="v3-eyebrow">Играть</div>
+    <section class="v3-lead" aria-label="Ритм"><div class="v3-gname">Ритм</div>
+      <p class="v3-gdesc">Бесконечный забег. Жми руны точно, скорость растёт.</p>
+      <button type="button" class="v3-pill" onclick="openRhythmV2Game()">${_v3Icon('play')}Играть</button></section>
+    <section class="v3-games" aria-label="Другие игры">
+      <button type="button" class="v3-game" onclick="openMinesweeperGame()"><span><b>Сапёр</b><small>Логика, победы попадают в топ</small></span>${chev}</button>
+      <button type="button" class="v3-game" onclick="openMafiaStats()"><span><b>Мафия</b><small>Играется в чате: напиши «бот мафия». Здесь ваши партии</small></span>${chev}</button>
+    </section>`;
 }
 
 function loadArena(){ swArena('game'); }

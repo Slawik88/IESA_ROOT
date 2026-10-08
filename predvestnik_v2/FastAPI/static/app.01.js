@@ -573,7 +573,9 @@ function switchPage(name, _btn, _viaBack) {
   });
   el('pg-'+name).classList.add('active');
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
-  const activeNav=prim || el('nb-more');
+  // Подэкраны профиля (образы, питомцы, сундуки…) подсвечивают «Профиль», остальное — «Ещё».
+  const _profileChildren=['looks','pets','chests','questlog','achievements-v1','public-profile'];
+  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
   showCurrBar(name !== 'profile');
