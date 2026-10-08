@@ -37,9 +37,9 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 /* S · fx-5: плывущие частицы, блеск на крупных заголовках, мощнее награда */
 .v3-fx-dots > i { left: var(--x); bottom: -12px; width: var(--s); height: var(--s); border-radius: 50%; background: var(--v3-fx-a); opacity: 0; animation: v3float var(--d) linear var(--delay) infinite; }
 @keyframes v3float { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 12% { opacity: .55; } 88% { opacity: .35; } 100% { transform: translate3d(var(--dx), -105vh, 0); opacity: 0; } }
-.fx-5 .v3-gname, .fx-5 .v3-title { position: relative; overflow: hidden; }
-.fx-5 .v3-gname::after, .fx-5 .v3-title::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.22) 50%, transparent 60%); mix-blend-mode: overlay; transform: translateX(-130%); animation: v3sheen calc(8s * var(--v3-loop, 1)) ease-in-out infinite; pointer-events: none; }
-@keyframes v3sheen { 0%, 60% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+/* блеск лежит вторым слоем фона самого текста: подсвечиваются только буквы, без квадрата и кромки */
+.fx-5 .v3-gname, .fx-5 .v3-title { background-image: linear-gradient(100deg, transparent 38%, rgba(255,255,255,.85) 50%, transparent 62%), linear-gradient(var(--v3-ink), var(--v3-ink)); background-size: 44% 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: v3glint calc(8s * var(--v3-loop, 1)) ease-in-out infinite; }
+@keyframes v3glint { 0%, 60% { background-position: -70% 0, 0 0; } 100% { background-position: 170% 0, 0 0; } }
 
 /* SS · fx-6: параллакс по наклону/указателю, боковой переход экранов, световое пятно на доке */
 .v3-fx-tilt { inset: -6%; transform: translate3d(calc(var(--tilt-x, 0) * 18px), calc(var(--tilt-y, 0) * 18px), 0); transition: transform .25s var(--v3-ease); }
@@ -60,5 +60,5 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .tier-badge { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.4 var(--v3-font); font-style: normal; letter-spacing: .06em; }
 
 @media (prefers-reduced-motion: reduce) {
-  .v3-fx *, .fx-3 .v3-stagger > *, .fx-4 .v3-ring::after, .fx-5 .v3-gname::after, .fx-5 .v3-title::after { animation: none !important; }
+  .v3-fx *, .fx-3 .v3-stagger > *, .fx-4 .v3-ring::after, .fx-5 .v3-gname, .fx-5 .v3-title { animation: none !important; }
 }

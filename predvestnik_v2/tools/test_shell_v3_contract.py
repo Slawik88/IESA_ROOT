@@ -74,7 +74,8 @@ appearance = "".join((STATIC / name).read_text(encoding="utf-8") for name in app
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 for sheet in (fx, appearance, home_css, css):
     for name, props in keyframe_props(sheet).items():
-        assert props <= {"transform", "opacity"}, (name, props)
+        allowed = {"transform", "opacity"} | ({"background-position"} if name in {"apglint", "v3glint"} else set())   # блик по буквам лежит в фоне текста
+        assert props <= allowed, (name, props)
 assert len(keyframe_props(fx)) >= 4 and len(keyframe_props(appearance)) >= 12
 for level in range(1, 8):
     assert f".ap-t{level}" in appearance, level
