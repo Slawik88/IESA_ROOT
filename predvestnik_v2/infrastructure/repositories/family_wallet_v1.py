@@ -46,7 +46,17 @@ _BALANCE_COLUMNS = {
     "diamonds": "diamonds",
     "dark_mora": "dark_mora",
     "zarniki": "zarniki",
+    # Эссенция (2026-10): колонку и CHECK добавляет ensure_essence_custody().
+    "essence": "essence",
 }
+# Старые колонки семейного баланса в marriages; у эссенции такой нет.
+_LEGACY_COLUMNS = {
+    "mora": "family_balance",
+    "diamonds": "family_balance_diamonds",
+    "dark_mora": "family_balance_dark_mora",
+    "zarniki": "family_balance_zarniki",
+}
+CUSTODY_SELECT = ", ".join(_BALANCE_COLUMNS)
 
 
 def _fingerprint(*, action: str, currency: str, amount: Decimal) -> str:
@@ -100,7 +110,7 @@ async def transfer_between_personal_and_family(
             (marriage_id,),
         )
         async with db.execute(
-            "SELECT mora, diamonds, dark_mora, zarniki FROM family_wallet_balances "
+            f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
             "WHERE marriage_id = ? FOR UPDATE",
             (marriage_id,),
         ) as cursor:
@@ -147,16 +157,12 @@ async def transfer_between_personal_and_family(
             f"UPDATE family_wallet_balances SET {column} = ?, updated_at = NOW() WHERE marriage_id = ?",
             (after[currency], marriage_id),
         )
-        legacy_column = {
-            "mora": "family_balance",
-            "diamonds": "family_balance_diamonds",
-            "dark_mora": "family_balance_dark_mora",
-            "zarniki": "family_balance_zarniki",
-        }[currency]
-        await db.execute(
-            f"UPDATE marriages SET {legacy_column} = ? WHERE id = ?",
-            (float(after[currency]), marriage_id),
-        )
+        legacy_column = _LEGACY_COLUMNS.get(currency)
+        if legacy_column:
+            await db.execute(
+                f"UPDATE marriages SET {legacy_column} = ? WHERE id = ?",
+                (float(after[currency]), marriage_id),
+            )
 
         personal_delta = -normalized_amount if action == "deposit" else normalized_amount
         personal = await apply_balance_change(
@@ -378,3 +384,28 @@ async def install_family_wallet_schema(db: Any, *, registry_resolves_duplicates:
         ) opening WHERE amount <> 0
         ON CONFLICT (operation_id, currency) DO NOTHING
     """)
+    await ensure_essence_custody(db)
+
+
+async def ensure_essence_custody(db: Any) -> None:
+    """Эссенция в семейном кошельке: колонка баланса и расширенные CHECK
+    валют. Только добавляет; повторный вызов ничего не меняет."""
+    await db.execute(
+        "ALTER TABLE family_wallet_balances ADD COLUMN IF NOT EXISTS "
+        "essence NUMERIC(24, 6) NOT NULL DEFAULT 0 CHECK (essence >= 0)"
+    )
+    allowed = "CHECK (currency IN ('mora', 'diamonds', 'dark_mora', 'zarniki', 'essence'))"
+    for table in ("family_wallet_operations", "family_wallet_ledger"):
+        async with db.execute(
+            "SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint "
+            f"WHERE conrelid = '{table}'::regclass AND contype = 'c' "
+            "AND pg_get_constraintdef(oid) LIKE '%currency%'"
+        ) as cursor:
+            checks = await cursor.fetchall()
+        if any("essence" in definition for _, definition in checks):
+            continue
+        name = f"{table}_currency_check"
+        drops = ", ".join(
+            f'DROP CONSTRAINT IF EXISTS "{n}"' for n in sorted({c for c, _ in checks} | {name})
+        )
+        await db.execute(f"ALTER TABLE {table} {drops}, ADD CONSTRAINT {name} {allowed}")

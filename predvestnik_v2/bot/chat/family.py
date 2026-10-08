@@ -31,8 +31,8 @@ router = Router(name="chat_family")
 MAX_CHILDREN = 6
 PARENT_ROLES = ("супруг", "супруга", "муж", "жена")
 CHILD_ROLES = ("ребёнок", "сын", "дочь")
-WALLET_CURRENCIES = ("mora", "diamonds", "dark_mora", "zarniki")   # колонки семейного кошелька
-WALLET_BUTTONS = ("mora", "diamonds", "zarniki")                    # тёмная мора — легаси, только вывод
+WALLET_CURRENCIES = ("mora", "diamonds", "dark_mora", "zarniki", "essence")   # колонки семейного кошелька
+WALLET_BUTTONS = ("mora", "diamonds", "essence", "zarniki")          # тёмная мора — легаси, только вывод
 BACKFILL_KEY = "family_registry_backfill_v1"
 
 STATEMENTS = (
@@ -105,13 +105,13 @@ async def _backfill_registry(db) -> None:
 
 
 async def _ensure_wallet(db) -> None:
-    if await wallet_ready(db):
-        return
     try:
         async with db.connection.transaction():
             await db.execute("SELECT pg_advisory_xact_lock(7710302)")
             if not await wallet_ready(db):
                 await family_wallet_v1.install_family_wallet_schema(db, registry_resolves_duplicates=True)
+            else:
+                await family_wallet_v1.ensure_essence_custody(db)
     except Exception as exc:   # кошелёк не должен ронять запуск бота
         logger.warning(f"family wallet unavailable: {exc}")
 
@@ -213,10 +213,10 @@ def ping(uid: int, name: str) -> str:
 
 async def wallet_balances(db, marriage_id: int) -> dict[str, float]:
     if await wallet_ready(db):
-        sql = "SELECT mora, diamonds, dark_mora, zarniki FROM family_wallet_balances WHERE marriage_id = ?"
+        sql = f"SELECT {', '.join(WALLET_CURRENCIES)} FROM family_wallet_balances WHERE marriage_id = ?"
     else:
         sql = ("SELECT family_balance, family_balance_diamonds, family_balance_dark_mora, "
-               "family_balance_zarniki FROM marriages WHERE id = ?")
+               "family_balance_zarniki, 0 FROM marriages WHERE id = ?")
     async with db.execute(sql, (marriage_id,)) as cur:
         row = await cur.fetchone()
     return {c: float(row[i] or 0) if row else 0.0 for i, c in enumerate(WALLET_CURRENCIES)}
@@ -547,6 +547,11 @@ async def on_wallet(call: CallbackQuery, callback_data: WalletCB, db) -> None:
     if spec is None or cb.cur not in WALLET_CURRENCIES:
         await call.answer()
         return
+    async with db.execute("SELECT amount FROM family_wallet_telegram_intents WHERE id = ?", (cb.intent,)) as cur:
+        row = await cur.fetchone()
+    if row and spec.display_decimals == 0 and row[0] != int(row[0]):
+        await call.answer(f"{spec.label} — только целым числом.", show_alert=True)
+        return
     try:
         result = await family_wallet_v1.consume_telegram_transfer_intent(
             db, intent_id=cb.intent, actor_id=cb.uid, currency=cb.cur)
@@ -601,7 +606,7 @@ async def cmd_divorce(ctx: Ctx) -> None:
         text="✖️ Передумал(а)", callback_data=DivorceCB(uid=ctx.user_id, intent=intent["id"]).pack())]])
     await ctx.reply(
         f"⚠️ <b>Развод с {names[intent['partner_id']]}</b>\n\n"
-        "Что произойдёт:\n• общий кошелёк делится пополам;\n• семейные питомцы делятся поровну;\n"
+        "Что произойдёт:\n• общий кошелёк (все валюты, включая эссенцию) делится пополам;\n• семейные питомцы делятся поровну;\n"
         "• дети покидают семью;\n• отменить развод будет нельзя.\n\n"
         f"Если вы уверены, в течение 15 минут напишите:\n<code>бот развод {phrase}</code>",
         reply_markup=kb)

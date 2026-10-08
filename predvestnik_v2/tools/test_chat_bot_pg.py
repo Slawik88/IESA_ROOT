@@ -434,7 +434,7 @@ async def family_flow(db, bot):
 
     for uid, name in ((6001, "mom_x"), (6002, "dad_x"), (6003, "kid_x"), (6004, "kid_y")):
         await record_message(db, msg(uid, -100, name))
-    await db.execute("UPDATE users SET user_balance_mora = 1000 WHERE user_tg_id = 6001")
+    await db.execute("UPDATE users SET user_balance_mora = 1000, user_balance_essence = 11 WHERE user_tg_id = 6001")
 
     async def say(text, uid, username, **kw):
         from bot.chat import registry
@@ -487,6 +487,16 @@ async def family_flow(db, bot):
     c = Call(6001); await family.on_wallet(c, w, db)                  # повтор — без второго списания
     async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id = 6001") as cur:
         assert float((await cur.fetchone())[0]) == 900
+    out, kb = await say("бот семья положить, 11", 6001, "mom_x")
+    w = family.WalletCB.unpack(cb_of(kb))
+    c = Call(6001); await family.on_wallet(c, w.model_copy(update={"cur": "essence"}), db)
+    assert "Эссенция" in c.edited[0], (c.edited, c.alerts)
+    out, kb = await say("бот семья положить, 1.5", 6001, "mom_x")
+    w = family.WalletCB.unpack(cb_of(kb)).model_copy(update={"cur": "essence"})
+    c = Call(6001); await family.on_wallet(c, w, db)
+    assert "целым" in c.alerts[0], (c.edited, c.alerts)
+    out, _ = await say("бот семья", 6002, "dad_x")
+    assert "Эссенция: <b>11</b>" in out, out
     out, _ = await say("бот семья положить, 100", 6003, "kid_x")
     assert "родители" in out, out
 
@@ -502,6 +512,9 @@ async def family_flow(db, bot):
     async with db.execute("SELECT user_tg_id, user_balance_mora FROM users WHERE user_tg_id IN (6001, 6002) "
                           "ORDER BY user_tg_id") as cur:
         assert [float(r[1]) for r in await cur.fetchall()] == [950, 50]
+    async with db.execute("SELECT user_balance_essence FROM users WHERE user_tg_id IN (6001, 6002) "
+                          "ORDER BY user_tg_id") as cur:
+        assert [float(r[0]) for r in await cur.fetchall()] == [6, 5]
     out, _ = await say("бот брак, @kid_y", 6003, "kid_x")             # ребёнок свободен после развода
     assert "предложение" in out, out
     print("OK: family")
