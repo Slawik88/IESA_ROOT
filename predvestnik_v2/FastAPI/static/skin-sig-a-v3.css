@@ -1,13 +1,98 @@
 /* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · A (природа и вода) ═══
    Образы: forest (.ap-sig-canopy), dune (.ap-sig-dunes), harbor (.ap-sig-lighthouse), lotus_pond (.ap-sig-lilypads), frost (.ap-sig-rime), snow_globe (.ap-sig-snowdome), jade (.ap-sig-jadecourt).
-   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк. */
+   Рисунок это SVG на рамке аватара (app.32.js), форма там, цвет и движение здесь. Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity,
+   .ap-lite останавливает всё и убирает мелочь, prefers-reduced-motion гасит всё, файл ≤ 300 строк. Деталь видна с тира SSS. */
 
-.ap-sig-canopy { }
-.ap-sig-dunes { }
-.ap-sig-lighthouse { }
-.ap-sig-lilypads { }
-.ap-sig-rime { }
-.ap-sig-snowdome { }
-.ap-sig-jadecourt { }
+/* свечение кольца это тень самой рамки, а не filter: фильтр на рамке с большим SVG внутри рисует вокруг него прямоугольник и перерисовывает рисунок на каждом кадре движения */
+.ap-sig-canopy.ap-frame, .ap-sig-dunes.ap-frame, .ap-sig-lighthouse.ap-frame, .ap-sig-lilypads.ap-frame, .ap-sig-rime.ap-frame, .ap-sig-snowdome.ap-frame, .ap-sig-jadecourt.ap-frame { filter: none; box-shadow: 0 0 9px 1px color-mix(in srgb, var(--ap-a) 36%, transparent); }
+.ap-frame svg.sa-b { z-index: -1; }   /* часть рисунка лежит за кольцом: кольцо рисуется поверх, как оправа */
+.ap-frame svg.sa { position: absolute; left: -30%; top: -30%; width: 160%; height: 160%; display: block; overflow: visible; pointer-events: none; stroke: none; }   /* stroke по умолчанию наследуется от кольца аватара: свой цвет и толщина только у линий */
+@keyframes sasway { from { transform: rotate(-1.6deg); } to { transform: rotate(1.6deg); } }
+@keyframes satwk { 0%, 100% { transform: scale(.35) rotate(0deg); opacity: .25; } 50% { transform: scale(1) rotate(30deg); opacity: 1; } }
+@keyframes sarip { 0% { transform: scale(.7); opacity: .7; } 100% { transform: scale(1.45); opacity: 0; } }
 
-@media (prefers-reduced-motion: reduce) { .ap-sig-canopy, .ap-sig-dunes, .ap-sig-lighthouse, .ap-sig-lilypads, .ap-sig-rime, .ap-sig-snowdome, .ap-sig-jadecourt * { animation: none !important; } }
+/* ── Лесной Странник: свод листвы над кольцом, роса, светлячки; сквозь крону падают лучи ── */
+.sa-canopy .sa-back, .sa-canopy .sa-front, .sa-jadecourt .sa-glint, .sa-snowdome .sa-fl1, .sa-snowdome .sa-fl2 { transform-origin: 50px 50px; }
+.sa-canopy .s-twig { fill: none; stroke: color-mix(in srgb, var(--ap-c) 72%, transparent); stroke-width: .8; stroke-linecap: round; }
+.sa-canopy .s-hl { fill: rgba(255, 255, 255, .2); } .sa-canopy .s-rib { fill: none; stroke: rgba(4, 38, 22, .42); stroke-width: .05; stroke-linecap: round; }
+.sa-canopy .sa-dew ellipse:first-child, .sa-lilypads .sa-dew ellipse:first-child { fill: rgba(255, 255, 255, .3); stroke: rgba(255, 255, 255, .85); stroke-width: .35; }
+.sa-canopy .s-sp, .sa-lilypads .s-sp { fill: #fff; transform-box: fill-box; transform-origin: center; }
+.sa-canopy .s-core { fill: #fffbe0; }
+.sa-canopy .sa-ff { transform-box: fill-box; transform-origin: center; opacity: .8; }
+@keyframes saflit { 0%, 100% { opacity: .3; transform: translate(0, 0); } 50% { opacity: 1; transform: translate(2px, -3px); } }
+.ap-anim .sa-canopy .sa-back { animation: sasway 7s ease-in-out infinite alternate; }
+.ap-anim .sa-canopy .sa-front { animation: sasway 9s ease-in-out infinite alternate-reverse; }
+.ap-anim .sa-canopy .sa-ff { animation: saflit var(--d) ease-in-out infinite; animation-delay: var(--dl); }
+.ap-sig-canopy.ap-bg::before { content: ""; position: absolute; inset: 0; background: repeating-conic-gradient(from 160deg at 90% -14%, color-mix(in srgb, var(--ap-c) 15%, transparent) 0 2.4deg, transparent 2.4deg 8deg); -webkit-mask: linear-gradient(190deg, #000, transparent 72%); mask: linear-gradient(190deg, #000, transparent 72%); }
+.ap-anim .ap-sig-canopy.ap-bg::before { animation: apbreath 7s ease-in-out infinite alternate; }
+
+/* ── Песчаная Тропа: чаша дюн, низкое солнце, ленты ветра и марево ── */
+.sa-dunes .s-rays { fill: none; stroke: color-mix(in srgb, var(--ap-c) 85%, transparent); stroke-width: .9; stroke-linecap: round; }
+.sa-dunes .s-crest { fill: none; stroke-width: .9; stroke-linecap: round; } .sa-dunes .s-crest2 { stroke-width: .7; opacity: .75; }
+.sa-dunes .s-ripl { fill: none; stroke: color-mix(in srgb, var(--ap-c) 55%, transparent); stroke-width: .6; stroke-linecap: round; }
+.sa-dunes .s-heat { fill: none; stroke: color-mix(in srgb, var(--ap-c) 55%, transparent); stroke-width: .8; stroke-linecap: round; }
+.sa-dunes .s-grain { fill: var(--ap-c); opacity: .8; }
+@keyframes sadrift { from { transform: translateX(-2px); opacity: .7; } to { transform: translateX(3px); opacity: 1; } }
+@keyframes sagrain { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 100% { transform: translate(14px, -3px); opacity: 0; } }
+@keyframes saheat { from { transform: translateY(.8px); opacity: .3; } to { transform: translateY(-.8px); opacity: .85; } }
+.ap-anim .sa-dunes .sa-rb1 { animation: sadrift 7s ease-in-out infinite alternate; } .ap-anim .sa-dunes .sa-rb2 { animation: sadrift 9s ease-in-out -3s infinite alternate-reverse; }
+.ap-anim .sa-dunes .s-grain { animation: sagrain var(--d) linear infinite; } .ap-anim .sa-dunes .sa-heat { animation: saheat 3.2s ease-in-out infinite alternate; }
+.ap-anim .sa-dunes .s-rays { animation: apbreath 4s ease-in-out infinite alternate; }
+
+/* ── Тихая Гавань: маяк, причальный канат вокруг рамки, круги на воде ── */
+.sa-lighthouse .s-rope { fill: none; stroke: var(--ap-c); stroke-width: 2.4; opacity: .9; } .sa-lighthouse .s-tail { stroke-width: 1.7; stroke-linecap: round; }
+.sa-lighthouse .s-twist { fill: none; stroke: var(--ap-b); stroke-width: 2.4; stroke-dasharray: 1 2.3; opacity: .6; }
+.sa-lighthouse .s-rl, .sa-lighthouse .s-rd { fill: none; stroke: rgba(255, 255, 255, .55); stroke-width: .45; } .sa-lighthouse .s-rd { stroke: color-mix(in srgb, var(--ap-b) 70%, #000); stroke-width: .5; }
+.sa-lighthouse .s-knot { fill: var(--ap-c); stroke: var(--ap-b); stroke-width: .7; } .sa-lighthouse .s-loop { fill: none; stroke: var(--ap-c); stroke-width: 1.3; stroke-linejoin: round; }
+.sa-lighthouse .s-rock { fill: color-mix(in srgb, var(--ap-b) 78%, #0a1a2c); } .sa-lighthouse .s-band, .sa-lighthouse .s-roof { fill: var(--ap-b); }
+.sa-lighthouse .s-rail { fill: var(--ap-c); } .sa-lighthouse .s-room { fill: #fff4cf; stroke: var(--ap-b); stroke-width: .5; }
+.sa-lighthouse .sa-beam { transform: rotate(5deg); } .sa-lighthouse .sa-sway { transform-origin: 0 0; }
+.sa-lighthouse .s-ripple { fill: none; stroke: color-mix(in srgb, var(--ap-c) 70%, transparent); stroke-width: .8; opacity: .45; }
+.sa-lighthouse .sa-rip { transform-origin: 50px 110.5px; }
+@keyframes sabeam { from { transform: rotate(-5deg); } to { transform: rotate(15deg); } }
+@keyframes sasw2 { from { transform: rotate(-4deg); } to { transform: rotate(4deg); } }
+.ap-anim .sa-lighthouse .sa-beam { animation: sabeam 9s ease-in-out infinite alternate; } .ap-anim .sa-lighthouse .sa-lamp { animation: apbreath 3s ease-in-out infinite alternate; }
+.ap-anim .sa-lighthouse .sa-sway { animation: sasw2 5s ease-in-out infinite alternate; } .ap-anim .sa-lighthouse .sa-rip { animation: sarip 4.4s ease-out infinite; }
+.ap-anim .sa-lighthouse .sa-rip2 { animation-delay: -2.2s; }
+
+/* ── Пруд Лотосов: кувшинки с росой и один бутон ── */
+.sa-lilypads .s-pad { stroke: color-mix(in srgb, var(--ap-a) 85%, #fff); stroke-width: .05; } .sa-lilypads .s-vein { fill: none; stroke: rgba(0, 50, 40, .34); stroke-width: .03; }
+.sa-lilypads .s-stem { fill: none; stroke: var(--ap-b); stroke-width: 1.5; stroke-linecap: round; }
+.sa-lilypads .s-sepal { fill: var(--ap-a); } .sa-lilypads .s-gloss { fill: none; stroke: rgba(255, 255, 255, .75); stroke-width: .7; stroke-linecap: round; }
+.sa-lilypads .s-ripple { fill: none; stroke: color-mix(in srgb, var(--ap-a) 75%, transparent); stroke-width: .7; opacity: .5; }
+.sa-lilypads .sa-bud { transform-origin: 0 0; } .sa-lilypads .sa-rip { transform-box: fill-box; transform-origin: center; }
+@keyframes sabob { from { transform: translateY(-.7px); } to { transform: translateY(.7px); } }
+@keyframes sabud { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+.ap-anim .sa-lilypads .sa-pa { animation: sabob 4s ease-in-out infinite alternate; } .ap-anim .sa-lilypads .sa-pb { animation: sabob 5s ease-in-out -1.5s infinite alternate; } .ap-anim .sa-lilypads .sa-pc { animation: sabob 3.6s ease-in-out -.8s infinite alternate; }
+.ap-anim .sa-lilypads .sa-bud { animation: sabud 6s ease-in-out infinite alternate; } .ap-anim .sa-lilypads .sa-rip { animation: sarip 5s ease-out infinite; } .ap-anim .sa-lilypads .sa-rip2 { animation-delay: -2.5s; }
+.ap-anim .sa-lilypads .s-sp { animation: satwk 4s ease-in-out infinite; }
+
+/* ── Изморозь: иней по рамке, снежинка-звезда, блики ── */
+.sa-rime .s-poly { fill: none; stroke-width: .7; stroke-linejoin: miter; }
+.sa-rime .s-gl { fill: none; stroke: var(--ap-a); stroke-width: 2.4; stroke-linecap: round; opacity: .3; } .sa-rime .s-ice { fill: none; stroke: var(--ap-c); stroke-width: .9; stroke-linecap: round; }
+.sa-rime .s-facet { fill: none; stroke: rgba(255, 255, 255, .7); stroke-width: .35; } .sa-rime .s-core { fill: #fff; } .sa-rime .s-glint { fill: var(--ap-c); transform-box: fill-box; transform-origin: center; }
+.sa-rime .sa-flake { transform-origin: 0 0; }
+.ap-anim .sa-rime .sa-flake { animation: apturn 70s linear infinite; }
+.ap-anim .sa-rime .s-glint { animation: satwk var(--d) ease-in-out infinite; }
+
+/* ── Снежный Шар: стеклянный купол, городок на дне, снег у стекла ── */
+.sa-snowdome .s-rim { fill: none; stroke-width: 1.1; } .sa-snowdome .s-flake ellipse { fill: #fff; opacity: .9; }
+.sa-snowdome .s-town { fill: color-mix(in srgb, var(--ap-b) 82%, #0b1a38); } .sa-snowdome .s-cap { fill: #fff; } .sa-snowdome .s-win { fill: #ffd98a; }
+.sa-snowdome .s-glare { fill: rgba(255, 255, 255, .72); } .sa-snowdome .s-glare2, .sa-snowdome .s-glare3 { fill: none; stroke: rgba(255, 255, 255, .7); stroke-width: 1.6; stroke-linecap: round; } .sa-snowdome .s-glare3 { opacity: .4; }
+.sa-snowdome .s-collar { fill: none; stroke: var(--ap-b); stroke-width: 3.4; stroke-linecap: round; opacity: .95; }
+.ap-anim .sa-snowdome .sa-fl1 { animation: apturn 24s linear infinite; } .ap-anim .sa-snowdome .sa-fl2 { animation: apturn-r 38s linear infinite; }
+
+/* ── Нефритовый Двор: нефритовый би с решётчатыми окнами, золотые кромки, лак и пыль ── */
+.sa-jadecourt .s-edge { fill: none; stroke: var(--ap-c); stroke-width: .7; opacity: .9; } .sa-jadecourt .s-stud ellipse { fill: var(--ap-c); }
+.sa-jadecourt .s-lacq { fill: none; stroke: rgba(255, 255, 255, .7); stroke-width: 1.9; stroke-linecap: round; } .sa-jadecourt .s-lacq2 { stroke-width: 1.1; opacity: .5; } .sa-jadecourt .s-sweep { stroke: #fff; opacity: .55; }
+.sa-jadecourt .s-gold { fill: var(--ap-c); transform-box: fill-box; transform-origin: center; } .sa-jadecourt .s-dust { fill: var(--ap-c); opacity: .75; }
+.ap-anim .sa-jadecourt .sa-glint { animation: apturn 16s linear infinite; } .ap-anim .sa-jadecourt .s-gold { animation: satwk var(--d) ease-in-out infinite; }
+
+/* лёгкий режим: всё стоит в позе, мелочь убрана */
+.ap-lite .sa *, .ap-lite .sa { animation: none !important; }
+.ap-lite .sa-dunes .s-grain, .ap-lite .sa-dunes .sa-heat, .ap-lite .sa-lighthouse .sa-rip, .ap-lite .sa-lilypads .sa-rip, .ap-lite .sa-rime .s-glint, .ap-lite .sa-jadecourt .s-dust, .ap-lite .sa-snowdome .sa-fl2 { display: none; }
+.ap-lite .ap-sig-canopy.ap-bg::before { animation: none; }
+/* ник и ореол на SSS */
+.ap-sig-canopy.ap-name, .ap-sig-dunes.ap-name, .ap-sig-lighthouse.ap-name, .ap-sig-lilypads.ap-name, .ap-sig-rime.ap-name, .ap-sig-snowdome.ap-name, .ap-sig-jadecourt.ap-name { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
+.ap-sig-rime.ap-ha-rays::before { opacity: .22; }
+@media (prefers-reduced-motion: reduce) { .sa, .sa *, .ap-sig-canopy.ap-bg::before { animation: none !important; } }
