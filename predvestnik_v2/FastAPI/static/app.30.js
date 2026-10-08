@@ -1,6 +1,7 @@
 // ── Зарники и VIP: одна страница, два раздела ─────────────────────────────────────────
-// «Зарники»: баланс, четыре пакета Telegram Stars карточками 2×2 (под выбранной целью заранее выбран тот, что хватит), на что хватит пакета, кнопка.
+// «Зарники»: баланс, пакеты Telegram Stars строками (под выбранной целью заранее выбран тот, что хватит), на что хватит пакета, кнопка.
 // «VIP»: статус, поручение дня, как вас видят, что даёт, срок, значок у ника с автосохранением. Любая трата идёт через лист подтверждения (v3Confirm, app.28.js).
+// Вид монолитный: ни одного блока вокруг абзаца, строки с тонкой линией, одна выбранная строка (store-v3.css).
 // Деньги считает сервер (/payments/zarniki/*, /vip/*, /skins-v3/me); здесь показ и повторяемые запросы. Стили: store-v3.css.
 let _sv = { tab: 'zarniki', pk: null, vip: null, st: null, sel: null, term: 30, goal: null, busy: false, loading: false, paid: 0, failed: '', seq: 0, saved: false };
 const _svBal = () => Number(_profileData?.zarniki ?? _sv.st?.zarniki ?? 0);
@@ -35,13 +36,12 @@ function svSelect(stars) { _svPick(Number(stars)); }
 function svTerm(days) { _sv.term = Number(days); _haptic('select'); _svRender(); }
 
 function _svTop() {
-  return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Назад</button>
-    <div class="lk-wallet" role="group" aria-label="Баланс"><button type="button" onclick="svTab('zarniki')" aria-label="Зарники ${fmt(_svBal())}">✨ <b>${fmt(_svBal())}</b></button></div></div>
-    <div class="lk-seg" role="tablist" aria-label="Раздел">${[['zarniki', 'Зарники'], ['vip', 'VIP']].map(([id, t]) => `<button type="button" role="tab" aria-selected="${_sv.tab === id}" class="${_sv.tab === id ? 'is-on' : ''}" onclick="svTab('${id}')">${t}</button>`).join('')}</div>`;
+  return `<div class="lk-top"><button type="button" class="v3-link pp-back" onclick="navBack()" aria-label="Назад">‹ Назад</button></div>
+    <div class="sv-tabs" role="tablist" aria-label="Раздел">${[['zarniki', 'Зарники'], ['vip', 'VIP']].map(([id, t]) => `<button type="button" role="tab" aria-selected="${_sv.tab === id}" class="${_sv.tab === id ? 'is-on' : ''}" onclick="svTab('${id}')">${t}</button>`).join('')}</div>`;
 }
 
-// ── Знак образа в плитке ──────────────────────────────────────────────────────────
-// Маленький неподвижный знак из палитры образа: кольцо толще и со вторым ободком с тиром. Полный образ (ореолы, детали) в плитке не рисуется: он выходит за свою коробку
+// ── Знак образа в строке ──────────────────────────────────────────────────────────
+// Маленький неподвижный знак из палитры образа: кольцо толще и со вторым ободком с тиром. Полный образ (ореолы, детали) в строке не рисуется: он выходит за свои границы
 function _svAva(item) {
   const [a, b, c] = Array.isArray(item.pal) && item.pal.length >= 3 && item.pal.every(x => /^#[0-9a-f]{6}$/i.test(x)) ? item.pal : ['#d8cffd', '#8a7be0', '#fff'];
   const idx = Math.max(0, ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'].indexOf(item.ceiling));
@@ -56,11 +56,11 @@ function _svReach(total) {
 }
 function _svPacks() {
   const packs = _sv.pk?.packages || [];
-  return `<div class="sv-packs" role="radiogroup" aria-label="Пакет Зарников">${packs.map(p => {
+  return `<div class="sv-opts" role="radiogroup" aria-label="Пакет Зарников">${packs.map(p => {
     const on = Number(p.stars) === _sv.sel;
-    return `<button type="button" role="radio" aria-checked="${on}" class="sv-pack${on ? ' is-on' : ''}" onclick="svSelect(${Number(p.stars)})">
-      ${p.popular ? '<em class="sv-pack-hit">Хит</em>' : ''}<span class="sv-pack-n"><b>${fmt(p.total)} <i>✨</i></b></span>
-      <span class="sv-pack-foot"><small>${p.bonus ? `<span>+${fmt(p.bonus)}<span class="sv-bw"> бонус</span></span>` : 'без бонуса'}</small><span class="sv-pack-price">${fmt(p.stars)} ⭐</span></span></button>`;
+    return `<button type="button" role="radio" aria-checked="${on}" class="sv-opt${on ? ' is-on' : ''}" onclick="svSelect(${Number(p.stars)})">
+      <span class="sv-opt-main"><b>${fmt(p.total)} <i>✨</i>${p.popular ? '<em class="sv-hit">Хит</em>' : ''}</b><small>${p.bonus ? `<span class="sv-plus">+${fmt(p.bonus)} бонус</span>` : 'без бонуса'}</small></span>
+      <span class="sv-opt-end">${fmt(p.stars)} ⭐</span><i class="sv-radio" aria-hidden="true"></i></button>`;
   }).join('')}</div>`;
 }
 function _svReachHtml(pack) {
@@ -68,16 +68,16 @@ function _svReachHtml(pack) {
   const head = goal && !goal.owned ? `<p class="sv-goal">Вы выбрали «${_profileEsc(goal.name)}»: ${fmt(goal.price_zarniki)} ✨${goal.price_zarniki > _svBal() ? `, не хватает ${fmt(goal.price_zarniki - _svBal())} ✨` : ''}</p>` : '';
   if (!list.length) return head;
   return `${head}<div class="sv-sec"><span class="v3-eyebrow">Хватит на</span><small>на счёте будет ${fmt(money)} ✨</small></div>
-    <ul class="sv-reach">${list.map(i => `<li><button type="button" class="sv-tile" onclick="svOpenSkin('${i.id}')" aria-label="${_profileEsc(i.name)}, ${fmt(i.price_zarniki)} Зарников. Открыть образ">${_svAva(i)}
-      <b>${_profileEsc(i.name)}</b><small><em class="sv-tier">${_profileEsc(i.ceiling)}</em>${fmt(i.price_zarniki)} ✨</small></button></li>`).join('')}</ul>`;
+    <div class="sv-reach">${list.map(i => `<button type="button" class="v3-row sv-go" onclick="svOpenSkin('${i.id}')" aria-label="${_profileEsc(i.name)}, ${fmt(i.price_zarniki)} Зарников. Открыть образ">${_svAva(i)}
+      <span><b>${_profileEsc(i.name)}</b><small>до тира <em class="sv-tier">${_profileEsc(i.ceiling)}</em></small></span><span class="v3-end">${fmt(i.price_zarniki)} ✨ ${_v3Icon('chev')}</span></button>`).join('')}</div>`;
 }
 function _svZarniki() {
   const pk = _sv.pk, pack = (pk?.packages || []).find(p => Number(p.stars) === _sv.sel);
   if (!pk) return '';
   const off = pk.purchase_enabled === false;
-  return `<section class="sv-hero"><div><span class="v3-eyebrow">На счёте</span><b class="sv-bal">${fmt(_svBal())} <i>✨</i></b></div><p>Нужны для образов, сетов и VIP. Цена видна заранее, случайных наград нет.</p></section>
-    ${_sv.paid ? `<div class="sv-ok" role="status"><b>+${fmt(_sv.paid)} ✨</b> зачислено${_sv.goal && _svItem(_sv.goal) && !_svItem(_sv.goal).owned ? ` <button type="button" class="v3-link" onclick="navBack()">К образу ›</button>` : ''}</div>` : ''}
-    ${_svPacks()}${_svReachHtml(pack)}
+  return `<section class="sv-bal-wrap"><span class="v3-eyebrow">На счёте</span><b class="sv-bal">${fmt(_svBal())} <i>✨</i></b><p class="sv-lead">Нужны для образов, сетов и VIP. Цена видна заранее, случайных наград нет.</p></section>
+    ${_sv.paid ? `<p class="sv-ok" role="status"><b>+${fmt(_sv.paid)} ✨</b> зачислено${_sv.goal && _svItem(_sv.goal) && !_svItem(_sv.goal).owned ? ` <button type="button" class="v3-link" onclick="navBack()">К образу ›</button>` : ''}</p>` : ''}
+    <div class="sv-sec"><span class="v3-eyebrow">Пополнить</span></div>${_svPacks()}${_svReachHtml(pack)}
     ${off ? `<p class="sv-fine">${pk.purchase_disabled_reason === 'preprod' ? 'На тестовом стенде платежи отключены. В продакшене пополнение работает.' : 'Пополнение сейчас недоступно.'}</p>`
       : `<button type="button" class="v3-pill sv-buy${_sv.busy ? ' is-busy' : ''}" ${_sv.busy || !pack ? 'disabled' : ''} onclick="svPay()">${_sv.busy ? 'Открываем оплату…' : pack ? `Купить ${fmt(pack.total)} ✨ · ${fmt(pack.stars)} ⭐` : 'Выберите пакет'}</button>
       <p class="sv-fine">Оплата Telegram Stars откроется внутри Telegram, баланс обновится сам.</p>`}`;
@@ -119,8 +119,8 @@ function _svStatus(v) {
 function _svMission(v) {
   const m = v.daily_mission; if (!v.active || !m) return '';
   const done = Number(m.cycle_progress) || 0;
-  return `<section class="sv-mission"><div><b>Поручение дня</b><small>${_profileEsc(m.title || 'Заверши одну игру')} · +${fmt(m.daily_reward_mora || 20)} Моры; на седьмое ещё +${fmt(m.milestone_reward_mora || 100)} и ключ. Пропуски прогресс не сбрасывают</small></div>
-    <div class="sv-mission-end"><span class="sv-dots" role="img" aria-label="До бонуса: ${done} из 7">${Array.from({ length: 7 }, (_, i) => `<i${i < done ? ' class="is-on"' : ''}></i>`).join('')}</span><em class="${m.completed_today ? 'is-done' : ''}">${m.completed_today ? 'Сегодня ✓' : 'Не выполнено'}</em></div></section>`;
+  return `<div class="sv-sec"><span class="v3-eyebrow">Поручение дня</span><span class="sv-mission-end"><span class="sv-dots" role="img" aria-label="До бонуса: ${done} из 7">${Array.from({ length: 7 }, (_, i) => `<i${i < done ? ' class="is-on"' : ''}></i>`).join('')}</span><em class="${m.completed_today ? 'is-done' : ''}">${m.completed_today ? 'Сегодня ✓' : 'Не выполнено'}</em></span></div>
+    <p class="sv-text"><b>${_profileEsc(m.title || 'Заверши одну игру')}</b> · +${fmt(m.daily_reward_mora || 20)} Моры; на седьмое ещё +${fmt(m.milestone_reward_mora || 100)} и ключ. Пропуски прогресс не сбрасывают</p>`;
 }
 // Как вас видят другие: две миниатюры профиля. Без VIP чужой видит обычный профиль, с VIP целиком ваш образ: фон, ореол, рамку на аватаре, ник и титул.
 // Показывается надетый образ в его нынешнем тире, а если образа нет, образ недели с потолком (так видно, что покупает VIP)
@@ -134,7 +134,7 @@ function _svSee() {
       <div class="sv-prev-name">${apName(ap, _profileEsc(name))}</div>${apTitle(ap)}</div>`)}</div>`
     : `<div class="sv-prev is-vip"><i>С VIP</i><div class="sv-prev-id"><div class="v3-ring">${_v3Ring(72)}<div class="v3-ava">${avatar}</div></div><div class="sv-prev-name"><span class="ap-plain">${_profileEsc(name)} ✦</span></div></div></div>`;
   const note = !shown ? 'Образ, который вы наденете, увидят все.' : worn ? `Так другие видят «${_profileEsc(shown.name)}» в топе, в профиле и в чате. Выше тир образа, богаче вид.` : `Так выглядит образ «${_profileEsc(shown.name)}» с VIP. Сами вы видите свой образ всегда.`;
-  return `<section class="sv-see" aria-label="Как вас видят другие">${plain}${vip}</section><p class="sv-fine sv-fine--tight">${note}</p>`;
+  return `<div class="sv-sec"><span class="v3-eyebrow">Как вас видят</span></div><section class="sv-see" aria-label="Как вас видят другие">${plain}${vip}</section><p class="sv-fine sv-fine--left">${note}</p>`;
 }
 // Что даёт: сервер присылает строки «эмодзи Название: пояснение»
 function _svPerks(v) {
@@ -149,14 +149,15 @@ function _svTerms(v) {
   const days = Number(cur.duration_days), price = Number(cur.price_zarniki), enough = bal >= price;
   const perDay = tiers.map(t => Number(t.price_zarniki) / Number(t.duration_days)), flat = perDay.every(x => Math.abs(x - perDay[0]) < .01);
   return `<div class="sv-sec"><span class="v3-eyebrow">${v.active ? 'Продлить' : 'Оформить'}</span>${flat ? `<small>${fmt(Math.round(perDay[0]))} ✨ в день при любом сроке</small>` : ''}</div>
-    <div class="sv-terms" role="radiogroup" aria-label="Срок VIP">${tiers.map(t => {
+    <div class="sv-opts" role="radiogroup" aria-label="Срок VIP">${tiers.map(t => {
       const d = Number(t.duration_days), on = d === days;
-      return `<button type="button" role="radio" aria-checked="${on}" class="sv-term${on ? ' is-on' : ''}" onclick="svTerm(${d})"><b>${fmt(d)}</b><small>${d === 365 ? 'дней · год' : 'дней'}</small><span>${fmt(t.price_zarniki)} ✨</span></button>`;
+      return `<button type="button" role="radio" aria-checked="${on}" class="sv-opt${on ? ' is-on' : ''}" onclick="svTerm(${d})"><span class="sv-opt-main"><b>${fmt(d)} ${_svDaysWord(d)}</b>${d === 365 ? '<small>целый год</small>' : ''}</span><span class="sv-opt-end">${fmt(t.price_zarniki)} ✨</span><i class="sv-radio" aria-hidden="true"></i></button>`;
     }).join('')}</div>
     ${enough ? `<button type="button" class="v3-pill sv-buy${_sv.busy ? ' is-busy' : ''}" ${_sv.busy ? 'disabled' : ''} onclick="svVipBuy(${days})">${v.active ? 'Продлить' : 'Оформить'} на ${fmt(days)} дн. · ${fmt(price)} ✨</button>`
       : `<button type="button" class="v3-pill sv-buy" onclick="_svNeed(${price})">Не хватает ${fmt(price - bal)} ✨ · пополнить</button>`}
     <p class="sv-fine">Срок добавляется к текущему, ничего не сгорает.</p>`;
 }
+const _svDaysWord = n => (n % 10 === 1 && n % 100 !== 11) ? 'день' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'дня' : 'дней';
 function _svNeed(price) {   // не хватает на VIP: на вкладку пополнения, пакет подбирается под цену
   const need = price - _svBal(), packs = _sv.pk?.packages || [], hit = packs.find(p => p.total >= need);
   _sv.tab = 'zarniki'; _sv.goal = null; _sv.sel = Number((hit || packs[packs.length - 1] || {}).stars) || null; _haptic('select'); _svRender(); window.scrollTo(0, 0);
@@ -184,10 +185,10 @@ function _svBadge(v) {
   const pr = v.preferences || {}, badge = (v.badges || []).find(b => b.id === pr.badge_id) || (v.badges || [])[0] || { id: 'spark', symbol: '✦' }, pos = pr.badge_position || 'left';
   const name = String(_profileData?.display_name || 'Игрок');
   return `<div class="sv-sec"><span class="v3-eyebrow">Значок у ника</span><small class="sv-saved${_sv.saved ? ' is-on' : ''}" role="status">${_sv.saved ? 'Сохранено ✓' : ''}</small></div>
-    <section class="sv-badge"><p class="sv-preview" aria-label="Так выглядит ник"><span>${_profileEsc(vipName(name, true, badge.symbol, pos))}</span></p>
-      <div class="sv-glyphs" role="radiogroup" aria-label="Значок">${(v.badges || []).map(b => `<button type="button" role="radio" aria-checked="${b.id === badge.id}" aria-label="${_profileEsc(b.id)}" class="sv-g${b.id === badge.id ? ' is-on' : ''}" onclick="svBadgeSet('badge_id','${_profileEsc(b.id)}')">${_profileEsc(b.symbol)}</button>`).join('')}</div>
-      <div class="sv-pos" role="radiogroup" aria-label="Положение значка">${_SV_POS.map(([k, t]) => `<button type="button" role="radio" aria-checked="${pos === k}" class="${pos === k ? 'is-on' : ''}" onclick="svBadgeSet('badge_position','${k}')">${t}</button>`).join('')}</div>
-      <button type="button" class="sv-switch" role="switch" aria-checked="${pr.reminder_enabled !== false}" onclick="svBadgeSet('reminder_enabled',${pr.reminder_enabled === false})"><span><b>Напоминать о поручении дня</b><small>Если оно не выполнено, вечером бот напишет в личные сообщения. Диалог с ботом нужно открыть один раз</small></span><i aria-hidden="true"></i></button></section>`;
+    <p class="sv-preview" aria-label="Так выглядит ник"><span>${_profileEsc(vipName(name, true, badge.symbol, pos))}</span></p>
+    <div class="sv-glyphs" role="radiogroup" aria-label="Значок">${(v.badges || []).map(b => `<button type="button" role="radio" aria-checked="${b.id === badge.id}" aria-label="${_profileEsc(b.id)}" class="sv-g${b.id === badge.id ? ' is-on' : ''}" onclick="svBadgeSet('badge_id','${_profileEsc(b.id)}')">${_profileEsc(b.symbol)}</button>`).join('')}</div>
+    <div class="sv-pos" role="radiogroup" aria-label="Положение значка">${_SV_POS.map(([k, t]) => `<button type="button" role="radio" aria-checked="${pos === k}" class="${pos === k ? 'is-on' : ''}" onclick="svBadgeSet('badge_position','${k}')">${t}</button>`).join('')}</div>
+    <button type="button" class="sv-switch" role="switch" aria-checked="${pr.reminder_enabled !== false}" onclick="svBadgeSet('reminder_enabled',${pr.reminder_enabled === false})"><span><b>Напоминать о поручении дня</b><small>Если оно не выполнено, вечером бот напишет в личные сообщения. Диалог с ботом нужно открыть один раз</small></span><i aria-hidden="true"></i></button>`;
 }
 let _svSaveTimer = 0;
 function svBadgeSet(field, value) {
@@ -202,13 +203,13 @@ function svBadgeSet(field, value) {
   }, 450);
 }
 function _svVip() {
-  const v = _sv.vip; if (!v) return `<div class="sv-hero"><div><span class="v3-eyebrow">VIP</span></div><p>Сейчас недоступно.</p></div>`;
+  const v = _sv.vip; if (!v) return `<p class="sv-lead">VIP сейчас недоступен.</p>`;
   return `${_svStatus(v)}${_svMission(v)}${_svSee()}<div class="sv-sec"><span class="v3-eyebrow">Что даёт</span></div>${_svPerks(v)}${_svTerms(v)}${_svBadge(v)}`;
 }
 
 function _svRender() {
   const root = el('pg-store'); if (!root) return;
-  const body = _sv.loading ? '<div class="sv-skel" aria-hidden="true"><i></i><div><i></i><i></i><i></i><i></i></div><i></i></div>'
+  const body = _sv.loading ? '<div class="sv-skel" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'
     : _sv.failed ? `<div class="v3-empty">${_profileEsc(_sv.failed)} <button type="button" class="v3-link" onclick="openStoreV3('${_sv.tab}')">Повторить</button></div>`
     : _sv.tab === 'vip' ? _svVip() : _svZarniki();
   root.innerHTML = `<div class="v3-scope lk-scope sv-scope">${_svTop()}${body}</div>`;

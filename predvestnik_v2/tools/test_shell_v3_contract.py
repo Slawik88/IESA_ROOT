@@ -179,6 +179,14 @@ assert "function v3EnterSync(" in motion_js and "--enter-skip" in fx and "v3Ente
 assert "pg-enter" not in (STATIC / "app.css").read_text(encoding="utf-8"), "the old second cascade is gone"
 # VIP page: facts come from the server list, the reminder switch names what it really does, the comparison shows the whole look.
 assert "Напоминать о поручении дня" in store_js and "о конце срока" not in store_js and "apStage(ap" in store_js and "sv-prev" in store_js
+# Monolith (docs/DESIGN_IMPLEMENTATION_GATES: «Monolithic composition»): the store page is rows with hairlines and one selected row, not cards; the old screens lose their card shells in monolith-v3.css.
+store_css = (STATIC / "store-v3.css").read_text(encoding="utf-8")
+assert not re.search(r"\.sv-(hero|pack|tile|mission|term|badge|status)\b[^{]*\{[^}]*(box-shadow: inset 0 0 0 1px|background: color-mix\(in srgb, var\(--v3-ink\))", store_css), "no card shells on the store page"
+assert "lk-seg" not in store_js and "lk-wallet" not in store_js and "sv-opt" in store_js and ".sv-opt.is-on" in store_css
+assert "monolith-v3.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8") and "monolith-v3.css" in (STATIC / "index.html").read_text(encoding="utf-8")
+mono = (STATIC / "monolith-v3.css").read_text(encoding="utf-8")
+for page in ("#pg-chests", "#pg-pets", "#pg-achievements-v1", "#pg-help", "#pg-looks"):
+    assert page in mono, f"{page} must be flattened in monolith-v3.css"
 # The app is one classic script made of numbered parts (FastAPI/main.py, _APP_JS_PARTS): one syntax error in any part kills every function, so the whole is parsed here.
 import re as _re, shutil, subprocess, tempfile  # noqa: E401
 if shutil.which("node"):
