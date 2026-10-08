@@ -288,24 +288,9 @@ function loadPendingNotifications() {
     _runModalQueue(queue);
   }).catch(() => {});
 }
-// Коробка-подарок от Администрации (БЛОК 3.4). payloads: [{reason, gifts:[{label,amount}]}]
-function showGiftBox(payloads) {
-  const rs = 'display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border2);font-size:13px';
-  let body = '';
-  (payloads || []).forEach(p => {
-    const items = (p.gifts || []).map(g =>
-      `<div style="${rs}"><span>${esc(g.label || 'Награда')}</span><span style="color:var(--gold2);font-weight:700">+${fmt(g.amount)}</span></div>`
-    ).join('');
-    const reason = (p.reason || '').trim();
-    body += `<div style="margin-bottom:10px">${items}
-      ${reason ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">📝 Причина: <span style="color:var(--bright)">${esc(reason)}</span></div>` : ''}</div>`;
-  });
-  OM('🎁 Награда от Администрации!',
-    `<div style="text-align:center;font-size:46px;margin:2px 0 10px;animation:floaty 1.6s ease-in-out infinite">🎁</div>
-     ${body}
-     <div style="font-size:10px;color:var(--green);text-align:center;margin-top:2px">✓ Уже у тебя в профиле</div>`,
-    [{l:'🎉 Забрать!', c:'btn-gold', f:'CM();_nextModal()'}]);
-}
+// Подарок от Администрации (БЛОК 3.4): карточка в виде надетого образа, крупнее и дольше обычного тоста (v3GiftToast, app.28.js).
+// payloads: [{reason, gifts:[{label,amount,...}]}]. Следующее окно очереди (чек похода, возвращение) открывается, когда карточка ушла.
+function showGiftBox(payloads) { v3GiftToast(payloads, () => _nextModal()); }
 function showWelcomeBack(items) {
   if (items.length === 1) { showExpeditionReceipt(items[0]); return; }
   let totM = 0, totX = 0, totD = 0;

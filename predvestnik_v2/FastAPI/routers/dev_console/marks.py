@@ -3,10 +3,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
+from core.marks_v1 import MARKS
 from infrastructure.repositories import admin_log
 from services import marks_v1 as marks
 
-from ._common import require_console_perm
+from ._common import _send_admin_gift, require_console_perm
 
 router = APIRouter()
 
@@ -31,6 +32,8 @@ async def _change(action: str, body: MarkRequest, db, user) -> dict:
         raise HTTPException(409, str(exc)) from exc
     await admin_log.add(db, user["id"], body.user_id, "mark", f"{'+' if action == 'grant' else '-'} {title}", 1.0 if action == "grant" else -1.0,
                         body.reason, 0.0 if action == "grant" else 1.0, 1.0 if action == "grant" else 0.0)
+    if action == "grant":
+        await _send_admin_gift(db, body.user_id, [{"label": f"Регалия «{title}»", "amount": 1, "kind": "mark", "glyph": MARKS[body.mark_id]["glyph"]}], body.reason)
     await db.commit()
     return {"ok": True, "message": f"Метка «{title}» {'выдана' if action == 'grant' else 'снята'}."}
 

@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_TIERS
 from services.vip import grant_vip_days
-from ._common import require_console_perm, _tg_call
+from ._common import require_console_perm, _send_admin_gift, _tg_call
 
 router = APIRouter()
 
@@ -24,8 +24,9 @@ async def dev_give_vip(body: GiveVipRequest, db=Depends(get_db), user=Depends(re
     if not 1 <= body.days <= 3650:
         raise HTTPException(400, "days: 1..3650.")
     await grant_vip_days(db, body.user_id, body.tier, body.days)
-    await db.commit()
     label = VIP_TIERS[body.tier]["label"]
+    await _send_admin_gift(db, body.user_id, [{"label": f"👑 {label}", "amount": body.days, "unit": "дн.", "kind": "vip"}])
+    await db.commit()
     await _tg_call("sendMessage", chat_id=body.user_id, parse_mode="HTML",
                    text=f"🎁 Вам выдан <b>{label}</b> на {body.days} дн.! Загляни: «бот вип».")
     return {"ok": True, "label": label}
@@ -119,6 +120,8 @@ async def dev_adjust_vip_days(body: AdjustVipRequest, db=Depends(get_db), user=D
         (body.days, body.days, body.days, body.user_id),
     ) as c:
         res = await c.fetchone()
+    if body.days > 0:
+        await _send_admin_gift(db, body.user_id, [{"label": "👑 Продление VIP", "amount": body.days, "unit": "дн.", "kind": "vip"}])
     await db.commit()
     if body.days > 0:
         msg = f"👑 Ваш VIP продлён на {body.days} дн. администратором."

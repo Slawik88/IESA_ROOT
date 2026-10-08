@@ -4,7 +4,7 @@
 // Без образа тост нейтральный и красится акцентом приложения. Стили: toast-v3.css.
 // Вызов прежний: toast(текст, ok = true), третий необязательный аргумент {title, kind: 'reward', icon}.
 function _tvGlyph(pt) {
-  return { leaf: '❧', ember: '✺', petal: '✿', snow: '❄', spark: '✦', glint: '✧', dot: '●', ring: '◌', sand: '∴' }[pt] || '✦';
+  return { leaf: '❧', ember: '✺', petal: '✿', snow: '❄', spark: '✦', glint: '✧', dot: '●', ring: '◌', sand: '∴', star: '☆', drop: '●' }[pt] || '✦';
 }
 function _tvLook() {
   try { return typeof apFromLook === 'function' ? apFromLook(_profileData?.look) : null; } catch (_) { return null; }   // профиль мог ещё не загрузиться
@@ -26,6 +26,62 @@ function toast(msg, ok = true, opts) {
   t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid); t._tid = setTimeout(() => t.classList.remove('show'), ms);
 }
+
+// ── Подарок от администрации ───────────────────────────────────────────────────────
+// Тот же вид, что у тоста (форма из рамки, цвет и значок из образа, насыщенность из тира, нить у S и выше), но крупнее и дольше любого другого уведомления:
+// карточка опускается сверху, вспыхивает значок, разлетаются частицы образа, строки подарка выезжают по очереди, числа набегают, образ без VIP тоже свой.
+// Таймер стоит, пока палец на карточке; «Забрать» закрывает сразу. Несколько подарков, накопившихся офлайн, складываются в одну карточку. Стили: toast-gift-v3.css.
+// payloads: [{reason, gifts: [{label, amount, unit?, kind?: 'skin' | 'mark' | 'vip', glyph?, skin_id?}]}]; onDone вызывается, когда карточка ушла.
+const _TG_BURST = [6, 6, 6, 8, 10, 12, 14, 16];
+let _tgTimer = null, _tgDone = null;
+function _tgSplit(label) {
+  const m = /^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s*(.*)$/u.exec(String(label || '').trim());
+  return m ? [m[1], m[2] || m[1]] : ['', String(label || 'Награда')];
+}
+function v3GiftClose(now) {
+  clearTimeout(_tgTimer);
+  const host = document.getElementById('gift-toast'), after = _tgDone; _tgDone = null;
+  if (host) { if (now || !_v3Moves()) host.remove(); else { host.classList.add('is-out'); setTimeout(() => host.remove(), 300); } }
+  if (after) after();
+}
+function v3GiftToast(payloads, onDone) {
+  const gifts = [], reasons = [];
+  (payloads || []).forEach(p => { (p?.gifts || []).forEach(g => gifts.push(g)); const r = String(p?.reason || '').trim(); if (r && !reasons.includes(r)) reasons.push(r); });
+  if (!gifts.length) { if (onDone) onDone(); return; }
+  v3GiftClose(true); _tgDone = onDone || null;
+  const ap = _tvLook(), moves = _v3Moves(), ti = ap ? ap.ti : 0, shown = gifts.slice(0, 5), more = gifts.length - shown.length;
+  const skin = gifts.find(g => g.kind === 'skin' && /^[a-z_]{2,24}$/.test(String(g.skin_id || '')));
+  const rows = shown.map((g, i) => {
+    const [em, name] = _tgSplit(g.label), n = Number(g.amount), glyph = g.kind === 'mark' ? g.glyph || '🏷' : em || (g.kind === 'skin' ? '🎀' : '✦');
+    const val = g.kind === 'skin' || g.kind === 'mark' ? '<em>новое</em>' : Number.isFinite(n) ? `+<span data-to="${n}">${fmt(n)}</span>${g.unit ? ` ${_profileEsc(g.unit)}` : ''}` : '';
+    return `<li style="--i:${i}"><span class="tg-g" aria-hidden="true">${_profileEsc(glyph)}</span><span class="tg-l">${_profileEsc(name)}</span><b class="tg-n">${val}</b></li>`;
+  }).join('') + (more > 0 ? `<li class="tg-more" style="--i:${shown.length}"><span></span><span class="tg-l">и ещё ${more}</span><b></b></li>` : '');
+  const mark = ap ? _tvGlyph(ap.k.pt) : '✦', count = moves ? _TG_BURST[ti] : 0;
+  const burst = Array.from({ length: count }, (_, i) => `<i style="--a:${Math.round(i / count * 360 + (i % 2 ? 11 : -11))}deg;--d:${66 + (i * 37) % 74}px;--x:${Math.round((i + .5) / count * 100)}%;--s:${(.8 + (i * 53 % 7) / 10).toFixed(1)}">${_profileEsc(mark)}</i>`).join('');
+  const host = document.createElement('div'); host.id = 'gift-toast';
+  host.className = `tv-gift tv-t${ti}${ap ? ` tv-fr-${ap.k.frame} tv-pt-${ap.k.pt}${ap.sig ? ' tv-sig' : ''}` : ''}`;
+  host.setAttribute('style', ap ? ap.vars : ''); host.setAttribute('role', 'status');
+  const ms = Math.min(15000, 8000 + shown.length * 1200 + (reasons.length ? 1500 : 0)); host.style.setProperty('--tv-ms', `${ms}ms`);
+  host.innerHTML = `<i class="tg-sheen" aria-hidden="true"></i><div class="tg-burst" aria-hidden="true">${burst}</div>
+    <header class="tg-head"><span class="tg-ic" aria-hidden="true"><u></u>🎁</span><span class="tg-hd"><small>Подарок</small><b>От Администрации</b></span></header>
+    <ul class="tg-rows">${rows}</ul>${reasons.length ? `<p class="tg-why"><small>Причина</small>${reasons.map(_profileEsc).join(' · ')}</p>` : ''}
+    <div class="tg-act">${skin ? '<button type="button" class="tg-see">Смотреть образ</button>' : ''}<button type="button" class="tg-take">Забрать</button></div><i class="tg-time" aria-hidden="true"></i>`;
+  const dlg = el('modal'); (dlg && dlg.open ? dlg : document.body).appendChild(host);
+  let left = ms, since = Date.now();
+  const arm = () => { since = Date.now(); clearTimeout(_tgTimer); _tgTimer = setTimeout(() => v3GiftClose(), left); host.classList.remove('is-held'); };
+  host.addEventListener('pointerdown', () => { clearTimeout(_tgTimer); left -= Date.now() - since; host.classList.add('is-held'); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => host.addEventListener(ev, () => { if (host.classList.contains('is-held')) arm(); }));
+  host.querySelector('.tg-take').addEventListener('click', () => v3GiftClose());
+  host.querySelector('.tg-see')?.addEventListener('click', () => { _lk.sel = skin.skin_id; v3GiftClose(); openLooksModal(); });
+  if (moves) host.querySelectorAll('[data-to]').forEach((node, i) => {
+    const to = Number(node.dataset.to), t0 = performance.now() + 380 + i * 110; node.innerHTML = fmt(0);
+    const tick = at => { const k = Math.min(1, Math.max(0, (at - t0) / 900)); node.innerHTML = fmt(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1 && node.isConnected) requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  });
+  if (typeof _haptic === 'function') _haptic('success');
+  arm();
+}
+
 el('toast')?.addEventListener('click', () => { const t = el('toast'); clearTimeout(t._tid); t.classList.remove('show'); });   // тап убирает тост
 
 // ── Подтверждение траты ────────────────────────────────────────────────────────────
