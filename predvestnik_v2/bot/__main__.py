@@ -155,6 +155,8 @@ async def main():
 
     logger.info("🗄️  Инициализация схемы БД...")
     await init_db()
+    from bot.chat.schema import ensure_chat_schema
+    await ensure_chat_schema()
     # FastAPI is deliberately co-hosted with lifespan disabled so that the bot
     # owns startup.  New Mini App tables/feature flags therefore must be
     # initialised here too; otherwise they exist only in a standalone ASGI run.
