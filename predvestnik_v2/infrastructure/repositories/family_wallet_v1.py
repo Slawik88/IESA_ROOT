@@ -269,17 +269,23 @@ async def consume_telegram_transfer_intent(
         return result
 
 
-async def install_family_wallet_schema(db: Any) -> None:
+async def install_family_wallet_schema(db: Any, *, registry_resolves_duplicates: bool = False) -> None:
     """Create custody tables and import one immutable opening balance per family.
 
     Must run in an operator-controlled transaction.  The preflight guarantees
     that float legacy values are neither negative nor non-finite before their
     single conversion to NUMERIC(24, 6).
+
+    ``registry_resolves_duplicates``: the chat bot backfills marriage_members
+    itself (earliest marriage wins, owner's decision 2026-10), so old duplicate
+    rows no longer decide anything and must not block the wallet.
     """
     # The membership migration owns ``ended_at``.  Historic closed families
     # can legitimately share a former player with their later active family;
     # only active ownership blocks custody setup.
     audit = await audit_family_migration_readiness(db, active_only=True)
+    if registry_resolves_duplicates:
+        audit.pop("duplicate_members", None)
     if not migration_is_safe(audit):
         raise RuntimeError(f"family wallet migration blocked: {audit}")
     await db.execute("""

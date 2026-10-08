@@ -266,8 +266,10 @@ async def sanctions_flow(db, bot):
 
 async def profile_flow(db, bot):
     await db.execute("UPDATE users SET user_balance_mora = 1500, user_balance_diamonds = 12.5, user_balance_essence = 7 WHERE user_tg_id = 2002")
-    await db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
-                     "VALUES (-100, 2002, 'Talker', 1001, 'Alpha', NOW())")
+    async with db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
+                          "VALUES (-100, 2002, 'Talker', 1001, 'Alpha', NOW()) RETURNING id") as cur:
+        mid = (await cur.fetchone())[0]
+    await db.execute("INSERT INTO marriage_members (user_id, marriage_id) VALUES (2002, ?), (1001, ?)", (mid, mid))
     out = await run(db, bot, "бот я", uid=2002, username="talker")
     assert "@talker" in out and "1 500" in out and "12.5" in out and "Сообщения" in out, out
     assert "@\u200balpha" in out and "@alpha" not in out, out          # партнёр без пинга
@@ -394,6 +396,115 @@ async def warps_flow(db, bot):
     assert "обнять" in out and "шлёпнуть" not in out, out
     out = await say("бот варпы 18+")
     assert "шлёпнуть" in out and "обнять" not in out, out
+    await family_flow(db, bot)
+
+
+class Call:
+    def __init__(self, uid, msg_id=500):
+        self.from_user = SimpleNamespace(id=uid, full_name=f"U{uid}")
+        self.edited, self.alerts = [], []
+        async def edit_text(text, **kw):
+            self.edited.append(text)
+        self.message = SimpleNamespace(chat=SimpleNamespace(id=-100), message_id=msg_id, edit_text=edit_text)
+
+    async def answer(self, text=None, show_alert=False):
+        self.alerts.append(text)
+
+
+async def family_flow(db, bot):
+    from bot.chat import family
+    from bot.chat.tracking import record_message
+
+    # Старые браки: у 5001 их два — остаётся самый ранний, остальные строки не трогаем.
+    rows = [(5001, 5002, "2020-01-01 10:00:00"), (5001, 5003, "2021-01-01 10:00:00"),
+            (5003, 5004, "2022-01-01 10:00:00")]
+    ids = []
+    for a, b, when in rows:
+        async with db.execute("INSERT INTO marriages (chat_id, user1_id, user1_name, user2_id, user2_name, marriage_date) "
+                              "VALUES (-100, ?, 'a', ?, 'b', ?) RETURNING id", (a, b, when)) as cur:
+            ids.append((await cur.fetchone())[0])
+    await db.execute("DELETE FROM bot_settings WHERE key = ?", (family.BACKFILL_KEY,))
+    await family._backfill_registry(db)
+    assert (await family.family_id_of(db, 5001)) == (ids[0], True)
+    assert (await family.family_id_of(db, 5003)) == (ids[2], True)
+    async with db.execute("SELECT COUNT(*) FROM marriages WHERE id = ? AND ended_at IS NULL", (ids[1],)) as cur:
+        assert (await cur.fetchone())[0] == 1                           # конфликтный брак не тронут
+    await family._backfill_registry(db)                                # повторно — ничего не меняет
+    assert await family.wallet_ready(db)
+
+    for uid, name in ((6001, "mom_x"), (6002, "dad_x"), (6003, "kid_x"), (6004, "kid_y")):
+        await record_message(db, msg(uid, -100, name))
+    await db.execute("UPDATE users SET user_balance_mora = 1000 WHERE user_tg_id = 6001")
+
+    async def say(text, uid, username, **kw):
+        from bot.chat import registry
+        from bot.chat.framework import dispatch
+        m = FakeMessage(text, uid, username, **kw)
+        m.reply_markup = None
+        async def reply(text, **kw):
+            m.replies.append(text)
+            m.reply_markup = kw.get("reply_markup")
+        m.reply = reply
+        await dispatch(registry, m, bot, db)
+        return " | ".join(m.replies), m.reply_markup
+
+    def cb_of(markup, row=0, col=0):
+        return markup.inline_keyboard[row][col].callback_data
+
+    out, kb = await say("бот брак, @dad_x", 6001, "mom_x")
+    assert "предложение" in out, out
+    yes = family.ProposalCB.unpack(cb_of(kb))
+    c = Call(6001); await family.on_proposal(c, yes, db)
+    assert "не вам" in c.alerts[0]
+    c = Call(6002); await family.on_proposal(c, yes, db)
+    assert "семья" in c.edited[0], (c.edited, c.alerts)
+    c = Call(6002); await family.on_proposal(c, yes, db)              # повторное нажатие
+    assert "не действует" in c.alerts[0]
+    out, _ = await say("бот брак, @kid_x", 6001, "mom_x")
+    assert "уже" in out, out
+
+    out, kb = await say("бот усыновить, @kid_x", 6002, "dad_x")
+    adopt = family.AdoptCB.unpack(cb_of(kb))
+    c = Call(6003); await family.on_adopt(c, adopt, db)
+    assert "в семье" in c.edited[0], (c.edited, c.alerts)
+    out, _ = await say("бот брак, @kid_y", 6003, "kid_x")
+    assert "ребёнком" in out, out
+    out, _ = await say("бот семья роль, @kid_x дочь", 6001, "mom_x")
+    assert "дочь" in out, out
+    out, _ = await say("бот семья роль, жена", 6001, "mom_x")
+    assert "жена" in out, out
+    out, _ = await say("бот семья роль, @mom_x муж", 6003, "kid_x")
+    assert "только родители" in out, out
+    out, _ = await say("бот семья", 6003, "kid_x")
+    assert "mom_x" in out and "жена" in out and "дочь" in out and "1/6" in out, out
+    out, _ = await say("бот я", 6003, "kid_x")
+    assert "👪 В семье" in out and "дочь" in out, out
+
+    out, kb = await say("бот семья положить, 100", 6001, "mom_x")
+    w = family.WalletCB.unpack(cb_of(kb))
+    c = Call(6001); await family.on_wallet(c, w, db)
+    assert "Положено" in c.edited[0], (c.edited, c.alerts)
+    c = Call(6001); await family.on_wallet(c, w, db)                  # повтор — без второго списания
+    async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id = 6001") as cur:
+        assert float((await cur.fetchone())[0]) == 900
+    out, _ = await say("бот семья положить, 100", 6003, "kid_x")
+    assert "родители" in out, out
+
+    out, kb = await say("бот развод", 6002, "dad_x")
+    assert "бот развод " in out and "15 минут" in out, out
+    out, _ = await say("бот развод неправильная фраза 1234", 6002, "dad_x")
+    assert "не совпала" in out, out
+    async with db.execute("SELECT id FROM divorce_intents WHERE actor_id = 6002 AND status = 'pending'") as cur:
+        intent = (await cur.fetchone())[0]
+    out, _ = await say("бот развод " + family.divorce_phrase(intent).upper(), 6002, "dad_x")
+    assert "развелись" in out, out
+    assert await family.family_id_of(db, 6001) is None and await family.family_id_of(db, 6003) is None
+    async with db.execute("SELECT user_tg_id, user_balance_mora FROM users WHERE user_tg_id IN (6001, 6002) "
+                          "ORDER BY user_tg_id") as cur:
+        assert [float(r[1]) for r in await cur.fetchall()] == [950, 50]
+    out, _ = await say("бот брак, @kid_y", 6003, "kid_x")             # ребёнок свободен после развода
+    assert "предложение" in out, out
+    print("OK: family")
 
 
 asyncio.run(main())

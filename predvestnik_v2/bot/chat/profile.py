@@ -9,7 +9,7 @@ import html
 from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
-from bot.chat import global_ranks, ranks
+from bot.chat import family, global_ranks, ranks
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
 from bot.chat.targets import Target, resolve_target
@@ -132,17 +132,16 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
         if warns:
             lines.append(f"⚠️ Варнов: {len(warns)}")
 
-    async with db.execute(
-        "SELECT user1_id, user1_name, user2_id, user2_name, marriage_date FROM marriages "
-        "WHERE user1_id = ? OR user2_id = ? ORDER BY marriage_date DESC LIMIT 1", (uid, uid)) as cur:
-        m = await cur.fetchone()
-    if m:
-        partner_id, partner_name = (m[2], m[3]) if int(m[0]) == uid else (m[0], m[1])
-        async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (partner_id,)) as cur:
-            pr = await cur.fetchone()
-        who = quiet(pr[0] if pr else None, partner_name or f"id{partner_id}")
-        since = f" с {m[4].strftime('%d.%m.%Y')}" if m[4] else ""
-        lines.append(f"\n💞 В браке с {esc(who)}{since}")
+    fam = await family.family_of(db, uid)
+    if fam:
+        names = await family.labels(db, fam.members)
+        if fam.is_parent(uid):
+            partner = fam.partner_of(uid)
+            since = f" с {fam.since.strftime('%d.%m.%Y')}" if fam.since else ""
+            lines.append(f"\n💞 В браке с {names[partner]}{since}")
+        else:
+            parents = " и ".join(names[p] for p in fam.parents)
+            lines.append(f"\n👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
 
     lines.append("\n💰 <b>Баланс</b>\n" + "\n".join(await balances(db, uid)))
     return "\n".join(lines)

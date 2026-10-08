@@ -52,6 +52,12 @@ async def ensure_chat_schema() -> None:
         db = PGAdapter(conn)
         for sql in STATEMENTS:
             await db.execute(sql)
+        from bot.chat.family import ensure_family_schema
+        try:
+            await ensure_family_schema(db)
+        except Exception as exc:   # семья не должна мешать запуску остального бота
+            from loguru import logger
+            logger.exception(f"family schema failed: {exc}")
         commit = getattr(db, "commit", None)
         if commit:
             await commit()
