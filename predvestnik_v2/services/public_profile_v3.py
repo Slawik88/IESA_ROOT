@@ -6,7 +6,7 @@ decides which of them another player may see and attaches the VIP-gated look.
 from __future__ import annotations
 
 
-def shape(base: dict, appearance: dict, *, is_self: bool) -> dict:
+def shape(base: dict, appearance: dict, *, is_self: bool, presence: dict | None = None, presence_level: str | None = None) -> dict:
     pets = base.get("pets") or []
     active_pet = next((pet for pet in pets if pet.get("active")), None)
     vip = base.get("vip")
@@ -38,4 +38,7 @@ def shape(base: dict, appearance: dict, *, is_self: bool) -> dict:
         "paths": base.get("achievement_paths") or {},
         "best_achievement": base.get("best_achievement"),
         "appearance": appearance,
+        # label only, never a timestamp; None when the owner hides it. The owner also learns their own setting.
+        "presence": {"state": presence["state"], "label": presence["label"]} if presence else None,
+        **({"presence_level": presence_level} if is_self else {}),
     }

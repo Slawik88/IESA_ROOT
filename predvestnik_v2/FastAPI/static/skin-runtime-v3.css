@@ -1,0 +1,22 @@
+/* Палитра надетого образа для страниц игр: токены --v3-* ставит skin-runtime-v3.js, здесь они переводятся в имена, которыми пользуются Ритм и Сапёр. */
+body.skin-v3 {
+  --bg0: var(--v3-bg); --bg1: color-mix(in srgb, var(--v3-ink) 3%, var(--v3-bg)); --bg2: color-mix(in srgb, var(--v3-ink) 5%, var(--v3-bg)); --bg3: color-mix(in srgb, var(--v3-ink) 8%, var(--v3-bg));
+  --text: color-mix(in srgb, var(--v3-ink) 86%, var(--v3-bg)); --bright: var(--v3-ink); --ink: var(--v3-ink); --muted: var(--v3-dim); --dim: var(--v3-faint);
+  --gold: var(--v3-acc); --gold2: var(--v3-acc); --gold-dim: rgba(var(--acc-rgb), .14); --gold-rgb: var(--acc-rgb); --violet: var(--v3-acc); --violet-dim: rgba(var(--acc-rgb), .14);
+  --border: color-mix(in srgb, var(--v3-acc) 28%, transparent); --border2: var(--v3-faint); --bg: var(--v3-bg); --panel: var(--v3-sheet); --line: var(--v3-track); --accent: var(--v3-acc);
+  --skin-panel: color-mix(in srgb, var(--v3-sheet) 94%, transparent); --skin-panel-strong: color-mix(in srgb, var(--v3-bg) 70%, var(--v3-sheet));
+  --skin-control: color-mix(in srgb, var(--v3-ink) 9%, var(--v3-sheet)); --skin-control-active: color-mix(in srgb, var(--v3-acc) 30%, var(--v3-sheet));
+  --skin-cell: color-mix(in srgb, var(--v3-ink) 12%, var(--v3-sheet)); --skin-cell-open: color-mix(in srgb, var(--v3-bg) 80%, var(--v3-sheet)); --skin-cell-flag: color-mix(in srgb, var(--v3-acc) 22%, var(--v3-sheet));
+  background-color: var(--v3-bg) !important; background-image: var(--v3-wash) !important; background-attachment: scroll !important;
+}
+body.skin-v3 #app-header { background: color-mix(in srgb, var(--v3-bg) 94%, transparent); }
+body.skin-v3 .nav { background: var(--v3-dock); }
+body.skin-v3 .panel, body.skin-v3 .mine-panel { background: var(--skin-panel); }
+body.skin-v3 button.secondary, body.skin-v3 .augment, body.skin-v3 .leaderboard-tabs button, body.skin-v3 .mine-head button, body.skin-v3 .mine-mode button { background: var(--skin-control); }
+body.skin-v3 .metrics, body.skin-v3 .leaderboard li, body.skin-v3 .mine-metrics, body.skin-v3 .mine-leaderboard li, body.skin-v3 .mine-difficulties button { background: var(--skin-panel-strong); }
+body.skin-v3 .pace div { background: var(--skin-control); }
+body.skin-v3 .mine-cell { background: var(--skin-cell); border-color: var(--line); }
+body.skin-v3 .mine-cell:active { background: var(--skin-control-active); }
+body.skin-v3 .mine-cell.open { background: var(--skin-cell-open); border-color: var(--line); }
+body.skin-v3 .mine-cell.flag { background: var(--skin-cell-flag); border-color: var(--gold); }
+body.skin-v3 .mine-difficulties button[aria-selected="true"] { background: var(--skin-control-active); color: var(--ink); }

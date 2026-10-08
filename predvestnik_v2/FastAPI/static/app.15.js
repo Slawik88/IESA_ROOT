@@ -15,7 +15,8 @@ const _V3_PATHS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   play: '<path d="M8 5.5v13l10.5-6.5z"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
-  manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>'
+  manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
+  essence: '<path d="M12 3l6 7-6 11-6-11zM6 10h12M10 10l2 11M14 10l-2 11"/>'
 };
 function _v3Icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${_V3_PATHS[name] || ''}</svg>`;
@@ -34,10 +35,6 @@ function _v3Avatar(d) {
   const initial = String(d.display_name || d.username || 'И').replace(/^@+/, '').trim().charAt(0).toUpperCase() || 'И';
   return img || (d.is_vip ? (d.vip?.badge || '✦') : _profileEsc(initial));
 }
-function _v3Greeting() {
-  const hour = new Date().getHours();
-  return hour >= 5 && hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : hour < 23 ? 'Добрый вечер' : 'Доброй ночи';
-}
 function renderProfileHome(data) {
   const d = data || {};
   const wallet = (d.balances && typeof d.balances === 'object') ? d.balances : d;
@@ -49,15 +46,14 @@ function renderProfileHome(data) {
   const publicName = String(d.display_name || '').trim();
   const uname = String(d.username || '').replace(/^@+/, '');
   const rawName = publicName || (uname ? `@${uname}` : 'Игрок');
-  const title = typeof d.cosmetics?.title === 'object' ? (d.cosmetics.title.text || d.cosmetics.title.name) : d.cosmetics?.title;
-  const ap = apFromOwner(d.cosmetics);
+  const ap = apFromLook(d.look);
   const chests = (typeof _sysFlags !== 'undefined' && _sysFlags.content_chests_v1)
     ? _v3Row('chest', 'Сундуки', 'openChestsV1()') : '';
-  const identity = `<section class="v3-id${d.vip ? ' is-vip' : ''}${ap.glow ? ' has-glow' : ''}" aria-label="Профиль игрока">
+  const identity = `<section class="v3-id${d.vip ? ' is-vip' : ''}${ap ? ' has-look' : ''}" aria-label="Профиль игрока">
       <div class="v3-ring">${apHalo(ap)}${_v3Ring(capped ? 100 : xp / xpNeed * 100)}<div class="v3-ava" id="pro-showcase-ava">${_v3Avatar(d)}</div>${apFrame(ap)}<span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
-      <div style="min-width:0"><div class="v3-greet">${_v3Greeting()}</div><div class="v3-name">${apName(ap, _profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left')))}</div>
+      <div style="min-width:0"><div class="v3-greet">${v3GreetHtml(d)}</div><div class="v3-name">${apName(ap, _profileEsc(vipName(rawName, d.is_vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left')))}</div>
       ${apTitle(ap) ? `<div class="pp-title-row">${apTitle(ap)}</div>` : ''}
-      <div class="v3-sub">${_profileEsc([rank, apTitle(ap) ? '' : title].filter(Boolean).join(' · ') || 'Игрок')}</div>
+      <div class="v3-sub">${_profileEsc(rank || 'Игрок')}</div>
       ${_v3VipSeal(d.vip)}
       <div class="v3-sub" style="margin-top:2px">${capped ? 'Максимальный уровень' : `${fmt(left)} XP до ${level + 1} уровня`}</div></div>
     </section>`;
@@ -66,14 +62,14 @@ function renderProfileHome(data) {
     ${_v3TodayShell()}
     <section class="v3-bal" aria-label="Баланс">
       <div class="v3-bal-head"><span class="v3-eyebrow">Мора</span><button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк ›</button></div>
-      <div class="v3-bal-row"><div class="v3-num">${fmt(wallet.mora || 0)}</div>
+      <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div>
         <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
     </section>
-    <section class="v3-stats" aria-label="Показатели игрока"><div><b>${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b>${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
+    <section class="v3-stats" aria-label="Показатели игрока"><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
     ${_v3PathShell()}
     ${_v3TopShell()}
     <nav class="v3-list" aria-label="Разделы профиля">
-      ${_v3Row('hanger', 'Образы', 'openLooksModal()', 'Примерочная: рамки, титулы, фоны')}
+      ${_v3Row('hanger', 'Образы', 'openLooksModal()', d.essence ? `Скины и сеты · Эссенция ${fmt(d.essence)}` : 'Скины, прокачка тиров и сеты')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
       ${_v3Row('flag', 'Квесты', 'openQuestsV1()')}
       ${chests}
@@ -125,7 +121,7 @@ document.addEventListener('click', e => {
     call('setHeaderColor', '6.1', bg); call('setBackgroundColor', '6.1', bg); call('setBottomBarColor', '7.10', bg);
   };
   syncChrome();
-  new MutationObserver(syncChrome).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  new MutationObserver(syncChrome).observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
   try { tg.onEvent?.('themeChanged', syncChrome); } catch (err) { console.error('theme', err); }
 })();
 
@@ -174,10 +170,10 @@ function _v3QuestRow(q) {
 }
 function renderV3Today(failed) {
   const host = el('v3-today'); if (!host) return;
-  const head = '<div class="v3-sec"><span class="v3-eyebrow">Сегодня</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все квесты</button></div>';
+  const head = `<div class="v3-sec"><span class="v3-eyebrow">Сегодня · обновятся через ${v3UntilReset()}</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все квесты</button></div>`;
   if (failed) { host.innerHTML = `${head}<div class="v3-empty">Квесты не загрузились. <button type="button" class="v3-link" onclick="loadV3Today()">Повторить</button></div>`; return; }
   const quests = _v3Quests?.daily?.quests || [];
-  host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Задания на сегодня появятся позже.</div>'}`;
+  host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Заданий пока нет. Загляните чуть позже, мы что-нибудь придумаем.</div>'}`;
   renderV3Next();
 }
 // Оптимистично: награда помечается полученной сразу; откат только если сам claim не удался
@@ -192,7 +188,7 @@ function v3ClaimQuestReward(kind) {
   api('/quests-v1/claim-reward', { method: 'POST', body: JSON.stringify({ kind }) }).then(d => {
     _v3Quests = d; renderV3Today();
     const reward = d.reward_result || {};
-    const note = reward.already_claimed ? 'Награда уже получена' : `Получено: +${fmt(reward.amount_mora || 0)} Моры`;
+    const note = reward.already_claimed ? 'Награда уже получена' : `Ваше: +${fmt(reward.amount_mora || 0)} Моры${reward.amount_essence ? ` и +${fmt(reward.amount_essence)} Эссенции` : ''}`;
     toast(note); const live = el('v3-today-status'); if (live) live.textContent = note;
     if (!reward.already_claimed) v3Reward(origin);
     _v3RefreshBalance();
@@ -206,7 +202,7 @@ function _v3RefreshBalance() {
   _v3BalanceAt = Date.now();
   return api('/profile/me').then(p => {
     _profileData = p;
-    const mora = document.querySelector('.v3-num'); if (mora) mora.textContent = fmt((p.balances || p).mora || 0);
+    const mora = document.querySelector('.v3-num'); if (mora) { mora.dataset.n = String((p.balances || p).mora || 0); v3CountUp(mora.parentElement); }
     renderV3Bar(p);
   }).catch(() => { /* баланс обновится при следующем открытии профиля */ });
 }

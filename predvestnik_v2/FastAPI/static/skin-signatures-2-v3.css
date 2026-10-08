@@ -1,0 +1,71 @@
+/* ═══ SKIN SIGNATURES · часть 2: Артефакт, Прилив Рюдзина (SS), Полуночная Комета, Хроно-ткач, Сердце Звезды (SSS) ═══
+   Правила те же, что в части 1: деталь открывается на потолке скина, движение только под .ap-anim. */
+
+/* ── Артефакт: шестигранный HUD, три дрона с лучами сканера и срыв сигнала ── */
+.ap-sig-artifact .sg-hex { inset: -14%; width: 128%; height: 128%; overflow: visible; fill: none; stroke: var(--ap-a); stroke-width: 1.3; filter: drop-shadow(0 0 3px var(--ap-a)); opacity: .9; }
+.ap-sig-artifact .sg-hex-in { stroke: var(--ap-c); stroke-dasharray: 6 5; opacity: .8; transform-origin: 50% 50%; }
+.ap-sig-artifact .sg-drone { left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: var(--ap-c); box-shadow: 0 0 8px var(--ap-a); --r: 56px; transform: rotate(var(--o)) translateY(calc(var(--r) * -1)); }
+.ap-sig-artifact .sg-drone::after { content: ""; position: absolute; left: 2px; top: 100%; width: 1px; height: 17px; background: linear-gradient(var(--ap-a), transparent); }
+.ap-sig-artifact .sg-tear { left: -10%; right: -10%; top: 34%; height: 5px; mix-blend-mode: screen; opacity: 0; background: linear-gradient(90deg, transparent, var(--ap-c) 30%, var(--ap-a) 70%, transparent); }
+@keyframes sgtear { 0%, 91%, 100% { opacity: 0; transform: translateY(0); } 92% { opacity: .9; transform: translateY(-6px) skewX(24deg); } 94% { opacity: .7; transform: translateY(14px) skewX(-18deg); } 96% { opacity: .85; transform: translateY(4px); } }
+.ap-anim .ap-sig-artifact .sg-hex { animation: apturn 60s linear infinite; }
+.ap-anim .ap-sig-artifact .sg-hex-in { animation: apturn-r 18s linear infinite; }
+.ap-anim .ap-sig-artifact .sg-drone { animation: sgorbit 9s linear infinite; }
+.ap-anim .ap-sig-artifact .sg-drone:nth-child(3) { animation-duration: 13s; animation-direction: reverse; } .ap-anim .ap-sig-artifact .sg-drone:nth-child(4) { animation-duration: 11s; }
+.ap-anim .ap-sig-artifact .sg-tear { animation: sgtear 6.5s steps(1) infinite; }
+
+/* ── Прилив Рюдзина: чешуя дракона, золотые трещины кинцуги, волны под аватаром ── */
+.ap-sig-tide .sg-scales { inset: -9%; border-radius: 50%; background: repeating-conic-gradient(var(--ap-a) 0 7deg, color-mix(in srgb, var(--ap-b) 70%, transparent) 7deg 14deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px), #000 calc(100% - 1px), transparent); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px), #000 calc(100% - 1px), transparent); opacity: .85; }
+.ap-sig-tide .sg-crack { inset: -3%; border-radius: 50%; background: conic-gradient(from 12deg, transparent 0 14deg, var(--ap-a) 14.4deg 15.2deg, transparent 15.6deg 96deg, var(--ap-c) 96.4deg 97deg, transparent 97.4deg 168deg, var(--ap-a) 168.4deg 169.2deg, transparent 169.6deg 244deg, var(--ap-c) 244.4deg 245deg, transparent 245.4deg 306deg, var(--ap-a) 306.4deg 307.2deg, transparent 307.6deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px), #000 calc(100% - 2px), transparent); mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px), #000 calc(100% - 2px), transparent); filter: drop-shadow(0 0 3px var(--ap-a)); }
+.ap-sig-tide .sg-wave { left: -22%; right: -22%; bottom: -12%; height: 32%; border-radius: 50%; border: 1.5px solid color-mix(in srgb, var(--ap-a) 75%, transparent); opacity: .5; transform: scale(calc(.7 + var(--i) * .16)); }
+@keyframes sgwave { 0% { transform: scale(.62); opacity: .85; } 100% { transform: scale(1.16); opacity: 0; } }
+@keyframes sgflicker { 0%, 100% { opacity: .55; } 48% { opacity: .55; } 50% { opacity: 1; } 54% { opacity: .5; } 56% { opacity: .95; } }
+.ap-anim .ap-sig-tide .sg-wave { animation: sgwave 4.2s ease-out infinite; animation-delay: calc(var(--i) * -1.4s); }
+.ap-anim .ap-sig-tide .sg-scales { animation: apturn 80s linear infinite; }
+.ap-anim .ap-sig-tide .sg-crack { animation: sgflicker 6s steps(1) infinite; }
+@keyframes sgflash { 0%, 93%, 100% { opacity: 0; } 94% { opacity: .55; } 96% { opacity: .1; } 97% { opacity: .4; } }
+.ap-sig-tide.ap-bg-vortex::after { content: ""; position: absolute; inset: 0; opacity: 0; background: radial-gradient(60% 40% at 70% 6%, rgba(255,255,255,.4), transparent); }
+.ap-anim .ap-sig-tide.ap-bg-vortex::after { animation: sgflash 9s steps(1) infinite; }
+
+/* ── Полуночная Комета: комета с хвостом облетает аватар, вторая идёт дальше и медленнее ── */
+.ap-sig-comet .sg-orbit { inset: -9px; border-radius: 50%; }
+.ap-sig-comet .sg-orbit::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, transparent 0 62%, color-mix(in srgb, var(--ap-b) 40%, transparent) 84%, var(--ap-c) 100%); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); }
+.ap-sig-comet .sg-head { left: 50%; top: 0; width: 7px; height: 7px; margin: -3.5px 0 0 -3.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 3px var(--ap-a), 0 0 22px var(--ap-b); }
+.ap-sig-comet .sg-orbit--far { inset: -22px; transform: rotate(140deg); opacity: .8; }
+.ap-sig-comet .sg-orbit--far::before { background: conic-gradient(from 0deg, transparent 0 78%, color-mix(in srgb, var(--ap-a) 38%, transparent) 92%, var(--ap-c) 100%); }
+.ap-sig-comet .sg-orbit--far .sg-head { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; }
+.ap-anim .ap-sig-comet .sg-orbit { animation: apturn 6.5s linear infinite; }
+.ap-anim .ap-sig-comet .sg-orbit--far { animation: apturn-r 11s linear infinite; }
+@keyframes sgmeteor { 0% { transform: rotate(24deg) translateX(-140%); opacity: 0; } 4% { opacity: .9; } 18% { transform: rotate(24deg) translateX(520%); opacity: 0; } 100% { transform: rotate(24deg) translateX(520%); opacity: 0; } }
+.ap-sig-comet.ap-bg-stars b:nth-child(2) { left: -8%; top: 14%; width: 96px; height: 1.5px; opacity: 0; background: linear-gradient(90deg, transparent, #fff); transform: rotate(24deg) translateX(-140%); }
+.ap-anim .ap-sig-comet.ap-bg-stars b:nth-child(2) { animation: sgmeteor 9s linear infinite; }
+
+/* ── Хроно-ткач: циферблат, секундный сегмент идёт по кольцу, часовой камень, две шестерёнки ── */
+.ap-sig-chrono .sg-dial { inset: -9%; border-radius: 50%; background: repeating-conic-gradient(var(--ap-c) 0 .9deg, transparent .9deg 6deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px)); opacity: .9; }
+.ap-sig-chrono .sg-dial::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(var(--ap-a) 0 2.2deg, transparent 2.2deg 30deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px)); mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px)); }
+.ap-sig-chrono .sg-hand { inset: -9%; border-radius: 50%; }
+.ap-sig-chrono .sg-hand--min { background: conic-gradient(from -14deg, transparent 0 4deg, var(--ap-a) 14deg, #fff 14.6deg, transparent 15deg); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 calc(100% - 4px)); filter: drop-shadow(0 0 4px var(--ap-a)); }
+.ap-sig-chrono .sg-hand--hour { transform: rotate(120deg); }
+.ap-sig-chrono .sg-hand--hour::after { content: ""; position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; margin-left: -4px; transform: rotate(45deg); background: var(--ap-c); box-shadow: 0 0 8px var(--ap-b); }
+.ap-sig-chrono .sg-cog { left: -14%; bottom: -8%; width: 22%; aspect-ratio: 1; border-radius: 50%; background: repeating-conic-gradient(var(--ap-a) 0 14deg, transparent 14deg 30deg); -webkit-mask: radial-gradient(circle, transparent 28%, #000 30%, #000 100%); mask: radial-gradient(circle, transparent 28%, #000 30%, #000 100%); opacity: .9; }
+.ap-sig-chrono .sg-cog--r { left: auto; right: -14%; bottom: -12%; width: 16%; background: repeating-conic-gradient(var(--ap-b) 0 15deg, transparent 15deg 30deg); }
+.ap-anim .ap-sig-chrono .sg-hand--min { animation: apturn 60s steps(60) infinite; }
+.ap-anim .ap-sig-chrono .sg-hand--hour { animation: sghour 720s linear infinite; }
+@keyframes sghour { from { transform: rotate(120deg); } to { transform: rotate(480deg); } }
+.ap-anim .ap-sig-chrono .sg-cog { animation: apturn 16s linear infinite; } .ap-anim .ap-sig-chrono .sg-cog--r { animation: apturn-r 12s linear infinite; }
+
+/* ── Сердце Звезды: ядро-звезда на кольце, ровное сердцебиение, ударная волна уходит в стороны ── */
+.ap-sig-heart .sg-pulse { inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--ap-a) 85%, transparent); }
+.ap-sig-heart .sg-pulse:nth-child(1) { transform: scale(1.32); opacity: .5; } .ap-sig-heart .sg-pulse:nth-child(2) { transform: scale(1.66); opacity: .26; }
+.ap-sig-heart .sg-pulse:nth-child(3) { border: 0; transform: scale(1.2); opacity: .5; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 55%, transparent), transparent); }
+.ap-sig-heart .sg-core { right: -9%; top: -9%; width: 26%; aspect-ratio: 1; background: #fff; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); filter: drop-shadow(0 0 6px var(--ap-a)) drop-shadow(0 0 12px var(--ap-b)); }
+@keyframes sgbeat { 0% { transform: scale(1); opacity: .85; } 70%, 100% { transform: scale(1.95); opacity: 0; } }
+@keyframes sgthump { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.08); } 24% { transform: scale(1); } 36% { transform: scale(1.12); } 56% { transform: scale(1); } }
+.ap-anim .ap-sig-heart .sg-pulse { animation: sgbeat 1.7s ease-out infinite; }
+.ap-anim .ap-sig-heart .sg-pulse:nth-child(2) { animation-delay: .26s; }
+.ap-anim .ap-sig-heart .sg-core { animation: sgthump 1.7s ease-in-out infinite; }
+.ap-anim .ap-sig-heart.ap-ha-rays { animation: sgthump 1.7s ease-in-out infinite; }
+.ap-sig-heart.ap-name { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
+.ap-anim .ap-sig-heart.ap-bg-rays::after { animation: sgthump 1.7s ease-in-out infinite; transform-origin: 50% 8%; }
+
+@media (prefers-reduced-motion: reduce) { .ap-frame u, .ap-bg::after { animation: none !important; } }

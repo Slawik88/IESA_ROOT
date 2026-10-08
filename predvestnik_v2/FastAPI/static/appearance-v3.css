@@ -1,85 +1,67 @@
-/* ═══ APPEARANCE V3 — внешний вид игрока: коллекция задаёт цвета, тир задаёт богатство ═══
-   Класс слота: ap-l-<коллекция> ap-t<1..6>  (D=1 … SS=6). Эффекты накапливаются по тиру,
-   циклы включаются только при fx-2+ (см. fx-tiers-v3.css). Анимируются transform/opacity. */
+/* ═══ APPEARANCE V3 · ник и титул ═══
+   Образ = палитра скина (--ap-a/b/c) + форма (kinds) + богатство тира (ap-t1…ap-t7 = D…SSS).
+   Ник: цвет → градиент → фирменный приём вида (nm-*). Движение включает .ap-anim на body (app.18.js:
+   «Спокойный режим» и слабое устройство его не получают). Анимируются только transform/opacity. */
 
-.ap-l-forest { --ap-a: #6fdc98; --ap-b: #2e9a68; --ap-c: #d9c28f; }
-.ap-l-threshold { --ap-a: #b48cff; --ap-b: #5b3fd6; --ap-c: #7aa8ff; }
-.ap-l-frost { --ap-a: #a6e0ff; --ap-b: #5aa9ee; --ap-c: #ffffff; }
-.ap-l-inferno { --ap-a: #ff9a55; --ap-b: #e3432b; --ap-c: #ffd27a; }
-.ap-l-hanami { --ap-a: #ffa8cc; --ap-b: #ef6aa3; --ap-c: #fff0f6; }
-.ap-l-celestial { --ap-a: #ffdc8f; --ap-b: #82c9ff; --ap-c: #fff6dd; }
-.ap-l-void { --ap-a: #cf74ff; --ap-b: #5a2cd9; --ap-c: #ff7ad9; }
-.ap-l-artifact { --ap-a: #62f2e2; --ap-b: #2a9cff; --ap-c: #c8fff8; }
-.ap-l-moon_lotus { --ap-a: #e4ecff; --ap-b: #93a9ee; --ap-c: #ffffff; }
-.ap-l-ryujin_tide { --ap-a: #52e6cc; --ap-b: #e9c45d; --ap-c: #8fe9ff; }
+.ap-name { --ap-px: 6px; position: relative; display: inline-block; max-width: calc(100% + var(--ap-px) * 2); overflow: hidden; vertical-align: top; padding: 3px var(--ap-px); margin: -3px calc(var(--ap-px) * -1); color: var(--ap-a); }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось */
+.ap-name.ap-t1 { text-shadow: 0 0 12px color-mix(in srgb, var(--ap-a) 32%, transparent); }
+.ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: linear-gradient(100deg, var(--ap-a), var(--ap-b)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 42%, transparent)); }
+.ap-name:is(.ap-t6, .ap-t7) { background-image: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-b) 70%, var(--ap-c)); }
 
-/* ── Ник: цвет → градиент → свечение → блик → блеск ── */
-.ap-name { position: relative; display: inline-block; max-width: 100%; overflow: hidden; vertical-align: top; padding: 3px 6px; margin: -3px -6px; }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось */
-.ap-name.ap-t1 { color: var(--ap-a); text-shadow: 0 0 12px color-mix(in srgb, var(--ap-a) 30%, transparent); }
-.ap-name:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6) { background: linear-gradient(100deg, var(--ap-a), var(--ap-b)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-.ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 45%, transparent)); }
-.ap-name.ap-t6 { background-image: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-b) 70%, var(--ap-c)); }
-.ap-name::after, .ap-title::after { content: ""; position: absolute; inset: 0; display: none; pointer-events: none; background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.55) 50%, transparent 60%); mix-blend-mode: overlay; transform: translateX(-130%); }
-.fx-2 .ap-name:is(.ap-t4, .ap-t5, .ap-t6)::after, .fx-2 .ap-title:is(.ap-t4, .ap-t5, .ap-t6)::after { display: block; animation: apsweep 6s ease-in-out infinite; }
+/* общий блик: полоса света пробегает по тексту (shimmer, foil, lens, comet подменяют форму) */
+.ap-name::after, .ap-title::after { content: ""; position: absolute; inset: 0; display: none; pointer-events: none; transform: translateX(-130%); background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.55) 50%, transparent 60%); mix-blend-mode: overlay; }
 @keyframes apsweep { 0%, 55% { transform: translateX(-130%); } 100% { transform: translateX(130%); } }
+.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after,
+.ap-anim .ap-title:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; animation: apsweep 6s ease-in-out infinite; }
 
-/* ── Титул ── */
+/* foil: металлическая фольга, полосы цвета с жёсткими границами */
+.ap-nm-foil:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background-image: linear-gradient(100deg, var(--ap-c) 0%, var(--ap-a) 28%, var(--ap-b) 52%, var(--ap-a) 74%, var(--ap-c) 100%); }
+.ap-nm-foil:is(.ap-t5, .ap-t6, .ap-t7)::after { background: linear-gradient(100deg, transparent 44%, rgba(255,255,255,.8) 50%, transparent 56%); }
+
+/* glow: неоновая трубка, свечение дышит на втором слое */
+.ap-nm-glow { --ap-px: 10px; padding-top: 6px; padding-bottom: 6px; margin-top: -6px; margin-bottom: -6px; }
+.ap-nm-glow:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); text-shadow: 0 0 6px color-mix(in srgb, var(--ap-a) 70%, transparent), 0 0 16px color-mix(in srgb, var(--ap-b) 55%, transparent); filter: none; }
+.ap-nm-glow:is(.ap-t5, .ap-t6, .ap-t7) { text-shadow: 0 0 5px var(--ap-c), 0 0 14px var(--ap-a), 0 0 30px color-mix(in srgb, var(--ap-b) 70%, transparent); }
+.ap-nm-glow::before { content: attr(data-t); position: absolute; inset: 6px 10px; color: var(--ap-a); filter: blur(7px); opacity: 0; pointer-events: none; }
+.ap-anim .ap-nm-glow:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apbreath 3.4s ease-in-out infinite alternate; }
+
+/* ink: тушь, под ником прорисовывается мазок кисти */
+.ap-nm-ink::before { content: ""; position: absolute; left: 6px; right: 6px; bottom: 1px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, var(--ap-b) 18%, var(--ap-a) 70%, transparent); opacity: .85; transform-origin: left; }
+.ap-nm-ink:is(.ap-t1, .ap-t2)::before { display: none; }
+@keyframes apbrush { 0% { transform: scaleX(.02); } 24%, 86% { transform: scaleX(1); opacity: .85; } 100% { transform: scaleX(1); opacity: 0; } }
+.ap-anim .ap-nm-ink:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apbrush 7s ease-out infinite; }
+
+/* glitch: сбой сигнала, две цветовые копии съезжают на пару пикселей */
+.ap-nm-glitch:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); filter: none; text-shadow: 0 0 10px color-mix(in srgb, var(--ap-a) 38%, transparent); }
+.ap-nm-glitch::before, .ap-nm-glitch::after { content: attr(data-t); display: none; position: absolute; inset: 3px 6px; background: none; mix-blend-mode: screen; pointer-events: none; transform: none; }
+.ap-nm-glitch::before { color: var(--ap-b); } .ap-nm-glitch::after { color: var(--ap-c); }
+.ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before, .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; opacity: .34; }
+.ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { transform: translateX(-1px); } .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { transform: translateX(1px); }
+@keyframes apglitch-a { 0%, 90%, 100% { transform: translateX(-1.5px); } 92% { transform: translateX(-5px); } 95% { transform: translateX(3px); } 97% { transform: translateX(-2px); } }
+@keyframes apglitch-b { 0%, 90%, 100% { transform: translateX(1.5px); } 93% { transform: translateX(5px); } 96% { transform: translateX(-3px); } 98% { transform: translateX(2px); } }
+.ap-anim .ap-nm-glitch:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apglitch-a 5.5s steps(1) infinite; }
+.ap-anim .ap-nm-glitch:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: apglitch-b 5.5s steps(1) infinite; }
+
+/* lens: мягкий круглый блик, как отсвет линзы */
+.ap-nm-lens::after { inset: -40% 0; background: radial-gradient(closest-side, rgba(255,255,255,.85), rgba(255,255,255,0)); width: 46%; mix-blend-mode: overlay; }
+.ap-anim .ap-nm-lens:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; animation: apsweep 7s ease-in-out infinite; }
+
+/* comet: яркая точка с хвостом пролетает над ником */
+.ap-nm-comet::after { inset: 0 auto 0 0; width: 54%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.18) 60%, rgba(255,255,255,.95) 99%, transparent); mix-blend-mode: overlay; }
+@keyframes apcomet { 0%, 50% { transform: translateX(-110%); } 100% { transform: translateX(220%); } }
+.ap-anim .ap-nm-comet:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; animation: apcomet 5.5s cubic-bezier(.5, 0, .3, 1) infinite; }
+
+/* ── Титул: таблетка, цвет и насыщенность по палитре и тиру ── */
 .ap-title { position: relative; display: inline-flex; align-items: center; overflow: hidden; padding: 2px 9px; border-radius: 99px; color: var(--ap-a); font-size: 11.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ap-a) 40%, transparent); }
-.ap-title:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6) { background: linear-gradient(100deg, color-mix(in srgb, var(--ap-a) 22%, transparent), color-mix(in srgb, var(--ap-b) 22%, transparent)); }
-.ap-title.ap-t6 { box-shadow: inset 0 0 0 1px var(--ap-a), 0 0 14px color-mix(in srgb, var(--ap-a) 35%, transparent); }
+.ap-title:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: linear-gradient(100deg, color-mix(in srgb, var(--ap-a) 22%, transparent), color-mix(in srgb, var(--ap-b) 22%, transparent)); }
+.ap-title:is(.ap-t6, .ap-t7) { box-shadow: inset 0 0 0 1px var(--ap-a), 0 0 14px color-mix(in srgb, var(--ap-a) 35%, transparent); }
+.ap-title::after { background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.4) 50%, transparent 60%); }
 
-/* ── Рамка аватара: линия → градиент → двойное кольцо → конус → вращение ── */
-.ap-frame { position: absolute; inset: -4px; border-radius: 50%; pointer-events: none; }
-.ap-frame::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--ap-a); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--ap-w, 2px)), #000 calc(100% - var(--ap-w, 2px) + .5px)); mask: radial-gradient(farthest-side, transparent calc(100% - var(--ap-w, 2px)), #000 calc(100% - var(--ap-w, 2px) + .5px)); }
-.ap-frame:is(.ap-t2, .ap-t3)::before { --ap-w: 3px; background: linear-gradient(135deg, var(--ap-a), var(--ap-b)); }
-.ap-frame:is(.ap-t4, .ap-t5, .ap-t6)::before { --ap-w: 3px; background: conic-gradient(var(--ap-a), var(--ap-b), var(--ap-c), var(--ap-b), var(--ap-a)); }
-.ap-frame:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6)::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-a) 50%, transparent); }
-.ap-frame:is(.ap-t5, .ap-t6)::after { inset: -6px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-a) 55%, transparent), 0 0 16px color-mix(in srgb, var(--ap-a) 40%, transparent); }
-.fx-2 .ap-frame.ap-t6::before { animation: v3spin 8s linear infinite; }
+@keyframes apbreath { from { opacity: .35; } to { opacity: 1; } }
 
-/* ── Ореол за аватаром ── */
-.ap-halo { position: absolute; inset: -16px; z-index: -1; border-radius: 50%; pointer-events: none; opacity: .7; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 34%, transparent), transparent); }
-.ap-halo.ap-t2 { opacity: .85; }
-.ap-halo:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6) { inset: -20px; opacity: .95; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 42%, transparent), color-mix(in srgb, var(--ap-b) 14%, transparent) 70%, transparent); }
-.fx-2 .ap-halo:is(.ap-t4, .ap-t5, .ap-t6) { animation: apbreath 5s ease-in-out infinite alternate; }
-.ap-halo:is(.ap-t5, .ap-t6)::before, .ap-halo.ap-t6::after { content: ""; position: absolute; left: 50%; top: 0; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--ap-c); box-shadow: 0 0 8px var(--ap-a); }
-.ap-halo.ap-t6::after { top: auto; bottom: 0; }
-.fx-2 .ap-halo:is(.ap-t5, .ap-t6) { animation: apbreath 5s ease-in-out infinite alternate, v3spin 16s linear infinite; }
-@keyframes apbreath { from { opacity: .55; } to { opacity: 1; } }
-
-/* ── Сцена профиля: фон и частицы ── */
-.ap-stage { position: relative; isolation: isolate; }
-.ap-bg { position: absolute; inset: -34px -22px -12px; z-index: -2; overflow: hidden; pointer-events: none; -webkit-mask-image: linear-gradient(#000 60%, transparent); mask-image: linear-gradient(#000 60%, transparent); }
-.ap-bg.ap-t1 { background: linear-gradient(180deg, color-mix(in srgb, var(--ap-a) 18%, transparent), transparent); }
-.ap-bg.ap-t2 { background: linear-gradient(160deg, color-mix(in srgb, var(--ap-a) 24%, transparent), color-mix(in srgb, var(--ap-b) 14%, transparent) 60%, transparent); }
-.ap-bg:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6) { background: radial-gradient(70% 60% at 20% 0%, color-mix(in srgb, var(--ap-a) 30%, transparent), transparent 70%), radial-gradient(60% 50% at 90% 10%, color-mix(in srgb, var(--ap-b) 26%, transparent), transparent 70%); }
-.ap-bg:is(.ap-t4, .ap-t5, .ap-t6) { background-image: radial-gradient(70% 60% at 20% 0%, color-mix(in srgb, var(--ap-a) 30%, transparent), transparent 70%), radial-gradient(60% 50% at 90% 10%, color-mix(in srgb, var(--ap-b) 26%, transparent), transparent 70%), radial-gradient(60% 40% at 50% 100%, color-mix(in srgb, var(--ap-c) 16%, transparent), transparent 70%); }
-.ap-bg:is(.ap-t5, .ap-t6)::before { content: ""; position: absolute; inset: -20%; background: radial-gradient(40% 40% at 30% 30%, color-mix(in srgb, var(--ap-a) 28%, transparent), transparent), radial-gradient(40% 40% at 70% 60%, color-mix(in srgb, var(--ap-b) 24%, transparent), transparent); }
-.fx-2 .ap-bg:is(.ap-t5, .ap-t6)::before { animation: apdrift 16s ease-in-out infinite alternate; }
-.ap-bg.ap-t6::after { content: ""; position: absolute; left: 50%; top: -10%; width: 140%; aspect-ratio: 1; margin-left: -70%; border-radius: 50%; opacity: .5; filter: blur(30px); background: conic-gradient(transparent 0 25%, color-mix(in srgb, var(--ap-a) 35%, transparent) 40%, transparent 55% 70%, color-mix(in srgb, var(--ap-b) 30%, transparent) 85%, transparent); }
-.fx-2 .ap-bg.ap-t6::after { animation: v3spin 40s linear infinite; }
-@keyframes apdrift { to { transform: translate3d(6%, 8%, 0) scale(1.1); } }
-.ap-fx { position: absolute; inset: -20px -10px 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.ap-fx i { position: absolute; left: var(--x); bottom: var(--y); width: var(--s); height: var(--s); border-radius: 50%; background: var(--ap-a); opacity: .5; }
-.fx-2 .ap-fx i { bottom: 0; opacity: 0; animation: apfloat var(--d) linear var(--delay) infinite; }
-@keyframes apfloat { 0% { transform: translate3d(0, 0, 0); opacity: 0; } 15% { opacity: .7; } 85% { opacity: .35; } 100% { transform: translate3d(var(--dx), -240px, 0); opacity: 0; } }
-
-/* ── Публичный профиль: палитра владельца ограничена этим блоком ── */
-.v3-scope { position: relative; isolation: isolate; margin: calc(-1 * (var(--v3-bar-h) + var(--v3-safe-t) + 14px)) -22px 0; padding: calc(var(--v3-bar-h) + var(--v3-safe-t) + 14px) 22px 40px; background: var(--v3-bg); color: var(--v3-ink); }
-.v3-scope::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: var(--v3-wash); }
-.v3-id.has-glow .v3-name { background: none; -webkit-text-fill-color: initial; }
-.pp-back { margin-left: -4px; }
-.pp-title-row { margin-top: 8px; }
-.v3-fact { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 48px; padding: 10px 0; font-size: 15px; font-weight: 500; }
-.v3-fact + .v3-fact { box-shadow: 0 -1px 0 var(--v3-faint); }
-.v3-fact small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; font-weight: 400; }
-.v3-fact b { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
-.v3-lock { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; color: var(--v3-dim); font-size: 13px; }
-.v3-lock svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
-.v3-tier { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.6 var(--v3-font); letter-spacing: .06em; }
-.v3-rowbtn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: opacity .15s; }
-.v3-rowbtn:active { opacity: .55; }
+.v3-id.has-look .v3-name { background: none; -webkit-text-fill-color: initial; }   /* золотой VIP-градиент имени не перекрывает цвет скина */
 .v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
 
-@media (prefers-reduced-motion: reduce) { .ap-fx i, .ap-bg::before, .ap-bg::after, .ap-halo, .ap-frame::before, .ap-name::after, .ap-title::after { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ap-name::before, .ap-name::after, .ap-title::after { animation: none !important; } }

@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from core.appearance_v3 import cap_tier
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
-from core.skins_v3 import (BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS,
+from core.skins_v3 import (BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, SET_BONUS_ESSENCE, TIERS,
                            UPGRADE_ESSENCE, next_tier, tier_index, total_upgrade_cost, upgrade_cost)
-from core.skins_v3_catalog import SKINS
+from core.skins_v3_catalog import SETS, SKINS
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import skins_v3 as repo
 from services.vip import is_vip_active
@@ -38,10 +38,25 @@ def _item(skin_id: str, owned_tier: str | None, equipped: str | None, vip: bool)
     shown = cap_tier(owned_tier, vip) if owned_tier else "D"
     return {
         **look_payload(skin_id, shown), "blurb": skin["blurb"], "price_zarniki": BUY_PRICE_ZARNIKI[skin["tier"]],
-        "owned": owned_tier is not None, "level": owned_tier, "shown_tier": shown, "equipped": skin_id == equipped,
+        "set": skin["set"], "owned": owned_tier is not None, "level": owned_tier, "shown_tier": shown, "equipped": skin_id == equipped,
         "next": {"tier": nxt[0], "essence": nxt[1], "needs_vip": nxt[0] == "SSS" and not vip} if nxt else None,
         "maxed": owned_tier is not None and nxt is None, "total_upgrade_essence": total_upgrade_cost(skin["tier"]),
     }
+
+
+def _sets_state(owned: dict) -> list[dict]:
+    return [{"id": sid, "name": st["name"], "blurb": st["blurb"], "members": list(st["members"]), "bonus_essence": SET_BONUS_ESSENCE,
+             "have": sum(1 for m in st["members"] if m in owned), "complete": all(m in owned for m in st["members"])}
+            for sid, st in SETS.items()]
+
+
+async def _set_bonus(db, user_id: int, skin_id: str, owned: dict) -> tuple[int, str]:
+    """Essence for the purchase that completes a themed set. Granted once per set, whatever the retry pattern."""
+    set_id = SKINS[skin_id]["set"]
+    if not set_id or not all(m in owned for m in SETS[set_id]["members"]):
+        return 0, ""
+    applied, _ = await repo.essence_apply(db, user_id, SET_BONUS_ESSENCE, reason="set_bonus", reference=set_id, idempotency_key=f"skin-v3:set:{set_id}")
+    return (SET_BONUS_ESSENCE if applied else 0), SETS[set_id]["name"]
 
 
 async def _zarniki(db, user_id: int) -> int:
@@ -61,7 +76,7 @@ async def state(db, user_id: int) -> dict:
         "essence": {"balance": await repo.essence_balance(db, user_id), "per_zarnik": ESSENCE_PER_ZARNIK,
                     "packs": [{"zarniki": n, "essence": n * ESSENCE_PER_ZARNIK} for n in ESSENCE_PACKS],
                     "quest_reward": dict(ESSENCE_QUEST_REWARD), "costs": dict(UPGRADE_ESSENCE)},
-        "items": [_item(sid, owned.get(sid), wearing, vip) for sid in SKINS],
+        "items": [_item(sid, owned.get(sid), wearing, vip) for sid in SKINS], "sets": _sets_state(owned),
     }
 
 
@@ -86,6 +101,7 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
     price = BUY_PRICE_ZARNIKI[skin["tier"]]
     await economy_ledger.ensure_tables(db)
     await repo.ensure_tables(db)
+    bonus, set_name = 0, ""
     try:
         async with db.connection.transaction():
             await _lock_user(db, user_id)
@@ -100,12 +116,14 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
                     source_type="skins_v3", reference_type="skin_v3", reference_id=skin_id,
                     metadata={"skin_id": skin_id, "ceiling": skin["tier"], "price_zarniki": price}, note=skin_id)
                 await repo.grant(db, user_id, skin_id)
+                bonus, set_name = await _set_bonus(db, user_id, skin_id, await repo.owned(db, user_id))
             await repo.set_equipped(db, user_id, skin_id)
     except InsufficientBalance as exc:
         raise SkinConflict(f"Нужно {price}✨ для этого скина.") from exc
     except IdempotencyConflict as exc:
         raise SkinConflict("Этот запрос уже использован для другой покупки.") from exc
-    return f"Скин «{skin['name']}» ваш. Он начинает с тира D и растёт за Эссенцию.", await state(db, user_id)
+    note = f" Сет «{set_name}» собран: +{bonus} Эссенции." if bonus else ""
+    return f"Скин «{skin['name']}» ваш. Он начинает с тира D и растёт за Эссенцию.{note}", await state(db, user_id)
 
 
 async def equip(db, user_id: int, skin_id: str | None) -> dict:

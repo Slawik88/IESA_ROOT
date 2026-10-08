@@ -46,10 +46,8 @@ assert index.count('type="button" class="nb') == 3
 assert 'role="status"' in index and "dev-notice" in index
 assert "/vip/" not in home and "Магазине" not in (STATIC / "app.02.js").read_text(encoding="utf-8").split("function showCurrModal", 1)[1][:2500]
 # Skin tiers: server contract, cumulative fx classes, motion budget in the tier stylesheet.
-skins_src = (ROOT / "core/global_skins_v1.py").read_text(encoding="utf-8")
-assert 'TIERS = ("D", "C", "B", "A", "S", "SS", "SSS")' in skins_src
-declared = re.findall(r'"tier": "(D|C|B|A|S|SS|SSS)"', skins_src)
-assert len(declared) == skins_src.count('"css_class":'), "every skin needs a tier"
+skins_src = (ROOT / "core/skins_v3.py").read_text(encoding="utf-8")
+assert 'TIERS: Final = ("D", "C", "B", "A", "S", "SS", "SSS")' in skins_src or 'TIERS = ("D", "C", "B", "A", "S", "SS", "SSS")' in skins_src
 fx = (STATIC / "fx-tiers-v3.css").read_text(encoding="utf-8")
 for level in range(1, 8):
     assert f"fx-{level}" in fx or level == 1, level
@@ -71,21 +69,22 @@ def keyframe_props(css: str) -> dict[str, set[str]]:
     return result
 
 
-appearance = (STATIC / "appearance-v3.css").read_text(encoding="utf-8")
+appearance_files = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "looks-v3.css")
+appearance = "".join((STATIC / name).read_text(encoding="utf-8") for name in appearance_files)
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 for sheet in (fx, appearance, home_css, css):
     for name, props in keyframe_props(sheet).items():
         assert props <= {"transform", "opacity"}, (name, props)
-assert len(keyframe_props(fx)) >= 4 and len(keyframe_props(appearance)) >= 4
-for level in range(1, 7):
+assert len(keyframe_props(fx)) >= 4 and len(keyframe_props(appearance)) >= 12
+for level in range(1, 8):
     assert f".ap-t{level}" in appearance, level
 assert 'skins-v3.css' in index and 'fx-tiers-v3.css' in index
 # Public card: skins scoped to the card, new card replaces the legacy opener, rows are clickable.
 skins_css = (STATIC / "skins-v3.css").read_text(encoding="utf-8")
-assert all(f".v3-scope.skin-{name}" in skins_css for name in ("deep-water", "neon-lime", "lunar-archive", "void-atlas", "default"))
+assert ".v3-scope.pp-neutral" in skins_css and "skin-deep-water" not in skins_css, "palettes now come from the server catalog"
 card = (STATIC / "app.21.js").read_text(encoding="utf-8")
 assert "window.openPublicProfile = openPublicCardV3" in card and "/public-profile-v3/" in card
-assert "look.visible" in card and "skin-default" in card, "hidden look must fall back to the neutral palette"
+assert "a.visible" in card and "pp-neutral" in card, "hidden look must fall back to the neutral palette"
 top = (STATIC / "app.17.js").read_text(encoding="utf-8")
 assert "_v3RowButton" in top and "openPublicProfile(" in top and "appearance-v3.css" in index
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

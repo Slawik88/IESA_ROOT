@@ -55,6 +55,7 @@ function applySkinTier(skin, options = {}) {
   [...body.classList].forEach(name => { if (/^fx-\d$/.test(name) || /^tier-[a-z]+$/.test(name)) body.classList.remove(name); });
   for (let i = 1; i <= level; i++) body.classList.add(`fx-${i}`);
   body.classList.add(`tier-${_v3Skin.tier.toLowerCase()}`); body.dataset.tier = _v3Skin.tier;
+  body.classList.toggle('ap-anim', !_v3Calm() && _v3DeviceCap() >= 3);   // движение образов (рамки, ореолы, частицы) не зависит от тира своего скина
   _v3BuildFx(level); if (level >= 6) _v3BindTilt();
   _v3StartWatchdog(level);
 }

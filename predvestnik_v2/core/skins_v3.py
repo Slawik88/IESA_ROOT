@@ -18,6 +18,7 @@ BUY_PRICE_ZARNIKI: Final = {"D": 100, "C": 160, "B": 240, "A": 340, "S": 480, "S
 UPGRADE_ESSENCE: Final = {"C": 20, "B": 45, "A": 90, "S": 160, "SS": 280, "SSS": 480}
 ESSENCE_PER_ZARNIK: Final = 4
 ESSENCE_PACKS: Final = (10, 25, 60)          # Zarniki per pack, each pack = ESSENCE_PER_ZARNIK * n Essence
+SET_BONUS_ESSENCE: Final = 40   # once per themed set, when its last skin is bought
 ESSENCE_QUEST_REWARD: Final = {"daily": 5, "weekly": 20, "combined": 10}
 
 

@@ -14,7 +14,7 @@ import asyncpg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, UPGRADE_ESSENCE  # noqa: E402
+from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, SET_BONUS_ESSENCE, UPGRADE_ESSENCE  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
 from infrastructure.repositories import global_skins_v1 as old_skins  # noqa: E402
@@ -57,7 +57,7 @@ async def run(dsn: str) -> None:
         await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 1000))
 
         initial = await skins.state(db, user)
-        assert len(initial["items"]) == 21 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
+        assert len(initial["items"]) == 25 and len(initial["sets"]) == 2 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
         assert initial["equipped"] is None and initial["zarniki"] == 1000
 
         # buy: charged once, owned at D, equipped; repeating the same request does not charge twice
@@ -96,6 +96,18 @@ async def run(dsn: str) -> None:
         assert await skins.grant_essence_in_transaction(db, user, 5, reason="quest_reward", reference="daily:2026-10-08") == 5
         assert await skins.grant_essence_in_transaction(db, user, 5, reason="quest_reward", reference="daily:2026-10-08") == 0
         assert (await repo.essence_balance(db, user)) == 40 - UPGRADE_ESSENCE["C"] + 5
+
+        # themed set: the purchase that completes it pays Essence exactly once
+        await db.execute("UPDATE users SET user_balance_zarniki=5000 WHERE user_tg_id=?", (user,))
+        before_essence = await repo.essence_balance(db, user)
+        for n, sid in enumerate(("lotus_pond", "lotus_gold")):
+            await skins.buy(db, user, sid, idempotency_key=f"set-{n}")
+        assert await repo.essence_balance(db, user) == before_essence, "no bonus before the set is complete"
+        message, state = await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")
+        assert await repo.essence_balance(db, user) == before_essence + SET_BONUS_ESSENCE and "собран" in message
+        assert next(s for s in state["sets"] if s["id"] == "lotus")["complete"] and next(s for s in state["sets"] if s["id"] == "sakura")["have"] == 0
+        await skins.buy(db, user, "moon_lotus", idempotency_key="set-2")           # replay
+        assert await repo.essence_balance(db, user) == before_essence + SET_BONUS_ESSENCE, "bonus is paid once"
 
         # ── launch migration ────────────────────────────────────────────────────────────────────────────────
         payer, free_user, covered = 981002, 981003, 981004

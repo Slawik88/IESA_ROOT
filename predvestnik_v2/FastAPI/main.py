@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               admin, global_admin, dev_console, payments,
                               legal, analytics as analytics_router,
                               dev_overlay, appeals, account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, appearance, cosmetics as cosmetics_router, global_skins_v1 as global_skins_v1_router, skins_v3 as skins_v3_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
@@ -70,6 +70,7 @@ from infrastructure.repositories.achievements_v1 import ensure_tables as ensure_
 from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensure_public_profiles_v1
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
 from infrastructure.repositories.skins_v3 import ensure_tables as ensure_skins_v3
+from infrastructure.repositories.presence_v1 import ensure_tables as ensure_presence_v1
 from services import skins_v3_migration
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
@@ -145,6 +146,7 @@ async def lifespan(app: FastAPI):
             (ensure_public_profiles_v1,             "public_profiles_v1"),
             (ensure_global_skins_v1,                 "global_skins_v1"),
             (ensure_skins_v3,                        "skins_v3"),
+            (ensure_presence_v1,                     "presence_v1"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
         ]:
             try:
@@ -198,7 +200,7 @@ for r in [profile.router, marriage.router, wallet.router,
           admin.router, global_admin.router, dev_console.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, dev_overlay.router, appeals.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, appearance.router, cosmetics_router.router, global_skins_v1_router.router, skins_v3_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(legacy_combat_retirement_router.router)
@@ -319,10 +321,12 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order); each is served at /static/<name>.
-_SHELL_V3_CSS = ("shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css")
+_SHELL_V3_CSS = ("shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
+                 "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css",
+                 "public-card-v3.css")
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
@@ -333,10 +337,8 @@ _ASSET_VER = str(int(max(
     os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.js")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.css")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.js")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "global-skins-v1.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "global-skins-v1.js")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "skins", "lunar-archive-v1.webp")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "skins", "void-atlas-v1.webp")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.css")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.js")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
@@ -370,8 +372,8 @@ _RHYTHM_V2_HTML = (
     # non-existent host root, which is the source of the visible 404 on ‹.
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
     .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
-    .replace('href="/static/global-skins-v1.css"', f'href="{_ASSET_BASE}/static/global-skins-v1.css?v={_ASSET_VER}"')
-    .replace('src="/static/global-skins-v1.js"', f'src="{_ASSET_BASE}/static/global-skins-v1.js?v={_ASSET_VER}"')
+    .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
+    .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
     .replace('src="/static/rhythm-v2.js"', f'src="{_ASSET_BASE}/static/rhythm-v2.js?v={_ASSET_VER}"')
 )
 _MINESWEEPER_V2_HTML = (
@@ -379,8 +381,8 @@ _MINESWEEPER_V2_HTML = (
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
     .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
-    .replace('href="/static/global-skins-v1.css"', f'href="{_ASSET_BASE}/static/global-skins-v1.css?v={_ASSET_VER}"')
-    .replace('src="/static/global-skins-v1.js"', f'src="{_ASSET_BASE}/static/global-skins-v1.js?v={_ASSET_VER}"')
+    .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
+    .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
     .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
 )
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
@@ -491,26 +493,14 @@ for _css_name in _SHELL_V3_CSS:
     _register_shell_css(_css_name)
 
 
-@app.get("/static/global-skins-v1.css")
-async def global_skins_css():
-    return Response(_read_static("global-skins-v1.css"), media_type="text/css; charset=utf-8")
+@app.get("/static/skin-runtime-v3.css")
+async def skin_runtime_css():
+    return Response(_read_static("skin-runtime-v3.css"), media_type="text/css; charset=utf-8")
 
 
-@app.get("/static/global-skins-v1.js")
-async def global_skins_js():
-    return Response(_read_static("global-skins-v1.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/skins/lunar-archive-v1.webp")
-async def lunar_archive_skin_asset():
-    with open(os.path.join(_STATIC_DIR, "skins", "lunar-archive-v1.webp"), "rb") as asset:
-        return Response(asset.read(), media_type="image/webp")
-
-
-@app.get("/static/skins/void-atlas-v1.webp")
-async def void_atlas_skin_asset():
-    with open(os.path.join(_STATIC_DIR, "skins", "void-atlas-v1.webp"), "rb") as asset:
-        return Response(asset.read(), media_type="image/webp")
+@app.get("/static/skin-runtime-v3.js")
+async def skin_runtime_js():
+    return Response(_read_static("skin-runtime-v3.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/minesweeper-v2.js")

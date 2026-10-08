@@ -11,7 +11,7 @@
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
   const err = text => { $('error').textContent = text || ''; };
   async function api(path, options={}) { const response=await fetch(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok) throw new Error(data.detail||'Не удалось связаться с сервером.'); return data; }
-  fetch(base+'/global-skins-v1/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV1?.(skin)).catch(()=>{});
+  fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function save(){ if(state?.run_id&&['choosing','active'].includes(state.status))localStorage.setItem(storageKey,JSON.stringify({state}));else localStorage.removeItem(storageKey); }
   function setButtons(disabled, selected=null){buttons().forEach(b=>{b.disabled=disabled;b.classList.toggle('pending',b.dataset.rune===selected&&disabled)})}
   function connection(mark,text){$('connection').textContent=mark;$('connection').setAttribute('aria-label',text)}

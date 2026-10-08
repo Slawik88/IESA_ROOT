@@ -552,13 +552,6 @@ function switchPage(name, _btn, _viaBack) {
     toast('Этот старый раздел больше не используется.', false);
   }
   if(!el('pg-'+name)) return;
-  // Любой выход из «Внешнего вида» (включая нижнюю навигацию) сначала даёт
-  // примерочной сохранить выбранную экипировку и подготовить профиль-превью.
-  // Раньше это делала только собственная стрелка _looksClose(), поэтому тап по
-  // «Профиль» обходил сохранение и визуально стирал только что собранный образ.
-  if(_activePage==='looks' && name!=='looks'
-     && typeof window._looksGuardPageLeave==='function'
-     && window._looksGuardPageLeave(()=>switchPage(name,_btn,_viaBack))) return;
   // История для «Назад»: перед уходом кладём ТЕКУЩУЮ страницу (кроме перехода
   // назад и повторного клика по той же). Без дублей подряд, кап 25.
   if(!_viaBack && _activePage && _activePage !== name &&
@@ -568,7 +561,6 @@ function switchPage(name, _btn, _viaBack) {
   }
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const looksDock=el('looks-dock'); if(looksDock && name!=='looks') looksDock.innerHTML='';
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');
     b.removeAttribute('aria-current');

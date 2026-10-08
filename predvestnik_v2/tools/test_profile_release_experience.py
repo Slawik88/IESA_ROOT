@@ -10,7 +10,7 @@ pets = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
 admin = (ROOT / "FastAPI/static/app.07.js").read_text(encoding="utf-8")
 wallet = (ROOT / "FastAPI/routers/wallet.py").read_text(encoding="utf-8")
 css = (ROOT / "FastAPI/static/app.css").read_text(encoding="utf-8")
-skin = (ROOT / "FastAPI/static/global-skins-v1.css").read_text(encoding="utf-8")
+skin = (ROOT / "FastAPI/static/skin-runtime-v3.css").read_text(encoding="utf-8")
 router = (ROOT / "FastAPI/routers/profile.py").read_text(encoding="utf-8")
 service = (ROOT / "services/pets_v1.py").read_text(encoding="utf-8")
 constants = (ROOT / "core/constants.py").read_text(encoding="utf-8")
@@ -31,7 +31,7 @@ assert "overflow-x:auto" not in css[css.index(".migration-card"):css.index("/* P
 assert "prefers-reduced-motion:reduce" in css
 assert "bestiary_owned" in service and "PET_SPECIES" in service
 assert "showPetPanel('bestiary'" in pets and "Неизвестный питомец" in pets
-assert "background-size:auto 100svh" in skin and "backdrop-filter:blur" in skin
+assert "body.skin-v3" in skin and "var(--v3-wash)" in skin, "game pages take the equipped skin palette"
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
 assert "help-hero" in index and "help-card" in index and "v3-title" in index

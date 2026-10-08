@@ -21,13 +21,20 @@ ALLOWED = {
     "/static/app.devmode.js": "application/javascript",
     "/static/minesweeper-v2.css": "text/css",
     "/static/minesweeper-v2.js": "application/javascript",
-    "/static/global-skins-v1.css": "text/css",
-    "/static/global-skins-v1.js": "application/javascript",
-    "/static/skins/lunar-archive-v1.webp": "image/webp",
-    "/static/skins/void-atlas-v1.webp": "image/webp",
+    "/static/skin-runtime-v3.css": "text/css",
+    "/static/skin-runtime-v3.js": "application/javascript",
+    "/static/appearance-v3.css": "text/css",
+    "/static/appearance-ring-v3.css": "text/css",
+    "/static/appearance-stage-v3.css": "text/css",
+    "/static/looks-v3.css": "text/css",
+    "/static/skin-signatures-v3.css": "text/css",
+    "/static/skin-signatures-2-v3.css": "text/css",
+    "/static/public-card-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",
+    "/static/global-skins-v1.js",
+    "/static/skins/void-atlas-v1.webp",
     "/static/reconstruction-lab.css",
     "/static/reconstruction-lab.js",
     "/static/reconstruction-lab.html",
@@ -105,30 +112,17 @@ def main() -> None:
     )
     assert direct.get("/static/icons/x.svg").status_code == 404
     app_js = direct.get("/static/app.js").text
-    assert "renderProfileShowcase(d,d.cosmetics,{caption:'Публичный профиль'})" in app_js
-    assert "renderProfileShowcase(d,d.cosmetics,{caption:'Личный профиль',openLooks:true})" in app_js
-    assert "renderPublicProfileHero" not in app_js
-    assert "active_skin_id==='lunar_archive'" not in app_js
-    assert "Атлас Бездны" in app_js
-    assert "data-store-mode" in app_js and "/cosmetics/buy-lineup" in app_js
-    assert "/global-skins-v1/buy" in app_js
-    assert "function itemWord(value)" in app_js
-    assert "store-detail-hero--${e(detail)}" in app_js
-    assert "store-preview-sheet" in app_js and "syncSkinPreview" in app_js
-    assert 'role="dialog" aria-modal="true"' in app_js
+    assert "window.openPublicProfile = openPublicCardV3" in app_js and "renderPublicProfileHero" not in app_js
+    assert "function openLooksModal()" in app_js and "/skins-v3/buy" in app_js and "/skins-v3/upgrade" in app_js and "/skins-v3/essence" in app_js
+    assert "/global-skins-v1/" not in app_js and "/cosmetics/buy" not in app_js, "retired purchase endpoints must not be called"
+    assert 'role="dialog" aria-modal="true"' in app_js and "document.activeElement === last" in app_js
     assert "/payments/zarniki/packages" in app_js and "/payments/zarniki/invoice" in app_js
-    assert "if(_activePage==='looks'&&selected){closeSelection();return;}" in app_js
-    assert "catalogSkins" in app_js and "(item.owned||item.selected)&&item.id!=='default'" in app_js
-    assert "document.activeElement===last" in app_js
-    assert "globalThis.navBack=function()" in app_js
-    assert 'aria-controls="store-panel"' in app_js
-    assert 'data-page="looks" onclick="openLooksModal()"' in direct.get("/").text
+    assert "function navBack()" in app_js and "function v3ApplyLook(" in app_js
+    assert 'data-page="looks"' not in direct.get("/").text and 'id="pg-looks"' in direct.get("/").text
     assert "api('/themes" not in app_js and "api(`/themes" not in app_js
-    skin_css = direct.get("/static/global-skins-v1.css").text
-    assert "background-attachment:scroll!important" in skin_css
-    public_renderer = (ROOT / "FastAPI" / "static" / "app.12.js").read_text(encoding="utf-8")
-    public_profile = public_renderer.split("window.openPublicProfile", 1)[1].split("window.openChatTracker", 1)[0]
-    assert "duel_wins" not in public_profile
+    skin_css = direct.get("/static/skin-runtime-v3.css").text
+    assert "background-attachment: scroll !important" in skin_css
+    assert "duel_wins" not in app_js.split("function renderPublicCardV3", 1)[1].split("\nfunction ", 1)[0]
     # The former Reconstruction URL is a compatibility redirect, not a hidden
     # route into retired writers.  The current hub owns its destination.
     game = direct.get("/game", follow_redirects=False)
@@ -138,15 +132,15 @@ def main() -> None:
     minesweeper = direct.get("/minesweeper")
     assert minesweeper.status_code == 200
     assert '/static/minesweeper-v2.js?v=' in minesweeper.text
-    assert '/static/global-skins-v1.css?v=' in minesweeper.text
-    assert '/static/global-skins-v1.js?v=' in minesweeper.text
+    assert '/static/skin-runtime-v3.css?v=' in minesweeper.text
+    assert '/static/skin-runtime-v3.js?v=' in minesweeper.text
     base = os.environ.get("ROOT_PATH", "").rstrip("/")
     assert f'href="{base}/"' in minesweeper.text
     rhythm = direct.get("/rhythm-v2")
     assert rhythm.status_code == 200
     assert f'href="{base}/"' in rhythm.text
-    assert '/static/global-skins-v1.css?v=' in rhythm.text
-    assert '/static/global-skins-v1.js?v=' in rhythm.text
+    assert '/static/skin-runtime-v3.css?v=' in rhythm.text
+    assert '/static/skin-runtime-v3.js?v=' in rhythm.text
 
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
         rooted = TestClient(strip_prefix_middleware(app, "/predvestnik"))

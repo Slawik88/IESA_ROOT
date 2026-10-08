@@ -108,6 +108,8 @@ async def require_tg_user_base(
         # accounts may mutate the isolated preprod database.
         raise HTTPException(status_code=403, detail="Тестовый стенд закрыт для этого аккаунта.")
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
+    from services import presence_v1
+    _fire_and_forget(presence_v1.note_activity(int(user["id"])))   # «был(а) в сети»: одна запись в минуту
     return user
 
 

@@ -1,0 +1,54 @@
+/* ═══ SKIN SIGNATURES · фирменные детали скинов S (часть 1): Бездна, Северное сияние, Расплавленное Солнце,
+   Лепестковый Вихрь, Лунный Лотос ═══
+   Деталь открывается, когда скин прокачан до потолка (класс ap-sig-<id>, app.20.js). Живёт внутри рамки аватара
+   (.ap-frame > u). Движение только под .ap-anim, в статике деталь стоит в выразительной позе. */
+
+.ap-frame u { position: absolute; display: block; pointer-events: none; }
+@keyframes sgorbit { from { transform: rotate(var(--o, 0deg)) translateY(calc(var(--r) * -1)); } to { transform: rotate(calc(var(--o, 0deg) + 360deg)) translateY(calc(var(--r) * -1)); } }
+
+/* ── Бездна: аккреционный диск за аватаром и дуга гравитационной линзы над ним ── */
+.ap-sig-void.ap-frame { filter: none; }
+.ap-sig-void .sg-disk { z-index: -1; left: -38%; right: -38%; top: 33%; height: 34%; border-radius: 50%; transform: rotate(-16deg); mix-blend-mode: screen; background: radial-gradient(closest-side, transparent 46%, var(--ap-c) 60%, var(--ap-a) 76%, transparent 100%); opacity: .95; }
+.ap-sig-void .sg-arc { left: -9%; right: -9%; top: -16%; height: 58%; border-radius: 50%; border-top: 2px solid var(--ap-c); transform: rotate(-16deg); filter: drop-shadow(0 0 5px var(--ap-a)); -webkit-mask: linear-gradient(90deg, transparent, #000 26%, #000 74%, transparent); mask: linear-gradient(90deg, transparent, #000 26%, #000 74%, transparent); }
+@keyframes sgdisk { from { transform: rotate(-19deg) scaleX(.98); opacity: .75; } to { transform: rotate(-13deg) scaleX(1.03); opacity: 1; } }
+.ap-anim .ap-sig-void .sg-disk { animation: sgdisk 6s ease-in-out infinite alternate; }
+.ap-anim .ap-sig-void .sg-arc { animation: apbreath 4s ease-in-out infinite alternate; }
+.ap-sig-void.ap-bg-vortex b:nth-child(2) { background: radial-gradient(closest-side, #000 62%, color-mix(in srgb, var(--ap-a) 30%, transparent) 86%, transparent); opacity: .85; }
+.ap-sig-void.ap-name { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
+
+/* ── Северное сияние: широкие вуали поднимаются над аватаром и качаются ── */
+.ap-sig-aurora.ap-frame { filter: none; }
+.ap-sig-aurora .sg-veil { z-index: -1; bottom: 54%; width: 40%; height: 130%; border-radius: 50% 50% 0 0 / 80% 80% 0 0; filter: blur(5px); transform-origin: 50% 100%; opacity: .75; -webkit-mask: linear-gradient(0deg, #000 30%, transparent); mask: linear-gradient(0deg, #000 30%, transparent); }
+.ap-sig-aurora .sg-veil:nth-child(1) { left: -2%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-a) 80%, transparent), transparent); transform: rotate(-5deg); }
+.ap-sig-aurora .sg-veil:nth-child(2) { left: 30%; height: 160%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-b) 75%, transparent), color-mix(in srgb, var(--ap-a) 20%, transparent) 70%, transparent); }
+.ap-sig-aurora .sg-veil:nth-child(3) { right: -2%; background: linear-gradient(0deg, color-mix(in srgb, var(--ap-c) 65%, transparent), transparent); transform: rotate(6deg); }
+@keyframes sgveil { from { transform: rotate(calc(var(--v, 0deg) - 4deg)) scaleY(.9); } to { transform: rotate(calc(var(--v, 0deg) + 5deg)) scaleY(1.08); } }
+.ap-anim .ap-sig-aurora .sg-veil { animation: sgveil 5.5s ease-in-out infinite alternate; }
+.ap-anim .ap-sig-aurora .sg-veil:nth-child(1) { --v: -5deg; } .ap-anim .ap-sig-aurora .sg-veil:nth-child(2) { --v: 0deg; animation-duration: 7.5s; animation-delay: -2s; } .ap-anim .ap-sig-aurora .sg-veil:nth-child(3) { --v: 6deg; animation-delay: -3.5s; }
+.ap-sig-aurora.ap-name { background-image: linear-gradient(100deg, var(--ap-a), var(--ap-c) 30%, var(--ap-b) 60%, var(--ap-a)); }
+
+/* ── Расплавленное Солнце: протуберанцы вокруг кольца ── */
+.ap-sig-solar .sg-prom { left: 50%; top: 50%; width: 11px; height: calc(24px * var(--l)); margin: calc(-12px * var(--l)) 0 0 -5.5px; background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); clip-path: polygon(50% 0, 80% 36%, 100% 74%, 50% 100%, 0 74%, 20% 36%); transform: rotate(var(--o)) translateY(-45px); transform-origin: 50% 50%; filter: drop-shadow(0 0 4px var(--ap-a)); }
+@keyframes sgflame { 0%, 100% { transform: rotate(var(--o)) translateY(-45px) scaleY(.82); } 50% { transform: rotate(var(--o)) translateY(-47px) scaleY(1.22); } }
+.ap-anim .ap-sig-solar .sg-prom { animation: sgflame var(--d) ease-in-out infinite; }
+.ap-sig-solar.ap-name { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ap-b) 75%, transparent)); }
+.ap-sig-solar.ap-bg-rays::before { content: ""; position: absolute; left: 50%; top: -22%; width: 90vmin; height: 90vmin; margin-left: -45vmin; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-c) 55%, transparent), color-mix(in srgb, var(--ap-a) 24%, transparent) 50%, transparent); }
+.ap-anim .ap-sig-solar.ap-bg-rays::before { animation: apbreath 5s ease-in-out infinite alternate; }
+
+/* ── Лепестковый Вихрь: девять лепестков кружатся вокруг аватара ── */
+.ap-sig-petalstorm .sg-pet { left: 50%; top: 50%; width: 10px; height: 6px; margin: -3px 0 0 -5px; border-radius: 100% 0 100% 0; background: linear-gradient(135deg, var(--ap-c), var(--ap-a)); opacity: .9; transform: rotate(var(--o)) translateY(calc(var(--r) * -1)); filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ap-a) 70%, transparent)); }
+@keyframes sgswirl { from { transform: rotate(var(--o)) translateY(calc(var(--r) * -1)) rotate(0deg); } to { transform: rotate(calc(var(--o) + 360deg)) translateY(calc(var(--r) * -1)) rotate(540deg); } }
+.ap-anim .ap-sig-petalstorm .sg-pet { animation: sgswirl var(--d) linear infinite; }
+.ap-sig-petalstorm.ap-bg-vortex b:nth-child(2) { background: radial-gradient(closest-side, #000 58%, color-mix(in srgb, var(--ap-b) 34%, transparent) 84%, transparent); opacity: .5; }
+
+/* ── Лунный Лотос: два яруса лепестков держат аватар, как цветок на воде; над ним тонкий месяц ── */
+.ap-sig-lotus.ap-frame { filter: none; }
+.ap-sig-lotus .sg-bloom { z-index: -1; left: -22%; right: -22%; top: 38%; bottom: -28%; transform-origin: 50% 100%; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 55%, transparent)); }
+.ap-sig-lotus .sg-leaf { left: 50%; bottom: 0; width: 19%; height: 80%; margin-left: -9.5%; transform-origin: 50% 100%; transform: rotate(var(--o)); clip-path: polygon(50% 0, 80% 32%, 100% 70%, 50% 100%, 0 70%, 20% 32%); background: linear-gradient(0deg, transparent 8%, color-mix(in srgb, var(--ap-b) 70%, transparent) 40%, var(--ap-a) 78%, var(--ap-c)); opacity: .6; }
+.ap-sig-lotus .sg-leaf--f { height: 62%; width: 24%; margin-left: -12%; opacity: .95; background: linear-gradient(0deg, transparent 6%, color-mix(in srgb, var(--ap-a) 80%, transparent) 46%, var(--ap-c)); }
+.ap-sig-lotus .sg-moon { right: -12%; top: -16%; width: 24%; aspect-ratio: 1; border-radius: 50%; box-shadow: 5px -3px 0 0 var(--ap-c); filter: drop-shadow(0 0 6px var(--ap-a)); }
+@keyframes sgbloom { from { transform: scale(.94); opacity: .75; } to { transform: scale(1.05); opacity: 1; } }
+.ap-anim .ap-sig-lotus .sg-bloom { animation: sgbloom 7s ease-in-out infinite alternate; }
+.ap-anim .ap-sig-lotus .sg-moon { animation: apbreath 6s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) { .ap-frame u, .ap-bg::before { animation: none !important; } }

@@ -1,48 +1,51 @@
-// ── Appearance V3 · рендер внешнего вида: ник, титул, аватар, сцена ───────────────
-// Данные приходят в трёх формах (свой профиль, публичная карточка, строка топа); все приводятся к одному виду:
-// {glow, title:{text}, frame, halo, bg, fx}, где у слота есть lineup (коллекция) и tier (D…SS).
-function _apTierIndex(tier) { return { D: 1, C: 2, B: 3, A: 4, S: 5, SS: 6 }[tier] || 0; }
-function _apCls(slot) {
-  const lineup = String(slot?.lineup || ''), tier = _apTierIndex(slot?.tier);
-  return /^[a-z_]{2,20}$/.test(lineup) && tier ? `ap-l-${lineup} ap-t${tier}` : '';
+// ── Skins V3 · рендер образа: ник, титул, рамка, ореол, сцена ─────────────────────
+// Образ приходит с сервера одним объектом: {tier, ceiling, pal:[a,b,c], kinds:{frame,halo,pt,name,bg}, sig, title}.
+// Палитра и форма берутся из скина, богатство — из тира (D…SSS = 1…7). Фирменная деталь (sig) открывается,
+// когда скин прокачан до своего потолка. Без VIP чужой образ приходит без pal/kinds, тогда ap = null и рисуется базовый вид.
+const _AP_TIERS = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+const _AP_WORD = /^[a-z_]{2,16}$/, _AP_HEX = /^#[0-9a-f]{6}$/i;
+const _AP_POWER = [0, .4, .5, .6, .72, .85, .95, 1];
+const _AP_DUST = [0, 5, 7, 9, 12, 16, 20, 26];
+function _apTi(tier) { return _AP_TIERS.indexOf(tier) + 1; }
+function apFromLook(look) {
+  const ti = _apTi(look?.tier), kinds = look?.kinds, pal = look?.pal;
+  if (!ti || !kinds || !Array.isArray(pal) || pal.length < 3 || !pal.every(c => _AP_HEX.test(c))) return null;
+  const word = value => (_AP_WORD.test(value || '') ? value : '');
+  return {
+    look, ti, tier: look.tier, id: String(look.id || ''), title: String(look.title || ''),
+    k: { frame: word(kinds.frame), halo: word(kinds.halo), pt: word(kinds.pt), name: word(kinds.name), bg: word(kinds.bg) },
+    sig: look.sig && look.tier === look.ceiling && _AP_WORD.test(look.sig) ? look.sig : '',
+    vars: `--ap-a:${pal[0]};--ap-b:${pal[1]};--ap-c:${pal[2]};--ap-i:${_AP_POWER[ti]}`,
+  };
 }
-function apFromOwner(c) {
-  if (!c) return {};
-  const pick = key => (c[key] && typeof c[key] === 'object' ? c[key] : null);
-  return { glow: pick('name_glow'), frame: pick('avatar_frame'), halo: pick('avatar_halo'), bg: pick('profile_bg'), fx: pick('card_fx'),
-    title: c.title ? { text: c.title, lineup: c.title_lineup, tier: c.title_tier } : null };
+const _apSig = ap => (ap.sig ? ` ap-sig-${ap.sig}` : '');
+function apName(ap, html, plain) {
+  if (!ap) return html;
+  const text = plain ?? String(html).replace(/<[^>]*>/g, '');
+  return `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.k.name}${_apSig(ap)}" style="${ap.vars}" data-t="${text}">${html}</span>`;
 }
-function apFromPublic(items) {
-  if (!items) return {};
-  const title = items.title ? { text: items.title.text || items.title.name, lineup: items.title.lineup, tier: items.title.tier } : null;
-  return { glow: items.name_glow || null, frame: items.avatar_frame || null, halo: items.avatar_halo || null, bg: items.profile_bg || null, fx: items.card_fx || null, title };
-}
-function apFromStyle(style) {
-  return { glow: style?.glow || null, title: style?.title ? { text: style.title.text, lineup: style.title.lineup, tier: style.title.tier } : null };
-}
-function apName(ap, html) { const cls = _apCls(ap?.glow); return cls ? `<span class="ap-name ${cls}">${html}</span>` : html; }
 function apTitle(ap) {
-  const cls = _apCls(ap?.title);
-  return cls && ap.title.text ? `<span class="ap-title ${cls}">${_profileEsc(ap.title.text)}</span>` : '';
+  return ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${_apSig(ap)}" style="${ap.vars}">${_profileEsc(ap.title)}</span>` : '';
 }
-function apHalo(ap) { const cls = _apCls(ap?.halo); return cls ? `<i class="ap-halo ${cls}" aria-hidden="true"></i>` : ''; }
-function apFrame(ap) { const cls = _apCls(ap?.frame); return cls ? `<i class="ap-frame ${cls}" aria-hidden="true"></i>` : ''; }
-// Частицы сцены: число растёт с тиром предмета; положение детерминировано, чтобы кадр не прыгал
-function _apParticles(slot) {
-  const tier = _apTierIndex(slot?.tier), count = [0, 6, 8, 10, 14, 18, 24][tier] || 0;
-  return Array.from({ length: count }, (_, i) => {
+function apHalo(ap) { return ap ? `<i class="ap-halo ap-t${ap.ti} ap-ha-${ap.k.halo}${_apSig(ap)}" style="${ap.vars}" aria-hidden="true"><b></b><b></b><b></b></i>` : ''; }
+function apFrame(ap) {
+  return ap ? `<i class="ap-frame ap-t${ap.ti} ap-fr-${ap.k.frame}${_apSig(ap)}" style="${ap.vars}" aria-hidden="true">${ap.sig && typeof apSigDecor === 'function' ? apSigDecor(ap.sig) : ''}</i>` : '';
+}
+// Частицы сцены: число растёт с тиром; положение детерминировано, чтобы кадр не прыгал при перерисовке
+function _apDust(ap) {
+  return Array.from({ length: _AP_DUST[ap.ti] || 0 }, (_, i) => {
     const r = n => { const x = Math.sin((i + 1) * 12.9898 + n * 78.233) * 43758.5453; return x - Math.floor(x); };
-    return `<i style="--x:${(r(1) * 100).toFixed(1)}%;--y:${(r(2) * 90).toFixed(1)}%;--s:${(2 + r(3) * 3).toFixed(1)}px;--d:${(9 + r(4) * 8).toFixed(1)}s;--delay:-${(r(5) * 12).toFixed(1)}s;--dx:${((r(6) - .5) * 60).toFixed(0)}px"></i>`;
+    return `<i style="--x:${(r(1) * 100).toFixed(1)}%;--y:${(r(2) * 80).toFixed(1)}%;--s:${(3 + r(3) * 4).toFixed(1)}px;--d:${(10 + r(4) * 9).toFixed(1)}s;--delay:-${(r(5) * 14).toFixed(1)}s;--dx:${((r(6) - .5) * 70).toFixed(0)}px;--r:${(r(7) * 360).toFixed(0)}deg"></i>`;
   }).join('');
 }
-function apHasStage(ap) { return !!(_apCls(ap?.bg) || _apCls(ap?.fx)); }
+// Сцена: фон и частицы за блоком личности. inner — сам блок. Без образа возвращается как есть.
 function apStage(ap, inner) {
-  const bg = _apCls(ap?.bg), fx = _apCls(ap?.fx);
-  if (!bg && !fx) return inner;
-  return `<div class="ap-stage">${bg ? `<div class="ap-bg ${bg}" aria-hidden="true"></div>` : ''}${fx ? `<div class="ap-fx ${fx}" aria-hidden="true">${_apParticles(ap.fx)}</div>` : ''}${inner}</div>`;
+  if (!ap) return inner;
+  const cls = `ap-t${ap.ti}${_apSig(ap)}`;
+  return `<div class="ap-stage ${cls}" style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div><div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${inner}</div>`;
 }
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {
-  const ap = apFromStyle(row.style);
+  const ap = apFromLook(row.look);
   return `<span class="v3-who"><span>${apName(ap, _profileEsc(row.name))}${row.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}</span>${apTitle(ap)}</span>`;
 }

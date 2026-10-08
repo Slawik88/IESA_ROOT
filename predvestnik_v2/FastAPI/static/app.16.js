@@ -45,12 +45,12 @@ function renderV3Next() {
   const ready = ['daily', 'weekly', 'combined'].find(kind => items[kind]?.claimable);
   const todo = quests.find(q => !q.completed);
   let title, hint, action;
-  if (ready) { title = 'Заберите награду'; hint = `+${fmt(items[ready].amount_mora || 0)} Моры уже ждут`; action = `v3ClaimQuestReward('${ready}')`; }
+  if (ready) { title = 'Заберите награду'; hint = `+${fmt(items[ready].amount_mora || 0)} Моры${items[ready].amount_essence ? ` и +${fmt(items[ready].amount_essence)} Эссенции` : ''} уже ждут`; action = `v3ClaimQuestReward('${ready}')`; }
   else if (todo) {
     const target = Math.max(1, Number(todo.target) || 1);
     title = todo.title; hint = `${Math.min(target, Number(todo.progress) || 0)} из ${target} · ${quests.filter(q => q.completed).length} из ${quests.length} заданий за день`;
     action = _v3QuestRoute(todo.metric);
-  } else if (quests.length) { title = 'На сегодня всё выполнено'; hint = 'Загляните к питомцам или в «Игры»'; action = 'openPetsV1()'; }
+  } else if (quests.length) { title = 'На сегодня всё выполнено'; hint = _v3Tip(); action = 'openLooksModal()'; }
   else { title = 'Откройте «Игры»'; hint = 'Задания на сегодня появятся позже'; action = "switchPage('arena')"; }
   const attrs = ready ? ` id="v3-claim" data-kind="${_profileEsc(ready)}" ${_v3Claiming ? 'disabled aria-busy="true"' : ''}` : '';
   if (ready) action = 'v3ClaimQuestReward(this.dataset.kind)';
@@ -70,7 +70,7 @@ function renderV3Path(failed) {
   const host = el('v3-path'); if (!host) return;
   const head = '<div class="v3-sec"><span class="v3-eyebrow">Путь</span><button type="button" class="v3-link" onclick="openAchievementsV1()">Достижения</button></div>';
   const families = _v3Path?.families || [];
-  if (failed || !families.length) { host.innerHTML = `${head}<div class="v3-empty">${failed ? 'Прогресс не загрузился. <button type="button" class="v3-link" onclick="loadV3Path()">Повторить</button>' : 'Здесь появится прогресс по играм.'}</div>`; return; }
+  if (failed || !families.length) { host.innerHTML = `${head}<div class="v3-empty">${failed ? 'Прогресс не загрузился. <button type="button" class="v3-link" onclick="loadV3Path()">Повторить</button>' : 'Сыграйте разок, и здесь вспыхнут первые кольца.'}</div>`; return; }
   host.innerHTML = `${head}<div class="v3-path-row">${families.map(f => {
     const max = Math.max(1, Number(f.max_level) || 40), level = Math.min(max, Number(f.level) || 0);
     return `<button type="button" class="v3-aspect" onclick="openAchievementsV1()" aria-label="${_profileEsc(f.title)}: уровень ${level} из ${max}">
@@ -87,7 +87,7 @@ function _v3ProfileFields() { return ['user_id', 'username', 'display_name', 'ra
 function v3SaveProfileCache(d) {
   try {
     const slim = {}; _v3ProfileFields().forEach(key => { if (d[key] !== undefined) slim[key] = d[key]; });
-    slim.cosmetics = { title: d.cosmetics?.title ?? null };
+    slim.look = d.look || null;
     localStorage.setItem(_v3ProfileKey(), JSON.stringify(slim));
   } catch (_) { /* хранилище недоступно: профиль просто загрузится как обычно */ }
 }
@@ -105,7 +105,8 @@ function v3PaintCachedProfile() {
     const cached = JSON.parse(localStorage.getItem(_v3ProfileKey()) || 'null');
     const me = tg?.initDataUnsafe?.user?.id;
     if (!cached || !me || Number(cached.user_id) !== Number(me)) { host.innerHTML = v3ProfileSkeleton(); return false; }
-    host.innerHTML = renderProfileHome(cached); renderV3Bar(cached); host.dataset.stale = '1';
+    if (typeof v3ApplyLook === 'function') v3ApplyLook(cached.look);
+    host.innerHTML = renderProfileHome(cached); v3CountUp(host); renderV3Bar(cached); host.dataset.stale = '1';
     return true;
   } catch (_) { host.innerHTML = v3ProfileSkeleton(); return false; }
 }
@@ -115,3 +116,9 @@ document.addEventListener('visibilitychange', () => {
   if (_activePage !== 'profile' || !_profileData) return;
   _v3LastSync = Date.now(); loadV3Today(); _v3RefreshBalance();
 });
+
+// Подсказки, когда задания закончились: живая польза вместо пустоты (меняются день ото дня)
+function _v3Tip() {
+  const tips = ['Эссенция уже капнула: загляните в «Образы» и прокачайте скин', 'Соберите сет скинов: за него положен бонус Эссенции', 'Те же рейтинги видны в чате по команде «бот топ»', 'Питомцам тоже приятно внимание: загляните к ним', 'Завтра будут новые задания, а сегодня можно сыграть для души'];
+  return tips[Math.floor(Date.now() / 864e5) % tips.length];
+}

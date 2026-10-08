@@ -2,62 +2,6 @@
 // switchPro() defined later with marriage + wallet tabs
 function _profileEsc(value){ return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function _profileCss(value){ return String(value||'').split(/\s+/).filter(token=>/^[A-Za-z0-9_-]{1,80}$/.test(token)).join(' '); }
-function renderProfileShowcase(data, cosmetics, options={}) {
-  const d=data||{}, c=cosmetics||{};
-  const item=slot=>(c[slot]&&typeof c[slot]==='object'?c[slot]:null);
-  const title=typeof c.title==='object'?c.title:(c.title?{text:c.title,css:c.title_css}:null);
-  const frame=item('avatar_frame'), halo=item('avatar_halo'), bg=item('profile_bg'), fx=item('card_fx'), glow=item('name_glow');
-  const level=Math.max(1,Number(d.account_level)||1), xp=Math.max(0,Number(d.xp_into)||0), xpNeed=Math.max(1,Number(d.xp_to_next)||Number(d.xp_per_level)||1);
-  const xpPercent=Math.min(100,Math.round(xp/xpNeed*100));
-  const wallet=(d.balances&&typeof d.balances==='object')?d.balances:d;
-  const vipBadge=d.vip?.badge||'✦';
-  const avatar=d.is_vip?vipBadge:'🔮', titleText=title?(title.text||title.name):'';
-  const avatarImage=typeof d.avatar==='string'&&/^data:image\/(?:png|jpe?g|webp);base64,/i.test(d.avatar)
-    ?`<img src="${_profileEsc(d.avatar)}" alt="" decoding="async">`:avatar;
-  const publicName=String(d.display_name||'').trim();
-  const profileName=String(d.username||'Игрок').trim()||'Игрок';
-  const rawName=publicName||(profileName.startsWith('@')?profileName:`@${profileName.replace(/^@+/, '')}`);
-  const shownName=vipName(rawName,d.is_vip,vipBadge,d.vip?.badge_position||'left');
-  const lineage=_profileCss(c.composition?.dominant_lineup||c.lineage?.id||bg?.lineup||frame?.lineup||halo?.lineup||fx?.lineup||'');
-  // The lead item names the identity accent, while both independently owned
-  // classes remain on the avatar.  The paired CSS assigns frame and halo to
-  // separate orbits; dropping the ambient class would make a saved item vanish.
-  const accent=(c.composition?.identity?.lead_slot==='avatar_halo'?halo:frame)||halo;
-  const identityCss=[frame?.css,halo?.css].map(_profileCss).filter(Boolean).join(' ');
-  const accentName=accent?.name||bg?.name||titleText||'Базовый образ';
-  const cardClass=`hero profile-showcase-card ${options.compact?'profile-showcase-card--fitting':''} ${_profileCss(bg?.css)} ${lineage?`profile-tone-${lineage}`:''}`;
-  const caption=options.caption||'Личный профиль';
-  const stageTag=options.openLooks?'button':'div';
-  const stageAttrs=options.openLooks
-    ?`type="button" onclick="openLooksModal()" aria-label="Открыть примерочную"`
-    :`aria-label="${_profileEsc(caption)}"`;
-  return `<div class="${cardClass}">
-    <div class="profile-showcase-head">
-      <div class="profile-copy"><div class="pname ${_profileCss(glow?.css)}">${_profileEsc(shownName)}</div>
-      <div class="prank">${_profileEsc(d.rank||caption)}</div>${titleText?`<div class="ptitle ${_profileCss(title?.css)}">${_profileEsc(titleText)}</div>`:''}</div>
-      ${options.openLooks?'<button type="button" class="profile-looks-link" onclick="openLooksModal()">Примерочная</button>':''}
-    </div>
-    <div class="profile-showcase-main">
-      <${stageTag} class="character-showcase-area hero ${_profileCss(bg?.css)}" ${stageAttrs}>
-        ${fx?`<span class="card-fx ${_profileCss(fx.css)}" aria-hidden="true"></span>`:''}
-        <span class="character-showcase-portrait ava ${identityCss?'profile-identity-accent':''} ${identityCss}" aria-hidden="true">${avatarImage}</span>
-        <span class="character-showcase-caption" aria-hidden="true"><strong>${_profileEsc(caption)}</strong><small>${_profileEsc(accentName)}</small></span>
-      </${stageTag}>
-      <aside class="player-data-rail player-data-rail--compact" aria-label="Основные показатели игрока">
-        <div class="player-rail-item player-rail-item--level"><span class="player-rail-kicker">Уровень</span><strong>LV${level}</strong><div class="hero-xp"><div class="xp-bar"><div class="xp-fill" style="width:${xpPercent}%"></div></div><div class="xp-lbl"><span>${fmt(xp)} XP</span><span>до следующего</span></div></div></div>
-        <div class="player-rail-item"><span class="player-rail-kicker">🔥 Серия</span><strong>${fmt(d.streak||0)}</strong><small>лучший результат</small></div>
-        <div class="player-rail-item"><span class="player-rail-kicker">🏅 Достижения</span><strong>${fmt(d.achievements||0)}</strong><small>открыто</small></div>
-      </aside>
-    </div>
-    <div class="stats profile-resource-rail" aria-label="Ресурсы игрока">
-      <div class="stat"><div>🪙</div><div class="sv">${fmt(wallet.mora||0)}</div><div class="sl">Мора</div></div>
-      <div class="stat"><div>💎</div><div class="sv">${fmtF(wallet.diamonds||0)}</div><div class="sl">Алмазы</div></div>
-      ${options.openLooks?`<button type="button" class="stat profile-zarniki-topup" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki||0)}"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">+ Пополнить</div></button>`:`<div class="stat"><div>✨</div><div class="sv">${fmt(wallet.zarniki||0)}</div><div class="sl">Зарники</div></div>`}
-      <div class="stat"><div>🌑</div><div class="sv">${fmt(wallet.dark_mora||0)}</div><div class="sl">Тёмная мора</div></div>
-      <div class="stat"><div>◈</div><div class="sv">${fmt(wallet.echo_shards||0)}</div><div class="sl">Осколки Эха</div></div>
-    </div>
-  </div>`;
-}
 function _profileDate(value){
   if(!value) return '—';
   const parsed=new Date(value);
@@ -159,7 +103,8 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
-    _applyGlobalSkin(d.global_skin);
+    if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
+    if(typeof v3ApplyLook==='function') v3ApplyLook(d.look);
     // A profile response is authoritative. Optional decorations must never
     // turn it into the misleading “write the bot to create a profile” state.
     try { _applySysFlags(d.system_flags); } catch (_) {}
@@ -175,7 +120,7 @@ function loadProfile() {
         <div id="wallet-mini"></div>
       </details>`;
     try { checkWhatsNewBadge(); } catch (_) {}
-    try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; } catch (_) {}
+    try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { loadMarriageCard(); } catch (_) {}
@@ -237,12 +182,14 @@ function openSettingsModal(){
   const noFx=document.body.classList.contains('no-fx');
   OM('⚙️ Настройки',`
     <section class="settings-panel"><div class="set-sec-t"><span>🎨</span> Внешний вид</div>
-    ${_globalSkinSettingsHtml()}
+    <button class="btn btn-ghost btn-full" onclick="CM();openLooksModal()">🎨 Мои образы и скины</button>
     <label class="settings-toggle">
       <input type="checkbox" ${noFx?'checked':''} onchange="_toggleNoFx(this.checked)"/>
       <span><b>Спокойный режим</b><small>Отключить анимации косметики</small></span>
     </label>
     <div class="set-hint">Свечения, рамки и частицы станут статичными. Полезно на слабых телефонах.</div></section>
+    <section class="settings-panel"><div class="set-sec-t"><span>👁</span> Приватность</div>
+    <div id="set-presence"><div class="loader">Загрузка...</div></div></section>
     <section class="settings-panel"><div class="set-sec-t"><span>🔔</span> Уведомления</div>
     <div id="set-notif-prefs"><div class="loader">Загрузка...</div></div>
     <div class="set-hint">Здесь настраиваются только личные сообщения от бота.</div></section>
@@ -257,32 +204,25 @@ function openSettingsModal(){
     <div id="set-account"><div class="loader">Загрузка...</div></div></section>`,
     [{l:'Готово',c:'btn-ghost',f:'CM()'}]);
   _loadNotifPrefs();
+  _loadPresenceSettings();
   _loadAccountSection();
 }
-let _globalSkinBusy=false;
-function _applyGlobalSkin(state){
-  if(typeof window.applyGlobalSkinV1==='function') window.applyGlobalSkinV1(state);
+// «Был(а) в сети»: игрок сам решает, что видят другие (всем, примерно, никому)
+let _presenceBusy=false;
+function _presenceHtml(d){
+  const rows=(d.levels||[]).map(l=>`<button class="skin-choice${l.id===d.visibility?' selected':''}" type="button" role="radio" aria-checked="${l.id===d.visibility}" onclick="_setPresence('${l.id}')" ${_presenceBusy?'disabled':''}><span><b>${_profileEsc(l.title)}</b><small>${_profileEsc(l.hint)}</small></span><em>${l.id===d.visibility?'✓':''}</em></button>`).join('');
+  const now=d.preview?`Сейчас другие видят: «${_profileEsc(d.preview.label)}».`:'Сейчас другие не видят ничего.';
+  return `<div class="skin-settings" role="radiogroup" aria-label="Кто видит, когда вы были в сети">${rows}</div><div class="set-hint">${now} Чужое время вы видите с той же точностью, которую даёте сами: скрыли своё, значит чужое только примерно.</div>`;
 }
-function _globalSkinSettingsHtml(){
-  const state=_profileData&&_profileData.global_skin;
-  if(!state||!Array.isArray(state.items)) return '<div class="set-hint">Скины приложения временно недоступны.</div>';
-  const rows=state.items.filter(item=>item.owned||item.price_zarniki).map(item=>{
-    const action=item.owned?`_selectGlobalSkin('${item.id}')`:`CM();openLooksModal()`;
-    const status=item.active?'Активен':item.selected?'Сохранён':item.owned?'Выбрать':`${item.price_zarniki}✨`;
-    return `<button class="skin-choice${item.selected?' selected':''}" type="button" onclick="${action}" ${_globalSkinBusy?'disabled':''}><span><b>${item.tier?`<i class="tier-badge" aria-label="Тир ${_profileEsc(item.tier)}">${_profileEsc(item.tier)}</i>`:''}${_profileEsc(item.name)}</b><small>${_profileEsc(item.description)}</small></span><em>${status}</em></button>`;
-  }).join('');
-  const selected=state.items.find(item=>item.id===state.selected_skin_id);
-  const gate=!state.vip_active&&selected?.vip_required
-    ?'<div class="set-hint">Выбор сохранён. На всём приложении он включится вместе с активным VIP.</div>'
-    :'<div class="set-hint">Скин меняет только палитру и фон. Доступ, цены, расположение элементов и правила игр не меняются.</div>';
-  return `<div class="skin-settings">${rows}</div>${gate}`;
+function _loadPresenceSettings(){
+  const box=el('set-presence'); if(!box) return;
+  api('/presence-v1/settings').then(d=>{ const b=el('set-presence'); if(b) b.innerHTML=_presenceHtml(d); }).catch(e=>{ const b=el('set-presence'); if(b) b.innerHTML=`<div class="set-hint">${_profileEsc(e)}</div>`; });
 }
-function _selectGlobalSkin(skinId){
-  if(_globalSkinBusy) return;
-  _globalSkinBusy=true;
-  api('/global-skins-v1/select',{method:'POST',body:JSON.stringify({skin_id:skinId})})
-    .then(state=>{_globalSkinBusy=false;if(_profileData)_profileData.global_skin=state;_applyGlobalSkin(state);toast(state.active_skin_id===skinId?'Скин приложения включён':'Выбор сохранён до активации VIP');CM();openSettingsModal();})
-    .catch(error=>{_globalSkinBusy=false;toast(error,false);});
+function _setPresence(level){
+  if(_presenceBusy) return; _presenceBusy=true; _haptic('select');
+  api('/presence-v1/settings',{method:'POST',body:JSON.stringify({visibility:level})})
+    .then(d=>{ _presenceBusy=false; const b=el('set-presence'); if(b) b.innerHTML=_presenceHtml(d); toast('Сохранено'); })
+    .catch(e=>{ _presenceBusy=false; toast(e,false); _loadPresenceSettings(); });
 }
 // admin_audit C1b: авто-удаление за неактив + самоудаление с тройной защитой
 function _loadAccountSection(){
@@ -359,6 +299,7 @@ function _setNotifPref(key,on){
 function _toggleNoFx(on){
   document.body.classList.toggle('no-fx',on);
   try{ localStorage.setItem('pv_no_fx',on?'1':'0'); }catch(e){}
+  if(typeof applySkinTier==='function') applySkinTier(_v3Skin);   // движение образов и уровень эффектов пересчитываются сразу
 }
 // UX_AUDIT С23: облегчённый ввод для игроков с моторными/реакционными ограничениями.
 // Потребители: гача (app.04 — спин тапом вместо удержания) и бой (app.11 — мягче QTE).

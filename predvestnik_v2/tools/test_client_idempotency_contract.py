@@ -24,7 +24,7 @@ assert "const action='chest-open-'" not in CLIENT
 assert "const action='chest-buy-'" not in CLIENT
 assert "Повтори: запрос будет отправлен с тем же номером операции" in CLIENT
 assert "Повтори: лимит не спишется второй раз" in CLIENT
-assert '<h1 class="looks-htitle">Публичный профиль</h1>' in CLIENT
+assert "window.openPublicProfile = openPublicCardV3" in (ROOT / "FastAPI/static/app.21.js").read_text(encoding="utf-8")
 assert '<h1>Трекер чатов</h1>' in CLIENT
 assert "window.chatTrackerSearch=" in COMPACT_CLIENT
 assert "window.chatTrackerSort=" in COMPACT_CLIENT

@@ -13,7 +13,6 @@ def read(path: str) -> str:
 def main() -> None:
     service = read("services/themes.py")
     web = read("FastAPI/routers/themes.py")
-    client = read("FastAPI/static/app.10.js")
     bot = read("bot/handlers/themes.py")
 
     assert "async def purchase_direct_theme(" in service
@@ -36,10 +35,6 @@ def main() -> None:
     assert "add_balance" not in web
     assert "spend_dark_mora" not in web
 
-    assert "_looksThemePurchaseKeys" in client
-    assert "'Idempotency-Key':requestKey" in client
-    assert "_looksThemePurchaseKeys.get(tid)" in client
-    assert "_looksThemePurchaseKeys.delete(tid)" in client
     assert "purchase_direct_theme(" in bot
     assert 'idempotency_key=f"theme:callback:{query.id}"' in bot
     assert "spend_dark_mora" not in bot

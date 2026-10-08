@@ -1,51 +1,15 @@
-/* ═══ SKINS V3 — палитра скина = ОДИН блок токенов. Разметку и JS трогать не нужно. ═══
+/* ═══ SKINS V3 — палитра скина приходит с сервера токенами (core/skins_v3.py: app_tokens) ═══
+   Клиент ставит их на body (app.22.js: v3ApplyLook) или на .v3-scope (витрина и публичная карточка).
    Обязательные токены: --v3-bg --v3-ink --v3-dim --v3-faint --v3-track --v3-acc --v3-on-acc --v3-ok
    --v3-sheet --v3-dock --v3-dock-on --v3-wash --acc-rgb. Необязательные: --v3-font --v3-w-num --v3-w-head
    --v3-vip --v3-fx-a --v3-fx-b (цвета лент и частиц), --v3-dur --v3-ease (темп переходов).
-   Тир скина (D…SSS) приходит с сервера и включает эффекты в fx-tiers-v3.css; палитра от тира не зависит. */
+   Тир скина (D…SSS) включает эффекты в fx-tiers-v3.css, а палитра от тира не зависит.
+   Новый скин = запись в core/skins_v3_catalog.py, ни CSS, ни JS трогать не нужно. */
 
-/* Глубокая вода */
-body.skin-deep-water, .v3-scope.skin-deep-water {
-  --v3-font: 'Sora', 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --v3-bg: #071114; --v3-ink: #eaf2f1; --v3-dim: #93adae; --v3-faint: rgba(190,235,230,.11);
-  --v3-acc: #e8d7b0; --v3-on-acc: #241b08; --v3-ok: #6fd8c4;
-  --v3-sheet: #0c1c20; --v3-dock: rgba(14,30,34,.97); --v3-dock-on: rgba(190,235,230,.12);
-  --v3-wash: radial-gradient(110% 45% at 15% -8%, rgba(40,170,160,.28), transparent 60%),
-             radial-gradient(70% 38% at 100% 100%, rgba(232,215,176,.09), transparent 60%);
-  --v3-w-num: 200; --v3-w-head: 500; --acc-rgb: 232,215,176; --v3-track: rgba(190,235,230,.28);
-}
-
-/* Неон-лайм */
-body.skin-neon-lime, .v3-scope.skin-neon-lime {
-  --v3-bg: #090a08; --v3-ink: #f4f6ee; --v3-dim: #98a08a; --v3-faint: rgba(230,255,120,.10);
-  --v3-acc: #d4ff3a; --v3-on-acc: #121a00; --v3-ok: #9be86a;
-  --v3-sheet: #12140d; --v3-dock: rgba(18,20,13,.97); --v3-dock-on: rgba(212,255,58,.12);
-  --v3-wash: radial-gradient(110% 45% at 85% -8%, rgba(212,255,58,.14), transparent 60%),
-             radial-gradient(70% 38% at 0% 105%, rgba(212,255,58,.06), transparent 60%);
-  --acc-rgb: 212,255,58; --v3-track: rgba(230,255,120,.26);
-}
-
-/* Лунный архив (тир B): индиго с лавандой; фон-картинка задаётся в global-skins-v1.css */
-body.skin-lunar-archive, .v3-scope.skin-lunar-archive {
-  --v3-bg: #080b17; --v3-ink: #eef1ff; --v3-dim: #9aa5c6; --v3-faint: rgba(200,210,255,.11); --v3-track: rgba(200,210,255,.26);
-  --v3-acc: #cbc1ff; --v3-on-acc: #17123a; --v3-ok: #8fe0c0;
-  --v3-sheet: #10152a; --v3-dock: rgba(13,17,32,.97); --v3-dock-on: rgba(203,193,255,.14);
-  --v3-wash: radial-gradient(110% 45% at 85% -8%, rgba(150,125,235,.26), transparent 60%), radial-gradient(70% 40% at 0% 105%, rgba(110,150,255,.12), transparent 60%);
-  --acc-rgb: 203,193,255;
-}
-/* Атлас Бездны (тир A): холодный космос, голубовато-серебряный акцент */
-body.skin-void-atlas, .v3-scope.skin-void-atlas {
-  --v3-bg: #060914; --v3-ink: #eef2ff; --v3-dim: #9aa6c4; --v3-faint: rgba(190,205,255,.11); --v3-track: rgba(190,205,255,.26);
-  --v3-acc: #b4c0f5; --v3-on-acc: #0c1230; --v3-ok: #86dcc4;
-  --v3-sheet: #0e1426; --v3-dock: rgba(8,12,24,.97); --v3-dock-on: rgba(180,192,245,.14);
-  --v3-wash: radial-gradient(110% 45% at 15% -8%, rgba(90,120,230,.26), transparent 60%), radial-gradient(70% 38% at 100% 100%, rgba(170,130,240,.13), transparent 60%);
-  --acc-rgb: 180,192,245;
-}
-
-/* Базовая палитра для чужой карточки: владелец без скина (или без VIP) показывается в ней, а не в палитре зрителя */
-.v3-scope.skin-default {
+/* Нейтральная палитра чужой карточки: владелец без VIP показывается в ней, а не в палитре зрителя */
+.v3-scope.pp-neutral {
   --v3-bg: #08090c; --v3-ink: #f3f4f7; --v3-dim: #8a90a2; --v3-faint: rgba(255,255,255,.09); --v3-track: rgba(255,255,255,.22);
-  --v3-acc: #d8cffd; --v3-on-acc: #15112b; --v3-ok: #7fd6a4;
+  --v3-acc: #d8cffd; --v3-on-acc: #15112b; --v3-ok: #7fd6a4; --v3-sheet: #14161e;
   --v3-wash: radial-gradient(120% 50% at 92% -5%, rgba(120,98,255,.26), transparent 60%), radial-gradient(80% 40% at 0% 105%, rgba(70,110,255,.13), transparent 60%);
   --acc-rgb: 216,207,253;
 }
