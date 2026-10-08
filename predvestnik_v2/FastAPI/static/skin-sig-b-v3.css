@@ -1,0 +1,13 @@
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · B (огонь, металл, ночь) ═══
+   Образы: inferno (.ap-sig-blaze), copper (.ap-sig-cogs), pumpkin_lantern (.ap-sig-jacklight), cobweb (.ap-sig-cobwebs), witch_hour (.ap-sig-witchmoon), ruby (.ap-sig-facets), threshold (.ap-sig-gateway).
+   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк. */
+
+.ap-sig-blaze { }
+.ap-sig-cogs { }
+.ap-sig-jacklight { }
+.ap-sig-cobwebs { }
+.ap-sig-witchmoon { }
+.ap-sig-facets { }
+.ap-sig-gateway { }
+
+@media (prefers-reduced-motion: reduce) { .ap-sig-blaze, .ap-sig-cogs, .ap-sig-jacklight, .ap-sig-cobwebs, .ap-sig-witchmoon, .ap-sig-facets, .ap-sig-gateway * { animation: none !important; } }

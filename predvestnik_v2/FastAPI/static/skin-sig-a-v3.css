@@ -1,0 +1,13 @@
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · A (природа и вода) ═══
+   Образы: forest (.ap-sig-canopy), dune (.ap-sig-dunes), harbor (.ap-sig-lighthouse), lotus_pond (.ap-sig-lilypads), frost (.ap-sig-rime), snow_globe (.ap-sig-snowdome), jade (.ap-sig-jadecourt).
+   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк. */
+
+.ap-sig-canopy { }
+.ap-sig-dunes { }
+.ap-sig-lighthouse { }
+.ap-sig-lilypads { }
+.ap-sig-rime { }
+.ap-sig-snowdome { }
+.ap-sig-jadecourt { }
+
+@media (prefers-reduced-motion: reduce) { .ap-sig-canopy, .ap-sig-dunes, .ap-sig-lighthouse, .ap-sig-lilypads, .ap-sig-rime, .ap-sig-snowdome, .ap-sig-jadecourt * { animation: none !important; } }

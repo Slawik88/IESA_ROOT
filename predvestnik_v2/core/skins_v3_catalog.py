@@ -169,6 +169,35 @@ SKINS = dict([
 ])
 
 
+# Signatures of the skins below rarity S. Every skin reaches SSS, and at SSS it gets a drawn detail of its own (core/skins_v3.py signature_tier).
+# The art lives in skin-sig-{a,b,c}-v3.css (look) and app.32/33/34.js (_AP_DECOR / _ORN), grouped by family.
+_SSS_SIGNATURES = {
+    "forest": "canopy",
+    "dune": "dunes",
+    "harbor": "lighthouse",
+    "lotus_pond": "lilypads",
+    "frost": "rime",
+    "snow_globe": "snowdome",
+    "jade": "jadecourt",
+    "inferno": "blaze",
+    "copper": "cogs",
+    "pumpkin_lantern": "jacklight",
+    "cobweb": "cobwebs",
+    "witch_hour": "witchmoon",
+    "ruby": "facets",
+    "threshold": "gateway",
+    "sakura_bud": "budbloom",
+    "hanami": "hanamitree",
+    "lotus_gold": "goldlotus",
+    "celestial": "seraph",
+    "observatory": "telescope",
+    "garland": "fairylights",
+    "midnight_chimes": "bellchimes",
+}
+for _sid, _sig in _SSS_SIGNATURES.items():
+    SKINS[_sid]["sig"] = _sig
+
+
 # Сезоны повторяются каждый год сами: окно с `from` по `to` (месяц-день, UTC, `to` не включается; если `to` раньше `from`,
 # окно переходит через Новый год). Ничего включать вручную не нужно: сервер сверяет дату при каждой покупке и показе витрины.
 # Купленный образ остаётся навсегда и растёт как обычный.

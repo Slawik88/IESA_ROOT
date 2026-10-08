@@ -1,0 +1,13 @@
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · C (цветение, небо, огни) ═══
+   Образы: sakura_bud (.ap-sig-budbloom), hanami (.ap-sig-hanamitree), lotus_gold (.ap-sig-goldlotus), celestial (.ap-sig-seraph), observatory (.ap-sig-telescope), garland (.ap-sig-fairylights), midnight_chimes (.ap-sig-bellchimes).
+   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк. */
+
+.ap-sig-budbloom { }
+.ap-sig-hanamitree { }
+.ap-sig-goldlotus { }
+.ap-sig-seraph { }
+.ap-sig-telescope { }
+.ap-sig-fairylights { }
+.ap-sig-bellchimes { }
+
+@media (prefers-reduced-motion: reduce) { .ap-sig-budbloom, .ap-sig-hanamitree, .ap-sig-goldlotus, .ap-sig-seraph, .ap-sig-telescope, .ap-sig-fairylights, .ap-sig-bellchimes * { animation: none !important; } }

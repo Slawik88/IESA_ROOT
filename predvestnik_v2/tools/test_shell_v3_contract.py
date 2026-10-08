@@ -69,7 +69,7 @@ def keyframe_props(css: str) -> dict[str, set[str]]:
     return result
 
 
-appearance_files = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "looks-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css")
+appearance_files = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "looks-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css")
 appearance = "".join((STATIC / name).read_text(encoding="utf-8") for name in appearance_files)
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 for sheet in (fx, appearance, home_css, css):

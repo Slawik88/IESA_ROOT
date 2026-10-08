@@ -13,10 +13,10 @@ STATIC = ROOT / "FastAPI/static"
 from core.skins_v3 import TIERS  # noqa: E402
 from core.skins_v3_catalog import SETS, SKINS  # noqa: E402
 
-CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css", "toast-v3.css")
+CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css", "toast-v3.css")
 css = {name: (STATIC / name).read_text(encoding="utf-8") for name in CSS_FILES}
 every = "".join(css.values())
-decor = (STATIC / "app.22.js").read_text(encoding="utf-8")
+decor = "".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in ("22", "32", "33", "34"))   # signature art: app.22 (S and up, personal) and the SSS parts of the lower rarities
 renderer = (STATIC / "app.20.js").read_text(encoding="utf-8")
 
 # Shape of the catalog: three or more skins of every rarity, each with a palette that reads on its background.
@@ -27,9 +27,8 @@ for sid, skin in SKINS.items():
     assert re.fullmatch(r"#[0-9a-f]{6}", skin["pal"][0]) and len(skin["pal"]) == 3, sid
     assert set(skin["kinds"]) == {"frame", "halo", "pt", "name", "bg"}, sid
     assert set(skin["items"]) == {"name_glow", "title", "avatar_frame", "avatar_halo", "profile_bg", "card_fx"}, sid
-    assert skin["tier"] in ("S", "SS", "SSS") if skin["sig"] else True, f"{sid}: only S and above carry a signature"
-    if skin["tier"] in ("S", "SS", "SSS"):
-        assert skin["sig"], f"{sid}: S, SS and SSS skins need a hand-made signature"
+    assert skin["sig"], f"{sid}: every skin needs its own signature (S and up from their rarity, the rest at SSS)"
+    assert len({s["sig"] for s in SKINS.values()}) == len(SKINS), "a signature belongs to exactly one skin"
 
 # Every kind a skin asks for exists in CSS, every signature has CSS and decor markup.
 prefix = {"frame": "ap-fr-", "halo": "ap-ha-", "pt": "ap-pt-", "name": "ap-nm-", "bg": "ap-bg-"}
@@ -61,7 +60,7 @@ def strip_blocks(text: str, head: str) -> str:
     out.append(text[pos:])
     return "".join(out)
 
-for name in ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css"):
+for name in ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css"):
     body = strip_blocks(strip_blocks(css[name], "@keyframes"), "@media")
     for selector, rules in re.findall(r"([^{}]+)\{([^{}]*)\}", body):
         if re.search(r"animation(?:-name)?\s*:\s*+(?!none)", rules):
