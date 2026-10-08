@@ -55,7 +55,7 @@ function _lkStrip(st) {
   let last = '';
   const week = _lkWeekId(st);
   return `<nav class="lk-strip" aria-label="Скины">${st.items.map(i => {
-    const grp = i.season ? 'сезон' : i.ceiling, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
+    const grp = i.exclusive ? 'личный' : i.season ? 'сезон' : i.ceiling, label = last !== grp ? `<span class="lk-grp" aria-hidden="true">${grp}</span>` : ''; last = grp;
     const mark = i.equipped ? '<i class="lk-dot is-on" title="Надет"></i>' : i.owned ? '<i class="lk-dot" title="Куплен"></i>' : '';
     return `${label}<button type="button" class="lk-pick${i.id === _lk.sel ? ' is-sel' : ''}" data-id="${i.id}" aria-pressed="${i.id === _lk.sel}" onclick="_lkPick('${i.id}',true)">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${mark}${i.owned ? `тир ${i.level}` : i.buyable === false ? 'сезон закрыт' : _lkPrice(i.price_zarniki)}${i.id === week ? ' · образ недели' : ''}</small></button>`;
   }).join('')}</nav>`;
@@ -87,7 +87,7 @@ function _lkRender(anim) {
     <div class="v3-name lk-name">${apName(ap, name)}</div><div class="pp-title-row">${apTitle(ap)}</div></div>`;
   const setTag = item.set ? `<span class="lk-tag">${_profileEsc(st.sets.find(s => s.id === item.set)?.name || '')}</span>` : '';
   const seasonTag = item.season ? `<span class="lk-tag lk-tag--day">${item.season.open ? `Сезон · ещё ${_lkLeft(item.season.ends_at)}` : `Откроется через ${_lkLeft(item.season.starts_at)}`}</span>` : '';
-  const dayTag = item.id === _lkWeekId(st) ? '<span class="lk-tag lk-tag--day">Образ недели</span>' : '';
+  const dayTag = item.exclusive ? '<span class="lk-tag lk-tag--day">Личный образ</span>' : item.id === _lkWeekId(st) ? '<span class="lk-tag lk-tag--day">Образ недели</span>' : '';
   const note = !item.owned ? (_lk.tier === 'D' ? 'Так образ выглядит на старте.' : `Превью тира ${_lk.tier}. Куплен он начнёт с D и дорастёт до этого вида.`)
     : _lk.tier === item.level ? '' : _lk.tier === 'SSS' && !st.vip ? 'Превью тира SSS. Последний тир открывается только с активным VIP.' : `Превью тира ${_lk.tier}, сейчас у вас ${item.level}.`;
   const total = Math.ceil(item.total_upgrade_essence / st.essence.per_zarnik);

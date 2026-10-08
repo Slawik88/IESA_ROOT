@@ -29,6 +29,7 @@ ALLOWED = {
     "/static/looks-v3.css": "text/css",
     "/static/skin-signatures-v3.css": "text/css",
     "/static/skin-signatures-2-v3.css": "text/css",
+    "/static/skins-exclusive-v3.css": "text/css",
     "/static/public-card-v3.css": "text/css",
     "/static/collect-v3.css": "text/css",
     "/static/toast-v3.css": "text/css",

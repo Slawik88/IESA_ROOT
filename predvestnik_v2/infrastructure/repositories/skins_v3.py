@@ -71,6 +71,22 @@ async def grant(db, user_id: int, skin_id: str) -> bool:
         return await c.fetchone() is not None
 
 
+async def remove(db, user_id: int, skin_id: str) -> bool:
+    """Take a skin away (console only): the ownership row goes, and so does the equip row that pointed at it. Spent Essence is not returned."""
+    async with db.execute("DELETE FROM skins_v3_owned WHERE user_id=? AND skin_id=? RETURNING 1", (int(user_id), str(skin_id))) as c:
+        removed = await c.fetchone() is not None
+    await db.execute("DELETE FROM skins_v3_equipped WHERE user_id=? AND skin_id=?", (int(user_id), str(skin_id)))
+    return removed
+
+
+async def holders(db, skin_id: str) -> list[dict]:
+    """Everyone who owns a skin, oldest first, with their tier and name: the console checks a personal skin has not gone to two people."""
+    async with db.execute(
+        "SELECT o.user_id, o.tier, o.acquired_at, u.user_tg_username, (e.skin_id IS NOT NULL) FROM skins_v3_owned o LEFT JOIN users u ON u.user_tg_id=o.user_id "
+        "LEFT JOIN skins_v3_equipped e ON e.user_id=o.user_id AND e.skin_id=o.skin_id WHERE o.skin_id=? ORDER BY o.acquired_at, o.user_id", (str(skin_id),)) as c:
+        return [{"user_id": int(r[0]), "tier": str(r[1]), "since": r[2].isoformat() if r[2] else None, "username": r[3], "equipped": bool(r[4])} for r in await c.fetchall()]
+
+
 async def set_tier(db, user_id: int, skin_id: str, tier: str) -> None:
     await db.execute("UPDATE skins_v3_owned SET tier=?, upgraded_at=NOW() WHERE user_id=? AND skin_id=?", (str(tier), int(user_id), str(skin_id)))
 

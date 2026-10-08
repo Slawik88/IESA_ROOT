@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK,  # noqa: E402
                            TIERS, UPGRADE_ESSENCE, essence_zarniki, free_weeks, full_price, tier_index, total_upgrade_cost, upgrade_cost)
-from core.skins_v3_catalog import SEASONS, SETS, SKINS  # noqa: E402
+from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SEASONS, SETS, SKINS  # noqa: E402
 from core.skins_v3_collection import (PERMANENT, ROW_SHARE, featured, featured_bonus, milestones, row_bonus, row_members, season_window, set_bonus,  # noqa: E402
                                       total_one_time_essence, week_index)
 
@@ -77,7 +77,7 @@ def free_essence_is_small() -> None:
         reach += UPGRADE_ESSENCE[tier]
     check(year < total_upgrade_cost("SSS") * 0.6, f"a year of quests ({year}) must stay far from a top skin at SSS ({total_upgrade_cost('SSS')})")
     check(year < total_upgrade_cost("S") * 2, "a year of quests must stay well below two S chains")
-    catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values())
+    catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values() if not s["exclusive"])   # a personal skin is not for sale
     free = essence_zarniki(total_one_time_essence())
     check(free <= 0.06 * catalog_price, f"all one-time Essence bonuses are worth {free}, over 6% of the whole catalog ({catalog_price})")
     for sid, st in SETS.items():
@@ -87,12 +87,17 @@ def free_essence_is_small() -> None:
         if row_members(tier):
             cost = sum(BUY_PRICE_ZARNIKI[SKINS[m]["tier"]] for m in row_members(tier))
             check(essence_zarniki(row_bonus(tier)) <= 0.05 * cost, f"row {tier}: bonus {row_bonus(tier)} is over 5% of its price {cost}")
-    for sid in SKINS:
+    for sid in PERMANENT:
         price = BUY_PRICE_ZARNIKI[SKINS[sid]["tier"]]
         check(essence_zarniki(featured_bonus(sid)) <= 0.06 * price + 3, f"{sid}: skin-of-the-week gift {featured_bonus(sid)} is over 6% of the price")
     check(BONUS_SHARE <= 0.05 and ROW_SHARE <= 0.05 and FEATURED_SHARE <= 0.06, "bonus shares were raised above the agreed ceiling")
     check(all(a["at"] < b["at"] for a, b in zip(milestones(), milestones()[1:])), "collection steps must ascend")
     check(milestones()[-1]["at"] == len(PERMANENT), "the last collection step is every permanent skin")
+    personal = [sid for sid, skin in SKINS.items() if skin["exclusive"]]
+    check(len(personal) == 2 and EXCLUSIVE_HOLDERS == 1, "two personal skins, one holder each")
+    check(not set(personal) & set(PERMANENT) and not any(SKINS[sid]["set"] or SKINS[sid]["season"] for sid in personal),
+          "a personal skin never counts toward ranks, rows, sets, seasons or the skin of the week")
+    check(all(sid not in row_members(SKINS[sid]["tier"]) for sid in personal), "a personal skin is in no rarity row")
 
 
 def free_farm_is_long() -> None:
@@ -162,7 +167,7 @@ def main() -> None:
     free_farm_is_long()
     skin_of_the_week_is_fair()
     seasons_are_bounded()
-    catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values())
+    catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values() if not s["exclusive"])   # a personal skin is not for sale
     print(f"OK: skins v3 economy. Catalog {catalog_price} Zarniki; full price by rarity "
           + ", ".join(f"{t} {full_price(t)}" for t in TIERS) + f"; free one-time Essence {total_one_time_essence()} (~{essence_zarniki(total_one_time_essence())} Zarniki)")
 

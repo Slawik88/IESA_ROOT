@@ -25,8 +25,9 @@ BASE_RANK: Final = "Новичок витрины"
 MAXED_BADGES: Final = ((1, "Огранщик"), (3, "Мастер тиров"), (6, "Виртуоз"), (10, "Вершина"))
 
 SET_GLYPH: Final = {"lotus": "🪷", "sakura": "🌸", "night_pumpkins": "🎃", "new_year": "🎄"}
-# Ranks, rarity rows and the skin of the week count only permanent skins; a season skin earns its own set and crest.
-PERMANENT: Final = tuple(sid for sid, skin in SKINS.items() if not skin.get("season"))
+# Ranks, rarity rows and the skin of the week count only permanent skins; a season skin earns its own set and crest, and a personal (exclusive)
+# skin is nobody's goal to collect: it is not sold, so it must never raise the size of the collection a player is asked to complete.
+PERMANENT: Final = tuple(sid for sid, skin in SKINS.items() if not skin.get("season") and not skin.get("exclusive"))
 
 
 def milestones() -> list[dict]:

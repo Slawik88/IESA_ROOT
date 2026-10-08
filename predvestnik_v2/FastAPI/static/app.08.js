@@ -53,7 +53,7 @@ function _devSysTabHtml(){
 `;
 }
 function _devPlayersTabHtml(){
-  if(!gpAny(['dossier_view','economy_balance','economy_items','economy_vip','log_admin_view'])) return '';
+  if(!gpAny(['dossier_view','economy_balance','economy_items','economy_vip','log_admin_view','skins_gift'])) return '';
   return `<div id="dev-t-players" style="display:none">
     ${gp('dossier_view')?`<div class="card">
       <div class="card-title">🔎 Центр игрока</div>
@@ -94,6 +94,15 @@ function _devPlayersTabHtml(){
       <button class="btn btn-ghost btn-sm btn-full" style="margin-bottom:6px" onclick="devItemCatalog()">📋 Каталог предметов (полный список)</button>
       <input id="dev-item-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · покажется игроку)"/>
       <button class="btn btn-gold btn-full" onclick="devGiveItem()">Применить</button>
+    </div>`:''}
+    ${gp('skins_gift')?`<div class="card">
+      <div class="card-title">🎀 Личные образы <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="devLoadSkins()">🔄</button></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Не продаются и скрыты из витрины. Образ стартует с тира D, игроку приходит подарок.</div>
+      <div id="dev-skins-list"><div class="loader">Загрузка...</div></div>
+      <input id="dev-skin-uid" type="number" class="num-input" style="margin:6px 0" placeholder="ID игрока"/>
+      <select id="dev-skin-id" class="num-input" style="margin-bottom:6px"></select>
+      <input id="dev-skin-reason" class="num-input" style="margin-bottom:6px" placeholder="Причина (обязательно · в журнал и подарок)"/>
+      <div style="display:flex;gap:6px"><button class="btn btn-gold" style="flex:1" onclick="devSkinAct('grant')">🎁 Выдать</button><button class="btn btn-ghost" style="flex:1" onclick="devSkinAct('revoke')">↩ Отозвать</button></div>
     </div>`:''}
     ${gp('log_admin_view')?`<div class="card">
       <div class="card-title">📜 Журнал выдач <button class="btn btn-sm btn-ghost" style="float:right;padding:2px 8px" onclick="loadDevLog()">🔄</button></div>
@@ -521,6 +530,7 @@ function loadConsole() {
   if(gp('bp_manage')) { devLoadSeasons(); loadBpSeasons(); loadBpXpActions(); }
   if(gp('themes_manage')) devTLInit();
   if(gp('log_admin_view')) loadDevLog();
+  if(gp('skins_gift')) devLoadSkins();
   if(gp('flags_manage')) { loadDevGlobalModules(); loadDevFlags(); }
   if(gp('dossier_view')) devLoadChats();
   if(gp('modules_manage')) devLoadChatsMod();
@@ -535,6 +545,22 @@ function loadConsole() {
     }).catch(()=>{});
     else { const dl=el('dev-items-dl'); if(dl) dl.innerHTML=_devItems.map(i=>`<option value="${i.item_id}">${esc(i.name)}</option>`).join(''); }
   }
+}
+
+// ── Личные образы: кто держит, выдать и отозвать (права skins_gift) ────────────────────
+function devLoadSkins() {
+  api('/admin/dev/skins').then(d => {
+    const list = el('dev-skins-list'), pick = el('dev-skin-id');
+    if (list) list.innerHTML = (d.skins || []).map(k => `<div style="font-size:12px;margin-bottom:4px"><b>${esc(k.name)}</b> · потолок ${esc(k.ceiling)} · ${k.holders.length ? k.holders.map(h => `ID${h.user_id}${h.username ? ' @' + esc(h.username) : ''} (тир ${esc(h.tier)})`).join(', ') : '<span style="color:var(--muted)">свободен</span>'}</div>`).join('');
+    if (pick) pick.innerHTML = (d.skins || []).map(k => `<option value="${esc(k.id)}">${esc(k.name)}</option>`).join('');
+  }).catch(e => { const list = el('dev-skins-list'); if (list) list.innerHTML = `<div class="err">${esc(String(e))}</div>`; });
+}
+function devSkinAct(action) {
+  const uid = parseInt(el('dev-skin-uid')?.value || '0'), skin = el('dev-skin-id')?.value, reason = (el('dev-skin-reason')?.value || '').trim();
+  if (!uid || !skin) return toast('Укажите ID игрока и образ', false);
+  if (!reason) return toast('Причина обязательна', false);
+  api(`/admin/dev/skins/${action}`, { method: 'POST', body: JSON.stringify({ user_id: uid, skin_id: skin, reason }) })
+    .then(r => { toast(`✅ ${r.message}`); devLoadSkins(); loadDevLog(); }).catch(e => toast(e, false));
 }
 
 // ── W4.2: «Сводка» — пульт дежурного (счётчики-ссылки + свежие события) ─────────

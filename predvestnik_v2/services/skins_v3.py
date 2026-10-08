@@ -12,7 +12,7 @@ from core.appearance_v3 import cap_tier
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.skins_v3 import (BUY_PRICE_ZARNIKI, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, TIERS, UPGRADE_ESSENCE, full_price,
                            next_tier, tier_index, total_upgrade_cost, upgrade_cost)
-from core.skins_v3_catalog import SETS, SKINS
+from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SETS, SKINS
 from core.skins_v3_collection import (BASE_RANK, MAXED_BADGES, PERMANENT, SET_GLYPH, featured, maxed_badge, milestones, owned_permanent, rank_for, row_bonus,
                                       row_members, season_of, season_window, set_bonus)
 from infrastructure.repositories import economy_ledger
@@ -64,7 +64,8 @@ def _item(skin_id: str, owned_tier: str | None, equipped: str | None, vip: bool,
         "set": skin["set"], "owned": owned_tier is not None, "level": owned_tier, "shown_tier": shown, "equipped": skin_id == equipped,
         "next": {"tier": nxt[0], "essence": nxt[1], "needs_vip": nxt[0] == "SSS" and not vip} if nxt else None,
         "maxed": owned_tier is not None and nxt is None, "total_upgrade_essence": total_upgrade_cost(skin["tier"]),
-        "full_price_zarniki": full_price(skin["tier"]), "season": season, "buyable": season is None or season["open"],
+        "full_price_zarniki": full_price(skin["tier"]), "season": season, "buyable": (season is None or season["open"]) and not skin["exclusive"],
+        "exclusive": skin["exclusive"],
     }
 
 
@@ -160,7 +161,8 @@ async def state(db, user_id: int) -> dict:
         "essence": {"balance": await repo.essence_balance(db, user_id), "per_zarnik": ESSENCE_PER_ZARNIK,
                     "packs": [{"zarniki": n, "essence": n * ESSENCE_PER_ZARNIK} for n in ESSENCE_PACKS],
                     "quest_reward": dict(ESSENCE_QUEST_REWARD), "costs": dict(UPGRADE_ESSENCE)},
-        "items": [_item(sid, owned.get(sid), wearing, vip, owned) for sid in SKINS], "sets": _sets_state(owned),
+        # a personal skin is invisible to everyone but its owner: it is not in the shop, so nobody can want what they cannot get
+        "items": [_item(sid, owned.get(sid), wearing, vip, owned) for sid in SKINS if not SKINS[sid]["exclusive"] or sid in owned], "sets": _sets_state(owned),
         "collection": _collection_state(owned), "featured": {**featured(), "owned": featured()["skin_id"] in owned},
         "share_url": f"https://t.me/{os.getenv('BOT_USERNAME', 'IIIPredvestnikIIIBot').strip().lstrip('@')}?startapp=looks",
     }
@@ -184,6 +186,8 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
     skin = SKINS.get(str(skin_id or ""))
     if not skin:
         raise SkinConflict("Такого скина нет.")
+    if skin["exclusive"]:
+        raise SkinConflict("Этот образ не продаётся: его выдают лично.")
     price = BUY_PRICE_ZARNIKI[skin["tier"]]
     await economy_ledger.ensure_tables(db)
     await repo.ensure_tables(db)
@@ -268,6 +272,60 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
     return f"«{skin['name']}» теперь тир {target}.", result
 
 
+# ── Personal skins: given and taken back by hand (console), never sold ──────────────────────────────────────────
+def exclusive_ids() -> list[str]:
+    return [sid for sid, skin in SKINS.items() if skin["exclusive"]]
+
+
+async def exclusive_view(db) -> dict:
+    """For the console: every personal skin with its holders (EXCLUSIVE_HOLDERS is how many it may have)."""
+    await repo.ensure_tables(db)
+    return {"holders_max": EXCLUSIVE_HOLDERS, "skins": [
+        {"id": sid, "name": SKINS[sid]["name"], "blurb": SKINS[sid]["blurb"], "ceiling": SKINS[sid]["tier"], "pal": list(SKINS[sid]["pal"]),
+         "holders": await repo.holders(db, sid)} for sid in exclusive_ids()]}
+
+
+def _exclusive(skin_id: str) -> dict:
+    skin = SKINS.get(str(skin_id or ""))
+    if not skin or not skin["exclusive"]:
+        raise SkinConflict("Такого личного образа нет.")
+    return skin
+
+
+async def grant_exclusive(db, user_id: int, skin_id: str, reason: str) -> str:
+    """Give a personal skin at tier D, as if it had just been bought. Returns its name. It is not put on: the player chooses when."""
+    skin = _exclusive(skin_id)
+    if not (reason or "").strip():
+        raise SkinConflict("Укажите причину: она попадёт в журнал.")
+    await repo.ensure_tables(db)
+    async with db.execute("SELECT 1 FROM users WHERE user_tg_id=?", (int(user_id),)) as c:
+        if not await c.fetchone():
+            raise SkinConflict("Такого игрока нет.")
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", (f"skin-v3:exclusive:{skin_id}",))     # two grants at once must not both pass the count
+        await _lock_user(db, user_id)
+        have = await repo.holders(db, skin_id)
+        if any(h["user_id"] == int(user_id) for h in have):
+            raise SkinConflict("Этот образ уже у игрока.")
+        if len(have) >= EXCLUSIVE_HOLDERS:
+            raise SkinConflict(f"Образ создан для одного игрока и уже у ID {have[0]['user_id']}. Сначала отзовите его.")
+        await repo.grant(db, user_id, skin_id)
+    return skin["name"]
+
+
+async def revoke_exclusive(db, user_id: int, skin_id: str, reason: str) -> str:
+    """Take a personal skin back (a wrong person, a mistake). Essence spent on its tiers is not returned."""
+    skin = _exclusive(skin_id)
+    if not (reason or "").strip():
+        raise SkinConflict("Укажите причину: она попадёт в журнал.")
+    await repo.ensure_tables(db)
+    async with db.connection.transaction():
+        await _lock_user(db, user_id)
+        if not await repo.remove(db, user_id, skin_id):
+            raise SkinConflict("У игрока нет этого образа.")
+    return skin["name"]
+
+
 async def buy_essence(db, user_id: int, zarniki: int, *, idempotency_key: str) -> tuple[str, dict]:
     if int(zarniki) not in ESSENCE_PACKS:
         raise SkinConflict("Такого набора Эссенции нет.")
@@ -300,4 +358,4 @@ async def grant_essence_in_transaction(db, user_id: int, amount: int, *, reason:
     return int(amount) if applied else 0
 
 
-__all__ = ["SkinConflict", "state", "buy", "equip", "upgrade", "buy_essence", "own_look", "look_payload", "grant_essence_in_transaction", "TIERS", "next_tier", "tier_index"]
+__all__ = ["SkinConflict", "state", "buy", "exclusive_view", "grant_exclusive", "revoke_exclusive", "equip", "upgrade", "buy_essence", "own_look", "look_payload", "grant_essence_in_transaction", "TIERS", "next_tier", "tier_index"]

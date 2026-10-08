@@ -110,7 +110,7 @@ def contrast(a: str, b: str) -> float:
 
 
 def app_tokens(spec: dict) -> dict[str, str]:
-    """CSS custom properties for the whole app derived from bg, accent and two glow colours."""
+    """CSS custom properties for the whole app derived from bg, accent and two glow colours (optional: faint and track for tinted outlines)."""
     bg, acc = spec["bg"], spec["acc"]
     ink = mix("#f4f5f8", acc, 0.06)
     dim = mix(ink, bg, 0.40)
@@ -122,7 +122,7 @@ def app_tokens(spec: dict) -> dict[str, str]:
     ir, ig, ib = _rgb(ink)
     return {
         "--v3-bg": bg, "--v3-ink": ink, "--v3-dim": dim,
-        "--v3-faint": f"rgba({ir},{ig},{ib},.10)", "--v3-track": f"rgba({ir},{ig},{ib},.24)",
+        "--v3-faint": spec.get("faint") or f"rgba({ir},{ig},{ib},.10)", "--v3-track": spec.get("track") or f"rgba({ir},{ig},{ib},.24)",   # a skin may tint its hairlines (neon outlines)
         "--v3-acc": acc, "--v3-on-acc": on_acc, "--v3-ok": "#7fd6a4",
         "--v3-sheet": sheet, "--v3-dock": f"rgba({_rgb(sheet)[0]},{_rgb(sheet)[1]},{_rgb(sheet)[2]},.97)",
         "--v3-dock-on": f"rgba({r},{g},{b},.14)", "--acc-rgb": f"{r},{g},{b}",

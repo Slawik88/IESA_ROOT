@@ -39,6 +39,9 @@ const _AP_DECOR = (() => {
     comet: '<u class="sg-orbit"><u class="sg-head"></u></u><u class="sg-orbit sg-orbit--far"><u class="sg-head"></u></u>',
     chrono: '<u class="sg-dial"></u><u class="sg-hand sg-hand--min"></u><u class="sg-hand sg-hand--hour"></u><u class="sg-cog"></u><u class="sg-cog sg-cog--r"></u>',
     heart: '<u class="sg-pulse"></u><u class="sg-pulse"></u><u class="sg-pulse"></u><u class="sg-core"></u>',
+    // личные образы: бант с орбитой звёзд в обводке и багровая луна с подтёками (skins-exclusive-v3.css)
+    bowstar: `<svg class="sg-bow" viewBox="0 0 48 30" aria-hidden="true"><path d="M24 15C17 3 3 1 3 11c0 10 14 16 21 4zM24 15c7-12 21-14 21-4 0 10-14 16-21 4z"/><path d="M21.5 11.5h5a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 20 17v-4a1.5 1.5 0 0 1 1.5-1.5z"/><path class="sg-tail" d="M22.5 18.5L17.5 28.5M25.5 18.5L30.5 28.5"/></svg><svg class="sg-bow sg-bow--s" viewBox="0 0 48 30" aria-hidden="true"><path d="M24 15C17 3 3 1 3 11c0 10 14 16 21 4zM24 15c7-12 21-14 21-4 0 10-14 16-21 4z"/><path d="M21.5 11.5h5a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5h-5A1.5 1.5 0 0 1 20 17v-4a1.5 1.5 0 0 1 1.5-1.5z"/></svg>` + many('sg-star', 3, () => ''),
+    bloodmoon: '<u class="sg-bmoon"></u><u class="sg-splat"></u>' + many('sg-run', 3, i => `--x:${[-26, -4, 18][i]}%;--l:${[26, 36, 20][i]}%`),
   };
 })();
 function apSigDecor(sig) { return _AP_DECOR[sig] || ''; }

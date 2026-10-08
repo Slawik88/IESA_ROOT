@@ -11,10 +11,10 @@ from core.skins_v3 import app_tokens
 SLOTS = ("name_glow", "title", "avatar_frame", "avatar_halo", "profile_bg", "card_fx")
 
 
-def _skin(skin_id, name, tier, blurb, bg, acc, g1, g2, pal, frame, halo, pt, nm, back, items, sig=None, set_id=None, season=None):
-    spec = {"bg": bg, "acc": acc, "g1": g1, "g2": g2}
+def _skin(skin_id, name, tier, blurb, bg, acc, g1, g2, pal, frame, halo, pt, nm, back, items, sig=None, set_id=None, season=None, exclusive=False, tint=None):
+    spec = {"bg": bg, "acc": acc, "g1": g1, "g2": g2, **(tint or {})}
     return skin_id, {
-        "id": skin_id, "name": name, "tier": tier, "blurb": blurb, "pal": pal, "sig": sig, "set": set_id, "season": season,
+        "id": skin_id, "name": name, "tier": tier, "blurb": blurb, "pal": pal, "sig": sig, "set": set_id, "season": season, "exclusive": bool(exclusive),
         "kinds": {"frame": frame, "halo": halo, "pt": pt, "name": nm, "bg": back},
         "items": dict(zip(SLOTS, items)), "tokens": app_tokens(spec),
     }
@@ -154,12 +154,27 @@ SKINS = dict([
           "rgba(255,200,90,.24)", "rgba(255,255,255,.07)", ("#ffd36b", "#c9863a", "#fff6dc"),
           "double", "rays", "spark", "foil", "rays",
           ("Золото полуночи", "🥂 Встречающий Полночь", "Золочёный обод", "Лучи салюта", "Бой курантов", "Искры салюта"), set_id="new_year", season="new_year"),
+    # ── Личные образы: не продаются и не видны в витрине, их выдаёт разработчик из консоли, каждый ровно одному игроку (EXCLUSIVE_HOLDERS) ──────────────
+    # Стартуют с тира D, как будто их только что купили, и растут за Эссенцию, как любой образ.
+    _skin("scarlet_star", "Алая Звезда", "SSS", "Чёрный фон, неоновый алый контур, звёзды в обводке и банты.", "#0a0406", "#ff3b5c",
+          "rgba(255,59,92,.30)", "rgba(255,59,92,.10)", ("#ff3b5c", "#c8123a", "#ffb0c0"),
+          "double", "neon", "star", "glow", "bow",
+          ("Неоновый алый", "🎀 Алая Звезда", "Двойное алое кольцо", "Алая неоновая оправа", "Банты и звёзды", "Звёзды в обводке"),
+          sig="bowstar", exclusive=True, tint={"faint": "rgba(255,59,92,.16)", "track": "rgba(255,59,92,.36)"}),
+    _skin("crimson_dark", "Багровый Мрак", "SSS", "Чёрный фон, кровавые подтёки, брызги и тёмно-красный шрифт.", "#070304", "#f2535a",
+          "rgba(170,18,30,.34)", "rgba(120,10,20,.14)", ("#f2535a", "#c4222d", "#ffa3a7"),
+          "drip", "eclipse", "drop", "ink", "grunge",
+          ("Тёмная кровь", "🩸 Багровый Мрак", "Рама с подтёками", "Багровая луна", "Брызги и подтёки", "Капли крови"),
+          sig="bloodmoon", exclusive=True, tint={"faint": "rgba(242,83,90,.13)", "track": "rgba(242,83,90,.30)"}),
 ])
 
 
 # Сезоны повторяются каждый год сами: окно с `from` по `to` (месяц-день, UTC, `to` не включается; если `to` раньше `from`,
 # окно переходит через Новый год). Ничего включать вручную не нужно: сервер сверяет дату при каждой покупке и показе витрины.
 # Купленный образ остаётся навсегда и растёт как обычный.
+# Сколько игроков могут держать личный образ одновременно: образ создан для одного человека, консоль не выдаст его второму.
+EXCLUSIVE_HOLDERS = 1
+
 SEASONS = {
     "halloween": {"name": "Ночь Тыкв", "from": "10-17", "to": "11-04"},
     "new_year": {"name": "Новогодняя Ночь", "from": "12-15", "to": "01-11"},

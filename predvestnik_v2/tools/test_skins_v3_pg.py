@@ -170,6 +170,34 @@ async def run(dsn: str) -> None:
         view = await public.public_view(db, user)
         assert view["collection"]["owned"] == 8 and "ids" not in view["collection"] and all(not isinstance(v, (list, dict)) or k == "sets_done" for k, v in view["collection"].items())
 
+        # ── personal skins: never sold, invisible in the shop, given and taken back by hand, one holder each ──────────────────────────
+        pal_owner, other, stranger = 981050, 981051, 981052
+        for uid in (pal_owner, other, stranger):
+            await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (uid, f"p{uid}", 99999))
+        await expect_conflict(skins.buy(db, stranger, "scarlet_star", idempotency_key="x-1"), "не продаётся")
+        assert await zarniki(db, stranger) == 99999, "a refused purchase charges nothing"
+        assert "scarlet_star" not in {i["id"] for i in (await skins.state(db, stranger))["items"]} and "crimson_dark" not in {i["id"] for i in (await skins.state(db, stranger))["items"]}
+        assert await skins.grant_exclusive(db, pal_owner, "scarlet_star", "вклад в проект") == "Алая Звезда"
+        mine = {i["id"]: i for i in (await skins.state(db, pal_owner))["items"]}
+        assert mine["scarlet_star"]["owned"] and mine["scarlet_star"]["level"] == "D" and mine["scarlet_star"]["exclusive"] and not mine["scarlet_star"]["buyable"]
+        assert "crimson_dark" not in mine, "the other personal skin stays hidden from the first owner"
+        assert (await skins.state(db, pal_owner))["equipped"] is None, "given, not put on: the player decides"
+        assert (await skins.state(db, pal_owner))["collection"]["owned"] == 0, "a personal skin does not count toward the collection"
+        await expect_conflict(skins.grant_exclusive(db, pal_owner, "scarlet_star", "ещё раз"), "уже у игрока")
+        await expect_conflict(skins.grant_exclusive(db, other, "scarlet_star", "второму"), "для одного игрока")
+        await expect_conflict(skins.grant_exclusive(db, other, "forest", "обычный"), "личного образа нет")
+        await expect_conflict(skins.grant_exclusive(db, other, "crimson_dark", "  "), "причину")
+        await expect_conflict(skins.grant_exclusive(db, 999_999_001, "crimson_dark", "нет игрока"), "Такого игрока нет")
+        assert await skins.grant_exclusive(db, other, "crimson_dark", "вклад в проект") == "Багровый Мрак"
+        await skins.equip(db, pal_owner, "scarlet_star")
+        holders = {k["id"]: k["holders"] for k in (await skins.exclusive_view(db))["skins"]}
+        assert [h["user_id"] for h in holders["scarlet_star"]] == [pal_owner] and holders["scarlet_star"][0]["equipped"] and [h["user_id"] for h in holders["crimson_dark"]] == [other]
+        await expect_conflict(skins.revoke_exclusive(db, other, "scarlet_star", "не его"), "нет этого образа")
+        await expect_conflict(skins.revoke_exclusive(db, pal_owner, "scarlet_star", ""), "причину")
+        assert await skins.revoke_exclusive(db, pal_owner, "scarlet_star", "ошиблись игроком") == "Алая Звезда"
+        assert (await skins.state(db, pal_owner))["equipped"] is None and "scarlet_star" not in await repo.owned(db, pal_owner), "taking it back also takes it off"
+        assert await skins.grant_exclusive(db, other, "scarlet_star", "теперь ему") == "Алая Звезда", "free again after a revoke"
+
         # ── launch migration ────────────────────────────────────────────────────────────────────────────────
         payer, free_user, covered = 981002, 981003, 981004
         for uid in (payer, free_user, covered):
