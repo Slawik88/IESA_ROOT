@@ -28,7 +28,14 @@ async def _feature_gate(ctx) -> str | None:
     return "⛔ Сейчас это недоступно" + (f": {reason}" if reason else ".")
 
 
+async def _record_usage(ctx) -> None:
+    from services import bot_metrics
+    place = "private" if ctx.message.chat.type == "private" else "group"
+    await bot_metrics.record_command(ctx.db, ctx.command.name, ctx.user_id, place)
+
+
 registry.gate = _feature_gate
+registry.on_used = _record_usage
 
 router = Router(name="chat")
 for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router):

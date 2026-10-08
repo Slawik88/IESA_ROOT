@@ -83,6 +83,8 @@ class Registry:
         self._by_name: dict[str, Command] = {}
         # Проверка выключателей перед командой: None — можно, "" — молча нет, текст — ответить им.
         self.gate: Callable[["Ctx"], Awaitable[str | None]] | None = None
+        # Учёт выполненной команды (метрики админки); ошибки учёта команду не ломают.
+        self.on_used: Callable[["Ctx"], Awaitable[None]] | None = None
 
     def register(self, cmd: Command) -> Command:
         for n in cmd.all_names():
@@ -234,6 +236,11 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
             if blocked and parsed.prefixed:
                 await message.reply(blocked, parse_mode="HTML")
             return True
+    if registry.on_used is not None:
+        try:
+            await registry.on_used(ctx)
+        except Exception:
+            pass
     try:
         await cmd.handler(ctx)
     except UsageError as e:

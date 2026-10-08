@@ -58,7 +58,8 @@ async def ensure_chat_schema() -> None:
         await skins_v3.ensure_tables(db)   # счёт эссенции: «бот баланс» и семейный кошелёк
         from services.feature_switches import ensure_schema as ensure_switches
         await ensure_switches(db)
-        from services import admin_people, global_moderation
+        from services import admin_people, bot_metrics, global_moderation
+        await bot_metrics.ensure_schema(db)
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
         from services.promo_v2 import ensure_schema as ensure_promo

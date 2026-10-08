@@ -11,6 +11,7 @@ from infrastructure.preprod import require_preprod_user
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 SECTIONS: dict[str, tuple[str, int]] = {
     "people": ("Игроки и чаты", 2),
+    "metrics": ("Метрики", 4),
     "promo": ("Промокоды", 5),
     "switches": ("Функции", 5),
     "settings": ("Настройки", 5),

@@ -294,6 +294,74 @@ async function chatView(main, id, push = true, from = null) {
 
 SECTIONS.people = main => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
 
+// ── Метрики ──────────────────────────────────────────────────────────────────
+
+function dur(sec) {
+  sec = Math.round(sec || 0);
+  if (sec < 60) return `${sec} с`;
+  const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+  if (h) return `${num(h)} ч ${m % 60} мин`;
+  return m >= 10 || !(sec % 60) ? `${m} мин` : `${m} мин ${sec % 60} с`;
+}
+
+function bars(days, daily, field, title) {
+  if (days.length < 2) return '';
+  const vals = days.map(d => (daily[d] || {})[field] || 0);
+  const max = Math.max(1, ...vals);
+  return `<div class="sub" style="margin-top:12px">${esc(title)}</div><div class="bars">${days.map((d, i) => `
+    <div class="b" title="${d}: ${num(vals[i])}"><i style="height:${Math.round(vals[i] / max * 100)}%"></i>
+      ${days.length <= 7 || i % 5 === 0 || i === days.length - 1 ? `<span>${d.slice(8)}.${d.slice(5, 7)}</span>` : '<span></span>'}</div>`).join('')}</div>`;
+}
+
+const tile = (label, value) => `<div><span>${label}</span><b>${value}</b></div>`;
+
+async function metricsView(main, days = 1) {
+  main.innerHTML = '<div class="empty">Считаю…</div>';
+  const m = await api(`/metrics?days=${days}`).catch(e => { toast(e.message, true); return null; });
+  if (!m) return;
+  const s = m.site, b = m.bot, c = m.chats;
+  const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
+  main.innerHTML = `
+    <div class="scope">${Object.entries(period).map(([d, t]) =>
+      `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
+      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span></div>
+    <div class="card"><h3>Всего</h3><div class="stats">
+      ${tile('👤 Уникальных людей', num(m.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
+      ${tile('💬 Чатов с ботом', num(m.chats_total))}</div>
+      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.</div></div>
+    <div class="card"><h3>📱 Мини-приложение</h3><div class="stats">
+      ${tile('Посетителей', num(s.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
+      ${tile('Время всего', dur(s.seconds))}${tile('В среднем на человека', dur(s.avg_seconds_per_visitor))}</div>
+      ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
+      ${s.pages.length ? `<table style="margin-top:12px"><tr><th>Вкладка</th><th>Открытий</th><th>Людей</th><th>Время</th><th>Среднее</th></tr>
+        ${s.pages.map(p => `<tr><td>${esc(p.title)}</td><td>${num(p.visits)}</td><td>${num(p.users)}</td><td>${dur(p.seconds)}</td><td>${dur(p.avg_seconds)}</td></tr>`).join('')}</table>`
+        : '<div class="sub" style="margin-top:8px">За период никто не открывал.</div>'}
+      ${s.subpages.length ? `<details style="margin-top:10px"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
+        <table>${s.subpages.map(p => `<tr><td>${esc(p.tab)}</td><td>${num(p.visits)}</td><td>${num(p.users)} чел.</td></tr>`).join('')}</table></details>` : ''}
+    </div>
+    <div class="card"><h3>🤖 Команды бота</h3><div class="stats">
+      ${tile('Команд', num(b.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
+      ${tile('Людей', num(b.users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
+      ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
+      ${b.top.length ? `<table style="margin-top:12px"><tr><th>Команда</th><th>В чатах</th><th>В личке</th><th>Всего</th></tr>
+        ${b.top.map(x => `<tr><td>бот ${esc(x.command)}</td><td>${num(x.group)}</td><td>${num(x.private)}</td><td>${num(x.total)}</td></tr>`).join('')}</table>`
+        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
+    </div>
+    <div class="card"><h3>💬 Чаты</h3><div class="stats">
+      ${tile('Сообщений', num(c.messages))}${tile('Писали', num(c.users) + ' чел.')}${tile('Активных чатов', num(c.chats))}</div>
+      ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
+      ${c.top.length ? `<table style="margin-top:12px"><tr><th>Чат</th><th>Сообщений</th><th>Писали</th></tr>
+        ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
+          <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
+    </div>`;
+  main.querySelectorAll('[data-days]').forEach(btn => btn.onclick = () => metricsView(main, +btn.dataset.days));
+  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => {
+    e.preventDefault(); tabs('people'); PEOPLE.stack = []; chatView(main, +a.dataset.chat);
+  });
+}
+
+SECTIONS.metrics = main => metricsView(main);
+
 // ── Промокоды ────────────────────────────────────────────────────────────────
 
 let OPTIONS = null;
