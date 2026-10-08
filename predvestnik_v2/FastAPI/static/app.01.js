@@ -536,7 +536,15 @@ function switchPage(name, _btn, _viaBack) {
   });
   if(typeof v3EnterReset==='function')v3EnterReset(el('pg-'+name));   // каскад секций на этой странице снова сыграет один раз
   el('pg-'+name).classList.add('active');
-  { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; pvAfterTransition().then(()=>{if(_activePage===name && head.isConnected)head.focus({preventScroll:true});}); } }   // экранный диктор озвучивает новый экран после перехода
+  { const page=el('pg-'+name), head=page.querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){
+    head.tabIndex=-1;
+    pvAfterTransition().then(()=>{
+      const focused=document.activeElement;
+      // Respect an input or action the player focused during the transition.
+      const interacting=page.contains(focused) && (focused?.isContentEditable || focused?.matches('input,textarea,select,button,a[href],[tabindex]:not([tabindex="-1"])'));
+      if(_activePage===name && head.isConnected && !interacting)head.focus({preventScroll:true});
+    });
+  } }   // экранный диктор озвучивает новый экран после перехода
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
   const _profileChildren=['pets','chests','achievements-v1','public-profile','store'];
