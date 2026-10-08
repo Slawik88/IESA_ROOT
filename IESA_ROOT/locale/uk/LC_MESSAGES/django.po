@@ -6361,3 +6361,54 @@ msgstr "Видалити цей коментар? Цю дію неможливо
 
 msgid "Footer"
 msgstr "Підвал сайту"
+
+msgid "Quick links"
+msgstr "Швидкі посилання"
+
+msgid "You are receiving this e-mail because of activity on your IESA account."
+msgstr "Ви отримали цей лист через дію у вашому акаунті IESA."
+
+msgid "If the button does not work, copy this link into your browser:"
+msgstr "Якщо кнопка не працює, скопіюйте це посилання в браузер:"
+
+msgid "Visit confirmed"
+msgstr "Візит підтверджено"
+
+msgid "Visit updated"
+msgstr "Візит оновлено"
+
+msgid "Visit cancelled"
+msgstr "Візит скасовано"
+
+msgid "Hello %(name)s. Your visit has been logged."
+msgstr "Вітаємо, %(name)s. Ваш візит зареєстровано."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (logged on %(when)s) has been updated."
+msgstr "Вітаємо, %(name)s. Ваш візит до %(partner)s (зареєстрований %(when)s) оновлено."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (originally logged on %(when)s) has been cancelled."
+msgstr "Вітаємо, %(name)s. Ваш візит до %(partner)s (спочатку зареєстрований %(when)s) скасовано."
+
+msgid "Your IESA membership card works at every partner."
+msgstr "Ваша членська картка IESA діє в усіх партнерів."
+
+msgid "If you have questions, contact the partner directly."
+msgstr "Якщо у вас є питання, зверніться безпосередньо до партнера."
+
+msgid "If you believe this is an error, please contact the partner."
+msgstr "Якщо ви вважаєте, що це помилка, зверніться до партнера."
+
+msgid "Test e-mail"
+msgstr "Тестовий лист"
+
+msgid "E-mail notifications are working correctly."
+msgstr "Сповіщення електронною поштою працюють коректно."
+
+msgid "IESA Sport e-mail notifications are working correctly."
+msgstr "Сповіщення IESA Sport електронною поштою працюють коректно."
+
+msgid "Confirm e-mail address"
+msgstr "Підтвердити адресу e-mail"
+
+msgid "Confirm your e-mail"
+msgstr "Підтвердьте свій e-mail"

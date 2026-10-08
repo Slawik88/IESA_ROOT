@@ -7078,3 +7078,54 @@ msgstr "Supprimer ce commentaire ? Cette action est irréversible."
 
 msgid "Footer"
 msgstr "Pied de page"
+
+msgid "Quick links"
+msgstr "Liens rapides"
+
+msgid "You are receiving this e-mail because of activity on your IESA account."
+msgstr "Vous recevez cet e-mail en raison d'une activité sur votre compte IESA."
+
+msgid "If the button does not work, copy this link into your browser:"
+msgstr "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :"
+
+msgid "Visit confirmed"
+msgstr "Visite confirmée"
+
+msgid "Visit updated"
+msgstr "Visite mise à jour"
+
+msgid "Visit cancelled"
+msgstr "Visite annulée"
+
+msgid "Hello %(name)s. Your visit has been logged."
+msgstr "Bonjour %(name)s. Votre visite a été enregistrée."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (logged on %(when)s) has been updated."
+msgstr "Bonjour %(name)s. Votre visite chez %(partner)s (enregistrée le %(when)s) a été mise à jour."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (originally logged on %(when)s) has been cancelled."
+msgstr "Bonjour %(name)s. Votre visite chez %(partner)s (initialement enregistrée le %(when)s) a été annulée."
+
+msgid "Your IESA membership card works at every partner."
+msgstr "Votre carte de membre IESA est valable chez chaque partenaire."
+
+msgid "If you have questions, contact the partner directly."
+msgstr "Pour toute question, contactez directement le partenaire."
+
+msgid "If you believe this is an error, please contact the partner."
+msgstr "Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le partenaire."
+
+msgid "Test e-mail"
+msgstr "E-mail de test"
+
+msgid "E-mail notifications are working correctly."
+msgstr "Les notifications par e-mail fonctionnent correctement."
+
+msgid "IESA Sport e-mail notifications are working correctly."
+msgstr "Les notifications par e-mail d'IESA Sport fonctionnent correctement."
+
+msgid "Confirm e-mail address"
+msgstr "Confirmer l'adresse e-mail"
+
+msgid "Confirm your e-mail"
+msgstr "Confirmez votre e-mail"

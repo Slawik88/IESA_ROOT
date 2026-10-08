@@ -10,6 +10,14 @@
 
 Локально (`settings_dev.py`) письма печатаются в консоль.
 
+### Дизайн писем
+HTML всех писем сайта строится из шаблонов `users/templates/users/email/`: общий каркас `_layout.html` (тёмная карточка,
+текстовый «логотип» — картинки в почте часто блокируются, таблицы + inline-стили, кнопка с запасным вариантом для Outlook,
+ссылка-дубль под кнопкой), части `_button.html`, `_row.html`, письма `verify_email`, `password_reset`, `visit_confirmed|edited|cancelled`,
+`test_email`. Новое письмо = `{% extends "users/email/_layout.html" %}` + блоки `badge/heading/intro/body/after`
+(цвет акцента — переменная контекста `accent`). Никакого HTML в f-строках: шаблон экранирует пользовательский текст.
+Посмотреть результат без отправки: отрендерить шаблон в файл и открыть в браузере (`render_to_string`).
+
 ### Порядок каналов (важно)
 
 1. **SMTP — основной, если заданы `EMAIL_HOST` + `EMAIL_HOST_PASSWORD`** (код: `settings_addon.py`,

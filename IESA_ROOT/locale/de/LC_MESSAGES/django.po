@@ -7101,3 +7101,54 @@ msgstr "Diesen Kommentar löschen? Das kann nicht rückgängig gemacht werden."
 
 msgid "Footer"
 msgstr "Fußbereich"
+
+msgid "Quick links"
+msgstr "Schnellzugriff"
+
+msgid "You are receiving this e-mail because of activity on your IESA account."
+msgstr "Sie erhalten diese E-Mail aufgrund einer Aktivität in Ihrem IESA-Konto."
+
+msgid "If the button does not work, copy this link into your browser:"
+msgstr "Falls die Schaltfläche nicht funktioniert, kopieren Sie diesen Link in Ihren Browser:"
+
+msgid "Visit confirmed"
+msgstr "Besuch bestätigt"
+
+msgid "Visit updated"
+msgstr "Besuch aktualisiert"
+
+msgid "Visit cancelled"
+msgstr "Besuch storniert"
+
+msgid "Hello %(name)s. Your visit has been logged."
+msgstr "Hallo %(name)s. Ihr Besuch wurde erfasst."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (logged on %(when)s) has been updated."
+msgstr "Hallo %(name)s. Ihr Besuch bei %(partner)s (erfasst am %(when)s) wurde aktualisiert."
+
+msgid "Hello %(name)s. Your visit at %(partner)s (originally logged on %(when)s) has been cancelled."
+msgstr "Hallo %(name)s. Ihr Besuch bei %(partner)s (ursprünglich erfasst am %(when)s) wurde storniert."
+
+msgid "Your IESA membership card works at every partner."
+msgstr "Ihre IESA-Mitgliedskarte gilt bei jedem Partner."
+
+msgid "If you have questions, contact the partner directly."
+msgstr "Bei Fragen wenden Sie sich bitte direkt an den Partner."
+
+msgid "If you believe this is an error, please contact the partner."
+msgstr "Falls Sie dies für einen Fehler halten, wenden Sie sich bitte an den Partner."
+
+msgid "Test e-mail"
+msgstr "Test-E-Mail"
+
+msgid "E-mail notifications are working correctly."
+msgstr "E-Mail-Benachrichtigungen funktionieren einwandfrei."
+
+msgid "IESA Sport e-mail notifications are working correctly."
+msgstr "Die E-Mail-Benachrichtigungen von IESA Sport funktionieren einwandfrei."
+
+msgid "Confirm e-mail address"
+msgstr "E-Mail-Adresse bestätigen"
+
+msgid "Confirm your e-mail"
+msgstr "Bestätigen Sie Ihre E-Mail-Adresse"

@@ -1,0 +1,77 @@
+{% load i18n %}{% comment %}
+Shared frame for every HTML e-mail from the site (visit notices, e-mail confirmation, password reset).
+Rules for e-mail HTML: table layout, every style inline (Gmail/Outlook drop <style> in places), web-safe
+font stack, no images that matter (many clients block them — the wordmark is text), a bulletproof button.
+
+Blocks: title (<title>), preheader (inbox preview line), badge (symbol in the circle), heading, intro,
+body (extra <tr> rows inside the card), after (small print under the card's content).
+Context it understands: accent (hex, default red), domain, support_email.
+{% endcomment %}<!doctype html>
+<html lang="{{ LANGUAGE_CODE|default:'en' }}" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<meta name="supported-color-schemes" content="dark light">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>{% block title %}IESA Sport{% endblock %}</title>
+<!--[if mso]><xml><o:OfficeDocumentSettings><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<style>
+  :root { color-scheme: dark light; supported-color-schemes: dark light; }
+  body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+  table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+  a { color: #f87171; }
+  @media only screen and (max-width: 620px) {
+    .wrap { padding: 14px 8px !important; }
+    .px { padding-left: 22px !important; padding-right: 22px !important; }
+    .h1 { font-size: 24px !important; line-height: 1.25 !important; }
+    .k { display: block !important; width: 100% !important; padding-bottom: 2px !important; }
+    .v { display: block !important; width: 100% !important; padding-top: 0 !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#07070e;color:#e5e7eb;font-family:Inter,'Segoe UI',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
+{% with accent=accent|default:'#dc2626' site=domain|default:'iesasport.ch' %}
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;font-size:1px;line-height:1px;color:#07070e;">{% block preheader %}{% endblock %}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#07070e" style="background:#07070e;">
+  <tr><td align="center" class="wrap" style="padding:36px 16px 40px;">
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
+
+      <tr><td class="px" style="padding:0 6px 18px;font-size:20px;font-weight:900;letter-spacing:.04em;color:#ffffff;">
+        IESA<span style="color:#f87171;font-weight:700;letter-spacing:.2em;font-size:11px;"> &nbsp;SPORT</span>
+      </td></tr>
+
+      <tr><td bgcolor="#12121c" style="background:#12121c;border:1px solid #26263a;border-radius:22px;overflow:hidden;">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+          <tr><td height="4" bgcolor="{{ accent }}" style="height:4px;line-height:4px;font-size:4px;background:{{ accent }};background-image:linear-gradient(90deg,{{ accent }},#f97316);">&nbsp;</td></tr>
+
+          <tr><td class="px" style="padding:34px 40px 6px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+              <td width="52" height="52" align="center" valign="middle" bgcolor="#1c1620" style="width:52px;height:52px;border-radius:26px;background:#1c1620;border:1px solid {{ accent }};font-size:22px;line-height:52px;color:{{ accent }};font-weight:800;">{% block badge %}&#10003;{% endblock %}</td>
+            </tr></table>
+            <h1 class="h1" style="margin:20px 0 10px;font-size:28px;line-height:1.2;font-weight:800;letter-spacing:-.01em;color:#ffffff;">{% block heading %}{% endblock %}</h1>
+            <p style="margin:0;font-size:16px;line-height:1.65;color:#cbd5e1;">{% block intro %}{% endblock %}</p>
+          </td></tr>
+
+          {% block body %}{% endblock %}
+
+          <tr><td class="px" style="padding:6px 40px 34px;">
+            {% block after %}{% endblock %}
+          </td></tr>
+        </table>
+      </td></tr>
+
+      <tr><td style="padding:22px 12px 0;text-align:center;font-size:12px;line-height:1.7;color:#8a8aa3;">
+        <span style="color:#a1a1b8;font-weight:700;">IESA Sport</span> &middot; {% trans "Switzerland" %}<br>
+        <a href="https://{{ site }}" style="color:#a1a1b8;text-decoration:underline;">{{ site }}</a>
+        &nbsp;&middot;&nbsp;
+        <a href="mailto:{{ support_email|default:'iesa@iesasport.ch' }}" style="color:#a1a1b8;text-decoration:underline;">{{ support_email|default:'iesa@iesasport.ch' }}</a><br>
+        <span style="color:#6f6f86;">{% trans "You are receiving this e-mail because of activity on your IESA account." %}</span>
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+{% endwith %}
+</body>
+</html>

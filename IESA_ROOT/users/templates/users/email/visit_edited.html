@@ -1,0 +1,22 @@
+{% extends "users/email/_layout.html" %}{% load i18n %}
+{% block title %}{% trans "Visit updated" %}{% endblock %}
+{% block preheader %}{{ partner }} · {{ when }}{% endblock %}
+{% block badge %}&#9998;{% endblock %}
+{% block heading %}{% trans "Visit updated" %}{% endblock %}
+{% block intro %}{% blocktrans %}Hello {{ name }}. Your visit at {{ partner }} (logged on {{ when }}) has been updated.{% endblocktrans %}{% endblock %}
+{% block body %}
+<tr><td class="px" style="padding:20px 40px 0;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td class="k" width="36%" valign="top" style="padding:13px 12px 13px 0;border-top:1px solid #26263a;font-size:12px;color:#8a8aa3;text-transform:uppercase;letter-spacing:.08em;font-weight:700;">{% trans "Service" %}</td>
+      <td class="v" valign="top" style="padding:13px 0;border-top:1px solid #26263a;font-size:16px;line-height:1.5;color:#ffffff;font-weight:600;"><span style="color:#8a8aa3;text-decoration:line-through;font-weight:400;">{{ old_service }}</span> &rarr; {{ service }}</td>
+    </tr>
+    <tr>
+      <td class="k" width="36%" valign="top" style="padding:13px 12px 13px 0;border-top:1px solid #26263a;font-size:12px;color:#8a8aa3;text-transform:uppercase;letter-spacing:.08em;font-weight:700;">{% trans "Cost" %}</td>
+      <td class="v" valign="top" style="padding:13px 0;border-top:1px solid #26263a;font-size:16px;line-height:1.5;color:#ffffff;font-weight:600;"><span style="color:#8a8aa3;text-decoration:line-through;font-weight:400;">{{ old_cost }}</span> &rarr; {{ cost }}</td>
+    </tr>
+    {% trans "Reason" as k_reason %}{% include "users/email/_row.html" with k=k_reason v=reason %}
+  </table>
+</td></tr>
+{% endblock %}
+{% block after %}<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">{% trans "If you have questions, contact the partner directly." %}</p>{% endblock %}

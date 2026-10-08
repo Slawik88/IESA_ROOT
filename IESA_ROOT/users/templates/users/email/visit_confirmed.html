@@ -1,0 +1,18 @@
+{% extends "users/email/_layout.html" %}{% load i18n %}
+{% block title %}{% trans "Visit confirmed" %}{% endblock %}
+{% block preheader %}{{ partner }} · {{ when }}{% endblock %}
+{% block badge %}&#10003;{% endblock %}
+{% block heading %}{% trans "Visit confirmed" %}{% endblock %}
+{% block intro %}{% blocktrans %}Hello {{ name }}. Your visit has been logged.{% endblocktrans %}{% endblock %}
+{% block body %}
+<tr><td class="px" style="padding:20px 40px 0;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    {% trans "Partner" as k1 %}{% include "users/email/_row.html" with k=k1 v=partner %}
+    {% trans "Service" as k2 %}{% include "users/email/_row.html" with k=k2 v=service %}
+    {% trans "Cost" as k3 %}{% include "users/email/_row.html" with k=k3 v=cost %}
+    {% trans "Date & time" as k4 %}{% include "users/email/_row.html" with k=k4 v=when %}
+    {% if description %}{% trans "Description" as k5 %}{% include "users/email/_row.html" with k=k5 v=description %}{% endif %}
+  </table>
+</td></tr>
+{% endblock %}
+{% block after %}<p style="margin:14px 0 0;font-size:13px;line-height:1.6;color:#94a3b8;">{% trans "Your IESA membership card works at every partner." %}</p>{% endblock %}
