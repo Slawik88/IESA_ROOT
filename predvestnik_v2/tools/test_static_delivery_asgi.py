@@ -35,6 +35,7 @@ ALLOWED = {
     "/static/quests-v3.css": "text/css",
     "/static/marks-v3.css": "text/css",
     "/static/store-v3.css": "text/css",
+    "/static/motion-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",

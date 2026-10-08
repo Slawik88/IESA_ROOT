@@ -53,6 +53,7 @@ function v3CountUp(root) {
     const tick = now => { const k = Math.min(1, (now - t0) / span), ease = 1 - Math.pow(1 - k, 3); draw(from + (to - from) * ease); if (k < 1 && node.isConnected) requestAnimationFrame(tick); else draw(to); };
     requestAnimationFrame(tick);
   });
+  if (typeof v3RingIn === 'function') v3RingIn(root, prevAll, seen);
   _lsSet(_V3_LS.counts, JSON.stringify({ ...prevAll, ...seen }));
 }
 
@@ -61,7 +62,7 @@ const _V3_STREAK_STEPS = [3, 7, 14, 30, 50, 100, 200, 365];
 function v3Delights(d) {
   const today = new Date().toISOString().slice(0, 10), level = Number(d.account_level) || 1, streak = Number(d.streak) || 0;
   const prevLevel = Number(_lsGet(_V3_LS.level)) || 0;
-  if (prevLevel && level > prevLevel) { setTimeout(() => { toast(`Новый уровень: ${level}`); v3Reward(el('pro-showcase-ava')); }, 700); }
+  if (prevLevel && level > prevLevel) { setTimeout(() => { toast(`Новый уровень: ${level}`); v3Reward(el('pro-showcase-ava')); v3GrowStar(prevLevel, level); }, 700); }
   _lsSet(_V3_LS.level, String(level));
   const step = _V3_STREAK_STEPS.filter(n => streak >= n).pop() || 0, done = Number(_lsGet(_V3_LS.streak)) || 0;
   if (step > done) setTimeout(() => { toast(`${streak} ${_v3Plural(streak, 'день', 'дня', 'дней')} подряд. Спасибо, что вы с нами`); v3Reward(el('pro-showcase-ava')); }, 1300);

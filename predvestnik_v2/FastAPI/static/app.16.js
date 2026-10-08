@@ -20,7 +20,7 @@ function v3ChipsFade() {
   main.classList.toggle('has-more', over());
 }
 // Суммы в панели; compact сокращает уже от тысячи («2,6к»), обычный вид только от десяти тысяч
-let _v3BarVals = null;
+let _v3BarVals = null, _v3BarFirstAt = 0;
 function _v3BarNumbers(compact) {
   const v = _v3BarVals; if (!v) return;
   const set = (id, value) => { const node = el(id); if (node) node.textContent = _v3Short(value, compact ? 1e3 : 1e4); };
@@ -38,9 +38,11 @@ function renderV3Bar(d) {
     me.innerHTML = `${_v3Ring(need ? xp / need * 100 : 100)}<span class="v3-bar-lv">${level}</span>`;
     me.classList.toggle('is-vip', !!d.vip);
   }
+  const was = _v3BarVals;
   _v3BarVals = { mora: wallet.mora, diamonds: wallet.diamonds, essence: d.essence, zarniki: wallet.zarniki };
   _v3BarNumbers(false);
   v3ChipsFade();
+  if (!was) _v3BarFirstAt = Date.now(); else if (typeof v3BalanceFx === 'function') v3BalanceFx(was, _v3BarVals, _v3BarFirstAt);   // пульс числа и «+N» под чипом (app.31.js)
   bar.classList.add('is-ready');
 }
 

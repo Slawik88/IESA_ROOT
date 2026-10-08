@@ -118,7 +118,7 @@ function _lkRender(anim) {
 function _lkSync() {                           // новый скин сразу виден везде: палитра, профиль, кошелёк
   const st = _lk.st, worn = st.items.find(i => i.equipped), look = worn ? { ...worn, tier: worn.shown_tier } : null;
   if (_profileData) { _profileData.look = look; _profileData.zarniki = st.zarniki; _profileData.essence = st.essence.balance; v3SaveProfileCache(_profileData); renderV3Bar(_profileData); }
-  v3ApplyLook(look);
+  if (typeof v3Morph === 'function' && document.body.dataset.skin !== (look?.id || '')) v3Morph(() => v3ApplyLook(look)); else v3ApplyLook(look);   // смена образа: палитра перетекает (app.31.js)
 }
 async function lkAct(kind, arg) {
   if (_lk.busy) return;

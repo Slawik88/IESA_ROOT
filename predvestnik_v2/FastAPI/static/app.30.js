@@ -70,6 +70,7 @@ function _svZarniki() {
 async function svPay() {
   const stars = _sv.sel, pack = (_sv.pk?.packages || []).find(p => Number(p.stars) === stars);
   if (_sv.busy || !pack) return;
+  const btn = document.querySelector('#pg-store .sv-buy')?.getBoundingClientRect(), origin = btn ? { x: btn.left + btn.width / 2, y: btn.top + btn.height / 2 } : null;   // откуда полетят искры
   _sv.busy = true; _svRender();
   try {
     const invoice = await api('/payments/zarniki/invoice', { method: 'POST', body: JSON.stringify({ stars }) });
@@ -77,7 +78,7 @@ async function svPay() {
     if (typeof tg?.openInvoice === 'function') {
       tg.openInvoice(invoice.link, status => {
         if (status !== 'paid') return;
-        _haptic('success'); _sv.paid = Number(pack.total); _v3RefreshBalance();
+        _haptic('success'); _sv.paid = Number(pack.total); _v3RefreshBalance(); v3Fly(origin, 'zarniki', '✨', 6);
         api('/skins-v3/me').then(st => { _sv.st = st; _svRender(); }).catch(() => _svRender());
       });
     } else location.assign(invoice.link);

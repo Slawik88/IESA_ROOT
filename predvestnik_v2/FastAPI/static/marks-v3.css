@@ -47,7 +47,10 @@
 .mk-row--ahead .mk-tx b { color: var(--v3-dim); }
 .mk-new { padding: 2px 8px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 10px var(--v3-font); font-style: normal; letter-spacing: .06em; text-transform: uppercase; }
 .mk-bar { width: 100%; height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: var(--v3-track); }
-.mk-bar i { display: block; height: 100%; border-radius: inherit; background: var(--v3-acc); }
+.mk-bar i { display: block; height: 100%; border-radius: inherit; background: var(--v3-acc); transform-origin: left; animation: v3grow .7s var(--v3-ease) .15s both; }   /* полоса прогресса вырастает при открытии листа */
+@keyframes v3grow { from { transform: scaleX(0); } }
 .mk-num { display: block; margin-top: 4px; color: var(--v3-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .mk-sub { margin: 16px 0 0; color: var(--v3-dim); font: 700 11px var(--v3-font); letter-spacing: .1em; text-transform: uppercase; }
 .mk-note { margin-top: 14px; }
+@keyframes mkstamp { 0% { opacity: 0; transform: scale(1.6) rotate(-9deg); } 60% { opacity: 1; transform: scale(.94) rotate(2deg); } 100% { opacity: 1; transform: none; } }
+.mk-row--new .mk-tile { animation: mkstamp .5s var(--v3-ease) .2s both; }   /* новая регалия ставится в лист, как печать */

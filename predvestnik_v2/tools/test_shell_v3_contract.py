@@ -141,4 +141,25 @@ assert "_svReach" in store_js and "_svRecommended" in store_js and "_svSee" in s
 assert "function openVipModal" not in (STATIC / "app.02.js").read_text(encoding="utf-8") and "_ztPay" not in store_js
 assert "openStoreV3('vip')" in (STATIC / "app.16.js").read_text(encoding="utf-8") and "openStoreV3('zarniki'" in (STATIC / "app.23.js").read_text(encoding="utf-8")
 assert "openStoreV3('zarniki')" in index and "openStoreV3('vip')" in index
+# Motion with a purpose: events get one-shot feedback (money in or out, a reward flying to its chip, a sheet leaving, a page arriving from its side, a new
+# star), repeated things are static where there are many of them, and the device class decides how much runs.
+motion_css = (STATIC / "motion-v3.css").read_text(encoding="utf-8")
+motion_js = (STATIC / "app.31.js").read_text(encoding="utf-8")
+for sheet_name, sheet in (("motion-v3.css", motion_css), ("marks-v3.css", (STATIC / "marks-v3.css").read_text(encoding="utf-8")), ("shell-v3.css", css)):
+    for name, props in keyframe_props(sheet).items():
+        assert props <= {"transform", "opacity"}, (sheet_name, name, props)
+assert "infinite" not in motion_css, "motion-v3.css is one-shot only"
+assert all(f"function {name}(" in motion_js for name in ("v3Dismiss", "v3BalanceFx", "v3Fly", "v3Morph", "_v3Moves")) and "_v3Class() !== 'low'" in motion_js
+assert "v3BalanceFx(" in bar_js and "Date.now() - since < 2500" in motion_js, "no fireworks at app start"
+assert "document.body.dataset.dir" in (STATIC / "app.01.js").read_text(encoding="utf-8") and 'body[data-dir="f"]' in motion_css and 'body[data-dev="low"]' in motion_css
+assert "v3Dismiss(" in marks_js and "v3Morph(" in (STATIC / "app.23.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.30.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.12.js").read_text(encoding="utf-8")
+assert "v3GrowStar(" in greet_js and "function v3GrowStar(" in (STATIC / "app.20.js").read_text(encoding="utf-8")
+assert "prefers-reduced-motion" in motion_css and ".no-fx" in motion_css, "calm mode leaves no motion behind"
+assert "function v3QuestsDone(" in motion_js and "v3QuestsDone(root)" in (STATIC / "app.12.js").read_text(encoding="utf-8") and 'data-q="${period}-${quest.slot}"' in (STATIC / "app.12.js").read_text(encoding="utf-8")
+assert "function v3RingIn(" in motion_js and "v3RingIn(root, prevAll, seen)" in greet_js, "the level ring draws from what the player saw last time"
+# Performance: the skins strip (thirty look previews) and list rows never animate; a mid phone gets the lite mode; the watchdog tries lite before lowering the cap.
+assert re.search(r"\.lk-mini \*, \.lk-mini \*::before, \.lk-mini \*::after \{ animation: none !important; \}", css_all := (STATIC / "looks-v3.css").read_text(encoding="utf-8"))
+assert re.search(r"\.v3-who \.ap-name, \.v3-who \.ap-title, \.v3-who \.ap-title::after \{ animation: none !important; \}", (STATIC / "appearance-v3.css").read_text(encoding="utf-8"))
+assert ".ap-lite .ap-bg b" in fx and ".ap-lite .ap-fx i:nth-child(even)" in fx
+assert "function _v3Class()" in controller and "_V3_LITE_KEY" in controller and "ap-lite" in controller and "measure(lower)" in controller and "cap = 5" in controller
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

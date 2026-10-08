@@ -2,20 +2,27 @@
 // Тир скина (с сервера) задаёт потолок эффектов. Фактический уровень = min(тир, возможности устройства).
 // CSS: fx-tiers-v3.css, документация: docs/SKINS_V3.md.
 const _V3_TIER_LIST = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
-const _V3_FX_CAP_KEY = 'v3_fx_cap';
+const _V3_FX_CAP_KEY = 'v3_fx_cap', _V3_LITE_KEY = 'v3_lite';
 let _v3Skin = { css_class: '', tier: 'D' }, _v3FxLevel = 1, _v3Forced = false, _v3Watchdog = false, _v3PointerOn = false;
 
 function v3FxLevelNow() { return _v3FxLevel; }
 function _v3DeviceCap() {
   let cap = 7;
   try {
-    const nav = navigator, lowMem = nav.deviceMemory && nav.deviceMemory <= 2, lowCpu = nav.hardwareConcurrency && nav.hardwareConcurrency <= 3;
-    if (lowMem || lowCpu) cap = 3;
+    const nav = navigator, mem = nav.deviceMemory, cores = nav.hardwareConcurrency;
+    if ((mem && mem <= 2) || (cores && cores <= 3)) cap = 3;            // слабый телефон
+    else if ((mem && mem <= 4) || (cores && cores <= 6)) cap = 5;       // средний: без лент света, наклона и тяжёлых слоёв
     if (nav.connection?.saveData) cap = Math.min(cap, 2);
     const stored = Number(localStorage.getItem(_V3_FX_CAP_KEY));
     if (stored >= 1 && stored < 7) cap = Math.min(cap, stored);
   } catch (_) { /* хранилище недоступно: остаётся оценка по железу */ }
   return cap;
+}
+// Класс устройства: low (слабый), mid (средний), high. Решает, сколько движения включать (app.31.js) и нужен ли лёгкий режим образов (.ap-lite)
+function _v3Class() { const cap = _v3DeviceCap(); return cap <= 3 ? 'low' : cap <= 5 ? 'mid' : 'high'; }
+function _v3Lite() {
+  try { if (localStorage.getItem(_V3_LITE_KEY) === '1') return true; } catch (_) { /* без памяти: только оценка по железу */ }
+  return _v3Class() !== 'high';
 }
 function _v3Calm() {
   return document.body.classList.contains('no-fx') || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -56,26 +63,35 @@ function applySkinTier(skin, options = {}) {
   for (let i = 1; i <= level; i++) body.classList.add(`fx-${i}`);
   body.classList.add(`tier-${_v3Skin.tier.toLowerCase()}`); body.dataset.tier = _v3Skin.tier;
   body.classList.toggle('ap-anim', !_v3Calm() && _v3DeviceCap() >= 3);   // движение образов (рамки, ореолы, частицы) не зависит от тира своего скина
+  body.classList.toggle('ap-lite', _v3Lite()); body.dataset.dev = _v3Class();   // лёгкий режим: фон образа неподвижен, частиц вдвое меньше (fx-tiers-v3.css)
   _v3BuildFx(level); if (level >= 6) _v3BindTilt();
   _v3StartWatchdog(level);
 }
-// Если устройство не тянет: после показа замеряем кадры и один раз снижаем потолок на две ступени
+// Если устройство не тянет: после показа замеряем кадры. Сначала включается лёгкий режим образов, и только если и после него кадры медленные,
+// потолок эффектов снижается на две ступени (один раз за сеанс, запоминается)
 function _v3StartWatchdog(level) {
   if (_v3Watchdog || _v3Forced || level < 3) return; _v3Watchdog = true;
-  setTimeout(() => {
-    if (document.hidden) { _v3Watchdog = false; return; }
+  const measure = done => setTimeout(() => {
+    if (document.hidden) { _v3Watchdog = false; return; }   // вкладка в фоне: замер повторится при следующем показе
     const times = []; let last = performance.now(), count = 0;
     const tick = now => {
       times.push(now - last); last = now;
       if (++count < 90) { requestAnimationFrame(tick); return; }
-      const sorted = times.slice(5).sort((a, b) => a - b), median = sorted[Math.floor(sorted.length / 2)];
-      if (median > 30 && _v3FxLevel > 2) {
-        try { localStorage.setItem(_V3_FX_CAP_KEY, String(Math.max(2, _v3FxLevel - 2))); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ }
-        applySkinTier(_v3Skin);
-      }
+      const sorted = times.slice(5).sort((a, b) => a - b); done(sorted[Math.floor(sorted.length / 2)]);
     };
     requestAnimationFrame(tick);
   }, 2500);
+  const lower = median => {
+    if (median <= 30 || _v3FxLevel <= 2) return;
+    try { localStorage.setItem(_V3_FX_CAP_KEY, String(Math.max(2, _v3FxLevel - 2))); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ }
+    applySkinTier(_v3Skin);
+  };
+  measure(median => {
+    if (median <= 26) return;
+    if (_v3Lite()) { lower(median); return; }
+    try { localStorage.setItem(_V3_LITE_KEY, '1'); } catch (_) { /* см. выше */ }
+    applySkinTier(_v3Skin); measure(lower);
+  });
 }
 document.addEventListener('skinchange', e => applySkinTier(e.detail));
 document.addEventListener('visibilitychange', () => document.body.classList.toggle('v3-paused', document.hidden));

@@ -56,6 +56,11 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .v3-ripple { position: fixed; left: 0; top: 0; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; z-index: 300; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .32), transparent); will-change: transform, opacity; }
 .v3-shock { position: fixed; left: 0; top: 0; width: 80px; height: 80px; margin: -40px 0 0 -40px; border-radius: 50%; z-index: 399; pointer-events: none; box-shadow: 0 0 0 2px var(--v3-acc), 0 0 24px rgba(var(--acc-rgb), .7); will-change: transform, opacity; }
 
+/* Лёгкий режим (.ap-lite: средний телефон по железу или замеры кадров, app.18.js): фон образа неподвижен, частиц вдвое меньше.
+   Рамка, ореол и фирменная деталь остаются живыми: это один небольшой участок экрана. */
+.ap-lite .ap-bg b, .ap-lite .ap-bg::before, .ap-lite .ap-bg::after { animation: none !important; }
+.ap-lite .ap-fx i:nth-child(even), .ap-lite .v3-fx-dots > i:nth-child(even) { display: none; }
+
 /* Бейдж тира в выборе скина */
 .tier-badge { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 6px; background: var(--v3-faint); color: var(--v3-acc); font: 700 10px/1.4 var(--v3-font); font-style: normal; letter-spacing: .06em; }
 

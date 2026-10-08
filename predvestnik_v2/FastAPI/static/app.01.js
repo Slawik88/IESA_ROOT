@@ -542,6 +542,8 @@ function switchPage(name, _btn, _viaBack) {
     _navStack.push(_activePage);
     if(_navStack.length>25) _navStack.shift();
   }
+  { const tabs=[...document.querySelectorAll('.nb[data-page]')].map(b=>b.dataset.page), from=tabs.indexOf(_activePage), to=tabs.indexOf(name);   // страница приходит с той стороны, куда ушёл игрок по доку (motion-v3.css)
+    document.body.dataset.dir = from>=0 && to>=0 && from!==to ? (to>from?'f':'b') : ''; }
   _activePage = name;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>{

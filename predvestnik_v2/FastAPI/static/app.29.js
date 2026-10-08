@@ -39,9 +39,10 @@ function _mkKeys(e) {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 function v3MarksClose() {
-  document.getElementById('mk-sheet')?.remove(); document.removeEventListener('keydown', _mkKeys, true);
-  if (_mkSheet?.opener && document.contains(_mkSheet.opener)) _mkSheet.opener.focus({ preventScroll: true });
-  _mkSheet = null;
+  const host = document.getElementById('mk-sheet'), opener = _mkSheet?.opener; _mkSheet = null;
+  document.removeEventListener('keydown', _mkKeys, true);
+  const back = () => { if (opener && document.contains(opener)) opener.focus({ preventScroll: true }); };
+  if (typeof v3Dismiss === 'function') v3Dismiss(host, back); else { host?.remove(); back(); }   // лист уезжает вниз (app.31.js)
 }
 // Строка листа: плитка со значком в цвете тона, название и описание полностью (лист для того и открывается: прочитать, за что каждая)
 function _mkTile(m) { return `<span class="mk-tile" data-tone="${m.tone}" aria-hidden="true">${_profileEsc(m.glyph)}</span>`; }
@@ -61,8 +62,8 @@ function _mkBody(worn, ahead, note) {
 }
 // Лист открывается сразу с тем, что уже пришло с профилем; «Впереди» и пояснение подтягиваются следом на то же место
 function _mkShow(worn, ahead, note, own) {
-  v3MarksClose();
-  _mkSheet = { opener: document.activeElement };
+  const prev = _mkSheet?.opener; document.getElementById('mk-sheet')?.remove(); document.removeEventListener('keydown', _mkKeys, true);   // прежний лист убираем сразу, без анимации
+  _mkSheet = { opener: prev || document.activeElement };
   const host = document.createElement('div'); host.id = 'mk-sheet'; host.className = 'lk-sheet-back';
   host.addEventListener('click', e => { if (e.target === host) v3MarksClose(); });
   host.innerHTML = `<section class="lk-sheet mk-sheet" role="dialog" aria-modal="true" aria-labelledby="mk-title"><header class="mk-head"><div><h2 id="mk-title">Регалии</h2><span class="mk-count">${own ? 'Получено' : 'У игрока'}: ${worn.length}</span></div>
