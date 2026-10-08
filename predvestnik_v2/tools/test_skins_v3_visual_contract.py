@@ -13,7 +13,7 @@ STATIC = ROOT / "FastAPI/static"
 from core.skins_v3 import TIERS  # noqa: E402
 from core.skins_v3_catalog import SETS, SKINS  # noqa: E402
 
-CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css")
+CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css", "toast-v3.css")
 css = {name: (STATIC / name).read_text(encoding="utf-8") for name in CSS_FILES}
 every = "".join(css.values())
 decor = (STATIC / "app.22.js").read_text(encoding="utf-8")

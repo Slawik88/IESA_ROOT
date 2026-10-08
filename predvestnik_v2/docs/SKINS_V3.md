@@ -80,6 +80,7 @@
 | Палитра приложения из токенов сервера | `app.22.js` (`v3ApplyLook`), для игр `skin-runtime-v3.js/css` |
 | Витрина «Образы» | `app.23.js`, `looks-v3.css`; пополнение Зарников `app.24.js` |
 | Публичный профиль | `app.21.js`, `public-card-v3.css` |
+| Уведомления (тосты): форма, значок, цвет, насыщенность от надетого образа | `app.28.js`, `toast-v3.css` |
 | Жажда сбора: ранги, альбом, образ недели, знак сета, раскрытие | `core/skins_v3_collection.py`, `app.27.js`, `collect-v3.css` |
 
 Образ приходит одним объектом: `{id, name, tier, ceiling, pal:[a,b,c], kinds:{frame,halo,pt,name,bg}, sig, title}`

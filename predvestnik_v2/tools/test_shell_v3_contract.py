@@ -69,7 +69,7 @@ def keyframe_props(css: str) -> dict[str, set[str]]:
     return result
 
 
-appearance_files = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "looks-v3.css", "collect-v3.css")
+appearance_files = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "looks-v3.css", "collect-v3.css", "toast-v3.css")
 appearance = "".join((STATIC / name).read_text(encoding="utf-8") for name in appearance_files)
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 for sheet in (fx, appearance, home_css, css):
@@ -88,4 +88,10 @@ assert "window.openPublicProfile = openPublicCardV3" in card and "/public-profil
 assert "a.visible" in card and "pp-neutral" in card, "hidden look must fall back to the neutral palette"
 top = (STATIC / "app.17.js").read_text(encoding="utf-8")
 assert "_v3RowButton" in top and "openPublicProfile(" in top and "appearance-v3.css" in index
+# Toasts: one implementation (app.28.js), shaped by the worn look; the old green blob and its CSS are gone.
+assert sum(path.read_text(encoding="utf-8").count("function toast(") for path in STATIC.glob("app.*.js")) == 1
+toast_js = (STATIC / "app.28.js").read_text(encoding="utf-8")
+assert "apFromLook(_profileData?.look)" in toast_js and "tv-fr-" in toast_js and "role" in toast_js and "textContent" not in toast_js
+assert "rgb(86,196,106)" not in (STATIC / "app.01.js").read_text(encoding="utf-8") and "@keyframes toastIn" not in (STATIC / "app.css").read_text(encoding="utf-8")
+assert "toast-v3.css" in index
 print("OK: shell-v3 flags, tap targets, motion budget, claim safety and TMA shell are wired")

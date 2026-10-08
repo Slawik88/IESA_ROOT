@@ -232,12 +232,7 @@ function showWsNotif(event) {
     toast('Старое уведомление экспедиции сохранено в архиве.', false);
     return;
   }
-  const div = document.createElement('div');
-  div.className = 'ws-notif';
-  div.innerHTML = `<div class="wn-title">${titles[event.type]||'🔮 Уведомление'}</div>
-                   <div class="wn-body">${(bodies[event.type]||(() => ''))(event)}</div>`;
-  document.body.appendChild(div);
-  setTimeout(() => div.remove(), 5000);
+  toast((bodies[event.type] || (() => ''))(event) || 'Новое уведомление', true, { title: titles[event.type] || 'Уведомление' });
 }
 
 // Чек награды экспедиции: база + бонусы (питомцы/реликвии) + итого. Данные —
@@ -374,19 +369,7 @@ function fmtUTC(s) {
 const fatC = f => f<40?'var(--green)':f<70?'var(--gold)':'var(--red)';
 function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 
-function toast(msg,ok=true) {
-  const t=el('toast');
-  // showModal() puts dialog in the browser top-layer above all z-indexes.
-  // Moving the toast node inside the open dialog keeps it visible above the overlay.
-  const dlg=el('modal');
-  if(dlg&&dlg.open){if(t.parentElement!==dlg)dlg.appendChild(t);}
-  else{if(t.parentElement!==document.body)document.body.appendChild(t);}
-  t.textContent=msg;
-  if(!ok&&typeof _haptic==='function')_haptic('error');
-  t.style.cssText=`background:${ok?'rgb(86,196,106)':'rgb(192,57,43)'};color:${ok?'#0b1a10':'#fff'};border:1px solid ${ok?'rgba(86,196,106,.5)':'rgba(192,57,43,.5)'}`;
-  t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
-  clearTimeout(t._tid);t._tid=setTimeout(()=>t.classList.remove('show'),2500);
-}
+// toast() живёт в app.28.js: вид зависит от надетого образа
 
 function copyUid(uid) {
   navigator.clipboard?.writeText(String(uid))

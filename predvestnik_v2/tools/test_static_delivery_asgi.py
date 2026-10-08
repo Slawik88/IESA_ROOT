@@ -31,6 +31,7 @@ ALLOWED = {
     "/static/skin-signatures-2-v3.css": "text/css",
     "/static/public-card-v3.css": "text/css",
     "/static/collect-v3.css": "text/css",
+    "/static/toast-v3.css": "text/css",
 }
 BLOCKED = (
     "/static/app.01.js",
