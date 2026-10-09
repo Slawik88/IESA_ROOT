@@ -38,6 +38,8 @@ ACTION_TITLES = {
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
+    "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
+    "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
 }
 
 
@@ -158,6 +160,10 @@ def describe(action: str, d: dict) -> str:
         return str(d.get("value", ""))
     if action == "message":
         return f"«{d.get('text', '')}»"
+    if action.startswith("report_"):
+        return f"№{d.get('report', '')}"
+    if action == "broadcast":
+        return f"{d.get('audience', '')}, {d.get('total', 0)} получ.: «{d.get('text', '')}»"
     return ""
 
 

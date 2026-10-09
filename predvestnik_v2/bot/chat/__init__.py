@@ -2,7 +2,8 @@ from aiogram import Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, moderation, profile, promo, purge, rank_commands, sanctions, site, streak, top, transfer, vip, warps  # noqa: F401
+from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, moderation, profile, promo, purge, rank_commands, reports, sanctions, site, streak, top, transfer, vip, warps  # noqa: F401
+from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
 from bot.chat.warps_data import WARPS

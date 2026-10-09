@@ -468,8 +468,8 @@ async def family_flow(db, bot):
     adopt = family.AdoptCB.unpack(cb_of(kb))
     c = Call(6003); await family.on_adopt(c, adopt, db)
     assert "в семье" in c.edited[0], (c.edited, c.alerts)
-    out, _ = await say("бот брак, @kid_y", 6003, "kid_x")
-    assert "ребёнком" in out, out
+    out, _ = await say("бот брак, @mom_x", 6003, "kid_x")
+    assert "уже в браке" in out, out                                   # ребёнок может жениться, но не на занятом
     out, _ = await say("бот семья роль, @kid_x дочь", 6001, "mom_x")
     assert "дочь" in out, out
     out, _ = await say("бот семья роль, жена", 6001, "mom_x")
@@ -517,7 +517,82 @@ async def family_flow(db, bot):
     out, _ = await say("бот брак, @kid_y", 6003, "kid_x")             # ребёнок свободен после развода
     assert "предложение" in out, out
     print("OK: family")
+    await generations_flow(db, bot, say, cb_of)
     await games_flow(db, bot)
+
+
+async def generations_flow(db, bot, say, cb_of):
+    """Семьи в несколько поколений: дед+бабушка -> сын+невестка -> внук; запрет браков в роду; развод в цепочке."""
+    from bot.chat import family
+    from bot.chat.tracking import record_message
+    people = {7001: "grandpa", 7002: "grandma", 7003: "son_x", 7004: "bride_x", 7005: "grandson", 7006: "daughter", 7007: "stranger"}
+    for uid, name in people.items():
+        await record_message(db, msg(uid, -100, name))
+
+    async def marry(a, b):
+        out, kb = await say(f"бот брак, @{people[b]}", a, people[a])
+        assert kb is not None, out
+        c = Call(b); await family.on_proposal(c, family.ProposalCB.unpack(cb_of(kb)), db)
+        assert c.edited and "семья" in c.edited[0], (c.edited, c.alerts)
+
+    async def adopt(parent, child):
+        out, kb = await say(f"бот усыновить, @{people[child]}", parent, people[parent])
+        assert kb is not None, out
+        c = Call(child); await family.on_adopt(c, family.AdoptCB.unpack(cb_of(kb)), db)
+        assert c.edited, c.alerts
+
+    await marry(7001, 7002)
+    await adopt(7001, 7003)
+    await adopt(7002, 7006)
+    out, _ = await say("бот брак, @daughter", 7003, "son_x")
+    assert "одного рода" in out, out                                  # брат и сестра
+    await marry(7003, 7004)                                           # сын женится, оставаясь сыном
+    assert await family.parent_family_id(db, 7003) == await family.spouse_family_id(db, 7001)
+    await adopt(7003, 7005)
+    out, _ = await say("бот брак, @grandpa", 7005, "grandson")
+    assert "в браке" in out, out
+    out, _ = await say("бот брак, @grandma", 7006, "daughter")
+    assert "в браке" in out, out
+    out, _ = await say("бот усыновить, @grandson", 7001, "grandpa")
+    assert "уже есть родители" in out, out
+    out, _ = await say("бот усыновить, @grandpa", 7003, "son_x")
+    assert "родственник" in out, out                                  # цикл в роду
+    out, _ = await say("бот усыновить, @son_x", 7004, "bride_x")
+    assert "уже есть родители" in out, out
+    out, _ = await say("бот семья", 7003, "son_x")
+    assert "bride_x" in out and "grandson" in out and "grandpa" not in out, out   # своя семья важнее родительской
+    out, _ = await say("бот семья роль, сын", 7003, "son_x")
+    assert "В родительской семье" in out, out
+    out, _ = await say("бот древо", 7005, "grandson")
+    assert "Бабушки и дедушки" in out and "grandpa" in out and "Родители" in out and "son_x" in out, out
+    out, _ = await say("бот родословная, @grandpa", 7006, "daughter")
+    assert "Потомки</b> · 3" in out and "grandson" in out and "bride_x" in out, out
+    out, _ = await say("бот древо", 7007, "stranger")
+    assert "нет родни" in out, out
+
+    # Сын уходит из родительской семьи: его брак и внук остаются с ним.
+    out, _ = await say("бот семья выйти", 7003, "son_x")
+    assert "Ваш брак и ваши дети остаются" in out, out
+    assert await family.parent_family_id(db, 7003) is None and await family.spouse_family_id(db, 7003)
+    assert await family.parent_family_id(db, 7005) == await family.spouse_family_id(db, 7003)
+    await adopt(7001, 7003)                                           # и может вернуться
+    # Развод деда и бабушки: дети выходят из их семьи, брак сына и внук не трогаются.
+    out, _ = await say("бот развод", 7001, "grandpa")
+    assert "браки и внуки остаются" in out, out
+    async with db.execute("SELECT id FROM divorce_intents WHERE actor_id = 7001 AND status = 'pending'") as cur:
+        intent = (await cur.fetchone())[0]
+    out, _ = await say("бот развод " + family.divorce_phrase(intent), 7001, "grandpa")
+    assert "развелись" in out, out
+    assert await family.parent_family_id(db, 7003) is None and await family.parent_family_id(db, 7006) is None
+    son_family = await family.spouse_family_id(db, 7003)
+    assert son_family and await family.parent_family_id(db, 7005) == son_family
+    out, _ = await say("бот древо", 7005, "grandson")
+    assert "grandpa" not in out and "son_x" in out and "bride_x" in out, out
+    out, _ = await say("бот семья выйти", 7006, "daughter")
+    assert "не в семье" in out, out
+    out, _ = await say("бот выйти из семьи", 7004, "bride_x")
+    assert "только через развод" in out, out
+    print("OK: family generations")
 
 
 async def games_flow(db, bot):

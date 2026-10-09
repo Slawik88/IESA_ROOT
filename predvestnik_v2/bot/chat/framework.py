@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import difflib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Awaitable, Callable
 
 from aiogram import Bot
@@ -98,6 +98,15 @@ class Registry:
                 raise ValueError(f"команда «{key}» уже занята: {old.name}")
             self._by_name[key] = cmd
         return cmd
+
+    def alias(self, name: str, *aliases: str) -> None:
+        """Добавить алиасы уже зарегистрированной команде (они же появятся в «бот помощь»)."""
+        old = self._by_name[" ".join(norm(w) for w in name.split())]
+        new = replace(old, aliases=(*old.aliases, *(a for a in aliases if a not in old.all_names())))
+        for key, cmd in list(self._by_name.items()):
+            if cmd is old:
+                self._by_name[key] = new
+        self.register(new)
 
     def command(self, name: str, **kw):
         def deco(fn):

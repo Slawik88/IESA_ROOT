@@ -70,6 +70,8 @@ def section_text(key: str) -> str:
         block = f"\n▫️ <code>бот {_esc(c.name)}</code>\n{_esc(c.summary)}"
         if c.example and c.example != f"бот {c.name}":
             block += f"\n↳ <code>{_esc(c.example)}</code>"
+        if c.aliases:
+            block += "\n<i>Также:</i> " + _esc(" · ".join(c.aliases))
         parts.append(block)
     return "\n".join(parts)
 

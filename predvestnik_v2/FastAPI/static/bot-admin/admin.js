@@ -418,6 +418,95 @@ async function metricsView(main, days = 1) {
 
 SECTIONS.metrics = main => metricsView(main);
 
+// ── Жалобы ──────────────────────────────────────────────────────────────────
+
+async function reportsView(main, kind = 'open') {
+  const data = await api(`/reports?kind=${kind}`).catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  const c = data.counts;
+  const canPeople = ME.sections.some(z => z.key === 'people');
+  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
+  const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
+  main.innerHTML = `
+    <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
+      <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
+    ${data.items.length ? data.items.map(r => `<div class="card">
+      <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
+        <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
+      <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
+        <span class="sub">от ${person(r.reporter)}</span></div>
+      <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
+      ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
+      ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
+      ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
+        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">⚖️ Наказать</button>` : ''}
+        ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
+        <button class="btn small primary" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
+        <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>` : ''}
+    </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}`;
+  main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
+  main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {
+    e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +a.dataset.player);
+  });
+  const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
+  main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
+    const act = b.dataset.act;
+    const body = act === 'take' ? '<div class="sub">Жалоба будет помечена как ваша.</div>'
+      : `<div class="sub" style="margin-bottom:8px">Автору жалобы бот напишет в личку, чем всё закончилось.
+         Наказать нарушителя можно кнопкой «Наказать» (карточка игрока).</div>
+         <div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>`;
+    sheet(titles[act], body, 'Готово', async () => {
+      const res = await api(`/reports/${b.dataset.rep}`, {method: 'POST',
+        body: JSON.stringify({action: act, note: ($('#fnote') || {}).value || ''})});
+      toast(res.message || 'Готово');
+      reportsView(main, kind);
+    });
+  });
+}
+
+SECTIONS.reports = main => reportsView(main);
+
+// ── Рассылка ─────────────────────────────────────────────────────────────────
+
+async function broadcastView(main) {
+  const data = await api('/broadcasts').catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  const running = data.items.some(b => b.status === 'running');
+  main.innerHTML = `
+    <div class="card"><h3>📣 Новая рассылка</h3>
+      <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
+        `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div class="field"><label>Текст (без разметки, до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
+      <div class="actions" style="margin-top:10px"><button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
+      ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
+    </div>
+    <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
+      <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
+        ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
+        <div class="sub" style="white-space:pre-wrap">${esc(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
+        <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
+  $('#bgo').onclick = () => {
+    const audience = $('#baud').value, text = $('#btext').value.trim();
+    if (!text) { toast('Напишите текст.', true); return; }
+    const a = data.audiences.find(x => x.key === audience);
+    const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
+    sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
+      <div class="card" style="white-space:pre-wrap">${esc(text)}</div>`, 'Отправить', async () => {
+      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, request_id: rid})});
+      toast(res.message || 'Запущено');
+      broadcastView(main);
+    });
+  };
+  main.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => {
+    try { toast((await api(`/broadcasts/${b.dataset.stop}/stop`, {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
+    broadcastView(main);
+  });
+  if (running) setTimeout(() => { if ($('#bgo') && document.body.contains(main) && $('#tabs .on')?.dataset.tab === 'broadcast') broadcastView(main); }, 4000);
+}
+
+SECTIONS.broadcast = main => broadcastView(main);
+
 // ── Промокоды ────────────────────────────────────────────────────────────────
 
 let OPTIONS = null;
