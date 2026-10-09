@@ -72,6 +72,11 @@
   <span><strong>Предвестник в активной разработке.</strong> Обновление ещё не вышло. Большая часть функций пока скрыта на время разработки и тестирования.</span>
   <button type="button" class="dn-close" onclick="dismissDevNotice()" aria-label="Скрыть сообщение">×</button>
 </aside>
+<aside class="app-update-banner" id="app-update-banner" hidden role="status" aria-live="polite">
+  <span><strong>Доступно обновление</strong><small>Можно установить сейчас или продолжить игру</small></span>
+  <button type="button" class="app-update-action" onclick="applyAppUpdate()">Обновить</button>
+  <button type="button" class="app-update-later" onclick="dismissAppUpdate()" aria-label="Напомнить после следующего входа">×</button>
+</aside>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
@@ -143,9 +148,13 @@
     <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
   </section>
   <section class="v3-group"><span class="v3-eyebrow">Аккаунт</span>
+    <button type="button" class="v3-row" onclick="openPromoSheet()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5V10a2 2 0 0 0 0 4v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5V14a2 2 0 0 0 0-4zM14 7v10"/></svg><span>Промокод<small>Ввести код — награда придёт сразу</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openSettingsModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span>Настройки<small>Вид, уведомления и аккаунт</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openChatTracker()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18l-2 3v-5.5A8 8 0 1 1 6 19z"/></svg><span>Мои чаты<small>Где вы играете: активность и история</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
 </section>
+  <section class="v3-group" id="v3-admin-entry" hidden><span class="v3-eyebrow">Управление</span>
+    <button type="button" class="v3-row" onclick="openBotAdmin()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Админ-панель<small>Открыть или закрыть сайт, управлять ботом</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+  </section>
   <section class="v3-group" id="cc-exchange-v1" hidden><span class="v3-eyebrow">Рынок</span>
     <button type="button" class="v3-row" onclick="openPlayerExchangeV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 3.5 3.5L20 7M15 7h5v5"/></svg><span>Биржа монет<small>Портфель, заявки и монеты игроков</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
   <section class="v3-group"><span class="v3-eyebrow">Информация</span>
@@ -157,11 +166,12 @@
 
 <!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
-<nav class="nav" aria-label="Основные разделы" style="--nav-n:6;--nav-i:0">
+<nav class="nav" aria-label="Основные разделы" style="--nav-n:7;--nav-i:0">
   <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль</span></button>
   <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры</span></button>
   <button type="button" class="nb" data-page="looks" onclick="openLooksModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4h11.6L21 9l-9 11L3 9z"/><path d="M3 9h18M9.2 4 12 9l2.8-5M12 9v11"/></svg><span>Образы</span></button>
   <button type="button" class="nb" data-page="questlog" onclick="openQuestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 6.5 1.6 1.6L9 5M4.5 12.5l1.6 1.6L9 11M4.5 18.5l1.6 1.6L9 17M13 7h6.5M13 13h6.5M13 19h6.5"/></svg><span>Задания</span></button>
+  <button type="button" class="nb" data-page="chests" onclick="openChestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3M4 11h16v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 14h16"/><path d="M12 12.5v3"/></svg><span>Сундуки</span></button>
   <button type="button" class="nb" data-page="top" onclick="openTopV3()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/></svg><span>Топ</span></button>
   <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>

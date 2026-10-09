@@ -17,6 +17,7 @@ from bot.chat.moderation import active_warns
 from bot.chat.settings import CURRENCY_VIEW
 from bot.chat.targets import Target, resolve_target
 from bot.chat.tracking import local_now
+from bot.chat.style import quote
 
 # Валюты, которые сейчас в игре (остальные — легаси и не показываются).
 SHOWN_CURRENCIES = ("mora", "diamonds", "essence", "zarniki")
@@ -83,6 +84,7 @@ async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
     return out
 
 
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): роли курсивом, счётчики и баланс в цитатах. Место для будущих стилей карточек: между шапкой и ролями.
 async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool) -> str:
     uid = target.user_id
     async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (uid,)) as cur:
@@ -111,17 +113,17 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
     if await vip_service.is_vip_active(db, uid):
         roles.append("👑 VIP")
     if roles:
-        lines.append("\n" + " · ".join(roles))
+        lines.append("\n<i>" + " · ".join(roles) + "</i>")
 
     if is_group:
         c = await message_counts(db, chat_id, uid)
-        lines.append(
-            "\n💬 <b>Сообщения</b>\n"
-            f"Сегодня: {fmt_num(c['day'])} · неделя: {fmt_num(c['week'])}\n"
-            f"Месяц: {fmt_num(c['month'])} · всего: {fmt_num(c['all'])}"
-        )
+        msg_rows = [
+            f"Сегодня: <b>{fmt_num(c['day'])}</b> · неделя: <b>{fmt_num(c['week'])}</b>",
+            f"Месяц: <b>{fmt_num(c['month'])}</b> · всего: <b>{fmt_num(c['all'])}</b>",
+        ]
         if c["everywhere"] > c["all"]:
-            lines.append(f"Во всех чатах: {fmt_num(c['everywhere'])}")
+            msg_rows.append(f"Во всех чатах: <b>{fmt_num(c['everywhere'])}</b>")
+        lines.append("\n💬 <b>Сообщения</b>\n" + quote(msg_rows))
         async with db.execute(
             "SELECT s.membership_since, (SELECT MIN(date) FROM daily_user_stats d "
             "WHERE d.chat_id = s.chat_tg_id AND d.user_id = s.user_tg_id) "
@@ -150,7 +152,7 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
             parents = " и ".join(names[p] for p in fam.parents)
             lines.append(f"\n👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
 
-    lines.append("\n💰 <b>Баланс</b>\n" + "\n".join(await balances(db, uid)))
+    lines.append("\n💰 <b>Баланс</b>\n" + quote(await balances(db, uid)))
     return "\n".join(lines)
 
 
@@ -179,4 +181,4 @@ async def cmd_who(ctx: Ctx) -> None:
 @registry.command("баланс", aliases=("кошелек", "кошелёк"), usage="бот баланс", section="profile",
                   summary="Сколько у вас валюты.")
 async def cmd_balance(ctx: Ctx) -> None:
-    await ctx.reply("💰 <b>Баланс</b>\n" + "\n".join(await balances(ctx.db, ctx.user_id)))
+    await ctx.reply("💰 <b>Баланс</b>\n" + quote(await balances(ctx.db, ctx.user_id)))

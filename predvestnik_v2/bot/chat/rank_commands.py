@@ -7,6 +7,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.chat import ranks
+from bot.chat.style import quote
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import resolve_target
 
@@ -106,9 +107,9 @@ async def cmd_ranks(ctx: Ctx) -> None:
             async with ctx.db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (owner,)) as cur:
                 r = await cur.fetchone()
             owner_label = f"@​{r[0]}" if r and r[0] else f"id{owner}"
-        lines.append(f"\n{ranks.rank_name(ranks.OWNER)}\n{_esc(owner_label)}")
+        lines.append(f"\n<b>{ranks.rank_name(ranks.OWNER)}</b>\n" + quote([_esc(owner_label)]))
     for rank in sorted(groups, reverse=True):
-        lines.append(f"\n{ranks.rank_name(rank)}\n" + "\n".join(_esc(n) for n in sorted(groups[rank], key=str.lower)))
+        lines.append(f"\n<b>{ranks.rank_name(rank)}</b>\n" + quote([_esc(n) for n in sorted(groups[rank], key=str.lower)]))
     if len(lines) == 1:
         lines.append("\nРангов пока ни у кого нет.")
     await ctx.reply("\n".join(lines))

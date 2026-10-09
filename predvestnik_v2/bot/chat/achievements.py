@@ -23,6 +23,7 @@ from bot.chat.achievements_data import (ACHIEVEMENTS, BY_ID, MILESTONE_EVERY, MI
                                         milestone_essence, plural)
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat.framework import Ctx, norm, registry
+from bot.chat.style import quote
 from bot.chat.targets import resolve_target
 
 STATEMENTS = (
@@ -193,22 +194,25 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]
         if a.id not in stored:
             # Первый подсчёт — тихий (вехи из прошлого оплачиваются молча).
             # ON CONFLICT: параллельный подсчёт уже вставил строку и заплатит сам.
-            async with db.execute(
-                "INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (?, ?, ?) "
-                "ON CONFLICT (user_id, achievement) DO NOTHING RETURNING 1", (user_id, a.id, level)) as cur:
-                if await cur.fetchone():
-                    await pay_milestones(db, user_id, a, 0, level)
+            # Уровень и выплата — одной транзакцией: упавшая выплата не «съест» вехи.
+            async with db.connection.transaction():
+                async with db.execute(
+                    "INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (?, ?, ?) "
+                    "ON CONFLICT (user_id, achievement) DO NOTHING RETURNING 1", (user_id, a.id, level)) as cur:
+                    if await cur.fetchone():
+                        await pay_milestones(db, user_id, a, 0, level)
             continue
         if level <= stored[a.id]:
             continue
         # Объявляет только тот, кто реально поднял уровень (защита от двух сообщений подряд).
-        async with db.execute(
-            "UPDATE chat_achievement_levels SET level = ?, reached_at = NOW() "
-            "WHERE user_id = ? AND achievement = ? AND level < ? RETURNING 1",
-            (level, user_id, a.id, level)) as cur:
-            claimed = await cur.fetchone()
-        if claimed:
-            ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
+        async with db.connection.transaction():
+            async with db.execute(
+                "UPDATE chat_achievement_levels SET level = ?, reached_at = NOW() "
+                "WHERE user_id = ? AND achievement = ? AND level < ? RETURNING 1",
+                (level, user_id, a.id, level)) as cur:
+                claimed = await cur.fetchone()
+            if claimed:
+                ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
     return ups
 
 
@@ -304,20 +308,25 @@ GROUP_TITLES = {"chat": "Общение", "warps": "Взаимодействия
                 "family": "Семья", "games": "Игры"}
 
 
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): группы и пороги в цитатах.
 async def card(db, user_id: int, who: str) -> str:
     ups = await evaluate(db, user_id)          # в карточке всегда свежие цифры
     fresh = {u.achievement.id for u in ups}
     stored = await stored_levels(db, user_id)
-    lines, total, total_max, title = [], 0, 0, None
+    lines, block, total, total_max, title = [], [], 0, 0, None
     for a in ACHIEVEMENTS:
         value = await value_of(db, user_id, a)
         level = max(stored.get(a.id, 0), level_of(a, value))
         total += level
         total_max += a.max_level
         if GROUP_TITLES[a.group] != title:
-            title = GROUP_TITLES[a.group]
+            if block:
+                lines.append(quote(block))
+            title, block = GROUP_TITLES[a.group], []
             lines.append(f"\n<b>{title}</b>")
-        lines.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
+        block.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
+    if block:
+        lines.append(quote(block))
     return (f"🏆 <b>{who} достижения</b> · уровней: {total} из {total_max}\n" + "\n".join(lines) +
             f"\n\nЗа каждый {MILESTONE_EVERY}-й уровень — 🔮 эссенция. Подробно: <code>бот достижение болтун</code>")
 
@@ -328,9 +337,9 @@ async def detail(db, user_id: int, a: Achievement) -> str:
     nxt = a.thresholds[level:level + 5]
     ahead = " → ".join(fmt(x) for x in nxt) if nxt else "все уровни пройдены 👑"
     return (f"{a.icon} <b>{a.name}</b> · {medal(level, a.max_level)} ур. {level}/{a.max_level}\n"
-            f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n\n"
-            f"Следующие пороги: {ahead}\n"
-            f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"
+            f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n"
+            + quote([f"Следующие пороги: {ahead}",
+                     f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"])
             + reward_line(a, level))
 
 
@@ -355,4 +364,4 @@ async def cmd_achievements(ctx: Ctx) -> None:
         names = ", ".join(x.name.lower() for x in ACHIEVEMENTS)
         await ctx.reply(f"Нет такого достижения. Есть: {names}.")
         return
-    await ctx.reply(await card(ctx.db, uid, target.label() if target else "Ваши"))
+    await ctx.reply(await card(ctx.db, uid, html.escape(target.label()) if target else "Ваши"))

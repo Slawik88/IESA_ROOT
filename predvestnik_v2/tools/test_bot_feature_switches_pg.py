@@ -15,7 +15,6 @@ dsn = ap.parse_args().dsn
 os.environ["DATABASE_URL"] = dsn
 os.environ.setdefault("BOT_TOKEN", "1:x")
 os.environ["DEVELOPER_ID"] = "1001"
-os.environ["SITE_OPEN_TO_PLAYERS"] = "1"
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from types import SimpleNamespace  # noqa: E402
@@ -92,6 +91,10 @@ async def main():
             return r.json()
 
         assert (await client.get("/bot-admin/api/switches", headers=player)).status_code == 403
+        dev_profile = await client.get("/profile/me", headers=dev)
+        player_profile = await client.get("/profile/me", headers=player)
+        assert dev_profile.status_code == 200 and dev_profile.json()["is_developer"] is True, dev_profile.text
+        assert player_profile.status_code == 200 and player_profile.json()["is_developer"] is False, player_profile.text
         data = (await client.get("/bot-admin/api/switches", headers=dev)).json()
         assert [g["scope"] for g in data["catalog"]] == ["chat", "site"], data
         keys = {x["key"] for g in data["catalog"] for i in g["items"] for x in [i, *i.get("items", [])]}
@@ -155,11 +158,20 @@ async def main():
         await switch("site", False)
         r = await client.get("/", headers={"accept": "text/html"})
         assert r.status_code == 503 and "Временно закрыто" in r.text
+        assert 'href="/bot-admin"' in r.text
         assert (await client.get("/profile/", headers=player)).status_code == 503
         assert (await client.get("/bot-admin")).status_code == 200
-        assert (await client.get("/bot-admin/api/me", headers=dev)).status_code == 200
+        me = await client.get("/bot-admin/api/me", headers=dev)
+        assert me.status_code == 200 and "pv_admin_dev" in me.headers.get("set-cookie", ""), me.headers
+        from FastAPI.auth import create_session_token
+        page = await client.get("/", headers={"accept": "text/html"},
+                                cookies={"pv_admin_dev": create_session_token(1001)})
+        assert page.status_code != 503, page.status_code             # разработчик видит закрытый сайт
         await switch("site", True)
         assert (await client.get("/", headers={"accept": "text/html"})).status_code == 200
+        # Старой хостовой переменной больше нет: состояние сохраняется в БД и
+        # открывается обратно тем же переключателем без деплоя/рестарта.
+        assert "SITE_OPEN_TO_PLAYERS" not in __import__("FastAPI.deps", fromlist=["_"]).__dict__
 
         # Объявления о достижениях.
         from bot.chat import achievements as ach

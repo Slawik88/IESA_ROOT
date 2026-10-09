@@ -57,6 +57,7 @@ async def streak_of(db, user_id: int, today: date) -> tuple[int, int, bool]:
 
 @registry.command("стрик", aliases=("серия", "активность"), usage="бот стрик [@ник]", section="profile",
                   summary="Сколько дней подряд вы активны и панель активности за 2 месяца.")
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md)
 async def cmd_streak(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
     uid = target.user_id if target else ctx.user_id
@@ -71,6 +72,6 @@ async def cmd_streak(ctx: Ctx) -> None:
         f"🔥 <b>{who} стрик: {current}</b>\n"
         f"Лучший: {best} · {status}\n\n"
         f"{heatmap(counts, today)}\n\n"
-        f"Активных дней за {WEEKS} недель: {active_days}\n"
-        f"{''.join(LEVELS)} — от тишины до пика"
+        f"Активных дней за {WEEKS} недель: <b>{active_days}</b>\n"
+        f"<i>{''.join(LEVELS)} — от тишины до пика</i>"
     )

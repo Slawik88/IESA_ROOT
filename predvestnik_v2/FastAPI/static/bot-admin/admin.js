@@ -34,9 +34,11 @@ function toast(text, bad = false) {
 function tabs(active) {
   $('#tabs').innerHTML = ME.sections.map(s =>
     `<button class="${s.key === active ? 'on' : ''}" data-tab="${s.key}">${esc(s.title)}</button>`).join('');
+  const on = $('#tabs .on'); if (on && on.scrollIntoView) on.scrollIntoView({inline: 'center', block: 'nearest'});
 }
 
 function open(key) {
+  if (TG && TG.BackButton) TG.BackButton.hide();
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
   const render = SECTIONS[key];
@@ -91,13 +93,24 @@ function actionForm(key, ctx) {
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
       () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
-              request_id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())})];
+              request_id: ctx._rid})];
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
-        <input id="fdays" type="number" min="1" max="3650" value="7"/></div>` + reasonField(),
-      () => ({days: +v('fdays'), reason: v('freason')})];
+        <input id="fdays" type="number" min="1" max="3650" value="7"/>
+        <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
+      () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
     case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
+    case 'mark_grant': {
+      const have = new Set(ctx.marks.given.map(m => m.id));
+      const free = ctx.marks.grantable.filter(m => !have.has(m.id));
+      return [`<div class="field"><label>Метка (в профиле — «Регалии»)</label><select id="fmark">
+        ${free.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)} — ${esc(m.desc)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
+    }
+    case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
+        ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
     case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
     case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
@@ -107,13 +120,16 @@ function actionForm(key, ctx) {
 }
 
 function runAction(action, target, ctx, extra, after) {
+  // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
+  ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
   const [body, collect] = actionForm(action.key, ctx);
   const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
   sheet(action.title, place + body, 'Выполнить', async () => {
     const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
     const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
     toast(res.message || 'Готово');
-    after();
+    const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
+    Promise.resolve(after()).then(() => window.scrollTo(0, keep));
   });
 }
 
@@ -128,7 +144,31 @@ function backBar(label = '← Назад') {
     <button class="btn" id="psearch">🔍 Поиск</button></div>`;
 }
 
+// Длинные списки в карточках (чаты игрока, журнал) показываем по 5 строк, остальное по кнопке: страница не растёт на экраны.
+function trim(main, keep = 5) {
+  main.querySelectorAll('.card').forEach(card => {
+    const rows = [...card.children].filter(n => n.matches('.member, .log'));
+    if (rows.length <= keep + 1) return;
+    rows.slice(keep).forEach(n => { n.hidden = true; });
+    const more = document.createElement('button');
+    more.className = 'btn small more'; more.textContent = `Показать ещё ${rows.length - keep}`;
+    more.onclick = () => { rows.forEach(n => { n.hidden = false; }); more.remove(); };
+    card.appendChild(more);
+  });
+}
+
+// Кнопка «назад» самого Telegram ведёт по карточкам так же, как «← Назад» на странице.
+function nativeBack(main) {
+  const bb = TG && TG.BackButton;
+  if (!bb) return;
+  if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
+  PEOPLE.bb = () => back(main);
+  bb.onClick(PEOPLE.bb); bb.show();
+}
+
 function wireBack(main) {
+  trim(main); nativeBack(main);
+  window.scrollTo(0, 0);
   $('#pback').onclick = () => back(main);
   $('#psearch').onclick = () => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
 }
@@ -143,10 +183,12 @@ function historyCard(items) {
 
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
+  if (TG && TG.BackButton) TG.BackButton.hide();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
+  if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
     PEOPLE.query = q;
@@ -190,6 +232,9 @@ async function playerView(main, id, push = true, from = null) {
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  const mk = p.marks || {given: [], earned: [], grantable: []};
+  if (!mk.given.length) hide.add('mark_revoke');
+  if (mk.given.length >= mk.grantable.length) hide.add('mark_grant');
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -210,6 +255,8 @@ async function playerView(main, id, push = true, from = null) {
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
+      ${mk.given.length || mk.earned.length ? `<div class="chips" style="margin-top:8px"><span class="sub">Метки:</span>
+        ${[...mk.given, ...mk.earned].map(m => `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
@@ -354,6 +401,15 @@ async function metricsView(main, days = 1) {
         ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
           <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
     </div>`;
+  main.querySelectorAll('table').forEach(t => {   // длинные таблицы (топ команд) по 8 строк, остальное по кнопке
+    const rows = [...t.querySelectorAll('tr')].slice(1);
+    if (rows.length <= 10) return;
+    rows.slice(8).forEach(r => { r.hidden = true; });
+    const more = document.createElement('button');
+    more.className = 'btn small more'; more.style.marginTop = '8px'; more.textContent = `Показать ещё ${rows.length - 8}`;
+    more.onclick = () => { rows.forEach(r => { r.hidden = false; }); more.remove(); };
+    t.after(more);
+  });
   main.querySelectorAll('[data-days]').forEach(btn => btn.onclick = () => metricsView(main, +btn.dataset.days));
   main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => {
     e.preventDefault(); tabs('people'); PEOPLE.stack = []; chatView(main, +a.dataset.chat);
@@ -361,6 +417,118 @@ async function metricsView(main, days = 1) {
 }
 
 SECTIONS.metrics = main => metricsView(main);
+
+// ── Жалобы ──────────────────────────────────────────────────────────────────
+
+async function reportsView(main, kind = 'open') {
+  const data = await api(`/reports?kind=${kind}`).catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  const c = data.counts;
+  const canPeople = ME.sections.some(z => z.key === 'people');
+  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
+  const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
+  main.innerHTML = `
+    <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
+      <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
+    ${data.items.length ? data.items.map(r => `<div class="card">
+      <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
+        <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
+      <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
+        <span class="sub">от ${person(r.reporter)}</span></div>
+      <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
+      ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
+      ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
+      ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
+        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">⚖️ Наказать</button>` : ''}
+        ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
+        <button class="btn small primary" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
+        <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>` : ''}
+    </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}`;
+  main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
+  main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {
+    e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +a.dataset.player);
+  });
+  const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
+  main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
+    const act = b.dataset.act;
+    const body = act === 'take' ? '<div class="sub">Жалоба будет помечена как ваша.</div>'
+      : `<div class="sub" style="margin-bottom:8px">Автору жалобы бот напишет в личку, чем всё закончилось.
+         Наказать нарушителя можно кнопкой «Наказать» (карточка игрока).</div>
+         <div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>`;
+    sheet(titles[act], body, 'Готово', async () => {
+      const res = await api(`/reports/${b.dataset.rep}`, {method: 'POST',
+        body: JSON.stringify({action: act, note: ($('#fnote') || {}).value || ''})});
+      toast(res.message || 'Готово');
+      reportsView(main, kind);
+    });
+  });
+}
+
+SECTIONS.reports = main => reportsView(main);
+
+// ── Рассылка ─────────────────────────────────────────────────────────────────
+
+// Предпросмотр HTML Telegram: всё экранируется, обратно включаются только теги, которые понимает Telegram.
+function tgHtml(text) {
+  return esc(text)
+    .replace(/&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g, '<$1$2>')
+    .replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/g, '<a href="$1" target="_blank" rel="noopener">')
+    .replace(/&lt;\/a&gt;/g, '</a>');
+}
+
+async function broadcastView(main) {
+  const data = await api('/broadcasts').catch(e => { toast(e.message, true); return null; });
+  if (!data) return;
+  const running = data.items.some(b => b.status === 'running');
+  main.innerHTML = `
+    <div class="card"><h3>📣 Новая рассылка</h3>
+      <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
+        `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <label class="sub" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="bhtml" checked/> HTML-разметка Telegram</label>
+      <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
+      <div class="sub" style="margin-top:6px">Предпросмотр</div><div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
+      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
+      <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
+        <button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
+      ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
+    </div>
+    <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
+      <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
+        ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
+        <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
+        <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
+  const html = () => $('#bhtml').checked;
+  const draw = () => { const t = $('#btext').value; $('#bprev').innerHTML = html() ? tgHtml(t) : esc(t); $('#bhelp').hidden = !html(); };
+  $('#btext').oninput = draw; $('#bhtml').onchange = draw; draw();
+  $('#btest').onclick = async () => {
+    const text = $('#btext').value.trim();
+    if (!text) { toast('Напишите текст.', true); return; }
+    $('#btest').disabled = true;
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: html()})})).message); }
+    catch (e) { toast(e.message, true); }
+    $('#btest').disabled = false;
+  };
+  $('#bgo').onclick = () => {
+    const audience = $('#baud').value, text = $('#btext').value.trim(), isHtml = html();
+    if (!text) { toast('Напишите текст.', true); return; }
+    const a = data.audiences.find(x => x.key === audience);
+    const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
+    sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
+      <div class="card" style="white-space:pre-wrap">${isHtml ? tgHtml(text) : esc(text)}</div>`, 'Отправить', async () => {
+      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, html: isHtml, request_id: rid})});
+      toast(res.message || 'Запущено');
+      broadcastView(main);
+    });
+  };
+  main.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => {
+    try { toast((await api(`/broadcasts/${b.dataset.stop}/stop`, {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
+    broadcastView(main);
+  });
+  if (running) setTimeout(() => { if ($('#bgo') && document.body.contains(main) && $('#tabs .on')?.dataset.tab === 'broadcast') broadcastView(main); }, 4000);
+}
+
+SECTIONS.broadcast = main => broadcastView(main);
 
 // ── Промокоды ────────────────────────────────────────────────────────────────
 
@@ -446,6 +614,37 @@ function localInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Выбор образа для награды: сетка карточек в цветах палитры образа (фон, кольцо, свечение), фильтр по тиру, поиск по названию.
+function skinCard(k, on) {
+  const [c1, c2, c3] = [...(k.pal || []), '#8b7cf6', '#8b7cf6', '#fff'];
+  return `<button type="button" class="skin ${on ? 'on' : ''}" data-skin="${esc(k.id)}" aria-pressed="${on}"
+    style="--sb:${esc(k.bg)};--s1:${esc(c1)};--s2:${esc(c2)};--s3:${esc(c3)}">
+    <span class="skin-art" style="background:${k.wash ? esc(k.wash) + ',' : ''}${esc(k.bg)}"><i class="skin-av"></i><b class="skin-t">${esc(k.tier)}</b></span>
+    <span class="skin-n">${esc(k.name)}</span></button>`;
+}
+function skinPicker(currentId, onPick) {
+  const box = $('#sheet'), all = OPTIONS.skins, tiers = ['Все', ...new Set(all.map(k => k.tier))];
+  let tier = 'Все', q = '';
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
+    <input id="skq" placeholder="Поиск по названию" autocomplete="off"/>
+    <div class="chips" id="skt"></div><div class="skin-grid" id="skg"></div>
+    <div class="actions" style="margin-top:12px"><button class="btn" id="skx">Закрыть</button></div></div>`;
+  box.hidden = false;
+  const draw = () => {
+    $('#skt').innerHTML = tiers.map(t => `<span class="chip ${t === tier ? 'ok' : ''}" data-tier="${esc(t)}">${esc(t)}</span>`).join('');
+    const list = all.filter(k => (tier === 'Все' || k.tier === tier) && k.name.toLowerCase().includes(q));
+    $('#skg').innerHTML = list.map(k => skinCard(k, k.id === currentId)).join('') || '<div class="sub">Ничего не нашлось</div>';
+  };
+  draw();
+  $('#skq').oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
+  $('#skt').onclick = e => { const c = e.target.closest('[data-tier]'); if (c) { tier = c.dataset.tier; draw(); } };
+  $('#skg').onclick = e => { const b = e.target.closest('[data-skin]'); if (b) { close(); onPick(b.dataset.skin); } };
+  $('#skx').onclick = close;
+  box.onclick = e => { if (e.target === box) close(); };
+  const on = $('#skg .skin.on'); if (on && on.scrollIntoView) on.scrollIntoView({block: 'center'});
+}
+
 async function promoEdit(main, p) {
   OPTIONS = OPTIONS || await api('/promo-options');
   const isNew = !p;
@@ -471,8 +670,9 @@ async function promoEdit(main, p) {
       <div class="field"><label>Где активировать: пусто — везде, иначе только в выбранных чатах</label>
         <input id="fchatq" placeholder="Найти чат по названию или ID"/><div class="found" id="fchatfound"></div>
         <div class="chips" id="fchats"></div></div>
-      <div class="field"><label>Только для игроков (ID через запятую, пусто — для всех)</label>
-        <input id="fusers" value="${p ? p.allowed_users.join(', ') : ''}"/></div>
+      <div class="field"><label>Только для игроков: пусто — для всех</label>
+        <input id="fuserq" placeholder="Найти игрока по @нику или ID"/><div class="found" id="fuserfound"></div>
+        <div class="chips" id="fusers"></div></div>
       <div class="field"><label>Заметка для себя</label><textarea id="fnote" maxlength="300">${esc(p ? p.note : '')}</textarea></div>
       <div class="actions"><button class="btn primary" id="fsave">${isNew ? 'Создать' : 'Сохранить'}</button></div>
     </div>`;
@@ -486,7 +686,7 @@ async function promoEdit(main, p) {
     $('#frewards').innerHTML = state.rewards.map((r, i) => {
       const opt = OPTIONS.rewards.find(o => o.type === r.type) || OPTIONS.rewards[0];
       const value = opt.field === 'id'
-        ? `<select data-i="${i}" data-k="id">${OPTIONS.skins.map(s => `<option value="${esc(s.id)}" ${s.id === r.id ? 'selected' : ''}>${esc(s.name)} · ${esc(s.tier)}</option>`).join('')}</select>`
+        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')(OPTIONS.skins.find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
         : `<input data-i="${i}" data-k="${opt.field}" type="number" min="0" step="${r.type === 'diamonds' ? '0.01' : '1'}" value="${esc(r[opt.field] ?? '')}" placeholder="Сколько"/>`;
       return `<div class="reward">
         <select data-i="${i}" data-k="type">${OPTIONS.rewards.map(o => `<option value="${o.type}" ${o.type === r.type ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select>
@@ -500,6 +700,10 @@ async function promoEdit(main, p) {
     else state.rewards[i][k] = e.target.value;
   });
   $('#frewards').addEventListener('input', e => { const i = +e.target.dataset.i; if (e.target.dataset.k && e.target.dataset.k !== 'type') state.rewards[i][e.target.dataset.k] = e.target.value; });
+  $('#frewards').addEventListener('click', e => {
+    const pk = e.target.closest('[data-pick]');
+    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => { state.rewards[+pk.dataset.pick].id = id; drawRewards(); });
+  });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
 
@@ -530,15 +734,42 @@ async function promoEdit(main, p) {
     drawChats();
   };
 
+  // Игроки-получатели: поиск по нику или ID и чипы, как у чатов (раньше нужно было вписывать ID через запятую).
+  const users = ((p && p.allowed_users) || []).map(id => ({id: +id, label: 'id' + id}));
+  const drawUsers = () => {
+    $('#fusers').innerHTML = users.length
+      ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
+      : '<span class="sub">Для всех игроков</span>';
+  };
+  drawUsers();
+  $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
+  let ut;
+  $('#fuserq').oninput = e => {
+    clearTimeout(ut);
+    const q = e.target.value.trim();
+    if (!q) { $('#fuserfound').innerHTML = ''; return; }
+    ut = setTimeout(async () => {
+      const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
+      $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
+        .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
+        || '<span class="sub">Не найдено</span>';
+    }, 250);
+  };
+  $('#fuserfound').onclick = e => {
+    const b = e.target.closest('[data-adduser]');
+    if (!b) return;
+    users.push({id: +b.dataset.adduser, label: b.dataset.label});
+    $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+    drawUsers();
+  };
+
   $('#fsave').onclick = async () => {
     const toIso = v => (v ? new Date(v).toISOString() : null);
-    const users = $('#fusers').value.split(/[\s,;]+/).filter(Boolean);
-    if (users.some(x => !/^\d+$/.test(x))) return toast('ID игроков — только цифры через запятую', true);
     const body = {
       code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code,
       rewards: state.rewards, max_activations: +$('#fmax').value || 0, is_active: $('#factive').checked,
       valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
-      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(Number), note: $('#fnote').value,
+      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(u => u.id), note: $('#fnote').value,
     };
     try {
       const saved = isNew
@@ -567,7 +798,7 @@ async function switchesView(main, chat = null) {
     const locked = chat && globalOff;
     const why = (localOff || globalOff || {}).reason;
     return `<div class="sw-row ${enabled ? '' : 'off'}">
-      <div class="t"><b>${esc(item.title)}</b>${item.hint ? `<div class="sub">${esc(item.hint)}</div>` : ''}
+      <div class="t"><b>${esc(item.title)}</b>${item.hint && item.hint !== 'Весь раздел' ? `<div class="sub">${esc(item.hint)}</div>` : ''}
         ${locked ? '<div class="locked">выключено везде — включается только во «Везде»</div>' : ''}
         ${!enabled && why ? `<div class="sub">Причина: ${esc(why)}</div>` : ''}</div>
       <label class="toggle"><input type="checkbox" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span></span></label>

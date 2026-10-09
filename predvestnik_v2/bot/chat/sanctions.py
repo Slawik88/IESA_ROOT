@@ -14,6 +14,7 @@ from aiogram.types import CallbackQuery, ChatPermissions, InlineKeyboardButton, 
 from bot.chat import ranks
 from bot.chat.framework import Ctx, registry
 from bot.chat.moderation import TG_FAIL, active_warns, commit, do_unban, log, revoke_all_warns
+from bot.chat.style import quote
 
 router = Router(name="chat_sanctions")
 PAGE = 8
@@ -88,7 +89,8 @@ async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, 
     pages = max(1, -(-len(rows) // PAGE))
     page = max(0, min(page, pages - 1))
     chunk = rows[page * PAGE:(page + 1) * PAGE]
-    lines = [f"📋 <b>{TABS[tab]}</b> · {len(rows)}"]
+    lines = [f"📋 <b>{TABS[tab]}</b> · {len(rows)}"]   # СТИЛЬ v1 (оформлено): строки списка одной цитатой
+    entries: list[str] = []
     if not rows:
         lines.append("\nСписок пуст.")
     kb: list[list[InlineKeyboardButton]] = []
@@ -98,7 +100,7 @@ async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, 
     kb.append(tabs[:3])
     kb.append(tabs[3:])
     for user_id, uname, detail in chunk:
-        lines.append(f"{html.escape(_name(user_id, uname))} · {html.escape(detail)}")
+        entries.append(f"<b>{html.escape(_name(user_id, uname))}</b> · {html.escape(detail)}")
         if tab != "kick":
             kb.append([InlineKeyboardButton(
                 text=f"{_name(user_id, uname).replace(chr(0x200b), '')} — открыть",
@@ -109,6 +111,8 @@ async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, 
             InlineKeyboardButton(text=f"{page + 1}/{pages}", callback_data="sn:noop"),
             InlineKeyboardButton(text="▶️", callback_data=SanCB(uid=uid, chat=chat, tab=tab, page=(page + 1) % pages).pack()),
         ])
+    if entries:
+        lines.append(quote(entries))
     return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=kb)
 
 
@@ -146,8 +150,10 @@ async def card_view(db, uid: int, chat: int, tab: str, page: int, user: int) -> 
         actions.append(b("Снять защиту", "unshield"))
     if len(lines) == 1:
         lines.append("Действующих санкций нет.")
+    else:
+        lines = [lines[0], quote(lines[1:])]
     who = f"@{uname}" if uname else f"id{user}"
-    lines.append(f"\nИзменить срок — повторите команду с новым сроком:\n<code>бот мут, {html.escape(who)} 2ч</code>")
+    lines.append(f"\n<i>Изменить срок — повторите команду с новым сроком:</i>\n<code>бот мут, {html.escape(who)} 2ч</code>")
     kb = [actions[i:i + 2] for i in range(0, len(actions), 2)]
     kb.append([InlineKeyboardButton(text="◀️ К списку", callback_data=SanCB(uid=uid, chat=chat, tab=tab, page=page).pack())])
     return "\n".join(lines), InlineKeyboardMarkup(inline_keyboard=kb)

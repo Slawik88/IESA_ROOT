@@ -18,7 +18,6 @@ from FastAPI.auth import (verify_preprod_browser_ticket, verify_webapp_data,
 from infrastructure.preprod import is_preprod, is_preprod_browser_test_user, require_preprod_user
 
 
-_SITE_OPEN = os.getenv("SITE_OPEN_TO_PLAYERS", "").strip().lower() in ("1", "true", "yes")
 _DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 _PREPROD_TEST_COOKIE = "predvestnik_preprod_test_session"
 
@@ -87,10 +86,10 @@ async def require_tg_user_base(
         # A Quick Tunnel is public by design; only explicitly listed test
         # accounts may mutate the isolated preprod database.
         raise HTTPException(status_code=403, detail="Тестовый стенд закрыт для этого аккаунта.")
-    # Сайт закрыт для игроков: пускаем только разработчика. Открыть обратно —
-    # переменная окружения SITE_OPEN_TO_PLAYERS=1.
-    if not _SITE_OPEN and not (_DEV_ID and int(user["id"]) == _DEV_ID):
-        raise HTTPException(status_code=503, detail="Сайт временно закрыт: идёт переработка. Скоро вернёмся.")
+    # Доступность Mini App управляется только сохранённым переключателем `site`
+    # из админ-панели (FastAPI.routers.bot_admin.switches.site_gate). Здесь
+    # остаётся только аутентификация: иначе переменная окружения могла навсегда
+    # перекрыть включение сайта из панели до следующего деплоя.
     _fire_and_forget(_capture_signals(int(user["id"]), request, x_client_fp))
     from services import presence_v1
     _fire_and_forget(presence_v1.note_activity(int(user["id"])))   # «был(а) в сети»: одна запись в минуту

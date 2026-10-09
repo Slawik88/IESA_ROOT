@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 
 from unittest import mock  # noqa: E402
 
-from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, TIERS, UPGRADE_ESSENCE  # noqa: E402
+from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, ESSENCE_PACKS, purchased_essence, TIERS, UPGRADE_ESSENCE  # noqa: E402
 from core.skins_v3_collection import featured_bonus, milestones, row_bonus, set_bonus  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
@@ -270,8 +270,8 @@ async def run(dsn: str) -> None:
         for n, (uid, amount) in enumerate(((twice, 300), (wiped, 700), (whale, 1200))):
             await economy_ledger.apply_balance_change(db, uid, {"zarniki": -amount}, reason_code="cosmetic_purchase", idempotency_key=f"old-x{n}", source_type="cosmetics", reference_type="cosmetic", reference_id="x")
         await db.execute("INSERT INTO retirement_compensation_receipts_v2(snapshot_id, user_id, applied_at) VALUES ('a', ?, NOW() - INTERVAL '1 hour'), ('b', ?, NOW() - INTERVAL '2 hours')", (twice, twice))
-        await db.execute("CREATE TABLE IF NOT EXISTS cosmetics_lineup_wipe_log (user_id BIGINT PRIMARY KEY, processed_at TIMESTAMP DEFAULT NOW())")
-        await db.execute("INSERT INTO cosmetics_lineup_wipe_log(user_id, processed_at) VALUES (?, NOW() + INTERVAL '1 hour')", (wiped,))
+        await db.execute("CREATE TABLE IF NOT EXISTS cosmetics_lineup_wipe_log (user_id BIGINT PRIMARY KEY, item_count INTEGER, base_zarniki BIGINT, bonus_zarniki BIGINT, total_zarniki BIGINT, detail_json TEXT, processed_at TIMESTAMP DEFAULT NOW())")
+        await db.execute("INSERT INTO cosmetics_lineup_wipe_log(user_id, item_count, base_zarniki, bonus_zarniki, total_zarniki, detail_json, processed_at) VALUES (?, 0, 0, 0, 0, '[]', NOW() + INTERVAL '1 hour')", (wiped,))
         plans = {p.user_id: p for p in await migration.build_plan(db)}
         assert plans[twice].refund == 300, "two receipts must not double the sum"
         assert plans[wiped].refund == 0, "a player the July wipe already refunded is not refunded again"
@@ -294,7 +294,26 @@ async def run(dsn: str) -> None:
                     os.environ.pop(key, None)
                 else:
                     os.environ[key] = value
-        print("OK: skins v3 buy/equip/upgrade/essence are idempotent; migration refunds exactly what was paid and archives the old system")
+        pack_user = 981010
+        await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?, 'packs', 1000) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=1000", (pack_user,))
+        for pack in ESSENCE_PACKS:
+            before_z = await zarniki(db, pack_user)
+            before_e = await repo.essence_balance(db, pack_user)
+            message, state = await skins.buy_essence(db, pack_user, pack, idempotency_key=f"pack-{pack}")
+            assert state["essence"]["balance"] == before_e + purchased_essence(pack)
+            assert await zarniki(db, pack_user) == before_z - pack
+            again, _ = await skins.buy_essence(db, pack_user, pack, idempotency_key=f"pack-{pack}")
+            assert again == message and await zarniki(db, pack_user) == before_z - pack
+        await expect_conflict(skins.buy_essence(db, pack_user, 30, idempotency_key="pack-20"), "другой покупки")
+        await expect_conflict(skins.buy_essence(db, pack_user, 10, idempotency_key="old-pack"), "набора")
+        before_e = await repo.essence_balance(db, pack_user)
+        await expect_conflict(skins.buy_essence(db, pack_user, 500, idempotency_key="poor"), "Нужно")
+        assert await repo.essence_balance(db, pack_user) == before_e and await zarniki(db, pack_user) == 120
+        await repo.essence_apply(db, pack_user, 120, reason="essence_purchase", reference="30z", idempotency_key="skin-v3:essence:old-rate")
+        message, _ = await skins.buy_essence(db, pack_user, 30, idempotency_key="old-rate")
+        assert message == "Получено 120 Эссенции." and await zarniki(db, pack_user) == 120
+        assert await repo.essence_balance(db, pack_user) == before_e + 120
+        print("OK: skins v3 purchases, six integer packs, old-rate replay, conflicts and rollback; migration refunds exactly once")
     finally:
         await outer.rollback()
         await connection.close()

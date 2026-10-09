@@ -49,6 +49,7 @@ function v3GiftToast(payloads, onDone) {
   (payloads || []).forEach(p => { (p?.gifts || []).forEach(g => gifts.push(g)); const r = String(p?.reason || '').trim(); if (r && !reasons.includes(r)) reasons.push(r); });
   if (!gifts.length) { if (onDone) onDone(); return; }
   v3GiftClose(true); _tgDone = onDone || null;
+  const head = (payloads || []).find(p => p?.title) || {};      // заголовок по умолчанию «Подарок от Администрации»; промокод задаёт свой (title, from, glyph)
   const ap = _tvLook(), moves = _v3Moves(), ti = ap ? ap.ti : 0, shown = gifts.slice(0, 5), more = gifts.length - shown.length;
   const skin = gifts.find(g => g.kind === 'skin' && /^[a-z_]{2,24}$/.test(String(g.skin_id || '')));
   const rows = shown.map((g, i) => {
@@ -63,7 +64,7 @@ function v3GiftToast(payloads, onDone) {
   host.setAttribute('style', ap ? ap.vars : ''); host.setAttribute('role', 'status');
   const ms = Math.min(15000, 8000 + shown.length * 1200 + (reasons.length ? 1500 : 0)); host.style.setProperty('--tv-ms', `${ms}ms`);
   host.innerHTML = `<i class="tg-sheen" aria-hidden="true"></i><div class="tg-burst" aria-hidden="true">${burst}</div>
-    <header class="tg-head"><span class="tg-ic" aria-hidden="true"><u></u>🎁</span><span class="tg-hd"><small>Подарок</small><b>От Администрации</b></span></header>
+    <header class="tg-head"><span class="tg-ic" aria-hidden="true"><u></u>${_profileEsc(head.glyph || '🎁')}</span><span class="tg-hd"><small>${_profileEsc(head.title || 'Подарок')}</small><b>${_profileEsc(head.from || 'От Администрации')}</b></span></header>
     <ul class="tg-rows">${rows}</ul>${reasons.length ? `<p class="tg-why"><small>Причина</small>${reasons.map(_profileEsc).join(' · ')}</p>` : ''}
     <div class="tg-act">${skin ? '<button type="button" class="tg-see">Смотреть образ</button>' : ''}<button type="button" class="tg-take">Забрать</button></div><i class="tg-time" aria-hidden="true"></i>`;
   const dlg = el('modal'); (dlg && dlg.open ? dlg : document.body).appendChild(host);

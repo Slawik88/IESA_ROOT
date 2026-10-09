@@ -26,6 +26,7 @@ from bot.chat.admin_chat import admin_chat_of, ping_line
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import FOREVER, TG_FAIL, active_warns, commit, do_ban, do_kick, do_mute, log
 from bot.chat.tracking import local_now, tz_delta
+from bot.chat.style import quote
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
 
@@ -188,16 +189,16 @@ VERDICTS = {
 
 def dossier_text(v: Violator, chat_title: str) -> str:
     name = f"@{v.username}" if v.username else f"id{v.user_id}"
-    lines = [
-        f"📁 <b>Досье</b> · {html.escape(chat_title)}",
-        f'<a href="tg://user?id={v.user_id}">{html.escape(name)}</a>',
+    facts = [
         f"Сообщений за период: <b>{v.count}</b> из {v.required}",
-        f"Всего сообщений: {v.total} · в чате {v.days_in_chat} дн",
-        f"Действующих варнов: {v.warns}",
+        f"Всего сообщений: <b>{v.total}</b> · в чате {v.days_in_chat} дн",
+        f"Действующих варнов: <b>{v.warns}</b>",
     ]
     if v.note:
-        lines.append(f"Учтено: {html.escape(v.note)}")
-    return "\n".join(lines)
+        facts.append(f"Учтено: <i>{html.escape(v.note)}</i>")
+    # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): игрок ссылкой (пинг нужен), факты цитатой
+    return (f"📁 <b>Досье</b> · {html.escape(chat_title)}\n"
+            f'👤 <a href="tg://user?id={v.user_id}">{html.escape(name)}</a>\n' + quote(facts))
 
 
 def dossier_kb(session_id: int, user_id: int) -> InlineKeyboardMarkup:
@@ -270,10 +271,10 @@ async def cmd_purge(ctx: Ctx) -> None:
     await mafia.pause_for_purge(ctx.db, ctx.bot, chat.id, getattr(ctx.message, "message_thread_id", None))
     _hush[chat.id] = 0
     await ctx.reply(
-        "🧹 <b>Чистка началась</b>\n"
-        f"Период: {fmt(plan.start)} – {fmt(plan.end)} · норма {plan.norm}\n"
-        f"Не набрали норму: <b>{len(violators)}</b>\n\n"
-        "Чат закрыт до конца чистки."
+        "🧹 <b>Чистка началась</b>\n"   # СТИЛЬ v1 (оформлено)
+        + quote([f"Период: {fmt(plan.start)} – {fmt(plan.end)} · норма {plan.norm}",
+                 f"Не набрали норму: <b>{len(violators)}</b>"])
+        + "\n🔒 Чат закрыт до конца чистки."
     )
     if dest != chat.id or violators:
         head = (f"🧹 <b>Чистка в «{html.escape(chat.title or '')}»</b>\n"
@@ -306,7 +307,7 @@ def summary_lines(c: dict[str, int]) -> str:
                        ("mute", "🔇 Замучено"), ("forgive", "🕊 Прощено"), ("none", "⏳ Без решения")):
         if c.get(key):
             parts.append(f"{label}: {c[key]}")
-    return "\n".join(parts)
+    return quote(parts)   # СТИЛЬ v1 (оформлено): итоги чистки цитатой
 
 
 async def finish(ctx: Ctx) -> None:
@@ -324,7 +325,7 @@ async def finish(ctx: Ctx) -> None:
     await log(ctx.db, chat_id, 0, ctx.user_id, "purge_finish")
     await commit(ctx.db)
     _hush.pop(chat_id, None)
-    await ctx.message.answer("✅ <b>Чистка завершена, чат открыт</b>\n\n" + summary_lines(counts), parse_mode="HTML")
+    await ctx.message.answer("✅ <b>Чистка завершена, чат открыт</b>\n" + summary_lines(counts), parse_mode="HTML")
 
 
 # ── Тишина во время чистки ────────────────────────────────────────────────

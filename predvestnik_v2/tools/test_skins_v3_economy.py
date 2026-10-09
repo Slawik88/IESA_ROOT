@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from core.skins_v3 import (BONUS_SHARE, BUY_PRICE_ZARNIKI, CEILING, signature_tier, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK,  # noqa: E402
+from core.skins_v3 import (BONUS_SHARE, BONUS_ESSENCE_RATE, BUY_PRICE_ZARNIKI, CEILING, signature_tier, ESSENCE_PACKS, ESSENCE_PER_ZARNIK, ESSENCE_QUEST_REWARD, FEATURED_SHARE, FREE_ESSENCE_PER_WEEK, purchased_essence,  # noqa: E402
                            TIERS, UPGRADE_ESSENCE, essence_zarniki, free_weeks, full_price, tier_index, total_upgrade_cost, upgrade_cost)
 from core.skins_v3_catalog import EXCLUSIVE_HOLDERS, SEASONS, SETS, SKINS  # noqa: E402
 from services.skins_v3 import look_payload  # noqa: E402
@@ -42,6 +42,12 @@ def prices() -> None:
 
 
 def essence_rate_has_no_discount() -> None:
+    check(ESSENCE_PACKS == (20, 30, 50, 80, 200, 500), "owner-approved pack sizes")
+    check([purchased_essence(n) for n in ESSENCE_PACKS] == [50, 75, 125, 200, 500, 1250], "exact integer credits at 5/2")
+    check(all(isinstance(purchased_essence(n), int) for n in ESSENCE_PACKS), "ledger amounts stay integer")
+    for essence in range(1, 101):
+        cost = essence_zarniki(essence)
+        check(cost * 5 >= essence * 2 and (cost - 1) * 5 < essence * 2, "conversion rounds up exactly")
     check(ESSENCE_PACKS == tuple(sorted(set(ESSENCE_PACKS))), "packs must be unique and ascending")
     # a pack is always `n * rate` Essence; the service never reads another formula (see services.skins_v3.buy_essence),
     # so the Zarniki price of one Essence is the same for every pack
@@ -74,6 +80,8 @@ def every_skin_reaches_the_last_tier() -> None:
 
 
 def free_essence_is_small() -> None:
+    # Подарки остаются прежними; при новом курсе их стоимость в Зарниках выше в 4/2,5 раза.
+    bonus_value_scale = BONUS_ESSENCE_RATE / ESSENCE_PER_ZARNIK
     year = ESSENCE_QUEST_REWARD["daily"] * 365 + (ESSENCE_QUEST_REWARD["weekly"] + ESSENCE_QUEST_REWARD["combined"]) * 52
     reach = 0
     for tier in TIERS[1:]:
@@ -84,17 +92,17 @@ def free_essence_is_small() -> None:
     check(year < total_upgrade_cost("S") * 2, "a year of quests must stay well below two S chains")
     catalog_price = sum(BUY_PRICE_ZARNIKI[s["tier"]] for s in SKINS.values() if not s["exclusive"])   # a personal skin is not for sale
     free = essence_zarniki(total_one_time_essence())
-    check(free <= 0.06 * catalog_price, f"all one-time Essence bonuses are worth {free}, over 6% of the whole catalog ({catalog_price})")
+    check(free <= 0.06 * bonus_value_scale * catalog_price, f"preserved one-time gifts exceed the historical grant budget: {free}")
     for sid, st in SETS.items():
         cost = sum(BUY_PRICE_ZARNIKI[SKINS[m]["tier"]] for m in st["members"])
-        check(essence_zarniki(set_bonus(sid)) <= 0.05 * cost, f"set {sid}: bonus {set_bonus(sid)} is over 5% of its price {cost}")
+        check(essence_zarniki(set_bonus(sid)) <= 0.05 * bonus_value_scale * cost, f"set {sid}: preserved gift exceeds historical budget")
     for tier in TIERS:
         if row_members(tier):
             cost = sum(BUY_PRICE_ZARNIKI[SKINS[m]["tier"]] for m in row_members(tier))
-            check(essence_zarniki(row_bonus(tier)) <= 0.05 * cost, f"row {tier}: bonus {row_bonus(tier)} is over 5% of its price {cost}")
+            check(essence_zarniki(row_bonus(tier)) <= 0.05 * bonus_value_scale * cost, f"row {tier}: preserved gift exceeds historical budget")
     for sid in PERMANENT:
         price = BUY_PRICE_ZARNIKI[SKINS[sid]["tier"]]
-        check(essence_zarniki(featured_bonus(sid)) <= 0.06 * price + 3, f"{sid}: skin-of-the-week gift {featured_bonus(sid)} is over 6% of the price")
+        check(essence_zarniki(featured_bonus(sid)) <= 0.06 * bonus_value_scale * price + 3, f"{sid}: preserved weekly gift exceeds historical budget")
     check(BONUS_SHARE <= 0.05 and ROW_SHARE <= 0.05 and FEATURED_SHARE <= 0.06, "bonus shares were raised above the agreed ceiling")
     check(all(a["at"] < b["at"] for a, b in zip(milestones(), milestones()[1:])), "collection steps must ascend")
     check(milestones()[-1]["at"] == len(PERMANENT), "the last collection step is every permanent skin")

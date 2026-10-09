@@ -7,63 +7,6 @@ function _profileDate(value){
   const parsed=new Date(value);
   return Number.isNaN(parsed.getTime())?_profileEsc(String(value).replace('T',' ').slice(0,16)):parsed.toLocaleDateString('ru-RU');
 }
-function _profileDuration(ms){
-  if(ms===null||ms===undefined) return '—';
-  const seconds=Math.max(0,Math.round(Number(ms)/1000));
-  return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;
-}
-function _profileSanctions(data){
-  const sanctions=data?.sanctions||{}, active=sanctions.active_global;
-  const activeHtml=active
-    ?`<div class="profile-detail-alert"><b>${_profileEsc(active.label||active.type||'Ограничение')}</b>${active.reason?`<span>${_profileEsc(active.reason)}</span>`:''}${active.expires_at?`<small>до ${_profileDate(active.expires_at)}</small>`:''}</div>`
-    :'<div class="profile-clean-state"><span>✓</span><div><b>Профиль без ограничений</b><small>Активных глобальных санкций нет</small></div></div>';
-  const history=(sanctions.history||[]).map(item=>`<li><b>${_profileEsc(item.label||item.type||'Ограничение')}</b>${item.reason?` — ${_profileEsc(item.reason)}`:''}<small>${_profileDate(item.created_at)}${item.revoked_at?' · снято':''}${item.expires_at?` · до ${_profileDate(item.expires_at)}`:''}</small></li>`).join('')||'<li>История ограничений пуста.</li>';
-  return `<section class="profile-detail-section profile-zone profile-zone--safety"><header><span>🛡</span><div><small>Безопасность аккаунта</small><h3>Санкции</h3></div></header>${activeHtml}<div class="profile-safety-stats"><span><small>Предупреждения</small><b>${fmt(sanctions.chat_warning_total||0)}</b></span><span><small>Активный мут</small><b>${sanctions.chat_mute_until?_profileDate(sanctions.chat_mute_until):'Нет'}</b></span></div><details class="profile-history"><summary>Показать историю</summary><ul>${history}</ul></details></section>`;
-}
-function renderProfileDetails(data,{owner=false}={}){
-  const d=data||{}, games=d.game_results||{}, rhythm=games.rhythm||{}, mines=games.minesweeper||{}, mafia=games.mafia||{};
-  const best=mines.best_ms||{};
-  const unranked=owner&&Number(rhythm.personal_unranked_runs)>0
-    ?`<small>${fmt(rhythm.personal_unranked_runs)} личных забегов не участвуют в рейтинге</small>`:'';
-  const gameCards=`<div class="profile-game-grid">
-    <article class="profile-game profile-game--rhythm"><span class="profile-game-icon">ᚱ</span><div><b>Ритм</b><strong>${rhythm.best_verified_score==null?'—':fmt(rhythm.best_verified_score)}</strong><small>лучший подтверждённый счёт</small><em>${fmt(rhythm.verified_runs||0)} забегов в рейтинге</em>${unranked}</div></article>
-    <article class="profile-game profile-game--mines"><span class="profile-game-icon">▦</span><div><b>Сапёр</b><strong>${fmt(mines.wins||0)} <i>/ ${fmt(mines.played||0)}</i></strong><small>победы / партии</small><em>Лучшее: ${_profileDuration(best.easy)} · ${_profileDuration(best.normal)} · ${_profileDuration(best.hard)}</em></div></article>
-    <article class="profile-game profile-game--mafia"><span class="profile-game-icon">◈</span><div><b>Мафия</b><strong>${fmt(mafia.wins||0)} <i>/ ${fmt(mafia.played||0)}</i></strong><small>победы / завершённые матчи</small><em>Засчитаны только завершённые партии</em></div></article>
-  </div>`;
-  const paths=d.achievement_paths?.families||[];
-  const achievementRows=paths.map((path,index)=>{const level=Number(path.level)||0,max=Math.max(1,Number(path.max_level)||40),pct=Math.min(100,Math.round(level/max*100));return `<li style="--path:${pct}%"><span class="profile-path-icon">${['◉','◇','✦','⌁','△'][index%5]}</span><div><b>${_profileEsc(path.title||path.id)}</b><small>${fmt(path.completed_events||0)} событий · ${fmt(path.active_weeks||0)} недель</small><i><span></span></i></div><strong>${fmt(level)}<small> / ${fmt(max)}</small></strong></li>`;}).join('')||'<li class="profile-empty-row">Прогресс появится после первой активности.</li>';
-  const pets=(d.pets||[]).map(pet=>`<article class="profile-social-pet${pet.active?' is-active':''}"><span>${pet.active?'●':'🐾'}</span><div><small>${pet.active?'Активный спутник':'Питомец'}</small><b>${_profileEsc(pet.name||'Питомец')}</b><em>${_profileEsc(pet.rarity||'Обычный')}${pet.level?` · уровень ${fmt(pet.level)}`:''}</em></div></article>`).join('')||'<div class="profile-social-empty"><span>🐾</span><p>Питомцев пока нет</p></div>';
-  const clan=d.clan?`${_profileEsc(d.clan.emblem||'')} ${_profileEsc(d.clan.name||d.clan.tag||'Клан')}`.trim():'Нет';
-  const publicVip=!owner&&d.vip?`<span><small>VIP</small><b>${_profileEsc(d.vip.label||d.vip.tier||'Активен')}</b><em>${fmt(d.vip.days_left||0)} дн.</em></span>`:'';
-  return `<section class="profile-detail-section profile-zone profile-zone--games"><header><span>🎮</span><div><small>Личные рекорды</small><h3>Утверждённые игры</h3></div>${owner?'<button type="button" onclick="goTo(\'arena\',\'game\')">Играть →</button>':''}</header>${gameCards}</section>
-    <section class="profile-detail-section profile-zone profile-zone--progress"><header><span>🏅</span><div><small>Путь игрока</small><h3>Прогресс и достижения</h3></div>${owner?'<button type="button" onclick="openAchievementsV1()">Все →</button>':''}</header><div class="profile-progress-summary"><span><b>${fmt(d.messages_all_time||0)}</b><small>сообщений</small></span><span><b>${fmt(d.achievement_paths?.total_levels||0)}</b><small>уровней</small></span><span><b>${_profileDate(d.joined_date)}</b><small>в проекте с</small></span></div><ul class="profile-paths">${achievementRows}</ul></section>
-    <section class="profile-detail-section profile-zone profile-zone--social"><header><span>🌌</span><div><small>Люди и спутники</small><h3>Социальный профиль</h3></div>${owner?'<button type="button" onclick="openPetsV1()">Бестиарий →</button>':''}</header><div class="profile-social-identity"><span><small>Статус</small><b>${_profileEsc(d.rank||'Игрок')}</b></span>${publicVip}${owner?'':`<span><small>Клан</small><b>${clan}</b></span>`}<span><small>Партнёр</small><b>${_profileEsc(d.partner||'Нет')}</b></span></div><div class="profile-social-pets">${pets}</div></section>
-    ${_profileSanctions(d)}`;
-}
-function _profileVipCard(vip){
-  if(!vip)return '';   // покупка VIP недоступна: роутер /vip/* не подключён
-  const expires=vip.expires_at?_profileDate(vip.expires_at):'';
-  return `<section class="profile-vip-card" aria-label="VIP активен, осталось ${fmt(vip.days_left||0)} дней"><span class="profile-vip-gem" aria-hidden="true">✦</span><div><small>VIP активен</small><b>${_profileEsc(vip.label||vip.tier||'VIP')}</b><p>${fmt(vip.days_left||0)} дн. осталось${expires?` · до ${expires}`:''}</p></div><strong>${fmt(vip.days_left||0)}<small>дней</small></strong></section>`;
-}
-function _profileCompensationCard(c,userId){
-  if(!c)return'';
-  const total=Number(c.zarniki_added)||0,summary=c.source_summary||{},old=summary.old_balances||{},counts=summary.retired_counts||{};
-  const sources=[['🎨','Косметика',c.cosmetics_zarniki],['🌌','Темы',c.themes_zarniki],['🎁','Донат-предметы',c.donate_inventory_zarniki],['↺','Обмен Зарников',c.retired_exchange_zarniki]].filter(x=>Number(x[2])>0);
-  const retired=[['Предметы',counts.inventory],['Питомцы',counts.pets],['Боевые единицы',counts.units],['Реликвии',counts.relics]].filter(x=>Number(x[1])>0);
-  const key=`predvestnik-compensation-seen:${userId}:${c.snapshot_id}`;
-  let first=false;try{first=!localStorage.getItem(key);if(first)localStorage.setItem(key,'1');}catch(_){ }
-  return `<section class="migration-card${first?' is-animating':''}" data-compensation-card>
-    <header><span aria-hidden="true">✦</span><div><small>Переход завершён</small><h3>Ваши ресурсы сохранены</h3></div><button type="button" onclick="replayCompensationAnimation(this)" aria-label="Повторить анимацию переноса">↻</button></header>
-    <p>Старые системы закрыты, но их ценность не пропала. Вот ваша личная квитанция переноса.</p>
-    <div class="migration-result"><span>✨</span><div><small>Компенсация в Зарниках</small><b>+${fmt(total)}</b><p>${fmt(c.zarniki_carry||0)} прежних Зарников сохранены отдельно</p></div></div>
-    ${sources.length?`<div class="migration-sources">${sources.map(x=>`<div class="migration-source"><span>${x[0]}</span><b>${_profileEsc(x[1])}</b><small>→ ${fmt(x[2])} ✨</small></div>`).join('')}</div>`:''}
-    <div class="migration-balance-flow"><div><span>🪙 Мора</span><b>${fmt(old.mora||0)} <i>→</i> ${fmt(c.mora_compensation||0)}</b><small>по снимку переноса</small></div><div><span>💎 Алмазы</span><b>${fmt(old.diamonds||0)} <i>→</i> ${fmt(c.diamonds_compensation||0)}</b><small>по снимку переноса</small></div></div>
-    ${retired.length?`<div class="migration-retired"><small>Старый прогресс учтён</small>${retired.map(x=>`<span><b>${fmt(x[1])}</b> ${_profileEsc(x[0])}</span>`).join('')}</div>`:''}
-    <div class="migration-awards"><div><span>👑</span><b>${fmt(c.vip_preserved_days||0)}</b><small>дн. VIP сохранено</small></div><div><span>✦</span><b>+${fmt(c.vip_bonus_days||0)}</b><small>дн. VIP за прогресс</small></div><div><span>◈</span><b>${fmt(c.legacy_score||0)}</b><small>баллов учтено</small></div></div>
-    <details><summary>Как рассчитано</summary><p>Обычные предметы, питомцы, боевые единицы, реликвии и старые валюты переведены в общий балл прогресса. По зафиксированному снимку из него рассчитаны ограниченные значения Моры и Алмазов, а оставшаяся ценность — бонусный VIP с уменьшающимся курсом. Действия после снимка сохраняются отдельно, поэтому текущий кошелёк может отличаться. Тёмная Мора (${fmt(old.dark_mora||0)}) и старые кристаллы (${fmt(old.crystals||0)}) больше не являются активными валютами.</p></details>
-  </section>`;
-}
-window.replayCompensationAnimation=function(button){const card=button?.closest('[data-compensation-card]');if(!card)return;card.classList.remove('is-animating');void card.offsetWidth;card.classList.add('is-animating');};
 function loadProfile() {
   setTimeout(v3PaintCachedProfile, 0);   // после загрузки всех частей скрипта (loadProfile вызывается раньше app.15–19): кэш или скелет
   return api('/profile/me').then(d=>{
@@ -71,33 +14,26 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    const adminEntry=el('v3-admin-entry');
+    if(adminEntry) adminEntry.hidden=!d.is_developer;
     if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
     if(typeof v3ApplyLook==='function') v3ApplyLook(d.look);
     // A profile response is authoritative. Optional decorations must never
     // turn it into the misleading “write the bot to create a profile” state.
     try { _applySysFlags(d.system_flags); } catch (_) {}
-    const uid = d.user_id || _uid;
-    el('pro-main').innerHTML=`
-      ${renderProfileHome(d)}
-      ${_profileCompensationCard(d.compensation,uid)}
-      <details class="v3-more"><summary>Подробнее о профиле</summary>
-        ${_profileVipCard(d.vip)}
-        ${renderProfileDetails(d,{owner:true})}
-        <div id="pro-marriage-card"><div class="sk" style="height:90px;border-radius:var(--r)"></div></div>
-        <div id="pro-nick-card"></div>
-        <div id="wallet-mini"></div>
-      </details>`;
+    el('pro-main').innerHTML=renderProfileHome(d);
     if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
     try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
-    try { loadMarriageCard(); } catch (_) {}
-    try { loadNickCard(); } catch (_) {}
-    try { loadWalletMini(); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
     try { updateCurrBar(d); } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+}
+
+function openBotAdmin(){
+  location.href=`${BASE}/bot-admin`;
 }
 
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────
@@ -351,35 +287,35 @@ function showCurrModal() {
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
-        <div class="cm-name">Мора <span class="cm-val">${fmtF(mora)}</span></div>
+        <div class="cm-name">Мора <span class="cm-val" id="cm-bal-mora">${fmtF(mora)}</span></div>
         <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
-        <div class="cm-name">Алмазы <span class="cm-val">${fmtF(dia)}</span></div>
+        <div class="cm-name">Алмазы <span class="cm-val" id="cm-bal-diamonds">${fmtF(dia)}</span></div>
         <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💧</div>
       <div class="cm-info">
-        <div class="cm-name">Эссенция <span class="cm-val">${fmtF(d.essence ?? 0)}</span></div>
+        <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtF(d.essence ?? 0)}</span></div>
         <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
-        <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
+        <div class="cm-name">Тёмная Мора <span class="cm-val" id="cm-bal-dark_mora">${fmtF(dark)}</span></div>
         <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">✨</div>
       <div class="cm-info">
-        <div class="cm-name">Зарники <span class="cm-val">${fmtF(zar)}</span></div>
+        <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtF(zar)}</span></div>
         <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
       </div>
     </div>
@@ -422,17 +358,16 @@ function showCurrBar(show) {
 
 el('curr-bar')?.addEventListener('click', showCurrModal);
 
-// Refresh bar data from server (called on a slow timer + реактивно после мутаций, см. app.01.js api())
+// Reconciliation read: initial load and a real WebSocket reconnect only.
+// Normal changes arrive as exact transactional `balance_changed` events.
 function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
   api('/profile/me').then(d => {
     updateCurrBar(d);
-      if(d.mora!==undefined) _profileData = {...(_profileData||{}),
-        mora:d.mora, diamonds:d.diamonds, zarniki:d.zarniki, dark_mora:d.dark_mora};
+    _profileData = {...(_profileData||{}), ...d};
     _profileSyncStats(d);
   }).catch(()=>{});
 }
-setInterval(refreshCurrBar, 90000); // every 90s
 // Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Стрик) —
 // БЕЗ полного loadProfile() (это дёрнуло бы скелетон-лоадер и пересборку всей карточки).
 // Раньше эти карточки обновлялись только раз в 5 мин (setInterval в app.06.js) или
@@ -445,6 +380,12 @@ function _profileSyncStats(d){
   set('pro-stat-zar', Math.floor(d.zarniki||0));
   set('pro-stat-ach', d.achievements);
   set('pro-stat-streak', d.streak);
+  const metric=(key,val,short=false)=>{
+    const n=document.querySelector(`#pro-main [data-key="${key}"]`);if(!n||val==null)return;
+    n.dataset.n=String(Number(val)||0);n.textContent=short?_v3Short(val):fmt(val);
+  };
+  metric('mora',d.mora);metric('streak',d.streak);metric('ach',d.achievements);
+  metric('msgs',d.messages_all_time,true);
 }
 
 // Legacy achievement instructions were deliberately removed: several pointed

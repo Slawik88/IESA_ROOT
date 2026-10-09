@@ -75,12 +75,13 @@ function _svZarniki() {
   const pk = _sv.pk, pack = (pk?.packages || []).find(p => Number(p.stars) === _sv.sel);
   if (!pk) return '';
   const off = pk.purchase_enabled === false;
-  return `<section class="sv-bal-wrap"><span class="v3-eyebrow">На счёте</span><b class="sv-bal">${fmt(_svBal())} <i>✨</i></b><p class="sv-lead">Нужны для образов, сетов и VIP. Цена видна заранее, случайных наград нет.</p></section>
+  return `<p class="sv-lead">Образы, Эссенция и VIP за Зарники.</p>
     ${_sv.paid ? `<p class="sv-ok" role="status"><b>+${fmt(_sv.paid)} ✨</b> зачислено${_sv.goal && _svItem(_sv.goal) && !_svItem(_sv.goal).owned ? ` <button type="button" class="v3-link" onclick="navBack()">К образу ›</button>` : ''}</p>` : ''}
-    <div class="sv-sec"><span class="v3-eyebrow">Пополнить</span></div>${_svPacks()}${_svReachHtml(pack)}
+    <div class="sv-sec"><span class="v3-eyebrow">Пополнить</span></div>${_svPacks()}
     ${off ? `<p class="sv-fine">${pk.purchase_disabled_reason === 'preprod' ? 'На тестовом стенде платежи отключены. В продакшене пополнение работает.' : 'Пополнение сейчас недоступно.'}</p>`
       : `<button type="button" class="v3-pill sv-buy${_sv.busy ? ' is-busy' : ''}" ${_sv.busy || !pack ? 'disabled' : ''} onclick="svPay()">${_sv.busy ? 'Открываем оплату…' : pack ? `Купить ${fmt(pack.total)} ✨ · ${fmt(pack.stars)} ⭐` : 'Выберите пакет'}</button>
-      <p class="sv-fine">Оплата Telegram Stars откроется внутри Telegram, баланс обновится сам.</p>`}`;
+      <p class="sv-fine">Оплата в Telegram Stars. Зачисление после оплаты.</p>`}
+    ${_svReachHtml(pack)}`;
 }
 async function svPay() {
   const stars = _sv.sel, pack = (_sv.pk?.packages || []).find(p => Number(p.stars) === stars);
@@ -204,7 +205,7 @@ function svBadgeSet(field, value) {
 }
 function _svVip() {
   const v = _sv.vip; if (!v) return `<p class="sv-lead">VIP сейчас недоступен.</p>`;
-  return `${_svStatus(v)}${_svMission(v)}${_svSee()}<div class="sv-sec"><span class="v3-eyebrow">Что даёт</span></div>${_svPerks(v)}${_svTerms(v)}${_svBadge(v)}`;
+  return `${_svStatus(v)}${_svTerms(v)}${_svMission(v)}<details class="sv-details"><summary>Что даёт VIP</summary>${_svPerks(v)}</details><details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`;
 }
 
 function _svRender() {
@@ -212,5 +213,6 @@ function _svRender() {
   const body = _sv.loading ? '<div class="sv-skel" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'
     : _sv.failed ? `<div class="v3-empty">${_profileEsc(_sv.failed)} <button type="button" class="v3-link" onclick="openStoreV3('${_sv.tab}')">Повторить</button></div>`
     : _sv.tab === 'vip' ? _svVip() : _svZarniki();
-  root.innerHTML = `<div class="v3-scope lk-scope sv-scope">${_svTop()}${body}</div>`;
+  root.innerHTML = `<div class="v3-scope lk-scope sv-scope v3-stagger">${_svTop()}${body}</div>`;
+  v3EnterSync(root);
 }

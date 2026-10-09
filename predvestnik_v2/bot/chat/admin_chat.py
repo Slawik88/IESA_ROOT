@@ -79,9 +79,9 @@ async def cmd_bind_start(ctx: Ctx) -> None:
     )
     await ranks._commit(ctx.db)
     await ctx.reply(
-        "🔗 <b>Привязка админ-чата</b>\n\n"
+        "🔗 <b>Привязка админ-чата</b>\n"   # СТИЛЬ v1 (оформлено)
         "Добавьте бота в админ-чат и напишите там в течение 10 минут:\n"
-        f"<code>бот админ чат {token}</code>"
+        f"<blockquote><code>бот админ чат {token}</code></blockquote>"
     )
 
 

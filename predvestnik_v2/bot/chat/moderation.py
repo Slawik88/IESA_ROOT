@@ -19,6 +19,7 @@ from bot.chat.access import is_developer
 from bot.chat.admin_chat import send_admin
 from bot.chat.durations import FOREVER, human, split_duration
 from bot.chat.framework import Ctx, UsageError, registry
+from bot.chat.style import quote, reason_quote
 from bot.chat.targets import Target, resolve_target
 
 router = Router(name="chat_moderation")
@@ -160,10 +161,7 @@ async def cmd_warn(ctx: Ctx) -> None:
     await commit(ctx.db)
     count, limit = len(await active_warns(ctx.db, chat_id, target.user_id)), await warn_limit(ctx.db, chat_id)
     kind = f"на {human(dur)}" if isinstance(dur, timedelta) else "бессрочный"
-    text = f"⚠️ {esc(target.label())} получает варн ({count}/{limit}), {kind}."
-    if reason:
-        text += f"\nПричина: {esc(reason)}"
-    await ctx.reply(text)
+    await ctx.reply(f"⚠️ <b>{esc(target.label())}</b> получает варн ({count}/{limit}), {kind}." + reason_quote(reason))
     if count >= limit:
         await send_admin(
             ctx.bot, ctx.db, chat_id,
@@ -186,14 +184,14 @@ async def cmd_unwarn(ctx: Ctx) -> None:
     )
     await log(ctx.db, chat_id, target.user_id, ctx.user_id, "unwarn")
     await commit(ctx.db)
-    await ctx.reply(f"✅ С {esc(target.label())} снят варн. Осталось: {len(warns) - 1}.")
+    await ctx.reply(f"✅ С <b>{esc(target.label())}</b> снят варн. Осталось: {len(warns) - 1}.")
 
 
 @moderation_command("снять варны", usage="бот снять варны, @ник", summary="Снять все действующие варны.")
 async def cmd_unwarn_all(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unwarn", "бот снять варны, @ник", punish=False)
     n = await revoke_all_warns(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
-    await ctx.reply(f"✅ С {esc(target.label())} снято варнов: {n}.")
+    await ctx.reply(f"✅ С <b>{esc(target.label())}</b> снято варнов: {n}.")
 
 
 async def revoke_all_warns(db, chat_id: int, user_id: int, admin_id: int) -> int:
@@ -223,12 +221,12 @@ async def cmd_warns(ctx: Ctx) -> None:
     if not warns:
         await ctx.reply(f"{esc(label)}: действующих варнов нет. Лимит чата: {limit}.")
         return
-    lines = [f"⚠️ <b>Варны</b> {esc(label)}: {len(warns)}/{limit}"]
+    rows = []
     for i, (_, reason, created, expires, _) in enumerate(warns, 1):
         when = created.strftime("%d.%m") if created else ""
         till = f"до {expires.strftime('%d.%m %H:%M')}" if expires else "бессрочный"
-        lines.append(f"{i}. {when} · {till}" + (f"\n   {esc(reason)}" if reason else ""))
-    await ctx.reply("\n".join(lines))
+        rows.append(f"<b>{i}.</b> {when} · {till}" + (f"\n     <i>{esc(reason)}</i>" if reason else ""))
+    await ctx.reply(f"⚠️ <b>Варны</b> {esc(label)}: {len(warns)}/{limit}\n" + quote(rows))
 
 
 @registry.command(
@@ -283,15 +281,14 @@ async def cmd_mute(ctx: Ctx) -> None:
     if dur is None:
         raise UsageError(usage + "\nСрок обязателен: 30м, 2ч, 5д или навсегда")
     await do_mute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, dur, reason)
-    text = f"🔇 {esc(target.label())} не может писать {('на ' + human(dur)) if dur != FOREVER else 'бессрочно'}."
-    await ctx.reply(text + (f"\nПричина: {esc(reason)}" if reason else ""))
+    await ctx.reply(f"🔇 <b>{esc(target.label())}</b> не может писать {('на ' + human(dur)) if dur != FOREVER else 'бессрочно'}." + reason_quote(reason))
 
 
 @moderation_command("снять мут", aliases=("размут",), usage="бот снять мут, @ник", summary="Вернуть право писать.")
 async def cmd_unmute(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unmute", "бот снять мут, @ник", punish=False)
     await do_unmute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
-    await ctx.reply(f"🔊 {esc(target.label())} снова может писать.")
+    await ctx.reply(f"🔊 <b>{esc(target.label())}</b> снова может писать.")
 
 
 async def do_unmute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> None:
@@ -350,7 +347,7 @@ async def is_blacklisted(db, chat_id: int, user_id: int) -> bool:
 async def cmd_kick(ctx: Ctx) -> None:
     target, reason = await prepare(ctx, "kick", "бот кик, @ник [причина]")
     await do_kick(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, reason)
-    await ctx.reply(f"👢 {esc(target.label())} удалён из чата." + (f"\nПричина: {esc(reason)}" if reason else ""))
+    await ctx.reply(f"👢 <b>{esc(target.label())}</b> удалён из чата." + reason_quote(reason))
 
 
 @moderation_command(
@@ -363,7 +360,7 @@ async def cmd_ban(ctx: Ctx) -> None:
     dur, reason = _parse_duration(rest, usage)
     await do_ban(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id, dur, reason)
     term = f"на {human(dur)}" if isinstance(dur, timedelta) else "навсегда"
-    await ctx.reply(f"⛔ {esc(target.label())} забанен {term}." + (f"\nПричина: {esc(reason)}" if reason else ""))
+    await ctx.reply(f"⛔ <b>{esc(target.label())}</b> забанен {term}." + reason_quote(reason))
 
 
 @moderation_command("снять бан", aliases=("разбан",), usage="бот снять бан, @ник",
@@ -371,7 +368,7 @@ async def cmd_ban(ctx: Ctx) -> None:
 async def cmd_unban(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unban", "бот снять бан, @ник", punish=False)
     await do_unban(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
-    await ctx.reply(f"✅ {esc(target.label())} разбанен и может вернуться в чат.")
+    await ctx.reply(f"✅ <b>{esc(target.label())}</b> разбанен и может вернуться в чат.")
 
 
 async def do_unban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> None:
@@ -422,6 +419,47 @@ async def cmd_unimmune(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "immune", "бот снять иммунитет, @ник", punish=False)
     await _set_flag(ctx, target, "is_immune = FALSE", "unimmune")
     await ctx.reply(f"✅ С {esc(target.label())} снят иммунитет.")
+
+
+def _local(dt: datetime) -> datetime:
+    from bot.chat.tracking import tz_delta
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt + tz_delta()
+
+
+async def protected(db, chat_id: int) -> list[tuple[int, str | None, bool, datetime | None]]:
+    """Кто в чате под иммунитетом или защитой: (id, ник, иммунитет, защита до)."""
+    async with db.execute(
+        "SELECT s.user_tg_id, u.user_tg_username, COALESCE(s.is_immune, FALSE), "
+        "CASE WHEN s.immune_until > NOW() THEN s.immune_until END "
+        "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
+        "WHERE s.chat_tg_id = ? AND COALESCE(s.is_left, FALSE) = FALSE "
+        "AND (s.is_immune OR s.immune_until > NOW()) "
+        "ORDER BY COALESCE(s.is_immune, FALSE) DESC, s.immune_until DESC NULLS LAST LIMIT 100", (chat_id,)) as cur:
+        return [(int(r[0]), r[1], bool(r[2]), r[3]) for r in await cur.fetchall()]
+
+
+# СТИЛЬ v1 (черновик): иммунитет и защита двумя цитатами, у защиты срок.
+@registry.command(
+    "под защитой", aliases=("защищённые", "защищенные", "кто под защитой", "иммунные"),
+    usage="бот под защитой", private=False, section="moderation",
+    summary="Кто в чате под защитой или иммунитетом и до какого времени.",
+)
+async def cmd_protected(ctx: Ctx) -> None:
+    rows = await protected(ctx.db, ctx.message.chat.id)
+    if not rows:
+        await ctx.reply("🛡 В этом чате сейчас никто не под защитой.")
+        return
+    name = lambda uid, uname: esc(f"@\u200b{uname}" if uname else f"id{uid}")
+    immune = [f"💠 {name(u, n)}" for u, n, imm, _ in rows if imm]
+    shield = [f"🛡 {name(u, n)} · до {_local(t).strftime('%d.%m %H:%M')}" for u, n, imm, t in rows if not imm and t]
+    parts = ["🛡 <b>Под защитой от чистки</b>"]
+    if immune:
+        parts += [f"\n<b>Иммунитет</b> · навсегда · {len(immune)}", quote(immune)]
+    if shield:
+        parts += [f"\n<b>Защита</b> · на время · {len(shield)}", quote(shield)]
+    await ctx.reply("\n".join(parts))
 
 
 async def _set_flag(ctx: Ctx, target: Target, assignment: str, action: str) -> None:

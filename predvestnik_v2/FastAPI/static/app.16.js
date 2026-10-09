@@ -131,7 +131,7 @@ function v3PaintCachedProfile() {
     const me = tg?.initDataUnsafe?.user?.id;
     if (!cached || !me || Number(cached.user_id) !== Number(me)) { host.innerHTML = v3ProfileSkeleton(); return false; }
     if (typeof v3ApplyLook === 'function') v3ApplyLook(cached.look);
-    host.innerHTML = renderProfileHome(cached); v3CountUp(host); renderV3Bar(cached); host.dataset.stale = '1';
+    host.innerHTML = renderProfileHome(cached); if(typeof v3EnterSync==='function')v3EnterSync(host); v3CountUp(host); renderV3Bar(cached); host.dataset.stale = '1';
     return true;
   } catch (_) { host.innerHTML = v3ProfileSkeleton(); return false; }
 }

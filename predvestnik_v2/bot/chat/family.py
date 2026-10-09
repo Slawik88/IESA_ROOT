@@ -1,4 +1,9 @@
-"""Семья: один брак на все чаты, до 6 детей, роли, общий кошелёк, развод.
+"""Семья: один брак на все чаты, до 6 детей, роли, общий кошелёк, развод, родословная.
+
+Поколения: у игрока может быть свой брак (он родитель) и одна родительская семья
+(он ребёнок) одновременно, поэтому дети заводят свои семьи, а их дети — свои.
+Внутри рода (предки, потомки, братья и сёстры, супруг) браки и усыновления запрещены.
+Развод закрывает только брак этой пары: её дети выходят из семьи, их браки и внуки остаются.
 
 Источник правды о браке — marriage_members (один брак на аккаунт), те же
 таблицы читает Mini App. Старые браки, где у игрока их было несколько:
@@ -26,6 +31,7 @@ from bot.chat.framework import Ctx, UsageError, norm, registry
 from bot.chat.targets import resolve_target
 from bot.chat.transfer import fmt, parse_amount
 from bot.chat.tracking import local_now
+from bot.chat.style import quote
 
 router = Router(name="chat_family")
 
@@ -160,6 +166,70 @@ async def family_id_of(db, uid: int) -> tuple[int, bool] | None:
     return (int(row[0]), False) if row else None
 
 
+async def spouse_family_id(db, uid: int) -> int | None:
+    """Свой брак игрока (он в нём родитель)."""
+    async with db.execute(
+        "SELECT mm.marriage_id FROM marriage_members mm JOIN marriages m ON m.id = mm.marriage_id "
+        "WHERE mm.user_id = ? AND m.ended_at IS NULL", (uid,)) as cur:
+        row = await cur.fetchone()
+    return int(row[0]) if row else None
+
+
+async def parent_family_id(db, uid: int) -> int | None:
+    """Семья, где игрок — ребёнок."""
+    async with db.execute(
+        "SELECT c.marriage_id FROM family_children c JOIN marriages m ON m.id = c.marriage_id "
+        "WHERE c.user_id = ? AND c.left_at IS NULL AND m.ended_at IS NULL "
+        "ORDER BY c.created_at LIMIT 1", (uid,)) as cur:
+        row = await cur.fetchone()
+    return int(row[0]) if row else None
+
+
+async def _parents_of(db, uid: int) -> list[int]:
+    async with db.execute(
+        "SELECT m.user1_id, m.user2_id FROM family_children c JOIN marriages m ON m.id = c.marriage_id "
+        "WHERE c.user_id = ? AND c.left_at IS NULL AND m.ended_at IS NULL "
+        "ORDER BY c.created_at LIMIT 1", (uid,)) as cur:
+        row = await cur.fetchone()
+    return [int(row[0]), int(row[1])] if row else []
+
+
+async def _children_of(db, uid: int) -> list[int]:
+    async with db.execute(
+        "SELECT c.user_id FROM marriage_members mm JOIN marriages m ON m.id = mm.marriage_id "
+        "JOIN family_children c ON c.marriage_id = m.id AND c.left_at IS NULL "
+        "WHERE mm.user_id = ? AND m.ended_at IS NULL ORDER BY c.created_at", (uid,)) as cur:
+        return [int(r[0]) for r in await cur.fetchall()]
+
+
+async def _walk(db, start: list[int], step, limit: int = 300) -> set[int]:
+    seen: set[int] = set()
+    todo = list(start)
+    while todo and len(seen) < limit:
+        uid = todo.pop()
+        if uid in seen:
+            continue
+        seen.add(uid)
+        todo.extend(await step(db, uid))
+    return seen
+
+
+async def kin(db, uid: int) -> set[int]:
+    """Род игрока: он сам, супруг, предки, потомки, братья и сёстры."""
+    out = {uid}
+    parents = await _parents_of(db, uid)
+    out |= await _walk(db, parents, _parents_of)
+    out |= await _walk(db, await _children_of(db, uid), _children_of)
+    for p in parents:
+        out |= set(await _children_of(db, p))
+    fid = await spouse_family_id(db, uid)
+    if fid:
+        fam = await load_family(db, fid)
+        if fam:
+            out |= set(fam.parents)
+    return out
+
+
 async def load_family(db, marriage_id: int) -> Family | None:
     async with db.execute(
         "SELECT user1_id, user2_id, marriage_date FROM marriages WHERE id = ? AND ended_at IS NULL",
@@ -227,26 +297,24 @@ def days_together(since: datetime | None) -> int | None:
     return (local_now().date() - since.date()).days if since else None
 
 
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): родители, дети и кошелёк в цитатах, ники без пинга.
 async def card(db, fam: Family) -> str:
     names = await labels(db, fam.members)
     lines = ["💞 <b>Семья</b>"]
     if fam.since:
         days = days_together(fam.since)
         lines.append(f"Вместе с {fam.since.strftime('%d.%m.%Y')} · {days} дн.")
-    lines.append("\n<b>Родители</b>")
-    for p in fam.parents:
-        lines.append(f"• {names[p]} — {fam.roles.get(p, 'супруг(а)')}")
-    lines.append(f"\n<b>Дети</b> · {len(fam.children)}/{MAX_CHILDREN}")
+    lines.append("\n👫 <b>Родители</b>")
+    lines.append(quote([f"{names[p]} — <i>{fam.roles.get(p, 'супруг(а)')}</i>" for p in fam.parents]))
+    lines.append(f"\n👶 <b>Дети</b> · {len(fam.children)}/{MAX_CHILDREN}")
     if fam.children:
-        lines += [f"• {names[c]} — {role}" for c, role in fam.children]
+        lines.append(quote([f"{names[c]} — <i>{role}</i>" for c, role in fam.children]))
     else:
         lines.append("Пока нет. Позвать: <code>бот усыновить, @ник</code>")
     bal = await wallet_balances(db, fam.marriage_id)
     shown = [c for c in WALLET_CURRENCIES if c in WALLET_BUTTONS or bal[c]]
     lines.append("\n🏦 <b>Общий кошелёк</b>")
-    for c in shown:
-        spec = CURRENCY_VIEW[c]
-        lines.append(f"{spec.icon} {spec.label}: <b>{fmt_amount(bal[c], spec.display_decimals)}</b>")
+    lines.append(quote([f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}: <b>{fmt_amount(bal[c], CURRENCY_VIEW[c].display_decimals)}</b>" for c in shown]))
     return "\n".join(lines)
 
 
@@ -273,11 +341,12 @@ async def cmd_propose(ctx: Ctx) -> None:
         await ctx.reply("🙃 Жениться на себе пока нельзя.")
         return
     for uid, who in ((ctx.user_id, "Вы уже"), (target.user_id, f"{html.escape(target.label())} уже")):
-        found = await family_id_of(ctx.db, uid)
-        if found:
-            state = "в браке" if found[1] else "в семье ребёнком (сначала: бот семья выйти)"
-            await ctx.reply(f"💍 {who} {state}.")
+        if await spouse_family_id(ctx.db, uid):
+            await ctx.reply(f"💍 {who} в браке.")
             return
+    if target.user_id in await kin(ctx.db, ctx.user_id):
+        await ctx.reply("💍 Нельзя: вы из одного рода (родители, дети, братья и сёстры).")
+        return
     pid = await create_proposal(ctx.db, ctx.message.chat.id, ctx.user_id, target.user_id)
     u = ctx.message.from_user
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -316,9 +385,12 @@ async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> Non
         await call.answer()
         return
     for u in (proposer, target):
-        if await family_id_of(db, u):
-            await call.answer("Кто-то из вас уже в семье.", show_alert=True)
+        if await spouse_family_id(db, u):
+            await call.answer("Кто-то из вас уже в браке.", show_alert=True)
             return
+    if target in await kin(db, proposer):
+        await call.answer("Нельзя: вы из одного рода.", show_alert=True)
+        return
     raw = await plain_names(db, (proposer, target))
     raw[target] = call.from_user.full_name or raw[target]
     try:
@@ -348,6 +420,74 @@ async def cmd_family(ctx: Ctx) -> None:
     await ctx.reply(await card(ctx.db, fam))
 
 
+UP_TITLES = ("Родители", "Бабушки и дедушки", "Прабабушки и прадедушки")
+TREE_DEPTH = 4
+INDENT = "\u2003"
+
+
+async def _spouse_of(db, uid: int) -> int | None:
+    fid = await spouse_family_id(db, uid)
+    fam = await load_family(db, fid) if fid else None
+    return fam.partner_of(uid) if fam else None
+
+
+# СТИЛЬ v1 (черновик): предки по поколениям, потомки лесенкой, каждый блок в цитате.
+async def tree_text(db, uid: int) -> str | None:
+    up: list[list[tuple[int, int]]] = []
+    level = [uid]
+    for _ in UP_TITLES:
+        pairs = [tuple(ps) for ps in [await _parents_of(db, x) for x in level] if ps]
+        if not pairs:
+            break
+        up.append(pairs)
+        level = [p for pair in pairs for p in pair]
+    down: list[tuple[int, int, int | None]] = []   # (глубина, кто, супруг)
+
+    async def descend(x: int, depth: int) -> None:
+        if depth > TREE_DEPTH or len(down) > 60:
+            return
+        for child in await _children_of(db, x):
+            down.append((depth, child, await _spouse_of(db, child)))
+            await descend(child, depth + 1)
+
+    await descend(uid, 1)
+    spouse = await _spouse_of(db, uid)
+    parents = up[0][0] if up else ()
+    siblings = [c for c in (await _children_of(db, parents[0]) if parents else []) if c != uid]
+    if not up and not down and spouse is None:
+        return None
+    ids = {uid, *siblings, *(i for gen in up for pair in gen for i in pair),
+           *(c for _, c, _ in down), *(sp for _, _, sp in down if sp), *([spouse] if spouse else [])}
+    names = await labels(db, ids)
+    lines = [f"🌳 <b>Родословная</b> · {names[uid]}"]
+    for title, gen in reversed(list(zip(UP_TITLES, up))):
+        lines.append(f"\n<b>{title}</b>")
+        lines.append(quote([f"{names[a]} 💍 {names[b]}" for a, b in gen]))
+    lines.append("\n<b>Семья</b>")
+    me = [f"👤 {names[uid]}" + (f" 💍 {names[spouse]}" if spouse else "")]
+    if siblings:
+        me.append("Братья и сёстры: " + ", ".join(names[x] for x in siblings))
+    lines.append(quote(me))
+    if down:
+        lines.append(f"\n<b>Потомки</b> · {len(down)}")
+        lines.append(quote([INDENT * (d - 1) + f"└ {names[c]}" + (f" 💍 {names[sp]}" if sp else "")
+                            for d, c, sp in down]))
+    return "\n".join(lines)
+
+
+@registry.command("древо", aliases=("родословная", "семейное древо", "дерево"), usage="бот древо [@ник]",
+                  section="family", summary="Родословная: предки, братья и сёстры, дети и внуки.")
+async def cmd_tree(ctx: Ctx) -> None:
+    target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    uid = target.user_id if target else ctx.user_id
+    text = await tree_text(ctx.db, uid)
+    if text is None:
+        who = "У вас" if uid == ctx.user_id else "У этого игрока"
+        await ctx.reply(f"🌳 {who} пока нет родни. Создать семью: <code>бот брак, @ник</code>")
+        return
+    await ctx.reply(text)
+
+
 class AdoptCB(CallbackData, prefix="fa"):
     m: int      # marriage_id
     by: int     # кто позвал
@@ -369,8 +509,11 @@ async def cmd_adopt(ctx: Ctx) -> None:
     if len(fam.children) >= MAX_CHILDREN:
         await ctx.reply(f"👪 В семье уже {MAX_CHILDREN} детей — это максимум.")
         return
-    if await family_id_of(ctx.db, target.user_id):
-        await ctx.reply(f"👪 {html.escape(target.label())} уже состоит в семье.")
+    if await parent_family_id(ctx.db, target.user_id):
+        await ctx.reply(f"👪 У {html.escape(target.label())} уже есть родители.")
+        return
+    if target.user_id in await _family_kin(ctx.db, fam):
+        await ctx.reply("👪 Нельзя: это ваш супруг, предок или родственник.")
         return
     u = ctx.message.from_user
     cb = dict(m=fam.marriage_id, by=ctx.user_id, t=target.user_id)
@@ -380,6 +523,14 @@ async def cmd_adopt(ctx: Ctx) -> None:
     ]])
     await ctx.reply(f"👪 {ping(u.id, u.first_name)} зовёт {ping(target.user_id, target.name.lstrip('@'))} "
                     "в свою семью ребёнком. Согласны?", reply_markup=kb)
+
+
+async def _family_kin(db, fam: Family) -> set[int]:
+    """Кого нельзя взять в эту семью ребёнком: род обоих родителей (предки, братья, сёстры, они сами)."""
+    out: set[int] = set()
+    for p in fam.parents:
+        out |= await kin(db, p)
+    return out
 
 
 @router.callback_query(AdoptCB.filter())
@@ -401,13 +552,16 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
         async with db.execute("SELECT COUNT(*) FROM family_children WHERE marriage_id = ? AND left_at IS NULL",
                               (cb.m,)) as cur:
             count = int((await cur.fetchone())[0])
-        busy = await family_id_of(db, cb.t)
-        if not alive:
+        busy = await parent_family_id(db, cb.t)
+        fam = await load_family(db, cb.m) if alive else None
+        if not alive or fam is None:
             problem = "Этой семьи больше нет."
         elif count >= MAX_CHILDREN:
             problem = f"В семье уже {MAX_CHILDREN} детей."
         elif busy:
-            problem = "Вы уже в семье."
+            problem = "У вас уже есть родители."
+        elif cb.t in await _family_kin(db, fam):
+            problem = "Нельзя: вы родственники."
         else:
             problem = None
             await db.execute("INSERT INTO family_children (marriage_id, user_id, added_by) VALUES (?, ?, ?)",
@@ -430,6 +584,15 @@ async def cmd_role(ctx: Ctx) -> None:
     target, rest = await resolve_target(ctx.db, ctx.message, ctx.args)
     uid = target.user_id if target else ctx.user_id
     role = norm(rest).replace("ребенок", "ребёнок")
+    if uid == ctx.user_id and role in CHILD_ROLES and fam.is_parent(uid):
+        # Женатый ребёнок меняет свою роль в родительской семье.
+        parent_fid = await parent_family_id(ctx.db, uid)
+        if parent_fid:
+            await ctx.db.execute(
+                "UPDATE family_children SET role = ? WHERE marriage_id = ? AND user_id = ? AND left_at IS NULL",
+                (role, parent_fid, uid))
+            await ctx.reply(f"✅ В родительской семье вы теперь: <b>{role}</b>.")
+            return
     if uid not in fam.members:
         await ctx.reply("💞 Этот игрок не из вашей семьи.")
         return
@@ -453,18 +616,18 @@ async def cmd_role(ctx: Ctx) -> None:
 
 
 @registry.command("семья выйти", aliases=("выйти из семьи",), usage="бот семья выйти", section="family",
-                  summary="Ребёнку — уйти из семьи. Родителям — только развод.")
+                  summary="Уйти из родительской семьи. Свой брак и дети остаются.")
 async def cmd_leave(ctx: Ctx) -> None:
-    found = await family_id_of(ctx.db, ctx.user_id)
-    if not found:
-        await ctx.reply("💞 Вы не в семье.")
-        return
-    if found[1]:
-        await ctx.reply("💞 Родитель уходит из семьи только через развод: <code>бот развод</code>")
+    if not await parent_family_id(ctx.db, ctx.user_id):
+        if await spouse_family_id(ctx.db, ctx.user_id):
+            await ctx.reply("💞 Родитель уходит из семьи только через развод: <code>бот развод</code>")
+        else:
+            await ctx.reply("💞 Вы не в семье.")
         return
     await ctx.db.execute("UPDATE family_children SET left_at = NOW() WHERE user_id = ? AND left_at IS NULL",
                          (ctx.user_id,))
-    await ctx.reply("👋 Вы вышли из семьи.")
+    tail = " Ваш брак и ваши дети остаются с вами." if await spouse_family_id(ctx.db, ctx.user_id) else ""
+    await ctx.reply(f"👋 Вы вышли из родительской семьи.{tail}")
 
 
 @registry.command("семья выгнать", aliases=("выгнать из семьи",), usage="бот семья выгнать, @ник",
@@ -592,8 +755,7 @@ async def cmd_divorce(ctx: Ctx) -> None:
     if ctx.args.strip():
         await _confirm_divorce(ctx)
         return
-    found = await family_id_of(ctx.db, ctx.user_id)
-    if not found or not found[1]:
+    if not await spouse_family_id(ctx.db, ctx.user_id):
         await ctx.reply("💞 Вы не в браке.")
         return
     try:
@@ -608,7 +770,7 @@ async def cmd_divorce(ctx: Ctx) -> None:
     await ctx.reply(
         f"⚠️ <b>Развод с {names[intent['partner_id']]}</b>\n\n"
         "Что произойдёт:\n• общий кошелёк (все валюты, включая эссенцию) делится пополам;\n• семейные питомцы делятся поровну;\n"
-        "• дети покидают семью;\n• отменить развод будет нельзя.\n\n"
+        "• дети покидают вашу семью, но их браки и внуки остаются;\n• отменить развод будет нельзя.\n\n"
         f"Если вы уверены, в течение 15 минут напишите:\n<code>бот развод {phrase}</code>",
         reply_markup=kb)
 

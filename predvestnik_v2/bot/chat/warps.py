@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import resolve_target
+from bot.chat.style import quote
 
 
 @dataclass(frozen=True)
@@ -86,10 +87,19 @@ async def cmd_warp_list(ctx: Ctx) -> None:
     adult = "18" in ctx.args
     items = [w for w in WARPS if w.adult == adult]
     head = "🔞 <b>18+ варпы</b>" if adult else "🤗 <b>Варп-команды</b>"
-    body = ", ".join(f"{w.emoji}{w.name}" for w in items)
+    # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): варпы по группам модулей warp_texts, каждая группа цитатой
+    from bot.chat.warp_texts import actions, adult as adult_texts, conflict, playful, warm
+    groups = ([("🔞 Взрослые", adult_texts)] if adult else
+              [("💗 Тёплые", warm), ("🎈 Игривые", playful), ("🎬 Действия", actions), ("😈 Шуточно-злые", conflict)])
+    blocks = []
+    for title, module in groups:
+        names = [w for w in module.WARPS if w.adult == adult]
+        if names:
+            blocks.append(f"<b>{title}</b>\n" + quote([", ".join(f"{w.emoji}{w.name}" for w in names)]))
+    body = "\n".join(blocks)
     hint = ("Работают, только если игрок включил их для себя: <code>бот 18+ вкл</code>" if adult else
             "Пишите <code>обнять @ник</code> или просто ответьте на сообщение словом. 18+: <code>бот варпы 18+</code>")
-    await ctx.reply(f"{head} · {len(items)}\n\n{body}\n\n{hint}")
+    await ctx.reply(f"{head} · {len(items)}\n\n{body}\n\n<i>{hint}</i>")
 
 
 @registry.command("18+", aliases=("18 +", "взрослые варпы"), usage="бот 18+ вкл | выкл", section="social",

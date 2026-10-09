@@ -148,7 +148,7 @@
 
     root.innerHTML = `<div class="chat-tracker-head">
         <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
-        <div><h1>Трекер чатов</h1><p>Твоя активность, прогресс и санкции — отдельно по каждому чату.</p></div>
+        <div><span class="v3-eyebrow">Ваша активность</span><h1>Трекер чатов</h1><p>Прогресс и история в каждом чате.</p></div>
       </div>
       <section class="chat-tracker-summary" aria-label="Сводка">
         <div><b>${fmt(summary.chat_count || 0)}</b><span>активных чатов</span></div>
@@ -164,6 +164,7 @@
       ${chatTracker.error && rows ? `<div class="chat-tracker-page-error" role="alert"><span>Следующую страницу загрузить не удалось.</span><button type="button" onclick="chatTrackerLoadMore()">Повторить</button></div>` : ''}
       ${chatTracker.nextOffset !== null ? `<button type="button" data-chat-more="true" class="chat-tracker-more" onclick="chatTrackerLoadMore()" ${chatTracker.busy ? 'disabled' : ''}>${chatTracker.busy ? 'Загружаем…' : 'Показать ещё'}</button>` : ''}`;
 
+    v3EnterSync(root);
     restoreChatTrackerFocus(root, focusState);
   }
 

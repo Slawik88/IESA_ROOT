@@ -58,6 +58,17 @@ body:has(.page.active .v3-scope) .development-notice { display: none; }
 .dn-close { flex: none; width: 44px; height: 44px; margin: -12px -14px -12px 0; border: 0; background: none; color: var(--v3-dim); font-size: 18px; cursor: pointer; }
 .dn-close:active { transform: scale(.88); }
 
+/* Новая сборка обнаруживается через уже открытый WebSocket. Плашка не блокирует
+   игру и стоит над доком с учётом нижней safe-area Telegram. */
+@keyframes appUpdateRise { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.app-update-banner { position: fixed; left: 50%; bottom: calc(82px + var(--v3-safe-b)); z-index: 360; display: flex; align-items: center; gap: 10px; width: min(calc(100% - 24px), 430px); min-height: 58px; padding: 9px 9px 9px 14px; transform: translateX(-50%); border-radius: 18px; background: color-mix(in srgb, var(--v3-sheet) 96%, var(--v3-acc)); color: var(--v3-ink); box-shadow: 0 0 0 1px color-mix(in srgb, var(--v3-acc) 24%, transparent), 0 14px 34px rgba(0,0,0,.42); animation: appUpdateRise .28s var(--v3-ease) backwards; }
+.app-update-banner > span { flex: 1; min-width: 0; line-height: 1.2; }
+.app-update-banner strong, .app-update-banner small { display: block; }
+.app-update-banner strong { font-size: 13px; font-weight: 650; }
+.app-update-banner small { margin-top: 3px; color: var(--v3-dim); font-size: 10.5px; }
+.app-update-action { flex: none; min-height: 44px; padding: 0 14px; border: 0; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 12px/1 var(--v3-font); }
+.app-update-later { flex: none; width: 44px; height: 44px; padding: 0; border: 0; background: none; color: var(--v3-dim); font: 400 22px/1 var(--v3-font); }
+
 /* ── Состояния ── */
 .v3-pill:disabled, .v3-link:disabled { opacity: .45; cursor: default; transform: none; }
 .v3-pill.v3-pill--ghost { background: none; color: var(--v3-ink); box-shadow: inset 0 0 0 1.5px var(--v3-track); }
@@ -209,8 +220,9 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 .v3-burst { position: fixed; left: 0; top: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 10px rgba(var(--acc-rgb), .9); pointer-events: none; z-index: 400; will-change: transform, opacity; }
 
 @media (prefers-reduced-motion: reduce) {
-  .sk::after, .v3-glow::before { animation: none; }
+  .sk::after, .v3-glow::before, .app-update-banner { animation: none; }
   .page.active, .nb, .nb svg, .nav::before, .v3-pill, .v3-row, .v3-game { animation: none; transition: none; }
   .sk, .sv-skel { animation-duration: .01s; }   /* задержка остаётся, плавного появления нет */
 }
 @media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { font-size: 9.5px; } .nb svg { width: 20px; height: 20px; } }
+@media (max-width: 340px) { .nav .nb { font-size: 9.5px; letter-spacing: -.1px; } }

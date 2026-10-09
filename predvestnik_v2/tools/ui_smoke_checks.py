@@ -6,7 +6,6 @@ Admin screens are deliberately absent: the admin panel is being rewritten in ano
 # Every player screen and sheet reachable from the app. (name, JS that opens it)
 SCREENS = [
     ("profile", "switchPage('profile')"),
-    ("profile-more", "switchPage('profile');document.querySelector('.v3-more').open=true"),
     ("arena", "switchPage('arena')"),
     ("looks", "openLooksModal()"),
     ("looks-album", "openLooksModal();setTimeout(()=>{ if (typeof lkView==='function') lkView('album'); },500)"),
@@ -41,7 +40,7 @@ SCREENS = [
 PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
-DOCK_TABS = ("arena", "looks", "questlog", "top", "more", "profile")
+DOCK_TABS = ("arena", "looks", "questlog", "chests", "top", "more", "profile")
 
 # Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [

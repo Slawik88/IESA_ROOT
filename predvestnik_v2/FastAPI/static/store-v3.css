@@ -12,7 +12,7 @@
 .sv-tabs button.is-on::after { content: ""; position: absolute; left: 0; bottom: 2px; width: 30px; height: 3px; border-radius: 3px; background: var(--v3-acc); }
 .sv-tabs button:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 4px; border-radius: 6px; }
 
-.sv-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; margin-top: 32px; }
+.sv-sec { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; margin-top: 20px; }
 .sv-sec small { color: var(--v3-dim); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 .sv-lead { max-width: 34ch; margin: 8px 0 0; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
 .sv-fine { margin: 12px 0 0; color: var(--v3-dim); font-size: 12px; line-height: 1.45; text-align: center; }
@@ -21,8 +21,15 @@
 .sv-ok { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 18px 0 0; color: var(--v3-ok); font-size: 14px; }
 .sv-ok b { font-size: 18px; }
 .sv-ok .v3-link { min-height: 32px; color: var(--v3-ok); }
-.sv-buy { width: 100%; min-height: 54px; margin-top: 26px; font-size: 16px; }
+.sv-buy { width: 100%; min-height: 48px; margin-top: 16px; font-size: 15px; }
 .sv-buy.is-busy { opacity: .6; }
+
+/* Дополнительные объяснения раскрываются после выбора, чтобы покупка помещалась на телефоне. */
+.sv-details { border-top: 1px solid var(--v3-faint); margin-top: 18px; }
+.sv-details > summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; color: var(--v3-ink); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+.sv-details > summary::-webkit-details-marker { display: none; }
+.sv-details > summary::after { content: '+'; font-size: 20px; color: var(--v3-dim); }
+.sv-details[open] > summary::after { content: '−'; }
 
 /* ── Зарники: сумма на счёте крупно, прямо на холсте ── */
 .sv-bal-wrap { margin-top: 22px; }
@@ -31,13 +38,13 @@
 
 /* строки выбора: пакеты и сроки. Между строками линия; выбранная получает подсветку и контур, и это единственная «плашка» на странице */
 .sv-opts { display: grid; margin: 6px -12px 0; }
-.sv-opt { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; align-items: center; gap: 14px; width: 100%; min-height: 62px; padding: 7px 12px; border: 0; border-radius: 16px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s, box-shadow .15s; }
+.sv-opt { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto 22px; align-items: center; gap: 10px; width: 100%; min-height: 52px; padding: 6px 12px; border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background .15s, box-shadow .15s; }
 .sv-opt::before { content: ""; position: absolute; left: 12px; right: 12px; top: 0; height: 1px; background: var(--v3-faint); }
 .sv-opt:first-child::before, .sv-opt.is-on::before, .sv-opt.is-on + .sv-opt::before { opacity: 0; }
 .sv-opt:active { opacity: .7; }
 .sv-opt.is-on { background: color-mix(in srgb, var(--v3-acc) 11%, transparent); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v3-acc) 70%, transparent); }
 .sv-opt-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.sv-opt-main b { font: 600 22px/1.15 var(--v3-font); font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+.sv-opt-main b { font: 600 19px/1.15 var(--v3-font); font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
 .sv-opt-main b i { font-style: normal; font-size: .72em; }
 .sv-opt-main small { color: var(--v3-dim); font-size: 12.5px; }
 .sv-plus { color: var(--v3-ok); font-weight: 600; }

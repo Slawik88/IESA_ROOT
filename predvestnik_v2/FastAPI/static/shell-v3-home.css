@@ -5,8 +5,8 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 
 /* ── Постоянная панель ── */
 .v3-bar { position: fixed; z-index: 80; top: 0; left: 50%; transform: translateX(-50%); width: min(520px, 100%); display: flex; align-items: center; gap: 8px; padding: calc(6px + var(--v3-safe-t)) 14px 12px 18px; background: linear-gradient(var(--v3-bg) 70%, transparent); }
-.v3-bar button { border: 0; background: none; color: inherit; font-family: var(--v3-font); cursor: pointer; }
-.v3-bar-me { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; transition: transform .15s; }
+.v3-bar button { appearance: none; -webkit-appearance: none; margin: 0; border: 0; background: none; color: inherit; font-family: var(--v3-font); cursor: pointer; }
+.v3-bar-me { position: relative; flex: none; width: 44px; height: 44px; padding: 0; margin: 0; appearance: none; -webkit-appearance: none; display: grid; place-items: center; line-height: 1; transition: transform .15s; }
 .v3-bar-me svg { width: 40px; height: 40px; transform: rotate(-90deg); fill: none; stroke-width: 3; stroke-linecap: round; }
 .v3-bar-lv { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }   /* цифра по центру кольца и в Safari: без inset абсолютный элемент сидит у левого края */
 .v3-bar-me.is-vip svg circle:last-child { stroke: var(--v3-vip); }
@@ -23,12 +23,12 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-bar .v3-chip:active, .v3-bar .v3-chip:focus-visible { background: var(--v3-faint); }   /* нажатый чип подсвечивается сам, соседние нет */
 @media (hover: hover) { .v3-bar .v3-chip:hover { background: var(--v3-faint); } }
 .v3-bar .v3-chip:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 1px; }
-.v3-chip svg { flex: none; width: 14px; height: 14px; fill: none; stroke: var(--v3-acc); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.v3-chip svg { flex: none; width: 14px; height: 14px; fill: color-mix(in srgb, var(--v3-acc) 12%, transparent); stroke: var(--v3-acc); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .v3-chip b { font-weight: 600; }
 .v3-chip-plus { flex: none; display: grid; place-items: center; width: 15px; height: 15px; margin-right: -3px; border-radius: 50%; background: var(--v3-acc); color: var(--v3-on-acc); font-size: 12px; font-style: normal; font-weight: 800; line-height: 1; }   /* Зарники ведут на пополнение */
 .v3-chip { flex: none; }   /* цифра никогда не режется: ряд либо влезает (уплотняясь), либо прокручивается */
 .v3-chip u { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.v3-bell { position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--v3-ink) !important; transition: transform .15s; }
+.v3-bell { padding: 0; line-height: 1; position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--v3-ink) !important; transition: transform .15s; }
 .v3-bell svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .v3-bell-dot { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 0 2px var(--v3-bg); }
 .v3-bar-me:active, .v3-bell:active { transform: scale(.94); }

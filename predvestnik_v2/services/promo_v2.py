@@ -70,8 +70,11 @@ def _number(value, *, integer: bool, limit: int, what: str) -> int | Decimal:
 
 def skin_choices() -> list[dict]:
     """Образы, которые можно положить в промокод (личные образы — только из консоли, по одному владельцу)."""
-    return [{"id": sid, "name": s.get("name", sid), "tier": s.get("tier", "")}
-            for sid, s in SKINS.items() if not s.get("exclusive")]
+    return [{"id": sid, "name": s.get("name", sid), "tier": s.get("tier", ""), "blurb": s.get("blurb", ""),
+             "pal": list(s.get("pal") or ()), "bg": (s.get("tokens") or {}).get("--v3-bg", "#0e0f14"),
+             "wash": (s.get("tokens") or {}).get("--v3-wash", ""), "frame": (s.get("kinds") or {}).get("frame", "ring"),
+             "season": bool(s.get("season")), "set": s.get("set")}
+            for sid, s in SKINS.items() if not s.get("exclusive")]   # поля превью: админка рисует карточку образа цветами его палитры
 
 
 def normalize_rewards(raw) -> list[dict]:
@@ -307,8 +310,11 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
     start, end = _iso(data.get("valid_from")), _iso(data.get("valid_until"))
     if start and end and end <= start:
         raise PromoError("Конец действия должен быть позже начала.")
-    chats = sorted({int(x) for x in data.get("allowed_chats") or []})
-    users = sorted({int(x) for x in data.get("allowed_users") or []})
+    try:
+        chats = sorted({int(x) for x in data.get("allowed_chats") or []})
+        users = sorted({int(x) for x in data.get("allowed_users") or []})
+    except (TypeError, ValueError):
+        raise PromoError("ID чатов и игроков — только числа.")
     note = str(data.get("note") or "")[:300]
     values = (bool(data.get("is_active", True)), start, end, max_act, json.dumps(chats) if chats else "",
               json.dumps(users) if users else "", json.dumps(rewards, ensure_ascii=False), note, actor_id)

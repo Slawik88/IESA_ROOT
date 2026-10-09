@@ -15,6 +15,7 @@ const _V3_PATHS = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   play: '<path d="M8 5.5v13l10.5-6.5z"/>',
   chev: '<path d="M9 6l6 6-6 6"/>',
+  ticket: '<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5V10a2 2 0 0 0 0 4v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5V14a2 2 0 0 0 0-4zM14 7v10"/>',
   manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
   essence: '<path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/>'
 };
@@ -64,7 +65,7 @@ function renderProfileHome(data) {
       <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div>
         <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
     </section>
-    <section class="v3-stats" aria-label="Показатели игрока"><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
+    <section class="v3-stats" aria-label="Показатели игрока"><span class="v3-eyebrow v3-stats-label">Активность</span><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
     ${_v3PathShell()}
     ${_v3TopShell()}
     <nav class="v3-list" aria-label="Разделы профиля">
@@ -73,6 +74,7 @@ function renderProfileHome(data) {
       ${_v3Row('flag', 'Квесты', 'openQuestsV1()')}
       ${chests}
       ${_v3Row('trophy', 'Достижения', 'openAchievementsV1()')}
+      ${_v3Row('ticket', 'Промокод', 'openPromoSheet()')}
     </nav>`;
 }
 

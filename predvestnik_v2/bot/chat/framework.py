@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import difflib
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Awaitable, Callable
 
 from aiogram import Bot
@@ -86,6 +86,9 @@ class Registry:
         self.gate: Callable[["Ctx"], Awaitable[str | None]] | None = None
         # Учёт выполненной команды (метрики админки); ошибки учёта команду не ломают.
         self.on_used: Callable[["Ctx"], Awaitable[None]] | None = None
+        # True — бот молчит этому сообщению целиком (игрок заблокирован, бот выключен):
+        # даже «не знаю команду» и «только в группе» не отправляются.
+        self.silent: Callable[[Message, object], Awaitable[bool]] | None = None
 
     def register(self, cmd: Command) -> Command:
         for n in cmd.all_names():
@@ -95,6 +98,15 @@ class Registry:
                 raise ValueError(f"команда «{key}» уже занята: {old.name}")
             self._by_name[key] = cmd
         return cmd
+
+    def alias(self, name: str, *aliases: str) -> None:
+        """Добавить алиасы уже зарегистрированной команде (они же появятся в «бот помощь»)."""
+        old = self._by_name[" ".join(norm(w) for w in name.split())]
+        new = replace(old, aliases=(*old.aliases, *(a for a in aliases if a not in old.all_names())))
+        for key, cmd in list(self._by_name.items()):
+            if cmd is old:
+                self._by_name[key] = new
+        self.register(new)
 
     def command(self, name: str, **kw):
         def deco(fn):
@@ -284,6 +296,9 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     parsed = parse(registry, text, me.username)
     if parsed is None:
         return False
+    quiet = registry.silent is not None and await registry.silent(message, db)
+    if quiet and (isinstance(parsed, Unknown) or not parsed.command.always_on):
+        return True
     if isinstance(parsed, Unknown):
         if parsed.suggestions:
             def line(name: str) -> str:
@@ -292,7 +307,7 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
                 return f"• <code>бот {_esc(name)}</code>{about}"
             hint = "\n".join(line(s) for s in parsed.suggestions)
             await message.reply(
-                f"🤔 Не знаю команду «{_esc(parsed.typed)}». Возможно, вы имели в виду:\n{hint}",
+                f"🤔 Не знаю команду «{_esc(parsed.typed)}». Возможно, вы имели в виду:\n<blockquote>{hint}</blockquote>",
                 parse_mode="HTML",
             )
         else:

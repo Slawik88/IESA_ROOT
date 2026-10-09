@@ -22,6 +22,7 @@ from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
 from services import admin_people, feature_switches, global_moderation
+from services import marks_v1 as marks_service
 from services import vip as vip_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
@@ -43,6 +44,8 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "balance": ("💰 Изменить баланс", 5, "player"),
     "vip": ("👑 Выдать VIP", 5, "player"),
     "rank": ("🎖 Глобальная роль", 5, "player"),
+    "mark_grant": ("🏅 Выдать метку", 5, "player"),
+    "mark_revoke": ("✖️ Снять метку", 5, "player"),
     "close": ("🔒 Закрыть чат", 3, "chat"),
     "open": ("🔓 Открыть чат", 3, "chat"),
     "warn_limit": ("⚠️ Лимит варнов", 4, "chat"),
@@ -78,6 +81,13 @@ def _check(user: dict, action: str, scope: str) -> None:
         raise HTTPException(400, "Неизвестное действие.")
     if user["rank"] < spec[1]:
         raise HTTPException(403, f"Для «{spec[0]}» нужна роль «{bot_rank_name(spec[1])}» или выше.")
+
+
+def _int(data: dict, key: str, default: int = 0) -> int:
+    try:
+        return int(data.get(key) if data.get(key) not in (None, "") else default)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "Нужно целое число.")
 
 
 def _reason(data: dict) -> str:
@@ -144,6 +154,8 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
     card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()]
     card["history"] = await admin_people.history(db, user_id=uid)
+    # Метки (в профиле игрока — «Регалии»): выданные вручную, заработанные и что можно выдать.
+    card["marks"] = await marks_service.admin_view(db, uid)
     return card
 
 
@@ -197,8 +209,20 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
             raise _tg_error(exc)
         return {"ok": True, "message": "Готово."}
 
+    if action in ("mark_grant", "mark_revoke"):
+        mark = str(data.get("mark") or "")
+        try:
+            if action == "mark_grant":
+                title = await marks_service.grant(db, uid, mark, actor, reason)
+            else:
+                title = await marks_service.revoke(db, uid, mark, actor, reason)
+        except marks_service.MarkConflict as exc:
+            raise HTTPException(400, str(exc))
+        await admin_people.audit(db, actor, action, user_id=uid, details={"mark": title, "reason": reason})
+        return {"ok": True, "message": ("Метка выдана: " if action == "mark_grant" else "Метка снята: ") + title}
+
     if action == "rank":
-        new = int(data.get("rank") if data.get("rank") is not None else -1)
+        new = _int(data, "rank", -1)
         if not 0 <= new < CREATOR:
             raise HTTPException(400, "Нет такой роли.")
         if new >= user["rank"] and user["rank"] < CREATOR:
@@ -217,6 +241,8 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         try:
             amount = Decimal(str(data.get("amount")))
         except (InvalidOperation, ValueError):
+            raise HTTPException(400, "Сумма — число, со знаком минус для списания.")
+        if not amount.is_finite():
             raise HTTPException(400, "Сумма — число, со знаком минус для списания.")
         if amount == 0 or amount != amount.quantize(Decimal(1).scaleb(-decimals)):
             raise HTTPException(400, "Сумма не ноль" + (", целое число." if decimals == 0 else f", до {decimals} знаков."))
@@ -243,17 +269,28 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         return {"ok": True, "message": f"{title}: {'+' if amount > 0 else ''}{amount}."}
 
     if action == "vip":
-        days = int(data.get("days") or 0)
+        days = _int(data, "days")
         if not 1 <= days <= 3650:
             raise HTTPException(400, "Срок VIP — от 1 до 3650 дней.")
+        request_id = str(data.get("request_id") or "")[:64]
         async with db.connection.transaction():
+            if request_id:   # повтор того же запроса (ответ потерялся, нажали ещё раз) дни не добавляет
+                await db.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (f"bot_admin_vip:{actor}:{request_id}",))
+                async with db.execute(
+                    "SELECT 1 FROM bot_admin_actions WHERE actor_id = ? AND action = 'vip' "
+                    "AND details->>'request_id' = ?", (actor, request_id)) as cur:
+                    if await cur.fetchone():
+                        return {"ok": True, "message": f"VIP продлён на {days} дн."}
             await vip_service.grant_vip_days(db, uid, "vip", days)
-            await admin_people.audit(db, actor, "vip", user_id=uid, details={"days": days, "reason": reason})
+            await admin_people.audit(db, actor, "vip", user_id=uid,
+                                     details={"days": days, "reason": reason, "request_id": request_id})
         return {"ok": True, "message": f"VIP продлён на {days} дн."}
 
     if action == "block":
-        days = int(data.get("days") or 0)
-        await global_moderation.block(db, uid, actor, reason, max(0, days))
+        days = _int(data, "days")
+        if not 0 <= days <= 3650:
+            raise HTTPException(400, "Срок — от 1 до 3650 дней или 0 — пока не снимут.")
+        await global_moderation.block(db, uid, actor, reason, days)
         await admin_people.audit(db, actor, "block", user_id=uid, details={"days": days, "reason": reason})
         return {"ok": True, "message": "Бот больше не отвечает игроку."}
     if action == "unblock":
@@ -283,7 +320,7 @@ async def chat_action(cid: int, data: dict = Body(...), user=Depends(_user), db=
         await admin_people.audit(db, actor, action, chat_id=cid, details={"reason": reason} if reason else None)
         return {"ok": True, "message": "Чат закрыт: пишут только ранги с правом." if action == "close" else "Чат открыт."}
     if action == "warn_limit":
-        limit = int(data.get("value") or 0)
+        limit = _int(data, "value")
         if not 1 <= limit <= 20:
             raise HTTPException(400, "Лимит варнов — от 1 до 20.")
         await db.execute("UPDATE chat_settings SET max_warnings = ? WHERE chat_id = ?", (limit, cid))

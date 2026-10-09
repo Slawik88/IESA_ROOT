@@ -47,8 +47,13 @@ assert chat_help.main_keyboard(1).inline_keyboard
 print("OK: help")
 
 # Подсказки при опечатке: лучшая первой, основные названия, без слабого шума.
-assert parse(real, "бот деньги").suggestions[0] == "баланс"            # по смыслу
-assert parse(real, "бот ban, @user").suggestions == ("бан",)           # латиница
+assert parse(real, "бот валюта").suggestions[0] == "баланс"            # по смыслу
+assert parse(real, "бот kik, @user").suggestions == ("кик",)           # латиница
+assert parse(real, "бот деньги").command.name == "баланс"              # алиасы
+assert parse(real, "бот ban, @user").command.name == "бан"
+assert parse(real, "бот выгнать из семьи, @user").command.name == "семья выгнать"
+assert parse(real, "бот дать пять").command.name == "дать пять"
+assert "<i>Также:</i> выгнать · кикнуть · kick" in chat_help.section_text("moderation")
 assert parse(real, "бот снять мту").suggestions[0] == "снять мут"      # опечатка в двух словах
 assert parse(real, "бот санкц").suggestions == ("санкции",)            # начало слова
 assert parse(real, "бот ачивк").suggestions == ("достижения",)         # синоним

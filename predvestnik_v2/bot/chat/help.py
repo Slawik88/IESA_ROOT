@@ -47,8 +47,8 @@ def main_text() -> str:
     return (
         "📖 <b>Помощь</b>\n\n"
         "Команды пишутся так:\n"
-        "<code>бот команда, значения</code>\n\n"
-        "Пример: <code>бот бан, @ник 5д</code>\n"
+        "<blockquote><code>бот команда, значения</code>\n"
+        "Пример: <code>бот бан, @ник 5д</code></blockquote>\n"
         "Вместо @ника можно ответить на сообщение игрока.\n\n"
         "Выберите раздел 👇"
     )
@@ -67,19 +67,22 @@ def section_text(key: str) -> str:
     cmds = _by_section().get(key, [])
     parts = [f"<b>{SECTIONS.get(key, key)}</b>"]
     for c in cmds:
-        block = f"\n<code>бот {_esc(c.name)}</code>\n{_esc(c.summary)}"
+        block = f"\n▫️ <code>бот {_esc(c.name)}</code>\n{_esc(c.summary)}"
         if c.example and c.example != f"бот {c.name}":
-            block += f"\n<i>Пример:</i> <code>{_esc(c.example)}</code>"
+            block += f"\n↳ <code>{_esc(c.example)}</code>"
+        if c.aliases:
+            block += "\n<i>Также:</i> " + _esc(" · ".join(c.aliases))
         parts.append(block)
     return "\n".join(parts)
 
 
 def command_text(c: Command) -> str:
-    text = f"<code>бот {_esc(c.name)}</code>\n{_esc(c.summary)}"
+    text = f"📖 <b>бот {_esc(c.name)}</b>\n{_esc(c.summary)}"
     if c.usage:
-        text += f"\n\n<i>Формат:</i> <code>{_esc(c.usage)}</code>"
-    if c.example:
-        text += f"\n<i>Пример:</i> <code>{_esc(c.example)}</code>"
+        text += f"\n\n<blockquote><i>Формат:</i> <code>{_esc(c.usage)}</code>"
+        text += (f"\n<i>Пример:</i> <code>{_esc(c.example)}</code></blockquote>" if c.example else "</blockquote>")
+    elif c.example:
+        text += f"\n\n<blockquote><i>Пример:</i> <code>{_esc(c.example)}</code></blockquote>"
     if c.aliases:
         text += "\n<i>Также:</i> " + ", ".join(f"<code>{_esc(a)}</code>" for a in c.aliases)
     return text
