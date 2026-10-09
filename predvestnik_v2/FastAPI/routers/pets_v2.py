@@ -15,6 +15,7 @@ class StartRequest(BaseModel):
     kind: str = Field(pattern="^(trek|expedition|watch)$")
     hours: int = Field(ge=3, le=24)
     route: str | None = Field(default=None, pattern="^(forest|pass|ruins|swamp)$")
+    companion_id: int | None = Field(default=None, gt=0)
     action_id: str = Field(min_length=1, max_length=96)
 
 
@@ -77,7 +78,8 @@ async def start(body: StartRequest, db=Depends(get_db), user=Depends(require_tg_
     await _ready(db)
     try:
         return await service.start_run(db, user_id=int(user["id"]), pet_id=body.pet_id, kind=body.kind,
-                                       hours=body.hours, route=body.route, action_id=body.action_id)
+                                       hours=body.hours, route=body.route,
+                                       action_id=body.action_id, companion_id=body.companion_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
 

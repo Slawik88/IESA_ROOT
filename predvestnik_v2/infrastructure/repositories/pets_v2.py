@@ -59,6 +59,7 @@ async def ensure_tables(db) -> None:
             result JSONB NULL
         )
     """)
+    await db.execute("ALTER TABLE pet_v2_runs ADD COLUMN IF NOT EXISTS companion_id BIGINT NULL")
     await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_pet_v2_one_open_run ON pet_v2_runs(user_id, pet_id) WHERE status='active'")
     await db.execute("CREATE INDEX IF NOT EXISTS idx_pet_v2_runs_user_day ON pet_v2_runs(user_id, claimed_at)")
     await db.execute("""
@@ -229,11 +230,12 @@ async def get_run(db, user_id: int, run_id: str) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
-async def create_run(db, *, run_id: str, user_id: int, pet_id: int, kind: str, hours: int, route: str | None) -> dict[str, Any]:
+async def create_run(db, *, run_id: str, user_id: int, pet_id: int, kind: str, hours: int, route: str | None,
+                     companion_id: int | None = None) -> dict[str, Any]:
     async with db.execute(
-        "INSERT INTO pet_v2_runs(id,user_id,pet_id,kind,hours,route,status,ends_at) "
-        "VALUES (?,?,?,?,?,?,'active',NOW()+(?*INTERVAL '1 hour')) RETURNING *",
-        (run_id, int(user_id), int(pet_id), kind, int(hours), route, int(hours)),
+        "INSERT INTO pet_v2_runs(id,user_id,pet_id,kind,hours,route,status,ends_at,companion_id) "
+        "VALUES (?,?,?,?,?,?,'active',NOW()+(?*INTERVAL '1 hour'),?) RETURNING *",
+        (run_id, int(user_id), int(pet_id), kind, int(hours), route, int(hours), companion_id),
     ) as c:
         return dict(await c.fetchone())
 
@@ -370,3 +372,8 @@ async def save_trial(db, user_id: int, week, pet_id: int, difficulty: int, essen
         "INSERT INTO pet_v2_trials(user_id,week,pet_id,difficulty,essence) VALUES (?,?,?,?,?)",
         (int(user_id), week, int(pet_id), int(difficulty), int(essence)),
     )
+
+
+async def species_count(db, user_id: int) -> int:
+    async with db.execute("SELECT COUNT(DISTINCT species_id) AS n FROM pets WHERE owner_id=?", (int(user_id),)) as c:
+        return int((await c.fetchone())["n"])

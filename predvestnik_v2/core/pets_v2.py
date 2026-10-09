@@ -122,6 +122,9 @@ SPECIES: Final = {
 }
 ACTIVITY_ENERGY: Final = {("run", 3): 15, ("run", 6): 30, ("run", 9): 45, ("watch", 12): 20, ("watch", 24): 30}
 PAIR_ENERGY: Final = 10
+PAIR_MIN_SPECIES: Final = 5      # Пара открывается, когда у игрока есть 5 разных видов
+PAIR_COMPANION_SHARE: Final = 0.3  # доля Следов, которую получает Спутник
+PAIR_LEAD_BIAS: Final = 0.5       # какую часть склонности Спутника к находкам перенимает Лидер
 
 
 def _species(species_id: str) -> tuple:
@@ -151,6 +154,11 @@ def energy_after_rest(energy: float, *, hours: float, level: int, species_id: st
     if energy < 0 or hours < 0:
         raise PetV2PolicyError("Некорректная энергия или время.")
     return min(float(cap), energy + hours * energy_regen_per_hour(level, species_id, camp_bonus=camp_bonus, delta=delta))
+
+
+def companion_find_mod(companion_species_id: str) -> dict[str, float]:
+    """Лидер перенимает половину склонности Спутника: множитель его категории 1 + 0.5 × 0.4."""
+    return {_species(companion_species_id)[4]: 1 + PAIR_LEAD_BIAS * (SPECIES_FIND_BONUS - 1)}
 
 
 def spend_energy(energy: float, kind: str, hours: int) -> float:

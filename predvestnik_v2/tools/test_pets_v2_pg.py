@@ -279,6 +279,41 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("one trial per week")
+        # Пара: нужны 5 видов, Спутник тратит 10 энергии и получает 30% Следов
+        await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (user,))
+        await db.execute("DELETE FROM pet_v2_daily WHERE user_id=?", (user,))
+        await db.execute("UPDATE pet_v2_state SET energy=70+2*level WHERE user_id=?", (user,))
+        try:
+            async with db.connection.transaction():
+                await service.start_run(db, user_id=user, pet_id=cat, kind="trek", hours=3, route="forest", action_id="p0", companion_id=beetle)
+        except rules.PetV2PolicyError:
+            pass
+        else:
+            raise AssertionError("pair needs 5 species")
+        await db.execute(
+            "INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?,?,?,?),(?,?,?,?)",
+            (user, "М", "ash_moth", "common", user, "З", "dusk_hare", "common"),
+        )
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
+            e_before = (await c.fetchone())[0]
+        paired = await service.start_run(db, user_id=user, pet_id=cat, kind="trek", hours=3, route="forest", action_id="p1", companion_id=beetle)
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
+            assert abs(e_before - (await c.fetchone())[0] - rules.PAIR_ENERGY) < 0.5
+        try:
+            async with db.connection.transaction():
+                await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id="p2")
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("companion is busy")
+        await finish_now(db, paired["run_id"])
+        async with db.execute("SELECT xp FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
+            xp0 = (await c.fetchone())[0]
+        pair_done = await service.claim_run(db, user_id=user, run_id=paired["run_id"], action_id="pc1", rng=rng)
+        async with db.execute("SELECT xp,level FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
+            xp1, lvl1 = await c.fetchone()
+        assert xp1 > xp0 or lvl1 > 1, "companion must earn Следы"
+        assert pair_done["daily_credited"] <= rules.DAILY_MAX
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

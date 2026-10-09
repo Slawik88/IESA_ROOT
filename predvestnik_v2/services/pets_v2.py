@@ -128,7 +128,7 @@ async def overview(db, user_id: int) -> dict:
             "calling": build["calling"], "traits": list(build["traits"]), "trait_slots": rules.trait_slots(level),
             "talismans": [t["id"] for t in mine],
         }
-        run = by_pet.get(int(pet["id"]))
+        run = by_pet.get(int(pet["id"])) or next((r for r in runs if r["companion_id"] is not None and int(r["companion_id"]) == int(pet["id"])), None)
         if run:
             item["run_id"] = run["id"]
         pets.append(item)
@@ -155,7 +155,8 @@ async def overview(db, user_id: int) -> dict:
     }
 
 
-async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None, action_id: str) -> dict:
+async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None, action_id: str,
+                    companion_id: int | None = None) -> dict:
     action_id = _action(action_id)
     hours = int(hours)
     if kind in ("trek", "expedition"):
@@ -168,7 +169,7 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
         route, energy_kind = None, "watch"
     else:
         raise PetV2PolicyError("Неизвестное занятие.")
-    request = {"type": "start", "pet_id": int(pet_id), "kind": kind, "hours": hours, "route": route}
+    request = {"type": "start", "pet_id": int(pet_id), "kind": kind, "hours": hours, "route": route, "companion_id": companion_id}
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         replay = await repo.cached_action(db, user_id, action_id)
@@ -181,7 +182,8 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
             raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
         _species_row(pet)
         runs = await repo.open_runs(db, user_id)
-        if any(int(run["pet_id"]) == int(pet_id) for run in runs):
+        busy = {int(r["pet_id"]) for r in runs} | {int(r["companion_id"]) for r in runs if r["companion_id"] is not None}
+        if int(pet_id) in busy:
             raise PetV2Conflict("Этот питомец уже занят.")
         if len(runs) >= rules.SLOTS:
             raise PetV2Conflict("Все слоты заняты.")
@@ -190,7 +192,26 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
         build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), await repo.camp_levels(db, user_id))
         energy = rules.spend_energy(_rest(state, pet, clock["now"], build), energy_kind, hours)
         await repo.save_state(db, user_id, pet_id, level=int(state["level"]), xp=float(state["xp"]), energy=energy, pity=int(state["pity"]))
-        run = await repo.create_run(db, run_id=uuid4().hex, user_id=user_id, pet_id=pet_id, kind=kind, hours=hours, route=route)
+        if companion_id is not None:
+            if kind == "watch":
+                raise PetV2PolicyError("Спутник идёт только в поход или экспедицию.")
+            if int(companion_id) == int(pet_id) or int(companion_id) in busy:
+                raise PetV2Conflict("Спутник недоступен.")
+            if await repo.species_count(db, user_id) < rules.PAIR_MIN_SPECIES:
+                raise PetV2PolicyError(f"Пара открывается при {rules.PAIR_MIN_SPECIES} разных видах.")
+            companion = await repo.get_owned_pet(db, user_id, companion_id)
+            if not companion:
+                raise PetV2PolicyError("Спутник не найден или принадлежит другому игроку.")
+            _species_row(companion)
+            c_state = await repo.ensure_state(db, user_id, companion_id, rules.energy_max(1, companion["species_id"]))
+            c_build = _build(c_state, await repo.equipped_talismans(db, user_id, companion_id), await repo.camp_levels(db, user_id))
+            c_energy = _rest(c_state, companion, clock["now"], c_build)
+            if c_energy < rules.PAIR_ENERGY:
+                raise PetV2PolicyError(f"Спутнику нужно {rules.PAIR_ENERGY} энергии.")
+            await repo.save_state(db, user_id, companion_id, level=int(c_state["level"]), xp=float(c_state["xp"]),
+                                  energy=c_energy - rules.PAIR_ENERGY, pity=int(c_state["pity"]))
+        run = await repo.create_run(db, run_id=uuid4().hex, user_id=user_id, pet_id=pet_id, kind=kind, hours=hours, route=route,
+                                    companion_id=int(companion_id) if companion_id is not None else None)
         response = {"ok": True, "run_id": run["id"], "ends_at": str(run["ends_at"]), "energy": round(energy, 1), "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
     return response
@@ -311,9 +332,18 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
 
         daily = await repo.get_daily(db, user_id, day)
         finds = dict(daily["finds"])
+        find_mods = dict(fx["find_mods"])
+        companion = None
+        if run["companion_id"] is not None:
+            companion = await repo.get_owned_pet(db, user_id, int(run["companion_id"]))
+            if companion and companion["species_id"] in rules.SPECIES:
+                for key, value in rules.companion_find_mod(companion["species_id"]).items():
+                    find_mods[key] = find_mods.get(key, 1.0) * value
+            else:
+                companion = None
         granted, bonus_raw = await _roll_finds(
             db, user_id, day, run["id"], _roll_count(rolls, mult if expedition else 1.0, rng),
-            pet=pet, level=level, mods=fx["find_mods"], rng=rng, finds=finds, base_xp=base,
+            pet=pet, level=level, mods=find_mods, rng=rng, finds=finds, base_xp=base,
         )
 
         key_granted = 0
@@ -328,17 +358,26 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
                 finds["key"] = 1.0
 
         raw = base + bonus_raw
-        credited = rules.pool_credit(daily["raw"], raw)
-        await repo.save_daily(db, user_id, day, raw=daily["raw"] + raw, credited=daily["credited"] + credited, finds=finds)
+        share = 1 + rules.PAIR_COMPANION_SHARE if companion else 1.0
+        total_credit = rules.pool_credit(daily["raw"], raw * share)   # доля Спутника тоже идёт через суточную норму
+        credited = total_credit / share
+        raw *= share
+        await repo.save_daily(db, user_id, day, raw=daily["raw"] + raw, credited=daily["credited"] + total_credit, finds=finds)
 
         level_before = level
         level, xp, stage_essence, limit = await _apply_xp(db, user_id, int(pet["id"]), rarity, level, xp + credited, bond)
         await repo.save_state(db, user_id, int(pet["id"]), level=level, xp=xp, energy=energy, pity=pity)
+        if companion:
+            c_state = await repo.ensure_state(db, user_id, int(companion["id"]), rules.energy_max(1, companion["species_id"]))
+            c_bond = await repo.bond_days(db, user_id, int(companion["id"]))
+            c_level, c_xp, _, _ = await _apply_xp(db, user_id, int(companion["id"]), _species_row(companion)[0],
+                                                  int(c_state["level"]), float(c_state["xp"]) + credited * rules.PAIR_COMPANION_SHARE, c_bond)
+            await repo.save_state(db, user_id, int(companion["id"]), level=c_level, xp=c_xp, energy=float(c_state["energy"]), pity=int(c_state["pity"]))
 
         result = {
             "ok": True, "run_id": run["id"], "kind": run["kind"], "outcome": outcome, "path": path,
             "chance": round(chance, 1) if chance is not None else None, "reward_mult": mult,
-            "xp_raw": round(raw, 2), "xp_credited": round(credited, 2), "daily_credited": round(daily["credited"] + credited, 1),
+            "xp_raw": round(raw, 2), "xp_credited": round(credited, 2), "daily_credited": round(daily["credited"] + total_credit, 1),
             "level_before": level_before, "level_after": level, "ceiling": limit, "bond_days": bond,
             "energy": round(energy, 1), "energy_loss": energy_loss, "finds": granted, "key": key_granted, "stage_essence": stage_essence,
             "idempotent_replay": False,
