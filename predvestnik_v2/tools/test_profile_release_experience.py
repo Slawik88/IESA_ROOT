@@ -17,6 +17,8 @@ updates = (ROOT / "FastAPI/static/updates.json").read_text(encoding="utf-8")
 index = (ROOT / "FastAPI/static/index.html").read_text(encoding="utf-8")
 
 assert "renderProfileHome(d)" in profile
+assert "v3-admin-entry" in index and "openBotAdmin()" in profile
+assert "adminEntry.hidden=!d.is_developer" in profile
 assert "Подробнее о профиле" not in profile
 assert "_profileVipCard" not in profile and "renderProfileDetails" not in profile
 assert "_profileCompensationCard" not in profile and "replayCompensationAnimation" not in profile

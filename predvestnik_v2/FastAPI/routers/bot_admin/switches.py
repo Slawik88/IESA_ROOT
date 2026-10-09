@@ -58,8 +58,11 @@ def _is_developer(request: Request) -> bool:
 _CLOSED_PAGE = """<!doctype html><html lang="ru"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/><title>Предвестник</title>
 <style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0e0f14;color:#e8e9ef;
-font:16px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;text-align:center;padding:24px}</style></head>
-<body><div><div style="font-size:42px">🔮</div><h2>Временно закрыто</h2><p>{reason}</p></div></body></html>"""
+font:16px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;text-align:center;padding:24px;box-sizing:border-box}
+a{display:inline-flex;margin-top:14px;padding:11px 18px;border:1px solid #71694e;border-radius:14px;color:#f3df91;
+text-decoration:none;background:#191921}</style></head>
+<body><div><div style="font-size:42px">🔮</div><h2>Временно закрыто</h2><p>{reason}</p>
+<a href="{admin_url}">Админ-панель</a></div></body></html>"""
 
 
 async def site_gate(request: Request, call_next):
@@ -77,5 +80,7 @@ async def site_gate(request: Request, call_next):
     reason = hit[1] or "Этот раздел временно выключен. Скоро вернём."
     if request.method == "GET" and "text/html" in request.headers.get("accept", ""):
         import html
-        return HTMLResponse(_CLOSED_PAGE.replace("{reason}", html.escape(reason)), status_code=503)
+        closed_page = _CLOSED_PAGE.replace("{reason}", html.escape(reason))
+        closed_page = closed_page.replace("{admin_url}", f"{_ROOT}/bot-admin")
+        return HTMLResponse(closed_page, status_code=503)
     return JSONResponse({"detail": reason, "feature": hit[0]}, status_code=503)

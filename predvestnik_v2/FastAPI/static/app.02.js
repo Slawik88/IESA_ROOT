@@ -14,6 +14,8 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    const adminEntry=el('v3-admin-entry');
+    if(adminEntry) adminEntry.hidden=!d.is_developer;
     if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
     if(typeof v3ApplyLook==='function') v3ApplyLook(d.look);
     // A profile response is authoritative. Optional decorations must never
@@ -28,6 +30,10 @@ function loadProfile() {
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
     try { updateCurrBar(d); } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
+}
+
+function openBotAdmin(){
+  location.href=`${BASE}/bot-admin`;
 }
 
 // ── БЛОК22: Настройки + юридические документы ──────────────────────────────────

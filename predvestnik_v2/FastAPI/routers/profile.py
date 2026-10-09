@@ -46,6 +46,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+_DEVELOPER_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 
 
 async def _sky_sigil(db, user_id: int) -> dict | None:
@@ -493,6 +494,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "avatar":       await _vip_avatar(db, user_id),
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
+        "is_developer": bool(_DEVELOPER_ID and user_id == _DEVELOPER_ID),
         "partner":      partner,
         "messages_all_time": int(activity_row.get("messages_all_time") or 0),
         "joined_date": _iso(joined_date),
