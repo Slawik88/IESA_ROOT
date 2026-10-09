@@ -926,3 +926,24 @@ async def set_notification_pref(body: NotifPrefRequest, db=Depends(get_db), user
         raise HTTPException(400, "Неизвестная категория уведомлений.")
     await notif_repo.set_pref(db, user["id"], body.category, body.enabled)
     return {"ok": True, "category": body.category, "enabled": body.enabled}
+
+
+class AdultWarpsRequest(BaseModel):
+    enabled: bool
+
+
+# 18+ варпы в адрес игрока: тот же флаг users.allow_adult_warps, что меняет «бот 18+ вкл/выкл» в чате.
+@router.get("/warp-prefs")
+async def get_warp_prefs(db=Depends(get_db), user=Depends(require_tg_user)):
+    async with db.execute("SELECT allow_adult_warps FROM users WHERE user_tg_id = ?", (user["id"],)) as cur:
+        row = await cur.fetchone()
+    return {"adult": bool(row and row[0])}
+
+
+@router.post("/warp-prefs")
+async def set_warp_prefs(body: AdultWarpsRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await db.execute(
+        "INSERT INTO users (user_tg_id, allow_adult_warps) VALUES (?, ?) "
+        "ON CONFLICT (user_tg_id) DO UPDATE SET allow_adult_warps = EXCLUDED.allow_adult_warps",
+        (user["id"], body.enabled))
+    return {"adult": body.enabled}

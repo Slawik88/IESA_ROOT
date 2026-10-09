@@ -173,6 +173,19 @@ async def run():
     assert (item["status"], item["sent"], item["failed"]) == ("done", 1, 1), item
     assert (await client.post(f"/bot-admin/api/broadcasts/{item['id']}/stop", headers=h[CODER])).status_code == 409
 
+    # 18+ варпы: настройка на сайте и команда в чате — один и тот же флаг.
+    hp = {"x-session-token": create_session_token(P2)}
+    assert (await client.get("/profile/warp-prefs", headers=hp)).json() == {"adult": False}
+    r = await client.post("/profile/warp-prefs", headers=hp, json={"enabled": True})
+    assert r.status_code == 200 and r.json() == {"adult": True}, r.text
+    async with get_pool().acquire() as conn:
+        m = FakeMessage("бот 18+", P2)
+        await dispatch(registry, m, bot, PGAdapter(conn))
+        assert "сейчас включены" in m.replies[0], m.replies
+        m = FakeMessage("бот 18+ выкл", P2)
+        await dispatch(registry, m, bot, PGAdapter(conn))
+    assert (await client.get("/profile/warp-prefs", headers=hp)).json() == {"adult": False}
+
 
 def main():
     loop = asyncio.new_event_loop()
