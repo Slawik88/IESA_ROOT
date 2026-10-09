@@ -187,7 +187,10 @@ async def checks():
     assert (await act(CODER, P1, action="balance", currency="zarniki", amount=5, reason="x")).status_code == 400
     assert (await act(CODER, P1, action="balance", currency="essence", amount=30, reason="приз")).status_code == 200
     assert (await act(CODER, P1, action="balance", currency="essence", amount=-10, reason="ошибка")).status_code == 200
-    assert (await act(CODER, P1, action="vip", days=7, reason="конкурс")).status_code == 200
+    assert (await act(CODER, P1, action="vip", days=7, reason="конкурс", request_id="v1")).status_code == 200
+    assert (await act(CODER, P1, action="vip", days=7, reason="конкурс", request_id="v1")).status_code == 200  # повтор
+    assert (await act(CODER, P1, action="vip", days="x")).status_code == 400
+    assert (await act(CODER, P1, action="balance", currency="mora", amount="Infinity", reason="x")).status_code == 400
     assert (await act(CODER, CODER, action="vip", days=7)).status_code == 403             # себе — нельзя
     card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[CODER])).json()
     assert card["balances"]["mora"] == 500 and card["balances"]["essence"] == 20, card["balances"]
@@ -228,6 +231,8 @@ async def checks():
         assert await say("бот я", P1)
         assert (await act(SENIOR, P1, action="block", reason="абуз")).status_code == 200
         assert await say("бот я", P1) == ""
+        assert await say("бот абракадабра", P1) == ""          # и «не знаю команду» тоже молчит
+        assert (await act(SENIOR, P1, action="block", days=-1)).status_code == 400
         card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()
         assert card["blocked"]["reason"] == "абуз", card["blocked"]
         assert (await act(SENIOR, P1, action="unblock")).status_code == 200
@@ -244,6 +249,7 @@ async def checks():
         r = await act(CODER, P1, action="global_unban")
         assert r.status_code == 200 and not await is_blacklisted(db, -300, P1), r.text
         assert ("unban", -100, P1) in bot.calls
+        assert ("unban", -200, P1) not in bot.calls      # там глобальный бан не встал — и снимать нечего
 
     # Карточка чата и действия с ним
     card = (await client.get("/bot-admin/api/chat/-100", headers=h[HELPER])).json()

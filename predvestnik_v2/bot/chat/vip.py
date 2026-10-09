@@ -54,7 +54,7 @@ async def status_line(db, user_id: int) -> str:
 async def cmd_vip(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
     if target and target.user_id != ctx.user_id:
-        await ctx.reply(f"{target.label()}: {await status_line(ctx.db, target.user_id)}")
+        await ctx.reply(f"{html.escape(target.label())}: {await status_line(ctx.db, target.user_id)}")
         return
     await ctx.reply(
         f"👑 <b>VIP</b>\n<blockquote>{await status_line(ctx.db, ctx.user_id)}</blockquote>\n"   # СТИЛЬ v1 (оформлено)

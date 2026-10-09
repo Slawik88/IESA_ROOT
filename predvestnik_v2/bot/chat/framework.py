@@ -86,6 +86,9 @@ class Registry:
         self.gate: Callable[["Ctx"], Awaitable[str | None]] | None = None
         # Учёт выполненной команды (метрики админки); ошибки учёта команду не ломают.
         self.on_used: Callable[["Ctx"], Awaitable[None]] | None = None
+        # True — бот молчит этому сообщению целиком (игрок заблокирован, бот выключен):
+        # даже «не знаю команду» и «только в группе» не отправляются.
+        self.silent: Callable[[Message, object], Awaitable[bool]] | None = None
 
     def register(self, cmd: Command) -> Command:
         for n in cmd.all_names():
@@ -284,6 +287,9 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     parsed = parse(registry, text, me.username)
     if parsed is None:
         return False
+    quiet = registry.silent is not None and await registry.silent(message, db)
+    if quiet and (isinstance(parsed, Unknown) or not parsed.command.always_on):
+        return True
     if isinstance(parsed, Unknown):
         if parsed.suggestions:
             def line(name: str) -> str:

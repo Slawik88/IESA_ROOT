@@ -161,7 +161,12 @@ async def main():
         assert 'href="/bot-admin"' in r.text
         assert (await client.get("/profile/", headers=player)).status_code == 503
         assert (await client.get("/bot-admin")).status_code == 200
-        assert (await client.get("/bot-admin/api/me", headers=dev)).status_code == 200
+        me = await client.get("/bot-admin/api/me", headers=dev)
+        assert me.status_code == 200 and "pv_admin_dev" in me.headers.get("set-cookie", ""), me.headers
+        from FastAPI.auth import create_session_token
+        page = await client.get("/", headers={"accept": "text/html"},
+                                cookies={"pv_admin_dev": create_session_token(1001)})
+        assert page.status_code != 503, page.status_code             # разработчик видит закрытый сайт
         await switch("site", True)
         assert (await client.get("/", headers={"accept": "text/html"})).status_code == 200
         # Старой хостовой переменной больше нет: состояние сохраняется в БД и

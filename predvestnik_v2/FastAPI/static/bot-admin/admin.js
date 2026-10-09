@@ -93,11 +93,11 @@ function actionForm(key, ctx) {
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
       () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
-              request_id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())})];
+              request_id: ctx._rid})];
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
-      () => ({days: +v('fdays'), reason: v('freason')})];
+      () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
     case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
@@ -120,6 +120,8 @@ function actionForm(key, ctx) {
 }
 
 function runAction(action, target, ctx, extra, after) {
+  // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
+  ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
   const [body, collect] = actionForm(action.key, ctx);
   const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
   sheet(action.title, place + body, 'Выполнить', async () => {
