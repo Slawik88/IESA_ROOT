@@ -64,10 +64,35 @@ function _stRender() {
     ${_stSec('Внешний вид', _stRow('Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)') + _stSwitch('Чёрный фон', 'Для OLED-экранов: фон полностью чёрный, цвета образа остаются.', _dispGet('pv_oled'), '_toggleOled(this.checked)') + _stSwitch('Крупный текст', 'Весь текст и элементы на экранах чуть крупнее.', _dispGet('pv_big'), '_toggleBig(this.checked)'))}
     ${_stSec('Приватность', _stPresence())}
     ${_stSec('Уведомления', _stNotif(), 'Здесь настраиваются только личные сообщения от бота.')}
+    ${_stSec('Промокод', _stRow('Ввести промокод', 'Награда придёт сразу', 'openPromoSheet()'))}
     ${_stSec('Документы', _stRow('Пользовательское соглашение', 'Откроется прямо здесь', "openLegalDoc('tos')") + _stRow('Политика конфиденциальности', 'Откроется прямо здесь', "openLegalDoc('privacy')"))}
     ${login}
     ${_stSec('Аккаунт', _stAccount())}
     ${user.user_id ? `<button type="button" class="st-id" onclick="_stCopyId(${Number(user.user_id)})" aria-label="Скопировать ID игрока">ID игрока ${Number(user.user_id)} · нажмите, чтобы скопировать</button>` : ''}`;
+}
+
+// ── Промокод: тот же показ награды, что у подарка от Администрации (v3GiftToast, app.28.js) ──────────────
+function openPromoSheet() {
+  OM('Промокод', `<label class="st-field" for="promo-in"><b>Код</b></label><input id="promo-in" class="v3-field" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" placeholder="Например, WELCOME">
+    <p class="st-hint">Регистр не важен. Награда зачисляется сразу.</p><p class="v3-err" id="promo-err" role="alert" hidden></p>`,
+    [{ l: 'Активировать', c: 'primary', f: '_promoGo()' }, { l: 'Отмена', c: 'ghost', f: 'CM()' }]);
+  const inp = el('promo-in'); if (inp) { inp.addEventListener('keydown', e => { if (e.key === 'Enter') _promoGo(); }); setTimeout(() => inp.focus(), 60); }
+}
+let _promoBusy = false;
+function _promoGo() {
+  const code = String(el('promo-in')?.value || '').trim(), err = el('promo-err');
+  if (_promoBusy) return;
+  if (!code) { if (err) { err.textContent = 'Введите код.'; err.hidden = false; } return; }
+  _promoBusy = true;
+  api('/promo-v2/redeem', { method: 'POST', body: JSON.stringify({ code }) }).then(r => {
+    CM();
+    const gifts = (r.granted || []).map(text => {
+      const m = /^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+(\d[\d ]*)\s+(.+)$/u.exec(String(text).trim());
+      return m ? { label: `${m[1]} ${m[3]}`, amount: Number(m[2].replace(/\s/g, '')) } : { label: String(text) };
+    });
+    v3GiftToast([{ title: 'Промокод', from: r.code, glyph: '🎟', gifts }]);
+  }).catch(e => { if (err) { err.textContent = String(e?.message || e || 'Не получилось.').replace(/^Error:\s*/, ''); err.hidden = false; } _haptic('error'); })
+    .finally(() => { _promoBusy = false; });
 }
 
 // ── Действия ─────────────────────────────────────────────────────────────────────
