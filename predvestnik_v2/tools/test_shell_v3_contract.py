@@ -42,7 +42,7 @@ assert "overscroll-behavior: none" in css and "touch-action: manipulation" in cs
 assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
-assert index.count('type="button" class="nb') == 6
+assert index.count('type="button" class="nb') == 7
 assert 'role="status"' in index and "dev-notice" in index
 assert "/vip/" not in home and "Магазине" not in (STATIC / "app.02.js").read_text(encoding="utf-8").split("function showCurrModal", 1)[1][:2500]
 # Skin tiers: server contract, cumulative fx classes, motion budget in the tier stylesheet.

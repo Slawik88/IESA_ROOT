@@ -2,7 +2,7 @@
 """UI smoke suite: the whole player interface in a phone emulation, against the production-topology stand (tools/ui_stand.py).
 
     python tools/ui_smoke.py                          # every screen x widths 320/390/430, the persona wears Void at SSS
-    python tools/ui_smoke.py --skins                  # every look at D and SSS x widths 320/430: profile, six dock tabs, Looks
+    python tools/ui_smoke.py --skins                  # every look at D and SSS x widths 320/430: profile, seven dock tabs, Looks
     python tools/ui_smoke.py --only profile,top --widths 390 --shots /tmp/shots
 
 A run FAILS on: a JS error, an unexpected HTTP error, a widened layout viewport, horizontal overflow, a dock that is not pinned inside the screen,

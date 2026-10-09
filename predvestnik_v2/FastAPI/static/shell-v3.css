@@ -214,3 +214,4 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
   .sk, .sv-skel { animation-duration: .01s; }   /* задержка остаётся, плавного появления нет */
 }
 @media (max-width: 359px) { .v3-num { font-size: 44px; } .v3-gname { font-size: 50px; } .v3-stats { gap: 22px; } .nb { font-size: 9.5px; } .nb svg { width: 20px; height: 20px; } }
+@media (max-width: 340px) { .nav .nb { font-size: 9.5px; letter-spacing: -.1px; } }
