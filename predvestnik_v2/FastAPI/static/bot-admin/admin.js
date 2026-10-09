@@ -233,8 +233,23 @@ async function playerView(main, id, push = true, from = null) {
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
   const mk = p.marks || {given: [], earned: [], grantable: []};
-  if (!mk.given.length) hide.add('mark_revoke');
-  if (mk.given.length >= mk.grantable.length) hide.add('mark_grant');
+  // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
+  const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
+  hide.add('mark_grant'); hide.add('mark_revoke');
+  const held = new Set(mk.given.map(m => m.id));
+  const free = mk.grantable.filter(m => !held.has(m.id));
+  const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
+  const marksCard = `<div class="card"><h3>🏅 Метки · в профиле игрока это «Регалии»</h3>
+      <h3 class="sec">Выданы · ${mk.given.length}</h3>
+      ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
+        : '<div class="sub">Пока ни одной.</div>'}
+      ${mk.earned.length ? `<h3 class="sec">Заработаны сами · ${mk.earned.length}</h3><div class="chips">${mk.earned.map(m =>
+        `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>
+        <div class="sub">Их выдаёт игра, вручную не снимаются.</div>` : ''}
+      ${canGrant ? `<h3 class="sec">Выдать · нажмите на метку</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
+        `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
+        : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
+    </div>`;
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -255,13 +270,12 @@ async function playerView(main, id, push = true, from = null) {
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
-      ${mk.given.length || mk.earned.length ? `<div class="chips" style="margin-top:8px"><span class="sub">Метки:</span>
-        ${[...mk.given, ...mk.earned].map(m => `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
+    ${marksCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -279,6 +293,16 @@ async function playerView(main, id, push = true, from = null) {
   const here = {type: 'player', id};
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
+  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
+      <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
+      <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
+    action === 'mark_grant' ? 'Выдать' : 'Снять', async () => {
+      const res = await api(`/player/${id}/action`, {method: 'POST', body: JSON.stringify({action, mark: m.id, reason: ($('#freason') || {}).value})});
+      toast(res.message || 'Готово');
+      const keep = window.scrollY; Promise.resolve(reopen()).then(() => window.scrollTo(0, keep));
+    });
+  main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
+  main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
   main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, p,
       {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));

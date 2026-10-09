@@ -136,3 +136,11 @@ main > .bar:first-child:has(input) { position: static; margin: 0 0 12px; padding
 .skin-pick { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .skin-pick .skin { width: 120px; flex: none; pointer-events: none; }
 .sheet-skins { max-width: 640px; }
+
+/* Метки в карточке игрока: сетка плиток «нажми, чтобы выдать» */
+.mark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.mark-tile { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px; border-radius: 12px;
+  border: 1px solid var(--line, rgba(255,255,255,.12)); background: var(--card2, rgba(255,255,255,.04)); color: inherit; font: inherit; cursor: pointer; }
+.mark-tile:active { transform: scale(.98); }
+.mark-tile .g { font-size: 24px; line-height: 1.2; }
+.mark-tile small { opacity: .7; font-size: 12px; }
