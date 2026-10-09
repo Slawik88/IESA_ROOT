@@ -48,8 +48,8 @@ def _build(state: dict, talismans: list[dict], camp: dict | None = None) -> dict
             "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans)}
 
 
-def _fx(build: dict, hours: int = 3, route: str | None = None) -> dict:
-    return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route)
+def _fx(build: dict, hours: int = 3, route: str | None = None, paired: bool = False) -> dict:
+    return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route, paired=paired)
 
 
 def _rest(state: dict, pet: dict, now, build: dict) -> float:
@@ -299,7 +299,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         state = await repo.ensure_state(db, user_id, int(pet["id"]), rules.energy_max(1, pet["species_id"]))
         camp = await repo.camp_levels(db, user_id)
         build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])), camp)
-        fx = _fx(build, int(run["hours"]), run["route"])
+        fx = _fx(build, int(run["hours"]), run["route"], paired=run["companion_id"] is not None)
         energy = _rest(state, pet, clock["now"], build)
         level, xp, pity = int(state["level"]), float(state["xp"]), int(state["pity"])
 

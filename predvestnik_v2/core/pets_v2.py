@@ -423,7 +423,7 @@ CALLING_MODS: Final = {  # множители категорий находок;
     "seeker": {"diamond": 1.8, "essence": 1.8, "mora": 0.85},
 }
 AVAILABLE_CALLINGS: Final = ("feeder", "guardian", "seeker")
-AVAILABLE_TRAITS: Final = tuple(t for t in TRAITS if t not in ("picky", "nose", "loner"))  # их плюс зависит от ещё не готовых механик
+AVAILABLE_TRAITS: Final = tuple(t for t in TRAITS if t not in ("picky", "nose"))  # их плюс зависит от ещё не готовых механик
 TALISMANS: Final = {  # вид: (маршрут плюса, маршрут минуса)
     "forest_fang": ("forest", "swamp"), "pass_stone": ("pass", "ruins"),
     "ruin_lens": ("ruins", "pass"), "swamp_lamp": ("swamp", "forest"),
@@ -436,7 +436,7 @@ FREE_SWAP_DAYS: Final = 7
 
 
 def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = (),
-                  *, hours: int = 3, route: str | None = None) -> dict:
+                  *, hours: int = 3, route: str | None = None, paired: bool = False) -> dict:
     """Сводка билда: множитель Следов, множители находок, поправки Выдержки, шанса и награды путей."""
     if calling is not None and calling not in CALLINGS:
         raise PetV2PolicyError("Неизвестное призвание.")
@@ -466,6 +466,8 @@ def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple
             mul("diamond", 1.8); mul("essence", 1.8); mul("bonus_xp", 0.7)
         elif trait == "hardy":
             energy_bonus += 15; regen_delta -= 1
+        elif trait == "loner":
+            xp *= 0.90 if paired else 1.10
         elif trait == "lunatic" and route:
             xp *= 1.25 if route == "swamp" else 0.85 if route == "forest" else 1.0
     for kind, tier in talismans:
