@@ -202,6 +202,19 @@ async def checks():
     assert (await act(CODER, P2, action="rank", rank=0)).status_code == 403              # теперь равен по роли
     assert (await act(DEV, P2, action="rank", rank=6)).status_code == 400
 
+    # Метки (регалии)
+    assert (await act(SENIOR, P1, action="mark_grant", mark="founder", reason="с первых дней")).status_code == 403
+    assert "причину" in (await act(CODER, P1, action="mark_grant", mark="founder")).json()["detail"]
+    assert "сам" in (await act(CODER, P1, action="mark_grant", mark="streak30", reason="x")).json()["detail"]
+    r = await act(CODER, P1, action="mark_grant", mark="founder", reason="с первых дней")
+    assert r.status_code == 200 and "Первопроходец" in r.json()["message"], r.text
+    assert "уже есть" in (await act(CODER, P1, action="mark_grant", mark="founder", reason="x")).json()["detail"]
+    card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[CODER])).json()
+    assert [m["id"] for m in card["marks"]["given"]] == ["founder"], card["marks"]
+    assert next(x for x in card["history"] if x["action"] == "mark_grant")["text"] == "Первопроходец"
+    assert (await act(CODER, P1, action="mark_revoke", mark="founder", reason="ошибка")).status_code == 200
+    assert (await act(CODER, P1, action="mark_revoke", mark="founder", reason="ошибка")).status_code == 400
+
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         assert await skins_v3_repo.essence_balance(db, P1) == 20

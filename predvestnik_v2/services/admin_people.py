@@ -32,7 +32,7 @@ STATEMENTS = (
 
 # Подписи действий в журнале: и из админки, и из чата (moderation_logs).
 ACTION_TITLES = {
-    "rank": "Глобальная роль", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
+    "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
     "global_ban": "Бан во всех чатах", "global_unban": "Снят бан во всех чатах",
     "close": "Чат закрыт", "open": "Чат открыт", "warn_limit": "Лимит варнов", "message": "Сообщение от бота",
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
@@ -152,6 +152,8 @@ def describe(action: str, d: dict) -> str:
         return f"на {_days(d['days'])}" if d.get("days") else "пока не снимут"
     if action == "rank":
         return f"{d.get('from', '')} → {d.get('to', '')}"
+    if action in ("mark_grant", "mark_revoke"):
+        return str(d.get("mark", ""))
     if action == "warn_limit":
         return str(d.get("value", ""))
     if action == "message":

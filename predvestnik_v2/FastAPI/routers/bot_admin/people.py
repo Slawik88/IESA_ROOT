@@ -22,6 +22,7 @@ from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
 from services import admin_people, feature_switches, global_moderation
+from services import marks_v1 as marks_service
 from services import vip as vip_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
@@ -43,6 +44,8 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "balance": ("💰 Изменить баланс", 5, "player"),
     "vip": ("👑 Выдать VIP", 5, "player"),
     "rank": ("🎖 Глобальная роль", 5, "player"),
+    "mark_grant": ("🏅 Выдать метку", 5, "player"),
+    "mark_revoke": ("✖️ Снять метку", 5, "player"),
     "close": ("🔒 Закрыть чат", 3, "chat"),
     "open": ("🔓 Открыть чат", 3, "chat"),
     "warn_limit": ("⚠️ Лимит варнов", 4, "chat"),
@@ -144,6 +147,8 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
     card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()]
     card["history"] = await admin_people.history(db, user_id=uid)
+    # Метки (в профиле игрока — «Регалии»): выданные вручную, заработанные и что можно выдать.
+    card["marks"] = await marks_service.admin_view(db, uid)
     return card
 
 
@@ -196,6 +201,18 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         except Exception as exc:
             raise _tg_error(exc)
         return {"ok": True, "message": "Готово."}
+
+    if action in ("mark_grant", "mark_revoke"):
+        mark = str(data.get("mark") or "")
+        try:
+            if action == "mark_grant":
+                title = await marks_service.grant(db, uid, mark, actor, reason)
+            else:
+                title = await marks_service.revoke(db, uid, mark, actor, reason)
+        except marks_service.MarkConflict as exc:
+            raise HTTPException(400, str(exc))
+        await admin_people.audit(db, actor, action, user_id=uid, details={"mark": title, "reason": reason})
+        return {"ok": True, "message": ("Метка выдана: " if action == "mark_grant" else "Метка снята: ") + title}
 
     if action == "rank":
         new = int(data.get("rank") if data.get("rank") is not None else -1)

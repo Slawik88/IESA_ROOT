@@ -101,6 +101,16 @@ function actionForm(key, ctx) {
     case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
+    case 'mark_grant': {
+      const have = new Set(ctx.marks.given.map(m => m.id));
+      const free = ctx.marks.grantable.filter(m => !have.has(m.id));
+      return [`<div class="field"><label>Метка (в профиле — «Регалии»)</label><select id="fmark">
+        ${free.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)} — ${esc(m.desc)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
+    }
+    case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
+        ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
     case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
     case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
@@ -220,6 +230,9 @@ async function playerView(main, id, push = true, from = null) {
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  const mk = p.marks || {given: [], earned: [], grantable: []};
+  if (!mk.given.length) hide.add('mark_revoke');
+  if (mk.given.length >= mk.grantable.length) hide.add('mark_grant');
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -240,6 +253,8 @@ async function playerView(main, id, push = true, from = null) {
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
+      ${mk.given.length || mk.earned.length ? `<div class="chips" style="margin-top:8px"><span class="sub">Метки:</span>
+        ${[...mk.given, ...mk.earned].map(m => `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
