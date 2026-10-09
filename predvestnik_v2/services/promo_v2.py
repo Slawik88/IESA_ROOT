@@ -70,8 +70,11 @@ def _number(value, *, integer: bool, limit: int, what: str) -> int | Decimal:
 
 def skin_choices() -> list[dict]:
     """Образы, которые можно положить в промокод (личные образы — только из консоли, по одному владельцу)."""
-    return [{"id": sid, "name": s.get("name", sid), "tier": s.get("tier", "")}
-            for sid, s in SKINS.items() if not s.get("exclusive")]
+    return [{"id": sid, "name": s.get("name", sid), "tier": s.get("tier", ""), "blurb": s.get("blurb", ""),
+             "pal": list(s.get("pal") or ()), "bg": (s.get("tokens") or {}).get("--v3-bg", "#0e0f14"),
+             "wash": (s.get("tokens") or {}).get("--v3-wash", ""), "frame": (s.get("kinds") or {}).get("frame", "ring"),
+             "season": bool(s.get("season")), "set": s.get("set")}
+            for sid, s in SKINS.items() if not s.get("exclusive")]   # поля превью: админка рисует карточку образа цветами его палитры
 
 
 def normalize_rewards(raw) -> list[dict]:

@@ -95,7 +95,8 @@ function actionForm(key, ctx) {
       () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
               request_id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())})];
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
-        <input id="fdays" type="number" min="1" max="3650" value="7"/></div>` + reasonField(),
+        <input id="fdays" type="number" min="1" max="3650" value="7"/>
+        <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason')})];
     case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
@@ -484,6 +485,37 @@ function localInput(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// Выбор образа для награды: сетка карточек в цветах палитры образа (фон, кольцо, свечение), фильтр по тиру, поиск по названию.
+function skinCard(k, on) {
+  const [c1, c2, c3] = [...(k.pal || []), '#8b7cf6', '#8b7cf6', '#fff'];
+  return `<button type="button" class="skin ${on ? 'on' : ''}" data-skin="${esc(k.id)}" aria-pressed="${on}"
+    style="--sb:${esc(k.bg)};--s1:${esc(c1)};--s2:${esc(c2)};--s3:${esc(c3)}">
+    <span class="skin-art" style="background:${k.wash ? esc(k.wash) + ',' : ''}${esc(k.bg)}"><i class="skin-av"></i><b class="skin-t">${esc(k.tier)}</b></span>
+    <span class="skin-n">${esc(k.name)}</span></button>`;
+}
+function skinPicker(currentId, onPick) {
+  const box = $('#sheet'), all = OPTIONS.skins, tiers = ['Все', ...new Set(all.map(k => k.tier))];
+  let tier = 'Все', q = '';
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
+    <input id="skq" placeholder="Поиск по названию" autocomplete="off"/>
+    <div class="chips" id="skt"></div><div class="skin-grid" id="skg"></div>
+    <div class="actions" style="margin-top:12px"><button class="btn" id="skx">Закрыть</button></div></div>`;
+  box.hidden = false;
+  const draw = () => {
+    $('#skt').innerHTML = tiers.map(t => `<span class="chip ${t === tier ? 'ok' : ''}" data-tier="${esc(t)}">${esc(t)}</span>`).join('');
+    const list = all.filter(k => (tier === 'Все' || k.tier === tier) && k.name.toLowerCase().includes(q));
+    $('#skg').innerHTML = list.map(k => skinCard(k, k.id === currentId)).join('') || '<div class="sub">Ничего не нашлось</div>';
+  };
+  draw();
+  $('#skq').oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
+  $('#skt').onclick = e => { const c = e.target.closest('[data-tier]'); if (c) { tier = c.dataset.tier; draw(); } };
+  $('#skg').onclick = e => { const b = e.target.closest('[data-skin]'); if (b) { close(); onPick(b.dataset.skin); } };
+  $('#skx').onclick = close;
+  box.onclick = e => { if (e.target === box) close(); };
+  const on = $('#skg .skin.on'); if (on && on.scrollIntoView) on.scrollIntoView({block: 'center'});
+}
+
 async function promoEdit(main, p) {
   OPTIONS = OPTIONS || await api('/promo-options');
   const isNew = !p;
@@ -509,8 +541,9 @@ async function promoEdit(main, p) {
       <div class="field"><label>Где активировать: пусто — везде, иначе только в выбранных чатах</label>
         <input id="fchatq" placeholder="Найти чат по названию или ID"/><div class="found" id="fchatfound"></div>
         <div class="chips" id="fchats"></div></div>
-      <div class="field"><label>Только для игроков (ID через запятую, пусто — для всех)</label>
-        <input id="fusers" value="${p ? p.allowed_users.join(', ') : ''}"/></div>
+      <div class="field"><label>Только для игроков: пусто — для всех</label>
+        <input id="fuserq" placeholder="Найти игрока по @нику или ID"/><div class="found" id="fuserfound"></div>
+        <div class="chips" id="fusers"></div></div>
       <div class="field"><label>Заметка для себя</label><textarea id="fnote" maxlength="300">${esc(p ? p.note : '')}</textarea></div>
       <div class="actions"><button class="btn primary" id="fsave">${isNew ? 'Создать' : 'Сохранить'}</button></div>
     </div>`;
@@ -524,7 +557,7 @@ async function promoEdit(main, p) {
     $('#frewards').innerHTML = state.rewards.map((r, i) => {
       const opt = OPTIONS.rewards.find(o => o.type === r.type) || OPTIONS.rewards[0];
       const value = opt.field === 'id'
-        ? `<select data-i="${i}" data-k="id">${OPTIONS.skins.map(s => `<option value="${esc(s.id)}" ${s.id === r.id ? 'selected' : ''}>${esc(s.name)} · ${esc(s.tier)}</option>`).join('')}</select>`
+        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')(OPTIONS.skins.find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
         : `<input data-i="${i}" data-k="${opt.field}" type="number" min="0" step="${r.type === 'diamonds' ? '0.01' : '1'}" value="${esc(r[opt.field] ?? '')}" placeholder="Сколько"/>`;
       return `<div class="reward">
         <select data-i="${i}" data-k="type">${OPTIONS.rewards.map(o => `<option value="${o.type}" ${o.type === r.type ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select>
@@ -538,6 +571,10 @@ async function promoEdit(main, p) {
     else state.rewards[i][k] = e.target.value;
   });
   $('#frewards').addEventListener('input', e => { const i = +e.target.dataset.i; if (e.target.dataset.k && e.target.dataset.k !== 'type') state.rewards[i][e.target.dataset.k] = e.target.value; });
+  $('#frewards').addEventListener('click', e => {
+    const pk = e.target.closest('[data-pick]');
+    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => { state.rewards[+pk.dataset.pick].id = id; drawRewards(); });
+  });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
 
@@ -568,15 +605,42 @@ async function promoEdit(main, p) {
     drawChats();
   };
 
+  // Игроки-получатели: поиск по нику или ID и чипы, как у чатов (раньше нужно было вписывать ID через запятую).
+  const users = ((p && p.allowed_users) || []).map(id => ({id: +id, label: 'id' + id}));
+  const drawUsers = () => {
+    $('#fusers').innerHTML = users.length
+      ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
+      : '<span class="sub">Для всех игроков</span>';
+  };
+  drawUsers();
+  $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
+  let ut;
+  $('#fuserq').oninput = e => {
+    clearTimeout(ut);
+    const q = e.target.value.trim();
+    if (!q) { $('#fuserfound').innerHTML = ''; return; }
+    ut = setTimeout(async () => {
+      const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
+      $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
+        .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
+        || '<span class="sub">Не найдено</span>';
+    }, 250);
+  };
+  $('#fuserfound').onclick = e => {
+    const b = e.target.closest('[data-adduser]');
+    if (!b) return;
+    users.push({id: +b.dataset.adduser, label: b.dataset.label});
+    $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+    drawUsers();
+  };
+
   $('#fsave').onclick = async () => {
     const toIso = v => (v ? new Date(v).toISOString() : null);
-    const users = $('#fusers').value.split(/[\s,;]+/).filter(Boolean);
-    if (users.some(x => !/^\d+$/.test(x))) return toast('ID игроков — только цифры через запятую', true);
     const body = {
       code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code,
       rewards: state.rewards, max_activations: +$('#fmax').value || 0, is_active: $('#factive').checked,
       valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
-      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(Number), note: $('#fnote').value,
+      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(u => u.id), note: $('#fnote').value,
     };
     try {
       const saved = isNew
