@@ -69,7 +69,8 @@ assert ranks.check_assign(7, 2, 9) is not None          # владельца н�
 assert ranks.check_assign(6, 6, 2) is not None          # равному нельзя
 assert ranks.check_assign(6, 2, 6) is not None          # свой ранг выдать нельзя
 assert ranks.check_assign(6, 2, 5) is None
-assert ranks.check_assign(ranks.DEV_LEVEL, 8, 8) is None  # разработчик может всё, кроме владельца
+assert ranks.check_assign(ranks.DEV_LEVEL, 8, 8) is None  # разработчик может всё
+assert ranks.check_assign(ranks.DEV_LEVEL, 2, 9) is None  # и назначить владельца
 assert parse(real, "бот снять ранг, @user").command.name == "снять ранг"
 assert parse(real, "бот ранг @user 4").command.name == "ранг"
 print("OK: ranks")

@@ -71,6 +71,13 @@ async def _assign(ctx: Ctx, target, target_rank: int, new_rank: int) -> None:
     if reason:
         await ctx.reply(f"⛔ {reason}")
         return
+    if new_rank >= ranks.OWNER:
+        await ranks.set_owner_override(ctx.db, chat_id, target.user_id)
+        await ctx.reply(f"👑 {_esc(target.label())} теперь владелец этого чата в боте. "
+                        "Вернуть владельца из Telegram: <code>бот снять ранг</code> ответом ему или по нику.")
+        return
+    if target_rank >= ranks.OWNER and not ranks.is_developer(target.user_id):
+        await ranks.set_owner_override(ctx.db, chat_id, None)   # снять назначенного владельца
     await ranks.store_rank(ctx.db, chat_id, target.user_id, new_rank)
     await ctx.reply(
         f"✅ {_esc(target.label())}: {ranks.rank_name(target_rank)} → <b>{ranks.rank_name(new_rank)}</b>"
