@@ -6,6 +6,7 @@ import html
 from loguru import logger
 
 from bot.chat.framework import Ctx, UsageError, registry
+from bot.chat.style import quote
 from services import promo_v2
 
 
@@ -26,5 +27,5 @@ async def cmd_promo(ctx: Ctx) -> None:
         logger.exception("promo redeem failed")
         await ctx.reply("🎟 Не получилось активировать промокод. Ничего не списано и не начислено, попробуйте позже.")
         return
-    lines = "\n".join(f"• {html.escape(x)}" for x in result.granted)
-    await ctx.reply(f"🎟 Промокод <b>{html.escape(result.code)}</b> активирован!\n\n{lines}")
+    lines = quote([html.escape(x) for x in result.granted])   # СТИЛЬ v1 (оформлено): награды цитатой
+    await ctx.reply(f"🎟 Промокод <b>{html.escape(result.code)}</b> активирован!\n{lines}")

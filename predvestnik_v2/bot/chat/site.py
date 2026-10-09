@@ -26,8 +26,8 @@ def site_keyboard(chat_type: str, bot_username: str) -> InlineKeyboardMarkup | N
 
 
 SITE_TEXT = (
-    "🔮 <b>Предвестник</b>\n\n"
-    "Профиль, игры, косметика и награды — всё в одном месте.\n"
+    "🔮 <b>Предвестник</b>\n"   # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md)
+    "<blockquote>Профиль, игры, косметика и награды — всё в одном месте.</blockquote>\n"
     "Нажмите кнопку ниже, приложение откроется прямо в Telegram."
 )
 

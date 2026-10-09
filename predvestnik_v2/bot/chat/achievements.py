@@ -23,6 +23,7 @@ from bot.chat.achievements_data import (ACHIEVEMENTS, BY_ID, MILESTONE_EVERY, MI
                                         milestone_essence, plural)
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat.framework import Ctx, norm, registry
+from bot.chat.style import quote
 from bot.chat.targets import resolve_target
 
 STATEMENTS = (
@@ -304,20 +305,25 @@ GROUP_TITLES = {"chat": "Общение", "warps": "Взаимодействия
                 "family": "Семья", "games": "Игры"}
 
 
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): группы и пороги в цитатах.
 async def card(db, user_id: int, who: str) -> str:
     ups = await evaluate(db, user_id)          # в карточке всегда свежие цифры
     fresh = {u.achievement.id for u in ups}
     stored = await stored_levels(db, user_id)
-    lines, total, total_max, title = [], 0, 0, None
+    lines, block, total, total_max, title = [], [], 0, 0, None
     for a in ACHIEVEMENTS:
         value = await value_of(db, user_id, a)
         level = max(stored.get(a.id, 0), level_of(a, value))
         total += level
         total_max += a.max_level
         if GROUP_TITLES[a.group] != title:
-            title = GROUP_TITLES[a.group]
+            if block:
+                lines.append(quote(block))
+            title, block = GROUP_TITLES[a.group], []
             lines.append(f"\n<b>{title}</b>")
-        lines.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
+        block.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
+    if block:
+        lines.append(quote(block))
     return (f"🏆 <b>{who} достижения</b> · уровней: {total} из {total_max}\n" + "\n".join(lines) +
             f"\n\nЗа каждый {MILESTONE_EVERY}-й уровень — 🔮 эссенция. Подробно: <code>бот достижение болтун</code>")
 
@@ -328,9 +334,9 @@ async def detail(db, user_id: int, a: Achievement) -> str:
     nxt = a.thresholds[level:level + 5]
     ahead = " → ".join(fmt(x) for x in nxt) if nxt else "все уровни пройдены 👑"
     return (f"{a.icon} <b>{a.name}</b> · {medal(level, a.max_level)} ур. {level}/{a.max_level}\n"
-            f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n\n"
-            f"Следующие пороги: {ahead}\n"
-            f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"
+            f"{a.measure}: <b>{fmt(value)}</b> {plural(value, a.unit)}\n"
+            + quote([f"Следующие пороги: {ahead}",
+                     f"Последний уровень: {fmt(a.thresholds[-1])} {plural(a.thresholds[-1], a.unit)}"])
             + reward_line(a, level))
 
 

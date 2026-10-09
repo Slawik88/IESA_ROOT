@@ -26,6 +26,7 @@ from bot.chat.framework import Ctx, UsageError, norm, registry
 from bot.chat.targets import resolve_target
 from bot.chat.transfer import fmt, parse_amount
 from bot.chat.tracking import local_now
+from bot.chat.style import quote
 
 router = Router(name="chat_family")
 
@@ -227,26 +228,24 @@ def days_together(since: datetime | None) -> int | None:
     return (local_now().date() - since.date()).days if since else None
 
 
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): родители, дети и кошелёк в цитатах, ники без пинга.
 async def card(db, fam: Family) -> str:
     names = await labels(db, fam.members)
     lines = ["💞 <b>Семья</b>"]
     if fam.since:
         days = days_together(fam.since)
         lines.append(f"Вместе с {fam.since.strftime('%d.%m.%Y')} · {days} дн.")
-    lines.append("\n<b>Родители</b>")
-    for p in fam.parents:
-        lines.append(f"• {names[p]} — {fam.roles.get(p, 'супруг(а)')}")
-    lines.append(f"\n<b>Дети</b> · {len(fam.children)}/{MAX_CHILDREN}")
+    lines.append("\n👫 <b>Родители</b>")
+    lines.append(quote([f"{names[p]} — <i>{fam.roles.get(p, 'супруг(а)')}</i>" for p in fam.parents]))
+    lines.append(f"\n👶 <b>Дети</b> · {len(fam.children)}/{MAX_CHILDREN}")
     if fam.children:
-        lines += [f"• {names[c]} — {role}" for c, role in fam.children]
+        lines.append(quote([f"{names[c]} — <i>{role}</i>" for c, role in fam.children]))
     else:
         lines.append("Пока нет. Позвать: <code>бот усыновить, @ник</code>")
     bal = await wallet_balances(db, fam.marriage_id)
     shown = [c for c in WALLET_CURRENCIES if c in WALLET_BUTTONS or bal[c]]
     lines.append("\n🏦 <b>Общий кошелёк</b>")
-    for c in shown:
-        spec = CURRENCY_VIEW[c]
-        lines.append(f"{spec.icon} {spec.label}: <b>{fmt_amount(bal[c], spec.display_decimals)}</b>")
+    lines.append(quote([f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}: <b>{fmt_amount(bal[c], CURRENCY_VIEW[c].display_decimals)}</b>" for c in shown]))
     return "\n".join(lines)
 
 

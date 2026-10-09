@@ -57,8 +57,8 @@ async def cmd_vip(ctx: Ctx) -> None:
         await ctx.reply(f"{target.label()}: {await status_line(ctx.db, target.user_id)}")
         return
     await ctx.reply(
-        f"👑 <b>VIP</b>\n{await status_line(ctx.db, ctx.user_id)}\n\n"
-        "Ваш образ видят все игроки, плюс удобства в приложении. Новый срок добавляется к текущему.\n"
+        f"👑 <b>VIP</b>\n<blockquote>{await status_line(ctx.db, ctx.user_id)}</blockquote>\n"   # СТИЛЬ v1 (оформлено)
+        "Ваш образ видят все игроки, плюс удобства в приложении. Новый срок добавляется к текущему.\n\n"
         "Выберите срок — оплата Зарниками (пополнить: <code>бот купить зарники</code>).",
         reply_markup=packages_keyboard(ctx.user_id))
 
