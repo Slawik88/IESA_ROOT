@@ -25,6 +25,7 @@ STATEMENTS = (
         created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         finished_at TIMESTAMPTZ
     )""",
+    "ALTER TABLE bot_broadcasts ADD COLUMN IF NOT EXISTS html BOOLEAN NOT NULL DEFAULT FALSE",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_bot_broadcasts_request ON bot_broadcasts (actor_id, request_id) "
     "WHERE request_id IS NOT NULL",
 )
@@ -67,17 +68,18 @@ async def audience_sizes(db) -> dict[str, int]:
 async def listing(db, limit: int = 20) -> list[dict]:
     async with db.execute(
         "SELECT b.id, b.actor_id, u.user_tg_username, b.audience, b.text, b.status, b.total, b.sent, b.failed, "
-        "b.created_at, b.finished_at FROM bot_broadcasts b LEFT JOIN users u ON u.user_tg_id = b.actor_id "
+        "b.created_at, b.finished_at, b.html FROM bot_broadcasts b LEFT JOIN users u ON u.user_tg_id = b.actor_id "
         "ORDER BY b.id DESC LIMIT ?", (limit,)) as cur:
         rows = await cur.fetchall()
     return [{"id": int(r[0]), "actor": f"@{r[2]}" if r[2] else f"id{r[1]}", "audience": r[3],
              "audience_title": AUDIENCES.get(r[3], r[3]), "text": r[4], "status": r[5],
              "status_title": STATUS_TITLES.get(r[5], r[5]), "total": int(r[6]), "sent": int(r[7]),
              "failed": int(r[8]), "created_at": r[9].isoformat() if r[9] else None,
-             "finished_at": r[10].isoformat() if r[10] else None} for r in rows]
+             "finished_at": r[10].isoformat() if r[10] else None, "html": bool(r[11])} for r in rows]
 
 
-async def create(db, actor_id: int, audience: str, text: str, request_id: str = "") -> tuple[int, bool, list[int]]:
+async def create(db, actor_id: int, audience: str, text: str, request_id: str = "",
+                 html: bool = False) -> tuple[int, bool, list[int]]:
     """(id, новая ли, получатели). Повтор того же request_id возвращает уже созданную."""
     if audience not in AUDIENCES:
         raise BroadcastError("Нет таких получателей.")
@@ -98,8 +100,8 @@ async def create(db, actor_id: int, audience: str, text: str, request_id: str = 
         if not targets:
             raise BroadcastError("Некому отправлять.")
         async with db.execute(
-            "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, total) VALUES (?, ?, ?, ?, ?) RETURNING id",
-            (actor_id, audience, text, request_id or None, len(targets))) as cur:
+            "INSERT INTO bot_broadcasts (actor_id, audience, text, request_id, total, html) VALUES (?, ?, ?, ?, ?, ?) "
+            "RETURNING id", (actor_id, audience, text, request_id or None, len(targets), html)) as cur:
             bid = int((await cur.fetchone())[0])
     return bid, True, targets
 
@@ -111,7 +113,11 @@ async def stop(db, broadcast_id: int) -> bool:
         return await cur.fetchone() is not None
 
 
-async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, targets: list[int]) -> None:
+async def send(bot, chat_id: int, text: str, html: bool):
+    return await bot.send_message(chat_id, text, parse_mode="HTML" if html else None, disable_web_page_preview=True)
+
+
+async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, targets: list[int], html: bool = False) -> None:
     """Отправка. pool_db — асинхронный контекст, дающий соединение (на каждый шаг своё)."""
     from aiogram.exceptions import TelegramRetryAfter
     sent = failed = 0
@@ -124,7 +130,7 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, targets
                 return
         for attempt in range(2):
             try:
-                await bot.send_message(target, text, disable_web_page_preview=True)
+                await send(bot, target, text, html)
                 sent += 1
                 break
             except TelegramRetryAfter as exc:
@@ -146,10 +152,11 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, targets
                          "WHERE id = ? AND status = 'running'", (sent, failed, broadcast_id))
 
 
-def start(bot, pool_db, broadcast_id: int, audience: str, text: str, targets: list[int]) -> asyncio.Task:
+def start(bot, pool_db, broadcast_id: int, audience: str, text: str, targets: list[int],
+          html: bool = False) -> asyncio.Task:
     async def guarded():
         try:
-            await run(bot, pool_db, broadcast_id, audience, text, targets)
+            await run(bot, pool_db, broadcast_id, audience, text, targets, html)
         except Exception as exc:
             logger.exception(f"broadcast {broadcast_id} crashed: {exc}")
             async with pool_db() as db:

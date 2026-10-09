@@ -35,7 +35,9 @@ class FakeBot:
     async def send_message(self, chat_id, text, **kw):
         if chat_id in (P3, -200):   # P3 не открывал личку, из -200 бота выгнали
             raise RuntimeError("Forbidden: bot can't initiate conversation")
-        self.sent.append((chat_id, text))
+        if kw.get("parse_mode") == "HTML" and text.count("<b>") != text.count("</b>"):
+            raise RuntimeError("Telegram server says - Bad Request: can't parse entities: can't find end tag")
+        self.sent.append((chat_id, text, kw.get("parse_mode")) if kw.get("parse_mode") else (chat_id, text))
 
 
 class FakeMessage:
@@ -162,7 +164,7 @@ async def run():
                               json={"audience": "players", "text": "Обновление!", "request_id": "r1"})
     assert again.json()["id"] == r.json()["id"] and again.json()["message"] == "Уже запущена."
     await asyncio.gather(*list(broadcasts._tasks.values()))
-    assert sorted(c for c, t in bot.sent) == sorted([DEV, HELPER, CODER, P2]), bot.sent
+    assert sorted(x[0] for x in bot.sent) == sorted([DEV, HELPER, CODER, P2]), bot.sent
     item = (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]
     assert (item["status"], item["total"], item["sent"], item["failed"]) == ("done", 5, 4, 1), item
     r = await client.post("/bot-admin/api/broadcasts", headers=h[CODER],
@@ -172,6 +174,21 @@ async def run():
     item = (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]
     assert (item["status"], item["sent"], item["failed"]) == ("done", 1, 1), item
     assert (await client.post(f"/bot-admin/api/broadcasts/{item['id']}/stop", headers=h[CODER])).status_code == 409
+    # HTML: пробная отправка себе и проверка разметки до рассылки
+    bot.sent.clear()
+    r = await client.post("/bot-admin/api/broadcasts/test", headers=h[CODER], json={"text": "<b>Привет</b>", "html": True})
+    assert r.status_code == 200 and bot.sent == [(CODER, "<b>Привет</b>", "HTML")], (r.text, bot.sent)
+    r = await client.post("/bot-admin/api/broadcasts/test", headers=h[CODER], json={"text": "<b>Привет", "html": True})
+    assert r.status_code == 400 and "HTML" in r.json()["detail"], r.text
+    r = await client.post("/bot-admin/api/broadcasts", headers=h[CODER],
+                          json={"audience": "chats", "text": "<b>сломано", "html": True, "request_id": "r3"})
+    assert r.status_code == 400, r.text                               # битый HTML не уходит в чаты
+    r = await client.post("/bot-admin/api/broadcasts", headers=h[CODER],
+                          json={"audience": "chats", "text": "<b>Всем</b>", "html": True, "request_id": "r4"})
+    assert r.status_code == 200, r.text
+    await asyncio.gather(*list(broadcasts._tasks.values()))
+    assert (-100, "<b>Всем</b>", "HTML") in bot.sent, bot.sent
+    assert (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]["html"] is True
 
     # 18+ варпы: настройка на сайте и команда в чате — один и тот же флаг.
     hp = {"x-session-token": create_session_token(P2)}

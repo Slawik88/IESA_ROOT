@@ -30,20 +30,48 @@ async def broadcasts(user=Depends(_user), db=Depends(get_db)):
             "sizes": await broadcasts_service.audience_sizes(db)}
 
 
+def _bad_markup(exc: Exception) -> HTTPException:
+    text = str(exc)
+    if "parse entities" in text or "Unsupported start tag" in text or "can't find end" in text:
+        return HTTPException(400, "Ошибка в HTML-разметке: " + text.split("Bad Request:")[-1].strip()[:200])
+    if "chat not found" in text or "bot can't initiate" in text or "blocked" in text:
+        return HTTPException(409, "Бот не может написать вам в личку: откройте диалог с ботом и нажмите «Старт».")
+    return HTTPException(409, "Telegram отказал: " + text[:200])
+
+
+@router.post("/broadcasts/test")
+async def broadcast_test(data: dict = Body(...), user=Depends(_user)):
+    """Пробная отправка себе в личку: проверить вид и HTML до рассылки."""
+    text = str(data.get("text") or "").strip()
+    if not 1 <= len(text) <= 3500:
+        raise HTTPException(400, "Текст — от 1 до 3500 символов.")
+    try:
+        await broadcasts_service.send(get_bot(), user["id"], text, bool(data.get("html")))
+    except Exception as exc:
+        raise _bad_markup(exc)
+    return {"ok": True, "message": "Отправлено вам в личку."}
+
+
 @router.post("/broadcasts")
 async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     audience = str(data.get("audience") or "")
     text = str(data.get("text") or "").strip()
+    html = bool(data.get("html"))
+    if html:   # разметку проверяем на себе: битый HTML не уйдёт сотням получателей
+        try:
+            await broadcasts_service.send(get_bot(), user["id"], text, True)
+        except Exception as exc:
+            raise _bad_markup(exc)
     try:
         bid, new, targets = await broadcasts_service.create(db, user["id"], audience, text,
-                                                            str(data.get("request_id") or "")[:64])
+                                                            str(data.get("request_id") or "")[:64], html)
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))
     if new:
         await admin_people.audit(db, user["id"], "broadcast",
                                  details={"audience": broadcasts_service.AUDIENCES[audience], "text": text[:500],
                                           "total": len(targets), "broadcast": bid})
-        broadcasts_service.start(get_bot(), _pool_db, bid, audience, text, targets)
+        broadcasts_service.start(get_bot(), _pool_db, bid, audience, text, targets, html)
     return {"ok": True, "id": bid, "message": f"Рассылка запущена: {len(targets)} получателей." if new else "Уже запущена."}
 
 

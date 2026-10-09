@@ -468,6 +468,14 @@ SECTIONS.reports = main => reportsView(main);
 
 // ── Рассылка ─────────────────────────────────────────────────────────────────
 
+// Предпросмотр HTML Telegram: всё экранируется, обратно включаются только теги, которые понимает Telegram.
+function tgHtml(text) {
+  return esc(text)
+    .replace(/&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g, '<$1$2>')
+    .replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/g, '<a href="$1" target="_blank" rel="noopener">')
+    .replace(/&lt;\/a&gt;/g, '</a>');
+}
+
 async function broadcastView(main) {
   const data = await api('/broadcasts').catch(e => { toast(e.message, true); return null; });
   if (!data) return;
@@ -476,24 +484,39 @@ async function broadcastView(main) {
     <div class="card"><h3>📣 Новая рассылка</h3>
       <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
         `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
-      <div class="field"><label>Текст (без разметки, до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <label class="sub" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="bhtml" checked/> HTML-разметка Telegram</label>
+      <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
+      <div class="sub" style="margin-top:6px">Предпросмотр</div><div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
       <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
-      <div class="actions" style="margin-top:10px"><button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
+      <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
+        <button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
       ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
     </div>
     <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
       <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
         ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
-        <div class="sub" style="white-space:pre-wrap">${esc(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
+        <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
         <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
+  const html = () => $('#bhtml').checked;
+  const draw = () => { const t = $('#btext').value; $('#bprev').innerHTML = html() ? tgHtml(t) : esc(t); $('#bhelp').hidden = !html(); };
+  $('#btext').oninput = draw; $('#bhtml').onchange = draw; draw();
+  $('#btest').onclick = async () => {
+    const text = $('#btext').value.trim();
+    if (!text) { toast('Напишите текст.', true); return; }
+    $('#btest').disabled = true;
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: html()})})).message); }
+    catch (e) { toast(e.message, true); }
+    $('#btest').disabled = false;
+  };
   $('#bgo').onclick = () => {
-    const audience = $('#baud').value, text = $('#btext').value.trim();
+    const audience = $('#baud').value, text = $('#btext').value.trim(), isHtml = html();
     if (!text) { toast('Напишите текст.', true); return; }
     const a = data.audiences.find(x => x.key === audience);
     const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
     sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
-      <div class="card" style="white-space:pre-wrap">${esc(text)}</div>`, 'Отправить', async () => {
-      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, request_id: rid})});
+      <div class="card" style="white-space:pre-wrap">${isHtml ? tgHtml(text) : esc(text)}</div>`, 'Отправить', async () => {
+      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, html: isHtml, request_id: rid})});
       toast(res.message || 'Запущено');
       broadcastView(main);
     });
