@@ -292,7 +292,7 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
                 return f"• <code>бот {_esc(name)}</code>{about}"
             hint = "\n".join(line(s) for s in parsed.suggestions)
             await message.reply(
-                f"🤔 Не знаю команду «{_esc(parsed.typed)}». Возможно, вы имели в виду:\n{hint}",
+                f"🤔 Не знаю команду «{_esc(parsed.typed)}». Возможно, вы имели в виду:\n<blockquote>{hint}</blockquote>",
                 parse_mode="HTML",
             )
         else:

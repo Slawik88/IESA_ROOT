@@ -8,6 +8,7 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.chat.framework import Ctx, registry
+from bot.chat.style import quote
 from bot.chat.tracking import local_now
 
 PAGE_SIZE = 25
@@ -54,7 +55,7 @@ def render(title: str, rows: list[tuple[int, str, int]], page: int, pages: int, 
         mark = MEDALS.get(pos, f"<b>{pos}.</b>")
         lines.append(f"{mark} {_esc(name)} · <code>{fmt_num(cnt).rjust(width)}</code>")
     foot = f"\n\n<i>Страница {page + 1} из {pages}</i>" if pages > 1 else ""
-    return head + "\n\n" + "\n".join(lines) + foot
+    return head + "\n\n" + quote(lines) + foot
 
 
 def keyboard(uid: int, scope: str, period: str, page: int, pages: int, chat: int) -> InlineKeyboardMarkup:
