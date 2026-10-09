@@ -104,10 +104,8 @@ const hdrs = () => {
   if (CLIENT_FP) h['x-client-fp']=CLIENT_FP;
   return h;
 };
-// Авто-refresh (реактивный слой): после успешного мутирующего запроса раз в ~350мс
-// (debounce, чтобы серия действий не долбила сервер) подтягиваем бар валют + счётчики,
-// чтобы мора/алмазы/зарники/🌑 обновлялись сами, без ручной перезагрузки страницы.
-// Подписчики (напр. экран гачи) регистрируют колбэк через onReactiveRefresh().
+// После локальных мутаций обновляем только подписанный экран. Балансы приходят
+// отдельным транзакционным WS-событием, поэтому повторный /profile/me не нужен.
 let _reactiveTimer=null;
 const _reactiveSubs=new Set();
 function onReactiveRefresh(fn){ if(typeof fn==='function') _reactiveSubs.add(fn); return fn; }
@@ -122,7 +120,6 @@ function _scheduleReactiveRefresh(){
   if(_reactiveTimer) clearTimeout(_reactiveTimer);
   _reactiveTimer=setTimeout(()=>{
     _reactiveTimer=null;
-    try{ if(typeof refreshCurrBar==='function') refreshCurrBar(); }catch(_){}
     _reactiveSubs.forEach(fn=>{ try{ fn(); }catch(_){} });
   }, 350);
 }
@@ -199,7 +196,7 @@ function switchTgAccount(){
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
-let _ws=null, _wsTries=0, _wsTimer=0;
+let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null;
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
 // Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
@@ -210,6 +207,13 @@ function connectWS() {
   ws.onopen = () => { _wsTries = 0; };
   ws.onmessage = ev => {
     let event; try { event = JSON.parse(ev.data); } catch (e) { return; }
+    // The server sends this only after its PostgreSQL listener is active. One
+    // read here closes the reconnect gap; a healthy connection never polls.
+    if (event?.type === 'balance_stream_ready') {
+      try { if(typeof refreshCurrBar==='function') refreshCurrBar(); } catch (_) {}
+      return;
+    }
+    if (event?.type === 'balance_changed') { queueLiveBalance(event); return; }
     if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
   };
   ws.onclose = () => {
@@ -220,6 +224,21 @@ function connectWS() {
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });
+function queueLiveBalance(event){
+  _pendingBalanceEvent={...(_pendingBalanceEvent||{}),...event};
+  if(_balanceEventTimer)return;
+  _balanceEventTimer=setTimeout(()=>{
+    _balanceEventTimer=0;
+    const next=_pendingBalanceEvent;_pendingBalanceEvent=null;
+    if(!next||!_profileData)return;
+    const keys=['mora','diamonds','dark_mora','zarniki','essence','echo_shards'];
+    const patch={};keys.forEach(k=>{if(next[k]!==undefined)patch[k]=Number(next[k]);});
+    _profileData={..._profileData,...patch};
+    try{updateCurrBar(_profileData);}catch(_){}
+    try{_profileSyncStats(_profileData);}catch(_){}
+    keys.forEach(k=>{const n=el('cm-bal-'+k);if(n&&patch[k]!==undefined)n.textContent=fmtF(patch[k]);});
+  },80);
+}
 function showWsNotif(event) {
   const titles = {
     expedition_done: '⚔️ Поход завершён!',

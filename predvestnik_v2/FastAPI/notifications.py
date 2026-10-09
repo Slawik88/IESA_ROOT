@@ -13,10 +13,13 @@ sub_lot/unsub_lot/lot_react). main.py и локальный тест-серве�
 и ту же функцию, чтобы протокол не расползался между продом и тестами.
 """
 import asyncio
+import json
 import time
 
-# user_id → asyncio.Queue
-_queues: dict[int, asyncio.Queue] = {}
+from loguru import logger
+
+# user_id → queues of every open tab/device for this account
+_queues: dict[int, set[asyncio.Queue]] = {}
 
 # R5: lot_id → set[user_id] — зрители live-комнаты финала лота
 _lot_rooms: dict[int, set[int]] = {}
@@ -24,24 +27,96 @@ _lot_rooms: dict[int, set[int]] = {}
 _react_last: dict[tuple[int, int], float] = {}
 _REACT_MIN_INTERVAL_SEC = 2.0
 
+_balance_listener_task: asyncio.Task | None = None
+_balance_listener_lock = asyncio.Lock()
+_balance_listener_ready = asyncio.Event()
+
+
+async def _balance_listener() -> None:
+    """Bridge transactional PostgreSQL NOTIFY events to local WS queues.
+
+    Every application process listens to the same channel. Only the process
+    holding a user's WebSocket has a matching queue, so no shared Redis bus or
+    periodic profile reads are needed.
+    """
+    from infrastructure.database import create_pool, get_pool
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import balance_events
+
+    await create_pool()
+    async with get_pool().acquire() as conn:
+        await balance_events.ensure_schema(PGAdapter(conn))
+
+        def on_balance(_connection, _pid, _channel, payload: str) -> None:
+            try:
+                event = json.loads(payload)
+                user_id = int(event.pop("user_id"))
+                if event.get("type") == "balance_changed":
+                    asyncio.create_task(notify(user_id, event))
+            except Exception as exc:
+                logger.warning(f"balance event ignored: {exc}")
+
+        await conn.add_listener(balance_events.CHANNEL, on_balance)
+        _balance_listener_ready.set()
+        try:
+            await asyncio.Future()
+        finally:
+            await conn.remove_listener(balance_events.CHANNEL, on_balance)
+
+
+async def ensure_balance_listener() -> bool:
+    """Start one lazy dedicated LISTEN connection per application process."""
+    global _balance_listener_task
+    if not _balance_listener_task or _balance_listener_task.done():
+        async with _balance_listener_lock:
+            if not _balance_listener_task or _balance_listener_task.done():
+                _balance_listener_ready.clear()
+                _balance_listener_task = asyncio.create_task(
+                    _balance_listener(), name="predvestnik:balance-events"
+                )
+
+                def report_failure(task: asyncio.Task) -> None:
+                    if task.cancelled():
+                        return
+                    exc = task.exception()
+                    if exc:
+                        logger.error(f"balance listener stopped: {exc}")
+
+                _balance_listener_task.add_done_callback(report_failure)
+    try:
+        await asyncio.wait_for(_balance_listener_ready.wait(), timeout=8.0)
+        return True
+    except asyncio.TimeoutError:
+        logger.warning("balance listener startup timed out; WebSocket stays available")
+        return False
+
 
 async def notify(user_id: int, event: dict) -> bool:
     """Доставить событие подключённому WS-клиенту. Возвращает True, если клиент
     онлайн (событие отправлено), иначе False — вызывающий может сохранить его в
     web_notifications для показа при следующем входе (Welcome Back)."""
-    q = _queues.get(user_id)
-    if q:
-        await q.put(event)
+    queues = tuple(_queues.get(user_id, ()))
+    if queues:
+        for q in queues:
+            q.put_nowait(event)
         return True
     return False
 
 
 def register(user_id: int, q: asyncio.Queue) -> None:
-    _queues[user_id] = q
+    _queues.setdefault(user_id, set()).add(q)
 
 
-def unregister(user_id: int) -> None:
-    _queues.pop(user_id, None)
+def unregister(user_id: int, q: asyncio.Queue | None = None) -> None:
+    if q is None:
+        _queues.pop(user_id, None)
+        return
+    queues = _queues.get(user_id)
+    if not queues:
+        return
+    queues.discard(q)
+    if not queues:
+        _queues.pop(user_id, None)
 
 
 # ── R5: live-комнаты лотов ─────────────────────────────────────────────────────
@@ -118,6 +193,8 @@ async def ws_session(websocket, user_id: int) -> None:
     (unregister + выход из всех комнат) гарантирована."""
     q: asyncio.Queue = asyncio.Queue()
     register(user_id, q)
+    if await ensure_balance_listener():
+        q.put_nowait({"type": "balance_stream_ready"})
 
     async def _sender():
         while True:
@@ -140,5 +217,5 @@ async def ws_session(websocket, user_id: int) -> None:
     finally:
         sender.cancel()
         receiver.cancel()
-        unregister(user_id)
+        unregister(user_id, q)
         await _leave_all(user_id)

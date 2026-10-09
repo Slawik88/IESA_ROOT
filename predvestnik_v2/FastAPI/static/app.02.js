@@ -287,35 +287,35 @@ function showCurrModal() {
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
       <div class="cm-info">
-        <div class="cm-name">Мора <span class="cm-val">${fmtF(mora)}</span></div>
+        <div class="cm-name">Мора <span class="cm-val" id="cm-bal-mora">${fmtF(mora)}</span></div>
         <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💎</div>
       <div class="cm-info">
-        <div class="cm-name">Алмазы <span class="cm-val">${fmtF(dia)}</span></div>
+        <div class="cm-name">Алмазы <span class="cm-val" id="cm-bal-diamonds">${fmtF(dia)}</span></div>
         <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">💧</div>
       <div class="cm-info">
-        <div class="cm-name">Эссенция <span class="cm-val">${fmtF(d.essence ?? 0)}</span></div>
+        <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtF(d.essence ?? 0)}</span></div>
         <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">🌑</div>
       <div class="cm-info">
-        <div class="cm-name">Тёмная Мора <span class="cm-val">${fmtF(dark)}</span></div>
+        <div class="cm-name">Тёмная Мора <span class="cm-val" id="cm-bal-dark_mora">${fmtF(dark)}</span></div>
         <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
       </div>
     </div>
     <div class="cm-block">
       <div class="cm-icon">✨</div>
       <div class="cm-info">
-        <div class="cm-name">Зарники <span class="cm-val">${fmtF(zar)}</span></div>
+        <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtF(zar)}</span></div>
         <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
       </div>
     </div>
@@ -358,7 +358,8 @@ function showCurrBar(show) {
 
 el('curr-bar')?.addEventListener('click', showCurrModal);
 
-// Refresh bar data from server (called on a slow timer + реактивно после мутаций, см. app.01.js api())
+// Reconciliation read: initial load and a real WebSocket reconnect only.
+// Normal changes arrive as exact transactional `balance_changed` events.
 function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
   api('/profile/me').then(d => {
@@ -368,7 +369,6 @@ function refreshCurrBar() {
     _profileSyncStats(d);
   }).catch(()=>{});
 }
-setInterval(refreshCurrBar, 90000); // every 90s
 // Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Стрик) —
 // БЕЗ полного loadProfile() (это дёрнуло бы скелетон-лоадер и пересборку всей карточки).
 // Раньше эти карточки обновлялись только раз в 5 мин (setInterval в app.06.js) или
