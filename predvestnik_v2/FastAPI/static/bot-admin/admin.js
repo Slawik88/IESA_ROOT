@@ -34,9 +34,11 @@ function toast(text, bad = false) {
 function tabs(active) {
   $('#tabs').innerHTML = ME.sections.map(s =>
     `<button class="${s.key === active ? 'on' : ''}" data-tab="${s.key}">${esc(s.title)}</button>`).join('');
+  const on = $('#tabs .on'); if (on && on.scrollIntoView) on.scrollIntoView({inline: 'center', block: 'nearest'});
 }
 
 function open(key) {
+  if (TG && TG.BackButton) TG.BackButton.hide();
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
   const render = SECTIONS[key];
@@ -113,7 +115,8 @@ function runAction(action, target, ctx, extra, after) {
     const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
     const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
     toast(res.message || 'Готово');
-    after();
+    const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
+    Promise.resolve(after()).then(() => window.scrollTo(0, keep));
   });
 }
 
@@ -128,7 +131,31 @@ function backBar(label = '← Назад') {
     <button class="btn" id="psearch">🔍 Поиск</button></div>`;
 }
 
+// Длинные списки в карточках (чаты игрока, журнал) показываем по 5 строк, остальное по кнопке: страница не растёт на экраны.
+function trim(main, keep = 5) {
+  main.querySelectorAll('.card').forEach(card => {
+    const rows = [...card.children].filter(n => n.matches('.member, .log'));
+    if (rows.length <= keep + 1) return;
+    rows.slice(keep).forEach(n => { n.hidden = true; });
+    const more = document.createElement('button');
+    more.className = 'btn small more'; more.textContent = `Показать ещё ${rows.length - keep}`;
+    more.onclick = () => { rows.forEach(n => { n.hidden = false; }); more.remove(); };
+    card.appendChild(more);
+  });
+}
+
+// Кнопка «назад» самого Telegram ведёт по карточкам так же, как «← Назад» на странице.
+function nativeBack(main) {
+  const bb = TG && TG.BackButton;
+  if (!bb) return;
+  if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
+  PEOPLE.bb = () => back(main);
+  bb.onClick(PEOPLE.bb); bb.show();
+}
+
 function wireBack(main) {
+  trim(main); nativeBack(main);
+  window.scrollTo(0, 0);
   $('#pback').onclick = () => back(main);
   $('#psearch').onclick = () => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
 }
@@ -143,10 +170,12 @@ function historyCard(items) {
 
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
+  if (TG && TG.BackButton) TG.BackButton.hide();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
+  if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
     PEOPLE.query = q;
@@ -354,6 +383,15 @@ async function metricsView(main, days = 1) {
         ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
           <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
     </div>`;
+  main.querySelectorAll('table').forEach(t => {   // длинные таблицы (топ команд) по 8 строк, остальное по кнопке
+    const rows = [...t.querySelectorAll('tr')].slice(1);
+    if (rows.length <= 10) return;
+    rows.slice(8).forEach(r => { r.hidden = true; });
+    const more = document.createElement('button');
+    more.className = 'btn small more'; more.style.marginTop = '8px'; more.textContent = `Показать ещё ${rows.length - 8}`;
+    more.onclick = () => { rows.forEach(r => { r.hidden = false; }); more.remove(); };
+    t.after(more);
+  });
   main.querySelectorAll('[data-days]').forEach(btn => btn.onclick = () => metricsView(main, +btn.dataset.days));
   main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => {
     e.preventDefault(); tabs('people'); PEOPLE.stack = []; chatView(main, +a.dataset.chat);
@@ -567,7 +605,7 @@ async function switchesView(main, chat = null) {
     const locked = chat && globalOff;
     const why = (localOff || globalOff || {}).reason;
     return `<div class="sw-row ${enabled ? '' : 'off'}">
-      <div class="t"><b>${esc(item.title)}</b>${item.hint ? `<div class="sub">${esc(item.hint)}</div>` : ''}
+      <div class="t"><b>${esc(item.title)}</b>${item.hint && item.hint !== 'Весь раздел' ? `<div class="sub">${esc(item.hint)}</div>` : ''}
         ${locked ? '<div class="locked">выключено везде — включается только во «Везде»</div>' : ''}
         ${!enabled && why ? `<div class="sub">Причина: ${esc(why)}</div>` : ''}</div>
       <label class="toggle"><input type="checkbox" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span></span></label>
