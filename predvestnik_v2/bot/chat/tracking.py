@@ -52,6 +52,14 @@ async def record_message(db, message: Message) -> None:
     commit = getattr(db, "commit", None)
     if commit:
         await commit()
+    # Бот и Mini App в production живут в одном процессе. Онлайн-игрок получает
+    # только дельту своей активности; для офлайн-игроков запросов и очередей нет.
+    try:
+        from FastAPI.notifications import notify
+        await notify(user.id, {"type": "activity_changed", "messages_delta": 1})
+    except Exception:
+        # Учёт сообщения важнее необязательного live-сигнала.
+        pass
 
 
 async def touch_streak(db, user_id: int) -> None:

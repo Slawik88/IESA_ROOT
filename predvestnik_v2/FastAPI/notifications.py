@@ -33,7 +33,7 @@ _balance_listener_ready = asyncio.Event()
 
 
 async def _balance_listener() -> None:
-    """Bridge transactional PostgreSQL NOTIFY events to local WS queues.
+    """Bridge transactional PostgreSQL player events to local WS queues.
 
     Every application process listens to the same channel. Only the process
     holding a user's WebSocket has a matching queue, so no shared Redis bus or
@@ -51,7 +51,9 @@ async def _balance_listener() -> None:
             try:
                 event = json.loads(payload)
                 user_id = int(event.pop("user_id"))
-                if event.get("type") == "balance_changed":
+                if event.get("type") in {
+                    "balance_changed", "data_changed", "notification_pending"
+                }:
                     asyncio.create_task(notify(user_id, event))
             except Exception as exc:
                 logger.warning(f"balance event ignored: {exc}")
@@ -80,14 +82,14 @@ async def ensure_balance_listener() -> bool:
                         return
                     exc = task.exception()
                     if exc:
-                        logger.error(f"balance listener stopped: {exc}")
+                        logger.error(f"player event listener stopped: {exc}")
 
                 _balance_listener_task.add_done_callback(report_failure)
     try:
         await asyncio.wait_for(_balance_listener_ready.wait(), timeout=8.0)
         return True
     except asyncio.TimeoutError:
-        logger.warning("balance listener startup timed out; WebSocket stays available")
+        logger.warning("player event listener startup timed out; WebSocket stays available")
         return False
 
 
@@ -187,12 +189,13 @@ async def _handle_client_message(user_id: int, raw: str) -> None:
                                          "emoji": emoji, "from": user_id})
 
 
-async def ws_session(websocket, user_id: int) -> None:
+async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
     """Полный жизненный цикл WS-сессии ПОСЛЕ accept(): параллельно шлём события
     из очереди и читаем команды клиента. Выход по разрыву соединения; чистка
     (unregister + выход из всех комнат) гарантирована."""
     q: asyncio.Queue = asyncio.Queue()
     register(user_id, q)
+    q.put_nowait({"type": "app_version", "version": str(app_version)})
     if await ensure_balance_listener():
         q.put_nowait({"type": "balance_stream_ready"})
 

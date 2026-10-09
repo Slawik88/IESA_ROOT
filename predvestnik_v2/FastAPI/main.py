@@ -249,7 +249,7 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
     # R5: единый протокол сессии (отправка событий + команды комнат лотов) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:
-        await notifications.ws_session(websocket, user_id)
+        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER)
     except WebSocketDisconnect:
         pass
     except asyncio.CancelledError:

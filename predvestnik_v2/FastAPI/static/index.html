@@ -72,6 +72,11 @@
   <span><strong>Предвестник в активной разработке.</strong> Обновление ещё не вышло. Большая часть функций пока скрыта на время разработки и тестирования.</span>
   <button type="button" class="dn-close" onclick="dismissDevNotice()" aria-label="Скрыть сообщение">×</button>
 </aside>
+<aside class="app-update-banner" id="app-update-banner" hidden role="status" aria-live="polite">
+  <span><strong>Доступно обновление</strong><small>Можно установить сейчас или продолжить игру</small></span>
+  <button type="button" class="app-update-action" onclick="applyAppUpdate()">Обновить</button>
+  <button type="button" class="app-update-later" onclick="dismissAppUpdate()" aria-label="Напомнить после следующего входа">×</button>
+</aside>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

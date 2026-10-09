@@ -364,8 +364,7 @@ function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
   api('/profile/me').then(d => {
     updateCurrBar(d);
-      if(d.mora!==undefined) _profileData = {...(_profileData||{}),
-        mora:d.mora, diamonds:d.diamonds, zarniki:d.zarniki, dark_mora:d.dark_mora};
+    _profileData = {...(_profileData||{}), ...d};
     _profileSyncStats(d);
   }).catch(()=>{});
 }
@@ -381,6 +380,12 @@ function _profileSyncStats(d){
   set('pro-stat-zar', Math.floor(d.zarniki||0));
   set('pro-stat-ach', d.achievements);
   set('pro-stat-streak', d.streak);
+  const metric=(key,val,short=false)=>{
+    const n=document.querySelector(`#pro-main [data-key="${key}"]`);if(!n||val==null)return;
+    n.dataset.n=String(Number(val)||0);n.textContent=short?_v3Short(val):fmt(val);
+  };
+  metric('mora',d.mora);metric('streak',d.streak);metric('ach',d.achievements);
+  metric('msgs',d.messages_all_time,true);
 }
 
 // Legacy achievement instructions were deliberately removed: several pointed
