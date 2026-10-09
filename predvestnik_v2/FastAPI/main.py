@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
                               account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, player_exchange_v1 as player_exchange_v1_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
@@ -203,7 +203,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 for r in [profile.router, marriage.router, wallet.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
