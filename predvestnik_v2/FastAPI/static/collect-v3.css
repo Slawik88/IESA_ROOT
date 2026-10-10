@@ -62,10 +62,36 @@
 .lk-ladder li > i { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--v3-track); color: var(--v3-on-acc); font-size: 12px; font-style: normal; }
 .lk-ladder li.is-done > i { background: var(--v3-acc); box-shadow: none; }
 .lk-ladder li > b { font-weight: 600; } .lk-ladder li > em { margin-left: auto; color: var(--v3-acc); font-size: 12.5px; font-style: normal; font-variant-numeric: tabular-nums; }
-.lk-rar { padding: 10px 0; } .lk-rar + .lk-rar { box-shadow: 0 -1px 0 var(--v3-faint); }
-.lk-rar-head { display: flex; align-items: baseline; gap: 10px; }
-.lk-rar-head b { font: 700 15px var(--v3-font); letter-spacing: .06em; } .lk-rar-head span { font-variant-numeric: tabular-nums; }
-.lk-rar-head small { margin-left: auto; color: var(--v3-dim); font-size: 12px; } .lk-rar-head small.is-done { color: var(--v3-ok); }
+/* по редкости: чем выше редкость, тем величественнее знак ряда; путь роста у всех образов один (SSS), редкость задаёт цену входа */
+.lk-rar-lead { margin: 6px 0 0; max-width: none; text-align: left; }
+.lk-path { margin: 16px auto 4px; }
+.lk-path .lk-step { min-width: 0; cursor: default; } .lk-path .lk-step span { width: 32px; height: 32px; } .lk-path .lk-link { min-width: 3px; margin-top: 15px; }
+.lk-path .lk-step.is-top span { color: var(--v3-acc); box-shadow: inset 0 0 0 1.5px var(--v3-acc), 0 0 14px color-mix(in srgb, var(--v3-acc) 42%, transparent); }
+.lk-rar { --ring: 18%; --glow: 0px; --fill: 0%; padding: 18px 0 6px; }
+.lk-rar[data-t="2"] { --ring: 30%; --fill: 3%; }
+.lk-rar[data-t="3"] { --ring: 44%; --fill: 6%; }
+.lk-rar[data-t="4"] { --ring: 60%; --glow: 8px; --fill: 10%; }
+.lk-rar[data-t="5"] { --ring: 78%; --glow: 14px; --fill: 16%; }
+.lk-rar[data-t="6"] { --ring: 92%; --glow: 20px; --fill: 22%; }
+.lk-rar[data-t="7"] { --ring: 100%; --glow: 28px; --fill: 30%; }
+.lk-rar + .lk-rar { box-shadow: 0 -1px 0 var(--v3-faint); }
+.lk-rar-head { display: flex; align-items: center; gap: 14px; }
+.lk-rar-mark { position: relative; display: grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; color: var(--v3-acc); color: color-mix(in srgb, var(--v3-acc) calc(40% + var(--ring) * .6), var(--v3-dim)); font: 800 14px var(--v3-font); letter-spacing: .03em;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--v3-acc) var(--fill), transparent), transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v3-acc) var(--ring), var(--v3-track)), 0 0 var(--glow) color-mix(in srgb, var(--v3-acc) 38%, transparent); }
+.lk-rar:is([data-t="5"], [data-t="6"], [data-t="7"]) .lk-rar-mark::before { content: ""; position: absolute; inset: -5px; border-radius: 50%; box-shadow: 0 0 0 1px color-mix(in srgb, var(--v3-acc) 34%, transparent); }
+.lk-rar[data-t="7"] .lk-rar-mark::after { content: "✦"; position: absolute; right: -6px; top: -7px; color: var(--v3-acc); font-size: 12px; text-shadow: 0 0 8px var(--v3-acc); }
+.lk-rar-title { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.lk-rar-title b { font: 700 16px/1.2 var(--v3-font); letter-spacing: .01em; }
+.lk-rar-title small { color: var(--v3-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lk-rar-n { flex: none; color: var(--v3-dim); font-size: 12.5px; font-variant-numeric: tabular-nums; white-space: nowrap; } .lk-rar-n b { color: var(--v3-ink); font-size: 20px; font-weight: 700; }
+.lk-rar .lk-set-meter { gap: 4px; margin-top: 12px; } .lk-rar .lk-set-meter i { flex: 1; width: auto; }
+.lk-rar .lk-set-meter i.is-on { background: color-mix(in srgb, var(--v3-acc) 55%, var(--v3-track)); }
+.lk-rar .lk-set-meter i.is-max { background: var(--v3-acc); box-shadow: 0 0 8px color-mix(in srgb, var(--v3-acc) 70%, transparent); }
+.lk-rar-prize { margin: 8px 0 0; color: var(--v3-acc); font-size: 12px; font-weight: 600; } .lk-rar.is-done .lk-rar-prize { color: var(--v3-ok); }
+.lk-rar-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 0; margin: 6px -6px 0; }   /* четыре образа ряда рядом: прежняя строка из flex уезжала за край экрана */
+.lk-rar-row .lk-pick { width: auto; padding: 6px 0 8px; } .lk-rar-row .lk-pick b { overflow-wrap: anywhere; font-size: 11.5px; letter-spacing: -.02em; }
+.lk-pick small.is-max { color: var(--v3-acc); font-weight: 600; }
 .lk-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .lk-badge { padding: 5px 12px; border-radius: 99px; box-shadow: inset 0 0 0 1.5px var(--v3-track); color: var(--v3-dim); font-size: 12.5px; font-weight: 600; }
 .lk-badge.is-done { color: var(--v3-acc); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }

@@ -47,6 +47,7 @@
 .ap-anim .ap-scene .pulse { animation: scpulse var(--dur, 6s) ease-in-out var(--del, 0s) infinite alternate; }
 .ap-anim .ap-scene .breathe { animation: scbreathe var(--dur, 6s) ease-in-out var(--del, 0s) infinite alternate; }
 .ap-anim .ap-scene .blink { animation: scblink var(--dur, 4s) ease-in-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .float.blink { animation: scfloat var(--dur, 13s) ease-in-out var(--del, 0s) infinite, scblink calc(var(--dur, 13s) * .55) ease-in-out var(--del, 0s) infinite; }
 .ap-anim .ap-scene .twinkle { animation: sctwinkle var(--dur, 3.4s) ease-in-out var(--del, 0s) infinite; }
 .ap-anim .ap-scene .float { animation: scfloat var(--dur, 13s) ease-in-out var(--del, 0s) infinite; }
 .ap-anim .ap-scene .rise { animation: scrise var(--dur, 7s) ease-out var(--del, 0s) infinite; }

@@ -166,8 +166,10 @@ assert "function v3RingIn(" in motion_js and "v3RingIn(root, prevAll, seen)" in 
 # Performance: the skins strip (thirty look previews) and list rows never animate; a mid phone gets the lite mode; the watchdog tries lite before lowering the cap.
 assert re.search(r"\.lk-mini \*, \.lk-mini \*::before, \.lk-mini \*::after \{ animation: none !important; \}", css_all := (STATIC / "looks-v3.css").read_text(encoding="utf-8"))
 assert re.search(r"\.v3-who \.ap-name, \.v3-who \.ap-title, \.v3-who \.ap-title::after \{ animation: none !important; \}", (STATIC / "appearance-v3.css").read_text(encoding="utf-8"))
-assert ".ap-lite .ap-bg b" in fx and ".ap-lite .ap-fx i:nth-child(even)" in fx
-assert "function _v3Class()" in controller and "_V3_LITE_KEY" in controller and "ap-lite" in controller and "measure(lower)" in controller and "cap = 5" in controller
+# Three modes: full; .ap-lite (a mid phone: half the particles, no .w2 scene layers, the motion stays); .ap-low (the weakest: the look stands still). What is off screen is paused (.ap-off).
+assert ".ap-low .ap-bg b" in fx and ".ap-lite .ap-fx i:nth-child(even)" in fx and ".ap-off" in fx and "animation-play-state: paused" in fx
+assert "function _v3Class()" in controller and "_V3_LITE_KEY" in controller and "_V3_LOW_KEY" in controller and "ap-lite" in controller and "ap-low" in controller and "measure(step)" in controller and "lower(median)" in controller
+assert "IntersectionObserver" in controller and "'ap-off'" in controller, "effects outside the screen are paused, not rendered"
 # Every spend goes through one confirmation sheet (what, price, balance, what remains); cancelling does nothing. Chests keep their own confirm (OM) and the exchange
 # of the player market its own pending-confirm flow.
 confirm_js = (STATIC / "app.28.js").read_text(encoding="utf-8")

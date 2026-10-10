@@ -123,5 +123,6 @@ MOTION = """() => new Promise(res => setTimeout(() => {
   run.forEach(a => { const t = a.effect.target, cs = getComputedStyle(t); if (chainFilter(t)) filter++; if (cs.maskImage !== 'none' || cs.webkitMaskImage !== 'none') masked++;
     try { if (a.effect.getKeyframes().some(k => 'backgroundPositionX' in k)) glint++; } catch (e) {} });
   res({anims: run.length, filter, masked, glint, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
-# Budget of a look at SSS in the full mode (measured after the 2026-10 optimization, with headroom): beyond this the page jitters in the Telegram WebView.
-BUDGET = {"anims": 45, "filter": 14, "masked": 20, "glint": 1}
+# Budget of a look at SSS in the full mode (`--perf --device high`; measured with the scenes, ~60-75 animated layers, with headroom): beyond this the page jitters in the Telegram WebView.
+# Everything animated is transform / opacity on the compositor; frames stay at 16.7 ms under a 4x slowed CPU. A mid phone (`--device mid`, .ap-lite) runs about two thirds of it.
+BUDGET = {"anims": 95, "filter": 14, "masked": 20, "glint": 1}

@@ -78,16 +78,32 @@ function lkFitNote(st, item) {
 }
 
 // ── Альбом коллекции ─────────────────────────────────────────────────────────────
+// Редкость образа (D…SSS) задаёт только цену на входе и ряд коллекции. Расти до SSS может любой образ, путь у всех один: на нём и держится вкладка «По редкости».
+function _lkPath(st) {
+  const costs = st.essence.costs, last = _LK_TIERS.length - 1;
+  const say = _LK_TIERS.map((t, n) => n ? `${t}: ${fmt(costs[t])} Эссенции` : `${t}: старт`).join(', ');
+  return `<div class="lk-steps lk-path" role="img" aria-label="Путь любого образа: ${say}">${_LK_TIERS.map((t, n) => `<div class="lk-step${n === last ? ' is-top' : ''}"><span>${t}</span><small>${n ? fmt(costs[t]) : 'старт'}</small></div>`).join('<i class="lk-link"></i>')}</div>`;
+}
+function _lkRarRow(st, r) {
+  const items = st.items.filter(i => i.rarity === r.rarity && !i.season && !i.exclusive), maxed = items.filter(i => i.maxed).length, ti = _LK_TIERS.indexOf(r.rarity) + 1;
+  const price = items.length ? _lkPrice(items[0].price_zarniki) : '';
+  const tile = i => `<button type="button" class="lk-pick${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${i.id}',true);lkView('shop')">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small${i.maxed ? ' class="is-max"' : ''}>${i.maxed ? `✦ тир ${i.level}` : i.owned ? `✓ тир ${i.level}` : _lkPrice(i.price_zarniki)}</small></button>`;
+  return `<section class="lk-rar${r.done ? ' is-done' : ''}" data-t="${ti}" aria-label="Редкость ${r.rarity}">
+    <div class="lk-rar-head"><span class="lk-rar-mark" aria-hidden="true">${r.rarity}</span><span class="lk-rar-title"><b>Редкость ${r.rarity}</b><small>Вход ${price}${maxed ? ` · на максимуме ${maxed}` : ''}</small></span><span class="lk-rar-n"><b>${r.have}</b> из ${r.total}</span></div>
+    <div class="lk-set-meter" aria-hidden="true">${items.map(i => `<i class="${i.maxed ? 'is-max' : i.owned ? 'is-on' : ''}"></i>`).join('')}</div>
+    <p class="lk-rar-prize">${r.done ? 'Ряд собран ✓' : `Весь ряд: +${fmt(r.bonus_essence)} Эссенции`}</p>
+    <div class="lk-set-row lk-rar-row">${items.map(tile).join('')}</div></section>`;
+}
 function lkAlbumHtml(st) {
   const c = st.collection, pct = Math.round(100 * c.owned / c.total), next = c.next_milestone;
   const hint = next ? `До «${next.rank}» ещё ${next.at - c.owned}. Награда +${fmt(next.essence)} Эссенции.` : 'Вы собрали всю коллекцию.';
   const ladder = c.milestones.map(m => `<li class="${m.done ? 'is-done' : ''}"><i>${m.done ? '✓' : ''}</i><b>${m.at === c.total ? 'Все образы' : `${m.at} образов`}</b><span>${_profileEsc(m.rank)}</span><em>+${fmt(m.essence)}</em></li>`).join('');
-  const rows = c.rows.map(r => `<div class="lk-rar"><div class="lk-rar-head"><b>${r.rarity}</b><span>${r.have} из ${r.total}</span><small class="${r.done ? 'is-done' : ''}">${r.done ? 'Собрано ✓' : `+${fmt(r.bonus_essence)} Эссенции за все`}</small></div>
-    <div class="lk-set-row">${st.items.filter(i => i.rarity === r.rarity && !i.season && !i.exclusive).map(i => `<button type="button" class="lk-pick${i.owned ? '' : ' is-lock'}" onclick="_lkPick('${i.id}',true);lkView('shop')">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${i.owned ? `✓ тир ${i.level}` : _lkPrice(i.price_zarniki)}</small></button>`).join('')}</div></div>`).join('');
+  const rows = c.rows.map(r => _lkRarRow(st, r)).join('');
   const badges = c.maxed_badges.map(b => `<span class="lk-badge${b.done ? ' is-done' : ''}">${b.done ? '✦ ' : ''}${_profileEsc(b.title)} · ${b.at}</span>`).join('');
   return `<div class="lk-rank"><div class="lk-rank-ring" style="--p:${pct}"><span><b>${c.owned}</b><small>из ${c.total}</small></span></div><h2>${_profileEsc(c.rank)}</h2><p>${_profileEsc(hint)}</p></div>
     <div class="v3-sec"><span class="v3-eyebrow">Ранги</span></div><ul class="lk-ladder">${ladder}</ul>
-    <div class="v3-sec"><span class="v3-eyebrow">По редкости</span></div>${rows}
+    <div class="v3-sec"><span class="v3-eyebrow">По редкости</span></div>
+    <p class="lk-fine lk-rar-lead">Редкость задаёт цену образа и его ряд в коллекции. Дорасти до SSS может любой образ, и путь у всех один: каждый тир за Эссенцию, а SSS открывается с активным VIP.</p>${_lkPath(st)}${rows}
     <div class="v3-sec"><span class="v3-eyebrow">Сеты</span></div>${_lkSets(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Образы на максимуме: ${c.maxed}</span></div><div class="lk-badges">${badges}</div>
     ${st.share_url ? '<button type="button" class="v3-pill v3-pill--ghost lk-share" onclick="lkShare()">Поделиться рангом</button>' : ''}`;
@@ -104,7 +120,7 @@ function lkShare() {
 function _rvCard(e) {
   const gift = n => `Награда: +${fmt(n)} Эссенции.`;
   switch (e.kind) {
-    case 'owned': return { mark: e.rarity, eyebrow: 'Новый образ', title: e.name, text: `Он ваш и уже надет. Начинает с тира D, впереди ступени за Эссенцию до ${e.ceiling}.` };
+    case 'owned': return { mark: e.rarity, eyebrow: 'Новый образ', title: e.name, text: `Он ваш и уже надет. Начинает с тира D, а за Эссенцию растёт до ${e.ceiling}: с каждым тиром образ богаче.` };
     case 'tier': return { mark: e.tier, eyebrow: e.maxed ? 'Максимальный тир' : 'Новый тир', title: e.name, text: e.maxed ? (e.sig ? 'Фирменная деталь образа раскрыта.' : 'Образ раскрыт полностью.') : `Образ стал богаче: тир ${e.tier}.` };
     case 'set': return { mark: e.glyph, glyph: true, eyebrow: 'Сет собран', title: e.name, text: `Знак сета теперь стоит рядом с титулом. ${gift(e.essence)}` };
     case 'rank': return { mark: '★', eyebrow: 'Новый ранг', title: e.rank, text: `${e.at} образов в коллекции. ${gift(e.essence)}` };
@@ -160,10 +176,10 @@ function lkMainButton() {
 
 // ── Первый вход на витрину: три карточки о том, как всё устроено (один раз на устройстве, повтор по ссылке внизу) ────
 function lkTour() {
-  const e = 'Как это работает';
+  const e = 'Как это работает', rate = String(_lk.st?.essence?.per_zarnik ?? 2.5).replace('.', ',');
   lkReveal([
     { kind: 'tour', mark: '✦', glyph: true, eyebrow: e, title: 'Один образ — весь вид', text: 'Цвета приложения, ник, титул, рамка аватара и фон профиля. Другие игроки видят ваш образ, пока у вас активен VIP; сами вы видите его всегда.' },
-    { kind: 'tour', mark: '↑', glyph: true, eyebrow: e, title: 'Образ растёт', text: 'Он покупается на тире D и растёт за Эссенцию до своей редкости. Эссенцию дают задания или набор за Зарники: 1 ✨ = 4 Эссенции, цена всегда видна заранее.' },
+    { kind: 'tour', mark: '↑', glyph: true, eyebrow: e, title: 'Образ растёт до SSS', text: `Любой образ покупается на тире D и растёт за Эссенцию до SSS, путь у всех один. Редкость задаёт только цену и ряд в коллекции. Эссенцию дают задания или набор за Зарники: 1 ✨ = ${rate} Эссенции, цена всегда видна заранее.` },
     { kind: 'tour', mark: '🪷', glyph: true, eyebrow: e, title: 'Собирайте сеты', text: 'Знак сета рядом с титулом, ранги и награды за коллекцию. Сезонные сеты открываются сами в праздники, а купленное остаётся навсегда.' },
   ]);
 }
