@@ -177,6 +177,14 @@ async def moderation_flow(db):
     assert "ниже вашего" in out, out
     out = await run(db, bot, "бот ранги")
     assert "Владелец" in out and "beta" in out and "gamma" not in out, out   # gamma вне чата после бана
+    out = await run(db, bot, "бот ранг, @gamma владелец", uid=1002, username="beta")
+    assert "только через Telegram" in out, out
+    out = await run(db, bot, "бот ранг, @gamma Владелец", uid=42, username="devuser")
+    assert "владелец этого чата" in out, out                          # разработчику бота можно всё
+    assert await ranks.sync_owner(db, bot, -100, force=True) == 1003   # Telegram не перебивает назначение
+    assert await ranks.get_rank(db, -100, 1001) < ranks.OWNER
+    out = await run(db, bot, "бот снять ранг, @gamma", uid=42, username="devuser")
+    assert await ranks.sync_owner(db, bot, -100, force=True) == 1001, out
     out = await run(db, bot, "бот привязать админ чат")
     token = out.split("<code>бот админ чат ")[1].split("</code>")[0]
     out = await run(db, bot, f"бот админ чат {token}", chat=-555)

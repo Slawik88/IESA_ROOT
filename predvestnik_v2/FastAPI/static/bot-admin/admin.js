@@ -10,6 +10,37 @@ const num = n => Number(n).toLocaleString('ru-RU');
 
 let ME = null;
 const SECTIONS = {};          // key -> render(main)
+let _viewAbort = null, _viewRequest = 0;
+
+function currentSection() { return $('#tabs .on')?.dataset.tab || 'start'; }
+function showSectionLoading(main, key = currentSection()) {
+  main.setAttribute('aria-busy', 'true');
+  main.innerHTML = '<div class="empty" role="status" aria-live="polite">Загрузка…</div>';
+}
+function showLoadError(main, key, error, retry) {
+  main.setAttribute('aria-busy', 'false');
+  const timedOut = error?.name === 'AbortError';
+  main.innerHTML = `<section class="empty" role="alert">
+    <h2>${timedOut ? 'Сервер отвечает слишком долго' : 'Раздел не загрузился'}</h2>
+    <p>${esc(timedOut ? 'Ожидание остановлено. Попробуйте ещё раз.' : (error?.message || 'Попробуйте ещё раз.'))}</p>
+    <button type="button" class="btn primary load-retry">Повторить</button>
+  </section>`;
+  main.querySelector('.load-retry').onclick = () => { showSectionLoading(main, key); retry(); };
+}
+async function loadSectionData(main, path, retry, key = currentSection()) {
+  if (_viewAbort) _viewAbort.abort();
+  const controller = new AbortController(), request = ++_viewRequest;
+  _viewAbort = controller;
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try { return await api(path, {signal: controller.signal}); }
+  catch (error) {
+    if (request !== _viewRequest) return null;
+    showLoadError(main, key, error, retry); return null;
+  } finally {
+    clearTimeout(timeout);
+    if (request === _viewRequest) { _viewAbort = null; main.setAttribute('aria-busy', 'false'); }
+  }
+}
 
 async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
@@ -39,10 +70,11 @@ function tabs(active) {
 
 function open(key) {
   if (TG && TG.BackButton) TG.BackButton.hide();
+  if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
   const render = SECTIONS[key];
-  $('#main').innerHTML = '<div class="empty">Загрузка…</div>';
+  showSectionLoading($('#main'), key);
   if (render) render($('#main'));
 }
 
@@ -192,7 +224,10 @@ async function peopleSearch(main, query = '') {
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
     PEOPLE.query = q;
-    const {players, chats} = await api(`/search?q=${encodeURIComponent(q.trim())}`);
+    const host = $('#pplres'); if (!host) return;
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}`, () => load(q), 'people');
+    if (!data) return;
+    const {players, chats} = data;
     const head = q.trim() ? '' : '<div class="sub" style="margin-bottom:8px">Недавно активные</div>';
     $('#pplres').innerHTML = head + `
       <h3 class="sec">Игроки · ${players.length}</h3>
@@ -212,11 +247,11 @@ async function peopleSearch(main, query = '') {
     if (p) playerView(main, +p.dataset.player);
     else if (c) chatView(main, +c.dataset.chat);
   };
-  load(query).catch(e => toast(e.message, true));
+  load(query);
 }
 
 async function playerView(main, id, push = true, from = null) {
-  const p = await api(`/player/${id}`).catch(e => { toast(e.message, true); return null; });
+  const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
   if (!p) return;
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => playerView(main, id, false);
@@ -233,8 +268,23 @@ async function playerView(main, id, push = true, from = null) {
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
   const mk = p.marks || {given: [], earned: [], grantable: []};
-  if (!mk.given.length) hide.add('mark_revoke');
-  if (mk.given.length >= mk.grantable.length) hide.add('mark_grant');
+  // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
+  const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
+  hide.add('mark_grant'); hide.add('mark_revoke');
+  const held = new Set(mk.given.map(m => m.id));
+  const free = mk.grantable.filter(m => !held.has(m.id));
+  const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
+  const marksCard = `<div class="card"><h3>🏅 Метки · в профиле игрока это «Регалии»</h3>
+      <h3 class="sec">Выданы · ${mk.given.length}</h3>
+      ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
+        : '<div class="sub">Пока ни одной.</div>'}
+      ${mk.earned.length ? `<h3 class="sec">Заработаны сами · ${mk.earned.length}</h3><div class="chips">${mk.earned.map(m =>
+        `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>
+        <div class="sub">Их выдаёт игра, вручную не снимаются.</div>` : ''}
+      ${canGrant ? `<h3 class="sec">Выдать · нажмите на метку</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
+        `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
+        : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
+    </div>`;
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -255,13 +305,12 @@ async function playerView(main, id, push = true, from = null) {
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
-      ${mk.given.length || mk.earned.length ? `<div class="chips" style="margin-top:8px"><span class="sub">Метки:</span>
-        ${[...mk.given, ...mk.earned].map(m => `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
+    ${marksCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -279,6 +328,16 @@ async function playerView(main, id, push = true, from = null) {
   const here = {type: 'player', id};
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
+  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
+      <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
+      <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
+    action === 'mark_grant' ? 'Выдать' : 'Снять', async () => {
+      const res = await api(`/player/${id}/action`, {method: 'POST', body: JSON.stringify({action, mark: m.id, reason: ($('#freason') || {}).value})});
+      toast(res.message || 'Готово');
+      const keep = window.scrollY; Promise.resolve(reopen()).then(() => window.scrollTo(0, keep));
+    });
+  main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
+  main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
   main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, p,
       {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));
@@ -287,7 +346,7 @@ async function playerView(main, id, push = true, from = null) {
 }
 
 async function chatView(main, id, push = true, from = null) {
-  const c = await api(`/chat/${id}`).catch(e => { toast(e.message, true); return null; });
+  const c = await loadSectionData(main, `/chat/${id}`, () => chatView(main, id, push, from), 'people');
   if (!c) return;
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => chatView(main, id, false);
@@ -363,8 +422,8 @@ function bars(days, daily, field, title) {
 const tile = (label, value) => `<div><span>${label}</span><b>${value}</b></div>`;
 
 async function metricsView(main, days = 1) {
-  main.innerHTML = '<div class="empty">Считаю…</div>';
-  const m = await api(`/metrics?days=${days}`).catch(e => { toast(e.message, true); return null; });
+  showSectionLoading(main, 'metrics');
+  const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
   const s = m.site, b = m.bot, c = m.chats;
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
@@ -421,7 +480,7 @@ SECTIONS.metrics = main => metricsView(main);
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 
 async function reportsView(main, kind = 'open') {
-  const data = await api(`/reports?kind=${kind}`).catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, `/reports?kind=${kind}`, () => reportsView(main, kind), 'reports');
   if (!data) return;
   const c = data.counts;
   const canPeople = ME.sections.some(z => z.key === 'people');
@@ -477,7 +536,7 @@ function tgHtml(text) {
 }
 
 async function broadcastView(main) {
-  const data = await api('/broadcasts').catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, '/broadcasts', () => broadcastView(main), 'broadcast');
   if (!data) return;
   const running = data.items.some(b => b.status === 'running');
   main.innerHTML = `
@@ -557,7 +616,10 @@ async function promoList(main, query = '') {
   let timer;
   $('#pq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
-    const {items} = await api(`/promo?q=${encodeURIComponent(q)}`);
+    const host = $('#plist'); if (!host) return;
+    const data = await loadSectionData(host, `/promo?q=${encodeURIComponent(q)}`, () => load(q), 'promo');
+    if (!data) return;
+    const {items} = data;
     $('#plist').innerHTML = items.length ? items.map(p => `
       <div class="row" data-code="${esc(p.code)}">
         <div class="head"><span class="code">${esc(p.code)}</span>${promoStatus(p)}</div>
@@ -568,11 +630,11 @@ async function promoList(main, query = '') {
       </div>`).join('') : '<div class="empty">Промокодов нет</div>';
     for (const row of main.querySelectorAll('[data-code]')) row.onclick = () => promoView(main, row.dataset.code);
   }
-  load(query).catch(e => toast(e.message, true));
+  load(query);
 }
 
 async function promoView(main, code) {
-  const p = await api(`/promo/${encodeURIComponent(code)}`).catch(e => { toast(e.message, true); return null; });
+  const p = await loadSectionData(main, `/promo/${encodeURIComponent(code)}`, () => promoView(main, code), 'promo');
   if (!p) return;
   main.innerHTML = `
     <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
@@ -786,7 +848,7 @@ SECTIONS.promo = main => promoList(main);
 // ── Функции: выключатели бота и сайта ────────────────────────────────────────
 
 async function switchesView(main, chat = null) {
-  const data = await api(`/switches?chat_id=${chat ? chat.id : 0}`).catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, `/switches?chat_id=${chat ? chat.id : 0}`, () => switchesView(main, chat), 'switches');
   if (!data) return;
   const off = data.state;   // {global: {key: {reason}}, chat: {...}}
   const scopeName = chat ? `в чате «${esc(chat.title)}»` : 'везде';
@@ -858,7 +920,7 @@ SECTIONS.switches = main => switchesView(main);
 // ── Настройки бота ───────────────────────────────────────────────────────────
 
 async function settingsView(main) {
-  const data = await api('/settings').catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
   main.innerHTML = `
     <div class="card"><h3>Переводы между игроками</h3>
@@ -883,6 +945,7 @@ SECTIONS.settings = main => settingsView(main);
 
 (async () => {
   if (TG) { try { TG.ready(); TG.expand(); } catch (_) {} }
+  showSectionLoading($('#main'), 'start');
   try {
     ME = await api('/me');
   } catch (e) {

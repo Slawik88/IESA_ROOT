@@ -11,6 +11,8 @@ STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS chat_rank SMALLINT",
     # Единственный владелец чата, синхронизируется с Telegram.
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT",
+    # Владелец, назначенный разработчиком бота командой «бот ранг, @ник владелец»; важнее телеграмного.
+    "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_override BIGINT",
     # Снятие варна сохраняет историю: строка остаётся, ставится отметка.
     "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP",
     "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS revoked_by BIGINT",

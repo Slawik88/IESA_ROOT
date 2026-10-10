@@ -119,7 +119,7 @@ async def sync_owner(db, bot: Bot, chat_id: int, *, force: bool = False) -> int 
     owner = next((a.user.id for a in admins if a.status == "creator"), None)
     if owner:
         await set_owner(db, chat_id, owner)
-    return owner
+    return await get_owner(db, chat_id)   # владелец, назначенный разработчиком, важнее телеграмного
 
 
 async def set_owner(db, chat_id: int, owner_id: int) -> None:
@@ -132,9 +132,18 @@ async def set_owner(db, chat_id: int, owner_id: int) -> None:
 
 
 async def get_owner(db, chat_id: int) -> int | None:
-    async with db.execute("SELECT owner_id FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
+    async with db.execute("SELECT COALESCE(owner_override, owner_id) FROM chat_settings WHERE chat_id = ?",
+                          (chat_id,)) as cur:
         row = await cur.fetchone()
     return int(row[0]) if row and row[0] else None
+
+
+async def set_owner_override(db, chat_id: int, user_id: int | None) -> None:
+    """Владелец чата в боте, назначенный разработчиком (None — снова как в Telegram)."""
+    await db.execute(
+        "INSERT INTO chat_settings (chat_id, owner_override) VALUES (?, ?) "
+        "ON CONFLICT (chat_id) DO UPDATE SET owner_override = EXCLUDED.owner_override", (chat_id, user_id))
+    await _commit(db)
 
 
 async def get_rank(db, chat_id: int, user_id: int) -> int:
@@ -171,10 +180,10 @@ async def store_rank(db, chat_id: int, user_id: int, rank: int) -> None:
 
 def check_assign(actor_rank: int, target_rank: int, new_rank: int) -> str | None:
     """Причина отказа или None. Ранги выдаются только ниже своего."""
+    if actor_rank >= DEV_LEVEL:   # разработчику бота можно всё, и назначить владельца тоже
+        return None
     if new_rank >= OWNER:
         return "Владелец назначается только через Telegram — передачей прав на группу."
-    if actor_rank >= DEV_LEVEL:
-        return None
     if target_rank >= actor_rank:
         return "Нельзя менять ранг тому, чей ранг не ниже вашего."
     if new_rank >= actor_rank:
