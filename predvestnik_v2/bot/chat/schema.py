@@ -62,8 +62,12 @@ async def ensure_chat_schema() -> None:
         await ensure_switches(db)
         from services import admin_people, bot_metrics, broadcasts, global_moderation, reports
         await bot_metrics.ensure_schema(db)
-        await reports.ensure_schema(db)
-        await broadcasts.ensure_schema(db)
+        for part in (reports, broadcasts):   # новые разделы админки не должны мешать запуску остального бота
+            try:
+                await part.ensure_schema(db)
+            except Exception as exc:
+                from loguru import logger
+                logger.exception(f"{part.__name__} schema failed: {exc}")
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
         from services.promo_v2 import ensure_schema as ensure_promo

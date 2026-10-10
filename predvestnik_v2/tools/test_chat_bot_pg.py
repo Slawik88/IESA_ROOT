@@ -83,6 +83,9 @@ class FakeBot:
     async def get_chat(self, chat_id):
         return SimpleNamespace(permissions=None)
 
+    async def get_chat_member(self, chat_id, user_id):
+        return SimpleNamespace(status="member", can_delete_messages=False)
+
     async def send_message(self, chat_id, text, **kw):
         self.sent.append((chat_id, text, kw))
 
@@ -290,7 +293,43 @@ async def profile_flow(db, bot):
     assert "Не нашёл" in out, out
     out = await run(db, bot, "бот баланс", uid=2002, username="talker")
     assert "Мора" in out and "Зарники" in out and "Эссенция" in out and "Тёмная" not in out, out
+    await presence_flow(db, bot)
     await transfer_flow(db, bot)
+
+
+async def presence_flow(db, bot):
+    """«В чате с …»: дата миграции колонки не должна выдавать старожила за новичка."""
+    from datetime import datetime, timedelta, timezone
+    from bot.chat.tracking import local_now, presence_of, record_message
+    today = local_now().date()
+    now = datetime.now(timezone.utc)
+    migrated = (now.replace(tzinfo=None), now)                       # joined_at и membership_since = «сегодня»
+    first_day = (today - timedelta(days=40)).isoformat()             # а писал уже 40 дней назад
+    p = presence_of(*migrated, None, first_day)
+    assert p.days == 40 and p.since == today - timedelta(days=40) and not p.rejoined, p
+    p = presence_of(*migrated, now - timedelta(days=3), first_day)
+    assert p.days == 3 and p.rejoined and p.first_seen == today - timedelta(days=40), p
+    p = presence_of(*migrated, None, None)
+    assert p.days == 0 and p.since == today, p
+    assert presence_of(None, None, None, None) is None
+
+    # В БД: строка 2002 в чате -100 заведена 100 дней назад, колонка membership_since — «сегодня».
+    await db.execute("UPDATE user_chat_stats SET joined_at = NOW() - INTERVAL '100 days', membership_since = NOW(), "
+                     "rejoined_at = NULL, is_left = FALSE WHERE user_tg_id = 2002 AND chat_tg_id = -100")
+    out = await run(db, bot, "бот я", uid=2002, username="talker")
+    assert "В чате: 10" in out and "Вернулся" not in out, out         # 100 или 101 день, смотря на часовой пояс
+    # Ушёл и вернулся (сообщением): отсчёт идёт с возвращения, первое появление помнится.
+    await db.execute("UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = 2002 AND chat_tg_id = -100")
+    await record_message(db, msg(2002, -100, "talker"))
+    out = await run(db, bot, "бот я", uid=2002, username="talker")
+    assert "В чате: с сегодняшнего дня" in out and "Вернулся в чат" in out, out
+    await record_message(db, msg(2002, -100, "talker"))              # обычное сообщение возврат не сбрасывает
+    async with db.execute("SELECT rejoined_at, is_left FROM user_chat_stats WHERE user_tg_id = 2002 "
+                          "AND chat_tg_id = -100") as cur:
+        back, left = await cur.fetchone()
+    assert back is not None and left is False, (back, left)
+    await db.execute("UPDATE user_chat_stats SET joined_at = NOW() - INTERVAL '30 days', rejoined_at = NULL "
+                     "WHERE user_tg_id = 2002 AND chat_tg_id = -100")
 
 
 async def transfer_flow(db, bot):

@@ -22,6 +22,8 @@ async def ensure_tables(db) -> None:
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS traits JSONB NOT NULL DEFAULT '[]'::jsonb")
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS calling_changed_at DATE NULL")
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS traits_changed_at DATE NULL")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS fed_favorite_on DATE NULL")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS fed_xp_on DATE NULL")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_talismans (
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, kind TEXT NOT NULL,
@@ -135,7 +137,7 @@ async def save_action(db, user_id: int, action_id: str, request: dict, response:
 
 async def list_owned_pets(db, user_id: int) -> list[dict[str, Any]]:
     async with db.execute(
-        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits "
+        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits,s.fed_favorite_on "
         "FROM pets p LEFT JOIN pet_v2_state s ON s.user_id=p.owner_id AND s.pet_id=p.id "
         "WHERE p.owner_id=? ORDER BY p.created_at,p.id", (int(user_id),)
     ) as c:
@@ -377,3 +379,22 @@ async def save_trial(db, user_id: int, week, pet_id: int, difficulty: int, essen
 async def species_count(db, user_id: int) -> int:
     async with db.execute("SELECT COUNT(DISTINCT species_id) AS n FROM pets WHERE owner_id=?", (int(user_id),)) as c:
         return int((await c.fetchone())["n"])
+
+
+async def consume_food(db, user_id: int, food_id: str) -> int:
+    """Списать 1 еду; ValueError, если нечего кормить. Возвращает остаток."""
+    async with db.execute(
+        "UPDATE chest_food_balances_v1 SET quantity=quantity-1,updated_at=CLOCK_TIMESTAMP() "
+        "WHERE user_id=? AND food_id=? AND quantity>0 RETURNING quantity", (int(user_id), str(food_id)),
+    ) as c:
+        row = await c.fetchone()
+    if not row:
+        raise ValueError("Нет такой еды.")
+    return int(row["quantity"])
+
+
+async def save_feeding(db, user_id: int, pet_id: int, *, energy: float, fed_favorite_on, fed_xp_on, xp: float, level: int) -> None:
+    await db.execute(
+        "UPDATE pet_v2_state SET energy=?,energy_at=NOW(),fed_favorite_on=?,fed_xp_on=?,xp=?,level=? WHERE user_id=? AND pet_id=?",
+        (float(energy), fed_favorite_on, fed_xp_on, float(xp), int(level), int(user_id), int(pet_id)),
+    )

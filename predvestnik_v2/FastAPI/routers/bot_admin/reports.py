@@ -17,19 +17,28 @@ from services import reports as reports_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
 _user = section("reports")
+_ready = False
+
+
+async def _tables(db=Depends(get_db)):
+    """Таблицы жалоб создаются при старте бота; если старт не дошёл до них, создаём здесь (повторно безопасно)."""
+    global _ready
+    if not _ready:
+        await reports_service.ensure_schema(db)
+        _ready = True
 ACTIONS = {"take": "in_work", "resolve": "resolved", "reject": "rejected"}
 NOTICE = {"resolved": "✅ Ваша жалоба №{id} рассмотрена: нарушение подтверждено. Спасибо!",
           "rejected": "📨 Ваша жалоба №{id} рассмотрена: нарушения не нашли."}
 
 
 @router.get("/reports")
-async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db)):
+async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open"),
             "counts": await reports_service.counts(db)}
 
 
 @router.post("/reports/{rid}")
-async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     status = ACTIONS.get(str(data.get("action") or ""))
     if not status:
         raise HTTPException(400, "Неизвестное действие.")

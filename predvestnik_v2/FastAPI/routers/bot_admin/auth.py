@@ -15,6 +15,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "people": ("Игроки и чаты", 2),
     "reports": ("Жалобы", 2),
     "metrics": ("Метрики", 4),
+    "journal": ("Журнал", 4),
     "broadcast": ("Рассылка", 5),
     "promo": ("Промокоды", 5),
     "switches": ("Функции", 5),

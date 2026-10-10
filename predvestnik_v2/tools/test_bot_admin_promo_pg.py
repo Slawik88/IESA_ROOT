@@ -91,10 +91,16 @@ async def http_checks():
     assert [s["key"] for s in me["sections"]] == ["people", "reports"], me
     assert (await client.get("/bot-admin/api/promo", headers=helper)).status_code == 403
     me = (await client.get("/bot-admin/api/me", headers=dev)).json()
-    assert [s["key"] for s in me["sections"]] == ["people", "reports", "metrics", "broadcast", "promo", "switches", "settings"] and me["creator"], me
+    assert [s["key"] for s in me["sections"]] == ["people", "reports", "metrics", "journal", "broadcast", "promo", "switches", "settings"] and me["creator"], me
 
     opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
     skin = opts["skins"][0]["id"]
+    from core.skins_v3_catalog import SKINS
+    ids = [x["id"] for x in opts["skins"]] + [x["id"] for x in opts["private_skins"]]
+    assert sorted(ids) == sorted(SKINS), "в выборе должны быть все образы: обычные и личные"
+    assert all(x["exclusive"] for x in opts["private_skins"]) and not any(x["exclusive"] for x in opts["skins"])
+    assert [x["tier"] for x in opts["skins"]][0] == "D" and [x["tier"] for x in opts["skins"]][-1] == "SSS"   # по редкости
+    assert opts["skins"][0]["items"]["title"] and opts["skins"][0]["tokens"]["--v3-acc"], opts["skins"][0]
     chats = (await client.get("/bot-admin/api/chats?q=основ", headers=dev)).json()["items"]
     assert chats == [{"id": -100, "title": "Основной чат"}], chats
 
@@ -193,6 +199,24 @@ async def after_checks(client, dev):
     assert r.status_code == 200 and not r.json()["is_active"]
     r = (await client.put("/bot-admin/api/promo/legacy1", headers=dev, json={"rewards": [{"type": "mora", "amount": 100}]}))
     assert r.status_code == 200 and not r.json()["legacy"], r.text
+
+    # Журнал: промокоды, выключатели и настройки пишутся в общую ленту, у неё есть фильтры и «ещё»
+    assert (await client.post("/bot-admin/api/switches", headers=dev, json={"feature": "group:warps", "enabled": False})).status_code == 200
+    assert (await client.post("/bot-admin/api/settings/transfer", headers=dev, json={"currencies": ["mora"]})).status_code == 200
+    feed = (await client.get("/bot-admin/api/journal?days=1", headers=dev)).json()
+    titles = [x["title"] for x in feed["items"]]
+    assert {"Промокод создан", "Промокод изменён", "Промокод включён или выключен", "Выключатель", "Валюты для переводов"} <= set(titles), titles
+    texts = {x["title"]: x["text"] for x in feed["items"]}
+    assert texts["Выключатель"] == "group:warps везде → выключено" and texts["Валюты для переводов"] == "mora", texts
+    assert any(x["text"].endswith("выключен") for x in feed["items"] if x["title"].startswith("Промокод включён")), feed["items"]
+    only = (await client.get("/bot-admin/api/journal?kind=promo&days=1", headers=dev)).json()
+    assert {x["kind"] for x in only["items"]} == {"promo"} and [k["key"] for k in only["kinds"]][0] == "moderation", only["kinds"]
+    page = (await client.get("/bot-admin/api/journal?kind=promo&days=1&limit=1", headers=dev)).json()
+    assert page["actors"] and all("id" in a for a in page["actors"]), page["actors"]
+    nobody = (await client.get("/bot-admin/api/journal?actor=424242&days=1", headers=dev)).json()
+    assert nobody["items"] == [] and not nobody["more"], nobody
+    from FastAPI.auth import create_session_token
+    assert (await client.get("/bot-admin/api/journal", headers={"x-session-token": create_session_token(3003)})).status_code == 403
 
 
 async def disabled_check():
