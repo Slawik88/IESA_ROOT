@@ -28,6 +28,12 @@ from ui_stand import DEFAULT_DSN, PEER_ID, Stand, seed_persona, set_game_flags  
 FREEZE = "*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}"
 INIT = ("localStorage.setItem('pv_tour','1');"
         "localStorage.setItem('pv_marks_seen','[\"developer\",\"founder\",\"tester\",\"streak30\",\"veteran\"]')")
+# What a phone reports to the page: app.18.js picks the device class (full / .ap-lite / .ap-low) from these two numbers; the sandbox Chromium reports too few cores and would always be "lite".
+DEVICES = {
+    "high": "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8});Object.defineProperty(navigator,'deviceMemory',{get:()=>8});",
+    "mid": "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8});Object.defineProperty(navigator,'deviceMemory',{get:()=>4});",
+    "low": "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>4});Object.defineProperty(navigator,'deviceMemory',{get:()=>2});",
+}
 HEIGHT = 780
 PROFILE_READY = "() => typeof _profileData !== 'undefined' && _profileData && _profileData.look"
 
@@ -76,10 +82,10 @@ class Probe:
         return ["known open: " + x for x in out]
 
 
-def open_app(stand: Stand, browser, width: int):
+def open_app(stand: Stand, browser, width: int, device: str | None = None):
     ctx = browser.new_context(viewport={"width": width, "height": HEIGHT}, device_scale_factor=1, has_touch=True, is_mobile=True)
     page = ctx.new_page()
-    page.add_init_script(INIT)
+    page.add_init_script(INIT + (";localStorage.setItem('v3_lite','0');" + DEVICES[device] if device else ""))
     probe = Probe(page)
     go(page, stand.url)
     page.wait_for_function(PROFILE_READY, timeout=20000)
@@ -209,7 +215,7 @@ def sweep_crawl(stand, browser, args, results) -> None:
 
 
 def sweep_perf(stand, browser, args, results) -> None:
-    """Motion budget of the profile for every look at SSS in the full (not lite) mode: running animations, filters and masks on animated layers, text glints.
+    """Motion budget of the profile for every look at SSS (--device high is the full mode): running animations, filters and masks on animated layers, text glints.
     A look that exceeds the budget jitters in the Telegram WebView; Chromium without a GPU cannot show that, the counts can."""
     from core.skins_v3_catalog import SKINS
     rows = []
@@ -217,13 +223,13 @@ def sweep_perf(stand, browser, args, results) -> None:
         if args.only and sid not in args.only:
             continue
         reseed(args.dsn, skin=sid, tier="SSS")
-        ctx, page, probe = open_app(stand, browser, args.widths[0])
+        ctx, page, probe = open_app(stand, browser, args.widths[0], args.device)
         m = page.evaluate(MOTION); ctx.close()
         rows.append((m["anims"], sid, m))
         over = [f"{k} {m[k]} > {limit}" for k, limit in BUDGET.items() if m[k] > limit]
         if over:
             results[f"motion {sid}"] = (["over the motion budget: " + ", ".join(over)], [])
-    for n, sid, m in sorted(rows, reverse=True)[:10]:
+    for n, sid, m in sorted(rows, reverse=True)[:40]:
         print(f"motion {sid:18} anims {n:3}  filter {m['filter']:2}  masked {m['masked']:2}  glint {m['glint']}  lite {m['lite']}")
 
 
@@ -251,6 +257,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--skins", action="store_true", help="sweep every look instead of every screen")
     parser.add_argument("--perf", action="store_true", help="frame cost of the profile for every look at SSS under a slowed CPU")
+    parser.add_argument("--device", choices=sorted(DEVICES), default="high", help="with --perf: the phone class the page sees (high = the full mode, mid = .ap-lite, low = .ap-low)")
     parser.add_argument("--crawl", action="store_true", help="press every control of every screen once and judge the state it opens")
     parser.add_argument("--taps", type=int, default=14, help="controls per screen in --crawl mode")
     parser.add_argument("--widths", type=lambda s: [int(x) for x in s.split(",")], default=None)

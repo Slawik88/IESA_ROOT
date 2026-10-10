@@ -1,0 +1,65 @@
+/* ═══ СЦЕНА ОБРАЗА · окружение вокруг аватара ═══
+   Слои сцены лежат между фоном и частицами и растут вместе с тиром: C земля, вода, туман; B небо и свет; A предметы по бокам; S живое (светлячки, пар, рябь); SS редкое событие;
+   SSS фирменная деталь образа плюс всё перечисленное. Какие слои есть у образа, решает таблица _AP_SCENES (app.35–37.js): строка [тир, «форма движение», {геометрия и переменные}].
+   Здесь живёт словарь форм и движений, в skin-scene-a/b/c/d-v3.css только картинки-силуэты (SVG фоном, рисуются один раз; исходник рисунков tools/scene_art.py).
+   Правила как у остальных слоёв образа: движение только под .ap-anim и только transform/opacity (повтор редких событий это просто долгий цикл на композиторе),
+   свечение это градиент, а не filter; всё внутри блока с overflow: hidden и contain; .ap-low останавливает, .ap-lite убирает слои .w2, вне экрана всё на паузе (.ap-off),
+   prefers-reduced-motion гасит. Геометрия: l t r b w h это left top right bottom width height; --c цвет (a, b, c палитры или любой), --k сила в процентах, --o непрозрачность,
+   --dur --del секунды, остальное параметры движения (--dx --dy --ang --rot --org). */
+
+.ap-scene { position: absolute; inset: calc(var(--bleed) * -1) -22px -26px; z-index: -2; overflow: hidden; contain: layout paint style; pointer-events: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 11%, #000 92%, transparent), linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(transparent, #000 11%, #000 92%, transparent), linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); mask-composite: intersect; }
+.ap-scene .sc { position: absolute; pointer-events: none; opacity: var(--o, 1); transform: rotate(var(--rot, 0deg)); transform-origin: var(--org, 50% 50%); }
+.ap-lite .ap-scene .w2 { display: none; }
+
+/* формы */
+.ap-scene .glow { border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c, var(--ap-a)) var(--k, 30%), transparent), transparent); }
+.ap-scene .ring { border-radius: 50%; border: var(--bw, 1.5px) solid color-mix(in srgb, var(--c, var(--ap-a)) var(--k, 60%), transparent); }
+.ap-scene .sil { background: var(--img) no-repeat var(--bp, 50% 100%) / contain; }
+.ap-scene .sil.m { background: linear-gradient(var(--gd, 0deg), var(--c, #000), var(--c2, var(--c, #000))); -webkit-mask: var(--img) no-repeat var(--bp, 50% 100%) / contain; mask: var(--img) no-repeat var(--bp, 50% 100%) / contain; }
+.ap-scene .sil.fl { transform: scaleX(-1) rotate(var(--rot, 0deg)); }
+.ap-scene .ring.dash { border-style: dashed; }
+.ap-scene .arc { border-radius: 50%; border: var(--bw, 2px) solid transparent; border-top-color: var(--c, var(--ap-a)); border-right-color: var(--c, var(--ap-a)); }
+.ap-scene .dot { width: var(--s, 3px); height: var(--s, 3px); border-radius: 50%; background: var(--c, #fff); box-shadow: var(--bs, none); }
+.ap-scene .band { background: var(--bg); box-shadow: var(--bs, none); }
+.ap-scene .wave { background: var(--img) repeat-x 0 100% / var(--tw, 120px) 100%; margin-left: calc(var(--tw, 120px) * -1); }
+
+/* движения: каждое играет только под .ap-anim; параметры берутся из переменных элемента */
+@keyframes scdrift { from { transform: translate3d(calc(var(--dx, 7%) * -1), 0, 0); } to { transform: translate3d(var(--dx, 7%), 0, 0); } }
+@keyframes scsway { from { transform: rotate(calc(var(--rot, 0deg) - var(--ang, 3deg))); } to { transform: rotate(calc(var(--rot, 0deg) + var(--ang, 3deg))); } }
+@keyframes scpulse { from { opacity: calc(var(--o, 1) * .4); } to { opacity: var(--o, 1); } }
+@keyframes scbreathe { from { transform: scale(.92); opacity: calc(var(--o, 1) * .55); } to { transform: scale(1.08); opacity: var(--o, 1); } }
+@keyframes scblink { 0%, 100% { opacity: .12; } 50% { opacity: var(--o, 1); } }
+@keyframes sctwinkle { 0%, 100% { transform: scale(.3); opacity: 0; } 50% { transform: scale(1); opacity: var(--o, 1); } }
+@keyframes scfloat { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(var(--dx, 10px), var(--dy, -12px), 0); } }
+@keyframes scrise { 0% { transform: translate3d(0, 0, 0) scale(var(--s0, 1)); opacity: 0; } 22% { opacity: var(--o, 1); } 100% { transform: translate3d(var(--dx, 0px), var(--dy, -70px), 0) scale(var(--s1, 1.5)); opacity: 0; } }
+@keyframes scspin { to { transform: rotate(calc(var(--rot, 0deg) + 360deg)); } }
+@keyframes scripple { 0% { transform: scale(.15); opacity: 0; } 14% { opacity: var(--o, .8); } 100% { transform: scale(1); opacity: 0; } }
+@keyframes scshimmer { from { transform: translate3d(0, 0, 0) scaleY(1); opacity: calc(var(--o, 1) * .35); } to { transform: translate3d(var(--dx, 6px), 0, 0) scaleY(1.3); opacity: var(--o, 1); } }
+@keyframes scwave { to { transform: translate3d(var(--tw, 120px), 0, 0); } }
+@keyframes scsweep { 0% { transform: translate3d(var(--fx, -40px), 0, 0) rotate(var(--rot, 0deg)); opacity: 0; } 5% { opacity: var(--o, 1); } 30% { transform: translate3d(var(--tx, 520px), var(--ty, 0px), 0) rotate(var(--rot, 0deg)); opacity: var(--o, 1); } 34%, 100% { transform: translate3d(var(--tx, 520px), var(--ty, 0px), 0) rotate(var(--rot, 0deg)); opacity: 0; } }
+@keyframes sccross { 0% { transform: translate3d(var(--fx, -120px), var(--fy, 0px), 0) rotate(var(--rot, 0deg)); opacity: 0; } 6%, 92% { opacity: var(--o, 1); } 100% { transform: translate3d(var(--tx, 560px), var(--ty, 0px), 0) rotate(var(--rot, 0deg)); opacity: 0; } }
+@keyframes scpeek { 0%, 78%, 100% { opacity: 0; } 86%, 92% { opacity: var(--o, 1); } }
+@keyframes scflash { 0%, 90%, 100% { opacity: 0; } 91% { opacity: var(--o, 1); } 93% { opacity: .15; } 95% { opacity: var(--o, 1); } 98% { opacity: 0; } }
+.ap-anim .ap-scene .drift { animation: scdrift var(--dur, 24s) ease-in-out var(--del, 0s) infinite alternate; }
+.ap-anim .ap-scene .sway { animation: scsway var(--dur, 9s) ease-in-out var(--del, 0s) infinite alternate; }
+.ap-anim .ap-scene .pulse { animation: scpulse var(--dur, 6s) ease-in-out var(--del, 0s) infinite alternate; }
+.ap-anim .ap-scene .breathe { animation: scbreathe var(--dur, 6s) ease-in-out var(--del, 0s) infinite alternate; }
+.ap-anim .ap-scene .blink { animation: scblink var(--dur, 4s) ease-in-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .twinkle { animation: sctwinkle var(--dur, 3.4s) ease-in-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .float { animation: scfloat var(--dur, 13s) ease-in-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .rise { animation: scrise var(--dur, 7s) ease-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .spin { animation: scspin var(--dur, 90s) linear var(--del, 0s) infinite; }
+.ap-anim .ap-scene .spin.rev { animation-direction: reverse; }
+.ap-anim .ap-scene .ripple { animation: scripple var(--dur, 6s) ease-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .shimmer { animation: scshimmer var(--dur, 4s) ease-in-out var(--del, 0s) infinite alternate; }
+.ap-anim .ap-scene .wave.go { animation: scwave var(--dur, 30s) linear var(--del, 0s) infinite; }
+.ap-anim .ap-scene .sweep { animation: scsweep var(--dur, 22s) linear var(--del, 0s) infinite; }
+.ap-anim .ap-scene .cross { animation: sccross var(--dur, 40s) linear var(--del, 0s) infinite; }
+.ap-anim .ap-scene .peek { animation: scpeek var(--dur, 12s) ease-in-out var(--del, 0s) infinite; }
+.ap-anim .ap-scene .flash { animation: scflash var(--dur, 14s) linear var(--del, 0s) infinite; }
+
+/* без движения (экономный режим, «уменьшить анимацию») остаются пейзаж и свет; события, частицы и вспышки не показываются застывшими */
+.ap-low .ap-scene :is(.peek, .flash, .cross, .sweep, .rise, .ripple, .twinkle) { display: none; }
+@media (prefers-reduced-motion: reduce) { .ap-scene *, .ap-scene *::before, .ap-scene *::after { animation: none !important; } .ap-scene :is(.peek, .flash, .cross, .sweep, .rise, .ripple, .twinkle) { display: none; } }

@@ -1,6 +1,6 @@
 /* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · B (огонь, металл, ночь) ═══
    Образы: inferno (.ap-sig-blaze), copper (.ap-sig-cogs), pumpkin_lantern (.ap-sig-jacklight), cobweb (.ap-sig-cobwebs), witch_hour (.ap-sig-witchmoon), ruby (.ap-sig-facets), threshold (.ap-sig-gateway).
-   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк.
+   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-low режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк.
    Рамка рисуется SVG в поле «-20 -20 140 140» (app.33.js): 1 единица это 1% рамки, поэтому деталь растёт вместе с аватаром. Части сцены (.ap-orn) лежат за блоком личности, только с тира SSS. */
 
 .ap-frame svg.sg-b { position: absolute; left: -20%; top: -20%; width: 140%; height: 140%; display: block; overflow: visible; pointer-events: none; }
@@ -116,6 +116,6 @@
 .ap-anim .ap-sig-gateway .sg-ks { animation: apbreath 3s ease-in-out infinite alternate; }
 
 /* ── Лёгкий режим: тяжёлое прячется, сцена неподвижна ── */
-.ap-lite .ap-sig-blaze .sg-em:nth-of-type(n+3), .ap-lite .ap-sig-cogs .sg-spk:nth-of-type(n+3), .ap-lite .ap-sig-witchmoon .sg-bu, .ap-lite .ap-sig-gateway .sg-dr g:nth-of-type(n+3) { display: none; }
-.ap-lite .ap-orn svg, .ap-lite .ap-orn svg *, .ap-lite .ap-sig-witchmoon .sg-fl, .ap-lite .ap-sig-blaze .sg-lava { animation: none !important; }
+.ap-low .ap-sig-blaze .sg-em:nth-of-type(n+3), .ap-low .ap-sig-cogs .sg-spk:nth-of-type(n+3), .ap-low .ap-sig-witchmoon .sg-bu, .ap-low .ap-sig-gateway .sg-dr g:nth-of-type(n+3) { display: none; }
+.ap-low .ap-orn svg, .ap-low .ap-orn svg *, .ap-low .ap-sig-witchmoon .sg-fl, .ap-low .ap-sig-blaze .sg-lava { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .ap-orn svg, .ap-orn svg *, .ap-frame svg.sg-b, .ap-frame svg.sg-b * { animation: none !important; } }

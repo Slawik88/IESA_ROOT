@@ -1,7 +1,7 @@
 /* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · A (природа и вода) ═══
    Образы: forest (.ap-sig-canopy), dune (.ap-sig-dunes), harbor (.ap-sig-lighthouse), lotus_pond (.ap-sig-lilypads), frost (.ap-sig-rime), snow_globe (.ap-sig-snowdome), jade (.ap-sig-jadecourt).
    Рисунок это SVG на рамке аватара (app.32.js), форма там, цвет и движение здесь. Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity,
-   .ap-lite останавливает всё и убирает мелочь, prefers-reduced-motion гасит всё, файл ≤ 300 строк. Деталь видна с тира SSS. */
+   .ap-low останавливает всё и убирает мелочь, prefers-reduced-motion гасит всё, файл ≤ 300 строк. Деталь видна с тира SSS. */
 
 /* свечение кольца это тень самой рамки, а не filter: фильтр на рамке с большим SVG внутри рисует вокруг него прямоугольник и перерисовывает рисунок на каждом кадре движения */
 .ap-sig-canopy.ap-frame, .ap-sig-dunes.ap-frame, .ap-sig-lighthouse.ap-frame, .ap-sig-lilypads.ap-frame, .ap-sig-rime.ap-frame, .ap-sig-snowdome.ap-frame, .ap-sig-jadecourt.ap-frame { filter: none; box-shadow: 0 0 9px 1px color-mix(in srgb, var(--ap-a) 36%, transparent); }
@@ -89,9 +89,9 @@
 .ap-anim .sa-jadecourt .sa-glint { animation: apturn 16s linear infinite; } .ap-anim .sa-jadecourt .s-gold { animation: satwk var(--d) ease-in-out infinite; }
 
 /* лёгкий режим: всё стоит в позе, мелочь убрана */
-.ap-lite .sa *, .ap-lite .sa { animation: none !important; }
-.ap-lite .sa-dunes .s-grain, .ap-lite .sa-dunes .sa-heat, .ap-lite .sa-lighthouse .sa-rip, .ap-lite .sa-lilypads .sa-rip, .ap-lite .sa-rime .s-glint, .ap-lite .sa-jadecourt .s-dust, .ap-lite .sa-snowdome .sa-fl2 { display: none; }
-.ap-lite .ap-sig-canopy.ap-bg::before { animation: none; }
+.ap-low .sa *, .ap-low .sa { animation: none !important; }
+.ap-low .sa-dunes .s-grain, .ap-low .sa-dunes .sa-heat, .ap-low .sa-lighthouse .sa-rip, .ap-low .sa-lilypads .sa-rip, .ap-low .sa-rime .s-glint, .ap-low .sa-jadecourt .s-dust, .ap-low .sa-snowdome .sa-fl2 { display: none; }
+.ap-low .ap-sig-canopy.ap-bg::before { animation: none; }
 /* ник и ореол на SSS */
 .ap-sig-canopy.ap-name, .ap-sig-dunes.ap-name, .ap-sig-lighthouse.ap-name, .ap-sig-lilypads.ap-name, .ap-sig-rime.ap-name, .ap-sig-snowdome.ap-name, .ap-sig-jadecourt.ap-name { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
 .ap-sig-rime.ap-ha-rays::before { opacity: .22; }

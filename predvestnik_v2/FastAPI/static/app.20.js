@@ -5,7 +5,7 @@
 const _AP_TIERS = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const _AP_WORD = /^[a-z_]{2,16}$/, _AP_HEX = /^#[0-9a-f]{6}$/i;
 const _AP_POWER = [0, .4, .5, .6, .72, .85, .95, 1];
-const _AP_DUST = [0, 5, 7, 9, 12, 16, 20, 26];
+const _AP_DUST = [0, 6, 8, 11, 15, 20, 26, 34];
 function _apTi(tier) { return _AP_TIERS.indexOf(tier) + 1; }
 function apFromLook(look) {
   const ti = _apTi(look?.tier), kinds = look?.kinds, pal = look?.pal;
@@ -44,11 +44,11 @@ function _apDust(ap) {
     return `<i style="--x:${(r(1) * 100).toFixed(1)}%;--y:${(r(2) * 80).toFixed(1)}%;--s:${(3 + r(3) * 4).toFixed(1)}px;--d:${(10 + r(4) * 9).toFixed(1)}s;--delay:-${(r(5) * 14).toFixed(1)}s;--dx:${((r(6) - .5) * 70).toFixed(0)}px;--r:${(r(7) * 360).toFixed(0)}deg"></i>`;
   }).join('');
 }
-// Сцена: фон и частицы за блоком личности. inner — сам блок. Без образа возвращается как есть.
+// Сцена профиля: фон и частицы за блоком личности. inner — сам блок. Без образа возвращается как есть.
 function apStage(ap, inner) {
   if (!ap) return inner;
   const cls = `ap-t${ap.ti}${_apSig(ap)}`;
-  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div><div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}${inner}</div>`;
+  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div>${apScene(ap)}<div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}${inner}</div>`;
 }
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {

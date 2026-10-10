@@ -113,5 +113,5 @@
 .ap-sig-bloodmoon.ap-name { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-b) 75%, transparent)); }
 
 /* лёгкий режим: без цепочек и падающих капель, блёсток вдвое меньше */
-.ap-lite .ap-orn .o-chain, .ap-lite .ap-orn .fl, .ap-lite .ap-orn .o-sp:nth-of-type(even) { display: none; }
+.ap-low .ap-orn .o-chain, .ap-low .ap-orn .fl, .ap-low .ap-orn .o-sp:nth-of-type(even) { display: none; }
 @media (prefers-reduced-motion: reduce) { .ap-ha-neon::before, .ap-orn *, .ap-frame .dr, .ap-pt-drop i, .ap-sig-bowstar .sg-bow, .ap-sig-bowstar .sg-star, .ap-sig-bloodmoon .sg-bmoon { animation: none !important; } }
