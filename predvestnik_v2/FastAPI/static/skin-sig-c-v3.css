@@ -1,0 +1,111 @@
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · C (цветение, небо, огни) ═══
+   Образы: sakura_bud (.ap-sig-budbloom), hanami (.ap-sig-hanamitree), lotus_gold (.ap-sig-goldlotus), celestial (.ap-sig-seraph), observatory (.ap-sig-telescope), garland (.ap-sig-fairylights), midnight_chimes (.ap-sig-bellchimes).
+   Правила те же, что в skin-signatures-v3.css: движение только под .ap-anim и только transform/opacity, .ap-lite режет лишнее, prefers-reduced-motion гасит всё, файл ≤ 300 строк.
+   Рисунок это SVG из app.34.js: на сцене (.ap-orn[data-sk]) и на рамке аватара (.ap-frame); цвета из палитры образа (--ap-a/b/c), блик белый. Деталь видна только на тире SSS. */
+
+/* ── Бутон Сакуры: голая ветка из угла, тугие бутоны, один раскрывается ── */
+.ap-orn .bd-branch { right: calc(10px + 2%); top: -3%; width: 48%; }
+.bd-bk { fill: none; stroke: color-mix(in srgb, var(--ap-b) 20%, #12080d); stroke-linecap: round; }
+.bd-bh { fill: none; stroke: color-mix(in srgb, var(--ap-a) 60%, #4a2638); stroke-linecap: round; opacity: .8; }
+.bd-a { fill: var(--ap-a); } .bd-b { fill: var(--ap-b); opacity: .5; } .bd-c { fill: none; stroke: var(--ap-c); stroke-width: 1; stroke-linecap: round; opacity: .85; }
+.bd-k { fill: color-mix(in srgb, var(--ap-b) 70%, #3a1a28); } .bd-st path { fill: none; stroke: var(--ap-c); stroke-width: .5; } .bd-st circle { fill: var(--ap-c); } .bd-gl { fill: url(#ornCGlow); opacity: .75; } .bd-fall { fill: var(--ap-c); opacity: 0; }
+.bd-pl { transform-origin: 0 0; transform: rotate(calc(var(--r) * .8)); }
+@keyframes bdopen { from { transform: rotate(calc(var(--r) * .4)); } to { transform: rotate(calc(var(--r) * 1.2)); } }
+@keyframes bdfall { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 14% { opacity: .9; } 100% { transform: translate(-26px, 66px) rotate(220deg); opacity: 0; } }
+.ap-anim .bd-pl { animation: bdopen 9s ease-in-out infinite alternate; }
+.ap-anim .bd-fall { animation: bdfall 11s ease-in infinite; }
+.ap-lite .bd-gl, .ap-lite .bd-fall { display: none; }
+
+/* ── Ханами: крона над сценой, фонарь, медленные лепестки ── */
+.ap-orn .hn-canopy { left: 0; top: -2%; width: calc(100% - 10px); }
+.hn-wash { fill: url(#ornCGlow); opacity: .26; }
+.hn-1 { fill: var(--ap-a); opacity: .62; } .hn-2 { fill: var(--ap-b); opacity: .5; } .hn-3 { fill: var(--ap-c); opacity: .72; }
+.hn-ink { fill: none; stroke: color-mix(in srgb, var(--ap-b) 24%, #150a10); stroke-linecap: round; }
+.hn-gl { fill: url(#ornCGlow); opacity: .85; } .hn-lb { fill: color-mix(in srgb, var(--ap-b) 78%, #fff); } .hn-cap { fill: color-mix(in srgb, var(--ap-b) 22%, #120810); } .hn-rib { fill: none; stroke: var(--ap-c); stroke-width: .8; opacity: .55; }
+.hn-pt { fill: var(--ap-c); opacity: .75; }
+@keyframes hnsway { from { transform: rotate(-3.5deg); } to { transform: rotate(3.5deg); } }
+@keyframes hnfall { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 10% { opacity: .8; } 100% { transform: translate(var(--dx), 190px) rotate(260deg); opacity: 0; } }
+.ap-anim .hn-sw { animation: hnsway 6s ease-in-out infinite alternate; }
+.ap-anim .hn-pt { animation: hnfall var(--d) linear infinite; animation-delay: var(--dl); }
+.ap-lite .hn-wash, .ap-lite .hn-gl, .ap-lite .hn-pt { display: none; }
+
+/* ── Золотой Лотос: золотые лепестки под кольцом, круги пруда, блики ── */
+.ap-sig-goldlotus.ap-frame { filter: none; }
+.ap-frame svg.gl-back, .ap-frame svg.gl-front { position: absolute; left: -30%; top: -10%; width: 160%; height: 130%; display: block; overflow: visible; pointer-events: none; }
+.ap-frame svg.gl-back { z-index: -1; -webkit-mask: linear-gradient(180deg, #000 82%, transparent 100%); mask: linear-gradient(180deg, #000 82%, transparent 100%); }
+.gl-glow { fill: var(--ap-a); opacity: .16; } .gl-rp { fill: none; stroke: var(--ap-a); stroke-width: .9; opacity: .5; }
+.gl-b, .gl-a, .gl-c { stroke: color-mix(in srgb, var(--ap-b) 62%, #2a1303); stroke-width: .7; stroke-linejoin: round; }
+.gl-b { fill: var(--ap-b); } .gl-a { fill: var(--ap-a); } .gl-c { fill: var(--ap-c); }
+.gl-in { fill: none; stroke: var(--ap-c); stroke-width: .6; opacity: .75; } .gl-vn { fill: none; stroke: color-mix(in srgb, var(--ap-b) 70%, #fff); stroke-width: .7; stroke-linecap: round; opacity: .8; }
+.gl-sh { fill: url(#ornCSheen); } .gl-sp { fill: var(--ap-c); transform: scale(var(--s)); }
+@keyframes glrip { 0% { transform: scale(.7); opacity: .6; } 100% { transform: scale(1.25); opacity: 0; } }
+@keyframes glglint { 0%, 100% { transform: scale(.2) rotate(0deg); opacity: 0; } 50% { transform: scale(var(--s)) rotate(45deg); opacity: 1; } }
+.gl-rp { transform-box: fill-box; transform-origin: 50% 50%; }
+.ap-anim .gl-rp { animation: glrip 6s ease-out infinite; animation-delay: calc(var(--i) * -2s); }
+.ap-anim .gl-sp { animation: glglint var(--d) ease-in-out infinite; }
+.ap-lite .gl-glow, .ap-lite .gl-rp:nth-of-type(n+3) { display: none; }
+
+/* ── Небесное Сияние: витражные крылья, золотой нимб, падающее перо ── */
+.ap-sig-seraph.ap-frame { filter: none; }
+.ap-frame svg.sr-back { position: absolute; z-index: -1; left: -30%; top: -10%; width: 160%; height: 130%; display: block; overflow: visible; pointer-events: none; }
+.ap-frame svg.sr-halo { position: absolute; left: -30%; top: -40%; width: 160%; height: 100%; display: block; overflow: visible; pointer-events: none; }
+.sr-f0, .sr-f1, .sr-f2 { stroke: #2a1f08; stroke-width: .7; stroke-linejoin: round; }
+.sr-f0 { fill: var(--ap-b); } .sr-f1 { fill: var(--ap-a); } .sr-f2 { fill: var(--ap-c); } .sr-sh { fill: url(#ornCSheen); }
+.sr-w { transform-origin: 36px 58px; }
+.sr-h0 { fill: none; stroke: var(--ap-a); stroke-width: 2.6; filter: drop-shadow(0 0 3px var(--ap-a)); } .sr-h1 { fill: none; stroke: var(--ap-c); stroke-width: .8; opacity: .8; }
+.sr-sp { fill: #fff; } .sr-fe { fill: var(--ap-c); opacity: .85; } .sr-q { fill: none; stroke: var(--ap-b); stroke-width: .6; }
+@keyframes srwing { from { transform: rotate(-2.4deg); } to { transform: rotate(2.2deg); } }
+@keyframes srfeather { 0% { transform: translate(0, 0) rotate(-20deg); opacity: 0; } 12% { opacity: .85; } 100% { transform: translate(var(--dx), 70px) rotate(40deg); opacity: 0; } }
+@keyframes srglint { from { transform: scale(.5) rotate(0deg); opacity: .5; } to { transform: scale(1.1) rotate(45deg); opacity: 1; } }
+.ap-anim .sr-w { animation: srwing 6.5s ease-in-out infinite alternate; }
+.ap-anim .sr-fd { animation: srfeather var(--d) ease-in-out infinite; animation-delay: var(--dl); }
+.ap-anim .sr-sp { animation: srglint 3.2s ease-in-out infinite alternate; }
+.sr-sp { transform-origin: 0 0; } .sr-fd { opacity: .85; }
+.ap-lite .sr-fd { display: none; }
+
+/* ── Лазурная Обсерватория: латунный телескоп, планета с кольцом, орбиты и звёзды ── */
+.ap-orn .tl-scope { right: 10px; top: 0; width: 37%; }
+.tl-d { fill: color-mix(in srgb, var(--ap-c) 42%, #1a1005); } .tl-br { fill: var(--ap-c); } .tl-hl { fill: #fff; opacity: .38; } .tl-hl2 { fill: var(--ap-c); } .tl-sd { fill: #1a1005; opacity: .3; }
+.tl-ln, .tl-yk, .tl-ft { fill: none; stroke: color-mix(in srgb, var(--ap-c) 40%, #1a1005); stroke-width: 1; stroke-linecap: round; } .tl-yk, .tl-ft { stroke-width: 2.2; } .tl-ln2 { fill: var(--ap-a); stroke: #1a1005; stroke-width: .8; opacity: .9; }
+.tl-ray { fill: none; stroke: var(--ap-a); stroke-width: .7; stroke-dasharray: 1.5 3; opacity: .5; }
+.tl-pl { fill: var(--ap-a); } .tl-pd { fill: var(--ap-b); opacity: .8; } .tl-pb { fill: none; stroke: #fff; stroke-width: 1; stroke-linecap: round; opacity: .55; }
+.tl-rg { fill: none; stroke: var(--ap-c); stroke-width: 2; opacity: .95; } .tl-rf { stroke-width: 2.4; }
+.tl-or { fill: none; stroke: var(--ap-a); stroke-width: .6; stroke-dasharray: 2 3; opacity: .5; } .tl-o2 { opacity: .3; } .tl-mo { fill: var(--ap-c); } .tl-mn { transform: rotate(-120deg); } .tl-s { fill: #fff; opacity: .8; }
+@keyframes tlmoon { to { transform: rotate(240deg); } }
+@keyframes tltw { from { opacity: .25; } to { opacity: 1; } }
+.ap-anim .tl-mn { animation: tlmoon 36s linear infinite; }
+.ap-anim .tl-s { animation: tltw var(--d) ease-in-out infinite alternate; }
+.ap-lite .tl-s, .ap-lite .tl-o2 { display: none; }
+
+/* ── Огни Гирлянды: провод с лампочками по верху сцены и вокруг кольца, огни бегут по цепочке ── */
+.ap-orn .fl-swags { left: 0; top: 0; width: calc(100% - 10px); }
+.ap-frame svg.fl-ring { position: absolute; left: -12%; top: -12%; width: 124%; height: 124%; display: block; overflow: visible; pointer-events: none; }
+.fl-w { fill: none; stroke: #2a2018; stroke-width: 1; stroke-linecap: round; } .fl-sk { fill: #1c140f; } .fl-hi { fill: #fff; opacity: .6; }
+.fl-1 { --c: var(--ap-a); } .fl-2 { --c: var(--ap-b); } .fl-3 { --c: var(--ap-c); } .fl-g, .fl-bl { fill: var(--c); } .fl-g { opacity: .24; }
+@keyframes fltw { 0%, 100% { opacity: .42; } 45% { opacity: 1; } }
+.ap-anim .fl-b { animation: fltw 3.6s ease-in-out infinite; animation-delay: calc(var(--i) * -.3s); }
+.ap-lite .fl-g { display: none; }
+
+/* ── Бой Курантов: циферблат на полночь, колокол на кронштейне, золотые салюты ── */
+.ap-orn .bc-clock { right: calc(10px + 1%); top: 0; width: 31%; } .ap-orn .bc-fw1 { left: 0; top: 0; width: 32%; } .ap-orn .bc-fw2 { right: calc(10px + 3%); bottom: 9%; width: 16%; }
+.bc-fc { fill: #0d0903; opacity: .88; } .bc-bz { fill: none; stroke: var(--ap-a); stroke-width: 3.2; } .bc-bz2 { fill: none; stroke: var(--ap-b); stroke-width: .8; }
+.bc-tk, .bc-hm { fill: none; stroke: var(--ap-c); stroke-width: .9; stroke-linecap: round; } .bc-hm { stroke-width: 1.6; } .bc-hh { fill: none; stroke: var(--ap-a); stroke-width: 2.4; stroke-linecap: round; } .bc-dm, .bc-hub { fill: var(--ap-a); }
+.bc-ar, .bc-lp { fill: var(--ap-b); } .bc-br { fill: none; stroke: var(--ap-b); stroke-width: 1.8; stroke-linecap: round; }
+.bc-bd { fill: var(--ap-a); stroke: color-mix(in srgb, var(--ap-b) 60%, #2a1303); stroke-width: .6; } .bc-bs { fill: var(--ap-b); opacity: .55; } .bc-bh { fill: none; stroke: var(--ap-c); stroke-width: 1.2; stroke-linecap: round; opacity: .8; }
+.bc-lo { fill: none; stroke: var(--ap-a); stroke-width: 1.2; } .bc-cn { fill: none; stroke: var(--ap-b); stroke-width: 1.2; } .bc-cb { fill: var(--ap-c); }
+.bc-wv path { fill: none; stroke: var(--ap-a); stroke-width: 1; stroke-linecap: round; } .bc-wv { opacity: .55; }
+.bc-r0, .bc-r1, .bc-r2 { fill: none; stroke-width: 1.6; stroke-linecap: round; } .bc-r0 { stroke: var(--ap-a); } .bc-r1 { stroke: var(--ap-c); } .bc-r2 { stroke: var(--ap-b); }
+.bc-d0 { fill: var(--ap-a); } .bc-d1 { fill: var(--ap-c); } .bc-d2 { fill: var(--ap-b); } .bc-fw { opacity: .85; }
+.bc-cl { transform-origin: 0 8px; }
+@keyframes bcswing { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+@keyframes bcclap { from { transform: rotate(13deg); } to { transform: rotate(-13deg); } }
+@keyframes bcwave { 0%, 100% { opacity: 0; } 50% { opacity: .8; } }
+@keyframes bcburst { 0% { transform: scale(.15); opacity: 0; } 8% { opacity: 1; } 34% { transform: scale(1); opacity: 1; } 62% { transform: scale(1.1); opacity: 0; } 100% { transform: scale(1.1); opacity: 0; } }
+.ap-anim .bc-bell { animation: bcswing 3.2s ease-in-out infinite alternate; } .ap-anim .bc-cl { animation: bcclap 3.2s ease-in-out infinite alternate; } .ap-anim .bc-wv { animation: bcwave 3.2s ease-in-out infinite; }
+.ap-anim .bc-fw { animation: bcburst 7s ease-out infinite; animation-delay: var(--dl); }
+.ap-lite .bc-fw2, .ap-lite .bc-wv { display: none; }
+
+/* лёгкий режим: всё, что движется, замирает в выразительной позе; тяжёлые размытия и падающие перья убраны выше */
+.ap-lite :is(.bd-pl, .hn-sw, .gl-rp, .gl-sp, .sr-w, .sr-sp, .tl-mn, .tl-s, .fl-b, .bc-bell, .bc-cl, .bc-wv, .bc-fw) { animation: none !important; }
+
+@media (prefers-reduced-motion: reduce) { .ap-orn:is([data-sk="sakura_bud"], [data-sk="hanami"], [data-sk="observatory"], [data-sk="garland"], [data-sk="midnight_chimes"]) *, :is(.ap-sig-goldlotus, .ap-sig-seraph, .ap-sig-fairylights) svg * { animation: none !important; } }

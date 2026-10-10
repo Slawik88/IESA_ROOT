@@ -26,6 +26,9 @@ ZARNIKI_REWARD_SOURCES: Final = (
     # Owner-approved one-time retirement migration. No public adapter accepts
     # a reason code; the dedicated importer binds this to a frozen snapshot.
     "retirement_compensation_v2",
+    # Owner-approved one-time refund of Zarniki spent on the retired skins and cosmetics (Skins V3 launch).
+    # Only services/skins_v3_migration.py uses it, bound to the player's own purchase receipts in the ledger.
+    "skins_v3_migration_refund",
 )
 
 

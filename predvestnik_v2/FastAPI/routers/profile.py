@@ -8,6 +8,7 @@ import time
 import asyncio
 from datetime import date, datetime, timedelta, timezone
 import httpx
+from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from FastAPI.deps import get_db, require_tg_user
@@ -18,13 +19,15 @@ from services.leveling import account_progress
 from services.formatting import safe_html
 from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
-from services.global_skins_v1 import state as global_skin_state
+from services import marks_v1 as marks_service
+from services import skins_v3 as skins_v3_service
+from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname, get_first_seen
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
 from infrastructure.repositories import global_moderation as gmod_repo
-from services.global_moderation import SANCTION_LABELS
+SANCTION_LABELS = {"warn": "предупреждение", "restrict": "ограничение", "ban": "бан"}
 from core.registry import ACHIEVEMENTS
 from core.sky_v1 import NODE_BY_ID, SIGIL_IDS
 from infrastructure.repositories import sky_v1 as sky_repo
@@ -43,11 +46,14 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+_DEVELOPER_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 
 
-async def _sky_sigil(db, user_id: int) -> dict | None:
+async def _sky_sigil(db, user_id: int, *, vip_active: bool | None = None) -> dict | None:
     """Public cosmetic projection; never materializes feats or progression."""
-    if not await is_vip_active(db, user_id):
+    if vip_active is None:
+        vip_active = await is_vip_active(db, user_id)
+    if not vip_active:
         return None
     try:
         allocated, sigil, _, _ = sky_repo.decode(await sky_repo.get_state(db, int(user_id)))
@@ -59,10 +65,12 @@ async def _sky_sigil(db, user_id: int) -> dict | None:
     return {"id": sigil, "name": node["name"], "branch": node["branch"]}
 
 
-async def _supporter_badge(db, user_id: int) -> dict | None:
+async def _supporter_badge(db, user_id: int, *, vip_active: bool | None = None) -> dict | None:
     # Supporter seals are cosmetic too: ownership is retained, but they are not
     # displayed on a public profile while the VIP display entitlement is idle.
-    if not await is_vip_active(db, user_id):
+    if vip_active is None:
+        vip_active = await is_vip_active(db, user_id)
+    if not vip_active:
         return None
     try:
         from services.supporter_cosmetics_v1 import active_public
@@ -102,12 +110,39 @@ async def _fetch_tg_avatar(user_id: int) -> str | None:
         return None
 
 
-async def _vip_avatar(db, user_id: int) -> str | None:
+def _server_clock() -> dict:
+    """The bot's own clock (TIMEZONE_OFFSET, UTC+3 by default). The client greets by its own time and falls back to this."""
+    import re
+    match = re.search(r"([+-]?\d{1,2})", os.getenv("TIMEZONE_OFFSET", "+3"))
+    hours = max(-12, min(14, int(match.group(1)))) if match else 3
+    now = datetime.now(timezone(timedelta(hours=hours)))
+    return {"iso": now.isoformat(), "hour": now.hour, "offset_min": hours * 60}
+
+
+async def _own_look(db, user_id: int) -> dict | None:
+    try:
+        await skins_v3_repo.ensure_tables(db)
+        return await skins_v3_service.own_look(db, user_id)
+    except Exception:
+        logger.exception("own look failed")      # a skins hiccup must never take the whole profile down
+        return None
+
+
+async def _essence_balance(db, user_id: int) -> int:
+    try:
+        return await skins_v3_repo.essence_balance(db, user_id)
+    except Exception:
+        return 0
+
+
+async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None) -> str | None:
     """Data-URI аватарки Telegram, если у игрока АКТИВНЫЙ VIP (перк); иначе None.
     Кэш на процесс (6ч), картинка уже проксирована в data-URI (токен бота наружу
     не уходит). Используется и для своего профиля (/avatar), и для публичной
     карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде."""
-    if not await is_vip_active(db, user_id):
+    if vip_active is None:
+        vip_active = await is_vip_active(db, user_id)
+    if not vip_active:
         return None
     now = time.time()
     cached = _AVATAR_CACHE.get(user_id)
@@ -351,9 +386,34 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "COALESCE(u.user_balance_zarniki, 0) AS user_balance_zarniki, "
         "COALESCE(u.account_xp, 0) AS account_xp, "
         "(u.tos_accepted_at IS NOT NULL) AS tos_accepted, "
-        "(v.user_id IS NOT NULL) AS is_vip "
+        "(v.user_id IS NOT NULL) AS is_vip, "
+        "COALESCE(dl.streak, 0) AS streak, dl.last_login, "
+        "COALESCE(a.achievements, 0) AS achievements, "
+        "COALESCE(activity.messages_all_time, 0) AS messages_all_time, "
+        "activity.joined_date, partner.username AS partner, "
+        "COALESCE(es.balance, 0) AS echo_shards "
         "FROM users u "
         "LEFT JOIN vip_subscriptions v ON v.user_id = u.user_tg_id AND v.expires_at > NOW() "
+        "LEFT JOIN LATERAL ("
+        " SELECT MAX(streak) AS streak, MAX(last_login) AS last_login "
+        " FROM daily_login WHERE user_id = u.user_tg_id"
+        ") dl ON TRUE "
+        "LEFT JOIN LATERAL ("
+        " SELECT COUNT(*) AS achievements FROM achievements "
+        " WHERE user_id = u.user_tg_id AND level > 0"
+        ") a ON TRUE "
+        "LEFT JOIN LATERAL ("
+        " SELECT COALESCE(SUM(user_messages_count_all_time), 0) AS messages_all_time, "
+        " MIN(joined_at) AS joined_date FROM user_chat_stats WHERE user_tg_id = u.user_tg_id"
+        ") activity ON TRUE "
+        "LEFT JOIN LATERAL ("
+        " SELECT p2.user_tg_username AS username FROM marriages m "
+        " JOIN users p2 ON p2.user_tg_id = CASE "
+        "  WHEN m.user1_id = u.user_tg_id THEN m.user2_id ELSE m.user1_id END "
+        " WHERE (m.user1_id = u.user_tg_id OR m.user2_id = u.user_tg_id) "
+        "  AND m.ended_at IS NULL ORDER BY m.marriage_date DESC LIMIT 1"
+        ") partner ON TRUE "
+        "LEFT JOIN echo_shard_accounts_v1 es ON es.user_id = u.user_tg_id "
         "WHERE u.user_tg_id = ?",
         (user_id,),
     ) as c:
@@ -377,44 +437,10 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
 
     pets = await _profile_pets(db, user_id)
 
-    # Стрик (максимальный по всем чатам)
-    async with db.execute(
-        "SELECT MAX(streak) AS streak, MAX(last_login) AS last_login "
-        "FROM daily_login WHERE user_id = ?",
-        (user_id,),
-    ) as c:
-        streak_row = await c.fetchone()
-
-    # Достижения
-    async with db.execute(
-        "SELECT COUNT(*) FROM achievements WHERE user_id = ? AND level > 0",
-        (user_id,),
-    ) as c:
-        ach_count = (await c.fetchone())[0]
-
-    # Партнёр по браку (как в боте: существование строки в marriages = в браке,
-    # нет отдельной колонки status — см. infrastructure/repositories/marriages.get_user_marriage)
-    async with db.execute(
-        "SELECT p2.user_tg_username "
-        "FROM marriages m "
-        "JOIN users p2 ON p2.user_tg_id = CASE "
-        "  WHEN m.user1_id = ? THEN m.user2_id ELSE m.user1_id END "
-        "WHERE (m.user1_id = ? OR m.user2_id = ?) AND m.ended_at IS NULL "
-        "ORDER BY m.marriage_date DESC LIMIT 1",
-        (user_id, user_id, user_id),
-    ) as c:
-        partner_row = await c.fetchone()
-    partner = partner_row[0] if partner_row else None
-
-    async with db.execute(
-        "SELECT COALESCE(SUM(user_messages_count_all_time),0) AS messages_all_time "
-        "FROM user_chat_stats WHERE user_tg_id=?",
-        (user_id,),
-    ) as c:
-        activity_row = dict(await c.fetchone())
     vip_info = await get_vip_info(db, user_id)
     vip_preferences = await get_preferences(db, user_id=user_id) if vip_info else None
-    joined_date = await get_first_seen(db, user_id)
+    joined_date = row["joined_date"]
+    is_vip = bool(row["is_vip"])
 
     # whatsnew_seen_id вынесен из основного запроса и достаётся отдельно с мягкой
     # деградацией: колонка создаётся миграцией init_db, но на проде FastAPI работает
@@ -445,9 +471,9 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "diamonds":     float(row["user_balance_diamonds"] or 0),
         "dark_mora":    float(row["user_balance_dark_mora"] or 0),
         "zarniki":      float(row["user_balance_zarniki"] or 0),
-        "echo_shards":  await echo_shards.get_balance(db, user_id),
-        "streak":       (dict(streak_row)["streak"] or 0) if streak_row else 0,
-        "achievements": ach_count,
+        "echo_shards":  int(row["echo_shards"] or 0),
+        "streak":       int(row["streak"] or 0),
+        "achievements": int(row["achievements"] or 0),
         # R0: уровень аккаунта — глобальный, экспоненциальная кривая.
         # xp_per_level оставлен для обратной совместимости фронта = цена ТЕКУЩЕГО уровня.
         "account_level": _acc_prog["level"],
@@ -461,12 +487,13 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "cp_breakdown":  None,
         "chats":        chats,
         "pets":         pets,
-        "is_vip":       bool(row["is_vip"]),
-        "avatar":       await _vip_avatar(db, user_id),
+        "is_vip":       is_vip,
+        "avatar":       await _vip_avatar(db, user_id, vip_active=is_vip),
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
-        "partner":      partner,
-        "messages_all_time": int(activity_row.get("messages_all_time") or 0),
+        "is_developer": bool(_DEVELOPER_ID and user_id == _DEVELOPER_ID),
+        "partner":      row["partner"],
+        "messages_all_time": int(row["messages_all_time"] or 0),
         "joined_date": _iso(joined_date),
         "vip": {
             "tier": vip_info["tier"],
@@ -481,12 +508,15 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "sanctions": await _sanctions(db, user_id, include_private=True),
         "game_results": await _game_results(db, user_id, include_private=True),
         "achievement_paths": await _achievement_paths(db, user_id),
-        "cosmetics":    await get_active_cosmetics(db, user_id),
-        "global_skin": await global_skin_state(db, user_id),
+        "cosmetics":    await get_active_cosmetics(db, user_id),   # welcome animation only; skins live in "look"
+        "look":         await _own_look(db, user_id),
+        "essence":      await _essence_balance(db, user_id),
+        "server_clock": _server_clock(),
         "system_flags": await _system_flags.get_all(db),
         "whatsnew_seen_id": whatsnew_seen_id,
-        "sky_sigil": await _sky_sigil(db, user_id),
-        "supporter_badge": await _supporter_badge(db, user_id),
+        "sky_sigil": await _sky_sigil(db, user_id, vip_active=is_vip),
+        "supporter_badge": await _supporter_badge(db, user_id, vip_active=is_vip),
+        "marks": await marks_service.marks_for(db, user_id, streak=int(row["streak"] or 0), joined=joined_date),
     }
 
 
@@ -760,9 +790,10 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).
         "avatar":       await _vip_avatar(db, target_id),
-        "cosmetics":    await get_active_cosmetics(db, target_id),
+        # the look of another player is served by /public-profile-v3 (VIP-gated, core/appearance_v3.py)
         "sky_sigil":     await _sky_sigil(db, target_id),
         "supporter_badge": await _supporter_badge(db, target_id),
+        "marks": await marks_service.marks_for(db, target_id, streak=streak or 0, joined=joined_date),
     }
 
 
@@ -895,3 +926,24 @@ async def set_notification_pref(body: NotifPrefRequest, db=Depends(get_db), user
         raise HTTPException(400, "Неизвестная категория уведомлений.")
     await notif_repo.set_pref(db, user["id"], body.category, body.enabled)
     return {"ok": True, "category": body.category, "enabled": body.enabled}
+
+
+class AdultWarpsRequest(BaseModel):
+    enabled: bool
+
+
+# 18+ варпы в адрес игрока: тот же флаг users.allow_adult_warps, что меняет «бот 18+ вкл/выкл» в чате.
+@router.get("/warp-prefs")
+async def get_warp_prefs(db=Depends(get_db), user=Depends(require_tg_user)):
+    async with db.execute("SELECT allow_adult_warps FROM users WHERE user_tg_id = ?", (user["id"],)) as cur:
+        row = await cur.fetchone()
+    return {"adult": bool(row and row[0])}
+
+
+@router.post("/warp-prefs")
+async def set_warp_prefs(body: AdultWarpsRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await db.execute(
+        "INSERT INTO users (user_tg_id, allow_adult_warps) VALUES (?, ?) "
+        "ON CONFLICT (user_tg_id) DO UPDATE SET allow_adult_warps = EXCLUDED.allow_adult_warps",
+        (user["id"], body.enabled))
+    return {"adult": body.enabled}

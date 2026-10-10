@@ -1,0 +1,59 @@
+/* ═══ MARKS V3 · регалии игроков ═══
+   Две самые весомые регалии чипами, остальные значками в ту же строку: ряд остаётся в одну-две строки даже при полном наборе.
+   Цвет задаёт тон регалии, но чуть подмешан к акценту образа (кроме штатных: они узнаются на любом образе). Движения нет. */
+
+.v3-marks { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; max-width: 100%; margin: 3px 0 0; padding: 5px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pp-hero .v3-marks { justify-content: center; text-align: center; }   /* чужая карточка по центру: неполная строка значков тоже по центру */
+.v3-marks { position: relative; }
+.v3-marks::after { content: ""; position: absolute; inset: -7px 0; }   /* зона нажатия 44px при ряду в 30px */
+.v3-marks:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 1px; border-radius: 12px; }
+.v3-mark { --mk: var(--v3-acc); display: inline-flex; flex: none; align-items: center; gap: 4px; min-height: 20px; max-width: 100%; padding: 0 7px 0 5px; border-radius: 99px; color: var(--mk); font-size: 10.5px; font-weight: 650; letter-spacing: .01em; white-space: nowrap;
+  background: color-mix(in srgb, var(--mk) 11%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mk) 26%, transparent); }
+.v3-mark i { font-style: normal; font-size: 11px; line-height: 1; }
+.v3-mark b { min-width: 0; overflow: hidden; font-weight: 650; text-overflow: ellipsis; }
+.v3-mark--ico { justify-content: center; width: 20px; padding: 0; }
+.v3-mark--more { --mk: var(--v3-dim); padding: 0 8px; }
+.v3-mark--ico.v3-mark--more { width: auto; min-width: 20px; padding: 0 5px; }
+.v3-marks:active .v3-mark { opacity: .7; }
+
+[data-tone="dev"] { --mk: #cdb2ff; }
+.v3-mark[data-tone="dev"] { background: linear-gradient(100deg, rgba(150, 110, 255, .22), rgba(255, 200, 120, .13)); box-shadow: inset 0 0 0 1px rgba(205, 178, 255, .46); }
+[data-tone="staff"] { --mk: #7fd8ff; }
+[data-tone="gold"] { --mk: color-mix(in srgb, #f1cf7e 82%, var(--v3-acc)); }
+[data-tone="green"] { --mk: color-mix(in srgb, #7fd6a4 82%, var(--v3-acc)); }
+[data-tone="pink"] { --mk: color-mix(in srgb, #ff9ec4 82%, var(--v3-acc)); }
+[data-tone="orange"] { --mk: color-mix(in srgb, #ffb066 82%, var(--v3-acc)); }
+[data-tone="violet"] { --mk: color-mix(in srgb, #b99cff 82%, var(--v3-acc)); }
+[data-tone="acc"] { --mk: var(--v3-acc); }
+
+/* значок в строке списка */
+.v3-markdot { flex: none; margin-left: 5px; font-size: 12px; line-height: 1; vertical-align: middle; }
+
+/* лист регалий: шапка остаётся на месте при прокрутке, каждая регалия развёрнута: плитка, название, описание */
+.mk-sheet { padding-top: 0; }
+.mk-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 0 -22px; padding: 22px 22px 10px; background: var(--v3-sheet); }
+.mk-head h2 { line-height: 1.2; }
+.mk-count { display: block; margin-top: 3px; color: var(--v3-dim); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.mk-x { flex: none; width: 44px; height: 44px; margin: -8px -10px 0 0; border: 0; border-radius: 50%; background: none; color: var(--v3-dim); font-size: 16px; cursor: pointer; }
+.mk-x:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: -2px; }
+.mk-sheet .mk-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.mk-row { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; align-items: start; padding: 12px 0; }
+.mk-row + .mk-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.mk-tile { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; font-size: 20px; line-height: 1;
+  background: color-mix(in srgb, var(--mk, var(--v3-acc)) 14%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--mk, var(--v3-acc)) 32%, transparent); }
+.mk-tile[data-tone="dev"] { background: linear-gradient(135deg, rgba(150, 110, 255, .26), rgba(255, 200, 120, .14)); box-shadow: inset 0 0 0 1px rgba(205, 178, 255, .5); }
+.mk-tx { min-width: 0; }
+.mk-tx b { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--v3-ink); font: 650 14.5px/1.3 var(--v3-font); overflow-wrap: anywhere; }
+.mk-tx small { display: block; margin-top: 3px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.45; }
+.mk-row--ahead .mk-tile { opacity: .55; filter: saturate(.6); }
+.mk-row--ahead .mk-tx b { color: var(--v3-dim); }
+.mk-new { padding: 2px 8px; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 10px var(--v3-font); font-style: normal; letter-spacing: .06em; text-transform: uppercase; }
+.mk-live { padding: 1px 7px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--v3-track); color: var(--v3-dim); font: 600 10px var(--v3-font); font-style: normal; letter-spacing: .04em; }   /* динамическая: держится, пока темп не упал */
+.mk-bar { width: 100%; height: 4px; margin-top: 8px; overflow: hidden; border-radius: 4px; background: var(--v3-track); }
+.mk-bar i { display: block; height: 100%; border-radius: inherit; background: var(--v3-acc); transform-origin: left; animation: v3grow .7s var(--v3-ease) .15s both; }   /* полоса прогресса вырастает при открытии листа */
+@keyframes v3grow { from { transform: scaleX(0); } }
+.mk-num { display: block; margin-top: 4px; color: var(--v3-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.mk-sub { margin: 16px 0 0; color: var(--v3-dim); font: 700 11px var(--v3-font); letter-spacing: .1em; text-transform: uppercase; }
+.mk-note { margin-top: 14px; }
+@keyframes mkstamp { 0% { opacity: 0; transform: scale(1.6) rotate(-9deg); } 60% { opacity: 1; transform: scale(.94) rotate(2deg); } 100% { opacity: 1; transform: none; } }
+.mk-row--new .mk-tile { animation: mkstamp .5s var(--v3-ease) .2s both; }   /* новая регалия ставится в лист, как печать */

@@ -3,6 +3,7 @@ import aiosqlite
 from asyncpg.exceptions import UndefinedTableError, UniqueViolationError
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from infrastructure.repositories.economy_ledger import apply_balance_change, find_balance_replay
+from infrastructure.repositories.family_wallet_v1 import CUSTODY_SELECT
 
 # item-цена → (колонка баланса, дельта-поле wallet_log, иконка)
 _GIFT_PRICE_FIELDS = {
@@ -235,7 +236,7 @@ async def delete_marriage(db: aiosqlite.Connection, user_id: int) -> bool:
                     raise MarriageConflict("Семейных питомцев необходимо урегулировать до развода.")
             try:
                 async with db.execute(
-                    "SELECT mora, diamonds, dark_mora, zarniki FROM family_wallet_balances "
+                    f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
                     "WHERE marriage_id = ? FOR UPDATE",
                     (marriage_id,),
                 ) as cursor:

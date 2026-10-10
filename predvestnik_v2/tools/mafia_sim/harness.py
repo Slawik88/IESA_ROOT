@@ -61,9 +61,7 @@ class Harness:
         from bot.handlers import main_router
         from bot.middlewares.config_mw import config_middleware
         from bot.middlewares.db import db_middleware
-        from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
         from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
-        from bot.middlewares.purge_gate_mw import purge_gate_middleware
         from infrastructure.database import create_pool
 
         await create_pool()
@@ -71,8 +69,7 @@ class Harness:
         await self._purge([CHAT_BASE - n for n in range(1, 2001)])  # leftovers of an aborted earlier run
         self.bot = Bot(token=f"{BOT_ID}:SIM-TOKEN", session=FakeSession(self.world))
         self.dp = Dispatcher()
-        for middleware in (config_middleware, preprod_gate_middleware, db_middleware,
-                           global_sanctions_middleware, purge_gate_middleware):
+        for middleware in (config_middleware, preprod_gate_middleware, db_middleware):  # same chain as bot/__main__.py
             self.dp.update.middleware(middleware)
         self.dp.include_router(main_router)
         return self
@@ -84,6 +81,10 @@ class Harness:
         from infrastructure.pg_adapter import PGAdapter
 
         await init_db()
+        from bot.chat.schema import ensure_chat_schema
+        from bot.startup_schema import ensure_runtime_schema
+        await ensure_chat_schema()
+        await ensure_runtime_schema(get_pool())  # the same path the bot takes at start-up
         fns = []
         for info in pkgutil.iter_modules(repos.__path__):
             module = importlib.import_module(f"infrastructure.repositories.{info.name}")

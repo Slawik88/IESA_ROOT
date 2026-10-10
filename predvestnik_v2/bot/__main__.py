@@ -12,16 +12,14 @@ from bot.core.database import init_db
 from bot.middlewares.db import db_middleware
 from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
-from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
-from bot.middlewares.purge_gate_mw import purge_gate_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
-from bot.handlers.payments import star_payment_reconciliation_task
+from bot.chat.payments import star_payment_reconciliation_task
 from infrastructure.database import create_pool
 from infrastructure.preprod import is_preprod
 from services.scheduler import (
-    maintenance_task,
     mafia_phase_task,
+    maintenance_task,
     player_exchange_match_task,
 )
 
@@ -159,32 +157,12 @@ async def main():
 
     logger.info("🗄️  Инициализация схемы БД...")
     await init_db()
-    # FastAPI is deliberately co-hosted with lifespan disabled so that the bot
-    # owns startup.  New Mini App tables/feature flags therefore must be
-    # initialised here too; otherwise they exist only in a standalone ASGI run.
-    from infrastructure.pg_adapter import PGAdapter
-    from infrastructure.repositories import system_flags
-    from infrastructure.repositories import rhythm_v2 as rhythm_v2_repo
-    from infrastructure.repositories import mafia_v1 as mafia_v1_repo
-    from infrastructure.repositories import minesweeper_v2 as minesweeper_v2_repo
-    from infrastructure.repositories import pets_v1 as pets_v1_repo
-    from infrastructure.repositories import achievements_v1 as achievements_v1_repo
-    from infrastructure.repositories import public_profiles_v1 as public_profiles_v1_repo
-    from infrastructure.repositories import global_skins_v1 as global_skins_v1_repo
-    from infrastructure.repositories import vip_v2 as vip_v2_repo
-    from infrastructure.repositories import player_exchange_v1 as player_exchange_v1_repo
-    async with pool.acquire() as _startup_connection:
-        _startup_db = PGAdapter(_startup_connection)
-        await system_flags.ensure_table(_startup_db)
-        await rhythm_v2_repo.ensure_tables(_startup_db)
-        await mafia_v1_repo.ensure_tables(_startup_db)
-        await minesweeper_v2_repo.ensure_tables(_startup_db)
-        await pets_v1_repo.ensure_tables(_startup_db)
-        await achievements_v1_repo.ensure_tables(_startup_db)
-        await public_profiles_v1_repo.ensure_tables(_startup_db)
-        await global_skins_v1_repo.ensure_tables(_startup_db)
-        await vip_v2_repo.ensure_tables(_startup_db)
-        await player_exchange_v1_repo.ensure_tables(_startup_db)
+    from bot.chat.schema import ensure_chat_schema
+    await ensure_chat_schema()
+    # FastAPI is deliberately co-hosted with lifespan disabled so that the bot owns startup:
+    # the tables and flags the Mini App reads on its first requests are created here (bot/startup_schema.py, shared with the local stand).
+    from bot.startup_schema import ensure_runtime_schema
+    await ensure_runtime_schema(pool)
     logger.info("✅ База данных готова!")
 
     # ── Advisory lock: only one bot instance polls at a time ──────────────────
@@ -211,8 +189,6 @@ async def main():
     # temporary Cloudflare-backed test bot is publicly reachable.
     dp.update.middleware(preprod_gate_middleware)
     dp.update.middleware(db_middleware)
-    dp.update.middleware(global_sanctions_middleware)
-    dp.update.middleware(purge_gate_middleware)   # admin_audit B5: режим письма при чистке
 
     logger.info("📡 Регистрация роутеров...")
     dp.include_router(main_router)
@@ -267,8 +243,8 @@ async def main():
 
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
-            _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
+            _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
         # Preprod intentionally has no Stars history/reconciliation access.
         # Do not spawn a coroutine that correctly returns immediately and then
@@ -279,7 +255,6 @@ async def main():
             background_tasks.append(_spawn_supervised(
                 "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
             ))
-
         polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)

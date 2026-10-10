@@ -12,7 +12,7 @@ import asyncpg
 os.environ.setdefault("BOT_TOKEN", "123456:offline-stars-recovery-proof")
 os.environ.setdefault("DATABASE_URL", "postgresql://offline@127.0.0.1:55432/offline")
 
-from bot.handlers import payments
+from bot.chat import payments
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories.star_payments_v1 import (
     acquire_reconciliation_lease,

@@ -30,7 +30,7 @@ for prefix in (
     assert not any(path == prefix or path.startswith(prefix + "/") for path in paths), prefix
 
 for prefix in (
-    "/profile", "/marriage", "/wallet", "/payments", "/admin",
+    "/profile", "/marriage", "/wallet", "/payments",
     "/rhythm-v2", "/minesweeper-v2", "/mafia-v1", "/hub",
 ):
     assert any(path == prefix or path.startswith(prefix + "/") for path in paths), prefix

@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from asyncpg.exceptions import UndefinedTableError
 from core.economy_contract import as_ledger_amount
-from infrastructure.repositories.family_wallet_v1 import transfer_between_personal_and_family
+from infrastructure.repositories.family_wallet_v1 import CUSTODY_SELECT, transfer_between_personal_and_family
 
 
 class DivorceError(RuntimeError):
@@ -36,11 +36,12 @@ class PropertyAllocation:
     applied: bool
 
 
-_CURRENCIES = ("mora", "diamonds", "dark_mora", "zarniki")
+_CURRENCIES = ("mora", "diamonds", "dark_mora", "zarniki", "essence")
+_LEGACY_CURRENCIES = _CURRENCIES[:4]   # колонки в marriages; у эссенции их нет
 
 
 def _split_amount(amount: Decimal, first_user: int, second_user: int, currency: str) -> dict[int, Decimal]:
-    quantum = Decimal("1") if currency == "zarniki" else Decimal("0.000001")
+    quantum = Decimal("1") if currency in ("zarniki", "essence") else Decimal("0.000001")
     second = (amount / 2).quantize(quantum, rounding=ROUND_DOWN)
     return {first_user: amount - second, second_user: second}
 
@@ -67,10 +68,10 @@ async def create_intent(db, *, actor_id: int) -> dict:
             "SELECT COUNT(*) FROM pets WHERE marriage_id=?", (marriage_id,),
         ) as cursor:
             pet_count = int((await cursor.fetchone())[0])
-        custody = [0.0, 0.0, 0.0, 0.0]
+        custody = [0.0] * len(_CURRENCIES)
         try:
             async with db.execute(
-                "SELECT mora,diamonds,dark_mora,zarniki FROM family_wallet_balances "
+                f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
                 "WHERE marriage_id=? FOR SHARE", (marriage_id,),
             ) as cursor:
                 custody_row = await cursor.fetchone()
@@ -133,7 +134,7 @@ async def settle_intent(db, *, intent_id: str, actor_id: int) -> DivorceSettleme
                 raise DivorceError("Сначала распределите семейных питомцев. Ничего не удалено.")
         try:
             async with db.execute(
-                "SELECT mora,diamonds,dark_mora,zarniki FROM family_wallet_balances "
+                f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
                 "WHERE marriage_id=? FOR UPDATE", (marriage_id,),
             ) as cursor:
                 custody = await cursor.fetchone()
@@ -206,7 +207,7 @@ async def allocate_property(db, *, intent_id: str, actor_id: int) -> PropertyAll
         ) as cursor:
             pets = [int(row[0]) for row in await cursor.fetchall()]
         async with db.execute(
-            "SELECT mora,diamonds,dark_mora,zarniki FROM family_wallet_balances "
+            f"SELECT {CUSTODY_SELECT} FROM family_wallet_balances "
             "WHERE marriage_id=? FOR UPDATE", (marriage_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -215,7 +216,7 @@ async def allocate_property(db, *, intent_id: str, actor_id: int) -> PropertyAll
         balances = {currency: as_ledger_amount(row[index]) for index, currency in enumerate(_CURRENCIES)}
         if any(
             as_ledger_amount(legacy[index]) != balances[currency]
-            for index, currency in enumerate(_CURRENCIES)
+            for index, currency in enumerate(_LEGACY_CURRENCIES)
         ):
             raise DivorceError("Баланс семьи требует проверки. Средства не изменены.")
         allocations: dict[str, dict[str, str]] = {}

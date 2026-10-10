@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 os.environ.setdefault("BOT_TOKEN", "123456:offline-payment-contract-token")
 os.environ.setdefault("DATABASE_URL", "postgresql://offline-test")
 
-from bot.handlers import payments  # noqa: E402
+from bot.chat import payments  # noqa: E402
 from FastAPI.routers import payments as web_payments  # noqa: E402
 from core import payment_contract  # noqa: E402
 
@@ -247,7 +247,7 @@ async def _run() -> None:
 
     # The group entry path must not issue an impossible private invoice.
     group = FakeMessage(chat_type="group", text="донат")
-    await payments.cmd_buy_zarniki(group)
+    await payments.cmd_buy_zarniki(SimpleNamespace(message=group))
     assert "личном чате" in group.answers[0][0]
     group_query = FakeQuery(chat_type="group")
     await payments.cb_buy_package(group_query, payments.BuyZarnikiCB(stars=20), invoice_bot)

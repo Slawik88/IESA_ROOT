@@ -24,6 +24,7 @@ from infrastructure.repositories.economy_ledger import (
     find_reference_replay,
 )
 from infrastructure.repositories import global_skins_v1 as global_skin_repo
+from core.appearance_v3 import tier_of_cosmetic
 from services.vip import is_vip_active, is_vip_active_batch
 
 # Слот приветственной анимации в user_cosmetic_loadout (отдельно от носимой косметики;
@@ -705,6 +706,8 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
         effective_loadout[slot] = cid
         if slot == "title":
             out["title"] = cos.get("text") or cos["name"]
+            out["title_lineup"] = cos.get("lineup")
+            out["title_tier"] = tier_of_cosmetic(cos)
             if cos.get("css"):
                 out["title_css"] = cos["css"]
         else:
@@ -712,6 +715,7 @@ async def get_active_cosmetics(db, user_id: int) -> dict:
                 "css": cos.get("css"),
                 "name": cos["name"],
                 "lineup": cos.get("lineup"),
+                "tier": tier_of_cosmetic(cos),
             }
     out["welcome"] = _effective_welcome(loadout, vip_active)
     out["composition"] = appearance_composition(effective_loadout)
@@ -829,7 +833,7 @@ async def get_flex_cosmetics_batch(db, user_ids: list[int]) -> dict[int, dict]:
         cos = COSMETICS.get(cid)
         if not cos:
             continue
-        if is_vip_locked(cos) and uid not in vip_ids:
+        if uid not in vip_ids:   # nickname style is a public flex: other players see it only with VIP
             continue
         d = out.setdefault(uid, {})
         if slot == "title":

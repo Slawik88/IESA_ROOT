@@ -21,10 +21,8 @@ assert '"retired": True' in api
 assert '"next_reward": None' in api
 
 ui = (ROOT / "FastAPI/static/app.02.js").read_text(encoding="utf-8")
-assert "Архив старых достижений" in ui
-assert "Новые действия не меняют этот результат" in ui
 assert "Крутите гачу" not in ui
 assert "Пишите сообщения в чатах с ботом" not in ui
-assert "_featData" in ui and "openFeatModal" in ui
+assert "openFeatModal" not in ui and "openAchModal" not in ui and "'/achievements/'" not in ui, "the old achievements screen is gone from the client"
 
-print("OK: Chronicle is separate; legacy history is frozen and has no dead-loop instructions")
+print("OK: Chronicle is separate; legacy history is frozen server-side and the client no longer ships its old screen")

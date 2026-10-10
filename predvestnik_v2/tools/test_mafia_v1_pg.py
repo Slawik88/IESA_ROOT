@@ -13,11 +13,11 @@ from urllib.parse import urlparse
 
 import asyncpg
 
-from bot.handlers.mafia_card_views import phase_keyboard, phase_text
-from bot.handlers.mafia_cards import publish_phase
-from bot.handlers.mafia_delivery import deliver_for_match
-from bot.handlers.mafia_dm import send_role_cards
-from bot.handlers.mafia_views import lobby_text, settings_keyboard
+from bot.chat.mafia_card_views import phase_keyboard, phase_text
+from bot.chat.mafia_cards import publish_phase
+from bot.chat.mafia_delivery import deliver_for_match
+from bot.chat.mafia_dm import send_role_cards
+from bot.chat.mafia_views import lobby_text, settings_keyboard
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import achievements_v1 as achievements_repo
 from infrastructure.repositories import economy_ledger

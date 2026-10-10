@@ -1,0 +1,478 @@
+/* ═══ ADMIN LEGACY · старый вид экранов управления (консоль, глобальная модерация, админка чата) ═══
+   Эти правила нужны только app.07.js / app.08.js / app.09.js и страницам #pg-admin, #pg-global, #pg-console.
+   Админка переписывается отдельно: при её переписывании удалить этот файл целиком вместе с подключением в index.html,
+   _SHELL_V3_CSS (FastAPI/main.py), test_static_delivery_asgi.py и tools/test_shell_v3_contract.py. Игрока файл не касается. */
+
+/* ── Сегмент-контрол (бывшие .tabs) ───────────────────────────────────────── */
+.tabs {
+  display: flex; gap: 5px; overflow-x: auto; padding: 3px;
+  margin: 0 0 12px; background: var(--bg1);
+  border: 1px solid var(--border2); border-radius: 14px;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar { display: none; }
+
+/* Вложенные вкладки (внутри под-секции) — меньше отступ */
+.tab-inner {
+  margin: 0 0 8px; border-radius: 10px; padding: 2px; gap: 3px;
+}
+
+.tab-inner .tb { font-size: 10.5px; padding: 5px 9px; border-radius: 8px; }
+
+.tb {
+  flex: none; border: none; cursor: pointer;
+  background: transparent; color: var(--muted);
+  font-size: 11.5px; font-weight: 600; padding: 7px 12px; border-radius: 11px;
+  white-space: nowrap; transition: all .2s; font-family: inherit;
+}
+
+.tb:active { transform: scale(.94); }
+
+/* ═══ КАРТОЧКИ ══════════════════════════════════════════════════════════════ */
+.card {
+  background: linear-gradient(180deg, var(--bg2), var(--bg1));
+  border: 1px solid var(--border2); border-radius: var(--r);
+  padding: 14px; margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+  animation: rise .3s ease both;
+}
+
+.card-title {
+  font-size: 14px; font-weight: 700; color: var(--bright);
+  margin-bottom: 10px; letter-spacing: .1px;
+}
+
+.divider { height: 1px; background: var(--border2); margin: 11px 0; }
+
+/* ═══ КНОПКИ ════════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: none; cursor: pointer; user-select: none;
+  font-size: 12.5px; font-weight: 700; font-family: inherit;
+  padding: 10px 16px; border-radius: 13px;
+  transition: transform .12s, box-shadow .2s, filter .2s;
+  position: relative; overflow: hidden;
+}
+
+.btn:active { transform: scale(.95); }
+
+.btn:disabled { opacity: .38; cursor: not-allowed; transform: none; }
+
+.btn-gold {
+  background: linear-gradient(135deg, var(--gold2), var(--gold) 55%, #cf9430);
+  color: #211803; box-shadow: var(--glow-gold);
+}
+
+.btn-gold::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 38%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.42), transparent);
+  animation: sheen 3.2s ease-in-out infinite;
+}
+
+.btn-ghost { background: var(--bg3); color: var(--text); border: 1px solid var(--border2); }
+
+.btn-ghost:hover { border-color: rgba(255,255,255,.16); }
+
+.btn-red  { background: rgba(239,99,99,.14); color: var(--red); border: 1px solid rgba(239,99,99,.3); }
+
+.btn-teal { background: rgba(70,200,192,.13); color: var(--teal); border: 1px solid rgba(70,200,192,.3); }
+
+.btn-sm   { padding: 6px 11px; font-size: 11px; border-radius: 10px; }
+
+.btn-full { width: 100%; margin-bottom: 8px; }
+
+.perm-tip { display: none; }
+
+/* ═══ СПИСКИ / СТРОКИ ═══════════════════════════════════════════════════════ */
+.irow {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--border2); font-size: 12px;
+}
+
+.irow:last-child { border: none; }
+
+.irow .ik { color: var(--muted); }
+
+.irow .iv { color: var(--text); font-weight: 600; }
+
+/* БЛОК21: титул-косметика под ником в топах/клане (флекс статуса) */
+.top-title { font-size: 9px; color: var(--gold2); font-weight: 600; line-height: 1.1; margin-top: 1px; opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* БЛОК21 #4/#5: FOMO-плашка эксклюзива сезона на БП */
+
+.bp-cos-chip { color: var(--gold); text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer; }
+
+/* Опции запуска похода (лаунчер на сайте) */
+
+/* Дев: конструктор XP БП */
+.bpxp-row { padding: 7px 0; border-bottom: 1px solid var(--border2); }
+
+.bpxp-head { font-size: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+
+.bpxp-metric { font-family: ui-monospace, Consolas, monospace; font-size: 9.5px; color: var(--muted);
+  background: var(--bg2, var(--s)); border-radius: 5px; padding: 1px 5px; }
+
+.bpxp-ctrls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+.bpxp-ctrls label { font-size: 10px; color: var(--muted); display: flex; align-items: center; gap: 3px; }
+
+.bpxp-tog { cursor: pointer; }
+
+.bpxp-in { width: 60px !important; margin: 0 !important; padding: 3px 5px !important; font-size: 11px !important; }
+
+.bpxp-note { font-size: 9.5px; color: var(--muted); margin-top: 3px; }
+
+/* ШАГ2: панель аукциона — поиск + фильтры + сортировка */
+
+/* UX-фикс (полиш 2026-07): 3 селекта в ряд резали подписи («Скоро ко…») на 390px.
+   Сортировка — главный фильтр, ей полный ряд; редкость/тип делят второй. */
+
+/* ШАГ4: Крипто-Биржа */
+
+.cx-dim { color: var(--muted); }
+
+/* Группа «основной чат + админка» в досье игрока (дев-консоль, БЛОК 1) */
+.dev-chat-grp { border: 1px solid var(--border); border-radius: 8px; padding: 0 8px; margin: 5px 0; background: rgba(232,181,77,.05); }
+
+.dev-chat-grp .irow { border-bottom: 0; }
+
+/* Каталог предметов в дев-консоли (БЛОК 1) */
+.dev-cat-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; font-size: 11px; border: 1px solid transparent; }
+
+.dev-cat-item:hover { background: var(--s); border-color: var(--border2); }
+
+.dev-cat-item:active { transform: scale(.99); }
+
+.bl { font-size: 9px; color: var(--muted); }
+
+/* ═══ ТЕМЫ ══════════════════════════════════════════════════════════════════ */
+
+/* превью профиля — те же правила шрифтов, что у Telegram: обычный текст —
+   системный пропорциональный шрифт (как у .body), моноширинный — только
+   внутри <pre>/<code>, как в реальном сообщении */
+.profile-preview {
+  background: #0a0c14; border: 1px solid var(--border2); border-radius: 13px;
+  padding: 12px; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  font-size: 10px; line-height: 1.55; color: var(--text);
+  white-space: pre-line; word-break: break-word;
+}
+
+.profile-preview pre, .profile-preview code {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+.profile-preview pre {
+  margin: 0; font-size: inherit; white-space: pre-wrap;
+  background: rgba(255,255,255,.04); border-radius: 6px; padding: 4px 6px;
+}
+
+.profile-preview code {
+  background: rgba(255,255,255,.06); border-radius: 4px; padding: 0 3px;
+}
+
+/* ═══ THEME LAB — редактор премиум-тем (dev-консоль) ════════════════════════ */
+.tl-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+
+.tl-chips-label { font-size: 12px; color: var(--muted); flex: none; }
+
+.tl-chip {
+  display: inline-flex; align-items: center;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 11px; background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 2px 7px; cursor: pointer; color: var(--gold2);
+  transition: transform .1s, border-color .15s;
+}
+
+.tl-chip:active { transform: scale(.93); border-color: var(--border); }
+
+.tl-chip-help {
+  display: inline-flex; align-items: center; font-size: 11px;
+  background: rgba(212,175,55,.12); border: 1px dashed var(--gold2);
+  border-radius: 6px; padding: 2px 7px; cursor: pointer; color: var(--gold2);
+}
+
+.tl-chip-help:active { transform: scale(.93); }
+
+.tl-help-row {
+  display: flex; gap: 8px; align-items: baseline; padding: 6px 4px;
+  border-bottom: 1px solid var(--border2); cursor: pointer;
+}
+
+.tl-help-row:active { background: var(--bg2); }
+
+.tl-help-tag {
+  flex: none; font-family: ui-monospace, Consolas, monospace; font-size: 11px;
+  color: var(--gold2); background: var(--bg2); border-radius: 5px; padding: 1px 6px;
+  white-space: nowrap;
+}
+
+.tl-help-desc { font-size: 11px; color: var(--muted); line-height: 1.3; }
+
+.bc-preview {
+  background: var(--bg2); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; line-height: 1.45; color: var(--text);
+  white-space: pre-wrap; word-break: break-word; margin-bottom: 8px;
+  max-height: 220px; overflow-y: auto;
+}
+
+.bc-preview a { color: var(--gold2); }
+
+/* ── Таблица наград БП: подсветка «сочности» ─────────────────────────────── */
+.bp-table { border-collapse: collapse; width: 100%; }
+
+.bp-table th {
+  padding: 4px 5px; border: 1px solid var(--border2); font-size: 10px;
+  background: var(--bg2); color: var(--muted); position: sticky; top: 0;
+}
+
+.bp-cell {
+  padding: 4px 6px; border: 1px solid var(--border2); font-size: 10px;
+  cursor: pointer; transition: filter .12s, transform .08s;
+}
+
+.bp-cell:active { transform: scale(.97); }
+
+.bp-lvl { font-weight: 700; text-align: center; background: var(--bg2); cursor: default; }
+
+.bp-empty { color: var(--muted); opacity: .55; }
+
+.bp-db { font-weight: 600; }
+
+.bp-db::after { content: ""; }
+
+.bp-j1 { background: rgba(212,175,55,.08); }
+
+.bp-j2 { background: rgba(212,175,55,.16); }
+
+.bp-j3 { background: rgba(212,175,55,.28); color: #fff; }
+
+.bp-j4 {
+  background: linear-gradient(135deg, rgba(212,175,55,.45), rgba(255,138,0,.38));
+  color: #fff; font-weight: 700; box-shadow: inset 0 0 0 1px rgba(212,175,55,.5);
+}
+
+.bp-cell:hover { filter: brightness(1.15); }
+
+/* ── Кнопка и модалка «За что XP» (страница игрока) ──────────────────────── */
+
+/* Нумерованный редактор — обёртка с боковой колонкой номеров строк */
+.tl-editor-wrap {
+  display: flex; border: 1px solid var(--border2); border-radius: var(--r-sm);
+  overflow: hidden; background: var(--bg2); margin: 0 0 4px;
+}
+
+.tl-linenos {
+  min-width: 34px; padding: 6px 6px 6px 4px; text-align: right;
+  font: 12px/1.5 ui-monospace, "SF Mono", Consolas, monospace;
+  color: var(--muted); background: var(--bg3, var(--bg2));
+  border-right: 1px solid var(--border2); overflow: hidden;
+  user-select: none; flex-shrink: 0; white-space: pre;
+}
+
+.tl-linenos .tl-ln-over { color: var(--red); font-weight: 700; }
+
+.tl-textarea {
+  min-height: 220px; font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre; resize: vertical;
+  flex: 1; border: none; border-radius: 0; background: transparent; padding: 6px;
+  overflow-y: auto;
+}
+
+.tl-fontsize-row { margin-bottom: 6px; }
+
+.tl-fontsize-row span { font-size: 10px; color: var(--muted); flex: none; }
+
+.tl-fontsize-row input[type=range] { flex: 1; }
+
+.tl-frame-wrap { overflow-x: auto; background: var(--bg2); border-radius: var(--r-sm); padding: 6px; }
+
+.tl-frame { margin: 0 auto; width: 390px; transition: width .15s ease; }
+
+.tl-frame .profile-preview { font-size: var(--tl-fs, 16px); width: 100%; }
+
+/* ═══ ТАБЛИЦЫ (админка) ═════════════════════════════════════════════════════ */
+/* min-width: на телефоне таблица скроллится горизонтально (обёртка overflow-x:auto),
+   а не крошит колонки переносами дат/статусов в кашу */
+.adm-table { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; font-size: 11px; }
+
+.adm-table th {
+  background: var(--bg3); color: var(--muted); font-weight: 700; padding: 8px;
+  text-align: left;
+}
+
+.adm-table th:first-child { border-radius: 10px 0 0 10px; }
+
+.adm-table th:last-child { border-radius: 0 10px 10px 0; }
+
+.adm-table td { padding: 8px; border-bottom: 1px solid var(--border2); vertical-align: middle; }
+
+.adm-table tr:hover td { background: rgba(255,255,255,.02); }
+
+/* Аккордеоны консоли (БЛОК 21.2 W5.2): шаги БП сворачиваются, открыт текущий */
+details.dev-acc > summary { cursor: pointer; list-style: none; user-select: none; }
+
+details.dev-acc > summary::-webkit-details-marker { display: none; }
+
+details.dev-acc > summary::before {
+  content: '▸'; display: inline-block; margin-right: 6px;
+  color: var(--gold2); transition: transform .2s;
+}
+
+details.dev-acc[open] > summary::before { transform: rotate(90deg); }
+
+details.dev-acc:not([open]) > summary { margin-bottom: 0; }
+
+
+@media (prefers-reduced-motion: reduce) {
+  details.dev-acc > summary::before { transition: none; }
+}
+
+/* ═══ ФОРМЫ ═════════════════════════════════════════════════════════════════ */
+.num-input {
+  width: 100%; background: var(--bg0); color: var(--bright);
+  border: 1px solid var(--border2); border-radius: 12px;
+  padding: 10px 12px; font-size: 13px; font-family: inherit;
+  margin-bottom: 8px; transition: border-color .2s;
+}
+
+.num-input:focus { border-color: var(--border); outline: none; }
+
+.num-input::placeholder { color: var(--muted); opacity: .7; }
+
+.err { color: var(--red); font-size: 12px; padding: 12px; background: rgba(239,99,99,.07);
+  border: 1px solid rgba(239,99,99,.2); border-radius: 13px; margin-bottom: 10px; }
+
+.empty-state { text-align: center; padding: 30px 14px; }
+
+.es-icon { font-size: 40px; margin-bottom: 10px; animation: floaty 3.5s infinite; }
+
+.es-title { font-size: 14px; font-weight: 800; color: var(--bright); }
+
+.es-sub { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+.set-hint { font-size: 10.5px; color: var(--muted); margin-top: 10px; line-height: 1.5; text-align: center; }
+
+@media (min-width: 900px) {
+  #tl-card .tl-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; align-items: start; }
+  #tl-card .tl-textarea { min-height: 420px; }
+}
+
+/* ═══ DEV FLAG TOGGLES ══════════════════════════════════════════════════════ */
+.dev-flag-toggle { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+
+.dev-flag-toggle input { opacity:0; width:0; height:0; }
+
+.dev-flag-slider { position:absolute; cursor:pointer; inset:0; background:var(--surface3); border-radius:22px; transition:.2s; }
+
+.dev-flag-slider:before { content:""; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+
+.dev-flag-toggle input:checked + .dev-flag-slider { background:#2e7d32; }
+
+.dev-flag-toggle input:checked + .dev-flag-slider:before { transform:translateX(18px); }
+
+/* Навигация разделов: не овальные капсулы, а короткие прямоугольные сегменты. */
+.tabs {
+  gap: 3px;
+  padding: 3px;
+  margin-bottom: 10px;
+  border-radius: 13px;
+  background: var(--bg1);
+  border-color: var(--border2);
+}
+
+.tb {
+  min-height: 44px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  font-size: 11px;
+  transition: color .14s, background .14s, transform .1s;
+}
+
+.tab-inner { border-radius: 11px; }
+
+.tab-inner .tb { min-height: 40px; border-radius: 8px; }
+
+.card { padding: 13px; margin-bottom: 10px; border-radius: var(--r); }
+
+.card-title { margin-bottom: 9px; font-size: 13.5px; }
+
+.divider { background: var(--border2); }
+
+.btn {
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 11px;
+  transition: transform .1s, border-color .14s, background .14s;
+}
+
+.btn-gold { color: #251b08; background: var(--gold); box-shadow: none; }
+
+.btn-gold::after { display: none; }
+
+.btn-ghost { background: var(--bg3); border-color: var(--border2); }
+
+.btn-sm { min-height: 40px; padding: 7px 10px; border-radius: 9px; }
+
+.btn-full { min-height: 44px; }
+
+/* UX wave: shared non-game surfaces use depth, grouping and clear entry points. */
+.card {
+  position:relative;
+  overflow:hidden;
+  border-color:rgba(var(--gold-rgb),.11);
+  background:radial-gradient(circle at 100% 0,rgba(var(--gold-rgb),.065),transparent 38%),linear-gradient(145deg,rgba(24,30,48,.94),rgba(12,17,29,.96));
+  box-shadow:0 10px 26px rgba(0,0,0,.16),inset 0 1px rgba(255,255,255,.025);
+}
+
+.card-title { color:var(--bright);font-weight:800;letter-spacing:.01em; }
+
+.irow { min-height:46px;padding:9px 2px;gap:10px; }
+
+.irow .ik { line-height:1.35; }
+
+.tabs { background:rgba(8,12,22,.82);backdrop-filter:blur(12px);box-shadow:0 8px 22px rgba(0,0,0,.12); }
+
+.admin-empty { min-height:210px;display:grid;place-items:center;align-content:center;gap:7px;padding:24px;text-align:center;border:1px dashed var(--border2);border-radius:16px;background:rgba(255,255,255,.018)}
+
+.admin-empty>span{font-size:30px}
+
+.admin-empty>b{color:var(--bright);font-size:14px}
+
+.admin-empty>p{max-width:260px;margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+
+.module-control-card { background:radial-gradient(circle at 100% 0,rgba(112,137,237,.12),transparent 40%),var(--card); }
+
+.module-control-help { margin:-2px 0 10px;color:var(--muted);font-size:11px;line-height:1.45 }
+
+.module-switch-grid { display:grid;gap:7px }
+
+.module-switch { width:100%;min-height:62px;display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:9px;padding:9px;border:1px solid var(--border2);border-radius:12px;background:rgba(255,255,255,.025);color:inherit;text-align:left;font:inherit;cursor:pointer }
+
+.module-switch>span { width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:rgba(255,255,255,.045);font-size:19px }
+
+.module-switch>div{min-width:0;display:grid;gap:3px}
+
+.module-switch b{color:var(--bright);font-size:12px}
+
+.module-switch small{color:var(--muted);font-size:10px;line-height:1.35}
+
+.module-switch i{min-width:44px;padding:5px;border-radius:8px;font-size:9px;font-style:normal;font-weight:900;text-align:center}
+
+.module-audit { margin-top:10px;padding-top:9px;border-top:1px solid var(--border2) }
+
+.module-audit>summary{min-height:36px;display:flex;align-items:center;color:var(--dim);font-size:10px;cursor:pointer}
+
+.module-audit>div{display:grid;grid-template-columns:26px minmax(0,1fr) auto;align-items:center;gap:7px;padding:7px 0;border-top:1px solid rgba(255,255,255,.045)}
+
+.module-audit>div>span{color:var(--gold2);font-size:15px}
+
+.module-audit p{min-width:0;display:grid;gap:2px;margin:0}
+
+.module-audit b{color:var(--text);font-size:10px}
+
+.module-audit small{color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+
+.module-audit strong{color:var(--dim);font-size:10px}
+
+.module-audit-empty{margin-top:9px;padding:9px;border-radius:10px;background:rgba(255,255,255,.025);color:var(--muted);font-size:10px;text-align:center}

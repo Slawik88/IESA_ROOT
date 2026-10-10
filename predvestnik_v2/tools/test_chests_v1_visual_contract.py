@@ -13,7 +13,8 @@ router = (ROOT / "FastAPI/routers/chests_v1.py").read_text(encoding="utf-8")
 legacy_router = (ROOT / "FastAPI/routers/cosmetics.py").read_text(encoding="utf-8")
 
 assert 'id="pg-chests"' in index
-assert "_sysFlags.content_chests_v1?'<button" in profile_js
+home_js = (ROOT / "FastAPI/static/app.15.js").read_text(encoding="utf-8")
+assert "_sysFlags.content_chests_v1" in home_js and "openChestsV1()" in home_js
 assert "Награда уже сохранена сервером" in release_js
 assert "Точные шансы и размеры наград" in release_js
 assert "Купить ключ" in release_js and "chestsV1Buy" in release_js

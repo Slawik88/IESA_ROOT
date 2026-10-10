@@ -21,18 +21,20 @@ _PAGE = """<!doctype html><html lang="ru"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{title} — PREDVESTNIK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600&display=swap">
 <style>
-  :root {{ color-scheme: dark; }}
-  body {{ margin:0; background:#0a0b12; color:#e7ecf4;
-    font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    padding:20px 16px 56px; max-width:760px; margin:0 auto; }}
-  h1 {{ font-size:13px; letter-spacing:2px; text-transform:uppercase;
-    color:#c9a84c; margin:0 0 18px; }}
-  h2 {{ font-size:19px; color:#f0d27a; margin:26px 0 14px; }}
-  h3 {{ font-size:15px; color:#dbe2ee; margin:20px 0 8px; }}
-  p {{ margin:6px 0; color:#c0c8d6; }}
-  a {{ color:#8ab4ff; }}
-  .ver {{ margin-top:34px; font-size:12px; color:#6b7585; border-top:1px solid #1c2030; padding-top:14px; }}
+  :root {{ color-scheme: dark; --ink:#f3f4f7; --dim:#8a90a2; --acc:#d8cffd; --faint:rgba(255,255,255,.09); }}
+  html {{ overflow-x: clip; }}
+  body {{ margin:0 auto; background:#08090c; color:var(--ink);
+    font:15px/1.65 'Onest',system-ui,-apple-system,"Segoe UI",sans-serif;
+    padding:max(20px,env(safe-area-inset-top)) 20px calc(56px + env(safe-area-inset-bottom)); max-width:720px; overflow-wrap:anywhere; }}
+  h1 {{ font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:var(--dim); margin:0 0 22px; }}
+  h2 {{ font-size:24px; font-weight:600; letter-spacing:-.02em; line-height:1.2; margin:0 0 18px; }}
+  h3 {{ font-size:16px; font-weight:600; margin:28px 0 8px; padding-top:20px; box-shadow:0 -1px 0 var(--faint); }}
+  p {{ margin:8px 0; color:#c4c9d6; }}
+  a {{ color:var(--acc); }}
+  .ver {{ margin-top:36px; font-size:12px; color:var(--dim); padding-top:16px; box-shadow:0 -1px 0 var(--faint); }}
 </style></head><body>
 <h1>PREDVESTNIK · Юридические документы</h1>
 {body}

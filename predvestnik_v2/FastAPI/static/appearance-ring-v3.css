@@ -1,0 +1,89 @@
+/* ═══ APPEARANCE V3 · рамка аватара и ореол ═══
+   Рамка (fr-ring / double / dash / seg) и ореол (ha-soft / ripple / orbit / rays / flame / eclipse).
+   Вращение и пульс только под .ap-anim, в статике тир виден по толщине, числу колец и яркости. */
+
+/* ── Рамка ── */
+.ap-frame { position: absolute; inset: -4px; border-radius: 50%; pointer-events: none; --w: 2px; }
+.ap-frame::before, .ap-frame::after { content: ""; position: absolute; inset: 0; border-radius: 50%; -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - var(--w)), #000 calc(100% - var(--w) + .5px)); mask: radial-gradient(farthest-side, transparent calc(100% - var(--w)), #000 calc(100% - var(--w) + .5px)); }
+.ap-frame::before { background: var(--ap-a); }
+.ap-frame::after { display: none; inset: -6px; --w: 1px; background: color-mix(in srgb, var(--ap-a) 55%, transparent); }
+.ap-frame:is(.ap-t2, .ap-t3)::before { --w: 3px; background: linear-gradient(135deg, var(--ap-a), var(--ap-b)); }
+.ap-frame:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { --w: 3px; background: conic-gradient(var(--ap-a), var(--ap-b), var(--ap-c), var(--ap-b), var(--ap-a)); }
+.ap-frame:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; }
+/* свечение сидит на самих кольцах, а не на рамке: фильтр на рамке пересчитывался каждый кадр вместе со всей фирменной деталью внутри неё */
+.ap-frame:is(.ap-t5, .ap-t6, .ap-t7)::before, .ap-frame:is(.ap-t5, .ap-t6, .ap-t7)::after { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 55%, transparent)); }
+
+/* double: два кольца с воздухом между ними */
+.ap-fr-double::before { --w: 2px; inset: 2px; } .ap-fr-double::after { display: block; inset: -5px; --w: 2px; background: color-mix(in srgb, var(--ap-b) 80%, transparent); }
+.ap-fr-double:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { background: conic-gradient(var(--ap-b), var(--ap-c), var(--ap-b), var(--ap-a), var(--ap-b)); }
+
+/* dash: штрихи; на старших тирах кольцо медленно идёт по кругу */
+.ap-fr-dash::before { --w: 3px; background: repeating-conic-gradient(var(--ap-a) 0 7deg, transparent 7deg 13deg); }
+.ap-fr-dash:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { background: repeating-conic-gradient(var(--ap-a) 0 7deg, var(--ap-c) 7deg 10deg, transparent 10deg 15deg); }
+.ap-fr-dash::after { --w: 1px; }
+
+/* seg: сегменты; число дуг и толщина растут с тиром */
+.ap-fr-seg::before { --w: 3px; background: repeating-conic-gradient(var(--ap-a) 0 62deg, transparent 62deg 90deg); }
+.ap-fr-seg:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { --w: 4px; background: repeating-conic-gradient(var(--ap-a) 0 40deg, var(--ap-c) 40deg 46deg, transparent 46deg 60deg); }
+.ap-fr-seg::after { --w: 2px; background: repeating-conic-gradient(color-mix(in srgb, var(--ap-b) 85%, transparent) 0 30deg, transparent 30deg 60deg); }
+@keyframes apturn { to { transform: rotate(360deg); } }
+@keyframes apturn-r { to { transform: rotate(-360deg); } }
+.ap-anim .ap-fr-dash:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apturn 36s linear infinite; }
+.ap-anim .ap-fr-seg:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apturn 24s linear infinite; }
+.ap-anim .ap-fr-seg:is(.ap-t5, .ap-t6, .ap-t7)::after, .ap-anim .ap-fr-double:is(.ap-t6, .ap-t7)::after { animation: apturn-r 30s linear infinite; }
+.ap-anim .ap-fr-ring.ap-t7::before { animation: apturn 12s linear infinite; }
+
+/* Языки пламени за аватаром без фото не должны просвечивать сквозь созвездие: у такого образа плейсхолдер почти непрозрачный. Остальные образы оставляют полупрозрачный (лепестки, диск видны за ним) */
+.ap-stage:has(.ap-ha-flame) .v3-ava { background: color-mix(in srgb, var(--v3-bg) 86%, #fff); }
+
+/* ── Ореол (за аватаром) ── */
+.ap-halo { position: absolute; inset: -16px; z-index: -1; border-radius: 50%; pointer-events: none; }
+.ap-halo b { position: absolute; display: block; pointer-events: none; }
+.ap-halo:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { inset: -20px; }
+
+/* soft: мягкое сияние */
+.ap-ha-soft { opacity: calc(.35 + var(--ap-i) * .6); background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 38%, transparent), transparent); }
+.ap-ha-soft:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 44%, transparent), color-mix(in srgb, var(--ap-b) 16%, transparent) 70%, transparent); }
+.ap-anim .ap-ha-soft:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { animation: apbreath 5s ease-in-out infinite alternate; }
+
+/* ripple: круги по воде */
+.ap-ha-ripple b { inset: 0; border-radius: 50%; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-a) 60%, transparent); opacity: .5; }
+.ap-ha-ripple b:nth-child(1) { transform: scale(.78); } .ap-ha-ripple b:nth-child(2) { transform: scale(.9); opacity: .3; } .ap-ha-ripple b:nth-child(3) { transform: scale(1); opacity: .16; }
+.ap-ha-ripple:is(.ap-t1, .ap-t2) b:nth-child(n+2), .ap-ha-ripple:is(.ap-t3, .ap-t4) b:nth-child(3) { display: none; }
+.ap-ha-ripple::before { content: ""; position: absolute; inset: 10%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 22%, transparent), transparent); }
+@keyframes apripple { 0% { transform: scale(.68); opacity: .7; } 100% { transform: scale(1.06); opacity: 0; } }
+.ap-anim .ap-ha-ripple:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b { animation: apripple 4.5s ease-out infinite; }
+.ap-anim .ap-ha-ripple b:nth-child(2) { animation-delay: 1.5s; } .ap-anim .ap-ha-ripple b:nth-child(3) { animation-delay: 3s; }
+
+/* orbit: спутники по орбите; число растёт с тиром */
+.ap-ha-orbit { --ap-r: 54px; }
+.ap-ha-orbit:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-r: 58px; }
+.ap-ha-orbit::before { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ap-a) 28%, transparent); }
+.ap-ha-orbit b { left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--ap-c); box-shadow: 0 0 9px var(--ap-a); transform: rotate(var(--o)) translateY(calc(var(--ap-r) * -1)); }
+.ap-ha-orbit b:nth-child(1) { --o: 0deg; } .ap-ha-orbit b:nth-child(2) { --o: 140deg; } .ap-ha-orbit b:nth-child(3) { --o: 250deg; }
+.ap-ha-orbit:is(.ap-t1, .ap-t2) b:nth-child(n+2), .ap-ha-orbit:is(.ap-t3, .ap-t4) b:nth-child(3) { display: none; }
+.ap-anim .ap-ha-orbit { animation: apturn 18s linear infinite; }
+
+/* rays: лучи, будто свет из-за аватара; на старших тирах чаще и тоньше */
+.ap-ha-rays::before { content: ""; position: absolute; inset: -2%; border-radius: 50%; opacity: calc(.28 + var(--ap-i) * .5); background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 3deg, transparent 3deg 22deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); }
+.ap-ha-rays:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 2.5deg, color-mix(in srgb, var(--ap-c) 40%, transparent) 2.5deg 4deg, transparent 4deg 15deg); }
+.ap-ha-rays::after { content: ""; position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 26%, transparent), transparent); }
+.ap-anim .ap-ha-rays:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apturn 60s linear infinite; }
+
+/* flame: венец пламени вокруг аватара, языки расходятся от центра и мерцают */
+.ap-ha-flame::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 40%, transparent), color-mix(in srgb, var(--ap-a) 16%, transparent) 62%, transparent); }
+.ap-ha-flame b { left: 50%; bottom: 50%; width: 26%; height: 46%; margin-left: -13%; transform-origin: 50% 100%; clip-path: polygon(50% 0, 57% 16%, 67% 30%, 79% 46%, 88% 64%, 90% 80%, 80% 94%, 64% 100%, 36% 100%, 20% 94%, 10% 80%, 12% 64%, 21% 46%, 33% 30%, 43% 16%); background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); opacity: .82; transform: rotate(var(--fa)); -webkit-mask: linear-gradient(0deg, transparent 4%, #000 34%); mask: linear-gradient(0deg, transparent 4%, #000 34%); }   /* основание языка тает: сквозь полупрозрачный аватар не видна сплошная фигура */
+.ap-ha-flame b:nth-child(1) { --fa: 0deg; height: 52%; } .ap-ha-flame b:nth-child(2) { --fa: -34deg; height: 44%; } .ap-ha-flame b:nth-child(3) { --fa: 34deg; height: 44%; }
+.ap-ha-flame:is(.ap-t1, .ap-t2) b:nth-child(n+2) { display: none; }   /* D–C: один язык сверху, B и выше: венец из трёх */
+.ap-ha-flame:is(.ap-t3, .ap-t4) b:nth-child(n+2) { height: 38%; }
+@keyframes apflick { 0%, 100% { transform: rotate(var(--fa)) scaleY(.82); opacity: .6; } 50% { transform: rotate(var(--fa)) scaleY(1.14); opacity: .95; } }
+.ap-anim .ap-ha-flame b { animation: apflick 2.2s ease-in-out infinite; }
+.ap-anim .ap-ha-flame b:nth-child(2) { animation-delay: -.7s; } .ap-anim .ap-ha-flame b:nth-child(3) { animation-delay: -1.4s; }
+
+/* eclipse: корона вокруг тёмного диска, серп света с одной стороны */
+.ap-ha-eclipse::before { content: ""; position: absolute; inset: -4%; border-radius: 50%; background: radial-gradient(closest-side, transparent 63%, var(--ap-c) 67%, var(--ap-a) 71%, color-mix(in srgb, var(--ap-b) 34%, transparent) 82%, transparent); -webkit-mask: radial-gradient(circle at 66% 34%, transparent 44%, #000 62%); mask: radial-gradient(circle at 66% 34%, transparent 44%, #000 62%); opacity: calc(.45 + var(--ap-i) * .55); }
+.ap-ha-eclipse::after { content: ""; position: absolute; inset: 10%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 28%, transparent), transparent); }
+.ap-anim .ap-ha-eclipse:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apturn 40s linear infinite; }
+.ap-anim .ap-ha-eclipse:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: apbreath 4s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) { .ap-frame::before, .ap-frame::after, .ap-halo, .ap-halo::before, .ap-halo::after, .ap-halo b { animation: none !important; } }

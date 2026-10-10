@@ -1,27 +1,33 @@
 #!/usr/bin/env python3
-"""Account recovery commands remain callable after legacy profile removal."""
+"""Команды отмены удаления и восстановления аккаунта зовут канонический сервис."""
 import asyncio
-import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+os.environ.setdefault("BOT_TOKEN", "1:x")
+os.environ.setdefault("DATABASE_URL", "postgresql://x:y@localhost/z")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-module_path = Path(__file__).resolve().parents[1] / "bot" / "handlers" / "account.py"
-spec = importlib.util.spec_from_file_location("release_account_handler", module_path)
-assert spec and spec.loader
-account = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(account)
+from bot.chat import account, registry  # noqa: E402
+from bot.chat.framework import dispatch  # noqa: E402
 
 
 class FakeMessage:
-    def __init__(self, user_id: int = 42):
-        self.from_user = SimpleNamespace(id=user_id)
-        self.answers = []
+    def __init__(self, text: str, user_id: int = 42):
+        self.text, self.caption, self.entities, self.reply_to_message = text, None, [], None
+        self.from_user = SimpleNamespace(id=user_id, is_bot=False, username="u", full_name="U")
+        self.chat = SimpleNamespace(id=user_id, type="private")
+        self.replies = []
 
-    async def answer(self, text, **kwargs):
-        self.answers.append((text, kwargs))
+    async def reply(self, text, **kwargs):
+        self.replies.append((text, kwargs))
+
+
+class FakeBot:
+    async def me(self):
+        return SimpleNamespace(username="predvestnik_bot")
 
 
 async def main() -> None:
@@ -37,16 +43,15 @@ async def main() -> None:
 
     account.account_deletion.cancel_deletion = cancel
     account.account_deletion.restore_account = restore
-    message = FakeMessage()
     db = object()
+    first, second = FakeMessage("бот отменить удаление"), FakeMessage("восстановить аккаунт")
+    second.text = "бот восстановить аккаунт"
+    await dispatch(registry, first, FakeBot(), db)
+    await dispatch(registry, second, FakeBot(), db)
 
-    await account.cmd_cancel_deletion(message, db)
-    await account.cmd_restore_account(message, db)
-
-    assert calls == [("cancel", db, 42), ("restore", db, 42)]
-    assert message.answers[0] == ("Отмена подтверждена", {"parse_mode": "HTML"})
-    assert "бот я" in message.answers[1][0]
-    assert message.answers[1][1] == {"parse_mode": "HTML"}
+    assert calls == [("cancel", db, 42), ("restore", db, 42)], calls
+    assert first.replies[0][0] == "Отмена подтверждена"
+    assert "бот я" in second.replies[0][0]
 
 
 asyncio.run(main())

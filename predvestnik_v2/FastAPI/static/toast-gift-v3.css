@@ -1,0 +1,81 @@
+/* ═══ ПОДАРОК ОТ АДМИНИСТРАЦИИ · карточка ═══
+   Тот же вид, что у тоста (toast-v3.css): форма берётся из рамки образа, значок и частицы из его «частиц», цвет из палитры, насыщенность из тира, нить у S и выше.
+   Но это событие, а не отметка: карточка крупнее, висит до 15 секунд (app.28.js, v3GiftToast) и выходит по порядку: карточка, значок, частицы, строки, причина, кнопки.
+   Движение только под .ap-anim, в статике карточка стоит готовой. Образ задают классы tv-t<тир>, tv-fr-<рамка>, tv-pt-<частицы>, tv-sig и переменные палитры. */
+
+.tv-gift { --tv: var(--ap-a, var(--v3-acc, #d8cffd)); position: fixed; z-index: 610; left: 50%; top: calc(var(--v3-bar-h, 56px) + var(--v3-safe-t, 0px) + 10px); transform: translateX(-50%);
+  width: min(calc(100vw - 24px), 400px); box-sizing: border-box; padding: 16px 18px 20px; overflow: hidden; border-radius: 22px; color: var(--v3-ink, #f1f2f6); font: 500 14px/1.4 var(--v3-font, inherit);
+  background: radial-gradient(90% 70% at 18% 0%, color-mix(in srgb, var(--tv) 20%, transparent), transparent 70%), var(--v3-sheet, #14161e);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, .56), inset 0 0 0 1px color-mix(in srgb, var(--tv) 46%, transparent); }
+.tv-gift.is-out { opacity: 0; transform: translate(-50%, -14px); transition: opacity .26s ease, transform .26s ease; }
+
+.tg-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+.tg-ic { position: relative; display: grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; background: var(--tv); color: var(--v3-on-acc, #14161e); font-size: 26px; line-height: 1; }
+.tg-ic u { position: absolute; inset: 0; border-radius: 50%; box-shadow: 0 0 0 2px var(--tv); opacity: 0; pointer-events: none; }
+.tg-hd { display: flex; flex-direction: column; min-width: 0; }
+.tg-hd small { color: var(--tv); font: 700 11px/1.2 var(--v3-font, inherit); letter-spacing: .14em; text-transform: uppercase; }
+.tg-hd b { margin-top: 2px; font: 700 20px/1.2 var(--v3-font, inherit); }
+
+.tg-rows { display: grid; margin: 0; padding: 0; list-style: none; }
+.tg-rows li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 0; }
+.tg-rows li + li { box-shadow: 0 -1px 0 color-mix(in srgb, var(--tv) 16%, transparent); }
+.tg-g { font-size: 20px; line-height: 1; text-align: center; }
+.tg-l { min-width: 0; overflow-wrap: anywhere; }
+.tg-n { color: var(--tv); font: 800 18px/1 var(--v3-font, inherit); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tg-n em { padding: 3px 9px; border-radius: 99px; background: color-mix(in srgb, var(--tv) 20%, transparent); font: 700 11px/1.2 var(--v3-font, inherit); font-style: normal; letter-spacing: .08em; text-transform: uppercase; }
+.tg-more { color: var(--v3-dim, #9aa0b0); font-size: 13px; }
+.tg-why { margin: 8px 0 0; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--tv) 9%, transparent); color: var(--v3-dim, #9aa0b0); font-size: 13px; overflow-wrap: anywhere; }
+.tg-why small { display: block; margin-bottom: 2px; color: var(--tv); font: 700 10px/1.2 var(--v3-font, inherit); letter-spacing: .12em; text-transform: uppercase; }
+
+.tg-act { display: flex; gap: 10px; margin-top: 14px; }
+.tg-act button { flex: 1; min-height: 46px; padding: 0 12px; border: 0; border-radius: 99px; font: 700 14.5px/1 var(--v3-font, inherit); white-space: nowrap; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.tg-take { background: var(--tv); color: var(--v3-on-acc, #14161e); }
+.tg-see { background: transparent; color: var(--tv); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--tv) 62%, transparent); }
+.tg-time { position: absolute; left: 18px; right: 18px; bottom: 0; height: 2px; border-radius: 2px; background: var(--tv); opacity: .55; transform-origin: left; }
+
+/* частицы образа: вылетают из значка, число растёт с тиром; без движения их нет */
+.tg-burst { position: absolute; left: 44px; top: 42px; width: 0; height: 0; pointer-events: none; }
+.tg-burst i { position: absolute; left: -.5em; top: -.5em; color: var(--tv); font-size: calc(19px * var(--s, 1)); font-style: normal; line-height: 1; opacity: 0; text-shadow: 0 0 6px color-mix(in srgb, var(--tv) 60%, transparent); }
+.tg-sheen { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, .13) 50%, transparent 80%); opacity: 0; pointer-events: none; }
+
+/* форма: рамка образа */
+.tv-gift:is(.tv-fr-ring, .tv-fr-double) { border-radius: 30px; }
+.tv-gift.tv-fr-double { box-shadow: 0 20px 48px rgba(0, 0, 0, .56), inset 0 0 0 1px color-mix(in srgb, var(--tv) 62%, transparent), inset 0 0 0 5px var(--v3-sheet, #14161e), inset 0 0 0 6px color-mix(in srgb, var(--tv) 30%, transparent); }
+.tv-gift.tv-fr-dash { border-radius: 18px; box-shadow: 0 20px 48px rgba(0, 0, 0, .56); outline: 1.5px dashed color-mix(in srgb, var(--tv) 64%, transparent); outline-offset: -6px; }
+.tv-gift.tv-fr-seg { border-radius: 10px; box-shadow: 0 20px 48px rgba(0, 0, 0, .56), inset 5px 0 0 var(--tv), inset 0 1px 0 color-mix(in srgb, var(--tv) 30%, transparent); }
+.tv-gift.tv-fr-drip::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; pointer-events: none; background: linear-gradient(var(--ap-b), var(--ap-a));
+  -webkit-mask: var(--xk-drips) top left / 240px 40px repeat-x; mask: var(--xk-drips) top left / 240px 40px repeat-x; }
+.tv-gift.tv-fr-drip .tg-head { margin-top: 12px; }
+
+/* частицы-капли падают вниз по всей карточке, а не разлетаются от значка */
+.tv-gift.tv-pt-drop .tg-burst { left: 0; top: 0; width: 100%; }
+.tv-gift.tv-pt-drop .tg-burst i { left: var(--x); }
+
+/* насыщенность: тир образа (D…SSS = 1…7) */
+.tv-gift:is(.tv-t3, .tv-t4, .tv-t5, .tv-t6, .tv-t7) { filter: drop-shadow(0 0 14px color-mix(in srgb, var(--tv) calc(var(--ap-i, .5) * 44%), transparent)); }
+.tv-gift:is(.tv-t6, .tv-t7) .tg-ic { box-shadow: 0 0 18px color-mix(in srgb, var(--tv) 62%, transparent); }
+.tv-gift.tv-sig::after { content: ""; position: absolute; left: 22px; right: 22px; top: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--ap-a), var(--ap-b), var(--ap-c), transparent); }
+
+/* постановка */
+@keyframes tgin { 0% { opacity: 0; transform: translate(-50%, -30px) scale(.92); } 58% { opacity: 1; transform: translate(-50%, 5px) scale(1.012); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+@keyframes tgring { 0% { opacity: .75; transform: scale(1); } 100% { opacity: 0; transform: scale(2.1); } }
+@keyframes tgrow { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@keyframes tgup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes tgburst { 0% { opacity: 0; transform: rotate(var(--a)) translateX(0) rotate(calc(var(--a) * -1)) scale(.3); } 18% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--a)) translateX(var(--d)) rotate(calc(var(--a) * -1)) scale(1); } }
+@keyframes tgdrop { 0% { opacity: 0; transform: translateY(-8px); } 14% { opacity: .9; } 100% { opacity: 0; transform: translateY(170px); } }
+@keyframes tgbob { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+.ap-anim .tv-gift { animation: tgin .6s var(--v3-ease, ease) both; }
+.ap-anim .tv-gift .tg-ic { animation: tvpop .55s var(--v3-ease, ease) .12s both; }
+.ap-anim .tv-gift .tg-ic u { animation: tgring 1.1s ease-out .3s 1 both; }
+.ap-anim .tv-gift:is(.tv-t4, .tv-t5, .tv-t6, .tv-t7) .tg-ic { animation: tvpop .55s var(--v3-ease, ease) .12s both, tgbob 2.6s ease-in-out 1s infinite alternate; }
+.ap-anim .tv-gift .tg-burst i { animation: tgburst 1s ease-out calc(.3s + var(--s, 1) * .12s) 1 both; }
+.ap-anim .tv-gift.tv-pt-drop .tg-burst i { animation: tgdrop 1.5s cubic-bezier(.5, 0, .9, .6) calc(.2s + var(--s, 1) * .25s) 1 both; }
+.ap-anim .tv-gift .tg-rows li { animation: tgrow .45s var(--v3-ease, ease) calc(.34s + var(--i) * .11s) both; }
+.ap-anim .tv-gift .tg-why { animation: tgup .45s var(--v3-ease, ease) .95s both; }
+.ap-anim .tv-gift .tg-act { animation: tgup .45s var(--v3-ease, ease) 1.1s both; }
+.ap-anim .tv-gift .tg-time { animation: tvtime var(--tv-ms, 9s) linear 1.1s both; }
+.ap-anim .tv-gift.is-held .tg-time { animation-play-state: paused; }
+.ap-anim .tv-gift:is(.tv-t5, .tv-t6, .tv-t7) .tg-sheen { animation: tvsweep 1.7s ease-out .5s 1 both; }
+.ap-lite .tv-gift .tg-burst i:nth-child(even), .ap-lite .tv-gift .tg-sheen { display: none; }   /* средний телефон: частиц вдвое меньше, блика нет */
+
+@media (prefers-reduced-motion: reduce) { .tv-gift, .tv-gift * { animation: none !important; transition: none !important; } }

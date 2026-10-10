@@ -7,7 +7,6 @@ from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core.player_exchange_v1 import PlayerExchangePolicyError
 from infrastructure.repositories import player_exchange_v1 as repo
 from services import player_exchange_v1 as service
-from FastAPI.routers.dev_console._common import _require_dev
 
 
 router = APIRouter(prefix="/player-exchange/v1", tags=["player-exchange-v1"])
@@ -395,23 +394,6 @@ async def market_order(coin_id: str, payload: ProtectedMarketOrderRequest,
     except service.PlayerExchangeUnavailable as exc:
         raise HTTPException(404, str(exc)) from exc
     except (PlayerExchangePolicyError, InsufficientBalance) as exc:
-        raise HTTPException(400, str(exc)) from exc
-    except IdempotencyConflict as exc:
-        raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc
-
-
-@router.post("/admin/coins/{coin_id}/halt")
-async def halt_market(coin_id: str, payload: ManualMarketHaltRequest,
-                      db=Depends(get_db), user=Depends(require_tg_user)):
-    _require_dev(user)
-    try:
-        return {"halt": await service.manually_halt_market(
-            db, actor_id=int(user["id"]), coin_id=coin_id, minutes=payload.minutes,
-            public_reason=payload.public_reason, action_id=payload.action_id,
-        )}
-    except service.PlayerExchangeUnavailable as exc:
-        raise HTTPException(404, str(exc)) from exc
-    except PlayerExchangePolicyError as exc:
         raise HTTPException(400, str(exc)) from exc
     except IdempotencyConflict as exc:
         raise HTTPException(409, "Этот идентификатор уже использован для другой операции.") from exc

@@ -31,7 +31,7 @@ async def lobby_basics(h: Harness) -> None:
 
 @scenario
 async def command_variants(h: Harness) -> None:
-    for command in ("бот мафия", "Бот, мафия!", "бот,мафия", "/mafia", "/mafia@predvestnik_test_bot"):
+    for command in ("бот мафия", "Бот, мафия!", "бот,мафия", "бот, мафия"):  # the chat framework has no slash commands
         t = await Table.create(h, 4, command=command)
         ok(t.lobby(), f"«{command}» must open a lobby")
     t = await Table.create(h, 4, command="бот мафия 6 доктор открытое быстро")

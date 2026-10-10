@@ -34,7 +34,7 @@ PYTHONPATH=. python tools/mafia_dev_sandbox.py --dsn postgresql://predvestnik_pr
 
 ## 1. Карточки в ГРУППОВОМ чате (видят все 40 человек)
 
-Файлы: `bot/handlers/mafia_views.py` (лобби, настройки), `bot/handlers/mafia_card_views.py` (партия), `bot/handlers/mafia_delivery.py` (текст старта).
+Файлы: `bot/chat/mafia_views.py` (лобби, настройки), `bot/chat/mafia_card_views.py` (партия), `bot/chat/mafia_delivery.py` (текст старта).
 
 | Экран | Функция | Когда виден | Кнопки (подпись → действие) | Состояния, которые надо оформить |
 |---|---|---|---|---|
@@ -56,12 +56,12 @@ PYTHONPATH=. python tools/mafia_dev_sandbox.py --dsn postgresql://predvestnik_pr
 | Игра брошена | `abandoned_text` | никто не нажимал кнопки 4 этапа подряд | — | |
 | Лобби закрыто | `lobby_closed_text` | 30 минут тишины / отмена | — | два варианта текста |
 | Подтверждение остановки | `stop_confirm_keyboard` (+ текст в `mafia_play._stop_ask`) | хозяин жмёт ⏹ | `⏹ Да, остановить` · `Нет, играем дальше` | отдельное временное сообщение |
-| Нет прав у бота | `_NEED_ADMIN` в `mafia_v1.py` | «бот мафия» без прав | — | пошаговая инструкция 1-2-3 |
+| Нет прав у бота | `_NEED_ADMIN` в `bot/chat/mafia.py` | «бот мафия» без прав | — | пошаговая инструкция 1-2-3 |
 | Правила в группе | `_rules_in_group` | «бот мафия правила» | `📖 Открыть правила` (ссылка в бота) | |
 
 ## 2. Личные сообщения игроку (видит только он)
 
-Файлы: `core/mafia_copy.py` (все тексты — **главное место для правки формулировок**), `bot/handlers/mafia_dm.py`, `mafia_card_views.py` (клавиатуры).
+Файлы: `core/mafia_copy.py` (все тексты — **главное место для правки формулировок**), `bot/chat/mafia_dm.py`, `mafia_card_views.py` (клавиатуры).
 
 | Экран | Функция | Когда | Кнопки | Заметки для дизайна |
 |---|---|---|---|---|
@@ -83,7 +83,7 @@ PYTHONPATH=. python tools/mafia_dev_sandbox.py --dsn postgresql://predvestnik_pr
 Новый блок **«Как играть в Мафию»** — `mafiaHowTo()`; стилей у него **пока нет** (только семантическая разметка):
 
 ```html
-<details class="mafia-howto card">
+<details class="mafia-howto">
   <summary class="mafia-howto-title">Как играть в Мафию</summary>
   <ol class="mafia-howto-steps">
     <li class="mafia-howto-step"><b>Заголовок шага</b><span>Пояснение</span></li> …
@@ -94,7 +94,7 @@ PYTHONPATH=. python tools/mafia_dev_sandbox.py --dsn postgresql://predvestnik_pr
 </details>
 ```
 Хуки для CSS: `.mafia-howto`, `.mafia-howto-title`, `.mafia-howto-steps`, `.mafia-howto-step` (внутри `b` и `span`), `.mafia-howto-roles`, `.mafia-howto-role`.
-Нужно: нумерация шагов, сворачивание/раскрытие (`details[open]`), отступы под 320/390/430 px, единый стиль карточек с остальными (`.card`, `.pcard`). Существующие `.pcard`, `.empty-state` в этой модалке — без изменений.
+Нужно: нумерация шагов, сворачивание/раскрытие (`details[open]`), отступы под 320/390/430 px, единый стиль с остальной модалкой (в ней теперь словарь `v3-*`: `.v3-eyebrow`, `.v3-line`, `.v3-empty`). Существующие `v3-*` элементы модалки не трогать.
 
 ## 4. Единый словарь знаков (держим консистентно)
 
@@ -104,10 +104,10 @@ PYTHONPATH=. python tools/mafia_dev_sandbox.py --dsn postgresql://predvestnik_pr
 
 ## 5. Что менять нельзя (сломает игру или тесты)
 
-- `callback_data` и его префиксы (`mf`, `mfs`, `mfc`, `mfr`, `mfa`, `mfh`) — классы в `bot/handlers/mafia_cb.py`.
+- `callback_data` и его префиксы (`mf`, `mfs`, `mfc`, `mfr`, `mfa`, `mfh`) — классы в `bot/chat/mafia_cb.py`.
 - Слова-маркеры, на которые опираются тесты: `Что делать`, `Цель:`, `Кто кем был`, `набор игроков`, `НОЧЬ`, `ОБСУЖДЕНИЕ`, `ГОЛОСОВАНИЕ`, `ПАУЗЕ`. Если нужно переименовать — одновременно правится `tools/mafia_sim/*`.
 - Экранирование имён (`safe_html`, `html.escape`).
-- Команды: «бот мафия», «стоп», «правила» и т.д. разбираются в `core/mafia_command.py`.
+- Слова после «бот мафия» («стоп», «правила», «статус», «продолжить» и настройки лобби) разбираются в `core/mafia_command.py`; саму команду «бот мафия» принимает реестр чат-бота (`bot/chat/framework.py`, слэш-команд там нет).
 
 После любой правки текстов/клавиатур запускать (из `predvestnik_v2/`):
 ```bash
