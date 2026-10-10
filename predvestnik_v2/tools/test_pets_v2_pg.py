@@ -161,9 +161,9 @@ async def run(dsn: str) -> None:
             started_key = await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id=f"k{i}")
             await finish_now(db, started_key["run_id"])
             keys += (await service.claim_run(db, user_id=user, run_id=started_key["run_id"], action_id=f"kc{i}", rng=rng))["key"]
-        assert keys == 1, f"exactly one key per day, got {keys}"
+        assert 1 <= keys <= rules.KEYS_PER_DAY_MAX, f"1-2 keys per day, got {keys}"
         async with db.execute("SELECT COALESCE(SUM(balance),0) FROM chest_key_accounts_v1 WHERE user_id=?", (user,)) as c:
-            assert (await c.fetchone())[0] == 1
+            assert (await c.fetchone())[0] == keys
         # билды: слоты, призвание, цена замены, талисманы, идемпотентность
         async def rejects(coro):
             try:
@@ -314,6 +314,18 @@ async def run(dsn: str) -> None:
             xp1, lvl1 = await c.fetchone()
         assert xp1 > xp0 or lvl1 > 1, "companion must earn Следы"
         assert pair_done["daily_credited"] <= rules.DAILY_MAX
+        # кормление: еда возвращает энергию, любимая даёт флаг, Следы раз в сутки
+        await db.execute("DELETE FROM pet_v2_daily WHERE user_id=?", (user,))
+        await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (user,))
+        await db.execute("INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?, 'food_basic', 3) ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=3", (user,))
+        await db.execute("UPDATE pet_v2_state SET energy=20, energy_at=NOW() WHERE user_id=? AND pet_id=?", (user, cat))
+        fed = await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f1")
+        assert fed["favorite"] and fed["remaining"] == 2 and fed["energy"] >= 35 and fed["xp_credited"] > 0
+        assert (await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f1"))["idempotent_replay"]
+        again = await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f2")
+        assert again["xp_credited"] == 0 and again["remaining"] == 1, "Следы за кормление — раз в сутки"
+        await rejects(service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_feast", action_id="f3"))
+        view = await service.overview(db, user)
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

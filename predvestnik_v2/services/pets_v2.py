@@ -43,13 +43,14 @@ def _json_list(value) -> list:
     return list(value or [])
 
 
-def _build(state: dict, talismans: list[dict], camp: dict | None = None) -> dict:
-    return {"camp": camp or {}, "calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
+def _build(state: dict, talismans: list[dict], camp: dict | None = None, day=None) -> dict:
+    return {"camp": camp or {}, "fed": day is not None and state.get("fed_favorite_on") == day, "calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
             "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans)}
 
 
 def _fx(build: dict, hours: int = 3, route: str | None = None, paired: bool = False) -> dict:
-    return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route, paired=paired)
+    return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route, paired=paired,
+                               fed_favorite=build.get("fed", False))
 
 
 def _rest(state: dict, pet: dict, now, build: dict) -> float:
@@ -69,6 +70,7 @@ def _chances(pet: dict, state: dict, run: dict, energy: float, build: dict) -> d
     resilience = rules.resilience(
         int(state["level"]), min(energy, rules.energy_max(int(state["level"]), pet["species_id"], fx["energy_bonus"])), pet["species_id"],
         terrain_match=_terrain(pet, run["route"]), guardian=fx["guardian"], energy_bonus=fx["energy_bonus"], extra=fx["resilience_extra"],
+        favorite_treat=build.get("fed", False),
     )
     difficulty = rules.event_difficulty(int(run["hours"]))
     return {path: rules.path_chance(resilience, difficulty, path, pity=int(state["pity"]), bonus=fx["chance_bonus"][path]) for path in _HINT_PATHS}
@@ -109,7 +111,7 @@ async def overview(db, user_id: int) -> dict:
             continue
         level = int(pet["level"] or 1)
         mine = [t for t in all_talismans if t["pet_id"] is not None and int(t["pet_id"]) == int(pet["id"])]
-        build = builds[int(pet["id"])] = _build(pet, mine, camp)
+        build = builds[int(pet["id"])] = _build(pet, mine, camp, clock["day"])
         fx = _fx(build)
         energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
         energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
@@ -298,7 +300,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         day = clock["day"]
         state = await repo.ensure_state(db, user_id, int(pet["id"]), rules.energy_max(1, pet["species_id"]))
         camp = await repo.camp_levels(db, user_id)
-        build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])), camp)
+        build = _build(state, await repo.equipped_talismans(db, user_id, int(pet["id"])), camp, day)
         fx = _fx(build, int(run["hours"]), run["route"], paired=run["companion_id"] is not None)
         energy = _rest(state, pet, clock["now"], build)
         level, xp, pity = int(state["level"]), float(state["xp"]), int(state["pity"])
@@ -347,15 +349,27 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         )
 
         key_granted = 0
-        if run["kind"] != "watch" and not finds.get("key"):
-            try:
-                async with db.connection.transaction():
-                    key_granted = 1 if await _grant_key(db, user_id, run) else 0
-            except Exception as exc:  # noqa: BLE001 — сундуки не должны блокировать награду
-                from loguru import logger
-                logger.warning("pets_v2: ключ не выдан для {}: {}", run["id"], exc)
+        if run["kind"] != "watch":
+            keys_today = int(finds.get("key", 0))
+            for label in ("base", "extra"):
+                if keys_today >= rules.KEYS_PER_DAY_MAX:
+                    break
+                if label == "base" and keys_today >= 1:
+                    continue
+                if label == "extra" and rng.random() * 100 >= fx["extra_key_chance"]:
+                    continue
+                try:
+                    async with db.connection.transaction():
+                        ok = await _grant_key(db, user_id, run, label)
+                except Exception as exc:  # noqa: BLE001 — сундуки не должны блокировать награду
+                    from loguru import logger
+                    logger.warning("pets_v2: ключ не выдан для {}: {}", run["id"], exc)
+                    ok = False
+                if ok:
+                    keys_today += 1
+                    key_granted += 1
             if key_granted:
-                finds["key"] = 1.0
+                finds["key"] = float(keys_today)
 
         raw = base + bonus_raw
         share = 1 + rules.PAIR_COMPANION_SHARE if companion else 1.0
@@ -490,7 +504,7 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
     return response
 
 
-async def _grant_key(db, user_id: int, run: dict) -> bool:
+async def _grant_key(db, user_id: int, run: dict, label: str = "base") -> bool:
     """Один ключ сундука в сутки за первый завершённый поход или экспедицию (пока сундуки включены)."""
     from infrastructure.repositories import chests_v1 as chest_repo, system_flags
     if not await system_flags.is_enabled(db, "content_chests_v1"):
@@ -498,7 +512,7 @@ async def _grant_key(db, user_id: int, run: dict) -> bool:
     from core.chests_v1 import POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
     await chest_repo.assert_delivery_ready(db)
     grant = validate_key_grant(KeyGrant(
-        source_kind=f"pet_{'expedition' if run['kind'] == 'expedition' else 'trek'}_complete", source_event_id=f"v2:{run['id']}", amount=1,
+        source_kind=f"pet_{'expedition' if run['kind'] == 'expedition' else 'trek'}_complete", source_event_id=f"v2:{run['id']}:{label}", amount=1,
         source_snapshot={"run_id": str(run["id"]), "activity_kind": run["kind"], "duration_hours": int(run["hours"]), "pet_id": int(run["pet_id"])},
     ))
     account = await chest_repo.lock_account(db, int(user_id))
@@ -665,7 +679,7 @@ async def open_track_cell(db, *, user_id: int, track_id: str, cell: int, action_
         if status == "won":
             pet = await repo.get_owned_pet(db, user_id, int(track["pet_id"]))
             state = await repo.ensure_state(db, user_id, int(track["pet_id"]), rules.energy_max(1, pet["species_id"]))
-            build = _build(state, await repo.equipped_talismans(db, user_id, int(track["pet_id"])))
+            build = _build(state, await repo.equipped_talismans(db, user_id, int(track["pet_id"])), None, clock["day"])
             daily = await repo.get_daily(db, user_id, clock["day"])
             finds = dict(daily["finds"])
             granted, _ = await _roll_finds(
@@ -751,3 +765,48 @@ async def trial_view(db, user_id: int) -> dict:
     trial = rules.weekly_trial(week.toordinal())
     return {"week": week.isoformat(), "tags": trial, "done": await repo.trial_done(db, user_id, week),
             "xp": rules.TRIAL_XP, "essence": rules.TRIAL_ESSENCE}
+
+
+async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: str) -> dict:
+    """Покормить питомца: еда возвращает энергию; любимая еда даёт +2 к Выдержке до конца суток; 10 Следов раз в сутки."""
+    action_id = _action(action_id)
+    from core.chests_v1 import FOODS
+    if food_id not in FOODS:
+        raise PetV2PolicyError("Неизвестная еда.")
+    request = {"type": "feed", "pet_id": int(pet_id), "food_id": food_id}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
+        rarity = _species_row(pet)[0]
+        clock = await repo.clock(db)
+        day = clock["day"]
+        state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
+        build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), await repo.camp_levels(db, user_id), day)
+        fx = _fx(build)
+        cap = rules.energy_max(int(state["level"]), pet["species_id"], fx["energy_bonus"])
+        energy = _rest(state, pet, clock["now"], build)
+        try:
+            remaining = await repo.consume_food(db, user_id, food_id)
+        except ValueError as exc:
+            raise PetV2PolicyError(str(exc)) from exc
+        energy = min(float(cap), energy + int(FOODS[food_id]["restore"]))
+        favorite = food_id == rules.favorite_food(pet["species_id"])
+        level, xp, credited = int(state["level"]), float(state["xp"]), 0.0
+        if state["fed_xp_on"] != day:
+            daily = await repo.get_daily(db, user_id, day)
+            credited = rules.pool_credit(daily["raw"], rules.FEED_XP)
+            await repo.save_daily(db, user_id, day, raw=daily["raw"] + rules.FEED_XP, credited=daily["credited"] + credited, finds=daily["finds"])
+            level, xp, _, _ = await _apply_xp(db, user_id, pet_id, rarity, level, xp + credited, await repo.bond_days(db, user_id, pet_id))
+        await repo.save_feeding(db, user_id, pet_id, energy=energy, fed_favorite_on=day if favorite else state["fed_favorite_on"],
+                                fed_xp_on=day, xp=xp, level=level)
+        response = {"ok": True, "pet_id": int(pet_id), "food_id": food_id, "energy": round(energy, 1), "remaining": remaining,
+                    "favorite": favorite, "xp_credited": round(credited, 2), "idempotent_replay": False}
+        await repo.save_action(db, user_id, action_id, request, response)
+    return response
