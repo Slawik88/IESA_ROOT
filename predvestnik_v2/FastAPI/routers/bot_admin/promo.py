@@ -21,7 +21,7 @@ async def list_promo(q: str = "", user=Depends(_user), db=Depends(get_db)):
 
 
 @router.get("/promo-options")
-async def promo_options(user=Depends(_user)):
+async def promo_options(user=Depends(_user), db=Depends(get_db)):
     return {
         "rewards": [
             {"type": "mora", "title": "🪙 Мора", "field": "amount"},
@@ -31,7 +31,7 @@ async def promo_options(user=Depends(_user)):
             {"type": "skin", "title": "✨ Образ", "field": "id"},
         ],
         "skins": promo_v2.skin_choices(),
-        "private_skins": promo_v2.private_skins(),
+        "private_skins": await promo_v2.private_skins_state(db),
     }
 
 

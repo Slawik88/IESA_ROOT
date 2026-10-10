@@ -753,8 +753,13 @@ function skinArt(k) {
   return `<span class="skin-art" style="background:${t['--v3-wash'] ? esc(t['--v3-wash']) + ',' : ''}${esc(bg)};--sa:${esc(acc)};--sb:${esc(bg)};--si:${esc(ink)};--sl:${line}">
     <i class="skin-av"></i><span class="skin-nick">${esc((k.items && k.items.title) || k.name)}</span><b class="skin-t">${esc(k.tier)}</b></span>`;
 }
+function skinOwner(k) {
+  if (!k.exclusive) return '';
+  const h = (k.holders || [])[0];
+  return h ? `<span class="chip warn">🌟 личный · у ${esc(h.name)}</span>` : '<span class="chip ok">🌟 личный · свободен</span>';
+}
 function skinTags(k) {
-  return [k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
+  return [skinOwner(k), k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
     .filter(Boolean).join('');
 }
 function skinCard(k, on, dim = false) {
@@ -766,14 +771,15 @@ function skinDetail(k) {
   if (!k) return '<div class="sub">Нажмите на образ, чтобы посмотреть, из чего он состоит.</div>';
   return `<div class="skin-detail">${skinArt(k)}<div><b>${esc(k.name)}</b> <span class="sub">· ${esc(TIER_TITLES[k.tier] || k.tier)}</span>
     <div class="sub" style="margin:4px 0 6px">${esc(k.blurb || '')}</div><div class="chips">${skinTags(k)}</div>
+    ${k.exclusive ? '<div class="sub" style="margin-top:6px">Достаётся одному игроку: промокод на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>' : ''}
     <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
       `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
 }
 function skinPicker(currentId, onPick) {
-  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [];
+  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [], pool = [...all, ...priv];
   const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
-    ['season', 'Сезонные'], ['set', 'Наборы']];
-  let filter = 'all', q = '', chosen = all.find(k => k.id === currentId) || null;
+    ['season', 'Сезонные'], ['set', 'Наборы'], ...(priv.length ? [['private', `Личные · ${priv.length}`]] : [])];
+  let filter = 'all', q = '', chosen = pool.find(k => k.id === currentId) || null;
   const close = () => { box.hidden = true; box.innerHTML = ''; };
   box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
     <div id="skd"></div>
@@ -784,19 +790,21 @@ function skinPicker(currentId, onPick) {
   const match = k => {
     if (filter === 'season' && !k.season) return false;
     if (filter === 'set' && !k.set) return false;
-    if (!['all', 'season', 'set'].includes(filter) && k.tier !== filter) return false;
+    if (filter === 'private' && !k.exclusive) return false;
+    if (!['all', 'season', 'set', 'private'].includes(filter) && k.tier !== filter) return false;
     const hay = [k.name, k.blurb, k.set_name, k.season_name, ...Object.values(k.items || {})].join(' ').toLowerCase();
     return !q || hay.includes(q);
   };
   const draw = () => {
     $('#skt').innerHTML = filters.map(([key, t]) => `<span class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</span>`).join('');
-    const list = all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
+    const list = filter === 'private' ? [] : all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
+    const privList = ['all', 'private'].includes(filter) || q ? priv.filter(match) : [];
     $('#skg').innerHTML = (tiers.map(t => `<h3 class="sec">${esc(TIER_TITLES[t] || t)} · ${list.filter(k => k.tier === t).length}</h3>
       <div class="skin-grid">${list.filter(k => k.tier === t).map(k => skinCard(k, chosen && k.id === chosen.id)).join('')}</div>`).join('')
-      || '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>')
-      + (priv.length && !q && filter === 'all' ? `<h3 class="sec">Личные образы · ${priv.length}</h3>
-        <div class="sub">Эти образы принадлежат одному игроку и в промокод не кладутся: их выдают отдельно.</div>
-        <div class="skin-grid">${priv.map(k => skinCard(k, false, true)).join('')}</div>` : '');
+      || (privList.length ? '' : '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>'))
+      + (privList.length ? `<h3 class="sec">Личные образы · ${privList.length}</h3>
+        <div class="sub">У каждого один владелец: промокод с таким образом — на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>
+        <div class="skin-grid">${privList.map(k => skinCard(k, chosen && k.id === chosen.id, (k.holders || []).length > 0)).join('')}</div>` : '');
     $('#skd').innerHTML = skinDetail(chosen);
     $('#sko').disabled = !chosen;
   };
@@ -805,7 +813,7 @@ function skinPicker(currentId, onPick) {
   $('#skt').onclick = e => { const c = e.target.closest('[data-f]'); if (c) { filter = c.dataset.f; draw(); } };
   $('#skg').onclick = e => {
     const b = e.target.closest('[data-skin]');
-    if (b) { chosen = all.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
+    if (b) { chosen = pool.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
   };
   $('#sko').onclick = () => { if (chosen) { close(); onPick(chosen.id); } };
   $('#skx').onclick = close;
@@ -853,7 +861,7 @@ async function promoEdit(main, p) {
     $('#frewards').innerHTML = state.rewards.map((r, i) => {
       const opt = OPTIONS.rewards.find(o => o.type === r.type) || OPTIONS.rewards[0];
       const value = opt.field === 'id'
-        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')(OPTIONS.skins.find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
+        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')([...OPTIONS.skins, ...(OPTIONS.private_skins || [])].find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
         : `<input data-i="${i}" data-k="${opt.field}" type="number" min="0" step="${r.type === 'diamonds' ? '0.01' : '1'}" value="${esc(r[opt.field] ?? '')}" placeholder="Сколько"/>`;
       return `<div class="reward">
         <select data-i="${i}" data-k="type">${OPTIONS.rewards.map(o => `<option value="${o.type}" ${o.type === r.type ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select>
@@ -869,7 +877,13 @@ async function promoEdit(main, p) {
   $('#frewards').addEventListener('input', e => { const i = +e.target.dataset.i; if (e.target.dataset.k && e.target.dataset.k !== 'type') state.rewards[i][e.target.dataset.k] = e.target.value; });
   $('#frewards').addEventListener('click', e => {
     const pk = e.target.closest('[data-pick]');
-    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => { state.rewards[+pk.dataset.pick].id = id; drawRewards(); });
+    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => {
+      state.rewards[+pk.dataset.pick].id = id; drawRewards();
+      // Личный образ у одного владельца: сами ставим лимит 1, если админ не выбрал игрока.
+      if ((OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
+        $('#fmax').value = 1; toast('Личный образ: лимит активаций поставлен в 1');
+      }
+    });
   });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
