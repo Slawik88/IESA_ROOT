@@ -47,6 +47,34 @@ async def ensure_schema(db) -> None:
         await db.execute(sql)
 
 
+_ready = False
+
+
+async def _ensure(db) -> None:
+    """Таблица создаётся при старте бота; если старт до неё не дошёл, создаём при первом обращении."""
+    global _ready
+    if not _ready:
+        await ensure_schema(db)
+        _ready = True
+
+
+async def about(db, user_id: int, limit: int = 5) -> dict:
+    """Жалобы на игрока для его карточки в админке. Авторов жалоб здесь нет: жалоба анонимна."""
+    await _ensure(db)
+    async with db.execute(
+        "SELECT status, COUNT(*) FROM bot_reports WHERE target_id = ? GROUP BY status", (user_id,)) as cur:
+        by_status = {r[0]: int(r[1]) for r in await cur.fetchall()}
+    async with db.execute(
+        "SELECT r.id, r.status, r.reason, c.chat_title, r.chat_id, r.created_at FROM bot_reports r "
+        "LEFT JOIN chat_settings c ON c.chat_id = r.chat_id WHERE r.target_id = ? ORDER BY r.id DESC LIMIT ?",
+        (user_id, limit)) as cur:
+        rows = await cur.fetchall()
+    return {"total": sum(by_status.values()), "open": sum(by_status.get(s, 0) for s in OPEN),
+            "confirmed": by_status.get("resolved", 0),
+            "last": [{"id": int(r[0]), "status": r[1], "status_title": STATUS_TITLES.get(r[1], r[1]), "reason": r[2] or "",
+                      "chat": r[3] or str(r[4]), "created_at": r[5].isoformat() if r[5] else None} for r in rows]}
+
+
 async def settings(db) -> dict:
     from bot.chat import settings as bot_settings
     saved = await bot_settings.get_json(db, SETTINGS_KEY, {})

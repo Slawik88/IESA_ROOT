@@ -146,29 +146,39 @@ async def cmd_warn(ctx: Ctx) -> None:
     target, rest = await prepare(ctx, "warn", usage)
     dur, reason = _parse_duration(rest, usage)
     chat_id = ctx.message.chat.id
-    if isinstance(dur, timedelta):
-        await ctx.db.execute(
-            "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason, expires_at) "
-            "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 second'))",
-            (chat_id, target.user_id, ctx.user_id, reason or None, int(dur.total_seconds())),
-        )
-    else:
-        await ctx.db.execute(
-            "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason) VALUES (?, ?, ?, ?)",
-            (chat_id, target.user_id, ctx.user_id, reason or None),
-        )
-    await log(ctx.db, chat_id, target.user_id, ctx.user_id, "warn", reason)
-    await commit(ctx.db)
-    count, limit = len(await active_warns(ctx.db, chat_id, target.user_id)), await warn_limit(ctx.db, chat_id)
+    count, limit = await do_warn(ctx.db, chat_id, target.user_id, ctx.user_id, dur, reason)
     kind = f"на {human(dur)}" if isinstance(dur, timedelta) else "бессрочный"
     await ctx.reply(f"⚠️ <b>{esc(target.label())}</b> получает варн ({count}/{limit}), {kind}." + reason_quote(reason))
     if count >= limit:
-        await send_admin(
-            ctx.bot, ctx.db, chat_id,
-            f"🚨 <b>Лимит варнов превышен</b>\n{esc(target.label())} — {count}/{limit} в «{esc(ctx.message.chat.title)}».\n"
-            "Что сделать?",
-            markup=warn_limit_kb(chat_id, target.user_id),
+        await warn_limit_alert(ctx.bot, ctx.db, chat_id, ctx.message.chat.title, target.user_id, target.label(), count, limit)
+
+
+async def do_warn(db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> tuple[int, int]:
+    """Выдать варн (dur — срок или None, пока не снимут). Возвращает (действующих варнов, лимит чата)."""
+    if isinstance(dur, timedelta):
+        await db.execute(
+            "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason, expires_at) "
+            "VALUES (?, ?, ?, ?, NOW() + (? * INTERVAL '1 second'))",
+            (chat_id, user_id, admin_id, reason or None, int(dur.total_seconds())),
         )
+    else:
+        await db.execute(
+            "INSERT INTO user_warnings (chat_id, user_id, admin_id, reason) VALUES (?, ?, ?, ?)",
+            (chat_id, user_id, admin_id, reason or None),
+        )
+    await log(db, chat_id, user_id, admin_id, "warn", reason)
+    await commit(db)
+    return len(await active_warns(db, chat_id, user_id)), await warn_limit(db, chat_id)
+
+
+async def warn_limit_alert(bot: Bot, db, chat_id: int, chat_title, user_id: int, label: str, count: int, limit: int) -> None:
+    """Лимит варнов достигнут: в админ-чат уходит выбор, что делать дальше."""
+    await send_admin(
+        bot, db, chat_id,
+        f"🚨 <b>Лимит варнов превышен</b>\n{esc(label)} — {count}/{limit} в «{esc(chat_title or chat_id)}».\n"
+        "Что сделать?",
+        markup=warn_limit_kb(chat_id, user_id),
+    )
 
 
 @moderation_command("снять варн", usage="бот снять варн, @ник", summary="Снять последний действующий варн.")

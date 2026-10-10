@@ -85,9 +85,10 @@ async def record_message(db, message: Message) -> None:
         return
     day = local_now().strftime("%Y-%m-%d")
     await db.execute(
-        "INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) "
-        "ON CONFLICT (user_tg_id) DO UPDATE SET user_tg_username = EXCLUDED.user_tg_username",
-        (user.id, user.username),
+        "INSERT INTO users (user_tg_id, user_tg_username, user_tg_name) VALUES (?, ?, ?) "
+        "ON CONFLICT (user_tg_id) DO UPDATE SET user_tg_username = EXCLUDED.user_tg_username, "
+        "user_tg_name = COALESCE(EXCLUDED.user_tg_name, users.user_tg_name)",
+        (user.id, user.username, (getattr(user, "full_name", None) or "").strip()[:128] or None),
     )
     await db.execute(
         "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "

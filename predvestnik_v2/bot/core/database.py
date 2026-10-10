@@ -1179,6 +1179,8 @@ async def _init_features_extra(db):
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE",
         # Когда игрок вернулся в чат после ухода (NULL — не уходил); см. bot/chat/tracking.py
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS rejoined_at TIMESTAMPTZ DEFAULT NULL",
+        # Имя из Telegram (не ник): запоминается с сообщений в чатах, по нему персонал ищет игрока в админке
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_tg_name TEXT DEFAULT NULL",
         # «Стаж VIP» — суммарно оплаченных дней за всё время
         "ALTER TABLE vip_subscriptions ADD COLUMN IF NOT EXISTS total_days INTEGER DEFAULT 0",
         # Прошлый деплой мог уже создать theme_metadata_overrides со старым именем колонки
