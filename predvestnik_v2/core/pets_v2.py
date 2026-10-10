@@ -427,6 +427,7 @@ KEY_EXTRA_CHANCE: Final = 10      # % шанса доп. ключа за пох�
 KEY_EXTRA_NOSE: Final = 8         # «Нюх»: 10 -> 18 %
 KEY_EXTRA_TRACKER: Final = 10     # призвание Следопыт
 KEYS_PER_DAY_MAX: Final = 2
+KEYS_PER_WEEK_MAX: Final = 5      # всего ключей питомцев в неделю (базовые и дополнительные)
 KEY_EXTRA_WEEKLY_MAX: Final = 3   # доп. ключей в неделю (ключи — дорогая валюта: платный ключ стоит 10 Зарников)
 FAVORITE_FOOD: Final = {
     "moss_cat": "food_basic", "stone_beetle": "food_basic", "ash_moth": "food_fried", "dusk_hare": "food_basic",

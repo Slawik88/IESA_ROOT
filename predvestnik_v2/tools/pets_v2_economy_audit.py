@@ -44,6 +44,7 @@ def month(hours_list, days, build, rng, level=12):
     res = {"mora": 0.0, "diamonds": 0.0, "essence": 0.0, "keys": 0.0, "xp": 0.0}
     week_diamond = {}
     week_extra = {}
+    week_keys = {}
     for day in range(days):
         finds = {"mora": 0.0, "diamond": 0.0, "essence": 0.0}
         keys = 0
@@ -62,10 +63,12 @@ def month(hours_list, days, build, rng, level=12):
                 finds[c] += allowed
                 if c == "diamond":
                     week_diamond[day // 7] = wk + allowed
-            if i == 0 and keys < 1:
+            if i == 0 and keys < 1 and week_keys.get(day // 7, 0) < p.KEYS_PER_WEEK_MAX:
                 keys += 1
-            if keys < p.KEYS_PER_DAY_MAX and week_extra.get(day // 7, 0) < p.KEY_EXTRA_WEEKLY_MAX and rng.random() * 100 < fx["extra_key_chance"]:
+                week_keys[day // 7] = week_keys.get(day // 7, 0) + 1
+            if keys < p.KEYS_PER_DAY_MAX and week_keys.get(day // 7, 0) < p.KEYS_PER_WEEK_MAX and week_extra.get(day // 7, 0) < p.KEY_EXTRA_WEEKLY_MAX and rng.random() * 100 < fx["extra_key_chance"]:
                 keys += 1
+                week_keys[day // 7] = week_keys.get(day // 7, 0) + 1
                 week_extra[day // 7] = week_extra.get(day // 7, 0) + 1
             raw = p.run_xp_raw(h, repeats_today=i) * fx["xp_mult"]
             res["xp"] += p.pool_credit(raw_today, raw); raw_today += raw

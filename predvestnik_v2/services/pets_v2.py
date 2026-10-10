@@ -351,8 +351,9 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         key_granted = 0
         if run["kind"] != "watch":
             keys_today = int(finds.get("key", 0))
+            keys_week = await repo.week_find_total(db, user_id, day, "key")
             for label in ("base", "extra"):
-                if keys_today >= rules.KEYS_PER_DAY_MAX:
+                if keys_today >= rules.KEYS_PER_DAY_MAX or keys_week >= rules.KEYS_PER_WEEK_MAX:
                     break
                 if label == "base" and keys_today >= 1:
                     continue
@@ -370,6 +371,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
                     ok = False
                 if ok:
                     keys_today += 1
+                    keys_week += 1
                     key_granted += 1
                     if label == "extra":
                         finds["key_extra"] = float(finds.get("key_extra", 0)) + 1

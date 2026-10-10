@@ -162,6 +162,13 @@ async def run(dsn: str) -> None:
             await finish_now(db, started_key["run_id"])
             keys += (await service.claim_run(db, user_id=user, run_id=started_key["run_id"], action_id=f"kc{i}", rng=rng))["key"]
         assert 1 <= keys <= rules.KEYS_PER_DAY_MAX, f"1-2 keys per day, got {keys}"
+        # недельный лимит: ещё несколько «дней» подряд не дают больше KEYS_PER_WEEK_MAX
+        await db.execute("UPDATE pet_v2_daily SET finds=jsonb_set(finds,'{key}',to_jsonb(?::int)) WHERE user_id=?", (rules.KEYS_PER_WEEK_MAX, user))
+        await db.execute("UPDATE pet_v2_state SET energy=? WHERE user_id=? AND pet_id=?", (rules.energy_max(1, "stone_beetle"), user, beetle))
+        capped = await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id="kcap")
+        await finish_now(db, capped["run_id"])
+        assert (await service.claim_run(db, user_id=user, run_id=capped["run_id"], action_id="kcapc", rng=rng))["key"] == 0, "weekly key cap"
+        keys += 0
         async with db.execute("SELECT COALESCE(SUM(balance),0) FROM chest_key_accounts_v1 WHERE user_id=?", (user,)) as c:
             assert (await c.fetchone())[0] == keys
         # билды: слоты, призвание, цена замены, талисманы, идемпотентность
