@@ -9,6 +9,7 @@ css = (STATIC / "shell-v3.css").read_text(encoding="utf-8")
 home = (STATIC / "app.15.js").read_text(encoding="utf-8")
 hub = (STATIC / "app.04.js").read_text(encoding="utf-8")
 index = (STATIC / "index.html").read_text(encoding="utf-8")
+app = (STATIC / "app.01.js").read_text(encoding="utf-8")
 flags = (ROOT / "infrastructure/repositories/system_flags.py").read_text(encoding="utf-8")
 
 # Every game shown in the hub is controlled by a real server flag.
@@ -44,6 +45,11 @@ assert "input, textarea" in css and "user-select: text" in css
 # Navigation and honest copy.
 assert index.count('type="button" class="nb') == 7
 assert 'role="status"' in index and "dev-notice" in index
+assert 'id="app-update-banner"' in index and "applyAppUpdate()" in index
+assert "event?.type === 'app_version'" in app and "event?.type === 'data_changed'" in app
+assert "event?.type === 'notification_pending'" in app and "queueDynamicRefresh" in app
+assert "setInterval(refreshCurrBar" not in app, "dynamic player data must stay push-driven"
+assert "bottom: calc(82px + var(--v3-safe-b))" in css and "@keyframes appUpdateRise" in css
 assert "/vip/" not in home and "Магазине" not in (STATIC / "app.02.js").read_text(encoding="utf-8").split("function showCurrModal", 1)[1][:2500]
 # Skin tiers: server contract, cumulative fx classes, motion budget in the tier stylesheet.
 skins_src = (ROOT / "core/skins_v3.py").read_text(encoding="utf-8")

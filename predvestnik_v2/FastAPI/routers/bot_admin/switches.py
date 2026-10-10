@@ -52,6 +52,9 @@ def _is_developer(request: Request) -> bool:
     init = request.headers.get("x-init-data", "")
     user = verify_webapp_data(init) if init else None
     uid = int(user["id"]) if user else verify_session_token(request.headers.get("x-session-token", ""))
+    if not uid:   # загрузка страницы: заголовков нет, есть кука, выданная админкой
+        from FastAPI.routers.bot_admin.auth import DEV_COOKIE
+        uid = verify_session_token(request.cookies.get(DEV_COOKIE, ""))
     return bool(_DEV_ID) and uid == _DEV_ID
 
 

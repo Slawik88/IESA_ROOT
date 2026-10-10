@@ -47,8 +47,13 @@ assert chat_help.main_keyboard(1).inline_keyboard
 print("OK: help")
 
 # Подсказки при опечатке: лучшая первой, основные названия, без слабого шума.
-assert parse(real, "бот деньги").suggestions[0] == "баланс"            # по смыслу
-assert parse(real, "бот ban, @user").suggestions == ("бан",)           # латиница
+assert parse(real, "бот валюта").suggestions[0] == "баланс"            # по смыслу
+assert parse(real, "бот kik, @user").suggestions == ("кик",)           # латиница
+assert parse(real, "бот деньги").command.name == "баланс"              # алиасы
+assert parse(real, "бот ban, @user").command.name == "бан"
+assert parse(real, "бот выгнать из семьи, @user").command.name == "семья выгнать"
+assert parse(real, "бот дать пять").command.name == "дать пять"
+assert "<i>Также:</i> выгнать · кикнуть · kick" in chat_help.section_text("moderation")
 assert parse(real, "бот снять мту").suggestions[0] == "снять мут"      # опечатка в двух словах
 assert parse(real, "бот санкц").suggestions == ("санкции",)            # начало слова
 assert parse(real, "бот ачивк").suggestions == ("достижения",)         # синоним
@@ -64,7 +69,8 @@ assert ranks.check_assign(7, 2, 9) is not None          # владельца н�
 assert ranks.check_assign(6, 6, 2) is not None          # равному нельзя
 assert ranks.check_assign(6, 2, 6) is not None          # свой ранг выдать нельзя
 assert ranks.check_assign(6, 2, 5) is None
-assert ranks.check_assign(ranks.DEV_LEVEL, 8, 8) is None  # разработчик может всё, кроме владельца
+assert ranks.check_assign(ranks.DEV_LEVEL, 8, 8) is None  # разработчик может всё
+assert ranks.check_assign(ranks.DEV_LEVEL, 2, 9) is None  # и назначить владельца
 assert parse(real, "бот снять ранг, @user").command.name == "снять ранг"
 assert parse(real, "бот ранг @user 4").command.name == "ранг"
 print("OK: ranks")

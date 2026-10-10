@@ -32,12 +32,14 @@ STATEMENTS = (
 
 # Подписи действий в журнале: и из админки, и из чата (moderation_logs).
 ACTION_TITLES = {
-    "rank": "Глобальная роль", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
+    "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
     "global_ban": "Бан во всех чатах", "global_unban": "Снят бан во всех чатах",
     "close": "Чат закрыт", "open": "Чат открыт", "warn_limit": "Лимит варнов", "message": "Сообщение от бота",
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
+    "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
+    "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
 }
 
 
@@ -113,7 +115,7 @@ async def search(db, q: str, limit: int = 20) -> dict:
             chats = [_chat_row(r) for r in await cur.fetchall()]
         return {"players": players, "chats": chats}
     digits = q.lstrip("-")
-    if digits.isdigit():
+    if digits.isdigit() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
         n = int(q)
         ids = {n, -n} | ({-1000000000000 - abs(n)} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)
@@ -152,10 +154,16 @@ def describe(action: str, d: dict) -> str:
         return f"на {_days(d['days'])}" if d.get("days") else "пока не снимут"
     if action == "rank":
         return f"{d.get('from', '')} → {d.get('to', '')}"
+    if action in ("mark_grant", "mark_revoke"):
+        return str(d.get("mark", ""))
     if action == "warn_limit":
         return str(d.get("value", ""))
     if action == "message":
         return f"«{d.get('text', '')}»"
+    if action.startswith("report_"):
+        return f"№{d.get('report', '')}"
+    if action == "broadcast":
+        return f"{d.get('audience', '')}, {d.get('total', 0)} получ.: «{d.get('text', '')}»"
     return ""
 
 

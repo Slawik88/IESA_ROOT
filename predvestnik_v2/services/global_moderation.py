@@ -106,6 +106,10 @@ async def global_ban(bot, db, user_id: int, actor_id: int, reason: str = "") -> 
         try:
             await bot.ban_chat_member(chat_id, user_id)
             done += 1
+            # Запоминаем, где бан поставил именно глобальный бан: снимать будем только там.
+            await db.execute(
+                "INSERT INTO moderation_logs (chat_id, user_id, admin_id, action) VALUES (?, ?, ?, 'global_ban_chat')",
+                (chat_id, user_id, actor_id))
         except Exception as exc:   # бота могли выгнать из чата или лишить прав
             logger.debug(f"global ban {user_id} in {chat_id}: {exc}")
             failed += 1
@@ -117,16 +121,25 @@ async def global_ban(bot, db, user_id: int, actor_id: int, reason: str = "") -> 
 
 
 async def global_unban(bot, db, user_id: int, actor_id: int) -> tuple[int, int]:
-    """Снять глобальный бан. Баны отдельных чатов (свои строки в chat_blacklist) остаются."""
+    """Снять глобальный бан только в тех чатах, где его поставил глобальный бан.
+
+    Баны отдельных чатов — из бота (chat_blacklist) или руками в Telegram — остаются.
+    """
+    async with db.execute(
+        "SELECT added_at FROM chat_blacklist WHERE chat_id = ? AND user_id = ?", (GLOBAL_CHAT, user_id)) as cur:
+        row = await cur.fetchone()
+    since = row[0] if row else None
     await db.execute("DELETE FROM chat_blacklist WHERE chat_id = ? AND user_id = ?", (GLOBAL_CHAT, user_id))
+    async with db.execute(
+        "SELECT DISTINCT chat_id FROM moderation_logs WHERE user_id = ? AND action = 'global_ban_chat' "
+        "AND (?::timestamp IS NULL OR created_at >= ?::timestamp - INTERVAL '1 minute')", (user_id, since, since)) as cur:
+        banned_here = {int(r[0]) for r in await cur.fetchall()}
     async with db.execute(
         "SELECT chat_id FROM chat_blacklist WHERE user_id = ? AND chat_id <> ? "
         "AND (expires_at IS NULL OR expires_at > NOW())", (user_id, GLOBAL_CHAT)) as cur:
         keep = {int(r[0]) for r in await cur.fetchall()}
     done = failed = 0
-    for chat_id in await _known_chats(db):
-        if chat_id in keep:
-            continue
+    for chat_id in sorted(banned_here - keep):
         try:
             await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
             done += 1

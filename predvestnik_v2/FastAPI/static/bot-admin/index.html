@@ -13,7 +13,12 @@
   <div class="who" id="who"></div>
 </header>
 <nav class="tabs" id="tabs"></nav>
-<main id="main"><div class="empty">Загрузка…</div></main>
+<main id="main"><section class="admin-load" role="status" aria-live="polite">
+  <div class="load-sigil" aria-hidden="true"><i></i><span>✦</span></div>
+  <div class="load-copy"><small>Предвестник · синхронизация</small><h2>Открываем пульт</h2><p>Проверяем доступ и собираем разделы</p></div>
+  <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
+</section></main>
 <div class="sheet-back" id="sheet" hidden></div>
 <div class="toast" id="toast" hidden></div>
 <script>window.ADMIN_BASE = "{{BASE}}";</script>

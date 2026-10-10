@@ -1,7 +1,7 @@
 // ── Настройки: полноэкранная страница в стиле каркаса v3 ─────────────────────────
 // Секции без карточек: внешний вид, приватность («был(а) в сети»), уведомления, документы, вход, аккаунт.
 // Всё сохраняется сразу; опасное (удаление аккаунта) вынесено вниз и идёт через подтверждения (_acc* в app.02.js).
-const _ST = { presence: null, notif: null, account: null, failed: {}, busy: '' };
+const _ST = { presence: null, notif: null, warps: null, account: null, failed: {}, busy: '' };
 const _stSec = (title, body, hint) => `<section class="st-sec"><div class="v3-sec"><span class="v3-eyebrow">${title}</span></div>${body}${hint ? `<p class="st-hint">${hint}</p>` : ''}</section>`;
 const _stLine = (n = 3) => Array.from({ length: n }, () => '<div class="sk" style="height:44px;border-radius:12px;margin-top:8px"></div>').join('');
 const _stFail = (key, what) => `<div class="v3-empty">${what} не загрузились. <button type="button" class="v3-link" onclick="_stLoad('${key}')">Повторить</button></div>`;
@@ -18,10 +18,10 @@ function _stSeg(items, current, fn, label) {
 function openSettingsModal() {
   switchPage('settings');
   _stRender();
-  ['presence', 'notif', 'account'].forEach(key => { if (!_ST[key]) _stLoad(key); });
+  ['presence', 'notif', 'warps', 'account'].forEach(key => { if (!_ST[key]) _stLoad(key); });
 }
 function _stLoad(key) {
-  const calls = { presence: ['/presence-v1/settings', 'Настройки приватности'], notif: ['/profile/notification-prefs', 'Уведомления'], account: ['/account/deletion-status', 'Настройки аккаунта'] };
+  const calls = { presence: ['/presence-v1/settings', 'Настройки приватности'], notif: ['/profile/notification-prefs', 'Уведомления'], warps: ['/profile/warp-prefs', 'Варпы'], account: ['/account/deletion-status', 'Настройки аккаунта'] };
   _ST.failed[key] = false; _stRender();
   return api(calls[key][0]).then(d => { _ST[key] = d; }).catch(() => { _ST.failed[key] = true; }).finally(_stRender);
 }
@@ -45,6 +45,17 @@ function _stNotif() {
   const list = _ST.notif.categories || [];
   return list.length ? list.map(c => _stSwitch(_profileEsc(c.label), 'Личные сообщения от бота', !!c.enabled, `_stNotifSet('${_profileEsc(c.key)}',this.checked)`)).join('') : '<div class="v3-empty">Категорий уведомлений пока нет.</div>';
 }
+function _stWarps() {
+  if (_ST.failed.warps) return _stFail('warps', 'Варпы');
+  if (!_ST.warps) return _stLine(1);
+  return _stSwitch('18+ варпы в мой адрес', 'Разрешить другим игрокам взрослые варп-команды на вас. В чате: «бот 18+ вкл» / «бот 18+ выкл».', !!_ST.warps.adult, '_stWarpsSet(this.checked)');
+}
+function _stWarpsSet(on) {
+  const before = _ST.warps; _ST.warps = { adult: on }; _haptic('select');
+  api('/profile/warp-prefs', { method: 'POST', body: JSON.stringify({ enabled: on }) })
+    .then(d => { _ST.warps = d; toast('Сохранено'); })
+    .catch(e => { _ST.warps = before; toast(e, false); _stRender(); });
+}
 function _stAccount() {
   if (_ST.failed.account) return _stFail('account', 'Настройки аккаунта');
   const d = _ST.account; if (!d) return _stLine(2);
@@ -64,6 +75,7 @@ function _stRender() {
     ${_stSec('Внешний вид', _stRow('Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)') + _stSwitch('Чёрный фон', 'Для OLED-экранов: фон полностью чёрный, цвета образа остаются.', _dispGet('pv_oled'), '_toggleOled(this.checked)') + _stSwitch('Крупный текст', 'Весь текст и элементы на экранах чуть крупнее.', _dispGet('pv_big'), '_toggleBig(this.checked)'))}
     ${_stSec('Приватность', _stPresence())}
     ${_stSec('Уведомления', _stNotif(), 'Здесь настраиваются только личные сообщения от бота.')}
+    ${_stSec('Варпы', _stWarps(), 'Обычные варпы (обнять, погладить) работают всегда. Админы чата могут выключить 18+ во всём чате.')}
     ${_stSec('Промокод', _stRow('Ввести промокод', 'Награда придёт сразу', 'openPromoSheet()'))}
     ${_stSec('Документы', _stRow('Пользовательское соглашение', 'Откроется прямо здесь', "openLegalDoc('tos')") + _stRow('Политика конфиденциальности', 'Откроется прямо здесь', "openLegalDoc('privacy')"))}
     ${login}

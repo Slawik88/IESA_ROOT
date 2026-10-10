@@ -11,6 +11,8 @@ STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS chat_rank SMALLINT",
     # Единственный владелец чата, синхронизируется с Telegram.
     "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_id BIGINT",
+    # Владелец, назначенный разработчиком бота командой «бот ранг, @ник владелец»; важнее телеграмного.
+    "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS owner_override BIGINT",
     # Снятие варна сохраняет историю: строка остаётся, ставится отметка.
     "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMP",
     "ALTER TABLE user_warnings ADD COLUMN IF NOT EXISTS revoked_by BIGINT",
@@ -58,8 +60,10 @@ async def ensure_chat_schema() -> None:
         await skins_v3.ensure_tables(db)   # счёт эссенции: «бот баланс» и семейный кошелёк
         from services.feature_switches import ensure_schema as ensure_switches
         await ensure_switches(db)
-        from services import admin_people, bot_metrics, global_moderation
+        from services import admin_people, bot_metrics, broadcasts, global_moderation, reports
         await bot_metrics.ensure_schema(db)
+        await reports.ensure_schema(db)
+        await broadcasts.ensure_schema(db)
         await global_moderation.ensure_schema(db)
         await admin_people.ensure_schema(db)
         from services.promo_v2 import ensure_schema as ensure_promo

@@ -194,22 +194,25 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]
         if a.id not in stored:
             # Первый подсчёт — тихий (вехи из прошлого оплачиваются молча).
             # ON CONFLICT: параллельный подсчёт уже вставил строку и заплатит сам.
-            async with db.execute(
-                "INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (?, ?, ?) "
-                "ON CONFLICT (user_id, achievement) DO NOTHING RETURNING 1", (user_id, a.id, level)) as cur:
-                if await cur.fetchone():
-                    await pay_milestones(db, user_id, a, 0, level)
+            # Уровень и выплата — одной транзакцией: упавшая выплата не «съест» вехи.
+            async with db.connection.transaction():
+                async with db.execute(
+                    "INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (?, ?, ?) "
+                    "ON CONFLICT (user_id, achievement) DO NOTHING RETURNING 1", (user_id, a.id, level)) as cur:
+                    if await cur.fetchone():
+                        await pay_milestones(db, user_id, a, 0, level)
             continue
         if level <= stored[a.id]:
             continue
         # Объявляет только тот, кто реально поднял уровень (защита от двух сообщений подряд).
-        async with db.execute(
-            "UPDATE chat_achievement_levels SET level = ?, reached_at = NOW() "
-            "WHERE user_id = ? AND achievement = ? AND level < ? RETURNING 1",
-            (level, user_id, a.id, level)) as cur:
-            claimed = await cur.fetchone()
-        if claimed:
-            ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
+        async with db.connection.transaction():
+            async with db.execute(
+                "UPDATE chat_achievement_levels SET level = ?, reached_at = NOW() "
+                "WHERE user_id = ? AND achievement = ? AND level < ? RETURNING 1",
+                (level, user_id, a.id, level)) as cur:
+                claimed = await cur.fetchone()
+            if claimed:
+                ups.append(Up(a, level, await pay_milestones(db, user_id, a, stored[a.id], level)))
     return ups
 
 
@@ -361,4 +364,4 @@ async def cmd_achievements(ctx: Ctx) -> None:
         names = ", ".join(x.name.lower() for x in ACHIEVEMENTS)
         await ctx.reply(f"Нет такого достижения. Есть: {names}.")
         return
-    await ctx.reply(await card(ctx.db, uid, target.label() if target else "Ваши"))
+    await ctx.reply(await card(ctx.db, uid, html.escape(target.label()) if target else "Ваши"))

@@ -10,6 +10,60 @@ const num = n => Number(n).toLocaleString('ru-RU');
 
 let ME = null;
 const SECTIONS = {};          // key -> render(main)
+const SECTION_META = {
+  start: ['✦', 'Открываем пульт', 'Проверяем доступ и собираем разделы'],
+  people: ['◉', 'Игроки и чаты', 'Поднимаем свежие профили и активность'],
+  reports: ['⚑', 'Жалобы', 'Сверяем очередь и решения команды'],
+  metrics: ['▥', 'Метрики', 'Собираем показатели без кэшированных цифр'],
+  broadcast: ['⌁', 'Рассылка', 'Считаем аудитории и историю отправок'],
+  promo: ['✦', 'Промокоды', 'Проверяем коды, награды и ограничения'],
+  switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
+  settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
+};
+let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
+
+function currentSection() { return $('#tabs .on')?.dataset.tab || 'start'; }
+function clearLoadStages() { _loadStageTimers.forEach(clearTimeout); _loadStageTimers = []; }
+function loadingMarkup(key = currentSection()) {
+  const [icon, title, hint] = SECTION_META[key] || ['✦', 'Загрузка', 'Получаем свежие данные'];
+  return `<section class="admin-load" role="status" aria-live="polite">
+    <div class="load-sigil" aria-hidden="true"><i></i><span>${icon}</span></div>
+    <div class="load-copy"><small>Предвестник · синхронизация</small><h2>${esc(title)}</h2><p>${esc(hint)}</p></div>
+    <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
+  </section>`;
+}
+function showSectionLoading(main, key = currentSection()) {
+  clearLoadStages(); main.setAttribute('aria-busy', 'true'); main.innerHTML = loadingMarkup(key);
+  const stage = () => main.querySelector('.load-stage span');
+  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Читаем актуальные данные'; }, 900));
+  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Ответ занимает чуть больше времени'; }, 4000));
+}
+function showLoadError(main, key, error, retry) {
+  clearLoadStages(); main.setAttribute('aria-busy', 'false');
+  const timedOut = error?.name === 'AbortError';
+  main.innerHTML = `<section class="admin-load load-failed" role="alert">
+    <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
+    <div class="load-copy"><small>Связь прервалась</small><h2>${timedOut ? 'Сервер отвечает слишком долго' : 'Раздел не загрузился'}</h2>
+      <p>${esc(timedOut ? 'Мы остановили ожидание, чтобы экран не завис навсегда.' : (error?.message || 'Попробуйте ещё раз.'))}</p></div>
+    <button type="button" class="btn primary load-retry">Повторить</button>
+  </section>`;
+  main.querySelector('.load-retry').onclick = () => { showSectionLoading(main, key); retry(); };
+}
+async function loadSectionData(main, path, retry, key = currentSection()) {
+  if (_viewAbort) _viewAbort.abort();
+  const controller = new AbortController(), request = ++_viewRequest;
+  _viewAbort = controller;
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try { return await api(path, {signal: controller.signal}); }
+  catch (error) {
+    if (request !== _viewRequest) return null;
+    showLoadError(main, key, error, retry); return null;
+  } finally {
+    clearTimeout(timeout);
+    if (request === _viewRequest) { _viewAbort = null; clearLoadStages(); main.setAttribute('aria-busy', 'false'); }
+  }
+}
 
 async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
@@ -39,10 +93,11 @@ function tabs(active) {
 
 function open(key) {
   if (TG && TG.BackButton) TG.BackButton.hide();
+  if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
   const render = SECTIONS[key];
-  $('#main').innerHTML = '<div class="empty">Загрузка…</div>';
+  showSectionLoading($('#main'), key);
   if (render) render($('#main'));
 }
 
@@ -93,14 +148,24 @@ function actionForm(key, ctx) {
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
       () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
-              request_id: (crypto.randomUUID && crypto.randomUUID()) || String(Date.now())})];
+              request_id: ctx._rid})];
     case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
-      () => ({days: +v('fdays'), reason: v('freason')})];
+      () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
     case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
+    case 'mark_grant': {
+      const have = new Set(ctx.marks.given.map(m => m.id));
+      const free = ctx.marks.grantable.filter(m => !have.has(m.id));
+      return [`<div class="field"><label>Метка (в профиле — «Регалии»)</label><select id="fmark">
+        ${free.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)} — ${esc(m.desc)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
+    }
+    case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
+        ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
+        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
     case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
     case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
@@ -110,6 +175,8 @@ function actionForm(key, ctx) {
 }
 
 function runAction(action, target, ctx, extra, after) {
+  // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
+  ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
   const [body, collect] = actionForm(action.key, ctx);
   const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
   sheet(action.title, place + body, 'Выполнить', async () => {
@@ -180,7 +247,10 @@ async function peopleSearch(main, query = '') {
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
     PEOPLE.query = q;
-    const {players, chats} = await api(`/search?q=${encodeURIComponent(q.trim())}`);
+    const host = $('#pplres'); if (!host) return;
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}`, () => load(q), 'people');
+    if (!data) return;
+    const {players, chats} = data;
     const head = q.trim() ? '' : '<div class="sub" style="margin-bottom:8px">Недавно активные</div>';
     $('#pplres').innerHTML = head + `
       <h3 class="sec">Игроки · ${players.length}</h3>
@@ -200,11 +270,11 @@ async function peopleSearch(main, query = '') {
     if (p) playerView(main, +p.dataset.player);
     else if (c) chatView(main, +c.dataset.chat);
   };
-  load(query).catch(e => toast(e.message, true));
+  load(query);
 }
 
 async function playerView(main, id, push = true, from = null) {
-  const p = await api(`/player/${id}`).catch(e => { toast(e.message, true); return null; });
+  const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
   if (!p) return;
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => playerView(main, id, false);
@@ -220,6 +290,24 @@ async function playerView(main, id, push = true, from = null) {
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  const mk = p.marks || {given: [], earned: [], grantable: []};
+  // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
+  const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
+  hide.add('mark_grant'); hide.add('mark_revoke');
+  const held = new Set(mk.given.map(m => m.id));
+  const free = mk.grantable.filter(m => !held.has(m.id));
+  const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
+  const marksCard = `<div class="card"><h3>🏅 Метки · в профиле игрока это «Регалии»</h3>
+      <h3 class="sec">Выданы · ${mk.given.length}</h3>
+      ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
+        : '<div class="sub">Пока ни одной.</div>'}
+      ${mk.earned.length ? `<h3 class="sec">Заработаны сами · ${mk.earned.length}</h3><div class="chips">${mk.earned.map(m =>
+        `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>
+        <div class="sub">Их выдаёт игра, вручную не снимаются.</div>` : ''}
+      ${canGrant ? `<h3 class="sec">Выдать · нажмите на метку</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
+        `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
+        : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
+    </div>`;
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -245,6 +333,7 @@ async function playerView(main, id, push = true, from = null) {
       ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
+    ${marksCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -262,6 +351,16 @@ async function playerView(main, id, push = true, from = null) {
   const here = {type: 'player', id};
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
+  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
+      <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
+      <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
+    action === 'mark_grant' ? 'Выдать' : 'Снять', async () => {
+      const res = await api(`/player/${id}/action`, {method: 'POST', body: JSON.stringify({action, mark: m.id, reason: ($('#freason') || {}).value})});
+      toast(res.message || 'Готово');
+      const keep = window.scrollY; Promise.resolve(reopen()).then(() => window.scrollTo(0, keep));
+    });
+  main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
+  main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
   main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, p,
       {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));
@@ -270,7 +369,7 @@ async function playerView(main, id, push = true, from = null) {
 }
 
 async function chatView(main, id, push = true, from = null) {
-  const c = await api(`/chat/${id}`).catch(e => { toast(e.message, true); return null; });
+  const c = await loadSectionData(main, `/chat/${id}`, () => chatView(main, id, push, from), 'people');
   if (!c) return;
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => chatView(main, id, false);
@@ -346,8 +445,8 @@ function bars(days, daily, field, title) {
 const tile = (label, value) => `<div><span>${label}</span><b>${value}</b></div>`;
 
 async function metricsView(main, days = 1) {
-  main.innerHTML = '<div class="empty">Считаю…</div>';
-  const m = await api(`/metrics?days=${days}`).catch(e => { toast(e.message, true); return null; });
+  showSectionLoading(main, 'metrics');
+  const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
   const s = m.site, b = m.bot, c = m.chats;
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
@@ -401,6 +500,118 @@ async function metricsView(main, days = 1) {
 
 SECTIONS.metrics = main => metricsView(main);
 
+// ── Жалобы ──────────────────────────────────────────────────────────────────
+
+async function reportsView(main, kind = 'open') {
+  const data = await loadSectionData(main, `/reports?kind=${kind}`, () => reportsView(main, kind), 'reports');
+  if (!data) return;
+  const c = data.counts;
+  const canPeople = ME.sections.some(z => z.key === 'people');
+  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
+  const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
+  main.innerHTML = `
+    <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
+      <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
+    ${data.items.length ? data.items.map(r => `<div class="card">
+      <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
+        <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
+      <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
+        <span class="sub">от ${person(r.reporter)}</span></div>
+      <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
+      ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
+      ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
+      ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
+        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">⚖️ Наказать</button>` : ''}
+        ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
+        <button class="btn small primary" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
+        <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>` : ''}
+    </div>`).join('') : `<div class="empty">${kind === 'open' ? 'Очередь пуста.' : 'Закрытых жалоб пока нет.'}</div>`}`;
+  main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
+  main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {
+    e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +a.dataset.player);
+  });
+  const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
+  main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
+    const act = b.dataset.act;
+    const body = act === 'take' ? '<div class="sub">Жалоба будет помечена как ваша.</div>'
+      : `<div class="sub" style="margin-bottom:8px">Автору жалобы бот напишет в личку, чем всё закончилось.
+         Наказать нарушителя можно кнопкой «Наказать» (карточка игрока).</div>
+         <div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>`;
+    sheet(titles[act], body, 'Готово', async () => {
+      const res = await api(`/reports/${b.dataset.rep}`, {method: 'POST',
+        body: JSON.stringify({action: act, note: ($('#fnote') || {}).value || ''})});
+      toast(res.message || 'Готово');
+      reportsView(main, kind);
+    });
+  });
+}
+
+SECTIONS.reports = main => reportsView(main);
+
+// ── Рассылка ─────────────────────────────────────────────────────────────────
+
+// Предпросмотр HTML Telegram: всё экранируется, обратно включаются только теги, которые понимает Telegram.
+function tgHtml(text) {
+  return esc(text)
+    .replace(/&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g, '<$1$2>')
+    .replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/g, '<a href="$1" target="_blank" rel="noopener">')
+    .replace(/&lt;\/a&gt;/g, '</a>');
+}
+
+async function broadcastView(main) {
+  const data = await loadSectionData(main, '/broadcasts', () => broadcastView(main), 'broadcast');
+  if (!data) return;
+  const running = data.items.some(b => b.status === 'running');
+  main.innerHTML = `
+    <div class="card"><h3>📣 Новая рассылка</h3>
+      <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
+        `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
+      <label class="sub" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="bhtml" checked/> HTML-разметка Telegram</label>
+      <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
+      <div class="sub" style="margin-top:6px">Предпросмотр</div><div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
+      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
+      <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
+        <button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
+      ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
+    </div>
+    <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
+      <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
+        ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
+        <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
+        <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
+  const html = () => $('#bhtml').checked;
+  const draw = () => { const t = $('#btext').value; $('#bprev').innerHTML = html() ? tgHtml(t) : esc(t); $('#bhelp').hidden = !html(); };
+  $('#btext').oninput = draw; $('#bhtml').onchange = draw; draw();
+  $('#btest').onclick = async () => {
+    const text = $('#btext').value.trim();
+    if (!text) { toast('Напишите текст.', true); return; }
+    $('#btest').disabled = true;
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: html()})})).message); }
+    catch (e) { toast(e.message, true); }
+    $('#btest').disabled = false;
+  };
+  $('#bgo').onclick = () => {
+    const audience = $('#baud').value, text = $('#btext').value.trim(), isHtml = html();
+    if (!text) { toast('Напишите текст.', true); return; }
+    const a = data.audiences.find(x => x.key === audience);
+    const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
+    sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
+      <div class="card" style="white-space:pre-wrap">${isHtml ? tgHtml(text) : esc(text)}</div>`, 'Отправить', async () => {
+      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, html: isHtml, request_id: rid})});
+      toast(res.message || 'Запущено');
+      broadcastView(main);
+    });
+  };
+  main.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => {
+    try { toast((await api(`/broadcasts/${b.dataset.stop}/stop`, {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
+    broadcastView(main);
+  });
+  if (running) setTimeout(() => { if ($('#bgo') && document.body.contains(main) && $('#tabs .on')?.dataset.tab === 'broadcast') broadcastView(main); }, 4000);
+}
+
+SECTIONS.broadcast = main => broadcastView(main);
+
 // ── Промокоды ────────────────────────────────────────────────────────────────
 
 let OPTIONS = null;
@@ -428,7 +639,10 @@ async function promoList(main, query = '') {
   let timer;
   $('#pq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
-    const {items} = await api(`/promo?q=${encodeURIComponent(q)}`);
+    const host = $('#plist'); if (!host) return;
+    const data = await loadSectionData(host, `/promo?q=${encodeURIComponent(q)}`, () => load(q), 'promo');
+    if (!data) return;
+    const {items} = data;
     $('#plist').innerHTML = items.length ? items.map(p => `
       <div class="row" data-code="${esc(p.code)}">
         <div class="head"><span class="code">${esc(p.code)}</span>${promoStatus(p)}</div>
@@ -439,11 +653,11 @@ async function promoList(main, query = '') {
       </div>`).join('') : '<div class="empty">Промокодов нет</div>';
     for (const row of main.querySelectorAll('[data-code]')) row.onclick = () => promoView(main, row.dataset.code);
   }
-  load(query).catch(e => toast(e.message, true));
+  load(query);
 }
 
 async function promoView(main, code) {
-  const p = await api(`/promo/${encodeURIComponent(code)}`).catch(e => { toast(e.message, true); return null; });
+  const p = await loadSectionData(main, `/promo/${encodeURIComponent(code)}`, () => promoView(main, code), 'promo');
   if (!p) return;
   main.innerHTML = `
     <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
@@ -657,7 +871,7 @@ SECTIONS.promo = main => promoList(main);
 // ── Функции: выключатели бота и сайта ────────────────────────────────────────
 
 async function switchesView(main, chat = null) {
-  const data = await api(`/switches?chat_id=${chat ? chat.id : 0}`).catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, `/switches?chat_id=${chat ? chat.id : 0}`, () => switchesView(main, chat), 'switches');
   if (!data) return;
   const off = data.state;   // {global: {key: {reason}}, chat: {...}}
   const scopeName = chat ? `в чате «${esc(chat.title)}»` : 'везде';
@@ -729,7 +943,7 @@ SECTIONS.switches = main => switchesView(main);
 // ── Настройки бота ───────────────────────────────────────────────────────────
 
 async function settingsView(main) {
-  const data = await api('/settings').catch(e => { toast(e.message, true); return null; });
+  const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
   main.innerHTML = `
     <div class="card"><h3>Переводы между игроками</h3>
@@ -754,6 +968,7 @@ SECTIONS.settings = main => settingsView(main);
 
 (async () => {
   if (TG) { try { TG.ready(); TG.expand(); } catch (_) {} }
+  showSectionLoading($('#main'), 'start');
   try {
     ME = await api('/me');
   } catch (e) {

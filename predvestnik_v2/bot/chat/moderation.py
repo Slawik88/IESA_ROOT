@@ -421,6 +421,47 @@ async def cmd_unimmune(ctx: Ctx) -> None:
     await ctx.reply(f"✅ С {esc(target.label())} снят иммунитет.")
 
 
+def _local(dt: datetime) -> datetime:
+    from bot.chat.tracking import tz_delta
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt + tz_delta()
+
+
+async def protected(db, chat_id: int) -> list[tuple[int, str | None, bool, datetime | None]]:
+    """Кто в чате под иммунитетом или защитой: (id, ник, иммунитет, защита до)."""
+    async with db.execute(
+        "SELECT s.user_tg_id, u.user_tg_username, COALESCE(s.is_immune, FALSE), "
+        "CASE WHEN s.immune_until > NOW() THEN s.immune_until END "
+        "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
+        "WHERE s.chat_tg_id = ? AND COALESCE(s.is_left, FALSE) = FALSE "
+        "AND (s.is_immune OR s.immune_until > NOW()) "
+        "ORDER BY COALESCE(s.is_immune, FALSE) DESC, s.immune_until DESC NULLS LAST LIMIT 100", (chat_id,)) as cur:
+        return [(int(r[0]), r[1], bool(r[2]), r[3]) for r in await cur.fetchall()]
+
+
+# СТИЛЬ v1 (черновик): иммунитет и защита двумя цитатами, у защиты срок.
+@registry.command(
+    "под защитой", aliases=("защищённые", "защищенные", "кто под защитой", "иммунные"),
+    usage="бот под защитой", private=False, section="moderation",
+    summary="Кто в чате под защитой или иммунитетом и до какого времени.",
+)
+async def cmd_protected(ctx: Ctx) -> None:
+    rows = await protected(ctx.db, ctx.message.chat.id)
+    if not rows:
+        await ctx.reply("🛡 В этом чате сейчас никто не под защитой.")
+        return
+    name = lambda uid, uname: esc(f"@\u200b{uname}" if uname else f"id{uid}")
+    immune = [f"💠 {name(u, n)}" for u, n, imm, _ in rows if imm]
+    shield = [f"🛡 {name(u, n)} · до {_local(t).strftime('%d.%m %H:%M')}" for u, n, imm, t in rows if not imm and t]
+    parts = ["🛡 <b>Под защитой от чистки</b>"]
+    if immune:
+        parts += [f"\n<b>Иммунитет</b> · навсегда · {len(immune)}", quote(immune)]
+    if shield:
+        parts += [f"\n<b>Защита</b> · на время · {len(shield)}", quote(shield)]
+    await ctx.reply("\n".join(parts))
+
+
 async def _set_flag(ctx: Ctx, target: Target, assignment: str, action: str) -> None:
     chat_id = ctx.message.chat.id
     await ctx.db.execute(

@@ -2,6 +2,10 @@ const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
 
 const BASE = (location.origin + location.pathname).replace(/[/]$/, '');
+const APP_VERSION = (() => {
+  try { return new URL(document.currentScript?.src || '', location.href).searchParams.get('v') || ''; }
+  catch (_) { return ''; }
+})();
 
 // el() defined here — BEFORE any usage to avoid TDZ ReferenceError
 const el = id => document.getElementById(id);
@@ -197,6 +201,8 @@ function switchTgAccount(){
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 let _ws=null, _wsTries=0, _wsTimer=0, _balanceEventTimer=0, _pendingBalanceEvent=null;
+let _dynamicEventTimer=0;
+const _dynamicScopes=new Set();
 // События сервера (подарок от администрации, подарок супруга, квест) приходят сразу, без повторного открытия приложения.
 // Сервер ждёт initData (внутри Telegram) или токен сессии (браузер), шлёт JSON и отвечает на "ping". Обрыв: переподключение с нарастающей паузой, пока вкладка видна.
 function connectWS() {
@@ -213,7 +219,19 @@ function connectWS() {
       try { if(typeof refreshCurrBar==='function') refreshCurrBar(); } catch (_) {}
       return;
     }
+    if (event?.type === 'app_version') { showAppUpdate(event.version); return; }
     if (event?.type === 'balance_changed') { queueLiveBalance(event); return; }
+    if (event?.type === 'notification_pending') {
+      loadPendingNotifications(); queueDynamicRefresh('notification'); return;
+    }
+    if (event?.type === 'data_changed') { queueDynamicRefresh(event.scope || 'profile'); return; }
+    if (event?.type === 'activity_changed') {
+      if (_profileData) {
+        _profileData.messages_all_time = Math.max(0, Number(_profileData.messages_all_time || 0) + Number(event.messages_delta || 0));
+        try { _profileSyncStats(_profileData); } catch (_) {}
+      }
+      queueDynamicRefresh('activity'); return;
+    }
     if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
   };
   ws.onclose = () => {
@@ -224,6 +242,46 @@ function connectWS() {
 }
 setInterval(() => { if (_ws && _ws.readyState === 1) { try { _ws.send('ping'); } catch (e) { /* закроется само */ } } }, 25000);   // keep-alive: прокси рвут молчащие соединения
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !_ws) connectWS(); });
+function showAppUpdate(version){
+  const v=String(version||'');
+  if(!v || !APP_VERSION || v===APP_VERSION)return;
+  try{if(sessionStorage.getItem('pv_update_later')===v)return;}catch(_){}
+  const banner=el('app-update-banner');if(!banner)return;
+  banner.dataset.version=v;banner.hidden=false;
+}
+function dismissAppUpdate(){
+  const banner=el('app-update-banner');if(!banner)return;
+  try{sessionStorage.setItem('pv_update_later',banner.dataset.version||'1');}catch(_){}
+  banner.hidden=true;
+}
+function applyAppUpdate(){location.reload();}
+function queueDynamicRefresh(scope){
+  _dynamicScopes.add(String(scope||'profile'));
+  if(_dynamicEventTimer)clearTimeout(_dynamicEventTimer);
+  _dynamicEventTimer=setTimeout(()=>{
+    _dynamicEventTimer=0;
+    const scopes=new Set(_dynamicScopes);_dynamicScopes.clear();
+    // Один профильный снимок объединяет редкие изменения XP, VIP,
+    // достижений и уведомлений. Тяжёлые экраны читаем лишь когда видны.
+    const needsSnapshot=[...scopes].some(s=>s!=='activity');
+    if(needsSnapshot){
+      try{if(typeof refreshCurrBar==='function')refreshCurrBar();}catch(_){}
+      try{_reactiveSubs.forEach(fn=>{try{fn();}catch(_){}});}catch(_){}
+    }
+    if(scopes.has('quests')){
+      try{if(typeof loadV3Today==='function')loadV3Today();}catch(_){}
+      try{if(_activePage==='questlog'&&typeof openQuestsV1==='function')openQuestsV1();}catch(_){}
+    }
+    if(scopes.has('looks'))try{if(_activePage==='looks'&&typeof openLooksModal==='function')openLooksModal();}catch(_){}
+    if(scopes.has('pets'))try{if(_activePage==='pets'&&typeof openPetsV1==='function')openPetsV1();}catch(_){}
+    if(scopes.has('achievements'))try{if(_activePage==='achievements-v1'&&typeof openAchievementsV1==='function')openAchievementsV1();}catch(_){}
+    if(scopes.has('activity')){
+      try{_v3TopCache={};if(_activePage==='profile'&&typeof v3LazyTop==='function')v3LazyTop();}catch(_){}
+      try{if(_activePage==='top'&&typeof loadTopV3==='function')loadTopV3();}catch(_){}
+      try{if(_activePage==='chat-tracker'&&typeof openChatTracker==='function')openChatTracker();}catch(_){}
+    }
+  },500);
+}
 function queueLiveBalance(event){
   _pendingBalanceEvent={...(_pendingBalanceEvent||{}),...event};
   if(_balanceEventTimer)return;
@@ -240,6 +298,7 @@ function queueLiveBalance(event){
   },80);
 }
 function showWsNotif(event) {
+  queueDynamicRefresh(event.type);
   const titles = {
     expedition_done: '⚔️ Поход завершён!',
     quest_done: '✅ Квест выполнен!',

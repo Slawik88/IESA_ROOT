@@ -1,4 +1,4 @@
-"""PostgreSQL proof for commit-only, user-scoped live balance events."""
+"""PostgreSQL proof for commit-only, user-scoped live player events."""
 from __future__ import annotations
 
 import argparse
@@ -64,12 +64,15 @@ async def main() -> None:
     assert event["type"] == "balance_changed" and event["user_id"] == user_id
     assert float(event["mora"]) >= 17 and float(event["zarniki"]) >= 2
 
-    await writer.execute("UPDATE users SET user_tg_username='still_no_event' WHERE user_tg_id=$1", user_id)
-    try:
-        await asyncio.wait_for(events.get(), timeout=0.15)
-        raise AssertionError("non-balance update emitted an event")
-    except asyncio.TimeoutError:
-        pass
+    await writer.execute("UPDATE users SET user_tg_username='live_profile' WHERE user_tg_id=$1", user_id)
+    profile_event = await asyncio.wait_for(events.get(), timeout=2)
+    assert profile_event == {"type": "data_changed", "user_id": user_id, "scope": "profile"}
+
+    await writer.execute(
+        "INSERT INTO web_notifications(user_id,payload) VALUES($1,'{}')", user_id
+    )
+    pending_event = await asyncio.wait_for(events.get(), timeout=2)
+    assert pending_event == {"type": "notification_pending", "user_id": user_id}
 
     await writer.execute(
         "UPDATE skins_v3_essence_accounts SET balance=balance+5 WHERE user_id=$1", user_id
@@ -92,7 +95,7 @@ async def main() -> None:
     await listener.remove_listener(balance_events.CHANNEL, receive)
     await listener.close()
     await writer.close()
-    print("OK: live balance events are scoped, transactional and polling-free")
+    print("OK: live player events are scoped, transactional and polling-free")
 
 
 if __name__ == "__main__":

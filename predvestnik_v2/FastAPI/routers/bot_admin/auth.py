@@ -1,9 +1,11 @@
 """Кто открыл админку и что ему можно."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+import os
 
-from FastAPI.auth import verify_session_token, verify_webapp_data
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
+
+from FastAPI.auth import create_session_token, verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from infrastructure.preprod import require_preprod_user
@@ -11,7 +13,9 @@ from infrastructure.preprod import require_preprod_user
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 SECTIONS: dict[str, tuple[str, int]] = {
     "people": ("Игроки и чаты", 2),
+    "reports": ("Жалобы", 2),
     "metrics": ("Метрики", 4),
+    "broadcast": ("Рассылка", 5),
     "promo": ("Промокоды", 5),
     "switches": ("Функции", 5),
     "settings": ("Настройки", 5),
@@ -46,8 +50,16 @@ def section(key: str):
     return check
 
 
+# Кука разработчика: при выключенном сайте обычная загрузка страниц идёт без заголовков
+# авторизации, и только по ней site_gate узнаёт разработчика (switches._is_developer).
+DEV_COOKIE = "pv_admin_dev"
+
+
 @router.get("/me")
-async def me(user=Depends(staff_user)):
+async def me(response: Response, user=Depends(staff_user)):
+    if user["rank"] >= CREATOR:
+        response.set_cookie(DEV_COOKIE, create_session_token(user["id"]), httponly=True, secure=True,
+                            samesite="none", path=(os.getenv("ROOT_PATH", "").rstrip("/") or "/"))
     return {
         "user_id": user["id"], "rank": user["rank"], "rank_name": bot_rank_name(user["rank"]),
         "sections": [{"key": k, "title": t, "min_rank": r} for k, (t, r) in SECTIONS.items() if user["rank"] >= r],

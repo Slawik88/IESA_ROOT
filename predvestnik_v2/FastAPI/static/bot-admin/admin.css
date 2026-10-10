@@ -21,6 +21,30 @@ button, input, select, textarea { font: inherit; color: inherit; }
 main { padding: 18px 20px 80px; max-width: 900px; margin: 0 auto; animation: rise .28s var(--ease) backwards; }
 @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+/* Загрузка — самостоятельное состояние экрана, а не одинокая строка. Оно показывает,
+   что именно синхронизируется, и честно превращается в ошибку через 15 секунд. */
+.admin-load { min-height: min(520px, 66vh); display: grid; place-content: center; justify-items: center; text-align: center; padding: 42px 0; animation: rise .28s var(--ease) backwards; }
+#pplres .admin-load, #plist .admin-load { min-height: 300px; }
+.load-sigil { position: relative; display: grid; place-items: center; width: 74px; height: 74px; margin-bottom: 20px; color: var(--accent); }
+.load-sigil::before, .load-sigil i { content: ""; position: absolute; inset: 5px; border-radius: 50%; border: 1px solid rgba(225,215,255,.22); border-color: color-mix(in srgb, var(--accent) 24%, transparent); }
+.load-sigil::before { border-top-color: var(--accent); animation: loadOrbit 1.35s linear infinite; }
+.load-sigil i { inset: 14px; border-color: rgba(225,215,255,.14); border-color: color-mix(in srgb, var(--accent) 14%, transparent); border-bottom-color: rgba(225,215,255,.58); border-bottom-color: color-mix(in srgb, var(--accent) 58%, transparent); animation: loadOrbit 1.9s linear infinite reverse; }
+.load-sigil span { font-size: 27px; filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 55%, transparent)); animation: loadBreathe 1.5s ease-in-out infinite alternate; }
+.load-copy small { color: var(--muted); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
+.load-copy h2 { margin: 6px 0 4px; font-size: 24px; letter-spacing: -.025em; }
+.load-copy p { max-width: 300px; margin: 0; color: var(--muted); font-size: 13px; }
+.load-map { display: grid; grid-template-columns: 1.5fr .8fr 1.15fr .55fr; gap: 7px; width: min(310px, 78vw); margin-top: 28px; }
+.load-map i { height: 3px; border-radius: 9px; background: var(--line); overflow: hidden; }
+.load-map i::after { content: ""; display: block; width: 58%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, transparent, var(--accent), transparent); animation: loadTrace 1.5s var(--ease) infinite; }
+.load-map i:nth-child(2)::after { animation-delay: -.35s; }.load-map i:nth-child(3)::after { animation-delay: -.75s; }.load-map i:nth-child(4)::after { animation-delay: -1.05s; }
+.load-stage { display: flex; align-items: center; gap: 8px; min-height: 20px; margin-top: 13px; color: var(--muted); font-size: 12px; }
+.load-stage > i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 65%, transparent); animation: loadBreathe .8s ease-in-out infinite alternate; }
+.load-failed .load-sigil::before, .load-failed .load-sigil i, .load-failed .load-sigil span { animation: none; }
+.load-failed .load-sigil { color: var(--bad); }.load-failed .load-sigil::before { border-color: color-mix(in srgb, var(--bad) 38%, transparent); }
+.load-failed .load-retry { margin-top: 22px; }
+@keyframes loadOrbit { to { transform: rotate(360deg); } }
+@keyframes loadBreathe { from { opacity: .48; transform: scale(.94); } to { opacity: 1; transform: scale(1.04); } }
+@keyframes loadTrace { from { transform: translateX(-115%); } to { transform: translateX(190%); } }
 .bar { display: flex; gap: 8px; margin-bottom: 12px; }
 .bar input { flex: 1; }
 input, select, textarea { background: transparent; border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px; width: 100%; min-width: 0; min-height: 44px; }
@@ -136,3 +160,14 @@ main > .bar:first-child:has(input) { position: static; margin: 0 0 12px; padding
 .skin-pick { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .skin-pick .skin { width: 120px; flex: none; pointer-events: none; }
 .sheet-skins { max-width: 640px; }
+
+/* Метки в карточке игрока: сетка плиток «нажми, чтобы выдать» */
+.mark-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.mark-tile { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 10px; border-radius: 12px;
+  border: 1px solid var(--line, rgba(255,255,255,.12)); background: var(--card2, rgba(255,255,255,.04)); color: inherit; font: inherit; cursor: pointer; }
+.mark-tile:active { transform: scale(.98); }
+.mark-tile .g { font-size: 24px; line-height: 1.2; }
+.mark-tile small { opacity: .7; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) {
+  .admin-load, .load-sigil::before, .load-sigil i, .load-sigil span, .load-map i::after, .load-stage > i { animation: none; }
+}
