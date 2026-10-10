@@ -356,8 +356,11 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
                     break
                 if label == "base" and keys_today >= 1:
                     continue
-                if label == "extra" and rng.random() * 100 >= fx["extra_key_chance"]:
-                    continue
+                if label == "extra":
+                    if await repo.week_find_total(db, user_id, day, "key_extra") >= rules.KEY_EXTRA_WEEKLY_MAX:
+                        continue
+                    if rng.random() * 100 >= fx["extra_key_chance"]:
+                        continue
                 try:
                     async with db.connection.transaction():
                         ok = await _grant_key(db, user_id, run, label)
@@ -368,6 +371,8 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
                 if ok:
                     keys_today += 1
                     key_granted += 1
+                    if label == "extra":
+                        finds["key_extra"] = float(finds.get("key_extra", 0)) + 1
             if key_granted:
                 finds["key"] = float(keys_today)
 
