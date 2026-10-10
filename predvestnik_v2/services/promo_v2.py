@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 
 from core.economy_contract import CURRENCY_SPECS
-from core.skins_v3_catalog import SKINS
+from core.skins_v3_catalog import SEASONS, SETS, SKINS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories import vip_v2 as vip_v2_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
@@ -68,13 +68,37 @@ def _number(value, *, integer: bool, limit: int, what: str) -> int | Decimal:
     return n
 
 
+TIER_ORDER = ("D", "C", "B", "A", "S", "SS", "SSS")
+_PREVIEW_TOKENS = ("--v3-bg", "--v3-ink", "--v3-dim", "--v3-acc", "--v3-wash", "--acc-rgb")
+
+
+def _skin_row(sid: str, s: dict) -> dict:
+    """Поля для карточки образа в админке: цвета самого образа, название набора и сезона, из чего он состоит."""
+    tokens = s.get("tokens") or {}
+    group = SETS.get(s.get("set") or "")
+    season = SEASONS.get(s.get("season") or "")
+    return {"id": sid, "name": s.get("name", sid), "tier": s.get("tier", ""), "blurb": s.get("blurb", ""),
+            "pal": list(s.get("pal") or ()), "bg": tokens.get("--v3-bg", "#0e0f14"), "wash": tokens.get("--v3-wash", ""),
+            "tokens": {k: tokens[k] for k in _PREVIEW_TOKENS if k in tokens},
+            "kinds": dict(s.get("kinds") or {}), "items": dict(s.get("items") or {}),
+            "frame": (s.get("kinds") or {}).get("frame", "ring"), "season": bool(s.get("season")),
+            "season_name": season["name"] if season else "", "set": s.get("set"),
+            "set_name": group["name"] if group else "", "exclusive": bool(s.get("exclusive"))}
+
+
+def _skin_sort(item: dict) -> tuple:
+    tier = item["tier"]
+    return (TIER_ORDER.index(tier) if tier in TIER_ORDER else len(TIER_ORDER), item["name"])
+
+
 def skin_choices() -> list[dict]:
-    """Образы, которые можно положить в промокод (личные образы — только из консоли, по одному владельцу)."""
-    return [{"id": sid, "name": s.get("name", sid), "tier": s.get("tier", ""), "blurb": s.get("blurb", ""),
-             "pal": list(s.get("pal") or ()), "bg": (s.get("tokens") or {}).get("--v3-bg", "#0e0f14"),
-             "wash": (s.get("tokens") or {}).get("--v3-wash", ""), "frame": (s.get("kinds") or {}).get("frame", "ring"),
-             "season": bool(s.get("season")), "set": s.get("set")}
-            for sid, s in SKINS.items() if not s.get("exclusive")]   # поля превью: админка рисует карточку образа цветами его палитры
+    """Образы, которые можно положить в промокод: все, кроме личных, по возрастанию редкости."""
+    return sorted((_skin_row(sid, s) for sid, s in SKINS.items() if not s.get("exclusive")), key=_skin_sort)
+
+
+def private_skins() -> list[dict]:
+    """Личные образы: в промокод не кладутся (один владелец), в выборе показываются отдельно и неактивными."""
+    return sorted((_skin_row(sid, s) for sid, s in SKINS.items() if s.get("exclusive")), key=_skin_sort)
 
 
 def normalize_rewards(raw) -> list[dict]:

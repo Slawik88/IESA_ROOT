@@ -31,6 +31,7 @@ async def promo_options(user=Depends(_user)):
             {"type": "skin", "title": "✨ Образ", "field": "id"},
         ],
         "skins": promo_v2.skin_choices(),
+        "private_skins": promo_v2.private_skins(),
     }
 
 
