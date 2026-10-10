@@ -39,7 +39,7 @@ ACTION_TITLES = {
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
-    "switch": "Выключатель", "transfer": "Валюты для переводов",
+    "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
 }
@@ -170,6 +170,11 @@ def describe(action: str, d: dict) -> str:
         return f"{d.get('feature', '')} {where} → {'включено' if d.get('enabled') else 'выключено'}"
     if action == "transfer":
         return ", ".join(d.get("currencies") or []) or "переводы выключены"
+    if action == "report_settings":
+        parts = ["админ-чат" if d.get("to_admin_chat") else "", f"личка модераторам чата с ранга {d['dm_chat_rank']}" if d.get("dm_chat_rank") else "",
+                 f"личка персоналу с роли {d['dm_staff_rank']}" if d.get("dm_staff_rank") else "",
+                 f"автора видят с роли {d.get('reporter_min_rank', '')}"]
+        return "; ".join(x for x in parts if x)
     if action.startswith("report_"):
         return f"№{d.get('report', '')}"
     if action == "broadcast":
@@ -216,7 +221,7 @@ FEED_KINDS = {
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer",)),
+    "settings": ("Настройки", ("transfer", "report_settings")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }

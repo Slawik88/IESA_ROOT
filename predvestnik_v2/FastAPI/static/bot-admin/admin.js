@@ -554,11 +554,12 @@ async function reportsView(main, kind = 'open') {
   main.innerHTML = `
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
+    <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
     ${data.items.length ? data.items.map(r => `<div class="card">
       <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
       <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
-        <span class="sub">от ${person(r.reporter)}</span></div>
+        <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
       <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
       ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
       ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
@@ -1038,6 +1039,31 @@ SECTIONS.switches = main => switchesView(main);
 
 // ── Настройки бота ───────────────────────────────────────────────────────────
 
+function reportSettingsCard(data) {
+  const r = data.reports, o = data.report_options;
+  const select = (id, value, list, offTitle) => `<select id="${id}">${offTitle ? `<option value="0" ${!value ? 'selected' : ''}>${offTitle}</option>` : ''}
+    ${list.map(x => `<option value="${x.value}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
+  return `<div class="card" id="repset"><h3>Жалобы</h3>
+    <div class="sub" style="margin-bottom:6px">Жалоба анонимна: игроки в чате и нарушитель не видят, кто пожаловался. Бот убирает команду из чата (нужно право удалять сообщения) и отвечает автору в личку.</div>
+    <div class="sw-row ${r.to_admin_chat ? '' : 'off'}"><div class="t"><b>Отчёт в админ-чат</b><div class="sub">Если к чату привязан админ-чат, жалоба приходит туда без имени автора.</div></div>
+      <label class="toggle"><input type="checkbox" id="rs-admin" ${r.to_admin_chat ? 'checked' : ''}/><span></span></label></div>
+    <div class="field"><label>Отчёт в личку модераторам чата — с ранга в чате</label>${select('rs-chat', r.dm_chat_rank, o.chat_ranks, 'Не писать в личку')}</div>
+    <div class="field"><label>Отчёт в личку персоналу бота — с роли</label>${select('rs-staff', r.dm_staff_rank, o.staff_ranks, 'Не писать в личку')}</div>
+    <div class="field"><label>Автора жалобы в админке видят — с роли</label>${select('rs-see', r.reporter_min_rank, o.staff_ranks, '')}
+      <div class="sub">Остальные видят «автор скрыт». В личку пишем только тем, кто открывал диалог с ботом.</div></div>
+    <div class="actions"><button class="btn primary" id="rs-save">Сохранить</button></div></div>`;
+}
+function bindReportSettings(main, data) {
+  const save = main.querySelector('#rs-save');
+  if (!save) return;
+  save.onclick = async () => {
+    const body = {to_admin_chat: main.querySelector('#rs-admin').checked, dm_chat_rank: +main.querySelector('#rs-chat').value,
+      dm_staff_rank: +main.querySelector('#rs-staff').value, reporter_min_rank: +main.querySelector('#rs-see').value};
+    try { await api('/settings/reports', {method: 'POST', body: JSON.stringify(body)}); toast('Сохранено'); settingsView(main); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
@@ -1048,7 +1074,9 @@ async function settingsView(main) {
         <div class="t"><b>${esc(c.title)}</b>${c.locked ? '<div class="sub">Переводить нельзя никогда</div>' : ''}</div>
         <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
       </div>`).join('')}
-    </div>`;
+    </div>
+    ${reportSettingsCard(data)}`;
+  bindReportSettings(main, data);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);

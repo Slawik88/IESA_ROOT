@@ -33,8 +33,10 @@ NOTICE = {"resolved": "✅ Ваша жалоба №{id} рассмотрена:
 
 @router.get("/reports")
 async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
-    return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open"),
-            "counts": await reports_service.counts(db)}
+    conf = await reports_service.settings(db)
+    show = user["rank"] >= conf["reporter_min_rank"]
+    return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show),
+            "counts": await reports_service.counts(db), "can_see_reporter": show}
 
 
 @router.post("/reports/{rid}")

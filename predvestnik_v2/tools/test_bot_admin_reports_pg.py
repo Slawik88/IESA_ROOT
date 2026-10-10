@@ -48,13 +48,21 @@ class FakeMessage:
         self.chat = SimpleNamespace(id=chat, type="supergroup", title="Тест")
         self.reply_to_message = reply_to
         self.message_id = 1
+        self.message_thread_id = None
         self.replies = []
+        self.deleted = False
+        self.can_delete = True
 
     async def reply(self, text, **kw):
         self.replies.append(text)
 
     async def answer(self, text, **kw):
         self.replies.append(text)
+
+    async def delete(self):
+        if not self.can_delete:
+            raise RuntimeError("Bad Request: message can't be deleted")
+        self.deleted = True
 
 
 class Client:
@@ -95,11 +103,13 @@ async def run():
             await db.execute("INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, 'Чат')", (chat,))
         for uid in (P1, P2, P3):
             await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, -100)", (uid,))
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, chat_rank) VALUES (?, -100, 5)", (CODER,))
         await db.execute("INSERT INTO chat_links (main_chat_id, admin_chat_id) VALUES (-100, -555)")
 
         async def say(text, uid, **kw):
             m = FakeMessage(text, uid, **kw)
             await dispatch(registry, m, bot, db)
+            say.last = m
             return " | ".join(m.replies)
 
         # «бот под защитой»
@@ -115,13 +125,43 @@ async def run():
                                                         first_name="U2004"),
                               text="ты дурак", caption=None, message_id=77)
         assert "причину" in await say("бот жалоба", P2, reply_to=bad)
+        assert not say.last.deleted                                          # ошибка формата: команду не трогаем
+        bot.sent.clear()
         out = await say("бот жалоба оскорбления", P2, reply_to=bad)
-        assert "принята" in out, out
-        assert bot.sent[-1][0] == -555 and "Жалоба №" in bot.sent[-1][1] and "ты дурак" in bot.sent[-1][1], bot.sent
-        assert "уже в очереди" in await say("бот репорт ещё раз", P2, reply_to=bad)
-        assert "нельзя" in await say("бот report, @u2003 сам себя", P2)
+        # Анонимно: команда убрана из чата, в чат ничего не ответили, автору ушло в личку.
+        assert say.last.deleted and out == "", (say.last.deleted, out)
+        assert bot.sent[0][0] == P2 and "принята" in bot.sent[0][1] and "анонимна" in bot.sent[0][1], bot.sent
+        admin_msg = next(x for x in bot.sent if x[0] == -555)
+        assert "Жалоба №" in admin_msg[1] and "ты дурак" in admin_msg[1] and "оскорбления" in admin_msg[1], admin_msg
+        assert "U2002" not in admin_msg[1] and "u2002" not in admin_msg[1] and "от " not in admin_msg[1].split("\n")[0], admin_msg
+        assert "Не удалось" not in admin_msg[1] and "не удалось" not in admin_msg[1]
+        # По умолчанию отчёт идёт ещё и модераторам чата (ранг от 4): CODER. Автору — только своё подтверждение.
+        dms = [x[0] for x in bot.sent if x[0] != -555][1:]
+        assert CODER in dms and P2 not in dms and HELPER not in dms and P3 not in dms, bot.sent
+        from bot.chat.reports import _message_link
+        assert _message_link(-1001234567890, 5) == "https://t.me/c/1234567890/5" and _message_link(-100, 5) == "" \
+            and _message_link(555, 5) == ""
+        assert all("t.me/c" not in x[1] for x in bot.sent), bot.sent
+        bot.sent.clear()
+        await say("бот репорт ещё раз", P2, reply_to=bad)
+        assert bot.sent == [(P2, "📨 Ваша жалоба на этого игрока уже в очереди.", "HTML")], bot.sent
+        await say("бот report, @u2003 сам себя", P2)
+        assert "нельзя" in bot.sent[-1][1] and say.last.deleted, bot.sent
         out = await say("бот пожаловаться, @u2003 спам", P1)
-        assert "принята" in out, out
+        assert say.last.deleted and out == "", out
+        # Личка автора закрыта: короткое «принята» в чат без имён.
+        bot.sent.clear()
+        await say("бот пожаловаться, @u2003 спам", P3)
+        assert say.last.deleted and bot.sent[0] == (-100, "📨 Жалоба принята.", "HTML"), bot.sent
+        # Команду убрать нельзя (нет права): отвечаем в чат и говорим админам, как это исправить.
+        bot.sent.clear()
+        m = FakeMessage("бот жалоба, @u2004 грубит", P1)
+        m.can_delete = False
+        await dispatch(registry, m, bot, db)
+        assert not m.deleted and "принята" in m.replies[0], (m.deleted, m.replies)
+        assert any(x[0] == -555 and "право удалять" in x[1] for x in bot.sent), bot.sent
+        await db.execute("DELETE FROM bot_reports WHERE reporter_id = ? OR reason = 'грубит'", (P3,))   # лишние для проверок ниже
+
 
     client = Client(main.app)
     h = {uid: {"x-session-token": create_session_token(uid)} for uid in (DEV, HELPER, CODER, P1)}
@@ -146,6 +186,37 @@ async def run():
     assert (await client.get("/bot-admin/api/reports", headers=h[HELPER])).json()["items"] == []
     card = (await client.get(f"/bot-admin/api/player/{P3}", headers=h[HELPER])).json()
     assert "Жалоба: нарушение подтверждено" in {x["title"] for x in card["history"]}, card["history"]
+
+    # Анонимность в админке: автора видят только с роли из настроек жалоб (по умолчанию 5), остальным «скрыт».
+    r = (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()
+    assert r["can_see_reporter"] is False and all(x["reporter"] is None and x["reporter_hidden"] for x in r["items"]), r
+    r = (await client.get("/bot-admin/api/reports?kind=closed", headers=h[CODER])).json()
+    assert r["can_see_reporter"] is True and {x["reporter"]["id"] for x in r["items"]} == {P1, P2}, r
+    # Отдельные настройки жалоб: только владелец бота/разработчик (раздел «Настройки»).
+    assert (await client.get("/bot-admin/api/settings", headers=h[HELPER])).status_code == 403
+    st = (await client.get("/bot-admin/api/settings", headers=h[CODER])).json()
+    assert st["reports"] == {"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5}, st["reports"]
+    assert st["report_options"]["chat_ranks"][0]["value"] == 1 and st["report_options"]["staff_ranks"][-1]["value"] == 6
+    bad_conf = await client.post("/bot-admin/api/settings/reports", headers=h[CODER], json={"dm_chat_rank": 99})
+    assert bad_conf.status_code == 400, bad_conf.text
+    conf = await client.post("/bot-admin/api/settings/reports", headers=h[CODER],
+                             json={"to_admin_chat": False, "dm_chat_rank": 0, "dm_staff_rank": 3, "reporter_min_rank": 3})
+    assert conf.status_code == 200 and conf.json()["reports"] == {
+        "to_admin_chat": False, "dm_chat_rank": 0, "dm_staff_rank": 3, "reporter_min_rank": 3}, conf.text
+    r = (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()
+    assert r["can_see_reporter"] is True and all(x["reporter"] for x in r["items"]), r         # теперь и хелпер видит
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        bot.sent.clear()
+        m = FakeMessage("бот жалоба, @u2004 флуд", P1)
+        await dispatch(registry, m, bot, db)
+        dms = [x[0] for x in bot.sent][1:]
+        assert -555 not in dms and CODER in dms and HELPER in dms and DEV in dms and P1 not in dms, bot.sent   # персонал, а не админ-чат
+        await db.execute("DELETE FROM bot_reports WHERE reason = 'флуд'")
+    feed = (await client.get("/bot-admin/api/journal?days=1", headers=h[DEV])).json()
+    assert "Настройки жалоб" in {x["title"] for x in feed["items"]}, [x["title"] for x in feed["items"]]
+    await client.post("/bot-admin/api/settings/reports", headers=h[CODER],
+                      json={"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5})
 
     # Рассылка
     broadcasts.PAUSE = {"chats": 0, "players": 0}
