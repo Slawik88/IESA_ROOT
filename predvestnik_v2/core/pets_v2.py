@@ -421,9 +421,21 @@ CALLING_MIN_LEVEL: Final = 10
 CALLING_MODS: Final = {  # множители категорий находок; tracker ждёт ключей сундуков
     "feeder": {"treat": 2.0, "mora": 0.85},
     "seeker": {"diamond": 1.8, "essence": 1.8, "mora": 0.85},
+    "tracker": {"mora": 0.9},
 }
-AVAILABLE_CALLINGS: Final = ("feeder", "guardian", "seeker")
-AVAILABLE_TRAITS: Final = tuple(t for t in TRAITS if t not in ("picky", "nose"))  # их плюс зависит от ещё не готовых механик
+KEY_EXTRA_CHANCE: Final = 10      # % шанса доп. ключа за поход или экспедицию (не больше 1 доп. ключа в сутки)
+KEY_EXTRA_NOSE: Final = 8         # «Нюх»: 10 -> 18 %
+KEY_EXTRA_TRACKER: Final = 10     # призвание Следопыт
+KEYS_PER_DAY_MAX: Final = 2
+KEYS_PER_WEEK_MAX: Final = 5      # всего ключей питомцев в неделю (базовые и дополнительные)
+KEY_EXTRA_WEEKLY_MAX: Final = 3   # доп. ключей в неделю (ключи — дорогая валюта: платный ключ стоит 10 Зарников)
+FAVORITE_FOOD: Final = {
+    "moss_cat": "food_basic", "stone_beetle": "food_basic", "ash_moth": "food_fried", "dusk_hare": "food_basic",
+    "rain_finch": "food_fried", "salt_fox": "food_fried", "reed_guardian": "food_stew", "lantern_gecko": "food_fried",
+    "mirror_owl": "food_stew", "frost_stag": "food_stew", "void_lynx": "food_stew", "star_dragon": "food_elite",
+}
+AVAILABLE_CALLINGS: Final = CALLINGS
+AVAILABLE_TRAITS: Final = tuple(TRAITS)
 TALISMANS: Final = {  # вид: (маршрут плюса, маршрут минуса)
     "forest_fang": ("forest", "swamp"), "pass_stone": ("pass", "ruins"),
     "ruin_lens": ("ruins", "pass"), "swamp_lamp": ("swamp", "forest"),
@@ -436,7 +448,7 @@ FREE_SWAP_DAYS: Final = 7
 
 
 def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = (),
-                  *, hours: int = 3, route: str | None = None, paired: bool = False) -> dict:
+                  *, hours: int = 3, route: str | None = None, paired: bool = False, fed_favorite: bool = False) -> dict:
     """Сводка билда: множитель Следов, множители находок, поправки Выдержки, шанса и награды путей."""
     if calling is not None and calling not in CALLINGS:
         raise PetV2PolicyError("Неизвестное призвание.")
@@ -449,7 +461,8 @@ def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple
 
     for key, value in CALLING_MODS.get(calling or "", {}).items():
         mul(key, value)
-    xp = trait_xp_multiplier(tuple(t for t in traits if t != "nose"), hours)
+    xp = trait_xp_multiplier(tuple(traits), hours)
+    extra_key = KEY_EXTRA_CHANCE + (KEY_EXTRA_NOSE if "nose" in traits else 0) + (KEY_EXTRA_TRACKER if calling == "tracker" else 0)
     resilience_extra, energy_bonus, regen_delta = 0.0, 0, 0.0
     chance = {"careful": 0.0, "steady": 0.0, "bold": 0.0}
     reward = {"careful": 1.0, "steady": 1.0, "bold": 1.0}
@@ -466,6 +479,11 @@ def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple
             mul("diamond", 1.8); mul("essence", 1.8); mul("bonus_xp", 0.7)
         elif trait == "hardy":
             energy_bonus += 15; regen_delta -= 1
+        elif trait == "picky":
+            if fed_favorite:
+                mul("diamond", 1.2); mul("essence", 1.2)
+            else:
+                xp *= 0.90
         elif trait == "loner":
             xp *= 0.90 if paired else 1.10
         elif trait == "lunatic" and route:
@@ -483,10 +501,17 @@ def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple
         if kinds.count(kind) >= 2 and route == TALISMANS[kind][0]:
             xp *= 1 + TALISMAN_SET_BONUS
     return {"xp_mult": xp, "find_mods": mods, "resilience_extra": resilience_extra, "energy_bonus": energy_bonus,
-            "regen_delta": regen_delta, "chance_bonus": chance, "reward_mult": reward, "guardian": calling == "guardian"}
+            "regen_delta": regen_delta, "extra_key_chance": extra_key, "chance_bonus": chance, "reward_mult": reward, "guardian": calling == "guardian"}
+
+
+def favorite_food(species_id: str) -> str:
+    _species(species_id)
+    return FAVORITE_FOOD[species_id]
 
 
 def validate() -> None:
+    if set(FAVORITE_FOOD) != set(SPECIES):
+        raise PetV2PolicyError("У каждого вида должна быть любимая еда.")
     if DAILY_MAX != 625:
         raise PetV2PolicyError("Суточная норма изменилась: обновить документ и симуляторы.")
     if abs(sum(find_shares(level=MAX_LEVEL).values()) - 1.0) > 1e-9:

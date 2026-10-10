@@ -27,7 +27,7 @@ class ClaimRequest(BaseModel):
 
 class BuildRequest(BaseModel):
     pet_id: int = Field(gt=0)
-    calling: str | None = Field(default=None, pattern="^(feeder|guardian|seeker)$")
+    calling: str | None = Field(default=None, pattern="^(tracker|feeder|guardian|seeker)$")
     traits: list[str] = Field(default_factory=list, max_length=3)
     talismans: list[str] = Field(default_factory=list, max_length=2)
     action_id: str = Field(min_length=1, max_length=96)
@@ -57,6 +57,12 @@ class TrackOpenRequest(BaseModel):
 class TrialRequest(BaseModel):
     pet_id: int = Field(gt=0)
     difficulty: int = Field(ge=1, le=3)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class FeedRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    food_id: str = Field(min_length=1, max_length=64)
     action_id: str = Field(min_length=1, max_length=96)
 
 
@@ -144,5 +150,14 @@ async def trial(body: TrialRequest, db=Depends(get_db), user=Depends(require_tg_
     await _ready(db)
     try:
         return await service.submit_trial(db, user_id=int(user["id"]), pet_id=body.pet_id, difficulty=body.difficulty, action_id=body.action_id)
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/feed")
+async def feed(body: FeedRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.feed_pet(db, user_id=int(user["id"]), pet_id=body.pet_id, food_id=body.food_id, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
