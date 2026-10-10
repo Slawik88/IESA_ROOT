@@ -10,19 +10,42 @@ const num = n => Number(n).toLocaleString('ru-RU');
 
 let ME = null;
 const SECTIONS = {};          // key -> render(main)
-let _viewAbort = null, _viewRequest = 0;
+const SECTION_META = {
+  start: ['✦', 'Открываем пульт', 'Проверяем доступ и собираем разделы'],
+  people: ['◉', 'Игроки и чаты', 'Поднимаем свежие профили и активность'],
+  reports: ['⚑', 'Жалобы', 'Сверяем очередь и решения команды'],
+  metrics: ['▥', 'Метрики', 'Собираем показатели без кэшированных цифр'],
+  broadcast: ['⌁', 'Рассылка', 'Считаем аудитории и историю отправок'],
+  promo: ['✦', 'Промокоды', 'Проверяем коды, награды и ограничения'],
+  switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
+  settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
+};
+let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
 function currentSection() { return $('#tabs .on')?.dataset.tab || 'start'; }
+function clearLoadStages() { _loadStageTimers.forEach(clearTimeout); _loadStageTimers = []; }
+function loadingMarkup(key = currentSection()) {
+  const [icon, title, hint] = SECTION_META[key] || ['✦', 'Загрузка', 'Получаем свежие данные'];
+  return `<section class="admin-load" role="status" aria-live="polite">
+    <div class="load-sigil" aria-hidden="true"><i></i><span>${icon}</span></div>
+    <div class="load-copy"><small>Предвестник · синхронизация</small><h2>${esc(title)}</h2><p>${esc(hint)}</p></div>
+    <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
+  </section>`;
+}
 function showSectionLoading(main, key = currentSection()) {
-  main.setAttribute('aria-busy', 'true');
-  main.innerHTML = '<div class="empty" role="status" aria-live="polite">Загрузка…</div>';
+  clearLoadStages(); main.setAttribute('aria-busy', 'true'); main.innerHTML = loadingMarkup(key);
+  const stage = () => main.querySelector('.load-stage span');
+  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Читаем актуальные данные'; }, 900));
+  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Ответ занимает чуть больше времени'; }, 4000));
 }
 function showLoadError(main, key, error, retry) {
-  main.setAttribute('aria-busy', 'false');
+  clearLoadStages(); main.setAttribute('aria-busy', 'false');
   const timedOut = error?.name === 'AbortError';
-  main.innerHTML = `<section class="empty" role="alert">
-    <h2>${timedOut ? 'Сервер отвечает слишком долго' : 'Раздел не загрузился'}</h2>
-    <p>${esc(timedOut ? 'Ожидание остановлено. Попробуйте ещё раз.' : (error?.message || 'Попробуйте ещё раз.'))}</p>
+  main.innerHTML = `<section class="admin-load load-failed" role="alert">
+    <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
+    <div class="load-copy"><small>Связь прервалась</small><h2>${timedOut ? 'Сервер отвечает слишком долго' : 'Раздел не загрузился'}</h2>
+      <p>${esc(timedOut ? 'Мы остановили ожидание, чтобы экран не завис навсегда.' : (error?.message || 'Попробуйте ещё раз.'))}</p></div>
     <button type="button" class="btn primary load-retry">Повторить</button>
   </section>`;
   main.querySelector('.load-retry').onclick = () => { showSectionLoading(main, key); retry(); };
@@ -38,7 +61,7 @@ async function loadSectionData(main, path, retry, key = currentSection()) {
     showLoadError(main, key, error, retry); return null;
   } finally {
     clearTimeout(timeout);
-    if (request === _viewRequest) { _viewAbort = null; main.setAttribute('aria-busy', 'false'); }
+    if (request === _viewRequest) { _viewAbort = null; clearLoadStages(); main.setAttribute('aria-busy', 'false'); }
   }
 }
 
