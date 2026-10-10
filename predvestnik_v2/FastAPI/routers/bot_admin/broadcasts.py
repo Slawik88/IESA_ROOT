@@ -15,6 +15,15 @@ from services import broadcasts as broadcasts_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
 _user = section("broadcast")
+_ready = False
+
+
+async def _tables(db=Depends(get_db)):
+    """Таблица рассылок создаётся при старте бота; если старт не дошёл до неё, создаём здесь (повторно безопасно)."""
+    global _ready
+    if not _ready:
+        await broadcasts_service.ensure_schema(db)
+        _ready = True
 
 
 @asynccontextmanager
@@ -24,7 +33,7 @@ async def _pool_db():
 
 
 @router.get("/broadcasts")
-async def broadcasts(user=Depends(_user), db=Depends(get_db)):
+async def broadcasts(user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     return {"items": await broadcasts_service.listing(db),
             "audiences": [{"key": k, "title": t} for k, t in broadcasts_service.AUDIENCES.items()],
             "sizes": await broadcasts_service.audience_sizes(db)}
@@ -53,7 +62,7 @@ async def broadcast_test(data: dict = Body(...), user=Depends(_user)):
 
 
 @router.post("/broadcasts")
-async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     audience = str(data.get("audience") or "")
     text = str(data.get("text") or "").strip()
     html = bool(data.get("html"))
@@ -76,7 +85,7 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
 
 
 @router.post("/broadcasts/{bid}/stop")
-async def broadcast_stop(bid: int, user=Depends(_user), db=Depends(get_db)):
+async def broadcast_stop(bid: int, user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     if not await broadcasts_service.stop(db, bid):
         raise HTTPException(409, "Рассылка уже закончилась.")
     await admin_people.audit(db, user["id"], "broadcast_stop", details={"broadcast": bid})
