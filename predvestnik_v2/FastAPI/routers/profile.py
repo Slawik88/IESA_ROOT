@@ -24,6 +24,7 @@ from services import skins_v3 as skins_v3_service
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy import get_item_quantity, remove_item
 from infrastructure.repositories.users import set_nickname, get_first_seen
+from bot.chat.tracking import local_now
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
 from infrastructure.repositories import global_moderation as gmod_repo
@@ -605,7 +606,7 @@ async def my_chat_tracker(
                     "action": str(row["action"] or "moderation"),
                     "created_at": _iso(row["created_at"]),
                 })
-    today = datetime.now(timezone.utc).date()
+    today = local_now().date()      # daily_user_stats хранит местные даты
     for row in chats:
         chat_id = int(row.pop("chat_tg_id"))
         days = activity_dates.get(chat_id, set())

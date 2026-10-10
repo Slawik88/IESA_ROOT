@@ -16,7 +16,7 @@ from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
 from bot.chat.settings import CURRENCY_VIEW
 from bot.chat.targets import Target, resolve_target
-from bot.chat.tracking import local_now
+from bot.chat.tracking import PRESENCE_SQL, local_now, presence_of
 from bot.chat.style import quote
 
 # Валюты, которые сейчас в игре (остальные — легаси и не показываются).
@@ -125,18 +125,17 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
             msg_rows.append(f"Во всех чатах: <b>{fmt_num(c['everywhere'])}</b>")
         lines.append("\n💬 <b>Сообщения</b>\n" + quote(msg_rows))
         async with db.execute(
-            "SELECT s.membership_since, (SELECT MIN(date) FROM daily_user_stats d "
-            "WHERE d.chat_id = s.chat_tg_id AND d.user_id = s.user_tg_id) "
-            "FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?", (chat_id, uid)) as cur:
+            f"SELECT {PRESENCE_SQL} FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?",
+            (chat_id, uid)) as cur:
             r = await cur.fetchone()
-        if r:
-            since, first = r
-            if since:
-                days = (local_now().date() - since.date()).days
-                lines.append(f"\n📅 В чате: {days} {days_word(days)} (с {since.strftime('%d.%m.%Y')})")
-            if first:
-                y, m, d = first.split("-")
-                lines.append(f"👁 Впервые замечен: {d}.{m}.{y}")
+        pres = presence_of(*r) if r else None
+        if pres:
+            if pres.days == 0:
+                lines.append(f"\n📅 В чате: с сегодняшнего дня")
+            else:
+                lines.append(f"\n📅 В чате: {pres.days} {days_word(pres.days)} (с {pres.since.strftime('%d.%m.%Y')})")
+            if pres.rejoined:
+                lines.append(f"↩️ Вернулся в чат · впервые здесь {pres.first_seen.strftime('%d.%m.%Y')}")
         warns = await active_warns(db, chat_id, uid)
         if warns:
             lines.append(f"⚠️ Варнов: {len(warns)}")

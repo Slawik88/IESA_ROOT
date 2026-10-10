@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 
 from aiogram.types import Message
 
@@ -16,6 +17,65 @@ def tz_delta() -> timedelta:
 
 def local_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None) + tz_delta()
+
+
+# ── «С какого числа в чате» ────────────────────────────────────────────────
+# Telegram не отдаёт настоящую дату вступления, поэтому считаем по следам бота:
+#  - joined_at — когда бот впервые завёл игрока в этом чате;
+#  - membership_since — то же, но колонку добавили позже: у старых игроков там дата
+#    миграции, а не вступления, поэтому одна она верить нельзя;
+#  - первый день из daily_user_stats — когда игрок впервые написал (местная дата);
+#  - rejoined_at — когда игрок вернулся после ухода (ставится при входе и при первом
+#    сообщении после ухода, см. members.py и record_message).
+# Первое появление — самая ранняя из первых трёх; нынешнее пребывание — с возвращения.
+PRESENCE_SQL = (
+    "s.joined_at, s.membership_since, s.rejoined_at, "
+    "(SELECT MIN(d.date) FROM daily_user_stats d WHERE d.chat_id = s.chat_tg_id AND d.user_id = s.user_tg_id)"
+)
+
+
+def _naive_utc(dt) -> datetime | None:
+    if not isinstance(dt, datetime):
+        return None
+    return dt.astimezone(timezone.utc).replace(tzinfo=None) if dt.tzinfo else dt
+
+
+def _first_day_utc(first_day) -> datetime | None:
+    try:
+        return datetime.combine(date.fromisoformat(str(first_day)[:10]), datetime.min.time()) - tz_delta()
+    except (TypeError, ValueError):
+        return None
+
+
+def first_seen_at(joined_at, membership_since, first_day) -> datetime | None:
+    """Самое раннее известное присутствие игрока в чате (naive UTC)."""
+    known = [x for x in (_naive_utc(joined_at), _naive_utc(membership_since), _first_day_utc(first_day)) if x]
+    return min(known) if known else None
+
+
+def stay_start(joined_at, membership_since, rejoined_at, first_day) -> datetime | None:
+    """Начало нынешнего пребывания в чате (naive UTC): возвращение или первое появление."""
+    first = first_seen_at(joined_at, membership_since, first_day)
+    back = _naive_utc(rejoined_at)
+    return back if back and (not first or back > first) else first
+
+
+@dataclass(frozen=True)
+class Presence:
+    first_seen: date      # местная дата первого появления
+    since: date           # местная дата начала нынешнего пребывания
+    rejoined: bool
+    days: int             # дней в чате с `since` (сегодня — 0)
+
+
+def presence_of(joined_at, membership_since, rejoined_at, first_day) -> Presence | None:
+    first = first_seen_at(joined_at, membership_since, first_day)
+    if not first:
+        return None
+    start = stay_start(joined_at, membership_since, rejoined_at, first_day) or first
+    shift = tz_delta()
+    first_d, since_d = (first + shift).date(), (start + shift).date()
+    return Presence(first_d, since_d, since_d > first_d, max(0, (local_now().date() - since_d).days))
 
 
 async def record_message(db, message: Message) -> None:
@@ -39,7 +99,9 @@ async def record_message(db, message: Message) -> None:
         "VALUES (?, ?, 1, FALSE) "
         "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET "
         "user_messages_count_all_time = user_chat_stats.user_messages_count_all_time + 1, "
-        "last_message_at = NOW(), is_left = FALSE",
+        "last_message_at = NOW(), is_left = FALSE, "
+        "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
+        "ELSE user_chat_stats.rejoined_at END",
         (user.id, chat.id),
     )
     await db.execute(

@@ -41,7 +41,9 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
             return
         await db.execute(
             "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, is_left) VALUES (?, ?, FALSE) "
-            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET is_left = FALSE",
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET is_left = FALSE, "
+            "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
+            "ELSE user_chat_stats.rejoined_at END",
             (user.id, chat_id))
         await commit(db)
     elif left and not user.is_bot:

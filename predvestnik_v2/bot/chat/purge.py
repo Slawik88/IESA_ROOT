@@ -25,7 +25,7 @@ from bot.chat.access import is_developer
 from bot.chat.admin_chat import admin_chat_of, ping_line
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import FOREVER, TG_FAIL, active_warns, commit, do_ban, do_kick, do_mute, log
-from bot.chat.tracking import local_now, tz_delta
+from bot.chat.tracking import PRESENCE_SQL, local_now, stay_start, tz_delta
 from bot.chat.style import quote
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
@@ -136,7 +136,7 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, COALESCE(s.chat_rank, 0), s.is_immune, "
         "(s.immune_until IS NOT NULL AND s.immune_until > NOW()), "
-        "s.membership_since, s.muted_until, s.user_messages_count_all_time, "
+        f"{PRESENCE_SQL}, s.muted_until, s.user_messages_count_all_time, "
         "COALESCE((SELECT SUM(d.message_count) FROM daily_user_stats d WHERE d.chat_id = s.chat_tg_id "
         "  AND d.user_id = s.user_tg_id AND d.date BETWEEN ? AND ?), 0), "
         "(SELECT MAX(l.created_at) FROM moderation_logs l WHERE l.chat_id = s.chat_tg_id "
@@ -148,14 +148,14 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
         rows = await cur.fetchall()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     out: list[Violator] = []
-    for uid, uname, rank, immune, shielded, since, muted_until, total, count, mute_at in rows:
+    for uid, uname, rank, immune, shielded, joined_at, member_since, back_at, first_day, muted_until, total, count, mute_at in rows:
         uid = int(uid)
         if is_developer(uid) or uid == owner or immune or shielded:
             continue
         if int(rank) >= rights["purge_write"]:
             continue   # состав чата, который пишет и во время чистки
         blocked, notes = 0.0, []
-        since_naive = since.astimezone(timezone.utc).replace(tzinfo=None) if since and since.tzinfo else since
+        since_naive = stay_start(joined_at, member_since, back_at, first_day)
         if since_naive and since_naive > start_dt:
             blocked += (min(since_naive, end_dt) - start_dt).total_seconds() / 86400
             notes.append(f"в чате с {(since_naive + shift).strftime('%d.%m')}")
