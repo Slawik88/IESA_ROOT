@@ -38,6 +38,8 @@ ACTION_TITLES = {
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
+    "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
+    "switch": "Выключатель", "transfer": "Валюты для переводов",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
 }
@@ -160,6 +162,14 @@ def describe(action: str, d: dict) -> str:
         return str(d.get("value", ""))
     if action == "message":
         return f"«{d.get('text', '')}»"
+    if action.startswith("promo_"):
+        return str(d.get("code", "")) + (" · выключен" if action == "promo_active" and not d.get("active") else
+                                         " · включён" if action == "promo_active" else "")
+    if action == "switch":
+        where = "везде" if not d.get("chat") else f"в чате {d['chat']}"
+        return f"{d.get('feature', '')} {where} → {'включено' if d.get('enabled') else 'выключено'}"
+    if action == "transfer":
+        return ", ".join(d.get("currencies") or []) or "переводы выключены"
     if action.startswith("report_"):
         return f"№{d.get('report', '')}"
     if action == "broadcast":
@@ -195,6 +205,77 @@ async def history(db, *, user_id: int | None = None, chat_id: int | None = None,
             "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None,
         })
     return out
+
+
+# Общая лента действий персонала: действия сгруппированы по видам.
+FEED_KINDS = {
+    "moderation": ("Модерация", ("mute", "unmute", "kick", "ban", "unban", "warn", "unwarn", "unwarn_all", "global_ban",
+                                 "global_unban", "block", "unblock", "shield", "unshield", "immune", "unimmune", "close",
+                                 "open", "close_chat", "open_chat", "warn_limit")),
+    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke")),
+    "chats": ("Чаты", ("message", "leave")),
+    "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
+    "switches": ("Функции", ("switch",)),
+    "settings": ("Настройки", ("transfer",)),
+    "broadcast": ("Рассылка", ("broadcast", "broadcast_stop")),
+    "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
+}
+
+
+async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7, before: str = "", limit: int = 30) -> dict:
+    """Лента всех действий персонала за период. before — время последней записи прошлой страницы."""
+    actions = FEED_KINDS[kind][1] if kind in FEED_KINDS else tuple(a for _, acts in FEED_KINDS.values() for a in acts)
+    days = max(1, min(int(days or 7), 90))
+    marks = ", ".join("?" for _ in actions)
+    limit = max(1, min(int(limit or 30), 100))
+
+    def cond(time_col: str, actor_col: str) -> tuple[str, list]:
+        sql, args = f"action IN ({marks}) AND {time_col} > NOW() - make_interval(days => ?)", [*actions, days]
+        if actor_id:
+            sql += f" AND {actor_col} = ?"
+            args.append(actor_id)
+        if before:
+            sql += f" AND {time_col} < ?::timestamptz"
+            args.append(before)
+        return sql, args
+
+    c1, a1 = cond("created_at", "actor_id")
+    c2, a2 = cond("created_at::timestamptz", "admin_id")
+    async with db.execute(
+        f"SELECT actor_id, action, user_id, chat_id, details::text, created_at FROM bot_admin_actions WHERE {c1} "
+        f"UNION ALL SELECT admin_id, action, user_id, chat_id, reason, created_at::timestamptz FROM moderation_logs "
+        f"WHERE {c2} ORDER BY 6 DESC LIMIT ?", (*a1, *a2, limit + 1)) as cur:
+        rows = await cur.fetchall()
+    more = len(rows) > limit
+    rows = rows[:limit]
+    names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
+    titles = await _chat_titles(db, [r[3] for r in rows])
+    items = []
+    for actor, action, uid, cid, extra, at in rows:
+        details = {}
+        if extra and extra.startswith("{"):
+            try:
+                details = json.loads(extra)
+            except ValueError:
+                details = {}
+        elif extra:
+            details = {"reason": extra}
+        kind_of = next((k for k, (_, acts) in FEED_KINDS.items() if action in acts), "")
+        items.append({
+            "action": action, "kind": kind_of, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
+            "reason": str(details.get("reason") or ""), "at": _iso(at),
+            "actor": {"id": actor, "username": names.get(int(actor)) if actor else None},
+            "user": {"id": uid, "username": names.get(int(uid)) if uid else None} if uid else None,
+            "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None})
+    async with db.execute(
+        "SELECT DISTINCT actor_id FROM bot_admin_actions WHERE actor_id IS NOT NULL AND created_at > NOW() - INTERVAL '90 days' "
+        "UNION SELECT DISTINCT admin_id FROM moderation_logs WHERE admin_id IS NOT NULL "
+        "AND created_at > NOW() - INTERVAL '90 days' LIMIT 100") as cur:
+        actor_ids = [int(r[0]) for r in await cur.fetchall()]
+    actor_names = await _names(db, actor_ids)
+    return {"items": items, "more": more, "next": items[-1]["at"] if more and items else "",
+            "kinds": [{"key": k, "title": t} for k, (t, _) in FEED_KINDS.items()],
+            "actors": sorted(({"id": i, "username": actor_names.get(i)} for i in actor_ids), key=lambda a: (a["username"] or "~", a["id"]))}
 
 
 # ── Карточка игрока ──────────────────────────────────────────────────────────

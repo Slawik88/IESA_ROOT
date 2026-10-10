@@ -500,6 +500,48 @@ async function metricsView(main, days = 1) {
 
 SECTIONS.metrics = main => metricsView(main);
 
+// ── Журнал: все действия персонала ───────────────────────────────────────────
+
+const JOURNAL = {kind: '', actor: 0, days: 7};
+async function journalView(main, more = '') {
+  const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${more ? '&before=' + encodeURIComponent(more) : ''}`;
+  const data = await loadSectionData(main, `/journal?${qs}`, () => journalView(main, more), 'journal');
+  if (!data) return;
+  const canPeople = ME.sections.some(z => z.key === 'people');
+  const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) : '';
+  const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
+      ${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
+      <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''}${x.chat ? ' · ' + (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(x.chat.title || x.chat.id)}</a>` : esc(x.chat.title || x.chat.id)) : ''}</div></div>`).join('');
+  const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
+  if (more) {
+    main.querySelector('#jmore')?.remove();
+    main.querySelector('#jlist').insertAdjacentHTML('beforeend', body);
+  } else {
+    main.innerHTML = `<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+        `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
+      <div class="grid2" style="margin:10px 0">
+        <div class="field"><label>Что</label><select id="jkind"><option value="">Всё</option>${data.kinds.map(k =>
+          `<option value="${k.key}" ${k.key === JOURNAL.kind ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></div>
+        <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
+          `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
+      <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
+    main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; journalView(main); });
+    $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; journalView(main); };
+    $('#jactor').onchange = e => { JOURNAL.actor = +e.target.value; journalView(main); };
+    $('#jlist').onclick = e => {
+      const p = e.target.closest('a[data-player]'), c = e.target.closest('a[data-chat]');
+      if (p) { e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +p.dataset.player); }
+      else if (c) { e.preventDefault(); tabs('people'); PEOPLE.stack = []; chatView(main, +c.dataset.chat); }
+    };
+  }
+  if (data.more) {
+    $('#jlist').insertAdjacentHTML('beforeend', `<button class="btn small more" id="jmore">Показать ещё</button>`);
+    $('#jmore').onclick = () => journalView(main, data.next);
+  }
+}
+
+SECTIONS.journal = main => journalView(main);
+
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 
 async function reportsView(main, kind = 'open') {

@@ -7,6 +7,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from bot.chat import settings as bot_settings
 from bot.chat.settings import CURRENCY_VIEW, NEVER_TRANSFERABLE
+from services import admin_people
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
 _user = section("settings")
@@ -30,4 +31,5 @@ async def set_transfer(data: dict = Body(...), user=Depends(_user), db=Depends(g
     if any(c in NEVER_TRANSFERABLE for c in codes):
         raise HTTPException(400, "Зарники и эссенцию переводить нельзя никогда.")
     await bot_settings.set_json(db, bot_settings.TRANSFERABLE_KEY, codes, user["id"])
+    await admin_people.audit(db, user["id"], "transfer", details={"currencies": codes})
     return await get_settings(user=user, db=db)

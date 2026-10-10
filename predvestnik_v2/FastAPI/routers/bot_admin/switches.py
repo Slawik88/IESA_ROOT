@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from FastAPI.auth import verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from services import admin_people
 from services import feature_switches as fs
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
@@ -45,6 +46,9 @@ async def set_switch(data: dict = Body(...), user=Depends(_user), db=Depends(get
         raise HTTPException(400, "Сайт выключается только везде, не по чату.")
     await fs.set_switch(db, chat_id, feature, bool(data.get("enabled")), actor_id=user["id"],
                         reason=str(data.get("reason") or ""))
+    await admin_people.audit(db, user["id"], "switch", chat_id=chat_id or None,
+                             details={"feature": feature, "enabled": bool(data.get("enabled")), "chat": chat_id or None,
+                                      "reason": str(data.get("reason") or "")[:200]})
     return await fs.state(db, chat_id)
 
 

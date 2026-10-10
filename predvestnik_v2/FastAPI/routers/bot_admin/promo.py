@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
-from services import promo_v2
+from services import admin_people, promo_v2
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
 _user = section("promo")
@@ -59,23 +59,29 @@ async def get_promo(code: str, user=Depends(_user), db=Depends(get_db)):
 @router.post("/promo")
 async def create_promo(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     try:
-        return await promo_v2.save_code(db, data, actor_id=user["id"], create=True)
+        saved = await promo_v2.save_code(db, data, actor_id=user["id"], create=True)
     except promo_v2.PromoError as exc:
         _fail(exc)
+    await admin_people.audit(db, user["id"], "promo_create", details={"code": str(saved.get("code") or data.get("code") or "")})
+    return saved
 
 
 @router.put("/promo/{code}")
 async def update_promo(code: str, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     data = {**data, "code": code}
     try:
-        return await promo_v2.save_code(db, data, actor_id=user["id"], create=False)
+        saved = await promo_v2.save_code(db, data, actor_id=user["id"], create=False)
     except promo_v2.PromoError as exc:
         _fail(exc)
+    await admin_people.audit(db, user["id"], "promo_update", details={"code": code})
+    return saved
 
 
 @router.post("/promo/{code}/active")
 async def toggle_promo(code: str, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     try:
-        return await promo_v2.set_active(db, code, bool(data.get("active")), actor_id=user["id"])
+        result = await promo_v2.set_active(db, code, bool(data.get("active")), actor_id=user["id"])
     except promo_v2.PromoError as exc:
         _fail(exc)
+    await admin_people.audit(db, user["id"], "promo_active", details={"code": code, "active": bool(data.get("active"))})
+    return result
