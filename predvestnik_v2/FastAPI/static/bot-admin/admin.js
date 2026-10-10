@@ -700,34 +700,74 @@ function localInput(iso) {
 }
 
 // Выбор образа для награды: сетка карточек в цветах палитры образа (фон, кольцо, свечение), фильтр по тиру, поиск по названию.
-function skinCard(k, on) {
-  const [c1, c2, c3] = [...(k.pal || []), '#8b7cf6', '#8b7cf6', '#fff'];
-  return `<button type="button" class="skin ${on ? 'on' : ''}" data-skin="${esc(k.id)}" aria-pressed="${on}"
-    style="--sb:${esc(k.bg)};--s1:${esc(c1)};--s2:${esc(c2)};--s3:${esc(c3)}">
-    <span class="skin-art" style="background:${k.wash ? esc(k.wash) + ',' : ''}${esc(k.bg)}"><i class="skin-av"></i><b class="skin-t">${esc(k.tier)}</b></span>
-    <span class="skin-n">${esc(k.name)}</span></button>`;
+const SKIN_SLOTS = [['title', 'Титул'], ['name_glow', 'Ник'], ['avatar_frame', 'Рамка'], ['avatar_halo', 'Ореол'], ['profile_bg', 'Фон'], ['card_fx', 'Частицы']];
+const FRAME_LINE = {ring: 'solid', dash: 'dashed', double: 'double', seg: 'dotted', drip: 'solid'};
+const TIER_TITLES = {D: 'D · обычные', C: 'C · необычные', B: 'B · редкие', A: 'A · очень редкие', S: 'S · эпические', SS: 'SS · легендарные', SSS: 'SSS · высшие'};
+
+// Мини-профиль в цветах образа: фон, рамка аватара, ореол и ник так же, как в приложении.
+function skinArt(k) {
+  const t = k.tokens || {}, acc = t['--v3-acc'] || (k.pal || [])[0] || '#8b7cf6', bg = t['--v3-bg'] || k.bg || '#0e0f14';
+  const ink = t['--v3-ink'] || '#f4f5f8', line = FRAME_LINE[k.frame] || 'solid';
+  return `<span class="skin-art" style="background:${t['--v3-wash'] ? esc(t['--v3-wash']) + ',' : ''}${esc(bg)};--sa:${esc(acc)};--sb:${esc(bg)};--si:${esc(ink)};--sl:${line}">
+    <i class="skin-av"></i><span class="skin-nick">${esc((k.items && k.items.title) || k.name)}</span><b class="skin-t">${esc(k.tier)}</b></span>`;
+}
+function skinTags(k) {
+  return [k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
+    .filter(Boolean).join('');
+}
+function skinCard(k, on, dim = false) {
+  return `<button type="button" class="skin ${on ? 'on' : ''} ${dim ? 'dim' : ''}" data-skin="${esc(k.id)}" aria-pressed="${on}" ${dim ? 'disabled' : ''}>
+    ${skinArt(k)}<span class="skin-n">${esc(k.name)}</span><span class="skin-b">${esc(k.blurb || '')}</span>
+    <span class="chips">${skinTags(k)}</span></button>`;
+}
+function skinDetail(k) {
+  if (!k) return '<div class="sub">Нажмите на образ, чтобы посмотреть, из чего он состоит.</div>';
+  return `<div class="skin-detail">${skinArt(k)}<div><b>${esc(k.name)}</b> <span class="sub">· ${esc(TIER_TITLES[k.tier] || k.tier)}</span>
+    <div class="sub" style="margin:4px 0 6px">${esc(k.blurb || '')}</div><div class="chips">${skinTags(k)}</div>
+    <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
+      `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
 }
 function skinPicker(currentId, onPick) {
-  const box = $('#sheet'), all = OPTIONS.skins, tiers = ['Все', ...new Set(all.map(k => k.tier))];
-  let tier = 'Все', q = '';
+  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [];
+  const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
+    ['season', 'Сезонные'], ['set', 'Наборы']];
+  let filter = 'all', q = '', chosen = all.find(k => k.id === currentId) || null;
   const close = () => { box.hidden = true; box.innerHTML = ''; };
   box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
-    <input id="skq" placeholder="Поиск по названию" autocomplete="off"/>
-    <div class="chips" id="skt"></div><div class="skin-grid" id="skg"></div>
-    <div class="actions" style="margin-top:12px"><button class="btn" id="skx">Закрыть</button></div></div>`;
+    <div id="skd"></div>
+    <input id="skq" placeholder="Поиск: название, набор, описание, титул" autocomplete="off"/>
+    <div class="chips" id="skt"></div><div id="skg"></div>
+    <div class="actions skin-bar"><button class="btn primary" id="sko">Выбрать</button><button class="btn" id="skx">Закрыть</button></div></div>`;
   box.hidden = false;
+  const match = k => {
+    if (filter === 'season' && !k.season) return false;
+    if (filter === 'set' && !k.set) return false;
+    if (!['all', 'season', 'set'].includes(filter) && k.tier !== filter) return false;
+    const hay = [k.name, k.blurb, k.set_name, k.season_name, ...Object.values(k.items || {})].join(' ').toLowerCase();
+    return !q || hay.includes(q);
+  };
   const draw = () => {
-    $('#skt').innerHTML = tiers.map(t => `<span class="chip ${t === tier ? 'ok' : ''}" data-tier="${esc(t)}">${esc(t)}</span>`).join('');
-    const list = all.filter(k => (tier === 'Все' || k.tier === tier) && k.name.toLowerCase().includes(q));
-    $('#skg').innerHTML = list.map(k => skinCard(k, k.id === currentId)).join('') || '<div class="sub">Ничего не нашлось</div>';
+    $('#skt').innerHTML = filters.map(([key, t]) => `<span class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</span>`).join('');
+    const list = all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
+    $('#skg').innerHTML = (tiers.map(t => `<h3 class="sec">${esc(TIER_TITLES[t] || t)} · ${list.filter(k => k.tier === t).length}</h3>
+      <div class="skin-grid">${list.filter(k => k.tier === t).map(k => skinCard(k, chosen && k.id === chosen.id)).join('')}</div>`).join('')
+      || '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>')
+      + (priv.length && !q && filter === 'all' ? `<h3 class="sec">Личные образы · ${priv.length}</h3>
+        <div class="sub">Эти образы принадлежат одному игроку и в промокод не кладутся: их выдают отдельно.</div>
+        <div class="skin-grid">${priv.map(k => skinCard(k, false, true)).join('')}</div>` : '');
+    $('#skd').innerHTML = skinDetail(chosen);
+    $('#sko').disabled = !chosen;
   };
   draw();
   $('#skq').oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
-  $('#skt').onclick = e => { const c = e.target.closest('[data-tier]'); if (c) { tier = c.dataset.tier; draw(); } };
-  $('#skg').onclick = e => { const b = e.target.closest('[data-skin]'); if (b) { close(); onPick(b.dataset.skin); } };
+  $('#skt').onclick = e => { const c = e.target.closest('[data-f]'); if (c) { filter = c.dataset.f; draw(); } };
+  $('#skg').onclick = e => {
+    const b = e.target.closest('[data-skin]');
+    if (b) { chosen = all.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
+  };
+  $('#sko').onclick = () => { if (chosen) { close(); onPick(chosen.id); } };
   $('#skx').onclick = close;
   box.onclick = e => { if (e.target === box) close(); };
-  const on = $('#skg .skin.on'); if (on && on.scrollIntoView) on.scrollIntoView({block: 'center'});
 }
 
 async function promoEdit(main, p) {

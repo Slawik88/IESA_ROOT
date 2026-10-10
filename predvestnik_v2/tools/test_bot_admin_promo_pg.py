@@ -95,6 +95,12 @@ async def http_checks():
 
     opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
     skin = opts["skins"][0]["id"]
+    from core.skins_v3_catalog import SKINS
+    ids = [x["id"] for x in opts["skins"]] + [x["id"] for x in opts["private_skins"]]
+    assert sorted(ids) == sorted(SKINS), "в выборе должны быть все образы: обычные и личные"
+    assert all(x["exclusive"] for x in opts["private_skins"]) and not any(x["exclusive"] for x in opts["skins"])
+    assert [x["tier"] for x in opts["skins"]][0] == "D" and [x["tier"] for x in opts["skins"]][-1] == "SSS"   # по редкости
+    assert opts["skins"][0]["items"]["title"] and opts["skins"][0]["tokens"]["--v3-acc"], opts["skins"][0]
     chats = (await client.get("/bot-admin/api/chats?q=основ", headers=dev)).json()["items"]
     assert chats == [{"id": -100, "title": "Основной чат"}], chats
 
