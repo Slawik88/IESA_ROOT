@@ -190,6 +190,17 @@ async def run():
     assert (-100, "<b>Всем</b>", "HTML") in bot.sent, bot.sent
     assert (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]["html"] is True
 
+    # Если старт бота не создал таблицы, разделы создают их сами и не висят на загрузке.
+    from FastAPI.routers.bot_admin import broadcasts as broadcasts_api, reports as reports_api
+    async with get_pool().acquire() as conn:
+        await PGAdapter(conn).execute("DROP TABLE bot_reports")
+        await PGAdapter(conn).execute("DROP TABLE bot_broadcasts")
+    reports_api._ready = broadcasts_api._ready = False
+    r = await client.get("/bot-admin/api/reports", headers=h[HELPER])
+    assert r.status_code == 200 and r.json()["items"] == [], r.text
+    r = await client.get("/bot-admin/api/broadcasts", headers=h[CODER])
+    assert r.status_code == 200 and r.json()["items"] == [], r.text
+
     # 18+ варпы: настройка на сайте и команда в чате — один и тот же флаг.
     hp = {"x-session-token": create_session_token(P2)}
     assert (await client.get("/profile/warp-prefs", headers=hp)).json() == {"adult": False}
