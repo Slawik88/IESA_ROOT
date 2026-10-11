@@ -1,7 +1,7 @@
 // ── Skins V3 · сцена образа: окружение вокруг аватара ──────────────────────────────────────────
 // У каждого образа свой набор слоёв, и он растёт с тиром (C земля и вода, B небо и свет, A предметы по бокам, S живое, SS редкое событие, SSS фирменная деталь, app.32–34.js).
 // Слой это строка [минимальный тир 1…7, 'форма движение', {геометрия и переменные}]; формы и движения описаны в skin-scene-v3.css, картинки-силуэты в skin-scene-*-v3.css.
-// Форма: glow (мягкое пятно), ring, sil i-<имя> (силуэт), dot (точки через --bs), band, wave. Движение: drift sway pulse breathe blink twinkle float rise spin ripple shimmer sweep peek flash.
+// Форма: glow (мягкое пятно), ring, sil i-<имя> (силуэт), dot (точки через --bs), band, wave. Движение: drift sway pulse breathe beat blink twinkle float rise spin ripple shimmer sweep cross peek flash.
 // Флаги: w2 отдаёт слой только полному режиму (на среднем телефоне его нет), m маска, fl зеркало (неподвижным), st растянуть картинку на весь слой (полосы земли и хребтов), go бегущая волна, rev спин назад, dash пунктир.
 // Данные образов лежат в app.35–38.js и собираются сюда через _scAdd.
 const _AP_SCENES = new Map();
@@ -16,7 +16,7 @@ function _scStyle(p) {
   let out = '';
   for (const key in p) {
     const v = p[key];
-    out += _SC_GEO[key] ? `${_SC_GEO[key]}:${v};` : key === 'c' ? `--c:${_scColor(v)};` : _SC_SEC.has(key) ? `--${key}:${v}s;` : `--${key}:${v};`;
+    out += _SC_GEO[key] ? `${_SC_GEO[key]}:${v};` : key === 'c' || key === 'c2' ? `--${key}:${_scColor(v)};` : _SC_SEC.has(key) ? `--${key}:${v}s;` : `--${key}:${v};`;
   }
   return out;
 }

@@ -81,14 +81,14 @@ def d_ridge(top, w, h) -> str:
 
 
 def ridge(w, base, amp, waves, seed=1, jag=0.0, steps=40, fade=None):
-    """Points of a ridge line: a sum of sines [(wavelength, weight)...] around `base`, a little noise `jag`; `fade(x/w)` scales the height along x."""
+    """Points of a ridge line: a sum of sines [(wavelength, weight)...] around `base` (a number, or a function of x/w to bend the whole line), a little noise `jag`; `fade(x/w)` scales the height along x."""
     r = random.Random(seed)
     phase = [r.uniform(0, math.tau) for _ in waves]
     pts = []
     for i in range(steps + 1):
         x = w * i / steps
         y = sum(a * math.sin(x / wl * math.tau + p) for (wl, a), p in zip(waves, phase))
-        y = base - amp * (y + (r.random() - .5) * jag) * (fade(x / w) if fade else 1)
+        y = (base(x / w) if callable(base) else base) - amp * (y + (r.random() - .5) * jag) * (fade(x / w) if fade else 1)
         pts.append((x, y))
     return pts
 
@@ -206,3 +206,31 @@ def jag(points, amp, seed, splits=1):
 def flip(body: str, w: int) -> str:
     """The same drawing mirrored left to right."""
     return f"<g transform='translate({w} 0) scale(-1 1)'>{body}</g>"
+
+
+def tide(letter: str, name: str, width: int, amp: float, top: str, rim: str, depth: int = 40, opacity: float = .55) -> None:
+    """A wave strip for a running `wave go` layer: the crest line and a fading body below it."""
+    pts = []
+    for i in range(0, width + 1, width // 12):
+        x = i / width * math.tau
+        pts.append((i, depth * .42 - amp * (math.sin(x) * .7 + math.sin(2 * x + 1.1) * .45)))
+    crest = d_smooth(pts, closed=False)
+    art(name, letter, svg(width, depth, lingrad("g", [(0, top, opacity), (1, top, 0)]) + path(crest + f"V{depth}H0z", "url(#g)") + stroke(crest, rim, 1.2, "stroke-opacity='.6'"), "none"))
+
+
+def arc_d(cx, cy, r, a0, a1) -> str:
+    """An SVG arc of a circle from angle a0 to a1 (radians, y down, clockwise)."""
+    large = 1 if (a1 - a0) % math.tau > math.pi else 0
+    return f"M{n(cx + r * math.cos(a0))} {n(cy + r * math.sin(a0))}A{n(r)} {n(r)} 0 {large} 1 {n(cx + r * math.cos(a1))} {n(cy + r * math.sin(a1))}"
+
+
+def spiral_points(cx, cy, r0, r1, turns, a0=0.0, steps=48):
+    """Points of a logarithmic spiral from radius r0 (angle a0) outwards to r1 after `turns` turns."""
+    pts = []
+    k = math.log(r1 / r0)
+    for i in range(steps + 1):
+        t = i / steps
+        a = a0 + turns * math.tau * t
+        r = r0 * math.exp(k * t)
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    return pts

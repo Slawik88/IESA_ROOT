@@ -10,6 +10,8 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.parse
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,11 +22,11 @@ from core.skins_v3_catalog import SKINS  # noqa: E402
 import scene_art  # noqa: E402
 
 # Looks that do not have their own scene yet (the list only shrinks; when it is empty every look has a world).
-PENDING = {"artifact", "aurora", "chrono", "cobweb", "crimson_dark", "garland", "midnight_chimes", "midnight_comet", "moon_lotus",
-           "pumpkin_lantern", "ryujin_tide", "sakura_storm", "scarlet_star", "snow_globe", "solar", "starheart", "void", "witch_hour"}
+PENDING = {"cobweb", "crimson_dark", "garland", "midnight_chimes",
+           "pumpkin_lantern", "scarlet_star", "snow_globe", "witch_hour"}
 
 SHAPES = {"glow", "ring", "sil", "dot", "band", "wave", "arc"}
-MOTIONS = {"drift", "sway", "pulse", "breathe", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
+MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
 FLAGS = {"w2", "m", "fl", "st", "go", "rev", "dash"}
 KEYS = {"l", "t", "r", "b", "w", "h", "c", "c2", "k", "o", "s", "s0", "s1", "bs", "bg", "bw", "bp", "gd", "dur", "del", "dx", "dy", "ang", "rot", "org", "fx", "fy", "tx", "ty", "tw"}
 EVENTS = {"peek", "flash", "cross", "sweep", "rise", "ripple", "twinkle"}   # hidden while still (.ap-low and reduced motion): see skin-scene-v3.css
@@ -45,6 +47,11 @@ for letter in "abcd":
 assert "skin-scene-v3.css" in main_py and "skin-scene-v3.css" in index
 drawn = re.findall(r"^\.i-([A-Za-z0-9_]+) \{ --img: url\(", "".join(art_css.values()), re.M)
 assert len(drawn) == len(set(drawn)), "a picture is drawn twice"
+for name, value in re.findall(r'^\.i-([A-Za-z0-9_]+) \{ --img: url\("data:image/svg\+xml,(.*)"\); \}$', "".join(art_css.values()), re.M):
+    try:
+        ET.fromstring(urllib.parse.unquote(value))
+    except ET.ParseError as error:
+        raise AssertionError(f"picture {name} is not valid SVG (a browser draws nothing): {error}")
 for name, text in scene_art.render().items():
     assert (STATIC / name).read_text(encoding="utf-8") == text, f"{name} differs from tools/scene_art*.py: run tools/scene_art.py"
 
