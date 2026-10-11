@@ -174,3 +174,35 @@ def ribbon(center, radii):
         left.append((x + nx * radii[i], y + ny * radii[i]))
         right.append((x - nx * radii[i], y - ny * radii[i]))
     return left + right[::-1]
+
+
+def lingrad(gid: str, stops, x1=0, y1=0, x2=0, y2=1, user=False) -> str:
+    """A linear gradient for a fill or a stroke, stops are (offset, colour, opacity); `user=True` takes the coordinates in the picture's own units."""
+    units = " gradientUnits='userSpaceOnUse'" if user else ""
+    body = "".join(f"<stop offset='{o}' stop-color='{c}' stop-opacity='{a}'/>" for o, c, a in stops)
+    return f"<defs><linearGradient id='{gid}' x1='{x1}' y1='{y1}' x2='{x2}' y2='{y2}'{units}>{body}</linearGradient></defs>"
+
+
+def radgrad(gid: str, stops, cx=.5, cy=.5, r=.5) -> str:
+    body = "".join(f"<stop offset='{o}' stop-color='{c}' stop-opacity='{a}'/>" for o, c, a in stops)
+    return f"<defs><radialGradient id='{gid}' cx='{cx}' cy='{cy}' r='{r}'>{body}</radialGradient></defs>"
+
+
+def jag(points, amp, seed, splits=1):
+    """Roughen a polyline: extra points between the given ones, pushed sideways by up to `amp` (rock, ice, a torn edge)."""
+    r = random.Random(seed)
+    out = [points[0]]
+    for (x0, y0), (x1, y1) in zip(points, points[1:]):
+        ln = math.hypot(x1 - x0, y1 - y0) or 1
+        nx, ny = -(y1 - y0) / ln, (x1 - x0) / ln
+        for s in range(1, splits + 1):
+            t = s / (splits + 1)
+            o = (r.random() - .5) * 2 * amp
+            out.append((x0 + (x1 - x0) * t + nx * o, y0 + (y1 - y0) * t + ny * o))
+        out.append((x1, y1))
+    return out
+
+
+def flip(body: str, w: int) -> str:
+    """The same drawing mirrored left to right."""
+    return f"<g transform='translate({w} 0) scale(-1 1)'>{body}</g>"

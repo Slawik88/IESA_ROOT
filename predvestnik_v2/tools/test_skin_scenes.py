@@ -20,12 +20,12 @@ from core.skins_v3_catalog import SKINS  # noqa: E402
 import scene_art  # noqa: E402
 
 # Looks that do not have their own scene yet (the list only shrinks; when it is empty every look has a world).
-PENDING = {"artifact", "aurora", "celestial", "chrono", "cobweb", "crimson_dark", "garland", "hanami", "inferno", "jade", "lotus_gold", "midnight_chimes", "midnight_comet", "moon_lotus", "observatory",
-           "pumpkin_lantern", "ruby", "ryujin_tide", "sakura_storm", "scarlet_star", "snow_globe", "solar", "starheart", "void", "witch_hour"}
+PENDING = {"artifact", "aurora", "chrono", "cobweb", "crimson_dark", "garland", "midnight_chimes", "midnight_comet", "moon_lotus",
+           "pumpkin_lantern", "ryujin_tide", "sakura_storm", "scarlet_star", "snow_globe", "solar", "starheart", "void", "witch_hour"}
 
 SHAPES = {"glow", "ring", "sil", "dot", "band", "wave", "arc"}
 MOTIONS = {"drift", "sway", "pulse", "breathe", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
-FLAGS = {"w2", "m", "fl", "go", "rev", "dash"}
+FLAGS = {"w2", "m", "fl", "st", "go", "rev", "dash"}
 KEYS = {"l", "t", "r", "b", "w", "h", "c", "c2", "k", "o", "s", "s0", "s1", "bs", "bg", "bw", "bp", "gd", "dur", "del", "dx", "dy", "ang", "rot", "org", "fx", "fy", "tx", "ty", "tw"}
 EVENTS = {"peek", "flash", "cross", "sweep", "rise", "ripple", "twinkle"}   # hidden while still (.ap-low and reduced motion): see skin-scene-v3.css
 MAX_LAYERS = 24            # per look, everything at SSS
