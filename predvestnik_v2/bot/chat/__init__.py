@@ -111,6 +111,9 @@ async def on_message(message: Message, bot, db) -> None:
         logger.warning(f"closed-chat gate failed: {exc}")
     try:
         await record_message(db, message)
+        if message.chat.type == "private" and message.from_user:   # пишет боту — значит, не блокировал
+            await db.execute("UPDATE users SET dm_blocked_at = NULL WHERE user_tg_id = ? AND dm_blocked_at IS NOT NULL",
+                             (message.from_user.id,))
     except Exception as exc:  # учёт не должен ломать команды
         logger.warning(f"message tracking failed: {exc}")
     try:

@@ -1179,6 +1179,11 @@ async def _init_features_extra(db):
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE",
         # Когда игрок вернулся в чат после ухода (NULL — не уходил); см. bot/chat/tracking.py
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS rejoined_at TIMESTAMPTZ DEFAULT NULL",
+        # Состояние бота в чате и в личке (из my_chat_member): бот удалён, есть ли права администратора, игрок заблокировал бота
+        "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS bot_left_at TIMESTAMPTZ DEFAULT NULL",
+        "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS bot_is_admin BOOLEAN DEFAULT NULL",
+        "ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS bot_can_moderate BOOLEAN DEFAULT NULL",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS dm_blocked_at TIMESTAMPTZ DEFAULT NULL",
         # Имя из Telegram (не ник): запоминается с сообщений в чатах, по нему персонал ищет игрока в админке
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS user_tg_name TEXT DEFAULT NULL",
         # «Стаж VIP» — суммарно оплаченных дней за всё время

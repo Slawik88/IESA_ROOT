@@ -259,14 +259,21 @@ def _scores(registry: Registry, typed: str) -> dict[str, float]:
     return scores
 
 
-def parse(registry: Registry, text: str, bot_username: str | None = None) -> Parsed | Unknown | None:
-    """None — это не команда; Unknown — «бот ...», но команда не найдена."""
+def parse(registry: Registry, text: str, bot_username: str | None = None, private: bool = False) -> Parsed | Unknown | None:
+    """None — это не команда; Unknown — «бот ...», но команда не найдена.
+
+    private — личка с ботом: слово «бот» там не нужно, но только для точного названия команды без значений
+    («помощь», «баланс»). Любая другая фраза без «бот» в личке не команда: «я устал» не откроет профиль.
+    """
     if not text:
         return None
     prefixed, rest = _split_prefix(text, bot_username)
     rest = rest.strip()
     if not rest:
         return None
+    if private and not prefixed:
+        cmd = registry.get(" ".join(norm(t) for t in _TOKEN_RE.findall(rest)))
+        return Parsed(cmd, "", True) if cmd is not None and cmd.private else None
     raw = _TOKEN_RE.findall(rest)
     tokens = [norm(t) for t in raw]
     for n in range(min(registry.max_words(), len(tokens)), 0, -1):
@@ -293,7 +300,8 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     if not text or not message.from_user:
         return False
     me = await bot.me()
-    parsed = parse(registry, text, me.username)
+    in_private = message.chat.type == "private"
+    parsed = parse(registry, text, me.username, in_private)
     if parsed is None:
         return False
     quiet = registry.silent is not None and await registry.silent(message, db)
@@ -317,9 +325,11 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
             )
         return True
     cmd = parsed.command
-    if message.chat.type == "private" and not cmd.private:
-        await message.reply("Эта команда работает только в группе.")
-        return True
+    if in_private and not cmd.private:
+        # Короткие слова вроде «чай» или «ждать» в личке не команды: отвечаем, только если человек написал «бот …».
+        if parsed.prefixed:
+            await message.reply("Эта команда работает только в группе.")
+        return parsed.prefixed
     ctx = Ctx(message, bot, db, cmd, parsed.args, parsed.prefixed)
     if registry.gate is not None and not cmd.always_on:
         blocked = await registry.gate(ctx)

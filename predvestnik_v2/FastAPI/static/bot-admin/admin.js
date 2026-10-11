@@ -19,6 +19,7 @@ const SECTION_META = {
   promo: ['✦', 'Промокоды', 'Проверяем коды, награды и ограничения'],
   switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
   settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
+  health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
@@ -85,14 +86,63 @@ function toast(text, bad = false) {
   toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
 }
 
+// Значки разделов для нижнего дока (тот же штрих, что у дока Mini App).
+const ICONS = {
+  people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.7-3.2 3-4.8 5.5-4.8s4.8 1.6 5.5 4.8M16 5.5a3 3 0 0 1 0 5.8M17.5 14.6c1.8.5 3 2 3.5 4.4"/>',
+  reports: '<path d="M5.5 21V4M5.5 5h11l-2 3.5 2 3.5h-11"/>',
+  metrics: '<path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/>',
+  journal: '<path d="M5 5.5h14M5 10.5h14M5 15.5h9M5 20.5h6"/>',
+  broadcast: '<path d="M4 10v4h3l7 4V6l-7 4zM17 9.5a3.5 3.5 0 0 1 0 5"/>',
+  promo: '<path d="M3.5 12.5v-8h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.2"/>',
+  switches: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.4"/>',
+  settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  health: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+  more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
+};
+const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние'};
+const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
+
+function dockSplit() {
+  const all = ME.sections;
+  return all.length <= DOCK_MAX ? {main: all, rest: []} : {main: all.slice(0, DOCK_MAX - 1), rest: all.slice(DOCK_MAX - 1)};
+}
+
 function tabs(active) {
-  $('#tabs').innerHTML = ME.sections.map(s =>
-    `<button class="${s.key === active ? 'on' : ''}" data-tab="${s.key}">${esc(s.title)}</button>`).join('');
-  const on = $('#tabs .on'); if (on && on.scrollIntoView) on.scrollIntoView({inline: 'center', block: 'nearest'});
+  const {main, rest} = dockSplit(), nav = $('#tabs');
+  const inRest = rest.some(s => s.key === active);
+  const slots = main.length + (rest.length ? 1 : 0);
+  nav.hidden = false;
+  nav.style.setProperty('--nav-n', slots);
+  nav.style.setProperty('--nav-i', Math.max(0, inRest ? main.length : main.findIndex(s => s.key === active)));
+  nav.innerHTML = main.map(s =>
+    `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}">${icon(s.key)}<span>${esc(SHORT[s.key] || s.title)}</span></button>`).join('')
+    + (rest.length ? `<button type="button" class="nb ${inRest ? 'here' : ''}" data-more="1">${icon('more')}<span>Ещё</span></button>` : '');
+}
+
+function moreSheet() {
+  const {rest} = dockSplit(), box = $('#sheet'), active = currentSection();
+  box.innerHTML = `<div class="sheet"><h3>Разделы</h3><div class="go-list">${rest.map(s =>
+    `<button type="button" data-go="${s.key}" class="${s.key === active ? 'here' : ''}">${icon(s.key)}<span>${esc(s.title)}</span></button>`).join('')}</div></div>`;
+  box.hidden = false;
+  box.onclick = e => {
+    const go = e.target.closest('[data-go]');
+    if (go || e.target === box) { box.hidden = true; box.innerHTML = ''; }
+    if (go) open(go.dataset.go);
+  };
+}
+
+// Кнопка «назад» на верхнем уровне ведёт обратно в Предвестник (внутри Telegram и в браузере одинаково).
+function goApp() { location.href = (BASE || '') + '/'; }
+function rootBack() {
+  const bb = TG && TG.BackButton;
+  if (!bb) return;
+  if (PEOPLE.bb) { bb.offClick(PEOPLE.bb); PEOPLE.bb = null; }
+  bb.offClick(goApp); bb.onClick(goApp); bb.show();
 }
 
 function open(key) {
-  if (TG && TG.BackButton) TG.BackButton.hide();
+  rootBack();
   if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
@@ -103,8 +153,24 @@ function open(key) {
 
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-tab]');
-  if (tab) open(tab.dataset.tab);
+  if (tab) { open(tab.dataset.tab); return; }
+  if (e.target.closest('[data-more]')) moreSheet();
 });
+
+// Оболочка Telegram: шапка, фон и нижняя полоса того же цвета, что страница; смахивание вниз не закрывает админку посреди формы.
+(function initTmaShell() {
+  if (!TG) return;
+  try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}
+  const color = '#08090c';
+  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
+  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
+  // Лёгкий отклик на нажатия, как в приложении
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.nb, .btn');
+    if (!t || t.disabled) return;
+    try { const h = TG.HapticFeedback; if (h) { t.classList.contains('nb') ? h.selectionChanged() : h.impactOccurred(t.classList.contains('primary') ? 'medium' : 'light'); } } catch (_) {}
+  }, true);
+})();
 
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
 
@@ -254,6 +320,7 @@ function nativeBack(main) {
   const bb = TG && TG.BackButton;
   if (!bb) return;
   if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
+  bb.offClick(goApp);
   PEOPLE.bb = () => back(main);
   bb.onClick(PEOPLE.bb); bb.show();
 }
@@ -275,7 +342,7 @@ function historyCard(items) {
 
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
-  if (TG && TG.BackButton) TG.BackButton.hide();
+  rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
@@ -476,6 +543,7 @@ async function chatView(main, id, push = true, from = null) {
       <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
         <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
       <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
+        ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
         <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span>
         ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
       <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
@@ -540,24 +608,81 @@ function bars(days, daily, field, title) {
       ${days.length <= 7 || i % 5 === 0 || i === days.length - 1 ? `<span>${d.slice(8)}.${d.slice(5, 7)}</span>` : '<span></span>'}</div>`).join('')}</div>`;
 }
 
-const tile = (label, value) => `<div><span>${label}</span><b>${value}</b></div>`;
+const tile = (label, value, extra = '') => `<div><span>${label}</span><b>${value}</b>${extra}</div>`;
+
+// Сравнение с предыдущим таким же периодом: ▲ выросло, ▼ упало.
+function trend(cur, prev) {
+  if (prev == null) return '';
+  if (!prev && !cur) return '';
+  if (!prev) return ' <small class="trend up" title="В прошлом периоде было 0">▲ новое</small>';
+  const pct = Math.round((cur - prev) / prev * 100);
+  if (!pct) return ' <small class="trend" title="Как в прошлом периоде">＝</small>';
+  return ` <small class="trend ${pct > 0 ? 'up' : 'down'}" title="В прошлом периоде: ${num(prev)}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</small>`;
+}
+
+const CURRENCIES = {mora: '🪙 Мора', diamonds: '💎 Алмазы', dark_mora: '🌑 Тёмная мора', zarniki: '✨ Зарники'};
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v));
+
+function retentionCard(r) {
+  if (!r) return '';
+  const names = {d1: 'На следующий день', d7: 'За 7 дней', d30: 'За 30 дней'};
+  return `<div class="card"><h3>🔁 Удержание</h3><div class="stats">
+    ${Object.entries(names).map(([k, t]) => r[k] && r[k].cohort
+      ? tile(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`) : tile(t, '—', '<small> данных пока нет</small>')).join('')}</div>
+    <div class="sub" style="margin-top:8px">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
+    у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</div></div>`;
+}
+
+function economyCard(e) {
+  const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
+  if (!cur.length) return '<div class="card"><h3>💰 Экономика</h3><div class="sub">За период движений валюты не было.</div></div>';
+  const list = (items, label) => items.length ? `<details style="margin-top:6px"><summary class="sub">${label} · ${items.length}</summary>
+    <table>${items.map(x => `<tr><td>${esc(x.title)}</td><td>${num(x.amount)}</td></tr>`).join('')}</table></details>` : '';
+  return `<div class="card"><h3>💰 Экономика</h3>${cur.map(([k, c]) => `
+    <div class="sub" style="margin-top:12px"><b>${CURRENCIES[k]}</b></div>
+    <div class="stats">${tile('Выдано', num(c.issued))}${tile('Потрачено', num(c.spent))}${tile('Итого', signed(c.net))}</div>
+    ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
+    <div class="sub" style="margin-top:10px">Переводы между игроками не считаются: деньги только переходят от человека к человеку.</div></div>`;
+}
+
+// Выгрузка в CSV: в браузере скачивается файлом, а в Telegram (где файлы не скачать) — копируется в буфер.
+async function exportMetrics(days) {
+  const headers = {};
+  if (INIT) headers['x-init-data'] = INIT;
+  try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
+  const res = await fetch(`${BASE}/bot-admin/api/metrics/export?days=${days}`, {headers});
+  if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+  const text = await res.text();
+  if (window.Telegram?.WebApp?.initData) {
+    await navigator.clipboard.writeText(text.replace(/^\ufeff/, ''));
+    toast('Таблица скопирована: вставьте её в Excel или Google Таблицы.');
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'}));
+  const a = Object.assign(document.createElement('a'), {href: url, download: `metrics-${days}d.csv`});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 
 async function metricsView(main, days = 1) {
   showSectionLoading(main, 'metrics');
   const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
-  const s = m.site, b = m.bot, c = m.chats;
+  const s = m.site, b = m.bot, c = m.chats, cmp = m.compare || {};
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
   main.innerHTML = `
     <div class="scope">${Object.entries(period).map(([d, t]) =>
       `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
-      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span></div>
+      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span>
+      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
     <div class="card"><h3>Всего</h3><div class="stats">
-      ${tile('👤 Уникальных людей', num(m.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
+      ${tile('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
       ${tile('💬 Чатов с ботом', num(m.chats_total))}</div>
-      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.</div></div>
+      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.
+        Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</div></div>
+    ${retentionCard(m.retention)}
     <div class="card"><h3>📱 Мини-приложение</h3><div class="stats">
-      ${tile('Посетителей', num(s.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
+      ${tile('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
       ${tile('Время всего', dur(s.seconds))}${tile('В среднем на человека', dur(s.avg_seconds_per_visitor))}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
       ${s.pages.length ? `<table style="margin-top:12px"><tr><th>Вкладка</th><th>Открытий</th><th>Людей</th><th>Время</th><th>Среднее</th></tr>
@@ -567,20 +692,26 @@ async function metricsView(main, days = 1) {
         <table>${s.subpages.map(p => `<tr><td>${esc(p.tab)}</td><td>${num(p.visits)}</td><td>${num(p.users)} чел.</td></tr>`).join('')}</table></details>` : ''}
     </div>
     <div class="card"><h3>🤖 Команды бота</h3><div class="stats">
-      ${tile('Команд', num(b.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
-      ${tile('Людей', num(b.users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
+      ${tile('Команд', num(b.commands), trend(b.commands, cmp.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
+      ${tile('Людей', num(b.users), trend(b.users, cmp.bot_users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
       ${b.top.length ? `<table style="margin-top:12px"><tr><th>Команда</th><th>В чатах</th><th>В личке</th><th>Всего</th></tr>
         ${b.top.map(x => `<tr><td>бот ${esc(x.command)}</td><td>${num(x.group)}</td><td>${num(x.private)}</td><td>${num(x.total)}</td></tr>`).join('')}</table>`
         : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
     </div>
     <div class="card"><h3>💬 Чаты</h3><div class="stats">
-      ${tile('Сообщений', num(c.messages))}${tile('Писали', num(c.users) + ' чел.')}${tile('Активных чатов', num(c.chats))}</div>
+      ${tile('Сообщений', num(c.messages), trend(c.messages, cmp.messages))}${tile('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users))}${tile('Активных чатов', num(c.chats))}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
       ${c.top.length ? `<table style="margin-top:12px"><tr><th>Чат</th><th>Сообщений</th><th>Писали</th></tr>
         ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
           <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
-    </div>`;
+    </div>
+    ${economyCard(m.economy)}`;
+  $('#mexport').onclick = async e => {
+    e.target.disabled = true;
+    try { await exportMetrics(m.days); } catch (err) { toast(err.message || 'Не удалось выгрузить', true); }
+    e.target.disabled = false;
+  };
   main.querySelectorAll('table').forEach(t => {   // длинные таблицы (топ команд) по 8 строк, остальное по кнопке
     const rows = [...t.querySelectorAll('tr')].slice(1);
     if (rows.length <= 10) return;
@@ -713,56 +844,262 @@ function tgHtml(text) {
     .replace(/&lt;\/a&gt;/g, '</a>');
 }
 
+// Выбор людей или чатов поиском: чипы + подсказки. items — массив {id, label}, меняется на месте.
+function pickerField(host, {hint, placeholder, search, items, onChange}) {
+  host.innerHTML = `<input placeholder="${esc(placeholder)}"/><div class="found"></div><div class="chips"></div>`;
+  const input = $('input', host), found = $('.found', host), chips = $('.chips', host);
+  const draw = () => {
+    chips.innerHTML = items.length
+      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${esc(x.label)} ✕</span>`).join('')
+      : `<span class="sub">${esc(hint)}</span>`;
+  };
+  draw();
+  chips.onclick = e => { const c = e.target.closest('[data-un]'); if (c) { items.splice(+c.dataset.un, 1); draw(); onChange(); } };
+  let timer;
+  input.oninput = () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (!q) { found.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      try {
+        const list = (await search(q)).filter(x => !items.some(y => y.id === x.id));
+        found.innerHTML = list.map((x, i) => `<button type="button" data-add="${i}">${esc(x.label)} <span class="sub">${x.id}</span></button>`).join('')
+          || '<span class="sub">Не найдено</span>';
+        found._list = list;
+      } catch (e) { found.innerHTML = `<span class="sub">${esc(e.message)}</span>`; }
+    }, 250);
+  };
+  found.onclick = e => {
+    const b = e.target.closest('[data-add]');
+    if (!b || !found._list) return;
+    items.push(found._list[+b.dataset.add]);
+    found.innerHTML = ''; input.value = '';
+    draw(); onChange();
+  };
+}
+
+const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: c.title}));
+const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`)).players
+  .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id}));
+
+// Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
+const BC = {kind: 'players', chats: [], players: [], active: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
+            btnText: '', btnUrl: '', later: false, at: ''};
+
+function bcSegment() {
+  const seg = {kind: BC.kind};
+  if (BC.chats.length) seg.chats = BC.chats.map(x => x.id);
+  if (+BC.active) seg.active_days = +BC.active;
+  if (BC.kind === 'players') {
+    if (BC.vip !== '') seg.vip = BC.vip === '1';
+    if (+BC.newDays) seg.new_days = +BC.newDays;
+    if (+BC.minMsg) seg.min_messages = +BC.minMsg;
+    if (BC.players.length) seg.players = BC.players.map(x => x.id);
+  }
+  return seg;
+}
+const bcButton = () => (BC.btnText.trim() || BC.btnUrl.trim()) ? {text: BC.btnText.trim(), url: BC.btnUrl.trim()} : null;
+
+function bcHistoryRow(b) {
+  const text = b.text.length > 160 ? b.text.slice(0, 160) + '…' : b.text;
+  const progress = b.status === 'scheduled' ? `отправится ${when(b.scheduled_at)}` : `${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}`;
+  const resumable = b.status === 'interrupted' || (b.status === 'stopped' && b.total > b.sent + b.failed);
+  return `<div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${progress}</div>
+    <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
+    <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div>
+    <div class="actions" style="margin-top:6px">
+      ${b.status === 'running' ? `<button class="btn small" data-bstop="${b.id}">⏹ Остановить</button>` : ''}
+      ${b.status === 'scheduled' ? `<button class="btn small" data-bstop="${b.id}">✖ Отменить</button>` : ''}
+      ${resumable ? `<button class="btn small" data-bresume="${b.id}">▶ Продолжить</button>` : ''}
+      ${b.status !== 'scheduled' ? `<button class="btn small" data-breport="${b.id}">📋 Отчёт</button>` : ''}
+    </div></div>`;
+}
+
+async function bcReport(id, refresh) {
+  const rep = await api(`/broadcasts/${id}`);
+  const b = rep.broadcast;
+  const names = rep.failed_sample.map(x => `<div class="log"><b>${esc(x.name)}</b> <span class="sub">${esc(x.reason)}</span></div>`).join('');
+  sheet(`Рассылка №${b.id}`, `
+    <div class="sub" style="margin-bottom:6px">${esc(b.audience_title)} · ${esc(b.status_title)}</div>
+    <div class="grid2"><div class="card"><div class="sub">Дошло</div><b>${num(rep.sent)}</b></div>
+      <div class="card"><div class="sub">Не дошло</div><b>${num(rep.failed)}</b></div></div>
+    ${rep.pending ? `<div class="sub">Ещё не отправлено: ${num(rep.pending)}</div>` : ''}
+    ${rep.reasons.length ? `<h4>Почему не дошло</h4>${rep.reasons.map(r => `<div class="log">${esc(r.title)} <b>${num(r.count)}</b></div>`).join('')}` : ''}
+    ${names ? `<h4>Кому не дошло${rep.failed > rep.failed_sample.length ? ` (первые ${rep.failed_sample.length})` : ''}</h4>${names}` : ''}
+    <div class="card" style="white-space:pre-wrap;margin-top:8px">${(b.html ? tgHtml : esc)(b.text)}</div>`,
+    rep.failed ? 'Повторить недоставленным' : 'Закрыть', async () => {
+      if (!rep.failed) return;
+      const res = await api(`/broadcasts/${id}/retry`, {method: 'POST'});
+      toast(res.message); refresh();
+    });
+}
+
 async function broadcastView(main) {
   const data = await loadSectionData(main, '/broadcasts', () => broadcastView(main), 'broadcast');
   if (!data) return;
-  const running = data.items.some(b => b.status === 'running');
+  let items = data.items, templates = data.templates || [];
   main.innerHTML = `
     <div class="card"><h3>📣 Новая рассылка</h3>
-      <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
-        `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div class="field"><label>Шаблон</label><select id="btpl"></select>
+        <div class="actions" style="margin-top:6px"><button class="btn small" id="btplsave">💾 Сохранить как шаблон</button>
+        <button class="btn small danger" id="btpldel" hidden>Удалить шаблон</button></div></div>
+      <div class="field"><label>Кому</label><select id="bkind">${data.audiences.map(a =>
+        `<option value="${a.key}" ${a.key === BC.kind ? 'selected' : ''}>${esc(a.title)} · всего ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div id="bseg"></div>
+      <div class="card" id="bcount" style="margin:8px 0">Считаем получателей…</div>
       <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
-      <label class="sub" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="bhtml" checked/> HTML-разметка Telegram</label>
+      <div class="field switch"><input type="checkbox" id="bhtml"/><label for="bhtml" style="margin:0">HTML-разметка Telegram</label></div>
       <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
-      <div class="sub" style="margin-top:6px">Предпросмотр</div><div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
-      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="field"><label>Кнопка под сообщением: подпись</label><input id="bbtext" maxlength="64" placeholder="Например: Играть"/></div>
+        <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div>
+      <div class="sub" style="margin-top:6px">Предпросмотр</div>
+      <div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
+      <div class="field switch"><input type="checkbox" id="blater"/><label for="blater" style="margin:0">Отправить позже</label></div>
+      <div class="field" id="batwrap" hidden><label>Когда (по вашему времени)</label><input type="datetime-local" id="bat"/></div>
+      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется. Получателей отложенной рассылки бот считает в момент отправки.</div>
       <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
-        <button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
-      ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
+        <button class="btn primary" id="bgo">Проверить и отправить</button></div>
+      <div class="sub" id="bbusy" style="margin-top:6px" hidden>Сейчас идёт другая рассылка: дождитесь её или остановите.</div>
     </div>
-    <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
-      <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
-        ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
-        <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
-        <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
-  const html = () => $('#bhtml').checked;
-  const draw = () => { const t = $('#btext').value; $('#bprev').innerHTML = html() ? tgHtml(t) : esc(t); $('#bhelp').hidden = !html(); };
-  $('#btext').oninput = draw; $('#bhtml').onchange = draw; draw();
+    <div class="card"><h3>История</h3><div id="bhist"></div></div>`;
+
+  // ── Сегмент ──
+  const refreshCount = (() => {
+    let timer, seq = 0;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const mine = ++seq, box = $('#bcount');
+        if (!box) return;
+        try {
+          const res = await api('/broadcasts/preview', {method: 'POST', body: JSON.stringify({segment: bcSegment()})});
+          if (mine === seq && $('#bcount')) { BC.count = res.count; BC.title = res.title; box.innerHTML = `Получателей: <b>${num(res.count)}</b> · <span class="sub">${esc(res.title)}</span>`; }
+        } catch (e) { if (mine === seq && $('#bcount')) { BC.count = null; box.innerHTML = `<span class="sub">${esc(e.message)}</span>`; } }
+      }, 300);
+    };
+  })();
+  const numberField = (id, label, key, ph) => `<div class="field"><label>${label}</label><input id="${id}" type="number" min="0" inputmode="numeric" value="${esc(BC[key])}" placeholder="${ph}"/></div>`;
+  function drawSegment() {
+    const players = BC.kind === 'players';
+    $('#bseg').innerHTML = `
+      <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
+      ${players ? `<div class="field"><label>Только эти игроки (пусто — любые)</label><div id="bpplayers"></div></div>` : ''}
+      <div class="grid2">
+        ${numberField('bactive', players ? 'Писали хоть где-то за N дней' : 'Писали в чате за N дней', 'active', 'Любые')}
+        ${players ? `<div class="field"><label>VIP</label><select id="bvip">
+          ${[['', 'Не важно'], ['1', 'Только с VIP'], ['0', 'Только без VIP']].map(([v, t]) => `<option value="${v}" ${BC.vip === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        ${numberField('bnew', 'Новички: впервые замечены за N дней', 'newDays', 'Любые')}
+        ${numberField('bmin', 'Сообщений всего — не меньше', 'minMsg', 'Любые')}` : ''}
+      </div>`;
+    pickerField($('#bpchats'), {hint: players ? 'Любые чаты' : 'Все чаты бота', placeholder: 'Найти чат по названию или ID', search: searchChats, items: BC.chats, onChange: refreshCount});
+    if (players) pickerField($('#bpplayers'), {hint: 'Любые игроки', placeholder: 'Найти игрока по @нику или ID', search: searchPlayers, items: BC.players, onChange: refreshCount});
+    const bind = (id, key) => { const el = $('#' + id); if (el) el.oninput = el.onchange = () => { BC[key] = el.value; refreshCount(); }; };
+    bind('bactive', 'active'); bind('bvip', 'vip'); bind('bnew', 'newDays'); bind('bmin', 'minMsg');
+    refreshCount();
+  }
+  $('#bkind').onchange = () => { BC.kind = $('#bkind').value; drawSegment(); };
+  drawSegment();
+
+  // ── Текст, кнопка, расписание ──
+  const draw = () => {
+    BC.text = $('#btext').value; BC.html = $('#bhtml').checked; BC.btnText = $('#bbtext').value; BC.btnUrl = $('#bburl').value;
+    BC.later = $('#blater').checked; BC.at = $('#bat').value;
+    $('#bprev').innerHTML = (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
+    $('#bhelp').hidden = !BC.html;
+    $('#batwrap').hidden = !BC.later;
+    $('#bgo').textContent = BC.later ? 'Проверить и запланировать' : 'Проверить и отправить';
+  };
+  $('#btext').value = BC.text; $('#bhtml').checked = BC.html; $('#bbtext').value = BC.btnText; $('#bburl').value = BC.btnUrl;
+  $('#blater').checked = BC.later; $('#bat').value = BC.at;
+  ['#btext', '#bbtext', '#bburl', '#bat'].forEach(sel => $(sel).oninput = draw);
+  $('#bhtml').onchange = $('#blater').onchange = draw;
+  draw();
+
+  // ── Шаблоны ──
+  const drawTemplates = () => {
+    $('#btpl').innerHTML = `<option value="">— без шаблона —</option>` + templates.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('');
+    $('#btpldel').hidden = true;
+  };
+  drawTemplates();
+  $('#btpl').onchange = () => {
+    const t = templates.find(x => String(x.id) === $('#btpl').value);
+    $('#btpldel').hidden = !t;
+    if (!t) return;
+    $('#btext').value = t.text; $('#bhtml').checked = t.html;
+    $('#bbtext').value = t.button ? t.button.text : ''; $('#bburl').value = t.button ? t.button.url : '';
+    draw();
+  };
+  $('#btplsave').onclick = () => {
+    if (!$('#btext').value.trim()) { toast('Сначала напишите текст.', true); return; }
+    sheet('Сохранить как шаблон', `<div class="field"><label>Название</label><input id="btitle" maxlength="60" placeholder="Например: Новости недели"/></div>
+      <div class="sub">Сохранятся текст, разметка и кнопка. Получатели и время — нет.</div>`, 'Сохранить', async () => {
+      const res = await api('/broadcasts/templates', {method: 'POST', body: JSON.stringify({
+        title: $('#btitle').value, text: $('#btext').value.trim(), html: $('#bhtml').checked, button: bcButton()})});
+      templates = res.items; drawTemplates(); toast(res.message);
+    });
+  };
+  $('#btpldel').onclick = async () => {
+    const t = templates.find(x => String(x.id) === $('#btpl').value);
+    if (!t || !confirm(`Удалить шаблон «${t.title}»?`)) return;
+    try { templates = (await api(`/broadcasts/templates/${t.id}`, {method: 'DELETE'})).items; drawTemplates(); toast('Шаблон удалён.'); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  // ── Отправка ──
   $('#btest').onclick = async () => {
     const text = $('#btext').value.trim();
     if (!text) { toast('Напишите текст.', true); return; }
     $('#btest').disabled = true;
-    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: html()})})).message); }
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton()})})).message); }
     catch (e) { toast(e.message, true); }
     $('#btest').disabled = false;
   };
   $('#bgo').onclick = () => {
-    const audience = $('#baud').value, text = $('#btext').value.trim(), isHtml = html();
+    const text = BC.text.trim();
     if (!text) { toast('Напишите текст.', true); return; }
-    const a = data.audiences.find(x => x.key === audience);
+    if (BC.later && !BC.at) { toast('Выберите время отправки.', true); return; }
     const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
-    sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
-      <div class="card" style="white-space:pre-wrap">${isHtml ? tgHtml(text) : esc(text)}</div>`, 'Отправить', async () => {
-      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, html: isHtml, request_id: rid})});
-      toast(res.message || 'Запущено');
-      broadcastView(main);
-    });
+    const who = BC.count == null ? 'Получатели не посчитаны' : `${num(BC.count)} получателей · ${BC.title}`;
+    sheet(BC.later ? 'Запланировать рассылку?' : 'Отправить рассылку?', `
+      <div class="sub" style="margin-bottom:8px">${esc(who)}${BC.later ? `<br/>Отправится ${when(BC.at)}.` : '<br/>Отменить уже отправленное нельзя.'}</div>
+      <div class="card" style="white-space:pre-wrap">${(BC.html ? tgHtml : esc)(text)}${bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText)}</span> <span class="sub">${esc(BC.btnUrl)}</span></div>` : ''}</div>`,
+      BC.later ? 'Запланировать' : 'Отправить', async () => {
+        const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({
+          audience: BC.kind, segment: bcSegment(), text, html: BC.html, button: bcButton(), request_id: rid,
+          scheduled_at: BC.later ? new Date(BC.at).toISOString() : null})});
+        toast(res.message || 'Готово');
+        Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: ''});
+        broadcastView(main);
+      });
   };
-  main.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => {
-    try { toast((await api(`/broadcasts/${b.dataset.stop}/stop`, {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
-    broadcastView(main);
-  });
-  if (running) setTimeout(() => { if ($('#bgo') && document.body.contains(main) && $('#tabs .on')?.dataset.tab === 'broadcast') broadcastView(main); }, 4000);
+
+  // ── История: перерисовывается отдельно, пока идёт рассылка (форма остаётся как есть) ──
+  const alive = () => document.body.contains(main) && $('#bhist') && $('#tabs .on')?.dataset.tab === 'broadcast';
+  let poll;
+  function drawHistory() {
+    clearTimeout(poll);
+    const running = items.some(b => b.status === 'running');
+    $('#bgo').disabled = running; $('#bbusy').hidden = !running;
+    $('#bhist').innerHTML = items.length ? items.map(bcHistoryRow).join('') : '<div class="sub">Рассылок ещё не было.</div>';
+    if (running || items.some(b => b.status === 'scheduled')) {
+      poll = setTimeout(async () => {
+        if (!alive()) return;
+        try { items = (await api('/broadcasts')).items; } catch (_) {}
+        if (alive()) drawHistory();
+      }, running ? 4000 : 30000);
+    }
+  }
+  const reload = async () => { items = (await api('/broadcasts')).items; drawHistory(); };
+  $('#bhist').onclick = async e => {
+    const stop = e.target.closest('[data-bstop]'), resume = e.target.closest('[data-bresume]'), report = e.target.closest('[data-breport]');
+    try {
+      if (stop) { toast((await api(`/broadcasts/${stop.dataset.bstop}/stop`, {method: 'POST'})).message); await reload(); }
+      else if (resume) { toast((await api(`/broadcasts/${resume.dataset.bresume}/resume`, {method: 'POST'})).message); await reload(); }
+      else if (report) await bcReport(report.dataset.breport, reload);
+    } catch (err) { toast(err.message, true); }
+  };
+  drawHistory();
 }
 
 SECTIONS.broadcast = main => broadcastView(main);
@@ -1199,6 +1536,67 @@ async function settingsView(main) {
 }
 
 SECTIONS.settings = main => settingsView(main);
+
+// ── Состояние ────────────────────────────────────────────────────────────────
+
+const duration = sec => {
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин`;
+};
+
+async function healthView(main) {
+  const h = await loadSectionData(main, '/health', () => healthView(main), 'health');
+  if (!h) return;
+  const tg = h.telegram, dot = ok => `<span class="chip ${ok ? 'ok' : 'bad'}">${ok ? 'работает' : 'не отвечает'}</span>`;
+  const row = (title, value, sub = '') => `<div class="log"><div>${title} <b>${value}</b></div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  const dg = h.digest;
+  main.innerHTML = `
+    <div class="card"><h3>🤖 Бот</h3>
+      ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
+      ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
+      ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
+    </div>
+    <div class="card"><h3>⚠️ Ошибки за сутки · ${num(h.errors.count_24h)}</h3>
+      ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
+        : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
+      ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
+    </div>
+    <div class="card"><h3>💬 Чаты и игроки</h3>
+      ${row('Чатов с ботом', num(h.chats.active))}
+      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают.' : '')}
+      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают.' : '')}
+      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet))}
+      ${row('Игроков', num(h.players.total))}
+      ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
+    </div>
+    <div class="card"><h3>📬 Очереди</h3>
+      ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
+      ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
+      ${row('Открытых жалоб', num(h.queues.reports_open))}
+    </div>
+    <div class="card"><h3>🌅 Итоги дня владельцу</h3>
+      <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
+      <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
+      <div class="field"><label>Во сколько (по времени бота)</label><select id="dghour" ${dg.can_edit ? '' : 'disabled'}>
+        ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
+      ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
+      <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
+    </div>`;
+  const save = async () => {
+    try {
+      await api('/health/digest', {method: 'POST', body: JSON.stringify({enabled: $('#dgon').checked, hour: +$('#dghour').value})});
+      toast('Сохранено');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('#dgon').onchange = save; $('#dghour').onchange = save;
+  $('#dgtest').onclick = async () => {
+    $('#dgtest').disabled = true;
+    try { toast((await api('/health/digest/test', {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
+    $('#dgtest').disabled = false;
+  };
+}
+
+SECTIONS.health = main => healthView(main);
 
 // ── Старт ────────────────────────────────────────────────────────────────────
 

@@ -131,6 +131,113 @@ async def _chats(db, since_day: date, until_day: date) -> dict:
             "daily": {str(d): {"messages": int(m), "users": int(u)} for d, m, u in daily}}
 
 
+async def _everyone(db, since_day: date, until_day: date) -> int:
+    """Уникальные люди хоть где-то: сайт, команды бота, сообщения в чатах."""
+    start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
+    return int((await _one(
+        db, "SELECT COUNT(*) FROM (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ? "
+            "UNION SELECT user_id FROM bot_user_daily WHERE day BETWEEN ? AND ? "
+            "UNION SELECT user_id FROM daily_user_stats WHERE date BETWEEN ? AND ? AND chat_id < 0) x",
+        (start, end, since_day, until_day, since_day.isoformat(), until_day.isoformat())))[0])
+
+
+async def _totals(db, since_day: date, until_day: date) -> dict:
+    """Главные числа периода: для сравнения с предыдущим таким же."""
+    start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
+    visitors = int((await _one(db, "SELECT COUNT(DISTINCT user_id) FROM site_analytics WHERE visited_at >= ? AND visited_at < ?",
+                               (start, end)))[0])
+    commands, bot_users = await _one(db, "SELECT COALESCE(SUM(commands), 0), COUNT(DISTINCT user_id) FROM bot_user_daily "
+                                         "WHERE day BETWEEN ? AND ?", (since_day, until_day))
+    messages, chat_users = await _one(db, "SELECT COALESCE(SUM(message_count), 0), COUNT(DISTINCT user_id) FROM daily_user_stats "
+                                          "WHERE date BETWEEN ? AND ? AND chat_id < 0", (since_day.isoformat(), until_day.isoformat()))
+    return {"everyone": await _everyone(db, since_day, until_day), "visitors": visitors, "commands": int(commands),
+            "bot_users": int(bot_users), "messages": int(messages), "chat_users": int(chat_users)}
+
+
+_retention_cache: tuple[float, date, dict] | None = None
+RETENTION_TTL = 600.0
+
+
+async def retention(db) -> dict:
+    """Удержание: какая доля новых людей вернулась на следующий день, в течение 7 и 30 дней.
+
+    «Новый» — впервые замечен в сообщениях чатов или командах бота. Для каждого окна берётся своя когорта, чтобы у всех
+    уже прошёл нужный срок. Запрос тяжёлый, поэтому ответ держится десять минут."""
+    import time as _time
+    global _retention_cache
+    day = today()
+    if _retention_cache and _time.time() - _retention_cache[0] < RETENTION_TTL and _retention_cache[1] == day:
+        return _retention_cache[2]
+    act = ("SELECT user_id, date::date AS d FROM daily_user_stats WHERE chat_id < 0 AND date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' "
+           "UNION SELECT user_id, day AS d FROM bot_user_daily")
+    windows = (("d1", 1, 30, 1), ("d7", 7, 37, 7), ("d30", 30, 60, 30))
+    parts, args = [], []
+    for _key, within, back_from, back_to in windows:
+        inside = "first.f BETWEEN ? AND ?"
+        parts.append(f"COUNT(*) FILTER (WHERE {inside}), COUNT(*) FILTER (WHERE {inside} AND EXISTS ("
+                     f"SELECT 1 FROM act a WHERE a.user_id = first.user_id AND a.d > first.f AND a.d <= first.f + {int(within)}))")
+        args += [day - timedelta(days=back_from), day - timedelta(days=back_to)] * 2
+    row = await _one(db, f"WITH act AS ({act}), first AS (SELECT user_id, MIN(d) AS f FROM act GROUP BY user_id) "
+                         f"SELECT {', '.join(parts)} FROM first", tuple(args))
+    out = {}
+    for i, (key, _within, back_from, back_to) in enumerate(windows):
+        cohort, back = int(row[i * 2]), int(row[i * 2 + 1])
+        out[key] = {"cohort": cohort, "returned": back, "percent": round(back * 100 / cohort) if cohort else None,
+                    "from": (day - timedelta(days=back_from)).isoformat(), "to": (day - timedelta(days=back_to)).isoformat()}
+    _retention_cache = (_time.time(), day, out)
+    return out
+
+
+REASON_GROUPS = (
+    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"),
+    (("achievement_reward",), "Награды за достижения"), (("chest_v1_reward", "chest_key"), "Сундуки и ключи"),
+    (("promocode",), "Промокоды"), (("vip_",), "VIP"), (("pet_",), "Питомцы"),
+    (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "retirement_"), "Подарки и компенсации"),
+    (("cosmetic_", "skin_", "theme_", "global_skin", "showcase_"), "Образы и оформление"), (("shop_",), "Магазин"),
+    (("exchange_", "crypto_", "player_coin_", "shadow_relic"), "Биржа"), (("auction_",), "Аукцион"),
+)
+
+
+def reason_title(code: str) -> str:
+    for prefixes, title in REASON_GROUPS:
+        if any(code == p or code.startswith(p) for p in prefixes):
+            return title
+    return code
+
+
+async def economy(db, since_day: date, until_day: date) -> dict:
+    """Сколько валюты выдано и потрачено за период и откуда. Переводы между игроками не считаются: сумма у них ноль."""
+    from datetime import timezone
+    start = _utc_start(since_day).replace(tzinfo=timezone.utc)
+    end = _utc_start(until_day + timedelta(days=1)).replace(tzinfo=timezone.utc)
+    try:
+        rows = await _all(
+            db, "SELECT currency, reason_code, COALESCE(SUM(delta) FILTER (WHERE delta > 0), 0), "
+                "COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0) FROM economic_ledger "
+                "WHERE created_at >= ? AND created_at < ? GROUP BY currency, reason_code", (start, end))
+    except Exception:   # леджера ещё нет (чистая база)
+        return {}
+    out: dict[str, dict] = {}
+    for currency, reason, plus, minus in rows:
+        c = out.setdefault(currency, {"issued": 0.0, "spent": 0.0, "transfers": 0.0, "sources": {}, "sinks": {}})
+        if reason.startswith("player_transfer_"):
+            c["transfers"] += float(plus)
+            continue
+        title = reason_title(reason)
+        c["issued"] += float(plus); c["spent"] += float(minus)
+        if plus:
+            c["sources"][title] = c["sources"].get(title, 0.0) + float(plus)
+        if minus:
+            c["sinks"][title] = c["sinks"].get(title, 0.0) + float(minus)
+    for c in out.values():
+        c["net"] = round(c["issued"] - c["spent"], 2)
+        for key in ("issued", "spent", "transfers"):
+            c[key] = round(c[key], 2)
+        for key in ("sources", "sinks"):
+            c[key] = [{"title": t, "amount": round(v, 2)} for t, v in sorted(c[key].items(), key=lambda kv: -kv[1])[:6]]
+    return out
+
+
 async def dashboard(db, days: int) -> dict:
     days = days if days in PERIODS else 1
     until_day = today()
@@ -138,15 +245,41 @@ async def dashboard(db, days: int) -> dict:
     site = await _site(db, since_day, until_day)
     bot = await _bot(db, since_day, until_day)
     chats = await _chats(db, since_day, until_day)
-    # Уникальные люди хоть где-то: сайт, команды бота, сообщения в чатах.
-    start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
-    everyone = int((await _one(
-        db, "SELECT COUNT(*) FROM (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ? "
-            "UNION SELECT user_id FROM bot_user_daily WHERE day BETWEEN ? AND ? "
-            "UNION SELECT user_id FROM daily_user_stats WHERE date BETWEEN ? AND ? AND chat_id < 0) x",
-        (start, end, since_day, until_day, since_day.isoformat(), until_day.isoformat())))[0])
+    everyone = await _everyone(db, since_day, until_day)
     totals = await _one(db, "SELECT (SELECT COUNT(*) FROM users), (SELECT COUNT(*) FROM chat_settings WHERE chat_id < 0)", ())
     day_list = [(since_day + timedelta(days=i)).isoformat() for i in range(days)]
+    prev_until = since_day - timedelta(days=1)
+    compare = await _totals(db, prev_until - timedelta(days=days - 1), prev_until)
     return {"days": days, "since": since_day.isoformat(), "until": until_day.isoformat(), "day_list": day_list,
             "everyone": everyone, "players_total": int(totals[0]), "chats_total": int(totals[1]),
-            "site": site, "bot": bot, "chats": chats}
+            "site": site, "bot": bot, "chats": chats, "compare": compare, "retention": await retention(db),
+            "economy": await economy(db, since_day, until_day)}
+
+
+async def export_csv(db, days: int) -> str:
+    """Выгрузка за период в CSV (разделитель «;», чтобы открывалось в Excel): по дням, топ команд, топ чатов, экономика."""
+    import csv
+    import io
+    m = await dashboard(db, days)
+    buf = io.StringIO()
+    w = csv.writer(buf, delimiter=";")
+    w.writerow(["Период", m["since"], m["until"]])
+    w.writerow([])
+    w.writerow(["Дата", "Посетителей мини-приложения", "Время в приложении, с", "Людей с командами", "Команд", "Сообщений в чатах", "Писали в чатах"])
+    for d in m["day_list"]:
+        site, bot, chat = m["site"]["daily"].get(d, {}), m["bot"]["daily"].get(d, {}), m["chats"]["daily"].get(d, {})
+        w.writerow([d, site.get("users", 0), site.get("seconds", 0), bot.get("users", 0), bot.get("commands", 0),
+                    chat.get("messages", 0), chat.get("users", 0)])
+    w.writerow([])
+    w.writerow(["Команда", "В чатах", "В личке", "Всего"])
+    for x in m["bot"]["top"]:
+        w.writerow([f"бот {x['command']}", x["group"], x["private"], x["total"]])
+    w.writerow([])
+    w.writerow(["Чат", "Сообщений", "Писали"])
+    for x in m["chats"]["top"]:
+        w.writerow([x["title"], x["messages"], x["users"]])
+    w.writerow([])
+    w.writerow(["Валюта", "Выдано", "Потрачено", "Итого"])
+    for currency, c in m["economy"].items():
+        w.writerow([currency, c["issued"], c["spent"], c["net"]])
+    return buf.getvalue()
