@@ -12,12 +12,12 @@ from bot.chat import mafia_dm as dm
 from bot.chat.mafia_cards import bump_card, post_lobby, publish_phase
 from bot.chat.mafia_cb import MafiaLobbyCB, MafiaReadyCB, MafiaRulesCB, MafiaSettingsCB
 from bot.chat.mafia_delivery import deliver_for_match, group_say
-from bot.chat.mafia_filters import (answer, bot_can_moderate, bot_username, cannot_write, deletion_blocked, dm_reachable,
+from bot.chat.mafia_filters import (absent_players, answer, bot_can_moderate, bot_username, cannot_write, deletion_blocked, dm_reachable,
                                         is_anonymous_admin, is_chat_admin, posts_anonymously, topic_of, unreachable_players)
 from bot.chat.mafia_play import resume_flow, router as play_router, stop_flow
 from bot.chat.mafia_views import (LOBBY_SIZE_OPTIONS, PRESETS, join_url, lobby_keyboard, lobby_text, rules_keyboard,
                                       rules_url, settings_keyboard, settings_text)
-from bot.chat.framework import Ctx, registry
+from bot.chat.framework import Ctx, Parsed, parse as parse_chat_command, registry
 from bot.chat.modules import feature_enabled, module_disabled_reason
 from core import mafia_command, mafia_copy as copy
 from core import mafia_v1 as rules
@@ -187,9 +187,30 @@ async def _preflight(bot: Bot, db, chat_id: int, match_id: int) -> str:
 
 async def _start(query, db, bot: Bot, data: MafiaLobbyCB) -> None:
     message, user_id = query.message, int(query.from_user.id)
-    if not await bot_can_moderate(bot, int(message.chat.id)):
+    chat_id = int(message.chat.id)
+    lobby = await repo.get_match(db, match_id=data.match_id)
+    if lobby and int(lobby["chat_id"]) == chat_id and lobby["phase"] == "lobby" and int(lobby["initiator_id"]) != user_id:
+        # Раньше любой участник запускал проверку всех игроков (десятки запросов к Telegram) и только потом слышал отказ
+        return await answer(query, "Начать партию может только хозяин лобби.", alert=True)
+    reason = await module_disabled_reason(db, chat_id, "module_mafia")
+    if reason:
+        return await answer(query, reason, alert=True)
+    if not await bot_can_moderate(bot, chat_id):
         return await answer(query, "Боту больше нельзя удалять сообщения. Верни ему право «Удалять сообщения» и нажми «Начать» снова.", alert=True)
-    problem = await _preflight(bot, db, int(message.chat.id), data.match_id)
+    players = await repo.players(db, match_id=data.match_id)
+    gone = await absent_players(bot, chat_id, players)
+    if gone:   # вышел из чата — значит, играть не будет: убираем его из лобби, а не держим старт
+        for player in gone:
+            try:
+                await mafia.leave_lobby(db, match_id=data.match_id, chat_id=chat_id, user_id=int(player["user_id"]))
+            except mafia.MafiaError:
+                pass
+        fresh = await mafia.current_view(db, match_id=data.match_id)
+        if fresh and not await _redraw(message, lobby_text(fresh), lobby_keyboard(fresh, await bot_username(bot))):
+            await post_lobby(bot, db, fresh, topic_of(message))
+        names = ", ".join(p["display_name"] for p in gone[:3])
+        return await answer(query, f"Вышли из чата и убраны из лобби: {names}. Нажми «Начать» ещё раз.", alert=True)
+    problem = await _preflight(bot, db, chat_id, data.match_id)
     if problem:
         return await answer(query, problem, alert=True)
     try:
@@ -221,6 +242,9 @@ async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB
         if action == "start":
             return await _start(query, db, bot, callback_data)
         if action == "join":
+            reason = await module_disabled_reason(db, chat_id, "module_mafia")
+            if reason:
+                return await answer(query, reason, alert=True)
             view, notice = await _join(query, db, bot, callback_data), "Ты в лобби! Жди старта — роль придёт в личку."
             if view is None:
                 return
@@ -228,6 +252,9 @@ async def cb_mafia_lobby(query: types.CallbackQuery, callback_data: MafiaLobbyCB
             view = await mafia.leave_lobby(db, match_id=callback_data.match_id, chat_id=chat_id, user_id=user_id)
             notice = "Ты вышел из лобби."
         elif action == "cancel":
+            current = await repo.active_match(db, chat_id=chat_id, topic_id=topic_of(message))
+            if current and int(current["id"]) != int(callback_data.match_id):   # кнопка с карточки старого лобби
+                return await answer(query, "Это карточка прошлого лобби. Отмени текущее на его собственной карточке.", alert=True)
             await mafia.cancel_match(db, chat_id=chat_id, topic_id=topic_of(message), actor_id=user_id,
                                      is_admin=await is_chat_admin(bot, chat_id, user_id))
             await deliver_for_match(bot, db, callback_data.match_id)
@@ -345,8 +372,9 @@ async def cb_mafia_ready(query: types.CallbackQuery, callback_data: MafiaReadyCB
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return await answer(query, _OFF, alert=True)
     await mafia.confirm_dm_ready(db, user_id=int(query.from_user.id))
-    await _redraw(message, "✅ <b>Личка готова.</b> Теперь вернись в группу и нажми «Войти» в лобби.", None)
-    await answer(query, "Готово.")
+    if isinstance(message, types.Message):   # у «недоступного» (старше 48 часов) сообщения править нечего
+        await _redraw(message, "✅ <b>Личка готова.</b> Теперь вернись в группу и нажми «Войти» в лобби.", None)
+    await answer(query, "Готово. Теперь вернись в группу и нажми «Войти» в лобби.")
 
 
 @router.callback_query(MafiaRulesCB.filter())
@@ -355,7 +383,11 @@ async def cb_mafia_rules(query: types.CallbackQuery, callback_data: MafiaRulesCB
     if not message:
         return await answer(query, copy.rules_alert(), alert=True)
     if message.chat.type == "private":
-        await _redraw(message, copy.rules_page(callback_data.page), rules_keyboard(callback_data.page))
+        if not isinstance(message, types.Message):   # карточка старше 48 часов: править нельзя, шлём правила заново
+            await bot.send_message(message.chat.id, copy.rules_page(callback_data.page), parse_mode="HTML",
+                                   reply_markup=rules_keyboard(callback_data.page))
+        else:
+            await _redraw(message, copy.rules_page(callback_data.page), rules_keyboard(callback_data.page))
         return await answer(query)
     url = rules_url(await bot_username(bot))
     await answer(query, copy.rules_alert(), alert=True, url=url)
@@ -421,8 +453,7 @@ async def gate_message(db, bot: Bot, message: types.Message) -> bool:
     gate = await mafia.message_gate(db, chat_id=int(message.chat.id), topic_id=topic_id, user_id=int(message.from_user.id))
     if gate != "suppress":
         return False
-    command = mafia_command.parse(message.text)
-    if command and command.kind in mafia_command.GATE_BYPASS_KINDS:
+    if await _is_control_command(bot, message):
         return False
     try:
         await message.delete()
@@ -435,6 +466,15 @@ async def gate_message(db, bot: Bot, message: types.Message) -> bool:
         if active:  # right really lost: pause instead of pretending the phase is protected
             await _pause_and_show(db, bot, int(active["id"]))
         return False
+
+
+async def _is_control_command(bot: Bot, message: types.Message) -> bool:
+    """Это та самая команда управления, которую диспетчер выполнит («бот мафия стоп», «bot mafia stop», «@бот мафия стоп»)?"""
+    parsed = parse_chat_command(registry, message.text or message.caption or "", (await bot.me()).username)
+    if not isinstance(parsed, Parsed) or parsed.command.name != "мафия":
+        return False
+    command = mafia_command.parse(f"бот мафия {parsed.args}")
+    return bool(command and command.kind in mafia_command.GATE_BYPASS_KINDS)
 
 
 async def pause_for_purge(db, bot: Bot, chat_id: int, topic_id: int | None) -> None:
@@ -450,7 +490,7 @@ async def _pause_and_show(db, bot: Bot, match_id: int) -> None:
     await mafia.pause_for_moderation_intervention(db, match_id=match_id)
     try:
         view = await mafia.current_view(db, match_id=match_id)
-        if view:
+        if view and view["phase"] == "paused":   # лобби на паузу не ставится: карточку «голосования» там показывать нельзя
             await publish_phase(bot, db, view, gap=0)
     except Exception as error:  # noqa: BLE001 - the stored pause is authoritative
         logger.debug(f"Mafia pause card update failed: {error}")

@@ -6,6 +6,7 @@ from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramFo
                                 TelegramNetworkError, TelegramRetryAfter, TelegramServerError)
 from loguru import logger
 
+from bot.chat import mafia_flood as flood
 from bot.chat.mafia_card_views import night_keyboard, vote_dm_keyboard
 from core import mafia_copy as copy
 from core import mafia_v1 as rules
@@ -25,6 +26,7 @@ async def send_dm(bot: Bot, user_id: int, text: str, markup=None):
     except TelegramForbiddenError:
         return None
     except (TelegramRetryAfter, TelegramNetworkError, TelegramServerError) as exc:
+        flood.note(exc)
         raise RetryLater(str(exc)) from exc
     except TelegramBadRequest as exc:
         logger.warning(f"Mafia DM to {user_id} rejected: {exc}")

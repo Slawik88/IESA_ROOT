@@ -110,6 +110,17 @@ async def cannot_write(bot: Bot, chat_id: int, players: list[dict]) -> list[str]
     return [name for name in await asyncio.gather(*(check(p) for p in players)) if name]
 
 
+async def absent_players(bot: Bot, chat_id: int, players: list[dict]) -> list[dict]:
+    """Игроки лобби, которые уже не состоят в чате (вышли или удалены): сыграть они не могут."""
+    async def check(player: dict) -> dict | None:
+        try:
+            member = await bot.get_chat_member(chat_id, int(player["user_id"]))
+        except TelegramAPIError:
+            return None   # неясно — не трогаем, пусть решит обычная проверка
+        return player if member.status in {"left", "kicked"} else None
+    return [p for p in await asyncio.gather(*(check(p) for p in players)) if p]
+
+
 async def bot_username(bot: Bot) -> str | None:
     try:
         return (await bot.me()).username

@@ -174,6 +174,15 @@ class Harness:
         await self._feed({"message": message})
         return message_id
 
+    async def edit(self, user: SimUser, chat_id: int, message_id: int, text: str, *, topic: int | None = None) -> None:
+        """A player edits one of their earlier messages."""
+        message = {"message_id": message_id, "date": int(time.time()) - 60, "edit_date": int(time.time()),
+                   "chat": self._chat_json(chat_id, user), "from": user.json(), "text": text}
+        if topic:
+            message.update(message_thread_id=topic, is_topic_message=True)
+        self.world.messages[(chat_id, message_id)].text = text
+        await self._feed({"edited_message": message})
+
     def is_deleted(self, chat_id: int, message_id: int) -> bool:
         return self.world.messages[(chat_id, message_id)].deleted
 
@@ -202,8 +211,12 @@ class Harness:
         return self.world.live(user.id)
 
     # ── time & scheduler ────────────────────────────────────────────────────
-    async def tick(self) -> None:
+    async def tick(self, *, time_passes: bool = True) -> None:
+        """One scheduler pass.  By default the pause that retries wait for (flood, backoff) has already elapsed."""
         from services.scheduler import mafia_tick
+        if time_passes:
+            await self.sql("UPDATE predvestnik.mafia_v1_matches SET pending_event_json="
+                           "jsonb_set(pending_event_json,'{lease}','0'::jsonb,true) WHERE pending_event_json IS NOT NULL")
         await mafia_tick(self.bot)
 
     async def sql(self, query: str, *args):

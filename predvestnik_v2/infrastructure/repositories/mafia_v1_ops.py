@@ -1,6 +1,8 @@
 """Operational queries for Mafia v1: durable notifications, card pacing, lobby TTL, DM prompts."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from infrastructure.repositories.mafia_v1 import dumps, load
 
 
@@ -44,19 +46,26 @@ async def set_idle_phases(db, *, match_id: int, value: int) -> None:
 
 
 async def set_pending_event(db, *, match_id: int, event: dict) -> None:
+    # token отличает это событие от более нового: опоздавшая доставка не отметит и не сотрёт чужое
+    event = {**event, "token": uuid4().hex}
     await db.execute("UPDATE mafia_v1_matches SET pending_event_json=?::jsonb WHERE id=?", (dumps(event), int(match_id)))
 
 
-async def mark_event_step(db, *, match_id: int, step: str) -> None:
+async def mark_event_step(db, *, match_id: int, step: str, token: str | None = None) -> None:
     await db.execute(
         "UPDATE mafia_v1_matches SET pending_event_json=jsonb_set(pending_event_json,'{done}',"
         "COALESCE(pending_event_json->'done','[]'::jsonb)||to_jsonb(?::text),true) "
-        "WHERE id=? AND pending_event_json IS NOT NULL", (str(step), int(match_id)),
+        "WHERE id=? AND pending_event_json IS NOT NULL AND (?::text IS NULL OR pending_event_json->>'token'=?::text)",
+        (str(step), int(match_id), token, token),
     )
 
 
-async def clear_pending_event(db, *, match_id: int) -> None:
-    await db.execute("UPDATE mafia_v1_matches SET pending_event_json=NULL WHERE id=?", (int(match_id),))
+async def clear_pending_event(db, *, match_id: int, token: str | None = None) -> None:
+    """Стереть событие; с token — только если оно ещё то самое (его не заменило более новое)."""
+    await db.execute(
+        "UPDATE mafia_v1_matches SET pending_event_json=NULL "
+        "WHERE id=? AND (?::text IS NULL OR pending_event_json->>'token'=?::text)", (int(match_id), token, token),
+    )
 
 
 async def pending_event_ids(db, *, limit: int = 25) -> list[int]:
@@ -80,11 +89,14 @@ async def claim_event(db, *, match_id: int, lease_seconds: int = 45) -> dict | N
     return (load(row[0]) or {}) if row else None
 
 
-async def release_event(db, *, match_id: int) -> None:
-    """Let the next tick retry immediately instead of waiting for the lease to expire."""
+async def release_event(db, *, match_id: int, delay_seconds: float = 0, token: str | None = None) -> None:
+    """Let the next tick retry instead of waiting for the lease to expire (after ``delay_seconds``, 0 = at once)."""
     await db.execute(
-        "UPDATE mafia_v1_matches SET pending_event_json=jsonb_set(pending_event_json,'{lease}','0'::jsonb,true) "
-        "WHERE id=? AND pending_event_json IS NOT NULL", (int(match_id),),
+        "UPDATE mafia_v1_matches SET pending_event_json=jsonb_set(pending_event_json,'{lease}',"
+        "to_jsonb(CASE WHEN ?::double precision>0 THEN CEIL(EXTRACT(EPOCH FROM CLOCK_TIMESTAMP())+?::double precision)::bigint "
+        "ELSE 0::bigint END),true) "
+        "WHERE id=? AND pending_event_json IS NOT NULL AND (?::text IS NULL OR pending_event_json->>'token'=?::text)",
+        (float(delay_seconds), float(delay_seconds), int(match_id), token, token),
     )
 
 

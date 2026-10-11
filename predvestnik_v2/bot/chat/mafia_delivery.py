@@ -14,6 +14,7 @@ from aiogram.exceptions import TelegramAPIError, TelegramNetworkError, TelegramR
 from loguru import logger
 
 from bot.chat import mafia_dm as dm
+from bot.chat import mafia_flood as flood
 from bot.chat.mafia_card_views import (abandoned_text, dawn_text, finished_text, lobby_closed_text,
                                            phase_keyboard, vote_result_text)
 from bot.chat.mafia_cards import publish_phase
@@ -25,7 +26,8 @@ from infrastructure.repositories import system_flags
 from services.formatting import safe_html
 from services import mafia_v1 as mafia
 
-MAX_ATTEMPTS = 15
+MAX_ATTEMPTS = 60   # повторы идут с паузой до 30 с: около получаса, и только потом событие считается потерянным
+MAX_BACKOFF = 30
 Step = tuple[str, Callable[[], Awaitable[bool]]]
 
 
@@ -40,6 +42,7 @@ async def group_say(bot: Bot, view: dict, text: str, markup=None) -> bool:
                                message_thread_id=view.get("topic_id"))
     except (TelegramRetryAfter, TelegramNetworkError, TelegramServerError) as exc:
         logger.warning(f"Mafia group message postponed: {exc}")
+        flood.note(exc)
         return False
     except TelegramAPIError as exc:
         logger.warning(f"Mafia group message dropped: {exc}")
@@ -117,6 +120,11 @@ class PhaseDelivery:
         return await mafia.record_terminal_rewards(self.db, match_id=self.view["match_id"])
 
 
+def _roles_failed_text(names: str) -> str:
+    return (f"❌ Партия отменена: роль не дошла до {names}. Пусть откроют бота и нажмут «Старт», "
+            "затем соберите лобби заново: «бот мафия».")
+
+
 class StartDelivery(PhaseDelivery):
     """Roles to every DM, retire the lobby card, post the first night card."""
 
@@ -131,8 +139,7 @@ class StartDelivery(PhaseDelivery):
             return True
         names = ", ".join(safe_html(p["display_name"]) for p in self.view["players"] if int(p["user_id"]) in failed)
         await mafia.abort_match(self.db, match_id=self.view["match_id"], reason="private_role_delivery_failed")
-        await group_say(self.bot, self.view, f"❌ Партия отменена: роль не дошла до {names}. Пусть откроют бота и нажмут «Старт», "
-                                             "затем соберите лобби заново: «бот мафия».")
+        await group_say(self.bot, self.view, _roles_failed_text(names))
         raise StopDelivery
 
     async def lobby_card(self) -> bool:
@@ -175,19 +182,38 @@ class ClosedDelivery(PhaseDelivery):
         return await publish_phase(self.bot, self.db, self.view, gap=0)
 
 
+async def _give_up(bot: Bot, db, view: dict, event: dict) -> None:
+    """Событие не удалось доставить за полчаса: если роли так и не разосланы — партию отменяем, награды за конец игры выдаём."""
+    token = event.get("token")
+    if event.get("kind") == "started" and "roles" not in event.get("done", []) and view["phase"] not in ("finished", "cancelled"):
+        await mafia.abort_match(db, match_id=view["match_id"], reason="private_role_delivery_failed")
+        waiting = [p for p in await repo.players(db, match_id=view["match_id"]) if p.get("role_sent_at") is None]
+        await group_say(bot, view, _roles_failed_text(", ".join(safe_html(p["display_name"]) for p in waiting) or "части игроков"))
+        return   # abort_match положил на его место новое событие «партия отменена»: оно доставится следующим проходом
+    if view["phase"] == "finished":
+        await mafia.record_terminal_rewards(db, match_id=view["match_id"])   # только база: Telegram не нужен
+    await ops.clear_pending_event(db, match_id=view["match_id"], token=token)
+
+
 async def deliver_for_match(bot: Bot, db, match_id: int) -> bool:
     """Deliver the stored event of one match.  True when nothing is left to do."""
     event = await ops.claim_event(db, match_id=match_id)
     if event is None:
         return True
+    token = event.get("token")
+    attempts = int(event.get("attempts", 1))
     view = await mafia.current_view(db, match_id=match_id)
-    if view is None or int(event.get("attempts", 1)) > MAX_ATTEMPTS:
+    if view is None or attempts > MAX_ATTEMPTS:
         logger.error(f"Mafia event for match {match_id} abandoned after repeated failures")
-        await ops.clear_pending_event(db, match_id=match_id)
+        if view is None:
+            await ops.clear_pending_event(db, match_id=match_id, token=token)
+        else:
+            await _give_up(bot, db, view, event)
         return True
     cls = {"phase": PhaseDelivery, "started": StartDelivery}.get(event.get("kind"), ClosedDelivery)
     delivery = cls(bot, db, view, event)
     done = list(event.get("done", []))
+    flood.take()
     for name, step in delivery.steps():
         if name in done:
             continue
@@ -199,11 +225,13 @@ async def deliver_for_match(bot: Bot, db, match_id: int) -> bool:
             logger.warning(f"Mafia step {name} postponed: {exc}")
             ok = False
         if not ok:
-            await ops.release_event(db, match_id=match_id)
+            # Telegram просит подождать (лимит запросов) — ждём не меньше этого; иначе пауза растёт с каждой попыткой
+            pause = max(min(float(MAX_BACKOFF), 2.0 * attempts), flood.take())
+            await ops.release_event(db, match_id=match_id, delay_seconds=min(pause, 120.0), token=token)
             return False
-        await ops.mark_event_step(db, match_id=match_id, step=name)
+        await ops.mark_event_step(db, match_id=match_id, step=name, token=token)
         done.append(name)
-    await ops.clear_pending_event(db, match_id=match_id)
+    await ops.clear_pending_event(db, match_id=match_id, token=token)
     return True
 
 
@@ -228,7 +256,11 @@ async def tick(bot: Bot, db) -> None:
         await _guarded(f"advance {match_id}", mafia.advance_due_match(db, match_id=match_id))
     for match_id in await ops.pending_event_ids(db):
         await _guarded(f"deliver {match_id}", deliver_for_match(bot, db, match_id))
-    for row in await repo.timed_matches(db):
+    timed = await repo.timed_matches(db)
+    pending = set(await ops.pending_event_ids(db))   # у них карточку выложит доставка события, второй раз не нужно
+    for row in timed:
+        if int(row["id"]) in pending:
+            continue
         view = await mafia.current_view(db, match_id=int(row["id"]))
         if view:
             gap = rules.CARD_VOTING_REFRESH_SECONDS if view["phase"] == "voting" else rules.CARD_REFRESH_SECONDS
