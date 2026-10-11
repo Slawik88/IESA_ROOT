@@ -55,14 +55,14 @@ function loadActivitiesHub(){
   const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   const open=_V3_GAMES.filter(g=>_sysFlags[g.flag]===true);
   if(!open.length){
-    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны</div>
+    host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны${v3GlintMark('Игры временно недоступны')}</div>
       <p class="v3-gdesc">Прогресс не потеряется. Пока можно заняться питомцами и образами.</p>
       <button type="button" class="v3-pill" onclick="openPetsV1()">К питомцам</button></section>`;
     return;
   }
   const [lead,...rest]=open;
   host.innerHTML=`<div class="v3-eyebrow">Играть</div>
-    <section class="v3-lead" aria-label="${lead.name}"><div class="v3-gname">${lead.name}</div>
+    <section class="v3-lead" aria-label="${lead.name}"><div class="v3-gname">${lead.name}${v3GlintMark(lead.name)}</div>
       <p class="v3-gdesc">${lead.desc}</p>
       <button type="button" class="v3-pill" onclick="${lead.open}">${_v3Icon('play')}${lead.cta}</button></section>
     ${rest.length?`<section class="v3-games" aria-label="Другие игры">${rest.map(g=>`<button type="button" class="v3-game" onclick="${g.open}"><span><b>${g.name}</b><small>${g.hint}</small></span>${chev}</button>`).join('')}</section>`:''}`;

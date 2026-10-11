@@ -1,7 +1,7 @@
 /* ═══ APPEARANCE V3 · ник и титул ═══
    Образ = палитра скина (--ap-a/b/c) + форма (kinds) + богатство тира (ap-t1…ap-t7 = D…SSS).
    Ник: цвет → градиент → фирменный приём вида (nm-*). Движение включает .ap-anim на body (app.18.js:
-   «Спокойный режим» и слабое устройство его не получают). Анимируются transform и opacity; исключение одно: блик по буквам (apglint). */
+   «Спокойный режим» и слабое устройство его не получают). Анимируются только transform и opacity (блик по буквам тоже: см. .ap-gl). */
 
 .ap-name { --ap-px: 6px; position: relative; display: inline-block; max-width: calc(100% + var(--ap-px) * 2); overflow: hidden; vertical-align: top; padding: 3px var(--ap-px); margin: -3px calc(var(--ap-px) * -1); color: var(--ap-a); --ap-nb: color-mix(in srgb, var(--ap-b) 62%, var(--ap-a)); }   /* поля нужны, чтобы блик не вылезал, а свечение не обрезалось. --ap-nb: тёмный конец палитры для букв подтянут к светлому, иначе на тёмном фоне он не читается */
 .ap-name.ap-t1 { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 34%, transparent)); }   /* свечение только через filter: text-shadow резался бы рамкой имени */
@@ -9,14 +9,23 @@
 .ap-name:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ap-a) 42%, transparent)); }
 .ap-name:is(.ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c), var(--ap-a) 40%, var(--ap-nb) 70%, var(--ap-c)); background-image: var(--ap-base); }
 
-/* блик: светлая полоса лежит ВТОРЫМ СЛОЕМ фона самого текста, поэтому подсвечиваются только буквы и нет ни квадрата, ни кромки.
-   Это единственная анимация фона (background-position), остальные только transform/opacity; включается при ap-t4+ под .ap-anim. */
-.ap-name { --ap-hl: linear-gradient(100deg, transparent 28%, rgba(255,255,255,.06) 36%, rgba(255,255,255,.3) 44%, rgba(255,255,255,.8) 50%, rgba(255,255,255,.3) 56%, rgba(255,255,255,.06) 64%, transparent 72%); --ap-hl-w: 50%; --ap-glint: 6s; }   /* плавный профиль света: без ступеней нет и видимой кромки */
+/* Блик по буквам: светлая полоса идёт по нику только через transform и opacity, поэтому её ведёт видеокарта, а главный поток кадры не рисует.
+   Прежний блик двигал фон самого текста (background-position): на каждом кадре стиль, перерисовка и передача слоя, до 55 кадров в секунду главного потока (на телефоне это
+   лаги всего интерфейса). Теперь поверх ника лежит «окно» .ap-gl шириной с полосу: маска --ap-hl даёт тот же мягкий профиль света (ни квадрата, ни кромки), а внутри окна
+   белая копия ника (span[data-t], текст берётся из CSS и не попадает в textContent). Окно едет вправо, копия внутри него влево на столько же, поэтому буквы копии стоят на месте
+   точно над буквами ника, а светится только то, что попало в окно. Разметку выдаёт apName() (app.20.js) для тех же видов и тиров, что в правиле ниже; в списках (.v3-who)
+   и без .ap-anim окна нет. Пауза между проходами сидит в ключевых кадрах (55%): для анимации на видеокарте это ничего не стоит.
+   Тем же приёмом блестят крупные заголовки S+ (fx-tiers-v3.css): им нужны только свои --ap-hl/--ap-hlk и правило, включающее окно. */
+.ap-name { --ap-hl: linear-gradient(100deg, transparent 28%, rgba(255,255,255,.06) 36%, rgba(255,255,255,.3) 44%, rgba(255,255,255,.8) 50%, rgba(255,255,255,.3) 56%, rgba(255,255,255,.06) 64%, transparent 72%); --ap-hlk: .5; --ap-hlr: calc(1 - var(--ap-hlk)); --ap-hlg: calc(var(--ap-hlr) / var(--ap-hlk)); --ap-glint: 6s; }   /* --ap-hlk: доля ширины ника, которую занимает полоса; профиль плавный: без ступеней нет и видимой кромки */
 .ap-title { --ap-glint: 6s; }
-/* Пауза между проходами блика это animation-delay, а не неподвижный отрезок ключевых кадров: анимация без эффекта, но «идущая», будит страницу каждый кадр (60 раз в секунду впустую);
-   отложенная спит. После прохода app.18.js (слушатель animationend) запускает её заново: период тот же, 55% пауза и 45% ход. */
-@keyframes apglint { from { background-position: -70% 0, 0 0; } to { background-position: 170% 0, 0 0; } }
-.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink, .ap-nm-lens, .ap-nm-comet):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) { background-image: var(--ap-hl), var(--ap-base, linear-gradient(transparent, transparent)); background-size: var(--ap-hl-w) 100%, 100% 100%; background-repeat: no-repeat; background-position: -70% 0, 0 0; animation: apglint calc(var(--ap-glint) * .45) ease-in-out calc(var(--ap-glint) * .55); will-change: transform; }   /* свой слой: блик двигает фон текста (перерисовка), без слоя он перерисовывал всю страницу ~45 раз в секунду */
+.ap-gl { display: none; }
+@keyframes apgl-w { 0%, 54.9% { opacity: 0; transform: translateX(calc(var(--ap-hlg) * -70%)); } 55% { opacity: 1; transform: translateX(calc(var(--ap-hlg) * -70%)); } 100% { opacity: 1; transform: translateX(calc(var(--ap-hlg) * 170%)); } }
+@keyframes apgl-t { 0%, 55% { transform: translateX(calc(var(--ap-hlr) * 70%)); } 100% { transform: translateX(calc(var(--ap-hlr) * -170%)); } }
+.ap-anim .ap-name:is(.ap-nm-shimmer, .ap-nm-foil, .ap-nm-grad, .ap-nm-ink, .ap-nm-lens, .ap-nm-comet):is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) > .ap-gl { display: block; }
+.ap-anim .ap-gl { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--ap-hlk) * 100%); overflow: hidden; opacity: 0; pointer-events: none; -webkit-mask: var(--ap-hl) center / 100% 100% no-repeat; mask: var(--ap-hl) center / 100% 100% no-repeat; animation: apgl-w var(--ap-glint) ease-in-out infinite; }
+.ap-anim .ap-gl > span { display: block; position: absolute; left: 0; top: 0; width: calc(100% / var(--ap-hlk) + .25px); box-sizing: border-box; padding: var(--ap-py, 3px) var(--ap-px); color: #fff; -webkit-text-fill-color: #fff; -webkit-user-select: none; user-select: none; animation: apgl-t var(--ap-glint) ease-in-out infinite; }
+.ap-gl > span::before { content: attr(data-t); }   /* ширина копии с запасом .25px: окно режется до 1/64 px, а ник по ширине ровно впритык к тексту, без запаса копия переносилась бы по пробелу */
+.v3-name .ap-gl > span, .pp-name .ap-gl > span, .lk-name .ap-gl > span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }   /* те же две строки с многоточием, что у самого ника */
 
 /* блик титула: широкая мягкая полоса идёт по таблетке и обрезается её скруглением. Профиль света плавный (ступеней много, края сходят на ноль),
    поэтому кромки нет, а само движение это только transform и opacity. */
@@ -27,7 +36,7 @@
 
 /* foil: металлическая фольга, полосы цвета с жёсткими границами */
 .ap-nm-foil:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { --ap-base: linear-gradient(100deg, var(--ap-c) 0%, var(--ap-a) 28%, var(--ap-nb) 52%, var(--ap-a) 74%, var(--ap-c) 100%); background-image: var(--ap-base); }
-.ap-nm-foil { --ap-hl: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%); --ap-hl-w: 38%; }
+.ap-nm-foil { --ap-hl: linear-gradient(100deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%); --ap-hlk: .38; }
 
 /* glow: неоновая трубка. Свечение это filter (его не режет рамка имени), дыхание это opacity всего имени */
 .ap-nm-glow:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); text-shadow: none; filter: drop-shadow(0 0 3px color-mix(in srgb, var(--ap-a) 80%, transparent)) drop-shadow(0 0 8px color-mix(in srgb, var(--ap-b) 55%, transparent)); }
@@ -52,10 +61,10 @@
 .ap-anim .ap-nm-glitch:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { animation: apglitch-b 5.5s steps(1) infinite; }
 
 /* lens: мягкий круглый отсвет линзы бежит по буквам */
-.ap-nm-lens { --ap-hl: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,0)); --ap-hl-w: 34%; --ap-glint: 7s; }
+.ap-nm-lens { --ap-hl: radial-gradient(closest-side, rgba(255,255,255,.95), rgba(255,255,255,0)); --ap-hlk: .34; --ap-glint: 7s; }
 
 /* comet: яркая точка с хвостом пролетает по буквам */
-.ap-nm-comet { --ap-hl: linear-gradient(90deg, transparent, rgba(255,255,255,.2) 62%, rgba(255,255,255,.98) 97%, transparent); --ap-hl-w: 52%; --ap-glint: 5.5s; }
+.ap-nm-comet { --ap-hl: linear-gradient(90deg, transparent, rgba(255,255,255,.2) 62%, rgba(255,255,255,.98) 97%, transparent); --ap-hlk: .52; --ap-glint: 5.5s; }
 
 /* ── Титул: таблетка, цвет и насыщенность по палитре и тиру ── */
 .ap-title { position: relative; display: inline-flex; align-items: center; overflow: hidden; padding: 2px 9px; border-radius: 99px; color: var(--ap-a); font-size: 11.5px; font-weight: 600; letter-spacing: .03em; white-space: nowrap; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ap-a) 40%, transparent); }
@@ -67,7 +76,8 @@
 .v3-id.has-look .v3-name { background: none; -webkit-text-fill-color: initial; }   /* золотой VIP-градиент имени не перекрывает цвет скина */
 .v3-who { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
 .v3-who .ap-title { font-size: 10.5px; padding: 1px 7px; }
-.v3-who .ap-name, .v3-who .ap-title, .v3-who .ap-title::after { animation: none !important; }   /* в списках блики не бегают: двадцать строк с перерисовкой текста на каждом кадре дороги, а в строке они не нужны */
+.v3-who .ap-name, .v3-who .ap-title, .v3-who .ap-title::after { animation: none !important; }   /* в списках блики не бегают: двадцать строк с живыми слоями дороги, а в строке они не нужны */
+.v3-who .ap-gl { display: none !important; }
 
 /* Длинные ники. В списках одна строка с многоточием (ник и значок VIP делят строку, титул уходит под него), в шапках не больше двух строк.
    Ограничение ставится на сам .ap-name: у него свечение идёт через filter, поэтому у родителей overflow не нужен и тень не режется. */
@@ -78,4 +88,4 @@
 .v3-name .ap-name, .pp-name .ap-name, .lk-name .ap-name { display: -webkit-inline-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; max-width: 100%; white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
 .v3-name:not(:has(.ap-name)) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 
-@media (prefers-reduced-motion: reduce) { .ap-name, .ap-title { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .ap-name, .ap-title, .ap-gl, .ap-gl > span { animation: none !important; } .ap-gl { display: none !important; } }

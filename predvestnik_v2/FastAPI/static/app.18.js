@@ -35,11 +35,6 @@ function _v3Calm() {
   return document.body.classList.contains('no-fx') || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
 function _v3Rand(seed) { const x = Math.sin(seed * 9301 + 49297) * 233280; return x - Math.floor(x); }
-// Блик по буквам идёт один раз с паузой в animation-delay (спящая анимация не будит страницу каждый кадр); после прохода запускаем её заново.
-document.addEventListener('animationend', e => {
-  if (e.animationName !== 'apglint' && e.animationName !== 'v3glint') return;
-  const n = e.target; n.style.animationName = 'none'; void n.offsetWidth; n.style.animationName = '';
-}, true);
 // Свет страницы (B и выше) рисует JS на двух крошечных canvas, а не пять экранных слоёв CSS (дыхание, зерно, наклон, две ленты). Те пять держали около шести экранов текстур
 // (на телефоне с плотностью 3 это больше 60 МБ памяти графики), каждый кадр перерисовывали весь экран, и на SSS экран мигал, элементы пропадали и появлялись, кадры падали до 10.
 // Теперь пятна света это один canvas, где 1 пиксель = 4 пикселя экрана (мягкие градиенты, браузер растягивает их сам), а зерно это второй canvas 1 к 1. Движение медленное, поэтому пятна

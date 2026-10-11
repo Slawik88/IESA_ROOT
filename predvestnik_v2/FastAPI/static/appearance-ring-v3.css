@@ -64,11 +64,14 @@
 .ap-ha-orbit:is(.ap-t1, .ap-t2) b:nth-child(n+2), .ap-ha-orbit:is(.ap-t3, .ap-t4) b:nth-child(3) { display: none; }
 .ap-anim .ap-ha-orbit { animation: apturn 18s linear infinite; }
 
-/* rays: лучи, будто свет из-за аватара; на старших тирах чаще и тоньше */
-.ap-ha-rays::before { content: ""; position: absolute; inset: -2%; border-radius: 50%; opacity: calc(.28 + var(--ap-i) * .5); background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 3deg, transparent 3deg 22deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); }
-.ap-ha-rays:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 2.5deg, color-mix(in srgb, var(--ap-c) 40%, transparent) 2.5deg 4deg, transparent 4deg 15deg); }
-.ap-ha-rays::after { content: ""; position: absolute; inset: 14%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 26%, transparent), transparent); }
-.ap-anim .ap-ha-rays:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apturn 60s linear infinite; }
+/* rays: лучи, будто свет из-за аватара; на старших тирах чаще и тоньше.
+   Лучи и сияние это дочерние b, а не ::before и ::after: если у самого ореола есть анимация (удар сердца у Сердца Звезды), то анимация его же ::before уходит с видеокарты
+   в главный поток, и страница рисует 60 кадров в секунду. Нужно одно из двух: анимируется либо сам элемент, либо его потомок. */
+.ap-ha-rays b:nth-child(1) { inset: -2%; border-radius: 50%; opacity: calc(.28 + var(--ap-i) * .5); background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 3deg, transparent 3deg 22deg); -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); mask: radial-gradient(closest-side, transparent 60%, #000 72%, transparent 100%); }
+.ap-ha-rays:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--ap-a) 75%, transparent) 0 2.5deg, color-mix(in srgb, var(--ap-c) 40%, transparent) 2.5deg 4deg, transparent 4deg 15deg); }
+.ap-ha-rays b:nth-child(2) { inset: 14%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-a) 26%, transparent), transparent); }
+.ap-ha-rays b:nth-child(3) { display: none; }
+.ap-anim .ap-ha-rays:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apturn 60s linear infinite; }
 
 /* flame: венец пламени вокруг аватара, языки расходятся от центра и мерцают */
 .ap-ha-flame::before { content: ""; position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 40%, transparent), color-mix(in srgb, var(--ap-a) 16%, transparent) 62%, transparent); }

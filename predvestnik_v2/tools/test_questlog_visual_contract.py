@@ -28,7 +28,7 @@ assert "_questsV1Busy=true;renderQuestsV1()" in JS
 assert "finally(()=>{_questsV1Busy=false;renderQuestsV1();})" in JS
 assert "rewardKinds.reduce" in JS and "195 🪙" not in JS
 assert "${target.done}/${target.total} заданий" in JS
-assert '<h1 class="v3-title">Задания</h1>' in JS and '<h2>${active.done}/${active.total}' in JS and 'amount_essence' in JS, "quests show the Essence reward next to Mora"
+assert '<h1 class="v3-title">Задания${v3GlintMark(\'Задания\')}</h1>' in JS and '<h2>${active.done}/${active.total}' in JS and 'amount_essence' in JS, "quests show the Essence reward next to Mora"
 assert "quest-overview" not in JS
 assert "Квесты не загрузились" in JS and "Повторить" in JS
 assert "questsV1TabKey(event)" in JS and "event.key==='ArrowRight'" in JS

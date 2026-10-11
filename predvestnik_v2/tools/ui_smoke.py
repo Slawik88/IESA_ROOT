@@ -215,9 +215,11 @@ def sweep_crawl(stand, browser, args, results) -> None:
     results.setdefault("crawl", ([], []))
 
 
-def compositor_cost(browser, ctx, page, seconds: float = 1.5) -> dict[str, float]:
-    """What a phone GPU pays for the page, read from Chromium itself: render passes per drawn frame (offscreen surfaces) and the area of the composited layers in screens (memory x DPR squared).
-    Neither shows in fps on a desktop, and both are what made a heavy look stutter on a phone."""
+def compositor_cost(browser, ctx, page, seconds: float = 2.5, settle: float = 0.0) -> dict[str, float]:
+    """What a phone pays for the page, read from Chromium itself: render passes per drawn frame (offscreen surfaces), the area of the composited layers in screens (memory x DPR squared)
+    and main-thread frames a second (every one restyles all running animations). None of them shows in fps on a desktop, and all are what made a heavy look stutter on a phone.
+    `settle` waits first, so the frame watchdog of the app (it measures 2.5 s after the look is applied and may switch the mode) is done before the trace."""
+    page.wait_for_timeout(int(settle * 1000))
     layers: list[dict] = []
     cdp = ctx.new_cdp_session(page)
     cdp.on("LayerTree.layerTreeDidChange", lambda e: layers.__setitem__(slice(None), e.get("layers") or layers))
@@ -238,11 +240,11 @@ def compositor_cost(browser, ctx, page, seconds: float = 1.5) -> dict[str, float
         page.wait_for_timeout(100)
     count = lambda name: sum(1 for e in events if e.get("name") == name and e.get("ph") in ("X", "B"))  # noqa: E731
     frames = count("Display::DrawAndSwap")
-    return {"passes": count("DirectRenderer::DrawRenderPass") / frames if frames else 0.0, "area": area}
+    return {"passes": count("DirectRenderer::DrawRenderPass") / frames if frames else 0.0, "area": area, "bmf": count("ProxyMain::BeginMainFrame") / seconds}
 
 
 def sweep_perf(stand, browser, args, results) -> None:
-    """Budget of the profile for every look at SSS (--device high is the full mode): running animations, text glints that move on the main thread, render passes and layer area.
+    """Budget of the profile for every look at SSS (--device high is the full mode): running animations, animations that cannot run on the compositor, render passes, layer area and main-thread frames.
     A look that exceeds the budget jitters in the Telegram WebView; Chromium without a GPU cannot show that, the counts can."""
     from core.skins_v3_catalog import SKINS
     rows = []
@@ -252,13 +254,13 @@ def sweep_perf(stand, browser, args, results) -> None:
         reseed(args.dsn, skin=sid, tier="SSS")
         ctx, page, probe = open_app(stand, browser, args.widths[0], args.device)
         m = page.evaluate(MOTION)
-        m.update(compositor_cost(browser, ctx, page)); ctx.close()
+        m.update(compositor_cost(browser, ctx, page, settle=4)); ctx.close()
         rows.append((m["anims"], sid, m))
         over = [f"{k} {m[k]:.4g} > {limit}" for k, limit in BUDGET.items() if m[k] > limit]
         if over:
             results[f"motion {sid}"] = (["over the motion budget: " + ", ".join(over)], [])
     for n, sid, m in sorted(rows, reverse=True)[:40]:
-        print(f"motion {sid:18} anims {n:3}  passes {m['passes']:5.1f}  area {m['area']:5.1f} screens  glint {m['glint']}  lite {m['lite']}")
+        print(f"motion {sid:18} anims {n:3}  main {m['main']}  passes {m['passes']:5.1f}  area {m['area']:5.1f} screens  bmf {m['bmf']:4.1f}/s  lite {m['lite']}")
 
 
 def sweep_skins(stand, browser, args, results) -> None:

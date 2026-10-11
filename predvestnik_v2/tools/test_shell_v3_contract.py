@@ -80,9 +80,25 @@ appearance = "".join((STATIC / name).read_text(encoding="utf-8") for name in app
 home_css = (STATIC / "shell-v3-home.css").read_text(encoding="utf-8")
 for sheet in (fx, appearance, home_css, css):
     for name, props in keyframe_props(sheet).items():
-        allowed = {"transform", "opacity"} | ({"background-position"} if name in {"apglint", "v3glint"} else set())   # блик по буквам лежит в фоне текста
-        assert props <= allowed, (name, props)
-assert len(keyframe_props(fx)) >= 2 and len(keyframe_props(appearance)) >= 12   # свет страницы теперь рисует app.18.js на canvas: в fx-tiers-v3.css остались только блик и боковой переход
+        assert props <= {"transform", "opacity"}, (name, props)   # без исключений: блик по буквам тоже едет через transform (окно .ap-gl), фон текста не анимируется
+assert len(keyframe_props(fx)) >= 1 and len(keyframe_props(appearance)) >= 12   # свет страницы рисует app.18.js на canvas: в fx-tiers-v3.css остался боковой переход
+# Glint: the window (.ap-gl) carries a white copy of the text and moves by transform only, so the main thread never repaints it (it used to move the text's background:
+# up to 55 main-thread frames a second, which on a phone lagged the whole interface). Names get the markup from apName(), the big S+ titles from v3GlintMark().
+assert {"apgl-w", "apgl-t"} <= set(keyframe_props(appearance)) and not ({"apglint", "v3glint"} & set(keyframe_props(appearance) | keyframe_props(fx)))
+assert not re.search(r"apglint|v3glint|animationend", appearance + fx + home_css + controller), "the old background glint and its restart-by-script are gone"
+for rule in re.findall(r"([^{}]*\.ap-gl[^{}]*)\{[^{}]*animation: (?!none)", appearance):
+    assert ".ap-anim" in rule, rule   # the window moves only under .ap-anim
+glint_rule = re.search(r"\.ap-anim \.ap-name:is\(([^)]*)\):is\(\.ap-t4[^{]*> \.ap-gl \{ display: block", appearance)
+ident = (STATIC / "app.20.js").read_text(encoding="utf-8")
+assert glint_rule and sorted(re.findall(r"\.ap-nm-([a-z]+)", glint_rule.group(1))) == sorted(re.findall(r"'([a-z]+)'", re.search(r"_AP_GLINT_KINDS = \[([^\]]*)\]", ident).group(1))), "apName and the CSS must light the same name kinds"
+assert 'ap.ti >= 4 && _AP_GLINT_KINDS.includes(ap.k.name)' in ident and 'class="ap-gl" aria-hidden="true"><span data-t=' in ident
+assert ".v3-who .ap-gl { display: none !important; }" in appearance, "list rows never get a glint window"
+assert ".fx-5 .v3-title > .ap-gl" in fx and ".fx-5 .v3-gname > .ap-gl" in fx and "will-change" not in fx.split("/* S · fx-5", 1)[1].split("/* SS · fx-6", 1)[0]
+for name in ("app.04.js", "app.12.js", "app.19.js", "app.26.js"):
+    assert "v3GlintMark(" in (STATIC / name).read_text(encoding="utf-8"), name   # every big title is built with its glint window
+assert 'class="v3-title">Ещё<span class="ap-gl" aria-hidden="true"><span data-t="Ещё">' in index
+# An element with its own transform animation and an animated pseudo-element of its own is moved to the main thread by Blink (both fall back): the rays halo turns its child, not itself.
+assert not re.search(r"\.ap-ha-rays(?:[^{},]*)::(?:before|after)[^{]*\{[^{}]*animation:", appearance), "rays animate a child, never their own ::before/::after"
 for level in range(1, 8):
     assert f".ap-t{level}" in appearance, level
 assert 'skins-v3.css' in index and 'fx-tiers-v3.css' in index

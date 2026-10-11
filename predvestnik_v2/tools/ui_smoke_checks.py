@@ -118,12 +118,15 @@ FRAMES = """(ms) => new Promise(res => { const out = []; let last = performance.
 # What keeps moving on the screen after it settled: the budget of a look. Elements of a toast are not counted (a toast leaves by itself).
 MOTION = """() => new Promise(res => setTimeout(() => {
   const run = document.getAnimations().filter(a => a.playState === 'running' && a.effect && a.effect.target && !a.effect.target.closest('.toast, .v3-toast'));
-  let glint = 0;
-  run.forEach(a => { try { if (a.effect.getKeyframes().some(k => 'backgroundPositionX' in k)) glint++; } catch (e) {} });
-  res({anims: run.length, glint, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
+  const gpu = new Set(['offset', 'computedOffset', 'easing', 'composite', 'transform', 'opacity', 'filter', 'translate', 'rotate', 'scale']);   // what the compositor can animate by itself
+  let main = 0;
+  run.forEach(a => { try { if (a.effect.getKeyframes().some(k => Object.keys(k).some(p => !gpu.has(p)))) main++; } catch (e) {} });
+  res({anims: run.length, main, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
 # Budget of a look at SSS in the full mode (`--perf --device high`; measured with the scenes, ~60-75 animated layers, with headroom): beyond this the page jitters in the Telegram WebView.
 # Everything animated is transform / opacity on the compositor; frames stay at 16.7 ms under a 4x slowed CPU. A mid phone (`--device mid`, .ap-lite) runs about two thirds of it.
-# `passes` and `area` come from Chromium's own compositor (ui_smoke.compositor_cost), the two numbers that decide how a phone GPU copes and that fps on a desktop never shows:
-# render passes per drawn frame (a mask or filter on a box that holds moving things, and every polygon clip-path, is an offscreen surface; 34 clipped sparks were 34 of them)
-# and the summed area of the composited layers in screens (memory x DPR squared). Counting masked or filtered animated elements, as this budget once did, says nothing about either.
-BUDGET = {"anims": 95, "glint": 1, "passes": 14, "area": 24}
+# `passes`, `area` and `bmf` come from Chromium's own compositor (ui_smoke.compositor_cost), the numbers that decide how a phone copes and that fps on a desktop never shows:
+# render passes per drawn frame (a mask or filter on a box that holds moving things, and every polygon clip-path, is an offscreen surface; 34 clipped sparks were 34 of them),
+# the summed area of the composited layers in screens (memory x DPR squared) and main-thread frames a second (`ProxyMain::BeginMainFrame`: each one restyles EVERY running animation, so one animation
+# that cannot run on the compositor, like the old background glint, lifted it from the healthy 11 to 55-60 and made all the others dearer). `main` counts running animations that animate anything but
+# transform / opacity / filter. Counting masked or filtered animated elements, as this budget once did, says nothing about any of them.
+BUDGET = {"anims": 95, "main": 0, "passes": 14, "area": 24, "bmf": 24}

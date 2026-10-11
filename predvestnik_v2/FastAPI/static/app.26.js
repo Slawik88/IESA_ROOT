@@ -71,7 +71,7 @@ function _stRender() {
   const calm = document.body.classList.contains('no-fx'), user = _profileData || {};
   const login = !INIT_DATA ? _stSec('Вход', `<p class="st-hint">Сейчас: Telegram @${_profileEsc(user.username || '—')}. Если вы сменили аккаунт в приложении Telegram, обновите вход.</p>${_stRow('Войти другим аккаунтом', 'Откроется вход через Telegram', 'switchTgAccount()')}`) : '';
   root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="navBack()" aria-label="Назад">‹ Назад</button></div>
-    <h1 class="v3-title">Настройки</h1><p class="v3-sub">Всё под себя. Изменения сохраняются сразу.</p>
+    <h1 class="v3-title">Настройки${v3GlintMark('Настройки')}</h1><p class="v3-sub">Всё под себя. Изменения сохраняются сразу.</p>
     ${_stSec('Внешний вид', _stRow('Образы и скины', _stLook(), 'openLooksModal()') + _stSwitch('Спокойный режим', 'Без анимаций: рамки, ореолы и частицы замирают. Телефон скажет спасибо.', calm, '_toggleNoFx(this.checked)') + _stSwitch('Упрощённый ввод', 'Мягче таймеры в играх, спин тапом вместо удержания.', _easyInput(), '_toggleEasyInput(this.checked)') + _stSwitch('Чёрный фон', 'Для OLED-экранов: фон полностью чёрный, цвета образа остаются.', _dispGet('pv_oled'), '_toggleOled(this.checked)') + _stSwitch('Крупный текст', 'Весь текст и элементы на экранах чуть крупнее.', _dispGet('pv_big'), '_toggleBig(this.checked)'))}
     ${_stSec('Приватность', _stPresence())}
     ${_stSec('Уведомления', _stNotif(), 'Здесь настраиваются только личные сообщения от бота.')}
