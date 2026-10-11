@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram.types import Message
 
 from bot.config import config
+from services import name_history
 
 
 def tz_delta() -> timedelta:
@@ -105,6 +106,7 @@ async def record_message(db, message: Message) -> None:
         (user.id, user.username, (getattr(user, "full_name", None) or "").strip()[:128] or None),
     )
     await _claim_username(db, user.id, user.username)
+    await name_history.record(db, user.id, user.username, getattr(user, "full_name", None))
     await db.execute(
         "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "
         "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, bot_left_at = NULL",   # пишут в чат — бот в нём

@@ -279,7 +279,24 @@ async def checks():
     assert "не хватает" in (await act(CODER, P1, action="balance", currency="mora", amount=-1000, reason="x")).json()["detail"]
     assert "причину" in (await act(CODER, P1, action="balance", currency="mora", amount=5)).json()["detail"]
     assert "2 знаков" in (await act(CODER, P1, action="balance", currency="diamonds", amount="1.255", reason="x")).json()["detail"]
-    assert (await act(CODER, P1, action="balance", currency="zarniki", amount=5, reason="x")).status_code == 400
+    # Зарники — платная валюта: баланс меняет только создатель, и у каждой выдачи есть запись в учёте и в журнале
+    assert (await act(CODER, P1, action="balance", currency="zarniki", amount=5, reason="x")).status_code == 403
+    assert "zarniki" not in [c["code"] for c in (await client.get(f"/bot-admin/api/player/{P1}", headers=h[CODER])).json()["currencies"]]
+    assert "zarniki" in [c["code"] for c in (await client.get(f"/bot-admin/api/player/{P1}", headers=h[DEV])).json()["currencies"]]
+    r = await act(DEV, P1, action="balance", currency="zarniki", amount=7, reason="приз конкурса", request_id="z1")
+    assert r.status_code == 200 and "Зарники" in r.json()["message"], r.text
+    assert (await act(DEV, P1, action="balance", currency="zarniki", amount=7, reason="приз конкурса", request_id="z1")).status_code == 200   # повтор
+    assert (await act(DEV, P1, action="balance", currency="zarniki", amount=100, reason="крупно")).status_code == 400   # от 100 нужен ввод ID
+    assert "не хватает" in (await act(DEV, P1, action="balance", currency="zarniki", amount=-50, reason="x")).json()["detail"]
+    assert (await act(DEV, P1, action="balance", currency="zarniki", amount=-2, reason="ошибка")).status_code == 200
+    assert (await act(DEV, P1, action="balance", currency="zarniki", amount=1.5, reason="x")).status_code == 400
+    async with get_pool().acquire() as conn:
+        async with PGAdapter(conn).execute("SELECT reason_code, delta FROM economic_ledger WHERE user_id = ? AND currency = 'zarniki' ORDER BY id", (P1,)) as cur:
+            zar = [(r[0], int(r[1])) for r in await cur.fetchall()]
+    assert zar == [("bot_admin_zarniki_grant", 7), ("bot_admin_adjustment", -2)], zar
+    zcard = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[DEV])).json()
+    assert zcard["balances"]["zarniki"] == 5, zcard["balances"]
+    assert any(x["action"] == "balance" and "Зарники +7" in x["text"] and x["reason"] == "приз конкурса" for x in zcard["history"]), zcard["history"]
     assert (await act(CODER, P1, action="balance", currency="essence", amount=30, reason="приз")).status_code == 200
     assert (await act(CODER, P1, action="balance", currency="essence", amount=-10, reason="ошибка")).status_code == 200
     assert (await act(CODER, P1, action="vip", days=7, reason="конкурс", request_id="v1")).status_code == 200
@@ -293,12 +310,12 @@ async def checks():
     assert [x["rank"] for x in card["ranks"]] == [0, 1, 2, 3, 4], card["ranks"]
     mora = [x for x in card["history"] if x["action"] == "balance" and "Мора" in x["text"]]
     assert [(x["text"], x["reason"]) for x in mora] == [("🪙 Мора +500", "компенсация")], mora   # без дубля
-    assert (await act(CODER, P2, action="rank", rank=4)).status_code == 200
-    assert (await act(CODER, P2, action="rank", rank=5)).status_code == 403
-    assert (await act(CODER, P2, action="rank", rank=2)).status_code == 200
-    assert (await act(DEV, P2, action="rank", rank=5)).status_code == 200
-    assert (await act(CODER, P2, action="rank", rank=0)).status_code == 403              # теперь равен по роли
-    assert (await act(DEV, P2, action="rank", rank=6)).status_code == 400
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=4)).status_code == 200
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=5)).status_code == 403
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=2)).status_code == 200
+    assert (await act(DEV, P2, action="rank", confirm=P2, rank=5)).status_code == 200
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=0)).status_code == 403              # теперь равен по роли
+    assert (await act(DEV, P2, action="rank", confirm=P2, rank=6)).status_code == 400
 
     # Метки (регалии)
     assert (await act(SENIOR, P1, action="mark_grant", mark="founder", reason="с первых дней")).status_code == 403
@@ -335,8 +352,8 @@ async def checks():
 
         # Бан во всех чатах
         bot.calls.clear()
-        assert (await act(SENIOR, P1, action="global_ban")).status_code == 403
-        r = await act(CODER, P1, action="global_ban", reason="мошенник")
+        assert (await act(SENIOR, P1, action="global_ban", confirm=P1)).status_code == 403
+        r = await act(CODER, P1, action="global_ban", confirm=P1, reason="мошенник")
         assert r.json()["message"] == "Забанен в чатах: 2, не вышло: 1.", r.text
         assert await is_blacklisted(db, -300, P1)
         card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()

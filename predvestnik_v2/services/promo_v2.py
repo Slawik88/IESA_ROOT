@@ -4,16 +4,17 @@
 Награды нового формата лежат в promocodes.rewards_json списком:
     {"type": "mora", "amount": 1000}      {"type": "diamonds", "amount": 5}
     {"type": "essence", "amount": 50}     {"type": "skin", "id": "<skin_id>"}
-    {"type": "vip", "days": 7}
+    {"type": "vip", "days": 7}             {"type": "zarniki", "amount": 100}
 Коды старого формата (rewards_json пуст) не активируются, пока их не пересохранят в админке.
-Зарники промокодом не выдаются: положительные Зарники — только из оплаты (core/economy_v3).
+Зарники в код кладёт только создатель (платная валюта, core/economy_v3: источник promocode_zarniki).
 """
 from __future__ import annotations
 
 import json
 import re
+import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 
 from core.economy_contract import CURRENCY_SPECS
@@ -25,7 +26,7 @@ from infrastructure.repositories.economy_ledger import apply_balance_change
 
 CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9_-]{2,31}$")
 MAX_REWARDS = 10
-LIMITS = {"mora": 1_000_000_000, "diamonds": 1_000_000, "essence": 100_000, "vip": 365}
+LIMITS = {"mora": 1_000_000_000, "diamonds": 1_000_000, "essence": 100_000, "zarniki": 100_000, "vip": 365}
 
 STATEMENTS = (
     "ALTER TABLE promocodes ADD COLUMN IF NOT EXISTS rewards_json JSONB",
@@ -122,7 +123,7 @@ def normalize_rewards(raw) -> list[dict]:
         if not isinstance(item, dict):
             raise PromoError("Награда: неверный формат.")
         kind = str(item.get("type", "")).strip()
-        if kind in ("mora", "diamonds", "essence"):
+        if kind in ("mora", "diamonds", "essence", "zarniki"):
             label = CURRENCY_SPECS[kind].label if kind in CURRENCY_SPECS else "Эссенция"
             amount = _number(item.get("amount"), integer=kind != "diamonds", limit=LIMITS[kind], what=label)
             out.append({"type": kind, "amount": str(amount) if kind == "diamonds" else amount})
@@ -135,8 +136,6 @@ def normalize_rewards(raw) -> list[dict]:
             if not skin:
                 raise PromoError("Такого образа нет.")
             out.append({"type": "skin", "id": sid})
-        elif kind == "zarniki":
-            raise PromoError("Зарники промокодом не выдаются: они приходят только из оплаты.")
         else:
             raise PromoError(f"Неизвестная награда: {kind or '—'}.")
     kinds = [r["type"] for r in out if r["type"] != "skin"]
@@ -161,6 +160,8 @@ def describe(reward: dict) -> str:
         return f"{spec.icon} {_fmt(reward['amount'])} {spec.label.lower()}"
     if kind == "essence":
         return f"🔮 {_fmt(reward['amount'])} эссенции"
+    if kind == "zarniki":
+        return f"✨ {_fmt(reward['amount'])} зарников"
     if kind == "vip":
         return f"👑 VIP на {reward['days']} дн."
     if kind == "skin":
@@ -175,6 +176,11 @@ async def _grant(db, user_id: int, code: str, index: int, reward: dict) -> str:
     if kind in ("mora", "diamonds"):
         await apply_balance_change(
             db, user_id, {kind: Decimal(str(reward["amount"]))}, reason_code="promocode",
+            idempotency_key=key, source_type="promocode", reference_type="promocode", reference_id=code)
+        return describe(reward)
+    if kind == "zarniki":
+        await apply_balance_change(
+            db, user_id, {"zarniki": Decimal(str(reward["amount"]))}, reason_code="promocode_zarniki",
             idempotency_key=key, source_type="promocode", reference_type="promocode", reference_id=code)
         return describe(reward)
     if kind == "essence":
@@ -342,6 +348,8 @@ async def get_code(db, code: str) -> dict | None:
                               (out["allowed_chats"],)) as cur:
             titles = {int(x[0]): x[1] for x in await cur.fetchall() if x[1]}
     out["chats"] = [{"id": c, "title": titles.get(c, str(c))} for c in out["allowed_chats"]]
+    out["stats"] = await _stats(db, out)
+    out["warnings"] = cost_warnings(out["rewards"], out["max_activations"], out["allowed_users"], out["valid_until"])
     async with db.execute(
         "SELECT r.user_id, u.user_tg_username, r.chat_id, c.chat_title, r.redeemed_at, r.rewards_json "
         "FROM promocode_redemptions r LEFT JOIN users u ON u.user_tg_id = r.user_id "
@@ -355,9 +363,22 @@ async def get_code(db, code: str) -> dict | None:
     return out
 
 
-async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
+@dataclass
+class Parsed:
+    code: str
+    rewards: list
+    max_act: int
+    start: str | None
+    end: str | None
+    chats: list
+    users: list
+    note: str
+
+
+def _parse(data: dict, *, need_code: bool = True) -> Parsed:
+    """Проверка полей промокода из формы: одна и для сохранения, и для предпросмотра."""
     code = normalize_code(data.get("code"))
-    if not CODE_RE.match(code):
+    if need_code and not CODE_RE.match(code):
         raise PromoError("Код: 3–32 символа, латиница, цифры, «-» и «_».")
     rewards = normalize_rewards(data.get("rewards"))
     try:
@@ -378,7 +399,23 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
         raise PromoError("ID чатов и игроков — только числа.")
     if any(abs(i) >= 2 ** 63 for i in chats + users):
         raise PromoError("ID чата или игрока слишком большой.")
-    note = str(data.get("note") or "")[:300]
+    return Parsed(code, rewards, max_act, start, end, chats, users, str(data.get("note") or "")[:300])
+
+
+async def require_zarniki_rights(db, rewards: list[dict], actor_id: int) -> None:
+    """Зарники — платная валюта: класть их в промокод может только создатель."""
+    if not any(r["type"] == "zarniki" for r in rewards):
+        return
+    from bot.chat.global_ranks import CREATOR, get_bot_rank
+    if await get_bot_rank(db, actor_id) < CREATOR:
+        raise PromoError("Зарники в промокод кладёт только создатель.")
+
+
+async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
+    parsed = _parse(data)
+    await require_zarniki_rights(db, parsed.rewards, actor_id)
+    code, rewards, max_act, start, end, chats, users, note = (
+        parsed.code, parsed.rewards, parsed.max_act, parsed.start, parsed.end, parsed.chats, parsed.users, parsed.note)
     await _check_private(db, rewards, max_act, users, code=None if create else code)
     values = (bool(data.get("is_active", True)), start, end, max_act, json.dumps(chats) if chats else "",
               json.dumps(users) if users else "", json.dumps(rewards, ensure_ascii=False), note, actor_id)
@@ -429,3 +466,123 @@ async def set_active(db, code: str, active: bool, *, actor_id: int) -> dict:
         if not await cur.fetchone():
             raise PromoError("Промокод не найден.")
     return await get_code(db, code)
+
+
+# ── Статистика, предпросмотр, пачки ──────────────────────────────────────────
+
+async def _stats(db, code: dict) -> dict:
+    """Сводка по активациям: сколько, где, когда, сколько осталось и сколько всего выдано (оценка по текущим наградам)."""
+    async with db.execute(
+        "SELECT COUNT(*), COUNT(DISTINCT chat_id), COUNT(*) FILTER (WHERE chat_id IS NULL), MIN(redeemed_at), MAX(redeemed_at) "
+        "FROM promocode_redemptions WHERE code = ?", (code["code"],)) as cur:
+        total, chats, private, first, last = await cur.fetchone()
+    async with db.execute(
+        "SELECT (redeemed_at AT TIME ZONE 'UTC')::date AS d, COUNT(*) FROM promocode_redemptions "
+        "WHERE code = ? AND redeemed_at > NOW() - INTERVAL '14 days' GROUP BY d", (code["code"],)) as cur:
+        by_day = {r[0].isoformat(): int(r[1]) for r in await cur.fetchall()}
+    today = datetime.now(timezone.utc).date()
+    series = []
+    for back in range(13, -1, -1):
+        day = (today - timedelta(days=back)).isoformat()
+        series.append({"day": day, "n": by_day.get(day, 0)})
+    total = int(total or 0)
+    limit = int(code["max_activations"] or 0)
+    spent: dict[str, str] = {}
+    for reward in code["rewards"]:
+        key = {"mora": "mora", "diamonds": "diamonds", "essence": "essence", "zarniki": "zarniki", "vip": "vip_days"}.get(reward["type"])
+        if key:
+            value = Decimal(str(reward.get("amount", reward.get("days", 0)))) * total
+            spent[key] = str(value)
+    return {"activations": total, "limit": limit or None, "left": max(0, limit - total) if limit else None,
+            "chats": int(chats or 0), "private": int(private or 0),
+            "first_at": first.isoformat() if first else None, "last_at": last.isoformat() if last else None,
+            "per_day": series, "spent": spent}
+
+
+# Порог «дорогого» промокода: на одну активацию и в сумме по лимиту.
+_COST_LIMITS = {"mora": (100_000, 1_000_000), "diamonds": (50, 500), "essence": (200, 2_000), "zarniki": (100, 1_000), "vip": (30, 365)}
+_COST_NAMES = {"mora": "мора", "diamonds": "алмазов", "essence": "эссенции", "zarniki": "зарников", "vip": "дн. VIP"}
+
+
+def cost_warnings(rewards: list, max_act: int, users: list | tuple, valid_until) -> list[str]:
+    """Что стоит перепроверить до сохранения: большая сумма, редкий образ, нет лимита и срока. Только подсказки, сохранять не мешают."""
+    out: list[str] = []
+    crowd = len(users) if users else (max_act or 0)
+    for reward in rewards:
+        kind = reward["type"]
+        if kind in _COST_LIMITS:
+            one = Decimal(str(reward.get("amount", reward.get("days", 0))))
+            per, total = _COST_LIMITS[kind]
+            if one >= per:
+                out.append(f"Крупная награда на одного игрока: {_fmt(one)} {_COST_NAMES[kind]}.")
+            elif crowd and one * crowd >= total:
+                out.append(f"Крупная сумма за весь лимит: {_fmt(one * crowd)} {_COST_NAMES[kind]} на {crowd} активаций.")
+        elif kind == "skin":
+            skin = SKINS.get(reward["id"], {})
+            if skin.get("exclusive"):
+                out.append(f"Личный образ «{skin.get('name', reward['id'])}» достанется одному игроку насовсем.")
+            elif skin.get("tier") in ("SS", "SSS"):
+                out.append(f"Редкий образ «{skin.get('name', reward['id'])}» ({skin['tier']}).")
+    if any(r["type"] == "zarniki" for r in rewards):
+        out.append("Зарники — платная валюта: игрок сможет потратить их на косметику и обменять на мору. Выданное не отозвать.")
+    if not max_act and not users:
+        tail = " и без срока" if not valid_until else ""
+        out.append(f"Нет лимита активаций{tail}: награду получит каждый, кто узнает код.")
+    return out
+
+
+async def preview(db, data: dict) -> dict:
+    """Как промокод увидит игрок и что стоит перепроверить. Ничего не сохраняет; код можно не указывать."""
+    parsed = _parse(data, need_code=False)
+    await _check_private(db, parsed.rewards, parsed.max_act, parsed.users, code=parsed.code or None)
+    lines = [describe(r) for r in parsed.rewards]
+    where = []
+    if parsed.chats:
+        where.append(f"работает только в выбранных чатах ({len(parsed.chats)})")
+    if parsed.users:
+        where.append(f"доступен только выбранным игрокам ({len(parsed.users)})")
+    if parsed.start:
+        where.append("ещё не начал действовать")
+    return {
+        "code": parsed.code or "КОД",
+        "player_text": lines,
+        "who_can": "; ".join(where) or "работает у любого игрока в любом чате и в личке с ботом",
+        "warnings": cost_warnings(parsed.rewards, parsed.max_act, parsed.users, parsed.end),
+    }
+
+
+MAX_BULK = 200
+_BULK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # без похожих O/0, I/1
+
+
+async def bulk_create(db, data: dict, *, actor_id: int) -> dict:
+    """Пачка одноразовых кодов с одинаковой наградой. Всё или ничего: ошибка на любом шаге не оставляет часть кодов."""
+    try:
+        count = int(data.get("count") or 0)
+    except (TypeError, ValueError):
+        raise PromoError("Сколько кодов: целое число.")
+    if not 1 <= count <= MAX_BULK:
+        raise PromoError(f"Сколько кодов: от 1 до {MAX_BULK}.")
+    prefix = normalize_code(data.get("prefix"))
+    if prefix and not re.fullmatch(r"[A-Z0-9][A-Z0-9_-]{0,15}", prefix):
+        raise PromoError("Начало кода: до 16 символов, латиница, цифры, «-» и «_».")
+    if data.get("allowed_users"):
+        raise PromoError("Пачка одноразовых не привязывается к игрокам: для одного игрока создайте обычный именной код.")
+    parsed = _parse({**data, "code": prefix + "AAAA" if len(prefix) < 3 else prefix, "max_activations": 1})
+    await require_zarniki_rights(db, parsed.rewards, actor_id)
+    if any(r["type"] == "skin" and SKINS.get(r["id"], {}).get("exclusive") for r in parsed.rewards):
+        raise PromoError("Личный образ нельзя раздавать пачкой: он достаётся одному игроку. Создайте обычный код на один раз.")
+    note = parsed.note or f"Пачка из {count} одноразовых кодов"
+    codes: list[str] = []
+    async with db.connection.transaction():
+        while len(codes) < count:
+            code = prefix + ("-" if prefix else "") + "".join(secrets.choice(_BULK_ALPHABET) for _ in range(8))
+            async with db.execute(
+                "INSERT INTO promocodes (code, is_active, valid_from, valid_until, max_activations, allowed_chats_json, "
+                "allowed_users_json, rewards_json, note, created_by, updated_by, updated_at, description) "
+                "VALUES (?, 1, ?, ?, 1, ?, '', ?::jsonb, ?, ?, ?, NOW(), '') ON CONFLICT DO NOTHING RETURNING 1",
+                (code, parsed.start, parsed.end, json.dumps(parsed.chats) if parsed.chats else "",
+                 json.dumps(parsed.rewards, ensure_ascii=False), note, actor_id, actor_id)) as cur:
+                if await cur.fetchone():
+                    codes.append(code)
+    return {"codes": codes, "rewards_text": [describe(r) for r in parsed.rewards], "note": note}

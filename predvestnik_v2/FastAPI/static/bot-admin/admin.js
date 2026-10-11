@@ -8,6 +8,16 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const num = n => Number(n).toLocaleString('ru-RU');
 
+// Личные настройки на этом устройстве: последние фильтры, срок, тема, недавние игроки. Без хранилища браузера всё работает как по умолчанию.
+const PREFS = (() => {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('pv_admin_prefs') || '{}') || {}; } catch (_) {}
+  return {
+    get: (key, fallback) => (key in data ? data[key] : fallback),
+    set(key, value) { data[key] = value; try { localStorage.setItem('pv_admin_prefs', JSON.stringify(data)); } catch (_) {} },
+  };
+})();
+
 let ME = null;
 const SECTIONS = {};          // key -> render(main)
 const SECTION_META = {
@@ -41,8 +51,26 @@ function showSectionLoading(main, key = currentSection()) {
   _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Читаем актуальные данные'; }, 900));
   _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Ответ занимает чуть больше времени'; }, 4000));
 }
+// Экраны «нет входа» и «нет доступа»: то же оформление, что у заставки загрузки, и понятный следующий шаг.
+function accessMarkup(error) {
+  const code = error?.status, msg = error?.message || '';
+  let icon = '↻', small = 'Связь прервалась', title = 'Не удалось открыть админку', text = msg || 'Попробуйте ещё раз.', retry = true;
+  if (code === 403) {
+    icon = '🛡'; small = 'Нет доступа'; title = 'Только для персонала бота'; retry = false;
+    text = msg + (/персонал/.test(msg) ? ' Если вы в команде, попросите создателя выдать вам роль, а потом напишите боту «бот админка».' : '');
+  } else if (code === 401) {
+    icon = '🔒'; retry = false;
+    if (/завершен/i.test(msg)) { small = 'Нужен новый вход'; title = 'Сессия завершена'; text = 'Откройте админку заново: напишите боту в личку «бот админка» и нажмите кнопку.'; }
+    else { small = 'Нужен вход'; title = 'Откройте админку из Telegram'; text = 'Напишите боту в личку «бот админка» и нажмите кнопку «🛠 Открыть админку».'; }
+  }
+  return `<section class="admin-load load-failed${retry ? '' : ' access'}" role="alert">
+    <div class="load-sigil" aria-hidden="true"><span>${icon}</span></div>
+    <div class="load-copy"><small>${esc(small)}</small><h2>${esc(title)}</h2><p>${esc(text)}</p></div>
+    ${retry ? '<button type="button" class="btn primary load-retry">Повторить</button>' : `<a class="btn" href="${esc(BASE)}/">← В Предвестник</a>`}</section>`;
+}
 function showLoadError(main, key, error, retry) {
   clearLoadStages(); main.setAttribute('aria-busy', 'false');
+  if (error?.status === 401 || error?.status === 403) { $('#main').innerHTML = accessMarkup(error); return; }   // повтор не поможет: нужен вход или роль; закрываем весь экран, не одну вставку
   const timedOut = error?.name === 'AbortError';
   main.innerHTML = `<section class="admin-load load-failed" role="alert">
     <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
@@ -67,6 +95,12 @@ async function loadSectionData(main, path, retry, key = currentSection()) {
   }
 }
 
+// Раздел может нарисоваться и без loadSectionData (игроки): «занято» снимается, как только заставку заменило содержимое.
+new MutationObserver(() => {
+  const m = $('#main');
+  if (m.getAttribute('aria-busy') === 'true' && !m.querySelector('.admin-load:not(.load-failed)')) m.setAttribute('aria-busy', 'false');
+}).observe($('#main'), {childList: true});
+
 async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
   if (INIT) headers['x-init-data'] = INIT;
@@ -74,7 +108,7 @@ async function api(path, opts = {}) {
   const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, headers});
   let data = null;
   try { data = await res.json(); } catch (_) {}
-  if (!res.ok) throw new Error((data && data.detail) || `Ошибка ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
   return data;
 }
 
@@ -85,6 +119,21 @@ function toast(text, bad = false) {
   t.hidden = false;
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
+}
+
+// Копирование в буфер: современный API, а где он закрыт (старые WebView) — через скрытое поле.
+async function copyText(text, done = 'Скопировано') {
+  try { await navigator.clipboard.writeText(text); toast(done); return true; } catch (_) {}
+  try {
+    const field = Object.assign(document.createElement('textarea'), {value: text});
+    field.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.append(field); field.select();
+    const ok = document.execCommand('copy');
+    field.remove();
+    if (ok) { toast(done); return true; }
+  } catch (_) {}
+  toast('Не удалось скопировать: выделите текст и скопируйте вручную', true);
+  return false;
 }
 
 // Значки разделов для нижнего дока (тот же штрих, что у дока Mini App).
@@ -109,6 +158,22 @@ function dockSplit() {
   return all.length <= DOCK_MAX ? {main: all, rest: []} : {main: all.slice(0, DOCK_MAX - 1), rest: all.slice(DOCK_MAX - 1)};
 }
 
+// Значки на вкладках: пока только число новых жалоб. Обновляются раз в минуту и после действий с жалобами.
+let BADGES = {};
+function paintBadges() {
+  document.querySelectorAll('#tabs .nb[data-tab]').forEach(b => {
+    const n = BADGES[b.dataset.tab] || 0;
+    let dot = b.querySelector('.badge');
+    if (!n) { if (dot) dot.remove(); return; }
+    if (!dot) { dot = document.createElement('i'); dot.className = 'badge'; b.append(dot); }
+    dot.textContent = n > 99 ? '99+' : n;
+  });
+}
+async function refreshBadges() {
+  try { BADGES = await api('/badges'); } catch (_) { return; }
+  paintBadges();
+}
+
 function tabs(active) {
   CURRENT = active;
   const {main, rest} = dockSplit(), nav = $('#tabs');
@@ -120,6 +185,7 @@ function tabs(active) {
   nav.innerHTML = main.map(s =>
     `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}">${icon(s.key)}<span>${esc(SHORT[s.key] || s.title)}</span></button>`).join('')
     + (rest.length ? `<button type="button" class="nb ${inRest ? 'here' : ''}" data-more="1">${icon('more')}<span>Ещё</span></button>` : '');
+  paintBadges();
 }
 
 function moreSheet() {
@@ -159,14 +225,49 @@ document.addEventListener('click', e => {
   if (e.target.closest('[data-more]')) moreSheet();
 });
 
-// Оболочка Telegram: шапка, фон и нижняя полоса того же цвета, что страница; смахивание вниз не закрывает админку посреди формы.
+// ── Тема: тёмная (как Mini App), светлая или как в Telegram ─────────────────────
+
+const THEMES = [['auto', '📱 Как в Telegram', 'Сама меняется вслед за темой Telegram'], ['dark', '🌙 Тёмная', 'Как в Предвестнике'], ['light', '☀️ Светлая', 'Для яркого дня']];
+const PAGE_COLOR = {dark: '#08090c', light: '#f3f4f8'};
+const themePref = () => { const t = PREFS.get('theme', 'auto'); return THEMES.some(z => z[0] === t) ? t : 'auto'; };
+function resolveTheme(pref = themePref()) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  // Вне Telegram SDK всегда отвечает «light», поэтому его схему берём только когда мы действительно внутри Telegram
+  const scheme = TG && TG.platform && TG.platform !== 'unknown' ? TG.colorScheme : '';
+  if (scheme === 'light' || scheme === 'dark') return scheme;
+  return window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+// Шапка, фон и нижняя полоса Telegram того же цвета, что страница.
+function paintTmaShell(color) {
+  if (!TG) return;
+  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
+  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
+}
+function applyTheme() {
+  const theme = resolveTheme();
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', PAGE_COLOR[theme]);
+  paintTmaShell(PAGE_COLOR[theme]);
+}
+function themeSheet() {
+  const current = themePref();
+  sheet('Оформление', `<div class="go-list">${THEMES.map(([key, title, sub]) =>
+    `<button type="button" data-theme-pick="${key}" class="${key === current ? 'here' : ''}"><span>${title}<small class="sub" style="display:block">${sub}</small></span></button>`).join('')}</div>
+    <div class="sub" style="margin-top:8px">Хранится на этом устройстве.</div>`, 'Готово', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-theme-pick]').forEach(btn => btn.onclick = () => {
+    PREFS.set('theme', btn.dataset.themePick); applyTheme();
+    $('#sheet').querySelectorAll('[data-theme-pick]').forEach(b => b.classList.toggle('here', b === btn));
+  });
+}
+applyTheme();
+try { if (TG && TG.onEvent) TG.onEvent('themeChanged', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
+try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
+
+// Оболочка Telegram: смахивание вниз не закрывает админку посреди формы; лёгкий отклик на нажатия, как в приложении.
 (function initTmaShell() {
   if (!TG) return;
   try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}
-  const color = '#08090c';
-  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
-  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
-  // Лёгкий отклик на нажатия, как в приложении
   document.addEventListener('click', e => {
     const t = e.target.closest('.nb, .btn');
     if (!t || t.disabled) return;
@@ -174,19 +275,71 @@ document.addEventListener('click', e => {
   }, true);
 })();
 
+// ── Горячие клавиши (компьютер) ───────────────────────────────────────────────
+
+const GO_KEYS = {p: 'people', r: 'reports', m: 'metrics', j: 'journal', b: 'broadcast', c: 'promo', f: 'switches', s: 'settings', h: 'health'};
+const HOTKEYS = [['/', 'Искать: игроки и чаты, промокоды'], ['g, затем p', 'Игроки'], ['g, затем r', 'Жалобы'], ['g, затем m', 'Метрики'], ['g, затем j', 'Журнал'],
+  ['g, затем b', 'Рассылка'], ['g, затем c', 'Промокоды'], ['g, затем f', 'Функции'], ['g, затем s', 'Настройки'], ['g, затем h', 'Состояние'],
+  ['Esc', 'Закрыть окно, убрать курсор из поля, вернуться назад'], ['Ctrl + Enter', 'Подтвердить окно'], ['?', 'Эта подсказка']];
+function hotkeysSheet() {
+  const mine = key => !/^g, /.test(key) || ME.sections.some(z => z.key === GO_KEYS[key.slice(-1)]);
+  sheet('Горячие клавиши', `<div class="keys">${HOTKEYS.filter(([key]) => mine(key)).map(([key, text]) =>
+    `<div><kbd>${esc(key)}</kbd><span>${esc(text)}</span></div>`).join('')}</div>`, 'Понятно', () => {}, {info: true});
+}
+(function initHotkeys() {
+  if (!(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;   // на телефоне клавиатуры нет
+  let goAt = 0;
+  const closeSheet = () => { const box = $('#sheet'); box.hidden = true; box.innerHTML = ''; };
+  const focusSearch = () => {
+    const field = $('#pplq') || $('#pq');
+    if (field) { field.focus(); field.select(); return true; }
+    return false;
+  };
+  document.addEventListener('keydown', e => {
+    if (!ME || e.metaKey || e.altKey) return;
+    const sheetOpen = !$('#sheet').hidden;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
+    if (e.key === 'Enter' && e.ctrlKey && sheetOpen) {
+      const ok = $('#sok');
+      if (ok && !ok.disabled) { e.preventDefault(); ok.click(); }
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (sheetOpen) { e.preventDefault(); closeSheet(); }
+      else if (typing) e.target.blur();
+      else { const back = $('#pback'); if (back) { e.preventDefault(); back.click(); } }
+      return;
+    }
+    if (typing || e.ctrlKey || sheetOpen) return;
+    if (goAt && Date.now() - goAt < 1500) {
+      goAt = 0;
+      const key = GO_KEYS[e.key.toLowerCase()];
+      if (key && ME.sections.some(z => z.key === key)) { e.preventDefault(); open(key); }
+      return;
+    }
+    if (e.key === 'g') { goAt = Date.now(); return; }
+    if (e.key === '/') {
+      e.preventDefault();
+      if (!focusSearch() && ME.sections.some(z => z.key === 'people')) { open('people'); setTimeout(focusSearch, 500); }
+    } else if (e.key === '?') { e.preventDefault(); hotkeysSheet(); }
+  });
+})();
+
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
 
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
-const PEOPLE = {query: '', stack: []};   // stack — откуда пришли (для «Назад»)
+const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
+const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
+  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал']];
 
-function sheet(title, body, submitText, onSubmit) {
+function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
   box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${body}
     <div class="actions" style="margin-top:12px"><button class="btn primary" id="sok">${esc(submitText)}</button>
-      <button class="btn" id="scancel">Отмена</button></div></div>`;
+      ${info ? '' : `<button class="btn" id="scancel">${esc(cancelText)}</button>`}</div></div>`;
   box.hidden = false;
   const close = () => { box.hidden = true; box.innerHTML = ''; };
-  $('#scancel').onclick = close;
+  if (!info) $('#scancel').onclick = close;
   box.onclick = e => { if (e.target === box) close(); };
   $('#sok').onclick = async () => {
     $('#sok').disabled = true;
@@ -197,6 +350,7 @@ function sheet(title, body, submitText, onSubmit) {
 const DURATIONS = [[15, '15 минут'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
 const durationField = (def = 60) => `<div class="field"><label>Срок</label><select id="fmin">
   ${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+const hint = text => `<div class="sub hint">${text}</div>`;   // короткое пояснение над полями: что произойдёт
 const reasonField = (required = false) => `<div class="field"><label>Причина${required ? '' : ' (необязательно)'}</label>
   <input id="freason" maxlength="200"/></div>`;
 
@@ -204,15 +358,16 @@ const reasonField = (required = false) => `<div class="field"><label>Причи�
 function actionForm(key, ctx) {
   const v = id => ($('#' + id) || {}).value;
   switch (key) {
-    case 'warn': return [durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'mute': return [durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'ban': return [durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'kick': case 'global_ban': return [reasonField(), () => ({reason: v('freason')})];
-    case 'block': return [`<div class="field"><label>На сколько</label><select id="fdays">
+    case 'warn': return [hint('Варн действует выбранный срок. Когда варнов станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'mute': return [hint('Игрок не сможет писать в этом чате до конца срока. Раньше можно снять кнопкой «Снять мут».') + durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'ban': return [hint('Игрока уберут из этого чата, вернуться он не сможет. Снимается кнопкой «Снять бан в чате».') + durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'kick': case 'global_ban': return [hint(key === 'kick' ? 'Игрок выйдет из чата, но сможет вернуться по ссылке.'
+        : 'Бан сразу во всех чатах, где есть бот и у него есть права. Снимается кнопкой «Снять бан во всех чатах». Понадобится ввести ID игрока.') + reasonField(), () => ({reason: v('freason')})];
+    case 'block': return [hint('Бот перестанет отвечать игроку и считать его команды. В чатах он остаётся и может писать.') + `<div class="field"><label>На сколько</label><select id="fdays">
         <option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option>
         <option value="0" selected>пока не снимут</option></select></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason')})];
-    case 'balance': return [`<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
+    case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции', zarniki: 'зарников'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
         ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
@@ -222,7 +377,7 @@ function actionForm(key, ctx) {
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
-    case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
+    case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.') + `<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
     case 'mark_grant': {
@@ -235,19 +390,27 @@ function actionForm(key, ctx) {
     case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
         ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
         + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
-    case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
+    case 'warn_limit': return [hint('Сколько варнов у игрока в этом чате считается пределом: на этом бот напишет в чат.') + `<div class="field"><label>Варнов до наказания</label>
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
-    case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
+    case 'message': return [hint('Сообщение сразу уйдёт в чат от имени бота, его увидят все участники.') + `<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
       () => ({text: v('ftext')})];
     default: return ['<div class="sub">Подтвердите действие.</div>', () => ({})];
   }
 }
 
 // Опасные действия просят подтверждение с итогом: кому, что именно и что изменится.
-const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close']);
+const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close', 'revoke_sessions']);
+// Самое опасное (бан во всех чатах, роль, крупная сумма) подтверждается ещё и вводом ID игрока: сервер без него откажет.
+function needsTypedConfirm(key, payload, ctx) {
+  const rules = ctx.confirm_rules;
+  if (!rules || ctx.id === undefined || ctx.username === undefined) return false;
+  if (rules.actions.includes(key)) return true;
+  const limit = key === 'balance' ? rules.balance[payload.currency] : undefined;
+  return limit !== undefined && Math.abs(parseFloat(payload.amount)) >= limit;
+}
 const CONFIRM_TITLE = {ban: '⛔ Бан в чате', kick: '👢 Кик из чата', global_ban: '🚫 Бан во всех чатах', block: '🙈 Бот перестанет отвечать',
   balance: '💰 Изменение баланса', rank: '🎖 Новая глобальная роль', vip: '👑 Выдача VIP', leave: '🚪 Бот уйдёт из чата',
-  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется'};
+  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
 function confirmLines(key, payload, ctx, extra) {
   const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
   const lines = [];
@@ -268,6 +431,7 @@ function confirmLines(key, payload, ctx, extra) {
   else if (key === 'leave') lines.push('Бот выйдет из чата, обратно его придётся добавлять заново.');
   else if (key === 'message') lines.push(`Текст увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`);
   else if (key === 'close') lines.push('Участники не смогут писать, пока чат не откроют.');
+  else if (key === 'revoke_sessions') lines.push('Сотрудник выйдет из админки на всех устройствах и откроет её заново. Роль не меняется.');
   if (payload.reason) lines.push(`Причина: ${esc(payload.reason)}`);
   return lines;
 }
@@ -286,9 +450,17 @@ function runAction(action, target, ctx, extra, after) {
   sheet(action.title, place + body, DANGEROUS.has(action.key) ? 'Далее' : 'Выполнить', async () => {
     const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
     if (!DANGEROUS.has(action.key)) return perform(payload);
+    const typed = needsTypedConfirm(action.key, payload, ctx);
     sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
-      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>`,
-      'Подтвердить', () => perform(payload));
+      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>
+      ${typed ? `<div class="field" style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
+        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}`,
+      'Подтвердить', () => {
+        if (!typed) return perform(payload);
+        const typedId = ($('#fconfirm').value || '').trim();
+        if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
+        return perform({...payload, confirm: typedId});
+      });
     return 'keep';
   });
 }
@@ -342,36 +514,122 @@ function historyCard(items) {
         ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) : ''}</div></div>`).join('')}</div>`;
 }
 
+// Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
+const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять варны везде', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
+async function bulkRun(action, ids, after) {
+  const count = `Игроков: <b>${ids.length}</b>.`;
+  const send = async extra => {
+    const res = await api('/players/bulk', {method: 'POST', body: JSON.stringify({action, ids, ...extra})});
+    toast(res.message);
+    if (res.failed.length) {
+      sheet('Не всем получилось', `<div class="sub">${esc(res.message)}</div>${res.failed.map(f =>
+        `<div class="log"><b>${who(f.id, f.username)}</b><div class="sub">${esc(f.reason)}</div></div>`).join('')}`, 'Понятно', () => {}, {info: true});
+    }
+    after();
+  };
+  if (action === 'watch') return sheet(BULK_TITLES[action], `<div class="sub">${count} Они появятся в фильтре «На контроле».</div>${reasonField()}`,
+    'Поставить', () => send({reason: ($('#freason') || {}).value}));
+  if (action === 'mark_grant' || action === 'mark_revoke') {
+    const marks = await api('/marks');
+    return sheet(BULK_TITLES[action], `<div class="sub">${count}</div><div class="field"><label>Метка</label><select id="fmark">
+      ${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>${reasonField(true)}`,
+    action === 'mark_grant' ? 'Выдать' : 'Снять', () => send({mark: $('#fmark').value, reason: ($('#freason') || {}).value}));
+  }
+  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие варны во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
+    'Выполнить', () => send({}));
+}
+
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
+  if (!PEOPLE.restored) {   // последний выбранный быстрый фильтр возвращается при следующем открытии
+    PEOPLE.restored = true;
+    const saved = PREFS.get('people.filter', '');
+    if (PEOPLE_FILTERS.some(([key]) => key === saved)) PEOPLE.filter = saved;
+  }
   rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
+    <div class="chips filters" id="pplf"></div>
+    <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
   if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
+  const drawFilters = () => {
+    $('#pplf').innerHTML = PEOPLE_FILTERS.map(([key, title]) =>
+      `<span class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</span>`).join('');
+  };
+  $('#pplf').onclick = e => {
+    const c = e.target.closest('[data-flt]');
+    if (!c || c.dataset.flt === PEOPLE.filter) return;
+    PEOPLE.filter = c.dataset.flt; PREFS.set('people.filter', PEOPLE.filter); drawFilters(); load($('#pplq').value);
+  };
+  drawFilters();
+  const drawBulk = () => {
+    const host = $('#pplbulk'); if (!host) return;
+    if (!PEOPLE.select) { host.innerHTML = ''; return; }
+    const n = PEOPLE.picked.size, can = key => key !== 'mark_grant' && key !== 'mark_revoke' ? true : ME.rank >= 5;
+    host.innerHTML = `<div class="card bulkbar"><div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <b>Выбрано: ${n}</b><span class="sub">${n ? '<a href="#" id="bkclear">сбросить</a>' : 'Нажимайте на игроков в списке'}</span></div>
+      ${n ? `<div class="actions" style="margin-top:8px">${Object.entries(BULK_TITLES).filter(([key]) => can(key)).map(([key, title]) =>
+        `<button class="btn small" data-bulk="${key}">${esc(title)}</button>`).join('')}</div>` : ''}</div>`;
+    if (n) {
+      $('#bkclear').onclick = e => { e.preventDefault(); PEOPLE.picked.clear(); drawBulk(); markPicked(); };
+      host.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => bulkRun(b.dataset.bulk, [...PEOPLE.picked], () => {
+        PEOPLE.picked.clear(); drawBulk(); load($('#pplq').value);
+      }).catch(err => toast(err.message, true)));
+    }
+  };
+  const markPicked = () => document.querySelectorAll('#pplres [data-player]').forEach(row => {
+    const on = PEOPLE.picked.has(+row.dataset.player);
+    row.classList.toggle('picked', on);
+    const box = row.querySelector('.pick'); if (box) box.checked = on;
+  });
   async function load(q) {
     PEOPLE.query = q;
     const host = $('#pplres'); if (!host) return;
-    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}`, () => load(q), 'people');
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + PEOPLE.filter : ''}`, () => load(q), 'people');
     if (!data) return;
-    const {players, chats} = data;
-    const head = q.trim() ? '' : '<div class="sub" style="margin-bottom:8px">Недавно активные</div>';
-    $('#pplres').innerHTML = head + `
-      <h3 class="sec">Игроки · ${players.length}</h3>
+    const {players, chats, total} = data;
+    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1];
+    const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
+    const showAttn = !q.trim() && !PEOPLE.filter;
+    const recent = showAttn ? PREFS.get('recent', []) : [];
+    const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
+      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
+    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div>' : '') + head + `
+      <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
+        ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
-        <div class="head"><b>${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
+        <div class="head"><b>${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
         <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
-      <h3 class="sec">Чаты · ${chats.length}</h3>
+      ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
       <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
         <div class="head"><b>${esc(c.title)}</b><span class="sub">${num(c.members)} уч.</span></div>
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
-        || '<div class="sub">Ничего</div>'}</div>`;
+        || '<div class="sub">Ничего</div>'}</div>`}`;
+    markPicked(); drawBulk();
+    if (showAttn) api('/chats/attention').then(att => {
+      const host = $('#pplattn');
+      if (!host || !att.total) return;
+      host.innerHTML = `<div class="card"><h3>⚠️ Чаты требуют внимания · ${att.total}</h3><div class="list">${attentionRows(att.items.slice(0, 5))}</div>
+        ${att.total > 5 ? '<button class="btn small more" id="attnall">Показать все</button>' : ''}</div>`;
+      if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
+    }).catch(() => {});
+    if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
   }
   $('#pplres').onclick = e => {
+    const rec = e.target.closest('[data-recent]');
+    if (rec) { PEOPLE.stack = []; playerView(main, +rec.dataset.recent); return; }
     const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
+    if (p && PEOPLE.select) {   // в режиме выбора нажатие отмечает игрока, а не открывает карточку
+      const id = +p.dataset.player;
+      if (PEOPLE.picked.has(id)) PEOPLE.picked.delete(id); else PEOPLE.picked.add(id);
+      markPicked(); drawBulk();
+      return;
+    }
     PEOPLE.stack = [];
     if (p) playerView(main, +p.dataset.player);
     else if (c) chatView(main, +c.dataset.chat);
@@ -382,6 +640,7 @@ async function peopleSearch(main, query = '') {
 async function playerView(main, id, push = true, from = null) {
   const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
   if (!p) return;
+  PREFS.set('recent', [{id: p.id, u: p.username || ''}, ...PREFS.get('recent', []).filter(r => r.id !== p.id)].slice(0, 6));
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => playerView(main, id, false);
   const b = p.balances;
@@ -393,9 +652,11 @@ async function playerView(main, id, push = true, from = null) {
     p.blocked ? `<span class="chip bad">🙈 бот не отвечает${p.blocked.until ? ' до ' + when(p.blocked.until) : ''}</span>` : '',
     p.global_ban ? '<span class="chip bad">🚫 бан во всех чатах</span>' : '',
     p.deleted_at ? '<span class="chip warn">аккаунт удаляется</span>' : '',
+    p.watch ? '<span class="chip warn">👁 на контроле</span>' : '',
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  if (!p.rank) hide.add('revoke_sessions');   // сессии админки бывают только у сотрудников
   const mk = p.marks || {given: [], earned: [], grantable: []};
   // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
   const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
@@ -430,6 +691,23 @@ async function playerView(main, id, push = true, from = null) {
       ${p.notes.next ? '<button class="btn small more" id="notemore">Показать ещё</button>' : ''}
       <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
       <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
+  const NAME_KINDS = {username: '@ник', name: 'имя'};
+  const namesCard = p.names.length || p.nicknames.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
+      ${p.names.length ? `<div class="sub" style="margin-bottom:4px">Как игрок назывался в Telegram: бот записывает, когда ник или имя меняются.</div>
+        ${p.names.map(n => `<div class="log"><b>${esc(n.kind === 'username' ? '@' + n.value : n.value)}</b>
+          <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}
+      ${p.nicknames.length ? `<h3 class="sec">Ники в чатах</h3>${p.nicknames.map(n => `<div class="log"><b>${esc(n.nickname)}</b>
+        <div class="sub"><a href="#" data-chat="${n.chat.id}">${esc(n.chat.title)}</a></div></div>`).join('')}` : ''}</div>` : '';
+  const lk = p.linked;
+  const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
+  const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
+      <div class="sub" style="margin-bottom:4px">Совпадение ника или имени — повод присмотреться, а не доказательство. Устройства и адреса бот не собирает.</div>
+      ${lk.invited_by ? `<h3 class="sec">Пришёл по приглашению</h3>${linkRow(lk.invited_by)}` : ''}
+      ${lk.invited.total ? `<h3 class="sec">Пригласил · ${lk.invited.total}</h3>${lk.invited.items.map(u => linkRow(u)).join('')}
+        ${lk.invited.total > lk.invited.items.length ? `<div class="sub">…и ещё ${lk.invited.total - lk.invited.items.length}</div>` : ''}` : ''}
+      ${lk.same_username.length ? `<h3 class="sec">Тот же ник раньше или сейчас</h3>${lk.same_username.map(u => linkRow(u, '@' + esc(u.value))).join('')}` : ''}
+      ${lk.same_name.length ? `<h3 class="sec">Такое же имя в Telegram</h3>${lk.same_name.map(u => linkRow(u, esc(u.name))).join('')}` : ''}
+      ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -453,12 +731,16 @@ async function playerView(main, id, push = true, from = null) {
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
-      ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
+      ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
+      <div class="actions" style="margin-top:12px"><button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
+      ${globalActs.length ? `<div class="actions" style="margin-top:8px">${globalActs.map(a =>
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
     ${marksCard}
     ${reportsCard}
     ${notesCard}
+    ${namesCard}
+    ${linkedCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -474,6 +756,16 @@ async function playerView(main, id, push = true, from = null) {
     ${historyCard(p.history)}`;
   wireBack(main);
   const here = {type: 'player', id};
+  $('#pwatch').onclick = () => {
+    const done = on => async reason => {
+      await api(`/player/${id}/watch`, {method: 'POST', body: JSON.stringify({on, reason})});
+      toast(on ? 'Игрок на контроле' : 'Снят с контроля');
+      reopen();
+    };
+    if (p.watch) done(false)('').catch(err => toast(err.message, true));
+    else sheet('👁 На контроль', `<div class="sub">Игрок: ${who(p.id, p.username)}. Он об этом не узнает, ограничений нет: список для персонала.</div>${reasonField()}`,
+      'Поставить', () => done(true)(($('#freason') || {}).value));
+  };
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
   const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
@@ -521,6 +813,39 @@ async function playerView(main, id, push = true, from = null) {
   main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
 }
 
+// Настройки чата одним взглядом: кто что может, чистка, модули и флаги. Меняются командами в самом чате и в «Функциях».
+function chatSettingsCard(st) {
+  if (!st || !st.ranks) return '';
+  const flag = (title, on) => `<span class="chip ${on ? 'ok' : 'off'}">${on ? '✓' : '✕'} ${esc(title)}</span>`;
+  return `<div class="card"><h3>⚙️ Настройки чата</h3>
+    <h3 class="sec">Кто что может (с какого ранга в чате)</h3>
+    ${st.ranks.map(r => `<div class="sw-row"><div class="t">${esc(r.title)}</div><span class="sub">${esc(r.name)}</span></div>`).join('')}
+    <h3 class="sec">Чистка</h3>
+    <div class="sub">${st.purge.on ? 'Включена' : 'Выключена'} · запускает ${esc(st.purge.min_rank)} · действия с ${esc(st.purge.action_rank)}</div>
+    ${st.shield_days ? `<div class="sub">Защита от чистки длится ${st.shield_days} дн.</div>` : ''}
+    <h3 class="sec">Модули чата</h3><div class="chips">${st.modules.map(m => flag(m.icon + ' ' + m.name, m.on)).join('')}</div>
+    <h3 class="sec">Прочее</h3><div class="chips">${st.flags.map(f => flag(f.title, f.on)).join('')}</div></div>`;
+}
+
+// Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
+function attentionRows(items) {
+  const cls = {no_rights: 'warn', quiet: 'off', left: 'bad'};
+  return items.map(x => `<div class="row" data-chat="${x.id}">
+    <div class="head"><b>${esc(x.title)}</b><span class="sub">${num(x.members)} уч.</span></div>
+    <div class="chips" style="margin-top:4px">${x.problems.map(p => `<span class="chip ${cls[p.key] || ''}">${esc(p.title)}</span>`).join('')}</div>
+    <div class="sub">${x.last ? 'последнее сообщение ' + when(x.last) : 'сообщений не было'}</div></div>`).join('');
+}
+function goChat(id) {
+  const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
+  open('people'); PEOPLE.stack = []; chatView($('#main'), id);
+}
+async function attentionSheet(kind, title) {
+  const data = await api(`/chats/attention?kind=${kind}`);
+  sheet(title, data.items.length ? `<div class="list">${attentionRows(data.items)}</div>${data.total > data.items.length ? `<div class="sub" style="margin-top:8px">Показаны ${data.items.length} из ${data.total}: самые людные.</div>` : ''}`
+    : '<div class="sub">Таких чатов нет.</div>', 'Закрыть', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
+}
+
 async function chatView(main, id, push = true, from = null) {
   const c = await loadSectionData(main, `/chat/${id}`, () => chatView(main, id, push, from), 'people');
   if (!c) return;
@@ -565,6 +890,7 @@ async function chatView(main, id, push = true, from = null) {
       ${c.switched_off.length ? `<div class="sub" style="margin-top:8px">Выключено: ${c.switched_off.map(x =>
         esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
     </div>
+    ${chatSettingsCard(c.settings)}
     <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username})}</div>
       <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
     ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
@@ -670,6 +996,8 @@ async function exportMetrics(days) {
 }
 
 async function metricsView(main, days = 1) {
+  if (![1, 7, 30].includes(days)) days = 1;
+  PREFS.set('metrics.days', days);
   showSectionLoading(main, 'metrics');
   const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
@@ -732,15 +1060,37 @@ async function metricsView(main, days = 1) {
   });
 }
 
-SECTIONS.metrics = main => metricsView(main);
+SECTIONS.metrics = main => metricsView(main, PREFS.get('metrics.days', 1));
 
 // ── Журнал: все действия персонала ───────────────────────────────────────────
 
-const JOURNAL = {kind: '', actor: 0, days: 7};
+const JOURNAL = {kind: PREFS.get('journal.kind', ''), actor: 0, days: [1, 7, 30, 90].includes(PREFS.get('journal.days', 7)) ? PREFS.get('journal.days', 7) : 7,
+  view: PREFS.get('journal.view', 'actions') === 'logins' ? 'logins' : 'actions'};
+const saveJournal = () => { PREFS.set('journal.kind', JOURNAL.kind); PREFS.set('journal.days', JOURNAL.days); PREFS.set('journal.view', JOURNAL.view); };
+// Создатель видит ещё и входы в админку (адрес и устройство): остальным этой вкладки нет.
+const journalTabs = () => !ME.creator ? '' : `<div class="scope" style="margin-bottom:8px">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
+  `<button class="btn small ${k === JOURNAL.view ? 'primary' : ''}" data-jview="${k}">${t}</button>`).join('')}</div>`;
+const bindJournalTabs = main => main.querySelectorAll('[data-jview]').forEach(b =>
+  b.onclick = () => { JOURNAL.view = b.dataset.jview; saveJournal(); journalView(main); });
+async function loginsView(main) {
+  const data = await loadSectionData(main, `/logins?days=${JOURNAL.days}`, () => loginsView(main), 'journal');
+  if (!data) return;
+  const rows = data.items.map(x => `<div class="log"><div><b>${who(x.user.id, x.user.username)}</b> · ${esc(x.device)}</div>
+      <div class="sub">${when(x.at)} · адрес ${esc(x.ip || 'неизвестен')}</div></div>`).join('');
+  main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+      `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
+    <div class="card" style="margin-top:10px"><h3>Входы в админку</h3>
+      <div class="sub" style="margin-bottom:6px">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
+      ${rows || '<div class="empty">За этот период входов нет.</div>'}</div>`;
+  bindJournalTabs(main);
+  main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); loginsView(main); });
+}
 async function journalView(main, more = '') {
+  if (ME.creator && JOURNAL.view === 'logins') return loginsView(main);
   const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${more ? '&before=' + encodeURIComponent(more) : ''}`;
   const data = await loadSectionData(main, `/journal?${qs}`, () => journalView(main, more), 'journal');
   if (!data) return;
+  if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) : '';
   const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
@@ -751,7 +1101,7 @@ async function journalView(main, more = '') {
     main.querySelector('#jmore')?.remove();
     main.querySelector('#jlist').insertAdjacentHTML('beforeend', body);
   } else {
-    main.innerHTML = `<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+    main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
         `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
       <div class="grid2" style="margin:10px 0">
         <div class="field"><label>Что</label><select id="jkind"><option value="">Всё</option>${data.kinds.map(k =>
@@ -759,8 +1109,9 @@ async function journalView(main, more = '') {
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
       <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
-    main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; journalView(main); });
-    $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; journalView(main); };
+    bindJournalTabs(main);
+    main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
+    $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; saveJournal(); journalView(main); };
     $('#jactor').onchange = e => { JOURNAL.actor = +e.target.value; journalView(main); };
     $('#jlist').onclick = e => {
       const p = e.target.closest('a[data-player]'), c = e.target.closest('a[data-chat]');
@@ -779,8 +1130,11 @@ SECTIONS.journal = main => journalView(main);
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 
 async function reportsView(main, kind = 'open') {
+  if (kind !== 'open' && kind !== 'closed') kind = 'open';
+  PREFS.set('reports.kind', kind);
   const data = await loadSectionData(main, `/reports?kind=${kind}`, () => reportsView(main, kind), 'reports');
   if (!data) return;
+  refreshBadges();
   const c = data.counts;
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
@@ -789,6 +1143,11 @@ async function reportsView(main, kind = 'open') {
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
     <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
+    ${data.repeat && data.repeat.length ? `<div class="card"><h3>🔁 Повторные нарушители · ${data.repeat.length}</h3>
+      <div class="sub" style="margin-bottom:4px">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
+      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
+        <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
+        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</div>` : ''}
     ${data.items.length ? data.items.map(r => `<div class="card">
       <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
@@ -847,7 +1206,7 @@ async function reportsView(main, kind = 'open') {
   });
 }
 
-SECTIONS.reports = main => reportsView(main);
+SECTIONS.reports = main => reportsView(main, PREFS.get('reports.kind', 'open'));
 
 // ── Рассылка ─────────────────────────────────────────────────────────────────
 
@@ -1149,9 +1508,11 @@ function when(iso) {
 async function promoList(main, query = '') {
   main.innerHTML = `
     <div class="bar"><input id="pq" placeholder="Поиск по коду" value="${esc(query)}"/>
+      <button class="btn" id="pbulk" title="Много одноразовых кодов с одной наградой">Пачка</button>
       <button class="btn primary" id="pnew">+ Новый</button></div>
     <div class="list" id="plist"><div class="empty">Загрузка…</div></div>`;
   $('#pnew').onclick = () => promoEdit(main, null);
+  $('#pbulk').onclick = () => promoEdit(main, null, {bulk: true});
   let timer;
   $('#pq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
@@ -1172,6 +1533,29 @@ async function promoList(main, query = '') {
   load(query);
 }
 
+const SPENT_TITLES = [['mora', 'мора'], ['diamonds', 'алмазов'], ['essence', 'эссенции'], ['zarniki', 'зарников'], ['vip_days', 'дн. VIP']];
+
+// Как идёт код: сколько осталось, где и когда активировали, сколько награды уже ушло и что в нём стоит перепроверить.
+function promoStats(p) {
+  const s = p.stats;
+  if (!s) return '';
+  const days = s.per_day.map(d => d.day), daily = Object.fromEntries(s.per_day.map(d => [d.day, {n: d.n}]));
+  const spent = SPENT_TITLES.filter(([key]) => s.spent && s.spent[key] != null && +s.spent[key] > 0)
+    .map(([key, title]) => `${num(s.spent[key])} ${title}`);
+  const share = s.limit ? Math.min(100, Math.round(s.activations / s.limit * 100)) : 0;
+  return `<div class="card"><h3>Как идёт</h3>
+    ${(p.warnings || []).map(w => `<div class="chip warn" style="display:block;margin-bottom:6px;border-radius:12px">${esc(w)}</div>`).join('')}
+    ${s.limit ? `<div class="meter" title="${share}%"><i style="width:${share}%"></i></div>` : ''}
+    <div class="stats">
+      ${tile('Активаций', num(s.activations) + (s.limit ? ` <small>из ${num(s.limit)}</small>` : ''))}
+      ${s.left != null ? tile('Осталось', num(s.left)) : ''}
+      ${tile('Чатов', num(s.chats))}${tile('В личке', num(s.private))}
+    </div>
+    <div class="sub" style="margin-top:8px">${s.first_at ? `Первая: ${when(s.first_at)} · последняя: ${when(s.last_at)}` : 'Пока никто не активировал'}</div>
+    ${spent.length ? `<div class="sub" style="margin-top:4px">Уже выдано примерно: ${spent.map(esc).join(' · ')}</div>` : ''}
+    ${s.activations ? bars(days, daily, 'n', 'Активации за 14 дней') : ''}</div>`;
+}
+
 async function promoView(main, code) {
   const p = await loadSectionData(main, `/promo/${encodeURIComponent(code)}`, () => promoView(main, code), 'promo');
   if (!p) return;
@@ -1181,6 +1565,8 @@ async function promoView(main, code) {
       <div class="head" style="display:flex;justify-content:space-between;gap:8px">
         <span class="code" style="font-size:20px">${esc(p.code)}</span>${promoStatus(p)}</div>
       ${p.note ? `<div class="sub" style="margin-top:6px">${esc(p.note)}</div>` : ''}
+      <div class="actions" style="margin-top:8px"><button class="btn small" id="pcopy">Копировать код</button>
+        <button class="btn small" id="pcopycmd" title="Что игроку написать в чате">Копировать «бот промокод …»</button></div>
       <div style="margin-top:10px">${p.rewards_text.map(r => `<div>${esc(r)}</div>`).join('') || '<div class="sub">Нет наград нового формата — пересохраните код.</div>'}</div>
       <div class="sub" style="margin-top:10px">Активаций: ${num(p.activations)}${p.max_activations ? ' из ' + num(p.max_activations) : ' (без лимита)'}<br>
         ${p.valid_from ? 'С ' + when(p.valid_from) + ' ' : ''}${p.valid_until ? 'до ' + when(p.valid_until) : (p.valid_from ? '' : 'Без срока')}<br>
@@ -1191,6 +1577,7 @@ async function promoView(main, code) {
         <button class="btn ${p.is_active ? 'danger' : ''}" id="ptoggle">${p.is_active ? 'Выключить' : 'Включить'}</button>
       </div>
     </div>
+    ${promoStats(p)}
     <div class="card"><h3>Кто активировал · ${p.redemptions.length}</h3>
       ${p.redemptions.length ? `<table><tr><th>Игрок</th><th>Где</th><th>Когда</th><th>Получил</th></tr>
         ${p.redemptions.map(r => `<tr><td>${r.username ? '@' + esc(r.username) : r.user_id}<div class="sub">${r.user_id}</div></td>
@@ -1198,6 +1585,8 @@ async function promoView(main, code) {
           <td>${esc((r.granted || []).join(', '))}</td></tr>`).join('')}</table>` : '<div class="sub">Пока никто.</div>'}
     </div>`;
   $('#pback').onclick = () => promoList(main);
+  $('#pcopy').onclick = () => copyText(p.code, 'Код скопирован');
+  $('#pcopycmd').onclick = () => copyText(`бот промокод ${p.code}`, 'Команда скопирована');
   $('#pedit').onclick = () => promoEdit(main, p);
   $('#ptoggle').onclick = async () => {
     try {
@@ -1249,8 +1638,8 @@ function skinDetail(k) {
     <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
       `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
 }
-function skinPicker(currentId, onPick) {
-  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [], pool = [...all, ...priv];
+function skinPicker(currentId, onPick, {noPrivate = false} = {}) {
+  const box = $('#sheet'), all = OPTIONS.skins, priv = noPrivate ? [] : OPTIONS.private_skins || [], pool = [...all, ...priv];
   const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
     ['season', 'Сезонные'], ['set', 'Наборы'], ...(priv.length ? [['private', `Личные · ${priv.length}`]] : [])];
   let filter = 'all', q = '', chosen = pool.find(k => k.id === currentId) || null;
@@ -1294,9 +1683,19 @@ function skinPicker(currentId, onPick) {
   box.onclick = e => { if (e.target === box) close(); };
 }
 
-async function promoEdit(main, p) {
+// Как игрок увидит ответ бота и что стоит перепроверить (код при этом не сохраняется).
+const promoWarnings = list => list.map(w => `<div class="chip warn" style="display:block;margin-top:8px;border-radius:12px">${esc(w)}</div>`).join('');
+function promoPreviewHtml(pv) {
+  return `<div class="sub">Так бот ответит игроку:</div>
+    <div class="card" style="margin:8px 0">🎟 Промокод <b>${esc(pv.code)}</b> активирован!
+      <div style="border-left:3px solid var(--accent);padding-left:10px;margin-top:6px">${pv.player_text.map(esc).join('<br>')}</div></div>
+    <div class="sub">Кто может: ${esc(pv.who_can)}.</div>${promoWarnings(pv.warnings)}`;
+}
+
+async function promoEdit(main, p, {bulk = false} = {}) {
   OPTIONS = OPTIONS || await api('/promo-options');
   const isNew = !p;
+  bulk = bulk && isNew;
   const state = {
     rewards: p && p.rewards.length ? p.rewards.map(r => ({...r})) : [{type: 'mora', amount: ''}],
     chats: p ? p.chats.map(c => ({...c})) : [],
@@ -1304,29 +1703,34 @@ async function promoEdit(main, p) {
   main.innerHTML = `
     <div class="bar"><button class="btn" id="pback">← Назад</button></div>
     <div class="card">
-      <h3>${isNew ? 'Новый промокод' : 'Промокод ' + esc(p.code)}</h3>
-      ${isNew ? `<div class="field"><label>Код (латиница, цифры, - и _)</label>
+      <h3>${bulk ? 'Пачка одноразовых кодов' : isNew ? 'Новый промокод' : 'Промокод ' + esc(p.code)}</h3>
+      ${bulk ? `<div class="sub" style="margin-bottom:10px">Много разных кодов с одной наградой. Каждый сработает один раз: удобно раздавать в конкурсах и в подарок.</div>
+        <div class="grid2"><div class="field"><label>Начало кода (необязательно)</label>
+          <input id="fprefix" maxlength="16" placeholder="например, EVENT" style="text-transform:uppercase"/></div>
+        <div class="field"><label>Сколько кодов (1–200)</label><input id="fcount" type="number" min="1" max="200" value="10"/></div></div>`
+      : isNew ? `<div class="field"><label>Код (латиница, цифры, - и _)</label>
         <div class="bar" style="margin:0"><input id="fcode" maxlength="32" style="text-transform:uppercase"/>
         <button class="btn" id="fgen">Случайный</button></div></div>` : ''}
       <div class="field"><label>Награды</label><div id="frewards"></div>
         <button class="btn small" id="fadd">+ Награда</button></div>
       <div class="grid2">
-        <div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
-        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>
+        ${bulk ? '' : `<div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
+        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>`}
         <div class="field"><label>Начало (необязательно)</label><input id="ffrom" type="datetime-local" value="${localInput(p && p.valid_from)}"/></div>
         <div class="field"><label>Конец (необязательно)</label><input id="funtil" type="datetime-local" value="${localInput(p && p.valid_until)}"/></div>
       </div>
       <div class="field"><label>Где активировать: пусто — везде, иначе только в выбранных чатах</label>
         <input id="fchatq" placeholder="Найти чат по названию или ID"/><div class="found" id="fchatfound"></div>
         <div class="chips" id="fchats"></div></div>
-      <div class="field"><label>Только для игроков: пусто — для всех</label>
+      ${bulk ? '' : `<div class="field"><label>Только для игроков: пусто — для всех</label>
         <input id="fuserq" placeholder="Найти игрока по @нику или ID"/><div class="found" id="fuserfound"></div>
-        <div class="chips" id="fusers"></div></div>
+        <div class="chips" id="fusers"></div></div>`}
       <div class="field"><label>Заметка для себя</label><textarea id="fnote" maxlength="300">${esc(p ? p.note : '')}</textarea></div>
-      <div class="actions"><button class="btn primary" id="fsave">${isNew ? 'Создать' : 'Сохранить'}</button></div>
+      <div class="actions"><button class="btn primary" id="fsave">${bulk ? 'Создать пачку' : isNew ? 'Создать' : 'Сохранить'}</button>
+        <button class="btn" id="fpreview">Как увидит игрок</button></div>
     </div>`;
   $('#pback').onclick = () => (p ? promoView(main, p.code) : promoList(main));
-  if (isNew) $('#fgen').onclick = () => {
+  if (isNew && !bulk) $('#fgen').onclick = () => {
     const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     $('#fcode').value = Array.from({length: 8}, () => abc[Math.floor(Math.random() * abc.length)]).join('');
   };
@@ -1354,10 +1758,10 @@ async function promoEdit(main, p) {
     if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => {
       state.rewards[+pk.dataset.pick].id = id; drawRewards();
       // Личный образ у одного владельца: сами ставим лимит 1, если админ не выбрал игрока.
-      if ((OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
+      if (!bulk && (OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
         $('#fmax').value = 1; toast('Личный образ: лимит активаций поставлен в 1');
       }
-    });
+    }, {noPrivate: bulk});
   });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
@@ -1396,46 +1800,101 @@ async function promoEdit(main, p) {
       ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
       : '<span class="sub">Для всех игроков</span>';
   };
-  drawUsers();
-  $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
-  let ut;
-  $('#fuserq').oninput = e => {
-    clearTimeout(ut);
-    const q = e.target.value.trim();
-    if (!q) { $('#fuserfound').innerHTML = ''; return; }
-    ut = setTimeout(async () => {
-      const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
-      $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
-        .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
-        || '<span class="sub">Не найдено</span>';
-    }, 250);
-  };
-  $('#fuserfound').onclick = e => {
-    const b = e.target.closest('[data-adduser]');
-    if (!b) return;
-    users.push({id: +b.dataset.adduser, label: b.dataset.label});
-    $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+  if (!bulk) {
     drawUsers();
+    $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
+    let ut;
+    $('#fuserq').oninput = e => {
+      clearTimeout(ut);
+      const q = e.target.value.trim();
+      if (!q) { $('#fuserfound').innerHTML = ''; return; }
+      ut = setTimeout(async () => {
+        const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
+        $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
+          .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
+          || '<span class="sub">Не найдено</span>';
+      }, 250);
+    };
+    $('#fuserfound').onclick = e => {
+      const b = e.target.closest('[data-adduser]');
+      if (!b) return;
+      users.push({id: +b.dataset.adduser, label: b.dataset.label});
+      $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+      drawUsers();
+    };
+  }
+
+  const toIso = v => (v ? new Date(v).toISOString() : null);
+  const collect = () => {
+    const common = {rewards: state.rewards, valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
+      allowed_chats: state.chats.map(c => c.id), note: $('#fnote').value};
+    return bulk
+      ? {...common, prefix: $('#fprefix').value.trim().toUpperCase(), count: +$('#fcount').value || 0}
+      : {...common, code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code, max_activations: +$('#fmax').value || 0,
+         is_active: $('#factive').checked, allowed_users: users.map(u => u.id)};
+  };
+  // Предпросмотр у сервера: он же знает, что считается «слишком много». Сохранять он не мешает.
+  const preview = body => api('/promo/preview', {method: 'POST', body: JSON.stringify(bulk ? {...body, max_activations: 1} : body)});
+
+  $('#fpreview').onclick = async () => {
+    try {
+      const pv = await preview(collect());
+      sheet('Как увидит игрок', promoPreviewHtml(pv) + (bulk ? '<div class="sub" style="margin-top:8px">Каждый код сработает один раз.</div>' : ''),
+        'Понятно', () => {}, {info: true});
+    } catch (err) { toast(err.message, true); }
   };
 
   $('#fsave').onclick = async e => {
     const btn = e.currentTarget;
     if (btn.disabled) return;
-    const toIso = v => (v ? new Date(v).toISOString() : null);
-    const body = {
-      code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code,
-      rewards: state.rewards, max_activations: +$('#fmax').value || 0, is_active: $('#factive').checked,
-      valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
-      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(u => u.id), note: $('#fnote').value,
+    const body = collect();
+    const save = async () => {
+      btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
+      try {
+        if (bulk) {
+          const made = await api('/promo/bulk', {method: 'POST', body: JSON.stringify(body)});
+          toast(`Создано кодов: ${made.codes.length}`);
+          promoBulkDone(main, made, body.prefix);
+          return;
+        }
+        const saved = isNew
+          ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
+          : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
+        toast(isNew ? 'Промокод создан' : 'Сохранено');
+        promoView(main, saved.code);
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
     };
-    btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
-    try {
-      const saved = isNew
-        ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
-        : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
-      toast(isNew ? 'Промокод создан' : 'Сохранено');
-      promoView(main, saved.code);
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
+    let warnings = [];
+    try { warnings = (await preview(body)).warnings; } catch (err) { toast(err.message, true); return; }
+    if (!warnings.length) return save();
+    sheet('Проверьте перед сохранением', `<div class="sub">Код сработает, но вот что стоит перепроверить:</div>${promoWarnings(warnings)}`,
+      bulk ? 'Всё верно, создать' : 'Всё верно, сохранить', async () => { await save(); }, {cancelText: 'Вернуться'});
+  };
+}
+
+// Готовая пачка: все коды списком, чтобы сразу скопировать или сохранить файлом и раздать.
+function promoBulkDone(main, made, prefix) {
+  const text = made.codes.join('\n');
+  const canDownload = !window.Telegram?.WebApp?.initData;   // в Telegram файлы не скачать, там только копирование
+  main.innerHTML = `
+    <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
+    <div class="card"><h3>Пачка готова · ${made.codes.length}</h3>
+      <div>${made.rewards_text.map(r => `<div>${esc(r)}</div>`).join('')}</div>
+      <div class="sub" style="margin:6px 0 10px">Каждый код сработает один раз. Игрок пишет боту: «бот промокод КОД».</div>
+      <div class="field"><label>Коды (по одному в строке)</label>
+        <textarea id="bcodes" readonly rows="${Math.min(12, made.codes.length + 1)}" style="font-family:ui-monospace,Menlo,monospace">${esc(text)}</textarea></div>
+      <div class="actions"><button class="btn primary" id="bcopy">Копировать все</button>
+        ${canDownload ? '<button class="btn" id="bsave">Скачать .txt</button>' : ''}
+        <button class="btn" id="blist">Открыть в списке</button></div>
+    </div>`;
+  $('#pback').onclick = () => promoList(main);
+  $('#blist').onclick = () => promoList(main, prefix || '');
+  $('#bcopy').onclick = () => copyText(text, 'Коды скопированы');
+  if (canDownload) $('#bsave').onclick = () => {
+    const url = URL.createObjectURL(new Blob([text + '\n'], {type: 'text/plain;charset=utf-8'}));
+    const a = Object.assign(document.createElement('a'), {href: url, download: `promo-${prefix || 'codes'}-${made.codes.length}.txt`});
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 }
 
@@ -1543,6 +2002,23 @@ function bindReportSettings(main, data) {
   };
 }
 
+function securityCard() {
+  return `<div class="card" id="secset"><h3>🔐 Безопасность</h3>
+    <div class="sub" style="margin-bottom:8px">Если потеряли телефон или вошли с чужого устройства, завершите сессии: админку придётся открыть заново через Telegram.
+      Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.</div>
+    <div class="actions"><button class="btn" id="revself">Выйти на всех моих устройствах</button>
+      ${ME.creator ? '<button class="btn danger" id="revall">Завершить сессии всех сотрудников</button>' : ''}</div></div>`;
+}
+function bindSecurityCard(main) {
+  const run = (title, text, all) => sheet(title, `<div class="sub">${text}</div>`, 'Завершить', async () => {
+    const res = await api('/sessions/revoke', {method: 'POST', body: JSON.stringify({all})});
+    main.innerHTML = `<div class="empty">✅ ${esc(res.message)}</div>`;
+  });
+  const own = main.querySelector('#revself'), all = main.querySelector('#revall');
+  if (own) own.onclick = () => run('Выйти на всех устройствах', 'Админка закроется везде, где она открыта, включая этот экран. Роль не меняется.', false);
+  if (all) all.onclick = () => run('Сессии всех сотрудников', 'Все сотрудники, включая вас, выйдут из админки и откроют её заново. Роли не меняются.', true);
+}
+
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
@@ -1554,8 +2030,10 @@ async function settingsView(main) {
         <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
       </div>`).join('')}
     </div>
-    ${reportSettingsCard(data)}`;
+    ${reportSettingsCard(data)}
+    ${securityCard()}`;
   bindReportSettings(main, data);
+  bindSecurityCard(main);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
@@ -1593,9 +2071,9 @@ async function healthView(main) {
     </div>
     <div class="card"><h3>💬 Чаты и игроки</h3>
       ${row('Чатов с ботом', num(h.chats.active))}
-      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают.' : '')}
-      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают.' : '')}
-      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet))}
+      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
+      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
+      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
       ${row('Игроков', num(h.players.total))}
       ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
     </div>
@@ -1612,6 +2090,11 @@ async function healthView(main) {
       ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
       <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
     </div>`;
+  const ATTN_TITLES = {left: 'Бота удалили из чатов', no_rights: 'Без прав модерации', quiet: 'Тихие чаты'};
+  main.querySelectorAll('[data-attn]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    attentionSheet(a.dataset.attn, ATTN_TITLES[a.dataset.attn]).catch(err => toast(err.message, true));
+  });
   const save = async () => {
     try {
       await api('/health/digest', {method: 'POST', body: JSON.stringify({enabled: $('#dgon').checked, hour: +$('#dghour').value})});
@@ -1636,12 +2119,20 @@ SECTIONS.health = main => healthView(main);
   try {
     ME = await api('/me');
   } catch (e) {
-    $('#main').innerHTML = `<div class="empty">${esc(e.message)}<br><br>Откройте админку из Telegram: напишите боту в личку <b>бот админка</b>.</div>`;
+    $('#main').innerHTML = accessMarkup(e);
+    const again = $('#main .load-retry');
+    if (again) again.onclick = () => location.reload();
     return;
   }
   $('#who').textContent = ME.rank_name;
+  const top = $('.top');
+  const headBtn = (cls, label, text, handler) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'hbtn ' + cls; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${text}</svg>`; b.onclick = handler; top.append(b); };
+  headBtn('theme', 'Оформление', '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>', themeSheet);
+  if (window.matchMedia && matchMedia('(pointer: fine)').matches) headBtn('keys', 'Горячие клавиши (?)', '<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><path d="M7 10.5h.01M10.5 10.5h.01M14 10.5h.01M17 10.5h.01M8 14h8"/>', hotkeysSheet);
   if (!ME.sections.length) { $('#main').innerHTML = '<div class="empty">Для вашей роли разделов пока нет.</div>'; return; }
   let saved = '';
   try { saved = localStorage.getItem('pv_admin_tab') || ''; } catch (_) {}
   open(ME.sections.some(s => s.key === saved) ? saved : ME.sections[0].key);
+  refreshBadges();
+  setInterval(() => { if (!document.hidden) refreshBadges(); }, 60000);
 })();

@@ -95,6 +95,7 @@ async def main():
         player_profile = await client.get("/profile/me", headers=player)
         assert dev_profile.status_code == 200 and dev_profile.json()["is_developer"] is True, dev_profile.text
         assert player_profile.status_code == 200 and player_profile.json()["is_developer"] is False, player_profile.text
+        assert dev_profile.json()["is_staff"] is True and player_profile.json()["is_staff"] is False, "строка «Админ-панель» только для персонала"
         data = (await client.get("/bot-admin/api/switches", headers=dev)).json()
         assert [g["scope"] for g in data["catalog"]] == ["chat", "site"], data
         keys = {x["key"] for g in data["catalog"] for i in g["items"] for x in [i, *i.get("items", [])]}

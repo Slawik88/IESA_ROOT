@@ -15,7 +15,7 @@ function loadProfile() {
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
     const adminEntry=el('v3-admin-entry');
-    if(adminEntry) adminEntry.hidden=!d.is_developer;
+    if(adminEntry) adminEntry.hidden=!(d.is_developer||d.is_staff);
     if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
     if(typeof v3ApplyLook==='function') v3ApplyLook(d.look);
     // A profile response is authoritative. Optional decorations must never

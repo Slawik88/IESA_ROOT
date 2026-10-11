@@ -29,6 +29,10 @@ ZARNIKI_REWARD_SOURCES: Final = (
     # Owner-approved one-time refund of Zarniki spent on the retired skins and cosmetics (Skins V3 launch).
     # Only services/skins_v3_migration.py uses it, bound to the player's own purchase receipts in the ledger.
     "skins_v3_migration_refund",
+    # Owner-approved (2026-10-11): the creator hands out Zarniki by hand, from the bot admin (balance change) or inside
+    # a promo code. Both paths are creator-only and always leave a journal entry (services/promo_v2.py, bot_admin/people.py).
+    "bot_admin_zarniki_grant",
+    "promocode_zarniki",
 )
 
 

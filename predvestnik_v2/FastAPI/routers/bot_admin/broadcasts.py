@@ -7,7 +7,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.people import get_bot
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_people
+from services import admin_people, admin_security
 from services import broadcasts as broadcasts_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -105,6 +105,7 @@ async def template_delete(tid: int, user=Depends(_user), db=Depends(get_db), _=D
 
 @router.post("/broadcasts")
 async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
+    admin_security.rate_limit(user, "broadcast")
     audience = str(data.get("audience") or "") or None
     text = str(data.get("text") or "").strip()
     html = bool(data.get("html"))
@@ -133,6 +134,7 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
                              details={"audience": broadcasts_service.describe_segment(seg), "text": text[:500],
                                       "total": made.total, "broadcast": made.id, "scheduled": made.scheduled,
                                       "button": bool(button)})
+    await admin_security.after_action(db, user, "broadcast")
     if made.scheduled:
         return {"ok": True, "id": made.id, "message": "Рассылка запланирована: получатели посчитаются в момент отправки."}
     await broadcasts_service.launch(get_bot(), broadcasts_service.pool_db_factory(), made.id)

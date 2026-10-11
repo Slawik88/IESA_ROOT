@@ -153,6 +153,9 @@ def assert_zarniki_contract():
     assert (quote.zarniki_spent, quote.mora_received, quote.rate) == (7, 70, 10)
     assert quote.provenance == "paid_exchange" and not quote.reversible
     assert validate_positive_zarniki_source("stars_purchase") == "stars_purchase"
+    # Владелец (2026-10-11): создатель выдаёт Зарники вручную из админки и в промокоде; остальные причины по-прежнему закрыты
+    assert validate_positive_zarniki_source("bot_admin_zarniki_grant") == "bot_admin_zarniki_grant"
+    assert validate_positive_zarniki_source("promocode_zarniki") == "promocode_zarniki"
     for invalid in ("promo", "gameplay_reward", "refund", "", None):
         try:
             validate_positive_zarniki_source(invalid)

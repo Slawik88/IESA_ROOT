@@ -13,7 +13,7 @@ from bot.chat import ranks
 from bot.chat.global_ranks import bot_rank_name, get_bot_rank
 from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from services import feature_switches, global_moderation
+from services import feature_switches, global_moderation, name_history, staff_watch
 from services import vip as vip_service
 
 STATEMENTS = (
@@ -39,8 +39,11 @@ ACTION_TITLES = {
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
+    "promo_bulk": "Пачка промокодов создана",
     "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
+    "watch_add": "Игрок поставлен на контроль", "watch_remove": "Игрок снят с контроля",
+    "sessions_revoke": "Завершены сессии админки",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
@@ -109,36 +112,85 @@ def _chat_row(r) -> dict:
     return {"id": int(r[0]), "title": r[1] or str(r[0]), "members": int(r[2]), "messages": int(r[3]), "last": _iso(r[4])}
 
 
-async def search(db, q: str, limit: int = 20) -> dict:
+# Быстрые фильтры поиска игроков: название и условие по таблице users (u).
+FILTERS = {
+    "vip": "VIP",
+    "banned": "С баном",
+    "warned": "С варнами",
+    "new": "Новые за 7 дней",
+    "watch": "На контроле",
+    "staff": "Персонал",
+}
+FILTER_LIMIT = 30
+
+
+def _filter_sql(flt: str) -> tuple[str, tuple]:
+    """Условие фильтра и его параметры; пустой фильтр — без условия."""
+    if flt == "vip":
+        return "EXISTS (SELECT 1 FROM vip_subscriptions v WHERE v.user_id = u.user_tg_id AND v.expires_at > NOW())", ()
+    if flt == "banned":   # бан в любом чате или глобальный (он лежит в том же списке под чатом 0)
+        return ("EXISTS (SELECT 1 FROM chat_blacklist b WHERE b.user_id = u.user_tg_id "
+                "AND (b.expires_at IS NULL OR b.expires_at > NOW()))"), ()
+    if flt == "warned":
+        return ("EXISTS (SELECT 1 FROM user_warnings w WHERE w.user_id = u.user_tg_id AND w.revoked_at IS NULL "
+                "AND (w.expires_at IS NULL OR w.expires_at > NOW()))"), ()
+    if flt == "new":   # впервые появился не раньше 7 дней назад: ни записи в чате, ни сообщения раньше
+        cutoff = (local_now().date() - timedelta(days=7)).isoformat()
+        return ("EXISTS (SELECT 1 FROM user_chat_stats x WHERE x.user_tg_id = u.user_tg_id) "
+                "AND NOT EXISTS (SELECT 1 FROM user_chat_stats x WHERE x.user_tg_id = u.user_tg_id "
+                "AND (x.joined_at < NOW() - INTERVAL '7 days' OR x.membership_since < NOW() - INTERVAL '7 days')) "
+                "AND NOT EXISTS (SELECT 1 FROM daily_user_stats d WHERE d.user_id = u.user_tg_id AND d.date < ?)"), (cutoff,)
+    if flt == "watch":
+        return "EXISTS (SELECT 1 FROM bot_staff_watch t WHERE t.user_id = u.user_tg_id AND t.removed_at IS NULL)", ()
+    if flt == "staff":
+        return "COALESCE(u.bot_rank, 0) > 0", ()
+    return "", ()
+
+
+async def search(db, q: str, limit: int = 20, flt: str = "") -> dict:
     """Игроки и чаты по ID, @нику (можно кусок), имени из Telegram или нику в чате; чаты по названию.
-    Пустой запрос — самые свежие по активности."""
+    Пустой запрос — самые свежие по активности. flt — быстрый фильтр игроков (FILTERS): чаты тогда не ищутся."""
     q = (q or "").strip()
+    flt = flt if flt in FILTERS else ""
+    cond, cparams = _filter_sql(flt)
+    if flt:
+        await staff_watch.ensure_schema(db)   # фильтр «на контроле» читает таблицу, которой на свежей базе ещё может не быть
     if not q:
-        async with db.execute(_PLAYER_SQL + "WHERE s.last IS NOT NULL ORDER BY s.last DESC LIMIT ?", (limit,)) as cur:
+        where = cond or "s.last IS NOT NULL"
+        async with db.execute(_PLAYER_SQL + f"WHERE {where} ORDER BY s.last DESC NULLS LAST, u.user_tg_id LIMIT ?",
+                              (*cparams, FILTER_LIMIT if flt else limit)) as cur:
             players = [_player_row(r) for r in await cur.fetchall()]
+        if flt:
+            async with db.execute(f"SELECT COUNT(*) FROM users u WHERE {cond}", cparams) as cur:
+                return {"players": players, "chats": [], "total": int((await cur.fetchone())[0])}
         async with db.execute(_CHAT_SQL + "WHERE c.chat_id < 0 ORDER BY s.last DESC NULLS LAST LIMIT ?", (limit,)) as cur:
             chats = [_chat_row(r) for r in await cur.fetchall()]
         return {"players": players, "chats": chats}
+    tail = f" AND {cond}" if cond else ""
     digits = q.lstrip("-")
     if digits.isdecimal() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
         n = int(digits)
         ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)
-        async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?", (n,)) as cur:
+        async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (n, *cparams)) as cur:
             players = [_player_row(r) for r in await cur.fetchall()]
-        async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
-            chats = [_chat_row(r) for r in await cur.fetchall()]
+        chats = []
+        if not flt:
+            async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
+                chats = [_chat_row(r) for r in await cur.fetchall()]
         return {"players": players, "chats": chats}
     name = q.lstrip("@")
     async with db.execute(
-        _PLAYER_SQL + "WHERE u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
-        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?) "
-        "ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
-        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), name, q, limit)) as cur:
+        _PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
+        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?))" + tail +
+        " ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
+        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), *cparams, name, q, limit)) as cur:
         players = [_player_row(r) for r in await cur.fetchall()]
-    async with db.execute(
-        _CHAT_SQL + "WHERE c.chat_title ILIKE ? ORDER BY COALESCE(s.total, 0) DESC LIMIT ?", (_like(q), limit)) as cur:
-        chats = [_chat_row(r) for r in await cur.fetchall()]
+    chats = []
+    if not flt:
+        async with db.execute(
+            _CHAT_SQL + "WHERE c.chat_title ILIKE ? ORDER BY COALESCE(s.total, 0) DESC LIMIT ?", (_like(q), limit)) as cur:
+            chats = [_chat_row(r) for r in await cur.fetchall()]
     return {"players": players, "chats": chats}
 
 
@@ -167,6 +219,12 @@ def describe(action: str, d: dict) -> str:
         return str(d.get("value", ""))
     if action == "message":
         return f"«{d.get('text', '')}»"
+    if action in ("watch_add", "watch_remove"):
+        return ""
+    if action == "sessions_revoke":
+        return "у всех сотрудников" if d.get("all") else ""
+    if action == "promo_bulk":
+        return f"{d.get('count', 0)} шт. · {d.get('first', '')}… · {d.get('rewards', '')}"
     if action.startswith("promo_"):
         return str(d.get("code", "")) + (" · выключен" if action == "promo_active" and not d.get("active") else
                                          " · включён" if action == "promo_active" else "")
@@ -238,11 +296,11 @@ FEED_KINDS = {
     "moderation": ("Модерация", ("mute", "unmute", "kick", "ban", "unban", "warn", "unwarn", "unwarn_all", "global_ban",
                                  "global_unban", "block", "unblock", "shield", "unshield", "immune", "unimmune", "close",
                                  "open", "close_chat", "open_chat", "warn_limit")),
-    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove")),
+    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove", "watch_add", "watch_remove")),
     "chats": ("Чаты", ("message", "leave")),
-    "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
+    "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings")),
+    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }
@@ -380,7 +438,102 @@ async def player(db, uid: int) -> dict | None:
         "chats": chats,
         "global_ban": await global_moderation.ban_info(db, uid),
         "blocked": await global_moderation.block_info(db, uid),
+        "watch": await staff_watch.info(db, uid),
+        "names": await name_history.of_user(db, uid, 20),
+        "nicknames": await _chat_nicknames(db, uid),
     }
+
+
+async def _chat_nicknames(db, uid: int) -> list[dict]:
+    async with db.execute(
+        "SELECT n.chat_id, c.chat_title, n.nickname FROM user_nicknames n LEFT JOIN chat_settings c ON c.chat_id = n.chat_id "
+        "WHERE n.user_id = ? ORDER BY n.chat_id LIMIT 20", (uid,)) as cur:
+        return [{"chat": {"id": int(r[0]), "title": r[1] or str(r[0])}, "nickname": r[2]} for r in await cur.fetchall()]
+
+
+LINKED_LIMIT = 10
+
+# Что показывать в «Настройках чата»: ранги действий модерации (с какого ранга в чате разрешено).
+_RANK_COLUMNS = (("rank_warn", "Варн"), ("rank_mute", "Мут"), ("rank_kick", "Кик"), ("rank_ban", "Бан"),
+                 ("rank_shield", "Защита"), ("rank_immune", "Иммунитет"))
+_FLAG_COLUMNS = (("events_enabled", "События чата", 1), ("echo_events_enabled", "Эхо-события", 0),
+                 ("nsfw_warps_allowed", "Варпы 18+", 1), ("include_in_global_top", "Участие в общем топе", 1))
+
+
+async def chat_settings_summary(db, cid: int) -> dict:
+    """Настройки чата одним взглядом: кто что может, чистка, модули, флаги. Только чтение."""
+    from core.chat_modules import CHAT_MODULES
+    cols = [c for c, _ in _RANK_COLUMNS] + [c for c, _, _ in _FLAG_COLUMNS] + list(CHAT_MODULES) + [
+        "is_purging", "purge_min_rank", "purge_action_rank", "shield_duration_days"]
+    async with db.execute(f"SELECT {', '.join(f'COALESCE({c}::int, 0)' for c in cols)} FROM chat_settings WHERE chat_id = ?", (cid,)) as cur:
+        row = await cur.fetchone()
+    if not row:
+        return {}
+    v = dict(zip(cols, row))
+    return {
+        "ranks": [{"key": c, "title": t, "rank": int(v[c]), "name": ranks.rank_name(int(v[c]))} for c, t in _RANK_COLUMNS],
+        "purge": {"on": bool(v["is_purging"]), "min_rank": ranks.rank_name(int(v["purge_min_rank"])),
+                  "action_rank": ranks.rank_name(int(v["purge_action_rank"]))},
+        "shield_days": int(v["shield_duration_days"]),
+        "flags": [{"title": t, "on": bool(v[c])} for c, t, _ in _FLAG_COLUMNS],
+        "modules": [{"key": k, "icon": m["icon"], "name": m["name"], "on": bool(v[k])} for k, m in CHAT_MODULES.items()],
+    }
+
+
+ATTENTION_KINDS = {"no_rights": "Бот без прав модерации", "quiet": "Тихо 30 дней", "left": "Бота удалили"}
+ATTENTION_LIMIT = 50
+
+
+async def chats_attention(db, kind: str = "") -> dict:
+    """Чаты, где что-то не так: бот без прав модерации, нет сообщений 30 дней, бота удалили. kind пустой — все проблемы."""
+    quiet_since = (local_now().date() - timedelta(days=29)).isoformat()
+    async with db.execute(
+        "SELECT c.chat_id, c.chat_title, c.bot_left_at IS NOT NULL AS left_, "
+        "(c.bot_left_at IS NULL AND (c.bot_can_moderate = FALSE OR c.bot_is_admin = FALSE)) AS no_rights, "
+        "(c.bot_left_at IS NULL AND NOT EXISTS (SELECT 1 FROM daily_user_stats d WHERE d.chat_id = c.chat_id AND d.date >= ?)) AS quiet, "
+        "COALESCE(s.members, 0), s.last FROM chat_settings c LEFT JOIN (SELECT chat_tg_id, "
+        "COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE)) AS members, MAX(last_message_at) AS last "
+        "FROM user_chat_stats GROUP BY chat_tg_id) s ON s.chat_tg_id = c.chat_id WHERE c.chat_id < 0",
+        (quiet_since,)) as cur:
+        rows = await cur.fetchall()
+    items = []
+    for cid, title, left_, no_rights, quiet, members, last in rows:
+        problems = [k for k, on in (("left", left_), ("no_rights", no_rights), ("quiet", quiet)) if on]
+        if problems and (not kind or kind in problems):
+            items.append({"id": int(cid), "title": title or str(cid), "members": int(members), "last": _iso(last),
+                          "problems": [{"key": k, "title": ATTENTION_KINDS[k]} for k in problems]})
+    items.sort(key=lambda x: (-x["members"], x["id"]))
+    return {"items": items[:ATTENTION_LIMIT], "total": len(items), "kinds": ATTENTION_KINDS}
+
+
+async def linked(db, uid: int) -> dict:
+    """Возможные связи между аккаунтами по тому, что и так видно в Telegram и в приглашениях бота.
+    Устройства и адреса не собираются. Совпадение — повод присмотреться, а не доказательство."""
+    await name_history.ensure_schema(db)
+    async with db.execute(
+        "SELECT DISTINCT h2.user_id, u.user_tg_username, h2.value FROM user_name_history h1 "
+        "JOIN user_name_history h2 ON h2.kind = 'username' AND lower(h2.value) = lower(h1.value) AND h2.user_id <> h1.user_id "
+        "LEFT JOIN users u ON u.user_tg_id = h2.user_id WHERE h1.user_id = ? AND h1.kind = 'username' "
+        "ORDER BY h2.user_id LIMIT ?", (uid, LINKED_LIMIT)) as cur:
+        same_username = [{"id": int(r[0]), "username": r[1], "value": r[2]} for r in await cur.fetchall()]
+    async with db.execute(
+        "SELECT o.user_tg_id, o.user_tg_username, o.user_tg_name FROM users me JOIN users o "
+        "ON lower(o.user_tg_name) = lower(me.user_tg_name) AND o.user_tg_id <> me.user_tg_id "
+        "WHERE me.user_tg_id = ? AND char_length(me.user_tg_name) >= 6 ORDER BY o.user_tg_id LIMIT ?", (uid, LINKED_LIMIT)) as cur:
+        same_name = [{"id": int(r[0]), "username": r[1], "name": r[2]} for r in await cur.fetchall()]
+    async with db.execute(
+        "SELECT i.user_tg_id, i.user_tg_username FROM users me JOIN users i ON i.user_tg_id = me.referred_by "
+        "WHERE me.user_tg_id = ?", (uid,)) as cur:
+        row = await cur.fetchone()
+    invited_by = {"id": int(row[0]), "username": row[1]} if row else None
+    async with db.execute("SELECT COUNT(*) FROM users WHERE referred_by = ?", (uid,)) as cur:
+        invited_total = int((await cur.fetchone())[0])
+    async with db.execute(
+        "SELECT user_tg_id, user_tg_username FROM users WHERE referred_by = ? ORDER BY user_tg_id DESC LIMIT ?",
+        (uid, LINKED_LIMIT)) as cur:
+        invited = [{"id": int(r[0]), "username": r[1]} for r in await cur.fetchall()]
+    return {"same_username": same_username, "same_name": same_name, "invited_by": invited_by,
+            "invited": {"total": invited_total, "items": invited}}
 
 
 # ── Карточка чата ────────────────────────────────────────────────────────────
@@ -458,6 +611,7 @@ async def chat(db, cid: int) -> dict | None:
     off = (await feature_switches.state(db, cid))["chat"]
     return {
         "id": cid, "title": c[0] or str(cid), "closed": bool(c[2]), "warn_limit": int(c[3]),
+        "settings": await chat_settings_summary(db, cid),
         "bot": {"left_at": c[4].isoformat() if c[4] else None, "is_admin": c[5], "can_moderate": c[6]},   # None — бот ещё не сообщал
         "owner": {"id": int(c[1]), "username": names.get(int(c[1]))} if c[1] else None,
         "admin_chat": {"id": int(link[0]), "title": link[1] or str(link[0])} if link else None,

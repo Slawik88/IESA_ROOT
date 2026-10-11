@@ -161,6 +161,25 @@ async def counts(db) -> dict[str, int]:
     return {s: rows.get(s, 0) for s in STATUS_TITLES}
 
 
+REPEAT_DAYS = 30
+REPEAT_MIN = 3
+
+
+async def repeat_offenders(db, limit: int = 10) -> list[dict]:
+    """Игроки, на которых за последние 30 дней подали 3 жалобы и больше (отклонённые не считаются).
+    Авторов не показываем, только сколько разных людей пожаловалось: одна и та же обида трижды — не то же, что трое разных."""
+    await _ensure(db)
+    async with db.execute(
+        "SELECT r.target_id, u.user_tg_username, COUNT(*), COUNT(DISTINCT r.reporter_id), "
+        "COUNT(*) FILTER (WHERE r.status = 'resolved'), COUNT(*) FILTER (WHERE r.status IN ('new', 'in_work')), MAX(r.created_at) "
+        "FROM bot_reports r LEFT JOIN users u ON u.user_tg_id = r.target_id "
+        "WHERE r.created_at > NOW() - make_interval(days => ?) AND r.status <> 'rejected' "
+        "GROUP BY r.target_id, u.user_tg_username HAVING COUNT(*) >= ? ORDER BY COUNT(*) DESC, MAX(r.created_at) DESC LIMIT ?",
+        (REPEAT_DAYS, REPEAT_MIN, limit)) as cur:
+        return [{"id": int(r[0]), "name": f"@{r[1]}" if r[1] else f"id{r[0]}", "reports": int(r[2]), "reporters": int(r[3]),
+                 "confirmed": int(r[4]), "open": int(r[5]), "last": r[6].isoformat() if r[6] else None} for r in await cur.fetchall()]
+
+
 async def listing(db, kind: str = "open", limit: int = 100, *, show_reporter: bool = False) -> list[dict]:
     statuses = OPEN if kind == "open" else CLOSED
     order = "r.created_at ASC" if kind == "open" else "r.handled_at DESC NULLS LAST, r.id DESC"
