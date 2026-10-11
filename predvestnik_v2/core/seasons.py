@@ -14,9 +14,13 @@ SEASON_MONTHS: Final = 7
 # arithmetic below never has to clamp a day.
 SEASON_ONE_START: Final = datetime(2026, 10, 11, tzinfo=timezone.utc)
 
-# (max place, Mora).  The first matching tier wins; the last entry is the
-# participation reward for everyone who has at least one ranked result.
-REWARD_TIERS: Final = ((1, 1500), (2, 1000), (3, 700), (10, 350), (25, 150), (10**9, 50))
+# (max place, Mora, Essence).  The first matching tier wins; the last entry is
+# the participation reward for everyone with at least one ranked result.
+# Scale: the free quests pay about 315 Mora and 65 Essence a week, so first
+# place is worth roughly three weeks of quests: it feels weighty but never
+# buys a season-long head start.  Never cosmetics, keys or Zarniki.
+REWARD_TIERS: Final = ((1, 800, 200), (2, 600, 150), (3, 450, 120), (10, 250, 80),
+                       (25, 120, 40), (10**9, 40, 10))
 
 
 class SeasonRuleError(ValueError):
@@ -58,7 +62,13 @@ def current_season(now: datetime | None = None) -> dict:
     return {"number": number, "starts_at": start.isoformat(), "ends_at": end.isoformat(), "days_left": days_left}
 
 
-def reward_mora(place: int) -> int:
+def reward(place: int) -> tuple[int, int]:
+    """(Mora, Essence) for a final place."""
     if int(place) < 1:
         raise SeasonRuleError("place must be positive")
-    return next(amount for limit, amount in REWARD_TIERS if int(place) <= limit)
+    _, mora, essence = next(tier for tier in REWARD_TIERS if int(place) <= tier[0])
+    return mora, essence
+
+
+def reward_mora(place: int) -> int:
+    return reward(place)[0]

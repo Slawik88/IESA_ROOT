@@ -76,3 +76,4 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) button.gift[data-kind="risk"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--bad, #ff8a8a); }
 :is(body, body.skin-v3) .gift:disabled { opacity: .5; }
 .perks-line { min-height: 1.2em; margin: 0 0 6px; font-size: 13px; color: var(--g-dim); text-align: center; }
+.count-num { margin: 18px 0; font-size: 96px; font-weight: 700; text-align: center; line-height: 1; }

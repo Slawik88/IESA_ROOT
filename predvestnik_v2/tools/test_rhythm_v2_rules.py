@@ -5,17 +5,18 @@ seed = bytes.fromhex("9d" * 32)
 fresh = rules.new_perks()
 assert rules.expected_rune(seed, 1) in rules.RUNES
 assert rules.expected_rune(seed, 1) == rules.expected_rune(seed, 1)
-assert rules.chunk_for_signal(1) == 0 and rules.chunk_for_signal(30) == 0 and rules.chunk_for_signal(31) == 1
-assert rules.speed_percent(31) > rules.speed_percent(1)
-assert rules.window_ms(31) < rules.window_ms(1)
-assert rules.window_ms(1) == rules.window_ms(12) == rules.BASE_WINDOW_MS == 2_000
+assert rules.CHUNK_SIZE == 20
+assert rules.chunk_for_signal(1) == 0 and rules.chunk_for_signal(20) == 0 and rules.chunk_for_signal(21) == 1
+assert rules.window_ms(21) < rules.window_ms(1)
+assert rules.window_ms(1) == rules.window_ms(12) == rules.BASE_WINDOW_MS == 1_800
+assert rules.speed_percent(21) == 106 and rules.speed_percent(101) == 130
 assert rules.initial_health() == 5
 
 # A gift is owed once per finished chunk and the clock waits for it.
-assert not rules.draft_pending(next_signal_no=30, picks=0)
-assert rules.draft_pending(next_signal_no=31, picks=0)
-assert not rules.draft_pending(next_signal_no=31, picks=1)
-assert rules.draft_pending(next_signal_no=91, picks=1)
+assert not rules.draft_pending(next_signal_no=20, picks=0)
+assert rules.draft_pending(next_signal_no=21, picks=0)
+assert not rules.draft_pending(next_signal_no=21, picks=1)
+assert rules.draft_pending(next_signal_no=61, picks=1)
 
 # Offers: three distinct, repeatable, never without a safe gift, never ineligible.
 for draft_no in range(1, 40):

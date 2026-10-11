@@ -74,11 +74,11 @@ async def run(dsn: str) -> None:
         again = await game_seasons.settle_due(db, game="minesweeper", board="easy", standings=standings, now=now)
         assert first == 1 and again == 0, (first, again)
         last = await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[0])
-        assert last["season"] == 1 and last["place"] == 1 and last["reward_mora"] == 1500, last
+        assert last["season"] == 1 and last["place"] == 1 and last["reward_mora"] == 800 and last["reward_essence"] == 200, last
         second = await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[1])
-        assert second["place"] == 2 and second["reward_mora"] == 1000, second
+        assert second["place"] == 2 and second["reward_mora"] == 600, second
         assert await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[2]) is None
-        assert await mora_of(USERS[0]) == 1500 and await mora_of(USERS[1]) == 1000
+        assert await mora_of(USERS[0]) == 800 and await mora_of(USERS[1]) == 600
     finally:
         await transaction.rollback()
         await connection.close()

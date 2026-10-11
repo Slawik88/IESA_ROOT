@@ -221,10 +221,10 @@ async def run(dsn: str) -> None:
         live = await play_chunk(975001, live, lease, "gift-a")
         # The chunk is over: the run pauses, hides the rune and offers three gifts.
         assert live["status"] == "active" and live["rune"] is None and live["draft"], live
-        assert live["next_signal_no"] == 31 and len(live["draft"]["offers"]) == 3
+        assert live["next_signal_no"] == rhythm.rules.CHUNK_SIZE + 1 and len(live["draft"]["offers"]) == 3
         assert live["remaining_ms"] == live["window_ms"]
         try:
-            await rhythm.transport_tap(db, user_id=975001, run_id=live["run_id"], lease=lease, signal_no=31,
+            await rhythm.transport_tap(db, user_id=975001, run_id=live["run_id"], lease=lease, signal_no=rhythm.rules.CHUNK_SIZE + 1,
                                        rune="left", action_id="gift-too-early")
         except rhythm.RhythmConflict:
             pass

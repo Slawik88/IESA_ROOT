@@ -13,6 +13,7 @@ from typing import Awaitable, Callable
 from core import seasons as rules
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import game_seasons as repo
+from services import skins_v3 as skins_service
 
 Standings = Callable[[object, datetime, datetime], Awaitable[list[dict]]]
 
@@ -40,8 +41,9 @@ async def settle_due(db, *, game: str, board: str, standings: Standings,
             rows = await standings(db, start, end)
             for row in rows:
                 place, user_id = int(row["place"]), int(row["user_id"])
-                reward = rules.reward_mora(place)
+                reward, essence = rules.reward(place)
                 result = {key: value for key, value in row.items() if key not in {"user_id", "place"}}
+                result["reward_essence"] = essence
                 await repo.insert_result(db, game=game, board=board, season=season, user_id=user_id,
                                          place=place, result_json=_dumps(result), reward_mora=reward)
                 await economy_ledger.apply_balance_change(
@@ -52,6 +54,15 @@ async def settle_due(db, *, game: str, board: str, standings: Standings,
                     metadata={"game": game, "board": board, "season": season, "place": place, "mora": reward},
                     note=f"Сезон {season}: место #{place}",
                 )
+                # Essence is idempotent per (reason, reference); a skins-table
+                # hiccup must never take the Mora payout down with it.
+                try:
+                    async with db.connection.transaction():
+                        await skins_service.grant_essence_in_transaction(
+                            db, user_id, essence, reason="season_reward",
+                            reference=f"{game}:{board}:{season}:{user_id}")
+                except Exception:
+                    pass
             await repo.mark_settled(db, game=game, board=board, season=season, players=len(rows))
             settled += 1
     return settled
@@ -65,5 +76,8 @@ async def last_result(db, *, game: str, board: str, user_id: int) -> dict | None
     row = await repo.last_result(db, game=game, board=board, user_id=user_id)
     if not row:
         return None
+    result = row["result_json"]
+    result = (json.loads(result) if isinstance(result, str) else result) or {}
     return {"season": int(row["season"]), "place": int(row["place"]),
-            "reward_mora": int(row["reward_mora"]), "result": (json.loads(row["result_json"]) if isinstance(row["result_json"], str) else row["result_json"]) or {}}
+            "reward_mora": int(row["reward_mora"]),
+            "reward_essence": int(result.get("reward_essence", 0)), "result": result}

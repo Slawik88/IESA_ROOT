@@ -1,7 +1,7 @@
 """Authoritative, dependency-free rules for the approved endless Rune Rhythm.
 
 Rune gifts ("рун-дары") replace the old pre-run augmentations: at the end of
-every chunk the run pauses and offers three gifts, the player takes one, and
+every chunk (20 signals) the run pauses and offers three gifts, the player takes one, and
 the effect lives inside the run only.  Everyone plays the same ranked mode.
 
 This module deliberately knows nothing about the legacy Reconstruction campaign,
@@ -20,11 +20,12 @@ RULESET_VERSION: Final = "rhythm-v2-rules-4"
 Mode = Literal["normal", "augments"]  # "augments" is only a legacy alias of "normal"
 PerkKind = Literal["safe", "boost", "risk"]
 RUNES: Final = ("left", "center", "right")
-CHUNK_SIZE: Final = 30
+CHUNK_SIZE: Final = 20
+SPEED_STEP_PERCENT: Final = 6   # extra speed per finished chunk
 BASE_HEALTH: Final = 5
 MAX_HEALTH: Final = 7
 MIN_WINDOW_MS: Final = 180
-BASE_WINDOW_MS: Final = 2_000
+BASE_WINDOW_MS: Final = 1_800
 
 
 @dataclass(frozen=True)
@@ -150,9 +151,9 @@ def apply_perk(perk_id: str, *, health: int, perks: dict[str, int]) -> tuple[int
 def speed_percent(signal_no: int) -> int:
     # Linear, visible acceleration.  A human will eventually reach their limit;
     # the run itself has no artificial final wave.
-    # Long chunks make the first minute readable; each new chunk is still
-    # visibly faster, but the curve no longer jolts after a handful of taps.
-    return 100 + chunk_for_signal(signal_no) * 5
+    # Short chunks keep a run from dragging on: every 20 taps the pace is
+    # visibly faster, yet the curve never jolts inside a chunk.
+    return 100 + chunk_for_signal(signal_no) * SPEED_STEP_PERCENT
 
 
 def window_ms(signal_no: int, perks: dict[str, int] | None = None) -> int:

@@ -13,7 +13,7 @@
     <header><a href="/" aria-label="Назад в Предвестник">‹</a><div><small>ПРЕДВЕСТНИК</small><h1>Ритм</h1></div><output id="connection">●</output></header>
     <section id="intro" class="panel">
       <p class="eyebrow">БЕСКОНЕЧНЫЙ ЗАБЕГ</p><h2>Нажимай руны точно</h2>
-      <p>Скорость растёт плавно. Ошибки забирают здоровье. Каждые 30 тактов забег замирает, и ты берёшь один из трёх рун-даров. Результат считает сервер.</p>
+      <p>Скорость растёт плавно. Ошибки забирают здоровье. Каждые 20 тактов забег замирает, и ты берёшь один из трёх рун-даров. Результат считает сервер.</p>
       <div class="mode-actions"><button data-mode="normal">Начать забег</button></div>
       <section class="leaderboard" aria-labelledby="leaderboard-title">
         <div class="leaderboard-head"><h3 id="leaderboard-title">Лидеры</h3></div>
@@ -22,6 +22,7 @@
         <p id="leaderboard-personal">Ваш результат появится после первого завершённого забега.</p>
       </section>
     </section>
+    <section id="countdown" class="panel hidden" aria-live="assertive"><p class="eyebrow">ПРИГОТОВЬСЯ</p><h2 id="count-num" class="count-num">5</h2><button id="exit-count" class="secondary" type="button">Отмена</button></section>
     <section id="choice" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАМЕР</p><h2 id="draft-title">Рун-дар</h2><p>Выбери один дар. Время стоит, пока ты не решишь.</p><div id="gifts" class="gift-list"></div></section>
     <section id="run" class="hidden">
       <div class="metrics"><div><small>ЗДОРОВЬЕ</small><b id="health">♥♥♥</b></div><div><small>СЧЁТ</small><b id="score">0</b></div><div><small>СЕРИЯ</small><b id="combo">0</b></div></div>

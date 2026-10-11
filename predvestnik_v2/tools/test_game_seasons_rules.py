@@ -25,7 +25,9 @@ for n in range(1, 30):
 info = s.current_season(utc(2027, 5, 1))
 assert info["number"] == 1 and info["days_left"] == 10, info
 
-assert [s.reward_mora(p) for p in (1, 2, 3, 4, 10, 11, 25, 26, 5000)] == [1500, 1000, 700, 350, 350, 150, 150, 50, 50]
+assert [s.reward(p) for p in (1, 2, 3, 4, 10, 11, 25, 26, 5000)] == [
+    (800, 200), (600, 150), (450, 120), (250, 80), (250, 80), (120, 40), (120, 40), (40, 10), (40, 10)]
+assert s.reward_mora(1) == 800
 try:
     s.season_bounds(0)
 except s.SeasonRuleError:

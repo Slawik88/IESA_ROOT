@@ -6,7 +6,7 @@
   if (session) headers['x-session-token'] = session;
   const $ = id => document.getElementById(id), storageKey = 'predvestnik-rhythm-v2-live';
   let shownDraft = null, state = null, socket = null, pendingTap = null, timer = null, reconnectTimer = null, reconnectAttempt = 0, leaderboardMode = 'normal', leaving = false;
-  const show = id => ['intro','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+  const show = id => ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
   const err = text => { $('error').textContent = text || ''; };
@@ -37,8 +37,10 @@
   function sendTap(rune){
     if(!state||state.status!=='active'||pendingTap||socket?.readyState!==WebSocket.OPEN)return;pendingTap={signal_no:Number(state.next_signal_no),rune,actionId:crypto.randomUUID()};clearInterval(timer);setButtons(true,rune);$('tap-feedback').textContent='Сервер проверяет такт…';$('tap-feedback').dataset.state='pending';socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
   }
-  async function start(mode){try{err('');leaving=false;state=await api('/runs',{method:'POST',body:JSON.stringify({mode})});save();await connectTransport()}catch(error){err(error.message)}}
+  async function start(mode){try{err('');leaving=false;state=await api('/runs',{method:'POST',body:JSON.stringify({mode})});save();if(await countdown())await connectTransport()}catch(error){err(error.message)}}
   const kindLabel={safe:'Надёжный',boost:'Усиление',risk:'Риск'};
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  async function countdown(){show('countdown');const id=state.run_id;for(let n=5;n>0;n--){$('count-num').textContent=n;await sleep(1000);if(leaving||!state||state.run_id!==id)return false}return true}
   function offers(){clearInterval(timer);setButtons(true);show('choice');$('draft-title').textContent='Рун-дар №'+state.draft.number;const box=$('gifts');box.replaceChildren();state.draft.offers.forEach(gift=>{const b=document.createElement('button'),name=document.createElement('b'),text=document.createElement('span'),kind=document.createElement('small');b.className='gift';b.dataset.kind=gift.kind;name.textContent=gift.name;text.textContent=gift.text;kind.textContent=kindLabel[gift.kind]||'';b.append(kind,name,text);b.onclick=()=>pickGift(gift.id);box.append(b)})}
   function pickGift(id){if(!state?.draft||socket?.readyState!==WebSocket.OPEN)return;box_disable(true);socket.send(JSON.stringify({type:'pick',perk_id:id,action_id:crypto.randomUUID()}))}
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
@@ -52,9 +54,9 @@
     fetch(base+'/rhythm-v2/runs/'+encodeURIComponent(state.run_id)+'/cancel',{method:'POST',headers,keepalive:true}).catch(()=>{});
   }
   function empty(text){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='leaderboard-empty';row.textContent=text;list.append(row)}
-  function seasonNote(data){const s=data.season,l=data.last_season;if(!s)return '';const end=new Date(s.ends_at).toLocaleDateString('ru-RU'),left=s.days_left;let t='Сезон '+s.number+' · до '+end+' · осталось '+left+' дн.';if(l)t+=' · Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+l.reward_mora+' Моры':'');return t}
+  function seasonNote(data){const s=data.season,l=data.last_season;if(!s)return '';const end=new Date(s.ends_at).toLocaleDateString('ru-RU'),left=s.days_left;let t='Сезон '+s.number+' · до '+end+' · осталось '+left+' дн.';if(l)t+=' · Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+l.reward_mora+' Моры':'')+(l.reward_essence?' и '+l.reward_essence+' Эссенции':'');return t}
   function list(data){$('season-note').textContent=seasonNote(data);const target=$('leaderboard-list');target.replaceChildren();if(!data.top.length)empty('Пока нет завершённых забегов.');else data.top.forEach(row=>{const item=document.createElement('li'),p=document.createElement('span'),name=document.createElement('a'),score=document.createElement('b'),player=row.player||{};p.textContent='#'+row.place;name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+name.textContent);score.textContent=row.best_score;item.append(p,name,score);target.append(item)});$('leaderboard-personal').textContent=data.personal?'Ваше место: #'+data.personal.place+' · '+data.personal.best_score+' очков':'Ваш результат появится после первого завершённого забега.';document.querySelectorAll('[data-leaderboard-mode]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.leaderboardMode===leaderboardMode)))}
   async function refreshLeaderboard(){try{list(await api('/leaderboard/'+leaderboardMode))}catch(error){empty(init?'Таблица временно недоступна.':'Войдите через Telegram, чтобы увидеть результаты.')}}
   function restore(){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'null');if(saved?.state?.run_id){state=saved.state;if(state.status==='active')connectTransport()}}catch(_){localStorage.removeItem(storageKey)}}
-  localStorage.removeItem('predvestnik-rhythm-v2-local');document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));$('exit-run').onclick=cancel;window.addEventListener('pagehide',cancelOnPageExit);buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));$('again').onclick=()=>{state=null;pendingTap=null;show('intro');refreshLeaderboard()};$('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard()};refreshLeaderboard();restore();
+  localStorage.removeItem('predvestnik-rhythm-v2-local');document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));$('exit-run').onclick=cancel;$('exit-count').onclick=cancel;window.addEventListener('pagehide',cancelOnPageExit);buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));$('again').onclick=()=>{state=null;pendingTap=null;show('intro');refreshLeaderboard()};$('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard()};refreshLeaderboard();restore();
 })();
