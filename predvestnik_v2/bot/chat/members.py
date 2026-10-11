@@ -6,6 +6,7 @@ from aiogram.types import ChatMemberUpdated
 
 from bot.chat import ranks
 from bot.chat.moderation import commit, is_blacklisted
+from services import member_tags
 
 router = Router(name="chat_members")
 INSIDE = ("member", "administrator", "creator", "restricted")
@@ -76,6 +77,10 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
             "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
             "ELSE user_chat_stats.rejoined_at END",
             (user.id, chat_id))
+        await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # вошёл или ему сменили тег/права
+        await commit(db)
+    elif _inside(new) and not user.is_bot:
+        await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # остался в чате, но сменился тег или звание
         await commit(db)
     elif left and not user.is_bot:
         await db.execute(

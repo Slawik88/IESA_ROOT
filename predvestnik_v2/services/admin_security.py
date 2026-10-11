@@ -33,7 +33,7 @@ STATEMENTS = (
 
 # ── Подтверждение опасных действий ──
 CONFIRM_ACTIONS = ("global_ban", "rank")
-BALANCE_CONFIRM = {"mora": Decimal(100_000), "diamonds": Decimal(100), "essence": Decimal(500)}
+BALANCE_CONFIRM = {"mora": Decimal(100_000), "diamonds": Decimal(100), "essence": Decimal(500), "zarniki": Decimal(100)}
 
 # ── Лимиты частоты (на одного сотрудника, в памяти процесса) ──
 SENSITIVE_ACTIONS = frozenset({"balance", "vip", "rank", "global_ban", "global_unban", "mark_grant", "mark_revoke", "block",

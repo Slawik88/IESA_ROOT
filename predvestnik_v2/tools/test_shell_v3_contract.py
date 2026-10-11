@@ -82,7 +82,7 @@ for sheet in (fx, appearance, home_css, css):
     for name, props in keyframe_props(sheet).items():
         allowed = {"transform", "opacity"} | ({"background-position"} if name in {"apglint", "v3glint"} else set())   # блик по буквам лежит в фоне текста
         assert props <= allowed, (name, props)
-assert len(keyframe_props(fx)) >= 4 and len(keyframe_props(appearance)) >= 12
+assert len(keyframe_props(fx)) >= 2 and len(keyframe_props(appearance)) >= 12   # свет страницы теперь рисует app.18.js на canvas: в fx-tiers-v3.css остались только блик и боковой переход
 for level in range(1, 8):
     assert f".ap-t{level}" in appearance, level
 assert 'skins-v3.css' in index and 'fx-tiers-v3.css' in index
@@ -215,6 +215,19 @@ _fx_css = (STATIC / "fx-tiers-v3.css").read_text(encoding="utf-8")
 assert "vmax" not in re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S), "no screen-multiple layers in the effect layer"
 assert not re.search(r"blur\((4\d|[5-9]\d|\d{3,})px\)", re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S)), "no big blur in the effect layer"
 assert "document.body.style.setProperty('--tilt" not in (STATIC / "app.18.js").read_text(encoding="utf-8"), "tilt must not write into body"
+# Phones lagged on heavy looks because of how the page was drawn, not because of how much: (1) five full-screen CSS layers of page light (about six screens of textures, a repaint of the whole
+# screen every frame) are now two small canvases drawn by app.18.js every 90 ms; (2) a polygon clip-path makes the browser draw each such layer in a separate pass (34 passes a frame from sparks alone):
+# shapes are masks; (3) reading innerWidth/innerHeight in the effect loop forces the browser to recalculate every running animation, so the screen size is cached.
+_fx_js = (STATIC / "app.18.js").read_text(encoding="utf-8")
+assert "createRadialGradient" in _fx_js and "_V3_FX_SCALE" in _fx_js and "v3-fx-glow" in _fx_js and "v3-fx-grain" in _fx_js, "page light is drawn on canvas"
+assert re.search(r"\.v3-fx > canvas \{[^}]*position: absolute", _fx_css), "the canvases lie in the effect layer"
+assert not re.search(r"\.v3-fx-(breath|tilt|ribbon)", _fx_css), "no full-screen CSS layers of light"
+_frame_body = _fx_js.split("function _v3FxFrame", 1)[1].split("\nfunction _v3FxRun", 1)[0]
+assert "innerWidth" in _frame_body and "_V3_FX.w ||" in _frame_body and "_V3_FX.h ||" in _frame_body, "the frame uses the cached screen size first"
+assert "_V3_FX.w = innerWidth" in _fx_js.split("function _v3FxResize", 1)[1].split("}", 1)[0], "the cache is filled on resize"
+for _css_path in sorted(STATIC.glob("*.css")):
+    _plain = re.sub(r"/\*.*?\*/", "", _css_path.read_text(encoding="utf-8"), flags=re.S)
+    assert not re.search(r"clip-path\s*:\s*(polygon|circle|ellipse|path)\(", _plain), f"{_css_path.name}: a shaped clip-path costs a render pass per element, use a mask"
 # A page must never be wider than the phone: effects of a look that reach past the edge widen the document, the mobile browser then widens the viewport
 # and the fixed dock lands below the visible screen (reported on production). The document clips sideways and may not be zoomed out.
 shell_css_text = (STATIC / "shell-v3.css").read_text(encoding="utf-8")

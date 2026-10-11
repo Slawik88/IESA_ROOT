@@ -48,6 +48,10 @@
 .ap-bg-stars b:nth-child(1) { inset: 0; background: radial-gradient(1.6px 1.6px at 20% 14%, var(--ap-c), transparent 60%), radial-gradient(1.6px 1.6px at 48% 40%, var(--ap-a), transparent 60%), radial-gradient(1.6px 1.6px at 76% 24%, var(--ap-c), transparent 60%), radial-gradient(1.6px 1.6px at 88% 56%, var(--ap-a), transparent 60%); }
 .ap-anim .ap-bg-stars:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apbreath 3.6s ease-in-out infinite alternate; }
 
+/* Многоугольные формы (искра, язык пламени, лист, ядро) это маски, а не clip-path: clip-path с многоугольником заставляет браузер рисовать каждый такой слой в отдельный проход
+   (на SSS набиралось 34 прохода за кадр из одних искр), а маска запекается в сам слой и проходов не требует. Вид тот же. */
+:root { --m-spark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='50,0 62,38 100,50 62,62 50,100 38,62 0,50 38,38'/%3E%3C/svg%3E"); --m-core: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='50,0 60,40 100,50 60,60 50,100 40,60 0,50 40,40'/%3E%3C/svg%3E"); --m-flame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='50,0 57,16 67,30 79,46 88,64 90,80 80,94 64,100 36,100 20,94 10,80 12,64 21,46 33,30 43,16'/%3E%3C/svg%3E"); --m-leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpolygon points='50,0 80,32 100,70 50,100 0,70 20,32'/%3E%3C/svg%3E"); }
+
 /* ── Частицы ── */
 .ap-fx { position: absolute; inset: 0 -10px -10px; z-index: -1; overflow: hidden; pointer-events: none; clip-path: inset(0); }
 .ap-fx i { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); opacity: .55; background: var(--ap-a); border-radius: 50%; }
@@ -69,7 +73,7 @@
 .ap-anim .ap-pt-sand i { animation-name: apfall; animation-duration: calc(var(--d) * 1.2); animation-timing-function: linear; }
 .ap-pt-snow i { background: #fff; opacity: .7; box-shadow: 0 0 5px rgba(255,255,255,.6); }
 .ap-anim .ap-pt-snow i { animation-name: apfall; animation-duration: calc(var(--d) * 1.5); }
-.ap-pt-spark i, .ap-pt-glint i { background: var(--ap-c); border-radius: 0; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); width: calc(var(--s) * 1.5); height: calc(var(--s) * 1.5); }
+.ap-pt-spark i, .ap-pt-glint i { background: var(--ap-c); border-radius: 0; -webkit-mask: var(--m-spark) center / 100% 100% no-repeat; mask: var(--m-spark) center / 100% 100% no-repeat; width: calc(var(--s) * 1.5); height: calc(var(--s) * 1.5); }
 .ap-pt-glint i { background: #fff; width: calc(var(--s) * 1.4); height: calc(var(--s) * 1.4); }
 .ap-anim .ap-pt-spark i, .ap-anim .ap-pt-glint i { animation-name: aptwinkle; animation-duration: calc(var(--d) * .4); animation-timing-function: ease-in-out; }
 .ap-pt-ring i { background: none; border: 1px solid var(--ap-a); width: calc(var(--s) * 2.4); height: calc(var(--s) * 2.4); }

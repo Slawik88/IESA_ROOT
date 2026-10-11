@@ -41,7 +41,7 @@
 .ap-sig-aurora.ap-name { background-image: linear-gradient(100deg, var(--ap-a), var(--ap-c) 30%, var(--ap-nb) 60%, var(--ap-a)); }
 
 /* ── Расплавленное Солнце: протуберанцы вокруг кольца ── */
-.ap-sig-solar .sg-prom { left: 50%; top: 50%; width: 11px; height: calc(24px * var(--l)); margin: calc(-12px * var(--l)) 0 0 -5.5px; background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); clip-path: polygon(50% 0, 57% 16%, 67% 30%, 79% 46%, 88% 64%, 90% 80%, 80% 94%, 64% 100%, 36% 100%, 20% 94%, 10% 80%, 12% 64%, 21% 46%, 33% 30%, 43% 16%); transform: rotate(var(--o)) translateY(-45px); transform-origin: 50% 50%; filter: drop-shadow(0 0 4px var(--ap-a)); }
+.ap-sig-solar .sg-prom { left: 50%; top: 50%; width: 11px; height: calc(24px * var(--l)); margin: calc(-12px * var(--l)) 0 0 -5.5px; background: linear-gradient(0deg, var(--ap-b), var(--ap-a) 55%, var(--ap-c)); -webkit-mask: var(--m-flame) center / 100% 100% no-repeat; mask: var(--m-flame) center / 100% 100% no-repeat; transform: rotate(var(--o)) translateY(-45px); transform-origin: 50% 50%; filter: drop-shadow(0 0 4px var(--ap-a)); }
 @keyframes sgflame { 0%, 100% { transform: rotate(var(--o)) translateY(-45px) scaleY(.82); } 50% { transform: rotate(var(--o)) translateY(-47px) scaleY(1.22); } }
 .ap-anim .ap-sig-solar .sg-prom { animation: sgflame var(--d) ease-in-out infinite; }
 .ap-sig-solar.ap-name { filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ap-b) 75%, transparent)); }
@@ -57,7 +57,7 @@
 /* ── Лунный Лотос: два яруса лепестков держат аватар, как цветок на воде; над ним тонкий месяц ── */
 .ap-sig-lotus.ap-frame { filter: none; }
 .ap-sig-lotus .sg-bloom { z-index: -1; left: -22%; right: -22%; top: 38%; bottom: -28%; transform-origin: 50% 100%; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--ap-a) 55%, transparent)); -webkit-mask: linear-gradient(180deg, #000 52%, transparent 84%); mask: linear-gradient(180deg, #000 52%, transparent 84%); }   /* низ цветка тает: ник под ним читается */
-.ap-sig-lotus .sg-leaf { left: 50%; bottom: 0; width: 19%; height: 80%; margin-left: -9.5%; transform-origin: 50% 100%; transform: rotate(var(--o)); clip-path: polygon(50% 0, 80% 32%, 100% 70%, 50% 100%, 0 70%, 20% 32%); background: linear-gradient(0deg, transparent 8%, color-mix(in srgb, var(--ap-b) 70%, transparent) 40%, var(--ap-a) 78%, var(--ap-c)); opacity: .6; }
+.ap-sig-lotus .sg-leaf { left: 50%; bottom: 0; width: 19%; height: 80%; margin-left: -9.5%; transform-origin: 50% 100%; transform: rotate(var(--o)); -webkit-mask: var(--m-leaf) center / 100% 100% no-repeat; mask: var(--m-leaf) center / 100% 100% no-repeat; background: linear-gradient(0deg, transparent 8%, color-mix(in srgb, var(--ap-b) 70%, transparent) 40%, var(--ap-a) 78%, var(--ap-c)); opacity: .6; }
 .ap-sig-lotus .sg-leaf--f { height: 62%; width: 24%; margin-left: -12%; opacity: .95; background: linear-gradient(0deg, transparent 6%, color-mix(in srgb, var(--ap-a) 80%, transparent) 46%, var(--ap-c)); }
 .ap-sig-lotus .sg-moon { right: -12%; top: -16%; width: 24%; aspect-ratio: 1; border-radius: 50%; box-shadow: 5px -3px 0 0 var(--ap-c); filter: drop-shadow(0 0 6px var(--ap-a)); }
 @keyframes sgbloom { from { transform: scale(.94); opacity: .75; } to { transform: scale(1.05); opacity: 1; } }

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import resolve_target
 from bot.chat.style import quote
+from services import member_tags
 
 
 @dataclass(frozen=True)
@@ -61,11 +62,12 @@ def make_handler(warp: Warp):
                 if ctx.prefixed:
                     await ctx.reply(why)
                 return
+        me = link(actor.id, member_tags.with_tag(actor.first_name or "игрок", member_tags.of_message(ctx.message)[1]))   # тег автора есть в самом сообщении
         if target.user_id == actor.id:
-            text = f"{link(actor.id, actor.first_name)} пытается {warp.name} сам(а) себя. Ну, тоже вариант 🙃"
+            text = f"{me} пытается {warp.name} сам(а) себя. Ну, тоже вариант 🙃"
         else:
-            text = render(random.choice(warp.responses), link(actor.id, actor.first_name),
-                          link(target.user_id, target.name.lstrip("@")))
+            text = render(random.choice(warp.responses), me,
+                          link(target.user_id, member_tags.with_tag(target.name.lstrip("@"), target.tag)))
         if rest.strip():
             text += f"\n💬 «{html.escape(rest.strip()[:200])}»"
         await ctx.message.answer(text, parse_mode="HTML", disable_web_page_preview=True)

@@ -22,8 +22,8 @@ from core.skins_v3_catalog import SKINS  # noqa: E402
 import scene_art  # noqa: E402
 
 # Looks that do not have their own scene yet (the list only shrinks; when it is empty every look has a world).
-PENDING = {"cobweb", "crimson_dark", "garland", "midnight_chimes",
-           "pumpkin_lantern", "scarlet_star", "snow_globe", "witch_hour"}
+PENDING = {"crimson_dark", "garland", "midnight_chimes",
+           "scarlet_star", "snow_globe"}
 
 SHAPES = {"glow", "ring", "sil", "dot", "band", "wave", "arc"}
 MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
