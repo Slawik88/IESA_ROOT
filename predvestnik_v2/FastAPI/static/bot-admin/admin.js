@@ -8,6 +8,16 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const num = n => Number(n).toLocaleString('ru-RU');
 
+// Личные настройки на этом устройстве: последние фильтры, срок, тема, недавние игроки. Без хранилища браузера всё работает как по умолчанию.
+const PREFS = (() => {
+  let data = {};
+  try { data = JSON.parse(localStorage.getItem('pv_admin_prefs') || '{}') || {}; } catch (_) {}
+  return {
+    get: (key, fallback) => (key in data ? data[key] : fallback),
+    set(key, value) { data[key] = value; try { localStorage.setItem('pv_admin_prefs', JSON.stringify(data)); } catch (_) {} },
+  };
+})();
+
 let ME = null;
 const SECTIONS = {};          // key -> render(main)
 const SECTION_META = {
@@ -215,19 +225,104 @@ document.addEventListener('click', e => {
   if (e.target.closest('[data-more]')) moreSheet();
 });
 
-// Оболочка Telegram: шапка, фон и нижняя полоса того же цвета, что страница; смахивание вниз не закрывает админку посреди формы.
+// ── Тема: тёмная (как Mini App), светлая или как в Telegram ─────────────────────
+
+const THEMES = [['auto', '📱 Как в Telegram', 'Сама меняется вслед за темой Telegram'], ['dark', '🌙 Тёмная', 'Как в Предвестнике'], ['light', '☀️ Светлая', 'Для яркого дня']];
+const PAGE_COLOR = {dark: '#08090c', light: '#f3f4f8'};
+const themePref = () => { const t = PREFS.get('theme', 'auto'); return THEMES.some(z => z[0] === t) ? t : 'auto'; };
+function resolveTheme(pref = themePref()) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  // Вне Telegram SDK всегда отвечает «light», поэтому его схему берём только когда мы действительно внутри Telegram
+  const scheme = TG && TG.platform && TG.platform !== 'unknown' ? TG.colorScheme : '';
+  if (scheme === 'light' || scheme === 'dark') return scheme;
+  return window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+// Шапка, фон и нижняя полоса Telegram того же цвета, что страница.
+function paintTmaShell(color) {
+  if (!TG) return;
+  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
+  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
+}
+function applyTheme() {
+  const theme = resolveTheme();
+  document.documentElement.dataset.theme = theme;
+  const meta = document.querySelector('meta[name=theme-color]');
+  if (meta) meta.setAttribute('content', PAGE_COLOR[theme]);
+  paintTmaShell(PAGE_COLOR[theme]);
+}
+function themeSheet() {
+  const current = themePref();
+  sheet('Оформление', `<div class="go-list">${THEMES.map(([key, title, sub]) =>
+    `<button type="button" data-theme-pick="${key}" class="${key === current ? 'here' : ''}"><span>${title}<small class="sub" style="display:block">${sub}</small></span></button>`).join('')}</div>
+    <div class="sub" style="margin-top:8px">Хранится на этом устройстве.</div>`, 'Готово', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-theme-pick]').forEach(btn => btn.onclick = () => {
+    PREFS.set('theme', btn.dataset.themePick); applyTheme();
+    $('#sheet').querySelectorAll('[data-theme-pick]').forEach(b => b.classList.toggle('here', b === btn));
+  });
+}
+applyTheme();
+try { if (TG && TG.onEvent) TG.onEvent('themeChanged', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
+try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
+
+// Оболочка Telegram: смахивание вниз не закрывает админку посреди формы; лёгкий отклик на нажатия, как в приложении.
 (function initTmaShell() {
   if (!TG) return;
   try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}
-  const color = '#08090c';
-  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
-  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
-  // Лёгкий отклик на нажатия, как в приложении
   document.addEventListener('click', e => {
     const t = e.target.closest('.nb, .btn');
     if (!t || t.disabled) return;
     try { const h = TG.HapticFeedback; if (h) { t.classList.contains('nb') ? h.selectionChanged() : h.impactOccurred(t.classList.contains('primary') ? 'medium' : 'light'); } } catch (_) {}
   }, true);
+})();
+
+// ── Горячие клавиши (компьютер) ───────────────────────────────────────────────
+
+const GO_KEYS = {p: 'people', r: 'reports', m: 'metrics', j: 'journal', b: 'broadcast', c: 'promo', f: 'switches', s: 'settings', h: 'health'};
+const HOTKEYS = [['/', 'Искать: игроки и чаты, промокоды'], ['g, затем p', 'Игроки'], ['g, затем r', 'Жалобы'], ['g, затем m', 'Метрики'], ['g, затем j', 'Журнал'],
+  ['g, затем b', 'Рассылка'], ['g, затем c', 'Промокоды'], ['g, затем f', 'Функции'], ['g, затем s', 'Настройки'], ['g, затем h', 'Состояние'],
+  ['Esc', 'Закрыть окно, убрать курсор из поля, вернуться назад'], ['Ctrl + Enter', 'Подтвердить окно'], ['?', 'Эта подсказка']];
+function hotkeysSheet() {
+  const mine = key => !/^g, /.test(key) || ME.sections.some(z => z.key === GO_KEYS[key.slice(-1)]);
+  sheet('Горячие клавиши', `<div class="keys">${HOTKEYS.filter(([key]) => mine(key)).map(([key, text]) =>
+    `<div><kbd>${esc(key)}</kbd><span>${esc(text)}</span></div>`).join('')}</div>`, 'Понятно', () => {}, {info: true});
+}
+(function initHotkeys() {
+  if (!(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;   // на телефоне клавиатуры нет
+  let goAt = 0;
+  const closeSheet = () => { const box = $('#sheet'); box.hidden = true; box.innerHTML = ''; };
+  const focusSearch = () => {
+    const field = $('#pplq') || $('#pq');
+    if (field) { field.focus(); field.select(); return true; }
+    return false;
+  };
+  document.addEventListener('keydown', e => {
+    if (!ME || e.metaKey || e.altKey) return;
+    const sheetOpen = !$('#sheet').hidden;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
+    if (e.key === 'Enter' && e.ctrlKey && sheetOpen) {
+      const ok = $('#sok');
+      if (ok && !ok.disabled) { e.preventDefault(); ok.click(); }
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (sheetOpen) { e.preventDefault(); closeSheet(); }
+      else if (typing) e.target.blur();
+      else { const back = $('#pback'); if (back) { e.preventDefault(); back.click(); } }
+      return;
+    }
+    if (typing || e.ctrlKey || sheetOpen) return;
+    if (goAt && Date.now() - goAt < 1500) {
+      goAt = 0;
+      const key = GO_KEYS[e.key.toLowerCase()];
+      if (key && ME.sections.some(z => z.key === key)) { e.preventDefault(); open(key); }
+      return;
+    }
+    if (e.key === 'g') { goAt = Date.now(); return; }
+    if (e.key === '/') {
+      e.preventDefault();
+      if (!focusSearch() && ME.sections.some(z => z.key === 'people')) { open('people'); setTimeout(focusSearch, 500); }
+    } else if (e.key === '?') { e.preventDefault(); hotkeysSheet(); }
+  });
 })();
 
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
@@ -255,6 +350,7 @@ function sheet(title, body, submitText, onSubmit, {info = false, cancelText = '�
 const DURATIONS = [[15, '15 минут'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
 const durationField = (def = 60) => `<div class="field"><label>Срок</label><select id="fmin">
   ${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
+const hint = text => `<div class="sub hint">${text}</div>`;   // короткое пояснение над полями: что произойдёт
 const reasonField = (required = false) => `<div class="field"><label>Причина${required ? '' : ' (необязательно)'}</label>
   <input id="freason" maxlength="200"/></div>`;
 
@@ -262,15 +358,16 @@ const reasonField = (required = false) => `<div class="field"><label>Причи�
 function actionForm(key, ctx) {
   const v = id => ($('#' + id) || {}).value;
   switch (key) {
-    case 'warn': return [durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'mute': return [durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'ban': return [durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'kick': case 'global_ban': return [reasonField(), () => ({reason: v('freason')})];
-    case 'block': return [`<div class="field"><label>На сколько</label><select id="fdays">
+    case 'warn': return [hint('Варн действует выбранный срок. Когда варнов станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'mute': return [hint('Игрок не сможет писать в этом чате до конца срока. Раньше можно снять кнопкой «Снять мут».') + durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'ban': return [hint('Игрока уберут из этого чата, вернуться он не сможет. Снимается кнопкой «Снять бан в чате».') + durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'kick': case 'global_ban': return [hint(key === 'kick' ? 'Игрок выйдет из чата, но сможет вернуться по ссылке.'
+        : 'Бан сразу во всех чатах, где есть бот и у него есть права. Снимается кнопкой «Снять бан во всех чатах». Понадобится ввести ID игрока.') + reasonField(), () => ({reason: v('freason')})];
+    case 'block': return [hint('Бот перестанет отвечать игроку и считать его команды. В чатах он остаётся и может писать.') + `<div class="field"><label>На сколько</label><select id="fdays">
         <option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option>
         <option value="0" selected>пока не снимут</option></select></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason')})];
-    case 'balance': return [`<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
+    case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
         ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
@@ -280,7 +377,7 @@ function actionForm(key, ctx) {
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
-    case 'rank': return [`<div class="field"><label>Новая роль</label><select id="frank">
+    case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.') + `<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
     case 'mark_grant': {
@@ -293,9 +390,9 @@ function actionForm(key, ctx) {
     case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
         ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
         + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
-    case 'warn_limit': return [`<div class="field"><label>Варнов до наказания</label>
+    case 'warn_limit': return [hint('Сколько варнов у игрока в этом чате считается пределом: на этом бот напишет в чат.') + `<div class="field"><label>Варнов до наказания</label>
         <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
-    case 'message': return [`<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
+    case 'message': return [hint('Сообщение сразу уйдёт в чат от имени бота, его увидят все участники.') + `<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
       () => ({text: v('ftext')})];
     default: return ['<div class="sub">Подтвердите действие.</div>', () => ({})];
   }
@@ -444,6 +541,11 @@ async function bulkRun(action, ids, after) {
 
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
+  if (!PEOPLE.restored) {   // последний выбранный быстрый фильтр возвращается при следующем открытии
+    PEOPLE.restored = true;
+    const saved = PREFS.get('people.filter', '');
+    if (PEOPLE_FILTERS.some(([key]) => key === saved)) PEOPLE.filter = saved;
+  }
   rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
@@ -460,7 +562,7 @@ async function peopleSearch(main, query = '') {
   $('#pplf').onclick = e => {
     const c = e.target.closest('[data-flt]');
     if (!c || c.dataset.flt === PEOPLE.filter) return;
-    PEOPLE.filter = c.dataset.flt; drawFilters(); load($('#pplq').value);
+    PEOPLE.filter = c.dataset.flt; PREFS.set('people.filter', PEOPLE.filter); drawFilters(); load($('#pplq').value);
   };
   drawFilters();
   const drawBulk = () => {
@@ -492,7 +594,10 @@ async function peopleSearch(main, query = '') {
     const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1];
     const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
     const showAttn = !q.trim() && !PEOPLE.filter;
-    $('#pplres').innerHTML = (showAttn ? '<div id="pplattn"></div>' : '') + head + `
+    const recent = showAttn ? PREFS.get('recent', []) : [];
+    const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
+      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
+    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
@@ -516,6 +621,8 @@ async function peopleSearch(main, query = '') {
     if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
   }
   $('#pplres').onclick = e => {
+    const rec = e.target.closest('[data-recent]');
+    if (rec) { PEOPLE.stack = []; playerView(main, +rec.dataset.recent); return; }
     const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
     if (p && PEOPLE.select) {   // в режиме выбора нажатие отмечает игрока, а не открывает карточку
       const id = +p.dataset.player;
@@ -533,6 +640,7 @@ async function peopleSearch(main, query = '') {
 async function playerView(main, id, push = true, from = null) {
   const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
   if (!p) return;
+  PREFS.set('recent', [{id: p.id, u: p.username || ''}, ...PREFS.get('recent', []).filter(r => r.id !== p.id)].slice(0, 6));
   if (push && from) PEOPLE.stack.push(from);
   const reopen = () => playerView(main, id, false);
   const b = p.balances;
@@ -888,6 +996,8 @@ async function exportMetrics(days) {
 }
 
 async function metricsView(main, days = 1) {
+  if (![1, 7, 30].includes(days)) days = 1;
+  PREFS.set('metrics.days', days);
   showSectionLoading(main, 'metrics');
   const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
@@ -950,16 +1060,18 @@ async function metricsView(main, days = 1) {
   });
 }
 
-SECTIONS.metrics = main => metricsView(main);
+SECTIONS.metrics = main => metricsView(main, PREFS.get('metrics.days', 1));
 
 // ── Журнал: все действия персонала ───────────────────────────────────────────
 
-const JOURNAL = {kind: '', actor: 0, days: 7, view: 'actions'};
+const JOURNAL = {kind: PREFS.get('journal.kind', ''), actor: 0, days: [1, 7, 30, 90].includes(PREFS.get('journal.days', 7)) ? PREFS.get('journal.days', 7) : 7,
+  view: PREFS.get('journal.view', 'actions') === 'logins' ? 'logins' : 'actions'};
+const saveJournal = () => { PREFS.set('journal.kind', JOURNAL.kind); PREFS.set('journal.days', JOURNAL.days); PREFS.set('journal.view', JOURNAL.view); };
 // Создатель видит ещё и входы в админку (адрес и устройство): остальным этой вкладки нет.
 const journalTabs = () => !ME.creator ? '' : `<div class="scope" style="margin-bottom:8px">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
   `<button class="btn small ${k === JOURNAL.view ? 'primary' : ''}" data-jview="${k}">${t}</button>`).join('')}</div>`;
 const bindJournalTabs = main => main.querySelectorAll('[data-jview]').forEach(b =>
-  b.onclick = () => { JOURNAL.view = b.dataset.jview; journalView(main); });
+  b.onclick = () => { JOURNAL.view = b.dataset.jview; saveJournal(); journalView(main); });
 async function loginsView(main) {
   const data = await loadSectionData(main, `/logins?days=${JOURNAL.days}`, () => loginsView(main), 'journal');
   if (!data) return;
@@ -971,13 +1083,14 @@ async function loginsView(main) {
       <div class="sub" style="margin-bottom:6px">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
       ${rows || '<div class="empty">За этот период входов нет.</div>'}</div>`;
   bindJournalTabs(main);
-  main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; loginsView(main); });
+  main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); loginsView(main); });
 }
 async function journalView(main, more = '') {
   if (ME.creator && JOURNAL.view === 'logins') return loginsView(main);
   const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${more ? '&before=' + encodeURIComponent(more) : ''}`;
   const data = await loadSectionData(main, `/journal?${qs}`, () => journalView(main, more), 'journal');
   if (!data) return;
+  if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) : '';
   const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
@@ -997,8 +1110,8 @@ async function journalView(main, more = '') {
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
       <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
     bindJournalTabs(main);
-    main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; journalView(main); });
-    $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; journalView(main); };
+    main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
+    $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; saveJournal(); journalView(main); };
     $('#jactor').onchange = e => { JOURNAL.actor = +e.target.value; journalView(main); };
     $('#jlist').onclick = e => {
       const p = e.target.closest('a[data-player]'), c = e.target.closest('a[data-chat]');
@@ -1017,6 +1130,8 @@ SECTIONS.journal = main => journalView(main);
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 
 async function reportsView(main, kind = 'open') {
+  if (kind !== 'open' && kind !== 'closed') kind = 'open';
+  PREFS.set('reports.kind', kind);
   const data = await loadSectionData(main, `/reports?kind=${kind}`, () => reportsView(main, kind), 'reports');
   if (!data) return;
   refreshBadges();
@@ -1091,7 +1206,7 @@ async function reportsView(main, kind = 'open') {
   });
 }
 
-SECTIONS.reports = main => reportsView(main);
+SECTIONS.reports = main => reportsView(main, PREFS.get('reports.kind', 'open'));
 
 // ── Рассылка ─────────────────────────────────────────────────────────────────
 
@@ -2010,6 +2125,10 @@ SECTIONS.health = main => healthView(main);
     return;
   }
   $('#who').textContent = ME.rank_name;
+  const top = $('.top');
+  const headBtn = (cls, label, text, handler) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'hbtn ' + cls; b.setAttribute('aria-label', label); b.title = label; b.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${text}</svg>`; b.onclick = handler; top.append(b); };
+  headBtn('theme', 'Оформление', '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>', themeSheet);
+  if (window.matchMedia && matchMedia('(pointer: fine)').matches) headBtn('keys', 'Горячие клавиши (?)', '<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><path d="M7 10.5h.01M10.5 10.5h.01M14 10.5h.01M17 10.5h.01M8 14h8"/>', hotkeysSheet);
   if (!ME.sections.length) { $('#main').innerHTML = '<div class="empty">Для вашей роли разделов пока нет.</div>'; return; }
   let saved = '';
   try { saved = localStorage.getItem('pv_admin_tab') || ''; } catch (_) {}
