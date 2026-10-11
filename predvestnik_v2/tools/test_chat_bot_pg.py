@@ -230,6 +230,14 @@ async def purge_flow(db, bot):
     m = FakeMessage("я админ", 1002, "beta")
     assert not await purge.purge_gate(db, bot, m)
     s = await purge.active_session(db, -100)
+    # Решение по досье принимается один раз: повторное нажатие (или второй модератор) не выдаёт второй варн.
+    for _ in range(2):
+        c = Call(1001)
+        c.message.html_text = "Досье"
+        await purge.on_verdict(c, purge.PurgeCB(act="warn", s=s[0], u=2001), bot, db)
+    assert "уже принято" in (c.alerts[0] or ""), c.alerts
+    async with db.execute("SELECT COUNT(*) FROM user_warnings WHERE chat_id = -100 AND user_id = 2001 AND revoked_at IS NULL") as cur:
+        assert (await cur.fetchone())[0] == 1
     await db.execute("UPDATE purge_targets SET verdict = 'kick' WHERE session_id = ? AND user_id = 2001", (s[0],))
     out = await run(db, bot, "бот чистка статус")
     assert "Кикнуто: 1" in out, out
@@ -880,6 +888,110 @@ async def vip_flow(db, bot):
     out, _ = await say("бот вип @achiever", uid=2002, username="talker")
     assert "@\u200bachiever: 👑 VIP до" in out, out
     print("OK: vip")
+    await targets_flow(db, bot)
+
+
+async def targets_flow(db, bot):
+    """Кого касается команда: упоминания с эмодзи, темы форума, посты из канала, старые ники, неизвестный @ник."""
+    from bot.chat.targets import NOT_FOUND, resolve_target
+    from bot.chat.tracking import record_message
+
+    # Смещения упоминаний Telegram считает в UTF-16: эмодзи в имени раньше сдвигали срез, и «1ч» терялся из срока.
+    m = FakeMessage("бот бан 🔥Вася🔥 1ч спам", 1001, "alpha")
+    m.entities = [SimpleNamespace(type="text_mention", offset=8, length=8,
+                                  user=SimpleNamespace(id=4010, username=None, full_name="🔥Вася🔥"))]
+    target, rest = await resolve_target(db, m, "🔥Вася🔥 1ч спам")
+    assert target.user_id == 4010 and rest == "1ч спам", (target, rest)
+
+    # Ответ на служебное сообщение темы форума или на автопересылку из канала — не цель команды.
+    author = SimpleNamespace(id=4020, is_bot=False, username="topicmaker", full_name="Topic Maker")
+    for extra in ({"forum_topic_created": SimpleNamespace(name="Тема")}, {"is_automatic_forward": True}):
+        m = FakeMessage("бот мут 2ч", 1001, "alpha", reply_to=SimpleNamespace(from_user=author, **extra))
+        assert (await resolve_target(db, m, "2ч"))[0] is None, extra
+    m = FakeMessage("бот мут 2ч", 1001, "alpha", reply_to=SimpleNamespace(
+        from_user=SimpleNamespace(id=777000, is_bot=False, username="Telegram", full_name="Telegram")))
+    assert (await resolve_target(db, m, "2ч"))[0] is None
+    m = FakeMessage("бот мут 2ч", 1001, "alpha", reply_to=SimpleNamespace(from_user=author))
+    assert (await resolve_target(db, m, "2ч"))[0].user_id == 4020
+
+    # Ник один на весь Telegram: после смены владельца старый теряет его, а при споре берётся тот, кто писал позже.
+    await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (4001, 'cool_one'), (4002, 'cool_one')")
+    await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, last_message_at) "
+                     "VALUES (4001, -100, NOW() - INTERVAL '30 days'), (4002, -100, NOW())")
+    target, _ = await resolve_target(db, FakeMessage("x", 1001, "alpha"), "@cool_one спам")
+    assert target.user_id == 4002, target
+    await record_message(db, msg(4003, -100, "cool_one"))
+    async with db.execute("SELECT user_tg_id FROM users WHERE LOWER(user_tg_username) = 'cool_one'") as cur:
+        assert [r[0] for r in await cur.fetchall()] == [4003]
+
+    # Неизвестный @ник не превращается в «покажи мне самого себя».
+    for text in ("бот стрик @nosuchperson", "бот варны @nosuchperson", "бот ранг @nosuchperson", "бот вип @nosuchperson",
+                 "бот семья @nosuchperson", "бот достижения @nosuchperson"):
+        assert NOT_FOUND in await run(db, bot, text), text
+    # Имя без @ника попадает в разметку ответа: ломающие символы экранируются.
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+    m = FakeMessage("бот стрик Tom", 1001, "alpha")
+    m.entities = [SimpleNamespace(type="text_mention", offset=9, length=3,
+                                  user=SimpleNamespace(id=4030, username=None, full_name="Tom <3 & <b>x"))]
+    assert await dispatch(registry, m, bot, db)
+    assert "Tom &lt;3 &amp; &lt;b&gt;x стрик" in m.replies[0], m.replies
+    print("OK: targets")
+    await rank_guard_flow(db, bot)
+
+
+async def rank_guard_flow(db, bot):
+    """Снятие санкций и кнопки под сообщениями подчиняются рангам так же, как сами санкции."""
+    from bot.chat import moderation, ranks
+    chat = -300
+    await ranks.sync_owner(db, bot, chat, force=True)   # владелец 1001
+    for uid, name, rank in ((3101, "mod4", 4), (3102, "adm7", 7), (3103, "plain", 0)):
+        await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, name))
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, chat))
+        await ranks.store_rank(db, chat, uid, rank)
+    await moderation.do_warn(db, chat, 3102, 1001, None, "x")
+    await moderation.do_warn(db, chat, 3103, 1001, None, "x")
+    await moderation.do_warn(db, chat, 3101, 1001, None, "x")
+    out = await run(db, bot, "бот снять варны @adm7", uid=3101, username="mod4", chat=chat)
+    assert "не ниже" in out and len(await moderation.active_warns(db, chat, 3102)) == 1, out
+    out = await run(db, bot, "бот снять варн @mod4", uid=3101, username="mod4", chat=chat)
+    assert "К себе" in out and len(await moderation.active_warns(db, chat, 3101)) == 1, out
+    out = await run(db, bot, "бот снять мут @adm7", uid=3101, username="mod4", chat=chat)
+    assert "не ниже" in out, out
+    out = await run(db, bot, "бот снять варны @plain", uid=3101, username="mod4", chat=chat)
+    assert "снято варнов: 1" in out, out
+    out = await run(db, bot, "бот снять варны @adm7", uid=1001, username="alpha", chat=chat)   # владелец может всё
+    assert "снято варнов: 1" in out, out
+
+    # Кнопка «Простить» под уведомлением о лимите: нажать её на того, кто не ниже рангом, нельзя.
+    await moderation.do_warn(db, chat, 3102, 1001, None, "x")
+    await ranks.set_right(db, chat, "ban", 4, 1001)
+    for act, expect in (("forgive", "не ниже"), ("ban", "не ниже")):
+        c = Call(3101)
+        c.message.html_text = "Лимит"
+        await moderation.on_warn_limit(c, moderation.WarnLimitCB(act=act, chat=chat, user=3102), bot, db)
+        assert expect in (c.alerts[0] or ""), (act, c.alerts)
+    assert len(await moderation.active_warns(db, chat, 3102)) == 1
+    c = Call(3101)
+    c.message.html_text = "Лимит"
+    await moderation.on_warn_limit(c, moderation.WarnLimitCB(act="forgive", chat=chat, user=3103), bot, db)
+    assert c.alerts[-1] == "Готово", c.alerts
+
+    # Админ-чат нельзя назначить из чата, где у вас нет права: служебные сообщения ушли бы в чужой чат.
+    from bot.chat.admin_chat import admin_chat_of
+    token = (await run(db, bot, "бот привязать админ чат", chat=chat)).split("<code>бот админ чат ")[1].split("</code>")[0]
+
+    class Foreign(FakeBot):
+        async def get_chat_administrators(self, chat_id):
+            return [SimpleNamespace(status="creator", user=SimpleNamespace(id=9999))]
+    out = await run(db, Foreign(), f"бот админ чат {token}", chat=-877)
+    assert "нет права назначать" in out and await admin_chat_of(db, chat) is None, out
+    out = await run(db, bot, f"бот админ чат {token}", chat=-878)
+    assert "админ-чатом" in out and await admin_chat_of(db, chat) == -878, out
+    # Чат, уже служащий другому, отбирать нельзя без прав и на том чате.
+    token2 = (await run(db, bot, "бот привязать админ чат", chat=-301)).split("<code>бот админ чат ")[1].split("</code>")[0]
+    out = await run(db, bot, f"бот админ чат {token2}", chat=-878, uid=3102, username="adm7")
+    assert "нет права" in out and await admin_chat_of(db, chat) == -878, out
 
 
 asyncio.run(main())

@@ -13,7 +13,7 @@ async def resolve_item_id(db, raw_id: str) -> str:
     """Вернуть настоящий item_id. Если raw_id уже валиден или резолюция не
     удалась — вернуть raw_id без изменений."""
     raw_id = str(raw_id)
-    if raw_id in ITEMS_REGISTRY or not raw_id.isdigit():
+    if raw_id in ITEMS_REGISTRY or not raw_id.isdecimal():
         return raw_id
     try:
         async with db.execute(

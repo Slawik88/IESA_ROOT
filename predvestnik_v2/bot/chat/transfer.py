@@ -10,6 +10,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from aiogram import Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -42,6 +43,32 @@ def parse_amount(text: str) -> Decimal | None:
     return value if Decimal("0") < value <= MAX_AMOUNT else None
 
 
+async def _edit(call: CallbackQuery, text: str, **kw) -> None:
+    """Обновить сообщение с кнопками. Если Telegram считает его недоступным (старше 48 часов) — написать новым."""
+    try:
+        await call.message.edit_text(text, **kw)
+    except TelegramBadRequest as exc:
+        if "not modified" in str(exc):   # повторное нажатие: сообщение уже такое
+            return
+        await _send_fresh(call, text, **kw)
+    except AttributeError:   # у «недоступного» сообщения нет edit_text
+        await _send_fresh(call, text, **kw)
+
+
+async def _send_fresh(call: CallbackQuery, text: str, **kw) -> None:
+    try:
+        await call.bot.send_message(call.message.chat.id, text, **kw)
+    except Exception:
+        pass
+
+
+async def _recipient_gone(db, user_id: int) -> bool:
+    """Аккаунт получателя стоит на удалении: через 14 дней его баланс обнулится, перевод пропал бы."""
+    async with db.execute("SELECT deleted_at IS NOT NULL FROM users WHERE user_tg_id = ?", (user_id,)) as cur:
+        row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 def fmt(value: Decimal) -> str:
     q = value.quantize(Decimal("0.01")).normalize()
     return f"{q:,f}".replace(",", " ")
@@ -60,6 +87,9 @@ async def cmd_transfer(ctx: Ctx) -> None:
     codes = await settings.transferable(ctx.db)
     if not codes:
         await ctx.reply("⛔ Переводы сейчас отключены.")
+        return
+    if await _recipient_gone(ctx.db, target.user_id):
+        await ctx.reply("⛔ Этот игрок удаляет аккаунт: переводить ему нельзя.")
         return
     buttons = [
         InlineKeyboardButton(
@@ -81,7 +111,7 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
         await call.answer("Это не ваш перевод.", show_alert=True)
         return
     if cb.cur == "x":
-        await call.message.edit_text("✖️ Перевод отменён.")
+        await _edit(call, "✖️ Перевод отменён.")
         await call.answer()
         return
     if cb.cur not in await settings.transferable(db):
@@ -98,7 +128,16 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     key = f"chat-transfer:{call.message.chat.id}:{call.message.message_id}"
     try:
         async with db.connection.transaction():
-            await apply_balance_change(
+            # Строки игроков блокируем всегда в одном порядке (по ID): встречные переводы A→B и B→A иначе
+            # ждали друг друга, и один из них падал без ответа.
+            for uid in sorted({cb.uid, cb.to}):
+                await db.execute("INSERT INTO users (user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (uid,))
+            await db.execute("SELECT 1 FROM users WHERE user_tg_id = ANY(?::bigint[]) ORDER BY user_tg_id FOR UPDATE",
+                             (sorted({cb.uid, cb.to}),))
+            if await _recipient_gone(db, cb.to):
+                await call.answer("Этот игрок удаляет аккаунт: переводить ему нельзя.", show_alert=True)
+                return
+            sent = await apply_balance_change(
                 db, cb.uid, {cb.cur: -amount}, reason_code="player_transfer_out",
                 idempotency_key=key + ":out", source_type="chat", reference_type="player_transfer",
                 reference_id=key, chat_id=call.message.chat.id, target_id=cb.to)
@@ -112,9 +151,10 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (cb.to,)) as cur:
         row = await cur.fetchone()
     who = f"@​{row[0]}" if row and row[0] else f"id{cb.to}"
-    await call.message.edit_text(
-        f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
+    await _edit(call, f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
     await call.answer("Готово")
+    if not sent.applied:   # то же нажатие повторно: деньги уже ушли раньше, уведомление и зачёт достижения не дублируем
+        return
     if getattr(call.message.chat, "type", "") == "private":   # в группе получатель видит перевод в чате, из лички ему ничего не придёт
         sender = call.from_user
         try:

@@ -24,7 +24,7 @@ from bot.chat.achievements_data import (ACHIEVEMENTS, BY_ID, MILESTONE_EVERY, MI
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat.framework import Ctx, norm, registry
 from bot.chat.style import quote
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS chat_achievement_levels (
@@ -107,6 +107,10 @@ async def bump(db, user_id: int, name: str, by: int = 1) -> None:
 _MAFIA_WIN = ("((m.winner = 'mafia' AND p.role IN ('mafia', 'don')) OR "
               "(m.winner = 'town' AND p.role IN ('citizen', 'doctor', 'detective')))")
 
+TRANSFERS_PER_DAY = 3
+MORA_GIVEN_PER_DAY = 5000
+WARPS_PER_DAY = 10   # взаимодействий в день, которые растят достижение (сколько ни обнимай, в зачёт идут первые десять)
+
 SOURCES = {
     "messages": lambda db, u: _scalar(
         db, "SELECT SUM(user_messages_count_all_time) FROM user_chat_stats WHERE user_tg_id = ?", (u,)),
@@ -122,12 +126,16 @@ SOURCES = {
             "WHERE user_id = ? AND chat_id = 0", (u,)),
     "warps_sent": lambda db, u: counter(db, u, "warps_sent"),
     "warps_received": lambda db, u: counter(db, u, "warps_received"),
+    # Защита от накрутки перекидыванием денег между своими аккаунтами: в день засчитывается не больше
+    # TRANSFERS_PER_DAY переводов и не больше MORA_GIVEN_PER_DAY моры, остальное уже не растит достижение.
     "transfers": lambda db, u: _scalar(
-        db, "SELECT COUNT(*) FROM economic_operations WHERE user_id = ? AND reason_code = 'player_transfer_out'",
-        (u,), "economic_operations"),
+        db, "SELECT COUNT(*) FROM (SELECT ROW_NUMBER() OVER (PARTITION BY (created_at AT TIME ZONE 'UTC')::date ORDER BY id) AS n "
+            "FROM economic_ledger WHERE user_id = ? AND reason_code = 'player_transfer_out' AND delta < 0) t "
+            f"WHERE n <= {TRANSFERS_PER_DAY}", (u,), "economic_ledger"),
     "mora_given": lambda db, u: _scalar(
-        db, "SELECT -SUM(delta) FROM economic_ledger WHERE user_id = ? AND currency = 'mora' "
-            "AND reason_code = 'player_transfer_out'", (u,), "economic_ledger"),
+        db, f"SELECT SUM(LEAST(day_sum, {MORA_GIVEN_PER_DAY})) FROM (SELECT SUM(-delta) AS day_sum FROM economic_ledger "
+            "WHERE user_id = ? AND currency = 'mora' AND reason_code = 'player_transfer_out' "
+            "GROUP BY (created_at AT TIME ZONE 'UTC')::date) t", (u,), "economic_ledger"),
     # Брак из реестра семей (текущий) или завершённый разводом; старые дубли по чатам не считаются.
     "marriage_days": lambda db, u: _scalar(
         db, "SELECT MAX(EXTRACT(EPOCH FROM (COALESCE(m.ended_at, NOW()) - m.marriage_date)) / 86400) "
@@ -263,12 +271,24 @@ async def after_message(db, message: Message) -> None:
     await announce(db, message, quiet_name(user.username, user.first_name), ups)
 
 
+async def _bump_capped(db, user_id: int, name: str, per_day: int) -> None:
+    """Прибавить к счётчику, но не больше per_day раз в сутки: накрутка парой аккаунтов не даёт Эссенции за вехи."""
+    from bot.chat.tracking import local_now
+    async with db.execute(
+        "INSERT INTO chat_achievement_counters (user_id, counter, value) VALUES (?, ?, 1) "
+        "ON CONFLICT (user_id, counter) DO UPDATE SET value = chat_achievement_counters.value + 1 RETURNING value",
+        (user_id, f"{name}_day:{local_now().date().isoformat()}")) as cur:
+        today = int((await cur.fetchone())[0])
+    if today <= per_day:
+        await bump(db, user_id, name)
+
+
 async def after_warp(db, message: Message, actor_id: int, target_id: int, target_name: str) -> None:
     if actor_id == target_id:
         return
     try:
-        await bump(db, actor_id, "warps_sent")
-        await bump(db, target_id, "warps_received")
+        await _bump_capped(db, actor_id, "warps_sent", WARPS_PER_DAY)
+        await _bump_capped(db, target_id, "warps_received", WARPS_PER_DAY)
         actor = message.from_user
         await announce(db, message, quiet_name(actor.username, actor.first_name),
                        await evaluate(db, actor_id, {"warps"}))
@@ -355,6 +375,9 @@ def reward_line(a: Achievement, level: int) -> str:
                   summary=f"Достижения и их уровни (в каждом от {MIN_LEVELS} уровней и больше).")
 async def cmd_achievements(ctx: Ctx) -> None:
     target, rest = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     a = find(rest)
     if a:

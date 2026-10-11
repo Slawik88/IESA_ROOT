@@ -74,7 +74,7 @@ async def resolve_target(message: types.Message, db: aiosqlite.Connection, args:
     parts = args.split()
     first = parts[0]
 
-    if first.isdigit():
+    if first.isdecimal() and len(first) <= 15:   # длиннее — не ID и не влезет в BIGINT
         target_id = int(first)
         async with db.execute(
             "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (target_id,)

@@ -1,10 +1,11 @@
 """«бот стрик» — серия дней с активностью и панель активности за 9 недель."""
 from __future__ import annotations
 
+import html
 from datetime import date, timedelta
 
 from bot.chat.framework import Ctx, registry
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.tracking import local_now
 
 WEEKS = 9
@@ -60,8 +61,11 @@ async def streak_of(db, user_id: int, today: date) -> tuple[int, int, bool]:
 # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md)
 async def cmd_streak(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
-    who = target.label() if target else "Ваш"
+    who = html.escape(target.label()) if target else "Ваш"
     today = local_now().date()
     current, best, done = await streak_of(ctx.db, uid, today)
     first = today - timedelta(days=today.weekday()) - timedelta(weeks=WEEKS - 1)

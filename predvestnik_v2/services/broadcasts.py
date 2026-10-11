@@ -71,6 +71,7 @@ MAX_IDS = 5000
 TEMPLATES_MAX = 100
 
 _tasks: dict[int, asyncio.Task] = {}
+_cancel: set[int] = set()   # рассылки, которые остановили: отправка смотрит сюда перед каждым получателем
 LOCK = 7710401   # одна рассылка за раз
 
 
@@ -119,9 +120,11 @@ def _ids(value, what: str) -> list[int]:
     if not isinstance(value, list):
         raise BroadcastError(f"{what}: список ID.")
     try:
-        ids = sorted({int(x) for x in value})
+        ids = sorted({int(x) for x in value if not isinstance(x, (bool, float))})
     except (TypeError, ValueError):
         raise BroadcastError(f"{what}: только числа.")
+    if any(abs(i) >= 2 ** 63 for i in ids):   # больше BIGINT: база ответила бы ошибкой
+        raise BroadcastError(f"{what}: слишком большое число.")
     if len(ids) > MAX_IDS:
         raise BroadcastError(f"{what}: не больше {MAX_IDS}.")
     return ids
@@ -134,6 +137,8 @@ def normalize_segment(raw, audience: str | None = None) -> dict:
     чате за N дней (для игроков: писали хоть где-то). Только для игроков: vip (true/false), new_days (впервые
     замечены за N дней), min_messages, players (конкретные люди). target_ids — служебное: повтор недоставленным.
     """
+    if raw and not isinstance(raw, dict):
+        raise BroadcastError("Получатели: неверный формат.")
     raw = dict(raw or {})
     kind = str(raw.get("kind") or audience or "")
     if kind not in KINDS:
@@ -158,7 +163,7 @@ def normalize_segment(raw, audience: str | None = None) -> dict:
     if targets:
         seg["target_ids"] = targets
         if raw.get("retry_of"):
-            seg["retry_of"] = int(raw["retry_of"])
+            seg["retry_of"] = _int(raw["retry_of"], 1, 2 ** 31, "Номер рассылки")
     return seg
 
 
@@ -208,7 +213,7 @@ async def recipients(db, seg: dict) -> list[int]:
             args.append(seg["target_ids"])
         order = "ORDER BY c.chat_id"
     else:
-        sql = ("SELECT u.user_tg_id FROM users u WHERE u.user_tg_id > 0 AND u.dm_blocked_at IS NULL "
+        sql = ("SELECT u.user_tg_id FROM users u WHERE u.user_tg_id > 0 AND u.dm_blocked_at IS NULL AND u.deleted_at IS NULL "
                "AND NOT EXISTS (SELECT 1 FROM bot_user_blocks b WHERE b.user_id = u.user_tg_id "
                "AND (b.until IS NULL OR b.until > NOW())) "
                "AND NOT EXISTS (SELECT 1 FROM chat_blacklist g WHERE g.chat_id = 0 AND g.user_id = u.user_tg_id)")
@@ -257,7 +262,11 @@ async def preview(db, raw, audience: str | None = None) -> dict:
 
 def normalize_button(raw) -> tuple[str, str] | None:
     """Кнопка-ссылка под сообщением: (подпись, адрес) или None."""
-    if not raw or not (raw.get("text") or raw.get("url")):
+    if not raw:
+        return None
+    if not isinstance(raw, dict):
+        raise BroadcastError("Кнопка: неверный формат.")
+    if not (raw.get("text") or raw.get("url")):
         return None
     text, url = str(raw.get("text") or "").strip(), str(raw.get("url") or "").strip()
     if not text or not url:
@@ -404,6 +413,26 @@ async def _check_free(db) -> None:
             raise BroadcastError("Уже идёт другая рассылка. Дождитесь её или остановите.")
 
 
+async def precheck(db, actor_id: int, audience: str | None, text: str, request_id: str = "", *, segment=None,
+                   scheduled_at=None) -> bool:
+    """Те же проверки, что у create, но ничего не создаёт: нужны до пробной отправки администратору, чтобы отказ
+    не оставлял ему лишнее сообщение. True — рассылка с таким request_id уже есть (повторный запрос)."""
+    seg = normalize_segment(segment, audience)
+    if not 1 <= len(text) <= MAX_TEXT:
+        raise BroadcastError(f"Текст — от 1 до {MAX_TEXT} символов.")
+    when = _parse_when(scheduled_at)
+    if request_id:
+        async with db.execute("SELECT 1 FROM bot_broadcasts WHERE actor_id = ? AND request_id = ?",
+                              (actor_id, request_id)) as cur:
+            if await cur.fetchone():
+                return True
+    if not when:
+        await _check_free(db)
+        if not await recipients(db, seg):
+            raise BroadcastError("Некому отправлять.")
+    return False
+
+
 async def create(db, actor_id: int, audience: str | None, text: str, request_id: str = "", html: bool = False, *,
                  segment=None, button=None, scheduled_at=None, parent_id: int | None = None) -> Created:
     """Создать рассылку: сразу запускаемую (получатели фиксируются здесь) или отложенную (получатели — в момент отправки).
@@ -447,7 +476,10 @@ async def stop(db, broadcast_id: int) -> bool:
     async with db.execute(
         "UPDATE bot_broadcasts SET status = 'stopped', finished_at = NOW() WHERE id = ? "
         "AND status IN ('running', 'scheduled') RETURNING id", (broadcast_id,)) as cur:
-        return await cur.fetchone() is not None
+        stopped = await cur.fetchone() is not None
+    if stopped:
+        _cancel.add(broadcast_id)   # идущая отправка прервётся на следующем получателе, а не доделает пачку из двадцати
+    return stopped
 
 
 async def resume(db, broadcast_id: int) -> int:
@@ -465,6 +497,7 @@ async def resume(db, broadcast_id: int) -> int:
         if not left:
             raise BroadcastError("Всем уже отправлено.")
         await db.execute("UPDATE bot_broadcasts SET status = 'running', finished_at = NULL WHERE id = ?", (broadcast_id,))
+    _cancel.discard(broadcast_id)
     return left
 
 
@@ -533,6 +566,8 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
             break
         results: list[tuple[int, str, str | None]] = []
         for target in batch:
+            if broadcast_id in _cancel:
+                break
             outcome: tuple[str, str | None] = ("failed", "other")
             for attempt in range(2):
                 try:
@@ -549,6 +584,10 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
                     outcome = ("failed", reason_of(exc))
                     break
             results.append((target, *outcome))
+            if len(results) >= 5:   # записываем итог каждые пять отправок: после перезапуска повторно уйдёт не больше четырёх
+                async with pool_db() as db:
+                    await _flush(db, broadcast_id, results)
+                results = []
             await asyncio.sleep(PAUSE.get(audience, 0.1))
         async with pool_db() as db:
             await _flush(db, broadcast_id, results)
@@ -559,11 +598,21 @@ async def run(bot, pool_db, broadcast_id: int, audience: str, text: str, html: b
 
 
 def start(bot, pool_db, broadcast_id: int, audience: str, text: str, html: bool = False, button=None) -> asyncio.Task:
+    running = _tasks.get(broadcast_id)
+    if running and not running.done():   # «Остановить» и сразу «Продолжить»: старая отправка ещё жива и подхватит остаток сама
+        return running
     markup = _markup(*(button or (None, None))) if not isinstance(button, dict) else _markup(button.get("text"), button.get("url"))
 
     async def guarded():
         try:
-            await run(bot, pool_db, broadcast_id, audience, text, html, markup)
+            for _ in range(3):
+                await run(bot, pool_db, broadcast_id, audience, text, html, markup)
+                async with pool_db() as db:   # остановили и тут же продолжили, пока цикл выходил: доделываем остаток
+                    async with db.execute("SELECT 1 FROM bot_broadcasts b WHERE b.id = ? AND b.status = 'running' AND EXISTS "
+                                          "(SELECT 1 FROM bot_broadcast_targets t WHERE t.broadcast_id = b.id AND t.status = 'pending')",
+                                          (broadcast_id,)) as cur:
+                        if not await cur.fetchone():
+                            break
         except Exception as exc:
             logger.exception(f"broadcast {broadcast_id} crashed: {exc}")
             async with pool_db() as db:

@@ -76,6 +76,16 @@ for sub in (top.router, help.router, family.router, games.router, mafia.router, 
     router.include_router(sub)
 
 
+@router.edited_message()
+async def on_edited_message(message: Message, bot, db) -> None:
+    """Правка старого сообщения не должна обходить тишину ночной фазы Мафии: чужой текст туда не втиснешь."""
+    from loguru import logger
+    try:
+        await mafia.gate_message(db, bot, message)
+    except Exception as exc:
+        logger.warning(f"mafia gate (edit) failed: {exc}")
+
+
 @router.message()
 async def on_message(message: Message, bot, db) -> None:
     """Каждое сообщение: закрытый чат, учёт активности, затем команда."""

@@ -5,6 +5,12 @@ import re
 from datetime import timedelta
 
 FOREVER = "forever"
+MAX_DAYS = 366   # дольше Telegram сам считает вечным, а в базе срок истёк бы: для вечного есть «навсегда»
+MAX_SECONDS = MAX_DAYS * 86400
+
+
+class TooLong(ValueError):
+    """Срок дольше года: слишком большие числа ломали запись в базу и чтение варнов."""
 
 _UNITS = {
     "м": 60, "мин": 60, "минута": 60, "минуты": 60, "минут": 60, "m": 60,
@@ -16,6 +22,7 @@ _UNITS = {
 _FOREVER_WORDS = {"навсегда", "вечно", "forever", "∞"}
 _PART = re.compile(r"(\d+)\s*([a-zа-яё]+)", re.IGNORECASE)
 _HEAD = re.compile(r"^\s*((?:\d+\s*[a-zа-яё]+\s*)+)", re.IGNORECASE)
+_DECIMAL = re.compile(r"^\s*\d+[.,]\d+\s*[a-zа-яё]+", re.IGNORECASE)   # «1.5ч»: дробные сроки не поддерживаются
 
 
 def split_duration(text: str) -> tuple[timedelta | str | None, str]:
@@ -27,6 +34,9 @@ def split_duration(text: str) -> tuple[timedelta | str | None, str]:
     first = t.split(maxsplit=1)
     if first and first[0].lower().strip(",") in _FOREVER_WORDS:
         return FOREVER, first[1].strip(" ,") if len(first) > 1 else ""
+    bad = _DECIMAL.match(t)
+    if bad:
+        raise ValueError(bad.group(0).strip())
     m = _HEAD.match(t)
     if not m:
         return None, t
@@ -40,8 +50,12 @@ def split_duration(text: str) -> tuple[timedelta | str | None, str]:
             raise ValueError(part.group(0))
         total += int(part.group(1)) * _UNITS[unit]
         consumed_to = part.end()
-    if not total:
+        if total > MAX_SECONDS:
+            raise TooLong(m.group(1).strip())
+    if not consumed_to:
         return None, t
+    if not total:   # «0д», «0м»: срок указан, но нулевой, — не превращаем в вечный
+        raise ValueError(t[:consumed_to].strip())
     return timedelta(seconds=total), t[consumed_to:].strip(" ,")
 
 

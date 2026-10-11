@@ -6,6 +6,7 @@ from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramFo
                                 TelegramNetworkError, TelegramRetryAfter, TelegramServerError)
 from loguru import logger
 
+from bot.chat import mafia_flood as flood
 from bot.chat.mafia_card_views import phase_keyboard, phase_text
 from bot.chat.mafia_filters import bot_username
 from bot.chat.mafia_views import lobby_keyboard, lobby_text
@@ -38,6 +39,7 @@ async def _edit(bot: Bot, view: dict, text: str, keyboard) -> str:
         return "later"
     except _TRANSIENT as exc:
         logger.warning(f"Mafia card edit postponed: {exc}")
+        flood.note(exc)
         return "later"
     except TelegramForbiddenError as exc:
         logger.warning(f"Mafia card edit forbidden: {exc}")
@@ -50,6 +52,7 @@ async def _send(bot: Bot, db, view: dict, text: str, keyboard) -> bool:
                                       message_thread_id=view.get("topic_id"))
     except _TRANSIENT as exc:
         logger.warning(f"Mafia card send postponed: {exc}")
+        flood.note(exc)
         return False
     except TelegramAPIError as exc:
         logger.warning(f"Mafia card send failed: {exc}")
@@ -77,6 +80,11 @@ async def publish_phase(bot: Bot, db, view: dict, *, gap: float = rules.CARD_REF
     if not await ops.claim_card_refresh(db, match_id=view["match_id"], gap_seconds=gap):
         return True
     text, keyboard = phase_text(view), _keyboard_for(view, await bot_username(bot))
+    if not view.get("phase_message_id") and not repost:
+        # Карточку мог выложить соседний проход, пока мы собирали данные: тогда правим её, а не шлём вторую
+        fresh = await repo.get_match(db, match_id=view["match_id"])
+        if fresh and fresh.get("phase_message_id"):
+            view = {**view, "phase_message_id": fresh["phase_message_id"]}
     if view.get("phase_message_id") and not repost:
         outcome = await _edit(bot, view, text, keyboard)
         if outcome != "gone":

@@ -148,7 +148,7 @@ async def run(dsn: str) -> None:
         ) as cursor:
             personal = await cursor.fetchall()
         assert [(int(r[0]), float(r[1]), float(r[2])) for r in personal] == [
-            (910000000006, 2.5, 2.0), (910000000009, 2.5, 1.0),
+            (910000000006, 3.0, 2.0), (910000000009, 2.0, 1.0),   # мора делится целыми, остаток — первому
         ]
         async with db.execute(
             "SELECT COUNT(*),COUNT(DISTINCT family_operation_id),"

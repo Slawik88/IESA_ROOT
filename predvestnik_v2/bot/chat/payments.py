@@ -324,7 +324,7 @@ class _ZarnikiAmountReply(BaseFilter):
         reply = message.reply_to_message
         if not reply or not reply.text or _CUSTOM_AMOUNT_MARKER not in reply.text:
             return False
-        return bool(message.text and message.text.strip().isdigit())
+        return bool(message.text and message.text.strip().isdecimal())
 
 
 @router.message(_ZarnikiAmountReply())

@@ -241,6 +241,20 @@ async def main():
         logger.info("🟢 БОТ ГОТОВ К ПРИЕМУ СООБЩЕНИЙ")
         logger.info("═" * 50)
 
+        # Админка работает в этом же процессе, но FastAPI запущен с lifespan="off": его фоновые циклы здесь не стартуют сами.
+        # Без этого отложенные рассылки не уходили, а итоги дня владельцу не приходили.
+        try:
+            from FastAPI.routers.bot_admin.people import set_bot as _set_admin_bot
+            from services import broadcasts as _broadcasts, owner_digest as _owner_digest
+            _set_admin_bot(bot)   # действия админки идут через тот же клиент с общим ограничением скорости
+            background_tasks.extend([
+                _spawn_supervised("broadcast-scheduler", _broadcasts.scheduler(bot, _broadcasts.pool_db_factory()),
+                                  failed=background_failed),
+                _spawn_supervised("owner-digest", _owner_digest.scheduler(bot, _broadcasts.pool_db_factory()),
+                                  failed=background_failed),
+            ])
+        except Exception as _e:
+            logger.warning(f"Циклы админки (рассылки, итоги дня) не запущены: {_e}")
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),

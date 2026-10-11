@@ -11,6 +11,7 @@ from bot.chat.mafia_cards import post_lobby, publish_phase
 from bot.chat.mafia_cb import MafiaActionCB, MafiaControlCB
 from bot.chat.mafia_delivery import deliver_for_match, group_say
 from bot.chat.mafia_filters import answer, bot_can_moderate, is_chat_admin, topic_of
+from bot.chat.modules import module_disabled_reason
 from core import mafia_copy as copy
 from core import mafia_v1 as rules
 from infrastructure.repositories import mafia_v1 as repo
@@ -136,6 +137,16 @@ async def _control_context(query, bot: Bot) -> tuple[int, int | None, int, bool]
     return chat_id, topic_of(query.message), user_id, await is_chat_admin(bot, chat_id, user_id)
 
 
+async def stale_button(db, query, data: MafiaControlCB) -> bool:
+    """Кнопка с карточки прошлой партии: она не должна остановить, пропустить или продолжить уже новую игру."""
+    row = await repo.active_match(db, chat_id=int(query.message.chat.id), topic_id=topic_of(query.message))
+    if row and int(row["id"]) != int(data.match_id):
+        await answer(query, "Эта кнопка от прошлой партии. Используй карточку текущей игры или напиши «бот мафия статус».",
+                     alert=True)
+        return True
+    return False
+
+
 async def _skip(query, db, bot: Bot) -> None:
     chat_id, topic, user_id, is_admin = await _control_context(query, bot)
     try:
@@ -189,6 +200,11 @@ async def _again(query, db, bot: Bot, data: MafiaControlCB) -> None:
     if not old or old["phase"] not in ("finished", "cancelled"):
         return await answer(query, "Эта партия ещё идёт.", alert=True)
     chat_id, user = int(query.message.chat.id), query.from_user
+    reason = await module_disabled_reason(db, chat_id, "module_mafia")   # как у «бот мафия»: выключенный раздел не запускать
+    if reason:
+        return await answer(query, reason, alert=True)
+    if not await bot_can_moderate(bot, chat_id):
+        return await answer(query, "Боту нужно право «Удалять сообщения», чтобы вести игру. Верни его и нажми ещё раз.", alert=True)
     try:
         view = await mafia.create_lobby(
             db, chat_id=chat_id, topic_id=topic_of(query.message), initiator_id=int(user.id), username=user.username,
@@ -212,6 +228,8 @@ async def cb_mafia_control(query: types.CallbackQuery, callback_data: MafiaContr
     action = callback_data.action
     if action == "role":
         return await _role_popup(query, db, callback_data)
+    if action != "again" and await stale_button(db, query, callback_data):
+        return
     if action == "skip":
         return await _skip(query, db, bot)
     if action == "stop_ask":

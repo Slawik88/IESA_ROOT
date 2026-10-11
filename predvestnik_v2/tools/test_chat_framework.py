@@ -87,6 +87,16 @@ try:
     raise AssertionError
 except ValueError:
     pass
+from bot.chat.durations import MAX_DAYS, TooLong  # noqa: E402
+assert split_duration(f"{MAX_DAYS}д") == (timedelta(days=MAX_DAYS), "")
+for bad, kind in (("99999999д", TooLong), ("99999999999999999д спам", TooLong), (f"{MAX_DAYS + 1}д", TooLong),
+                  ("0д", ValueError), ("0м спам", ValueError), ("1.5ч", ValueError), ("2,5д флуд", ValueError)):
+    try:
+        split_duration(bad)
+        raise AssertionError(bad)
+    except kind:
+        pass   # раньше «0д» и «1.5ч» молча давали вечную санкцию, а огромный срок ломал чтение варнов
+assert split_duration("2 дня 3 раза нарушил") == (timedelta(days=2), "3 раза нарушил")
 assert human(timedelta(days=8, hours=3)) == "1н 1д 3ч"
 for text, name in (("бот мут, @u 2ч", "мут"), ("бот снять мут @u", "снять мут"), ("бот размут @u", "снять мут"),
                    ("+чат", "открыть чат"), ("-чат", "закрыть чат"), ("бот снять варны @u", "снять варны"),
@@ -109,7 +119,10 @@ p = purge.plan_purge("50 01.10.2026-07.10.2026", saturday, None)
 assert (p.norm, p.start, p.end) == (50, date(2026, 10, 1), date(2026, 10, 7))
 p = purge.plan_purge("01.10-07.10, 50", saturday, None)
 assert p.norm == 50 and p.start == date(2026, 10, 1)
-for bad in ("", "50 01.10.2026-20.10.2026", "50 40.10.2026-41.10.2026"):
+p = purge.plan_purge("50 28.12-03.01", date(2027, 1, 5), None)   # период через Новый год без годов
+assert (p.start, p.end) == (date(2026, 12, 28), date(2027, 1, 3)), p
+for bad in ("", "50 01.10.2026-20.10.2026", "50 40.10.2026-41.10.2026",
+            "100 07.10", "100 05.10 07.10", "99999999999"):   # одна дата или огромная норма раньше молча превращались в «норму 7»
     try:
         purge.plan_purge(bad, saturday, None)
         raise AssertionError(bad)

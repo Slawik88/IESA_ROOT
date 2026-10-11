@@ -24,7 +24,8 @@ from bot.chat import ranks
 from bot.chat.access import is_developer
 from bot.chat.admin_chat import admin_chat_of, ping_line
 from bot.chat.framework import Ctx, UsageError, registry
-from bot.chat.moderation import FOREVER, TG_FAIL, active_warns, commit, do_ban, do_kick, do_mute, log
+from bot.chat.moderation import (FOREVER, TG_FAIL, active_warns, commit, do_ban, do_kick, do_mute, do_warn, log,
+                                 rank_block, warn_limit_alert)
 from bot.chat.tracking import PRESENCE_SQL, local_now, stay_start, tz_delta
 from bot.chat.style import quote
 from infrastructure.database import get_pool
@@ -32,6 +33,7 @@ from infrastructure.pg_adapter import PGAdapter
 
 router = Router(name="chat_purge")
 USAGE = "бот чистка, норма [01.12.2026-07.12.2026]"
+MAX_NORM = 100000   # норма в сообщениях; больше не помещалась бы в счётчики
 _DATE = r"(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?"
 _RANGE = re.compile(rf"{_DATE}\s*[-–—]\s*{_DATE}")
 
@@ -62,15 +64,24 @@ def plan_purge(args: str, today: date, usual_norm: int | None) -> Plan | str:
     """План чистки или текст-подсказка (с готовой командой), если запускать рано."""
     text = args.strip()
     rng = _RANGE.search(text)
+    if not rng and re.search(r"\d{1,2}\.\d{1,2}(?:\.\d{2,4})?", text):   # «07.10» без второй даты принимали за норму 7
+        raise UsageError(USAGE + "\nПериод пишите через дефис: 01.12.2026-07.12.2026")
     norm_part = (text[:rng.start()] + " " + text[rng.end():]) if rng else text
     nums = re.findall(r"\d+", norm_part)
     norm = int(nums[0]) if nums else usual_norm
+    if norm is not None and norm > MAX_NORM:
+        raise UsageError(USAGE + f"\nНорма — число сообщений, не больше {MAX_NORM}.")
     if rng:
         try:
             a = _mkdate(rng.group(1), rng.group(2), rng.group(3), today)
             b = _mkdate(rng.group(4), rng.group(5), rng.group(6), today)
         except ValueError:
             raise UsageError(USAGE + "\nНе понял даты. Пример: 01.12.2026-07.12.2026")
+        if b < a and not rng.group(3) and not rng.group(6):   # «28.12-03.01»: начало было в прошлом году
+            try:
+                a = a.replace(year=a.year - 1)
+            except ValueError:
+                pass
         if b < a:
             a, b = b, a
         if b > today:
@@ -375,6 +386,16 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
     if is_developer(cb.u) and cb.act != "forgive":
         await call.answer("К разработчику бота санкции не применяются.", show_alert=True)
         return
+    denied = await rank_block(db, chat_id, actor, cb.u)   # досье мог получить игрок, которого потом повысили
+    if denied:
+        await call.answer(denied, show_alert=True)
+        return
+    async with db.execute("SELECT verdict FROM purge_targets WHERE session_id = ? AND user_id = ?", (cb.s, cb.u)) as cur:
+        decided = await cur.fetchone()
+    if decided and decided[0]:   # второй модератор или повторное нажатие: решение уже принято, второй варн не выдаём
+        await call.answer(f"Решение уже принято: {VERDICTS.get(decided[0], decided[0])}", show_alert=True)
+        return
+    warned = None
     try:
         if cb.act == "ban":
             await do_ban(bot, db, chat_id, cb.u, actor, FOREVER, "чистка")
@@ -383,9 +404,7 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
         elif cb.act == "mute":
             await do_mute(bot, db, chat_id, cb.u, actor, timedelta(hours=1), "чистка")
         elif cb.act == "warn":
-            await db.execute("INSERT INTO user_warnings (chat_id, user_id, admin_id, reason) VALUES (?, ?, ?, ?)",
-                             (chat_id, cb.u, actor, "чистка: не набрана норма"))
-            await log(db, chat_id, cb.u, actor, "warn", "чистка")
+            warned = await do_warn(db, chat_id, cb.u, actor, None, "чистка: не набрана норма")
     except (TelegramBadRequest, TelegramForbiddenError):
         await call.answer(TG_FAIL, show_alert=True)
         return
@@ -393,6 +412,12 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
         "UPDATE purge_targets SET verdict = ?, verdict_by = ?, verdict_at = NOW() WHERE session_id = ? AND user_id = ?",
         (cb.act, actor, cb.s, cb.u))
     await commit(db)
+    if warned and warned[0] >= warned[1]:   # варн за чистку тоже может добрать лимит: модераторам уходит то же уведомление
+        async with db.execute("SELECT u.user_tg_username, c.chat_title FROM users u LEFT JOIN chat_settings c ON c.chat_id = ? "
+                              "WHERE u.user_tg_id = ?", (chat_id, cb.u)) as cur:
+            info = await cur.fetchone()
+        await warn_limit_alert(bot, db, chat_id, info[1] if info else None, cb.u,
+                               f"@{info[0]}" if info and info[0] else f"id{cb.u}", warned[0], warned[1])
     try:
         await call.message.edit_text(
             f"{call.message.html_text}\n\n<b>{VERDICTS[cb.act]}</b> · {html.escape(call.from_user.full_name)}",

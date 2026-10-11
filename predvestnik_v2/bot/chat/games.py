@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from aiogram import Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -71,7 +72,10 @@ async def on_refund(call: CallbackQuery, callback_data: LegacyGameRefundCB, db) 
     result = await refund_active_sessions(db, call.from_user.id)
     await call.answer("Возврат выполнен." if result["count"] else "Возвращать уже нечего.")
     if call.message:
-        await call.message.edit_reply_markup(reply_markup=_games_kb(call.from_user.id, 0))
+        try:
+            await call.message.edit_reply_markup(reply_markup=_games_kb(call.from_user.id, 0))
+        except (TelegramBadRequest, AttributeError):   # повторное нажатие (меню уже такое) или сообщение старше 48 часов
+            pass
 
 
 @registry.command("ритм", aliases=("ритм дня", "контракт ритма", "мой контракт"), usage="бот ритм",

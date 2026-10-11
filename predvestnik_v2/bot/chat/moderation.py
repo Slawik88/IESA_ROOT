@@ -17,10 +17,10 @@ from aiogram.types import CallbackQuery, ChatPermissions, InlineKeyboardButton, 
 from bot.chat import ranks
 from bot.chat.access import is_developer
 from bot.chat.admin_chat import send_admin
-from bot.chat.durations import FOREVER, human, split_duration
+from bot.chat.durations import FOREVER, MAX_DAYS, TooLong, human, split_duration
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.style import quote, reason_quote
-from bot.chat.targets import Target, resolve_target
+from bot.chat.targets import NOT_FOUND, Target, names_someone, resolve_target
 
 router = Router(name="chat_moderation")
 TG_FAIL = "⚠️ Telegram не дал это сделать. Бот должен быть админом группы с правом блокировки участников."
@@ -58,7 +58,18 @@ class Denied(Exception):
     pass
 
 
-async def prepare(ctx: Ctx, action: str, usage: str, *, punish: bool = True) -> tuple[Target, str]:
+async def rank_block(db, chat_id: int, actor: int, target: int) -> str | None:
+    """Текст отказа, если actor не может ничего делать с target: ни с собой, ни с тем, чей ранг не ниже.
+    Нужна и кнопкам под сообщениями, а не только командам: кнопку может нажать любой с нужным правом."""
+    if target == actor:
+        return "⛔ К себе это не применяется."
+    if await ranks.get_rank(db, chat_id, target) >= await ranks.get_rank(db, chat_id, actor):
+        return "⛔ Нельзя: ранг этого игрока не ниже вашего."
+    return None
+
+
+async def prepare(ctx: Ctx, action: str, usage: str, *, punish: bool = True, lift: bool = False) -> tuple[Target, str]:
+    """punish — наказание (ещё и защита разработчика), lift — снятие санкции: оба требуют ранга выше цели."""
     chat_id = ctx.message.chat.id
     await ranks.sync_owner(ctx.db, ctx.bot, chat_id)
     if not await ranks.can(ctx.db, chat_id, ctx.user_id, action):
@@ -79,6 +90,10 @@ async def prepare(ctx: Ctx, action: str, usage: str, *, punish: bool = True) -> 
             theirs = await ranks.get_rank(ctx.db, chat_id, target.user_id)
             if theirs >= mine:
                 raise Denied("⛔ Нельзя применить санкцию к тому, чей ранг не ниже вашего.")
+    elif lift and not ctx.is_dev:
+        denied = await rank_block(ctx.db, chat_id, ctx.user_id, target.user_id)
+        if denied:
+            raise Denied(denied.replace("Нельзя:", "Нельзя снять санкцию:", 1) if "Нельзя:" in denied else denied)
     return target, rest
 
 
@@ -101,6 +116,8 @@ def moderation_command(name: str, *, usage: str, summary: str, example: str = ""
 def _parse_duration(rest: str, usage: str) -> tuple[timedelta | str | None, str]:
     try:
         return split_duration(rest)
+    except TooLong:
+        raise UsageError(f"{usage}\nСрок не больше {MAX_DAYS} дней. Для вечной санкции напишите «навсегда».")
     except ValueError as e:
         raise UsageError(f"{usage}\nНе понял срок «{e}». Примеры: 30м, 2ч, 5д, 1н, навсегда")
 
@@ -183,7 +200,7 @@ async def warn_limit_alert(bot: Bot, db, chat_id: int, chat_title, user_id: int,
 
 @moderation_command("снять варн", usage="бот снять варн, @ник", summary="Снять последний действующий варн.")
 async def cmd_unwarn(ctx: Ctx) -> None:
-    target, _ = await prepare(ctx, "unwarn", "бот снять варн, @ник", punish=False)
+    target, _ = await prepare(ctx, "unwarn", "бот снять варн, @ник", punish=False, lift=True)
     chat_id = ctx.message.chat.id
     warns = await active_warns(ctx.db, chat_id, target.user_id)
     if not warns:
@@ -199,7 +216,7 @@ async def cmd_unwarn(ctx: Ctx) -> None:
 
 @moderation_command("снять варны", usage="бот снять варны, @ник", summary="Снять все действующие варны.")
 async def cmd_unwarn_all(ctx: Ctx) -> None:
-    target, _ = await prepare(ctx, "unwarn", "бот снять варны, @ник", punish=False)
+    target, _ = await prepare(ctx, "unwarn", "бот снять варны, @ник", punish=False, lift=True)
     n = await revoke_all_warns(ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
     await ctx.reply(f"✅ С <b>{esc(target.label())}</b> снято варнов: {n}.")
 
@@ -224,6 +241,9 @@ async def revoke_all_warns(db, chat_id: int, user_id: int, admin_id: int) -> int
 async def cmd_warns(ctx: Ctx) -> None:
     chat_id = ctx.message.chat.id
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     label = target.label() if target else "У вас"
     warns = await active_warns(ctx.db, chat_id, uid)
@@ -233,8 +253,8 @@ async def cmd_warns(ctx: Ctx) -> None:
         return
     rows = []
     for i, (_, reason, created, expires, _) in enumerate(warns, 1):
-        when = created.strftime("%d.%m") if created else ""
-        till = f"до {expires.strftime('%d.%m %H:%M')}" if expires else "бессрочный"
+        when = _local(created).strftime("%d.%m") if created else ""
+        till = f"до {_local(expires).strftime('%d.%m %H:%M')}" if expires else "бессрочный"
         rows.append(f"<b>{i}.</b> {when} · {till}" + (f"\n     <i>{esc(reason)}</i>" if reason else ""))
     await ctx.reply(f"⚠️ <b>Варны</b> {esc(label)}: {len(warns)}/{limit}\n" + quote(rows))
 
@@ -249,7 +269,7 @@ async def cmd_warn_limit(ctx: Ctx) -> None:
     if not value:
         await ctx.reply(f"Лимит варнов в этом чате: <b>{await warn_limit(ctx.db, chat_id)}</b>.")
         return
-    if not value.isdigit() or not 1 <= int(value) <= 50:
+    if not value.isdecimal() or not 1 <= int(value) <= 50:
         raise UsageError("бот лимит варнов, 5   (число от 1 до 50)")
     if not await ranks.can(ctx.db, chat_id, ctx.user_id, "warn_limit"):
         await ctx.reply("⛔ У вашего ранга нет права менять лимит варнов.")
@@ -296,7 +316,7 @@ async def cmd_mute(ctx: Ctx) -> None:
 
 @moderation_command("снять мут", aliases=("размут",), usage="бот снять мут, @ник", summary="Вернуть право писать.")
 async def cmd_unmute(ctx: Ctx) -> None:
-    target, _ = await prepare(ctx, "unmute", "бот снять мут, @ник", punish=False)
+    target, _ = await prepare(ctx, "unmute", "бот снять мут, @ник", punish=False, lift=True)
     await do_unmute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
     await ctx.reply(f"🔊 <b>{esc(target.label())}</b> снова может писать.")
 
@@ -376,7 +396,7 @@ async def cmd_ban(ctx: Ctx) -> None:
 @moderation_command("снять бан", aliases=("разбан",), usage="бот снять бан, @ник",
                     summary="Убрать из чёрного списка, вход снова открыт.")
 async def cmd_unban(ctx: Ctx) -> None:
-    target, _ = await prepare(ctx, "unban", "бот снять бан, @ник", punish=False)
+    target, _ = await prepare(ctx, "unban", "бот снять бан, @ник", punish=False, lift=True)
     await do_unban(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
     await ctx.reply(f"✅ <b>{esc(target.label())}</b> разбанен и может вернуться в чат.")
 
@@ -436,6 +456,9 @@ def _local(dt: datetime) -> datetime:
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt + tz_delta()
+
+
+local_time = _local   # в базе время по UTC, а людям показываем по местному
 
 
 async def protected(db, chat_id: int) -> list[tuple[int, str | None, bool, datetime | None]]:
@@ -542,6 +565,10 @@ async def on_warn_limit(call: CallbackQuery, callback_data: WarnLimitCB, bot: Bo
         return
     if cb.act != "forgive" and is_developer(cb.user):
         await call.answer("К разработчику бота санкции не применяются.", show_alert=True)
+        return
+    denied = await rank_block(db, cb.chat, actor, cb.user)   # кнопку жмёт любой с правом: ранг цели проверяем и здесь
+    if denied:
+        await call.answer(denied, show_alert=True)
         return
     async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (cb.user,)) as cur:
         row = await cur.fetchone()

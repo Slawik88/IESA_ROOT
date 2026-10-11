@@ -23,7 +23,8 @@ const SECTION_META = {
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
-function currentSection() { return $('#tabs .on')?.dataset.tab || 'start'; }
+let CURRENT = 'start';   // раздел из «Ещё» не подсвечен в доке, поэтому текущий раздел помним сами
+function currentSection() { return CURRENT; }
 function clearLoadStages() { _loadStageTimers.forEach(clearTimeout); _loadStageTimers = []; }
 function loadingMarkup(key = currentSection()) {
   const [icon, title, hint] = SECTION_META[key] || ['✦', 'Загрузка', 'Получаем свежие данные'];
@@ -109,6 +110,7 @@ function dockSplit() {
 }
 
 function tabs(active) {
+  CURRENT = active;
   const {main, rest} = dockSplit(), nav = $('#tabs');
   const inRest = rest.some(s => s.key === active);
   const slots = main.length + (rest.length ? 1 : 0);
@@ -494,11 +496,14 @@ async function playerView(main, id, push = true, from = null) {
   };
   const loadMoreNotes = async () => drawNotes(await api(`/player/${id}/notes?offset=${$('#notemore').dataset.next}`), true);
   if ($('#notemore')) { $('#notemore').dataset.next = p.notes.next; $('#notemore').onclick = loadMoreNotes; }
-  $('#noteadd').onclick = async () => {
-    const text = $('#notetext').value.trim();
+  $('#noteadd').onclick = async e => {
+    const btn = e.currentTarget, text = $('#notetext').value.trim();
     if (!text) return toast('Напишите текст заметки', true);
+    if (btn.disabled) return;
+    btn.disabled = true;   // двойной клик не должен создавать две одинаковые заметки
     try { drawNotes(await api(`/player/${id}/notes`, {method: 'POST', body: JSON.stringify({text})})); $('#notetext').value = ''; toast('Заметка добавлена'); }
-    catch (e) { toast(e.message, true); }
+    catch (err) { toast(err.message, true); }
+    finally { btn.disabled = false; }
   };
   $('#notescard').onclick = async e => {
     const a = e.target.closest('[data-rmnote]');
@@ -810,10 +815,20 @@ async function reportsView(main, kind = 'open') {
     const [form, collect] = actionForm(key, {});
     sheet(title, `<div class="sub" style="margin-bottom:10px">На ${esc(r.target.name)} · чат «${esc(r.chat.title)}» · жалоба №${r.id}: ${esc(r.reason)}</div>${form}
       <div class="field switch"><input id="fclose" type="checkbox" checked/><label for="fclose" style="margin:0">Закрыть жалобу: нарушение подтверждено</label></div>`,
-      'Выполнить', async () => {
-        const res = await api(`/reports/${r.id}/punish`, {method: 'POST', body: JSON.stringify({action: key, ...collect(), close: $('#fclose').checked})});
-        toast(res.message || 'Готово');
-        reportsView(main, kind);
+      key === 'ban' ? 'Далее' : 'Выполнить', async () => {
+        const payload = {action: key, ...collect(), close: $('#fclose').checked};
+        const send = async () => {
+          const res = await api(`/reports/${r.id}/punish`, {method: 'POST', body: JSON.stringify(payload)});
+          toast(res.message || 'Готово');
+          reportsView(main, kind);
+        };
+        if (key !== 'ban') return send();
+        // Бан — как в карточке игрока: сначала итог, потом подтверждение (по умолчанию он «навсегда»).
+        const lines = [`Игрок: <b>${esc(r.target.name)}</b>`, ...confirmLines('ban', payload, {}, {chat_title: r.chat.title}),
+          ...(payload.close ? ['Жалоба закроется как подтверждённая.'] : [])];
+        sheet(CONFIRM_TITLE.ban, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
+          <div class="confirm">${lines.map(l => `<div>${l}</div>`).join('')}</div>`, 'Подтвердить', send);
+        return 'keep';
       });
   });
   const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
@@ -838,10 +853,19 @@ SECTIONS.reports = main => reportsView(main);
 
 // Предпросмотр HTML Telegram: всё экранируется, обратно включаются только теги, которые понимает Telegram.
 function tgHtml(text) {
-  return esc(text)
+  const html = esc(text)
     .replace(/&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g, '<$1$2>')
     .replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/g, '<a href="$1" target="_blank" rel="noopener">')
     .replace(/&lt;\/a&gt;/g, '</a>');
+  // Теги закрываем сами: обрезанный на полуслове текст («<b>жирный…») не должен делать жирными соседние строки.
+  const open = [];
+  const balanced = html.replace(/<(\/?)([a-z-]+)[^>]*>/g, (m, close, tag) => {
+    if (!close) { open.push(tag); return m; }
+    const at = open.lastIndexOf(tag);
+    if (at < 0) return '';
+    return open.splice(at).reverse().map(t => `</${t}>`).join('');
+  });
+  return balanced + open.reverse().map(t => `</${t}>`).join('');
 }
 
 // Выбор людей или чатов поиском: чипы + подсказки. items — массив {id, label}, меняется на месте.
@@ -1075,7 +1099,7 @@ async function broadcastView(main) {
   };
 
   // ── История: перерисовывается отдельно, пока идёт рассылка (форма остаётся как есть) ──
-  const alive = () => document.body.contains(main) && $('#bhist') && $('#tabs .on')?.dataset.tab === 'broadcast';
+  const alive = () => document.body.contains(main) && $('#bhist') && currentSection() === 'broadcast';
   let poll;
   function drawHistory() {
     clearTimeout(poll);
@@ -1394,7 +1418,9 @@ async function promoEdit(main, p) {
     drawUsers();
   };
 
-  $('#fsave').onclick = async () => {
+  $('#fsave').onclick = async e => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
     const toIso = v => (v ? new Date(v).toISOString() : null);
     const body = {
       code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code,
@@ -1402,13 +1428,14 @@ async function promoEdit(main, p) {
       valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
       allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(u => u.id), note: $('#fnote').value,
     };
+    btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
     try {
       const saved = isNew
         ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
         : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
       toast(isNew ? 'Промокод создан' : 'Сохранено');
       promoView(main, saved.code);
-    } catch (e) { toast(e.message, true); }
+    } catch (err) { toast(err.message, true); btn.disabled = false; }
   };
 }
 
@@ -1439,6 +1466,8 @@ async function switchesView(main, chat = null) {
     ? `<details class="sw-group"><summary>${row(item) || `<div class="sw-row"><div class="t"><b>${esc(item.title)}</b></div></div>`}</summary>
         <div class="sw-sub">${item.items.map(x => row(x, true)).join('')}</div></details>`
     : row(item);
+  // Раскрытые группы запоминаем: после каждого переключателя экран рисуется заново, и они сворачивались.
+  const opened = new Set([...main.querySelectorAll('details.sw-group[open] > summary b')].map(b => b.textContent));
   main.innerHTML = `
     <div class="scope"><span class="sub">Где:</span>
       <button class="btn small ${chat ? '' : 'primary'}" id="sglobal">Везде</button>
@@ -1450,6 +1479,7 @@ async function switchesView(main, chat = null) {
     ${data.catalog.filter(g => !(chat && g.scope === 'site')).map(g => `
       <div class="card"><h3>${esc(g.title)} · ${scopeName}</h3>${g.items.map(group).join('')}</div>`).join('')}
     ${chat ? '<div class="sub">Сайт выключается только целиком для всех — переключитесь на «Везде».</div>' : ''}`;
+  main.querySelectorAll('details.sw-group').forEach(d => { if (opened.has(d.querySelector('summary b')?.textContent)) d.open = true; });
   $('#sglobal').onclick = () => switchesView(main, null);
   let t;
   $('#schatq').oninput = e => {

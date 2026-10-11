@@ -74,7 +74,7 @@ async def _move_on(db, row: dict, outcome: dict) -> None:
 
 
 async def record_terminal_rewards(db, *, match_id: int) -> bool:
-    """Quest/achievement receipts for a finished match, one savepoint per seat.
+    """Quest/achievement receipts for a finished match, one seat at a time.
 
     This runs after the phase change has committed (as a delivery step): a quest or achievement
     failure must never roll back, or block, the end of a game.  Receipts are keyed by the immutable
@@ -86,8 +86,9 @@ async def record_terminal_rewards(db, *, match_id: int) -> bool:
     complete = True
     for player in sorted(await repo.players(db, match_id=match_id), key=lambda item: int(item["user_id"])):
         try:
-            async with db.connection.transaction():
-                await _receipts_for(db, row, player)
+            # Без общей транзакции на игрока: внутри квестов создаются таблицы (DDL), и под замком игрока это
+            # давало взаимную блокировку с запросом из Mini App. Награды записываются по одной и не дублируются.
+            await _receipts_for(db, row, player)
         except Exception:  # noqa: BLE001 - the game is over either way; retry this seat later
             logger.exception(f"Mafia receipts for match {match_id}, user {player['user_id']} failed")
             complete = False

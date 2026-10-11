@@ -6,10 +6,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.people import get_bot
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from services import admin_people
 from services import broadcasts as broadcasts_service
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("broadcast")
 _ready = False
 
@@ -108,7 +109,13 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
     text = str(data.get("text") or "").strip()
     html = bool(data.get("html"))
     button = _button(data)
-    if html or button:   # разметку и кнопку проверяем на себе: битое не уйдёт сотням получателей
+    request_id = str(data.get("request_id") or "")[:64]
+    try:   # сначала проверки, потом пробная отправка: отказ не должен оставлять администратору лишнее сообщение
+        duplicate = await broadcasts_service.precheck(db, user["id"], audience, text, request_id,
+                                                      segment=data.get("segment"), scheduled_at=data.get("scheduled_at"))
+    except broadcasts_service.BroadcastError as exc:
+        raise HTTPException(400, str(exc))
+    if (html or button) and not duplicate:   # разметку и кнопку проверяем на себе: битое не уйдёт сотням получателей
         try:
             await broadcasts_service.send(get_bot(), user["id"], text, html, _markup_of(button))
         except Exception as exc:
@@ -116,7 +123,7 @@ async def broadcast_create(data: dict = Body(...), user=Depends(_user), db=Depen
     try:
         seg = broadcasts_service.normalize_segment(data.get("segment"), audience)
         made = await broadcasts_service.create(
-            db, user["id"], audience, text, str(data.get("request_id") or "")[:64], html,
+            db, user["id"], audience, text, request_id, html,
             segment=seg, button=button, scheduled_at=data.get("scheduled_at"))
     except broadcasts_service.BroadcastError as exc:
         raise HTTPException(400, str(exc))

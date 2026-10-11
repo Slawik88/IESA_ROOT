@@ -248,7 +248,10 @@ async def daily_tick(db) -> None:
         "FROM users u "
         "WHERE u.deleted_at IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM account_deletions ad WHERE ad.user_id = u.user_tg_id "
-        "                AND ad.status IN ('confirming','cooling','pending_restore')) "
+        "                AND (ad.status IN ('cooling','pending_restore') "
+        "                     OR (ad.status = 'confirming' AND (ad.source <> 'inactivity' OR ad.warned_at IS NULL "
+        "                          OR ad.warned_at >= (SELECT MAX(s2.last_message_at) FROM user_chat_stats s2 "
+        "                                              WHERE s2.user_tg_id = u.user_tg_id))))) "
         "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
         "     WHERE s.user_tg_id = u.user_tg_id) "
         "    < NOW() - make_interval(days => COALESCE(u.delete_after_days, 365) - ?) "
@@ -256,16 +259,9 @@ async def daily_tick(db) -> None:
         (ACCOUNT_DELETE_WARN_DAYS,),
     ) as c:
         warn_candidates = [dict(x) for x in await c.fetchall()]
+    # Старая отметка «предупреждён» после возвращения игрока устарела: предупреждаем заново (ON CONFLICT ниже).
     for u in warn_candidates:
         uid = u["user_tg_id"]
-        async with db.execute(
-            "SELECT 1 FROM account_deletions WHERE user_id = ? AND source = 'inactivity' "
-            "AND warned_at IS NOT NULL AND warned_at > NOW() - make_interval(days => ?)",
-            (uid, int(u["dd"])),
-        ) as c2:
-            if await c2.fetchone():
-                continue  # уже предупреждали в этом цикле неактива
-        # активность после старого warned_at сбрасывает процесс — просто перезаписываем
         await db.execute("DELETE FROM account_deletions WHERE user_id = ? AND status IN ('cancelled','restored')", (uid,))
         await db.execute(
             "INSERT INTO account_deletions (user_id, source, status, warned_at) "
@@ -285,10 +281,15 @@ async def daily_tick(db) -> None:
         "JOIN account_deletions ad ON ad.user_id = u.user_tg_id "
         "WHERE u.deleted_at IS NULL AND ad.source = 'inactivity' "
         "AND ad.status = 'confirming' AND ad.warned_at IS NOT NULL "
+        # предупреждение должно пройти не меньше ACCOUNT_DELETE_WARN_DAYS и быть позже последней активности
+        "AND ad.warned_at <= NOW() - make_interval(days => ?) "
+        "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
+        "     WHERE s.user_tg_id = u.user_tg_id) < ad.warned_at "
         "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
         "     WHERE s.user_tg_id = u.user_tg_id) "
         "    < NOW() - make_interval(days => COALESCE(u.delete_after_days, 365)) "
-        "LIMIT 50"
+        "LIMIT 50",
+        (ACCOUNT_DELETE_WARN_DAYS,),
     ) as c:
         for r in [dict(x) for x in await c.fetchall()]:
             if await _mark_deleted(db, r["user_tg_id"]):

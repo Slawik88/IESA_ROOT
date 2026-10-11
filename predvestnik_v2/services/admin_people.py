@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from bot.chat import ranks
 from bot.chat.global_ranks import bot_rank_name, get_bot_rank
@@ -120,11 +120,11 @@ async def search(db, q: str, limit: int = 20) -> dict:
             chats = [_chat_row(r) for r in await cur.fetchall()]
         return {"players": players, "chats": chats}
     digits = q.lstrip("-")
-    if digits.isdigit() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
-        n = int(q)
-        ids = {n, -n} | ({-1000000000000 - abs(n)} if not q.startswith("-100") else set())
+    if digits.isdecimal() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
+        n = int(digits)
+        ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)
-        async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?", (abs(n),)) as cur:
+        async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?", (n,)) as cur:
             players = [_player_row(r) for r in await cur.fetchall()]
         async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
             chats = [_chat_row(r) for r in await cur.fetchall()]
@@ -196,26 +196,33 @@ def describe(action: str, d: dict) -> str:
     return ""
 
 
+def _details(extra) -> dict:
+    """Подробности записи журнала: у действий админки это JSON, у модерации чата — просто причина (она может начинаться с «{»)."""
+    if not extra:
+        return {}
+    if extra.startswith("{"):
+        try:
+            data = json.loads(extra)
+            if isinstance(data, dict):
+                return data
+        except ValueError:
+            pass
+    return {"reason": extra}
+
+
 async def history(db, *, user_id: int | None = None, chat_id: int | None = None, limit: int = 40) -> list[dict]:
     col = "user_id" if user_id is not None else "chat_id"
     key = user_id if user_id is not None else chat_id
     async with db.execute(
         f"SELECT actor_id, action, user_id, chat_id, details::text, created_at FROM bot_admin_actions WHERE {col} = ? "
         f"UNION ALL SELECT admin_id, action, user_id, chat_id, reason, created_at::timestamptz FROM moderation_logs "
-        f"WHERE {col} = ? ORDER BY 6 DESC LIMIT ?", (key, key, limit)) as cur:
+        f"WHERE {col} = ? AND action <> 'global_ban_chat' ORDER BY 6 DESC LIMIT ?", (key, key, limit)) as cur:
         rows = await cur.fetchall()
     names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
     titles = await _chat_titles(db, [r[3] for r in rows])
     out = []
     for actor, action, uid, cid, extra, at in rows:
-        details = {}
-        if extra and extra.startswith("{"):
-            try:
-                details = json.loads(extra)
-            except ValueError:
-                details = {}
-        elif extra:
-            details = {"reason": extra}
+        details = _details(extra)
         out.append({
             "action": action, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
             "reason": str(details.get("reason") or ""), "at": _iso(at),
@@ -247,15 +254,20 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     days = max(1, min(int(days or 7), 90))
     marks = ", ".join("?" for _ in actions)
     limit = max(1, min(int(limit or 30), 100))
+    cursor = None
+    if before:   # asyncpg ждёт datetime, а не строку; битый курсор — ValueError, роутер начнёт с начала
+        cursor = datetime.fromisoformat(before.replace("Z", "+00:00").replace(" ", "+"))   # «+» в адресе без кодирования приходит пробелом
+        if cursor.tzinfo is None:
+            cursor = cursor.replace(tzinfo=timezone.utc)
 
     def cond(time_col: str, actor_col: str) -> tuple[str, list]:
         sql, args = f"action IN ({marks}) AND {time_col} > NOW() - make_interval(days => ?)", [*actions, days]
         if actor_id:
             sql += f" AND {actor_col} = ?"
             args.append(actor_id)
-        if before:
+        if cursor:
             sql += f" AND {time_col} < ?::timestamptz"
-            args.append(before)
+            args.append(cursor)
         return sql, args
 
     c1, a1 = cond("created_at", "actor_id")
@@ -271,14 +283,7 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     titles = await _chat_titles(db, [r[3] for r in rows])
     items = []
     for actor, action, uid, cid, extra, at in rows:
-        details = {}
-        if extra and extra.startswith("{"):
-            try:
-                details = json.loads(extra)
-            except ValueError:
-                details = {}
-        elif extra:
-            details = {"reason": extra}
+        details = _details(extra)
         kind_of = next((k for k, (_, acts) in FEED_KINDS.items() if action in acts), "")
         items.append({
             "action": action, "kind": kind_of, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
