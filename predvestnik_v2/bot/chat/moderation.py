@@ -21,6 +21,7 @@ from bot.chat.durations import FOREVER, MAX_DAYS, TooLong, human, split_duration
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.style import quote, reason_quote
 from bot.chat.targets import NOT_FOUND, Target, names_someone, resolve_target
+from services import member_tags
 
 router = Router(name="chat_moderation")
 TG_FAIL = "⚠️ Telegram не дал это сделать. Бот должен быть админом группы с правом блокировки участников."
@@ -505,7 +506,8 @@ async def cmd_protected(ctx: Ctx) -> None:
     if not rows:
         await ctx.reply("🛡 В этом чате сейчас никто не под защитой.")
         return
-    name = lambda uid, uname: esc(f"@\u200b{uname}" if uname else f"id{uid}")
+    tags = await member_tags.many(ctx.db, ctx.message.chat.id, [r[0] for r in rows])
+    name = lambda uid, uname: esc(member_tags.with_tag(f"@\u200b{uname}" if uname else f"id{uid}", tags.get(uid)))
     immune = [f"💠 {name(u, n)}" for u, n, imm, _ in rows if imm]
     shield = [f"🛡 {name(u, n)} · до {_local(t).strftime('%d.%m %H:%M')}" for u, n, imm, t in rows if not imm and t]
     parts = ["🛡 <b>Под защитой от чистки</b>"]

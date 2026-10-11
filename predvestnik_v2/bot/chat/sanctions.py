@@ -15,6 +15,7 @@ from bot.chat import ranks
 from bot.chat.framework import Ctx, registry
 from bot.chat.moderation import TG_FAIL, active_warns, commit, do_unban, local_time, log, rank_block, revoke_all_warns
 from bot.chat.style import quote
+from services import member_tags
 
 router = Router(name="chat_sanctions")
 PAGE = 8
@@ -99,8 +100,9 @@ async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, 
             for k, t in TABS.items()]
     kb.append(tabs[:3])
     kb.append(tabs[3:])
+    tags = await member_tags.many(db, chat, [r[0] for r in chunk])
     for user_id, uname, detail in chunk:
-        entries.append(f"<b>{html.escape(_name(user_id, uname))}</b> · {html.escape(detail)}")
+        entries.append(f"<b>{html.escape(member_tags.with_tag(_name(user_id, uname), tags.get(user_id)))}</b> · {html.escape(detail)}")
         if tab != "kick":
             kb.append([InlineKeyboardButton(
                 text=f"{_name(user_id, uname).replace(chr(0x200b), '')} — открыть",
@@ -128,7 +130,7 @@ async def card_view(db, uid: int, chat: int, tab: str, page: int, user: int) -> 
         "AND (expires_at IS NULL OR expires_at > NOW())", (chat, user)) as cur:
         ban = await cur.fetchone()
     warns = await active_warns(db, chat, user)
-    lines = [f"👤 <b>{html.escape(_name(user, uname))}</b>"]
+    lines = [f"👤 <b>{html.escape(member_tags.with_tag(_name(user, uname), await member_tags.get(db, chat, user)))}</b>"]
     b = lambda text, act: InlineKeyboardButton(
         text=text, callback_data=SanCB(uid=uid, chat=chat, tab=tab, page=page, user=user, act=act).pack())
     actions = []

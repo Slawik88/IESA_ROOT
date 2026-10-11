@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram.types import Message
 
 from bot.config import config
-from services import name_history
+from services import member_tags, name_history
 
 
 def tz_delta() -> timedelta:
@@ -122,6 +122,7 @@ async def record_message(db, message: Message) -> None:
         "ELSE user_chat_stats.rejoined_at END",
         (user.id, chat.id),
     )
+    await member_tags.observe_message(db, message)   # тег автора приходит в каждом сообщении; пишем, только если он сменился
     await db.execute(
         "INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, ?, ?, 1) "
         "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET "

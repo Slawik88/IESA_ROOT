@@ -10,6 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.chat.framework import Ctx, registry
 from bot.chat.style import quote
 from bot.chat.tracking import local_now
+from services import member_tags
 
 PAGE_SIZE = 25
 ZW = "​"   # «@» + нулевой пробел: ник виден, но участника не пингует
@@ -122,8 +123,10 @@ async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str,
         params + [PAGE_SIZE, page * PAGE_SIZE],
     ) as cur:
         data = await cur.fetchall()
+    tags = await member_tags.many(db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
     rows = [
-        (page * PAGE_SIZE + i + 1, f"@{ZW}{r[1]}" if r[1] else f"id{r[0]}", int(r[2]))
+        (page * PAGE_SIZE + i + 1,
+         member_tags.with_tag(f"@{ZW}{r[1]}" if r[1] else f"id{r[0]}", tags.get(int(r[0]))), int(r[2]))
         for i, r in enumerate(data)
     ]
     return render(title, rows, page, pages, period, scope), pages
