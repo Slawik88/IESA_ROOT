@@ -152,7 +152,7 @@ async def _stop_ask(query, db, bot: Bot, data: MafiaControlCB) -> None:
     row = await repo.active_match(db, chat_id=chat_id, topic_id=topic)
     if not row or not mafia.may_control(row, user_id, is_admin):
         return await answer(query, "Остановить игру может хозяин или админ чата.", alert=True)
-    await bot.send_message(chat_id, "⏹ <b>Остановить игру?</b>\nПартия закончится без победителя, начать заново можно командой «бот мафия».",
+    await bot.send_message(chat_id, "⏹ <b>Остановить игру?</b>\n<i>Партия закончится без победителя, начать заново можно командой «бот мафия».</i>",
                            reply_markup=stop_confirm_keyboard(data.match_id), parse_mode="HTML", message_thread_id=topic)
     await answer(query, "Подтверди кнопкой ниже.")
 

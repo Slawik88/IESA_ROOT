@@ -41,6 +41,7 @@ async def play(h) -> tuple:
     _note(h, "Жанна нажала Start у бота (ссылка mj…) — её записало в лобби само")
     await h.say(guest, guest.id, f"/start mj{match_id}")
     _note(h, "Зрители болтают — лобби всплывает снова, если его закопали (раз в 90 секунд, не чаще)")
+    await h.sql("UPDATE predvestnik.mafia_v1_matches SET last_bump_at=CLOCK_TIMESTAMP()-INTERVAL '2 minutes' WHERE chat_id=$1", t.chat)  # «прошло 2 минуты»
     for i in range(26):
         await h.say(crowd[i % len(crowd)], t.chat, f"флуд {i}")
     _note(h, "Анна нажимает «Начать» — роли уходят в личные сообщения")

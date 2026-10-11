@@ -31,9 +31,9 @@ router = Router(name="mafia_v1_router")
 router.include_router(play_router)
 _OFF = "Мафия пока выключена разработчиком."
 _TOO_OLD = "Эта карточка слишком старая. Напиши «бот мафия», чтобы открыть актуальную."
-_NEED_ADMIN = ("❌ Чтобы играть в Мафию, боту нужны права администратора с правом «Удалять сообщения» — "
-               "иначе он не сможет убирать сообщения в ночные фазы.\n\n"
-               "1) Откройте настройки группы → Администраторы → Бот.\n2) Включите «Удалять сообщения».\n3) Напишите «бот мафия» ещё раз.")
+_NEED_ADMIN = ("❌ <b>Боту нужны права администратора</b>\nЧтобы играть в Мафию, ему нужно право «Удалять сообщения» — "
+               "иначе он не сможет убирать сообщения в ночные фазы.\n"
+               "<blockquote>1) Откройте настройки группы → Администраторы → Бот.\n2) Включите «Удалять сообщения».\n3) Напишите «бот мафия» ещё раз.</blockquote>")
 _WORDS = {"дон": "don", "don": "don", "доктор": "doctor", "doctor": "doctor", "детектив": "detective",
           "комиссар": "detective", "detective": "detective"}
 _TEMPO_WORDS = {"быстро": "fast", "быстрый": "fast", "fast": "fast", "неспешно": "slow", "долго": "slow", "slow": "slow",
@@ -70,7 +70,7 @@ async def _create(message: types.Message, db, bot: Bot, args: str) -> None:
     if await repo.active_match(db, chat_id=chat_id, topic_id=topic):
         return await _status(message, db, bot)  # "бот мафия" while a game exists means "where is it?"
     if not await bot_can_moderate(bot, chat_id):
-        return await message.answer(_NEED_ADMIN)
+        return await message.answer(_NEED_ADMIN, parse_mode="HTML")
     reason = await module_disabled_reason(db, chat_id, "module_mafia")
     if reason:
         return await message.answer(f"🔧 {safe_html(reason)}", parse_mode="HTML")
@@ -93,8 +93,8 @@ async def _private_entry(message: types.Message, db, kind: str) -> None:
     builder.button(text="✅ Я готов получать роль", callback_data=MafiaReadyCB(action="ready"))
     builder.adjust(1)
     await message.answer(
-        "🕵️ <b>Мафия играется в групповом чате.</b>\n\nДобавь меня в группу с друзьями и напиши там <code>бот мафия</code> — "
-        "появится лобби. Роли и ночные ходы приходят сюда, в личку.\n\nНе играл раньше? Нажми «Как играть».",
+        "🕵️ <b>Мафия играется в групповом чате.</b>\nДобавь меня в группу с друзьями и напиши там <code>бот мафия</code> — "
+        "появится лобби. Роли и ночные ходы приходят сюда, в личку.\n<i>Не играл раньше? Нажми «Как играть».</i>",
         reply_markup=builder.as_markup(), parse_mode="HTML")
 
 
@@ -389,8 +389,8 @@ async def _deep_join(message: types.Message, db, bot: Bot, match_id: int) -> Non
         except TelegramAPIError as exc:
             logger.debug(f"Mafia lobby card not refreshed after deep-link join: {exc}")
     await message.answer(
-        "✅ <b>Ты в лобби Мафии!</b>\n\nВернись в групповой чат. Когда хозяин нажмёт «Начать», роль придёт сюда, в этот чат. "
-        "Не выключай уведомления от бота.", parse_mode="HTML")
+        "✅ <b>Ты в лобби Мафии!</b>\nВернись в групповой чат. Когда хозяин нажмёт «Начать», роль придёт сюда, в этот чат.\n"
+        "<i>Не выключай уведомления от бота.</i>", parse_mode="HTML")
 
 
 async def handle_start_payload(message: types.Message, payload: str, db, bot: Bot) -> bool:

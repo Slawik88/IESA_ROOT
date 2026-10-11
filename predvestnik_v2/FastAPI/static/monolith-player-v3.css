@@ -64,3 +64,21 @@
   .chat-tracker-summary b, .px-summary b { font-size: 24px; }
   #pro-main .v3-stats b { font-size: 24px; }
 }
+
+/* ── Мафия: блок «Как играть» над историей партий (сворачивается, шаги с номерами, роли строками) ── */
+.mafia-howto { margin: 2px 0 18px; border-bottom: 1px solid var(--v3-faint); }
+.mafia-howto-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; padding: 0; list-style: none; cursor: pointer; font: var(--v3-w-head) 16px/1.2 var(--v3-font); letter-spacing: -.01em; }
+.mafia-howto-title::-webkit-details-marker { display: none; }
+.mafia-howto-title::after { content: ""; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid var(--v3-dim); border-bottom: 2px solid var(--v3-dim); transform: rotate(45deg) translate(-2px, -2px); transition: transform .22s var(--v3-ease); }
+.mafia-howto[open] > .mafia-howto-title::after { transform: rotate(225deg) translate(-2px, -2px); }
+.mafia-howto-steps { counter-reset: mh; margin: 2px 0 0; padding: 0; list-style: none; }
+.mafia-howto-step { display: grid; grid-template-columns: 28px 1fr; column-gap: 12px; row-gap: 2px; padding: 10px 0; counter-increment: mh; }
+.mafia-howto-step::before { content: counter(mh); grid-row: span 2; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--v3-acc); color: var(--v3-acc); font: 700 13px var(--v3-font); }
+.mafia-howto-step b { font-size: 14.5px; font-weight: 600; }
+.mafia-howto-step span { grid-column: 2; color: var(--v3-dim); font-size: 13px; line-height: 1.45; }
+.mafia-howto-roles { margin: 6px 0 12px; padding: 0; }
+.mafia-howto-role { padding: 9px 0; }
+.mafia-howto-role + .mafia-howto-role { box-shadow: 0 -1px 0 var(--v3-faint); }
+.mafia-howto-role dt { font-size: 14px; font-weight: 600; }
+.mafia-howto-role dd { margin: 2px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.4; }
+@media (prefers-reduced-motion: reduce) { .mafia-howto-title::after { transition: none; } }

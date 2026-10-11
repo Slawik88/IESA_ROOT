@@ -47,6 +47,7 @@ def _roles_label(view: dict) -> str:
     return "Мирные, Мафия" + (" + " + ", ".join(extra) if extra else "")
 
 
+# СТИЛЬ v1 (оформлено, см. docs/MAFIA_DESIGN_HANDOFF.md): заголовок и хозяин строкой, игроки и настройки партии цитатами, «Что делать» отдельным блоком.
 def lobby_text(view: dict) -> str:
     players, need = view["players"], max(0, rules.MIN_PLAYERS - len(view["players"]))
     members = "\n".join(
@@ -58,13 +59,13 @@ def lobby_text(view: dict) -> str:
           else "Игроков хватает! Хозяин нажимает «▶️ Начать».")
     return (
         "🕵️ <b>МАФИЯ — набор игроков</b>\n"
-        f"Хозяин: <b>{safe_html(view.get('host_name'))}</b> · места <b>{len(players)}/{view['max_players']}</b> · старт от {rules.MIN_PLAYERS}\n\n"
-        f"<b>Игроки:</b>\n{members}\n\n"
-        f"🎭 Роли: {_roles_label(view)}\n🗳 Голосование: {vote}\n⏱ Темп: {tempo_line(view.get('tempo', 'normal'))}\n\n"
+        f"Хозяин: <b>{safe_html(view.get('host_name'))}</b> · места <b>{len(players)}/{view['max_players']}</b> · старт от {rules.MIN_PLAYERS}\n"
+        f"<blockquote><b>Игроки</b>\n{members}</blockquote>\n"
+        f"<blockquote>🎭 Роли: {_roles_label(view)}\n🗳 Голосование: {vote}\n⏱ Темп: {tempo_line(view.get('tempo', 'normal'))}</blockquote>\n"
         f"{copy.ACTION_MARK}\n"
-        "• Хочешь играть — нажми «➕ Войти». Если бот попросит, открой его и нажми Start: так он пришлёт тебе роль в личку.\n"
+        "<blockquote>• Хочешь играть — нажми «➕ Войти». Если бот попросит, открой его и нажми Start: так он пришлёт тебе роль в личку.\n"
         "• Не знаешь, что это за игра? Нажми «📖 Как играть» — объяснение на минуту.\n"
-        f"• {go}"
+        f"• {go}</blockquote>"
     )
 
 
@@ -84,30 +85,36 @@ def lobby_keyboard(view: dict, username: str | None = None) -> types.InlineKeybo
     return builder.as_markup()
 
 
+# СТИЛЬ v1 (оформлено, см. docs/MAFIA_DESIGN_HANDOFF.md): значения настроек и пояснения цитатами, подсказки курсивом.
 def settings_text(view: dict, section: str | None = None) -> str:
     roles = set(view["enabled_roles"])
     if section == "players":
-        return (f"👥 <b>Сколько игроков?</b>\n\nСейчас максимум: <b>{view['max_players']}</b>. "
-                "Играть можно уже с 4 — лишние места просто останутся пустыми.")
+        return (f"👥 <b>Сколько игроков?</b>\nСейчас максимум: <b>{view['max_players']}</b>.\n"
+                "<i>Играть можно уже с 4 — лишние места просто останутся пустыми.</i>")
     if section == "roles":
         lines = "\n".join(f"{'✅' if r in roles else '▫️'} <b>{rules.public_role_name(r)}</b> — {ROLE_HINTS[r]}"
                           for r in rules.OPTIONAL_ROLES)
-        return f"🎭 <b>Доп. роли</b>\n\nМирные жители и Мафия есть всегда. Нажми роль, чтобы включить или выключить:\n\n{lines}"
+        return (f"🎭 <b>Доп. роли</b>\n<i>Мирные жители и Мафия есть всегда. Нажми роль, чтобы включить или выключить:</i>\n"
+                f"<blockquote>{lines}</blockquote>")
     if section == "vote":
-        return ("🗳 <b>Как голосуем?</b>\n\n<b>Скрытое</b> — видно только число проголосовавших.\n"
-                "<b>Открытое</b> — все видят, кто за кого. Для новичков проще скрытое.")
+        return ("🗳 <b>Как голосуем?</b>\n<blockquote><b>Скрытое</b> — видно только число проголосовавших.\n"
+                "<b>Открытое</b> — все видят, кто за кого.</blockquote>\n<i>Для новичков проще скрытое.</i>")
     if section == "tempo":
-        lines = "\n".join(f"<b>{label}</b> — {tempo_line(key)}" for key, label in TEMPO_LABELS.items())
-        return f"⏱ <b>Темп игры</b>\n\n{lines}\n\nЕсли все сделали выбор раньше — этап закончится досрочно."
+        def _short(key: str) -> str:
+            night, talk, vote = rules.TEMPOS[key]
+            return f"🌙 {_clock(night)} · ☀️ {_clock(talk)} · 🗳 {_clock(vote)}"
+        lines = "\n".join(f"<b>{label}</b>\n{_short(key)}" for key, label in TEMPO_LABELS.items())
+        return (f"⏱ <b>Темп игры</b>\n<i>Сколько длятся ночь, обсуждение и голосование:</i>\n<blockquote>{lines}</blockquote>\n"
+                "<i>Если все сделали выбор раньше — этап закончится досрочно.</i>")
     chosen = "авто" if view.get("roles_auto", True) else (
         ", ".join(rules.public_role_name(r) for r in rules.OPTIONAL_ROLES if r in roles) or "только базовые")
     return (
-        "⚙️ <b>Настройка партии</b>\n\n"
-        f"👥 Игроков: <b>{view['max_players']}</b>\n🎭 Доп. роли: <b>{chosen}</b>\n"
+        "⚙️ <b>Настройка партии</b>\n"
+        f"<blockquote>👥 Игроков: <b>{view['max_players']}</b>\n🎭 Доп. роли: <b>{chosen}</b>\n"
         f"🗳 Голосование: <b>{'открытое' if view['vote_mode'] == 'open' else 'скрытое'}</b>\n"
-        f"⏱ Темп: <b>{TEMPO_LABELS.get(view.get('tempo'), '')}</b>\n\n"
+        f"⏱ Темп: <b>{TEMPO_LABELS.get(view.get('tempo'), '')}</b></blockquote>\n"
         "💡 <b>Не знаешь, что выбрать?</b> Оставь «Авто»: бот сам добавит Доктора, Детектива и Дона, когда игроков хватит.\n"
-        "Изменения сохраняются сразу."
+        "<i>Изменения сохраняются сразу.</i>"
     )
 
 

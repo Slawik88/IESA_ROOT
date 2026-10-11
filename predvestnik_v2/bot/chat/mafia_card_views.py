@@ -23,12 +23,13 @@ def _timer(view: dict) -> str:
 
 
 def alive_block(view: dict) -> str:
+    """Кто жив и кто выбыл: один блок-цитата (СТИЛЬ v1)."""
     alive = [p for p in view["players"] if p["alive"]]
     out = [p for p in view["players"] if not p["alive"]]
-    text = f"<b>Живы ({len(alive)}):</b> " + " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in alive)
+    lines = [f"<b>Живы · {len(alive)}:</b> " + " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in alive)]
     if out:
-        text += "\n<b>Выбыли:</b> " + " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in out)
-    return text
+        lines.append("💀 <b>Выбыли:</b> " + " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in out))
+    return "<blockquote>" + "\n".join(lines) + "</blockquote>"
 
 
 def mentions_line(view: dict) -> str:
@@ -41,30 +42,31 @@ def _open_tally(view: dict) -> str:
     if view["vote_mode"] != "open":
         return ""
     rows = [f"• {safe_html(i['target_name'])}: {', '.join(safe_html(n) for n in i['voters'])}" for i in view.get("open_votes", [])]
-    return "\n\n<b>Кто за кого:</b>\n" + ("\n".join(rows) or "Пока никто не проголосовал.")
+    return "\n<blockquote><b>Кто за кого</b>\n" + ("\n".join(rows) or "Пока никто не проголосовал.") + "</blockquote>"
 
 
+# СТИЛЬ v1 (оформлено, см. docs/MAFIA_DESIGN_HANDOFF.md): событие и таймер заглавной строкой, описание курсивом, списки цитатой, «Что делать» последней строкой.
 def phase_text(view: dict) -> str:
     phase, mark = view["phase"], copy.ACTION_MARK
     if phase == "finished":
-        return "🏁 <b>ИГРА ОКОНЧЕНА</b>\nИтоги и роли всех игроков — в сообщении ниже."
+        return "🏁 <b>ИГРА ОКОНЧЕНА</b>\n<i>Итоги и роли всех игроков — в сообщении ниже.</i>"
     if phase == "cancelled":
-        return "🛑 <b>Игра остановлена.</b> Чтобы сыграть снова, напишите «бот мафия»."
+        return "🛑 <b>Игра остановлена.</b>\n<i>Чтобы сыграть снова, напишите «бот мафия».</i>"
     if phase == "paused":
         reason = PAUSE_REASONS.get(view.get("finished_reason") or "", "Игра приостановлена.")
         reason = reason.format(detail=safe_html(view.get("pause_detail") or "некоторым игрокам"))
-        return (f"⏸ <b>ИГРА НА ПАУЗЕ</b>\n{reason}\n\n{mark} исправьте причину, затем хозяин игры "
-                "(или админ чата) нажимает «▶️ Продолжить». Время этапа сохранено.")
+        return (f"⏸ <b>ИГРА НА ПАУЗЕ</b>\n<blockquote>{reason}</blockquote>\n{mark} исправьте причину, затем хозяин игры "
+                "(или админ чата) нажимает «▶️ Продолжить». <i>Время этапа сохранено.</i>")
     rnd = view.get("round_number") or 1
     if phase == "night":
-        return (f"🌙 <b>НОЧЬ {rnd}</b> · ⏳ {_timer(view)}\nГород спит. Мафия, Доктор и Детектив делают ходы в личке с ботом.\n\n"
-                f"{alive_block(view)}\n\n{mark} не пиши в чат до утра — сообщения исчезнут. Есть ночная роль? Открой личку с ботом: там кнопки.")
+        return (f"🌙 <b>НОЧЬ {rnd}</b> · ⏳ {_timer(view)}\n<i>Город спит. Мафия, Доктор и Детектив делают ходы в личке с ботом.</i>\n"
+                f"{alive_block(view)}\n{mark} не пиши в чат до утра — сообщения исчезнут. Есть ночная роль? Открой личку с ботом: там кнопки.")
     if phase == "discussion":
-        return (f"☀️ <b>ДЕНЬ {rnd} · ОБСУЖДЕНИЕ</b> · ⏳ {_timer(view)}\n\n{alive_block(view)}\n\n"
+        return (f"☀️ <b>ДЕНЬ {rnd} · ОБСУЖДЕНИЕ</b> · ⏳ {_timer(view)}\n{alive_block(view)}\n"
                 f"{mark} пиши в чат: спорь, задавай вопросы, ищи мафию. Писать могут только живые игроки. "
                 "Когда время выйдет, начнётся голосование.")
     cast = f" · проголосовали {view['votes_cast']} из {view['votes_needed']}" if "votes_cast" in view else ""
-    return (f"🗳 <b>ГОЛОСОВАНИЕ</b> · ⏳ {_timer(view)}{cast}\n{mentions_line(view)}\n\n{mark} нажми на имя того, кого хочешь выгнать. "
+    return (f"🗳 <b>ГОЛОСОВАНИЕ</b> · ⏳ {_timer(view)}{cast}\n{mentions_line(view)}\n{mark} нажми на имя того, кого хочешь выгнать. "
             "Не уверен — нажми «🚫 Никого». Голос можно менять до конца времени."
             f"{_open_tally(view)}")
 
@@ -142,7 +144,7 @@ def dawn_text(view: dict, eliminated: dict | None) -> str:
         head = "☀️ <b>Рассвет.</b> Эта ночь прошла спокойно — никто не выбыл."
     if view["phase"] != "discussion":
         return head
-    return f"{head}\n{mentions_line(view)}\nНачинается обсуждение — можно писать в чат."
+    return f"{head}\n{mentions_line(view)}\n<i>Начинается обсуждение — можно писать в чат.</i>"
 
 
 def vote_result_text(eliminated: dict | None) -> str:
@@ -152,14 +154,14 @@ def vote_result_text(eliminated: dict | None) -> str:
 
 
 def abandoned_text() -> str:
-    return ("💤 <b>Игра остановлена:</b> несколько этапов подряд никто не нажимал кнопки. "
-            "Чтобы сыграть снова, напишите «бот мафия».")
+    return ("💤 <b>Игра остановлена:</b> несколько этапов подряд никто не нажимал кнопки.\n"
+            "<i>Чтобы сыграть снова, напишите «бот мафия».</i>")
 
 
 def lobby_closed_text(reason: str) -> str:
     if reason == "lobby_expired":
-        return "⌛ <b>Лобби закрыто:</b> 30 минут никто ничего не делал. Напишите «бот мафия», чтобы собрать новое."
-    return "🛑 <b>Лобби отменено.</b> Чтобы собрать новое, напишите «бот мафия»."
+        return "⌛ <b>Лобби закрыто:</b> 30 минут никто ничего не делал.\n<i>Напишите «бот мафия», чтобы собрать новое.</i>"
+    return "🛑 <b>Лобби отменено.</b>\n<i>Чтобы собрать новое, напишите «бот мафия».</i>"
 
 
 def finished_text(view: dict) -> str:
@@ -168,7 +170,7 @@ def finished_text(view: dict) -> str:
             else "🏁 <b>Игра окончена — победила мафия!</b> 🔫" if view["winner"] == "mafia" else "🏁 <b>Игра окончена.</b>")
     rows = [f"{r['join_order']}. {safe_html(r['display_name'])} — {copy.role_label(r['role'])}"
             f"{'' if r['alive'] else ' (выбыл)'}" for r in view.get("roles_reveal", [])]
-    return head + "\n\n<b>Кто кем был:</b>\n" + "\n".join(rows) + "\n\nСпасибо за игру! Хотите ещё партию?"
+    return head + "\n<blockquote><b>Кто кем был</b>\n" + "\n".join(rows) + "</blockquote>\n<i>Спасибо за игру! Хотите ещё партию?</i>"
 
 
 def stop_confirm_keyboard(match_id: int) -> types.InlineKeyboardMarkup:

@@ -431,7 +431,22 @@ async def _spouse_of(db, uid: int) -> int | None:
     return fam.partner_of(uid) if fam else None
 
 
-# СТИЛЬ v1 (черновик): предки по поколениям, потомки лесенкой, каждый блок в цитате.
+def _branches(down: list[tuple[int, int, int | None]]) -> list[str]:
+    """Ветка у каждого потомка: ├ если в этом же колене за ним есть ещё дети того же родителя, └ если он последний."""
+    marks = []
+    for i, (depth, _, _) in enumerate(down):
+        more = False
+        for later, _, _ in down[i + 1:]:
+            if later < depth:
+                break
+            if later == depth:
+                more = True
+                break
+        marks.append("├" if more else "└")
+    return marks
+
+
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): предки по поколениям, потомки лесенкой с ветками ├ └, каждый блок в цитате, ники без пинга.
 async def tree_text(db, uid: int) -> str | None:
     up: list[list[tuple[int, int]]] = []
     level = [uid]
@@ -470,8 +485,8 @@ async def tree_text(db, uid: int) -> str | None:
     lines.append(quote(me))
     if down:
         lines.append(f"\n<b>Потомки</b> · {len(down)}")
-        lines.append(quote([INDENT * (d - 1) + f"└ {names[c]}" + (f" 💍 {names[sp]}" if sp else "")
-                            for d, c, sp in down]))
+        lines.append(quote([INDENT * (d - 1) + f"{mark} {names[c]}" + (f" 💍 {names[sp]}" if sp else "")
+                            for (d, c, sp), mark in zip(down, _branches(down))]))
     return "\n".join(lines)
 
 

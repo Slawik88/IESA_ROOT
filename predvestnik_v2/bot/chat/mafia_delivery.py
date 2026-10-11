@@ -141,7 +141,7 @@ class StartDelivery(PhaseDelivery):
             roster = " · ".join(f"{p['join_order']}. {safe_html(p['display_name'])}" for p in self.view["players"])
             try:
                 await self.bot.edit_message_text(
-                    f"🕵️ <b>МАФИЯ НАЧАЛАСЬ</b>\n\nИгроки: {roster}\n\nРоли разосланы в личные сообщения. Сейчас ночь — в чат не пишем.",
+                    f"🕵️ <b>МАФИЯ НАЧАЛАСЬ</b>\n<blockquote><b>Игроки</b>\n{roster}</blockquote>\n<i>Роли разосланы в личные сообщения. Сейчас ночь — в чат не пишем.</i>",
                     chat_id=self.view["chat_id"], message_id=message_id, reply_markup=None, parse_mode="HTML")
             except TelegramAPIError as exc:
                 logger.debug(f"Mafia lobby card not retired: {exc}")
