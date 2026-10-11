@@ -41,8 +41,26 @@ function showSectionLoading(main, key = currentSection()) {
   _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Читаем актуальные данные'; }, 900));
   _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Ответ занимает чуть больше времени'; }, 4000));
 }
+// Экраны «нет входа» и «нет доступа»: то же оформление, что у заставки загрузки, и понятный следующий шаг.
+function accessMarkup(error) {
+  const code = error?.status, msg = error?.message || '';
+  let icon = '↻', small = 'Связь прервалась', title = 'Не удалось открыть админку', text = msg || 'Попробуйте ещё раз.', retry = true;
+  if (code === 403) {
+    icon = '🛡'; small = 'Нет доступа'; title = 'Только для персонала бота'; retry = false;
+    text = msg + (/персонал/.test(msg) ? ' Если вы в команде, попросите создателя выдать вам роль, а потом напишите боту «бот админка».' : '');
+  } else if (code === 401) {
+    icon = '🔒'; retry = false;
+    if (/завершен/i.test(msg)) { small = 'Нужен новый вход'; title = 'Сессия завершена'; text = 'Откройте админку заново: напишите боту в личку «бот админка» и нажмите кнопку.'; }
+    else { small = 'Нужен вход'; title = 'Откройте админку из Telegram'; text = 'Напишите боту в личку «бот админка» и нажмите кнопку «🛠 Открыть админку».'; }
+  }
+  return `<section class="admin-load load-failed${retry ? '' : ' access'}" role="alert">
+    <div class="load-sigil" aria-hidden="true"><span>${icon}</span></div>
+    <div class="load-copy"><small>${esc(small)}</small><h2>${esc(title)}</h2><p>${esc(text)}</p></div>
+    ${retry ? '<button type="button" class="btn primary load-retry">Повторить</button>' : `<a class="btn" href="${esc(BASE)}/">← В Предвестник</a>`}</section>`;
+}
 function showLoadError(main, key, error, retry) {
   clearLoadStages(); main.setAttribute('aria-busy', 'false');
+  if (error?.status === 401 || error?.status === 403) { $('#main').innerHTML = accessMarkup(error); return; }   // повтор не поможет: нужен вход или роль; закрываем весь экран, не одну вставку
   const timedOut = error?.name === 'AbortError';
   main.innerHTML = `<section class="admin-load load-failed" role="alert">
     <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
@@ -67,6 +85,12 @@ async function loadSectionData(main, path, retry, key = currentSection()) {
   }
 }
 
+// Раздел может нарисоваться и без loadSectionData (игроки): «занято» снимается, как только заставку заменило содержимое.
+new MutationObserver(() => {
+  const m = $('#main');
+  if (m.getAttribute('aria-busy') === 'true' && !m.querySelector('.admin-load:not(.load-failed)')) m.setAttribute('aria-busy', 'false');
+}).observe($('#main'), {childList: true});
+
 async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
   if (INIT) headers['x-init-data'] = INIT;
@@ -74,7 +98,7 @@ async function api(path, opts = {}) {
   const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, headers});
   let data = null;
   try { data = await res.json(); } catch (_) {}
-  if (!res.ok) throw new Error((data && data.detail) || `Ошибка ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
   return data;
 }
 
@@ -278,10 +302,18 @@ function actionForm(key, ctx) {
 }
 
 // Опасные действия просят подтверждение с итогом: кому, что именно и что изменится.
-const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close']);
+const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close', 'revoke_sessions']);
+// Самое опасное (бан во всех чатах, роль, крупная сумма) подтверждается ещё и вводом ID игрока: сервер без него откажет.
+function needsTypedConfirm(key, payload, ctx) {
+  const rules = ctx.confirm_rules;
+  if (!rules || ctx.id === undefined || ctx.username === undefined) return false;
+  if (rules.actions.includes(key)) return true;
+  const limit = key === 'balance' ? rules.balance[payload.currency] : undefined;
+  return limit !== undefined && Math.abs(parseFloat(payload.amount)) >= limit;
+}
 const CONFIRM_TITLE = {ban: '⛔ Бан в чате', kick: '👢 Кик из чата', global_ban: '🚫 Бан во всех чатах', block: '🙈 Бот перестанет отвечать',
   balance: '💰 Изменение баланса', rank: '🎖 Новая глобальная роль', vip: '👑 Выдача VIP', leave: '🚪 Бот уйдёт из чата',
-  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется'};
+  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
 function confirmLines(key, payload, ctx, extra) {
   const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
   const lines = [];
@@ -302,6 +334,7 @@ function confirmLines(key, payload, ctx, extra) {
   else if (key === 'leave') lines.push('Бот выйдет из чата, обратно его придётся добавлять заново.');
   else if (key === 'message') lines.push(`Текст увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`);
   else if (key === 'close') lines.push('Участники не смогут писать, пока чат не откроют.');
+  else if (key === 'revoke_sessions') lines.push('Сотрудник выйдет из админки на всех устройствах и откроет её заново. Роль не меняется.');
   if (payload.reason) lines.push(`Причина: ${esc(payload.reason)}`);
   return lines;
 }
@@ -320,9 +353,17 @@ function runAction(action, target, ctx, extra, after) {
   sheet(action.title, place + body, DANGEROUS.has(action.key) ? 'Далее' : 'Выполнить', async () => {
     const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
     if (!DANGEROUS.has(action.key)) return perform(payload);
+    const typed = needsTypedConfirm(action.key, payload, ctx);
     sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
-      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>`,
-      'Подтвердить', () => perform(payload));
+      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>
+      ${typed ? `<div class="field" style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
+        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}`,
+      'Подтвердить', () => {
+        if (!typed) return perform(payload);
+        const typedId = ($('#fconfirm').value || '').trim();
+        if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
+        return perform({...payload, confirm: typedId});
+      });
     return 'keep';
   });
 }
@@ -507,6 +548,7 @@ async function playerView(main, id, push = true, from = null) {
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  if (!p.rank) hide.add('revoke_sessions');   // сессии админки бывают только у сотрудников
   const mk = p.marks || {given: [], earned: [], grantable: []};
   // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
   const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
@@ -912,8 +954,27 @@ SECTIONS.metrics = main => metricsView(main);
 
 // ── Журнал: все действия персонала ───────────────────────────────────────────
 
-const JOURNAL = {kind: '', actor: 0, days: 7};
+const JOURNAL = {kind: '', actor: 0, days: 7, view: 'actions'};
+// Создатель видит ещё и входы в админку (адрес и устройство): остальным этой вкладки нет.
+const journalTabs = () => !ME.creator ? '' : `<div class="scope" style="margin-bottom:8px">${[['actions', 'Действия'], ['logins', 'Входы']].map(([k, t]) =>
+  `<button class="btn small ${k === JOURNAL.view ? 'primary' : ''}" data-jview="${k}">${t}</button>`).join('')}</div>`;
+const bindJournalTabs = main => main.querySelectorAll('[data-jview]').forEach(b =>
+  b.onclick = () => { JOURNAL.view = b.dataset.jview; journalView(main); });
+async function loginsView(main) {
+  const data = await loadSectionData(main, `/logins?days=${JOURNAL.days}`, () => loginsView(main), 'journal');
+  if (!data) return;
+  const rows = data.items.map(x => `<div class="log"><div><b>${who(x.user.id, x.user.username)}</b> · ${esc(x.device)}</div>
+      <div class="sub">${when(x.at)} · адрес ${esc(x.ip || 'неизвестен')}</div></div>`).join('');
+  main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+      `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
+    <div class="card" style="margin-top:10px"><h3>Входы в админку</h3>
+      <div class="sub" style="margin-bottom:6px">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
+      ${rows || '<div class="empty">За этот период входов нет.</div>'}</div>`;
+  bindJournalTabs(main);
+  main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; loginsView(main); });
+}
 async function journalView(main, more = '') {
+  if (ME.creator && JOURNAL.view === 'logins') return loginsView(main);
   const qs = `kind=${encodeURIComponent(JOURNAL.kind)}&actor=${JOURNAL.actor}&days=${JOURNAL.days}${more ? '&before=' + encodeURIComponent(more) : ''}`;
   const data = await loadSectionData(main, `/journal?${qs}`, () => journalView(main, more), 'journal');
   if (!data) return;
@@ -927,7 +988,7 @@ async function journalView(main, more = '') {
     main.querySelector('#jmore')?.remove();
     main.querySelector('#jlist').insertAdjacentHTML('beforeend', body);
   } else {
-    main.innerHTML = `<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+    main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
         `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
       <div class="grid2" style="margin:10px 0">
         <div class="field"><label>Что</label><select id="jkind"><option value="">Всё</option>${data.kinds.map(k =>
@@ -935,6 +996,7 @@ async function journalView(main, more = '') {
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
       <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
+    bindJournalTabs(main);
     main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; journalView(main); });
     $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; journalView(main); };
     $('#jactor').onchange = e => { JOURNAL.actor = +e.target.value; journalView(main); };
@@ -1825,6 +1887,23 @@ function bindReportSettings(main, data) {
   };
 }
 
+function securityCard() {
+  return `<div class="card" id="secset"><h3>🔐 Безопасность</h3>
+    <div class="sub" style="margin-bottom:8px">Если потеряли телефон или вошли с чужого устройства, завершите сессии: админку придётся открыть заново через Telegram.
+      Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.</div>
+    <div class="actions"><button class="btn" id="revself">Выйти на всех моих устройствах</button>
+      ${ME.creator ? '<button class="btn danger" id="revall">Завершить сессии всех сотрудников</button>' : ''}</div></div>`;
+}
+function bindSecurityCard(main) {
+  const run = (title, text, all) => sheet(title, `<div class="sub">${text}</div>`, 'Завершить', async () => {
+    const res = await api('/sessions/revoke', {method: 'POST', body: JSON.stringify({all})});
+    main.innerHTML = `<div class="empty">✅ ${esc(res.message)}</div>`;
+  });
+  const own = main.querySelector('#revself'), all = main.querySelector('#revall');
+  if (own) own.onclick = () => run('Выйти на всех устройствах', 'Админка закроется везде, где она открыта, включая этот экран. Роль не меняется.', false);
+  if (all) all.onclick = () => run('Сессии всех сотрудников', 'Все сотрудники, включая вас, выйдут из админки и откроют её заново. Роли не меняются.', true);
+}
+
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
@@ -1836,8 +1915,10 @@ async function settingsView(main) {
         <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
       </div>`).join('')}
     </div>
-    ${reportSettingsCard(data)}`;
+    ${reportSettingsCard(data)}
+    ${securityCard()}`;
   bindReportSettings(main, data);
+  bindSecurityCard(main);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
@@ -1923,7 +2004,9 @@ SECTIONS.health = main => healthView(main);
   try {
     ME = await api('/me');
   } catch (e) {
-    $('#main').innerHTML = `<div class="empty">${esc(e.message)}<br><br>Откройте админку из Telegram: напишите боту в личку <b>бот админка</b>.</div>`;
+    $('#main').innerHTML = accessMarkup(e);
+    const again = $('#main .load-retry');
+    if (again) again.onclick = () => location.reload();
     return;
   }
   $('#who').textContent = ME.rank_name;

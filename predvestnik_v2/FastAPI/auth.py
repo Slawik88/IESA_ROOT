@@ -61,6 +61,17 @@ def verify_webapp_data(init_data: str) -> dict | None:
         return None
 
 
+def webapp_auth_date(init_data: str) -> int | None:
+    """Когда Telegram выдал этот initData (секунды). Вызывать после verify_webapp_data."""
+    for part in (init_data or "").split("&"):
+        if part.startswith("auth_date="):
+            try:
+                return int(unquote(part[len("auth_date="):]))
+            except ValueError:
+                return None
+    return None
+
+
 # ── Login Widget ───────────────────────────────────────────────────────────────
 
 def verify_login_widget(data: dict) -> dict | None:
@@ -119,6 +130,14 @@ def verify_session_token(token: str) -> int | None:
             return None
         return int(user_id_str)
     except Exception:
+        return None
+
+
+def session_issued_at(token: str) -> int | None:
+    """Когда выдана сессия (секунды): срок действия минус время жизни. Вызывать после verify_session_token."""
+    try:
+        return int(token.split(":")[1]) - _SESSION_TTL
+    except (IndexError, ValueError):
         return None
 
 

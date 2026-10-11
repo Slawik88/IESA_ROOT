@@ -22,7 +22,7 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_people, feature_switches, global_moderation, staff_notes, staff_watch
+from services import admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -54,6 +54,7 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "warn_limit": ("⚠️ Лимит варнов", 4, "chat"),
     "message": ("📣 Написать от бота", 5, "chat"),
     "leave": ("🚪 Бот выходит из чата", 6, "chat"),
+    "revoke_sessions": ("🔒 Завершить сессии админки", 6, "player"),
 }
 LINKED_MIN_RANK = 4
 BULK_MAX = 50
@@ -75,6 +76,9 @@ def get_bot():
 def set_bot(bot) -> None:   # для тестов
     global _bot
     _bot = bot
+
+
+admin_security.use_bot(get_bot)   # тревоги владельцу уходят тем же клиентом
 
 
 def _allowed(rank: int, scope: str) -> list[dict]:
@@ -170,6 +174,7 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card["marks"] = await marks_service.admin_view(db, uid)
     card["reports"] = await reports_service.about(db, uid)
     card["notes"] = await staff_notes.listing(db, uid, user["id"], user["rank"])
+    card["confirm_rules"] = admin_security.rules()
     # Возможные связи между аккаунтами видят старшие хелперы и выше: это подсказка, а не доказательство.
     card["linked"] = await admin_people.linked(db, uid) if user["rank"] >= LINKED_MIN_RANK else None
     return card
@@ -252,6 +257,7 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
     actor, reason, mark = user["id"], _reason(data), str(data.get("mark") or "")
     if action in ("mark_grant", "mark_revoke") and not reason:
         raise HTTPException(400, "Укажите причину — она попадёт в журнал.")
+    admin_security.rate_limit(user, action, len(ids))
     done, warns, failed = 0, 0, []
     names = await admin_people._names(db, ids)
 
@@ -284,6 +290,8 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
             failed.append({"id": uid, "username": names.get(uid), "reason": str(exc.detail)})
         except marks_service.MarkConflict as exc:
             failed.append({"id": uid, "username": names.get(uid), "reason": str(exc)})
+    if done and action in ("mark_grant", "mark_revoke"):
+        await admin_security.after_action(db, user, action)
     message = f"Готово: {done} из {len(ids)}." + (f" Снято варнов: {warns}." if action == "unwarn_all" else "")
     return {"ok": True, "done": done, "failed": failed, "message": message}
 
@@ -321,6 +329,10 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
     _check(user, action, scope)
     await _known_user(db, uid)
     await _guard_target(db, user, uid)
+    admin_security.rate_limit(user, action)
+    if admin_security.needs_confirm(action, data) and not admin_security.confirmed(
+            uid, (await admin_people._names(db, [uid])).get(uid), data):
+        raise HTTPException(400, "Для этого действия введите ID игрока (или его @ник) в поле подтверждения.")
     actor, reason = user["id"], _reason(data)
 
     if scope == "member":
@@ -366,6 +378,7 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         except marks_service.MarkConflict as exc:
             raise HTTPException(400, str(exc))
         await admin_people.audit(db, actor, action, user_id=uid, details={"mark": title, "reason": reason})
+        await admin_security.after_action(db, user, action, uid)
         return {"ok": True, "message": ("Метка выдана: " if action == "mark_grant" else "Метка снята: ") + title}
 
     if action == "rank":
@@ -376,8 +389,9 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
             raise HTTPException(403, "Можно выдать только роль ниже своей.")
         old = await get_bot_rank(db, uid)
         await db.execute("UPDATE users SET bot_rank = ? WHERE user_tg_id = ?", (new, uid))
-        await admin_people.audit(db, actor, "rank", user_id=uid,
-                                 details={"from": bot_rank_name(old), "to": bot_rank_name(new), "reason": reason})
+        info = {"from": bot_rank_name(old), "to": bot_rank_name(new), "reason": reason}
+        await admin_people.audit(db, actor, "rank", user_id=uid, details=info)
+        await admin_security.after_action(db, user, "rank", uid, details=info)
         return {"ok": True, "message": f"Роль: {bot_rank_name(new)}."}
 
     if action == "balance":
@@ -410,9 +424,11 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
                         metadata={"reason": reason})).applied
                 if applied:   # повтор того же запроса (двойное нажатие) в журнал не пишется
                     await admin_people.audit(db, actor, "balance", user_id=uid,
-                                             details={"currency": title, "amount": str(amount), "reason": reason})
+                                             details={"currency": title, "code": currency, "amount": str(amount), "reason": reason})
         except (InsufficientBalance, ValueError):
             raise HTTPException(400, "У игрока не хватает для списания.")
+        if applied:
+            await admin_security.after_action(db, user, "balance", uid, details={"currency": title, "code": currency, "amount": str(amount)})
         return {"ok": True, "message": f"{title}: {'+' if amount > 0 else ''}{amount}."}
 
     if action == "vip":
@@ -431,6 +447,7 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
             await vip_service.grant_vip_days(db, uid, "vip", days)
             await admin_people.audit(db, actor, "vip", user_id=uid,
                                      details={"days": days, "reason": reason, "request_id": request_id})
+        await admin_security.after_action(db, user, "vip", uid)
         return {"ok": True, "message": f"VIP продлён на {days} дн."}
 
     if action == "block":
@@ -439,6 +456,7 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
             raise HTTPException(400, "Срок — от 1 до 3650 дней или 0 — пока не снимут.")
         await global_moderation.block(db, uid, actor, reason, days)
         await admin_people.audit(db, actor, "block", user_id=uid, details={"days": days, "reason": reason})
+        await admin_security.after_action(db, user, "block", uid)
         return {"ok": True, "message": "Бот больше не отвечает игроку."}
     if action == "unblock":
         await global_moderation.unblock(db, uid)
@@ -446,10 +464,15 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         return {"ok": True, "message": "Бот снова отвечает игроку."}
     if action == "global_ban":
         done, failed = await global_moderation.global_ban(get_bot(), db, uid, actor, reason)
+        await admin_security.after_action(db, user, "global_ban", uid)
         return {"ok": True, "message": f"Забанен в чатах: {done}" + (f", не вышло: {failed}." if failed else ".")}
     if action == "global_unban":
         done, failed = await global_moderation.global_unban(get_bot(), db, uid, actor)
         return {"ok": True, "message": f"Бан снят в чатах: {done}" + (f", не вышло: {failed}." if failed else ".")}
+    if action == "revoke_sessions":
+        await admin_security.revoke(db, uid)
+        await admin_people.audit(db, actor, "sessions_revoke", user_id=uid)
+        return {"ok": True, "message": "Сессии админки у этого сотрудника завершены: ему нужно открыть её заново."}
     raise HTTPException(400, "Неизвестное действие.")
 
 
@@ -460,6 +483,7 @@ async def chat_action(cid: int, data: dict = Body(...), user=Depends(_user), db=
     action = str(data.get("action") or "")
     _check(user, action, "chat")
     await _known_chat(db, cid)
+    admin_security.rate_limit(user, action)
     actor, reason = user["id"], _reason(data)
 
     if action in ("close", "open"):

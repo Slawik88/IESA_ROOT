@@ -41,6 +41,16 @@ from infrastructure.repositories import pets_v1 as pets_v1_repo
 from infrastructure.repositories import rhythm_v2 as rhythm_v2_repo
 from core import achievements_v1 as achievement_rules
 
+
+async def _is_bot_staff(db, user_id: int) -> bool:
+    from bot.chat.global_ranks import get_bot_rank
+    try:
+        return await get_bot_rank(db, int(user_id)) > 0
+    except Exception as exc:   # профиль не должен ломаться из-за вспомогательной проверки
+        logger.warning(f"profile: staff check skipped: {exc}")
+        return False
+
+
 router = APIRouter(prefix="/profile", tags=["profile"])
 
 # Кэш аватарок Telegram на процесс (Implementation Block 3): фото меняется редко,
@@ -493,6 +503,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "is_developer": bool(_DEVELOPER_ID and user_id == _DEVELOPER_ID),
+        "is_staff":     await _is_bot_staff(db, user_id),   # строка «Админ-панель» в меню «Ещё»: у персонала бота любой роли
         "partner":      row["partner"],
         "messages_all_time": int(row["messages_all_time"] or 0),
         "joined_date": _iso(joined_date),

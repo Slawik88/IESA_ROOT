@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_people, promo_v2
+from services import admin_people, admin_security, promo_v2
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("promo")
@@ -59,12 +59,14 @@ async def preview_promo(data: dict = Body(...), user=Depends(_user), db=Depends(
 
 @router.post("/promo/bulk")
 async def bulk_promo(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    admin_security.rate_limit(user, "promo_bulk")
     try:
         made = await promo_v2.bulk_create(db, data, actor_id=user["id"])
     except promo_v2.PromoError as exc:
         _fail(exc)
     await admin_people.audit(db, user["id"], "promo_bulk", details={"count": len(made["codes"]), "first": made["codes"][0],
                                                                     "rewards": made["rewards_text"]})
+    await admin_security.after_action(db, user, "promo_bulk")
     return made
 
 
@@ -78,22 +80,26 @@ async def get_promo(code: str, user=Depends(_user), db=Depends(get_db)):
 
 @router.post("/promo")
 async def create_promo(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    admin_security.rate_limit(user, "promo_create")
     try:
         saved = await promo_v2.save_code(db, data, actor_id=user["id"], create=True)
     except promo_v2.PromoError as exc:
         _fail(exc)
     await admin_people.audit(db, user["id"], "promo_create", details={"code": str(saved.get("code") or data.get("code") or "")})
+    await admin_security.after_action(db, user, "promo_create")
     return saved
 
 
 @router.put("/promo/{code}")
 async def update_promo(code: str, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     data = {**data, "code": code}
+    admin_security.rate_limit(user, "promo_update")
     try:
         saved = await promo_v2.save_code(db, data, actor_id=user["id"], create=False)
     except promo_v2.PromoError as exc:
         _fail(exc)
     await admin_people.audit(db, user["id"], "promo_update", details={"code": code})
+    await admin_security.after_action(db, user, "promo_update")
     return saved
 
 

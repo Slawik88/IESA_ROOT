@@ -18,7 +18,7 @@ index = (ROOT / "FastAPI/static/index.html").read_text(encoding="utf-8")
 
 assert "renderProfileHome(d)" in profile
 assert "v3-admin-entry" in index and "openBotAdmin()" in profile
-assert "adminEntry.hidden=!d.is_developer" in profile
+assert "adminEntry.hidden=!(d.is_developer||d.is_staff)" in profile
 assert "event?.type === 'balance_changed'" in shell and "queueLiveBalance(event)" in shell
 assert "setInterval(refreshCurrBar" not in profile
 assert "cm-bal-essence" in profile and "cm-bal-zarniki" in profile

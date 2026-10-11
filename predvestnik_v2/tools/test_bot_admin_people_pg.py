@@ -293,12 +293,12 @@ async def checks():
     assert [x["rank"] for x in card["ranks"]] == [0, 1, 2, 3, 4], card["ranks"]
     mora = [x for x in card["history"] if x["action"] == "balance" and "Мора" in x["text"]]
     assert [(x["text"], x["reason"]) for x in mora] == [("🪙 Мора +500", "компенсация")], mora   # без дубля
-    assert (await act(CODER, P2, action="rank", rank=4)).status_code == 200
-    assert (await act(CODER, P2, action="rank", rank=5)).status_code == 403
-    assert (await act(CODER, P2, action="rank", rank=2)).status_code == 200
-    assert (await act(DEV, P2, action="rank", rank=5)).status_code == 200
-    assert (await act(CODER, P2, action="rank", rank=0)).status_code == 403              # теперь равен по роли
-    assert (await act(DEV, P2, action="rank", rank=6)).status_code == 400
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=4)).status_code == 200
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=5)).status_code == 403
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=2)).status_code == 200
+    assert (await act(DEV, P2, action="rank", confirm=P2, rank=5)).status_code == 200
+    assert (await act(CODER, P2, action="rank", confirm=P2, rank=0)).status_code == 403              # теперь равен по роли
+    assert (await act(DEV, P2, action="rank", confirm=P2, rank=6)).status_code == 400
 
     # Метки (регалии)
     assert (await act(SENIOR, P1, action="mark_grant", mark="founder", reason="с первых дней")).status_code == 403
@@ -335,8 +335,8 @@ async def checks():
 
         # Бан во всех чатах
         bot.calls.clear()
-        assert (await act(SENIOR, P1, action="global_ban")).status_code == 403
-        r = await act(CODER, P1, action="global_ban", reason="мошенник")
+        assert (await act(SENIOR, P1, action="global_ban", confirm=P1)).status_code == 403
+        r = await act(CODER, P1, action="global_ban", confirm=P1, reason="мошенник")
         assert r.json()["message"] == "Забанен в чатах: 2, не вышло: 1.", r.text
         assert await is_blacklisted(db, -300, P1)
         card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()

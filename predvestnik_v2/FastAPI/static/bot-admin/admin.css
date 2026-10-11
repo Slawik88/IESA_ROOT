@@ -60,7 +60,10 @@ main { padding: 18px 20px calc(112px + var(--safe-b)); max-width: 900px; margin:
 .load-stage > i { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 9px color-mix(in srgb, var(--accent) 65%, transparent); animation: loadBreathe .8s ease-in-out infinite alternate; }
 .load-failed .load-sigil::before, .load-failed .load-sigil i, .load-failed .load-sigil span { animation: none; }
 .load-failed .load-sigil { color: var(--bad); }.load-failed .load-sigil::before { border-color: color-mix(in srgb, var(--bad) 38%, transparent); }
-.load-failed .load-retry { margin-top: 22px; }
+.load-failed .load-retry, .load-failed a.btn { margin-top: 22px; }
+.load-failed.access .load-sigil { color: var(--warn); }
+.load-failed.access .load-sigil::before { border-color: color-mix(in srgb, var(--warn) 38%, transparent); }
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: var(--text); }
 @keyframes loadOrbit { to { transform: rotate(360deg); } }
 @keyframes loadBreathe { from { opacity: .48; transform: scale(.94); } to { opacity: 1; transform: scale(1.04); } }
 @keyframes loadTrace { from { transform: translateX(-115%); } to { transform: translateX(190%); } }
@@ -97,12 +100,13 @@ textarea { min-height: 64px; resize: vertical; }
 .found button { text-align: left; background: none; border: 0; border-top: 1px solid var(--line); padding: 10px 2px; min-height: 44px; cursor: pointer; }
 .switch { display: flex; align-items: center; gap: 10px; }
 .switch input { width: auto; }
+input[type=checkbox] { accent-color: var(--accent); }
 .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { color: var(--muted); font-weight: 500; }
 .toast { position: fixed; z-index: 20; left: 50%; bottom: calc(92px + var(--safe-b)); transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
-  border-radius: 99px; padding: 12px 20px; max-width: calc(100% - 32px); box-shadow: 0 6px 30px #0008; }
+  border-radius: 18px; padding: 12px 20px; width: max-content; max-width: calc(100% - 32px); text-align: center; line-height: 1.35; box-shadow: 0 6px 30px #0008; }
 .toast.bad { border-color: var(--bad); }
 @media (max-width: 560px) {
   .grid2 { grid-template-columns: 1fr; }
@@ -111,6 +115,7 @@ th { color: var(--muted); font-weight: 500; }
 }
 .sw-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .sw-row:last-child { border-bottom: 0; }
+.sw-row + .field { margin-top: 12px; }
 .sw-row .t { min-width: 0; }
 .sw-row .t b { font-weight: 600; }
 .sw-row.off .t b { color: var(--muted); text-decoration: line-through; }
@@ -156,7 +161,7 @@ h3.sec { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; colo
 .bars span { font-size: 10px; color: var(--muted); height: 14px; margin-top: 3px; white-space: nowrap; }
 
 /* Полоса «назад / поиск» остаётся под рукой при прокрутке длинной карточки: возврат без листания наверх. */
-main > .bar:first-child { position: sticky; top: 0; z-index: 5; margin: -18px -20px 12px; padding: 10px 20px; background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--line); }
+main > .bar:first-child { position: sticky; top: 0; z-index: 5; margin: -18px -20px 12px; padding: 10px 20px; background: color-mix(in srgb, var(--bg) 62%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--line); }
 main > .bar:first-child:has(input) { position: static; margin: 0 0 12px; padding: 0; background: none; border: 0; }
 .card > .more { margin-top: 10px; }
 [hidden] { display: none !important; }
