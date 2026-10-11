@@ -6,7 +6,7 @@ bot_broadcast_targets, поэтому у каждой рассылки есть 
 остановка) можно продолжить, а недоставленным — отправить повторно. Рассылку можно отложить на время.
 
 Рассылка идёт в фоне того же процесса, с паузой между сообщениями (лимиты Telegram). Игроки, которым бот не отвечает
-(блокировка) или с глобальным баном, рассылку не получают. Одновременно идёт одна рассылка.
+(блокировка) или с глобальным баном, а также те, кто заблокировал бота в Telegram, и чаты, из которых бота удалили, рассылку не получают. Одновременно идёт одна рассылка.
 """
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ async def recipients(db, seg: dict) -> list[int]:
     where: list[str] = []
     args: list = []
     if seg["kind"] == "chats":
-        sql = "SELECT c.chat_id FROM chat_settings c WHERE c.chat_id < 0"
+        sql = "SELECT c.chat_id FROM chat_settings c WHERE c.chat_id < 0 AND c.bot_left_at IS NULL"
         if seg.get("chats"):
             where.append("c.chat_id = ANY(?::bigint[])")
             args.append(seg["chats"])
@@ -208,7 +208,7 @@ async def recipients(db, seg: dict) -> list[int]:
             args.append(seg["target_ids"])
         order = "ORDER BY c.chat_id"
     else:
-        sql = ("SELECT u.user_tg_id FROM users u WHERE u.user_tg_id > 0 "
+        sql = ("SELECT u.user_tg_id FROM users u WHERE u.user_tg_id > 0 AND u.dm_blocked_at IS NULL "
                "AND NOT EXISTS (SELECT 1 FROM bot_user_blocks b WHERE b.user_id = u.user_tg_id "
                "AND (b.until IS NULL OR b.until > NOW())) "
                "AND NOT EXISTS (SELECT 1 FROM chat_blacklist g WHERE g.chat_id = 0 AND g.user_id = u.user_tg_id)")

@@ -19,6 +19,7 @@ const SECTION_META = {
   promo: ['✦', 'Промокоды', 'Проверяем коды, награды и ограничения'],
   switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
   settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
+  health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
@@ -95,10 +96,11 @@ const ICONS = {
   promo: '<path d="M3.5 12.5v-8h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.2"/>',
   switches: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.4"/>',
   settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  health: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
 };
 const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки'};
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние'};
 const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
 
 function dockSplit() {
@@ -541,6 +543,7 @@ async function chatView(main, id, push = true, from = null) {
       <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
         <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
       <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
+        ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
         <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span>
         ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
       <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
@@ -1470,6 +1473,67 @@ async function settingsView(main) {
 }
 
 SECTIONS.settings = main => settingsView(main);
+
+// ── Состояние ────────────────────────────────────────────────────────────────
+
+const duration = sec => {
+  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин`;
+};
+
+async function healthView(main) {
+  const h = await loadSectionData(main, '/health', () => healthView(main), 'health');
+  if (!h) return;
+  const tg = h.telegram, dot = ok => `<span class="chip ${ok ? 'ok' : 'bad'}">${ok ? 'работает' : 'не отвечает'}</span>`;
+  const row = (title, value, sub = '') => `<div class="log"><div>${title} <b>${value}</b></div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  const dg = h.digest;
+  main.innerHTML = `
+    <div class="card"><h3>🤖 Бот</h3>
+      ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
+      ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
+      ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
+    </div>
+    <div class="card"><h3>⚠️ Ошибки за сутки · ${num(h.errors.count_24h)}</h3>
+      ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
+        : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
+      ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
+    </div>
+    <div class="card"><h3>💬 Чаты и игроки</h3>
+      ${row('Чатов с ботом', num(h.chats.active))}
+      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают.' : '')}
+      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают.' : '')}
+      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet))}
+      ${row('Игроков', num(h.players.total))}
+      ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
+    </div>
+    <div class="card"><h3>📬 Очереди</h3>
+      ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
+      ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
+      ${row('Открытых жалоб', num(h.queues.reports_open))}
+    </div>
+    <div class="card"><h3>🌅 Итоги дня владельцу</h3>
+      <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
+      <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
+      <div class="field"><label>Во сколько (по времени бота)</label><select id="dghour" ${dg.can_edit ? '' : 'disabled'}>
+        ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
+      ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
+      <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
+    </div>`;
+  const save = async () => {
+    try {
+      await api('/health/digest', {method: 'POST', body: JSON.stringify({enabled: $('#dgon').checked, hour: +$('#dghour').value})});
+      toast('Сохранено');
+    } catch (e) { toast(e.message, true); }
+  };
+  $('#dgon').onchange = save; $('#dghour').onchange = save;
+  $('#dgtest').onclick = async () => {
+    $('#dgtest').disabled = true;
+    try { toast((await api('/health/digest/test', {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
+    $('#dgtest').disabled = false;
+  };
+}
+
+SECTIONS.health = main => healthView(main);
 
 // ── Старт ────────────────────────────────────────────────────────────────────
 

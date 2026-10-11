@@ -292,6 +292,16 @@ async def run():
         r = await post("/preview", segment=segment)
         assert r.status_code == 200, r.text
         return r.json()["count"]
+    # Чат, из которого бота удалили, и игрок, заблокировавший бота, в рассылку не попадают
+    async with get_pool().acquire() as conn:
+        d0 = PGAdapter(conn)
+        await d0.execute("UPDATE chat_settings SET bot_left_at = NOW() WHERE chat_id = -200")
+        await d0.execute("UPDATE users SET dm_blocked_at = NOW() WHERE user_tg_id = ?", (P3,))
+    assert await count({"kind": "chats"}) == 1 and await count({"kind": "players"}) == 4
+    async with get_pool().acquire() as conn:
+        d0 = PGAdapter(conn)
+        await d0.execute("UPDATE chat_settings SET bot_left_at = NULL WHERE chat_id = -200")
+        await d0.execute("UPDATE users SET dm_blocked_at = NULL WHERE user_tg_id = ?", (P3,))
     async with get_pool().acquire() as conn:
         d = PGAdapter(conn)
         await d.execute("INSERT INTO daily_user_stats (user_id, chat_id, date) VALUES (?, -100, ?)",

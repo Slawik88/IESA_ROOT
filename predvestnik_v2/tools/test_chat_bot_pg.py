@@ -670,6 +670,7 @@ async def games_flow(db, bot):
     assert not await mafia.gate_message(db, bot, m) and not m.deleted     # партии нет — писать можно
     print("OK: games")
     await private_flow(db, bot)
+    await membership_flow(db, bot)
     await achievements_flow(db, bot)
 
 
@@ -712,6 +713,51 @@ async def private_flow(db, bot):
     # в группе всё как раньше
     assert "Эта команда работает только в группе." not in await run(db, bot, "бот обнять @beta")
     print("OK: private chat vs group")
+
+
+async def membership_flow(db, bot):
+    """my_chat_member: бота добавили, повысили, понизили, удалили; игрок заблокировал бота и вернулся."""
+    from bot.chat import members, registry
+    from bot.chat.tracking import record_message
+
+    def event(chat_id, chat_type, status, **rights):
+        return SimpleNamespace(chat=SimpleNamespace(id=chat_id, type=chat_type, title="Новый чат" if chat_id < 0 else None),
+                               new_chat_member=SimpleNamespace(status=status, **rights),
+                               from_user=SimpleNamespace(id=abs(chat_id)))
+
+    async def row(chat_id):
+        async with db.execute("SELECT bot_left_at IS NOT NULL, bot_is_admin, bot_can_moderate, chat_title FROM chat_settings "
+                              "WHERE chat_id = ?", (chat_id,)) as cur:
+            return await cur.fetchone()
+
+    await members.on_bot_membership(event(-777, "supergroup", "member"), bot, db)
+    assert tuple(await row(-777)) == (False, False, False, "Новый чат")        # добавили без прав
+    await members.on_bot_membership(event(-777, "supergroup", "administrator", can_delete_messages=True, can_restrict_members=False), bot, db)
+    assert tuple(await row(-777))[1:3] == (True, False)                        # админ, но без права блокировать
+    await members.on_bot_membership(event(-777, "supergroup", "administrator", can_delete_messages=True, can_restrict_members=True), bot, db)
+    assert tuple(await row(-777))[1:3] == (True, True)
+    await members.on_bot_membership(event(-777, "supergroup", "kicked"), bot, db)
+    assert tuple(await row(-777))[:3] == (True, False, False)                  # удалили
+    await members.on_bot_membership(event(-778, "supergroup", "left"), bot, db)  # из чата, о котором бот ещё не знал
+    assert (await row(-778))[0] is True
+    await record_message(db, msg(1001, -777, "alpha", "Новый чат"))             # пишут в чат: бот в нём
+    assert (await row(-777))[0] is False
+    await members.on_bot_membership(event(-777, "channel", "kicked"), bot, db)  # каналы не трогаем
+    assert (await row(-777))[0] is False
+    # личка: заблокировал бота и вернулся
+    async def blocked(uid):
+        async with db.execute("SELECT dm_blocked_at IS NOT NULL FROM users WHERE user_tg_id = ?", (uid,)) as cur:
+            return (await cur.fetchone())[0]
+    await members.on_bot_membership(event(1002, "private", "kicked"), bot, db)
+    assert await blocked(1002) is True
+    await members.on_bot_membership(event(1002, "private", "member"), bot, db)
+    assert await blocked(1002) is False
+    await members.on_bot_membership(event(1002, "private", "kicked"), bot, db)
+    m = FakeMessage("привет", 1002, "beta", chat_type="private")                # написал боту — значит, не блокировал
+    from bot.chat import on_message
+    await on_message(m, bot, db)
+    assert await blocked(1002) is False
+    print("OK: bot membership")
 
 
 async def achievements_flow(db, bot):

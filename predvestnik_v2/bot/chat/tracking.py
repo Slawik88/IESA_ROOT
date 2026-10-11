@@ -92,7 +92,7 @@ async def record_message(db, message: Message) -> None:
     )
     await db.execute(
         "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "
-        "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title",
+        "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, bot_left_at = NULL",   # пишут в чат — бот в нём
         (chat.id, chat.title),
     )
     await db.execute(
