@@ -22,7 +22,7 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_people, feature_switches, global_moderation, staff_notes
+from services import admin_people, feature_switches, global_moderation, staff_notes, staff_watch
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -55,6 +55,9 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
     "message": ("📣 Написать от бота", 5, "chat"),
     "leave": ("🚪 Бот выходит из чата", 6, "chat"),
 }
+LINKED_MIN_RANK = 4
+BULK_MAX = 50
+BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "member", "watch": "", "unwatch": ""}
 BALANCE_CURRENCIES = {"mora": ("🪙 Мора", 0), "diamonds": ("💎 Алмазы", 2), "essence": ("🔮 Эссенция", 0)}
 
 _bot = None
@@ -143,8 +146,8 @@ def _tg_error(exc: Exception) -> HTTPException:
 # ── Поиск и карточки ─────────────────────────────────────────────────────────
 
 @router.get("/search")
-async def search(q: str = "", user=Depends(_user), db=Depends(get_db)):
-    return await admin_people.search(db, q)
+async def search(q: str = "", filter: str = "", user=Depends(_user), db=Depends(get_db)):
+    return await admin_people.search(db, q, flt=filter)
 
 
 @router.get("/player/{uid}")
@@ -161,6 +164,8 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card["marks"] = await marks_service.admin_view(db, uid)
     card["reports"] = await reports_service.about(db, uid)
     card["notes"] = await staff_notes.listing(db, uid, user["id"], user["rank"])
+    # Возможные связи между аккаунтами видят старшие хелперы и выше: это подсказка, а не доказательство.
+    card["linked"] = await admin_people.linked(db, uid) if user["rank"] >= LINKED_MIN_RANK else None
     return card
 
 
@@ -193,6 +198,88 @@ async def remove_player_note(uid: int, nid: int, user=Depends(_user), db=Depends
         raise HTTPException(404, "Заметка не найдена.")
     await admin_people.audit(db, user["id"], "note_remove", user_id=uid)
     return await staff_notes.listing(db, uid, user["id"], user["rank"])
+
+
+# ── На контроле ──────────────────────────────────────────────────────────────
+
+@router.post("/player/{uid}/watch")
+async def player_watch(uid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    await _known_user(db, uid)
+    on = bool(data.get("on"))
+    reason = _reason(data)
+    if on:
+        if await staff_watch.add(db, uid, user["id"], reason):
+            await admin_people.audit(db, user["id"], "watch_add", user_id=uid, details={"reason": reason})
+    elif await staff_watch.remove(db, uid, user["id"]):
+        await admin_people.audit(db, user["id"], "watch_remove", user_id=uid)
+    return {"watch": await staff_watch.info(db, uid)}
+
+
+@router.get("/marks")
+async def grantable_marks(user=Depends(_user)):
+    """Метки, которые можно выдать вручную (для окна массовой выдачи)."""
+    from core.marks_v1 import GRANTABLE, MARKS
+    return {"items": [{"id": m, "title": MARKS[m]["title"], "glyph": MARKS[m]["glyph"]} for m in GRANTABLE]}
+
+
+# ── Массовые действия ────────────────────────────────────────────────────────
+
+@router.post("/players/bulk")
+async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    """Одно действие для нескольких игроков (до 50): метка, снять варны везде, на контроль. Каждый игрок проверяется отдельно."""
+    action = str(data.get("action") or "")
+    if action not in BULK_ACTIONS:
+        raise HTTPException(400, "Это действие для нескольких игроков недоступно.")
+    if BULK_ACTIONS[action]:
+        _check(user, action, BULK_ACTIONS[action])
+    raw = data.get("ids")
+    if not isinstance(raw, list):
+        raise HTTPException(400, "Выберите игроков.")
+    try:
+        ids = list(dict.fromkeys(int(i) for i in raw))
+    except (TypeError, ValueError):
+        raise HTTPException(400, "ID игроков — числа.")
+    if not ids:
+        raise HTTPException(400, "Выберите игроков.")
+    if len(ids) > BULK_MAX:
+        raise HTTPException(400, f"За один раз — не больше {BULK_MAX} игроков.")
+    actor, reason, mark = user["id"], _reason(data), str(data.get("mark") or "")
+    if action in ("mark_grant", "mark_revoke") and not reason:
+        raise HTTPException(400, "Укажите причину — она попадёт в журнал.")
+    done, warns, failed = 0, 0, []
+    names = await admin_people._names(db, ids)
+
+    for uid in ids:
+        try:
+            await _known_user(db, uid)
+            if action in ("mark_grant", "mark_revoke", "unwarn_all"):
+                await _guard_target(db, user, uid)
+            if action == "mark_grant":
+                title = await marks_service.grant(db, uid, mark, actor, reason)
+                await admin_people.audit(db, actor, action, user_id=uid, details={"mark": title, "reason": reason})
+            elif action == "mark_revoke":
+                title = await marks_service.revoke(db, uid, mark, actor, reason)
+                await admin_people.audit(db, actor, action, user_id=uid, details={"mark": title, "reason": reason})
+            elif action == "unwarn_all":
+                async with db.execute(
+                    "SELECT DISTINCT chat_id FROM user_warnings WHERE user_id = ? AND revoked_at IS NULL "
+                    "AND (expires_at IS NULL OR expires_at > NOW())", (uid,)) as cur:
+                    chats = [int(r[0]) for r in await cur.fetchall()]
+                for cid in chats:
+                    warns += await moderation.revoke_all_warns(db, cid, uid, actor)
+            elif action == "watch":
+                if await staff_watch.add(db, uid, actor, reason):
+                    await admin_people.audit(db, actor, "watch_add", user_id=uid, details={"reason": reason})
+            else:
+                if await staff_watch.remove(db, uid, actor):
+                    await admin_people.audit(db, actor, "watch_remove", user_id=uid)
+            done += 1
+        except HTTPException as exc:
+            failed.append({"id": uid, "username": names.get(uid), "reason": str(exc.detail)})
+        except marks_service.MarkConflict as exc:
+            failed.append({"id": uid, "username": names.get(uid), "reason": str(exc)})
+    message = f"Готово: {done} из {len(ids)}." + (f" Снято варнов: {warns}." if action == "unwarn_all" else "")
+    return {"ok": True, "done": done, "failed": failed, "message": message}
 
 
 @router.get("/chat/{cid}")

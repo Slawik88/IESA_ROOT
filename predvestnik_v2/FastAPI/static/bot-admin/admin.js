@@ -192,7 +192,9 @@ document.addEventListener('click', e => {
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
 
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
-const PEOPLE = {query: '', stack: []};   // stack — откуда пришли (для «Назад»)
+const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
+const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
+  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал']];
 
 function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
@@ -357,36 +359,104 @@ function historyCard(items) {
         ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) : ''}</div></div>`).join('')}</div>`;
 }
 
+// Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
+const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять варны везде', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
+async function bulkRun(action, ids, after) {
+  const count = `Игроков: <b>${ids.length}</b>.`;
+  const send = async extra => {
+    const res = await api('/players/bulk', {method: 'POST', body: JSON.stringify({action, ids, ...extra})});
+    toast(res.message);
+    if (res.failed.length) {
+      sheet('Не всем получилось', `<div class="sub">${esc(res.message)}</div>${res.failed.map(f =>
+        `<div class="log"><b>${who(f.id, f.username)}</b><div class="sub">${esc(f.reason)}</div></div>`).join('')}`, 'Понятно', () => {}, {info: true});
+    }
+    after();
+  };
+  if (action === 'watch') return sheet(BULK_TITLES[action], `<div class="sub">${count} Они появятся в фильтре «На контроле».</div>${reasonField()}`,
+    'Поставить', () => send({reason: ($('#freason') || {}).value}));
+  if (action === 'mark_grant' || action === 'mark_revoke') {
+    const marks = await api('/marks');
+    return sheet(BULK_TITLES[action], `<div class="sub">${count}</div><div class="field"><label>Метка</label><select id="fmark">
+      ${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>${reasonField(true)}`,
+    action === 'mark_grant' ? 'Выдать' : 'Снять', () => send({mark: $('#fmark').value, reason: ($('#freason') || {}).value}));
+  }
+  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие варны во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
+    'Выполнить', () => send({}));
+}
+
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
   rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
+    <div class="chips filters" id="pplf"></div>
+    <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
   if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
   $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
+  const drawFilters = () => {
+    $('#pplf').innerHTML = PEOPLE_FILTERS.map(([key, title]) =>
+      `<span class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</span>`).join('');
+  };
+  $('#pplf').onclick = e => {
+    const c = e.target.closest('[data-flt]');
+    if (!c || c.dataset.flt === PEOPLE.filter) return;
+    PEOPLE.filter = c.dataset.flt; drawFilters(); load($('#pplq').value);
+  };
+  drawFilters();
+  const drawBulk = () => {
+    const host = $('#pplbulk'); if (!host) return;
+    if (!PEOPLE.select) { host.innerHTML = ''; return; }
+    const n = PEOPLE.picked.size, can = key => key !== 'mark_grant' && key !== 'mark_revoke' ? true : ME.rank >= 5;
+    host.innerHTML = `<div class="card bulkbar"><div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <b>Выбрано: ${n}</b><span class="sub">${n ? '<a href="#" id="bkclear">сбросить</a>' : 'Нажимайте на игроков в списке'}</span></div>
+      ${n ? `<div class="actions" style="margin-top:8px">${Object.entries(BULK_TITLES).filter(([key]) => can(key)).map(([key, title]) =>
+        `<button class="btn small" data-bulk="${key}">${esc(title)}</button>`).join('')}</div>` : ''}</div>`;
+    if (n) {
+      $('#bkclear').onclick = e => { e.preventDefault(); PEOPLE.picked.clear(); drawBulk(); markPicked(); };
+      host.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => bulkRun(b.dataset.bulk, [...PEOPLE.picked], () => {
+        PEOPLE.picked.clear(); drawBulk(); load($('#pplq').value);
+      }).catch(err => toast(err.message, true)));
+    }
+  };
+  const markPicked = () => document.querySelectorAll('#pplres [data-player]').forEach(row => {
+    const on = PEOPLE.picked.has(+row.dataset.player);
+    row.classList.toggle('picked', on);
+    const box = row.querySelector('.pick'); if (box) box.checked = on;
+  });
   async function load(q) {
     PEOPLE.query = q;
     const host = $('#pplres'); if (!host) return;
-    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}`, () => load(q), 'people');
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + PEOPLE.filter : ''}`, () => load(q), 'people');
     if (!data) return;
-    const {players, chats} = data;
-    const head = q.trim() ? '' : '<div class="sub" style="margin-bottom:8px">Недавно активные</div>';
+    const {players, chats, total} = data;
+    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1];
+    const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
     $('#pplres').innerHTML = head + `
-      <h3 class="sec">Игроки · ${players.length}</h3>
+      <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
+        ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
-        <div class="head"><b>${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
+        <div class="head"><b>${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
         <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
-      <h3 class="sec">Чаты · ${chats.length}</h3>
+      ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
       <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
         <div class="head"><b>${esc(c.title)}</b><span class="sub">${num(c.members)} уч.</span></div>
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
-        || '<div class="sub">Ничего</div>'}</div>`;
+        || '<div class="sub">Ничего</div>'}</div>`}`;
+    markPicked(); drawBulk();
+    if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
   }
   $('#pplres').onclick = e => {
     const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
+    if (p && PEOPLE.select) {   // в режиме выбора нажатие отмечает игрока, а не открывает карточку
+      const id = +p.dataset.player;
+      if (PEOPLE.picked.has(id)) PEOPLE.picked.delete(id); else PEOPLE.picked.add(id);
+      markPicked(); drawBulk();
+      return;
+    }
     PEOPLE.stack = [];
     if (p) playerView(main, +p.dataset.player);
     else if (c) chatView(main, +c.dataset.chat);
@@ -408,6 +478,7 @@ async function playerView(main, id, push = true, from = null) {
     p.blocked ? `<span class="chip bad">🙈 бот не отвечает${p.blocked.until ? ' до ' + when(p.blocked.until) : ''}</span>` : '',
     p.global_ban ? '<span class="chip bad">🚫 бан во всех чатах</span>' : '',
     p.deleted_at ? '<span class="chip warn">аккаунт удаляется</span>' : '',
+    p.watch ? '<span class="chip warn">👁 на контроле</span>' : '',
   ].join(' ');
   // Глобальные действия — без взаимоисключающих пар.
   const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
@@ -445,6 +516,23 @@ async function playerView(main, id, push = true, from = null) {
       ${p.notes.next ? '<button class="btn small more" id="notemore">Показать ещё</button>' : ''}
       <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
       <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
+  const NAME_KINDS = {username: '@ник', name: 'имя'};
+  const namesCard = p.names.length || p.nicknames.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
+      ${p.names.length ? `<div class="sub" style="margin-bottom:4px">Как игрок назывался в Telegram: бот записывает, когда ник или имя меняются.</div>
+        ${p.names.map(n => `<div class="log"><b>${esc(n.kind === 'username' ? '@' + n.value : n.value)}</b>
+          <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}
+      ${p.nicknames.length ? `<h3 class="sec">Ники в чатах</h3>${p.nicknames.map(n => `<div class="log"><b>${esc(n.nickname)}</b>
+        <div class="sub"><a href="#" data-chat="${n.chat.id}">${esc(n.chat.title)}</a></div></div>`).join('')}` : ''}</div>` : '';
+  const lk = p.linked;
+  const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
+  const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
+      <div class="sub" style="margin-bottom:4px">Совпадение ника или имени — повод присмотреться, а не доказательство. Устройства и адреса бот не собирает.</div>
+      ${lk.invited_by ? `<h3 class="sec">Пришёл по приглашению</h3>${linkRow(lk.invited_by)}` : ''}
+      ${lk.invited.total ? `<h3 class="sec">Пригласил · ${lk.invited.total}</h3>${lk.invited.items.map(u => linkRow(u)).join('')}
+        ${lk.invited.total > lk.invited.items.length ? `<div class="sub">…и ещё ${lk.invited.total - lk.invited.items.length}</div>` : ''}` : ''}
+      ${lk.same_username.length ? `<h3 class="sec">Тот же ник раньше или сейчас</h3>${lk.same_username.map(u => linkRow(u, '@' + esc(u.value))).join('')}` : ''}
+      ${lk.same_name.length ? `<h3 class="sec">Такое же имя в Telegram</h3>${lk.same_name.map(u => linkRow(u, esc(u.name))).join('')}` : ''}
+      ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -468,12 +556,16 @@ async function playerView(main, id, push = true, from = null) {
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
-      ${globalActs.length ? `<div class="actions" style="margin-top:12px">${globalActs.map(a =>
+      ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
+      <div class="actions" style="margin-top:12px"><button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
+      ${globalActs.length ? `<div class="actions" style="margin-top:8px">${globalActs.map(a =>
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
     ${marksCard}
     ${reportsCard}
     ${notesCard}
+    ${namesCard}
+    ${linkedCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -489,6 +581,16 @@ async function playerView(main, id, push = true, from = null) {
     ${historyCard(p.history)}`;
   wireBack(main);
   const here = {type: 'player', id};
+  $('#pwatch').onclick = () => {
+    const done = on => async reason => {
+      await api(`/player/${id}/watch`, {method: 'POST', body: JSON.stringify({on, reason})});
+      toast(on ? 'Игрок на контроле' : 'Снят с контроля');
+      reopen();
+    };
+    if (p.watch) done(false)('').catch(err => toast(err.message, true));
+    else sheet('👁 На контроль', `<div class="sub">Игрок: ${who(p.id, p.username)}. Он об этом не узнает, ограничений нет: список для персонала.</div>${reasonField()}`,
+      'Поставить', () => done(true)(($('#freason') || {}).value));
+  };
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
   const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
