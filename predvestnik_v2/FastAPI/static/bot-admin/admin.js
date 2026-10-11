@@ -608,24 +608,81 @@ function bars(days, daily, field, title) {
       ${days.length <= 7 || i % 5 === 0 || i === days.length - 1 ? `<span>${d.slice(8)}.${d.slice(5, 7)}</span>` : '<span></span>'}</div>`).join('')}</div>`;
 }
 
-const tile = (label, value) => `<div><span>${label}</span><b>${value}</b></div>`;
+const tile = (label, value, extra = '') => `<div><span>${label}</span><b>${value}</b>${extra}</div>`;
+
+// Сравнение с предыдущим таким же периодом: ▲ выросло, ▼ упало.
+function trend(cur, prev) {
+  if (prev == null) return '';
+  if (!prev && !cur) return '';
+  if (!prev) return ' <small class="trend up" title="В прошлом периоде было 0">▲ новое</small>';
+  const pct = Math.round((cur - prev) / prev * 100);
+  if (!pct) return ' <small class="trend" title="Как в прошлом периоде">＝</small>';
+  return ` <small class="trend ${pct > 0 ? 'up' : 'down'}" title="В прошлом периоде: ${num(prev)}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</small>`;
+}
+
+const CURRENCIES = {mora: '🪙 Мора', diamonds: '💎 Алмазы', dark_mora: '🌑 Тёмная мора', zarniki: '✨ Зарники'};
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v));
+
+function retentionCard(r) {
+  if (!r) return '';
+  const names = {d1: 'На следующий день', d7: 'За 7 дней', d30: 'За 30 дней'};
+  return `<div class="card"><h3>🔁 Удержание</h3><div class="stats">
+    ${Object.entries(names).map(([k, t]) => r[k] && r[k].cohort
+      ? tile(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`) : tile(t, '—', '<small> данных пока нет</small>')).join('')}</div>
+    <div class="sub" style="margin-top:8px">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
+    у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</div></div>`;
+}
+
+function economyCard(e) {
+  const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
+  if (!cur.length) return '<div class="card"><h3>💰 Экономика</h3><div class="sub">За период движений валюты не было.</div></div>';
+  const list = (items, label) => items.length ? `<details style="margin-top:6px"><summary class="sub">${label} · ${items.length}</summary>
+    <table>${items.map(x => `<tr><td>${esc(x.title)}</td><td>${num(x.amount)}</td></tr>`).join('')}</table></details>` : '';
+  return `<div class="card"><h3>💰 Экономика</h3>${cur.map(([k, c]) => `
+    <div class="sub" style="margin-top:12px"><b>${CURRENCIES[k]}</b></div>
+    <div class="stats">${tile('Выдано', num(c.issued))}${tile('Потрачено', num(c.spent))}${tile('Итого', signed(c.net))}</div>
+    ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
+    <div class="sub" style="margin-top:10px">Переводы между игроками не считаются: деньги только переходят от человека к человеку.</div></div>`;
+}
+
+// Выгрузка в CSV: в браузере скачивается файлом, а в Telegram (где файлы не скачать) — копируется в буфер.
+async function exportMetrics(days) {
+  const headers = {};
+  if (INIT) headers['x-init-data'] = INIT;
+  try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
+  const res = await fetch(`${BASE}/bot-admin/api/metrics/export?days=${days}`, {headers});
+  if (!res.ok) throw new Error(`Ошибка ${res.status}`);
+  const text = await res.text();
+  if (window.Telegram?.WebApp?.initData) {
+    await navigator.clipboard.writeText(text.replace(/^\ufeff/, ''));
+    toast('Таблица скопирована: вставьте её в Excel или Google Таблицы.');
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'}));
+  const a = Object.assign(document.createElement('a'), {href: url, download: `metrics-${days}d.csv`});
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
 
 async function metricsView(main, days = 1) {
   showSectionLoading(main, 'metrics');
   const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
-  const s = m.site, b = m.bot, c = m.chats;
+  const s = m.site, b = m.bot, c = m.chats, cmp = m.compare || {};
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
   main.innerHTML = `
     <div class="scope">${Object.entries(period).map(([d, t]) =>
       `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
-      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span></div>
+      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span>
+      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
     <div class="card"><h3>Всего</h3><div class="stats">
-      ${tile('👤 Уникальных людей', num(m.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
+      ${tile('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
       ${tile('💬 Чатов с ботом', num(m.chats_total))}</div>
-      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.</div></div>
+      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.
+        Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</div></div>
+    ${retentionCard(m.retention)}
     <div class="card"><h3>📱 Мини-приложение</h3><div class="stats">
-      ${tile('Посетителей', num(s.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
+      ${tile('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
       ${tile('Время всего', dur(s.seconds))}${tile('В среднем на человека', dur(s.avg_seconds_per_visitor))}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
       ${s.pages.length ? `<table style="margin-top:12px"><tr><th>Вкладка</th><th>Открытий</th><th>Людей</th><th>Время</th><th>Среднее</th></tr>
@@ -635,20 +692,26 @@ async function metricsView(main, days = 1) {
         <table>${s.subpages.map(p => `<tr><td>${esc(p.tab)}</td><td>${num(p.visits)}</td><td>${num(p.users)} чел.</td></tr>`).join('')}</table></details>` : ''}
     </div>
     <div class="card"><h3>🤖 Команды бота</h3><div class="stats">
-      ${tile('Команд', num(b.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
-      ${tile('Людей', num(b.users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
+      ${tile('Команд', num(b.commands), trend(b.commands, cmp.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
+      ${tile('Людей', num(b.users), trend(b.users, cmp.bot_users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
       ${b.top.length ? `<table style="margin-top:12px"><tr><th>Команда</th><th>В чатах</th><th>В личке</th><th>Всего</th></tr>
         ${b.top.map(x => `<tr><td>бот ${esc(x.command)}</td><td>${num(x.group)}</td><td>${num(x.private)}</td><td>${num(x.total)}</td></tr>`).join('')}</table>`
         : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
     </div>
     <div class="card"><h3>💬 Чаты</h3><div class="stats">
-      ${tile('Сообщений', num(c.messages))}${tile('Писали', num(c.users) + ' чел.')}${tile('Активных чатов', num(c.chats))}</div>
+      ${tile('Сообщений', num(c.messages), trend(c.messages, cmp.messages))}${tile('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users))}${tile('Активных чатов', num(c.chats))}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
       ${c.top.length ? `<table style="margin-top:12px"><tr><th>Чат</th><th>Сообщений</th><th>Писали</th></tr>
         ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
           <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
-    </div>`;
+    </div>
+    ${economyCard(m.economy)}`;
+  $('#mexport').onclick = async e => {
+    e.target.disabled = true;
+    try { await exportMetrics(m.days); } catch (err) { toast(err.message || 'Не удалось выгрузить', true); }
+    e.target.disabled = false;
+  };
   main.querySelectorAll('table').forEach(t => {   // длинные таблицы (топ команд) по 8 строк, остальное по кнопке
     const rows = [...t.querySelectorAll('tr')].slice(1);
     if (rows.length <= 10) return;

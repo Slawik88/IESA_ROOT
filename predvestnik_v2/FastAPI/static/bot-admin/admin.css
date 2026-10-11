@@ -135,6 +135,9 @@ h3.sec { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; colo
 .stats span { display: block; color: var(--muted); font-size: 12px; }
 .stats b { font-size: 22px; font-weight: 300; letter-spacing: -.01em; }
 .stats small { color: var(--muted); font-weight: 400; }
+.stats small.trend { font-size: 12px; font-weight: 500; }
+.stats small.trend.up { color: var(--ok); }
+.stats small.trend.down { color: var(--bad); }
 .member { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .member:last-child { border-bottom: 0; }
 .member .head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }

@@ -92,6 +92,24 @@ async def run():
                                 ("бот нетакойкоманды", P2, -100)):
             await dispatch(registry, FakeMessage(text, uid, chat), FakeBot(), db)
 
+        # Прошлый период и удержание: P1 впервые в чате 10 дней назад, P3 пишет 5 и 4 дня назад (вернулся на следующий день).
+        for uid, n, ago in ((P1, 12, 10), (P3, 1, 4)):
+            await db.execute("INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, -100, ?, ?)",
+                             (uid, (today - timedelta(days=ago)).isoformat(), n))
+        await db.execute("INSERT INTO site_analytics (user_id, tab, session_id, visited_at, duration_sec) VALUES (?, 'profile', 's9', ?, 5)",
+                         (P1, now_utc - timedelta(days=8, minutes=1)))
+        # Экономика: выдача из квеста и админки, трата в магазине, перевод между игроками (не должен считаться).
+        for i, (uid, cur, delta, reason, ago) in enumerate((
+                (P1, "mora", 500, "quest_reward", 0), (P2, "mora", 300, "quest_reward", 0), (P1, "mora", -200, "shop_purchase", 0),
+                (P1, "mora", -50, "player_transfer_out", 0), (P2, "mora", 50, "player_transfer_in", 0),
+                (P2, "zarniki", 20, "manual_admin_grant", 0), (P3, "mora", 999, "quest_reward", 3))):
+            op = f"op-metrics-{i}"
+            await db.execute("INSERT INTO economic_operations (id, user_id, idempotency_key, request_fingerprint, reason_code, source_type) "
+                             "VALUES (?, ?, ?, 'x', ?, 'test')", (op, uid, op, reason))
+            await db.execute("INSERT INTO economic_ledger (operation_id, user_id, currency, delta, balance_before, balance_after, reason_code, created_at) "
+                             "VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
+                             (op, uid, cur, delta, delta, reason, now_utc.replace(tzinfo=None) - timedelta(days=ago, minutes=1)))
+
     client = Client(main.app)
     h = {uid: {"x-session-token": create_session_token(uid)} for uid in (HELPER, SENIOR)}
     assert (await client.get("/bot-admin/api/metrics", headers=h[HELPER])).status_code == 403
@@ -106,11 +124,34 @@ async def run():
     assert {x["command"]: x["total"] for x in b["top"]} == {"стрик": 1, "топ": 1, "баланс": 1}, b["top"]
     assert (c["messages"], c["users"], c["chats"]) == (40, 2, 1), c
     assert m["everyone"] == 2 and m["players_total"] == 6 and m["chats_total"] == 1, m
+    assert m["compare"] == {"everyone": 0, "visitors": 0, "commands": 0, "bot_users": 0, "messages": 0, "chat_users": 0}, m["compare"]
+    eco = m["economy"]
+    assert eco["mora"]["issued"] == 800 and eco["mora"]["spent"] == 200 and eco["mora"]["net"] == 600, eco   # перевод и старая запись не в счёте
+    assert eco["mora"]["transfers"] == 50 and eco["zarniki"]["issued"] == 20, eco
+    assert eco["mora"]["sources"][0] == {"title": "Награды за квесты", "amount": 800.0}, eco["mora"]["sources"]
+    assert eco["mora"]["sinks"] == [{"title": "Магазин", "amount": 200.0}], eco["mora"]["sinks"]
+    assert eco["zarniki"]["sources"] == [{"title": "Выдано и списано из админки", "amount": 20.0}], eco["zarniki"]
+    r = m["retention"]
+    assert (r["d1"]["cohort"], r["d1"]["returned"], r["d1"]["percent"]) == (2, 1, 50), r   # P1 (10 дней назад) и P3 (5 дней назад)
+    assert (r["d7"]["cohort"], r["d7"]["returned"], r["d7"]["percent"]) == (1, 0, 0), r      # только P1, вернулся через 10 дней
+    assert r["d30"]["cohort"] == 0 and r["d30"]["percent"] is None, r
     m = (await client.get("/bot-admin/api/metrics?days=7", headers=h[SENIOR])).json()
-    assert m["site"]["visitors"] == 3 and m["chats"]["messages"] == 45 and m["everyone"] == 3, m
+    assert m["site"]["visitors"] == 3 and m["chats"]["messages"] == 46 and m["everyone"] == 3, m
+    assert m["compare"]["visitors"] == 1 and m["compare"]["messages"] == 12 and m["compare"]["chat_users"] == 1 \
+        and m["compare"]["everyone"] == 1, m["compare"]
+    assert m["economy"]["mora"]["issued"] == 800 + 999, m["economy"]   # за неделю входит и старая выдача
     assert len(m["day_list"]) == 7 and m["day_list"][-1] == today.isoformat()
     assert m["site"]["daily"][today.isoformat()]["users"] == 2, m["site"]["daily"]
     assert (await client.get("/bot-admin/api/metrics?days=5", headers=h[SENIOR])).json()["days"] == 1
+    # Выгрузка CSV: BOM для Excel, разделитель «;», те же числа, что на экране; доступ — как у раздела.
+    assert (await client.get("/bot-admin/api/metrics/export?days=7", headers=h[HELPER])).status_code == 403
+    res = await client.get("/bot-admin/api/metrics/export?days=7", headers=h[SENIOR])
+    assert res.status_code == 200 and res.headers["content-type"].startswith("text/csv"), res.headers
+    assert 'attachment; filename="metrics-7d.csv"' in res.headers["content-disposition"]
+    body = res.content.decode("utf-8")
+    assert body.startswith("\ufeff") and "Посетителей мини-приложения" in body, body[:120]
+    assert f"{today.isoformat()};2;" in body and "бот стрик;1;0;1" in body and "Основной чат;" in body, body
+    assert "mora;1799.0;200.0;1599.0" in body, body
 
 
 def main():
