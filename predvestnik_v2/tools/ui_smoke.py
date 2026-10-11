@@ -16,6 +16,7 @@ import asyncio
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -214,8 +215,34 @@ def sweep_crawl(stand, browser, args, results) -> None:
     results.setdefault("crawl", ([], []))
 
 
+def compositor_cost(browser, ctx, page, seconds: float = 1.5) -> dict[str, float]:
+    """What a phone GPU pays for the page, read from Chromium itself: render passes per drawn frame (offscreen surfaces) and the area of the composited layers in screens (memory x DPR squared).
+    Neither shows in fps on a desktop, and both are what made a heavy look stutter on a phone."""
+    layers: list[dict] = []
+    cdp = ctx.new_cdp_session(page)
+    cdp.on("LayerTree.layerTreeDidChange", lambda e: layers.__setitem__(slice(None), e.get("layers") or layers))
+    cdp.send("LayerTree.enable")
+    page.wait_for_timeout(500)
+    screen = page.evaluate("() => innerWidth * innerHeight")
+    area = sum(layer["width"] * layer["height"] for layer in layers if layer.get("drawsContent")) / screen
+    trace = browser.new_browser_cdp_session()
+    events: list[dict] = []
+    done = {"v": False}
+    trace.on("Tracing.dataCollected", lambda e: events.extend(e["value"]))
+    trace.on("Tracing.tracingComplete", lambda e: done.__setitem__("v", True))
+    trace.send("Tracing.start", {"traceConfig": {"recordMode": "recordUntilFull", "includedCategories": ["cc", "viz"]}, "transferMode": "ReportEvents"})
+    page.wait_for_timeout(int(seconds * 1000))
+    trace.send("Tracing.end")
+    waited = time.time()
+    while not done["v"] and time.time() - waited < 30:
+        page.wait_for_timeout(100)
+    count = lambda name: sum(1 for e in events if e.get("name") == name and e.get("ph") in ("X", "B"))  # noqa: E731
+    frames = count("Display::DrawAndSwap")
+    return {"passes": count("DirectRenderer::DrawRenderPass") / frames if frames else 0.0, "area": area}
+
+
 def sweep_perf(stand, browser, args, results) -> None:
-    """Motion budget of the profile for every look at SSS (--device high is the full mode): running animations, filters and masks on animated layers, text glints.
+    """Budget of the profile for every look at SSS (--device high is the full mode): running animations, text glints that move on the main thread, render passes and layer area.
     A look that exceeds the budget jitters in the Telegram WebView; Chromium without a GPU cannot show that, the counts can."""
     from core.skins_v3_catalog import SKINS
     rows = []
@@ -224,13 +251,14 @@ def sweep_perf(stand, browser, args, results) -> None:
             continue
         reseed(args.dsn, skin=sid, tier="SSS")
         ctx, page, probe = open_app(stand, browser, args.widths[0], args.device)
-        m = page.evaluate(MOTION); ctx.close()
+        m = page.evaluate(MOTION)
+        m.update(compositor_cost(browser, ctx, page)); ctx.close()
         rows.append((m["anims"], sid, m))
-        over = [f"{k} {m[k]} > {limit}" for k, limit in BUDGET.items() if m[k] > limit]
+        over = [f"{k} {m[k]:.4g} > {limit}" for k, limit in BUDGET.items() if m[k] > limit]
         if over:
             results[f"motion {sid}"] = (["over the motion budget: " + ", ".join(over)], [])
     for n, sid, m in sorted(rows, reverse=True)[:40]:
-        print(f"motion {sid:18} anims {n:3}  filter {m['filter']:2}  masked {m['masked']:2}  glint {m['glint']}  lite {m['lite']}")
+        print(f"motion {sid:18} anims {n:3}  passes {m['passes']:5.1f}  area {m['area']:5.1f} screens  glint {m['glint']}  lite {m['lite']}")
 
 
 def sweep_skins(stand, browser, args, results) -> None:

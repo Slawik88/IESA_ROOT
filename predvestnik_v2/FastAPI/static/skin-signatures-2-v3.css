@@ -60,7 +60,7 @@
 .ap-sig-heart .sg-pulse { inset: 0; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--ap-a) 85%, transparent); }
 .ap-sig-heart .sg-pulse:nth-child(1) { transform: scale(1.32); opacity: .5; } .ap-sig-heart .sg-pulse:nth-child(2) { transform: scale(1.66); opacity: .26; }
 .ap-sig-heart .sg-pulse:nth-child(3) { border: 0; transform: scale(1.2); opacity: .5; background: radial-gradient(closest-side, color-mix(in srgb, var(--ap-b) 55%, transparent), transparent); }
-.ap-sig-heart .sg-core { right: -9%; top: -9%; width: 26%; aspect-ratio: 1; background: #fff; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); filter: drop-shadow(0 0 6px var(--ap-a)) drop-shadow(0 0 12px var(--ap-b)); }
+.ap-sig-heart .sg-core { right: -9%; top: -9%; width: 26%; aspect-ratio: 1; background: #fff; -webkit-mask: var(--m-core) center / 100% 100% no-repeat; mask: var(--m-core) center / 100% 100% no-repeat; filter: drop-shadow(0 0 6px var(--ap-a)) drop-shadow(0 0 12px var(--ap-b)); }
 @keyframes sgbeat { 0% { transform: scale(1); opacity: .85; } 70%, 100% { transform: scale(1.95); opacity: 0; } }
 @keyframes sgthump { 0%, 100% { transform: scale(1); } 12% { transform: scale(1.08); } 24% { transform: scale(1); } 36% { transform: scale(1.12); } 56% { transform: scale(1); } }
 .ap-anim .ap-sig-heart .sg-pulse { animation: sgbeat 1.7s ease-out infinite; }
