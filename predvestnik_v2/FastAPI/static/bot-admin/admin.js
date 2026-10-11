@@ -124,6 +124,22 @@ function dockSplit() {
   return all.length <= DOCK_MAX ? {main: all, rest: []} : {main: all.slice(0, DOCK_MAX - 1), rest: all.slice(DOCK_MAX - 1)};
 }
 
+// Значки на вкладках: пока только число новых жалоб. Обновляются раз в минуту и после действий с жалобами.
+let BADGES = {};
+function paintBadges() {
+  document.querySelectorAll('#tabs .nb[data-tab]').forEach(b => {
+    const n = BADGES[b.dataset.tab] || 0;
+    let dot = b.querySelector('.badge');
+    if (!n) { if (dot) dot.remove(); return; }
+    if (!dot) { dot = document.createElement('i'); dot.className = 'badge'; b.append(dot); }
+    dot.textContent = n > 99 ? '99+' : n;
+  });
+}
+async function refreshBadges() {
+  try { BADGES = await api('/badges'); } catch (_) { return; }
+  paintBadges();
+}
+
 function tabs(active) {
   CURRENT = active;
   const {main, rest} = dockSplit(), nav = $('#tabs');
@@ -135,6 +151,7 @@ function tabs(active) {
   nav.innerHTML = main.map(s =>
     `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}">${icon(s.key)}<span>${esc(SHORT[s.key] || s.title)}</span></button>`).join('')
     + (rest.length ? `<button type="button" class="nb ${inRest ? 'here' : ''}" data-more="1">${icon('more')}<span>Ещё</span></button>` : '');
+  paintBadges();
 }
 
 function moreSheet() {
@@ -433,7 +450,8 @@ async function peopleSearch(main, query = '') {
     const {players, chats, total} = data;
     const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1];
     const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
-    $('#pplres').innerHTML = head + `
+    const showAttn = !q.trim() && !PEOPLE.filter;
+    $('#pplres').innerHTML = (showAttn ? '<div id="pplattn"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
@@ -447,6 +465,13 @@ async function peopleSearch(main, query = '') {
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
     markPicked(); drawBulk();
+    if (showAttn) api('/chats/attention').then(att => {
+      const host = $('#pplattn');
+      if (!host || !att.total) return;
+      host.innerHTML = `<div class="card"><h3>⚠️ Чаты требуют внимания · ${att.total}</h3><div class="list">${attentionRows(att.items.slice(0, 5))}</div>
+        ${att.total > 5 ? '<button class="btn small more" id="attnall">Показать все</button>' : ''}</div>`;
+      if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
+    }).catch(() => {});
     if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
   }
   $('#pplres').onclick = e => {
@@ -638,6 +663,39 @@ async function playerView(main, id, push = true, from = null) {
   main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
 }
 
+// Настройки чата одним взглядом: кто что может, чистка, модули и флаги. Меняются командами в самом чате и в «Функциях».
+function chatSettingsCard(st) {
+  if (!st || !st.ranks) return '';
+  const flag = (title, on) => `<span class="chip ${on ? 'ok' : 'off'}">${on ? '✓' : '✕'} ${esc(title)}</span>`;
+  return `<div class="card"><h3>⚙️ Настройки чата</h3>
+    <h3 class="sec">Кто что может (с какого ранга в чате)</h3>
+    ${st.ranks.map(r => `<div class="sw-row"><div class="t">${esc(r.title)}</div><span class="sub">${esc(r.name)}</span></div>`).join('')}
+    <h3 class="sec">Чистка</h3>
+    <div class="sub">${st.purge.on ? 'Включена' : 'Выключена'} · запускает ${esc(st.purge.min_rank)} · действия с ${esc(st.purge.action_rank)}</div>
+    ${st.shield_days ? `<div class="sub">Защита от чистки длится ${st.shield_days} дн.</div>` : ''}
+    <h3 class="sec">Модули чата</h3><div class="chips">${st.modules.map(m => flag(m.icon + ' ' + m.name, m.on)).join('')}</div>
+    <h3 class="sec">Прочее</h3><div class="chips">${st.flags.map(f => flag(f.title, f.on)).join('')}</div></div>`;
+}
+
+// Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
+function attentionRows(items) {
+  const cls = {no_rights: 'warn', quiet: 'off', left: 'bad'};
+  return items.map(x => `<div class="row" data-chat="${x.id}">
+    <div class="head"><b>${esc(x.title)}</b><span class="sub">${num(x.members)} уч.</span></div>
+    <div class="chips" style="margin-top:4px">${x.problems.map(p => `<span class="chip ${cls[p.key] || ''}">${esc(p.title)}</span>`).join('')}</div>
+    <div class="sub">${x.last ? 'последнее сообщение ' + when(x.last) : 'сообщений не было'}</div></div>`).join('');
+}
+function goChat(id) {
+  const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
+  open('people'); PEOPLE.stack = []; chatView($('#main'), id);
+}
+async function attentionSheet(kind, title) {
+  const data = await api(`/chats/attention?kind=${kind}`);
+  sheet(title, data.items.length ? `<div class="list">${attentionRows(data.items)}</div>${data.total > data.items.length ? `<div class="sub" style="margin-top:8px">Показаны ${data.items.length} из ${data.total}: самые людные.</div>` : ''}`
+    : '<div class="sub">Таких чатов нет.</div>', 'Закрыть', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
+}
+
 async function chatView(main, id, push = true, from = null) {
   const c = await loadSectionData(main, `/chat/${id}`, () => chatView(main, id, push, from), 'people');
   if (!c) return;
@@ -682,6 +740,7 @@ async function chatView(main, id, push = true, from = null) {
       ${c.switched_off.length ? `<div class="sub" style="margin-top:8px">Выключено: ${c.switched_off.map(x =>
         esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
     </div>
+    ${chatSettingsCard(c.settings)}
     <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username})}</div>
       <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
     ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
@@ -898,6 +957,7 @@ SECTIONS.journal = main => journalView(main);
 async function reportsView(main, kind = 'open') {
   const data = await loadSectionData(main, `/reports?kind=${kind}`, () => reportsView(main, kind), 'reports');
   if (!data) return;
+  refreshBadges();
   const c = data.counts;
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
@@ -906,6 +966,11 @@ async function reportsView(main, kind = 'open') {
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
     <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
+    ${data.repeat && data.repeat.length ? `<div class="card"><h3>🔁 Повторные нарушители · ${data.repeat.length}</h3>
+      <div class="sub" style="margin-bottom:4px">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
+      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
+        <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
+        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</div>` : ''}
     ${data.items.length ? data.items.map(r => `<div class="card">
       <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
@@ -1810,9 +1875,9 @@ async function healthView(main) {
     </div>
     <div class="card"><h3>💬 Чаты и игроки</h3>
       ${row('Чатов с ботом', num(h.chats.active))}
-      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают.' : '')}
-      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают.' : '')}
-      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet))}
+      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
+      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
+      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
       ${row('Игроков', num(h.players.total))}
       ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
     </div>
@@ -1829,6 +1894,11 @@ async function healthView(main) {
       ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
       <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
     </div>`;
+  const ATTN_TITLES = {left: 'Бота удалили из чатов', no_rights: 'Без прав модерации', quiet: 'Тихие чаты'};
+  main.querySelectorAll('[data-attn]').forEach(a => a.onclick = e => {
+    e.preventDefault();
+    attentionSheet(a.dataset.attn, ATTN_TITLES[a.dataset.attn]).catch(err => toast(err.message, true));
+  });
   const save = async () => {
     try {
       await api('/health/digest', {method: 'POST', body: JSON.stringify({enabled: $('#dgon').checked, hour: +$('#dghour').value})});
@@ -1861,4 +1931,6 @@ SECTIONS.health = main => healthView(main);
   let saved = '';
   try { saved = localStorage.getItem('pv_admin_tab') || ''; } catch (_) {}
   open(ME.sections.some(s => s.key === saved) ? saved : ME.sections[0].key);
+  refreshBadges();
+  setInterval(() => { if (!document.hidden) refreshBadges(); }, 60000);
 })();

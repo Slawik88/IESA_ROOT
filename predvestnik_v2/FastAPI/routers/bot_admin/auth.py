@@ -58,6 +58,17 @@ def section(key: str):
 DEV_COOKIE = "pv_admin_dev"
 
 
+@router.get("/badges")
+async def badges(user=Depends(staff_user), db=Depends(get_db)):
+    """Числа для значков на вкладках: сейчас — новые жалобы, которые никто ещё не взял."""
+    out: dict[str, int] = {}
+    if user["rank"] >= SECTIONS["reports"][1]:
+        from services import reports as reports_service
+        await reports_service._ensure(db)
+        out["reports"] = (await reports_service.counts(db))["new"]
+    return out
+
+
 @router.get("/me")
 async def me(response: Response, user=Depends(staff_user)):
     if user["rank"] >= CREATOR:

@@ -150,6 +150,12 @@ async def search(q: str = "", filter: str = "", user=Depends(_user), db=Depends(
     return await admin_people.search(db, q, flt=filter)
 
 
+@router.get("/chats/attention")
+async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db)):
+    """Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили."""
+    return await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
+
+
 @router.get("/player/{uid}")
 async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card = await admin_people.player(db, uid)

@@ -71,7 +71,7 @@ async def counters(db) -> dict:
     quiet_since = (local_now().date() - timedelta(days=29)).isoformat()
     row = await _one(
         db, "SELECT COUNT(*) FILTER (WHERE bot_left_at IS NULL), COUNT(*) FILTER (WHERE bot_left_at IS NOT NULL), "
-            "COUNT(*) FILTER (WHERE bot_left_at IS NULL AND bot_can_moderate = FALSE), "
+            "COUNT(*) FILTER (WHERE bot_left_at IS NULL AND (bot_can_moderate = FALSE OR bot_is_admin = FALSE)), "
             "COUNT(*) FILTER (WHERE bot_left_at IS NULL AND NOT EXISTS (SELECT 1 FROM daily_user_stats d "
             "WHERE d.chat_id = chat_settings.chat_id AND d.date >= ?)) FROM chat_settings WHERE chat_id < 0",
         (quiet_since,))

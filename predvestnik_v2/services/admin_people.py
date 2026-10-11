@@ -450,6 +450,58 @@ async def _chat_nicknames(db, uid: int) -> list[dict]:
 
 LINKED_LIMIT = 10
 
+# Что показывать в «Настройках чата»: ранги действий модерации (с какого ранга в чате разрешено).
+_RANK_COLUMNS = (("rank_warn", "Варн"), ("rank_mute", "Мут"), ("rank_kick", "Кик"), ("rank_ban", "Бан"),
+                 ("rank_shield", "Защита"), ("rank_immune", "Иммунитет"))
+_FLAG_COLUMNS = (("events_enabled", "События чата", 1), ("echo_events_enabled", "Эхо-события", 0),
+                 ("nsfw_warps_allowed", "Варпы 18+", 1), ("include_in_global_top", "Участие в общем топе", 1))
+
+
+async def chat_settings_summary(db, cid: int) -> dict:
+    """Настройки чата одним взглядом: кто что может, чистка, модули, флаги. Только чтение."""
+    from core.chat_modules import CHAT_MODULES
+    cols = [c for c, _ in _RANK_COLUMNS] + [c for c, _, _ in _FLAG_COLUMNS] + list(CHAT_MODULES) + [
+        "is_purging", "purge_min_rank", "purge_action_rank", "shield_duration_days"]
+    async with db.execute(f"SELECT {', '.join(f'COALESCE({c}::int, 0)' for c in cols)} FROM chat_settings WHERE chat_id = ?", (cid,)) as cur:
+        row = await cur.fetchone()
+    if not row:
+        return {}
+    v = dict(zip(cols, row))
+    return {
+        "ranks": [{"key": c, "title": t, "rank": int(v[c]), "name": ranks.rank_name(int(v[c]))} for c, t in _RANK_COLUMNS],
+        "purge": {"on": bool(v["is_purging"]), "min_rank": ranks.rank_name(int(v["purge_min_rank"])),
+                  "action_rank": ranks.rank_name(int(v["purge_action_rank"]))},
+        "shield_days": int(v["shield_duration_days"]),
+        "flags": [{"title": t, "on": bool(v[c])} for c, t, _ in _FLAG_COLUMNS],
+        "modules": [{"key": k, "icon": m["icon"], "name": m["name"], "on": bool(v[k])} for k, m in CHAT_MODULES.items()],
+    }
+
+
+ATTENTION_KINDS = {"no_rights": "Бот без прав модерации", "quiet": "Тихо 30 дней", "left": "Бота удалили"}
+ATTENTION_LIMIT = 50
+
+
+async def chats_attention(db, kind: str = "") -> dict:
+    """Чаты, где что-то не так: бот без прав модерации, нет сообщений 30 дней, бота удалили. kind пустой — все проблемы."""
+    quiet_since = (local_now().date() - timedelta(days=29)).isoformat()
+    async with db.execute(
+        "SELECT c.chat_id, c.chat_title, c.bot_left_at IS NOT NULL AS left_, "
+        "(c.bot_left_at IS NULL AND (c.bot_can_moderate = FALSE OR c.bot_is_admin = FALSE)) AS no_rights, "
+        "(c.bot_left_at IS NULL AND NOT EXISTS (SELECT 1 FROM daily_user_stats d WHERE d.chat_id = c.chat_id AND d.date >= ?)) AS quiet, "
+        "COALESCE(s.members, 0), s.last FROM chat_settings c LEFT JOIN (SELECT chat_tg_id, "
+        "COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE)) AS members, MAX(last_message_at) AS last "
+        "FROM user_chat_stats GROUP BY chat_tg_id) s ON s.chat_tg_id = c.chat_id WHERE c.chat_id < 0",
+        (quiet_since,)) as cur:
+        rows = await cur.fetchall()
+    items = []
+    for cid, title, left_, no_rights, quiet, members, last in rows:
+        problems = [k for k, on in (("left", left_), ("no_rights", no_rights), ("quiet", quiet)) if on]
+        if problems and (not kind or kind in problems):
+            items.append({"id": int(cid), "title": title or str(cid), "members": int(members), "last": _iso(last),
+                          "problems": [{"key": k, "title": ATTENTION_KINDS[k]} for k in problems]})
+    items.sort(key=lambda x: (-x["members"], x["id"]))
+    return {"items": items[:ATTENTION_LIMIT], "total": len(items), "kinds": ATTENTION_KINDS}
+
 
 async def linked(db, uid: int) -> dict:
     """Возможные связи между аккаунтами по тому, что и так видно в Telegram и в приглашениях бота.
@@ -556,6 +608,7 @@ async def chat(db, cid: int) -> dict | None:
     off = (await feature_switches.state(db, cid))["chat"]
     return {
         "id": cid, "title": c[0] or str(cid), "closed": bool(c[2]), "warn_limit": int(c[3]),
+        "settings": await chat_settings_summary(db, cid),
         "bot": {"left_at": c[4].isoformat() if c[4] else None, "is_admin": c[5], "can_moderate": c[6]},   # None — бот ещё не сообщал
         "owner": {"id": int(c[1]), "username": names.get(int(c[1]))} if c[1] else None,
         "admin_chat": {"id": int(link[0]), "title": link[1] or str(link[0])} if link else None,
