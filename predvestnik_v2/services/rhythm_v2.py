@@ -9,8 +9,10 @@ from uuid import uuid4
 from asyncpg.exceptions import UniqueViolationError
 
 from core import rhythm_v2 as rules
+from core import seasons as season_rules
 from infrastructure.repositories import rhythm_v2 as repo
 from services import achievements_v1 as achievements
+from services import game_seasons
 from services import quests_v1 as quests
 
 
@@ -26,13 +28,18 @@ class RhythmConflict(RhythmError):
 
 
 async def _record_completed_quest(db, *, user_id: int, run_id: str, mode: str, score: int,
-                                  integrity_status: str) -> None:
+                                  integrity_status: str, picks: int = 0) -> None:
     """Only independently timed terminal runs may advance progression."""
     if integrity_status != "clear":
         return
     event_id = f"rhythm:{run_id}"
     sources = await quests.available_sources(db, user_id=user_id)
-    for metric in ("game_completed", "rhythm_completed", f"rhythm_{mode}_completed"):
+    metrics = ["game_completed", "rhythm_completed", f"rhythm_{mode}_completed"]
+    if picks > 0:
+        # Quest id/metric keep their historical "augments" name so players'
+        # already assigned quests stay valid; the gift draft is what counts now.
+        metrics.append("rhythm_augments_completed")
+    for metric in metrics:
         await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
                                    vip_active=False, sources=sources)
     if int(score) >= 500:
@@ -62,7 +69,7 @@ async def _settle_finished_run(db, *, row: dict, state: dict, user_id: int,
         )
     await _record_completed_quest(
         db, user_id=user_id, run_id=row["run_id"], mode=str(row["mode"]), score=int(state["score"]),
-        integrity_status=verdict,
+        integrity_status=verdict, picks=len(state["selected"]),
     )
     return verdict
 
@@ -70,6 +77,7 @@ async def _settle_finished_run(db, *, row: dict, state: dict, user_id: int,
 def _state(row: dict) -> dict:
     return {
         "status": row["status"], "selected": list(repo.load(row["selected_json"]) or []),
+        "perks": rules.normalize_perks(repo.load(row.get("perk_state_json"))),
         "health": int(row["health"]), "score": int(row["score"]), "combo": int(row["combo"]),
         "correct_streak": int(row["correct_streak"]), "correct_taps": int(row["correct_taps"]),
         "mistakes": int(row["mistakes"]), "next_signal_no": int(row["next_signal_no"]),
@@ -77,11 +85,35 @@ def _state(row: dict) -> dict:
     }
 
 
+def _draft_pending(state: dict) -> bool:
+    return state["status"] == "active" and rules.draft_pending(
+        next_signal_no=state["next_signal_no"], picks=len(state["selected"]),
+    )
+
+
+def _draft(row: dict, state: dict) -> dict | None:
+    """The gifts on offer while the run is paused between two chunks."""
+    if not _draft_pending(state):
+        return None
+    number = len(state["selected"]) + 1
+    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"])
+    return {"number": number, "offers": [
+        {"id": item.id, "kind": item.kind, "name": item.name, "text": item.text}
+        for item in map(rules.perk, offers)
+    ]}
+
+
+def _hold_for_draft(state: dict) -> None:
+    """The clock never runs while a gift is owed: reconnects cannot start it."""
+    if _draft_pending(state):
+        state["signal_opened_at"] = None
+
+
 def _view(row: dict, state: dict, *, now: datetime) -> dict:
     selected = state["selected"]
     signal_no = state["next_signal_no"]
     active = state["status"] == "active"
-    window_ms = rules.window_ms(signal_no, selected)
+    window_ms = rules.window_ms(signal_no, state["perks"])
     opened_at = state["signal_opened_at"]
     remaining_ms = window_ms
     if active and opened_at is not None:
@@ -91,13 +123,13 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
         "status": state["status"], "health": state["health"], "score": state["score"],
         "combo": state["combo"], "correct_taps": state["correct_taps"], "mistakes": state["mistakes"],
         "next_signal_no": signal_no, "chunk": rules.chunk_for_signal(signal_no),
-        "speed_percent": rules.speed_percent(signal_no, selected),
+        "speed_percent": rules.speed_percent(signal_no),
         "window_ms": window_ms, "remaining_ms": remaining_ms,
         # The expected rune is delivered only for the current signal.  The seed
         # and all future sequence values stay server-side.
         "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and state["signal_opened_at"] else None,
-        "offers": repo.load(row["offers_json"]) if state["status"] == "choosing" else None,
-        "selected_augmentations": selected,
+        "draft": _draft(row, state),
+        "perks": state["perks"], "selected_perks": selected,
         "integrity_status": str(row.get("integrity_status") or "legacy_unverified"),
         "server_time": now.isoformat(),
     }
@@ -117,10 +149,10 @@ def _cancel(state: dict, now: datetime) -> None:
 
 
 def _resolve_error(row: dict, state: dict, *, now: datetime) -> None:
-    damage = rules.error_damage(correct_streak=state["correct_streak"], selected_ids=state["selected"])
-    state["health"] = max(0, state["health"] - damage)
+    state["health"], state["combo"], state["perks"] = rules.after_error(
+        health=state["health"], combo=state["combo"], perks=state["perks"],
+    )
     state["mistakes"] += 1
-    state["combo"] = 0
     state["correct_streak"] = 0
     state["next_signal_no"] += 1
     if state["health"] == 0:
@@ -130,12 +162,13 @@ def _resolve_error(row: dict, state: dict, *, now: datetime) -> None:
 def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
     """A disconnected client cannot freeze a run's difficulty indefinitely."""
     while state["status"] == "active":
+        _hold_for_draft(state)
         opened = state["signal_opened_at"]
         # A run exists before its first ticketed live connection.  There is no
         # deadline to advance until the server has opened that first signal.
         if opened is None:
             return
-        window = rules.window_ms(state["next_signal_no"], state["selected"])
+        window = rules.window_ms(state["next_signal_no"], state["perks"])
         deadline = opened + timedelta(milliseconds=window)
         if now <= deadline:
             return
@@ -150,8 +183,9 @@ async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
         raise RhythmError("unknown rhythm mode")
     await repo.ensure_tables(db)
     run_id, seed = str(uuid4()), secrets.token_bytes(32)
-    offers = rules.offers_for_seed(seed) if mode == "augments" else {"positive": [], "negative": []}
-    state = "choosing" if mode == "augments" else "active"
+    # One ranked mode.  "augments" survives only so that an already open
+    # Mini App tab can still start a run; gifts now come during the run.
+    mode, state, offers = "normal", "active", {}
     health = rules.initial_health()
     try:
         # The nested transaction is a savepoint when a caller already owns a
@@ -198,19 +232,38 @@ async def cancel_run(db, *, user_id: int, run_id: str) -> dict:
         return _view(row, state, now=row["server_now"])
 
 
-async def choose_augmentations(db, *, user_id: int, run_id: str,
-                               positive: list[str], negative: list[str]) -> dict:
+async def pick_perk(db, *, user_id: int, run_id: str, perk_id: str, action_id: str) -> dict:
+    """Take one of the three offered rune gifts and restart the paused clock."""
+    if not action_id or len(action_id) > 96:
+        raise RhythmError("invalid rune gift pick")
+    request = {"perk": str(perk_id)}
     async with db.connection.transaction():
         row = await repo.lock_owned_run(db, run_id=run_id, user_id=user_id)
         if not row:
             raise RhythmConflict("Rhythm run was not found")
-        if row["status"] != "choosing" or row["mode"] != "augments":
-            raise RhythmConflict("this Rhythm run cannot choose augmentations")
-        selected = rules.validate_selection(repo.load(row["offers_json"]), positive=positive, negative=negative)
-        state = _state(row)
-        state.update(status="active", selected=list(selected), health=rules.initial_health(selected), signal_opened_at=None)
+        recorded = await repo.get_action(db, run_id=run_id, action_id=action_id)
+        if recorded:
+            if repo.load(recorded["request_json"]) != request:
+                raise RhythmConflict("action id was already used with another pick")
+            response = repo.load(recorded["result_json"])
+            response["idempotent_replay"] = True
+            return response
+        state, now = _state(row), row["server_now"]
+        # No expiry here: while a gift is owed the clock is paused, so there is
+        # nothing to expire and the pick can never finish (and so strand) a run.
+        draft = _draft(row, state)
+        if not draft:
+            raise RhythmConflict("no rune gift is on offer")
+        if perk_id not in {item["id"] for item in draft["offers"]}:
+            raise RhythmConflict("this rune gift was not offered")
+        state["health"], state["perks"] = rules.apply_perk(perk_id, health=state["health"], perks=state["perks"])
+        state["selected"].append(perk_id)
+        state["signal_opened_at"] = now
+        _hold_for_draft(state)  # a second gift may be owed after a very long pause
         await repo.update_run(db, run_id=run_id, state=state)
-        return _view(row, state, now=row["server_now"])
+        response = _view(row, state, now=now)
+        await repo.insert_action(db, run_id=run_id, action_id=action_id, request=request, result=response)
+        return response
 
 
 async def offline_packet(db, *, user_id: int, run_id: str) -> dict:
@@ -234,20 +287,14 @@ async def offline_packet(db, *, user_id: int, run_id: str) -> dict:
         start = 1
         end = start + OFFLINE_PACKET_SIGNALS
         seed = bytes(row["seed"])
-        modifiers = rules.modifiers(state["selected"])
         return {
             "run_id": row["run_id"], "ruleset_version": row["ruleset_version"],
             "start_signal_no": start,
             "runes": [rules.expected_rune(seed, number) for number in range(start, end)],
-            "windows_ms": [rules.window_ms(number, state["selected"]) for number in range(start, end)],
-            "speed_percent": [rules.speed_percent(number, state["selected"]) for number in range(start, end)],
-            "selected_augmentations": state["selected"],
-            "rules": {
-                "initial_health": rules.initial_health(state["selected"]),
-                "score_pct": modifiers["score_pct"],
-                "error_damage_delta": modifiers["error_damage_delta"],
-                "grace_every": modifiers["grace_every"],
-            },
+            "windows_ms": [rules.window_ms(number, state["perks"]) for number in range(start, end)],
+            "speed_percent": [rules.speed_percent(number) for number in range(start, end)],
+            # Rune gifts need the live server clock, so an offline run has none.
+            "rules": {"initial_health": rules.initial_health()},
         }
 
 
@@ -278,9 +325,9 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
             raise RhythmConflict("this Rhythm run cannot accept an offline result")
         for action in normalized:
             expected = rules.expected_rune(bytes(row["seed"]), state["next_signal_no"])
-            window = rules.window_ms(state["next_signal_no"], state["selected"])
+            window = rules.window_ms(state["next_signal_no"], state["perks"])
             if action["rune"] == expected and action["elapsed_ms"] <= window:
-                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], selected_ids=state["selected"])
+                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
                 state["combo"] += 1; state["correct_streak"] += 1; state["correct_taps"] += 1; state["next_signal_no"] += 1
             else:
                 _resolve_error(row, state, now=now)
@@ -334,21 +381,26 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             response["integrity_status"] = integrity
             await repo.insert_action(db, run_id=run_id, action_id=action_id, request=request, result=response)
             return response
+        if _draft_pending(state):
+            await repo.update_run(db, run_id=run_id, state=state)
+            raise RhythmConflict("choose a rune gift before the next signal")
         if signal_no != state["next_signal_no"]:
             raise RhythmConflict("stale or future rhythm signal")
         elapsed_ms = max(0, int((now - state["signal_opened_at"]).total_seconds() * 1000))
-        window = rules.window_ms(signal_no, state["selected"])
+        window = rules.window_ms(signal_no, state["perks"])
         correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window
         if correct:
-            state["score"] += rules.score_for_correct(elapsed_ms=elapsed_ms, allowed_window_ms=window, combo_before=state["combo"], selected_ids=state["selected"])
+            state["score"] += rules.score_for_correct(elapsed_ms=elapsed_ms, allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
+            state["perks"] = rules.after_correct(state["perks"])
             state["combo"] += 1
             state["correct_streak"] += 1
             state["correct_taps"] += 1
             state["next_signal_no"] += 1
         else:
             _resolve_error(row, state, now=now)
-        if state["status"] == "active" and state["signal_opened_at"] is not None:
+        if state["status"] == "active":
             state["signal_opened_at"] = now
+            _hold_for_draft(state)
         else:
             await repo.update_run(db, run_id=run_id, state=state)
             integrity = await _settle_finished_run(
@@ -398,8 +450,21 @@ async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
         await _record_completed_quest(
             db, user_id=int(row["user_id"]), run_id=str(row["run_id"]),
             mode=str(row["mode"]), score=int(row["score"]), integrity_status="clear",
+            picks=len(repo.load(row.get("selected_json")) or []),
         )
-    return await repo.leaderboard(db, user_id=user_id, mode=mode, ruleset_version=rules.RULESET_VERSION)
+    # One ranked board; "augments" is only a legacy alias of it.
+    mode = "normal"
+
+    async def standings(db_, start, end):
+        return await repo.season_standings(db_, mode=mode, starts_at=start, ends_at=end)
+
+    await game_seasons.settle_due(db, game="rhythm", board=mode, standings=standings)
+    season = game_seasons.season_view()
+    start, end = season_rules.season_bounds(season["number"])
+    board = await repo.leaderboard(db, user_id=user_id, mode=mode, starts_at=start, ends_at=end)
+    board["season"] = season
+    board["last_season"] = await game_seasons.last_result(db, game="rhythm", board=mode, user_id=user_id)
+    return board
 
 
 def _ticket_hash(ticket: str) -> str:
@@ -462,6 +527,12 @@ async def transport_tap(db, *, user_id: int, run_id: str, lease: str, signal_no:
     return await tap(db, user_id=user_id, run_id=run_id, signal_no=signal_no, rune=rune, action_id=action_id, trusted_transport=True)
 
 
+async def transport_pick(db, *, user_id: int, run_id: str, lease: str, perk_id: str, action_id: str) -> dict:
+    if not await repo.extend_transport_lease(db, run_id=run_id, user_id=user_id, lease=lease):
+        raise RhythmConflict("Rhythm live connection is no longer valid")
+    return await pick_perk(db, user_id=user_id, run_id=run_id, perk_id=perk_id, action_id=action_id)
+
+
 async def pending_reviews(db, *, limit: int = 50) -> list[dict]:
     if not 1 <= int(limit) <= 100:
         raise RhythmError("invalid review page size")
@@ -522,5 +593,6 @@ async def review_run(db, *, reviewer_id: int, run_id: str, review_id: str,
             await _record_completed_quest(
                 db, user_id=int(row["user_id"]), run_id=run_id, mode=str(row["mode"]),
                 score=int(row["score"]), integrity_status="clear",
+                picks=len(repo.load(row.get("selected_json")) or []),
             )
         return _view(row, _state(row), now=row["server_now"])

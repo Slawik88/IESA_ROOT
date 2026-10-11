@@ -19,6 +19,7 @@ from bot.chat import settings
 from bot.chat.cbutil import edit_or_send
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import resolve_target
+from services import member_tags
 
 router = Router(name="chat_transfer")
 USAGE = "бот перевод, @ник 300  (или ответом на сообщение)"
@@ -132,6 +133,8 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (cb.to,)) as cur:
         row = await cur.fetchone()
     who = f"@​{row[0]}" if row and row[0] else f"id{cb.to}"
+    if call.message.chat.type in ("group", "supergroup"):
+        who = member_tags.with_tag(who, await member_tags.get(db, call.message.chat.id, cb.to))
     await edit_or_send(call, f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
     await call.answer("Готово")
     if not sent.applied:   # то же нажатие повторно: деньги уже ушли раньше, уведомление и зачёт достижения не дублируем

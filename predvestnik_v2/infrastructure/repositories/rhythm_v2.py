@@ -61,6 +61,8 @@ async def ensure_tables(db) -> None:
     await db.execute("UPDATE rhythm_v2_runs SET integrity_status='legacy_unverified', integrity_evidence='{}'::jsonb "
                      "WHERE integrity_status IS NULL")
     await db.execute("UPDATE rhythm_v2_runs SET integrity_evidence='{}'::jsonb WHERE integrity_evidence IS NULL")
+    # Live effect counters of the run's rune gifts (shield, golden streak, ...).
+    await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS perk_state_json JSONB NOT NULL DEFAULT '{}'::jsonb")
     await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS transport_lease TEXT NULL")
     await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS transport_lease_expires_at TIMESTAMPTZ NULL")
     await db.execute("""
@@ -175,9 +177,9 @@ async def update_run(db, *, run_id: str, state: dict) -> None:
     opened_at = state["signal_opened_at"]
     finished_at = state.get("finished_at")
     await db.execute(
-        "UPDATE rhythm_v2_runs SET status=?,selected_json=?::jsonb,health=?,score=?,combo=?,correct_streak=?,"
+        "UPDATE rhythm_v2_runs SET status=?,selected_json=?::jsonb,perk_state_json=?::jsonb,health=?,score=?,combo=?,correct_streak=?,"
         "correct_taps=?,mistakes=?,next_signal_no=?,signal_opened_at=(?::timestamp AT TIME ZONE 'UTC'),finished_at=(?::timestamp AT TIME ZONE 'UTC'),version=version+1 WHERE run_id=?",
-        (state["status"], dumps(state["selected"]), int(state["health"]), int(state["score"]),
+        (state["status"], dumps(state["selected"]), dumps(state["perks"]), int(state["health"]), int(state["score"]),
          int(state["combo"]), int(state["correct_streak"]), int(state["correct_taps"]), int(state["mistakes"]),
          int(state["next_signal_no"]), opened_at, finished_at, str(run_id)),
     )
@@ -209,7 +211,7 @@ async def promote_authenticated_transport_reviews(db) -> list[dict]:
         "AND r.integrity_reason='server_timed_transport_pending_review' "
         "AND EXISTS (SELECT 1 FROM rhythm_v2_transport_tickets t "
         "WHERE t.run_id=r.run_id AND t.user_id=r.user_id AND t.consumed_at IS NOT NULL) "
-        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score"
+        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json"
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
@@ -296,17 +298,29 @@ async def upsert_leaderboard(db, *, run_id: str, user_id: int, mode: str,
     )
 
 
-async def leaderboard(db, *, user_id: int, mode: str, ruleset_version: str) -> dict:
-    async with db.execute(
-        "WITH best AS (SELECT DISTINCT ON (user_id) user_id,score AS best_score,finished_at "
-        "FROM rhythm_v2_runs WHERE mode=? AND ruleset_version=? AND score>0 "
-        "AND status='finished' AND integrity_status='clear' "
-        "ORDER BY user_id,score DESC,finished_at ASC,run_id ASC), "
-        "ranked AS (SELECT user_id,best_score,RANK() OVER (ORDER BY best_score DESC,finished_at ASC,user_id ASC) AS place "
-        "FROM best) SELECT user_id,best_score,place FROM ranked ORDER BY place LIMIT 20",
-        (str(mode), str(ruleset_version)),
-    ) as cursor:
-        top = [dict(row) for row in await cursor.fetchall()]
+_SEASON_BEST = (
+    "WITH best AS (SELECT DISTINCT ON (user_id) user_id,score AS best_score,finished_at "
+    "FROM rhythm_v2_runs WHERE mode=? AND score>0 AND status='finished' AND integrity_status='clear' "
+    "AND finished_at>=(?::timestamp AT TIME ZONE 'UTC') AND finished_at<(?::timestamp AT TIME ZONE 'UTC') "
+    "ORDER BY user_id,score DESC,finished_at ASC,run_id ASC), "
+    "ranked AS (SELECT user_id,best_score,RANK() OVER (ORDER BY best_score DESC,finished_at ASC,user_id ASC) AS place "
+    "FROM best) "
+)
+
+
+async def season_standings(db, *, mode: str, starts_at, ends_at, limit: int | None = None) -> list[dict]:
+    """Best clear run per player inside one season window, ranked."""
+    sql = _SEASON_BEST + "SELECT user_id,best_score,place FROM ranked ORDER BY place,user_id"
+    params: tuple = (str(mode), starts_at, ends_at)
+    if limit is not None:
+        sql += " LIMIT ?"
+        params += (int(limit),)
+    async with db.execute(sql, params) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def leaderboard(db, *, user_id: int, mode: str, starts_at, ends_at) -> dict:
+    top = await season_standings(db, mode=mode, starts_at=starts_at, ends_at=ends_at, limit=20)
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])
     public_top = [
         {"place": int(row["place"]), "best_score": int(row["best_score"]),
@@ -314,13 +328,8 @@ async def leaderboard(db, *, user_id: int, mode: str, ruleset_version: str) -> d
         for row in top
     ]
     async with db.execute(
-        "WITH best AS (SELECT DISTINCT ON (user_id) user_id,score AS best_score,finished_at "
-        "FROM rhythm_v2_runs WHERE mode=? AND ruleset_version=? AND score>0 "
-        "AND status='finished' AND integrity_status='clear' "
-        "ORDER BY user_id,score DESC,finished_at ASC,run_id ASC), "
-        "ranked AS (SELECT user_id,best_score,RANK() OVER (ORDER BY best_score DESC,finished_at ASC,user_id ASC) AS place "
-        "FROM best) SELECT place,best_score FROM ranked WHERE user_id=?",
-        (str(mode), str(ruleset_version), int(user_id)),
+        _SEASON_BEST + "SELECT place,best_score FROM ranked WHERE user_id=?",
+        (str(mode), starts_at, ends_at, int(user_id)),
     ) as cursor:
         personal = await cursor.fetchone()
     return {"top": public_top, "personal": dict(personal) if personal else None}

@@ -225,6 +225,16 @@ async def main():
             except Exception as _e:
                 logger.warning(f"Кнопка меню не установлена: {_e}")
 
+        # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
+        try:
+            from aiogram.types import BotCommand
+            await bot.set_my_commands([
+                BotCommand(command="start", description="Начало: как добавить бота в чат"),
+                BotCommand(command="setup", description="Проверить и настроить бота в чате"),
+            ])
+        except Exception as _e:
+            logger.warning(f"Меню команд не установлено: {_e}")
+
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")
         if _rarity_sid:
@@ -260,6 +270,12 @@ async def main():
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
+        try:
+            from services import broadcasts as _bc, member_tags as _member_tags
+            background_tasks.append(_spawn_supervised(
+                "member-tags-backfill", _member_tags.backfill_task(bot, _bc.pool_db_factory()), failed=background_failed))
+        except Exception as _e:
+            logger.warning(f"Обход тегов не запущен: {_e}")
         # Preprod intentionally has no Stars history/reconciliation access.
         # Do not spawn a coroutine that correctly returns immediately and then
         # misclassify that policy as a supervisor crash.

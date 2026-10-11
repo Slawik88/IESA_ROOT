@@ -33,6 +33,7 @@ from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.transfer import fmt, parse_amount
 from bot.chat.tracking import local_now
 from bot.chat.style import quote
+from services import member_tags
 
 router = Router(name="chat_family")
 
@@ -254,8 +255,8 @@ async def family_of(db, uid: int) -> Family | None:
     return await load_family(db, found[0]) if found else None
 
 
-async def labels(db, ids) -> dict[int, str]:
-    """Имена без пинга: «@​ник» (с нулевым пробелом) или id."""
+async def labels(db, ids, chat_id: int | None = None) -> dict[int, str]:
+    """Имена без пинга: «@​ник» (с нулевым пробелом) или id. Если известен чат, после имени идёт тег игрока в нём."""
     ids = list(dict.fromkeys(int(i) for i in ids))
     out = {i: f"id{i}" for i in ids}
     if ids:
@@ -265,7 +266,8 @@ async def labels(db, ids) -> dict[int, str]:
             for uid, uname in await cur.fetchall():
                 if uname:
                     out[int(uid)] = f"@​{uname}"
-    return {k: html.escape(v) for k, v in out.items()}
+    tags = await member_tags.many(db, chat_id, ids) if chat_id and chat_id < 0 else {}
+    return {k: html.escape(member_tags.with_tag(v, tags.get(k))) for k, v in out.items()}
 
 
 async def plain_names(db, ids) -> dict[int, str]:
@@ -299,8 +301,8 @@ def days_together(since: datetime | None) -> int | None:
 
 
 # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): родители, дети и кошелёк в цитатах, ники без пинга.
-async def card(db, fam: Family) -> str:
-    names = await labels(db, fam.members)
+async def card(db, fam: Family, chat_id: int | None = None) -> str:
+    names = await labels(db, fam.members, chat_id)
     lines = ["💞 <b>Семья</b>"]
     if fam.since:
         days = days_together(fam.since)
@@ -355,7 +357,8 @@ async def cmd_propose(ctx: Ctx) -> None:
          InlineKeyboardButton(text="💔 Нет", callback_data=ProposalCB(pid=pid, act="n").pack())],
         [InlineKeyboardButton(text="✖️ Отозвать", callback_data=ProposalCB(pid=pid, act="x").pack())],
     ])
-    await ctx.reply(f"💍 {ping(u.id, u.first_name)} делает предложение {ping(target.user_id, target.name.lstrip('@'))}!\n"
+    me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
+    await ctx.reply(f"💍 {me} делает предложение {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))}!\n"
                     "Ответить может только тот, кому предложили. Предложение действует сутки.", reply_markup=kb)
 
 
@@ -376,7 +379,7 @@ async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> Non
     if status != "pending" or not alive:
         await call.answer("Предложение уже не действует.", show_alert=True)
         return
-    names = await labels(db, (proposer, target))
+    names = await labels(db, (proposer, target), chat_id)
     if act in ("n", "x"):
         await db.execute("UPDATE marriage_proposals SET status = ? WHERE id = ? AND status = 'pending'",
                          ("declined" if act == "n" else "cancelled", callback_data.pid))
@@ -421,7 +424,7 @@ async def cmd_family(ctx: Ctx) -> None:
         who = "У вас" if uid == ctx.user_id else "У этого игрока"
         await ctx.reply(f"💞 {who} пока нет семьи. Создать в чате: <code>бот брак, @ник</code>")
         return
-    await ctx.reply(await card(ctx.db, fam))
+    await ctx.reply(await card(ctx.db, fam, ctx.message.chat.id))
 
 
 UP_TITLES = ("Родители", "Бабушки и дедушки", "Прабабушки и прадедушки")
@@ -451,7 +454,7 @@ def _branches(down: list[tuple[int, int, int | None]]) -> list[str]:
 
 
 # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): предки по поколениям, потомки лесенкой с ветками ├ └, каждый блок в цитате, ники без пинга.
-async def tree_text(db, uid: int) -> str | None:
+async def tree_text(db, uid: int, chat_id: int | None = None) -> str | None:
     up: list[list[tuple[int, int]]] = []
     level = [uid]
     for _ in UP_TITLES:
@@ -477,7 +480,7 @@ async def tree_text(db, uid: int) -> str | None:
         return None
     ids = {uid, *siblings, *(i for gen in up for pair in gen for i in pair),
            *(c for _, c, _ in down), *(sp for _, _, sp in down if sp), *([spouse] if spouse else [])}
-    names = await labels(db, ids)
+    names = await labels(db, ids, chat_id)
     lines = [f"🌳 <b>Родословная</b> · {names[uid]}"]
     for title, gen in reversed(list(zip(UP_TITLES, up))):
         lines.append(f"\n<b>{title}</b>")
@@ -502,7 +505,7 @@ async def cmd_tree(ctx: Ctx) -> None:
         await ctx.reply(NOT_FOUND)
         return
     uid = target.user_id if target else ctx.user_id
-    text = await tree_text(ctx.db, uid)
+    text = await tree_text(ctx.db, uid, ctx.message.chat.id)
     if text is None:
         who = "У вас" if uid == ctx.user_id else "У этого игрока"
         await ctx.reply(f"🌳 {who} пока нет родни. Создать семью в чате: <code>бот брак, @ник</code>")
@@ -546,7 +549,8 @@ async def cmd_adopt(ctx: Ctx) -> None:
         InlineKeyboardButton(text="🤗 Согласен(на)", callback_data=AdoptCB(**cb, act="y").pack()),
         InlineKeyboardButton(text="🙅 Нет", callback_data=AdoptCB(**cb, act="n").pack()),
     ]])
-    await ctx.reply(f"👪 {ping(u.id, u.first_name)} зовёт {ping(target.user_id, target.name.lstrip('@'))} "
+    me = ping(u.id, member_tags.with_tag(u.first_name, member_tags.of_message(ctx.message)[1]))
+    await ctx.reply(f"👪 {me} зовёт {ping(target.user_id, member_tags.with_tag(target.name.lstrip('@'), target.tag))} "
                     "в свою семью ребёнком. Согласны?", reply_markup=kb)
 
 
@@ -565,7 +569,7 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
     if me not in (cb.t, cb.by):
         await call.answer("Это приглашение не вам.", show_alert=True)
         return
-    names = await labels(db, (cb.by, cb.t))
+    names = await labels(db, (cb.by, cb.t), call.message.chat.id if call.message else None)
     if cb.act == "n":
         # «Нет» от позвавшего — отзыв приглашения, от приглашённого — отказ
         text = (f"↩️ {names[cb.by]} отозвал(а) приглашение." if me == cb.by else f"🙅 {names[cb.t]} не хочет в семью.")
@@ -652,7 +656,7 @@ async def cmd_role(ctx: Ctx) -> None:
         await ctx.db.execute(
             "UPDATE family_children SET role = ? WHERE marriage_id = ? AND user_id = ? AND left_at IS NULL",
             (role, fam.marriage_id, uid))
-    names = await labels(ctx.db, (uid,))
+    names = await labels(ctx.db, (uid,), ctx.message.chat.id)
     await ctx.reply(f"✅ {names[uid]} теперь в семье: <b>{role}</b>.")
 
 
@@ -804,7 +808,7 @@ async def cmd_divorce(ctx: Ctx) -> None:
     except divorce_v1.DivorceError as exc:
         await ctx.reply(f"💔 {html.escape(str(exc))}")
         return
-    names = await labels(ctx.db, (intent["partner_id"],))
+    names = await labels(ctx.db, (intent["partner_id"],), ctx.message.chat.id)
     phrase = divorce_phrase(intent["id"])
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(
         text="✖️ Передумал(а)", callback_data=DivorceCB(uid=ctx.user_id, intent=intent["id"]).pack())]])
@@ -841,7 +845,7 @@ async def _confirm_divorce(ctx: Ctx) -> None:
         return
     await ctx.db.execute("UPDATE family_children SET left_at = NOW() WHERE marriage_id = ? AND left_at IS NULL",
                          (marriage_id,))
-    names = await labels(ctx.db, (ctx.user_id, partner))
+    names = await labels(ctx.db, (ctx.user_id, partner), ctx.message.chat.id)
     await ctx.reply(f"💔 {names[ctx.user_id]} и {names[partner]} развелись. "
                     "Общий кошелёк поделён пополам, дети покинули семью.")
 

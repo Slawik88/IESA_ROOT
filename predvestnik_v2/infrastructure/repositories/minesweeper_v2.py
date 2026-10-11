@@ -103,14 +103,29 @@ async def upsert_leaderboard(db, *, run_id: str, user_id: int, difficulty: str,
     )
 
 
-async def leaderboard(db, *, user_id: int, difficulty: str, ruleset_version: str) -> dict:
-    order = "best_elapsed_ms ASC,best_opened_actions ASC,updated_at ASC"
-    async with db.execute(
-        f"SELECT user_id,best_elapsed_ms,best_opened_actions,RANK() OVER (ORDER BY {order}) AS place FROM minesweeper_v2_leaderboard "
-        "WHERE difficulty=? AND ruleset_version=? ORDER BY " + order + " LIMIT 20",
-        (str(difficulty), str(ruleset_version)),
-    ) as cursor:
-        top = [dict(row) for row in await cursor.fetchall()]
+_SEASON_BEST = (
+    "WITH best AS (SELECT DISTINCT ON (user_id) user_id,elapsed_ms AS best_elapsed_ms,opened_actions AS best_opened_actions,finished_at "
+    "FROM minesweeper_v2_runs WHERE difficulty=? AND status='won' AND elapsed_ms IS NOT NULL "
+    "AND finished_at>=(?::timestamp AT TIME ZONE 'UTC') AND finished_at<(?::timestamp AT TIME ZONE 'UTC') "
+    "ORDER BY user_id,elapsed_ms ASC,opened_actions ASC,finished_at ASC,run_id ASC), "
+    "ranked AS (SELECT user_id,best_elapsed_ms,best_opened_actions,"
+    "RANK() OVER (ORDER BY best_elapsed_ms ASC,best_opened_actions ASC,finished_at ASC) AS place FROM best) "
+)
+
+
+async def season_standings(db, *, difficulty: str, starts_at, ends_at, limit: int | None = None) -> list[dict]:
+    """Best win per player inside one season window, ranked (fastest first)."""
+    sql = _SEASON_BEST + "SELECT user_id,best_elapsed_ms,best_opened_actions,place FROM ranked ORDER BY place,user_id"
+    params: tuple = (str(difficulty), starts_at, ends_at)
+    if limit is not None:
+        sql += " LIMIT ?"
+        params += (int(limit),)
+    async with db.execute(sql, params) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def leaderboard(db, *, user_id: int, difficulty: str, starts_at, ends_at) -> dict:
+    top = await season_standings(db, difficulty=difficulty, starts_at=starts_at, ends_at=ends_at, limit=20)
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])
     public_top = [
         {"place": int(row["place"]), "best_elapsed_ms": int(row["best_elapsed_ms"]),
@@ -119,8 +134,8 @@ async def leaderboard(db, *, user_id: int, difficulty: str, ruleset_version: str
         for row in top
     ]
     async with db.execute(
-        f"SELECT place,best_elapsed_ms,best_opened_actions FROM (SELECT user_id,best_elapsed_ms,best_opened_actions,RANK() OVER (ORDER BY {order}) AS place FROM minesweeper_v2_leaderboard WHERE difficulty=? AND ruleset_version=?) ranked WHERE user_id=?",
-        (str(difficulty), str(ruleset_version), int(user_id)),
+        _SEASON_BEST + "SELECT place,best_elapsed_ms,best_opened_actions FROM ranked WHERE user_id=?",
+        (str(difficulty), starts_at, ends_at, int(user_id)),
     ) as cursor:
         personal = await cursor.fetchone()
     return {"top": public_top, "personal": dict(personal) if personal else None}

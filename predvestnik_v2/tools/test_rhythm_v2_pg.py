@@ -198,63 +198,98 @@ async def run(dsn: str) -> None:
         async with db.execute("SELECT COUNT(*) FROM achievement_v1_metric_receipts WHERE user_id=? AND source_event_id=?", (975007, quarantined["run_id"])) as cursor:
             assert (await cursor.fetchone())[0] == 0
 
-        augmented = await rhythm.start_run(db, user_id=975001, mode="augments")
-        assert augmented["status"] == "choosing" and len(augmented["offers"]["positive"]) == 3
-        try:
-            await rhythm.choose_augmentations(db, user_id=975001, run_id=augmented["run_id"],
-                                              positive=["forged", "also_forged"],
-                                              negative=augmented["offers"]["negative"][:2])
-        except rhythm.rules.RhythmRuleError:
-            pass
-        else:
-            raise AssertionError("unoffered augmentation must fail")
-        chosen = await rhythm.choose_augmentations(db, user_id=975001, run_id=augmented["run_id"],
-                                                   positive=augmented["offers"]["positive"][:2],
-                                                   negative=augmented["offers"]["negative"][:2])
-        assert chosen["status"] == "active" and len(chosen["selected_augmentations"]) == 4
-        ticket = await rhythm.issue_transport_ticket(db, user_id=975001, run_id=augmented["run_id"])
-        live_user, lease, live = await rhythm.connect_transport(db, run_id=augmented["run_id"], ticket=ticket["ticket"])
+        async def play_chunk(user_id: int, view: dict, lease: str, label: str) -> dict:
+            for number in range(rhythm.rules.CHUNK_SIZE):
+                view = await rhythm.transport_tap(
+                    db, user_id=user_id, run_id=view["run_id"], lease=lease,
+                    signal_no=view["next_signal_no"], rune=view["rune"], action_id=f"{label}-{number}",
+                )
+            return view
+
+        # The retired "augments" start now opens the one ranked mode.
+        gifted = await rhythm.start_run(db, user_id=975001, mode="augments")
+        assert gifted["status"] == "active" and gifted["mode"] == "normal" and gifted["draft"] is None, gifted
+        ticket = await rhythm.issue_transport_ticket(db, user_id=975001, run_id=gifted["run_id"])
+        live_user, lease, live = await rhythm.connect_transport(db, run_id=gifted["run_id"], ticket=ticket["ticket"])
         assert live_user == 975001 and live["rune"] in {"left", "center", "right"}, live
         try:
-            await rhythm.connect_transport(db, run_id=augmented["run_id"], ticket=ticket["ticket"])
+            await rhythm.connect_transport(db, run_id=gifted["run_id"], ticket=ticket["ticket"])
         except rhythm.RhythmConflict:
             pass
         else:
             raise AssertionError("one-use live ticket must reject replay")
-        await rhythm.release_transport(db, user_id=live_user, run_id=augmented["run_id"], lease=lease)
-        cancelled = await rhythm.cancel_run(db, user_id=975001, run_id=augmented["run_id"])
+        live = await play_chunk(975001, live, lease, "gift-a")
+        # The chunk is over: the run pauses, hides the rune and offers three gifts.
+        assert live["status"] == "active" and live["rune"] is None and live["draft"], live
+        assert live["next_signal_no"] == rhythm.rules.CHUNK_SIZE + 1 and len(live["draft"]["offers"]) == 3
+        assert live["remaining_ms"] == live["window_ms"]
+        try:
+            await rhythm.transport_tap(db, user_id=975001, run_id=live["run_id"], lease=lease, signal_no=rhythm.rules.CHUNK_SIZE + 1,
+                                       rune="left", action_id="gift-too-early")
+        except rhythm.RhythmConflict:
+            pass
+        else:
+            raise AssertionError("a tap must wait for the owed rune gift")
+        # A reconnect may never start the paused clock.
+        await rhythm.release_transport(db, user_id=975001, run_id=live["run_id"], lease=lease)
+        again = await rhythm.issue_transport_ticket(db, user_id=975001, run_id=live["run_id"])
+        _, lease, resumed = await rhythm.connect_transport(db, run_id=live["run_id"], ticket=again["ticket"])
+        assert resumed["draft"] == live["draft"] and resumed["rune"] is None, resumed
+        offered = [item["id"] for item in resumed["draft"]["offers"]]
+        try:
+            await rhythm.transport_pick(db, user_id=975001, run_id=live["run_id"], lease=lease,
+                                        perk_id="forged", action_id="gift-forged")
+        except rhythm.RhythmConflict:
+            pass
+        else:
+            raise AssertionError("an unoffered gift must fail")
+        picked = await rhythm.transport_pick(db, user_id=975001, run_id=live["run_id"], lease=lease,
+                                             perk_id=offered[0], action_id="gift-pick")
+        assert picked["draft"] is None and picked["rune"] in {"left", "center", "right"}, picked
+        assert picked["selected_perks"] == [offered[0]], picked
+        replay_pick = await rhythm.transport_pick(db, user_id=975001, run_id=live["run_id"], lease=lease,
+                                                  perk_id=offered[0], action_id="gift-pick")
+        assert replay_pick["idempotent_replay"] and replay_pick["selected_perks"] == [offered[0]]
+        try:
+            await rhythm.transport_pick(db, user_id=975001, run_id=live["run_id"], lease=lease,
+                                        perk_id=offered[1], action_id="gift-second")
+        except rhythm.RhythmConflict:
+            pass
+        else:
+            raise AssertionError("only one gift per chunk")
+        await rhythm.release_transport(db, user_id=975001, run_id=live["run_id"], lease=lease)
+        cancelled = await rhythm.cancel_run(db, user_id=975001, run_id=live["run_id"])
         assert cancelled["status"] == "cancelled"
         try:
-            await rhythm.cancel_run(db, user_id=975003, run_id=augmented["run_id"])
+            await rhythm.cancel_run(db, user_id=975003, run_id=live["run_id"])
         except rhythm.RhythmConflict:
             pass
         else:
             raise AssertionError("foreign user must not cancel a Rhythm run")
 
-        augmented_terminal = await rhythm.start_run(db, user_id=975009, mode="augments")
-        augmented_terminal = await rhythm.choose_augmentations(
-            db, user_id=975009, run_id=augmented_terminal["run_id"],
-            positive=augmented_terminal["offers"]["positive"][:2],
-            negative=augmented_terminal["offers"]["negative"][:2],
+        # A completed run that took a gift advances the gift quest lane.
+        terminal = await rhythm.start_run(db, user_id=975009, mode="normal")
+        terminal_ticket = await rhythm.issue_transport_ticket(db, user_id=975009, run_id=terminal["run_id"])
+        _, terminal_lease, terminal = await rhythm.connect_transport(
+            db, run_id=terminal["run_id"], ticket=terminal_ticket["ticket"],
         )
-        augmented_ticket = await rhythm.issue_transport_ticket(db, user_id=975009, run_id=augmented_terminal["run_id"])
-        _, augmented_lease, augmented_terminal = await rhythm.connect_transport(
-            db, run_id=augmented_terminal["run_id"], ticket=augmented_ticket["ticket"],
+        terminal = await play_chunk(975009, terminal, terminal_lease, "term")
+        terminal = await rhythm.transport_pick(
+            db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
+            perk_id=terminal["draft"]["offers"][0]["id"], action_id="term-pick",
         )
-        for attempt in range(20):
-            augmented_terminal = await rhythm.transport_tap(
-                db, user_id=975009, run_id=augmented_terminal["run_id"], lease=augmented_lease,
-                signal_no=augmented_terminal["next_signal_no"], rune=wrong_rune(augmented_terminal["rune"]),
-                action_id=f"augmented-wrong-{attempt}",
+        for attempt in range(30):
+            terminal = await rhythm.transport_tap(
+                db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
+                signal_no=terminal["next_signal_no"], rune=wrong_rune(terminal["rune"]),
+                action_id=f"terminal-wrong-{attempt}",
             )
-            if augmented_terminal["status"] == "finished":
+            if terminal["status"] == "finished":
                 break
-        assert augmented_terminal["status"] == "finished"
-        async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=?", (975009, f"rhythm:{augmented_terminal['run_id']}")) as cursor:
-            assert (await cursor.fetchone())[0] == 3
-        async with db.execute("SELECT metric FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=? ORDER BY metric", (975009, f"rhythm:{augmented_terminal['run_id']}")) as cursor:
+        assert terminal["status"] == "finished" and terminal["score"] > 0
+        async with db.execute("SELECT metric FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=? ORDER BY metric", (975009, f"rhythm:{terminal['run_id']}")) as cursor:
             assert [row[0] for row in await cursor.fetchall()] == [
-                'game_completed', 'rhythm_augments_completed', 'rhythm_completed',
+                'game_completed', 'rhythm_augments_completed', 'rhythm_completed', 'rhythm_normal_completed', 'rhythm_score_500',
             ]
     finally:
         await transaction.rollback()

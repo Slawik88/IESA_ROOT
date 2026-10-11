@@ -121,13 +121,13 @@ async def run():
         assert "защищён" in await say("бот защита, @u2003 2д", DEV)
         assert "иммунитет" in await say("бот иммунитет, @u2004", DEV)
         out = await say("бот кто под защитой", P2)
-        assert "Иммунитет" in out and "u2004" in out and "Защита" in out and "u2003 · до " in out, out
+        assert "Иммунитет" in out and "@u2004</a>" in out and "Защита" in out and "@u2003</a> · до " in out, out
         assert out.index("u2004") < out.index("u2003"), out
         # Короткие алиасы: «рест» = «защита», «кто защита» и «кто рест» = «под защитой» (не путаются с профилем «бот кто»)
         for alias in ("бот кто защита", "бот кто рест", "бот Кто  Рест"):
             assert await say(alias, P2) == out, alias
         assert "защищён" in await say("бот рест, @u2002 3д", DEV)
-        assert "u2002 · до " in await say("бот кто рест", P2)
+        assert "@u2002</a> · до " in await say("бот кто рест", P2)
         assert "Кто это" not in out and "Профиль" not in out
 
         # «бот жалоба» ответом на сообщение нарушителя

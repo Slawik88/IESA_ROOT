@@ -328,7 +328,11 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     if in_private and not cmd.private:
         # Короткие слова вроде «чай» или «ждать» в личке не команды: отвечаем, только если человек написал «бот …».
         if parsed.prefixed:
-            await message.reply("Эта команда работает только в группе.")
+            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+            from services.chat_setup import add_url
+            await message.reply(   # не тупик: сразу кнопка «добавить бота в чат», уже с нужными правами
+                "Эта команда работает только в группе. Добавьте меня в свой чат, и я помогу его настроить.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➕ Добавить бота в чат", url=add_url(me.username))]]))
         return parsed.prefixed
     ctx = Ctx(message, bot, db, cmd, parsed.args, parsed.prefixed)
     if registry.gate is not None and not cmd.always_on:

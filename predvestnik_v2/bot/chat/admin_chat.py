@@ -55,6 +55,16 @@ async def send_admin(bot: Bot, db, chat_id: int, text: str, *, markup: InlineKey
                                   disable_web_page_preview=True)
 
 
+async def new_bind_token(db, chat_id: int, title: str) -> str:
+    """Код привязки админ-чата: действует 10 минут, у чата он один (новый заменяет прежний)."""
+    token = secrets.token_hex(4)
+    await db.execute("DELETE FROM chat_bind_tokens WHERE main_chat_id = ?", (chat_id,))
+    await db.execute("INSERT INTO chat_bind_tokens (token, main_chat_id, main_chat_title) VALUES (?, ?, ?)",
+                     (token, chat_id, title))
+    await ranks._commit(db)
+    return token
+
+
 # ── Привязка: код в основном чате -> ввод кода в админ-чате ────────────────
 
 @registry.command(
@@ -71,13 +81,7 @@ async def cmd_bind_start(ctx: Ctx) -> None:
     if not await ranks.can(ctx.db, chat.id, ctx.user_id, "admin_chat"):
         await ctx.reply("⛔ У вашего ранга нет права привязывать админ-чат.")
         return
-    token = secrets.token_hex(4)
-    await ctx.db.execute("DELETE FROM chat_bind_tokens WHERE main_chat_id = ?", (chat.id,))
-    await ctx.db.execute(
-        "INSERT INTO chat_bind_tokens (token, main_chat_id, main_chat_title) VALUES (?, ?, ?)",
-        (token, chat.id, chat.title or ""),
-    )
-    await ranks._commit(ctx.db)
+    token = await new_bind_token(ctx.db, chat.id, chat.title or "")
     await ctx.reply(
         "🔗 <b>Привязка админ-чата</b>\n"   # СТИЛЬ v1 (оформлено)
         "Добавьте бота в админ-чат и напишите там в течение 10 минут:\n"

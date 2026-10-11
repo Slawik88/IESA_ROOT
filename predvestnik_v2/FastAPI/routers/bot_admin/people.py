@@ -161,6 +161,13 @@ async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db
     return await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
 
 
+@router.get("/chats/onboarding")
+async def chats_onboarding(days: int = 7, user=Depends(_user), db=Depends(get_db)):
+    """Как люди подключают бота к чатам: сколько добавили, у скольких есть права и на каком шаге застревают."""
+    from services import chat_setup
+    return await chat_setup.funnel(db, days)
+
+
 @router.get("/player/{uid}")
 async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card = await admin_people.player(db, uid)

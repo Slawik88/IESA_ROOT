@@ -328,6 +328,8 @@ function hotkeysSheet() {
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
 
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
+// Тег игрока в чате (подпись справа от имени в Telegram): после имени серым, пусто если тега нет
+const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
 const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
   ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал']];
@@ -511,7 +513,7 @@ function historyCard(items) {
   return `<div class="card"><h3>Журнал</h3>${items.map(x => `
     <div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
       <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? who(x.actor.id, x.actor.username) : 'бот'}
-        ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) : ''}</div></div>`).join('')}</div>`;
+        ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) + tagSfx(x.user.tag) : ''}</div></div>`).join('')}</div>`;
 }
 
 // Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
@@ -548,7 +550,7 @@ async function peopleSearch(main, query = '') {
   }
   rootBack();
   main.innerHTML = `
-    <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
+    <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div class="chips filters" id="pplf"></div>
     <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
@@ -597,13 +599,14 @@ async function peopleSearch(main, query = '') {
     const recent = showAttn ? PREFS.get('recent', []) : [];
     const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
       `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
-    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div>' : '') + head + `
+    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplonb"></div><div id="pplattn"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
       <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
         <div class="head"><b>${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
-        <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
+        <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
+        ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
       ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
       <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
@@ -611,6 +614,15 @@ async function peopleSearch(main, query = '') {
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
     markPicked(); drawBulk();
+    if (showAttn) api('/chats/onboarding').then(f => {
+      const host = $('#pplonb');
+      if (!host || !f.added) return;
+      host.innerHTML = `<div class="card"><h3>🚪 Подключение чатов · ${f.days} дн.</h3>
+        <div class="chips"><span class="chip">добавили ${f.added}</span><span class="chip ok">выдали права ${f.ready}</span>
+        ${f.waiting ? `<span class="chip warn">ждут прав ${f.waiting}</span>` : ''}${f.gave_up ? `<span class="chip bad">ушли без прав ${f.gave_up}</span>` : ''}</div>
+        <button class="btn small more" id="onbmore">Где застревают</button></div>`;
+      $('#onbmore').onclick = () => onboardingSheet(f.days).catch(err => toast(err.message, true));
+    }).catch(() => {});
     if (showAttn) api('/chats/attention').then(att => {
       const host = $('#pplattn');
       if (!host || !att.total) return;
@@ -698,6 +710,10 @@ async function playerView(main, id, push = true, from = null) {
           <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}
       ${p.nicknames.length ? `<h3 class="sec">Ники в чатах</h3>${p.nicknames.map(n => `<div class="log"><b>${esc(n.nickname)}</b>
         <div class="sub"><a href="#" data-chat="${n.chat.id}">${esc(n.chat.title)}</a></div></div>`).join('')}` : ''}</div>` : '';
+  const tagsCard = p.tag_history && p.tag_history.length ? `<div class="card"><h3>🏷 Теги в чатах</h3>
+      <div class="sub" style="margin-bottom:4px">Подпись справа от имени в списке участников. Бот записывает, когда тег меняется.</div>
+      ${p.tag_history.map(t => `<div class="log"><b>${t.tag ? esc(t.tag) : '— тег убрали —'}</b>
+        <div class="sub"><a href="#" data-chat="${t.chat_id}">${esc(t.chat_title || t.chat_id)}</a> · ${when(t.at)}</div></div>`).join('')}</div>` : '';
   const lk = p.linked;
   const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
   const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
@@ -740,12 +756,13 @@ async function playerView(main, id, push = true, from = null) {
     ${reportsCard}
     ${notesCard}
     ${namesCard}
+    ${tagsCard}
     ${linkedCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
         <div class="sub">сообщений ${num(c.messages)}${c.last ? ' · ' + when(c.last) : ''}</div>
-        <div class="chips">${c.left ? '<span class="chip off">не в чате</span>' : ''}
+        <div class="chips">${c.tag ? `<span class="chip tag" title="Тег в этом чате">🏷 ${esc(c.tag)}</span>` : ''}${c.left ? '<span class="chip off">не в чате</span>' : ''}
           ${c.muted ? `<span class="chip warn">🔇 мут${c.muted_until ? ' до ' + when(c.muted_until) : ' навсегда'}</span>` : ''}
           ${c.ban ? `<span class="chip bad">⛔ бан${c.ban.until ? ' до ' + when(c.ban.until) : ''}</span>` : ''}
           ${c.warns ? `<span class="chip warn">⚠️ варнов: ${c.warns}</span>` : ''}</div>
@@ -835,6 +852,19 @@ function attentionRows(items) {
     <div class="chips" style="margin-top:4px">${x.problems.map(p => `<span class="chip ${cls[p.key] || ''}">${esc(p.title)}</span>`).join('')}</div>
     <div class="sub">${x.last ? 'последнее сообщение ' + when(x.last) : 'сообщений не было'}</div></div>`).join('');
 }
+// Воронка подключения: шаги, на которых люди нажимали кнопки мастера, и чаты, где бота так и не сделали админом.
+async function onboardingSheet(days) {
+  const f = await api(`/chats/onboarding?days=${days}`);
+  const stuck = f.stuck.map(x => `<div class="row" data-chat="${x.id}"><div class="head"><b>${esc(x.title)}</b>
+    <span class="sub">${x.reminders ? 'напоминаний: ' + x.reminders : 'без напоминаний'}</span></div>
+    <div class="sub">добавили ${when(x.added_at)}${x.inviter ? ' · ' + who(x.inviter.id, x.inviter.username) : ''}</div></div>`).join('');
+  sheet(`🚪 Подключение чатов · ${f.days} дн.`,
+    `<div class="list">${f.events.map(e => `<div class="row"><div class="head"><b>${esc(e.title)}</b>
+      <span class="sub">${num(e.count)} раз · чатов ${num(e.chats)}</span></div></div>`).join('') || '<div class="sub">Пока никто не подключал бота.</div>'}</div>
+      ${stuck ? `<h3 class="sec">Ждут прав · ${f.waiting}</h3><div class="list">${stuck}</div>` : ''}`,
+    'Закрыть', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
+}
 function goChat(id) {
   const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
   open('people'); PEOPLE.stack = []; chatView($('#main'), id);
@@ -854,7 +884,7 @@ async function chatView(main, id, push = true, from = null) {
   const m = c.messages;
   const acts = c.actions.chat.filter(a => !(a.key === 'close' && c.closed) && !(a.key === 'open' && !c.closed));
   const can = key => c.actions.member.find(a => a.key === key);
-  const person = x => `<a href="#" data-player="${x.user}">${who(x.user, x.username)}</a>`;
+  const person = x => `<a href="#" data-player="${x.user}">${who(x.user, x.username)}</a>${tagSfx(x.tag)}`;
   const sanctionRow = (x, line, undo) => `<div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
       ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`;
   const SANCTIONS = {
@@ -875,6 +905,7 @@ async function chatView(main, id, push = true, from = null) {
       <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
         ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
         <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span>
+        ${c.tagged ? `<span class="chip" title="Участников с тегом: бот видит его в каждом сообщении">🏷 с тегом: ${c.tagged}</span>` : ''}
         ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
       <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
         ${c.admin_chat ? ` · админ-чат: <a href="#" data-chat="${c.admin_chat.id}">${esc(c.admin_chat.title)}</a>` : ''}</div>
@@ -891,7 +922,7 @@ async function chatView(main, id, push = true, from = null) {
         esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
     </div>
     ${chatSettingsCard(c.settings)}
-    <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username})}</div>
+    <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username, tag: x.tag})}</div>
       <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
     ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
     ${historyCard(c.history)}`;
@@ -1092,7 +1123,7 @@ async function journalView(main, more = '') {
   if (!data) return;
   if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
-  const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) : '';
+  const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) + tagSfx(x.tag) : '';
   const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
       ${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
       <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''}${x.chat ? ' · ' + (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(x.chat.title || x.chat.id)}</a>` : esc(x.chat.title || x.chat.id)) : ''}</div></div>`).join('');
@@ -1137,7 +1168,7 @@ async function reportsView(main, kind = 'open') {
   refreshBadges();
   const c = data.counts;
   const canPeople = ME.sections.some(z => z.key === 'people');
-  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) : '—';
+  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) + tagSfx(p.tag) : '—';
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
