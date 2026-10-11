@@ -7,7 +7,7 @@ from decimal import Decimal, ROUND_DOWN
 from uuid import uuid4
 
 from asyncpg.exceptions import UndefinedTableError
-from core.economy_contract import as_ledger_amount
+from core.economy_contract import CURRENCY_SPECS, as_ledger_amount
 from infrastructure.repositories.family_wallet_v1 import CUSTODY_SELECT, transfer_between_personal_and_family
 
 
@@ -41,7 +41,10 @@ _LEGACY_CURRENCIES = _CURRENCIES[:4]   # колонки в marriages; у эсс�
 
 
 def _split_amount(amount: Decimal, first_user: int, second_user: int, currency: str) -> dict[int, Decimal]:
-    quantum = Decimal("1") if currency in ("zarniki", "essence") else Decimal("0.000001")
+    # Доли делятся в шагах самой валюты: мора, тёмная мора, Зарники и Эссенция — целые, алмазы — до сотых.
+    # Раньше мора делилась до миллионных, и 101 мора давала по 50,5: половинку потом нельзя было ни перевести, ни потратить.
+    spec = CURRENCY_SPECS.get(currency)
+    quantum = Decimal(1).scaleb(-(spec.display_decimals if spec else 0))
     second = (amount / 2).quantize(quantum, rounding=ROUND_DOWN)
     return {first_user: amount - second, second_user: second}
 
