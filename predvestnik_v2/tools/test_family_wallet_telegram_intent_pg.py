@@ -71,6 +71,8 @@ async def run(dsn: str) -> None:
             db, intent_id=intent_id, actor_id=actor, currency="zarniki",
         )
         assert applied.applied and not replay.applied and replay.operation_id == applied.operation_id
+        other = await consume_telegram_transfer_intent(db, intent_id=intent_id, actor_id=actor, currency="mora")
+        assert not other.applied and other.currency == "zarniki", other   # повтор другой кнопкой называет настоящую валюту
         assert str(await scalar(db, "SELECT user_balance_zarniki FROM users WHERE user_tg_id = ?", (actor,))) == "5.0"
         assert str(await scalar(db, "SELECT zarniki FROM family_wallet_balances WHERE marriage_id = ?", (marriage_id,))) == "5.000000"
         assert int(await scalar(db, "SELECT COUNT(*) FROM family_wallet_operations WHERE marriage_id = ?", (marriage_id,))) == 1

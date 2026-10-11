@@ -154,19 +154,19 @@ async def rematch_respects_the_module_switch(h: Harness) -> None:
     await t.next_phase()
     ok(await t.phase() == "finished", "the game is over")
     final = h.world.last(t.chat, "победили мирные")
+    lobby = await Table.create(h, 5)
     await _module(h, t.chat, False)
+    await _module(h, lobby.chat, False)
     try:
         click = await h.click(t.host, t.chat, final, "ещё")
         ok(click.alert, f"«Сыграть ещё» is refused while the section is off: {click.text}")
         ok(await t.phase() == "finished", "no new lobby appeared")
-        lobby = await Table.create(h, 5)
-        await _module(h, lobby.chat, False)
         join = await h.click(lobby.users[1], lobby.chat, lobby.lobby(), "Войти")
         ok(join.alert, f"joining is refused while the section is off: {join.text}")
         start = await h.click(lobby.host, lobby.chat, lobby.lobby(), "Начать")
         ok(start.alert and "Роли отправлены" not in start.text, f"starting is refused: {start.text}")
-    finally:
-        await _module(h, t.chat, True)
+    finally:   # номера чатов симулятора повторяются между запусками: выключенный раздел не должен остаться в базе
+        await h.sql("DELETE FROM predvestnik.chat_settings WHERE chat_id = ANY($1::bigint[])", [t.chat, lobby.chat])
 
 
 @scenario

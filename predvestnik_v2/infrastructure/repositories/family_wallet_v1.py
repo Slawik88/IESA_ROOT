@@ -281,8 +281,13 @@ async def consume_telegram_transfer_intent(
         if int(intent[0]) != int(actor_id):
             raise FamilyTransferIntentError("Этот перевод создан для другого игрока.")
         if intent[5]:
+            # Повтор с другой кнопкой валюты: показываем ту валюту, что реально переведена, а не ту, что нажали
+            async with db.execute(
+                "SELECT currency FROM family_wallet_ledger WHERE operation_id = ? LIMIT 1", (str(intent[5]),),
+            ) as cursor:
+                stored = await cursor.fetchone()
             return FamilyTransfer(
-                operation_id=str(intent[5]), marriage_id=int(intent[1]), currency=currency,
+                operation_id=str(intent[5]), marriage_id=int(intent[1]), currency=str(stored[0]) if stored else currency,
                 amount=as_ledger_amount(intent[3]), action=str(intent[2]), applied=False,
             )
         async with db.execute(

@@ -69,7 +69,9 @@ def keyboard(uid: int, scope: str, period: str, page: int, pages: int, chat: int
 
     rows = [
         [InlineKeyboardButton(text=label(t, k == period), callback_data=cb(period=k)) for k, t in PERIODS.items()],
-        [InlineKeyboardButton(text=label(t, k == scope), callback_data=cb(scope=k)) for k, t in SCOPES.items()],
+        # В личке «Этот чат» не бывает: чат с ботом не группа, и топ там всегда был бы пустым
+        [InlineKeyboardButton(text=label(t, k == scope), callback_data=cb(scope=k))
+         for k, t in SCOPES.items() if not (k == "c" and chat > 0)],
     ]
     if pages > 1:
         rows.append([
@@ -150,6 +152,8 @@ async def on_top(call: CallbackQuery, callback_data: TopCB, db) -> None:
     if scope not in SCOPES or period not in PERIODS:
         await call.answer()
         return
+    if scope == "c" and callback_data.chat > 0:   # кнопка «Этот чат» со старого меню в личке: показываем топ всех игроков
+        scope = "g"
     text, pages = await build(db, scope, period, callback_data.page, callback_data.chat)
     page = min(callback_data.page, pages - 1)
     try:

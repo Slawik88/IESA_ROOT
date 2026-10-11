@@ -10,13 +10,13 @@ import re
 from decimal import Decimal, InvalidOperation
 
 from aiogram import Router
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from core.economy_contract import CURRENCY_SPECS, InsufficientBalance
 from infrastructure.repositories.economy_ledger import apply_balance_change
 from bot.chat import settings
+from bot.chat.cbutil import edit_or_send
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import resolve_target
 
@@ -41,25 +41,6 @@ def parse_amount(text: str) -> Decimal | None:
     except InvalidOperation:
         return None
     return value if Decimal("0") < value <= MAX_AMOUNT else None
-
-
-async def _edit(call: CallbackQuery, text: str, **kw) -> None:
-    """Обновить сообщение с кнопками. Если Telegram считает его недоступным (старше 48 часов) — написать новым."""
-    try:
-        await call.message.edit_text(text, **kw)
-    except TelegramBadRequest as exc:
-        if "not modified" in str(exc):   # повторное нажатие: сообщение уже такое
-            return
-        await _send_fresh(call, text, **kw)
-    except AttributeError:   # у «недоступного» сообщения нет edit_text
-        await _send_fresh(call, text, **kw)
-
-
-async def _send_fresh(call: CallbackQuery, text: str, **kw) -> None:
-    try:
-        await call.bot.send_message(call.message.chat.id, text, **kw)
-    except Exception:
-        pass
 
 
 async def _recipient_gone(db, user_id: int) -> bool:
@@ -111,7 +92,7 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
         await call.answer("Это не ваш перевод.", show_alert=True)
         return
     if cb.cur == "x":
-        await _edit(call, "✖️ Перевод отменён.")
+        await edit_or_send(call, "✖️ Перевод отменён.")
         await call.answer()
         return
     if cb.cur not in await settings.transferable(db):
@@ -151,7 +132,7 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (cb.to,)) as cur:
         row = await cur.fetchone()
     who = f"@​{row[0]}" if row and row[0] else f"id{cb.to}"
-    await _edit(call, f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
+    await edit_or_send(call, f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
     await call.answer("Готово")
     if not sent.applied:   # то же нажатие повторно: деньги уже ушли раньше, уведомление и зачёт достижения не дублируем
         return
