@@ -450,7 +450,7 @@ async def protected(db, chat_id: int) -> list[tuple[int, str | None, bool, datet
         return [(int(r[0]), r[1], bool(r[2]), r[3]) for r in await cur.fetchall()]
 
 
-# СТИЛЬ v1 (черновик): иммунитет и защита двумя цитатами, у защиты срок.
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): иммунитет и защита двумя цитатами, у защиты срок.
 @registry.command(
     "под защитой", aliases=("защищённые", "защищенные", "кто под защитой", "иммунные"),
     usage="бот под защитой", private=False, section="moderation",

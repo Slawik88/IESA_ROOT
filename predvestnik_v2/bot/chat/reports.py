@@ -77,7 +77,7 @@ async def _notify(ctx: Ctx, rid: int, target_label: str, reason: str, text: str,
             logger.debug(f"report {rid} dm {uid} failed: {exc}")
 
 
-# СТИЛЬ v1 (черновик): подтверждение автору в личку, в админ-чат и модераторам — событие и цитата без имени автора.
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): подтверждение автору в личку, в админ-чат и модераторам — событие и цитата без имени автора.
 @registry.command("жалоба", aliases=("репорт", "report", "пожаловаться"), usage=USAGE, private=False,
                   section="moderation", summary="Анонимно пожаловаться на нарушителя: жалоба уйдёт модераторам бота.",
                   example="бот жалоба спам в чате")
@@ -106,7 +106,7 @@ async def cmd_report(ctx: Ctx) -> None:
         msg = f"📨 {html.escape(str(exc))}"
         await _answer(ctx, msg, msg, hidden)
         return
-    await _answer(ctx, f"📨 Жалоба на {html.escape(target.label())} принята, номер {rid}. Она анонимна: "
-                       "автора видит только персонал с доступом. Результат придёт сюда.",
+    await _answer(ctx, f"📨 Жалоба на <b>{html.escape(target.label())}</b> принята · №{rid}\n"
+                       "<i>Она анонимна: автора видит только персонал с доступом. Результат придёт сюда.</i>",
                   "📨 Жалоба принята.", hidden)
     await _notify(ctx, rid, target.label(), reason, text, quoted.message_id if quoted else None, hidden)
