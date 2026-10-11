@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import html
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from aiogram import Router
 from aiogram.filters.callback_data import CallbackData
@@ -27,6 +27,7 @@ from infrastructure.repositories import divorce_v1, family_wallet_v1
 from infrastructure.repositories.marriages import MarriageConflict, create_marriage, create_proposal
 from bot.chat import settings
 from bot.chat.settings import CURRENCY_VIEW
+from bot.chat.cbutil import edit_or_send
 from bot.chat.framework import Ctx, UsageError, norm, registry
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.transfer import fmt, parse_amount
@@ -509,6 +510,9 @@ async def cmd_tree(ctx: Ctx) -> None:
     await ctx.reply(text)
 
 
+ADOPT_INVITE_HOURS = 24
+
+
 class AdoptCB(CallbackData, prefix="fa"):
     m: int      # marriage_id
     by: int     # кто позвал
@@ -557,13 +561,24 @@ async def _family_kin(db, fam: Family) -> set[int]:
 @router.callback_query(AdoptCB.filter())
 async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
     cb = callback_data
-    if call.from_user.id != cb.t:
+    me = call.from_user.id
+    if me not in (cb.t, cb.by):
         await call.answer("Это приглашение не вам.", show_alert=True)
         return
     names = await labels(db, (cb.by, cb.t))
     if cb.act == "n":
-        await call.message.edit_text(f"🙅 {names[cb.t]} не хочет в семью.", parse_mode="HTML")
+        # «Нет» от позвавшего — отзыв приглашения, от приглашённого — отказ
+        text = (f"↩️ {names[cb.by]} отозвал(а) приглашение." if me == cb.by else f"🙅 {names[cb.t]} не хочет в семью.")
+        await edit_or_send(call, text, parse_mode="HTML")
         await call.answer()
+        return
+    if me != cb.t:
+        await call.answer("Согласиться должен тот, кого зовут в семью.", show_alert=True)
+        return
+    sent = getattr(call.message, "date", None)
+    if not isinstance(sent, datetime) or datetime.now(sent.tzinfo) - sent > timedelta(hours=ADOPT_INVITE_HOURS):
+        # Приглашение живёт сутки: иначе месячной давности «Согласен» неожиданно меняет семью
+        await call.answer(f"Приглашению больше {ADOPT_INVITE_HOURS} ч. Пусть позовут заново: «бот усыновить».", show_alert=True)
         return
     async with db.connection.transaction():
         await db.execute("SELECT pg_advisory_xact_lock(?)", (cb.t,))   # одно принятие на игрока за раз
@@ -579,6 +594,8 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
             problem = "Этой семьи больше нет."
         elif count >= MAX_CHILDREN:
             problem = f"В семье уже {MAX_CHILDREN} детей."
+        elif not fam.is_parent(cb.by):
+            problem = "Позвавший уже не родитель в этой семье."
         elif busy:
             problem = "У вас уже есть родители."
         elif cb.t in await _family_kin(db, fam):
@@ -590,7 +607,7 @@ async def on_adopt(call: CallbackQuery, callback_data: AdoptCB, db) -> None:
     if problem:
         await call.answer(problem, show_alert=True)
         return
-    await call.message.edit_text(f"🎉 {names[cb.t]} теперь в семье {names[cb.by]}!", parse_mode="HTML")
+    await edit_or_send(call, f"🎉 {names[cb.t]} теперь в семье {names[cb.by]}!", parse_mode="HTML")
     await call.answer("Добро пожаловать в семью!")
 
 
@@ -750,8 +767,8 @@ async def on_wallet(call: CallbackQuery, callback_data: WalletCB, db) -> None:
         await call.answer(str(exc)[:190], show_alert=True)
         return
     verb = "Положено в общий кошелёк" if result.action == "deposit" else "Снято из общего кошелька"
-    await call.message.edit_text(f"✅ {verb}: <b>{fmt(result.amount)}</b> {spec.icon} {spec.label}",
-                                 parse_mode="HTML")
+    done = CURRENCY_VIEW.get(result.currency, spec)   # при повторе — валюта, что реально переведена
+    await edit_or_send(call, f"✅ {verb}: <b>{fmt(result.amount)}</b> {done.icon} {done.label}", parse_mode="HTML")
     await call.answer("Готово")
 
 

@@ -279,9 +279,53 @@ async def sanctions_flow(db, bot):
     assert "нет" in text, text
     text, _ = await sanctions.list_view(db, 1001, -100, "ban", 0)
     assert "silent" not in text, text
+    # Снимать нечего: бот говорит об этом, а не «разбанен», и журнал не пополняется.
+    async def logged(action):
+        async with db.execute("SELECT COUNT(*) FROM moderation_logs WHERE chat_id = -100 AND action = ?", (action,)) as cur:
+            return (await cur.fetchone())[0]
+    unbans, unmutes = await logged("unban"), await logged("unmute")
+    out = await run(db, bot, "бот снять бан, @silent")
+    assert "нет в чёрном списке" in out and "разбанен" not in out, out
+    out = await run(db, bot, "бот снять мут, @talker")
+    assert "нет действующего мута" in out and "снова может" not in out, out
+    assert await logged("unban") == unbans and await logged("unmute") == unmutes
+    # Мут тому, кого в этом чате ещё не учитывали, всё равно виден в списке санкций.
+    from datetime import timedelta
+    from bot.chat import moderation
+    await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (2090, 'newcomer') ON CONFLICT DO NOTHING")
+    await moderation.do_mute(bot, db, -100, 2090, 1001, timedelta(hours=1))
+    text, _ = await sanctions.list_view(db, 1001, -100, "mute", 0)
+    assert "newcomer" in text, text
     out = await run(db, bot, "бот санкции", uid=2002, username="talker")
     assert "нет права" in out, out
+    await migration_flow(db, bot)
     await profile_flow(db, bot)
+
+
+async def migration_flow(db, bot):
+    """Группа стала супергруппой: настройки, статистика и санкции едут на новый ID, пара первых сообщений в новом чате не мешает."""
+    from bot.chat import migration
+    old, new = -4001, -1004001
+    await db.execute("INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, 'Старая'), (?, 'Новая')", (old, new))
+    for uid in (2001, 2002):
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time) VALUES (?, ?, 50)", (uid, old))
+    await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, user_messages_count_all_time) VALUES (2001, ?, 1)", (new,))
+    await db.execute("INSERT INTO chat_blacklist (chat_id, user_id, reason) VALUES (?, 2003, 'спам')", (old,))
+    msg = SimpleNamespace(chat=SimpleNamespace(id=old, type="group"), migrate_to_chat_id=new)
+    sent = len(bot.sent)
+    await migration.on_migrated(msg, bot, db)
+    async def count(table, col, chat):
+        async with db.execute(f"SELECT COUNT(*) FROM {table} WHERE {col} = ?", (chat,)) as cur:
+            return (await cur.fetchone())[0]
+    assert await count("chat_settings", "chat_id", old) == 0 and await count("chat_settings", "chat_id", new) == 1
+    assert await count("user_chat_stats", "chat_tg_id", new) == 2 and await count("user_chat_stats", "chat_tg_id", old) == 0
+    assert await count("chat_blacklist", "chat_id", new) == 1
+    async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id = ?", (new,)) as cur:
+        assert (await cur.fetchone())[0] == "Старая"                 # данные старого чата сильнее случайных строк нового
+    async with db.execute("SELECT user_messages_count_all_time FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = 2001", (new,)) as cur:
+        assert (await cur.fetchone())[0] == 50
+    assert len(bot.sent) == sent + 1 and bot.sent[-1][0] == new, bot.sent[sent:]
+    assert await migration.migrate_chat(db, new, new) == {}
 
 
 async def profile_flow(db, bot):
@@ -469,7 +513,9 @@ class Call:
         self.edited, self.alerts = [], []
         async def edit_text(text, **kw):
             self.edited.append(text)
-        self.message = SimpleNamespace(chat=SimpleNamespace(id=-100), message_id=msg_id, edit_text=edit_text)
+        from datetime import datetime, timezone
+        self.message = SimpleNamespace(chat=SimpleNamespace(id=-100), message_id=msg_id, edit_text=edit_text,
+                                       date=datetime.now(timezone.utc))
 
     async def answer(self, text=None, show_alert=False):
         self.alerts.append(text)
@@ -531,6 +577,11 @@ async def family_flow(db, bot):
 
     out, kb = await say("бот усыновить, @kid_x", 6002, "dad_x")
     adopt = family.AdoptCB.unpack(cb_of(kb))
+    from datetime import timedelta
+    c = Call(6003); c.message.date -= timedelta(hours=30); await family.on_adopt(c, adopt, db)
+    assert "больше" in (c.alerts[0] or "") and not c.edited, (c.edited, c.alerts)   # приглашение живёт сутки
+    c = Call(6002); await family.on_adopt(c, family.AdoptCB(**{**adopt.model_dump(), "act": "y"}), db)
+    assert "Согласиться должен" in (c.alerts[0] or ""), c.alerts                    # за ребёнка соглашаться нельзя
     c = Call(6003); await family.on_adopt(c, adopt, db)
     assert "в семье" in c.edited[0], (c.edited, c.alerts)
     out, _ = await say("бот брак, @mom_x", 6003, "kid_x")

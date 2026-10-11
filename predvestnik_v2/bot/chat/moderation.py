@@ -288,14 +288,18 @@ async def cmd_warn_limit(ctx: Ctx) -> None:
 async def do_mute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int, dur, reason: str = "") -> None:
     td = dur if isinstance(dur, timedelta) else None
     await bot.restrict_chat_member(chat_id, user_id, permissions=NO_PERMS, until_date=until(td))
+    # Строки игрока в этом чате может ещё не быть (ни разу не писал): без неё мут не попадал в «санкции» и карточку
     if td:
         await db.execute(
-            "UPDATE user_chat_stats SET muted_until = NOW() + (? * INTERVAL '1 second') "
-            "WHERE chat_tg_id = ? AND user_tg_id = ?", (int(td.total_seconds()), chat_id, user_id))
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, muted_until) "
+            "VALUES (?, ?, NOW() + (? * INTERVAL '1 second')) "
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET muted_until = EXCLUDED.muted_until",
+            (user_id, chat_id, int(td.total_seconds())))
     else:
         await db.execute(
-            "UPDATE user_chat_stats SET muted_until = 'infinity' WHERE chat_tg_id = ? AND user_tg_id = ?",
-            (chat_id, user_id))
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, muted_until) VALUES (?, ?, 'infinity') "
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET muted_until = EXCLUDED.muted_until",
+            (user_id, chat_id))
     await log(db, chat_id, user_id, admin_id, "mute", reason)
     await commit(db)
 
@@ -317,18 +321,28 @@ async def cmd_mute(ctx: Ctx) -> None:
 @moderation_command("снять мут", aliases=("размут",), usage="бот снять мут, @ник", summary="Вернуть право писать.")
 async def cmd_unmute(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unmute", "бот снять мут, @ник", punish=False, lift=True)
-    await do_unmute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
-    await ctx.reply(f"🔊 <b>{esc(target.label())}</b> снова может писать.")
+    was = await do_unmute(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
+    if was:
+        await ctx.reply(f"🔊 <b>{esc(target.label())}</b> снова может писать.")
+    else:   # честно: снимать было нечего (мут уже закончился или его ставили не через бота)
+        await ctx.reply(f"ℹ️ У <b>{esc(target.label())}</b> нет действующего мута от бота. Ограничения Telegram, если были, сняты.")
 
 
-async def do_unmute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> None:
+async def do_unmute(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> bool:
+    """Снять мут. True — мут от бота действовал (в журнал пишем только настоящее снятие, а не каждое повторное нажатие)."""
     chat = await bot.get_chat(chat_id)
     perms = chat.permissions or ChatPermissions(can_send_messages=True)
     await bot.restrict_chat_member(chat_id, user_id, permissions=perms)
+    async with db.execute(
+        "SELECT muted_until > NOW() FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id)) as cur:
+        row = await cur.fetchone()
+    was = bool(row and row[0])
     await db.execute(
         "UPDATE user_chat_stats SET muted_until = NULL WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
-    await log(db, chat_id, user_id, admin_id, "unmute")
+    if was:
+        await log(db, chat_id, user_id, admin_id, "unmute")
     await commit(db)
+    return was
 
 
 # ── Кик и бан ─────────────────────────────────────────────────────────────
@@ -397,15 +411,22 @@ async def cmd_ban(ctx: Ctx) -> None:
                     summary="Убрать из чёрного списка, вход снова открыт.")
 async def cmd_unban(ctx: Ctx) -> None:
     target, _ = await prepare(ctx, "unban", "бот снять бан, @ник", punish=False, lift=True)
-    await do_unban(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
-    await ctx.reply(f"✅ <b>{esc(target.label())}</b> разбанен и может вернуться в чат.")
+    was = await do_unban(ctx.bot, ctx.db, ctx.message.chat.id, target.user_id, ctx.user_id)
+    if was:
+        await ctx.reply(f"✅ <b>{esc(target.label())}</b> разбанен и может вернуться в чат.")
+    else:
+        await ctx.reply(f"ℹ️ <b>{esc(target.label())}</b> нет в чёрном списке бота. Бан Telegram, если он был, снят.")
 
 
-async def do_unban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> None:
+async def do_unban(bot: Bot, db, chat_id: int, user_id: int, admin_id: int) -> bool:
+    """Снять бан. True — игрок был в чёрном списке бота (повторное нажатие не плодит строки в журнале)."""
     await bot.unban_chat_member(chat_id, user_id, only_if_banned=True)
-    await db.execute("DELETE FROM chat_blacklist WHERE chat_id = ? AND user_id = ?", (chat_id, user_id))
-    await log(db, chat_id, user_id, admin_id, "unban")
+    async with db.execute("DELETE FROM chat_blacklist WHERE chat_id = ? AND user_id = ? RETURNING 1", (chat_id, user_id)) as cur:
+        was = await cur.fetchone() is not None
+    if was:
+        await log(db, chat_id, user_id, admin_id, "unban")
     await commit(db)
+    return was
 
 
 # ── Защита и иммунитет (от чистки) ────────────────────────────────────────

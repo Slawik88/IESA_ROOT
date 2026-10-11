@@ -1,8 +1,8 @@
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, moderation, profile, promo, purge, rank_commands, reports, sanctions, site, streak, top, transfer, vip, warps  # noqa: F401
+from bot.chat import account, achievements, admin_chat, family, games, help, mafia, members, migration, moderation, profile, promo, purge, rank_commands, reports, sanctions, site, streak, top, transfer, vip, warps  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat.framework import dispatch, registry
 from bot.chat.tracking import record_message
@@ -74,6 +74,9 @@ async def _callback_gate(handler, event, data):
 for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
+
+
+router.message.register(migration.on_migrated, F.migrate_to_chat_id)   # раньше общего обработчика ниже
 
 
 @router.edited_message()
