@@ -76,7 +76,7 @@ def make_handler(warp: Warp):
 
 def register_all(warps: tuple[Warp, ...]) -> None:
     for w in warps:
-        registry.command(w.name, aliases=w.aliases, bare=True, group="warps",
+        registry.command(w.name, aliases=w.aliases, bare=True, group="warps", private=False,   # адресат в чате, в личке его нет
                          usage=f"бот {w.name}, @ник")(make_handler(w))
 
 
@@ -99,6 +99,8 @@ async def cmd_warp_list(ctx: Ctx) -> None:
     body = "\n".join(blocks)
     hint = ("Работают, только если игрок включил их для себя: <code>бот 18+ вкл</code>" if adult else
             "Пишите <code>обнять @ник</code> или просто ответьте на сообщение словом. 18+: <code>бот варпы 18+</code>")
+    if ctx.message.chat.type == "private":
+        hint = "Варпы работают в группе: там есть кому отвечать. Здесь можно " + ("включить 18+ для себя: <code>бот 18+ вкл</code>" if adult else "посмотреть список")
     await ctx.reply(f"{head} · {len(items)}\n\n{body}\n\n<i>{hint}</i>")
 
 

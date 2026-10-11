@@ -331,8 +331,8 @@ class ProposalCB(CallbackData, prefix="fp"):
 
 
 @registry.command("брак", aliases=("пожениться", "свадьба", "предложение"), usage="бот брак, @ник",
-                  section="family", summary="Сделать предложение. Брак один на все чаты.",
-                  example="бот брак, @ник")
+                  section="family", summary="Сделать предложение в чате. Брак один на все чаты.",
+                  example="бот брак, @ник", private=False)   # ответить на предложение должен тот, кому его сделали: ему нужен чат
 async def cmd_propose(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
     if target is None:
@@ -415,7 +415,7 @@ async def cmd_family(ctx: Ctx) -> None:
     fam = await family_of(ctx.db, uid)
     if fam is None:
         who = "У вас" if uid == ctx.user_id else "У этого игрока"
-        await ctx.reply(f"💞 {who} пока нет семьи. Создать: <code>бот брак, @ник</code>")
+        await ctx.reply(f"💞 {who} пока нет семьи. Создать в чате: <code>бот брак, @ник</code>")
         return
     await ctx.reply(await card(ctx.db, fam))
 
@@ -498,7 +498,7 @@ async def cmd_tree(ctx: Ctx) -> None:
     text = await tree_text(ctx.db, uid)
     if text is None:
         who = "У вас" if uid == ctx.user_id else "У этого игрока"
-        await ctx.reply(f"🌳 {who} пока нет родни. Создать семью: <code>бот брак, @ник</code>")
+        await ctx.reply(f"🌳 {who} пока нет родни. Создать семью в чате: <code>бот брак, @ник</code>")
         return
     await ctx.reply(text)
 
@@ -511,15 +511,15 @@ class AdoptCB(CallbackData, prefix="fa"):
 
 
 @registry.command("усыновить", aliases=("удочерить", "взять в семью"), usage="бот усыновить, @ник",
-                  section="family", summary=f"Позвать игрока в семью ребёнком (до {MAX_CHILDREN}).",
-                  example="бот усыновить, @ник")
+                  section="family", summary=f"Позвать игрока в семью ребёнком в чате (до {MAX_CHILDREN}).",
+                  example="бот усыновить, @ник", private=False)
 async def cmd_adopt(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
     if target is None:
         raise UsageError("бот усыновить, @ник  (или ответом на сообщение)")
     fam = await family_of(ctx.db, ctx.user_id)
     if fam is None or not fam.is_parent(ctx.user_id):
-        await ctx.reply("👪 Звать детей могут только родители. Сначала: <code>бот брак, @ник</code>")
+        await ctx.reply("👪 Звать детей могут только родители. Сначала в чате: <code>бот брак, @ник</code>")
         return
     if len(fam.children) >= MAX_CHILDREN:
         await ctx.reply(f"👪 В семье уже {MAX_CHILDREN} детей — это максимум.")

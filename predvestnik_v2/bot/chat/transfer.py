@@ -115,6 +115,14 @@ async def on_transfer(call: CallbackQuery, callback_data: TransferCB, db) -> Non
     await call.message.edit_text(
         f"✅ Переведено {html.escape(who)}: <b>{fmt(amount)}</b> {spec.icon} {spec.label}", parse_mode="HTML")
     await call.answer("Готово")
+    if getattr(call.message.chat, "type", "") == "private":   # в группе получатель видит перевод в чате, из лички ему ничего не придёт
+        sender = call.from_user
+        try:
+            await call.bot.send_message(
+                cb.to, f"💸 Вам перевели <b>{fmt(amount)}</b> {spec.icon} {spec.label} от "
+                       f"{html.escape('@' + sender.username if sender.username else sender.full_name)}", parse_mode="HTML")
+        except Exception:
+            pass   # игрок не открывал диалог с ботом — уведомить некуда
     from bot.chat import achievements
     u = call.from_user
     await achievements.after_transfer(db, call.message, cb.uid, achievements.quiet_name(u.username, u.full_name))

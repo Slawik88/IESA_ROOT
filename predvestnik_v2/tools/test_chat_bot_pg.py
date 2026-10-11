@@ -96,11 +96,12 @@ class FakeBot:
 
 
 class FakeMessage:
-    def __init__(self, text, uid, username, chat=-100, reply_to=None):
+    def __init__(self, text, uid, username, chat=-100, reply_to=None, chat_type="supergroup"):
         self.text, self.caption, self.entities = text, None, []
         self.from_user = SimpleNamespace(id=uid, is_bot=False, username=username, full_name=username,
                                          first_name=username.title())
-        self.chat = SimpleNamespace(id=chat, type="supergroup", title="Тест")
+        self.chat = SimpleNamespace(id=uid if chat_type == "private" else chat, type=chat_type,
+                                    title=None if chat_type == "private" else "Тест")
         self.reply_to_message = reply_to
         self.replies, self.deleted = [], False
 
@@ -338,13 +339,15 @@ async def transfer_flow(db, bot):
     assert "Какую валюту" in out, out
 
     class Call:
-        def __init__(self, uid, cur, amount="300", msg_id=77):
+        def __init__(self, uid, cur, amount="300", msg_id=77, private=False):
             self.from_user = SimpleNamespace(id=uid, username=None, full_name=f"U{uid}")
+            self.bot = bot
             self.data_cb = transfer.TransferCB(uid=2002, to=1001, amount=amount, cur=cur)
             self.edited, self.alerts = [], []
             async def edit_text(text, **kw):
                 self.edited.append(text)
-            self.message = SimpleNamespace(chat=SimpleNamespace(id=-100), message_id=msg_id, edit_text=edit_text)
+            self.message = SimpleNamespace(chat=SimpleNamespace(id=uid if private else -100, type="private" if private else "supergroup"),
+                                           message_id=msg_id, edit_text=edit_text)
         async def answer(self, text=None, show_alert=False):
             self.alerts.append(text)
 
@@ -368,9 +371,16 @@ async def transfer_flow(db, bot):
     c = Call(2002, "mora")                                            # повторное нажатие той же кнопки
     await transfer.on_transfer(c, c.data_cb, db)
     assert await bal(2002) == a0 - 300 and await bal(1001) == b0 + 300
+    assert not bot.sent or bot.sent[-1][0] != 1001                      # из группы уведомление в личку не нужно
     c = Call(2002, "mora", amount="99999", msg_id=78)
     await transfer.on_transfer(c, c.data_cb, db)
     assert "Не хватает" in c.alerts[0] and await bal(2002) == a0 - 300
+    # из лички получатель ничего не видит в чате: ему уходит сообщение от бота
+    bot.sent.clear()
+    c = Call(2002, "mora", amount="10", msg_id=90, private=True)
+    await transfer.on_transfer(c, c.data_cb, db)
+    assert "Переведено" in c.edited[0], (c.edited, c.alerts)
+    assert bot.sent and bot.sent[-1][0] == 1001 and "Вам перевели" in bot.sent[-1][1] and "10" in bot.sent[-1][1], bot.sent
     c = Call(2002, "mora", amount="1.5", msg_id=79)
     await transfer.on_transfer(c, c.data_cb, db)
     assert "целым" in c.alerts[0]
@@ -659,7 +669,49 @@ async def games_flow(db, bot):
     m.message_thread_id = None
     assert not await mafia.gate_message(db, bot, m) and not m.deleted     # партии нет — писать можно
     print("OK: games")
+    await private_flow(db, bot)
     await achievements_flow(db, bot)
+
+
+async def private_flow(db, bot):
+    """Личка с ботом и группа: что работает где, слово «бот» в личке, справка, молчание на чужие фразы."""
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+
+    async def dm(text, uid=1001, **kw):
+        m = FakeMessage(text, uid, "alpha", chat_type="private", **kw)
+        handled = await dispatch(registry, m, bot, db)
+        return handled, " | ".join(m.replies)
+
+    # группа: каждая команда с private=False в личке отвечает «только в группе», когда написано «бот …»
+    for name in ("бан", "жалоба", "обнять", "брак", "усыновить", "чистка", "ранги", "привязать админ чат"):
+        handled, out = await dm(f"бот {name} @beta")
+        assert handled and out == "Эта команда работает только в группе.", (name, out)
+    # те же слова без «бот» в личке не команды: молчим (иначе «чай» или «ждать» в разговоре получали бы отписку)
+    for text in ("чай", "обнять @beta", "ждать", "бан"):
+        assert await dm(text) == (False, ""), text
+    # личные команды: слово «бот» не нужно, но только для точного названия
+    for text, expect in (("помощь", "личка с ботом"), ("баланс", "Баланс"), ("топ", "Топ"), ("я", "<b>"),
+                         ("бот баланс", "Баланс")):
+        handled, out = await dm(text)
+        assert handled and expect in out, (text, out)
+    assert await dm("я устал сегодня") == (False, "")                   # фраза, а не команда
+    assert await dm("баланс покажи") == (False, "")
+    # справка в личке не показывает группового: модерации, чистки, настроек чата
+    handled, out = await dm("помощь")
+    kb = FakeMessage("x", 1, "x")   # клавиатуру читаем через реестр
+    from bot.chat import help as help_mod
+    sections = set(help_mod._by_section(True))
+    assert "moderation" not in sections and "purge" not in sections and "settings" not in sections, sections
+    assert {"moderation", "purge"} <= set(help_mod._by_section(False))
+    assert all(c.private for cs in help_mod._by_section(True).values() for c in cs)
+    handled, out = await dm("бот помощь бан")
+    assert "только в группе" in out, out
+    out = await run(db, bot, "бот помощь бан")
+    assert "только в группе" not in out, out
+    # в группе всё как раньше
+    assert "Эта команда работает только в группе." not in await run(db, bot, "бот обнять @beta")
+    print("OK: private chat vs group")
 
 
 async def achievements_flow(db, bot):
