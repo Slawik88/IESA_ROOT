@@ -113,7 +113,7 @@ def main() -> None:
     assert p.build_effects(None, ())["extra_key_chance"] == 10 and p.build_effects("tracker", ("nose",))["extra_key_chance"] == 28
     picky_fed = p.build_effects(None, ("picky",), fed_favorite=True)
     assert picky_fed["find_mods"]["diamond"] == 1.2 and picky_fed["xp_mult"] == 1.0
-    assert abs(p.build_effects(None, ("picky",))["xp_mult"] - 0.9) < 1e-9 and p.favorite_food("star_dragon") == "food_elite"
+    assert abs(p.build_effects(None, ("picky",))["xp_mult"] - 0.9) < 1e-9 and p.favorite_food("star_dragon") == "food_stew"
     # применение билда
     plain = p.build_effects(None, (), hours=9, route="forest")
     assert plain["xp_mult"] == 1.0 and plain["find_mods"] == {} and not plain["guardian"]
