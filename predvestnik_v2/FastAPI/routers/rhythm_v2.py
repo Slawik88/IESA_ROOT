@@ -31,11 +31,6 @@ class StartBody(BaseModel):
     mode: Literal["normal", "augments"]
 
 
-class SelectBody(BaseModel):
-    positive: list[str] = Field(min_length=2, max_length=2)
-    negative: list[str] = Field(min_length=2, max_length=2)
-
-
 class TapBody(BaseModel):
     signal_no: int = Field(ge=1)
     rune: Literal["left", "center", "right"]
@@ -79,15 +74,6 @@ def _public(state: dict) -> dict:
 async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_user)):
     try:
         return _public(await game.start_run(db, user_id=int(user["id"]), mode=body.mode))
-    except game.RhythmError as exc:
-        _raise(exc)
-
-
-@router.post("/runs/{run_id}/augmentations", dependencies=[_feature_gate])
-async def select_augmentations(run_id: str, body: SelectBody, db=Depends(get_db), user=Depends(require_tg_user)):
-    try:
-        return _public(await game.choose_augmentations(db, user_id=int(user["id"]), run_id=run_id,
-                                                       positive=body.positive, negative=body.negative))
     except game.RhythmError as exc:
         _raise(exc)
 
@@ -197,13 +183,19 @@ async def live_run(websocket: WebSocket, run_id: str):
             if len(raw) > 512:
                 raise game.RhythmConflict("Rhythm live payload is too large")
             event = json.loads(raw)
-            if not isinstance(event, dict) or event.get("type") != "tap":
+            kind = event.get("type") if isinstance(event, dict) else None
+            if kind not in {"tap", "pick"}:
                 raise game.RhythmConflict("unsupported Rhythm live action")
             await create_pool()
             async with get_pool().acquire() as connection:
-                state = await game.transport_tap(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease,
-                                                 signal_no=int(event.get("signal_no", 0)), rune=str(event.get("rune", "")),
-                                                 action_id=str(event.get("action_id", "")))
+                if kind == "pick":
+                    state = await game.transport_pick(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease,
+                                                      perk_id=str(event.get("perk_id", "")),
+                                                      action_id=str(event.get("action_id", "")))
+                else:
+                    state = await game.transport_tap(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease,
+                                                     signal_no=int(event.get("signal_no", 0)), rune=str(event.get("rune", "")),
+                                                     action_id=str(event.get("action_id", "")))
             await websocket.send_json({"type": "state", "state": state})
             if state["status"] != "active":
                 return

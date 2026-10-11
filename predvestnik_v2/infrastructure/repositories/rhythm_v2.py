@@ -61,6 +61,8 @@ async def ensure_tables(db) -> None:
     await db.execute("UPDATE rhythm_v2_runs SET integrity_status='legacy_unverified', integrity_evidence='{}'::jsonb "
                      "WHERE integrity_status IS NULL")
     await db.execute("UPDATE rhythm_v2_runs SET integrity_evidence='{}'::jsonb WHERE integrity_evidence IS NULL")
+    # Live effect counters of the run's rune gifts (shield, golden streak, ...).
+    await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS perk_state_json JSONB NOT NULL DEFAULT '{}'::jsonb")
     await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS transport_lease TEXT NULL")
     await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS transport_lease_expires_at TIMESTAMPTZ NULL")
     await db.execute("""
@@ -175,9 +177,9 @@ async def update_run(db, *, run_id: str, state: dict) -> None:
     opened_at = state["signal_opened_at"]
     finished_at = state.get("finished_at")
     await db.execute(
-        "UPDATE rhythm_v2_runs SET status=?,selected_json=?::jsonb,health=?,score=?,combo=?,correct_streak=?,"
+        "UPDATE rhythm_v2_runs SET status=?,selected_json=?::jsonb,perk_state_json=?::jsonb,health=?,score=?,combo=?,correct_streak=?,"
         "correct_taps=?,mistakes=?,next_signal_no=?,signal_opened_at=(?::timestamp AT TIME ZONE 'UTC'),finished_at=(?::timestamp AT TIME ZONE 'UTC'),version=version+1 WHERE run_id=?",
-        (state["status"], dumps(state["selected"]), int(state["health"]), int(state["score"]),
+        (state["status"], dumps(state["selected"]), dumps(state["perks"]), int(state["health"]), int(state["score"]),
          int(state["combo"]), int(state["correct_streak"]), int(state["correct_taps"]), int(state["mistakes"]),
          int(state["next_signal_no"]), opened_at, finished_at, str(run_id)),
     )
@@ -209,7 +211,7 @@ async def promote_authenticated_transport_reviews(db) -> list[dict]:
         "AND r.integrity_reason='server_timed_transport_pending_review' "
         "AND EXISTS (SELECT 1 FROM rhythm_v2_transport_tickets t "
         "WHERE t.run_id=r.run_id AND t.user_id=r.user_id AND t.consumed_at IS NOT NULL) "
-        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score"
+        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json"
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 

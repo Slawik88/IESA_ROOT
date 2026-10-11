@@ -34,11 +34,6 @@ button:disabled { opacity: .4; }
 .pace i { background: var(--g-acc); }
 
 /* выбор даров и испытаний: строки, выбранная отмечена кольцом */
-:is(body, body.skin-v3) .augment { min-height: 52px; border: 0; border-radius: 0; background: none; box-shadow: 0 -1px 0 var(--g-faint); color: var(--ink, #f3f4f7); }
-.augment-list { gap: 0; }
-.augment[data-polarity="positive"].chosen, .augment[data-polarity="negative"].chosen { outline: 0; background: color-mix(in srgb, var(--g-acc) 10%, transparent); }
-.augment[data-polarity="positive"].chosen { box-shadow: inset 3px 0 0 var(--good, #7fd6a4); }
-.augment[data-polarity="negative"].chosen { box-shadow: inset 3px 0 0 var(--bad, #ff8a8a); }
 
 /* руны: поле игры, лёгкий контур без заливки */
 :is(body, body.skin-v3) .runes button { border-width: 1.5px; border-radius: 22px; background: transparent; text-shadow: none; color: var(--rune); }
@@ -70,3 +65,14 @@ button:disabled { opacity: .4; }
 .mine-cell.pending { outline-width: 2px; }
 
 .season-note { margin: 6px 0 10px; font-size: 12px; color: var(--g-dim); }
+/* Рун-дары: один из трёх на границе чанка */
+.gift-list { display: grid; gap: 0; margin: 16px 0; }
+:is(body, body.skin-v3) button.gift { display: grid; gap: 4px; min-height: 64px; padding: 12px 0 12px 14px; border: 0; border-radius: 0; background: none; box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--g-faint); color: var(--ink, #f3f4f7); text-align: left; }
+.gift small { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--g-dim); }
+.gift b { font-size: 16px; font-weight: 600; }
+.gift span { font-size: 13px; color: var(--g-dim); }
+:is(body, body.skin-v3) button.gift[data-kind="safe"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--good, #7fd6a4); }
+:is(body, body.skin-v3) button.gift[data-kind="boost"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--g-acc); }
+:is(body, body.skin-v3) button.gift[data-kind="risk"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--bad, #ff8a8a); }
+:is(body, body.skin-v3) .gift:disabled { opacity: .5; }
+.perks-line { min-height: 1.2em; margin: 0 0 6px; font-size: 13px; color: var(--g-dim); text-align: center; }
