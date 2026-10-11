@@ -44,7 +44,7 @@ def parse_create_args(raw: str) -> tuple[int, tuple[str, ...], str, str]:
     """«8 доктор детектив открытое быстро» -> (seats, roles, vote mode, tempo)."""
     seats, roles, vote, tempo = rules.DEFAULT_SEATS, set(), "secret", rules.DEFAULT_TEMPO
     for part in raw.split():
-        if part.isdigit():
+        if part.isdecimal():
             seats = int(part)
         elif part in _WORDS:
             roles.add(_WORDS[part])
@@ -287,7 +287,7 @@ def apply_setting(view: dict, action: str) -> NewSettings:
         roles = set(PRESETS[key][1])
         return NewSettings(max(seats, 8) if "don" in roles else seats, roles, vote, tempo, key == "auto", None)
     kind, _, value = action.partition("_")
-    if kind == "slots" and value.isdigit() and int(value) in LOBBY_SIZE_OPTIONS:
+    if kind == "slots" and value.isdecimal() and int(value) in LOBBY_SIZE_OPTIONS:
         return NewSettings(int(value), roles, vote, tempo, auto, "players")
     if kind == "role" and value in rules.OPTIONAL_ROLES:
         if auto:  # leaving «авто»: start from what auto would give for a full table
@@ -399,7 +399,7 @@ async def handle_start_payload(message: types.Message, payload: str, db, bot: Bo
         await send_rules(message)
     elif payload == "mr":
         await _private_entry(message, db, "ready")
-    elif payload.startswith("mj") and payload[2:].isdigit() and len(payload) <= 20:
+    elif payload.startswith("mj") and payload[2:].isdecimal() and len(payload) <= 20:
         await _deep_join(message, db, bot, int(payload[2:]))
     else:
         return False

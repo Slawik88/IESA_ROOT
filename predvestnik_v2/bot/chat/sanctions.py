@@ -13,7 +13,7 @@ from aiogram.types import CallbackQuery, ChatPermissions, InlineKeyboardButton, 
 
 from bot.chat import ranks
 from bot.chat.framework import Ctx, registry
-from bot.chat.moderation import TG_FAIL, active_warns, commit, do_unban, log, revoke_all_warns
+from bot.chat.moderation import TG_FAIL, active_warns, commit, do_unban, local_time, log, rank_block, revoke_all_warns
 from bot.chat.style import quote
 
 router = Router(name="chat_sanctions")
@@ -42,7 +42,7 @@ def _when(dt) -> str:
             return "навсегда"
     except AttributeError:
         return str(dt)
-    return "до " + dt.strftime("%d.%m %H:%M")
+    return "до " + local_time(dt).strftime("%d.%m %H:%M")
 
 
 async def _rows(db, chat: int, tab: str) -> list[tuple[int, str | None, str]]:
@@ -75,7 +75,7 @@ async def _rows(db, chat: int, tab: str) -> list[tuple[int, str | None, str]]:
         if tab == "warn":
             detail = f"{val} шт."
         elif tab == "kick":
-            detail = val.strftime("%d.%m") if val else ""
+            detail = local_time(val).strftime("%d.%m") if val else ""
         elif tab == "shield":
             detail = "иммунитет" if extra else _when(val)
         else:
@@ -187,6 +187,10 @@ async def on_sanctions(call: CallbackQuery, callback_data: SanCB, bot: Bot, db) 
     if cb.act:
         if cb.act not in NEED or not await ranks.can(db, cb.chat, cb.uid, NEED[cb.act]):
             await call.answer("У вашего ранга нет на это права.", show_alert=True)
+            return
+        denied = await rank_block(db, cb.chat, cb.uid, cb.user) if cb.act != "unshield" else None
+        if denied:
+            await call.answer(denied, show_alert=True)
             return
         try:
             await _apply(bot, db, cb.chat, cb.user, cb.uid, cb.act)

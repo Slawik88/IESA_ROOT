@@ -28,7 +28,7 @@ from infrastructure.repositories.marriages import MarriageConflict, create_marri
 from bot.chat import settings
 from bot.chat.settings import CURRENCY_VIEW
 from bot.chat.framework import Ctx, UsageError, norm, registry
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.transfer import fmt, parse_amount
 from bot.chat.tracking import local_now
 from bot.chat.style import quote
@@ -411,6 +411,9 @@ async def on_proposal(call: CallbackQuery, callback_data: ProposalCB, db) -> Non
                   summary="Карточка семьи: родители, дети, общий кошелёк.")
 async def cmd_family(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     fam = await family_of(ctx.db, uid)
     if fam is None:
@@ -494,6 +497,9 @@ async def tree_text(db, uid: int) -> str | None:
                   section="family", summary="Родословная: предки, братья и сёстры, дети и внуки.")
 async def cmd_tree(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     text = await tree_text(ctx.db, uid)
     if text is None:
@@ -597,6 +603,9 @@ async def cmd_role(ctx: Ctx) -> None:
         await ctx.reply("💞 Вы не в семье.")
         return
     target, rest = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     role = norm(rest).replace("ребенок", "ребёнок")
     if uid == ctx.user_id and role in CHILD_ROLES and fam.is_parent(uid):

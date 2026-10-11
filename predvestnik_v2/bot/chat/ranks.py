@@ -38,7 +38,7 @@ def find_rank(text: str) -> int | None:
     """«5», «модератор», «мл модератор», «ст. модератор» -> номер ранга."""
     t = text.strip().lower().replace("ё", "е").replace(".", " ")
     t = " ".join(t.split())
-    if t.isdigit():
+    if t.isdecimal():
         n = int(t)
         return n if 0 <= n <= OWNER else None
     t = t.replace("мл ", "младший ").replace("ст ", "старший ")
@@ -108,14 +108,16 @@ _OWNER_TTL = 3600.0
 
 async def sync_owner(db, bot: Bot, chat_id: int, *, force: bool = False) -> int | None:
     """Владелец из Telegram -> chat_settings.owner_id (не чаще раза в час)."""
-    now = time.monotonic()
-    if not force and now - _owner_checked.get(chat_id, 0) < _OWNER_TTL:
+    now = time.monotonic()   # отсчёт идёт от запуска сервера: в первый час «0» не должно означать «только что проверяли»
+    last = _owner_checked.get(chat_id)
+    if not force and last is not None and now - last < _OWNER_TTL:
         return await get_owner(db, chat_id)
-    _owner_checked[chat_id] = now
     try:
         admins = await bot.get_chat_administrators(chat_id)
     except Exception:
+        _owner_checked[chat_id] = now - _OWNER_TTL + 60   # сбой Telegram: повторим через минуту, а не через час
         return await get_owner(db, chat_id)
+    _owner_checked[chat_id] = now
     owner = next((a.user.id for a in admins if a.status == "creator"), None)
     if owner:
         await set_owner(db, chat_id, owner)

@@ -9,7 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.chat import ranks
 from bot.chat.style import quote
 from bot.chat.framework import Ctx, UsageError, registry
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 
 router = Router(name="chat_ranks")
 
@@ -28,6 +28,9 @@ async def cmd_rank(ctx: Ctx) -> None:
     await ranks.sync_owner(ctx.db, ctx.bot, chat_id)
     target, rest = await resolve_target(ctx.db, ctx.message, ctx.args, allow_id=ctx.is_dev)
     if target is None:
+        if names_someone(ctx.args):
+            await ctx.reply(NOT_FOUND)
+            return
         if rest.strip():
             raise UsageError("бот ранг, @ник [ранг]")
         own = await ranks.get_rank(ctx.db, chat_id, ctx.user_id)
@@ -51,11 +54,19 @@ async def cmd_rank(ctx: Ctx) -> None:
 )
 async def cmd_rank_reset(ctx: Ctx) -> None:
     await ranks.sync_owner(ctx.db, ctx.bot, ctx.message.chat.id)
-    target, _ = await resolve_target(ctx.db, ctx.message, ctx.args, allow_id=ctx.is_dev)
+    target, rest = await resolve_target(ctx.db, ctx.message, ctx.args, allow_id=ctx.is_dev)
     if target is None:
+        if names_someone(ctx.args):
+            await ctx.reply(NOT_FOUND)
+            return
         raise UsageError("бот снять ранг, @ник")
     target_rank = await ranks.get_rank(ctx.db, ctx.message.chat.id, target.user_id)
-    await _assign(ctx, target, target_rank, 0)
+    new_rank = 0
+    if rest.strip():   # «бот понизить @ник 3» — это «понизить до 3», а не сброс в «Участники»
+        new_rank = ranks.find_rank(rest)
+        if new_rank is None:
+            raise UsageError("бот снять ранг, @ник  (или «бот понизить @ник 3»)")
+    await _assign(ctx, target, target_rank, new_rank)
 
 
 async def _assign(ctx: Ctx, target, target_rank: int, new_rank: int) -> None:

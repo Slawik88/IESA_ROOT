@@ -78,6 +78,20 @@ def presence_of(joined_at, membership_since, rejoined_at, first_day) -> Presence
     return Presence(first_d, since_d, since_d > first_d, max(0, (local_now().date() - since_d).days))
 
 
+_username_seen: dict[int, str] = {}
+
+
+async def _claim_username(db, user_id: int, username: str | None) -> None:
+    """Ник в Telegram принадлежит одному человеку. Если он сменил его, а старый владелец остался в базе с этим же ником,
+    команды «бот перевод @ник» находили не того. Чистим только при смене: лишний запрос на каждое сообщение не нужен."""
+    key = (username or "").lower()
+    if not key or _username_seen.get(user_id) == key:
+        return
+    await db.execute("UPDATE users SET user_tg_username = NULL WHERE LOWER(user_tg_username) = ? AND user_tg_id <> ?",
+                     (key, user_id))
+    _username_seen[user_id] = key
+
+
 async def record_message(db, message: Message) -> None:
     user = message.from_user
     chat = message.chat
@@ -90,6 +104,7 @@ async def record_message(db, message: Message) -> None:
         "user_tg_name = COALESCE(EXCLUDED.user_tg_name, users.user_tg_name)",
         (user.id, user.username, (getattr(user, "full_name", None) or "").strip()[:128] or None),
     )
+    await _claim_username(db, user.id, user.username)
     await db.execute(
         "INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) "
         "ON CONFLICT (chat_id) DO UPDATE SET chat_title = EXCLUDED.chat_title, bot_left_at = NULL",   # пишут в чат — бот в нём

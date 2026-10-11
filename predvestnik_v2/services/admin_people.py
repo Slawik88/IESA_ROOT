@@ -120,7 +120,7 @@ async def search(db, q: str, limit: int = 20) -> dict:
             chats = [_chat_row(r) for r in await cur.fetchall()]
         return {"players": players, "chats": chats}
     digits = q.lstrip("-")
-    if digits.isdigit() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
+    if digits.isdecimal() and len(digits) <= 15:   # длиннее — не ID (и не влезет в BIGINT)
         n = int(q)
         ids = {n, -n} | ({-1000000000000 - abs(n)} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)

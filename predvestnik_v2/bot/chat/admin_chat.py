@@ -103,6 +103,17 @@ async def _bind_finish(ctx: Ctx, token: str) -> None:
     if not await ranks.can(ctx.db, main_chat, ctx.user_id, "admin_chat"):
         await ctx.reply("⛔ В основном чате у вас нет права привязывать админ-чат.")
         return
+    await ranks.sync_owner(ctx.db, ctx.bot, admin_chat)
+    if not await ranks.can(ctx.db, admin_chat, ctx.user_id, "admin_chat"):   # код нельзя вводить в чужом чате: туда пойдут служебные сообщения
+        await ctx.reply("⛔ В этом чате у вас нет права назначать его админ-чатом.")
+        return
+    async with ctx.db.execute("SELECT main_chat_id FROM chat_links WHERE admin_chat_id = ? AND main_chat_id <> ?",
+                              (admin_chat, main_chat)) as cur:
+        others = [int(r[0]) for r in await cur.fetchall()]
+    for other in others:   # этот чат уже служит другому: отбирать его может только тот, кто управляет и тем чатом
+        if not await ranks.can(ctx.db, other, ctx.user_id, "admin_chat"):
+            await ctx.reply("⛔ Этот чат уже служит админ-чатом для другого чата. Сначала отвяжите его там.")
+            return
     await ctx.db.execute("DELETE FROM chat_links WHERE admin_chat_id = ? AND main_chat_id <> ?", (admin_chat, main_chat))
     await ctx.db.execute(
         "INSERT INTO chat_links (main_chat_id, admin_chat_id) VALUES (?, ?) "

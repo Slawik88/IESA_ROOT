@@ -24,7 +24,7 @@ from bot.chat.achievements_data import (ACHIEVEMENTS, BY_ID, MILESTONE_EVERY, MI
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from bot.chat.framework import Ctx, norm, registry
 from bot.chat.style import quote
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS chat_achievement_levels (
@@ -355,6 +355,9 @@ def reward_line(a: Achievement, level: int) -> str:
                   summary=f"Достижения и их уровни (в каждом от {MIN_LEVELS} уровней и больше).")
 async def cmd_achievements(ctx: Ctx) -> None:
     target, rest = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     uid = target.user_id if target else ctx.user_id
     a = find(rest)
     if a:

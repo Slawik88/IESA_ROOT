@@ -11,6 +11,11 @@ router = Router(name="chat_members")
 INSIDE = ("member", "administrator", "creator", "restricted")
 
 
+def _inside(member) -> bool:
+    """В чате ли человек. Замученный (restricted) может быть уже вышедшим: у него is_member = False."""
+    return member.status in INSIDE and (member.status != "restricted" or getattr(member, "is_member", True))
+
+
 @router.my_chat_member()
 async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
     """Что случилось с самим ботом. Группа: добавили (сразу узнаём владельца), повысили или понизили, удалили.
@@ -55,8 +60,8 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
     elif old.status == "creator":
         await ranks.sync_owner(db, bot, chat_id, force=True)
 
-    joined = new.status in INSIDE and old.status not in INSIDE
-    left = old.status in INSIDE and new.status not in INSIDE
+    joined = _inside(new) and not _inside(old)
+    left = _inside(old) and not _inside(new)
     if joined and not user.is_bot:
         # Чёрный список чата: забаненный, зашедший по ссылке, сразу удаляется.
         if not ranks.is_developer(user.id) and await is_blacklisted(db, chat_id, user.id):

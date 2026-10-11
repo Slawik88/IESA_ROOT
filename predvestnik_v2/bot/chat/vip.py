@@ -10,7 +10,7 @@ from loguru import logger
 
 from core.economy_contract import InsufficientBalance
 from bot.chat.framework import Ctx, registry
-from bot.chat.targets import resolve_target
+from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from services import vip as vip_service
 
 router = Router(name="chat_vip")
@@ -53,6 +53,9 @@ async def status_line(db, user_id: int) -> str:
                   summary="Статус VIP и покупка за Зарники.")
 async def cmd_vip(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
+    if target is None and names_someone(ctx.args):
+        await ctx.reply(NOT_FOUND)
+        return
     if target and target.user_id != ctx.user_id:
         await ctx.reply(f"{html.escape(target.label())}: {await status_line(ctx.db, target.user_id)}")
         return
