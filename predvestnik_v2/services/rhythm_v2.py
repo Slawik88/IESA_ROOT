@@ -9,8 +9,10 @@ from uuid import uuid4
 from asyncpg.exceptions import UniqueViolationError
 
 from core import rhythm_v2 as rules
+from core import seasons as season_rules
 from infrastructure.repositories import rhythm_v2 as repo
 from services import achievements_v1 as achievements
+from services import game_seasons
 from services import quests_v1 as quests
 
 
@@ -399,7 +401,16 @@ async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
             db, user_id=int(row["user_id"]), run_id=str(row["run_id"]),
             mode=str(row["mode"]), score=int(row["score"]), integrity_status="clear",
         )
-    return await repo.leaderboard(db, user_id=user_id, mode=mode, ruleset_version=rules.RULESET_VERSION)
+    for board_id in ("normal", "augments"):
+        async def standings(db_, start, end, _mode=board_id):
+            return await repo.season_standings(db_, mode=_mode, starts_at=start, ends_at=end)
+        await game_seasons.settle_due(db, game="rhythm", board=board_id, standings=standings)
+    season = game_seasons.season_view()
+    start, end = season_rules.season_bounds(season["number"])
+    board = await repo.leaderboard(db, user_id=user_id, mode=mode, starts_at=start, ends_at=end)
+    board["season"] = season
+    board["last_season"] = await game_seasons.last_result(db, game="rhythm", board=mode, user_id=user_id)
+    return board
 
 
 def _ticket_hash(ticket: str) -> str:

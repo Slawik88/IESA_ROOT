@@ -189,7 +189,7 @@ async def retention(db) -> dict:
 
 
 REASON_GROUPS = (
-    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"),
+    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"), (("season_reward",), "Награды за сезоны игр"),
     (("achievement_reward",), "Награды за достижения"), (("chest_v1_reward", "chest_key"), "Сундуки и ключи"),
     (("promocode",), "Промокоды"), (("vip_",), "VIP"), (("pet_",), "Питомцы"),
     (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "retirement_"), "Подарки и компенсации"),

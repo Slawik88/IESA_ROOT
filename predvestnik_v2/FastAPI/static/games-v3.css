@@ -68,3 +68,5 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) .mine-board .mine-cell { border: 0; border-radius: 9px; }
 :is(.leaderboard, .mine-leaderboard) li:only-child { grid-template-columns: 1fr; }
 .mine-cell.pending { outline-width: 2px; }
+
+.season-note { margin: 6px 0 10px; font-size: 12px; color: var(--g-dim); }
