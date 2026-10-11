@@ -173,7 +173,7 @@ async def fetch(bot, chat_id: int, user_id: int) -> tuple[bool, str | None]:
     except Exception as exc:
         logger.debug(f"getChatMember {chat_id}/{user_id}: {exc}")
         return False, None
-    if getattr(member, "status", None) in ("left", "kicked"):
+    if getattr(member, "status", None) in ("left", "kicked") or getattr(getattr(member, "user", None), "is_bot", False):
         return False, None
     return True, of_member(member)
 
@@ -189,7 +189,8 @@ async def refresh(bot, db, chat_id: int, user_id: int) -> tuple[bool, str | None
 
 async def probe(bot, chat_id: int, user_id: int) -> tuple[str, str | None]:
     """Спросить Telegram и разобрать исход: ("ok", тег) | ("gone", None) — человека в чате нет |
-    ("denied", None) — Telegram отказал по чату | ("retry", None) — временная ошибка, стоит повторить позже."""
+    ("bot", None) — это бот, тегов и чистки у ботов нет | ("denied", None) — Telegram отказал по чату |
+    ("retry", None) — временная ошибка, стоит повторить позже."""
     try:
         member = await bot.get_chat_member(chat_id, user_id)
     except Exception as exc:
@@ -203,6 +204,8 @@ async def probe(bot, chat_id: int, user_id: int) -> tuple[str, str | None]:
             return "denied", None
         logger.debug(f"getChatMember {chat_id}/{user_id}: {exc}")
         return "retry", None
+    if getattr(getattr(member, "user", None), "is_bot", False):
+        return "bot", None
     if getattr(member, "status", None) in ("left", "kicked"):
         return "gone", None
     return "ok", of_member(member)
@@ -212,6 +215,10 @@ async def _settle(db, chat_id: int, user_id: int, state: str, tag: str | None) -
     """Применить исход probe. True — вопрос по этому человеку закрыт (больше не спрашивать до срока перепроверки)."""
     if state == "ok":
         await observe(db, chat_id, user_id, tag)
+        return True
+    if state == "bot":   # признак «бот» сохраняем: больше этого человека не спрашиваем и в чистку/топы он не попадает
+        from services import chat_bots
+        await chat_bots.mark(db, user_id)
         return True
     if state == "gone":   # вышел из чата: тег не меняем, но и спрашивать каждый раз незачем
         try:

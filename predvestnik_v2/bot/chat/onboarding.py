@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import html
+import time
 
 from aiogram import Bot, Router
 from aiogram.exceptions import TelegramBadRequest
@@ -66,20 +67,41 @@ def missing_rights(s: cs.Setup) -> list[str]:
     return out
 
 
-def checklist(s: cs.Setup) -> str:
+def checklist(s: cs.Setup, with_check: bool = False) -> str:
+    """Короткий список «что уже есть» для сообщения в чате. with_check добавляет строку про первую команду."""
     mark = lambda ok: "✅" if ok else "❌"
-    return quote([
+    lines = [
         f"{mark(s.present)} Я в чате",
         f"{mark(s.admin)} Я администратор",
         f"{mark(s.can_delete)} {RIGHT_DELETE}",
         f"{mark(s.can_restrict)} {RIGHT_RESTRICT}",
-    ])
+    ]
+    if with_check and s.ready:
+        lines.append("✅ Отвечаю на команды" if s.verified else "⏳ Жду первую команду в чате")
+    return quote(lines)
 
 
-def extras(s: cs.Setup) -> str:
-    staff = f"назначены: {s.staff}" if s.staff else "пока не назначены"
-    admin = f"«{_e(s.admin_chat['title'])}»" if s.admin_chat else "не привязан (по желанию)"
-    return quote([f"👥 Модераторы: {staff}", f"🔗 Админ-чат: {admin}"])
+def roadmap(s: cs.Setup) -> str:
+    """Весь путь настройки одним списком: что пройдено (✅), где сейчас (👉), что потом (▫️). Два последних шага по желанию."""
+    if s.ready:
+        rights = "Права администратора"
+    elif s.present and s.admin:
+        rights = "Права администратора: включите " + " и ".join(f"«{r.lower()}»" for r in missing_rights(s))
+    else:
+        rights = "Права администратора"
+    steps = [   # (пройден, текст, по желанию)
+        (s.present, "Бот в чате", False),
+        (s.ready, rights, False),
+        (s.ready and s.verified, "Проверка: бот отвечает на команды" if s.ready and s.verified
+         else "Проверка: напишите в чате «бот помощь»", False),
+        (s.staff > 0, f"Модераторы: назначены {s.staff}" if s.staff else "Модераторы (по желанию)", True),
+        (bool(s.admin_chat), f"Админ-чат «{_e(s.admin_chat['title'])}»" if s.admin_chat else "Админ-чат (по желанию)", True),
+    ]
+    todo = [i for i, (done, _, optional) in enumerate(steps) if not done and not optional] or \
+           [i for i, (done, _, _) in enumerate(steps) if not done]
+    current = todo[0] if todo else -1
+    lines = [f"{'✅' if done else '👉' if i == current else '▫️'} {i + 1}. {text}" for i, (done, text, _) in enumerate(steps)]
+    return quote(lines)
 
 
 def grant_steps(s: cs.Setup, username: str) -> str:
@@ -95,14 +117,21 @@ def grant_steps(s: cs.Setup, username: str) -> str:
 
 
 def next_step(s: cs.Setup) -> str:
+    """Одно действие, которое нужно сделать прямо сейчас."""
     if not s.present:
         return "Меня нет в этом чате. Нажмите «Добавить бота» и выберите чат."
     if not s.ready:
         if s.admin:
-            return f"Я уже администратор, осталось включить: {', '.join(missing_rights(s)).lower()}. Кнопка «Как выдать права» покажет где."
-        return "Выдайте мне права администратора: кнопка «Как выдать права» покажет по шагам."
+            return (f"Я уже администратор, осталось включить: {', '.join(missing_rights(s)).lower()}. "
+                    "Кнопка «Как выдать права» покажет где, это минута.")
+        return "Сделайте меня администратором: кнопка «Как выдать права» покажет по шагам, это минута."
+    if not s.verified:
+        return ("Откройте чат и напишите <code>бот помощь</code>. Когда я отвечу, подключение завершено. "
+                "Молчу? Нажмите «Не получается».")
     if not s.staff:
-        return "Назначьте модераторов, чтобы они могли мутить и банить: кнопка «Модераторы»."
+        return "Назначьте модераторов, чтобы они могли выдавать варны и муты: кнопка «Модераторы». Это по желанию."
+    if not s.admin_chat:
+        return "Всё работает. По желанию привяжите отдельный чат для администраторов: кнопка «Админ-чат»."
     return "Всё настроено. Все команды: <code>бот помощь</code>."
 
 
@@ -111,11 +140,16 @@ def next_step(s: cs.Setup) -> str:
 def group_screen(s: cs.Setup, username: str, reminder: bool = False) -> Screen:
     """Сообщение в самом чате. Правки и назначения делаются в личке: в чате только чек-лист, проверка и ссылка."""
     if s.ready:
-        text = ("✅ <b>Бот готов к работе</b>\n" + checklist(s) +
-                "\nКоманды начинаются со слова «бот». Что дальше:\n"
-                "• <code>бот помощь</code> — все команды\n"
-                "• <code>бот ранги</code> — кто с каким рангом\n"
-                "• модераторов и админ-чат удобно настроить в личке: кнопка ниже")
+        if s.verified:
+            text = ("✅ <b>Бот подключён и отвечает</b>\n" + checklist(s, True) +
+                    "\nКоманды начинаются со слова «бот». Что дальше:\n"
+                    "• <code>бот помощь</code> — все команды\n"
+                    "• <code>бот ранги</code> — кто с каким рангом\n"
+                    "• модераторов и админ-чат удобно настроить в личке: кнопка ниже")
+        else:
+            text = ("✅ <b>Права получены</b>\n" + checklist(s, True) +
+                    "\n<b>Последний шаг.</b> Напишите в этом чате <code>бот помощь</code>. Когда я отвечу, подключение завершено.\n"
+                    "Команды начинаются со слова «бот».")
         kb = _kb([_url("📩 Продолжить в личке", setup_link(username, s.chat_id))],
                  [_btn("📖 Что умеет бот", "guide", s.chat_id)])
         return text, kb
@@ -133,10 +167,10 @@ def group_screen(s: cs.Setup, username: str, reminder: bool = False) -> Screen:
 
 
 def chat_screen(s: cs.Setup, username: str, intro: str = "") -> Screen:
-    """Настройка чата в личке: чек-лист, что готово, следующий шаг и кнопки под текущее состояние."""
+    """Настройка чата в личке: путь из пяти шагов с отметкой «вы здесь», что делать сейчас и кнопки под текущее состояние."""
     head = f"{intro}\n\n" if intro else ""
-    text = (f"{head}⚙️ <b>{_e(s.title)}</b>\n" + checklist(s) + ("\n" + extras(s) if s.ready else "") +
-            f"\n<b>Следующий шаг:</b> {next_step(s)}")
+    text = (f"{head}⚙️ <b>{_e(s.title)}</b>\n<b>Путь настройки</b>\n" + roadmap(s) +
+            f"\n<b>Сейчас:</b> {next_step(s)}")
     if not s.supergroup:
         text += "\n<i>Это обычная группа: теги участников в ней недоступны, остальное работает.</i>"
     if not s.live:
@@ -149,8 +183,12 @@ def chat_screen(s: cs.Setup, username: str, intro: str = "") -> Screen:
                 [_btn("◀️ Мои чаты", "my")]]
     else:
         rows = [[_btn("👥 Модераторы", "staff", s.chat_id), _btn("🔗 Админ-чат", "adm", s.chat_id)],
-                [_btn("📖 Что умеет бот", "guide", s.chat_id)],
-                [_btn("🔄 Обновить", "chk", s.chat_id), _btn("◀️ Мои чаты", "my")]]
+                [_btn("📖 Что умеет бот", "guide", s.chat_id)]]
+        if s.verified:
+            rows.append([_btn("🔄 Обновить", "chk", s.chat_id), _btn("◀️ Мои чаты", "my")])
+        else:
+            rows.append([_btn("🔄 Проверить", "chk", s.chat_id), _btn("🆘 Не получается", "trouble", s.chat_id)])
+            rows.append([_btn("◀️ Мои чаты", "my")])
     return text, _kb(*rows)
 
 
@@ -160,12 +198,16 @@ def rights_screen(s: cs.Setup, username: str) -> Screen:
             "2. <b>Изменить</b> (карандаш ✏️) → <b>Администраторы</b> → <b>Добавить администратора</b>.\n"
             f"3. Найдите и выберите @{_e(username)}.\n"
             "4. Включите два пункта:\n" +
-            quote([f"✅ {RIGHT_DELETE}", f"✅ {RIGHT_RESTRICT}"]) +
+            quote([f"✅ {RIGHT_DELETE} (Delete messages)", f"✅ {RIGHT_RESTRICT} (Ban users)"]) +
             "Остальное можно оставить выключенным.\n"
             "5. Нажмите ✓ в углу, вернитесь сюда и нажмите «Проверить».\n\n"
-            "<i>Без этих прав я не вижу обычные сообщения, не могу удалять и мутить. Вручную выдать их должен владелец чата "
-            "или администратор с правом добавлять админов.</i>")
-    return text, _kb([_btn("🔄 Проверить", "chk", s.chat_id), _btn("🆘 Не получается", "trouble", s.chat_id)],
+            "<i>Названия пунктов зависят от версии Telegram и языка: ищите про удаление сообщений и про блокировку участников. "
+            "Без этих прав я не вижу обычные сообщения, не могу удалять и мутить. Выдать их может владелец чата "
+            "или администратор с правом добавлять админов.</i>\n\n"
+            "⚡ <b>Быстрее:</b> кнопка ниже откроет выбор чата, выберите этот, и Telegram сам предложит нужные права. "
+            "Не вышло — идите по шагам выше.")
+    return text, _kb([_url("⚡ Выдать права одним нажатием", cs.add_url(username))],
+                     [_btn("🔄 Проверить", "chk", s.chat_id), _btn("🆘 Не получается", "trouble", s.chat_id)],
                      [_btn("◀️ Назад", "chat", s.chat_id)])
 
 
@@ -176,14 +218,27 @@ def trouble_screen(s: cs.Setup) -> Screen:
             "<b>Меня нет в списке выбора.</b> Значит, я не в чате: нажмите «Добавить бота» и выберите чат.\n\n"
             "<b>Права выдал, но «Проверить» говорит, что их нет.</b> Проверьте, что включены оба пункта "
             f"(«{RIGHT_DELETE}» и «{RIGHT_RESTRICT}») и вы нажали ✓ сохранить.\n\n"
-            "<b>Я в чате, но не отвечаю на «бот помощь».</b> Без прав администратора я не вижу обычные сообщения. "
-            "Выдайте права и проверьте, что чат не закрыт для сообщений.\n\n"
-            "<b>Админ пишет, а ранг не работает.</b> Выключите ему «Анонимность» в правах администратора: от имени чата "
-            "я не узнаю, кто пишет.")
+            "<b>Права есть, а на «бот помощь» я молчу.</b> Команда должна начинаться со слова «бот» и быть обычным сообщением. "
+            "Если вы администратор, выключите себе «Анонимность» в правах администратора: от имени чата я не узнаю, кто пишет. "
+            "Ещё проверьте, что чат не закрыт для сообщений.\n\n"
+            "<b>Админ пишет, а ранг не работает.</b> Та же причина: «Анонимность» у него включена.")
     return text, _kb([_btn("🔄 Проверить", "chk", s.chat_id)], [_btn("◀️ Назад", "chat", s.chat_id)])
 
 
-def staff_screen(s: cs.Setup, proposals: list[cs.Proposal] | None, done: str = "") -> Screen:
+# Что разрешает ранг: берём реальные пороги чата (их можно менять), а не цифры из головы.
+LEGEND_ACTIONS = (("warn", "варны"), ("mute", "муты"), ("kick", "кики"), ("ban", "баны"), ("close_chat", "закрытие чата"))
+
+
+def rank_legend(rights: dict[str, int], rank_values: list[int]) -> str:
+    """По строке на каждый предложенный ранг: что он сможет в этом чате."""
+    lines = []
+    for rank in sorted(set(rank_values), reverse=True):
+        can = [label for key, label in LEGEND_ACTIONS if rank >= rights.get(key, 99)]
+        lines.append(f"{ranks.rank_name(rank)} — " + (", ".join(can) if can else "смотреть списки санкций"))
+    return quote(lines) if lines else ""
+
+
+def staff_screen(s: cs.Setup, proposals: list[cs.Proposal] | None, done: str = "", legend: str = "") -> Screen:
     back = [_btn("◀️ Назад", "chat", s.chat_id)]
     if proposals is None:
         return (f"👥 <b>Модераторы · {_e(s.title)}</b>\n\nTelegram не отдал список администраторов. Попробуйте ещё раз.",
@@ -198,7 +253,8 @@ def staff_screen(s: cs.Setup, proposals: list[cs.Proposal] | None, done: str = "
     more = f"\nи ещё {len(proposals) - 25}" if len(proposals) > 25 else ""
     text = (f"{head}👥 <b>Модераторы · {_e(s.title)}</b>\n\n"
             "Я вижу администраторов чата в Telegram и могу выдать им ранги в боте по их правам:\n" + quote(lines) + more +
-            "\nРанг можно поменять потом: <code>бот ранг, @ник модератор</code>. Что умеет каждый ранг: <code>бот права</code>.")
+            ("\n<b>Что это даст в вашем чате:</b>\n" + legend if legend else "") +
+            "\nРанг можно поменять потом: <code>бот ранг, @ник модератор</code>. Все пороги: <code>бот права</code>.")
     return text, _kb([_btn("✅ Назначить всех", "staffok", s.chat_id)], back)
 
 
@@ -243,11 +299,15 @@ def guide_screen(chat_id: int) -> Screen:
 
 def home_screen(username: str, miniapp_url: str = "") -> Screen:
     text = ("🌘 <b>Предвестник</b>\n\n"
-            "Бот для чатов Telegram: модерация и ранги, профили и топ, игры, чистка неактивных.\n\n"
-            "С чего начать:\n"
-            "➕ <b>Добавить бота в чат</b> — я проведу по настройке шаг за шагом\n"
-            "⚙️ <b>Настроить чат</b> — если бот уже добавлен, проверим права и поможем с модераторами\n"
-            "📖 <b>Что умеет бот</b> — коротко о командах")
+            "Бот для чатов Telegram. Что он умеет:\n" +
+            quote(["🛡 модерация: муты, варны, баны, ранги модераторов",
+                   "🧹 чистка тех, кто почти не пишет",
+                   "🏆 профили, топ активных, игры"]) +
+            "\nПодключение занимает пару минут, я веду по шагам. Что нужно?\n"
+            "➕ <b>Добавить бота в чат</b> — первый раз\n"
+            "⚙️ <b>Настроить мой чат</b> — бот уже там, проверим права и поможем с модераторами\n"
+            "📖 <b>Что умеет бот</b> — коротко о командах\n\n"
+            "<i>В чате команды пишутся со слова «бот», например: бот помощь.</i>")
     rows = [[_url("➕ Добавить бота в чат", cs.add_url(username))],
             [_btn("⚙️ Настроить мой чат", "my")],
             [_btn("📖 Что умеет бот", "guide")]]
@@ -260,9 +320,12 @@ def home_screen(username: str, miniapp_url: str = "") -> Screen:
 def add_screen(username: str) -> Screen:
     text = ("➕ <b>Как добавить бота в чат</b>\n\n"
             "1. Нажмите «Выбрать чат» ниже и выберите группу, куда нужно меня добавить. Вы должны быть в ней владельцем "
-            "или администратором. Нет группы? Создайте её в Telegram и вернитесь сюда.\n"
+            "или администратором.\n"
             f"2. Telegram покажет права, которые я прошу: <b>{RIGHT_DELETE}</b> и <b>{RIGHT_RESTRICT}</b>. Подтвердите.\n"
             "3. Я напишу в чате и здесь, что делать дальше.\n\n"
+            "<b>Нет своей группы?</b> В Telegram нажмите ✏️ (новое сообщение) → <b>Новая группа</b>, добавьте любого друга, "
+            "придумайте название и вернитесь сюда.\n"
+            "<b>Вы не владелец чата?</b> Перешлите это сообщение владельцу: добавить меня должен он.\n\n"
             "<i>Без этих прав я не вижу обычные сообщения, не удаляю их и не ограничиваю участников. Если вы откажетесь от них сейчас, "
             "это можно исправить позже: в чате я подскажу как.</i>")
     return text, _kb([_url("➕ Выбрать чат", cs.add_url(username))],
@@ -277,7 +340,8 @@ def my_screen(chats: list[dict], username: str) -> Screen:
                 "Ещё не добавили? Нажмите «Добавить бота в чат».")
         return text, _kb([_url("➕ Добавить бота в чат", cs.add_url(username))],
                          [_btn("❔ Как добавить", "add")], [_btn("◀️ Назад", "home")])
-    rows = [[_btn(f"{'✅' if c['ready'] else '⚠️'} {c['title'][:40]}", "chat", c["id"])] for c in chats]
+    rows = [[_btn(f"{'✅' if c['ready'] else '⚠️'} {c['title'][:36]}{'' if c['ready'] else ' · нужны права'}", "chat", c["id"])]
+            for c in chats]
     rows.append([_url("➕ Добавить в ещё один чат", cs.add_url(username))])
     rows.append([_btn("◀️ Назад", "home")])
     text = ("⚙️ <b>Мои чаты</b>\n\nВыберите чат. ✅ — всё готово, ⚠️ — нужно выдать права или что-то доделать.")
@@ -358,6 +422,7 @@ async def _dm(bot: Bot, db, chat_id: int, user_id: int | None, screen: Screen, e
 
 async def _send_welcome(bot: Bot, db, s: cs.Setup, inviter_id: int | None, via: str) -> None:
     username = await _username(bot)
+    s.verified = False   # подключаем заново: проверка снималась до того, как запись о подключении появилась
     await cs.log_event(db, s.chat_id, inviter_id, "added", f"{via}, {'готов' if s.ready else 'без прав'}")
     if s.ready:
         await cs.log_event(db, s.chat_id, inviter_id, "rights_ok", "сразу при добавлении")
@@ -424,6 +489,30 @@ async def refresh(bot: Bot, db, chat_id: int, s: cs.Setup | None = None, message
     return s
 
 
+async def on_command_used(bot: Bot, db, chat_id: int) -> None:
+    """Бот ответил на команду в группе. Первая команда после подключения завершает проверку: обновляем сообщение в чате."""
+    if chat_id >= 0 or not await cs.note_command(db, chat_id):
+        return
+    await cs.log_event(db, chat_id, None, "first_command")
+    await _commit(db)
+    await refresh(bot, db, chat_id)
+    await _commit(db)
+
+
+async def on_channel_added(event, bot: Bot, db) -> None:
+    """Бота добавили в канал: каналы он не ведёт, человеку сразу говорим, что делать (иначе он ждёт и не понимает, почему тишина)."""
+    actor = getattr(event, "from_user", None)
+    if not actor or getattr(actor, "is_bot", False):
+        return
+    username = await _username(bot)
+    title = _e(getattr(event.chat, "title", None) or "канал")
+    text = (f"📣 Вы добавили меня в канал «{title}». Каналы я не веду: я работаю в группах и супергруппах.\n\n"
+            "Если у канала есть чат для обсуждения, добавьте меня туда. Нет чата? Создайте группу и добавьте меня в неё.")
+    await _dm(bot, db, event.chat.id, actor.id, (text, _kb([_url("➕ Добавить в группу", cs.add_url(username))])),
+              event="channel_added")
+    await _commit(db)
+
+
 async def group_start(message: Message, bot: Bot, db) -> None:
     """/start в группе: так Telegram приветствует бота после «добавить в группу». Рядом с входом бота это не дублируется."""
     chat, user = message.chat, message.from_user
@@ -478,7 +567,7 @@ async def open_setup(message: Message, bot: Bot, db) -> None:
     """/setup и «бот настройка»: в чате — чек-лист, в личке — список своих чатов."""
     username = await _username(bot)
     if message.chat.type == "private":
-        chats = await cs.my_chats(db, message.from_user.id)
+        chats = await cs.my_chats(db, message.from_user.id, bot=bot)
         text, kb = my_screen(chats, username)
     else:
         s = await cs.inspect(bot, db, message.chat.id)
@@ -515,7 +604,7 @@ async def on_onboarding(call: CallbackQuery, callback_data: OnbCB, bot: Bot, db)
     elif a == "add":
         await _edit(call, add_screen(username))
     elif a == "my":
-        await _edit(call, my_screen(await cs.my_chats(db, user_id), username))
+        await _edit(call, my_screen(await cs.my_chats(db, user_id, bot=bot), username))
     elif a == "guide" and not chat_id:
         await cs.log_event(db, 0, user_id, "guide")
         await _edit(call, guide_screen(0))
@@ -528,15 +617,27 @@ async def on_onboarding(call: CallbackQuery, callback_data: OnbCB, bot: Bot, db)
         await _on_chat_button(call, a, chat_id, bot, db, username)
 
 
+_chk_cooldown: dict[int, float] = {}   # чат -> когда «Проверить» можно нажать снова: кнопку видят все, спамить ею незачем
+CHK_COOLDOWN = 3.0
+
+
 async def _on_group_button(call: CallbackQuery, a: str, chat_id: int, bot: Bot, db, username: str) -> None:
     if chat_id != call.message.chat.id:
         await call.answer()
         return
     if a == "chk":
+        now = time.monotonic()
+        if _chk_cooldown.get(chat_id, 0.0) > now:
+            await call.answer("Подождите пару секунд, я только что проверял.")
+            return
+        _chk_cooldown[chat_id] = now + CHK_COOLDOWN
+        if len(_chk_cooldown) > 2000:
+            _chk_cooldown.clear()
         await cs.log_event(db, chat_id, call.from_user.id, "check", "в чате")
         s = await refresh(bot, db, chat_id, message=call.message)
         await _commit(db)
-        await call.answer("✅ Всё готово" if s.ready else "Прав пока не хватает: " + ", ".join(missing_rights(s)).lower())
+        await call.answer(("✅ Права есть" + ("" if s.verified else ". Осталось написать «бот помощь»")) if s.ready
+                          else "Прав пока не хватает: " + ", ".join(missing_rights(s)).lower())
     elif a == "guide":
         await cs.log_event(db, chat_id, call.from_user.id, "guide", "в чате")
         text, _ = guide_screen(chat_id)
@@ -566,13 +667,20 @@ async def _on_chat_button(call: CallbackQuery, a: str, chat_id: int, bot: Bot, d
         await _edit(call, guide_screen(chat_id))
     elif a == "staff":
         await cs.log_event(db, chat_id, user_id, "staff_preview")
-        await _edit(call, staff_screen(s, await cs.staff_proposals(bot, db, chat_id)))
+        proposals = await cs.staff_proposals(bot, db, chat_id)
+        await _edit(call, staff_screen(s, proposals, legend=await _legend(db, chat_id, proposals)))
     elif a == "staffok":
         await _apply_staff(call, s, bot, db)
     elif a in ("adm", "admcode"):
         await _admin_chat(call, a, s, db)
     else:
         await call.answer()
+
+
+async def _legend(db, chat_id: int, proposals) -> str:
+    if not proposals:
+        return ""
+    return rank_legend(await ranks.rights_map(db, chat_id), [p.rank for p in proposals])
 
 
 async def _apply_staff(call: CallbackQuery, s: cs.Setup, bot: Bot, db) -> None:
@@ -592,7 +700,8 @@ async def _apply_staff(call: CallbackQuery, s: cs.Setup, bot: Bot, db) -> None:
     await cs.log_event(db, chat_id, user_id, "staff_applied", f"{done}")
     s = await cs.inspect(bot, db, chat_id)
     note = f"✅ Назначено: {done}." + (f" Пропущено {skipped}: их ранг не ниже вашего." if skipped else "")
-    await _edit(call, staff_screen(s, await cs.staff_proposals(bot, db, chat_id), done=note))
+    left = await cs.staff_proposals(bot, db, chat_id)
+    await _edit(call, staff_screen(s, left, done=note, legend=await _legend(db, chat_id, left)))
 
 
 async def _admin_chat(call: CallbackQuery, a: str, s: cs.Setup, db) -> None:
