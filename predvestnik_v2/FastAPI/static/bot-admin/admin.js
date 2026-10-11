@@ -85,14 +85,62 @@ function toast(text, bad = false) {
   toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
 }
 
+// Значки разделов для нижнего дока (тот же штрих, что у дока Mini App).
+const ICONS = {
+  people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.7-3.2 3-4.8 5.5-4.8s4.8 1.6 5.5 4.8M16 5.5a3 3 0 0 1 0 5.8M17.5 14.6c1.8.5 3 2 3.5 4.4"/>',
+  reports: '<path d="M5.5 21V4M5.5 5h11l-2 3.5 2 3.5h-11"/>',
+  metrics: '<path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/>',
+  journal: '<path d="M5 5.5h14M5 10.5h14M5 15.5h9M5 20.5h6"/>',
+  broadcast: '<path d="M4 10v4h3l7 4V6l-7 4zM17 9.5a3.5 3.5 0 0 1 0 5"/>',
+  promo: '<path d="M3.5 12.5v-8h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.2"/>',
+  switches: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.4"/>',
+  settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
+  more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
+};
+const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки'};
+const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
+
+function dockSplit() {
+  const all = ME.sections;
+  return all.length <= DOCK_MAX ? {main: all, rest: []} : {main: all.slice(0, DOCK_MAX - 1), rest: all.slice(DOCK_MAX - 1)};
+}
+
 function tabs(active) {
-  $('#tabs').innerHTML = ME.sections.map(s =>
-    `<button class="${s.key === active ? 'on' : ''}" data-tab="${s.key}">${esc(s.title)}</button>`).join('');
-  const on = $('#tabs .on'); if (on && on.scrollIntoView) on.scrollIntoView({inline: 'center', block: 'nearest'});
+  const {main, rest} = dockSplit(), nav = $('#tabs');
+  const inRest = rest.some(s => s.key === active);
+  const slots = main.length + (rest.length ? 1 : 0);
+  nav.hidden = false;
+  nav.style.setProperty('--nav-n', slots);
+  nav.style.setProperty('--nav-i', Math.max(0, inRest ? main.length : main.findIndex(s => s.key === active)));
+  nav.innerHTML = main.map(s =>
+    `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}">${icon(s.key)}<span>${esc(SHORT[s.key] || s.title)}</span></button>`).join('')
+    + (rest.length ? `<button type="button" class="nb ${inRest ? 'here' : ''}" data-more="1">${icon('more')}<span>Ещё</span></button>` : '');
+}
+
+function moreSheet() {
+  const {rest} = dockSplit(), box = $('#sheet'), active = currentSection();
+  box.innerHTML = `<div class="sheet"><h3>Разделы</h3><div class="go-list">${rest.map(s =>
+    `<button type="button" data-go="${s.key}" class="${s.key === active ? 'here' : ''}">${icon(s.key)}<span>${esc(s.title)}</span></button>`).join('')}</div></div>`;
+  box.hidden = false;
+  box.onclick = e => {
+    const go = e.target.closest('[data-go]');
+    if (go || e.target === box) { box.hidden = true; box.innerHTML = ''; }
+    if (go) open(go.dataset.go);
+  };
+}
+
+// Кнопка «назад» на верхнем уровне ведёт обратно в Предвестник (внутри Telegram и в браузере одинаково).
+function goApp() { location.href = (BASE || '') + '/'; }
+function rootBack() {
+  const bb = TG && TG.BackButton;
+  if (!bb) return;
+  if (PEOPLE.bb) { bb.offClick(PEOPLE.bb); PEOPLE.bb = null; }
+  bb.offClick(goApp); bb.onClick(goApp); bb.show();
 }
 
 function open(key) {
-  if (TG && TG.BackButton) TG.BackButton.hide();
+  rootBack();
   if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
   tabs(key);
   try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
@@ -103,8 +151,24 @@ function open(key) {
 
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-tab]');
-  if (tab) open(tab.dataset.tab);
+  if (tab) { open(tab.dataset.tab); return; }
+  if (e.target.closest('[data-more]')) moreSheet();
 });
+
+// Оболочка Telegram: шапка, фон и нижняя полоса того же цвета, что страница; смахивание вниз не закрывает админку посреди формы.
+(function initTmaShell() {
+  if (!TG) return;
+  try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}
+  const color = '#08090c';
+  const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
+  call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
+  // Лёгкий отклик на нажатия, как в приложении
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.nb, .btn');
+    if (!t || t.disabled) return;
+    try { const h = TG.HapticFeedback; if (h) { t.classList.contains('nb') ? h.selectionChanged() : h.impactOccurred(t.classList.contains('primary') ? 'medium' : 'light'); } } catch (_) {}
+  }, true);
+})();
 
 // ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
 
@@ -254,6 +318,7 @@ function nativeBack(main) {
   const bb = TG && TG.BackButton;
   if (!bb) return;
   if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
+  bb.offClick(goApp);
   PEOPLE.bb = () => back(main);
   bb.onClick(PEOPLE.bb); bb.show();
 }
@@ -275,7 +340,7 @@ function historyCard(items) {
 
 async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
-  if (TG && TG.BackButton) TG.BackButton.hide();
+  rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;

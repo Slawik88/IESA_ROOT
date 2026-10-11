@@ -64,6 +64,12 @@ async def cmd_admin_panel(ctx: Ctx) -> None:
         btn = InlineKeyboardButton(text="🛠 Открыть админку", web_app=WebAppInfo(url=url))
         text = "🛠 <b>Админка Предвестника</b>"
     else:
-        btn = InlineKeyboardButton(text="🛠 Открыть в браузере", url=url)
-        text = "🛠 <b>Админка Предвестника</b>\nВнутри Telegram она открывается из лички с ботом: <code>бот админка</code>"
+        me = await ctx.bot.me()
+        short = os.getenv("MINIAPP_SHORT_NAME", "")
+        if short and me.username:   # прямая ссылка открывает админку внутри Telegram, а не во внешнем браузере
+            btn = InlineKeyboardButton(text="🛠 Открыть админку", url=f"https://t.me/{me.username}/{short}?startapp=admin")
+            text = "🛠 <b>Админка Предвестника</b>"
+        else:
+            btn = InlineKeyboardButton(text="🛠 Открыть в браузере", url=url)
+            text = "🛠 <b>Админка Предвестника</b>\nВнутри Telegram она открывается из лички с ботом: <code>бот админка</code>"
     await ctx.reply(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[btn]]))

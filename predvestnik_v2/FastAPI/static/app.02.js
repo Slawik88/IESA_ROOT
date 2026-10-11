@@ -184,6 +184,7 @@ function _handleStartParam(){
   if(!p){ try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
+  if(base==='admin'){ openBotAdmin(); return; }   // ссылка «🛠 Открыть админку» из чата: сразу в админку, без показа приложения
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
   const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.

@@ -44,11 +44,11 @@ class FakeBot:
 
 
 class FakeMessage:
-    def __init__(self, text, uid, chat=-100, reply_to=None):
+    def __init__(self, text, uid, chat=-100, reply_to=None, chat_type="supergroup"):
         self.text, self.caption, self.entities = text, None, []
         self.from_user = SimpleNamespace(id=uid, is_bot=False, username=f"u{uid}", full_name=f"U{uid}",
                                          first_name=f"U{uid}")
-        self.chat = SimpleNamespace(id=chat, type="supergroup", title="Тест")
+        self.chat = SimpleNamespace(id=chat, type=chat_type, title="Тест")
         self.reply_to_message = reply_to
         self.message_id = 1
         self.message_thread_id = None
@@ -58,6 +58,7 @@ class FakeMessage:
 
     async def reply(self, text, **kw):
         self.replies.append(text)
+        self.kw = kw
 
     async def answer(self, text, **kw):
         self.replies.append(text)
@@ -220,6 +221,21 @@ async def run():
     assert "Настройки жалоб" in {x["title"] for x in feed["items"]}, [x["title"] for x in feed["items"]]
     await client.post("/bot-admin/api/settings/reports", headers=h[CODER],
                       json={"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5})
+
+    # «бот админка»: в личке кнопка web_app, в группе прямая ссылка на мини-приложение (внутри Telegram, не во внешнем браузере)
+    os.environ["MINIAPP_URL"], os.environ["MINIAPP_SHORT_NAME"] = "https://app.example/?x=1", "pv"
+    async with get_pool().acquire() as conn:
+        async def panel(uid, **kw):
+            m = FakeMessage("бот админка", uid, **kw)
+            await dispatch(registry, m, bot, PGAdapter(conn))
+            return m
+        assert "только персоналу" in (await panel(P2)).replies[-1]
+        btn = (await panel(DEV)).kw["reply_markup"].inline_keyboard[0][0]
+        assert btn.url == "https://t.me/predvestnik_bot/pv?startapp=admin" and btn.web_app is None, btn
+        btn = (await panel(DEV, chat=DEV, chat_type="private")).kw["reply_markup"].inline_keyboard[0][0]
+        assert btn.web_app.url == "https://app.example/bot-admin" and btn.url is None, btn
+        os.environ["MINIAPP_SHORT_NAME"] = ""
+        assert (await panel(DEV)).kw["reply_markup"].inline_keyboard[0][0].url == "https://app.example/bot-admin"
 
     # Рассылка
     broadcasts.PAUSE = {"chats": 0, "players": 0}

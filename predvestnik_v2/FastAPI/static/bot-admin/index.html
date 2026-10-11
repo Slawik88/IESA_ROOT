@@ -4,21 +4,28 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Админка Предвестника</title>
-<link rel="stylesheet" href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/>
+<meta name="theme-color" content="#08090c"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap"/></noscript>
 </head>
 <body>
 <header class="top">
+  <a class="back-app" id="backapp" href="{{BASE}}/" aria-label="Вернуться в Предвестник"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></a>
   <div class="brand">🔮 Админка</div>
   <div class="who" id="who"></div>
 </header>
-<nav class="tabs" id="tabs"></nav>
 <main id="main"><section class="admin-load" role="status" aria-live="polite">
   <div class="load-sigil" aria-hidden="true"><i></i><span>✦</span></div>
   <div class="load-copy"><small>Предвестник · синхронизация</small><h2>Открываем пульт</h2><p>Проверяем доступ и собираем разделы</p></div>
   <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
   <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
 </section></main>
+<nav class="nav" id="tabs" aria-label="Разделы админки" hidden></nav>
 <div class="sheet-back" id="sheet" hidden></div>
 <div class="toast" id="toast" hidden></div>
 <script>window.ADMIN_BASE = "{{BASE}}";</script>
