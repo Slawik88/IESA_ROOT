@@ -134,6 +134,7 @@ PYTHONPATH=. python tools/test_mafia_v1_sim_pg.py --dsn postgresql://predvestnik
 | 2026-10-08 | Вход в один тап по ссылке, подтверждение в личке | `mafia_v1._join/_deep_join` | ☑ 2026-10-10, СТИЛЬ v1 |
 | 2026-10-08 | Инструкция «боту нужны права админа» | `mafia_v1._NEED_ADMIN` | ☑ 2026-10-10, СТИЛЬ v1 |
 | 2026-10-08 | Mini App: блок «Как играть в Мафию» | `app.04.js::mafiaHowTo` | ☑ 2026-10-10, `.mafia-howto*` в `monolith-player-v3.css` |
+| 2026-10-11 | Питомцы v2 «Тропа»: 12 экранов Mini App (за флагом `pets_v2`), полный список в `docs/PETS_V2_DESIGNER_SCREENS.md` | `FastAPI/routers/pets_v2.py` (данные), Mini App-экранов ещё нет | ☐ ждёт |
 
 ## 7. Решения по правилам, которые принял логик-агент (владельцу — подтвердить)
 
