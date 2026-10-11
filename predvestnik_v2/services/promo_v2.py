@@ -20,6 +20,7 @@ from core.economy_contract import CURRENCY_SPECS
 from core.skins_v3_catalog import SEASONS, SETS, SKINS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories import vip_v2 as vip_v2_repo
+from services import skins_v3 as skins_v3_service
 from infrastructure.repositories.economy_ledger import apply_balance_change
 
 CODE_RE = re.compile(r"^[A-Z0-9][A-Z0-9_-]{2,31}$")
@@ -97,8 +98,18 @@ def skin_choices() -> list[dict]:
 
 
 def private_skins() -> list[dict]:
-    """Личные образы: в промокод не кладутся (один владелец), в выборе показываются отдельно и неактивными."""
+    """Личные образы (один владелец на образ), без данных о владельцах."""
     return sorted((_skin_row(sid, s) for sid, s in SKINS.items() if s.get("exclusive")), key=_skin_sort)
+
+
+async def private_skins_state(db) -> list[dict]:
+    """Личные образы с текущим владельцем: занятый образ в промокод не кладётся, пока его не отозвали."""
+    await skins_v3_repo.ensure_tables(db)
+    out = private_skins()
+    for item in out:
+        item["holders"] = [{"user_id": h["user_id"], "name": f"@{h['username']}" if h["username"] else f"id{h['user_id']}"}
+                           for h in await skins_v3_repo.holders(db, item["id"])]
+    return out
 
 
 def normalize_rewards(raw) -> list[dict]:
@@ -121,8 +132,6 @@ def normalize_rewards(raw) -> list[dict]:
             skin = SKINS.get(sid)
             if not skin:
                 raise PromoError("Такого образа нет.")
-            if skin.get("exclusive"):
-                raise PromoError("Личные образы промокодом не выдаются.")
             out.append({"type": "skin", "id": sid})
         elif kind == "zarniki":
             raise PromoError("Зарники промокодом не выдаются: они приходят только из оплаты.")
@@ -153,7 +162,8 @@ def describe(reward: dict) -> str:
     if kind == "vip":
         return f"👑 VIP на {reward['days']} дн."
     if kind == "skin":
-        return f"✨ образ «{SKINS.get(reward['id'], {}).get('name', reward['id'])}»"
+        skin = SKINS.get(reward["id"], {})
+        return f"{'🌟 личный образ' if skin.get('exclusive') else '✨ образ'} «{skin.get('name', reward['id'])}»"
     return kind
 
 
@@ -174,10 +184,25 @@ async def _grant(db, user_id: int, code: str, index: int, reward: dict) -> str:
         await vip_v2_repo.extend_subscription(db, user_id=user_id, days=int(reward["days"]))
         return describe(reward)
     if kind == "skin":
+        if SKINS.get(reward["id"], {}).get("exclusive"):
+            return await _grant_private(db, user_id, code, reward)
         if await skins_v3_repo.grant(db, user_id, reward["id"]):
             return describe(reward)
         return describe(reward) + " — уже был"
     raise PromoError(f"Неизвестная награда: {kind}.")
+
+
+async def _grant_private(db, user_id: int, code: str, reward: dict) -> str:
+    """Личный образ: у него один владелец, поэтому выдаём через правило единственного владельца."""
+    await skins_v3_repo.ensure_tables(db)
+    if any(h["user_id"] == user_id for h in await skins_v3_repo.holders(db, reward["id"])):
+        return describe(reward) + " — уже был"
+    try:
+        await skins_v3_service.grant_exclusive(db, user_id, reward["id"], f"промокод {code}")
+    except skins_v3_service.SkinConflict:
+        # Имя владельца игроку не показываем.
+        raise PromoError(f"Личный образ «{SKINS[reward['id']]['name']}» уже достался другому игроку.")
+    return describe(reward)
 
 
 # ── Активация ────────────────────────────────────────────────────────────────
@@ -340,6 +365,7 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
     except (TypeError, ValueError):
         raise PromoError("ID чатов и игроков — только числа.")
     note = str(data.get("note") or "")[:300]
+    await _check_private(db, rewards, max_act, users, code=None if create else code)
     values = (bool(data.get("is_active", True)), start, end, max_act, json.dumps(chats) if chats else "",
               json.dumps(users) if users else "", json.dumps(rewards, ensure_ascii=False), note, actor_id)
     if create:
@@ -361,6 +387,26 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
             if not await cur.fetchone():
                 raise PromoError("Промокод не найден.")
     return await get_code(db, code)
+
+
+async def _check_private(db, rewards: list[dict], max_act: int, users: list[int], *, code: str | None) -> None:
+    """Личный образ достаётся одному игроку: промокод с ним — одноразовый или именной, и образ ещё свободен."""
+    private = [r["id"] for r in rewards if r["type"] == "skin" and SKINS.get(r["id"], {}).get("exclusive")]
+    if not private:
+        return
+    if max_act != 1 and len(users) != 1:
+        raise PromoError("Личный образ — на одного владельца: поставьте лимит активаций 1 или выберите одного игрока.")
+    if code:   # правка уже использованного промокода не должна упираться в его же получателя
+        async with db.execute("SELECT COALESCE(activations_count, 0) FROM promocodes WHERE upper(code) = ?", (code,)) as cur:
+            row = await cur.fetchone()
+        if row and int(row[0]) > 0:
+            return
+    await skins_v3_repo.ensure_tables(db)
+    for sid in private:
+        have = await skins_v3_repo.holders(db, sid)
+        if have:
+            who = f"@{have[0]['username']}" if have[0]["username"] else f"id{have[0]['user_id']}"
+            raise PromoError(f"Личный образ «{SKINS[sid]['name']}» уже у {who}. Сначала отзовите его у игрока.")
 
 
 async def set_active(db, code: str, active: bool, *, actor_id: int) -> dict:

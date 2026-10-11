@@ -122,7 +122,7 @@ function sheet(title, body, submitText, onSubmit) {
   box.onclick = e => { if (e.target === box) close(); };
   $('#sok').onclick = async () => {
     $('#sok').disabled = true;
-    try { await onSubmit(box); close(); } catch (e) { toast(e.message, true); $('#sok').disabled = false; }
+    try { if (await onSubmit(box) !== 'keep') close(); } catch (e) { toast(e.message, true); $('#sok').disabled = false; }
   };
 }
 
@@ -136,6 +136,7 @@ const reasonField = (required = false) => `<div class="field"><label>Причи�
 function actionForm(key, ctx) {
   const v = id => ($('#' + id) || {}).value;
   switch (key) {
+    case 'warn': return [durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'mute': return [durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'ban': return [durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'kick': case 'global_ban': return [reasonField(), () => ({reason: v('freason')})];
@@ -174,17 +175,53 @@ function actionForm(key, ctx) {
   }
 }
 
+// Опасные действия просят подтверждение с итогом: кому, что именно и что изменится.
+const DANGEROUS = new Set(['ban', 'kick', 'global_ban', 'block', 'balance', 'rank', 'vip', 'leave', 'message', 'close']);
+const CONFIRM_TITLE = {ban: '⛔ Бан в чате', kick: '👢 Кик из чата', global_ban: '🚫 Бан во всех чатах', block: '🙈 Бот перестанет отвечать',
+  balance: '💰 Изменение баланса', rank: '🎖 Новая глобальная роль', vip: '👑 Выдача VIP', leave: '🚪 Бот уйдёт из чата',
+  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется'};
+function confirmLines(key, payload, ctx, extra) {
+  const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
+  const lines = [];
+  const whom = ctx.username !== undefined ? `Игрок: <b>${who(ctx.id, ctx.username)}</b> · ID ${ctx.id} · ${esc(ctx.rank_name || '')}` : '';
+  const chat = extra.chat_title ? `Чат: <b>${esc(extra.chat_title)}</b>` : (ctx.title ? `Чат: <b>${esc(ctx.title)}</b>` : '');
+  if (whom) lines.push(whom);
+  if (chat) lines.push(chat);
+  if (key === 'ban') lines.push(`Срок: <b>${minutes(payload.minutes)}</b>. Игрока удалят из чата, обратно он сам не войдёт.`);
+  else if (key === 'kick') lines.push('Игрока удалят из чата, вернуться по ссылке он сможет.');
+  else if (key === 'global_ban') lines.push('Игрок потеряет доступ <b>во всех чатах бота</b>. Это видно в его карточке, снимается кнопкой «Снять бан во всех чатах».');
+  else if (key === 'block') lines.push(`Бот перестанет отвечать игроку: <b>${payload.days ? payload.days + ' дн.' : 'пока не снимут'}</b>.`);
+  else if (key === 'balance') {
+    const cur = ctx.currencies.find(c => c.code === payload.currency) || {title: payload.currency};
+    const now = (ctx.balances || {})[payload.currency], delta = parseFloat(payload.amount);
+    lines.push(`${esc(cur.title)}: <b>${delta > 0 ? '+' : ''}${esc(payload.amount)}</b>${now !== undefined && !isNaN(delta) ? ` · было ${num(now)}, станет ${num(Math.round((now + delta) * 100) / 100)}` : ''}`);
+  } else if (key === 'rank') lines.push(`Роль: ${esc(ctx.rank_name || '')} → <b>${esc((ctx.ranks.find(r => r.rank === payload.rank) || {}).name || payload.rank)}</b>`);
+  else if (key === 'vip') lines.push(`К VIP добавится <b>${payload.days} дн.</b>${ctx.vip ? ` (сейчас осталось ${ctx.vip.days_left})` : ''}`);
+  else if (key === 'leave') lines.push('Бот выйдет из чата, обратно его придётся добавлять заново.');
+  else if (key === 'message') lines.push(`Текст увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`);
+  else if (key === 'close') lines.push('Участники не смогут писать, пока чат не откроют.');
+  if (payload.reason) lines.push(`Причина: ${esc(payload.reason)}`);
+  return lines;
+}
+
 function runAction(action, target, ctx, extra, after) {
   // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
   ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
   const [body, collect] = actionForm(action.key, ctx);
   const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
-  sheet(action.title, place + body, 'Выполнить', async () => {
-    const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
+  const perform = async payload => {
     const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
     toast(res.message || 'Готово');
     const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
     Promise.resolve(after()).then(() => window.scrollTo(0, keep));
+  };
+  sheet(action.title, place + body, DANGEROUS.has(action.key) ? 'Далее' : 'Выполнить', async () => {
+    const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
+    if (!DANGEROUS.has(action.key)) return perform(payload);
+    sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
+      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>`,
+      'Подтвердить', () => perform(payload));
+    return 'keep';
   });
 }
 
@@ -240,7 +277,7 @@ async function peopleSearch(main, query = '') {
   PEOPLE.query = query;
   if (TG && TG.BackButton) TG.BackButton.hide();
   main.innerHTML = `
-    <div class="bar"><input id="pplq" placeholder="ID, @ник или название чата" value="${esc(query)}" autocomplete="off"/></div>
+    <div class="bar"><input id="pplq" placeholder="ID, @ник, имя или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
   if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
@@ -256,7 +293,7 @@ async function peopleSearch(main, query = '') {
       <h3 class="sec">Игроки · ${players.length}</h3>
       <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
         <div class="head"><b>${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
-        <div class="sub">ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
+        <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
       <h3 class="sec">Чаты · ${chats.length}</h3>
       <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
@@ -308,6 +345,22 @@ async function playerView(main, id, push = true, from = null) {
         `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
         : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
     </div>`;
+  const rp = p.reports || {total: 0, open: 0, confirmed: 0, last: []};
+  const canReports = ME.sections.some(z => z.key === 'reports');
+  const reportsCard = `<div class="card"><h3>📨 Жалобы на игрока · ${rp.total}</h3>
+      ${rp.total ? `<div class="chips"><span class="chip ${rp.open ? 'warn' : ''}">открытых: ${rp.open}</span><span class="chip ${rp.confirmed ? 'bad' : ''}">подтверждено: ${rp.confirmed}</span></div>
+        ${rp.last.map(r => `<div class="log"><div><b>№${r.id}</b> <span class="chip">${esc(r.status_title)}</span> ${esc(r.reason)}</div>
+          <div class="sub">${when(r.created_at)} · ${esc(r.chat)}</div></div>`).join('')}
+        ${canReports ? '<div class="sub" style="margin-top:6px">Все жалобы — в разделе «Жалобы». Авторов жалоб здесь не видно: жалобы анонимны.</div>' : ''}`
+        : '<div class="sub">Жалоб не было.</div>'}</div>`;
+  const noteRow = n => `<div class="log" data-note="${n.id}"><div style="white-space:pre-wrap">${esc(n.text)}</div>
+      <div class="sub">${when(n.at)} · ${who(n.author.id, n.author.username)}${n.can_remove ? ` · <a href="#" data-rmnote="${n.id}">убрать</a>` : ''}</div></div>`;
+  const notesCard = `<div class="card" id="notescard"><h3>📝 Заметки персонала · ${p.notes.total}</h3>
+      <div class="sub" style="margin-bottom:6px">Видят только сотрудники, игрок — нет.</div>
+      <div id="notelist">${p.notes.items.map(noteRow).join('') || '<div class="sub">Пока нет заметок.</div>'}</div>
+      ${p.notes.next ? '<button class="btn small more" id="notemore">Показать ещё</button>' : ''}
+      <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
+      <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
     !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
@@ -316,6 +369,7 @@ async function playerView(main, id, push = true, from = null) {
     <div class="card">
       <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
         <span style="font-size:20px;font-weight:700">${who(p.id, p.username)}</span><span class="sub">ID ${p.id}</span></div>
+      ${p.name ? `<div class="sub">${esc(p.name)}</div>` : ''}
       <div class="chips">${chips}</div>
       <div class="stats">
         <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
@@ -334,6 +388,8 @@ async function playerView(main, id, push = true, from = null) {
         `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
     </div>
     ${marksCard}
+    ${reportsCard}
+    ${notesCard}
     <div class="card"><h3>Чаты · ${p.chats.length}</h3>
       ${p.chats.map(c => `<div class="member">
         <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
@@ -359,6 +415,31 @@ async function playerView(main, id, push = true, from = null) {
       toast(res.message || 'Готово');
       const keep = window.scrollY; Promise.resolve(reopen()).then(() => window.scrollTo(0, keep));
     });
+  // Заметки: добавить, убрать, «Показать ещё».
+  const drawNotes = (data, append = false) => {
+    const list = $('#notelist');
+    list.innerHTML = (append ? list.innerHTML : '') + (data.items.map(noteRow).join('') || (append ? '' : '<div class="sub">Пока нет заметок.</div>'));
+    $('#notescard h3').textContent = `📝 Заметки персонала · ${data.total}`;
+    const more = $('#notemore');
+    if (more) { if (data.next) more.dataset.next = data.next; else more.remove(); }
+    else if (data.next) $('#notelist').insertAdjacentHTML('afterend', '<button class="btn small more" id="notemore">Показать ещё</button>');
+    if ($('#notemore')) { $('#notemore').dataset.next = data.next || ''; $('#notemore').onclick = loadMoreNotes; }
+  };
+  const loadMoreNotes = async () => drawNotes(await api(`/player/${id}/notes?offset=${$('#notemore').dataset.next}`), true);
+  if ($('#notemore')) { $('#notemore').dataset.next = p.notes.next; $('#notemore').onclick = loadMoreNotes; }
+  $('#noteadd').onclick = async () => {
+    const text = $('#notetext').value.trim();
+    if (!text) return toast('Напишите текст заметки', true);
+    try { drawNotes(await api(`/player/${id}/notes`, {method: 'POST', body: JSON.stringify({text})})); $('#notetext').value = ''; toast('Заметка добавлена'); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#notescard').onclick = async e => {
+    const a = e.target.closest('[data-rmnote]');
+    if (!a) return;
+    e.preventDefault();
+    try { drawNotes(await api(`/player/${id}/notes/${a.dataset.rmnote}`, {method: 'DELETE'})); toast('Заметка убрана'); }
+    catch (err) { toast(err.message, true); }
+  };
   main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
   main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
   main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
@@ -377,9 +458,18 @@ async function chatView(main, id, push = true, from = null) {
   const acts = c.actions.chat.filter(a => !(a.key === 'close' && c.closed) && !(a.key === 'open' && !c.closed));
   const can = key => c.actions.member.find(a => a.key === key);
   const person = x => `<a href="#" data-player="${x.user}">${who(x.user, x.username)}</a>`;
-  const sanction = (title, rows, line, undo) => rows.length ? `<h3 class="sec">${title} · ${rows.length}</h3>${rows.map(x => `
-      <div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
-      ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`).join('')}` : '';
+  const sanctionRow = (x, line, undo) => `<div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
+      ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`;
+  const SANCTIONS = {
+    bans: ['⛔ Баны', x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban'],
+    mutes: ['🔇 Муты', x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute'],
+    warns: ['⚠️ Варны', x => 'действующих: ' + x.count, 'unwarn_all'],
+  };
+  const sanction = kind => {
+    const list = c.sanctions[kind], [title, line, undo] = SANCTIONS[kind];
+    return list.total ? `<div data-kind="${kind}"><h3 class="sec">${title} · ${list.total}</h3><div class="srows">${list.items.map(x => sanctionRow(x, line, undo)).join('')}</div>
+      ${list.next ? `<button class="btn small more" data-more="${kind}" data-next="${list.next}">Показать ещё</button>` : ''}</div>` : '';
+  };
   const s = c.sanctions;
   main.innerHTML = `${backBar()}
     <div class="card">
@@ -404,19 +494,27 @@ async function chatView(main, id, push = true, from = null) {
     </div>
     <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username})}</div>
       <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
-    ${s.bans.length || s.mutes.length || s.warns.length ? `<div class="card">
-      ${sanction('⛔ Баны', s.bans, x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban')}
-      ${sanction('🔇 Муты', s.mutes, x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute')}
-      ${sanction('⚠️ Варны', s.warns, x => 'действующих: ' + x.count, 'unwarn_all')}</div>` : ''}
+    ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
     ${historyCard(c.history)}`;
   wireBack(main);
   const here = {type: 'chat', id};
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
     runAction(c.actions.chat.find(a => a.key === btn.dataset.act), `/chat/${id}/action`, c, {}, reopen));
-  main.querySelectorAll('[data-undo]').forEach(btn => btn.onclick = () =>
+  const wirePlayers = () => main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
+  const wireUndo = () => main.querySelectorAll('[data-undo]').forEach(btn => btn.onclick = () =>
     runAction(can(btn.dataset.undo), `/player/${btn.dataset.uid}/action`, c, {chat_id: id, chat_title: c.title}, reopen));
-  main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
+  wireUndo(); wirePlayers();
   main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
+  main.querySelectorAll('[data-more]').forEach(btn => btn.onclick = async () => {   // «Показать ещё»: следующая страница списка
+    const kind = btn.dataset.more, [, line, undo] = SANCTIONS[kind];
+    btn.disabled = true;
+    try {
+      const page = await api(`/chat/${id}/sanctions?kind=${kind}&offset=${btn.dataset.next}`);
+      btn.closest('[data-kind]').querySelector('.srows').insertAdjacentHTML('beforeend', page.items.map(x => sanctionRow(x, line, undo)).join(''));
+      if (page.next) { btn.dataset.next = page.next; btn.disabled = false; } else btn.remove();
+      wireUndo(); wirePlayers();
+    } catch (e) { toast(e.message, true); btn.disabled = false; }
+  });
   const sw = $('#cswitch');
   if (sw) sw.onclick = () => { tabs('switches'); switchesView(main, {id: c.id, title: c.title}); };
 }
@@ -554,16 +652,18 @@ async function reportsView(main, kind = 'open') {
   main.innerHTML = `
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
+    <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
     ${data.items.length ? data.items.map(r => `<div class="card">
       <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
       <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
-        <span class="sub">от ${person(r.reporter)}</span></div>
+        <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
       <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
       ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
       ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
       ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
-        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">⚖️ Наказать</button>` : ''}
+        ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}
+        ${(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`).join('')}
         ${r.status === 'new' ? `<button class="btn small" data-rep="${r.id}" data-act="take">🙋 Взять</button>` : ''}
         <button class="btn small primary" data-rep="${r.id}" data-act="resolve">✅ Нарушение</button>
         <button class="btn small" data-rep="${r.id}" data-act="reject">✖️ Отклонить</button></div>` : ''}
@@ -571,6 +671,19 @@ async function reportsView(main, kind = 'open') {
   main.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => reportsView(main, b.dataset.kind));
   main.querySelectorAll('[data-player]').forEach(a => a.onclick = e => {
     e.preventDefault(); tabs('people'); PEOPLE.stack = []; playerView(main, +a.dataset.player);
+  });
+  // Быстрое наказание из жалобы: в том же чате, с закрытием жалобы как подтверждённой.
+  main.querySelectorAll('[data-punish]').forEach(b => b.onclick = () => {
+    const key = b.dataset.punish, r = data.items.find(x => x.id === +b.dataset.rid);
+    const title = (data.punish.find(a => a.key === key) || {}).title || key;
+    const [form, collect] = actionForm(key, {});
+    sheet(title, `<div class="sub" style="margin-bottom:10px">На ${esc(r.target.name)} · чат «${esc(r.chat.title)}» · жалоба №${r.id}: ${esc(r.reason)}</div>${form}
+      <div class="field switch"><input id="fclose" type="checkbox" checked/><label for="fclose" style="margin:0">Закрыть жалобу: нарушение подтверждено</label></div>`,
+      'Выполнить', async () => {
+        const res = await api(`/reports/${r.id}/punish`, {method: 'POST', body: JSON.stringify({action: key, ...collect(), close: $('#fclose').checked})});
+        toast(res.message || 'Готово');
+        reportsView(main, kind);
+      });
   });
   const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
   main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
@@ -753,8 +866,13 @@ function skinArt(k) {
   return `<span class="skin-art" style="background:${t['--v3-wash'] ? esc(t['--v3-wash']) + ',' : ''}${esc(bg)};--sa:${esc(acc)};--sb:${esc(bg)};--si:${esc(ink)};--sl:${line}">
     <i class="skin-av"></i><span class="skin-nick">${esc((k.items && k.items.title) || k.name)}</span><b class="skin-t">${esc(k.tier)}</b></span>`;
 }
+function skinOwner(k) {
+  if (!k.exclusive) return '';
+  const h = (k.holders || [])[0];
+  return h ? `<span class="chip warn">🌟 личный · у ${esc(h.name)}</span>` : '<span class="chip ok">🌟 личный · свободен</span>';
+}
 function skinTags(k) {
-  return [k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
+  return [skinOwner(k), k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
     .filter(Boolean).join('');
 }
 function skinCard(k, on, dim = false) {
@@ -766,14 +884,15 @@ function skinDetail(k) {
   if (!k) return '<div class="sub">Нажмите на образ, чтобы посмотреть, из чего он состоит.</div>';
   return `<div class="skin-detail">${skinArt(k)}<div><b>${esc(k.name)}</b> <span class="sub">· ${esc(TIER_TITLES[k.tier] || k.tier)}</span>
     <div class="sub" style="margin:4px 0 6px">${esc(k.blurb || '')}</div><div class="chips">${skinTags(k)}</div>
+    ${k.exclusive ? '<div class="sub" style="margin-top:6px">Достаётся одному игроку: промокод на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>' : ''}
     <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
       `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
 }
 function skinPicker(currentId, onPick) {
-  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [];
+  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [], pool = [...all, ...priv];
   const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
-    ['season', 'Сезонные'], ['set', 'Наборы']];
-  let filter = 'all', q = '', chosen = all.find(k => k.id === currentId) || null;
+    ['season', 'Сезонные'], ['set', 'Наборы'], ...(priv.length ? [['private', `Личные · ${priv.length}`]] : [])];
+  let filter = 'all', q = '', chosen = pool.find(k => k.id === currentId) || null;
   const close = () => { box.hidden = true; box.innerHTML = ''; };
   box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
     <div id="skd"></div>
@@ -784,19 +903,21 @@ function skinPicker(currentId, onPick) {
   const match = k => {
     if (filter === 'season' && !k.season) return false;
     if (filter === 'set' && !k.set) return false;
-    if (!['all', 'season', 'set'].includes(filter) && k.tier !== filter) return false;
+    if (filter === 'private' && !k.exclusive) return false;
+    if (!['all', 'season', 'set', 'private'].includes(filter) && k.tier !== filter) return false;
     const hay = [k.name, k.blurb, k.set_name, k.season_name, ...Object.values(k.items || {})].join(' ').toLowerCase();
     return !q || hay.includes(q);
   };
   const draw = () => {
     $('#skt').innerHTML = filters.map(([key, t]) => `<span class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</span>`).join('');
-    const list = all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
+    const list = filter === 'private' ? [] : all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
+    const privList = ['all', 'private'].includes(filter) || q ? priv.filter(match) : [];
     $('#skg').innerHTML = (tiers.map(t => `<h3 class="sec">${esc(TIER_TITLES[t] || t)} · ${list.filter(k => k.tier === t).length}</h3>
       <div class="skin-grid">${list.filter(k => k.tier === t).map(k => skinCard(k, chosen && k.id === chosen.id)).join('')}</div>`).join('')
-      || '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>')
-      + (priv.length && !q && filter === 'all' ? `<h3 class="sec">Личные образы · ${priv.length}</h3>
-        <div class="sub">Эти образы принадлежат одному игроку и в промокод не кладутся: их выдают отдельно.</div>
-        <div class="skin-grid">${priv.map(k => skinCard(k, false, true)).join('')}</div>` : '');
+      || (privList.length ? '' : '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>'))
+      + (privList.length ? `<h3 class="sec">Личные образы · ${privList.length}</h3>
+        <div class="sub">У каждого один владелец: промокод с таким образом — на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>
+        <div class="skin-grid">${privList.map(k => skinCard(k, chosen && k.id === chosen.id, (k.holders || []).length > 0)).join('')}</div>` : '');
     $('#skd').innerHTML = skinDetail(chosen);
     $('#sko').disabled = !chosen;
   };
@@ -805,7 +926,7 @@ function skinPicker(currentId, onPick) {
   $('#skt').onclick = e => { const c = e.target.closest('[data-f]'); if (c) { filter = c.dataset.f; draw(); } };
   $('#skg').onclick = e => {
     const b = e.target.closest('[data-skin]');
-    if (b) { chosen = all.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
+    if (b) { chosen = pool.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
   };
   $('#sko').onclick = () => { if (chosen) { close(); onPick(chosen.id); } };
   $('#skx').onclick = close;
@@ -853,7 +974,7 @@ async function promoEdit(main, p) {
     $('#frewards').innerHTML = state.rewards.map((r, i) => {
       const opt = OPTIONS.rewards.find(o => o.type === r.type) || OPTIONS.rewards[0];
       const value = opt.field === 'id'
-        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')(OPTIONS.skins.find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
+        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')([...OPTIONS.skins, ...(OPTIONS.private_skins || [])].find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
         : `<input data-i="${i}" data-k="${opt.field}" type="number" min="0" step="${r.type === 'diamonds' ? '0.01' : '1'}" value="${esc(r[opt.field] ?? '')}" placeholder="Сколько"/>`;
       return `<div class="reward">
         <select data-i="${i}" data-k="type">${OPTIONS.rewards.map(o => `<option value="${o.type}" ${o.type === r.type ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select>
@@ -869,7 +990,13 @@ async function promoEdit(main, p) {
   $('#frewards').addEventListener('input', e => { const i = +e.target.dataset.i; if (e.target.dataset.k && e.target.dataset.k !== 'type') state.rewards[i][e.target.dataset.k] = e.target.value; });
   $('#frewards').addEventListener('click', e => {
     const pk = e.target.closest('[data-pick]');
-    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => { state.rewards[+pk.dataset.pick].id = id; drawRewards(); });
+    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => {
+      state.rewards[+pk.dataset.pick].id = id; drawRewards();
+      // Личный образ у одного владельца: сами ставим лимит 1, если админ не выбрал игрока.
+      if ((OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
+        $('#fmax').value = 1; toast('Личный образ: лимит активаций поставлен в 1');
+      }
+    });
   });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
@@ -1024,6 +1151,31 @@ SECTIONS.switches = main => switchesView(main);
 
 // ── Настройки бота ───────────────────────────────────────────────────────────
 
+function reportSettingsCard(data) {
+  const r = data.reports, o = data.report_options;
+  const select = (id, value, list, offTitle) => `<select id="${id}">${offTitle ? `<option value="0" ${!value ? 'selected' : ''}>${offTitle}</option>` : ''}
+    ${list.map(x => `<option value="${x.value}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
+  return `<div class="card" id="repset"><h3>Жалобы</h3>
+    <div class="sub" style="margin-bottom:6px">Жалоба анонимна: игроки в чате и нарушитель не видят, кто пожаловался. Бот убирает команду из чата (нужно право удалять сообщения) и отвечает автору в личку.</div>
+    <div class="sw-row ${r.to_admin_chat ? '' : 'off'}"><div class="t"><b>Отчёт в админ-чат</b><div class="sub">Если к чату привязан админ-чат, жалоба приходит туда без имени автора.</div></div>
+      <label class="toggle"><input type="checkbox" id="rs-admin" ${r.to_admin_chat ? 'checked' : ''}/><span></span></label></div>
+    <div class="field"><label>Отчёт в личку модераторам чата — с ранга в чате</label>${select('rs-chat', r.dm_chat_rank, o.chat_ranks, 'Не писать в личку')}</div>
+    <div class="field"><label>Отчёт в личку персоналу бота — с роли</label>${select('rs-staff', r.dm_staff_rank, o.staff_ranks, 'Не писать в личку')}</div>
+    <div class="field"><label>Автора жалобы в админке видят — с роли</label>${select('rs-see', r.reporter_min_rank, o.staff_ranks, '')}
+      <div class="sub">Остальные видят «автор скрыт». В личку пишем только тем, кто открывал диалог с ботом.</div></div>
+    <div class="actions"><button class="btn primary" id="rs-save">Сохранить</button></div></div>`;
+}
+function bindReportSettings(main, data) {
+  const save = main.querySelector('#rs-save');
+  if (!save) return;
+  save.onclick = async () => {
+    const body = {to_admin_chat: main.querySelector('#rs-admin').checked, dm_chat_rank: +main.querySelector('#rs-chat').value,
+      dm_staff_rank: +main.querySelector('#rs-staff').value, reporter_min_rank: +main.querySelector('#rs-see').value};
+    try { await api('/settings/reports', {method: 'POST', body: JSON.stringify(body)}); toast('Сохранено'); settingsView(main); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+
 async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
@@ -1034,7 +1186,9 @@ async function settingsView(main) {
         <div class="t"><b>${esc(c.title)}</b>${c.locked ? '<div class="sub">Переводить нельзя никогда</div>' : ''}</div>
         <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
       </div>`).join('')}
-    </div>`;
+    </div>
+    ${reportSettingsCard(data)}`;
+  bindReportSettings(main, data);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);

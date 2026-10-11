@@ -39,7 +39,8 @@ ACTION_TITLES = {
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
-    "switch": "Выключатель", "transfer": "Валюты для переводов",
+    "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб",
+    "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
 }
@@ -88,7 +89,7 @@ async def _chat_titles(db, ids) -> dict[int, str | None]:
 # ── Поиск ────────────────────────────────────────────────────────────────────
 
 _PLAYER_SQL = (
-    "SELECT u.user_tg_id, u.user_tg_username, COALESCE(u.bot_rank, 0), COALESCE(s.total, 0), s.last "
+    "SELECT u.user_tg_id, u.user_tg_username, COALESCE(u.bot_rank, 0), COALESCE(s.total, 0), s.last, u.user_tg_name "
     "FROM users u LEFT JOIN (SELECT user_tg_id, SUM(user_messages_count_all_time) AS total, "
     "MAX(last_message_at) AS last FROM user_chat_stats GROUP BY user_tg_id) s ON s.user_tg_id = u.user_tg_id ")
 _CHAT_SQL = (
@@ -100,7 +101,7 @@ _CHAT_SQL = (
 
 def _player_row(r) -> dict:
     return {"id": int(r[0]), "username": r[1], "rank_name": bot_rank_name(int(r[2])) if r[2] else "",
-            "messages": int(r[3]), "last": _iso(r[4])}
+            "messages": int(r[3]), "last": _iso(r[4]), "name": r[5] or ""}
 
 
 def _chat_row(r) -> dict:
@@ -108,7 +109,8 @@ def _chat_row(r) -> dict:
 
 
 async def search(db, q: str, limit: int = 20) -> dict:
-    """Игроки и чаты по ID, @нику или названию. Пустой запрос — самые свежие по активности."""
+    """Игроки и чаты по ID, @нику (можно кусок), имени из Telegram или нику в чате; чаты по названию.
+    Пустой запрос — самые свежие по активности."""
     q = (q or "").strip()
     if not q:
         async with db.execute(_PLAYER_SQL + "WHERE s.last IS NOT NULL ORDER BY s.last DESC LIMIT ?", (limit,)) as cur:
@@ -128,8 +130,10 @@ async def search(db, q: str, limit: int = 20) -> dict:
         return {"players": players, "chats": chats}
     name = q.lstrip("@")
     async with db.execute(
-        _PLAYER_SQL + "WHERE u.user_tg_username ILIKE ? ORDER BY lower(u.user_tg_username) = lower(?) DESC, "
-        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), name, limit)) as cur:
+        _PLAYER_SQL + "WHERE u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
+        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?) "
+        "ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
+        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), name, q, limit)) as cur:
         players = [_player_row(r) for r in await cur.fetchall()]
     async with db.execute(
         _CHAT_SQL + "WHERE c.chat_title ILIKE ? ORDER BY COALESCE(s.total, 0) DESC LIMIT ?", (_like(q), limit)) as cur:
@@ -170,6 +174,11 @@ def describe(action: str, d: dict) -> str:
         return f"{d.get('feature', '')} {where} → {'включено' if d.get('enabled') else 'выключено'}"
     if action == "transfer":
         return ", ".join(d.get("currencies") or []) or "переводы выключены"
+    if action == "report_settings":
+        parts = ["админ-чат" if d.get("to_admin_chat") else "", f"личка модераторам чата с ранга {d['dm_chat_rank']}" if d.get("dm_chat_rank") else "",
+                 f"личка персоналу с роли {d['dm_staff_rank']}" if d.get("dm_staff_rank") else "",
+                 f"автора видят с роли {d.get('reporter_min_rank', '')}"]
+        return "; ".join(x for x in parts if x)
     if action.startswith("report_"):
         return f"№{d.get('report', '')}"
     if action == "broadcast":
@@ -212,11 +221,11 @@ FEED_KINDS = {
     "moderation": ("Модерация", ("mute", "unmute", "kick", "ban", "unban", "warn", "unwarn", "unwarn_all", "global_ban",
                                  "global_unban", "block", "unblock", "shield", "unshield", "immune", "unimmune", "close",
                                  "open", "close_chat", "open_chat", "warn_limit")),
-    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke")),
+    "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove")),
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer",)),
+    "settings": ("Настройки", ("transfer", "report_settings")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }
@@ -283,7 +292,7 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
 async def player(db, uid: int) -> dict | None:
     async with db.execute(
         "SELECT user_tg_username, COALESCE(user_balance_mora, 0), COALESCE(user_balance_diamonds, 0), "
-        "COALESCE(user_balance_zarniki, 0), COALESCE(is_sponsor, FALSE), deleted_at "
+        "COALESCE(user_balance_zarniki, 0), COALESCE(is_sponsor, FALSE), deleted_at, user_tg_name "
         "FROM users WHERE user_tg_id = ?", (uid,)) as cur:
         u = await cur.fetchone()
     if not u:
@@ -345,7 +354,7 @@ async def player(db, uid: int) -> dict | None:
     if family and family["partner"]:
         family["partner_username"] = names.get(family["partner"])
     return {
-        "id": uid, "username": u[0], "rank": rank, "rank_name": bot_rank_name(rank), "sponsor": bool(u[4]),
+        "id": uid, "username": u[0], "name": u[6] or "", "rank": rank, "rank_name": bot_rank_name(rank), "sponsor": bool(u[4]),
         "deleted_at": _iso(u[5]),
         "balances": {"mora": float(u[1]), "diamonds": float(u[2]), "zarniki": float(u[3]),
                      "essence": await skins_v3_repo.essence_balance(db, uid)},
@@ -360,6 +369,44 @@ async def player(db, uid: int) -> dict | None:
 
 
 # ── Карточка чата ────────────────────────────────────────────────────────────
+
+SANCTION_KINDS = ("bans", "mutes", "warns")
+SANCTION_PAGE = 20
+_SANCTION_SQL = {
+    "bans": ("FROM chat_blacklist WHERE chat_id = ? AND (expires_at IS NULL OR expires_at > NOW())",
+             "SELECT user_id, reason, CASE WHEN expires_at = 'infinity' THEN NULL ELSE expires_at END ",
+             "ORDER BY added_at DESC, user_id"),
+    "mutes": ("FROM user_chat_stats WHERE chat_tg_id = ? AND muted_until > NOW()",
+              "SELECT user_tg_id, CASE WHEN muted_until = 'infinity' THEN NULL ELSE muted_until END ",
+              "ORDER BY muted_until, user_tg_id"),
+}
+
+
+async def chat_sanctions(db, cid: int, kind: str, offset: int = 0, limit: int = SANCTION_PAGE) -> dict:
+    """Страница действующих банов, мутов или варнов чата; total — сколько всего, next — откуда брать дальше."""
+    offset = max(0, int(offset))
+    if kind == "warns":
+        where = "FROM user_warnings WHERE chat_id = ? AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW())"
+        async with db.execute(f"SELECT COUNT(DISTINCT user_id) {where}", (cid,)) as cur:
+            total = int((await cur.fetchone())[0])
+        async with db.execute(f"SELECT user_id, COUNT(*) {where} GROUP BY user_id ORDER BY 2 DESC, user_id LIMIT ? OFFSET ?",
+                              (cid, limit, offset)) as cur:
+            items = [{"user": int(r[0]), "count": int(r[1])} for r in await cur.fetchall()]
+    elif kind in _SANCTION_SQL:
+        where, select, order = _SANCTION_SQL[kind]
+        async with db.execute(f"SELECT COUNT(*) {where}", (cid,)) as cur:
+            total = int((await cur.fetchone())[0])
+        async with db.execute(f"{select}{where} {order} LIMIT ? OFFSET ?", (cid, limit, offset)) as cur:
+            rows = await cur.fetchall()
+        items = ([{"user": int(r[0]), "reason": r[1] or "", "until": _iso(r[2])} for r in rows] if kind == "bans"
+                 else [{"user": int(r[0]), "until": _iso(r[1])} for r in rows])
+    else:
+        raise ValueError(kind)
+    names = await _names(db, [x["user"] for x in items])
+    for x in items:
+        x["username"] = names.get(x["user"])
+    return {"items": items, "total": total, "next": offset + len(items) if offset + len(items) < total else None}
+
 
 async def chat(db, cid: int) -> dict | None:
     async with db.execute(
@@ -386,22 +433,8 @@ async def chat(db, cid: int) -> dict | None:
         "ORDER BY s.user_messages_count_all_time DESC NULLS LAST LIMIT 10", (cid,)) as cur:
         top = [{"id": int(r[0]), "username": r[1], "messages": int(r[2] or 0)} for r in await cur.fetchall()]
 
-    async with db.execute(
-        "SELECT user_id, reason, CASE WHEN expires_at = 'infinity' THEN NULL ELSE expires_at END FROM chat_blacklist "
-        "WHERE chat_id = ? AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY added_at DESC LIMIT 100",
-        (cid,)) as cur:
-        bans = [{"user": int(r[0]), "reason": r[1] or "", "until": _iso(r[2])} for r in await cur.fetchall()]
-    async with db.execute(
-        "SELECT user_tg_id, CASE WHEN muted_until = 'infinity' THEN NULL ELSE muted_until END FROM user_chat_stats "
-        "WHERE chat_tg_id = ? AND muted_until > NOW() ORDER BY muted_until LIMIT 100", (cid,)) as cur:
-        mutes = [{"user": int(r[0]), "until": _iso(r[1])} for r in await cur.fetchall()]
-    async with db.execute(
-        "SELECT user_id, COUNT(*) FROM user_warnings WHERE chat_id = ? AND revoked_at IS NULL "
-        "AND (expires_at IS NULL OR expires_at > NOW()) GROUP BY user_id ORDER BY 2 DESC LIMIT 100", (cid,)) as cur:
-        warns = [{"user": int(r[0]), "count": int(r[1])} for r in await cur.fetchall()]
-    names = await _names(db, [x["user"] for x in bans + mutes + warns] + ([c[1]] if c[1] else []))
-    for x in bans + mutes + warns:
-        x["username"] = names.get(x["user"])
+    sanctions = {kind: await chat_sanctions(db, cid, kind) for kind in SANCTION_KINDS}
+    names = await _names(db, [c[1]] if c[1] else [])
 
     async with db.execute(
         "SELECT l.admin_chat_id, s.chat_title FROM chat_links l LEFT JOIN chat_settings s ON s.chat_id = l.admin_chat_id "
@@ -413,6 +446,6 @@ async def chat(db, cid: int) -> dict | None:
         "owner": {"id": int(c[1]), "username": names.get(int(c[1]))} if c[1] else None,
         "admin_chat": {"id": int(link[0]), "title": link[1] or str(link[0])} if link else None,
         "members": int(members), "messages": {"total": int(total), **stats}, "top": top,
-        "sanctions": {"bans": bans, "mutes": mutes, "warns": warns},
+        "sanctions": sanctions,
         "switched_off": [{"key": k, "reason": v["reason"]} for k, v in off.items()],
     }

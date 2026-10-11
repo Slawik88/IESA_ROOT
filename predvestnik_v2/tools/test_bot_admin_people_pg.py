@@ -151,7 +151,7 @@ async def checks():
     # Карточка игрока глазами хелпера
     card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()
     assert card["username"] == "u2002" and card["messages"]["total"] == 125, card
-    assert [a["key"] for a in card["actions"]["member"]] == ["mute", "unmute", "unwarn_all"], card["actions"]
+    assert [a["key"] for a in card["actions"]["member"]] == ["warn", "mute", "unmute", "unwarn_all"], card["actions"]
     assert card["actions"]["player"] == [], card["actions"]
     main_chat = next(c for c in card["chats"] if c["id"] == -100)
     assert main_chat["warns"] == 1 and not main_chat["muted"], main_chat
@@ -174,6 +174,101 @@ async def checks():
     assert main_chat["muted"] and main_chat["warns"] == 0, main_chat
     assert {"Мут", "Сняты все варны"} <= {x["title"] for x in card["history"]}, card["history"]
     assert (await act(HELPER, P1, action="unmute", chat_id=-100)).status_code == 200
+
+    # Варн из админки: лимит чата (3) срабатывает так же, как у команды «бот варн»
+    for i, (minutes, why) in enumerate(((0, "грубость"), (1440, "ещё раз"), (60, "и ещё")), 1):
+        r = await act(HELPER, P2, action="warn", chat_id=-100, minutes=minutes, reason=why)
+        assert r.status_code == 200 and r.json()["message"] == f"Варн выдан ({i}/3).", r.text
+    assert any(c[0] == "send" and c[1] == -100 and "Лимит варнов превышен" in c[2] for c in bot.calls), bot.calls
+    assert (await act(HELPER, CODER, action="warn", chat_id=-100)).status_code == 403          # роль выше
+    card = (await client.get(f"/bot-admin/api/player/{P2}", headers=h[HELPER])).json()
+    assert next(c for c in card["chats"] if c["id"] == -100)["warns"] == 3
+    assert "Варн" in {x["title"] for x in card["history"]}
+    assert (await act(HELPER, P2, action="unwarn_all", chat_id=-100)).json()["message"] == "Снято варнов: 3."
+
+    # Поиск по имени из Telegram и нику в чате; имя запоминается с сообщений
+    from bot.chat.tracking import record_message
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await db.execute("UPDATE users SET user_tg_name = 'Иван Петров' WHERE user_tg_id = ?", (P2,))
+        await db.execute("INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, -100, 'Шмель')", (P1,))
+        await record_message(db, SimpleNamespace(
+            from_user=SimpleNamespace(id=6006, is_bot=False, username="maria6006", full_name="Мария Кодер"),
+            chat=SimpleNamespace(id=-300, type="supergroup", title="Новый чат")))
+    for q, want in (("петров", [P2]), ("ИВАН", [P2]), ("шмел", [P1]), ("мария", [6006]), ("u200", [P1, P2])):
+        found = (await client.get(f"/bot-admin/api/search?q={q}", headers=h[HELPER])).json()
+        assert sorted(p["id"] for p in found["players"]) == sorted(want), (q, found)
+    found = (await client.get("/bot-admin/api/search?q=петров", headers=h[HELPER])).json()
+    assert found["players"][0]["name"] == "Иван Петров", found
+    card = (await client.get(f"/bot-admin/api/player/{P2}", headers=h[HELPER])).json()
+    assert card["name"] == "Иван Петров"
+
+    # Заметки персонала: видят все сотрудники, убирает автор или разработчик, список по страницам
+    notes = f"/bot-admin/api/player/{P2}/notes"
+    assert (await client.post(notes, headers=h[HELPER], json={"text": "  "})).status_code == 400
+    assert (await client.post(notes, headers=h[HELPER], json={"text": "я" * 1001})).status_code == 400
+    assert (await client.post(notes, headers=h[P1], json={"text": "x"})).status_code == 403
+    first = (await client.post(notes, headers=h[HELPER], json={"text": "Просил не трогать, спорный случай"})).json()
+    assert first["total"] == 1 and first["items"][0]["can_remove"] and first["items"][0]["author"]["id"] == HELPER, first
+    seen = (await client.get(notes, headers=h[SENIOR])).json()
+    assert seen["items"][0]["text"].startswith("Просил") and not seen["items"][0]["can_remove"], seen
+    nid = first["items"][0]["id"]
+    assert (await client.delete(f"{notes}/{nid}", headers=h[SENIOR])).status_code == 403     # чужую убирает разработчик
+    assert (await client.delete(f"{notes}/999", headers=h[HELPER])).status_code == 404
+    gone = await client.delete(f"{notes}/{nid}", headers=h[CODER])
+    assert gone.status_code == 200 and gone.json()["total"] == 0, gone.text
+    for i in range(12):
+        await client.post(notes, headers=h[HELPER], json={"text": f"заметка {i}"})
+    page1 = (await client.get(f"/bot-admin/api/player/{P2}", headers=h[HELPER])).json()["notes"]
+    assert page1["total"] == 12 and len(page1["items"]) == 10 and page1["next"] == 10 and page1["items"][0]["text"] == "заметка 11", page1
+    page2 = (await client.get(f"{notes}?offset=10", headers=h[HELPER])).json()
+    assert [x["text"] for x in page2["items"]] == ["заметка 1", "заметка 0"] and page2["next"] is None, page2
+    async with get_pool().acquire() as conn:   # «убранная» заметка остаётся в базе
+        async with PGAdapter(conn).execute("SELECT COUNT(*) FROM bot_staff_notes WHERE deleted_at IS NOT NULL") as cur:
+            assert (await cur.fetchone())[0] == 1
+
+    # Жалобы в карточке игрока (без авторов) и быстрое наказание прямо из жалобы
+    from services import reports as reports_service
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        rid = await reports_service.create(db, chat_id=-100, reporter_id=P1, target_id=P2, reason="грубит в чате")
+        rid2 = await reports_service.create(db, chat_id=-100, reporter_id=P1, target_id=CODER, reason="спам")
+    card = (await client.get(f"/bot-admin/api/player/{P2}", headers=h[HELPER])).json()
+    assert card["reports"]["total"] == 1 and card["reports"]["open"] == 1 and card["reports"]["last"][0]["reason"] == "грубит в чате"
+    assert "reporter" not in card["reports"]["last"][0] and "reporter_id" not in card["reports"]["last"][0], card["reports"]
+    listing = (await client.get("/bot-admin/api/reports", headers=h[HELPER])).json()
+    assert [a["key"] for a in listing["punish"]] == ["warn", "mute"], listing["punish"]
+    assert [a["key"] for a in (await client.get("/bot-admin/api/reports", headers=h[SENIOR])).json()["punish"]] == ["warn", "mute", "ban"]
+    punish = lambda who, rid, **b: client.post(f"/bot-admin/api/reports/{rid}/punish", headers=h[who], json=b)
+    assert (await punish(HELPER, rid, action="kick")).status_code == 400
+    assert (await punish(HELPER, rid, action="ban")).status_code == 403                          # бан — со ст. хелпера
+    assert (await punish(HELPER, rid2, action="warn")).status_code == 403                        # роль выше
+    r = await punish(HELPER, rid, action="mute", minutes=60, reason="остыть")
+    assert r.status_code == 200 and r.json()["message"] == "Готово. Жалоба закрыта.", r.text
+    closed = {x["id"]: x for x in (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()["items"]}
+    assert closed[rid]["status"] == "resolved" and closed[rid]["note"] == "мут: остыть", closed[rid]
+    assert (await punish(HELPER, rid, action="mute")).status_code == 409                         # уже закрыта
+    card = (await client.get(f"/bot-admin/api/player/{P2}", headers=h[HELPER])).json()
+    assert next(c for c in card["chats"] if c["id"] == -100)["muted"], card["chats"]
+    assert (await act(HELPER, P2, action="unmute", chat_id=-100)).status_code == 200
+    assert (await punish(SENIOR, rid2, action="warn")).status_code == 403                        # цель выше ролью, чем ст. хелпер
+    assert (await client.post(f"/bot-admin/api/reports/{rid2}", headers=h[HELPER], json={"action": "reject"})).status_code == 200
+
+    # Длинные списки в карточке чата идут страницами по 20 («Показать ещё»)
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        for i in range(25):
+            uid = 9000 + i
+            await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?)", (uid, f"w{uid}"))
+            await db.execute("INSERT INTO user_warnings (chat_id, user_id, admin_id, reason) VALUES (-300, ?, ?, 'x')", (uid, SENIOR))
+    card = (await client.get("/bot-admin/api/chat/-300", headers=h[HELPER])).json()
+    warns = card["sanctions"]["warns"]
+    assert warns["total"] == 25 and len(warns["items"]) == 20 and warns["next"] == 20, warns
+    assert card["sanctions"]["bans"] == {"items": [], "total": 0, "next": None}, card["sanctions"]
+    more = (await client.get("/bot-admin/api/chat/-300/sanctions?kind=warns&offset=20", headers=h[HELPER])).json()
+    assert len(more["items"]) == 5 and more["next"] is None and more["items"][0]["username"].startswith("w90"), more
+    assert (await client.get("/bot-admin/api/chat/-300/sanctions?kind=nope", headers=h[HELPER])).status_code == 400
+    assert (await client.get("/bot-admin/api/chat/-999/sanctions?kind=bans", headers=h[HELPER])).status_code == 404
 
     # Баланс, VIP, роль
     assert (await act(SENIOR, P1, action="balance", currency="mora", amount=500, reason="x")).status_code == 403

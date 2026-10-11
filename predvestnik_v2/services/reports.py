@@ -2,6 +2,10 @@
 
 Статусы: new (новая) -> in_work (взята в работу) -> resolved (нарушение подтверждено) | rejected (отклонена).
 Строки не удаляются: закрытая жалоба остаётся в истории.
+
+Жалоба анонимна: автора не видит ни нарушитель, ни чат. В админке его видят только те, чья роль не ниже
+`reporter_min_rank` (настройка жалоб), остальные — «автор скрыт». Куда уходит отчёт о жалобе, настраивается отдельно:
+админ-чат, личка модераторам чата, личка персоналу бота.
 """
 from __future__ import annotations
 
@@ -23,6 +27,11 @@ STATEMENTS = (
     "CREATE INDEX IF NOT EXISTS idx_bot_reports_open ON bot_reports (created_at) WHERE status IN ('new', 'in_work')",
     "CREATE INDEX IF NOT EXISTS idx_bot_reports_target ON bot_reports (target_id)",
 )
+SETTINGS_KEY = "report_settings"
+# dm_chat_rank — ранг в чате, с которого модераторам пишут в личку (0 — не писать);
+# dm_staff_rank — роль в боте, с которой пишут в личку персоналу (0 — не писать);
+# reporter_min_rank — роль в боте, с которой в админке виден автор жалобы.
+DEFAULT_SETTINGS = {"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5}
 OPEN = ("new", "in_work")
 CLOSED = ("resolved", "rejected")
 STATUS_TITLES = {"new": "Новая", "in_work": "В работе", "resolved": "Нарушение подтверждено", "rejected": "Отклонена"}
@@ -36,6 +45,93 @@ class ReportError(Exception):
 async def ensure_schema(db) -> None:
     for sql in STATEMENTS:
         await db.execute(sql)
+
+
+_ready = False
+
+
+async def _ensure(db) -> None:
+    """Таблица создаётся при старте бота; если старт до неё не дошёл, создаём при первом обращении."""
+    global _ready
+    if not _ready:
+        await ensure_schema(db)
+        _ready = True
+
+
+async def about(db, user_id: int, limit: int = 5) -> dict:
+    """Жалобы на игрока для его карточки в админке. Авторов жалоб здесь нет: жалоба анонимна."""
+    await _ensure(db)
+    async with db.execute(
+        "SELECT status, COUNT(*) FROM bot_reports WHERE target_id = ? GROUP BY status", (user_id,)) as cur:
+        by_status = {r[0]: int(r[1]) for r in await cur.fetchall()}
+    async with db.execute(
+        "SELECT r.id, r.status, r.reason, c.chat_title, r.chat_id, r.created_at FROM bot_reports r "
+        "LEFT JOIN chat_settings c ON c.chat_id = r.chat_id WHERE r.target_id = ? ORDER BY r.id DESC LIMIT ?",
+        (user_id, limit)) as cur:
+        rows = await cur.fetchall()
+    return {"total": sum(by_status.values()), "open": sum(by_status.get(s, 0) for s in OPEN),
+            "confirmed": by_status.get("resolved", 0),
+            "last": [{"id": int(r[0]), "status": r[1], "status_title": STATUS_TITLES.get(r[1], r[1]), "reason": r[2] or "",
+                      "chat": r[3] or str(r[4]), "created_at": r[5].isoformat() if r[5] else None} for r in rows]}
+
+
+async def settings(db) -> dict:
+    from bot.chat import settings as bot_settings
+    saved = await bot_settings.get_json(db, SETTINGS_KEY, {})
+    out = dict(DEFAULT_SETTINGS)
+    if isinstance(saved, dict):
+        out.update({k: saved[k] for k in DEFAULT_SETTINGS if k in saved})
+    return out
+
+
+async def save_settings(db, data: dict, actor_id: int) -> dict:
+    from bot.chat import ranks
+    from bot.chat import settings as bot_settings
+    from bot.chat.global_ranks import CREATOR
+    current = await settings(db)
+
+    def number(key: str, low: int, high: int, off: bool) -> int:
+        if key not in data:
+            return current[key]
+        try:
+            value = int(data[key])
+        except (TypeError, ValueError):
+            raise ReportError("Ранг — целое число.")
+        if not (low <= value <= high or (off and value == 0)):
+            raise ReportError("Такого ранга нет.")
+        return value
+
+    new = {
+        "to_admin_chat": bool(data["to_admin_chat"]) if "to_admin_chat" in data else current["to_admin_chat"],
+        "dm_chat_rank": number("dm_chat_rank", 1, ranks.OWNER, True),
+        "dm_staff_rank": number("dm_staff_rank", 1, CREATOR, True),
+        "reporter_min_rank": number("reporter_min_rank", 1, CREATOR, False),
+    }
+    await bot_settings.set_json(db, SETTINGS_KEY, new, actor_id)
+    return new
+
+
+async def recipients(db, chat_id: int, reporter_id: int, conf: dict) -> list[int]:
+    """Кому писать в личку о новой жалобе: модераторы этого чата и/или персонал бота (без автора жалобы)."""
+    from bot.chat import ranks
+    from bot.config import config
+    found: set[int] = set()
+    if conf["dm_chat_rank"]:
+        owner = await ranks.get_owner(db, chat_id)
+        if owner:
+            found.add(int(owner))
+        async with db.execute(
+            "SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND is_left = FALSE "
+            "AND COALESCE(chat_rank, 0) >= ? AND COALESCE(is_bot, FALSE) = FALSE", (chat_id, conf["dm_chat_rank"])) as cur:
+            found.update(int(r[0]) for r in await cur.fetchall())
+    if conf["dm_staff_rank"]:
+        async with db.execute("SELECT user_tg_id FROM users WHERE COALESCE(bot_rank, 0) >= ?", (conf["dm_staff_rank"],)) as cur:
+            found.update(int(r[0]) for r in await cur.fetchall())
+    found.discard(int(reporter_id))
+    # Создатель бота (DEVELOPER_ID) рангом в БД не хранится, но в личку ему писать можно.
+    if conf["dm_staff_rank"] and config.developer_id and int(config.developer_id) != int(reporter_id):
+        found.add(int(config.developer_id))
+    return sorted(found)[:40]
 
 
 async def create(db, *, chat_id: int, reporter_id: int, target_id: int, reason: str,
@@ -65,7 +161,7 @@ async def counts(db) -> dict[str, int]:
     return {s: rows.get(s, 0) for s in STATUS_TITLES}
 
 
-async def listing(db, kind: str = "open", limit: int = 100) -> list[dict]:
+async def listing(db, kind: str = "open", limit: int = 100, *, show_reporter: bool = False) -> list[dict]:
     statuses = OPEN if kind == "open" else CLOSED
     order = "r.created_at ASC" if kind == "open" else "r.handled_at DESC NULLS LAST, r.id DESC"
     async with db.execute(
@@ -80,7 +176,8 @@ async def listing(db, kind: str = "open", limit: int = 100) -> list[dict]:
     who = lambda uid, name: {"id": int(uid), "name": f"@{name}" if name else f"id{uid}"} if uid else None
     return [{
         "id": int(r[0]), "chat": {"id": int(r[1]), "title": r[2] or str(r[1])},
-        "reporter": who(r[3], r[4]), "target": who(r[5], r[6]), "reason": r[7] or "",
+        "reporter": who(r[3], r[4]) if show_reporter else None, "reporter_hidden": not show_reporter,
+        "target": who(r[5], r[6]), "reason": r[7] or "",
         "message_id": r[8], "message_text": r[9] or "", "status": r[10], "status_title": STATUS_TITLES.get(r[10], r[10]),
         "handled_by": who(r[11], r[12]), "handled_at": r[13].isoformat() if r[13] else None, "note": r[14] or "",
         "created_at": r[15].isoformat() if r[15] else None, "target_reports": int(r[16]),

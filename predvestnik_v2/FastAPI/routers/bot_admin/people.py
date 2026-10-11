@@ -21,7 +21,8 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_people, feature_switches, global_moderation
+from services import admin_people, feature_switches, global_moderation, staff_notes
+from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
 
@@ -31,6 +32,7 @@ _user = section("people")
 # Действие -> (подпись, минимальная глобальная роль, к чему применяется).
 # Роли: 2 мл. хелпер, 3 хелпер, 4 ст. хелпер, 5 разработчик, 6 создатель.
 ACTIONS: dict[str, tuple[str, int, str]] = {
+    "warn": ("⚠️ Варн в чате", 3, "member"),
     "mute": ("🔇 Мут в чате", 3, "member"),
     "unmute": ("🔊 Снять мут", 3, "member"),
     "unwarn_all": ("🧽 Снять все варны", 3, "member"),
@@ -156,7 +158,40 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card["history"] = await admin_people.history(db, user_id=uid)
     # Метки (в профиле игрока — «Регалии»): выданные вручную, заработанные и что можно выдать.
     card["marks"] = await marks_service.admin_view(db, uid)
+    card["reports"] = await reports_service.about(db, uid)
+    card["notes"] = await staff_notes.listing(db, uid, user["id"], user["rank"])
     return card
+
+
+# ── Заметки персонала ────────────────────────────────────────────────────────
+
+@router.get("/player/{uid}/notes")
+async def player_notes(uid: int, offset: int = 0, user=Depends(_user), db=Depends(get_db)):
+    await _known_user(db, uid)
+    return await staff_notes.listing(db, uid, user["id"], user["rank"], offset=offset)
+
+
+@router.post("/player/{uid}/notes")
+async def add_player_note(uid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    await _known_user(db, uid)
+    try:
+        await staff_notes.add(db, uid, user["id"], str(data.get("text") or ""))
+    except staff_notes.NoteError as exc:
+        raise HTTPException(400, str(exc))
+    await admin_people.audit(db, user["id"], "note_add", user_id=uid)
+    return await staff_notes.listing(db, uid, user["id"], user["rank"])
+
+
+@router.delete("/player/{uid}/notes/{nid}")
+async def remove_player_note(uid: int, nid: int, user=Depends(_user), db=Depends(get_db)):
+    try:
+        done = await staff_notes.remove(db, uid, nid, user["id"], user["rank"])
+    except staff_notes.NoteError as exc:
+        raise HTTPException(403, str(exc))
+    if not done:
+        raise HTTPException(404, "Заметка не найдена.")
+    await admin_people.audit(db, user["id"], "note_remove", user_id=uid)
+    return await staff_notes.listing(db, uid, user["id"], user["rank"])
 
 
 @router.get("/chat/{cid}")
@@ -171,6 +206,15 @@ async def chat_card(cid: int, user=Depends(_user), db=Depends(get_db)):
     card["actions"] = {"chat": _allowed(user["rank"], "chat"), "member": _allowed(user["rank"], "member")}
     card["history"] = await admin_people.history(db, chat_id=cid)
     return card
+
+
+@router.get("/chat/{cid}/sanctions")
+async def chat_sanctions(cid: int, kind: str = "bans", offset: int = 0, user=Depends(_user), db=Depends(get_db)):
+    """Следующая страница банов, мутов или варнов чата («Показать ещё»)."""
+    if kind not in admin_people.SANCTION_KINDS:
+        raise HTTPException(400, "Нет такого списка.")
+    await _known_chat(db, cid)
+    return await admin_people.chat_sanctions(db, cid, kind, offset)
 
 
 # ── Действия с игроком ───────────────────────────────────────────────────────
@@ -200,6 +244,15 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
                 await moderation.do_ban(bot, db, chat_id, uid, actor, _duration(data), reason)
             elif action == "unban":
                 await moderation.do_unban(bot, db, chat_id, uid, actor)
+            elif action == "warn":
+                count, limit = await moderation.do_warn(db, chat_id, uid, actor, _duration(data), reason)
+                if count >= limit:
+                    async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
+                        row = await cur.fetchone()
+                    label = (await admin_people._names(db, [uid])).get(uid)
+                    await moderation.warn_limit_alert(bot, db, chat_id, row[0] if row else None, uid,
+                                                      f"@{label}" if label else f"id{uid}", count, limit)
+                return {"ok": True, "message": f"Варн выдан ({count}/{limit})."}
             elif action == "unwarn_all":
                 n = await moderation.revoke_all_warns(db, chat_id, uid, actor)
                 return {"ok": True, "message": f"Снято варнов: {n}."}

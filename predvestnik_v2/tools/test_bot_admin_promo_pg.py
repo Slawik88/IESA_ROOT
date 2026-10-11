@@ -188,6 +188,62 @@ async def redeem_checks():
             assert (await cur.fetchone())[0] == 0                                       # отказ ничего не записал
 
 
+async def private_checks(client, dev):
+    """Личные образы через промокод: один владелец, поэтому промокод одноразовый или именной."""
+    from infrastructure.database import get_pool
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import skins_v3 as skins_v3_repo
+    from bot.chat import registry
+    from bot.chat.framework import dispatch
+    opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
+    sid, other = opts["private_skins"][0]["id"], opts["private_skins"][1]["id"]
+    assert all(x["holders"] == [] for x in opts["private_skins"]), opts["private_skins"]
+    skin = {"type": "skin", "id": sid}
+
+    async def create(code, **kw):
+        return await client.post("/bot-admin/api/promo", headers=dev, json={"code": code, "rewards": [skin], **kw})
+
+    r = await create("PRIV-OPEN")
+    assert r.status_code == 400 and "на одного владельца" in r.json()["detail"], r.text
+    r = await create("PRIV-MANY", max_activations=3)
+    assert r.status_code == 400, r.text
+    r = await create("PRIV-1", max_activations=1)
+    assert r.status_code == 200 and r.json()["rewards_text"][0].startswith("🌟 личный образ"), r.text
+    assert (await create("PRIV-2", max_activations=1)).status_code == 200                # пока образ свободен, можно
+    named = await client.post("/bot-admin/api/promo", headers=dev, json={
+        "code": "PRIV-NAMED", "allowed_users": [2004], "rewards": [{"type": "skin", "id": other}]})
+    assert named.status_code == 200, named.text
+
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+
+        async def say(text, uid):
+            m = FakeMessage(text, uid, -100)
+            await dispatch(registry, m, FakeBot(), db)
+            return " | ".join(m.replies)
+
+        out = await say("бот промокод PRIV-1", 2002)
+        assert "активирован" in out and "личный образ" in out, out
+        assert [h["user_id"] for h in await skins_v3_repo.holders(db, sid)] == [2002]
+        out = await say("бот промокод PRIV-2", 2004)                                     # образ уже ушёл
+        assert "уже достался другому игроку" in out and "2002" not in out and "@u2002" not in out, out
+        async with db.execute("SELECT (SELECT COUNT(*) FROM promocode_redemptions WHERE code = 'PRIV-2'), "
+                              "(SELECT activations_count FROM promocodes WHERE code = 'PRIV-2')") as cur:
+            assert tuple(await cur.fetchone()) == (0, 0)                                  # отказ ничего не записал
+        out = await say("бот промокод PRIV-NAMED", 2005)
+        assert "не для вас" in out, out
+        assert "активирован" in await say("бот промокод PRIV-NAMED", 2004)
+
+    r = await create("PRIV-3", max_activations=1)                                         # занятый образ в новый код не кладётся
+    assert r.status_code == 400 and "уже у" in r.json()["detail"] and "отзовите" in r.json()["detail"], r.text
+    opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
+    held = next(x for x in opts["private_skins"] if x["id"] == sid)
+    assert [h["user_id"] for h in held["holders"]] == [2002], held
+    r = await client.put("/bot-admin/api/promo/priv-1", headers=dev, json={
+        "rewards": [skin], "max_activations": 1, "note": "выдан", "is_active": True})  # уже использованный код правится
+    assert r.status_code == 200 and r.json()["note"] == "выдан", r.text
+
+
 async def after_checks(client, dev):
     p = (await client.get("/bot-admin/api/promo/spring-25", headers=dev)).json()
     assert p["activations"] == 2 and len(p["redemptions"]) == 2, p
@@ -240,6 +296,7 @@ def main():
     loop.run_until_complete(prepare())
     client, dev = loop.run_until_complete(http_checks())
     loop.run_until_complete(redeem_checks())
+    loop.run_until_complete(private_checks(client, dev))
     loop.run_until_complete(after_checks(client, dev))
     loop.run_until_complete(disabled_check())
     print("OK: bot admin and promo codes on PostgreSQL")
