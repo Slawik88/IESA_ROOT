@@ -28,6 +28,14 @@ async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
             "WHERE user_tg_id = ?", (new.status == "kicked", event.chat.id))
         await commit(db)
         return
+    if event.chat.type == "channel" and new.status in ("member", "administrator"):
+        try:   # канал бот не ведёт: человек, который его добавил, должен узнать об этом сразу
+            from bot.chat import onboarding
+            await onboarding.on_channel_added(event, bot, db)
+        except Exception as exc:   # noqa: BLE001
+            from loguru import logger
+            logger.warning(f"channel hint failed for {event.chat.id}: {exc}")
+        return
     if event.chat.type not in ("group", "supergroup"):
         return
     if new.status in ("left", "kicked"):

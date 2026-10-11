@@ -32,7 +32,12 @@ async def _feature_gate(ctx) -> str | None:
 async def _record_usage(ctx) -> None:
     from services import bot_metrics
     place = "private" if ctx.message.chat.type == "private" else "group"
-    await bot_metrics.record_command(ctx.db, ctx.command.name, ctx.user_id, place)
+    try:
+        await bot_metrics.record_command(ctx.db, ctx.command.name, ctx.user_id, place)
+    finally:   # метрика не должна мешать мастеру подключения
+        if place == "group":   # первая команда в чате завершает подключение (мастер в onboarding.py)
+            from bot.chat import onboarding
+            await onboarding.on_command_used(ctx.bot, ctx.db, ctx.message.chat.id)
 
 
 async def _silent(message, db) -> bool:
