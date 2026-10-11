@@ -39,6 +39,7 @@ ACTION_TITLES = {
     "warn": "Варн", "unwarn": "Снят варн", "unwarn_all": "Сняты все варны", "shield": "Защита", "unshield": "Снята защита",
     "immune": "Иммунитет", "unimmune": "Снят иммунитет", "close_chat": "Чат закрыт", "open_chat": "Чат открыт",
     "promo_create": "Промокод создан", "promo_update": "Промокод изменён", "promo_active": "Промокод включён или выключен",
+    "promo_bulk": "Пачка промокодов создана",
     "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
@@ -167,6 +168,8 @@ def describe(action: str, d: dict) -> str:
         return str(d.get("value", ""))
     if action == "message":
         return f"«{d.get('text', '')}»"
+    if action == "promo_bulk":
+        return f"{d.get('count', 0)} шт. · {d.get('first', '')}… · {d.get('rewards', '')}"
     if action.startswith("promo_"):
         return str(d.get("code", "")) + (" · выключен" if action == "promo_active" and not d.get("active") else
                                          " · включён" if action == "promo_active" else "")
@@ -240,7 +243,7 @@ FEED_KINDS = {
                                  "open", "close_chat", "open_chat", "warn_limit")),
     "players": ("Игроки", ("balance", "vip", "rank", "mark_grant", "mark_revoke", "note_add", "note_remove")),
     "chats": ("Чаты", ("message", "leave")),
-    "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
+    "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
     "settings": ("Настройки", ("transfer", "report_settings", "digest_settings")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),

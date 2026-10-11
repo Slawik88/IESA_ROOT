@@ -210,3 +210,7 @@ main > .bar:first-child:has(input) { position: static; margin: 0 0 12px; padding
 .confirm { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--panel) 80%, transparent); line-height: 1.35; }
 .confirm blockquote { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
 h4 { margin: 12px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+
+/* Полоса «сколько активаций из лимита». */
+.meter { height: 8px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 4px 0 10px; }
+.meter i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }

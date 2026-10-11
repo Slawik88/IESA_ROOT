@@ -87,6 +87,21 @@ function toast(text, bad = false) {
   toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
 }
 
+// Копирование в буфер: современный API, а где он закрыт (старые WebView) — через скрытое поле.
+async function copyText(text, done = 'Скопировано') {
+  try { await navigator.clipboard.writeText(text); toast(done); return true; } catch (_) {}
+  try {
+    const field = Object.assign(document.createElement('textarea'), {value: text});
+    field.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.append(field); field.select();
+    const ok = document.execCommand('copy');
+    field.remove();
+    if (ok) { toast(done); return true; }
+  } catch (_) {}
+  toast('Не удалось скопировать: выделите текст и скопируйте вручную', true);
+  return false;
+}
+
 // Значки разделов для нижнего дока (тот же штрих, что у дока Mini App).
 const ICONS = {
   people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.7-3.2 3-4.8 5.5-4.8s4.8 1.6 5.5 4.8M16 5.5a3 3 0 0 1 0 5.8M17.5 14.6c1.8.5 3 2 3.5 4.4"/>',
@@ -179,14 +194,14 @@ document.addEventListener('click', e => {
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
 const PEOPLE = {query: '', stack: []};   // stack — откуда пришли (для «Назад»)
 
-function sheet(title, body, submitText, onSubmit) {
+function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
   box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${body}
     <div class="actions" style="margin-top:12px"><button class="btn primary" id="sok">${esc(submitText)}</button>
-      <button class="btn" id="scancel">Отмена</button></div></div>`;
+      ${info ? '' : `<button class="btn" id="scancel">${esc(cancelText)}</button>`}</div></div>`;
   box.hidden = false;
   const close = () => { box.hidden = true; box.innerHTML = ''; };
-  $('#scancel').onclick = close;
+  if (!info) $('#scancel').onclick = close;
   box.onclick = e => { if (e.target === box) close(); };
   $('#sok').onclick = async () => {
     $('#sok').disabled = true;
@@ -1149,9 +1164,11 @@ function when(iso) {
 async function promoList(main, query = '') {
   main.innerHTML = `
     <div class="bar"><input id="pq" placeholder="Поиск по коду" value="${esc(query)}"/>
+      <button class="btn" id="pbulk" title="Много одноразовых кодов с одной наградой">Пачка</button>
       <button class="btn primary" id="pnew">+ Новый</button></div>
     <div class="list" id="plist"><div class="empty">Загрузка…</div></div>`;
   $('#pnew').onclick = () => promoEdit(main, null);
+  $('#pbulk').onclick = () => promoEdit(main, null, {bulk: true});
   let timer;
   $('#pq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
   async function load(q) {
@@ -1172,6 +1189,29 @@ async function promoList(main, query = '') {
   load(query);
 }
 
+const SPENT_TITLES = [['mora', 'мора'], ['diamonds', 'алмазов'], ['essence', 'эссенции'], ['vip_days', 'дн. VIP']];
+
+// Как идёт код: сколько осталось, где и когда активировали, сколько награды уже ушло и что в нём стоит перепроверить.
+function promoStats(p) {
+  const s = p.stats;
+  if (!s) return '';
+  const days = s.per_day.map(d => d.day), daily = Object.fromEntries(s.per_day.map(d => [d.day, {n: d.n}]));
+  const spent = SPENT_TITLES.filter(([key]) => s.spent && s.spent[key] != null && +s.spent[key] > 0)
+    .map(([key, title]) => `${num(s.spent[key])} ${title}`);
+  const share = s.limit ? Math.min(100, Math.round(s.activations / s.limit * 100)) : 0;
+  return `<div class="card"><h3>Как идёт</h3>
+    ${(p.warnings || []).map(w => `<div class="chip warn" style="display:block;margin-bottom:6px;border-radius:12px">${esc(w)}</div>`).join('')}
+    ${s.limit ? `<div class="meter" title="${share}%"><i style="width:${share}%"></i></div>` : ''}
+    <div class="stats">
+      ${tile('Активаций', num(s.activations) + (s.limit ? ` <small>из ${num(s.limit)}</small>` : ''))}
+      ${s.left != null ? tile('Осталось', num(s.left)) : ''}
+      ${tile('Чатов', num(s.chats))}${tile('В личке', num(s.private))}
+    </div>
+    <div class="sub" style="margin-top:8px">${s.first_at ? `Первая: ${when(s.first_at)} · последняя: ${when(s.last_at)}` : 'Пока никто не активировал'}</div>
+    ${spent.length ? `<div class="sub" style="margin-top:4px">Уже выдано примерно: ${spent.map(esc).join(' · ')}</div>` : ''}
+    ${s.activations ? bars(days, daily, 'n', 'Активации за 14 дней') : ''}</div>`;
+}
+
 async function promoView(main, code) {
   const p = await loadSectionData(main, `/promo/${encodeURIComponent(code)}`, () => promoView(main, code), 'promo');
   if (!p) return;
@@ -1181,6 +1221,8 @@ async function promoView(main, code) {
       <div class="head" style="display:flex;justify-content:space-between;gap:8px">
         <span class="code" style="font-size:20px">${esc(p.code)}</span>${promoStatus(p)}</div>
       ${p.note ? `<div class="sub" style="margin-top:6px">${esc(p.note)}</div>` : ''}
+      <div class="actions" style="margin-top:8px"><button class="btn small" id="pcopy">Копировать код</button>
+        <button class="btn small" id="pcopycmd" title="Что игроку написать в чате">Копировать «бот промокод …»</button></div>
       <div style="margin-top:10px">${p.rewards_text.map(r => `<div>${esc(r)}</div>`).join('') || '<div class="sub">Нет наград нового формата — пересохраните код.</div>'}</div>
       <div class="sub" style="margin-top:10px">Активаций: ${num(p.activations)}${p.max_activations ? ' из ' + num(p.max_activations) : ' (без лимита)'}<br>
         ${p.valid_from ? 'С ' + when(p.valid_from) + ' ' : ''}${p.valid_until ? 'до ' + when(p.valid_until) : (p.valid_from ? '' : 'Без срока')}<br>
@@ -1191,6 +1233,7 @@ async function promoView(main, code) {
         <button class="btn ${p.is_active ? 'danger' : ''}" id="ptoggle">${p.is_active ? 'Выключить' : 'Включить'}</button>
       </div>
     </div>
+    ${promoStats(p)}
     <div class="card"><h3>Кто активировал · ${p.redemptions.length}</h3>
       ${p.redemptions.length ? `<table><tr><th>Игрок</th><th>Где</th><th>Когда</th><th>Получил</th></tr>
         ${p.redemptions.map(r => `<tr><td>${r.username ? '@' + esc(r.username) : r.user_id}<div class="sub">${r.user_id}</div></td>
@@ -1198,6 +1241,8 @@ async function promoView(main, code) {
           <td>${esc((r.granted || []).join(', '))}</td></tr>`).join('')}</table>` : '<div class="sub">Пока никто.</div>'}
     </div>`;
   $('#pback').onclick = () => promoList(main);
+  $('#pcopy').onclick = () => copyText(p.code, 'Код скопирован');
+  $('#pcopycmd').onclick = () => copyText(`бот промокод ${p.code}`, 'Команда скопирована');
   $('#pedit').onclick = () => promoEdit(main, p);
   $('#ptoggle').onclick = async () => {
     try {
@@ -1249,8 +1294,8 @@ function skinDetail(k) {
     <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
       `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
 }
-function skinPicker(currentId, onPick) {
-  const box = $('#sheet'), all = OPTIONS.skins, priv = OPTIONS.private_skins || [], pool = [...all, ...priv];
+function skinPicker(currentId, onPick, {noPrivate = false} = {}) {
+  const box = $('#sheet'), all = OPTIONS.skins, priv = noPrivate ? [] : OPTIONS.private_skins || [], pool = [...all, ...priv];
   const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
     ['season', 'Сезонные'], ['set', 'Наборы'], ...(priv.length ? [['private', `Личные · ${priv.length}`]] : [])];
   let filter = 'all', q = '', chosen = pool.find(k => k.id === currentId) || null;
@@ -1294,9 +1339,19 @@ function skinPicker(currentId, onPick) {
   box.onclick = e => { if (e.target === box) close(); };
 }
 
-async function promoEdit(main, p) {
+// Как игрок увидит ответ бота и что стоит перепроверить (код при этом не сохраняется).
+const promoWarnings = list => list.map(w => `<div class="chip warn" style="display:block;margin-top:8px;border-radius:12px">${esc(w)}</div>`).join('');
+function promoPreviewHtml(pv) {
+  return `<div class="sub">Так бот ответит игроку:</div>
+    <div class="card" style="margin:8px 0">🎟 Промокод <b>${esc(pv.code)}</b> активирован!
+      <div style="border-left:3px solid var(--accent);padding-left:10px;margin-top:6px">${pv.player_text.map(esc).join('<br>')}</div></div>
+    <div class="sub">Кто может: ${esc(pv.who_can)}.</div>${promoWarnings(pv.warnings)}`;
+}
+
+async function promoEdit(main, p, {bulk = false} = {}) {
   OPTIONS = OPTIONS || await api('/promo-options');
   const isNew = !p;
+  bulk = bulk && isNew;
   const state = {
     rewards: p && p.rewards.length ? p.rewards.map(r => ({...r})) : [{type: 'mora', amount: ''}],
     chats: p ? p.chats.map(c => ({...c})) : [],
@@ -1304,29 +1359,34 @@ async function promoEdit(main, p) {
   main.innerHTML = `
     <div class="bar"><button class="btn" id="pback">← Назад</button></div>
     <div class="card">
-      <h3>${isNew ? 'Новый промокод' : 'Промокод ' + esc(p.code)}</h3>
-      ${isNew ? `<div class="field"><label>Код (латиница, цифры, - и _)</label>
+      <h3>${bulk ? 'Пачка одноразовых кодов' : isNew ? 'Новый промокод' : 'Промокод ' + esc(p.code)}</h3>
+      ${bulk ? `<div class="sub" style="margin-bottom:10px">Много разных кодов с одной наградой. Каждый сработает один раз: удобно раздавать в конкурсах и в подарок.</div>
+        <div class="grid2"><div class="field"><label>Начало кода (необязательно)</label>
+          <input id="fprefix" maxlength="16" placeholder="например, EVENT" style="text-transform:uppercase"/></div>
+        <div class="field"><label>Сколько кодов (1–200)</label><input id="fcount" type="number" min="1" max="200" value="10"/></div></div>`
+      : isNew ? `<div class="field"><label>Код (латиница, цифры, - и _)</label>
         <div class="bar" style="margin:0"><input id="fcode" maxlength="32" style="text-transform:uppercase"/>
         <button class="btn" id="fgen">Случайный</button></div></div>` : ''}
       <div class="field"><label>Награды</label><div id="frewards"></div>
         <button class="btn small" id="fadd">+ Награда</button></div>
       <div class="grid2">
-        <div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
-        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>
+        ${bulk ? '' : `<div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
+        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>`}
         <div class="field"><label>Начало (необязательно)</label><input id="ffrom" type="datetime-local" value="${localInput(p && p.valid_from)}"/></div>
         <div class="field"><label>Конец (необязательно)</label><input id="funtil" type="datetime-local" value="${localInput(p && p.valid_until)}"/></div>
       </div>
       <div class="field"><label>Где активировать: пусто — везде, иначе только в выбранных чатах</label>
         <input id="fchatq" placeholder="Найти чат по названию или ID"/><div class="found" id="fchatfound"></div>
         <div class="chips" id="fchats"></div></div>
-      <div class="field"><label>Только для игроков: пусто — для всех</label>
+      ${bulk ? '' : `<div class="field"><label>Только для игроков: пусто — для всех</label>
         <input id="fuserq" placeholder="Найти игрока по @нику или ID"/><div class="found" id="fuserfound"></div>
-        <div class="chips" id="fusers"></div></div>
+        <div class="chips" id="fusers"></div></div>`}
       <div class="field"><label>Заметка для себя</label><textarea id="fnote" maxlength="300">${esc(p ? p.note : '')}</textarea></div>
-      <div class="actions"><button class="btn primary" id="fsave">${isNew ? 'Создать' : 'Сохранить'}</button></div>
+      <div class="actions"><button class="btn primary" id="fsave">${bulk ? 'Создать пачку' : isNew ? 'Создать' : 'Сохранить'}</button>
+        <button class="btn" id="fpreview">Как увидит игрок</button></div>
     </div>`;
   $('#pback').onclick = () => (p ? promoView(main, p.code) : promoList(main));
-  if (isNew) $('#fgen').onclick = () => {
+  if (isNew && !bulk) $('#fgen').onclick = () => {
     const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     $('#fcode').value = Array.from({length: 8}, () => abc[Math.floor(Math.random() * abc.length)]).join('');
   };
@@ -1354,10 +1414,10 @@ async function promoEdit(main, p) {
     if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => {
       state.rewards[+pk.dataset.pick].id = id; drawRewards();
       // Личный образ у одного владельца: сами ставим лимит 1, если админ не выбрал игрока.
-      if ((OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
+      if (!bulk && (OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
         $('#fmax').value = 1; toast('Личный образ: лимит активаций поставлен в 1');
       }
-    });
+    }, {noPrivate: bulk});
   });
   $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
   $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
@@ -1396,46 +1456,101 @@ async function promoEdit(main, p) {
       ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
       : '<span class="sub">Для всех игроков</span>';
   };
-  drawUsers();
-  $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
-  let ut;
-  $('#fuserq').oninput = e => {
-    clearTimeout(ut);
-    const q = e.target.value.trim();
-    if (!q) { $('#fuserfound').innerHTML = ''; return; }
-    ut = setTimeout(async () => {
-      const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
-      $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
-        .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
-        || '<span class="sub">Не найдено</span>';
-    }, 250);
-  };
-  $('#fuserfound').onclick = e => {
-    const b = e.target.closest('[data-adduser]');
-    if (!b) return;
-    users.push({id: +b.dataset.adduser, label: b.dataset.label});
-    $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+  if (!bulk) {
     drawUsers();
+    $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
+    let ut;
+    $('#fuserq').oninput = e => {
+      clearTimeout(ut);
+      const q = e.target.value.trim();
+      if (!q) { $('#fuserfound').innerHTML = ''; return; }
+      ut = setTimeout(async () => {
+        const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
+        $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
+          .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
+          || '<span class="sub">Не найдено</span>';
+      }, 250);
+    };
+    $('#fuserfound').onclick = e => {
+      const b = e.target.closest('[data-adduser]');
+      if (!b) return;
+      users.push({id: +b.dataset.adduser, label: b.dataset.label});
+      $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
+      drawUsers();
+    };
+  }
+
+  const toIso = v => (v ? new Date(v).toISOString() : null);
+  const collect = () => {
+    const common = {rewards: state.rewards, valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
+      allowed_chats: state.chats.map(c => c.id), note: $('#fnote').value};
+    return bulk
+      ? {...common, prefix: $('#fprefix').value.trim().toUpperCase(), count: +$('#fcount').value || 0}
+      : {...common, code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code, max_activations: +$('#fmax').value || 0,
+         is_active: $('#factive').checked, allowed_users: users.map(u => u.id)};
+  };
+  // Предпросмотр у сервера: он же знает, что считается «слишком много». Сохранять он не мешает.
+  const preview = body => api('/promo/preview', {method: 'POST', body: JSON.stringify(bulk ? {...body, max_activations: 1} : body)});
+
+  $('#fpreview').onclick = async () => {
+    try {
+      const pv = await preview(collect());
+      sheet('Как увидит игрок', promoPreviewHtml(pv) + (bulk ? '<div class="sub" style="margin-top:8px">Каждый код сработает один раз.</div>' : ''),
+        'Понятно', () => {}, {info: true});
+    } catch (err) { toast(err.message, true); }
   };
 
   $('#fsave').onclick = async e => {
     const btn = e.currentTarget;
     if (btn.disabled) return;
-    const toIso = v => (v ? new Date(v).toISOString() : null);
-    const body = {
-      code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code,
-      rewards: state.rewards, max_activations: +$('#fmax').value || 0, is_active: $('#factive').checked,
-      valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
-      allowed_chats: state.chats.map(c => c.id), allowed_users: users.map(u => u.id), note: $('#fnote').value,
+    const body = collect();
+    const save = async () => {
+      btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
+      try {
+        if (bulk) {
+          const made = await api('/promo/bulk', {method: 'POST', body: JSON.stringify(body)});
+          toast(`Создано кодов: ${made.codes.length}`);
+          promoBulkDone(main, made, body.prefix);
+          return;
+        }
+        const saved = isNew
+          ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
+          : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
+        toast(isNew ? 'Промокод создан' : 'Сохранено');
+        promoView(main, saved.code);
+      } catch (err) { toast(err.message, true); btn.disabled = false; }
     };
-    btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
-    try {
-      const saved = isNew
-        ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
-        : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
-      toast(isNew ? 'Промокод создан' : 'Сохранено');
-      promoView(main, saved.code);
-    } catch (err) { toast(err.message, true); btn.disabled = false; }
+    let warnings = [];
+    try { warnings = (await preview(body)).warnings; } catch (err) { toast(err.message, true); return; }
+    if (!warnings.length) return save();
+    sheet('Проверьте перед сохранением', `<div class="sub">Код сработает, но вот что стоит перепроверить:</div>${promoWarnings(warnings)}`,
+      bulk ? 'Всё верно, создать' : 'Всё верно, сохранить', async () => { await save(); }, {cancelText: 'Вернуться'});
+  };
+}
+
+// Готовая пачка: все коды списком, чтобы сразу скопировать или сохранить файлом и раздать.
+function promoBulkDone(main, made, prefix) {
+  const text = made.codes.join('\n');
+  const canDownload = !window.Telegram?.WebApp?.initData;   // в Telegram файлы не скачать, там только копирование
+  main.innerHTML = `
+    <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
+    <div class="card"><h3>Пачка готова · ${made.codes.length}</h3>
+      <div>${made.rewards_text.map(r => `<div>${esc(r)}</div>`).join('')}</div>
+      <div class="sub" style="margin:6px 0 10px">Каждый код сработает один раз. Игрок пишет боту: «бот промокод КОД».</div>
+      <div class="field"><label>Коды (по одному в строке)</label>
+        <textarea id="bcodes" readonly rows="${Math.min(12, made.codes.length + 1)}" style="font-family:ui-monospace,Menlo,monospace">${esc(text)}</textarea></div>
+      <div class="actions"><button class="btn primary" id="bcopy">Копировать все</button>
+        ${canDownload ? '<button class="btn" id="bsave">Скачать .txt</button>' : ''}
+        <button class="btn" id="blist">Открыть в списке</button></div>
+    </div>`;
+  $('#pback').onclick = () => promoList(main);
+  $('#blist').onclick = () => promoList(main, prefix || '');
+  $('#bcopy').onclick = () => copyText(text, 'Коды скопированы');
+  if (canDownload) $('#bsave').onclick = () => {
+    const url = URL.createObjectURL(new Blob([text + '\n'], {type: 'text/plain;charset=utf-8'}));
+    const a = Object.assign(document.createElement('a'), {href: url, download: `promo-${prefix || 'codes'}-${made.codes.length}.txt`});
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 }
 

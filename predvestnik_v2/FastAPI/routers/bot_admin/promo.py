@@ -49,6 +49,25 @@ async def chats(q: str = "", user=Depends(_user), db=Depends(get_db)):
         return {"items": [{"id": int(r[0]), "title": r[1] or str(r[0])} for r in await cur.fetchall()]}
 
 
+@router.post("/promo/preview")
+async def preview_promo(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    try:
+        return await promo_v2.preview(db, data)
+    except promo_v2.PromoError as exc:
+        _fail(exc)
+
+
+@router.post("/promo/bulk")
+async def bulk_promo(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    try:
+        made = await promo_v2.bulk_create(db, data, actor_id=user["id"])
+    except promo_v2.PromoError as exc:
+        _fail(exc)
+    await admin_people.audit(db, user["id"], "promo_bulk", details={"count": len(made["codes"]), "first": made["codes"][0],
+                                                                    "rewards": made["rewards_text"]})
+    return made
+
+
 @router.get("/promo/{code}")
 async def get_promo(code: str, user=Depends(_user), db=Depends(get_db)):
     item = await promo_v2.get_code(db, code)

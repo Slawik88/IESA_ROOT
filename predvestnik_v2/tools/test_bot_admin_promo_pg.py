@@ -275,6 +275,88 @@ async def after_checks(client, dev):
     assert (await client.get("/bot-admin/api/journal", headers={"x-session-token": create_session_token(3003)})).status_code == 403
 
 
+async def insight_checks(client, dev):
+    """Статистика кода, предпросмотр для админа, предупреждения о дорогом и пачка одноразовых кодов."""
+    p = (await client.get("/bot-admin/api/promo/spring-25", headers=dev)).json()
+    st = p["stats"]
+    assert (st["activations"], st["limit"], st["left"], st["chats"], st["private"]) == (2, 2, 0, 1, 0), st
+    assert st["spent"] == {"mora": "1000", "essence": "40", "vip_days": "6"}, st
+    assert len(st["per_day"]) == 14 and st["per_day"][-1]["n"] == 2 and sum(d["n"] for d in st["per_day"]) == 2, st["per_day"]
+    assert st["first_at"] and st["last_at"], st
+
+    # Предпросмотр ничего не сохраняет и не требует кода
+    r = await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "rewards": [{"type": "mora", "amount": 500}, {"type": "vip", "days": 3}], "max_activations": 10})
+    assert r.status_code == 200, r.text
+    pv = r.json()
+    assert pv["code"] == "КОД" and pv["player_text"] == ["🪙 500 мора", "👑 VIP на 3 дн."], pv
+    assert "любого игрока" in pv["who_can"] and pv["warnings"] == [], pv
+    r = await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "code": "big-one", "rewards": [{"type": "mora", "amount": 250000}], "allowed_chats": [-100]})
+    pv = r.json()
+    assert pv["code"] == "BIG-ONE" and "выбранных чатах" in pv["who_can"], pv
+    assert any("Крупная награда на одного игрока: 250 000 мора" in w for w in pv["warnings"]) and any("Нет лимита" in w for w in pv["warnings"]), pv
+    r = await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "rewards": [{"type": "diamonds", "amount": 2}], "max_activations": 100, "valid_until": "2099-01-01T00:00:00Z"})
+    assert r.json()["warnings"] == [], r.json()
+    r = await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "rewards": [{"type": "diamonds", "amount": 2}], "max_activations": 100})
+    assert r.json()["warnings"] == [], r.json()
+    r = await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "rewards": [{"type": "diamonds", "amount": 10}], "max_activations": 100000})
+    assert any("за весь лимит" in w for w in r.json()["warnings"]), r.json()
+    assert (await client.post("/bot-admin/api/promo/preview", headers=dev, json={"rewards": []})).status_code == 400
+    assert (await client.post("/bot-admin/api/promo/preview", headers=dev, json={
+        "rewards": [{"type": "mora", "amount": 1.5}]})).status_code == 400
+    async with __import__("infrastructure.database", fromlist=["get_pool"]).get_pool().acquire() as conn:
+        n = await conn.fetchval("SELECT COUNT(*) FROM promocodes WHERE code IN ('BIG-ONE', 'КОД')")
+    assert n == 0, "предпросмотр ничего не сохраняет"
+
+    # Пачка одноразовых кодов
+    reward = [{"type": "mora", "amount": 100}, {"type": "diamonds", "amount": 1}]
+    r = await client.post("/bot-admin/api/promo/bulk", headers=dev, json={"prefix": "evt", "count": 25, "rewards": reward})
+    assert r.status_code == 200, r.text
+    made = r.json()
+    codes = made["codes"]
+    assert len(codes) == 25 == len(set(codes)) and all(c.startswith("EVT-") and len(c) == 12 for c in codes), codes[:3]
+    assert made["rewards_text"][0] == "🪙 100 мора" and len(made["rewards_text"]) == 2, made
+    one = (await client.get(f"/bot-admin/api/promo/{codes[0].lower()}", headers=dev)).json()
+    assert one["max_activations"] == 1 and one["is_active"] and one["note"] == "Пачка из 25 одноразовых кодов", one
+    assert one["stats"]["left"] == 1, one["stats"]
+    r = await client.post("/bot-admin/api/promo/bulk", headers=dev, json={"count": 3, "rewards": reward})
+    assert r.status_code == 200 and all(len(c) == 8 and "-" not in c for c in r.json()["codes"]), r.text   # без начала — просто случайные
+    # Границы и отказы: ничего не остаётся наполовину
+    for bad, text in (({"count": 0}, "от 1 до 200"), ({"count": 201}, "от 1 до 200"), ({"count": "abc"}, "целое число"),
+                      ({"count": 5, "prefix": "x" * 17}, "до 16 символов"), ({"count": 5, "prefix": "a b"}, "до 16 символов"),
+                      ({"count": 5, "allowed_users": [2002]}, "не привязывается"), ({"count": 5, "rewards": []}, "")):
+        r = await client.post("/bot-admin/api/promo/bulk", headers=dev, json={"prefix": "bad", "rewards": reward, **bad})
+        assert r.status_code == 400 and text in r.json()["detail"], (bad, r.text)
+    opts = (await client.get("/bot-admin/api/promo-options", headers=dev)).json()
+    r = await client.post("/bot-admin/api/promo/bulk", headers=dev, json={
+        "prefix": "skn", "count": 2, "rewards": [{"type": "skin", "id": opts["private_skins"][0]["id"]}]})
+    assert r.status_code == 400 and "нельзя раздавать пачкой" in r.json()["detail"], r.text
+    async with __import__("infrastructure.database", fromlist=["get_pool"]).get_pool().acquire() as conn:
+        left = await conn.fetchval("SELECT COUNT(*) FROM promocodes WHERE code LIKE 'BAD-%' OR code LIKE 'SKN-%'")
+    assert left == 0, "отказ не оставляет часть кодов"
+
+    # Пачку активирует игрок как обычный код, второй раз тот же код уже не сработает
+    from infrastructure.database import get_pool
+    from infrastructure.pg_adapter import PGAdapter
+    from services import promo_v2
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        got = await promo_v2.redeem(db, user_id=2002, code=codes[1], chat_id=-100)
+        assert got.granted == made["rewards_text"], got
+        try:
+            await promo_v2.redeem(db, user_id=2003, code=codes[1], chat_id=-100)
+            raise AssertionError("one-shot code redeemed twice")
+        except promo_v2.PromoError as exc:
+            assert "закончились активации" in str(exc), exc
+    audit = (await client.get("/bot-admin/api/journal?kind=promo&days=1", headers=dev)).json()["items"]
+    row = next(x for x in audit if x["title"] == "Пачка промокодов создана" and "25 шт." in x["text"])
+    assert "EVT-" in row["text"], row
+
+
 async def disabled_check():
     from infrastructure.database import get_pool
     from infrastructure.pg_adapter import PGAdapter
@@ -288,6 +370,8 @@ async def disabled_check():
             assert "выключен" in str(exc)
         result = await promo_v2.redeem(db, user_id=2005, code="LEGACY1", chat_id=None)
         assert result.granted == ["🪙 100 мора"], result
+        legacy = (await promo_v2.get_code(db, "LEGACY1"))["stats"]
+        assert (legacy["activations"], legacy["private"], legacy["chats"]) == (1, 1, 0), legacy   # личка: чата нет
 
 
 def main():
@@ -298,6 +382,7 @@ def main():
     loop.run_until_complete(redeem_checks())
     loop.run_until_complete(private_checks(client, dev))
     loop.run_until_complete(after_checks(client, dev))
+    loop.run_until_complete(insight_checks(client, dev))
     loop.run_until_complete(disabled_check())
     print("OK: bot admin and promo codes on PostgreSQL")
 
