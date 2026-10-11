@@ -24,6 +24,7 @@ DEV, HELPER, CODER, P1, P2, P3 = 1001, 3003, 5005, 2002, 2003, 2004
 
 class FakeBot:
     def __init__(self):
+        self.markups = []
         self.sent = []
 
     async def me(self):
@@ -38,6 +39,8 @@ class FakeBot:
         if kw.get("parse_mode") == "HTML" and text.count("<b>") != text.count("</b>"):
             raise RuntimeError("Telegram server says - Bad Request: can't parse entities: can't find end tag")
         self.sent.append((chat_id, text, kw.get("parse_mode")) if kw.get("parse_mode") else (chat_id, text))
+        if kw.get("reply_markup") is not None:
+            self.markups.append((chat_id, kw["reply_markup"].inline_keyboard[0][0].text, kw["reply_markup"].inline_keyboard[0][0].url))
 
 
 class FakeMessage:
@@ -233,7 +236,7 @@ async def run():
     assert r.status_code == 200 and "5 получателей" in r.json()["message"], r.text
     again = await client.post("/bot-admin/api/broadcasts", headers=h[CODER],
                               json={"audience": "players", "text": "Обновление!", "request_id": "r1"})
-    assert again.json()["id"] == r.json()["id"] and again.json()["message"] == "Уже запущена."
+    assert again.json()["id"] == r.json()["id"] and again.json()["message"] == "Уже создана."
     await asyncio.gather(*list(broadcasts._tasks.values()))
     assert sorted(x[0] for x in bot.sent) == sorted([DEV, HELPER, CODER, P2]), bot.sent
     item = (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]
@@ -260,6 +263,129 @@ async def run():
     await asyncio.gather(*list(broadcasts._tasks.values()))
     assert (-100, "<b>Всем</b>", "HTML") in bot.sent, bot.sent
     assert (await client.get("/bot-admin/api/broadcasts", headers=h[CODER])).json()["items"][0]["html"] is True
+
+
+    # Рассылка по сегментам: счётчик получателей, кнопка, шаблоны, отчёт, повтор, расписание, продолжение.
+    api = "/bot-admin/api/broadcasts"
+    async def post(path, **body):
+        return await client.post(api + path, headers=h[CODER], json=body)
+    async def idle():
+        if broadcasts._tasks:
+            await asyncio.gather(*list(broadcasts._tasks.values()))
+    async def count(segment):
+        r = await post("/preview", segment=segment)
+        assert r.status_code == 200, r.text
+        return r.json()["count"]
+    async with get_pool().acquire() as conn:
+        d = PGAdapter(conn)
+        await d.execute("INSERT INTO daily_user_stats (user_id, chat_id, date) VALUES (?, -100, ?)",
+                        (P2, __import__("bot.chat.tracking", fromlist=["local_now"]).local_now().date().isoformat()))
+        await d.execute("INSERT INTO vip_subscriptions (user_id, tier, expires_at) VALUES (?, 'vip', NOW() + INTERVAL '5 days')", (P2,))
+        await d.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 40 WHERE user_tg_id = ? AND chat_tg_id = -100", (P2,))
+    assert await count({"kind": "players"}) == 5
+    assert await count({"kind": "chats"}) == 2
+    assert await count({"kind": "chats", "chats": [-100]}) == 1
+    assert await count({"kind": "chats", "active_days": 7}) == 1                    # писали в -100, в -200 никто
+    assert await count({"kind": "players", "vip": True}) == 1
+    assert await count({"kind": "players", "vip": False}) == 4
+    assert await count({"kind": "players", "players": [P2, P3]}) == 2
+    assert await count({"kind": "players", "chats": [-100]}) == 3                   # P1 заблокирован
+    assert await count({"kind": "players", "active_days": 7}) == 3                  # P2, P3, CODER: сообщения только что (P1 заблокирован)
+    assert await count({"kind": "players", "new_days": 7}) == 3
+    assert await count({"kind": "players", "min_messages": 30}) == 1
+    assert await count({"kind": "players", "vip": True, "min_messages": 100}) == 0
+    for bad in ({"kind": "nobody"}, {"kind": "players", "active_days": 9999}, {"kind": "players", "players": "x"},
+                {"kind": "chats", "chats": ["abc"]}):
+        assert (await post("/preview", segment=bad)).status_code == 400, bad
+    # Кнопка: проверки
+    for button in ({"text": "Открыть"}, {"url": "https://x.y"}, {"text": "Да", "url": "http://x.y"},
+                   {"text": "Да", "url": "https://x y"}, {"text": "я" * 65, "url": "https://x.y"}):
+        assert (await post("/test", text="Привет", button=button)).status_code == 400, button
+    bot.sent.clear(); bot.markups.clear()
+    r = await post("/test", text="Привет", button={"text": "Играть", "url": "https://t.me/predvestnik_bot"})
+    assert r.status_code == 200 and bot.markups == [(CODER, "Играть", "https://t.me/predvestnik_bot")], (r.text, bot.markups)
+
+    # Шаблоны
+    assert (await post("/templates", title="", text="x")).status_code == 400
+    r = await post("/templates", title="Новости", text="<b>Привет</b>", html=True,
+                   button={"text": "Играть", "url": "https://t.me/predvestnik_bot"})
+    assert r.status_code == 200 and r.json()["items"][0]["title"] == "Новости" and r.json()["items"][0]["html"], r.text
+    tid = r.json()["id"]
+    assert (await client.get(api, headers=h[CODER])).json()["templates"][0]["button"]["text"] == "Играть"
+    assert (await client.delete(f"{api}/templates/{tid}", headers=h[CODER])).json()["items"] == []
+    assert (await client.delete(f"{api}/templates/{tid}", headers=h[CODER])).status_code == 404
+
+    # Выбранные игроки + кнопка: P2 получит, P3 не открывал диалог — отчёт покажет причину
+    bot.sent.clear(); bot.markups.clear()
+    r = await post("", audience="players", text="Только вам", request_id="s1", segment={"kind": "players", "players": [P2, P3]},
+                   button={"text": "Играть", "url": "https://t.me/predvestnik_bot"})
+    assert r.status_code == 200 and "2 получателей" in r.json()["message"], r.text
+    first = r.json()["id"]
+    await idle()
+    btn = "https://t.me/predvestnik_bot"
+    assert [x[0] for x in bot.sent] == [CODER, P2], bot.sent                       # сначала проверка кнопки на себе
+    assert bot.markups == [(CODER, "Играть", btn), (P2, "Играть", btn)], bot.markups
+    rep = (await client.get(f"{api}/{first}", headers=h[CODER])).json()
+    assert (rep["sent"], rep["failed"], rep["pending"]) == (1, 1, 0), rep
+    assert rep["reasons"] == [{"code": "no_dialog", "title": "Не открывали диалог с ботом", "count": 1}], rep["reasons"]
+    assert rep["failed_sample"][0]["id"] == P3 and rep["broadcast"]["audience_title"].startswith("В личку: выбранные игроки (2)")
+    assert (await client.get(f"{api}/999999", headers=h[CODER])).status_code == 404
+    # Повтор недоставленным: новая рассылка только для P3 (он опять не получит — доставка отмечена как failed)
+    bot.sent.clear()
+    r = await client.post(f"{api}/{first}/retry", headers=h[CODER])
+    assert r.status_code == 200 and "1 получателей" in r.json()["message"], r.text
+    await idle()
+    again = (await client.get(f"{api}/{r.json()['id']}", headers=h[CODER])).json()
+    assert again["broadcast"]["segment"]["retry_of"] == first and again["failed"] == 1 and not bot.sent, again
+    ok_one = (await client.get(api, headers=h[CODER])).json()["items"]
+    assert (await client.post(f"{api}/{ok_one[0]['id']}/resume", headers=h[CODER])).status_code == 409   # всё уже обработано
+
+    # Расписание: прошлое нельзя, будущее ждёт, отмена, наступившее запускается планировщиком
+    assert (await post("", audience="chats", text="Позже", scheduled_at="2020-01-01T00:00:00Z")).status_code == 400
+    assert (await post("", audience="chats", text="Позже", scheduled_at="не время")).status_code == 400
+    future = (__import__("datetime").datetime.now(__import__("datetime").timezone.utc) + __import__("datetime").timedelta(hours=2)).isoformat()
+    r = await post("", audience="chats", text="Позже", request_id="s2", scheduled_at=future, segment={"kind": "chats", "chats": [-100]})
+    assert r.status_code == 200 and "запланирована" in r.json()["message"], r.text
+    sched = r.json()["id"]
+    top = (await client.get(api, headers=h[CODER])).json()["items"][0]
+    assert top["id"] == sched and top["status"] == "scheduled" and top["total"] == 0, top
+    assert await broadcasts.launch_due(bot, broadcasts.pool_db_factory()) is None                    # время не пришло
+    assert (await client.post(f"{api}/{sched}/stop", headers=h[CODER])).status_code == 200            # отмена запланированной
+    assert (await client.get(f"{api}/{sched}", headers=h[CODER])).json()["broadcast"]["status"] == "stopped"
+    r = await post("", audience="chats", text="Скоро", request_id="s3", scheduled_at=future, segment={"kind": "chats", "chats": [-100]})
+    sched = r.json()["id"]
+    async with get_pool().acquire() as conn:
+        await PGAdapter(conn).execute("UPDATE bot_broadcasts SET scheduled_at = NOW() - INTERVAL '1 minute' WHERE id = ?", (sched,))
+    bot.sent.clear()
+    assert await broadcasts.launch_due(bot, broadcasts.pool_db_factory()) == sched
+    await idle()
+    assert bot.sent == [(-100, "Скоро")], bot.sent
+    done = (await client.get(f"{api}/{sched}", headers=h[CODER])).json()
+    assert (done["broadcast"]["status"], done["sent"], done["broadcast"]["total"]) == ("done", 1, 1), done
+
+    # Продолжить прерванную: получатели зафиксированы, дошедшим не отправляем второй раз
+    made = None
+    async with get_pool().acquire() as conn:
+        made = await broadcasts.create(PGAdapter(conn), CODER, "players", "Дослать", "s4", False,
+                                       segment={"kind": "players", "players": [DEV, HELPER, P2]})
+        await PGAdapter(conn).execute("UPDATE bot_broadcast_targets SET status = 'sent' WHERE broadcast_id = ? AND target_id = ?",
+                                      (made.id, DEV))
+        await PGAdapter(conn).execute("UPDATE bot_broadcasts SET status = 'interrupted' WHERE id = ?", (made.id,))
+    bot.sent.clear()
+    r = await client.post(f"{api}/{made.id}/resume", headers=h[CODER])
+    assert r.status_code == 200 and "осталось 2" in r.json()["message"], r.text
+    await idle()
+    assert sorted(x[0] for x in bot.sent) == sorted([HELPER, P2]), bot.sent
+    # Одновременно идёт одна рассылка
+    async with get_pool().acquire() as conn:
+        busy = await broadcasts.create(PGAdapter(conn), CODER, "players", "Занято", "s5", False, segment={"kind": "players", "players": [DEV]})
+    r = await post("", audience="players", text="Вторая", request_id="s6")
+    assert r.status_code == 400 and "другая рассылка" in r.json()["detail"], r.text
+    async with get_pool().acquire() as conn:
+        await PGAdapter(conn).execute("UPDATE bot_broadcasts SET status = 'stopped' WHERE id = ?", (busy.id,))
+    feed = (await client.get("/bot-admin/api/journal?days=1", headers=h[DEV])).json()
+    titles = {x["title"] for x in feed["items"]}
+    assert {"Рассылка", "Шаблон рассылки", "Рассылка продолжена", "Рассылка остановлена или отменена"} <= titles, titles
 
     # Если старт бота не создал таблицы, разделы создают их сами и не висят на загрузке.
     from FastAPI.routers.bot_admin import broadcasts as broadcasts_api, reports as reports_api

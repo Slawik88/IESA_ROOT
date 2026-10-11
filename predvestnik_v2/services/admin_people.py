@@ -42,7 +42,8 @@ ACTION_TITLES = {
     "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
-    "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена",
+    "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
+    "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
 }
 
 
@@ -182,7 +183,14 @@ def describe(action: str, d: dict) -> str:
     if action.startswith("report_"):
         return f"№{d.get('report', '')}"
     if action == "broadcast":
-        return f"{d.get('audience', '')}, {d.get('total', 0)} получ.: «{d.get('text', '')}»"
+        head = f"{d.get('audience', '')}, " + ("отложена" if d.get("scheduled") else f"{d.get('total', 0)} получ.")
+        return head + (f": «{d['text']}»" if d.get("text") else "")
+    if action == "broadcast_resume":
+        return f"№{d.get('broadcast', '')}, осталось {d.get('left', 0)}"
+    if action == "broadcast_template":
+        return ("удалён №" + str(d.get("template", ""))) if d.get("removed") else f"«{d.get('title', '')}»"
+    if action == "broadcast_stop":
+        return f"№{d.get('broadcast', '')}"
     return ""
 
 
@@ -226,7 +234,7 @@ FEED_KINDS = {
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active")),
     "switches": ("Функции", ("switch",)),
     "settings": ("Настройки", ("transfer", "report_settings")),
-    "broadcast": ("Рассылка", ("broadcast", "broadcast_stop")),
+    "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }
 

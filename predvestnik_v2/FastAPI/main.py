@@ -93,6 +93,18 @@ async def _run_skins_v3_migration() -> None:
         _log.error(f"[skins_v3] migration aborted, will retry on next start: {exc}")
 
 
+async def _run_broadcast_scheduler() -> None:
+    """Запускает отложенные рассылки из админки, когда наступает их время."""
+    try:
+        from FastAPI.routers.bot_admin.people import get_bot
+        from services import broadcasts
+        await broadcasts.scheduler(get_bot(), broadcasts.pool_db_factory())
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        _log.error(f"[broadcasts] scheduler stopped: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_pool()
@@ -183,13 +195,15 @@ async def lifespan(app: FastAPI):
                 except Exception:
                     pass
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
+    scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     yield
-    if migration_task:
-        migration_task.cancel()
-        try:
-            await migration_task
-        except BaseException:
-            pass
+    for task in (migration_task, scheduler_task):
+        if task:
+            task.cancel()
+            try:
+                await task
+            except BaseException:
+                pass
 
 
 app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)

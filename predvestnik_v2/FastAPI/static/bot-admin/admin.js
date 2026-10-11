@@ -713,56 +713,262 @@ function tgHtml(text) {
     .replace(/&lt;\/a&gt;/g, '</a>');
 }
 
+// Выбор людей или чатов поиском: чипы + подсказки. items — массив {id, label}, меняется на месте.
+function pickerField(host, {hint, placeholder, search, items, onChange}) {
+  host.innerHTML = `<input placeholder="${esc(placeholder)}"/><div class="found"></div><div class="chips"></div>`;
+  const input = $('input', host), found = $('.found', host), chips = $('.chips', host);
+  const draw = () => {
+    chips.innerHTML = items.length
+      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${esc(x.label)} ✕</span>`).join('')
+      : `<span class="sub">${esc(hint)}</span>`;
+  };
+  draw();
+  chips.onclick = e => { const c = e.target.closest('[data-un]'); if (c) { items.splice(+c.dataset.un, 1); draw(); onChange(); } };
+  let timer;
+  input.oninput = () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (!q) { found.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      try {
+        const list = (await search(q)).filter(x => !items.some(y => y.id === x.id));
+        found.innerHTML = list.map((x, i) => `<button type="button" data-add="${i}">${esc(x.label)} <span class="sub">${x.id}</span></button>`).join('')
+          || '<span class="sub">Не найдено</span>';
+        found._list = list;
+      } catch (e) { found.innerHTML = `<span class="sub">${esc(e.message)}</span>`; }
+    }, 250);
+  };
+  found.onclick = e => {
+    const b = e.target.closest('[data-add]');
+    if (!b || !found._list) return;
+    items.push(found._list[+b.dataset.add]);
+    found.innerHTML = ''; input.value = '';
+    draw(); onChange();
+  };
+}
+
+const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: c.title}));
+const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`)).players
+  .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id}));
+
+// Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
+const BC = {kind: 'players', chats: [], players: [], active: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
+            btnText: '', btnUrl: '', later: false, at: ''};
+
+function bcSegment() {
+  const seg = {kind: BC.kind};
+  if (BC.chats.length) seg.chats = BC.chats.map(x => x.id);
+  if (+BC.active) seg.active_days = +BC.active;
+  if (BC.kind === 'players') {
+    if (BC.vip !== '') seg.vip = BC.vip === '1';
+    if (+BC.newDays) seg.new_days = +BC.newDays;
+    if (+BC.minMsg) seg.min_messages = +BC.minMsg;
+    if (BC.players.length) seg.players = BC.players.map(x => x.id);
+  }
+  return seg;
+}
+const bcButton = () => (BC.btnText.trim() || BC.btnUrl.trim()) ? {text: BC.btnText.trim(), url: BC.btnUrl.trim()} : null;
+
+function bcHistoryRow(b) {
+  const text = b.text.length > 160 ? b.text.slice(0, 160) + '…' : b.text;
+  const progress = b.status === 'scheduled' ? `отправится ${when(b.scheduled_at)}` : `${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}`;
+  const resumable = b.status === 'interrupted' || (b.status === 'stopped' && b.total > b.sent + b.failed);
+  return `<div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${progress}</div>
+    <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
+    <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div>
+    <div class="actions" style="margin-top:6px">
+      ${b.status === 'running' ? `<button class="btn small" data-bstop="${b.id}">⏹ Остановить</button>` : ''}
+      ${b.status === 'scheduled' ? `<button class="btn small" data-bstop="${b.id}">✖ Отменить</button>` : ''}
+      ${resumable ? `<button class="btn small" data-bresume="${b.id}">▶ Продолжить</button>` : ''}
+      ${b.status !== 'scheduled' ? `<button class="btn small" data-breport="${b.id}">📋 Отчёт</button>` : ''}
+    </div></div>`;
+}
+
+async function bcReport(id, refresh) {
+  const rep = await api(`/broadcasts/${id}`);
+  const b = rep.broadcast;
+  const names = rep.failed_sample.map(x => `<div class="log"><b>${esc(x.name)}</b> <span class="sub">${esc(x.reason)}</span></div>`).join('');
+  sheet(`Рассылка №${b.id}`, `
+    <div class="sub" style="margin-bottom:6px">${esc(b.audience_title)} · ${esc(b.status_title)}</div>
+    <div class="grid2"><div class="card"><div class="sub">Дошло</div><b>${num(rep.sent)}</b></div>
+      <div class="card"><div class="sub">Не дошло</div><b>${num(rep.failed)}</b></div></div>
+    ${rep.pending ? `<div class="sub">Ещё не отправлено: ${num(rep.pending)}</div>` : ''}
+    ${rep.reasons.length ? `<h4>Почему не дошло</h4>${rep.reasons.map(r => `<div class="log">${esc(r.title)} <b>${num(r.count)}</b></div>`).join('')}` : ''}
+    ${names ? `<h4>Кому не дошло${rep.failed > rep.failed_sample.length ? ` (первые ${rep.failed_sample.length})` : ''}</h4>${names}` : ''}
+    <div class="card" style="white-space:pre-wrap;margin-top:8px">${(b.html ? tgHtml : esc)(b.text)}</div>`,
+    rep.failed ? 'Повторить недоставленным' : 'Закрыть', async () => {
+      if (!rep.failed) return;
+      const res = await api(`/broadcasts/${id}/retry`, {method: 'POST'});
+      toast(res.message); refresh();
+    });
+}
+
 async function broadcastView(main) {
   const data = await loadSectionData(main, '/broadcasts', () => broadcastView(main), 'broadcast');
   if (!data) return;
-  const running = data.items.some(b => b.status === 'running');
+  let items = data.items, templates = data.templates || [];
   main.innerHTML = `
     <div class="card"><h3>📣 Новая рассылка</h3>
-      <div class="field"><label>Кому</label><select id="baud">${data.audiences.map(a =>
-        `<option value="${a.key}">${esc(a.title)} · ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div class="field"><label>Шаблон</label><select id="btpl"></select>
+        <div class="actions" style="margin-top:6px"><button class="btn small" id="btplsave">💾 Сохранить как шаблон</button>
+        <button class="btn small danger" id="btpldel" hidden>Удалить шаблон</button></div></div>
+      <div class="field"><label>Кому</label><select id="bkind">${data.audiences.map(a =>
+        `<option value="${a.key}" ${a.key === BC.kind ? 'selected' : ''}>${esc(a.title)} · всего ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
+      <div id="bseg"></div>
+      <div class="card" id="bcount" style="margin:8px 0">Считаем получателей…</div>
       <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
-      <label class="sub" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="bhtml" checked/> HTML-разметка Telegram</label>
+      <div class="field switch"><input type="checkbox" id="bhtml"/><label for="bhtml" style="margin:0">HTML-разметка Telegram</label></div>
       <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
-      <div class="sub" style="margin-top:6px">Предпросмотр</div><div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
-      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется.</div>
+      <div class="grid2" style="margin-top:8px">
+        <div class="field"><label>Кнопка под сообщением: подпись</label><input id="bbtext" maxlength="64" placeholder="Например: Играть"/></div>
+        <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div>
+      <div class="sub" style="margin-top:6px">Предпросмотр</div>
+      <div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
+      <div class="field switch"><input type="checkbox" id="blater"/><label for="blater" style="margin:0">Отправить позже</label></div>
+      <div class="field" id="batwrap" hidden><label>Когда (по вашему времени)</label><input type="datetime-local" id="bat"/></div>
+      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется. Получателей отложенной рассылки бот считает в момент отправки.</div>
       <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
-        <button class="btn primary" id="bgo" ${running ? 'disabled' : ''}>Проверить и отправить</button></div>
-      ${running ? '<div class="sub" style="margin-top:6px">Сейчас идёт другая рассылка.</div>' : ''}
+        <button class="btn primary" id="bgo">Проверить и отправить</button></div>
+      <div class="sub" id="bbusy" style="margin-top:6px" hidden>Сейчас идёт другая рассылка: дождитесь её или остановите.</div>
     </div>
-    <div class="card"><h3>История</h3>${data.items.length ? data.items.map(b => `
-      <div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}
-        ${b.status === 'running' ? `<button class="btn small" data-stop="${b.id}">⏹ Остановить</button>` : ''}</div>
-        <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(b.text.length > 200 ? b.text.slice(0, 200) + '…' : b.text)}</div>
-        <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div></div>`).join('') : '<div class="sub">Рассылок ещё не было.</div>'}</div>`;
-  const html = () => $('#bhtml').checked;
-  const draw = () => { const t = $('#btext').value; $('#bprev').innerHTML = html() ? tgHtml(t) : esc(t); $('#bhelp').hidden = !html(); };
-  $('#btext').oninput = draw; $('#bhtml').onchange = draw; draw();
+    <div class="card"><h3>История</h3><div id="bhist"></div></div>`;
+
+  // ── Сегмент ──
+  const refreshCount = (() => {
+    let timer, seq = 0;
+    return () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const mine = ++seq, box = $('#bcount');
+        if (!box) return;
+        try {
+          const res = await api('/broadcasts/preview', {method: 'POST', body: JSON.stringify({segment: bcSegment()})});
+          if (mine === seq && $('#bcount')) { BC.count = res.count; BC.title = res.title; box.innerHTML = `Получателей: <b>${num(res.count)}</b> · <span class="sub">${esc(res.title)}</span>`; }
+        } catch (e) { if (mine === seq && $('#bcount')) { BC.count = null; box.innerHTML = `<span class="sub">${esc(e.message)}</span>`; } }
+      }, 300);
+    };
+  })();
+  const numberField = (id, label, key, ph) => `<div class="field"><label>${label}</label><input id="${id}" type="number" min="0" inputmode="numeric" value="${esc(BC[key])}" placeholder="${ph}"/></div>`;
+  function drawSegment() {
+    const players = BC.kind === 'players';
+    $('#bseg').innerHTML = `
+      <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
+      ${players ? `<div class="field"><label>Только эти игроки (пусто — любые)</label><div id="bpplayers"></div></div>` : ''}
+      <div class="grid2">
+        ${numberField('bactive', players ? 'Писали хоть где-то за N дней' : 'Писали в чате за N дней', 'active', 'Любые')}
+        ${players ? `<div class="field"><label>VIP</label><select id="bvip">
+          ${[['', 'Не важно'], ['1', 'Только с VIP'], ['0', 'Только без VIP']].map(([v, t]) => `<option value="${v}" ${BC.vip === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        ${numberField('bnew', 'Новички: впервые замечены за N дней', 'newDays', 'Любые')}
+        ${numberField('bmin', 'Сообщений всего — не меньше', 'minMsg', 'Любые')}` : ''}
+      </div>`;
+    pickerField($('#bpchats'), {hint: players ? 'Любые чаты' : 'Все чаты бота', placeholder: 'Найти чат по названию или ID', search: searchChats, items: BC.chats, onChange: refreshCount});
+    if (players) pickerField($('#bpplayers'), {hint: 'Любые игроки', placeholder: 'Найти игрока по @нику или ID', search: searchPlayers, items: BC.players, onChange: refreshCount});
+    const bind = (id, key) => { const el = $('#' + id); if (el) el.oninput = el.onchange = () => { BC[key] = el.value; refreshCount(); }; };
+    bind('bactive', 'active'); bind('bvip', 'vip'); bind('bnew', 'newDays'); bind('bmin', 'minMsg');
+    refreshCount();
+  }
+  $('#bkind').onchange = () => { BC.kind = $('#bkind').value; drawSegment(); };
+  drawSegment();
+
+  // ── Текст, кнопка, расписание ──
+  const draw = () => {
+    BC.text = $('#btext').value; BC.html = $('#bhtml').checked; BC.btnText = $('#bbtext').value; BC.btnUrl = $('#bburl').value;
+    BC.later = $('#blater').checked; BC.at = $('#bat').value;
+    $('#bprev').innerHTML = (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
+    $('#bhelp').hidden = !BC.html;
+    $('#batwrap').hidden = !BC.later;
+    $('#bgo').textContent = BC.later ? 'Проверить и запланировать' : 'Проверить и отправить';
+  };
+  $('#btext').value = BC.text; $('#bhtml').checked = BC.html; $('#bbtext').value = BC.btnText; $('#bburl').value = BC.btnUrl;
+  $('#blater').checked = BC.later; $('#bat').value = BC.at;
+  ['#btext', '#bbtext', '#bburl', '#bat'].forEach(sel => $(sel).oninput = draw);
+  $('#bhtml').onchange = $('#blater').onchange = draw;
+  draw();
+
+  // ── Шаблоны ──
+  const drawTemplates = () => {
+    $('#btpl').innerHTML = `<option value="">— без шаблона —</option>` + templates.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('');
+    $('#btpldel').hidden = true;
+  };
+  drawTemplates();
+  $('#btpl').onchange = () => {
+    const t = templates.find(x => String(x.id) === $('#btpl').value);
+    $('#btpldel').hidden = !t;
+    if (!t) return;
+    $('#btext').value = t.text; $('#bhtml').checked = t.html;
+    $('#bbtext').value = t.button ? t.button.text : ''; $('#bburl').value = t.button ? t.button.url : '';
+    draw();
+  };
+  $('#btplsave').onclick = () => {
+    if (!$('#btext').value.trim()) { toast('Сначала напишите текст.', true); return; }
+    sheet('Сохранить как шаблон', `<div class="field"><label>Название</label><input id="btitle" maxlength="60" placeholder="Например: Новости недели"/></div>
+      <div class="sub">Сохранятся текст, разметка и кнопка. Получатели и время — нет.</div>`, 'Сохранить', async () => {
+      const res = await api('/broadcasts/templates', {method: 'POST', body: JSON.stringify({
+        title: $('#btitle').value, text: $('#btext').value.trim(), html: $('#bhtml').checked, button: bcButton()})});
+      templates = res.items; drawTemplates(); toast(res.message);
+    });
+  };
+  $('#btpldel').onclick = async () => {
+    const t = templates.find(x => String(x.id) === $('#btpl').value);
+    if (!t || !confirm(`Удалить шаблон «${t.title}»?`)) return;
+    try { templates = (await api(`/broadcasts/templates/${t.id}`, {method: 'DELETE'})).items; drawTemplates(); toast('Шаблон удалён.'); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  // ── Отправка ──
   $('#btest').onclick = async () => {
     const text = $('#btext').value.trim();
     if (!text) { toast('Напишите текст.', true); return; }
     $('#btest').disabled = true;
-    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: html()})})).message); }
+    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton()})})).message); }
     catch (e) { toast(e.message, true); }
     $('#btest').disabled = false;
   };
   $('#bgo').onclick = () => {
-    const audience = $('#baud').value, text = $('#btext').value.trim(), isHtml = html();
+    const text = BC.text.trim();
     if (!text) { toast('Напишите текст.', true); return; }
-    const a = data.audiences.find(x => x.key === audience);
+    if (BC.later && !BC.at) { toast('Выберите время отправки.', true); return; }
     const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
-    sheet('Отправить рассылку?', `<div class="sub" style="margin-bottom:8px">${esc(a.title)} · ${num(data.sizes[audience] || 0)} получателей. Отменить уже отправленное нельзя.</div>
-      <div class="card" style="white-space:pre-wrap">${isHtml ? tgHtml(text) : esc(text)}</div>`, 'Отправить', async () => {
-      const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({audience, text, html: isHtml, request_id: rid})});
-      toast(res.message || 'Запущено');
-      broadcastView(main);
-    });
+    const who = BC.count == null ? 'Получатели не посчитаны' : `${num(BC.count)} получателей · ${BC.title}`;
+    sheet(BC.later ? 'Запланировать рассылку?' : 'Отправить рассылку?', `
+      <div class="sub" style="margin-bottom:8px">${esc(who)}${BC.later ? `<br/>Отправится ${when(BC.at)}.` : '<br/>Отменить уже отправленное нельзя.'}</div>
+      <div class="card" style="white-space:pre-wrap">${(BC.html ? tgHtml : esc)(text)}${bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText)}</span> <span class="sub">${esc(BC.btnUrl)}</span></div>` : ''}</div>`,
+      BC.later ? 'Запланировать' : 'Отправить', async () => {
+        const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({
+          audience: BC.kind, segment: bcSegment(), text, html: BC.html, button: bcButton(), request_id: rid,
+          scheduled_at: BC.later ? new Date(BC.at).toISOString() : null})});
+        toast(res.message || 'Готово');
+        Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: ''});
+        broadcastView(main);
+      });
   };
-  main.querySelectorAll('[data-stop]').forEach(b => b.onclick = async () => {
-    try { toast((await api(`/broadcasts/${b.dataset.stop}/stop`, {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
-    broadcastView(main);
-  });
-  if (running) setTimeout(() => { if ($('#bgo') && document.body.contains(main) && $('#tabs .on')?.dataset.tab === 'broadcast') broadcastView(main); }, 4000);
+
+  // ── История: перерисовывается отдельно, пока идёт рассылка (форма остаётся как есть) ──
+  const alive = () => document.body.contains(main) && $('#bhist') && $('#tabs .on')?.dataset.tab === 'broadcast';
+  let poll;
+  function drawHistory() {
+    clearTimeout(poll);
+    const running = items.some(b => b.status === 'running');
+    $('#bgo').disabled = running; $('#bbusy').hidden = !running;
+    $('#bhist').innerHTML = items.length ? items.map(bcHistoryRow).join('') : '<div class="sub">Рассылок ещё не было.</div>';
+    if (running || items.some(b => b.status === 'scheduled')) {
+      poll = setTimeout(async () => {
+        if (!alive()) return;
+        try { items = (await api('/broadcasts')).items; } catch (_) {}
+        if (alive()) drawHistory();
+      }, running ? 4000 : 30000);
+    }
+  }
+  const reload = async () => { items = (await api('/broadcasts')).items; drawHistory(); };
+  $('#bhist').onclick = async e => {
+    const stop = e.target.closest('[data-bstop]'), resume = e.target.closest('[data-bresume]'), report = e.target.closest('[data-breport]');
+    try {
+      if (stop) { toast((await api(`/broadcasts/${stop.dataset.bstop}/stop`, {method: 'POST'})).message); await reload(); }
+      else if (resume) { toast((await api(`/broadcasts/${resume.dataset.bresume}/resume`, {method: 'POST'})).message); await reload(); }
+      else if (report) await bcReport(report.dataset.breport, reload);
+    } catch (err) { toast(err.message, true); }
+  };
+  drawHistory();
 }
 
 SECTIONS.broadcast = main => broadcastView(main);
