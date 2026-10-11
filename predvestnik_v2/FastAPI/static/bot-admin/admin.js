@@ -367,7 +367,7 @@ function actionForm(key, ctx) {
         <option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option>
         <option value="0" selected>пока не снимут</option></select></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason')})];
-    case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
+    case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции', zarniki: 'зарников'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
         ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
         ${reasonField(true)}`,
@@ -1533,7 +1533,7 @@ async function promoList(main, query = '') {
   load(query);
 }
 
-const SPENT_TITLES = [['mora', 'мора'], ['diamonds', 'алмазов'], ['essence', 'эссенции'], ['vip_days', 'дн. VIP']];
+const SPENT_TITLES = [['mora', 'мора'], ['diamonds', 'алмазов'], ['essence', 'эссенции'], ['zarniki', 'зарников'], ['vip_days', 'дн. VIP']];
 
 // Как идёт код: сколько осталось, где и когда активировали, сколько награды уже ушло и что в нём стоит перепроверить.
 function promoStats(p) {
