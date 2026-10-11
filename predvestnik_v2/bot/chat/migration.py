@@ -19,6 +19,8 @@ STATE_TABLES = (
     ("marriages", "chat_id"),
     ("daily_login", "chat_id"),
     ("daily_quests", "chat_id"),
+    ("chat_onboarding", "chat_id"),
+    ("member_tag_history", "chat_id"),
 )
 
 

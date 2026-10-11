@@ -12,7 +12,8 @@ from core.miniapp_links import miniapp_web_url
 
 _BOT = os.getenv("BOT_USERNAME", "IIIPredvestnikIIIBot")
 
-ADD_TO_GROUP_URL = f"https://t.me/{_BOT}?startgroup=true"
+# Telegram сам предложит выбрать чат и сразу отметит права, без которых бот почти бесполезен (то же, что services.chat_setup.add_url).
+ADD_TO_GROUP_URL = f"https://t.me/{_BOT}?startgroup=setup&admin=delete_messages+restrict_members"
 MINIAPP_URL = miniapp_web_url()
 
 GROUP_ONLY_TEXT = (

@@ -101,6 +101,11 @@ async def maintenance_task(bot: Bot) -> None:
                         logger.error("Short risk maintenance failed: {}", short_result)
                     elif short_result.get("marked"):
                         logger.warning("Short risk marked for player liquidation: {}", short_result)
+                try:   # напоминание тем, кто добавил бота в чат и не выдал права (через час и через сутки)
+                    from bot.chat import onboarding
+                    await onboarding.send_reminders(bot, db)
+                except Exception as onboarding_error:
+                    logger.warning(f"onboarding reminders failed: {onboarding_error}")
                 from services.vip import daily_reminder_candidates, record_daily_reminder_sent
                 for user_id in await daily_reminder_candidates(db):
                     try:

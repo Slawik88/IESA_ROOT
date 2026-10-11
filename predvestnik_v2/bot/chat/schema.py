@@ -64,9 +64,9 @@ async def ensure_chat_schema() -> None:
         await skins_v3.ensure_tables(db)   # счёт эссенции: «бот баланс» и семейный кошелёк
         from services.feature_switches import ensure_schema as ensure_switches
         await ensure_switches(db)
-        from services import admin_people, admin_security, bot_metrics, broadcasts, global_moderation, member_tags, name_history, reports, staff_notes, staff_watch
+        from services import admin_people, admin_security, bot_metrics, broadcasts, chat_setup, global_moderation, member_tags, name_history, reports, staff_notes, staff_watch
         await bot_metrics.ensure_schema(db)
-        for part in (reports, broadcasts, staff_notes, staff_watch, name_history, member_tags, admin_security):   # новые разделы админки не должны мешать запуску остального бота
+        for part in (reports, broadcasts, staff_notes, staff_watch, name_history, member_tags, chat_setup, admin_security):   # новые разделы админки не должны мешать запуску остального бота
             try:
                 await part.ensure_schema(db)
             except Exception as exc:

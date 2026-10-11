@@ -23,7 +23,6 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from loguru import logger
 
 from bot.chat.framework import Ctx, registry
-from bot.keyboards.cta import dm_cta_kb
 from infrastructure.repositories import economy as eco_db
 from infrastructure.repositories import star_payments_v1 as payment_repo
 from core.constants import STARS_PACKAGES, STARS_MOST_POPULAR
@@ -228,6 +227,9 @@ async def cmd_buy_zarniki(ctx: Ctx):
 
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot):
+    if message.chat.type != "private":   # Telegram шлёт /start в группу после «добавить бота в группу»: ведём по настройке чата
+        from bot.chat import onboarding
+        return await onboarding.group_start(message, bot, db)
     if command.args == "buyzarniki":
         return await _send_packages_menu(message)
     if command.args and command.args[0] == "m":
@@ -251,20 +253,9 @@ async def cmd_start(message: types.Message, command: CommandObject, db, bot: Bot
                 parse_mode="HTML",
             )
 
-    # UX_AUDIT Б1: первый экран бота — с действиями, а не голым текстом.
-    await message.answer(
-        "🌘 <b>Предвестник услышал тебя.</b>\n\n"
-        "Я — бот для сообществ: модерация, профиль и игры.\n\n"
-        "Куда дальше — два пути:\n"
-        "➕ <b>Добавь меня в группу</b> — игра идёт там. Команды пишутся словом "
-        "«бот»: <code>бот помощь</code>\n"
-        "🌐 <b>Открой мини-апп</b> — профиль, внешний вид и игры\n\n"
-        "🛠 <i>Предвестник находится в активной разработке. "
-        "Обновление ещё не вышло. Большая часть функций пока скрыта на время "
-        "разработки и тестирования.</i>",
-        reply_markup=dm_cta_kb(),
-        parse_mode="HTML",
-    )
+    # Первый экран бота: добавить в чат, настроить, что умеет (bot/chat/onboarding.py); /start setup_<чат> открывает настройку чата.
+    from bot.chat import onboarding
+    await onboarding.dm_start(message, bot, db, command.args or "")
 
 
 @registry.command("рефералка", aliases=("пригласить друга", "реферальная ссылка"), usage="бот рефералка")

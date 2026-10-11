@@ -225,6 +225,16 @@ async def main():
             except Exception as _e:
                 logger.warning(f"Кнопка меню не установлена: {_e}")
 
+        # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
+        try:
+            from aiogram.types import BotCommand
+            await bot.set_my_commands([
+                BotCommand(command="start", description="Начало: как добавить бота в чат"),
+                BotCommand(command="setup", description="Проверить и настроить бота в чате"),
+            ])
+        except Exception as _e:
+            logger.warning(f"Меню команд не установлено: {_e}")
+
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")
         if _rarity_sid:

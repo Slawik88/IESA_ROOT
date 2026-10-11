@@ -48,6 +48,12 @@ async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
             (event.chat.id, event.chat.title, is_admin, can_moderate))
         await commit(db)
         await ranks.sync_owner(db, bot, event.chat.id, force=True)
+    try:   # приветствие с чек-листом, обновление при выдаче прав, запись об уходе (воронка подключения)
+        from bot.chat import onboarding
+        await onboarding.on_bot_change(event, bot, db)
+    except Exception as exc:   # noqa: BLE001 - подключение чата не должно ломать учёт прав бота
+        from loguru import logger
+        logger.warning(f"onboarding failed for {event.chat.id}: {exc}")
 
 
 @router.chat_member()

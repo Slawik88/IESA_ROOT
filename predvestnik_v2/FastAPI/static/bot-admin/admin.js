@@ -599,7 +599,7 @@ async function peopleSearch(main, query = '') {
     const recent = showAttn ? PREFS.get('recent', []) : [];
     const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
       `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
-    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div>' : '') + head + `
+    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplonb"></div><div id="pplattn"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
@@ -614,6 +614,15 @@ async function peopleSearch(main, query = '') {
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
     markPicked(); drawBulk();
+    if (showAttn) api('/chats/onboarding').then(f => {
+      const host = $('#pplonb');
+      if (!host || !f.added) return;
+      host.innerHTML = `<div class="card"><h3>🚪 Подключение чатов · ${f.days} дн.</h3>
+        <div class="chips"><span class="chip">добавили ${f.added}</span><span class="chip ok">выдали права ${f.ready}</span>
+        ${f.waiting ? `<span class="chip warn">ждут прав ${f.waiting}</span>` : ''}${f.gave_up ? `<span class="chip bad">ушли без прав ${f.gave_up}</span>` : ''}</div>
+        <button class="btn small more" id="onbmore">Где застревают</button></div>`;
+      $('#onbmore').onclick = () => onboardingSheet(f.days).catch(err => toast(err.message, true));
+    }).catch(() => {});
     if (showAttn) api('/chats/attention').then(att => {
       const host = $('#pplattn');
       if (!host || !att.total) return;
@@ -842,6 +851,19 @@ function attentionRows(items) {
     <div class="head"><b>${esc(x.title)}</b><span class="sub">${num(x.members)} уч.</span></div>
     <div class="chips" style="margin-top:4px">${x.problems.map(p => `<span class="chip ${cls[p.key] || ''}">${esc(p.title)}</span>`).join('')}</div>
     <div class="sub">${x.last ? 'последнее сообщение ' + when(x.last) : 'сообщений не было'}</div></div>`).join('');
+}
+// Воронка подключения: шаги, на которых люди нажимали кнопки мастера, и чаты, где бота так и не сделали админом.
+async function onboardingSheet(days) {
+  const f = await api(`/chats/onboarding?days=${days}`);
+  const stuck = f.stuck.map(x => `<div class="row" data-chat="${x.id}"><div class="head"><b>${esc(x.title)}</b>
+    <span class="sub">${x.reminders ? 'напоминаний: ' + x.reminders : 'без напоминаний'}</span></div>
+    <div class="sub">добавили ${when(x.added_at)}${x.inviter ? ' · ' + who(x.inviter.id, x.inviter.username) : ''}</div></div>`).join('');
+  sheet(`🚪 Подключение чатов · ${f.days} дн.`,
+    `<div class="list">${f.events.map(e => `<div class="row"><div class="head"><b>${esc(e.title)}</b>
+      <span class="sub">${num(e.count)} раз · чатов ${num(e.chats)}</span></div></div>`).join('') || '<div class="sub">Пока никто не подключал бота.</div>'}</div>
+      ${stuck ? `<h3 class="sec">Ждут прав · ${f.waiting}</h3><div class="list">${stuck}</div>` : ''}`,
+    'Закрыть', () => {}, {info: true});
+  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
 }
 function goChat(id) {
   const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
