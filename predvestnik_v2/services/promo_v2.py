@@ -119,7 +119,9 @@ def normalize_rewards(raw) -> list[dict]:
         raise PromoError(f"Не больше {MAX_REWARDS} наград в одном промокоде.")
     out: list[dict] = []
     for item in raw:
-        kind = str((item or {}).get("type", "")).strip()
+        if not isinstance(item, dict):
+            raise PromoError("Награда: неверный формат.")
+        kind = str(item.get("type", "")).strip()
         if kind in ("mora", "diamonds", "essence"):
             label = CURRENCY_SPECS[kind].label if kind in CURRENCY_SPECS else "Эссенция"
             amount = _number(item.get("amount"), integer=kind != "diamonds", limit=LIMITS[kind], what=label)
@@ -216,9 +218,17 @@ def _ids(raw) -> list[int]:
         return []
     try:
         data = json.loads(raw) if isinstance(raw, str) else raw
-        return [int(x) for x in data]
+        return [i for i in (int(x) for x in data) if abs(i) < 2 ** 63]   # больше BIGINT в базу не передать
     except (TypeError, ValueError):
         return []
+
+
+MAX_ACTIVATIONS = 100_000_000
+
+
+def like_pattern(q: str) -> str:
+    """Поисковая строка для LIKE: «_» и «%» в запросе ищутся как обычные символы."""
+    return "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
 
 
 def _when(raw) -> datetime | None:
@@ -314,7 +324,7 @@ _COLUMNS = ("code, is_active, valid_from, valid_until, max_activations, activati
 
 
 async def list_codes(db, *, query: str = "", limit: int = 200) -> list[dict]:
-    like = f"%{query.strip().upper()}%"
+    like = like_pattern(query.strip().upper())
     async with db.execute(f"SELECT {_COLUMNS} FROM promocodes WHERE upper(code) LIKE ? "
                           "ORDER BY created_at DESC NULLS LAST, code LIMIT ?", (like, limit)) as cur:
         return [_row(r) for r in await cur.fetchall()]
@@ -356,14 +366,18 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
         raise PromoError("Лимит активаций: целое число (0 — без лимита).")
     if max_act < 0:
         raise PromoError("Лимит активаций не может быть отрицательным.")
+    if max_act > MAX_ACTIVATIONS:
+        raise PromoError(f"Лимит активаций: не больше {MAX_ACTIVATIONS:,}.".replace(",", " "))
     start, end = _iso(data.get("valid_from")), _iso(data.get("valid_until"))
     if start and end and end <= start:
         raise PromoError("Конец действия должен быть позже начала.")
     try:
-        chats = sorted({int(x) for x in data.get("allowed_chats") or []})
-        users = sorted({int(x) for x in data.get("allowed_users") or []})
+        chats = sorted({int(x) for x in data.get("allowed_chats") or [] if not isinstance(x, (bool, float))})
+        users = sorted({int(x) for x in data.get("allowed_users") or [] if not isinstance(x, (bool, float))})
     except (TypeError, ValueError):
         raise PromoError("ID чатов и игроков — только числа.")
+    if any(abs(i) >= 2 ** 63 for i in chats + users):
+        raise PromoError("ID чата или игрока слишком большой.")
     note = str(data.get("note") or "")[:300]
     await _check_private(db, rewards, max_act, users, code=None if create else code)
     values = (bool(data.get("is_active", True)), start, end, max_act, json.dumps(chats) if chats else "",

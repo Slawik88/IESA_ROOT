@@ -15,6 +15,7 @@ from loguru import logger
 
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat import moderation
 from bot.chat.access import is_developer
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
@@ -26,7 +27,7 @@ from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("people")
 
 # Действие -> (подпись, минимальная глобальная роль, к чему применяется).

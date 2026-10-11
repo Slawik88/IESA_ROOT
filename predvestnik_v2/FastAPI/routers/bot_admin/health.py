@@ -6,10 +6,11 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.people import get_bot
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import CREATOR
 from services import admin_people, bot_health, owner_digest
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("health")
 bot_health.install()
 

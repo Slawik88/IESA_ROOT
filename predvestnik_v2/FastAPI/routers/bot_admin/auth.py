@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response
 
 from FastAPI.auth import create_session_token, verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from infrastructure.preprod import require_preprod_user
 
@@ -22,7 +23,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "settings": ("Настройки", 5),
     "health": ("Состояние", 4),
 }
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 
 
 async def staff_user(x_init_data: str = Header(default=""), x_session_token: str = Header(default=""),

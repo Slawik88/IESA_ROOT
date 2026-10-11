@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat import ranks
 from bot.chat import settings as bot_settings
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name
@@ -12,7 +13,7 @@ from bot.chat.settings import CURRENCY_VIEW, NEVER_TRANSFERABLE
 from services import admin_people
 from services import reports as reports_service
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("settings")
 # Переводимыми могут быть только текущие валюты ленты (тёмная мора — легаси).
 CANDIDATES = ("mora", "diamonds", "essence", "zarniki")

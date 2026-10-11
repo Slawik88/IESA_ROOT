@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends
 
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from services import admin_people
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("journal")
 
 

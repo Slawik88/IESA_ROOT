@@ -6,9 +6,10 @@ from fastapi.responses import Response
 
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from services import bot_metrics
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("metrics")
 
 

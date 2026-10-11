@@ -13,12 +13,14 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin import people
 from FastAPI.routers.bot_admin.people import get_bot
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from services import admin_people
 from services import reports as reports_service
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("reports")
 _ready = False
+_busy: set[int] = set()   # жалобы, по которым прямо сейчас выдаётся наказание: второй запрос не должен наказать ещё раз
 
 
 async def _tables(db=Depends(get_db)):
@@ -64,6 +66,8 @@ async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), d
     report = await reports_service.get(db, rid)
     if not report:
         raise HTTPException(404, "Жалоба не найдена.")
+    if status == "in_work" and report["status"] == "in_work":   # повторное «взять» затирало того, кто взял первым
+        raise HTTPException(409, "Жалоба уже в работе.")
     await _finish(db, user, report, status, str(data.get("note") or "").strip()[:300])
     return {"ok": True, "message": reports_service.STATUS_TITLES[status] + "."}
 
@@ -74,16 +78,22 @@ async def report_punish(rid: int, data: dict = Body(...), user=Depends(_user), d
     action = str(data.get("action") or "")
     if action not in PUNISH:
         raise HTTPException(400, "Отсюда можно выдать варн, мут или бан.")
-    report = await reports_service.get(db, rid)
-    if not report:
-        raise HTTPException(404, "Жалоба не найдена.")
-    if report["status"] not in reports_service.OPEN:
-        raise HTTPException(409, "Жалоба уже закрыта.")
-    reason = str(data.get("reason") or "").strip()[:200] or f"жалоба №{rid}"
-    result = await people.player_action(
-        report["target_id"], {"action": action, "chat_id": report["chat_id"], "minutes": data.get("minutes"),
-                              "reason": reason}, user, db)
-    closed = bool(data.get("close", True))
-    if closed:
-        await _finish(db, user, report, "resolved", f"{PUNISH[action]}: {reason}"[:300])
+    if rid in _busy:
+        raise HTTPException(409, "Эту жалобу уже обрабатывают.")
+    _busy.add(rid)
+    try:
+        report = await reports_service.get(db, rid)
+        if not report:
+            raise HTTPException(404, "Жалоба не найдена.")
+        if report["status"] not in reports_service.OPEN:
+            raise HTTPException(409, "Жалоба уже закрыта.")
+        reason = str(data.get("reason") or "").strip()[:200] or f"жалоба №{rid}"
+        result = await people.player_action(
+            report["target_id"], {"action": action, "chat_id": report["chat_id"], "minutes": data.get("minutes"),
+                                  "reason": reason}, user, db)
+        closed = bool(data.get("close", True))
+        if closed:
+            await _finish(db, user, report, "resolved", f"{PUNISH[action]}: {reason}"[:300])
+    finally:
+        _busy.discard(rid)
     return {"ok": True, "message": result["message"] + (" Жалоба закрыта." if closed else "")}

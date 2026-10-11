@@ -9,10 +9,11 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from FastAPI.auth import verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.safe import AdminRoute
 from services import admin_people
 from services import feature_switches as fs
 
-router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"])
+router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("switches")
 _ROOT = os.getenv("ROOT_PATH", "").rstrip("/")
 _DEV_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
@@ -44,6 +45,10 @@ async def set_switch(data: dict = Body(...), user=Depends(_user), db=Depends(get
         raise HTTPException(400, "Неизвестная функция.")
     if chat_id and feature.startswith("site"):
         raise HTTPException(400, "Сайт выключается только везде, не по чату.")
+    if chat_id:
+        async with db.execute("SELECT 1 FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
+            if not await cur.fetchone():
+                raise HTTPException(404, "Чат не найден.")
     await fs.set_switch(db, chat_id, feature, bool(data.get("enabled")), actor_id=user["id"],
                         reason=str(data.get("reason") or ""))
     await admin_people.audit(db, user["id"], "switch", chat_id=chat_id or None,
