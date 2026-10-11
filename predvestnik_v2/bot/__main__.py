@@ -271,6 +271,12 @@ async def main():
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
         try:
+            from services import broadcasts as _bc, chat_bots as _chat_bots
+            async with _bc.pool_db_factory()() as _bots_db:
+                await _chat_bots.startup(_bots_db, bot)   # сам Предвестник и служебные аккаунты Telegram не участники чатов
+        except Exception as _e:
+            logger.warning(f"Боты в базе не помечены: {_e}")
+        try:
             from services import broadcasts as _bc, member_tags as _member_tags
             background_tasks.append(_spawn_supervised(
                 "member-tags-backfill", _member_tags.backfill_task(bot, _bc.pool_db_factory()), failed=background_failed))

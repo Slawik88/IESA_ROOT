@@ -613,7 +613,8 @@ async def chat(db, cid: int) -> dict | None:
         return None
     today = local_now().date()
     async with db.execute(
-        "SELECT COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE)), COALESCE(SUM(user_messages_count_all_time), 0) "
+        "SELECT COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE) AND NOT COALESCE(is_bot, FALSE)), "
+        "COALESCE(SUM(user_messages_count_all_time) FILTER (WHERE NOT COALESCE(is_bot, FALSE)), 0) "
         "FROM user_chat_stats WHERE chat_tg_id = ?", (cid,)) as cur:
         members, total = await cur.fetchone()
     stats = {}
@@ -626,6 +627,7 @@ async def chat(db, cid: int) -> dict | None:
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.user_messages_count_all_time FROM user_chat_stats s "
         "LEFT JOIN users u ON u.user_tg_id = s.user_tg_id WHERE s.chat_tg_id = ? AND NOT COALESCE(s.is_left, FALSE) "
+        "AND NOT COALESCE(s.is_bot, FALSE) "
         "ORDER BY s.user_messages_count_all_time DESC NULLS LAST LIMIT 10", (cid,)) as cur:
         top = [{"id": int(r[0]), "username": r[1], "messages": int(r[2] or 0)} for r in await cur.fetchall()]
     top_tags = await member_tags.many(db, cid, [x["id"] for x in top])

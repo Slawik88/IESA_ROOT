@@ -6,7 +6,7 @@ from aiogram.types import ChatMemberUpdated
 
 from bot.chat import ranks
 from bot.chat.moderation import commit, is_blacklisted
-from services import member_tags
+from services import chat_bots, member_tags
 
 router = Router(name="chat_members")
 INSIDE = ("member", "administrator", "creator", "restricted")
@@ -67,6 +67,8 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
     elif old.status == "creator":
         await ranks.sync_owner(db, bot, chat_id, force=True)
 
+    if await chat_bots.observe(db, user):   # бот вошёл, вышел или ему выдали права: участником он не становится
+        return
     joined = _inside(new) and not _inside(old)
     left = _inside(old) and not _inside(new)
     if joined and not user.is_bot:
