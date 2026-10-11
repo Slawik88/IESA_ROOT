@@ -98,7 +98,7 @@ def _draft(row: dict, state: dict) -> dict | None:
     number = len(state["selected"]) + 1
     offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"])
     return {"number": number, "offers": [
-        {"id": item.id, "kind": item.kind, "name": item.name, "text": item.text}
+        {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost}
         for item in map(rules.perk, offers)
     ]}
 
@@ -116,20 +116,24 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
     window_ms = rules.window_ms(signal_no, state["perks"])
     opened_at = state["signal_opened_at"]
     remaining_ms = window_ms
+    starts_in_ms = 0
     if active and opened_at is not None:
-        remaining_ms = max(0, window_ms - int((now - opened_at).total_seconds() * 1000))
+        # A signal may be scheduled slightly ahead (breathing room after a gift).
+        starts_in_ms = max(0, int((opened_at - now).total_seconds() * 1000))
+        remaining_ms = max(0, window_ms - max(0, int((now - opened_at).total_seconds() * 1000)))
     return {
         "run_id": row["run_id"], "mode": row["mode"], "ruleset_version": row["ruleset_version"],
         "status": state["status"], "health": state["health"], "score": state["score"],
         "combo": state["combo"], "correct_taps": state["correct_taps"], "mistakes": state["mistakes"],
         "next_signal_no": signal_no, "chunk": rules.chunk_for_signal(signal_no),
-        "speed_percent": rules.speed_percent(signal_no),
+        "speed_percent": rules.speed_percent(signal_no, state["perks"]),
         "window_ms": window_ms, "remaining_ms": remaining_ms,
         # The expected rune is delivered only for the current signal.  The seed
         # and all future sequence values stay server-side.
-        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and state["signal_opened_at"] else None,
+        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not starts_in_ms else None,
         "draft": _draft(row, state),
-        "perks": state["perks"], "selected_perks": selected,
+        "perks": state["perks"], "selected_perks": selected, "gifts": rules.owned_gifts(state["perks"]),
+        "starts_in_ms": starts_in_ms,
         "integrity_status": str(row.get("integrity_status") or "legacy_unverified"),
         "server_time": now.isoformat(),
     }
@@ -148,10 +152,11 @@ def _cancel(state: dict, now: datetime) -> None:
     state["signal_opened_at"] = None
 
 
-def _resolve_error(row: dict, state: dict, *, now: datetime) -> None:
-    state["health"], state["combo"], state["perks"] = rules.after_error(
-        health=state["health"], combo=state["combo"], perks=state["perks"],
+def _resolve_error(row: dict, state: dict, *, now: datetime, timed_out: bool) -> None:
+    state["health"], state["perks"] = rules.after_error(
+        health=state["health"], perks=state["perks"], timed_out=timed_out,
     )
+    state["combo"] = 0
     state["mistakes"] += 1
     state["correct_streak"] = 0
     state["next_signal_no"] += 1
@@ -173,7 +178,7 @@ def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
         if now <= deadline:
             return
         # Preserve the real schedule rather than resetting it to reconnect time.
-        _resolve_error(row, state, now=now)
+        _resolve_error(row, state, now=now, timed_out=True)
         if state["status"] == "active":
             state["signal_opened_at"] = deadline
 
@@ -258,7 +263,8 @@ async def pick_perk(db, *, user_id: int, run_id: str, perk_id: str, action_id: s
             raise RhythmConflict("this rune gift was not offered")
         state["health"], state["perks"] = rules.apply_perk(perk_id, health=state["health"], perks=state["perks"])
         state["selected"].append(perk_id)
-        state["signal_opened_at"] = now
+        # Breathing room: the next signal opens a few seconds from now.
+        state["signal_opened_at"] = now + timedelta(milliseconds=rules.RESUME_LEAD_MS)
         _hold_for_draft(state)  # a second gift may be owed after a very long pause
         await repo.update_run(db, run_id=run_id, state=state)
         response = _view(row, state, now=now)
@@ -330,7 +336,7 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
                 state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
                 state["combo"] += 1; state["correct_streak"] += 1; state["correct_taps"] += 1; state["next_signal_no"] += 1
             else:
-                _resolve_error(row, state, now=now)
+                _resolve_error(row, state, now=now, timed_out=action["rune"] is None or action["elapsed_ms"] > window)
             if state["status"] == "finished":
                 if action is not normalized[-1]:
                     raise RhythmError("offline Rhythm journal continues after defeat")
@@ -386,18 +392,21 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             raise RhythmConflict("choose a rune gift before the next signal")
         if signal_no != state["next_signal_no"]:
             raise RhythmConflict("stale or future rhythm signal")
+        if state["signal_opened_at"] is not None and now < state["signal_opened_at"]:
+            raise RhythmConflict("the next signal has not opened yet")
         elapsed_ms = max(0, int((now - state["signal_opened_at"]).total_seconds() * 1000))
         window = rules.window_ms(signal_no, state["perks"])
         correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window
         if correct:
             state["score"] += rules.score_for_correct(elapsed_ms=elapsed_ms, allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
-            state["perks"] = rules.after_correct(state["perks"])
             state["combo"] += 1
             state["correct_streak"] += 1
+            state["health"], state["perks"] = rules.after_correct(
+                state["perks"], health=state["health"], streak_after=state["correct_streak"])
             state["correct_taps"] += 1
             state["next_signal_no"] += 1
         else:
-            _resolve_error(row, state, now=now)
+            _resolve_error(row, state, now=now, timed_out=rune == rules.expected_rune(bytes(row["seed"]), signal_no))
         if state["status"] == "active":
             state["signal_opened_at"] = now
             _hold_for_draft(state)

@@ -206,6 +206,9 @@ async def run(dsn: str) -> None:
                 )
             return view
 
+        # Tests tap instantly; the breathing room after a gift is proven separately below.
+        rhythm.rules.RESUME_LEAD_MS = 0
+
         # The retired "augments" start now opens the one ranked mode.
         gifted = await rhythm.start_run(db, user_id=975001, mode="augments")
         assert gifted["status"] == "active" and gifted["mode"] == "normal" and gifted["draft"] is None, gifted
@@ -274,10 +277,26 @@ async def run(dsn: str) -> None:
             db, run_id=terminal["run_id"], ticket=terminal_ticket["ticket"],
         )
         terminal = await play_chunk(975009, terminal, terminal_lease, "term")
+        rhythm.rules.RESUME_LEAD_MS = 60_000
         terminal = await rhythm.transport_pick(
             db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
             perk_id=terminal["draft"]["offers"][0]["id"], action_id="term-pick",
         )
+        rhythm.rules.RESUME_LEAD_MS = 0
+        # After a gift the clock waits: no rune, a visible lead-in, taps are refused unharmed.
+        assert terminal["rune"] is None and terminal["starts_in_ms"] > 50_000, terminal
+        assert terminal["remaining_ms"] == terminal["window_ms"] and terminal["status"] == "active"
+        try:
+            await rhythm.transport_tap(db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
+                                       signal_no=terminal["next_signal_no"], rune="left", action_id="term-early")
+        except rhythm.RhythmConflict:
+            pass
+        else:
+            raise AssertionError("a tap before the signal opens must be refused")
+        await db.execute("UPDATE rhythm_v2_runs SET signal_opened_at=CLOCK_TIMESTAMP() WHERE run_id=?", (terminal["run_id"],))
+        terminal = await rhythm.transport_state(db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease)
+        assert terminal["starts_in_ms"] == 0 and terminal["rune"] in {"left", "center", "right"}, terminal
+        assert terminal["health"] >= 1 and terminal["gifts"], terminal
         for attempt in range(30):
             terminal = await rhythm.transport_tap(
                 db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
