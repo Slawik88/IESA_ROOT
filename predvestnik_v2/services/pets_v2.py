@@ -18,7 +18,7 @@ class PetV2Conflict(PetV2PolicyError):
     pass
 
 
-_FOOD_BY_LEVEL = ((20, "food_stew"), (10, "food_fried"), (1, "food_basic"))
+_FOOD_BY_LEVEL = ((28, "food_feast"), (24, "food_elite"), (20, "food_stew"), (10, "food_fried"), (1, "food_basic"))
 _FIND_AMOUNT = {"mora": (3, 9), "essence": (2, 4)}
 _HINT_PATHS = tuple(rules.PATHS)
 
