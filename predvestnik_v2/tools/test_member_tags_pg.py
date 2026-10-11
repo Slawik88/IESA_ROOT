@@ -22,6 +22,11 @@ CHAT = -100
 ZW = "​"
 
 
+def link(name, tag=None):
+    """Ник в списках: ссылка на профиль в Telegram (t.me, без пинга) и тег после неё."""
+    return f'<a href="https://t.me/{name}">@{name}</a>' + (f" [{tag}]" if tag else "")
+
+
 def real_message(uid, username, text="привет", tag=None, chat_type="supergroup", chat_id=CHAT, **extra):
     """Настоящий Message из aiogram: так тег приходит из Telegram."""
     from aiogram.types import Chat, Message, User
@@ -35,6 +40,7 @@ def real_message(uid, username, text="привет", tag=None, chat_type="superg
 class FakeBot:
     def __init__(self):
         self.sent, self.tags = [], {}   # tags: user_id -> тег, который «знает» Telegram
+        self.fail, self.asked = {}, []  # fail: user_id -> ошибка, которой ответит Telegram; asked: кого спрашивали
 
     async def me(self):
         return SimpleNamespace(id=999, username="predvestnik_bot")
@@ -46,6 +52,9 @@ class FakeBot:
         return SimpleNamespace(permissions=None)
 
     async def get_chat_member(self, chat_id, user_id):
+        self.asked.append((chat_id, user_id))
+        if user_id in self.fail:
+            raise self.fail[user_id]
         if user_id in self.tags and self.tags[user_id] == "__left__":
             return SimpleNamespace(status="left", user=SimpleNamespace(id=user_id))
         return SimpleNamespace(status="member", can_delete_messages=False, tag=self.tags.get(user_id),
@@ -117,7 +126,8 @@ async def main():
         await shown_everywhere(db, bot)
         await purge_flow(db, bot)
         await admin_flow(db, bot)
-    print("OK: member tags (capture, commands, lists, purge, admin)")
+        await backfill_flow(db)
+    print("OK: member tags (capture, commands, lists, purge, admin, backfill)")
 
 
 def pure():
@@ -217,9 +227,9 @@ async def commands(db, bot):
     assert "свлд Арлекино" in out and "beta" in out, out
     # Поиск по части тега
     out = await run(db, bot, "бот тег арлекино")
-    assert "свлд Арлекино" in out and f"@{ZW}beta" in out and "alpha" not in out, out
+    assert "свлд Арлекино" in out and link("beta") in out and "alpha" not in out, out
     out = await run(db, bot, "бот тег мл.адм")
-    assert "айно.мл.адм" in out and f"@{ZW}talker" in out, out
+    assert "айно.мл.адм" in out and link("talker") in out, out
     out = await run(db, bot, "бот тег нетакого")
     assert "ни у кого нет" in out, out
     out = await run(db, bot, "бот тег %")
@@ -242,17 +252,17 @@ async def shown_everywhere(db, bot):
     out = await run(db, bot, "бот защита, @beta 3д")
     assert f"@{ZW}beta [{tag_beta}]" in out, out
     out = await run(db, bot, "бот кто под защитой")
-    assert f"@{ZW}beta [{tag_beta}]" in out, out
+    assert link("beta", tag_beta) in out, out
     await ranks.store_rank(db, CHAT, 1002, 6)
     out = await run(db, bot, "бот ранги")
-    assert f"@{ZW}beta [{tag_beta}]" in out, out
+    assert link("beta", tag_beta) in out, out
     text, _ = await top.build(db, "c", "d", 0, CHAT)
-    assert f"alpha [Итто]" in text and f"[{tag_talker}]" in text, text      # топ чата
+    assert link("alpha", "Итто") in text and link("talker", tag_talker) in text, text      # топ чата: ник — ссылка на профиль
     text, _ = await top.build(db, "g", "d", 0, CHAT)
     assert "[Итто]" not in text, text                                       # в общем топе тега нет: он живёт в одном чате
     await run(db, bot, "бот мут, @talker 1ч")
     text, _ = await sanctions.list_view(db, 1001, CHAT, "mute", 0)
-    assert f"[{tag_talker}]" in text, text
+    assert link("talker", tag_talker) in text, text
     text, _ = await sanctions.card_view(db, 1001, CHAT, "mute", 0, 2002)
     assert f"[{tag_talker}]" in text, text
     # Профиль: отдельной строкой; в личке тега нет (чат неизвестен)
@@ -374,6 +384,124 @@ async def admin_flow(db, bot):
     got = await mt.pairs(db, [(CHAT, 1001), (-200, 1001), (CHAT, 999999)])
     assert got == {(CHAT, 1001): "Итто", (-200, 1001): "Другой чат"}, got
     assert await mt.pairs(db, []) == {}
+
+
+async def checked(db, uid, chat):
+    async with db.execute("SELECT member_tag, member_tag_checked_at FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?",
+                          (chat, uid)) as cur:
+        row = await cur.fetchone()
+    return row[0], row[1] is not None
+
+
+async def backfill_flow(db):
+    """Обычные теги видны не только у тех, кто писал после запуска: бот сам дозапрашивает их у Telegram."""
+    from aiogram.exceptions import TelegramBadRequest, TelegramNetworkError
+    from aiogram.methods import GetChatMember
+    from bot.chat import ranks, top
+    from services import member_tags as mt
+    chat, other = -300, -400
+    mt._seen.clear()
+    mt._denied.clear()
+    for c in (chat, other):
+        await db.execute("INSERT INTO chat_settings (chat_id, chat_title, bot_is_admin, bot_can_moderate) VALUES (?, ?, TRUE, TRUE) "
+                         "ON CONFLICT (chat_id) DO UPDATE SET bot_is_admin = TRUE, bot_left_at = NULL", (c, f"Чат {c}"))
+    users = {3001: "diegoyuuki", 3002: "kovid", 3003: "tarta", 3004: "lini", 3005: "quiet"}
+    for i, (uid, name) in enumerate(users.items()):   # как в проде: строки есть (люди писали раньше), тег бот не знает
+        await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, name))
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, last_message_at) VALUES (?, ?, NOW() - (? || ' hours')::interval) "
+                         "ON CONFLICT DO NOTHING", (uid, chat, str(i)))
+        await db.execute("INSERT INTO daily_user_stats (date, chat_id, user_id, message_count) VALUES (CURRENT_DATE, ?, ?, ?) "
+                         "ON CONFLICT DO NOTHING", (chat, uid, 100 - i))
+    await db.commit()
+    for u in users:
+        assert await checked(db, u, chat) == (None, False)
+
+    bot = FakeBot()
+    bot.tags.update({3002: "Итто|Совлд.", 3003: "Тарталья", 3004: "Лини"})
+    # Показ списка: тег дозапрашивается у Telegram сразу, без ожидания сообщений от людей
+    text, _ = await top.build(db, "c", "d", 0, chat, bot)
+    for who, tag in (("kovid", "Итто|Совлд."), ("tarta", "Тарталья"), ("lini", "Лини")):
+        assert link(who, tag) in text, text
+    assert "@diegoyuuki</a> [" not in text and "@quiet</a> [" not in text, text   # у кого тега нет — строка чистая
+    assert link("diegoyuuki") in text, text
+    assert await checked(db, 3002, chat) == ("Итто|Совлд.", True)
+    assert await checked(db, 3001, chat) == (None, True), "«тега нет» тоже запомнено: повторно не спрашиваем"
+    assert [v for v in await history(db, 3002)] == ["Итто|Совлд."]
+    bot.asked.clear()
+    text, _ = await top.build(db, "c", "d", 0, chat, bot)
+    assert bot.asked == [] and link("kovid", "Итто|Совлд.") in text, bot.asked   # второй показ — без запросов
+    text, _ = await top.build(db, "g", "d", 0, chat, bot)
+    assert bot.asked == [], "общий топ тегов не показывает и Telegram не спрашивает"
+
+    # Игрок без ника: ссылка на профиль по id; тег с «<» экранируется
+    from bot.chat.style import profile_link
+    assert profile_link(77, None) == '<a href="tg://user?id=77">id77</a>'
+    assert profile_link(77, "ник", "<b>x</b>") == '<a href="https://t.me/ник">@ник</a> [&lt;b&gt;x&lt;/b&gt;]'
+
+    # Бот без бота (личка / нет клиента) ничего не спрашивает и не падает
+    assert await mt.many_fresh(None, db, chat, [3002]) == {3002: "Итто|Совлд."}
+
+    # Фоновый обход: сначала недавно писавшие, ушедшие и ошибки не ломают проход
+    for i, uid in enumerate((3101, 3102, 3103, 3104)):
+        await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, f"u{uid}"))
+        await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, last_message_at) VALUES (?, ?, NOW() - (? || ' hours')::interval) "
+                         "ON CONFLICT DO NOTHING", (uid, other, str(i + 1)))
+    await db.commit()
+    bot = FakeBot()
+    bot.tags.update({3101: "Первый", 3102: "__left__", 3104: "Четвёртый"})
+    bot.fail[3103] = TelegramNetworkError(method=GetChatMember(chat_id=other, user_id=3103), message="сеть")
+    mt.BACKFILL_PAUSE = 0
+    done = await mt.backfill_batch(bot, db)
+    assert done == 2, done   # 3101 и 3102; на 3103 сеть отвалилась, проход закончился
+    assert await checked(db, 3101, other) == ("Первый", True)
+    assert await checked(db, 3102, other) == (None, True), "ушедшего пометили проверенным"
+    assert await checked(db, 3103, other) == (None, False) and await checked(db, 3104, other) == (None, False)
+    bot.fail.clear()
+    assert await mt.backfill_batch(bot, db) == 2
+    assert await checked(db, 3104, other) == ("Четвёртый", True)
+    bot.asked.clear()
+    assert await mt.backfill_batch(bot, db) == 0 and bot.asked == [], "всё проверено — Telegram не дёргаем"
+
+    # Чат, где Telegram отказал (бот потерял права), пропускается и не крутится по кругу
+    await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (3201, 'denied') ON CONFLICT DO NOTHING")
+    await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id) VALUES (3201, ?), (3202, ?) ON CONFLICT DO NOTHING", (other, other))
+    await db.commit()
+    bot.fail[3201] = TelegramBadRequest(method=GetChatMember(chat_id=other, user_id=3201), message="Bad Request: CHAT_ADMIN_REQUIRED")
+    bot.fail[3202] = bot.fail[3201]
+    assert await mt.backfill_batch(bot, db) == 0
+    asked = len(bot.asked)
+    assert await mt.backfill_batch(bot, db) == 0 and len(bot.asked) == asked, "чат на паузе"
+    assert await checked(db, 3201, other) == (None, False), "отказ — не «тега нет»: человека проверим, когда вернутся права"
+    mt._denied.clear()
+
+    # Давно проверенных и давно молчащих перепроверяем: тег мог смениться
+    await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NOW() - INTERVAL '30 days', "
+                     "last_message_at = NOW() - INTERVAL '30 days' WHERE chat_tg_id = ? AND user_tg_id = 3101", (other,))
+    await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NOW() - INTERVAL '30 days' "
+                     "WHERE chat_tg_id = ? AND user_tg_id = 3104", (other,))   # 3104 писал недавно — тег пришёл бы с сообщением
+    await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NOW() WHERE chat_tg_id = ? AND user_tg_id IN (3201, 3202)", (other,))
+    await db.commit()
+    bot.fail.clear()
+    bot.tags[3101] = "Сменил"
+    bot.asked.clear()
+    assert await mt.backfill_batch(bot, db) == 1 and bot.asked == [(other, 3101)], bot.asked
+    assert await checked(db, 3101, other) == ("Сменил", True)
+    assert await history(db, 3101) == ["Первый", "Сменил"], await history(db, 3101)
+
+    # Чат, который бот покинул или где он не админ, обход не трогает
+    await db.execute("UPDATE chat_settings SET bot_is_admin = FALSE WHERE chat_id = ?", (chat,))
+    await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NULL WHERE chat_tg_id = ?", (chat,))
+    await db.commit()
+    bot.asked.clear()
+    assert await mt.backfill_batch(bot, db) == 0 and bot.asked == []
+
+    # Список рангов тоже дозапрашивает
+    bot.tags[3003] = "Тарталья"
+    await db.execute("UPDATE chat_settings SET bot_is_admin = TRUE WHERE chat_id = ?", (chat,))
+    await ranks.store_rank(db, chat, 3003, 4)
+    await db.commit()
+    out = await run(db, bot, "бот ранги", chat=chat)
+    assert link("tarta", "Тарталья") in out, out
 
 
 asyncio.run(main())

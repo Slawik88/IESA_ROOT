@@ -7,20 +7,15 @@ from __future__ import annotations
 import html
 
 from bot.chat.framework import Ctx, registry
-from bot.chat.style import quote
+from bot.chat.style import profile_link, quote
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from services import member_tags
 
 SHOWN = 40
-ZW = "​"   # «@» + нулевой пробел: ник виден, но участника не пингует
-
-
-def _name(uid: int, uname: str | None) -> str:
-    return html.escape(f"@{ZW}{uname}" if uname else f"id{uid}")
 
 
 def _rows(found: list[tuple[int, str | None, str]]) -> str:
-    return quote([f"<b>{html.escape(tag)}</b> · {_name(uid, uname)}" for uid, uname, tag in found])
+    return quote([f"<b>{html.escape(tag)}</b> · {profile_link(uid, uname)}" for uid, uname, tag in found])
 
 
 @registry.command(

@@ -260,6 +260,12 @@ async def main():
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
+        try:
+            from services import broadcasts as _bc, member_tags as _member_tags
+            background_tasks.append(_spawn_supervised(
+                "member-tags-backfill", _member_tags.backfill_task(bot, _bc.pool_db_factory()), failed=background_failed))
+        except Exception as _e:
+            logger.warning(f"Обход тегов не запущен: {_e}")
         # Preprod intentionally has no Stars history/reconciliation access.
         # Do not spawn a coroutine that correctly returns immediately and then
         # misclassify that policy as a supervisor crash.

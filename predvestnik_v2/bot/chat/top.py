@@ -8,12 +8,11 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.chat.framework import Ctx, registry
-from bot.chat.style import quote
+from bot.chat.style import profile_link, quote
 from bot.chat.tracking import local_now
 from services import member_tags
 
 PAGE_SIZE = 25
-ZW = "​"   # «@» + нулевой пробел: ник виден, но участника не пингует
 PERIODS = {"d": "День", "w": "Неделя", "lw": "Прошлая неделя"}
 SCOPES = {"c": "Этот чат", "g": "Все игроки", "k": "Топ чатов"}
 MEDALS = {1: "🥇", 2: "🥈", 3: "🥉"}
@@ -54,7 +53,7 @@ def render(title: str, rows: list[tuple[int, str, int]], page: int, pages: int, 
     lines = []
     for pos, name, cnt in rows:
         mark = MEDALS.get(pos, f"<b>{pos}.</b>")
-        lines.append(f"{mark} {_esc(name)} · <code>{fmt_num(cnt).rjust(width)}</code>")
+        lines.append(f"{mark} {name} · <code>{fmt_num(cnt).rjust(width)}</code>")
     foot = f"\n\n<i>Страница {page + 1} из {pages}</i>" if pages > 1 else ""
     return head + "\n\n" + quote(lines) + foot
 
@@ -83,7 +82,7 @@ def keyboard(uid: int, scope: str, period: str, page: int, pages: int, chat: int
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str, int]:
+async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> tuple[str, int]:
     a, b = period_range(period, local_now().date())
     if scope == "k":
         async with db.execute(
@@ -100,7 +99,7 @@ async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str,
             (a, b, PAGE_SIZE, page * PAGE_SIZE),
         ) as cur:
             data = await cur.fetchall()
-        rows = [(page * PAGE_SIZE + i + 1, r[1], int(r[2])) for i, r in enumerate(data)]
+        rows = [(page * PAGE_SIZE + i + 1, _esc(r[1]), int(r[2])) for i, r in enumerate(data)]
         return render("Топ чатов", rows, page, pages, period, scope), pages
 
     where, params = "date BETWEEN ? AND ?", [a, b]
@@ -123,10 +122,9 @@ async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str,
         params + [PAGE_SIZE, page * PAGE_SIZE],
     ) as cur:
         data = await cur.fetchall()
-    tags = await member_tags.many(db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
+    tags = await member_tags.many_fresh(bot, db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
     rows = [
-        (page * PAGE_SIZE + i + 1,
-         member_tags.with_tag(f"@{ZW}{r[1]}" if r[1] else f"id{r[0]}", tags.get(int(r[0]))), int(r[2]))
+        (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0]))), int(r[2]))
         for i, r in enumerate(data)
     ]
     return render(title, rows, page, pages, period, scope), pages
@@ -139,7 +137,7 @@ async def build(db, scope: str, period: str, page: int, chat: int) -> tuple[str,
 async def cmd_top(ctx: Ctx) -> None:
     chat = ctx.message.chat
     scope = "c" if chat.type in ("group", "supergroup") else "g"
-    text, pages = await build(ctx.db, scope, "d", 0, chat.id)
+    text, pages = await build(ctx.db, scope, "d", 0, chat.id, ctx.bot)
     await ctx.reply(text, reply_markup=keyboard(ctx.user_id, scope, "d", 0, pages, chat.id))
 
 
@@ -147,7 +145,7 @@ router = Router(name="chat_top")
 
 
 @router.callback_query(TopCB.filter())
-async def on_top(call: CallbackQuery, callback_data: TopCB, db) -> None:
+async def on_top(call: CallbackQuery, callback_data: TopCB, db, bot=None) -> None:
     if call.from_user.id != callback_data.uid:
         await call.answer("Это меню другого игрока. Вызовите своё: «бот топ».", show_alert=True)
         return
@@ -157,11 +155,11 @@ async def on_top(call: CallbackQuery, callback_data: TopCB, db) -> None:
         return
     if scope == "c" and callback_data.chat > 0:   # кнопка «Этот чат» со старого меню в личке: показываем топ всех игроков
         scope = "g"
-    text, pages = await build(db, scope, period, callback_data.page, callback_data.chat)
+    text, pages = await build(db, scope, period, callback_data.page, callback_data.chat, bot)
     page = min(callback_data.page, pages - 1)
     try:
         await call.message.edit_text(
-            text, parse_mode="HTML",
+            text, parse_mode="HTML", disable_web_page_preview=True,   # t.me-ссылки на ники без карточки-превью
             reply_markup=keyboard(callback_data.uid, scope, period, page, pages, callback_data.chat),
         )
     except Exception:

@@ -12,17 +12,26 @@
 Только добавление: колонка user_chat_stats.member_tag, purge_targets.member_tag и таблица истории. Ничего не удаляется."""
 from __future__ import annotations
 
+import asyncio
 import re
+import time
 
 from loguru import logger
 
 MAX_LEN = 64            # Telegram разрешает до 16 символов тега, но звания и будущие правила шире: режем с запасом
 HISTORY_KEEP = 30       # смен тега на игрока в карточке админки
 CACHE_LIMIT = 100_000
+RECHECK_DAYS = 14       # тех, кто молчит, спрашиваем у Telegram заново не чаще раза в две недели
+BACKFILL_BATCH = 40     # людей за один проход фонового обхода
+BACKFILL_PAUSE = 0.35   # секунд между запросами: около трёх в секунду, это далеко от лимита Telegram
+DENIED_PAUSE = 6 * 3600 # чат, где Telegram отказал (бот не админ, список скрыт), пропускаем на шесть часов
+FRESH_LIMIT = 25        # сколько незнакомых строк списка дозапрашиваем при показе
+FRESH_TIMEOUT = 6.0
 
 STATEMENTS = (
     "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag TEXT",
     "ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS member_tag TEXT",
+    "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS member_tag_checked_at TIMESTAMPTZ",   # когда тег последний раз подтвердил Telegram
     """CREATE TABLE IF NOT EXISTS member_tag_history (
         id      BIGSERIAL PRIMARY KEY,
         chat_id BIGINT NOT NULL,
@@ -41,6 +50,7 @@ CONTENT_TYPES = frozenset({
 
 _WS = re.compile(r"\s+")
 _seen: dict[tuple[int, int], str | None] = {}   # (чат, игрок) -> тег, который уже лежит в базе
+_denied: dict[int, float] = {}                  # чат -> до какого момента (monotonic) его не спрашиваем
 
 
 def clean(raw) -> str | None:
@@ -120,7 +130,8 @@ async def observe(db, chat_id: int, user_id: int, tag: str | None) -> bool:
     """Записать тег, если он изменился. Возвращает True, когда в базе что-то поменялось.
 
     Строка user_chat_stats уже должна быть (её заводит учёт сообщений и вход в чат). Тег — дополнение к учёту:
-    любая его ошибка не должна терять сообщение, поэтому внутри точка сохранения и перехват."""
+    любая его ошибка не должна терять сообщение, поэтому внутри точка сохранения и перехват.
+    Первое подтверждение (даже «тега нет») ставит отметку member_tag_checked_at: по ней фоновый обход понимает, кого уже спрашивал."""
     key = (int(chat_id), int(user_id))
     tag = clean(tag)
     if key in _seen and _seen[key] == tag:
@@ -128,18 +139,18 @@ async def observe(db, chat_id: int, user_id: int, tag: str | None) -> bool:
     try:
         async with db.connection.transaction():
             async with db.execute(
-                "SELECT member_tag FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?", key) as cur:
+                "SELECT member_tag, member_tag_checked_at FROM user_chat_stats WHERE chat_tg_id = ? AND user_tg_id = ?", key) as cur:
                 row = await cur.fetchone()
             if row is None:
                 return False
             stored = clean(row[0])
             changed = stored != tag
-            if changed:
-                await db.execute("UPDATE user_chat_stats SET member_tag = ? WHERE chat_tg_id = ? AND user_tg_id = ?",
-                                 (tag, *key))
-                if tag or stored:
-                    await db.execute("INSERT INTO member_tag_history (chat_id, user_id, value) VALUES (?, ?, ?)",
-                                     (*key, tag or ""))
+            if changed or row[1] is None:
+                await db.execute("UPDATE user_chat_stats SET member_tag = ?, member_tag_checked_at = NOW() "
+                                 "WHERE chat_tg_id = ? AND user_tg_id = ?", (tag, *key))
+            if changed and (tag or stored):
+                await db.execute("INSERT INTO member_tag_history (chat_id, user_id, value) VALUES (?, ?, ?)",
+                                 (*key, tag or ""))
         if len(_seen) > CACHE_LIMIT:
             _seen.clear()
         _seen[key] = tag
@@ -174,6 +185,130 @@ async def refresh(bot, db, chat_id: int, user_id: int) -> tuple[bool, str | None
         return False, await get(db, chat_id, user_id)
     await observe(db, chat_id, user_id, tag)
     return True, tag
+
+
+async def probe(bot, chat_id: int, user_id: int) -> tuple[str, str | None]:
+    """Спросить Telegram и разобрать исход: ("ok", тег) | ("gone", None) — человека в чате нет |
+    ("denied", None) — Telegram отказал по чату | ("retry", None) — временная ошибка, стоит повторить позже."""
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+    except Exception as exc:
+        name = type(exc).__name__
+        text = str(exc).lower()
+        if name == "TelegramRetryAfter" or name in ("TelegramNetworkError", "TelegramServerError", "TimeoutError", "ClientError"):
+            return "retry", None
+        if any(m in text for m in ("user not found", "participant_id_invalid", "user_id_invalid", "member not found")):
+            return "gone", None
+        if name in ("TelegramForbiddenError", "TelegramBadRequest", "TelegramUnauthorizedError"):
+            return "denied", None
+        logger.debug(f"getChatMember {chat_id}/{user_id}: {exc}")
+        return "retry", None
+    if getattr(member, "status", None) in ("left", "kicked"):
+        return "gone", None
+    return "ok", of_member(member)
+
+
+async def _settle(db, chat_id: int, user_id: int, state: str, tag: str | None) -> bool:
+    """Применить исход probe. True — вопрос по этому человеку закрыт (больше не спрашивать до срока перепроверки)."""
+    if state == "ok":
+        await observe(db, chat_id, user_id, tag)
+        return True
+    if state == "gone":   # вышел из чата: тег не меняем, но и спрашивать каждый раз незачем
+        try:
+            await db.execute("UPDATE user_chat_stats SET member_tag_checked_at = NOW() "
+                             "WHERE chat_tg_id = ? AND user_tg_id = ?", (chat_id, user_id))
+            await db.commit()
+        except Exception as exc:
+            logger.warning(f"member tag mark skipped for {chat_id}/{user_id}: {exc}")
+        return True
+    if state == "denied":
+        _denied[int(chat_id)] = time.monotonic() + DENIED_PAUSE
+    return False
+
+
+def _chat_open(chat_id: int) -> bool:
+    return _denied.get(int(chat_id), 0.0) <= time.monotonic()
+
+
+async def ensure_fresh(bot, db, chat_id: int, user_ids, limit: int = FRESH_LIMIT) -> None:
+    """Перед показом списка узнать теги у тех, кого бот ещё ни разу не проверял: чтобы теги были видны сразу,
+    а не после того, как каждый напишет в чат. Спрашивает Telegram параллельно, ждёт не дольше FRESH_TIMEOUT; ошибки молчит."""
+    if bot is None or not chat_id or int(chat_id) >= 0 or not _chat_open(chat_id):
+        return
+    ids = list(dict.fromkeys(int(i) for i in user_ids))
+    if not ids:
+        return
+    marks = ", ".join("?" for _ in ids)
+    async with db.execute(
+        f"SELECT user_tg_id FROM user_chat_stats WHERE chat_tg_id = ? AND member_tag_checked_at IS NULL "
+        f"AND COALESCE(is_bot, FALSE) = FALSE AND user_tg_id IN ({marks})", (chat_id, *ids)) as cur:
+        todo = [int(r[0]) for r in await cur.fetchall()][:limit]
+    if not todo:
+        return
+    gate = asyncio.Semaphore(6)
+
+    async def ask(uid: int):
+        async with gate:
+            return uid, await probe(bot, chat_id, uid)
+
+    try:
+        answers = await asyncio.wait_for(asyncio.gather(*(ask(u) for u in todo)), FRESH_TIMEOUT)
+    except Exception as exc:
+        logger.debug(f"tags ensure_fresh {chat_id}: {exc}")
+        return
+    for uid, (state, tag) in answers:
+        await _settle(db, chat_id, uid, state, tag)
+
+
+async def many_fresh(bot, db, chat_id: int, user_ids) -> dict[int, str]:
+    """Теги группы людей для показа: сначала дозапрашиваем неизвестных, потом читаем из базы."""
+    ids = list(dict.fromkeys(int(i) for i in user_ids))
+    await ensure_fresh(bot, db, chat_id, ids)
+    return await many(db, chat_id, ids)
+
+
+async def backfill_batch(bot, db, limit: int = BACKFILL_BATCH) -> int:
+    """Один проход фонового обхода: узнать теги у тех, кого ещё не проверяли (сначала недавно писавшие), и перепроверить
+    давно молчащих. Берутся только чаты, где бот админ. Возвращает, сколько человек разобрано; 0 — делать пока нечего."""
+    async with db.execute(
+        "SELECT s.chat_tg_id, s.user_tg_id FROM user_chat_stats s "
+        "JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
+        "WHERE s.chat_tg_id < 0 AND c.bot_left_at IS NULL AND COALESCE(c.bot_is_admin, TRUE) = TRUE "
+        "AND COALESCE(s.is_left, FALSE) = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE "
+        f"AND (s.member_tag_checked_at IS NULL OR (s.member_tag_checked_at < NOW() - INTERVAL '{RECHECK_DAYS} days' "
+        f"AND COALESCE(s.last_message_at, TIMESTAMP '2000-01-01') < NOW() - INTERVAL '{RECHECK_DAYS} days')) "
+        "ORDER BY (s.member_tag_checked_at IS NULL) DESC, s.last_message_at DESC NULLS LAST LIMIT ?",
+        (limit * 4,)) as cur:
+        rows = [(int(r[0]), int(r[1])) for r in await cur.fetchall()]
+    done = 0
+    for chat_id, user_id in rows:
+        if done >= limit:
+            break
+        if not _chat_open(chat_id):
+            continue
+        state, tag = await probe(bot, chat_id, user_id)
+        if state == "retry":   # лимит Telegram или сеть: заканчиваем проход, обход продолжится позже
+            break
+        if await _settle(db, chat_id, user_id, state, tag):
+            done += 1
+        await asyncio.sleep(BACKFILL_PAUSE)
+    return done
+
+
+async def backfill_task(bot, db_factory, first_delay: float = 90.0) -> None:
+    """Фоновый обход: пока у кого-то в чатах, где бот админ, тег не проверен, понемногу спрашивает Telegram."""
+    await asyncio.sleep(first_delay)   # не мешаем запуску
+    logger.info("Фоновый обход тегов запущен.")
+    while True:
+        done = 0
+        try:
+            async with db_factory() as db:
+                done = await backfill_batch(bot, db)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning(f"member tags backfill error: {exc}")
+        await asyncio.sleep(5 if done else 900)
 
 
 async def find(db, chat_id: int, text: str, limit: int = 40) -> list[tuple[int, str | None, str]]:
