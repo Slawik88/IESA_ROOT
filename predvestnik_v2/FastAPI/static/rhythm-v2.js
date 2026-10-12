@@ -27,7 +27,7 @@
     if(pendingTap&&Number(state.next_signal_no)!==Number(pendingTap.signal_no))pendingTap=null;
     $('health').textContent='♥'.repeat(state.health)||'—';$('score').textContent=state.score;$('combo').textContent=state.combo;$('speed').textContent=state.speed_percent+'%';$('perks').textContent=perksLine(state);$('instruction').textContent='Нажми руну '+glyph(state.rune);$('run-note').textContent='Такт '+state.next_signal_no+' · чанк '+state.chunk+' · окно '+state.window_ms+' мс';
     if(!pendingTap||previousSignal!==Number(state.next_signal_no)){$('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state=''}
-    setButtons(Boolean(pendingTap)||socket?.readyState!==WebSocket.OPEN,pendingTap?.rune||null);show('run');const endAt=performance.now()+Number(state.remaining_ms||0);if(!(tickEnd&&tickSignal===state.next_signal_no&&Math.abs(endAt-tickEnd)<120)){tickSignal=state.next_signal_no;tickEnd=endAt;tick(state.remaining_ms,state.window_ms)} /* a periodic state must not re-anchor the bar: no visible jitter */
+    setButtons(Boolean(pendingTap)||socket?.readyState!==WebSocket.OPEN,pendingTap?.rune||null);show('run');const endAt=performance.now()+Number(state.remaining_ms||0);if(!(tickEnd&&tickSignal===state.next_signal_no&&(pendingTap||Math.abs(endAt-tickEnd)<120))){tickSignal=state.next_signal_no;tickEnd=endAt;tick(state.remaining_ms,state.window_ms)} /* a periodic state must not re-anchor the bar: no visible jitter */
     if(pendingTap&&Number(state.next_signal_no)===Number(pendingTap.signal_no)&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
   }
   function scheduleReconnect(message){
