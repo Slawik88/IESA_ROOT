@@ -103,12 +103,14 @@ function _invRender() {
   // Сначала то, что можно применить (ключи, еда), потом коллекция: порядок по данным ответа, без клиентских расчётов
   const stockFail = stock === undefined ? `<section class="inv-sec">${_invFail('Склад не загрузился', _inv.bad.stock)}</section>` : '';
   const stockStuff = stock ? _invStuff(stock) : '', stockPets = stock ? _invPets(stock) : '';
-  root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="switchPage('profile')" aria-label="Назад в профиль">‹ Профиль</button></div>
+  root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="invBack()" aria-label="Назад">‹ Назад</button></div>
     <header class="v3-screen-head"><span class="v3-eyebrow">Всё ваше</span><h1 class="v3-title">Инвентарь${v3GlintMark('Инвентарь')}</h1><p class="v3-sub">Образы, питомцы, ключи и вещи в одном месте.</p></header>
     ${_invChips(owned, stock, _inv.archive)}${stockStuff}${stockPets}${_invLooks(st)}${_invMarks()}${stockFail}${_invArchive(_inv.archive)}`;
   v3EnterSync(root);
 }
 
+// Рюкзак открывается с любого экрана: «‹» возвращает туда, откуда пришли, а без истории ведёт в профиль
+function invBack() { if (typeof _navStack !== 'undefined' && _navStack.length) navBack(); else switchPage('profile'); }
 function invJump(id) {
   _haptic('select');
   const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

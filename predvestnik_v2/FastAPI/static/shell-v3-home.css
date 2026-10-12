@@ -104,7 +104,8 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-top-me { margin-top: 6px; color: var(--v3-dim); font-size: 12.5px; }
 
 @media (max-width: 400px) { .v3-chip { padding: 0 8px; gap: 5px; font-size: 12.5px; } .v3-chip svg { width: 13px; height: 13px; } .v3-chip-plus { width: 14px; height: 14px; margin-right: -2px; } }
-@media (max-width: 359px) { .v3-chip { padding: 0 6px; gap: 4px; font-size: 12px; } .v3-bell { width: 40px; } }   /* рюкзак и колокол уже: ряд валют на 320 остаётся читаемым */
+@media (max-width: 359px) { .v3-chip { padding: 0 6px; gap: 4px; font-size: 12px; } }
+@media (max-width: 399px) { .v3-chip--ess { display: none; } }   /* место под рюкзак: Эссенция на узком экране видна в «Образах» (та же кнопка вела туда) */
 /* Если ряд валют не влезает (почти на любом телефоне с живыми суммами), JS (v3ChipsFade) ставит fit-1, fit-2, fit-3 (суммы от тысячи сокращены, у Зарников нет «+»): те же чипы, но плотнее. Затухание края остаётся запасным вариантом */
 .v3-bar.fit-1 { gap: 4px; padding-left: 12px; padding-right: 8px; }
 .v3-bar.fit-1 .v3-chip { padding: 0 4px; gap: 4px; }
