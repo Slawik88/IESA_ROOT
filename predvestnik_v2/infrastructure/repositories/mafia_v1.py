@@ -198,14 +198,35 @@ async def actions(db, *, match_id: int, phase_number: int) -> list[dict]:
 
 
 async def player_history(db, *, user_id: int, limit: int = 20) -> list[dict]:
-    """Read only the requesting player's own role and match result."""
+    """The player's own latest finished matches (own role only)."""
     async with db.execute(
         "SELECT m.id,m.chat_id,m.phase,m.winner,m.finished_reason,m.started_at,m.finished_at,p.role "
         "FROM mafia_v1_matches m JOIN mafia_v1_players p ON p.match_id=m.id "
-        "WHERE p.user_id=? ORDER BY COALESCE(m.finished_at,m.created_at) DESC LIMIT ?",
+        "WHERE p.user_id=? AND m.phase='finished' ORDER BY COALESCE(m.finished_at,m.created_at) DESC LIMIT ?",
         (int(user_id), max(1, min(int(limit), 50))),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
+
+
+async def player_live(db, *, user_id: int, limit: int = 3) -> list[dict]:
+    """Matches the player is in right now (lobby, night, discussion, voting, paused)."""
+    async with db.execute(
+        "SELECT m.id,m.chat_id,m.phase,m.winner,m.finished_reason,m.started_at,m.finished_at,p.role "
+        "FROM mafia_v1_matches m JOIN mafia_v1_players p ON p.match_id=m.id "
+        "WHERE p.user_id=? AND m.phase NOT IN ('finished','cancelled') ORDER BY m.created_at DESC LIMIT ?",
+        (int(user_id), max(1, min(int(limit), 10))),
+    ) as cursor:
+        return [dict(row) for row in await cursor.fetchall()]
+
+
+async def player_totals(db, *, user_id: int) -> dict:
+    """Counts over ALL of the player's matches, not just the page shown."""
+    async with db.execute(
+        "SELECT m.phase,p.role,m.winner,COUNT(*) AS n FROM mafia_v1_matches m "
+        "JOIN mafia_v1_players p ON p.match_id=m.id WHERE p.user_id=? GROUP BY m.phase,p.role,m.winner",
+        (int(user_id),),
+    ) as cursor:
+        return {"rows": [dict(row) for row in await cursor.fetchall()]}
 
 
 async def kill_player(db, *, match_id: int, user_id: int) -> bool:

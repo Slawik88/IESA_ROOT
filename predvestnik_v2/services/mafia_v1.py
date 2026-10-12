@@ -266,18 +266,33 @@ def _open_votes(players: list[dict], actions: list[dict]) -> list[dict]:
 
 async def player_history(db, *, user_id: int) -> dict:
     """Personal, role-safe Mini App projection; never a chat game control."""
-    rows = await repo.player_history(db, user_id=int(user_id))
-    finished = [row for row in rows if row["phase"] == "finished"]
-    wins = sum(1 for row in finished if row["winner"] and rules.faction(row["role"]) == row["winner"])
+    uid = int(user_id)
+    rows = await repo.player_history(db, user_id=uid)
+    totals = (await repo.player_totals(db, user_id=uid))["rows"]
+    live = await repo.player_live(db, user_id=uid)
+    played = wins = cancelled = 0
+    by_role: dict[str, int] = {}
+    for row in totals:
+        n = int(row["n"])
+        if row["phase"] == "cancelled":
+            cancelled += n
+        elif row["phase"] == "finished" and row["role"]:
+            played += n
+            by_role[row["role"]] = by_role.get(row["role"], 0) + n
+            wins += n if row["winner"] and rules.faction(row["role"]) == row["winner"] else 0
+
+    def item(row: dict, *, finished: bool) -> dict:
+        won = bool(row["winner"] and row["role"] and rules.faction(row["role"]) == row["winner"]) if finished and row["role"] else None
+        return {"match_id": int(row["id"]), "chat_id": int(row["chat_id"]), "phase": row["phase"],
+                "winner": row["winner"], "finished_reason": row["finished_reason"], "won": won,
+                "role": row["role"], "started_at": row["started_at"], "finished_at": row["finished_at"]}
+
     return {
         "version": "mafia-v1-stats",
-        "stats": {"played": len(finished), "wins": wins, "active_or_cancelled": len(rows) - len(finished)},
-        "matches": [
-            {"match_id": int(row["id"]), "chat_id": int(row["chat_id"]), "phase": row["phase"],
-             "winner": row["winner"], "finished_reason": row["finished_reason"],
-             "role": row["role"], "started_at": row["started_at"], "finished_at": row["finished_at"]}
-            for row in rows
-        ],
+        "stats": {"played": played, "wins": wins, "cancelled": cancelled,
+                  "favorite_role": max(by_role, key=by_role.get) if by_role else None},
+        "live": [item(row, finished=False) for row in live],
+        "matches": [item(row, finished=True) for row in rows],
     }
 
 
