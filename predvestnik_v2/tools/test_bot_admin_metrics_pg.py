@@ -110,6 +110,16 @@ async def run():
                              "VALUES (?, ?, ?, ?, 0, ?, ?, ?)",
                              (op, uid, cur, delta, delta, reason, now_utc.replace(tzinfo=None) - timedelta(days=ago, minutes=1)))
 
+        # Разработчик (DEVELOPER_ID): его визит, сообщения, команда и выдача в метрики не входят, остальные цифры остаются прежними.
+        await db.execute("INSERT INTO site_analytics (user_id, tab, session_id, visited_at, duration_sec) VALUES (?, 'profile', 'sdev', ?, 900)",
+                         (DEV, now_utc - timedelta(minutes=1)))
+        await db.execute("INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (?, -100, ?, 77)", (DEV, today.isoformat()))
+        await dispatch(registry, FakeMessage("бот стрик", DEV, -100), FakeBot(), db)
+        await db.execute("INSERT INTO economic_operations (id, user_id, idempotency_key, request_fingerprint, reason_code, source_type) "
+                         "VALUES ('op-metrics-dev', ?, 'op-metrics-dev', 'x', 'quest_reward', 'test')", (DEV,))
+        await db.execute("INSERT INTO economic_ledger (operation_id, user_id, currency, delta, balance_before, balance_after, reason_code, created_at) "
+                         "VALUES ('op-metrics-dev', ?, 'mora', 5000, 0, 5000, 'quest_reward', ?)", (DEV, now_utc.replace(tzinfo=None) - timedelta(minutes=1)))
+
     client = Client(main.app)
     h = {uid: {"x-session-token": create_session_token(uid)} for uid in (HELPER, SENIOR)}
     assert (await client.get("/bot-admin/api/metrics", headers=h[HELPER])).status_code == 403
@@ -121,12 +131,14 @@ async def run():
         [("profile", "Профиль", 2, 2), ("arena", "Игры", 1, 1)], s["pages"]
     assert s["pages"][0]["avg_seconds"] == 68 and s["subpages"][0]["tab"] == "arena/rhythm", s
     assert (b["commands"], b["commands_group"], b["commands_private"], b["users"]) == (3, 2, 1, 2), b
-    assert {x["command"]: x["total"] for x in b["top"]} == {"стрик": 1, "топ": 1, "баланс": 1}, b["top"]
+    assert {x["command"]: x["total"] for x in b["top"]} == {"стрик": 2, "топ": 1, "баланс": 1}, b["top"]   # топ команд без разбивки по людям: команда разработчика в нём есть
+    assert b["top_includes_staff"] is True and m["excluded"] == 1, (b, m["excluded"])
     assert (c["messages"], c["users"], c["chats"]) == (40, 2, 1), c
-    assert m["everyone"] == 2 and m["players_total"] == 6 and m["chats_total"] == 1, m
+    assert m["everyone"] == 2 and m["players_total"] == 5 and m["chats_total"] == 1, m   # без разработчика
     assert m["compare"] == {"everyone": 0, "visitors": 0, "commands": 0, "bot_users": 0, "messages": 0, "chat_users": 0}, m["compare"]
     eco = m["economy"]
     assert eco["mora"]["issued"] == 800 and eco["mora"]["spent"] == 200 and eco["mora"]["net"] == 600, eco   # перевод и старая запись не в счёте
+    assert eco["_staff"] == {"mora": {"issued": 5000.0, "spent": 0.0}}, eco["_staff"]   # выдача на аккаунт разработчика отдельно, в общий счёт не входит
     assert eco["mora"]["transfers"] == 50 and eco["zarniki"]["issued"] == 20, eco
     assert eco["mora"]["sources"][0] == {"title": "Награды за квесты", "amount": 800.0}, eco["mora"]["sources"]
     assert eco["mora"]["sinks"] == [{"title": "Магазин", "amount": 200.0}], eco["mora"]["sinks"]
@@ -157,8 +169,8 @@ async def run():
     assert 'attachment; filename="metrics-7d.csv"' in res.headers["content-disposition"]
     body = res.content.decode("utf-8")
     assert body.startswith("\ufeff") and "Посетителей мини-приложения" in body, body[:120]
-    assert f"{today.isoformat()};2;" in body and "бот стрик;1;0;1" in body and "Основной чат;" in body, body
-    assert "mora;1799.0;200.0;1599.0" in body, body
+    assert f"{today.isoformat()};2;" in body and "бот стрик;2;0;2" in body and "Основной чат;" in body, body
+    assert "mora;1799.0;200.0;1599.0" in body and "mora (аккаунты команды);5000.0;0.0;5000.0" in body and "Без аккаунтов команды;1" in body, body
     assert "Воронка мини-приложения;Людей" in body and "Открыли приложение;3;100;" in body, body
 
 
