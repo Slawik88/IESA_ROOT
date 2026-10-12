@@ -319,6 +319,19 @@ async def season_standings(db, *, mode: str, starts_at, ends_at, limit: int | No
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def season_activity(db, *, mode: str, starts_at, ends_at) -> dict[int, dict]:
+    """Participation of every ranked player in one season window: clear runs and distinct UTC days."""
+    async with db.execute(
+        "SELECT user_id,COUNT(*) AS runs,COUNT(DISTINCT (finished_at AT TIME ZONE 'UTC')::date) AS days "
+        "FROM rhythm_v2_runs WHERE mode=? AND score>0 AND status='finished' AND integrity_status='clear' "
+        "AND finished_at>=(?::timestamp AT TIME ZONE 'UTC') AND finished_at<(?::timestamp AT TIME ZONE 'UTC') "
+        "GROUP BY user_id",
+        (str(mode), starts_at, ends_at),
+    ) as cursor:
+        return {int(row["user_id"]): {"runs": int(row["runs"]), "days": int(row["days"])}
+                for row in await cursor.fetchall()}
+
+
 async def leaderboard(db, *, user_id: int, mode: str, starts_at, ends_at) -> dict:
     top = await season_standings(db, mode=mode, starts_at=starts_at, ends_at=ends_at, limit=20)
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])
