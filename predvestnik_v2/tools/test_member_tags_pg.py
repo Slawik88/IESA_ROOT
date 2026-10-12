@@ -439,6 +439,8 @@ async def backfill_flow(db):
     from bot.chat.style import profile_link
     assert profile_link(77, None) == '<a href="tg://user?id=77">id77</a>'
     assert profile_link(77, "ник", "<b>x</b>") == '<a href="https://t.me/ник">@ник</a> [&lt;b&gt;x&lt;/b&gt;]'
+    assert profile_link(77, "ник", "Сайно|монтажёр", soft=True) == '<a href="https://t.me/ник">@ник</a> <i>Сайно / монтажёр</i>'
+    assert profile_link(77, "ник", "Нин Гуан/ст.адм", soft=True).endswith("<i>Нин Гуан / ст.адм</i>")
 
     # Бот без бота (личка / нет клиента) ничего не спрашивает и не падает
     assert await mt.many_fresh(None, db, chat, [3002]) == {3002: "Итто|Совлд."}
