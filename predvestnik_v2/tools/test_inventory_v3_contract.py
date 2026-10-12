@@ -30,6 +30,10 @@ assert "openInventory()" in home and "_v3Row('bag', 'Инвентарь'" in hom
 assert "inventory:openInventory" in links and "inv:openInventory" in links and "inventory:openLooksModal" not in links
 assert "openInventory()" in index, "help card"
 
+# Second way in: the bag button in the top bar leads to the same screen; the dock is not touched.
+bar = re.search(r'<header class="v3-bar".*?</header>', index, re.S).group(0)
+assert 'id="v3-bag"' in bar and 'onclick="openInventory()"' in bar and 'aria-label="Инвентарь"' in bar
+
 # Eight tabs in the dock: pets stand between chests and top and open the pets screen.
 nav = re.search(r'<nav class="nav".*?</nav>', index, re.S)
 assert nav and "--nav-n:8" in nav.group(0) and nav.group(0).count('class="nb') == 8
@@ -40,6 +44,7 @@ assert 'data-page="pets" onclick="openPetsV1()"' in nav.group(0)
 # The screen only reads: two GET requests, no writes, and a failed request does not hide the part that arrived.
 assert "api('/skins-v3/me')" in js and "api('/inventory-v1/me')" in js
 assert not re.search(r"method\s*:", js), "the inventory screen never writes"
+assert "invItem(" in js and "CM();${go[1]}" in js and "'openChestsV1()'" in js and "'openPetsV1()'" in js, "the item sheet only leads to the screen where the item is used"
 assert "_invSettle(" in js and "Повторить" in js
 assert "i.owned" in js and "i.exclusive" in js and "личный" in js, "personal looks are listed among the owned ones and named"
 assert "_lkMini(" in js and "openLooksModal()" in js, "the same tile as in the looks screen; a tile leads to where the look is worn and grown"

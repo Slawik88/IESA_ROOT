@@ -32,8 +32,18 @@ function _invSec(title, link) { return `<div class="v3-sec"><span class="v3-eyeb
 function _invFail(text, retry) {
   return `<div class="v3-empty" role="alert"><b>${_profileEsc(text)}</b><span>${_profileEsc(retry)}</span> <button type="button" class="v3-link" onclick="openInventory()">Повторить</button></div>`;
 }
-function _invRow(icon, name, hint, n) {
-  return `<li class="inv-item"><span class="inv-ic" aria-hidden="true">${icon}</span><span class="inv-nm"><b>${name}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="inv-n">${fmt(n)}</span></li>`;
+function _invRow(icon, name, hint, n, sheet) {
+  const inner = `<span class="inv-ic" aria-hidden="true">${icon}</span><span class="inv-nm"><b>${name}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="inv-n">${fmt(n)}</span>`;
+  return sheet ? `<li><button type="button" class="inv-item inv-item--tap" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-ic="${icon}">${inner}</button></li>` : `<li class="inv-item">${inner}</li>`;
+}
+// Лист предмета: только ключи, еда, карты и джокеры (образы и питомцы открываются сразу). Ничего не списывает: кнопка ведёт на экран, где предмет нужен.
+const _INV_SHEET = { keys: ['К сундукам', 'openChestsV1()'], food: ['К питомцам', 'openPetsV1()'], card: ['К питомцам', 'openPetsV1()'], joker: ['К питомцам', 'openPetsV1()'] };
+function invItem(kind, node) {
+  _haptic('select');
+  const go = _INV_SHEET[kind]; if (!go) return;
+  const d = node.dataset;
+  OM(`${d.ic} ${d.name}`, `<p class="v3-stat-line"><b>${fmt(Number(d.n))}</b> в запасе</p>${d.hint ? `<p class="inv-note">${_profileEsc(d.hint)}</p>` : ''}`,
+    [{ l: go[0], c: 'primary', f: `CM();${go[1]}` }, { l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
 }
 
 function _invLookTile(i) {
@@ -63,10 +73,10 @@ function _invPets(stock) {
 }
 function _invStuff(stock) {
   const group = (title, rows, note) => `<h3 class="inv-sub">${title}</h3>${note ? `<p class="inv-note">${note}</p>` : ''}<ul class="inv-list">${rows.join('')}</ul>`;
-  const parts = [group('Ключи', [_invRow('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys)])];
-  if (stock.foods.length) parts.push(group('Еда питомцев', stock.foods.map(f => _invRow(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity))));
-  if (stock.pet_cards.length) parts.push(group('Карты питомцев', stock.pet_cards.map(c => _invRow(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity))));
-  if (stock.jokers.length) parts.push(group('Джокеры', stock.jokers.map(j => _invRow('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, '', j.quantity)), 'Джокер заменяет карту любого питомца своей редкости.'));
+  const parts = [group('Ключи', [_invRow('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys, 'keys')])];
+  if (stock.foods.length) parts.push(group('Еда питомцев', stock.foods.map(f => _invRow(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))));
+  if (stock.pet_cards.length) parts.push(group('Карты питомцев', stock.pet_cards.map(c => _invRow(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity, 'card'))));
+  if (stock.jokers.length) parts.push(group('Джокеры', stock.jokers.map(j => _invRow('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker')), 'Джокер заменяет карту любого питомца своей редкости.'));
   return `<section class="inv-sec" id="inv-stuff">${_invSec('Ключи и предметы', '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')}${parts.join('')}</section>`;
 }
 function _invArchive(archive) {
@@ -77,11 +87,12 @@ function _invArchive(archive) {
 
 function _invChips(owned, stock, archive) {
   const chip = (id, n, label, extra) => `<button type="button" class="inv-chip" onclick="invJump('${id}')"><b>${fmt(n)}</b><span>${label}</span>${extra || ''}</button>`;
-  const list = [chip('looks', owned, _invWord(owned, 'образ', 'образа', 'образов'))];
+  const list = [];
   if (stock) {
     list.push(chip('pets', (stock.pets || []).length, _invWord((stock.pets || []).length, 'питомец', 'питомца', 'питомцев')));
-    list.push(chip('stuff', stock.keys, _invWord(stock.keys, 'ключ', 'ключа', 'ключей')));
+    list.unshift(chip('stuff', stock.keys, _invWord(stock.keys, 'ключ', 'ключа', 'ключей')));
   }
+  list.splice(stock ? 2 : 0, 0, chip('looks', owned, _invWord(owned, 'образ', 'образа', 'образов')));
   if (archive?.kinds) list.push(chip('archive', archive.kinds, 'в архиве'));
   return `<nav class="inv-chips" aria-label="Разделы инвентаря">${list.join('')}</nav>`;
 }
@@ -89,10 +100,12 @@ function _invChips(owned, stock, archive) {
 function _invRender() {
   const root = el('pg-inventory'); if (!root) return;
   const st = _inv.skins, stock = _inv.stock, owned = _invOwned(st).length;
-  const stockBlock = stock === undefined ? `<section class="inv-sec">${_invFail('Склад не загрузился', _inv.bad.stock)}</section>` : stock ? `${_invPets(stock)}${_invStuff(stock)}` : '';
+  // Сначала то, что можно применить (ключи, еда), потом коллекция: порядок по данным ответа, без клиентских расчётов
+  const stockFail = stock === undefined ? `<section class="inv-sec">${_invFail('Склад не загрузился', _inv.bad.stock)}</section>` : '';
+  const stockStuff = stock ? _invStuff(stock) : '', stockPets = stock ? _invPets(stock) : '';
   root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="switchPage('profile')" aria-label="Назад в профиль">‹ Профиль</button></div>
     <header class="v3-screen-head"><span class="v3-eyebrow">Всё ваше</span><h1 class="v3-title">Инвентарь${v3GlintMark('Инвентарь')}</h1><p class="v3-sub">Образы, питомцы, ключи и вещи в одном месте.</p></header>
-    ${_invChips(owned, stock, _inv.archive)}${_invLooks(st)}${_invMarks()}${stockBlock}${_invArchive(_inv.archive)}`;
+    ${_invChips(owned, stock, _inv.archive)}${stockStuff}${stockPets}${_invLooks(st)}${_invMarks()}${stockFail}${_invArchive(_inv.archive)}`;
   v3EnterSync(root);
 }
 
