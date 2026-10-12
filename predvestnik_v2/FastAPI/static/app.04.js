@@ -50,23 +50,52 @@ const _V3_GAMES = [
   {flag:'game_minesweeper_v2', name:'Сапёр', desc:'Открывай клетки и ставь флаги. В рейтинг попадают только победы.', hint:'Логика, победы попадают в топ', cta:'Играть', open:'openMinesweeperGame()'},
   {flag:'game_mafia_v1', name:'Мафия', desc:'Играется в групповом чате: напиши «бот мафия». Здесь история ваших партий.', hint:'Играется в чате, здесь ваши партии', cta:'Мои партии', open:'openMafiaStats()'}
 ];
+// Личный результат в строке игры: из таблицы сезона (`personal`). Только Ритм и Сапёр; у Мафии таблицы нет.
+const _V3_GAME_BOARDS={game_rhythm_v2:'/rhythm-v2/leaderboard/normal', game_minesweeper_v2:'/minesweeper-v2/leaderboard/normal'};
+let _hubSeq=0, _hubScore={}, _hubAt={};   // _hubAt: когда пришёл результат (таблица пересчитывает сезон на сервере, не дёргаем чаще раза в минуту)   // _hubScore[flag]: undefined = грузится, null = нет данных, {place,best_score} = есть
+function _hubLine(g){
+  if(!_V3_GAME_BOARDS[g.flag])return g.hint;
+  const r=_hubScore[g.flag];
+  if(r===undefined)return 'Загружаем результат…';
+  if(r===null)return 'Результат пока недоступен';
+  const pr=r.personal, tag=g.flag==='game_minesweeper_v2'?'Обычный · ':'';   // у Сапёра берётся одна сложность
+  if(!pr)return tag+'Ещё не играл';
+  const best=g.flag==='game_minesweeper_v2'?_hubTime(pr.best_elapsed_ms):fmt(pr.best_score);
+  return `${tag}Лучший ${best} · место #${Number(pr.place)}`;
+}
+function _hubTime(ms){ const t=Math.max(0,Math.round(Number(ms)/1000)||0); return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`; }
+function _hubRow(g,chev){
+  return `<button type="button" class="v3-game" data-game="${g.flag}" onclick="${g.open}"><span><b>${g.name}</b><small>${_hubLine(g)}</small></span><span class="v3-game-go">${g.cta}</span>${chev}</button>`;
+}
 function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
   const chev='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
   const open=_V3_GAMES.filter(g=>_sysFlags[g.flag]===true);
+  const mine=++_hubSeq;
   if(!open.length){
     host.innerHTML=`<div class="v3-eyebrow">Играть</div><section class="v3-lead" aria-label="Игры закрыты"><div class="v3-gname" style="font-size:34px">Игры временно недоступны${v3GlintMark('Игры временно недоступны')}</div>
       <p class="v3-gdesc">Прогресс не потеряется. Пока можно заняться питомцами и образами.</p>
       <button type="button" class="v3-pill" onclick="openPetsV1()">К питомцам</button></section>`;
     return;
   }
-  const [lead,...rest]=open;
-  host.innerHTML=`<div class="v3-eyebrow">Играть</div>
-    <section class="v3-lead" aria-label="${lead.name}"><div class="v3-gname">${lead.name}${v3GlintMark(lead.name)}</div>
-      <p class="v3-gdesc">${lead.desc}</p>
-      <button type="button" class="v3-pill" onclick="${lead.open}">${_v3Icon('play')}${lead.cta}</button></section>
-    ${rest.length?`<section class="v3-games" aria-label="Другие игры">${rest.map(g=>`<button type="button" class="v3-game" onclick="${g.open}"><span><b>${g.name}</b><small>${g.hint}</small></span>${chev}</button>`).join('')}</section>`:''}`;
-  if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
+  const draw=()=>{
+    host.innerHTML=`<div class="v3-eyebrow">Играть</div>
+      <section class="v3-games v3-games--hub" aria-label="Игры">${open.map(g=>_hubRow(g,chev)).join('')}</section>`;
+    if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
+  };
+  draw();
+  // Каждая игра грузится отдельно: сбой одной не трогает остальных, ответ устаревшей отрисовки отбрасывается.
+  open.filter(g=>_V3_GAME_BOARDS[g.flag]).forEach(g=>{
+    if(_hubScore[g.flag]&&Date.now()-(_hubAt[g.flag]||0)<60000)return;   // свежий ответ уже есть
+    if(!_hubScore[g.flag])_hubScore[g.flag]=undefined;   // прошлый результат остаётся на экране, пока идёт новый запрос
+    api(_V3_GAME_BOARDS[g.flag]).then(r=>({personal:r&&r.personal||null})).catch(()=>null).then(v=>{
+      if(mine!==_hubSeq)return;
+      if(v||_hubScore[g.flag]===undefined)_hubScore[g.flag]=v;
+      if(v)_hubAt[g.flag]=Date.now();
+      const small=host.querySelector(`.v3-game[data-game="${g.flag}"] small`);
+      if(small)small.textContent=_hubLine(g);
+    });
+  });
 }
 
 function loadArena(){ swArena('game'); }

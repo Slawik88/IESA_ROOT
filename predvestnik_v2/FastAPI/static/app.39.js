@@ -109,6 +109,15 @@ function _invRender() {
   v3EnterSync(root);
 }
 
+// Кнопка-рюкзак в верхней панели (она же прежний колокол): короткое меню из двух строк, точка «есть новое» остаётся на кнопке
+function openBarMenu() {
+  _haptic('select');
+  const row = (go, name, hint, icon) => `<button type="button" class="v3-row" onclick="CM();${go}">${icon}<span>${name}<small>${hint}</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>`;
+  const bag = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/></svg>';
+  const bell = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg>';
+  const fresh = document.querySelector('[data-wn-btn].has-new') ? ' · есть новое' : '';
+  OM('Меню', row('openInventory()', 'Инвентарь', 'Образы, питомцы, ключи и вещи', bag) + row('openWhatsNew()', 'Что нового', `Обновления Предвестника${fresh}`, bell), [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
+}
 // Рюкзак открывается с любого экрана: «‹» возвращает туда, откуда пришли, а без истории ведёт в профиль
 function invBack() { if (typeof _navStack !== 'undefined' && _navStack.length) navBack(); else switchPage('profile'); }
 function invJump(id) {

@@ -32,7 +32,9 @@ assert "openInventory()" in index, "help card"
 
 # Second way in: the bag button in the top bar leads to the same screen; the dock is not touched.
 bar = re.search(r'<header class="v3-bar".*?</header>', index, re.S).group(0)
-assert 'id="v3-bag"' in bar and 'onclick="openInventory()"' in bar and 'aria-label="Инвентарь"' in bar
+assert 'id="v3-bag"' in bar and 'onclick="openBarMenu()"' in bar and 'data-wn-btn' in bar and 'data-wn-dot' in bar, "one menu button replaces the bell and carries the news dot"
+assert len(re.findall(r'class="v3-bell[ "]', bar)) == 1, "the bell and the bag are one button"
+assert "function openBarMenu" in js and "CM();${go}" in js and "openInventory()" in js and "openWhatsNew()" in js
 
 # Eight tabs in the dock: pets stand between chests and top and open the pets screen.
 nav = re.search(r'<nav class="nav".*?</nav>', index, re.S)
