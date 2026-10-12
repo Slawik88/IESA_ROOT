@@ -141,8 +141,10 @@ async def run(dsn: str) -> None:
         try:
             later = s2_end + rules.SETTLEMENT_DELAY + timedelta(hours=1)
             both = {**boards, ("minesweeper", "easy"): minesweeper}
-            result = await game_seasons.settle_due(db, boards=both, now=later)
-            assert result["snapshots"] == 2 and result["paid"] == 12 and result["closed"] == 1, result
+            result = await game_seasons.settle_due(db, boards=both, now=later, max_payouts=7)   # a pass is capped
+            assert result == {"snapshots": 2, "paid": 7, "failed": 0, "closed": 0}, result
+            result = await game_seasons.settle_due(db, boards=both, now=later, max_payouts=7)
+            assert result == {"snapshots": 0, "paid": 5, "failed": 0, "closed": 1}, result
             async with db.execute("SELECT COUNT(*),COUNT(DISTINCT user_id) FROM game_season_payouts WHERE season=2") as cursor:
                 assert tuple(await cursor.fetchone()) == (12, 12)
             # PLAYERS[5] is 6th on rhythm (participation 40) but 1st on minesweeper (board of 2: participation 40).

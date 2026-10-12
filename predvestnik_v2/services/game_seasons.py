@@ -15,7 +15,7 @@ A finished season is settled in three resumable steps, driven by the scheduler
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Mapping
 
 from loguru import logger
@@ -30,6 +30,9 @@ from services import skins_v3 as skins_service
 Standings = Callable[[object, datetime, datetime], Awaitable[list[dict]]]
 BoardKey = tuple[str, str]
 PAY_BATCH = 200
+# One scheduler pass pays at most this many players, so a huge season never holds
+# the maintenance loop for long; the rest continue on the next pass.
+MAX_PAYOUTS_PER_PASS = 500
 
 
 def _dumps(value) -> str:
@@ -53,6 +56,8 @@ async def _snapshot_board(db, *, season: int, game: str, board: str, standings: 
     if await repo.is_settled(db, game=game, board=board, season=season):
         return False
     start, end = rules.season_bounds(season)
+    # The Rhythm standings first promote reviewed runs (idempotent writes); if that
+    # raises, nothing is frozen yet and the next pass retries the whole snapshot.
     ranked = qualified_places(await standings(db, start, end))
     size = len(ranked)
     async with db.connection.transaction():
@@ -90,13 +95,15 @@ async def _pay_one(db, *, season: int, row: dict) -> bool:
     return True
 
 
-async def _pay_season(db, *, season: int, batch: int = PAY_BATCH) -> tuple[int, int]:
+async def _pay_season(db, *, season: int, batch: int = PAY_BATCH,
+                      max_payouts: int = MAX_PAYOUTS_PER_PASS) -> tuple[int, int]:
     paid = failed = 0
     cursor_user = 0
-    while True:
-        rows = await repo.unpaid_batch(db, season=season, after_user_id=cursor_user, limit=batch)
+    while paid + failed < max_payouts:
+        rows = await repo.unpaid_batch(db, season=season, after_user_id=cursor_user,
+                                       limit=min(batch, max_payouts - paid - failed))
         if not rows:
-            return paid, failed
+            break
         for row in rows:
             cursor_user = int(row["user_id"])
             try:
@@ -107,10 +114,11 @@ async def _pay_season(db, *, season: int, batch: int = PAY_BATCH) -> tuple[int, 
                 failed += 1
                 logger.exception("Season {} payout failed for user {}; it is retried on the next pass",
                                  season, cursor_user)
+    return paid, failed
 
 
 async def settle_due(db, *, boards: Mapping[BoardKey, Standings], now: datetime | None = None,
-                     batch: int = PAY_BATCH) -> dict:
+                     batch: int = PAY_BATCH, max_payouts: int = MAX_PAYOUTS_PER_PASS) -> dict:
     """One resumable settlement pass over every finished, not yet closed season."""
     missing = [key for key in rules.PAYING_BOARDS if key not in boards]
     if missing:
@@ -124,13 +132,15 @@ async def settle_due(db, *, boards: Mapping[BoardKey, Standings], now: datetime 
         if await repo.is_closed(db, season=season):
             continue
         if not await repo.try_lock_season(db, season=season):
+            if now > rules.season_bounds(season)[1] + rules.SETTLEMENT_DELAY + timedelta(days=1):
+                logger.warning("Season {} is overdue and its settlement lock is held elsewhere", season)
             continue
         try:
             for game, board in rules.PAYING_BOARDS:
                 if await _snapshot_board(db, season=season, game=game, board=board,
                                          standings=boards[(game, board)]):
                     summary["snapshots"] += 1
-            paid, failed = await _pay_season(db, season=season, batch=batch)
+            paid, failed = await _pay_season(db, season=season, batch=batch, max_payouts=max_payouts)
             summary["paid"] += paid
             summary["failed"] += failed
             if not failed and await repo.unpaid_count(db, season=season) == 0:

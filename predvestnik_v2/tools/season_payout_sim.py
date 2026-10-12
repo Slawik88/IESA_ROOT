@@ -98,6 +98,13 @@ def main() -> None:
           "Minesweeper pays nothing")
     print("  The terms do not stop a farm: they halve the payout and make each account cost 5 clear runs "
           "spread over 3 days instead of one run.  A real account-age filter needs owner data (not in this PR).")
+    print("\nOperator with K accounts and no real players opens the podium of an empty board "
+          "(5 runs on 3 days per account):")
+    for k in (5, 10, 20, 50):
+        total = sum(rules.payout(place, board_size=k, runs=runs, days=days)[0] for place in range(1, k + 1))
+        print(f"  K={k:>3}: {total:>6} Mora ({total / k:.0f} per account); "
+              f"{'podium closed (needs >=10 qualified)' if k < 10 else 'podium open'}")
+    print("  BLOCKER for the first payout (2027-05-11): an account age / owner filter, see review.md note 1.")
 
 
 if __name__ == "__main__":
