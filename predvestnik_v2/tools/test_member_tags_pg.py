@@ -405,13 +405,15 @@ async def backfill_flow(db):
     for c in (chat, other):
         await db.execute("INSERT INTO chat_settings (chat_id, chat_title, bot_is_admin, bot_can_moderate) VALUES (?, ?, TRUE, TRUE) "
                          "ON CONFLICT (chat_id) DO UPDATE SET bot_is_admin = TRUE, bot_left_at = NULL", (c, f"Чат {c}"))
+    from bot.chat.tracking import local_now
+    day = local_now().date().isoformat()   # сутки бота идут по его часовому поясу, а не по UTC базы: иначе вечером тест видит «пустой» день
     users = {3001: "diegoyuuki", 3002: "kovid", 3003: "tarta", 3004: "lini", 3005: "quiet"}
     for i, (uid, name) in enumerate(users.items()):   # как в проде: строки есть (люди писали раньше), тег бот не знает
         await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING", (uid, name))
         await db.execute("INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, last_message_at) VALUES (?, ?, NOW() - (? || ' hours')::interval) "
                          "ON CONFLICT DO NOTHING", (uid, chat, str(i)))
-        await db.execute("INSERT INTO daily_user_stats (date, chat_id, user_id, message_count) VALUES (CURRENT_DATE, ?, ?, ?) "
-                         "ON CONFLICT DO NOTHING", (chat, uid, 100 - i))
+        await db.execute("INSERT INTO daily_user_stats (date, chat_id, user_id, message_count) VALUES (?, ?, ?, ?) "
+                         "ON CONFLICT DO NOTHING", (day, chat, uid, 100 - i))
     await db.commit()
     for u in users:
         assert await checked(db, u, chat) == (None, False)

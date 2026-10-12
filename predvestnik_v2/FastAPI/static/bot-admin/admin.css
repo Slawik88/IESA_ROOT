@@ -251,6 +251,7 @@ h4 { margin: 12px 0 4px; font-size: 13px; font-weight: 600; color: var(--muted);
 .bulkbar { position: sticky; top: 8px; z-index: 4; margin-bottom: 10px; border-color: var(--accent); }
 .row.picked { background: color-mix(in srgb, var(--accent) 12%, transparent); margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 10px; }
 .pick { width: 18px; min-height: 18px; height: 18px; padding: 0; vertical-align: -3px; accent-color: var(--accent); }
+.card.picked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--card, transparent)); }
 
 /* Значок с числом на вкладке дока (новые жалобы). */
 .nb { position: relative; }
