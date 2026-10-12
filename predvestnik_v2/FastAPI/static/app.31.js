@@ -98,7 +98,7 @@ function v3EnterSync(root) {
   clock.style.setProperty('--enter-skip', `${Math.round(now - at)}ms`);
 }
 function v3EnterReset(page) {
-  const playerPages = ['pg-profile', 'pg-arena', 'pg-questlog', 'pg-achievements-v1', 'pg-help', 'pg-news', 'pg-top', 'pg-looks', 'pg-store', 'pg-settings', 'pg-pets', 'pg-chests', 'pg-public-profile', 'pg-chat-tracker', 'pg-exchange-v1', 'pg-more'];
+  const playerPages = ['pg-profile', 'pg-arena', 'pg-questlog', 'pg-achievements-v1', 'pg-help', 'pg-news', 'pg-top', 'pg-looks', 'pg-store', 'pg-settings', 'pg-pets', 'pg-chests', 'pg-inventory', 'pg-public-profile', 'pg-chat-tracker', 'pg-exchange-v1', 'pg-more'];
   if (!page || !playerPages.includes(page.id)) return;
   const roots = { 'pg-profile': '#pro-main', 'pg-arena': '#game-hub', 'pg-looks': '.lk-scope', 'pg-store': '.sv-scope', 'pg-exchange-v1': '.px-shell' };
   const target = (roots[page.id] ? page.querySelector(roots[page.id]) : null) || page;

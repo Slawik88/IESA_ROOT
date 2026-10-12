@@ -15,6 +15,7 @@ SCREENS = [
     ("settings", "openSettingsModal()"),
     ("chests", "openChestsV1()"),
     ("pets", "openPetsV1()"),
+    ("inventory", "openInventory()"),
     ("achievements", "openAchievementsV1()"),
     ("help", "switchPage('help')"),
     ("store-zarniki", "openStoreV3('zarniki')"),
@@ -40,7 +41,7 @@ SCREENS = [
 PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
-DOCK_TABS = ("arena", "looks", "questlog", "chests", "top", "more", "profile")
+DOCK_TABS = ("arena", "looks", "questlog", "chests", "pets", "top", "more", "profile")
 
 # Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [

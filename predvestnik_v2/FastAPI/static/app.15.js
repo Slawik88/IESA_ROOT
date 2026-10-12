@@ -17,7 +17,8 @@ const _V3_PATHS = {
   chev: '<path d="M9 6l6 6-6 6"/>',
   ticket: '<path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5V10a2 2 0 0 0 0 4v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5V14a2 2 0 0 0 0-4zM14 7v10"/>',
   manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
-  essence: '<path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/>'
+  essence: '<path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/>',
+  bag: '<path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/>'
 };
 function _v3Icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${_V3_PATHS[name] || ''}</svg>`;
@@ -70,6 +71,7 @@ function renderProfileHome(data) {
     ${_v3TopShell()}
     <nav class="v3-list" aria-label="Разделы профиля">
       ${_v3Row('hanger', 'Образы', 'openLooksModal()', d.essence ? `Скины и сеты · Эссенция ${fmt(d.essence)}` : 'Скины, прокачка тиров и сеты')}
+      ${_v3Row('bag', 'Инвентарь', 'openInventory()', 'Образы, питомцы, ключи и вещи')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
       ${_v3Row('flag', 'Квесты', 'openQuestsV1()')}
       ${chests}

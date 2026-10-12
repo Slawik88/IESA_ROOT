@@ -190,7 +190,7 @@ function _handleStartParam(){
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
   const LINKS={
     quests:openQuestsV1, achievements:openAchievementsV1, achievement:openAchievementsV1, pets:openPetsV1, zoo:openPetsV1,
-    looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openLooksModal, inv:openLooksModal,
+    looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openInventory, inv:openInventory,
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
     exchange:openPlayerExchangeV1, exch:openPlayerExchangeV1, crypto:openPlayerExchangeV1, birzha:openPlayerExchangeV1,
     notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew,

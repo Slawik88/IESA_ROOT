@@ -43,7 +43,7 @@ assert "overscroll-behavior: none" in css and "touch-action: manipulation" in cs
 assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
-assert index.count('type="button" class="nb') == 7
+assert index.count('type="button" class="nb') == 8
 assert 'role="status"' in index and "dev-notice" in index
 assert 'id="app-update-banner"' in index and "applyAppUpdate()" in index
 assert "event?.type === 'app_version'" in app and "event?.type === 'data_changed'" in app

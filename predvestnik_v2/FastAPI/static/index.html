@@ -46,6 +46,7 @@
 <link rel="stylesheet" href="{{BASE}}/static/toast-gift-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/quests-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/marks-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/inventory-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/store-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/motion-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/confirm-v3.css?v={{ASSET_VER}}"/>
@@ -133,8 +134,9 @@
   <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — главное видно сразу, подробности можно раскрыть.</p></div></section>
   <div class="help-grid">
     <details class="help-card" open><summary><span>🎮</span><div><b>Игры</b><small>Ритм, Сапёр и Мафия</small></div><i>⌄</i></summary><p><b>Ритм</b> проверяет реакцию, <b>Сапёр</b> — логику, а <b>Мафия</b> проходит прямо в чате. Откройте вкладку «Игры», выберите режим и нажмите основную кнопку.</p><button type="button" onclick="goTo('arena','game')">Открыть игры</button></details>
-    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Ниже идут квесты на сегодня и разделы: образы, питомцы, достижения. «Мои чаты» находятся во вкладке «Ещё».</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
+    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Ниже идут квесты на сегодня и разделы: образы, питомцы, инвентарь, достижения. «Мои чаты» находятся во вкладке «Ещё».</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
     <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
+    <details class="help-card"><summary><span>🎒</span><div><b>Инвентарь</b><small>Всё, что у вас есть</small></div><i>⌄</i></summary><p>Образы (в том числе личные), регалии, питомцы, ключи, еда, карты, джокеры и вещи прежней игры лежат на одном экране. Он только показывает: надеть, купить или покормить можно на своих экранах, нажмите на плитку.</p><button type="button" onclick="openInventory()">Открыть инвентарь</button></details>
     <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «Зарники» на главном экране профиля или откройте «Кошелёк». Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
   </div>
 </div>
@@ -148,6 +150,7 @@
 <div id="pg-settings" class="page"></div>
 <div id="pg-pets" class="page"></div>
 <div id="pg-chests" class="page"></div>
+<div id="pg-inventory" class="page"></div>
 <div id="pg-public-profile" class="page"></div>
 <div id="pg-chat-tracker" class="page"></div>
 <div id="pg-exchange-v1" class="page"></div>
@@ -159,6 +162,7 @@
     <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
   </section>
   <section class="v3-group"><span class="v3-eyebrow">Аккаунт</span>
+    <button type="button" class="v3-row" onclick="openInventory()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/></svg><span>Инвентарь<small>Образы, питомцы, ключи и вещи</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openPromoSheet()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7h13A1.5 1.5 0 0 1 20 8.5V10a2 2 0 0 0 0 4v1.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 15.5V14a2 2 0 0 0 0-4zM14 7v10"/></svg><span>Промокод<small>Ввести код — награда придёт сразу</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openSettingsModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg><span>Настройки<small>Вид, уведомления и аккаунт</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="openChatTracker()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18l-2 3v-5.5A8 8 0 1 1 6 19z"/></svg><span>Мои чаты<small>Где вы играете: активность и история</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
@@ -177,12 +181,13 @@
 
 <!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
-<nav class="nav" aria-label="Основные разделы" style="--nav-n:7;--nav-i:0">
+<nav class="nav" aria-label="Основные разделы" style="--nav-n:8;--nav-i:0">
   <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль</span></button>
   <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры</span></button>
   <button type="button" class="nb" data-page="looks" onclick="openLooksModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4h11.6L21 9l-9 11L3 9z"/><path d="M3 9h18M9.2 4 12 9l2.8-5M12 9v11"/></svg><span>Образы</span></button>
   <button type="button" class="nb" data-page="questlog" onclick="openQuestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 6.5 1.6 1.6L9 5M4.5 12.5l1.6 1.6L9 11M4.5 18.5l1.6 1.6L9 17M13 7h6.5M13 13h6.5M13 19h6.5"/></svg><span>Задания</span></button>
   <button type="button" class="nb" data-page="chests" onclick="openChestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3M4 11h16v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 14h16"/><path d="M12 12.5v3"/></svg><span>Сундуки</span></button>
+  <button type="button" class="nb" data-page="pets" onclick="openPetsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="11" r="1.7"/><circle cx="10" cy="6.5" r="1.7"/><circle cx="14" cy="6.5" r="1.7"/><circle cx="17.5" cy="11" r="1.7"/><path d="M12 12.5c-3 0-5 2.7-4 4.6.8 1.5 2.4 1.2 4 1.2s3.2.3 4-1.2c1-1.9-1-4.6-4-4.6z"/></svg><span>Питомцы</span></button>
   <button type="button" class="nb" data-page="top" onclick="openTopV3()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/></svg><span>Топ</span></button>
   <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>
