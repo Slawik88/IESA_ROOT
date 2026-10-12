@@ -179,9 +179,10 @@ _runPreloader();
 // ?startapp=<section>; lightweight chat surfaces remain in chat and do not
 // need a web hop. The start parameter only selects the complex destination.
 function _handleStartParam(){
-  let p=''; try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){}
-  // Обычная HTTPS-ссылка ?startapp=<раздел> не несёт нативный start_param: раздел лежит в query страницы.
-  if(!p){ try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){} }
+  // ?startapp=<раздел> в адресе страницы главнее нативного start_param: это переход внутри приложения (например «‹» из игры),
+  // а нативный параметр остаётся от первого запуска и перебил бы его.
+  let p=''; try{ p=new URLSearchParams(location.search).get('startapp')||''; }catch(e){}
+  if(!p){ try{ p=String((tg&&tg.initDataUnsafe&&tg.initDataUnsafe.start_param)||''); }catch(e){} }
   if(!p) return;
   const base=p.split('_')[0];
   if(base==='admin'){ openBotAdmin(); return; }   // ссылка «🛠 Открыть админку» из чата: сразу в админку, без показа приложения
