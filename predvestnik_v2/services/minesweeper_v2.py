@@ -8,10 +8,11 @@ from uuid import uuid4
 from asyncpg.exceptions import UniqueViolationError
 
 from core import minesweeper_v2 as rules
+from core import season_pass as season_pass_rules
 from core import seasons as season_rules
 from infrastructure.repositories import minesweeper_v2 as repo
 from services import achievements_v1 as achievements
-from services import game_seasons
+from services import game_seasons, season_pass
 from services import quests_v1 as quests
 
 
@@ -26,6 +27,8 @@ class MinesweeperConflict(MinesweeperError):
 async def _record_completed_quest(db, *, user_id: int, run_id: str, difficulty: str, won: bool) -> None:
     """One terminal run advances clear quests and long-horizon achievements."""
     event_id = f"minesweeper:{run_id}"
+    if season_pass_rules.minesweeper_qualifies(won=won):
+        await season_pass.record_game(db, user_id=user_id, source="minesweeper", event_id=event_id)
     sources = await quests.available_sources(db, user_id=user_id)
     for metric in ("game_completed", "minesweeper_completed"):
         await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
