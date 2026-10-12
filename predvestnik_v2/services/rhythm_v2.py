@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import copy
 import hashlib
 import secrets
 from uuid import uuid4
@@ -174,7 +175,7 @@ def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
         if opened is None:
             return
         window = rules.window_ms(state["next_signal_no"], state["perks"])
-        deadline = opened + timedelta(milliseconds=window)
+        deadline = opened + timedelta(milliseconds=window + rules.TAP_GRACE_MS)
         if now <= deadline:
             return
         # Preserve the real schedule rather than resetting it to reconnect time.
@@ -396,9 +397,9 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             raise RhythmConflict("the next signal has not opened yet")
         elapsed_ms = max(0, int((now - state["signal_opened_at"]).total_seconds() * 1000))
         window = rules.window_ms(signal_no, state["perks"])
-        correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window
+        correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window + rules.TAP_GRACE_MS
         if correct:
-            state["score"] += rules.score_for_correct(elapsed_ms=elapsed_ms, allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
+            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
             state["combo"] += 1
             state["correct_streak"] += 1
             state["health"], state["perks"] = rules.after_correct(
@@ -434,6 +435,7 @@ async def current_run(db, *, user_id: int, run_id: str) -> dict:
             raise RhythmConflict("Rhythm run was not found")
         state, now = _state(row), row["server_now"]
         if state["status"] == "active":
+            before = dict(state, selected=list(state["selected"]), perks=copy.deepcopy(state["perks"]))
             _advance_expired(row, state, now=now)
             if state["status"] == "finished":
                 await repo.update_run(db, run_id=run_id, state=state)
@@ -442,7 +444,8 @@ async def current_run(db, *, user_id: int, run_id: str) -> dict:
                     integrity_status="review_required", integrity_reason="server_timed_transport_pending_review",
                     integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"]},
                 )
-            await repo.update_run(db, run_id=run_id, state=state)
+            if state != before:  # an idle tick must not lock-write the row under the player's next tap
+                await repo.update_run(db, run_id=run_id, state=state)
         return _view(row, state, now=now)
 
 
@@ -521,6 +524,7 @@ async def transport_state(db, *, user_id: int, run_id: str, lease: str) -> dict:
             raise RhythmConflict("Rhythm live connection is no longer valid")
         state, now = _state(row), row["server_now"]
         if state["status"] == "active":
+            before = dict(state, selected=list(state["selected"]), perks=copy.deepcopy(state["perks"]))
             _advance_expired(row, state, now=now)
             if state["status"] == "finished":
                 await repo.update_run(db, run_id=run_id, state=state)
@@ -529,7 +533,8 @@ async def transport_state(db, *, user_id: int, run_id: str, lease: str) -> dict:
                     integrity_status="clear", integrity_reason="server_timed_transport",
                     integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"], "transport_authenticated": True},
                 )
-            await repo.update_run(db, run_id=run_id, state=state)
+            if state != before:  # an idle tick must not lock-write the row under the player's next tap
+                await repo.update_run(db, run_id=run_id, state=state)
         return _view(row, state, now=now)
 
 
