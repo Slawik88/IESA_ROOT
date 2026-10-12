@@ -400,7 +400,9 @@ _RHYTHM_V2_HTML = (
     # The Mini App is mounted under /predvestnik in the local and tunnelled
     # environments.  A literal href="/" leaves that mount and reaches a
     # non-existent host root, which is the source of the visible 404 on ‹.
+    # The same holds for the link back to the games hub.
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
     .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
@@ -411,6 +413,7 @@ _MINESWEEPER_V2_HTML = (
     _read_static("minesweeper-v2.html")
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
     .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
