@@ -9,6 +9,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Final
 
+from core import account_age
+
 SEASON_MONTHS: Final = 7
 # Season 1 opens here (UTC).  Day 11 exists in every month, so month
 # arithmetic below never has to clamp a day.
@@ -90,6 +92,7 @@ def current_season(now: datetime | None = None) -> dict:
 def terms() -> dict:
     """Public payout terms shown next to the reward table of a paying board."""
     return {"min_runs": MIN_PARTICIPATION_RUNS, "min_days": MIN_PARTICIPATION_DAYS,
+            "min_account_days": account_age.MIN_ACCOUNT_AGE.days,
             "podium_min_players": {str(k): v for k, v in sorted(PODIUM_MIN_PLAYERS.items())}}
 
 

@@ -211,7 +211,7 @@ async def promote_authenticated_transport_reviews(db) -> list[dict]:
         "AND r.integrity_reason='server_timed_transport_pending_review' "
         "AND EXISTS (SELECT 1 FROM rhythm_v2_transport_tickets t "
         "WHERE t.run_id=r.run_id AND t.user_id=r.user_id AND t.consumed_at IS NOT NULL) "
-        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json"
+        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json,r.correct_taps,r.finished_at"
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 

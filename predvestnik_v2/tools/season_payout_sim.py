@@ -97,14 +97,17 @@ def main() -> None:
     print(f"  new: {runs} clear Rhythm runs on {days} different days -> {mora} Mora + {essence} Essence per account; "
           "Minesweeper pays nothing")
     print("  The terms do not stop a farm: they halve the payout and make each account cost 5 clear runs "
-          "spread over 3 days instead of one run.  A real account-age filter needs owner data (not in this PR).")
+          "spread over 3 days instead of one run.  The account-age filter (14 days in the bot) is applied in the snapshot.")
     print("\nOperator with K accounts and no real players opens the podium of an empty board "
           "(5 runs on 3 days per account):")
     for k in (5, 10, 20, 50):
         total = sum(rules.payout(place, board_size=k, runs=runs, days=days)[0] for place in range(1, k + 1))
         print(f"  K={k:>3}: {total:>6} Mora ({total / k:.0f} per account); "
               f"{'podium closed (needs >=10 qualified)' if k < 10 else 'podium open'}")
-    print("  BLOCKER for the first payout (2027-05-11): an account age / owner filter, see review.md note 1.")
+    print("  With the 14-day filter accounts created less than 14 days before the season end are left out: they take no "
+          "place and do not count towards the podium thresholds.")
+    print("  Residual: a farm of K accounts older than 14 days still earns the numbers above; "
+          "that is a cost of waiting, not a hole. Watch operator-level overlaps before the first payout.")
 
 
 if __name__ == "__main__":
