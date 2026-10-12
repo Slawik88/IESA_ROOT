@@ -11,7 +11,9 @@ import re
 from core.chests_v1 import FOODS, JOKER_RARITIES, PET_SPECIES
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import chests_v1 as chests_repo
+from core.pets_v2 import TALISMAN_NAMES
 from infrastructure.repositories import pets_v1 as pets_repo
+from infrastructure.repositories import pets_v2 as pets_v2_repo
 from infrastructure.repositories.economy import get_inventory
 from services.inventory_resolve import resolve_item_id
 
@@ -68,7 +70,7 @@ async def archive(db, user_id: int) -> dict:
 
 
 async def stock(db, user_id: int) -> dict:
-    """What chests gave and what is in use now: keys, pet food, pet cards, jokers, pets found. Read-only: it never settles a pet run or touches endurance."""
+    """What chests gave and what is in use now: keys, pet food, pet cards, jokers, talismans, pets found. Read-only: it never settles a pet run or touches endurance."""
     kept = await chests_repo.inventory_summary(db, user_id=int(user_id))
     foods = [{"id": food_id, "name": FOODS[food_id]["name"], "icon": FOODS[food_id]["icon"], "restore": int(FOODS[food_id]["restore"]), "quantity": int(kept["foods"][food_id])}
              for food_id in FOODS if int(kept["foods"].get(food_id, 0)) > 0]
@@ -80,7 +82,9 @@ async def stock(db, user_id: int) -> dict:
     pets = [{"id": int(pet["id"]), "name": pet.get("name") or "Питомец", "species_id": pet.get("species_id"), "rarity": pet.get("rarity"),
              "icon": (PET_SPECIES.get(str(pet.get("species_id") or "")) or {}).get("icon", "🐾"), "level": int(pet["level"] if pet["level"] is not None else 1), "active": int(pet["id"]) == active}
             for pet in await pets_repo.list_owned_pets(db, int(user_id))]
-    return {"keys": await chests_repo.get_balance(db, int(user_id)), "foods": foods, "pet_cards": cards, "jokers": jokers, "pets": pets, "species_total": len(PET_SPECIES)}
+    talismans = [{"id": item["id"], "kind": item["kind"], "name": TALISMAN_NAMES.get(item["kind"], "Талисман"), "tier": int(item["tier"]), "pet_id": int(item["pet_id"]) if item["pet_id"] else None}
+                 for item in await pets_v2_repo.list_talismans(db, int(user_id))]   # items of the trail: worn ones name their pet
+    return {"keys": await chests_repo.get_balance(db, int(user_id)), "foods": foods, "pet_cards": cards, "jokers": jokers, "pets": pets, "talismans": talismans, "species_total": len(PET_SPECIES)}
 
 
 async def overview(db, user_id: int, *, chests: bool) -> dict:

@@ -19,6 +19,7 @@ from core.registry import ITEMS_REGISTRY  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import chests_v1 as chests_repo  # noqa: E402
 from infrastructure.repositories import pets_v1 as pets_repo  # noqa: E402
+from infrastructure.repositories import pets_v2 as pets_v2_repo  # noqa: E402
 from services import inventory_v1 as inventory  # noqa: E402
 
 
@@ -40,6 +41,7 @@ async def run(dsn: str) -> None:
     db = PGAdapter(connection)
     await chests_repo.ensure_tables(db)
     await pets_repo.ensure_tables(db)
+    await pets_v2_repo.ensure_tables(db)
     outer = connection.transaction()
     await outer.start()
     try:
@@ -82,6 +84,10 @@ async def run(dsn: str) -> None:
         assert stock["pet_cards"][0]["name"] and stock["pet_cards"][0]["icon"] and stock["pet_cards"][0]["rarity"], stock["pet_cards"]
         assert stock["jokers"] == [{"rarity": "common", "quantity": 4}, {"rarity": "rare", "quantity": 2}], stock["jokers"]
         assert stock["pets"] == [], stock["pets"]
+        assert stock["talismans"] == [], stock["talismans"]
+        await db.execute("INSERT INTO pet_v2_talismans(id,user_id,kind,tier) VALUES (?,?,?,?)", ("t-inv-1", player, "forest_fang", 2))
+        worn = (await inventory.stock(db, player))["talismans"]
+        assert worn == [{"id": "t-inv-1", "kind": "forest_fang", "name": "Клык леса", "tier": 2, "pet_id": None}], worn
 
         # a player who keeps every kind of old item: all of them are listed and none sends to the «Зоопарк» that is gone
         for item_id in ITEMS_REGISTRY:
@@ -98,7 +104,7 @@ async def run(dsn: str) -> None:
         # a newcomer has an empty but well-formed view, and viewing never writes
         empty = await inventory.overview(db, newcomer, chests=True)
         assert empty["archive"] == {"groups": [], "kinds": 0, "pieces": 0}, empty
-        assert empty["stock"] == {"keys": 0, "foods": [], "pet_cards": [], "jokers": [], "pets": [], "species_total": 12}, empty["stock"]
+        assert empty["stock"] == {"keys": 0, "foods": [], "pet_cards": [], "jokers": [], "pets": [], "talismans": [], "species_total": 12}, empty["stock"]
         assert await count(db, player) == before and await count(db, newcomer) == 0, "reading the inventory changes nothing"
         assert inventory.split_icon("⚡️ Энергетик") == ("⚡️", "Энергетик") and inventory.split_icon("Без значка") == ("", "Без значка")
         print("OK: inventory v1 groups, names, notes, lost items, live stock, chest switch, read-only")

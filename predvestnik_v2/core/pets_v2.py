@@ -440,6 +440,7 @@ TALISMANS: Final = {  # вид: (маршрут плюса, маршрут ми�
     "forest_fang": ("forest", "swamp"), "pass_stone": ("pass", "ruins"),
     "ruin_lens": ("ruins", "pass"), "swamp_lamp": ("swamp", "forest"),
 }
+TALISMAN_NAMES: Final = {"forest_fang": "Клык леса", "pass_stone": "Камень перевала", "ruin_lens": "Линза руин", "swamp_lamp": "Болотный фонарь"}
 TALISMAN_PLUS: Final = {1: 0.10, 2: 0.15, 3: 0.20}
 TALISMAN_MINUS: Final = 0.10
 TALISMAN_SET_BONUS: Final = 0.05
