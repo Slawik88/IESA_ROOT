@@ -2,11 +2,13 @@
    Правила те же, что в части 1: деталь открывается на потолке скина, движение только под .ap-anim. */
 
 /* ── Артефакт: шестигранный HUD, три дрона с лучами сканера и срыв сигнала ── */
-.ap-sig-artifact .sg-hex { inset: -14%; width: 128%; height: 128%; overflow: visible; fill: none; stroke: var(--ap-a); stroke-width: 1.3; filter: drop-shadow(0 0 3px var(--ap-a)); opacity: .9; }
-.ap-sig-artifact .sg-hex-in { stroke: var(--ap-c); stroke-dasharray: 6 5; opacity: .8; transform-origin: 50% 50%; }
+.ap-sig-artifact .sg-hex { inset: -14%; width: 128%; height: 128%; overflow: visible; fill: none; stroke: var(--ap-a); stroke-width: 1.3; }
+.ap-sig-artifact .sg-hex polygon { filter: drop-shadow(0 0 3px var(--ap-a)); }   /* свечение на самих шестигранниках, не на корне svg: фильтр на корне оборачивал вращающийся внутренний шестигранник, и слой с размытием пересчитывался каждый кадр */
+.ap-sig-artifact .sg-hex polygon:first-child { opacity: .9; }
+.ap-sig-artifact .sg-hex polygon.sg-hex-in { stroke: var(--ap-c); stroke-dasharray: 6 5; opacity: .72; transform-origin: 50% 50%; }   /* .72 = прежние .9 корня × .8 внутреннего */
 .ap-sig-artifact .sg-drone { left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; background: var(--ap-c); box-shadow: 0 0 8px var(--ap-a); --r: 56px; transform: rotate(var(--o)) translateY(calc(var(--r) * -1)); }
 .ap-sig-artifact .sg-drone::after { content: ""; position: absolute; left: 2px; top: 100%; width: 1px; height: 17px; background: linear-gradient(var(--ap-a), transparent); }
-.ap-sig-artifact .sg-tear { left: -10%; right: -10%; top: 34%; height: 5px; mix-blend-mode: screen; opacity: 0; background: linear-gradient(90deg, transparent, var(--ap-c) 30%, var(--ap-a) 70%, transparent); }
+.ap-sig-artifact .sg-tear { left: -10%; right: -10%; top: 34%; height: 5px; opacity: 0; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ap-c) 60%, #fff) 30%, color-mix(in srgb, var(--ap-a) 60%, #fff) 70%, transparent); }   /* без mix-blend-mode (он стоил двух проходов отрисовки за кадр): белее цвета полосы дают тот же накал, что давал screen на тёмном фоне */
 @keyframes sgtear { 0%, 91%, 100% { opacity: 0; transform: translateY(0); } 92% { opacity: .9; transform: translateY(-6px) skewX(24deg); } 94% { opacity: .7; transform: translateY(14px) skewX(-18deg); } 96% { opacity: .85; transform: translateY(4px); } }
 .ap-anim .ap-sig-artifact .sg-hex { animation: apturn 60s linear infinite; }
 .ap-anim .ap-sig-artifact .sg-hex-in { animation: apturn-r 18s linear infinite; }

@@ -22,7 +22,7 @@ function toast(msg, ok = true, opts) {
   t.setAttribute('role', kind === 'err' ? 'alert' : 'status');
   const ms = Math.min(6500, 2400 + text.length * 35);
   t.style.setProperty('--tv-ms', `${ms}ms`);
-  t.innerHTML = `<span class="tv-ic" aria-hidden="true">${_profileEsc(glyph)}</span><span class="tv-body">${o.title ? `<b class="tv-title">${_profileEsc(o.title)}</b>` : ''}<span class="tv-tx">${_profileEsc(text)}</span></span><i class="tv-time" aria-hidden="true"></i>`;
+  t.innerHTML = `<span class="tv-ic" aria-hidden="true">${_profileEsc(glyph)}</span><span class="tv-body">${o.title ? `<b class="tv-title">${_profileEsc(o.title)}</b>` : ''}<span class="tv-tx">${_profileEsc(text)}</span></span><i class="tv-time" aria-hidden="true"></i>${ap && ap.k.frame === 'dash' ? '<i class="tv-dash" aria-hidden="true"></i>' : ''}`;   // пунктир рамки: дочерний элемент, а не outline (outline каждый кадр перерисовывается в главном потоке)
   t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
   clearTimeout(t._tid); t._tid = setTimeout(() => t.classList.remove('show'), ms);
 }
@@ -66,7 +66,7 @@ function v3GiftToast(payloads, onDone) {
   host.innerHTML = `<i class="tg-sheen" aria-hidden="true"></i><div class="tg-burst" aria-hidden="true">${burst}</div>
     <header class="tg-head"><span class="tg-ic" aria-hidden="true"><u></u>${_profileEsc(head.glyph || '🎁')}</span><span class="tg-hd"><small>${_profileEsc(head.title || 'Подарок')}</small><b>${_profileEsc(head.from || 'От Администрации')}</b></span></header>
     <ul class="tg-rows">${rows}</ul>${reasons.length ? `<p class="tg-why"><small>Причина</small>${reasons.map(_profileEsc).join(' · ')}</p>` : ''}
-    <div class="tg-act">${skin ? '<button type="button" class="tg-see">Смотреть образ</button>' : ''}<button type="button" class="tg-take">Забрать</button></div><i class="tg-time" aria-hidden="true"></i>`;
+    <div class="tg-act">${skin ? '<button type="button" class="tg-see">Смотреть образ</button>' : ''}<button type="button" class="tg-take">Забрать</button></div><i class="tg-time" aria-hidden="true"></i>${ap && ap.k.frame === 'dash' ? '<i class="tv-dash" aria-hidden="true"></i>' : ''}`;
   const dlg = el('modal'); (dlg && dlg.open ? dlg : document.body).appendChild(host);
   let left = ms, since = Date.now();
   const arm = () => { since = Date.now(); clearTimeout(_tgTimer); _tgTimer = setTimeout(() => v3GiftClose(), left); host.classList.remove('is-held'); };

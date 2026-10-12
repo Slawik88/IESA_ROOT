@@ -6,10 +6,12 @@
 body { --v3-fx-a: var(--v3-acc); --v3-fx-b: var(--v3-vip, var(--v3-acc)); --v3-dur: .28s; }
 .v3-paused *, .v3-paused *::before, .v3-paused *::after { animation-play-state: paused !important; }
 
-/* Слой эффектов: создаётся JS, лежит под контентом. Свет страницы (дыхание B, два пятна наклона SS, две ленты SSS) и зерно (A) рисует не CSS, а app.18.js на двух крошечных canvas:
-   пять слоёв на весь экран держали шесть экранов текстур, а в браузере телефона это мигание, пропадающие элементы и кадры до 10. Формулы и сроки те же, что были в CSS. */
+/* Слой эффектов: создаётся JS, лежит под контентом. Акварель фона, свет страницы (дыхание B, два пятна наклона SS, две ленты SSS) и зерно (A) рисует не CSS, а app.18.js на ОДНОМ холсте:
+   пять слоёв на весь экран держали шесть экранов текстур, а в браузере телефона это мигание, пропадающие элементы и кадры до 10; три слоя (акварель, свет, зерно) всё ещё стоили трёх экранов заливки
+   на каждом кадре. Формулы и сроки те же, что были в CSS. Пока холст держит акварель, слой CSS body::before (shell-v3.css) выключен: app.18.js ставит body.v3-fx-wash. */
 .v3-fx { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict; }
-.v3-fx > canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }   /* свет и зерно рисует app.18.js (_v3BuildFx): два canvas вместо пяти слоёв на весь экран */
+.v3-fx > canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }   /* акварель, свет и зерно рисует app.18.js (_v3BuildFx): один canvas вместо слоёв на весь экран */
+body.v3-fx-wash::before { display: none; }
 
 /* D · fx-1: статичная палитра, быстрый переход экранов */
 .page.active { animation-duration: var(--v3-dur); }
@@ -28,8 +30,7 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .fx-3 .v3-pill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.38) 50%, transparent 70%); transform: translateX(-120%); }
 .fx-3 .v3-pill:active::after { transform: translateX(120%); transition: transform .5s var(--v3-ease); }
 
-/* A · fx-4: зерно (canvas, app.18.js), блик кольца уровня, стеклянная кромка дока */
-.v3-fx-grain { opacity: .07; }
+/* A · fx-4: зерно (в том же canvas, app.18.js), блик кольца уровня, стеклянная кромка дока */
 .fx-4 .v3-ring::after { content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; background: conic-gradient(transparent 0 78%, rgba(var(--acc-rgb), .85) 95%, transparent); -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px)); animation: v3spin calc(6s * var(--v3-loop, 1)) linear infinite; }
 .fx-4 .nav { box-shadow: 0 0 0 1px var(--v3-faint), inset 0 1px 0 rgba(255,255,255,.09); }
 

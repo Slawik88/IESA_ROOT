@@ -50,8 +50,8 @@
 .ap-anim .ap-nm-ink:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { animation: apbrush 7s ease-out infinite; }
 
 /* glitch: сбой сигнала, две цветовые копии съезжают на пару пикселей */
-.ap-nm-glitch:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: var(--ap-a); text-shadow: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--ap-a) 40%, transparent)); }
-.ap-nm-glitch::before, .ap-nm-glitch::after { content: attr(data-t); display: none; position: absolute; inset: 3px 6px; background: none; mix-blend-mode: screen; pointer-events: none; transform: none; }
+.ap-nm-glitch:is(.ap-t2, .ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) { background: none; -webkit-text-fill-color: initial; color: color-mix(in srgb, var(--ap-a) 80%, var(--ap-c)); filter: none; isolation: isolate; text-shadow: 0 0 8px color-mix(in srgb, var(--ap-a) 46%, transparent); }   /* свечение это тень текста (блюр 8 px = drop-shadow 4 px): filter на нике обернул бы две бегущие копии сбоя, и слой с размытием пересчитывался бы каждый кадр. Букв тут сплошной цвет, поэтому тень не просвечивает сквозь них */
+.ap-nm-glitch::before, .ap-nm-glitch::after { content: attr(data-t); display: none; position: absolute; inset: 3px 6px; z-index: -1; background: none; pointer-events: none; transform: none; text-shadow: none; }   /* без mix-blend-mode: каждый такой элемент стоил двух проходов отрисовки за кадр. Копии лежат под буквами (isolation держит их внутри ника): screen над яркой буквой почти ничего не менял, виден он был только по краям на тёмном фоне, там normal то же самое */
 .ap-nm-glitch::before { color: var(--ap-b); } .ap-nm-glitch::after { color: var(--ap-c); }
 .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before, .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { display: block; opacity: .34; }
 .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::before { transform: translateX(-1px); } .ap-nm-glitch:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7)::after { transform: translateX(1px); }

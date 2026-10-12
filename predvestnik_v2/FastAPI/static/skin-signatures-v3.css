@@ -10,7 +10,7 @@
    Тень горизонта с тонкой каймой, диск за аватаром, дуга линзы над тенью и слабая под ней. Движения почти нет: дыра не дышит, меняется только накал ── */
 .ap-sig-void.ap-frame { filter: none; }
 .ap-sig-void .sg-shadow { z-index: -1; inset: -8%; border-radius: 50%; background: #000; box-shadow: 0 0 9px 0 color-mix(in srgb, var(--ap-a) 42%, transparent), 0 0 30px 6px color-mix(in srgb, var(--ap-b) 22%, transparent); }
-.ap-sig-void .sg-disk { z-index: -1; left: -82%; right: -82%; top: 33%; height: 34%; border-radius: 50%; transform: rotate(-14deg); mix-blend-mode: screen; opacity: .95;
+.ap-sig-void .sg-disk { z-index: -1; left: -82%; right: -82%; top: 33%; height: 34%; border-radius: 50%; transform: rotate(-14deg); opacity: .95;
   background: radial-gradient(closest-side, transparent 47%, var(--ap-c) 53%, var(--ap-a) 63%, color-mix(in srgb, var(--ap-b) 50%, transparent) 80%, transparent);
   -webkit-mask: linear-gradient(90deg, transparent, rgba(0, 0, 0, .4) 12%, #000 30%, rgba(0, 0, 0, .74) 62%, rgba(0, 0, 0, .2) 90%, transparent); mask: linear-gradient(90deg, transparent, rgba(0, 0, 0, .4) 12%, #000 30%, rgba(0, 0, 0, .74) 62%, rgba(0, 0, 0, .2) 90%, transparent); }
 .ap-sig-void .sg-arc { inset: -22%; border-radius: 50%; transform: rotate(-14deg); background: conic-gradient(var(--ap-c), color-mix(in srgb, var(--ap-a) 80%, transparent) 34deg, transparent 84deg 276deg, color-mix(in srgb, var(--ap-a) 80%, transparent) 326deg, var(--ap-c));

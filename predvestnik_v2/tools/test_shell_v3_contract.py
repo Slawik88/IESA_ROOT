@@ -116,6 +116,10 @@ toast_js = (STATIC / "app.28.js").read_text(encoding="utf-8")
 assert "apFromLook(_profileData?.look)" in toast_js and "tv-fr-" in toast_js and "role" in toast_js and "textContent" not in toast_js
 assert "rgb(86,196,106)" not in (STATIC / "app.01.js").read_text(encoding="utf-8") and "@keyframes toastIn" not in (STATIC / "app.css").read_text(encoding="utf-8")
 assert "toast-v3.css" in index
+# The dashed toast frame is a child element: an `outline` on a toast was repainted on the main thread on every frame and halved the frame rate while any toast was shown (dash looks only).
+for _css_name in ("toast-v3.css", "toast-gift-v3.css"):
+    assert "outline" not in re.sub(r"/\*.*?\*/", "", (STATIC / _css_name).read_text(encoding="utf-8"), flags=re.S), f"{_css_name}: no outline on a toast, the dashed frame is .tv-dash"
+assert toast_js.count('<i class="tv-dash" aria-hidden="true"></i>') == 2, "toast and gift card both carry the dashed frame element"
 # Looks: native Telegram main button only inside Telegram, a first-visit tour, and the two display options live in settings.
 looks_extra = (STATIC / "app.27.js").read_text(encoding="utf-8")
 assert "tg && tg.initData && tg.MainButton" in looks_extra and "setParams(params)" in looks_extra and "hideProgress" in looks_extra and "is-native" in looks_extra
@@ -232,11 +236,16 @@ assert "vmax" not in re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S), "no screen-m
 assert not re.search(r"blur\((4\d|[5-9]\d|\d{3,})px\)", re.sub(r"/\*.*?\*/", "", _fx_css, flags=re.S)), "no big blur in the effect layer"
 assert "document.body.style.setProperty('--tilt" not in (STATIC / "app.18.js").read_text(encoding="utf-8"), "tilt must not write into body"
 # Phones lagged on heavy looks because of how the page was drawn, not because of how much: (1) five full-screen CSS layers of page light (about six screens of textures, a repaint of the whole
-# screen every frame) are now two small canvases drawn by app.18.js every 90 ms; (2) a polygon clip-path makes the browser draw each such layer in a separate pass (34 passes a frame from sparks alone):
-# shapes are masks; (3) reading innerWidth/innerHeight in the effect loop forces the browser to recalculate every running animation, so the screen size is cached.
+# screen every frame) became three (wash, light, grain) and are now ONE canvas drawn by app.18.js every 200 ms: every full-screen layer is a screen of texture in memory and a screen of fill per frame;
+# (2) a polygon clip-path makes the browser draw each such layer in a separate pass (34 passes a frame from sparks alone): shapes are masks; (3) reading innerWidth/innerHeight in the effect loop
+# forces the browser to recalculate every running animation, so the screen size is cached.
 _fx_js = (STATIC / "app.18.js").read_text(encoding="utf-8")
-assert "createRadialGradient" in _fx_js and "_V3_FX_SCALE" in _fx_js and "v3-fx-glow" in _fx_js and "v3-fx-grain" in _fx_js, "page light is drawn on canvas"
-assert re.search(r"\.v3-fx > canvas \{[^}]*position: absolute", _fx_css), "the canvases lie in the effect layer"
+assert "createRadialGradient" in _fx_js and "_V3_FX_SCALE" in _fx_js and "v3-fx-glow" in _fx_js and "_v3FxPaintGrain" in _fx_js and "_v3FxPaintWash" in _fx_js, "page light, wash and grain are drawn on canvas"
+assert "v3-fx-grain" not in _fx_js and "v3-fx-grain" not in _fx_css, "the grain is not a layer of its own: it is drawn into the one canvas"
+assert _fx_js.split("function _v3BuildFx", 1)[1].split("\n}", 1)[0].count("layer.appendChild(") == 1, "one canvas in the effect layer, the rest are off-screen"
+assert int(re.search(r"_V3_FX_STEP = (\d+)", _fx_js).group(1)) >= 150, "the slow light is redrawn rarely, not every frame"
+assert re.search(r"\.v3-fx > canvas \{[^}]*position: absolute", _fx_css), "the canvas lies in the effect layer"
+assert re.search(r"body\.v3-fx-wash::before \{ display: none; \}", _fx_css), "while the canvas holds the wash, the CSS layer of it is off"
 assert not re.search(r"\.v3-fx-(breath|tilt|ribbon)", _fx_css), "no full-screen CSS layers of light"
 _frame_body = _fx_js.split("function _v3FxFrame", 1)[1].split("\nfunction _v3FxRun", 1)[0]
 assert "innerWidth" in _frame_body and "_V3_FX.w ||" in _frame_body and "_V3_FX.h ||" in _frame_body, "the frame uses the cached screen size first"
@@ -244,6 +253,25 @@ assert "_V3_FX.w = innerWidth" in _fx_js.split("function _v3FxResize", 1)[1].spl
 for _css_path in sorted(STATIC.glob("*.css")):
     _plain = re.sub(r"/\*.*?\*/", "", _css_path.read_text(encoding="utf-8"), flags=re.S)
     assert not re.search(r"clip-path\s*:\s*(polygon|circle|ellipse|path)\(", _plain), f"{_css_path.name}: a shaped clip-path costs a render pass per element, use a mask"
+# Every mix-blend-mode element gets a render surface of its own and the browser copies the backdrop for it: in the artifact look the three of them (the tear and two copies of the glitch nick)
+# cost about six render passes of seven a frame and 8-13 frames a second. The looks use none (card effects cfx-* in app.css are an old shop category and stay as they are); where light has to add up,
+# use a lighter colour in normal blending. A filter may not wrap running animation either: a drop-shadow on the root of the artifact's hexagon HUD (it turns inside) and on the glitch nick (two
+# copies run inside) was re-drawn every frame, so the glow sits on the shapes themselves and on the text itself.
+for _css_path in sorted(STATIC.glob("*.css")):
+    if _css_path.name in ("app.css", "admin-legacy.css"):
+        continue
+    _plain = re.sub(r"/\*.*?\*/", "", _css_path.read_text(encoding="utf-8"), flags=re.S)
+    assert not re.search(r"mix-blend-mode\s*:\s*(?!normal)", _plain), f"{_css_path.name}: mix-blend-mode costs about two render passes per element"
+_sig2 = re.sub(r"/\*.*?\*/", "", (STATIC / "skin-signatures-2-v3.css").read_text(encoding="utf-8"), flags=re.S)
+assert not re.search(r"\.sg-hex \{[^}]*filter\s*:", _sig2) and re.search(r"\.sg-hex polygon \{[^}]*filter: drop-shadow", _sig2), "the hexagon glow sits on its polygons, not on the rotating svg"
+_look_css = re.sub(r"/\*.*?\*/", "", (STATIC / "appearance-v3.css").read_text(encoding="utf-8"), flags=re.S)
+assert re.search(r"\.ap-nm-glitch:is\([^)]*\) \{[^}]*filter: none;[^}]*text-shadow: 0 0 8px", _look_css), "the glitch nick glows with text-shadow, not with a filter around its running copies"
+# The aurora veils sway all the time, so their soft edge is a mask baked into the layer (the same Gaussian profile as the old blur(26px), checked by pixels: mean difference 1 level out of 255),
+# not a filter that has to be re-run. The vortex disc keeps blur(22px) on purpose: besides the rim, the blur smooths the narrow wedges that meet in the centre, and a mask turns them into a hard bow-tie.
+_stage = re.sub(r"/\*.*?\*/", "", (STATIC / "appearance-stage-v3.css").read_text(encoding="utf-8"), flags=re.S)
+assert not re.search(r"\.ap-bg-aurora[^{]*\{[^}]*filter\s*:", _stage), "aurora veils have no filter"
+assert re.search(r"\.ap-bg-aurora b, \.ap-bg-aurora::after \{[^}]*mask-image: radial-gradient\(closest-side", _stage), "aurora veils are softened by a mask"
+assert re.search(r"\.ap-bg-vortex b:nth-child\(1\) \{[^}]*filter: blur\(22px\)", _stage), "the vortex keeps its blur, a mask cannot soften the centre"
 # A page must never be wider than the phone: effects of a look that reach past the edge widen the document, the mobile browser then widens the viewport
 # and the fixed dock lands below the visible screen (reported on production). The document clips sideways and may not be zoomed out.
 shell_css_text = (STATIC / "shell-v3.css").read_text(encoding="utf-8")

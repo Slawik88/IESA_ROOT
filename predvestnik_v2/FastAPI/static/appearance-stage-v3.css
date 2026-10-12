@@ -30,16 +30,21 @@
 .ap-anim .ap-bg-rays:is(.ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { inset: 0; background: repeating-conic-gradient(from -30deg at 50% -8%, color-mix(in srgb, var(--ap-b) 18%, transparent) 0 2deg, transparent 2deg 14deg); transform-origin: 50% -8%; animation: apsway 12s ease-in-out infinite alternate; }
 
 /* vortex: тёмная воронка и закрученный свет */
+/* blur здесь нужен не только краю: он сглаживает узкие клинья, что сходятся в центре. Маска вместо него (проверено по пикселям) даёт жёсткий «бантик» лучей вместо мягкого свечения. */
 .ap-bg-vortex b:nth-child(1) { left: 50%; top: 30%; width: 150vmin; height: 150vmin; margin: -75vmin 0 0 -75vmin; border-radius: 50%; opacity: .55; filter: blur(22px); background: conic-gradient(from 0deg, transparent 0 14%, var(--ap-a) 24%, transparent 36% 56%, var(--ap-b) 70%, transparent 84%); }
 .ap-bg-vortex b:nth-child(2) { left: 50%; top: 30%; width: 38vmin; height: 38vmin; margin: -19vmin 0 0 -19vmin; border-radius: 50%; background: radial-gradient(closest-side, #000 55%, transparent); opacity: .7; }
 .ap-anim .ap-bg-vortex:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b:nth-child(1) { animation: apturn 50s linear infinite; }
 
 /* aurora: три вуали света качаются на ветру */
-.ap-bg-aurora b { top: -10%; bottom: 20%; width: 46%; filter: blur(26px); opacity: .8; border-radius: 50%; transform-origin: 50% 0; }
-.ap-bg-aurora b:nth-child(1) { left: -6%; background: linear-gradient(180deg, color-mix(in srgb, var(--ap-a) 54%, transparent), transparent 80%); }
-.ap-bg-aurora b:nth-child(2) { left: 30%; background: linear-gradient(180deg, color-mix(in srgb, var(--ap-b) 50%, transparent), transparent 76%); }
-.ap-bg-aurora::after { content: ""; position: absolute; top: -10%; bottom: 24%; right: -8%; width: 42%; border-radius: 50%; filter: blur(26px); background: linear-gradient(180deg, color-mix(in srgb, var(--ap-c) 38%, transparent), transparent 80%); }
-@keyframes apveil { from { transform: translateX(-6%) skewX(-4deg) scaleY(.92); } to { transform: translateX(8%) skewX(5deg) scaleY(1.08); } }
+/* Края вуалей это маска, а не blur(26px): фильтр стоял на слоях, которые качаются, и размытие считалось заново на каждом кадре.
+   Вуаль шире прежней на 62px с каждой стороны (на сколько размытие выносило край), середина рампы на прежней границе, профиль по гауссу с sigma 26;
+   градиент залит с тем же сдвигом, а точка поворота и качание (apveil) пересчитаны на новую ширину. */
+.ap-bg-aurora b, .ap-bg-aurora::after { -webkit-mask-image: radial-gradient(closest-side, #000 calc(100% - 143px), rgba(0,0,0,0.996) calc(100% - 130px), rgba(0,0,0,0.983) calc(100% - 117px), rgba(0,0,0,0.947) calc(100% - 104px), rgba(0,0,0,0.868) calc(100% - 91px), rgba(0,0,0,0.731) calc(100% - 78px), rgba(0,0,0,0.546) calc(100% - 65px), rgba(0,0,0,0.350) calc(100% - 52px), rgba(0,0,0,0.188) calc(100% - 39px), rgba(0,0,0,0.083) calc(100% - 26px), rgba(0,0,0,0.030) calc(100% - 13px), transparent); mask-image: radial-gradient(closest-side, #000 calc(100% - 143px), rgba(0,0,0,0.996) calc(100% - 130px), rgba(0,0,0,0.983) calc(100% - 117px), rgba(0,0,0,0.947) calc(100% - 104px), rgba(0,0,0,0.868) calc(100% - 91px), rgba(0,0,0,0.731) calc(100% - 78px), rgba(0,0,0,0.546) calc(100% - 65px), rgba(0,0,0,0.350) calc(100% - 52px), rgba(0,0,0,0.188) calc(100% - 39px), rgba(0,0,0,0.083) calc(100% - 26px), rgba(0,0,0,0.030) calc(100% - 13px), transparent); }
+.ap-bg-aurora b { top: calc(-10% - 62px); bottom: calc(20% - 62px); width: calc(46% + 124px); opacity: .8; transform-origin: 50% 62px; }
+.ap-bg-aurora b:nth-child(1) { left: calc(-6% - 62px); background: linear-gradient(180deg, color-mix(in srgb, var(--ap-a) 54%, transparent) 62px, transparent calc(80% - 37.2px)); }
+.ap-bg-aurora b:nth-child(2) { left: calc(30% - 62px); background: linear-gradient(180deg, color-mix(in srgb, var(--ap-b) 50%, transparent) 62px, transparent calc(76% - 32.2px)); }
+.ap-bg-aurora::after { content: ""; position: absolute; top: calc(-10% - 62px); bottom: calc(24% - 62px); right: calc(-8% - 62px); width: calc(42% + 124px); background: linear-gradient(180deg, color-mix(in srgb, var(--ap-c) 38%, transparent) 62px, transparent calc(80% - 37.2px)); }
+@keyframes apveil { from { transform: translateX(-3.7%) skewX(-4deg) scaleY(.92); } to { transform: translateX(4.9%) skewX(5deg) scaleY(1.08); } }   /* проценты от новой, более широкой вуали: те же -6% и 8% от прежней */
 .ap-anim .ap-bg-aurora:is(.ap-t3, .ap-t4, .ap-t5, .ap-t6, .ap-t7) b { animation: apveil 9s ease-in-out infinite alternate; }
 .ap-anim .ap-bg-aurora b:nth-child(2) { animation-duration: 12s; animation-direction: alternate-reverse; }
 
