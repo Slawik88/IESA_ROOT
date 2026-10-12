@@ -445,6 +445,17 @@ FAVORITE_FOOD: Final = {
 }
 AVAILABLE_CALLINGS: Final = CALLINGS
 AVAILABLE_TRAITS: Final = tuple(TRAITS)
+
+def _calling_mult(value: float) -> str:
+    return f"×{value:g}"
+
+
+CALLING_TEXTS: Final = {  # призвание: (плюс, минус или None); числа берутся из тех же констант, что и расчёт. Выдержка +2: resilience(), мягкая неудача ×1.25: outcome_reward_mult()
+    "tracker": (f"шанс доп. ключа {KEY_EXTRA_CHANCE} → {KEY_EXTRA_CHANCE + KEY_EXTRA_TRACKER} %", f"Мора {_calling_mult(CALLING_MODS['tracker']['mora'])}"),
+    "feeder": (f"лакомства {_calling_mult(CALLING_MODS['feeder']['treat'])}", f"Мора {_calling_mult(CALLING_MODS['feeder']['mora'])}"),
+    "guardian": ("Выдержка +2, при неудаче награда ×1.25", None),
+    "seeker": (f"Алмаз и Эссенция {_calling_mult(CALLING_MODS['seeker']['diamond'])}", f"Мора {_calling_mult(CALLING_MODS['seeker']['mora'])}"),
+}
 TALISMANS: Final = {  # вид: (маршрут плюса, маршрут минуса)
     "forest_fang": ("forest", "swamp"), "pass_stone": ("pass", "ruins"),
     "ruin_lens": ("ruins", "pass"), "swamp_lamp": ("swamp", "forest"),
@@ -535,5 +546,7 @@ def validate() -> None:
     for trait, (plus, minus) in TRAITS.items():
         if not plus or not minus:
             raise PetV2PolicyError(f"У черты {trait} должны быть плюс и минус.")
+    if set(CALLING_TEXTS) != set(CALLINGS) or any(not texts[0] for texts in CALLING_TEXTS.values()):
+        raise PetV2PolicyError("У каждого призвания должен быть текст эффекта.")
     if [g for g in BOND_GATES if g[0] % 5] or sorted(BOND_GATES) != list(BOND_GATES):
         raise PetV2PolicyError("Ступени заданы неверно.")

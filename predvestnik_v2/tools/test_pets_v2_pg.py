@@ -62,7 +62,14 @@ async def run(dsn: str) -> None:
         assert [f["id"] for f in view["foods"]] == ["food_basic", "food_fried", "food_stew", "food_elite", "food_feast"] and all(f["quantity"] == 0 for f in view["foods"])
         assert view["pair"] == {"species": 4, "need": rules.PAIR_MIN_SPECIES, "unlocked": False}
         assert view["rules"]["energy"]["run"] == {"3": 15, "6": 30, "9": 45} and view["rules"]["energy"]["pair"] == rules.PAIR_ENERGY
-        assert view["rules"]["paths"]["bold"] == {"reward": [1.8, 0.7, 0.0], "energy_loss": 15} and view["rules"]["workshop_tier"] == [1, 1, 2, 2, 3, 3]
+        assert view["rules"]["paths"]["bold"] == {"reward": [1.8, 0.7, 0.0], "energy_loss": 15} and view["rules"]["camp"]["workshop"] == [1, 1, 2, 2, 3, 3]
+        assert view["rules"]["camp"]["lounge"] == [0, 4, 8, 12, 16, 20] and view["rules"]["camp"]["markers"][0] == 0.75 and view["rules"]["xp"]["run"]["6"] == 95
+        assert set(view["rules"]["traits"]) == set(view["traits"]) and view["now"] > "2020" and view["rules"]["xp"]["expedition"] == rules.EXPEDITION_MULT
+        assert set(view["rules"]["calling_texts"]) == set(view["callings"]) and view["rules"]["calling_texts"]["guardian"][1] is None and all(texts[0] for texts in view["rules"]["calling_texts"].values())
+        assert (view["rules"]["daily_soft_rate"], view["rules"]["pair_share"], view["rules"]["affinity_bonus"]) == (rules.SOFT_RATE, rules.PAIR_COMPANION_SHARE, rules.AFFINITY_BONUS)
+        assert view["rules"]["talisman"]["plus"] == {"1": 10, "2": 15, "3": 20} and view["rules"]["talisman"]["minus"] == 10 and set(view["rules"]["talisman"]["kinds"]) == set(rules.TALISMANS)
+        assert all(pet["find_bias"] == rules.SPECIES[pet["species_id"]][4] for pet in view["pets"])
+        assert all(pet["track_points"] == rules.track_points(pet["level"], pet["species_id"]) for pet in view["pets"]) and view["rules"]["seal"] == {"days": [10, 30, 60, 120, 240], "bonus": 4}
         assert [rules.next_gate_days(d) for d in (0, 1, 2, 20, 21, 50, 90, 139, 140, 500)] == [2, 2, 21, 21, 50, 90, 140, 140, None, None]
         async with db.execute("SELECT COUNT(*) FROM pet_v2_tracks WHERE user_id=?", (user,)) as c:
             assert (await c.fetchone())[0] == 0
