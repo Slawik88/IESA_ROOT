@@ -172,11 +172,7 @@ async def rankings(db, *, user_id: int, difficulty: str) -> dict:
     except rules.MinesweeperRuleError as exc:
         raise MinesweeperError(str(exc)) from exc
     await repo.ensure_tables(db)
-    for board in rules.DIFFICULTIES:
-        async def standings(db_, start, end, _board=board):
-            return await repo.season_standings(db_, difficulty=_board, starts_at=start, ends_at=end)
-        await game_seasons.settle_due(db, game="minesweeper", board=board, standings=standings)
-    season = game_seasons.season_view()
+    season = game_seasons.season_view(game="minesweeper", board=difficulty)
     start, end = season_rules.season_bounds(season["number"])
     board = await repo.leaderboard(db, user_id=user_id, difficulty=difficulty, starts_at=start, ends_at=end)
     board["season"] = season

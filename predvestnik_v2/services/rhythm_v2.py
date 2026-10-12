@@ -449,12 +449,9 @@ async def current_run(db, *, user_id: int, run_id: str) -> dict:
         return _view(row, state, now=now)
 
 
-async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
-    if mode not in ("normal", "augments"):
-        raise RhythmError("unknown rhythm mode")
-    await repo.ensure_tables(db)
-    promoted = await repo.promote_authenticated_transport_reviews(db)
-    for row in promoted:
+async def _promote_reviews(db) -> None:
+    """Turn authenticated transport reviews into clear results (board, quests)."""
+    for row in await repo.promote_authenticated_transport_reviews(db):
         await repo.upsert_leaderboard(
             db, run_id=row["run_id"], user_id=int(row["user_id"]), mode=str(row["mode"]),
             ruleset_version=str(row["ruleset_version"]), score=int(row["score"]),
@@ -464,19 +461,30 @@ async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
             mode=str(row["mode"]), score=int(row["score"]), integrity_status="clear",
             picks=len(repo.load(row.get("selected_json")) or []),
         )
+
+
+async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
+    if mode not in ("normal", "augments"):
+        raise RhythmError("unknown rhythm mode")
+    await repo.ensure_tables(db)
+    await _promote_reviews(db)
     # One ranked board; "augments" is only a legacy alias of it.
     mode = "normal"
-
-    async def standings(db_, start, end):
-        return await repo.season_standings(db_, mode=mode, starts_at=start, ends_at=end)
-
-    await game_seasons.settle_due(db, game="rhythm", board=mode, standings=standings)
-    season = game_seasons.season_view()
+    season = game_seasons.season_view(game="rhythm", board=mode)
     start, end = season_rules.season_bounds(season["number"])
     board = await repo.leaderboard(db, user_id=user_id, mode=mode, starts_at=start, ends_at=end)
     board["season"] = season
     board["last_season"] = await game_seasons.last_result(db, game="rhythm", board=mode, user_id=user_id)
     return board
+
+
+async def season_standings(db, start, end) -> list[dict]:
+    """Ranked players with their participation, the input of the season settlement."""
+    await repo.ensure_tables(db)
+    await _promote_reviews(db)
+    rows = await repo.season_standings(db, mode="normal", starts_at=start, ends_at=end)
+    activity = await repo.season_activity(db, mode="normal", starts_at=start, ends_at=end)
+    return [{**row, **activity.get(int(row["user_id"]), {"runs": 0, "days": 0})} for row in rows]
 
 
 def _ticket_hash(ticket: str) -> str:

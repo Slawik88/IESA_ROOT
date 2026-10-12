@@ -29,6 +29,9 @@
 .inv-list { display: grid; margin: 4px 0 0; padding: 0; list-style: none; }
 .inv-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 0; }
 .inv-item + .inv-item { box-shadow: 0 -1px 0 var(--v3-faint); }
+.inv-item--tap { width: 100%; padding-right: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.inv-item--tap:active { opacity: .55; }
+.inv-list > li + li > .inv-item--tap, .inv-list > li + li > .inv-item { box-shadow: 0 -1px 0 var(--v3-faint); }
 .inv-ic { font-size: 22px; line-height: 1; text-align: center; }
 .inv-nm { display: flex; flex-direction: column; min-width: 0; }
 .inv-nm b { font: 600 14.5px/1.25 var(--v3-font); overflow-wrap: anywhere; }

@@ -6,7 +6,7 @@ no player result is ever deleted or rewritten.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Final
 
 SEASON_MONTHS: Final = 7
@@ -22,6 +22,22 @@ SEASON_ONE_START: Final = datetime(2026, 10, 11, tzinfo=timezone.utc)
 REWARD_TIERS: Final = ((1, 800, 200), (2, 600, 150), (3, 450, 120), (10, 250, 80),
                        (25, 120, 40), (10**9, 40, 10))
 
+# Only these boards pay for places.  Minesweeper stays a ranked board without a
+# payout until its results have an integrity check and a minimum win time: a
+# solver bot could otherwise take every podium.  Adding a board here is the one
+# switch that starts paying it; a player is still paid once per season, for the
+# best reward over all paying boards (never the sum).
+PAYING_BOARDS: Final = (("rhythm", "normal"),)
+# Wait after the season ends before the places are frozen, so runs that are
+# still pending an integrity verdict can resolve first.
+SETTLEMENT_DELAY: Final = timedelta(hours=48)
+# Participation terms: a payout needs real play, not a single run.
+MIN_PARTICIPATION_RUNS: Final = 5
+MIN_PARTICIPATION_DAYS: Final = 3
+# Podium tiers (by the tier's last place) pay only on a board with at least this
+# many qualified players; a smaller board pays everyone the participation tier.
+PODIUM_MIN_PLAYERS: Final = {3: 10, 10: 20, 25: 50}
+
 
 class SeasonRuleError(ValueError):
     pass
@@ -30,6 +46,14 @@ class SeasonRuleError(ValueError):
 def _add_months(moment: datetime, months: int) -> datetime:
     total = moment.year * 12 + (moment.month - 1) + months
     return moment.replace(year=total // 12, month=total % 12 + 1)
+
+
+def is_paying(game: str, board: str) -> bool:
+    return (str(game), str(board)) in PAYING_BOARDS
+
+
+def qualifies(runs: int, days: int) -> bool:
+    return int(runs) >= MIN_PARTICIPATION_RUNS and int(days) >= MIN_PARTICIPATION_DAYS
 
 
 def season_bounds(number: int) -> tuple[datetime, datetime]:
@@ -63,12 +87,43 @@ def current_season(now: datetime | None = None) -> dict:
             "rewards": reward_table()}
 
 
+def terms() -> dict:
+    """Public payout terms shown next to the reward table of a paying board."""
+    return {"min_runs": MIN_PARTICIPATION_RUNS, "min_days": MIN_PARTICIPATION_DAYS,
+            "podium_min_players": {str(k): v for k, v in sorted(PODIUM_MIN_PLAYERS.items())}}
+
+
 def reward(place: int) -> tuple[int, int]:
     """(Mora, Essence) for a final place."""
     if int(place) < 1:
         raise SeasonRuleError("place must be positive")
     _, mora, essence = next(tier for tier in REWARD_TIERS if int(place) <= tier[0])
     return mora, essence
+
+
+def _min_players(limit: int) -> int:
+    """Board size a tier needs: that of the smallest podium group containing it."""
+    group = [key for key in PODIUM_MIN_PLAYERS if key >= limit]
+    return PODIUM_MIN_PLAYERS[min(group)] if group else 0
+
+
+def payout(place: int, *, board_size: int, runs: int, days: int) -> tuple[int, int]:
+    """(Mora, Essence) a qualified player earns on one board.
+
+    ``place`` is the place among qualified players and ``board_size`` their
+    count.  A player who has not met the participation terms earns nothing.
+    """
+    if int(place) < 1:
+        raise SeasonRuleError("place must be positive")
+    if not qualifies(runs, days):
+        return 0, 0
+    for limit, mora, essence in REWARD_TIERS:
+        if int(place) > limit:
+            continue
+        if int(board_size) < _min_players(limit):
+            continue
+        return mora, essence
+    return 0, 0
 
 
 def reward_table() -> list[dict]:
