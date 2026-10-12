@@ -124,7 +124,7 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
         data = await cur.fetchall()
     tags = await member_tags.many_fresh(bot, db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
     rows = [
-        (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0]))), int(r[2]))
+        (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0])), soft=True), int(r[2]))
         for i, r in enumerate(data)
     ]
     return render(title, rows, page, pages, period, scope), pages
