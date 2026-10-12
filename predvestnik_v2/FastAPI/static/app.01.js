@@ -522,6 +522,7 @@ document.addEventListener('touchcancel', _artFoilReset, {passive:true});
 const _loaded=new Set();
 // История страниц для кнопки «Назад» (нативная Telegram BackButton + фолбэк в браузере).
 const _navStack=[];
+const _backHooks=[];   // обработчики «Назад» для экранов с подэкранами внутри одной страницы: вернул true — нажатие обработано
 // Единая маршрутизация по ИМЕНИ страницы. Подсветка нижнего дока — по data-page;
 // вторичные разделы (открытые через «Ещё») подсвечивают «Ещё».
 let _activePage = 'profile';
@@ -628,6 +629,7 @@ function _syncBackButton(){
   if(btn) btn.classList.toggle('hidden', !has || inTg || suppressBrowserBack);
 }
 function navBack(){
+  if(_backHooks.some(fn=>{ try{ return fn()===true; }catch(_){ return false; } })) return;   // подэкран внутри страницы (Тропа питомцев) сначала закрывает себя
   if(!_navStack.length) return;
   const prev=_navStack.pop();
   switchPage(prev, null, true);

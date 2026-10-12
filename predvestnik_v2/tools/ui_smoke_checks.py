@@ -15,6 +15,18 @@ SCREENS = [
     ("settings", "openSettingsModal()"),
     ("chests", "openChestsV1()"),
     ("pets", "openPetsV1()"),
+    # Тропа питомцев (флаг pets_v2): подэкраны и окна на питомцах стенда (tools/ui_stand.py, seed_trail). Ничего не меняют на сервере: награда рисуется из готового ответа
+    ("trail-pet", "openPetsV1().then(() => { const p = _tr.me && (_tr.me.pets.find(q => q.calling) || _tr.me.pets[0]); if (p) trailPet(p.id); })"),
+    ("trail-pet-busy", "openPetsV1().then(() => { const p = _tr.me && _tr.me.pets.find(q => q.run_id); if (p) trailPet(p.id); })"),
+    ("trail-send", "openPetsV1().then(() => { if (_tr.me) trailSend(); })"),
+    ("trail-send-expedition", "openPetsV1().then(() => { if (_tr.me) { trailSend(); trailSendSet('kind', 'expedition'); } })"),
+    ("trail-decision", "openPetsV1().then(() => { const b = document.querySelector('[data-run=\"stand-run-exp\"]'); if (b) trailRun(b); })"),
+    ("trail-result", "openPetsV1().then(() => { const a = _tr.me && _trAct('stand-run-exp'), p = a && _trPet(a.pet_id); if (p) _trResult(a, p, {ok: true, outcome: 'success', path: 'bold', chance: 48, reward_mult: 1.8, xp_credited: 188, daily_credited: 600, level_before: 9, level_after: 10, ceiling: 10, bond_days: 13, energy: 70, energy_loss: 0, finds: {mora: 14, diamond: 1, essence: 3, treat: 2, talisman: 1}, key: 1, stage_essence: 10}); })"),
+    ("trail-build", "openPetsV1().then(() => { const p = _tr.me && _tr.me.pets.find(q => !q.run_id && q.calling); if (p) trailBuild(p.id); })"),
+    ("trail-feed", "openPetsV1().then(() => { const p = _tr.me && _tr.me.pets.find(q => !q.run_id); if (p) trailFeed(p.id); })"),
+    ("trail-camp", "openPetsV1().then(() => { if (_tr.me) trailGo('camp'); })"),
+    ("trail-track", "openPetsV1().then(() => { if (_tr.me) trailGo('track'); })"),
+    ("trail-trial", "openPetsV1().then(() => { if (_tr.me) trailGo('trial'); })"),
     ("inventory", "openInventory()"),
     ("achievements", "openAchievementsV1()"),
     ("help", "switchPage('help')"),
@@ -82,7 +94,7 @@ TAP = """() => { const out = []; document.querySelectorAll('button, a[href], inp
   return out.slice(0, 40); }"""
 
 # Cards around every element (the old template look) and browser-default grey buttons (a control that lost its style).
-BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-me|v3-bell|v3-chip|toast|tv-|tg-|sheet|lk-sheet|cf-sheet|mclose|ap-|lk-mini|lk-hero|v3-fx|sv-ava|sv-radio|v3-ring|v3-ava|cn-|mk-tile|lk-pring|lk-rank-ring|pl-|v3-burst|v3-fly|sg-|st-seg|v3-scope|tos-gate)/;
+BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-me|v3-bell|v3-chip|toast|tv-|tg-|sheet|lk-sheet|cf-sheet|mclose|ap-|lk-mini|lk-hero|v3-fx|sv-ava|sv-radio|v3-ring|v3-ava|tr-ic|cn-|mk-tile|lk-pring|lk-rank-ring|pl-|v3-burst|v3-fly|sg-|st-seg|v3-scope|tos-gate)/;
   document.querySelectorAll('body *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width < 56 || r.height < 28 || r.bottom < 0) return;
     const tag = e.tagName.toLowerCase(); if (/^(button|input|select|textarea|svg|path|img|canvas|summary|label|option|a)$/.test(tag)) return;
     const cls = typeof e.className === 'string' ? e.className : ''; if (allow.test(cls) || e.closest('.nav,#v3-bar,.sheet,.lk-sheet,.cf-sheet,#toast,.toast,dialog,.lk-reveal,#preloader,.v3-fx')) return;
@@ -97,7 +109,7 @@ BLOCKS = """() => { const out = []; const allow = /(^|\\s)(nav|nb|v3-bar|v3-bar-
   return out.slice(0, 60); }"""
 
 # Labels of controls the crawler never presses: they spend, delete or leave the account in another state.
-SKIP_CLICK = r"подтверд|удалить|отправить|принять и|выйти|сбросить|оплат|продолжить и|да, "
+SKIP_CLICK = r"подтверд|удалить|отправить|принять и|выйти|сбросить|оплат|продолжить и|да, |забрать|выбрать (осторожный|ровный|рискованный)|улучшить|перековать|сдать|дать|начать|сохранить сборку|открыть за одно очко"
 
 # Visible controls of the current screen as [index among all candidates, label], skipping dangerous ones.
 CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];
