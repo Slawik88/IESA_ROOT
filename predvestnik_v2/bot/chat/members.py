@@ -6,6 +6,7 @@ from aiogram.types import ChatMemberUpdated
 
 from bot.chat import ranks
 from bot.chat.moderation import commit, is_blacklisted
+from services import chat_bots, member_tags
 
 router = Router(name="chat_members")
 INSIDE = ("member", "administrator", "creator", "restricted")
@@ -27,6 +28,14 @@ async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
             "WHERE user_tg_id = ?", (new.status == "kicked", event.chat.id))
         await commit(db)
         return
+    if event.chat.type == "channel" and new.status in ("member", "administrator"):
+        try:   # канал бот не ведёт: человек, который его добавил, должен узнать об этом сразу
+            from bot.chat import onboarding
+            await onboarding.on_channel_added(event, bot, db)
+        except Exception as exc:   # noqa: BLE001
+            from loguru import logger
+            logger.warning(f"channel hint failed for {event.chat.id}: {exc}")
+        return
     if event.chat.type not in ("group", "supergroup"):
         return
     if new.status in ("left", "kicked"):
@@ -47,6 +56,12 @@ async def on_bot_membership(event: ChatMemberUpdated, bot: Bot, db) -> None:
             (event.chat.id, event.chat.title, is_admin, can_moderate))
         await commit(db)
         await ranks.sync_owner(db, bot, event.chat.id, force=True)
+    try:   # приветствие с чек-листом, обновление при выдаче прав, запись об уходе (воронка подключения)
+        from bot.chat import onboarding
+        await onboarding.on_bot_change(event, bot, db)
+    except Exception as exc:   # noqa: BLE001 - подключение чата не должно ломать учёт прав бота
+        from loguru import logger
+        logger.warning(f"onboarding failed for {event.chat.id}: {exc}")
 
 
 @router.chat_member()
@@ -60,6 +75,8 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
     elif old.status == "creator":
         await ranks.sync_owner(db, bot, chat_id, force=True)
 
+    if await chat_bots.observe(db, user):   # бот вошёл, вышел или ему выдали права: участником он не становится
+        return
     joined = _inside(new) and not _inside(old)
     left = _inside(old) and not _inside(new)
     if joined and not user.is_bot:
@@ -76,6 +93,10 @@ async def on_member_change(event: ChatMemberUpdated, bot: Bot, db) -> None:
             "rejoined_at = CASE WHEN COALESCE(user_chat_stats.is_left, FALSE) THEN NOW() "
             "ELSE user_chat_stats.rejoined_at END",
             (user.id, chat_id))
+        await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # вошёл или ему сменили тег/права
+        await commit(db)
+    elif _inside(new) and not user.is_bot:
+        await member_tags.observe(db, chat_id, user.id, member_tags.of_member(new))   # остался в чате, но сменился тег или звание
         await commit(db)
     elif left and not user.is_bot:
         await db.execute(

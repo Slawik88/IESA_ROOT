@@ -94,5 +94,5 @@
 .ap-low .ap-sig-canopy.ap-bg::before { animation: none; }
 /* ник и ореол на SSS */
 .ap-sig-canopy.ap-name, .ap-sig-dunes.ap-name, .ap-sig-lighthouse.ap-name, .ap-sig-lilypads.ap-name, .ap-sig-rime.ap-name, .ap-sig-snowdome.ap-name, .ap-sig-jadecourt.ap-name { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--ap-b) 70%, transparent)); }
-.ap-sig-rime.ap-ha-rays::before { opacity: .22; }
+.ap-sig-rime.ap-ha-rays b:nth-child(1) { opacity: .22; }
 @media (prefers-reduced-motion: reduce) { .sa, .sa *, .ap-sig-canopy.ap-bg::before { animation: none !important; } }

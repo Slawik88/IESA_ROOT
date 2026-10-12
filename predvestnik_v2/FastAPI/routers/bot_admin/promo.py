@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
+from bot.chat.global_ranks import CREATOR
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.safe import AdminRoute
@@ -23,14 +24,16 @@ async def list_promo(q: str = "", user=Depends(_user), db=Depends(get_db)):
 
 @router.get("/promo-options")
 async def promo_options(user=Depends(_user), db=Depends(get_db)):
+    rewards = [
+        {"type": "mora", "title": "🪙 Мора", "field": "amount"},
+        {"type": "diamonds", "title": "💎 Алмазы", "field": "amount"},
+        {"type": "essence", "title": "🔮 Эссенция", "field": "amount"},
+        *([{"type": "zarniki", "title": "✨ Зарники", "field": "amount"}] if user["rank"] >= CREATOR else []),
+        {"type": "vip", "title": "👑 VIP, дней", "field": "days"},
+        {"type": "skin", "title": "✨ Образ", "field": "id"},
+    ]
     return {
-        "rewards": [
-            {"type": "mora", "title": "🪙 Мора", "field": "amount"},
-            {"type": "diamonds", "title": "💎 Алмазы", "field": "amount"},
-            {"type": "essence", "title": "🔮 Эссенция", "field": "amount"},
-            {"type": "vip", "title": "👑 VIP, дней", "field": "days"},
-            {"type": "skin", "title": "✨ Образ", "field": "id"},
-        ],
+        "rewards": rewards,
         "skins": promo_v2.skin_choices(),
         "private_skins": await promo_v2.private_skins_state(db),
     }

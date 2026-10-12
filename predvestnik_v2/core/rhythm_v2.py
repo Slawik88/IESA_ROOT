@@ -1,5 +1,10 @@
 """Authoritative, dependency-free rules for the approved endless Rune Rhythm.
 
+Rune gifts ("рун-дары") replace the old pre-run augmentations: at the end of
+every chunk (20 signals) the run pauses and offers three gifts, the player takes one, and
+the effect lives inside the run only.  Every gift carries a bonus AND a cost.
+Everyone plays the same ranked mode.
+
 This module deliberately knows nothing about the legacy Reconstruction campaign,
 rewards, pets or client-side animation.  Its output is stored and enforced by
 the service layer; a browser only renders it and submits a rune tap.
@@ -9,88 +14,112 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import hmac
-from typing import Final, Iterable, Literal
+from typing import Final, Literal
 
 
-RULESET_VERSION: Final = "rhythm-v2-rules-3"
-Mode = Literal["normal", "augments"]
-Polarity = Literal["positive", "negative"]
+RULESET_VERSION: Final = "rhythm-v2-rules-4"
+Mode = Literal["normal", "augments"]  # "augments" is only a legacy alias of "normal"
+PerkKind = Literal["safe", "boost", "risk"]
 RUNES: Final = ("left", "center", "right")
-CHUNK_SIZE: Final = 30
+CHUNK_SIZE: Final = 20
+SPEED_GROWTH_PERCENT: Final = 8   # pace grows by this much per finished chunk, compounding
 BASE_HEALTH: Final = 5
-MIN_WINDOW_MS: Final = 180
-BASE_WINDOW_MS: Final = 2_000
+MAX_HEALTH: Final = 7
+MIN_WINDOW_MS: Final = 350
+HARD_FLOOR_MS: Final = 200      # after the pace plateau the floor keeps sinking, so no run is endless
+FLOOR_FALL_START_CHUNK: Final = 14
+FLOOR_FALL_MS_PER_CHUNK: Final = 15
+BASE_WINDOW_MS: Final = 2_200
+RESUME_LEAD_MS: Final = 3_000   # breathing room after a gift is taken
 
 
 @dataclass(frozen=True)
-class Augmentation:
+class Perk:
     id: str
-    polarity: Polarity
+    kind: PerkKind
     name: str
-    # A compact, machine-readable modifier set.  Every catalogue entry must
-    # change at least one authoritative field; no cosmetic placeholder entries.
+    bonus: str
+    cost: str
+    max_stack: int = 2
+    filler: bool = False        # only offered when fewer than three real gifts remain
+    # Permanent per-copy effects (summed over copies):
     window_pct: int = 0
-    health_delta: int = 0
     score_pct: int = 0
-    speed_pct: int = 0
-    error_damage_delta: int = 0
-    grace_every: int = 0
+    pace_pct: int = 0
+    damage_extra: int = 0       # extra hearts lost by every mistake
+    wrong_extra: int = 0        # extra hearts lost by a wrong rune only
+    combo_step: int = 0         # extra score per combo step (base 4)
+    combo_cap: int = 0          # extra combo bonus cap (base 80)
+    regen_every: int = 0        # +1 heart every N correct taps in a row
+    timeout_free: bool = False  # every second missed signal costs no heart
+    sharp_eye: bool = False     # exact taps pay more, slow taps pay less
+    # One-off effects applied when the gift is taken:
+    heal: int = 0
+    shield: int = 0
+    ebb: int = 0                # signals with a wider window
+    bloody: int = 0             # taps with triple score
+    cap_health: int = 0         # health is cut to this value (0 = no cut)
 
 
-# The full v1 catalogue is available from the first augmentation run.  Values
-# are intentionally local to this ruleset version so a future balance update
-# cannot rewrite the meaning of an already recorded result.
-AUGMENTATIONS: Final[tuple[Augmentation, ...]] = (
-    Augmentation("calm_pulse", "positive", "Спокойный пульс", window_pct=14),
-    Augmentation("clear_mark", "positive", "Ясная метка", window_pct=10, score_pct=3),
-    Augmentation("fourth_chance", "positive", "Четвёртый шанс", grace_every=4),
-    Augmentation("spare_heart", "positive", "Запасное сердце", health_delta=1),
-    Augmentation("quiet_start", "positive", "Тихий старт", window_pct=8, speed_pct=-4),
-    Augmentation("steady_echo", "positive", "Ровное эхо", score_pct=8),
-    Augmentation("soft_step", "positive", "Мягкий шаг", window_pct=12, score_pct=-2),
-    Augmentation("patient_current", "positive", "Терпеливое течение", speed_pct=-7),
-    Augmentation("bright_trace", "positive", "Яркий след", score_pct=11),
-    Augmentation("guarded_beat", "positive", "Охранный такт", error_damage_delta=-1),
-    Augmentation("long_breath", "positive", "Длинный вдох", window_pct=7, health_delta=1),
-    Augmentation("true_tempo", "positive", "Верный темп", score_pct=6, speed_pct=-2),
-    Augmentation("silent_guard", "positive", "Тихая защита", grace_every=6),
-    Augmentation("resonant_step", "positive", "Резонансный шаг", score_pct=9),
-    Augmentation("open_window", "positive", "Открытое окно", window_pct=16, score_pct=-5),
-    Augmentation("first_light", "positive", "Первый свет", health_delta=1, score_pct=-3),
-    Augmentation("measured_flow", "positive", "Размеренный поток", window_pct=6, speed_pct=-5),
-    Augmentation("sure_hand", "positive", "Верная рука", score_pct=5, grace_every=8),
-    Augmentation("gentle_rhythm", "positive", "Мягкий ритм", window_pct=9),
-    Augmentation("held_line", "positive", "Удержанная линия", error_damage_delta=-1, score_pct=-4),
-    Augmentation("narrow_gate", "negative", "Узкие врата", window_pct=-15),
-    Augmentation("fragile_heart", "negative", "Хрупкое сердце", health_delta=-1),
-    Augmentation("hasty_current", "negative", "Спешное течение", speed_pct=9),
-    Augmentation("heavy_mistake", "negative", "Тяжёлая ошибка", error_damage_delta=1),
-    Augmentation("dim_trace", "negative", "Тусклый след", score_pct=-12),
-    Augmentation("restless_pulse", "negative", "Беспокойный пульс", speed_pct=6, window_pct=-4),
-    Augmentation("brittle_combo", "negative", "Хрупкая серия", score_pct=-8),
-    Augmentation("short_breath", "negative", "Короткий вдох", window_pct=-9, health_delta=-1),
-    Augmentation("cold_mark", "negative", "Холодная метка", window_pct=-11),
-    Augmentation("rushing_echo", "negative", "Спешащее эхо", speed_pct=12, score_pct=3),
-    Augmentation("sharp_cost", "negative", "Острая цена", error_damage_delta=1, score_pct=4),
-    Augmentation("fading_line", "negative", "Гаснущая линия", score_pct=-9),
-    Augmentation("broken_guard", "negative", "Сломанная защита", error_damage_delta=1),
-    Augmentation("quickened_step", "negative", "Ускоренный шаг", speed_pct=7),
-    Augmentation("tight_turn", "negative", "Тесный поворот", window_pct=-12, score_pct=2),
-    Augmentation("thin_current", "negative", "Тонкое течение", health_delta=-1, speed_pct=4),
-    Augmentation("hollow_beat", "negative", "Пустой такт", score_pct=-10),
-    Augmentation("risky_trace", "negative", "Рискованный след", score_pct=5, error_damage_delta=1),
-    Augmentation("rapid_fall", "negative", "Быстрый спад", speed_pct=10),
-    Augmentation("unforgiving_gate", "negative", "Непрощающие врата", window_pct=-8, error_damage_delta=1),
+# Every gift changes authoritative fields and always carries a price.
+PERKS: Final[tuple[Perk, ...]] = (
+    Perk("iron_heart", "safe", "Железное сердце", "+2 сердца сразу", "окно нажатия уже на 10%", window_pct=-10, heal=2),
+    Perk("stone_shield", "safe", "Каменный щит", "гасит одну ошибку", "очки ниже на 12%", score_pct=-12, shield=1),
+    Perk("tailwind", "safe", "Попутный ветер", "окно нажатия шире на 18%", "очки ниже на 18%", window_pct=18, score_pct=-18),
+    Perk("vampire", "safe", "Вампир", "+1 сердце за каждые 15 верных подряд", "очки ниже на 10%", score_pct=-10, regen_every=15),
+    Perk("ebb_tide", "safe", "Отлив", "следующие 12 тактов окно шире на 40%", "темп выше на 8% навсегда", pace_pct=8, ebb=12),
+    Perk("gold_vein", "boost", "Золотая жила", "очки выше на 35%", "каждая ошибка отнимает на сердце больше", score_pct=35, damage_extra=1),
+    Perk("sprint", "boost", "Спринт", "очки выше на 30%", "темп выше на 12%", score_pct=30, pace_pct=12),
+    Perk("echo_chain", "boost", "Цепь эха", "серия растёт вдвое быстрее и копит больше", "окно нажатия уже на 8%", window_pct=-8, combo_step=4, combo_cap=80),
+    Perk("steady_hand", "boost", "Твёрдая рука", "пропущенные такты вдвое реже отнимают сердце", "неверная руна отнимает ещё одно сердце", max_stack=1, timeout_free=True, wrong_extra=1),
+    Perk("sharp_eye", "boost", "Меткий глаз", "точные нажатия дают в 1,5 раза больше очков", "медленные нажатия дают вдвое меньше", max_stack=1, sharp_eye=True),
+    Perk("gambit", "risk", "Ставка", "очки выше на 30%", "окно нажатия уже на 12%", score_pct=30, window_pct=-12),
+    Perk("blood_price", "risk", "Цена крови", "тройные очки на 20 верных нажатий", "теряешь сердце сразу", max_stack=1, bloody=20),
+    Perk("breather", "safe", "Передышка", "+1 сердце", "темп выше на 5%", max_stack=99, pace_pct=5, heal=1, filler=True),
+    Perk("glass_cannon", "risk", "Стеклянная пушка", "очки выше на 60%", "здоровье падает до 2 сердец", max_stack=1, score_pct=60, cap_health=2),
 )
+_PERK_BY_ID: Final = {item.id: item for item in PERKS}
+assert len(_PERK_BY_ID) == len(PERKS) == 14
 
-_BY_ID: Final = {item.id: item for item in AUGMENTATIONS}
-assert len(_BY_ID) == 40
-assert sum(item.polarity == "positive" for item in AUGMENTATIONS) == 20
-assert sum(item.polarity == "negative" for item in AUGMENTATIONS) == 20
+COMBO_STEP: Final = 4
+COMBO_CAP: Final = 80
+MIN_SCORE_PCT: Final = -60
+MIN_WINDOW_PCT: Final = -45
 
 
 class RhythmRuleError(ValueError):
     pass
+
+
+def perk(perk_id: str) -> Perk:
+    try:
+        return _PERK_BY_ID[perk_id]
+    except KeyError as exc:
+        raise RhythmRuleError("unknown rune gift") from exc
+
+
+def new_perks() -> dict:
+    """Live state of the gifts of one run; persisted next to the run row."""
+    return {"owned": {}, "shield": 0, "ebb": 0, "bloody": 0, "miss_debt": 0}
+
+
+def normalize_perks(value) -> dict:
+    value = value if isinstance(value, dict) else {}
+    result = new_perks()
+    owned = value.get("owned") if isinstance(value.get("owned"), dict) else {}
+    result["owned"] = {key: max(0, int(count)) for key, count in owned.items()
+                       if key in _PERK_BY_ID and int(count) > 0}
+    for key in ("shield", "ebb", "bloody", "miss_debt"):
+        result[key] = max(0, int(value.get(key, 0) or 0))
+    return result
+
+
+def _total(perks: dict, field: str) -> int:
+    return sum(getattr(_PERK_BY_ID[key], field) * count for key, count in perks["owned"].items())
+
+
+def _any(perks: dict, field: str) -> bool:
+    return any(getattr(_PERK_BY_ID[key], field) for key in perks["owned"])
 
 
 def expected_rune(seed: bytes, signal_no: int) -> str:
@@ -101,85 +130,138 @@ def expected_rune(seed: bytes, signal_no: int) -> str:
     return RUNES[digest[0] % len(RUNES)]
 
 
-def offers_for_seed(seed: bytes) -> dict[str, tuple[str, ...]]:
-    """Choose repeatable 3+3 offers without trusting a client-side random roll."""
-    result: dict[str, tuple[str, ...]] = {}
-    for polarity in ("positive", "negative"):
-        candidates = [item for item in AUGMENTATIONS if item.polarity == polarity]
-        ranked = sorted(
-            candidates,
-            key=lambda item: hmac.new(seed, f"offer:{polarity}:{item.id}".encode(), hashlib.sha256).digest(),
-        )
-        result[polarity] = tuple(item.id for item in ranked[:3])
-    return result
-
-
-def validate_selection(
-    offers: dict[str, Iterable[str]], *, positive: Iterable[str], negative: Iterable[str]
-) -> tuple[str, ...]:
-    positive_ids, negative_ids = tuple(positive), tuple(negative)
-    if len(positive_ids) != 2 or len(set(positive_ids)) != 2:
-        raise RhythmRuleError("choose exactly two distinct positive augmentations")
-    if len(negative_ids) != 2 or len(set(negative_ids)) != 2:
-        raise RhythmRuleError("choose exactly two distinct negative augmentations")
-    if set(positive_ids) - set(offers.get("positive", ())):
-        raise RhythmRuleError("positive augmentation was not offered for this run")
-    if set(negative_ids) - set(offers.get("negative", ())):
-        raise RhythmRuleError("negative augmentation was not offered for this run")
-    return positive_ids + negative_ids
-
-
-def modifiers(selected_ids: Iterable[str]) -> dict[str, int]:
-    selected = tuple(selected_ids)
-    if len(selected) != len(set(selected)) or any(item not in _BY_ID for item in selected):
-        raise RhythmRuleError("unknown or duplicated augmentation")
-    return {
-        field: sum(getattr(_BY_ID[item], field) for item in selected)
-        for field in ("window_pct", "health_delta", "score_pct", "speed_pct", "error_damage_delta", "grace_every")
-    }
-
-
 def chunk_for_signal(signal_no: int) -> int:
     if signal_no < 1:
         raise RhythmRuleError("signal number must be positive")
     return (signal_no - 1) // CHUNK_SIZE
 
 
-def speed_percent(signal_no: int, selected_ids: Iterable[str] = ()) -> int:
-    # Linear, visible acceleration.  A human will eventually reach their limit;
-    # the run itself has no artificial final wave.
-    # Long chunks make the first minute readable; each new chunk is still
-    # visibly faster, but the curve no longer jolts after a handful of taps.
-    return max(100, 100 + chunk_for_signal(signal_no) * 5 + modifiers(selected_ids)["speed_pct"])
+def draft_pending(*, next_signal_no: int, picks: int) -> bool:
+    """One gift is owed for every finished chunk; the clock is paused until taken."""
+    return picks < chunk_for_signal(next_signal_no)
 
 
-def window_ms(signal_no: int, selected_ids: Iterable[str] = ()) -> int:
-    mod = modifiers(selected_ids)
-    raw = BASE_WINDOW_MS * 100 // speed_percent(signal_no, selected_ids)
-    calculated = max(MIN_WINDOW_MS, raw * (100 + mod["window_pct"]) // 100)
-    return calculated
+def _eligible(item: Perk, *, health: int, perks: dict) -> bool:
+    if item.filler:
+        return True
+    if perks["owned"].get(item.id, 0) >= item.max_stack:
+        return False
+    if item.heal and health >= MAX_HEALTH:
+        return False
+    if item.id == "blood_price":
+        return health >= 3
+    if item.cap_health:
+        return health > item.cap_health
+    return True
 
 
-def initial_health(selected_ids: Iterable[str] = ()) -> int:
-    return max(1, BASE_HEALTH + modifiers(selected_ids)["health_delta"])
+def perk_offers(seed: bytes, draft_no: int, *, health: int, perks: dict) -> tuple[str, ...]:
+    """Three repeatable offers for one draft, always including a safe gift."""
+    if draft_no < 1:
+        raise RhythmRuleError("draft number must be positive")
+    def ranking(items):
+        return sorted(
+            (item for item in items if _eligible(item, health=health, perks=perks)),
+            key=lambda item: hmac.new(seed, f"perk:{draft_no}:{item.id}".encode(), hashlib.sha256).digest(),
+        )
+    ranked = ranking(item for item in PERKS if not item.filler)
+    chosen = ranked[:3]
+    if len(chosen) < 3:
+        chosen += ranking(item for item in PERKS if item.filler)[:3 - len(chosen)]
+    if not chosen:
+        raise RhythmRuleError("no rune gift can be offered")
+    safe = next((item for item in ranked if item.kind == "safe"), None)
+    if safe and not any(item.kind == "safe" for item in chosen):
+        chosen[-1] = safe
+    return tuple(item.id for item in chosen)
+
+
+def apply_perk(perk_id: str, *, health: int, perks: dict) -> tuple[int, dict]:
+    item = perk(perk_id)
+    if not _eligible(item, health=health, perks=perks):
+        raise RhythmRuleError("this rune gift cannot be taken now")
+    perks = {**perks, "owned": dict(perks["owned"])}
+    perks["owned"][item.id] = perks["owned"].get(item.id, 0) + 1
+    health = min(MAX_HEALTH, health + item.heal)
+    perks["shield"] += item.shield
+    perks["ebb"] = max(perks["ebb"], item.ebb)
+    perks["bloody"] = max(perks["bloody"], item.bloody)
+    if item.cap_health:
+        health = min(health, item.cap_health)
+    if item.id == "blood_price":
+        health -= 1
+    return health, perks
+
+
+def pace_percent(signal_no: int, perks: dict | None = None) -> int:
+    """Compounding pace: 100% at the start, +8% per finished chunk, plus gifts."""
+    pace = 100 * (100 + SPEED_GROWTH_PERCENT) ** chunk_for_signal(signal_no) // 100 ** chunk_for_signal(signal_no)
+    return max(100, pace + (_total(perks, "pace_pct") if perks else 0))
+
+
+def speed_percent(signal_no: int, perks: dict | None = None) -> int:
+    return pace_percent(signal_no, perks)
+
+
+def min_window_ms(signal_no: int) -> int:
+    over = max(0, chunk_for_signal(signal_no) - FLOOR_FALL_START_CHUNK)
+    return max(HARD_FLOOR_MS, MIN_WINDOW_MS - over * FLOOR_FALL_MS_PER_CHUNK)
+
+
+def window_ms(signal_no: int, perks: dict | None = None) -> int:
+    perks = perks or new_perks()
+    raw = BASE_WINDOW_MS * 100 // pace_percent(signal_no, perks)
+    percent = max(MIN_WINDOW_PCT, _total(perks, "window_pct") + (40 if perks["ebb"] > 0 else 0))
+    return max(min_window_ms(signal_no), raw * (100 + percent) // 100)
+
+
+def initial_health() -> int:
+    return BASE_HEALTH
 
 
 def score_for_correct(*, elapsed_ms: int, allowed_window_ms: int, combo_before: int,
-                      selected_ids: Iterable[str] = ()) -> int:
+                      perks: dict | None = None) -> int:
+    perks = perks or new_perks()
     if elapsed_ms < 0 or elapsed_ms > allowed_window_ms:
         raise RhythmRuleError("correct score requires an in-window tap")
     # Exact taps are worth more, but combo growth is bounded rather than
     # exponentially exploding the leaderboard.
-    timing = 100 if elapsed_ms * 3 <= allowed_window_ms else 70 if elapsed_ms * 3 <= allowed_window_ms * 2 else 45
-    combo_bonus = min(80, combo_before * 4)
-    raw = timing + combo_bonus
-    return max(1, raw * (100 + modifiers(selected_ids)["score_pct"]) // 100)
+    tier = 0 if elapsed_ms * 3 <= allowed_window_ms else 1 if elapsed_ms * 3 <= allowed_window_ms * 2 else 2
+    timing = (100, 70, 45)[tier]
+    if _any(perks, "sharp_eye"):
+        timing = timing * 3 // 2 if tier == 0 else timing // 2 if tier == 2 else timing
+    step = COMBO_STEP + _total(perks, "combo_step")
+    cap = COMBO_CAP + _total(perks, "combo_cap")
+    raw = (timing + min(cap, combo_before * step)) * (3 if perks["bloody"] > 0 else 1)
+    percent = max(MIN_SCORE_PCT, _total(perks, "score_pct"))
+    return max(1, raw * (100 + percent) // 100)
 
 
-def error_damage(*, correct_streak: int, selected_ids: Iterable[str] = ()) -> int:
-    mod = modifiers(selected_ids)
-    # A grace is earned only by server-confirmed correct taps, never by a
-    # counter submitted by the client.
-    if mod["grace_every"] and correct_streak and correct_streak % mod["grace_every"] == 0:
-        return 0
-    return max(1, 1 + mod["error_damage_delta"])
+def after_correct(perks: dict, *, health: int, streak_after: int) -> tuple[int, dict]:
+    perks = dict(perks)
+    perks["bloody"] = max(0, perks["bloody"] - 1)
+    perks["ebb"] = max(0, perks["ebb"] - 1)
+    every = min((item.regen_every for key in perks["owned"] if (item := _PERK_BY_ID[key]).regen_every), default=0)
+    if every and streak_after > 0 and streak_after % every == 0:
+        health = min(MAX_HEALTH, health + 1)
+    return health, perks
+
+
+def after_error(*, health: int, perks: dict, timed_out: bool) -> tuple[int, dict]:
+    """A shield eats the whole mistake; otherwise gifts decide how deep it cuts."""
+    perks = dict(perks)
+    perks["ebb"] = max(0, perks["ebb"] - 1)
+    if perks["shield"] > 0:
+        perks["shield"] -= 1
+        return health, perks
+    if timed_out and _any(perks, "timeout_free"):
+        # Waiting is never free for long: every second miss still costs a heart.
+        perks["miss_debt"] += 1
+        if perks["miss_debt"] % 2 == 1:
+            return health, perks
+    damage = 1 + _total(perks, "damage_extra") + (0 if timed_out else _total(perks, "wrong_extra"))
+    return max(0, health - damage), perks
+
+
+def owned_gifts(perks: dict) -> list[dict]:
+    return [{"id": key, "name": _PERK_BY_ID[key].name, "count": count} for key, count in perks["owned"].items()]

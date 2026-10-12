@@ -294,6 +294,39 @@ def parse(registry: Registry, text: str, bot_username: str | None = None, privat
     return Unknown(tokens[0], sugg)
 
 
+# Администратор, который пишет «от имени чата», для бота безымянный: ранг не проверить. Раньше он получал «нет права» без
+# объяснений и не понимал, что дело в галочке «Анонимность». Командам, которым нужен конкретный человек, объясняем это сразу.
+IDENTITY_SECTIONS = frozenset({"moderation", "purge", "settings"})
+_ANONYMOUS_SENDERS = frozenset({1087968824, 136817688})   # GroupAnonymousBot, Channel_Bot
+ANON_HINT = (
+    "🕶 <b>Вы пишете анонимно</b>, от имени чата, и я не вижу, кто это. Поэтому проверить ваш ранг не могу.\n"
+    "Выключите себе <b>«Анонимность»</b>: информация о чате → Изменить → Администраторы → ваше имя → «Анонимность». "
+    "Потом повторите команду."
+)
+_anon_logged: dict[int, float] = {}
+
+
+def _anonymous(message: Message) -> bool:
+    sender = getattr(message, "sender_chat", None)
+    from_id = int(getattr(message.from_user, "id", 0) or 0)
+    return from_id in _ANONYMOUS_SENDERS or (sender is not None and int(sender.id) == int(message.chat.id))
+
+
+async def _note_anonymous(db, chat_id: int) -> None:
+    """В воронку подключения: сколько раз администраторы упёрлись в анонимность (не чаще раза в час на чат)."""
+    import time
+    now = time.monotonic()
+    if _anon_logged.get(chat_id, 0.0) > now:
+        return
+    _anon_logged[chat_id] = now + 3600.0
+    try:
+        from services import chat_setup
+        await chat_setup.log_event(db, chat_id, None, "anon_hint")
+        await db.commit()
+    except Exception:   # noqa: BLE001 - журнал — дополнение
+        pass
+
+
 async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     """Выполнить команду из сообщения. True — сообщение обработано как команда."""
     text = message.text or message.caption or ""
@@ -328,8 +361,16 @@ async def dispatch(registry: Registry, message: Message, bot: Bot, db) -> bool:
     if in_private and not cmd.private:
         # Короткие слова вроде «чай» или «ждать» в личке не команды: отвечаем, только если человек написал «бот …».
         if parsed.prefixed:
-            await message.reply("Эта команда работает только в группе.")
+            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+            from services.chat_setup import add_url
+            await message.reply(   # не тупик: сразу кнопка «добавить бота в чат», уже с нужными правами
+                "Эта команда работает только в группе. Добавьте меня в свой чат, и я помогу его настроить.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="➕ Добавить бота в чат", url=add_url(me.username))]]))
         return parsed.prefixed
+    if not in_private and cmd.section in IDENTITY_SECTIONS and _anonymous(message):
+        await message.reply(ANON_HINT, parse_mode="HTML")
+        await _note_anonymous(db, message.chat.id)
+        return True
     ctx = Ctx(message, bot, db, cmd, parsed.args, parsed.prefixed)
     if registry.gate is not None and not cmd.always_on:
         blocked = await registry.gate(ctx)

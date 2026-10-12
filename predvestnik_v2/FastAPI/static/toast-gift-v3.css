@@ -41,7 +41,8 @@
 /* форма: рамка образа */
 .tv-gift:is(.tv-fr-ring, .tv-fr-double) { border-radius: 30px; }
 .tv-gift.tv-fr-double { box-shadow: 0 20px 48px rgba(0, 0, 0, .56), inset 0 0 0 1px color-mix(in srgb, var(--tv) 62%, transparent), inset 0 0 0 5px var(--v3-sheet, #14161e), inset 0 0 0 6px color-mix(in srgb, var(--tv) 30%, transparent); }
-.tv-gift.tv-fr-dash { border-radius: 18px; box-shadow: 0 20px 48px rgba(0, 0, 0, .56); outline: 1.5px dashed color-mix(in srgb, var(--tv) 64%, transparent); outline-offset: -6px; }
+.tv-gift.tv-fr-dash { border-radius: 18px; box-shadow: 0 20px 48px rgba(0, 0, 0, .56); }
+.tv-gift > .tv-dash { inset: 4.5px; border-color: color-mix(in srgb, var(--tv) 64%, transparent); border-radius: 13.5px; }   /* сам пунктир задан в toast-v3.css */
 .tv-gift.tv-fr-seg { border-radius: 10px; box-shadow: 0 20px 48px rgba(0, 0, 0, .56), inset 5px 0 0 var(--tv), inset 0 1px 0 color-mix(in srgb, var(--tv) 30%, transparent); }
 .tv-gift.tv-fr-drip::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 40px; pointer-events: none; background: linear-gradient(var(--ap-b), var(--ap-a));
   -webkit-mask: var(--xk-drips) top left / 240px 40px repeat-x; mask: var(--xk-drips) top left / 240px 40px repeat-x; }

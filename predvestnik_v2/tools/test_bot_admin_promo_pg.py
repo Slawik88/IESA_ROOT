@@ -58,6 +58,7 @@ async def prepare():
             await db.execute("INSERT INTO users (user_tg_id, user_tg_username) VALUES (?, ?) ON CONFLICT DO NOTHING",
                              (uid, f"u{uid}"))
         await db.execute("UPDATE users SET bot_rank = 3 WHERE user_tg_id = 3003")   # хелпер: промокоды не видит
+        await db.execute("UPDATE users SET bot_rank = 5 WHERE user_tg_id = 2005")   # разработчик: промокоды видит, Зарники класть не может
         for chat, title in ((-100, "Основной чат"), (-200, "Другой чат")):
             await db.execute("INSERT INTO chat_settings (chat_id, chat_title) VALUES (?, ?) ON CONFLICT DO NOTHING",
                              (chat, title))
@@ -111,8 +112,24 @@ async def http_checks():
     assert r.status_code == 200, r.text
     assert r.json()["code"] == "SPRING-25" and r.json()["rewards_text"][0] == "🪙 500 мора", r.json()
     assert (await client.post("/bot-admin/api/promo", headers=dev, json=body)).json()["detail"] == "Такой код уже есть."
-    bad = {**body, "code": "ZAR", "rewards": [{"type": "zarniki", "amount": 5}]}
-    assert "Зарники" in (await client.post("/bot-admin/api/promo", headers=dev, json=bad)).json()["detail"]
+    # Зарники в промокоде: только создатель; код работает как остальные и пишется в учёт отдельной причиной
+    coder = {"x-session-token": create_session_token(2005)}
+    assert "zarniki" in [x["type"] for x in opts["rewards"]]
+    assert "zarniki" not in [x["type"] for x in (await client.get("/bot-admin/api/promo-options", headers=coder)).json()["rewards"]]
+    zar = {"code": "ZAR-GIFT", "max_activations": 1, "rewards": [{"type": "zarniki", "amount": 150}, {"type": "mora", "amount": 10}]}
+    r = await client.post("/bot-admin/api/promo", headers=coder, json=zar)
+    assert r.status_code == 400 and "только создатель" in r.json()["detail"], r.text
+    assert (await client.post("/bot-admin/api/promo/bulk", headers=coder, json={"count": 2, "rewards": zar["rewards"]})).status_code == 400
+    r = await client.post("/bot-admin/api/promo", headers=dev, json=zar)
+    assert r.status_code == 200 and r.json()["rewards_text"][0] == "✨ 150 зарников", r.text
+    prev = (await client.post("/bot-admin/api/promo/preview", headers=dev, json=zar)).json()
+    assert any("платная валюта" in w for w in prev["warnings"]) and any("Крупная награда" in w and "зарников" in w for w in prev["warnings"]), prev
+    bad = {**zar, "code": "ZAR-BAD", "rewards": [{"type": "zarniki", "amount": 1.5}]}
+    assert "целое" in (await client.post("/bot-admin/api/promo", headers=dev, json=bad)).json()["detail"]
+    bad = {**zar, "code": "ZAR-BIG", "rewards": [{"type": "zarniki", "amount": 10_000_000}]}
+    assert (await client.post("/bot-admin/api/promo", headers=dev, json=bad)).status_code == 400
+    r = await client.put("/bot-admin/api/promo/ZAR-GIFT", headers=coder, json={**zar, "note": "правка"})
+    assert r.status_code == 400 and "только создатель" in r.json()["detail"], r.text
     bad = {**body, "code": "FRAC", "rewards": [{"type": "mora", "amount": 1.5}]}
     assert "целое" in (await client.post("/bot-admin/api/promo", headers=dev, json=bad)).json()["detail"]
     bad = {**body, "code": "x"}
@@ -169,6 +186,14 @@ async def redeem_checks():
         out = await say("бот промокод", 2005)
         assert "Формат" in out, out
 
+        out = await say("бот промокод zar-gift", 2003)
+        assert "активирован" in out and "150 зарников" in out, out
+        out = await say("бот промокод ZAR-GIFT", 2004)
+        assert "закончились активации" in out, out
+        async with db.execute("SELECT user_balance_zarniki FROM users WHERE user_tg_id = 2003") as cur:
+            assert float((await cur.fetchone())[0]) == 150
+        async with db.execute("SELECT reason_code, delta FROM economic_ledger WHERE user_id = 2003 AND currency = 'zarniki'") as cur:
+            assert [(r[0], int(r[1])) for r in await cur.fetchall()] == [("promocode_zarniki", 150)]
         async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id = 2002") as cur:
             assert float((await cur.fetchone())[0]) == 500
         assert await skins_v3_repo.essence_balance(db, 2002) == 20

@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from services import vip as vip_service
+from services import member_tags, vip as vip_service
 from bot.chat import family, global_ranks, ranks
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
@@ -99,6 +99,9 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
     lines = [f"👤 <b>{esc(title)}</b>"]
     if username:
         lines.append(f"@{esc(username)}")   # сам игрок — единственный, кого можно отметить
+    tag = await member_tags.get(db, chat_id, uid) if is_group else None
+    if tag:
+        lines.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата
     if await global_ranks.get_bot_rank(db, viewer_id) >= global_ranks.HELPER_MIN:
         lines.append(f"ID: <code>{uid}</code>")
 
@@ -142,7 +145,7 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
 
     fam = await family.family_of(db, uid)
     if fam:
-        names = await family.labels(db, fam.members)
+        names = await family.labels(db, fam.members, chat_id if is_group else None)
         if fam.is_parent(uid):
             partner = fam.partner_of(uid)
             since = f" с {fam.since.strftime('%d.%m.%Y')}" if fam.since else ""

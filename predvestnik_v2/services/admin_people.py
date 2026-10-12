@@ -13,7 +13,7 @@ from bot.chat import ranks
 from bot.chat.global_ranks import bot_rank_name, get_bot_rank
 from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from services import feature_switches, global_moderation, name_history, staff_watch
+from services import feature_switches, global_moderation, member_tags, name_history, staff_watch
 from services import vip as vip_service
 
 STATEMENTS = (
@@ -108,6 +108,26 @@ def _player_row(r) -> dict:
             "messages": int(r[3]), "last": _iso(r[4]), "name": r[5] or ""}
 
 
+async def _with_tags(db, players: list[dict], per_player: int = 3) -> list[dict]:
+    """К найденным игрокам — их теги в чатах (до per_player разных): по ним тоже ищут, и по ним узнают человека."""
+    ids = [p["id"] for p in players]
+    for p in players:
+        p["tags"] = []
+    if not ids:
+        return players
+    marks = ", ".join("?" for _ in ids)
+    async with db.execute(
+        f"SELECT user_tg_id, member_tag FROM user_chat_stats WHERE member_tag IS NOT NULL AND user_tg_id IN ({marks}) "
+        f"ORDER BY last_message_at DESC NULLS LAST", tuple(ids)) as cur:
+        rows = await cur.fetchall()
+    by_id = {p["id"]: p for p in players}
+    for uid, tag in rows:
+        tags = by_id[int(uid)]["tags"]
+        if tag and tag not in tags and len(tags) < per_player:
+            tags.append(tag)
+    return players
+
+
 def _chat_row(r) -> dict:
     return {"id": int(r[0]), "title": r[1] or str(r[0]), "members": int(r[2]), "messages": int(r[3]), "last": _iso(r[4])}
 
@@ -159,7 +179,7 @@ async def search(db, q: str, limit: int = 20, flt: str = "") -> dict:
         where = cond or "s.last IS NOT NULL"
         async with db.execute(_PLAYER_SQL + f"WHERE {where} ORDER BY s.last DESC NULLS LAST, u.user_tg_id LIMIT ?",
                               (*cparams, FILTER_LIMIT if flt else limit)) as cur:
-            players = [_player_row(r) for r in await cur.fetchall()]
+            players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
         if flt:
             async with db.execute(f"SELECT COUNT(*) FROM users u WHERE {cond}", cparams) as cur:
                 return {"players": players, "chats": [], "total": int((await cur.fetchone())[0])}
@@ -173,7 +193,7 @@ async def search(db, q: str, limit: int = 20, flt: str = "") -> dict:
         ids = {n, -n} | ({-1000000000000 - n} if not q.startswith("-100") else set())
         marks = ", ".join("?" for _ in ids)
         async with db.execute(_PLAYER_SQL + "WHERE u.user_tg_id = ?" + tail, (n, *cparams)) as cur:
-            players = [_player_row(r) for r in await cur.fetchall()]
+            players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
         chats = []
         if not flt:
             async with db.execute(_CHAT_SQL + f"WHERE c.chat_id IN ({marks})", tuple(ids)) as cur:
@@ -182,10 +202,11 @@ async def search(db, q: str, limit: int = 20, flt: str = "") -> dict:
     name = q.lstrip("@")
     async with db.execute(
         _PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
-        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?))" + tail +
+        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?) "
+        "OR EXISTS (SELECT 1 FROM user_chat_stats t WHERE t.user_tg_id = u.user_tg_id AND t.member_tag ILIKE ?))" + tail +
         " ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
-        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), *cparams, name, q, limit)) as cur:
-        players = [_player_row(r) for r in await cur.fetchall()]
+        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), _like(q), *cparams, name, q, limit)) as cur:
+        players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
     chats = []
     if not flt:
         async with db.execute(
@@ -278,6 +299,7 @@ async def history(db, *, user_id: int | None = None, chat_id: int | None = None,
         rows = await cur.fetchall()
     names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
     titles = await _chat_titles(db, [r[3] for r in rows])
+    tags = await member_tags.pairs(db, [(r[3], r[2]) for r in rows])
     out = []
     for actor, action, uid, cid, extra, at in rows:
         details = _details(extra)
@@ -285,7 +307,8 @@ async def history(db, *, user_id: int | None = None, chat_id: int | None = None,
             "action": action, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
             "reason": str(details.get("reason") or ""), "at": _iso(at),
             "actor": {"id": actor, "username": names.get(int(actor)) if actor else None},
-            "user": {"id": uid, "username": names.get(int(uid)) if uid else None} if uid else None,
+            "user": {"id": uid, "username": names.get(int(uid)) if uid else None,
+                     "tag": tags.get((int(cid), int(uid))) if cid else None} if uid else None,
             "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None,
         })
     return out
@@ -339,6 +362,7 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     rows = rows[:limit]
     names = await _names(db, [r[0] for r in rows] + [r[2] for r in rows])
     titles = await _chat_titles(db, [r[3] for r in rows])
+    tags = await member_tags.pairs(db, [(r[3], r[2]) for r in rows])
     items = []
     for actor, action, uid, cid, extra, at in rows:
         details = _details(extra)
@@ -347,7 +371,8 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
             "action": action, "kind": kind_of, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
             "reason": str(details.get("reason") or ""), "at": _iso(at),
             "actor": {"id": actor, "username": names.get(int(actor)) if actor else None},
-            "user": {"id": uid, "username": names.get(int(uid)) if uid else None} if uid else None,
+            "user": {"id": uid, "username": names.get(int(uid)) if uid else None,
+                     "tag": tags.get((int(cid), int(uid))) if cid else None} if uid else None,
             "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None})
     async with db.execute(
         "SELECT DISTINCT actor_id FROM bot_admin_actions WHERE actor_id IS NOT NULL AND created_at > NOW() - INTERVAL '90 days' "
@@ -396,7 +421,7 @@ async def player(db, uid: int) -> dict | None:
     async with db.execute(
         "SELECT s.chat_tg_id, c.chat_title, COALESCE(s.user_messages_count_all_time, 0), s.last_message_at, "
         "COALESCE(s.is_left, FALSE), COALESCE(s.muted_until > NOW(), FALSE), "
-        "CASE WHEN s.muted_until = 'infinity' THEN NULL ELSE s.muted_until END "
+        "CASE WHEN s.muted_until = 'infinity' THEN NULL ELSE s.muted_until END, s.member_tag "
         "FROM user_chat_stats s LEFT JOIN chat_settings c ON c.chat_id = s.chat_tg_id "
         "WHERE s.user_tg_id = ? AND s.chat_tg_id < 0 ORDER BY s.last_message_at DESC NULLS LAST LIMIT 100",
         (uid,)) as cur:
@@ -412,16 +437,16 @@ async def player(db, uid: int) -> dict | None:
     seen = {int(r[0]) for r in rows}
     extra_titles = await _chat_titles(db, [c for c in bans if c not in seen])
     chats = []
-    for cid, title, total, last, left, muted, muted_until in rows:
+    for cid, title, total, last, left, muted, muted_until, tag in rows:
         cid = int(cid)
-        chats.append({"id": cid, "title": title or str(cid), "messages": int(total), "last": _iso(last),
+        chats.append({"id": cid, "title": title or str(cid), "messages": int(total), "last": _iso(last), "tag": member_tags.clean(tag),
                       "left": bool(left), "muted": bool(muted), "muted_until": _iso(muted_until),
                       "ban": bans.get(cid), "warns": warns.get(cid, 0),
                       "rank_name": ranks.rank_name(await ranks.get_rank(db, cid, uid))})
     for cid, title in extra_titles.items():   # забанен в чате, где не писал
         chats.append({"id": cid, "title": title or str(cid), "messages": 0, "last": None, "left": True,
                       "muted": False, "muted_until": None, "ban": bans[cid], "warns": warns.get(cid, 0),
-                      "rank_name": ranks.rank_name(0)})
+                      "rank_name": ranks.rank_name(0), "tag": None})
 
     names = await _names(db, [family["partner"]] if family and family["partner"] else [])
     if family and family["partner"]:
@@ -440,6 +465,7 @@ async def player(db, uid: int) -> dict | None:
         "blocked": await global_moderation.block_info(db, uid),
         "watch": await staff_watch.info(db, uid),
         "names": await name_history.of_user(db, uid, 20),
+        "tag_history": await member_tags.history(db, uid, 20),
         "nicknames": await _chat_nicknames(db, uid),
     }
 
@@ -571,8 +597,10 @@ async def chat_sanctions(db, cid: int, kind: str, offset: int = 0, limit: int = 
     else:
         raise ValueError(kind)
     names = await _names(db, [x["user"] for x in items])
+    tags = await member_tags.many(db, cid, [x["user"] for x in items])
     for x in items:
         x["username"] = names.get(x["user"])
+        x["tag"] = tags.get(x["user"])
     return {"items": items, "total": total, "next": offset + len(items) if offset + len(items) < total else None}
 
 
@@ -585,7 +613,8 @@ async def chat(db, cid: int) -> dict | None:
         return None
     today = local_now().date()
     async with db.execute(
-        "SELECT COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE)), COALESCE(SUM(user_messages_count_all_time), 0) "
+        "SELECT COUNT(*) FILTER (WHERE NOT COALESCE(is_left, FALSE) AND NOT COALESCE(is_bot, FALSE)), "
+        "COALESCE(SUM(user_messages_count_all_time) FILTER (WHERE NOT COALESCE(is_bot, FALSE)), 0) "
         "FROM user_chat_stats WHERE chat_tg_id = ?", (cid,)) as cur:
         members, total = await cur.fetchone()
     stats = {}
@@ -598,8 +627,16 @@ async def chat(db, cid: int) -> dict | None:
     async with db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.user_messages_count_all_time FROM user_chat_stats s "
         "LEFT JOIN users u ON u.user_tg_id = s.user_tg_id WHERE s.chat_tg_id = ? AND NOT COALESCE(s.is_left, FALSE) "
+        "AND NOT COALESCE(s.is_bot, FALSE) "
         "ORDER BY s.user_messages_count_all_time DESC NULLS LAST LIMIT 10", (cid,)) as cur:
         top = [{"id": int(r[0]), "username": r[1], "messages": int(r[2] or 0)} for r in await cur.fetchall()]
+    top_tags = await member_tags.many(db, cid, [x["id"] for x in top])
+    for x in top:
+        x["tag"] = top_tags.get(x["id"])
+    async with db.execute(
+        "SELECT COUNT(*) FROM user_chat_stats WHERE chat_tg_id = ? AND NOT COALESCE(is_left, FALSE) "
+        "AND COALESCE(member_tag, '') <> ''", (cid,)) as cur:
+        tagged = int((await cur.fetchone())[0])
 
     sanctions = {kind: await chat_sanctions(db, cid, kind) for kind in SANCTION_KINDS}
     names = await _names(db, [c[1]] if c[1] else [])
@@ -615,7 +652,7 @@ async def chat(db, cid: int) -> dict | None:
         "bot": {"left_at": c[4].isoformat() if c[4] else None, "is_admin": c[5], "can_moderate": c[6]},   # None — бот ещё не сообщал
         "owner": {"id": int(c[1]), "username": names.get(int(c[1]))} if c[1] else None,
         "admin_chat": {"id": int(link[0]), "title": link[1] or str(link[0])} if link else None,
-        "members": int(members), "messages": {"total": int(total), **stats}, "top": top,
+        "members": int(members), "tagged": tagged, "messages": {"total": int(total), **stats}, "top": top,
         "sanctions": sanctions,
         "switched_off": [{"key": k, "reason": v["reason"]} for k, v in off.items()],
     }

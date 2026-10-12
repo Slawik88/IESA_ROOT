@@ -9,6 +9,8 @@
 """
 from __future__ import annotations
 
+from services import member_tags
+
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_reports (
         id           BIGSERIAL PRIMARY KEY,
@@ -193,10 +195,11 @@ async def listing(db, kind: str = "open", limit: int = 100, *, show_reporter: bo
         f"WHERE r.status IN (?, ?) ORDER BY {order} LIMIT ?", (*statuses, limit)) as cur:
         rows = await cur.fetchall()
     who = lambda uid, name: {"id": int(uid), "name": f"@{name}" if name else f"id{uid}"} if uid else None
+    tags = await member_tags.pairs(db, [(r[1], r[5]) for r in rows])   # тег жалуемого в том чате, где подана жалоба
     return [{
         "id": int(r[0]), "chat": {"id": int(r[1]), "title": r[2] or str(r[1])},
         "reporter": who(r[3], r[4]) if show_reporter else None, "reporter_hidden": not show_reporter,
-        "target": who(r[5], r[6]), "reason": r[7] or "",
+        "target": ({**who(r[5], r[6]), "tag": tags.get((int(r[1]), int(r[5])))} if r[5] else None), "reason": r[7] or "",
         "message_id": r[8], "message_text": r[9] or "", "status": r[10], "status_title": STATUS_TITLES.get(r[10], r[10]),
         "handled_by": who(r[11], r[12]), "handled_at": r[13].isoformat() if r[13] else None, "note": r[14] or "",
         "created_at": r[15].isoformat() if r[15] else None, "target_reports": int(r[16]),

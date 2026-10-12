@@ -121,8 +121,14 @@ async def run():
         assert "защищён" in await say("бот защита, @u2003 2д", DEV)
         assert "иммунитет" in await say("бот иммунитет, @u2004", DEV)
         out = await say("бот кто под защитой", P2)
-        assert "Иммунитет" in out and "u2004" in out and "Защита" in out and "u2003 · до " in out, out
+        assert "Иммунитет" in out and "@u2004</a>" in out and "Защита" in out and "@u2003</a> · до " in out, out
         assert out.index("u2004") < out.index("u2003"), out
+        # Короткие алиасы: «рест» = «защита», «кто защита» и «кто рест» = «под защитой» (не путаются с профилем «бот кто»)
+        for alias in ("бот кто защита", "бот кто рест", "бот Кто  Рест"):
+            assert await say(alias, P2) == out, alias
+        assert "защищён" in await say("бот рест, @u2002 3д", DEV)
+        assert "@u2002</a> · до " in await say("бот кто рест", P2)
+        assert "Кто это" not in out and "Профиль" not in out
 
         # «бот жалоба» ответом на сообщение нарушителя
         bad = SimpleNamespace(from_user=SimpleNamespace(id=P3, is_bot=False, username="u2004", full_name="U2004",
@@ -190,6 +196,36 @@ async def run():
     assert (await client.get("/bot-admin/api/reports", headers=h[HELPER])).json()["items"] == []
     card = (await client.get(f"/bot-admin/api/player/{P3}", headers=h[HELPER])).json()
     assert "Жалоба: нарушение подтверждено" in {x["title"] for x in card["history"]}, card["history"]
+
+    # Массовая чистка очереди: одно действие для нескольких жалоб, закрытые/чужие номера пропускаются с причиной.
+    from services import reports as reports_service
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        ids = [await reports_service.create(db, chat_id=-100, reporter_id=rep, target_id=tgt, reason=why)
+               for rep, tgt, why in ((P1, P3, "массово-1"), (P2, P3, "массово-2"), (P1, P2, "массово-3"), (P2, P1, "массово-4"))]
+    bulk = lambda who=HELPER, **b: client.post("/bot-admin/api/reports/bulk", headers=h[who], json=b)
+    bot.sent.clear()
+    assert (await bulk(P1, action="reject", ids=ids)).status_code == 403                       # раздел «Жалобы» только персоналу
+    assert (await bulk(action="nope", ids=ids)).status_code == 400
+    assert (await bulk(action="reject", ids=[])).status_code == 400 and (await bulk(action="reject")).status_code == 400
+    assert (await bulk(action="reject", ids=["x"])).status_code == 400
+    assert (await bulk(action="reject", ids=list(range(1, 52)))).status_code == 400            # не больше 50
+    res = (await bulk(action="take", ids=ids[:2])).json()
+    assert res["done"] == 2 and res["failed"] == [], res
+    res = (await bulk(action="take", ids=[ids[0], ids[2]])).json()                              # первая уже в работе
+    assert res["done"] == 1 and res["failed"] == [{"id": ids[0], "reason": "Жалоба уже в работе."}], res
+    assert bot.sent == [], bot.sent                                                           # «взять» авторам не пишет
+    res = (await bulk(action="resolve", ids=[ids[0], ids[1], ids[0], 99999], note="спам")).json()   # дубль схлопнулся, чужого номера нет
+    assert res["done"] == 2 and res["failed"] == [{"id": 99999, "reason": "Жалоба не найдена."}], res
+    assert sorted(x[0] for x in bot.sent) == sorted([P1, P2]) and all("нарушение подтверждено" in x[1] for x in bot.sent), bot.sent
+    res = (await bulk(action="reject", ids=ids)).json()                                         # две закрыты, две ещё в очереди
+    assert res["done"] == 2 and {f["id"] for f in res["failed"]} == {ids[0], ids[1]} \
+        and all(f["reason"] == "Жалоба уже закрыта." for f in res["failed"]), res
+    closed = {x["id"]: x for x in (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()["items"]}
+    assert closed[ids[0]]["status"] == "resolved" and closed[ids[0]]["note"] == "спам" and closed[ids[3]]["status"] == "rejected", closed
+    assert (await client.get("/bot-admin/api/reports", headers=h[HELPER])).json()["items"] == []
+    feed = (await client.get("/bot-admin/api/journal?days=1", headers=h[DEV])).json()
+    assert sum(1 for x in feed["items"] if x["title"] == "Жалоба: нарушение подтверждено") >= 3, [x["title"] for x in feed["items"]]
 
     # Анонимность в админке: автора видят только с роли из настроек жалоб (по умолчанию 5), остальным «скрыт».
     r = (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()

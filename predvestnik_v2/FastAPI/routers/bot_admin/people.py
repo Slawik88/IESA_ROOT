@@ -59,7 +59,8 @@ ACTIONS: dict[str, tuple[str, int, str]] = {
 LINKED_MIN_RANK = 4
 BULK_MAX = 50
 BULK_ACTIONS = {"mark_grant": "player", "mark_revoke": "player", "unwarn_all": "member", "watch": "", "unwatch": ""}
-BALANCE_CURRENCIES = {"mora": ("🪙 Мора", 0), "diamonds": ("💎 Алмазы", 2), "essence": ("🔮 Эссенция", 0)}
+BALANCE_CURRENCIES = {"mora": ("🪙 Мора", 0), "diamonds": ("💎 Алмазы", 2), "essence": ("🔮 Эссенция", 0), "zarniki": ("✨ Зарники", 0)}
+CREATOR_ONLY_CURRENCIES = ("zarniki",)   # платная валюта: менять баланс может только создатель
 
 _bot = None
 
@@ -160,6 +161,13 @@ async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db
     return await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
 
 
+@router.get("/chats/onboarding")
+async def chats_onboarding(days: int = 7, user=Depends(_user), db=Depends(get_db)):
+    """Как люди подключают бота к чатам: сколько добавили, у скольких есть права и на каком шаге застревают."""
+    from services import chat_setup
+    return await chat_setup.funnel(db, days)
+
+
 @router.get("/player/{uid}")
 async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card = await admin_people.player(db, uid)
@@ -168,7 +176,8 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card["actions"] = {"player": _allowed(user["rank"], "player"), "member": _allowed(user["rank"], "member")}
     card["ranks"] = [{"rank": i, "name": bot_rank_name(i)} for i in range(len(BOT_RANKS))
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
-    card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()]
+    card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()
+                          if k not in CREATOR_ONLY_CURRENCIES or user["rank"] >= CREATOR]
     card["history"] = await admin_people.history(db, user_id=uid)
     # Метки (в профиле игрока — «Регалии»): выданные вручную, заработанные и что можно выдать.
     card["marks"] = await marks_service.admin_view(db, uid)
@@ -399,6 +408,8 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         if currency not in BALANCE_CURRENCIES:
             raise HTTPException(400, "Эту валюту из админки менять нельзя.")
         title, decimals = BALANCE_CURRENCIES[currency]
+        if currency in CREATOR_ONLY_CURRENCIES and user["rank"] < CREATOR:
+            raise HTTPException(403, f"{title}: баланс меняет только создатель.")
         try:
             amount = Decimal(str(data.get("amount")))
         except (InvalidOperation, ValueError):
@@ -419,7 +430,9 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
                                                                    reference=str(actor), idempotency_key=key)
                 else:
                     applied = (await apply_balance_change(
-                        db, uid, {currency: amount}, reason_code="bot_admin_adjustment", idempotency_key=key,
+                        db, uid, {currency: amount},
+                        reason_code="bot_admin_zarniki_grant" if currency == "zarniki" and amount > 0 else "bot_admin_adjustment",
+                        idempotency_key=key,
                         source_type="admin", reference_type="bot_admin", reference_id=str(actor),
                         metadata={"reason": reason})).applied
                 if applied:   # повтор того же запроса (двойное нажатие) в журнал не пишется

@@ -14,7 +14,8 @@ from aiogram.types import CallbackQuery, ChatPermissions, InlineKeyboardButton, 
 from bot.chat import ranks
 from bot.chat.framework import Ctx, registry
 from bot.chat.moderation import TG_FAIL, active_warns, commit, do_unban, local_time, log, rank_block, revoke_all_warns
-from bot.chat.style import quote
+from bot.chat.style import profile_link, quote
+from services import member_tags
 
 router = Router(name="chat_sanctions")
 PAGE = 8
@@ -84,7 +85,7 @@ async def _rows(db, chat: int, tab: str) -> list[tuple[int, str | None, str]]:
     return out
 
 
-async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, InlineKeyboardMarkup]:
+async def list_view(db, uid: int, chat: int, tab: str, page: int, bot=None) -> tuple[str, InlineKeyboardMarkup]:
     rows = await _rows(db, chat, tab)
     pages = max(1, -(-len(rows) // PAGE))
     page = max(0, min(page, pages - 1))
@@ -99,8 +100,9 @@ async def list_view(db, uid: int, chat: int, tab: str, page: int) -> tuple[str, 
             for k, t in TABS.items()]
     kb.append(tabs[:3])
     kb.append(tabs[3:])
+    tags = await member_tags.many_fresh(bot, db, chat, [r[0] for r in chunk])
     for user_id, uname, detail in chunk:
-        entries.append(f"<b>{html.escape(_name(user_id, uname))}</b> · {html.escape(detail)}")
+        entries.append(f"<b>{profile_link(user_id, uname, tags.get(user_id))}</b> · {html.escape(detail)}")
         if tab != "kick":
             kb.append([InlineKeyboardButton(
                 text=f"{_name(user_id, uname).replace(chr(0x200b), '')} — открыть",
@@ -128,7 +130,7 @@ async def card_view(db, uid: int, chat: int, tab: str, page: int, user: int) -> 
         "AND (expires_at IS NULL OR expires_at > NOW())", (chat, user)) as cur:
         ban = await cur.fetchone()
     warns = await active_warns(db, chat, user)
-    lines = [f"👤 <b>{html.escape(_name(user, uname))}</b>"]
+    lines = [f"👤 <b>{html.escape(member_tags.with_tag(_name(user, uname), await member_tags.get(db, chat, user)))}</b>"]
     b = lambda text, act: InlineKeyboardButton(
         text=text, callback_data=SanCB(uid=uid, chat=chat, tab=tab, page=page, user=user, act=act).pack())
     actions = []
@@ -168,7 +170,7 @@ async def cmd_sanctions(ctx: Ctx) -> None:
     if not await ranks.can(ctx.db, chat, ctx.user_id, "lists"):
         await ctx.reply("⛔ У вашего ранга нет права смотреть списки санкций.")
         return
-    text, kb = await list_view(ctx.db, ctx.user_id, chat, "ban", 0)
+    text, kb = await list_view(ctx.db, ctx.user_id, chat, "ban", 0, ctx.bot)
     await ctx.reply(text, reply_markup=kb)
 
 
@@ -201,9 +203,9 @@ async def on_sanctions(call: CallbackQuery, callback_data: SanCB, bot: Bot, db) 
     if cb.user:
         text, kb = await card_view(db, cb.uid, cb.chat, cb.tab, cb.page, cb.user)
     else:
-        text, kb = await list_view(db, cb.uid, cb.chat, cb.tab, cb.page)
+        text, kb = await list_view(db, cb.uid, cb.chat, cb.tab, cb.page, bot)
     try:
-        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)   # t.me-ссылки на ники без карточки-превью
     except Exception:
         pass
     await call.answer()

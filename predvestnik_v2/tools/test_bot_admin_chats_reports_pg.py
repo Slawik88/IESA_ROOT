@@ -95,6 +95,21 @@ async def checks():
     assert only == {-100, -500}, only
     assert {c["id"] for c in (await get(HELPER, "/chats/attention?kind=quiet")).json()["items"]} == {-200}
     assert (await get(HELPER, "/chats/attention?kind=nonsense")).json()["total"] == 4                       # неизвестный вид = все
+    # ── Подключение чатов: воронка из мастера настройки ──
+    assert (await get(P[1], "/chats/onboarding")).status_code == 403
+    assert (await get(HELPER, "/chats/onboarding")).json()["added"] == 0
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await db.execute("INSERT INTO chat_onboarding (chat_id, inviter_id, rights_ok_at) VALUES (-100, ?, NULL), (-400, ?, NOW())", (P[2], P[3]))
+        await db.execute("INSERT INTO chat_onboarding (chat_id, inviter_id, left_at) VALUES (-300, ?, NOW())", (P[4],))
+        for chat, event in ((-100, "added"), (-100, "rights_help"), (-100, "rights_help"), (-400, "added"), (-400, "rights_ok"), (-300, "added")):
+            await db.execute("INSERT INTO chat_onboarding_events (chat_id, user_id, event) VALUES (?, ?, ?)", (chat, P[2], event))
+    funnel = (await get(HELPER, "/chats/onboarding?days=7")).json()
+    assert (funnel["added"], funnel["ready"], funnel["waiting"], funnel["gave_up"]) == (3, 1, 1, 1), funnel
+    events_ = {e["event"]: e for e in funnel["events"]}
+    assert events_["rights_help"]["count"] == 2 and events_["rights_help"]["chats"] == 1 and events_["added"]["chats"] == 3, events_
+    assert [s["id"] for s in funnel["stuck"]] == [-100] and funnel["stuck"][0]["inviter"]["username"] == f"u{P[2]}", funnel["stuck"]
+    assert (await get(HELPER, "/chats/onboarding?days=9999")).json()["days"] == 90
     health = (await get(SENIOR, "/health")).json()
     assert health["chats"]["no_rights"] == 2 and health["chats"]["left"] == 1, health["chats"]               # «Состояние» считает так же
 

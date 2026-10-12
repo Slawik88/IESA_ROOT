@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from aiogram.types import Message
+
+from services import member_tags
 
 _USERNAME_RE = re.compile(r"(?<!\w)@([A-Za-z0-9_]{4,32})\b")
 _ID_RE = re.compile(r"(?<!\w)(?:id)?(\d{5,15})\b", re.IGNORECASE)
@@ -15,9 +17,15 @@ class Target:
     user_id: int
     username: str | None
     name: str
+    tag: str | None = None   # тег в чате, где пришла команда (подпись справа от имени в Telegram)
 
     def label(self) -> str:
-        """Имя без пинга: «@» + нулевой пробел."""
+        """Имя без пинга («@» + нулевой пробел) и тег в этом чате: «@ник [Сяо]»."""
+        return member_tags.with_tag(f"@​{self.username}" if self.username else self.name, self.tag)
+
+    @property
+    def plain_name(self) -> str:
+        """Имя без тега: для пинга ссылкой и текста, который копируют в команду."""
         return f"@​{self.username}" if self.username else self.name
 
 
@@ -53,8 +61,27 @@ def _strip(args: str, span: tuple[int, int]) -> str:
     return re.sub(r"^[\s,;:]+|[\s,;:]+$", "", (args[:span[0]] + " " + args[span[1]:])).strip()
 
 
+async def _tagged(db, message: Message, target: Target, source: Message | None = None) -> Target:
+    """Цель с тегом в этом чате. Если цель взята из ответа на сообщение, берём тег из самого сообщения: он свежее базы."""
+    if message.chat.type not in ("group", "supergroup"):
+        return target
+    tag = None
+    if source is not None:
+        known, tag = member_tags.of_message(source)
+        if not known:
+            tag = await member_tags.get(db, message.chat.id, target.user_id)
+    else:
+        tag = await member_tags.get(db, message.chat.id, target.user_id)
+    return replace(target, tag=tag) if tag else target
+
+
 async def resolve_target(db, message: Message, args: str, *, allow_id: bool = False) -> tuple[Target | None, str]:
-    """Вернуть (цель, оставшиеся значения). Цель None — не найдена."""
+    """Вернуть (цель, оставшиеся значения). Цель None — не найдена. У цели уже есть тег в этом чате."""
+    target, rest, source = await _resolve(db, message, args, allow_id=allow_id)
+    return (await _tagged(db, message, target, source) if target else None), rest
+
+
+async def _resolve(db, message: Message, args: str, *, allow_id: bool = False) -> tuple[Target | None, str, Message | None]:
     m = _USERNAME_RE.search(args)
     if m:
         # Ник в Telegram один на весь мир, но у людей, сменивших его, в базе мог остаться старый: берём того,
@@ -68,16 +95,16 @@ async def resolve_target(db, message: Message, args: str, *, allow_id: bool = Fa
             row = await cur.fetchone()
         rest = _strip(args, m.span())
         if row:
-            return Target(int(row[0]), row[1], row[1]), rest
-        return None, rest
+            return Target(int(row[0]), row[1], row[1]), rest, None
+        return None, rest, None
     for ent in message.entities or []:
         if ent.type == "text_mention" and ent.user:
             u = ent.user
             mention = _utf16_slice(message.text or message.caption or "", ent.offset, ent.length)
-            return Target(u.id, u.username, u.full_name), args.replace(mention, "", 1).strip(" ,")
+            return Target(u.id, u.username, u.full_name), args.replace(mention, "", 1).strip(" ,"), None
     u = _replied_user(message)
     if u:
-        return Target(u.id, u.username, u.full_name), args
+        return Target(u.id, u.username, u.full_name), args, message.reply_to_message
     if allow_id:
         m = _ID_RE.search(args)
         if m:
@@ -87,5 +114,5 @@ async def resolve_target(db, message: Message, args: str, *, allow_id: bool = Fa
             ) as cur:
                 row = await cur.fetchone()
             uname = row[0] if row else None
-            return Target(uid, uname, uname or f"id{uid}"), _strip(args, m.span())
-    return None, args
+            return Target(uid, uname, uname or f"id{uid}"), _strip(args, m.span()), None
+    return None, args, None

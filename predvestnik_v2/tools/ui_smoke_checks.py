@@ -15,6 +15,7 @@ SCREENS = [
     ("settings", "openSettingsModal()"),
     ("chests", "openChestsV1()"),
     ("pets", "openPetsV1()"),
+    ("inventory", "openInventory()"),
     ("achievements", "openAchievementsV1()"),
     ("help", "switchPage('help')"),
     ("store-zarniki", "openStoreV3('zarniki')"),
@@ -40,7 +41,7 @@ SCREENS = [
 PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
-DOCK_TABS = ("arena", "looks", "questlog", "chests", "top", "more", "profile")
+DOCK_TABS = ("arena", "looks", "questlog", "chests", "pets", "top", "more", "profile")
 
 # Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [
@@ -118,11 +119,15 @@ FRAMES = """(ms) => new Promise(res => { const out = []; let last = performance.
 # What keeps moving on the screen after it settled: the budget of a look. Elements of a toast are not counted (a toast leaves by itself).
 MOTION = """() => new Promise(res => setTimeout(() => {
   const run = document.getAnimations().filter(a => a.playState === 'running' && a.effect && a.effect.target && !a.effect.target.closest('.toast, .v3-toast'));
-  const chainFilter = t => { for (let n = t; n && n !== document.body; n = n.parentElement) if (getComputedStyle(n).filter !== 'none') return true; return false; };
-  let filter = 0, masked = 0, glint = 0;
-  run.forEach(a => { const t = a.effect.target, cs = getComputedStyle(t); if (chainFilter(t)) filter++; if (cs.maskImage !== 'none' || cs.webkitMaskImage !== 'none') masked++;
-    try { if (a.effect.getKeyframes().some(k => 'backgroundPositionX' in k)) glint++; } catch (e) {} });
-  res({anims: run.length, filter, masked, glint, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
+  const gpu = new Set(['offset', 'computedOffset', 'easing', 'composite', 'transform', 'opacity', 'filter', 'translate', 'rotate', 'scale']);   // what the compositor can animate by itself
+  let main = 0;
+  run.forEach(a => { try { if (a.effect.getKeyframes().some(k => Object.keys(k).some(p => !gpu.has(p)))) main++; } catch (e) {} });
+  res({anims: run.length, main, lite: document.body.classList.contains('ap-lite')}); }, 2500))"""
 # Budget of a look at SSS in the full mode (`--perf --device high`; measured with the scenes, ~60-75 animated layers, with headroom): beyond this the page jitters in the Telegram WebView.
 # Everything animated is transform / opacity on the compositor; frames stay at 16.7 ms under a 4x slowed CPU. A mid phone (`--device mid`, .ap-lite) runs about two thirds of it.
-BUDGET = {"anims": 95, "filter": 14, "masked": 20, "glint": 1}
+# `passes`, `area` and `bmf` come from Chromium's own compositor (ui_smoke.compositor_cost), the numbers that decide how a phone copes and that fps on a desktop never shows:
+# render passes per drawn frame (a mask or filter on a box that holds moving things, and every polygon clip-path, is an offscreen surface; 34 clipped sparks were 34 of them),
+# the summed area of the composited layers in screens (memory x DPR squared) and main-thread frames a second (`ProxyMain::BeginMainFrame`: each one restyles EVERY running animation, so one animation
+# that cannot run on the compositor, like the old background glint, lifted it from the healthy 11 to 55-60 and made all the others dearer). `main` counts running animations that animate anything but
+# transform / opacity / filter. Counting masked or filtered animated elements, as this budget once did, says nothing about any of them.
+BUDGET = {"anims": 95, "main": 0, "passes": 14, "area": 24, "bmf": 24}

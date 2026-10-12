@@ -188,8 +188,50 @@ async def retention(db) -> dict:
     return out
 
 
+FUNNEL_MIN_TABS = 2        # «пошёл дальше первого экрана»: заглянул хотя бы в два раздела
+FUNNEL_MIN_SECONDS = 60    # «остался»: в сумме минута и больше в приложении за период
+
+
+async def funnel(db, since_day: date, until_day: date) -> dict:
+    """Воронка мини-приложения за период: открыл → заглянул в два раздела → провёл минуту → потратил валюту.
+
+    Каждый шаг входит в предыдущий (это те же люди, которые прошли дальше), поэтому проценты читаются как «сколько дошло».
+    Отдельно: сколько из открывших приложение пользуются и командами бота. Журнала валюты может ещё не быть — тогда
+    последний шаг пустой, а остальные считаются."""
+    from datetime import timezone
+    start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
+    row = await _one(
+        db, "WITH v AS (SELECT user_id, COUNT(DISTINCT tab) AS tabs, COALESCE(SUM(duration_sec), 0) AS secs FROM site_analytics "
+            "WHERE visited_at >= ? AND visited_at < ? GROUP BY user_id) "
+            "SELECT COUNT(*), COUNT(*) FILTER (WHERE tabs >= ?), COUNT(*) FILTER (WHERE tabs >= ? AND secs >= ?), "
+            "COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM bot_user_daily b WHERE b.user_id = v.user_id AND b.day BETWEEN ? AND ?)) FROM v",
+        (start, end, FUNNEL_MIN_TABS, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, since_day, until_day))
+    opened, deeper, stayed, with_bot = (int(x) for x in row)
+    spent = None
+    try:
+        spent = int((await _one(
+            db, "WITH v AS (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ? GROUP BY user_id "
+                "HAVING COUNT(DISTINCT tab) >= ? AND COALESCE(SUM(duration_sec), 0) >= ?) "
+                "SELECT COUNT(*) FROM v WHERE EXISTS (SELECT 1 FROM economic_ledger l WHERE l.user_id = v.user_id "
+                "AND l.delta < 0 AND l.created_at >= ? AND l.created_at < ?)",
+            (start, end, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, start.replace(tzinfo=timezone.utc), end.replace(tzinfo=timezone.utc))))[0])
+    except Exception:   # журнала валюты ещё нет (чистая база)
+        spent = None
+    steps = [("opened", "Открыли приложение", opened), ("deeper", f"Заглянули в {FUNNEL_MIN_TABS} раздела и больше", deeper),
+             ("stayed", f"Провели в приложении {FUNNEL_MIN_SECONDS // 60} мин и больше", stayed),
+             ("spent", "Потратили игровую валюту", spent)]
+    out, prev = [], None
+    for key, title, n in steps:
+        out.append({"key": key, "title": title, "users": n,
+                    "of_first": round(n * 100 / opened) if (n is not None and opened) else None,
+                    "of_prev": round(n * 100 / prev) if (n is not None and prev) else None})
+        if n is not None:
+            prev = n
+    return {"steps": out, "with_bot": with_bot, "with_bot_percent": round(with_bot * 100 / opened) if opened else None}
+
+
 REASON_GROUPS = (
-    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"),
+    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"), (("season_reward",), "Награды за сезоны игр"),
     (("achievement_reward",), "Награды за достижения"), (("chest_v1_reward", "chest_key"), "Сундуки и ключи"),
     (("promocode",), "Промокоды"), (("vip_",), "VIP"), (("pet_",), "Питомцы"),
     (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "retirement_"), "Подарки и компенсации"),
@@ -253,7 +295,7 @@ async def dashboard(db, days: int) -> dict:
     return {"days": days, "since": since_day.isoformat(), "until": until_day.isoformat(), "day_list": day_list,
             "everyone": everyone, "players_total": int(totals[0]), "chats_total": int(totals[1]),
             "site": site, "bot": bot, "chats": chats, "compare": compare, "retention": await retention(db),
-            "economy": await economy(db, since_day, until_day)}
+            "funnel": await funnel(db, since_day, until_day), "economy": await economy(db, since_day, until_day)}
 
 
 async def export_csv(db, days: int) -> str:
@@ -278,6 +320,11 @@ async def export_csv(db, days: int) -> str:
     w.writerow(["Чат", "Сообщений", "Писали"])
     for x in m["chats"]["top"]:
         w.writerow([x["title"], x["messages"], x["users"]])
+    w.writerow([])
+    w.writerow(["Воронка мини-приложения", "Людей", "От открывших, %", "От прошлого шага, %"])
+    for step in m["funnel"]["steps"]:
+        w.writerow([step["title"], "" if step["users"] is None else step["users"],
+                    "" if step["of_first"] is None else step["of_first"], "" if step["of_prev"] is None else step["of_prev"]])
     w.writerow([])
     w.writerow(["Валюта", "Выдано", "Потрачено", "Итого"])
     for currency, c in m["economy"].items():

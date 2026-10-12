@@ -7,9 +7,10 @@ from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.chat import ranks
-from bot.chat.style import quote
+from bot.chat.style import profile_link, quote
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
+from services import member_tags
 
 router = Router(name="chat_ranks")
 
@@ -105,29 +106,30 @@ async def cmd_ranks(ctx: Ctx) -> None:
     async with ctx.db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.chat_rank "
         "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
-        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
+        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE "
         "AND COALESCE(s.chat_rank, 0) > 0",
         (chat_id,),
     ) as cur:
         rows = await cur.fetchall()
-    groups: dict[int, list[str]] = {}
+    groups: dict[int, list[tuple[str, str]]] = {}   # ранг -> [(ник для сортировки, строка с ссылкой на профиль)]
     names: dict[int, str] = {}
+    tags = await member_tags.many_fresh(ctx.bot, ctx.db, chat_id, [r[0] for r in rows] + ([owner] if owner else []))
     for uid, uname, cr in rows:
         rank = int(cr or 0)
-        label = f"@​{uname}" if uname else f"id{uid}"
+        label = profile_link(int(uid), uname, tags.get(int(uid)))
         names[int(uid)] = label
         if int(uid) != owner and rank > 0:
-            groups.setdefault(min(rank, ranks.OWNER - 1), []).append(label)
+            groups.setdefault(min(rank, ranks.OWNER - 1), []).append(((uname or f"id{uid}").lower(), label))
     lines = ["🏛 <b>Состав чата</b>"]
     if owner:
         owner_label = names.get(owner)
         if owner_label is None:
             async with ctx.db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (owner,)) as cur:
                 r = await cur.fetchone()
-            owner_label = f"@​{r[0]}" if r and r[0] else f"id{owner}"
-        lines.append(f"\n<b>{ranks.rank_name(ranks.OWNER)}</b>\n" + quote([_esc(owner_label)]))
+            owner_label = profile_link(owner, r[0] if r else None, tags.get(owner))
+        lines.append(f"\n<b>{ranks.rank_name(ranks.OWNER)}</b>\n" + quote([owner_label]))
     for rank in sorted(groups, reverse=True):
-        lines.append(f"\n<b>{ranks.rank_name(rank)}</b>\n" + quote([_esc(n) for n in sorted(groups[rank], key=str.lower)]))
+        lines.append(f"\n<b>{ranks.rank_name(rank)}</b>\n" + quote([label for _, label in sorted(groups[rank])]))
     if len(lines) == 1:
         lines.append("\nРангов пока ни у кого нет.")
     await ctx.reply("\n".join(lines))

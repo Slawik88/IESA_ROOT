@@ -9,7 +9,8 @@
 /* ── Слой деталей на сцене ───────────────────────────────────────────────────────────────────────────────── */
 .ap-orn { position: absolute; inset: 0 -10px -10px; z-index: -1; overflow: hidden; pointer-events: none; clip-path: inset(0); }
 .ap-orn svg { position: absolute; display: block; height: auto; overflow: visible; pointer-events: none; }
-.ap-orn svg.o-drips { left: 0; top: 0; width: 100%; height: 92px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
+.ap-orn svg.o-drips { left: 0; top: 0; width: 100%; height: 92px; }
+.o-sh { fill: none; stroke: #000; stroke-width: 9.5; stroke-opacity: .05; stroke-linejoin: round; } .o-sh--m { stroke-width: 6; stroke-opacity: .08; } .o-sh--n { stroke-width: 2.7; stroke-opacity: .14; }   /* тень подтёков вместо filter: drop-shadow(0 2px 3px) на всём svg (см. app.22.js) */
 .o-wet { fill: url(#ornBlood); } .o-band { fill: url(#ornBand); } .o-gl { fill: #fff; opacity: .3; } .ap-orn .o-wet ~ .o-gl, .ap-frame[data-sk="crimson_dark"] .o-gl, .ap-orn[data-sk="crimson_dark"] .o-gl { opacity: .14; }
 
 /* ── Алая Звезда ─────────────────────────────────────────────────────────────────────────────────────────── */

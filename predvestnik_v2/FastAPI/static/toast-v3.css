@@ -22,7 +22,8 @@
 .toast.tv-fr-ring { border-radius: 99px; padding-right: 24px; }
 .toast.tv-fr-double { border-radius: 99px; padding-right: 24px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 0 0 0 1px color-mix(in srgb, var(--tv) 58%, transparent), inset 0 0 0 4px var(--v3-sheet, #14161e), inset 0 0 0 5px color-mix(in srgb, var(--tv) 30%, transparent); }
-.toast.tv-fr-dash { border-radius: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, .42); outline: 1.5px dashed color-mix(in srgb, var(--tv) 62%, transparent); outline-offset: -5px; }
+.toast.tv-fr-dash { border-radius: 16px; box-shadow: 0 12px 32px rgba(0, 0, 0, .42); }
+.tv-dash { position: absolute; inset: 3.5px; border: 1.5px dashed color-mix(in srgb, var(--tv) 62%, transparent); border-radius: 12.5px; pointer-events: none; }   /* пунктир отдельным слоем: outline на тосте перерисовывался на каждом кадре */
 .toast.tv-fr-seg { border-radius: 8px; box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 4px 0 0 var(--tv), inset 0 1px 0 color-mix(in srgb, var(--tv) 30%, transparent); }
 
 /* длинный текст: углы не превращаются в огромную «таблетку» */

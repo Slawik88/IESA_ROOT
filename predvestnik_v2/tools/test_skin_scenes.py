@@ -21,14 +21,13 @@ STATIC = ROOT / "FastAPI/static"
 from core.skins_v3_catalog import SKINS  # noqa: E402
 import scene_art  # noqa: E402
 
-# Looks that do not have their own scene yet (the list only shrinks; when it is empty every look has a world).
-PENDING = {"cobweb", "crimson_dark", "garland", "midnight_chimes",
-           "pumpkin_lantern", "scarlet_star", "snow_globe", "witch_hour"}
+# Looks that do not have their own scene yet. Empty: every look has a world, so a new look comes with its scene (app.35–38.js) or is listed here until it gets one.
+PENDING: set[str] = set()
 
 SHAPES = {"glow", "ring", "sil", "dot", "band", "wave", "arc"}
-MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
+MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash", "flicker"}
 FLAGS = {"w2", "m", "fl", "st", "go", "rev", "dash"}
-KEYS = {"l", "t", "r", "b", "w", "h", "c", "c2", "k", "o", "s", "s0", "s1", "bs", "bg", "bw", "bp", "gd", "dur", "del", "dx", "dy", "ang", "rot", "org", "fx", "fy", "tx", "ty", "tw"}
+KEYS = {"l", "t", "r", "b", "w", "h", "c", "c2", "k", "o", "s", "s0", "s1", "bs", "bg", "bw", "bp", "gd", "dur", "del", "dx", "dy", "ang", "rot", "org", "fx", "fy", "tx", "ty", "tw", "cr"}
 EVENTS = {"peek", "flash", "cross", "sweep", "rise", "ripple", "twinkle"}   # hidden while still (.ap-low and reduced motion): see skin-scene-v3.css
 MAX_LAYERS = 24            # per look, everything at SSS
 MAX_LITE_ANIMATED = 15     # animated layers a mid phone (no .w2) still runs at SSS
@@ -76,6 +75,7 @@ assert set(scenes) <= set(SKINS), f"scenes for unknown looks: {sorted(set(scenes
 missing = {sid for sid in SKINS if sid not in scenes}
 assert missing == PENDING, f"looks without a scene: {sorted(missing - PENDING)}; looks with a scene still listed as pending: {sorted(PENDING - missing)}"
 used: set[str] = set()
+cropped = 0
 for sid, layers in scenes.items():
     assert 6 <= len(layers) <= MAX_LAYERS, f"{sid}: {len(layers)} layers"
     tiers = {layer[0] for layer in layers}
@@ -96,8 +96,23 @@ for sid, layers in scenes.items():
         assert words[0] != "sil" or pictures, f"{sid}: a silhouette needs a picture: '{classes}'"
         assert words[0] != "wave" or ("go" in words and pictures), f"{sid}: a wave needs 'go' and a picture"
         assert set(geo) <= KEYS, f"{sid}: unknown variable {sorted(set(geo) - KEYS)}"
+        if "cr" in geo:      # a cropped box (tools/scene_crop.py): a moving silhouette, [x0, y0, x1, y1] is a real part of the box
+            x0, y0, x1, y1 = geo["cr"]
+            assert words[0] == "sil" and motions and "go" not in words, f"{sid}: cr belongs to a moving silhouette: '{classes}'"
+            assert "w" in geo and "h" in geo, f"{sid}: cr needs the box (w, h) in '{classes}'"
+            sized = [re.fullmatch(r"(\d*\.?\d+)px", str(geo[k])) for k in ("w", "h")]
+            if all(sized):      # a box in px is cropped in whole px of the box, otherwise in fractions of it
+                width, height = (float(m.group(1)) for m in sized)
+                assert all(v == int(v) for v in (x0, y0, x1, y1)) and 0 <= x0 < x1 <= width and 0 <= y0 < y1 <= height and (x1 - x0) * (y1 - y0) < width * height, f"{sid}: bad cr {geo['cr']} in '{classes}'"
+            else:
+                assert 0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1 and (x1 - x0) * (y1 - y0) < 1, f"{sid}: bad cr {geo['cr']} in '{classes}'"
+            cropped += 1
         animated += bool(motions or "go" in words) and "w2" not in words
     assert animated <= MAX_LITE_ANIMATED, f"{sid}: {animated} animated layers for a mid phone (budget {MAX_LITE_ANIMATED})"
 unused = sorted(set(drawn) - used)
 assert not unused, f"pictures nobody uses: {unused}"
-print(f"OK: skin scenes: {len(scenes)} looks with their own world, {len(drawn)} pictures, every tier C..SS adds a layer")
+# a crop must still hold every pixel of its picture (needs Chromium; the tool says SKIP and passes without it)
+crop = subprocess.run([sys.executable, str(ROOT / "tools/scene_crop.py"), "--check"], capture_output=True, text=True, cwd=ROOT)
+assert crop.returncode == 0, crop.stdout[-900:] + crop.stderr[-300:]
+print(f"OK: skin scenes: {len(scenes)} looks with their own world, {len(drawn)} pictures, {cropped} cropped layers, every tier C..SS adds a layer")
+print(crop.stdout.strip().splitlines()[-1] if crop.stdout.strip() else "")

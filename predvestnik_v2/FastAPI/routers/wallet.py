@@ -13,6 +13,7 @@ router = APIRouter(prefix="/wallet", tags=["wallet"])
 _SOURCE_LABELS = {
     "expedition":       "⚔️ Экспедиция",
     "quest_reward":     "📋 Квест",
+    "season_reward":    "🏁 Сезон",
     "achievement_reward": "🏆 Достижение",
     "level_up":         "⬆️ Уровень",
     "pet_milestone":    "🐾 Питомец Ур.",
