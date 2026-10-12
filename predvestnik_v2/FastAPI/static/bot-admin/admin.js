@@ -1034,6 +1034,10 @@ function funnelCard(f) {
     (покупка, ставка, образ, питомец).</p>`, {fold: true, open: false});
 }
 
+const staffEco = st => {
+  const rows = Object.entries(st || {}).filter(([k]) => CURRENCIES[k]);
+  return rows.length ? `<p class="sub note">На аккаунтах команды: ${rows.map(([k, c]) => `${CURRENCIES[k]} выдано ${num(c.issued)}, потрачено ${num(c.spent)}`).join('; ')}.</p>` : '';
+};
 function economyCard(e) {
   const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
   if (!cur.length) return section('m-economy', '💰 Экономика', '<div class="sub">За период движений валюты не было.</div>', {fold: true, open: false});
@@ -1043,7 +1047,8 @@ function economyCard(e) {
     <div class="sub cur"><b>${CURRENCIES[k]}</b></div>
     <div class="kpis">${kpi('Выдано', num(c.issued), '', 'sm')}${kpi('Потрачено', num(c.spent), '', 'sm')}${kpi('Итого', signed(c.net), '', 'sm')}</div>
     ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
-    <p class="sub note">Переводы между игроками не считаются: деньги только переходят от человека к человеку.</p>`, {fold: true, open: false, count: cur.length});
+    ${staffEco(e._staff)}
+    <p class="sub note">Переводы между игроками не считаются: деньги только переходят от человека к человеку. Аккаунты команды в счёт не входят.</p>`, {fold: true, open: false, count: cur.length});
 }
 
 // Выгрузка в CSV: в браузере скачивается файлом, а в Telegram (где файлы не скачать) — копируется в буфер.
@@ -1084,7 +1089,8 @@ async function metricsView(main, days = 1) {
       ${kpi('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), trend(s.visitors, cmp.visitors))}
       ${kpi('🤖 Команд бота', num(b.commands), trend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), trend(c.messages, cmp.messages))}</div>
     <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
-      в чате с ботом. Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</p>
+      в чате с ботом. Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.
+      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
     ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
       ${kpi('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
       ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
@@ -1099,7 +1105,8 @@ async function metricsView(main, days = 1) {
       ${kpi('Людей', num(b.users), trend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
       ${b.top.length ? tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))
-        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}`)}
+        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
+      ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}`)}
     ${section('m-chats', '💬 Чаты', `<div class="kpis">
       ${kpi('Сообщений', num(c.messages), trend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}

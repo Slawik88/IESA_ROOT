@@ -37,13 +37,14 @@ async def build(db) -> str:
     """Текст отчёта за вчерашние местные сутки."""
     from services import bot_health, bot_metrics
     day = bot_metrics.today() - timedelta(days=1)
-    chats = await bot_metrics._chats(db, day, day)
-    bot = await bot_metrics._bot(db, day, day)
-    site = await bot_metrics._site(db, day, day)
+    staff = await bot_metrics.staff_ids(db)   # итоги дня считаются так же, как «Метрики»: без аккаунтов команды
+    chats = await bot_metrics._chats(db, day, day, staff)
+    bot = await bot_metrics._bot(db, day, day, staff)
+    site = await bot_metrics._site(db, day, day, staff)
     start, end = bot_metrics._utc_start(day), bot_metrics._utc_start(day + timedelta(days=1))
     new_players = int((await bot_metrics._one(
-        db, "SELECT COUNT(*) FROM (SELECT user_tg_id FROM user_chat_stats GROUP BY user_tg_id "
-            "HAVING MIN(joined_at) >= ? AND MIN(joined_at) < ?) x", (start, end)))[0])
+        db, f"SELECT COUNT(*) FROM (SELECT user_tg_id FROM user_chat_stats WHERE TRUE{staff.sql('user_tg_id')} GROUP BY user_tg_id "
+            "HAVING MIN(joined_at) >= ? AND MIN(joined_at) < ?) x", (*staff.args, start, end)))[0])
     health = await bot_health.counters(db)
     errors, _ = bot_health.recent_errors()
     try:
