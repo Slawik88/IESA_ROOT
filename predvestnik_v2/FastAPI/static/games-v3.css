@@ -70,10 +70,22 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) button.gift { display: grid; gap: 4px; min-height: 64px; padding: 12px 0 12px 14px; border: 0; border-radius: 0; background: none; box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--g-faint); color: var(--ink, #f3f4f7); text-align: left; }
 .gift small { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--g-dim); }
 .gift b { font-size: 16px; font-weight: 600; }
-.gift span { font-size: 13px; color: var(--g-dim); }
+.gift span { font-size: 13px; }
 :is(body, body.skin-v3) button.gift[data-kind="safe"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--good, #7fd6a4); }
 :is(body, body.skin-v3) button.gift[data-kind="boost"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--g-acc); }
 :is(body, body.skin-v3) button.gift[data-kind="risk"] { box-shadow: 0 -1px 0 var(--g-faint), inset 3px 0 0 var(--bad, #ff8a8a); }
 :is(body, body.skin-v3) .gift:disabled { opacity: .5; }
 .perks-line { min-height: 1.2em; margin: 0 0 6px; font-size: 13px; color: var(--g-dim); text-align: center; }
 .count-num { margin: 18px 0; font-size: 96px; font-weight: 700; text-align: center; line-height: 1; }
+.season-hero { padding: 4px 0 8px; }
+.season-hero h2 { margin: 6px 0; font-size: 24px; line-height: 1.15; }
+.season-rewards { display: grid; gap: 0; margin: 10px 0 4px; padding: 0; list-style: none; }
+.season-rewards li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13px; box-shadow: 0 -1px 0 var(--g-faint); }
+.season-rewards li:first-child { font-size: 15px; font-weight: 600; box-shadow: none; }
+.season-rewards b { font-weight: 600; }
+.season-rewards span { color: var(--g-dim); text-align: right; }
+.season-rewards li:first-child span { color: var(--g-acc); }
+.how-to { margin: 18px 0 0; font-size: 13px; color: var(--g-dim); }
+.how-to summary { cursor: pointer; padding: 8px 0; }
+.gift .gift-plus { color: var(--good, #7fd6a4); }
+.gift .gift-minus { color: var(--bad, #ff8a8a); }

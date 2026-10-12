@@ -135,12 +135,19 @@ async def run():
     assert (r["d1"]["cohort"], r["d1"]["returned"], r["d1"]["percent"]) == (2, 1, 50), r   # P1 (10 дней назад) и P3 (5 дней назад)
     assert (r["d7"]["cohort"], r["d7"]["returned"], r["d7"]["percent"]) == (1, 0, 0), r      # только P1, вернулся через 10 дней
     assert r["d30"]["cohort"] == 0 and r["d30"]["percent"] is None, r
+    # Воронка: P1 прошёл все шаги (3 раздела, 195 с, трата в магазине), P2 открыл один раздел на 15 с.
+    f = m["funnel"]
+    assert [(x["key"], x["users"], x["of_first"], x["of_prev"]) for x in f["steps"]] == \
+        [("opened", 2, 100, None), ("deeper", 1, 50, 50), ("stayed", 1, 50, 100), ("spent", 1, 50, 100)], f
+    assert (f["with_bot"], f["with_bot_percent"]) == (2, 100), f
     m = (await client.get("/bot-admin/api/metrics?days=7", headers=h[SENIOR])).json()
     assert m["site"]["visitors"] == 3 and m["chats"]["messages"] == 46 and m["everyone"] == 3, m
     assert m["compare"]["visitors"] == 1 and m["compare"]["messages"] == 12 and m["compare"]["chat_users"] == 1 \
         and m["compare"]["everyone"] == 1, m["compare"]
     assert m["economy"]["mora"]["issued"] == 800 + 999, m["economy"]   # за неделю входит и старая выдача
     assert len(m["day_list"]) == 7 and m["day_list"][-1] == today.isoformat()
+    f = m["funnel"]   # за неделю добавился P3: один раздел на 600 с, потрат нет, команд бота нет
+    assert [x["users"] for x in f["steps"]] == [3, 1, 1, 1] and (f["with_bot"], f["with_bot_percent"]) == (2, 67), f
     assert m["site"]["daily"][today.isoformat()]["users"] == 2, m["site"]["daily"]
     assert (await client.get("/bot-admin/api/metrics?days=5", headers=h[SENIOR])).json()["days"] == 1
     # Выгрузка CSV: BOM для Excel, разделитель «;», те же числа, что на экране; доступ — как у раздела.
@@ -152,6 +159,7 @@ async def run():
     assert body.startswith("\ufeff") and "Посетителей мини-приложения" in body, body[:120]
     assert f"{today.isoformat()};2;" in body and "бот стрик;1;0;1" in body and "Основной чат;" in body, body
     assert "mora;1799.0;200.0;1599.0" in body, body
+    assert "Воронка мини-приложения;Людей" in body and "Открыли приложение;3;100;" in body, body
 
 
 def main():

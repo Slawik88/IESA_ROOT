@@ -3,14 +3,23 @@ from core import rhythm_v2 as rules
 
 seed = bytes.fromhex("9d" * 32)
 fresh = rules.new_perks()
-assert rules.expected_rune(seed, 1) in rules.RUNES
-assert rules.expected_rune(seed, 1) == rules.expected_rune(seed, 1)
+take = lambda perk_id, health=5, perks=fresh: rules.apply_perk(perk_id, health=health, perks=perks)
+score = lambda p, elapsed=10, window=500, combo=0: rules.score_for_correct(
+    elapsed_ms=elapsed, allowed_window_ms=window, combo_before=combo, perks=p)
+
+assert rules.expected_rune(seed, 1) == rules.expected_rune(seed, 1) in rules.RUNES
 assert rules.CHUNK_SIZE == 20
 assert rules.chunk_for_signal(1) == 0 and rules.chunk_for_signal(20) == 0 and rules.chunk_for_signal(21) == 1
-assert rules.window_ms(21) < rules.window_ms(1)
-assert rules.window_ms(1) == rules.window_ms(12) == rules.BASE_WINDOW_MS == 1_800
-assert rules.speed_percent(21) == 106 and rules.speed_percent(101) == 130
 assert rules.initial_health() == 5
+
+# The pace is compounding and every run has a hard end: the window floor sinks
+# below any human reaction, so nobody can play forever.
+assert rules.window_ms(1) == rules.window_ms(15) == rules.BASE_WINDOW_MS == 2_200
+assert rules.speed_percent(21) == 108 and rules.speed_percent(41) == 116
+windows = [rules.window_ms(1 + 20 * chunk) for chunk in range(60)]
+assert all(a >= b for a, b in zip(windows, windows[1:])), "the window never widens with progress"
+assert windows[-1] == rules.HARD_FLOOR_MS < rules.MIN_WINDOW_MS
+assert rules.min_window_ms(1) == rules.MIN_WINDOW_MS and rules.min_window_ms(10**6) == rules.HARD_FLOOR_MS
 
 # A gift is owed once per finished chunk and the clock waits for it.
 assert not rules.draft_pending(next_signal_no=20, picks=0)
@@ -18,69 +27,86 @@ assert rules.draft_pending(next_signal_no=21, picks=0)
 assert not rules.draft_pending(next_signal_no=21, picks=1)
 assert rules.draft_pending(next_signal_no=61, picks=1)
 
-# Offers: three distinct, repeatable, never without a safe gift, never ineligible.
-for draft_no in range(1, 40):
+# Offers: three distinct, repeatable, with a safe gift, nothing ineligible; the pool is wide.
+seen = set()
+for draft_no in range(1, 60):
     for health in (1, 2, 3, 5, 7):
-        for perks in (fresh, {**fresh, "shield": 2, "echo": 1, "gambit": 1}):
-            offers = rules.perk_offers(seed, draft_no, health=health, perks=perks)
-            assert len(offers) == len(set(offers)) == 3
-            assert offers == rules.perk_offers(seed, draft_no, health=health, perks=perks)
-            assert any(rules.perk(item).kind == "safe" for item in offers), offers
-            if health < 3:
-                assert "blood_price" not in offers
-            if health >= rules.MAX_HEALTH:
-                assert "second_wind" not in offers
-            if perks["gambit"]:
-                assert "gambit" not in offers
-            if perks["shield"] >= rules.MAX_SHIELDS:
-                assert "shield" not in offers
-assert len({rules.perk_offers(seed, n, health=5, perks=fresh) for n in range(1, 40)}) > 3, "offers must vary"
+        offers = rules.perk_offers(seed, draft_no, health=health, perks=fresh)
+        assert len(offers) == len(set(offers)) == 3
+        assert offers == rules.perk_offers(seed, draft_no, health=health, perks=fresh)
+        assert any(rules.perk(item).kind == "safe" for item in offers), offers
+        assert "breather" not in offers, "the filler is not part of the normal pool"
+        if health < 3:
+            assert "blood_price" not in offers
+        if health <= 2:
+            assert "glass_cannon" not in offers
+        if health >= rules.MAX_HEALTH:
+            assert "iron_heart" not in offers
+        seen.update(offers)
+assert len(seen) >= 12, "offers must vary across the whole pool"
 
-# Every gift changes an authoritative field.
-health, perks = rules.apply_perk("second_wind", health=5, perks=fresh)
-assert health == 6 and perks == fresh
-assert rules.apply_perk("second_wind", health=6, perks=fresh)[0] == 7
-health, perks = rules.apply_perk("shield", health=5, perks=fresh)
-assert perks["shield"] == 1
-health, perks = rules.apply_perk("blood_price", health=5, perks=fresh)
-assert health == 4 and perks["bloody"] == rules.BLOODY_TAPS
-base = rules.score_for_correct(elapsed_ms=10, allowed_window_ms=500, combo_before=0, perks=fresh)
-golden = rules.apply_perk("golden_streak", health=5, perks=fresh)[1]
-bloody = rules.apply_perk("blood_price", health=5, perks=fresh)[1]
-gambit = rules.apply_perk("gambit", health=5, perks=fresh)[1]
-slow = rules.apply_perk("slow_tide", health=5, perks=fresh)[1]
-score = lambda p: rules.score_for_correct(elapsed_ms=10, allowed_window_ms=500, combo_before=0, perks=p)
-assert score(golden) == base * 2 and score(bloody) == base * 3 and score(gambit) > base
-assert rules.window_ms(5, slow) > rules.window_ms(5) > rules.window_ms(5, gambit)
-for bad in ("foreign", ""):
+# Every gift carries a bonus AND a price, both written down and both real.
+assert len(rules.PERKS) == 14
+for item in rules.PERKS:
+    assert item.bonus and item.cost, item.id
+good_fields = ("heal", "shield", "ebb", "bloody", "regen_every", "combo_step", "timeout_free", "sharp_eye")
+for item in rules.PERKS:
+    pluses = item.window_pct > 0 or item.score_pct > 0 or any(getattr(item, f) for f in good_fields)
+    minuses = (item.window_pct < 0 or item.score_pct < 0 or item.pace_pct > 0 or item.damage_extra
+               or item.wrong_extra or item.cap_health or item.sharp_eye or item.id == "blood_price")
+    assert pluses and minuses, f"{item.id} must have both a bonus and a cost"
+
+# Effects.
+health, perks = take("iron_heart"); assert health == 7 and rules.window_ms(5, perks) < rules.window_ms(5)
+base = score(fresh)
+assert score(take("gold_vein")[1]) > base and take("gold_vein")[1]["owned"] == {"gold_vein": 1}
+assert score(take("tailwind")[1]) < base and rules.window_ms(5, take("tailwind")[1]) > rules.window_ms(5)
+assert score(take("sprint")[1]) > base and rules.speed_percent(5, take("sprint")[1]) == 112
+assert rules.window_ms(5, take("gambit")[1]) < rules.window_ms(5) and score(take("gambit")[1]) > base
+assert score(take("blood_price")[1]) > base * 2 and take("blood_price")[0] == 4
+assert take("glass_cannon")[0] == 2 and score(take("glass_cannon")[1]) > base
+assert score(take("echo_chain")[1], combo=10) > score(fresh, combo=10)
+sharp = take("sharp_eye")[1]
+assert score(sharp, elapsed=10) > base and score(sharp, elapsed=480) < score(fresh, elapsed=480)
+ebb = take("ebb_tide")[1]
+assert rules.window_ms(5, ebb) > rules.window_ms(5) and rules.speed_percent(5, ebb) == 108
+for _ in range(12):
+    _, ebb = rules.after_correct(ebb, health=5, streak_after=1)
+assert ebb["ebb"] == 0
+
+# Stacking limits and fatal gifts are refused.
+stacked = take("stone_shield")[1]; stacked = take("stone_shield", perks=stacked)[1]
+for bad, kwargs in (("stone_shield", {"perks": stacked}), ("blood_price", {"health": 2}),
+                    ("glass_cannon", {"health": 2}), ("iron_heart", {"health": 7}), ("foreign", {})):
     try:
-        rules.perk(bad)
+        take(bad, **kwargs)
     except rules.RhythmRuleError:
         pass
     else:
-        raise AssertionError("unknown gift must fail closed")
-try:
-    rules.apply_perk("blood_price", health=2, perks=fresh)
-except rules.RhythmRuleError:
-    pass
-else:
-    raise AssertionError("a gift that would be fatal must be refused")
+        raise AssertionError(f"{bad} must fail closed")
 
-# Counters run down, shield eats damage, echo keeps the combo, each only once.
-perks = golden
-for _ in range(rules.GOLDEN_TAPS):
-    assert score(perks) == base * 2
-    perks = rules.after_correct(perks)
-assert score(perks) == base and perks["golden"] == 0
-health, combo, perks = rules.after_error(health=5, combo=9, perks=fresh)
-assert (health, combo) == (4, 0)
-shielded = rules.apply_perk("shield", health=5, perks=fresh)[1]
-health, combo, after = rules.after_error(health=5, combo=9, perks=shielded)
-assert (health, combo, after["shield"]) == (5, 0, 0)
-echoed = rules.apply_perk("echo", health=5, perks=fresh)[1]
-health, combo, after = rules.after_error(health=5, combo=9, perks=echoed)
-assert (health, combo, after["echo"]) == (4, 9, 0)
-assert rules.after_error(health=1, combo=0, perks=fresh)[0] == 0
+# Mistakes: a shield eats a whole mistake; gifts decide how deep it cuts.
+assert rules.after_error(health=5, perks=fresh, timed_out=False)[0] == 4
+health, perks = rules.after_error(health=5, perks=take("stone_shield")[1], timed_out=False)
+assert health == 5 and perks["shield"] == 0
+assert rules.after_error(health=5, perks=take("gold_vein")[1], timed_out=False)[0] == 3
+steady = take("steady_hand")[1]
+assert rules.after_error(health=5, perks=steady, timed_out=False)[0] == 3          # wrong rune: +1 heart
+free_health, steady = rules.after_error(health=5, perks=steady, timed_out=True)    # first miss free
+assert free_health == 5
+assert rules.after_error(health=5, perks=steady, timed_out=True)[0] == 4           # every second miss costs
+assert rules.after_error(health=1, perks=fresh, timed_out=False)[0] == 0
+# Vampire: +1 heart every 15 correct in a row, never past the cap.
+vampire = take("vampire")[1]
+assert rules.after_correct(vampire, health=5, streak_after=15)[0] == 6
+assert rules.after_correct(vampire, health=5, streak_after=14)[0] == 5
+assert rules.after_correct(vampire, health=7, streak_after=30)[0] == 7
+# The filler keeps a late draft from running dry.
+late = {**fresh, "owned": {item.id: item.max_stack for item in rules.PERKS if not item.filler}}
+assert rules.perk_offers(seed, 40, health=5, perks=late) == ("breather",)
+# Stale or unknown stored state is tolerated.
+assert rules.normalize_perks({"owned": {"golden_streak": 2, "shield": 1}, "golden": 5})["owned"] == {}
+assert rules.normalize_perks(None) == fresh
 
 try:
     rules.expected_rune(seed, 0)
@@ -89,4 +115,4 @@ except rules.RhythmRuleError:
 else:
     raise AssertionError("non-positive signal number must fail")
 
-print("rhythm_v2_rules: rune gifts, offers, counters and negative cases OK")
+print("rhythm_v2_rules: rune gifts with bonus and cost, finite pace and negative cases OK")

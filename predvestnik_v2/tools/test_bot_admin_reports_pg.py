@@ -197,6 +197,36 @@ async def run():
     card = (await client.get(f"/bot-admin/api/player/{P3}", headers=h[HELPER])).json()
     assert "Жалоба: нарушение подтверждено" in {x["title"] for x in card["history"]}, card["history"]
 
+    # Массовая чистка очереди: одно действие для нескольких жалоб, закрытые/чужие номера пропускаются с причиной.
+    from services import reports as reports_service
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        ids = [await reports_service.create(db, chat_id=-100, reporter_id=rep, target_id=tgt, reason=why)
+               for rep, tgt, why in ((P1, P3, "массово-1"), (P2, P3, "массово-2"), (P1, P2, "массово-3"), (P2, P1, "массово-4"))]
+    bulk = lambda who=HELPER, **b: client.post("/bot-admin/api/reports/bulk", headers=h[who], json=b)
+    bot.sent.clear()
+    assert (await bulk(P1, action="reject", ids=ids)).status_code == 403                       # раздел «Жалобы» только персоналу
+    assert (await bulk(action="nope", ids=ids)).status_code == 400
+    assert (await bulk(action="reject", ids=[])).status_code == 400 and (await bulk(action="reject")).status_code == 400
+    assert (await bulk(action="reject", ids=["x"])).status_code == 400
+    assert (await bulk(action="reject", ids=list(range(1, 52)))).status_code == 400            # не больше 50
+    res = (await bulk(action="take", ids=ids[:2])).json()
+    assert res["done"] == 2 and res["failed"] == [], res
+    res = (await bulk(action="take", ids=[ids[0], ids[2]])).json()                              # первая уже в работе
+    assert res["done"] == 1 and res["failed"] == [{"id": ids[0], "reason": "Жалоба уже в работе."}], res
+    assert bot.sent == [], bot.sent                                                           # «взять» авторам не пишет
+    res = (await bulk(action="resolve", ids=[ids[0], ids[1], ids[0], 99999], note="спам")).json()   # дубль схлопнулся, чужого номера нет
+    assert res["done"] == 2 and res["failed"] == [{"id": 99999, "reason": "Жалоба не найдена."}], res
+    assert sorted(x[0] for x in bot.sent) == sorted([P1, P2]) and all("нарушение подтверждено" in x[1] for x in bot.sent), bot.sent
+    res = (await bulk(action="reject", ids=ids)).json()                                         # две закрыты, две ещё в очереди
+    assert res["done"] == 2 and {f["id"] for f in res["failed"]} == {ids[0], ids[1]} \
+        and all(f["reason"] == "Жалоба уже закрыта." for f in res["failed"]), res
+    closed = {x["id"]: x for x in (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()["items"]}
+    assert closed[ids[0]]["status"] == "resolved" and closed[ids[0]]["note"] == "спам" and closed[ids[3]]["status"] == "rejected", closed
+    assert (await client.get("/bot-admin/api/reports", headers=h[HELPER])).json()["items"] == []
+    feed = (await client.get("/bot-admin/api/journal?days=1", headers=h[DEV])).json()
+    assert sum(1 for x in feed["items"] if x["title"] == "Жалоба: нарушение подтверждено") >= 3, [x["title"] for x in feed["items"]]
+
     # Анонимность в админке: автора видят только с роли из настроек жалоб (по умолчанию 5), остальным «скрыт».
     r = (await client.get("/bot-admin/api/reports?kind=closed", headers=h[HELPER])).json()
     assert r["can_see_reporter"] is False and all(x["reporter"] is None and x["reporter_hidden"] for x in r["items"]), r

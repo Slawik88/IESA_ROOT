@@ -8,6 +8,8 @@
 Интерфейс (тексты, кнопки) — bot/chat/onboarding.py. Только добавление таблиц, ничего не удаляется."""
 from __future__ import annotations
 
+import asyncio
+import time
 from dataclasses import dataclass
 
 from loguru import logger
@@ -31,6 +33,8 @@ STATEMENTS = (
         detail  TEXT,
         at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )""",   # где люди застревают: кто и сколько раз нажимал «как выдать права», дошёл ли до конца
+    # Когда бот впервые ответил на команду в чате: подтверждение, что он реально видит сообщения (NULL — ещё нет).
+    "ALTER TABLE chat_onboarding ADD COLUMN IF NOT EXISTS first_command_at TIMESTAMPTZ",
     "CREATE INDEX IF NOT EXISTS idx_chat_onboarding_events_at ON chat_onboarding_events (at DESC)",
     "CREATE INDEX IF NOT EXISTS idx_chat_onboarding_events_chat ON chat_onboarding_events (chat_id, id DESC)",
 )
@@ -69,6 +73,7 @@ class Setup:
     owner_name: str | None = None
     admin_chat: dict | None = None   # {"id", "title"}
     staff: int = 0              # сколько человек с рангом (без владельца)
+    verified: bool = True       # бот уже отвечал на команду в чате; у чатов, подключённых до мастера, проверять нечего
 
     @property
     def ready(self) -> bool:
@@ -151,6 +156,9 @@ async def inspect(bot, db, chat_id: int, persist: bool = True) -> Setup:
         "SELECT COUNT(*) FROM user_chat_stats WHERE chat_tg_id = ? AND COALESCE(chat_rank, 0) > 0 "
         "AND COALESCE(is_left, FALSE) = FALSE AND user_tg_id <> COALESCE(?, 0)", (chat_id, s.owner_id)) as cur:
         s.staff = int((await cur.fetchone())[0])
+    async with db.execute("SELECT first_command_at IS NOT NULL FROM chat_onboarding WHERE chat_id = ?", (chat_id,)) as cur:
+        row = await cur.fetchone()
+    s.verified = True if row is None else bool(row[0])
     return s
 
 
@@ -235,14 +243,32 @@ async def claim(db, chat_id: int, inviter_id: int | None, ready: bool, restart_s
     async with db.execute(
         "INSERT INTO chat_onboarding (chat_id, inviter_id, rights_ok_at) VALUES (?, ?, CASE WHEN ? THEN NOW() END) "
         "ON CONFLICT (chat_id) DO UPDATE SET message_id = NULL, inviter_id = EXCLUDED.inviter_id, added_at = NOW(), "
-        "rights_ok_at = EXCLUDED.rights_ok_at, reminders = 0, last_reminder_at = NULL, left_at = NULL "
+        "rights_ok_at = EXCLUDED.rights_ok_at, reminders = 0, last_reminder_at = NULL, left_at = NULL, first_command_at = NULL "
         f"WHERE chat_onboarding.left_at IS NOT NULL {stale}"
         "RETURNING 1", (chat_id, inviter_id, ready)) as cur:
         if await cur.fetchall():
+            _cmd_seen.pop(chat_id, None)   # подключаем заново: первая команда нужна снова
             return "won"
     async with db.execute("SELECT added_at > NOW() - INTERVAL '60 seconds' FROM chat_onboarding WHERE chat_id = ?", (chat_id,)) as cur:
         row = await cur.fetchone()
     return "recent" if row and row[0] else "exists"
+
+
+_cmd_seen: dict[int, float] = {}   # чат -> до какого момента (monotonic) о командах не спрашиваем базу
+_NO_RECORD_PAUSE = 3600.0
+
+
+async def note_command(db, chat_id: int) -> bool:
+    """Бот ответил на команду в чате: шаг «проверка» пройден. True — это первая команда после подключения.
+    Базу трогаем, пока подтверждения нет; дальше (и для чатов без записи о подключении) спрашиваем не чаще раза в час."""
+    now = time.monotonic()
+    if _cmd_seen.get(chat_id, 0.0) > now:
+        return False
+    async with db.execute("UPDATE chat_onboarding SET first_command_at = NOW() WHERE chat_id = ? AND first_command_at IS NULL "
+                          "AND left_at IS NULL RETURNING 1", (chat_id,)) as cur:
+        flipped = bool(await cur.fetchall())
+    _cmd_seen[chat_id] = now + _NO_RECORD_PAUSE
+    return flipped
 
 
 def add_url(username: str) -> str:
@@ -250,18 +276,56 @@ def add_url(username: str) -> str:
     return f"https://t.me/{username}?startgroup=setup&admin={INVITE_RIGHTS}"
 
 
-async def my_chats(db, user_id: int, limit: int = 20) -> list[dict]:
-    """Чаты, где бот есть и которые этот человек может настраивать: владелец, добавивший бота или администратор бота (ранг 4+)."""
+_MY_CHAT_COLS = "c.chat_id, c.chat_title, COALESCE(c.bot_is_admin, FALSE), COALESCE(c.bot_can_moderate, FALSE)"
+_NOT_ADMIN_CHAT = "NOT EXISTS (SELECT 1 FROM chat_links l WHERE l.admin_chat_id = c.chat_id)"   # админ-чат — служебный, права ему не нужны
+ADMIN_LOOKUP = 12     # у скольких чатов, где человек писал, спрашиваем Telegram, администратор ли он
+ADMIN_TIMEOUT = 5.0
+
+
+def _chat_row(r) -> dict:
+    return {"id": int(r[0]), "title": r[1] or "Чат без названия", "admin": bool(r[2]), "ready": bool(r[3])}
+
+
+async def my_chats(db, user_id: int, limit: int = 20, bot=None) -> list[dict]:
+    """Чаты, где бот есть и которые этот человек может настраивать: владелец, добавивший бота, администратор бота (ранг 4+) и —
+    если передан bot — администратор чата в Telegram (бота мог добавить кто-то другой): их находим среди чатов, где человек писал."""
     async with db.execute(
-        "SELECT c.chat_id, c.chat_title, COALESCE(c.bot_is_admin, FALSE), COALESCE(c.bot_can_moderate, FALSE) FROM chat_settings c "
-        "WHERE c.chat_id < 0 AND c.bot_left_at IS NULL "
-        "AND NOT EXISTS (SELECT 1 FROM chat_links l WHERE l.admin_chat_id = c.chat_id) AND ("   # админ-чат — служебный, права ему не нужны
+        f"SELECT {_MY_CHAT_COLS} FROM chat_settings c "
+        f"WHERE c.chat_id < 0 AND c.bot_left_at IS NULL AND {_NOT_ADMIN_CHAT} AND ("
         "  COALESCE(c.owner_override, c.owner_id) = ? "
         "  OR EXISTS (SELECT 1 FROM chat_onboarding o WHERE o.chat_id = c.chat_id AND o.inviter_id = ? AND o.left_at IS NULL) "
         "  OR EXISTS (SELECT 1 FROM user_chat_stats s WHERE s.chat_tg_id = c.chat_id AND s.user_tg_id = ? "
         "             AND COALESCE(s.chat_rank, 0) >= 4 AND COALESCE(s.is_left, FALSE) = FALSE)) "
         "ORDER BY LOWER(COALESCE(c.chat_title, '')), c.chat_id LIMIT ?", (user_id, user_id, user_id, limit)) as cur:
-        return [{"id": int(r[0]), "title": r[1] or "Чат без названия", "admin": bool(r[2]), "ready": bool(r[3])} for r in await cur.fetchall()]
+        found = [_chat_row(r) for r in await cur.fetchall()]
+    if bot is None or len(found) >= limit:
+        return found
+    have = [c["id"] for c in found] or [0]
+    marks = ", ".join("?" for _ in have)
+    async with db.execute(
+        f"SELECT {_MY_CHAT_COLS} FROM chat_settings c JOIN user_chat_stats s ON s.chat_tg_id = c.chat_id AND s.user_tg_id = ? "
+        f"WHERE c.chat_id < 0 AND c.bot_left_at IS NULL AND {_NOT_ADMIN_CHAT} AND COALESCE(s.is_left, FALSE) = FALSE "
+        f"AND c.chat_id NOT IN ({marks}) ORDER BY s.last_message_at DESC NULLS LAST LIMIT ?",
+        (user_id, *have, ADMIN_LOOKUP)) as cur:
+        candidates = [_chat_row(r) for r in await cur.fetchall()]
+    if not candidates:
+        return found
+    gate = asyncio.Semaphore(5)
+
+    async def is_admin(chat: dict) -> bool:
+        async with gate:
+            try:
+                member = await bot.get_chat_member(chat["id"], user_id)
+            except Exception:   # noqa: BLE001 - чат недоступен или Telegram не ответил: считаем «не админ»
+                return False
+            return getattr(member, "status", "") in ("administrator", "creator")
+
+    tasks = [asyncio.ensure_future(is_admin(c)) for c in candidates]
+    done, pending = await asyncio.wait(tasks, timeout=ADMIN_TIMEOUT)
+    for t in pending:
+        t.cancel()
+    extra = [c for c, t in zip(candidates, tasks) if t in done and not t.cancelled() and t.exception() is None and t.result()]
+    return sorted(found + extra, key=lambda c: (c["title"].lower(), c["id"]))[:limit]
 
 
 async def get(db, chat_id: int) -> dict | None:
@@ -324,6 +388,10 @@ EVENT_TITLES = {
     "guide": "Открыли «Что я умею»",
     "reminder": "Отправлено напоминание",
     "left": "Бота убрали из чата",
+    "denied": "Отказали в настройке (не админ)",
+    "first_command": "Бот ответил на первую команду",
+    "anon_hint": "Подсказка анонимному админу",
+    "channel_added": "Бота добавили в канал",
 }
 
 

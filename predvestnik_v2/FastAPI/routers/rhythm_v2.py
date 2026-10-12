@@ -184,11 +184,13 @@ async def live_run(websocket: WebSocket, run_id: str):
                 raise game.RhythmConflict("Rhythm live payload is too large")
             event = json.loads(raw)
             kind = event.get("type") if isinstance(event, dict) else None
-            if kind not in {"tap", "pick"}:
+            if kind not in {"tap", "pick", "sync"}:
                 raise game.RhythmConflict("unsupported Rhythm live action")
             await create_pool()
             async with get_pool().acquire() as connection:
-                if kind == "pick":
+                if kind == "sync":
+                    state = await game.transport_state(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease)
+                elif kind == "pick":
                     state = await game.transport_pick(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease,
                                                       perk_id=str(event.get("perk_id", "")),
                                                       action_id=str(event.get("action_id", "")))

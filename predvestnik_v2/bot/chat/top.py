@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.chat.framework import Ctx, registry
 from bot.chat.style import profile_link, quote
 from bot.chat.tracking import local_now
-from services import member_tags
+from services import chat_bots, member_tags
 
 PAGE_SIZE = 25
 PERIODS = {"d": "День", "w": "Неделя", "lw": "Прошлая неделя"}
@@ -102,14 +102,14 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
         rows = [(page * PAGE_SIZE + i + 1, _esc(r[1]), int(r[2])) for i, r in enumerate(data)]
         return render("Топ чатов", rows, page, pages, period, scope), pages
 
-    where, params = "date BETWEEN ? AND ?", [a, b]
+    where, params = f"d.date BETWEEN ? AND ? AND {chat_bots.NOT_BOT_DAILY}", [a, b]   # боты в рейтинге игроков не нужны
     title = "Топ всех игроков"
     if scope == "c":
-        where += " AND chat_id = ?"
+        where += " AND d.chat_id = ?"
         params.append(chat)
         title = "Топ чата"
     async with db.execute(
-        f"SELECT COUNT(DISTINCT user_id) FROM daily_user_stats WHERE {where}", params
+        f"SELECT COUNT(DISTINCT d.user_id) FROM daily_user_stats d WHERE {where}", params
     ) as cur:
         total = (await cur.fetchone())[0] or 0
     pages = max(1, -(-total // PAGE_SIZE))
@@ -117,7 +117,7 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
     async with db.execute(
         f"SELECT d.user_id, u.user_tg_username, SUM(d.message_count) AS c "
         f"FROM daily_user_stats d LEFT JOIN users u ON u.user_tg_id = d.user_id "
-        f"WHERE {where.replace('date', 'd.date').replace('chat_id', 'd.chat_id')} "
+        f"WHERE {where} "
         f"GROUP BY d.user_id, u.user_tg_username ORDER BY c DESC, d.user_id LIMIT ? OFFSET ?",
         params + [PAGE_SIZE, page * PAGE_SIZE],
     ) as cur:

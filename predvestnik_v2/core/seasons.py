@@ -59,7 +59,8 @@ def current_season(now: datetime | None = None) -> dict:
     number = season_number(now)
     start, end = season_bounds(number)
     days_left = max(0, (end - now).days) if now.tzinfo else 0
-    return {"number": number, "starts_at": start.isoformat(), "ends_at": end.isoformat(), "days_left": days_left}
+    return {"number": number, "starts_at": start.isoformat(), "ends_at": end.isoformat(), "days_left": days_left,
+            "rewards": reward_table()}
 
 
 def reward(place: int) -> tuple[int, int]:
@@ -68,6 +69,21 @@ def reward(place: int) -> tuple[int, int]:
         raise SeasonRuleError("place must be positive")
     _, mora, essence = next(tier for tier in REWARD_TIERS if int(place) <= tier[0])
     return mora, essence
+
+
+def reward_table() -> list[dict]:
+    """Display rows for the reward tiers: place label, Mora, Essence."""
+    rows, previous = [], 0
+    for limit, mora, essence in REWARD_TIERS:
+        if limit >= 10**9:
+            label = f"{previous + 1}+"
+        elif limit == previous + 1:
+            label = str(limit)
+        else:
+            label = f"{previous + 1}–{limit}"
+        rows.append({"label": label, "mora": mora, "essence": essence})
+        previous = limit
+    return rows
 
 
 def reward_mora(place: int) -> int:

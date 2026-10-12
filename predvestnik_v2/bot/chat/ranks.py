@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 
 from aiogram import Bot
+from loguru import logger
 
 from bot.chat.access import is_developer
 
@@ -118,6 +119,11 @@ async def sync_owner(db, bot: Bot, chat_id: int, *, force: bool = False) -> int 
         _owner_checked[chat_id] = now - _OWNER_TTL + 60   # сбой Telegram: повторим через минуту, а не через час
         return await get_owner(db, chat_id)
     _owner_checked[chat_id] = now
+    try:
+        from services import chat_bots   # боты-администраторы (другие модераторы, сам Предвестник) — не участники для чистки и топов
+        await chat_bots.admin_bots(bot, db, chat_id, admins)
+    except Exception as exc:   # пометка ботов не должна мешать узнать владельца
+        logger.warning(f"admin bots not marked for {chat_id}: {exc}")
     owner = next((a.user.id for a in admins if a.status == "creator"), None)
     if owner:
         await set_owner(db, chat_id, owner)

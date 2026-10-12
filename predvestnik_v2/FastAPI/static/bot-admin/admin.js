@@ -995,6 +995,20 @@ function retentionCard(r) {
     у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</div></div>`;
 }
 
+function funnelCard(f) {
+  if (!f || !f.steps || !f.steps[0].users) return '<div class="card"><h3>🪜 Воронка мини-приложения</h3><div class="sub">За период приложение никто не открывал.</div></div>';
+  return `<div class="card"><h3>🪜 Воронка мини-приложения</h3>
+    ${f.steps.map(x => x.users == null
+      ? `<div class="sub" style="margin-top:10px">${esc(x.title)} — данных пока нет</div>`
+      : `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.title)}</span>
+          <b>${num(x.users)}${x.of_first == null ? '' : ` <small class="sub">· ${x.of_first}%</small>`}</b></div>
+        <div style="height:8px;border-radius:4px;background:var(--line);margin-top:4px"><i style="display:block;height:100%;width:${Math.max(2, x.of_first || 0)}%;background:var(--accent);border-radius:4px"></i></div>
+        ${x.of_prev == null || x.key === 'opened' ? '' : `<div class="sub" style="margin-top:2px">${x.of_prev}% от прошлого шага</div>`}</div>`).join('')}
+    ${f.with_bot_percent == null ? '' : `<div class="sub" style="margin-top:12px">Из открывших приложение ещё и пользуются командами бота: ${num(f.with_bot)} (${f.with_bot_percent}%).</div>`}
+    <div class="sub" style="margin-top:6px">Каждый шаг входит в предыдущий: считаются одни и те же люди за выбранный период. «Потратили валюту» — любая трата в журнале экономики
+    (покупка, ставка, образ, питомец).</div></div>`;
+}
+
 function economyCard(e) {
   const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
   if (!cur.length) return '<div class="card"><h3>💰 Экономика</h3><div class="sub">За период движений валюты не было.</div></div>';
@@ -1045,6 +1059,7 @@ async function metricsView(main, days = 1) {
       <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.
         Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</div></div>
     ${retentionCard(m.retention)}
+    ${funnelCard(m.funnel)}
     <div class="card"><h3>📱 Мини-приложение</h3><div class="stats">
       ${tile('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
       ${tile('Время всего', dur(s.seconds))}${tile('В среднем на человека', dur(s.avg_seconds_per_visitor))}</div>
@@ -1160,6 +1175,7 @@ SECTIONS.journal = main => journalView(main);
 
 // ── Жалобы ──────────────────────────────────────────────────────────────────
 
+const REPORT_PICK = new Set();   // выбранные для массовой чистки жалобы; живёт, пока открыта админка
 async function reportsView(main, kind = 'open') {
   if (kind !== 'open' && kind !== 'closed') kind = 'open';
   PREFS.set('reports.kind', kind);
@@ -1179,8 +1195,9 @@ async function reportsView(main, kind = 'open') {
       ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
         <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
         ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</div>` : ''}
-    ${data.items.length ? data.items.map(r => `<div class="card">
-      <div><span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
+    ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
+    ${data.items.length ? data.items.map(r => `<div class="card" data-card="${r.id}">
+      <div>${kind === 'open' && data.items.length > 1 ? '<input type="checkbox" class="pick" data-pickrep="' + r.id + '" aria-label="Выбрать жалобу"/> ' : ''}<span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
       <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
         <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
@@ -1221,6 +1238,46 @@ async function reportsView(main, kind = 'open') {
         return 'keep';
       });
   });
+  // Массовая чистка очереди: отметить несколько жалоб и закрыть их одним действием (наказаний здесь нет).
+  const queue = new Set(data.items.map(x => x.id));
+  [...REPORT_PICK].forEach(id => { if (kind !== 'open' || !queue.has(id)) REPORT_PICK.delete(id); });
+  const BULK_REPORT = {take: ['🙋 Взять', 'Взять в работу'], resolve: ['✅ Нарушение', 'Нарушение подтверждено'], reject: ['✖️ Отклонить', 'Отклонить']};
+  const drawRepBulk = () => {
+    const host = $('#repbulk'); if (!host) return;
+    const n = REPORT_PICK.size;
+    main.querySelectorAll('[data-card]').forEach(card => {
+      const on = REPORT_PICK.has(+card.dataset.card);
+      card.classList.toggle('picked', on);
+      const box = card.querySelector('.pick'); if (box) box.checked = on;
+    });
+    host.innerHTML = `<div class="card bulkbar"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+        <b>Выбрано: ${n}</b><span class="sub"><a href="#" id="repall">${n === queue.size ? 'снять выбор' : 'выбрать все'}</a></span></div>
+      ${n ? `<div class="actions" style="margin-top:8px">${Object.entries(BULK_REPORT).map(([key, [label]]) =>
+        `<button class="btn small ${key === 'resolve' ? 'primary' : ''}" data-repbulk="${key}">${label}</button>`).join('')}</div>`
+        : '<div class="sub" style="margin-top:4px">Отмечайте жалобы галочкой и закрывайте пачкой.</div>'}</div>`;
+    $('#repall').onclick = e => { e.preventDefault(); n === queue.size ? REPORT_PICK.clear() : queue.forEach(id => REPORT_PICK.add(id)); drawRepBulk(); };
+    host.querySelectorAll('[data-repbulk]').forEach(b => b.onclick = () => {
+      const act = b.dataset.repbulk, ids = [...REPORT_PICK];
+      const body = `<div class="sub" style="margin-bottom:8px">Жалоб: <b>${ids.length}</b>. ${act === 'take' ? 'Все они будут помечены как ваши.'
+        : 'Авторам бот напишет в личку, чем всё закончилось. Нарушителей это не наказывает: выдать варн, мут или бан можно из самой жалобы.'}</div>
+        ${act === 'take' ? '' : '<div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>'}`;
+      sheet(BULK_REPORT[act][1], body, 'Готово', async () => {
+        const res = await api('/reports/bulk', {method: 'POST', body: JSON.stringify({action: act, ids, note: ($('#fnote') || {}).value || ''})});
+        toast(res.message || 'Готово');
+        REPORT_PICK.clear();
+        if (res.failed.length) {
+          sheet('Не всё получилось', `<div class="sub">${esc(res.message)}</div>${res.failed.map(f =>
+            `<div class="log"><b>№${f.id}</b><div class="sub">${esc(f.reason)}</div></div>`).join('')}`, 'Понятно', () => {}, {info: true});
+        }
+        reportsView(main, kind);
+      });
+    });
+  };
+  main.querySelectorAll('[data-pickrep]').forEach(box => box.onchange = () => {
+    box.checked ? REPORT_PICK.add(+box.dataset.pickrep) : REPORT_PICK.delete(+box.dataset.pickrep);
+    drawRepBulk();
+  });
+  drawRepBulk();
   const titles = {take: 'Взять жалобу в работу', resolve: 'Нарушение подтверждено', reject: 'Отклонить жалобу'};
   main.querySelectorAll('[data-rep]').forEach(b => b.onclick = () => {
     const act = b.dataset.act;

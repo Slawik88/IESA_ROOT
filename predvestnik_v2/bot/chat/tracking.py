@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram.types import Message
 
 from bot.config import config
-from services import member_tags, name_history
+from services import chat_bots, member_tags, name_history
 
 
 def tz_delta() -> timedelta:
@@ -96,7 +96,10 @@ async def _claim_username(db, user_id: int, username: str | None) -> None:
 async def record_message(db, message: Message) -> None:
     user = message.from_user
     chat = message.chat
-    if not user or user.is_bot or chat.type not in ("group", "supergroup"):
+    if not user or chat.type not in ("group", "supergroup"):
+        return
+    if chat_bots.is_bot(user):   # боты и служебные аккаунты Telegram не участники: в топы и чистку не попадают, но признак запоминаем
+        await chat_bots.observe(db, user)
         return
     day = local_now().strftime("%Y-%m-%d")
     await db.execute(

@@ -30,7 +30,7 @@ from bot.chat.tracking import PRESENCE_SQL, local_now, stay_start, tz_delta
 from bot.chat.style import quote
 from infrastructure.database import get_pool
 from infrastructure.pg_adapter import PGAdapter
-from services import member_tags
+from services import chat_bots, member_tags
 
 router = Router(name="chat_purge")
 USAGE = "бот чистка, норма [01.12.2026-07.12.2026]"
@@ -163,7 +163,7 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
     out: list[Violator] = []
     for uid, uname, rank, immune, shielded, joined_at, member_since, back_at, first_day, muted_until, total, count, mute_at, tag in rows:
         uid = int(uid)
-        if is_developer(uid) or uid == owner or immune or shielded:
+        if is_developer(uid) or uid == owner or immune or shielded or chat_bots.is_service(uid):
             continue
         if int(rank) >= rights["purge_write"]:
             continue   # состав чата, который пишет и во время чистки
@@ -185,6 +185,15 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
                             len(await active_warns(db, chat_id, uid)), ", ".join(notes), member_tags.clean(tag)))
     out.sort(key=lambda v: (v.count - v.required, v.count))
     return out
+
+
+async def screen_violators(bot: Bot, db, chat_id: int, violators: list[Violator]) -> tuple[list[Violator], int]:
+    """Убрать из списка ботов, в том числе самого Предвестника: чистка людям, а не ботам. Бот не всегда помечен в базе,
+    поэтому список сверяется с Telegram. Возвращает (список без ботов, сколько ботов убрано)."""
+    if not violators:
+        return violators, 0
+    bots = await chat_bots.screen(bot, db, chat_id, [v.user_id for v in violators])
+    return [v for v in violators if v.user_id not in bots], len([v for v in violators if v.user_id in bots])
 
 
 # ── Досье и кнопки ────────────────────────────────────────────────────────
@@ -220,13 +229,27 @@ def dossier_kb(session_id: int, user_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[b("ban"), b("kick")], [b("warn"), b("mute"), b("forgive")]])
 
 
+async def _skip_target(session_id: int, user_id: int) -> None:
+    """Оказался ботом: досье не нужно. Запись остаётся с отметкой «пропущен», в итоги она не входит."""
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await chat_bots.mark(db, user_id)
+        await db.execute("UPDATE purge_targets SET verdict = 'skip', verdict_at = NOW() WHERE session_id = ? AND user_id = ?",
+                         (session_id, user_id))
+        await commit(db)
+
+
 async def _send_dossiers(bot: Bot, session_id: int, chat_id: int, chat_title: str, dest: int,
                          violators: list[Violator]) -> None:
     """Фоном: по одному сообщению на нарушителя (не блокирует команду)."""
     for v in violators:
         try:
             # Тех, кто мало пишет, бот мог ни разу не видеть с тегом: спрашиваем Telegram прямо перед досье
-            known, tag = await member_tags.fetch(bot, chat_id, v.user_id)
+            state, tag = await member_tags.probe(bot, chat_id, v.user_id)
+            if state == "bot":   # проверка перед чисткой не дошла до этого человека, а он бот: досье не нужно
+                await _skip_target(session_id, v.user_id)
+                continue
+            known = state == "ok"
             if known:
                 v.tag = tag
             await bot.send_message(dest, dossier_text(v, chat_title), parse_mode="HTML",
@@ -270,6 +293,7 @@ async def cmd_purge(ctx: Ctx) -> None:
         await ctx.reply(plan)
         return
     violators = await find_violators(ctx.db, chat.id, plan)
+    violators, skipped_bots = await screen_violators(ctx.bot, ctx.db, chat.id, violators)
     dest = await admin_chat_of(ctx.db, chat.id) or chat.id
     async with ctx.db.execute(
         "INSERT INTO purge_sessions (chat_id, initiator_id, norm, date_from, date_to, dest_chat_id) "
@@ -294,7 +318,8 @@ async def cmd_purge(ctx: Ctx) -> None:
     await ctx.reply(
         "🧹 <b>Чистка началась</b>\n"   # СТИЛЬ v1 (оформлено)
         + quote([f"Период: {fmt(plan.start)} – {fmt(plan.end)} · норма {plan.norm}",
-                 f"Не набрали норму: <b>{len(violators)}</b>"])
+                 f"Не набрали норму: <b>{len(violators)}</b>"]
+                + ([f"Боты не считаются: {skipped_bots}"] if skipped_bots else []))
         + "\n🔒 Чат закрыт до конца чистки."
     )
     if dest != chat.id or violators:
@@ -317,7 +342,8 @@ async def status(ctx: Ctx) -> None:
 
 async def verdict_counts(db, session_id: int) -> dict[str, int]:
     async with db.execute(
-        "SELECT COALESCE(verdict, 'none'), COUNT(*) FROM purge_targets WHERE session_id = ? GROUP BY 1",
+        "SELECT COALESCE(verdict, 'none'), COUNT(*) FROM purge_targets WHERE session_id = ? "
+        "AND COALESCE(verdict, '') <> 'skip' GROUP BY 1",
         (session_id,)) as cur:
         return {r[0]: int(r[1]) for r in await cur.fetchall()}
 

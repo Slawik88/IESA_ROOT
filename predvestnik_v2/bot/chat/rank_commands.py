@@ -106,7 +106,7 @@ async def cmd_ranks(ctx: Ctx) -> None:
     async with ctx.db.execute(
         "SELECT s.user_tg_id, u.user_tg_username, s.chat_rank "
         "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
-        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE "
+        "WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE "
         "AND COALESCE(s.chat_rank, 0) > 0",
         (chat_id,),
     ) as cur:
