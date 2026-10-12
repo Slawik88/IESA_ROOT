@@ -153,10 +153,10 @@ async def decide_integrity_review(
 
 
 def _next_wake(state: dict) -> float:
-    """Wake at the signal's deadline (not a whole second later) so a miss shows instantly."""
+    """Wake at the signal's deadline plus grace (not a whole second later) so a miss shows at once."""
     if state.get("draft"):
         return 1.0
-    ms = int(state.get("starts_in_ms") or 0) + int(state.get("remaining_ms") or 0)
+    ms = int(state.get("starts_in_ms") or 0) + int(state.get("remaining_ms") or 0) + game.rules.TAP_GRACE_MS
     return min(1.0, max(0.05, ms / 1000 + 0.03))
 
 

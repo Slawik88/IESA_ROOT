@@ -17,7 +17,7 @@ import hmac
 from typing import Final, Literal
 
 
-RULESET_VERSION: Final = "rhythm-v2-rules-4"
+RULESET_VERSION: Final = "rhythm-v2-rules-5"
 Mode = Literal["normal", "augments"]  # "augments" is only a legacy alias of "normal"
 PerkKind = Literal["safe", "boost", "risk"]
 RUNES: Final = ("left", "center", "right")
@@ -31,7 +31,7 @@ FLOOR_FALL_START_CHUNK: Final = 14
 FLOOR_FALL_MS_PER_CHUNK: Final = 15
 BASE_WINDOW_MS: Final = 2_200
 RESUME_LEAD_MS: Final = 3_000   # breathing room after a gift is taken
-NEXT_SIGNAL_LEAD_MS: Final = 450  # network/DB slack: next window opens this long after a tap or timeout
+TAP_GRACE_MS: Final = 250       # network slack: a tap this late past the window still counts (scored as the slowest tier)
 
 
 @dataclass(frozen=True)

@@ -131,7 +131,7 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
         "window_ms": window_ms, "remaining_ms": remaining_ms,
         # The expected rune is delivered only for the current signal.  The seed
         # and all future sequence values stay server-side.
-        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not _draft_pending(state) else None,
+        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not starts_in_ms else None,
         "draft": _draft(row, state),
         "perks": state["perks"], "selected_perks": selected, "gifts": rules.owned_gifts(state["perks"]),
         "starts_in_ms": starts_in_ms,
@@ -175,13 +175,13 @@ def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
         if opened is None:
             return
         window = rules.window_ms(state["next_signal_no"], state["perks"])
-        deadline = opened + timedelta(milliseconds=window)
+        deadline = opened + timedelta(milliseconds=window + rules.TAP_GRACE_MS)
         if now <= deadline:
             return
         # Preserve the real schedule rather than resetting it to reconnect time.
         _resolve_error(row, state, now=now, timed_out=True)
         if state["status"] == "active":
-            state["signal_opened_at"] = deadline + timedelta(milliseconds=rules.NEXT_SIGNAL_LEAD_MS)
+            state["signal_opened_at"] = deadline
 
 
 async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
@@ -397,9 +397,9 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             raise RhythmConflict("the next signal has not opened yet")
         elapsed_ms = max(0, int((now - state["signal_opened_at"]).total_seconds() * 1000))
         window = rules.window_ms(signal_no, state["perks"])
-        correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window
+        correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window + rules.TAP_GRACE_MS
         if correct:
-            state["score"] += rules.score_for_correct(elapsed_ms=elapsed_ms, allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
+            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
             state["combo"] += 1
             state["correct_streak"] += 1
             state["health"], state["perks"] = rules.after_correct(
@@ -409,9 +409,7 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
         else:
             _resolve_error(row, state, now=now, timed_out=rune == rules.expected_rune(bytes(row["seed"]), signal_no))
         if state["status"] == "active":
-            # The window opens slightly ahead so the answer's network trip and the
-            # DB write do not eat the player's reaction time.
-            state["signal_opened_at"] = now + timedelta(milliseconds=rules.NEXT_SIGNAL_LEAD_MS)
+            state["signal_opened_at"] = now
             _hold_for_draft(state)
         else:
             await repo.update_run(db, run_id=run_id, state=state)
