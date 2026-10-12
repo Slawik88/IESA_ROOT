@@ -1142,11 +1142,11 @@ async function loginsView(main) {
   if (!data) return;
   const rows = data.items.map(x => `<div class="log"><div><b>${who(x.user.id, x.user.username)}</b> · ${esc(x.device)}</div>
       <div class="sub">${when(x.at)} · адрес ${esc(x.ip || 'неизвестен')}</div></div>`).join('');
-  main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+  main.innerHTML = `${pageHead('☰', 'Журнал', 'Кто из команды и что сделал')}${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
       `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
-    <div class="card" style="margin-top:10px"><h3>Входы в админку</h3>
-      <div class="sub" style="margin-bottom:6px">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
-      ${rows || '<div class="empty">За этот период входов нет.</div>'}</div>`;
+    <section class="section"><h3 class="sec-h">Входы в админку</h3>
+      <div class="sub note">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
+      ${rows || '<div class="empty">За этот период входов нет.</div>'}</section>`;
   bindJournalTabs(main);
   main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); loginsView(main); });
 }
@@ -1158,7 +1158,13 @@ async function journalView(main, more = '') {
   if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) + tagSfx(x.tag) : '';
-  const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
+  if (!more) JOURNAL.lastDay = '';   // разделитель дня не повторяется на подгруженной странице
+  const dayHead = iso => {
+    const d = iso ? new Date(iso).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long', weekday: 'short'}) : '';
+    if (!d || d === JOURNAL.lastDay) return '';
+    JOURNAL.lastDay = d; return `<div class="day-h">${d}</div>`;
+  };
+  const rows = data.items.map(x => `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
       ${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
       <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''}${x.chat ? ' · ' + (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(x.chat.title || x.chat.id)}</a>` : esc(x.chat.title || x.chat.id)) : ''}</div></div>`).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
@@ -1166,14 +1172,14 @@ async function journalView(main, more = '') {
     main.querySelector('#jmore')?.remove();
     main.querySelector('#jlist').insertAdjacentHTML('beforeend', body);
   } else {
-    main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+    main.innerHTML = `${pageHead('☰', 'Журнал', 'Кто из команды и что сделал')}${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
         `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
-      <div class="grid2" style="margin:10px 0">
+      <div class="grid2 jfilters">
         <div class="field"><label>Что</label><select id="jkind"><option value="">Всё</option>${data.kinds.map(k =>
           `<option value="${k.key}" ${k.key === JOURNAL.kind ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
-      <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
+      <section class="section" id="jlist"><h3 class="sec-h">Действия персонала</h3>${body}</section>`;
     bindJournalTabs(main);
     main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
     $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; saveJournal(); journalView(main); };
@@ -1206,22 +1212,24 @@ async function reportsView(main, kind = 'open') {
   const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) + tagSfx(p.tag) : '—';
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
+    ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
+    <div class="kpis">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
-    <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
-    ${data.repeat && data.repeat.length ? `<div class="card"><h3>🔁 Повторные нарушители · ${data.repeat.length}</h3>
-      <div class="sub" style="margin-bottom:4px">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
+    <div class="sub note">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
+    ${data.repeat && data.repeat.length ? `<section class="section" data-sec="r-repeat"><h3 class="sec-h">🔁 Повторные нарушители <small class="cnt">· ${data.repeat.length}</small></h3>
+      <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
       ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
         <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
-        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</div>` : ''}
+        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</section>` : ''}
     ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
-    ${data.items.length ? data.items.map(r => `<div class="card" data-card="${r.id}">
+    ${data.items.length ? data.items.map(r => `<div class="card rep ${r.status}" data-card="${r.id}">
       <div>${kind === 'open' && data.items.length > 1 ? '<input type="checkbox" class="pick" data-pickrep="' + r.id + '" aria-label="Выбрать жалобу"/> ' : ''}<span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
       <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
         <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
-      <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
-      ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
+      <div class="rep-why"><b>Причина:</b> ${esc(r.reason)}</div>
+      ${r.message_text ? `<blockquote class="rep-msg">${esc(r.message_text)}</blockquote>` : ''}
       ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
       ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
         ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}

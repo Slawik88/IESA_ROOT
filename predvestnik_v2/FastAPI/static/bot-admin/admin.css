@@ -309,3 +309,19 @@ details.section:not([open]) > summary { margin-bottom: 0; }
   .tbl-cards td:not(:first-child) { color: var(--text); }
 }
 .log { overflow-wrap: anywhere; }
+
+/* Жалобы и журнал (ADM-01 PR-2). `.card` остаётся прежним, акценты только через дополнительные классы. */
+.kpi.warn { box-shadow: inset 0 0 0 1px var(--warn); }
+.kpi.warn b { color: var(--warn); }
+.card.rep { margin: 0 0 10px; padding: 14px 14px 12px; border: 0; border-radius: 14px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); }
+.card.rep.new { box-shadow: inset 3px 0 0 var(--warn), inset 0 0 0 1px var(--surface-line); }
+.card.rep.picked { box-shadow: inset 0 0 0 2px var(--accent); }
+.rep-why { margin-top: 6px; }
+.rep-msg { margin: 8px 0 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.jfilters { margin: 10px 0; }
+#jlist .log { padding: 10px 0; }
+.bulkbar { background: var(--panel); }
+.card.rep, .sw-row .t { overflow-wrap: anywhere; }
+.day-h { margin: 14px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.day-h:first-child { margin-top: 4px; }
+#jlist .log { border-bottom: 0; padding: 7px 0 7px 10px; border-left: 2px solid var(--line); margin-left: 2px; }

@@ -46,4 +46,20 @@ HEALTH = {
     "queues": {"broadcasts_running": 0, "broadcasts_scheduled": 2, "reports_open": 7},
     "digest": {"enabled": True, "hour": 9, "can_edit": True},
 }
-ROUTES = {"/me": ME, "/badges": {"reports": 7}, "/metrics": METRICS, "/health": HEALTH}
+
+_LONG = "Очень длинное название чата для проверки переноса строк"
+def _report(i, status):
+    return {"id": 100 + i, "status": status, "status_title": {"new": "Новая", "in_work": "В работе", "resolved": "Нарушение", "rejected": "Отклонена"}[status],
+            "created_at": "2026-10-12T09:00:00+00:00", "chat": {"title": _LONG}, "target": {"id": 500 + i, "name": "@очень_длинный_ник_нарушителя_" + str(i), "tag": "Нин Гуан/ст.адм"},
+            "target_reports": 4, "reporter": None if i % 2 else {"id": 900, "name": "@жалобщик", "tag": None},
+            "reason": "Оскорбления и спам ссылками " + "очень длинная причина " * 4, "message_text": "ссылка_без_пробелов_" + "x" * 90 + "\nвторая строка",
+            "handled_by": {"name": "@mod"} if status in ("resolved", "rejected") else None, "handled_at": "2026-10-12T10:00:00+00:00", "note": "ок"}
+REPORTS = {"counts": {"new": 3, "in_work": 1, "resolved": 12, "rejected": 5}, "can_see_reporter": False,
+           "repeat": [{"id": 700 + i, "name": "@повторный_нарушитель_" + str(i), "reports": 5, "reporters": 3, "open": 1, "confirmed": 2} for i in range(2)],
+           "punish": [{"key": "warn", "title": "Варн"}, {"key": "mute", "title": "Мут"}, {"key": "ban", "title": "Бан"}],
+           "items": [_report(0, "new"), _report(1, "new"), _report(2, "in_work")]}
+JOURNAL = {"kinds": [{"key": "ban", "title": "Баны"}, {"key": "warn", "title": "Варны"}], "actors": [{"id": 1, "username": "mod_with_long_username"}], "more": False, "next": None,
+           "items": [{"title": "Бан", "text": "в чате " + _LONG, "reason": "спам " + "x" * 80, "at": "2026-10-12T09:00:00+00:00",
+                      "actor": {"id": 1, "username": "mod_with_long_username", "tag": None}, "user": {"id": 500 + i, "username": "нарушитель_" + str(i), "tag": "Нин Гуан/ст.адм"},
+                      "chat": {"id": -100, "title": _LONG}} for i in range(8)]}
+ROUTES = {"/me": ME, "/badges": {"reports": 7}, "/metrics": METRICS, "/health": HEALTH, "/reports": REPORTS, "/journal": JOURNAL}
