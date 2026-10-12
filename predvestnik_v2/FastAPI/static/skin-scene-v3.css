@@ -20,6 +20,8 @@
 .ap-scene .sil.m { background: linear-gradient(var(--gd, 0deg), var(--c, #000), var(--c2, var(--c, #000))); -webkit-mask: var(--img) no-repeat var(--bp, 50% 100%) / contain; mask: var(--img) no-repeat var(--bp, 50% 100%) / contain; }
 .ap-scene .sil.fl { transform: scaleX(-1) rotate(var(--rot, 0deg)); }
 .ap-scene .sil.st { background-size: 100% 100%; }
+.ap-scene .sil.cr { background-size: var(--bz); background-position: var(--cp); }   /* кадрированный слой (cr в app.35.js): рамка по границам рисунка, а целый рисунок и градиент цвета стоят в ней там же, где стояли в целой */
+.ap-scene .sil.m.cr { -webkit-mask-size: var(--bz); -webkit-mask-position: var(--cp); mask-size: var(--bz); mask-position: var(--cp); }
 .ap-scene .ring.dash { border-style: dashed; }
 .ap-scene .arc { border-radius: 50%; border: var(--bw, 2px) solid transparent; border-top-color: var(--c, var(--ap-a)); border-right-color: var(--c, var(--ap-a)); }
 .ap-scene .dot { width: var(--s, 3px); height: var(--s, 3px); border-radius: 50%; background: var(--c, #fff); box-shadow: var(--bs, none); }

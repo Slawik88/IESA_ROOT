@@ -3,6 +3,7 @@
 // Слой это строка [минимальный тир 1…7, 'форма движение', {геометрия и переменные}]; формы и движения описаны в skin-scene-v3.css, картинки-силуэты в skin-scene-*-v3.css.
 // Форма: glow (мягкое пятно), ring, sil i-<имя> (силуэт), dot (точки через --bs), band, wave. Движение: drift sway pulse breathe beat blink twinkle float rise spin ripple shimmer sweep cross peek flash flicker (неон: трубка гаснет и загорается).
 // Флаги: w2 отдаёт слой только полному режиму (на среднем телефоне его нет), m маска, fl зеркало (неподвижным), st растянуть картинку на весь слой (полосы земли и хребтов), go бегущая волна, rev спин назад, dash пунктир.
+// cr: [x0, y0, x1, y1] кадрирует рамку слоя до границ рисунка (целые px рамки; у рамки в % доли), см. _scCrop; границы считает и проверяет tools/scene_crop.py.
 // Данные образов лежат в app.35–38.js и собираются сюда через _scAdd.
 const _AP_SCENES = new Map();
 function _scAdd(id, layers) { _AP_SCENES.set(id, layers); }
@@ -12,7 +13,52 @@ const _SC_SEC = new Set(['dur', 'del']);
 const _scColor = v => (v === 'a' || v === 'b' || v === 'c' ? `var(--ap-${v})` : v);
 // точки светлячков, звёзд, искр: список [dx, dy, размытие, радиус, цвет] превращается в box-shadow одного элемента (один слой вместо десяти)
 const _scBs = dots => dots.map(([x, y, blur, spread, color]) => `${x}px ${y}px ${blur}px ${spread}px ${_scColor(color)}`).join(',');
-function _scStyle(p) {
+// Кадр слоя: cr = [x0, y0, x1, y1] кадрирует рамку до той части, где у картинки есть пиксели (границы считает и проверяет tools/scene_crop.py). Слой занимает только её, а картинка,
+// градиент цвета, центр поворота и масштаба остаются там же, где были в целой рамке: вид тот же, но композитору рисовать и хранить меньше (стрелки часов, дроны, тонкие лучи в большой
+// квадратной рамке). Рамка в px: cr в целых px от её левого верхнего угла (тогда пиксельная сетка слоя не сдвигается и картинка ложится точно); рамка в %: cr долями рамки.
+const _scIn = v => (v === '0' ? '0px' : v.startsWith('calc(') ? v.slice(5, -1) : v);
+const _scPx = v => (/^-?\d*\.?\d+px$/.test(v) ? parseFloat(v) : null);
+const _scR = n => +n.toFixed(3);
+// длина плюс сдвиг в px (числом, пока длина тоже в px)
+const _scMove = (len, px) => {
+  if (!px) return len;
+  const a = _scPx(len === '0' ? '0px' : len);
+  return a !== null ? `${_scR(a + px)}px` : `calc(${_scIn(len)} + ${_scR(px)}px)`;
+};
+// длина плюс доля другой длины
+const _scMoveBy = (len, size, f) => (f ? `calc(${_scIn(len)} + (${_scIn(size)}) * ${_scR(f)})` : len);
+function _scCrop(p, cls) {
+  const [x0, y0, x1, y1] = p.cr, q = { ...p }, W = _scPx(p.w), H = _scPx(p.h), px = W !== null && H !== null;
+  delete q.cr;
+  delete q.bp;
+  const [ox, oy] = (p.org || '50% 50%').split(' ');
+  let kx;
+  if (px) {
+    if (q.l !== undefined) q.l = _scMove(q.l, x0); else q.r = _scMove(q.r, W - x1);
+    if (q.t !== undefined) q.t = _scMove(q.t, y0); else q.b = _scMove(q.b, H - y1);
+    q.w = `${x1 - x0}px`;
+    q.h = `${y1 - y0}px`;
+    const at = (v, size) => (v.endsWith('%') ? (parseFloat(v) / 100) * size : parseFloat(v));
+    q.org = `${_scR(at(ox, W) - x0)}px ${_scR(at(oy, H) - y0)}px`;
+    q.bz = `${W}px ${H}px`;
+    q.cp = `${-x0}px ${-y0}px`;
+    kx = (x1 - x0) / W;
+  } else {
+    kx = x1 - x0;
+    const ky = y1 - y0, frac = (v, size) => (v.endsWith('%') ? parseFloat(v) / 100 : _scPx(v) / _scPx(size));
+    if (q.l !== undefined) q.l = _scMoveBy(q.l, p.w, x0); else q.r = _scMoveBy(q.r, p.w, 1 - x1);
+    if (q.t !== undefined) q.t = _scMoveBy(q.t, p.h, y0); else q.b = _scMoveBy(q.b, p.h, 1 - y1);
+    q.w = `calc((${_scIn(p.w)}) * ${_scR(kx)})`;
+    q.h = `calc((${_scIn(p.h)}) * ${_scR(ky)})`;
+    q.org = `${_scR(((frac(ox, p.w) - x0) / kx) * 100)}% ${_scR(((frac(oy, p.h) - y0) / ky) * 100)}%`;
+    q.bz = `${_scR(100 / kx)}% ${_scR(100 / ky)}%`;
+    q.cp = `${kx < 1 ? _scR((x0 / (1 - kx)) * 100) : 0}% ${ky < 1 ? _scR((y0 / (1 - ky)) * 100) : 0}%`;
+  }
+  if (/\bdrift\b/.test(cls) && (p.dx || '7%').endsWith('%')) q.dx = `${_scR(parseFloat(p.dx || '7') / kx)}%`;   // дрейф в процентах считается от ширины самого слоя
+  return q;
+}
+function _scStyle(p, cls = '') {
+  if (p.cr) p = _scCrop(p, cls);
   let out = '';
   for (const key in p) {
     const v = p[key];
@@ -23,7 +69,7 @@ function _scStyle(p) {
 function apScene(ap) {
   const layers = _AP_SCENES.get(ap.id);
   if (!layers) return '';
-  const html = layers.filter(l => l[0] <= ap.ti).map(l => `<i class="sc ${l[1]}" style="${_scStyle(l[2])}"></i>`).join('');
+  const html = layers.filter(l => l[0] <= ap.ti).map(l => `<i class="sc ${l[1]}${l[2].cr ? ' cr' : ''}" style="${_scStyle(l[2], l[1])}"></i>`).join('');
   return html ? `<div class="ap-scene ap-t${ap.ti}" data-sk="${ap.id}" style="${ap.vars}" aria-hidden="true">${html}</div>` : '';
 }
 

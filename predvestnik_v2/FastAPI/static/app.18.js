@@ -5,7 +5,7 @@ const _V3_TIER_LIST = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
 const _V3_FX_CAP_KEY = 'v3_fx_cap', _V3_LITE_KEY = 'v3_lite', _V3_LOW_KEY = 'v3_low';
 // Пометка слабого телефона (лёгкий режим, экономный режим, сниженный потолок) хранится в localStorage и без этого держалась бы вечно, даже когда вид уже ускорили. После каждого ускорения
 // номер ревизии растёт, пометки сбрасываются, и телефон проверяется заново: если он всё ещё не тянет, замер кадров вернёт пометку через несколько секунд.
-const _V3_PERF_REV = '2026-10-12a';
+const _V3_PERF_REV = '2026-10-12b';
 try {
   if (localStorage.getItem('v3_perf_rev') !== _V3_PERF_REV) {
     [_V3_FX_CAP_KEY, _V3_LITE_KEY, _V3_LOW_KEY].forEach(key => localStorage.removeItem(key));
@@ -15,7 +15,7 @@ try {
 let _v3Skin = { css_class: '', tier: 'D' }, _v3FxLevel = 1, _v3Forced = false, _v3Watchdog = false, _v3PointerOn = false;
 
 function v3FxLevelNow() { return _v3FxLevel; }
-function _v3DeviceCap() {
+function _v3HardwareCap() {
   let cap = 7;
   try {
     const nav = navigator, mem = nav.deviceMemory, cores = nav.hardwareConcurrency;
@@ -23,23 +23,29 @@ function _v3DeviceCap() {
     if ((mem && mem <= 2) || (cores && cores <= 3)) cap = 3;            // слабый телефон
     else if ((mem && mem <= 4) || (!mem && cores && cores <= 4)) cap = 6;   // средний: без лент света SSS; движение образов остаётся, зависимость от кадров решает замер ниже
     if (nav.connection?.saveData) cap = Math.min(cap, 2);
+  } catch (_) { /* свойств нет: оценки по железу нет, потолок полный */ }
+  return cap;
+}
+// Потолок эффектов = железо, а если замер кадров не выдержал даже экономный режим, то ещё и записанный замером потолок (он режет только образы с тиром выше потолка)
+function _v3DeviceCap() {
+  let cap = _v3HardwareCap();
+  try {
     const stored = Number(localStorage.getItem(_V3_FX_CAP_KEY));
     if (stored >= 1 && stored < 7) cap = Math.min(cap, stored);
   } catch (_) { /* хранилище недоступно: остаётся оценка по железу */ }
   return cap;
 }
-// Класс устройства: low (слабый), mid (средний), high. Решает, сколько движения включать (app.31.js) и какой режим образов нужен.
+// Класс устройства: low (слабый), mid (средний), high, по железу. Решает, сколько движения включать (app.31.js) и какой режим образов нужен. Записанный замером потолок класс не меняет:
+// иначе один тяжёлый образ, не выдержавший замер, отнимал бы полный вид у лёгких.
 // Режимов образов три: полный (high), лёгкий .ap-lite (mid: частиц вдвое меньше, без «акцентного» слоя сцены) и экономный .ap-low (low или замер кадров не выдержал:
 // фирменные детали и фон стоят на месте). Полный вид никогда не отключается «на всякий случай»: вниз ведёт только железо или замер кадров.
-function _v3Class() { const cap = _v3DeviceCap(); return cap <= 3 ? 'low' : cap <= 6 ? 'mid' : 'high'; }
-function _v3Lite() {
-  try { if (localStorage.getItem(_V3_LITE_KEY) === '1' || localStorage.getItem(_V3_LOW_KEY) === '1') return true; } catch (_) { /* без памяти: только оценка по железу */ }
-  return _v3Class() !== 'high';
-}
-function _v3Low() {
-  try { if (localStorage.getItem(_V3_LOW_KEY) === '1') return true; } catch (_) { /* см. выше */ }
-  return _v3Class() === 'low';
-}
+function _v3Class() { const cap = _v3HardwareCap(); return cap <= 3 ? 'low' : cap <= 6 ? 'mid' : 'high'; }
+// Пометка «кадры не выдержал» хранит номер тира образа (1…7 = D…SSS), на котором это случилось, и действует на этот тир и выше: телефон, не тянущий SSS, лёгкие образы показывает полностью.
+const _v3TierNo = () => _V3_TIER_LIST.indexOf(_v3Skin.tier) + 1;
+function _v3Mark(key) { try { return Math.max(0, Number(localStorage.getItem(key)) || 0); } catch (_) { return 0; /* без памяти: только оценка по железу */ } }
+function _v3Marked(key) { const from = _v3Mark(key); return from > 0 && _v3TierNo() >= from; }
+function _v3Lite() { return _v3Marked(_V3_LITE_KEY) || _v3Marked(_V3_LOW_KEY) || _v3Class() !== 'high'; }
+function _v3Low() { return _v3Marked(_V3_LOW_KEY) || _v3Class() === 'low'; }
 function _v3Calm() {
   return document.body.classList.contains('no-fx') || !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 }
@@ -210,12 +216,17 @@ function applySkinTier(skin, options = {}) {
   _v3StartWatchdog(level);
 }
 // Если устройство не тянет: после показа замеряем кадры. Сначала включается лёгкий режим образов, затем экономный, и только если и после него кадры медленные,
-// потолок эффектов снижается на две ступени (запоминается)
+// потолок эффектов снижается на две ступени (запоминается). Замер идёт на каждом образе (с его тиром), показанном в этом сеансе, и только пока образ на экране:
+// раньше он шёл один раз за сеанс, и лёгкий образ при входе пропускал тяжёлый SSS, надетый позже; а замер без образа на экране не видел ничего.
+const _v3Measured = new Set();
+const _v3MeasureKey = () => `${document.body.dataset.skin || ''}:${_v3Skin.tier}`;
 function _v3StartWatchdog(level) {
-  if (_v3Watchdog || _v3Forced || level < 3) return; _v3Watchdog = true;
-  const measure = (done, waited = 0) => setTimeout(() => {
+  if (_v3Watchdog || _v3Forced || level < 3 || _v3Measured.has(_v3MeasureKey())) return; _v3Watchdog = true;
+  const stageShown = () => [...document.querySelectorAll('.ap-stage:not(.ap-off)')].some(n => n.offsetHeight > 150);   // сцена профиля, а не крошечные превью в списках
+  const measure = (done, toasts = 0, idle = 0) => setTimeout(() => {
     if (document.hidden) { _v3Watchdog = false; return; }   // вкладка в фоне: замер повторится при следующем показе
-    if (document.querySelector('#toast.show, #gift-toast') && waited < 4) { measure(done, waited + 1); return; }   // пока на экране тост: он сам тянет кадры, замер подождёт (до десяти секунд)
+    if (document.querySelector('#toast.show, #gift-toast') && toasts < 4) { measure(done, toasts + 1, idle); return; }   // пока на экране тост: он сам тянет кадры, замер подождёт (до десяти секунд)
+    if (!stageShown()) { if (idle < 24) measure(done, toasts, idle + 1); else _v3Watchdog = false; return; }   // образа нет на экране: ждём до минуты, дальше замер повторится со следующим образом или показом вкладки
     const times = []; let last = performance.now(), count = 0;
     const tick = now => {
       times.push(now - last); last = now;
@@ -224,23 +235,24 @@ function _v3StartWatchdog(level) {
     };
     requestAnimationFrame(tick);
   }, 2500);
+  const finish = () => { _v3Watchdog = false; _v3Measured.add(_v3MeasureKey()); };
   const lower = median => {
     if (median <= 30 || _v3FxLevel <= 2) return;
     try { localStorage.setItem(_V3_FX_CAP_KEY, String(Math.max(2, _v3FxLevel - 2))); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ }
     applySkinTier(_v3Skin);
   };
   // Ступени вниз: полный вид -> лёгкий (.ap-lite) -> экономный (.ap-low) -> ниже потолок эффектов. Каждая ступень включается только если кадры правда медленные.
-  const mark = key => { try { localStorage.setItem(key, '1'); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ } };
+  const mark = key => { try { const prev = _v3Mark(key); localStorage.setItem(key, String(prev ? Math.min(prev, _v3TierNo()) : _v3TierNo())); } catch (_) { /* не сохранится: сработает снова в следующем сеансе */ } };
   const step = median => {
-    if (median <= 26) return;
+    if (median <= 26) { finish(); return; }
     if (!_v3Lite()) { mark(_V3_LITE_KEY); applySkinTier(_v3Skin); measure(step); return; }
     if (!_v3Low()) { mark(_V3_LOW_KEY); applySkinTier(_v3Skin); measure(step); return; }
-    lower(median);
+    lower(median); finish();
   };
   measure(step);
 }
 document.addEventListener('skinchange', e => applySkinTier(e.detail));
-document.addEventListener('visibilitychange', () => { document.body.classList.toggle('v3-paused', document.hidden); _v3FxRun(); });
+document.addEventListener('visibilitychange', () => { document.body.classList.toggle('v3-paused', document.hidden); _v3FxRun(); if (!document.hidden) _v3StartWatchdog(_v3FxLevel); });
 // Круг от касания: только на SSS
 document.addEventListener('pointerdown', e => {
   if (_v3FxLevel < 7) return;
