@@ -11,6 +11,8 @@ assert "_hubRow(g,chev)" in hub and "open.map" in hub, "все включённ�
 assert "const [lead" not in hub, "лид-игры больше нет"
 assert "++_hubSeq" in hub and "mine!==_hubSeq" in hub, "ответ устаревшей отрисовки должен отбрасываться"
 assert ".catch(()=>null)" in hub, "сбой одной игры не должен ломать остальные"
+assert "_hubTime(" in js and "best_elapsed_ms" in js, "у Сапёра лучший результат это время"
+assert "Date.now()-(_hubAt" in js, "хаб не дёргает таблицу чаще раза в минуту"
 assert "Ещё не играл" in js and "Результат пока недоступен" in js, "нет данных показываются явно"
 assert "method:" not in hub, "хаб только читает"
 for page in ("rhythm-v2.html", "minesweeper-v2.html"):

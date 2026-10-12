@@ -52,15 +52,18 @@ const _V3_GAMES = [
 ];
 // Личный результат в строке игры: из таблицы сезона (`personal`). Только Ритм и Сапёр; у Мафии таблицы нет.
 const _V3_GAME_BOARDS={game_rhythm_v2:'/rhythm-v2/leaderboard/normal', game_minesweeper_v2:'/minesweeper-v2/leaderboard/normal'};
-let _hubSeq=0, _hubScore={};   // _hubScore[flag]: undefined = грузится, null = нет данных, {place,best_score} = есть
+let _hubSeq=0, _hubScore={}, _hubAt={};   // _hubAt: когда пришёл результат (таблица пересчитывает сезон на сервере, не дёргаем чаще раза в минуту)   // _hubScore[flag]: undefined = грузится, null = нет данных, {place,best_score} = есть
 function _hubLine(g){
   if(!_V3_GAME_BOARDS[g.flag])return g.hint;
   const r=_hubScore[g.flag];
   if(r===undefined)return 'Загружаем результат…';
   if(r===null)return 'Результат пока недоступен';
-  if(!r.personal)return 'Ещё не играл';
-  return `Лучший ${fmt(r.personal.best_score)} · место #${Number(r.personal.place)}`;
+  const pr=r.personal, tag=g.flag==='game_minesweeper_v2'?'Обычный · ':'';   // у Сапёра берётся одна сложность
+  if(!pr)return tag+'Ещё не играл';
+  const best=g.flag==='game_minesweeper_v2'?_hubTime(pr.best_elapsed_ms):fmt(pr.best_score);
+  return `${tag}Лучший ${best} · место #${Number(pr.place)}`;
 }
+function _hubTime(ms){ const t=Math.max(0,Math.round(Number(ms)/1000)||0); return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`; }
 function _hubRow(g,chev){
   return `<button type="button" class="v3-game" data-game="${g.flag}" onclick="${g.open}"><span><b>${g.name}</b><small>${_hubLine(g)}</small></span><span class="v3-game-go">${g.cta}</span>${chev}</button>`;
 }
@@ -83,11 +86,12 @@ function loadActivitiesHub(){
   draw();
   // Каждая игра грузится отдельно: сбой одной не трогает остальных, ответ устаревшей отрисовки отбрасывается.
   open.filter(g=>_V3_GAME_BOARDS[g.flag]).forEach(g=>{
-    if(_hubScore[g.flag]!==undefined&&_hubScore[g.flag]!==null){/* показываем прошлый результат, пока придёт свежий */}
-    else _hubScore[g.flag]=undefined;
+    if(_hubScore[g.flag]&&Date.now()-(_hubAt[g.flag]||0)<60000)return;   // свежий ответ уже есть
+    if(!_hubScore[g.flag])_hubScore[g.flag]=undefined;   // прошлый результат остаётся на экране, пока идёт новый запрос
     api(_V3_GAME_BOARDS[g.flag]).then(r=>({personal:r&&r.personal||null})).catch(()=>null).then(v=>{
       if(mine!==_hubSeq)return;
-      _hubScore[g.flag]=v;
+      if(v||_hubScore[g.flag]===undefined)_hubScore[g.flag]=v;
+      if(v)_hubAt[g.flag]=Date.now();
       const small=host.querySelector(`.v3-game[data-game="${g.flag}"] small`);
       if(small)small.textContent=_hubLine(g);
     });
