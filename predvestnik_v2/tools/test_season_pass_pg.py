@@ -20,6 +20,7 @@ from services import season_pass as service
 from services import skins_v3 as skins_service
 
 USER, OTHER = 978001, 978002
+NEWBIE, NO_RECORD = 978010, 978011
 
 
 def local_dsn(value: str) -> str:
@@ -41,6 +42,21 @@ async def run(dsn: str) -> None:
     try:
         s1_start, s1_end = seasons.season_bounds(1)
         noon = lambda day: s1_start + timedelta(days=day, hours=12)
+
+        # Chat records decide account age (ensure the two tables exist; the test rolls back).
+        await db.execute("CREATE TABLE IF NOT EXISTS user_chat_stats (user_tg_id BIGINT, chat_tg_id BIGINT, "
+                         "joined_at TIMESTAMP DEFAULT NOW(), membership_since TIMESTAMPTZ DEFAULT NOW(), "
+                         "PRIMARY KEY (user_tg_id, chat_tg_id))")
+        await db.execute("CREATE TABLE IF NOT EXISTS daily_user_stats (user_id BIGINT, chat_id BIGINT, date TEXT, "
+                         "message_count INTEGER DEFAULT 1, PRIMARY KEY (user_id, chat_id, date))")
+
+        async def seen_in_chat(user: int, when: datetime) -> None:
+            await db.execute("INSERT INTO user_chat_stats(user_tg_id, chat_tg_id, joined_at, membership_since) "
+                             "VALUES (?, 1, ?, ?) ON CONFLICT DO NOTHING",
+                             (user, when.replace(tzinfo=None), when))
+
+        for old in (USER, OTHER):
+            await seen_in_chat(old, s1_start - timedelta(days=60))
 
         async def play(n: int, day: int, *, user: int = USER, tag: str = "g") -> int:
             return sum([await service.record_game(db, user_id=user, source="rhythm", event_id=f"{tag}{day}-{i}",
@@ -185,6 +201,40 @@ async def run(dsn: str) -> None:
         assert [row["season"] for row in status["seasons"]] == [1, 2], status
         status = await service.status(db, user_id=OTHER, now=s1_end + timedelta(days=31))
         assert [row["season"] for row in status["seasons"]] == [2], status
+
+        # 11a. Account age: 14 days in the bot are needed to claim; points still accrue, no record = new.
+        await seen_in_chat(NEWBIE, noon(5))
+        await play(10, 6, user=NEWBIE)
+        await play(10, 7, user=NEWBIE)
+        await play(10, 8, user=NEWBIE, tag="n")
+        await db.execute("UPDATE season_pass_progress SET points=900 WHERE user_id=? AND season=1", (NEWBIE,))
+        view = await service.status(db, user_id=NEWBIE, now=noon(10))
+        assert view["account"]["eligible"] is False and view["account"]["min_days"] == 14, view
+        assert view["seasons"][0]["points"] == 900 and view["seasons"][0]["claimable_levels"] == 3
+        try:
+            await service.claim(db, user_id=NEWBIE, season=1, now=noon(18))     # 13 days: still too new
+        except service.SeasonPassError as error:
+            assert "14 дней" in str(error)
+        else:
+            raise AssertionError("an account under 14 days must not claim")
+        assert await mora_of(NEWBIE) == 0
+        edge = await service.claim(db, user_id=NEWBIE, season=1, now=noon(19))  # exactly 14 days after
+        assert edge["mora"] == 120 and await mora_of(NEWBIE) == 120
+        # An earlier first-day record in the daily stats counts too (old players lack a good joined_at).
+        await db.execute("INSERT INTO daily_user_stats(user_id, chat_id, date) VALUES (?, 1, ?)",
+                         (NEWBIE, (noon(5) - timedelta(days=40)).date().isoformat()))
+        assert (await service.status(db, user_id=NEWBIE, now=noon(10)))["account"]["eligible"] is True
+        # No chat record at all: new by definition.
+        await service.record_game(db, user_id=NO_RECORD, source="rhythm", event_id="x", occurred_at=noon(2))
+        await db.execute("UPDATE season_pass_progress SET points=300 WHERE user_id=? AND season=1", (NO_RECORD,))
+        assert (await service.status(db, user_id=NO_RECORD, now=noon(30)))["account"] == \
+            {"eligible": False, "eligible_from": None, "min_days": 14}
+        try:
+            await service.claim(db, user_id=NO_RECORD, season=1, now=noon(30))
+        except service.SeasonPassError:
+            pass
+        else:
+            raise AssertionError("an account without a chat record must not claim")
 
         # 11. The game hooks feed the pass only for qualifying games.
         from services import minesweeper_v2, rhythm_v2

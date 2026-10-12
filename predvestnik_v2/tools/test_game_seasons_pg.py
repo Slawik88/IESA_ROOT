@@ -52,6 +52,19 @@ async def run(dsn: str) -> None:
 
         s1_start, s1_end = rules.season_bounds(1)
         s2_start, s2_end = rules.season_bounds(2)
+        # Account age comes from chat records (14 days needed); make sure both tables exist, the test rolls back.
+        await db.execute("CREATE TABLE IF NOT EXISTS user_chat_stats (user_tg_id BIGINT, chat_tg_id BIGINT, "
+                         "joined_at TIMESTAMP DEFAULT NOW(), membership_since TIMESTAMPTZ DEFAULT NOW(), "
+                         "PRIMARY KEY (user_tg_id, chat_tg_id))")
+        await db.execute("CREATE TABLE IF NOT EXISTS daily_user_stats (user_id BIGINT, chat_id BIGINT, date TEXT, "
+                         "message_count INTEGER DEFAULT 1, PRIMARY KEY (user_id, chat_id, date))")
+
+        async def seen_in_chat(user_id: int, when: datetime) -> None:
+            await db.execute("INSERT INTO user_chat_stats(user_tg_id, chat_tg_id, joined_at, membership_since) "
+                             "VALUES (?, 1, ?, ?) ON CONFLICT DO NOTHING", (user_id, when.replace(tzinfo=None), when))
+
+        for user_id in (*PLAYERS, OUTSIDER_RUNS, OUTSIDER_DAYS):
+            await seen_in_chat(user_id, s1_start - timedelta(days=60))
         # 12 qualified players: score falls with the number; 5 runs on 3 days each.
         for index, user_id in enumerate(PLAYERS[:12]):
             for run_no in range(5):
@@ -160,6 +173,31 @@ async def run(dsn: str) -> None:
                 raise AssertionError("a paying board without standings must refuse to settle")
         finally:
             rules.PAYING_BOARDS = (("rhythm", "normal"),)
+
+        # 6b. New accounts: ten fresh accounts cannot open the podium (10 players needed) or take a place.
+        s3_start, s3_end = rules.season_bounds(3)
+        sybils, real = tuple(range(977101, 977111)), PLAYERS[:4]
+        no_record = 977120
+        for user_id in sybils:
+            await seen_in_chat(user_id, s3_end - timedelta(days=13, hours=23))     # one hour short of 14 days
+        for index, user_id in enumerate(real):
+            for run_no in range(5):
+                await clear_run(user_id, s3_start + timedelta(days=10 + run_no % 3, hours=run_no), score=1_000 - index)
+        edge_user = 977121
+        await seen_in_chat(edge_user, s3_end - timedelta(days=14))                    # exactly 14 days: allowed
+        for user_id in (*sybils, no_record, edge_user):
+            for run_no in range(5):
+                await clear_run(user_id, s3_start + timedelta(days=10 + run_no % 3, hours=run_no), score=9_000)
+        before = {user_id: await mora_of(user_id) for user_id in (*real, *sybils, no_record, edge_user)}
+        result = await game_seasons.settle_due(db, boards=boards, now=s3_end + rules.SETTLEMENT_DELAY + timedelta(hours=1))
+        assert result == {"snapshots": 1, "paid": 5, "failed": 0, "closed": 1}, result
+        for user_id in (*sybils, no_record):
+            assert await mora_of(user_id) == before[user_id] and await essence_of(user_id) == 0
+            assert await game_seasons.last_result(db, game="rhythm", board="normal", user_id=user_id) is None
+        for user_id in (*real, edge_user):
+            assert await mora_of(user_id) - before[user_id] == 40, "5 eligible players: participation only, no podium"
+        async with db.execute("SELECT players FROM game_season_closed WHERE season=3") as cursor:
+            assert int((await cursor.fetchone())[0]) == 5
 
         # 7. Minesweeper does not pay and shows no reward table.
         view = game_seasons.season_view(game="minesweeper", board="hard")

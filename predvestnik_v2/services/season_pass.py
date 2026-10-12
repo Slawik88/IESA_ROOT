@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 
 from loguru import logger
 
+from core import account_age
 from core import season_pass as rules
 from core import seasons
+from infrastructure.repositories import account_age as account_age_repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import season_pass as repo
 from infrastructure.repositories import system_flags
@@ -80,7 +82,13 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
         return {"enabled": False}
     current = seasons.season_number(now)
     today = await repo.day_points(db, user_id=user_id, season=current, day=now.date())
-    return {"enabled": True, "seasons": [
+    seen = (await account_age_repo.first_seen(db, [user_id])).get(int(user_id))
+    start = account_age.eligible_from(seen)
+    return {"enabled": True,
+            "account": {"eligible": account_age.is_eligible(seen, now),
+                        "eligible_from": start.isoformat() if start else None,
+                        "min_days": account_age.MIN_ACCOUNT_AGE.days},
+            "seasons": [
         _view(season, await repo.progress(db, user_id=user_id, season=season),
               today if season == current else 0, now)
         for season in rules.claimable_seasons(now)]}
@@ -93,6 +101,10 @@ async def claim(db, *, user_id: int, season: int, now: datetime | None = None) -
         raise SeasonPassError("Сезонный пропуск пока выключен.")
     if int(season) not in rules.claimable_seasons(now):
         raise SeasonPassError("Срок получения наград этого сезона истёк.")
+    seen = (await account_age_repo.first_seen(db, [user_id])).get(int(user_id))
+    if not account_age.is_eligible(seen, now):
+        raise SeasonPassError(f"Награды пропуска выдаются аккаунтам, которые в боте не меньше "
+                              f"{account_age.MIN_ACCOUNT_AGE.days} дней. Очки копятся, получить можно позже.")
     async with db.connection.transaction():
         progress = await repo.progress(db, user_id=user_id, season=season, lock=True)
         points = int(progress["points"]) if progress else 0

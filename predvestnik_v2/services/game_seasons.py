@@ -5,7 +5,9 @@ A finished season is settled in three resumable steps, driven by the scheduler
 
 1. Wait ``SETTLEMENT_DELAY`` after the season ends so integrity verdicts settle.
 2. Freeze each paying board once: only players who met the participation terms
-   are ranked, each with the reward of their place (one transaction, one
+   and whose account was in the bot for ``account_age.MIN_ACCOUNT_AGE`` by the
+   season's end are ranked (new accounts neither take a place nor count towards
+   the podium thresholds), each with the reward of their place (one transaction, one
    ``game_season_settlements`` marker per board).
 3. Pay every player once, for the best reward over all paying boards.  Mora and
    Essence move in one transaction per player, so a failure rolls back that
@@ -20,7 +22,9 @@ from typing import Awaitable, Callable, Mapping
 
 from loguru import logger
 
+from core import account_age
 from core import seasons as rules
+from infrastructure.repositories import account_age as account_age_repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import game_seasons as repo
 from services import skins_v3 as skins_service
@@ -58,7 +62,13 @@ async def _snapshot_board(db, *, season: int, game: str, board: str, standings: 
     start, end = rules.season_bounds(season)
     # The Rhythm standings first promote reviewed runs (idempotent writes); if that
     # raises, nothing is frozen yet and the next pass retries the whole snapshot.
-    ranked = qualified_places(await standings(db, start, end))
+    rows = await standings(db, start, end)
+    seen = await account_age_repo.first_seen(db, (row["user_id"] for row in rows))
+    allowed = account_age.eligible_ids(seen, (row["user_id"] for row in rows), end)
+    ranked = qualified_places([row for row in rows if int(row["user_id"]) in allowed])
+    if len(allowed) < len(rows):
+        logger.info("Season {} {}/{}: {} new accounts left out of the ranking", season, game, board,
+                    len(rows) - len(allowed))
     size = len(ranked)
     async with db.connection.transaction():
         if await repo.is_settled(db, game=game, board=board, season=season):
