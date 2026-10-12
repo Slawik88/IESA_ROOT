@@ -1,0 +1,100 @@
+"""Стенд админки: открывает bot-admin на фикстурах (без входа и сервера) и снимает вкладки на 320/390/430 в двух темах.
+
+    python tools/admin_stand.py [--out DIR] [--tabs metrics,health]
+
+Запросы /bot-admin/api/* подменяются данными из admin_stand_fixtures.py, внешние адреса (шрифты, telegram-web-app.js) блокируются.
+Выходной код 1, если на какой-то ширине страница шире экрана: админка режет лишнее (overflow-x: clip), и без этой проверки
+обрезанная колонка остаётся незамеченной. Нужен playwright (pip install playwright, браузер из PLAYWRIGHT_BROWSERS_PATH).
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+from urllib.parse import urlparse
+
+sys.path.insert(0, os.path.dirname(__file__))
+from admin_stand_fixtures import ROUTES  # noqa: E402
+
+STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
+HOST = "http://stand.local"
+WIDTHS = (320, 390, 430)
+THEMES = ("dark", "light")
+OVERFLOW_JS = """() => {
+  const w = document.documentElement.clientWidth, bad = [];
+  document.querySelectorAll('main *').forEach(el => {
+    const r = el.getBoundingClientRect();
+    if (el.closest('[hidden], details:not([open]) > :not(summary)')) return;
+    const cut = el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0 && getComputedStyle(el).overflowX === 'visible' && !['TABLE', 'TR', 'TBODY', 'DETAILS', 'SUMMARY'].includes(el.tagName);
+    if (r.width && (r.right > w + 1 || r.left < -1 || cut)) bad.push(el.tagName + '.' + el.className + ' ' + Math.round(r.right) + (cut ? ' текст шире блока' : ''));
+  });
+  return {scrollW: document.documentElement.scrollWidth, w, bad: bad.slice(0, 6)};
+}"""
+
+
+def read(name: str) -> str:
+    with open(os.path.join(STATIC, name), encoding="utf-8") as f:
+        return f.read()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default="admin-stand-out")
+    ap.add_argument("--tabs", default="metrics,health")
+    args = ap.parse_args()
+    tabs = [t for t in args.tabs.split(",") if t]
+    os.makedirs(args.out, exist_ok=True)
+    from playwright.sync_api import sync_playwright
+
+    html = read("index.html").replace("{{BASE}}", HOST).replace("{{VER}}", "stand")
+    problems: list[str] = []
+
+    def handle(route):
+        url = urlparse(route.request.url)
+        if url.netloc != "stand.local":
+            return route.abort()
+        path = url.path
+        if path == "/bot-admin/api/export" or path.startswith("/bot-admin/api/"):
+            key = path[len("/bot-admin/api"):]
+            if key in ROUTES:
+                return route.fulfill(status=200, content_type="application/json", body=json.dumps(ROUTES[key]))
+            return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
+        if path.endswith("admin.js"):
+            return route.fulfill(status=200, content_type="text/javascript", body=read("admin.js"))
+        if path.endswith("admin.css"):
+            return route.fulfill(status=200, content_type="text/css", body=read("admin.css"))
+        return route.fulfill(status=200, content_type="text/html", body=html)
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        for theme in THEMES:
+            for width in WIDTHS:
+                ctx = browser.new_context(viewport={"width": width, "height": 800}, device_scale_factor=1)
+                ctx.add_init_script(f"localStorage.setItem('pv_admin_prefs', JSON.stringify({{theme: '{theme}'}}))")
+                ctx.route("**/*", handle)
+                page = ctx.new_page()
+                errors: list[str] = []
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                for tab in tabs:
+                    page.goto(f"{HOST}/bot-admin/")
+                    page.wait_for_selector(f'#tabs [data-tab="{tab}"], #tabs [data-more]')
+                    page.evaluate(f"open('{tab}')")
+                    page.wait_for_function("() => !document.querySelector('.admin-load')", timeout=8000)
+                    page.wait_for_timeout(350)
+                    page.screenshot(path=os.path.join(args.out, f"{tab}-{theme}-{width}.png"), full_page=True)
+                    res = page.evaluate(OVERFLOW_JS)
+                    if res["scrollW"] > res["w"] or res["bad"]:
+                        problems.append(f"{tab} {theme} {width}px: ширина {res['scrollW']} при {res['w']}, {res['bad']}")
+                problems += [f"{theme} {width}px: ошибка JS: {e}" for e in errors]
+                ctx.close()
+        browser.close()
+    for p in problems:
+        print("✗", p)
+    print(f"снимки: {os.path.abspath(args.out)}; проблем: {len(problems)}")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
