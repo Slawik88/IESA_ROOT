@@ -21,8 +21,8 @@ Object.assign(_V3_PATHS, {
 const _trWord = (n, one, few, many) => { const m = Math.abs(n) % 100, d = m % 10; return m > 10 && m < 20 ? many : d === 1 ? one : d > 1 && d < 5 ? few : many; };
 const _trMult = n => String(n).replace('.', ',');
 const _trFem = (p, he, she) => _TR_FEM.has(p?.species_id) ? she : he;
-const _trPet = id => (_tr.me?.pets || []).find(p => p.id === Number(id));
-const _trAct = id => (_tr.me?.activities || []).find(a => a.id === id);
+function _trPet(id) { return (_tr.me?.pets || []).find(p => p.id === Number(id)); }
+function _trAct(id) { return (_tr.me?.activities || []).find(a => a.id === id); }
 const _trSec = (title, link) => `<div class="v3-sec"><span class="v3-eyebrow">${title}</span>${link || ''}</div>`;
 // Время сервера приходит как «2026-10-12 10:00:00.123456+00:00» (в ответе игроку) или ISO: Safari не разбирает пробел вместо T, а Date держит миллисекунды
 function _trTime(value) { const t = Date.parse(String(value || '').replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1')); return Number.isFinite(t) ? t : NaN; }
@@ -83,7 +83,7 @@ function trailGo(view, id) {
   if (_tr.me && _TR_ENTER[view]) _TR_ENTER[view]();
   _trRender(); try { window.scrollTo(0, 0); } catch (_) { /* прокрутка недоступна */ }
 }
-const trailPet = id => trailGo('pet', id);
+function trailPet(id) { trailGo('pet', id); }
 // Системная кнопка «Назад» (app.01.js, navBack) сначала закрывает окно или подэкран Тропы и только потом уводит со страницы
 _backHooks.push(() => {
   if (_activePage !== 'pets' || _sysFlags.pets_v2 !== true) return false;
