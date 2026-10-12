@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from infrastructure.repositories import pets_v1 as repo
 from infrastructure.repositories import chests_v1 as chest_repo, system_flags
-from core.pets_v1 import MAX_LEVEL, POLICY_VERSION, PetPolicyError, apply_active_slot_swap, endurance_after_elapsed, level_effects, spend_activity_endurance, validate_activity, validate_expedition_decision
+from core.pets_v1 import MAX_LEVEL, POLICY_VERSION, PetPolicyError, apply_active_slot_swap, endurance_after_elapsed, level_effects, ability_ladder, spend_activity_endurance, validate_activity, validate_expedition_decision
 from core.chests_v1 import FOODS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
 from core.echo_shards_v1 import MaxDuplicateCompensation
 from services.echo_shards_v1 import EchoShardReceipt, compensate_max_duplicate_in_transaction
@@ -154,11 +154,12 @@ async def overview(db, user_id: int) -> dict:
     owned_species = {str(pet.get("species_id") or "") for pet in pets}
     bestiary = [
         {"id": species_id, "name": row["name"], "rarity": row["rarity"],
-         "icon": row["icon"], "owned": species_id in owned_species}
+         "icon": row["icon"], "owned": species_id in owned_species,
+         "level": next((p["level"] for p in pets if p["species_id"] == species_id), None)}
         for species_id, row in PET_SPECIES.items()
     ]
     return {"policy_version":POLICY_VERSION,"active_pet_id":active,"pets":pets,
-            "bestiary": bestiary,
+            "bestiary": bestiary, "abilities": ability_ladder(),
             "bestiary_owned": sum(1 for item in bestiary if item["owned"]),
             "bestiary_total": len(bestiary),
             "durations":[3,6,9],"activity":activity,"economy_enabled":True,

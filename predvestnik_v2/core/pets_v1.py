@@ -62,9 +62,8 @@ def apply_active_slot_swap(*, current_pet_id: int | None, next_pet_id: int, endu
         return int(next_pet_id), int(endurance)
     if not ENDURANCE_MIN <= int(endurance) <= ENDURANCE_MAX:
         raise PetPolicyError("Выносливость питомца вне диапазона 0–100.")
-    if int(endurance) < ACTIVE_SLOT_SWAP_COST:
-        raise PetPolicyError("Недостаточно выносливости для смены активного питомца.")
-    return int(next_pet_id), int(endurance) - ACTIVE_SLOT_SWAP_COST
+    # Смена никогда не блокируется: уставший питомец не должен запирать слот. Списывается то, что есть, до 5.
+    return int(next_pet_id), int(endurance) - min(ACTIVE_SLOT_SWAP_COST, int(endurance))
 
 
 def level_effects(level: int) -> dict:
@@ -92,6 +91,17 @@ def level_effects(level: int) -> dict:
         "expedition_extra_option": level >= 12,
         "max_level_effect": level == MAX_LEVEL,
     }
+
+
+def ability_ladder() -> list[dict]:
+    """Что открывает уровень питомца: для бестиария. Способности одинаковы у всех видов, различаются редкость и облик."""
+    return [
+        {"level": 1, "text": "Маршрут экспедиции: бонус растёт на +1% за уровень, до +15% на 16 уровне"},
+        {"level": 4, "text": "Подсказка по маршруту: 1 заряд"},
+        {"level": 8, "text": "Защита от риска: 5%"},
+        {"level": 12, "text": "Дополнительный вариант маршрута"},
+        {"level": 16, "text": "Максимальный облик"},
+    ]
 
 
 def allowed_duration(hours: int) -> bool:

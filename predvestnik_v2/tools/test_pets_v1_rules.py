@@ -30,7 +30,7 @@ def main() -> None:
 
     assert apply_active_slot_swap(current_pet_id=7, next_pet_id=7, endurance=2) == (7, 2)
     assert apply_active_slot_swap(current_pet_id=7, next_pet_id=8, endurance=20) == (8, 20 - ACTIVE_SLOT_SWAP_COST)
-    must_fail(lambda: apply_active_slot_swap(current_pet_id=7, next_pet_id=8, endurance=ACTIVE_SLOT_SWAP_COST - 1))
+    assert apply_active_slot_swap(current_pet_id=7, next_pet_id=8, endurance=ACTIVE_SLOT_SWAP_COST - 3) == (8, 0)   # уставший питомец не запирает слот
     must_fail(lambda: level_effects(0))
     must_fail(lambda: level_effects(MAX_LEVEL + 1))
     assert level_effects(1)["visual_stage"] == "Начальный облик"

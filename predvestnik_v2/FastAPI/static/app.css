@@ -1614,3 +1614,7 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 /* кнопки «назад» в шапках экранов и закруглённые знаки, у которых рамка и фон сняты вместе с карточными оболочками */
 .looks-back, .wn-back { background: none; border: 0; color: var(--v3-dim); }
 .pet-hero > strong { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--v3-acc); }
+.pet-abilities { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.pet-abilities li { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.pet-abilities li.is-open { color: var(--gold); }
+button.bestiary-card { text-align: left; font: inherit; color: inherit; cursor: pointer; }

@@ -247,13 +247,15 @@
     return `<div class="pet-food-row" aria-label="Покормить ${esc(pet.name)}">${buttons}</div>`;
   }
 
-  function petCard(pet, foods) {
+  function petCard(pet, foods, running) {
     const endurance = Math.max(0, Math.min(100, Number(pet.endurance) || 0));
+    const away = running && Number(running.pet_id) === Number(pet.id);
+    const badge = away ? 'В пути' : (pet.active ? 'Активный' : 'Отдыхает');
     const activate = pet.active
       ? ''
-      : `<button class="v3-pill v3-pill--ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`;
+      : `<button class="v3-pill v3-pill--ghost pet-activate" onclick="petsV1Activate(${pet.id})">Сделать активным · −5 ⚡</button>`;
     return `<article class="pet-release-card">
-      <header><b>🐾 ${esc(pet.name)}</b>${pet.active ? '<span>Активный</span>' : ''}</header>
+      <header><b>🐾 ${esc(pet.name)}</b><span>${badge}</span></header>
       <div class="pet-endurance"><div><i style="width:${endurance}%"></i></div><b>${pet.endurance}/100</b></div>
       <p>Уровень ${pet.level}/16 · ${esc(pet.effects.visual_stage)} · маршрут +${pet.effects.expedition_route_bonus_percent}%</p>
       ${petFoodButtons(pet, foods)}${activate}
@@ -297,20 +299,42 @@
     </section>`;
   }
 
+  const PET_RARITY_LABELS = { common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический', legendary: 'Легендарный' };
+  let _petsV1Data = null;
+
   function petBestiaryCard(pet) {
     const state = pet.owned ? 'is-owned' : 'is-locked';
     const icon = pet.owned ? esc(pet.icon) : '?';
     const name = pet.owned ? esc(pet.name) : 'Неизвестный питомец';
-    return `<article class="bestiary-card ${state}"><span aria-hidden="true">${icon}</span>`
-      + `<div><b>${name}</b><small>${esc(pet.rarity)} · ${pet.owned ? 'открыт' : 'не найден'}</small></div>`
-      + `${pet.owned ? '<i aria-label="Открыт">✓</i>' : ''}</article>`;
+    const rarity = PET_RARITY_LABELS[pet.rarity] || esc(pet.rarity);
+    return `<button type="button" class="bestiary-card ${state}" onclick="petsV1Bestiary('${esc(pet.id)}')"><span aria-hidden="true">${icon}</span>`
+      + `<div><b>${name}</b><small>${rarity} · ${pet.owned ? 'открыт' : 'не найден'}</small></div>`
+      + `${pet.owned ? '<i aria-label="Открыт">✓</i>' : ''}</button>`;
   }
 
+  window.petsV1Bestiary = function (id) {
+    const box = el('pet-bestiary-detail');
+    const pet = ((_petsV1Data && _petsV1Data.bestiary) || []).find((item) => item.id === id);
+    if (!box || !pet) return;
+    const ladder = ((_petsV1Data && _petsV1Data.abilities) || []).map((row) => (
+      `<li class="${pet.owned && Number(pet.level) >= row.level ? 'is-open' : ''}"><b>${row.level} ур.</b> ${esc(row.text)}</li>`
+    )).join('');
+    const head = pet.owned
+      ? `${esc(pet.icon)} ${esc(pet.name)} · ${PET_RARITY_LABELS[pet.rarity] || esc(pet.rarity)} · сейчас ${Number(pet.level) || 1} ур.`
+      : `? Неизвестный питомец · ${PET_RARITY_LABELS[pet.rarity] || esc(pet.rarity)}`;
+    const tail = pet.owned ? '' : '<p>Карточку этого вида можно найти в сундуке.</p>';
+    box.innerHTML = `<section class="looks-release-section"><h3>${head}</h3><p>Способности растут с уровнем и одинаковы у всех видов.</p><ul class="pet-abilities">${ladder}</ul>${tail}</section>`;
+    box.hidden = false;
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  };
+
   function renderPetsV1(root, data) {
+    _petsV1Data = data;
     const pets = data.pets || [];
     const foods = data.food || [];
     const activePet = pets.find((pet) => pet.active);
-    const cards = pets.map((pet) => petCard(pet, foods)).join('')
+    const running = data.activity && data.activity.status !== 'ready' ? data.activity : null;
+    const cards = pets.map((pet) => petCard(pet, foods, running)).join('')
       || '<div class="empty">Первую карточку питомца можно найти в сундуке.</div>';
     const activity = data.activity
       ? activePetActivity(data.activity)
@@ -326,8 +350,8 @@
     root.innerHTML = `<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
       <section class="pet-hero"><div><small>Коллекция спутников</small><h2>${fmt(data.bestiary_owned || 0)} из ${fmt(data.bestiary_total || 0)}</h2><p>Открывай сундуки, находи карточки и собирай весь бестиарий.</p></div><strong>${completion}%</strong></section>
       <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="true" onclick="showPetPanel('owned',this)">Мои питомцы</button><button type="button" role="tab" aria-selected="false" onclick="showPetPanel('bestiary',this)">Бестиарий</button></div>
-      <div data-pet-panel="owned"><div class="looks-hint">Выносливость уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу; смена активного питомца стоит 5.</div>${earned}${cards}${activity}</div>
-      <div data-pet-panel="bestiary" hidden><div class="bestiary-grid">${bestiary}</div></div>`;
+      <div data-pet-panel="owned"><div class="looks-hint">Выносливость уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу; в экспедицию ходит активный питомец; остальные отдыхают. Сменить активного можно в любой момент, это стоит до 5 ⚡.</div>${earned}${cards}${activity}</div>
+      <div data-pet-panel="bestiary" hidden><div class="bestiary-grid">${bestiary}</div><div id="pet-bestiary-detail" hidden></div></div>`;
   }
 
   window.openPetsV1 = async function () {
