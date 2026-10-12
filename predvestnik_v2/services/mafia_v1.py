@@ -290,7 +290,7 @@ async def player_history(db, *, user_id: int) -> dict:
     return {
         "version": "mafia-v1-stats",
         "stats": {"played": played, "wins": wins, "cancelled": cancelled,
-                  "favorite_role": max(by_role, key=by_role.get) if by_role else None},
+                  "favorite_role": max(sorted(by_role), key=by_role.get) if by_role else None},
         "live": [item(row, finished=False) for row in live],
         "matches": [item(row, finished=True) for row in rows],
     }

@@ -45,7 +45,7 @@ function openMafiaStats(){
     const rows=(d.matches||[]).map(m=>{ const when=mafiaDate(m.finished_at||m.started_at), side=m.winner==='town'?'победили мирные':m.winner==='mafia'?'победила мафия':'';
       return `<div class="v3-line mafia-row"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>${esc([when,side].filter(Boolean).join(' · '))}</small></span><em class="mafia-res ${m.won===true?'win':''}">${m.won===true?'Победа':m.won===false?'Поражение':''}</em></div>`; }).join('');
     const summary=played?`<div class="mafia-sum"><div><b>${played}</b><span>сыграно</span></div><div><b>${wins}</b><span>побед</span></div><div><b>${Math.round(wins*100/played)}%</b><span>успех</span></div></div>${s.favorite_role&&role[s.favorite_role]&&played>=3?`<p class="v3-stat-line">Чаще всего: ${esc(role[s.favorite_role][1])}</p>`:''}`:'';
-    const hidden=cancelled?`<button class="mafia-more" type="button" onclick="this.nextElementSibling.hidden=false;this.hidden=true">Не завершены: ${cancelled} · показать</button><p class="v3-stat-line" hidden>Отменённые и остановленные партии не входят в статистику (${cancelled}).</p>`:'';
+    const hidden=cancelled?`<p class="v3-stat-line mafia-cancelled">Отменённых партий: ${cancelled} · в статистику не входят</p>`:'';
     const empty='<div class="v3-empty">🕵️<b>Партий пока нет</b>В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div>';
     el('mb').innerHTML=`${mafiaHowTo()}<div class="v3-eyebrow">Моя статистика</div>${summary}${live}${rows||(live?'':empty)}${hidden}`;
   }).catch(e=>{ el('mb').innerHTML=`<div class="v3-err">${esc(String(e))}</div>`; });

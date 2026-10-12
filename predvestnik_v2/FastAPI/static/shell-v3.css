@@ -242,4 +242,4 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 .mafia-res { flex: none; font-style: normal; font-size: 13px; color: var(--v3-dim); }
 .mafia-res.win { color: var(--v3-ok); }
 .mafia-live b { color: var(--v3-acc); }
-.mafia-more { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: 0; background: none; color: var(--v3-dim); font: 600 13px var(--v3-font); text-align: left; cursor: pointer; }
+.mafia-cancelled { margin-top: 10px; color: var(--v3-dim); font-size: 12.5px; }
