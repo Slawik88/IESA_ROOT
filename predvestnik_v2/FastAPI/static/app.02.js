@@ -416,13 +416,16 @@ const _WN_TAG = {
   'Баланс':  {cls:'wn-tag--balance', ic:'⚖️'},
 };
 
+// Запись с полем flag (ключ модуля, например "pets_v2") лежит в ленте сразу, а игрок видит её, когда модуль включён:
+// о том, чего ещё нет на его экране, не рассказываем. Пока флаги не пришли, такая запись скрыта.
+const _wnShown = list => list.filter(u => !u.flag || _sysFlags[u.flag] === true);
 function _wnFetch(){
-  if (_wnData) return Promise.resolve(_wnData);
+  if (_wnData) return Promise.resolve(_wnShown(_wnData));
   return api('/updates.json').then(d => {
     const all=(d && Array.isArray(d.updates))?d.updates:[];
     const archiveAt=all.findIndex(u=>u.id===_WN_ARCHIVE_BOUNDARY);
     _wnData=archiveAt<0?all:all.slice(0,archiveAt);
-    return _wnData;
+    return _wnShown(_wnData);
   });
 }
 function _wnSeenId(){
