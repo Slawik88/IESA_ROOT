@@ -31,7 +31,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-bell { padding: 0; line-height: 1; position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; color: var(--v3-ink) !important; transition: transform .15s; }
 .v3-bell svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .v3-bell-dot { position: absolute; top: 9px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--v3-acc); box-shadow: 0 0 0 2px var(--v3-bg); }
-.v3-bar-me:active, .v3-bell:active { transform: scale(.94); }
+.v3-bar-me:active, .v3-bell:active, .v3-bag:active { transform: scale(.94); }
 .v3-ring svg circle:first-child, .v3-qring svg circle:first-child, .v3-aspect-ring svg circle:first-child, .v3-bar-me svg circle:first-child { stroke: var(--v3-track); }
 
 /* ── Дизайнерские акценты ── */
