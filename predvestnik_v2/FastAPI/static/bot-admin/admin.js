@@ -982,43 +982,68 @@ function trend(cur, prev) {
   return ` <small class="trend ${pct > 0 ? 'up' : 'down'}" title="В прошлом периоде: ${num(prev)}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</small>`;
 }
 
+// Структура вкладок (ADM-01). Новые блоки: заголовок вкладки, акцентные плитки, группа-секция, алерт, таблица.
+// `.card` не трогаем: его роли (жалобы, панель выбора, рассылка) держатся на старых правилах.
+const FOLD = new Map();   // ключ секции -> раскрыта ли; переживает перерисовку вкладки (main.innerHTML = …)
+document.addEventListener('toggle', e => {
+  const d = e.target;
+  if (d.matches && d.matches('details.section[data-sec]')) FOLD.set(d.dataset.sec, d.open);
+}, true);
+
+const pageHead = (icon, title, sub) => `<header class="page-head"><h2><span aria-hidden="true">${icon}</span> ${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
+const kpi = (label, value, extra = '', cls = '') => `<div class="kpi ${cls}"><span>${label}</span><b>${value}</b>${extra}</div>`;
+const alertBox = (kind, html) => `<div class="alert ${kind}" role="status">${html}</div>`;
+// Свёрнутая секция помнит выбор человека; без ключа или без fold это обычная открытая группа.
+function section(key, title, body, {fold = false, open = true, count = null} = {}) {
+  const cnt = count == null ? '' : ` <small class="cnt">· ${count}</small>`;
+  if (!fold) return `<section class="section" data-sec="${key}"><h3 class="sec-h">${title}${cnt}</h3>${body}</section>`;
+  const isOpen = FOLD.has(key) ? FOLD.get(key) : open;
+  return `<details class="section" data-sec="${key}" ${isOpen ? 'open' : ''}><summary class="sec-h">${title}${cnt}</summary><div class="sec-body">${body}</div></details>`;
+}
+// Таблица: на узком экране, если колонок больше трёх, строки превращаются в карточки (подписи берутся из шапки).
+function tbl(heads, rows) {
+  const cards = heads.length > 3 ? ' tbl-cards' : '';
+  return `<table class="tbl${cards}"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r =>
+    `<tr>${r.map((c, i) => `<td data-label="${esc(String(heads[i]).replace(/<[^>]*>/g, ''))}">${c}</td>`).join('')}</tr>`).join('')}</table>`;
+}
+
 const CURRENCIES = {mora: '🪙 Мора', diamonds: '💎 Алмазы', dark_mora: '🌑 Тёмная мора', zarniki: '✨ Зарники'};
 const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v));
 
 function retentionCard(r) {
   if (!r) return '';
   const names = {d1: 'На следующий день', d7: 'За 7 дней', d30: 'За 30 дней'};
-  return `<div class="card"><h3>🔁 Удержание</h3><div class="stats">
+  return section('m-retention', '🔁 Удержание', `<div class="kpis">
     ${Object.entries(names).map(([k, t]) => r[k] && r[k].cohort
-      ? tile(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`) : tile(t, '—', '<small> данных пока нет</small>')).join('')}</div>
-    <div class="sub" style="margin-top:8px">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
-    у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</div></div>`;
+      ? kpi(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`, 'sm') : kpi(t, '—', '<small> данных пока нет</small>', 'sm')).join('')}</div>
+    <p class="sub note">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
+    у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</p>`, {fold: true, open: false});
 }
 
 function funnelCard(f) {
-  if (!f || !f.steps || !f.steps[0].users) return '<div class="card"><h3>🪜 Воронка мини-приложения</h3><div class="sub">За период приложение никто не открывал.</div></div>';
-  return `<div class="card"><h3>🪜 Воронка мини-приложения</h3>
+  if (!f || !f.steps || !f.steps[0].users) return section('m-funnel', '🪜 Воронка мини-приложения', '<div class="sub">За период приложение никто не открывал.</div>', {fold: true, open: false});
+  return section('m-funnel', '🪜 Воронка мини-приложения', `
     ${f.steps.map(x => x.users == null
       ? `<div class="sub" style="margin-top:10px">${esc(x.title)} — данных пока нет</div>`
       : `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.title)}</span>
           <b>${num(x.users)}${x.of_first == null ? '' : ` <small class="sub">· ${x.of_first}%</small>`}</b></div>
         <div style="height:8px;border-radius:4px;background:var(--line);margin-top:4px"><i style="display:block;height:100%;width:${Math.max(2, x.of_first || 0)}%;background:var(--accent);border-radius:4px"></i></div>
         ${x.of_prev == null || x.key === 'opened' ? '' : `<div class="sub" style="margin-top:2px">${x.of_prev}% от прошлого шага</div>`}</div>`).join('')}
-    ${f.with_bot_percent == null ? '' : `<div class="sub" style="margin-top:12px">Из открывших приложение ещё и пользуются командами бота: ${num(f.with_bot)} (${f.with_bot_percent}%).</div>`}
-    <div class="sub" style="margin-top:6px">Каждый шаг входит в предыдущий: считаются одни и те же люди за выбранный период. «Потратили валюту» — любая трата в журнале экономики
-    (покупка, ставка, образ, питомец).</div></div>`;
+    ${f.with_bot_percent == null ? '' : `<div class="sub" style="margin-top:12px">Из открывших приложение ещё и пользуются командами бота: ${num(f.with_bot)} (${f.with_bot_percent}%)</div>`}
+    <p class="sub note">Каждый шаг входит в предыдущий: считаются одни и те же люди за выбранный период. «Потратили валюту» — любая трата в приложении
+    (покупка, ставка, образ, питомец).</p>`, {fold: true, open: false});
 }
 
 function economyCard(e) {
   const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
-  if (!cur.length) return '<div class="card"><h3>💰 Экономика</h3><div class="sub">За период движений валюты не было.</div></div>';
+  if (!cur.length) return section('m-economy', '💰 Экономика', '<div class="sub">За период движений валюты не было.</div>', {fold: true, open: false});
   const list = (items, label) => items.length ? `<details style="margin-top:6px"><summary class="sub">${label} · ${items.length}</summary>
-    <table>${items.map(x => `<tr><td>${esc(x.title)}</td><td>${num(x.amount)}</td></tr>`).join('')}</table></details>` : '';
-  return `<div class="card"><h3>💰 Экономика</h3>${cur.map(([k, c]) => `
-    <div class="sub" style="margin-top:12px"><b>${CURRENCIES[k]}</b></div>
-    <div class="stats">${tile('Выдано', num(c.issued))}${tile('Потрачено', num(c.spent))}${tile('Итого', signed(c.net))}</div>
+    ${tbl(['Что', 'Сумма'], items.map(x => [esc(x.title), num(x.amount)]))}</details>` : '';
+  return section('m-economy', '💰 Экономика', `${cur.map(([k, c]) => `
+    <div class="sub cur"><b>${CURRENCIES[k]}</b></div>
+    <div class="kpis">${kpi('Выдано', num(c.issued), '', 'sm')}${kpi('Потрачено', num(c.spent), '', 'sm')}${kpi('Итого', signed(c.net), '', 'sm')}</div>
     ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
-    <div class="sub" style="margin-top:10px">Переводы между игроками не считаются: деньги только переходят от человека к человеку.</div></div>`;
+    <p class="sub note">Переводы между игроками не считаются: деньги только переходят от человека к человеку.</p>`, {fold: true, open: false, count: cur.length});
 }
 
 // Выгрузка в CSV: в браузере скачивается файлом, а в Telegram (где файлы не скачать) — копируется в буфер.
@@ -1048,44 +1073,38 @@ async function metricsView(main, days = 1) {
   if (!m) return;
   const s = m.site, b = m.bot, c = m.chats, cmp = m.compare || {};
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
+  const dmy = d => d.split('-').reverse().join('.');
   main.innerHTML = `
+    ${pageHead('▥', 'Метрики', 'Сколько людей и чего происходит в боте и приложении')}
     <div class="scope">${Object.entries(period).map(([d, t]) =>
       `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
-      <span class="sub">${m.days === 1 ? m.until.split('-').reverse().join('.') : m.since.split('-').reverse().join('.') + ' — ' + m.until.split('-').reverse().join('.')}</span>
+      <span class="sub">${m.days === 1 ? dmy(m.until) : dmy(m.since) + ' — ' + dmy(m.until)}</span>
       <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
-    <div class="card"><h3>Всего</h3><div class="stats">
-      ${tile('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${tile('🗂 Игроков в базе', num(m.players_total))}
-      ${tile('💬 Чатов с ботом', num(m.chats_total))}</div>
-      <div class="sub" style="margin-top:8px">Уникальные — кто открыл приложение, вызвал команду или писал в чате с ботом.
-        Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</div></div>
-    ${retentionCard(m.retention)}
-    ${funnelCard(m.funnel)}
-    <div class="card"><h3>📱 Мини-приложение</h3><div class="stats">
-      ${tile('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors))}${tile('Сессий', num(s.sessions))}${tile('Открытий вкладок', num(s.visits))}
-      ${tile('Время всего', dur(s.seconds))}${tile('В среднем на человека', dur(s.avg_seconds_per_visitor))}</div>
+    <div class="kpis hero">
+      ${kpi('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), trend(s.visitors, cmp.visitors))}
+      ${kpi('🤖 Команд бота', num(b.commands), trend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), trend(c.messages, cmp.messages))}</div>
+    <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
+      в чате с ботом. Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.</p>
+    ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
+      ${kpi('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
+      ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
-      ${s.pages.length ? `<table style="margin-top:12px"><tr><th>Вкладка</th><th>Открытий</th><th>Людей</th><th>Время</th><th>Среднее</th></tr>
-        ${s.pages.map(p => `<tr><td>${esc(p.title)}</td><td>${num(p.visits)}</td><td>${num(p.users)}</td><td>${dur(p.seconds)}</td><td>${dur(p.avg_seconds)}</td></tr>`).join('')}</table>`
+      ${s.pages.length ? tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
+        s.pages.map(p => [esc(p.title), num(p.visits), num(p.users), dur(p.seconds), dur(p.avg_seconds)]))
         : '<div class="sub" style="margin-top:8px">За период никто не открывал.</div>'}
-      ${s.subpages.length ? `<details style="margin-top:10px"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
-        <table>${s.subpages.map(p => `<tr><td>${esc(p.tab)}</td><td>${num(p.visits)}</td><td>${num(p.users)} чел.</td></tr>`).join('')}</table></details>` : ''}
-    </div>
-    <div class="card"><h3>🤖 Команды бота</h3><div class="stats">
-      ${tile('Команд', num(b.commands), trend(b.commands, cmp.commands))}${tile('В чатах', num(b.commands_group))}${tile('В личке', num(b.commands_private))}
-      ${tile('Людей', num(b.users), trend(b.users, cmp.bot_users))}${tile('Людей в чатах', num(b.users_group))}${tile('Людей в личке', num(b.users_private))}</div>
+      ${s.subpages.length ? `<details class="more-d"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
+        ${tbl(['Вкладка', 'Открытий', 'Людей'], s.subpages.map(p => [esc(p.tab), num(p.visits), `${num(p.users)} чел.`]))}</details>` : ''}`)}
+    ${section('m-bot', '🤖 Команды бота', `<div class="kpis">
+      ${kpi('Команд', num(b.commands), trend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
+      ${kpi('Людей', num(b.users), trend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
-      ${b.top.length ? `<table style="margin-top:12px"><tr><th>Команда</th><th>В чатах</th><th>В личке</th><th>Всего</th></tr>
-        ${b.top.map(x => `<tr><td>бот ${esc(x.command)}</td><td>${num(x.group)}</td><td>${num(x.private)}</td><td>${num(x.total)}</td></tr>`).join('')}</table>`
-        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
-    </div>
-    <div class="card"><h3>💬 Чаты</h3><div class="stats">
-      ${tile('Сообщений', num(c.messages), trend(c.messages, cmp.messages))}${tile('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users))}${tile('Активных чатов', num(c.chats))}</div>
+      ${b.top.length ? tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))
+        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}`)}
+    ${section('m-chats', '💬 Чаты', `<div class="kpis">
+      ${kpi('Сообщений', num(c.messages), trend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
-      ${c.top.length ? `<table style="margin-top:12px"><tr><th>Чат</th><th>Сообщений</th><th>Писали</th></tr>
-        ${c.top.map(x => `<tr><td>${ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title)}</td>
-          <td>${num(x.messages)}</td><td>${num(x.users)}</td></tr>`).join('')}</table>` : ''}
-    </div>
-    ${economyCard(m.economy)}`;
+      ${c.top.length ? tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)])) : ''}`)}
+    ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}`;
   $('#mexport').onclick = async e => {
     e.target.disabled = true;
     try { await exportMetrics(m.days); } catch (err) { toast(err.message || 'Не удалось выгрузить', true); }
@@ -1123,11 +1142,11 @@ async function loginsView(main) {
   if (!data) return;
   const rows = data.items.map(x => `<div class="log"><div><b>${who(x.user.id, x.user.username)}</b> · ${esc(x.device)}</div>
       <div class="sub">${when(x.at)} · адрес ${esc(x.ip || 'неизвестен')}</div></div>`).join('');
-  main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+  main.innerHTML = `${pageHead('☰', 'Журнал', 'Кто из команды и что сделал')}${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
       `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
-    <div class="card" style="margin-top:10px"><h3>Входы в админку</h3>
-      <div class="sub" style="margin-bottom:6px">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
-      ${rows || '<div class="empty">За этот период входов нет.</div>'}</div>`;
+    <section class="section"><h3 class="sec-h">Входы в админку</h3>
+      <div class="sub note">Кто и с какого устройства открывал админку. Повторные входы за полчаса с того же места не дублируются.</div>
+      ${rows || '<div class="empty">За этот период входов нет.</div>'}</section>`;
   bindJournalTabs(main);
   main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); loginsView(main); });
 }
@@ -1139,7 +1158,13 @@ async function journalView(main, more = '') {
   if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
   const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) + tagSfx(x.tag) : '';
-  const rows = data.items.map(x => `<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
+  if (!more) JOURNAL.lastDay = '';   // разделитель дня не повторяется на подгруженной странице
+  const dayHead = iso => {
+    const d = iso ? new Date(iso).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long', weekday: 'short'}) : '';
+    if (!d || d === JOURNAL.lastDay) return '';
+    JOURNAL.lastDay = d; return `<div class="day-h">${d}</div>`;
+  };
+  const rows = data.items.map(x => `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
       ${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
       <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''}${x.chat ? ' · ' + (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(x.chat.title || x.chat.id)}</a>` : esc(x.chat.title || x.chat.id)) : ''}</div></div>`).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
@@ -1147,14 +1172,14 @@ async function journalView(main, more = '') {
     main.querySelector('#jmore')?.remove();
     main.querySelector('#jlist').insertAdjacentHTML('beforeend', body);
   } else {
-    main.innerHTML = `${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
+    main.innerHTML = `${pageHead('☰', 'Журнал', 'Кто из команды и что сделал')}${journalTabs()}<div class="scope">${[[1, 'Сутки'], [7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(([d, t]) =>
         `<button class="btn small ${d === JOURNAL.days ? 'primary' : ''}" data-jdays="${d}">${t}</button>`).join('')}</div>
-      <div class="grid2" style="margin:10px 0">
+      <div class="grid2 jfilters">
         <div class="field"><label>Что</label><select id="jkind"><option value="">Всё</option>${data.kinds.map(k =>
           `<option value="${k.key}" ${k.key === JOURNAL.kind ? 'selected' : ''}>${esc(k.title)}</option>`).join('')}</select></div>
         <div class="field"><label>Кто</label><select id="jactor"><option value="0">Все</option>${data.actors.map(a =>
           `<option value="${a.id}" ${a.id === JOURNAL.actor ? 'selected' : ''}>${a.username ? '@' + esc(a.username) : 'id' + a.id}</option>`).join('')}</select></div></div>
-      <div class="card" id="jlist"><h3>Действия персонала</h3>${body}</div>`;
+      <section class="section" id="jlist"><h3 class="sec-h">Действия персонала</h3>${body}</section>`;
     bindJournalTabs(main);
     main.querySelectorAll('[data-jdays]').forEach(b => b.onclick = () => { JOURNAL.days = +b.dataset.jdays; saveJournal(); journalView(main); });
     $('#jkind').onchange = e => { JOURNAL.kind = e.target.value; saveJournal(); journalView(main); };
@@ -1187,22 +1212,24 @@ async function reportsView(main, kind = 'open') {
   const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) + tagSfx(p.tag) : '—';
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
+    ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
+    <div class="kpis">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
-    <div class="sub" style="margin-bottom:8px">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
-    ${data.repeat && data.repeat.length ? `<div class="card"><h3>🔁 Повторные нарушители · ${data.repeat.length}</h3>
-      <div class="sub" style="margin-bottom:4px">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
+    <div class="sub note">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
+    ${data.repeat && data.repeat.length ? `<section class="section" data-sec="r-repeat"><h3 class="sec-h">🔁 Повторные нарушители <small class="cnt">· ${data.repeat.length}</small></h3>
+      <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
       ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
         <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
-        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</div>` : ''}
+        ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</section>` : ''}
     ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
-    ${data.items.length ? data.items.map(r => `<div class="card" data-card="${r.id}">
+    ${data.items.length ? data.items.map(r => `<div class="card rep ${r.status}" data-card="${r.id}">
       <div>${kind === 'open' && data.items.length > 1 ? '<input type="checkbox" class="pick" data-pickrep="' + r.id + '" aria-label="Выбрать жалобу"/> ' : ''}<span class="chip ${chipCls[r.status] || ''}">${esc(r.status_title)}</span> <b>№${r.id}</b>
         <span class="sub">· ${when(r.created_at)} · ${esc(r.chat.title)}</span></div>
       <div style="margin-top:8px">На ${person(r.target)}${r.target_reports > 1 ? ` <span class="chip bad">жалоб всего: ${r.target_reports}</span>` : ''}
         <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
-      <div style="margin-top:6px"><b>Причина:</b> ${esc(r.reason)}</div>
-      ${r.message_text ? `<div class="sub" style="margin-top:6px;white-space:pre-wrap">«${esc(r.message_text)}»</div>` : ''}
+      <div class="rep-why"><b>Причина:</b> ${esc(r.reason)}</div>
+      ${r.message_text ? `<blockquote class="rep-msg">${esc(r.message_text)}</blockquote>` : ''}
       ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
       ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
         ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}
@@ -2147,37 +2174,43 @@ async function healthView(main) {
   const row = (title, value, sub = '') => `<div class="log"><div>${title} <b>${value}</b></div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
   const dg = h.digest;
   main.innerHTML = `
-    <div class="card"><h3>🤖 Бот</h3>
+    ${pageHead('♥', 'Состояние', 'Живы ли бот, база и очереди')}
+    ${tg && !tg.ok ? alertBox('bad', '<b>Telegram не отвечает.</b> Бот не получает и не отправляет сообщения: ' + esc(tg.error || 'причина не указана')) : ''}
+    <div class="kpis hero">
+      ${kpi('🤖 Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
+      ${kpi('🗄 База', `${h.database.ms} мс`)}${kpi('⏱ Работает', duration(h.process.uptime_seconds))}${kpi('⚠️ Ошибок за сутки', num(h.errors.count_24h))}</div>
+    <p class="sub note">Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.</p>
+    <section class="section" data-sec="h-bot"><h3 class="sec-h">🤖 Бот</h3>
       ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
       ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
       ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
-    </div>
-    <div class="card"><h3>⚠️ Ошибки за сутки · ${num(h.errors.count_24h)}</h3>
+    </section>
+    <section class="section" data-sec="h-err"><h3 class="sec-h">⚠️ Ошибки за сутки <small class="cnt">· ${num(h.errors.count_24h)}</small></h3>
       ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
         : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
       ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
-    </div>
-    <div class="card"><h3>💬 Чаты и игроки</h3>
+    </section>
+    <section class="section" data-sec="h-chats"><h3 class="sec-h">💬 Чаты и игроки</h3>
       ${row('Чатов с ботом', num(h.chats.active))}
       ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
       ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
       ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
       ${row('Игроков', num(h.players.total))}
       ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
-    </div>
-    <div class="card"><h3>📬 Очереди</h3>
+    </section>
+    <section class="section" data-sec="h-queues"><h3 class="sec-h">📬 Очереди</h3>
       ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
       ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
       ${row('Открытых жалоб', num(h.queues.reports_open))}
-    </div>
-    <div class="card"><h3>🌅 Итоги дня владельцу</h3>
+    </section>
+    <details class="section" data-sec="h-digest" ${FOLD.get('h-digest') ? 'open' : ''}><summary class="sec-h">🌅 Итоги дня владельцу</summary><div class="sec-body">
       <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
       <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
       <div class="field"><label>Во сколько (по времени бота)</label><select id="dghour" ${dg.can_edit ? '' : 'disabled'}>
         ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
       ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
       <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
-    </div>`;
+    </div></details>`;
   const ATTN_TITLES = {left: 'Бота удалили из чатов', no_rights: 'Без прав модерации', quiet: 'Тихие чаты'};
   main.querySelectorAll('[data-attn]').forEach(a => a.onclick = e => {
     e.preventDefault();

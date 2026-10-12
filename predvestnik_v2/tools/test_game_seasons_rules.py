@@ -54,7 +54,7 @@ else:
 assert s.is_paying("rhythm", "normal")
 assert not any(s.is_paying("minesweeper", b) for b in ("easy", "normal", "hard")), "Minesweeper pays nothing yet"
 assert s.SETTLEMENT_DELAY.total_seconds() == 48 * 3600
-assert s.terms() == {"min_runs": 5, "min_days": 3, "podium_min_players": {"3": 10, "10": 20, "25": 50}}
+assert s.terms() == {"min_runs": 5, "min_days": 3, "min_account_days": 14, "podium_min_players": {"3": 10, "10": 20, "25": 50}}
 
 # Ranking only qualified players keeps ties and closes the gaps left by the unqualified.
 from services.game_seasons import qualified_places

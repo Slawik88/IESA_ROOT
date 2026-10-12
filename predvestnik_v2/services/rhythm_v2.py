@@ -10,10 +10,11 @@ from uuid import uuid4
 from asyncpg.exceptions import UniqueViolationError
 
 from core import rhythm_v2 as rules
+from core import season_pass as season_pass_rules
 from core import seasons as season_rules
 from infrastructure.repositories import rhythm_v2 as repo
 from services import achievements_v1 as achievements
-from services import game_seasons
+from services import game_seasons, season_pass
 from services import quests_v1 as quests
 
 
@@ -29,11 +30,15 @@ class RhythmConflict(RhythmError):
 
 
 async def _record_completed_quest(db, *, user_id: int, run_id: str, mode: str, score: int,
-                                  integrity_status: str, picks: int = 0) -> None:
+                                  integrity_status: str, picks: int = 0, correct_taps: int = 0,
+                                  finished_at=None) -> None:
     """Only independently timed terminal runs may advance progression."""
     if integrity_status != "clear":
         return
     event_id = f"rhythm:{run_id}"
+    if season_pass_rules.rhythm_qualifies(integrity_status=integrity_status, correct_taps=correct_taps):
+        await season_pass.record_game(db, user_id=user_id, source="rhythm", event_id=event_id,
+                                      occurred_at=finished_at)
     sources = await quests.available_sources(db, user_id=user_id)
     metrics = ["game_completed", "rhythm_completed", f"rhythm_{mode}_completed"]
     if picks > 0:
@@ -70,7 +75,8 @@ async def _settle_finished_run(db, *, row: dict, state: dict, user_id: int,
         )
     await _record_completed_quest(
         db, user_id=user_id, run_id=row["run_id"], mode=str(row["mode"]), score=int(state["score"]),
-        integrity_status=verdict, picks=len(state["selected"]),
+        integrity_status=verdict, picks=len(state["selected"]), correct_taps=int(state["correct_taps"]),
+        finished_at=state["finished_at"],
     )
     return verdict
 
@@ -459,7 +465,8 @@ async def _promote_reviews(db) -> None:
         await _record_completed_quest(
             db, user_id=int(row["user_id"]), run_id=str(row["run_id"]),
             mode=str(row["mode"]), score=int(row["score"]), integrity_status="clear",
-            picks=len(repo.load(row.get("selected_json")) or []),
+            picks=len(repo.load(row.get("selected_json")) or []), correct_taps=int(row["correct_taps"]),
+            finished_at=row["finished_at"],
         )
 
 
@@ -615,6 +622,7 @@ async def review_run(db, *, reviewer_id: int, run_id: str, review_id: str,
             await _record_completed_quest(
                 db, user_id=int(row["user_id"]), run_id=run_id, mode=str(row["mode"]),
                 score=int(row["score"]), integrity_status="clear",
-                picks=len(repo.load(row.get("selected_json")) or []),
+                picks=len(repo.load(row.get("selected_json")) or []), correct_taps=int(row["correct_taps"]),
+                finished_at=row.get("finished_at"),
             )
         return _view(row, _state(row), now=row["server_now"])
