@@ -44,6 +44,7 @@
 @keyframes scpeek { 0%, 78%, 100% { opacity: 0; } 86%, 92% { opacity: var(--o, 1); } }
 @keyframes scbeat { 0%, 46%, 100% { transform: scale(1); opacity: calc(var(--o, 1) * .55); } 9% { transform: scale(1.14); opacity: var(--o, 1); } 18% { transform: scale(1.02); opacity: calc(var(--o, 1) * .7); } 29% { transform: scale(1.09); opacity: var(--o, 1); } }
 @keyframes scflash { 0%, 90%, 100% { opacity: 0; } 91% { opacity: var(--o, 1); } 93% { opacity: .15; } 95% { opacity: var(--o, 1); } 98% { opacity: 0; } }
+@keyframes scflicker { 0%, 17%, 19%, 23%, 54%, 56%, 100% { opacity: var(--o, 1); } 18% { opacity: calc(var(--o, 1) * .2); } 21% { opacity: calc(var(--o, 1) * .55); } 22% { opacity: calc(var(--o, 1) * .15); } 55% { opacity: calc(var(--o, 1) * .4); } }
 .ap-anim .ap-scene .drift { animation: scdrift var(--dur, 24s) ease-in-out var(--del, 0s) infinite alternate; }
 .ap-anim .ap-scene .sway { animation: scsway var(--dur, 9s) ease-in-out var(--del, 0s) infinite alternate; }
 .ap-anim .ap-scene .pulse { animation: scpulse var(--dur, 6s) ease-in-out var(--del, 0s) infinite alternate; }
@@ -63,6 +64,7 @@
 .ap-anim .ap-scene .peek { animation: scpeek var(--dur, 12s) ease-in-out var(--del, 0s) infinite; }
 .ap-anim .ap-scene .beat { animation: scbeat var(--dur, 3.2s) ease-out var(--del, 0s) infinite; }
 .ap-anim .ap-scene .flash { animation: scflash var(--dur, 14s) linear var(--del, 0s) infinite; }
+.ap-anim .ap-scene .flicker { animation: scflicker var(--dur, 7s) linear var(--del, 0s) infinite; }
 
 /* без движения (экономный режим, «уменьшить анимацию») остаются пейзаж и свет; события, частицы и вспышки не показываются застывшими */
 .ap-low .ap-scene :is(.peek, .flash, .cross, .sweep, .rise, .ripple, .twinkle) { display: none; }

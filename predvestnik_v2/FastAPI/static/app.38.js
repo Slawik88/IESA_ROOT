@@ -1,6 +1,9 @@
 // ── Skins V3 · сцены сезонных и личных образов: Тыквенный Фонарь, Паутина Полуночи, Час Ведьм, Снежный Шар, Огни Гирлянды, Бой Курантов, Алая Звезда, Багровый Мрак ──
 // Движок, словарь слоёв и правила лежат в app.35.js (_scAdd, _scBs); картинки-силуэты рисует tools/scene_art_d.py (skin-scene-d-v3.css).
 
+// Предмет у правого края сцены держится края, а на узком экране (уже 390 px) уходит за край на половину нехватки: башня и ёлка не ложатся на ник.
+const _scEdge = px => `calc(${px}px - max(0px, 390px - 100%) / 2)`;
+
 // ── Тыквенный Фонарь: сумерки над тыквенным полем, жатвенная луна за мёртвым деревом, резные фонари и пугало, летучие мыши, привидение и огромное пламя свечи за аватаром ──
 _scAdd('pumpkin_lantern', [
   [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(64,20,120,.62), rgba(110,36,70,.2) 44%, rgba(255,130,40,.16) 74%, rgba(36,10,3,.5))' }],
@@ -78,4 +81,121 @@ _scAdd('witch_hour', [
   [7, 'glow breathe', { l: 'calc(50% - 150px)', t: 'calc(50% - 150px)', w: '300px', h: '300px', c: 'a', k: '22%', dur: 6 }],
   [7, 'sil m i-runeRing spin', { l: 'calc(50% - 170px)', t: 'calc(50% - 170px)', w: '340px', h: '340px', c: '#8dff9c', c2: '#ffd36b', gd: '160deg', o: .75, dur: 120 }],
   [7, 'sil m i-runeRing spin rev w2', { l: 'calc(50% - 124px)', t: 'calc(50% - 124px)', w: '248px', h: '248px', c: '#b98cff', c2: '#8dff9c', gd: '20deg', o: .5, dur: 80 }],
+]);
+
+// ── Снежный Шар: ночной городок в стеклянном шаре: церковь и дома под снегом, ели, фонарь со снеговиком, луна, снегопад, сани над крышами, вихрь снега и блик стекла ──
+_scAdd('snow_globe', [
+  [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(14,26,62,.62), rgba(34,62,124,.18) 44%, rgba(120,170,235,.12) 74%, rgba(6,12,28,.5))' }],
+  [2, 'glow drift', { l: '-30%', b: '4%', w: '160%', h: '36%', c: 'b', k: '30%', dx: '7%', dur: 27 }],
+  [2, 'sil i-snowTown st', { l: '-4%', b: '-1%', w: '108%', h: '33%' }],
+  [2, 'band', { l: '12%', t: '75%', w: '66%', h: '25%', bg: 'radial-gradient(closest-side, rgba(8,14,34,.9), rgba(8,14,34,.55) 62%, transparent)' }],
+  [3, 'glow breathe', { l: '246px', t: '-36px', w: '190px', h: '190px', c: 'c', k: '26%', dur: 10 }],
+  [3, 'dot', { l: '312px', t: '30px', s: '58px', c: 'radial-gradient(circle at 63% 61%, rgba(120,150,205,.4) 0 8%, transparent 9%), radial-gradient(circle at 36% 42%, rgba(120,150,205,.32) 0 6%, transparent 7%), radial-gradient(circle at 70% 30%, rgba(120,150,205,.26) 0 4.5%, transparent 5.5%), radial-gradient(circle at 34% 30%, #fff, #d9e8fc 62%, #a7c2ec)', bs: '0 0 26px 8px rgba(190,224,255,.34)' }],
+  [3, 'dot twinkle', { l: '9%', t: '8%', s: '2px', c: '#fff', bs: _scBs([[0, 0, 4, 1, '#fff'], [88, 30, 3, 1, 'a'], [150, -4, 3, 1, '#fff'], [214, 22, 3, 1, '#fff']]), dur: 3.4 }],
+  [4, 'sil i-snowFir', { l: '-5%', b: '5%', w: '30%', h: '72%', bp: '0% 100%' }],
+  [4, 'sil i-lampPost', { r: '-2%', b: '4%', w: '14%', h: '50%', bp: '50% 100%' }],
+  [4, 'glow pulse', { r: 'calc(5% - 41px)', b: 'calc(35% - 41px)', w: '82px', h: '82px', c: '#ffd27a', k: '58%', dur: 3.4 }],
+  [4, 'sil i-snowman', { r: '14px', b: '3%', w: '38px', h: '62px', bp: '50% 100%' }],
+  [5, 'dot rise', { l: '6%', t: '-6%', s: '4px', c: '#fff', bs: _scBs([[0, 0, 2, 1, '#fff'], [58, 40, 2, 0, '#fff'], [120, -10, 2, 1, '#fff'], [176, 60, 2, 0, '#fff'], [236, 20, 2, 1, '#fff'], [290, 52, 2, 0, '#fff'], [340, 4, 2, 1, '#fff']]), dy: '300px', dx: '26px', s0: '1', s1: '1', dur: 12 }],
+  [5, 'dot rise', { l: '12%', t: '-6%', s: '2px', c: '#dff0ff', bs: _scBs([[0, 0, 1, 0, '#dff0ff'], [44, 30, 1, 0, '#fff'], [100, 8, 1, 1, '#dff0ff'], [160, 50, 1, 0, '#fff'], [214, 14, 1, 0, '#dff0ff'], [270, 40, 1, 1, '#fff'], [326, 2, 1, 0, '#dff0ff']]), dy: '300px', dx: '-22px', s0: '1', s1: '1', dur: 8, del: -3 }],
+  [5, 'glow rise w2', { l: '8px', b: '36px', w: '26px', h: '34px', c: '#dff0ff', k: '26%', dy: '-60px', dx: '10px', s0: '.6', s1: '1.8', dur: 6 }],
+  [5, 'glow rise w2', { r: '38px', b: '30px', w: '26px', h: '34px', c: '#dff0ff', k: '24%', dy: '-60px', dx: '-8px', s0: '.6', s1: '1.9', dur: 7.4, del: -3 }],
+  [6, 'sil m i-sleigh cross w2', { l: '0', t: '24%', w: '96px', h: '36px', c: '#e8f4ff', c2: '#a8d0ff', gd: '180deg', o: .9, fx: '-110px', tx: '520px', ty: '-36px', dur: 38 }],
+  [6, 'dot sweep', { l: '0', t: '46%', s: '2px', c: '#fff', bs: _scBs([[0, 0, 1, 0, '#fff'], [26, 8, 1, 0, '#fff'], [52, -4, 1, 1, '#dff0ff'], [80, 10, 1, 0, '#fff'], [108, 0, 1, 1, '#dff0ff'], [138, -6, 1, 1, '#fff'], [170, 6, 1, 0, '#dff0ff']]), fx: '-190px', tx: '560px', ty: '36px', dur: 12 }],
+  [7, 'sil m i-snowSwirl spin', { l: '-64px', t: 'calc(50% + var(--bleed) / 2 - 137px)', w: '248px', h: '248px', c: '#eaf4ff', c2: '#9cc8ff', gd: '160deg', o: .45, dur: 160 }],
+  [7, 'sil m i-domeGlint breathe', { l: '0', t: '0', w: '100%', h: '100%', c: '#fff', c2: '#bfe4ff', gd: '135deg', o: .42, dur: 8 }],
+  [7, 'dot twinkle', { l: '26%', t: '36%', s: '3px', c: '#fff', bs: _scBs([[0, 0, 5, 2, '#fff'], [180, -34, 5, 2, '#fff'], [92, 66, 4, 1, 'a'], [236, 54, 4, 1, '#fff']]), dur: 3.1 }],
+]);
+
+// ── Огни Гирлянды: комната в сочельник: подарки под ёлкой, ёлка с шарами и бегущими огнями, замёрзшее окно со шторами, гирлянда под потолком, шары на нитях и венок из огней ──
+_scAdd('garland', [
+  [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(84,14,44,.5), rgba(40,10,34,.14) 42%, rgba(14,72,48,.2) 76%, rgba(8,3,8,.55))' }],
+  [2, 'glow drift', { l: '-30%', b: '2%', w: '160%', h: '34%', c: 'a', k: '24%', dx: '7%', dur: 27 }],
+  [2, 'sil i-giftRow st', { l: '-4%', b: '4%', w: '108%', h: '29%' }],
+  [2, 'band', { l: '12%', t: '76%', w: '60%', h: '24%', bg: 'radial-gradient(closest-side, rgba(10,3,10,.85), rgba(10,3,10,.5) 62%, transparent)' }],
+  [3, 'sil i-frostWindow', { r: _scEdge(12), t: '6px', w: '78px', h: '97px', bp: '100% 0%' }],
+  [3, 'glow pulse', { l: '-6%', t: '-8%', w: '46%', h: '58%', c: 'a', k: '30%', dur: 5.2 }],
+  [5, 'glow pulse', { r: _scEdge(2), t: '0px', w: '96px', h: '112px', c: '#ffd9a0', k: '34%', dur: 4.6 }],
+  [3, 'glow pulse w2', { l: '52%', t: '30%', w: '44%', h: '60%', c: 'b', k: '22%', dur: 6.4, del: -2 }],
+  [3, 'glow pulse w2', { l: '30%', t: '-14%', w: '40%', h: '46%', c: 'c', k: '20%', dur: 7.4, del: -4 }],
+  [4, 'sil i-xmasTree', { r: _scEdge(-4), t: '70px', w: '70px', h: '160px', bp: '50% 100%' }],
+  [4, 'sil i-swagTop st', { l: '-4%', t: '2%', w: '108%', h: '26%' }],
+  [4, 'sil i-ornaments sway', { l: '6px', t: '-2px', w: '96px', h: '88px', bp: '0% 0%', ang: '2.4deg', org: '50% 0', dur: 7 }],
+  [5, 'dot blink', { r: _scEdge(40), t: '126px', s: '3px', c: '#ff6b8a', bs: _scBs([[0, 0, 5, 1, '#ff6b8a'],[15, 2, 5, 1, '#ff6b8a'],[3, 26, 5, 1, '#ff6b8a'],[24, 23, 5, 1, '#ff6b8a'],[10, 51, 5, 1, '#ff6b8a'],[-10, 71, 5, 1, '#ff6b8a'],[20, 75, 5, 1, '#ff6b8a']]), dur: 2.4 }],
+  [5, 'dot blink', { r: _scEdge(35), t: '128px', s: '3px', c: '#35d68a', bs: _scBs([[0, 0, 5, 1, '#35d68a'],[15, -2, 5, 1, '#35d68a'],[5, 25, 5, 1, '#35d68a'],[-13, 44, 5, 1, '#35d68a'],[14, 48, 5, 1, '#35d68a'],[-5, 72, 5, 1, '#35d68a'],[25, 69, 5, 1, '#35d68a']]), dur: 2.4, del: -0.8 }],
+  [5, 'dot blink', { r: _scEdge(29), t: '129px', s: '3px', c: '#ffe9a6', bs: _scBs([[0, 0, 5, 1, '#ffe9a6'],[-14, 20, 5, 1, '#ffe9a6'],[7, 23, 5, 1, '#ffe9a6'],[-9, 47, 5, 1, '#ffe9a6'],[18, 43, 5, 1, '#ffe9a6'],[0, 73, 5, 1, '#ffe9a6']]), dur: 2.4, del: -1.6 }],
+  [5, 'dot blink', { l: '-1px', t: '27px', s: '3px', c: '#ff6b8a', bs: _scBs([[0, 0, 6, 1, '#ff6b8a'],[47, 14, 6, 1, '#ff6b8a'],[94, 7, 6, 1, '#ff6b8a'],[156, 7, 6, 1, '#ff6b8a'],[203, 14, 6, 1, '#ff6b8a'],[250, 0, 6, 1, '#ff6b8a'],[312, 12, 6, 1, '#ff6b8a'],[359, 12, 6, 1, '#ff6b8a']]), dur: 2.7 }],
+  [5, 'dot blink', { l: '14px', t: '34px', s: '3px', c: '#35d68a', bs: _scBs([[0, 0, 6, 1, '#35d68a'],[47, 7, 6, 1, '#35d68a'],[94, -7, 6, 1, '#35d68a'],[156, 5, 6, 1, '#35d68a'],[203, 5, 6, 1, '#35d68a'],[265, -7, 6, 1, '#35d68a'],[312, 7, 6, 1, '#35d68a'],[359, 0, 6, 1, '#35d68a']]), dur: 2.7, del: -0.9 }],
+  [5, 'dot blink', { l: '30px', t: '39px', s: '3px', c: '#ffe9a6', bs: _scBs([[0, 0, 6, 1, '#ffe9a6'],[47, 0, 6, 1, '#ffe9a6'],[109, -12, 6, 1, '#ffe9a6'],[156, 2, 6, 1, '#ffe9a6'],[203, -5, 6, 1, '#ffe9a6'],[265, -5, 6, 1, '#ffe9a6'],[312, 2, 6, 1, '#ffe9a6'],[359, -12, 6, 1, '#ffe9a6']]), dur: 2.7, del: -1.8 }],
+  [6, 'glow peek', { r: _scEdge(1), t: '64px', w: '60px', h: '60px', c: '#ffe9a6', k: '70%', dur: 9 }],
+  [6, 'sil m i-sparkle peek', { r: _scEdge(14), t: '76px', w: '34px', h: '34px', c: '#fff', c2: '#ffe9a6', gd: '180deg', o: .95, dur: 9 }],
+  [6, 'band sweep w2', { l: 'calc(100% - 92px + max(0px, 390px - 100%) / 2)', t: '8px', w: '12px', h: '88px', bg: 'linear-gradient(90deg, transparent, rgba(255,236,200,.5) 42%, rgba(255,255,255,.75) 50%, transparent)', rot: '14deg', fx: '0px', tx: '68px', ty: '0px', dur: 12 }],
+  [7, 'sil m i-wreath spin', { l: 'calc(50% - 170px)', t: 'calc(50% - 170px)', w: '340px', h: '340px', c: '#ff6b8a', c2: '#ffe9a6', gd: '160deg', o: .66, dur: 90 }],
+  [7, 'sil m i-wreath spin rev w2', { l: 'calc(50% - 124px)', t: 'calc(50% - 124px)', w: '248px', h: '248px', c: '#35d68a', c2: '#ffe9a6', gd: '20deg', o: .44, dur: 70 }],
+  [7, 'dot twinkle', { l: '22%', t: '12%', s: '3px', c: '#fff', bs: _scBs([[0, 0, 5, 2, '#fff'], [150, 38, 5, 2, 'b'], [214, -4, 4, 1, '#fff'], [60, 100, 4, 1, 'a']]), dur: 3.3 }],
+]);
+
+// ── Бой Курантов: полночь над старым городом: купола и крыши с тёплыми окнами, башня с часами, бокалы с золотым вином, первый салют: круглый и «ива», двенадцать ударов кругами ──
+_scAdd('midnight_chimes', [
+  [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(8,12,44,.6), rgba(30,24,70,.14) 44%, rgba(255,190,90,.16) 76%, rgba(44,22,4,.5))' }],
+  [2, 'glow drift', { l: '-30%', b: '4%', w: '160%', h: '36%', c: 'b', k: '30%', dx: '7%', dur: 27 }],
+  [2, 'sil i-cityRoofs st', { l: '-4%', b: '-1%', w: '108%', h: '33%' }],
+  [2, 'band', { l: '12%', t: '75%', w: '66%', h: '25%', bg: 'radial-gradient(closest-side, rgba(6,8,24,.9), rgba(6,8,24,.55) 62%, transparent)' }],
+  [3, 'glow breathe', { l: '22%', t: '-34%', w: '80%', h: '74%', c: 'a', k: '24%', dur: 9 }],
+  [3, 'dot twinkle', { l: '10%', t: '7%', s: '2px', c: '#fff6dc', bs: _scBs([[0, 0, 4, 1, '#fff6dc'], [96, 24, 3, 1, 'a'], [150, -4, 3, 1, '#fff6dc'], [210, 30, 3, 1, '#fff6dc'], [264, 6, 3, 1, 'a']]), dur: 3.4 }],
+  [4, 'sil i-clockTower', { r: _scEdge(4), t: '36px', w: '56px', h: '210px', bp: '50% 100%' }],
+  [4, 'glow pulse', { r: _scEdge(0), t: '90px', w: '64px', h: '64px', c: '#ffd36b', k: '60%', dur: 3.6 }],
+  [4, 'sil i-flutes', { l: '6px', b: '8px', w: '50px', h: '44px', bp: '0% 100%' }],
+  [5, 'dot rise', { l: '24px', b: '32px', s: '2px', c: '#fff6dc', bs: _scBs([[0, 0, 1, 0, '#fff6dc'], [6, -7, 1, 0, 'a'], [-3, -14, 1, 0, '#fff6dc']]), dx: '2px', dy: '-26px', s0: '.6', s1: '1.1', dur: 3.2 }],
+  [5, 'dot rise', { l: '37px', b: '31px', s: '2px', c: '#fff6dc', bs: _scBs([[0, 0, 1, 0, '#fff6dc'], [-5, -8, 1, 0, 'a'], [4, -15, 1, 0, '#fff6dc']]), dx: '-2px', dy: '-24px', s0: '.6', s1: '1.1', dur: 3.9, del: -1.4 }],
+  [5, 'dot float blink', { l: '36%', t: '60%', s: '3px', c: '#ffe9a6', bs: _scBs([[0, 0, 5, 2, 'a'], [-110, 26, 5, 2, '#ffe9a6'], [90, -26, 5, 2, 'a']]), dx: '14px', dy: '-12px', dur: 5.6 }],
+  [5, 'dot float blink w2', { l: '58%', t: '30%', s: '3px', c: '#fff6dc', bs: _scBs([[0, 0, 5, 2, '#fff6dc'], [-70, 44, 5, 2, 'a'], [60, 64, 5, 2, '#fff6dc']]), dx: '-12px', dy: '12px', dur: 4.8, del: -2 }],
+  [5, 'ring beat', { r: _scEdge(8), t: '98px', w: '48px', h: '48px', c: '#ffd36b', k: '80%', bw: '1.6px', dur: 3.6 }],
+  [6, 'sil m i-burst ripple', { l: '187px', t: '-35px', w: '150px', h: '150px', c: '#fff6dc', c2: '#ffb84a', gd: '180deg', o: .9, dur: 11 }],
+  [6, 'sil m i-burst ripple w2', { l: '46px', t: '-16px', w: '100px', h: '100px', c: '#ffd9a0', c2: '#ff8a5a', gd: '180deg', o: .85, dur: 9, del: -4.5 }],
+  [6, 'sil m i-sparkle peek', { l: '14px', b: '26px', w: '34px', h: '34px', c: '#fff', c2: '#ffe9a6', gd: '180deg', o: .95, dur: 7 }],
+  [7, 'ring ripple', { r: _scEdge(-68), t: '22px', w: '200px', h: '200px', c: '#ffd36b', k: '70%', bw: '1.6px', dur: 6 }],
+  [7, 'ring ripple w2', { r: _scEdge(-108), t: '-18px', w: '280px', h: '280px', c: '#fff6dc', k: '55%', bw: '1.2px', dur: 6, del: -3 }],
+  [7, 'sil m i-willow ripple w2', { l: '100px', t: '-50px', w: '200px', h: '164px', c: '#ffe9a6', c2: '#ffb84a', gd: '180deg', o: .8, dur: 13, del: -6 }],
+  [7, 'dot rise', { l: '8%', t: '-6%', s: '3px', c: '#ffe9a6', bs: _scBs([[0, 0, 3, 1, '#ffe9a6'], [58, 40, 3, 0, '#fff6dc'], [120, -10, 3, 1, '#ffd36b'], [176, 60, 3, 0, '#ffe9a6'], [236, 20, 3, 1, '#fff6dc'], [290, 52, 3, 0, '#ffd36b']]), dy: '280px', dx: '18px', s0: '1', s1: '1', dur: 10 }],
+]);
+
+// ── Алая Звезда: чёрная сцена с неоном: вывеска-звезда за аватаром, созвездие, закрученная лента вдоль низа, звёзды в обводке, кометы и мерцание трубки ──
+_scAdd('scarlet_star', [
+  [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(40,0,12,.58), rgba(0,0,0,.2) 44%, rgba(160,10,44,.16) 78%, rgba(0,0,0,.5))' }],
+  [2, 'glow drift', { l: '-30%', b: '2%', w: '160%', h: '34%', c: 'b', k: '30%', dx: '7%', dur: 27 }],
+  [2, 'sil m i-ribbonFloor', { l: '-4%', b: '1%', w: '108%', h: '44px', c: '#ff3b5c', c2: '#ffb0c0', gd: '90deg', o: .6 }],
+  [2, 'band', { l: '12%', t: '78%', w: '66%', h: '22%', bg: 'radial-gradient(closest-side, rgba(10,0,4,.9), rgba(10,0,4,.5) 62%, transparent)' }],
+  [3, 'glow breathe', { l: '-76px', t: 'calc(50% + var(--bleed) / 2 - 138px)', w: '280px', h: '250px', c: 'a', k: '24%', dur: 8 }],
+  [3, 'sil m i-starSign', { l: '-28px', t: 'calc(50% + var(--bleed) / 2 - 101px)', w: '176px', h: '176px', rot: '-10deg', c: '#ff3b5c', c2: '#c8123a', gd: '180deg', o: .5 }],
+  [3, 'dot twinkle', { l: '60%', t: '14%', s: '2px', c: '#ffb0c0', bs: _scBs([[0, 0, 4, 1, '#ffb0c0'], [-70, 30, 3, 1, 'a'], [40, 54, 3, 1, '#ffb0c0'], [-136, -4, 3, 1, 'a']]), dur: 3.4 }],
+  [4, 'sil m i-starMap', { l: '112px', t: '44px', w: '190px', h: '44px', c: '#ffb0c0', c2: '#ff3b5c', gd: '180deg', o: .55, bp: '0% 0%' }],
+  [4, 'glow pulse', { r: '-36px', t: '40px', w: '170px', h: '150px', c: 'a', k: '24%', dur: 5.2 }],
+  [5, 'sil m i-starSm rise', { l: '120px', b: '25px', w: '22px', h: '22px', c: '#ff7a92', c2: '#ffb0c0', gd: '180deg', o: .9, dx: '10px', dy: '-120px', s0: '.6', s1: '1.3', dur: 7 }],
+  [5, 'sil m i-starSm rise w2', { r: '44px', b: '17px', w: '16px', h: '16px', c: '#ffb0c0', c2: '#ff7a92', gd: '180deg', o: .9, dx: '-8px', dy: '-110px', s0: '.6', s1: '1.3', dur: 8.4, del: -3.2 }],
+  [6, 'sil m i-comet cross w2', { l: '0', t: '18%', w: '124px', h: '37px', c: '#ffb0c0', c2: '#ff3b5c', gd: '90deg', o: .85, rot: '14deg', fx: '-160px', tx: '560px', ty: '130px', dur: 17 }],
+  [6, 'glow flash', { l: '10%', t: '-20%', w: '90%', h: '70%', c: 'a', k: '44%', dur: 13 }],
+  [7, 'sil m i-starSign flicker', { l: '-28px', t: 'calc(50% + var(--bleed) / 2 - 101px)', w: '176px', h: '176px', rot: '-10deg', c: '#ff8ea4', c2: '#ff3b5c', gd: '180deg', o: 1, dur: 7 }],
+  [7, 'sil m i-comet cross w2', { l: '0', t: '34%', w: '100px', h: '30px', c: '#ffb0c0', c2: '#ff3b5c', gd: '90deg', o: .8, rot: '10deg', fx: '-140px', tx: '560px', ty: '90px', dur: 23, del: -9 }],
+  [7, 'dot twinkle', { l: '70%', t: '36%', s: '3px', c: '#fff', bs: _scBs([[0, 0, 5, 2, '#fff'], [-34, 62, 5, 2, 'c'], [64, 86, 4, 1, '#fff'], [-190, 40, 4, 1, 'c']]), dur: 3.1 }],
+]);
+
+// ── Багровый Мрак: ночное кладбище под багровым небом: ограда и покосившиеся камни, обгоревший собор с горящими окнами, дрожащий свет, вороны, молния и окно-розетка за аватаром ──
+_scAdd('crimson_dark', [
+  [2, 'band', { l: '0', t: '0', w: '100%', h: '100%', bg: 'linear-gradient(180deg, rgba(60,4,10,.6), rgba(20,0,4,.2) 44%, rgba(140,14,28,.16) 76%, rgba(0,0,0,.55))' }],
+  [2, 'glow drift', { l: '-30%', b: '4%', w: '160%', h: '36%', c: 'b', k: '30%', dx: '7%', dur: 26 }],
+  [3, 'glow breathe', { l: '30%', t: '-30%', w: '90%', h: '70%', c: 'a', k: '26%', dur: 9 }],
+  [3, 'band drift', { l: '-10%', t: '15%', w: '90%', h: '11%', bg: 'radial-gradient(closest-side, rgba(36,3,9,.62), transparent)', dx: '14%', dur: 34 }],
+  [4, 'sil i-cathedral', { r: _scEdge(-10), t: '-14px', w: '108px', h: '250px', bp: '100% 100%' }],
+  [2, 'sil i-graveyard st', { l: '-4%', b: '-1%', w: '108%', h: '31%' }],
+  [2, 'band', { l: '12%', t: '75%', w: '66%', h: '25%', bg: 'radial-gradient(closest-side, rgba(8,1,3,.9), rgba(8,1,3,.55) 62%, transparent)' }],
+  [5, 'glow flicker', { r: _scEdge(-12), t: '92px', w: '100px', h: '100px', c: '#ff5a4a', k: '46%', dur: 6 }],
+  [5, 'glow beat', { l: '-30px', t: 'calc(50% + var(--bleed) / 2 - 105px)', w: '184px', h: '184px', c: 'b', k: '50%', dur: 3.4 }],
+  [5, 'dot blink', { l: '250px', b: '14px', s: '2px', c: '#ff3b3b', bs: _scBs([[0, 0, 3, 1, '#ff3b3b'], [7, 0, 3, 1, '#ff3b3b']]), dur: 5.2 }],
+  [5, 'dot blink', { l: '146px', b: '6px', s: '2px', c: '#ff3b3b', bs: _scBs([[0, 0, 3, 1, '#ff3b3b'], [6, 0, 3, 1, '#ff3b3b']]), dur: 6.4, del: -2.6 }],
+  [5, 'dot rise', { r: _scEdge(70), b: '16px', s: '2px', c: '#ff7a4a', bs: _scBs([[0, 0, 3, 1, 'a'], [10, -16, 3, 1, '#ff7a4a'], [-8, -34, 2, 1, 'a']]), dx: '-12px', dy: '-110px', dur: 6 }],
+  [6, 'sil m i-crows cross w2', { l: '0', t: '17%', w: '96px', h: '58px', c: '#0a0204', o: .95, fx: '-120px', tx: '520px', ty: '-14px', dur: 24 }],
+  [6, 'sil m i-witchBolt flash', { l: '70%', t: '-4%', w: '10%', h: '62%', bp: '50% 0%', c: '#ffe3e3', o: .95, dur: 11, del: -3 }],
+  [6, 'glow flash', { l: '30%', t: '-20%', w: '100%', h: '70%', c: '#e0303c', k: '56%', dur: 11, del: -3 }],
+  [7, 'sil m i-roseWindow spin', { l: '-40px', t: 'calc(50% + var(--bleed) / 2 - 115px)', w: '204px', h: '204px', c: '#e0303c', c2: '#7a0f1a', gd: '160deg', o: .5, dur: 160 }],
 ]);

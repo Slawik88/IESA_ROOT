@@ -21,12 +21,11 @@ STATIC = ROOT / "FastAPI/static"
 from core.skins_v3_catalog import SKINS  # noqa: E402
 import scene_art  # noqa: E402
 
-# Looks that do not have their own scene yet (the list only shrinks; when it is empty every look has a world).
-PENDING = {"crimson_dark", "garland", "midnight_chimes",
-           "scarlet_star", "snow_globe"}
+# Looks that do not have their own scene yet. Empty: every look has a world, so a new look comes with its scene (app.35–38.js) or is listed here until it gets one.
+PENDING: set[str] = set()
 
 SHAPES = {"glow", "ring", "sil", "dot", "band", "wave", "arc"}
-MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash"}
+MOTIONS = {"drift", "sway", "pulse", "breathe", "beat", "blink", "twinkle", "float", "rise", "spin", "ripple", "shimmer", "sweep", "cross", "peek", "flash", "flicker"}
 FLAGS = {"w2", "m", "fl", "st", "go", "rev", "dash"}
 KEYS = {"l", "t", "r", "b", "w", "h", "c", "c2", "k", "o", "s", "s0", "s1", "bs", "bg", "bw", "bp", "gd", "dur", "del", "dx", "dy", "ang", "rot", "org", "fx", "fy", "tx", "ty", "tw"}
 EVENTS = {"peek", "flash", "cross", "sweep", "rise", "ripple", "twinkle"}   # hidden while still (.ap-low and reduced motion): see skin-scene-v3.css
