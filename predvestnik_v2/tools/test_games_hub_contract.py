@@ -17,5 +17,7 @@ assert "Ещё не играл" in js and "Результат пока недо�
 assert "method:" not in hub, "хаб только читает"
 for page in ("rhythm-v2.html", "minesweeper-v2.html"):
     assert 'href="/?startapp=games"' in (ROOT / page).read_text(encoding="utf-8"), f"{page}: «‹» ведёт не к хабу игр"
+main = (ROOT.parent / "main.py").read_text(encoding="utf-8")
+assert main.count("""'href="/?', f'href="{_ASSET_BASE}/?'""") >= 2, "«‹» из Ритма и Сапёра обязан оставаться внутри /predvestnik, иначе игрок попадает на сайт ассоциации"
 assert "'games'" in (ROOT / "app.02.js").read_text(encoding="utf-8"), "диплинк games"
 print("OK: games hub rows, race guard, per-game failure isolation and back link")

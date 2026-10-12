@@ -401,6 +401,7 @@ _RHYTHM_V2_HTML = (
     # environments.  A literal href="/" leaves that mount and reaches a
     # non-existent host root, which is the source of the visible 404 on ‹.
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?', f'href="{_ASSET_BASE}/?')  # «‹» to the games hub: also stay inside the mount
     .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
@@ -411,6 +412,7 @@ _MINESWEEPER_V2_HTML = (
     _read_static("minesweeper-v2.html")
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?', f'href="{_ASSET_BASE}/?')  # «‹» to the games hub: also stay inside the mount
     .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
