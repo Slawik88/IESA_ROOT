@@ -354,8 +354,40 @@ async def run(dsn: str) -> None:
         await second_connection.close()
 
 
+async def grace_proof(dsn: str) -> None:
+    """A tap just past the window still counts (slowest tier); past the grace it is a miss."""
+    connection = await asyncpg.connect(dsn)
+    db = PGAdapter(connection)
+    run_id = None
+    try:
+        view = await rhythm.start_run(db, user_id=975004, mode="normal")
+        run_id = view["run_id"]
+        ticket = await rhythm.issue_transport_ticket(db, user_id=975004, run_id=run_id)
+        _, lease, view = await rhythm.connect_transport(db, run_id=run_id, ticket=ticket["ticket"])
+        late = view["window_ms"] + rhythm.rules.TAP_GRACE_MS // 2
+        await connection.execute("UPDATE rhythm_v2_runs SET signal_opened_at=CLOCK_TIMESTAMP() - ($2 * INTERVAL '1 millisecond') WHERE run_id=$1", run_id, late)
+        view = await rhythm.transport_state(db, user_id=975004, run_id=run_id, lease=lease)
+        assert view["next_signal_no"] == 1 and view["remaining_ms"] == 0 and view["mistakes"] == 0, "grace must keep the signal alive"
+        after = await rhythm.transport_tap(db, user_id=975004, run_id=run_id, lease=lease, signal_no=1, rune=view["rune"], action_id="grace-ok")
+        assert after["correct_taps"] == 1 and after["score"] > 0, after
+        version = await connection.fetchval("SELECT version FROM rhythm_v2_runs WHERE run_id=$1", run_id)
+        await rhythm.transport_state(db, user_id=975004, run_id=run_id, lease=lease)
+        assert version == await connection.fetchval("SELECT version FROM rhythm_v2_runs WHERE run_id=$1", run_id), "idle tick must not rewrite the run"
+        gone = after["window_ms"] + rhythm.rules.TAP_GRACE_MS + 100
+        await connection.execute("UPDATE rhythm_v2_runs SET signal_opened_at=CLOCK_TIMESTAMP() - ($2 * INTERVAL '1 millisecond') WHERE run_id=$1", run_id, gone)
+        missed = await rhythm.transport_state(db, user_id=975004, run_id=run_id, lease=lease)
+        assert missed["mistakes"] >= 1 and missed["next_signal_no"] == 3, missed
+    finally:
+        if run_id:
+            await connection.execute("DELETE FROM rhythm_v2_actions WHERE run_id=$1", run_id)
+            await connection.execute("DELETE FROM rhythm_v2_transport_tickets WHERE run_id=$1", run_id)
+            await connection.execute("DELETE FROM rhythm_v2_runs WHERE run_id=$1", run_id)
+        await connection.close()
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
+asyncio.run(grace_proof(args.dsn))
 print("Rhythm v2: PostgreSQL replay/seed/finish/leaderboard proof OK")
