@@ -26,6 +26,7 @@ def wrong_rune(expected: str) -> str:
 
 
 async def run(dsn: str) -> None:
+    rhythm.rules.NEXT_SIGNAL_LEAD_MS = 0  # most checks tap instantly; the lead has its own proof below
     connection = await asyncpg.connect(dsn)
     db = PGAdapter(connection)
     await achievements_repo.ensure_tables(db)
@@ -284,7 +285,7 @@ async def run(dsn: str) -> None:
         )
         rhythm.rules.RESUME_LEAD_MS = 0
         # After a gift the clock waits: no rune, a visible lead-in, taps are refused unharmed.
-        assert terminal["rune"] is None and terminal["starts_in_ms"] > 50_000, terminal
+        assert terminal["starts_in_ms"] > 50_000, terminal
         assert terminal["remaining_ms"] == terminal["window_ms"] and terminal["status"] == "active"
         try:
             await rhythm.transport_tap(db, user_id=975009, run_id=terminal["run_id"], lease=terminal_lease,
@@ -354,8 +355,43 @@ async def run(dsn: str) -> None:
         await second_connection.close()
 
 
+async def lead_proof(dsn: str) -> None:
+    """The next window opens a short lead after a tap, rune already visible, and idle ticks never write."""
+    connection = await asyncpg.connect(dsn)
+    db = PGAdapter(connection)
+    run_id = None
+    try:
+        rhythm.rules.NEXT_SIGNAL_LEAD_MS = 450
+        view = await rhythm.start_run(db, user_id=975004, mode="normal")
+        run_id = view["run_id"]
+        ticket = await rhythm.issue_transport_ticket(db, user_id=975004, run_id=run_id)
+        _, lease, view = await rhythm.connect_transport(db, run_id=run_id, ticket=ticket["ticket"])
+        after = await rhythm.transport_tap(db, user_id=975004, run_id=run_id, lease=lease, signal_no=view["next_signal_no"],
+                                           rune=view["rune"], action_id="lead-1")
+        assert 0 < after["starts_in_ms"] <= 450 and after["remaining_ms"] == after["window_ms"], after
+        assert after["rune"] in {"left", "center", "right"}, "next rune is visible during the lead"
+        early = await connection.fetchval("SELECT version FROM rhythm_v2_runs WHERE run_id=$1", run_id)
+        await rhythm.transport_state(db, user_id=975004, run_id=run_id, lease=lease)
+        assert early == await connection.fetchval("SELECT version FROM rhythm_v2_runs WHERE run_id=$1", run_id), "idle tick must not write"
+        try:
+            await rhythm.transport_tap(db, user_id=975004, run_id=run_id, lease=lease, signal_no=after["next_signal_no"],
+                                       rune=after["rune"], action_id="lead-early")
+        except rhythm.RhythmConflict:
+            pass
+        else:
+            raise AssertionError("a tap inside the lead must be refused")
+    finally:
+        rhythm.rules.NEXT_SIGNAL_LEAD_MS = 0
+        if run_id:
+            await connection.execute("DELETE FROM rhythm_v2_actions WHERE run_id=$1", run_id)
+            await connection.execute("DELETE FROM rhythm_v2_transport_tickets WHERE run_id=$1", run_id)
+            await connection.execute("DELETE FROM rhythm_v2_runs WHERE run_id=$1", run_id)
+        await connection.close()
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
+asyncio.run(lead_proof(args.dsn))
 print("Rhythm v2: PostgreSQL replay/seed/finish/leaderboard proof OK")

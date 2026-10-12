@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import copy
 import hashlib
 import secrets
 from uuid import uuid4
@@ -130,7 +131,7 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
         "window_ms": window_ms, "remaining_ms": remaining_ms,
         # The expected rune is delivered only for the current signal.  The seed
         # and all future sequence values stay server-side.
-        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not starts_in_ms else None,
+        "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not _draft_pending(state) else None,
         "draft": _draft(row, state),
         "perks": state["perks"], "selected_perks": selected, "gifts": rules.owned_gifts(state["perks"]),
         "starts_in_ms": starts_in_ms,
@@ -180,7 +181,7 @@ def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
         # Preserve the real schedule rather than resetting it to reconnect time.
         _resolve_error(row, state, now=now, timed_out=True)
         if state["status"] == "active":
-            state["signal_opened_at"] = deadline
+            state["signal_opened_at"] = deadline + timedelta(milliseconds=rules.NEXT_SIGNAL_LEAD_MS)
 
 
 async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
@@ -408,7 +409,9 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
         else:
             _resolve_error(row, state, now=now, timed_out=rune == rules.expected_rune(bytes(row["seed"]), signal_no))
         if state["status"] == "active":
-            state["signal_opened_at"] = now
+            # The window opens slightly ahead so the answer's network trip and the
+            # DB write do not eat the player's reaction time.
+            state["signal_opened_at"] = now + timedelta(milliseconds=rules.NEXT_SIGNAL_LEAD_MS)
             _hold_for_draft(state)
         else:
             await repo.update_run(db, run_id=run_id, state=state)
@@ -434,6 +437,7 @@ async def current_run(db, *, user_id: int, run_id: str) -> dict:
             raise RhythmConflict("Rhythm run was not found")
         state, now = _state(row), row["server_now"]
         if state["status"] == "active":
+            before = dict(state, selected=list(state["selected"]), perks=copy.deepcopy(state["perks"]))
             _advance_expired(row, state, now=now)
             if state["status"] == "finished":
                 await repo.update_run(db, run_id=run_id, state=state)
@@ -442,7 +446,8 @@ async def current_run(db, *, user_id: int, run_id: str) -> dict:
                     integrity_status="review_required", integrity_reason="server_timed_transport_pending_review",
                     integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"]},
                 )
-            await repo.update_run(db, run_id=run_id, state=state)
+            if state != before:  # an idle tick must not lock-write the row under the player's next tap
+                await repo.update_run(db, run_id=run_id, state=state)
         return _view(row, state, now=now)
 
 
@@ -513,6 +518,7 @@ async def transport_state(db, *, user_id: int, run_id: str, lease: str) -> dict:
             raise RhythmConflict("Rhythm live connection is no longer valid")
         state, now = _state(row), row["server_now"]
         if state["status"] == "active":
+            before = dict(state, selected=list(state["selected"]), perks=copy.deepcopy(state["perks"]))
             _advance_expired(row, state, now=now)
             if state["status"] == "finished":
                 await repo.update_run(db, run_id=run_id, state=state)
@@ -521,7 +527,8 @@ async def transport_state(db, *, user_id: int, run_id: str, lease: str) -> dict:
                     integrity_status="clear", integrity_reason="server_timed_transport",
                     integrity_evidence={"terminal_signal": state["next_signal_no"], "mistakes": state["mistakes"], "transport_authenticated": True},
                 )
-            await repo.update_run(db, run_id=run_id, state=state)
+            if state != before:  # an idle tick must not lock-write the row under the player's next tap
+                await repo.update_run(db, run_id=run_id, state=state)
         return _view(row, state, now=now)
 
 

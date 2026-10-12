@@ -31,6 +31,7 @@ FLOOR_FALL_START_CHUNK: Final = 14
 FLOOR_FALL_MS_PER_CHUNK: Final = 15
 BASE_WINDOW_MS: Final = 2_200
 RESUME_LEAD_MS: Final = 3_000   # breathing room after a gift is taken
+NEXT_SIGNAL_LEAD_MS: Final = 450  # network/DB slack: next window opens this long after a tap or timeout
 
 
 @dataclass(frozen=True)
