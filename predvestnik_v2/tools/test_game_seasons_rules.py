@@ -34,4 +34,32 @@ except s.SeasonRuleError:
     pass
 else:
     raise AssertionError("season 0 must be rejected")
+# Payout terms: participation, podium gating by board size, one board pays.
+assert (s.MIN_PARTICIPATION_RUNS, s.MIN_PARTICIPATION_DAYS) == (5, 3)
+assert s.qualifies(5, 3) and not s.qualifies(4, 9) and not s.qualifies(9, 2)
+big = dict(board_size=1000, runs=5, days=3)
+assert [s.payout(p, **big) for p in (1, 2, 3, 4, 10, 11, 25, 26)] == [
+    (800, 200), (600, 150), (450, 120), (250, 80), (250, 80), (120, 40), (120, 40), (40, 10)]
+assert s.payout(1, board_size=9, runs=5, days=3) == (40, 10), "podium needs 10 qualified players"
+assert s.payout(1, board_size=10, runs=5, days=3) == (800, 200)
+assert s.payout(4, board_size=19, runs=5, days=3) == (40, 10) and s.payout(4, board_size=20, runs=5, days=3) == (250, 80)
+assert s.payout(11, board_size=49, runs=5, days=3) == (40, 10) and s.payout(11, board_size=50, runs=5, days=3) == (120, 40)
+assert s.payout(1, board_size=1000, runs=4, days=9) == (0, 0) and s.payout(1, board_size=1000, runs=9, days=2) == (0, 0)
+try:
+    s.payout(0, **big)
+except s.SeasonRuleError:
+    pass
+else:
+    raise AssertionError("place 0 must be rejected")
+assert s.is_paying("rhythm", "normal")
+assert not any(s.is_paying("minesweeper", b) for b in ("easy", "normal", "hard")), "Minesweeper pays nothing yet"
+assert s.SETTLEMENT_DELAY.total_seconds() == 48 * 3600
+assert s.terms() == {"min_runs": 5, "min_days": 3, "podium_min_players": {"3": 10, "10": 20, "25": 50}}
+
+# Ranking only qualified players keeps ties and closes the gaps left by the unqualified.
+from services.game_seasons import qualified_places
+rows = [dict(user_id=1, place=1, runs=2, days=1), dict(user_id=2, place=2, runs=5, days=3),
+        dict(user_id=3, place=2, runs=6, days=4), dict(user_id=4, place=4, runs=5, days=3),
+        dict(user_id=5, place=5, runs=9, days=2)]
+assert [(r["user_id"], r["place_among_qualified"]) for r in qualified_places(rows)] == [(2, 1), (3, 1), (4, 3)]
 print("game seasons rules OK")
