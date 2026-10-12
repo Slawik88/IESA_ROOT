@@ -102,7 +102,7 @@ async def _all(db, sql: str, args: tuple):
 
 
 async def _site(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     span = "visited_at >= ? AND visited_at < ?" + staff.sql("user_id")
     row = await _one(db, f"SELECT COUNT(DISTINCT user_id), COUNT(DISTINCT session_id), COUNT(*), "
@@ -128,7 +128,7 @@ async def _site(db, since_day: date, until_day: date, staff: Staff | None = None
 async def _bot(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
     """Команды и люди считаются из bot_user_daily (там есть user_id, команда команды не попадёт в итог).
     «Топ команд» берётся из bot_command_daily: в ней нет user_id, поэтому задним числом её не очистить."""
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     span = "day BETWEEN ? AND ?"
     users_span = span + staff.sql("user_id")
     args = (since_day, until_day)
@@ -152,7 +152,7 @@ async def _bot(db, since_day: date, until_day: date, staff: Staff | None = None)
 
 
 async def _chats(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     args = (since_day.isoformat(), until_day.isoformat(), *staff.args)
     span = "date BETWEEN ? AND ?"
     row = await _one(db, f"SELECT COALESCE(SUM(message_count), 0), COUNT(DISTINCT user_id), COUNT(DISTINCT chat_id) "
@@ -169,7 +169,7 @@ async def _chats(db, since_day: date, until_day: date, staff: Staff | None = Non
 
 async def _everyone(db, since_day: date, until_day: date, staff: Staff | None = None) -> int:
     """Уникальные люди хоть где-то: сайт, команды бота, сообщения в чатах."""
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     return int((await _one(
         db, f"SELECT COUNT(*) FROM (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')} "
@@ -180,7 +180,7 @@ async def _everyone(db, since_day: date, until_day: date, staff: Staff | None = 
 
 async def _totals(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
     """Главные числа периода: для сравнения с предыдущим таким же."""
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     visitors = int((await _one(db, f"SELECT COUNT(DISTINCT user_id) FROM site_analytics WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')}",
                                (start, end, *staff.args)))[0])
@@ -205,7 +205,7 @@ async def retention(db, staff: Staff | None = None) -> dict:
     import time as _time
     global _retention_cache
     day = today()
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     if _retention_cache and _time.time() - _retention_cache[0] < RETENTION_TTL and _retention_cache[1] == day:
         return _retention_cache[2]
     act = (f"SELECT user_id, date::date AS d FROM daily_user_stats WHERE chat_id < 0 AND date ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'{staff.sql('user_id')} "
@@ -239,7 +239,7 @@ async def funnel(db, since_day: date, until_day: date, staff: Staff | None = Non
     Отдельно: сколько из открывших приложение пользуются и командами бота. Журнала валюты может ещё не быть — тогда
     последний шаг пустой, а остальные считаются."""
     from datetime import timezone
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     row = await _one(
         db, f"WITH v AS (SELECT user_id, COUNT(DISTINCT tab) AS tabs, COALESCE(SUM(duration_sec), 0) AS secs FROM site_analytics "
@@ -293,7 +293,7 @@ async def economy(db, since_day: date, until_day: date, staff: Staff | None = No
 
     Аккаунты команды в основной счёт не входят; их обороты отдельно в ключе «_staff», чтобы выпуск валюты не терялся."""
     from datetime import timezone
-    staff = staff or await staff_ids(db)
+    staff = staff if staff is not None else await staff_ids(db)
     start = _utc_start(since_day).replace(tzinfo=timezone.utc)
     end = _utc_start(until_day + timedelta(days=1)).replace(tzinfo=timezone.utc)
     try:
