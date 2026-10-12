@@ -617,6 +617,7 @@ async def review_run(db, *, reviewer_id: int, run_id: str, review_id: str,
             await _record_completed_quest(
                 db, user_id=int(row["user_id"]), run_id=run_id, mode=str(row["mode"]),
                 score=int(row["score"]), integrity_status="clear",
-                picks=len(repo.load(row.get("selected_json")) or []),
+                picks=len(repo.load(row.get("selected_json")) or []), correct_taps=int(row["correct_taps"]),
+                finished_at=row.get("finished_at"),
             )
         return _view(row, _state(row), now=row["server_now"])

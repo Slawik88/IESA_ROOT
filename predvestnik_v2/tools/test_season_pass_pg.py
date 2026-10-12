@@ -13,6 +13,7 @@ from core import season_pass as rules
 from core import seasons
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import economy_ledger
+from infrastructure.repositories import rhythm_v2 as rhythm_repo
 from infrastructure.repositories import season_pass as repo
 from infrastructure.repositories import skins_v3 as skins_repo
 from infrastructure.repositories import system_flags
@@ -36,6 +37,7 @@ async def run(dsn: str) -> None:
     await economy_ledger.ensure_tables(db)
     await skins_repo.ensure_tables(db)
     await system_flags.ensure_table(db)
+    await rhythm_repo.ensure_tables(db)
     await repo.ensure_tables(db)
     transaction = connection.transaction()
     await transaction.start()
@@ -235,6 +237,35 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("an account without a chat record must not claim")
+
+        # 11b. A flag read that fails with a SQL error must not poison the caller's transaction.
+        real_enabled = system_flags.is_enabled
+
+        async def broken_flag(db_, key):
+            await db_.execute("SELECT 1 FROM no_such_flags_table")
+
+        system_flags.is_enabled = broken_flag
+        try:
+            async with db.connection.transaction():
+                assert await service.record_game(db, user_id=USER, source="rhythm", event_id="flag-down",
+                                                 occurred_at=noon(2)) == 0
+                async with db.execute("SELECT 1") as cursor:
+                    assert (await cursor.fetchone())[0] == 1, "the outer transaction must stay usable"
+        finally:
+            system_flags.is_enabled = real_enabled
+
+        # 11c. A manually cleared Rhythm run counts for the pass like an automatically clear one.
+        from uuid import uuid4
+        from services import rhythm_v2 as rhythm_game
+        reviewed = 978004
+        run_id = str(uuid4())
+        await db.connection.execute(
+            "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,score,"
+            "integrity_status,correct_taps,created_at,finished_at) VALUES ($1,$2,'normal','test',$3,'[]'::jsonb,"
+            "'finished',0,900,'review_required',25,$4,$4)", run_id, reviewed, b"x" * 32, noon(3))
+        await rhythm_game.review_run(db, reviewer_id=1, run_id=run_id, review_id=f"rv-{run_id}",
+                                     decision="clear", reason="проверено вручную: честный забег")
+        assert await points_of(reviewed) == 10, "a manual 'clear' must earn the pass points"
 
         # 11. The game hooks feed the pass only for qualifying games.
         from services import minesweeper_v2, rhythm_v2

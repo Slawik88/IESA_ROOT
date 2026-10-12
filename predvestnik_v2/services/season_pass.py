@@ -37,11 +37,13 @@ async def record_game(db, *, user_id: int, source: str, event_id: str,
     if source not in rules.SOURCES:
         raise SeasonPassError(f"unknown point source: {source}")
     try:
-        if not await enabled(db):
-            return 0
         at = rules.utc(occurred_at or datetime.now(timezone.utc))
         season, day = seasons.season_number(at), at.date()
+        # Everything, the flag read included, runs in this savepoint: a failure here must not
+        # leave the caller's transaction in the aborted state.
         async with db.connection.transaction():
+            if not await enabled(db):
+                return 0
             granted = rules.granted_points(await repo.lock_day(db, user_id=user_id, season=season, day=day))
             if not await repo.insert_receipt(db, user_id=user_id, source=source, event_id=str(event_id),
                                              season=season, day=day, points=granted):
