@@ -1090,7 +1090,7 @@ async function metricsView(main, days = 1) {
       ${kpi('🤖 Команд бота', num(b.commands), trend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), trend(c.messages, cmp.messages))}</div>
     <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
       в чате с ботом. Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.
-      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
+      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
     ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
       ${kpi('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
       ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
