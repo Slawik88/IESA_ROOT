@@ -53,6 +53,9 @@ assert "_lkMini(" in js and "openLooksModal()" in js, "the same tile as in the l
 assert "_profileEsc(" in js and js.count("_profileEsc(") >= 20, "every server text is escaped"
 assert not re.search(r"@keyframes|animation\s*:", css), "a screen that is read, not played on, has no motion of its own"
 
+# Talismans of the pets are an optional part of the stock answer: one row per piece (tier on the right, who wears it), drawn only when the answer has them.
+assert "stock.talismans || []" in js and "_invTal(" in js and "Носит " in js and "Свободен" in js and "_TR_TAL" in js, "talismans: one row per piece with the same name and icon as the Trail"
+
 # Every inv-* class the script writes is styled.
 used = set(re.findall(r'class="(?:[^"$]*\s)?(inv-[a-z-]+)', js))
 styled = set(re.findall(r"\.(inv-[a-z-]+)", css))

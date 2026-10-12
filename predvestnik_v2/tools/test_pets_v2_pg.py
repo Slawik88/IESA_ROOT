@@ -53,6 +53,26 @@ async def run(dsn: str) -> None:
         assert len(view["pets"]) == 4 and view["pets"][0]["energy"] == rules.energy_max(1, "moss_cat")
         async with db.execute("SELECT COUNT(*) FROM pet_v2_state WHERE user_id=?", (user,)) as c:
             assert (await c.fetchone())[0] == 0
+        # поля для экранов: значок и любимая еда вида, свободная замена, ступень Связи, теги Испытания, выслеживание, еда, Пара, числа правил
+        cat_view = next(p for p in view["pets"] if p["id"] == cat)
+        assert cat_view["icon"] and cat_view["favorite_food"] == rules.favorite_food("moss_cat") and not cat_view["fed_favorite"] and not cat_view["fed_today"]
+        assert cat_view["swap_free"] == {"calling": True, "traits": True} and cat_view["next_gate_days"] == 2 and cat_view["stars"] == 0
+        assert set(cat_view["trial"]["hits"]) == {"route", "tempo", "style"} and cat_view["trial"]["matches"] == sum(cat_view["trial"]["hits"].values())
+        assert view["track"] == {"attempts_left": rules.TRACK_DAILY, "open": None}
+        assert [f["id"] for f in view["foods"]] == ["food_basic", "food_fried", "food_stew", "food_elite", "food_feast"] and all(f["quantity"] == 0 for f in view["foods"])
+        assert view["pair"] == {"species": 4, "need": rules.PAIR_MIN_SPECIES, "unlocked": False}
+        assert view["rules"]["energy"]["run"] == {"3": 15, "6": 30, "9": 45} and view["rules"]["energy"]["pair"] == rules.PAIR_ENERGY
+        assert view["rules"]["paths"]["bold"] == {"reward": [1.8, 0.7, 0.0], "energy_loss": 15} and view["rules"]["camp"]["workshop"] == [1, 1, 2, 2, 3, 3]
+        assert view["rules"]["camp"]["lounge"] == [0, 4, 8, 12, 16, 20] and view["rules"]["camp"]["markers"][0] == 0.75 and view["rules"]["xp"]["run"]["6"] == 95
+        assert set(view["rules"]["traits"]) == set(view["traits"]) and view["now"] > "2020" and view["rules"]["xp"]["expedition"] == rules.EXPEDITION_MULT
+        assert set(view["rules"]["calling_texts"]) == set(view["callings"]) and view["rules"]["calling_texts"]["guardian"][1] is None and all(texts[0] for texts in view["rules"]["calling_texts"].values())
+        assert (view["rules"]["daily_soft_rate"], view["rules"]["pair_share"], view["rules"]["affinity_bonus"]) == (rules.SOFT_RATE, rules.PAIR_COMPANION_SHARE, rules.AFFINITY_BONUS)
+        assert view["rules"]["talisman"]["plus"] == {"1": 10, "2": 15, "3": 20} and view["rules"]["talisman"]["minus"] == 10 and set(view["rules"]["talisman"]["kinds"]) == set(rules.TALISMANS)
+        assert all(pet["find_bias"] == rules.SPECIES[pet["species_id"]][4] for pet in view["pets"])
+        assert all(pet["track_points"] == rules.track_points(pet["level"], pet["species_id"]) for pet in view["pets"]) and view["rules"]["seal"] == {"days": [10, 30, 60, 120, 240], "bonus": 4}
+        assert [rules.next_gate_days(d) for d in (0, 1, 2, 20, 21, 50, 90, 139, 140, 500)] == [2, 2, 21, 21, 50, 90, 140, 140, None, None]
+        async with db.execute("SELECT COUNT(*) FROM pet_v2_tracks WHERE user_id=?", (user,)) as c:
+            assert (await c.fetchone())[0] == 0
 
         # старт, повтор, чужой питомец, занят, слоты
         started = await service.start_run(db, user_id=user, pet_id=cat, kind="trek", hours=3, route="forest", action_id="s1")
@@ -196,6 +216,8 @@ async def run(dsn: str) -> None:
         # замена призвания: первая в неделю бесплатна, вторая стоит Эссенцию
         free = await service.set_build(db, user_id=user, pet_id=fox, calling="guardian", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b3")
         assert free["essence_spent"] == 0
+        fox_swap = next(p for p in (await service.overview(db, user))["pets"] if p["id"] == fox)["swap_free"]
+        assert fox_swap == {"calling": False, "traits": True}, "замена призвания в эту неделю уже использована, черты — нет"
         await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b4"))
         await skins_v3.essence_apply(db, user, 15, reason="test", reference="t", idempotency_key="test-essence")
         paid = await service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="b5")
@@ -233,6 +255,9 @@ async def run(dsn: str) -> None:
         t_rng = random.Random(3)
         begun = await service.start_track(db, user_id=user, pet_id=owl, action_id="tr0", rng=t_rng)
         assert "hidden" not in begun["track"] and len(begun["track"]["opened"]) == 3 and begun["track"]["points"] == rules.track_points(1, "mirror_owl")
+        resumed = (await service.overview(db, user))["track"]
+        assert resumed["attempts_left"] == 1 and resumed["open"]["id"] == begun["track"]["id"] and "hidden" not in resumed["open"]
+        assert resumed["open"]["opened"] == begun["track"]["opened"], "выслеживание можно продолжить после выхода"
         assert (await service.start_track(db, user_id=user, pet_id=owl, action_id="tr0", rng=t_rng))["idempotent_replay"]
         try:
             async with db.connection.transaction():
@@ -251,6 +276,7 @@ async def run(dsn: str) -> None:
         await rejects(service.open_track_cell(db, user_id=user, track_id=begun["track"]["id"], cell=rest[0], action_id="to1", rng=t_rng))
         won = await service.open_track_cell(db, user_id=user, track_id=begun["track"]["id"], cell=hidden, action_id="to2", rng=t_rng)
         assert won["track"]["status"] == "won" and won["track"]["hidden"] == hidden and "finds" in won["track"]["result"]
+        assert (await service.overview(db, user))["track"] == {"attempts_left": 1, "open": None}
         second = await service.start_track(db, user_id=user, pet_id=cat, action_id="tr2", rng=t_rng)
         for i, cell in enumerate(c for c in range(9) if c not in {o["cell"] for o in second["track"]["opened"]}):
             res = await service.open_track_cell(db, user_id=user, track_id=second["track"]["id"], cell=cell, action_id=f"tq{i}", rng=t_rng)
@@ -277,6 +303,7 @@ async def run(dsn: str) -> None:
         before = await skins_v3.essence_balance(db, user)
         solved = await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=3, action_id="tl1")
         assert solved["matches"] == 3 and solved["essence"] == 20
+        assert next(p for p in (await service.overview(db, user))["pets"] if p["id"] == fox)["trial"] == {"matches": 3, "hits": {"route": True, "tempo": True, "style": True}}
         assert await skins_v3.essence_balance(db, user) >= before + 20
         assert (await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=3, action_id="tl1"))["idempotent_replay"]
         try:
@@ -301,6 +328,7 @@ async def run(dsn: str) -> None:
             "INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?,?,?,?),(?,?,?,?)",
             (user, "М", "ash_moth", "common", user, "З", "dusk_hare", "common"),
         )
+        assert (await service.overview(db, user))["pair"] == {"species": 6, "need": rules.PAIR_MIN_SPECIES, "unlocked": True}
         async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
             e_before = (await c.fetchone())[0]
         paired = await service.start_run(db, user_id=user, pet_id=cat, kind="trek", hours=3, route="forest", action_id="p1", companion_id=beetle)
@@ -333,6 +361,9 @@ async def run(dsn: str) -> None:
         assert again["xp_credited"] == 0 and again["remaining"] == 1, "Следы за кормление — раз в сутки"
         await rejects(service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_feast", action_id="f3"))
         view = await service.overview(db, user)
+        fed_view = next(p for p in view["pets"] if p["id"] == cat)
+        assert fed_view["fed_favorite"] and fed_view["fed_today"], "кормление дня видно в обзоре"
+        assert {f["id"]: f["quantity"] for f in view["foods"]}["food_basic"] == 1 and view["foods"][4]["quantity"] == 0
         print("OK: pets v2 PG flow, daily cap, idempotency and hints verified")
     finally:
         await tx.rollback()

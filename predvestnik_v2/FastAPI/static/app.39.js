@@ -71,12 +71,19 @@ function _invPets(stock) {
   const body = pets.length ? `<div class="inv-pets">${pets.map(tile).join('')}</div>` : '<div class="v3-empty">Питомцев пока нет. Первую карточку можно найти в сундуке.</div>';
   return `<section class="inv-sec" id="inv-pets">${_invSec(`Питомцы · ${pets.length} из ${stock.species_total}`, '<button type="button" class="v3-link" onclick="openPetsV1()">К питомцам ›</button>')}${body}</section>`;
 }
+// Талисман питомцев: одна вещь, а не стопка, поэтому справа его ступень; имя и значок те же, что на экранах Тропы (app.41.js), на ком надет берём из списка питомцев склада
+function _invTal(t, stock) {
+  const known = typeof _TR_TAL !== 'undefined' && _TR_TAL[t.kind], tier = ['', 'I', 'II', 'III'][Number(t.tier)] || String(t.tier);
+  const pet = t.pet_id ? (stock.pets || []).find(p => p.id === t.pet_id) : null;
+  return `<li class="inv-item"><span class="inv-ic" aria-hidden="true">${known ? known[0] : '🧿'}</span><span class="inv-nm"><b>${_profileEsc(known ? known[1] : t.name)}</b><small>${pet ? `Носит ${_profileEsc(pet.name)}` : 'Свободен'}</small></span><span class="inv-n"><i class="sr-only">Ступень </i>${tier}</span></li>`;
+}
 function _invStuff(stock) {
   const group = (title, rows, note) => `<h3 class="inv-sub">${title}</h3>${note ? `<p class="inv-note">${note}</p>` : ''}<ul class="inv-list">${rows.join('')}</ul>`;
   const parts = [group('Ключи', [_invRow('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys, 'keys')])];
   if (stock.foods.length) parts.push(group('Еда питомцев', stock.foods.map(f => _invRow(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))));
   if (stock.pet_cards.length) parts.push(group('Карты питомцев', stock.pet_cards.map(c => _invRow(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity, 'card'))));
   if (stock.jokers.length) parts.push(group('Джокеры', stock.jokers.map(j => _invRow('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker')), 'Джокер заменяет карту любого питомца своей редкости.'));
+  if ((stock.talismans || []).length) parts.push(group('Талисманы питомцев', stock.talismans.map(t => _invTal(t, stock)), 'Талисман надевают в сборке питомца, а в Лагере его можно перековать.'));
   return `<section class="inv-sec" id="inv-stuff">${_invSec('Ключи и предметы', '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')}${parts.join('')}</section>`;
 }
 function _invArchive(archive) {

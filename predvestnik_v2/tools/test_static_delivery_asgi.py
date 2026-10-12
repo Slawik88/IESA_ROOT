@@ -39,6 +39,7 @@ ALLOWED = {
     "/static/quests-v3.css": "text/css",
     "/static/marks-v3.css": "text/css",
     "/static/inventory-v3.css": "text/css",
+    "/static/trail-v3.css": "text/css",
     "/static/store-v3.css": "text/css",
     "/static/motion-v3.css": "text/css",
     "/static/confirm-v3.css": "text/css",
@@ -147,10 +148,10 @@ def main() -> None:
     assert '/static/skin-runtime-v3.js?v=' in minesweeper.text
     assert '/static/games-v3.css?v=' in minesweeper.text
     base = os.environ.get("ROOT_PATH", "").rstrip("/")
-    assert f'href="{base}/"' in minesweeper.text
+    assert f'href="{base}/?startapp=games"' in minesweeper.text, "the back link keeps the mount of the app"
     rhythm = direct.get("/rhythm-v2")
     assert rhythm.status_code == 200
-    assert f'href="{base}/"' in rhythm.text
+    assert f'href="{base}/?startapp=games"' in rhythm.text, "the back link keeps the mount of the app"
     assert '/static/skin-runtime-v3.css?v=' in rhythm.text
     assert '/static/skin-runtime-v3.js?v=' in rhythm.text
     assert '/static/games-v3.css?v=' in rhythm.text
@@ -164,10 +165,10 @@ def main() -> None:
         rooted_minesweeper = rooted.get("/predvestnik/minesweeper")
         assert rooted_minesweeper.status_code == 200
         assert '/predvestnik/static/minesweeper-v2.js?v=' in rooted_minesweeper.text
-        assert 'href="/predvestnik/"' in rooted_minesweeper.text
+        assert 'href="/predvestnik/?startapp=games"' in rooted_minesweeper.text, "the back link to the games hub keeps the mount"
         rooted_rhythm = rooted.get("/predvestnik/rhythm-v2")
         assert rooted_rhythm.status_code == 200
-        assert 'href="/predvestnik/"' in rooted_rhythm.text
+        assert 'href="/predvestnik/?startapp=games"' in rooted_rhythm.text, "the back link to the games hub keeps the mount"
     else:
         env = {**os.environ, "ROOT_PATH": "/predvestnik", "STATIC_DELIVERY_ROOTED": "1"}
         subprocess.run([sys.executable, __file__], cwd=ROOT, env=env, check=True)

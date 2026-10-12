@@ -87,7 +87,7 @@ async def run(dsn: str) -> None:
         assert stock["talismans"] == [], stock["talismans"]
         await db.execute("INSERT INTO pet_v2_talismans(id,user_id,kind,tier) VALUES (?,?,?,?)", ("t-inv-1", player, "forest_fang", 2))
         worn = (await inventory.stock(db, player))["talismans"]
-        assert worn == [{"id": "t-inv-1", "kind": "forest_fang", "name": "Клык леса", "tier": 2, "pet_id": None}], worn
+        assert worn == [{"id": "t-inv-1", "kind": "forest_fang", "name": "Лесной клык", "tier": 2, "pet_id": None}], worn
 
         # a player who keeps every kind of old item: all of them are listed and none sends to the «Зоопарк» that is gone
         for item_id in ITEMS_REGISTRY:

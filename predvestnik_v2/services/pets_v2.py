@@ -95,29 +95,57 @@ def _roll_count(base: int, mult: float, rng) -> int:
     return whole + (1 if rng.random() < value - whole else 0)
 
 
+def _rules_view() -> dict:
+    """Числа правил, которые показывает экран (цены в силах и Эссенции, множители путей): чтобы клиент не хранил их копию."""
+    return {
+        "energy": {"run": {str(h): rules.ACTIVITY_ENERGY[("run", h)] for h in rules.RUN_HOURS},
+                   "watch": {str(h): rules.ACTIVITY_ENERGY[("watch", h)] for h in rules.WATCH_HOURS}, "pair": rules.PAIR_ENERGY},
+        "paths": {path: {"reward": list(row[1]), "energy_loss": row[2]} for path, row in rules.PATHS.items()},
+        "xp": {"run": {str(h): rules.RUN_XP[h] for h in rules.RUN_HOURS}, "watch": {str(h): rules.WATCH_XP[h] for h in rules.WATCH_HOURS}, "expedition": rules.EXPEDITION_MULT},
+        "swap": {"calling": rules.CALLING_SWAP_ESSENCE, "trait": rules.TRAIT_SWAP_ESSENCE},
+        "reforge": {"1": rules.REFORGE_ESSENCE[1], "2": rules.REFORGE_ESSENCE[2]},
+        "camp": {"lounge": [round(rules.camp_bonus("lounge", level) * 100) for level in range(6)],
+                 "markers": [round(rules.markers_decay(level), 2) for level in range(6)], "workshop": [rules.workshop_max_tier(level) for level in range(6)]},
+        "traits": {trait: list(texts) for trait, texts in rules.TRAITS.items()},
+        "calling_texts": {calling: list(texts) for calling, texts in rules.CALLING_TEXTS.items()},
+        "calling_min_level": rules.CALLING_MIN_LEVEL, "trait_slot_levels": list(rules.TRAIT_SLOT_LEVELS), "talisman_slots": rules.TALISMAN_SLOTS,
+        "track": {"daily": rules.TRACK_DAILY, "free_clues": rules.TRACK_FREE_CLUES},
+        "feed_xp": rules.FEED_XP, "max_level": rules.MAX_LEVEL, "daily_soft_from": rules.POOL_FULL, "daily_soft_rate": rules.SOFT_RATE,
+        "pair_share": rules.PAIR_COMPANION_SHARE, "affinity_bonus": rules.AFFINITY_BONUS,
+        "seal": {"days": list(rules.SEAL_BOND_DAYS), "bonus": round(rules.SEAL_BONUS_PER_STAR * 100)},
+        "talisman": {"plus": {str(tier): round(value * 100) for tier, value in rules.TALISMAN_PLUS.items()}, "minus": round(rules.TALISMAN_MINUS * 100),
+                     "set": round(rules.TALISMAN_SET_BONUS * 100), "kinds": {kind: list(routes) for kind, routes in rules.TALISMANS.items()}},
+    }
+
+
 async def overview(db, user_id: int) -> dict:
     """Только чтение: ничего не создаёт и не меняет."""
+    from core.chests_v1 import FOODS, PET_SPECIES
     clock = await repo.clock(db)
-    daily = await repo.get_daily(db, user_id, clock["day"])
+    day, week = clock["day"], _week_start(clock["day"])
+    daily = await repo.get_daily(db, user_id, day)
     runs = await repo.open_runs(db, user_id)
     by_pet = {int(run["pet_id"]): run for run in runs}
     pets = []
     owned = await repo.list_owned_pets(db, user_id)
     all_talismans = await repo.list_talismans(db, user_id)
     camp = await repo.camp_levels(db, user_id)
+    bond_by_pet, bond_by_species = await repo.bond_days_all(db, user_id)
+    week_trial = rules.weekly_trial(week.toordinal())
     builds: dict[int, dict] = {}
     for pet in owned:
         if pet.get("species_id") not in rules.SPECIES:
             continue
         level = int(pet["level"] or 1)
         mine = [t for t in all_talismans if t["pet_id"] is not None and int(t["pet_id"]) == int(pet["id"])]
-        build = builds[int(pet["id"])] = _build(pet, mine, camp, clock["day"])
+        build = builds[int(pet["id"])] = _build(pet, mine, camp, day)
         fx = _fx(build)
         energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
         energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
         if pet["energy_at"] is not None:
             energy = _rest({"energy": energy, "energy_at": pet["energy_at"], "level": level}, pet, clock["now"], build)
-        bond = await repo.bond_days(db, user_id, int(pet["id"]))
+        bond = bond_by_pet.get(int(pet["id"]), 0)
+        hits = rules.trial_hits(week_trial, _species_row(pet)[1], build["traits"], build["talismans"])
         item = {
             "id": int(pet["id"]), "name": pet.get("name"), "species_id": pet["species_id"], "rarity": pet["rarity"],
             "level": level, "xp": round(float(pet["xp"] or 0), 1),
@@ -129,6 +157,12 @@ async def overview(db, user_id: int) -> dict:
             "favorite_route": _species_row(pet)[1], "run_id": None,
             "calling": build["calling"], "traits": list(build["traits"]), "trait_slots": rules.trait_slots(level),
             "talismans": [t["id"] for t in mine],
+            # для экранов: значок вида, любимая еда и кормление дня, бесплатная ли замена в эту неделю, ступень Связи, звёзды вида, теги Испытания
+            "icon": PET_SPECIES.get(pet["species_id"], {}).get("icon", "🐾"), "favorite_food": rules.favorite_food(pet["species_id"]), "find_bias": _species_row(pet)[4], "track_points": rules.track_points(level, pet["species_id"]),
+            "fed_favorite": pet.get("fed_favorite_on") == day, "fed_today": pet.get("fed_xp_on") == day,
+            "swap_free": {"calling": pet.get("calling_changed_at") != week, "traits": pet.get("traits_changed_at") != week},
+            "next_gate_days": rules.next_gate_days(bond), "stars": rules.seal_stars(bond_by_species.get(pet["species_id"], 0)),
+            "trial": {"matches": sum(hits.values()), "hits": hits},
         }
         run = by_pet.get(int(pet["id"])) or next((r for r in runs if r["companion_id"] is not None and int(r["companion_id"]) == int(pet["id"])), None)
         if run:
@@ -146,14 +180,24 @@ async def overview(db, user_id: int) -> dict:
                 energy = _rest(state, pet, clock["now"], build)
                 entry["decision"] = _hints(int(pet["level"]), pet["species_id"], _chances(pet, state, run, energy, build))
         activities.append(entry)
+    tracks = await repo.tracks_today(db, user_id, day, lock=False)
+    open_track = next((t for t in tracks if t["status"] == "open"), None)
+    stock = await repo.food_stock(db, user_id)
+    species_owned = len({p["species_id"] for p in owned if p.get("species_id")})
     return {
-        "policy_version": rules.POLICY_VERSION, "slots": rules.SLOTS, "pets": pets, "activities": activities,
+        "policy_version": rules.POLICY_VERSION, "slots": rules.SLOTS, "pets": pets, "activities": activities, "now": clock["now"].isoformat(),
         "daily": {"raw": round(daily["raw"], 1), "credited": round(daily["credited"], 1), "max": rules.DAILY_MAX},
         "durations": {"run": list(rules.RUN_HOURS), "watch": list(rules.WATCH_HOURS)}, "routes": list(rules.ROUTES),
         "talismans": [{"id": t["id"], "kind": t["kind"], "tier": int(t["tier"]), "pet_id": t["pet_id"]} for t in all_talismans],
         "camp": await _camp_view(db, user_id, camp),
         "trial": await trial_view(db, user_id),
         "callings": list(rules.AVAILABLE_CALLINGS), "traits": list(rules.AVAILABLE_TRAITS),
+        # для экранов: открытое выслеживание (чтобы продолжить после выхода), еда с остатками, Пара, числа правил
+        "track": {"attempts_left": max(0, rules.TRACK_DAILY - len(tracks)), "open": _track_view(open_track) if open_track else None},
+        "foods": [{"id": food_id, "name": row["name"], "icon": row["icon"], "restore": int(row["restore"]), "quantity": stock.get(food_id, 0)}
+                  for food_id, row in FOODS.items()],
+        "pair": {"species": species_owned, "need": rules.PAIR_MIN_SPECIES, "unlocked": species_owned >= rules.PAIR_MIN_SPECIES},
+        "rules": _rules_view(),
     }
 
 
