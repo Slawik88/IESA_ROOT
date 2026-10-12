@@ -137,7 +137,8 @@ async def save_action(db, user_id: int, action_id: str, request: dict, response:
 
 async def list_owned_pets(db, user_id: int) -> list[dict[str, Any]]:
     async with db.execute(
-        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits,s.fed_favorite_on "
+        "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits,s.fed_favorite_on,"
+        "s.fed_xp_on,s.calling_changed_at,s.traits_changed_at "
         "FROM pets p LEFT JOIN pet_v2_state s ON s.user_id=p.owner_id AND s.pet_id=p.id "
         "WHERE p.owner_id=? ORDER BY p.created_at,p.id", (int(user_id),)
     ) as c:
@@ -169,6 +170,19 @@ async def save_state(db, user_id: int, pet_id: int, *, level: int, xp: float, en
 async def bond_days(db, user_id: int, pet_id: int) -> int:
     async with db.execute("SELECT COUNT(*) AS n FROM pet_v2_bond_days WHERE user_id=? AND pet_id=?", (int(user_id), int(pet_id))) as c:
         return int((await c.fetchone())["n"])
+
+
+async def bond_days_all(db, user_id: int) -> tuple[dict[int, int], dict[str, int]]:
+    """Дни Связи одним запросом: по питомцам и суммой по видам (для звёзд Привязанности)."""
+    async with db.execute(
+        "SELECT b.pet_id,p.species_id,COUNT(*) AS n FROM pet_v2_bond_days b JOIN pets p ON p.id=b.pet_id AND p.owner_id=b.user_id "
+        "WHERE b.user_id=? GROUP BY b.pet_id,p.species_id", (int(user_id),)
+    ) as c:
+        rows = await c.fetchall()
+    by_species: dict[str, int] = {}
+    for row in rows:
+        by_species[row["species_id"]] = by_species.get(row["species_id"], 0) + int(row["n"])
+    return {int(row["pet_id"]): int(row["n"]) for row in rows}, by_species
 
 
 async def species_bond_days(db, user_id: int, species_id: str) -> int:
@@ -342,8 +356,10 @@ async def set_talisman_tier(db, user_id: int, talisman_id: str, tier: int) -> No
     await db.execute("UPDATE pet_v2_talismans SET tier=? WHERE user_id=? AND id=?", (int(tier), int(user_id), str(talisman_id)))
 
 
-async def tracks_today(db, user_id: int, day) -> list[dict[str, Any]]:
-    async with db.execute("SELECT * FROM pet_v2_tracks WHERE user_id=? AND day=? ORDER BY created_at,id FOR UPDATE", (int(user_id), day)) as c:
+async def tracks_today(db, user_id: int, day, *, lock: bool = True) -> list[dict[str, Any]]:
+    async with db.execute(
+        f"SELECT * FROM pet_v2_tracks WHERE user_id=? AND day=? ORDER BY created_at,id{' FOR UPDATE' if lock else ''}", (int(user_id), day)
+    ) as c:
         rows = [dict(row) for row in await c.fetchall()]
     for row in rows:
         row["opened"] = json.loads(row["opened"]) if isinstance(row["opened"], str) else list(row["opened"])
@@ -379,6 +395,11 @@ async def save_trial(db, user_id: int, week, pet_id: int, difficulty: int, essen
 async def species_count(db, user_id: int) -> int:
     async with db.execute("SELECT COUNT(DISTINCT species_id) AS n FROM pets WHERE owner_id=?", (int(user_id),)) as c:
         return int((await c.fetchone())["n"])
+
+
+async def food_stock(db, user_id: int) -> dict[str, int]:
+    async with db.execute("SELECT food_id,quantity FROM chest_food_balances_v1 WHERE user_id=? AND quantity>0", (int(user_id),)) as c:
+        return {str(row["food_id"]): int(row["quantity"]) for row in await c.fetchall()}
 
 
 async def consume_food(db, user_id: int, food_id: str) -> int:

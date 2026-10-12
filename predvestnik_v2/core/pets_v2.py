@@ -64,6 +64,13 @@ def ceiling(bond_days: int) -> int:
     return out
 
 
+def next_gate_days(bond_days: int) -> int | None:
+    """Сколько дней Связи нужно, чтобы потолок поднялся ещё на ступень (None — потолок уже максимальный)."""
+    if ceiling(bond_days) >= MAX_LEVEL:
+        return None
+    return next(days for _, days in BOND_GATES if days > int(bond_days))
+
+
 def seal_stars(total_bond_days: int) -> int:
     """Звёзды Привязанности вида по суммарным дням Связи всех его питомцев."""
     return sum(1 for need in SEAL_BOND_DAYS if int(total_bond_days) >= need)
@@ -369,16 +376,18 @@ def weekly_trial(week_ordinal: int) -> dict:
     return {"route": rng.choice(ROUTES), "tempo": rng.choice((3, 9)), "style": rng.choice(("careful", "bold"))}
 
 
+def trial_hits(trial: dict, favorite_route: str, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = ()) -> dict[str, bool]:
+    """Какие из трёх тегов недели закрывает питомец: любимый маршрут или талисман маршрута; черта темпа; черта стиля."""
+    return {
+        "route": favorite_route in (trial["route"], "any") or any(TALISMANS[kind][0] == trial["route"] for kind, _ in talismans if kind in TALISMANS),
+        "tempo": ("night_walk" if trial["tempo"] == 9 else "sprinter") in traits,
+        "style": ("careful" if trial["style"] == "careful" else "reckless") in traits,
+    }
+
+
 def trial_matches(trial: dict, favorite_route: str, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = ()) -> int:
-    """Сколько тегов закрывает питомец: любимый маршрут или талисман маршрута; черта темпа; черта стиля."""
-    count = 0
-    if favorite_route in (trial["route"], "any") or any(TALISMANS[kind][0] == trial["route"] for kind, _ in talismans if kind in TALISMANS):
-        count += 1
-    if ("night_walk" if trial["tempo"] == 9 else "sprinter") in traits:
-        count += 1
-    if ("careful" if trial["style"] == "careful" else "reckless") in traits:
-        count += 1
-    return count
+    """Сколько тегов закрывает питомец."""
+    return sum(trial_hits(trial, favorite_route, traits, talismans).values())
 
 
 # ── Призвания и черты (данные; применение — в писателе занятий) ───────────────
