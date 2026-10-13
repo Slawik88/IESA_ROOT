@@ -26,6 +26,7 @@ from FastAPI.routers.bot_admin import auth, owner, people, reports, switches  # 
 from services import admin_access as acc  # noqa: E402
 
 PREFIX = "/bot-admin/api"
+CREATOR_RANK = 6
 
 
 def _deps(dependant):
@@ -113,7 +114,7 @@ def main():
     for g in range(-3, 10):
         t = acc.effective_min("action:ban", 4, {"action:ban": g})
         assert acc.FLOOR <= t <= acc.CEILING
-        assert all((r >= t) == (r >= t) for r in range(1, 7)) and (6 >= t)
+        assert t <= CREATOR_RANK   # создатель (6) всегда проходит любой порог
     fixed = {"action:" + k for k, (_, r, _) in people.ACTIONS.items() if r >= 5}
     assert not (fixed & acc.CONFIGURABLE), fixed & acc.CONFIGURABLE
     assert {"section:broadcast", "section:promo", "section:switches", "section:settings"}.isdisjoint(acc.CONFIGURABLE)

@@ -24,7 +24,7 @@ CEILING = 5   # выше «разработчика» тоже нельзя: с�
 CONFIGURABLE = frozenset({
     "section:people", "section:reports", "section:metrics", "section:journal", "section:health",
     "action:warn", "action:mute", "action:unmute", "action:unwarn_all", "action:kick", "action:ban", "action:unban",
-    "action:block", "action:unblock", "action:close", "action:open", "action:warn_limit",
+    "action:close", "action:open", "action:warn_limit",
 })
 
 STATEMENTS = (

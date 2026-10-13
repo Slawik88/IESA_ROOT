@@ -323,7 +323,7 @@ FEED_KINDS = {
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke")),
+    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }
