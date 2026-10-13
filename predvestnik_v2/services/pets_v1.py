@@ -4,7 +4,7 @@ from __future__ import annotations
 from infrastructure.repositories import pets_v1 as repo
 from infrastructure.repositories import chests_v1 as chest_repo, system_flags
 from core.pets_v1 import MAX_LEVEL, POLICY_VERSION, PetPolicyError, apply_active_slot_swap, endurance_after_elapsed, level_effects, spend_activity_endurance, validate_activity, validate_expedition_decision
-from core.chests_v1 import FOODS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
+from core.chests_v1 import FOODS, KEY_SOURCE_COUNTS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
 from core.echo_shards_v1 import MaxDuplicateCompensation
 from services.echo_shards_v1 import EchoShardReceipt, compensate_max_duplicate_in_transaction
 from uuid import uuid4
@@ -30,7 +30,10 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             db, user_id=int(user_id), source_kind=grant.source_kind, source_event_id=grant.source_event_id,
         )
         if existing:
-            grant_id, after = str(existing["id"]), int(existing["balance_after"])
+            grant_id = str(existing["id"])
+            after = int(existing["balance_before"]) + await chest_repo.grant_total(
+                db, user_id=int(user_id), source_kind=grant.source_kind,
+                source_event_id=grant.source_event_id)
         else:
             account = await chest_repo.lock_account(db, int(user_id))
             grant_id = uuid4().hex
@@ -39,6 +42,12 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
                 source_event_id=grant.source_event_id, amount=1, policy_version=CHEST_POLICY_VERSION,
                 source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
                 balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
+            )
+            after = await chest_repo.apply_bonus_grants(
+                db, user_id=int(user_id), source_kind=grant.source_kind,
+                source_event_id=grant.source_event_id, policy_version=CHEST_POLICY_VERSION,
+                source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
+                balance_before=after, account_epoch=int(account["account_epoch"]),
             )
         await repo.save_activity_reward(
             db, run_id=str(run["id"]), user_id=int(user_id), activity_kind=kind, key_grant_id=grant_id,
@@ -56,7 +65,10 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             source_snapshot={"run_id": str(run["id"]), "activity_kind": kind,
                              "duration_hours": int(run["duration_hours"]), "pet_id": int(run["pet_id"])},
         )
-        receipts.append({"run_id": str(run["id"]), "activity_kind": kind, "amount_keys": 1,
+        receipts.append({"run_id": str(run["id"]), "activity_kind": kind,
+                         "amount_keys": await chest_repo.grant_total(
+                             db, user_id=int(user_id), source_kind=grant.source_kind,
+                             source_event_id=grant.source_event_id),
                          "key_balance": after})
     return receipts
 
@@ -181,7 +193,8 @@ async def overview(db, user_id: int) -> dict:
             "durations":[3,6,9],"activity":activity,"economy_enabled":True,
             "food": food, "activity_rewards": activity_rewards,
             "activity_costs": ACTIVITY_ENDURANCE_COST,
-            "activity_reward_label": "За завершённый поход или экспедицию: 1 ключ"}
+            "activity_reward_label": "За завершённый поход: 1 ключ, за экспедицию: 2 ключа",
+            "activity_key_counts": {"trek": KEY_SOURCE_COUNTS["pet_trek_complete"], "expedition": KEY_SOURCE_COUNTS["pet_expedition_complete"]}}
 
 
 async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: str) -> dict:

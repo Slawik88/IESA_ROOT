@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from typing import Any
+from uuid import uuid4
 
 
 async def ensure_tables(db) -> None:
@@ -60,7 +61,7 @@ async def ensure_tables(db) -> None:
           IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chest_key_grants_v1_source_kind_release') THEN
             ALTER TABLE chest_key_grants_v1 ADD CONSTRAINT chest_key_grants_v1_source_kind_release
             CHECK(source_kind IN ('quest_daily_set_complete','quest_weekly_set_complete','zarniki_purchase',
-                                  'pet_trek_complete','pet_expedition_complete'));
+                                  'pet_trek_complete','pet_expedition_complete','vip_daily_milestone'));
           END IF;
         END $$
     """)
@@ -328,6 +329,19 @@ async def find_grant(
     return dict(row) if row else None
 
 
+async def grant_total(
+    db, *, user_id: int, source_kind: str, source_event_id: str,
+) -> int:
+    """Keys actually written for one source event (base grant plus its '#k<n>' extras)."""
+    async with db.execute(
+        "SELECT COALESCE(SUM(amount),0) FROM chest_key_grants_v1 "
+        "WHERE user_id=? AND source_kind=? AND (source_event_id=? OR source_event_id LIKE ?)",
+        (int(user_id), str(source_kind), str(source_event_id), str(source_event_id).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "#k%"),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
 async def get_balance(db, user_id: int) -> int:
     async with db.execute(
         "SELECT balance FROM chest_key_accounts_v1 WHERE user_id=?", (int(user_id),)
@@ -398,6 +412,29 @@ async def apply_grant(
     )
     return balance_after
 
+
+
+async def apply_bonus_grants(
+    db, *, user_id: int, source_kind: str, source_event_id: str, policy_version: str,
+    source_snapshot: dict[str, Any], source_snapshot_hash: str, balance_before: int,
+    account_epoch: int = 0,
+) -> int:
+    """Write the extra single-key grants of an event right after its base grant.
+
+    Returns the balance after the last extra (or ``balance_before`` when the source
+    gives one key).  The caller holds the account lock and the surrounding
+    transaction, so the extras commit or roll back together with the base grant.
+    """
+    from core.chests_v1 import key_grant_event_ids
+    balance = int(balance_before)
+    for event_id in key_grant_event_ids(source_kind, source_event_id)[1:]:
+        balance = await apply_grant(
+            db, grant_id=uuid4().hex, user_id=int(user_id), source_kind=source_kind,
+            source_event_id=event_id, amount=1, policy_version=policy_version,
+            source_snapshot=source_snapshot, source_snapshot_hash=source_snapshot_hash,
+            balance_before=balance, account_epoch=int(account_epoch),
+        )
+    return balance
 
 async def find_open_by_action(db, *, user_id: int, action_id: str) -> dict[str, Any] | None:
     async with db.execute(
@@ -502,14 +539,28 @@ async def reveal_open(db, *, user_id: int, open_id: str, economy_operation_id: s
         return bool(await cursor.fetchone())
 
 
-async def next_unspent_grant(db, *, user_id: int, account_epoch: int) -> dict[str, Any] | None:
+async def next_unspent_grant(
+    db, *, user_id: int, account_epoch: int,
+    catalog_version: str | None = None, catalog_digest: str | None = None,
+) -> dict[str, Any] | None:
+    """Oldest unspent key. With a catalog given, paid keys bought under another
+    catalog are skipped so one stale key cannot lock the player's other keys."""
+    stale_filter = ""
+    params: list[Any] = [int(user_id), int(account_epoch)]
+    if catalog_version is not None and catalog_digest is not None:
+        stale_filter = (
+            "AND (g.source_kind<>'zarniki_purchase' OR ("
+            "g.source_snapshot->>'catalog_version'=? AND g.source_snapshot->>'catalog_digest'=?)) "
+        )
+        params += [str(catalog_version), str(catalog_digest)]
     async with db.execute(
         "SELECT g.* FROM chest_key_grants_v1 g "
         "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
         "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
         "WHERE g.user_id=? AND g.account_epoch=? AND a.grant_id IS NULL AND v.grant_id IS NULL "
+        + stale_filter +
         "ORDER BY g.created_at,g.id LIMIT 1 FOR UPDATE OF g",
-        (int(user_id), int(account_epoch)),
+        tuple(params),
     ) as cursor:
         row = await cursor.fetchone()
     return dict(row) if row else None

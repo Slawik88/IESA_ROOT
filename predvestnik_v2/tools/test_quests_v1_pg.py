@@ -89,19 +89,22 @@ async def run(dsn: str) -> None:
         assert daily_reward['reward_result']['amount_mora'] == 20
         assert weekly_reward['reward_result']['amount_mora'] == 100
         assert combined_reward['reward_result']['amount_mora'] == 75
-        assert daily_reward['reward_result']['amount_keys'] == 1
-        assert weekly_reward['reward_result']['amount_keys'] == 1
+        assert daily_reward['reward_result']['amount_keys'] == 2
+        assert weekly_reward['reward_result']['amount_keys'] == 3
         assert combined_reward['reward_result']['amount_keys'] == 0
-        assert await chest_repo.get_balance(db, user) == 2
+        assert await chest_repo.get_balance(db, user) == 5
         assert 'chests' in await quests_v1.available_sources(db, user_id=user)
         repeat = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='combined', sources=sources)
         assert repeat['reward_result']['already_claimed']
-        assert await chest_repo.get_balance(db, user) == 2
-        async with db.execute('SELECT source_kind,source_event_id FROM chest_key_grants_v1 WHERE user_id=? ORDER BY source_kind', (user,)) as cursor:
+        assert await chest_repo.get_balance(db, user) == 5
+        async with db.execute('SELECT source_kind,source_event_id FROM chest_key_grants_v1 WHERE user_id=? ORDER BY source_kind,source_event_id', (user,)) as cursor:
             key_sources = [tuple(row) for row in await cursor.fetchall()]
         assert key_sources == [
             ('quest_daily_set_complete', f"daily:{complete['daily']['period_key']}"),
+            ('quest_daily_set_complete', f"daily:{complete['daily']['period_key']}#k2"),
             ('quest_weekly_set_complete', f"weekly:{complete['weekly']['period_key']}"),
+            ('quest_weekly_set_complete', f"weekly:{complete['weekly']['period_key']}#k2"),
+            ('quest_weekly_set_complete', f"weekly:{complete['weekly']['period_key']}#k3"),
         ]
         async with db.execute('SELECT COUNT(*) FROM quest_v1_reward_receipts WHERE user_id=?', (user,)) as cursor:
             assert (await cursor.fetchone())[0] == 3

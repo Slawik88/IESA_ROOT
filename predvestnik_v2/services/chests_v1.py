@@ -110,10 +110,13 @@ async def grant_quest_completion_key_in_transaction(
     if replay:
         if not _same_facts(replay, grant, int(user_id), snapshot_hash):
             raise ChestKeyConflict("Chest-key source identity is bound to different facts.")
+        total = await repo.grant_total(
+            db, user_id=int(user_id), source_kind=grant.source_kind,
+            source_event_id=grant.source_event_id)
         return KeyGrantReceipt(
-            grant_id=str(replay["id"]), applied=False, amount=int(replay["amount"]),
+            grant_id=str(replay["id"]), applied=False, amount=total,
             balance_before=int(replay["balance_before"]),
-            balance_after=int(replay["balance_after"]),
+            balance_after=int(replay["balance_before"]) + total,
         )
     account = await repo.lock_account(db, int(user_id))
     before = int(account["balance"])
@@ -125,8 +128,14 @@ async def grant_quest_completion_key_in_transaction(
         source_snapshot_hash=snapshot_hash, balance_before=before,
         account_epoch=int(account["account_epoch"]),
     )
+    after = await repo.apply_bonus_grants(
+        db, user_id=int(user_id), source_kind=grant.source_kind,
+        source_event_id=grant.source_event_id, policy_version=POLICY_VERSION,
+        source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
+        balance_before=after, account_epoch=int(account["account_epoch"]),
+    )
     return KeyGrantReceipt(
-        grant_id=grant_id, applied=True, amount=grant.amount,
+        grant_id=grant_id, applied=True, amount=after - before,
         balance_before=before, balance_after=after,
     )
 
@@ -328,17 +337,11 @@ async def prepare_free_open(
             raise ChestKeyConflict("Нужен один ключ от сундука.")
         grant = await repo.next_unspent_grant(
             db, user_id=int(user_id), account_epoch=int(account["account_epoch"]),
+            catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
         )
         if not grant:
-            raise RuntimeError("Key balance has no matching entitlement receipt.")
-        if str(grant["source_kind"]) == "zarniki_purchase":
-            snapshot = grant.get("source_snapshot") or {}
-            if isinstance(snapshot, str):
-                import json
-                snapshot = json.loads(snapshot)
-            if (str(snapshot.get("catalog_version")) != CATALOG_VERSION
-                    or str(snapshot.get("catalog_digest")) != catalog_digest()):
-                raise ChestKeyConflict("Купленный ключ привязан к недоступной версии каталога.")
+            # Only paid keys of a retired catalog are left (balance >= 1 was checked above).
+            raise ChestKeyConflict("Купленный ключ привязан к недоступной версии каталога.")
         vip_ids: tuple[str, ...] = ()
         if await vip.is_vip_active(db, int(user_id)):
             vip_ids = tuple(await repo.vip_cosmetic_candidates(

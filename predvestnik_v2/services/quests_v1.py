@@ -28,7 +28,8 @@ class QuestConflict(QuestError):
 # owner-approved completion milestones.
 REWARD_POLICY_VERSION = 'quest-rewards-v1-2026-09-06'
 REWARD_MORA = {'daily': 20, 'weekly': 100, 'combined': 75}
-REWARD_KEYS = {'daily': 1, 'weekly': 1, 'combined': 0}
+from core.chests_v1 import KEY_SOURCE_COUNTS as _KEY_COUNTS
+REWARD_KEYS = {'daily': _KEY_COUNTS['quest_daily_set_complete'], 'weekly': _KEY_COUNTS['quest_weekly_set_complete'], 'combined': 0}
 # Essence (skin upgrades only, see core/skins_v3.py) is the quest-side source of that currency.
 REWARD_ESSENCE = ESSENCE_QUEST_REWARD
 
@@ -261,16 +262,16 @@ async def _overview_locked(db, *, user_id: int, keys: dict[str, str], vip_active
     actual_key_grants = {}
     for kind in ('daily', 'weekly'):
         source_kind = f'quest_{kind}_set_complete'
-        actual_key_grants[kind] = bool(await chest_repo.find_grant(
+        actual_key_grants[kind] = await chest_repo.grant_total(
             db, user_id=user_id, source_kind=source_kind,
             source_event_id=reward_ids[kind],
-        ))
+        )
     completion = {'daily': all_daily, 'weekly': all_weekly, 'combined': all_daily and all_weekly}
     rewards = {
         kind: {
             'amount_mora': reward_mora(kind, vip_active=vip_active),
             'amount_essence': REWARD_ESSENCE[kind],
-            'amount_keys': (1 if claimed[kind] and actual_key_grants.get(kind) else
+            'amount_keys': (actual_key_grants[kind] if claimed[kind] and actual_key_grants.get(kind) else
                             REWARD_KEYS[kind] if not claimed[kind] and chests_enabled else 0),
             'claimed': claimed[kind],
             'claimable': completion[kind] and not claimed[kind],

@@ -295,14 +295,15 @@
     const seg = PET_ACTIVITY_KINDS.map((kind) => (
       `<button type="button" role="tab" aria-selected="${kind === _petKind}" onclick="petKind('${kind}')">${kind === 'trek' ? 'Поход' : 'Экспедиция'}</button>`
     )).join('');
-    const hint = _petKind === 'trek' ? 'Спокойная прогулка. По возвращении: 1 🗝.' : 'После таймера выберешь маршрут. По итогу: 1 🗝.';
+    const keys = data.activity_key_counts || { trek: 1, expedition: 1 };
+    const hint = _petKind === 'trek' ? `Спокойная прогулка. По возвращении: ${keys.trek} 🗝.` : `После таймера выберешь маршрут. По итогу: ${keys.expedition} 🗝.`;
     const title = _petKind === 'trek' ? 'Поход' : 'Экспедиция';
     const buttons = data.durations.map((hours) => {
       const cost = Number(costs[hours]) || 0;
       const locked = !activePet || endurance < cost;
       const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
       return `<button type="button" class="pt-go" onclick="petsV1Start('${_petKind}',${hours})" ${locked ? 'disabled' : ''}`
-        + ` aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
+        + ` aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда ${_petKind === 'trek' ? keys.trek : keys.expedition} 🗝">`
         + `<b>${hours} ч</b><small>${cost} ⚡</small></button>`;
     }).join('');
     const minCost = Math.min(...data.durations.map((h) => Number(costs[h]) || 0));
@@ -497,7 +498,7 @@
   };
   window.petsV1Choose=function(decision){
     const key=`decision:${decision}`,action=_pendingAction(_petsV1PendingActions,key,'pet-decision-');
-    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(d.amount_keys?'Экспедиция завершена · +1 🗝':'Маршрут выбран');openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
+    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(d.amount_keys?`Экспедиция завершена · +${d.amount_keys} 🗝`:'Маршрут выбран');openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
   };
   let _chestsV1Data=null,_chestsV1Busy=false,_chestsV1Prepared=null,_chestsV1LastResult=null;
   function chestRewardText(reward){
@@ -598,7 +599,7 @@
     const rewardTotal=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_mora)||0),0),rewardEssence=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_essence)||0),0);
     const rewards=rewardKinds.map(kind=>questRewardCard(kind,rewardItems[kind]||{amount_mora:0},daily,weekly)).join('');
     const periodReward=Number(rewardItems[period]?.amount_mora)||0,periodEssence=Number(rewardItems[period]?.amount_essence)||0,periodKeys=_sysFlags.content_chests_v1?(Number(rewardItems[period]?.amount_keys)||0):0;
-    const keySummary=_sysFlags.content_chests_v1?' + 2 🗝 за день и неделю':'',keyBalance=_sysFlags.content_chests_v1?`<div class="quest-head-stats"><small>У тебя</small><b>${Number(d.rewards?.key_balance)||0} 🗝</b></div>`:'';
+    const keySummary=_sysFlags.content_chests_v1?` + ${(Number(rewardItems.daily?.amount_keys)||0)+(Number(rewardItems.weekly?.amount_keys)||0)} 🗝 за день и неделю`:'',keyBalance=_sysFlags.content_chests_v1?`<div class="quest-head-stats"><small>У тебя</small><b>${Number(d.rewards?.key_balance)||0} 🗝</b></div>`:'';
     const content=_questsV1Tab==='rewards'?`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-rewards"><div class="quest-section-head"><div><span>Три понятные цели</span><h2>${rewardTotal} 🪙${rewardEssence?` + ${rewardEssence} Эссенции`:''}${keySummary}</h2></div>${keyBalance}</div><div class="quest-reward-list">${rewards}</div><p class="quest-policy">${esc(d.rewards?.message||'')}</p></section>`:`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${period}"><div class="quest-section-head"><div><span>${period==='daily'?'Сегодня':'Эта неделя'}</span><h2>${active.done}/${active.total} выполнено → ${periodReward} 🪙${periodEssence?` + ${periodEssence} Эссенции`:''}${periodKeys?` + ${periodKeys} 🗝`:''}</h2></div><div class="quest-head-stats"><b>${active.percent}%</b><small>↻ ${rr.remaining||0}/${rr.limit||0}</small></div></div><div class="quest-list">${tasks||'<div class="quest-empty"><b>Нет доступных заданий</b><span>Как только откроется доступная игра, задания появятся здесь.</span><button onclick="openQuestsV1()">Обновить</button></div>'}</div></section>`;
     const tab=(id,label)=>`<button id="quest-tab-${id}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" class="${_questsV1Tab===id?'is-active':''}" onclick="questsV1SetTab('${id}')" onkeydown="questsV1TabKey(event)" aria-controls="quest-panel">${label}</button>`;
     root.innerHTML=`<header class="quest-head"><h1 class="v3-title">Задания${v3GlintMark('Задания')}</h1><p class="v3-sub">Цели на день и неделю. За них дают Мору и Эссенцию для образов.</p></header><nav class="quest-tabs" role="tablist" aria-label="Разделы квестов">${tab('daily',`Сегодня <span>${daily.done}/${daily.total}</span>`)}${tab('weekly',`Неделя <span>${weekly.done}/${weekly.total}</span>`)}${tab('rewards','Награды')}</nav>${content}`;
