@@ -323,8 +323,8 @@
 
   function petBestiaryCard(pet) {
     const state = pet.owned ? 'is-owned' : 'is-locked';
-    const icon = pet.owned ? esc(pet.icon) : '?';
-    const name = pet.owned ? esc(pet.name) : 'Неизвестный питомец';
+    const icon = esc(pet.icon);
+    const name = esc(pet.name);
     return `<button type="button" class="bestiary-card ${state} ${petRarityClass(pet.rarity)}" data-rar="${esc(pet.rarity)}" onclick="petDexOpen('${esc(pet.id)}')"`
       + ` aria-label="${name}, ${esc(petRarityName(pet.rarity))}, подробнее"><span class="bc-ic" aria-hidden="true">${icon}</span>`
       + `<b>${name}</b><small>${esc(petRarityName(pet.rarity))}</small>`
@@ -377,6 +377,7 @@
     return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="${esc(pet.name)}">
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
+      <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
       ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
     </section>${action}`;
   }
@@ -444,6 +445,38 @@
     });
     window.scrollTo?.({ top: 0 });
   };
+  function petInfoBody(sp, mine, data) {
+    const info = sp.info || {};
+    const feat = data.features || {};
+    const soon = (feature) => (feature && !feat[feature] ? ' <em class="pt-soon">скоро</em>' : '');
+    const list = (rows) => `<ul class="pt-sheet-list">${rows.join('')}</ul>`;
+    const row = (title, text) => `<li><b>${esc(title)}</b><span>${text}</span></li>`;
+    const out = [`<p class="pt-lore">${esc(sp.lore || '')}</p>`];
+    if (mine.length) {
+      out.push('<h4>У тебя</h4>' + list(mine.map((p) => row(p.name, `${petStage(p)} · ⚡ ${p.endurance}/100`))));
+    } else {
+      out.push('<p class="pt-note">Этот питомец ещё не найден. Карточки выпадают из сундуков.</p>');
+    }
+    const t = info.trail_traits;
+    if (t) {
+      const sign = (n) => (n > 0 ? `+${n}` : String(n));
+      out.push(`<h4>Особенности вида${soon('trail')}</h4>` + list([
+        row('Любимое место', esc(t.favorite_route)),
+        row('Запас сил', `${sign(t.energy_bonus)} к запасу`),
+        row('Отдых', `${sign(t.rest_bonus)} к восстановлению в час`),
+        row('Чаще находит', esc(t.favored_find)),
+      ]));
+    }
+    out.push('<h4>Что даёт уровень</h4>' + list((data.level_milestones || []).map((m) => row(`Ур. ${m.level}`, esc(m.text)))));
+    const src = (info.card_sources || []).map((x) => `${x.stars}★ · ${x.percent}%`).join(', ');
+    out.push('<h4>Откуда берётся</h4>' + list([row('Карточки в сундуках', esc(src) + '<br>Доля карточек этой редкости среди всех карточек сундука этой звёздности.')]));
+    const c = info.level_cost;
+    if (c) {
+      out.push(`<h4>Как прокачать${soon('level_up')}</h4>` + list([row(`С 1 до ${c.max_level} уровня`, `${fmt(c.cards)} карточек вида · ${fmt(c.mora)} 🪙 · ${fmt(c.essence)} 🔮`)]));
+    }
+    out.push('<h4>Где пригодится</h4>' + list((info.uses || []).map((u) => `<li><span>${esc(u.text)}${soon(u.feature)}</span></li>`)));
+    return out.join('');
+  }
   window.petDexOpen = function (id) {
     const data = _petData || {};
     const sp = (data.bestiary || []).find((x) => String(x.id) === String(id));
@@ -451,18 +484,11 @@
     const mine = (data.pets || []).filter((p) => p.species_id === sp.id);
     const root = el('pg-pets');
     root.querySelector('.pt-sheet-wrap')?.remove();
-    const stats = mine.length
-      ? mine.map((p) => `<li><b>${esc(p.name)}</b><span>${petStage(p)} · ⚡ ${p.endurance}/100</span></li>`).join('')
-      : '';
-    const body = sp.owned
-      ? `<p class="pt-lore">${esc(sp.lore || '')}</p><h4>У тебя</h4><ul class="pt-sheet-list">${stats}</ul>`
-        + '<p class="pt-note">Растёт по уровням от 1 до 16, вместе с уровнем меняется облик.</p>'
-      : `<p class="pt-lore">Этот питомец ещё не найден. Он может выпасть из сундука: ищи карточки питомцев среди наград.</p>`
-        + `<p class="pt-note">Редкость: ${esc(petRarityName(sp.rarity))}.</p>`;
+    const body = petInfoBody(sp, mine, data);
     const wrap = document.createElement('div');
     wrap.className = 'pt-sheet-wrap';
-    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}">`
-      + `<span class="pt-ic" aria-hidden="true">${sp.owned ? esc(sp.icon) : '?'}</span><small>${esc(petRarityName(sp.rarity))}</small><h3>${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}</h3>${body}`
+    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
+      + `<span class="pt-ic" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
       + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();

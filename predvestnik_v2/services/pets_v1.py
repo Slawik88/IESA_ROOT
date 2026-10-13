@@ -7,6 +7,7 @@ from infrastructure.repositories import pets_v1 as repo
 from infrastructure.repositories import chests_v1 as chest_repo, economy_ledger, system_flags
 from core.pets_v1 import MAX_LEVEL, POLICY_VERSION, PetPolicyError, apply_active_slot_swap, endurance_after_elapsed, level_effects, spend_activity_endurance, validate_activity, validate_expedition_decision
 from core.chests_v1 import FOODS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
+from core.pet_info_v1 import level_milestones, species_info
 from core.echo_shards_v1 import MaxDuplicateCompensation
 from services.echo_shards_v1 import EchoShardReceipt, compensate_max_duplicate_in_transaction
 from uuid import uuid4
@@ -174,7 +175,7 @@ async def overview(db, user_id: int) -> dict:
     bestiary = [
         {"id": species_id, "name": row["name"], "rarity": row["rarity"],
          "icon": row["icon"], "owned": species_id in owned_species,
-         "lore": PET_LORE.get(species_id, "")}
+         "lore": PET_LORE.get(species_id, ""), "info": species_info(species_id)}
         for species_id, row in PET_SPECIES.items()
     ]
     from services.pet_levels_v1 import next_step   # lazy: that module imports PetConflict from here
@@ -185,6 +186,12 @@ async def overview(db, user_id: int) -> dict:
             "bestiary_owned": sum(1 for item in bestiary if item["owned"]),
             "bestiary_total": len(bestiary),
             "route_options": route_options,
+            "features": {
+                "route_rewards": await route_rewards_enabled(db),
+                "level_up": await system_flags.is_enabled(db, "pets_level_up_v1"),
+                "trail": await system_flags.is_enabled(db, "pets_v2"),
+            },
+            "level_milestones": level_milestones(),
             "durations":[3,6,9],"activity":activity,"economy_enabled":True,
             "food": food, "activity_rewards": activity_rewards,
             "activity_costs": ACTIVITY_ENDURANCE_COST,
