@@ -60,8 +60,13 @@ class Post(models.Model):
         """
         from django.db.models import Q
         
+        from .utils.querysets import related_count
+        recommendations = Post.objects.annotate(
+            likes_count=related_count(Like, 'post_id'),
+            comments_count=related_count(Comment, 'post_id'),
+        )
         # Get posts by same author (excluding self)
-        same_author = Post.objects.filter(
+        same_author = recommendations.filter(
             author=self.author,
             status='published'
         ).exclude(pk=self.pk).order_by('-created_at')[:limit]
@@ -70,7 +75,7 @@ class Post(models.Model):
         same_author_list = list(same_author)
         if len(same_author_list) < limit:
             remaining = limit - len(same_author_list)
-            other_posts = Post.objects.filter(
+            other_posts = recommendations.filter(
                 status='published'
             ).exclude(
                 Q(pk=self.pk) | Q(author=self.author)

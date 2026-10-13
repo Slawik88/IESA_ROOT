@@ -1631,7 +1631,7 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   }
 
   .partner-portal-shell .dash-nav-section--account {
-    display: none;
+    display: contents;
   }
 
   .partner-portal-shell .dash-nav-section-label {
@@ -1684,6 +1684,9 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
 
   .partner-portal-shell .dash-topbar {
     position: static;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
     min-height: 74px;
     padding: 14px 16px;
     border-color: var(--pp-line);
@@ -1707,7 +1710,9 @@ body:has(.partner-portal-shell .cal-date-overlay.open) main#main-content {
   }
 
   .partner-portal-shell .dash-topbar__actions {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .partner-portal-shell .dash-content {

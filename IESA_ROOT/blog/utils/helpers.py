@@ -1,6 +1,5 @@
 """Вспомогательные функции"""
 
-from django.db.models import Q
 
 
 def get_client_ip(request):

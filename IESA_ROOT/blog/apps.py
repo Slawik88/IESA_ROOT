@@ -6,5 +6,5 @@ class BlogConfig(AppConfig):
     name = 'blog'
     
     def ready(self):
-        import blog.signals
+        import blog.signals  # noqa: F401 -- registers model signal handlers
         from . import translation  # noqa: F401

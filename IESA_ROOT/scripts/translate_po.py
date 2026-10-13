@@ -3,7 +3,6 @@
 Bulk-translate all untranslated msgid==msgstr entries in DE and FR .po files.
 Project-specific strings only (Django framework strings are skipped).
 """
-import re
 import os
 
 # ============================================================

@@ -2436,7 +2436,8 @@ html.js .iesa-article:not(.article-visible) {
 @media (max-width: 767px) {
     .iesa-article--featured .art-no-image {
         width: 100%;
-        min-height: 150px;
+        height: 150px;
+        min-height: 0;
         border-right: none;
         border-bottom: 1.5px solid rgba(255,255,255,.06);
     }

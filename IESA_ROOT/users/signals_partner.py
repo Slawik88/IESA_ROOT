@@ -32,7 +32,6 @@ def create_partner_profile_on_group_add(sender, instance, action, reverse, model
             
             # Clear user's session cache to update group membership
             # This is critical - Django caches groups in the session
-            from django.contrib.auth import get_backends
             from django.core.cache import cache
             
             # Clear Django's permission cache for this user

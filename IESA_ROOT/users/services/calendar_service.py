@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import calendar as _cal_mod
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 

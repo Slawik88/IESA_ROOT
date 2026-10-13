@@ -10,7 +10,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from ..constants import EDIT_WINDOW, IDEMPOTENCY_WINDOW, PIN_LOCKOUT_MINUTES, PIN_MAX_ATTEMPTS
+from ..constants import EDIT_WINDOW
 from ..forms_verification import CancelVisitForm, EditVisitForm, MemberSearchForm, PartnerProfileForm, VisitForm
 from ..models import Partner, User, Visit, VisitAudit
 from .utils import _try_parse_uuid, partner_required
@@ -256,9 +256,13 @@ def partner_member_visits(request, member_id):
     member  = get_object_or_404(User, id=member_id)
     now = timezone.now()
     member_visits = Visit.objects.filter(partner=partner, member=member).order_by('-timestamp')
-    total         = member_visits.count()
-    total_revenue = member_visits.aggregate(r=Sum('cost'))['r'] or 0
-    verified_count = member_visits.filter(pin_verified=True).count()
+    stats = member_visits.aggregate(
+        total=Count('pk'), revenue=Sum('cost'),
+        verified=Count('pk', filter=Q(pin_verified=True)),
+    )
+    total = stats['total']
+    total_revenue = stats['revenue'] or 0
+    verified_count = stats['verified']
     last_visit    = member_visits.first()
     page_obj = Paginator(member_visits, 20).get_page(request.GET.get('page'))
     return render(request, 'users/partner_member_visits.html', {

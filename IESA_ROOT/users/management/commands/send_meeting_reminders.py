@@ -9,7 +9,7 @@
 С --hours 1 — о встречах через 1 час.
 """
 import logging
-from datetime import date, timedelta, datetime, time
+from datetime import timedelta, datetime
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -43,7 +43,6 @@ class Command(BaseCommand):
         now      = timezone.localtime()
         target   = now + timedelta(hours=hours)
         t_date   = target.date()
-        t_hour   = target.hour
 
         self.stdout.write(
             f"[send_meeting_reminders] hours={hours} target={target.strftime('%Y-%m-%d %H:%M')} dry_run={dry_run}"

@@ -6,8 +6,7 @@ import os
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
-from django.middleware.csrf import get_token
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -18,7 +17,7 @@ from ..constants import WEBHOOK_RATE_LIMIT
 from ..models import User
 from users.telegram import (
     consume_link_code, get_webhook_info, init_bot_commands,
-    is_configured as _token_configured, process_incoming_update,
+    process_incoming_update,
     send_message, set_webhook, token as _token, verify_telegram_auth,
     webhook_secret as _webhook_secret,
 )

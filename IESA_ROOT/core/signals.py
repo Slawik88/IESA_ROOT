@@ -8,11 +8,11 @@
 import logging
 from django.core.cache import cache
 from django.db.models.signals import post_save, post_delete
-from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
 
 _IDX_KEYS = {
+    'Product':          'idx:products',
     'CoreProduct':      'idx:core_products',
     'President':        'idx:president',
     'Partner':          'idx:partners',
@@ -41,6 +41,9 @@ def connect_signals():
         _models = [CoreProduct, President, Partner, AssociationMember, MemberBenefit, Event]
     except ImportError:
         _models = [CoreProduct, President, Partner, AssociationMember, MemberBenefit]
+
+    from products.models import Product
+    _models.append(Product)
 
     for model in _models:
         post_save.connect(_invalidate_index_cache, sender=model, weak=False)

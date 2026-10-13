@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% load static %}
+{% load static blog_filters %}
 
 {% block title %}{{ post.title }} | IESA{% endblock %}
 
@@ -204,7 +204,7 @@
                     </div>
 
                     <div class="pd-content">
-                        {{ post.text|safe }}
+                        {{ post.text|safe_post_html }}
                     </div>
                 </div>
             </article>
@@ -272,8 +272,8 @@
                             <div class="pd-rec-card__body">
                                 <div class="pd-rec-card__title">{{ post_rec.title }}</div>
                                 <div class="pd-rec-card__meta">
-                                    <span><i class="fas fa-heart me-1"></i>{{ post_rec.likes.count }}</span>
-                                    <span><i class="fas fa-comment me-1"></i>{{ post_rec.comments.count }}</span>
+                                    <span><i class="fas fa-heart me-1"></i>{{ post_rec.likes_count }}</span>
+                                    <span><i class="fas fa-comment me-1"></i>{{ post_rec.comments_count }}</span>
                                     <span><i class="fas fa-eye me-1"></i>{{ post_rec.views_count }}</span>
                                 </div>
                             </div>

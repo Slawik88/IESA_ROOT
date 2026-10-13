@@ -12,8 +12,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods, require_POST
 
-from ..constants import EDIT_WINDOW
-from ..models import Meeting, Partner, User
+from ..models import Meeting, User
 from ..services.calendar_service import (
     build_month_grid, get_jump_options, mark_selected, serialize_day_meetings,
 )

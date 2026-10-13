@@ -60,11 +60,10 @@
     /* Body scroll lock for mobile menu */
     function lockScroll() {
         document.body.style.overflow = 'hidden';
-        document.body.style.touchAction = 'none';
         document.body.classList.add('mobile-menu-open');
     }
     function unlockScroll() {
-        document.body.style.overflow = '';
+        document.body.style.overflow = document.body.classList.contains('modal-open') ? 'hidden' : '';
         document.body.style.touchAction = '';
         document.body.classList.remove('mobile-menu-open');
     }
@@ -75,6 +74,7 @@
         window.addEventListener('scroll', onScroll, { passive: true });
         window.addEventListener('resize', function () {
             if (isMobile() && hidden) show();
+            if (!isMobile() && document.body.classList.contains('mobile-menu-open')) unlockScroll();
         });
 
         /* Collapse events для мобильного меню Bootstrap */
