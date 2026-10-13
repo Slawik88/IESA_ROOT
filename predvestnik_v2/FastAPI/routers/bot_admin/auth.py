@@ -10,7 +10,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_rank
 from infrastructure.preprod import require_preprod_user
-from services import admin_people, admin_security
+from services import admin_access, admin_people, admin_security
 
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
 SECTIONS: dict[str, tuple[str, int]] = {
@@ -47,16 +47,26 @@ async def staff_user(x_init_data: str = Header(default=""), x_session_token: str
     revoked = await admin_security.revoked_before(db, int(user_id))
     if revoked and (issued is None or issued <= int(revoked)):   # вход начат до «завершить сессии» (время в целых секундах): нужен новый
         raise HTTPException(401, "Сессии завершены. Откройте админку заново: напишите боту «бот админка».")
-    return {"id": int(user_id), "rank": rank}
+    return admin_access.staff_principal(int(user_id), rank)
+
+
+def guard(dep):
+    """Метка «эта зависимость — страж админки»: по ней тест-страж находит открытые маршруты."""
+    dep.admin_guard = True
+    return dep
+
+
+guard(staff_user)
 
 
 def section(key: str):
     """Зависимость: пользователь с ролью не ниже нужной для раздела."""
     async def check(user=Depends(staff_user)) -> dict:
+        admin_access.require_staff(user)
         if user["rank"] < SECTIONS[key][1]:
             raise HTTPException(403, f"Раздел «{SECTIONS[key][0]}» вам недоступен.")
         return user
-    return check
+    return guard(check)
 
 
 # Кука разработчика: при выключенном сайте обычная загрузка страниц идёт без заголовков

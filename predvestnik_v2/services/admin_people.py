@@ -43,7 +43,7 @@ ACTION_TITLES = {
     "switch": "Выключатель", "transfer": "Валюты для переводов", "report_settings": "Настройки жалоб", "digest_settings": "Ежедневный отчёт владельцу",
     "note_add": "Заметка об игроке", "note_remove": "Заметка убрана",
     "watch_add": "Игрок поставлен на контроль", "watch_remove": "Игрок снят с контроля",
-    "sessions_revoke": "Завершены сессии админки",
+    "sessions_revoke": "Завершены сессии админки", "grant": "Права ролей изменены",
     "report_in_work": "Жалоба взята в работу", "report_resolved": "Жалоба: нарушение подтверждено",
     "report_rejected": "Жалоба отклонена", "broadcast": "Рассылка", "broadcast_stop": "Рассылка остановлена или отменена",
     "broadcast_resume": "Рассылка продолжена", "broadcast_template": "Шаблон рассылки",
@@ -323,7 +323,7 @@ FEED_KINDS = {
     "chats": ("Чаты", ("message", "leave")),
     "promo": ("Промокоды", ("promo_create", "promo_update", "promo_active", "promo_bulk")),
     "switches": ("Функции", ("switch",)),
-    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke")),
+    "settings": ("Настройки", ("transfer", "report_settings", "digest_settings", "sessions_revoke", "grant")),
     "broadcast": ("Рассылка", ("broadcast", "broadcast_stop", "broadcast_resume", "broadcast_template")),
     "reports": ("Жалобы", ("report_in_work", "report_resolved", "report_rejected")),
 }

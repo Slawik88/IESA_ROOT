@@ -22,7 +22,7 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
+from services import admin_access, admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -247,6 +247,7 @@ async def grantable_marks(user=Depends(_user)):
 @router.post("/players/bulk")
 async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     """Одно действие для нескольких игроков (до 50): метка, снять варны везде, на контроль. Каждый игрок проверяется отдельно."""
+    admin_access.require_staff(user)   # массовые операции затрагивают игроков всей платформы: владельцам чатов закрыты
     action = str(data.get("action") or "")
     if action not in BULK_ACTIONS:
         raise HTTPException(400, "Это действие для нескольких игроков недоступно.")
@@ -307,6 +308,7 @@ async def players_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
 
 @router.get("/chat/{cid}")
 async def chat_card(cid: int, user=Depends(_user), db=Depends(get_db)):
+    admin_access.require_chat(user, cid)
     card = await admin_people.chat(db, cid)
     if not card:
         raise HTTPException(404, "Чат не найден.")
@@ -324,6 +326,7 @@ async def chat_sanctions(cid: int, kind: str = "bans", offset: int = 0, user=Dep
     """Следующая страница банов, мутов или варнов чата («Показать ещё»)."""
     if kind not in admin_people.SANCTION_KINDS:
         raise HTTPException(400, "Нет такого списка.")
+    admin_access.require_chat(user, cid)
     await _known_chat(db, cid)
     return await admin_people.chat_sanctions(db, cid, kind, offset)
 
@@ -346,6 +349,7 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
 
     if scope == "member":
         chat_id = int(data.get("chat_id") or 0)
+        admin_access.require_chat(user, chat_id)
         await _known_chat(db, chat_id)
         bot = get_bot()
         try:
@@ -495,6 +499,7 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
 async def chat_action(cid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
     action = str(data.get("action") or "")
     _check(user, action, "chat")
+    admin_access.require_chat(user, cid)
     await _known_chat(db, cid)
     admin_security.rate_limit(user, action)
     actor, reason = user["id"], _reason(data)
