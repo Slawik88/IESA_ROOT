@@ -34,6 +34,10 @@ SCREENS = [
     ("store-vip", "openStoreV3('vip')"),
     ("exchange", "openPlayerExchangeV1()"),
     ("news", "openWhatsNew()"),
+    # «Что нового» в трёх состояниях. «Прочитано» задаётся до открытия: страница читает его в момент захода, а потом отмечает всё прочитанным
+    ("news-first", "if (_profileData) _profileData.whatsnew_seen_id = ''; try { localStorage.removeItem('wn_seen_id'); } catch (e) {} openWhatsNew()"),
+    ("news-new", "_wnFetch().then(l => { if (_profileData) _profileData.whatsnew_seen_id = (l[6] || l[l.length - 1]).id; openWhatsNew(); })"),
+    ("news-open", "_wnFetch().then(l => { if (_profileData) _profileData.whatsnew_seen_id = (l[3] || l[l.length - 1]).id; openWhatsNew(); setTimeout(() => { const b = document.querySelector('#pg-news .wn-it--fresh [data-wn-toggle]'); if (b) b.click(); }, 900); })"),
     ("tracker", "openChatTracker()"),
     ("wallet", "showCurrModal()"),
     ("legal-tos", "openLegalDoc('tos')"),

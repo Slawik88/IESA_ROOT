@@ -40,6 +40,7 @@ ALLOWED = {
     "/static/marks-v3.css": "text/css",
     "/static/inventory-v3.css": "text/css",
     "/static/trail-v3.css": "text/css",
+    "/static/news-v3.css": "text/css",
     "/static/store-v3.css": "text/css",
     "/static/motion-v3.css": "text/css",
     "/static/confirm-v3.css": "text/css",

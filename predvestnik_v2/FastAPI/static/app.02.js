@@ -408,15 +408,6 @@ const _WN_SEEN_KEY = 'wn_seen_id';
 // product (Gates, gacha, auction and Battle Pass). Keep the source history in
 // updates.json, but never mix it into the current player feed.
 const _WN_ARCHIVE_BOUNDARY = '2026-08-23-reconstruction-first-release';
-const _WN_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля',
-  'августа','сентября','октября','ноября','декабря'];
-const _WN_TAG = {
-  'Фича':    {cls:'wn-tag--feat',    ic:'✨'},
-  'Фикс':    {cls:'wn-tag--fix',     ic:'🔧'},
-  'Контент': {cls:'wn-tag--content', ic:'📦'},
-  'Баланс':  {cls:'wn-tag--balance', ic:'⚖️'},
-};
-
 // Запись с полем flag (ключ модуля, например "pets_v2") лежит в ленте сразу, а игрок видит её, когда модуль включён:
 // о том, чего ещё нет на его экране, не рассказываем. Пока флаги не пришли, такая запись скрыта.
 const _wnShown = list => list.filter(u => !u.flag || _sysFlags[u.flag] === true);
@@ -448,6 +439,7 @@ function checkWhatsNewBadge(){
     const unseen = _wnNewCount(list) > 0;
     document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = !unseen; });
     document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.toggle('has-new', unseen));
+    if (typeof _wnTabDots === 'function') _wnTabDots(list);   // точки на вкладках дока (app.42.js)
   }).catch(()=>{});
 }
 function _wnMarkSeen(list){
@@ -460,85 +452,4 @@ function _wnMarkSeen(list){
   document.querySelectorAll('[data-wn-dot]').forEach(dot => { dot.hidden = true; });
   document.querySelectorAll('[data-wn-btn]').forEach(btn => btn.classList.remove('has-new'));
 }
-function _wnDate(iso){
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');
-  if(!m) return esc(iso||'');
-  return `${+m[3]} ${_WN_MONTHS[+m[2]-1]||''}`;
-}
-function _wnReEsc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
-// Подсветка терминов в тексте: один проход по esc-строке (не перескан вставленных
-// span), длинные термины раньше — иначе короткий съест часть длинного.
-function _wnLinkTerms(text, terms){
-  let html = esc(text||'');
-  if(!terms || !terms.length) return html;
-  const map = {};
-  terms.forEach(t => { if(t && t.term) map[esc(t.term)] = t.definition || ''; });
-  const keys = Object.keys(map).sort((a,b) => b.length - a.length);
-  if(!keys.length) return html;
-  const re = new RegExp('(' + keys.map(_wnReEsc).join('|') + ')', 'g');
-  return html.replace(re, m =>
-    `<span class="wn-term" data-def="${esc(map[m]).replace(/"/g,'&quot;')}">${m}</span>`);
-}
-function _wnCard(u, isNew){
-  const tg = _WN_TAG[u.tag] || {cls:'wn-tag--feat', ic:'•'};
-  const terms = u.terms || [];
-  const details = (u.details||[]).map(d => `<li>${_wnLinkTerms(d, terms)}</li>`).join('');
-  return `<div class="wn-card${isNew?' wn-card--new':''}">
-    <button class="wn-card-head" onclick="_wnToggle(this)">
-      <div class="wn-card-meta">
-        <span class="wn-tag ${tg.cls}">${tg.ic} ${esc(u.tag||'')}</span>
-        <span class="wn-date">${_wnDate(u.date)}</span>
-        ${isNew?'<span class="wn-new-badge">● Новое</span>':''}
-      </div>
-      <div class="wn-card-title">${esc(u.title||'')}</div>
-      <div class="wn-card-sum">${_wnLinkTerms(u.summary||'', terms)}</div>
-      ${details?'<span class="wn-chevron">▾</span>':''}
-    </button>
-    ${details?`<div class="wn-card-body"><ul class="wn-details">${details}</ul></div>`:''}
-  </div>`;
-}
-function _wnToggle(btn){ const c = btn.closest('.wn-card'); if(c) c.classList.toggle('wn-card--open'); }
-
-// Мини-поповер с объяснением термина (маленький, на месте — не модалка).
-function _wnClosePop(){ const p = document.querySelector('.wn-pop'); if(p) p.remove(); }
-function _wnTermTap(e){
-  const t = e.target.closest('.wn-term');
-  if(!t){ _wnClosePop(); return; }
-  e.stopPropagation();
-  _wnClosePop();
-  const pop = document.createElement('div');
-  pop.className = 'wn-pop';
-  pop.innerHTML = `<div class="wn-pop-term">${esc(t.textContent)}</div>
-    <div class="wn-pop-def">${esc(t.getAttribute('data-def')||'')}</div>`;
-  document.body.appendChild(pop);
-  const r = t.getBoundingClientRect();
-  const pw = pop.offsetWidth;
-  let left = r.left + window.scrollX;
-  const maxLeft = window.innerWidth - pw - 10;
-  if(left > maxLeft) left = maxLeft;
-  if(left < 10) left = 10;
-  pop.style.left = left + 'px';
-  pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
-  setTimeout(() => document.addEventListener('click', _wnClosePop, { once: true }), 0);
-}
-document.addEventListener('click', _wnTermTap);
-
-function openWhatsNew(){ switchPage('news'); }
-function loadWhatsNew(){
-  const box = el('pg-news'); if(!box) return;
-  box.innerHTML = '<div class="loader">Загрузка…</div>';
-  _wnFetch().then(list => {
-    const head = `<div class="wn-head">
-        <button class="wn-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
-        <div class="wn-htitle">📣 Что нового</div>
-      </div>`;
-    if(!list.length){
-      box.innerHTML = head + `<div class="v3-empty">📣<b>Пока тихо</b>Обновления появятся здесь</div>`;
-      return;
-    }
-    const newCount = _wnNewCount(list);
-    const cards = list.map((u,i) => _wnCard(u, i < newCount)).join('');
-    box.innerHTML = head + `<div class="wn-list">${cards}</div>`;
-    _wnMarkSeen(list);   // открыл ленту → всё прочитано, badge гаснет
-  }).catch(e => { box.innerHTML = `<div class="v3-err" style="margin:12px">${e}</div>`; });
-}
+// Страница ленты (openWhatsNew, loadWhatsNew), записи, фильтр, «Открыть» и точки на вкладках дока: app.42.js.

@@ -591,6 +591,7 @@ function switchPage(name, _btn, _viaBack) {
   activeNav?.setAttribute('aria-current','page');
   if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
   showCurrBar(name !== 'profile');
+  try { if (typeof _wnTabVisit === 'function') _wnTabVisit(name); } catch(_) {}   // точка «есть новое» на этой вкладке дока гаснет (app.42.js)
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}
   api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
@@ -618,7 +619,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
