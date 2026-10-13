@@ -73,7 +73,7 @@ function accessMarkup(error) {
 }
 function showLoadError(main, key, error, retry) {
   clearLoadStages(); main.setAttribute('aria-busy', 'false');
-  if (error?.status === 401 || error?.status === 403) { $('#main').innerHTML = accessMarkup(error); return; }   // повтор не поможет: нужен вход или роль; закрываем весь экран, не одну вставку
+  if (error?.status === 401 || error?.status === 403) { if (ME && ME.owner) error.owner = true; $('#main').innerHTML = accessMarkup(error); return; }   // повтор не поможет: нужен вход или роль; закрываем весь экран, не одну вставку
   const timedOut = error?.name === 'AbortError';
   main.innerHTML = `<section class="admin-load load-failed" role="alert">
     <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
@@ -2319,6 +2319,7 @@ async function ownersAccessCard(main) {
   if (!ME.creator) return;
   let st;
   try { st = await api('/access/owners'); } catch (_) { return; }
+  if (currentSection() !== 'settings' || !main.querySelector('#secset') || main.querySelector('#ownacc')) return;   // человек успел уйти на другую вкладку
   const box = document.createElement('div');
   box.className = 'card'; box.id = 'ownacc';
   box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
