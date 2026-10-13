@@ -27,7 +27,7 @@ assert "'inventory'" in shell and "suppressBrowserBack" in shell, "no second bac
 
 # Ways in: the profile list, the deep link, the help page. The old deep link opened the looks screen; it now opens the inventory.
 assert "openInventory()" in home and "_v3Row('bag', 'Инвентарь'" in home and "bag:" in home
-assert "inventory:openInventory" in links and "inv:openInventory" in links and "inventory:openLooksModal" not in links
+assert "inventory:()=>openInventory()" in links and "inv:()=>openInventory()" in links and "inventory:()=>openLooksModal()" not in links
 assert "openInventory()" in index, "help card"
 
 # Second way in: the bag button in the top bar leads to the same screen; the dock is not touched.

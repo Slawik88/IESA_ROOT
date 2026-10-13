@@ -35,7 +35,7 @@ for name in ("openWhatsNew", "loadWhatsNew", "wnBack"):
     owners = [n for n, text in parts.items() if re.search(rf"^function {name}\b", text, flags=re.M)]
     assert owners == [42], f"{name} is defined once, in app.42.js: {owners}"
 assert "news:loadWhatsNew" in shell, "the page loader of #pg-news"
-assert "news:openWhatsNew" in core, "the deep link to the page"
+assert "news:()=>openWhatsNew()" in core, "the deep link to the page"
 assert "openWhatsNew()" in index and "openWhatsNew()" in parts[39], "both entrances (the «Ещё» row and the bag menu) open the same page"
 
 # The data and the «seen» mark stay in the core part; the old page code is gone from it and from app.css.
