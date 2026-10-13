@@ -1411,8 +1411,8 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .achievement-hero strong { display:block; margin-top:3px; color:var(--bright); font-size:17px; line-height:1.2; font-variant-numeric:tabular-nums; }
 .achievement-hero strong small { color:var(--muted); font-size:11px; }
 .achievement-hero p { grid-column:1/-1; margin:2px 0 0; color:var(--muted); font-size:11px; line-height:1.45; }
-.achievement-filters { position:sticky; top:calc(51px + var(--safe-t)); z-index:7; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:2px; margin:0 12px 10px; padding:3px;   }
-.achievement-filters button { min-width:0; min-height:44px; display:flex; align-items:center; justify-content:center; gap:5px; padding:0 6px; border:0; border-radius:9px; background:transparent; color:var(--muted); font:700 11px/1.2 inherit; }
+.achievement-filters { position:sticky; top:calc(51px + var(--safe-t)); z-index:7; display:flex; gap:2px; margin:0 12px 10px; padding:3px;   }
+.achievement-filters button { flex:1 1 auto; min-width:0; min-height:44px; display:flex; align-items:center; justify-content:center; gap:5px; padding:0 6px; border:0; border-radius:9px; background:transparent; color:var(--muted); font:700 11px/1.2 inherit; }
 .achievement-filters button span { min-width:18px; padding:2px 4px; border-radius:99px; background:var(--dim); color:inherit; font-size:10px; }
 .achievement-filters button.is-active { background:var(--gold-dim); color:var(--gold2); box-shadow:inset 0 0 0 1px var(--border); }
 .achievement-list { display:grid; gap:0; margin:0 12px; padding:0 0 calc(84px + var(--safe-b)); border-block:1px solid var(--border2); }
@@ -1446,6 +1446,7 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .achievement-milestone small { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .achievement-milestone em { color:var(--gold2); font-style:normal; font-variant-numeric:tabular-nums; }
 .achievement-milestone.is-claimed { color:var(--green); }
+.achievement-chat .achievement-meter { margin-top:12px; }
 @media (max-width:350px) {
   .achievement-hero { margin-inline:8px; }
   .achievement-filters,.achievement-list { margin-inline:8px; }

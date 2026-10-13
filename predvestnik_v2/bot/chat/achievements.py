@@ -224,6 +224,32 @@ async def evaluate(db, user_id: int, groups: set[str] | None = None) -> list[Up]
     return ups
 
 
+async def overview(db, user_id: int) -> dict:
+    """Только чтение — для вкладки «Достижения» в Mini App: ничего не пишет и не платит.
+
+    Уровни и эссенцию за вехи по-прежнему фиксирует evaluate() в чате; здесь — тот же
+    уровень, что показывает «бот достижения»: max(сохранённый, по текущей величине).
+    """
+    stored = await stored_levels(db, user_id)
+    items = []
+    for a in ACHIEVEMENTS:
+        value = await value_of(db, user_id, a)
+        level = max(stored.get(a.id, 0), level_of(a, value))
+        nxt = (level // MILESTONE_EVERY + 1) * MILESTONE_EVERY
+        items.append({
+            "id": a.id, "icon": a.icon, "title": a.name, "group": a.group,
+            "group_title": GROUP_TITLES[a.group], "measure": a.measure,
+            "value": value,
+            "level": level, "max_level": a.max_level,
+            "prev_threshold": a.thresholds[level - 1] if level else 0,
+            "next_threshold": a.thresholds[level] if level < a.max_level else None,
+            "next_reward": None if nxt > a.max_level else {"level": nxt, "essence": nxt},
+        })
+    return {"achievements": items,
+            "summary": {"count": len(items), "total_levels": sum(i["level"] for i in items),
+                        "max_levels": sum(i["max_level"] for i in items)}}
+
+
 def announcement(name: str, ups: list[Up]) -> str:
     parts = [f"{u.achievement.icon} {u.achievement.name} — ур. {u.level}/{u.achievement.max_level}"
              + (" 👑" if u.level >= u.achievement.max_level else "")
