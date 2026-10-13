@@ -249,13 +249,27 @@ async def run():
     try:
         got = (await get(OWN_B, "/owner/me")).json()["chats"]
         assert len(got) == 1, got   # из двух чатов проверили один, второй закрыт
+        owner_access.reset_cache()
+        owner_access._calls.extend([__import__("time").monotonic()] * 5)   # лимит уже выбран: полная перегрузка
+        r = await get(OWN_A, "/owner/me")
+        assert r.status_code == 503, (r.status_code, r.text)   # «занято», а не «нет чатов»
     finally:
         owner_access.MAX_CALLS_PER_SEC = old_limit
     owner_access.reset_cache()
     assert (await get(OWN_A, "/owner/me")).status_code == 200
     async with get_pool().acquire() as conn:
-        async with PGAdapter(conn).execute("SELECT COUNT(*) FROM bot_admin_logins WHERE user_id = ?", (OWN_A,)) as cur:
-            assert (await cur.fetchone())[0] >= 1   # входы владельцев попадают в журнал входов
+        db = PGAdapter(conn)
+        for _ in range(5):   # сколько ни заходи, запись одна в сутки, и журнал персонала не затронут
+            await get(OWN_A, "/owner/me")
+        async with db.execute("SELECT COUNT(*) FROM admin_owner_logins WHERE user_id = ?", (OWN_A,)) as cur:
+            assert (await cur.fetchone())[0] == 1
+        async with db.execute("SELECT COUNT(*) FROM bot_admin_logins WHERE user_id IN (?, ?)", (OWN_A, OWN_B)) as cur:
+            assert (await cur.fetchone())[0] == 0
+        await db.execute("UPDATE admin_owner_logins SET created_at = NOW() - INTERVAL '40 days'")
+        await db.execute("DELETE FROM admin_owner_logins WHERE user_id = 0")
+        await owner_access.record_login(db, OWN_B, "1.1.1.1", "ua", "browser")   # новая запись чистит старые
+        async with db.execute("SELECT COUNT(*) FROM admin_owner_logins WHERE created_at < NOW() - INTERVAL '30 days'") as cur:
+            assert (await cur.fetchone())[0] == 0
 
     # ── выключили — закрыто сразу ──
     assert (await post(DEV, "/access/owners", enabled=False)).status_code == 200

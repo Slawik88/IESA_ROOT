@@ -24,9 +24,13 @@ MAX_PARALLEL = 5         # одновременных вызовов Telegram
 STATEMENTS = (
     "CREATE TABLE IF NOT EXISTS admin_owner_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, "
     "updated_by BIGINT NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+    "CREATE TABLE IF NOT EXISTS admin_owner_logins (id BIGSERIAL PRIMARY KEY, user_id BIGINT NOT NULL, ip TEXT NOT NULL DEFAULT '', "
+    "ua TEXT NOT NULL DEFAULT '', via TEXT NOT NULL DEFAULT '', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
+    "CREATE INDEX IF NOT EXISTS idx_admin_owner_logins_user ON admin_owner_logins (user_id, id DESC)",
     "CREATE TABLE IF NOT EXISTS admin_owner_blocked (user_id BIGINT PRIMARY KEY, reason TEXT NOT NULL DEFAULT '', "
     "added_by BIGINT NOT NULL, added_at TIMESTAMPTZ NOT NULL DEFAULT NOW())",
 )
+LOGIN_KEEP_DAYS = 30
 _ready = False
 _cache: dict[tuple[int, int], tuple[float, bool]] = {}   # (чат, человек) -> (до какого момента верно, владелец ли)
 _locks: dict[int, asyncio.Lock] = {}
@@ -87,6 +91,23 @@ async def blocked_list(db) -> list[dict]:
         return [{"id": int(r[0]), "username": r[1], "reason": r[2], "at": r[3].isoformat()} for r in await cur.fetchall()]
 
 
+class Busy(Exception):
+    """Telegram сейчас опрашивать нельзя (перегрузка): это не «нет чатов», а «повторите позже»."""
+
+
+async def record_login(db, user_id: int, ip: str, ua: str, via: str) -> None:
+    """Вход владельца: не чаще одной записи в сутки на человека, в отдельной таблице (журнал персонала не забивается),
+    записи старше LOGIN_KEEP_DAYS удаляются."""
+    await _ensure(db)
+    async with db.execute("SELECT 1 FROM admin_owner_logins WHERE user_id = ? AND created_at > NOW() - INTERVAL '1 day' LIMIT 1",
+                          (user_id,)) as cur:
+        if await cur.fetchone():
+            return
+    await db.execute("INSERT INTO admin_owner_logins (user_id, ip, ua, via) VALUES (?, ?, ?, ?)",
+                     (user_id, (ip or "")[:64], (ua or "")[:300], via[:20]))
+    await db.execute("DELETE FROM admin_owner_logins WHERE created_at < NOW() - make_interval(days => ?)", (LOGIN_KEEP_DAYS,))
+
+
 async def _ask_telegram(bot, chat_id: int, user_id: int) -> bool:
     """Создатель группы по данным Telegram. Любой сбой — «нет»."""
     global _parallel
@@ -95,7 +116,7 @@ async def _ask_telegram(bot, chat_id: int, user_id: int) -> bool:
         _calls.popleft()
     if len(_calls) >= MAX_CALLS_PER_SEC:   # перегрузка: Telegram не трогаем, отвечаем отказом (закрыто по умолчанию)
         logger.warning("owner check skipped: too many Telegram calls per second")
-        return False
+        raise Busy()
     _calls.append(now)
     if _parallel is None:
         _parallel = asyncio.Semaphore(MAX_PARALLEL)
@@ -130,5 +151,8 @@ async def verified_chats(db, bot, user_id: int) -> list[dict]:
         "SELECT chat_id, chat_title FROM chat_settings WHERE owner_id = ? AND bot_left_at IS NULL "
         "AND chat_id < 0 ORDER BY chat_id LIMIT ?", (user_id, MAX_CHATS)) as cur:
         candidates = [(int(r[0]), r[1]) for r in await cur.fetchall()]
-    checks = await asyncio.gather(*(is_telegram_owner(bot, cid, user_id) for cid, _ in candidates))
-    return [{"id": cid, "title": title or f"Чат {cid}"} for (cid, title), ok in zip(candidates, checks) if ok]
+    checks = await asyncio.gather(*(is_telegram_owner(bot, cid, user_id) for cid, _ in candidates), return_exceptions=True)
+    chats = [{"id": cid, "title": title or f"Чат {cid}"} for (cid, title), ok in zip(candidates, checks) if ok is True]
+    if not chats and any(isinstance(c, Busy) for c in checks):
+        raise Busy()
+    return chats

@@ -38,7 +38,10 @@ async def owner_user(x_init_data: str = Header(default=""), x_session_token: str
         raise HTTPException(403, "Вход для владельцев чатов пока не открыт.")
     if await owner_access.is_blocked(db, user_id):
         raise HTTPException(403, "Доступ закрыт.")
-    chats = await owner_access.verified_chats(db, _bot(), user_id)
+    try:
+        chats = await owner_access.verified_chats(db, _bot(), user_id)
+    except owner_access.Busy:
+        raise HTTPException(503, "Проверка владения сейчас занята. Повторите через минуту.")
     if not chats:
         raise HTTPException(403, "В админку входят владельцы чатов, где работает бот. Ваших чатов не найдено.")
     principal = admin_access.owner_principal(user_id, [c["id"] for c in chats])
@@ -82,7 +85,7 @@ async def owner_me(request: Request, user=Depends(owner_user), db=Depends(get_db
         forwarded = request.headers.get("x-forwarded-for", "")
         ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "")
         via = "telegram" if request.headers.get("x-init-data") else "browser"
-        await admin_security.record_login(db, user["id"], ip, request.headers.get("user-agent", ""), via)
+        await owner_access.record_login(db, user["id"], ip, request.headers.get("user-agent", ""), via)
     except Exception as exc:   # noqa: BLE001
         logger.warning(f"owner login journal skipped: {exc}")
     return {"user_id": user["id"], "kind": "owner", "chats": user["chat_list"], "max_chats": owner_access.MAX_CHATS,
