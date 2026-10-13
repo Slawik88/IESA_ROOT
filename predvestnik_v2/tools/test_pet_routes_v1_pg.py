@@ -133,7 +133,7 @@ async def run(dsn: str) -> None:
         assert view["route_options"]["weekly_remaining_mora"] == WEEKLY_CAP_MORA
         roll(0)
         top = await pets_v1.choose_expedition(db, user_id=hint_user, decision="scout", action_id="ch-scout")
-        assert top["route"]["success"] and top["route"]["paid_mora"] == 46 and top["route"]["chance_percent"] == 95
+        assert top["route"]["success"] and top["route"]["paid_mora"] == 66 and top["route"]["chance_percent"] == 75
 
         # scout is a level-12 option
         low_user = 977005

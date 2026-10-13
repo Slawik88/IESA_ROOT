@@ -18,14 +18,14 @@ REASON_CODE: Final = "pet_route_reward"
 # Expected Mora per expedition at level 1, by duration in hours.
 EV_BY_HOURS: Final = {3: 40, 6: 80, 9: 120}
 ROUTE_CHANCE: Final = {"careful": 0.95, "steady": 0.80, "bold": 0.60}
-SCOUT_CHANCE: Final = 0.90          # unlocked by the L12 extra option
-SCOUT_EV_SHARE: Final = 0.90        # of the steady EV: a convenience, never the best deal
+SCOUT_CHANCE: Final = 0.70          # unlocked by the L12 extra option: one more risk notch between steady and bold
+SCOUT_EV_SHARE: Final = 1.0         # same expected value as every other route: a finer choice, never a better deal
 CHANCE_CAP: Final = 0.99
 RISK_GUARD_POINTS: Final = 0.05
 WEEKLY_CAP_MORA: Final = 400        # per player, UTC week, route rewards only
 HINT_MIN_LEVEL: Final = 4
 SCOUT_MIN_LEVEL: Final = 12
-ROUTES: Final = ("careful", "steady", "bold", "scout")
+ROUTES: Final = ("careful", "steady", "scout", "bold")   # ordered by risk
 
 
 @dataclass(frozen=True, slots=True)
