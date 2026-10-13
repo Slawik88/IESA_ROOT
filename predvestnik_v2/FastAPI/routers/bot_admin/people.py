@@ -82,16 +82,22 @@ def set_bot(bot) -> None:   # для тестов
 admin_security.use_bot(get_bot)   # тревоги владельцу уходят тем же клиентом
 
 
-def _allowed(rank: int, scope: str) -> list[dict]:
-    return [{"key": k, "title": t, "min_rank": r} for k, (t, r, s) in ACTIONS.items() if s == scope and rank >= r]
+def _min(user: dict, action: str) -> int:
+    return admin_access.min_rank(user, f"action:{action}", ACTIONS[action][1])
+
+
+def _allowed(user: dict, scope: str) -> list[dict]:
+    return [{"key": k, "title": t, "min_rank": _min(user, k)} for k, (t, r, s) in ACTIONS.items()
+            if s == scope and user["rank"] >= _min(user, k)]
 
 
 def _check(user: dict, action: str, scope: str) -> None:
     spec = ACTIONS.get(action)
     if not spec or spec[2] != scope:
         raise HTTPException(400, "Неизвестное действие.")
-    if user["rank"] < spec[1]:
-        raise HTTPException(403, f"Для «{spec[0]}» нужна роль «{bot_rank_name(spec[1])}» или выше.")
+    need = _min(user, action)
+    if user["rank"] < need:
+        raise HTTPException(403, f"Для «{spec[0]}» нужна роль «{bot_rank_name(need)}» или выше.")
 
 
 def _int(data: dict, key: str, default: int = 0) -> int:
@@ -173,7 +179,7 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     card = await admin_people.player(db, uid)
     if not card:
         raise HTTPException(404, "Игрок не найден.")
-    card["actions"] = {"player": _allowed(user["rank"], "player"), "member": _allowed(user["rank"], "member")}
+    card["actions"] = {"player": _allowed(user, "player"), "member": _allowed(user, "member")}
     card["ranks"] = [{"rank": i, "name": bot_rank_name(i)} for i in range(len(BOT_RANKS))
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
     card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()
@@ -316,7 +322,7 @@ async def chat_card(cid: int, user=Depends(_user), db=Depends(get_db)):
     titles |= {x["key"]: x["title"] for g in feature_switches.catalog() for i in g["items"] for x in i.get("items", [])}
     for item in card["switched_off"]:
         item["title"] = titles.get(item["key"], item["key"])
-    card["actions"] = {"chat": _allowed(user["rank"], "chat"), "member": _allowed(user["rank"], "member")}
+    card["actions"] = {"chat": _allowed(user, "chat"), "member": _allowed(user, "member")}
     card["history"] = await admin_people.history(db, chat_id=cid)
     return card
 

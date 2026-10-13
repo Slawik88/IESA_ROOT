@@ -30,6 +30,7 @@ const SECTION_META = {
   switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
   settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
   health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
+  access: ['🛡', 'Права', 'Читаем права ролей и вход владельцев'],
   mychats: ['💬', 'Мои чаты', 'Проверяем, что вы владелец, и собираем чат'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
@@ -151,10 +152,11 @@ const ICONS = {
   settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
   health: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
   mychats: '<path d="M4 5.5h16v10H9l-5 4z"/>',
+  access: '<path d="M12 3.5 5 6v5.5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
 };
 const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты'};
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права'};
 const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
 
 function dockSplit() {
@@ -2161,7 +2163,6 @@ async function settingsView(main) {
     ${securityCard()}`;
   bindReportSettings(main, data);
   bindSecurityCard(main);
-  ownersAccessCard(main);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
@@ -2319,7 +2320,7 @@ async function ownersAccessCard(main) {
   if (!ME.creator) return;
   let st;
   try { st = await api('/access/owners'); } catch (_) { return; }
-  if (currentSection() !== 'settings' || !main.querySelector('#secset') || main.querySelector('#ownacc')) return;   // человек успел уйти на другую вкладку
+  if (currentSection() !== 'access' || !main.querySelector('.page-head') || main.querySelector('#ownacc')) return;   // человек успел уйти на другую вкладку
   const box = document.createElement('div');
   box.className = 'card'; box.id = 'ownacc';
   box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
@@ -2351,6 +2352,40 @@ async function ownersAccessCard(main) {
     try { await post('/access/owners/block', {user_id: uid, blocked: true, reason: $('#own-reason').value.trim()}); toast('Доступ отозван'); redo(); } catch (err) { toast(err.message, true); }
   };
 }
+
+// ── Права (только создатель): кто из ролей что может, и вход владельцев чатов ───────────────────
+
+const roleWord = name => name.replace(/^\S+\s/, '').toLowerCase();   // «💬 Хелпер» -> «хелпер»: этим словом подтверждается изменение
+async function accessView(main) {
+  const d = await loadSectionData(main, '/access/matrix', () => accessView(main), 'access');
+  if (!d) return;
+  const word = r => roleWord(d.roles.find(x => x.rank === r).name);
+  const row = i => `<div class="sw-row"><div class="t"><b>${esc(i.title)}</b>
+      <div class="sub">${i.changed ? '✎ изменено · ' : ''}по умолчанию: ${esc(d.roles.find(x => x.rank === i.default)?.name || i.default)}</div></div>
+      <select data-akey="${esc(i.key)}" aria-label="${esc(i.title)}: с какой роли">${d.roles.map(r =>
+        `<option value="${r.rank}" ${r.rank === i.current ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
+      ${i.changed ? `<button type="button" class="btn small" data-areset="${esc(i.key)}">Сбросить</button>` : ''}</div>`;
+  const group = g => d.items.filter(i => i.group === g).map(row).join('');
+  main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право. Меняется только то, что перечислено ниже')}
+    ${alertBox('info', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
+    ${section('a-sec', '🗂 Разделы', group('section'))}
+    ${section('a-mod', '🛡 Модерация', group('moderation'))}`;
+  const post = body => api('/access/matrix', {method: 'POST', body: JSON.stringify(body)});
+  const ask = (title, key, rank, expect) => sheet(title,
+    `${hint('Изменение вступает в силу сразу для всех сотрудников. Для подтверждения введите «' + esc(expect) + '».')}<div class="field"><label>Подтверждение</label><input id="a-confirm" autocomplete="off"/></div>`,
+    'Изменить', async () => { await post({key, min_rank: rank, confirm: $('#a-confirm').value}); toast('Сохранено'); accessView(main); });
+  main.querySelectorAll('[data-akey]').forEach(sel => {
+    const was = sel.value;
+    sel.onchange = () => {
+      const rank = +sel.value;
+      sel.value = was;   // пока человек не подтвердит, на экране прежнее значение
+      ask(`Изменить право «${sel.getAttribute('aria-label').split(':')[0]}»`, sel.dataset.akey, rank, word(rank));
+    };
+  });
+  main.querySelectorAll('[data-areset]').forEach(b => b.onclick = () => ask('Вернуть значение по умолчанию', b.dataset.areset, null, 'сброс'));
+  await ownersAccessCard(main);
+}
+SECTIONS.access = main => accessView(main);
 
 // ── Старт ────────────────────────────────────────────────────────────────────
 
