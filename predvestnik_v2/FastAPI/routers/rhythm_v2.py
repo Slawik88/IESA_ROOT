@@ -152,6 +152,14 @@ async def decide_integrity_review(
         _raise(exc)
 
 
+def _next_wake(state: dict) -> float:
+    """Wake at the signal's deadline plus grace (not a whole second later) so a miss shows at once."""
+    if state.get("draft"):
+        return 1.0
+    ms = int(state.get("starts_in_ms") or 0) + int(state.get("remaining_ms") or 0) + game.rules.TAP_GRACE_MS
+    return min(1.0, max(0.05, ms / 1000 + 0.03))
+
+
 @router.websocket("/runs/{run_id}/live")
 async def live_run(websocket: WebSocket, run_id: str):
     """Dedicated, ticket-authenticated channel; never accepts Telegram auth in URL."""
@@ -167,11 +175,12 @@ async def live_run(websocket: WebSocket, run_id: str):
             db = PGAdapter(connection)
             user_id, lease, state = await game.connect_transport(db, run_id=run_id, ticket=str(hello.get("ticket", "")))
         await websocket.send_json({"type": "state", "state": state})
+        wait = 1.0
         while True:
             # A timeout re-evaluates server deadlines, so a disconnect/silent
             # client cannot pause a run.
             try:
-                raw = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                raw = await asyncio.wait_for(websocket.receive_text(), timeout=wait)
             except asyncio.TimeoutError:
                 await create_pool()
                 async with get_pool().acquire() as connection:
@@ -179,6 +188,7 @@ async def live_run(websocket: WebSocket, run_id: str):
                 await websocket.send_json({"type": "state", "state": state})
                 if state["status"] != "active":
                     return
+                wait = _next_wake(state)
                 continue
             if len(raw) > 512:
                 raise game.RhythmConflict("Rhythm live payload is too large")
@@ -201,6 +211,7 @@ async def live_run(websocket: WebSocket, run_id: str):
             await websocket.send_json({"type": "state", "state": state})
             if state["status"] != "active":
                 return
+            wait = _next_wake(state)
     except (game.RhythmError, ValueError, json.JSONDecodeError):
         await websocket.close(code=1008)
     except WebSocketDisconnect:

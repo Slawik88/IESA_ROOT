@@ -31,7 +31,7 @@ from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
                               account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
@@ -230,7 +230,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 for r in [profile.router, marriage.router, wallet.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, inventory_v1_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, inventory_v1_router.router, season_pass_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
@@ -354,12 +354,12 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css",
-                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css")
+                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css")
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(
@@ -400,7 +400,9 @@ _RHYTHM_V2_HTML = (
     # The Mini App is mounted under /predvestnik in the local and tunnelled
     # environments.  A literal href="/" leaves that mount and reaches a
     # non-existent host root, which is the source of the visible 404 on ‹.
+    # The same holds for the link back to the games hub.
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
     .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
@@ -411,6 +413,7 @@ _MINESWEEPER_V2_HTML = (
     _read_static("minesweeper-v2.html")
     .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
     .replace('href="/"', f'href="{_ASSET_BASE}/"')
+    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
     .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')

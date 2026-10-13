@@ -211,7 +211,7 @@ async def promote_authenticated_transport_reviews(db) -> list[dict]:
         "AND r.integrity_reason='server_timed_transport_pending_review' "
         "AND EXISTS (SELECT 1 FROM rhythm_v2_transport_tickets t "
         "WHERE t.run_id=r.run_id AND t.user_id=r.user_id AND t.consumed_at IS NOT NULL) "
-        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json"
+        "RETURNING r.run_id,r.user_id,r.mode,r.ruleset_version,r.score,r.selected_json,r.correct_taps,r.finished_at"
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
@@ -317,6 +317,19 @@ async def season_standings(db, *, mode: str, starts_at, ends_at, limit: int | No
         params += (int(limit),)
     async with db.execute(sql, params) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
+
+
+async def season_activity(db, *, mode: str, starts_at, ends_at) -> dict[int, dict]:
+    """Participation of every ranked player in one season window: clear runs and distinct UTC days."""
+    async with db.execute(
+        "SELECT user_id,COUNT(*) AS runs,COUNT(DISTINCT (finished_at AT TIME ZONE 'UTC')::date) AS days "
+        "FROM rhythm_v2_runs WHERE mode=? AND score>0 AND status='finished' AND integrity_status='clear' "
+        "AND finished_at>=(?::timestamp AT TIME ZONE 'UTC') AND finished_at<(?::timestamp AT TIME ZONE 'UTC') "
+        "GROUP BY user_id",
+        (str(mode), starts_at, ends_at),
+    ) as cursor:
+        return {int(row["user_id"]): {"runs": int(row["runs"]), "days": int(row["days"])}
+                for row in await cursor.fetchall()}
 
 
 async def leaderboard(db, *, user_id: int, mode: str, starts_at, ends_at) -> dict:

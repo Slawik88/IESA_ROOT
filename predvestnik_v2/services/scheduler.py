@@ -101,6 +101,14 @@ async def maintenance_task(bot: Bot) -> None:
                         logger.error("Short risk maintenance failed: {}", short_result)
                     elif short_result.get("marked"):
                         logger.warning("Short risk marked for player liquidation: {}", short_result)
+                try:   # итоги сезонов: снимок мест и выплаты порциями (возобновляемо, повтор безопасен)
+                    from services import game_seasons, rhythm_v2
+                    season_summary = await game_seasons.settle_due(
+                        db, boards={("rhythm", "normal"): rhythm_v2.season_standings})
+                    if any(season_summary.values()):
+                        logger.info("Game season settlement: {}", season_summary)
+                except Exception as season_error:
+                    logger.exception(f"game season settlement failed: {season_error}")
                 try:   # напоминание тем, кто добавил бота в чат и не выдал права (через час и через сутки)
                     from bot.chat import onboarding
                     await onboarding.send_reminders(bot, db)

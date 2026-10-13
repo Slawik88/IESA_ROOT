@@ -522,13 +522,14 @@ document.addEventListener('touchcancel', _artFoilReset, {passive:true});
 const _loaded=new Set();
 // История страниц для кнопки «Назад» (нативная Telegram BackButton + фолбэк в браузере).
 const _navStack=[];
+const _backHooks=[];   // обработчики «Назад» для экранов с подэкранами внутри одной страницы: вернул true — нажатие обработано
 // Единая маршрутизация по ИМЕНИ страницы. Подсветка нижнего дока — по data-page;
 // вторичные разделы (открытые через «Ещё») подсвечивают «Ещё».
 let _activePage = 'profile';
 const _PAGE_LOADERS = {
   arena:loadArena,
   help:()=>{},
-  news:loadWhatsNew, 'exchange-v1':loadPlayerExchangeV1
+  news:loadWhatsNew, pass:loadSeasonPass, 'exchange-v1':loadPlayerExchangeV1
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
@@ -584,12 +585,13 @@ function switchPage(name, _btn, _viaBack) {
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile','store'];
-  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
+  const _profileChildren=['inventory','achievements-v1','public-profile','store'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
   if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
   showCurrBar(name !== 'profile');
+  try { if (typeof _wnTabVisit === 'function') _wnTabVisit(name); } catch(_) {}   // точка «есть новое» на этой вкладке дока гаснет (app.42.js)
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
   try { window.scrollTo(0, 0); } catch(e) {}
   api('/analytics/tab',{method:'POST',body:JSON.stringify({tab:name,session_id:_analyticsSession})}).catch(()=>{});
@@ -617,7 +619,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
@@ -628,6 +630,7 @@ function _syncBackButton(){
   if(btn) btn.classList.toggle('hidden', !has || inTg || suppressBrowserBack);
 }
 function navBack(){
+  if(_backHooks.some(fn=>{ try{ return fn()===true; }catch(_){ return false; } })) return;   // подэкран внутри страницы (Тропа питомцев) сначала закрывает себя
   if(!_navStack.length) return;
   const prev=_navStack.pop();
   switchPage(prev, null, true);

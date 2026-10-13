@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Real PostgreSQL proof: season windows split the board, settlement pays once."""
+"""Real PostgreSQL proof of the season settlement: frozen places, qualification,
+one payout per player, atomic Mora+Essence, resumable and idempotent passes."""
 from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -13,11 +14,14 @@ import asyncpg
 from core import seasons as rules
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import economy_ledger
-from infrastructure.repositories import minesweeper_v2 as ms_repo
-from services import game_seasons
-from services import minesweeper_v2 as ms
+from infrastructure.repositories import game_seasons as repo
+from infrastructure.repositories import rhythm_v2 as rhythm_repo
+from infrastructure.repositories import skins_v3 as skins_repo
+from services import game_seasons, rhythm_v2
+from services import skins_v3 as skins_service
 
-USERS = (977001, 977002, 977003)
+PLAYERS = tuple(range(977001, 977015))      # 977001..977012 qualify; 977013, 977014 do not
+OUTSIDER_RUNS, OUTSIDER_DAYS = 977013, 977014
 
 
 def local_dsn(value: str) -> str:
@@ -29,58 +33,187 @@ def local_dsn(value: str) -> str:
 
 async def run(dsn: str) -> None:
     connection = await asyncpg.connect(dsn)
+    other = await asyncpg.connect(dsn)
     db = PGAdapter(connection)
     await economy_ledger.ensure_tables(db)
-    await ms_repo.ensure_tables(db)
-    run_ids: list[str] = []
+    await rhythm_repo.ensure_tables(db)
+    await skins_repo.ensure_tables(db)
+    await repo.ensure_tables(db)
     transaction = connection.transaction()
     await transaction.start()
     try:
-        async def win(user_id: int, when: datetime, elapsed_ms: int) -> None:
+        async def clear_run(user_id: int, when: datetime, score: int, status: str = "clear") -> str:
             run_id = str(uuid4())
-            run_ids.append(run_id)
             await connection.execute(
-                "INSERT INTO minesweeper_v2_runs(run_id,user_id,difficulty,ruleset_version,seed,status,opened_actions,"
-                "started_at,finished_at,elapsed_ms) VALUES ($1,$2,'easy','test',$3,'won',5,$4,$4,$5)",
-                run_id, user_id, b"x" * 32, when, elapsed_ms)
+                "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,score,"
+                "integrity_status,created_at,finished_at) VALUES ($1,$2,'normal','test',$3,'[]'::jsonb,'finished',0,$4,$5,$6,$6)",
+                run_id, user_id, b"x" * 32, score, status, when)
+            return run_id
 
         s1_start, s1_end = rules.season_bounds(1)
-        s2_start, _ = rules.season_bounds(2)
-        during = datetime(2027, 1, 5, tzinfo=timezone.utc)
-        await win(USERS[0], during, 30_000)
-        await win(USERS[0], during, 20_000)   # personal best wins the place
-        await win(USERS[1], during, 25_000)
-        await win(USERS[2], s2_start, 1_000)  # belongs to the next season
+        s2_start, s2_end = rules.season_bounds(2)
+        # Account age comes from chat records (14 days needed); make sure both tables exist, the test rolls back.
+        await db.execute("CREATE TABLE IF NOT EXISTS user_chat_stats (user_tg_id BIGINT, chat_tg_id BIGINT, "
+                         "joined_at TIMESTAMP DEFAULT NOW(), membership_since TIMESTAMPTZ DEFAULT NOW(), "
+                         "PRIMARY KEY (user_tg_id, chat_tg_id))")
+        await db.execute("CREATE TABLE IF NOT EXISTS daily_user_stats (user_id BIGINT, chat_id BIGINT, date TEXT, "
+                         "message_count INTEGER DEFAULT 1, PRIMARY KEY (user_id, chat_id, date))")
 
-        board1 = await ms_repo.leaderboard(db, user_id=USERS[0], difficulty="easy", starts_at=s1_start, ends_at=s1_end)
-        assert board1["personal"]["best_elapsed_ms"] == 20_000, board1
-        assert len(board1["top"]) == 2 and board1["top"][0]["place"] == 1, board1
-        s2_end = rules.season_bounds(2)[1]
-        board2 = await ms_repo.leaderboard(db, user_id=USERS[0], difficulty="easy", starts_at=s2_start, ends_at=s2_end)
-        assert board2["personal"] is None and board2["top"][0]["best_elapsed_ms"] == 1_000, board2
+        async def seen_in_chat(user_id: int, when: datetime) -> None:
+            await db.execute("INSERT INTO user_chat_stats(user_tg_id, chat_tg_id, joined_at, membership_since) "
+                             "VALUES (?, 1, ?, ?) ON CONFLICT DO NOTHING", (user_id, when.replace(tzinfo=None), when))
 
-        async def standings(db_, start, end):
-            rows = await ms_repo.season_standings(db_, difficulty="easy", starts_at=start, ends_at=end)
-            return [r for r in rows if int(r["user_id"]) in USERS]
+        for user_id in (*PLAYERS, OUTSIDER_RUNS, OUTSIDER_DAYS):
+            await seen_in_chat(user_id, s1_start - timedelta(days=60))
+        # 12 qualified players: score falls with the number; 5 runs on 3 days each.
+        for index, user_id in enumerate(PLAYERS[:12]):
+            for run_no in range(5):
+                await clear_run(user_id, s1_start + timedelta(days=10 + run_no % 3, hours=run_no),
+                                score=10_000 - index * 100 - run_no)
+        # Highest score of all, but 4 runs only / only 2 days: never ranked, never paid.
+        for run_no in range(4):
+            await clear_run(OUTSIDER_RUNS, s1_start + timedelta(days=20 + run_no, hours=1), score=99_999)
+        for run_no in range(5):
+            await clear_run(OUTSIDER_DAYS, s1_start + timedelta(days=30 + run_no % 2, hours=run_no), score=99_998)
+        await clear_run(PLAYERS[11], s1_start + timedelta(days=40), score=99_000, status="review_required")  # not clear
+        await clear_run(PLAYERS[11], s2_start + timedelta(hours=1), score=99_000)                           # next season
+
+        boards = {("rhythm", "normal"): rhythm_v2.season_standings}
 
         async def mora_of(user_id: int) -> int:
             async with db.execute("SELECT COALESCE(SUM(delta),0) FROM economic_ledger "
                                   "WHERE user_id=? AND currency='mora' AND reason_code='season_reward'", (user_id,)) as cursor:
-                row = await cursor.fetchone()
-            return int(row[0])
+                return int((await cursor.fetchone())[0])
 
-        now = datetime(2027, 6, 1, tzinfo=timezone.utc)  # season 2 is running
-        first = await game_seasons.settle_due(db, game="minesweeper", board="easy", standings=standings, now=now)
-        again = await game_seasons.settle_due(db, game="minesweeper", board="easy", standings=standings, now=now)
-        assert first == 1 and again == 0, (first, again)
-        last = await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[0])
+        async def essence_of(user_id: int) -> int:
+            async with db.execute("SELECT COALESCE(SUM(delta),0) FROM skins_v3_essence_ledger "
+                                  "WHERE user_id=? AND reason='season_reward'", (user_id,)) as cursor:
+                return int((await cursor.fetchone())[0])
+
+        # 1. Inside the delay nothing happens: pending integrity verdicts may still resolve.
+        early = await game_seasons.settle_due(db, boards=boards, now=s1_end + rules.SETTLEMENT_DELAY - timedelta(hours=1))
+        assert early == {"snapshots": 0, "paid": 0, "failed": 0, "closed": 0}, early
+        assert await mora_of(PLAYERS[0]) == 0
+
+        # 2. A failing Essence grant rolls back that player's Mora too; the rest are paid.
+        now = s1_end + rules.SETTLEMENT_DELAY + timedelta(hours=1)
+        real_grant = skins_service.grant_essence_in_transaction
+        victim = PLAYERS[2]
+
+        async def flaky(db_, user_id, amount, *, reason, reference):
+            if user_id == victim:
+                raise RuntimeError("essence table hiccup")
+            return await real_grant(db_, user_id, amount, reason=reason, reference=reference)
+
+        skins_service.grant_essence_in_transaction = flaky
+        try:
+            first = await game_seasons.settle_due(db, boards=boards, now=now, batch=5)
+        finally:
+            skins_service.grant_essence_in_transaction = real_grant
+        assert first == {"snapshots": 1, "paid": 11, "failed": 1, "closed": 0}, first
+        assert await mora_of(victim) == 0 and await essence_of(victim) == 0, "Mora and Essence must fail together"
+        assert not await repo.is_closed(db, season=1)
+
+        # 3. The retry pays only the missing player, then the season closes.
+        second = await game_seasons.settle_due(db, boards=boards, now=now, batch=5)
+        assert second == {"snapshots": 0, "paid": 1, "failed": 0, "closed": 1}, second
+        third = await game_seasons.settle_due(db, boards=boards, now=now)
+        assert third == {"snapshots": 0, "paid": 0, "failed": 0, "closed": 0}, third
+
+        # 4. Places: only qualified players are ranked; a 12-player board pays the podium and participation.
+        expected = {0: (800, 200), 1: (600, 150), 2: (450, 120)}
+        for index, user_id in enumerate(PLAYERS[:12]):
+            mora, essence = expected.get(index, (40, 10))   # 12 players: no 4-10 tier (needs 20)
+            assert (await mora_of(user_id), await essence_of(user_id)) == (mora, essence), (user_id, mora, essence)
+        for user_id in (OUTSIDER_RUNS, OUTSIDER_DAYS):
+            assert await mora_of(user_id) == 0 and await essence_of(user_id) == 0
+            assert await game_seasons.last_result(db, game="rhythm", board="normal", user_id=user_id) is None
+        last = await game_seasons.last_result(db, game="rhythm", board="normal", user_id=PLAYERS[0])
         assert last["season"] == 1 and last["place"] == 1 and last["reward_mora"] == 800 and last["reward_essence"] == 200, last
-        second = await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[1])
-        assert second["place"] == 2 and second["reward_mora"] == 600, second
-        assert await game_seasons.last_result(db, game="minesweeper", board="easy", user_id=USERS[2]) is None
-        assert await mora_of(USERS[0]) == 800 and await mora_of(USERS[1]) == 600
+        # PLAYERS[11]'s review_required and next-season runs are not counted: still 12th with 5 runs.
+        assert (await game_seasons.last_result(db, game="rhythm", board="normal", user_id=PLAYERS[11]))["result"]["runs"] == 5
+
+        async with db.execute("SELECT players,mora_total,essence_total FROM game_season_closed WHERE season=1") as cursor:
+            closed = dict(await cursor.fetchone())
+        assert closed == {"players": 12, "mora_total": 800 + 600 + 450 + 9 * 40, "essence_total": 200 + 150 + 120 + 9 * 10}, closed
+
+        # 5. Frozen places: a later integrity change cannot move paid results or pay again.
+        await connection.execute("UPDATE rhythm_v2_runs SET integrity_status='quarantined' WHERE user_id=$1", PLAYERS[0])
+        assert await game_seasons.settle_due(db, boards=boards, now=now) == {"snapshots": 0, "paid": 0, "failed": 0, "closed": 0}
+        assert await mora_of(PLAYERS[0]) == 800
+
+        # 6. A player on two paying boards is paid once, for the better reward (never the sum).
+        async def minesweeper(db_, start, end):
+            return [{"user_id": PLAYERS[5], "place": 1, "runs": 9, "days": 9},
+                    {"user_id": PLAYERS[6], "place": 2, "runs": 9, "days": 9}]
+
+        for index, user_id in enumerate(PLAYERS[:12]):
+            for run_no in range(5):
+                await clear_run(user_id, s2_start + timedelta(days=10 + run_no % 3, hours=run_no), score=5_000 + index * 10 - run_no)
+        rules.PAYING_BOARDS = (("rhythm", "normal"), ("minesweeper", "easy"))
+        try:
+            later = s2_end + rules.SETTLEMENT_DELAY + timedelta(hours=1)
+            both = {**boards, ("minesweeper", "easy"): minesweeper}
+            result = await game_seasons.settle_due(db, boards=both, now=later, max_payouts=7)   # a pass is capped
+            assert result == {"snapshots": 2, "paid": 7, "failed": 0, "closed": 0}, result
+            result = await game_seasons.settle_due(db, boards=both, now=later, max_payouts=7)
+            assert result == {"snapshots": 0, "paid": 5, "failed": 0, "closed": 1}, result
+            async with db.execute("SELECT COUNT(*),COUNT(DISTINCT user_id) FROM game_season_payouts WHERE season=2") as cursor:
+                assert tuple(await cursor.fetchone()) == (12, 12)
+            # PLAYERS[5] is 6th on rhythm (participation 40) but 1st on minesweeper (board of 2: participation 40).
+            # PLAYERS[0] is 1st on rhythm only: the podium.
+            async with db.execute("SELECT SUM(delta) FROM economic_ledger WHERE user_id=? AND reason_code='season_reward'",
+                                  (PLAYERS[5],)) as cursor:
+                assert int((await cursor.fetchone())[0]) == 40 + 40, "season 1 payment plus ONE season 2 payment"
+            try:
+                await game_seasons.settle_due(db, boards=boards, now=later)
+            except rules.SeasonRuleError:
+                pass
+            else:
+                raise AssertionError("a paying board without standings must refuse to settle")
+        finally:
+            rules.PAYING_BOARDS = (("rhythm", "normal"),)
+
+        # 6b. New accounts: ten fresh accounts cannot open the podium (10 players needed) or take a place.
+        s3_start, s3_end = rules.season_bounds(3)
+        sybils, real = tuple(range(977101, 977111)), PLAYERS[:4]
+        no_record = 977120
+        for user_id in sybils:
+            await seen_in_chat(user_id, s3_end - timedelta(days=13, hours=23))     # one hour short of 14 days
+        for index, user_id in enumerate(real):
+            for run_no in range(5):
+                await clear_run(user_id, s3_start + timedelta(days=10 + run_no % 3, hours=run_no), score=1_000 - index)
+        edge_user = 977121
+        await seen_in_chat(edge_user, s3_end - timedelta(days=14))                    # exactly 14 days: allowed
+        for user_id in (*sybils, no_record, edge_user):
+            for run_no in range(5):
+                await clear_run(user_id, s3_start + timedelta(days=10 + run_no % 3, hours=run_no), score=9_000)
+        before = {user_id: await mora_of(user_id) for user_id in (*real, *sybils, no_record, edge_user)}
+        result = await game_seasons.settle_due(db, boards=boards, now=s3_end + rules.SETTLEMENT_DELAY + timedelta(hours=1))
+        assert result == {"snapshots": 1, "paid": 5, "failed": 0, "closed": 1}, result
+        for user_id in (*sybils, no_record):
+            assert await mora_of(user_id) == before[user_id] and await essence_of(user_id) == 0
+            assert await game_seasons.last_result(db, game="rhythm", board="normal", user_id=user_id) is None
+        for user_id in (*real, edge_user):
+            assert await mora_of(user_id) - before[user_id] == 40, "5 eligible players: participation only, no podium"
+        async with db.execute("SELECT players FROM game_season_closed WHERE season=3") as cursor:
+            assert int((await cursor.fetchone())[0]) == 5
+
+        # 7. Minesweeper does not pay and shows no reward table.
+        view = game_seasons.season_view(game="minesweeper", board="hard")
+        assert view["paying"] is False and view["rewards"] == [], view
+        view = game_seasons.season_view(game="rhythm", board="normal")
+        assert view["paying"] is True and view["rewards"] and view["terms"]["min_runs"] == 5, view
+
+        # 8. One worker settles a season at a time (session lock visible from another connection).
+        assert await repo.try_lock_season(db, season=77)
+        assert not await repo.try_lock_season(PGAdapter(other), season=77)
+        await repo.unlock_season(db, season=77)
+        assert await repo.try_lock_season(PGAdapter(other), season=77)
+        await repo.unlock_season(PGAdapter(other), season=77)
     finally:
         await transaction.rollback()
+        await other.close()
         await connection.close()
 
 
@@ -88,4 +221,4 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
-print("game seasons: PostgreSQL window split, settlement and one-time reward OK")
+print("game seasons: PostgreSQL qualification, one payout, atomic Mora+Essence, resume and lock OK")

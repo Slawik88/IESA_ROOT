@@ -18,10 +18,12 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import os
 import sys
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,7 +48,7 @@ def _env(port: int, dsn: str) -> Path | None:
     return path
 
 
-GAME_FLAGS = ("content_chests_v1", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1")
+GAME_FLAGS = ("content_chests_v1", "pets_v2", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1", "season_pass_v1")
 
 
 async def set_game_flags(dsn: str, enabled: bool) -> None:
@@ -67,7 +69,96 @@ async def set_game_flags(dsn: str, enabled: bool) -> None:
         await conn.close()
 
 
-async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, name: str | None, vip: bool, owned: tuple[str, ...]) -> None:
+# Pets of the persona for the Trail screens (species, level, Следы, energy, bond days, calling, traits). Together they show every state of a row:
+# a free pet, one that is out with a companion, one that is back, one almost out of energy, one that waits for bond days, one with a full build.
+TRAIL_PETS = (
+    ("moss_cat", 6, 120, 74, 5, None, []),
+    ("salt_fox", 9, 410, 52, 12, None, ["careful"]),
+    ("mirror_owl", 13, 900, 80, 30, "seeker", ["sprinter"]),
+    ("frost_stag", 15, 1500, 120, 25, "guardian", ["hardy", "careful"]),
+    ("dusk_hare", 3, 40, 9, 1, None, []),
+    ("void_lynx", 22, 3000, 100, 95, "tracker", ["nose", "piggybank"]),
+    ("lantern_gecko", 8, 200, 60, 8, None, []),
+)
+
+
+async def seed_trail(conn, scenario: str) -> None:
+    """Pets v2 «Тропа» for the persona. scenario: default (a lived-in camp), empty (no pets), capped (the day's Следы are used up), none (leave as is). Idempotent."""
+    from core.chests_v1 import PET_SPECIES
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import chests_v1 as chests_repo, pets_v2 as pets_repo
+    if scenario == "none":
+        return
+    db = PGAdapter(conn)
+    await chests_repo.ensure_tables(db)
+    await pets_repo.ensure_tables(db)
+    for table in ("pet_v2_state", "pet_v2_talismans", "pet_v2_bond_days", "pet_v2_daily", "pet_v2_runs", "pet_v2_stage_rewards", "pet_v2_camp", "pet_v2_camp_jobs",
+                  "pet_v2_tracks", "pet_v2_trials", "pet_v2_actions", "chest_food_balances_v1"):
+        await conn.execute(f"DELETE FROM {table} WHERE user_id=$1", PERSONA_ID)
+    await conn.execute("DELETE FROM pets WHERE owner_id=$1", PERSONA_ID)
+    if scenario == "empty":
+        return
+    ids: dict[str, int] = {}
+    for species, level, xp, energy, bond, calling, traits in TRAIL_PETS:
+        info = PET_SPECIES[species]
+        ids[species] = await conn.fetchval("INSERT INTO pets(owner_id,name,species_id,rarity) VALUES ($1,$2,$3,$4) RETURNING id", PERSONA_ID, info["name"], species, info["rarity"])
+        await conn.execute("INSERT INTO pet_v2_state(user_id,pet_id,level,xp,energy,calling,traits) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)",
+                           PERSONA_ID, ids[species], level, float(xp), float(energy), calling, json.dumps(traits))
+        await conn.execute("INSERT INTO pet_v2_bond_days(user_id,pet_id,day) SELECT $1,$2,(NOW() AT TIME ZONE 'UTC')::date - g FROM generate_series(0, $3::int - 1) AS g",
+                           PERSONA_ID, ids[species], bond)
+    # a trek is out (with a companion), an expedition is back and waits for a decision; the third slot is free
+    await conn.execute("INSERT INTO pet_v2_runs(id,user_id,pet_id,kind,hours,route,status,starts_at,ends_at,companion_id) VALUES "
+                       "('stand-run-trek',$1,$2,'trek',6,'forest','active',NOW()-INTERVAL '3 hours 46 minutes',NOW()+INTERVAL '2 hours 14 minutes',$3),"
+                       "('stand-run-exp',$1,$4,'expedition',9,'pass','active',NOW()-INTERVAL '9 hours 7 minutes',NOW()-INTERVAL '7 minutes',NULL)",
+                       PERSONA_ID, ids["moss_cat"], ids["lantern_gecko"], ids["salt_fox"])
+    for tid, kind, tier, pet in (("stand-t1", "forest_fang", 2, ids["mirror_owl"]), ("stand-t2", "swamp_lamp", 1, None), ("stand-t3", "ruin_lens", 1, None), ("stand-t4", "pass_stone", 1, None)):
+        await conn.execute("INSERT INTO pet_v2_talismans(id,user_id,kind,tier,pet_id) VALUES ($1,$2,$3,$4,$5)", tid, PERSONA_ID, kind, tier, pet)
+    for building, level in (("lounge", 2), ("markers", 1), ("workshop", 2)):
+        await conn.execute("INSERT INTO pet_v2_camp(user_id,building,level) VALUES ($1,$2,$3)", PERSONA_ID, building, level)
+    await conn.execute("INSERT INTO pet_v2_camp_jobs(user_id,building,to_level,ends_at) VALUES ($1,'markers',2,NOW()+INTERVAL '5 hours 20 minutes')", PERSONA_ID)
+    for food, quantity in (("food_basic", 4), ("food_fried", 2), ("food_stew", 1)):
+        await conn.execute("INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES ($1,$2,$3)", PERSONA_ID, food, quantity)
+    credited = 625.0 if scenario == "capped" else 412.0
+    await conn.execute("INSERT INTO pet_v2_daily(user_id,day,raw,credited,finds) VALUES ($1,(NOW() AT TIME ZONE 'UTC')::date,$2,$3,'{}'::jsonb)", PERSONA_ID, 1000.0 if scenario == "capped" else credited, credited)
+
+
+# Free games season pass of the persona (flag season_pass_v1): scenario -> (days the account has been in the bot, points of the season, claimed level, points earned today).
+# The pass pays an account only after 14 days in the bot (core/account_age.py), and the age is read from chat records, so every scenario writes one old record.
+PASS_SCENARIOS = {
+    "default": (40, 1820, 3, 40),      # level 6, three levels wait to be claimed
+    "fresh": (40, 0, 0, 0),            # nothing earned yet
+    "new": (5, 1820, 3, 40),           # the same progress on an account younger than 14 days: the claim is shut for now
+    "idle": (40, 2410, 8, 30),         # everything reached is already claimed
+    "finish": (40, 9400, 24, 70),      # all 30 levels reached, six not claimed yet
+    "max": (40, 9400, 30, 70),         # the whole path claimed
+    "capped": (40, 2410, 8, 100),      # the day's points are used up
+}
+PASS_CHAT_ID = -1009900000001          # a chat that exists only as the age record of the persona (the profile lists chats from user_chat_stats, so that table stays untouched)
+
+
+async def seed_season_pass(conn, scenario: str) -> None:
+    """Season pass for the persona. scenario: a key of PASS_SCENARIOS, or none (leave as is). Idempotent: the persona's pass rows and age record are replaced."""
+    from core import seasons
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import season_pass as pass_repo
+    if scenario == "none":
+        return
+    days_in_bot, points, claimed, today = PASS_SCENARIOS[scenario]
+    await pass_repo.ensure_tables(PGAdapter(conn))
+    for table in ("season_pass_progress", "season_pass_days", "season_pass_receipts"):
+        await conn.execute(f"DELETE FROM {table} WHERE user_id=$1", PERSONA_ID)
+    await conn.execute("DELETE FROM daily_user_stats WHERE user_id=$1 AND chat_id=$2", PERSONA_ID, PASS_CHAT_ID)
+    await conn.execute("INSERT INTO daily_user_stats(user_id,chat_id,date,message_count) VALUES ($1,$2,$3,1)",
+                       PERSONA_ID, PASS_CHAT_ID, (datetime.now(timezone.utc) - timedelta(days=days_in_bot)).date().isoformat())
+    now = datetime.now(timezone.utc)
+    season = seasons.season_number(now)
+    if points or claimed:
+        await conn.execute("INSERT INTO season_pass_progress(user_id,season,points,claimed_level) VALUES ($1,$2,$3,$4)", PERSONA_ID, season, points, claimed)
+    if today:
+        await conn.execute("INSERT INTO season_pass_days(user_id,season,day,points) VALUES ($1,$2,$3,$4)", PERSONA_ID, season, now.date(), today)
+
+
+async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, name: str | None, vip: bool, owned: tuple[str, ...], trail: str = "default", season_pass: str = "default") -> None:
     """Make the synthetic player wear a look and carry numbers. Idempotent: running it again resets the persona."""
     import asyncpg
     from infrastructure.pg_adapter import PGAdapter
@@ -116,6 +207,8 @@ async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, nam
             await skins_repo.grant(db, PEER_ID, peer_look)
             await skins_repo.set_tier(db, PEER_ID, peer_look, "SS")
             await skins_repo.set_equipped(db, PEER_ID, peer_look)
+        await seed_trail(conn, trail)
+        await seed_season_pass(conn, season_pass)
     finally:
         await conn.close()
 
@@ -206,11 +299,14 @@ def main() -> None:
     parser.add_argument("--name", help="nickname of the persona")
     parser.add_argument("--flags", choices=("on", "off", "keep"), default="keep", help="switch the game/economy modules (chests, games, exchange) on or off")
     parser.add_argument("--own", default="", help="comma separated extra skin ids to own at tier D")
+    parser.add_argument("--trail", choices=("default", "empty", "capped", "none"), default="default", help="pets of the Trail screens: a lived-in camp, no pets, the day's Следы used up, or leave as is")
+    parser.add_argument("--pass", dest="season_pass", choices=(*PASS_SCENARIOS, "none"), default="default",
+                        help="season pass of the persona: default (three levels to claim), fresh, new (account under 14 days), idle, finish, max, capped, or none (leave as is)")
     args = parser.parse_args()
     if args.flags != "keep":
         asyncio.run(set_game_flags(args.dsn, args.flags == "on"))
     with Stand(args.port, args.dsn, skin=args.skin, tier=args.tier, rich=args.rich, vip=not args.no_vip, name=args.name,
-               owned=tuple(x for x in args.own.split(",") if x)) as stand:
+               owned=tuple(x for x in args.own.split(",") if x), trail=args.trail, season_pass=args.season_pass) as stand:
         print(f"Stand is up. Open this URL once (it logs the persona in, valid 2 minutes):\n  {stand.url}\nCtrl+C to stop.")
         try:
             while True:

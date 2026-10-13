@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, datetime, time, timedelta
 
 from bot.chat.tracking import local_now, tz_delta
+from bot.config import config
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_command_daily (
@@ -35,6 +36,33 @@ PAGE_TITLES = {
     "settings": "Настройки", "store": "Магазин",
 }
 PERIODS = (1, 7, 30)
+# Кто не входит в статистику: разработчик (DEVELOPER_ID) и роли «Тестер», «Разработчик», «Создатель» из bot/chat/global_ranks.py
+# (решение владельца 2026-10-12: тестеры тоже служебные аккаунты).
+STAFF_RANKS = (1, 5, 6)
+
+
+class Staff:
+    """Аккаунты команды, которых метрики пропускают. Один набор на вызов; пустой набор не добавляет условий (как раньше)."""
+
+    def __init__(self, ids=()):
+        self.ids = sorted({int(i) for i in ids})
+        self.args = (self.ids,) if self.ids else ()
+
+    def sql(self, col: str) -> str:
+        # `<> ALL`, а не `NOT IN (…)`: один параметр-массив, на пустом наборе условие просто не пишется.
+        # user_id во всех пяти таблицах NOT NULL, поэтому NULL-ловушки нет.
+        return f" AND {col} <> ALL(?::bigint[])" if self.ids else ""
+
+    def __len__(self) -> int:
+        return len(self.ids)
+
+
+async def staff_ids(db) -> Staff:
+    rows = await _all(db, "SELECT user_tg_id FROM users WHERE bot_rank = ANY(?::int[])", (list(STAFF_RANKS),))
+    ids = {int(r[0]) for r in rows}
+    if config.developer_id:
+        ids.add(int(config.developer_id))
+    return Staff(ids)
 
 
 async def ensure_schema(db) -> None:
@@ -73,14 +101,15 @@ async def _all(db, sql: str, args: tuple):
         return await cur.fetchall()
 
 
-async def _site(db, since_day: date, until_day: date) -> dict:
+async def _site(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
-    span = "visited_at >= ? AND visited_at < ?"
+    span = "visited_at >= ? AND visited_at < ?" + staff.sql("user_id")
     row = await _one(db, f"SELECT COUNT(DISTINCT user_id), COUNT(DISTINCT session_id), COUNT(*), "
-                         f"COALESCE(SUM(duration_sec), 0) FROM site_analytics WHERE {span}", (start, end))
+                         f"COALESCE(SUM(duration_sec), 0) FROM site_analytics WHERE {span}", (start, end, *staff.args))
     visitors, sessions, visits, seconds = (int(x) for x in row)
     rows = await _all(db, f"SELECT tab, COUNT(*), COUNT(DISTINCT user_id), COALESCE(SUM(duration_sec), 0) "
-                          f"FROM site_analytics WHERE {span} GROUP BY tab ORDER BY 2 DESC LIMIT 60", (start, end))
+                          f"FROM site_analytics WHERE {span} GROUP BY tab ORDER BY 2 DESC LIMIT 60", (start, end, *staff.args))
     pages, subpages = [], []
     for tab, n, users, secs in rows:
         item = {"tab": tab, "title": PAGE_TITLES.get(tab, tab), "visits": int(n), "users": int(users),
@@ -89,68 +118,78 @@ async def _site(db, since_day: date, until_day: date) -> dict:
     shift = int(tz_delta().total_seconds())
     daily = await _all(db, f"SELECT (visited_at + (? * INTERVAL '1 second'))::date AS d, COUNT(DISTINCT user_id), "
                            f"COALESCE(SUM(duration_sec), 0) FROM site_analytics WHERE {span} GROUP BY d ORDER BY d",
-                       (shift, start, end))
+                       (shift, start, end, *staff.args))
     return {"visitors": visitors, "sessions": sessions, "visits": visits, "seconds": seconds,
             "avg_seconds_per_visitor": round(seconds / visitors) if visitors else 0,
             "pages": pages, "subpages": subpages[:20],
             "daily": {str(d): {"users": int(u), "seconds": int(s)} for d, u, s in daily}}
 
 
-async def _bot(db, since_day: date, until_day: date) -> dict:
+async def _bot(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
+    """Команды и люди считаются из bot_user_daily (там есть user_id, команда команды не попадёт в итог).
+    «Топ команд» берётся из bot_command_daily: в ней нет user_id, поэтому задним числом её не очистить."""
+    staff = staff if staff is not None else await staff_ids(db)
     span = "day BETWEEN ? AND ?"
+    users_span = span + staff.sql("user_id")
     args = (since_day, until_day)
-    by_place = {r[0]: int(r[1]) for r in await _all(
-        db, f"SELECT place, SUM(uses) FROM bot_command_daily WHERE {span} GROUP BY place", args)}
+    uargs = (*args, *staff.args)
+    cmds = {r[0]: int(r[1]) for r in await _all(
+        db, f"SELECT place, COALESCE(SUM(commands), 0) FROM bot_user_daily WHERE {users_span} GROUP BY place", uargs)}
     users = {r[0]: int(r[1]) for r in await _all(
-        db, f"SELECT place, COUNT(DISTINCT user_id) FROM bot_user_daily WHERE {span} GROUP BY place", args)}
-    total_users = int((await _one(db, f"SELECT COUNT(DISTINCT user_id) FROM bot_user_daily WHERE {span}", args))[0])
+        db, f"SELECT place, COUNT(DISTINCT user_id) FROM bot_user_daily WHERE {users_span} GROUP BY place", uargs)}
+    total_users = int((await _one(db, f"SELECT COUNT(DISTINCT user_id) FROM bot_user_daily WHERE {users_span}", uargs))[0])
     top = await _all(db, f"SELECT command, SUM(uses) FILTER (WHERE place = 'group'), "
                          f"SUM(uses) FILTER (WHERE place = 'private'), SUM(uses) FROM bot_command_daily "
                          f"WHERE {span} GROUP BY command ORDER BY 4 DESC LIMIT 20", args)
     daily = await _all(db, f"SELECT day, COUNT(DISTINCT user_id), SUM(commands) FROM bot_user_daily "
-                           f"WHERE {span} GROUP BY day ORDER BY day", args)
-    return {"commands": sum(by_place.values()), "commands_group": by_place.get("group", 0),
-            "commands_private": by_place.get("private", 0), "users": total_users,
+                           f"WHERE {users_span} GROUP BY day ORDER BY day", uargs)
+    return {"commands": sum(cmds.values()), "commands_group": cmds.get("group", 0),
+            "commands_private": cmds.get("private", 0), "users": total_users,
             "users_group": users.get("group", 0), "users_private": users.get("private", 0),
             "top": [{"command": c, "group": int(g or 0), "private": int(p or 0), "total": int(t)} for c, g, p, t in top],
+            "top_includes_staff": bool(staff),
             "daily": {str(d): {"users": int(u), "commands": int(n)} for d, u, n in daily}}
 
 
-async def _chats(db, since_day: date, until_day: date) -> dict:
-    args = (since_day.isoformat(), until_day.isoformat())
+async def _chats(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
+    staff = staff if staff is not None else await staff_ids(db)
+    args = (since_day.isoformat(), until_day.isoformat(), *staff.args)
     span = "date BETWEEN ? AND ?"
     row = await _one(db, f"SELECT COALESCE(SUM(message_count), 0), COUNT(DISTINCT user_id), COUNT(DISTINCT chat_id) "
-                         f"FROM daily_user_stats WHERE {span} AND chat_id < 0", args)
+                         f"FROM daily_user_stats WHERE {span} AND chat_id < 0{staff.sql('user_id')}", args)
     top = await _all(db, f"SELECT d.chat_id, c.chat_title, SUM(d.message_count), COUNT(DISTINCT d.user_id) "
                          f"FROM daily_user_stats d LEFT JOIN chat_settings c ON c.chat_id = d.chat_id "
-                         f"WHERE {span} AND d.chat_id < 0 GROUP BY d.chat_id, c.chat_title ORDER BY 3 DESC LIMIT 10", args)
+                         f"WHERE d.{span} AND d.chat_id < 0{staff.sql('d.user_id')} GROUP BY d.chat_id, c.chat_title ORDER BY 3 DESC LIMIT 10", args)
     daily = await _all(db, f"SELECT date, SUM(message_count), COUNT(DISTINCT user_id) FROM daily_user_stats "
-                           f"WHERE {span} AND chat_id < 0 GROUP BY date ORDER BY date", args)
+                           f"WHERE {span} AND chat_id < 0{staff.sql('user_id')} GROUP BY date ORDER BY date", args)
     return {"messages": int(row[0]), "users": int(row[1]), "chats": int(row[2]),
             "top": [{"id": int(i), "title": t or str(i), "messages": int(m), "users": int(u)} for i, t, m, u in top],
             "daily": {str(d): {"messages": int(m), "users": int(u)} for d, m, u in daily}}
 
 
-async def _everyone(db, since_day: date, until_day: date) -> int:
+async def _everyone(db, since_day: date, until_day: date, staff: Staff | None = None) -> int:
     """Уникальные люди хоть где-то: сайт, команды бота, сообщения в чатах."""
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     return int((await _one(
-        db, "SELECT COUNT(*) FROM (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ? "
-            "UNION SELECT user_id FROM bot_user_daily WHERE day BETWEEN ? AND ? "
-            "UNION SELECT user_id FROM daily_user_stats WHERE date BETWEEN ? AND ? AND chat_id < 0) x",
-        (start, end, since_day, until_day, since_day.isoformat(), until_day.isoformat())))[0])
+        db, f"SELECT COUNT(*) FROM (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')} "
+            f"UNION SELECT user_id FROM bot_user_daily WHERE day BETWEEN ? AND ?{staff.sql('user_id')} "
+            f"UNION SELECT user_id FROM daily_user_stats WHERE date BETWEEN ? AND ? AND chat_id < 0{staff.sql('user_id')}) x",
+        (start, end, *staff.args, since_day, until_day, *staff.args, since_day.isoformat(), until_day.isoformat(), *staff.args)))[0])
 
 
-async def _totals(db, since_day: date, until_day: date) -> dict:
+async def _totals(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
     """Главные числа периода: для сравнения с предыдущим таким же."""
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
-    visitors = int((await _one(db, "SELECT COUNT(DISTINCT user_id) FROM site_analytics WHERE visited_at >= ? AND visited_at < ?",
-                               (start, end)))[0])
-    commands, bot_users = await _one(db, "SELECT COALESCE(SUM(commands), 0), COUNT(DISTINCT user_id) FROM bot_user_daily "
-                                         "WHERE day BETWEEN ? AND ?", (since_day, until_day))
-    messages, chat_users = await _one(db, "SELECT COALESCE(SUM(message_count), 0), COUNT(DISTINCT user_id) FROM daily_user_stats "
-                                          "WHERE date BETWEEN ? AND ? AND chat_id < 0", (since_day.isoformat(), until_day.isoformat()))
-    return {"everyone": await _everyone(db, since_day, until_day), "visitors": visitors, "commands": int(commands),
+    visitors = int((await _one(db, f"SELECT COUNT(DISTINCT user_id) FROM site_analytics WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')}",
+                               (start, end, *staff.args)))[0])
+    commands, bot_users = await _one(db, f"SELECT COALESCE(SUM(commands), 0), COUNT(DISTINCT user_id) FROM bot_user_daily "
+                                         f"WHERE day BETWEEN ? AND ?{staff.sql('user_id')}", (since_day, until_day, *staff.args))
+    messages, chat_users = await _one(db, f"SELECT COALESCE(SUM(message_count), 0), COUNT(DISTINCT user_id) FROM daily_user_stats "
+                                          f"WHERE date BETWEEN ? AND ? AND chat_id < 0{staff.sql('user_id')}",
+                                      (since_day.isoformat(), until_day.isoformat(), *staff.args))
+    return {"everyone": await _everyone(db, since_day, until_day, staff), "visitors": visitors, "commands": int(commands),
             "bot_users": int(bot_users), "messages": int(messages), "chat_users": int(chat_users)}
 
 
@@ -158,7 +197,7 @@ _retention_cache: tuple[float, date, dict] | None = None
 RETENTION_TTL = 600.0
 
 
-async def retention(db) -> dict:
+async def retention(db, staff: Staff | None = None) -> dict:
     """Удержание: какая доля новых людей вернулась на следующий день, в течение 7 и 30 дней.
 
     «Новый» — впервые замечен в сообщениях чатов или командах бота. Для каждого окна берётся своя когорта, чтобы у всех
@@ -166,12 +205,13 @@ async def retention(db) -> dict:
     import time as _time
     global _retention_cache
     day = today()
+    staff = staff if staff is not None else await staff_ids(db)
     if _retention_cache and _time.time() - _retention_cache[0] < RETENTION_TTL and _retention_cache[1] == day:
         return _retention_cache[2]
-    act = ("SELECT user_id, date::date AS d FROM daily_user_stats WHERE chat_id < 0 AND date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' "
-           "UNION SELECT user_id, day AS d FROM bot_user_daily")
+    act = (f"SELECT user_id, date::date AS d FROM daily_user_stats WHERE chat_id < 0 AND date ~ '^[0-9]{{4}}-[0-9]{{2}}-[0-9]{{2}}$'{staff.sql('user_id')} "
+           f"UNION SELECT user_id, day AS d FROM bot_user_daily WHERE TRUE{staff.sql('user_id')}")
     windows = (("d1", 1, 30, 1), ("d7", 7, 37, 7), ("d30", 30, 60, 30))
-    parts, args = [], []
+    parts, args = [], [*staff.args, *staff.args]   # по одному массиву на каждую ветку act
     for _key, within, back_from, back_to in windows:
         inside = "first.f BETWEEN ? AND ?"
         parts.append(f"COUNT(*) FILTER (WHERE {inside}), COUNT(*) FILTER (WHERE {inside} AND EXISTS ("
@@ -192,29 +232,30 @@ FUNNEL_MIN_TABS = 2        # «пошёл дальше первого экран
 FUNNEL_MIN_SECONDS = 60    # «остался»: в сумме минута и больше в приложении за период
 
 
-async def funnel(db, since_day: date, until_day: date) -> dict:
+async def funnel(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
     """Воронка мини-приложения за период: открыл → заглянул в два раздела → провёл минуту → потратил валюту.
 
     Каждый шаг входит в предыдущий (это те же люди, которые прошли дальше), поэтому проценты читаются как «сколько дошло».
     Отдельно: сколько из открывших приложение пользуются и командами бота. Журнала валюты может ещё не быть — тогда
     последний шаг пустой, а остальные считаются."""
     from datetime import timezone
+    staff = staff if staff is not None else await staff_ids(db)
     start, end = _utc_start(since_day), _utc_start(until_day + timedelta(days=1))
     row = await _one(
-        db, "WITH v AS (SELECT user_id, COUNT(DISTINCT tab) AS tabs, COALESCE(SUM(duration_sec), 0) AS secs FROM site_analytics "
-            "WHERE visited_at >= ? AND visited_at < ? GROUP BY user_id) "
+        db, f"WITH v AS (SELECT user_id, COUNT(DISTINCT tab) AS tabs, COALESCE(SUM(duration_sec), 0) AS secs FROM site_analytics "
+            f"WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')} GROUP BY user_id) "
             "SELECT COUNT(*), COUNT(*) FILTER (WHERE tabs >= ?), COUNT(*) FILTER (WHERE tabs >= ? AND secs >= ?), "
             "COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM bot_user_daily b WHERE b.user_id = v.user_id AND b.day BETWEEN ? AND ?)) FROM v",
-        (start, end, FUNNEL_MIN_TABS, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, since_day, until_day))
+        (start, end, *staff.args, FUNNEL_MIN_TABS, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, since_day, until_day))
     opened, deeper, stayed, with_bot = (int(x) for x in row)
     spent = None
     try:
         spent = int((await _one(
-            db, "WITH v AS (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ? GROUP BY user_id "
-                "HAVING COUNT(DISTINCT tab) >= ? AND COALESCE(SUM(duration_sec), 0) >= ?) "
+            db, f"WITH v AS (SELECT user_id FROM site_analytics WHERE visited_at >= ? AND visited_at < ?{staff.sql('user_id')} GROUP BY user_id "
+                f"HAVING COUNT(DISTINCT tab) >= ? AND COALESCE(SUM(duration_sec), 0) >= ?) "
                 "SELECT COUNT(*) FROM v WHERE EXISTS (SELECT 1 FROM economic_ledger l WHERE l.user_id = v.user_id "
                 "AND l.delta < 0 AND l.created_at >= ? AND l.created_at < ?)",
-            (start, end, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, start.replace(tzinfo=timezone.utc), end.replace(tzinfo=timezone.utc))))[0])
+            (start, end, *staff.args, FUNNEL_MIN_TABS, FUNNEL_MIN_SECONDS, start.replace(tzinfo=timezone.utc), end.replace(tzinfo=timezone.utc))))[0])
     except Exception:   # журнала валюты ещё нет (чистая база)
         spent = None
     steps = [("opened", "Открыли приложение", opened), ("deeper", f"Заглянули в {FUNNEL_MIN_TABS} раздела и больше", deeper),
@@ -231,7 +272,7 @@ async def funnel(db, since_day: date, until_day: date) -> dict:
 
 
 REASON_GROUPS = (
-    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"), (("season_reward",), "Награды за сезоны игр"),
+    (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"), (("season_reward",), "Награды за сезоны игр"), (("season_pass",), "Награды сезонного пропуска"),
     (("achievement_reward",), "Награды за достижения"), (("chest_v1_reward", "chest_key"), "Сундуки и ключи"),
     (("promocode",), "Промокоды"), (("vip_",), "VIP"), (("pet_",), "Питомцы"),
     (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "retirement_"), "Подарки и компенсации"),
@@ -247,16 +288,23 @@ def reason_title(code: str) -> str:
     return code
 
 
-async def economy(db, since_day: date, until_day: date) -> dict:
-    """Сколько валюты выдано и потрачено за период и откуда. Переводы между игроками не считаются: сумма у них ноль."""
+async def economy(db, since_day: date, until_day: date, staff: Staff | None = None) -> dict:
+    """Сколько валюты выдано и потрачено за период и откуда. Переводы между игроками не считаются: сумма у них ноль.
+
+    Аккаунты команды в основной счёт не входят; их обороты отдельно в ключе «_staff», чтобы выпуск валюты не терялся."""
     from datetime import timezone
+    staff = staff if staff is not None else await staff_ids(db)
     start = _utc_start(since_day).replace(tzinfo=timezone.utc)
     end = _utc_start(until_day + timedelta(days=1)).replace(tzinfo=timezone.utc)
     try:
         rows = await _all(
             db, "SELECT currency, reason_code, COALESCE(SUM(delta) FILTER (WHERE delta > 0), 0), "
-                "COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0) FROM economic_ledger "
-                "WHERE created_at >= ? AND created_at < ? GROUP BY currency, reason_code", (start, end))
+                f"COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0) FROM economic_ledger "
+                f"WHERE created_at >= ? AND created_at < ?{staff.sql('user_id')} GROUP BY currency, reason_code", (start, end, *staff.args))
+        staff_rows = await _all(
+            db, "SELECT currency, COALESCE(SUM(delta) FILTER (WHERE delta > 0), 0), COALESCE(SUM(-delta) FILTER (WHERE delta < 0), 0) "
+                "FROM economic_ledger WHERE created_at >= ? AND created_at < ? AND user_id = ANY(?::bigint[]) GROUP BY currency",
+            (start, end, staff.ids)) if staff else []
     except Exception:   # леджера ещё нет (чистая база)
         return {}
     out: dict[str, dict] = {}
@@ -277,6 +325,7 @@ async def economy(db, since_day: date, until_day: date) -> dict:
             c[key] = round(c[key], 2)
         for key in ("sources", "sinks"):
             c[key] = [{"title": t, "amount": round(v, 2)} for t, v in sorted(c[key].items(), key=lambda kv: -kv[1])[:6]]
+    out["_staff"] = {cur: {"issued": round(float(p), 2), "spent": round(float(m), 2)} for cur, p, m in staff_rows if p or m}
     return out
 
 
@@ -284,18 +333,21 @@ async def dashboard(db, days: int) -> dict:
     days = days if days in PERIODS else 1
     until_day = today()
     since_day = until_day - timedelta(days=days - 1)
-    site = await _site(db, since_day, until_day)
-    bot = await _bot(db, since_day, until_day)
-    chats = await _chats(db, since_day, until_day)
-    everyone = await _everyone(db, since_day, until_day)
-    totals = await _one(db, "SELECT (SELECT COUNT(*) FROM users), (SELECT COUNT(*) FROM chat_settings WHERE chat_id < 0)", ())
+    staff = await staff_ids(db)   # один набор на весь ответ
+    site = await _site(db, since_day, until_day, staff)
+    bot = await _bot(db, since_day, until_day, staff)
+    chats = await _chats(db, since_day, until_day, staff)
+    everyone = await _everyone(db, since_day, until_day, staff)
+    totals = await _one(db, f"SELECT (SELECT COUNT(*) FROM users WHERE TRUE{staff.sql('user_tg_id')}), "
+                            f"(SELECT COUNT(*) FROM chat_settings WHERE chat_id < 0)", staff.args)
     day_list = [(since_day + timedelta(days=i)).isoformat() for i in range(days)]
     prev_until = since_day - timedelta(days=1)
-    compare = await _totals(db, prev_until - timedelta(days=days - 1), prev_until)
+    compare = await _totals(db, prev_until - timedelta(days=days - 1), prev_until, staff)
     return {"days": days, "since": since_day.isoformat(), "until": until_day.isoformat(), "day_list": day_list,
             "everyone": everyone, "players_total": int(totals[0]), "chats_total": int(totals[1]),
-            "site": site, "bot": bot, "chats": chats, "compare": compare, "retention": await retention(db),
-            "funnel": await funnel(db, since_day, until_day), "economy": await economy(db, since_day, until_day)}
+            "site": site, "bot": bot, "chats": chats, "compare": compare, "retention": await retention(db, staff),
+            "funnel": await funnel(db, since_day, until_day, staff), "economy": await economy(db, since_day, until_day, staff),
+            "excluded": len(staff)}
 
 
 async def export_csv(db, days: int) -> str:
@@ -328,5 +380,11 @@ async def export_csv(db, days: int) -> str:
     w.writerow([])
     w.writerow(["Валюта", "Выдано", "Потрачено", "Итого"])
     for currency, c in m["economy"].items():
-        w.writerow([currency, c["issued"], c["spent"], c["net"]])
+        if currency != "_staff":
+            w.writerow([currency, c["issued"], c["spent"], c["net"]])
+    for currency, c in m["economy"].get("_staff", {}).items():
+        w.writerow([f"{currency} (аккаунты команды)", c["issued"], c["spent"], round(c["issued"] - c["spent"], 2)])
+    w.writerow([])
+    w.writerow(["Без аккаунтов команды", m["excluded"]])
+    w.writerow(["«Топ команд» включает команды аккаунтов команды" if m["bot"]["top_includes_staff"] else "«Топ команд» без оговорок"])
     return buf.getvalue()

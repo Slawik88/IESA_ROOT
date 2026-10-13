@@ -32,8 +32,18 @@ function _invSec(title, link) { return `<div class="v3-sec"><span class="v3-eyeb
 function _invFail(text, retry) {
   return `<div class="v3-empty" role="alert"><b>${_profileEsc(text)}</b><span>${_profileEsc(retry)}</span> <button type="button" class="v3-link" onclick="openInventory()">Повторить</button></div>`;
 }
-function _invRow(icon, name, hint, n) {
-  return `<li class="inv-item"><span class="inv-ic" aria-hidden="true">${icon}</span><span class="inv-nm"><b>${name}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="inv-n">${fmt(n)}</span></li>`;
+function _invRow(icon, name, hint, n, sheet) {
+  const inner = `<span class="inv-ic" aria-hidden="true">${icon}</span><span class="inv-nm"><b>${name}</b>${hint ? `<small>${hint}</small>` : ''}</span><span class="inv-n">${fmt(n)}</span>`;
+  return sheet ? `<li><button type="button" class="inv-item inv-item--tap" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-ic="${icon}">${inner}</button></li>` : `<li class="inv-item">${inner}</li>`;
+}
+// Лист предмета: только ключи, еда, карты и джокеры (образы и питомцы открываются сразу). Ничего не списывает: кнопка ведёт на экран, где предмет нужен.
+const _INV_SHEET = { keys: ['К сундукам', 'openChestsV1()'], food: ['К питомцам', 'openPetsV1()'], card: ['К питомцам', 'openPetsV1()'], joker: ['К питомцам', 'openPetsV1()'] };
+function invItem(kind, node) {
+  _haptic('select');
+  const go = _INV_SHEET[kind]; if (!go) return;
+  const d = node.dataset;
+  OM(`${d.ic} ${d.name}`, `<p class="v3-stat-line"><b>${fmt(Number(d.n))}</b> в запасе</p>${d.hint ? `<p class="inv-note">${_profileEsc(d.hint)}</p>` : ''}`,
+    [{ l: go[0], c: 'primary', f: `CM();${go[1]}` }, { l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
 }
 
 function _invLookTile(i) {
@@ -61,12 +71,19 @@ function _invPets(stock) {
   const body = pets.length ? `<div class="inv-pets">${pets.map(tile).join('')}</div>` : '<div class="v3-empty">Питомцев пока нет. Первую карточку можно найти в сундуке.</div>';
   return `<section class="inv-sec" id="inv-pets">${_invSec(`Питомцы · ${pets.length} из ${stock.species_total}`, '<button type="button" class="v3-link" onclick="openPetsV1()">К питомцам ›</button>')}${body}</section>`;
 }
+// Талисман питомцев: одна вещь, а не стопка, поэтому справа его ступень; имя и значок те же, что на экранах Тропы (app.41.js), на ком надет берём из списка питомцев склада
+function _invTal(t, stock) {
+  const known = typeof _TR_TAL !== 'undefined' && _TR_TAL[t.kind], tier = ['', 'I', 'II', 'III'][Number(t.tier)] || String(t.tier);
+  const pet = t.pet_id ? (stock.pets || []).find(p => p.id === t.pet_id) : null;
+  return `<li class="inv-item"><span class="inv-ic" aria-hidden="true">${known ? known[0] : '🧿'}</span><span class="inv-nm"><b>${_profileEsc(known ? known[1] : t.name)}</b><small>${pet ? `Носит ${_profileEsc(pet.name)}` : 'Свободен'}</small></span><span class="inv-n"><i class="sr-only">Ступень </i>${tier}</span></li>`;
+}
 function _invStuff(stock) {
   const group = (title, rows, note) => `<h3 class="inv-sub">${title}</h3>${note ? `<p class="inv-note">${note}</p>` : ''}<ul class="inv-list">${rows.join('')}</ul>`;
-  const parts = [group('Ключи', [_invRow('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys)])];
-  if (stock.foods.length) parts.push(group('Еда питомцев', stock.foods.map(f => _invRow(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity))));
-  if (stock.pet_cards.length) parts.push(group('Карты питомцев', stock.pet_cards.map(c => _invRow(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity))));
-  if (stock.jokers.length) parts.push(group('Джокеры', stock.jokers.map(j => _invRow('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, '', j.quantity)), 'Джокер заменяет карту любого питомца своей редкости.'));
+  const parts = [group('Ключи', [_invRow('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys, 'keys')])];
+  if (stock.foods.length) parts.push(group('Еда питомцев', stock.foods.map(f => _invRow(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))));
+  if (stock.pet_cards.length) parts.push(group('Карты питомцев', stock.pet_cards.map(c => _invRow(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity, 'card'))));
+  if (stock.jokers.length) parts.push(group('Джокеры', stock.jokers.map(j => _invRow('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker')), 'Джокер заменяет карту любого питомца своей редкости.'));
+  if ((stock.talismans || []).length) parts.push(group('Талисманы питомцев', stock.talismans.map(t => _invTal(t, stock)), 'Талисман надевают в сборке питомца, а в Лагере его можно перековать.'));
   return `<section class="inv-sec" id="inv-stuff">${_invSec('Ключи и предметы', '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')}${parts.join('')}</section>`;
 }
 function _invArchive(archive) {
@@ -77,11 +94,12 @@ function _invArchive(archive) {
 
 function _invChips(owned, stock, archive) {
   const chip = (id, n, label, extra) => `<button type="button" class="inv-chip" onclick="invJump('${id}')"><b>${fmt(n)}</b><span>${label}</span>${extra || ''}</button>`;
-  const list = [chip('looks', owned, _invWord(owned, 'образ', 'образа', 'образов'))];
+  const list = [];
   if (stock) {
     list.push(chip('pets', (stock.pets || []).length, _invWord((stock.pets || []).length, 'питомец', 'питомца', 'питомцев')));
-    list.push(chip('stuff', stock.keys, _invWord(stock.keys, 'ключ', 'ключа', 'ключей')));
+    list.unshift(chip('stuff', stock.keys, _invWord(stock.keys, 'ключ', 'ключа', 'ключей')));
   }
+  list.splice(stock ? 2 : 0, 0, chip('looks', owned, _invWord(owned, 'образ', 'образа', 'образов')));
   if (archive?.kinds) list.push(chip('archive', archive.kinds, 'в архиве'));
   return `<nav class="inv-chips" aria-label="Разделы инвентаря">${list.join('')}</nav>`;
 }
@@ -89,13 +107,26 @@ function _invChips(owned, stock, archive) {
 function _invRender() {
   const root = el('pg-inventory'); if (!root) return;
   const st = _inv.skins, stock = _inv.stock, owned = _invOwned(st).length;
-  const stockBlock = stock === undefined ? `<section class="inv-sec">${_invFail('Склад не загрузился', _inv.bad.stock)}</section>` : stock ? `${_invPets(stock)}${_invStuff(stock)}` : '';
-  root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="switchPage('profile')" aria-label="Назад в профиль">‹ Профиль</button></div>
+  // Сначала то, что можно применить (ключи, еда), потом коллекция: порядок по данным ответа, без клиентских расчётов
+  const stockFail = stock === undefined ? `<section class="inv-sec">${_invFail('Склад не загрузился', _inv.bad.stock)}</section>` : '';
+  const stockStuff = stock ? _invStuff(stock) : '', stockPets = stock ? _invPets(stock) : '';
+  root.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="invBack()" aria-label="Назад">‹ Назад</button></div>
     <header class="v3-screen-head"><span class="v3-eyebrow">Всё ваше</span><h1 class="v3-title">Инвентарь${v3GlintMark('Инвентарь')}</h1><p class="v3-sub">Образы, питомцы, ключи и вещи в одном месте.</p></header>
-    ${_invChips(owned, stock, _inv.archive)}${_invLooks(st)}${_invMarks()}${stockBlock}${_invArchive(_inv.archive)}`;
+    ${_invChips(owned, stock, _inv.archive)}${stockStuff}${stockPets}${_invLooks(st)}${_invMarks()}${stockFail}${_invArchive(_inv.archive)}`;
   v3EnterSync(root);
 }
 
+// Кнопка-рюкзак в верхней панели (она же прежний колокол): короткое меню из двух строк, точка «есть новое» остаётся на кнопке
+function openBarMenu() {
+  _haptic('select');
+  const row = (go, name, hint, icon) => `<button type="button" class="v3-row" onclick="CM();${go}">${icon}<span>${name}<small>${hint}</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>`;
+  const bag = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/></svg>';
+  const bell = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/></svg>';
+  const fresh = document.querySelector('[data-wn-btn].has-new') ? ' · есть новое' : '';
+  OM('Меню', row('openInventory()', 'Инвентарь', 'Образы, питомцы, ключи и вещи', bag) + row('openWhatsNew()', 'Что нового', `Обновления Предвестника${fresh}`, bell), [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
+}
+// Рюкзак открывается с любого экрана: «‹» возвращает туда, откуда пришли, а без истории ведёт в профиль
+function invBack() { if (typeof _navStack !== 'undefined' && _navStack.length) navBack(); else switchPage('profile'); }
 function invJump(id) {
   _haptic('select');
   const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;

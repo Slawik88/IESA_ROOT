@@ -851,48 +851,7 @@ body.no-fx .loader::before, body.no-fx .loader::after { animation: none; }
 
 /* The pet roster respects both no-fx and reduced-motion. */
 
-/* ═══ «Что нового»: лента строк с тонкими линиями, раскрытие тапом (монолит, без карточек) ═══ */
-.wn-head { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
-.wn-back { flex: none; width: 44px; height: 44px; margin-left: -12px; border: 0; background: none; color: var(--v3-dim); font-size: 24px; line-height: 1; cursor: pointer; transition: opacity .15s; }
-.wn-back:active { opacity: .55; }
-.wn-htitle { color: var(--v3-ink); font: 600 20px/1.2 var(--v3-font); letter-spacing: -.01em; }
-
-.wn-list { display: flex; flex-direction: column; }
-.wn-card { padding: 0; border: 0; border-radius: 0; background: none; }
-.wn-card + .wn-card { box-shadow: 0 -1px 0 var(--v3-faint); }
-.wn-card-head { position: relative; display: block; width: 100%; padding: 16px 26px 16px 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: opacity .15s; }
-.wn-card-head:active { opacity: .6; }
-.wn-card-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
-.wn-tag { color: var(--v3-acc); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
-.wn-tag--fix { color: var(--v3-ok); }
-.wn-tag--balance { color: var(--v3-vip, #f1cf7e); }
-.wn-tag--content { color: var(--v3-dim); }
-.wn-date { color: var(--v3-dim); font-size: 12px; font-variant-numeric: tabular-nums; }
-.wn-new-badge { margin-left: auto; color: var(--v3-acc); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-.wn-card--new .wn-card-title::before { content: ""; display: inline-block; width: 6px; height: 6px; margin: 0 8px 2px 0; border-radius: 50%; background: var(--v3-acc); }
-.wn-card-title { margin-bottom: 4px; color: var(--v3-ink); font: 600 16px/1.3 var(--v3-font); }
-.wn-card-sum { color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
-.wn-chevron { position: absolute; right: 2px; top: 20px; color: var(--v3-dim); font-size: 13px; transition: transform .25s; }
-.wn-card--open .wn-chevron { transform: rotate(180deg); }
-.wn-card-body { max-height: 0; overflow: hidden; transition: max-height .3s ease; }
-.wn-card--open .wn-card-body { max-height: 700px; }
-.wn-details { margin: 0; padding: 0 0 14px; list-style: none; }
-.wn-details li { padding: 5px 0 5px 16px; position: relative; color: var(--v3-ink); font-size: 13.5px; line-height: 1.5; }
-.wn-details li::before { content: ""; position: absolute; left: 2px; top: 13px; width: 4px; height: 4px; border-radius: 50%; background: var(--v3-dim); }
-.wn-term { border-bottom: 1px dotted currentColor; color: var(--v3-acc); font-weight: 600; cursor: pointer; }
-.wn-term:active { opacity: .7; }
-
-/* Мини-поповер термина (маленький, на месте) */
-.wn-pop {
-  position: absolute; z-index: 200; max-width: 240px;
-  
-   
-  padding: 9px 11px;  animation: pop .16s ease-out;
-}
-.wn-pop-term { font-size: 12px; font-weight: 800; color: var(--gold2); margin-bottom: 3px; }
-.wn-pop-def { font-size: 11.5px; color: var(--text); line-height: 1.45; }
-@media (prefers-reduced-motion: reduce) { .wn-card-body, .wn-chevron, .wn-pop { transition: none; animation: none; } }
-body.no-fx .wn-pop { animation: none; }
+/* «Что нового» живёт в news-v3.css (app.42.js) */
 
 /* ═══ Инфо-модалки боя: тап по врагу (характеристики + как ударить) / по рельефу ══ */
 
@@ -1612,5 +1571,5 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 /* Keep the compact collection contract after all legacy narrow-screen rules. */
 
 /* кнопки «назад» в шапках экранов и закруглённые знаки, у которых рамка и фон сняты вместе с карточными оболочками */
-.looks-back, .wn-back { background: none; border: 0; color: var(--v3-dim); }
+.looks-back { background: none; border: 0; color: var(--v3-dim); }
 .pet-hero > strong { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--v3-acc); }

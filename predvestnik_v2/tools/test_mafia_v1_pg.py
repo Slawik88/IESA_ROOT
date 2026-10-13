@@ -222,6 +222,9 @@ async def check_finish(db, match_id: int, roles: dict[int, str]) -> None:
     assert await mafia.advance_due_match(db, match_id=match_id) is None
     history = await mafia.player_history(db, user_id=7101)
     assert history["matches"] and history["matches"][0]["role"] == roles[7101], "history exposes only the player's own role"
+    assert all(set(m) == {"match_id", "chat_id", "phase", "winner", "finished_reason", "won", "role", "started_at", "finished_at"} for m in history["matches"]), "no other players in the history"
+    assert history["matches"][0]["won"] == (mafia.rules.faction(roles[7101]) == history["matches"][0]["winner"]), "won comes from the server"
+    assert history["stats"]["played"] >= 1 and history["stats"]["wins"] <= history["stats"]["played"] and "live" in history and history["stats"]["win_streak"] >= 0
 
 
 parser = argparse.ArgumentParser(); parser.add_argument("--dsn", required=True, type=local_dsn)

@@ -14,6 +14,7 @@ _SOURCE_LABELS = {
     "expedition":       "⚔️ Экспедиция",
     "quest_reward":     "📋 Квест",
     "season_reward":    "🏁 Сезон",
+    "season_pass":      "🏁 Пропуск сезона",
     "achievement_reward": "🏆 Достижение",
     "level_up":         "⬆️ Уровень",
     "pet_milestone":    "🐾 Питомец Ур.",
