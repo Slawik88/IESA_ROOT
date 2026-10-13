@@ -13,7 +13,8 @@ assert "_pendingAction(_petsV1PendingActions,key,'pet-feed-')" in COMPACT_CLIENT
 assert "_pendingAction(_petsV1PendingActions,key,'pet-activate-')" in COMPACT_CLIENT
 assert "_pendingAction(_petsV1PendingActions,key,'pet-activity-')" in COMPACT_CLIENT
 assert "_pendingAction(_petsV1PendingActions,key,'pet-decision-')" in COMPACT_CLIENT
-assert CLIENT.count("_petsV1PendingActions.delete(key)") == 4
+assert CLIENT.count("_petsV1PendingActions.delete(key)") == 5
+assert "levelup:" in CLIENT and "/pets-v1/level-up" in CLIENT
 assert "Проверяем запущенный таймер" in CLIENT
 assert "_pendingAction(_questsV1PendingActions,key,'quest-reroll-')" in COMPACT_CLIENT
 assert "_questsV1PendingActions.delete(key)" in CLIENT
