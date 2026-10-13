@@ -15,13 +15,37 @@ import argparse
 import json
 from dataclasses import dataclass, field
 
+import importlib.util
+import sys
+
 from core import chests_v1 as chests
+
+PRE_ECO02_CATALOG = "chests-mixed-s1-v2"      # tables before ECO-02: loot_scale below imitates the ECO-02 cut on them
 
 WEEKS = 520
 ZAR_PER_STAR = 10
 PACK_BONUS = 1.09                 # average bonus of the Stars packs (215/200 ... 4400/4000)
 UAH_PER_STAR = 1.0                # owner: 1 star ~ 1 UAH
 CHF_PER_UAH = 0.02
+
+def use_tables(path: str) -> None:
+    """Load a chests_v1.py (e.g. the ECO-02 branch) instead of core.chests_v1 and stop scaling the loot."""
+    global chests
+    spec = importlib.util.spec_from_file_location("chests_tables", path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["chests_tables"] = module
+    spec.loader.exec_module(module)
+    chests = module
+    P["loot_scale"] = {k: 1.0 for k in P["loot_scale"]}
+
+
+def guard_tables() -> str:
+    """The cut must be applied once: tables already cut (ECO-02 merged) mean loot_scale 1.0."""
+    version = chests.CATALOG_VERSION
+    if version != PRE_ECO02_CATALOG and any(v != 1.0 for v in P["loot_scale"].values()):
+        P["loot_scale"] = {k: 1.0 for k in P["loot_scale"]}
+    return version
+
 
 # ── proposed rules (all tunable) ──────────────────────────────────────────────
 P = {
@@ -63,7 +87,7 @@ class Profile:
     label: str
     quest_mora: float        # per week
     quest_ess: float
-    quest_keys: float        # free tier-1 keys from quests per week
+    quest_keys: float        # free tier-1 keys from quests per week (ECO-02: daily set 2, weekly set 3)
     pet_keys: float          # free tier-1 keys from pet runs per week
     pass_completion: float   # share of the season-pass track finished
     ach_weeks: int           # lifetime achievements are earned over this many weeks
@@ -78,13 +102,13 @@ class Profile:
 
 
 PROFILES = [
-    Profile("casual", "Малоактивный", 215, 40, 3, 2, 0.10, 400, 0.05, note="2 набора дня в неделю + недельный, раз в пару дней в боте"),
-    Profile("mid", "Средний", 255, 50, 5, 3, 0.40, 250, 0.10, note="4 набора дня + недельный"),
-    Profile("active", "Активный", 315, 65, 8, 5, 1.00, 156, 0.20, note="всё, каждый день"),
-    Profile("payer_light", "Платящий лёгкий", 255, 50, 5, 3, 0.40, 250, 0.20, stars_per_month=100, key_budget_share=0.30,
+    Profile("casual", "Малоактивный", 215, 40, 7, 2, 0.10, 400, 0.05, note="2 набора дня в неделю + недельный, раз в пару дней в боте"),
+    Profile("mid", "Средний", 255, 50, 11, 3, 0.40, 250, 0.10, note="4 набора дня + недельный"),
+    Profile("active", "Активный", 315, 65, 17, 5, 1.00, 156, 0.20, note="всё, каждый день"),
+    Profile("payer_light", "Платящий лёгкий", 255, 50, 11, 3, 0.40, 250, 0.20, stars_per_month=100, key_budget_share=0.30,
             exchange_z=25, exchange_dia_share=0.0, skin_chain=True,
             note="как средний + 100⭐ (≈100 грн) в месяц"),
-    Profile("payer_heavy", "Платящий крупный", 315, 65, 8, 5, 1.00, 156, 0.60, stars_per_month=400, key_budget_share=0.30, vip=True,
+    Profile("payer_heavy", "Платящий крупный", 315, 65, 17, 5, 1.00, 156, 0.60, stars_per_month=400, key_budget_share=0.30, vip=True,
             exchange_z=150, exchange_dia_share=0.35, skin_chain=True,
             note="как активный + VIP + 400⭐ (≈400 грн) в месяц"),
 ]
@@ -164,7 +188,7 @@ def simulate(profile: Profile, weeks: int = WEEKS) -> dict:
         st.mora += inc["mora"]; st.ess += inc["ess"]; st.dia += inc["dia"]
         for k, v in inc.items():
             add(st.earned, f"{k}_free", v)
-        st.keys[1] = st.keys.get(1, 0.0) + profile.quest_keys + profile.pet_keys + (1 if profile.vip else 0)
+        st.keys[1] = st.keys.get(1, 0.0) + profile.quest_keys + profile.pet_keys + (2 if profile.vip else 0)
         if profile.stars_per_month and week % 4 == 1:          # Zarniki purchase once a month
             z = profile.stars_per_month * ZAR_PER_STAR * PACK_BONUS
             st.zar += z; st.stars += profile.stars_per_month
@@ -339,7 +363,11 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json")
     ap.add_argument("--sweep", action="store_true")
+    ap.add_argument("--tables", help="path to a chests_v1.py (e.g. the ECO-02 branch); loot is then not scaled again")
     args = ap.parse_args()
+    if args.tables:
+        use_tables(args.tables)
+    print("таблицы сундуков:", guard_tables(), "| лут ×", P["loot_scale"])
     if args.sweep:
         sweeps()
         return
