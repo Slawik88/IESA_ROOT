@@ -75,6 +75,8 @@ P = {
     # season pass (approved budget): full track 1200 Mora + 300 Essence per 30.5 weeks
     "pass_weeks": 30.5, "pass_mora": 1200, "pass_ess": 300, "pass_dia_per_season": 6,
     "achievements_mora": 2575,
+    # pet route rewards (ECO-04, PR #29): Mora per completed expedition, EV 80 at 6h, up to +24% at L16, weekly cap
+    "pet_route": {"ev": 80, "max_uplift": 0.24, "weekly_cap": 400, "enabled": True},
     # gifts: tier -> (currency, price)
     "gifts": {"T1": ("mora", 300), "T2": ("mora", 1500), "T3": ("dia", 4), "T4": ("zar", 1500)},
 }
@@ -189,6 +191,12 @@ def simulate(profile: Profile, weeks: int = WEEKS) -> dict:
         for k, v in inc.items():
             add(st.earned, f"{k}_free", v)
         st.keys[1] = st.keys.get(1, 0.0) + profile.quest_keys + profile.pet_keys + (2 if profile.vip else 0)
+        if P["pet_route"]["enabled"]:
+            best = max((pet["level"] for pet in st.pets), default=1)
+            route = profile.pet_keys / 2 * P["pet_route"]["ev"] * (1 + P["pet_route"]["max_uplift"] * (best - 1) / (P["pet_levels"] - 1))
+            route = min(route, P["pet_route"]["weekly_cap"])
+            st.mora += route
+            add(st.earned, "mora_route", route)
         if profile.stars_per_month and week % 4 == 1:          # Zarniki purchase once a month
             z = profile.stars_per_month * ZAR_PER_STAR * PACK_BONUS
             st.zar += z; st.stars += profile.stars_per_month
