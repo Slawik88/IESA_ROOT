@@ -88,6 +88,7 @@ function loadActivitiesHub(){
   const draw=()=>{
     host.innerHTML=`<div class="v3-eyebrow">Играть</div>
       <section class="v3-games v3-games--hub" aria-label="Игры">${open.map(g=>_hubRow(g,chev)).join('')}</section>`;
+    if(typeof passHubRow==='function')passHubRow(host);   // строка «Пропуск сезона», пока включён флаг season_pass_v1 (app.43.js)
     if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
   };
   draw();

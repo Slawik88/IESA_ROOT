@@ -529,7 +529,7 @@ let _activePage = 'profile';
 const _PAGE_LOADERS = {
   arena:loadArena,
   help:()=>{},
-  news:loadWhatsNew, 'exchange-v1':loadPlayerExchangeV1
+  news:loadWhatsNew, pass:loadSeasonPass, 'exchange-v1':loadPlayerExchangeV1
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
@@ -585,8 +585,8 @@ function switchPage(name, _btn, _viaBack) {
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile','store'];
-  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):el('nb-more'));
+  const _profileChildren=['inventory','achievements-v1','public-profile','store'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
   if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
@@ -619,7 +619,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');

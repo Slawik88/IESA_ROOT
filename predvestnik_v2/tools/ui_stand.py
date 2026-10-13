@@ -23,6 +23,7 @@ import os
 import sys
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,7 +48,7 @@ def _env(port: int, dsn: str) -> Path | None:
     return path
 
 
-GAME_FLAGS = ("content_chests_v1", "pets_v2", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1")
+GAME_FLAGS = ("content_chests_v1", "pets_v2", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1", "season_pass_v1")
 
 
 async def set_game_flags(dsn: str, enabled: bool) -> None:
@@ -121,7 +122,43 @@ async def seed_trail(conn, scenario: str) -> None:
     await conn.execute("INSERT INTO pet_v2_daily(user_id,day,raw,credited,finds) VALUES ($1,(NOW() AT TIME ZONE 'UTC')::date,$2,$3,'{}'::jsonb)", PERSONA_ID, 1000.0 if scenario == "capped" else credited, credited)
 
 
-async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, name: str | None, vip: bool, owned: tuple[str, ...], trail: str = "default") -> None:
+# Free games season pass of the persona (flag season_pass_v1): scenario -> (days the account has been in the bot, points of the season, claimed level, points earned today).
+# The pass pays an account only after 14 days in the bot (core/account_age.py), and the age is read from chat records, so every scenario writes one old record.
+PASS_SCENARIOS = {
+    "default": (40, 1820, 3, 40),      # level 6, three levels wait to be claimed
+    "fresh": (40, 0, 0, 0),            # nothing earned yet
+    "new": (5, 1820, 3, 40),           # the same progress on an account younger than 14 days: the claim is shut for now
+    "idle": (40, 2410, 8, 30),         # everything reached is already claimed
+    "finish": (40, 9400, 24, 70),      # all 30 levels reached, six not claimed yet
+    "max": (40, 9400, 30, 70),         # the whole path claimed
+    "capped": (40, 2410, 8, 100),      # the day's points are used up
+}
+PASS_CHAT_ID = -1009900000001          # a chat that exists only as the age record of the persona (the profile lists chats from user_chat_stats, so that table stays untouched)
+
+
+async def seed_season_pass(conn, scenario: str) -> None:
+    """Season pass for the persona. scenario: a key of PASS_SCENARIOS, or none (leave as is). Idempotent: the persona's pass rows and age record are replaced."""
+    from core import seasons
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import season_pass as pass_repo
+    if scenario == "none":
+        return
+    days_in_bot, points, claimed, today = PASS_SCENARIOS[scenario]
+    await pass_repo.ensure_tables(PGAdapter(conn))
+    for table in ("season_pass_progress", "season_pass_days", "season_pass_receipts"):
+        await conn.execute(f"DELETE FROM {table} WHERE user_id=$1", PERSONA_ID)
+    await conn.execute("DELETE FROM daily_user_stats WHERE user_id=$1 AND chat_id=$2", PERSONA_ID, PASS_CHAT_ID)
+    await conn.execute("INSERT INTO daily_user_stats(user_id,chat_id,date,message_count) VALUES ($1,$2,$3,1)",
+                       PERSONA_ID, PASS_CHAT_ID, (datetime.now(timezone.utc) - timedelta(days=days_in_bot)).date().isoformat())
+    now = datetime.now(timezone.utc)
+    season = seasons.season_number(now)
+    if points or claimed:
+        await conn.execute("INSERT INTO season_pass_progress(user_id,season,points,claimed_level) VALUES ($1,$2,$3,$4)", PERSONA_ID, season, points, claimed)
+    if today:
+        await conn.execute("INSERT INTO season_pass_days(user_id,season,day,points) VALUES ($1,$2,$3,$4)", PERSONA_ID, season, now.date(), today)
+
+
+async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, name: str | None, vip: bool, owned: tuple[str, ...], trail: str = "default", season_pass: str = "default") -> None:
     """Make the synthetic player wear a look and carry numbers. Idempotent: running it again resets the persona."""
     import asyncpg
     from infrastructure.pg_adapter import PGAdapter
@@ -171,6 +208,7 @@ async def seed_persona(dsn: str, *, skin: str | None, tier: str, rich: bool, nam
             await skins_repo.set_tier(db, PEER_ID, peer_look, "SS")
             await skins_repo.set_equipped(db, PEER_ID, peer_look)
         await seed_trail(conn, trail)
+        await seed_season_pass(conn, season_pass)
     finally:
         await conn.close()
 
@@ -262,11 +300,13 @@ def main() -> None:
     parser.add_argument("--flags", choices=("on", "off", "keep"), default="keep", help="switch the game/economy modules (chests, games, exchange) on or off")
     parser.add_argument("--own", default="", help="comma separated extra skin ids to own at tier D")
     parser.add_argument("--trail", choices=("default", "empty", "capped", "none"), default="default", help="pets of the Trail screens: a lived-in camp, no pets, the day's Следы used up, or leave as is")
+    parser.add_argument("--pass", dest="season_pass", choices=(*PASS_SCENARIOS, "none"), default="default",
+                        help="season pass of the persona: default (three levels to claim), fresh, new (account under 14 days), idle, finish, max, capped, or none (leave as is)")
     args = parser.parse_args()
     if args.flags != "keep":
         asyncio.run(set_game_flags(args.dsn, args.flags == "on"))
     with Stand(args.port, args.dsn, skin=args.skin, tier=args.tier, rich=args.rich, vip=not args.no_vip, name=args.name,
-               owned=tuple(x for x in args.own.split(",") if x), trail=args.trail) as stand:
+               owned=tuple(x for x in args.own.split(",") if x), trail=args.trail, season_pass=args.season_pass) as stand:
         print(f"Stand is up. Open this URL once (it logs the persona in, valid 2 minutes):\n  {stand.url}\nCtrl+C to stop.")
         try:
             while True:

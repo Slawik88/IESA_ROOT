@@ -94,6 +94,7 @@
 | Ключ | Кнопка | Куда | `tab` |
 |---|---|---|---|
 | `games` | Открыть Игры | `switchPage('arena')` | `arena` |
+| `pass` | Открыть Пропуск | `openSeasonPass()` (экран за флагом `season_pass_v1`, `docs/SEASON_PASS_UI.md`) | `arena` |
 | `looks` | Открыть Образы | `openLooksModal()` | `looks` |
 | `quests` | Открыть Задания | `openQuestsV1()` | `questlog` |
 | `chests` | Открыть Сундуки | `openChestsV1()` | `chests` |

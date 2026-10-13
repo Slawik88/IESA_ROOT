@@ -39,7 +39,7 @@ function boot(extra = {}) {
     openLooksModal: () => calls.push(['openLooksModal']), openQuestsV1: () => calls.push(['openQuestsV1']), openChestsV1: () => calls.push(['openChestsV1']),
     openPetsV1: () => calls.push(['openPetsV1']), openTopV3: () => calls.push(['openTopV3']), openInventory: () => calls.push(['openInventory']),
     openAchievementsV1: () => calls.push(['openAchievementsV1']), openPromoSheet: () => calls.push(['openPromoSheet']),
-    openStoreV3: tab => calls.push(['openStoreV3', tab]), openSettingsModal: () => calls.push(['openSettingsModal']), openChatTracker: () => calls.push(['openChatTracker']),
+    openStoreV3: tab => calls.push(['openStoreV3', tab]), openSettingsModal: () => calls.push(['openSettingsModal']), openChatTracker: () => calls.push(['openChatTracker']), openSeasonPass: () => calls.push(['openSeasonPass']),
     _wnFetch: () => Promise.resolve([]), _wnSeenId: () => '', _wnMarkSeen: list => calls.push(['mark', list.length]),
   }, extra));
   vm.runInContext(ESCAPER[0], ctx);
@@ -326,7 +326,7 @@ const count = (html, needle) => html.split(needle).length - 1;
   await section('Переходы: каждый ключ ведёт на свой экран', () => {
     const t = boot(), { wn, calls } = t;
     const expected = {
-      games: ['switchPage', 'arena'], looks: ['openLooksModal'], quests: ['openQuestsV1'], chests: ['openChestsV1'], pets: ['openPetsV1'], top: ['openTopV3'],
+      games: ['switchPage', 'arena'], pass: ['openSeasonPass'], looks: ['openLooksModal'], quests: ['openQuestsV1'], chests: ['openChestsV1'], pets: ['openPetsV1'], top: ['openTopV3'],
       profile: ['switchPage', 'profile'], inventory: ['openInventory'], achievements: ['openAchievementsV1'], promo: ['openPromoSheet'],
       zarniki: ['openStoreV3', 'zarniki'], vip: ['openStoreV3', 'vip'], settings: ['openSettingsModal'], chats: ['openChatTracker'], help: ['switchPage', 'help'],
     };

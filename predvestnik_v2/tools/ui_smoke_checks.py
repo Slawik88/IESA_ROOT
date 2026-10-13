@@ -2,6 +2,20 @@
 
 Admin screens are deliberately absent: the admin panel is being rewritten in another session.
 """
+from datetime import datetime, timedelta, timezone
+
+
+def _days(n: int) -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=n)).isoformat()
+
+
+def _pass_screen(edit: str) -> str:
+    """The pass page on the answer of the real stand, edited on the spot (the stand holds one scenario at a time): `me` is the answer, `s` is its current season. The page draws from `_sp.me`, so the edited copy is stored there."""
+    return ("const real = _spLoad; window._spLoad = f => real.call(null, f).then(me => { me = JSON.parse(JSON.stringify(me)); const s = me.seasons[0]; "
+            + edit + " _sp.me = me; return me; }); openSeasonPass()")
+
+
+_PASS_ALL = "s.points = 9400; s.level = 30; s.points_to_next = 0; "
 
 # Every player screen and sheet reachable from the app. (name, JS that opens it)
 SCREENS = [
@@ -38,6 +52,19 @@ SCREENS = [
     ("news-first", "if (_profileData) _profileData.whatsnew_seen_id = ''; try { localStorage.removeItem('wn_seen_id'); } catch (e) {} openWhatsNew()"),
     ("news-new", "_wnFetch().then(l => { if (_profileData) _profileData.whatsnew_seen_id = (l[6] || l[l.length - 1]).id; openWhatsNew(); })"),
     ("news-open", "_wnFetch().then(l => { if (_profileData) _profileData.whatsnew_seen_id = (l[3] || l[l.length - 1]).id; openWhatsNew(); setTimeout(() => { const b = document.querySelector('#pg-news .wn-it--fresh [data-wn-toggle]'); if (b) b.click(); }, 900); })"),
+    # Пропуск сезона (флаг season_pass_v1). Первый экран идёт по настоящему ответу стенда (три уровня к получению), остальные правят этот ответ на месте
+    ("pass", "openSeasonPass()"),
+    ("pass-new", _pass_screen("me.account = {eligible: false, eligible_from: '" + _days(9) + "', min_days: 14};")),
+    ("pass-idle", _pass_screen("s.claimed_level = s.level; s.claimable_levels = 0; s.claimable = {mora: 0, essence: 0}; s.points_today = s.points_today_cap;")),
+    ("pass-finish", _pass_screen(_PASS_ALL + "s.claimed_level = 24; s.claimable_levels = 6; s.claimable = {mora: 240, essence: 60};")),
+    ("pass-max", _pass_screen(_PASS_ALL + "s.claimed_level = 30; s.claimable_levels = 0; s.claimable = {mora: 0, essence: 0};")),
+    ("pass-prev", _pass_screen("const old = JSON.parse(JSON.stringify(s)); Object.assign(old, {current: false, season: 1, level: 11, points: 3410, points_to_next: 190, claimed_level: 4, claimable_levels: 7, "
+                               "claimable: {mora: 280, essence: 70}, ends_at: '" + _days(-10) + "', claim_until: '" + _days(20) + "', points_today: 0}); "
+                               "Object.assign(s, {season: 2, starts_at: '" + _days(-10) + "', ends_at: '" + _days(200) + "', points: 640, level: 2, points_to_next: 260, claimed_level: 2, claimable_levels: 0, claimable: {mora: 0, essence: 0}}); "
+                               "me.seasons = [old, s];")),
+    ("pass-refused", "openSeasonPass(); setTimeout(() => _spShowError(1, 'Нет новых уровней для получения.'), 1200)"),
+    ("pass-closed", "window._spLoad = () => { _sp.me = {enabled: false}; _sp.at = Date.now(); return Promise.resolve(_sp.me); }; openSeasonPass()"),
+    ("pass-error", "window._spLoad = () => Promise.reject('Сервер прилёг отдохнуть. Попробуй через минуту.'); openSeasonPass()"),
     ("tracker", "openChatTracker()"),
     ("wallet", "showCurrModal()"),
     ("legal-tos", "openLegalDoc('tos')"),

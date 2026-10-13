@@ -24,6 +24,7 @@ function loadProfile() {
     el('pro-main').innerHTML=renderProfileHome(d);
     if(typeof v3EnterSync==='function')v3EnterSync(el('pro-main'));   // перерисовка не перезапускает каскад секций
     try { checkWhatsNewBadge(); } catch (_) {}
+    try { passCheck(); } catch (_) {}   // точка на вкладке «Игры», пока есть что забрать из пропуска сезона (app.43.js)
     try { renderV3Bar(d); v3SaveProfileCache(d); _v3LastSync = Date.now(); delete el('pro-main').dataset.stale; v3CountUp(el('pro-main')); v3Delights(d); } catch (_) {}
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
@@ -194,7 +195,7 @@ function _handleStartParam(){
     looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openInventory, inv:openInventory,
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
     exchange:openPlayerExchangeV1, exch:openPlayerExchangeV1, crypto:openPlayerExchangeV1, birzha:openPlayerExchangeV1,
-    notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew,
+    notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew, pass:openSeasonPass, season:openSeasonPass,
   };
   if(base==='public'){
     let ref=''; try{ ref=new URLSearchParams(location.search).get('profile')||''; }catch(e){}

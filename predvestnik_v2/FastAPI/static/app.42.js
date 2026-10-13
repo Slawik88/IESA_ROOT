@@ -33,6 +33,7 @@ const _WN_FIX_TAGS = ['Исправления', 'Исправлено', 'Фик�
 // Куда ведёт «Открыть»: ключ из поля open записи. tab — вкладка дока, на которой зажигается точка, пока запись свежая. Выполняется только то, что записано здесь, а не то, что пришло в JSON.
 const _WN_GO = {
   games:        { cta: 'Открыть Игры', tab: 'arena', run: () => switchPage('arena') },
+  pass:         { cta: 'Открыть Пропуск', tab: 'arena', run: () => openSeasonPass() },
   looks:        { cta: 'Открыть Образы', tab: 'looks', run: () => openLooksModal() },
   quests:       { cta: 'Открыть Задания', tab: 'questlog', run: () => openQuestsV1() },
   chests:       { cta: 'Открыть Сундуки', tab: 'chests', run: () => openChestsV1() },
