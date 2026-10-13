@@ -161,3 +161,14 @@
 .pt-soon { color: var(--pt-dim); font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .pt-more { justify-self: start; min-height: 40px; padding: 0 14px; border: 0; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1px var(--pt-line); color: var(--pt-ink); font-size: 13px; }
 .pt-sheet .pt-lore, .pt-sheet .pt-note { text-align: left; }
+
+/* Улучшение питомца: цена шага строками, нехватка подсвечена сразу (блок виден только при включённом флаге) */
+.pt-up-cost { display: grid; margin: 4px 0 12px; padding: 0; list-style: none; }
+.pt-up-cost li { position: relative; display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 9px 0; font-size: 14px; }
+.pt-up-cost li + li { box-shadow: 0 -1px 0 var(--pt-line); }
+.pt-up-cost span { color: var(--pt-dim); }
+.pt-up-cost b { color: var(--pt-ink); font-weight: 650; font-variant-numeric: tabular-nums; }
+.pt-up-cost li.is-short b { color: var(--pt-warn, #e8b94d); }
+.pt-up-cost li > i { position: absolute; left: 0; right: 0; bottom: 3px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--pt-acc) calc(var(--p) * 1%), var(--pt-line) 0); }
+.pt-up-mark { margin-left: 6px; padding: 1px 8px; border-radius: 99px; color: var(--pt-acc); background: color-mix(in srgb, var(--pt-acc) 14%, transparent); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: none; }
+.pt-up .pt-main:disabled { opacity: .45; }

@@ -359,6 +359,31 @@
       + `<span class="pt-ic" aria-hidden="true">${esc(icon)}</span>${badge}${away ? '<i class="pt-b pt-b--trip">🧭</i>' : ''}<small>${esc(pet.name)}</small></button>`;
   }
 
+  // «Улучшить»: цена следующего шага (карты, Мора, на уровнях 5/10/15 ещё Эссенция). Блок виден только при включённом флаге; что именно не хватает, написано сразу
+  function petLevelUp(pet, data) {
+    const lu = data.level_up;
+    if (!lu || !lu.enabled) return '';
+    const step = (lu.steps || {})[pet.id];
+    if (step === undefined) return '';
+    if (!step) return `<section class="pt-sec pt-up"><h3>Уровень ${Number(pet.level)} из ${Number(lu.max_level)}</h3><p>Максимальный уровень.</p></section>`;
+    // Мору и Эссенцию не блокируем на клиенте: баланс в панели обновляется не сразу, сервер сам откажет с понятной ошибкой
+    const left = Math.max(0, Number(step.cards) - Number(step.cards_have));
+    const word = left % 10 === 1 && left % 100 !== 11 ? 'карта' : (left % 10 >= 2 && left % 10 <= 4 && (left % 100 < 12 || left % 100 > 14) ? 'карты' : 'карт');
+    const need = left ? [`ещё ${fmt(left)} ${word}`] : [];
+    const pct = Math.min(100, Math.round(100 * Number(step.cards_have) / Math.max(1, Number(step.cards))));
+    const mark = [5, 10, 15].includes(Number(step.level_after)) ? ` <small class="pt-up-mark">веха</small>` : '';
+    return `<section class="pt-sec pt-up" aria-label="Улучшение питомца">
+      <h3>Уровень ${Number(pet.level)} → ${Number(step.level_after)}${mark}</h3>
+      <ul class="pt-up-cost">
+        <li class="${Number(step.cards_have) < Number(step.cards) ? 'is-short' : ''}"><span>🃏 Карты</span><b>${fmt(Number(step.cards_have))} / ${fmt(Number(step.cards))}</b><i style="--p:${pct}"></i></li>
+        <li><span>🪙 Мора</span><b>${fmt(Number(step.mora))}</b></li>
+        ${Number(step.essence) > 0 ? `<li><span>🔮 Эссенция</span><b>${fmt(Number(step.essence))}</b></li>` : ''}
+      </ul>
+      <button type="button" class="pt-main" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
+      ${need.length ? `<p class="pt-note" role="status">Не хватает: ${need.join(', ')}.</p>` : ''}
+    </section>`;
+  }
+
   function petDetail(pet, data, icon, away, lore) {
     const foods = data.food || [];
     const activePet = (data.pets || []).find((p) => p.active);
@@ -379,7 +404,7 @@
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
       <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
       ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
-    </section>${action}`;
+    </section>${petLevelUp(pet, data)}${action}`;
   }
 
   function petOwnedPanel(data) {
@@ -525,6 +550,10 @@
   window.petsV1Start=function(kind,hours){
     const key=`activity:${kind}:${hours}`,action=_pendingAction(_petsV1PendingActions,key,'pet-activity-');
     api('/pets-v1/activity',{method:'POST',body:JSON.stringify({kind:kind,hours:hours,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Таймер запущен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем запущенный таймер.`,false);openPetsV1();});
+  };
+  window.petsV1LevelUp=function(petId){
+    const key=`levelup:${petId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-levelup-');
+    api('/pets-v1/level-up',{method:'POST',body:JSON.stringify({pet_id:petId,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Уровень повышен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем актуальное состояние.`,false);openPetsV1();});
   };
   window.petsV1Feed=function(petId,foodId){
     const key=`feed:${petId}:${foodId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-feed-');
