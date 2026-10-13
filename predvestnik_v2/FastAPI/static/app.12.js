@@ -271,23 +271,6 @@
     return `Ур. ${pet.level}/16 · ${esc(e.visual_stage || 'начальный облик')} · маршрут +${e.expedition_route_bonus_percent || 0}%`;
   }
 
-  function petHero(pet, foods, icon) {
-    return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="Активный питомец">
-      <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
-        <div><small>Активный · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
-      ${petMeter(pet)}${petFoodButtons(pet, foods)}
-    </section>`;
-  }
-
-  function petRow(pet, icon, canSwitch) {
-    const value = Math.max(0, Math.min(100, Number(pet.endurance) || 0));
-    return `<article class="pt-row ${petRarityClass(pet.rarity)}">
-      <span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
-      <div><b>${esc(pet.name)}</b><small>${esc(petRarityName(pet.rarity))} · ур. ${pet.level} · ⚡ ${value}</small></div>
-      <button type="button" class="pt-pick" onclick="petsV1Activate(${pet.id})" aria-label="Сделать активным: ${esc(pet.name)}">${canSwitch ? 'Выбрать' : 'Сделать активным'}</button>
-    </article>`;
-  }
-
   function activePetActivity(activity) {
     const title = activity.kind === 'trek' ? 'Поход' : 'Экспедиция';
     const needsDecision = activity.status === 'ready'
@@ -304,36 +287,39 @@
     return `<section class="pt-sec pet-activity ${needsDecision ? 'is-attn' : ''}"><h3>${title}${needsDecision ? ' · нужен выбор' : ''}</h3><p>${status}</p>${routes}</section>`;
   }
 
+  let _petKind = 'trek';
   function petActivityChoices(data, activePet) {
     if (!data.active_pet_id) return '';
     const costs = data.activity_costs || {};
     const endurance = Number(activePet && activePet.endurance) || 0;
-    const kinds = PET_ACTIVITY_KINDS.map((kind) => {
-      const title = kind === 'trek' ? 'Поход' : 'Экспедиция';
-      const hint = kind === 'trek' ? 'Спокойная прогулка' : 'Потом выберешь маршрут';
-      const buttons = data.durations.map((hours) => {
-        const cost = Number(costs[hours]) || 0;
-        const locked = !activePet || endurance < cost;
-        const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
-        return `<button type="button" class="pt-go" onclick="petsV1Start('${kind}',${hours})" ${locked ? 'disabled' : ''}`
-          + ` aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
-          + `<b>${hours} ч</b><small>${cost} ⚡</small></button>`;
-      }).join('');
-      return `<div class="pt-kind"><div><b>${title}</b><small>${hint}</small></div><div class="pt-go-row">${buttons}</div></div>`;
+    const seg = PET_ACTIVITY_KINDS.map((kind) => (
+      `<button type="button" role="tab" aria-selected="${kind === _petKind}" onclick="petKind('${kind}')">${kind === 'trek' ? 'Поход' : 'Экспедиция'}</button>`
+    )).join('');
+    const hint = _petKind === 'trek' ? 'Спокойная прогулка. По возвращении: 1 🗝.' : 'После таймера выберешь маршрут. По итогу: 1 🗝.';
+    const title = _petKind === 'trek' ? 'Поход' : 'Экспедиция';
+    const buttons = data.durations.map((hours) => {
+      const cost = Number(costs[hours]) || 0;
+      const locked = !activePet || endurance < cost;
+      const hoursWord = Number(hours) === 3 ? 'часа' : 'часов';
+      return `<button type="button" class="pt-go" onclick="petsV1Start('${_petKind}',${hours})" ${locked ? 'disabled' : ''}`
+        + ` aria-label="${title} на ${hours} ${hoursWord}, ${cost} выносливости, награда один ключ">`
+        + `<b>${hours} ч</b><small>${cost} ⚡</small></button>`;
     }).join('');
     const minCost = Math.min(...data.durations.map((h) => Number(costs[h]) || 0));
-    const tired = endurance < minCost ? '<p class="pt-note">Выносливости не хватает даже на короткий выход. Покорми питомца.</p>' : '';
+    const tired = endurance < minCost ? '<p class="pt-note">Не хватает выносливости. Покорми питомца.</p>' : '';
     return `<section class="pt-sec pet-activity"><h3>Отправить в путь</h3>
-      <p>${esc(data.activity_reward_label || 'За завершение: один ключ.')} Выносливость списывается при старте.</p>${kinds}${tired}</section>`;
+      <div class="pt-seg" role="tablist">${seg}</div><p>${hint}</p>
+      <div class="pt-go-row">${buttons}</div>${tired}</section>`;
   }
 
   function petBestiaryCard(pet) {
     const state = pet.owned ? 'is-owned' : 'is-locked';
     const icon = pet.owned ? esc(pet.icon) : '?';
     const name = pet.owned ? esc(pet.name) : 'Неизвестный питомец';
-    return `<article class="bestiary-card ${state} ${petRarityClass(pet.rarity)}" data-rar="${esc(pet.rarity)}"><span class="bc-ic" aria-hidden="true">${icon}</span>`
+    return `<button type="button" class="bestiary-card ${state} ${petRarityClass(pet.rarity)}" data-rar="${esc(pet.rarity)}" onclick="petDexOpen('${esc(pet.id)}')"`
+      + ` aria-label="${name}, ${esc(petRarityName(pet.rarity))}, подробнее"><span class="bc-ic" aria-hidden="true">${icon}</span>`
       + `<b>${name}</b><small>${esc(petRarityName(pet.rarity))}</small>`
-      + `<em>${pet.owned ? '✓ Открыт' : 'Найди в сундуке'}</em></article>`;
+      + `<em>${pet.owned ? '✓ Открыт' : 'Не найден'}</em></button>`;
   }
 
   function petDex(data) {
@@ -354,39 +340,77 @@
       <div class="bestiary-grid">${sorted.map(petBestiaryCard).join('')}</div>`;
   }
 
-  function renderPetsV1(root, data) {
-    const pets = data.pets || [];
+  let _petData = null;
+  let _petSel = null;
+
+  function petAvatar(pet, icon, selected, away) {
+    const badge = pet.active ? '<i class="pt-b pt-b--on" title="Активный">★</i>' : '';
+    return `<button type="button" class="pt-av ${petRarityClass(pet.rarity)}" role="tab" aria-selected="${selected}" onclick="petSelect(${pet.id})"`
+      + ` aria-label="${esc(pet.name)}${pet.active ? ', активный' : ''}${away ? ', в пути' : ''}">`
+      + `<span class="pt-ic" aria-hidden="true">${esc(icon)}</span>${badge}${away ? '<i class="pt-b pt-b--trip">🧭</i>' : ''}<small>${esc(pet.name)}</small></button>`;
+  }
+
+  function petDetail(pet, data, icon, away, lore) {
     const foods = data.food || [];
+    const activePet = (data.pets || []).find((p) => p.active);
+    const tag = pet.active ? 'Активный' : 'В запасе';
+    let action = '';
+    if (pet.active) {
+      action = data.activity ? activePetActivity(data.activity) : petActivityChoices(data, activePet);
+    } else {
+      const trip = data.activity && activePet
+        ? '<p class="pt-note">Текущий питомец в пути: новый сможет выйти после его возвращения.</p>' : '';
+      action = `<section class="pt-sec"><button type="button" class="pt-main" onclick="petsV1Activate(${pet.id})">Сделать активным</button>`
+        + `<p class="pt-note">Смена стоит 5 выносливости у текущего активного питомца.</p>${trip}</section>`;
+    }
+    return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="${esc(pet.name)}">
+      <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
+        <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
+      ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
+    </section>${action}`;
+  }
+
+  function petOwnedPanel(data) {
+    const pets = data.pets || [];
     const dex = data.bestiary || [];
-    const iconOf = (pet) => (dex.find((s) => s.id === pet.species_id) || {}).icon || '🐾';
-    const activePet = pets.find((pet) => pet.active);
-    const others = pets.filter((pet) => !pet.active);
-    const activity = data.activity
-      ? activePetActivity(data.activity)
-      : petActivityChoices(data, activePet);
+    const info = (pet) => dex.find((x) => x.id === pet.species_id) || {};
     const earned = (data.activity_rewards || []).length
       ? '<div class="pet-key-earned" role="status"><div><b>🗝 Ключ получен</b><span>Награда уже зачислена в сундуки.</span></div><button type="button" onclick="openChestsV1()">К сундукам</button></div>'
       : '';
-    const empty = !pets.length
-      ? '<div class="pt-empty"><span aria-hidden="true">🥚</span><b>Питомцев пока нет</b><p>Первую карточку питомца можно найти в сундуке.</p><button type="button" onclick="openChestsV1()">К сундукам</button></div>'
+    if (!pets.length) {
+      return `${earned}<div class="pt-empty"><span aria-hidden="true">🥚</span><b>Питомцев пока нет</b><p>Первую карточку питомца можно найти в сундуке.</p><button type="button" onclick="openChestsV1()">К сундукам</button></div>`;
+    }
+    if (!pets.some((p) => p.id === _petSel)) {
+      _petSel = (pets.find((p) => p.active) || pets[0]).id;
+    }
+    const sel = pets.find((p) => p.id === _petSel);
+    const awayId = data.activity ? data.activity.pet_id : null;
+    const strip = pets.length > 1
+      ? `<div class="pt-strip" role="tablist" aria-label="Мои питомцы">${pets.map((p) => petAvatar(p, info(p).icon || '🐾', p.id === _petSel, p.id === awayId)).join('')}</div>`
       : '';
-    const pick = pets.length && !activePet
-      ? '<p class="pt-note pt-note--lead">Выбери активного питомца: он ходит в походы и даёт бонус маршрута.</p>'
-      : '';
-    const otherRows = others.length
-      ? `<section class="pt-sec"><h3>${activePet ? 'Другие питомцы' : 'Твои питомцы'} · ${others.length}</h3>${others.map((pet) => petRow(pet, iconOf(pet), !!activePet)).join('')}`
-        + `${activePet ? '<p class="pt-note">Смена активного питомца стоит 5.</p>' : ''}</section>`
-      : '';
-    const info = '<details class="pt-info"><summary>Как работает выносливость</summary><p>Она уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу. Поход и экспедиция списывают выносливость при старте и дают ключ.</p></details>';
-    const owned = `${earned}${empty}${activePet ? petHero(activePet, foods, iconOf(activePet)) : pick}${activePet ? activity : ''}${otherRows}${pets.length ? info : ''}`;
-    const ownedTab = _petPanel === 'owned';
+    const lead = !data.active_pet_id
+      ? '<p class="pt-note pt-note--lead">Выбери активного питомца: только он ходит в походы.</p>' : '';
+    const guide = '<details class="pt-info"><summary>Как работает выносливость</summary><p>Она уменьшается примерно на 10 в сутки. Еда из сундуков восстанавливает её сразу. Поход и экспедиция списывают выносливость при старте и дают ключ. В путь ходит один активный питомец.</p></details>';
+    return `${earned}${lead}${strip}${petDetail(sel, data, info(sel).icon || '🐾', sel.id === awayId, info(sel).lore)}${guide}`;
+  }
 
+  function renderPetsV1(root, data) {
+    _petData = data;
+    const pets = data.pets || [];
+    const ownedTab = _petPanel === 'owned';
     root.innerHTML = `<div class="looks-head"><button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button><div class="looks-htitle">🐾 Питомцы</div></div>
       <div class="pet-tabs" role="tablist"><button type="button" role="tab" aria-selected="${ownedTab}" onclick="showPetPanel('owned',this)">Мои питомцы <small>${pets.length}</small></button><button type="button" role="tab" aria-selected="${!ownedTab}" onclick="showPetPanel('bestiary',this)">Бестиарий <small>${data.bestiary_owned || 0}/${data.bestiary_total || 0}</small></button></div>
-      <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${owned}</div>
+      <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${petOwnedPanel(data)}</div>
       <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`;
     if (_petDexFilter !== 'all') window.petDexFilter(_petDexFilter);
   }
+
+  function petRefreshOwned() {
+    const panel = el('pg-pets').querySelector('[data-pet-panel="owned"]');
+    if (panel && _petData) panel.innerHTML = petOwnedPanel(_petData);
+  }
+  window.petSelect = function (id) { _petSel = Number(id); petRefreshOwned(); };
+  window.petKind = function (kind) { _petKind = kind; petRefreshOwned(); };
 
   window.openPetsV1 = async function () {
     switchPage('pets');
@@ -409,6 +433,30 @@
     });
     window.scrollTo?.({ top: 0 });
   };
+  window.petDexOpen = function (id) {
+    const data = _petData || {};
+    const sp = (data.bestiary || []).find((x) => String(x.id) === String(id));
+    if (!sp) return;
+    const mine = (data.pets || []).filter((p) => p.species_id === sp.id);
+    const root = el('pg-pets');
+    root.querySelector('.pt-sheet-wrap')?.remove();
+    const stats = mine.length
+      ? mine.map((p) => `<li><b>${esc(p.name)}</b><span>${petStage(p)} · ⚡ ${p.endurance}/100</span></li>`).join('')
+      : '';
+    const body = sp.owned
+      ? `<p class="pt-lore">${esc(sp.lore || '')}</p><h4>У тебя</h4><ul class="pt-sheet-list">${stats}</ul>`
+        + '<p class="pt-note">Растёт по уровням от 1 до 16, вместе с уровнем меняется облик.</p>'
+      : `<p class="pt-lore">Этот питомец ещё не найден. Он может выпасть из сундука: ищи карточки питомцев среди наград.</p>`
+        + `<p class="pt-note">Редкость: ${esc(petRarityName(sp.rarity))}.</p>`;
+    const wrap = document.createElement('div');
+    wrap.className = 'pt-sheet-wrap';
+    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}">`
+      + `<span class="pt-ic" aria-hidden="true">${sp.owned ? esc(sp.icon) : '?'}</span><small>${esc(petRarityName(sp.rarity))}</small><h3>${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}</h3>${body}`
+      + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
+    root.appendChild(wrap);
+    wrap.querySelector('.pt-main').focus();
+  };
+  window.petDexClose = function () { el('pg-pets').querySelector('.pt-sheet-wrap')?.remove(); };
   window.petDexFilter = function (rar) {
     _petDexFilter = rar;
     const root = el('pg-pets');
