@@ -21,7 +21,7 @@ class StartActivityRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 class ExpeditionDecisionRequest(BaseModel):
-    decision: str = Field(pattern="^(careful|steady|bold)$")
+    decision: str = Field(pattern="^(careful|steady|bold|scout)$")
     action_id: str = Field(min_length=1, max_length=96)
 
 class LevelUpRequest(BaseModel):

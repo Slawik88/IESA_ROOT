@@ -157,3 +157,4 @@
 .pt-sheet-list b { color: var(--pt-ink); font-size: 14px; }
 .pt-sheet-list span { color: var(--pt-dim); font-size: 12px; }
 .pt-sheet .pt-main { margin-top: 8px; }
+#pg-pets .pet-route-odds { font-weight: 500; opacity: .8; }

@@ -84,7 +84,20 @@ async def ensure_tables(db) -> None:
             CREATE TRIGGER pet_v1_activity_rewards_append_only BEFORE UPDATE OR DELETE ON pet_v1_activity_rewards
             FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_activity_reward_rewrite()
         """)
-    await db.execute("ALTER TABLE pet_v1_runs ADD COLUMN IF NOT EXISTS decision TEXT NULL CHECK(decision IN ('careful','steady','bold'))")
+    await db.execute("ALTER TABLE pet_v1_runs ADD COLUMN IF NOT EXISTS decision TEXT NULL")
+    await db.execute("ALTER TABLE pet_v1_runs DROP CONSTRAINT IF EXISTS pet_v1_runs_decision_check")
+    await db.execute("ALTER TABLE pet_v1_runs ADD CONSTRAINT pet_v1_runs_decision_check CHECK(decision IN ('careful','steady','bold','scout'))")
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v1_route_rewards (
+            run_id TEXT PRIMARY KEY REFERENCES pet_v1_runs(id) ON DELETE RESTRICT,
+            user_id BIGINT NOT NULL, route TEXT NOT NULL, hours INTEGER NOT NULL,
+            chance_percent INTEGER NOT NULL, success BOOLEAN NOT NULL,
+            reward_mora INTEGER NOT NULL CHECK(reward_mora >= 0), paid_mora INTEGER NOT NULL CHECK(paid_mora >= 0),
+            economy_operation_id TEXT NULL, policy_version TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CLOCK_TIMESTAMP()
+        )
+    """)
+    await db.execute("CREATE INDEX IF NOT EXISTS pet_v1_route_rewards_user_week ON pet_v1_route_rewards(user_id, created_at)")
     await db.execute("ALTER TABLE pet_v1_runs ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ NULL")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_duplicate_sources (
@@ -292,6 +305,29 @@ async def choose_expedition(db, *, user_id: int, choice: str) -> dict | None:
     ) as c:
         row = await c.fetchone()
     return dict(row) if row else None
+
+
+async def route_paid_this_week(db, user_id: int) -> int:
+    """Mora already paid as route rewards in the current UTC week."""
+    async with db.execute(
+        "SELECT COALESCE(SUM(paid_mora),0) FROM pet_v1_route_rewards WHERE user_id=? "
+        "AND created_at >= date_trunc('week', CLOCK_TIMESTAMP() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'",
+        (int(user_id),),
+    ) as c:
+        row = await c.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def save_route_reward(
+    db, *, run_id: str, user_id: int, route: str, hours: int, chance_percent: int, success: bool,
+    reward_mora: int, paid_mora: int, economy_operation_id: str | None, policy_version: str,
+) -> None:
+    await db.execute(
+        "INSERT INTO pet_v1_route_rewards(run_id,user_id,route,hours,chance_percent,success,reward_mora,paid_mora,"
+        "economy_operation_id,policy_version) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (str(run_id), int(user_id), str(route), int(hours), int(chance_percent), bool(success),
+         int(reward_mora), int(paid_mora), economy_operation_id, str(policy_version)),
+    )
 
 
 async def unrewarded_completed_runs(db, user_id: int) -> list[dict[str, Any]]:
