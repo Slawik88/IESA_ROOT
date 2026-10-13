@@ -32,6 +32,7 @@ async def run():
     creator, developer = acc.staff_principal(1001, 6), acc.staff_principal(2002, 5)
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
+        await admin_people.ensure_schema(db)
         assert await acc.load_grants(db) == {}
 
         await acc.set_grant(db, creator, "action:ban", 3)
