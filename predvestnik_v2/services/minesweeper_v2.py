@@ -179,7 +179,7 @@ async def rankings(db, *, user_id: int, difficulty: str) -> dict:
     season = game_seasons.season_view(game="minesweeper", board=difficulty)
     start, end = season_rules.season_bounds(season["number"])
     board = await repo.leaderboard(db, user_id=user_id, difficulty=difficulty, starts_at=start, ends_at=end)
-    await leaderboards_v1.decorate_game_board(db, board)
+    await leaderboards_v1.decorate_game_board(db, board, user_id)
     board["season"] = season
     board["last_season"] = await game_seasons.last_result(db, game="minesweeper", board=difficulty, user_id=user_id)
     return board

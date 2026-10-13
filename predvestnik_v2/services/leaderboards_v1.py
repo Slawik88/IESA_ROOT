@@ -70,7 +70,7 @@ async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> 
     ]
 
 
-async def decorate_game_board(db, board: dict) -> dict:
+async def decorate_game_board(db, board: dict, user_id: int | None = None) -> dict:
     """Give game leaderboard rows the same look, mark and VIP dot as the message tops (players are keyed by opaque ref)."""
     rows = [row for row in board.get("top", []) if row.get("player")]
     if not rows:
@@ -83,6 +83,7 @@ async def decorate_game_board(db, board: dict) -> dict:
     for row in rows:
         uid = refs.get(row["player"]["profile_ref"])
         row["player"] = {**row["player"], "look": looks.get(uid), "mark": marks.get(uid), "is_vip": uid in vips}
+        row["is_me"] = user_id is not None and uid == int(user_id)
     return board
 
 

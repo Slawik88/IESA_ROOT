@@ -111,3 +111,4 @@ button:disabled { opacity: .4; }
 
 /* Ник в таблицах игр рисует game-board-v3.js (та же разметка, что у «Топа»): точка VIP живёт в shell-v3-home.css, которого на страницах игр нет */
 .v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip, #f1cf7e); vertical-align: middle; }
+:is(.leaderboard, .mine-leaderboard) li.is-me { color: var(--g-acc); }   /* своя строка в таблице, как .is-me в Топе */

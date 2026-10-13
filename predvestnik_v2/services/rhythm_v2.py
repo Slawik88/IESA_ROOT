@@ -481,7 +481,7 @@ async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
     season = game_seasons.season_view(game="rhythm", board=mode)
     start, end = season_rules.season_bounds(season["number"])
     board = await repo.leaderboard(db, user_id=user_id, mode=mode, starts_at=start, ends_at=end)
-    await leaderboards_v1.decorate_game_board(db, board)
+    await leaderboards_v1.decorate_game_board(db, board, user_id)
     board["season"] = season
     board["last_season"] = await game_seasons.last_result(db, game="rhythm", board=mode, user_id=user_id)
     return board
