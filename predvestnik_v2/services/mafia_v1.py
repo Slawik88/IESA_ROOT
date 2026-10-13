@@ -267,7 +267,8 @@ def _open_votes(players: list[dict], actions: list[dict]) -> list[dict]:
 async def player_history(db, *, user_id: int) -> dict:
     """Personal, role-safe Mini App projection; never a chat game control."""
     uid = int(user_id)
-    rows = await repo.player_history(db, user_id=uid)
+    recent = await repo.player_history(db, user_id=uid, limit=50)
+    rows = recent[:20]
     totals = (await repo.player_totals(db, user_id=uid))["rows"]
     live = await repo.player_live(db, user_id=uid)
     played = wins = cancelled = 0
@@ -281,6 +282,13 @@ async def player_history(db, *, user_id: int) -> dict:
             by_role[row["role"]] = by_role.get(row["role"], 0) + n
             wins += n if row["winner"] and rules.faction(row["role"]) == row["winner"] else 0
 
+    streak = 0
+    for row in recent:  # consecutive wins from the latest finished match
+        if row["role"] and row["winner"] and rules.faction(row["role"]) == row["winner"]:
+            streak += 1
+        else:
+            break
+
     def item(row: dict, *, finished: bool) -> dict:
         won = bool(row["winner"] and row["role"] and rules.faction(row["role"]) == row["winner"]) if finished and row["role"] else None
         return {"match_id": int(row["id"]), "chat_id": int(row["chat_id"]), "phase": row["phase"],
@@ -289,7 +297,7 @@ async def player_history(db, *, user_id: int) -> dict:
 
     return {
         "version": "mafia-v1-stats",
-        "stats": {"played": played, "wins": wins, "cancelled": cancelled,
+        "stats": {"played": played, "wins": wins, "cancelled": cancelled, "win_streak": streak,
                   "favorite_role": max(sorted(by_role), key=by_role.get) if by_role else None},
         "live": [item(row, finished=False) for row in live],
         "matches": [item(row, finished=True) for row in rows],
