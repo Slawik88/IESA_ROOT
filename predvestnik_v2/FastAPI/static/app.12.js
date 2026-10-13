@@ -350,6 +350,32 @@
       + `<span class="pt-ic" aria-hidden="true">${esc(icon)}</span>${badge}${away ? '<i class="pt-b pt-b--trip">🧭</i>' : ''}<small>${esc(pet.name)}</small></button>`;
   }
 
+  // «Улучшить»: цена следующего шага (карты, Мора, на уровнях 5/10/15 ещё Эссенция). Блок виден только при включённом флаге; что именно не хватает, написано сразу
+  function petLevelUp(pet, data) {
+    const lu = data.level_up;
+    if (!lu || !lu.enabled) return '';
+    const step = (lu.steps || {})[pet.id];
+    if (step === undefined) return '';
+    if (!step) return `<section class="pt-sec pt-up"><h3>Уровень ${Number(pet.level)} из ${Number(lu.max_level)}</h3><p>Максимальный уровень.</p></section>`;
+    const bal = (typeof _v3BarVals !== 'undefined' && _v3BarVals) || null;
+    const need = [];
+    if (Number(step.cards_have) < Number(step.cards)) need.push(`ещё ${fmt(Number(step.cards) - Number(step.cards_have))} ${Number(step.cards) - Number(step.cards_have) === 1 ? 'карта' : 'карт'}`);
+    if (bal && Number(bal.mora) < Number(step.mora)) need.push(`ещё ${fmt(Number(step.mora) - Number(bal.mora))} Моры`);
+    if (bal && Number(step.essence) > 0 && Number(bal.essence) < Number(step.essence)) need.push(`ещё ${fmt(Number(step.essence) - Number(bal.essence))} Эссенции`);
+    const pct = Math.min(100, Math.round(100 * Number(step.cards_have) / Math.max(1, Number(step.cards))));
+    const mark = [5, 10, 15].includes(Number(step.level_after)) ? ` <small class="pt-up-mark">веха</small>` : '';
+    return `<section class="pt-sec pt-up" aria-label="Улучшение питомца">
+      <h3>Уровень ${Number(pet.level)} → ${Number(step.level_after)}${mark}</h3>
+      <ul class="pt-up-cost">
+        <li class="${Number(step.cards_have) < Number(step.cards) ? 'is-short' : ''}"><span>🃏 Карты</span><b>${fmt(Number(step.cards_have))} / ${fmt(Number(step.cards))}</b><i style="--p:${pct}"></i></li>
+        <li class="${bal && Number(bal.mora) < Number(step.mora) ? 'is-short' : ''}"><span>🪙 Мора</span><b>${fmt(Number(step.mora))}</b></li>
+        ${Number(step.essence) > 0 ? `<li class="${bal && Number(bal.essence) < Number(step.essence) ? 'is-short' : ''}"><span>🔮 Эссенция</span><b>${fmt(Number(step.essence))}</b></li>` : ''}
+      </ul>
+      <button type="button" class="pt-main" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
+      ${need.length ? `<p class="pt-note" role="status">Не хватает: ${need.join(', ')}.</p>` : ''}
+    </section>`;
+  }
+
   function petDetail(pet, data, icon, away, lore) {
     const foods = data.food || [];
     const activePet = (data.pets || []).find((p) => p.active);
@@ -369,7 +395,7 @@
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
       ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
-    </section>${action}`;
+    </section>${petLevelUp(pet, data)}${action}`;
   }
 
   function petOwnedPanel(data) {
@@ -490,6 +516,10 @@
   window.petsV1Start=function(kind,hours){
     const key=`activity:${kind}:${hours}`,action=_pendingAction(_petsV1PendingActions,key,'pet-activity-');
     api('/pets-v1/activity',{method:'POST',body:JSON.stringify({kind:kind,hours:hours,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Таймер запущен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем запущенный таймер.`,false);openPetsV1();});
+  };
+  window.petsV1LevelUp=function(petId){
+    const key=`levelup:${petId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-levelup-');
+    api('/pets-v1/level-up',{method:'POST',body:JSON.stringify({pet_id:petId,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Питомец стал сильнее');openPetsV1();}).catch(e=>{toast(`${e} Проверяем актуальное состояние.`,false);openPetsV1();});
   };
   window.petsV1Feed=function(petId,foodId){
     const key=`feed:${petId}:${foodId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-feed-');
