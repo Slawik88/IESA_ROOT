@@ -130,6 +130,7 @@ async def run(dsn: str) -> None:
         assert set(by_id) == {"careful", "steady", "bold", "scout"}
         assert by_id["steady"] == {"id": "steady", "chance_percent": 85, "reward_mora": 58}, by_id["steady"]
         assert by_id["careful"]["chance_percent"] == 99, "p is capped at 0.99"
+        assert view["route_options"]["weekly_remaining_mora"] == WEEKLY_CAP_MORA
         roll(0)
         top = await pets_v1.choose_expedition(db, user_id=hint_user, decision="scout", action_id="ch-scout")
         assert top["route"]["success"] and top["route"]["paid_mora"] == 46 and top["route"]["chance_percent"] == 95
@@ -138,6 +139,8 @@ async def run(dsn: str) -> None:
         low_user = 977005
         await ready_expedition(db, low_user, "low", level=11)
         await must_reject(pets_v1.choose_expedition(db, user_id=low_user, decision="scout", action_id="ch-low"))
+        still = (await pets_v1.overview(db, low_user))["activity"]
+        assert still["status"] == "ready" and still["decision"] is None, "a rejected scout leaves the route choice open"
 
         # weekly cap: the payout is cut at the cap, not rejected
         cap_user = 977006

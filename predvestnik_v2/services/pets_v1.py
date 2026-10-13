@@ -166,7 +166,7 @@ async def overview(db, user_id: int) -> dict:
     activity = None
     if run:
         activity = {key: (str(value) if key.endswith('_at') and value is not None else value) for key, value in run.items() if key != 'server_now'}
-    route_options = await _route_options(db, activity, pets, active) if activity else None
+    route_options = await _route_options(db, user_id, activity, pets) if activity else None
     chest_inventory = await chest_repo.inventory_summary(db, user_id=int(user_id))
     food = [{"id": food_id, **FOODS[food_id], "quantity": int(quantity)}
             for food_id, quantity in chest_inventory["foods"].items() if food_id in FOODS and int(quantity) > 0]
@@ -298,16 +298,17 @@ async def start_activity(db, *, user_id: int, kind: str, hours: int, action_id: 
     return response
 
 
-async def _route_options(db, activity: dict, pets: list[dict], active: int | None) -> dict | None:
+async def _route_options(db, user_id: int, activity: dict, pets: list[dict]) -> dict | None:
     """Routes of a ready expedition. Exact odds are shown only to pets with a hint charge (L4+)."""
     if activity.get("kind") != "expedition" or activity.get("status") != "ready" or activity.get("decision"):
         return None
-    from core.pet_routes_v1 import ROUTES, route_available, route_odds
+    from core.pet_routes_v1 import ROUTES, WEEKLY_CAP_MORA, route_available, route_odds
     pet = next((item for item in pets if int(item["id"]) == int(activity["pet_id"])), None)
     if not pet or not await route_rewards_enabled(db):
         return {"rewards_enabled": False, "routes": []}
     effects, level = pet["effects"], int(pet["level"])
     hint = int(effects.get("expedition_hint_charges", 0)) > 0
+    remaining = max(0, WEEKLY_CAP_MORA - await repo.route_paid_this_week(db, int(user_id)))
     routes = []
     for route in ROUTES:
         if not route_available(route, level):
@@ -315,9 +316,10 @@ async def _route_options(db, activity: dict, pets: list[dict], active: int | Non
         odds = route_odds(route, int(activity["duration_hours"]), effects)
         item = {"id": route}
         if hint:
-            item.update(chance_percent=odds.chance_percent, reward_mora=odds.reward_mora)
+            item.update(chance_percent=odds.chance_percent, reward_mora=min(odds.reward_mora, remaining))
         routes.append(item)
-    return {"rewards_enabled": True, "hint": hint, "routes": routes}
+    return {"rewards_enabled": True, "hint": hint, "routes": routes,
+            "weekly_remaining_mora": remaining, "weekly_cap_mora": WEEKLY_CAP_MORA}
 
 
 async def route_rewards_enabled(db) -> bool:
@@ -335,8 +337,10 @@ async def _settle_route(db, *, user_id: int, run: dict, decision: str) -> dict |
     level = int(state["level"])
     effects = level_effects(level)
     enabled = await route_rewards_enabled(db)
-    if decision == "scout" and (not enabled or level < SCOUT_MIN_LEVEL):
-        raise PetPolicyError("Разведка доступна с 12 уровня питомца.")   # rolls back the route choice
+    if decision == "scout" and not enabled:
+        raise PetPolicyError("Этот маршрут пока недоступен.")   # raising rolls back the route choice
+    if decision == "scout" and level < SCOUT_MIN_LEVEL:
+        raise PetPolicyError(f"Разведка доступна с {SCOUT_MIN_LEVEL} уровня питомца.")
     if not enabled:
         return None
     hours = int(run["duration_hours"])

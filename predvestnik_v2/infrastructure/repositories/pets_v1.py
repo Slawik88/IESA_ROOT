@@ -85,8 +85,15 @@ async def ensure_tables(db) -> None:
             FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_activity_reward_rewrite()
         """)
     await db.execute("ALTER TABLE pet_v1_runs ADD COLUMN IF NOT EXISTS decision TEXT NULL")
-    await db.execute("ALTER TABLE pet_v1_runs DROP CONSTRAINT IF EXISTS pet_v1_runs_decision_check")
-    await db.execute("ALTER TABLE pet_v1_runs ADD CONSTRAINT pet_v1_runs_decision_check CHECK(decision IN ('careful','steady','bold','scout'))")
+    # ensure_tables runs on every overview request: swap the CHECK only once, never concurrently with itself.
+    async with db.execute(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='pet_v1_runs'::regclass AND conname='pet_v1_runs_decision_check'"
+    ) as c:
+        current = await c.fetchone()
+    if not current or "scout" not in str(current[0]):
+        await db.execute("SELECT pg_advisory_xact_lock(hashtext('pet_v1_runs_decision_check'))")
+        await db.execute("ALTER TABLE pet_v1_runs DROP CONSTRAINT IF EXISTS pet_v1_runs_decision_check")
+        await db.execute("ALTER TABLE pet_v1_runs ADD CONSTRAINT pet_v1_runs_decision_check CHECK(decision IN ('careful','steady','bold','scout'))")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_route_rewards (
             run_id TEXT PRIMARY KEY REFERENCES pet_v1_runs(id) ON DELETE RESTRICT,
