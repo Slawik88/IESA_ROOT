@@ -108,3 +108,6 @@ button:disabled { opacity: .4; }
 :is(.leaderboard, .mine-leaderboard) li:has(a) > b { font-variant-numeric: tabular-nums; }
 :is(.leaderboard, .mine-leaderboard) li:first-child:has(a) > b { color: var(--g-acc); }
 @media (prefers-reduced-motion: reduce) { :is(.leaderboard, .mine-leaderboard) li:has(a) { transition: none; } }
+
+/* Ник в таблицах игр рисует game-board-v3.js (та же разметка, что у «Топа»): точка VIP живёт в shell-v3-home.css, которого на страницах игр нет */
+.v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip, #f1cf7e); vertical-align: middle; }

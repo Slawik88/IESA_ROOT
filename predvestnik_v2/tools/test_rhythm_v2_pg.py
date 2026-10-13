@@ -83,6 +83,7 @@ async def run(dsn: str) -> None:
         ranking = await rhythm.rankings(db, user_id=975001, mode="normal")
         assert ranking["personal"] and ranking["personal"]["best_score"] == first["score"]
         assert all("user_id" not in row for row in ranking["top"]), "public leaderboard DTO must not expose raw user ids"
+        assert ranking["top"] and all({"look", "mark", "is_vip"} <= set(row["player"]) and "user_id" not in row["player"] for row in ranking["top"]), "game boards carry the same skin fields as the message tops"
 
         scorer = await rhythm.start_run(db, user_id=975008, mode="normal")
         scorer_ticket = await rhythm.issue_transport_ticket(db, user_id=975008, run_id=scorer["run_id"])

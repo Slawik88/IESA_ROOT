@@ -94,6 +94,7 @@ async def run(dsn: str) -> None:
             ]
         ranking = await game.rankings(db, user_id=976001, difficulty="easy")
         assert ranking["personal"] and ranking["personal"]["best_elapsed_ms"] == state["elapsed_ms"]
+        assert ranking["top"] and all({"look", "mark", "is_vip"} <= set(row["player"]) and "user_id" not in row["player"] for row in ranking["top"]), "game boards carry the same skin fields as the message tops"
 
         hard = await game.start_run(db, user_id=976003, difficulty="hard")
         hard_state = await game.act(db, user_id=976003, run_id=hard["run_id"], action_id="hard-start", expected_revision=0, kind="open", cell=40)
