@@ -27,8 +27,8 @@ SECTIONS: dict[str, tuple[str, int]] = {
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 
 
-async def staff_user(x_init_data: str = Header(default=""), x_session_token: str = Header(default=""),
-                     db=Depends(get_db)) -> dict:
+async def identify(x_init_data: str, x_session_token: str, db) -> int:
+    """Кто пришёл: подпись Telegram или сессия, стенд, «завершить сессии». Роль здесь не проверяется."""
     user_id, issued = None, None
     if x_init_data:
         data = verify_webapp_data(x_init_data)
@@ -41,13 +41,19 @@ async def staff_user(x_init_data: str = Header(default=""), x_session_token: str
         raise HTTPException(401, "Войдите через Telegram.")
     if not require_preprod_user(int(user_id)):
         raise HTTPException(403, "Тестовый стенд закрыт для этого аккаунта.")
-    rank = await get_bot_rank(db, int(user_id))
-    if rank <= 0:
-        raise HTTPException(403, "Админка доступна только персоналу бота.")
     revoked = await admin_security.revoked_before(db, int(user_id))
     if revoked and (issued is None or issued <= int(revoked)):   # вход начат до «завершить сессии» (время в целых секундах): нужен новый
         raise HTTPException(401, "Сессии завершены. Откройте админку заново: напишите боту «бот админка».")
-    return admin_access.staff_principal(int(user_id), rank)
+    return int(user_id)
+
+
+async def staff_user(x_init_data: str = Header(default=""), x_session_token: str = Header(default=""),
+                     db=Depends(get_db)) -> dict:
+    user_id = await identify(x_init_data, x_session_token, db)
+    rank = await get_bot_rank(db, user_id)
+    if rank <= 0:
+        raise HTTPException(403, "Админка доступна только персоналу бота.")
+    return admin_access.staff_principal(user_id, rank)
 
 
 def guard(dep):

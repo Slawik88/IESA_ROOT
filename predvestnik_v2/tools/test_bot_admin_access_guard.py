@@ -64,11 +64,11 @@ async def check_section_denies_owner():
         else:
             raise AssertionError(f"владелец прошёл раздел {key}")
     try:
-        await owner.owner_user()
+        await owner.owner_user("", "", None)
     except HTTPException as exc:
-        assert exc.status_code == 403
+        assert exc.status_code == 401   # без подписи Telegram владелец не опознан
     else:
-        raise AssertionError("вход владельцев должен быть закрыт до этапа 2")
+        raise AssertionError("владелец без подписи не должен пройти")
 
 
 def main():
@@ -139,7 +139,8 @@ def main():
 
     # 4. исполнители проверяют область сами
     for fn in (people.player_action, people.chat_action, people.chat_card, people.chat_sanctions, people.players_bulk,
-               reports.report_action, reports.report_punish, reports.reports_bulk, switches.get_switches, switches.set_switch):
+               reports.report_action, reports.report_punish, reports.reports_bulk, switches.get_switches, switches.set_switch,
+               owner.owner_chat, owner.owner_chat_action, owner.owner_member_action):
         assert "admin_access.require_" in inspect.getsource(fn), fn.__name__
     print(f"OK: {total} маршрутов под стражем, владелец закрыт от разделов сотрудников, область и потолок прав на месте")
 
