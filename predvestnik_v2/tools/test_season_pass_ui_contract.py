@@ -49,7 +49,7 @@ assert re.search(r"suppressBrowserBack=\[[^\]]*'pass'[^\]]*\]", shell), "the pag
 assert "_gamesChildren=['pass']" in shell and "_gamesChildren.includes(name)" in shell, "the «Игры» tab stays lit on the pass page"
 assert "typeof passHubRow==='function'" in hub and "passHubRow(host)" in hub, "the games hub asks the pass for its row"
 assert re.search(r"try \{ checkWhatsNewBadge\(\); \} catch \(_\) \{\}\s*\n\s*try \{ passCheck\(\); \} catch \(_\) \{\}", core), "the profile load re-reads the pass for the dot on the «Игры» tab; a failure there never breaks the profile"
-assert "pass:openSeasonPass" in core and "season:openSeasonPass" in core, "deep links"
+assert "pass:()=>openSeasonPass()" in core and "season:()=>openSeasonPass()" in core, "deep links"
 assert re.search(r"^  pass: +\{ cta: 'Открыть Пропуск', tab: 'arena', run: \(\) => openSeasonPass\(\) \},?$", news, flags=re.M), "the jump of «Что нового»"
 assert "`pass`" in news_docs, "docs/WHATS_NEW_V3.md names the jump key"
 
