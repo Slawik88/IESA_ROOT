@@ -9,7 +9,7 @@ SECTIONS = [
     {"key": "journal", "title": "Журнал"}, {"key": "broadcast", "title": "Рассылка"}, {"key": "promo", "title": "Промокоды"},
     {"key": "switches", "title": "Функции"}, {"key": "settings", "title": "Настройки"}, {"key": "health", "title": "Состояние"},
 ]
-ME = {"rank_name": "Владелец", "sections": SECTIONS}
+ME = {"rank_name": "Владелец", "sections": SECTIONS, "creator": True}
 
 _DAYS = [f"2026-10-{d:02d}" for d in range(6, 13)]
 METRICS = {
@@ -64,3 +64,22 @@ JOURNAL = {"kinds": [{"key": "ban", "title": "Баны"}, {"key": "warn", "title
                       "actor": {"id": 1, "username": "mod_with_long_username", "tag": None}, "user": {"id": 500 + i, "username": "нарушитель_" + str(i), "tag": "Нин Гуан/ст.адм"},
                       "chat": {"id": -100, "title": _LONG}} for i in range(8)]}
 ROUTES = {"/me": ME, "/badges": {"reports": 7}, "/metrics": METRICS, "/health": HEALTH, "/reports": REPORTS, "/journal": JOURNAL}
+
+SETTINGS = {"transfer": [{"code": "mora", "title": "🪙 Мора", "enabled": True, "locked": False}, {"code": "zarniki", "title": "✨ Зарники", "enabled": False, "locked": True}],
+            "reports": {"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5},
+            "report_options": {"chat_ranks": [{"value": i, "title": f"Ранг {i}"} for i in range(1, 10)], "staff_ranks": [{"value": i, "title": f"Роль {i}"} for i in range(1, 7)]}}
+ACCESS_OWNERS = {"enabled": False, "max_chats": 10,
+                 "blocked": [{"id": 9001, "username": "очень_длинный_ник_отозванного_владельца", "reason": "спам в чатах " + "x" * 60, "at": "2026-10-12T10:00:00+00:00"}]}
+ROUTES.update({"/settings": SETTINGS, "/access/owners": ACCESS_OWNERS})
+
+# Режим владельца чата (--owner): сотрудником он не является, поэтому /me отвечает 403, а работает /owner/*.
+_BAN = {"id": 777, "username": "нарушитель_с_очень_длинным_ником_" + "z" * 30, "reason": "спам " + "x" * 70, "until": None}
+OWNER_CHAT = {"id": -100, "title": "Очень длинное название чата " + "я" * 40, "closed": False, "max_warnings": 3,
+              "bot": {"is_admin": True, "can_moderate": False}, "members": 1284,
+              "sanctions": {"bans": [_BAN, {**_BAN, "id": 778, "until": "2026-10-20T10:00:00+00:00"}],
+                            "mutes": [{"id": 779, "username": "мут_" + "y" * 40, "until": "2026-10-14T10:00:00+00:00"}],
+                            "warns": [{"id": 780, "username": "варн_" + "w" * 40, "count": 2}]}}
+OWNER_ROUTES = {"/me": (403, {"detail": "Админка доступна только персоналу бота."}),
+                "/owner/me": {"user_id": 5001, "kind": "owner", "max_chats": 10, "chat_actions": [], "member_actions": [],
+                              "chats": [{"id": -100, "title": OWNER_CHAT["title"]}, {"id": -200, "title": "Второй чат"}]},
+                "/owner/chat/-100": OWNER_CHAT}

@@ -16,7 +16,7 @@ import sys
 from urllib.parse import urlparse
 
 sys.path.insert(0, os.path.dirname(__file__))
-from admin_stand_fixtures import ROUTES  # noqa: E402
+from admin_stand_fixtures import OWNER_ROUTES, ROUTES  # noqa: E402
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
 HOST = "http://stand.local"
@@ -43,6 +43,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="admin-stand-out")
     ap.add_argument("--tabs", default="metrics,health")
+    ap.add_argument("--owner", action="store_true", help="войти как владелец чата (вкладка mychats)")
     args = ap.parse_args()
     tabs = [t for t in args.tabs.split(",") if t]
     os.makedirs(args.out, exist_ok=True)
@@ -58,8 +59,10 @@ def main() -> int:
         path = url.path
         if path == "/bot-admin/api/export" or path.startswith("/bot-admin/api/"):
             key = path[len("/bot-admin/api"):]
-            if key in ROUTES:
-                return route.fulfill(status=200, content_type="application/json", body=json.dumps(ROUTES[key]))
+            routes = OWNER_ROUTES if args.owner else ROUTES
+            if key in routes:
+                status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
+                return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
             return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
         if path.endswith("admin.js"):
             return route.fulfill(status=200, content_type="text/javascript", body=read("admin.js"))

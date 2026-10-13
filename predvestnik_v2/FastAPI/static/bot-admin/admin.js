@@ -30,6 +30,7 @@ const SECTION_META = {
   switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
   settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
   health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
+  mychats: ['💬', 'Мои чаты', 'Проверяем, что вы владелец, и собираем чат'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
 
@@ -55,7 +56,9 @@ function showSectionLoading(main, key = currentSection()) {
 function accessMarkup(error) {
   const code = error?.status, msg = error?.message || '';
   let icon = '↻', small = 'Связь прервалась', title = 'Не удалось открыть админку', text = msg || 'Попробуйте ещё раз.', retry = true;
-  if (code === 403) {
+  if (code === 403 && error.owner) {
+    icon = '🛡'; small = 'Вход владельцев чатов'; title = 'Доступ к админке закрыт'; text = msg; retry = false;
+  } else if (code === 403) {
     icon = '🛡'; small = 'Нет доступа'; title = 'Только для персонала бота'; retry = false;
     text = msg + (/персонал/.test(msg) ? ' Если вы в команде, попросите создателя выдать вам роль, а потом напишите боту «бот админка».' : '');
   } else if (code === 401) {
@@ -147,10 +150,11 @@ const ICONS = {
   switches: '<rect x="3" y="7" width="18" height="10" rx="5"/><circle cx="16" cy="12" r="2.4"/>',
   settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
   health: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+  mychats: '<path d="M4 5.5h16v10H9l-5 4z"/>',
   more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
 };
 const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние'};
+const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты'};
 const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
 
 function dockSplit() {
@@ -170,6 +174,7 @@ function paintBadges() {
   });
 }
 async function refreshBadges() {
+  if (ME && ME.owner) return;   // значки жалоб — для персонала
   try { BADGES = await api('/badges'); } catch (_) { return; }
   paintBadges();
 }
@@ -2156,6 +2161,7 @@ async function settingsView(main) {
     ${securityCard()}`;
   bindReportSettings(main, data);
   bindSecurityCard(main);
+  ownersAccessCard(main);
   main.querySelectorAll('[data-cur]').forEach(input => {
     input.onchange = async () => {
       const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
@@ -2239,13 +2245,120 @@ async function healthView(main) {
 
 SECTIONS.health = main => healthView(main);
 
+// ── Владелец чата (ADM-02): только свои чаты, только то, что можно командами «бот …» ──────────────
+
+const OWNER = {chats: [], chat: 0};
+async function ownerBoot() {
+  try {
+    const o = await api('/owner/me');
+    OWNER.chats = o.chats; OWNER.chat = (o.chats.find(c => c.id === OWNER.chat) || o.chats[0]).id;
+    return {rank_name: 'Владелец чата', sections: [{key: 'mychats', title: 'Мои чаты'}], creator: false, owner: true};
+  } catch (e) { e.owner = true; throw e; }
+}
+const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : 'навсегда';
+
+async function ownerView(main) {
+  const c = await loadSectionData(main, `/owner/chat/${OWNER.chat}`, () => ownerView(main), 'mychats');
+  if (!c) return;
+  const picker = OWNER.chats.length > 1 ? `<div class="scope" style="margin-bottom:10px">${OWNER.chats.map(x =>
+    `<button type="button" class="btn small ${x.id === OWNER.chat ? 'primary' : ''}" data-ochat="${x.id}">${esc(x.title)}</button>`).join('')}</div>` : '';
+  const sanc = c.sanctions;
+  const lift = (kind, id) => `<button type="button" class="btn" data-olift="${kind}" data-ouid="${id}">Снять</button>`;
+  const none = '<div class="sub">Нет.</div>';
+  main.innerHTML = `
+    ${pageHead('💬', c.title, 'Ваш чат: здесь вы управляете только им')}
+    ${picker}
+    ${c.bot.can_moderate ? '' : alertBox('warn', 'У бота нет прав модератора в этом чате. Выдайте боту права администратора (удаление сообщений и ограничение участников), иначе мут, бан и кик не сработают.')}
+    <div class="kpis">${kpi('Участников', num(c.members), '', 'sm')}${kpi('Чат', c.closed ? 'закрыт' : 'открыт', '', 'sm ' + (c.closed ? 'warn' : 'ok'))}${kpi('Лимит варнов', c.max_warnings, '', 'sm')}</div>
+    ${section('o-chat', '⚙️ Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
+      <div class="field" style="margin-top:10px"><label>Лимит варнов до наказания (1–20)</label><input id="o-limit" type="number" min="1" max="20" value="${c.max_warnings}"/></div>
+      <div class="actions"><button type="button" class="btn primary" id="o-limit-save">Сохранить лимит</button></div>`)}
+    ${section('o-sanc', '🚫 Санкции', `
+      <div class="sub" style="margin:4px 0">Баны</div>${sanc.bans.length ? tbl(['Кто', 'Срок', ''], sanc.bans.map(b =>
+        [who(b.id, b.username) + (b.reason ? `<div class="sub">${esc(b.reason)}</div>` : ''), untilText(b.until), lift('unban', b.id)])) : none}
+      <div class="sub" style="margin:10px 0 4px">Муты</div>${sanc.mutes.length ? tbl(['Кто', 'Срок', ''], sanc.mutes.map(m =>
+        [who(m.id, m.username), untilText(m.until), lift('unmute', m.id)])) : none}
+      <div class="sub" style="margin:10px 0 4px">Варны</div>${sanc.warns.length ? tbl(['Кто', 'Варнов', ''], sanc.warns.map(w =>
+        [who(w.id, w.username), w.count, lift('unwarn_all', w.id)])) : none}`)}
+    ${section('o-member', '👤 Действие с участником', `${hint('Введите числовой ID участника этого чата. Игроков с ролью в боте и самого бота это не затрагивает.')}
+      <div class="field"><label>ID участника</label><input id="o-uid" inputmode="numeric" pattern="[0-9]*"/></div>
+      <div class="field"><label>Действие</label><select id="o-act"><option value="warn">⚠️ Варн</option><option value="mute">🔇 Мут</option>
+        <option value="kick">👢 Кик</option><option value="ban">⛔ Бан</option></select></div>
+      <div class="field" id="o-minw"><label>Срок</label><select id="o-min">${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === 60 ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Причина (необязательно)</label><input id="o-reason" maxlength="200"/></div>
+      <div class="actions"><button type="button" class="btn primary" id="o-go">Применить</button></div>`)}`;
+  const done = msg => { toast(msg); ownerView(main); };
+  main.querySelectorAll('[data-ochat]').forEach(b => b.onclick = () => { OWNER.chat = +b.dataset.ochat; showSectionLoading(main, 'mychats'); ownerView(main); });
+  const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
+  $('#o-toggle').onclick = () => sheet(c.closed ? 'Открыть чат?' : 'Закрыть чат?',
+    hint(c.closed ? 'Участники снова смогут писать.' : 'Писать смогут только ранги с правом.'), c.closed ? 'Открыть' : 'Закрыть',
+    async () => { done((await post(`/owner/chat/${c.id}/action`, {action: c.closed ? 'open' : 'close'})).message); });
+  $('#o-limit-save').onclick = async () => {
+    try { done((await post(`/owner/chat/${c.id}/action`, {action: 'warn_limit', value: +$('#o-limit').value})).message); } catch (e) { toast(e.message, true); }
+  };
+  main.querySelectorAll('[data-olift]').forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { done((await post(`/owner/chat/${c.id}/member/${b.dataset.ouid}/action`, {action: b.dataset.olift})).message); } catch (e) { toast(e.message, true); b.disabled = false; }
+  });
+  const act = $('#o-act'), minw = $('#o-minw');
+  const syncMin = () => { minw.hidden = act.value === 'kick'; };
+  act.onchange = syncMin; syncMin();
+  $('#o-go').onclick = () => {
+    const uid = +$('#o-uid').value;
+    if (!Number.isSafeInteger(uid) || uid <= 0) { toast('Введите числовой ID участника', true); return; }
+    const body = {action: act.value, reason: $('#o-reason').value.trim(), minutes: +$('#o-min').value};
+    const run = async () => { done((await post(`/owner/chat/${c.id}/member/${uid}/action`, body)).message); };
+    if (act.value === 'kick' || act.value === 'ban') sheet(act.value === 'ban' ? 'Забанить участника?' : 'Выгнать участника?', hint('id ' + uid), 'Да', run);
+    else run().catch(e => toast(e.message, true));
+  };
+}
+SECTIONS.mychats = main => ownerView(main);
+
+// Создатель: пускать ли владельцев чатов в админку и кого отозвать. По умолчанию вход закрыт.
+async function ownersAccessCard(main) {
+  if (!ME.creator) return;
+  let st;
+  try { st = await api('/access/owners'); } catch (_) { return; }
+  const box = document.createElement('div');
+  box.className = 'card'; box.id = 'ownacc';
+  box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
+    <div class="sub" style="margin-bottom:6px">Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека).
+      Владение проверяется по Telegram при каждом входе.</div>
+    <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">${st.enabled ? 'Открыт' : 'Закрыт'}</div></div>
+      <label class="toggle"><input type="checkbox" id="own-on" ${st.enabled ? 'checked' : ''}/><span></span></label></div>
+    <div class="sub" style="margin:10px 0 4px">Доступ отозван</div>
+    ${st.blocked.length ? st.blocked.map(b => `<div class="sw-row"><div class="t"><b>${who(b.id, b.username)}</b><div class="sub">${esc(b.reason || 'без причины')}</div></div>
+      <button type="button" class="btn" data-ounblock="${b.id}">Вернуть</button></div>`).join('') : '<div class="sub">Никто не отозван.</div>'}
+    <div class="field" style="margin-top:10px"><label>Отозвать доступ: ID человека</label><input id="own-uid" inputmode="numeric"/></div>
+    <div class="field"><label>Причина (необязательно)</label><input id="own-reason" maxlength="200"/></div>
+    <div class="actions"><button type="button" class="btn danger" id="own-block">Отозвать доступ</button></div>`;
+  main.append(box);
+  const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
+  const redo = () => { box.remove(); ownersAccessCard(main); };
+  $('#own-on').onchange = async e => {
+    const on = e.target.checked;
+    if (on && !confirm('Пустить владельцев чатов в админку? Любой, кто создал группу с ботом, сможет входить и модерировать свой чат.')) { e.target.checked = false; return; }
+    try { await post('/access/owners', {enabled: on}); toast(on ? 'Вход владельцев открыт' : 'Вход владельцев закрыт'); redo(); }
+    catch (err) { toast(err.message, true); e.target.checked = !on; }
+  };
+  box.querySelectorAll('[data-ounblock]').forEach(b => b.onclick = async () => {
+    try { await post('/access/owners/block', {user_id: +b.dataset.ounblock, blocked: false}); toast('Доступ возвращён'); redo(); } catch (err) { toast(err.message, true); }
+  });
+  $('#own-block').onclick = async () => {
+    const uid = +$('#own-uid').value;
+    if (!Number.isSafeInteger(uid) || uid <= 0) { toast('Введите числовой ID', true); return; }
+    try { await post('/access/owners/block', {user_id: uid, blocked: true, reason: $('#own-reason').value.trim()}); toast('Доступ отозван'); redo(); } catch (err) { toast(err.message, true); }
+  };
+}
+
 // ── Старт ────────────────────────────────────────────────────────────────────
 
 (async () => {
   if (TG) { try { TG.ready(); TG.expand(); } catch (_) {} }
   showSectionLoading($('#main'), 'start');
   try {
-    ME = await api('/me');
+    try { ME = await api('/me'); }
+    catch (e) { if (e.status === 403) ME = await ownerBoot(); else throw e; }   // не сотрудник: пробуем войти как владелец чата
   } catch (e) {
     $('#main').innerHTML = accessMarkup(e);
     const again = $('#main .load-retry');

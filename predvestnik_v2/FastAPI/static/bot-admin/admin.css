@@ -325,3 +325,8 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .day-h { margin: 14px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .day-h:first-child { margin-top: 4px; }
 #jlist .log { border-bottom: 0; padding: 7px 0 7px 10px; border-left: 2px solid var(--line); margin-left: 2px; }
+
+/* Владелец чата (ADM-02): длинные названия чатов и ники не выпирают */
+.page-head h2, .section .tbl td, .section .sw-row .t { overflow-wrap: anywhere; }
+.scope .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+#secset .actions .btn { white-space: normal; max-width: 100%; }
