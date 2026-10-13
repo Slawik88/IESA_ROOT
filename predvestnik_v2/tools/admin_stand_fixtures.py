@@ -8,6 +8,7 @@ SECTIONS = [
     {"key": "people", "title": "Игроки и чаты"}, {"key": "reports", "title": "Жалобы"}, {"key": "metrics", "title": "Метрики"},
     {"key": "journal", "title": "Журнал"}, {"key": "broadcast", "title": "Рассылка"}, {"key": "promo", "title": "Промокоды"},
     {"key": "switches", "title": "Функции"}, {"key": "settings", "title": "Настройки"}, {"key": "health", "title": "Состояние"},
+    {"key": "access", "title": "Права"},
 ]
 ME = {"rank_name": "Владелец", "sections": SECTIONS, "creator": True}
 
@@ -83,3 +84,11 @@ OWNER_ROUTES = {"/me": (403, {"detail": "Админка доступна тол�
                 "/owner/me": {"user_id": 5001, "kind": "owner", "max_chats": 10, "chat_actions": [], "member_actions": [],
                               "chats": [{"id": -100, "title": OWNER_CHAT["title"]}, {"id": -200, "title": "Второй чат"}]},
                 "/owner/chat/-100": OWNER_CHAT}
+
+_ROLES = [{"rank": r, "name": n} for r, n in ((2, "🌱 Младший хелпер"), (3, "💬 Хелпер"), (4, "🎓 Старший хелпер"), (5, "🛠 Разработчик"))]
+MATRIX = {"floor": 2, "ceiling": 5, "roles": _ROLES, "items": [
+    {"key": "section:people", "group": "section", "title": "Игроки и чаты", "default": 2, "current": 2, "changed": False},
+    {"key": "section:metrics", "group": "section", "title": "Метрики", "default": 4, "current": 3, "changed": True},
+    {"key": "action:ban", "group": "moderation", "title": "⛔ Бан в чате с очень длинным названием права " + "x" * 30, "default": 4, "current": 4, "changed": False},
+    {"key": "action:warn", "group": "moderation", "title": "⚠️ Варн в чате", "default": 3, "current": 2, "changed": True}]}
+ROUTES["/access/matrix"] = MATRIX

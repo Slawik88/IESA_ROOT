@@ -43,7 +43,7 @@ async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _
     return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show),
             "counts": await reports_service.counts(db), "can_see_reporter": show,
             "repeat": await reports_service.repeat_offenders(db) if kind != "closed" else [],
-            "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people.ACTIONS[k][1]]}
+            "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people._min(user, k)]}
 
 
 async def _finish(db, user: dict, report: dict, status: str, note: str) -> None:

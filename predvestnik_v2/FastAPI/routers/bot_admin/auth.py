@@ -23,6 +23,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "switches": ("Функции", 5),
     "settings": ("Настройки", 5),
     "health": ("Состояние", 4),
+    "access": ("Права", 6),   # только создатель: матрица прав ролей и вход владельцев чатов
 }
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 
@@ -53,7 +54,7 @@ async def staff_user(x_init_data: str = Header(default=""), x_session_token: str
     rank = await get_bot_rank(db, user_id)
     if rank <= 0:
         raise HTTPException(403, "Админка доступна только персоналу бота.")
-    return admin_access.staff_principal(user_id, rank)
+    return admin_access.staff_principal(user_id, rank, await admin_access.load_grants(db))   # права ролей читаются на каждый запрос
 
 
 def guard(dep):
@@ -69,7 +70,7 @@ def section(key: str):
     """Зависимость: пользователь с ролью не ниже нужной для раздела."""
     async def check(user=Depends(staff_user)) -> dict:
         admin_access.require_staff(user)
-        if user["rank"] < SECTIONS[key][1]:
+        if user["rank"] < admin_access.min_rank(user, f"section:{key}", SECTIONS[key][1]):
             raise HTTPException(403, f"Раздел «{SECTIONS[key][0]}» вам недоступен.")
         return user
     return guard(check)
@@ -84,7 +85,7 @@ DEV_COOKIE = "pv_admin_dev"
 async def badges(user=Depends(staff_user), db=Depends(get_db)):
     """Числа для значков на вкладках: сейчас — новые жалобы, которые никто ещё не взял."""
     out: dict[str, int] = {}
-    if user["rank"] >= SECTIONS["reports"][1]:
+    if user["rank"] >= admin_access.min_rank(user, "section:reports", SECTIONS["reports"][1]):
         from services import reports as reports_service
         await reports_service._ensure(db)
         out["reports"] = (await reports_service.counts(db))["new"]
@@ -113,7 +114,8 @@ async def me(request: Request, response: Response, user=Depends(staff_user), db=
                             samesite="none", path=(os.getenv("ROOT_PATH", "").rstrip("/") or "/"))
     return {
         "user_id": user["id"], "rank": user["rank"], "rank_name": bot_rank_name(user["rank"]),
-        "sections": [{"key": k, "title": t, "min_rank": r} for k, (t, r) in SECTIONS.items() if user["rank"] >= r],
+        "sections": [{"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
+                     if user["rank"] >= admin_access.min_rank(user, f"section:{k}", r)],
         "ranks": [bot_rank_name(i) for i in range(len(BOT_RANKS))], "creator": user["rank"] >= CREATOR,
     }
 

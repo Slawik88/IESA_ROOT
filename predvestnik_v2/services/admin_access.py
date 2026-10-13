@@ -39,8 +39,13 @@ STATEMENTS = (
 _ready = False
 
 
-def staff_principal(user_id: int, rank: int) -> dict:
-    return {"id": int(user_id), "rank": int(rank), "kind": STAFF, "chats": None}
+def staff_principal(user_id: int, rank: int, grants: dict[str, int] | None = None) -> dict:
+    return {"id": int(user_id), "rank": int(rank), "kind": STAFF, "chats": None, "grants": grants or {}}
+
+
+def min_rank(principal: dict, key: str, default: int) -> int:
+    """Нужная роль на раздел или действие для этого запроса: настройка создателя в пределах потолка или значение из кода."""
+    return effective_min(key, default, principal.get("grants"))
 
 
 def owner_principal(user_id: int, chats) -> dict:
