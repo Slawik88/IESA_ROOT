@@ -350,6 +350,28 @@ async def get_balance(db, user_id: int) -> int:
     return int(row[0]) if row else 0
 
 
+async def locked_paid_keys(db, *, user_id: int, catalog_version: str, catalog_digest: str) -> int:
+    """Unspent paid keys bought under a retired catalog: counted in the balance, not openable."""
+    async with db.execute(
+        "SELECT COUNT(*) FROM chest_key_grants_v1 g "
+        "JOIN chest_key_accounts_v1 acc ON acc.user_id=g.user_id AND acc.account_epoch=g.account_epoch "
+        "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
+        "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
+        "WHERE g.user_id=? AND g.source_kind='zarniki_purchase' AND a.grant_id IS NULL AND v.grant_id IS NULL "
+        "AND NOT (g.source_snapshot->>'catalog_version'=? AND g.source_snapshot->>'catalog_digest'=?)",
+        (int(user_id), str(catalog_version), str(catalog_digest)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def openable_balance(db, user_id: int, *, catalog_version: str, catalog_digest: str) -> int:
+    locked = await locked_paid_keys(
+        db, user_id=int(user_id), catalog_version=catalog_version, catalog_digest=catalog_digest,
+    )
+    return max(0, await get_balance(db, int(user_id)) - locked)
+
+
 async def lock_account(db, user_id: int) -> dict[str, int]:
     await db.execute(
         "INSERT INTO chest_key_accounts_v1(user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING",

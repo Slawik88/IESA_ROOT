@@ -149,7 +149,12 @@ async def overview(db, *, user_id: int) -> dict:
         "policy_version": POLICY_VERSION,
         "catalog_version": CATALOG_VERSION,
         "catalog_digest": catalog_digest(),
-        "key_balance": await repo.get_balance(db, int(user_id)),
+        "key_balance": await repo.openable_balance(
+            db, int(user_id), catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
+        ),
+        "locked_paid_keys": await repo.locked_paid_keys(
+            db, user_id=int(user_id), catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
+        ),
         "pending_open": _prepared(pending) if pending else None,
         "last_result": _revealed(latest) if latest else None,
         "funding": {
@@ -340,8 +345,11 @@ async def prepare_free_open(
             catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
         )
         if not grant:
-            # Only paid keys of a retired catalog are left (balance >= 1 was checked above).
-            raise ChestKeyConflict("Купленный ключ привязан к недоступной версии каталога.")
+            if await repo.next_unspent_grant(
+                db, user_id=int(user_id), account_epoch=int(account["account_epoch"]),
+            ):
+                raise ChestKeyConflict("Купленный ключ привязан к недоступной версии каталога.")
+            raise RuntimeError("Key balance has no matching entitlement receipt.")
         vip_ids: tuple[str, ...] = ()
         if await vip.is_vip_active(db, int(user_id)):
             vip_ids = tuple(await repo.vip_cosmetic_candidates(

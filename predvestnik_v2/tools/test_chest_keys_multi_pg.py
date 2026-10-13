@@ -100,6 +100,11 @@ async def run(dsn: str) -> None:
             catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
         )
         assert usable["source_kind"] == "quest_daily_set_complete"
+        # UI and quests count only openable keys; a real desync is not masked as a stale key.
+        args = dict(catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest())
+        assert await repo.locked_paid_keys(db, user_id=stale_user, **args) == 1
+        assert await repo.openable_balance(db, stale_user, **args) == 2
+        assert await repo.openable_balance(db, 971000, **args) == await repo.get_balance(db, 971000)
 
         # The VIP seventh-day milestone: real service path, replay writes nothing more.
         vip_user = 971200

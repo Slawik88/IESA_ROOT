@@ -20,8 +20,9 @@ NEW_KEYS = {"daily_set": 2, "weekly_set": 3, "trek": 1, "expedition": 2, "vip_da
 
 # Real grant rules (not "every action pays"):
 #  - VIP: a key only on every 7th daily-mission completion -> 1 milestone per 7 days.
-#  - Pets: keys per walk/expedition are capped; pets v2 allows 2 keys/day and 5/week
-#    (flag pets_v2, its own limits, not changed by ECO-02). Weekly pet keys are capped at 5 events.
+#  - Pets: the simulated pet-key events follow pets v1 amounts (walk 1, expedition 2). Pets v2
+#    (flag pets_v2, off) has its own limits, 2 keys/day and 5/week, and is NOT changed by ECO-02;
+#    the 5-events/week cap here is that v2 ceiling used as a conservative upper bound.
 PET_KEY_EVENTS_CAP_PER_WEEK = 5
 # per week: daily sets, weekly sets, treks, expeditions, vip milestones
 ARCHETYPES = {
