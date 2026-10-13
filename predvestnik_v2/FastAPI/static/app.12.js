@@ -237,6 +237,8 @@
     bold: 'Рискованный маршрут',
     scout: 'Разведка',
   });
+  const PET_ROUTE_RISK = Object.freeze({ careful: 1, steady: 2, bold: 3 });
+  let _petRouteLast = '';
   const PET_ROUTES_CLASSIC = Object.freeze(['careful', 'steady', 'bold']);
 
   const PET_RARITY = Object.freeze({
@@ -286,13 +288,18 @@
     const status = activity.status === 'ready'
       ? (needsDecision ? 'Таймер завершён. Выбери маршрут:' : 'Награда уже получена.')
       : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
+    const rewards = !!(routeOptions && routeOptions.rewards_enabled);
     const routes = needsDecision
-      ? `<div class="pet-route-grid">${petRouteList(routeOptions).map((route) => (
-        `<button type="button" class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${route.id}')">${esc(PET_ROUTE_LABELS[route.id] || route.id)}`
-        + (route.chance_percent != null ? `<small class="pet-route-odds"> · ${route.chance_percent}% · ${fmt(route.reward_mora)} 🪙</small>` : '')
-        + `</button>`
-      )).join('')}</div>${routeOptions && routeOptions.rewards_enabled && !routeOptions.hint ? '<small>С 4 уровня питомец покажет шансы маршрутов.</small>' : ''}`
-      : '';
+      ? `<div class="pet-route-grid">${petRouteList(routeOptions).map((route) => {
+        const risk = PET_ROUTE_RISK[route.id] || 0;
+        const odds = route.chance_percent != null ? `<small class="pet-route-odds">${Number(route.chance_percent)}% · ${fmt(route.reward_mora)} 🪙</small>` : '';
+        const badge = route.id === 'scout' ? '<i class="pet-route-badge">Ур. 12</i>' : '';
+        return `<button type="button" class="pet-route${route.id === 'scout' ? ' is-scout' : ''}" onclick="petsV1Choose('${route.id}')">`
+          + `<span class="pet-route-name">${esc(PET_ROUTE_LABELS[route.id] || route.id)}${badge}</span>`
+          + (risk ? `<span class="pet-risk" data-risk="${risk}" role="img" aria-label="Риск ${risk} из 3"><i></i><i></i><i></i></span>` : '')
+          + odds + `</button>`;
+      }).join('')}</div>${rewards && !routeOptions.hint ? '<p class="pt-note">С 4 уровня питомец покажет шансы маршрутов.</p>' : ''}`
+      : (activity.status === 'ready' && _petRouteLast ? `<p class="pt-note" role="status">${esc(_petRouteLast)}</p>` : '');
     return `<section class="pt-sec pet-activity ${needsDecision ? 'is-attn' : ''}"><h3>${title}${needsDecision ? ' · нужен выбор' : ''}</h3><p>${status}</p>${routes}</section>`;
   }
 
@@ -498,7 +505,7 @@
   };
   window.petsV1Start=function(kind,hours){
     const key=`activity:${kind}:${hours}`,action=_pendingAction(_petsV1PendingActions,key,'pet-activity-');
-    api('/pets-v1/activity',{method:'POST',body:JSON.stringify({kind:kind,hours:hours,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Таймер запущен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем запущенный таймер.`,false);openPetsV1();});
+    api('/pets-v1/activity',{method:'POST',body:JSON.stringify({kind:kind,hours:hours,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);_petRouteLast='';toast('Таймер запущен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем запущенный таймер.`,false);openPetsV1();});
   };
   window.petsV1Feed=function(petId,foodId){
     const key=`feed:${petId}:${foodId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-feed-');
@@ -510,9 +517,13 @@
     if(!r.success)return`Маршрут не удался, Мора не потрачена${keys}`;
     return`Маршрут пройден · +${fmt(r.paid_mora)} 🪙${keys}`;
   }
+  function petRouteNote(d){
+    const r=d.route;
+    return r&&r.capped?'Недельный лимит наград за маршруты':'';
+  }
   window.petsV1Choose=function(decision){
     const key=`decision:${decision}`,action=_pendingAction(_petsV1PendingActions,key,'pet-decision-');
-    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(d.amount_keys?'Экспедиция завершена · +1 🗝':'Маршрут выбран');openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
+    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);const note=petRouteNote(d);_petRouteLast=[petRouteToast(d),note].filter(Boolean).join('. ');toast(petRouteToast(d)+(note?`. ${note}`:''));openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
   };
   let _chestsV1Data=null,_chestsV1Busy=false,_chestsV1Prepared=null,_chestsV1LastResult=null;
   function chestRewardText(reward){

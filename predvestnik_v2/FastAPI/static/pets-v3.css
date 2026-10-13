@@ -64,6 +64,15 @@
 #pg-pets .pt-go:disabled { background: none; box-shadow: inset 0 0 0 1.5px var(--pt-line); color: var(--pt-dim); opacity: 1; }
 #pg-pets .pet-route-grid { display: grid; gap: 8px; }
 #pg-pets .pet-route-grid button { min-height: 48px; border: 0; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1.5px var(--pt-acc); color: var(--pt-ink); font-weight: 600; }
+#pg-pets .pet-route-grid .pet-route { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 6px 18px; text-align: left; font-size: 14px; }
+#pg-pets .pet-route-name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; overflow-wrap: anywhere; }
+#pg-pets .pet-route-odds { grid-column: 1 / -1; color: var(--pt-dim); font-size: 11.5px; font-weight: 500; opacity: 1; }
+#pg-pets .pet-route:has(.pet-route-odds) { padding-block: 8px; }
+#pg-pets .pet-risk { display: inline-flex; gap: 4px; }
+#pg-pets .pet-risk i { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--pt-dim); }
+#pg-pets .pet-risk[data-risk="1"] i:nth-child(-n+1), #pg-pets .pet-risk[data-risk="2"] i:nth-child(-n+2), #pg-pets .pet-risk[data-risk="3"] i { background: var(--pt-acc); box-shadow: none; }
+#pg-pets .pet-route.is-scout { box-shadow: inset 0 0 0 1.5px var(--pt-line); font-weight: 500; }
+#pg-pets .pet-route-badge { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: var(--pt-dim); padding: 2px 8px; border-radius: 99px; box-shadow: inset 0 0 0 1px var(--pt-line); }
 
 /* другие питомцы: компактные строки */
 .pt-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; }
@@ -157,4 +166,3 @@
 .pt-sheet-list b { color: var(--pt-ink); font-size: 14px; }
 .pt-sheet-list span { color: var(--pt-dim); font-size: 12px; }
 .pt-sheet .pt-main { margin-top: 8px; }
-#pg-pets .pet-route-odds { font-weight: 500; opacity: .8; }
