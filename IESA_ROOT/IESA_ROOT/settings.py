@@ -270,8 +270,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Whitenoise configuration for production static files
-if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': ('django.contrib.staticfiles.storage.StaticFilesStorage' if DEBUG
+                    else 'IESA_ROOT.storage.WhitenoiseManifestStorage'),
+    },
+}
 
 MEDIA_URL = '/media/'
 if DEBUG:

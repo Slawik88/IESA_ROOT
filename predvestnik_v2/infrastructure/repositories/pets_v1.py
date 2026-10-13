@@ -31,6 +31,22 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v1_level_ups (
+            id TEXT PRIMARY KEY,
+            user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL, action_id TEXT NOT NULL,
+            species_id TEXT NOT NULL, rarity TEXT NOT NULL,
+            level_before INTEGER NOT NULL CHECK(level_before BETWEEN 1 AND 15),
+            level_after INTEGER NOT NULL CHECK(level_after = level_before + 1),
+            cards INTEGER NOT NULL CHECK(cards > 0), mora INTEGER NOT NULL CHECK(mora > 0),
+            essence INTEGER NOT NULL CHECK(essence >= 0),
+            economy_operation_id TEXT NULL,
+            policy_version TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CLOCK_TIMESTAMP(),
+            UNIQUE(user_id, action_id),
+            UNIQUE(user_id, pet_id, level_before)
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_runs (
             id TEXT PRIMARY KEY,
             user_id BIGINT NOT NULL,
@@ -317,3 +333,53 @@ async def consume_food(
     after = min(100, current + int(restore))
     await save_endurance(db, int(user_id), int(pet_id), after)
     return after, int(row[0])
+
+
+async def get_owned_pet_full(db, user_id: int, pet_id: int) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT id,species_id,rarity FROM pets WHERE owner_id=? AND id=?", (int(user_id), int(pet_id))
+    ) as c:
+        row = await c.fetchone()
+    return dict(row) if row else None
+
+
+async def card_balances(db, user_id: int) -> dict[str, int]:
+    """Pet Cards per species. Empty before the chest tables exist."""
+    async with db.execute("SELECT to_regclass('chest_pet_card_balances_v1')") as c:
+        if (await c.fetchone())[0] is None:
+            return {}
+    async with db.execute(
+        "SELECT species_id,quantity FROM chest_pet_card_balances_v1 WHERE user_id=?", (int(user_id),)
+    ) as c:
+        return {str(row[0]): int(row[1]) for row in await c.fetchall()}
+
+
+async def spend_cards(db, *, user_id: int, species_id: str, quantity: int) -> int:
+    """Take ``quantity`` cards of one species; the row is locked, a shortage raises ValueError."""
+    async with db.execute(
+        "SELECT quantity FROM chest_pet_card_balances_v1 WHERE user_id=? AND species_id=? FOR UPDATE",
+        (int(user_id), str(species_id)),
+    ) as c:
+        row = await c.fetchone()
+    have = int(row[0]) if row else 0
+    if have < int(quantity):
+        raise ValueError(f"cards: have {have}, need {int(quantity)}")
+    await db.execute(
+        "UPDATE chest_pet_card_balances_v1 SET quantity=quantity-?,updated_at=CLOCK_TIMESTAMP() "
+        "WHERE user_id=? AND species_id=?", (int(quantity), int(user_id), str(species_id)),
+    )
+    return have - int(quantity)
+
+
+async def save_level_up(
+    db, *, level_up_id: str, user_id: int, pet_id: int, action_id: str, species_id: str, rarity: str,
+    level_before: int, level_after: int, cards: int, mora: int, essence: int,
+    economy_operation_id: str | None, policy_version: str,
+) -> None:
+    await db.execute(
+        "INSERT INTO pet_v1_level_ups(id,user_id,pet_id,action_id,species_id,rarity,level_before,level_after,"
+        "cards,mora,essence,economy_operation_id,policy_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (str(level_up_id), int(user_id), int(pet_id), str(action_id), str(species_id), str(rarity),
+         int(level_before), int(level_after), int(cards), int(mora), int(essence),
+         economy_operation_id, str(policy_version)),
+    )

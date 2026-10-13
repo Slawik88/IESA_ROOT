@@ -325,3 +325,35 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .day-h { margin: 14px 0 2px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .day-h:first-child { margin-top: 4px; }
 #jlist .log { border-bottom: 0; padding: 7px 0 7px 10px; border-left: 2px solid var(--line); margin-left: 2px; }
+
+/* Владелец чата (ADM-02): длинные названия чатов и ники не выпирают */
+.page-head h2, .section .tbl td, .section .sw-row .t { overflow-wrap: anywhere; }
+.scope .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+#secset .actions .btn { white-space: normal; max-width: 100%; }
+
+/* ═══ ADM-02 · «Права» и «Мои чаты»: только вид (передача от треда «Чат-бот и админка»). Класс .card и разметка не менялись ═══ */
+/* Право: название сверху на всю ширину, ниже селект роли (во всю свободную ширину) и «Сбросить». Раньше селект сжимался до «🎓 Старши» */
+.sw-row:has(select[data-akey]) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 10px; padding: 12px 0; }
+.sw-row:has(select[data-akey]) > .t { grid-column: 1 / -1; }
+.sw-row:has(select[data-akey]) > select { grid-column: 1; width: 100%; }
+.sw-row:has(select[data-akey]) > .btn { grid-column: 2; }
+.sw-row:has(select[data-akey]):not(:has(.btn)) > select { grid-column: 1 / -1; }
+.sw-row:has(select[data-akey]) .sub { margin-top: 2px; }
+@media (max-width: 420px) { .sw-row:has(select[data-akey]) > select { padding-left: 10px; padding-right: 6px; font-size: 14px; } .sw-row:has(select[data-akey]) > .btn.small { padding: 0 10px; } }   /* название роли целиком даже рядом с «Сбросить» */
+@media (min-width: 640px) {
+  .sw-row:has(select[data-akey]) { grid-template-columns: minmax(0, 1fr) minmax(190px, 240px) auto; }
+  .sw-row:has(select[data-akey]) > .t { grid-column: 1; }
+  .sw-row:has(select[data-akey]) > select { grid-column: 2; }
+  .sw-row:has(select[data-akey]):not(:has(.btn)) > select { grid-column: 2; }
+  .sw-row:has(select[data-akey]) > .btn { grid-column: 3; }
+}
+
+/* «Мои чаты»: переключатель чатов переносится, длинное название не раздувает кнопку; название чата в шапке не больше трёх строк */
+.scope { display: flex; flex-wrap: wrap; gap: 8px; }
+.scope .btn { max-width: 100%; white-space: normal; line-height: 1.25; padding-top: 8px; padding-bottom: 8px; text-align: left; overflow-wrap: anywhere; }
+#main .page-head h2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+/* санкции: срок не рвётся по буквам, кнопка «Снять» компактная, длинный ник и причина переносятся */
+[data-sec="o-sanc"] .tbl td:nth-child(2) { white-space: nowrap; }
+[data-sec="o-sanc"] .tbl td:last-child { width: 1%; }
+[data-sec="o-sanc"] .tbl .btn { min-height: 40px; padding: 0 14px; font-size: 13px; }
+[data-sec="o-sanc"] .tbl td:first-child { overflow-wrap: anywhere; }

@@ -126,6 +126,22 @@ async def apply_duplicate_progression(db, *, user_id: int, pet_id: int, source_e
         return {"ok": True, "pet_id": int(pet_id), "outcome": outcome, "level_before": before,
                 "level_after": after, "echo_amount": echo_amount, "idempotent_replay": False}
 
+# Display-only flavour for the bestiary sheet.  It states no mechanics: level effects come from core.pets_v1.level_effects.
+PET_LORE = {
+    "moss_cat": "Спокойный кот, который спит на тёплых камнях у троп. Говорят, он находит дорогу даже в тумане.",
+    "stone_beetle": "Жук с панцирем как булыжник. Его редко замечают, пока он не выползет из-под камня.",
+    "ash_moth": "Мотылёк летит на остывающие угли и оставляет за собой серую пыльцу.",
+    "dusk_hare": "Заяц, которого видно только в сумерках. Быстро исчезает, когда на него смотрят в упор.",
+    "rain_finch": "Птичка поёт перед дождём. Путники ждут её голоса, чтобы вовремя найти укрытие.",
+    "salt_fox": "Лисица с белёсым мехом идёт по соляным пустошам и выбирает самый безопасный путь.",
+    "reed_guardian": "Хозяин камышовых заводей. Не любит шума, но спутников не бросает.",
+    "lantern_gecko": "На спине у геккона тёплый огонёк, который светит ночью и не гаснет на ветру.",
+    "mirror_owl": "Сова с перьями как зеркала. В её глазах можно увидеть тропу, которую ещё не прошёл.",
+    "frost_stag": "Олень с ледяными рогами. Где он ступает, на земле остаётся иней.",
+    "void_lynx": "Рысь, пришедшая из тьмы между звёздами. Появляется там, где не ждут.",
+    "star_dragon": "Редчайший спутник. Дракон, в чешуе которого застряли осколки упавших звёзд.",
+}
+
 
 async def overview(db, user_id: int) -> dict:
     """Read-only view.  It never creates state or changes endurance on read."""
@@ -154,10 +170,14 @@ async def overview(db, user_id: int) -> dict:
     owned_species = {str(pet.get("species_id") or "") for pet in pets}
     bestiary = [
         {"id": species_id, "name": row["name"], "rarity": row["rarity"],
-         "icon": row["icon"], "owned": species_id in owned_species}
+         "icon": row["icon"], "owned": species_id in owned_species,
+         "lore": PET_LORE.get(species_id, "")}
         for species_id, row in PET_SPECIES.items()
     ]
+    from services.pet_levels_v1 import next_step   # lazy: that module imports PetConflict from here
+    level_up = await next_step(db, int(user_id), pets)
     return {"policy_version":POLICY_VERSION,"active_pet_id":active,"pets":pets,
+            "level_up": level_up,
             "bestiary": bestiary,
             "bestiary_owned": sum(1 for item in bestiary if item["owned"]),
             "bestiary_total": len(bestiary),

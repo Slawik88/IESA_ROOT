@@ -15,6 +15,16 @@
 
             {# ════ МОБИЛЬНЫЙ ПРАВЫЙ БЛОК: иконки + гамбургер вместе (ms-auto) ════ #}
             <div class="iesa-nav-mobile-wrap d-flex d-lg-none align-items-center ms-auto gap-1">
+                <button class="nav-mob-btn" type="button" data-bs-toggle="modal"
+                        data-bs-target="#siteSearchModal" aria-label="{% trans 'Search' %}">
+                    <i class="fas fa-search" aria-hidden="true"></i>
+                </button>
+                {% if user.is_authenticated %}
+                <a class="nav-mob-btn" href="{% url 'notifications:notification_list' %}" aria-label="{% trans 'Notifications' %}">
+                    <i class="fas fa-bell" aria-hidden="true"></i>
+                    <span id="navbar-notif-badge-mob" class="notif-dot" data-notification-badge {% if not unread_notifications_count %}hidden{% endif %}>{% if unread_notifications_count > 99 %}99+{% else %}{{ unread_notifications_count }}{% endif %}</span>
+                </a>
+                {% endif %}
 
                 {% if not user.is_authenticated and request.resolver_match.url_name != 'login' %}
                 <a href="{% url 'users:login' %}" class="nav-mob-login">{% trans "Sign In" %}</a>
@@ -74,6 +84,12 @@
                     </li>
                     {% else %}
                     <li class="mobile-nav-section-label d-lg-none">{% trans "Account" %}</li>
+                    <li class="nav-item d-lg-none"><a class="nav-link" href="{% url 'users:dashboard' %}"><i class="fas fa-th-large fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "My Cabinet" %}</a></li>
+                    {% if user.is_partner or user.partner_profile %}
+                    <li class="nav-item d-lg-none"><a class="nav-link" href="{% url 'users:partner_dashboard' %}"><i class="fas fa-store fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Partner Portal" %}</a></li>
+                    <li class="nav-item d-lg-none"><a class="nav-link" href="{% url 'users:partner_profile_edit' %}"><i class="fas fa-building fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Company Profile" %}</a></li>
+                    {% endif %}
+                    <li class="nav-item d-lg-none"><a class="nav-link" href="{% url 'notifications:notification_list' %}"><i class="fas fa-bell fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Notifications" %}</a></li>
                     {# HOTFIX 2026-05-22: Logout-пункт в hamburger меню для мобилы (на ПК есть в profile dropdown) #}
                     <li class="nav-item d-lg-none">
                         <hr class="dropdown-divider" style="margin:.5rem 0;border-color:rgba(255,255,255,.08);">
@@ -95,17 +111,31 @@
                     {% endif %}
                 </ul>
 
+                <div class="mobile-nav-settings d-lg-none">
+                    <form action="{% url 'set_language' %}" method="post" class="mobile-language-form">
+                        {% csrf_token %}
+                        <input name="next" type="hidden" value="{{ request.get_full_path }}">
+                        <label for="mobile-language-select"><i class="fas fa-globe me-2" aria-hidden="true"></i>{% trans "Language" %}</label>
+                        <select name="language" id="mobile-language-select" class="form-select" onchange="this.form.requestSubmit()">
+                            {% for lang in LANGUAGES %}<option value="{{ lang.0 }}" {% if lang.0 == LANGUAGE_CODE %}selected{% endif %}>{{ lang.1 }}</option>{% endfor %}
+                        </select>
+                    </form>
+                    {% if request.user.is_superuser %}
+                    <button type="button" class="nav-link" data-theme-toggle><i class="fas fa-moon me-2" data-theme-icon aria-hidden="true"></i>{% trans "Toggle theme" %}</button>
+                    {% endif %}
+                </div>
+
                 {# ════ ДЕСКТОПНАЯ правая панель (только d-none d-lg-flex) ════ #}
                 <div class="iesa-nav-actions d-none d-lg-flex align-items-center">
 
                     {# Тема — переключатель только для суперюзера #}
                     {% if request.user.is_superuser %}
-                    <button id="theme-toggle" type="button"
+                    <button id="theme-toggle" type="button" data-theme-toggle
                             class="btn-nav-icon"
                             title="{% trans 'Toggle theme' %}"
                             aria-label="{% trans 'Toggle theme' %}"
                             style="font-size:.95rem;">
-                      <i class="fas fa-moon" id="theme-icon"></i>
+                      <i class="fas fa-moon" id="theme-icon" data-theme-icon></i>
                     </button>
                     {% endif %}
 
@@ -135,56 +165,11 @@
                         </div>
                     </div>
 
-                    <!-- Поиск -->
-                    <div class="dropdown">
-                        <button class="btn-nav-icon" type="button"
-                                data-bs-toggle="dropdown" data-bs-auto-close="outside"
-                                aria-expanded="false"
-                                aria-label="{% trans 'Search' %}"
-                                title="{% trans 'Search' %}">
-                            <i class="fas fa-search"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end navbar-search-dropdown"
-                             onclick="event.stopPropagation()">
-                            <input type="search" name="q" id="global-community-search"
-                                   class="form-control"
-                                   placeholder="{% trans 'Posts, users, events…' %}"
-                                   hx-get="{% url 'blog:global_search' %}"
-                                   hx-trigger="keyup changed delay:400ms"
-                                   hx-target="#community-search-results"
-                                   hx-indicator="#search-spinner"
-                                   hx-swap="innerHTML"
-                                   autocomplete="off"
-                                   aria-label="{% trans 'Search site' %}">
-                            <div id="search-spinner" class="htmx-indicator text-center py-2">
-                                <i class="fas fa-spinner fa-spin" style="color:var(--primary);"></i>
-                            </div>
-                            <div id="search-suggestions" style="display:none;"></div>
-                            <div id="community-search-results" class="navbar-search-results mt-1"></div>
-                        </div>
-                        <script>
-                        (function(){
-                          var inp  = document.getElementById('global-community-search');
-                          var sugg = document.getElementById('search-suggestions');
-                          var res  = document.getElementById('community-search-results');
-                          if (!inp || !sugg) return;
-                          var KEY = 'iesa_recent_searches';
-                          function getR(){ try{ return JSON.parse(localStorage.getItem(KEY)||'[]'); }catch{ return []; } }
-                          function save(q){ var l=getR().filter(function(s){return s!==q;}); l.unshift(q); localStorage.setItem(KEY,JSON.stringify(l.slice(0,5))); }
-                          function render(){
-                            var r=getR(); if(!r.length){sugg.style.display='none';return;}
-                            sugg.innerHTML='<div style="font-size:.63rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:.1em;padding:.4rem .75rem .2rem;font-family:monospace;">{% trans "Recent" %}</div>'
-                              +r.map(function(s){return '<button type="button" onclick="document.getElementById(\'global-community-search\').value=\''+s.replace(/'/g,"\\'")+'\';this.closest(\'.dropdown-menu\').dispatchEvent(new Event(\'input\',{bubbles:true}));" style="display:flex;align-items:center;gap:.5rem;width:100%;padding:.35rem .75rem;background:none;border:none;color:rgba(255,255,255,.65);font-size:.82rem;text-align:left;cursor:pointer;" onmouseover="this.style.background=\'rgba(255,255,255,.06)\'" onmouseout="this.style.background=\'none\'"><i class="fas fa-history" style="font-size:.7rem;color:rgba(255,255,255,.25);width:14px;"></i>'+s+'</button>';}).join('')
-                              +'<button type="button" onclick="localStorage.removeItem(\''+KEY+'\');document.getElementById(\'search-suggestions\').style.display=\'none\';" style="display:block;width:100%;padding:.3rem .75rem;background:none;border:none;color:rgba(255,255,255,.25);font-size:.7rem;cursor:pointer;text-align:left;">✕ {% trans "Clear history" %}</button>';
-                            sugg.style.display='block';
-                          }
-                          inp.addEventListener('focus',function(){ if(!inp.value.trim())render(); });
-                          inp.addEventListener('input',function(){ inp.value.trim()?sugg.style.display='none':render(); });
-                          inp.addEventListener('keydown',function(e){ if(e.key==='Enter'&&inp.value.trim())save(inp.value.trim()); });
-                          res.addEventListener('click',function(){ if(inp.value.trim())save(inp.value.trim()); });
-                        })();
-                        </script>
-                    </div>
+                    <button class="btn-nav-icon" type="button" data-bs-toggle="modal"
+                            data-bs-target="#siteSearchModal" aria-label="{% trans 'Search' %}"
+                            title="{% trans 'Search' %}">
+                        <i class="fas fa-search" aria-hidden="true"></i>
+                    </button>
 
                     {% if user.is_authenticated %}
                     <!-- Уведомления (десктоп dropdown) -->
@@ -196,11 +181,7 @@
                                 aria-label="{% trans 'Notifications' %}"
                                 title="{% trans 'Notifications' %}">
                             <i class="fas fa-bell"></i>
-                            <span id="navbar-notif-badge" aria-live="polite">
-                                {% if unread_notifications_count > 0 %}
-                                <span class="notif-dot">{{ unread_notifications_count }}</span>
-                                {% endif %}
-                            </span>
+                            <span id="navbar-notif-badge" class="notif-dot" data-notification-badge aria-live="polite" {% if not unread_notifications_count %}hidden{% endif %}>{% if unread_notifications_count > 99 %}99+{% else %}{{ unread_notifications_count }}{% endif %}</span>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end notifications-dropdown">
                             <div class="notif-header">

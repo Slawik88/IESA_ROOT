@@ -1,16 +1,11 @@
 /**
- * IESA Sport Service Worker — 6e: offline caching strategy
- * Cache-first: статика (CSS/JS/шрифты)
- * Network-first: HTML-страницы, API
- * Stale-while-revalidate: профили, уведомления
- * Offline fallback: /offline/
+ * Cache public static assets only. HTML/HTMX/media may contain account data,
+ * so they always use the network; navigations get a generic offline page.
  */
+const CACHE_VERSION = 'iesa-v7';
+const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const OFFLINE_URL = '/offline/';
 
-const CACHE_VERSION = 'iesa-v4'; // v4: auth pages are never cached; old caches (incl. stale register forms) are purged
-const STATIC_CACHE  = `${CACHE_VERSION}-static`;
-const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
-
-/* Только реально существующие файлы */
 const STATIC_ASSETS = [
   '/static/css/variables.css',
   '/static/css/base.css',
@@ -29,126 +24,79 @@ const STATIC_ASSETS = [
   '/static/js/scroll-animations.js',
 ];
 
-/* Страницы для stale-while-revalidate */
-const SWR_PATTERNS = [
-  /^\/auth\/profile\//,
-  /^\/notifications\//,
-  /^\/blog\/$/,
-  /^\/$/,
-];
-
-/* Пути которые никогда не кэшируем */
-const NO_CACHE_PATTERNS = [
-  /^\/auth\/partner\//,          // партнёрский портал (всегда свежий)
-  /^\/admin\//,
-  /^\/auth\/login\//,
-  /^\/auth\/logout\//,
-  /^\/auth\/register\//,        // форма регистрации: офлайн-копия = просроченный CSRF-токен
-  /^\/auth\/password-reset\//,   // сброс пароля: токены в ссылках, кэшировать нельзя
-  /^\/auth\/email\//,
-  /\/api\//,
-  /\.json$/,
-];
-
-// ── Install ──────────────────────────────────────────────────────
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch(() => Promise.resolve());
-    }).then(() => self.skipWaiting())
-  );
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE);
+    // A missing optional asset must not discard every successful download.
+    await Promise.allSettled([...STATIC_ASSETS, OFFLINE_URL].map(url => cache.add(url)));
+    await self.skipWaiting();
+  })());
 });
 
-// ── Activate ─────────────────────────────────────────────────────
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.map((k) => {
-        if (k !== STATIC_CACHE && k !== DYNAMIC_CACHE) return caches.delete(k);
-      }))
-    ).then(() => self.clients.claim())
-  );
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith('iesa-') && key !== STATIC_CACHE)
+      .map(key => caches.delete(key)));
+    await self.clients.claim();
+  })());
 });
 
-// ── Fetch ─────────────────────────────────────────────────────────
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', event => {
   const req = event.request;
   const url = new URL(req.url);
-
-  /* Только GET, только наш origin */
-  if (req.method !== 'GET' || url.origin !== location.origin) return;
-
-  /* Не кэшируем admin/api/auth-pages */
-  if (NO_CACHE_PATTERNS.some((p) => p.test(url.pathname))) return;
-
-  /* Статические файлы → cache-first */
-  if (url.pathname.startsWith('/static/') || url.pathname.startsWith('/media/')) {
-    event.respondWith(cacheFirst(req));
-    return;
+  if (req.method !== 'GET' || url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(cacheStatic(req, event));
+  } else if (req.mode === 'navigate') {
+    event.respondWith(navigate(req));
   }
-
-  /* Stale-while-revalidate для профилей и уведомлений */
-  if (SWR_PATTERNS.some((p) => p.test(url.pathname))) {
-    event.respondWith(staleWhileRevalidate(req));
-    return;
-  }
-
-  /* Остальные HTML-страницы → network-first с offline fallback */
-  event.respondWith(networkFirst(req));
+  // HTMX, APIs and protected media use normal browser network handling.
 });
 
-// ── Стратегии ─────────────────────────────────────────────────────
-
-async function cacheFirst(req) {
-  const cached = await caches.match(req);
-  if (cached) return cached;
-  try {
-    const resp = await fetch(req);
-    if (resp.ok) {
-      const cache = await caches.open(STATIC_CACHE);
-      cache.put(req, resp.clone());
-    }
-    return resp;
-  } catch {
-    return cached || new Response('', { status: 503 });
-  }
-}
-
-async function networkFirst(req) {
-  try {
-    const resp = await fetch(req);
-    if (resp.ok) {
-      const cache = await caches.open(DYNAMIC_CACHE);
-      cache.put(req, resp.clone());
-    }
-    return resp;
-  } catch {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-    /* Offline fallback для навигационных запросов */
-    if (req.mode === 'navigate') {
-      const offline = await caches.match('/offline/');
-      if (offline) return offline;
-    }
-    return new Response('Offline', { status: 503 });
-  }
-}
-
-async function staleWhileRevalidate(req) {
-  const cache  = await caches.open(DYNAMIC_CACHE);
+async function cacheStatic(req, event) {
+  const cache = await caches.open(STATIC_CACHE);
   const cached = await cache.match(req);
-  const fetchPromise = fetch(req).then((resp) => {
-    if (resp.ok) cache.put(req, resp.clone());
-    return resp;
-  }).catch(() => null);
-  return cached || fetchPromise;
+  // Manifest filenames contain a content hash and are immutable. Plain names
+  // must refresh in the background so deployments do not leave old JS/CSS.
+  if (cached) {
+    if (!/\.[a-f0-9]{12}\./i.test(new URL(req.url).pathname)) {
+      event.waitUntil(refreshStatic(cache, req).catch(() => {}));
+    }
+    return cached;
+  }
+  try {
+    return await refreshStatic(cache, req);
+  } catch {
+    return new Response('', { status: 503 });
+  }
 }
 
-// ── Messages ──────────────────────────────────────────────────────
-self.addEventListener('message', (event) => {
+async function refreshStatic(cache, req) {
+  const response = await fetch(req, { cache: 'no-cache' });
+  if (response.ok && !response.redirected && !/no-store|private/i.test(response.headers.get('Cache-Control') || '')) {
+    try { await cache.put(req, response.clone()); } catch { /* Storage may be full. */ }
+  }
+  return response;
+}
+
+async function navigate(req) {
+  try {
+    return await fetch(req);
+  } catch {
+    const cache = await caches.open(STATIC_CACHE);
+    return await cache.match(OFFLINE_URL) || new Response('Offline', {
+      status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+}
+
+self.addEventListener('message', event => {
   if (event.data?.action === 'SKIP_WAITING') self.skipWaiting();
   if (event.data?.action === 'CLEAR_CACHE') {
-    caches.keys().then((k) => Promise.all(k.map((n) => caches.delete(n))));
+    event.waitUntil(caches.keys().then(keys => Promise.all(
+      keys.filter(key => key.startsWith('iesa-')).map(key => caches.delete(key))
+    )));
   }
 });
 
@@ -168,7 +116,10 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  let target;
+  try { target = new URL(event.notification.data?.url || '/', self.location.origin); }
+  catch { target = new URL('/', self.location.origin); }
+  const url = target.origin === self.location.origin ? target.href : self.location.origin + '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {

@@ -14,7 +14,7 @@ from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin import people
 from FastAPI.routers.bot_admin.people import get_bot
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_people, admin_security
+from services import admin_access, admin_people, admin_security
 from services import reports as reports_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -43,7 +43,7 @@ async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _
     return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show),
             "counts": await reports_service.counts(db), "can_see_reporter": show,
             "repeat": await reports_service.repeat_offenders(db) if kind != "closed" else [],
-            "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people.ACTIONS[k][1]]}
+            "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people._min(user, k)]}
 
 
 async def _finish(db, user: dict, report: dict, status: str, note: str) -> None:
@@ -92,6 +92,7 @@ async def reports_bulk(data: dict = Body(...), user=Depends(_user), db=Depends(g
             report = await reports_service.get(db, rid)
             if not report:
                 raise HTTPException(404, "Жалоба не найдена.")
+            admin_access.require_chat(user, report["chat_id"])
             if report["status"] not in reports_service.OPEN:
                 raise HTTPException(409, "Жалоба уже закрыта.")
             if status == "in_work" and report["status"] == "in_work":
@@ -114,6 +115,7 @@ async def report_action(rid: int, data: dict = Body(...), user=Depends(_user), d
     report = await reports_service.get(db, rid)
     if not report:
         raise HTTPException(404, "Жалоба не найдена.")
+    admin_access.require_chat(user, report["chat_id"])
     if status == "in_work" and report["status"] == "in_work":   # повторное «взять» затирало того, кто взял первым
         raise HTTPException(409, "Жалоба уже в работе.")
     await _finish(db, user, report, status, str(data.get("note") or "").strip()[:300])
@@ -133,6 +135,7 @@ async def report_punish(rid: int, data: dict = Body(...), user=Depends(_user), d
         report = await reports_service.get(db, rid)
         if not report:
             raise HTTPException(404, "Жалоба не найдена.")
+        admin_access.require_chat(user, report["chat_id"])
         if report["status"] not in reports_service.OPEN:
             raise HTTPException(409, "Жалоба уже закрыта.")
         reason = str(data.get("reason") or "").strip()[:200] or f"жалоба №{rid}"

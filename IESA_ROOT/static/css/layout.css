@@ -364,6 +364,21 @@
   text-transform: uppercase;
 }
 
+.mobile-nav-settings { padding: .75rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); }
+.mobile-language-form { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .75rem; }
+.mobile-language-form label { color: var(--text-primary); font-size: .85rem; }
+.mobile-language-form .form-select { min-height: 44px; font-size: 16px; }
+.mobile-nav-settings [data-theme-toggle] { background: none; border: none; min-height: 44px; margin-top: .5rem; color: var(--text-primary); }
+.site-search-modal .modal-content { background: var(--bg-secondary, #0e0e18); color: var(--text-primary); border: 1px solid var(--border-color, rgba(255,255,255,.12)); }
+.site-search-modal .modal-dialog { max-width: 640px; }
+.site-search-modal input[type="search"] { min-height: 48px; font-size: 16px; }
+.site-search-modal .navbar-search-results { max-height: none; overflow: visible; }
+.site-search-modal .btn-close { min-width: 44px; min-height: 44px; padding: 0; }
+html[data-theme="light"] .site-search-modal .btn-close { filter: none; }
+.search-history-item { display: block; width: 100%; min-height: 44px; padding: .5rem .75rem; text-align: left; color: var(--text-primary); background: transparent; border: 0; border-radius: 8px; overflow-wrap: anywhere; }
+.search-history-item:hover, .search-history-item:focus-visible { background: rgba(255,255,255,.08); }
+[data-notification-badge][hidden] { display: none !important; }
+
 @media (max-width: 991.98px) {
   /* Collapse: абсолютное позиционирование под navbar */
   .iesa-navbar .navbar-nav { flex-direction: column; gap: 0; }
@@ -376,6 +391,10 @@
     top: 100%; left: 0; right: 0;
     z-index: 1050;
     box-shadow: 0 8px 32px rgba(0,0,0,.6);
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
   }
   .iesa-navbar .navbar-nav .nav-link {
     padding: .7rem 1.25rem;
@@ -394,6 +413,11 @@
     margin: 0 !important; border-radius: 0 !important;
   }
   .iesa-toggler { display: flex; }
+}
+
+@media (max-width: 991.98px) {
+  .site-search-modal .modal-dialog { margin: .75rem; }
+  .nav-mob-btn { min-width: 44px; min-height: 44px; }
 }
 
 @media (max-width: 575.98px) {

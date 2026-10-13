@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 @login_required
 @require_http_methods(["GET", "POST"])
 def insurance_agent_request(request):
-    from users.models import AdminNotificationProfile, InsuranceAgentRequest
+    from users.models import InsuranceAgentRequest
 
     existing = InsuranceAgentRequest.objects.filter(user=request.user, status__in=['new', 'reviewing']).first()
 

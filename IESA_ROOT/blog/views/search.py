@@ -30,7 +30,8 @@ def post_search(request):
     posts = util_search_posts(
         normalize_search_query(query) if query else '',
         status=status,
-        sort=sort
+        sort=sort,
+        user=request.user,
     )
     
     return render(request, 'blog/htmx/posts_list_fragment.html', {

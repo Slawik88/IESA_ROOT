@@ -3,7 +3,7 @@ from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import Post, Event
+from .models import Post, Event, EventRegistration
 
 
 User = get_user_model()
@@ -60,3 +60,14 @@ class EventAccessTests(TestCase):
         resp_post = self.client.post('/blog/events/create/', {})
         self.assertEqual(resp_get.status_code, 404)
         self.assertEqual(resp_post.status_code, 404)
+
+    def test_registration_and_duplicate_registration_redirect_without_server_error(self):
+        user = User.objects.create_user(username='event-member')
+        self.client.force_login(user)
+        url = reverse('blog:event_register', args=[self.event.pk])
+        detail = reverse('blog:event_detail', args=[self.event.pk])
+        for attempt in range(2):
+            with self.subTest(attempt=attempt):
+                response = self.client.post(url)
+                self.assertRedirects(response, detail, fetch_redirect_response=False)
+        self.assertEqual(EventRegistration.objects.filter(event=self.event, user=user).count(), 1)

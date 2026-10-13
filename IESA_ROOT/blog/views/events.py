@@ -7,7 +7,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect
 from django.contrib import messages
 from django.utils.translation import gettext as _
-from django.db import IntegrityError, transaction
+from django.views.decorators.http import require_POST
+from django.utils.cache import patch_vary_headers, patch_cache_control
 from ..models import Event, EventRegistration
 from ..constants import EVENTS_PER_PAGE
 
@@ -79,7 +80,7 @@ class EventListView(ListView):
     
     def get_template_names(self):
         """Возвращает partial шаблон для HTMX запросов"""
-        if self.request.headers.get('HX-Request'):
+        if self.request.headers.get('HX-Request') == 'true':
             return ['blog/partials/event_list_items.html']
         return [self.template_name]
     
@@ -105,9 +106,9 @@ class EventListView(ListView):
         """Добавляет заголовки кэширования для HTMX запросов"""
         response = super().render_to_response(context, **response_kwargs)
         
-        # Кэш на 5 минут для списка событий
-        if self.request.headers.get('HX-Request'):
-            response['Cache-Control'] = 'public, max-age=300'
+        patch_vary_headers(response, ['HX-Request', 'Cookie', 'Accept-Language'])
+        if self.request.headers.get('HX-Request') == 'true':
+            patch_cache_control(response, private=True, no_store=True)
         
         return response
 
@@ -132,21 +133,15 @@ class EventDetailView(DetailView):
 
 
 @login_required
+@require_POST
 def event_register(request, pk):
     """Register authenticated user for an event"""
     event = get_object_or_404(Event, pk=pk)
     
-    # Атомарная регистрация — защита от race condition (B2-06)
-    try:
-        with transaction.atomic():
-            registration, created = EventRegistration.objects.get_or_create(
-                event=event,
-                user=request.user,
-                defaults={'status': 'confirmed'}
-            )
-    except IntegrityError:
-        created = False
-        registration = EventRegistration.objects.filter(event=event, user=request.user).first()
+    # get_or_create handles concurrent inserts using the unique event/user constraint.
+    registration, created = EventRegistration.objects.get_or_create(
+        event=event, user=request.user, defaults={'status': 'confirmed'},
+    )
 
     if created:
         messages.success(

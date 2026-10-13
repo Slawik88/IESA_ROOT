@@ -1,14 +1,15 @@
 from django.views.generic import TemplateView
 from django.http import HttpResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import user_passes_test
 from django.core.cache import cache
 from products.models import Product
-from core.models import Partner, AssociationMember, President, SocialNetwork, CoreProduct, MemberBenefit, AdminAppeal
+from core.models import Partner, AssociationMember, President, CoreProduct, MemberBenefit, AdminAppeal
 from core.forms import AdminAppealForm
 from users.ratelimit_utils import safe_ratelimit
 from blog.models import Event
 from django.shortcuts import get_object_or_404, render, redirect
 from django.core.paginator import Paginator
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
@@ -19,6 +20,9 @@ def submit_appeal(request):
     if request.method != 'POST':
         return redirect('core:home')
 
+    return_url = request.META.get('HTTP_REFERER', '')
+    if not url_has_allowed_host_and_scheme(return_url, {request.get_host()}, require_https=request.is_secure()):
+        return_url = 'core:home'
     form = AdminAppealForm(request.POST)
     is_htmx = request.headers.get('HX-Request') == 'true'
 
@@ -36,7 +40,7 @@ def submit_appeal(request):
         from django.contrib import messages as dj_messages
         for e in errors:
             dj_messages.error(request, e)
-        return redirect(request.META.get('HTTP_REFERER', 'core:home'))
+        return redirect(return_url)
 
     d = form.cleaned_data
     AdminAppeal.objects.create(
@@ -54,7 +58,7 @@ def submit_appeal(request):
 
     from django.contrib import messages as dj_messages
     dj_messages.success(request, _('✅ Your appeal was submitted. Administration will contact you by e-mail.'))
-    return redirect(request.META.get('HTTP_REFERER', 'core:home'))
+    return redirect(return_url)
 
 
 
@@ -70,10 +74,9 @@ def benefits_view(request):
     benefits = MemberBenefit.objects.filter(is_active=True).order_by('order', 'category', '-created_at')
     
     # Группируем по категориям для удобного отображения
-    from itertools import groupby
     benefits_by_category = {}
-    for category, items in groupby(benefits, key=lambda x: x.category):
-        benefits_by_category[category] = list(items)
+    for benefit in benefits:
+        benefits_by_category.setdefault(benefit.category, []).append(benefit)
     
     context = {
         'benefits': benefits,
@@ -91,55 +94,33 @@ class IndexView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Секции с редко меняющимися данными — кэш 1 час
-        context['core_products'] = cache.get_or_set(
-            'idx:core_products',
-            lambda: list(CoreProduct.objects.filter(is_active=True).order_by('order', '-created_at')[:4]),
-            3600,
-        )
-        context['products'] = cache.get_or_set(
-            'idx:products',
-            lambda: list(Product.objects.all().order_by('-id')[:3]),
-            3600,
-        )
-        context['members'] = cache.get_or_set(
-            'idx:members',
-            lambda: list(AssociationMember.objects.all().order_by('id')[:50]),
-            3600,
-        )
-        context['member_benefits'] = cache.get_or_set(
-            'idx:member_benefits',
-            lambda: list(MemberBenefit.objects.filter(is_active=True).order_by('order', '-created_at')[:6]),
-            3600,
-        )
-
-        # Президент — отдельная обработка, т.к. может быть None
-        president = cache.get('idx:president', 'MISS')
-        if president == 'MISS':
-            president = President.objects.first()
-            cache.set('idx:president', president, 3600)
-        context['president'] = president
+        # DatabaseCache is shared across workers: fetch all section keys in one query.
+        loaders = {
+            'idx:core_products': lambda: list(CoreProduct.objects.filter(is_active=True).order_by('order', '-created_at')[:4]),
+            'idx:products': lambda: list(Product.objects.all().order_by('-id')[:3]),
+            'idx:members': lambda: list(AssociationMember.objects.all().order_by('id')[:50]),
+            'idx:member_benefits': lambda: list(MemberBenefit.objects.filter(is_active=True).order_by('order', '-created_at')[:6]),
+            'idx:president': President.objects.first,
+            'idx:partners': lambda: list(Partner.objects.all().order_by('name')),
+            'idx:upcoming_events': lambda: list(Event.objects.filter(
+                date__gte=timezone.now()
+            ).select_related('created_by').order_by('date')[:6]),
+        }
+        sections = cache.get_many(loaders)
+        for key, loader in loaders.items():
+            if key not in sections:  # A cached None (no president) is still a hit.
+                sections[key] = loader()
+                cache.set(key, sections[key], 300 if key == 'idx:upcoming_events' else 3600)
+        for name in ('core_products', 'products', 'members', 'member_benefits', 'president', 'upcoming_events'):
+            context[name] = sections['idx:' + name]
 
         # Партнёры — кэшируем весь список, пагинируем в памяти
-        all_partners = cache.get_or_set(
-            'idx:partners',
-            lambda: list(Partner.objects.all().order_by('name')),
-            3600,
-        )
+        all_partners = sections['idx:partners']
         paginator = Paginator(all_partners, 12)
         page = self.request.GET.get('partners_page') or 1
         partners_page = paginator.get_page(page)
         context['partners'] = partners_page.object_list
         context['partners_page_obj'] = partners_page
-
-        # События — кэш 5 минут (более динамичные данные)
-        context['upcoming_events'] = cache.get_or_set(
-            'idx:upcoming_events',
-            lambda: list(Event.objects.filter(
-                date__gte=timezone.now()
-            ).select_related('created_by').order_by('date')[:6]),
-            300,
-        )
 
         return context
 
@@ -158,7 +139,6 @@ def partners_map(request):
 
 def partners_map_data(request):
     """JSON endpoint — список партнёров с координатами для Leaflet."""
-    import json
     from django.http import JsonResponse
     from users.models import Partner as UserPartner
     qs = UserPartner.objects.filter(
@@ -211,40 +191,47 @@ def admin_analytics(request):
     d7  = now - timedelta(days=7)
     d30 = now - timedelta(days=30)
 
-    # User stats
-    user_total      = User.objects.count()
-    user_active     = User.objects.filter(membership_status='active').count()
-    user_partners   = User.objects.filter(is_partner=True).count()
-    user_staff      = User.objects.filter(is_staff=True).count()
-    user_president  = User.objects.filter(is_president=True).count()
-    user_verified   = User.objects.filter(is_verified=True).count()
-    user_new_7d     = User.objects.filter(date_joined__gte=d7).count()
-    user_new_30d    = User.objects.filter(date_joined__gte=d30).count()
-    user_tg_linked  = User.objects.filter(telegram_chat_id__isnull=False).exclude(telegram_chat_id=0).count()
-
-    # Posts
-    post_total      = Post.objects.count()
-    post_published  = Post.objects.filter(status='published').count()
-    post_pending    = Post.objects.filter(status='pending').count()
-    post_new_7d     = Post.objects.filter(created_at__gte=d7).count()
-    comment_total   = Comment.objects.count()
-    like_total      = Like.objects.count()
-
-    # Visits
-    visit_total    = Visit.objects.count()
-    visit_7d       = Visit.objects.filter(timestamp__gte=d7).count()
-    visit_30d      = Visit.objects.filter(timestamp__gte=d30).count()
-    visit_verified = Visit.objects.filter(pin_verified=True).count()
-
-    # ACR
-    acr_pending  = AccountChangeRequest.objects.filter(status='pending').count()
-    acr_approved = AccountChangeRequest.objects.filter(status='approved').count()
-    acr_rejected = AccountChangeRequest.objects.filter(status='rejected').count()
-    acr_total    = AccountChangeRequest.objects.count()
-
-    # Notifications
-    notif_total  = Notification.objects.count()
-    notif_unread = Notification.objects.filter(is_read=False).count()
+    # One aggregate per table instead of one round trip per counter.
+    stats = {}
+    stats.update(User.objects.aggregate(
+        user_total=Count('pk'),
+        user_active=Count('pk', filter=Q(membership_status='active')),
+        user_partners=Count('pk', filter=Q(is_partner=True)),
+        user_staff=Count('pk', filter=Q(is_staff=True)),
+        user_president=Count('pk', filter=Q(is_president=True)),
+        user_verified=Count('pk', filter=Q(is_verified=True)),
+        user_new_7d=Count('pk', filter=Q(date_joined__gte=d7)),
+        user_new_30d=Count('pk', filter=Q(date_joined__gte=d30)),
+        user_tg_linked=Count('pk', filter=Q(telegram_chat_id__isnull=False) & ~Q(telegram_chat_id=0)),
+    ))
+    stats.update(Post.objects.aggregate(
+        post_total=Count('pk'),
+        post_published=Count('pk', filter=Q(status='published')),
+        post_pending=Count('pk', filter=Q(status='pending')),
+        post_new_7d=Count('pk', filter=Q(created_at__gte=d7)),
+    ))
+    stats.update(Comment.objects.aggregate(
+        comment_total=Count('pk'),
+    ))
+    stats.update(Like.objects.aggregate(
+        like_total=Count('pk'),
+    ))
+    stats.update(Visit.objects.aggregate(
+        visit_total=Count('pk'),
+        visit_7d=Count('pk', filter=Q(timestamp__gte=d7)),
+        visit_30d=Count('pk', filter=Q(timestamp__gte=d30)),
+        visit_verified=Count('pk', filter=Q(pin_verified=True)),
+    ))
+    stats.update(AccountChangeRequest.objects.aggregate(
+        acr_pending=Count('pk', filter=Q(status='pending')),
+        acr_approved=Count('pk', filter=Q(status='approved')),
+        acr_rejected=Count('pk', filter=Q(status='rejected')),
+        acr_total=Count('pk'),
+    ))
+    stats.update(Notification.objects.aggregate(
+        notif_total=Count('pk'),
+        notif_unread=Count('pk', filter=Q(is_read=False)),
+    ))
 
     # Recent activity (last 5 of each)
     recent_acr    = AccountChangeRequest.objects.select_related('user').order_by('-created_at')[:5]
@@ -253,33 +240,7 @@ def admin_analytics(request):
     recent_visits = Visit.objects.select_related('member', 'partner').order_by('-timestamp')[:5]
 
     return render(request, 'core/admin_analytics.html', {
-        'stats': {
-            'user_total': user_total,
-            'user_active': user_active,
-            'user_partners': user_partners,
-            'user_staff': user_staff,
-            'user_president': user_president,
-            'user_verified': user_verified,
-            'user_new_7d': user_new_7d,
-            'user_new_30d': user_new_30d,
-            'user_tg_linked': user_tg_linked,
-            'post_total': post_total,
-            'post_published': post_published,
-            'post_pending': post_pending,
-            'post_new_7d': post_new_7d,
-            'comment_total': comment_total,
-            'like_total': like_total,
-            'visit_total': visit_total,
-            'visit_7d': visit_7d,
-            'visit_30d': visit_30d,
-            'visit_verified': visit_verified,
-            'acr_pending': acr_pending,
-            'acr_approved': acr_approved,
-            'acr_rejected': acr_rejected,
-            'acr_total': acr_total,
-            'notif_total': notif_total,
-            'notif_unread': notif_unread,
-        },
+        'stats': stats,
         'recent_acr': recent_acr,
         'recent_users': recent_users,
         'recent_posts': recent_posts,

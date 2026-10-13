@@ -233,13 +233,17 @@ button, a, summary, [role="button"] { touch-action: manipulation; -webkit-tap-hi
 @media (max-width: 369px) { .nb svg { width: 24px; height: 24px; } .nb:not(.active) span { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; } }
 
 /* Мафия: «Моя история». Плоская сводка и строки партий без фонов */
-.mafia-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 0 6px; }
+.mafia-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 14px 0 10px; box-shadow: 0 1px 0 var(--v3-faint); }
 .mafia-sum div { padding-left: 12px; border-left: 1px solid var(--v3-faint); min-width: 0; }
 .mafia-sum div:first-child { padding-left: 0; border-left: 0; }
-.mafia-sum b { display: block; font-size: 24px; line-height: 1.1; font-weight: 650; }
-.mafia-sum span { font-size: 12px; color: var(--v3-dim); }
+.mafia-sum b { display: block; font-size: 30px; line-height: 1.05; font-weight: 300; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.mafia-sum div:nth-child(2) b { color: var(--v3-ok); }   /* победы выделены: это то, ради чего играют */
+.mafia-sum span { display: block; margin-top: 4px; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--v3-dim); }
+.mafia-row, .mafia-live { min-height: 56px; }
 .mafia-row small, .mafia-live small { overflow-wrap: anywhere; color: var(--v3-dim); }
-.mafia-res { flex: none; font-style: normal; font-size: 13px; color: var(--v3-dim); }
+.mafia-res { flex: none; font-style: normal; font-size: 13px; font-weight: 600; color: var(--v3-err, #ff8a8a); }   /* без класса win: поражение */
 .mafia-res.win { color: var(--v3-ok); }
+.mafia-res:empty { display: none; }
+.mafia-live { box-shadow: inset 3px 0 0 var(--v3-acc); padding-left: 12px; }   /* идущая партия: полоса акцента слева */
 .mafia-live b { color: var(--v3-acc); }
 .mafia-cancelled { margin-top: 10px; color: var(--v3-dim); font-size: 12.5px; }

@@ -10,7 +10,7 @@ from FastAPI.auth import verify_session_token, verify_webapp_data
 from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_people
+from services import admin_access, admin_people
 from services import feature_switches as fs
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -29,6 +29,7 @@ def _known(feature: str) -> bool:
 async def get_switches(chat_id: int = 0, user=Depends(_user), db=Depends(get_db)):
     title = None
     if chat_id:
+        admin_access.require_chat(user, chat_id)
         async with db.execute("SELECT chat_title FROM chat_settings WHERE chat_id = ?", (chat_id,)) as cur:
             row = await cur.fetchone()
         if not row:
@@ -43,6 +44,8 @@ async def set_switch(data: dict = Body(...), user=Depends(_user), db=Depends(get
     chat_id = int(data.get("chat_id") or 0)
     if not _known(feature):
         raise HTTPException(400, "Неизвестная функция.")
+    if chat_id:
+        admin_access.require_chat(user, chat_id)
     if chat_id and feature.startswith("site"):
         raise HTTPException(400, "Сайт выключается только везде, не по чату.")
     if chat_id:
