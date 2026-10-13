@@ -492,21 +492,24 @@
     const t = info.trail_traits;
     if (t) {
       const sign = (n) => (n > 0 ? `+${n}` : String(n));
-      out.push(`<h4>Особенности вида${soon('trail')}</h4>` + list([
-        row('Любимое место', esc(t.favorite_route)),
-        row('Запас сил', `${sign(t.energy_bonus)} к запасу`),
-        row('Отдых', `${sign(t.rest_bonus)} к восстановлению в час`),
-        row('Чаще находит', esc(t.favored_find)),
-      ]));
+      const cell = (k, v) => `<div><small>${esc(k)}</small><b>${v}</b></div>`;
+      out.push(`<h4>Особенности вида${soon('trail')}</h4><div class="pt-traits">`
+        + cell('Любимое место', esc(t.favorite_route))
+        + cell('Чаще находит', esc(t.favored_find))
+        + cell('Запас сил', `${sign(t.energy_bonus)}`)
+        + cell('Отдых в час', `${sign(t.rest_bonus)}`) + '</div>');
     }
-    out.push('<h4>Что даёт уровень</h4>' + list((data.level_milestones || []).map((m) => row(`Ур. ${m.level}`, esc(m.text)))));
-    const src = (info.card_sources || []).map((x) => `${x.stars}★ · ${x.percent}%`).join(', ');
-    out.push('<h4>Откуда берётся</h4>' + list([row('Карточки в сундуках', esc(src) + '<br>Доля карточек этой редкости среди всех карточек сундука этой звёздности.')]));
+    out.push('<h4>Что даёт уровень</h4><ul class="pt-sheet-list pt-lv">'
+      + (data.level_milestones || []).map((m) => `<li><b>Ур. ${Number(m.level)}</b><span>${esc(m.text)}</span></li>`).join('') + '</ul>');
+    const stars = (info.card_sources || []).map((x) => `<span class="pt-star">${Number(x.stars)}★<b>${Number(x.percent)}%</b></span>`).join('');
+    out.push('<h4>Откуда берётся</h4><div class="pt-stars">' + stars + '</div>'
+      + '<p class="pt-note">Доля карточек этой редкости среди всех карточек сундука этой звёздности.</p>');
     const c = info.level_cost;
     if (c) {
-      out.push(`<h4>Как прокачать${soon('level_up')}</h4>` + list([row(`С 1 до ${c.max_level} уровня`, `${fmt(c.cards)} карточек вида · ${fmt(c.mora)} 🪙 · ${fmt(c.essence)} 🔮`)]));
+      out.push(`<h4>Как прокачать${soon('level_up')}</h4><p class="pt-note pt-note--top">С 1 до ${Number(c.max_level)} уровня:</p><div class="pt-stars">`
+        + `<span class="pt-star">🃏<b>${fmt(c.cards)}</b></span><span class="pt-star">🪙<b>${fmt(c.mora)}</b></span><span class="pt-star">🔮<b>${fmt(c.essence)}</b></span></div>`);
     }
-    out.push('<h4>Где пригодится</h4>' + list((info.uses || []).map((u) => `<li><span>${esc(u.text)}${soon(u.feature)}</span></li>`)));
+    out.push('<h4>Где пригодится</h4><ul class="pt-sheet-list">' + (info.uses || []).map((u) => `<li><span>${esc(u.text)}${soon(u.feature)}</span></li>`).join('') + '</ul>');
     return out.join('');
   }
   window.petDexOpen = function (id) {
@@ -520,7 +523,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'pt-sheet-wrap';
     wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
-      + `<span class="pt-ic" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
+      + `<span class="pt-ic${sp.owned ? '' : ' is-dim'}" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
       + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();
