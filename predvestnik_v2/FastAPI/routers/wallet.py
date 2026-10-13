@@ -18,6 +18,7 @@ _SOURCE_LABELS = {
     "achievement_reward": "🏆 Достижение",
     "level_up":         "⬆️ Уровень",
     "pet_milestone":    "🐾 Питомец Ур.",
+    "pet_level_up":     "🐾 Улучшение питомца",
     "shop":             "🛒 Магазин",
     "shop_purchase":    "🛒 Магазин",
     "daily_deal":       "🏷 Акция дня",
