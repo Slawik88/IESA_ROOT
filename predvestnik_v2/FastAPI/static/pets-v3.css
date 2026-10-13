@@ -145,7 +145,7 @@
 #pg-pets button.bestiary-card { width: 100%; font: inherit; cursor: pointer; }
 
 /* карточка вида из бестиария */
-.pt-sheet-wrap { position: fixed; inset: 0; z-index: 60; display: grid; align-items: end; }
+.pt-sheet-wrap { position: fixed; inset: 0; z-index: 200; display: grid; align-items: end; }
 .pt-sheet-bg { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
 .pt-sheet { position: relative; display: grid; justify-items: center; gap: 8px; max-height: 86vh; overflow-y: auto; padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px)); border-radius: 26px 26px 0 0; background: var(--v3-bg, #08090c); box-shadow: 0 -1px 0 var(--pt-line); text-align: center; }
 .pt-sheet .pt-ic { width: 88px; height: 88px; font-size: 46px; }

@@ -356,7 +356,9 @@
     const tag = pet.active ? 'Активный' : 'В запасе';
     let action = '';
     if (pet.active) {
-      action = data.activity ? activePetActivity(data.activity) : petActivityChoices(data, activePet);
+      if (!data.activity) action = petActivityChoices(data, activePet);
+      else if (data.activity.pet_id === pet.id) action = activePetActivity(data.activity);
+      else action = '<section class="pt-sec"><p class="pt-note">Другой питомец ещё в пути. Выйти в поход можно после его возвращения.</p></section>';
     } else {
       const trip = data.activity && activePet
         ? '<p class="pt-note">Текущий питомец в пути: новый сможет выйти после его возвращения.</p>' : '';
@@ -455,8 +457,13 @@
       + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();
+    document.addEventListener('keydown', _petSheetKey);
   };
-  window.petDexClose = function () { el('pg-pets').querySelector('.pt-sheet-wrap')?.remove(); };
+  function _petSheetKey(event) { if (event.key === 'Escape') window.petDexClose(); }
+  window.petDexClose = function () {
+    document.removeEventListener('keydown', _petSheetKey);
+    el('pg-pets').querySelector('.pt-sheet-wrap')?.remove();
+  };
   window.petDexFilter = function (rar) {
     _petDexFilter = rar;
     const root = el('pg-pets');
