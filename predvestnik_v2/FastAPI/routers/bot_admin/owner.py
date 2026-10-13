@@ -7,7 +7,7 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from loguru import logger
 
 from FastAPI.deps import get_db
@@ -77,7 +77,14 @@ def _telegram_error(exc: Exception) -> HTTPException:
 
 
 @router.get("/me")
-async def owner_me(user=Depends(owner_user)):
+async def owner_me(request: Request, user=Depends(owner_user), db=Depends(get_db)):
+    try:   # журнал входов владельцев (без тревог создателю: их могут быть сотни); сбой журнала не закрывает вход
+        forwarded = request.headers.get("x-forwarded-for", "")
+        ip = forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else "")
+        via = "telegram" if request.headers.get("x-init-data") else "browser"
+        await admin_security.record_login(db, user["id"], ip, request.headers.get("user-agent", ""), via)
+    except Exception as exc:   # noqa: BLE001
+        logger.warning(f"owner login journal skipped: {exc}")
     return {"user_id": user["id"], "kind": "owner", "chats": user["chat_list"], "max_chats": owner_access.MAX_CHATS,
             "chat_actions": [{"key": k, "title": t} for k, t in CHAT_ACTIONS.items()],
             "member_actions": list(MEMBER_ACTIONS)}
@@ -138,7 +145,25 @@ async def owner_chat_action(cid: int, data: dict = Body(...), user=Depends(owner
 
 
 async def _check_target(db, bot, user: dict, cid: int, uid: int, action: str) -> None:
-    """Цель действия владельца: участник этого чата (или носитель санкции для снятия), без роли в боте, не бот, не он сам."""
+    """Цель действия владельца. Сначала «есть ли такой человек в этом чате» (иначе перебором ID можно узнать штат),
+    потом защита: без роли в боте, не бот, не он сам, плюс чатовый rank_block."""
+    async with db.execute(
+        "SELECT NOT COALESCE(is_left, FALSE), COALESCE(muted_until > NOW(), FALSE) FROM user_chat_stats "
+        "WHERE chat_tg_id = ? AND user_tg_id = ?", (cid, uid)) as cur:
+        row = await cur.fetchone()
+    present = bool(row and row[0])
+    if not present:
+        sanction = bool(row and row[1]) if action in LIFTING else False
+        if action in LIFTING and not sanction:
+            async with db.execute("SELECT 1 FROM chat_blacklist WHERE chat_id = ? AND user_id = ? "
+                                  "AND (expires_at IS NULL OR expires_at > NOW())", (cid, uid)) as cur:
+                sanction = await cur.fetchone() is not None
+        if action in LIFTING and not sanction:
+            async with db.execute("SELECT 1 FROM user_warnings WHERE chat_id = ? AND user_id = ? AND revoked_at IS NULL "
+                                  "AND (expires_at IS NULL OR expires_at > NOW())", (cid, uid)) as cur:
+                sanction = await cur.fetchone() is not None
+        if not sanction:
+            raise HTTPException(404, "Игрок не найден в этом чате.")
     if uid == user["id"]:
         raise HTTPException(403, "К себе действия не применяются.")
     if is_developer(uid) or await get_bot_rank(db, uid) > 0:
@@ -149,25 +174,6 @@ async def _check_target(db, bot, user: dict, cid: int, uid: int, action: str) ->
         raise _telegram_error(exc)
     if uid == me.id:
         raise HTTPException(403, "К самому боту это не применяется.")
-    async with db.execute(
-        "SELECT NOT COALESCE(is_left, FALSE), COALESCE(muted_until > NOW(), FALSE) FROM user_chat_stats "
-        "WHERE chat_tg_id = ? AND user_tg_id = ?", (cid, uid)) as cur:
-        row = await cur.fetchone()
-    present = bool(row and row[0])
-    if not present:
-        if action not in LIFTING:
-            raise HTTPException(404, "Игрок не найден в этом чате.")
-        sanction = bool(row and row[1])
-        if not sanction:
-            async with db.execute("SELECT 1 FROM chat_blacklist WHERE chat_id = ? AND user_id = ? "
-                                  "AND (expires_at IS NULL OR expires_at > NOW())", (cid, uid)) as cur:
-                sanction = await cur.fetchone() is not None
-        if not sanction:
-            async with db.execute("SELECT 1 FROM user_warnings WHERE chat_id = ? AND user_id = ? AND revoked_at IS NULL "
-                                  "AND (expires_at IS NULL OR expires_at > NOW())", (cid, uid)) as cur:
-                sanction = await cur.fetchone() is not None
-        if not sanction:
-            raise HTTPException(404, "Игрок не найден в этом чате.")
     block = await moderation.rank_block(db, cid, user["id"], uid)   # чатовые ранги, как у команд «бот …»
     if block:
         raise HTTPException(403, block.replace("⛔ ", ""))
@@ -179,9 +185,9 @@ async def owner_member_action(cid: int, uid: int, data: dict = Body(...), user=D
     if action not in MEMBER_ACTIONS:
         raise HTTPException(400, "Неизвестное действие.")
     admin_access.require_chat(user, cid)
+    admin_security.rate_limit(user, action)   # до любых проверок цели: перебор чужих ID упирается в лимит
     bot = _bot()
     await _check_target(db, bot, user, cid, uid, action)
-    admin_security.rate_limit(user, action)
     actor, reason = user["id"], _reason(data)
     try:
         if action == "mute":

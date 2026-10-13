@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections import deque
 
 from loguru import logger
 
 TTL = 60.0         # сколько секунд верен ответ Telegram о владельце
 FAIL_TTL = 10.0    # сбой не повторяем на каждый запрос
 MAX_CHATS = 10     # чатов на одного человека
+MAX_CALLS_PER_SEC = 15   # вызовов getChatAdministrators в секунду на весь сервер: больше — отказ, а не очередь
+MAX_PARALLEL = 5         # одновременных вызовов Telegram
 
 STATEMENTS = (
     "CREATE TABLE IF NOT EXISTS admin_owner_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, "
@@ -27,6 +30,8 @@ STATEMENTS = (
 _ready = False
 _cache: dict[tuple[int, int], tuple[float, bool]] = {}   # (чат, человек) -> (до какого момента верно, владелец ли)
 _locks: dict[int, asyncio.Lock] = {}
+_calls: deque[float] = deque()   # когда ходили в Telegram за последнюю секунду
+_parallel: asyncio.Semaphore | None = None
 
 
 async def _ensure(db) -> None:
@@ -40,6 +45,7 @@ async def _ensure(db) -> None:
 def reset_cache() -> None:   # для тестов
     _cache.clear()
     _locks.clear()
+    _calls.clear()
 
 
 async def enabled(db) -> bool:
@@ -83,8 +89,19 @@ async def blocked_list(db) -> list[dict]:
 
 async def _ask_telegram(bot, chat_id: int, user_id: int) -> bool:
     """Создатель группы по данным Telegram. Любой сбой — «нет»."""
+    global _parallel
+    now = time.monotonic()
+    while _calls and _calls[0] <= now - 1.0:
+        _calls.popleft()
+    if len(_calls) >= MAX_CALLS_PER_SEC:   # перегрузка: Telegram не трогаем, отвечаем отказом (закрыто по умолчанию)
+        logger.warning("owner check skipped: too many Telegram calls per second")
+        return False
+    _calls.append(now)
+    if _parallel is None:
+        _parallel = asyncio.Semaphore(MAX_PARALLEL)
     try:
-        admins = await bot.get_chat_administrators(chat_id)
+        async with _parallel:
+            admins = await bot.get_chat_administrators(chat_id)
     except Exception as exc:   # noqa: BLE001
         logger.warning(f"owner check failed for {chat_id}: {exc}")
         return False

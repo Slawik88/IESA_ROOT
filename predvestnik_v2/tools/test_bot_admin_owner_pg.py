@@ -183,13 +183,15 @@ async def run():
 
     # ── цели действий ──
     cases = (
-        (OWN_A, "mute", "к себе"), (STAFF, "mute", "сотрудник бота"), (DEV, "ban", "разработчик"), (999, "kick", "сам бот"),
-        (P2, "ban", "вышел из чата, санкции в этом чате нет"),   # P2 в чате А со статусом is_left, санкции здесь нет
-        (7777777, "mute", "неизвестный"),
+        (OWN_A, "mute", 403, "к себе"), (STAFF, "mute", 403, "сотрудник бота, он в этом чате"),
+        (DEV, "ban", 404, "разработчик не в этом чате: неотличим от любого постороннего"),
+        (999, "kick", 404, "бот не участник"), (P2, "ban", 404, "вышел из чата, санкции в этом чате нет"),
+        (7777777, "mute", 404, "неизвестный"),
     )
-    for uid, action, why in cases:
+    for uid, action, code, why in cases:
+        admin_security.reset_limits()
         r = await post(OWN_A, f"/owner/chat/{A}/member/{uid}/action", action=action, minutes=5)
-        assert r.status_code in (403, 404), (why, r.status_code, r.text)
+        assert r.status_code == code, (why, r.status_code, r.text)
     before = len(bot.actions)
     for action in ("balance", "rank", "global_ban", "message", "leave", "mark_grant"):
         assert (await post(OWN_A, f"/owner/chat/{A}/member/{P1}/action", action=action)).status_code == 400, action
@@ -234,6 +236,26 @@ async def run():
     admin_security.reset_limits()
     codes = [(await post(OWN_A, f"/owner/chat/{A}/member/{P3}/action", action="warn")).status_code for _ in range(62)]
     assert 429 in codes and codes[0] == 200, codes[:3]
+
+    # ── перебор ID упирается в лимит ещё до проверки цели ──
+    admin_security.reset_limits()
+    codes = [(await post(OWN_A, f"/owner/chat/{A}/member/{8000000 + i}/action", action="mute")).status_code for i in range(70)]
+    assert codes[0] == 404 and 429 in codes, codes[:2]
+
+    # ── общий лимит на вызовы Telegram: перегрузка = отказ ──
+    owner_access.reset_cache()
+    old_limit = owner_access.MAX_CALLS_PER_SEC
+    owner_access.MAX_CALLS_PER_SEC = 1
+    try:
+        got = (await get(OWN_B, "/owner/me")).json()["chats"]
+        assert len(got) == 1, got   # из двух чатов проверили один, второй закрыт
+    finally:
+        owner_access.MAX_CALLS_PER_SEC = old_limit
+    owner_access.reset_cache()
+    assert (await get(OWN_A, "/owner/me")).status_code == 200
+    async with get_pool().acquire() as conn:
+        async with PGAdapter(conn).execute("SELECT COUNT(*) FROM bot_admin_logins WHERE user_id = ?", (OWN_A,)) as cur:
+            assert (await cur.fetchone())[0] >= 1   # входы владельцев попадают в журнал входов
 
     # ── выключили — закрыто сразу ──
     assert (await post(DEV, "/access/owners", enabled=False)).status_code == 200
