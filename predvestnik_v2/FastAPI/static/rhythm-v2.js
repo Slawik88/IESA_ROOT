@@ -5,7 +5,7 @@
   if (init) headers['x-init-data'] = init;
   if (session) headers['x-session-token'] = session;
   const $ = id => document.getElementById(id), storageKey = 'predvestnik-rhythm-v2-live';
-  let leadTimer = null, leadTick = null, shownDraft = null, state = null, socket = null, pendingTap = null, timer = null, reconnectTimer = null, reconnectAttempt = 0, leaderboardMode = 'normal', leaving = false;
+  let tickEnd = 0, tickSignal = 0, leadTimer = null, leadTick = null, shownDraft = null, state = null, socket = null, pendingTap = null, timer = null, reconnectTimer = null, reconnectAttempt = 0, leaderboardMode = 'normal', leaving = false;
   const show = id => ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
@@ -15,7 +15,7 @@
   function save(){ if(state?.run_id&&['active'].includes(state.status))localStorage.setItem(storageKey,JSON.stringify({state}));else localStorage.removeItem(storageKey); }
   function setButtons(disabled, selected=null){buttons().forEach(b=>{b.disabled=disabled;b.classList.toggle('pending',b.dataset.rune===selected&&disabled)})}
   function connection(mark,text){$('connection').textContent=mark;$('connection').setAttribute('aria-label',text)}
-  function tick(remaining,windowMs){clearInterval(timer);const started=performance.now(),duration=Math.max(0,Number(remaining)||0),full=Math.max(1,Number(windowMs)||1);const go=()=>{const left=Math.max(0,(duration-(performance.now()-started))/full);$('timebar').style.transform='scaleX('+left+')';if(left===0){clearInterval(timer);setButtons(true);$('tap-feedback').textContent='Время вышло · жду следующий такт';$('tap-feedback').dataset.state='pending'}};go();timer=setInterval(go,33)}
+  function tick(remaining,windowMs){clearInterval(timer);const started=performance.now(),duration=Math.max(0,Number(remaining)||0),full=Math.max(1,Number(windowMs)||1);const go=()=>{const left=Math.max(0,(duration-(performance.now()-started))/full);$('timebar').style.transform='scaleX('+left+')';if(left===0){clearInterval(timer);setButtons(true);$('tap-feedback').textContent='Время вышло';$('tap-feedback').dataset.state='pending'}};go();timer=setInterval(go,33)}
   function finish(result){
     state=result;pendingTap=null;localStorage.removeItem(storageKey);clearInterval(timer);clearTimeout(reconnectTimer);if(socket){socket.onclose=null;socket.close();socket=null}const pendingReview=result.integrity_status==='review_required';connection(pendingReview?'◐':'●',pendingReview?'Забег ожидает проверки':'Забег подтверждён проверкой');$('final-score').textContent=result.score+' очков';$('final-detail').textContent='Точность: '+result.correct_taps+' · ошибок: '+result.mistakes+(pendingReview?' · результат сохранён и появится в рейтинге только после проверки.':' · результат подтверждён проверкой.');leaderboardMode=result.mode;show('result');refreshLeaderboard();
   }
@@ -27,7 +27,7 @@
     if(pendingTap&&Number(state.next_signal_no)!==Number(pendingTap.signal_no))pendingTap=null;
     $('health').textContent='♥'.repeat(state.health)||'—';$('score').textContent=state.score;$('combo').textContent=state.combo;$('speed').textContent=state.speed_percent+'%';$('perks').textContent=perksLine(state);$('instruction').textContent='Нажми руну '+glyph(state.rune);$('run-note').textContent='Такт '+state.next_signal_no+' · чанк '+state.chunk+' · окно '+state.window_ms+' мс';
     if(!pendingTap||previousSignal!==Number(state.next_signal_no)){$('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state=''}
-    setButtons(Boolean(pendingTap)||socket?.readyState!==WebSocket.OPEN,pendingTap?.rune||null);show('run');tick(state.remaining_ms,state.window_ms);
+    setButtons(Boolean(pendingTap)||socket?.readyState!==WebSocket.OPEN,pendingTap?.rune||null);show('run');const endAt=performance.now()+Number(state.remaining_ms||0);if(!(tickEnd&&tickSignal===state.next_signal_no&&(pendingTap||Math.abs(endAt-tickEnd)<120))){tickSignal=state.next_signal_no;tickEnd=endAt;tick(state.remaining_ms,state.window_ms)} /* a periodic state must not re-anchor the bar: no visible jitter */
     if(pendingTap&&Number(state.next_signal_no)===Number(pendingTap.signal_no)&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
   }
   function scheduleReconnect(message){
@@ -37,7 +37,7 @@
     if(leaving||!state?.run_id)return;try{const issued=await api('/runs/'+state.run_id+'/transport-ticket',{method:'POST'});const target=new URL(base+'/rhythm-v2/runs/'+encodeURIComponent(state.run_id)+'/live',location.origin);target.protocol=location.protocol==='https:'?'wss:':'ws:';const ws=new WebSocket(target);socket=ws;connection('○','Подключение к игровому серверу');ws.onopen=()=>ws.send(JSON.stringify({type:'authenticate',ticket:issued.ticket}));ws.onmessage=event=>{let message;try{message=JSON.parse(event.data)}catch(_){return}if(message?.type==='state'){reconnectAttempt=0;drawLive(message.state)}};ws.onerror=()=>{};ws.onclose=()=>{if(socket===ws)socket=null;scheduleReconnect('Связь прервалась. Восстанавливаю этот же забег…')};}catch(error){scheduleReconnect(error.message)}
   }
   function sendTap(rune){
-    if(!state||state.status!=='active'||pendingTap||socket?.readyState!==WebSocket.OPEN)return;pendingTap={signal_no:Number(state.next_signal_no),rune,actionId:crypto.randomUUID()};clearInterval(timer);setButtons(true,rune);$('tap-feedback').textContent='Сервер проверяет такт…';$('tap-feedback').dataset.state='pending';socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
+    if(!state||state.status!=='active'||pendingTap||socket?.readyState!==WebSocket.OPEN)return;pendingTap={signal_no:Number(state.next_signal_no),rune,actionId:crypto.randomUUID()};clearInterval(timer);setButtons(true,rune);const hit=rune===state.rune;$('tap-feedback').textContent=hit?'Верно':'Мимо';$('tap-feedback').dataset.state=hit?'accepted':'pending'; /* instant local verdict: no visible wait for the server */socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
   }
   async function start(mode){try{err('');leaving=false;state=await api('/runs',{method:'POST',body:JSON.stringify({mode})});save();if(await countdown())await connectTransport()}catch(error){err(error.message)}}
   const kindLabel={safe:'Надёжный',boost:'Усиление',risk:'Риск'};

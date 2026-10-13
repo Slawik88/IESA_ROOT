@@ -14,7 +14,7 @@ ME = {"rank_name": "Владелец", "sections": SECTIONS}
 _DAYS = [f"2026-10-{d:02d}" for d in range(6, 13)]
 METRICS = {
     "days": 7, "since": "2026-10-06", "until": "2026-10-12", "day_list": _DAYS,
-    "everyone": 12345, "players_total": 98765, "chats_total": 321,
+    "everyone": 12345, "players_total": 98765, "chats_total": 321, "excluded": 2,
     "compare": {"everyone": 11000, "visitors": 9000, "commands": 20000, "messages": 150000, "bot_users": 800, "chat_users": 3000},
     "retention": {"d1": {"cohort": 120, "returned": 45, "percent": 37.5}, "d7": {"cohort": 80, "returned": 20, "percent": 25.0}, "d30": {"cohort": 0}},
     "funnel": {"with_bot": 400, "with_bot_percent": 52, "steps": [
@@ -26,7 +26,7 @@ METRICS = {
              "pages": [{"title": t, "visits": 12345 + i, "users": 9876, "seconds": 443940, "avg_seconds": 7140}
                        for i, t in enumerate(["Профиль", "Магазин", "Игры", "Питомцы", "Инвентарь"])],
              "subpages": [{"tab": f"Игры · раздел {i}", "visits": 1200 - i, "users": 300} for i in range(12)]},
-    "bot": {"commands": 23456, "commands_group": 20000, "commands_private": 3456, "users": 1234, "users_group": 1000, "users_private": 234,
+    "bot": {"commands": 23456, "commands_group": 20000, "commands_private": 3456, "top_includes_staff": True, "users": 1234, "users_group": 1000, "users_private": 234,
             "daily": {d: {"users": 100 + i * 20} for i, d in enumerate(_DAYS)},
             "top": [{"command": f"команда{i}", "group": 5000 - i * 100, "private": 300, "total": 5300 - i * 100} for i in range(14)]},
     "chats": {"messages": 154321, "users": 3210, "chats": 87, "daily": {d: {"messages": 20000 + i * 900} for i, d in enumerate(_DAYS)},
@@ -35,7 +35,8 @@ METRICS = {
     "economy": {"mora": {"issued": 1234567, "spent": 987654, "net": 246913,
                          "sources": [{"title": "Награды за игры", "amount": 800000}, {"title": "Квесты", "amount": 434567}],
                          "sinks": [{"title": "Магазин", "amount": 700000}]},
-                "diamonds": {"issued": 1200, "spent": 3400, "net": -2200, "sources": [], "sinks": []}},
+                "diamonds": {"issued": 1200, "spent": 3400, "net": -2200, "sources": [], "sinks": []},
+                "_staff": {"mora": {"issued": 5000, "spent": 0}}},
 }
 HEALTH = {
     "telegram": {"ok": True, "username": "predvestnik_bot", "ms": 142, "error": None},
