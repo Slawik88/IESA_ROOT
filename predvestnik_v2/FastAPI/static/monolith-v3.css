@@ -29,23 +29,11 @@
 #pg-chests .chest-canary-note { padding: 14px 0; }
 
 /* ── Питомцы ── */
-#pg-pets .pet-hero { min-height: 0; margin: 4px 0 0; padding: 18px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint); }
-#pg-pets .pet-hero small { color: var(--v3-dim); font-size: 11px; letter-spacing: .12em; }
-#pg-pets .pet-hero h2 { margin: 6px 0; color: var(--v3-ink); font: var(--v3-w-num) 40px/1 var(--v3-font); }
-#pg-pets .pet-hero p { color: var(--v3-dim); font-size: 13px; }
-#pg-pets .pet-hero > strong { border: 0; background: none; box-shadow: inset 0 0 0 2px var(--v3-acc); color: var(--v3-ink); }
 #pg-pets .pet-tabs { display: flex; gap: 22px; margin: 4px 0 8px; padding: 0; border: 0; border-radius: 0; background: none; }
 #pg-pets .pet-tabs button { position: relative; padding: 0 2px; border-radius: 0; background: none; color: var(--v3-dim); font: 600 14px/1 var(--v3-font); }
 #pg-pets .pet-tabs button[aria-selected="true"] { background: none; box-shadow: none; color: var(--v3-ink); }
 #pg-pets .pet-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 2px; right: 2px; bottom: 8px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
 #pg-pets .pet-key-earned { margin: 0; padding: 14px 0; border: 0; border-radius: 0; background: none; box-shadow: 0 1px 0 var(--v3-faint), 0 -1px 0 var(--v3-faint); }
-#pg-pets .pet-release-card { padding: 14px 0; }
-#pg-pets .bestiary-grid { grid-template-columns: 1fr; gap: 0; }
-#pg-pets .bestiary-card { min-height: 0; padding: 12px 0; border: 0; border-radius: 0; background: none; }
-#pg-pets .bestiary-card + .bestiary-card { box-shadow: 0 -1px 0 var(--v3-faint); }
-#pg-pets .bestiary-card > span { background: none; }
-#pg-pets .bestiary-card b { font-size: 14px; }
-#pg-pets .bestiary-card small { font-size: 11.5px; }
 
 /* ── Достижения ── */
 #pg-achievements-v1 .achievement-icon { border: 0; border-radius: 0; background: none; font-size: 26px; }
