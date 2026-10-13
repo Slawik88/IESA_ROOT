@@ -190,12 +190,13 @@ function _handleStartParam(){
   const run=fn=>setTimeout(()=>{ try{ fn(); }catch(e){} }, 380);
   const settings=()=>{ switchPage('profile'); setTimeout(()=>{ try{ openSettingsModal(); }catch(e){} },260); };
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
+  // Лениво: часть экранов (window.openQuestsV1 и др.) объявляется в более поздних частях скрипта, прямое обращение здесь роняло весь скрипт ReferenceError'ом.
   const LINKS={
-    quests:openQuestsV1, achievements:openAchievementsV1, achievement:openAchievementsV1, pets:openPetsV1, zoo:openPetsV1,
-    looks:openLooksModal, cosmetics:openLooksModal, themes:openLooksModal, shop:openLooksModal, goods:openLooksModal, inventory:openInventory, inv:openInventory,
+    quests:()=>openQuestsV1(), achievements:()=>openAchievementsV1(), achievement:()=>openAchievementsV1(), pets:()=>openPetsV1(), zoo:()=>openPetsV1(),
+    looks:()=>openLooksModal(), cosmetics:()=>openLooksModal(), themes:()=>openLooksModal(), shop:()=>openLooksModal(), goods:()=>openLooksModal(), inventory:()=>openInventory(), inv:()=>openInventory(),
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
-    exchange:openPlayerExchangeV1, exch:openPlayerExchangeV1, crypto:openPlayerExchangeV1, birzha:openPlayerExchangeV1,
-    notifications:settings, notifprefs:settings, settings:openSettingsModal, top:openTopV3, news:openWhatsNew, pass:openSeasonPass, season:openSeasonPass,
+    exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
+    notifications:settings, notifprefs:settings, settings:()=>openSettingsModal(), top:()=>openTopV3(), news:()=>openWhatsNew(), pass:()=>openSeasonPass(), season:()=>openSeasonPass(),
   };
   if(base==='public'){
     let ref=''; try{ ref=new URLSearchParams(location.search).get('profile')||''; }catch(e){}
