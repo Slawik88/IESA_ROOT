@@ -564,6 +564,7 @@
     const r=d.route,keys=d.amount_keys?` · +${d.amount_keys} 🗝`:'';
     if(!r)return d.amount_keys?`Экспедиция завершена${keys}`:'Маршрут выбран';
     if(!r.success)return`Маршрут не удался, Мора не потрачена${keys}`;
+    if(r.capped)return Number(r.paid_mora)>0?`Маршрут пройден · +${fmt(r.paid_mora)} 🪙, недельный лимит наград маршрутов достигнут${keys}`:`Маршрут пройден, но недельный лимит наград маршрутов уже достигнут${keys}`;
     return`Маршрут пройден · +${fmt(r.paid_mora)} 🪙${keys}`;
   }
   window.petsV1Choose=function(decision){

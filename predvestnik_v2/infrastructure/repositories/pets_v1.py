@@ -91,9 +91,15 @@ async def ensure_tables(db) -> None:
     ) as c:
         current = await c.fetchone()
     if not current or "scout" not in str(current[0]):
-        await db.execute("SELECT pg_advisory_xact_lock(hashtext('pet_v1_runs_decision_check'))")
-        await db.execute("ALTER TABLE pet_v1_runs DROP CONSTRAINT IF EXISTS pet_v1_runs_decision_check")
-        await db.execute("ALTER TABLE pet_v1_runs ADD CONSTRAINT pet_v1_runs_decision_check CHECK(decision IN ('careful','steady','bold','scout'))")
+        async with db.connection.transaction():  # the xact lock lives only inside a transaction
+            await db.execute("SELECT pg_advisory_xact_lock(hashtext('pet_v1_runs_decision_check'))")
+            async with db.execute(
+                "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid='pet_v1_runs'::regclass AND conname='pet_v1_runs_decision_check'"
+            ) as c:
+                current = await c.fetchone()
+            if not current or "scout" not in str(current[0]):
+                await db.execute("ALTER TABLE pet_v1_runs DROP CONSTRAINT IF EXISTS pet_v1_runs_decision_check")
+                await db.execute("ALTER TABLE pet_v1_runs ADD CONSTRAINT pet_v1_runs_decision_check CHECK(decision IN ('careful','steady','bold','scout'))")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_route_rewards (
             run_id TEXT PRIMARY KEY REFERENCES pet_v1_runs(id) ON DELETE RESTRICT,

@@ -1,8 +1,9 @@
 """Expedition route outcomes paid in Mora (ECO-04 route rewards). Pure rules: no clock, no database.
 
-Every route has the same expected value per expedition, so the choice is risk taste, not a better deal:
-reward on success R = EV / p.  Level effects only nudge the numbers: a route bonus on the reward, a risk
-guard on the chance and, from L4, the exact odds shown before choosing.  Failure pays nothing and takes nothing.
+Below L8 every route has the same expected value per expedition, so the choice is risk taste, not a better
+deal: reward on success R = EV / p.  Level effects only nudge the numbers: a route bonus on the reward, a risk
+guard on the chance (+5 points from L8 with the reward unchanged, so riskier routes gain slightly more EV;
+owner-approved numbers, handoff 3.5) and, from L4, the exact odds shown before choosing.  Failure pays nothing and takes nothing.
 """
 from __future__ import annotations
 
