@@ -802,7 +802,7 @@
       </header>
       <div class="achievement-meter">
         <label><span>${esc(reward)}</span><b>${progress}</b></label>
-        <div role="progressbar" aria-label="${esc(item.title)}: до следующего уровня" aria-valuemin="${base}" aria-valuemax="${target || value}" aria-valuenow="${Math.min(value, target || value)}"><i style="width:${pct}%"></i></div>
+        <div role="progressbar" aria-label="${esc(item.title)}: до следующего уровня" aria-valuemin="${base}" aria-valuemax="${target || value}" aria-valuenow="${Math.max(base, Math.min(value, target || value))}"><i style="width:${pct}%"></i></div>
       </div>
     </article>`;
   }
