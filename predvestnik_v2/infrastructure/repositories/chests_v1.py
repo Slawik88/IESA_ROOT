@@ -54,17 +54,25 @@ async def ensure_tables(db) -> None:
     await db.execute("ALTER TABLE chest_key_grants_v1 ADD COLUMN IF NOT EXISTS account_epoch BIGINT NOT NULL DEFAULT 0")
     await db.execute("""
         DO $$ DECLARE item RECORD; BEGIN
-          FOR item IN SELECT conname FROM pg_constraint
-            WHERE conrelid='chest_key_grants_v1'::regclass AND contype='c'
-              AND pg_get_constraintdef(oid) LIKE '%source_kind%'
-          LOOP EXECUTE format('ALTER TABLE chest_key_grants_v1 DROP CONSTRAINT %I',item.conname); END LOOP;
-          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chest_key_grants_v1_source_kind_release') THEN
-            ALTER TABLE chest_key_grants_v1 ADD CONSTRAINT chest_key_grants_v1_source_kind_release
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chest_key_grants_v1_source_kind_tiers') THEN
+            FOR item IN SELECT conname FROM pg_constraint
+              WHERE conrelid='chest_key_grants_v1'::regclass AND contype='c'
+                AND pg_get_constraintdef(oid) LIKE '%source_kind%'
+            LOOP EXECUTE format('ALTER TABLE chest_key_grants_v1 DROP CONSTRAINT %I',item.conname); END LOOP;
+            -- ECO-04 PR-A: tiered offer keys. Once such grants exist, pre-PR-A code
+            -- cannot boot against this table (its narrower CHECK would not validate).
+            ALTER TABLE chest_key_grants_v1 ADD CONSTRAINT chest_key_grants_v1_source_kind_tiers
             CHECK(source_kind IN ('quest_daily_set_complete','quest_weekly_set_complete','zarniki_purchase',
-                                  'pet_trek_complete','pet_expedition_complete','vip_daily_milestone'));
+                                  'pet_trek_complete','pet_expedition_complete','vip_daily_milestone',
+                                  'offer_bronze_mora','offer_silver_craft','offer_silver_zarniki',
+                                  'offer_platinum_diamonds','offer_platinum_zarniki'));
           END IF;
         END $$
     """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS ix_chest_key_grants_v1_tier_fifo "
+        "ON chest_key_grants_v1(user_id,account_epoch,source_kind,created_at)"
+    )
     await db.execute("""
         CREATE TABLE IF NOT EXISTS chest_key_ledger_v1 (
             id BIGSERIAL PRIMARY KEY,
@@ -237,6 +245,26 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS chest_key_offer_purchases_v1 (
+            id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
+            offer_id TEXT NOT NULL CHECK(offer_id IN ('bronze_mora','silver_craft','silver_zarniki',
+                                                     'platinum_diamonds','platinum_zarniki')),
+            key_tier SMALLINT NOT NULL CHECK(key_tier IN (3,4,6)),
+            request_hash TEXT NOT NULL CHECK(request_hash ~ '^[0-9a-f]{64}$'),
+            catalog_version TEXT NOT NULL, catalog_digest TEXT NOT NULL CHECK(catalog_digest ~ '^[0-9a-f]{64}$'),
+            price JSONB NOT NULL,
+            economy_operation_id TEXT NOT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            essence_spent BIGINT NOT NULL DEFAULT 0 CHECK(essence_spent >= 0),
+            grant_id TEXT NOT NULL UNIQUE REFERENCES chest_key_grants_v1(id) ON DELETE RESTRICT,
+            purchased_on DATE NOT NULL, purchased_week DATE NOT NULL CHECK(EXTRACT(ISODOW FROM purchased_week) = 1),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CLOCK_TIMESTAMP(), UNIQUE(user_id,action_id)
+        )
+    """)
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS ix_chest_key_offer_purchases_v1_limits "
+        "ON chest_key_offer_purchases_v1(user_id,offer_id,purchased_on,purchased_week)"
+    )
+    await db.execute("""
         CREATE OR REPLACE FUNCTION reject_chest_key_history_rewrite_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -247,7 +275,7 @@ async def ensure_tables(db) -> None:
     for table in ("chest_account_retirements_v1", "chest_key_grants_v1", "chest_key_ledger_v1", "chest_opens_v1",
                   "chest_key_spends_v1", "chest_reveals_v1", "chest_key_purchases_v1",
                   "chest_key_allocations_v1", "chest_key_refunds_v1", "chest_key_revocations_v1",
-                  "chest_pet_unlocks_v1", "chest_deliveries_v1"):
+                  "chest_pet_unlocks_v1", "chest_deliveries_v1", "chest_key_offer_purchases_v1"):
         trigger = f"{table}_append_only"
         await db.execute(f"DROP TRIGGER IF EXISTS {trigger} ON {table}")
         await db.execute(f"""
@@ -350,26 +378,40 @@ async def get_balance(db, user_id: int) -> int:
     return int(row[0]) if row else 0
 
 
-async def locked_paid_keys(db, *, user_id: int, catalog_version: str, catalog_digest: str) -> int:
-    """Unspent paid keys bought under a retired catalog: counted in the balance, not openable."""
+def _tier_kinds(key_tier: int) -> tuple[str, ...]:
+    from core.chests_v1 import KEY_TIER_BY_SOURCE
+    return tuple(kind for kind, tier in KEY_TIER_BY_SOURCE.items() if tier == int(key_tier))
+
+
+async def locked_paid_keys(db, *, user_id: int, catalog_version: str = "", catalog_digest: str = "") -> int:
+    """Kept for the API: since key tiers, legacy paid keys of any catalog are tier-1 and openable."""
+    return 0
+
+
+async def openable_balance(db, user_id: int, *, catalog_version: str = "", catalog_digest: str = "") -> int:
+    return await get_balance(db, int(user_id))
+
+
+async def tier_balances(db, user_id: int) -> dict[int, int]:
+    """Unspent keys of the current epoch by tier. The account balance stays the
+    authority: early canary opens may lack an allocation row, so the tier-1 count
+    is capped and the tiers never add up to more than the balance."""
+    from core.chests_v1 import KEY_TIER_BY_SOURCE, KEY_TIERS
+    counts = {tier: 0 for tier in KEY_TIERS}
     async with db.execute(
-        "SELECT COUNT(*) FROM chest_key_grants_v1 g "
+        "SELECT g.source_kind,COUNT(*) FROM chest_key_grants_v1 g "
         "JOIN chest_key_accounts_v1 acc ON acc.user_id=g.user_id AND acc.account_epoch=g.account_epoch "
         "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
         "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
-        "WHERE g.user_id=? AND g.source_kind='zarniki_purchase' AND a.grant_id IS NULL AND v.grant_id IS NULL "
-        "AND NOT (g.source_snapshot->>'catalog_version'=? AND g.source_snapshot->>'catalog_digest'=?)",
-        (int(user_id), str(catalog_version), str(catalog_digest)),
+        "WHERE g.user_id=? AND a.grant_id IS NULL AND v.grant_id IS NULL GROUP BY g.source_kind",
+        (int(user_id),),
     ) as cursor:
-        row = await cursor.fetchone()
-    return int(row[0]) if row else 0
-
-
-async def openable_balance(db, user_id: int, *, catalog_version: str, catalog_digest: str) -> int:
-    locked = await locked_paid_keys(
-        db, user_id=int(user_id), catalog_version=catalog_version, catalog_digest=catalog_digest,
-    )
-    return max(0, await get_balance(db, int(user_id)) - locked)
+        for kind, count in await cursor.fetchall():
+            counts[KEY_TIER_BY_SOURCE.get(str(kind), 1)] += int(count)
+    balance = await get_balance(db, int(user_id))
+    higher = sum(count for tier, count in counts.items() if tier != 1)
+    counts[1] = max(0, min(counts[1], balance - higher))
+    return counts
 
 
 async def lock_account(db, user_id: int) -> dict[str, int]:
@@ -461,6 +503,7 @@ async def apply_bonus_grants(
 async def find_open_by_action(db, *, user_id: int, action_id: str) -> dict[str, Any] | None:
     async with db.execute(
         "SELECT o.*,s.balance_before AS key_balance_before,s.balance_after AS key_balance_after,"
+        "(SELECT g.source_kind FROM chest_key_allocations_v1 ka JOIN chest_key_grants_v1 g ON g.id=ka.grant_id WHERE ka.open_id=o.id) AS key_source_kind,"
         "(r.open_id IS NOT NULL) AS revealed,r.economy_operation_id AS reveal_operation_id FROM chest_opens_v1 o "
         "JOIN chest_key_spends_v1 s ON s.open_id=o.id "
         "LEFT JOIN chest_reveals_v1 r ON r.open_id=o.id "
@@ -475,6 +518,7 @@ async def find_open_by_action(db, *, user_id: int, action_id: str) -> dict[str, 
 async def get_open(db, *, user_id: int, open_id: str) -> dict[str, Any] | None:
     async with db.execute(
         "SELECT o.*,s.balance_before AS key_balance_before,s.balance_after AS key_balance_after,"
+        "(SELECT g.source_kind FROM chest_key_allocations_v1 ka JOIN chest_key_grants_v1 g ON g.id=ka.grant_id WHERE ka.open_id=o.id) AS key_source_kind,"
         "(r.open_id IS NOT NULL) AS revealed,r.economy_operation_id AS reveal_operation_id FROM chest_opens_v1 o "
         "JOIN chest_key_spends_v1 s ON s.open_id=o.id "
         "LEFT JOIN chest_reveals_v1 r ON r.open_id=o.id "
@@ -489,6 +533,7 @@ async def get_open(db, *, user_id: int, open_id: str) -> dict[str, Any] | None:
 async def latest_unrevealed_open(db, *, user_id: int) -> dict[str, Any] | None:
     async with db.execute(
         "SELECT o.*,s.balance_before AS key_balance_before,s.balance_after AS key_balance_after,"
+        "(SELECT g.source_kind FROM chest_key_allocations_v1 ka JOIN chest_key_grants_v1 g ON g.id=ka.grant_id WHERE ka.open_id=o.id) AS key_source_kind,"
         "FALSE AS revealed,NULL::TEXT AS reveal_operation_id FROM chest_opens_v1 o "
         "JOIN chest_key_spends_v1 s ON s.open_id=o.id "
         "LEFT JOIN chest_reveals_v1 r ON r.open_id=o.id "
@@ -503,6 +548,7 @@ async def latest_unrevealed_open(db, *, user_id: int) -> dict[str, Any] | None:
 async def latest_revealed_open(db, *, user_id: int) -> dict[str, Any] | None:
     async with db.execute(
         "SELECT o.*,s.balance_before AS key_balance_before,s.balance_after AS key_balance_after,"
+        "(SELECT g.source_kind FROM chest_key_allocations_v1 ka JOIN chest_key_grants_v1 g ON g.id=ka.grant_id WHERE ka.open_id=o.id) AS key_source_kind,"
         "TRUE AS revealed,r.economy_operation_id AS reveal_operation_id FROM chest_opens_v1 o "
         "JOIN chest_key_spends_v1 s ON s.open_id=o.id "
         "JOIN chest_reveals_v1 r ON r.open_id=o.id "
@@ -562,25 +608,21 @@ async def reveal_open(db, *, user_id: int, open_id: str, economy_operation_id: s
 
 
 async def next_unspent_grant(
-    db, *, user_id: int, account_epoch: int,
-    catalog_version: str | None = None, catalog_digest: str | None = None,
+    db, *, user_id: int, account_epoch: int, key_tier: int | None = None,
 ) -> dict[str, Any] | None:
-    """Oldest unspent key. With a catalog given, paid keys bought under another
-    catalog are skipped so one stale key cannot lock the player's other keys."""
-    stale_filter = ""
+    """Oldest unspent key (FIFO); with ``key_tier`` only keys of exactly that tier."""
+    tier_filter = ""
     params: list[Any] = [int(user_id), int(account_epoch)]
-    if catalog_version is not None and catalog_digest is not None:
-        stale_filter = (
-            "AND (g.source_kind<>'zarniki_purchase' OR ("
-            "g.source_snapshot->>'catalog_version'=? AND g.source_snapshot->>'catalog_digest'=?)) "
-        )
-        params += [str(catalog_version), str(catalog_digest)]
+    if key_tier is not None:
+        kinds = _tier_kinds(int(key_tier))
+        tier_filter = "AND g.source_kind IN (" + ",".join("?" for _ in kinds) + ") "
+        params += list(kinds)
     async with db.execute(
         "SELECT g.* FROM chest_key_grants_v1 g "
         "LEFT JOIN chest_key_allocations_v1 a ON a.grant_id=g.id "
         "LEFT JOIN chest_key_revocations_v1 v ON v.grant_id=g.id "
         "WHERE g.user_id=? AND g.account_epoch=? AND a.grant_id IS NULL AND v.grant_id IS NULL "
-        + stale_filter +
+        + tier_filter +
         "ORDER BY g.created_at,g.id LIMIT 1 FOR UPDATE OF g",
         tuple(params),
     ) as cursor:
@@ -601,10 +643,13 @@ async def find_purchase(db, *, user_id: int, action_id: str) -> dict[str, Any] |
 
 
 async def paid_purchases_today(db, *, user_id: int) -> int:
+    """Zarniki keys bought today: legacy 10 ✨ keys plus Silver 120 ✨ offers (one shared daily limit)."""
     async with db.execute(
-        "SELECT COUNT(*) FROM chest_key_purchases_v1 WHERE user_id=? "
-        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date",
-        (int(user_id),),
+        "SELECT (SELECT COUNT(*) FROM chest_key_purchases_v1 WHERE user_id=? "
+        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date)"
+        " + (SELECT COUNT(*) FROM chest_key_offer_purchases_v1 WHERE user_id=? AND offer_id='silver_zarniki' "
+        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date)",
+        (int(user_id), int(user_id)),
     ) as cursor:
         return int((await cursor.fetchone())[0])
 
@@ -619,6 +664,59 @@ async def create_purchase(
         "VALUES (?,?,?,?,?,?,?,?)",
         (str(purchase_id), int(user_id), str(action_id), request_hash, catalog_version,
          catalog_digest, int(price_zarniki), str(economy_operation_id)),
+    )
+
+
+async def offer_window(db) -> tuple[Any, Any]:
+    """The UTC day and the Monday of the UTC ISO week, read once per purchase."""
+    async with db.execute(
+        "SELECT (t AT TIME ZONE 'UTC')::date, date_trunc('week', t AT TIME ZONE 'UTC')::date "
+        "FROM (SELECT CLOCK_TIMESTAMP() AS t) now_utc"
+    ) as cursor:
+        row = await cursor.fetchone()
+    return row[0], row[1]
+
+
+async def find_offer_purchase(db, *, user_id: int, action_id: str) -> dict[str, Any] | None:
+    async with db.execute(
+        "SELECT p.*,l.balance_after FROM chest_key_offer_purchases_v1 p "
+        "JOIN chest_key_ledger_v1 l ON l.grant_id=p.grant_id WHERE p.user_id=? AND p.action_id=?",
+        (int(user_id), str(action_id)),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def offer_purchases_in_window(db, *, user_id: int, offer_id: str, window: str, day: Any, week: Any) -> int:
+    column, value = ("purchased_on", day) if window == "day" else ("purchased_week", week)
+    async with db.execute(
+        f"SELECT COUNT(*) FROM chest_key_offer_purchases_v1 WHERE user_id=? AND offer_id=? AND {column}=?",
+        (int(user_id), str(offer_id), value),
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
+
+
+async def legacy_purchases_on(db, *, user_id: int, day: Any) -> int:
+    async with db.execute(
+        "SELECT COUNT(*) FROM chest_key_purchases_v1 WHERE user_id=? AND purchased_on=?",
+        (int(user_id), day),
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
+
+
+async def create_offer_purchase(
+    db, *, purchase_id: str, user_id: int, action_id: str, offer_id: str, key_tier: int,
+    request_hash: str, catalog_version: str, catalog_digest: str, price: dict[str, int],
+    economy_operation_id: str, essence_spent: int, grant_id: str, day: Any, week: Any,
+) -> None:
+    await db.execute(
+        "INSERT INTO chest_key_offer_purchases_v1"
+        "(id,user_id,action_id,offer_id,key_tier,request_hash,catalog_version,catalog_digest,price,"
+        "economy_operation_id,essence_spent,grant_id,purchased_on,purchased_week) "
+        "VALUES (?,?,?,?,?,?,?,?,?::jsonb,?,?,?,?,?)",
+        (str(purchase_id), int(user_id), str(action_id), str(offer_id), int(key_tier), request_hash,
+         catalog_version, catalog_digest, json.dumps(price, sort_keys=True), str(economy_operation_id),
+         int(essence_spent), str(grant_id), day, week),
     )
 
 
