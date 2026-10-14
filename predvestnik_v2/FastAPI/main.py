@@ -25,8 +25,9 @@ from infrastructure.repositories import theme_templates, theme_meta, web_notific
 from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_preprod_browser_ticket, verify_session_token,
                           verify_webapp_data)
-from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
+from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod, require_preprod_user
 from FastAPI import notifications
+from FastAPI.deps import assert_account_active
 from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
@@ -263,20 +264,54 @@ async def telegram_login(payload: _LoginWidgetPayload):
 async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init: str = ""):
     # H6: верифицируем, что подключающийся — это и есть user_id (WebApp шлёт initData,
     # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
-    authed = False
-    if init:
-        _u = verify_webapp_data(init)
-        authed = bool(_u and int(_u.get("id", 0)) == user_id)
-    elif token:
-        authed = verify_session_token(token) == user_id
-    if not authed:
+    def credential_valid() -> bool:
+        if init:
+            _u = verify_webapp_data(init)
+            return bool(_u and int(_u.get("id", 0)) == user_id)
+        if token:
+            return verify_session_token(token) == user_id
+        return False
+
+    async def account_allowed() -> bool:
+        # The same gates as HTTP gameplay (deps.require_tg_user): preprod
+        # allowlist and account deletion (audit A06). DB errors propagate.
+        if not require_preprod_user(user_id):
+            return False
+        await create_pool()
+        async with get_pool().acquire() as conn:
+            try:
+                await assert_account_active(PGAdapter(conn), user_id)
+            except HTTPException:
+                return False
+        return True
+
+    if not credential_valid():
         await websocket.close(code=1008)  # policy violation
         return
+    try:
+        allowed = await account_allowed()
+    except Exception as exc:
+        _log.warning(f"[ws] account check unavailable: {type(exc).__name__}")
+        await websocket.close(code=1011)  # fail closed; client retries with backoff
+        return
+    if not allowed:
+        await websocket.close(code=1008)
+        return
+
+    async def still_allowed() -> bool:
+        if not credential_valid():
+            return False
+        try:
+            return await account_allowed()
+        except Exception:
+            return True   # transient DB error keeps an already admitted session
+
     await websocket.accept()
     # Единый протокол сессии (отправка событий + keep-alive клиента) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:
-        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER)
+        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER,
+                                       still_allowed=still_allowed)
     except WebSocketDisconnect:
         pass
     except asyncio.CancelledError:
