@@ -151,7 +151,7 @@ async def check_restore_wins_race(dsn: str, db, user_id: int, used: list[int]) -
         ok, _ = await restore_account(restorer, user_id)
         assert ok, "restore inside the window must succeed"
         await tx.commit()
-        await asyncio.wait_for(finalize_task, 10)
+        assert await asyncio.wait_for(finalize_task, 10) is False, "finalize must yield to restore"
     finally:
         await restorer_conn.close()
         await finalizer_conn.close()

@@ -34,10 +34,18 @@ test needed a past `restore_deadline`; lock timeout; restore ordering.
 ## Known limitations (not in this change)
 - A credit committed **after** finalize still lands on a finalized account; zeroed balances
   have no ledger rows (pre-existing; audit risk items 3–4).
+- Tables written without the advisory or `users` lock (e.g. `inventory`, `clan_members`,
+  `user_nicknames`) can gain a row between finalize's DELETE and commit; it survives on the
+  finalized account (same class as late credits).
 - 20 accounts that fail every time would occupy every step-4 slot (no attempts column).
 - Restore stays possible after `restore_deadline` until finalize actually commits (existing
   grace behaviour, unchanged).
 - A12 (daily marker set before work) still delays a failed tick's retry to the next UTC day.
+
+## Review (independent, post-implementation)
+ACCEPT-WITH-NITS. Nits addressed: nesting note in `_finalize` docstring, restore-wins test now
+asserts finalize returned False, unlocked-table limitation recorded. Kept: the `rowcount` guard in
+`restore_account` (defence in depth). Not tested: concurrent chest open/reward (argued by lock design).
 
 ## Checks
 - `tools/test_account_deletion_atomic_pg.py` (new, real PostgreSQL 16, autocommit like the

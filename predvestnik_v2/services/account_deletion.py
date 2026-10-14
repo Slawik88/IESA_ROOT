@@ -222,7 +222,9 @@ async def _finalize(db, user_id: int) -> bool:
     повторяет финализацию целиком. Аудит-таблицы (wallet_log, moderation_logs,
     global_sanctions, admin_grant_log) намеренно НЕ трогаются.
 
-    Возвращает True, только если аккаунт действительно финализирован."""
+    Возвращает True, только если аккаунт действительно финализирован.
+    Вызывать на autocommit-соединении (как daily_tick): внутри чужой транзакции
+    SET LOCAL lock_timeout действовал бы до конца внешней транзакции."""
     async with db.connection.transaction():
         # A long-held user lock must not stall the whole maintenance loop:
         # time out, roll back and retry on the next tick.
