@@ -28,7 +28,8 @@ class QuestConflict(QuestError):
 # owner-approved completion milestones.
 REWARD_POLICY_VERSION = 'quest-rewards-v1-2026-09-06'
 REWARD_MORA = {'daily': 20, 'weekly': 100, 'combined': 75}
-REWARD_KEYS = {'daily': 1, 'weekly': 1, 'combined': 0}
+from core.chests_v1 import CATALOG_VERSION, KEY_SOURCE_COUNTS as _KEY_COUNTS, catalog_digest
+REWARD_KEYS = {'daily': _KEY_COUNTS['quest_daily_set_complete'], 'weekly': _KEY_COUNTS['quest_weekly_set_complete'], 'combined': 0}
 # Essence (skin upgrades only, see core/skins_v3.py) is the quest-side source of that currency.
 REWARD_ESSENCE = ESSENCE_QUEST_REWARD
 
@@ -156,7 +157,9 @@ async def available_sources(db, *, user_id: int) -> frozenset[str]:
         async with db.execute('SELECT 1 FROM mafia_v1_players WHERE user_id=? LIMIT 1', (int(user_id),)) as cursor:
             if await cursor.fetchone():
                 sources.add('mafia')
-    if await system_flags.is_enabled(db, 'content_chests_v1') and await chest_repo.get_balance(db, int(user_id)) > 0:
+    if await system_flags.is_enabled(db, 'content_chests_v1') and await chest_repo.openable_balance(
+            db, int(user_id), catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
+    ) > 0:
         # A chest quest is assigned only when the player already owns a free or
         # paid entitlement. The daily set must never force the first purchase.
         sources.add('chests')
@@ -261,16 +264,16 @@ async def _overview_locked(db, *, user_id: int, keys: dict[str, str], vip_active
     actual_key_grants = {}
     for kind in ('daily', 'weekly'):
         source_kind = f'quest_{kind}_set_complete'
-        actual_key_grants[kind] = bool(await chest_repo.find_grant(
+        actual_key_grants[kind] = await chest_repo.grant_total(
             db, user_id=user_id, source_kind=source_kind,
             source_event_id=reward_ids[kind],
-        ))
+        )
     completion = {'daily': all_daily, 'weekly': all_weekly, 'combined': all_daily and all_weekly}
     rewards = {
         kind: {
             'amount_mora': reward_mora(kind, vip_active=vip_active),
             'amount_essence': REWARD_ESSENCE[kind],
-            'amount_keys': (1 if claimed[kind] and actual_key_grants.get(kind) else
+            'amount_keys': (actual_key_grants[kind] if claimed[kind] and actual_key_grants.get(kind) else
                             REWARD_KEYS[kind] if not claimed[kind] and chests_enabled else 0),
             'claimed': claimed[kind],
             'claimable': completion[kind] and not claimed[kind],

@@ -37,15 +37,19 @@ for _ in range(N):
 
 ev = utility_zarniki / N
 common_per_open = species_cards["moss_cat"] / N
-free_two_year_cards = common_per_open * 8 * 104
-max_paid_two_year_cards = common_per_open * 22 * 104
+# Free keys per week: 7 daily sets x2 + 1 weekly set x3 = 17 (ECO-02); a max-frequency
+# player adds 2 paid keys a day: 17 + 14 = 31.
+free_two_year_cards = common_per_open * 17 * 104
+max_paid_two_year_cards = common_per_open * 31 * 104
 
-# Conservative utility excludes collection excitement and VIP cosmetics. It is
-# still near the 10✨ price, while a max-frequency player can finish one chosen
-# 89,586-card Common curve in about two years. Free progression remains useful.
-assert 8.0 <= ev <= PAID_KEY_PRICE_ZARNIKI
+# ECO-02 (keys up, loot down): a chest is deliberately worth about half of the 10✨
+# key price (was ~95%), so free keys carry progression and a paid key is a luxury.
+# Conservative utility excludes collection excitement and VIP cosmetics. A free
+# player still moves about as fast as before (more keys, smaller packs) and a
+# max-frequency player finishes one chosen 89,586-card Common curve in ~2.5 years.
+assert 4.0 <= ev <= PAID_KEY_PRICE_ZARNIKI
 assert 30_000 <= free_two_year_cards <= 45_000
-assert 89_586 <= max_paid_two_year_cards <= 120_000
+assert 60_000 <= max_paid_two_year_cards <= 120_000
 assert totals["zarniki"] / N < 0.03  # cashback cannot self-fund a purchase loop
 assert totals["diamonds"] / N < 0.03
 
