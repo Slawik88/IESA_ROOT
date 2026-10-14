@@ -19,13 +19,14 @@
 Отправка в ЛС — raw HTTP (работает из бота и веба одинаково).
 """
 import os
-import random
+import secrets
 
 import httpx
 from loguru import logger
 from infrastructure.repositories import chests_v1 as chest_repo
 
 from core.constants import (
+    ACCOUNT_DELETE_CODE_ATTEMPTS, ACCOUNT_DELETE_CODE_RESEND_MIN, ACCOUNT_DELETE_CODE_TTL_MIN,
     ACCOUNT_DELETE_COOLING_HOURS, ACCOUNT_DELETE_INACTIVITY_CHOICES,
     ACCOUNT_DELETE_PHRASE, ACCOUNT_DELETE_RESTORE_DAYS, ACCOUNT_DELETE_WARN_DAYS,
 )
@@ -91,19 +92,30 @@ async def request_deletion(db, user_id: int) -> tuple[bool, str]:
     if st["deleted_at"]:
         return False, "Аккаунт уже удалён — доступно восстановление."
     d = st["deletion"]
-    if d and d["status"] in ("confirming", "cooling") and d.get("source") == "self":
+    if d and d["status"] == "cooling" and d.get("source") == "self":
         return False, "Процесс удаления уже запущен. Отменить: «бот отменить удаление»."
-    code = f"{random.randint(0, 999999):06d}"
+    if d and d["status"] == "confirming" and d.get("source") == "self":
+        # A new code only after the resend interval: no flood of DMs and no
+        # endless fresh attempt budgets (audit A11).
+        async with db.execute(
+            "SELECT requested_at > NOW() - make_interval(mins => ?) FROM account_deletions "
+            "WHERE user_id = ?", (ACCOUNT_DELETE_CODE_RESEND_MIN, user_id)
+        ) as c:
+            recent = await c.fetchone()
+        if recent and recent[0]:
+            return False, (f"Код уже отправлен в ЛС. Новый можно запросить через "
+                           f"{ACCOUNT_DELETE_CODE_RESEND_MIN} минут после предыдущего.")
+    code = f"{secrets.randbelow(1_000_000):06d}"
     await db.execute("DELETE FROM account_deletions WHERE user_id = ?", (user_id,))
     await db.execute(
-        "INSERT INTO account_deletions (user_id, source, status, confirm_code) "
-        "VALUES (?, 'self', 'confirming', ?)",
+        "INSERT INTO account_deletions (user_id, source, status, confirm_code, confirm_attempts) "
+        "VALUES (?, 'self', 'confirming', ?, 0)",
         (user_id, code),
     )
     await db.commit()
     r = await _tg("sendMessage", chat_id=user_id, parse_mode="HTML", text=(
         f"🗑 <b>Запрошено удаление аккаунта.</b>\n"
-        f"Код подтверждения: <code>{code}</code>\n\n"
+        f"Код подтверждения: <code>{code}</code> (действует {ACCOUNT_DELETE_CODE_TTL_MIN} минут)\n\n"
         f"Введите его на сайте вместе с фразой «{ACCOUNT_DELETE_PHRASE}».\n"
         f"⚠️ Если это не вы — просто игнорируйте: без кода ничего не произойдёт, "
         f"и смените пароль Telegram."))
@@ -118,17 +130,36 @@ async def confirm_deletion(db, user_id: int, code: str, phrase: str) -> tuple[bo
     """Шаг 2: код + фраза → 24ч остывания (алерт в ЛС, отмена в любой момент)."""
     st = await get_state(db, user_id)
     d = st["deletion"]
-    if not d or d["status"] != "confirming":
+    if not d or d["status"] != "confirming" or d.get("source") != "self" or not d.get("confirm_code"):
         return False, "Сначала запросите удаление (придёт код в ЛС)."
     if (phrase or "").strip().upper() != ACCOUNT_DELETE_PHRASE:
         return False, f"Контрольная фраза не совпала. Введите вручную: {ACCOUNT_DELETE_PHRASE}"
-    if (code or "").strip() != (d.get("confirm_code") or ""):
-        return False, "Неверный код из ЛС."
-    await db.execute(
-        "UPDATE account_deletions SET status = 'cooling', "
-        "cooling_until = NOW() + make_interval(hours => ?) WHERE user_id = ?",
-        (ACCOUNT_DELETE_COOLING_HOURS, user_id),
-    )
+    live = ("user_id = ? AND status = 'confirming' AND source = 'self' AND confirm_code IS NOT NULL "
+            "AND requested_at > NOW() - make_interval(mins => ?) AND confirm_attempts < ?")
+    live_args = (user_id, ACCOUNT_DELETE_CODE_TTL_MIN, ACCOUNT_DELETE_CODE_ATTEMPTS)
+    # One conditional statement: the code is consumed at most once, and only
+    # while it is fresh and has attempts left (audit A11).
+    async with db.execute(
+        "UPDATE account_deletions SET status = 'cooling', confirm_code = NULL, "
+        f"cooling_until = NOW() + make_interval(hours => ?) WHERE {live} AND confirm_code = ? "
+        "RETURNING user_id",
+        (ACCOUNT_DELETE_COOLING_HOURS, *live_args, (code or "").strip()),
+    ) as c:
+        confirmed = await c.fetchone()
+    if not confirmed:
+        async with db.execute(
+            f"UPDATE account_deletions SET confirm_attempts = confirm_attempts + 1 WHERE {live} "
+            "RETURNING confirm_attempts",
+            live_args,
+        ) as c:
+            counted = await c.fetchone()
+        await db.commit()
+        if not counted:
+            return False, "Код истёк или исчерпан. Запросите удаление заново — придёт новый код."
+        left = ACCOUNT_DELETE_CODE_ATTEMPTS - int(counted[0])
+        if left <= 0:
+            return False, "Неверный код. Попытки исчерпаны — запросите удаление заново."
+        return False, f"Неверный код из ЛС. Осталось попыток: {left}."
     await db.commit()
     await _tg("sendMessage", chat_id=user_id, parse_mode="HTML", text=(
         f"⏳ <b>Удаление аккаунта подтверждено.</b>\n"
