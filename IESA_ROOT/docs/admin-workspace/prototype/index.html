@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Управление IESA — проект интерфейса</title>
+    <link rel="stylesheet" href="../../../static/css/variables.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="stylesheet" href="prototype.css" />
+  </head>
+  <body>
+    <div class="demo">
+      <span>Проект интерфейса · вымышленные данные</span
+      ><label for="persona">Посмотреть как</label
+      ><select id="persona">
+        <option value="owner">Владелец панели</option>
+        <option value="moderator">Модератор</option>
+      </select>
+    </div>
+    <a class="skip" href="#main">Перейти к содержимому</a>
+    <header class="site-head">
+      <a class="brand" href="#overview" aria-label="IESA — обзор"
+        ><img src="../../../static/img/logo.png" alt="IESA" /></a
+      ><span class="site-name">Управление IESA</span
+      ><button
+        class="menu-toggle quiet"
+        id="menu-toggle"
+        aria-expanded="false"
+        aria-controls="side-nav"
+      >
+        <i class="fas fa-bars" aria-hidden="true"></i> Разделы</button
+      ><span id="account-label" class="account">Владелец панели</span>
+    </header>
+    <div class="workspace">
+      <aside id="side-nav">
+        <div class="side-title">РАБОЧАЯ ПАНЕЛЬ</div>
+        <p class="muted">IESA Sport</p>
+        <nav aria-label="Разделы управления">
+          <a href="#overview" data-page="overview"
+            ><i class="fas fa-home" aria-hidden="true"></i>Обзор</a
+          ><a href="#community" data-page="community"
+            ><i class="fas fa-check-to-slot" aria-hidden="true"></i>Сообщество
+            <span class="count" id="nav-count">3</span></a
+          ><a href="#team" data-page="team" id="team-link"
+            ><i class="fas fa-user-shield" aria-hidden="true"></i>Команда и
+            доступ</a
+          >
+        </nav>
+        <div class="side-help">
+          Решения, сотрудники и история — в одном рабочем пространстве.
+        </div>
+      </aside>
+      <main id="main" tabindex="-1"></main>
+    </div>
+    <nav class="mobile-nav" aria-label="Мобильная навигация управления">
+      <a href="#overview" data-page="overview"
+        ><i class="fas fa-home" aria-hidden="true"></i>Обзор</a
+      ><a href="#community" data-page="community"
+        ><i class="fas fa-list-check" aria-hidden="true"></i>Задачи</a
+      ><button id="mobile-sections" aria-controls="side-nav">
+        <i class="fas fa-bars" aria-hidden="true"></i>Разделы
+      </button>
+    </nav>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <dialog id="confirm">
+      <form id="confirm-form">
+        <h2 id="confirm-title"></h2>
+        <p id="confirm-copy"></p>
+        <label for="confirm-reason">Служебная причина</label
+        ><textarea id="confirm-reason" rows="3" required></textarea>
+        <p class="muted">
+          В этой демонстрации меняются только вымышленные записи.
+        </p>
+        <div class="actions">
+          <button type="button" id="confirm-cancel" class="quiet">Отмена</button
+          ><button type="submit" class="danger">Отозвать доступ</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="prototype.js"></script>
+  </body>
+</html>
