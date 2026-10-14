@@ -40,6 +40,14 @@ $env:PYTHONUTF8 = "1"
 # application and to direct developer runs.
 $env:PYTHONPATH = $moduleRoot
 
+# A fresh disposable cluster must reproduce the gate without a developer's
+# historical state (audit A14): run the production startup schema path plus the
+# reviewed operator migrations the tests depend on. Idempotent.
+& $python (Join-Path $PSScriptRoot "bootstrap_test_db.py") --dsn $localDsn
+if ($LASTEXITCODE -ne 0) {
+    throw "Test database bootstrap failed."
+}
+
 # The owner-approved reconstruction plan explicitly retires the former
 # Reconstruction/Chronicle combat product.  These tests describe that removed
 # product (and in a few cases even demand that it remains the only entry), so
@@ -94,6 +102,29 @@ try {
         $output | Write-Output
         $failed += $test.Name
     }
+    # Executable JS regressions are part of the same gate (audit A14).
+    $node = Get-Command node -ErrorAction SilentlyContinue
+    $jsTests = Get-ChildItem -LiteralPath (Join-Path $moduleRoot "tools") -Filter "test_*.js" | Sort-Object Name
+    foreach ($test in $jsTests) {
+        if (-not $node) {
+            Write-Output "FAIL $($test.Name) (node is not installed)"
+            $failed += $test.Name
+            continue
+        }
+        # Same stderr caveat as above: classify only by exit code.
+        $ErrorActionPreference = "Continue"
+        $output = & $node.Source $test.FullName 2>&1
+        $nodeExitCode = $LASTEXITCODE
+        $ErrorActionPreference = "Stop"
+        if ($nodeExitCode -eq 0) {
+            Write-Output "PASS $($test.Name)"
+            continue
+        }
+        Write-Output "FAIL $($test.Name)"
+        $output | Write-Output
+        $failed += $test.Name
+    }
+    $tests = @($tests) + @($jsTests)
 } finally {
     Pop-Location
 }
