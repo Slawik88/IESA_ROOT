@@ -3,8 +3,9 @@
    ряд регалий общий с профилем. Цвета берутся из скина (токены --v3-*). Экран читают, а не играют на нём: движения нет, кроме подъёма секций, который даёт .v3-stagger. */
 
 /* вкладки разделов: общий .v3-tabs, число раздела приглушено */
-.inv-tabs { margin: 0 0 4px; }
-.inv-tabs .v3-tab span { margin-left: 2px; color: var(--v3-dim); font-weight: 500; font-variant-numeric: tabular-nums; }
+.inv-tabs { margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }   /* на 320 px и с крупным текстом вкладки прокручиваются, а не раздвигают экран */
+.inv-tabs::-webkit-scrollbar { display: none; }
+.inv-tabs .v3-tab { flex: none; }
 .inv-body > .v3-sec:first-child { margin-top: 4px; }
 .inv-note { margin: 2px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.45; }
 
@@ -26,7 +27,7 @@
 .inv-pets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
 .inv-pet { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 12px 6px 10px; border: 0; border-radius: 14px; background: var(--v3-faint); color: var(--v3-ink); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .inv-pet:active { transform: scale(.97); }
-.inv-pet.is-on { box-shadow: inset 0 0 0 1.5px var(--v3-track); }
+.inv-pet.is-on { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v3-ink) 55%, transparent); }
 .inv-pet .inv-ic { font-size: 28px; }
 .inv-pet b { font: 600 12.5px/1.25 var(--v3-font); overflow-wrap: anywhere; }
 .inv-pet small { color: var(--v3-dim); font-size: 11px; line-height: 1.3; }

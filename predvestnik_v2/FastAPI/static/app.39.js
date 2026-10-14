@@ -3,7 +3,6 @@
 // образы среди них), склад из /inventory-v1/me (только чтение). Здесь только показ: действия живут на своих экранах, плитка ведёт туда. Стили: inventory-v3.css.
 let _inv = { skins: null, stock: undefined, archive: null, bad: { skins: '', stock: '' }, seq: 0, tab: '' };   // stock: undefined = ещё не пришёл, null = сундуки выключены
 const _INV_RANK = ['SSS', 'SS', 'S', 'A', 'B', 'C', 'D'];
-const _invWord = (n, one, few, many) => { const m = Math.abs(n) % 100, d = m % 10; return m > 10 && m < 20 ? many : d === 1 ? one : d > 1 && d < 5 ? few : many; };
 const _invSettle = p => p.then(value => ({ ok: true, value }), error => ({ ok: false, error }));
 
 function openInventory() {
@@ -33,9 +32,10 @@ function _invFail(text, retry) {
   return `<div class="v3-empty" role="alert"><b>${_profileEsc(text)}</b><span>${_profileEsc(retry)}</span> <button type="button" class="v3-link" onclick="openInventory()">Повторить</button></div>`;
 }
 // Предмет — плитка сетки: значок, число в углу, короткое имя. Подробности и переход — в листе по нажатию (invItem). Ноль показан приглушённо, а не скрыт: ключ нужен всегда
-function _invTile(icon, name, hint, n, sheet, mark) {
-  const say = `${name}: ${fmt(n)}`;
-  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${icon}</span><b class="inv-n">${mark || fmt(n)}</b><small>${name}</small></button>`;
+// tier: ступень талисмана (одна вещь, а не стопка) — тогда в углу и в листе ступень, а не количество
+function _invTile(icon, name, hint, n, sheet, tier) {
+  const say = tier ? `${name}: ступень ${tier}` : `${name}: ${fmt(n)}`, mark = tier || fmt(n);
+  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-tier="${tier || ''}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${icon}</span><b class="inv-n">${mark}</b><small>${name}</small></button>`;
 }
 // Лист предмета: ключи, еда, карты, джокеры и талисманы. Ничего не списывает: кнопка ведёт на экран, где предмет нужен.
 const _INV_SHEET = { keys: ['К сундукам', 'openChestsV1()'], food: ['К питомцам', 'openPetsV1()'], card: ['К питомцам', 'openPetsV1()'], joker: ['К питомцам', 'openPetsV1()'], tal: ['К питомцам', 'openPetsV1()'] };
@@ -43,7 +43,7 @@ function invItem(kind, node) {
   _haptic('select');
   const go = _INV_SHEET[kind]; if (!go) return;
   const d = node.dataset;
-  OM(`${d.ic} ${d.name}`, `<p class="v3-stat-line"><b>${fmt(Number(d.n))}</b> в запасе</p>${d.hint ? `<p class="inv-note">${_profileEsc(d.hint)}</p>` : ''}`,
+  OM(`${d.ic} ${d.name}`, `<p class="v3-stat-line">${d.tier ? `Ступень <b>${_profileEsc(d.tier)}</b>` : `<b>${fmt(Number(d.n))}</b> в запасе`}</p>${d.hint ? `<p class="inv-note">${_profileEsc(d.hint)}</p>` : ''}`,
     [{ l: go[0], c: 'primary', f: `CM();${go[1]}` }, { l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
 }
 
@@ -54,7 +54,7 @@ function _invLookTile(i) {
   return `<button type="button" class="lk-pick" onclick="invOpenLook('${i.id}')" aria-label="${_profileEsc(say)}">${_lkMini(i)}<b>${_profileEsc(i.name)}</b><small>${where}${kind}тир ${_profileEsc(i.level)}</small></button>`;
 }
 function _invLooks(st) {
-  if (!st) return _invFail('Образы не загрузились', _inv.bad.skins);
+  if (!st) return _invFail('Образы не загрузились', _inv.bad.skins) + _invMarks();   // регалии из профиля, не из ответа образов
   const mine = _invOwned(st), c = st.collection;
   const body = mine.length ? `<div class="inv-looks">${mine.map(_invLookTile).join('')}</div>`
     : `<div class="v3-empty">Образов пока нет. <button type="button" class="v3-link" onclick="openLooksModal()">Открыть образы ›</button></div>`;
@@ -67,7 +67,7 @@ function _invMarks() {
 
 function _invPets(stock) {
   const pets = stock.pets || [];
-  const tile = p => `<button type="button" class="inv-pet${p.active ? ' is-on' : ''}" onclick="openPetsV1()" aria-label="${_profileEsc(`${p.name}, ${rarLabel(p.rarity)}, уровень ${p.level}${p.active ? ', с вами' : ''}`)}"><span class="inv-ic" aria-hidden="true">${_profileEsc(p.icon)}</span><b>${_profileEsc(p.name)}</b><small>${_profileEsc(rarLabel(p.rarity))} · ур. ${_profileEsc(p.level)}</small></button>`;
+  const tile = p => `<button type="button" class="inv-pet${p.active ? ' is-on' : ''}" onclick="openPetsV1()" aria-label="${_profileEsc(`${p.name}, ${rarLabel(p.rarity)}, уровень ${p.level}${p.active ? ', с вами' : ''}`)}"><span class="inv-ic" aria-hidden="true">${_profileEsc(p.icon)}</span><b>${_profileEsc(p.name)}</b><small>${_profileEsc(rarLabel(p.rarity))} · ур. ${_profileEsc(p.level)}${p.active ? '<br>с\u00a0вами' : ''}</small></button>`;
   const body = pets.length ? `<div class="inv-pets">${pets.map(tile).join('')}</div>` : '<div class="v3-empty">Питомцев пока нет. Первую карточку можно найти в сундуке.</div>';
   return `${_invSec(`Виды · ${pets.length} из ${stock.species_total}`, '<button type="button" class="v3-link" onclick="openPetsV1()">К питомцам ›</button>')}${body}`;
 }
@@ -92,24 +92,34 @@ function _invArchive(archive) {
   return `<p class="inv-note">Вещи прежней игры сохранены за вами. Большинство из них сейчас нигде не расходуется.</p>${archive.groups.map(group).join('')}`;
 }
 
-// Вкладки вместо длинной ленты: предметы (то, что применяют), питомцы, образы, архив. Число на вкладке — единственное место, где показан итог раздела
+// Вкладки вместо длинной ленты: предметы (то, что применяют), питомцы, образы, архив. Итог раздела — в подзаголовке раздела, на вкладке числа нет (одно число — одно место)
 const _INV_TABS = [['stuff', 'Предметы'], ['pets', 'Питомцы'], ['looks', 'Образы'], ['archive', 'Архив']];
-function _invTabs(counts) {
-  const tabs = _INV_TABS.filter(([id]) => counts[id] !== null);
-  return `<nav class="v3-tabs inv-tabs" role="tablist" aria-label="Разделы инвентаря">${tabs.map(([id, label]) =>
-    `<button type="button" class="v3-tab${_inv.tab === id ? ' on' : ''}" role="tab" aria-selected="${_inv.tab === id}" onclick="invTab('${id}')">${label}${counts[id] ? ` <span>${fmt(counts[id])}</span>` : ''}</button>`).join('')}</nav>`;
+function _invTabs(shown) {
+  const tabs = _INV_TABS.filter(([id]) => shown[id]);
+  return `<nav class="v3-tabs v3-tabs--wide inv-tabs" role="tablist" aria-label="Разделы инвентаря" onkeydown="invTabKey(event)">${tabs.map(([id, label]) =>
+    `<button type="button" id="inv-tab-${id}" class="v3-tab${_inv.tab === id ? ' on' : ''}" role="tab" aria-selected="${_inv.tab === id}" aria-controls="inv-panel" tabindex="${_inv.tab === id ? 0 : -1}" onclick="invTab('${id}')">${label}</button>`).join('')}</nav>`;
 }
-function invTab(id) { if (_inv.tab === id) return; _haptic('select'); _inv.tab = id; _invRender(); }
+function invTab(id) {
+  if (_inv.tab === id) return;
+  _haptic('select'); _inv.tab = id; _invRender();
+}
+function invTabKey(e) {
+  const tabs = [...e.currentTarget.querySelectorAll('[role="tab"]')], at = tabs.indexOf(document.activeElement);
+  const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: tabs.length - 1 }[e.key];
+  if (at < 0 || to === undefined) return;
+  const tab = tabs[(to + tabs.length) % tabs.length];
+  e.preventDefault(); tab.click();
+  el(tab.id)?.focus();   // перерисовка заменяет кнопки: фокус клавиатуры возвращается на выбранную вкладку
+}
 
 function _invRender() {
   const root = el('pg-inventory'); if (!root) return;
   const st = _inv.skins, stock = _inv.stock, archive = _inv.archive?.kinds ? _inv.archive : null;
-  const items = stock ? stock.foods.reduce((a, f) => a + Number(f.quantity || 0), Number(stock.keys || 0)) : 0;
-  const counts = { stuff: stock === null ? null : items, pets: stock === null ? null : (stock?.pets || []).length, looks: _invOwned(st).length, archive: archive ? archive.kinds : null };
-  if (counts[_inv.tab] === null || !_inv.tab) _inv.tab = stock === null ? 'looks' : 'stuff';
+  const shown = { stuff: stock !== null, pets: stock !== null, looks: true, archive: !!archive };   // stock === null: сундуки выключены, склада нет
+  if (!shown[_inv.tab]) _inv.tab = stock === null ? 'looks' : 'stuff';
   const need = stock === undefined && _inv.tab !== 'looks' ? _invFail('Склад не загрузился', _inv.bad.stock) : '';
   const body = need || { stuff: () => _invStuff(stock), pets: () => _invPets(stock), looks: () => _invLooks(st), archive: () => _invArchive(archive) }[_inv.tab]();
-  root.innerHTML = `${v3Head('Инвентарь', { back: 'invBack()' })}${_invTabs(counts)}<div class="inv-body" role="tabpanel">${body}</div>`;
+  root.innerHTML = `${v3Head('Инвентарь', { back: 'invBack()' })}${_invTabs(shown)}<div class="inv-body" id="inv-panel" role="tabpanel" aria-labelledby="inv-tab-${_inv.tab}">${body}</div>`;
   v3EnterSync(root);
 }
 
