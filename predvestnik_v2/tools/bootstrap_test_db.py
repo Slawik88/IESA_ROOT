@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Prepare a disposable loopback PostgreSQL for the release gate (audit A14).
 
-Runs exactly the production startup schema path (init_db -> ensure_chat_schema ->
-ensure_runtime_schema), then the reviewed operator migrations the test suite
+Runs exactly the production startup schema path (bot: init_db -> ensure_chat_schema
+-> ensure_runtime_schema; web: the FastAPI lifespan ensure list), then the reviewed operator migrations the test suite
 depends on. Production never runs this file: operator migrations stay manual
 there. Loopback DSN only; idempotent, so it can run before every gate.
 """
@@ -53,6 +53,12 @@ async def main() -> None:
     await init_db()
     await ensure_chat_schema()
     await ensure_runtime_schema(pool)
+    # Production co-hosts the web app; its lifespan creates the module tables
+    # (quests, chests, pets, mafia, ...). Background loops it starts are
+    # cancelled on exit before their first step.
+    from FastAPI.main import app, lifespan
+    async with lifespan(app):
+        pass
 
     connection = await asyncpg.connect(args.dsn, server_settings={"search_path": "predvestnik,public"})
     try:
