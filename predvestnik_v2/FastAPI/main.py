@@ -27,6 +27,7 @@ from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_webapp_data)
 from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
 from FastAPI import notifications
+from infrastructure import readiness
 from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
@@ -206,6 +207,7 @@ async def lifespan(app: FastAPI):
                         await conn.execute("ROLLBACK")
                 except Exception:
                     pass
+    readiness.mark_startup_complete()   # standalone start; the co-hosted bot marks it itself
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     digest_task = asyncio.create_task(_run_owner_digest())
@@ -296,15 +298,18 @@ async def health():
 
 @app.get("/api/ready")
 async def ready():
-    """Readiness is stricter than liveness: pool + application schema must exist."""
+    """Readiness is stricter than liveness: startup must have finished its schema
+    work and every table the first requests read must exist (audit A04)."""
     try:
+        if not readiness.startup_complete():
+            raise RuntimeError("startup schema initialization has not finished")
         await create_pool()
         async with get_pool().acquire() as conn:
-            schema = await conn.fetchval("SELECT to_regnamespace('predvestnik')")
-        if schema != "predvestnik":
-            raise RuntimeError("application schema is missing")
+            missing = await readiness.missing_tables(conn)
+        if missing:
+            raise RuntimeError(f"required tables are missing: {', '.join(missing)}")
     except Exception as exc:
-        _log.warning(f"[ready] unavailable: {type(exc).__name__}")
+        _log.warning(f"[ready] unavailable: {exc if isinstance(exc, RuntimeError) else type(exc).__name__}")
         raise HTTPException(status_code=503, detail="Service is not ready.") from exc
     return {"status": "ready"}
 
