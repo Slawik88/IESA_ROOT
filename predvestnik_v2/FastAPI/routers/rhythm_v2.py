@@ -6,7 +6,7 @@ from typing import Literal
 import asyncio
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
@@ -125,6 +125,17 @@ async def transport_ticket(run_id: str, db=Depends(get_db), user=Depends(require
 async def leaderboard(mode: Literal["normal", "augments"], db=Depends(get_db), user=Depends(require_tg_user)):
     try:
         return await game.rankings(db, user_id=int(user["id"]), mode=mode)
+    except game.RhythmError as exc:
+        _raise(exc)
+
+
+@router.get("/leaderboard/{mode}/full", dependencies=[_feature_gate])
+async def leaderboard_full(
+    mode: Literal["normal", "augments"], page: int = Query(default=0, ge=0, le=100),
+    db=Depends(get_db), user=Depends(require_tg_user),
+):
+    try:
+        return await game.rankings_page(db, user_id=int(user["id"]), mode=mode, page=page)
     except game.RhythmError as exc:
         _raise(exc)
 

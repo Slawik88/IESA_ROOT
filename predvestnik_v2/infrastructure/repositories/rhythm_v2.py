@@ -308,13 +308,13 @@ _SEASON_BEST = (
 )
 
 
-async def season_standings(db, *, mode: str, starts_at, ends_at, limit: int | None = None) -> list[dict]:
+async def season_standings(db, *, mode: str, starts_at, ends_at, limit: int | None = None, offset: int = 0) -> list[dict]:
     """Best clear run per player inside one season window, ranked."""
     sql = _SEASON_BEST + "SELECT user_id,best_score,place FROM ranked ORDER BY place,user_id"
     params: tuple = (str(mode), starts_at, ends_at)
     if limit is not None:
-        sql += " LIMIT ?"
-        params += (int(limit),)
+        sql += " LIMIT ? OFFSET ?"
+        params += (int(limit), int(offset))
     async with db.execute(sql, params) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
 
@@ -332,8 +332,14 @@ async def season_activity(db, *, mode: str, starts_at, ends_at) -> dict[int, dic
                 for row in await cursor.fetchall()}
 
 
-async def leaderboard(db, *, user_id: int, mode: str, starts_at, ends_at) -> dict:
-    top = await season_standings(db, mode=mode, starts_at=starts_at, ends_at=ends_at, limit=20)
+async def season_player_count(db, *, mode: str, starts_at, ends_at) -> int:
+    async with db.execute(_SEASON_BEST + "SELECT COUNT(*) AS n FROM ranked", (str(mode), starts_at, ends_at)) as cursor:
+        row = await cursor.fetchone()
+    return int(row["n"]) if row else 0
+
+
+async def leaderboard(db, *, user_id: int, mode: str, starts_at, ends_at, limit: int = 20, offset: int = 0) -> dict:
+    top = await season_standings(db, mode=mode, starts_at=starts_at, ends_at=ends_at, limit=limit, offset=offset)
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])
     public_top = [
         {"place": int(row["place"]), "best_score": int(row["best_score"]),
