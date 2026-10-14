@@ -161,7 +161,7 @@ async function shopAsk(id, trigger) {
   }
   const spent = Object.entries(cost).map(([k, v]) => [`Баланс ${_SHOP_ICONS[k] || k}`, `${_shopNum(b[k] || 0)} → ${_shopNum(Number(b[k] || 0) - v)}`]);
   const hard = 'zarniki' in cost || 'diamonds' in cost;
-  const note = item.section === 'keys' ? 'Покупка необратима: ключ не возвращается.' : hard ? 'Это необратимо.' : '';
+  const note = item.section === 'keys' ? (hard ? 'Это необратимо. Покупка необратима: ключ не возвращается.' : 'Покупка необратима: ключ не возвращается.') : hard ? 'Это необратимо.' : '';
   if (trigger) trigger.dataset.modalTrigger = 'true';
   const ok = await v3Confirm({ title: _SHOP_VERB[item.mode] || 'Купить', visual: item.icon || '🛒', name: item.name, sub: item.gives?.text || '',
     rows: [['Отдаёшь', _shopCost(cost)], ['Получаешь', gets, true], ...spent, ...after], cta: `${_SHOP_VERB[item.mode] || 'Купить'} за ${_shopCost(cost)}`, note });
@@ -191,7 +191,7 @@ function _shopBuy(id, amount) {
     _shopRender(); _shopLoad();
   }).catch(e => {
     _shop.busy = null;
-    if (typeof e === 'string') { toast(e, false); _shopLoad(); return; }   // ответ сервера: обновляем цены и лимиты, номер операции остаётся до успеха
+    if (typeof e === 'string') { if (e.includes('уже использован')) _shopPending.delete(key); toast(e, false); _shopLoad(); return; }   // ответ сервера: обновляем цены и лимиты, номер операции остаётся до успеха
     _shop.errors[id] = _SHOP_OFFLINE; _shopRender();                       // обрыв связи: «Повторить» отправит тот же номер
   });
 }

@@ -150,11 +150,12 @@ async def run(dsn: str) -> None:
         # Replay: same receipt, no second debit; another item with this action id is refused.
         replay = await buy(db, rich, "ess_polish", "polish-1")
         assert replay["receipt"] == {**receipt, "applied": False} and await balances(db, rich) == after
+        stale = await shop.buy_polish(db, user_id=rich, action_id="polish-1", requested_catalog_version="old",
+                                      requested_catalog_digest="stale")  # retry after a deploy changed the catalogue
+        assert stale == {**receipt, "applied": False} and await balances(db, rich) == after
         await system_flags.set_flag(db, KEY_OFFERS_FLAG, True)
         await refused(buy(db, rich, "key_t3_mora", "polish-1"), "action_id")
         await refused(buy(db, rich, "exchange_mora", "polish-1", amount=1), "action_id")
-        await refused(shop.buy_polish(db, user_id=rich, action_id="polish-1", requested_catalog_version="old",
-                                      requested_catalog_digest="0" * 64), "action_id")
         await refused(buy(db, rich, "gift_rose", "gift-1"), "нет")
         await refused(shop.buy(db, user_id=rich, item_id="ess_polish", action_id="stale", catalog_version=policy.SHOP_VERSION,
                                catalog_digest="0" * 64), "Каталог")

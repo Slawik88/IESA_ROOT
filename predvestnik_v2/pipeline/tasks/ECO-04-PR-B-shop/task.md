@@ -46,3 +46,12 @@ Risk: T2 (new currency sink, multi-currency debit, limits). Owner asked to do ev
 - Start-up: `init_db` + `ensure_runtime_schema` and the FastAPI lifespan both create `shop_purchases_v1`; router answers 404 «Магазин пока закрыт» with the flag off and 409 «Не хватает: 600 🪙, 1 💎.» for an empty wallet.
 - Visual: headless Chromium at 360px, all three tabs and both confirm sheets, `scrollWidth` = 360 (no horizontal scroll), no page errors.
 - Not done here (per task): independent T2 review, owner card, «Что нового».
+
+## Independent review (T2, separate agent, 2026-10-14)
+Verdict: approve with fixes; no money or flag defect. Fixed in this PR:
+- Polish request hash no longer includes the catalogue version/digest, so a retry after a deploy that changed other prices returns its receipt instead of a 409 (test: stale-digest replay). The client also drops a pending action id when the server says it is already used.
+- Keys paid with ✨ or 💎 show «Это необратимо.» in the confirm sheet, as the brief asks.
+Left as is, for later:
+- Exchange day boundary uses `CURRENT_DATE` (session timezone). Prod and local are UTC today; switching the exchange repo to `(now() AT TIME ZONE 'UTC')::date` is a separate change to an existing store.
+- **PR-C:** `shop_purchases_v1.item_id` has `CHECK(item_id IN ('ess_polish'))` and `ensure_tables` returns early once the table exists, so new item ids need an explicit `ALTER TABLE … DROP/ADD CONSTRAINT` migration.
+- 422 validation details are English but the client shows its own Russian text; `ensure_ready` runs `CREATE TABLE IF NOT EXISTS` for the exchange table per request (harmless).

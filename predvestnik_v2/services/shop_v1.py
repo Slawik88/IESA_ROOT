@@ -161,10 +161,8 @@ async def buy_polish(
     user_id = int(user_id)
     price = {k: int(v) for k, v in dict(policy.POLISH["price"]).items()}
     gives = {"essence": int(policy.POLISH["essence"])}
-    request_hash = canonical_snapshot_fingerprint({
-        "item_id": policy.POLISH_ITEM, "catalog_version": str(requested_catalog_version),
-        "catalog_digest": str(requested_catalog_digest), "price": price,
-    })
+    # The hash leaves the catalogue digest out: a retry after a deploy that changed other prices still finds its receipt.
+    request_hash = canonical_snapshot_fingerprint({"item_id": policy.POLISH_ITEM, "price": price})
     await essence_repo.ensure_tables(db)
     await repo.ensure_tables(db)
     async with db.connection.transaction():

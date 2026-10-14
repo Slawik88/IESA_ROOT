@@ -48,11 +48,13 @@ assert 'inputmode="numeric"' in js and "body.amount = amount" in js
 # Confirm before every debit: pay, get, balance before → after; irreversible lines.
 assert js.count("v3Confirm(") == 1 and "'Отдаёшь'" in js and "'Получаешь'" in js and "→" in js
 assert "'Покупка необратима: ключ не возвращается.'" in js and "'Это необратимо.'" in js
+assert "'Это необратимо. Покупка необратима: ключ не возвращается.'" in js  # keys for ✨ or 💎
+assert "if (e.includes('уже использован')) _shopPending.delete(key)" in js  # a stale id is dropped, not retried forever
 assert "'zarniki' in cost || 'diamonds' in cost" in js
 
 # States: loading, error with retry, success toast and in-place refresh; one action id per item until success.
 assert "Загрузка магазина…" in js and "Повторить" in js and "shopRetry(" in js and "aria-busy" in js
-assert "_shopPending.get(key) ||" in js and js.count("_shopPending.delete(key)") == 1
+assert "_shopPending.get(key) ||" in js and js.count("_shopPending.delete(key)") == 2
 success = js[js.index(".then(res =>"):js.index(".catch(e => {\n    _shop.busy = null;")]
 assert "_shopPending.delete(key)" in success and "Object.assign(_shop.me.balances, res.balances)" in success and "toast(" in success
 assert "catalog_digest: d.catalog_digest" in js and len(re.findall(r"method: 'POST'", js)) == 1
