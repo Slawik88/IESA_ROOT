@@ -2,18 +2,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import math
 import secrets
 from uuid import uuid4
 
 from core.chests_v1 import (
-    CATALOG_VERSION, FOODS, PAID_KEY_DAILY_LIMIT, PAID_KEY_PRICE_ZARNIKI,
+    CATALOG_VERSION, FOODS, KEY_OFFERS, KEY_OFFERS_FLAG, KEY_TIER_NAMES, KEY_TIERS,
+    PAID_KEY_DAILY_LIMIT, PAID_KEY_PRICE_ZARNIKI,
     PET_SPECIES, POLICY_VERSION, STAR_WEIGHTS, VIP_COSMETIC_POOL, KeyGrant,
-    catalog_digest, canonical_snapshot_fingerprint, public_reward_rows, roll_outcome,
-    validate_key_grant,
+    catalog_digest, canonical_snapshot_fingerprint, key_tier as checked_key_tier, public_reward_rows,
+    roll_outcome, tier_for_source, tier_star_odds, validate_key_grant,
 )
 from core.cosmetics import COSMETICS
-from infrastructure.repositories import economy_ledger
+from core.economy_contract import InsufficientBalance
+from infrastructure.repositories import economy_ledger, system_flags
 from infrastructure.repositories import chests_v1 as repo
+from infrastructure.repositories import skins_v3 as essence_repo
 from services import vip
 
 
@@ -110,10 +115,13 @@ async def grant_quest_completion_key_in_transaction(
     if replay:
         if not _same_facts(replay, grant, int(user_id), snapshot_hash):
             raise ChestKeyConflict("Chest-key source identity is bound to different facts.")
+        total = await repo.grant_total(
+            db, user_id=int(user_id), source_kind=grant.source_kind,
+            source_event_id=grant.source_event_id)
         return KeyGrantReceipt(
-            grant_id=str(replay["id"]), applied=False, amount=int(replay["amount"]),
+            grant_id=str(replay["id"]), applied=False, amount=total,
             balance_before=int(replay["balance_before"]),
-            balance_after=int(replay["balance_after"]),
+            balance_after=int(replay["balance_before"]) + total,
         )
     account = await repo.lock_account(db, int(user_id))
     before = int(account["balance"])
@@ -125,8 +133,14 @@ async def grant_quest_completion_key_in_transaction(
         source_snapshot_hash=snapshot_hash, balance_before=before,
         account_epoch=int(account["account_epoch"]),
     )
+    after = await repo.apply_bonus_grants(
+        db, user_id=int(user_id), source_kind=grant.source_kind,
+        source_event_id=grant.source_event_id, policy_version=POLICY_VERSION,
+        source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
+        balance_before=after, account_epoch=int(account["account_epoch"]),
+    )
     return KeyGrantReceipt(
-        grant_id=grant_id, applied=True, amount=grant.amount,
+        grant_id=grant_id, applied=True, amount=after - before,
         balance_before=before, balance_after=after,
     )
 
@@ -136,15 +150,22 @@ async def overview(db, *, user_id: int) -> dict:
     pending = await repo.latest_unrevealed_open(db, user_id=int(user_id))
     latest = await repo.latest_revealed_open(db, user_id=int(user_id))
     paid_today = await repo.paid_purchases_today(db, user_id=int(user_id))
+    tiers_on = await offers_enabled(db)
     return {
         "policy_version": POLICY_VERSION,
         "catalog_version": CATALOG_VERSION,
         "catalog_digest": catalog_digest(),
         "key_balance": await repo.get_balance(db, int(user_id)),
+        "key_balances": {str(tier): count for tier, count in (await repo.tier_balances(db, int(user_id))).items()},
+        "key_tiers": [{"tier": tier, "name": KEY_TIER_NAMES[tier], "star_odds": tier_star_odds(tier)}
+                      for tier in KEY_TIERS],
+        "tiers_enabled": tiers_on,
+        "offers": await _offers_public(db, int(user_id)) if tiers_on else [],
+        "locked_paid_keys": 0,
         "pending_open": _prepared(pending) if pending else None,
         "last_result": _revealed(latest) if latest else None,
         "funding": {
-            "free_key": True, "paid": True, "price_zarniki": PAID_KEY_PRICE_ZARNIKI,
+            "free_key": True, "paid": not tiers_on, "price_zarniki": PAID_KEY_PRICE_ZARNIKI,
             "daily_limit": PAID_KEY_DAILY_LIMIT, "purchased_today": paid_today,
             "remaining_today": max(0, PAID_KEY_DAILY_LIMIT - paid_today), "day_boundary": "UTC",
         },
@@ -154,14 +175,22 @@ async def overview(db, *, user_id: int) -> dict:
         ],
         "rewards": public_reward_rows(),
         "inventory": await repo.inventory_summary(db, user_id=int(user_id)),
-        "message": "Бесплатный и купленный ключи имеют одинаковые шансы. Сервер фиксирует одну награду до раскрытия.",
+        "message": ("Ключ уровня N открывает тот же сундук, но звёзды ниже N становятся N. "
+                    "Сервер фиксирует одну награду до раскрытия." if tiers_on else
+                    "Бесплатный и купленный ключи имеют одинаковые шансы. Сервер фиксирует одну награду до раскрытия."),
         "surplus_policy": "Лишние карты сохраняются. Обмен и компенсация появятся только после отдельного предрелизного решения.",
     }
+
+
+def _row_tier(row: dict) -> int:
+    kind = row.get("key_source_kind")
+    return tier_for_source(str(kind)) if kind else 1
 
 
 def _prepared(row: dict) -> dict:
     return {
         "open_id": str(row["id"]),
+        "key_tier": _row_tier(row),
         "catalog_version": str(row["catalog_version"]),
         "catalog_digest": str(row["catalog_digest"]),
         "key_balance": int(row["key_balance_after"]),
@@ -173,7 +202,7 @@ def _revealed(row: dict) -> dict:
     return {
         "open_id": str(row["id"]), "catalog_version": str(row["catalog_version"]),
         "catalog_digest": str(row["catalog_digest"]), "stars": int(row["stars"]),
-        "reward": _reward_public(row),
+        "key_tier": _row_tier(row), "reward": _reward_public(row),
         "key_balance": int(row["key_balance_after"]), "revealed": True,
     }
 
@@ -218,6 +247,8 @@ async def purchase_key(
                 raise ChestKeyConflict("action_id уже использован для другой покупки.")
             return {"purchase_id": str(replay["id"]), "applied": False,
                     "key_balance": int(replay["balance_after"]), "price_zarniki": int(replay["price_zarniki"])}
+        if await offers_enabled(db):
+            raise ChestKeyConflict("Ключ за 10 ✨ заменён Серебряным ключом. Обнови экран.")
         if (str(requested_catalog_version) != CATALOG_VERSION
                 or str(requested_catalog_digest) != catalog_digest()):
             raise ChestKeyConflict("Каталог изменился. Обнови экран перед покупкой.")
@@ -299,19 +330,147 @@ async def refund_unused_purchase(
                 "amount_zarniki": amount, "key_balance": after}
 
 
-async def prepare_free_open(
-    db, *, user_id: int, action_id: str, requested_catalog_version: str,
+async def offers_enabled(db) -> bool:
+    """Tiered key offers share the pet level-up switch: no paid tiers before cards have a sink."""
+    return await system_flags.is_enabled(db, KEY_OFFERS_FLAG)
+
+
+_PRICE_NAMES = {"mora": "Моры", "diamonds": "💎", "zarniki": "✨", "essence": "Эссенции"}
+
+
+async def _offers_public(db, user_id: int) -> list[dict]:
+    day, week = await repo.offer_window(db)
+    legacy_today = await repo.legacy_purchases_on(db, user_id=int(user_id), day=day)
+    rows = []
+    for offer_id, offer in KEY_OFFERS.items():
+        used = await repo.offer_purchases_in_window(
+            db, user_id=int(user_id), offer_id=offer_id, window=str(offer["window"]), day=day, week=week)
+        if offer_id == "silver_zarniki":
+            used += legacy_today
+        rows.append({"offer_id": offer_id, "key_tier": int(offer["tier"]),
+                     "name": KEY_TIER_NAMES[int(offer["tier"])], "price": dict(offer["price"]),
+                     "limit": int(offer["limit"]), "window": str(offer["window"]), "used": used,
+                     "remaining": max(0, int(offer["limit"]) - used), "day_boundary": "UTC"})
+    return rows
+
+
+async def _shortages(db, user_id: int, price: dict) -> list[str]:
+    from infrastructure.repositories import economy as economy_repo
+    balance = await economy_repo.get_balance(db, int(user_id))
+    have = {"mora": float(balance["user_balance_mora"] or 0),
+            "diamonds": float(balance["user_balance_diamonds"] or 0),
+            "zarniki": float(balance.get("user_balance_zarniki") or 0),
+            "essence": float(await essence_repo.essence_balance(db, int(user_id)))}
+    return [f"{math.ceil(amount - have[currency])} {_PRICE_NAMES[currency]}"
+            for currency, amount in price.items() if have[currency] < amount]
+
+
+def _stored_price(value) -> dict[str, int]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    return {str(k): int(v) for k, v in dict(value or {}).items()}
+
+
+async def buy_offer(
+    db, *, user_id: int, offer_id: str, action_id: str, requested_catalog_version: str,
     requested_catalog_digest: str,
 ) -> dict:
-    """Consume one key and persist one sealed outcome in the same transaction."""
+    """Buy one tiered key: limit, all-currency debit and the key grant commit together."""
     await repo.assert_delivery_ready(db)
     action_id = _action_id(action_id)
+    offer_id = str(offer_id or "").strip()
+    if offer_id not in KEY_OFFERS:
+        raise ChestKeyConflict("Такого ключа в продаже нет.")
+    offer = KEY_OFFERS[offer_id]
+    tier, price = int(offer["tier"]), {k: int(v) for k, v in dict(offer["price"]).items()}
+    request_hash = canonical_snapshot_fingerprint({
+        "offer_id": offer_id, "catalog_version": str(requested_catalog_version),
+        "catalog_digest": str(requested_catalog_digest), "price": price,
+    })
+    await essence_repo.ensure_tables(db)
+    async with db.connection.transaction():
+        await repo.lock_user(db, int(user_id))
+        replay = await repo.find_offer_purchase(db, user_id=int(user_id), action_id=action_id)
+        if replay:
+            if str(replay["request_hash"]) != request_hash:
+                raise ChestKeyConflict("action_id уже использован для другой покупки.")
+            return {"purchase_id": str(replay["id"]), "applied": False, "offer_id": offer_id,
+                    "key_tier": tier, "key_balance": int(replay["balance_after"]), "price": _stored_price(replay["price"])}
+        if not await offers_enabled(db):
+            raise ChestKeyConflict("Ключи по звёздам пока недоступны.")
+        if (str(requested_catalog_version) != CATALOG_VERSION
+                or str(requested_catalog_digest) != catalog_digest()):
+            raise ChestKeyConflict("Каталог изменился. Обнови экран перед покупкой.")
+        day, week = await repo.offer_window(db)
+        used = await repo.offer_purchases_in_window(
+            db, user_id=int(user_id), offer_id=offer_id, window=str(offer["window"]), day=day, week=week)
+        if offer_id == "silver_zarniki":  # PAID_KEY_DAILY_LIMIT also counts legacy 10 ✨ keys of the day
+            used += await repo.legacy_purchases_on(db, user_id=int(user_id), day=day)
+        if used >= int(offer["limit"]):
+            period = "сегодня" if offer["window"] == "day" else "на этой неделе"
+            raise ChestKeyConflict(f"Лимит {period} исчерпан: {offer['limit']} из {offer['limit']}.")
+        account = await repo.lock_account(db, int(user_id))
+        missing = await _shortages(db, int(user_id), price)
+        if missing:
+            raise ChestKeyConflict("Не хватает: " + ", ".join(missing) + ".")
+        purchase_id = uuid4().hex
+        metadata = {"policy_version": POLICY_VERSION, "catalog_version": CATALOG_VERSION,
+                    "catalog_digest": catalog_digest(), "offer_id": offer_id, "key_tier": tier, "price": price}
+        ledger_price = {k: -v for k, v in price.items() if k != "essence"}
+        try:
+            mutation = await economy_ledger.apply_balance_change(
+                db, int(user_id), ledger_price, reason_code=f"chest_key_offer_{offer_id}",
+                idempotency_key=f"chest-offer:{purchase_id}", source_type="chest_v1",
+                reference_type="chest_key_offer", reference_id=purchase_id, metadata=metadata,
+                note=f"Покупка ключа: {KEY_TIER_NAMES[tier]}",
+            )
+        except InsufficientBalance as exc:
+            raise ChestKeyConflict("Не хватает валюты для покупки.") from exc
+        essence = price.get("essence", 0)
+        if essence:
+            try:
+                await essence_repo.essence_apply(
+                    db, int(user_id), -essence, reason=f"chest_key_offer_{offer_id}",
+                    reference=purchase_id, idempotency_key=f"chest-offer:{purchase_id}",
+                )
+            except ValueError as exc:
+                raise ChestKeyConflict(f"Не хватает: {essence} Эссенции.") from exc
+        snapshot = {"purchase_id": purchase_id, "offer_id": offer_id, "key_tier": tier, "price": price,
+                    "catalog_version": CATALOG_VERSION, "catalog_digest": catalog_digest()}
+        grant_id = uuid4().hex
+        after = await repo.apply_grant(
+            db, grant_id=grant_id, user_id=int(user_id), source_kind=f"offer_{offer_id}",
+            source_event_id=purchase_id, amount=1, policy_version=POLICY_VERSION,
+            source_snapshot=snapshot, source_snapshot_hash=canonical_snapshot_fingerprint(snapshot),
+            balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
+        )
+        await repo.create_offer_purchase(
+            db, purchase_id=purchase_id, user_id=int(user_id), action_id=action_id, offer_id=offer_id,
+            key_tier=tier, request_hash=request_hash, catalog_version=CATALOG_VERSION,
+            catalog_digest=catalog_digest(), price=price, economy_operation_id=str(mutation.operation_id),
+            essence_spent=essence, grant_id=grant_id, day=day, week=week,
+        )
+        return {"purchase_id": purchase_id, "applied": True, "offer_id": offer_id,
+                "key_tier": tier, "key_balance": after, "price": price}
+
+
+async def prepare_free_open(
+    db, *, user_id: int, action_id: str, requested_catalog_version: str,
+    requested_catalog_digest: str, key_tier: int = 1,
+) -> dict:
+    """Consume one key of ``key_tier`` and persist one sealed outcome in the same transaction."""
+    await repo.assert_delivery_ready(db)
+    action_id = _action_id(action_id)
+    key_tier = checked_key_tier(key_tier)
     requested_catalog_version = str(requested_catalog_version or "").strip()
     requested_catalog_digest = str(requested_catalog_digest or "").strip()
-    request_hash = canonical_snapshot_fingerprint({
+    request = {
         "funding": "free_key", "catalog_version": requested_catalog_version,
         "catalog_digest": requested_catalog_digest,
-    })
+    }
+    if key_tier != 1:  # tier-1 requests keep their pre-tier hash, so old retries still replay
+        request["key_tier"] = key_tier
+    request_hash = canonical_snapshot_fingerprint(request)
     async with db.connection.transaction():
         await repo.lock_user(db, int(user_id))
         replay = await repo.find_open_by_action(db, user_id=int(user_id), action_id=action_id)
@@ -326,25 +485,19 @@ async def prepare_free_open(
         before = int(account["balance"])
         if before < 1:
             raise ChestKeyConflict("Нужен один ключ от сундука.")
+        if (await repo.tier_balances(db, int(user_id)))[key_tier] < 1:
+            raise ChestKeyConflict("Нет ключа этого уровня.")
         grant = await repo.next_unspent_grant(
-            db, user_id=int(user_id), account_epoch=int(account["account_epoch"]),
+            db, user_id=int(user_id), account_epoch=int(account["account_epoch"]), key_tier=key_tier,
         )
         if not grant:
-            raise RuntimeError("Key balance has no matching entitlement receipt.")
-        if str(grant["source_kind"]) == "zarniki_purchase":
-            snapshot = grant.get("source_snapshot") or {}
-            if isinstance(snapshot, str):
-                import json
-                snapshot = json.loads(snapshot)
-            if (str(snapshot.get("catalog_version")) != CATALOG_VERSION
-                    or str(snapshot.get("catalog_digest")) != catalog_digest()):
-                raise ChestKeyConflict("Купленный ключ привязан к недоступной версии каталога.")
+            raise ChestKeyConflict("Нет ключа этого уровня.")
         vip_ids: tuple[str, ...] = ()
         if await vip.is_vip_active(db, int(user_id)):
             vip_ids = tuple(await repo.vip_cosmetic_candidates(
                 db, user_id=int(user_id), allowed_ids=VIP_COSMETIC_POOL,
             ))
-        outcome = roll_outcome(secrets.randbelow, vip_cosmetic_ids=vip_ids)
+        outcome = roll_outcome(secrets.randbelow, vip_cosmetic_ids=vip_ids, tier=key_tier)
         open_id = uuid4().hex
         await repo.create_open(
             db, open_id=open_id, user_id=int(user_id), action_id=action_id,
@@ -378,7 +531,7 @@ async def reveal(db, *, user_id: int, open_id: str) -> dict:
         metadata = {"policy_version": POLICY_VERSION, "catalog_version": str(row["catalog_version"]),
                     "catalog_digest": str(row["catalog_digest"]), "roll": int(row["roll"]),
                     "stars": int(row["stars"]), "reward_kind": kind,
-                    "reward_ref": ref, "reward_amount": amount}
+                    "reward_ref": ref, "reward_amount": amount, "key_tier": _row_tier(row)}
         if kind in {"mora", "diamonds", "zarniki"}:
             mutation = await economy_ledger.apply_balance_change(
                 db, int(user_id), {kind: amount}, reason_code="chest_v1_reward",

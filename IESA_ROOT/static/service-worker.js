@@ -2,7 +2,7 @@
  * Cache public static assets only. HTML/HTMX/media may contain account data,
  * so they always use the network; navigations get a generic offline page.
  */
-const CACHE_VERSION = 'iesa-v7';
+const CACHE_VERSION = 'iesa-v8';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline/';
 

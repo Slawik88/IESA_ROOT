@@ -84,6 +84,10 @@ async def run(dsn: str) -> None:
         assert ranking["personal"] and ranking["personal"]["best_score"] == first["score"]
         assert all("user_id" not in row for row in ranking["top"]), "public leaderboard DTO must not expose raw user ids"
         assert ranking["top"] and all({"look", "mark", "is_vip"} <= set(row["player"]) and "user_id" not in row["player"] for row in ranking["top"]) and all("is_me" in row for row in ranking["top"]), "game boards carry the same skin and own-row fields as the message tops"
+        full = await rhythm.rankings_page(db, user_id=975001, mode="normal", page=99)
+        assert full["page"] == full["pages"] - 1 and full["total"] >= len(full["items"]) >= 1, "out-of-range page clamps to the last one"
+        assert full["personal"]["place"] == ranking["personal"]["place"] and full["personal"]["total"] == full["total"]
+        assert all("user_id" not in row and {"look", "mark", "is_vip"} <= set(row["player"]) for row in full["items"]), "full board keeps the public DTO"
 
         scorer = await rhythm.start_run(db, user_id=975008, mode="normal")
         scorer_ticket = await rhythm.issue_transport_ticket(db, user_id=975008, run_id=scorer["run_id"])

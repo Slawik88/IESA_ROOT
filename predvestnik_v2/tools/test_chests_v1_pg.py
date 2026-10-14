@@ -65,9 +65,9 @@ async def run(dsn: str) -> None:
         await insert_receipt(db, user, "daily", grant_args["reward_id"])
         first = await chests_v1.grant_quest_completion_key(db, user_id=user, **grant_args)
         replay = await chests_v1.grant_quest_completion_key(db, user_id=user, **grant_args)
-        assert first.applied and first.balance_before == 0 and first.balance_after == 1
-        assert not replay.applied and replay.grant_id == first.grant_id and replay.balance_after == 1
-        assert await repo.get_balance(db, user) == 1
+        assert first.applied and first.balance_before == 0 and first.balance_after == 2 and first.amount == 2
+        assert not replay.applied and replay.grant_id == first.grant_id and replay.balance_after == 2 and replay.amount == 2
+        assert await repo.get_balance(db, user) == 2
 
         try:
             await chests_v1.grant_quest_completion_key(
@@ -77,11 +77,11 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("daily receipt must not mint a weekly key")
-        assert await repo.get_balance(db, user) == 1
+        assert await repo.get_balance(db, user) == 2
 
         await insert_receipt(db, user + 1, "daily", grant_args["reward_id"])
         other = await chests_v1.grant_quest_completion_key(db, user_id=user + 1, **grant_args)
-        assert other.applied and other.balance_after == 1
+        assert other.applied and other.balance_after == 2
 
         combined_user = user + 2
         await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT(user_tg_id) DO NOTHING", (combined_user,))
@@ -115,14 +115,14 @@ async def run(dsn: str) -> None:
         async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id=?", (user,)) as cursor:
             mora_before = float((await cursor.fetchone())[0])
         original_roll = chests_v1.roll_outcome
-        chests_v1.roll_outcome = lambda *_args, **_kwargs: ChestOutcome(0, 1, "mora", 20)
+        chests_v1.roll_outcome = lambda *_args, **_kwargs: ChestOutcome(0, 1, "mora", 10)
         prepared = await chests_v1.prepare_free_open(
             db, user_id=user, action_id="open-a", requested_catalog_version=CATALOG_VERSION,
             requested_catalog_digest=catalog_digest(),
         )
         chests_v1.roll_outcome = original_roll
         assert prepared["sealed"] and "stars" not in prepared and "reward" not in prepared
-        assert prepared["key_balance"] == 0 and await repo.get_balance(db, user) == 0
+        assert prepared["key_balance"] == 1 and await repo.get_balance(db, user) == 1
         async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id=?", (user,)) as cursor:
             assert float((await cursor.fetchone())[0]) == mora_before
         recovered = await chests_v1.overview(db, user_id=user)
@@ -173,6 +173,14 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("another user must not reveal an owned opening")
+        chests_v1.roll_outcome = lambda *_args, **_kwargs: ChestOutcome(0, 1, "mora", 10)
+        second = await chests_v1.prepare_free_open(
+            db, user_id=user, action_id="open-b", requested_catalog_version=CATALOG_VERSION,
+            requested_catalog_digest=catalog_digest(),
+        )
+        chests_v1.roll_outcome = original_roll
+        assert second["key_balance"] == 0 and await repo.get_balance(db, user) == 0
+        await chests_v1.reveal(db, user_id=user, open_id=second["open_id"])
         try:
             await chests_v1.prepare_free_open(
                 db, user_id=user, action_id="open-empty", requested_catalog_version=CATALOG_VERSION,
@@ -194,7 +202,7 @@ async def run(dsn: str) -> None:
             rollback_mora_before = float((await cursor.fetchone())[0])
         original_apply = chests_v1.economy_ledger.apply_balance_change
         original_roll = chests_v1.roll_outcome
-        chests_v1.roll_outcome = lambda *_args, **_kwargs: ChestOutcome(0, 1, "mora", 20)
+        chests_v1.roll_outcome = lambda *_args, **_kwargs: ChestOutcome(0, 1, "mora", 10)
 
         async def fail_after_reward(*args, **kwargs):
             await original_apply(*args, **kwargs)
@@ -216,7 +224,7 @@ async def run(dsn: str) -> None:
         finally:
             chests_v1.economy_ledger.apply_balance_change = original_apply
             chests_v1.roll_outcome = original_roll
-        assert await repo.get_balance(db, rollback_user) == 0
+        assert await repo.get_balance(db, rollback_user) == 2  # 3 weekly keys, the prepared open spent one
         async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id=?", (rollback_user,)) as cursor:
             assert float((await cursor.fetchone())[0]) == rollback_mora_before
         async with db.execute("SELECT COUNT(*) FROM chest_opens_v1 WHERE user_id=?", (rollback_user,)) as cursor:
@@ -297,7 +305,7 @@ async def run(dsn: str) -> None:
     finally:
         await setup_conn.close()
 
-    race_connections = [await asyncpg.connect(dsn), await asyncpg.connect(dsn)]
+    race_connections = [await asyncpg.connect(dsn), await asyncpg.connect(dsn), await asyncpg.connect(dsn)]
 
     async def attempt(index: int):
         try:
@@ -310,12 +318,13 @@ async def run(dsn: str) -> None:
             return None
 
     try:
-        race_results = await asyncio.gather(attempt(0), attempt(1))
-        assert sum(result is not None for result in race_results) == 1
+        # A daily set mints 2 keys, so three concurrent opens must produce exactly two.
+        race_results = await asyncio.gather(attempt(0), attempt(1), attempt(2))
+        assert sum(result is not None for result in race_results) == 2
         check_db = PGAdapter(race_connections[0])
         assert await repo.get_balance(check_db, race_user) == 0
         async with check_db.execute("SELECT COUNT(*) FROM chest_opens_v1 WHERE user_id=?", (race_user,)) as cursor:
-            assert (await cursor.fetchone())[0] == 1
+            assert (await cursor.fetchone())[0] == 2
     finally:
         await asyncio.gather(*(connection.close() for connection in race_connections))
     print("OK: chest keys/opening are atomic, idempotent, isolated, race- and rollback-safe")

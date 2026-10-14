@@ -471,20 +471,38 @@ async def _promote_reviews(db) -> None:
         )
 
 
-async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
+async def _current_season(db, mode: str) -> tuple[dict, object, object]:
     if mode not in ("normal", "augments"):
         raise RhythmError("unknown rhythm mode")
     await repo.ensure_tables(db)
     await _promote_reviews(db)
     # One ranked board; "augments" is only a legacy alias of it.
-    mode = "normal"
-    season = game_seasons.season_view(game="rhythm", board=mode)
+    season = game_seasons.season_view(game="rhythm", board="normal")
     start, end = season_rules.season_bounds(season["number"])
-    board = await repo.leaderboard(db, user_id=user_id, mode=mode, starts_at=start, ends_at=end)
+    return season, start, end
+
+
+async def rankings(db, *, user_id: int, mode: rules.Mode) -> dict:
+    season, start, end = await _current_season(db, mode)
+    board = await repo.leaderboard(db, user_id=user_id, mode="normal", starts_at=start, ends_at=end)
     await leaderboards_v1.decorate_game_board(db, board, user_id)
     board["season"] = season
-    board["last_season"] = await game_seasons.last_result(db, game="rhythm", board=mode, user_id=user_id)
+    board["last_season"] = await game_seasons.last_result(db, game="rhythm", board="normal", user_id=user_id)
     return board
+
+
+async def rankings_page(db, *, user_id: int, mode: rules.Mode, page: int = 0) -> dict:
+    """Every ranked player of the current season, page by page (same page size as the message top)."""
+    season, start, end = await _current_season(db, mode)
+    size = leaderboards_v1.PAGE_SIZE
+    total = await repo.season_player_count(db, mode="normal", starts_at=start, ends_at=end)
+    pages = max(1, -(-total // size))
+    page = max(0, min(int(page), pages - 1))
+    board = await repo.leaderboard(db, user_id=user_id, mode="normal", starts_at=start, ends_at=end,
+                                   limit=size, offset=page * size)
+    await leaderboards_v1.decorate_game_board(db, board, user_id)
+    personal = board["personal"] and {**board["personal"], "total": total}
+    return {"season": season, "page": page, "pages": pages, "total": total, "items": board["top"], "personal": personal}
 
 
 async def season_standings(db, start, end) -> list[dict]:

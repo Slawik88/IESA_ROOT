@@ -300,6 +300,8 @@
     const thumbs = strip ? Array.from(strip.querySelectorAll('.gal-thumb-button')) : [];
     const defaultPhotoAlt = '{{ default_photo|escapejs }}';
     let current = 0;
+    let photoTimer = null;
+    let fadeTimer = null;
 
     items.forEach(it => {
         const photo = it.querySelector(':scope > img');
@@ -318,6 +320,9 @@
     }
 
     function show(index, animate){
+        clearTimeout(photoTimer);
+        clearTimeout(fadeTimer);
+        current = index;
         const doIt = () => {
             const it = items[index];
             imgEl.src = it.dataset.src;
@@ -328,12 +333,12 @@
             updateThumbs(index);
             if (animate) {
                 imgEl.onload = () => { imgEl.classList.remove('iesa-fading'); imgEl.onload = null; };
-                setTimeout(() => imgEl.classList.remove('iesa-fading'), 200);
+                fadeTimer = setTimeout(() => imgEl.classList.remove('iesa-fading'), 200);
             }
             const bs = bootstrap.Modal.getOrCreateInstance(modalEl);
-            bs.show();
+            if (!animate) bs.show();
         };
-        if (animate) { imgEl.classList.add('iesa-fading'); setTimeout(doIt, 200); }
+        if (animate) { imgEl.classList.add('iesa-fading'); photoTimer = setTimeout(doIt, 200); }
         else doIt();
     }
 
@@ -354,7 +359,14 @@
     // Keyboard
     let modalOpen = false;
     modalEl.addEventListener('show.bs.modal', () => { modalOpen = true; });
-    modalEl.addEventListener('hide.bs.modal', () => { modalOpen = false; });
+    modalEl.addEventListener('hide.bs.modal', () => {
+        modalOpen = false;
+        photoTouch = null;
+        clearTimeout(photoTimer);
+        clearTimeout(fadeTimer);
+        imgEl.onload = null;
+        imgEl.classList.remove('iesa-fading');
+    });
     document.addEventListener('keydown', e => {
         if (!modalOpen) return;
         if (e.key === 'ArrowLeft')  { e.preventDefault(); show((current - 1 + items.length) % items.length, true); }
@@ -362,11 +374,25 @@
     });
 
     // Touch swipe
-    let touchX = 0;
-    modalEl.addEventListener('touchstart', e => { touchX = e.changedTouches[0].screenX; }, { passive: true });
+    let photoTouch = null;
+    modalEl.addEventListener('touchstart', e => {
+        photoTouch = e.touches.length === 1
+            ? { id: e.touches[0].identifier, x: e.touches[0].clientX, y: e.touches[0].clientY }
+            : null;
+    }, { passive: true });
+    modalEl.addEventListener('touchmove', e => {
+        if (e.touches.length !== 1) photoTouch = null;
+    }, { passive: true });
+    modalEl.addEventListener('touchcancel', () => { photoTouch = null; }, { passive: true });
     modalEl.addEventListener('touchend', e => {
-        const diff = e.changedTouches[0].screenX - touchX;
-        if (Math.abs(diff) > 50) {
+        const start = photoTouch;
+        photoTouch = null;
+        if (!start || !modalOpen) return;
+        const touch = Array.from(e.changedTouches).find(t => t.identifier === start.id);
+        if (!touch) return;
+        const diff = touch.clientX - start.x;
+        const dy = touch.clientY - start.y;
+        if (Math.abs(diff) > 50 && Math.abs(diff) > Math.abs(dy) * 1.5) {
             show(diff > 0 ? (current - 1 + items.length) % items.length : (current + 1) % items.length, true);
         }
     }, { passive: true });

@@ -1,10 +1,13 @@
 """Idempotent active-pet writer for the approved pet foundation."""
 from __future__ import annotations
 
+import secrets
+
 from infrastructure.repositories import pets_v1 as repo
-from infrastructure.repositories import chests_v1 as chest_repo, system_flags
+from infrastructure.repositories import chests_v1 as chest_repo, economy_ledger, system_flags
 from core.pets_v1 import MAX_LEVEL, POLICY_VERSION, PetPolicyError, apply_active_slot_swap, endurance_after_elapsed, level_effects, spend_activity_endurance, validate_activity, validate_expedition_decision
-from core.chests_v1 import FOODS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
+from core.chests_v1 import FOODS, KEY_SOURCE_COUNTS, PET_SPECIES, POLICY_VERSION as CHEST_POLICY_VERSION, KeyGrant, canonical_snapshot_fingerprint, validate_key_grant
+from core.pet_info_v1 import level_milestones, species_info
 from core.echo_shards_v1 import MaxDuplicateCompensation
 from services.echo_shards_v1 import EchoShardReceipt, compensate_max_duplicate_in_transaction
 from uuid import uuid4
@@ -30,7 +33,10 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             db, user_id=int(user_id), source_kind=grant.source_kind, source_event_id=grant.source_event_id,
         )
         if existing:
-            grant_id, after = str(existing["id"]), int(existing["balance_after"])
+            grant_id = str(existing["id"])
+            after = int(existing["balance_before"]) + await chest_repo.grant_total(
+                db, user_id=int(user_id), source_kind=grant.source_kind,
+                source_event_id=grant.source_event_id)
         else:
             account = await chest_repo.lock_account(db, int(user_id))
             grant_id = uuid4().hex
@@ -39,6 +45,12 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
                 source_event_id=grant.source_event_id, amount=1, policy_version=CHEST_POLICY_VERSION,
                 source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
                 balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
+            )
+            after = await chest_repo.apply_bonus_grants(
+                db, user_id=int(user_id), source_kind=grant.source_kind,
+                source_event_id=grant.source_event_id, policy_version=CHEST_POLICY_VERSION,
+                source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
+                balance_before=after, account_epoch=int(account["account_epoch"]),
             )
         await repo.save_activity_reward(
             db, run_id=str(run["id"]), user_id=int(user_id), activity_kind=kind, key_grant_id=grant_id,
@@ -56,7 +68,10 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             source_snapshot={"run_id": str(run["id"]), "activity_kind": kind,
                              "duration_hours": int(run["duration_hours"]), "pet_id": int(run["pet_id"])},
         )
-        receipts.append({"run_id": str(run["id"]), "activity_kind": kind, "amount_keys": 1,
+        receipts.append({"run_id": str(run["id"]), "activity_kind": kind,
+                         "amount_keys": await chest_repo.grant_total(
+                             db, user_id=int(user_id), source_kind=grant.source_kind,
+                             source_event_id=grant.source_event_id),
                          "key_balance": after})
     return receipts
 
@@ -163,6 +178,7 @@ async def overview(db, user_id: int) -> dict:
     activity = None
     if run:
         activity = {key: (str(value) if key.endswith('_at') and value is not None else value) for key, value in run.items() if key != 'server_now'}
+    route_options = await _route_options(db, user_id, activity, pets) if activity else None
     chest_inventory = await chest_repo.inventory_summary(db, user_id=int(user_id))
     food = [{"id": food_id, **FOODS[food_id], "quantity": int(quantity)}
             for food_id, quantity in chest_inventory["foods"].items() if food_id in FOODS and int(quantity) > 0]
@@ -171,7 +187,7 @@ async def overview(db, user_id: int) -> dict:
     bestiary = [
         {"id": species_id, "name": row["name"], "rarity": row["rarity"],
          "icon": row["icon"], "owned": species_id in owned_species,
-         "lore": PET_LORE.get(species_id, "")}
+         "lore": PET_LORE.get(species_id, ""), "info": species_info(species_id)}
         for species_id, row in PET_SPECIES.items()
     ]
     from services.pet_levels_v1 import next_step   # lazy: that module imports PetConflict from here
@@ -181,10 +197,18 @@ async def overview(db, user_id: int) -> dict:
             "bestiary": bestiary,
             "bestiary_owned": sum(1 for item in bestiary if item["owned"]),
             "bestiary_total": len(bestiary),
+            "route_options": route_options,
+            "features": {
+                "route_rewards": await route_rewards_enabled(db),
+                "level_up": await system_flags.is_enabled(db, "pets_level_up_v1"),
+                "trail": await system_flags.is_enabled(db, "pets_v2"),
+            },
+            "level_milestones": level_milestones(),
             "durations":[3,6,9],"activity":activity,"economy_enabled":True,
             "food": food, "activity_rewards": activity_rewards,
             "activity_costs": ACTIVITY_ENDURANCE_COST,
-            "activity_reward_label": "За завершённый поход или экспедицию: 1 ключ"}
+            "activity_reward_label": "За завершённый поход: 1 ключ, за экспедицию: 2 ключа",
+            "activity_key_counts": {"trek": KEY_SOURCE_COUNTS["pet_trek_complete"], "expedition": KEY_SOURCE_COUNTS["pet_expedition_complete"]}}
 
 
 async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: str) -> dict:
@@ -287,6 +311,78 @@ async def start_activity(db, *, user_id: int, kind: str, hours: int, action_id: 
     return response
 
 
+async def _route_options(db, user_id: int, activity: dict, pets: list[dict]) -> dict | None:
+    """Routes of a ready expedition. Exact odds are shown only to pets with a hint charge (L4+)."""
+    if activity.get("kind") != "expedition" or activity.get("status") != "ready" or activity.get("decision"):
+        return None
+    from core.pet_routes_v1 import ROUTES, WEEKLY_CAP_MORA, route_available, route_odds
+    pet = next((item for item in pets if int(item["id"]) == int(activity["pet_id"])), None)
+    if not pet or not await route_rewards_enabled(db):
+        return {"rewards_enabled": False, "routes": []}
+    effects, level = pet["effects"], int(pet["level"])
+    hint = int(effects.get("expedition_hint_charges", 0)) > 0
+    remaining = max(0, WEEKLY_CAP_MORA - await repo.route_paid_this_week(db, int(user_id)))
+    routes = []
+    for route in ROUTES:
+        if not route_available(route, level):
+            continue
+        odds = route_odds(route, int(activity["duration_hours"]), effects)
+        item = {"id": route}
+        if hint:
+            item.update(chance_percent=odds.chance_percent, reward_mora=min(odds.reward_mora, remaining))
+        routes.append(item)
+    return {"rewards_enabled": True, "hint": hint, "routes": routes,
+            "weekly_remaining_mora": remaining, "weekly_cap_mora": WEEKLY_CAP_MORA}
+
+
+async def route_rewards_enabled(db) -> bool:
+    from core.pet_routes_v1 import FLAG
+    return await system_flags.is_enabled(db, FLAG)
+
+
+async def _settle_route(db, *, user_id: int, run: dict, decision: str) -> dict | None:
+    """Server-side roll of the chosen route; Mora is paid once per run. None while the flag is off."""
+    from core.pet_routes_v1 import (
+        POLICY_VERSION as ROUTE_POLICY, REASON_CODE as ROUTE_REASON, SCOUT_MIN_LEVEL, payout_after_cap,
+        roll_success, route_odds, WEEKLY_CAP_MORA,
+    )
+    state = await repo.get_state(db, int(user_id), int(run["pet_id"]))
+    level = int(state["level"])
+    effects = level_effects(level)
+    enabled = await route_rewards_enabled(db)
+    if decision == "scout" and not enabled:
+        raise PetPolicyError("Этот маршрут пока недоступен.")   # raising rolls back the route choice
+    if decision == "scout" and level < SCOUT_MIN_LEVEL:
+        raise PetPolicyError(f"Разведка доступна с {SCOUT_MIN_LEVEL} уровня питомца.")
+    if not enabled:
+        return None
+    hours = int(run["duration_hours"])
+    odds = route_odds(decision, hours, effects)
+    success = roll_success(odds, secrets.randbelow)
+    paid = 0
+    operation_id = None
+    if success:
+        paid = payout_after_cap(odds.reward_mora, await repo.route_paid_this_week(db, int(user_id)))
+        if paid:
+            mutation = await economy_ledger.apply_balance_change(
+                db, int(user_id), {"mora": paid}, reason_code=ROUTE_REASON,
+                idempotency_key=f"pet-route:{run['id']}", source_type="pets_v1",
+                reference_type="pet_route", reference_id=str(run["id"]),
+                metadata={"policy_version": ROUTE_POLICY, "route": decision, "hours": hours,
+                          "chance_percent": odds.chance_percent, "reward_mora": odds.reward_mora},
+                note="Маршрут экспедиции",
+            )
+            operation_id = str(mutation.operation_id)
+    await repo.save_route_reward(
+        db, run_id=str(run["id"]), user_id=int(user_id), route=decision, hours=hours,
+        chance_percent=odds.chance_percent, success=success, reward_mora=odds.reward_mora,
+        paid_mora=paid, economy_operation_id=operation_id, policy_version=ROUTE_POLICY,
+    )
+    return {"route": decision, "chance_percent": odds.chance_percent, "success": success,
+            "reward_mora": odds.reward_mora, "paid_mora": paid,
+            "capped": bool(success and paid < odds.reward_mora), "weekly_cap_mora": WEEKLY_CAP_MORA}
+
+
 async def choose_expedition(db, *, user_id: int, decision: str, action_id: str) -> dict:
     decision = validate_expedition_decision(decision)
     action_id = str(action_id or "").strip()
@@ -304,10 +400,12 @@ async def choose_expedition(db, *, user_id: int, decision: str, action_id: str) 
         run = await repo.choose_expedition(db, user_id=user_id, choice=decision)
         if not run:
             raise PetConflict("Нет готовой экспедиции для этого выбора.")
+        route = await _settle_route(db, user_id=user_id, run=run, decision=decision)
         rewards = await _settle_activity_keys(db, user_id)
         response = {
             "ok": True,
             "completed_without_reward": False,
+            "route": route,
             "amount_keys": sum(int(item["amount_keys"]) for item in rewards),
             "activity": {
                 key: (str(value) if key.endswith('_at') and value is not None else value)

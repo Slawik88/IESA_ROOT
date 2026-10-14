@@ -1,5 +1,5 @@
 // ── Shell V3 · экран «Топ»: то же, что «бот топ» в чате, но на сайте ─────────────
-const _V3_TOP_SCOPES = [{ id: 'global', label: 'Все игроки' }, { id: 'chats', label: 'Чаты' }, { id: 'local', label: 'Мой чат' }];
+const _V3_TOP_SCOPES = [{ id: 'global', label: 'Все игроки' }, { id: 'chats', label: 'Чаты' }, { id: 'local', label: 'Мой чат' }, { id: 'rhythm', label: 'Ритм', flag: 'game_rhythm_v2' }];
 const _V3_TOP_PERIODS = [{ id: 'day', label: 'Сегодня' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'all_time', label: 'Всё время' }];
 let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false, loading: false }, _v3FullSeq = 0;
 
@@ -15,11 +15,19 @@ function loadTopV3() {
   const query = new URLSearchParams({ scope: f.scope, period: f.period, page: String(f.page) });
   if (f.scope === 'local' && f.chat != null) query.set('chat_id', String(f.chat));
   f.failed = false; f.loading = true; renderTopV3();   // прежний список остаётся на экране, пока идёт запрос: серого блока на долю секунды больше нет
-  return api(`/leaderboards/messages/full?${query}`).then(d => {
+  const url = f.scope === 'rhythm' ? `/rhythm-v2/leaderboard/normal/full?page=${f.page}` : `/leaderboards/messages/full?${query}`;
+  return api(url).then(d => {
+    if (f.scope === 'rhythm') d = _v3RhythmFull(d);
     if (mine !== _v3FullSeq) return;
     f.data = d; f.failed = false; f.loading = false; if (f.scope === 'local' && f.chat == null && d.chats?.length) f.chat = d.chats[0].chat_id;
     renderTopV3();
   }).catch(e => { if (mine !== _v3FullSeq) return; f.failed = String(e || 'Ошибка'); f.loading = false; renderTopV3(); });
+}
+// Сезонная таблица Ритма приводится к виду таблицы сообщений: очки идут в count
+function _v3RhythmFull(d) {
+  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score }));
+  const personal = d.personal ? { place: d.personal.place, total: d.personal.total, count: d.personal.best_score } : null;
+  return { page: d.page, pages: d.pages, items, personal, season: d.season, chats: _v3Full.data?.chats };
 }
 function v3FullSet(key, value) {
   const f = _v3Full; if (f[key] === value) return;
@@ -33,24 +41,25 @@ function _v3FullRow(r, scope) {
 function renderTopV3() {
   const host = el('pg-top'); if (!host) return;
   const f = _v3Full, d = f.data, hasChat = !!(d?.chats?.length || _profileData?.chats?.length);
-  const scopes = _V3_TOP_SCOPES.filter(s => s.id !== 'local' || hasChat);
+  const scopes = _V3_TOP_SCOPES.filter(s => (s.id !== 'local' || hasChat) && (!s.flag || _sysFlags[s.flag] === true)), rhythm = f.scope === 'rhythm';
+  const unit = rhythm ? 'очк.' : 'сообщ.';
   const seg = (items, current, key) => items.map(i => `<button type="button" role="tab" class="v3-tab${i.id === current ? ' on' : ''}" aria-selected="${i.id === current}" onclick="v3FullSet('${key}','${i.id}')">${i.label}</button>`).join('');
   const chatPick = f.scope === 'local' && d?.chats?.length > 1
     ? `<label class="sr-only" for="v3-top-chat">Чат</label><select id="v3-top-chat" class="v3-select" onchange="v3FullSet('chat',this.value)">${d.chats.map(c => `<option value="${c.chat_id}"${c.chat_id === f.chat ? ' selected' : ''}>${_profileEsc(c.title)}</option>`).join('')}</select>` : '';
   let body;
   if (f.failed) body = `<div class="v3-empty">${_profileEsc(f.failed)} <button type="button" class="v3-link" onclick="loadTopV3()">Повторить</button></div>`;
   else if (!d) body = '<div class="sk" style="height:340px;border-radius:14px"></div>';
-  else if (!d.items.length) body = '<div class="v3-empty">Пока тихо. Напишите в чате, и вы первым окажетесь в списке.</div>';
+  else if (!d.items.length) body = `<div class="v3-empty">${rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.'}</div>`;
   else {
-    const me = d.personal ? `<div class="v3-top-me">Вы: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} сообщ.${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
-      : (f.scope === 'chats' ? '' : '<div class="v3-top-me">У вас пока нет сообщений за выбранный период.</div>');
+    const me = d.personal ? `<div class="v3-top-me">Вы: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} ${unit}${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
+      : (f.scope === 'chats' ? '' : `<div class="v3-top-me">${rhythm ? 'Вашего забега в этом сезоне пока нет.' : 'У вас пока нет сообщений за выбранный период.'}</div>`);
     const pager = d.pages > 1 ? `<div class="v3-pager"><button type="button" class="v3-link" ${d.page <= 0 ? 'disabled' : ''} onclick="v3FullSet('page',${d.page - 1})" aria-label="Предыдущая страница">‹</button><span>${d.page + 1} / ${d.pages}</span><button type="button" class="v3-link" ${d.page + 1 >= d.pages ? 'disabled' : ''} onclick="v3FullSet('page',${d.page + 1})" aria-label="Следующая страница">›</button></div>` : '';
-    body = `${me}<div class="v3-ranking-labels"><span>Место · ${f.scope === 'chats' ? 'чат' : 'игрок'}</span><span>Сообщения</span></div><ol class="v3-top-list v3-top-list--full">${d.items.map(r => _v3FullRow(r, f.scope)).join('')}</ol>${pager}`;
+    body = `${me}<div class="v3-ranking-labels"><span>Место · ${f.scope === 'chats' ? 'чат' : 'игрок'}</span><span>${rhythm ? 'Очки' : 'Сообщения'}</span></div><ol class="v3-top-list v3-top-list--full">${d.items.map(r => _v3FullRow(r, f.scope)).join('')}</ol>${pager}`;
   }
   host.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="switchPage('profile')" aria-label="Назад в профиль">‹ Профиль</button></div>
-    <header class="v3-screen-head"><span class="v3-eyebrow">Рейтинг сообщества</span><h1 class="v3-title">Топ${v3GlintMark('Топ')}</h1><p class="v3-sub">Кто задаёт темп ${f.period === 'all_time' ? 'за всё время' : f.period === 'day' ? 'сегодня' : f.period === 'month' ? 'в этом месяце' : 'на этой неделе'}.</p></header>
+    <header class="v3-screen-head"><span class="v3-eyebrow">Рейтинг сообщества</span><h1 class="v3-title">Топ${v3GlintMark('Топ')}</h1><p class="v3-sub">${rhythm ? `Лучшие забеги Ритма${d?.season ? ` · сезон ${fmt(d.season.number)}` : ''}.` : `Кто задаёт темп ${f.period === 'all_time' ? 'за всё время' : f.period === 'day' ? 'сегодня' : f.period === 'month' ? 'в этом месяце' : 'на этой неделе'}.`}</p></header>
     <div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Область рейтинга">${seg(scopes, f.scope, 'scope')}</div>
-    <div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Период">${seg(_V3_TOP_PERIODS, f.period, 'period')}</div>
+    ${rhythm ? '' : `<div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Период">${seg(_V3_TOP_PERIODS, f.period, 'period')}</div>`}
     ${chatPick}<div class="v3-top-body${f.loading && d ? ' is-loading' : ''}" aria-live="polite" aria-busy="${!!f.loading}">${body}</div>`;
   v3EnterSync(host);
 }
