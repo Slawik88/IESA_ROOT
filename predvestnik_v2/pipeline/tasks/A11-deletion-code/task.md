@@ -33,3 +33,10 @@ the 10-minute resend interval passes (the error text explains the wait).
   code, wrong phrase does not count.
 - `tools/test_account_deletion_family_guard_pg.py`: OK.
 - `tools/test_bot_economy_review_pg.py` (fresh DB, runs `daily_tick` incl. inactivity warnings): OK.
+
+## Post-review fix (project review thread)
+Bug: an expired self request still blocked the inactivity warning, because its
+`warned_at IS NULL` matched the shared branch of the step-2 predicate. Fix: the
+`warned_at` conditions now apply only to `source = 'inactivity'` rows. Regression
+case added to `tools/test_account_deletion_code_pg.py` (expired self request -> warned;
+fresh self request -> still blocks). It failed before the fix and passes after it.

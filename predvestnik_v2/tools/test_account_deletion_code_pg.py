@@ -89,6 +89,17 @@ async def run(dsn: str) -> None:
         assert not ok
         assert await scalar(db, "SELECT confirm_attempts FROM account_deletions WHERE user_id = ?", (d,)) == 0
         assert all(len(x) == 6 and x.isdigit() for x in sent)
+
+        # Inactivity warning: an expired self request (warned_at NULL) must not block it,
+        # a fresh one (d, just requested) must. Both users are long inactive.
+        await db.execute(
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, last_message_at) "
+            "VALUES (?, -1, NOW() - INTERVAL '400 days'), (?, -1, NOW() - INTERVAL '400 days')",
+            (b, d),
+        )
+        await acc.daily_tick(db)
+        assert await scalar(db, "SELECT source FROM account_deletions WHERE user_id = ? AND warned_at IS NOT NULL", (b,)) == "inactivity"
+        assert await scalar(db, "SELECT warned_at IS NULL AND source = 'self' FROM account_deletions WHERE user_id = ?", (d,))
     finally:
         await tx.rollback()
         await connection.close()
