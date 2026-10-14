@@ -7,25 +7,31 @@ Usage (from bot scheduler):
     from FastAPI.notifications import notify
     await notify(user_id, {"type": "expedition_done", "pet": "Хомяк", "mora": 420})
 
-R5 «Молот Аукциона»: сюда же добавлены live-комнаты лотов (in-memory) и единая
-ws_session() — ПОЛНЫЙ протокол WS-сессии (отправка событий + чтение команд
-sub_lot/unsub_lot/lot_react). main.py и локальный тест-сервер используют одну
-и ту же функцию, чтобы протокол не расползался между продом и тестами.
+ws_session() — ПОЛНЫЙ протокол WS-сессии: сервер только отправляет события,
+от клиента принимается лишь keep-alive "ping". Live-комнаты лотов старого
+аукциона удалены вместе с аукционом (audit A03): клиент их не использовал, а
+команды комнат позволяли бесконечно наращивать память процесса.
 """
 import asyncio
 import json
-import time
 
 from loguru import logger
 
 # user_id → queues of every open tab/device for this account
 _queues: dict[int, set[asyncio.Queue]] = {}
 
-# R5: lot_id → set[user_id] — зрители live-комнаты финала лота
-_lot_rooms: dict[int, set[int]] = {}
-# (user_id, lot_id) → monotonic-время последней реакции (анти-спам жабы)
-_react_last: dict[tuple[int, int], float] = {}
-_REACT_MIN_INTERVAL_SEC = 2.0
+# Per-connection backlog cap. A client that stops reading is disconnected
+# instead of letting its queue grow without bound; it reconnects with backoff.
+WS_QUEUE_MAXSIZE = 256
+
+
+class _ClientQueue(asyncio.Queue):
+    """Bounded queue of one WS connection; `overflowed` fires when it is dropped."""
+
+    def __init__(self) -> None:
+        super().__init__(maxsize=WS_QUEUE_MAXSIZE)
+        self.overflowed = asyncio.Event()
+
 
 _balance_listener_task: asyncio.Task | None = None
 _balance_listener_lock = asyncio.Lock()
@@ -98,11 +104,19 @@ async def notify(user_id: int, event: dict) -> bool:
     онлайн (событие отправлено), иначе False — вызывающий может сохранить его в
     web_notifications для показа при следующем входе (Welcome Back)."""
     queues = tuple(_queues.get(user_id, ()))
-    if queues:
-        for q in queues:
+    delivered = False
+    for q in queues:
+        try:
             q.put_nowait(event)
-        return True
-    return False
+            delivered = True
+        except asyncio.QueueFull:
+            # Slow or stalled reader: drop this connection, keep the others.
+            unregister(user_id, q)
+            overflowed = getattr(q, "overflowed", None)
+            if overflowed is not None:
+                overflowed.set()
+            logger.warning(f"WS queue overflow for user {user_id}: connection dropped")
+    return delivered
 
 
 def register(user_id: int, q: asyncio.Queue) -> None:
@@ -121,79 +135,11 @@ def unregister(user_id: int, q: asyncio.Queue | None = None) -> None:
         _queues.pop(user_id, None)
 
 
-# ── R5: live-комнаты лотов ─────────────────────────────────────────────────────
-
-def lot_viewers(lot_id: int) -> int:
-    return len(_lot_rooms.get(lot_id, ()))
-
-
-async def broadcast_lot(lot_id: int, event: dict) -> None:
-    """Разослать событие всем зрителям комнаты лота (кто офлайн — просто мимо)."""
-    for uid in list(_lot_rooms.get(lot_id, ())):
-        await notify(uid, event)
-
-
-async def _join_lot(lot_id: int, user_id: int) -> None:
-    room = _lot_rooms.setdefault(lot_id, set())
-    if user_id in room:
-        return
-    room.add(user_id)
-    await broadcast_lot(lot_id, {"type": "lot_viewers", "lot_id": lot_id,
-                                 "viewers": len(room)})
-
-
-async def _leave_lot(lot_id: int, user_id: int) -> None:
-    room = _lot_rooms.get(lot_id)
-    if not room or user_id not in room:
-        return
-    room.discard(user_id)
-    if room:
-        await broadcast_lot(lot_id, {"type": "lot_viewers", "lot_id": lot_id,
-                                     "viewers": len(room)})
-    else:
-        _lot_rooms.pop(lot_id, None)
-
-
-async def _leave_all(user_id: int) -> None:
-    for lot_id in [lid for lid, room in _lot_rooms.items() if user_id in room]:
-        await _leave_lot(lot_id, user_id)
-
-
-async def _handle_client_message(user_id: int, raw: str) -> None:
-    """Входящее сообщение клиента: ping (keep-alive) или JSON-команда комнаты."""
-    if raw == "ping":
-        return
-    import json
-    try:
-        msg = json.loads(raw)
-    except Exception:
-        return
-    t = msg.get("type")
-    lot_id = int(msg.get("lot_id") or 0)
-    if not lot_id:
-        return
-    if t == "sub_lot":
-        await _join_lot(lot_id, user_id)
-    elif t == "unsub_lot":
-        await _leave_lot(lot_id, user_id)
-    elif t == "lot_react":
-        # Зрительская реакция (🐸) — рейт-лимит 1/2с на пару (юзер, лот)
-        key = (user_id, lot_id)
-        now = time.monotonic()
-        if now - _react_last.get(key, 0.0) < _REACT_MIN_INTERVAL_SEC:
-            return
-        _react_last[key] = now
-        if user_id in _lot_rooms.get(lot_id, ()):   # реагируют только зрители
-            emoji = str(msg.get("emoji") or "🐸")[:4]
-            await broadcast_lot(lot_id, {"type": "lot_react", "lot_id": lot_id,
-                                         "emoji": emoji, "from": user_id})
-
-
 async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
     """Полный жизненный цикл WS-сессии ПОСЛЕ accept(): параллельно шлём события
-    из очереди и читаем команды клиента. Выход по разрыву соединения; чистка
-    (unregister + выход из всех комнат) гарантирована."""
-    q: asyncio.Queue = asyncio.Queue()
+    из очереди и читаем keep-alive клиента. Выход по разрыву соединения или
+    переполнению очереди; unregister гарантирован."""
+    q = _ClientQueue()
     register(user_id, q)
     q.put_nowait({"type": "app_version", "version": str(app_version)})
     if await ensure_balance_listener():
@@ -206,19 +152,25 @@ async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
 
     async def _receiver():
         while True:
-            raw = await websocket.receive_text()
-            await _handle_client_message(user_id, raw)
+            await websocket.receive_text()   # keep-alive "ping"; nothing is stored
 
     sender = asyncio.create_task(_sender())
     receiver = asyncio.create_task(_receiver())
+    overflow = asyncio.create_task(q.overflowed.wait())
     try:
         # Любой из тасков падает при разрыве соединения — завершаем сессию
         _done, pending = await asyncio.wait(
-            {sender, receiver}, return_when=asyncio.FIRST_COMPLETED)
+            {sender, receiver, overflow}, return_when=asyncio.FIRST_COMPLETED)
         for task in pending:
             task.cancel()
+        if overflow in _done:
+            try:
+                # try again later: client reconnects; a dead peer must not hold the session
+                await asyncio.wait_for(websocket.close(code=1013), 2)
+            except Exception:
+                pass
     finally:
         sender.cancel()
         receiver.cancel()
+        overflow.cancel()
         unregister(user_id, q)
-        await _leave_all(user_id)

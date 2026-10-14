@@ -275,7 +275,7 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
         await websocket.close(code=1008)  # policy violation
         return
     await websocket.accept()
-    # R5: единый протокол сессии (отправка событий + команды комнат лотов) —
+    # Единый протокол сессии (отправка событий + keep-alive клиента) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:
         await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER)
@@ -284,7 +284,7 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
     except asyncio.CancelledError:
         # Деплой/рестарт (SIGTERM) отменяет все ASGI-таски, включая открытые WS —
         # это ожидаемое завершение, не ошибка. ws_session уже почистил себя в
-        # своём finally (unregister + выход из комнат) до того, как отмена сюда
+        # своём finally (unregister) до того, как отмена сюда
         # долетела. Подавляем, чтобы не шуметь в логах на каждом рестарте.
         pass
 
