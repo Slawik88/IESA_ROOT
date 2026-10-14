@@ -19,6 +19,12 @@
 - 503 reason (`startup ... not finished` / missing table names) is logged; the response body
   stays generic.
 
+## Review (independent)
+ACCEPT-WITH-NITS. Applied: the standalone lifespan marks ready only when no ensure failed.
+Reviewer also ran the real startup order on a fresh empty DB: 503 before init, 503 after
+`init_db` alone (flag unset), 200 after `ensure_runtime_schema`. Not added: a fresh-DB variant
+of the test (A14 covers bootstrap).
+
 ## Open question for the owner
 Which path does the DigitalOcean health check probe? Bot start comments say the port must
 answer before DB init. If DO probes `/api/ready`, a deploy now stays unhealthy until init_db +

@@ -129,6 +129,7 @@ async def lifespan(app: FastAPI):
         # RESET ALL (asyncpg pool cleanup) сбрасывает search_path к дефолту.
         # Явно устанавливаем перед ensure-вызовами чтобы DDL шёл в нужную схему.
         await conn.execute("SET search_path TO predvestnik, public")
+        _failed_ensures: list[str] = []
         for _fn, _label in [
             (theme_templates.ensure_table,   "theme_templates"),
             (theme_meta.ensure_table,        "theme_meta"),
@@ -181,6 +182,7 @@ async def lifespan(app: FastAPI):
             try:
                 await _fn(PGAdapter(conn))
             except Exception as _e:
+                _failed_ensures.append(_label)
                 _log.error(f"[lifespan] {_label}.ensure_table failed: {_e}")
                 if _label == "player_exchange_v1":
                     try:
@@ -207,7 +209,12 @@ async def lifespan(app: FastAPI):
                         await conn.execute("ROLLBACK")
                 except Exception:
                     pass
-    readiness.mark_startup_complete()   # standalone start; the co-hosted bot marks it itself
+    # Standalone start (the co-hosted bot marks it itself): stay not-ready while
+    # any ensure failed, so /api/ready never hides a half-created schema.
+    if _failed_ensures:
+        _log.error(f"[lifespan] not ready: failed ensures {', '.join(_failed_ensures)}")
+    else:
+        readiness.mark_startup_complete()
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     digest_task = asyncio.create_task(_run_owner_digest())
