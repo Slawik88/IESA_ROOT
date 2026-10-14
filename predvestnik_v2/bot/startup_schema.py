@@ -40,3 +40,6 @@ async def ensure_runtime_schema(pool) -> None:
         db = PGAdapter(connection)
         for _label, ensure in ENSURES:
             await ensure(db)
+    # Last startup schema step (bot and local stand): /api/ready may now answer 200 (audit A04).
+    from infrastructure import readiness
+    readiness.mark_startup_complete()
