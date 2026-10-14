@@ -135,10 +135,12 @@ def unregister(user_id: int, q: asyncio.Queue | None = None) -> None:
         _queues.pop(user_id, None)
 
 
-async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
+async def ws_session(websocket, user_id: int, *, app_version: str = "",
+                     still_allowed=None, recheck_sec: float = 300.0) -> None:
     """Полный жизненный цикл WS-сессии ПОСЛЕ accept(): параллельно шлём события
     из очереди и читаем keep-alive клиента. Выход по разрыву соединения или
-    переполнению очереди; unregister гарантирован."""
+    переполнению очереди; unregister гарантирован. still_allowed() повторно
+    проверяет допуск аккаунта раз в recheck_sec (audit A06)."""
     q = _ClientQueue()
     register(user_id, q)
     q.put_nowait({"type": "app_version", "version": str(app_version)})
@@ -154,23 +156,36 @@ async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
         while True:
             await websocket.receive_text()   # keep-alive "ping"; nothing is stored
 
+    async def _watchdog():
+        while True:
+            await asyncio.sleep(recheck_sec)
+            if not await still_allowed():
+                return
+
     sender = asyncio.create_task(_sender())
     receiver = asyncio.create_task(_receiver())
     overflow = asyncio.create_task(q.overflowed.wait())
+    tasks = {sender, receiver, overflow}
+    watchdog = asyncio.create_task(_watchdog()) if still_allowed else None
+    if watchdog:
+        tasks.add(watchdog)
     try:
         # Любой из тасков падает при разрыве соединения — завершаем сессию
-        _done, pending = await asyncio.wait(
-            {sender, receiver, overflow}, return_when=asyncio.FIRST_COMPLETED)
+        _done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         for task in pending:
             task.cancel()
+        close_code = None
         if overflow in _done:
+            close_code = 1013   # try again later: client reconnects
+        elif watchdog in _done and not watchdog.cancelled() and watchdog.exception() is None:
+            close_code = 1008   # account no longer allowed
+        if close_code:
             try:
-                # try again later: client reconnects; a dead peer must not hold the session
-                await asyncio.wait_for(websocket.close(code=1013), 2)
+                # a dead peer must not hold the session
+                await asyncio.wait_for(websocket.close(code=close_code), 2)
             except Exception:
                 pass
     finally:
-        sender.cancel()
-        receiver.cancel()
-        overflow.cancel()
+        for task in tasks:
+            task.cancel()
         unregister(user_id, q)
