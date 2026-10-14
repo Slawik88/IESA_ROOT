@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import math
 from uuid import uuid4
 
+from core.chests_v1 import KEY_SOURCE_COUNTS
 from core.registry import VIP_TIERS
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import vip_v2 as vip_repo
@@ -137,7 +138,7 @@ async def get_daily_status(db, *, user_id: int) -> dict:
         "title": "Заверши одну игру", "completed_today": bool(receipt),
         "completed_count": count, "cycle_progress": count % 7,
         "next_milestone_in": 7 - (count % 7), "daily_reward_mora": 20,
-        "milestone_reward_mora": 100, "milestone_reward_keys": 1,
+        "milestone_reward_mora": 100, "milestone_reward_keys": KEY_SOURCE_COUNTS["vip_daily_milestone"],
         "missed_days_reset_progress": False,
     }
 
@@ -209,11 +210,17 @@ async def complete_daily_mission_from_game(
         else:
             account = await chest_repo.lock_account(db, int(user_id))
             key_grant_id = uuid4().hex
-            await chest_repo.apply_grant(
+            after = await chest_repo.apply_grant(
                 db, grant_id=key_grant_id, user_id=int(user_id), source_kind=grant.source_kind,
                 source_event_id=grant.source_event_id, amount=1, policy_version=CHEST_POLICY_VERSION,
                 source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
                 balance_before=int(account["balance"]), account_epoch=int(account["account_epoch"]),
+            )
+            await chest_repo.apply_bonus_grants(
+                db, user_id=int(user_id), source_kind=grant.source_kind,
+                source_event_id=grant.source_event_id, policy_version=CHEST_POLICY_VERSION,
+                source_snapshot=dict(grant.source_snapshot), source_snapshot_hash=snapshot_hash,
+                balance_before=after, account_epoch=int(account["account_epoch"]),
             )
     await vip_repo.save_daily_completion(
         db, user_id=int(user_id), day_key=day_key, source_event_id=source_event_id,

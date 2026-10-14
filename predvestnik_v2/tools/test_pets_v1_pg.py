@@ -76,7 +76,7 @@ async def run(dsn:str)->None:
         await db.execute("UPDATE pet_v1_runs SET status='ready',ready_at=NOW(),ends_at=NOW()-INTERVAL '1 second' WHERE user_id=?",(decision_user,))
         chosen=await pets_v1.choose_expedition(db,user_id=decision_user,decision="careful",action_id="route-careful")
         assert chosen["activity"]["decision"]=="careful" and chosen["activity"]["status"]=="claimed"
-        assert chosen["completed_without_reward"] is False and chosen["amount_keys"] == 1
+        assert chosen["completed_without_reward"] is False and chosen["amount_keys"] == 2
         async with db.execute("SELECT COUNT(*) FROM achievement_v1_metric_receipts WHERE user_id=? AND family='pets'",(decision_user,)) as c:
             assert int((await c.fetchone())[0])==1
         chosen_replay=await pets_v1.choose_expedition(db,user_id=decision_user,decision="careful",action_id="route-careful")
