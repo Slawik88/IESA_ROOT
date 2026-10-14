@@ -20,8 +20,16 @@ An expired or attempt-exhausted code is not accepted, even by a direct API call.
 - An expired/exhausted self request no longer blocks a new request forever (only the resend
   interval applies). Cancellation during cooling is unchanged.
 
+## Review (independent; T2 critique and review were combined post-implementation)
+ACCEPT-WITH-NITS. Applied: `request_deletion` checks and replaces under
+`pg_advisory_xact_lock(user_id)`, so parallel requests cannot both pass the resend interval;
+an expired self-request no longer suppresses inactivity warnings in `daily_tick`. Left as is:
+after closing the confirm dialog there is no screen to re-enter an already-sent code until
+the 10-minute resend interval passes (the error text explains the wait).
+
 ## Checks
 - New `tools/test_account_deletion_code_pg.py` (real PostgreSQL, rolled back): attempt limit,
   resend interval, fresh budget after re-request, one-time use, TTL, inactivity row with empty
   code, wrong phrase does not count.
 - `tools/test_account_deletion_family_guard_pg.py`: OK.
+- `tools/test_bot_economy_review_pg.py` (fresh DB, runs `daily_tick` incl. inactivity warnings): OK.

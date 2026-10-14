@@ -91,27 +91,31 @@ async def request_deletion(db, user_id: int) -> tuple[bool, str]:
     st = await get_state(db, user_id)
     if st["deleted_at"]:
         return False, "Аккаунт уже удалён — доступно восстановление."
-    d = st["deletion"]
-    if d and d["status"] == "cooling" and d.get("source") == "self":
-        return False, "Процесс удаления уже запущен. Отменить: «бот отменить удаление»."
-    if d and d["status"] == "confirming" and d.get("source") == "self":
-        # A new code only after the resend interval: no flood of DMs and no
-        # endless fresh attempt budgets (audit A11).
-        async with db.execute(
-            "SELECT requested_at > NOW() - make_interval(mins => ?) FROM account_deletions "
-            "WHERE user_id = ?", (ACCOUNT_DELETE_CODE_RESEND_MIN, user_id)
-        ) as c:
-            recent = await c.fetchone()
-        if recent and recent[0]:
-            return False, (f"Код уже отправлен в ЛС. Новый можно запросить через "
-                           f"{ACCOUNT_DELETE_CODE_RESEND_MIN} минут после предыдущего.")
     code = f"{secrets.randbelow(1_000_000):06d}"
-    await db.execute("DELETE FROM account_deletions WHERE user_id = ?", (user_id,))
-    await db.execute(
-        "INSERT INTO account_deletions (user_id, source, status, confirm_code, confirm_attempts) "
-        "VALUES (?, 'self', 'confirming', ?, 0)",
-        (user_id, code),
-    )
+    # Check + replace under the per-user lock: two parallel requests cannot both
+    # pass the resend interval (audit A11).
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
+        d = (await get_state(db, user_id))["deletion"]
+        if d and d["status"] == "cooling" and d.get("source") == "self":
+            return False, "Процесс удаления уже запущен. Отменить: «бот отменить удаление»."
+        if d and d["status"] == "confirming" and d.get("source") == "self":
+            # A new code only after the resend interval: no flood of DMs and no
+            # endless fresh attempt budgets.
+            async with db.execute(
+                "SELECT requested_at > NOW() - make_interval(mins => ?) FROM account_deletions "
+                "WHERE user_id = ?", (ACCOUNT_DELETE_CODE_RESEND_MIN, user_id)
+            ) as c:
+                recent = await c.fetchone()
+            if recent and recent[0]:
+                return False, (f"Код уже отправлен в ЛС. Новый можно запросить через "
+                               f"{ACCOUNT_DELETE_CODE_RESEND_MIN} минут после предыдущего.")
+        await db.execute("DELETE FROM account_deletions WHERE user_id = ?", (user_id,))
+        await db.execute(
+            "INSERT INTO account_deletions (user_id, source, status, confirm_code, confirm_attempts) "
+            "VALUES (?, 'self', 'confirming', ?, 0)",
+            (user_id, code),
+        )
     await db.commit()
     r = await _tg("sendMessage", chat_id=user_id, parse_mode="HTML", text=(
         f"🗑 <b>Запрошено удаление аккаунта.</b>\n"
@@ -280,14 +284,15 @@ async def daily_tick(db) -> None:
         "WHERE u.deleted_at IS NULL "
         "AND NOT EXISTS (SELECT 1 FROM account_deletions ad WHERE ad.user_id = u.user_tg_id "
         "                AND (ad.status IN ('cooling','pending_restore') "
-        "                     OR (ad.status = 'confirming' AND (ad.source <> 'inactivity' OR ad.warned_at IS NULL "
+        "                     OR (ad.status = 'confirming' AND ((ad.source <> 'inactivity' "
+        "                          AND ad.requested_at > NOW() - make_interval(mins => ?)) OR ad.warned_at IS NULL "
         "                          OR ad.warned_at >= (SELECT MAX(s2.last_message_at) FROM user_chat_stats s2 "
         "                                              WHERE s2.user_tg_id = u.user_tg_id))))) "
         "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
         "     WHERE s.user_tg_id = u.user_tg_id) "
         "    < NOW() - make_interval(days => COALESCE(u.delete_after_days, 365) - ?) "
         "LIMIT 50",
-        (ACCOUNT_DELETE_WARN_DAYS,),
+        (ACCOUNT_DELETE_CODE_TTL_MIN, ACCOUNT_DELETE_WARN_DAYS),
     ) as c:
         warn_candidates = [dict(x) for x in await c.fetchall()]
     # Старая отметка «предупреждён» после возвращения игрока устарела: предупреждаем заново (ON CONFLICT ниже).
