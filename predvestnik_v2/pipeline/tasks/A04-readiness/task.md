@@ -25,7 +25,11 @@ Reviewer also ran the real startup order on a fresh empty DB: 503 before init, 5
 `init_db` alone (flag unset), 200 after `ensure_runtime_schema`. Not added: a fresh-DB variant
 of the test (A14 covers bootstrap).
 
-## Open question for the owner
+## Owner answer (2026-10-14): DO probes the production health (liveness) path
+Owner: "Продакшен health". `/api/health` is unchanged by A04, so deploy health is not affected.
+Original question kept below for context.
+
+## Question asked
 Which path does the DigitalOcean health check probe? Bot start comments say the port must
 answer before DB init. If DO probes `/api/ready`, a deploy now stays unhealthy until init_db +
 runtime schema finish (by design, but slower). `tools/verify_production_http.py` still expects
