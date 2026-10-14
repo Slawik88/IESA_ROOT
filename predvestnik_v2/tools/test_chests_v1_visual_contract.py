@@ -19,7 +19,11 @@ assert "Награда уже сохранена сервером" in release_js
 assert "Точные шансы и размеры наград" in release_js
 assert "Купить ключ" in release_js and "chestsV1Buy" in release_js
 assert "chestsV1AskBuy" in release_js and "Неиспользованный купленный ключ" in release_js
-assert "Бесплатные и купленные ключи равны" in release_js
+assert "Ключ уровня N поднимает звёзды ниже N до N" in release_js
+# ECO-04 PR-A: tier picker, per-tier odds, offers with limits and an irreversible-spend note.
+assert "chestsV1PickTier" in release_js and "key_tier:tier" in release_js and "prepare:${tier}" in release_js
+assert "chestsV1AskOffer" in release_js and "/chests-v1/offers/" in release_js and "Это необратимо" in release_js
+assert "Осталось ${o.remaining} из ${o.limit}" in release_js and ".chest-tier-chip" in css
 assert "pending_open" in release_js and "last_result" in release_js
 assert "catalog_digest:_chestsV1Data.catalog_digest" in release_js
 assert "min-height: 48px" in css and "@media (max-width: 360px)" in css

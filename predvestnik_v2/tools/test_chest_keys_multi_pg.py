@@ -79,7 +79,8 @@ async def run(dsn: str) -> None:
         assert await repo.grant_total(db, user_id=user, source_kind="quest_daily_set_complete", source_event_id="daily:a_b") == 2
         assert await repo.get_balance(db, user) == 4
 
-        # A paid key bought under a retired catalog must not lock the player's other keys.
+        # ECO-04 PR-A: a paid key bought under a retired catalog is a tier-1 key and
+        # opens under the current tables; nothing is reported as locked.
         stale_user = 971150
         await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT(user_tg_id) DO NOTHING", (stale_user,))
         stale_snapshot = {"purchase_id": "old", "catalog_version": "chests-mixed-s1-v2", "catalog_digest": "0" * 64}
@@ -93,18 +94,12 @@ async def run(dsn: str) -> None:
         await _grant(db, stale_user, "quest_daily_set_complete", "daily:stale")
         assert await repo.get_balance(db, stale_user) == 3
         epoch = int(account["account_epoch"])
-        oldest = await repo.next_unspent_grant(db, user_id=stale_user, account_epoch=epoch)
+        oldest = await repo.next_unspent_grant(db, user_id=stale_user, account_epoch=epoch, key_tier=1)
         assert oldest["source_kind"] == "zarniki_purchase"
-        usable = await repo.next_unspent_grant(
-            db, user_id=stale_user, account_epoch=epoch,
-            catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest(),
-        )
-        assert usable["source_kind"] == "quest_daily_set_complete"
-        # UI and quests count only openable keys; a real desync is not masked as a stale key.
         args = dict(catalog_version=CATALOG_VERSION, catalog_digest=catalog_digest())
-        assert await repo.locked_paid_keys(db, user_id=stale_user, **args) == 1
-        assert await repo.openable_balance(db, stale_user, **args) == 2
-        assert await repo.openable_balance(db, 971000, **args) == await repo.get_balance(db, 971000)
+        assert await repo.locked_paid_keys(db, user_id=stale_user, **args) == 0
+        assert await repo.openable_balance(db, stale_user, **args) == 3
+        assert (await repo.tier_balances(db, stale_user))[1] == 3
 
         # The VIP seventh-day milestone: real service path, replay writes nothing more.
         vip_user = 971200

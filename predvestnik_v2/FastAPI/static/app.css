@@ -1113,6 +1113,14 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .chest-buy-btn b { color: var(--gold); font-size: 14px; }
 .chest-buy-btn small { color: var(--muted); font-size: 8px; }
 .chest-buy-btn:disabled { opacity: .48; cursor: default; }
+.chest-tier-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+.chest-tier-chip { min-height: 36px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text); font-size: 13px; cursor: pointer; }
+.chest-tier-chip.is-on { border-color: var(--gold); color: var(--gold); }
+.chest-offers { margin: 12px 0 0; }
+.chest-offers h2 { font-size: 15px; margin: 0 0 4px; }
+.chest-offers p { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+.chest-offers > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.chest-offer small { font-size: 10px; }
 .chest-policy { margin: 12px 2px; color: var(--muted); line-height: 1.5; font-size: 12px; }
 .chest-reveal-zone { display: grid; place-items: center; padding: 8px 0 16px; }
 .chest-orb {

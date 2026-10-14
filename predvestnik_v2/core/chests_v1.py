@@ -30,6 +30,27 @@ KEY_SOURCE_COUNTS: Final = {
     "pet_expedition_complete": 2,
     "vip_daily_milestone": 2,
 }
+# ECO-04 PR-A: keys by stars. A key of tier N opens the same chest, but star
+# outcomes below N become N (Platinum 6★ ≈ 97% exactly 6★). Every source that
+# existed before tiers gives tier-1 keys, including legacy 10 ✨ purchases.
+KEY_TIERS: Final = (1, 3, 4, 6)
+KEY_TIER_NAMES: Final = {1: "Обычный", 3: "Бронзовый", 4: "Серебряный", 6: "Платиновый"}
+KEY_OFFERS_FLAG: Final = "pets_level_up_v1"
+# One table for every price and limit (owner variant A). window: "day" = UTC day,
+# "week" = ISO week from Monday 00:00 UTC. Ledger currencies are debited in one
+# operation; Essence through its own ledger in the same transaction.
+KEY_OFFERS: Final = {
+    "bronze_mora": {"tier": 3, "price": {"mora": 800}, "limit": 3, "window": "week"},
+    "silver_craft": {"tier": 4, "price": {"mora": 300, "essence": 200}, "limit": 1, "window": "week"},
+    "silver_zarniki": {"tier": 4, "price": {"zarniki": 120}, "limit": PAID_KEY_DAILY_LIMIT, "window": "day"},
+    "platinum_diamonds": {"tier": 6, "price": {"diamonds": 5, "mora": 3000}, "limit": 1, "window": "week"},
+    "platinum_zarniki": {"tier": 6, "price": {"zarniki": 300}, "limit": 1, "window": "day"},
+}
+KEY_TIER_BY_SOURCE: Final = {
+    "quest_daily_set_complete": 1, "quest_weekly_set_complete": 1, "zarniki_purchase": 1,
+    "pet_trek_complete": 1, "pet_expedition_complete": 1, "vip_daily_milestone": 1,
+    **{f"offer_{offer_id}": int(offer["tier"]) for offer_id, offer in KEY_OFFERS.items()},
+}
 STAR_WEIGHTS: Final = {
     1: 3500, 2: 2700, 3: 1800, 4: 900, 5: 500,
     6: 300, 7: 150, 8: 80, 9: 40, 10: 30,
@@ -212,6 +233,7 @@ def catalog_payload() -> dict[str, object]:
         "card_amounts": CARD_AMOUNTS, "joker_amounts": JOKER_AMOUNTS,
         "paid_key_price_zarniki": PAID_KEY_PRICE_ZARNIKI,
         "paid_key_daily_limit": PAID_KEY_DAILY_LIMIT,
+        "key_tiers": KEY_TIERS, "key_offers": KEY_OFFERS, "key_tier_rule": "stars_below_tier_become_tier",
         "duplicate_compensation": "deferred_until_preproduction_release_review",
     }
 
@@ -231,9 +253,39 @@ def stars_for_roll(roll: int) -> int:
     raise RuntimeError("Chest star weights do not cover the full roll space.")
 
 
-def roll_outcome(randbelow: Callable[[int], int], *, vip_cosmetic_ids: Sequence[str] = ()) -> ChestOutcome:
+def key_tier(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value not in KEY_TIERS:
+        raise ChestPolicyError("Неизвестный тип ключа.")
+    return value
+
+
+def tier_for_source(source_kind: str) -> int:
+    if source_kind not in KEY_TIER_BY_SOURCE:
+        raise ChestPolicyError("Unsupported chest-key source.")
+    return KEY_TIER_BY_SOURCE[source_kind]
+
+
+def stars_for_tier_roll(roll: int, tier: int) -> int:
+    """Stars below the key tier become the tier; the roll itself is unchanged."""
+    return max(stars_for_roll(roll), key_tier(tier))
+
+
+def tier_star_odds(tier: int) -> list[dict[str, object]]:
+    """Exact public odds of a tier-N key, in basis points of 10,000."""
+    tier = key_tier(tier)
+    rows = []
+    for stars, weight in STAR_WEIGHTS.items():
+        if stars < tier:
+            continue
+        points = sum(w for s, w in STAR_WEIGHTS.items() if s <= tier) if stars == tier else weight
+        rows.append({"stars": stars, "basis_points": points, "percent": points / 100})
+    return rows
+
+
+def roll_outcome(randbelow: Callable[[int], int], *, vip_cosmetic_ids: Sequence[str] = (),
+                 tier: int = 1) -> ChestOutcome:
     roll = randbelow(10_000)
-    stars = stars_for_roll(roll)
+    stars = stars_for_tier_roll(roll, tier)
     kind = str(_weighted_choice(REWARD_WEIGHTS[stars], randbelow))
     if kind == "mora":
         minimum, maximum = MORA_RANGES[stars]
