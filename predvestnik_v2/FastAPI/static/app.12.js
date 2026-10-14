@@ -235,7 +235,9 @@
     careful: 'Осторожный маршрут',
     steady: 'Ровный маршрут',
     bold: 'Рискованный маршрут',
+    scout: 'Разведка',
   });
+  const PET_ROUTES_CLASSIC = Object.freeze(['careful', 'steady', 'bold']);
 
   const PET_RARITY = Object.freeze({
     common: 'Обычный', uncommon: 'Необычный', rare: 'Редкий', epic: 'Эпический',
@@ -271,7 +273,12 @@
     return `Ур. ${pet.level}/16 · ${esc(e.visual_stage || 'начальный облик')} · маршрут +${e.expedition_route_bonus_percent || 0}%`;
   }
 
-  function activePetActivity(activity) {
+  function petRouteList(routeOptions) {
+    if (routeOptions && routeOptions.rewards_enabled && routeOptions.routes && routeOptions.routes.length) return routeOptions.routes;
+    return PET_ROUTES_CLASSIC.map((id) => ({ id }));
+  }
+
+  function activePetActivity(activity, routeOptions) {
     const title = activity.kind === 'trek' ? 'Поход' : 'Экспедиция';
     const needsDecision = activity.status === 'ready'
       && activity.kind === 'expedition'
@@ -280,9 +287,11 @@
       ? (needsDecision ? 'Таймер завершён. Выбери маршрут:' : 'Награда уже получена.')
       : `Питомец занят до ${esc(String(activity.ends_at).replace('T', ' ').slice(0, 16))}.`;
     const routes = needsDecision
-      ? `<div class="pet-route-grid">${Object.entries(PET_ROUTE_LABELS).map(([id, label]) => (
-        `<button type="button" class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${id}')">${label}</button>`
-      )).join('')}</div>`
+      ? `<div class="pet-route-grid">${petRouteList(routeOptions).map((route) => (
+        `<button type="button" class="v3-pill v3-pill--ghost" onclick="petsV1Choose('${route.id}')">${esc(PET_ROUTE_LABELS[route.id] || route.id)}`
+        + (route.chance_percent != null ? `<small class="pet-route-odds"> · ${route.chance_percent}% · ${fmt(route.reward_mora)} 🪙</small>` : '')
+        + `</button>`
+      )).join('')}</div>${routeOptions && routeOptions.rewards_enabled && !routeOptions.hint ? '<small>С 4 уровня питомец покажет шансы маршрутов.</small>' : ''}${routeOptions && routeOptions.rewards_enabled ? `<small>Награды маршрутов на этой неделе: осталось ${fmt(routeOptions.weekly_remaining_mora)} 🪙 из ${fmt(routeOptions.weekly_cap_mora)}.</small>` : ''}`
       : '';
     return `<section class="pt-sec pet-activity ${needsDecision ? 'is-attn' : ''}"><h3>${title}${needsDecision ? ' · нужен выбор' : ''}</h3><p>${status}</p>${routes}</section>`;
   }
@@ -315,8 +324,8 @@
 
   function petBestiaryCard(pet) {
     const state = pet.owned ? 'is-owned' : 'is-locked';
-    const icon = pet.owned ? esc(pet.icon) : '?';
-    const name = pet.owned ? esc(pet.name) : 'Неизвестный питомец';
+    const icon = esc(pet.icon);
+    const name = esc(pet.name);
     return `<button type="button" class="bestiary-card ${state} ${petRarityClass(pet.rarity)}" data-rar="${esc(pet.rarity)}" onclick="petDexOpen('${esc(pet.id)}')"`
       + ` aria-label="${name}, ${esc(petRarityName(pet.rarity))}, подробнее"><span class="bc-ic" aria-hidden="true">${icon}</span>`
       + `<b>${name}</b><small>${esc(petRarityName(pet.rarity))}</small>`
@@ -383,7 +392,7 @@
     let action = '';
     if (pet.active) {
       if (!data.activity) action = petActivityChoices(data, activePet);
-      else if (data.activity.pet_id === pet.id) action = activePetActivity(data.activity);
+      else if (data.activity.pet_id === pet.id) action = activePetActivity(data.activity, data.route_options);
       else action = '<section class="pt-sec"><p class="pt-note">Другой питомец ещё в пути. Выйти в поход можно после его возвращения.</p></section>';
     } else {
       const trip = data.activity && activePet
@@ -394,6 +403,7 @@
     return `<section class="pt-hero ${petRarityClass(pet.rarity)}" aria-label="${esc(pet.name)}">
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
+      <button type="button" class="pt-more" onclick="petDexOpen('${esc(pet.species_id)}')">Всё об этом питомце</button>
       ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
     </section>${petLevelUp(pet, data)}${action}`;
   }
@@ -461,6 +471,38 @@
     });
     window.scrollTo?.({ top: 0 });
   };
+  function petInfoBody(sp, mine, data) {
+    const info = sp.info || {};
+    const feat = data.features || {};
+    const soon = (feature) => (feature && !feat[feature] ? ' <em class="pt-soon">скоро</em>' : '');
+    const list = (rows) => `<ul class="pt-sheet-list">${rows.join('')}</ul>`;
+    const row = (title, text) => `<li><b>${esc(title)}</b><span>${text}</span></li>`;
+    const out = [`<p class="pt-lore">${esc(sp.lore || '')}</p>`];
+    if (mine.length) {
+      out.push('<h4>У тебя</h4>' + list(mine.map((p) => row(p.name, `${petStage(p)} · ⚡ ${p.endurance}/100`))));
+    } else {
+      out.push('<p class="pt-note">Этот питомец ещё не найден. Карточки выпадают из сундуков.</p>');
+    }
+    const t = info.trail_traits;
+    if (t) {
+      const sign = (n) => (n > 0 ? `+${n}` : String(n));
+      out.push(`<h4>Особенности вида${soon('trail')}</h4>` + list([
+        row('Любимое место', esc(t.favorite_route)),
+        row('Запас сил', `${sign(t.energy_bonus)} к запасу`),
+        row('Отдых', `${sign(t.rest_bonus)} к восстановлению в час`),
+        row('Чаще находит', esc(t.favored_find)),
+      ]));
+    }
+    out.push(`<h4>Что даёт уровень${soon('route_rewards')}</h4>` + list((data.level_milestones || []).map((m) => row(`Ур. ${m.level}`, esc(m.text)))));
+    const src = (info.card_sources || []).map((x) => `${x.stars}★ · ${x.percent}%`).join(', ');
+    out.push('<h4>Откуда берётся</h4>' + list([row('Карточки в сундуках', esc(src) + '<br>Доля карточек этой редкости среди всех карточек сундука этой звёздности.')]));
+    const c = info.level_cost;
+    if (c) {
+      out.push(`<h4>Как прокачать${soon('level_up')}</h4>` + list([row(`С 1 до ${c.max_level} уровня`, `${fmt(c.cards)} карточек вида · ${fmt(c.mora)} 🪙 · ${fmt(c.essence)} 🔮`)]));
+    }
+    out.push('<h4>Где пригодится</h4>' + list((info.uses || []).map((u) => `<li><span>${esc(u.text)}${soon(u.feature)}</span></li>`)));
+    return out.join('');
+  }
   window.petDexOpen = function (id) {
     const data = _petData || {};
     const sp = (data.bestiary || []).find((x) => String(x.id) === String(id));
@@ -468,18 +510,11 @@
     const mine = (data.pets || []).filter((p) => p.species_id === sp.id);
     const root = el('pg-pets');
     root.querySelector('.pt-sheet-wrap')?.remove();
-    const stats = mine.length
-      ? mine.map((p) => `<li><b>${esc(p.name)}</b><span>${petStage(p)} · ⚡ ${p.endurance}/100</span></li>`).join('')
-      : '';
-    const body = sp.owned
-      ? `<p class="pt-lore">${esc(sp.lore || '')}</p><h4>У тебя</h4><ul class="pt-sheet-list">${stats}</ul>`
-        + '<p class="pt-note">Растёт по уровням от 1 до 16, вместе с уровнем меняется облик.</p>'
-      : `<p class="pt-lore">Этот питомец ещё не найден. Он может выпасть из сундука: ищи карточки питомцев среди наград.</p>`
-        + `<p class="pt-note">Редкость: ${esc(petRarityName(sp.rarity))}.</p>`;
+    const body = petInfoBody(sp, mine, data);
     const wrap = document.createElement('div');
     wrap.className = 'pt-sheet-wrap';
-    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}">`
-      + `<span class="pt-ic" aria-hidden="true">${sp.owned ? esc(sp.icon) : '?'}</span><small>${esc(petRarityName(sp.rarity))}</small><h3>${sp.owned ? esc(sp.name) : 'Неизвестный питомец'}</h3>${body}`
+    wrap.innerHTML = `<div class="pt-sheet-bg" onclick="petDexClose()"></div><div class="pt-sheet ${petRarityClass(sp.rarity)}" role="dialog" aria-modal="true" aria-label="${esc(sp.name)}">`
+      + `<span class="pt-ic" aria-hidden="true">${esc(sp.icon)}</span><small>${esc(petRarityName(sp.rarity))}${sp.owned ? '' : ' · не найден'}</small><h3>${esc(sp.name)}</h3>${body}`
       + '<button type="button" class="pt-main" onclick="petDexClose()">Закрыть</button></div>';
     root.appendChild(wrap);
     wrap.querySelector('.pt-main').focus();
@@ -525,9 +560,16 @@
     const key=`feed:${petId}:${foodId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-feed-');
     api('/pets-v1/feed',{method:'POST',body:JSON.stringify({pet_id:petId,food_id:foodId,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(`Выносливость восстановлена до ${d.endurance}/100`);openPetsV1();}).catch(e=>toast(`${e} Повтори: запрос будет отправлен с тем же номером операции.`,false));
   };
+  function petRouteToast(d){
+    const r=d.route,keys=d.amount_keys?` · +${d.amount_keys} 🗝`:'';
+    if(!r)return d.amount_keys?`Экспедиция завершена${keys}`:'Маршрут выбран';
+    if(!r.success)return`Маршрут не удался, Мора не потрачена${keys}`;
+    if(r.capped)return Number(r.paid_mora)>0?`Маршрут пройден · +${fmt(r.paid_mora)} 🪙, недельный лимит наград маршрутов достигнут${keys}`:`Маршрут пройден, но недельный лимит наград маршрутов уже достигнут${keys}`;
+    return`Маршрут пройден · +${fmt(r.paid_mora)} 🪙${keys}`;
+  }
   window.petsV1Choose=function(decision){
     const key=`decision:${decision}`,action=_pendingAction(_petsV1PendingActions,key,'pet-decision-');
-    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(d.amount_keys?`Экспедиция завершена · +${d.amount_keys} 🗝`:'Маршрут выбран');openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
+    api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(petRouteToast(d));openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
   };
   let _chestsV1Data=null,_chestsV1Busy=false,_chestsV1Prepared=null,_chestsV1LastResult=null,_chestsV1Tier=1;
   const CHEST_PRICE_ICONS={mora:'🪙',diamonds:'💎',zarniki:'✨',essence:'💧'};

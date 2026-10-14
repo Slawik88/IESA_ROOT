@@ -19,6 +19,7 @@ _SOURCE_LABELS = {
     "level_up":         "⬆️ Уровень",
     "pet_milestone":    "🐾 Питомец Ур.",
     "pet_level_up":     "🐾 Улучшение питомца",
+    "pet_route_reward": "🐾 Маршрут экспедиции",
     "shop":             "🛒 Магазин",
     "shop_purchase":    "🛒 Магазин",
     "daily_deal":       "🏷 Акция дня",
