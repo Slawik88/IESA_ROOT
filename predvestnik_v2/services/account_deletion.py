@@ -151,17 +151,24 @@ async def cancel_deletion(db, user_id: int) -> tuple[bool, str]:
 
 
 async def restore_account(db, user_id: int) -> tuple[bool, str]:
-    st = await get_state(db, user_id)
-    d = st["deletion"]
-    if not st["deleted_at"]:
-        return False, "Аккаунт не удалён — восстанавливать нечего."
-    if not d or d["status"] != "pending_restore":
-        return False, ("Окно восстановления истекло — данные очищены. "
-                       "Обратитесь к администрации бота.")
-    await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
-    await db.execute(
-        "UPDATE account_deletions SET status = 'restored' WHERE user_id = ?", (user_id,))
-    await db.commit()
+    # Same per-user lock as _finalize: restore and finalization serialize, and
+    # whichever commits first wins (the loser sees the changed status).
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
+        st = await get_state(db, user_id)
+        d = st["deletion"]
+        if not st["deleted_at"]:
+            return False, "Аккаунт не удалён — восстанавливать нечего."
+        if not d or d["status"] != "pending_restore":
+            return False, ("Окно восстановления истекло — данные очищены. "
+                           "Обратитесь к администрации бота.")
+        result = await db.execute(
+            "UPDATE account_deletions SET status = 'restored' "
+            "WHERE user_id = ? AND status = 'pending_restore'", (user_id,))
+        if result.rowcount != 1:
+            return False, ("Окно восстановления истекло — данные очищены. "
+                           "Обратитесь к администрации бота.")
+        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
     return True, "🎉 Аккаунт восстановлен! Всё на месте — с возвращением."
 
 
@@ -180,52 +187,85 @@ async def _mark_deleted(db, user_id: int) -> bool:
     return True
 
 
-async def _finalize(db, user_id: int) -> None:
-    """Очистка игровых данных. Аудит-таблицы (wallet_log, moderation_logs,
-    global_sanctions, admin_grant_log) намеренно НЕ трогаются."""
-    if await _has_active_marriage(db, user_id):
-        await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
+# Created lazily by the global-skin repository; absent table = nothing to delete.
+# Every other table must exist: a missing one fails the whole finalization.
+_OPTIONAL_FINALIZE_TABLES = frozenset({"global_skin_v1_selection", "global_skin_v1_owned"})
+
+_FINALIZE_STEPS = [
+    ("pets", "DELETE FROM pets WHERE owner_id = ?"),
+    ("inventory", "DELETE FROM inventory WHERE user_id = ?"),
+    ("global_skin_v1_selection", "DELETE FROM global_skin_v1_selection WHERE user_id = ?"),
+    ("global_skin_v1_owned", "DELETE FROM global_skin_v1_owned WHERE user_id = ?"),
+    ("user_cosmetics", "DELETE FROM user_cosmetics WHERE user_id = ?"),
+    ("user_cosmetic_loadout", "DELETE FROM user_cosmetic_loadout WHERE user_id = ?"),
+    ("cosmetic_presets", "DELETE FROM cosmetic_presets WHERE user_id = ?"),
+    ("user_relics", "DELETE FROM user_relics WHERE user_id = ?"),
+    ("user_shadow_relics", "DELETE FROM user_shadow_relics WHERE user_id = ?"),
+    ("daily_login", "DELETE FROM daily_login WHERE user_id = ?"),
+    ("achievements", "DELETE FROM achievements WHERE user_id = ?"),
+    ("daily_quests", "DELETE FROM daily_quests WHERE user_id = ?"),
+    ("crypto_holdings", "DELETE FROM crypto_holdings WHERE user_id = ?"),
+    ("crypto_watchlist", "DELETE FROM crypto_watchlist WHERE user_id = ?"),
+    ("user_nicknames", "DELETE FROM user_nicknames WHERE user_id = ?"),
+    ("clan_members", "DELETE FROM clan_members WHERE user_id = ?"),
+    ("user_chat_stats", "UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = ?"),
+    ("users", "UPDATE users SET user_balance_mora = 0, user_balance_diamonds = 0, "
+              "user_balance_zarniki = 0, user_balance_dark_mora = 0, account_xp = 0, "
+              "account_level = 1, user_tg_username = NULL, active_theme = NULL "
+              "WHERE user_tg_id = ?"),
+]
+
+
+async def _finalize(db, user_id: int) -> bool:
+    """Очистка игровых данных одной транзакцией (audit A02): любая ошибка
+    откатывает всё, статус остаётся 'pending_restore' и следующий проход
+    повторяет финализацию целиком. Аудит-таблицы (wallet_log, moderation_logs,
+    global_sanctions, admin_grant_log) намеренно НЕ трогаются.
+
+    Возвращает True, только если аккаунт действительно финализирован.
+    Вызывать на autocommit-соединении (как daily_tick): внутри чужой транзакции
+    SET LOCAL lock_timeout действовал бы до конца внешней транзакции."""
+    async with db.connection.transaction():
+        # A long-held user lock must not stall the whole maintenance loop:
+        # time out, roll back and retry on the next tick.
+        await db.execute("SET LOCAL lock_timeout = '5s'")
+        # Per-user lock shared with restore_account and the chest/quest/pet
+        # writers; then the users row, which direct ledger writers lock.
+        await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
+        async with db.execute(
+            "SELECT deleted_at IS NOT NULL FROM users WHERE user_tg_id = ? FOR UPDATE", (user_id,)
+        ) as cursor:
+            user_row = await cursor.fetchone()
+        async with db.execute(
+            "SELECT 1 FROM account_deletions WHERE user_id = ? AND status = 'pending_restore' "
+            "AND restore_deadline <= NOW() FOR UPDATE", (user_id,)
+        ) as cursor:
+            due = await cursor.fetchone()
+        if not user_row or not user_row[0] or not due:
+            return False   # restored, cancelled or not due any more
+        if await _has_active_marriage(db, user_id):
+            await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
+            await db.execute(
+                "UPDATE account_deletions SET status = 'cancelled', deleted_at = NULL, "
+                "restore_deadline = NULL WHERE user_id = ?",
+                (user_id,),
+            )
+            logger.warning("account finalization cancelled for {}: active marriage", user_id)
+            return False
+        # Chest history is append-only audit evidence. Move the account to a fresh
+        # epoch and zero its spendable keys so old pending opens can never be
+        # revealed by a surviving session or a later re-registration.
+        await chest_repo.retire_account(db, user_id)
+        for table, sql in _FINALIZE_STEPS:
+            if table in _OPTIONAL_FINALIZE_TABLES:
+                async with db.execute("SELECT to_regclass(?) IS NOT NULL", (table,)) as cursor:
+                    if not (await cursor.fetchone())[0]:
+                        continue
+            await db.execute(sql, (user_id,))
         await db.execute(
-            "UPDATE account_deletions SET status = 'cancelled', deleted_at = NULL, "
-            "restore_deadline = NULL WHERE user_id = ?",
-            (user_id,),
-        )
-        logger.warning("account finalization cancelled for {}: active marriage", user_id)
-        return
-    # Chest history is append-only audit evidence. Move the account to a fresh
-    # epoch and zero its spendable keys so old pending opens can never be
-    # revealed by a surviving session or a later re-registration.
-    await chest_repo.retire_account(db, user_id)
-    for sql, args in [
-        ("DELETE FROM pets WHERE owner_id = ?", (user_id,)),
-        ("DELETE FROM inventory WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM global_skin_v1_selection WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM global_skin_v1_owned WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_cosmetics WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_cosmetic_loadout WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM cosmetic_presets WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_relics WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_shadow_relics WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM daily_login WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM achievements WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM daily_quests WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM crypto_holdings WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM crypto_watchlist WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM user_nicknames WHERE user_id = ?", (user_id,)),
-        ("DELETE FROM clan_members WHERE user_id = ?", (user_id,)),
-        ("UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = ?", (user_id,)),
-        ("UPDATE users SET user_balance_mora = 0, user_balance_diamonds = 0, "
-         "user_balance_zarniki = 0, user_balance_dark_mora = 0, account_xp = 0, "
-         "account_level = 1, user_tg_username = NULL, active_theme = NULL "
-         "WHERE user_tg_id = ?", (user_id,)),
-    ]:
-        try:
-            await db.execute(sql, args)
-        except Exception as e:
-            logger.warning(f"finalize {user_id}: {sql.split()[2]}: {e}")
-    await db.execute(
-        "UPDATE account_deletions SET status = 'finalized', finalized_at = NOW() "
-        "WHERE user_id = ?", (user_id,))
+            "UPDATE account_deletions SET status = 'finalized', finalized_at = NOW() "
+            "WHERE user_id = ?", (user_id,))
+    return True
 
 
 async def daily_tick(db) -> None:
@@ -300,10 +340,17 @@ async def daily_tick(db) -> None:
     # 4) окно восстановления истекло → финализация
     async with db.execute(
         "SELECT user_id FROM account_deletions "
-        "WHERE status = 'pending_restore' AND restore_deadline <= NOW() LIMIT 20"
+        "WHERE status = 'pending_restore' AND restore_deadline <= NOW() "
+        "ORDER BY restore_deadline LIMIT 20"
     ) as c:
-        for r in [dict(x) for x in await c.fetchall()]:
-            await _finalize(db, r["user_id"])
-            logger.info(f"Аккаунт {r['user_id']} финализирован (очистка игровых данных)")
+        due = [dict(x) for x in await c.fetchall()]
+    for r in due:
+        # One failing account must not stop the others; it stays
+        # 'pending_restore' and is retried on the next pass.
+        try:
+            if await _finalize(db, r["user_id"]):
+                logger.info(f"Аккаунт {r['user_id']} финализирован (очистка игровых данных)")
+        except Exception:
+            logger.exception(f"Финализация аккаунта {r['user_id']} откатана, повтор в следующий проход")
 
     await db.commit()
