@@ -253,14 +253,7 @@ function updateCurrBar(data) {
   };
   set('cb-mora', data?.mora ?? 0, fmtBar);
   set('cb-dia',  data?.diamonds ?? 0, fmtBar);
-  set('cb-dark', data?.dark_mora ?? 0, fmtBar);
   set('cb-zar',  data?.zarniki ?? 0, fmtBar);
-  // Баг из UX-аудита: слот 🌑 был захардкожен display:none навсегда — значение
-  // обновлялось, но игрок никогда не видел свой баланс Тёмной Моры в шапке.
-  // Показываем, как только она у игрока появилась (не захламляем шапку 5-й
-  // валютой тем, кто вообще не трогал эту механику).
-  const darkItem = el('cb-dark-item');
-  if (darkItem) darkItem.style.display = (data?.dark_mora > 0) ? '' : 'none';
   _currInited = true;
 }
 
@@ -286,7 +279,7 @@ function _ensureVipAvatar() {
 
 function showCurrModal() {
   const d = _profileData || {};
-  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, dark = d.dark_mora ?? 0, zar = d.zarniki ?? 0;
+  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, zar = d.zarniki ?? 0;
   OM('💰 Валюты', `<div class="curr-modal">
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
@@ -307,13 +300,6 @@ function showCurrModal() {
       <div class="cm-info">
         <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtF(d.essence ?? 0)}</span></div>
         <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
-      </div>
-    </div>
-    <div class="cm-block">
-      <div class="cm-icon">🌑</div>
-      <div class="cm-info">
-        <div class="cm-name">Тёмная Мора <span class="cm-val" id="cm-bal-dark_mora">${fmtF(dark)}</span></div>
-        <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
       </div>
     </div>
     <div class="cm-block">
