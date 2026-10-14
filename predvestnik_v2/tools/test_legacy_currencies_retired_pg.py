@@ -55,8 +55,19 @@ def assert_no_live_minters() -> None:
             raise AssertionError(f"Echo Shard duplicate writer gained a caller: {path.relative_to(ROOT)}")
 
 
+def assert_no_player_surface() -> None:
+    """Mini App scripts and built-in profile templates no longer show Dark Mora."""
+    from core.profile_templates import DEFAULT_RAW_TEMPLATES
+    for template_id, raw in DEFAULT_RAW_TEMPLATES.items():
+        assert "{темная_мора}" not in raw, template_id
+    for path in (ROOT / "FastAPI" / "static").glob("app.*.js"):
+        text = path.read_text(encoding="utf-8")
+        assert "Тёмн" not in text and 'value="dark_mora"' not in text, path.name
+
+
 async def run(dsn: str) -> None:
     assert_no_live_minters()
+    assert_no_player_surface()
     for endpoint in (dark_mora_router.ritual,):
         try:
             await endpoint(db=None, user={"id": 1})
