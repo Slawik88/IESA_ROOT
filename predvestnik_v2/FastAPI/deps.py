@@ -153,10 +153,11 @@ async def _capture_signals(user_id: int, request: Request, client_fp: str) -> No
         pass
 
 
-async def require_tg_user(user=Depends(require_tg_user_base), db=Depends(get_db)):
-    """Auth + account-deletion gate for the whole gameplay API."""
+async def assert_account_active(db, user_id: int) -> None:
+    """Account-deletion gate shared by require_tg_user and endpoints that must not
+    hold a pooled connection for the whole request (e.g. /profile/avatar)."""
     async with db.execute(
-        "SELECT deleted_at FROM users WHERE user_tg_id=?", (int(user["id"]),)
+        "SELECT deleted_at FROM users WHERE user_tg_id=?", (int(user_id),)
     ) as cursor:
         account = await cursor.fetchone()
     if account and account[0] is not None:
@@ -164,6 +165,11 @@ async def require_tg_user(user=Depends(require_tg_user_base), db=Depends(get_db)
             status_code=403,
             detail="ACCOUNT_DELETED: игровые действия закрыты до восстановления аккаунта.",
         )
+
+
+async def require_tg_user(user=Depends(require_tg_user_base), db=Depends(get_db)):
+    """Auth + account-deletion gate for the whole gameplay API."""
+    await assert_account_active(db, int(user["id"]))
     return user
 
 
