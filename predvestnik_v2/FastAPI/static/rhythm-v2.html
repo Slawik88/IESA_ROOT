@@ -11,25 +11,26 @@
 </head>
 <body data-app-base="">
   <main class="rhythm-shell">
-    <header><a href="/?startapp=games" aria-label="Назад к играм">‹</a><div><small>ПРЕДВЕСТНИК</small><h1>Ритм</h1></div><output id="connection">●</output></header>
+    <header><a href="/?startapp=games" aria-label="Назад к играм">‹</a><h1>Ритм</h1><output id="connection">●</output></header>
     <section id="intro" class="panel">
-      <div class="season-hero">
-        <p class="eyebrow">СЕЗОН <span id="season-no">…</span></p>
-        <h2>Поднимись в таблице сезона</h2>
-        <p id="season-note" class="season-note" aria-live="polite">Загружаем сезон…</p>
-        <ul id="season-rewards" class="season-rewards" aria-label="Награды за место в сезоне"></ul>
+      <div class="r-hero">
+        <p class="eyebrow">Сезон <span id="season-no">…</span><span id="season-left"></span></p>
+        <p id="leaderboard-personal" class="r-me" aria-live="polite">Ваш результат появится после первого завершённого забега.</p>
+        <p id="season-last" class="r-last" hidden></p>
       </div>
       <div class="mode-actions"><button data-mode="normal">Начать забег</button></div>
       <section class="leaderboard" aria-labelledby="leaderboard-title">
-        <div class="leaderboard-head"><h3 id="leaderboard-title">Таблица лидеров сезона</h3></div>
+        <div class="leaderboard-head"><h3 id="leaderboard-title">Лидеры сезона</h3></div>
         <ol id="leaderboard-list" aria-live="polite"><li>Загружаем результаты…</li></ol>
-        <p id="leaderboard-personal">Ваш результат появится после первого завершённого забега.</p>
         <div id="leaderboard-more" class="leaderboard-more"></div>
       </section>
+      <details class="how-to r-prizes"><summary>Награды сезона<span id="season-top"></span></summary>
+        <ul id="season-rewards" class="season-rewards" aria-label="Награды за место в сезоне"></ul>
+        <p id="season-note" class="season-note">Загружаем сезон…</p>
+      </details>
       <details class="how-to"><summary>Как устроен забег</summary>
         <p>Нажимай руну, которую показывает сервер. Скорость растёт, ошибки забирают сердца, а забег рано или поздно заканчивается. Каждые 20 тактов он замирает: ты берёшь один из трёх рун-даров, и у каждого есть и плюс, и минус.</p>
       </details>
-    </section>
     </section>
     <section id="countdown" class="panel hidden" aria-live="assertive"><p class="eyebrow">ПРИГОТОВЬСЯ</p><h2 id="count-num" class="count-num">5</h2><button id="exit-count" class="secondary" type="button">Отмена</button></section>
     <section id="choice" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАМЕР</p><h2 id="draft-title">Рун-дар</h2><p>Выбери один дар. Время стоит, пока ты не решишь.</p><div id="gifts" class="gift-list"></div></section>
