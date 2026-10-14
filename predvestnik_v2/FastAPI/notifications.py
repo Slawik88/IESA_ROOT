@@ -32,6 +32,7 @@ class _ClientQueue(asyncio.Queue):
         super().__init__(maxsize=WS_QUEUE_MAXSIZE)
         self.overflowed = asyncio.Event()
 
+
 _balance_listener_task: asyncio.Task | None = None
 _balance_listener_lock = asyncio.Lock()
 _balance_listener_ready = asyncio.Event()
@@ -164,7 +165,8 @@ async def ws_session(websocket, user_id: int, *, app_version: str = "") -> None:
             task.cancel()
         if overflow in _done:
             try:
-                await websocket.close(code=1013)   # try again later: client reconnects
+                # try again later: client reconnects; a dead peer must not hold the session
+                await asyncio.wait_for(websocket.close(code=1013), 2)
             except Exception:
                 pass
     finally:
