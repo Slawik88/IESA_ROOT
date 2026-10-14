@@ -289,7 +289,7 @@ function queueLiveBalance(event){
     _balanceEventTimer=0;
     const next=_pendingBalanceEvent;_pendingBalanceEvent=null;
     if(!next||!_profileData)return;
-    const keys=['mora','diamonds','dark_mora','zarniki','essence','echo_shards'];
+    const keys=['mora','diamonds','zarniki','essence'];
     const patch={};keys.forEach(k=>{if(next[k]!==undefined)patch[k]=Number(next[k]);});
     _profileData={..._profileData,...patch};
     try{updateCurrBar(_profileData);}catch(_){}
