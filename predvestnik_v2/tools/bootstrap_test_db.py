@@ -2,9 +2,10 @@
 """Prepare a disposable loopback PostgreSQL for the release gate (audit A14).
 
 Runs exactly the production startup schema path (bot: init_db -> ensure_chat_schema
--> ensure_runtime_schema; web: the FastAPI lifespan ensure list), then the reviewed operator migrations the test suite
-depends on. Production never runs this file: operator migrations stay manual
-there. Loopback DSN only; idempotent, so it can run before every gate.
+-> ensure_runtime_schema; web: the FastAPI lifespan ensure list). The chat
+schema step already installs the family registry and wallet (bot/chat/family.py),
+so no operator migration is applied separately. Loopback DSN only; idempotent,
+so it can run before every gate.
 """
 from __future__ import annotations
 
@@ -24,23 +25,9 @@ args = parser.parse_args()
 if urlparse(args.dsn).hostname not in {"127.0.0.1", "localhost", "::1"}:
     raise SystemExit("only a loopback PostgreSQL DSN is allowed")
 os.environ["DATABASE_URL"] = args.dsn
+# create_pool falls back to this outside preprod; never let it reach a real DB.
+os.environ.pop("PREDVESTNIK_DATABASE_URL", None)
 os.environ.setdefault("BOT_TOKEN", "123456:offline-bootstrap")
-
-import asyncpg
-
-from infrastructure.pg_adapter import PGAdapter
-from infrastructure.repositories.family_wallet_v1 import install_family_wallet_schema
-from infrastructure.repositories.marriage_integrity import install_membership_registry
-
-# Reviewed operator migrations, applied in this order on test databases only.
-OPERATOR_MIGRATIONS = (
-    ("marriage_members_v1", install_membership_registry),
-    ("family_wallet_v1", install_family_wallet_schema),
-)
-
-
-async def table_exists(connection, name: str) -> bool:
-    return await connection.fetchval("SELECT to_regclass($1) IS NOT NULL", f"predvestnik.{name}")
 
 
 async def main() -> None:
@@ -54,20 +41,16 @@ async def main() -> None:
     await ensure_chat_schema()
     await ensure_runtime_schema(pool)
     # Production co-hosts the web app; its lifespan creates the module tables
-    # (quests, chests, pets, mafia, ...). Background loops it starts are
-    # cancelled on exit before their first step.
-    from FastAPI.main import app, lifespan
-    async with lifespan(app):
-        pass
+    # (quests, chests, pets, mafia, ...). Only the schema part is wanted here:
+    # the background loops would otherwise take one step during shutdown.
+    import FastAPI.main as web
 
-    connection = await asyncpg.connect(args.dsn, server_settings={"search_path": "predvestnik,public"})
-    try:
-        for label, install in OPERATOR_MIGRATIONS:
-            async with connection.transaction():
-                await install(PGAdapter(connection))
-            print(f"operator migration applied: {label}")
-    finally:
-        await connection.close()
+    async def _idle() -> None:
+        return None
+
+    web._run_skins_v3_migration = web._run_broadcast_scheduler = web._run_owner_digest = _idle
+    async with web.lifespan(web.app):
+        pass
     await pool.close()
 
 

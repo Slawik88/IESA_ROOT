@@ -43,8 +43,17 @@ $env:PYTHONPATH = $moduleRoot
 # A fresh disposable cluster must reproduce the gate without a developer's
 # historical state (audit A14): run the production startup schema path plus the
 # reviewed operator migrations the tests depend on. Idempotent.
-& $python (Join-Path $PSScriptRoot "bootstrap_test_db.py") --dsn $localDsn
-if ($LASTEXITCODE -ne 0) {
+# Same stderr caveat as the tests below: loguru writes to stderr, so classify
+# only by exit code.
+$ErrorActionPreference = "Continue"
+try {
+    $bootstrapOutput = & $python (Join-Path $PSScriptRoot "bootstrap_test_db.py") --dsn $localDsn 2>&1
+    $bootstrapExitCode = $LASTEXITCODE
+} finally {
+    $ErrorActionPreference = "Stop"
+}
+if ($bootstrapExitCode -ne 0) {
+    $bootstrapOutput | Write-Output
     throw "Test database bootstrap failed."
 }
 
@@ -113,9 +122,12 @@ try {
         }
         # Same stderr caveat as above: classify only by exit code.
         $ErrorActionPreference = "Continue"
-        $output = & $node.Source $test.FullName 2>&1
-        $nodeExitCode = $LASTEXITCODE
-        $ErrorActionPreference = "Stop"
+        try {
+            $output = & $node.Source $test.FullName 2>&1
+            $nodeExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = "Stop"
+        }
         if ($nodeExitCode -eq 0) {
             Write-Output "PASS $($test.Name)"
             continue
