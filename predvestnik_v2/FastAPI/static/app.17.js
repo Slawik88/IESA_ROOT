@@ -35,7 +35,7 @@ function renderV3Top(state) {
   else {
     const inTop = data.top.some(r => r.is_me);
     body = `<ol class="v3-top-list">${data.top.map(r => `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.value)}</li>`).join('')}</ol>
-      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span>${tab.id !== 'rhythm' ? `<button type="button" class="v3-link" onclick="openTopV3('global','${tab.id}')">Весь топ ›</button>` : ''}</div>`;
+      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${tab.id === 'rhythm' ? "openTopV3('rhythm')" : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
   }
   host.innerHTML = `${head}<div class="v3-top-body">${body}</div>`;
 }

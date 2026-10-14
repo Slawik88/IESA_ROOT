@@ -117,7 +117,10 @@ def render_quest_overview(view: dict) -> str:
             continue
         part = f"{label}: {int(reward.get('amount_mora', 0))} Моры"
         if int(reward.get("amount_keys", 0)):
-            part += f" + {int(reward['amount_keys'])} ключ"
+            keys = int(reward["amount_keys"])
+            word = "ключ" if keys % 10 == 1 and keys % 100 != 11 else (
+                "ключа" if keys % 10 in (2, 3, 4) and keys % 100 not in (12, 13, 14) else "ключей")
+            part += f" + {keys} {word}"
         parts.append(part)
     reward_line = "Награды: " + "; ".join(parts) + "." if parts else "Награды доступны в Mini App."
     lines.extend([

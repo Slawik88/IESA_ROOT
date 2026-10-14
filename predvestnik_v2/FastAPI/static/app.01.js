@@ -234,9 +234,11 @@ function connectWS() {
     }
     if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     if (_ws === ws) _ws = null;
-    clearTimeout(_wsTimer); _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
+    clearTimeout(_wsTimer);
+    if (ev && ev.code === 1008) return;   // account/credential not allowed: no reconnect loop; next visibility change retries once
+    _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
   };
   ws.onerror = () => { try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }
@@ -289,7 +291,7 @@ function queueLiveBalance(event){
     _balanceEventTimer=0;
     const next=_pendingBalanceEvent;_pendingBalanceEvent=null;
     if(!next||!_profileData)return;
-    const keys=['mora','diamonds','dark_mora','zarniki','essence','echo_shards'];
+    const keys=['mora','diamonds','zarniki','essence'];
     const patch={};keys.forEach(k=>{if(next[k]!==undefined)patch[k]=Number(next[k]);});
     _profileData={..._profileData,...patch};
     try{updateCurrBar(_profileData);}catch(_){}
@@ -585,7 +587,7 @@ function switchPage(name, _btn, _viaBack) {
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile','store'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const _profileChildren=['inventory','achievements-v1','public-profile','store','shop'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
@@ -619,7 +621,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass','shop'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');

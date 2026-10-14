@@ -6,9 +6,7 @@
  *  2. Viewport height fix (iOS dynamic toolbar)
  *  3. Navbar collapse — auto-close on anchor link click
  *  5. Bottom nav — active state + shadow on scroll
- *  6. Swipe-to-close navbar collapse
  *  7. Prevent double-tap zoom on buttons/links (iOS)
- *  8. Scroll restoration for HTMX navigations
  */
 
 (function () {
@@ -67,17 +65,22 @@
 
     // Закрываем при клике вне навбара
     document.addEventListener('click', function (e) {
+      if (window.innerWidth >= 992) return;
       if (!navbarCollapse.contains(e.target) && !navbarToggler.contains(e.target)) {
         if (navbarCollapse.classList.contains('show')) {
           bsCollapse.hide();
         }
       }
     }, { passive: true });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || window.innerWidth >= 992 ||
+          !navbarCollapse.classList.contains('show')) return;
+      e.preventDefault();
+      bsCollapse.hide();
+      navbarToggler.focus();
+    });
   }
 
-  /* ─────────────────────────────────────────
-     4. SEARCH DROPDOWN AUTO-CLOSE ON SCROLL
-     ───────────────────────────────────────── */
   /* ─────────────────────────────────────────
      5. BOTTOM NAV — active state + shadow
      ───────────────────────────────────────── */
@@ -110,37 +113,6 @@
   }
 
   /* ─────────────────────────────────────────
-     6. SWIPE-TO-CLOSE NAVBAR COLLAPSE
-     Смахивание влево/вправо закрывает меню
-     ───────────────────────────────────────── */
-  function initSwipeToClose() {
-    const navbarCollapse = document.getElementById('iesa-nav-collapse');
-    if (!navbarCollapse || typeof bootstrap === 'undefined') return;
-
-    let touchStartX = 0;
-    let touchStartY = 0;
-    const THRESHOLD = 60; // px
-
-    navbarCollapse.addEventListener('touchstart', function (e) {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    navbarCollapse.addEventListener('touchend', function (e) {
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-
-      // Swipe up = close (вертикальный свайп вверx)
-      if (Math.abs(dy) > Math.abs(dx) && dy < -THRESHOLD) {
-        const bsCollapse = bootstrap.Collapse.getInstance(navbarCollapse);
-        if (bsCollapse && navbarCollapse.classList.contains('show')) {
-          bsCollapse.hide();
-        }
-      }
-    }, { passive: true });
-  }
-
-  /* ─────────────────────────────────────────
      7. PREVENT DOUBLE-TAP ZOOM (iOS)
      Устанавливаем touch-action: manipulation
      на все интерактивные элементы
@@ -157,27 +129,8 @@
     document.head.appendChild(style);
   }
 
-  /* ─────────────────────────────────────────
-     8. HTMX SCROLL RESTORATION
-     Сохраняем позицию скролла при HTMX свопах
-     ───────────────────────────────────────── */
-  function initHtmxScrollRestore() {
-    if (typeof htmx === 'undefined') return;
-
-    let savedScrollY = 0;
-
-    document.addEventListener('htmx:beforeSwap', function () {
-      savedScrollY = window.scrollY;
-    });
-
-    document.addEventListener('htmx:afterSettle', function () {
-      /* HTMX may replace content above the viewport. Keep the user's exact
-         position; never animate or pull them to a background-updated target. */
-      if (Math.abs(window.scrollY - savedScrollY) > 1) {
-        window.scrollTo({ top: savedScrollY, behavior: 'auto' });
-      }
-    });
-  }
+  // Leave scroll anchoring to the browser. A global afterSettle restoration
+  // overwrites scrolling performed by the user while an HTMX swap settles.
 
   /* ─────────────────────────────────────────
      9. LAZY LOADING IMAGES
@@ -204,9 +157,7 @@
     initViewportHeightFix();
     initMobileMenuToggle();
     initBottomNav();
-    initSwipeToClose();
     initTouchManipulation();
-    initHtmxScrollRestore();
     initLazyImages();
   });
 

@@ -21,7 +21,7 @@ ACTIVE_SLOT_SWAP_COST: Final = 5
 TREK_AND_EXPEDITION_HOURS: Final = (3, 6, 9)
 ACTIVITY_ENDURANCE_COST: Final = {3: 25, 6: 40, 9: 55}
 PET_ACTIVITY_KINDS: Final = ("trek", "expedition")
-EXPEDITION_DECISIONS: Final = ("careful", "steady", "bold")
+EXPEDITION_DECISIONS: Final = ("careful", "steady", "bold", "scout")
 
 
 class PetPolicyError(ValueError):

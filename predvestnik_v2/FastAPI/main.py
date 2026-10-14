@@ -25,14 +25,15 @@ from infrastructure.repositories import theme_templates, theme_meta, web_notific
 from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_preprod_browser_ticket, verify_session_token,
                           verify_webapp_data)
-from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
+from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod, require_preprod_user
 from FastAPI import notifications
+from FastAPI.deps import assert_account_active
 from infrastructure import readiness
 from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
                               account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
@@ -77,6 +78,7 @@ from infrastructure.repositories.marks_v1 import ensure_tables as ensure_marks_v
 from infrastructure.repositories.presence_v1 import ensure_tables as ensure_presence_v1
 from services import skins_v3_migration
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
+from infrastructure.repositories.shop_v1 import ensure_tables as ensure_shop_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
 from loguru import logger as _log
 
@@ -168,6 +170,7 @@ async def lifespan(app: FastAPI):
             (ensure_minesweeper_v2,             "minesweeper_v2"),
             (ensure_mafia_v1,                    "mafia_v1"),
             (ensure_chests_v1,                   "chests_v1"),
+            (ensure_shop_v1,                     "shop_v1"),
             (ensure_pets_v1,                     "pets_v1"),
             (ensure_quests_v1,                    "quests_v1"),
             (ensure_echo_shards_v1,                "echo_shards_v1"),
@@ -239,7 +242,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 for r in [profile.router, marriage.router, wallet.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, inventory_v1_router.router, season_pass_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, inventory_v1_router.router, season_pass_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
@@ -272,26 +275,60 @@ async def telegram_login(payload: _LoginWidgetPayload):
 async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init: str = ""):
     # H6: верифицируем, что подключающийся — это и есть user_id (WebApp шлёт initData,
     # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
-    authed = False
-    if init:
-        _u = verify_webapp_data(init)
-        authed = bool(_u and int(_u.get("id", 0)) == user_id)
-    elif token:
-        authed = verify_session_token(token) == user_id
-    if not authed:
+    def credential_valid() -> bool:
+        if init:
+            _u = verify_webapp_data(init)
+            return bool(_u and int(_u.get("id", 0)) == user_id)
+        if token:
+            return verify_session_token(token) == user_id
+        return False
+
+    async def account_allowed() -> bool:
+        # The same gates as HTTP gameplay (deps.require_tg_user): preprod
+        # allowlist and account deletion (audit A06). DB errors propagate.
+        if not require_preprod_user(user_id):
+            return False
+        await create_pool()
+        async with get_pool().acquire() as conn:
+            try:
+                await assert_account_active(PGAdapter(conn), user_id)
+            except HTTPException:
+                return False
+        return True
+
+    if not credential_valid():
         await websocket.close(code=1008)  # policy violation
         return
+    try:
+        allowed = await account_allowed()
+    except Exception as exc:
+        _log.warning(f"[ws] account check unavailable: {type(exc).__name__}")
+        await websocket.close(code=1011)  # fail closed; client retries with backoff
+        return
+    if not allowed:
+        await websocket.close(code=1008)
+        return
+
+    async def still_allowed() -> bool:
+        if not credential_valid():
+            return False
+        try:
+            return await account_allowed()
+        except Exception:
+            return True   # transient DB error keeps an already admitted session
+
     await websocket.accept()
-    # R5: единый протокол сессии (отправка событий + команды комнат лотов) —
+    # Единый протокол сессии (отправка событий + keep-alive клиента) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:
-        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER)
+        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER,
+                                       still_allowed=still_allowed)
     except WebSocketDisconnect:
         pass
     except asyncio.CancelledError:
         # Деплой/рестарт (SIGTERM) отменяет все ASGI-таски, включая открытые WS —
         # это ожидаемое завершение, не ошибка. ws_session уже почистил себя в
-        # своём finally (unregister + выход из комнат) до того, как отмена сюда
+        # своём finally (unregister) до того, как отмена сюда
         # долетела. Подавляем, чтобы не шуметь в логах на каждом рестарте.
         pass
 
@@ -366,7 +403,7 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",

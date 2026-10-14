@@ -21,18 +21,22 @@ class PrepareRequest(BaseModel):
     catalog_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
 
 
+class OpenRequest(PrepareRequest):
+    key_tier: int = Field(default=1, ge=1, le=10)
+
+
 @router.get("/me")
 async def my_chests(db=Depends(get_db), user=Depends(require_tg_user)):
     return await chests_v1.overview(db, user_id=int(user["id"]))
 
 
 @router.post("/prepare")
-async def prepare(body: PrepareRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def prepare(body: OpenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     try:
         return await chests_v1.prepare_free_open(
             db, user_id=int(user["id"]), action_id=body.action_id,
             requested_catalog_version=body.catalog_version,
-            requested_catalog_digest=body.catalog_digest,
+            requested_catalog_digest=body.catalog_digest, key_tier=body.key_tier,
         )
     except (ChestPolicyError, chests_v1.ChestKeyConflict, ValueError) as exc:
         raise HTTPException(409, str(exc)) from exc
@@ -43,6 +47,18 @@ async def purchase(body: PrepareRequest, db=Depends(get_db), user=Depends(requir
     try:
         return await chests_v1.purchase_key(
             db, user_id=int(user["id"]), action_id=body.action_id,
+            requested_catalog_version=body.catalog_version,
+            requested_catalog_digest=body.catalog_digest,
+        )
+    except (ChestPolicyError, chests_v1.ChestKeyConflict, ValueError) as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@router.post("/offers/{offer_id}/buy")
+async def buy_offer(offer_id: str, body: PrepareRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        return await chests_v1.buy_offer(
+            db, user_id=int(user["id"]), offer_id=offer_id, action_id=body.action_id,
             requested_catalog_version=body.catalog_version,
             requested_catalog_digest=body.catalog_digest,
         )

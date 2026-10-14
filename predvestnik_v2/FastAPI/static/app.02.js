@@ -253,14 +253,7 @@ function updateCurrBar(data) {
   };
   set('cb-mora', data?.mora ?? 0, fmtBar);
   set('cb-dia',  data?.diamonds ?? 0, fmtBar);
-  set('cb-dark', data?.dark_mora ?? 0, fmtBar);
   set('cb-zar',  data?.zarniki ?? 0, fmtBar);
-  // Баг из UX-аудита: слот 🌑 был захардкожен display:none навсегда — значение
-  // обновлялось, но игрок никогда не видел свой баланс Тёмной Моры в шапке.
-  // Показываем, как только она у игрока появилась (не захламляем шапку 5-й
-  // валютой тем, кто вообще не трогал эту механику).
-  const darkItem = el('cb-dark-item');
-  if (darkItem) darkItem.style.display = (data?.dark_mora > 0) ? '' : 'none';
   _currInited = true;
 }
 
@@ -286,7 +279,7 @@ function _ensureVipAvatar() {
 
 function showCurrModal() {
   const d = _profileData || {};
-  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, dark = d.dark_mora ?? 0, zar = d.zarniki ?? 0;
+  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, zar = d.zarniki ?? 0;
   OM('💰 Валюты', `<div class="curr-modal">
     <div class="cm-block">
       <div class="cm-icon">🪙</div>
@@ -310,17 +303,18 @@ function showCurrModal() {
       </div>
     </div>
     <div class="cm-block">
-      <div class="cm-icon">🌑</div>
-      <div class="cm-info">
-        <div class="cm-name">Тёмная Мора <span class="cm-val" id="cm-bal-dark_mora">${fmtF(dark)}</span></div>
-        <div class="cm-desc">Старый остаток. Новых начислений нет.</div>
-      </div>
-    </div>
-    <div class="cm-block">
       <div class="cm-icon">✨</div>
       <div class="cm-info">
         <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtF(zar)}</span></div>
         <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
+      </div>
+    </div>
+    <div class="cm-block" data-shop-entry ${typeof _shopOn !== 'undefined' && _shopOn === true ? '' : 'hidden'}>
+      <div class="cm-icon">🛒</div>
+      <div class="cm-info">
+        <div class="cm-name">Магазин</div>
+        <div class="cm-desc">Ключи по звёздам, Шлифовка за Мору и Алмазы, обменник Зарников.</div>
+        <button type="button" class="v3-pill v3-pill--ghost" style="margin-top:7px" onclick="openShop()">Открыть магазин</button>
       </div>
     </div>
     <div class="cm-block" style="display:block">
@@ -330,6 +324,7 @@ function showCurrModal() {
       <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
   </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
+  if (typeof shopProbe === 'function') shopProbe();   // кнопка «Магазин» появится, если флаг shop_v1 включён
 }
 
 // Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос

@@ -87,7 +87,7 @@
     <!-- cmd-bar loaded separately (used only on blog/events pages) -->
     <link rel="stylesheet" href="{% static 'css/variables.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-    <link rel="stylesheet" href="{% static 'css/layout.css' %}?v=logo-full-20260811&amp;mobile=20261013">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}?v=logo-full-20260811&amp;mobile=20261014">
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
@@ -153,6 +153,16 @@
         var modal = event.target;
         if (modal.classList.contains('modal') && modal.parentElement !== document.body) {
             document.body.appendChild(modal);
+        }
+        // Bootstrap saves the current body overflow after this event. Hand off
+        // the menu lock first, or closing the modal restores a stale "hidden".
+        var nav = document.getElementById('iesa-nav-collapse');
+        if (nav && document.body.classList.contains('mobile-menu-open')) {
+            bootstrap.Collapse.getOrCreateInstance(nav, { toggle: false }).hide();
+            if (!document.body.classList.contains('modal-open') &&
+                !(window.IESABottomSheet && window.IESABottomSheet._currentSheet)) {
+                document.body.style.overflow = '';
+            }
         }
     });
     </script>
@@ -351,7 +361,7 @@
     </script>
 
 <!-- Touch Gestures (Swipe РЅР° РјРѕР±РёР»РєР°С…) -->
-    <script src="{% static 'js/touch-gestures.js' %}"></script>
+    <script src="{% static 'js/touch-gestures.js' %}?v=interaction-audit-20261014"></script>
 
     <!-- РњРёРЅРёРјР°Р»СЊРЅС‹Рµ РІСЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ СЃРєСЂРёРїС‚С‹ -->
     
@@ -509,11 +519,11 @@
     <!-- HTMX animation disabler -->
     <script src="{% static 'js/htmx-animation-disable.js' %}"></script>
     <!-- Header hide on scroll -->
-    <script src="{% static 'js/header-hide-on-scroll.js' %}?v=mobile-parity-20261013"></script>
+    <script src="{% static 'js/header-hide-on-scroll.js' %}?v=interaction-audit-20261014"></script>
     <!-- Performance / lazy-loading -->
     <script src="{% static 'js/performance-optimization.js' %}?v=mobile-parity-20261013" async></script>
     <!-- Mobile gestures & UX -->
-    <script src="{% static 'js/mobile-optimization.js' %}?v=mobile-parity-20261013"></script>
+    <script src="{% static 'js/mobile-optimization.js' %}?v=interaction-audit-20261014"></script>
     <script src="{% static 'js/site-search.js' %}"></script>
     <!-- Scroll-reveal, parallax, tilt -->
     <script src="{% static 'js/page-effects.js' %}"></script>
@@ -531,13 +541,13 @@
     {# 6b: QR Fullscreen overlay (BLOCK 3a audit v3: для всех аутентифицированных, permanent_id есть всегда) #}
     {% if user.is_authenticated and user.permanent_id %}
     <div id="qr-fullscreen-overlay"
-         style="display:none;position:fixed;inset:0;background:#fff;z-index:10001;flex-direction:column;align-items:center;justify-content:center;"
+         style="display:none;position:fixed;inset:0;background:#fff;z-index:10001;flex-direction:column;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;overscroll-behavior:contain;"
          aria-modal="true" aria-hidden="true" role="dialog" tabindex="-1" aria-label="{% trans 'Your QR Code' %}">
       <div style="font-size:.72rem;font-family:monospace;color:rgba(0,0,0,.35);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
         {% trans "YOUR MEMBERSHIP QR" %}
       </div>
       <img src="{% url 'users:user_qr' permanent_id=user.permanent_id %}"
-           alt="QR Code" style="width:min(280px,75vw);height:auto;border-radius:12px;">
+           alt="QR Code" style="width:min(280px,75vw);height:auto;max-height:calc(100dvh - 200px);object-fit:contain;flex-shrink:0;border-radius:12px;">
       <div style="margin-top:1rem;font-size:.85rem;font-weight:700;color:#111;font-family:monospace;">
         {{ user.get_full_name|default:user.username }}
       </div>
@@ -545,12 +555,9 @@
         {% trans "Scan at partner location" %}
       </div>
       <button type="button" id="qr-fs-close"
-              style="margin-top:2rem;padding:.55rem 1.5rem;background:rgba(0,0,0,.08);border:1.5px solid rgba(0,0,0,.12);border-radius:10px;color:#333;font-size:.85rem;font-weight:600;cursor:pointer;">
+              style="margin-top:1rem;min-height:44px;flex-shrink:0;padding:.55rem 1.5rem;background:rgba(0,0,0,.08);border:1.5px solid rgba(0,0,0,.12);border-radius:10px;color:#333;font-size:.85rem;font-weight:600;cursor:pointer;">
         <i class="fas fa-times me-1"></i>{% trans "Close" %}
       </button>
-      <div style="position:absolute;bottom:1.5rem;font-size:.68rem;color:rgba(0,0,0,.25);font-family:monospace;">
-        {% trans "Swipe down to close" %}
-      </div>
     </div>
     <script>
     (function(){
@@ -558,21 +565,31 @@
       var closeBtn = document.getElementById('qr-fs-close');
       var lastFocused = null;
       var previousOverflow = '';
+      var screenLock = null;
+      var screenLockGeneration = 0;
       if (!overlay) return;
 
       function openQR(trigger) {
+        if (overlay.getAttribute('aria-hidden') === 'false') return;
         lastFocused = trigger || document.activeElement;
         previousOverflow = document.body.style.overflow;
         overlay.style.display = 'flex';
         overlay.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
         if (closeBtn) closeBtn.focus(); else overlay.focus();
-        if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function(){});
+        var generation = ++screenLockGeneration;
+        if (navigator.wakeLock) navigator.wakeLock.request('screen').then(function(lock){
+          if (generation !== screenLockGeneration || overlay.getAttribute('aria-hidden') === 'true') lock.release().catch(function(){});
+          else screenLock = lock;
+        }).catch(function(){});
       }
       function closeQR() {
+        if (overlay.getAttribute('aria-hidden') === 'true') return;
+        screenLockGeneration++;
         overlay.style.display = 'none';
         overlay.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = previousOverflow;
+        if (screenLock) { screenLock.release().catch(function(){}); screenLock = null; }
         if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
       }
 
@@ -592,12 +609,8 @@
         else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       });
 
-      /* Swipe-down закрыть */
-      var startY = 0;
-      overlay.addEventListener('touchstart', function(e){ startY = e.touches[0].clientY; }, { passive: true });
-      overlay.addEventListener('touchend', function(e){
-        if (e.changedTouches[0].clientY - startY > 80) closeQR();
-      }, { passive: true });
+      // Scrolling the QR window must not be interpreted as dismissal.
+      window.addEventListener('pagehide', closeQR);
     })();
     </script>
     {% endif %}
@@ -847,7 +860,7 @@
     }
     .bs-close {
       position: absolute; top: 10px; right: 12px;
-      width: 40px; height: 40px; display: inline-flex;
+      width: 44px; height: 44px; display: inline-flex;
       align-items: center; justify-content: center;
       border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
       background: rgba(255,255,255,.04); color: rgba(255,255,255,.65);
@@ -866,40 +879,54 @@
     <script>
     /* ── 6d: Bottom Sheet API ── */
     window.IESABottomSheet = {
-      _dragStartY: 0, _currentSheet: null, _lastFocused: null, _previousOverflow: '',
+      _currentSheet: null, _lastFocused: null, _previousOverflow: '', _hideTimer: null, _openedOverMenu: false,
       open: function(id) {
         var sheet = document.getElementById(id);
         var back  = document.getElementById('bs-backdrop');
         if (!sheet || !back) return;
+        if (this._currentSheet === sheet) return;
+        clearTimeout(this._hideTimer);
         if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
         if (this._currentSheet && this._currentSheet !== sheet) this.close(this._currentSheet.id, false);
         this._currentSheet = sheet;
         this._lastFocused = document.activeElement;
         this._previousOverflow = document.body.style.overflow;
+        this._openedOverMenu = document.body.classList.contains('mobile-menu-open');
         sheet.setAttribute('aria-hidden', 'false');
         sheet.setAttribute('role', 'dialog');
         sheet.setAttribute('aria-modal', 'true');
         back.style.display = 'block';
+        var self = this;
         requestAnimationFrame(function(){
+          if (self._currentSheet !== sheet) return;
           back.classList.add('open');
           sheet.classList.add('open');
           var focusTarget = sheet.querySelector('[data-bottom-sheet-close], button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
           (focusTarget || sheet).focus();
         });
         document.body.style.overflow = 'hidden';
-        var self = this;
         back.onclick = function() { self.close(id); };
       },
       close: function(id, restoreFocus) {
         var sheet = document.getElementById(id) || this._currentSheet;
+        if (!sheet || sheet !== this._currentSheet) return;
         var back  = document.getElementById('bs-backdrop');
         if (sheet) {
           sheet.classList.remove('open');
           sheet.setAttribute('aria-hidden', 'true');
           sheet.removeAttribute('aria-modal');
         }
-        if (back) { back.classList.remove('open'); setTimeout(function(){ back.style.display='none'; }, 250); }
-        document.body.style.overflow = this._previousOverflow;
+        var self = this;
+        if (back) {
+          back.classList.remove('open');
+          this._hideTimer = setTimeout(function(){
+            if (!self._currentSheet) back.style.display='none';
+          }, 250);
+        }
+        sheet.style.transform = '';
+        var otherLock = document.body.classList.contains('mobile-menu-open') || document.body.classList.contains('modal-open') ||
+          document.querySelector('#qr-fullscreen-overlay[aria-hidden="false"]');
+        document.body.style.overflow = otherLock ? 'hidden' : (this._openedOverMenu ? '' : this._previousOverflow);
         if (restoreFocus !== false && this._lastFocused && typeof this._lastFocused.focus === 'function') this._lastFocused.focus();
         this._currentSheet = null;
       }
@@ -909,16 +936,28 @@
       sheet.setAttribute('aria-hidden', sheet.classList.contains('open') ? 'false' : 'true');
       var handle = sheet.querySelector('.bs-handle');
       if (handle) {
-        handle.addEventListener('touchstart', function(e){ window.IESABottomSheet._dragStartY = e.touches[0].clientY; }, { passive: true });
+        var drag = null;
+        function cancelDrag() { drag = null; sheet.style.transform = ''; }
+        handle.addEventListener('touchstart', function(e){
+          cancelDrag();
+          if (e.touches.length === 1 && window.IESABottomSheet._currentSheet === sheet) {
+            drag = { id: e.touches[0].identifier, x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+        }, { passive: true });
         handle.addEventListener('touchmove', function(e){
-          var dy = e.touches[0].clientY - window.IESABottomSheet._dragStartY;
+          if (!drag || e.touches.length !== 1 || e.touches[0].identifier !== drag.id) { cancelDrag(); return; }
+          var dy = e.touches[0].clientY - drag.y;
+          if (Math.abs(e.touches[0].clientX - drag.x) > Math.abs(dy)) { cancelDrag(); return; }
           if (dy > 0) sheet.style.transform = 'translateY(' + dy + 'px)';
         }, { passive: true });
         handle.addEventListener('touchend', function(e){
-          var dy = e.changedTouches[0].clientY - window.IESABottomSheet._dragStartY;
-          sheet.style.transform = '';
-          if (dy > 100) window.IESABottomSheet.close(sheet.id);
+          var touch = drag && Array.prototype.find.call(e.changedTouches, function(t){ return t.identifier === drag.id; });
+          var shouldClose = touch && touch.clientY - drag.y > 100 &&
+            touch.clientY - drag.y > Math.abs(touch.clientX - drag.x);
+          cancelDrag();
+          if (shouldClose) window.IESABottomSheet.close(sheet.id);
         }, { passive: true });
+        handle.addEventListener('touchcancel', cancelDrag, { passive: true });
       }
       sheet.querySelectorAll('[data-bottom-sheet-close]').forEach(function(button){
         button.addEventListener('click', function(){ window.IESABottomSheet.close(sheet.id); });

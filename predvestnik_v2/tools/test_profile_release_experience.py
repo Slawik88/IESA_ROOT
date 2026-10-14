@@ -32,7 +32,7 @@ assert "json.loads(raw_compensation)" in router
 assert "overflow-x:auto" not in css[css.index(".migration-card"):css.index("/* Pets are a collection first")]
 assert "prefers-reduced-motion:reduce" in css
 assert "bestiary_owned" in service and "PET_SPECIES" in service
-assert "showPetPanel('bestiary'" in pets and "Неизвестный питомец" in pets
+assert "showPetPanel('bestiary'" in pets and "Всё об этом питомце" in pets
 assert "body.skin-v3" in skin and "var(--v3-wash)" in skin, "game pages take the equipped skin palette"
 assert "2026-09-20-profile-compensation-and-bestiary" in updates
 assert "2026-09-20-clearer-interface" in updates
