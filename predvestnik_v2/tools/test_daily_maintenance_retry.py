@@ -31,6 +31,7 @@ async def steady(db) -> None:
 async def main() -> None:
     scheduler._DAILY_JOBS = (("flaky", flaky), ("steady", steady))
     scheduler._daily_done.clear()
+    scheduler._daily_attempts.clear()
     await scheduler._daily_gc(None)            # flaky fails, steady still runs
     assert runs == {"flaky": 1, "steady": 1}, runs
     await scheduler._daily_gc(None)            # same day: flaky retried, steady not rerun
@@ -38,8 +39,19 @@ async def main() -> None:
     await scheduler._daily_gc(None)            # both done for today
     assert runs == {"flaky": 2, "steady": 1}, runs
     scheduler._daily_done.clear()              # next UTC day
+    scheduler._daily_attempts.clear()
     await scheduler._daily_gc(None)
     assert runs == {"flaky": 3, "steady": 2}, runs
+
+    # A permanently failing job stops after the daily attempt cap.
+    async def broken(db) -> None:
+        runs["broken"] = runs.get("broken", 0) + 1
+        raise ConnectionError("still down")
+
+    scheduler._DAILY_JOBS = (("broken", broken),)
+    for _ in range(scheduler._DAILY_MAX_ATTEMPTS + 5):
+        await scheduler._daily_gc(None)
+    assert runs["broken"] == scheduler._DAILY_MAX_ATTEMPTS, runs
 
 
 asyncio.run(main())

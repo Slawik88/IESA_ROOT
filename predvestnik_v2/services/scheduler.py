@@ -35,8 +35,12 @@ async def player_exchange_match_task() -> None:
 
 
 # UTC day of the last SUCCESSFUL run of each daily job (audit A12). A failed job
-# is retried on the next maintenance pass (every 10 minutes), not the next day.
+# is retried on the next maintenance pass (every 10 minutes), not the next day,
+# but at most _DAILY_MAX_ATTEMPTS times per UTC day: the job batches (LIMIT 50
+# warnings/deletions) were sized for one run a day.
 _daily_done: dict[str, str] = {}
+_daily_attempts: dict[str, tuple[str, int]] = {}
+_DAILY_MAX_ATTEMPTS = 6
 
 
 async def _analytics_gc(db) -> None:
@@ -65,10 +69,18 @@ async def _daily_gc(db) -> None:
     for name, job in _DAILY_JOBS:
         if _daily_done.get(name) == today:
             continue
+        day, attempts = _daily_attempts.get(name, (today, 0))
+        attempts = attempts if day == today else 0
+        if attempts >= _DAILY_MAX_ATTEMPTS:
+            continue
+        _daily_attempts[name] = (today, attempts + 1)
         try:
             await job(db)
         except Exception as exc:
-            logger.warning(f"{name} error, retrying on the next maintenance pass: {exc}")
+            if attempts + 1 >= _DAILY_MAX_ATTEMPTS:
+                logger.error(f"{name} failed {attempts + 1} times today, next try tomorrow: {exc}")
+            else:
+                logger.warning(f"{name} error, retrying on the next maintenance pass: {exc}")
             continue
         _daily_done[name] = today
 
