@@ -10,7 +10,6 @@ body { font-family: 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif; }
 /* шапка: стрелка назад с зоной нажатия 44px, заголовок крупно */
 header { margin-bottom: 18px; }
 header a { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-left: -12px; color: var(--g-dim); font-size: 30px; line-height: 1; }
-header small { color: var(--g-dim); letter-spacing: .14em; }
 h1 { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
 h2 { font-weight: 600; letter-spacing: -.01em; }
 .eyebrow { color: var(--g-dim); letter-spacing: .14em; }
@@ -20,10 +19,9 @@ h2 { font-weight: 600; letter-spacing: -.01em; }
 :is(body, body.skin-v3) .panel p { color: var(--g-dim); }
 
 /* кнопки: главное действие пилюлей, второстепенное контуром */
-:is(body, body.skin-v3) :is(button, .mine-head button) { border-radius: 99px; }
+:is(body, body.skin-v3) button { border-radius: 99px; }
 :is(body, body.skin-v3) button { background: var(--g-acc); color: var(--g-on); font-weight: 650; }
 :is(body, body.skin-v3) button.secondary { background: none; box-shadow: inset 0 0 0 1.5px var(--g-track); color: var(--ink, #f3f4f7); }
-:is(body, body.skin-v3) .mine-head button { background: var(--g-acc); color: var(--g-on); }
 button:disabled { opacity: .4; }
 
 /* показатели: три крупные цифры на холсте */
@@ -77,8 +75,6 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) .gift:disabled { opacity: .5; }
 .perks-line { min-height: 1.2em; margin: 0 0 6px; font-size: 13px; color: var(--g-dim); text-align: center; }
 .count-num { margin: 18px 0; font-size: 96px; font-weight: 700; text-align: center; line-height: 1; }
-.season-hero { padding: 4px 0 8px; }
-.season-hero h2 { margin: 6px 0; font-size: 24px; line-height: 1.15; }
 .season-rewards { display: grid; gap: 0; margin: 10px 0 4px; padding: 0; list-style: none; }
 .season-rewards li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13px; box-shadow: 0 -1px 0 var(--g-faint); }
 .season-rewards li:first-child { font-size: 15px; font-weight: 600; box-shadow: none; }
@@ -86,7 +82,6 @@ button:disabled { opacity: .4; }
 .season-rewards span { color: var(--g-dim); text-align: right; }
 .season-rewards li:first-child span { color: var(--ink, #f3f4f7); }
 .how-to { margin: 18px 0 0; font-size: 13px; color: var(--g-dim); }
-.how-to summary { cursor: pointer; padding: 8px 0; }
 .gift .gift-plus { color: var(--good, #7fd6a4); }
 .gift .gift-minus { color: var(--bad, #ff8a8a); }
 
@@ -111,7 +106,6 @@ button:disabled { opacity: .4; }
 
 /* Ник в таблицах игр рисует game-board-v3.js (та же разметка, что у «Топа»): точка VIP живёт в shell-v3-home.css, которого на страницах игр нет */
 .v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip, #f1cf7e); vertical-align: middle; }
-:is(.leaderboard, .mine-leaderboard) li.is-me { font-weight: 700; box-shadow: inset 3px 0 0 var(--g-track); padding-left: 10px; }   /* своя строка: жирнее и с меткой слева, без акцента */
 
 /* ═══ Ритм до игры (docs/MINIAPP_DESIGN_RULES.md): твой результат → «Начать забег» → лидеры → свёрнутые награды и правила ═══ */
 .rhythm-shell header h1 { margin: 0; font-size: 24px; }
@@ -123,11 +117,14 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) .panel .r-last { margin: 6px 0 0; font-size: 12.5px; }
 .rhythm-shell .mode-actions { margin-top: 18px; }
 .rhythm-shell .leaderboard { margin-top: 22px; padding-top: 0; }
-.r-prizes summary span { color: var(--g-dim); font-weight: 400; }
-.how-to summary { min-height: 44px; display: flex; align-items: center; color: var(--ink, #f3f4f7); font-size: 14px; font-weight: 500; box-shadow: 0 -1px 0 var(--g-faint); }
+.r-prizes summary span { margin-left: .35em; color: var(--g-dim); font-weight: 400; }
+/* свёрнутая справка: строка 44px с шевроном справа (display:flex убирает родной треугольник, поэтому стрелка своя) */
+.how-to summary { min-height: 44px; display: flex; align-items: center; color: var(--ink, #f3f4f7); font-size: 14px; font-weight: 500; box-shadow: 0 -1px 0 var(--g-faint); cursor: pointer; list-style: none; }
+.how-to summary::-webkit-details-marker { display: none; }
+.how-to summary::after { content: ""; flex: none; width: 7px; height: 7px; margin: -4px 4px 0 auto; border: solid var(--g-dim); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+.how-to[open] summary::after { margin-top: 4px; transform: rotate(225deg); }
 .how-to + .how-to { margin-top: 0; }
 .r-prizes .season-rewards li:first-child { font-size: 13px; font-weight: 400; }
-.r-prizes summary span { margin-left: .35em; }
 /* строка таблицы ~48px: зону нажатия даёт ссылка (44px), отступы строки не добавляют высоты */
 :is(body, body.skin-v3) :is(.leaderboard, .mine-leaderboard) li:has(a) { padding-block: 2px; }
 /* итог забега: счёт крупной цифрой, «Ещё раз» — главная кнопка на всю ширину, таблица лидеров — вторичная */
@@ -143,3 +140,5 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) .mine-shell .mine-mode { margin-top: 14px; }
 .mine-shell .how-to { margin-top: 18px; }
 .mine-shell .how-to .mine-copy, .mine-shell .how-to .mine-foot { margin: 6px 0; text-align: left; font-size: 13px; }
+:is(body, body.skin-v3) :is(.leaderboard, .mine-leaderboard) li.is-me { padding-left: 10px; font-weight: 700; box-shadow: inset 3px 0 0 var(--g-track), 0 -1px 0 var(--g-faint); }   /* своя строка: жирнее и с меткой слева, без акцента */
+:is(body, body.skin-v3) .mine-shell header .mine-new { border: 0; font-family: inherit; white-space: nowrap; }

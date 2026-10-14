@@ -12,7 +12,7 @@ body.skin-v3 {
 body.skin-v3 #app-header { background: color-mix(in srgb, var(--v3-bg) 94%, transparent); }
 body.skin-v3 .nav { background: var(--v3-dock); }
 body.skin-v3 .panel, body.skin-v3 .mine-panel { background: var(--skin-panel); }
-body.skin-v3 button.secondary, body.skin-v3 .augment, body.skin-v3 .leaderboard-tabs button, body.skin-v3 .mine-head button, body.skin-v3 .mine-mode button { background: var(--skin-control); }
+body.skin-v3 button.secondary, body.skin-v3 .augment, body.skin-v3 .leaderboard-tabs button, body.skin-v3 .mine-mode button { background: var(--skin-control); }
 body.skin-v3 .metrics, body.skin-v3 .leaderboard li, body.skin-v3 .mine-metrics, body.skin-v3 .mine-leaderboard li, body.skin-v3 .mine-difficulties button { background: var(--skin-panel-strong); }
 body.skin-v3 .pace div { background: var(--skin-control); }
 body.skin-v3 .mine-cell { background: var(--skin-cell); border-color: var(--line); }
