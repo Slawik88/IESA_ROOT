@@ -14,9 +14,17 @@ An artificially slow Telegram must not delay unrelated wallet/profile requests.
   `_AVATAR_BUDGET_SEC = 8`; a slower download keeps running and fills the 6 h cache.
 - `/profile/me` and the public profile still hold their request connection, so they no longer
   wait for Telegram: cache hit or `null` + background download. The Mini App already loads
-  its own avatar separately via `/profile/avatar` (`app.02.js:282`); another VIP's public card
-  shows the placeholder on the very first uncached view.
+  its own avatar separately via `/profile/avatar` (`app.02.js:282`). The Mini App's public
+  card comes from `/public-profile-v3`, which does not use `_vip_avatar`, so nothing visible
+  changes there.
+- Known cosmetic limit: the header avatar is requested once per session; if that request hits
+  the 8 s budget the header stays without the photo until the next session (the profile card
+  fills in on the next `/me` refresh).
 - Not done: a pool-wait timeout/queue metric (audit A01 suggestion; A01 itself is absent on master).
+
+## Review (independent)
+ACCEPT-WITH-NITS; the incorrect public-card claim above was corrected. The test fails on master
+(pool-free check times out). Not covered by test: the `/profile/me` `wait=False` path.
 
 ## Checks
 - New `tools/test_avatar_pool_pg.py` (real PostgreSQL, pool size 2): six concurrent avatar
