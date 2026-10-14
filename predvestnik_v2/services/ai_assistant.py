@@ -138,7 +138,7 @@ _TOPIC_ENUM = ["expeditions", "pets", "vip", "gacha", "economy", "clans",
 _TOOLS = [{"functionDeclarations": [
     {
         "name": "get_balance",
-        "description": "Текущий баланс игрока прямо сейчас: Мора, Алмазы, Зарники, Тёмная Мора.",
+        "description": "Текущий баланс игрока прямо сейчас: Мора, Алмазы, Зарники.",
         "parameters": {"type": "OBJECT", "properties": {}},
     },
     {
@@ -241,14 +241,11 @@ def _topic_details(topic: str) -> str:
 
 async def _tool_get_balance(db, user_id: int, chat_id: int) -> dict:
     from infrastructure.repositories import economy as eco_repo
-    from infrastructure.repositories import dark_mora as dark_mora_repo
     bal = await eco_repo.get_balance(db, user_id)
-    dark = await dark_mora_repo.get_dark_mora_balance(db, user_id)
     return {
         "mora": float(bal["user_balance_mora"]),
         "diamonds": float(bal["user_balance_diamonds"]),
         "zarniki": float(bal.get("user_balance_zarniki", 0)),
-        "dark_mora": float(dark),
     }
 
 
