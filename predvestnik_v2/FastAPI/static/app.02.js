@@ -309,6 +309,14 @@ function showCurrModal() {
         <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
       </div>
     </div>
+    <div class="cm-block" data-shop-entry ${typeof _shopOn !== 'undefined' && _shopOn === true ? '' : 'hidden'}>
+      <div class="cm-icon">🛒</div>
+      <div class="cm-info">
+        <div class="cm-name">Магазин</div>
+        <div class="cm-desc">Ключи по звёздам, Шлифовка за Мору и Алмазы, обменник Зарников.</div>
+        <button type="button" class="v3-pill v3-pill--ghost" style="margin-top:7px" onclick="openShop()">Открыть магазин</button>
+      </div>
+    </div>
     <div class="cm-block" style="display:block">
       <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
       <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
@@ -316,6 +324,7 @@ function showCurrModal() {
       <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
   </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
+  if (typeof shopProbe === 'function') shopProbe();   // кнопка «Магазин» появится, если флаг shop_v1 включён
 }
 
 // Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос

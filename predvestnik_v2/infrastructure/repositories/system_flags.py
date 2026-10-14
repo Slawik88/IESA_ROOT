@@ -22,6 +22,7 @@ _DEFAULTS = [
     ("pets_v2",                "🐾 Питомцы: Тропа (dev)", False),
     ("pets_level_up_v1",      "🐾 Улучшение питомцев за валюты (dev)", False),
     ("pets_route_rewards_v1", "🐾 Награда Морой за маршруты экспедиций (dev)", False),
+    ("shop_v1",               "🛒 Магазин: ключи, Шлифовка, обменник (dev)", False),
     ("season_pass_v1",         "🏁 Сезонный пропуск игр (dev)", False),
     ("economy_player_exchange_v1", "📈 Биржа монет игроков (dev)", False),
     ("economy_player_exchange_shorts_v1", "📉 Шорты биржи монет игроков (dev)", False),
