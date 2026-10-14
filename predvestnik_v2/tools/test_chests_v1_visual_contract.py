@@ -20,7 +20,7 @@ assert "Точные шансы и размеры наград" in release_js
 assert "Купить ключ" in release_js and "chestsV1Buy" in release_js
 assert "chestsV1AskBuy" in release_js and "Неиспользованный купленный ключ" in release_js
 assert "Ключ уровня N поднимает звёзды ниже N до N" in release_js
-assert "Покупка необратима" in release_js and "chestTierBalance(d,_chestsV1Tier)<1))_chestsV1Tier=" in release_js
+assert "Покупка необратима" in release_js and "chestTierBalance(d,_chestsV1Tier)<1)_chestsV1Tier=" in release_js
 # ECO-04 PR-A: tier picker, per-tier odds, offers with limits and an irreversible-spend note.
 assert "chestsV1PickTier" in release_js and "key_tier:tier" in release_js and "prepare:${tier}" in release_js
 assert "chestsV1AskOffer" in release_js and "/chests-v1/offers/" in release_js and "Покупка необратима" in release_js
