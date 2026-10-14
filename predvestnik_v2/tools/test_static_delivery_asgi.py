@@ -49,6 +49,7 @@ ALLOWED = {
     "/static/monolith-player-v3.css": "text/css",
     "/static/admin-legacy.css": "text/css",
     "/static/games-v3.css": "text/css",
+    "/static/game-board-v3.js": "application/javascript",
 }
 BLOCKED = (
     "/static/app.01.js",
@@ -157,6 +158,8 @@ def main() -> None:
     assert '/static/skin-runtime-v3.css?v=' in rhythm.text
     assert '/static/skin-runtime-v3.js?v=' in rhythm.text
     assert '/static/games-v3.css?v=' in rhythm.text
+    for page in (rhythm, minesweeper):
+        assert '/static/game-board-v3.js?v=' in page.text and '/static/appearance-v3.css?v=' in page.text and '/static/marks-v3.css?v=' in page.text, 'game leaderboards load the skin renderer'
 
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
         rooted = TestClient(strip_prefix_middleware(app, "/predvestnik"))

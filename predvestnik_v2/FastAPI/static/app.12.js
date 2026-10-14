@@ -492,7 +492,7 @@
         row('Чаще находит', esc(t.favored_find)),
       ]));
     }
-    out.push('<h4>Что даёт уровень</h4>' + list((data.level_milestones || []).map((m) => row(`Ур. ${m.level}`, esc(m.text)))));
+    out.push(`<h4>Что даёт уровень${soon('route_rewards')}</h4>` + list((data.level_milestones || []).map((m) => row(`Ур. ${m.level}`, esc(m.text)))));
     const src = (info.card_sources || []).map((x) => `${x.stars}★ · ${x.percent}%`).join(', ');
     out.push('<h4>Откуда берётся</h4>' + list([row('Карточки в сундуках', esc(src) + '<br>Доля карточек этой редкости среди всех карточек сундука этой звёздности.')]));
     const c = info.level_cost;
