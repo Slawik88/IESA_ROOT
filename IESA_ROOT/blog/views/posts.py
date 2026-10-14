@@ -5,15 +5,18 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils.decorators import method_decorator
 from django.urls import reverse_lazy
 from django.contrib import messages
-from django.db.models import Count, Q, F
+from django.db.models import Q, F
+from ..utils.querysets import related_count, visible_posts
+from django.utils.cache import patch_vary_headers, patch_cache_control
 from django.utils.translation import gettext as _
 
-from ..models import Post, PostView, Like, BlogSubscription
+from ..models import Post, PostView, Like, BlogSubscription, Comment
 from ..forms import PostForm, CommentForm
 from ..constants import POSTS_PER_PAGE
 from ..utils.helpers import get_client_ip, is_post_liked, is_author_subscribed
 from users.ratelimit_utils import post_create_ratelimit
 from core.models import Partner
+
 
 
 class PostListView(ListView):
@@ -42,17 +45,12 @@ class PostListView(ListView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        # OPTIMIZATION: Annotate counts instead of N+1 queries in templates
-        queryset = Post.objects.filter(
-            status='published'
-        ).select_related('author').prefetch_related(
-            'likes'
-        ).annotate(
-            likes_count=Count('likes', distinct=True),
-            views_count_cached=Count('user_views', distinct=True),
-            comments_count=Count('comments', distinct=True)
+        queryset = Post.objects.filter(status='published').select_related('author').annotate(
+            likes_count=related_count(Like, 'post_id'),
+            views_count_cached=related_count(PostView, 'post_id'),
+            comments_count=related_count(Comment, 'post_id'),
         )
-        
+
         # Поиск по заголовку и тексту
         search = self.request.GET.get('q', '').strip()
         if search:
@@ -60,11 +58,11 @@ class PostListView(ListView):
                 Q(title__icontains=search) | Q(text__icontains=search)
             )
         
-        return queryset.order_by('-created_at')
+        return queryset.order_by('-created_at', '-pk')
     
     def get_template_names(self):
         """Возвращает partial шаблон для HTMX запросов"""
-        if self.request.headers.get('HX-Request'):
+        if self.request.headers.get('HX-Request') == 'true':
             return ['blog/partials/post_list_items.html']
         return [self.template_name]
     
@@ -88,9 +86,9 @@ class PostListView(ListView):
         """Добавляет заголовки кэширования для HTMX запросов"""
         response = super().render_to_response(context, **response_kwargs)
         
-        # Кэш на 2 минуты для списка постов
-        if self.request.headers.get('HX-Request'):
-            response['Cache-Control'] = 'public, max-age=120'
+        patch_vary_headers(response, ['HX-Request', 'Cookie', 'Accept-Language'])
+        if self.request.headers.get('HX-Request') == 'true':
+            patch_cache_control(response, private=True, max_age=120)
         
         return response
 
@@ -102,17 +100,11 @@ class PostDetailView(DetailView):
     context_object_name = 'post'
 
     def get_queryset(self):
-        # OPTIMIZATION: Prefetch all relations and annotate counts upfront
-        return Post.objects.annotate(
-            likes_count=Count('likes', distinct=True),
-            subscriber_count=Count('author__subscribers', distinct=True),
-            views_count_cached=Count('user_views', distinct=True)
-        ).prefetch_related(
-            'comments__author',
-            'comments__replies',
-            'comments__replies__author',
-            'author'
-        ).select_related('author')
+        return visible_posts(self.request.user).select_related('author').annotate(
+            likes_count=related_count(Like, 'post_id'),
+            subscriber_count=related_count(BlogSubscription, 'author_id', 'author_id'),
+            views_count_cached=related_count(PostView, 'post_id'),
+        )
 
     def get(self, request, *args, **kwargs):
         response = super().get(request, *args, **kwargs)
@@ -152,10 +144,6 @@ class PostDetailView(DetailView):
         
         # Формы и данные
         context['comment_form'] = CommentForm()
-        context['comments'] = self.object.comments.filter(
-            parent__isnull=True
-        ).prefetch_related('replies', 'replies__author')
-        
         # Партнёры для сайдбара
         context['featured_partners'] = Partner.objects.all().order_by('name')[:6]
         

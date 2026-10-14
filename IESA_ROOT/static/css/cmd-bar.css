@@ -219,6 +219,16 @@
     .cmd-cta     { display: none; }
     .cmd-search  { padding: .55rem .9rem; border-bottom: none; }
     .cmd-filter-toggle { display: flex; }
+    .cmd-bar--posts .cmd-bar__inner { flex-wrap: wrap; }
+    .cmd-bar--posts .cmd-search { min-width: 0; }
+    .cmd-bar--posts .cmd-cta { display: flex; flex-basis: 100%; order: 1; justify-content: center; min-height: 44px; border-top: 1px solid rgba(255,255,255,.08); border-left: 0; }
+    .cmd-bar--events .cmd-bar__inner { flex-wrap: wrap; }
+    .cmd-bar--events .cmd-tabs { display: flex; flex-basis: 100%; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .cmd-bar--events .cmd-tab { flex: 1; justify-content: center; min-height: 44px; }
+    .cmd-bar--events .cmd-search { flex-basis: 100%; min-width: 0; }
+    .cmd-bar--events .cmd-filters { display: flex; flex-wrap: wrap; width: 100%; border-top: 1px solid rgba(255,255,255,.08); }
+    .cmd-bar--events .cmd-filter-group { flex: 1; min-width: 0; }
+    .cmd-bar--events .cmd-select { max-width: 100%; min-height: 44px; font-size: 16px; }
 }
 
 /* Тач-экраны: шрифт ≥16px (иначе iOS приближает страницу при фокусе) и зона нажатия 44px.

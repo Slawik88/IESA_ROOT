@@ -2,7 +2,6 @@
 import uuid as _uuid_mod
 from functools import wraps
 
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render

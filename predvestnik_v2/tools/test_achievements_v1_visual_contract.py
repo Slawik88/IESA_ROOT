@@ -29,7 +29,11 @@ def run() -> None:
     assert "'achievements-v1'" in shell and "suppressBrowserBack" in shell
     assert "requestAnimationFrame" in client and "data-achievement-filter" in client
     assert "finalMilestone?.events_required" in client
-    print("OK: achievements v1 filters, exact dual progress, milestones and mobile actions")
+    # Chat-bot achievements live in the same tab under their own filter.
+    assert "'/achievements-v1/chat'" in client and "chatAchievementCard" in client
+    assert "['chat', 'Чат', chat.length]" in client and "'chat']);" in client
+    assert ".achievement-chat" in css
+    print("OK: achievements v1 + chat filters, exact dual progress, milestones and mobile actions")
 
 
 if __name__ == "__main__":

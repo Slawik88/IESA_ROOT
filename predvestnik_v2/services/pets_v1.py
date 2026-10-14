@@ -186,7 +186,10 @@ async def overview(db, user_id: int) -> dict:
          "lore": PET_LORE.get(species_id, "")}
         for species_id, row in PET_SPECIES.items()
     ]
+    from services.pet_levels_v1 import next_step   # lazy: that module imports PetConflict from here
+    level_up = await next_step(db, int(user_id), pets)
     return {"policy_version":POLICY_VERSION,"active_pet_id":active,"pets":pets,
+            "level_up": level_up,
             "bestiary": bestiary,
             "bestiary_owned": sum(1 for item in bestiary if item["owned"]),
             "bestiary_total": len(bestiary),

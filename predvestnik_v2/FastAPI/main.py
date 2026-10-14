@@ -372,6 +372,7 @@ _ASSET_VER = str(int(max(
     os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.js")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.css")),
     os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.js")),
+    os.path.getmtime(os.path.join(_STATIC_DIR, "game-board-v3.js")),
 )))
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
@@ -420,6 +421,21 @@ _MINESWEEPER_V2_HTML = (
     .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
     .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
 )
+# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
+_GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "marks-v3.css", "game-board-v3.js")
+
+
+def _with_game_board_assets(html: str) -> str:
+    for name in _GAME_BOARD_ASSETS:
+        attr = "src" if name.endswith(".js") else "href"
+        html = html.replace(f'{attr}="/static/{name}"', f'{attr}="{_ASSET_BASE}/static/{name}?v={_ASSET_VER}"')
+    return html
+
+
+_RHYTHM_V2_HTML = _with_game_board_assets(_RHYTHM_V2_HTML)
+_MINESWEEPER_V2_HTML = _with_game_board_assets(_MINESWEEPER_V2_HTML)
+
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
 # (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
 _UPDATES_JSON = _read_static("updates.json")
@@ -507,6 +523,11 @@ async def rhythm_v2_css():
 @app.get("/static/rhythm-v2.js")
 async def rhythm_v2_js():
     return Response(_read_static("rhythm-v2.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/game-board-v3.js")
+async def game_board_js():
+    return Response(_read_static("game-board-v3.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/minesweeper-v2.css")

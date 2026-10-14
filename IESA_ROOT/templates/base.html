@@ -87,7 +87,7 @@
     <!-- cmd-bar loaded separately (used only on blog/events pages) -->
     <link rel="stylesheet" href="{% static 'css/variables.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-    <link rel="stylesheet" href="{% static 'css/layout.css' %}?v=logo-full-20260811">
+    <link rel="stylesheet" href="{% static 'css/layout.css' %}?v=logo-full-20260811&amp;mobile=20261013">
     <link rel="stylesheet" href="{% static 'css/components.css' %}">
     <link rel="stylesheet" href="{% static 'css/pages.css' %}">
     <link rel="stylesheet" href="{% static 'css/utilities.css' %}">
@@ -116,6 +116,7 @@
     <a href="#main-content" class="skip-to-main">{% trans "Skip to main content" %}</a>
     
     {% include "partials/_navbar.html" %}
+    {% include "partials/_site_search.html" %}
 
     {% if request.session.impersonated_by %}
     <div style="background:#92400e;color:#fef3c7;text-align:center;padding:.45rem 1rem;font-size:.82rem;font-weight:700;z-index:9999;position:relative;">
@@ -145,6 +146,16 @@
 
     <!-- Bootstrap 5.3.3 JS — локальный (без CDN-зависимости) -->
     <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <script>
+    // Page containers create stacking contexts; Bootstrap's backdrop belongs to body.
+    // Keep dialogs beside the backdrop so their buttons remain reachable at every width.
+    document.addEventListener('show.bs.modal', function(event) {
+        var modal = event.target;
+        if (modal.classList.contains('modal') && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    });
+    </script>
     
     <!-- HTMX - Dynamic content without custom JS -->
     <script src="{% static 'js/htmx.min.js' %}"></script>
@@ -498,15 +509,16 @@
     <!-- HTMX animation disabler -->
     <script src="{% static 'js/htmx-animation-disable.js' %}"></script>
     <!-- Header hide on scroll -->
-    <script src="{% static 'js/header-hide-on-scroll.js' %}"></script>
+    <script src="{% static 'js/header-hide-on-scroll.js' %}?v=mobile-parity-20261013"></script>
     <!-- Performance / lazy-loading -->
-    <script src="{% static 'js/performance-optimization.js' %}" async></script>
+    <script src="{% static 'js/performance-optimization.js' %}?v=mobile-parity-20261013" async></script>
     <!-- Mobile gestures & UX -->
-    <script src="{% static 'js/mobile-optimization.js' %}"></script>
+    <script src="{% static 'js/mobile-optimization.js' %}?v=mobile-parity-20261013"></script>
+    <script src="{% static 'js/site-search.js' %}"></script>
     <!-- Scroll-reveal, parallax, tilt -->
     <script src="{% static 'js/page-effects.js' %}"></script>
     <!-- Countdowns, capacity bars, reading time -->
-    <script src="{% static 'js/community-ui.js' %}"></script>
+    <script src="{% static 'js/community-ui.js' %}?v=mobile-parity-20261013"></script>
     
     <!-- Back to Top Button -->
     <button type="button" id="back-to-top" aria-label="{% trans "Back to top" %}" title="{% trans "Back to top" %}">
@@ -594,20 +606,24 @@
     {% if user.is_authenticated %}
     <div id="notif-badge-poll"
          hx-get="{% url 'notifications:unread_count' %}"
-         hx-trigger="every 5m"
+         hx-trigger="every 5m, notificationDeleted from:body"
          hx-swap="none"
          class="d-none"
          aria-hidden="true">
     </div>
     <script>
-    /* Синхронизируем desktop + mobile badge после HTMX polling */
-    document.body.addEventListener('htmx:afterRequest', function(e){
-        if (e.detail.elt && e.detail.elt.id === 'notif-badge-poll') {
-            var html = e.detail.xhr ? e.detail.xhr.responseText : '';
-            var b1 = document.getElementById('navbar-notif-badge');
-            var b2 = document.getElementById('navbar-notif-badge-mob');
-            if (b1) b1.innerHTML = html;
-            if (b2) b2.innerHTML = html;
+    window.IESASetUnreadBadge = function(value) {
+        var count = parseInt(value, 10) || 0;
+        var display = String(value).includes('+') || count > 99 ? '99+' : String(count);
+        document.querySelectorAll('[data-notification-badge]').forEach(function(badge) {
+            badge.hidden = count <= 0;
+            badge.textContent = display;
+        });
+    };
+    document.body.addEventListener('htmx:afterRequest', function(e) {
+        if (e.detail.elt && e.detail.elt.id === 'notif-badge-poll' && e.detail.successful) {
+            var documentFragment = new DOMParser().parseFromString(e.detail.xhr.responseText, 'text/html');
+            window.IESASetUnreadBadge(documentFragment.body.textContent.trim());
         }
     });
     </script>
@@ -855,11 +871,14 @@
         var sheet = document.getElementById(id);
         var back  = document.getElementById('bs-backdrop');
         if (!sheet || !back) return;
+        if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
         if (this._currentSheet && this._currentSheet !== sheet) this.close(this._currentSheet.id, false);
         this._currentSheet = sheet;
         this._lastFocused = document.activeElement;
         this._previousOverflow = document.body.style.overflow;
         sheet.setAttribute('aria-hidden', 'false');
+        sheet.setAttribute('role', 'dialog');
+        sheet.setAttribute('aria-modal', 'true');
         back.style.display = 'block';
         requestAnimationFrame(function(){
           back.classList.add('open');
@@ -877,6 +896,7 @@
         if (sheet) {
           sheet.classList.remove('open');
           sheet.setAttribute('aria-hidden', 'true');
+          sheet.removeAttribute('aria-modal');
         }
         if (back) { back.classList.remove('open'); setTimeout(function(){ back.style.display='none'; }, 250); }
         document.body.style.overflow = this._previousOverflow;
@@ -932,26 +952,24 @@
       var isSuperuser = {% if request.user.is_superuser %}true{% else %}false{% endif %};
       /* Sync icon с текущей темой (ранний preset уже выставил data-theme) */
       var current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-      var ico = document.getElementById('theme-icon');
-      if (ico) ico.className = current === 'light' ? 'fas fa-sun' : 'fas fa-moon';
-
-      var btn = document.getElementById('theme-toggle');
-      if (!btn) return;
-      if (!isSuperuser) {
-        /* Скрываем кнопку для не-суперюзеров (защита если template-условие пропустили) */
-        btn.style.display = 'none';
-        return;
+      function updateIcons(theme) {
+        document.querySelectorAll('[data-theme-icon]').forEach(function(icon) {
+          icon.className = theme === 'light' ? 'fas fa-sun me-2' : 'fas fa-moon me-2';
+        });
       }
-      btn.addEventListener('click', function(){
-        var cur = document.documentElement.getAttribute('data-theme') || 'dark';
-        var next = cur === 'dark' ? 'light' : 'dark';
-        if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
-        else document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('iesa-theme', next);
-        var ic = document.getElementById('theme-icon');
-        if (ic) ic.className = next === 'light' ? 'fas fa-sun' : 'fas fa-moon';
-        var tc = document.getElementById('meta-theme-color');
-        if (tc) tc.setAttribute('content', next === 'light' ? '#f8fafc' : '#0e0e18');
+      updateIcons(current);
+      document.querySelectorAll('[data-theme-toggle]').forEach(function(btn) {
+        if (!isSuperuser) { btn.hidden = true; return; }
+        btn.addEventListener('click', function() {
+          var cur = document.documentElement.getAttribute('data-theme') || 'dark';
+          var next = cur === 'dark' ? 'light' : 'dark';
+          if (next === 'light') document.documentElement.setAttribute('data-theme', 'light');
+          else document.documentElement.removeAttribute('data-theme');
+          try { localStorage.setItem('iesa-theme', next); } catch { /* Optional preference. */ }
+          updateIcons(next);
+          var tc = document.getElementById('meta-theme-color');
+          if (tc) tc.setAttribute('content', next === 'light' ? '#f8fafc' : '#0e0e18');
+        });
       });
     })();
     </script>
@@ -1051,9 +1069,7 @@
                aria-label="{% trans "Notifications" %}">
                 <i class="fas fa-bell"></i>
                 <span>{% trans "Alerts" %}</span>
-                {% if unread_notifications_count > 0 %}
-                <span class="mbn-badge">{{ unread_notifications_count }}</span>
-                {% endif %}
+                <span id="bottom-nav-notif-badge" class="mbn-badge" data-notification-badge {% if not unread_notifications_count %}hidden{% endif %}>{% if unread_notifications_count > 99 %}99+{% else %}{{ unread_notifications_count }}{% endif %}</span>
             </a>
         </div>
 
@@ -1115,19 +1131,6 @@
         wrap.addEventListener('click', function(e){ e.stopPropagation(); });
     })();
 
-    /* ── UX debt: navbar search — очистка при закрытии dropdown ── */
-    (function(){
-        var searchInput = document.getElementById('global-community-search');
-        var searchResults = document.getElementById('community-search-results');
-        if (!searchInput) return;
-        document.addEventListener('hide.bs.dropdown', function(e){
-            if (e.target && e.target.contains(searchInput)) {
-                searchInput.value = '';
-                if (searchResults) searchResults.innerHTML = '';
-            }
-        });
-    })();
-
     /* ── UX debt: eager-load уведомлений при загрузке страницы (не ждать клика) ── */
     (function(){
         var notifContent = document.getElementById('notifications-content');
@@ -1140,8 +1143,6 @@
     {% if user.is_authenticated %}
     /* ── 10e: SSE real-time badge обновление ── */
     (function(){
-        var badge    = document.getElementById('navbar-notif-badge');
-        var badgeMob = document.getElementById('navbar-notif-badge-mob');
         if (!window.EventSource) return;
 
         var url = '{% url "notifications:notification_stream" %}';
@@ -1153,9 +1154,7 @@
             es.addEventListener('badge', function(e){
                 retries = 0;
                 var count = parseInt(e.data, 10) || 0;
-                var html = count > 0 ? '<span class="notif-dot">' + (count > 99 ? '99+' : count) + '</span>' : '';
-                if (badge)    badge.innerHTML    = html;
-                if (badgeMob) badgeMob.innerHTML = html;
+                window.IESASetUnreadBadge(count);
             });
             es.onerror = function(){
                 /* При ошибке закрываем; пробуем снова с нарастающей паузой (макс. 3 раза), дальше работает hx-polling */

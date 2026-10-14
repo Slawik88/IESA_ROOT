@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
+from services.pet_levels_v1 import level_up_pet
 from services.pets_v1 import PetConflict, choose_expedition, feed_pet, select_active_pet, start_activity, overview
 from core.pets_v1 import PetPolicyError
 from infrastructure.repositories.pets_v1 import ensure_tables
@@ -21,6 +22,10 @@ class StartActivityRequest(BaseModel):
 
 class ExpeditionDecisionRequest(BaseModel):
     decision: str = Field(pattern="^(careful|steady|bold)$")
+    action_id: str = Field(min_length=1, max_length=96)
+
+class LevelUpRequest(BaseModel):
+    pet_id: int = Field(gt=0)
     action_id: str = Field(min_length=1, max_length=96)
 
 class FeedPetRequest(BaseModel):
@@ -72,5 +77,14 @@ async def feed(body: FeedPetRequest, db=Depends(get_db), user=Depends(require_tg
             db, user_id=int(user["id"]), pet_id=body.pet_id,
             food_id=body.food_id, action_id=body.action_id,
         )
+    except (PetPolicyError, PetConflict) as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/level-up")
+async def level_up(body: LevelUpRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    try:
+        await _ensure_release_tables(db)
+        return await level_up_pet(db, user_id=int(user["id"]), pet_id=body.pet_id, action_id=body.action_id)
     except (PetPolicyError, PetConflict) as error:
         raise HTTPException(409, str(error))

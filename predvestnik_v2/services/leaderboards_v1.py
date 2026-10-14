@@ -12,6 +12,7 @@ from services import appearance_public_v3, marks_v1 as marks_service
 from infrastructure.repositories import stats as stats_repo
 from infrastructure.repositories.streak import get_chat_timezone
 from services.membership import bot_tg_id
+from services.vip import is_vip_active_batch
 
 TOP_LIMIT = 5
 PAGE_SIZE = 10
@@ -67,6 +68,23 @@ async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> 
         }
         for index, row in enumerate(rows)
     ]
+
+
+async def decorate_game_board(db, board: dict, user_id: int | None = None) -> dict:
+    """Give game leaderboard rows the same look, mark and VIP dot as the message tops (players are keyed by opaque ref)."""
+    rows = [row for row in board.get("top", []) if row.get("player")]
+    if not rows:
+        return board
+    refs = {row["player"]["profile_ref"]: await public_profiles.resolve_reference(db, profile_ref=row["player"]["profile_ref"]) for row in rows}
+    ids = [uid for uid in refs.values() if uid is not None]
+    looks = await appearance_public_v3.nick_styles(db, ids)
+    marks = await marks_service.top_mark_batch(db, ids)
+    vips = await is_vip_active_batch(db, ids)
+    for row in rows:
+        uid = refs.get(row["player"]["profile_ref"])
+        row["player"] = {**row["player"], "look": looks.get(uid), "mark": marks.get(uid), "is_vip": uid in vips}
+        row["is_me"] = user_id is not None and uid == int(user_id)
+    return board
 
 
 async def message_top(db, *, user_id: int, period: str, now: datetime | None = None) -> dict:

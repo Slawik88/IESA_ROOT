@@ -5,10 +5,63 @@
 (function () {
   'use strict';
 
+  const countdownTimers = new WeakMap();
+  const initializedCapacity = new WeakSet();
+  const reveals = new Map();
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function revealNew(selector, onVisible, options, delay) {
+    let state = reveals.get(selector);
+    if (!state) {
+      state = { seen: new WeakSet(), observer: null };
+      reveals.set(selector, state);
+    }
+    const pending = Array.from(document.querySelectorAll(selector))
+      .filter(element => !state.seen.has(element));
+    if (!pending.length) return;
+    const show = element => onVisible(element);
+    if (!window.IntersectionObserver || reducedMotion) {
+      pending.forEach(element => { state.seen.add(element); show(element); });
+      return;
+    }
+    if (!state.observer) {
+      state.observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            show(entry.target);
+            state.observer.unobserve(entry.target);
+          }
+        });
+      }, options);
+    }
+    pending.forEach((element, index) => {
+      state.seen.add(element);
+      if (delay) element.style.transitionDelay = Math.min(index, 6) * delay + 'ms';
+      state.observer.observe(element);
+    });
+  }
+
+  document.addEventListener('htmx:beforeCleanupElement', event => {
+    const root = event.detail.elt;
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+    [root, ...root.querySelectorAll('*')].forEach(element => {
+      clearTimeout(countdownTimers.get(element));
+      countdownTimers.delete(element);
+      initializedCapacity.delete(element);
+      reveals.forEach(state => {
+        state.observer?.unobserve(element);
+        state.seen.delete(element);
+      });
+    });
+  });
+
   /* ─── 1. Live Countdown Timers ─────────────────────────────────────────── */
   function initCountdowns() {
     document.querySelectorAll('[data-countdown]').forEach(function (el) {
+      if (countdownTimers.has(el)) return;
       var targetMs = Number(el.dataset.countdown) * 1000;
+      if (!Number.isFinite(targetMs)) return;
+      countdownTimers.set(el, null);
       var wrap = el.closest('.tl-countdown');
       var timerId = null;
 
@@ -40,6 +93,7 @@
           ? (d + 'd ' + h + 'h ' + pad(m) + 'm')
           : (pad(h) + ':' + pad(m) + ':' + pad(s));
         timerId = setTimeout(tick, 1000);
+        countdownTimers.set(el, timerId);
       }
       tick();
     });
@@ -49,9 +103,9 @@
 
   /* ─── 2. Capacity Progress Bars ─────────────────────────────────────────── */
   function initCapacityBars() {
-    /* Раньше искали несуществующий `.tl-capacity-fill` — амбер/красный уровни заполнения не включались никогда.
-       Ширину (--p) рендерит сервер; здесь только цветовые уровни. */
     document.querySelectorAll('.tl-cap-fill[data-filled]').forEach(function (bar) {
+      if (initializedCapacity.has(bar)) return;
+      initializedCapacity.add(bar);
       var filled = parseInt(bar.dataset.filled, 10) || 0;
       var max    = parseInt(bar.dataset.max,    10) || 0;
       if (!max) return;
@@ -63,50 +117,13 @@
 
   /* ─── 3. Timeline Stagger Reveal ─────────────────────────────────────────── */
   function initTimelineReveal() {
-    if (!window.IntersectionObserver) {
-      document.querySelectorAll('.tl-item').forEach(function (el) {
-        el.classList.add('tl-visible');
-      });
-      return;
-    }
-    var obs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('tl-visible');
-          obs.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
-
-    document.querySelectorAll('.tl-item').forEach(function (el, i) {
-      el.style.transitionDelay = (i * 75) + 'ms';
-      obs.observe(el);
-    });
+    revealNew('.tl-item', el => el.classList.add('tl-visible'),
+      { threshold: 0.08, rootMargin: '0px 0px -40px 0px' }, 75);
   }
 
-  /* ─── 4. Magazine Article Reveal ────────────────────────────────────────── */
   function initArticleReveal() {
-    if (!window.IntersectionObserver) {
-      document.querySelectorAll('.iesa-article').forEach(function (el) {
-        el.classList.add('article-visible');
-      });
-      return;
-    }
-    var obs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('article-visible');
-          obs.unobserve(entry.target);
-        }
-      });
-    }, { threshold: 0.07, rootMargin: '0px 0px -30px 0px' });
-
-    document.querySelectorAll('.iesa-article').forEach(function (el, i) {
-      if (!el.classList.contains('article-visible')) {
-        el.style.transitionDelay = (i * 55) + 'ms';
-        obs.observe(el);
-      }
-    });
+    revealNew('.iesa-article', el => el.classList.add('article-visible'),
+      { threshold: 0.07, rootMargin: '0px 0px -30px 0px' }, 55);
   }
 
   /* ─── 5. Reading Time from Excerpt Text ─────────────────────────────────── */
@@ -126,25 +143,11 @@
 
   /* ─── 6. Article Progress Bar (decorative popularity indicator) ──────────── */
   function initProgressBars() {
-    if (!window.IntersectionObserver) return;
-    var obs = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          var bar = entry.target.querySelector('.art-progress-bar');
-          if (bar) {
-            var views = parseInt(bar.dataset.views, 10) || 0;
-            // Scale: 500 views = 100%, minimum 15%
-            var pct = Math.min(97, Math.max(15, Math.round(views / 500 * 100)));
-            setTimeout(function () { bar.style.setProperty('--p', pct); }, 300);
-          }
-          obs.unobserve(entry.target);
-        }
-      });
+    revealNew('.iesa-article:has(.art-progress-bar)', el => {
+      const bar = el.querySelector('.art-progress-bar');
+      const views = parseInt(bar.dataset.views, 10) || 0;
+      bar.style.setProperty('--p', Math.min(97, Math.max(15, Math.round(views / 500 * 100))));
     }, { threshold: 0.2 });
-
-    document.querySelectorAll('.iesa-article').forEach(function (el) {
-      obs.observe(el);
-    });
   }
 
   /* ─── 7. Index Number Badges ─────────────────────────────────────────────── */

@@ -5,7 +5,6 @@
  *  1. Touch flag (body class)
  *  2. Viewport height fix (iOS dynamic toolbar)
  *  3. Navbar collapse — auto-close on anchor link click
- *  4. Search dropdown auto-close on scroll
  *  5. Bottom nav — active state + shadow on scroll
  *  6. Swipe-to-close navbar collapse
  *  7. Prevent double-tap zoom on buttons/links (iOS)
@@ -48,15 +47,15 @@
      3. NAVBAR COLLAPSE — auto-close on anchor
      ───────────────────────────────────────── */
   function initMobileMenuToggle() {
-    const navbarToggler = document.querySelector('.navbar-toggler');
-    const navbarCollapse = document.getElementById('navbarNav');
+    const navbarToggler = document.querySelector('.iesa-toggler');
+    const navbarCollapse = document.getElementById('iesa-nav-collapse');
 
     if (!navbarToggler || !navbarCollapse || typeof bootstrap === 'undefined') return;
 
     const bsCollapse = bootstrap.Collapse.getOrCreateInstance(navbarCollapse, { toggle: false });
 
     // Закрываем при клике на якорные ссылки
-    const navLinks = navbarCollapse.querySelectorAll('a[href*="#"]');
+    const navLinks = navbarCollapse.querySelectorAll('a[href]:not([data-bs-toggle])');
     navLinks.forEach(function (link) {
       link.addEventListener('click', function () {
         const togglerVisible = window.getComputedStyle(navbarToggler).display !== 'none';
@@ -79,24 +78,6 @@
   /* ─────────────────────────────────────────
      4. SEARCH DROPDOWN AUTO-CLOSE ON SCROLL
      ───────────────────────────────────────── */
-  function initSearchDropdownAutoClose() {
-    const toggle = document.getElementById('communitySearchToggle');
-    const dropdown = document.querySelector('.navbar-search-dropdown');
-
-    if (!toggle || !dropdown || typeof bootstrap === 'undefined') return;
-
-    const dropdownInstance = bootstrap.Dropdown.getOrCreateInstance(toggle, { autoClose: true });
-    const closeDropdown = function () {
-      const isMobile = window.innerWidth < 992;
-      if (isMobile && dropdown.classList.contains('show')) {
-        dropdownInstance.hide();
-      }
-    };
-
-    window.addEventListener('scroll', closeDropdown, { passive: true });
-    window.addEventListener('orientationchange', closeDropdown);
-  }
-
   /* ─────────────────────────────────────────
      5. BOTTOM NAV — active state + shadow
      ───────────────────────────────────────── */
@@ -133,7 +114,7 @@
      Смахивание влево/вправо закрывает меню
      ───────────────────────────────────────── */
   function initSwipeToClose() {
-    const navbarCollapse = document.getElementById('navbarNav');
+    const navbarCollapse = document.getElementById('iesa-nav-collapse');
     if (!navbarCollapse || typeof bootstrap === 'undefined') return;
 
     let touchStartX = 0;
@@ -203,14 +184,14 @@
      Добавляем loading="lazy" к изображениям
      у которых нет атрибута
      ───────────────────────────────────────── */
-  function initLazyImages() {
-    /* Только изображения ниже первого экрана: логотип/hero в видимой области должны грузиться сразу —
-       loading=lazy на них откладывал LCP и (вместе с fade-in) мог надолго оставлять их прозрачными. */
-    const fold = window.innerHeight * 1.25;
-    const imgs = document.querySelectorAll('img:not([loading]):not([src^="data:"])');
+  function initLazyImages(root = document) {
+    const selector = 'img:not([loading]):not([src^="data:"])';
+    const imgs = Array.from(root.querySelectorAll(selector));
+    if (root.matches?.(selector)) imgs.unshift(root);
     imgs.forEach(function (img) {
-      if (img.getBoundingClientRect().top <= fold) { img.decoding = 'async'; return; }
-      img.loading = 'lazy';
+      // Keep visible images eager; delaying them can worsen LCP.
+      const rect = img.getBoundingClientRect();
+      img.loading = rect.top < window.innerHeight && rect.bottom > 0 ? 'eager' : 'lazy';
       img.decoding = 'async';
     });
   }
@@ -222,7 +203,6 @@
     initTouchFlag();
     initViewportHeightFix();
     initMobileMenuToggle();
-    initSearchDropdownAutoClose();
     initBottomNav();
     initSwipeToClose();
     initTouchManipulation();
@@ -231,8 +211,8 @@
   });
 
   // Повторяем lazy init после HTMX swap
-  document.addEventListener('htmx:afterSwap', function () {
-    initLazyImages();
+  document.addEventListener('htmx:afterSwap', function (event) {
+    initLazyImages(event.detail.elt || document);
   });
 
 })();

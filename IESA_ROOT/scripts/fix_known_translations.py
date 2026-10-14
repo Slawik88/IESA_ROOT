@@ -192,7 +192,6 @@ def apply_fixes(lang: str) -> int:
         if not entry:
             continue
         if entry.msgstr != new_msgstr:
-            old = entry.msgstr
             entry.msgstr = new_msgstr
             fixed += 1
     po.save(str(po_path))

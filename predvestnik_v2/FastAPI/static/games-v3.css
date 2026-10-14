@@ -89,3 +89,26 @@ button:disabled { opacity: .4; }
 .how-to summary { cursor: pointer; padding: 8px 0; }
 .gift .gift-plus { color: var(--good, #7fd6a4); }
 .gift .gift-minus { color: var(--bad, #ff8a8a); }
+
+/* ═══ Оформление экранов игр (передача от треда «Игры»): только вид, логика и данные не менялись ═══ */
+/* Ритм: плашка ответа на тап. Одно слово по центру, цвет несёт состояние; движения нет, чтобы не отвлекать от рун */
+#tap-feedback { display: flex; align-items: center; justify-content: center; min-height: 32px; margin: 12px 0 0; font-size: 15px; font-weight: 650; letter-spacing: .01em; color: var(--g-dim); }
+#tap-feedback[data-state="pending"] { color: var(--g-acc); }
+#tap-feedback[data-state="accepted"] { color: var(--good, #7fd6a4); }
+#tap-feedback[data-state="accepted"]::before, #tap-feedback[data-state="pending"]::before { content: ""; width: 7px; height: 7px; margin-right: 8px; border-radius: 50%; background: currentColor; }
+/* полоса таймера сигнала: ширину ведёт скрипт покадрово, поэтому собственных переходов нет (они дали бы рывки и отставание) */
+.pace i { transition: none; will-change: width; border-radius: 4px; }
+.pace div { border-radius: 4px; }
+
+/* Лидерборды Ритма и Сапёра: строка с именем нажимаемая. Цель не ниже 44px, шеврон справа, нажатие приглушает строку */
+:is(.leaderboard, .mine-leaderboard) li:has(a) { min-height: 44px; align-items: center; -webkit-tap-highlight-color: transparent; transition: opacity .15s; }
+:is(.leaderboard, .mine-leaderboard) li:has(a):active { opacity: .55; }
+:is(.leaderboard, .mine-leaderboard) li a { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 44px; color: var(--ink, #f3f4f7); text-decoration: none; overflow-wrap: anywhere; }
+:is(.leaderboard, .mine-leaderboard) li a::after { content: ""; flex: none; width: 6px; height: 6px; margin-left: auto; border: solid var(--g-dim); border-width: 1.6px 1.6px 0 0; transform: rotate(45deg); }
+:is(.leaderboard, .mine-leaderboard) li:has(a) > b { font-variant-numeric: tabular-nums; }
+:is(.leaderboard, .mine-leaderboard) li:first-child:has(a) > b { color: var(--g-acc); }
+@media (prefers-reduced-motion: reduce) { :is(.leaderboard, .mine-leaderboard) li:has(a) { transition: none; } }
+
+/* Ник в таблицах игр рисует game-board-v3.js (та же разметка, что у «Топа»): точка VIP живёт в shell-v3-home.css, которого на страницах игр нет */
+.v3-vipdot { display: inline-block; width: 6px; height: 6px; margin-left: 4px; border-radius: 50%; background: var(--v3-vip, #f1cf7e); vertical-align: middle; }
+:is(.leaderboard, .mine-leaderboard) li.is-me { color: var(--g-acc); }   /* своя строка в таблице, как .is-me в Топе */

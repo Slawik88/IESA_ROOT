@@ -1,50 +1,63 @@
-/**
- * Lazy loading for <img data-src> / <iframe data-src> (used by the gallery grid).
- *
- * Everything else that used to live here (preload stubs, DOM/API caches, resize re-dispatch to every
- * .card, deviceMemory classes) had no consumers; it only polluted the global scope with
- * `const debounce/throttle/...` bindings and ran work on every page. Wrapped in an IIFE now.
- */
+/** Load lazy media, including HTMX content. */
 (function () {
-    'use strict';
+'use strict';
+const observedMedia = new WeakSet();
+let mediaObserver;
 
-    if (!('IntersectionObserver' in window)) {
-        // Old browsers: just load everything
-        document.querySelectorAll('img[data-src], iframe[data-src]').forEach(function (el) {
-            el.src = el.dataset.src;
-        });
+function loadMedia(element) {
+    // Set responsive candidates first to avoid downloading the fallback twice.
+    if (element.dataset.srcset) {
+        element.srcset = element.dataset.srcset;
+        element.removeAttribute('data-srcset');
+    }
+    if (element.dataset.src) {
+        element.src = element.dataset.src;
+        element.removeAttribute('data-src');
+    }
+    element.classList.add('lazy-loaded');
+}
+
+function initLazyLoading(root = document) {
+    const selector = 'img[data-src], img[data-srcset], iframe[data-src]';
+    const elements = Array.from(root.querySelectorAll(selector));
+    if (root.matches?.(selector)) elements.unshift(root);
+    const pending = elements.filter(element => !observedMedia.has(element));
+    if (!pending.length) return;
+    if (!window.IntersectionObserver) {
+        pending.forEach(loadMedia);
         return;
     }
-
-    var observer = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-            if (!entry.isIntersecting) return;
-            var el = entry.target;
-            if (el.dataset.src) {
-                el.src = el.dataset.src;
-                el.removeAttribute('data-src');
-            }
-            if (el.dataset.srcset) {
-                el.srcset = el.dataset.srcset;
-                el.removeAttribute('data-srcset');
-            }
-            el.classList.add('lazy-loaded');
-            observer.unobserve(el);
-        });
-    }, { threshold: 0.1, rootMargin: '200px' });
-
-    function observeAll(root) {
-        (root || document).querySelectorAll('img[data-src], iframe[data-src]').forEach(function (el) {
-            observer.observe(el);
-        });
+    if (!mediaObserver) {
+        mediaObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    loadMedia(entry.target);
+                    mediaObserver.unobserve(entry.target);
+                }
+            });
+        }, { rootMargin: '50px', threshold: 0.1 });
     }
+    pending.forEach(element => {
+        observedMedia.add(element);
+        mediaObserver.observe(element);
+    });
+}
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { observeAll(); });
-    } else {
-        observeAll();
-    }
+// Release removed nodes, including swaps performed outside the main page.
+document.addEventListener('htmx:beforeCleanupElement', event => {
+    const root = event.detail.elt;
+    if (!mediaObserver || !root || typeof root.querySelectorAll !== 'function') return;
+    [root, ...root.querySelectorAll('img, iframe')].forEach(element => {
+        mediaObserver.unobserve(element);
+        observedMedia.delete(element);
+    });
+});
+document.addEventListener('htmx:afterSwap', event => {
+    initLazyLoading(event.detail.elt || document);
+});
 
-    // Content swapped in by HTMX may contain new lazy elements
-    document.addEventListener('htmx:afterSwap', function (e) { observeAll(e.target); });
+
+if (document.readyState === 'loading') {
+ document.addEventListener('DOMContentLoaded', () => initLazyLoading());
+} else { initLazyLoading(); }
 })();

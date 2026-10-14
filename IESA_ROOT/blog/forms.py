@@ -21,9 +21,16 @@ class PostForm(forms.ModelForm):
             widgets['text'] = forms.Textarea(attrs={'class': 'form-control', 'rows': 10})    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove 'required' from text field to prevent validation errors on hidden textarea
-        # Validation will be done on frontend via JavaScript in Quill editor
+        # The editor hides this textarea; clean_text validates the submitted HTML.
         self.fields['text'].required = False
+
+    def clean_text(self):
+        from django.utils.html import strip_tags
+        from .utils.html import sanitize_post_html
+        text = sanitize_post_html(self.cleaned_data.get('text'))
+        if not strip_tags(text).replace('&nbsp;', ' ').strip() and '<img ' not in text:
+            raise forms.ValidationError(_('Post text is required.'))
+        return text
 
 
 class CommentForm(forms.ModelForm):

@@ -351,6 +351,31 @@
       + `<span class="pt-ic" aria-hidden="true">${esc(icon)}</span>${badge}${away ? '<i class="pt-b pt-b--trip">🧭</i>' : ''}<small>${esc(pet.name)}</small></button>`;
   }
 
+  // «Улучшить»: цена следующего шага (карты, Мора, на уровнях 5/10/15 ещё Эссенция). Блок виден только при включённом флаге; что именно не хватает, написано сразу
+  function petLevelUp(pet, data) {
+    const lu = data.level_up;
+    if (!lu || !lu.enabled) return '';
+    const step = (lu.steps || {})[pet.id];
+    if (step === undefined) return '';
+    if (!step) return `<section class="pt-sec pt-up"><h3>Уровень ${Number(pet.level)} из ${Number(lu.max_level)}</h3><p>Максимальный уровень.</p></section>`;
+    // Мору и Эссенцию не блокируем на клиенте: баланс в панели обновляется не сразу, сервер сам откажет с понятной ошибкой
+    const left = Math.max(0, Number(step.cards) - Number(step.cards_have));
+    const word = left % 10 === 1 && left % 100 !== 11 ? 'карта' : (left % 10 >= 2 && left % 10 <= 4 && (left % 100 < 12 || left % 100 > 14) ? 'карты' : 'карт');
+    const need = left ? [`ещё ${fmt(left)} ${word}`] : [];
+    const pct = Math.min(100, Math.round(100 * Number(step.cards_have) / Math.max(1, Number(step.cards))));
+    const mark = [5, 10, 15].includes(Number(step.level_after)) ? ` <small class="pt-up-mark">веха</small>` : '';
+    return `<section class="pt-sec pt-up" aria-label="Улучшение питомца">
+      <h3>Уровень ${Number(pet.level)} → ${Number(step.level_after)}${mark}</h3>
+      <ul class="pt-up-cost">
+        <li class="${Number(step.cards_have) < Number(step.cards) ? 'is-short' : ''}"><span>🃏 Карты</span><b>${fmt(Number(step.cards_have))} / ${fmt(Number(step.cards))}</b><i style="--p:${pct}"></i></li>
+        <li><span>🪙 Мора</span><b>${fmt(Number(step.mora))}</b></li>
+        ${Number(step.essence) > 0 ? `<li><span>🔮 Эссенция</span><b>${fmt(Number(step.essence))}</b></li>` : ''}
+      </ul>
+      <button type="button" class="pt-main" onclick="petsV1LevelUp(${Number(pet.id)})" ${need.length ? 'disabled' : ''}>Улучшить</button>
+      ${need.length ? `<p class="pt-note" role="status">Не хватает: ${need.join(', ')}.</p>` : ''}
+    </section>`;
+  }
+
   function petDetail(pet, data, icon, away, lore) {
     const foods = data.food || [];
     const activePet = (data.pets || []).find((p) => p.active);
@@ -370,7 +395,7 @@
       <div class="pt-hero-top"><span class="pt-ic" aria-hidden="true">${esc(icon)}</span>
         <div><small>${tag}${away ? ' · в пути' : ''} · ${esc(petRarityName(pet.rarity))}</small><h2>${esc(pet.name)}</h2><p>${petStage(pet)}</p></div></div>
       ${lore ? `<p class="pt-lore">${esc(lore)}</p>` : ''}${petMeter(pet)}${petFoodButtons(pet, foods)}
-    </section>${action}`;
+    </section>${petLevelUp(pet, data)}${action}`;
   }
 
   function petOwnedPanel(data) {
@@ -491,6 +516,10 @@
   window.petsV1Start=function(kind,hours){
     const key=`activity:${kind}:${hours}`,action=_pendingAction(_petsV1PendingActions,key,'pet-activity-');
     api('/pets-v1/activity',{method:'POST',body:JSON.stringify({kind:kind,hours:hours,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Таймер запущен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем запущенный таймер.`,false);openPetsV1();});
+  };
+  window.petsV1LevelUp=function(petId){
+    const key=`levelup:${petId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-levelup-');
+    api('/pets-v1/level-up',{method:'POST',body:JSON.stringify({pet_id:petId,action_id:action})}).then(()=>{_petsV1PendingActions.delete(key);toast('Уровень повышен');openPetsV1();}).catch(e=>{toast(`${e} Проверяем актуальное состояние.`,false);openPetsV1();});
   };
   window.petsV1Feed=function(petId,foodId){
     const key=`feed:${petId}:${foodId}`,action=_pendingAction(_petsV1PendingActions,key,'pet-feed-');
@@ -643,7 +672,8 @@
   };
   let _achievementsV1Data = null;
   let _achievementsV1Filter = 'all';
-  const ACHIEVEMENT_FILTERS = Object.freeze(['all', 'games', 'collection']);
+  let _chatAchievementsData = null;
+  const ACHIEVEMENT_FILTERS = Object.freeze(['all', 'games', 'collection', 'chat']);
   const ACHIEVEMENT_ACTIONS = Object.freeze({
     rhythm: 'openRhythmV2Game()',
     minesweeper: 'openMinesweeperGame()',
@@ -755,11 +785,36 @@
     </article>`;
   }
 
+  // Достижения чат-бота («бот достижения»): уровни растут от активности в чатах, эссенция — за каждый 10-й.
+  function chatAchievementCard(item) {
+    const target = item.next_threshold;
+    const base = Number(item.prev_threshold || 0);
+    const value = Number(item.value || 0);
+    const pct = target ? achievementPct(value - base, target - base) : 100;
+    const reward = item.next_reward
+      ? `На ${item.next_reward.level}-м уровне · +${fmt(item.next_reward.essence)} 🔮`
+      : (target ? 'Все вехи с эссенцией пройдены' : 'Все уровни пройдены 👑');
+    const progress = target ? `${fmt(value)} / ${fmt(target)}` : `${fmt(value)} ✓`;
+    return `<article class="achievement-card achievement-chat" data-category="chat">
+      <header class="achievement-card-head">
+        <span class="achievement-icon" aria-hidden="true">${esc(item.icon)}</span>
+        <div><small>${esc(item.group_title)}</small><h2>${esc(item.title)}</h2><p>${esc(item.measure)}</p></div>
+        <strong>${item.level}<small>/ ${item.max_level}</small></strong>
+      </header>
+      <div class="achievement-meter">
+        <label><span>${esc(reward)}</span><b>${progress}</b></label>
+        <div role="progressbar" aria-label="${esc(item.title)}: до следующего уровня" aria-valuemin="${base}" aria-valuemax="${target || value}" aria-valuenow="${Math.max(base, Math.min(value, target || value))}"><i style="width:${pct}%"></i></div>
+      </div>
+    </article>`;
+  }
+
   function achievementFilterButtons(families) {
+    const chat = _chatAchievementsData?.achievements || [];
     const filters = [
-      ['all', 'Все', families.length],
+      ['all', 'Все', families.length + chat.length],
       ['games', 'Игры', families.filter((family) => family.category === 'games').length],
       ['collection', 'Приключения', families.filter((family) => family.category === 'collection').length],
+      ['chat', 'Чат', chat.length],
     ];
     return filters.map(([id, label, count]) => (
       `<button type="button" data-achievement-filter="${id}"`
@@ -774,11 +829,21 @@
     if (!root || !_achievementsV1Data) return;
 
     const families = _achievementsV1Data.families || [];
+    const chat = _chatAchievementsData?.achievements || [];
     const shown = _achievementsV1Filter === 'all'
       ? families
       : families.filter((family) => family.category === _achievementsV1Filter);
+    const shownChat = ['all', 'chat'].includes(_achievementsV1Filter) ? chat : [];
     const summary = _achievementsV1Data.summary || {};
-    const cards = shown.map(achievementFamilyCard).join('')
+    const chatSummary = _chatAchievementsData?.summary || {};
+    const totalLevels = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
+    const maxLevels = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
+    const chatNote = _chatAchievementsData
+      ? ''
+      : (_achievementsV1Filter === 'chat' ? '<p class="empty">Достижения чата не загрузились. Откройте вкладку ещё раз.</p>' : '');
+    const cards = (shown.map(achievementFamilyCard).join('')
+      + shownChat.map(chatAchievementCard).join(''))
+      || chatNote
       || '<p class="empty">В этой категории пока нет путей.</p>';
 
     root.innerHTML = `<div class="looks-head achievement-head">
@@ -786,12 +851,12 @@
         <h1 class="looks-htitle">🏅 Достижения</h1>
       </div>
       <section class="achievement-hero">
-        <div><span>Общий путь</span><strong>${fmt(summary.total_levels || 0)} <small>/ ${fmt((summary.families || 5) * 40)} уровней</small></strong></div>
+        <div><span>Общий путь</span><strong>${fmt(totalLevels)} <small>/ ${fmt(maxLevels)} уровней</small></strong></div>
         <div><span>Получено за уровни</span><strong>${fmt(summary.claimed_mora || 0)} 🪙</strong></div>
-        <p>Засчитываются только подтверждённые завершения. Награда — Мора, без скрытой косметики.</p>
+        <p>Засчитываются только подтверждённые завершения. Награда — Мора, без скрытой косметики. Достижения чата растут от активности в чатах с ботом, за каждый 10-й уровень — 🔮 эссенция.</p>
       </section>
       <nav class="achievement-filters" aria-label="Категории достижений">${achievementFilterButtons(families)}</nav>
-      <p class="sr-only" role="status" aria-live="polite">Показано путей: ${shown.length}</p>
+      <p class="sr-only" role="status" aria-live="polite">Показано достижений: ${shown.length + shownChat.length}</p>
       <section class="achievement-list">${cards}</section>`;
   }
 
@@ -809,7 +874,12 @@
     const root = el('pg-achievements-v1');
     root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка достижений…</div>';
     try {
-      _achievementsV1Data = await api('/achievements-v1/me');
+      const [paths, chat] = await Promise.all([
+        api('/achievements-v1/me'),
+        api('/achievements-v1/chat').catch(() => null),
+      ]);
+      _achievementsV1Data = paths;
+      _chatAchievementsData = chat;
       _achievementsV1Filter = 'all';
       renderAchievementsV1();
     } catch (error) {

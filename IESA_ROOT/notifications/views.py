@@ -1,17 +1,20 @@
 import asyncio
-import time
 from asgiref.sync import sync_to_async
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpResponse, HttpResponseNotAllowed, StreamingHttpResponse
 from django.utils.translation import gettext as _
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.core.cache import cache
 from .models import Notification
+from .services import get_unread_count
 
 @login_required
 def unread_count(request):
     """Return just the unread notification count for HTMX badge polling"""
-    count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+    count = get_unread_count(request.user.pk)
     if count > 0:
         display = '99+' if count > 99 else str(count)
         return HttpResponse(f'<span class="badge bg-danger rounded-pill">{display}</span>')
@@ -30,9 +33,9 @@ def notification_list(request):
         return render(request, 'notifications/dropdown_list.html', {'notifications': notifications})
     
     # For full page view, paginate
-    total_count = notifications.count()
-    unread_count = notifications.filter(is_read=False).count()
+    unread_count = get_unread_count(request.user.pk)
     paginator = Paginator(notifications, 20)
+    total_count = paginator.count
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -44,6 +47,7 @@ def notification_list(request):
     return render(request, 'notifications/notification_list.html', context)
 
 @login_required
+@require_POST
 def mark_notification_read(request, pk):
     """Mark a single notification as read"""
     notification = Notification.objects.filter(pk=pk, recipient=request.user).first()
@@ -61,14 +65,17 @@ def notification_panel(request):
     return render(request, 'notifications/notification_list_partial.html', context)
 
 @login_required
+@require_POST
 def mark_all_read(request):
     """Mark all notifications as read for the current user"""
-    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True, read_at=timezone.now())
+    cache.delete(f'notif_unread_{request.user.pk}')
     
     # Check if it's an HTMX request
     if request.headers.get('HX-Request'):
-        from django.http import HttpResponse
-        return HttpResponse(f'<span class="text-muted small">{_("All notifications marked as read")}</span>')
+        response = HttpResponse(f'<span class="text-muted small">{_("All notifications marked as read")}</span>')
+        response['HX-Trigger'] = 'notificationDeleted'
+        return response
     
     return redirect('notifications:notification_list')
 
@@ -92,11 +99,11 @@ async def notification_stream(request):
 
     @sync_to_async
     def _get_count() -> int:
-        return Notification.objects.filter(recipient_id=user_id, is_read=False).count()
+        return get_unread_count(user_id)
 
     async def event_generator():
         last_count = -1
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         start = loop.time()
         try:
             # Сразу отправляем текущее состояние
@@ -109,7 +116,9 @@ async def notification_stream(request):
             # "Application timed out while sending response"). Закрываем поток
             # сами раньше; EventSource переподключается автоматически.
             while loop.time() - start < 20:
-                await asyncio.sleep(10)
+                await asyncio.sleep(min(10, 20 - (loop.time() - start)))
+                if loop.time() - start >= 20:
+                    break
                 count = await _get_count()
                 if count != last_count:
                     last_count = count

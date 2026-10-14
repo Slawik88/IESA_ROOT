@@ -73,3 +73,6 @@ polib==1.2.0
 django-allauth==65.19.7
 PyJWT[crypto]==2.15.1
 oauthlib==4.0.0
+
+# Sanitize rich-text posts before rendering, including legacy content.
+nh3==0.3.7

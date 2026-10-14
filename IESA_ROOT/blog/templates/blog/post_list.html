@@ -6,7 +6,7 @@
 {% block meta_keywords %}{% trans "IESA blog, extreme sports community, kitesurfing posts, athletes Switzerland, member stories" %}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/cmd-bar.css' %}">
+<link rel="stylesheet" href="{% static 'css/cmd-bar.css' %}?v=mobile-parity-20261013-2">
 <style>
 /* ── Page-specific styles only (cmd-bar → cmd-bar.css, hero → .page-hero in pages.css) ── */
 /* ── Auth Notice ───────────────────────────────── */
@@ -62,7 +62,7 @@
 <div class="container-limited" data-pull-refresh="#posts-container">
 
     <!-- Command Bar -->
-    <div class="cmd-bar" data-reveal>
+    <div class="cmd-bar cmd-bar--posts" data-reveal>
         <div class="cmd-bar__inner">
 
             <!-- Mode Tabs -->
@@ -80,14 +80,15 @@
             <div class="cmd-sep"></div>
 
             <!-- Search -->
-            <form class="cmd-search"
+            <form class="cmd-search" id="post-search-form"
                   hx-get="{% url 'blog:post_search' %}"
                   hx-target="#posts-container"
-                  hx-trigger="keyup changed from:[name='q'] delay:400ms, change from:select"
+                  hx-trigger="input changed from:#post-search-input delay:400ms, submit"
+                  hx-sync="this:replace"
                   hx-include="#cmd-status, #cmd-sort"
                   hx-indicator="#posts-search-spinner">
                 <label class="cmd-lbl">QUERY_</label>
-                <input name="q" class="cmd-input" placeholder="{% trans "type to search..." %}" autocomplete="off" aria-label="{% trans 'Search posts' %}">
+                <input id="post-search-input" name="q" class="cmd-input" placeholder="{% trans "type to search..." %}" autocomplete="off" aria-label="{% trans 'Search posts' %}">
                 <span id="posts-search-spinner" class="htmx-indicator cmd-search-spinner" aria-hidden="true">
                     <i class="fas fa-spinner fa-spin"></i>
                 </span>
@@ -102,7 +103,7 @@
                     <select id="cmd-status" name="status" class="cmd-select"
                             hx-get="{% url 'blog:post_search' %}"
                             hx-target="#posts-container"
-                            hx-include="[name='q'], #cmd-sort"
+                            hx-include="#post-search-input, #cmd-sort" hx-sync="#post-search-form:replace"
                             hx-indicator="#posts-search-spinner">
                         <option value="">{% trans "ALL" %}</option>
                         <option value="published">{% trans "PUBLISHED" %}</option>
@@ -114,7 +115,7 @@
                     <select id="cmd-sort" name="sort" class="cmd-select"
                             hx-get="{% url 'blog:post_search' %}"
                             hx-target="#posts-container"
-                            hx-include="[name='q'], #cmd-status"
+                            hx-include="#post-search-input, #cmd-status" hx-sync="#post-search-form:replace"
                             hx-indicator="#posts-search-spinner">
                         <option value="latest">{% trans "LATEST" %}</option>
                         <option value="popular">{% trans "POPULAR" %}</option>
@@ -139,9 +140,10 @@
     </div>
 
     {# 5a: Bottom sheet с фильтрами для мобильных #}
-    <div class="iesa-bottom-sheet" id="cmd-filters-sheet" style="padding:1.5rem 1.25rem 2rem;">
+    <div class="iesa-bottom-sheet" id="cmd-filters-sheet" role="dialog" tabindex="-1" aria-labelledby="cmd-filters-title" style="padding:1.5rem 1.25rem 2rem;">
         <div class="bs-handle"></div>
-        <div style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
+        <button type="button" class="bs-close" data-bottom-sheet-close aria-label="{% trans 'Close' %}"><i class="fas fa-times" aria-hidden="true"></i></button>
+        <div id="cmd-filters-title" style="font-size:.68rem;font-family:var(--font-mono);color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.12em;margin-bottom:1rem;">
             {% trans "FILTERS" %}
         </div>
 
@@ -160,11 +162,11 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.25rem;">
             <div>
                 <label for="mob-status" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:var(--primary-text);letter-spacing:.12em;margin-bottom:.4rem;">STATUS_</label>
-                <select id="mob-status" class="cmd-select"
+                <select id="mob-status" name="status" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"
                         hx-target="#posts-container"
-                        hx-include="#mob-sort, [name='q']"
+                        hx-include="#mob-sort, #post-search-input" hx-sync="#post-search-form:replace"
                         hx-indicator="#posts-search-spinner">
                     <option value="">{% trans "ALL" %}</option>
                     <option value="published">{% trans "PUBLISHED" %}</option>
@@ -173,11 +175,11 @@
             </div>
             <div>
                 <label for="mob-sort" style="display:block;font-size:.63rem;font-family:var(--font-mono);color:var(--primary-text);letter-spacing:.12em;margin-bottom:.4rem;">ORDER_</label>
-                <select id="mob-sort" class="cmd-select"
+                <select id="mob-sort" name="sort" class="cmd-select"
                         style="width:100%;background:rgba(255,255,255,.05)!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px;padding:.45rem .7rem!important;color:#fff!important;"
                         hx-get="{% url 'blog:post_search' %}"
                         hx-target="#posts-container"
-                        hx-include="#mob-status, [name='q']"
+                        hx-include="#mob-status, #post-search-input" hx-sync="#post-search-form:replace"
                         hx-indicator="#posts-search-spinner">
                     <option value="latest">{% trans "LATEST" %}</option>
                     <option value="popular">{% trans "POPULAR" %}</option>
@@ -206,6 +208,8 @@
         var dskSort   = document.getElementById('cmd-sort');
         if (mobStatus && dskStatus) mobStatus.addEventListener('change', function(){ dskStatus.value = this.value; if (window.IESABottomSheet) IESABottomSheet.close('cmd-filters-sheet'); });
         if (mobSort   && dskSort)   mobSort.addEventListener('change',   function(){ dskSort.value   = this.value; if (window.IESABottomSheet) IESABottomSheet.close('cmd-filters-sheet'); });
+        if (mobStatus && dskStatus) dskStatus.addEventListener('change', function(){ mobStatus.value = this.value; });
+        if (mobSort && dskSort) dskSort.addEventListener('change', function(){ mobSort.value = this.value; });
     })();
     </script>
 

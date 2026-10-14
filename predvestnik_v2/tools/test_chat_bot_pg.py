@@ -895,6 +895,20 @@ async def achievements_flow(db, bot):
     assert await skins_v3_repo.essence_balance(db, 7003) == 60
     out = await say("бот достижение болтун", uid=7003, username="veteran")
     assert "на 40-м уровне — 40 🔮" in out, out
+
+    # Вкладка «Достижения» в Mini App: все достижения чата, только чтение — ни уровней, ни эссенции.
+    await db.execute("UPDATE user_chat_stats SET user_messages_count_all_time = 90000 WHERE user_tg_id = 7003")
+    view = await ach.overview(db, 7003)
+    assert [i["id"] for i in view["achievements"]] == [a.id for a in ACHIEVEMENTS]
+    msgs = next(i for i in view["achievements"] if i["id"] == "messages")
+    assert msgs["value"] == 90000 and msgs["level"] == 36 and msgs["next_threshold"] == 100000, msgs
+    assert msgs["prev_threshold"] == 90000 and msgs["next_reward"] == {"level": 40, "essence": 40}, msgs
+    assert view["summary"]["count"] == len(ACHIEVEMENTS) and view["summary"]["total_levels"] >= 36, view["summary"]
+    assert (await ach.stored_levels(db, 7003))["messages"] == 34                # просмотр ничего не записал
+    assert await skins_v3_repo.essence_balance(db, 7003) == 60
+    empty = await ach.overview(db, 7999)
+    assert all(i["level"] == 0 and i["prev_threshold"] == 0 for i in empty["achievements"]), empty
+    assert await ach.stored_levels(db, 7999) == {}
     print("OK: achievements")
     await vip_flow(db, bot)
 

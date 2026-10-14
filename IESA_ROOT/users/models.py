@@ -261,8 +261,8 @@ class User(AbstractUser):
         FIX: Was doing 3 separate count queries (N+1 problem).
         Now uses single aggregate() call for efficiency.
         """
-        from blog.models import Post, Like, Comment
-        from django.db.models import Count, Q
+        from blog.models import Post, Comment
+        from django.db.models import Count
         
         # OPTIMIZATION: Single aggregate query instead of 3 separate count() queries
         # This replaces 3 database queries with 1 aggregate query

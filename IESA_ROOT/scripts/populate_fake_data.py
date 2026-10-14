@@ -12,11 +12,9 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'IESA_ROOT.settings')
 django.setup()
 
 from django.contrib.auth import get_user_model
-from blog.models import Post, Comment, Event, Like, EventRegistration
+from blog.models import Post, Comment, Event, Like
 from core.models import Partner, AssociationMember
 from products.models import Product
-from gallery.models import Photo
-from notifications.models import Notification
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.utils import timezone
 from datetime import timedelta

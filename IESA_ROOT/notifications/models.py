@@ -1,7 +1,7 @@
 from django.db import models
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -68,10 +68,10 @@ class Notification(models.Model):
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=['is_read', 'read_at'])
-            cache.delete(f'notif_unread_{self.recipient_id}')
 
 
 @receiver(post_save, sender=Notification)
-def _invalidate_unread_cache(sender, instance, created, **kwargs):
+@receiver(post_delete, sender=Notification)
+def _invalidate_unread_cache(sender, instance, **kwargs):
     """Инвалидирует кэш счётчика при создании или изменении уведомления (Block 6c)."""
     cache.delete(f'notif_unread_{instance.recipient_id}')
