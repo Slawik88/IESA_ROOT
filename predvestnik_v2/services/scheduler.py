@@ -34,30 +34,43 @@ async def player_exchange_match_task() -> None:
             logger.exception(f"Player exchange matcher error: {exc}")
 
 
-_daily_gc_day: str | None = None
+# UTC day of the last SUCCESSFUL run of each daily job (audit A12). A failed job
+# is retried on the next maintenance pass (every 10 minutes), not the next day.
+_daily_done: dict[str, str] = {}
+
+
+async def _analytics_gc(db) -> None:
+    await db.execute(
+        "DELETE FROM site_analytics "
+        "WHERE visited_at < NOW() - INTERVAL '180 days'"
+    )
+    await db.commit()
+
+
+async def _account_deletion_tick(db) -> None:
+    from services.account_deletion import daily_tick
+
+    await daily_tick(db)
+
+
+_DAILY_JOBS = (
+    ("analytics GC", _analytics_gc),
+    ("account deletion tick", _account_deletion_tick),
+)
 
 
 async def _daily_gc(db) -> None:
-    """Run the retained operational cleanup once per UTC day."""
-    global _daily_gc_day
+    """Run each retained operational job once per UTC day, counting only successes."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    if _daily_gc_day == today:
-        return
-    _daily_gc_day = today
-    try:
-        await db.execute(
-            "DELETE FROM site_analytics "
-            "WHERE visited_at < NOW() - INTERVAL '180 days'"
-        )
-        await db.commit()
-    except Exception as exc:
-        logger.warning(f"analytics GC error: {exc}")
-    try:
-        from services.account_deletion import daily_tick
-
-        await daily_tick(db)
-    except Exception as exc:
-        logger.warning(f"account deletion tick error: {exc}")
+    for name, job in _DAILY_JOBS:
+        if _daily_done.get(name) == today:
+            continue
+        try:
+            await job(db)
+        except Exception as exc:
+            logger.warning(f"{name} error, retrying on the next maintenance pass: {exc}")
+            continue
+        _daily_done[name] = today
 
 
 async def maintenance_task(bot: Bot) -> None:
