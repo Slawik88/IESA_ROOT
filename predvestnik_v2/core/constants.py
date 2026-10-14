@@ -785,6 +785,9 @@ ACCOUNT_DELETE_RESTORE_DAYS: int = 14      # окно восстановлени
 ACCOUNT_DELETE_COOLING_HOURS: int = 24     # «остывание» между подтверждением и удалением
 ACCOUNT_DELETE_WARN_DAYS: int = 14         # ЛС-предупреждение до авто-удаления за неактив
 ACCOUNT_DELETE_PHRASE: str = "УДАЛИТЬ АККАУНТ"  # контрольная фраза (ввод вручную)
+ACCOUNT_DELETE_CODE_TTL_MIN: int = 15      # код из ЛС действует 15 минут
+ACCOUNT_DELETE_CODE_ATTEMPTS: int = 5      # после 5 неверных вводов код сгорает
+ACCOUNT_DELETE_CODE_RESEND_MIN: int = 10   # новый код — не чаще раза в 10 минут
 
 # ── Legacy unit-combat constants (LCB-001 retirement) ─────────────────────────
 # Казарма: призыв юнитов за 🔷 Осколки Бездны (закрывает валюту-тупик).

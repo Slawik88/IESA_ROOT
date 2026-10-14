@@ -1003,6 +1003,10 @@ async def _init_features_extra(db):
             finalized_at     TIMESTAMP
         )
     """)
+    # audit A11: неверные вводы кода подтверждения (лимит попыток)
+    await db.execute(
+        "ALTER TABLE account_deletions ADD COLUMN IF NOT EXISTS confirm_attempts INTEGER NOT NULL DEFAULT 0"
+    )
 
     # Battle Pass seasons, управляемые с сайта (Консоль разработчика).
     # Мерджатся с registry.BATTLE_PASS_SEASONS — DB перекрывает registry по id.
