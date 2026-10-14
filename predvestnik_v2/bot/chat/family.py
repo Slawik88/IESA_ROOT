@@ -41,7 +41,7 @@ MAX_CHILDREN = 6
 PARENT_ROLES = ("супруг", "супруга", "муж", "жена")
 CHILD_ROLES = ("ребёнок", "сын", "дочь")
 WALLET_CURRENCIES = ("mora", "diamonds", "dark_mora", "zarniki", "essence")   # колонки семейного кошелька
-WALLET_BUTTONS = ("mora", "diamonds", "essence", "zarniki")          # тёмная мора — легаси, только вывод
+WALLET_BUTTONS = ("mora", "diamonds", "essence", "zarniki")          # тёмная мора выведена (ECO-04 PR-E), кнопок нет
 BACKFILL_KEY = "family_registry_backfill_v1"
 
 STATEMENTS = (
@@ -315,7 +315,8 @@ async def card(db, fam: Family, chat_id: int | None = None) -> str:
     else:
         lines.append("Пока нет. Позвать: <code>бот усыновить, @ник</code>")
     bal = await wallet_balances(db, fam.marriage_id)
-    shown = [c for c in WALLET_CURRENCIES if c in WALLET_BUTTONS or bal[c]]
+    # Тёмная Мора выведена из игры (ECO-04 PR-E): остаток хранится, но не показывается.
+    shown = [c for c in WALLET_CURRENCIES if c in WALLET_BUTTONS or (bal[c] and c != "dark_mora")]
     lines.append("\n🏦 <b>Общий кошелёк</b>")
     lines.append(quote([f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}: <b>{fmt_amount(bal[c], CURRENCY_VIEW[c].display_decimals)}</b>" for c in shown]))
     return "\n".join(lines)
@@ -717,8 +718,6 @@ async def _wallet_command(ctx: Ctx, action: str) -> None:
     intent = await family_wallet_v1.create_telegram_transfer_intent(
         ctx.db, actor_id=ctx.user_id, action=action, amount=amount)
     codes = list(WALLET_BUTTONS)
-    if action == "withdrawal" and (await wallet_balances(ctx.db, fam.marriage_id))["dark_mora"] > 0:
-        codes.append("dark_mora")
     buttons = [InlineKeyboardButton(text=f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}",
                                     callback_data=WalletCB(uid=ctx.user_id, intent=intent, cur=c).pack())
                for c in codes]
