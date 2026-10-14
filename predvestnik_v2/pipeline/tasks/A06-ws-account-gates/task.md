@@ -24,6 +24,14 @@ rejected; restore/appeal flows keep their own policy.
 Approve with changes; all adopted (shared helper, 1011 fail-closed, credential re-check,
 watchdog inside `asyncio.wait` with close by the outer code, test matrix).
 
+## Review (independent, post-implementation)
+ACCEPT-WITH-NITS. Applied: `app.01.js` no longer schedules a reconnect after a 1008 close
+(revoked session / stale initData); the next visibility change retries once. A handshake
+rejection before accept reaches the browser as 1006 and keeps the existing capped backoff (60 s).
+Accepted as designed: a DB error during the 5-minute re-check keeps an admitted session (the
+admission check itself fails closed). Not tested: the real re-check closure with a credential
+expiring mid-session.
+
 ## Checks
 - New `tools/test_ws_account_gates_pg.py` (real PostgreSQL): valid connects; foreign ID,
   deleted, preprod non-allowlisted → 1008; DB down → 1011; watchdog closes with 1008.
