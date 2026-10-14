@@ -59,11 +59,15 @@
 
     /* Body scroll lock for mobile menu */
     function lockScroll() {
+        if (!isMobile()) return;
         document.body.style.overflow = 'hidden';
         document.body.classList.add('mobile-menu-open');
     }
     function unlockScroll() {
-        document.body.style.overflow = document.body.classList.contains('modal-open') ? 'hidden' : '';
+        var anotherOverlay = document.body.classList.contains('modal-open') ||
+            (window.IESABottomSheet && window.IESABottomSheet._currentSheet) ||
+            document.querySelector('#qr-fullscreen-overlay[aria-hidden="false"]');
+        document.body.style.overflow = anotherOverlay ? 'hidden' : '';
         document.body.style.touchAction = '';
         document.body.classList.remove('mobile-menu-open');
     }

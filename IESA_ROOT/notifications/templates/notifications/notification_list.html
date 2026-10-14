@@ -239,7 +239,7 @@ body:has(.notification-list) { background:#07070e !important; }
 {% endblock %}
 
 {% block content %}
-<div class="container-limited" style="padding-top:2rem;padding-bottom:5rem;" data-pull-refresh="#notification-list-wrap">
+<div class="container-limited" style="padding-top:2rem;padding-bottom:5rem;">
     <nav aria-label="{% trans 'Breadcrumb' %}" class="page-bc mb-3" style="max-width:760px;margin-left:auto;margin-right:auto;">
         <ol>
             <li><a href="{% url 'users:profile' %}">{% trans "Cabinet" %}</a><span class="bc-sep"><i class="fas fa-chevron-right" aria-hidden="true"></i></span></li>
