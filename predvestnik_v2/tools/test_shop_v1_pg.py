@@ -90,6 +90,8 @@ async def run(dsn: str) -> None:
         await essence_repo.ensure_tables(db)
         await exchange_repo.ensure_tables(db)
         await repo.ensure_tables(db)
+        for flag in ("content_chests_v1", "game_rhythm_v2", "game_minesweeper_v2"):  # a fresh test DB has them off
+            await system_flags.set_flag(db, flag, True)
         await system_flags.set_flag(db, policy.FLAG, False)
         await system_flags.set_flag(db, KEY_OFFERS_FLAG, False)
         rich = 994_000_001

@@ -20,7 +20,8 @@ assert "_pendingAction(_questsV1PendingActions,key,'quest-reroll-')" in COMPACT_
 assert "_questsV1PendingActions.delete(key)" in CLIENT
 assert "_pendingAction(_chestsV1PendingActions,key,'chest-open-')" in COMPACT_CLIENT
 assert "_pendingAction(_chestsV1PendingActions,key,'chest-buy-')" in COMPACT_CLIENT
-assert CLIENT.count("_chestsV1PendingActions.delete(key)") == 2
+assert "_pendingAction(_chestsV1PendingActions,key,'chest-offer-')" in COMPACT_CLIENT
+assert CLIENT.count("_chestsV1PendingActions.delete(key)") == 3
 assert "const action='chest-open-'" not in CLIENT
 assert "const action='chest-buy-'" not in CLIENT
 assert "Повтори: запрос будет отправлен с тем же номером операции" in CLIENT
