@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import math
 import secrets
 from uuid import uuid4
 
@@ -174,7 +176,8 @@ async def overview(db, *, user_id: int) -> dict:
         "rewards": public_reward_rows(),
         "inventory": await repo.inventory_summary(db, user_id=int(user_id)),
         "message": ("Ключ уровня N открывает тот же сундук, но звёзды ниже N становятся N. "
-                    "Сервер фиксирует одну награду до раскрытия."),
+                    "Сервер фиксирует одну награду до раскрытия." if tiers_on else
+                    "Бесплатный и купленный ключи имеют одинаковые шансы. Сервер фиксирует одну награду до раскрытия."),
         "surplus_policy": "Лишние карты сохраняются. Обмен и компенсация появятся только после отдельного предрелизного решения.",
     }
 
@@ -358,8 +361,14 @@ async def _shortages(db, user_id: int, price: dict) -> list[str]:
             "diamonds": float(balance["user_balance_diamonds"] or 0),
             "zarniki": float(balance.get("user_balance_zarniki") or 0),
             "essence": float(await essence_repo.essence_balance(db, int(user_id)))}
-    return [f"{int(amount - have[currency])} {_PRICE_NAMES[currency]}"
+    return [f"{math.ceil(amount - have[currency])} {_PRICE_NAMES[currency]}"
             for currency, amount in price.items() if have[currency] < amount]
+
+
+def _stored_price(value) -> dict[str, int]:
+    if isinstance(value, str):
+        value = json.loads(value)
+    return {str(k): int(v) for k, v in dict(value or {}).items()}
 
 
 async def buy_offer(
@@ -386,7 +395,7 @@ async def buy_offer(
             if str(replay["request_hash"]) != request_hash:
                 raise ChestKeyConflict("action_id уже использован для другой покупки.")
             return {"purchase_id": str(replay["id"]), "applied": False, "offer_id": offer_id,
-                    "key_tier": tier, "key_balance": int(replay["balance_after"]), "price": price}
+                    "key_tier": tier, "key_balance": int(replay["balance_after"]), "price": _stored_price(replay["price"])}
         if not await offers_enabled(db):
             raise ChestKeyConflict("Ключи по звёздам пока недоступны.")
         if (str(requested_catalog_version) != CATALOG_VERSION

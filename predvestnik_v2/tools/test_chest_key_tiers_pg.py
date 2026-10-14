@@ -137,6 +137,7 @@ async def run(dsn: str) -> None:
         before = await balances(db, user)
         replay = await buy(db, user, "bronze_mora", "bronze-next-week")
         assert replay["applied"] is False and await balances(db, user) == before
+        assert replay["price"] == KEY_OFFERS["bronze_mora"]["price"]  # stored receipt price
         await refused(buy(db, user, "silver_craft", "bronze-next-week"), "action_id")
 
         # Shortage of either currency debits nothing and names what is missing.
@@ -151,6 +152,8 @@ async def run(dsn: str) -> None:
         await fund(db, poor, mora=2_000, diamonds=4)
         await refused(buy(db, poor, "platinum_diamonds", "poor-plat"), "💎")
         assert await balances(db, poor) == (2000.0, 4.0, 0.0, 550)
+        await fund(db, poor, mora=799.5)  # fractional shortage rounds up, never "0"
+        await refused(buy(db, poor, "bronze_mora", "poor-bronze"), "Не хватает: 1 Моры")
         assert await repo.get_balance(db, poor) == 0
 
         # Debits match the price table exactly.
@@ -168,6 +171,17 @@ async def run(dsn: str) -> None:
         tiers = await repo.tier_balances(db, rich)
         assert tiers == {1: 0, 3: 1, 4: 2, 6: 2}, tiers
         repo.offer_window = real_window
+
+        # One shared ✨ daily limit both ways: Silver 120 ✨ bought today blocks legacy 10 ✨ keys
+        # if the flag goes back off the same UTC day.
+        both = 992_000_004
+        await fund(db, both, zarniki=1_000)
+        for index in range(2):
+            assert (await buy(db, both, "silver_zarniki", f"both-silver-{index}"))["applied"]
+        await system_flags.set_flag(db, KEY_OFFERS_FLAG, False)
+        assert (await chests_v1.overview(db, user_id=both))["funding"]["remaining_today"] == 0
+        await refused(chests_v1.purchase_key(db, user_id=both, action_id="both-legacy", **cat()), "два ключа")
+        await system_flags.set_flag(db, KEY_OFFERS_FLAG, True)
 
         # Opening: tier N spends tier N (FIFO), never yields fewer than N stars.
         await refused(chests_v1.prepare_free_open(db, user_id=poor, action_id="none", key_tier=3, **cat()),

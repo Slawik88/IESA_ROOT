@@ -53,3 +53,12 @@ Verdict: proceed with changes. Applied:
 - Simulator: `sim_output.txt` (tables blob recorded in its header). Simulator key prices (tools/economy_sim_v4.py) equal `KEY_OFFERS`. The routes variant of the simulator is not in this environment.
 - «Что нового»: none in this PR, nothing changes for players while `pets_level_up_v1` is off; the entry ships with the flag decision.
 - Prod query for the owner (read-only), before enabling: per user, unspent current-epoch grants vs `chest_key_accounts_v1.balance`.
+
+## Independent review (separate agent) — approve with fixes; all applied
+1. Major, UI: after buying a higher tier and opening it, the screen kept the empty tier selected with no chip to switch back. Now an empty selected tier falls back to the highest tier with keys, or 1.
+2. Shortage message rounded down ("0 Моры" for 799.5/800); now `math.ceil` (test).
+3. Flag off must not change texts: the overview message and the odds footnote follow `tiers_enabled`; quest help reworded to be true in both states.
+4. Legacy 10 ✨ daily limit now also counts today's `silver_zarniki` purchases (shared limit both ways; test with the flag turned back off the same UTC day).
+5. Offer replay returns the stored receipt price (test).
+6. Offer confirm shows "Покупка необратима" for every offer.
+- Re-run green: tiers rules/pg (16×40 race), keys_multi, chests_v1 pg/mixed/rules/visual, quests_v1_pg, pets_v1_pg, inventory_v1_pg, pet_levels rules/pg/race, audit_economy_mutations. `test_chests_v1_mixed_pg` assumes `pets_level_up_v1` off (legacy purchase), as in production by default.

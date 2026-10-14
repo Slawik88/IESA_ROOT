@@ -643,10 +643,13 @@ async def find_purchase(db, *, user_id: int, action_id: str) -> dict[str, Any] |
 
 
 async def paid_purchases_today(db, *, user_id: int) -> int:
+    """Zarniki keys bought today: legacy 10 ✨ keys plus Silver 120 ✨ offers (one shared daily limit)."""
     async with db.execute(
-        "SELECT COUNT(*) FROM chest_key_purchases_v1 WHERE user_id=? "
-        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date",
-        (int(user_id),),
+        "SELECT (SELECT COUNT(*) FROM chest_key_purchases_v1 WHERE user_id=? "
+        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date)"
+        " + (SELECT COUNT(*) FROM chest_key_offer_purchases_v1 WHERE user_id=? AND offer_id='silver_zarniki' "
+        "AND purchased_on=(CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date)",
+        (int(user_id), int(user_id)),
     ) as cursor:
         return int((await cursor.fetchone())[0])
 
