@@ -11,7 +11,9 @@ import httpx
 from loguru import logger
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from FastAPI.deps import get_db, require_tg_user
+from FastAPI.deps import assert_account_active, get_db, require_tg_user, require_tg_user_base
+from infrastructure.database import create_pool, get_pool
+from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
 from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
@@ -57,6 +59,10 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+# One Telegram download per user at a time; a request waits at most this long
+# (audit A13). A slow download keeps running and fills the cache for the next call.
+_AVATAR_INFLIGHT: dict[int, asyncio.Task] = {}
+_AVATAR_BUDGET_SEC = 8.0
 _DEVELOPER_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 
 
@@ -146,29 +152,58 @@ async def _essence_balance(db, user_id: int) -> int:
         return 0
 
 
-async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None) -> str | None:
+async def _fetch_and_cache_avatar(user_id: int) -> str | None:
+    avatar = await _fetch_tg_avatar(user_id)
+    _AVATAR_CACHE[user_id] = (avatar, time.time())
+    return avatar
+
+
+def _avatar_download(user_id: int) -> asyncio.Task:
+    """Single-flight Telegram download: concurrent misses share one task."""
+    task = _AVATAR_INFLIGHT.get(user_id)
+    if task is None:
+        task = asyncio.create_task(_fetch_and_cache_avatar(user_id))
+        _AVATAR_INFLIGHT[user_id] = task
+        task.add_done_callback(lambda _t: _AVATAR_INFLIGHT.pop(user_id, None))
+    return task
+
+
+async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait: bool = True) -> str | None:
     """Data-URI аватарки Telegram, если у игрока АКТИВНЫЙ VIP (перк); иначе None.
     Кэш на процесс (6ч), картинка уже проксирована в data-URI (токен бота наружу
     не уходит). Используется и для своего профиля (/avatar), и для публичной
-    карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде."""
+    карточки чужого VIP-игрока (/u/{id}) — VIP оплатил, аватарку показываем везде.
+
+    wait=False — для эндпоинтов, держащих соединение БД: при промахе кэша загрузка
+    стартует в фоне, а ответ не ждёт Telegram (audit A13)."""
     if vip_active is None:
         vip_active = await is_vip_active(db, user_id)
     if not vip_active:
         return None
-    now = time.time()
     cached = _AVATAR_CACHE.get(user_id)
-    if cached and now - cached[1] < _AVATAR_TTL:
+    if cached and time.time() - cached[1] < _AVATAR_TTL:
         return cached[0]
-    avatar = await _fetch_tg_avatar(user_id)
-    _AVATAR_CACHE[user_id] = (avatar, now)
-    return avatar
+    task = _avatar_download(user_id)
+    if not wait:
+        return None
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), _AVATAR_BUDGET_SEC)
+    except asyncio.TimeoutError:
+        return None
 
 
 @router.get("/avatar")
-async def my_avatar(db=Depends(get_db), user=Depends(require_tg_user)):
-    """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null."""
-    vip = await is_vip_active(db, user["id"])
-    avatar = await _vip_avatar(db, user["id"]) if vip else None
+async def my_avatar(user=Depends(require_tg_user_base)):
+    """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null.
+    Соединение БД берётся только на проверки и отпускается до обращения к
+    Telegram: медленный Telegram не занимает слот общего пула (audit A13)."""
+    user_id = int(user["id"])
+    await create_pool()
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await assert_account_active(db, user_id)
+        vip = await is_vip_active(db, user_id)
+    avatar = await _vip_avatar(None, user_id, vip_active=True) if vip else None
     return {"avatar": avatar, "vip": vip}
 
 # Единый источник правды для названий глобальных рангов — services/roles.py
@@ -499,7 +534,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
         "chats":        chats,
         "pets":         pets,
         "is_vip":       is_vip,
-        "avatar":       await _vip_avatar(db, user_id, vip_active=is_vip),
+        "avatar":       await _vip_avatar(db, user_id, vip_active=is_vip, wait=False),
         "tos_accepted": bool(row["tos_accepted"]),
         "global_rank":  row["global_rank"] or 0,
         "is_developer": bool(_DEVELOPER_ID and user_id == _DEVELOPER_ID),
@@ -801,7 +836,7 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
         } if vip_info else None,
         # VIP оплатил живую аватарку — показываем её и в его публичной карточке
         # (раньше у чужого VIP там висела только корона-заглушка).
-        "avatar":       await _vip_avatar(db, target_id),
+        "avatar":       await _vip_avatar(db, target_id, wait=False),
         # the look of another player is served by /public-profile-v3 (VIP-gated, core/appearance_v3.py)
         "sky_sigil":     await _sky_sigil(db, target_id),
         "supporter_badge": await _supporter_badge(db, target_id),
