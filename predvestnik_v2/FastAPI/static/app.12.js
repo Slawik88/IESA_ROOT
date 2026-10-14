@@ -560,7 +560,7 @@
   }
   function renderChestsV1(){
     const d=_chestsV1Data,root=el('pg-chests');if(!d||!root)return;
-    if(_chestsV1Tier!==1&&(!chestTierInfo(d,_chestsV1Tier)||chestTierBalance(d,_chestsV1Tier)<1))_chestsV1Tier=(d.key_tiers||[]).map(t=>Number(t.tier)).filter(t=>t>1&&chestTierBalance(d,t)>0).sort((a,b)=>b-a)[0]||1;
+    if((_chestsV1Tier!==1&&!chestTierInfo(d,_chestsV1Tier))||chestTierBalance(d,_chestsV1Tier)<1)_chestsV1Tier=(d.key_tiers||[]).map(t=>Number(t.tier)).filter(t=>t>1&&chestTierBalance(d,t)>0).sort((a,b)=>b-a)[0]||1;
     const tierInfo=chestTierInfo(d,_chestsV1Tier),odds=((tierInfo&&tierInfo.star_odds)||d.star_odds||[]).map(row=>`<li><span>${row.stars}★</span><b>${String(row.percent).replace('.',',')}%</b></li>`).join('');
     const rewards=(d.rewards||[]).map(row=>`<details class="chest-tier"><summary><b>${row.stars}★</b><span>${String(row.star_percent).replace('.',',')}% сундуков</span></summary><ul>${(row.outcomes||[]).map(outcome=>`<li><span><b>${esc(outcome.label)}</b>${chestOddsDetails(outcome)}</span><em>${outcome.conditional_percent}%${chestAmountText(outcome)?` · ${chestAmountText(outcome)}`:''}</em></li>`).join('')}</ul></details>`).join('');
     const paid=d.funding||{},remaining=Math.max(0,Number(paid.remaining_today)||0),price=Number(paid.price_zarniki)||0;

@@ -61,4 +61,5 @@ Verdict: proceed with changes. Applied:
 4. Legacy 10 ✨ daily limit now also counts today's `silver_zarniki` purchases (shared limit both ways; test with the flag turned back off the same UTC day).
 5. Offer replay returns the stored receipt price (test).
 6. Offer confirm shows "Покупка необратима" for every offer.
+7. Re-review nit: an empty selected tier (tier 1 included) falls back to the highest stocked tier, so a player with only Bronze keys is not shown a disabled button. Re-review verdict: approve.
 - Re-run green: tiers rules/pg (16×40 race), keys_multi, chests_v1 pg/mixed/rules/visual, quests_v1_pg, pets_v1_pg, inventory_v1_pg, pet_levels rules/pg/race, audit_economy_mutations. `test_chests_v1_mixed_pg` assumes `pets_level_up_v1` off (legacy purchase), as in production by default.
