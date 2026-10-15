@@ -833,7 +833,7 @@
 
   function achievementTabs() {
     return `<nav class="v3-tabs v3-tabs--wide ach-tabs" role="tablist" aria-label="Категории достижений" onkeydown="achievementsV1TabKey(event)">${ACHIEVEMENT_FILTERS.map(([id, label]) =>
-      `<button type="button" class="v3-tab${_achievementsV1Filter === id ? ' on' : ''}" role="tab" data-achievement-filter="${id}" aria-selected="${_achievementsV1Filter === id}" aria-controls="ach-panel" tabindex="${_achievementsV1Filter === id ? 0 : -1}" onclick="achievementsV1Filter('${id}')">${label}</button>`).join('')}</nav>`;
+      `<button type="button" id="ach-tab-${id}" class="v3-tab${_achievementsV1Filter === id ? ' on' : ''}" role="tab" data-achievement-filter="${id}" aria-selected="${_achievementsV1Filter === id}" aria-controls="ach-panel" tabindex="${_achievementsV1Filter === id ? 0 : -1}" onclick="achievementsV1Filter('${id}')">${label}</button>`).join('')}</nav>`;
   }
 
   function renderAchievementsV1() {
@@ -845,7 +845,7 @@
     const max = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
     root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub })}${achievementTabs()}
-      <div id="ach-panel" role="tabpanel">${achievementSections()}</div>
+      <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>
       <details class="v3-more ach-help"><summary>Как растут достижения</summary>
         <p>Пути в играх и приключениях растут от подтверждённых завершений и активных недель: для уровня нужны оба условия. Награда — Мора, она приходит сама, без скрытой косметики.</p>
         <p>Достижения чата растут от активности в чатах с ботом; за каждый 10-й уровень — 🔮 эссенция.</p>
@@ -903,23 +903,30 @@
     window.achievementsV1Filter(ids[(to + ids.length) % ids.length]);
     requestAnimationFrame(() => el('pg-achievements-v1')?.querySelector(`[data-achievement-filter="${_achievementsV1Filter}"]`)?.focus());
   };
+  // Хук обновления (app.01.js) зовёт это же при открытом экране: тогда только перечитываем, без switchPage (он прокручивает наверх и уводит фокус)
+  let _achievementsSeq = 0;
   window.openAchievementsV1 = async function () {
-    switchPage('achievements-v1');
+    if (_activePage !== 'achievements-v1') switchPage('achievements-v1');
     const root = el('pg-achievements-v1');
     if (!_achievementsV1Data) {
       root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()' })}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:320px;border-radius:18px;margin-top:18px"></div>`;
     }
+    const mine = ++_achievementsSeq;
     try {
       const [paths, chat] = await Promise.all([
         api('/achievements-v1/me'),
         api('/achievements-v1/chat').catch(() => null),
       ]);
+      if (mine !== _achievementsSeq) return;
       _achievementsV1Data = paths;
-      _chatAchievementsData = chat;
+      _chatAchievementsData = chat || _chatAchievementsData;   // разовый сбой чата не стирает уже показанное
       renderAchievementsV1();
     } catch (error) {
+      if (mine !== _achievementsSeq) return;
+      const text = String(error?.message || error || 'Ошибка').replace(/^Error:\s*/, '');
+      if (_achievementsV1Data) { toast(`Достижения не обновились: ${text}`, false); return; }
       root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()' })}<div class="v3-empty" role="alert">
-        <b>Достижения не загрузились</b><span>${esc(error)}</span>
+        <b>Достижения не загрузились</b><span>${esc(text)}</span>
         <button type="button" class="v3-link" onclick="openAchievementsV1()">Повторить</button>
       </div>`;
     }
