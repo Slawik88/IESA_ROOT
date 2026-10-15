@@ -65,6 +65,7 @@ _SOURCE_LABELS = {
     "chest_key_offer_platinum_zarniki": "🗝 Платиновый ключ",
     "chest_v1_reward": "🎁 Награда из сундука",
     "shop_essence_polish": "🔮 Шлифовка (Эссенция)",
+    "gift_send_v2": "🎁 Подарок",
     "shadow_merchant":  "🕴 Теневой Торговец",
     "shadow_relic":     "🕴 Теневая реликвия",
     "achievement":      "🏆 Достижение",
