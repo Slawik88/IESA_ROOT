@@ -155,14 +155,16 @@ def _gift_currency(g: dict) -> tuple[str | None, float]:
     return None, 0.0
 
 
-async def _notify_partner_gift(db, sender_id: int, partner_id: int, gift: dict) -> None:
+async def _notify_partner_gift(db, sender_id: int, partner_id: int, gift: dict, *, from_name: str | None = None) -> None:
     """Коробка «подарок от супруга»: WS если партнёр онлайн, иначе web_notifications
-    (покажется при следующем входе). Тот же паттерн, что админ-подарки."""
-    async with db.execute(
-        "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (sender_id,)
-    ) as c:
-        row = await c.fetchone()
-    from_name = row[0] if row and row[0] else f"ID{sender_id}"
+    (покажется при следующем входе). Тот же паттерн, что админ-подарки.
+    from_name: готовое публичное имя отправителя (подарки по тирам); без него — как раньше, по username."""
+    if from_name is None:
+        async with db.execute(
+            "SELECT user_tg_username FROM users WHERE user_tg_id = ?", (sender_id,)
+        ) as c:
+            row = await c.fetchone()
+        from_name = row[0] if row and row[0] else f"ID{sender_id}"
     payload = {
         "type": "partner_gift",
         "from": from_name,

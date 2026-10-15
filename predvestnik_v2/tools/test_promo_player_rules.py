@@ -34,7 +34,7 @@ until = _offer(row(end="2026-10-31T00:00:00+00:00"), ME, NOW)["until"]
 assert until.startswith("2026-10-31"), until
 
 # Every offered code passes the same server checks again on redeem: the screen never grants anything itself.
-src = (ROOT / "FastAPI/static/app.45.js").read_text(encoding="utf-8")
+src = (ROOT / "FastAPI/static/app.46.js").read_text(encoding="utf-8")
 assert "api('/promo-v2/redeem'" in src and "api('/promo-v2/me')" in src and "_profileEsc(o.code)" in src
 repo = (ROOT / "infrastructure/repositories/promo_player.py").read_text(encoding="utf-8")
 assert "allowed_chats_json, '') = ''" in repo and "NOT EXISTS (SELECT 1 FROM promocode_redemptions" in repo and "is_active = 1" in repo

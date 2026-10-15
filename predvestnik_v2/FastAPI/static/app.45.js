@@ -1,82 +1,200 @@
-// ── Промокоды · ввести код, забрать доступные, история ─────────────────────────────────────
-// GET /promo-v2/me: «Доступно сейчас» (публичные коды из админки и именные коды игрока) и история активаций; забирают тем же POST /promo-v2/redeem, что и ввод руками.
-// Награда показывается тем же тостом, что у подарка от Администрации (v3GiftToast, app.28.js). Правила вида: docs/MINIAPP_DESIGN_RULES.md. Стили: promo-v3.css.
-let _promo = { me: null, bad: '', busy: '', err: '', seq: 0 };
+// ── Подарки по тирам и полка в профиле ────────────────────────────────────────────────
+// Вкладка «Подарки» в магазине (через _shopExtra из app.44.js), полка в своём профиле (#pro-gifts) и витрина на чужой карточке (app.21.js).
+// Всё за флагом gifts_v2: вкладка и полка появляются, только если GET /gifts-v2/me ответил; 404 «Подарки пока закрыты» прячет их.
+// Первый релиз: дарим только супругу. Цены, лимиты (5 в сутки, 3 одному игроку) и нехватка приходят с сервера (core/gifts_v2.py).
+// Записка до 60 символов приходит от другого игрока: везде выводится только через _profileEsc. Номер операции живёт до ответа «успех».
+// Стили: app.css (.gift-*), тир читается по рамке: Знак — тонкая линия, Тёплый — золотистая подложка, Редкий — фиолетовое свечение, Легендарный — золото с мерцанием.
+const _GIFT_ICONS = { mora: '🪙', diamonds: '💎', zarniki: '✨' };
+const _GIFT_OFFLINE = 'Нет связи. Проверь интернет и попробуй ещё раз.';
+const _giftPending = new Map();
+let _giftsOn = null;   // null — ещё не спрашивали, true — флаг включён, false — подарки закрыты
+const _gifts = { me: null, busy: null, errors: {}, loading: false, hist: { box: 'received', tier: 0 }, draft: null };
 
-// Старое имя оставлено: на него ведут профиль, «Ещё», настройки и «Что нового»
-function openPromoSheet() {
-  switchPage('promo');
-  if (!_promo.me) { _promo.bad = ''; _promo.err = ''; _promoRender(); }
-  return _promoLoad();
-}
-// Перечитать списки, не переключая страницу: после «Забрать» игрок мог уже уйти на другую вкладку
-function _promoLoad() {
-  const mine = ++_promo.seq;
-  return api('/promo-v2/me').then(me => { if (mine === _promo.seq) { _promo.me = me; _promo.bad = ''; } })
-    .catch(e => { if (mine === _promo.seq) _promo.bad = String(e?.message || e || 'Ошибка').replace(/^Error:\s*/, ''); })
-    .finally(() => { if (mine === _promo.seq) _promoRender(); });
-}
-function promoBack() { if (_navStack.length) navBack(); else switchPage('profile', null, true); }
+function _giftCost(cost) { return Object.entries(cost || {}).map(([k, v]) => `${fmtF(v)} ${_GIFT_ICONS[k] || k}`).join(' + '); }
+function _giftMiss(gaps) { return `Не хватает: ${Object.entries(gaps || {}).map(([k, v]) => `${fmtF(v)} ${_GIFT_ICONS[k] || k}`).join(', ')}`; }
+function _giftItem(id) { return (_gifts.me?.tiers || []).flatMap(t => t.gifts || []).find(g => g.id === id) || null; }
+function _giftTier(n) { const t = Number(n); return t >= 1 && t <= 4 ? t : 1; }
+function _giftLen(s) { return [...String(s || '')].length; }   // как на сервере: символы, а не половинки эмодзи
+function _giftDate(v) { const d = new Date(v); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); }
 
-const _promoDate = iso => { const d = iso ? new Date(iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) : ''; };
-function _promoOffer(o) {
-  const facts = [o.personal ? 'личный' : '', o.until ? `до ${_promoDate(o.until)}` : '', o.left != null ? `осталось ${fmt(o.left)}` : ''].filter(Boolean);
-  const busy = _promo.busy === o.code;
-  return `<li class="pm-row"><span class="pm-tx"><b>${_profileEsc(o.rewards.join(' · '))}</b><small><span class="pm-code">${_profileEsc(o.code)}</span>${facts.length ? ` · ${_profileEsc(facts.join(' · '))}` : ''}</small></span>`
-    + `<button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" data-code="${_profileEsc(o.code)}" onclick="promoTake(this.dataset.code)" ${_promo.busy ? 'disabled' : ''}>${busy ? '…' : 'Забрать'}</button></li>`;
-}
-function _promoPast(h) {
-  return `<li class="pm-row pm-row--past"><span class="pm-tx"><b>${_profileEsc(h.granted.join(' · ') || h.code)}</b><small><span class="pm-code">${_profileEsc(h.code)}</span>${h.in_chat ? ' · в чате' : ''}</small></span><time>${_profileEsc(_promoDate(h.at))}</time></li>`;
-}
-function _promoLists() {
-  if (_promo.bad) return `<div class="v3-empty" role="alert"><b>Список не загрузился</b><span>${_profileEsc(_promo.bad)}</span> <button type="button" class="v3-link" onclick="_promoLoad()">Повторить</button></div>`;
-  if (!_promo.me) return '<div class="sk" style="height:120px;border-radius:14px;margin-top:18px"></div>';
-  const { available, history } = _promo.me;
-  const offers = available.length ? `<ul class="pm-list">${available.map(_promoOffer).join('')}</ul>`
-    : '<p class="v3-empty">Сейчас открытых кодов нет. Новые появляются здесь сами.</p>';
-  const past = history.length ? `<ul class="pm-list">${history.map(_promoPast).join('')}</ul>` : '<p class="v3-empty">Активированные коды появятся здесь.</p>';
-  return `<div class="v3-sec"><span class="v3-eyebrow">Доступно сейчас${available.length ? ` · ${available.length}` : ''}</span></div>${offers}`
-    + `<div class="v3-sec"><span class="v3-eyebrow">История</span></div>${past}`;
-}
-function _promoRender() {
-  const root = el('pg-promo'); if (!root) return;
-  const typed = String(el('promo-in')?.value || ''), focused = document.activeElement?.id === 'promo-in';
-  root.innerHTML = `${v3Head('Промокоды', { back: 'promoBack()' })}
-    <form class="pm-form" onsubmit="event.preventDefault();promoTake()" novalidate>
-      <label class="sr-only" for="promo-in">Код</label>
-      <input id="promo-in" class="v3-field" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" placeholder="Введите код" oninput="_promoTyped(true)">
-      <button type="submit" id="promo-go" class="v3-pill" ${_promo.busy ? 'disabled' : ''}>${_promo.busy === '*' ? '…' : 'Активировать'}</button>
-    </form>
-    <p class="v3-err" id="promo-err" role="alert" ${_promo.err ? '' : 'hidden'}>${_profileEsc(_promo.err)}</p>
-    ${_promoLists()}`;
-  const inp = el('promo-in'); if (inp) { inp.value = typed; if (focused) inp.focus(); }
-  _promoTyped();
-  v3EnterSync(root);
-}
-// Кнопка «Активировать» залита акцентом, только когда код набран: иначе акцент экрана пустой кнопке не нужен (docs/MINIAPP_DESIGN_RULES.md, п. 1)
-function _promoTyped(edited) {
-  const go = el('promo-go'), has = !!String(el('promo-in')?.value || '').trim();
-  go?.classList.toggle('v3-pill--ghost', !has);
-  const err = el('promo-err'); if (edited && err && _promo.err) { _promo.err = ''; err.hidden = true; }
+function _giftsLoad(after) {
+  if (_gifts.loading) return;
+  _gifts.loading = true;
+  api('/gifts-v2/me').then(d => { _gifts.me = d; _giftsOn = true; })
+    .catch(e => { if (e === 'Подарки пока закрыты') { _giftsOn = false; _gifts.me = null; } })
+    .finally(() => { _gifts.loading = false; giftsShelfRender(); if (typeof _shopRender === 'function' && _activePage === 'shop') _shopRender(); if (after) after(); });
 }
 
-// Один запрос за раз: и ручной ввод (code не передан), и «Забрать» у строки идут через redeem, сервер повторно проверяет всё
-function promoTake(code) {
-  const manual = !code;
-  code = String(code || el('promo-in')?.value || '').trim();
-  if (_promo.busy) return;
-  if (!code) { _promo.err = 'Введите код.'; _promoRender(); return; }
-  _promo.busy = manual ? '*' : code; _promo.err = ''; _promoRender();
-  api('/promo-v2/redeem', { method: 'POST', body: JSON.stringify({ code }) }).then(r => {
-    if (manual && el('promo-in')) el('promo-in').value = '';
-    // Взятый код сразу уходит из «Доступно», не дожидаясь перечитывания
-    if (_promo.me) _promo.me.available = _promo.me.available.filter(o => o.code.toUpperCase() !== String(r.code).toUpperCase());
-    _haptic('success');
-    const gifts = (r.granted || []).map(text => {
-      const m = /^(\p{Extended_Pictographic}[️‍\p{Extended_Pictographic}]*)\s+(\d[\d ]*)\s+(.+)$/u.exec(String(text).trim());
-      return m ? { label: `${m[1]} ${m[3]}`, amount: Number(m[2].replace(/\s/g, '')) } : { label: String(text) };
-    });
-    v3GiftToast([{ title: 'Промокод', from: r.code, glyph: '🎟', gifts }]);
-  }).catch(e => { _haptic('error'); _promo.err = String(e?.message || e || 'Не получилось.').replace(/^Error:\s*/, ''); })
-    .finally(() => { _promo.busy = ''; _promoRender(); _promoLoad(); });   // и после ошибки: код мог закончиться — список обновится
+// ── Вкладка магазина ────────────────────────────────────────────────────────────────
+if (typeof _shopExtra === 'object') {
+  _shopExtra.gifts = { name: 'Подарки', on: () => _giftsOn === true && !!_gifts.me, load: () => _giftsLoad(), html: () => _giftsTab() };
+}
+
+function _giftLimits(d) {
+  const l = d.limits || {}, day = l.daily || {}, one = l.recipient || {};
+  const hours = Math.max(1, Math.ceil((Number(l.resets_in_seconds) || 0) / 3600));
+  return `Сегодня осталось ${fmt(day.left || 0)} из ${fmt(day.max || 0)}${d.recipient ? ` · этому игроку ${fmt(one.left || 0)} из ${fmt(one.max || 0)}` : ''} · до сброса ${hours} ч`;
+}
+
+function _giftCard(g) {
+  const gaps = g.missing || {}, short = Object.keys(gaps).length > 0, busy = _gifts.busy === g.id;
+  const off = !g.available || short || !!_gifts.busy;
+  const err = _gifts.errors[g.id] ? `<div class="shop-err" role="alert"><span>${_profileEsc(_gifts.errors[g.id].msg)}</span><button type="button" onclick="giftRetry('${g.id}')">Повторить</button></div>` : '';
+  const price = Object.entries(g.cost || {}).map(([k, v]) => `<span class="${gaps[k] ? 'is-miss' : ''}">${fmtF(v)} ${_GIFT_ICONS[k] || k}</span>`).join('');
+  return `<article class="gift-card gt${_giftTier(g.tier)}${g.available ? '' : ' is-off'}" data-gift="${_profileEsc(g.id)}">
+    <span class="gift-ico" aria-hidden="true">${_profileEsc(g.icon || '🎁')}</span><b>${_profileEsc(g.name)}</b>
+    <div class="shop-price">${price}</div>
+    ${short ? `<p class="shop-miss">${_profileEsc(_giftMiss(gaps))}</p>` : ''}${err}
+    <button type="button" class="v3-pill shop-act" onclick="giftAsk('${g.id}',this)" ${off ? 'disabled' : ''} ${busy ? 'aria-busy="true"' : ''}>${busy ? 'Минутку…' : 'Подарить'}</button>
+  </article>`;
+}
+
+function _giftsTab() {
+  const d = _gifts.me; if (!d) return '<div class="loader">Загрузка…</div>';
+  const who = d.recipient ? `Кому: <b>${_profileEsc(d.recipient.name)}</b>` : _profileEsc(d.unavailable_reason || 'Подарки пока можно дарить только супругу.');
+  const tiers = (d.tiers || []).map(t => `<section class="gift-tier gt${_giftTier(t.tier)}" aria-label="${_profileEsc(t.name)}">
+      <h3><span class="gift-gem" aria-hidden="true"></span>${_profileEsc(t.name)}</h3>
+      <div class="gift-grid">${(t.gifts || []).map(_giftCard).join('')}</div></section>`).join('');
+  return `<p class="shop-hint gift-to">${who}</p>
+    <p class="shop-hint">${_profileEsc(_giftLimits(d))}. Подарок встанет на полку в профиле получателя.</p>
+    ${d.recipient && d.unavailable_reason ? `<p class="shop-note">${_profileEsc(d.unavailable_reason)}</p>` : ''}${tiers}`;
+}
+
+// Шаг «записка»: необязательная, до 60 символов. Потом лист подтверждения с ценой и балансом до → после.
+function giftAsk(id, trigger) {
+  const g = _giftItem(id), d = _gifts.me; if (!g || !d || _gifts.busy || !d.recipient) return;
+  if (trigger) trigger.dataset.modalTrigger = 'true';
+  _gifts.draft = { id, note: _gifts.draft?.id === id ? _gifts.draft.note : '' };
+  const max = Number(d.note_max) || 60;
+  OM('Записка к подарку', `<div class="gift-note">
+      <div class="cf-item"><span class="gift-ico gt${_giftTier(g.tier)}" aria-hidden="true">${_profileEsc(g.icon)}</span><div><b>${_profileEsc(g.name)}</b><small>Кому: ${_profileEsc(d.recipient.name)}</small></div></div>
+      <label for="gift-note-in">Записка, по желанию</label>
+      <input id="gift-note-in" class="v3-field" type="text" autocomplete="off" enterkeyhint="next" value="${_profileEsc(_gifts.draft.note)}" oninput="giftNoteInput(this.value)" placeholder="Пара слов от тебя">
+      <small id="gift-note-count" aria-live="polite">${_giftLen(_gifts.draft.note)} / ${max}</small></div>`,
+  [{ l: 'Дальше', c: 'primary', f: 'giftNoteNext()' }, { l: 'Отмена', c: 'ghost', f: 'CM()' }]);
+}
+function giftNoteInput(v) {
+  if (!_gifts.draft) return;
+  _gifts.draft.note = String(v || '');
+  const max = Number(_gifts.me?.note_max) || 60, n = _giftLen(_gifts.draft.note.trim()), c = el('gift-note-count');
+  if (c) { c.textContent = `${n} / ${max}`; c.classList.toggle('is-miss', n > max); }
+}
+async function giftNoteNext() {
+  const draft = _gifts.draft, g = draft && _giftItem(draft.id), d = _gifts.me; if (!g || !d) return;
+  const note = draft.note.trim(), max = Number(d.note_max) || 60;
+  if (_giftLen(note) > max) { toast(`Записка — не больше ${max} символов.`, false); return; }
+  CM();
+  const b = d.balances || {};
+  const spent = Object.entries(g.cost || {}).map(([k, v]) => [`Баланс ${_GIFT_ICONS[k] || k}`, `${fmtF(b[k] || 0)} → ${fmtF(Number(b[k] || 0) - Number(v))}`]);
+  const ok = await v3Confirm({ title: 'Подарить', visual: g.icon || '🎁', name: g.name, sub: g.tier_name || '',
+    rows: [['Кому', d.recipient?.name || ''], ['Отдаёшь', _giftCost(g.cost)], ...(note ? [['Записка', note]] : []), ...spent],
+    cta: `Подарить за ${_giftCost(g.cost)}`, note: g.irreversible ? 'Это необратимо.' : '' });
+  if (ok) _giftSend(g.id, note);
+}
+// «Повторить» шлёт ровно то, что ушло при обрыве: ту же записку и тот же номер операции, даже если потом открывали другой подарок.
+function giftRetry(id) { const failed = _gifts.errors[id]; if (failed) _giftSend(id, failed.note, failed.action); }
+
+function _giftSend(id, note, retryAction) {
+  const g = _giftItem(id), d = _gifts.me; if (!g || !d || _gifts.busy) return;
+  const key = `${id}:${note}`;
+  const action = retryAction || _giftPending.get(key) || `gift-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36)}`;
+  _giftPending.set(key, action);
+  _gifts.busy = id; delete _gifts.errors[id]; _shopRender();
+  const body = { gift_id: id, action_id: action, catalog_version: d.catalog_version, catalog_digest: d.catalog_digest, note: note || null };
+  api('/gifts-v2/send', { method: 'POST', body: JSON.stringify(body) }).then(res => {
+    _giftPending.delete(key); _gifts.busy = null; _gifts.draft = null;
+    if (res.balances && _gifts.me) Object.assign(_gifts.me.balances, res.balances);
+    if (res.balances && _shop.me) Object.assign(_shop.me.balances, res.balances);
+    toast(`${g.icon} ${g.name} уже на полке у ${d.recipient?.name || 'получателя'}`);
+    try { v3Reward(document.querySelector(`[data-gift="${id}"] .gift-ico`)); } catch (_) {}
+    try { refreshCurrBar(); } catch (_) {}
+    _shopRender(); _giftsLoad();
+  }).catch(e => {
+    _gifts.busy = null;
+    if (typeof e === 'string') { if (e.includes('уже использован')) _giftPending.delete(key); toast(e, false); _giftsLoad(); return; }
+    _gifts.errors[id] = { msg: _GIFT_OFFLINE, note, action }; _shopRender();   // обрыв связи: «Повторить» отправит ровно это тело
+  });
+}
+
+// ── Полка в своём профиле ───────────────────────────────────────────────────────────
+function giftsShelfShell() {
+  setTimeout(() => { giftsShelfRender(); if (_giftsOn !== false) _giftsLoad(); }, 0);   // флаг выключен: не спрашиваем сервер на каждой перерисовке   // сначала то, что уже знаем, потом свежий ответ
+  return `<section class="gift-shelf-wrap" id="pro-gifts" aria-label="Подарки" ${_giftsOn === true ? '' : 'hidden'}></section>`;
+}
+function giftBadgeHtml(b) {
+  if (!b || !b.icon) return '';
+  return `<span class="gift-badge" role="img" aria-label="${_profileEsc(`${b.tier_name || 'Легендарный'} подарок: ${b.name || ''}`)}" title="${_profileEsc(b.name || '')}">${_profileEsc(b.icon)}</span>`;
+}
+function _giftPinned(list) {
+  return (list || []).map(p => `<button type="button" class="gift-slot gt${_giftTier(p.tier)} is-on" onclick="giftSlot('${_profileEsc(p.gift_id)}')" aria-label="${_profileEsc(p.name)} на витрине"><span aria-hidden="true">${_profileEsc(p.icon)}</span><i aria-hidden="true">★</i></button>`).join('');
+}
+function giftsShelfRender() {
+  const host = el('pro-gifts'); if (!host) return;
+  const s = _gifts.me?.shelf;
+  host.hidden = !(_giftsOn === true && s);
+  if (host.hidden) return;
+  const c = s.counts || {};
+  const shelves = (s.tiers || []).map(t => `<div class="gift-shelf gt${_giftTier(t.tier)}"><span class="gift-shelf-name">${_profileEsc(t.name)}</span><div class="gift-slots">${(t.slots || []).map(x => x.count > 0
+    ? `<button type="button" class="gift-slot gt${_giftTier(t.tier)} is-on" onclick="giftSlot('${_profileEsc(x.gift_id)}')" aria-label="${_profileEsc(x.name)}: ${fmt(x.count)}"><span aria-hidden="true">${_profileEsc(x.icon)}</span>${x.count > 1 ? `<b>×${fmt(x.count)}</b>` : ''}</button>`
+    : `<span class="gift-slot is-empty" role="img" aria-label="${_profileEsc(x.name)}: ещё нет"><span aria-hidden="true">${_profileEsc(x.icon)}</span></span>`).join('')}</div></div>`).join('');
+  host.innerHTML = `<div class="v3-sec"><span class="v3-eyebrow">Подарки</span><button type="button" class="v3-link" onclick="openGiftHistory()">История</button></div>
+    <div class="gift-counts"><span>Получено <b>${fmt(c.received || 0)}</b></span><span>Отправлено <b>${fmt(c.sent || 0)}</b></span></div>
+    ${(s.pinned || []).length ? `<div class="gift-showcase" aria-label="Витрина"><span class="gift-shelf-name">Витрина</span><div class="gift-slots">${_giftPinned(s.pinned)}</div></div>` : ''}
+    ${c.received ? '' : '<p class="v3-empty gift-empty">Пока нет подарков</p>'}
+    <div class="gift-shelves">${shelves}</div>`;
+  const name = document.querySelector('#pro-main .v3-name');   // значок за легендарный подарок рядом с именем
+  if (name) { name.querySelector('.gift-badge')?.remove(); name.insertAdjacentHTML('beforeend', giftBadgeHtml(s.top_badge)); }
+}
+
+function _giftRow(h, box) {
+  const who = box === 'sent' ? h.to : h.from;
+  const pin = box === 'received' ? `<button type="button" class="gift-pin" aria-pressed="${!!h.pinned}" aria-label="${h.pinned ? 'Снять с витрины' : 'На витрину'}" onclick="giftPin('${_profileEsc(h.id)}',${!h.pinned})">★</button>` : '';
+  return `<li class="gift-row gt${_giftTier(h.tier)}"><span class="gift-ico" aria-hidden="true">${_profileEsc(h.icon)}</span>
+    <div><b>${_profileEsc(h.name)} <small>${_profileEsc(h.tier_name)}</small></b>
+    <small>${box === 'sent' ? 'Кому' : 'От'}: ${_profileEsc(who?.name || '—')} · ${_profileEsc(_giftDate(h.created_at))}</small>
+    ${h.note ? `<q>${_profileEsc(h.note)}</q>` : ''}</div>${pin}</li>`;
+}
+// Тап по подарку на полке: кто, когда, записка, тир и звезда «на витрину» (не больше трёх).
+function giftSlot(giftId) {
+  OM('Подарок', '<div class="loader">Загрузка…</div>', [{ l: 'Закрыть', c: 'ghost', f: 'CM()' }]);
+  _gifts.slot = giftId;
+  api(`/gifts-v2/history?box=received&gift_id=${encodeURIComponent(giftId)}`).then(r => {
+    const rows = r.items || [];
+    el('mb').innerHTML = rows.length ? `<p class="v3-sub">Звезда ставит подарок на витрину: её видят другие игроки (до ${fmt(_gifts.me?.pin_max || 3)}).</p><ul class="gift-list">${rows.map(h => _giftRow(h, 'received')).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>';
+  }).catch(e => { el('mb').innerHTML = `<p class="v3-empty">${_profileEsc(typeof e === 'string' ? e : _GIFT_OFFLINE)}</p>`; });
+}
+function giftPin(sendId, pinned) {
+  api('/gifts-v2/pin', { method: 'POST', body: JSON.stringify({ send_id: sendId, pinned }) }).then(r => {
+    if (_gifts.me && r.shelf) _gifts.me.shelf = r.shelf;
+    giftsShelfRender(); _haptic('select');
+    if (el('modal')?.open) { if (_gifts.histOpen) _giftHistLoad(); else if (_gifts.slot) giftSlot(_gifts.slot); }
+  }).catch(e => toast(typeof e === 'string' ? e : _GIFT_OFFLINE, false));
+}
+
+// История: получено / отправлено, фильтр по тиру.
+function openGiftHistory() {
+  _gifts.histOpen = true; _gifts.slot = null;
+  OM('История подарков', '<div id="gift-hist"><div class="loader">Загрузка…</div></div>', [{ l: 'Закрыть', c: 'ghost', f: 'CM();_gifts.histOpen=false' }]);
+  _giftHistLoad();
+}
+function giftHist(box, tier) { if (box) _gifts.hist.box = box; if (tier != null) _gifts.hist.tier = tier; _giftHistLoad(); }
+function _giftHistLoad() {
+  const h = _gifts.hist, host = () => el('gift-hist');
+  const names = (_gifts.me?.tiers || []).map(t => [t.tier, t.name]);
+  const head = `<div class="shop-switch" role="group" aria-label="Список">${[['received', 'Получено'], ['sent', 'Отправлено']].map(([k, l]) => `<button type="button" aria-pressed="${h.box === k}" onclick="giftHist('${k}')">${l}</button>`).join('')}</div>
+    <div class="gift-filter" role="group" aria-label="Тир">${[[0, 'Все'], ...names].map(([t, l]) => `<button type="button" class="v3-chip" aria-pressed="${h.tier === t}" onclick="giftHist(null,${t})">${_profileEsc(l)}</button>`).join('')}</div>`;
+  if (host()) host().innerHTML = `${head}<div class="loader">Загрузка…</div>`;
+  api(`/gifts-v2/history?box=${h.box}${h.tier ? `&tier=${h.tier}` : ''}`).then(r => {
+    const rows = r.items || [];
+    if (host()) host().innerHTML = `${head}${rows.length ? `<ul class="gift-list">${rows.map(x => _giftRow(x, h.box)).join('')}</ul>` : '<p class="v3-empty">Пока нет подарков</p>'}`;
+  }).catch(e => { if (host()) host().innerHTML = `${head}<p class="v3-empty">${_profileEsc(typeof e === 'string' ? e : _GIFT_OFFLINE)}</p>`; });
+}
+
+// ── Чужая карточка: только витрина (до трёх) и общее число ────────────────────────────
+function ppGiftsHtml(d) {
+  const g = d && d.gifts; if (!g) return '';
+  const pinned = (g.pinned || []).slice(0, 3).map(p => `<span class="gift-slot gt${_giftTier(p.tier)} is-on" role="img" aria-label="${_profileEsc(`${p.name}, ${p.tier_name}`)}"><span aria-hidden="true">${_profileEsc(p.icon)}</span></span>`).join('');
+  const send = !d.is_self && g.can_send ? '<button type="button" class="v3-pill v3-pill--ghost" onclick="openShop(\'gifts\')">Подарить</button>' : '';
+  return `<section><div class="v3-sec"><span class="v3-eyebrow">Подарки</span><span class="v3-sub">Всего: ${fmt(g.total || 0)}</span></div>
+    ${pinned ? `<div class="gift-slots pp-gifts">${pinned}</div>` : Number(g.total) > 0 ? '' : '<p class="v3-empty">Пока нет подарков</p>'}${send}</section>`;   // подарки есть, но витрина пуста: только число
 }

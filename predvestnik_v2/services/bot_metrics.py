@@ -275,7 +275,7 @@ REASON_GROUPS = (
     (("stars_purchase",), "Покупка Зарников за Stars"), (("quest_reward",), "Награды за квесты"), (("season_reward",), "Награды за сезоны игр"), (("season_pass",), "Награды сезонного пропуска"),
     (("achievement_reward",), "Награды за достижения"), (("chest_v1_reward", "chest_key"), "Сундуки и ключи"),
     (("promocode",), "Промокоды"), (("vip_",), "VIP"), (("pet_",), "Питомцы"),
-    (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "retirement_"), "Подарки и компенсации"),
+    (("manual_admin", "bot_admin"), "Выдано и списано из админки"), (("partner_gift", "gift_", "retirement_"), "Подарки и компенсации"),
     (("cosmetic_", "skin_", "theme_", "global_skin", "showcase_"), "Образы и оформление"), (("shop_",), "Магазин"),
     (("exchange_", "crypto_", "player_coin_", "shadow_relic"), "Биржа"), (("auction_",), "Аукцион"),
 )

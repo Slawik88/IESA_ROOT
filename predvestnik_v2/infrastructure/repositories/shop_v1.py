@@ -1,6 +1,6 @@
 """Append-only receipts of the shop screen (ECO-04 PR-B).
 
-Only Polish writes here. Key purchases keep their receipts in chest_key_offer_purchases_v1
+Only Polish writes here (gifts keep their own receipts in gift_sends_v2, PR-C). Key purchases keep their receipts in chest_key_offer_purchases_v1
 and exchanges in the economy ledger; this module only reads those to tell which store
 already owns an action id.
 """
@@ -96,9 +96,19 @@ async def create_purchase(
 
 
 async def action_owner(db, *, user_id: int, action_id: str) -> str | None:
-    """Which store already holds this action id: 'polish', 'key', 'exchange', 'other' or None."""
+    """Which store already holds this action id: 'polish', 'gift', 'key', 'exchange', 'other' or None."""
     if await find_purchase(db, user_id=user_id, action_id=action_id):
         return "polish"
+    async with db.execute(  # gifts (ECO-04 PR-C); the table may not exist yet on a stand that never sent one
+        "SELECT to_regclass('gift_sends_v2') IS NOT NULL", (),
+    ) as cursor:
+        gifts_ready = (await cursor.fetchone())[0]
+    if gifts_ready:
+        async with db.execute(
+            "SELECT 1 FROM gift_sends_v2 WHERE sender_id=? AND action_id=?", (int(user_id), str(action_id)),
+        ) as cursor:
+            if await cursor.fetchone():
+                return "gift"
     async with db.execute(
         "SELECT 1 FROM chest_key_offer_purchases_v1 WHERE user_id=? AND action_id=?", (int(user_id), str(action_id)),
     ) as cursor:
