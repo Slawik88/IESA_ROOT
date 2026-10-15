@@ -34,6 +34,7 @@ STATEMENTS = (
     "ALTER TABLE promocodes ADD COLUMN IF NOT EXISTS updated_by BIGINT",
     "ALTER TABLE promocodes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ",
     "ALTER TABLE promocode_redemptions ADD COLUMN IF NOT EXISTS rewards_json JSONB",
+    "ALTER TABLE promocodes ADD COLUMN IF NOT EXISTS show_in_app BOOLEAN NOT NULL DEFAULT FALSE",   # «Доступно сейчас» в Mini App (services/promo_player)
 )
 
 
@@ -322,11 +323,12 @@ def _row(r) -> dict:
         "rewards": rewards or [], "rewards_text": [describe(x) for x in rewards or []],
         "legacy": not rewards, "note": r[9] or r[10] or "",
         "created_at": r[11].isoformat() if r[11] else None,
+        "show_in_app": bool(r[12]),
     }
 
 
 _COLUMNS = ("code, is_active, valid_from, valid_until, max_activations, activations_count, allowed_chats_json, "
-            "allowed_users_json, rewards_json, note, description, created_at")
+            "allowed_users_json, rewards_json, note, description, created_at, COALESCE(show_in_app, FALSE)")
 
 
 async def list_codes(db, *, query: str = "", limit: int = 200) -> list[dict]:
@@ -418,22 +420,22 @@ async def save_code(db, data: dict, *, actor_id: int, create: bool) -> dict:
         parsed.code, parsed.rewards, parsed.max_act, parsed.start, parsed.end, parsed.chats, parsed.users, parsed.note)
     await _check_private(db, rewards, max_act, users, code=None if create else code)
     values = (bool(data.get("is_active", True)), start, end, max_act, json.dumps(chats) if chats else "",
-              json.dumps(users) if users else "", json.dumps(rewards, ensure_ascii=False), note, actor_id)
+              json.dumps(users) if users else "", json.dumps(rewards, ensure_ascii=False), note, bool(data.get("show_in_app")), actor_id)
     if create:
         async with db.execute("SELECT 1 FROM promocodes WHERE upper(code) = ?", (code,)) as cur:
             if await cur.fetchone():
                 raise PromoError("Такой код уже есть.")
         async with db.execute(
             "INSERT INTO promocodes (code, is_active, valid_from, valid_until, max_activations, allowed_chats_json, "
-            "allowed_users_json, rewards_json, note, created_by, updated_by, updated_at, description) "
-            "VALUES (?, ?::int, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, NOW(), '') ON CONFLICT DO NOTHING RETURNING 1",
+            "allowed_users_json, rewards_json, note, show_in_app, created_by, updated_by, updated_at, description) "
+            "VALUES (?, ?::int, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, NOW(), '') ON CONFLICT DO NOTHING RETURNING 1",
             (code, *values[:-1], actor_id, actor_id)) as cur:
             if not await cur.fetchone():
                 raise PromoError("Такой код уже есть.")
     else:
         async with db.execute(
             "UPDATE promocodes SET is_active = ?::int, valid_from = ?, valid_until = ?, max_activations = ?, "
-            "allowed_chats_json = ?, allowed_users_json = ?, rewards_json = ?::jsonb, note = ?, updated_by = ?, "
+            "allowed_chats_json = ?, allowed_users_json = ?, rewards_json = ?::jsonb, note = ?, show_in_app = ?, updated_by = ?, "
             "updated_at = NOW() WHERE upper(code) = ? RETURNING 1", (*values, code)) as cur:
             if not await cur.fetchone():
                 raise PromoError("Промокод не найден.")

@@ -1700,7 +1700,8 @@ async function promoView(main, code) {
       <div class="sub" style="margin-top:10px">Активаций: ${num(p.activations)}${p.max_activations ? ' из ' + num(p.max_activations) : ' (без лимита)'}<br>
         ${p.valid_from ? 'С ' + when(p.valid_from) + ' ' : ''}${p.valid_until ? 'до ' + when(p.valid_until) : (p.valid_from ? '' : 'Без срока')}<br>
         ${p.chats.length ? 'Только в чатах: ' + p.chats.map(c => esc(c.title)).join(', ') : 'Во всех чатах и в личке с ботом'}
-        ${p.allowed_users.length ? '<br>Только для ID: ' + p.allowed_users.join(', ') : ''}</div>
+        ${p.allowed_users.length ? '<br>Только для ID: ' + p.allowed_users.join(', ') : ''}
+        <br>${p.show_in_app && !p.chats.length ? 'Виден игрокам в Mini App («Доступно сейчас»)' : p.allowed_users.length && !p.chats.length ? 'В Mini App виден только этим игрокам' : 'В Mini App не показывается'}</div>
       <div class="actions" style="margin-top:12px">
         <button class="btn primary" id="pedit">Изменить</button>
         <button class="btn ${p.is_active ? 'danger' : ''}" id="ptoggle">${p.is_active ? 'Выключить' : 'Включить'}</button>
@@ -1844,7 +1845,8 @@ async function promoEdit(main, p, {bulk = false} = {}) {
         <button class="btn small" id="fadd">+ Награда</button></div>
       <div class="grid2">
         ${bulk ? '' : `<div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
-        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>`}
+        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>
+        <div class="field switch"><input id="fshow" type="checkbox" ${p && p.show_in_app ? 'checked' : ''}/><label for="fshow" style="margin:0" title="Игроки увидят код в Mini App в разделе «Промокоды» и заберут в одно касание. Коды для чатов там не показываются">Показывать в Mini App</label></div>`}
         <div class="field"><label>Начало (необязательно)</label><input id="ffrom" type="datetime-local" value="${localInput(p && p.valid_from)}"/></div>
         <div class="field"><label>Конец (необязательно)</label><input id="funtil" type="datetime-local" value="${localInput(p && p.valid_until)}"/></div>
       </div>
@@ -1960,7 +1962,7 @@ async function promoEdit(main, p, {bulk = false} = {}) {
     return bulk
       ? {...common, prefix: $('#fprefix').value.trim().toUpperCase(), count: +$('#fcount').value || 0}
       : {...common, code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code, max_activations: +$('#fmax').value || 0,
-         is_active: $('#factive').checked, allowed_users: users.map(u => u.id)};
+         is_active: $('#factive').checked, show_in_app: $('#fshow').checked, allowed_users: users.map(u => u.id)};
   };
   // Предпросмотр у сервера: он же знает, что считается «слишком много». Сохранять он не мешает.
   const preview = body => api('/promo/preview', {method: 'POST', body: JSON.stringify(bulk ? {...body, max_activations: 1} : body)});

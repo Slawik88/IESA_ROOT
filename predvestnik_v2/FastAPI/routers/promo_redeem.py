@@ -3,13 +3,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
-from services import promo_v2
+from services import promo_player, promo_v2
 
 router = APIRouter(prefix="/promo-v2", tags=["promo-v2"])
 
 
 class RedeemRequest(BaseModel):
     code: str = Field(min_length=1, max_length=64)
+
+
+@router.get("/me")
+async def me(db=Depends(get_db), user=Depends(require_tg_user)) -> dict:
+    """Экран «Промокоды»: коды, которые игрок может забрать сейчас, и его история (services/promo_player)."""
+    return await promo_player.player_view(db, int(user["id"]))
 
 
 @router.post("/redeem")
