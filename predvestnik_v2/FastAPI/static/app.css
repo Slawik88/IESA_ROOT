@@ -435,8 +435,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   
 }
 
-/* БЛОК21 #3: «что внутри» сундука — честные шансы дропа (доверие + FOMO) */
-.chest-odds { display: flex; flex-wrap: wrap; gap: 3px; }
 /* Battle Pass — живой прогресс-бар + вспышка левел-апа */
 
 /* ШАГ3: заморозка БП — плашка ❄️ + серый неактивный прогресс-бар */
@@ -1094,75 +1092,10 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 /* QUEST-002: one mobile viewport at a time, with the action beside its goal. */
 #pg-questlog { padding-bottom: calc(86px + var(--safe-b)); }
 #pg-chests { padding-bottom: calc(96px + var(--safe-b)); }
-.chest-head h1 { margin: 0; font-size: 20px; }
-.chest-head small { color: var(--muted); }
-.chest-balance {
-  margin: 14px 0 12px; padding: 16px; 
-   
-  display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center;
-}
-.chest-balance span,.chest-balance small { color: var(--muted); }
-.chest-balance b { font-size: 22px; color: var(--gold); }
-.chest-balance small { grid-column: 1/-1; line-height: 1.4; }
-.chest-inventory { margin: 0 0 12px; display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 6px; }
-.chest-inventory span { min-width: 0; padding: 9px 4px;    color: var(--muted); font-size: 9px; text-align: center; }
-.chest-inventory b { display: block; margin-bottom: 2px; color: var(--text); font-size: 13px; }
-.chest-actions { position: sticky; bottom: calc(68px + env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 1.12fr .88fr; gap: 8px; padding: 8px; margin: 0 -2px;     }
-.chest-open-btn { width: 100%; min-height: 48px; }
-.chest-buy-btn { min-height: 48px; padding: 6px 10px; border: 1px solid rgba(222,184,108,.42); border-radius: 12px; background: linear-gradient(145deg,rgba(222,184,108,.16),rgba(128,90,196,.12)); color: var(--text); display: grid; place-content: center; line-height: 1.15; cursor: pointer; }
-.chest-buy-btn b { color: var(--gold); font-size: 14px; }
-.chest-buy-btn small { color: var(--muted); font-size: 8px; }
-.chest-buy-btn:disabled { opacity: .48; cursor: default; }
-.chest-tier-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
-.chest-tier-chip { min-height: 36px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text); font-size: 13px; cursor: pointer; }
-.chest-tier-chip.is-on { border-color: var(--gold); color: var(--gold); }
-.chest-offers { margin: 12px 0 0; }
-.chest-offers h2 { font-size: 15px; margin: 0 0 4px; }
-.chest-offers p { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
-.chest-offers > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-.chest-offer small { font-size: 10px; }
-.chest-policy { margin: 12px 2px; color: var(--muted); line-height: 1.5; font-size: 12px; }
-.chest-reveal-zone { display: grid; place-items: center; padding: 8px 0 16px; }
-.chest-orb {
-  width: min(100%,320px); min-height: 190px; 
-   color: var(--text); cursor: pointer;
-  
-  
-  display: grid; place-items: center; align-content: center; gap: 7px;
-}
-.chest-orb span { font-size: 48px; color: var(--gold); filter: drop-shadow(0 0 12px rgba(239,195,98,.52)); }
-.chest-orb b { font-size: 15px; }
-.chest-orb small { color: var(--muted); }
-.chest-result { margin: 0 0 14px; padding: 16px;    display: grid; gap: 5px; text-align: center; }
-.chest-result>span { color: var(--gold); font-size: 16px; letter-spacing: 2px; overflow-wrap: anywhere; }
-.chest-result>b { font-size: 16px; }
-.chest-result>small { color: var(--muted); }
-.chest-odds,.chest-canary-note {
-  margin-top: 12px;    overflow: hidden;
-}
-.chest-odds summary { min-height: 48px; padding: 0 14px; display: flex; align-items: center; cursor: pointer; font-weight: 700; }
-.chest-odds>div { display: grid; grid-template-columns: minmax(92px,.65fr) minmax(0,1.35fr); gap: 10px; padding: 0 12px 12px; }
-.chest-odds h2 { margin: 8px 0; font-size: 13px; }
-.chest-odds ul { list-style: none; margin: 0; padding: 0; }
-.chest-odds li { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 11px; }
-.chest-odds li b { max-width: 78%; text-align: right; font-weight: 600; line-height: 1.35; }
-.chest-odds>p { margin: 0; padding: 0 12px 14px; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.chest-reward-tiers { min-width: 0; }
-.chest-tier { border-bottom: 1px solid var(--line); }
-.chest-tier>summary { min-height: 40px; padding: 0; display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; }
-.chest-tier>summary b { color: var(--text); font-size: 12px; }
-.chest-tier ul { padding-bottom: 5px; }
-.chest-tier li span { min-width: 0; display: grid; gap: 2px; }
-.chest-tier li span>b { text-align: left; }
-.chest-tier li small { color: var(--muted); font-size: 8px; line-height: 1.35; overflow-wrap: anywhere; }
-.chest-tier li em { flex: 0 0 auto; color: var(--gold); font-style: normal; font-weight: 700; text-align: right; }
+/* подтверждение покупки ключа (лист OM из app.12.js; экран сундуков — chests-v3.css) */
 .chest-buy-confirm { display: grid; gap: 8px; line-height: 1.45; }
-.chest-buy-confirm p { margin: 0; color: var(--muted); }
-.chest-buy-confirm small { color: var(--gold); }
-.chest-canary-note { padding: 13px 14px; display: grid; gap: 4px; }
-.chest-canary-note span { color: var(--muted); font-size: 12px; line-height: 1.45; }
-@media (max-width: 390px) { .chest-odds>div { grid-template-columns: 1fr; } }
-@media (max-width: 360px) { .chest-actions { grid-template-columns: 1fr; } .chest-inventory { grid-template-columns: 1fr 1fr; } }
+.chest-buy-confirm p { margin: 0; color: var(--v3-dim); }
+.chest-buy-confirm small { color: var(--v3-ink); }
 /* ECO-04 PR-B: shop (#pg-shop, app.44.js). One card for every item; fits 360px without horizontal scroll. */
 #pg-shop { padding-bottom: calc(96px + var(--safe-b)); overflow-x: hidden; }
 .shop-head h1 { margin: 0; font-size: 20px; }

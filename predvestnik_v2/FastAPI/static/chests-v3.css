@@ -1,0 +1,55 @@
+/* ═══ СУНДУКИ · ключи, одно главное действие, шансы свёрнуты ═══
+   Разметку строит renderChestsV1 (app.12.js). Порядок: шапка → сколько ключей → одно действие (раскрыть · открыть · купить, если ключей нет)
+   → ключи по звёздам и добыча строками → «Точные шансы» внизу. Акцент экрана — главная кнопка или шар раскрытия (docs/MINIAPP_DESIGN_RULES.md). */
+
+.ch-keys { display: flex; align-items: baseline; gap: 10px; margin: 2px 0 0; }
+.ch-keys b { color: var(--v3-ink); font: var(--v3-w-num, 700) 44px/1 var(--v3-font); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ch-keys span { color: var(--v3-dim); font-size: 15px; }
+
+/* выбор ключа: тонкая обводка цвета текста у выбранного, без акцента */
+.ch-tiers { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.chest-tier-chip { min-height: 44px; padding: 0 14px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-dim); font: 500 13.5px var(--v3-font); cursor: pointer; }
+.chest-tier-chip b { color: var(--v3-ink); font-variant-numeric: tabular-nums; }
+.chest-tier-chip.is-on { box-shadow: inset 0 0 0 1.5px var(--v3-ink); color: var(--v3-ink); }
+
+.ch-action { display: grid; gap: 4px; margin: 18px 0 0; }
+.ch-action .chest-open-btn { width: 100%; min-height: 52px; }
+.ch-buy-more { justify-self: center; min-height: 44px; color: var(--v3-dim); font-size: 13px; }
+.ch-buy-more:disabled { opacity: .5; }
+.ch-hint { margin: 4px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.45; text-align: center; }
+.ch-action .ch-hint:first-child { margin: 0 0 8px; }
+.ch-last { margin: 14px 0 0; color: var(--v3-ink); font-size: 13.5px; text-align: center; }
+.ch-last span { color: var(--v3-dim); letter-spacing: 1px; }
+
+/* шар раскрытия подготовленного сундука — главное действие, пока он есть */
+.chest-orb { display: grid; place-items: center; align-content: center; gap: 8px; justify-self: center; width: min(70vw, 240px); aspect-ratio: 1; border: 0; border-radius: 50%; background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--v3-acc) 38%, transparent), color-mix(in srgb, var(--v3-acc) 8%, transparent) 70%); color: var(--v3-ink); cursor: pointer; }
+.chest-orb span { color: var(--v3-acc); font-size: 46px; line-height: 1; }
+.chest-orb b { font-size: 15px; }
+.chest-orb small { max-width: 80%; color: var(--v3-dim); font-size: 12px; text-align: center; }
+.chest-orb:disabled { opacity: .6; }
+
+/* ключи по звёздам: строка — название, остаток лимита, цена */
+.ch-list .ch-row + .ch-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.ch-row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 0; }
+.ch-tx { flex: 1; min-width: 0; }
+.ch-tx b { display: block; font-weight: 500; }
+.ch-tx small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12px; }
+.ch-row .v3-pill { flex: none; white-space: nowrap; }
+.ch-loot .ch-loot-t { display: block; }
+
+/* шансы и правила */
+.chest-odds { margin-top: 24px; }
+.chest-odds h2 { margin: 12px 0 6px; color: var(--v3-ink); font-size: 13.5px; font-weight: 600; }
+.chest-odds ul { margin: 0; padding: 0; list-style: none; }
+.chest-odds li { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 7px 0; font-size: 13px; }
+.chest-odds li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
+.chest-odds li b, .chest-odds li em { font-style: normal; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.chest-odds > p { margin: 10px 0 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.5; }
+.chest-odds > p b { color: var(--v3-ink); }
+.chest-tier + .chest-tier { box-shadow: 0 -1px 0 var(--v3-faint); }
+.chest-tier > summary { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; color: var(--v3-dim); font-size: 12.5px; cursor: pointer; list-style: none; }
+.chest-tier > summary::-webkit-details-marker { display: none; }
+.chest-tier > summary b { color: var(--v3-ink); font-size: 13.5px; }
+.chest-tier li span { display: grid; gap: 2px; min-width: 0; }
+.chest-tier li span > b { text-align: left; }
+.chest-tier li small { color: var(--v3-dim); font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
