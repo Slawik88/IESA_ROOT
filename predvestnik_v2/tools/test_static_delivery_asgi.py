@@ -72,6 +72,7 @@ def assert_surface(client: TestClient, prefix: str = "") -> None:
         assert response.status_code == 200, path
         assert media_type in response.headers.get("content-type", ""), path
         assert response.content, path
+        assert response.headers.get("cache-control") == "no-cache", path
     for path in BLOCKED:
         response = client.get(f"{prefix}{path}")
         assert response.status_code == 404, path
@@ -116,11 +117,17 @@ def assert_prefix_redirect_scope() -> None:
 
 
 def main() -> None:
-    from FastAPI.main import app
+    from FastAPI.main import app, _ASSET_VER
     from FastAPI.prefix import strip_prefix_middleware
 
     direct = TestClient(app)
     assert_surface(direct)
+    for path in ("/", "/rhythm-v2", "/minesweeper"):
+        response = direct.get(path)
+        assert response.headers.get("cache-control") == "no-cache", path
+        versions = re.findall(r"/static/[^\"]+\?v=([^\"]+)", response.text)
+        assert versions and set(versions) == {_ASSET_VER}, (path, versions)
+    assert re.fullmatch(r"[0-9a-f]{20}", _ASSET_VER), _ASSET_VER
     assert_prefix_redirect_scope()
     css = direct.get("/static/app.css")
     assert "icons/x.svg" not in css.text
@@ -164,6 +171,10 @@ def main() -> None:
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
         rooted = TestClient(strip_prefix_middleware(app, "/predvestnik"))
         assert_surface(rooted, "/predvestnik")
+        for path in ("/", "/rhythm-v2", "/minesweeper"):
+            response = rooted.get("/predvestnik" + path)
+            assert response.headers.get("cache-control") == "no-cache", path
+            assert f"?v={_ASSET_VER}" in response.text, path
         rooted_game = rooted.get("/predvestnik/game", follow_redirects=False)
         assert rooted_game.status_code == 307
         assert rooted_game.headers["location"] == "/predvestnik/?startapp=games"

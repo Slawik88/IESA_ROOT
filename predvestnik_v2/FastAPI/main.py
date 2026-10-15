@@ -27,6 +27,7 @@ from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_webapp_data)
 from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod, require_preprod_user
 from FastAPI import notifications
+from FastAPI.static_assets import asset_version
 from FastAPI.deps import assert_account_active
 from infrastructure import readiness
 from FastAPI.routers import (profile, marriage, wallet,
@@ -255,6 +256,17 @@ app.include_router(bot_admin_router.router)
 app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 
 
+@app.middleware("http")
+async def revalidate_mini_app_assets(request, call_next):
+    response = await call_next(request)
+    # HTML must discover each release's content hash; bare asset URLs must also
+    # revalidate. This does not change caching of authenticated API responses.
+    path = request.url.path
+    if path in ("/", "/rhythm-v2", "/minesweeper") or path.startswith("/static/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
 class _LoginWidgetPayload(BaseModel):
@@ -414,19 +426,19 @@ _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-h
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css",
                  "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css")
 
-# Cache-busting version = newest mtime among the static assets.
-_ASSET_VER = str(int(max(
-    *[os.path.getmtime(os.path.join(_STATIC_DIR, p)) for p in _APP_JS_PARTS],
-    os.path.getmtime(os.path.join(_STATIC_DIR, "app.css")),
-    *[os.path.getmtime(os.path.join(_STATIC_DIR, name)) for name in _SHELL_V3_CSS],
-    os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "rhythm-v2.js")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "minesweeper-v2.js")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.css")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "skin-runtime-v3.js")),
-    os.path.getmtime(os.path.join(_STATIC_DIR, "game-board-v3.js")),
+# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
+_GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "marks-v3.css", "game-board-v3.js")
+
+# Buildpacks normalize mtimes (1980 on production), so only content identifies
+# a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
+_ASSET_SOURCES = tuple(dict.fromkeys((
+    *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
+    "index.html", "rhythm-v2.html", "minesweeper-v2.html",
+    "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js",
+    "skin-runtime-v3.css", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS,
 )))
+_ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
 # routing prefix regardless of trailing slash in the document URL.
 _ASSET_BASE = os.getenv("ROOT_PATH", "").rstrip("/")
@@ -474,9 +486,7 @@ _MINESWEEPER_V2_HTML = (
     .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
     .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
 )
-# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
-_GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
-                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "marks-v3.css", "game-board-v3.js")
+
 
 
 def _with_game_board_assets(html: str) -> str:

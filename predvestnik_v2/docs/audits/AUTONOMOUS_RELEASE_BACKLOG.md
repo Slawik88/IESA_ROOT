@@ -3,6 +3,26 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## PROD-UI-20261015 — production UI delivery and Pets v2 rollout
+
+Validated release patch: replace buildpack-normalized mtime asset versions with
+an ordered content digest covering all shipped JS/CSS and source HTML; main,
+game HTML and static responses revalidate. The same version remains in asset
+URLs and the WebSocket update event. Equal-size edits at the same 1980 mtime,
+unchanged content at new mtimes and cross-host newlines have regression proof.
+
+When `pets_v2` is enabled, cached V1 clients can no longer start a second reward
+loop. Exact retries and settlement of existing V1 runs remain available; turning
+the flag off restores V1 starts. No pet inventory/progression migration or reward
+rewrite is part of this release. New environments keep the flag default off.
+
+Validation: nine focused delivery, shell, WS, route, navigation and rules gates;
+V1, V2 and rollout-boundary PostgreSQL proofs (including production-like game
+flags); independent read-only reviews accepted both changes. The V2 key test
+reconciles only its own run receipts, allowing legitimate separate quest keys.
+Production rollout requires the patched commit Healthy, then enabling only
+`pets_v2` and verifying authenticated Trail UI/API plus health/readiness.
+
 ## Stop-ship
 
 > **Scope correction — 2026-09-06.** GAME-004 records the retirement of the

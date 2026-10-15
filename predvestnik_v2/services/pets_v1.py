@@ -286,6 +286,10 @@ async def start_activity(db, *, user_id: int, kind: str, hours: int, action_id: 
             if replay["request"] != request:
                 raise PetConflict("action_id уже использован для другого действия.")
             return {**replay["response"], "idempotent_replay": True}
+        # Cached classic clients must not create a second reward path beside
+        # the Trail. Old retries and settlement remain available after rollout.
+        if await system_flags.is_enabled(db, "pets_v2"):
+            raise PetConflict("Новые занятия доступны в Тропе. Обновите приложение и откройте Питомцев.")
         await repo.advance_due_runs(db, user_id)
         current = await repo.active_run(db, user_id)
         if current:

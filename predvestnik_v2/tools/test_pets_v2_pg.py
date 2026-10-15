@@ -176,9 +176,11 @@ async def run(dsn: str) -> None:
         await system_flags.set_flag(db, "content_chests_v1", True)
         await db.execute("DELETE FROM pet_v2_daily WHERE user_id=?", (user,))
         keys = 0
+        key_run_ids = []
         for i in range(3):
             await db.execute("UPDATE pet_v2_state SET energy=? WHERE user_id=? AND pet_id=?", (rules.energy_max(1, "stone_beetle"), user, beetle))
             started_key = await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id=f"k{i}")
+            key_run_ids.append(started_key["run_id"])
             await finish_now(db, started_key["run_id"])
             keys += (await service.claim_run(db, user_id=user, run_id=started_key["run_id"], action_id=f"kc{i}", rng=rng))["key"]
         assert 1 <= keys <= rules.KEYS_PER_DAY_MAX, f"1-2 keys per day, got {keys}"
@@ -188,8 +190,16 @@ async def run(dsn: str) -> None:
         capped = await service.start_run(db, user_id=user, pet_id=beetle, kind="trek", hours=3, route="pass", action_id="kcap")
         await finish_now(db, capped["run_id"])
         assert (await service.claim_run(db, user_id=user, run_id=capped["run_id"], action_id="kcapc", rng=rng))["key"] == 0, "weekly key cap"
-        keys += 0
-        async with db.execute("SELECT COALESCE(SUM(balance),0) FROM chest_key_accounts_v1 WHERE user_id=?", (user,)) as c:
+        key_run_ids.append(capped["run_id"])
+        # Earlier claims and quest completions can legitimately award other keys.
+        # Reconcile these runs against their own immutable pet-source receipts.
+        key_events = [f"v2:{run_id}:{label}" for run_id in key_run_ids for label in ("base", "extra")]
+        async with db.execute(
+            "SELECT COALESCE(SUM(amount),0) FROM chest_key_grants_v1 WHERE user_id=? "
+            "AND source_kind IN ('pet_trek_complete','pet_expedition_complete') "
+            "AND source_event_id = ANY(?::text[])",
+            (user, key_events),
+        ) as c:
             assert (await c.fetchone())[0] == keys
         # билды: слоты, призвание, цена замены, талисманы, идемпотентность
         async def rejects(coro):
