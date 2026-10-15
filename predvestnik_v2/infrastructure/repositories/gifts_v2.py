@@ -20,13 +20,15 @@ async def ensure_tables(db) -> None:
         if (await cursor.fetchone())[0]:
             return
     # gift_id is a pattern, not a list: a new gift in core/gifts_v2.py needs no constraint migration.
+    # Named CHECKs mirror core/gifts_v2.py (TIERS, NOTE_MAX). This fast path never alters an existing table:
+    # changing either constant needs an explicit ALTER TABLE ... DROP/ADD CONSTRAINT gift_sends_v2_tier_range / _note_length.
     await db.execute("""
         CREATE TABLE IF NOT EXISTS gift_sends_v2 (
             id TEXT PRIMARY KEY CHECK(id ~ '^[0-9a-f]{32}$'),
             sender_id BIGINT NOT NULL, receiver_id BIGINT NOT NULL, action_id TEXT NOT NULL,
             gift_id TEXT NOT NULL CHECK(gift_id ~ '^gift_[a-z0-9_]{1,40}$'),
-            tier SMALLINT NOT NULL CHECK(tier BETWEEN 1 AND 4),
-            note TEXT NULL CHECK(note IS NULL OR char_length(note) BETWEEN 1 AND 60),
+            tier SMALLINT NOT NULL CONSTRAINT gift_sends_v2_tier_range CHECK(tier BETWEEN 1 AND 4),
+            note TEXT NULL CONSTRAINT gift_sends_v2_note_length CHECK(note IS NULL OR char_length(note) BETWEEN 1 AND 60),
             request_hash TEXT NOT NULL CHECK(request_hash ~ '^[0-9a-f]{64}$'),
             gifts_version TEXT NOT NULL, catalog_digest TEXT NOT NULL CHECK(catalog_digest ~ '^[0-9a-f]{64}$'),
             price JSONB NOT NULL, marriage_id INTEGER NULL,

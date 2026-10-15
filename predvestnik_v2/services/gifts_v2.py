@@ -29,6 +29,9 @@ from infrastructure.repositories import shop_v1 as shop_repo
 CLOSED = "Подарки пока закрыты"
 NOT_MARRIED = "Подарки пока можно дарить только супругу."
 SELF = "Себе дарить нельзя."
+# Gifts are sent from the shop's «Подарки» tab: with shop_v1 off there is nowhere to send from.
+SHOP_CLOSED = "Подарки дарятся через магазин, а он пока закрыт."
+SHOP_FLAG = "shop_v1"
 _ICONS = {"mora": "🪙", "diamonds": "💎", "zarniki": "✨"}
 
 
@@ -49,6 +52,11 @@ def _action_id(value: object) -> str:
 
 async def enabled(db) -> bool:
     return await system_flags.is_enabled(db, policy.FLAG)
+
+
+async def can_send_now(db) -> bool:
+    """Sending needs both flags: gifts_v2 (the feature) and shop_v1 (the tab it is sent from). The shelf needs only gifts_v2."""
+    return await enabled(db) and await system_flags.is_enabled(db, SHOP_FLAG)
 
 
 async def ensure_ready(db) -> None:
@@ -162,6 +170,8 @@ async def send(
             raise GiftConflict("action_id уже использован для другой покупки.")
         if not await enabled(db):
             raise GiftsClosed(CLOSED)
+        if not await system_flags.is_enabled(db, SHOP_FLAG):
+            raise GiftConflict(SHOP_CLOSED)
         if str(catalog_version) != policy.GIFTS_VERSION or str(catalog_digest) != policy.catalog_digest():
             raise GiftConflict("Каталог подарков изменился. Обнови экран перед покупкой.")
         marriage = await _recipient(db, sender_id=sender_id, to_ref=to_ref, lock=True)
@@ -215,7 +225,9 @@ async def overview(db, *, user_id: int) -> dict:
     to_partner = await repo.sent_today(db, sender_id=user_id, day=day, receiver_id=partner_id) if partner_id else 0
     daily_left = max(0, policy.DAILY_SEND_LIMIT - used)
     recipient_left = max(0, policy.DAILY_PER_RECIPIENT_LIMIT - to_partner) if partner_id else 0
-    reason = (NOT_MARRIED if not partner_id
+    shop_on = await system_flags.is_enabled(db, SHOP_FLAG)
+    reason = (SHOP_CLOSED if not shop_on
+              else NOT_MARRIED if not partner_id
               else f"Не больше {policy.DAILY_SEND_LIMIT} подарков в сутки." if not daily_left
               else f"Не больше {policy.DAILY_PER_RECIPIENT_LIMIT} подарков одному игроку в сутки." if not recipient_left
               else None)
@@ -238,7 +250,7 @@ async def overview(db, *, user_id: int) -> dict:
         "limits": {"daily": {"max": policy.DAILY_SEND_LIMIT, "used": used, "left": daily_left},
                    "recipient": {"max": policy.DAILY_PER_RECIPIENT_LIMIT, "used": to_partner, "left": recipient_left},
                    "resets_in_seconds": _resets_in(day, now)},
-        "unavailable_reason": reason, "note_max": policy.NOTE_MAX, "pin_max": policy.PIN_MAX,
+        "can_send": reason is None, "unavailable_reason": reason, "note_max": policy.NOTE_MAX, "pin_max": policy.PIN_MAX,
         "tiers": tiers, "shelf": await shelf(db, user_id=user_id),
     }
 
@@ -314,7 +326,8 @@ async def public_view(db, *, target_id: int, viewer_id: int) -> dict | None:
     await ensure_ready(db)
     target_id, viewer_id = int(target_id), int(viewer_id)
     pins = (await repo.pinned(db, target_id))[:policy.PIN_MAX]
-    marriage = await repo.partner_of(db, viewer_id) if viewer_id != target_id else None
+    sendable = viewer_id != target_id and await system_flags.is_enabled(db, SHOP_FLAG)
+    marriage = await repo.partner_of(db, viewer_id) if sendable else None
     return {
         "total": (await repo.counts(db, target_id))["received"],
         "pinned": [{"gift_id": str(r["gift_id"]), "name": policy.GIFTS.get(str(r["gift_id"]), {}).get("name", ""),
@@ -337,22 +350,27 @@ async def _bot_dm(user_id: int, text: str) -> None:
 
 async def notify_recipient(db, *, sender_id: int, receipt: dict) -> None:
     """Bot message plus the in-app gift box (same payload as the old partner gift). Never raises:
-    the gift is already committed and a lost notification must not look like a failed purchase."""
+    the gift is already committed and a lost notification must not look like a failed purchase.
+    The sender is named by the public display name (@username or «Игрок XXXXX»), never by a Telegram id."""
     if not receipt.get("applied"):
         return
     receiver_id = int(receipt["receiver_id"])
     item = policy.GIFTS.get(str(receipt["gift_id"]), {})
     note = receipt.get("note")
     try:
+        sender = (await _people(db, [int(sender_id)])).get(int(sender_id), {}).get("name") or "Супруг"
+    except Exception:
+        logger.exception("gifts_v2: sender name lookup failed")
+        sender = "Супруг"
+    try:
         from FastAPI.routers.marriage import _notify_partner_gift
         await _notify_partner_gift(db, int(sender_id), receiver_id, {
             "name": f"{item.get('icon', '🎁')} {item.get('name', 'Подарок')}",
             "msg": note or "Подарок уже на твоей полке в профиле.",
-        })
+        }, from_name=sender)
     except Exception:
         logger.exception("gifts_v2: in-app notification failed")
     try:
-        sender = (await _people(db, [int(sender_id)])).get(int(sender_id), {}).get("name", "Супруг")
         text = (f"🎁 {html.escape(sender)} дарит тебе «{html.escape(str(item.get('name', 'Подарок')))}» "
                 f"{item.get('icon', '')} · {policy.TIERS.get(int(receipt['tier']), '')}.")
         if note:
@@ -361,3 +379,15 @@ async def notify_recipient(db, *, sender_id: int, receipt: dict) -> None:
         await _bot_dm(receiver_id, text)
     except Exception:
         logger.exception("gifts_v2: bot notification failed")
+
+
+async def notify_recipient_detached(*, sender_id: int, receipt: dict) -> None:
+    """Background task after the response: its own pool connection (the request's one is already released), errors only logged."""
+    try:
+        from infrastructure.database import create_pool, get_pool
+        from infrastructure.pg_adapter import PGAdapter
+        await create_pool()
+        async with get_pool().acquire() as connection:
+            await notify_recipient(PGAdapter(connection), sender_id=int(sender_id), receipt=receipt)
+    except Exception:
+        logger.exception("gifts_v2: detached notification failed")

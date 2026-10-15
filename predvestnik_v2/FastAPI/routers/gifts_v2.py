@@ -1,8 +1,7 @@
 """Authenticated adapter for gifts by tier and the gift shelf (ECO-04 PR-C), dark behind the gifts_v2 flag."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from loguru import logger
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
@@ -35,7 +34,7 @@ async def my_gifts(db=Depends(get_db), user=Depends(require_tg_user)):
 
 
 @router.post("/send")
-async def send(body: SendRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def send(body: SendRequest, background: BackgroundTasks, db=Depends(get_db), user=Depends(require_tg_user)):
     try:
         receipt = await gifts_v2.send(
             db, sender_id=int(user["id"]), gift_id=body.gift_id, action_id=body.action_id,
@@ -45,10 +44,10 @@ async def send(body: SendRequest, db=Depends(get_db), user=Depends(require_tg_us
         raise HTTPException(404, str(exc)) from exc
     except gifts_v2.GiftConflict as exc:
         raise HTTPException(409, str(exc)) from exc
-    try:  # committed above: a failed notification never turns a delivered gift into an error
-        await gifts_v2.notify_recipient(db, sender_id=int(user["id"]), receipt=receipt)
-    except Exception:
-        logger.exception("gifts_v2: notify failed")
+    # Committed above. The recipient is told after the response: the sender never waits on Telegram,
+    # and a failed notification (logged inside) never turns a delivered gift into an error.
+    if receipt.get("applied"):
+        background.add_task(gifts_v2.notify_recipient_detached, sender_id=int(user["id"]), receipt=receipt)
     public = {key: value for key, value in receipt.items() if key != "receiver_id"}
     return {"ok": True, "receipt": public, "balances": await gifts_v2.balances(db, int(user["id"]))}
 

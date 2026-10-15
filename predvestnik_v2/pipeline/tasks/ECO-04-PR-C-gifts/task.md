@@ -31,6 +31,16 @@ Risk: T2 (new currency sink in three currencies, limits, a social surface with p
 - Top-tier badge: the icon of the newest received Legendary gift, after the name on the own profile and on the public card.
 - «Подарить» appears on someone else's card only when the viewer may gift them now (their partner); it opens the shop on the Gifts tab.
 
+## Review fixes (independent review of PR #48: approve with fixes)
+- Retry after a network error resends exactly the failed body: `_gifts.errors[id] = {msg, note, action}` and `giftRetry` uses that note and action id, never the shared note draft (opening another gift's note step in between no longer produces a second send).
+- **Flag dependency:** sending needs `gifts_v2` **and** `shop_v1` (the Gifts tab lives in the shop). With `shop_v1` off the send path answers 409 «Подарки дарятся через магазин, а он пока закрыт.», `/gifts-v2/me` returns `can_send: false` with that reason (all gifts unavailable), and the public card's `can_send` is false, so «Подарить» is hidden. The shelf, history and pins stay viewable with `gifts_v2` alone.
+- Public card: «Пока нет подарков» only when the total is 0; gifts without pins show only the total.
+- Public card: the gifts block is wrapped; any gifts failure is logged and the card renders without it (`gifts` absent).
+- The recipient is notified after the response (FastAPI `BackgroundTasks`, own pool connection, errors logged), so the sender never waits on Telegram.
+- The in-app gift box names the sender by the public display name (`@username` / «Игрок XXXXX»): `marriage._notify_partner_gift` got an optional `from_name`; old callers are unchanged.
+- The shelf does not call `/gifts-v2/me` again once the flag is known to be off.
+- CHECKs on `gift_sends_v2` are named (`gift_sends_v2_tier_range`, `gift_sends_v2_note_length`); `core/gifts_v2.py` says that changing `TIERS` or `NOTE_MAX` needs an explicit ALTER migration (the `ensure_tables` fast path never alters an existing table).
+
 ## Checks (branch claude/eco04-pr-c-gifts, local PostgreSQL 16)
 - New: `test_gifts_v2_rules`, `test_gifts_v2_pg`, `test_gifts_v2_ui_contract` (see the report in the PR for the exact pass lines).
 - Regression: shop rules/pg/ui, chests and key tiers PG, pets_v1_pg, quests_v1_pg, startup_schema_contract, whatsnew_v3_contract, ui_smoke_screens_contract, shell_v3_contract, audit_economy_mutations, marriage tests, appearance/presence (public card).

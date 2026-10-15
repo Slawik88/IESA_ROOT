@@ -39,7 +39,7 @@ function _giftLimits(d) {
 function _giftCard(g) {
   const gaps = g.missing || {}, short = Object.keys(gaps).length > 0, busy = _gifts.busy === g.id;
   const off = !g.available || short || !!_gifts.busy;
-  const err = _gifts.errors[g.id] ? `<div class="shop-err" role="alert"><span>${_profileEsc(_gifts.errors[g.id])}</span><button type="button" onclick="giftRetry('${g.id}')">Повторить</button></div>` : '';
+  const err = _gifts.errors[g.id] ? `<div class="shop-err" role="alert"><span>${_profileEsc(_gifts.errors[g.id].msg)}</span><button type="button" onclick="giftRetry('${g.id}')">Повторить</button></div>` : '';
   const price = Object.entries(g.cost || {}).map(([k, v]) => `<span class="${gaps[k] ? 'is-miss' : ''}">${fmtF(v)} ${_GIFT_ICONS[k] || k}</span>`).join('');
   return `<article class="gift-card gt${_giftTier(g.tier)}${g.available ? '' : ' is-off'}" data-gift="${_profileEsc(g.id)}">
     <span class="gift-ico" aria-hidden="true">${_profileEsc(g.icon || '🎁')}</span><b>${_profileEsc(g.name)}</b>
@@ -91,12 +91,13 @@ async function giftNoteNext() {
     cta: `Подарить за ${_giftCost(g.cost)}`, note: g.irreversible ? 'Это необратимо.' : '' });
   if (ok) _giftSend(g.id, note);
 }
-function giftRetry(id) { const draft = _gifts.draft; _giftSend(id, draft?.id === id ? draft.note.trim() : ''); }
+// «Повторить» шлёт ровно то, что ушло при обрыве: ту же записку и тот же номер операции, даже если потом открывали другой подарок.
+function giftRetry(id) { const failed = _gifts.errors[id]; if (failed) _giftSend(id, failed.note, failed.action); }
 
-function _giftSend(id, note) {
+function _giftSend(id, note, retryAction) {
   const g = _giftItem(id), d = _gifts.me; if (!g || !d || _gifts.busy) return;
   const key = `${id}:${note}`;
-  const action = _giftPending.get(key) || `gift-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36)}`;
+  const action = retryAction || _giftPending.get(key) || `gift-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36)}`;
   _giftPending.set(key, action);
   _gifts.busy = id; delete _gifts.errors[id]; _shopRender();
   const body = { gift_id: id, action_id: action, catalog_version: d.catalog_version, catalog_digest: d.catalog_digest, note: note || null };
@@ -111,13 +112,13 @@ function _giftSend(id, note) {
   }).catch(e => {
     _gifts.busy = null;
     if (typeof e === 'string') { if (e.includes('уже использован')) _giftPending.delete(key); toast(e, false); _giftsLoad(); return; }
-    _gifts.errors[id] = _GIFT_OFFLINE; _shopRender();   // обрыв связи: «Повторить» отправит тот же номер
+    _gifts.errors[id] = { msg: _GIFT_OFFLINE, note, action }; _shopRender();   // обрыв связи: «Повторить» отправит ровно это тело
   });
 }
 
 // ── Полка в своём профиле ───────────────────────────────────────────────────────────
 function giftsShelfShell() {
-  setTimeout(() => { giftsShelfRender(); _giftsLoad(); }, 0);   // сначала то, что уже знаем, потом свежий ответ
+  setTimeout(() => { giftsShelfRender(); if (_giftsOn !== false) _giftsLoad(); }, 0);   // флаг выключен: не спрашиваем сервер на каждой перерисовке   // сначала то, что уже знаем, потом свежий ответ
   return `<section class="gift-shelf-wrap" id="pro-gifts" aria-label="Подарки" ${_giftsOn === true ? '' : 'hidden'}></section>`;
 }
 function giftBadgeHtml(b) {
@@ -195,5 +196,5 @@ function ppGiftsHtml(d) {
   const pinned = (g.pinned || []).slice(0, 3).map(p => `<span class="gift-slot gt${_giftTier(p.tier)} is-on" role="img" aria-label="${_profileEsc(`${p.name}, ${p.tier_name}`)}"><span aria-hidden="true">${_profileEsc(p.icon)}</span></span>`).join('');
   const send = !d.is_self && g.can_send ? '<button type="button" class="v3-pill v3-pill--ghost" onclick="openShop(\'gifts\')">Подарить</button>' : '';
   return `<section><div class="v3-sec"><span class="v3-eyebrow">Подарки</span><span class="v3-sub">Всего: ${fmt(g.total || 0)}</span></div>
-    ${pinned ? `<div class="gift-slots pp-gifts">${pinned}</div>` : `<p class="v3-empty">Пока нет подарков</p>`}${send}</section>`;
+    ${pinned ? `<div class="gift-slots pp-gifts">${pinned}</div>` : Number(g.total) > 0 ? '' : '<p class="v3-empty">Пока нет подарков</p>'}${send}</section>`;   // подарки есть, но витрина пуста: только число
 }

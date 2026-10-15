@@ -25,6 +25,11 @@ assert 45 in parts and parts.index(44) < parts.index(45), parts
 assert "gifts_v2_router.router" in main_py and "(ensure_gifts_v2," in main_py and '("gifts_v2", gifts_v2_repo.ensure_tables)' in startup
 assert 'prefix="/gifts-v2"' in router and "HTTPException(404" in router and "HTTPException(409" in router
 assert '"gift_send_v2": "🎁 Подарок"' in wallet and "gifts_v2.public_view(" in public
+block = public[public.index("async def _gifts_block("):public.index('@router.get("/{profile_ref}")')]
+assert "except Exception:" in block and "logger.exception(" in block and "return None" in block, "a gifts failure never 500s the card"
+marriage = (ROOT / "FastAPI/routers/marriage.py").read_text(encoding="utf-8")
+assert "from_name: str | None = None" in marriage and "from_name=sender" in (ROOT / "services/gifts_v2.py").read_text(encoding="utf-8")
+assert "background.add_task(gifts_v2.notify_recipient_detached" in router and "notify_recipient(db" not in router
 
 # Flag-gated tab: registered through the shop hook, shown only while /gifts-v2/me answered; 404 «Подарки пока закрыты» hides tab and shelf.
 assert "_shopExtra.gifts = { name: 'Подарки', on: () => _giftsOn === true && !!_gifts.me" in js
@@ -43,6 +48,14 @@ assert "_giftLen(note) > max" in js and "[...String(s || '')].length" in js, "no
 assert "_giftPending.get(key) ||" in js and js.count("_giftPending.delete(key)") == 2 and "if (e.includes('уже использован')) _giftPending.delete(key)" in js
 assert "catalog_digest: d.catalog_digest" in js and "giftRetry(" in js and "aria-busy" in js
 assert "v3Reward(" in js, "success: a short animation"
+# A retry resends exactly the failed body: the note and action id are kept per gift, not read from the shared draft.
+assert "_gifts.errors[id] = { msg: _GIFT_OFFLINE, note, action }" in js
+assert "function giftRetry(id) { const failed = _gifts.errors[id]; if (failed) _giftSend(id, failed.note, failed.action); }" in js
+assert "const action = retryAction || _giftPending.get(key) ||" in js and "_gifts.errors[g.id].msg" in js
+retry = js[js.index("function giftRetry("):js.index("function _giftSend(")]
+assert "draft" not in retry, "the retry never reads the shared note draft"
+# Flag already known to be off: the shelf does not ask the server on every profile render.
+assert "if (_giftsOn !== false) _giftsLoad();" in js
 
 # Notes come from another player: every place that prints one escapes it; no raw interpolation of server strings.
 html_js = "\n".join(line for line in js.splitlines() if "toast(" not in line)   # toast() escapes its text itself (app.28.js)
@@ -58,6 +71,7 @@ assert "/gifts-v2/pin" in js and "aria-pressed=\"${!!h.pinned}\"" in js and "ope
 assert js.count("Пока нет подарков") >= 2 and "'Подарить'" not in shop_js
 assert "!d.is_self && g.can_send" in js, "«Подарить» only on someone else's card"
 assert ".slice(0, 3)" in js
+assert "Number(g.total) > 0 ? '' : '<p class=\"v3-empty\">Пока нет подарков</p>'" in js, "«Пока нет подарков» only when total is 0"
 
 # Data-driven and calm: no copied prices, no pressure words, retired currencies never appear.
 code = re.sub(r"//[^\n]*", "", js)

@@ -18,6 +18,9 @@ FLAG: Final = "gifts_v2"
 REASON_CODE: Final = "gift_send_v2"
 CURRENCIES: Final = ("mora", "diamonds", "zarniki")
 
+# TIERS and NOTE_MAX are mirrored by named CHECKs in infrastructure/repositories/gifts_v2.py
+# (gift_sends_v2_tier_range, gift_sends_v2_note_length). ensure_tables never alters an existing table:
+# changing the tier count or NOTE_MAX needs an explicit ALTER TABLE migration of those constraints.
 TIERS: Final = {1: "Знак", 2: "Тёплый", 3: "Редкий", 4: "Легендарный"}
 TOP_TIER: Final = 4
 # Display order inside each tier is the order here.

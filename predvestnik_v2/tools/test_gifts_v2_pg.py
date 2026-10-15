@@ -16,7 +16,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from core import gifts_v2 as policy
 from core import shop_v1 as shop_policy
+from fastapi import BackgroundTasks
+
 from FastAPI.routers import gifts_v2 as router
+from FastAPI.routers import public_profile_v3 as public_card_router
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import gifts_v2 as repo
 from infrastructure.repositories import public_profiles_v1 as public_profiles
@@ -113,6 +116,22 @@ async def run(dsn: str) -> None:
         assert await gifts.public_view(db, target_id=bob, viewer_id=alice) is None
         await nothing_happened(db, alice, (100_000, 100, 10_000))
         await system_flags.set_flag(db, policy.FLAG, True)
+
+        # gifts_v2 on, shop_v1 off: the shelf is viewable, sending is refused (the Gifts tab lives in the shop), no «Подарить».
+        await system_flags.set_flag(db, shop_policy.FLAG, False)
+        assert await refused(send(db, alice, "gift_rose", "noshop-1")) == gifts.SHOP_CLOSED
+        await nothing_happened(db, alice, (100_000, 100, 10_000))
+        closed = await gifts.overview(db, user_id=alice)
+        assert closed["can_send"] is False and closed["unavailable_reason"] == gifts.SHOP_CLOSED and closed["shelf"]["counts"]
+        assert not any(g["available"] for t in closed["tiers"] for g in t["gifts"])
+        assert (await gifts.public_view(db, target_id=bob, viewer_id=alice))["can_send"] is False
+        await system_flags.set_flag(db, shop_policy.FLAG, True)
+        assert (await gifts.overview(db, user_id=alice))["can_send"] is True
+        assert (await gifts.public_view(db, target_id=bob, viewer_id=alice))["can_send"] is True
+
+        # Named CHECKs that mirror TIERS and NOTE_MAX (changing them needs an explicit ALTER).
+        names = {r[0] for r in await connection.fetch("SELECT conname FROM pg_constraint WHERE conrelid='gift_sends_v2'::regclass")}
+        assert {"gift_sends_v2_tier_range", "gift_sends_v2_note_length"} <= names, names
 
         # Not married, self, a stranger: refused before any debit.
         await refused(send(db, solo, "gift_rose", "solo-1"), gifts.NOT_MARRIED)
@@ -259,29 +278,64 @@ async def run(dsn: str) -> None:
         empty = await gifts.public_view(db, target_id=carol, viewer_id=bob)
         assert empty == {"total": 0, "pinned": [], "top_badge": None, "can_send": False}
 
-        # The router: a failing notification never undoes a committed gift; the response hides Telegram ids.
+        # The router answers before notifying: the notification is a background task; the response hides Telegram ids.
         dms.clear()
+        tasks = BackgroundTasks()
         body = router.SendRequest(gift_id="gift_choco", action_id="a-11", note="Привет <i>", **cat())
-        ok = await router.send(body, db=db, user={"id": alice})
+        ok = await router.send(body, tasks, db=db, user={"id": alice})
         assert ok["ok"] and "receiver_id" not in ok["receipt"] and ok["balances"]["mora"] == (await wallet(db, alice))[0]
-        assert dms and dms[0][0] == bob and "&lt;i&gt;" in dms[0][1] and "<i>" not in dms[0][1]
+        assert not dms and len(tasks.tasks) == 1 and tasks.tasks[0].func is gifts.notify_recipient_detached
+        job = tasks.tasks[0].kwargs
+        assert job["sender_id"] == alice and job["receipt"]["receiver_id"] == bob
 
+        # The notification (run here on the test connection): bot text escaped, in-app payload names the player, never ID<tg id>.
+        import FastAPI.notifications as ws_notifications
+        boxes: list = []
+
+        async def capture(user_id, payload):
+            boxes.append((user_id, payload))
+            return True
+
+        real_ws = ws_notifications.notify
+        ws_notifications.notify = capture
+        try:
+            await gifts.notify_recipient(db, **job)
+        finally:
+            ws_notifications.notify = real_ws
+        assert dms and dms[0][0] == bob and "&lt;i&gt;" in dms[0][1] and "<i>" not in dms[0][1]
+        assert boxes and boxes[0][0] == bob and boxes[0][1]["from"] == "@giftuser1" and boxes[0][1]["msg"] == "Привет <i>"
+        assert str(alice) not in str(boxes) and "ID" not in boxes[0][1]["from"]
+
+        # A failing notification never undoes the gift; a refused send schedules nothing.
         async def broken(*_args, **_kwargs):
             raise RuntimeError("telegram is down")
 
         gifts._bot_dm = broken
-        body = router.SendRequest(gift_id="gift_choco", action_id="a-12", **cat())
-        assert (await router.send(body, db=db, user={"id": alice}))["receipt"]["applied"]
+        await gifts.notify_recipient(db, **job)   # logged, not raised
+        assert (await router.send(router.SendRequest(gift_id="gift_choco", action_id="a-12", **cat()), BackgroundTasks(),
+                                  db=db, user={"id": alice}))["receipt"]["applied"]   # third gift to bob today
         real_notify = gifts.notify_recipient
         gifts.notify_recipient = broken
         try:
+            await gifts.notify_recipient_detached(**job)   # no pool in this test: logged, not raised
+            tasks = BackgroundTasks()
             body = router.SendRequest(gift_id="gift_card", action_id="a-13", **cat())
-            await refused(router.send(body, db=db, user={"id": alice}), "", router.HTTPException)  # 3 a day to bob
+            await refused(router.send(body, tasks, db=db, user={"id": alice}), "", router.HTTPException)  # 3 a day to bob
+            assert not tasks.tasks
             windows["now"] = (day1 + dt.timedelta(days=2), day1, dt.datetime(2026, 10, 14, 1, 0, 0))
-            assert (await router.send(body, db=db, user={"id": alice}))["receipt"]["applied"]
+            assert (await router.send(body, tasks, db=db, user={"id": alice}))["receipt"]["applied"] and len(tasks.tasks) == 1
         finally:
             gifts.notify_recipient = real_notify
         assert await repo.find_send(db, sender_id=alice, action_id="a-13")
+
+        # The public card survives a gifts failure: the block falls back to None.
+        real_view = gifts.public_view
+        gifts.public_view = broken
+        try:
+            assert await public_card_router._gifts_block(db, bob, carol) is None
+        finally:
+            gifts.public_view = real_view
+        assert (await public_card_router._gifts_block(db, bob, carol))["total"] >= 4
 
         # Flag off again: new gifts refused, a replay still returns its receipt.
         await system_flags.set_flag(db, policy.FLAG, False)
@@ -296,7 +350,8 @@ async def run(dsn: str) -> None:
     await race(dsn)
     print("OK: gifts — flag gate, partner only (not married/self/stranger refused), shortages per currency debit nothing, "
           "replay = same receipt, other gift/note same id → 409, one action id per store, 5/day and 3/recipient/day on a fixed UTC day, "
-          "notes ≤60 plain text, append-only receipts, pins ≤3 own only, public card = pinned + total, notify failure keeps the gift, 16×30 race")
+          "notes ≤60 plain text, append-only receipts, pins ≤3 own only, public card = pinned + total, sending needs shop_v1 too, "
+          "notify after the response with the public name (failure keeps the gift), card survives a gifts failure, named CHECKs, 16×30 race")
 
 
 async def race(dsn: str) -> None:
@@ -307,10 +362,12 @@ async def race(dsn: str) -> None:
     sdb = PGAdapter(setup)
     await system_flags.ensure_table(sdb)
     flag_before = await system_flags.is_enabled(sdb, policy.FLAG)
+    shop_before = await system_flags.is_enabled(sdb, shop_policy.FLAG)
     real_dm = gifts._bot_dm
     try:
         await repo.ensure_tables(sdb)
         await system_flags.set_flag(sdb, policy.FLAG, True)
+        await system_flags.set_flag(sdb, shop_policy.FLAG, True)
         await fund(sdb, sender, mora=100_000)
         await fund(sdb, partner)
         await create_marriage(sdb, 0, sender, "S", partner, "P")
@@ -338,6 +395,7 @@ async def race(dsn: str) -> None:
         gifts._bot_dm = real_dm
         await delete_marriage(sdb, sender)
         await system_flags.set_flag(sdb, policy.FLAG, flag_before)
+        await system_flags.set_flag(sdb, shop_policy.FLAG, shop_before)
         await setup.close()
 
 
