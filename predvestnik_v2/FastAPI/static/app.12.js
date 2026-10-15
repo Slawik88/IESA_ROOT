@@ -652,64 +652,99 @@
     if(_chestsV1Busy||!_chestsV1Prepared)return;_chestsV1Busy=true;renderChestsV1();
     api(`/chests-v1/${encodeURIComponent(_chestsV1Prepared.open_id)}/reveal`,{method:'POST'}).then(d=>{_chestsV1Busy=false;_chestsV1Prepared=null;_chestsV1LastResult=d;toast(`${d.stars}★ · ${chestRewardText(d.reward)}`);v3Reward();openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(e,false);openChestsV1();});
   };
+  // ── Задания: строка на задание (значок, что сделать, одна полоса, «2/4» справа); переход к игре и замена — в листе по нажатию.
+  // Готовая награда — одна строка с «Забрать» над вкладками: это главное действие экрана. Правила вида: docs/MINIAPP_DESIGN_RULES.md. Стили: quests-v3.css.
   let _questsV1Data=null,_questsV1Tab='daily',_questsV1Busy=false;
+  const QUEST_REWARD_LABELS={daily:'За день',weekly:'За неделю',combined:'За всё'};
   function questMetricMeta(metric){
-    if(metric==='game_completed')return{icon:'◆',label:'Выбрать игру',tone:'game',action:"goTo('arena','game')"};
-    if(metric.startsWith('rhythm_'))return{icon:'ᚱ',label:'Открыть Ритм',tone:'rhythm',action:'openRhythmV2Game()'};
-    if(metric.startsWith('minesweeper_'))return{icon:'▦',label:'Открыть Сапёр',tone:'mines',action:'openMinesweeperGame()'};
-    if(metric.startsWith('mafia_'))return{icon:'◈',label:'Открыть игры',tone:'mafia',action:"goTo('arena','game')"};
-    if(metric==='chest_revealed')return{icon:'✦',label:'К сундукам',tone:'chest',action:'openChestsV1()'};
-    if(metric==='pet_fed'||metric==='pet_activity_completed')return{icon:'🐾',label:'К питомцам',tone:'pets',action:'openPetsV1()'};
-    return{icon:'◆',label:'К играм',tone:'game',action:"goTo('arena','game')"};
+    if(metric==='game_completed')return{icon:'◆',label:'Выбрать игру',action:"goTo('arena','game')"};
+    if(metric.startsWith('rhythm_'))return{icon:'ᚱ',label:'Открыть Ритм',action:'openRhythmV2Game()'};
+    if(metric.startsWith('minesweeper_'))return{icon:'▦',label:'Открыть Сапёр',action:'openMinesweeperGame()'};
+    if(metric.startsWith('mafia_'))return{icon:'◈',label:'Открыть игры',action:"goTo('arena','game')"};
+    if(metric==='chest_revealed')return{icon:'✦',label:'К сундукам',action:'openChestsV1()'};
+    if(metric==='pet_fed'||metric==='pet_activity_completed')return{icon:'🐾',label:'К питомцам',action:'openPetsV1()'};
+    return{icon:'◆',label:'К играм',action:"goTo('arena','game')"};
   }
-  function questCard(quest,period,rerolls){
+  function questRewardValue(reward){
+    const keys=_sysFlags.content_chests_v1?Number(reward?.amount_keys||0):0,ess=Number(reward?.amount_essence||0);
+    // Значки валют, как в шапке: «22 🪙 + 5 💧 + 2 🗝» помещается в строку и на 320 px
+    return [`${fmt(reward?.amount_mora||0)} 🪙`,ess?`${fmt(ess)} 💧`:'',keys?`${keys} 🗝`:''].filter(Boolean).map(x=>`<span class="qs-nw">${x}</span>`).join(' + ');
+  }
+  function questRow(quest,period){
     const progress=Math.max(0,Number(quest.progress)||0),target=Math.max(1,Number(quest.target)||1);
-    const percent=Math.min(100,Math.round(progress/target*100)),meta=questMetricMeta(quest.metric);
-    const status=quest.completed?'<span class="quest-status is-done">Готово</span>':`<span class="quest-status">${progress} / ${target}</span>`;
-    const reroll=quest.completed?'':`<button class="quest-icon-action" type="button" onclick="questsV1AskReroll('${period}',${quest.slot},this)" aria-label="Заменить квест «${esc(quest.title)}»" ${rerolls.remaining>0&&!_questsV1Busy?'':'disabled'}><span>Сменить</span> ↻</button>`;
-    const action=quest.completed?'<span class="quest-complete-note">✓ Задание выполнено</span>':`<button class="quest-route" type="button" onclick="${meta.action}">${meta.label}<span aria-hidden="true">›</span></button>${reroll}`;
-    return `<article class="quest-card ${quest.completed?'is-done':''}" data-q="${period}-${quest.slot}"><div class="quest-card-icon quest-tone-${meta.tone}" aria-hidden="true">${meta.icon}</div><div class="quest-card-copy"><div class="quest-card-title"><strong>${esc(quest.title)}</strong>${status}</div><div class="quest-progress" role="progressbar" aria-label="${esc(quest.title)}: ${Math.min(progress,target)} из ${target}" aria-valuemin="0" aria-valuemax="${target}" aria-valuenow="${Math.min(progress,target)}"><i style="width:${percent}%"></i></div><div class="quest-card-meta"><span>${percent}%</span><span>${esc(quest.help)}</span></div><div class="quest-card-actions ${quest.completed?'is-complete':''}">${action}</div></div></article>`;
-  }
-  function questRewardCard(kind,reward,daily,weekly){
-    const label={daily:'За день',weekly:'За неделю',combined:'За всё'}[kind]||kind;
-    const target=kind==='daily'?daily:kind==='weekly'?weekly:null;
-    const state=reward.claimed?'Получено':reward.claimable?'Готово к выдаче':kind==='combined'?`${daily.done}/${daily.total} за день · ${weekly.done}/${weekly.total} за неделю`:`${target.done}/${target.total} заданий`;
-    const destination=kind==='weekly'?'weekly':kind==='combined'&&daily.done===daily.total?'weekly':'daily';
-    const button=reward.claimable?`<button class="quest-reward-claim" type="button" onclick="questsV1Claim('${kind}')" ${_questsV1Busy?'disabled':''}>${_questsV1Busy?'Подожди…':'Забрать'}</button>`:(!reward.claimed?`<button class="quest-reward-go" type="button" onclick="questsV1SetTab('${destination}')">К заданиям</button>`:'');
-    const keys=_sysFlags.content_chests_v1?Number(reward.amount_keys||0):0,value=`${reward.amount_mora} 🪙${Number(reward.amount_essence)?` + ${reward.amount_essence} Эссенции`:''}${keys?` + ${keys} 🗝`:''}`;
-    return `<article class="quest-reward ${button?'has-action ':''}${reward.claimed?'is-claimed':reward.claimable?'is-ready':''}"><span class="quest-reward-mark" aria-hidden="true">${reward.claimed?'✓':keys?'🗝':'🪙'}</span><span><strong>${esc(label)}</strong><small>${esc(state)}</small></span><b>${value}</b>${button}</article>`;
+    const percent=Math.min(100,Math.round(progress/target*100)),meta=questMetricMeta(quest.metric),done=!!quest.completed;
+    return `<button type="button" class="quest-card qs-row${done?' is-done':''}" data-q="${period}-${quest.slot}" onclick="questsV1Open('${period}',${Number(quest.slot)})" aria-label="${esc(quest.title)}: ${done?'выполнено':`${Math.min(progress,target)} из ${target}`}">
+      <span class="quest-card-icon qs-ic" aria-hidden="true">${done?'✓':meta.icon}</span>
+      <span class="qs-tx"><b>${esc(quest.title)}</b><small>${esc(quest.help)}</small>${done?'':`<i class="qs-bar" aria-hidden="true"><i style="width:${percent}%"></i></i>`}</span>
+      ${done?'':`<span class="qs-end">${fmt(Math.min(progress,target))}<small>/${fmt(target)}</small></span>`}
+    </button>`;
   }
   function questPeriodSummary(period){
     const quests=_questsV1Data?.[period]?.quests||[],done=quests.filter(q=>q.completed).length;
-    return {done,total:quests.length,percent:quests.length?Math.round(done/quests.length*100):0};
+    return {done,total:quests.length};
+  }
+  // Награда за период: под названием — сколько дают; справа «Забрать», пока готова, иначе прогресс или «Получено»
+  function questRewardRow(kind,reward,daily,weekly,primary=true){
+    const target=kind==='daily'?daily:kind==='weekly'?weekly:null;
+    const state=kind==='combined'?`${daily.done}/${daily.total} · ${weekly.done}/${weekly.total}`:`${target.done}/${target.total}`;
+    const end=reward.claimable?`<button class="v3-pill v3-pill--sm${primary?'':' v3-pill--ghost'} quest-reward-claim" type="button" onclick="questsV1Claim('${kind}')" ${_questsV1Busy?'disabled':''}>${_questsV1Busy?'…':'Забрать'}</button>`
+      :`<span class="qs-end">${reward.claimed?'Получено':state}</span>`;
+    return `<div class="qs-reward${reward.claimed?' is-claimed':''}"><span class="qs-tx"><b>${QUEST_REWARD_LABELS[kind]}</b><small>${questRewardValue(reward)}</small></span>${end}</div>`;
   }
   function renderQuestsV1(){
     const d=_questsV1Data,root=el('pg-questlog'); if(!d||!root)return;
-    const rr=d.rerolls||{remaining:0,limit:0},daily=questPeriodSummary('daily'),weekly=questPeriodSummary('weekly');
-    const active=_questsV1Tab==='weekly'?weekly:daily,period=_questsV1Tab==='weekly'?'weekly':'daily';
-    const tasks=(d[period]?.quests||[]).map(q=>questCard(q,period,rr)).join('');
-    const rewardKinds=['daily','weekly','combined'],rewardItems=d.rewards?.items||{};
-    const rewardTotal=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_mora)||0),0),rewardEssence=rewardKinds.reduce((sum,kind)=>sum+(Number(rewardItems[kind]?.amount_essence)||0),0);
-    const rewards=rewardKinds.map(kind=>questRewardCard(kind,rewardItems[kind]||{amount_mora:0},daily,weekly)).join('');
-    const periodReward=Number(rewardItems[period]?.amount_mora)||0,periodEssence=Number(rewardItems[period]?.amount_essence)||0,periodKeys=_sysFlags.content_chests_v1?(Number(rewardItems[period]?.amount_keys)||0):0;
-    const keySummary=_sysFlags.content_chests_v1?` + ${(Number(rewardItems.daily?.amount_keys)||0)+(Number(rewardItems.weekly?.amount_keys)||0)} 🗝 за день и неделю`:'',keyBalance=_sysFlags.content_chests_v1?`<div class="quest-head-stats"><small>У тебя</small><b>${Number(d.rewards?.key_balance)||0} 🗝</b></div>`:'';
-    const content=_questsV1Tab==='rewards'?`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-rewards"><div class="quest-section-head"><div><span>Три понятные цели</span><h2>${rewardTotal} 🪙${rewardEssence?` + ${rewardEssence} Эссенции`:''}${keySummary}</h2></div>${keyBalance}</div><div class="quest-reward-list">${rewards}</div><p class="quest-policy">${esc(d.rewards?.message||'')}</p></section>`:`<section class="quest-panel" id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${period}"><div class="quest-section-head"><div><span>${period==='daily'?'Сегодня':'Эта неделя'}</span><h2>${active.done}/${active.total} выполнено → ${periodReward} 🪙${periodEssence?` + ${periodEssence} Эссенции`:''}${periodKeys?` + ${periodKeys} 🗝`:''}</h2></div><div class="quest-head-stats"><b>${active.percent}%</b><small>↻ ${rr.remaining||0}/${rr.limit||0}</small></div></div><div class="quest-list">${tasks||'<div class="quest-empty"><b>Нет доступных заданий</b><span>Как только откроется доступная игра, задания появятся здесь.</span><button onclick="openQuestsV1()">Обновить</button></div>'}</div></section>`;
-    const tab=(id,label)=>`<button id="quest-tab-${id}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" class="${_questsV1Tab===id?'is-active':''}" onclick="questsV1SetTab('${id}')" onkeydown="questsV1TabKey(event)" aria-controls="quest-panel">${label}</button>`;
-    root.innerHTML=`<header class="quest-head"><h1 class="v3-title">Задания${v3GlintMark('Задания')}</h1><p class="v3-sub">Цели на день и неделю. За них дают Мору и Эссенцию для образов.</p></header><nav class="quest-tabs" role="tablist" aria-label="Разделы квестов">${tab('daily',`Сегодня <span>${daily.done}/${daily.total}</span>`)}${tab('weekly',`Неделя <span>${weekly.done}/${weekly.total}</span>`)}${tab('rewards','Награды')}</nav>${content}`;
+    const daily=questPeriodSummary('daily'),weekly=questPeriodSummary('weekly'),items=d.rewards?.items||{};
+    const kinds=['daily','weekly','combined'],ready=kinds.find(k=>items[k]?.claimable);
+    // Готовая награда над вкладками: на «Наградах» она и так в списке
+    const banner=ready&&_questsV1Tab!=='rewards'?`<div class="qs-ready">${questRewardRow(ready,items[ready],daily,weekly)}</div>`:'';
+    let body;
+    if(_questsV1Tab==='rewards'){
+      const keys=_sysFlags.content_chests_v1?` · у тебя ${fmt(Number(d.rewards?.key_balance)||0)} 🗝`:'';
+      body=`<p class="qs-state">Каждая выдаётся один раз${keys}</p><div class="qs-list">${kinds.map(k=>questRewardRow(k,items[k]||{amount_mora:0},daily,weekly,k===ready)).join('')}</div>${d.rewards?.message?`<details class="v3-more qs-help"><summary>Как выдаются награды</summary><p>${esc(d.rewards.message)}</p></details>`:''}`;
+    }else{
+      const period=_questsV1Tab,sum=period==='weekly'?weekly:daily,quests=d[period]?.quests||[];
+      // Невыполненные выше, выполненные — внизу списка
+      const rows=[...quests].sort((a,b)=>Number(!!a.completed)-Number(!!b.completed)).map(q=>questRow(q,period)).join('');
+      body=`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
+    }
+    const tab=(id,label)=>`<button type="button" id="quest-tab-${id}" class="v3-tab${_questsV1Tab===id?' on':''}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" aria-controls="quest-panel" onclick="questsV1SetTab('${id}')">${label}</button>`;
+    root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю'})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`;
+    v3EnterSync(root);
     if(typeof v3QuestsDone==='function')v3QuestsDone(root);
   }
-  window.questsV1SetTab=function(tab){if(!['daily','weekly','rewards'].includes(tab))return;_questsV1Tab=tab;renderQuestsV1();scrollTo(0,0);requestAnimationFrame(()=>el('pg-questlog')?.querySelector('.quest-tabs .is-active')?.focus());};
+  // Лист задания: что сделать, прогресс, переход к игре и замена (лимит замен — общий на неделю)
+  window.questsV1Open=function(period,slot){
+    const quest=(_questsV1Data?.[period]?.quests||[]).find(q=>Number(q.slot)===Number(slot));if(!quest)return;
+    _haptic('select');
+    const progress=Math.max(0,Number(quest.progress)||0),target=Math.max(1,Number(quest.target)||1),meta=questMetricMeta(quest.metric),rr=_questsV1Data.rerolls||{remaining:0,limit:0};
+    const body=`<div class="qs-sheet"><p>${esc(quest.help)}</p><div class="qs-meter"><span>${quest.completed?'Выполнено':'Прогресс'}</span><b>${fmt(Math.min(progress,target))} / ${fmt(target)}</b><i class="qs-bar"><i style="width:${Math.min(100,Math.round(progress/target*100))}%"></i></i></div>${quest.completed?'':`<p class="qs-note">Замен на этой неделе: ${rr.remaining||0} из ${rr.limit||0}</p>`}</div>`;
+    const btns=quest.completed?[{l:'Закрыть',c:'ghost',f:'CM()'}]:[{l:meta.label,c:'primary',f:`CM();${meta.action}`},{l:'Сменить ↻',c:'ghost',f:`CM();questsV1AskReroll('${period}',${Number(quest.slot)})`,d:!(Number(rr.remaining)>0)||_questsV1Busy}];
+    OM(quest.title,body,btns);
+  };
+  window.questsV1SetTab=function(tab){if(!['daily','weekly','rewards'].includes(tab)||tab===_questsV1Tab)return;_haptic('select');_questsV1Tab=tab;renderQuestsV1();};
+  // Стрелки двигают выбор по вкладкам; фокус переносится только при управлении с клавиатуры
   window.questsV1TabKey=function(event){
     const tabs=['daily','weekly','rewards'],index=tabs.indexOf(_questsV1Tab);let next=null;
     if(event.key==='ArrowRight')next=tabs[(index+1)%tabs.length];
     if(event.key==='ArrowLeft')next=tabs[(index-1+tabs.length)%tabs.length];
     if(event.key==='Home')next=tabs[0]; if(event.key==='End')next=tabs[tabs.length-1];
-    if(next){event.preventDefault();questsV1SetTab(next);}
+    if(next){event.preventDefault();questsV1SetTab(next);requestAnimationFrame(()=>el(`quest-tab-${_questsV1Tab}`)?.focus());}
   };
+  // Хук обновления (app.01.js) зовёт это же при открытом экране: тогда только перечитываем, без switchPage и без заглушки
+  let _questsV1Seq=0;
   window.openQuestsV1=function(tab){
     if(['daily','weekly','rewards'].includes(tab))_questsV1Tab=tab;
-    switchPage('questlog'); const root=el('pg-questlog'); root.innerHTML='<div class="loader" style="margin-top:44px">Загрузка квестов…</div>';
-    api('/quests-v1/me').then(d=>{_questsV1Data=d;renderQuestsV1();}).catch(e=>root.innerHTML=`<div class="v3-err quest-load-error" role="alert"><b>Квесты не загрузились</b><span>${esc(e)}</span><button type="button" onclick="openQuestsV1('${_questsV1Tab}')">Повторить</button></div>`);
+    if(_activePage!=='questlog')switchPage('questlog');
+    const root=el('pg-questlog');
+    if(!_questsV1Data)root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю'})}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:260px;border-radius:18px;margin-top:18px"></div>`;
+    else renderQuestsV1();
+    const mine=++_questsV1Seq;
+    api('/quests-v1/me').then(d=>{if(mine!==_questsV1Seq)return;_questsV1Data=d;renderQuestsV1();}).catch(e=>{
+      if(mine!==_questsV1Seq)return;
+      const text=String(e?.message||e||'Ошибка').replace(/^Error:\s*/,'');
+      if(_questsV1Data){toast(`Задания не обновились: ${text}`,false);return;}
+      root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю'})}<div class="v3-empty" role="alert"><b>Задания не загрузились</b><span>${esc(text)}</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Повторить</button></div>`;
+    });
   };
   window.questsV1AskReroll=function(period,slot,trigger){
     if(_questsV1Busy){toast('Дождись завершения текущего действия.',false);return;}
@@ -718,18 +753,18 @@
     const remaining=Number(_questsV1Data?.rerolls?.remaining)||0;
     if(remaining<=0){toast('Лимит замен на эту неделю исчерпан.',false);return;}
     if(trigger)trigger.dataset.modalTrigger='true';
-    OM('↻ Заменить квест',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'primary',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'ghost',f:'CM()'}]);
+    OM('↻ Заменить задание',`<div class="quest-reroll-confirm"><b>${esc(quest.title)}</b><p>Сервер подберёт другой тип задания из доступных игр. Вернуть этот вариант нельзя.</p><span>После замены останется: ${remaining-1}</span></div>`,[{l:'Заменить',c:'primary',f:`questsV1Reroll('${period}',${slot});CM()`},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.questsV1Reroll=function(period,slot){
     if(_questsV1Busy)return;
-    _questsV1Busy=true;renderQuestsV1();
+    _questsV1Busy=true;_questsV1Seq++;renderQuestsV1();   // ответ /me, запрошенный до замены, уже устарел
     const key=`reroll:${period}:${slot}`,action=_pendingAction(_questsV1PendingActions,key,'quest-reroll-');
     api('/quests-v1/reroll',{method:'POST',body:JSON.stringify({period,slot,action_id:action})}).then(d=>{_questsV1PendingActions.delete(key);_questsV1Data=d;toast('Квест заменён');}).catch(e=>toast(`${e} Повтори: лимит не спишется второй раз.`,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
   window.questsV1Claim=function(kind){
     if(_questsV1Busy)return;
-    const box=document.querySelector(`.quest-reward-claim[onclick*="'${kind}'"]`)?.getBoundingClientRect(),origin=box?{x:box.left+box.width/2,y:box.top+box.height/2}:null;   // откуда полетят монеты
-    _questsV1Busy=true;renderQuestsV1();
+    const box=document.querySelector(`#pg-questlog .quest-reward-claim[onclick*="'${kind}'"]`)?.getBoundingClientRect(),origin=box?{x:box.left+box.width/2,y:box.top+box.height/2}:null;   // откуда полетят монеты
+    _questsV1Busy=true;_questsV1Seq++;renderQuestsV1();
     api('/quests-v1/claim-reward',{method:'POST',body:JSON.stringify({kind})}).then(d=>{
       _questsV1Data=d;if(!d.reward_result?.already_claimed&&Number(d.reward_result?.amount_mora)>0)v3Fly(origin,'mora','🪙');const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
     }).catch(e=>toast(e,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
