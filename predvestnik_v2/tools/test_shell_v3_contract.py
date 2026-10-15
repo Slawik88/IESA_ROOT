@@ -95,7 +95,9 @@ assert 'ap.ti >= 4 && _AP_GLINT_KINDS.includes(ap.k.name)' in ident and 'class="
 assert ".v3-who .ap-gl { display: none !important; }" in appearance, "list rows never get a glint window"
 assert ".fx-5 .v3-title > .ap-gl" in fx and ".fx-5 .v3-gname > .ap-gl" in fx and "will-change" not in fx.split("/* S · fx-5", 1)[1].split("/* SS · fx-6", 1)[0]
 for name in ("app.04.js", "app.12.js", "app.19.js", "app.26.js"):
-    assert "v3GlintMark(" in (STATIC / name).read_text(encoding="utf-8"), name   # every big title is built with its glint window
+    src = (STATIC / name).read_text(encoding="utf-8")
+    assert "v3GlintMark(" in src or "v3Head(" in src, name   # every big title is built with its glint window (v3Head adds it itself)
+assert "${esc(title)}${v3GlintMark(title)}" in (STATIC / "app.20.js").read_text(encoding="utf-8"), "v3Head carries the glint window"
 assert 'class="v3-title">Ещё<span class="ap-gl" aria-hidden="true"><span data-t="Ещё">' in index
 # An element with its own transform animation and an animated pseudo-element of its own is moved to the main thread by Blink (both fall back): the rays halo turns its child, not itself.
 assert not re.search(r"\.ap-ha-rays(?:[^{},]*)::(?:before|after)[^{]*\{[^{}]*animation:", appearance), "rays animate a child, never their own ::before/::after"
