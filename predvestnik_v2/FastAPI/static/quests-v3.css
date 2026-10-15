@@ -3,8 +3,8 @@
    Акцент экрана — выбранная вкладка и «Забрать» у готовой награды; полосы цвета текста (docs/MINIAPP_DESIGN_RULES.md). Движения нет, кроме отметки выполненного (motion-v3.css). */
 
 #pg-questlog .quest-tabs { margin: 0 0 4px; }
-/* когда над вкладками готовая награда, акцент экрана — её «Забрать»; выбранная вкладка подчёркнута цветом текста */
-#pg-questlog .qs-ready ~ .quest-tabs .v3-tab.on::after { background: var(--v3-ink); }
+/* когда есть готовая награда, акцент экрана — её «Забрать» (остальные готовые — ghost); выбранная вкладка подчёркнута цветом текста */
+#pg-questlog .quest-tabs.has-ready .v3-tab.on::after { background: var(--v3-ink); }
 #pg-questlog .qs-state { margin: 10px 0 2px; color: var(--v3-dim); font-size: 13px; line-height: 1.4; font-variant-numeric: tabular-nums; }
 
 /* задание — одна строка */
