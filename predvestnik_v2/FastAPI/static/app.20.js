@@ -21,7 +21,7 @@ function apFromLook(look) {
 const _apSig = ap => (ap.sig ? ` ap-sig-${ap.sig}` : '');
 const _apSk = ap => (/^[a-z_]{2,24}$/.test(ap.id || '') ? ` data-sk="${ap.id}"` : '');   // id образа на каждом слое: личные образы дорисовывают себя по нему (skins-exclusive-v3.css)
 const _AP_GLINT_KINDS = ['shimmer', 'foil', 'grad', 'ink', 'lens', 'comet'];   // виды ника, по буквам которых идёт блик (те же, что в appearance-v3.css; от тира A)
-const v3GlintMark = text => `<span class="ap-gl" aria-hidden="true"><span data-t="${esc(text)}"></span></span>`;   // блик крупного заголовка S+ (fx-tiers-v3.css): белая копия текста в «окне», едет через transform
+const v3GlintMark = text => `<span class="ap-gl" aria-hidden="true"><span data-t="${_profileEsc(text)}"></span></span>`;   // блик крупного заголовка S+ (fx-tiers-v3.css): белая копия текста в «окне», едет через transform
 // Шапка вкладки (docs/MINIAPP_DESIGN_RULES.md, п. 5): «‹» только у экранов вне нижнего меню, заголовок, одна строка пояснения, справа необязательное действие (end — готовая разметка). title и sub — простой текст, экранируются
 function v3Head(title, { sub = '', back = '', end = '' } = {}) {
   const btn = back ? `<button type="button" class="v3-head-back" onclick="${back}" aria-label="Назад">‹</button>` : '';
