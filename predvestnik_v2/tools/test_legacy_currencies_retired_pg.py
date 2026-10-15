@@ -137,8 +137,15 @@ async def run(dsn: str) -> None:
             raise AssertionError("Dark Mora promocode must be refused")
         assert float(await scalar(db, "SELECT user_balance_dark_mora FROM users WHERE user_tg_id = ?", (actor,))) == 45.0
 
-        # Account deletion still zeroes the legacy column.
-        await account_deletion._finalize(db, leaver)
+        # Account deletion still zeroes the legacy column. Finalization only acts on an
+        # deleted account whose restore window has expired (audit A02).
+        await db.execute("UPDATE users SET deleted_at = NOW() - INTERVAL '31 days' WHERE user_tg_id = ?", (leaver,))
+        await db.execute(
+            "INSERT INTO account_deletions (user_id, source, status, restore_deadline) "
+            "VALUES (?, 'self', 'pending_restore', NOW() - INTERVAL '1 day')",
+            (leaver,),
+        )
+        assert await account_deletion._finalize(db, leaver)
         assert float(await scalar(db, "SELECT user_balance_dark_mora FROM users WHERE user_tg_id = ?", (leaver,))) == 0.0
     finally:
         await transaction.rollback()

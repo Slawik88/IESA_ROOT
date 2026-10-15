@@ -17,6 +17,7 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import chests_v1 as repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import quests_v1 as quest_repo
+from infrastructure.repositories import system_flags
 from services import chests_v1
 
 
@@ -59,6 +60,8 @@ async def run(dsn: str) -> None:
     tx = conn.transaction()
     await tx.start()
     try:
+        for flag in ("content_chests_v1", "game_rhythm_v2", "game_minesweeper_v2"):  # a fresh test DB has them off
+            await system_flags.set_flag(db, flag, True)
         user = 976401
         await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT(user_tg_id) DO NOTHING", (user,))
         grant_args = dict(reward_kind="daily", reward_id="daily:2026-09-12")

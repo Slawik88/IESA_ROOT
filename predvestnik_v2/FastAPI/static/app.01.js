@@ -234,9 +234,11 @@ function connectWS() {
     }
     if (event && typeof event.type === 'string') { try { showWsNotif(event); } catch (e) { /* событие не должно ронять соединение */ } }
   };
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
     if (_ws === ws) _ws = null;
-    clearTimeout(_wsTimer); _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
+    clearTimeout(_wsTimer);
+    if (ev && ev.code === 1008) return;   // account/credential not allowed: no reconnect loop; next visibility change retries once
+    _wsTimer = setTimeout(() => { if (document.visibilityState === 'visible') connectWS(); }, Math.min(60000, 2000 * 2 ** Math.min(_wsTries++, 5)));
   };
   ws.onerror = () => { try { ws.close(); } catch (e) { /* уже закрыт */ } };
 }

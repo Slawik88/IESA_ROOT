@@ -66,7 +66,8 @@ async def run(dsn: str) -> None:
 
         await db.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = ?", (married,))
         await db.execute(
-            "INSERT INTO account_deletions (user_id, source, status) VALUES (?, 'self', 'pending_restore')",
+            "INSERT INTO account_deletions (user_id, source, status, restore_deadline) "
+            "VALUES (?, 'self', 'pending_restore', NOW() - INTERVAL '1 day')",
             (married,),
         )
         await _finalize(db, married)
@@ -90,7 +91,12 @@ async def run(dsn: str) -> None:
             roll=100, stars=1, reward_kind="mora", reward_amount=20,
             key_balance_before=1, account_epoch=int(account['account_epoch']),
         )
-        await _finalize(db, single)
+        await db.execute(
+            "INSERT INTO account_deletions (user_id, source, status, restore_deadline) "
+            "VALUES (?, 'self', 'pending_restore', NOW() - INTERVAL '1 day')",
+            (single,),
+        )
+        assert await _finalize(db, single)
         assert await scalar(db, "SELECT COUNT(*) = 0 FROM global_skin_v1_owned WHERE user_id = ?", (single,))
         assert await scalar(db, "SELECT COUNT(*) = 0 FROM global_skin_v1_selection WHERE user_id = ?", (single,))
         chest_state = await chests_v1.overview(db, user_id=single)

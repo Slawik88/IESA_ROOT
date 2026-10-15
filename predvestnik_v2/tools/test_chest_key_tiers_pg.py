@@ -82,6 +82,8 @@ async def run(dsn: str) -> None:
     try:
         db = PGAdapter(connection)
         await essence_repo.ensure_tables(db)
+        for flag in ("content_chests_v1", "game_rhythm_v2", "game_minesweeper_v2"):  # a fresh test DB has them off
+            await system_flags.set_flag(db, flag, True)
         await system_flags.set_flag(db, KEY_OFFERS_FLAG, False)
         user = 992_000_001
         await fund(db, user, mora=100_000, diamonds=100, zarniki=10_000, essence=1_000)

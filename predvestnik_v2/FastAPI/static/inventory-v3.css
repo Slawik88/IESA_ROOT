@@ -1,37 +1,41 @@
 /* ═══ ИНВЕНТАРЬ · всё, что есть у игрока ═══
-   Образы, регалии, питомцы, ключи, еда, карты, джокеры и вещи прежней системы на одном экране (app.39.js). Плитки образов те же, что в «Образах» (looks-v3.css: .lk-pick, .lk-mini),
+   Вкладки «Предметы · Питомцы · Образы · Архив» (app.39.js), предметы плитками, подробности в листе. Плитки образов те же, что в «Образах» (looks-v3.css: .lk-pick, .lk-mini),
    ряд регалий общий с профилем. Цвета берутся из скина (токены --v3-*). Экран читают, а не играют на нём: движения нет, кроме подъёма секций, который даёт .v3-stagger. */
 
-.inv-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
-.inv-chip { display: inline-flex; align-items: baseline; gap: 6px; min-height: 40px; padding: 10px 14px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-ink); font: 500 13px/1.2 var(--v3-font); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.inv-chip b { font: 700 15px/1 var(--v3-font); font-variant-numeric: tabular-nums; }
-.inv-chip span { color: var(--v3-dim); }
-.inv-chip:active { transform: scale(.96); }
-
-.inv-sec { margin-top: 26px; scroll-margin-top: calc(var(--v3-bar-h, 56px) + var(--v3-safe-t, 0px) + 12px); }
-.inv-sec > .v3-sec { margin-top: 0; }
+/* вкладки разделов: общий .v3-tabs, число раздела приглушено */
+.inv-tabs { margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }   /* на 320 px и с крупным текстом вкладки прокручиваются, а не раздвигают экран */
+.inv-tabs::-webkit-scrollbar { display: none; }
+.inv-tabs .v3-tab { flex: none; }
+.inv-body > .v3-sec:first-child { margin-top: 4px; }
 .inv-note { margin: 2px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.45; }
-.inv-sub { margin: 18px 0 0; color: var(--v3-dim); font: 600 12px/1.2 var(--v3-font); letter-spacing: .1em; text-transform: uppercase; }
+
+/* предметы: плитки 4 в ряд (значок, число в углу, имя в две строки); подробности в листе по нажатию */
+.inv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.inv-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; min-height: 84px; padding: 12px 4px 8px; border: 0; border-radius: 14px; background: var(--v3-faint); color: var(--v3-ink); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.inv-tile:active { transform: scale(.96); }
+.inv-tile .inv-n { position: absolute; top: 6px; right: 8px; font-size: 13px; }
+.inv-tile small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; color: var(--v3-dim); font-size: 11px; line-height: 1.25; text-align: center; }
+.inv-tile.is-zero .inv-ic { opacity: .4; }
+.inv-tile.is-zero .inv-n { color: var(--v3-dim); }
 
 /* образы: сетка плиток из «Образов», три в ряд */
-.inv-looks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 2px; margin: 10px -4px 0; }
+.inv-looks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 2px; margin: 4px -4px 0; }
 .inv-looks .lk-pick { width: auto; padding: 6px 2px 8px; }
 .inv-looks .lk-pick b { overflow-wrap: anywhere; }
 
-/* питомцы: карточки в два столбца, активный подсвечен */
-.inv-pets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
-.inv-pet { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; border: 0; border-radius: 16px; background: var(--v3-faint); color: var(--v3-ink); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* питомцы: плитки три в ряд, активный обведён тонкой линией цвета текста (акцент экрана — только выбранная вкладка) */
+.inv-pets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.inv-pet { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 12px 6px 10px; border: 0; border-radius: 14px; background: var(--v3-faint); color: var(--v3-ink); font: inherit; text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .inv-pet:active { transform: scale(.97); }
-.inv-pet.is-on { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v3-acc) 60%, transparent); }
-.inv-pet-ic { flex: none; font-size: 28px; line-height: 1; }
+.inv-pet.is-on { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--v3-ink) 55%, transparent); }
+.inv-pet .inv-ic { font-size: 28px; }
+.inv-pet b { font: 600 12.5px/1.25 var(--v3-font); overflow-wrap: anywhere; }
+.inv-pet small { color: var(--v3-dim); font-size: 11px; line-height: 1.3; }
 
 /* строки списков: значок, название с пояснением, число */
 .inv-list { display: grid; margin: 4px 0 0; padding: 0; list-style: none; }
 .inv-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 11px 0; }
 .inv-item + .inv-item { box-shadow: 0 -1px 0 var(--v3-faint); }
-.inv-item--tap { width: 100%; padding-right: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.inv-item--tap:active { opacity: .55; }
-.inv-list > li + li > .inv-item--tap, .inv-list > li + li > .inv-item { box-shadow: 0 -1px 0 var(--v3-faint); }
 .inv-ic { font-size: 22px; line-height: 1; text-align: center; }
 .inv-nm { display: flex; flex-direction: column; min-width: 0; }
 .inv-nm b { font: 600 14.5px/1.25 var(--v3-font); overflow-wrap: anywhere; }
@@ -51,6 +55,6 @@
 .inv-grp .inv-list { margin: 0; padding: 2px 14px 6px; }
 
 @media (max-width: 359px) {
+  .inv-grid, .inv-pets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .inv-looks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .inv-pets { grid-template-columns: minmax(0, 1fr); }
 }

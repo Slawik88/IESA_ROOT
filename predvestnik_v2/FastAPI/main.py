@@ -25,8 +25,10 @@ from infrastructure.repositories import theme_templates, theme_meta, web_notific
 from FastAPI.auth import (verify_login_widget, create_session_token,
                           verify_preprod_browser_ticket, verify_session_token,
                           verify_webapp_data)
-from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod
+from infrastructure.preprod import PREPROD_BROWSER_TEST_USER_ID, is_preprod, require_preprod_user
 from FastAPI import notifications
+from FastAPI.deps import assert_account_active
+from infrastructure import readiness
 from FastAPI.routers import (profile, marriage, wallet,
                               payments,
                               legal, analytics as analytics_router,
@@ -130,6 +132,7 @@ async def lifespan(app: FastAPI):
         # RESET ALL (asyncpg pool cleanup) сбрасывает search_path к дефолту.
         # Явно устанавливаем перед ensure-вызовами чтобы DDL шёл в нужную схему.
         await conn.execute("SET search_path TO predvestnik, public")
+        _failed_ensures: list[str] = []
         for _fn, _label in [
             (theme_templates.ensure_table,   "theme_templates"),
             (theme_meta.ensure_table,        "theme_meta"),
@@ -184,6 +187,7 @@ async def lifespan(app: FastAPI):
             try:
                 await _fn(PGAdapter(conn))
             except Exception as _e:
+                _failed_ensures.append(_label)
                 _log.error(f"[lifespan] {_label}.ensure_table failed: {_e}")
                 if _label == "player_exchange_v1":
                     try:
@@ -210,6 +214,12 @@ async def lifespan(app: FastAPI):
                         await conn.execute("ROLLBACK")
                 except Exception:
                     pass
+    # Standalone start (the co-hosted bot marks it itself): stay not-ready while
+    # any ensure failed, so /api/ready never hides a half-created schema.
+    if _failed_ensures:
+        _log.error(f"[lifespan] not ready: failed ensures {', '.join(_failed_ensures)}")
+    else:
+        readiness.mark_startup_complete()
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     digest_task = asyncio.create_task(_run_owner_digest())
@@ -267,26 +277,60 @@ async def telegram_login(payload: _LoginWidgetPayload):
 async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init: str = ""):
     # H6: верифицируем, что подключающийся — это и есть user_id (WebApp шлёт initData,
     # браузер — session-token). Иначе можно было слушать чужой поток уведомлений.
-    authed = False
-    if init:
-        _u = verify_webapp_data(init)
-        authed = bool(_u and int(_u.get("id", 0)) == user_id)
-    elif token:
-        authed = verify_session_token(token) == user_id
-    if not authed:
+    def credential_valid() -> bool:
+        if init:
+            _u = verify_webapp_data(init)
+            return bool(_u and int(_u.get("id", 0)) == user_id)
+        if token:
+            return verify_session_token(token) == user_id
+        return False
+
+    async def account_allowed() -> bool:
+        # The same gates as HTTP gameplay (deps.require_tg_user): preprod
+        # allowlist and account deletion (audit A06). DB errors propagate.
+        if not require_preprod_user(user_id):
+            return False
+        await create_pool()
+        async with get_pool().acquire() as conn:
+            try:
+                await assert_account_active(PGAdapter(conn), user_id)
+            except HTTPException:
+                return False
+        return True
+
+    if not credential_valid():
         await websocket.close(code=1008)  # policy violation
         return
+    try:
+        allowed = await account_allowed()
+    except Exception as exc:
+        _log.warning(f"[ws] account check unavailable: {type(exc).__name__}")
+        await websocket.close(code=1011)  # fail closed; client retries with backoff
+        return
+    if not allowed:
+        await websocket.close(code=1008)
+        return
+
+    async def still_allowed() -> bool:
+        if not credential_valid():
+            return False
+        try:
+            return await account_allowed()
+        except Exception:
+            return True   # transient DB error keeps an already admitted session
+
     await websocket.accept()
-    # R5: единый протокол сессии (отправка событий + команды комнат лотов) —
+    # Единый протокол сессии (отправка событий + keep-alive клиента) —
     # вся логика в notifications.ws_session, чистка гарантирована внутри.
     try:
-        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER)
+        await notifications.ws_session(websocket, user_id, app_version=_ASSET_VER,
+                                       still_allowed=still_allowed)
     except WebSocketDisconnect:
         pass
     except asyncio.CancelledError:
         # Деплой/рестарт (SIGTERM) отменяет все ASGI-таски, включая открытые WS —
         # это ожидаемое завершение, не ошибка. ws_session уже почистил себя в
-        # своём finally (unregister + выход из комнат) до того, как отмена сюда
+        # своём finally (unregister) до того, как отмена сюда
         # долетела. Подавляем, чтобы не шуметь в логах на каждом рестарте.
         pass
 
@@ -300,15 +344,18 @@ async def health():
 
 @app.get("/api/ready")
 async def ready():
-    """Readiness is stricter than liveness: pool + application schema must exist."""
+    """Readiness is stricter than liveness: startup must have finished its schema
+    work and every table the first requests read must exist (audit A04)."""
     try:
+        if not readiness.startup_complete():
+            raise RuntimeError("startup schema initialization has not finished")
         await create_pool()
         async with get_pool().acquire() as conn:
-            schema = await conn.fetchval("SELECT to_regnamespace('predvestnik')")
-        if schema != "predvestnik":
-            raise RuntimeError("application schema is missing")
+            missing = await readiness.missing_tables(conn)
+        if missing:
+            raise RuntimeError(f"required tables are missing: {', '.join(missing)}")
     except Exception as exc:
-        _log.warning(f"[ready] unavailable: {type(exc).__name__}")
+        _log.warning(f"[ready] unavailable: {exc if isinstance(exc, RuntimeError) else type(exc).__name__}")
         raise HTTPException(status_code=503, detail="Service is not ready.") from exc
     return {"status": "ready"}
 
