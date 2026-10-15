@@ -215,7 +215,7 @@ assert not re.search(r"\.sv-(hero|pack|tile|mission|term|badge|status)\b[^{]*\{[
 assert "lk-seg" not in store_js and "lk-wallet" not in store_js and "sv-opt" in store_js and ".sv-opt.is-on" in store_css
 assert "monolith-v3.css" in (ROOT / "FastAPI/main.py").read_text(encoding="utf-8") and "monolith-v3.css" in (STATIC / "index.html").read_text(encoding="utf-8")
 mono = (STATIC / "monolith-v3.css").read_text(encoding="utf-8")
-for page in ("#pg-chests", "#pg-pets", "#pg-help", "#pg-looks"):   # Достижения собраны на v3-компонентах (achievements-v3.css), уплощать нечего
+for page in ("#pg-pets", "#pg-help", "#pg-looks"):   # Достижения и Сундуки собраны на v3-компонентах (achievements-v3.css, chests-v3.css), уплощать нечего
     assert page in mono, f"{page} must be flattened in monolith-v3.css"
 # 100% new design on the player side: the old control/card classes live only in admin-legacy.css for the admin, moderation and console screens (rewritten elsewhere).
 # A player screen (every JS part except app.07/08/09, and index.html outside the admin pages) may not use them: use v3-pill, v3-field, v3-err, v3-dim, v3-line, v3-empty, v3-row.
