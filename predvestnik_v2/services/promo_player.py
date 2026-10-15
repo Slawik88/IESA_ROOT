@@ -45,9 +45,15 @@ def _offer(row: tuple, user_id: int, now: datetime) -> dict | None:
             "left": left, "personal": personal}
 
 
+def _iso_utc(value) -> str | None:
+    """redeemed_at — TIMESTAMP без зоны, пишется NOW() в UTC: без смещения браузер прочтёт его как местное время."""
+    when = _when(value)
+    return when.isoformat() if when else None
+
+
 async def player_view(db: Any, user_id: int) -> dict:
     now = datetime.now(timezone.utc)
     offers = [o for o in (_offer(r, user_id, now) for r in await repo.offered_codes(db, user_id)) if o]
-    history = [{"code": str(r[0]), "at": r[1].isoformat() if r[1] else None, "granted": [str(x) for x in _rewards(r[2])],
+    history = [{"code": str(r[0]), "at": _iso_utc(r[1]), "granted": [str(x) for x in _rewards(r[2])],
                 "in_chat": r[3] is not None} for r in await repo.history(db, user_id)]
     return {"available": offers, "history": history}

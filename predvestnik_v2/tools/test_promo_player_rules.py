@@ -38,4 +38,10 @@ src = (ROOT / "FastAPI/static/app.45.js").read_text(encoding="utf-8")
 assert "api('/promo-v2/redeem'" in src and "api('/promo-v2/me')" in src and "_profileEsc(o.code)" in src
 repo = (ROOT / "infrastructure/repositories/promo_player.py").read_text(encoding="utf-8")
 assert "allowed_chats_json, '') = ''" in repo and "NOT EXISTS (SELECT 1 FROM promocode_redemptions" in repo and "is_active = 1" in repo
+from FastAPI.routers import promo_redeem as redeem_api  # noqa: E402
+for i in range(redeem_api.FAILS_LIMIT):   # 10 неудачных вводов подряд — дальше 429 до конца окна
+    assert redeem_api._fail_wait(7, 100.0 + i) == 0
+    redeem_api._fails[7].append(100.0 + i)
+assert redeem_api._fail_wait(7, 120.0) > 0
+assert redeem_api._fail_wait(7, 100.0 + redeem_api.FAILS_WINDOW + redeem_api.FAILS_LIMIT) == 0 and 7 not in redeem_api._fails
 print("OK: the promo screen offers only codes the player can redeem in the Mini App right now")
