@@ -64,7 +64,7 @@ function _trLoad() {
 }
 function _trPaintFail(text) {
   const root = el('pg-pets'); if (!root || _activePage !== 'pets') return;
-  root.innerHTML = `<header class="v3-screen-head"><span class="v3-eyebrow">Питомцы</span><h1 class="v3-title">Тропа</h1></header><div class="v3-empty" role="alert"><b>Тропа не загрузилась</b><span>${_trE(text)}</span> <button type="button" class="v3-link" onclick="openTrail()">Повторить</button></div>`;
+  root.innerHTML = `${v3Head('Питомцы')}<div class="v3-empty" role="alert"><b>Тропа не загрузилась</b><span>${_trE(text)}</span> <button type="button" class="v3-link" onclick="openTrail()">Повторить</button></div>`;
   v3EnterSync(root);
 }
 function _trRefresh() { return _trLoad().then(ok => { if (ok) _trRender(); return ok; }); }
@@ -99,7 +99,6 @@ function trailBack() {
   _tr.view = up; _trRender();
   try { window.scrollTo(0, up === 'hub' ? _tr.scroll : 0); } catch (_) { /* прокрутка недоступна */ }
 }
-const _trBack = (label = 'Тропа') => `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="trailBack()" aria-label="Назад: ${label}">‹ ${label}</button></div>`;
 
 // ── Состояние питомца: у ведущего своё занятие, у Спутника занятие ведущего (run_id у обоих) ──────────
 function _trState(p) {
@@ -115,10 +114,9 @@ function _trMeter(fraction, o = {}) {
 }
 
 // ── Главный экран ──────────────────────────────────────────────────────────────────────────────
-function _trHead() {
-  return `<header class="v3-screen-head"><span class="v3-eyebrow">Питомцы</span><h1 class="v3-title">Тропа${v3GlintMark('Тропа')}</h1></header>`;
-}
-// Следы дня видны на каждом экране Тропы. Упёрлись в норму: спокойная строка, без красного (питомцы устали расти, награды остаются)
+function _trHead() { return v3Head('Питомцы'); }
+// Следы дня видны на каждом экране Тропы: на главном — строка с числом, полосой и подсказкой, на подэкранах (compact) — текст для строки под заголовком.
+// Упёрлись в норму: спокойная строка, без красного (питомцы устали расти, награды остаются)
 function _trTraces(me, compact) {
   const d = me.daily || {}, r = me.rules || {}, max = Number(d.max) || 625, cur = Math.max(0, Math.min(max, Number(d.credited) || 0)), soft = Number(r.daily_soft_from) || 500;
   const full = cur >= max - 0.05, rate = Math.round((Number(r.daily_soft_rate) || 0.25) * 100), shown = full ? max : Math.floor(cur);
@@ -127,8 +125,8 @@ function _trTraces(me, compact) {
     : cur < 1 ? 'Сегодня Следов ещё нет. Отправьте питомца в путь.'
     : `По полной ставке ещё ${fmt(Math.max(0, Math.floor(soft - cur)))}. Дальше засчитывается ${rate}\u00a0%.`;
   const label = `Следы за сегодня: ${fmt(shown)} из ${fmt(max)}`;
-  if (compact) return `<p class="tr-line" aria-label="${_trE(label)}"><span>Следы за сегодня</span><b>${fmt(shown)}</b><small>из ${fmt(max)}</small></p>`;
-  return `<section class="tr-sec tr-traces" aria-label="Следы за сегодня">${_trSec('Следы за сегодня')}<p class="tr-big"><b>${fmt(shown)}</b><span>из ${fmt(max)}</span></p>${_trMeter(cur / max, { notch: soft / max, label })}<p class="tr-note">${note}</p></section>`;
+  if (compact) return `Следы: ${fmt(shown)} из ${fmt(max)}`;
+  return `<section class="tr-sec tr-traces" aria-label="Следы за сегодня"><p class="tr-tline"><span>Следы за сегодня</span><b>${fmt(shown)}<small> из ${fmt(max)}</small></b></p>${_trMeter(cur / max, { notch: soft / max, label })}<p class="tr-note">${note}</p></section>`;
 }
 function _trSlot(act) {
   const pet = _trPet(act.pet_id); if (!pet) return '';
@@ -149,7 +147,7 @@ function _trSlots(me) {
   const sendable = (me.pets || []).filter(p => !p.run_id && p.energy >= min).length;
   const free = Math.max(0, slots - acts.length);
   const rows = acts.map(_trSlot).join('') + Array.from({ length: free }, () => _trFreeSlot(me, sendable)).join('');
-  return `<section class="tr-sec" id="tr-slots">${_trSec('Занятия', `<span class="tr-count">${acts.length} из ${slots}</span>`)}<ul class="tr-list" aria-label="Занятия">${rows}</ul></section>`;
+  return `<section class="tr-sec" id="tr-slots">${_trSec('Занятия')}<ul class="tr-list" aria-label="Занятия">${rows}</ul></section>`;
 }
 function _trLevelLine(p) {
   if (p.level >= (_tr.me.rules.max_level || 30)) return '<small class="tr-sub">Высший уровень</small>';
@@ -163,8 +161,8 @@ function _trPetRow(p) {
 }
 function _trPets(me) {
   const rank = { ready: 0, free: 1, busy: 2 }, pets = (me.pets || []).slice().sort((a, b) => rank[_trState(a).k] - rank[_trState(b).k] || b.level - a.level || a.id - b.id);
-  const count = k => pets.filter(p => _trState(p).k === k).length, parts = [[count('ready'), 'Вернулись'], [count('free'), 'В лагере'], [count('busy'), 'В пути']].filter(x => x[0]);
-  return `<section class="tr-sec" id="tr-pets">${_trSec(`Питомцы · ${pets.length}`)}${parts.length ? `<p class="tr-note">${parts.map(x => `${x[1]}: ${x[0]}`).join(' · ')}</p>` : ''}<ul class="tr-list">${pets.map(_trPetRow).join('')}</ul></section>`;
+  // Без счётчиков над списком: состояние каждого питомца написано в его строке, вернувшиеся стоят первыми
+  return `<section class="tr-sec" id="tr-pets">${_trSec('Все питомцы')}<ul class="tr-list">${pets.map(_trPetRow).join('')}</ul></section>`;
 }
 function _trEmpty() {
   return `<section class="tr-sec"><div class="v3-empty tr-empty"><b>Питомцев пока нет, их можно получить в сундуках.</b>${_sysFlags.content_chests_v1 === true ? '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>' : ''}</div></section>`;

@@ -15,7 +15,8 @@ const _trMi = s => s ? `<span class="tr-mi"><i class="sr-only">Минус: </i>$
 const _trOut = p => (_tr.me.activities || []).some(a => a.pet_id === p.id);   // ведущий занятия; Спутник сборку менять может
 const _trTal = t => _TR_TAL[t.kind] || ['🧿', t.kind];
 const _trDays = n => `${n}\u00a0${_trWord(n, 'день', 'дня', 'дней')}`;
-const _trSubHead = (eyebrow, title) => `${_trBack()}<header class="v3-screen-head"><span class="v3-eyebrow">${eyebrow}</span><h1 class="v3-title">${title}</h1></header>${_trTraces(_tr.me, true)}`;
+// Шапка подэкрана: общий v3Head с «‹» назад на главный экран питомцев, под заголовком — Следы дня
+const _trSubHead = title => v3Head(title, { back: 'trailBack()', sub: _trTraces(_tr.me, true) });
 // Баланс из того же места, что и панель сверху (её обновляет сервер через WebSocket); null — число пока неизвестно, тогда решает сервер
 function _trHave(key) {
   const d = typeof _profileData === 'object' && _profileData || null; if (!d) return null;
@@ -104,8 +105,8 @@ function _trCardBuild(p) {
 _TR_VIEWS.pet = me => {
   const p = _trPet(_tr.pet);
   if (!p) { _tr.view = 'hub'; return _TR_VIEWS.hub(me); }
-  const head = `<header class="v3-screen-head tr-phead"><span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span><div><span class="v3-eyebrow">${_trE(rarLabel(p.rarity))}</span><h1 class="v3-title">${_trE(p.name)}</h1></div></header>`;
-  return `${_trBack()}${head}${_trTraces(me, true)}${_trCardState(p)}${_trCardLevel(p)}${_trCardEnergy(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
+  const head = v3Head(p.name, { back: 'trailBack()', sub: `${rarLabel(p.rarity)} · ${_trTraces(me, true)}`, end: `<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>` });
+  return `${head}${_trCardState(p)}${_trCardLevel(p)}${_trCardEnergy(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
 };
 
 // ── Сборка: призвание, черты, талисманы; цена видна до сохранения ───────────────────────────────────────
@@ -252,7 +253,7 @@ _TR_VIEWS.camp = me => {
   const camp = me.camp || { levels: {}, job: null }, job = camp.job && !camp.job.done ? camp.job : null;
   const rows = ['lounge', 'markers', 'workshop'].map(b => _trBldRow(b, me, job)).join('');
   const busy = job ? `<div class="tr-state is-busy" id="tr-job" role="status"><div class="tr-state-t"><b>Идёт стройка</b><small>${_trE(_TR_BLD[job.building] || job.building)}, уровень ${job.to_level}. Другую можно начать после неё.</small></div><div class="tr-end"><span class="tr-left"><small>осталось</small><b data-end="${_trTime(job.ends_at)}" data-id="camp-${_trTime(job.ends_at)}">${_trDur(_trTime(job.ends_at) - _trNow())}</b></span></div></div>` : '';
-  return `${_trSubHead('Тропа', 'Лагерь')}${busy}<section class="tr-sec">${_trSec('Постройки')}<p class="tr-note">Каждую можно улучшить до 5 уровня. Стройка идёт сама, пока вас нет: одна за раз.</p><ul class="tr-list tr-blds">${rows}</ul></section>
+  return `${_trSubHead('Лагерь')}${busy}<section class="tr-sec">${_trSec('Постройки')}<p class="tr-note">Каждую можно улучшить до 5 уровня. Стройка идёт сама, пока вас нет: одна за раз.</p><ul class="tr-list tr-blds">${rows}</ul></section>
     <section class="tr-sec">${_trSec('Перековка талисманов', `<span class="tr-count">${(me.talismans || []).length}</span>`)}<p class="tr-note">Перековка поднимает тир талисмана за Эссенцию. Высший тир открывает Мастерская.</p>${_trReforgeRows(me)}</section>`;
 };
 function trailUpgrade(building) {
@@ -322,7 +323,7 @@ function _trTrackPicker(me) {
 _TR_VIEWS.track = me => {
   const t = _tr.track ||= { pet: 0, done: null }, open = me.track?.open;
   const body = open ? _trTrackOpenGame(open) : t.done ? _trTrackDone(t.done) : _trTrackPicker(me);
-  return `${_trSubHead('Тропа', 'Выслеживание')}${body}`;
+  return `${_trSubHead('Выслеживание')}${body}`;
 };
 function trailTrackPet(id) { _haptic('select'); _tr.track.pet = Number(id); _trRender(); document.querySelector(`#pg-pets [data-f="tpet-${id}"]`)?.focus({ preventScroll: true }); }
 function trailTrackAgain() { _haptic('select'); _tr.track.done = null; _trRender(); }
@@ -371,7 +372,7 @@ function _trTrialPets(me, tags) {
 }
 _TR_VIEWS.trial = me => {
   const trial = me.trial || {}, tags = trial.tags ? _trTrialTags(trial.tags) : [], t = _tr.trial ||= { pet: 0 }, ess = trial.essence || {};
-  const head = _trSubHead('Тропа', 'Испытание недели');
+  const head = _trSubHead('Испытание недели');
   if (!tags.length) return `${head}<section class="tr-sec"><div class="v3-empty tr-empty"><b>Испытание пока не объявлено.</b></div></section>`;
   const rows = tags.map(g => `<li class="tr-tagrow"><span class="tr-nm"><small>${g.label}</small><b>${_trE(g.value)}</b><small>Закрывает: ${_trE(g.how)}</small></span></li>`).join('');
   const reward = `<p class="tr-note">Награда: ${fmt(trial.xp || 0)} Следов и Эссенция по числу закрытых тегов: ${[1, 2, 3].map(n => `${ess[n]}\u00a0за ${n}`).join(', ')}. Сдать можно один раз в неделю.</p>`;
