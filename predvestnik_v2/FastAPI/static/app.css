@@ -435,8 +435,6 @@ code { background: var(--dim); padding: 1px 5px; border-radius: 5px; font-size: 
   
 }
 
-/* БЛОК21 #3: «что внутри» сундука — честные шансы дропа (доверие + FOMO) */
-.chest-odds { display: flex; flex-wrap: wrap; gap: 3px; }
 /* Battle Pass — живой прогресс-бар + вспышка левел-апа */
 
 /* ШАГ3: заморозка БП — плашка ❄️ + серый неактивный прогресс-бар */

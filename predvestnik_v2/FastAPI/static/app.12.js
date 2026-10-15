@@ -615,13 +615,13 @@
     const tiers=higher?`<div class="ch-tiers" role="group" aria-label="Каким ключом открыть">${(d.key_tiers||[]).filter(t=>Number(t.tier)===1||chestTierBalance(d,t.tier)>0).map(t=>`<button type="button" class="chest-tier-chip${Number(t.tier)===_chestsV1Tier?' is-on':''}" aria-pressed="${Number(t.tier)===_chestsV1Tier}" onclick="chestsV1PickTier(${Number(t.tier)})">${esc(t.name)}${Number(t.tier)>1?` ${t.tier}★+`:''} · <b>${fmt(chestTierBalance(d,t.tier))}</b></button>`).join('')}</div>`:'';
     let action;
     if(_chestsV1Prepared)action=`<button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук"><span aria-hidden="true">✦</span><b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button>`;
-    else if(tierBal>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${busy?'disabled':''}>${_chestsV1Tier>1?`Открыть: ${esc(tierName)} ключ`:'Открыть за 1 ключ'}</button>${canBuy?`<button type="button" class="v3-link ch-buy-more" onclick="chestsV1AskBuy(this)" ${busy||remaining<1?'disabled':''}>Купить ещё ключ за ${fmt(price)} ✨</button>`:''}`;
+    else if(tierBal>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${busy?'disabled':''}>${_chestsV1Tier>1?`Открыть: ${esc(tierName)} ключ`:'Открыть за 1 ключ'}</button>${canBuy?`<button type="button" class="v3-link ch-buy-more" onclick="chestsV1AskBuy(this)" ${busy||remaining<1?'disabled':''}>Купить ${_chestsV1Tier>1?'обычный':'ещё'} ключ за ${fmt(price)} ✨</button>`:''}`;
     else if(canBuy&&remaining>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1AskBuy(this)" ${busy?'disabled':''}>Купить ключ за ${fmt(price)} ✨</button><p class="ch-hint">Сегодня можно купить ещё ${remaining} из ${paid.daily_limit}. Бесплатно ключ дают за полный день и неделю заданий.</p>`;
     else action=`<p class="ch-hint">${canBuy?'Покупки на сегодня закончились. ':''}Ключ дают за полный день и неделю заданий.</p><button type="button" class="v3-pill v3-pill--ghost chest-open-btn" onclick="openQuestsV1()">К заданиям</button>`;
     const result=!_chestsV1Prepared&&_chestsV1LastResult?`<p class="ch-last" role="status"><span aria-hidden="true">${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span> Последний: ${chestRewardText(_chestsV1LastResult.reward)}</p>`:'';
     const offers=d.tiers_enabled?(d.offers||[]).map(o=>{
       const left=Number(o.remaining)>0?`осталось ${o.remaining} из ${o.limit} ${o.window==='day'?'сегодня':'на неделе'}`:(o.window==='day'?'лимит на сегодня исчерпан':'лимит на неделю исчерпан');
-      return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" onclick="chestsV1AskOffer('${esc(o.offer_id)}',this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
+      return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
     }).join(''):'';
     const loot=`${owned}/12 питомцев · ${fmt(cards)} карт · ${fmt(food)} еды · ${fmt(jokers)} джокеров`;
     root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия'})}
@@ -638,25 +638,26 @@
       </details>`;
     v3EnterSync(root);
   }
-  // Хук обновления зовёт это же при открытом экране: тогда только перечитываем, без switchPage и без заглушки
+  // Повторный вызов при открытом экране (после открытия, покупки, раскрытия) только перечитывает: без switchPage и без заглушки
   let _chestsV1Seq=0;
   window.openChestsV1=function(){
     if(_activePage!=='chests')switchPage('chests');
     const root=el('pg-chests');
     if(!_chestsV1Data)root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия'})}<div class="sk" style="height:64px;border-radius:14px"></div><div class="sk" style="height:52px;border-radius:99px;margin-top:16px"></div>`;
     const mine=++_chestsV1Seq;
-    api('/chests-v1/me').then(d=>{if(mine!==_chestsV1Seq)return;_chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>{
+    api('/chests-v1/me').then(d=>{if(mine!==_chestsV1Seq)return;if(d.pending_open)[..._chestsV1PendingActions.keys()].filter(k=>k.startsWith('prepare:')).forEach(k=>_chestsV1PendingActions.delete(k));   // сундук уже подготовлен: старый номер операции больше не нужен
+      _chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>{
       if(mine!==_chestsV1Seq)return;
       const text=String(e?.message||e||'Ошибка').replace(/^Error:\s*/,'');
       if(_chestsV1Data){toast(`Сундуки не обновились: ${text}`,false);return;}
       root.innerHTML=`${v3Head('Сундуки')}<div class="v3-empty" role="alert"><b>Сундуки не загрузились</b><span>${esc(text)}</span> <button type="button" class="v3-link" onclick="openChestsV1()">Повторить</button></div>`;
     });
   };
+  // После подготовки экран перечитывает /me: остаток ключей по уровням знает только сервер
   window.chestsV1Prepare=function(){
     if(_chestsV1Busy||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
     const tier=_chestsV1Tier,key=`prepare:${tier}`,action=_pendingAction(_chestsV1PendingActions,key,'chest-open-');
-    api('/chests-v1/prepare',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest,key_tier:tier})}).then(d=>{_chestsV1PendingActions.delete(key);_chestsV1Prepared=d;_chestsV1Data.key_balance=d.key_balance;const kb=_chestsV1Data.key_balances;if(kb&&kb[String(tier)])kb[String(tier)]=Math.max(0,Number(kb[String(tier)])-1);   // число ключей на экране — по уровню, сервер вернул только общий остаток
-    _chestsV1Busy=false;renderChestsV1();requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-orb')?.focus());}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: ключ не спишется второй раз.`,false);openChestsV1();});
+    api('/chests-v1/prepare',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest,key_tier:tier})}).then(d=>{_chestsV1PendingActions.delete(key);_chestsV1Prepared=d;_chestsV1Data.key_balance=d.key_balance;_chestsV1Busy=false;renderChestsV1();requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-orb')?.focus());openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: ключ не спишется второй раз.`,false);openChestsV1();});
   };
   window.chestsV1Buy=function(){
     if(_chestsV1Busy||!_chestsV1Data||Number(_chestsV1Data.funding?.remaining_today||0)<1)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
