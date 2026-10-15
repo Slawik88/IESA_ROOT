@@ -42,6 +42,7 @@ SCREENS = [
     ("trail-track", "openPetsV1().then(() => { if (_tr.me) trailGo('track'); })"),
     ("trail-trial", "openPetsV1().then(() => { if (_tr.me) trailGo('trial'); })"),
     ("inventory", "openInventory()"),
+    ("promo", "openPromoSheet()"),
     ("achievements", "openAchievementsV1()"),
     ("help", "switchPage('help')"),
     ("store-zarniki", "openStoreV3('zarniki')"),

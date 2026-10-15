@@ -79,7 +79,7 @@ function renderProfileHome(data) {
       ${chests}
       ${typeof shopEntryRow === 'function' ? shopEntryRow() : ''}
       ${_v3Row('trophy', 'Достижения', 'openAchievementsV1()')}
-      ${_v3Row('ticket', 'Промокод', 'openPromoSheet()')}
+      ${_v3Row('ticket', 'Промокоды', 'openPromoSheet()')}
     </nav>`;
 }
 
