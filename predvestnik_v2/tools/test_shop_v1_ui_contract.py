@@ -32,11 +32,11 @@ assert "shopEntryRow()" in home_js and "data-shop-entry" in wallet_js and "shopP
 assert "_shopOn === true ? '' : 'hidden" in wallet_js and "node.hidden = _shopOn !== true" in js
 assert "api('/shop-v1/me')" in js and "Магазин пока закрыт" in js and "openShop()" in wallet_js
 
-# Tabs and words from the brief; gifts stay out until PR-C.
+# Tabs and words from the brief; gifts (PR-C) live in app.45.js and join only through the _shopExtra hook.
 for word in ("'Ключи'", "'Эссенция'", "'Обменник'", "'Купить'", "'Скрафтить'", "'Обменять'"):
     assert word in js, word
 code = re.sub(r"//[^\n]*", "", js)
-assert "Подарки" not in code and "gift" not in code.lower()
+assert "Подарки" not in code and "gift" not in code.lower() and "const _shopExtra = {};" in js
 assert "Осталось ${left} из ${max} на этой неделе" in js and "до сброса ${_shopHours(l.resets_in_seconds)} ч" in js
 assert "Не хватает: " in js and "is-miss" in js and "item.missing" in js and "item.available" in js
 assert "_SHOP_SWITCH = { key_t4:" in js and "'Крафт'" in js and "'За ✨'" in js, "Silver: one tile with a method switch"

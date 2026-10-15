@@ -65,7 +65,7 @@ function renderPublicCardV3(d) {
   const name = vipName(d.name, !!d.vip, d.vip?.badge || '✦', d.vip?.badge_position || 'left');
   const hero = `<section class="pp-hero v3-id${d.vip ? ' is-vip' : ''}${ap ? ' has-look' : ''}" aria-label="Игрок">
       <div class="v3-ring pp-ring">${apHalo(ap)}${_v3Ring(capped ? 100 : lv.xp_into / lv.xp_to_next * 100)}<div class="v3-ava">${avatar}</div>${apFrame(ap)}<span class="v3-lv" aria-label="Уровень ${level}">${level}</span></div>
-      <div class="v3-name pp-name">${apName(ap, _profileEsc(name))}</div>
+      <div class="v3-name pp-name">${apName(ap, _profileEsc(name))}${typeof giftBadgeHtml === 'function' ? giftBadgeHtml(d.gifts?.top_badge) : ''}</div>
       <div class="v3-sub">${_profileEsc(rank || 'Игрок')}${_profileEsc(joined)}</div>
       ${v3MarksHtml(d.marks)}
       ${_ppPresence(d.presence, d)}${_v3VipSeal(d.vip)}
@@ -79,5 +79,5 @@ function renderPublicCardV3(d) {
   return `<div class="v3-scope pp-scope${ap ? '' : ' pp-neutral'}" style="${tokens}">${_PP_BACK}${d.is_self ? '<p class="v3-sub pp-self">Так вас видят другие игроки.</p>' : ''}
     ${apStage(ap, hero)}
     <section class="v3-stats" aria-label="Показатели"><div><b>${fmt(s.streak || 0)}</b><span>дней подряд</span></div><div><b>${fmt(s.achievements || 0)}</b><span>достижений</span></div><div><b>${_v3Short(s.messages || 0)}</b><span>сообщений</span></div></section>
-    ${path}${_ppGames(d.games || {})}${pet}${_ppLook(d, ap)}${_ppCollection(d)}</div>`;
+    ${path}${_ppGames(d.games || {})}${pet}${typeof ppGiftsHtml === 'function' ? ppGiftsHtml(d) : ''}${_ppLook(d, ap)}${_ppCollection(d)}</div>`;
 }

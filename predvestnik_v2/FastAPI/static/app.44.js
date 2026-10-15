@@ -2,7 +2,8 @@
 // Страница «Магазин» (#pg-shop): ключи по звёздам, Шлифовка (Эссенция), обменник Зарников и плитки на готовые экраны (пропуск, VIP, образы).
 // Всё за флагом shop_v1: вход (строка в профиле и кнопка в окне валют) показывается, только если GET /shop-v1/me ответил; 404 «Магазин пока закрыт» прячет его.
 // Цены, лимиты, шансы и нехватка приходят с сервера (core/shop_v1.py), клиент их не считает. Перед каждым списанием лист подтверждения: отдаёшь, получаешь, баланс до и после.
-// Номер операции живёт до ответа «успех»: «Повторить» после обрыва связи шлёт тот же номер, второго списания не будет. Подарки появятся в PR-C. Стили: app.css (.shop-*).
+// Номер операции живёт до ответа «успех»: «Повторить» после обрыва связи шлёт тот же номер, второго списания не будет. Стили: app.css (.shop-*).
+// Вкладки других частей подключаются через _shopExtra: {id: {name, on(), load(), html()}}; свои данные, флаг и покупки они держат сами (вкладка app.45.js).
 const _SHOP_ICONS = { mora: '🪙', diamonds: '💎', zarniki: '✨', essence: '🔮' };
 const _SHOP_VERB = { buy: 'Купить', craft: 'Скрафтить', exchange: 'Обменять' };
 const _SHOP_TABS = { keys: 'Ключи', essence: 'Эссенция', exchange: 'Обменник' };
@@ -11,6 +12,7 @@ const _SHOP_LINKS = { pass: () => openSeasonPass(), vip: () => openVipModal(), s
 const _SHOP_LINK_FN = { pass: 'openSeasonPass', vip: 'openVipModal', skins: 'openLooksModal' };
 const _SHOP_OFFLINE = 'Нет связи. Проверь интернет и попробуй ещё раз.';
 const _shopPending = new Map();
+const _shopExtra = {};
 let _shopOn = null;   // null — ещё не спрашивали, true — флаг включён, false — магазин закрыт
 const _shop = { me: null, tab: 'keys', pick: { key_t4: 'key_t4_craft' }, amounts: {}, busy: null, errors: {}, failed: null, loading: false };
 
@@ -37,7 +39,7 @@ function shopEntryRow() {
 }
 
 window.openShop = function (tab) {
-  if (tab && _SHOP_TABS[tab]) _shop.tab = tab;
+  if (tab && (_SHOP_TABS[tab] || _shopExtra[tab])) _shop.tab = tab;
   try { CM(); } catch (_) {}
   switchPage('shop');
   _shopLoad();
@@ -47,6 +49,7 @@ function shopBack() { if (_navStack.length) navBack(); else switchPage('profile'
 function _shopLoad() {
   const root = el('pg-shop'); if (!root) return;
   if (!_shop.me) root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка магазина…</div>';
+  Object.values(_shopExtra).forEach(x => { try { x.load(); } catch (_) {} });
   api('/shop-v1/me').then(d => {
     _shop.me = d; _shop.failed = null; _shopOn = true; _shopSyncEntries(); _shopRender();
   }).catch(e => {
@@ -122,16 +125,19 @@ function _shopSection(section) {
 function _shopRender() {
   const root = el('pg-shop'), d = _shop.me; if (!root || !d) return;
   const sections = d.sections || [];
-  if (!sections.some(s => s.id === _shop.tab)) _shop.tab = sections[0]?.id || 'keys';
-  const section = sections.find(s => s.id === _shop.tab) || { items: [] };
-  const tabs = sections.map(s => `<button type="button" role="tab" aria-selected="${s.id === _shop.tab}" onclick="shopTab('${s.id}')">${esc(s.name || _SHOP_TABS[s.id] || s.id)}</button>`).join('');
+  const extra = Object.entries(_shopExtra).filter(([, x]) => { try { return x.on(); } catch (_) { return false; } });
+  const ids = [...sections.map(s => s.id), ...extra.map(([id]) => id)];
+  const tab = ids.includes(_shop.tab) ? _shop.tab : ids[0] || 'keys';   // выбранная вкладка помнится, пока её данные грузятся
+  const section = sections.find(s => s.id === tab) || { items: [] };
+  const tabs = [...sections.map(s => [s.id, s.name || _SHOP_TABS[s.id] || s.id]), ...extra.map(([id, x]) => [id, x.name])]
+    .map(([id, name]) => `<button type="button" role="tab" aria-selected="${id === tab}" onclick="shopTab('${id}')">${esc(name)}</button>`).join('');
   const links = (d.links || []).filter(l => typeof window[_SHOP_LINK_FN[l.target]] === 'function')   // нет экрана — нет плитки
     .map(l => `<button type="button" onclick="shopLink('${l.target}')"><span aria-hidden="true">${esc(l.icon)}</span>${esc(l.name)}</button>`).join('');
   const focused = document.activeElement?.closest?.('.shop-amount') ? document.activeElement.closest('[data-item]')?.dataset.item : null;
   root.innerHTML = `<header class="looks-head shop-head"><button class="looks-back" onclick="shopBack()" aria-label="Назад">‹</button><div><h1>🛒 Магазин</h1><small>Цены и лимиты — с сервера, сутки и неделя по UTC</small></div></header>
     ${_shopBalances(d.balances || {})}
     <div class="shop-tabs" role="tablist" aria-label="Разделы магазина">${tabs}</div>
-    <section class="shop-sec" role="tabpanel">${_shopSection(section)}</section>
+    <section class="shop-sec" role="tabpanel">${_shopExtra[tab] ? _shopExtra[tab].html() : _shopSection(section)}</section>
     ${links ? `<nav class="shop-links" aria-label="Другие экраны">${links}</nav>` : ''}`;
   if (focused) { const input = root.querySelector(`[data-item="${focused}"] .shop-amount input`); if (input) { input.focus({ preventScroll: true }); const v = input.value; input.value = ''; input.value = v; } }
 }

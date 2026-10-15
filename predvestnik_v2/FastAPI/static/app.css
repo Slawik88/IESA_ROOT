@@ -1171,7 +1171,7 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .shop-bal span { min-width: 0; padding: 6px 9px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; white-space: nowrap; }
 .shop-bal span b { color: var(--text); }
 .shop-bal .shop-keys { white-space: normal; color: var(--muted); }
-.shop-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; margin: 0 0 10px; }
+.shop-tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 6px; margin: 0 0 10px; }
 .shop-tabs button { min-height: 44px; padding: 0 6px; border: 1px solid var(--border); border-radius: 12px; background: none; color: var(--text); font-size: 13px; cursor: pointer; }
 .shop-tabs button[aria-selected="true"] { border-color: var(--gold); color: var(--gold); }
 .shop-hint { margin: 0 2px 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
@@ -1204,6 +1204,60 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .shop-links button { min-width: 0; min-height: 56px; padding: 6px; border: 1px solid var(--line); border-radius: 12px; background: none; color: var(--text); font-size: 12px; display: grid; place-content: center; gap: 2px; cursor: pointer; }
 .shop-links button span { font-size: 18px; }
 @media (max-width: 360px) { .shop-links { grid-template-columns: 1fr 1fr; } .shop-tabs button { font-size: 12px; } .shop-card-top { grid-template-columns: 36px minmax(0,1fr) auto; } }
+/* ECO-04 PR-C: gifts (shop tab «Подарки», own shelf #pro-gifts, public card; app.45.js). Each tier is richer than the one before. */
+.gift-tier { margin: 0 0 14px; }
+.gift-tier h3 { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; color: var(--bright); }
+.gift-gem { width: 10px; height: 10px; border-radius: 3px; transform: rotate(45deg); border: 1px solid var(--line); flex: none; }
+.gift-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(min(100%,150px),1fr)); gap: 8px; }
+.gift-card { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.03); display: grid; gap: 7px; justify-items: start; }
+.gift-card b { font-size: 14px; overflow-wrap: anywhere; }
+.gift-card.is-off { opacity: .62; }
+.gift-card .shop-act { min-height: 44px; }
+.gift-ico { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; border: 1px solid var(--line); flex: none; }
+.gift-to b { color: var(--bright); overflow-wrap: anywhere; }
+/* Знак: тонкая линия. Тёплый: золотистая подложка. Редкий: фиолетовое свечение. Легендарный: золото, свечение и мерцание. */
+.gt2 .gift-ico, .gift-card.gt2, .gift-slot.gt2.is-on, .gift-ico.gt2 { border-color: rgba(var(--gold-rgb),.5); background: linear-gradient(180deg, rgba(var(--gold-rgb),.14), var(--gold-dim)); }
+.gt2 .gift-gem { border-color: var(--border); background: var(--gold-dim); }
+.gt3 .gift-ico, .gift-card.gt3, .gift-slot.gt3.is-on, .gift-ico.gt3 { border-color: var(--violet); background: var(--violet-dim); box-shadow: 0 0 12px var(--violet-dim); }
+.gt3 .gift-gem { border-color: var(--violet); background: var(--violet-dim); box-shadow: 0 0 8px var(--violet); }
+.gt4 .gift-ico, .gift-card.gt4, .gift-slot.gt4.is-on, .gift-ico.gt4 { border-color: var(--gold); background: linear-gradient(135deg, var(--gold-dim), var(--violet-dim)); box-shadow: var(--glow-gold), 0 0 16px rgba(var(--gold-rgb),.3); }
+.gt4 .gift-gem { border-color: var(--gold); background: var(--gold); box-shadow: 0 0 10px rgba(var(--gold-rgb),.6); }
+.gift-card.gt4 .gift-ico, .gift-slot.gt4.is-on > span { animation: giftShine 3.2s ease-in-out infinite; }
+@keyframes giftShine { 0%,100% { filter: drop-shadow(0 0 0 rgba(var(--gold-rgb),0)); } 50% { filter: drop-shadow(0 0 6px rgba(var(--gold-rgb),.75)); } }
+@media (prefers-reduced-motion: reduce) { .gift-card.gt4 .gift-ico, .gift-slot.gt4.is-on > span { animation: none; } }
+.gift-note { display: grid; gap: 8px; }
+.gift-note label { font-size: 13px; color: var(--muted); }
+.gift-note input { width: 100%; min-width: 0; min-height: 44px; margin: 0; }
+.gift-note small { justify-self: end; color: var(--muted); font-size: 12px; }
+.gift-note small.is-miss { color: var(--red); }
+.gift-shelf-wrap { margin: 14px 0 0; min-width: 0; }
+.gift-counts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+.gift-counts span { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; font-size: 12px; color: var(--muted); }
+.gift-counts b { color: var(--text); }
+.gift-empty { margin: 0 0 8px; }
+.gift-shelves { display: grid; gap: 6px; }
+.gift-shelf, .gift-showcase { display: grid; grid-template-columns: 96px minmax(0,1fr); gap: 8px; align-items: center; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.gift-showcase { margin: 0 0 6px; border: 1px solid var(--border); border-radius: 12px; }
+.gift-shelf-name { font-size: 12px; color: var(--muted); overflow-wrap: break-word; hyphens: auto; }
+.gift-slots { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; min-width: 0; }
+.gift-slot { position: relative; min-width: 0; min-height: 48px; border: 1px solid var(--line); border-radius: 12px; background: none; display: grid; place-items: center; font-size: 22px; color: var(--text); cursor: pointer; padding: 0; }
+.gift-slot.is-empty { border-style: dashed; cursor: default; }
+.gift-slot.is-empty > span { filter: grayscale(1) brightness(.2); opacity: .55; }   /* силуэт: форма видна, цвет — нет */
+.gift-slot b { position: absolute; right: 4px; bottom: 2px; font-size: 10px; color: var(--muted); }
+.gift-slot i { position: absolute; right: 4px; top: 2px; font-size: 10px; font-style: normal; color: var(--gold); }
+.pp-gifts { max-width: 240px; margin: 0 0 8px; }
+.gift-badge { display: inline-grid; place-items: center; margin-left: 6px; font-size: .8em; vertical-align: middle; filter: drop-shadow(0 0 4px rgba(var(--gold-rgb),.55)); }
+.gift-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.gift-filter .v3-chip { min-height: 36px; }
+.gift-filter [aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.gift-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.gift-row { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 10px; align-items: start; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.gift-row b { display: block; font-size: 14px; overflow-wrap: anywhere; }
+.gift-row b small, .gift-row > div > small { color: var(--muted); font-size: 12px; font-weight: 400; overflow-wrap: anywhere; }
+.gift-row q { display: block; margin-top: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.gift-pin { min-width: 44px; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; background: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+.gift-pin[aria-pressed="true"] { color: var(--gold); border-color: var(--gold); }
+@media (max-width: 360px) { .gift-shelf, .gift-showcase { grid-template-columns: 86px minmax(0,1fr); } .gift-shelf-name { font-size: 11px; } .gift-grid { grid-template-columns: 1fr 1fr; } .gift-card { padding: 10px; } }
 .pet-release-card { margin: 8px 0; padding: 14px; display: grid; gap: 9px; }
 .pet-release-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .pet-release-card header span { padding: 3px 7px; border: 1px solid rgba(222,184,108,.38); border-radius: 999px; color: var(--gold); font-size: 9px; }
