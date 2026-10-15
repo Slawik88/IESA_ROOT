@@ -734,10 +734,13 @@
       _questsV1Data=d;if(!d.reward_result?.already_claimed&&Number(d.reward_result?.amount_mora)>0)v3Fly(origin,'mora','🪙');const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
     }).catch(e=>toast(e,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
+  // ── Достижения: пути (GET /achievements-v1/me) и достижения чата (GET /achievements-v1/chat) ──
+  // Строка списка — значок, название, что осталось до следующего уровня и одна полоса; подробности и вехи — в листе по нажатию.
+  // Правила вида: docs/MINIAPP_DESIGN_RULES.md. Стили: achievements-v3.css.
   let _achievementsV1Data = null;
   let _achievementsV1Filter = 'all';
   let _chatAchievementsData = null;
-  const ACHIEVEMENT_FILTERS = Object.freeze(['all', 'games', 'collection', 'chat']);
+  const ACHIEVEMENT_FILTERS = Object.freeze([['all', 'Все'], ['games', 'Игры'], ['collection', 'Приключения'], ['chat', 'Чат']]);
   const ACHIEVEMENT_ACTIONS = Object.freeze({
     rhythm: 'openRhythmV2Game()',
     minesweeper: 'openMinesweeperGame()',
@@ -761,182 +764,151 @@
     return many;
   }
 
-  function achievementProgressCopy(value, target) {
-    if (Number(value) >= target) return `${fmt(value)} · цель ${fmt(target)} ✓`;
-    return `${fmt(value)} / ${fmt(target)}`;
+  // Цель следующего уровня пути: для пройденного пути — последняя веха и предел активных недель
+  function achievementTargets(family) {
+    const final = (family.milestones || []).find((m) => Number(m.level) === Number(family.max_level));
+    return {
+      events: Number(family.next?.events_required) || Number(final?.events_required) || 1,
+      weeks: Number(family.next?.weeks_required) || Number(_achievementsV1Data?.max_active_weeks) || 156,
+    };
   }
 
-  function achievementNextCopy(family, eventTarget, weekTarget) {
-    if (!family.next) return 'Все 40 уровней пути завершены.';
-
-    const remaining = [];
-    const events = Math.max(0, eventTarget - Number(family.completed_events || 0));
-    const weeks = Math.max(0, weekTarget - Number(family.active_weeks || 0));
-    if (events) {
-      remaining.push(`${events} ${achievementWord(events, 'завершение', 'завершения', 'завершений')}`);
-    }
-    if (weeks) {
-      remaining.push(`${weeks} ${achievementWord(weeks, 'активная неделя', 'активные недели', 'активных недель')}`);
-    }
-    const requirement = remaining.length ? `ещё ${remaining.join(' и ')}` : 'условия выполнены';
-    return `До уровня ${family.next.level}: ${requirement}.`;
+  // Путь и достижение чата в одном виде: строка списка и лист подробностей читают только его
+  function achievementPathItem(family) {
+    const t = achievementTargets(family);
+    const events = Number(family.completed_events || 0), weeks = Number(family.active_weeks || 0);
+    const leftE = Math.max(0, t.events - events), leftW = Math.max(0, t.weeks - weeks);
+    const left = [leftE ? `${fmt(leftE)} ${achievementWord(leftE, 'завершение', 'завершения', 'завершений')}` : '',
+      leftW ? `${fmt(leftW)} ${achievementWord(leftW, 'неделя', 'недели', 'недель')}` : ''].filter(Boolean);
+    // Номер следующего уровня читается из «0/40» справа, награда за него — под ним: подсказке остаётся только «что сделать»
+    const hint = family.next ? (left.length ? `Ещё ${left.join(' и ')}` : 'Условия выполнены') : 'Путь пройден';
+    return {
+      key: `path:${family.id}`, icon: family.icon, title: family.title, level: Number(family.level || 0), max: Number(family.max_level || 40),
+      // Уровень требует обоих условий, поэтому полоса — по отстающему
+      pct: family.next ? Math.min(achievementPct(events, t.events), achievementPct(weeks, t.weeks)) : 100,
+      hint, reward: family.next ? `+${fmt(family.next.reward_mora)} 🪙` : '', done: !family.next, family,
+    };
+  }
+  function achievementChatItem(item) {
+    const target = Number(item.next_threshold || 0), base = Number(item.prev_threshold || 0), value = Number(item.value || 0);
+    return {
+      key: `chat:${item.id || item.title}`, icon: item.icon, title: item.title, level: Number(item.level || 0), max: Number(item.max_level || 0),
+      pct: target ? achievementPct(value - base, target - base) : 100,
+      hint: target ? `${fmt(value)} / ${fmt(target)} · ${item.measure}` : `Все уровни · ${item.measure}`,   // число первым: на 320 px обрезается пояснение, а не прогресс
+      done: !target, chat: item,
+    };
   }
 
-  function achievementMilestones(family) {
-    return (family.milestones || []).map((milestone) => {
-      const marker = milestone.status === 'claimed'
-        ? '✓'
-        : (milestone.status === 'reached' ? '•' : '○');
-      const events = achievementWord(
-        milestone.events_required,
-        'завершение',
-        'завершения',
-        'завершений',
-      );
-      return `<li class="achievement-milestone is-${esc(milestone.status)}">
-        <span>${marker}</span>
-        <b>${milestone.level} ур.</b>
-        <small>${fmt(milestone.events_required)} ${events} · ${milestone.weeks_required} нед.</small>
-        <em>+${fmt(milestone.reward_mora)} 🪙</em>
-      </li>`;
+  // Ближе к следующему уровню — выше; пройденные — в конце
+  const achievementOrder = (a, b) => (a.done - b.done) || (b.pct - a.pct) || (b.level - a.level);
+
+  function achievementRow(item, index) {
+    return `<button type="button" class="ach-row" onclick="achievementsV1Open(${index})" aria-label="${esc(item.title)}: уровень ${item.level} из ${item.max}. ${esc(item.hint)}${item.reward ? `, за следующий ${esc(item.reward)}` : ''}">
+      <span class="ach-ic" aria-hidden="true">${esc(item.icon)}</span>
+      <span class="ach-tx"><b>${esc(item.title)}</b><small>${esc(item.hint)}</small><i class="ach-bar" aria-hidden="true"><i style="width:${item.pct}%"></i></i></span>
+      <span class="ach-lv">${item.level}<small>/${item.max}</small>${item.reward ? `<em>${item.reward}</em>` : ''}</span>
+    </button>`;
+  }
+
+  let _achievementsShown = [];
+  function achievementSections() {
+    const families = _achievementsV1Data.families || [];
+    const chat = _chatAchievementsData?.achievements || [];
+    const groups = [
+      ['games', 'Игры', families.filter((f) => f.category === 'games').map(achievementPathItem)],
+      ['collection', 'Приключения', families.filter((f) => f.category !== 'games').map(achievementPathItem)],
+      ['chat', 'Чат', chat.map(achievementChatItem)],
+    ].filter(([id]) => _achievementsV1Filter === 'all' || _achievementsV1Filter === id);
+    _achievementsShown = [];
+    return groups.map(([id, label, items]) => {
+      if (id === 'chat' && !_chatAchievementsData) {
+        return `<div class="v3-empty" role="alert"><b>Достижения чата не загрузились</b> <button type="button" class="v3-link" onclick="openAchievementsV1()">Повторить</button></div>`;
+      }
+      if (!items.length) return _achievementsV1Filter === 'all' ? '' : '<p class="v3-empty">В этой категории пока ничего нет.</p>';
+      const rows = items.sort(achievementOrder).map((item) => achievementRow(item, _achievementsShown.push(item) - 1)).join('');
+      const head = _achievementsV1Filter === 'all' ? `<div class="v3-sec"><span class="v3-eyebrow">${label}</span></div>` : '';
+      return `${head}<div class="ach-list">${rows}</div>`;
     }).join('');
   }
 
-  function achievementFamilyCard(family) {
-    const next = family.next;
-    const maxActiveWeeks = Number(_achievementsV1Data?.max_active_weeks) || 156;
-    const finalMilestone = (family.milestones || []).find(
-      (milestone) => Number(milestone.level) === Number(family.max_level),
-    );
-    const eventTarget = Number(next?.events_required)
-      || Number(finalMilestone?.events_required)
-      || 1;
-    const weekTarget = Number(next?.weeks_required) || maxActiveWeeks;
-    const eventValue = Number(family.completed_events || 0);
-    const weekValue = Number(family.active_weeks || 0);
-    const category = family.category === 'games' ? 'Игры' : 'Приключения';
-    const action = ACHIEVEMENT_ACTIONS[family.id] || "goTo('activities')";
-    const nextTitle = next
-      ? `Следующий уровень · +${fmt(next.reward_mora)} Моры`
-      : 'Путь завершён';
-
-    return `<article class="achievement-card" data-category="${esc(family.category)}">
-      <header class="achievement-card-head">
-        <span class="achievement-icon" aria-hidden="true">${esc(family.icon)}</span>
-        <div><small>${category}</small><h2>${esc(family.title)}</h2><p>${esc(family.help)}</p></div>
-        <strong>${family.level}<small>/ ${family.max_level}</small></strong>
-      </header>
-      <div class="achievement-next">
-        <b>${nextTitle}</b>
-        <span>${esc(achievementNextCopy(family, eventTarget, weekTarget))}</span>
-      </div>
-      <div class="achievement-meter">
-        <label><span>Завершения</span><b>${achievementProgressCopy(eventValue, eventTarget)}</b></label>
-        <div role="progressbar" aria-label="${esc(family.title)}: завершения" aria-valuemin="0" aria-valuemax="${eventTarget}" aria-valuenow="${Math.min(eventValue, eventTarget)}"><i style="width:${achievementPct(eventValue, eventTarget)}%"></i></div>
-      </div>
-      <div class="achievement-meter">
-        <label><span>Активные недели</span><b>${achievementProgressCopy(weekValue, weekTarget)}</b></label>
-        <div role="progressbar" aria-label="${esc(family.title)}: активные недели" aria-valuemin="0" aria-valuemax="${weekTarget}" aria-valuenow="${Math.min(weekValue, weekTarget)}"><i style="width:${achievementPct(weekValue, weekTarget)}%"></i></div>
-      </div>
-      <div class="achievement-card-actions">
-        <button type="button" onclick="${action}">${esc(family.action_label || 'К активности')}</button>
-        <details>
-          <summary aria-label="Вехи: ${esc(family.title)}">Вехи</summary>
-          <p>Мора указана за достижение самого уровня.</p>
-          <ul>${achievementMilestones(family)}</ul>
-        </details>
-      </div>
-    </article>`;
-  }
-
-  // Достижения чат-бота («бот достижения»): уровни растут от активности в чатах, эссенция — за каждый 10-й.
-  function chatAchievementCard(item) {
-    const target = item.next_threshold;
-    const base = Number(item.prev_threshold || 0);
-    const value = Number(item.value || 0);
-    const pct = target ? achievementPct(value - base, target - base) : 100;
-    const reward = item.next_reward
-      ? `На ${item.next_reward.level}-м уровне · +${fmt(item.next_reward.essence)} 🔮`
-      : (target ? 'Все вехи с эссенцией пройдены' : 'Все уровни пройдены 👑');
-    const progress = target ? `${fmt(value)} / ${fmt(target)}` : `${fmt(value)} ✓`;
-    return `<article class="achievement-card achievement-chat" data-category="chat">
-      <header class="achievement-card-head">
-        <span class="achievement-icon" aria-hidden="true">${esc(item.icon)}</span>
-        <div><small>${esc(item.group_title)}</small><h2>${esc(item.title)}</h2><p>${esc(item.measure)}</p></div>
-        <strong>${item.level}<small>/ ${item.max_level}</small></strong>
-      </header>
-      <div class="achievement-meter">
-        <label><span>${esc(reward)}</span><b>${progress}</b></label>
-        <div role="progressbar" aria-label="${esc(item.title)}: до следующего уровня" aria-valuemin="${base}" aria-valuemax="${target || value}" aria-valuenow="${Math.max(base, Math.min(value, target || value))}"><i style="width:${pct}%"></i></div>
-      </div>
-    </article>`;
-  }
-
-  function achievementFilterButtons(families) {
-    const chat = _chatAchievementsData?.achievements || [];
-    const filters = [
-      ['all', 'Все', families.length + chat.length],
-      ['games', 'Игры', families.filter((family) => family.category === 'games').length],
-      ['collection', 'Приключения', families.filter((family) => family.category === 'collection').length],
-      ['chat', 'Чат', chat.length],
-    ];
-    return filters.map(([id, label, count]) => (
-      `<button type="button" data-achievement-filter="${id}"`
-      + ` class="${_achievementsV1Filter === id ? 'is-active' : ''}"`
-      + ` aria-pressed="${_achievementsV1Filter === id}"`
-      + ` onclick="achievementsV1Filter('${id}')">${label}<span>${count}</span></button>`
-    )).join('');
+  function achievementTabs() {
+    return `<nav class="v3-tabs v3-tabs--wide ach-tabs" role="tablist" aria-label="Категории достижений" onkeydown="achievementsV1TabKey(event)">${ACHIEVEMENT_FILTERS.map(([id, label]) =>
+      `<button type="button" class="v3-tab${_achievementsV1Filter === id ? ' on' : ''}" role="tab" data-achievement-filter="${id}" aria-selected="${_achievementsV1Filter === id}" aria-controls="ach-panel" tabindex="${_achievementsV1Filter === id ? 0 : -1}" onclick="achievementsV1Filter('${id}')">${label}</button>`).join('')}</nav>`;
   }
 
   function renderAchievementsV1() {
     const root = el('pg-achievements-v1');
     if (!root || !_achievementsV1Data) return;
-
-    const families = _achievementsV1Data.families || [];
-    const chat = _chatAchievementsData?.achievements || [];
-    const shown = _achievementsV1Filter === 'all'
-      ? families
-      : families.filter((family) => family.category === _achievementsV1Filter);
-    const shownChat = ['all', 'chat'].includes(_achievementsV1Filter) ? chat : [];
     const summary = _achievementsV1Data.summary || {};
     const chatSummary = _chatAchievementsData?.summary || {};
-    const totalLevels = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
-    const maxLevels = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
-    const chatNote = _chatAchievementsData
-      ? ''
-      : (_achievementsV1Filter === 'chat' ? '<p class="empty">Достижения чата не загрузились. Откройте вкладку ещё раз.</p>' : '');
-    const cards = (shown.map(achievementFamilyCard).join('')
-      + shownChat.map(chatAchievementCard).join(''))
-      || chatNote
-      || '<p class="empty">В этой категории пока нет путей.</p>';
-
-    root.innerHTML = `<div class="looks-head achievement-head">
-        <button class="looks-back" onclick="goTo('profile')" aria-label="Назад">‹</button>
-        <h1 class="looks-htitle">🏅 Достижения</h1>
-      </div>
-      <section class="achievement-hero">
-        <div><span>Общий путь</span><strong>${fmt(totalLevels)} <small>/ ${fmt(maxLevels)} уровней</small></strong></div>
-        <div><span>Получено за уровни</span><strong>${fmt(summary.claimed_mora || 0)} 🪙</strong></div>
-        <p>Засчитываются только подтверждённые завершения. Награда — Мора, без скрытой косметики. Достижения чата растут от активности в чатах с ботом, за каждый 10-й уровень — 🔮 эссенция.</p>
-      </section>
-      <nav class="achievement-filters" aria-label="Категории достижений">${achievementFilterButtons(families)}</nav>
-      <p class="sr-only" role="status" aria-live="polite">Показано достижений: ${shown.length + shownChat.length}</p>
-      <section class="achievement-list">${cards}</section>`;
+    const total = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
+    const max = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
+    const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
+    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub })}${achievementTabs()}
+      <div id="ach-panel" role="tabpanel">${achievementSections()}</div>
+      <details class="v3-more ach-help"><summary>Как растут достижения</summary>
+        <p>Пути в играх и приключениях растут от подтверждённых завершений и активных недель: для уровня нужны оба условия. Награда — Мора, она приходит сама, без скрытой косметики.</p>
+        <p>Достижения чата растут от активности в чатах с ботом; за каждый 10-й уровень — 🔮 эссенция.</p>
+      </details>`;
+    v3EnterSync(root);
   }
 
+  function achievementMeter(label, value, target) {
+    const done = value >= target;
+    return `<div class="ach-meter"><span>${label}</span><b>${fmt(value)}${done ? ' ✓' : ` / ${fmt(target)}`}</b><i class="ach-bar"><i style="width:${achievementPct(value, target)}%"></i></i></div>`;
+  }
+  function achievementMilestones(family) {
+    return (family.milestones || []).map((m) => {
+      const mark = m.status === 'claimed' ? '✓' : (m.status === 'reached' ? '•' : '');
+      return `<li class="is-${esc(m.status)}"><b>${m.level} ур.</b><small>${fmt(m.events_required)} ${achievementWord(m.events_required, 'завершение', 'завершения', 'завершений')} · ${m.weeks_required} нед.</small><span>+${fmt(m.reward_mora)} 🪙 ${mark}</span></li>`;
+    }).join('');
+  }
+
+  // Лист подробностей: прогресс по обоим условиям, вехи и переход к самой активности
+  window.achievementsV1Open = function (index) {
+    const item = _achievementsShown[index];
+    if (!item) return;
+    _haptic('select');
+    const title = `${item.icon} ${item.title} · ${item.level}/${item.max}`;
+    if (item.chat) {
+      const c = item.chat, target = Number(c.next_threshold || 0);
+      const reward = c.next_reward ? `<p class="ach-note">На ${c.next_reward.level}-м уровне · +${fmt(c.next_reward.essence)} 🔮</p>` : '';
+      OM(title, `<div class="ach-sheet"><p>${esc(c.group_title)} · ${esc(c.measure)}</p>${target ? achievementMeter('До следующего уровня', Number(c.value || 0), target) : '<p class="ach-note">Все уровни пройдены 👑</p>'}${reward}</div>`, [{ l: 'Закрыть', f: 'CM()', c: 'ghost' }]);
+      return;
+    }
+    const f = item.family, t = achievementTargets(f);
+    const action = ACHIEVEMENT_ACTIONS[f.id] || "goTo('activities')";
+    OM(title, `<div class="ach-sheet"><p>${esc(f.help)}</p>
+      ${achievementMeter('Завершения', Number(f.completed_events || 0), t.events)}
+      ${achievementMeter('Активные недели', Number(f.active_weeks || 0), t.weeks)}
+      <div class="v3-sec"><span class="v3-eyebrow">Вехи · Мора за сам уровень</span></div>
+      <ul class="ach-steps">${achievementMilestones(f)}</ul></div>`,
+      [{ l: esc(f.action_label || 'К активности'), f: `CM();${action}`, c: 'primary' }]);
+  };
+
+  window.achievementsV1Back = function () { if (_navStack.length) navBack(); else switchPage('profile', null, true); };
   window.achievementsV1Filter = function (category) {
-    _achievementsV1Filter = ACHIEVEMENT_FILTERS.includes(category) ? category : 'all';
+    const next = ACHIEVEMENT_FILTERS.some(([id]) => id === category) ? category : 'all';
+    if (next === _achievementsV1Filter) return;
+    _haptic('select');
+    _achievementsV1Filter = next;
     renderAchievementsV1();
-    requestAnimationFrame(() => {
-      el('pg-achievements-v1')
-        ?.querySelector(`[data-achievement-filter="${_achievementsV1Filter}"]`)
-        ?.focus();
-    });
+  };
+  // Стрелки двигают выбор по вкладкам; фокус переносится только при управлении с клавиатуры
+  window.achievementsV1TabKey = function (event) {
+    const ids = ACHIEVEMENT_FILTERS.map(([id]) => id), at = ids.indexOf(_achievementsV1Filter);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: ids.length - 1 }[event.key];
+    if (to === undefined) return;
+    event.preventDefault();
+    window.achievementsV1Filter(ids[(to + ids.length) % ids.length]);
+    requestAnimationFrame(() => el('pg-achievements-v1')?.querySelector(`[data-achievement-filter="${_achievementsV1Filter}"]`)?.focus());
   };
   window.openAchievementsV1 = async function () {
     switchPage('achievements-v1');
     const root = el('pg-achievements-v1');
-    root.innerHTML = '<div class="loader" style="margin-top:44px">Загрузка достижений…</div>';
+    if (!_achievementsV1Data) {
+      root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()' })}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:320px;border-radius:18px;margin-top:18px"></div>`;
+    }
     try {
       const [paths, chat] = await Promise.all([
         api('/achievements-v1/me'),
@@ -944,12 +916,11 @@
       ]);
       _achievementsV1Data = paths;
       _chatAchievementsData = chat;
-      _achievementsV1Filter = 'all';
       renderAchievementsV1();
     } catch (error) {
-      root.innerHTML = `<div class="v3-err quest-load-error" role="alert">
+      root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()' })}<div class="v3-empty" role="alert">
         <b>Достижения не загрузились</b><span>${esc(error)}</span>
-        <button type="button" onclick="openAchievementsV1()">Повторить</button>
+        <button type="button" class="v3-link" onclick="openAchievementsV1()">Повторить</button>
       </div>`;
     }
   };

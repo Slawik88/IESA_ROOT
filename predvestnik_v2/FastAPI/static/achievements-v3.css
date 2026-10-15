@@ -1,0 +1,40 @@
+/* ═══ ДОСТИЖЕНИЯ · пути в играх и приключениях, достижения чата ═══
+   Вкладки «Все · Игры · Приключения · Чат» (app.12.js), строка на достижение: значок, название, что осталось до следующего уровня, одна полоса.
+   Подробности и вехи — в листе OM по нажатию. Акцент экрана — только выбранная вкладка; полосы цвета текста (docs/MINIAPP_DESIGN_RULES.md). */
+
+.ach-tabs { margin: 0 0 4px; overflow-x: auto; scrollbar-width: none; }   /* на 320 px вкладки прокручиваются, а не раздвигают экран */
+.ach-tabs::-webkit-scrollbar { display: none; }
+.ach-tabs .v3-tab { flex: none; }
+#ach-panel > .v3-sec:first-child { margin-top: 4px; }
+
+.ach-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: none; color: var(--v3-ink); font: 500 15px/1.3 var(--v3-font); text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ach-row + .ach-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.ach-row:active { opacity: .55; }
+.ach-ic { flex: none; width: 28px; font-size: 22px; line-height: 1; text-align: center; }
+.ach-tx { flex: 1; min-width: 0; }
+.ach-tx b { display: block; font-weight: 600; }
+.ach-tx small { display: block; margin-top: 2px; overflow: hidden; color: var(--v3-dim); font-size: 12px; font-weight: 400; white-space: nowrap; text-overflow: ellipsis; }
+.ach-lv { flex: none; min-width: 44px; font-size: 15px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.ach-lv small { color: var(--v3-dim); font-size: 12px; font-weight: 400; }
+.ach-lv em { display: block; margin-top: 3px; color: var(--v3-dim); font-size: 11.5px; font-style: normal; font-weight: 400; white-space: nowrap; }
+
+/* одна полоса на достижение: заливка цвета текста на дорожке */
+.ach-bar { display: block; height: 3px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: var(--v3-track); }
+.ach-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--v3-ink); }
+
+.ach-help { margin-top: 24px; }
+.ach-help p { margin: 0 0 10px; color: var(--v3-dim); font-size: 13px; line-height: 1.5; }
+
+/* лист подробностей */
+.ach-sheet > p { margin: 0 0 14px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; }
+.ach-sheet .ach-note { margin-top: 10px; color: var(--v3-ink); }
+.ach-meter { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; margin-top: 12px; font-size: 13.5px; }
+.ach-meter span { color: var(--v3-dim); }
+.ach-meter b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ach-meter .ach-bar { grid-column: 1 / -1; }
+.ach-steps { margin: 0; padding: 0; list-style: none; }
+.ach-steps li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: baseline; gap: 10px; min-height: 36px; padding: 8px 0; font-size: 13.5px; }
+.ach-steps li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
+.ach-steps li small { color: var(--v3-dim); font-size: 12px; }
+.ach-steps li span { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ach-steps li.is-locked { color: var(--v3-dim); }
