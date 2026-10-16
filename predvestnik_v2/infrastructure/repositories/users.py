@@ -174,10 +174,6 @@ async def ensure_account_columns(db) -> None:
         # сохранность (чистка кэша/переустановка/долгий простой), поэтому у многих
         # игроков лента периодически «сбрасывалась» и всё показывалось заново «Новое».
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsnew_seen_id TEXT DEFAULT NULL",
-        # Онбординг «Тропы» 2026-10-16: показана ли вводная карточка питомцев.
-        # Серверный флаг, а не localStorage: Telegram WebView не гарантирует
-        # сохранность localStorage (см. урок whatsnew_seen_id выше).
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS trail_intro_done BOOLEAN DEFAULT FALSE",
     ):
         # КАЖДЫЙ ALTER — в своей транзакции (commit после успеха, rollback после сбоя).
         # PostgreSQL при ошибке ЛЮБОГО стейтмента аварийно завершает ВСЮ транзакцию, и
@@ -215,24 +211,6 @@ async def set_combat_tutorial_done(db, user_id: int) -> None:
     """Отметить «Первый бой» пройденным (идемпотентно)."""
     await db.execute(
         "UPDATE users SET combat_tutorial_done = TRUE WHERE user_tg_id = ?", (user_id,))
-
-
-async def get_trail_intro_done(db, user_id: int) -> bool:
-    """Онбординг «Тропы»: показана ли вводная карточка (флаг переживает смену устройства)."""
-    try:
-        async with db.execute(
-            "SELECT trail_intro_done FROM users WHERE user_tg_id = ?", (user_id,)
-        ) as c:
-            row = await c.fetchone()
-        return bool(row and row[0])
-    except Exception:
-        return False  # колонка ещё не создана на этом процессе — считаем «не показана»
-
-
-async def set_trail_intro_done(db, user_id: int) -> None:
-    """Отметить вводную «Тропы» показанной (идемпотентно)."""
-    await db.execute(
-        "UPDATE users SET trail_intro_done = TRUE WHERE user_tg_id = ?", (user_id,))
 
 
 async def add_account_xp(db, user_id: int, amount: int) -> dict:

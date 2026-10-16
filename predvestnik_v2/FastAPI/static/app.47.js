@@ -1,9 +1,8 @@
-// ── «Объяснялки» v1: вызываемый гайд, вводная «Тропы», совет «что сейчас делать» ───────────────
+// ── «Объяснялки» v1: вызываемая шпаргалка + совет «что сейчас делать» ──────────────────────────
 // Файл подключается ПОСЛЕ app.40–46 (см. main.py): простые функции хаба «Тропы» уже известны.
-// Гайд открывается из шапки РАЗОМ (v3GuideBtn) и из вводной карточки — на любой вкладке.
-// «Прочитано» вводной живёт на сервере (users.trail_intro_done через POST /pets-v2/intro-seen):
-// урок what's-new — Telegram WebView не сохраняет localStorage надёжно.
-// Тексты гайда — формулировки механик без копий чисел правил; значения игрок видит на своём экране.
+// Гайд открывается из шапки в любой момент (v3GuideBtn); формат — шпаргалка: сетка иконок,
+// у каждой темы ровно одна строка. Стену текста игрок не читает — учимся делом и картинкой.
+// Тексты без копий чисел правил: живые значения игрок видит на своём экране.
 
 // ── Реестр гайдов и лист ──────────────────────────────────────────────────────────────────────
 const _GUIDE_BOOK = {};
@@ -35,10 +34,11 @@ function _guideSheet(html) {
 function v3Guide(id) {
   const book = _GUIDE_BOOK[id]; if (!book) return;
   _haptic('select');
-  const secs = (book.sections || []).map(s =>
-    `<div class="g-sec"><span class="v3-eyebrow">${_trE(s.eyebrow)}</span><h3>${_trE(s.title)}</h3><p class="g-tx">${_trE(s.text)}</p></div>`).join('');
+  const rows = typeof book.tiles === 'function' ? book.tiles() : (book.tiles || []);
+  const tiles = rows.map(t =>
+    `<div class="g-tile"><span class="g-ic" aria-hidden="true">${t.icon}</span><b>${_trE(t.title)}</b><small>${_trE(t.text)}</small></div>`).join('');
   const lead = book.lead ? `<p class="g-lead">${_trE(book.lead)}</p>` : '';
-  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}${secs}</div>`;
+  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${tiles}</div></div>`;
   _guideSheet(`${body}<div class="tr-foot"><button type="button" class="v3-pill v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
 }
 // Слепок кнопки для шапки вкладки: v3Head(..., { end: v3GuideBtn('trail') })
@@ -53,42 +53,43 @@ _backHooks.push(() => {
   return true;
 });
 
-// ── Гайд «Тропа» ───────────────────────────────────────────────────────────────────────────────
-guideDefine('trail', {
-  title: 'Тропа питомцев',
-  lead: 'Тропа — это то, чем питомцы заняты, пока вы не в приложении.',
-  sections: [
-    { eyebrow: 'Главное', title: 'Отправьте питомца в путь', text: 'Поход, экспедиция или дозор: питомец уходит на несколько часов и приносит Следы и находки. Вернулся — заберите награду и решайте, куда дальше.' },
-    { eyebrow: 'Следы', title: 'Дневная планка', text: 'Следы — общий прогресс за все занятия в день. После отметки упора они засчитываются медленнее, но награды не уменьшаются. К новому дню планка отрастает заново.' },
-    { eyebrow: 'Занятия', title: 'Поход, экспедиция, дозор', text: 'Одновременных занятий три. Поход — вернулся, значит награда ваша. Экспедиция — на возврате выбор из трёх путей: рискованный путь даёт больше Следов, а при неудаче часть награды всё равно остаётся. Дозор — целый день, для тех, кто заходит раз в сутки.' },
-    { eyebrow: 'Спутник', title: 'Пара', text: 'Несколько питомцев могут ходить вместе: один ведёт, второй — спутник, он тратит немного сил и получает часть Следов. Пара открывается, когда у вас пять разных видов питомцев.' },
-    { eyebrow: 'Лагерь', title: 'Свои постройки', text: 'Постройки до пятого уровня, стройка идёт сама. Лежанка — силы восстанавливаются быстрее. Указатели — повтор одного маршрута выгоднее. Мастерская — талисманы перековываются в тиры повыше.' },
-    { eyebrow: 'Мини-игры', title: 'Выслеживание', text: 'Поле 3×3, пара попыток в день. Сначала открыты дармовые подсказки («тепло» — рядом, «холодно» — дальше); остальные клетки открываются за очки внимания — их больше, выше уровень питомца. Найдёте — заберите находку.' },
-    { eyebrow: 'Мини-игры', title: 'Испытание недели', text: 'Подберите питомца под набор тегов недели: назначение, черты и талисманы. Сдача — раз в неделю; сложность зависит от того, сколько тегов сошлось.' },
-  ],
-});
+// ── Шпаргалка «Тропа»: плитки собираются заново при каждом открытии, из живого ответа сервера ──
+// Адаптивность по ресурсам игрока: нет питомцев → свой набор; есть готовый к призыву/награде,
+// Спутник ещё закрыт, стройка идёт, попытки/день кончились, еда кончилась — плитки честно это пишут.
+// Числа берём из ответа (pair.need, daily/track/trial), копий правил клиент не хранит.
+guideDefine('trail', { title: 'Тропа — шпаргалка', lead: 'Питомцы растут в пути. Остальное — по желанию.', tiles: _trailTiles });
 
-// ── Вводная карточка: один раз, отметка «Понятно» уходит на сервер ─────────────────────────────
-function trailIntro(me) {
-  if (me.intro_done === true || !(me.pets || []).length) return '';
-  return `<section class="tr-sec tr-intro">${_trSec('Как здесь устроено')}<ul class="tr-intro-list">` +
-    '<li><b>Отправляйте питомцев в путь</b><span>поход, экспедиция или дозор: время идёт, растут Следы, идут находки.</span></li>' +
-    '<li><b>Растите и собирайте</b><span>карточка питомца: кормление, назначение, черты и талисманы меняют награду.</span></li>' +
-    '<li><b>Заглядывайте в Лагерь и мини-игры</b><span>постройки-бонусы, пара попыток Выслеживания в день и Испытание недели.</span></li>' +
-    `</ul><div class="tr-intro-btns"><button type="button" class="v3-pill v3-pill--sm" onclick="trailIntroDone(this)">Понятно</button>` +
-    `<button type="button" class="v3-link" onclick="v3Guide('trail')">Подробнее ›</button></div></section>`;
-}
-async function trailIntroDone(button) {
-  if (button) button.disabled = true;
-  try {
-    await api('/pets-v2/intro-seen', { method: 'POST', body: JSON.stringify({ seen: true }) });
-    if (_tr.me) { _tr.me.intro_done = true; _trRender(); }
-  } catch (error) {
-    console.error('intro-seen failed', error);
-    _haptic('error');
-    if (button) button.disabled = false;
-    toast(typeof error === 'string' ? error : 'Не сохранилось. Попробуйте ещё раз.', false);
-  }
+function _trailTiles() {
+  const me = _tr.me;
+  const pets = me ? me.pets || [] : [], acts = me ? me.activities || [] : [];
+  if (!pets.length) return [
+    { icon: '🐾', title: 'Питомцы', text: 'получите в сундуках' },
+    { icon: '🪙', title: 'Следы', text: 'дневной прогресс роста' },
+  ];
+  const ready = acts.filter(a => a.ready).length;
+  const min = _trMinCost(me);
+  const free = pets.filter(p => !p.run_id && p.energy >= min).length;
+  const slotsFree = Math.max(0, (Number(me.slots) || 3) - acts.length);
+  const tiles = [];
+  // карточка «В путь» говорит тем же языком, что и экран: что прямо сейчас происходит
+  tiles.push({ icon: '🐾', title: 'В путь', text: ready
+    ? _trWord(ready, 'питомец ждёт награды', 'питомца ждут награды', 'питомцев ждут награды')
+    : free && slotsFree ? 'есть свободный питомец' : acts.length ? 'питомцы в пути' : 'дождитесь сил и отправьте' });
+  const daily = me.daily || {}, max = Number(daily.max) || 0, cur = Number(daily.credited) || 0;
+  tiles.push({ icon: '🪙', title: 'Следы', text: cur >= max - 0.5 ? 'на сегодня планка набрана' : 'дневной прогресс роста' });
+  tiles.push({ icon: '🎒', title: 'Занятия', text: 'поход · экспедиция · дозор' });
+  const pair = me.pair || {};
+  tiles.push({ icon: '👫', title: 'Спутник', text: pair.unlocked ? 'доступен: возьмите второго' : `откроется с ${Number(pair.need) || 5} видами` });
+  const camp = me.camp || {}, lv = camp.levels || {}, job = camp.job;
+  tiles.push({ icon: '🏕️', title: 'Лагерь', text: job ? (job.done ? 'стройка завершена' : 'стройка идёт сама')
+    : Object.values(lv).some(v => v > 0) ? 'уже простроен — бонусы' : 'постройки дают бонусы' });
+  const track = me.track || {};
+  tiles.push({ icon: '🔍', title: 'Выслеживание', text: track.open ? 'игра не закончена' : Number(track.attempts_left) > 0 ? 'ежедневная мини-игра' : 'приходите завтра' });
+  const trial = me.trial || {};
+  tiles.push({ icon: '🏆', title: 'Испытание', text: trial.done ? 'сдано — до следующей недели' : 'недельная мини-игра' });
+  const food = (me.foods || []).some(f => Number(f.quantity) > 0), tired = pets.some(p => p.energy < min);
+  tiles.push({ icon: '⏰', title: 'Силы', text: tired && !food ? 'нужна еда — сундуки' : tired ? 'покормите: вырастут быстрее' : 'растут сами' });
+  return tiles;
 }
 
 // ── Совет «что сейчас делать»: одно главное действие экрана ────────────────────────────────────
