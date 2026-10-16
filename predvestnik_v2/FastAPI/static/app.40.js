@@ -255,10 +255,29 @@ function _trFail(error) {
 
 // ── Отправка ─────────────────────────────────────────────────────────────────────────────────────────
 const _trCost = (kind, hours) => Number(_tr.me.rules.energy[kind === 'watch' ? 'watch' : 'run'][hours]) || 0;
+// ── Кого брать: подсказка «лучший выбор» ──────────────────────────────────────────────────────────────
+// Сравниваем по тем же величинам, что показывает сама игра: экспедицию решает Выдержка (resilience —
+// её считает сервер, от неё зависит исход броска), поход — сырые Следы (их поднимают звёзды вида и
+// любимый маршрут), дозор — только запас сил (у него нет ни броска, ни надбавок). Занятый питомец или
+// тот, кому не хватит сил на выбранные часы, в подсказке не участвует. Своих чисел не заводим.
+function _trFitKey(p, kind, hours, route) {
+  if (p.run_id || p.energy < _trCost(kind, hours)) return null;
+  const fav = route && (p.favorite_route === route || p.favorite_route === 'any') ? 1 : 0, fed = p.fed_favorite ? 1 : 0, stars = Number(p.stars) || 0;
+  if (kind === 'watch') return [p.energy];
+  return kind === 'expedition' ? [p.resilience, stars, fav, fed, p.energy] : [stars, fav, fed, p.energy];
+}
+const _trWins = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
+function _trBestPet(list, kind, hours, route) {
+  let best = null, key = null;
+  (list || []).forEach(p => { const k = _trFitKey(p, kind, hours, route); if (k && (!key || _trWins(k, key))) { key = k; best = p; } });
+  return best;
+}
+// Разметка метки «★» и невидимой подписи для читалки — визуально только значок, без слов
+const _trBestMark = on => on ? '<i class="sr-only">Лучший выбор. </i>' : '';
 function trailSend(petId) {
   const me = _tr.me; if (!me) return;
-  const free = (me.pets || []).filter(p => !p.run_id), min = _trMinCost(me);
-  const pick = petId ? _trPet(petId) : free.filter(p => p.energy >= min).sort((a, b) => b.energy - a.energy)[0] || free[0];
+  const free = (me.pets || []).filter(p => !p.run_id), first = (me.durations.run || [3])[0];
+  const pick = petId ? _trPet(petId) : _trBestPet(free, 'trek', first, '') || free[0];
   _tr.send = { pet: pick ? pick.id : 0, kind: 'trek', hours: 3, route: '', routeSet: false, comp: 0 };
   _trSendFit();
   _trSheet(_trSendHtml());
@@ -285,7 +304,8 @@ function _trSendHtml() {
   const free = (me.pets || []).filter(p => !p.run_id), min = _trMinCost(me), cost = _trCost(s.kind, s.hours), pairCost = Number(rules.energy.pair) || 10;
   const slotsLeft = Math.max(0, (Number(me.slots) || 3) - (me.activities || []).length), mate = !watch && s.comp ? _trPet(s.comp) : null;
   const radio = (on, f, click, inner, cls = 'tr-chip') => `<button type="button" class="${cls}" role="radio" aria-checked="${on}" data-f="${f}" onclick="${click}">${inner}</button>`;
-  const pets = free.map(p => radio(p.id === s.pet, `pet-${p.id}`, `trailSendSet('pet',${p.id})`, `<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} из ${p.energy_max}</small>`, `tr-chip tr-chip--i${p.energy < min ? ' is-dim' : ''}`)).join('');
+  const best = _trBestPet(free, s.kind, s.hours, s.route);
+  const pets = free.map(p => { const top = best && p.id === best.id; return radio(p.id === s.pet, `pet-${p.id}`, `trailSendSet('pet',${p.id})`, `${_trBestMark(top)}<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} из ${p.energy_max}</small>`, `tr-chip tr-chip--i${p.energy < min ? ' is-dim' : ''}${top ? ' is-best' : ''}`); }).join('');
   const kinds = ['trek', 'expedition', 'watch'].map(k => radio(s.kind === k, `kind-${k}`, `trailSendSet('kind','${k}')`, _TR_KIND[k], 'tr-seg-b')).join('');
   const note = { trek: 'Награда сразу, решений нет.', expedition: `На развилке вы выберете путь: награда больше, но есть риск. Следы ×${_trMult(rules.xp.expedition)}.`, watch: 'Долгий дозор без маршрута, для тех, кто заходит раз в день.' }[s.kind];
   const hours = (watch ? me.durations.watch : me.durations.run).map(h => radio(h === s.hours, `hours-${h}`, `trailSendSet('hours',${h})`, `<b>${h}\u00a0ч</b><small>${_trCost(s.kind, h)} сил</small>`, `tr-chip tr-chip--c${pet && _trCost(s.kind, h) > pet.energy ? ' is-dim' : ''}`)).join('');

@@ -314,7 +314,8 @@ function _trTrackPicker(me) {
   const t = _tr.track, left = me.track?.attempts_left || 0, daily = me.rules.track?.daily || 2, free = me.rules.track?.free_clues || 3;
   const pets = (me.pets || []).slice().sort((a, b) => b.track_points - a.track_points || b.level - a.level || a.id - b.id);
   if (!t.pet || !_trPet(t.pet)) t.pet = pets[0] ? pets[0].id : 0;
-  const chips = pets.map(p => `<button type="button" class="tr-chip tr-chip--i" role="radio" aria-checked="${p.id === t.pet}" data-f="tpet-${p.id}" onclick="trailTrackPet(${p.id})"><span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>очков внимания: ${p.track_points}</small></button>`).join('');
+  const best = pets[0] && pets[0].id;   // список уже отсортирован: больше всего очков внимания — первым
+  const chips = pets.map(p => `<button type="button" class="tr-chip tr-chip--i${p.id === best ? ' is-best' : ''}" role="radio" aria-checked="${p.id === t.pet}" data-f="tpet-${p.id}" onclick="trailTrackPet(${p.id})">${_trBestMark(p.id === best)}<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>очков внимания: ${p.track_points}</small></button>`).join('');
   return `<section class="tr-sec">${_trSec('Выслеживание', `<span class="tr-count">Попыток: ${left} из ${daily}</span>`)}<p class="tr-note">Находка спрятана в одной из девяти клеток. Сначала открыты ${free} подсказки: «тепло» значит, что она рядом, «холодно» значит, что дальше. Остальные клетки открываются за очки внимания: чем выше уровень питомца, тем их больше.</p>
     ${pets.length ? `<div class="tr-grp"><span class="v3-eyebrow">Кто ищет</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Кто ищет">${chips}</div></div>` : ''}
     ${left ? '' : '<p class="tr-note tr-why">Попытки на сегодня закончились. Завтра будут новые.</p>'}
@@ -364,10 +365,11 @@ function _trTrialPets(me, tags) {
   const t = _tr.trial ||= { pet: 0 };
   const pets = (me.pets || []).slice().sort((a, b) => (b.trial?.matches || 0) - (a.trial?.matches || 0) || b.level - a.level || a.id - b.id);
   if (!t.pet || !_trPet(t.pet)) t.pet = pets[0] ? pets[0].id : 0;
+  const best = pets[0] && pets[0].id;   // список отсортирован: больше всего закрытых тегов — первым
   return pets.map(p => {
     const hits = p.trial?.hits || {}, n = p.trial?.matches || 0;
     const marks = tags.map(g => `<span class="tr-tag${hits[g.key] ? ' is-hit' : ''}"><i class="sr-only">${hits[g.key] ? 'Закрыто: ' : 'Не закрыто: '}</i>${g.label}</span>`).join('');
-    return `<li><button type="button" class="tr-row tr-pet${p.id === t.pet ? ' is-picked' : ''}" role="radio" aria-checked="${p.id === t.pet}" data-f="trial-${p.id}" onclick="trailTrialPick(${p.id})"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span class="tr-nm"><b>${_trE(p.name)}</b><span class="tr-tags">${marks}</span></span><span class="tr-hits" aria-label="Закрыто тегов: ${n} из 3"><b>${n}</b><small>из 3</small></span></button></li>`;
+    return `<li><button type="button" class="tr-row tr-pet${p.id === t.pet ? ' is-picked' : ''}${p.id === best ? ' is-best' : ''}" role="radio" aria-checked="${p.id === t.pet}" data-f="trial-${p.id}" onclick="trailTrialPick(${p.id})">${_trBestMark(p.id === best)}<span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span class="tr-nm"><b>${_trE(p.name)}</b><span class="tr-tags">${marks}</span></span><span class="tr-hits" aria-label="Закрыто тегов: ${n} из 3"><b>${n}</b><small>из 3</small></span></button></li>`;
   }).join('');
 }
 _TR_VIEWS.trial = me => {
