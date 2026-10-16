@@ -66,7 +66,7 @@ def main() -> None:
         "current": {
             "/": ("Чем помочь?",),
             "/updates.json": ("2026-10-16-plain-hints",),
-            "/static/app.css": ("flex: 1 1 auto; overflow: hidden", "width: 44px; height: 44px"),
+            "/static/app.css": ("hdr-ava", "width: 44px; height: 44px"),
             "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup", "Подсказки"),
         },
         "rollback-f8da5d43": {
