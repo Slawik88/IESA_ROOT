@@ -68,10 +68,10 @@ def main() -> None:
     marker_profiles = {
         "current": {
             "/": ("Чем помочь?",),
-            "/updates.json": ("2026-10-16-pet-quest-variety", "2026-10-16-mechanics-community", "2026-10-16-plain-hints"),
-            "/static/app.css": ("hdr-ava", "width: 44px; height: 44px"),
+            "/updates.json": ("2026-10-16-family-tree-design", "2026-10-16-pet-quest-variety", "2026-10-16-mechanics-community", "2026-10-16-plain-hints"),
+            "/static/app.css": ("hdr-ava", "width: 44px; height: 44px", "fam-mini"),
             "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup", "Подсказки", "loadPurgeEntry",
-                                "trailPresetSave", "openMafiaReview", "familyTreeFocus"),
+                                "trailPresetSave", "openMafiaReview", "familyTreeFocus", "fam-person", "Открыть Родословную"),
         },
         "rollback-f8da5d43": {
             "/": ("Предвестник в активной разработке",),

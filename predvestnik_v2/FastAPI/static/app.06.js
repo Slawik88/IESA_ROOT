@@ -38,19 +38,49 @@ function openFamilyTree() {
     _familyTree = d; familyTreeFocus(d.root);
   }).catch(e => { if (host?.isConnected) host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button type="button" class="v3-link" onclick="openFamilyTree()">Повторить</button>`; });
 }
+// Дерево — в языке остального сайта: карточка человека с созвездием (.v3-id),
+// ряды родственников (.v3-row) и фолды (.profile-fold). Данные и приватность те же:
+// видны только связи, кошельки и личные данные родственников не раскрываются.
 function familyTreeFocus(id) {
-  const d = _familyTree, host = el('family-tree-host'), me = d?.nodes.find(p => p.id === id);
-  if (!host || !me) return;
+  const d = _familyTree, host = el('family-tree-host'), focus = d?.nodes.find(p => p.id === id);
+  if (!host || !focus) return;
+  const node = uid => d.nodes.find(n => n.id === uid);
   const parents = d.edges.filter(e => e.kind === 'parent' && e.target === id).map(e => e.source);
   const spouses = d.edges.filter(e => e.kind === 'spouse' && (e.source === id || e.target === id)).map(e => e.source === id ? e.target : e.source);
   const children = d.edges.filter(e => e.kind === 'parent' && e.source === id).map(e => e.target);
   const siblings = [...new Set(d.edges.filter(e => e.kind === 'parent' && parents.includes(e.source) && e.target !== id).map(e => e.target))];
+  const childRole = uid => (d.edges.find(e => e.kind === 'parent' && e.source === id && e.target === uid) || {}).role || '';
+  const ava = (p, big) => `<span class="fam-ava${big ? ' fam-ava--lg' : ''}" aria-hidden="true">${_v3Constellation(p.name || p.id, 1, false)}</span>`;
   const person = uid => {
-    const p = d.nodes.find(n => n.id === uid); if (!p) return '';
-    return `<button type="button" class="tr-chip" onclick="familyTreeFocus('${p.id}')" aria-label="Родственные связи: ${esc(p.name)}"><b>${esc(p.name)}</b>${p.self ? '<small>Вы</small>' : ''}</button>`;
+    const p = node(uid); if (!p) return '';
+    const hint = p.self ? 'Вы' : childRole(uid);
+    return `<button type="button" class="v3-row fam-person" onclick="familyTreeFocus('${p.id}')" aria-label="Родственные связи: ${esc(p.name)}">${ava(p)}<span><b>${esc(p.name)}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</span><span class="v3-end">${_v3Icon('chev')}</span></button>`;
   };
-  const section = (title, ids) => ids.length ? `<section class="tr-grp"><h3 class="v3-eyebrow">${title}</h3><div class="tr-chips">${[...new Set(ids)].map(person).join('')}</div></section>` : '';
-  const ref = /^[A-Za-z0-9_-]{16,64}$/.test(me.profile_ref || '') ? me.profile_ref : null;
+  const section = (title, ids) => {
+    const uniq = [...new Set(ids)].filter(uid => node(uid));
+    return uniq.length ? `<section class="fam-sec"><div class="fam-sec-head"><span class="v3-eyebrow">${title}</span><small>${uniq.length}</small></div><div class="fam-list">${uniq.map(person).join('')}</div></section>` : '';
+  };
+  // Подпись родства к владельцу дерева — только то, что честно следует из рёбер.
+  const relToRoot = () => {
+    if (focus.id === d.root) return 'Это вы';
+    if (d.edges.some(e => e.kind === 'spouse' && ((e.source === focus.id && e.target === d.root) || (e.target === focus.id && e.source === d.root)))) return 'Ваш супруг или супруга';
+    const kid = d.edges.find(e => e.kind === 'parent' && e.source === d.root && e.target === focus.id);
+    if (kid) return kid.role === 'сын' ? 'Ваш сын' : kid.role === 'дочь' ? 'Ваша дочь' : 'Ваш ребёнок';
+    if (d.edges.some(e => e.kind === 'parent' && e.target === d.root && e.source === focus.id)) return 'Ваш родитель';
+    const rootParents = d.edges.filter(e => e.kind === 'parent' && e.target === d.root).map(e => e.source);
+    if (d.edges.some(e => e.kind === 'parent' && rootParents.includes(e.source) && e.target === focus.id)) return 'Брат или сестра';
+    return '';
+  };
+  const ref = /^[A-Za-z0-9_-]{16,64}$/.test(focus.profile_ref || '') ? focus.profile_ref : null;
+  const back = id !== d.root ? `<button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" onclick="familyTreeFocus('${d.root}')">Вернуться ко мне</button>` : '';
+  const prof = ref ? `<button type="button" class="v3-pill v3-pill--sm" onclick="CM();openPublicCardV3('${ref}')">Публичный профиль</button>` : '';
+  const rel = relToRoot();
   host.className = 'family-tree';
-  host.innerHTML = `<p class="tr-note">Нажмите на имя, чтобы посмотреть родственные связи этого человека.</p><details class="family-tree-info"><summary>О дереве и доступности данных</summary><p class="tr-note">${esc(d.notice)} Показан круг до ${d.max_depth} переходов от вас.</p></details>${id !== d.root ? `<button type="button" class="v3-link" onclick="familyTreeFocus('${d.root}')">Вернуться ко мне</button>` : ''}${section('Родители',parents)}<section class="tr-grp family-tree-center"><span class="v3-eyebrow">В центре дерева</span><h3>${esc(me.name)}${me.self ? ' · Вы' : ''}</h3>${ref ? `<button type="button" class="v3-link" onclick="CM();openPublicCardV3('${ref}')">Публичный профиль ›</button>` : ''}</section>${section('Супруг / супруга',spouses)}${section('Братья и сёстры',siblings)}${section('Дети',children)}${d.nodes.length === 1 ? '<p class="v3-empty">Родственных связей пока нет. Создать семью или принять приглашение можно в Telegram-чате с ботом.</p>' : ''}${d.truncated ? '<p class="tr-note" role="status">Семья большая: показаны первые 60 участников. Часть связей скрыта ограничением размера.</p>' : ''}<details><summary>Все в этом дереве · ${d.nodes.length}</summary><div class="tr-chips">${d.nodes.map(p => person(p.id)).join('')}</div></details>`;
+  host.innerHTML = `<section class="v3-id fam-hero">${ava(focus, true)}<div><span class="v3-eyebrow">${id === d.root ? 'В центре дерева' : 'Родственные связи'}</span><div class="v3-name">${esc(focus.name)}</div>${rel ? `<div class="v3-sub">${esc(rel)}</div>` : ''}</div></section>
+    ${(prof || back) ? `<div class="fam-acts">${prof}${back}</div>` : ''}
+    ${section('Родители', parents)}${section('Братья и сёстры', siblings)}${section('Супруг / супруга', spouses)}${section('Дети', children)}
+    ${d.nodes.length === 1 ? '<div class="v3-empty"><b>Родственных связей пока нет</b>Создать семью или принять приглашение можно в Telegram-чате с ботом.</div>' : ''}
+    ${d.truncated ? `<p class="v3-dim fam-note" role="status">Семья большая: показаны первые ${d.max_nodes ?? 60} участников. Часть связей скрыта ограничением размера.</p>` : ''}
+    <details class="profile-fold fam-fold"><summary><span class="profile-fold-title">Все в этом дереве</span><span class="profile-fold-meta">${d.nodes.length}</span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body"><div class="fam-all">${d.nodes.map(p => `<button type="button" class="fam-mini" onclick="familyTreeFocus('${p.id}')" aria-label="Показать связи: ${esc(p.name)}">${ava(p)}<span>${esc(p.name)}${p.self ? ' · Вы' : ''}</span></button>`).join('')}</div></div></details>
+    <details class="profile-fold fam-fold"><summary><span class="profile-fold-title">О дереве и доступности данных</span><span class="profile-fold-meta"></span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body"><p class="v3-dim">${esc(d.notice)} Показан круг до ${d.max_depth} переходов от вас.</p></div></details>`;
 }

@@ -19,7 +19,8 @@ const _V3_PATHS = {
   manage: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/>',
   essence: '<path d="M12 3c3.3 4.1 5.6 6.8 5.6 10.2a5.6 5.6 0 0 1-11.2 0C6.4 9.8 8.7 7.1 12 3z"/>',
   shop: '<path d="M3.5 5h2.3l2.1 9.6h10.3l2-6.9H6.6"/><circle cx="9.6" cy="18.6" r="1.4"/><circle cx="16.6" cy="18.6" r="1.4"/>',
-  bag: '<path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/>'
+  bag: '<path d="M9 5.2V4.5a3 3 0 0 1 6 0v.7"/><path d="M6.5 5.2h11A2.5 2.5 0 0 1 20 7.7v10.8a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 18.5V7.7a2.5 2.5 0 0 1 2.5-2.5z"/><path d="M4 11.5h16M10.5 11.5v2.5h3v-2.5"/>',
+  family: '<circle cx="9.2" cy="8" r="3.1"/><path d="M3.8 20c.7-3.3 3-5 5.4-5s4.7 1.7 5.4 5"/><circle cx="16.9" cy="9.7" r="2.4"/><path d="M15.2 14.9c2.2 0 4 1.5 4.6 5.1"/>'
 };
 function _v3Icon(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${_V3_PATHS[name] || ''}</svg>`;
@@ -79,6 +80,7 @@ function renderProfileHome(data) {
       ${chests}
       ${typeof shopEntryRow === 'function' ? shopEntryRow() : ''}
       ${_v3Row('trophy', 'Достижения', 'openAchievementsV1()')}
+      ${_v3Row('family', 'Моя семья', 'openFamilyTree()', 'Родословная: супруг, дети, родственники')}
       ${_v3Row('ticket', 'Промокоды', 'openPromoSheet()')}
     </nav>`;
 }
