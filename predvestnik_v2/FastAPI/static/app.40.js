@@ -267,18 +267,54 @@ function _trFitKey(p, kind, hours, route) {
   return kind === 'expedition' ? [p.resilience, stars, fav, fed, p.energy] : [stars, fav, fed, p.energy];
 }
 const _trWins = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i]; return false; };
+// Подсказка сервера (me.advice): ожидание с чертами, талисманами, Хранителем, мягкой защитой и повторами маршрута —
+// по тем же правилам, что и начисление. Клиент только рисует звезду; без поля работает своя эвристика ниже.
+function _trAdvice(kind, hours, route) {
+  const map = _tr.me && _tr.me.advice ? _tr.me.advice.map : null;
+  const id = map ? Number(map[`${kind}|${hours}|${route || ''}`]) : 0;
+  const pet = id ? _trPet(id) : null;
+  return pet && !pet.run_id && pet.energy >= _trCost(kind, hours) ? pet : null;
+}
 function _trBestPet(list, kind, hours, route) {
+  const advised = _trAdvice(kind, hours, route);
+  if (advised) return advised;
   let best = null, key = null;
   (list || []).forEach(p => { const k = _trFitKey(p, kind, hours, route); if (k && (!key || _trWins(k, key))) { key = k; best = p; } });
   return best;
 }
 // Разметка метки «★» и невидимой подписи для читалки — визуально только значок, без слов
 const _trBestMark = on => on ? '<i class="sr-only">Лучший выбор. </i>' : '';
+// Почему звезда: только значки, слова — невидимой подписью. Факты о питомце берём из того же ответа сервера.
+function _trWhyIcons(p, route) {
+  const out = [], share = p.energy / Math.max(1, p.energy_max);
+  if (route && (p.favorite_route === route || p.favorite_route === 'any')) out.push([(_TR_ROUTE[route] || [])[0] || '✦', 'любимый маршрут']);
+  if (Number(p.stars) > 0) out.push(['⭐', `звёзд вида: ${p.stars}`]);
+  if (p.fed_favorite) out.push(['🍖', 'сыт любимым']);
+  if (p.calling === 'guardian') out.push(['🛡', 'Хранитель']);
+  if (share >= .8) out.push(['⚡', 'много сил']);
+  return out.slice(0, 4);
+}
+const _trWhyRow = (p, route) => {
+  const why = p ? _trWhyIcons(p, route) : [];
+  if (!why.length) return '';
+  const label = _trE(`Почему лучший: ${why.map(w => w[1]).join(', ')}`);
+  return `<p class="tr-bestwhy"><span class="sr-only">${label}</span><span aria-hidden="true">★</span>${why.map(w => `<span aria-hidden="true">${w[0]}</span>`).join('')}</p>`;
+};
+// Спутник: Лидер перенимает половину склонности Спутника к находкам, поэтому ценнее чужой вид находок, чем свой
+function _trBestMate(list, lead) {
+  const own = lead && lead.find_bias;
+  return list.slice().sort((a, b) => (b.find_bias !== own) - (a.find_bias !== own) || b.energy - a.energy || a.id - b.id)[0] || null;
+}
 function trailSend(petId) {
   const me = _tr.me; if (!me) return;
   const free = (me.pets || []).filter(p => !p.run_id), first = (me.durations.run || [3])[0];
-  const pick = petId ? _trPet(petId) : _trBestPet(free, 'trek', first, '') || free[0];
-  _tr.send = { pet: pick ? pick.id : 0, kind: 'trek', hours: 3, route: '', routeSet: false, comp: 0 };
+  const plan = petId ? null : (me.advice && me.advice.best ? me.advice.best.trek : null) || null;   // связка сервера: питомец, часы, маршрут
+  const planPet = plan ? _trPet(plan.pet_id) : null;
+  const pick = (petId ? _trPet(petId) : planPet && !planPet.run_id && planPet.energy >= _trCost('trek', plan.hours) ? planPet : null)
+    || _trBestPet(free, 'trek', first, '') || free[0];
+  const usePlan = !!plan && pick === planPet;
+  _tr.send = { pet: pick ? pick.id : 0, kind: 'trek', hours: usePlan ? plan.hours : 3, route: usePlan ? plan.route : '',
+               routeSet: usePlan, planRoute: usePlan, fitted: usePlan, comp: 0 };
   _trSendFit();
   _trSheet(_trSendHtml());
 }
@@ -292,7 +328,7 @@ function _trSendFit() {
 function trailSendSet(key, value) {
   const s = _tr.send; if (!s) return;
   _haptic('select');
-  if (key === 'pet') { s.pet = Number(value); s.comp = 0; s.fitted = false; }
+  if (key === 'pet') { s.pet = Number(value); s.comp = 0; s.fitted = false; if (s.planRoute) { s.routeSet = false; s.planRoute = false; } }
   else if (key === 'kind') { s.kind = value; s.fitted = false; if (value === 'watch') s.comp = 0; }
   else if (key === 'hours') { s.hours = Number(value); s.fitted = true; }
   else if (key === 'route') { s.route = value; s.routeSet = true; }
@@ -304,7 +340,7 @@ function _trSendHtml() {
   const free = (me.pets || []).filter(p => !p.run_id), min = _trMinCost(me), cost = _trCost(s.kind, s.hours), pairCost = Number(rules.energy.pair) || 10;
   const slotsLeft = Math.max(0, (Number(me.slots) || 3) - (me.activities || []).length), mate = !watch && s.comp ? _trPet(s.comp) : null;
   const radio = (on, f, click, inner, cls = 'tr-chip') => `<button type="button" class="${cls}" role="radio" aria-checked="${on}" data-f="${f}" onclick="${click}">${inner}</button>`;
-  const best = _trBestPet(free, s.kind, s.hours, s.route);
+  const best = _trBestPet(free, s.kind, s.hours, s.route), whyRow = _trWhyRow(best, watch ? '' : s.route);
   const pets = free.map(p => { const top = best && p.id === best.id; return radio(p.id === s.pet, `pet-${p.id}`, `trailSendSet('pet',${p.id})`, `${_trBestMark(top)}<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} из ${p.energy_max}</small>`, `tr-chip tr-chip--i${p.energy < min ? ' is-dim' : ''}${top ? ' is-best' : ''}`); }).join('');
   const kinds = ['trek', 'expedition', 'watch'].map(k => radio(s.kind === k, `kind-${k}`, `trailSendSet('kind','${k}')`, _TR_KIND[k], 'tr-seg-b')).join('');
   const note = { trek: 'Награда сразу, решений нет.', expedition: `На развилке вы выберете путь: награда больше, но есть риск. Следы ×${_trMult(rules.xp.expedition)}.`, watch: 'Долгий дозор без маршрута, для тех, кто заходит раз в день.' }[s.kind];
@@ -312,11 +348,13 @@ function _trSendHtml() {
   const fav = r => pet && (pet.favorite_route === r || pet.favorite_route === 'any');
   const routes = (me.routes || []).map(r => radio(r === s.route, `route-${r}`, `trailSendSet('route','${r}')`, `<span aria-hidden="true">${_TR_ROUTE[r][0]}</span><b>${_TR_ROUTE[r][1]}</b>${fav(r) ? '<small>любимый</small>' : ''}`, 'tr-chip tr-chip--i')).join('');
   const mates = free.filter(p => p.id !== s.pet && p.energy >= pairCost);
+  const mateTop = pet ? _trBestMate(mates, pet) : null;
+  const mateChips = mates.map(p => { const top = mateTop && p.id === mateTop.id; return radio(p.id === s.comp, `comp-${p.id}`, `trailSendSet('comp',${p.id})`, `${_trBestMark(top)}<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} сил</small>`, `tr-chip tr-chip--i${top ? ' is-best' : ''}`); }).join('');
   let pair = '';
   if (!watch) {
     const need = me.pair?.need || 5;
     pair = me.pair?.unlocked
-      ? `<div class="tr-grp"><span class="v3-eyebrow">Спутник</span><div class="tr-chips" role="radiogroup" aria-label="Спутник">${radio(!s.comp, 'comp-0', "trailSendSet('comp',0)", '<b>Без спутника</b>')}${mates.map(p => radio(p.id === s.comp, `comp-${p.id}`, `trailSendSet('comp',${p.id})`, `<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} сил</small>`, 'tr-chip tr-chip--i')).join('')}</div><p class="tr-note">Спутник тратит ${pairCost} сил и получает ${Math.round((rules.pair_share || .3) * 100)}\u00a0% Следов.</p></div>`
+      ? `<div class="tr-grp"><span class="v3-eyebrow">Спутник</span><div class="tr-chips" role="radiogroup" aria-label="Спутник">${radio(!s.comp, 'comp-0', "trailSendSet('comp',0)", '<b>Без спутника</b>')}${mateChips}</div><p class="tr-note">Спутник тратит ${pairCost} сил и получает ${Math.round((rules.pair_share || .3) * 100)}\u00a0% Следов.</p></div>`
       : `<p class="tr-note tr-hint">Спутник открывается при ${need} разных видах питомцев, сейчас их ${me.pair?.species || 0}.</p>`;
   }
   const base = watch ? rules.xp.watch[s.hours] : rules.xp.run[s.hours], mods = [];
@@ -324,7 +362,7 @@ function _trSendHtml() {
   if (!watch && fav(s.route)) mods.push(`любимый маршрут +${Math.round((rules.affinity_bonus || .2) * 100)}\u00a0%`);
   const enough = pet && pet.energy >= cost, why = !pet ? 'Выберите питомца.' : !slotsLeft ? 'Все слоты заняты.' : !enough ? `Не хватает сил: нужно ${cost}, у питомца ${Math.floor(pet.energy)}.` : mate && mate.energy < pairCost ? `Спутнику нужно ${pairCost} сил.` : '';
   const summary = pet ? `<dl class="cf-rows tr-sum"><div><dt>Силы</dt><dd>${Math.round(pet.energy)} → ${Math.max(0, Math.round(pet.energy - cost))} из ${pet.energy_max}</dd></div>${mate ? `<div><dt>Силы спутника</dt><dd>${Math.round(mate.energy)} → ${Math.round(mate.energy - pairCost)}</dd></div>` : ''}<div><dt>Базовые Следы${mods.length ? `<small>${mods.join(' · ')}</small>` : ''}</dt><dd>${fmt(base)}</dd></div></dl>` : '';
-  const body = `<div class="tr-grp"><span class="v3-eyebrow">Кто идёт</span>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</div>
+  const body = `<div class="tr-grp"><span class="v3-eyebrow">Кто идёт</span>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>${whyRow}` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</div>
     <div class="tr-grp"><span class="v3-eyebrow">Что делать</span><div class="tr-seg" role="radiogroup" aria-label="Что делать">${kinds}</div><p class="tr-note">${note}</p></div>
     <div class="tr-grp"><span class="v3-eyebrow">Сколько</span><div class="tr-chips tr-chips--3" role="radiogroup" aria-label="Сколько часов">${hours}</div></div>
     ${watch ? '' : `<div class="tr-grp"><span class="v3-eyebrow">Куда</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Маршрут">${routes}</div></div>`}${pair}${summary}`;
@@ -372,7 +410,8 @@ function _trDecisionHtml(act, pet) {
     const h = dec?.paths?.[path] || {}, reward = rules.paths[path].reward, loss = rules.paths[path].energy_loss;
     const odds = h.chance != null ? `${_trMult(h.chance)}\u00a0%` : h.range ? `${h.range[0]}–${h.range[1]}\u00a0%` : '';
     const sub = `Награда ×${_trMult(reward[0])}, при неудаче ${reward[2] > 0 ? `×${_trMult(reward[2])}` : 'без награды'}${loss ? `, −${loss} сил` : ''}`;
-    return `<button type="button" class="tr-opt" role="radio" aria-checked="${chosen === path}" data-f="path-${path}" onclick="trailPath('${path}')"><span class="tr-opt-t"><b>${_TR_PATH[path]}</b><small>${sub}</small></span>${h.sign ? `<span class="tr-sign ${_TR_SIGN[h.sign] || ''}">${_trE(h.sign)}${odds ? `<small>${odds}</small>` : ''}</span>` : ''}</button>`;
+    const star = dec && dec.best === path ? '<i class="tr-best-i" aria-hidden="true">★</i><i class="sr-only">Лучший путь по ожиданию награды. </i>' : '';
+    return `<button type="button" class="tr-opt${star ? ' is-best' : ''}" role="radio" aria-checked="${chosen === path}" data-f="path-${path}" onclick="trailPath('${path}')"><span class="tr-opt-t"><b>${star}${_TR_PATH[path]}</b><small>${sub}</small></span>${h.sign ? `<span class="tr-sign ${_TR_SIGN[h.sign] || ''}">${_trE(h.sign)}${odds ? `<small>${odds}</small>` : ''}</span>` : ''}</button>`;
   }).join('');
   const lead = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span><b>${_trE(pet.name)} ${_trFem(pet, 'вернулся', 'вернулась')}</b><small>${route ? `${route[1]} · ` : ''}силы ${Math.round(pet.energy)} из ${pet.energy_max} · Выдержка ${Math.round(pet.resilience)}</small></span></p>`;
   const body = `${lead}<p class="tr-note">Выберите путь. Бросок делает сервер, один раз. Провал не отнимает уровни и Связь.</p><div class="tr-opts" role="radiogroup" aria-label="Путь">${opts}</div>${chips}${dec ? '' : '<p class="tr-note">Подсказки сейчас недоступны.</p>'}`;

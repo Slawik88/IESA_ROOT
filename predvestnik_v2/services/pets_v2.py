@@ -12,6 +12,7 @@ from uuid import uuid4
 from core import pets_v2 as rules
 from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import pets_v2 as repo
+from services import pets_v2_advice as advice
 
 
 class PetV2Conflict(PetV2PolicyError):
@@ -133,6 +134,7 @@ async def overview(db, user_id: int) -> dict:
     bond_by_pet, bond_by_species = await repo.bond_days_all(db, user_id)
     week_trial = rules.weekly_trial(week.toordinal())
     builds: dict[int, dict] = {}
+    plans: list[dict] = []
     for pet in owned:
         if pet.get("species_id") not in rules.SPECIES:
             continue
@@ -168,6 +170,10 @@ async def overview(db, user_id: int) -> dict:
         if run:
             item["run_id"] = run["id"]
         pets.append(item)
+        # вход подсказки «лучший выбор»: живые числа питомца, без отдельных запросов
+        plans.append({"id": int(pet["id"]), "busy": run is not None, "energy": float(energy), "level": level, "species_id": pet["species_id"],
+                      "favorite": item["favorite_route"], "stars": int(item["stars"]), "pity": int(pet["pity"] or 0), "fed": bool(item["fed_favorite"]),
+                      "calling": build["calling"], "traits": build["traits"], "talismans": build["talismans"], "camp": build["camp"]})
     activities = []
     for run in runs:
         entry = {"id": run["id"], "pet_id": int(run["pet_id"]), "kind": run["kind"], "hours": int(run["hours"]),
@@ -178,7 +184,11 @@ async def overview(db, user_id: int) -> dict:
                 build = builds[int(pet["id"])]
                 state = {"level": pet["level"], "energy": pet["energy"], "energy_at": pet["energy_at"], "pity": pet["pity"]}
                 energy = _rest(state, pet, clock["now"], build)
-                entry["decision"] = _hints(int(pet["level"]), pet["species_id"], _chances(pet, state, run, energy, build))
+                chances = _chances(pet, state, run, energy, build)
+                decision = _hints(int(pet["level"]), pet["species_id"], chances)
+                fx = _fx(build, int(run["hours"]), run["route"])
+                decision["best"] = advice.best_path(chances, fx["reward_mult"], guardian=fx["guardian"])
+                entry["decision"] = decision
         activities.append(entry)
     tracks = await repo.tracks_today(db, user_id, day, lock=False)
     open_track = next((t for t in tracks if t["status"] == "open"), None)
@@ -198,6 +208,8 @@ async def overview(db, user_id: int) -> dict:
                   for food_id, row in FOODS.items()],
         "pair": {"species": species_owned, "need": rules.PAIR_MIN_SPECIES, "unlocked": species_owned >= rules.PAIR_MIN_SPECIES},
         "rules": _rules_view(),
+        "advice": advice.build(plans, routes=rules.ROUTES, run_hours=rules.RUN_HOURS, watch_hours=rules.WATCH_HOURS,
+                               repeats_by_route=await repo.route_claims_today(db, user_id, day)),
     }
 
 

@@ -231,6 +231,15 @@ async def routes_claimed_today(db, user_id: int, day, route: str) -> int:
         return int((await c.fetchone())["n"])
 
 
+async def route_claims_today(db, user_id: int, day) -> dict[str, int]:
+    """Сколько раз сегодня закрыт каждый маршрут: по нему считается затухание повторов."""
+    async with db.execute(
+        "SELECT route, COUNT(*) AS n FROM pet_v2_runs WHERE user_id=? AND status='claimed' AND route IS NOT NULL "
+        "AND (claimed_at AT TIME ZONE 'UTC')::date=? GROUP BY route", (int(user_id), day),
+    ) as c:
+        return {row["route"]: int(row["n"]) for row in await c.fetchall()}
+
+
 async def open_runs(db, user_id: int) -> list[dict[str, Any]]:
     async with db.execute(
         "SELECT *, ends_at<=NOW() AS ready FROM pet_v2_runs WHERE user_id=? AND status='active' ORDER BY starts_at", (int(user_id),)

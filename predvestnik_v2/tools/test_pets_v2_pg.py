@@ -134,6 +134,7 @@ async def run(dsn: str) -> None:
         view = await service.overview(db, user)
         decision = next(a for a in view["activities"] if a["kind"] == "expedition")["decision"]
         assert decision["detail"] == "exact" and set(decision["paths"]) == set(rules.PATHS)
+        assert decision["best"] in rules.PATHS, "лучший путь должен быть одним из трёх"
         exp_id = next(a["id"] for a in view["activities"] if a["kind"] == "expedition")
         try:
             async with db.connection.transaction():
@@ -258,8 +259,25 @@ async def run(dsn: str) -> None:
         assert (await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1"))["idempotent_replay"]
         await rejects(service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf2"))  # тир III нужен 4 уровень
         await service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu3")
+        # подсказка «лучший выбор»: карта «кто лучший на клетку» и связка на каждый вид занятия
+        for pet_id, species, level in ((cat, "moss_cat", 1), (owl, "mirror_owl", 1), (fox, "salt_fox", 15), (beetle, "stone_beetle", 1)):
+            await db.execute("UPDATE pet_v2_state SET energy=? WHERE user_id=? AND pet_id=?",
+                             (rules.energy_max(level, species) + (15 if pet_id == fox else 0), user, pet_id))
         view = await service.overview(db, user)
         assert view["camp"]["levels"]["workshop"] == 2 and view["camp"]["job"]["building"] == "lounge"
+        advice = view["advice"]
+        assert set(advice) == {"map", "best"} and set(advice["best"]) == {"trek", "expedition", "watch"}
+        assert set(advice["map"]) >= {f"trek|{h}|{r}" for h in rules.RUN_HOURS for r in rules.ROUTES}, "все клетки похода заполнены"
+        free_ids = {p["id"] for p in view["pets"] if not p["run_id"]}
+        assert set(advice["map"].values()) <= free_ids, "занятый питомец не может быть лучшим"
+        for key, pet_id in advice["map"].items():
+            kind, hours, route = key.split("|")
+            assert pet_id in free_ids
+            assert int(hours) in (rules.WATCH_HOURS if kind == "watch" else rules.RUN_HOURS) and (
+                (kind == "watch" and route == "") or (kind in ("trek", "expedition") and route in rules.ROUTES)), key
+        for kind, plan in advice["best"].items():
+            assert set(plan) == {"pet_id", "hours", "route"} and plan["pet_id"] in free_ids
+            assert advice["map"][f"{kind}|{plan['hours']}|{plan['route']}"] == plan["pet_id"], "связка стоит на своей клетке"
         # Выслеживание: сервер прячет находку, тайна не утекает, 2 попытки в сутки
         await db.execute("DELETE FROM pet_v2_tracks WHERE user_id=?", (user,))
         t_rng = random.Random(3)
