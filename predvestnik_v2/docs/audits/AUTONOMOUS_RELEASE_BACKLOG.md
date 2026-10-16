@@ -3,6 +3,71 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## QUEST-VARIETY-20261016 — additive pet quests
+
+Implemented separately on `codex/quest-variety`, stacked on mechanics-community
+6bc11bae. Seven pool entries: daily any adventure/trek/expedition/watch; weekly
+three treks/two expeditions/three watches. All share `pet_journey`, so a set gets
+at most one adventure task. Existing four daily/five weekly slots, reward tables,
+VIP rules, reroll quotas and policy version are unchanged. Existing progress is
+preserved; normal new assignments/rerolls draw from the expanded pool.
+
+Daily eligibility is conservative and UTC-based: an owned valid pet can finish
+an already-running job before reset minus five minutes, or there is an idle pet,
+free slot and enough stored energy to start the shortest suitable job. Do not
+predict rest or require food/purchases. A new watch needs twelve hours, so late
+daily watch assignments are excluded unless the watch can already finish in time.
+V2-specific tasks require the V2 flag; legacy generic activity support remains.
+
+Terminal collection emits generic and matching type metrics under the same
+claim timestamp and savepoint. The just-completed activity stays eligible during
+that event even though it has left `open_runs`; otherwise normal availability
+refresh could replace the goal before it increments. No progress for preview,
+start, failed early collection, replay or a second companion. The ordinary
+achievement still records one activity. Both web routing helpers lead to pets.
+
+Read-only plan/final critique accepted. Seven relevant checks pass, including
+existing quests rules/PG/bot and pets-v2 PG, new real terminal claims/paired run,
+UTC Sunday/Monday boundary, late availability, unchanged reward receipts,
+historical assignments and secondary-progress rollback. Static/public HTTP
+checks pass. Evidence: `.local/quest-variety-checks.log`. No production changes.
+
+## OWNER-DESIGN-20261016 — discussion only, no new game/exchange/style code
+
+Owner selected **solo activities first**, then **link solo outings to pets**.
+This agrees a direction, not implementation or reward parameters. Prepare a
+concrete outing flow for joint approval: a short session with several meaningful
+route/risk choices, a saved intermediate state and a clear outcome. Avoid adding
+another timer or repeated tapping. Resolve whether a pet already in a passive
+job may participate: blocking all such pets could recreate the original lack
+of playable activities. Keep session resources separate from long-job timers;
+numbers, loot budgets, limits and species advantages remain proposals until agreed.
+
+Exchange discussion: current rules are a 2000-Zarniki creation fee, initial Mora
+capital, launch auction, vesting, emission and liquidity operations. Replacing
+only the fee would not satisfy the requested simpler system. The owner requested
+system-defined tradable coins, buy/sell/shorts, and personal creation for 5000
+Zarniki. Before replacement, agree price formation, whether personal coins are
+tradable or just collectible, short collateral/liquidation/fees, and treatment of
+existing balances/orders/positions. Prepare market → coin → trade → confirmation
+flow. No wallets, exchange flags, existing positions or fees changed in this work.
+
+Chat cosmetics discussion: use the existing owned/equipped skin and tier, with
+one shared style registry rather than a second shop or duplicate ownership.
+Agree whose skin applies to shared results, which commands receive cards, fallback
+for absent/seasonal skins, and a compact text form for frequent commands. Current
+`bot/chat/style.py` emits regular Telegram HTML. Structured rich messages are an
+additional API option, not arbitrary CSS in existing replies; test SDK/client
+compatibility before selecting that route. Source: https://core.telegram.org/bots/api#formatting-options.
+Custom visuals must keep names, numbers, sanctions and action buttons readable.
+No rendering/ownership changes are implemented before owner agreement.
+
+Notion sources inspected read-only: project
+https://app.notion.com/p/3e4d5683af45814a842bff53fdf3a0d6 and roadmap
+https://app.notion.com/p/3e4d5683af4581658282d9d3867bc3e8. Their September/October6
+milestones are historical context; current explicit owner directions take
+precedence. No duplicate task pages or unsupported Done statuses were created.
+
 ## MECHANICS-COMMUNITY-20261015 — owner-selected development wave
 
 Owner scope: pet departure forecast and saved builds; deep Rhythm feedback and
@@ -135,12 +200,13 @@ private night actions; `pets-forecast.png` — forecast before departure,
 explicit daily-cap/random-find caveat; `purge-web.png` — shared chat/site
 moderation decisions, with access restricted by actual chat permissions.
 
-Owner follow-up, queued only (do not analyze until this wave is finished): use
-Notion for the next planning cycle; add quests. Joint owner agreement is required
-BEFORE implementation of the three other new topics: reasons to play beyond
-Rhythm; replacement exchange with system coins, buy/sell/shorts and personal coin
-creation for 5000 Zarniki; chat command styling tied to existing cosmetics. These
-are additional requests, not permission to alter their economics in this wave.
+Owner follow-up progressed after the completed wave/UI repair: additive quests
+are implemented on a separate branch; Notion sources were inspected read-only.
+The owner selected solo outings linked to pets as the next design direction.
+Joint owner agreement is still required BEFORE implementing the outing rules,
+replacement exchange (system coins, buy/sell/shorts, personal coin creation for
+5000 Zarniki), or chat command styling tied to existing cosmetics. Design notes
+and unresolved decisions are recorded above; their economics are unchanged.
 
 ## PROD-UI-20261015 — production UI delivery and Pets v2 rollout
 

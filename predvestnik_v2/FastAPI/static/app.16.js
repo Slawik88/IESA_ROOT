@@ -61,7 +61,7 @@ function _v3QuestRoute(metric) {
   if (m.startsWith('rhythm_') && on('game_rhythm_v2')) return 'openRhythmV2Game()';
   if (m.startsWith('minesweeper_') && on('game_minesweeper_v2')) return 'openMinesweeperGame()';
   if (m === 'chest_revealed') return 'openChestsV1()';
-  if (m === 'pet_fed' || m === 'pet_activity_completed') return 'openPetsV1()';
+  if (['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(m)) return 'openPetsV1()';
   return "openQuestsV1()";
 }
 function renderV3Next() {
