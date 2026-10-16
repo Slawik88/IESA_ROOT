@@ -48,10 +48,18 @@ function v3Guide(id) {
   _haptic('select');
   const rows = typeof book.tiles === 'function' ? (book.tiles() || []) : (book.tiles || []);
   const lead = book.lead ? `<p class="g-lead">${_trE(book.lead)}</p>` : '';
+  const act = book.action ? `<button type="button" class="v3-pill v3-pill--full" onclick="_guideGo()">${_trE(book.action.label)}</button>` : '';
   const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${_guideTilesHtml(rows)}</div></div>`;
-  _guideSheet(`${body}<div class="tr-foot"><button type="button" class="v3-pill v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
+  _guideSheet(`${body}<div class="tr-foot">${act}<button type="button" class="v3-pill v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
   _guideCurrent = id;
   if (typeof book.refresh === 'function') (window.requestAnimationFrame || (job => setTimeout(job, 40)))(() => book.refresh());
+}
+// Кнопка действия листа: закрывает шпаргалку и ведёт туда, где действие живёт.
+function _guideGo() {
+  const book = _guideCurrent && _GUIDE_BOOK[_guideCurrent];
+  const go = book && book.action && book.action.go;
+  _guideClose(true);
+  if (typeof go === 'function') go();
 }
 // Слепок кнопки для шапки вкладки: v3Head(..., { end: v3GuideBtn('trail') })
 function v3GuideBtn(id, label = 'Гайд') {
@@ -163,3 +171,50 @@ function _chestsTilesLive(d) {
   return tiles;
 }
 guideDefine('chests', { title: 'Сундуки — что внутри', lead: 'Ключи дают задания; шансы открыты на экране.', tiles: () => _chestsTilesStatic, refresh: _chestsRefresh });
+
+// ── Шпаргалки «Справки»: тема — лист с плитками и кнопкой действия ─────────────────────────────
+// На самой справке остаются только строки тем; вводные абзацы живут здесь, по строке на плитку.
+function _helpGameTiles() {
+  const on = k => _sysFlags[k] === true;
+  const t = [];
+  if (on('game_rhythm_v2')) t.push({ icon: '🎵', title: 'Ритм', text: 'реакция: жмите руны точно' });
+  if (on('game_minesweeper_v2')) t.push({ icon: '💣', title: 'Сапёр', text: 'логика: клетки и флаги' });
+  if (on('game_mafia_v1')) t.push({ icon: '🕵️', title: 'Мафия', text: 'в чате: напишите «бот мафия»' });
+  if (on('season_pass_v1')) t.push({ icon: '🎫', title: 'Пропуск сезона', text: 'очки за игры — награды' });
+  if (!t.length) t.push({ icon: '🎮', title: 'Игры', text: 'скоро откроются' });
+  return t;
+}
+function _helpPetTiles() {
+  if (_sysFlags.pets_v2 === true) return [
+    { icon: '🐾', title: 'Тропа', text: 'питомцы растут в пути' },
+    { icon: '🪙', title: 'Следы', text: 'дневной прогресс роста' },
+    { icon: '👫', title: 'Спутник', text: 'второй питомец в поход' },
+    { icon: '🏕️', title: 'Лагерь', text: 'стройки дают бонусы' },
+  ];
+  return [
+    { icon: '🐾', title: 'Активный питомец', text: 'ходит в поход один' },
+    { icon: '⚡', title: 'Выносливость', text: 'тратится в пути, еда возвращает' },
+    { icon: '🥚', title: 'Питомцы', text: 'карточки выпадают из сундуков' },
+    { icon: '🧭', title: 'Поход и экспедиция', text: 'ключи и находки' },
+  ];
+}
+guideDefine('help-games', { title: 'Игры — шпаргалка', lead: 'Выбирайте формат под настроение.', tiles: () => _helpGameTiles(), action: { label: 'Открыть игры', go: () => goTo('arena', 'game') } });
+guideDefine('help-profile', { title: 'Профиль — шпаргалка', lead: 'Всё ваше — на одном экране.', tiles: [
+  { icon: '✅', title: 'Квесты дня', text: 'награда забирается одним тапом' },
+  { icon: '🏆', title: 'Достижения', text: 'растут от игр и активных недель' },
+  { icon: '⭐', title: 'VIP', text: 'образ видят все, наград больше' },
+  { icon: '🎒', title: 'Разделы', text: 'образы · питомцы · инвентарь' },
+], action: { label: 'Открыть профиль', go: () => goTo('profile') } });
+guideDefine('help-pets', { title: 'Питомцы — шпаргалка', lead: 'Питомцы приносят ключи и находки.', tiles: () => _helpPetTiles(), action: { label: 'Открыть питомцев', go: () => openPetsV1() } });
+guideDefine('help-inventory', { title: 'Инвентарь — шпаргалка', lead: 'Экран показывает; надеть и покормить — на своих экранах.', tiles: [
+  { icon: '👆', title: 'Нажмите плитку', text: 'перейдёте туда, где это используют' },
+  { icon: '🖼️', title: 'Образы', text: 'надеть — в «Образах»' },
+  { icon: '🗝', title: 'Ключи и еда', text: 'расходуются на своих экранах' },
+  { icon: '📦', title: 'Вещи прежней игры', text: 'сохранены за вами' },
+], action: { label: 'Открыть инвентарь', go: () => openInventory() } });
+guideDefine('help-wallet', { title: 'Зарники и образы — шпаргалка', lead: 'Косметика меняет вид, а не игру.', tiles: [
+  { icon: '🪙', title: 'Зарники', text: 'донат-валюта: обмен и магазин' },
+  { icon: '✨', title: 'Эссенция', text: 'растит образы по тирам' },
+  { icon: '⭐', title: 'VIP', text: 'образ видят все, наград больше' },
+  { icon: '🖼️', title: 'Образы', text: 'меняют только внешний вид' },
+], action: { label: 'Открыть образы', go: () => openLooksModal() } });

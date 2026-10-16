@@ -138,14 +138,14 @@
 
 <!-- ═══ 14. ПОМОЩЬ ═══ -->
 <div id="pg-help" class="page">
-  <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — главное видно сразу, подробности можно раскрыть.</p></div></section>
-  <div class="help-grid">
-    <details class="help-card" open><summary><span>🎮</span><div><b>Игры</b><small>Ритм, Сапёр и Мафия</small></div><i>⌄</i></summary><p><b>Ритм</b> проверяет реакцию, <b>Сапёр</b> — логику, а <b>Мафия</b> проходит прямо в чате. Откройте вкладку «Игры», выберите режим и нажмите основную кнопку.</p><button type="button" onclick="goTo('arena','game')">Открыть игры</button></details>
-    <details class="help-card"><summary><span>👤</span><div><b>Профиль</b><small>VIP, квесты и достижения</small></div><i>⌄</i></summary><p>В профиле видны ваш уровень, результаты, VIP и компенсация за старые ресурсы. Ниже идут квесты на сегодня и разделы: образы, питомцы, инвентарь, достижения. «Мои чаты» находятся во вкладке «Ещё».</p><button type="button" onclick="goTo('profile')">Открыть профиль</button></details>
-    <details class="help-card"><summary><span>🐾</span><div><b>Питомцы</b><small>Бестиарий, еда и походы</small></div><i>⌄</i></summary><p>Выберите активного питомца, восстановите выносливость едой или отправьте его в поход. В бестиарии показаны все 12 видов и ваш прогресс.</p><button type="button" onclick="openPetsV1()">Открыть питомцев</button></details>
-    <details class="help-card"><summary><span>🎒</span><div><b>Инвентарь</b><small>Всё, что у вас есть</small></div><i>⌄</i></summary><p>Образы (в том числе личные), регалии, питомцы, ключи, еда, карты, джокеры и вещи прежней игры лежат на одном экране. Он только показывает: надеть, купить или покормить можно на своих экранах, нажмите на плитку.</p><button type="button" onclick="openInventory()">Открыть инвентарь</button></details>
-    <details class="help-card"><summary><span>✨</span><div><b>Зарники и образы</b><small>Пополнение и косметика</small></div><i>⌄</i></summary><p>Нажмите «Зарники» на главном экране профиля или откройте «Кошелёк». Образы меняют только внешний вид и не дают преимущества в играх.</p><button type="button" onclick="openLooksModal()">Открыть образы</button></details>
-  </div>
+  <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — откроются короткие подсказки и переход туда, где действовать.</p></div></section>
+  <section class="v3-group">
+    <button type="button" class="v3-row" onclick="v3Guide('help-games')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры<small>Ритм, Сапёр и Мафия</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль<small>Квесты, VIP и достижения</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-pets')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="11" r="1.7"/><circle cx="10" cy="6.5" r="1.7"/><circle cx="14" cy="6.5" r="1.7"/><circle cx="17.5" cy="11" r="1.7"/><path d="M12 12.5c-3 0-5 2.7-4 4.6.8 1.5 2.4 1.2 4 1.2s3.2.3 4-1.2c1-1.9-1-4.6-4-4.6z"/></svg><span>Питомцы<small>Походы и находки</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-inventory')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span>Инвентарь<small>Всё, что у вас есть</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-wallet')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9 10h6M9 14h6"/></svg><span>Зарники и образы<small>Пополнение и косметика</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+  </section>
 </div>
 
 <!-- ═══ 15. ЕЩЁ — Control Center ═══ -->
