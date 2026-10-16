@@ -2,15 +2,18 @@
 // Файл подключается ПОСЛЕ app.40–46 (см. main.py): простые функции хаба «Тропы» уже известны.
 // Гайд открывается из шапки в любой момент (v3GuideBtn); формат — шпаргалка: сетка иконок,
 // у каждой темы ровно одна строка. Стену текста игрок не читает — учимся делом и картинкой.
-// Тексты без копий чисел правил: живые значения игрок видит на своём экране.
+// Тексты без копий чисел правил: живые значения игрок видит на своём экране. Плитки могут быть
+// адаптивными (функция) для текущего состояния; если данных на клиенте нет, book.refresh
+// дозапрашивает их у сервера и перерисовывает открытый лист.
 
 // ── Реестр гайдов и лист ──────────────────────────────────────────────────────────────────────
 const _GUIDE_BOOK = {};
-let _guideOpener = null, _guideKeys = null;
+let _guideOpener = null, _guideKeys = null, _guideCurrent = null;
 function guideDefine(id, book) { _GUIDE_BOOK[id] = book; }
 function _guideClose(now) {
   const host = document.getElementById('g-sheet'); if (!host) return;
   if (_guideKeys) { document.removeEventListener('keydown', _guideKeys, true); _guideKeys = null; }
+  _guideCurrent = null;
   const opener = _guideOpener; _guideOpener = null;
   const back = () => { if (opener && document.contains(opener)) opener.focus({ preventScroll: true }); };
   if (now || typeof v3Dismiss !== 'function') { host.remove(); back(); } else v3Dismiss(host, back);
@@ -31,15 +34,24 @@ function _guideSheet(html) {
   document.addEventListener('keydown', _guideKeys, true);
   document.body.appendChild(host); host.firstElementChild.focus({ preventScroll: true });
 }
+function _guideTilesHtml(tiles) {
+  return tiles.map(t =>
+    `<div class="g-tile"><span class="g-ic" aria-hidden="true">${t.icon}</span><b>${_trE(t.title)}</b><small>${_trE(t.text)}</small></div>`).join('');
+}
+function _guideApply(id, tiles) {   // тихая перерисовка открытого листа (дозапрос пришёл после показа)
+  if (_guideCurrent !== id) return;
+  const grid = document.querySelector('#g-sheet .g-grid'); if (!grid) return;
+  grid.innerHTML = _guideTilesHtml(tiles);
+}
 function v3Guide(id) {
   const book = _GUIDE_BOOK[id]; if (!book) return;
   _haptic('select');
-  const rows = typeof book.tiles === 'function' ? book.tiles() : (book.tiles || []);
-  const tiles = rows.map(t =>
-    `<div class="g-tile"><span class="g-ic" aria-hidden="true">${t.icon}</span><b>${_trE(t.title)}</b><small>${_trE(t.text)}</small></div>`).join('');
+  const rows = typeof book.tiles === 'function' ? (book.tiles() || []) : (book.tiles || []);
   const lead = book.lead ? `<p class="g-lead">${_trE(book.lead)}</p>` : '';
-  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${tiles}</div></div>`;
+  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${_guideTilesHtml(rows)}</div></div>`;
   _guideSheet(`${body}<div class="tr-foot"><button type="button" class="v3-pill v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
+  _guideCurrent = id;
+  if (typeof book.refresh === 'function') (window.requestAnimationFrame || (job => setTimeout(job, 40)))(() => book.refresh());
 }
 // Слепок кнопки для шапки вкладки: v3Head(..., { end: v3GuideBtn('trail') })
 function v3GuideBtn(id, label = 'Гайд') {
@@ -120,3 +132,34 @@ function trailAdvice(me) {
   }
   return '<section class="tr-sec tr-now"><p class="tr-now-t">Силы восстанавливаются сами — кормление ускорит.</p></section>';
 }
+
+// ── Шпаргалка «Сундуки»: плитка «Награда ждёт» и живые остатки приходят дозапросом ─────────────
+// Пока вкладка не открыта, данных на клиенте нет: сначала общий набор, после ответа сервера
+// плитки перерисовываются (v3Guide → refresh). Открытый лист перерисовывается на месте.
+const _chestsTilesStatic = [
+  { icon: '🗝', title: 'Ключи', text: 'ключи дают задания и полные дни' },
+  { icon: '✦', title: 'Открытие', text: 'награда выбирается до показа' },
+  { icon: '⭐', title: 'Звёзды', text: 'выше звёзды — жирнее награда' },
+  { icon: '🐾', title: 'Добыча', text: 'питомцы, карты и еда' },
+];
+function _chestsRefresh() {
+  api('/chests-v1/me').then(d => _guideApply('chests', _chestsTilesLive(d))).catch(() => {});
+}
+function _chestsTilesLive(d) {
+  const paid = d.funding || {}, rem = Number(paid.remaining_today) || 0;
+  const ties = Object.entries(d.key_balances || {}).map(([t, b]) => ({ t: Number(t), b: Number(b) })).sort((a, b) => a.t - b.t);
+  const primary = ties.length ? ties[0].b : Number(d.key_balance || 0);
+  const higher = ties.filter(k => k.t > 1 && k.b > 0);
+  const tiles = [];
+  if (d.pending_open) tiles.push({ icon: '✦', title: 'Награда ждёт', text: 'сервер уже выбрал её — коснись' });
+  tiles.push({ icon: '🗝', title: 'Ключи', text: primary > 0
+    ? `${fmt(primary)} обычных${higher.length ? ` · выше уровнем: ${higher.map(k => fmt(k.b)).join(' + ')}` : ''}`
+    : 'ключи дают задания и полные дни' });
+  tiles.push({ icon: '✨', title: 'Ещё ключ', text: Number(paid.paid) !== false && rem > 0
+    ? `докупка за ${fmt(Number(paid.price_zarniki) || 0)} ✨ · осталось: ${rem}` : 'сегодня без докупок' });
+  tiles.push({ icon: '⭐', title: 'Звёзды', text: higher.length ? 'ключ уровнем выше поднимает звёзды' : 'звёздность решает награду' });
+  const owned = Object.keys((d.inventory || {}).unlocked_pets || {}).length;
+  tiles.push({ icon: '🐾', title: 'Добыча', text: `${owned} питомцев · карты и еда` });
+  return tiles;
+}
+guideDefine('chests', { title: 'Сундуки — что внутри', lead: 'Ключи дают задания; шансы открыты на экране.', tiles: () => _chestsTilesStatic, refresh: _chestsRefresh });

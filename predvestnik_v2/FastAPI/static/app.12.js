@@ -624,7 +624,7 @@
       return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
     }).join(''):'';
     const loot=`${owned}/12 питомцев · ${fmt(cards)} карт · ${fmt(food)} еды · ${fmt(jokers)} джокеров`;
-    root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия'})}
+    root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}
       <div class="ch-keys"><b>${fmt(tierBal)}</b><span>${_chestsV1Tier>1?`${esc(tierName)} ${_chestsV1Tier}★+`:achievementWord(tierBal,'ключ','ключа','ключей')}</span></div>
       ${tiers}<div class="ch-action">${action}</div>${result}
       ${offers?`<div class="v3-sec"><span class="v3-eyebrow">Ключи по звёздам</span></div><p class="ch-hint">Тот же сундук, но звёзды ниже N становятся N.</p><div class="ch-list">${offers}</div>`:''}
@@ -643,7 +643,7 @@
   window.openChestsV1=function(){
     if(_activePage!=='chests')switchPage('chests');
     const root=el('pg-chests');
-    if(!_chestsV1Data)root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия'})}<div class="sk" style="height:64px;border-radius:14px"></div><div class="sk" style="height:52px;border-radius:99px;margin-top:16px"></div>`;
+    if(!_chestsV1Data)root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}<div class="sk" style="height:64px;border-radius:14px"></div><div class="sk" style="height:52px;border-radius:99px;margin-top:16px"></div>`;
     const mine=++_chestsV1Seq;
     api('/chests-v1/me').then(d=>{if(mine!==_chestsV1Seq)return;if(d.pending_open)[..._chestsV1PendingActions.keys()].filter(k=>k.startsWith('prepare:')).forEach(k=>_chestsV1PendingActions.delete(k));   // сундук уже подготовлен: старый номер операции больше не нужен
       _chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>{
