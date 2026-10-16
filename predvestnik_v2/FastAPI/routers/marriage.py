@@ -17,6 +17,12 @@ from services.vip import is_vip_active
 router = APIRouter(prefix="/marriage", tags=["marriage"])
 
 
+@router.get("/tree")
+async def my_family_tree(db=Depends(get_db), user=Depends(require_tg_user)):
+    from services.family_tree import own_tree
+    return await own_tree(db, user_id=int(user["id"]))
+
+
 @router.get("/")
 async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
     """Брак текущего пользователя + питомцы семьи + стаж."""

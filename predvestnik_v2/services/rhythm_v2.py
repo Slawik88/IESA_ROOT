@@ -1,5 +1,6 @@
 """Server-owned execution of the approved endless Rune Rhythm."""
 from __future__ import annotations
+from core import rhythm_analysis
 
 from datetime import datetime, timedelta
 import copy
@@ -70,6 +71,11 @@ async def _settle_finished_run(db, *, row: dict, state: dict, user_id: int,
     row["integrity_status"] = verdict
     row["integrity_reason"] = integrity_reason
     if verdict == "clear":
+        if state.get("analysis") and "previous_best" not in state["analysis"]:
+            async with db.execute("SELECT MAX(score) AS best FROM rhythm_v2_runs WHERE user_id=? AND mode=? "
+                                  "AND ruleset_version=? AND status='finished' AND integrity_status='clear' AND run_id<>?",
+                                  (user_id, row["mode"], row["ruleset_version"], row["run_id"])) as cursor:
+                state["analysis"]["previous_best"] = int((await cursor.fetchone())["best"] or 0)
         await repo.upsert_leaderboard(
             db, run_id=row["run_id"], user_id=user_id, mode=row["mode"],
             ruleset_version=row["ruleset_version"], score=state["score"],
@@ -84,6 +90,7 @@ async def _settle_finished_run(db, *, row: dict, state: dict, user_id: int,
 
 def _state(row: dict) -> dict:
     return {
+        "analysis": repo.load(row.get("analysis_json")),
         "status": row["status"], "selected": list(repo.load(row["selected_json"]) or []),
         "perks": rules.normalize_perks(repo.load(row.get("perk_state_json"))),
         "health": int(row["health"]), "score": int(row["score"]), "combo": int(row["combo"]),
@@ -106,9 +113,22 @@ def _draft(row: dict, state: dict) -> dict | None:
     number = len(state["selected"]) + 1
     offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"])
     return {"number": number, "offers": [
-        {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost}
+        {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost,
+         "preview": _perk_preview(item.id, state)}
         for item in map(rules.perk, offers)
     ]}
+
+
+def _perk_preview(perk_id: str, state: dict) -> dict:
+    health, perks = rules.apply_perk(perk_id, health=state["health"], perks=state["perks"])
+    signal = state["next_signal_no"]
+    def view(hp, effects):
+        window = rules.window_ms(signal, effects)
+        return {"health": hp, "window_ms": window, "speed_percent": rules.speed_percent(signal, effects),
+                "shield": effects["shield"], "ebb": effects["ebb"], "bloody": effects["bloody"],
+                "sample_score": rules.score_for_correct(elapsed_ms=window // 2, allowed_window_ms=window,
+                                                        combo_before=state["combo"], perks=effects)}
+    return {"before": view(state["health"], state["perks"]), "after": view(health, perks)}
 
 
 def _hold_for_draft(state: dict) -> None:
@@ -143,6 +163,7 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
         "perks": state["perks"], "selected_perks": selected, "gifts": rules.owned_gifts(state["perks"]),
         "starts_in_ms": starts_in_ms,
         "integrity_status": str(row.get("integrity_status") or "legacy_unverified"),
+        "analysis": rhythm_analysis.summary(state.get("analysis"), correct=state["correct_taps"], mistakes=state["mistakes"]) if state["status"] == "finished" else None,
         "server_time": now.isoformat(),
     }
 
@@ -161,12 +182,16 @@ def _cancel(state: dict, now: datetime) -> None:
 
 
 def _resolve_error(row: dict, state: dict, *, now: datetime, timed_out: bool) -> None:
+    before_health = state["health"]
     state["health"], state["perks"] = rules.after_error(
         health=state["health"], perks=state["perks"], timed_out=timed_out,
     )
     state["combo"] = 0
     state["mistakes"] += 1
     state["correct_streak"] = 0
+    rhythm_analysis.record(state.get("analysis"), signal=state["next_signal_no"], chunk_size=rules.CHUNK_SIZE,
+                           window=rules.window_ms(state["next_signal_no"], state["perks"]), correct=False,
+                           timeout=timed_out, hearts_lost=max(0, before_health - state["health"]))
     state["next_signal_no"] += 1
     if state["health"] == 0:
         _finish(row, state, now)
@@ -219,9 +244,9 @@ async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
                 _cancel(existing_state, row["server_now"])
                 await repo.update_run(db, run_id=row["run_id"], state=existing_state)
             await db.execute(
-                "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,signal_opened_at) "
-                "VALUES (?,?,?,?,?,?::jsonb,?,?,NULL)",
-                (run_id, int(user_id), mode, rules.RULESET_VERSION, seed, repo.dumps(offers), state, health),
+                "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,signal_opened_at,analysis_json) "
+                "VALUES (?,?,?,?,?,?::jsonb,?,?,NULL,?::jsonb)",
+                (run_id, int(user_id), mode, rules.RULESET_VERSION, seed, repo.dumps(offers), state, health, repo.dumps(rhythm_analysis.fresh())),
             )
     except UniqueViolationError as exc:
         # The partial unique index is intentional: a player must resume/finish
@@ -335,6 +360,7 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
             response = repo.load(recorded["result_json"]); response["idempotent_replay"] = True
             return response
         state, now = _state(row), row["server_now"]
+        state["analysis"] = None  # local journal is not server-observed timing telemetry
         if state["status"] != "active" or state["next_signal_no"] != 1 or state["signal_opened_at"] is not None:
             raise RhythmConflict("this Rhythm run cannot accept an offline result")
         for action in normalized:
@@ -412,6 +438,8 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             state["health"], state["perks"] = rules.after_correct(
                 state["perks"], health=state["health"], streak_after=state["correct_streak"])
             state["correct_taps"] += 1
+            rhythm_analysis.record(state.get("analysis"), signal=signal_no, chunk_size=rules.CHUNK_SIZE, window=window,
+                                   correct=True, elapsed=elapsed_ms, streak=state["correct_streak"])
             state["next_signal_no"] += 1
         else:
             _resolve_error(row, state, now=now, timed_out=rune == rules.expected_rune(bytes(row["seed"]), signal_no))

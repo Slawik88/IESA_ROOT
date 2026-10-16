@@ -47,6 +47,9 @@ def main() -> None:
         "/rhythm-v2/leaderboard/normal": 401,
         "/minesweeper-v2/leaderboard/easy": 401,
         "/mafia-v1/me": 401,
+        "/purge-v1/chats": 401,
+        "/marriage/tree": 401,
+        "/static/announcements/family-tree.png": 200,
         "/profile/1": 404,
         "/gacha/info": 404,
         "/auction/": 404,
@@ -65,9 +68,10 @@ def main() -> None:
     marker_profiles = {
         "current": {
             "/": ("Чем помочь?",),
-            "/updates.json": ("2026-10-16-plain-hints",),
+            "/updates.json": ("2026-10-16-pet-quest-variety", "2026-10-16-mechanics-community", "2026-10-16-plain-hints"),
             "/static/app.css": ("hdr-ava", "width: 44px; height: 44px"),
-            "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup", "Подсказки"),
+            "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup", "Подсказки", "loadPurgeEntry",
+                                "trailPresetSave", "openMafiaReview", "familyTreeFocus"),
         },
         "rollback-f8da5d43": {
             "/": ("Предвестник в активной разработке",),

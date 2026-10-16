@@ -7,6 +7,15 @@ from typing import Any
 
 async def ensure_tables(db) -> None:
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS pet_v2_build_presets (
+            user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL,
+            slot SMALLINT NOT NULL CHECK(slot BETWEEN 1 AND 3),
+            name TEXT NOT NULL CHECK(length(name) BETWEEN 1 AND 40),
+            build JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY(user_id, pet_id, slot)
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_state (
             user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL,
             level SMALLINT NOT NULL DEFAULT 1 CHECK(level BETWEEN 1 AND 30),
@@ -110,6 +119,20 @@ async def ensure_tables(db) -> None:
         )
     """)
     await db.commit()
+
+
+async def build_presets(db, user_id: int) -> list[dict]:
+    async with db.execute("SELECT p.pet_id,p.slot,p.name,p.build FROM pet_v2_build_presets p "
+                          "JOIN pets owned ON owned.id=p.pet_id AND owned.owner_id=p.user_id "
+                          "WHERE p.user_id=? ORDER BY p.pet_id,p.slot", (int(user_id),)) as cursor:
+        return [{"pet_id": int(r["pet_id"]), "slot": int(r["slot"]), "name": r["name"],
+                 "build": json.loads(r["build"]) if isinstance(r["build"], str) else r["build"]} for r in await cursor.fetchall()]
+
+
+async def put_build_preset(db, user_id: int, pet_id: int, slot: int, name: str, build: dict) -> None:
+    await db.execute("INSERT INTO pet_v2_build_presets(user_id,pet_id,slot,name,build) VALUES (?,?,?,?,?::jsonb) "
+                     "ON CONFLICT(user_id,pet_id,slot) DO UPDATE SET name=EXCLUDED.name,build=EXCLUDED.build,updated_at=NOW()",
+                     (int(user_id), int(pet_id), int(slot), name, json.dumps(build)))
 
 
 async def lock_user(db, user_id: int) -> None:

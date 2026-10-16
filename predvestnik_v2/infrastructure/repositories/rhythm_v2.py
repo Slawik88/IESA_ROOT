@@ -36,6 +36,7 @@ async def ensure_tables(db) -> None:
             finished_at TIMESTAMPTZ NULL
         )
     """)
+    await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS analysis_json JSONB NULL")
     # Existing results were created before the integrity boundary existed.  They
     # must never silently inherit competitive trust from a new DEFAULT.
     await db.execute("ALTER TABLE rhythm_v2_runs ADD COLUMN IF NOT EXISTS integrity_status TEXT NULL")
@@ -178,10 +179,10 @@ async def update_run(db, *, run_id: str, state: dict) -> None:
     finished_at = state.get("finished_at")
     await db.execute(
         "UPDATE rhythm_v2_runs SET status=?,selected_json=?::jsonb,perk_state_json=?::jsonb,health=?,score=?,combo=?,correct_streak=?,"
-        "correct_taps=?,mistakes=?,next_signal_no=?,signal_opened_at=(?::timestamp AT TIME ZONE 'UTC'),finished_at=(?::timestamp AT TIME ZONE 'UTC'),version=version+1 WHERE run_id=?",
+        "correct_taps=?,mistakes=?,next_signal_no=?,signal_opened_at=(?::timestamp AT TIME ZONE 'UTC'),finished_at=(?::timestamp AT TIME ZONE 'UTC'),analysis_json=?::jsonb,version=version+1 WHERE run_id=?",
         (state["status"], dumps(state["selected"]), dumps(state["perks"]), int(state["health"]), int(state["score"]),
          int(state["combo"]), int(state["correct_streak"]), int(state["correct_taps"]), int(state["mistakes"]),
-         int(state["next_signal_no"]), opened_at, finished_at, str(run_id)),
+         int(state["next_signal_no"]), opened_at, finished_at, dumps(state.get("analysis")), str(run_id)),
     )
 
 

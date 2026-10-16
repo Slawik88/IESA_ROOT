@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -38,6 +38,7 @@ from FastAPI.routers import (profile, marriage, wallet,
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
+from FastAPI.routers import purge_v1 as purge_v1_router
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -253,6 +254,7 @@ app.include_router(player_exchange_v1_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
 app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
+app.include_router(purge_v1_router.router)
 app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 
 
@@ -565,6 +567,12 @@ async def minesweeper_game():
 @app.get("/updates.json")
 async def updates_feed():
     return Response(_UPDATES_JSON, media_type="application/json; charset=utf-8")
+
+
+@app.get("/static/announcements/{name}")
+async def official_update_image(name: str):
+    from FastAPI.routers.bot_admin.official_updates import image_path
+    return FileResponse(image_path(name), media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/static/app.css")

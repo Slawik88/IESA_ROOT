@@ -100,6 +100,49 @@ def run_xp_raw(hours: int, *, expedition: bool = False, repeats_today: int = 0,
     return value
 
 
+def departure_forecast(*, kind: str, hours: int, route: str | None, before_raw: float,
+                       repeats: int, favorite: bool, stars: int, effects: dict,
+                       repeat_decay: float = REPEAT_DECAY, paired: bool = False) -> dict:
+    """Base-only snapshot, not a promise: settlement uses claim-time state.
+
+    No random finds, probabilities or future event data are exposed. The pair's
+    complete share passes through the same daily pool as in claim_run.
+    """
+    if kind not in {"trek", "expedition", "watch"}:
+        raise PetV2PolicyError("Неизвестное занятие.")
+    if kind != "watch" and route not in ROUTES:
+        raise PetV2PolicyError("Выбери маршрут.")
+    if kind == "watch" and (route is not None or paired):
+        raise PetV2PolicyError("Дозор проходит без маршрута и спутника.")
+    base = (watch_xp_raw(hours) * effects["xp_mult"] if kind == "watch" else
+            run_xp_raw(hours, expedition=kind == "expedition", repeats_today=repeats,
+                       favorite_route=favorite, stars=stars, trait_mult=effects["xp_mult"], repeat_decay=repeat_decay))
+    share = 1 + PAIR_COMPANION_SHARE if paired else 1.0
+
+    def result(mult: float) -> dict:
+        raw = base * mult
+        total = pool_credit(before_raw, raw * share)
+        main = total / share
+        return {"raw": round(raw, 2), "credited": round(main, 2),
+                "companion": round(total - main, 2), "pool_total": round(total, 2)}
+
+    paths = {}
+    if kind == "expedition":
+        for path in PATHS:
+            rows = [result(outcome_reward_mult(path, outcome, guardian=effects["guardian"]) * effects["reward_mult"][path])
+                    for outcome in ("fail", "partial", "success")]
+            paths[path] = {"min": rows[0], "partial": rows[1], "max": rows[2]}
+        all_rows = [row for values in paths.values() for row in values.values()]
+    else:
+        all_rows = [result(1.0)]
+    return {"base_raw": round(base, 2), "min": min(all_rows, key=lambda x: x["credited"]),
+            "max": max(all_rows, key=lambda x: x["credited"]), "paths": paths,
+            "factors": {"build": round(effects["xp_mult"], 4), "repeats": repeats,
+                        "repeat_multiplier": round(repeat_decay ** repeats, 4) if kind != "watch" else 1,
+                        "favorite": favorite if kind != "watch" else False, "stars": stars if kind != "watch" else 0},
+            "excludes_random_finds": True, "snapshot_only": True}
+
+
 def watch_xp_raw(hours: int) -> float:
     if hours not in WATCH_XP:
         raise PetV2PolicyError("Дозор: только 12 или 24 часа.")

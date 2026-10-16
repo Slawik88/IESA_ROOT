@@ -577,6 +577,7 @@ function switchPage(name, _btn, _viaBack) {
   { const tabs=[...document.querySelectorAll('.nb[data-page]')].map(b=>b.dataset.page), from=tabs.indexOf(_activePage), to=tabs.indexOf(name);   // страница приходит с той стороны, куда ушёл игрок по доку (motion-v3.css)
     document.body.dataset.dir = from>=0 && to>=0 && from!==to ? (to>from?'f':'b') : ''; }
   _activePage = name;
+  if(name==='more' && typeof loadPurgeEntry==='function') loadPurgeEntry();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(b=>{
     b.classList.remove('active');

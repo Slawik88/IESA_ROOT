@@ -210,7 +210,85 @@ async def overview(db, user_id: int) -> dict:
         "rules": _rules_view(),
         "advice": advice.build(plans, routes=rules.ROUTES, run_hours=rules.RUN_HOURS, watch_hours=rules.WATCH_HOURS,
                                repeats_by_route=await repo.route_claims_today(db, user_id, day)),
+        "build_presets": await repo.build_presets(db, user_id),
     }
+
+
+async def preview_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None,
+                      companion_id: int | None = None) -> dict:
+    """Read-only snapshot. Never creates state, reserves a slot or rolls finds."""
+    view = await overview(db, user_id)
+    pet = next((p for p in view["pets"] if p["id"] == pet_id), None)
+    if not pet:
+        raise PetV2PolicyError("Питомец не найден.")
+    mate = next((p for p in view["pets"] if p["id"] == companion_id), None) if companion_id else None
+    if companion_id and (not mate or companion_id == pet_id):
+        raise PetV2PolicyError("Спутник не найден.")
+    if mate and not view["pair"]["unlocked"]:
+        raise PetV2PolicyError("Пара ещё не открыта.")
+    camp = await repo.camp_levels(db, user_id)
+    clock = await repo.clock(db)
+    owned = {t["id"]: t for t in view["talismans"]}
+    build = {"calling": pet["calling"], "traits": tuple(pet["traits"]),
+             "talismans": tuple((owned[t]["kind"], owned[t]["tier"]) for t in pet["talismans"]),
+             "fed": pet["fed_favorite"], "camp": camp}
+    async with db.execute("SELECT COUNT(*) AS n FROM pet_v2_bond_days WHERE user_id=? AND pet_id=? AND day=?",
+                          (user_id, pet_id, clock["day"])) as cursor:
+        new_day = not int((await cursor.fetchone())["n"])
+    stars = rules.seal_stars(await repo.species_bond_days(db, user_id, pet["species_id"]) + int(new_day))
+    repeats = await repo.routes_claimed_today(db, user_id, clock["day"], route) if kind != "watch" else 0
+    daily = await repo.get_daily(db, user_id, clock["day"])
+    quote = rules.departure_forecast(kind=kind, hours=hours, route=route, before_raw=daily["raw"], repeats=repeats,
+                                     favorite=_terrain(pet, route), stars=stars, effects=_fx(build, hours, route, bool(mate)),
+                                     repeat_decay=rules.markers_decay(camp["markers"]), paired=bool(mate))
+    energy_cost = rules.ACTIVITY_ENERGY.get(("watch" if kind == "watch" else "run", hours), 0)
+    reasons = []
+    if pet["run_id"] or (mate and mate["run_id"]):
+        reasons.append("Питомец или спутник уже в пути.")
+    if len(view["activities"]) >= view["slots"]:
+        reasons.append("Все слоты заняты.")
+    if pet["energy"] < energy_cost or (mate and mate["energy"] < rules.PAIR_ENERGY):
+        reasons.append("Не хватает сил.")
+    return {**quote, "as_of": clock["now"].isoformat(), "day": str(clock["day"]),
+            "can_start": not reasons, "reasons": reasons, "energy_cost": energy_cost,
+            "notice": "Расчёт по состоянию сейчас, без случайных находок. При возвращении учитываются день, сборка и общая норма на момент получения награды."}
+
+
+async def save_build_preset(db, *, user_id: int, pet_id: int, slot: int, name: str,
+                            calling: str | None, traits: list[str], talismans: list[str], action_id: str) -> dict:
+    action_id = _action(action_id)
+    name = str(name or "").strip()
+    if not 1 <= slot <= 3 or not 1 <= len(name) <= 40 or any(ord(c) < 32 for c in name):
+        raise PetV2PolicyError("Название: 1–40 символов; слоты: 1–3.")
+    if calling is not None and calling not in rules.AVAILABLE_CALLINGS:
+        raise PetV2PolicyError("Неизвестное призвание.")
+    if len(traits) != len(set(traits)) or any(t not in rules.AVAILABLE_TRAITS for t in traits):
+        raise PetV2PolicyError("Неизвестная или повторяющаяся черта.")
+    if len(talismans) > rules.TALISMAN_SLOTS or len(talismans) != len(set(talismans)):
+        raise PetV2PolicyError("Проверь талисманы.")
+    draft = {"calling": calling, "traits": sorted(traits), "talismans": sorted(talismans)}
+    request = {"type": "save_build_preset", "pet_id": pet_id, "slot": slot, "name": name, **draft}
+    async with db.connection.transaction():
+        await repo.lock_user(db, user_id)
+        replay = await repo.cached_action(db, user_id, action_id)
+        if replay:
+            if replay["request"] != request:
+                raise PetV2Conflict("action_id уже использован для другого действия.")
+            return {**replay["response"], "idempotent_replay": True}
+        pet = await repo.get_owned_pet(db, user_id, pet_id)
+        if not pet:
+            raise PetV2PolicyError("Питомец не найден.")
+        rows = {int(p["id"]): p for p in await repo.list_owned_pets(db, user_id)}
+        level = int(rows[pet_id]["level"] or 1)
+        if len(traits) > rules.trait_slots(level) or (calling and level < rules.CALLING_MIN_LEVEL):
+            raise PetV2PolicyError("Эта сборка ещё не открыта питомцу.")
+        owned = {t["id"] for t in await repo.list_talismans(db, user_id)}
+        if any(t not in owned for t in talismans):
+            raise PetV2PolicyError("Талисман не найден.")
+        await repo.put_build_preset(db, user_id, pet_id, slot, name, draft)
+        response = {"ok": True, "slot": slot, "name": name, "build": draft}
+        await repo.save_action(db, user_id, action_id, request, response)
+        return response
 
 
 async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None, action_id: str,
@@ -461,29 +539,37 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         }
         await repo.finish_run(db, run["id"], result)
         await repo.save_action(db, user_id, action_id, request, result)
-        await _record_progress(db, user_id, run)
+        await _record_progress(db, user_id, run, occurred_at=clock['now'])
     return result
 
 
-async def _record_progress(db, user_id: int, run: dict) -> None:
+async def _record_progress(db, user_id: int, run: dict, *, occurred_at=None) -> None:
     """Квесты и достижения не должны блокировать награду: сбой откатывается в savepoint и логируется."""
     try:
         async with db.connection.transaction():
-            await _record_progress_inner(db, user_id, run)
+            await _record_progress_inner(db, user_id, run, occurred_at=occurred_at)
     except Exception as exc:  # noqa: BLE001 — прогресс квестов вторичен
         from loguru import logger
         logger.warning("pets_v2: прогресс квестов пропущен для {}: {}", run["id"], exc)
 
 
-async def _record_progress_inner(db, user_id: int, run: dict) -> None:
+async def _record_progress_inner(db, user_id: int, run: dict, *, occurred_at=None) -> None:
     from services import quests_v1 as quests
     from services import achievements_v1 as achievements
     from services.vip import is_vip_active
-    await quests.record_metric(
-        db, user_id=int(user_id), metric="pet_activity_completed", event_id=str(run["id"]),
-        vip_active=await is_vip_active(db, int(user_id)),
-        sources=await quests.available_sources(db, user_id=int(user_id)),
-    )
+    occurred_at = occurred_at or (await repo.clock(db))['now']
+    vip = await is_vip_active(db, int(user_id))
+    sources = await quests.available_sources(db, user_id=int(user_id), now=occurred_at)
+    metrics = ['pet_activity_completed']
+    specific = {'trek':'pet_trek_completed','expedition':'pet_expedition_completed','watch':'pet_watch_completed'}.get(run['kind'])
+    if specific:
+        metrics.append(specific)
+        # The completed job is no longer in open_runs. Keep its matching goal
+        # eligible until the event is applied, including a late-day collection.
+        sources = sources | {'pets_v2', 'pets_v2_daily', f"pets_v2_{run['kind']}_daily"}
+    for metric in metrics:
+        await quests.record_metric(db, user_id=int(user_id), metric=metric, event_id=str(run['id']),
+                                  vip_active=vip, sources=sources, occurred_at=occurred_at)
     await achievements.record_terminal(
         db, user_id=int(user_id), metric="pet_activity_completed", source_event_id=str(run["id"]),
         source_snapshot={"run_id": str(run["id"]), "activity_kind": run["kind"],
@@ -496,7 +582,8 @@ def _week_start(day):
     return day - timedelta(days=day.weekday())
 
 
-async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, traits: list[str], talisman_ids: list[str], action_id: str) -> dict:
+async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, traits: list[str], talisman_ids: list[str], action_id: str,
+                    expected_essence: int | None = None) -> dict:
     """Собрать билд: призвание (с 10 ур.), черты (слоты с 5/15/25 ур.), до 2 талисманов.
 
     Пустой слот заполняется бесплатно. Замена призвания или черты бесплатна раз в неделю, дальше — Эссенция.
@@ -504,6 +591,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
     action_id = _action(action_id)
     traits, talisman_ids = [str(t) for t in traits], [str(t) for t in talisman_ids]
     request = {"type": "build", "pet_id": int(pet_id), "calling": calling, "traits": sorted(traits), "talismans": sorted(talisman_ids)}
+    if expected_essence is not None:
+        request["expected_essence"] = expected_essence
     if len(set(traits)) != len(traits) or len(set(talisman_ids)) != len(talisman_ids):
         raise PetV2PolicyError("Повторы в сборке не допускаются.")
     if any(t not in rules.AVAILABLE_TRAITS for t in traits):
@@ -523,7 +612,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
         if not pet:
             raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
         _species_row(pet)
-        if any(int(r["pet_id"]) == int(pet_id) for r in await repo.open_runs(db, user_id)):
+        busy = {int(p) for r in await repo.open_runs(db, user_id) for p in (r["pet_id"], r["companion_id"]) if p is not None}
+        if int(pet_id) in busy:
             raise PetV2Conflict("Пока питомец в пути, сборку менять нельзя.")
         state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
         level = int(state["level"])
@@ -536,6 +626,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
             row = owned.get(talisman_id)
             if not row:
                 raise PetV2PolicyError("Талисман не найден.")
+            if row.get("pet_id") is not None and int(row["pet_id"]) != pet_id and int(row["pet_id"]) in busy:
+                raise PetV2Conflict("Нельзя снять талисман с питомца, который в пути.")
         week = _week_start((await repo.clock(db))["day"])
         old_calling, old_traits = state["calling"], _json_list(state["traits"])
         calling_at, traits_at = state["calling_changed_at"], state["traits_changed_at"]
@@ -551,6 +643,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
             if traits_at == week:
                 cost += rules.TRAIT_SWAP_ESSENCE * len(removed)
             traits_at = week
+        if expected_essence is not None and cost != expected_essence:
+            raise PetV2Conflict("Цена замены изменилась. Обновите сборку и подтвердите новую цену.")
         if cost:
             from infrastructure.repositories import skins_v3 as essence_repo
             try:

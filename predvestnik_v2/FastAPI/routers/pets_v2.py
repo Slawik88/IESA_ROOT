@@ -10,12 +10,13 @@ from services import pets_v2 as service
 router = APIRouter(prefix="/pets-v2", tags=["pets-v2"])
 
 
-class StartRequest(BaseModel):
+class RunPreviewRequest(BaseModel):
     pet_id: int = Field(gt=0)
     kind: str = Field(pattern="^(trek|expedition|watch)$")
     hours: int = Field(ge=3, le=24)
     route: str | None = Field(default=None, pattern="^(forest|pass|ruins|swamp)$")
     companion_id: int | None = Field(default=None, gt=0)
+class StartRequest(RunPreviewRequest):
     action_id: str = Field(min_length=1, max_length=96)
 
 
@@ -33,9 +34,18 @@ class BuildRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class ApplyBuildRequest(BuildRequest):
+    expected_essence: int | None = Field(default=None, ge=0)
+
+
 class CampRequest(BaseModel):
     building: str = Field(pattern="^(lounge|markers|workshop)$")
     action_id: str = Field(min_length=1, max_length=96)
+
+
+class PresetRequest(BuildRequest):
+    slot: int = Field(ge=1, le=3)
+    name: str = Field(min_length=1, max_length=40)
 
 
 class ReforgeRequest(BaseModel):
@@ -90,6 +100,24 @@ async def start(body: StartRequest, db=Depends(get_db), user=Depends(require_tg_
         raise HTTPException(409, str(error))
 
 
+@router.post("/preview")
+async def preview(body: RunPreviewRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.preview_run(db, user_id=int(user["id"]), **body.model_dump())
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
+@router.post("/build-presets")
+async def save_preset(body: PresetRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    await _ready(db)
+    try:
+        return await service.save_build_preset(db, user_id=int(user["id"]), **body.model_dump())
+    except PetV2PolicyError as error:
+        raise HTTPException(409, str(error))
+
+
 @router.post("/claim")
 async def claim(body: ClaimRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     await _ready(db)
@@ -100,11 +128,12 @@ async def claim(body: ClaimRequest, db=Depends(get_db), user=Depends(require_tg_
 
 
 @router.post("/build")
-async def build(body: BuildRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+async def build(body: ApplyBuildRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     await _ready(db)
     try:
         return await service.set_build(db, user_id=int(user["id"]), pet_id=body.pet_id, calling=body.calling,
-                                       traits=body.traits, talisman_ids=body.talismans, action_id=body.action_id)
+                                       traits=body.traits, talisman_ids=body.talismans, action_id=body.action_id,
+                                       expected_essence=body.expected_essence)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
 

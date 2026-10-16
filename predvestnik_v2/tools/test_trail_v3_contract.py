@@ -31,10 +31,12 @@ assert re.search(r"window\.openPetsV1 = function \(\) \{\s*if \(_sysFlags\.pets_
 assert "Тропа пока закрыта" in hub and "_sysFlags.pets_v2 = false" in hub and "_trClassic()" in hub
 
 # Every write goes through one function that attaches an action id (at most 96 characters); the id lives until the server answers: kept when the network breaks, dropped on any answer.
-assert len(re.findall(r"method:\s*'POST'", js)) == 1 and "action_id: key.id" in hub
+forecast = hub[hub.index("function _trForecastSchedule"):hub.index("function _trSendHtml")]
+assert "api('/pets-v2/preview'" in forecast and len(re.findall(r"method:\s*'POST'", forecast)) == 1
+assert len(re.findall(r"method:\s*'POST'", js.replace(forecast, ""))) == 1 and "action_id: key.id" in hub
 assert ".slice(0, 12)" in hub and "randomUUID" in hub, "id = short prefix + uuid, far below 96 characters"
 assert "delete _tr.keys[key.k]; return data;" in hub and "if (typeof error === 'string') delete _tr.keys[key.k]; throw error;" in hub
-for path in ("start", "claim", "build", "camp/upgrade", "talisman/reforge", "track/start", "track/open", "trial", "feed"):
+for path in ("start", "claim", "build", "build-presets", "camp/upgrade", "talisman/reforge", "track/start", "track/open", "trial", "feed"):
     assert f"_trPost('{path}'" in js, path
 assert "_tr.busy" in hub and "async function _trRun" in hub, "one action at a time: a second tap does not send a second request"
 
@@ -69,6 +71,7 @@ assert "setInterval(() =>" in hub and "document.hidden" in hub, "the clock does 
 used = set(re.findall(r"\b(tr-[a-z0-9]+(?:-[a-z0-9]+)*)\b", re.sub(r"\$\{[^}]*\}", " ", js)))
 styled = set(re.findall(r"\.(tr-[a-z0-9]+(?:-[a-z0-9]+)*)", plain_css))
 hooks = {"tr-sheet-t", "tr-slots", "tr-pets", "tr-traces", "tr-slot", "tr-more", "tr-pet", "tr-job", "tr-who", "tr-facts-list", "tr-tal"}   # ids and hooks that only the scripts or the tests look for
+hooks.update({"tr-preset-name", "tr-preset-slot", "tr-send-forecast"})  # labelled inputs and live forecast region
 assert used - styled - hooks == set(), f"classes without a rule: {sorted(used - styled - hooks)}"
 for name, props in re.findall(r"@keyframes\s+([\w-]+)\s*\{(.*?)\n(?=@|\.|/|\n|$)", plain_css, flags=re.S):
     assert set(re.findall(r"([a-z-]+)\s*:", props)) <= {"transform", "opacity"}, f"{name} animates more than transform and opacity"

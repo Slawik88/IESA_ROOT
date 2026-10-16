@@ -3,6 +3,211 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## QUEST-VARIETY-20261016 — additive pet quests
+
+Implemented separately on `codex/quest-variety`, stacked on mechanics-community
+6bc11bae. Seven pool entries: daily any adventure/trek/expedition/watch; weekly
+three treks/two expeditions/three watches. All share `pet_journey`, so a set gets
+at most one adventure task. Existing four daily/five weekly slots, reward tables,
+VIP rules, reroll quotas and policy version are unchanged. Existing progress is
+preserved; normal new assignments/rerolls draw from the expanded pool.
+
+Daily eligibility is conservative and UTC-based: an owned valid pet can finish
+an already-running job before reset minus five minutes, or there is an idle pet,
+free slot and enough stored energy to start the shortest suitable job. Do not
+predict rest or require food/purchases. A new watch needs twelve hours, so late
+daily watch assignments are excluded unless the watch can already finish in time.
+V2-specific tasks require the V2 flag; legacy generic activity support remains.
+
+Terminal collection emits generic and matching type metrics under the same
+claim timestamp and savepoint. The just-completed activity stays eligible during
+that event even though it has left `open_runs`; otherwise normal availability
+refresh could replace the goal before it increments. No progress for preview,
+start, failed early collection, replay or a second companion. The ordinary
+achievement still records one activity. Both web routing helpers lead to pets.
+
+Read-only plan/final critique accepted. Seven relevant checks pass, including
+existing quests rules/PG/bot and pets-v2 PG, new real terminal claims/paired run,
+UTC Sunday/Monday boundary, late availability, unchanged reward receipts,
+historical assignments and secondary-progress rollback. Static/public HTTP
+checks pass. Evidence: `.local/quest-variety-checks.log`. No production changes.
+
+## OWNER-DESIGN-20261016 — discussion only, no new game/exchange/style code
+
+Owner selected **solo activities first**, then **link solo outings to pets**.
+This agrees a direction, not implementation or reward parameters. Prepare a
+concrete outing flow for joint approval: a short session with several meaningful
+route/risk choices, a saved intermediate state and a clear outcome. Avoid adding
+another timer or repeated tapping. Resolve whether a pet already in a passive
+job may participate: blocking all such pets could recreate the original lack
+of playable activities. Keep session resources separate from long-job timers;
+numbers, loot budgets, limits and species advantages remain proposals until agreed.
+
+Exchange discussion: current rules are a 2000-Zarniki creation fee, initial Mora
+capital, launch auction, vesting, emission and liquidity operations. Replacing
+only the fee would not satisfy the requested simpler system. The owner requested
+system-defined tradable coins, buy/sell/shorts, and personal creation for 5000
+Zarniki. Before replacement, agree price formation, whether personal coins are
+tradable or just collectible, short collateral/liquidation/fees, and treatment of
+existing balances/orders/positions. Prepare market → coin → trade → confirmation
+flow. No wallets, exchange flags, existing positions or fees changed in this work.
+
+Chat cosmetics discussion: use the existing owned/equipped skin and tier, with
+one shared style registry rather than a second shop or duplicate ownership.
+Agree whose skin applies to shared results, which commands receive cards, fallback
+for absent/seasonal skins, and a compact text form for frequent commands. Current
+`bot/chat/style.py` emits regular Telegram HTML. Structured rich messages are an
+additional API option, not arbitrary CSS in existing replies; test SDK/client
+compatibility before selecting that route. Source: https://core.telegram.org/bots/api#formatting-options.
+Custom visuals must keep names, numbers, sanctions and action buttons readable.
+No rendering/ownership changes are implemented before owner agreement.
+
+Notion sources inspected read-only: project
+https://app.notion.com/p/3e4d5683af45814a842bff53fdf3a0d6 and roadmap
+https://app.notion.com/p/3e4d5683af4581658282d9d3867bc3e8. Their September/October6
+milestones are historical context; current explicit owner directions take
+precedence. No duplicate task pages or unsupported Done statuses were created.
+
+## MECHANICS-COMMUNITY-20261015 — owner-selected development wave
+
+Owner scope: pet departure forecast and saved builds; deep Rhythm feedback and
+effective Rune Gift choice; finished Mafia analysis; existing family tree in the
+Mini App; shared Telegram/web purge; important release posts to the official
+group topic https://t.me/predvestnik_official/4 and a considered community setup.
+Explicitly excluded: weekly pet trial changes, quest redesign, Minesweeper changes
+and an extra purge pre-start preview. Source baseline: 8efee388.
+
+Before each slice: inspect current reader/writer paths, compare alternatives,
+obtain mandatory read-only critique, document edge cases, then implement and
+verify. All development uses an isolated worktree; no unrelated root/frontend edits.
+
+1. Pets — read-only, current-state base forecast (claim-time/day/random finds
+   can change the result), shared daily cap including companion; three named
+   saved drafts, explicit existing priced apply, busy donor/companion guards.
+2. Rhythm — authoritative bounded per-signal analysis, honest integrity state,
+   personal comparison, effective perk preview without future-rune leakage.
+3. Mafia — completed-match rounds with a deliberate disclosure policy, current
+   membership/participant authorization, no live-role leaks, readable timeline.
+4. Family — existing relationship graph with consent/membership boundaries,
+   bounded paging and clear empty/stale states; no new family economy.
+5. Purge — one shared durable session for chat and site, current rights on every
+   write, concurrent moderator protection, real Telegram outcome and retry states.
+6. Community — verified destination/rights, important shipped changes only,
+   concise screenshot-led posts, bounded annotations, durable publication state,
+   no blind resend after uncertain delivery; prepare group text/topics concretely
+   before any public configuration change.
+
+Status: implementation and scoped verification complete in managed branch
+`codex/predvestnik-mechanics-community`, based on production 8efee388. Mandatory
+read-only final critique found no remaining confirmed blockers. Production
+deployment and public group changes/posts have not been performed for this wave.
+
+Validation: 12 focused checks pass (pure rules, real PostgreSQL, existing Rhythm
+transport/Trail contracts, admin access/UI guards, public routes, static HTTP
+delivery, release-feed history and terms). Changed Python files compile and JS
+files parse; `git diff --check` passes. Actual mobile views of family, Mafia,
+purge, pet forecast and saved builds have no document/container horizontal
+overflow at 320/390/430 px. An actual local WebSocket Rhythm run records eight
+correct taps and five timeouts accurately; its result is used in the explicitly
+labelled example image. The creator composer saves a draft, loads the exact PNG,
+and rejects publication from preprod without changing its draft state.
+
+Counterexamples covered: preview does not create pet progression state; owned,
+priced and busy-pet build guards; secret-role/history privacy and former-member
+denial; child-only family; concurrent start retries and decisions; a delayed
+start after completion or during a later session cannot reopen the old session;
+uncertain sanctions/publications cannot be repeated blindly. Mafia pause and
+chat closure commit atomically. Existing independent chat closure survives
+purge completion. A Telegram start/status message links to the same web session.
+
+Full gate: 180 Python scripts, initially 153 passed / 27 failed, plus three JS
+behavior scripts passed. One newly stale static test assumed every POST was a
+mutation; it now explicitly permits the read-only forecast while retaining the
+action-ID contract for all writes, and passes. The remaining 26 failures exactly
+match the previously proven immutable-baseline failure list. No unrelated test
+fixture repair was included. Evidence: worktree `.local/full-gate-results.log`,
+`.local/scoped-final.log`, `.local/gate-comparison.json`; synthetic preview only
+at 127.0.0.1:8407. The five reviewed PNGs are tracked release assets.
+
+### Community material prepared for review
+
+Verified by read-only Telegram calls: working bot is **@IIIPredvestnikIIIBot**,
+ID 8485867534, administrator with topic-management rights in official forum
+group -1003939897421. The local @predvestnik_v2_bot token is a different test
+bot: its `left` status says nothing about the production bot's permissions.
+No additional bot invitation is needed. The owner designated `/4` for updates;
+the production observer must see an incoming topic message there before the
+publisher permits delivery. No polling/stealing updates and no public test post.
+
+Proposed group description (under Telegram's 255-character limit):
+
+> Официальная группа Предвестника. Игры, питомцы и жизнь сообщества.
+> Бот: @IIIPredvestnikIIIBot. Важные обновления — в теме «Обновления».
+> Вопросы, идеи и сообщения об ошибках обсуждаем в соответствующих темах.
+
+Proposed pinned navigation:
+
+> Добро пожаловать в Predvestnik Official!
+>
+> Играть: https://t.me/IIIPredvestnikIIIBot
+> Важные обновления: https://t.me/predvestnik_official/4
+>
+> Вопросы — в помощи; предложения — в идеях; ошибки — в сообщениях об ошибках.
+> Для ошибки укажите действие, ожидаемый результат и то, что произошло.
+> Скриншот и примерное время помогут разобраться быстрее.
+>
+> В обновлениях показываем только то, что уже доступно игрокам: короткое
+> объяснение, изображение и кнопку перехода. Обсуждение — в общении.
+
+Suggested topic roles, **after inspecting existing topics to avoid duplicates**:
+existing «Обновления» `/4`; «Общение»; «Помощь»; «Идеи»; «Ошибки».
+Do not create empty topics for every game or split a quiet community further.
+Update the navigation with real topic links before pinning. These texts and
+topic roles are drafts; no description, pin, topic or group permission changed.
+
+Editorial policy: one important shipped release per post, no commit-by-commit
+notifications, at least 24 hours between posts, one useful action button.
+Normal minor fixes stay in the in-app changelog; don't send five separate posts
+for this wave. Use 1–2 numbered marks only when the caption explains them.
+Use real interface captures with clearly labelled synthetic data, never private
+players' IDs, balances or moderation dossiers. Captures are prepared assets in
+`FastAPI/static/announcements/`; the creator previews the exact image, text,
+destination and version before sending. A lost send response requires manual
+verification; it never triggers an automatic resend.
+
+Owner UI feedback 2026-10-16: the first Rhythm result was rejected as a wall of
+text. Replaced with score/accuracy ring, three compact metrics, one short hint
+and a collapsed detailed review; explicit rating status remains visible. Server
+response/caveat, heart losses, rounds and gifts remain available inside details.
+Updated the real UI capture; 320/390/430 overflow checks and all 12 scoped checks
+pass. Continue with the queued quests and joint design topics after this repair.
+
+First publication draft, after deployment and availability verification
+(`rhythm-analysis.png`, kind `rhythm`, button «Открыть игры»):
+
+> Результат Ритма — с одного взгляда.
+>
+> Точность, лучшая серия и ошибки — на коротком итоговом экране.
+> ① Пропуски считаются отдельно от неверных рун.
+>
+> Этапы, сердца и сборка — внутри «Разбора забега».
+> Завершите забег и посмотрите свой результат.
+
+Other image-caption pairs are material for later important releases, not a send
+queue: `family-tree.png` — «Нажмите на родственника ①, чтобы перейти к его
+связям»; `mafia-review.png` — finished rounds and day-vote totals, without
+private night actions; `pets-forecast.png` — forecast before departure,
+explicit daily-cap/random-find caveat; `purge-web.png` — shared chat/site
+moderation decisions, with access restricted by actual chat permissions.
+
+Owner follow-up progressed after the completed wave/UI repair: additive quests
+are implemented on a separate branch; Notion sources were inspected read-only.
+The owner selected solo outings linked to pets as the next design direction.
+Joint owner agreement is still required BEFORE implementing the outing rules,
+replacement exchange (system coins, buy/sell/shorts, personal coin creation for
+5000 Zarniki), or chat command styling tied to existing cosmetics. Design notes
+and unresolved decisions are recorded above; their economics are unchanged.
+
 ## PROD-UI-20261015 — production UI delivery and Pets v2 rollout
 
 Validated release patch: replace buildpack-normalized mtime asset versions with
