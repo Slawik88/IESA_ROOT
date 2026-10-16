@@ -83,15 +83,6 @@ function renderProfileHome(data) {
     </nav>`;
 }
 
-// Плашка разработки закрывается на сессию; текст остаётся в разметке для публичного контракта.
-function dismissDevNotice() {
-  const note = el('dev-notice'); if (note) note.hidden = true;
-  try { sessionStorage.setItem('v3_dev_notice_closed', '1'); } catch (_) { /* приватный режим: просто скрыто до перезагрузки */ }
-}
-(function restoreDevNotice() {
-  try { if (sessionStorage.getItem('v3_dev_notice_closed') === '1') { const note = el('dev-notice'); if (note) note.hidden = true; } } catch (_) { /* хранилище недоступно */ }
-})();
-
 // ── Telegram Mini App: haptics, цвета оболочки, жесты ──────────────────────────
 // До этого _haptic() нигде не был объявлен: проверки typeof в app.01.js молча ничего не делали.
 let _hapticAt = 0;

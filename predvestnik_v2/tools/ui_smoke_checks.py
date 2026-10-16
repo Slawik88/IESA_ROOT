@@ -146,7 +146,7 @@ SKIP_CLICK = r"подтверд|удалить|отправить|принять
 # Visible controls of the current screen as [index among all candidates, label], skipping dangerous ones.
 CANDIDATES = """(skip) => { const re = new RegExp(skip, 'i'); const out = [];
   [...document.querySelectorAll('button, summary, [onclick], a[href]')].forEach((e, i) => { const r = e.getBoundingClientRect(); if (!r.width || !r.height || r.top > innerHeight * 2 || r.bottom < 0) return;
-    if (e.closest('.nav, [hidden], .development-notice') || getComputedStyle(e).visibility === 'hidden' || e.disabled) return;
+    if (e.closest('.nav, [hidden]') || getComputedStyle(e).visibility === 'hidden' || e.disabled) return;
     const label = (e.getAttribute('aria-label') || e.textContent || e.className || '').trim().replace(/\\s+/g, ' ');
     if (re.test(label) || !label) return; out.push([i, label]); });
   return out; }"""

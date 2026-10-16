@@ -258,7 +258,7 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
   .tr-facts > div { gap: 10px; }
 }
 
-/* ─── Объяснялки (app.47.js): совет «что сейчас делать» и лист-шпаргалка с плитками ─── */
+/* ─── Объяснялки (app.47.js): совет «что сейчас делать» и лист подсказок с плитками ─── */
 .tr-now { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
 .tr-now-t { margin: 0; color: var(--v3-dim); font-size: 13.5px; line-height: 1.4; }
 .tr-now .v3-pill { flex: none; }

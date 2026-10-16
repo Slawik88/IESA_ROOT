@@ -64,10 +64,10 @@ def main() -> None:
 
     marker_profiles = {
         "current": {
-            "/": ("Обновление ещё не вышло",),
-            "/updates.json": ("2026-09-23-mobile-controls-and-payments-check",),
+            "/": ("Чем помочь?",),
+            "/updates.json": ("2026-10-16-plain-hints",),
             "/static/app.css": ("flex: 1 1 auto; overflow: hidden", "width: 44px; height: 44px"),
-            "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup"),
+            "/static/app.js": ("В продакшене пополнение работает", "openZarnikiTopup", "Подсказки"),
         },
         "rollback-f8da5d43": {
             "/": ("Предвестник в активной разработке",),
@@ -76,7 +76,9 @@ def main() -> None:
     }
     markers = marker_profiles[args.profile]
     forbidden_markers = {
-        "current": {},
+        "current": {
+            "/": ("активной разработке",),
+        },
         "rollback-f8da5d43": {
             "/": ("Обновление ещё не вышло",),
             "/updates.json": ("2026-09-23-mobile-controls-and-payments-check",),

@@ -926,22 +926,6 @@ body {
   line-height: 1.42;
 }
 
-.development-notice {
-  display: flex;
-  align-items: flex-start;
-  gap: 7px;
-  margin: 0 0 9px;
-  padding: 7px 9px;
-  
-  
-  
-  color: var(--muted);
-  font-size: 9.5px;
-  line-height: 1.35;
-}
-.development-notice > span:first-child { flex: 0 0 auto; }
-.development-notice strong { color: var(--bright); font-weight: 700; }
-
 .hdr-ava {
   width: 32px;
   height: 32px;

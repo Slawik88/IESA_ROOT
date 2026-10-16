@@ -19,7 +19,7 @@ for key in hub_flags:
     assert f'("{key}"' in flags, f"unknown flag {key}"
 
 # Primary controls keep a 44px tap target.
-for selector in (".v3-pill", ".v3-link", ".v3-row", ".nb", ".dn-close"):
+for selector in (".v3-pill", ".v3-link", ".v3-row", ".nb"):
     block = re.search(re.escape(selector) + r" \{[^}]*\}", css)
     assert block and re.search(r"(min-)?(height|width): 4[4-9]px|min-height: (5\d|7\d)px", block.group(0)), selector
 
@@ -44,7 +44,7 @@ assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
 assert index.count('type="button" class="nb') == 8
-assert 'role="status"' in index and "dev-notice" in index
+assert 'role="status"' in index and 'id="dev-notice"' not in index, "the player shell has no «in development» notice"
 assert 'id="app-update-banner"' in index and "applyAppUpdate()" in index
 assert "event?.type === 'app_version'" in app and "event?.type === 'data_changed'" in app
 assert "event?.type === 'notification_pending'" in app and "queueDynamicRefresh" in app
