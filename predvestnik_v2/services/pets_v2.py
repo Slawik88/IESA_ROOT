@@ -526,29 +526,37 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         }
         await repo.finish_run(db, run["id"], result)
         await repo.save_action(db, user_id, action_id, request, result)
-        await _record_progress(db, user_id, run)
+        await _record_progress(db, user_id, run, occurred_at=clock['now'])
     return result
 
 
-async def _record_progress(db, user_id: int, run: dict) -> None:
+async def _record_progress(db, user_id: int, run: dict, *, occurred_at=None) -> None:
     """Квесты и достижения не должны блокировать награду: сбой откатывается в savepoint и логируется."""
     try:
         async with db.connection.transaction():
-            await _record_progress_inner(db, user_id, run)
+            await _record_progress_inner(db, user_id, run, occurred_at=occurred_at)
     except Exception as exc:  # noqa: BLE001 — прогресс квестов вторичен
         from loguru import logger
         logger.warning("pets_v2: прогресс квестов пропущен для {}: {}", run["id"], exc)
 
 
-async def _record_progress_inner(db, user_id: int, run: dict) -> None:
+async def _record_progress_inner(db, user_id: int, run: dict, *, occurred_at=None) -> None:
     from services import quests_v1 as quests
     from services import achievements_v1 as achievements
     from services.vip import is_vip_active
-    await quests.record_metric(
-        db, user_id=int(user_id), metric="pet_activity_completed", event_id=str(run["id"]),
-        vip_active=await is_vip_active(db, int(user_id)),
-        sources=await quests.available_sources(db, user_id=int(user_id)),
-    )
+    occurred_at = occurred_at or (await repo.clock(db))['now']
+    vip = await is_vip_active(db, int(user_id))
+    sources = await quests.available_sources(db, user_id=int(user_id), now=occurred_at)
+    metrics = ['pet_activity_completed']
+    specific = {'trek':'pet_trek_completed','expedition':'pet_expedition_completed','watch':'pet_watch_completed'}.get(run['kind'])
+    if specific:
+        metrics.append(specific)
+        # The completed job is no longer in open_runs. Keep its matching goal
+        # eligible until the event is applied, including a late-day collection.
+        sources = sources | {'pets_v2', 'pets_v2_daily', f"pets_v2_{run['kind']}_daily"}
+    for metric in metrics:
+        await quests.record_metric(db, user_id=int(user_id), metric=metric, event_id=str(run['id']),
+                                  vip_active=vip, sources=sources, occurred_at=occurred_at)
     await achievements.record_terminal(
         db, user_id=int(user_id), metric="pet_activity_completed", source_event_id=str(run["id"]),
         source_snapshot={"run_id": str(run["id"]), "activity_kind": run["kind"],

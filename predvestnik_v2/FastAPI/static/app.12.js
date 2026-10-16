@@ -697,7 +697,7 @@
     if(metric.startsWith('minesweeper_'))return{icon:'▦',label:'Открыть Сапёр',action:'openMinesweeperGame()'};
     if(metric.startsWith('mafia_'))return{icon:'◈',label:'Открыть игры',action:"goTo('arena','game')"};
     if(metric==='chest_revealed')return{icon:'✦',label:'К сундукам',action:'openChestsV1()'};
-    if(metric==='pet_fed'||metric==='pet_activity_completed')return{icon:'🐾',label:'К питомцам',action:'openPetsV1()'};
+    if(['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(metric))return{icon:'🐾',label:'К питомцам',action:'openPetsV1()'};
     return{icon:'◆',label:'К играм',action:"goTo('arena','game')"};
   }
   function questRewardValue(reward){

@@ -146,7 +146,7 @@ def _balanced_sample(definitions: list[dict], count: int) -> list[dict]:
     return [randomizer.choice(by_lane[lane]) for lane in selected_lanes]
 
 
-async def available_sources(db, *, user_id: int) -> frozenset[str]:
+async def available_sources(db, *, user_id: int, now: datetime | None = None) -> frozenset[str]:
     """Live assignment eligibility; Mafia also requires prior participation."""
     sources = set()
     if await system_flags.is_enabled(db, 'game_rhythm_v2'):
@@ -166,6 +166,14 @@ async def available_sources(db, *, user_id: int) -> frozenset[str]:
     owned_pets = await pets_repo.list_owned_pets(db, int(user_id))
     if owned_pets:
         sources.add('pets')
+        if await system_flags.is_enabled(db, 'pets_v2'):
+            from infrastructure.repositories import pets_v2 as pet_v2_repo
+            from core import pets_v2 as pet_rules
+            owned_v2 = await pet_v2_repo.list_owned_pets(db, int(user_id))
+            if any(p.get('species_id') in pet_rules.SPECIES for p in owned_v2):
+                sources.add('pets_v2')
+                sources.update(rules.pet_daily_sources(owned_v2, await pet_v2_repo.open_runs(db, int(user_id)),
+                                                       now=now or datetime.now(timezone.utc)))
         has_food = any(int(amount) > 0 for amount in (await chest_repo.inventory_summary(
             db, user_id=int(user_id),
         ))['foods'].values())
@@ -415,14 +423,16 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
 
 
 async def record_metric(db, *, user_id: int, metric: str, event_id: str, vip_active: bool,
-                        sources: frozenset[str] | set[str] | None = None) -> dict:
+                        sources: frozenset[str] | set[str] | None = None, occurred_at: datetime | None = None) -> dict:
     """Internal-only hook for an already-validated terminal activity event."""
     if metric not in {definition['metric'] for definition in rules.QUESTS}:
         raise QuestError('unknown quest metric')
     event_id = str(event_id or '').strip()
     if not event_id or len(event_id) > 128:
         raise QuestError('invalid quest event id')
-    keys = period_keys()
+    if occurred_at is not None and occurred_at.tzinfo is None:
+        raise QuestError('terminal event timestamp must include a timezone')
+    keys = period_keys(occurred_at)
     await chest_repo.ensure_tables(db)
     await vip_repo.ensure_tables(db)
     async with db.connection.transaction():
