@@ -114,7 +114,7 @@ function _trMeter(fraction, o = {}) {
 }
 
 // ── Главный экран ──────────────────────────────────────────────────────────────────────────────
-function _trHead() { return v3Head('Питомцы'); }
+function _trHead() { return v3Head('Питомцы', { end: v3GuideBtn('trail') }); }
 // Следы дня видны на каждом экране Тропы: на главном — строка с числом, полосой и подсказкой, на подэкранах (compact) — текст для строки под заголовком.
 // Упёрлись в норму: спокойная строка, без красного (питомцы устали расти, награды остаются)
 function _trTraces(me, compact) {
@@ -178,7 +178,7 @@ function _trMore(me) {
   if (pets) rows.push(_v3Row('scope', 'Выслеживание', "trailGo('track')", trackHint), _v3Row('trophy', 'Испытание недели', "trailGo('trial')", trialHint));
   return `<section class="tr-sec tr-more">${_trSec('Ещё')}${rows.join('')}</section>`;
 }
-_TR_VIEWS.hub = me => `${_trHead()}${_trTraces(me)}${(me.pets || []).length ? `${_trSlots(me)}${_trPets(me)}` : _trEmpty()}${_trMore(me)}`;
+_TR_VIEWS.hub = me => `${_trHead()}${_trTraces(me)}${trailIntro(me)}${trailAdvice(me)}${(me.pets || []).length ? `${_trSlots(me)}${_trPets(me)}` : _trEmpty()}${_trMore(me)}`;
 
 // Секундомер: правит только текст таймеров (разметку не пересобирает). Время вышло, а сервер ещё не отметил занятие готовым: просим свежий ответ, не чаще раза в 4 секунды
 setInterval(() => {

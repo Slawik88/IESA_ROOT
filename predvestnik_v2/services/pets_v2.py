@@ -121,6 +121,7 @@ def _rules_view() -> dict:
 async def overview(db, user_id: int) -> dict:
     """Только чтение: ничего не создаёт и не меняет."""
     from core.chests_v1 import FOODS, PET_SPECIES
+    from infrastructure.repositories import users as users_repo
     clock = await repo.clock(db)
     day, week = clock["day"], _week_start(clock["day"])
     daily = await repo.get_daily(db, user_id, day)
@@ -197,8 +198,18 @@ async def overview(db, user_id: int) -> dict:
         "foods": [{"id": food_id, "name": row["name"], "icon": row["icon"], "restore": int(row["restore"]), "quantity": stock.get(food_id, 0)}
                   for food_id, row in FOODS.items()],
         "pair": {"species": species_owned, "need": rules.PAIR_MIN_SPECIES, "unlocked": species_owned >= rules.PAIR_MIN_SPECIES},
+        # для экранов: показана ли вводная карточка «Тропы» (один раз, флаг живёт на сервере)
+        "intro_done": await users_repo.get_trail_intro_done(db, user_id),
         "rules": _rules_view(),
     }
+
+
+async def mark_intro_done(db, user_id: int) -> bool:
+    """Вводная «Тропы» показана: серверный флаг вместо localStorage (идемпотентно)."""
+    from infrastructure.repositories import users as users_repo
+
+    await users_repo.set_trail_intro_done(db, user_id)
+    return True
 
 
 async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None, action_id: str,

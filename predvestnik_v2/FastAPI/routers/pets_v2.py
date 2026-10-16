@@ -66,6 +66,11 @@ class FeedRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
 
 
+class IntroSeenRequest(BaseModel):
+    """Тело пустое по смыслу: отметка «вводная Тропы показана» идемпотентна, без экономики."""
+    seen: bool = Field(default=True)
+
+
 async def _ready(db) -> None:
     if not await system_flags.is_enabled(db, "pets_v2"):
         raise HTTPException(404, "Тропа пока закрыта.")
@@ -161,3 +166,12 @@ async def feed(body: FeedRequest, db=Depends(get_db), user=Depends(require_tg_us
         return await service.feed_pet(db, user_id=int(user["id"]), pet_id=body.pet_id, food_id=body.food_id, action_id=body.action_id)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
+
+
+@router.post("/intro-seen")
+async def intro_seen(body: IntroSeenRequest, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Игрок прочитал вводную карточку «Тропы» — флаг на сервере (не localStorage, урок «Что нового»)."""
+    await _ready(db)
+    if body.seen:
+        return {"ok": True, "intro_done": await service.mark_intro_done(db, int(user["id"]))}
+    return {"ok": True, "intro_done": False}
