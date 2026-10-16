@@ -3,6 +3,139 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## MECHANICS-COMMUNITY-20261015 — owner-selected development wave
+
+Owner scope: pet departure forecast and saved builds; deep Rhythm feedback and
+effective Rune Gift choice; finished Mafia analysis; existing family tree in the
+Mini App; shared Telegram/web purge; important release posts to the official
+group topic https://t.me/predvestnik_official/4 and a considered community setup.
+Explicitly excluded: weekly pet trial changes, quest redesign, Minesweeper changes
+and an extra purge pre-start preview. Source baseline: 8efee388.
+
+Before each slice: inspect current reader/writer paths, compare alternatives,
+obtain mandatory read-only critique, document edge cases, then implement and
+verify. All development uses an isolated worktree; no unrelated root/frontend edits.
+
+1. Pets — read-only, current-state base forecast (claim-time/day/random finds
+   can change the result), shared daily cap including companion; three named
+   saved drafts, explicit existing priced apply, busy donor/companion guards.
+2. Rhythm — authoritative bounded per-signal analysis, honest integrity state,
+   personal comparison, effective perk preview without future-rune leakage.
+3. Mafia — completed-match rounds with a deliberate disclosure policy, current
+   membership/participant authorization, no live-role leaks, readable timeline.
+4. Family — existing relationship graph with consent/membership boundaries,
+   bounded paging and clear empty/stale states; no new family economy.
+5. Purge — one shared durable session for chat and site, current rights on every
+   write, concurrent moderator protection, real Telegram outcome and retry states.
+6. Community — verified destination/rights, important shipped changes only,
+   concise screenshot-led posts, bounded annotations, durable publication state,
+   no blind resend after uncertain delivery; prepare group text/topics concretely
+   before any public configuration change.
+
+Status: implementation and scoped verification complete in managed branch
+`codex/predvestnik-mechanics-community`, based on production 8efee388. Mandatory
+read-only final critique found no remaining confirmed blockers. Production
+deployment and public group changes/posts have not been performed for this wave.
+
+Validation: 12 focused checks pass (pure rules, real PostgreSQL, existing Rhythm
+transport/Trail contracts, admin access/UI guards, public routes, static HTTP
+delivery, release-feed history and terms). Changed Python files compile and JS
+files parse; `git diff --check` passes. Actual mobile views of family, Mafia,
+purge, pet forecast and saved builds have no document/container horizontal
+overflow at 320/390/430 px. An actual local WebSocket Rhythm run records eight
+correct taps and five timeouts accurately; its result is used in the explicitly
+labelled example image. The creator composer saves a draft, loads the exact PNG,
+and rejects publication from preprod without changing its draft state.
+
+Counterexamples covered: preview does not create pet progression state; owned,
+priced and busy-pet build guards; secret-role/history privacy and former-member
+denial; child-only family; concurrent start retries and decisions; a delayed
+start after completion or during a later session cannot reopen the old session;
+uncertain sanctions/publications cannot be repeated blindly. Mafia pause and
+chat closure commit atomically. Existing independent chat closure survives
+purge completion. A Telegram start/status message links to the same web session.
+
+Full gate: 180 Python scripts, initially 153 passed / 27 failed, plus three JS
+behavior scripts passed. One newly stale static test assumed every POST was a
+mutation; it now explicitly permits the read-only forecast while retaining the
+action-ID contract for all writes, and passes. The remaining 26 failures exactly
+match the previously proven immutable-baseline failure list. No unrelated test
+fixture repair was included. Evidence: worktree `.local/full-gate-results.log`,
+`.local/scoped-final.log`, `.local/gate-comparison.json`; synthetic preview only
+at 127.0.0.1:8407. The five reviewed PNGs are tracked release assets.
+
+### Community material prepared for review
+
+Verified by read-only Telegram calls: working bot is **@IIIPredvestnikIIIBot**,
+ID 8485867534, administrator with topic-management rights in official forum
+group -1003939897421. The local @predvestnik_v2_bot token is a different test
+bot: its `left` status says nothing about the production bot's permissions.
+No additional bot invitation is needed. The owner designated `/4` for updates;
+the production observer must see an incoming topic message there before the
+publisher permits delivery. No polling/stealing updates and no public test post.
+
+Proposed group description (under Telegram's 255-character limit):
+
+> Официальная группа Предвестника. Игры, питомцы и жизнь сообщества.
+> Бот: @IIIPredvestnikIIIBot. Важные обновления — в теме «Обновления».
+> Вопросы, идеи и сообщения об ошибках обсуждаем в соответствующих темах.
+
+Proposed pinned navigation:
+
+> Добро пожаловать в Predvestnik Official!
+>
+> Играть: https://t.me/IIIPredvestnikIIIBot
+> Важные обновления: https://t.me/predvestnik_official/4
+>
+> Вопросы — в помощи; предложения — в идеях; ошибки — в сообщениях об ошибках.
+> Для ошибки укажите действие, ожидаемый результат и то, что произошло.
+> Скриншот и примерное время помогут разобраться быстрее.
+>
+> В обновлениях показываем только то, что уже доступно игрокам: короткое
+> объяснение, изображение и кнопку перехода. Обсуждение — в общении.
+
+Suggested topic roles, **after inspecting existing topics to avoid duplicates**:
+existing «Обновления» `/4`; «Общение»; «Помощь»; «Идеи»; «Ошибки».
+Do not create empty topics for every game or split a quiet community further.
+Update the navigation with real topic links before pinning. These texts and
+topic roles are drafts; no description, pin, topic or group permission changed.
+
+Editorial policy: one important shipped release per post, no commit-by-commit
+notifications, at least 24 hours between posts, one useful action button.
+Normal minor fixes stay in the in-app changelog; don't send five separate posts
+for this wave. Use 1–2 numbered marks only when the caption explains them.
+Use real interface captures with clearly labelled synthetic data, never private
+players' IDs, balances or moderation dossiers. Captures are prepared assets in
+`FastAPI/static/announcements/`; the creator previews the exact image, text,
+destination and version before sending. A lost send response requires manual
+verification; it never triggers an automatic resend.
+
+First publication draft, after deployment and availability verification
+(`rhythm-analysis.png`, kind `rhythm`, button «Открыть игры»):
+
+> Теперь Ритм объясняет результат забега.
+>
+> Видно лучшую серию, неверные руны, пропуски по времени и потерянные сердца.
+> На изображении ① отмечены пропуски: они считаются отдельно от неверной руны.
+> Время ответа включает сеть — это не оценка вашей чистой реакции.
+>
+> При выборе Рун-дара можно увидеть, как он изменит текущие параметры.
+> Завершите забег и откройте разбор.
+
+Other image-caption pairs are material for later important releases, not a send
+queue: `family-tree.png` — «Нажмите на родственника ①, чтобы перейти к его
+связям»; `mafia-review.png` — finished rounds and day-vote totals, without
+private night actions; `pets-forecast.png` — forecast before departure,
+explicit daily-cap/random-find caveat; `purge-web.png` — shared chat/site
+moderation decisions, with access restricted by actual chat permissions.
+
+Owner follow-up, queued only (do not analyze until this wave is finished): use
+Notion for the next planning cycle; add quests. Joint owner agreement is required
+BEFORE implementation of the three other new topics: reasons to play beyond
+Rhythm; replacement exchange with system coins, buy/sell/shorts and personal coin
+creation for 5000 Zarniki; chat command styling tied to existing cosmetics. These
+are additional requests, not permission to alter their economics in this wave.
+
 ## PROD-UI-20261015 — production UI delivery and Pets v2 rollout
 
 Validated release patch: replace buildpack-normalized mtime asset versions with

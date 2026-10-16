@@ -43,7 +43,7 @@ function openMafiaStats(){
     const r=m=>role[m.role]||['❔','Роль ещё не выдана'];
     const live=(d.live||[]).map(m=>`<div class="v3-line mafia-live"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>Идёт сейчас · ${esc(phase[m.phase]||m.phase)}</small></span></div>`).join('');
     const rows=(d.matches||[]).map(m=>{ const when=mafiaDate(m.finished_at||m.started_at), side=m.winner==='town'?'победили мирные':m.winner==='mafia'?'победила мафия':'';
-      return `<div class="v3-line mafia-row"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>${esc([when,side].filter(Boolean).join(' · '))}</small></span><em class="mafia-res ${m.won===true?'win':''}">${m.won===true?'Победа':m.won===false?'Поражение':''}</em></div>`; }).join('');
+      return `<div class="v3-line mafia-row"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>${esc([when,side].filter(Boolean).join(' · '))}</small></span><em class="mafia-res ${m.won===true?'win':''}">${m.won===true?'Победа':m.won===false?'Поражение':''}</em><button type="button" class="v3-link" onclick="openMafiaReview(${Number(m.match_id)})">Разбор ›</button></div>`; }).join('');
     const summary=played?`<div class="mafia-sum"><div><b>${played}</b><span>сыграно</span></div><div><b>${wins}</b><span>побед</span></div><div><b>${Math.round(wins*100/played)}%</b><span>успех</span></div></div>${s.favorite_role&&role[s.favorite_role]&&played>=3?`<p class="v3-stat-line">Чаще всего: ${esc(role[s.favorite_role][1])}</p>`:''}${Number(s.win_streak||0)>=2?`<p class="v3-stat-line">Серия побед: ${Number(s.win_streak)}${Number(s.win_streak)>=50?'+':''}</p>`:''}`:'';
     const hidden='';
     const empty='<div class="v3-empty">🕵️<b>Партий пока нет</b>В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div>';
@@ -111,4 +111,22 @@ function swArena(tab){
   _arenaTab='game';
   _trackSubtab('arena/game');
   loadActivitiesHub();
+}
+
+// Only the authenticated finished-match projection is used here; no audit payload reaches the UI.
+let _mafiaReviewSeq = 0;
+function openMafiaReview(id, page = 0) {
+  const seq = ++_mafiaReviewSeq;
+  OM('Разбор Мафии', '<div id="mafia-review-host" class="v3-empty" role="status">Загружаем завершённую партию…</div>', [{l:'К истории',f:'openMafiaStats()'},{l:'Закрыть',f:'CM()'}]);
+  const host = el('mafia-review-host');
+  api(`/mafia-v1/matches/${Number(id)}/review?page=${Number(page)}`).then(d => {
+    if (seq !== _mafiaReviewSeq || !host?.isConnected) return;
+    const names = Object.fromEntries(d.players.map(p => [p.ref, p.name]));
+    const name = ref => esc(names[ref] || 'Воздержались');
+    const roles = {citizen:'Мирный',mafia:'Мафия',don:'Дон',doctor:'Доктор',detective:'Детектив'};
+    const phase = {night:'Ночь',discussion:'Обсуждение',voting:'Голосование'};
+    const timeline = d.timeline.map(r => `<li class="v3-line"><div><b>Раунд ${r.round} · ${phase[r.phase]}</b><p>${r.phase === 'discussion' ? 'Началось голосование.' : r.eliminated ? `Выбыл: ${name(r.eliminated)}.` : 'Никто не выбыл.'}</p>${r.phase === 'voting' ? `<p>Подано голосов: ${r.participated}</p><ul>${r.votes.map(v => `<li>${name(v.target)}: ${v.count}</li>`).join('') || '<li>Голосов нет.</li>'}</ul>${d.vote_mode === 'open' && r.ballots.length ? `<details><summary>Кто как голосовал</summary><ul>${r.ballots.map(v => `<li>${name(v.voter)} → ${name(v.target)}</li>`).join('')}</ul></details>` : ''}` : ''}</div></li>`).join('');
+    host.className = '';
+    host.innerHTML = `<p class="v3-stat-line">${d.winner === 'town' ? 'Победили мирные' : d.winner === 'mafia' ? 'Победила мафия' : 'Партия завершена'} · ${mafiaDate(d.finished_at)}</p><p class="tr-note">${esc(d.disclosure)}</p><details><summary>Участники и раскрытые роли · ${d.players.length}</summary><ul>${d.players.map(p => `<li>${esc(p.name)} · ${esc(roles[p.role] || 'Роль не сохранена')}${p.survived ? ' · в игре до финала' : ''}</li>`).join('')}</ul></details><ol class="mafia-review-timeline">${timeline || '<li>Подробные этапы этой партии не сохранились. Итог показан по архивным данным.</li>'}</ol><div class="tr-chips">${page ? `<button class="v3-pill v3-pill--ghost" onclick="openMafiaReview(${Number(id)},${page-1})">Предыдущие этапы</button>` : ''}${d.has_more ? `<button class="v3-pill" onclick="openMafiaReview(${Number(id)},${page+1})">Следующие этапы</button>` : ''}</div>`;
+  }).catch(e => { if (seq === _mafiaReviewSeq && host?.isConnected) host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button class="v3-link" onclick="openMafiaReview(${Number(id)},${page})">Повторить</button>`; });
 }

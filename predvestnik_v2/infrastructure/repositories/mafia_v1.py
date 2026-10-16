@@ -208,6 +208,36 @@ async def player_history(db, *, user_id: int, limit: int = 20) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def review_data(db, *, user_id: int, match_id: int, page: int = 0) -> dict | None:
+    """Own finished game, while still a member of its chat. Bounded event page."""
+    async with db.execute("SELECT m.* FROM mafia_v1_matches m JOIN mafia_v1_players p ON p.match_id=m.id "
+                          "JOIN user_chat_stats c ON c.chat_tg_id=m.chat_id AND c.user_tg_id=p.user_id "
+                          "WHERE m.id=? AND p.user_id=? AND m.phase='finished' AND c.is_left=FALSE",
+                          (int(match_id), int(user_id))) as cursor:
+        row = await cursor.fetchone()
+    if not row:
+        return None
+    async with db.execute("SELECT id,payload_json,created_at FROM mafia_v1_audit_events "
+                          "WHERE match_id=? AND event_type='phase_advanced' ORDER BY id LIMIT 26 OFFSET ?",
+                          (int(match_id), int(page) * 25)) as cursor:
+        events = [dict(e) for e in await cursor.fetchall()]
+    phases = []
+    for event in events[:25]:
+        payload = load(event["payload_json"]) or {}
+        number = payload.get("previous_number")
+        if type(number) is int and number > 0:
+            phases.append(number)
+    ballots = []
+    if phases:
+        marks = ','.join('?' for _ in phases)
+        async with db.execute(f"SELECT phase_number,user_id,target_user_id FROM mafia_v1_actions "
+                              f"WHERE match_id=? AND action_type='vote' AND phase_number IN ({marks}) ORDER BY created_at,user_id",
+                              (int(match_id), *phases)) as cursor:
+            ballots = [dict(a) for a in await cursor.fetchall()]
+    return {"match": dict(row), "players": await players(db, match_id=match_id),
+            "events": events[:25], "ballots": ballots, "has_more": len(events) > 25}
+
+
 async def player_live(db, *, user_id: int, limit: int = 3) -> list[dict]:
     """Matches the player is in right now (lobby, night, discussion, voting, paused)."""
     async with db.execute(

@@ -911,7 +911,7 @@ async function chatView(main, id, push = true, from = null) {
         <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
       <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
         ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
-        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span>
+        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span><a class="btn small" href="${BASE}/?startapp=purge_${c.id}">Чистка ›</a>
         ${c.tagged ? `<span class="chip" title="Участников с тегом: бот видит его в каждом сообщении">🏷 с тегом: ${c.tagged}</span>` : ''}
         ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
       <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
@@ -1451,6 +1451,7 @@ async function broadcastView(main) {
   if (!data) return;
   let items = data.items, templates = data.templates || [];
   main.innerHTML = `
+    ${ME.creator ? '<div class="card"><h3>Важные обновления проекта</h3><p class="sub">Одна новость со скриншотом в официальную тему. Отдельно от массовых рассылок.</p><button class="btn primary" onclick="officialUpdatesOpen()">Подготовить публикацию</button></div>' : ''}
     <div class="card"><h3>📣 Новая рассылка</h3>
       <div class="field"><label>Шаблон</label><select id="btpl"></select>
         <div class="actions" style="margin-top:6px"><button class="btn small" id="btplsave">💾 Сохранить как шаблон</button>
@@ -2273,6 +2274,7 @@ async function ownerView(main) {
     ${picker}
     ${c.bot.can_moderate ? '' : alertBox('warn', 'У бота нет прав модератора в этом чате. Выдайте боту права администратора (удаление сообщений и ограничение участников), иначе мут, бан и кик не сработают.')}
     <div class="kpis">${kpi('Участников', num(c.members), '', 'sm')}${kpi('Чат', c.closed ? 'закрыт' : 'открыт', '', 'sm ' + (c.closed ? 'warn' : 'ok'))}${kpi('Лимит варнов', c.max_warnings, '', 'sm')}</div>
+    <a class="btn" href="${BASE}/?startapp=purge_${c.id}">Чистка: досье и решения ›</a>
     ${section('o-chat', '⚙️ Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
       <div class="field" style="margin-top:10px"><label>Лимит варнов до наказания (1–20)</label><input id="o-limit" type="number" min="1" max="20" value="${c.max_warnings}"/></div>
       <div class="actions"><button type="button" class="btn primary" id="o-limit-save">Сохранить лимит</button></div>`)}
@@ -2415,3 +2417,30 @@ SECTIONS.access = main => accessView(main);
   refreshBadges();
   setInterval(() => { if (!document.hidden) refreshBadges(); }, 60000);
 })();
+
+let OFFICIAL_POSTS = [], OFFICIAL_PREVIEW = null;
+const OFFICIAL_KINDS = {pets:'Питомцы',rhythm:'Ритм',mafia:'Мафия',family:'Родословная',purge:'Чистка'};
+const OFFICIAL_STATES = {draft:'Черновик',sending:'Отправляется',sent:'Доставлено',unknown:'Нужна сверка',failed:'Не отправлено'};
+const OFFICIAL_IMAGES = {'pets-forecast.png':'Прогноз питомца · с пометкой','rhythm-analysis.png':'Разбор Ритма · с пометкой','family-tree.png':'Родословная · с пометкой','mafia-review.png':'Разбор Мафии','purge-web.png':'Чистка на сайте'};
+async function officialUpdatesOpen() {
+  const d = await api('/official-updates'); OFFICIAL_POSTS = d.items; const requestKey = `update-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
+  sheet('Важные обновления бота', `<p class="sub">Назначение: <a href="${esc(d.target)}" target="_blank" rel="noopener">тема обновлений официальной группы</a>. Не чаще одного важного поста в сутки. Мелкие изменения объединяем.</p>${d.topic_verified ? '' : '<p class="warn">Рабочий бот ещё не зафиксировал сообщение в теме. До подтверждения публикация заблокирована.</p>'}<label>Раздел<select id="ou-kind">${d.kinds.map(k=>`<option value="${k}">${esc(OFFICIAL_KINDS[k]||k)}</option>`).join('')}</select></label><label>Короткая новость<textarea id="ou-caption" rows="5" minlength="30" maxlength="900" placeholder="Что стало удобнее, где попробовать, один следующий шаг"></textarea></label><label>Проверенный скриншот<select id="ou-image"><option value="">Выберите изображение</option>${d.images.map(name=>`<option value="${esc(name)}">${esc(OFFICIAL_IMAGES[name]||name)}</option>`).join('')}</select></label><p class="sub">На изображении — реальный интерфейс без личных данных. Достаточно одной-двух пометок. До предпросмотра публикация недоступна.</p><h3>Последние публикации</h3>${d.items.map((p,i)=>`<div class="card"><b>${esc(OFFICIAL_KINDS[p.kind]||p.kind)}</b><p>${esc(p.caption.slice(0,100))}</p><p class="sub">${esc(OFFICIAL_STATES[p.status]||p.status)}${p.error?' · '+esc(p.error):''}</p><button class="btn small" onclick="officialUpdatesPreview(${i})">Посмотреть</button>${['sending','unknown'].includes(p.status)?`<button class="btn small" onclick="officialUpdatesReconcile(${i})">Сверить отправку</button>`:''}</div>`).join('')}`, 'Сохранить и посмотреть', async()=>{
+    const row=await api('/official-updates/draft',{method:'POST',body:JSON.stringify({release_key:requestKey,kind:$('#ou-kind').value,caption:$('#ou-caption').value.trim(),image_name:$('#ou-image').value})});
+    OFFICIAL_POSTS.unshift(row); officialUpdatesPreview(0); return 'keep';
+  });
+}
+function officialUpdatesPreview(index) {
+  const p = OFFICIAL_POSTS[index]; if(!p)return; OFFICIAL_PREVIEW=p;
+  sheet('Предпросмотр публикации', `<p class="sub">Будет опубликовано в <a href="https://t.me/predvestnik_official/4" target="_blank" rel="noopener">официальной теме обновлений</a>.</p><img src="${BASE}/static/announcements/${encodeURIComponent(p.image_name)}" alt="Скриншот к обновлению" style="display:block;width:100%;height:auto;border-radius:12px"><p style="white-space:pre-wrap">${esc(p.caption)}</p><p><b>${esc(p.button)}</b></p><p class="sub">После подтверждения бот отправит это изображение, подпись и одну кнопку. Статус: ${esc(OFFICIAL_STATES[p.status]||p.status)}.</p>`, p.status==='sent'?'Уже опубликовано':'Опубликовать в теме',async()=>{
+    if(p.status==='sent'){toast('Публикация уже доставлена.');return;}
+    const result=await api(`/official-updates/${encodeURIComponent(p.release_key)}/publish`,{method:'POST',body:JSON.stringify({expected_digest:p.content_digest})});
+    toast(result.replayed?'Этот пост уже был опубликован.':'Публикация доставлена.');
+  });
+}
+function officialUpdatesReconcile(index) {
+  const p=OFFICIAL_POSTS[index]; if(!p)return;
+  sheet('Сверить публикацию', `<p>Откройте <a href="https://t.me/predvestnik_official/4" target="_blank" rel="noopener">тему обновлений</a>. При потерянном ответе пост мог быть доставлен. Ничего повторно не отправляется.</p><label>Проверенный результат<select id="ou-resolution"><option value="">Выберите</option><option value="sent">Пост найден</option><option value="absent">Поста точно нет</option></select></label><label>Номер найденного сообщения<input id="ou-message" type="number" min="1" placeholder="Последнее число в ссылке сообщения"></label><label>Как проверено<textarea id="ou-reason" minlength="12" maxlength="300"></textarea></label>`, 'Записать сверку',async()=>{
+    const resolution=$('#ou-resolution').value;if(!resolution)throw new Error('Выберите результат проверки.');
+    await api(`/official-updates/${encodeURIComponent(p.release_key)}/reconcile`,{method:'POST',body:JSON.stringify({expected_digest:p.content_digest,message_id:resolution==='sent'?Number($('#ou-message').value):null,confirmed_absent:resolution==='absent',reason:$('#ou-reason').value.trim()})});toast('Сверка записана.');
+  });
+}

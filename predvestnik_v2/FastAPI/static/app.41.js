@@ -126,6 +126,31 @@ function trailBuildSet(key, value) {
   }
   _trRepaint(_trBuildHtml());
 }
+function trailPresetLoad(slot) {
+  const b = _tr.build, p = b && _trPet(b.pet);
+  const row = (_tr.me?.build_presets || []).find(x => x.pet_id === p?.id && x.slot === slot);
+  if (!row) return;
+  if (row.build.talismans.some(id => !(_tr.me.talismans || []).some(t => t.id === id))) {
+    toast('В шаблоне есть недоступный талисман. Сохраните обновлённый вариант.', false); return;
+  }
+  Object.assign(b, { calling: row.build.calling, traits: [...row.build.traits], tal: [...row.build.talismans], presetName: row.name, presetSlot: slot });
+  _trRepaint(_trBuildHtml());
+  toast('Шаблон выбран. Проверьте цену и примените сборку.', true);
+}
+async function trailPresetSave(button) {
+  const b = _tr.build; if (!b) return;
+  const slot = Number(el('tr-preset-slot')?.value || b.presetSlot || 1), name = String(el('tr-preset-name')?.value || '').trim();
+  if (!name) { toast('Дайте шаблону название.', false); return; }
+  const prior = (_tr.me.build_presets || []).find(x => x.pet_id === b.pet && x.slot === slot);
+  if (prior && !await v3Confirm({ title: 'Заменить шаблон?', name: prior.name, sub: 'Сборка питомца не изменится. Сохранение бесплатно.', cta: 'Заменить шаблон' })) return;
+  const body = { pet_id: b.pet, slot, name, calling: b.calling || null, traits: [...b.traits], talismans: [...b.tal] };
+  _trRun(button, () => _trPost('build-presets', body, 'preset', b.pet, slot, name, JSON.stringify(body)).then(async () => {
+    b.presetName = name; b.presetSlot = slot;
+    await _trLoad();
+    if (_tr.build === b && el('tr-sheet')) _trRepaint(_trBuildHtml());
+    toast('Шаблон сохранён. Сборка питомца не изменялась.', true);
+  }).catch(_trFail));
+}
 const _trSame = (a, b) => a.length === b.length && a.every(x => b.includes(x));
 // Цена считается так же, как на сервере: пустой слот бесплатно, замена бесплатна раз в неделю, дальше Эссенция
 function _trBuildCost(p, b) {
@@ -156,17 +181,19 @@ function _trBuildHtml() {
   const cost = _trBuildCost(p, b), have = _trHave('essence'), short = cost.total > 0 && have != null && have < cost.total;
   const changed = (b.calling || null) !== (p.calling || null) || !_trSame(b.traits, p.traits) || !_trSame(b.tal, p.talismans);
   const why = !changed ? 'Сборка не изменилась.' : short ? `Не хватает Эссенции: нужно ${cost.total}, у вас ${fmt(have)}.` : cost.total ? `Замена стоит ${cost.total} Эссенции${have != null ? `, у вас ${fmt(have)}` : ''}.` : 'Это бесплатно.';
-  const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Уровень ${p.level}</small></span></p>
+  const presets = (_tr.me.build_presets || []).filter(x => x.pet_id === p.id);
+  const saved = `<details class="tr-grp"><summary>Мои шаблоны · ${presets.length} из 3</summary><p class="tr-note">Шаблон хранит выбор. Загрузка ничего не меняет и не списывает; применение оплачивается по обычным правилам.</p><div class="tr-chips">${presets.map(x => `<button type="button" class="tr-chip" onclick="trailPresetLoad(${x.slot})">${_trE(x.name)}</button>`).join('')}</div><div class="tr-preset-form"><label class="tr-note" for="tr-preset-name">Название шаблона</label><input id="tr-preset-name" maxlength="40" value="${_trE(b.presetName || '')}" oninput="_tr.build.presetName=this.value" placeholder="Например, ночные походы"><label class="tr-note" for="tr-preset-slot">Место сохранения</label><select id="tr-preset-slot" onchange="_tr.build.presetSlot=Number(this.value)">${[1,2,3].map(n => `<option value="${n}"${n === (b.presetSlot || 1) ? ' selected' : ''}>${n}${presets.some(x => x.slot === n) ? ' · заменить' : ' · свободно'}</option>`).join('')}</select><button type="button" class="v3-link" onclick="trailPresetSave(this)">Сохранить шаблон бесплатно</button></div></details>`;
+  const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Уровень ${p.level}</small></span></p>${saved}
     <div class="tr-grp"><span class="v3-eyebrow">Призвание</span>${calling}</div>
     <div class="tr-grp"><span class="v3-eyebrow">Черты · ${b.traits.length} из ${slots}</span>${traits}</div>
     <div class="tr-grp"><span class="v3-eyebrow">Талисманы · ${b.tal.length} из ${talCap}</span>${tals}</div>`;
-  const foot = `<p class="tr-note tr-why" role="status">${_trE(why)}</p><p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailBuildGo(this)"${!changed || short ? ' disabled' : ''}>Сохранить сборку</button>`;
+  const foot = `<p class="tr-note tr-why" role="status">${_trE(why)}</p><p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailBuildGo(this)"${!changed || short ? ' disabled' : ''}>Применить сборку</button>`;
   return _trSheetHtml('Сборка', body, foot);
 }
 function trailBuildGo(button) {
   const b = _tr.build, p = b && _trPet(b.pet); if (!p) return;
-  const cost = _trBuildCost(p, b), body = { pet_id: p.id, calling: b.calling || null, traits: [...b.traits], talismans: [...b.tal] };
-  const run = () => _trRun(button, () => _trPost('build', body, 'build', p.id, body.calling || '', [...body.traits].sort().join(','), [...body.talismans].sort().join(',')).then(r => {
+  const cost = _trBuildCost(p, b), body = { pet_id: p.id, calling: b.calling || null, traits: [...b.traits], talismans: [...b.tal], expected_essence: _trBuildCost(p, b).total };
+  const run = () => _trRun(button, () => _trPost('build', body, 'build', p.id, body.calling || '', [...body.traits].sort().join(','), [...body.talismans].sort().join(','), body.expected_essence).then(r => {
     _haptic('success'); trailClose();
     toast(r.essence_spent ? `Сборка сохранена · −${r.essence_spent} Эссенции` : 'Сборка сохранена', true, { icon: p.icon });
     return _trRefresh();

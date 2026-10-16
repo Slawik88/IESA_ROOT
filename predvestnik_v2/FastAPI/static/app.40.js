@@ -262,6 +262,7 @@ function trailSend(petId) {
   _tr.send = { pet: pick ? pick.id : 0, kind: 'trek', hours: 3, route: '', routeSet: false, comp: 0 };
   _trSendFit();
   _trSheet(_trSendHtml());
+  _trForecastSchedule();
 }
 // Длина по умолчанию: самая долгая из тех, что питомцу по силам (длинный поход выгоднее по Следам на единицу сил); маршрут по умолчанию любимый
 function _trSendFit() {
@@ -278,7 +279,30 @@ function trailSendSet(key, value) {
   else if (key === 'hours') { s.hours = Number(value); s.fitted = true; }
   else if (key === 'route') { s.route = value; s.routeSet = true; }
   else if (key === 'comp') s.comp = Number(value);
-  _trSendFit(); _trRepaint(_trSendHtml());
+  _trSendFit(); _trRepaint(_trSendHtml()); _trForecastSchedule();
+}
+let _trForecastTimer = null, _trForecastSeq = 0;
+function _trForecastSchedule() {
+  clearTimeout(_trForecastTimer);
+  const seq = ++_trForecastSeq, s = _tr.send;
+  if (!s?.pet) return;
+  _trForecastTimer = setTimeout(async () => {
+    const body = { pet_id: s.pet, kind: s.kind, hours: s.hours, route: s.kind === 'watch' ? null : s.route,
+      companion_id: s.kind !== 'watch' && s.comp ? s.comp : null };
+    try {
+      const q = await api('/pets-v2/preview', { method: 'POST', body: JSON.stringify(body) });
+      const node = el('tr-send-forecast');
+      if (seq !== _trForecastSeq || _tr.send !== s || !node) return;
+      const range = (low, high) => low === high ? fmt(low) : `${fmt(low)}–${fmt(high)}`;
+      const f = q.factors, paths = Object.entries(q.paths || {}).map(([path, row]) =>
+        `<div><dt>${_TR_PATH[path]}</dt><dd>${range(row.min.credited, row.max.credited)}</dd></div>`).join('');
+      node.innerHTML = `<details class="tr-forecast"><summary><span>Прогноз для питомца</span><b>${range(q.min.credited,q.max.credited)} Следов</b></summary><dl class="cf-rows"><div><dt>До дневной нормы</dt><dd>${range(q.min.raw,q.max.raw)}</dd></div>${body.companion_id ? `<div><dt>Спутнику</dt><dd>${range(q.min.companion,q.max.companion)}</dd></div>` : ''}${paths}</dl><p class="tr-note">Сборка ×${_trMult(f.build)}${f.favorite ? ' · любимый маршрут' : ''}${f.stars ? ` · звёзд привязанности: ${f.stars}` : ''}${f.repeats ? ` · повторов сегодня: ${f.repeats}, множитель ×${_trMult(f.repeat_multiplier)}` : ''}</p><p class="tr-note">${_trE(q.notice)}</p>${q.reasons.length ? `<p class="tr-note">${q.reasons.map(_trE).join(' ')}</p>` : ''}</details><p class="tr-note">Без случайных находок. Норма и сборка при возвращении могут измениться.</p>`;
+
+    } catch (_) {
+      const node = el('tr-send-forecast');
+      if (seq === _trForecastSeq && _tr.send === s && node) node.innerHTML = '<p class="tr-note">Прогноз недоступен. Награда будет рассчитана сервером при возвращении.</p><button type="button" class="v3-link" onclick="_trForecastSchedule()">Повторить расчёт</button>';
+    }
+  }, 220);
 }
 function _trSendHtml() {
   const me = _tr.me, s = _tr.send, rules = me.rules, pet = _trPet(s.pet), watch = s.kind === 'watch';
@@ -304,7 +328,7 @@ function _trSendHtml() {
   if (!watch && fav(s.route)) mods.push(`любимый маршрут +${Math.round((rules.affinity_bonus || .2) * 100)}\u00a0%`);
   const enough = pet && pet.energy >= cost, why = !pet ? 'Выберите питомца.' : !slotsLeft ? 'Все слоты заняты.' : !enough ? `Не хватает сил: нужно ${cost}, у питомца ${Math.floor(pet.energy)}.` : mate && mate.energy < pairCost ? `Спутнику нужно ${pairCost} сил.` : '';
   const summary = pet ? `<dl class="cf-rows tr-sum"><div><dt>Силы</dt><dd>${Math.round(pet.energy)} → ${Math.max(0, Math.round(pet.energy - cost))} из ${pet.energy_max}</dd></div>${mate ? `<div><dt>Силы спутника</dt><dd>${Math.round(mate.energy)} → ${Math.round(mate.energy - pairCost)}</dd></div>` : ''}<div><dt>Базовые Следы${mods.length ? `<small>${mods.join(' · ')}</small>` : ''}</dt><dd>${fmt(base)}</dd></div></dl>` : '';
-  const body = `<div class="tr-grp"><span class="v3-eyebrow">Кто идёт</span>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</div>
+  const body = `<section id="tr-send-forecast" aria-live="polite" aria-label="Прогноз Следов"><p class="tr-note">Считаем прогноз…</p></section><div class="tr-grp"><span class="v3-eyebrow">Кто идёт</span>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</div>
     <div class="tr-grp"><span class="v3-eyebrow">Что делать</span><div class="tr-seg" role="radiogroup" aria-label="Что делать">${kinds}</div><p class="tr-note">${note}</p></div>
     <div class="tr-grp"><span class="v3-eyebrow">Сколько</span><div class="tr-chips tr-chips--3" role="radiogroup" aria-label="Сколько часов">${hours}</div></div>
     ${watch ? '' : `<div class="tr-grp"><span class="v3-eyebrow">Куда</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Маршрут">${routes}</div></div>`}${pair}${summary}`;

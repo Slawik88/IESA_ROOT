@@ -67,6 +67,13 @@ BLOCKED = (
 
 
 def assert_surface(client: TestClient, prefix: str = "") -> None:
+    # The exact image preview must be readable before a creator can publish.
+    for image in (ROOT / "FastAPI/static/announcements").glob("*.png"):
+        response = client.get(f"{prefix}/static/announcements/{image.name}")
+        assert response.status_code == 200 and response.content == image.read_bytes(), image.name
+        assert response.headers.get("content-type") == "image/png", image.name
+        assert response.headers.get("cache-control") == "no-cache", image.name
+    assert client.get(f"{prefix}/static/announcements/no-such-image.png").status_code == 400
     for path, media_type in ALLOWED.items():
         response = client.get(f"{prefix}{path}?v=contract-test")
         assert response.status_code == 200, path

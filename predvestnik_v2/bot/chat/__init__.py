@@ -99,6 +99,15 @@ async def on_message(message: Message, bot, db) -> None:
     """Каждое сообщение: закрытый чат, учёт активности, затем команда."""
     from loguru import logger
     from services import feature_switches
+    from core import official_updates as official_policy
+    if (message.chat.id == official_policy.CHAT_ID and message.is_topic_message
+            and message.message_thread_id == official_policy.THREAD_ID):
+        try:
+            from infrastructure.repositories import official_updates as official_repo
+            await official_repo.ensure_tables(db)
+            await official_repo.topic_seen(db, official_policy.CHAT_ID, official_policy.THREAD_ID)
+        except Exception as error:
+            logger.warning("official topic observation failed: {}", type(error).__name__)
     chat_id = message.chat.id if message.chat.type in ("group", "supergroup") else None
     try:
         bot_off = await feature_switches.disabled(db, ["all"], chat_id) is not None

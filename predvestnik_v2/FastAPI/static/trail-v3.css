@@ -250,3 +250,16 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
   .tr-bld-l b { font-size: 30px; }
   .tr-facts > div { gap: 10px; }
 }
+
+/* Forecast and saved drafts: compact before choices, full detail on demand. */
+.tr-forecast{border:1px solid color-mix(in srgb,var(--v3-acc) 45%,transparent);border-radius:16px;padding:14px;margin:0 0 22px}
+.tr-forecast summary{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;min-height:32px;align-items:center;cursor:pointer;font-size:13px}
+.tr-forecast summary b{font-size:17px;color:var(--v3-acc)}
+.tr-preset-form{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
+.tr-preset-form input,.tr-preset-form select{width:100%;box-sizing:border-box;min-height:44px;font:inherit;color:var(--v3-text);background:var(--v3-bg);border:1px solid var(--v3-line);border-radius:12px;padding:10px 12px}
+.tr-preset-form button{min-height:44px;text-align:left}
+.family-tree-center{position:relative;border:1px solid color-mix(in srgb,var(--v3-acc) 50%,transparent);border-radius:18px;padding:18px;margin:22px 0}
+.family-tree-center h3{margin:10px 0}.family-tree-info{font-size:12px;color:var(--v3-dim);margin:14px 0}.family-tree .tr-chip{min-height:48px}
+.mafia-review-timeline{padding-left:18px}.mafia-review-timeline>li{margin:16px 0}.mafia-review-timeline p{margin:8px 0}
+#web-purge-host .v3-field,#web-purge-host select,#web-purge-host input{width:100%;box-sizing:border-box;min-height:44px;margin:8px 0 14px}
+#web-purge-host .tr-grp h3{overflow-wrap:anywhere}#web-purge-host .tr-list{list-style:none;padding:0}.family-tree{overflow-wrap:anywhere}
