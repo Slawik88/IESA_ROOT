@@ -25,38 +25,47 @@
     const labels = { clear: 'Забег подтверждён', review_required: 'Результат ожидает проверки',
       quarantined: 'Результат не допущен в рейтинг', legacy_unverified: 'Старый результат без проверки' };
     connection(clear ? '●' : '◐', labels[result.integrity_status] || 'Результат сохранён без рейтингового допуска');
-    $('final-score').textContent = result.score + ' очков';
+    $('final-score').textContent = Number(result.score).toLocaleString('ru-RU');
     const n = Number(result.correct_taps) + Number(result.mistakes), acc = n ? (100 * result.correct_taps / n).toFixed(1) : '0';
-    $('final-detail').textContent = 'Точность ' + acc + '% · верных ' + result.correct_taps + ' из ' + n + '. ' +
-      (clear ? 'Результат допущен в рейтинг.' : (labels[result.integrity_status] || 'Результат без рейтингового допуска') + '.');
+    $('final-detail').textContent = result.correct_taps + ' из ' + n + ' тактов верно';
+    const status = $('result-status');
+    status.textContent = ({clear:'В рейтинге',review_required:'На проверке',quarantined:'Вне рейтинга',legacy_unverified:'Без проверки'})[result.integrity_status] || 'Без допуска';
+    status.dataset.state = clear ? 'clear' : 'pending'; status.title = labels[result.integrity_status] || 'Нет рейтингового допуска';
+    $('final-accuracy').textContent = acc.replace('.', ',') + '%';
+    $('result-accuracy').style.setProperty('--accuracy', acc + '%');
+    $('result-accuracy').setAttribute('aria-label', 'Точность ' + acc.replace('.', ',') + ' процента');
     drawAnalysis(result); leaderboardMode = result.mode; boardPage = null; show('result'); refreshLeaderboard();
   }
   function drawAnalysis(result) {
     const box = $('run-analysis'); box.replaceChildren();
-    const a = result.analysis, note = text => { const p = document.createElement('p'); p.textContent = text; box.append(p); };
-    if (!a?.complete) { note('Для этого забега подробная статистика не собиралась. Итоговый счёт и точность сохранены.'); return; }
+    const a = result.analysis;
+    if (!a?.complete) { const p = document.createElement('p'); p.className = 'r-result-hint'; p.textContent = 'Подробности этого забега не сохранены.'; box.append(p); return; }
     const dl = document.createElement('dl'); dl.className = 'r-analysis-metrics';
     const metric = (name, value) => { const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = name; dd.textContent = value; row.append(dt, dd); dl.append(row); };
-    metric('Лучшая серия без ошибок', a.best_streak); metric('Неверные руны', a.wrong);
-    metric('Пропуски по времени', a.timeouts); metric('Потеряно сердец', a.hearts_lost);
-    metric('Средний ответ серверу', a.response_ms == null ? '—' : a.response_ms + ' мс'); box.append(dl);
-    note('Время ответа включает сеть. Пропуск по времени может быть связан с обрывом связи; это не измерение чистой реакции.');
+    metric('Лучшая серия', a.best_streak); metric('Неверные руны', a.wrong); metric('Пропуски', a.timeouts); box.append(dl);
     if (result.integrity_status === 'clear' && a.previous_best != null) {
       const delta = result.score - a.previous_best;
-      note(a.previous_best === 0 ? 'Первый подтверждённый результат в этой версии правил.' :
-        delta > 0 ? 'Личный рекорд улучшен на ' + delta + ' очков (было ' + a.previous_best + ').' :
-        'До улучшения личного рекорда осталось ' + (1 - delta) + ' очков. Рекорд: ' + a.previous_best + '.');
+      const record = document.createElement('p'); record.className = 'r-result-record';
+      record.textContent = a.previous_best === 0 ? 'Первый результат в рейтинге' :
+        delta > 0 ? 'Новый рекорд · +' + delta + ' очков' : 'Личный рекорд · ' + a.previous_best;
+      box.append(record);
     }
-    const tips = [];
-    if (a.timeouts > a.wrong) tips.push('Чаще терялись такты по времени. При стабильной связи попробуйте дары с более широким окном.');
-    if (a.wrong > 0) tips.push('Были неверные руны. Ориентируйтесь на форму символа и проверьте выбор до нажатия.');
-    if (a.timing.late > a.timing.early) tips.push('Верные ответы чаще приходили в последней трети окна. Сравните следующий забег с более спокойным темпом.');
-    tips.slice(0, 2).forEach(note);
-    const details = document.createElement('details'), title = document.createElement('summary'); title.textContent = 'Как менялся забег'; details.append(title);
+    const tip = a.timeouts > a.wrong ? 'Чаще не хватало времени. Дар с широким окном может помочь.' :
+      a.wrong > 0 ? 'Смотри на форму руны: это поможет реже путать символы.' :
+      a.timing.late > a.timing.early ? 'Ответы ближе к краю окна. Попробуй более спокойный темп.' : '';
+    if (tip) { const p = document.createElement('p'); p.className = 'r-result-hint'; p.textContent = tip; box.append(p); }
+    const details = document.createElement('details'), title = document.createElement('summary'); title.textContent = 'Разбор забега'; details.append(title);
+    const extra = document.createElement('dl'); extra.className = 'r-analysis-extra';
+    for (const [name,value] of [['Потеряно сердец',a.hearts_lost],['Средний ответ',a.response_ms == null ? '—' : a.response_ms+' мс']]) {
+      const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=value;row.append(dt,dd);extra.append(row);
+    }
+    details.append(extra);
+    const caveat=document.createElement('p');caveat.className='r-analysis-caveat';caveat.textContent='Время включает сеть, а пропуски могут быть связаны с обрывом связи. Это не оценка чистой реакции.';details.append(caveat);
     const list = document.createElement('ol');
     (a.chunks || []).forEach(row => { const li = document.createElement('li'); li.textContent = 'Блок ' + row.chunk + (row.merged ? ' и далее' : '') + ': верных ' + row.correct + ', неверных ' + row.wrong + ', пропусков ' + row.timeouts + ', потеряно сердец ' + row.hearts_lost + '.'; list.append(li); });
-    details.append(list); box.append(details);
-    if (result.gifts?.length) note('Сборка: ' + result.gifts.map(g => g.name + (g.count > 1 ? ' ×' + g.count : '')).join(' · '));
+    details.append(list);
+    if (result.gifts?.length) { const p=document.createElement('p');p.textContent='Сборка: '+result.gifts.map(g=>g.name+(g.count>1?' ×'+g.count:'')).join(' · ');details.append(p); }
+    box.append(details);
   }
   function drawLive(next){
     const previousSignal=Number(state?.next_signal_no||0);state={...(state||{}),...next};save();connection('●','Связь с игровым сервером установлена');err('');

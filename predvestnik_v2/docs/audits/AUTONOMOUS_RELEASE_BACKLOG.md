@@ -110,17 +110,23 @@ players' IDs, balances or moderation dossiers. Captures are prepared assets in
 destination and version before sending. A lost send response requires manual
 verification; it never triggers an automatic resend.
 
+Owner UI feedback 2026-10-16: the first Rhythm result was rejected as a wall of
+text. Replaced with score/accuracy ring, three compact metrics, one short hint
+and a collapsed detailed review; explicit rating status remains visible. Server
+response/caveat, heart losses, rounds and gifts remain available inside details.
+Updated the real UI capture; 320/390/430 overflow checks and all 12 scoped checks
+pass. Continue with the queued quests and joint design topics after this repair.
+
 First publication draft, after deployment and availability verification
 (`rhythm-analysis.png`, kind `rhythm`, button «Открыть игры»):
 
-> Теперь Ритм объясняет результат забега.
+> Результат Ритма — с одного взгляда.
 >
-> Видно лучшую серию, неверные руны, пропуски по времени и потерянные сердца.
-> На изображении ① отмечены пропуски: они считаются отдельно от неверной руны.
-> Время ответа включает сеть — это не оценка вашей чистой реакции.
+> Точность, лучшая серия и ошибки — на коротком итоговом экране.
+> ① Пропуски считаются отдельно от неверных рун.
 >
-> При выборе Рун-дара можно увидеть, как он изменит текущие параметры.
-> Завершите забег и откройте разбор.
+> Этапы, сердца и сборка — внутри «Разбора забега».
+> Завершите забег и посмотрите свой результат.
 
 Other image-caption pairs are material for later important releases, not a send
 queue: `family-tree.png` — «Нажмите на родственника ①, чтобы перейти к его

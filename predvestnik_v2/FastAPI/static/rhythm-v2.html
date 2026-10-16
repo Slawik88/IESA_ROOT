@@ -40,7 +40,12 @@
       <p id="perks" class="perks-line" aria-live="polite"></p><p id="instruction" aria-live="polite">Нажми нужную руну</p><div class="runes" role="group" aria-label="Руны"><button data-rune="left">ᚠ</button><button data-rune="center">ᚱ</button><button data-rune="right">ᚦ</button></div>
       <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
     </section>
-    <section id="result" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p><h2 id="final-score">0 очков</h2><p id="final-detail"></p><section id="run-analysis" aria-label="Разбор забега"></section><button id="again">Ещё раз</button><button id="results-leaderboard" class="secondary" type="button">Показать лидеров</button></section>
+    <section id="result" class="panel hidden">
+      <div class="r-result-head"><p class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p><span id="result-status" class="r-result-status"></span></div>
+      <div class="r-result-hero"><div><h2 id="final-score">0</h2><span class="r-score-label">очков</span><p id="final-detail"></p></div><div id="result-accuracy" class="r-accuracy" role="img"><div><b id="final-accuracy">0%</b><small>точность</small></div></div></div>
+      <section id="run-analysis" aria-label="Разбор забега"></section>
+      <button id="again">Ещё раз</button><button id="results-leaderboard" class="secondary" type="button">Лидеры сезона</button>
+    </section>
     <p id="error" role="alert"></p>
   </main><script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="/static/rhythm-v2.js" defer></script>
 </body></html>
