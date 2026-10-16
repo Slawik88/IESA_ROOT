@@ -16,6 +16,9 @@ from starlette.responses import RedirectResponse
 
 
 ALLOWED = {
+    "/static/pet-practice.css": "text/css",
+    "/static/pet-practice-host.js": "application/javascript",
+    "/static/pet-practice-game.js": "application/javascript",
     "/static/app.css": "text/css",
     "/static/app.js": "application/javascript",
     "/static/minesweeper-v2.css": "text/css",
@@ -129,7 +132,7 @@ def main() -> None:
 
     direct = TestClient(app)
     assert_surface(direct)
-    for path in ("/", "/rhythm-v2", "/minesweeper"):
+    for path in ("/", "/rhythm-v2", "/minesweeper", "/pet-practice"):
         response = direct.get(path)
         assert response.headers.get("cache-control") == "no-cache", path
         versions = re.findall(r"/static/[^\"]+\?v=([^\"]+)", response.text)
@@ -178,7 +181,7 @@ def main() -> None:
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
         rooted = TestClient(strip_prefix_middleware(app, "/predvestnik"))
         assert_surface(rooted, "/predvestnik")
-        for path in ("/", "/rhythm-v2", "/minesweeper"):
+        for path in ("/", "/rhythm-v2", "/minesweeper", "/pet-practice"):
             response = rooted.get("/predvestnik" + path)
             assert response.headers.get("cache-control") == "no-cache", path
             assert f"?v={_ASSET_VER}" in response.text, path

@@ -32,6 +32,8 @@ SCREENS = [
     # Тропа питомцев (флаг pets_v2): подэкраны и окна на питомцах стенда (tools/ui_stand.py, seed_trail). Ничего не меняют на сервере: награда рисуется из готового ответа
     ("trail-pet", "openPetsV1().then(() => { const p = _tr.me && (_tr.me.pets.find(q => q.calling) || _tr.me.pets[0]); if (p) trailPet(p.id); })"),
     ("trail-pet-busy", "openPetsV1().then(() => { const p = _tr.me && _tr.me.pets.find(q => q.run_id); if (p) trailPet(p.id); })"),
+    ("trail-practice", "openPetsV1().then(() => { const p = _tr.me && _tr.me.pets.find(q => q.run_id); if (p) return trailPractice(p.id); })"),
+    ("trail-practice-picker", "openPetsV1().then(() => trailGo('practice'))"),
     ("trail-send", "openPetsV1().then(() => { if (_tr.me) trailSend(); })"),
     ("trail-send-expedition", "openPetsV1().then(() => { if (_tr.me) { trailSend(); trailSendSet('kind', 'expedition'); } })"),
     ("trail-decision", "openPetsV1().then(() => { const b = document.querySelector('[data-run=\"stand-run-exp\"]'); if (b) trailRun(b); })"),

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вылазка с питомцем · тренировка</title><link rel="stylesheet" href="{{BASE}}/static/pet-practice.css?v={{ASSET_VER}}">
+<script defer src="{{BASE}}/static/pet-practice-host.js?v={{ASSET_VER}}"></script></head>
+<body data-game-script="{{BASE}}/static/pet-practice-game.js?v={{ASSET_VER}}">
+<p id="practice-notice" class="practice-notice" role="status">Откройте вылазку из раздела питомцев.</p>
+<div id="practice-content" hidden><div id="pv-lighthouse" >
+ <div class="lh-prototype">ТРЕНИРОВКА · БЕЗ НАГРАД</div>
+ <section class="lh-window" aria-label="Приключение питомца: Лесной маяк">
+  <header class="lh-top"><div><span class="lh-eyebrow">ПРЕДВЕСТНИК / ВЫЛАЗКИ</span><h2 id="lh-title">В путь с питомцем</h2></div><span id="lh-phase" class="lh-phase">Подготовка</span></header>
+  <div id="lh-prep" class="lh-prep"></div>
+  <div id="lh-play">
+  <div class="lh-mission"><i data-lucide="flame" aria-hidden="true"></i><span id="lh-goal">Найдите линзу для маяка</span></div>
+  <div id="lh-targets" class="lh-targets" aria-label="Отметить цель без движения"></div>
+  <div class="lh-stats"><span><i data-lucide="heart" aria-hidden="true"></i><b id="lh-hp">6/6</b></span><span><i data-lucide="zap" aria-hidden="true"></i><b id="lh-charges">2 рывка</b></span><span id="lh-ward" hidden></span><span class="lh-turn">Ход <b id="lh-turn">0</b></span></div>
+  <div class="lh-mapwrap"><div id="lh-board" class="lh-board" role="group" aria-label="Карта руин: движение по соседним клеткам"></div><div id="lh-actors" class="lh-actors" aria-hidden="true"></div></div>
+  <div class="lh-legend"><span><i data-lucide="paw-print" aria-hidden="true"></i> питомец</span><span><i data-lucide="x" aria-hidden="true"></i> удар</span><span><i data-lucide="arrow-right" aria-hidden="true"></i> шаг врага</span><button type="button" id="lh-journal" class="lh-text cursor-interaction">Журнал</button></div>
+  <div id="lh-intentions" class="lh-intentions" aria-label="Следующие действия противников" hidden></div>
+  <div id="lh-risk" class="lh-risk" role="status" aria-live="polite" hidden></div>
+  <div id="lh-travel" class="lh-travel" hidden><span id="lh-travel-progress"></span><button type="button" id="lh-travel-stop" class="cursor-interaction">Стоп</button></div>
+  <div class="lh-message" role="status" aria-live="polite" id="lh-message"></div>
+  <div id="lh-lure-controls" class="lh-bottom" hidden><button type="button" id="lh-lure-cancel" class="lh-text cursor-interaction">Назад к камню · без хода</button></div>
+  <div id="lh-detail" class="lh-detail" hidden></div>
+  <div id="lh-controls">
+   <div class="lh-actions">
+    <button type="button" id="lh-bite" class="cursor-interaction"><i data-lucide="swords" aria-hidden="true"></i><strong>Укус</strong><small>2 урона · 1 ход</small></button>
+    <button type="button" id="lh-dash" class="cursor-interaction"><i data-lucide="wind" aria-hidden="true"></i><strong>Рывок</strong><small>2 клетки · 1 ход</small></button>
+    <button type="button" id="lh-sniff" class="cursor-interaction"><i data-lucide="scan-eye" aria-hidden="true"></i><strong>Чутьё</strong><small id="lh-sniff-label">Поиск · 1 ход</small></button>
+   </div>
+   <div class="lh-bottom"><button type="button" id="lh-walk" class="lh-text cursor-interaction" hidden>Обычный шаг</button><button type="button" id="lh-wait" class="lh-text cursor-interaction">Подождать · 1 ход</button><button type="button" id="lh-return" class="lh-text cursor-interaction">Прервать вылазку</button></div>
+  </div>
+  <div id="lh-result" class="lh-result" hidden></div>
+  <div id="lh-panel" class="lh-panel" hidden></div>
+  </div>
+ </section>
+</div>
+</div></body></html>

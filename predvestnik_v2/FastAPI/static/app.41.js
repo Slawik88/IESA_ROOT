@@ -106,7 +106,7 @@ _TR_VIEWS.pet = me => {
   const p = _trPet(_tr.pet);
   if (!p) { _tr.view = 'hub'; return _TR_VIEWS.hub(me); }
   const head = v3Head(p.name, { back: 'trailBack()', sub: `${rarLabel(p.rarity)} · ${_trTraces(me, true)}`, end: `<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>` });
-  return `${head}${_trCardState(p)}${_trCardLevel(p)}${_trCardEnergy(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
+  return `${head}<section class="tr-sec">${_v3Row('paw', 'Вылазка с питомцем', `trailPractice(${Number(p.id)})`, 'Играть сейчас · без расхода сил')}</section>${_trCardState(p)}${_trCardLevel(p)}${_trCardEnergy(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
 };
 
 // ── Сборка: призвание, черты, талисманы; цена видна до сохранения ───────────────────────────────────────

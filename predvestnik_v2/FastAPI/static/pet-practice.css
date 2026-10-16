@@ -1,0 +1,118 @@
+html,body{margin:0;background:transparent;font-family:system-ui,sans-serif} body{padding:0} .practice-notice{font-size:12px;padding:8px;color:light-dark(#675d74,#c0b6cc)} .practice-icon{font-style:normal;font-size:20px} #pv-lighthouse .lh-cell .practice-icon{font-size:22px}
+
+#pv-lighthouse { font:14px/1.45 Inter,system-ui,sans-serif; padding:18px 0; }
+#pv-lighthouse * { box-sizing:border-box; }
+#pv-lighthouse .lh-prototype { text-align:center; font-size:10px; letter-spacing:.09em; color:light-dark(#66566f,#bcb1cc); margin:0 0 12px; }
+#pv-lighthouse .lh-window { --lh-bg:light-dark(#f4f1f7,#161b25); --lh-panel:light-dark(#e9e4ef,#252a38); --lh-text:light-dark(#2b2238,#f4effb); --lh-sub:light-dark(#675d74,#c0b6cc); --lh-line:light-dark(#d6ccdf,#414454); --lh-accent:light-dark(#6942a8,#d8c3fa); --lh-on:light-dark(#fff,#2b1944); --lh-grass:light-dark(#c2d0bb,#34483b); --lh-path:light-dark(#d4c9ae,#504d3c); --lh-water:light-dark(#a9cbd1,#254954); --lh-stone:light-dark(#c0c2be,#424a49); --lh-fog:light-dark(#dcdde3,#242d37); --lh-danger:light-dark(#8c392f,#ffc5ae); --lh-danger-bg:light-dark(#e6bba9,#714639); --lh-step:light-dark(#c1d5e1,#405264); background:var(--lh-bg); color:var(--lh-text); width:100%; max-width:410px; margin:auto; border-radius:22px; overflow:hidden; }
+#pv-lighthouse .lh-top { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:20px 17px 12px; }
+#pv-lighthouse .lh-eyebrow { color:var(--lh-sub); font-size:9px; letter-spacing:.13em; }
+#pv-lighthouse h2 { font-size:25px; font-weight:600; letter-spacing:-.04em; line-height:1.2; margin:5px 0 0; }
+#pv-lighthouse .lh-phase { background:var(--lh-panel); border-radius:20px; padding:6px 9px; color:var(--lh-sub); font-size:11px; white-space:nowrap; }
+#pv-lighthouse .lh-mission { display:flex; align-items:center; gap:8px; padding:0 17px; font-size:13px; color:var(--lh-sub); }
+#pv-lighthouse .lh-targets { display:flex; flex-wrap:wrap; gap:4px 10px; padding:2px 17px 0; }
+#pv-lighthouse .lh-targets button { min-height:44px; padding:3px; background:transparent; color:var(--lh-accent); font-size:12px; }
+#pv-lighthouse .lh-cell .lh-scan-mark { position:absolute; inset:3px; border:1px dashed var(--lh-accent); border-radius:5px; pointer-events:none; }
+#pv-lighthouse .lh-scan-options { display:flex; flex-wrap:wrap; gap:6px; margin:10px 0; }
+#pv-lighthouse .lh-scan-options button { flex:1 1 75px; min-height:44px; font-size:12px; }
+#pv-lighthouse .lh-scan-options [aria-pressed="true"] { background:var(--lh-accent); color:var(--lh-on); }
+#pv-lighthouse .lh-cargo { display:none; position:absolute; right:0; top:0; border-radius:6px; padding:2px; background:var(--lh-accent); color:var(--lh-on); }
+#pv-lighthouse .lh-hero[data-carrying="true"] .lh-cargo { display:block; }
+#pv-lighthouse svg { width:16px; height:16px; flex-shrink:0; }
+#pv-lighthouse .lh-stats { display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:14px 17px; font-size:12px; }
+#pv-lighthouse .lh-stats span { display:flex; gap:5px; align-items:center; }
+#pv-lighthouse b { font-variant-numeric:tabular-nums; font-weight:500; }
+#pv-lighthouse .lh-turn { margin-left:auto; color:var(--lh-sub); }
+#pv-lighthouse .lh-mapwrap { position:relative; margin:0 4px; border-radius:13px; overflow:hidden; background:var(--lh-grass); }
+#pv-lighthouse .lh-board { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:0; }
+#pv-lighthouse button { font:inherit; color:var(--lh-text); background:var(--lh-panel); border:1px solid transparent; border-radius:12px; min-height:44px; }
+#pv-lighthouse .lh-cell { position:relative; display:flex; align-items:center; justify-content:center; aspect-ratio:1; padding:0; min-width:0; min-height:44px; border:0; border-radius:0; background-color:var(--lh-grass); background-image:radial-gradient(ellipse at 20% 70%,color-mix(in srgb,var(--lh-text) 8%,transparent) 0 1px,transparent 2px); background-size:13px 19px; }
+#pv-lighthouse .lh-cell svg { width:26px; height:26px; opacity:.75; }
+#pv-lighthouse .lh-cell[data-terrain="stone"] { background-color:var(--lh-stone); }
+#pv-lighthouse .lh-cell[data-terrain="water"] { background-color:var(--lh-water); background-image:repeating-linear-gradient(170deg,transparent 0 9px,color-mix(in srgb,var(--lh-text) 10%,transparent) 10px 11px,transparent 12px 20px); }
+#pv-lighthouse .lh-cell[data-terrain="bridge"] { background-color:var(--lh-path); background-image:repeating-linear-gradient(0deg,transparent 0 8px,color-mix(in srgb,var(--lh-bg) 40%,transparent) 9px 10px); }
+#pv-lighthouse .lh-cell[data-terrain="path"] { background-color:var(--lh-path); }
+#pv-lighthouse .lh-cell.lh-fog { box-shadow:inset 0 0 0 99px color-mix(in srgb,var(--lh-fog) 78%,transparent); }
+#pv-lighthouse .lh-cell.lh-fog svg { opacity:.25; }
+#pv-lighthouse .lh-cell.lh-reach::before { content:''; position:absolute; inset:4px; border:1px solid color-mix(in srgb,var(--lh-accent) 75%,transparent); border-radius:9px; }
+#pv-lighthouse .lh-cell.lh-danger { background-color:var(--lh-danger-bg); }
+#pv-lighthouse .lh-cell .lh-marks { position:absolute; right:3px; top:0; display:flex; gap:2px; font-size:15px; color:var(--lh-text); }
+#pv-lighthouse .lh-cell .lh-strike { color:var(--lh-danger); }
+#pv-lighthouse .lh-cell .lh-cost { position:absolute; bottom:2px; left:3px; padding:0 3px; border-radius:4px; background:var(--lh-bg); color:var(--lh-danger); font-size:11px; font-weight:500; }
+#pv-lighthouse .lh-cell.lh-noise { border:2px dashed var(--lh-accent); }
+#pv-lighthouse .lh-cell .lh-noise-mark { position:absolute; top:1px; left:2px; padding:0 2px; border-radius:3px; background:var(--lh-bg); color:var(--lh-accent); font-size:11px; }
+#pv-lighthouse .lh-cell.lh-route .lh-noise-mark { top:auto; bottom:2px; }
+#pv-lighthouse .lh-risk { margin:0 12px 8px; color:var(--lh-danger); font-size:12px; }
+#pv-lighthouse .lh-intentions { margin:0 12px 6px; padding:8px 10px; background:var(--lh-panel); border-radius:10px; color:var(--lh-sub); font-size:11px; }
+#pv-lighthouse .lh-travel { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 12px 8px; padding:8px 10px; background:var(--lh-panel); border-radius:12px; font-size:12px; }
+#pv-lighthouse .lh-travel button { padding:8px 16px; background:var(--lh-accent); color:var(--lh-on); }
+#pv-lighthouse .lh-cell.lh-route::before { content:attr(data-route-order); position:absolute; inset:auto; top:3px; left:3px; min-width:14px; height:14px; padding:1px 3px; display:grid; place-items:center; font-size:10px; border:0; border-radius:4px; background:var(--lh-accent); color:var(--lh-on); }
+#pv-lighthouse .lh-dangertext { color:var(--lh-danger); }
+#pv-lighthouse .lh-cell.lh-selected { box-shadow:inset 0 0 0 2px var(--lh-accent); }
+#pv-lighthouse .lh-actors { position:absolute; inset:0; pointer-events:none; }
+#pv-lighthouse .lh-actor { position:absolute; width:calc(100% / 6); height:calc(100% / 7); display:flex; justify-content:center; align-items:center; transition:left 170ms ease,top 170ms ease; }
+#pv-lighthouse .lh-sprite { width:68%; height:68%; max-width:39px; max-height:39px; border-radius:13px; display:flex; align-items:center; justify-content:center; background:var(--lh-panel); color:var(--lh-text); box-shadow:0 3px 6px color-mix(in srgb,var(--lh-bg) 45%,transparent); border:1px solid var(--lh-line); }
+#pv-lighthouse .lh-sprite svg { width:23px; height:23px; }
+#pv-lighthouse .lh-hero .lh-sprite { background:var(--lh-accent); color:var(--lh-on); border-color:var(--lh-accent); }
+#pv-lighthouse .lh-enemy small { position:absolute; bottom:1px; right:7px; padding:0 3px; background:var(--lh-bg); color:var(--lh-text); font-size:10px; border-radius:4px; }
+#pv-lighthouse .lh-hit .lh-sprite { animation:lh-impact 240ms ease; }
+#pv-lighthouse .lh-legend { display:flex; align-items:center; flex-wrap:wrap; gap:2px 10px; padding:3px 12px 0; color:var(--lh-sub); font-size:10px; }
+#pv-lighthouse .lh-legend span { display:flex; align-items:center; gap:3px; }
+#pv-lighthouse .lh-legend svg { width:12px; height:12px; }
+#pv-lighthouse .lh-legend button { margin-left:auto; }
+#pv-lighthouse .lh-message { padding:6px 16px 12px; font-size:13px; min-height:53px; }
+#pv-lighthouse .lh-detail { margin:0 12px 12px; background:var(--lh-panel); border-radius:13px; padding:12px; font-size:12px; }
+#pv-lighthouse .lh-detail p { color:var(--lh-sub); margin:5px 0 0; }
+#pv-lighthouse .lh-detail button { background:var(--lh-accent); color:var(--lh-on); width:100%; margin-top:9px; padding:8px; font-size:12px; }
+#pv-lighthouse .lh-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; padding:0 12px; }
+#pv-lighthouse .lh-actions button { padding:10px 3px; }
+#pv-lighthouse .lh-actions svg { display:block; margin:0 auto 5px; }
+#pv-lighthouse strong { font-size:13px; font-weight:500; }
+#pv-lighthouse .lh-actions strong,#pv-lighthouse small { display:block; }
+#pv-lighthouse small { color:var(--lh-sub); font-size:10px; margin-top:3px; }
+#pv-lighthouse .lh-actions [aria-pressed="true"] { background:var(--lh-accent); color:var(--lh-on); }
+#pv-lighthouse .lh-actions [aria-pressed="true"] small { color:var(--lh-on); }
+#pv-lighthouse button:disabled { opacity:.45; }
+#pv-lighthouse .lh-bottom { display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; padding:1px 12px 9px; }
+#pv-lighthouse .lh-text { border:0; background:transparent; color:var(--lh-sub); padding:6px 3px; font-size:11px; }
+#pv-lighthouse .lh-result { padding:6px 17px 20px; }
+#pv-lighthouse .lh-result h3 { margin:0 0 9px; font-size:22px; font-weight:500; }
+#pv-lighthouse .lh-result p { font-size:12px; color:var(--lh-sub); }
+#pv-lighthouse .lh-result button { width:100%; background:var(--lh-accent); color:var(--lh-on); margin-top:8px; }
+#pv-lighthouse .lh-panel { border-top:1px solid var(--lh-line); background:var(--lh-panel); padding:16px; }
+#pv-lighthouse .lh-panel h3 { margin:0 0 8px; font-size:17px; font-weight:500; }
+#pv-lighthouse .lh-panel p { font-size:12px; color:var(--lh-sub); margin:8px 0; }
+#pv-lighthouse .lh-panel ul { padding-left:17px; font-size:12px; color:var(--lh-sub); }
+#pv-lighthouse .lh-panel button { padding:9px; }
+#pv-lighthouse .lh-runes { display:flex; gap:8px; }
+#pv-lighthouse .lh-runes button { flex:1; }
+#pv-lighthouse .lh-seals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:12px 0; }
+#pv-lighthouse .lh-seals button { min-height:82px; padding:9px 3px; background:var(--lh-bg); }
+#pv-lighthouse .lh-seals button svg { display:block; width:25px; height:25px; margin:3px auto 7px; }
+#pv-lighthouse .lh-seals small { font-size:11px; }
+#pv-lighthouse .lh-seals .lh-linked { background:color-mix(in srgb,var(--lh-accent) 16%,var(--lh-bg)); }
+#pv-lighthouse .lh-seals .lh-hinted { border:2px solid var(--lh-accent); }
+#pv-lighthouse .lh-seal-tools { display:flex; gap:8px; flex-wrap:wrap; }
+#pv-lighthouse .lh-confirm { width:100%; background:var(--lh-accent); color:var(--lh-on); margin-top:12px; }
+#pv-lighthouse .lh-prep { padding:0 15px 20px; }
+#pv-lighthouse .lh-prep p { color:var(--lh-sub); font-size:12px; margin:5px 0 14px; }
+#pv-lighthouse .lh-contracts { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+#pv-lighthouse .lh-contract { text-align:left; padding:8px; }
+#pv-lighthouse .lh-contract small { font-size:12px; margin-top:5px; }
+#pv-lighthouse .lh-contract[aria-pressed="true"] { border-color:var(--lh-accent); }
+#pv-lighthouse .lh-conditions { padding:13px 0; font-size:12px; color:var(--lh-sub); }
+#pv-lighthouse .lh-conditions strong { display:block; color:var(--lh-text); margin-bottom:4px; }
+#pv-lighthouse .lh-sidegoal { color:var(--lh-sub); padding:0 16px 10px; font-size:11px; }
+#pv-lighthouse .lh-panel .lh-choice { display:block; text-align:left; width:100%; margin:8px 0; background:var(--lh-bg); }
+#pv-lighthouse .lh-panel .lh-choice small { font-size:11px; }
+#pv-lighthouse .lh-prep .lh-confirm { min-height:49px; }
+#pv-lighthouse [hidden] { display:none!important; }
+@keyframes lh-impact { 25%{transform:translateX(-4px)}75%{transform:translateX(4px)} }
+@media(prefers-reduced-motion:reduce) { #pv-lighthouse .lh-actor { transition:none; } #pv-lighthouse .lh-hit .lh-sprite { animation:none; } }
+@media(max-width:350px) { #pv-lighthouse .lh-top { padding:16px 12px 10px; } #pv-lighthouse h2 { font-size:23px; } #pv-lighthouse .lh-stats { gap:10px; padding:12px; } }
+
+#pv-lighthouse .lh-approach{display:block;font-size:12px;margin:0 0 12px} #pv-lighthouse select{display:block;width:100%;min-height:44px;margin-top:5px;font:inherit;background:var(--lh-panel);color:var(--lh-text);border:1px solid var(--lh-line);border-radius:9px;padding:8px}
+
+#pv-lighthouse .lh-result button+button{background:var(--lh-panel);color:var(--lh-text);border-color:var(--lh-line)}
+#pv-lighthouse details.lh-conditions summary{min-height:44px;display:flex;align-items:center;cursor:pointer}
+
+#pv-lighthouse .lh-contracts .lh-contract{text-align:center;padding:8px 3px;min-width:0} #pv-lighthouse .lh-contracts strong{font-size:12px}

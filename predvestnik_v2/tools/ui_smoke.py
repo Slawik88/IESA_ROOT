@@ -86,7 +86,7 @@ class Probe:
 def open_app(stand: Stand, browser, width: int, device: str | None = None):
     ctx = browser.new_context(viewport={"width": width, "height": HEIGHT}, device_scale_factor=1, has_touch=True, is_mobile=True)
     page = ctx.new_page()
-    page.add_init_script(INIT + (";localStorage.setItem('v3_lite','0');" + DEVICES[device] if device else ""))
+    page.add_init_script("if(window === window.top){" + INIT + (";localStorage.setItem('v3_lite','0');" + DEVICES[device] if device else "") + "}")
     probe = Probe(page)
     go(page, stand.url)
     page.wait_for_function(PROFILE_READY, timeout=20000)

@@ -276,8 +276,11 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-forecast summary{display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;min-height:32px;align-items:center;cursor:pointer;font-size:13px}
 .tr-forecast summary b{font-size:17px;color:var(--v3-acc)}
 .tr-preset-form{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:12px 0}
-.tr-preset-form input,.tr-preset-form select{width:100%;box-sizing:border-box;min-height:44px;font:inherit;color:var(--v3-text);background:var(--v3-bg);border:1px solid var(--v3-line);border-radius:12px;padding:10px 12px}
+.tr-preset-form input,.tr-preset-form select{width:100%;box-sizing:border-box;min-height:44px;font:inherit;color:var(--v3-text);background:var(--v3-bg);border:1px solid var(--v3-faint);border-radius:12px;padding:10px 12px}
 .tr-preset-form button{min-height:44px;text-align:left}
 .mafia-review-timeline{padding-left:18px}.mafia-review-timeline>li{margin:16px 0}.mafia-review-timeline p{margin:8px 0}
 #web-purge-host .v3-field,#web-purge-host select,#web-purge-host input{width:100%;box-sizing:border-box;min-height:44px;margin:8px 0 14px}
 #web-purge-host .tr-grp h3{overflow-wrap:anywhere}#web-purge-host .tr-list{list-style:none;padding:0}
+/* Local pet practice remains available while long activities are busy. */
+.tr-practice-pet { display:block; width:100%; text-align:left; padding:14px; margin:8px 0; min-height:48px; border:1px solid var(--v3-faint); border-radius:12px; color:inherit; background:transparent; }
+.tr-practice-pet span { display:block; font-size:12px; margin-top:4px; opacity:.75; }

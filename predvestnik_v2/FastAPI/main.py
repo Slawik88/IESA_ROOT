@@ -264,7 +264,7 @@ async def revalidate_mini_app_assets(request, call_next):
     # HTML must discover each release's content hash; bare asset URLs must also
     # revalidate. This does not change caching of authenticated API responses.
     path = request.url.path
-    if path in ("/", "/rhythm-v2", "/minesweeper") or path.startswith("/static/"):
+    if path in ("/", "/rhythm-v2", "/minesweeper", "/pet-practice") or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 
@@ -421,7 +421,7 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
@@ -436,7 +436,8 @@ _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
-    "index.html", "rhythm-v2.html", "minesweeper-v2.html",
+    "index.html", "rhythm-v2.html", "minesweeper-v2.html", "pet-practice.html",
+    "pet-practice.css", "pet-practice-host.js", "pet-practice-game.js",
     "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js",
     "skin-runtime-v3.css", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS,
 )))
@@ -564,6 +565,16 @@ async def minesweeper_game():
     return HTMLResponse(_MINESWEEPER_V2_HTML)
 
 
+@app.get("/pet-practice", response_class=HTMLResponse)
+async def pet_practice_game():
+    """Isolated, client-only training shell. Receives no credentials or rewards."""
+    html = _read_static("pet-practice.html").replace("{{BASE}}", _ASSET_BASE).replace("{{ASSET_VER}}", _ASSET_VER)
+    return HTMLResponse(html, headers={
+        "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self' https://web.telegram.org",
+        "Referrer-Policy": "same-origin",
+    })
+
+
 @app.get("/updates.json")
 async def updates_feed():
     return Response(_UPDATES_JSON, media_type="application/json; charset=utf-8")
@@ -594,6 +605,16 @@ async def rhythm_v2_css():
 @app.get("/static/rhythm-v2.js")
 async def rhythm_v2_js():
     return Response(_read_static("rhythm-v2.js"), media_type="application/javascript; charset=utf-8")
+
+
+# Explicit allowlist; individual app parts and source HTML remain private.
+for _practice_name in ("pet-practice.css", "pet-practice-host.js", "pet-practice-game.js"):
+    def _practice_asset(name: str):
+        async def serve() -> Response:
+            media = "text/css" if name.endswith(".css") else "application/javascript"
+            return Response(_read_static(name), media_type=media + "; charset=utf-8")
+        return serve
+    app.add_api_route(f"/static/{_practice_name}", _practice_asset(_practice_name), methods=["GET"], include_in_schema=False)
 
 
 @app.get("/static/game-board-v3.js")

@@ -1,0 +1,1116 @@
+[
+  {
+    "seed": 1,
+    "contract": "beacon",
+    "layout": 0,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 3
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "contract": "beacon",
+    "layout": 1,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 4
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 2
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "rescue",
+    "layout": 0,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 14,
+    "hp": 5,
+    "stones": [],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "move",
+        "to": 12
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "dash",
+        "to": 29
+      },
+      {
+        "type": "attack",
+        "id": "prowler"
+      },
+      {
+        "type": "attack",
+        "id": "prowler"
+      },
+      {
+        "type": "rescue",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 23
+      },
+      {
+        "type": "tunnel",
+        "to": 12
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "move",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 30
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "contract": "rescue",
+    "layout": 1,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 10,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 38
+      },
+      {
+        "type": "dash",
+        "to": 40
+      },
+      {
+        "type": "move",
+        "to": 41
+      },
+      {
+        "type": "rescue",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 40
+      },
+      {
+        "type": "move",
+        "to": 39
+      },
+      {
+        "type": "move",
+        "to": 38
+      },
+      {
+        "type": "move",
+        "to": 37
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "contract": "rescue",
+    "layout": 2,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 14,
+    "hp": 5,
+    "stones": [],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "wait"
+      },
+      {
+        "type": "attack",
+        "id": "prowler"
+      },
+      {
+        "type": "attack",
+        "id": "prowler"
+      },
+      {
+        "type": "dash",
+        "to": 29
+      },
+      {
+        "type": "rescue",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 23
+      },
+      {
+        "type": "tunnel",
+        "to": 12
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "move",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 30
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "survey",
+    "layout": 0,
+    "label": "Search witness replay",
+    "status": "won",
+    "turn": 14,
+    "hp": 6,
+    "stones": [
+      35,
+      0,
+      24
+    ],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "move",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "dash",
+        "to": 29
+      },
+      {
+        "type": "stone",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 23
+      },
+      {
+        "type": "tunnel",
+        "to": 12
+      },
+      {
+        "type": "move",
+        "to": 6
+      },
+      {
+        "type": "stone",
+        "at": 0
+      },
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "stone",
+        "at": 24
+      },
+      {
+        "type": "dash",
+        "to": 30
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "survey",
+    "layout": 1,
+    "label": "Same bounded survey policy replay across terrain, seed held1",
+    "status": "won",
+    "turn": 14,
+    "hp": 6,
+    "stones": [
+      35,
+      0,
+      24
+    ],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "move",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "dash",
+        "to": 29
+      },
+      {
+        "type": "stone",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 23
+      },
+      {
+        "type": "tunnel",
+        "to": 12
+      },
+      {
+        "type": "move",
+        "to": 6
+      },
+      {
+        "type": "stone",
+        "at": 0
+      },
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "stone",
+        "at": 24
+      },
+      {
+        "type": "dash",
+        "to": 30
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "survey",
+    "layout": 2,
+    "label": "Same bounded survey policy replay across terrain, seed held1",
+    "status": "won",
+    "turn": 14,
+    "hp": 6,
+    "stones": [
+      35,
+      0,
+      24
+    ],
+    "lensSource": "",
+    "actions": [
+      {
+        "type": "move",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "dash",
+        "to": 29
+      },
+      {
+        "type": "stone",
+        "at": 35
+      },
+      {
+        "type": "move",
+        "to": 23
+      },
+      {
+        "type": "tunnel",
+        "to": 12
+      },
+      {
+        "type": "move",
+        "to": 6
+      },
+      {
+        "type": "stone",
+        "at": 0
+      },
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "stone",
+        "at": 24
+      },
+      {
+        "type": "dash",
+        "to": 30
+      },
+      {
+        "type": "deliver",
+        "at": 36
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "beacon",
+    "layout": 1,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 1,
+    "contract": "beacon",
+    "layout": 1,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 3
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 2,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 4
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "contract": "beacon",
+    "layout": 1,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 3,
+    "contract": "beacon",
+    "layout": 1,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 2
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 4,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 4,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 5
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 5,
+    "contract": "beacon",
+    "layout": 0,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 5,
+    "contract": "beacon",
+    "layout": 0,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 3
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 6,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Guard route",
+    "status": "won",
+    "turn": 10,
+    "hp": 4,
+    "stones": [],
+    "lensSource": "guard",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 32
+      },
+      {
+        "type": "move",
+        "to": 26
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "attack",
+        "id": "guard"
+      },
+      {
+        "type": "dash",
+        "to": 24
+      },
+      {
+        "type": "move",
+        "to": 18
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  },
+  {
+    "seed": 6,
+    "contract": "beacon",
+    "layout": 2,
+    "label": "Ruins route",
+    "status": "won",
+    "turn": 7,
+    "hp": 6,
+    "stones": [],
+    "lensSource": "ruins",
+    "actions": [
+      {
+        "type": "dash",
+        "to": 18
+      },
+      {
+        "type": "dash",
+        "to": 6
+      },
+      {
+        "type": "chest",
+        "at": 0,
+        "correct": true,
+        "freeRotations": 3
+      },
+      {
+        "type": "sniff",
+        "direction": "all"
+      },
+      {
+        "type": "tunnel",
+        "to": 17
+      },
+      {
+        "type": "move",
+        "to": 11
+      },
+      {
+        "type": "beacon",
+        "at": 5
+      }
+    ]
+  }
+]

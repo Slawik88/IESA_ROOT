@@ -70,8 +70,10 @@ function _trPaintFail(text) {
 function _trRefresh() { return _trLoad().then(ok => { if (ok) _trRender(); return ok; }); }
 function _trRender() {
   const root = el('pg-pets'); if (!root || _activePage !== 'pets' || !_tr.me) return;
+  if (_tr.view === 'practice' && typeof trailPracticePreserve === 'function' && trailPracticePreserve(root)) return;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
   root.innerHTML = view(_tr.me);
+  if (typeof trailPracticeMounted === 'function') trailPracticeMounted(root);
   v3EnterSync(root);
 }
 
@@ -175,7 +177,7 @@ function _trMore(me) {
   const trackHint = track.open ? 'Игра не закончена, можно продолжить' : track.attempts_left ? `Попыток сегодня: ${track.attempts_left} из ${me.rules.track.daily}` : 'Попытки на сегодня закончились';
   const trialHint = trial.done ? 'На этой неделе сдано' : trial.tags ? _trE(_trTags(trial.tags)) : '';
   const rows = [_v3Row('tent', 'Лагерь', "trailGo('camp')", campHint)];
-  if (pets) rows.push(_v3Row('scope', 'Выслеживание', "trailGo('track')", trackHint), _v3Row('trophy', 'Испытание недели', "trailGo('trial')", trialHint));
+  if (pets) rows.push(_v3Row('paw', 'Вылазка', "trailGo('practice')", 'Играть сейчас · тренировка'), _v3Row('scope', 'Выслеживание', "trailGo('track')", trackHint), _v3Row('trophy', 'Испытание недели', "trailGo('trial')", trialHint));
   return `<section class="tr-sec tr-more">${_trSec('Ещё')}${rows.join('')}</section>`;
 }
 _TR_VIEWS.hub = me => `${_trHead()}${_trTraces(me)}${trailAdvice(me)}${(me.pets || []).length ? `${_trSlots(me)}${_trPets(me)}` : _trEmpty()}${_trMore(me)}`;
