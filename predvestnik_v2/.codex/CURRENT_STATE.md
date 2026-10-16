@@ -21,6 +21,8 @@ Checks/evidence: docs/PET_PRACTICE.md. Engine36 policies PASS, browser negatives
 and synthetic Telegram chain PASS; full ui_smoke12scenarios320/390/430 PASS;
 ASGI direct+prefix, public routes, Trail, WhatsNew, pet rules, realPG flow PASS.
 Read-only wave_critic recheck: no remaining confirmed findings.
+Branch pushed to origin. PR creation failed: GitHub MCP requires authentication;
+app GitHub integration returns403Resource not accessible. No PR created.
 Production not deployed; no merge, no Telegram post. Local prototype remains intact.
 
 ## Exchange discussion
