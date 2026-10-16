@@ -12,7 +12,7 @@ assert "let _questsV1Data=null,_questsV1Tab='daily',_questsV1Busy=false" in JS
 assert "['daily','weekly','rewards'].includes(tab)" in JS
 assert 'aria-controls="quest-panel"' in JS and 'role="tablist"' in JS and 'role="tabpanel"' in JS
 assert 'aria-selected="${_questsV1Tab===' in JS and "questsV1TabKey(event)" in JS and "event.key==='ArrowRight'" in JS
-assert "v3Head('Задания'" in JS and 'class="v3-tabs v3-tabs--wide quest-tabs${ready?' in JS
+assert "v3Head('Задания'" in JS and "v3GuideBtn('quests')" in JS and 'class="v3-tabs v3-tabs--wide quest-tabs${ready?' in JS
 # One progress per quest: a bar and «2/4», no percent; the route and the reroll live in the quest's sheet.
 assert "questMetricMeta(quest.metric)" in JS and "questsV1Open(" in JS and "%</span>" not in JS.split("function questRow")[1].split("function questPeriodSummary")[0]
 assert "label:'Открыть Ритм'" in JS and "action:'openRhythmV2Game()'" in JS

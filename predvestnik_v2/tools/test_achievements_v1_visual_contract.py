@@ -8,14 +8,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def run() -> None:
     client = (ROOT / "FastAPI/static/app.12.js").read_text(encoding="utf-8")
+    guides = (ROOT / "FastAPI/static/app.47.js").read_text(encoding="utf-8")
     css = (ROOT / "FastAPI/static/achievements-v3.css").read_text(encoding="utf-8")
 
     for phrase in (
-        "v3Head('Достижения'", "получено", "без скрытой косметики", "Как растут достижения",
+        "v3Head('Достижения'", "получено", "v3GuideBtn('ach')",
         "'Завершения'", "'Активные недели'", "Вехи · Мора за сам уровень", "role=\"tablist\"",
         "aria-label=\"Категории достижений\"", "data-achievement-filter", "achievementsV1TabKey",
     ):
         assert phrase in client, phrase
+    # How paths grow lives in the screen's guide now: tiles with a single line each, no prose under the list.
+    for phrase in ("guideDefine('ach'", "без скрытой косметики", "каждый 10-й — 🔮"):
+        assert phrase in guides, phrase
     for family in ("rhythm", "minesweeper", "mafia", "chests", "pets"):
         assert f"{family}:" in client, family
     # Level needs both conditions: the single row bar follows the lagging one; finished paths fall back to the last milestone.

@@ -22,9 +22,6 @@
 .ach-bar { display: block; height: 3px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: var(--v3-track); }
 .ach-bar > i { display: block; height: 100%; border-radius: inherit; background: var(--v3-ink); }
 
-.ach-help { margin-top: 24px; }
-.ach-help p { margin: 0 0 10px; color: var(--v3-dim); font-size: 13px; line-height: 1.5; }
-
 /* лист подробностей */
 .ach-sheet > p { margin: 0 0 14px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; }
 .ach-sheet .ach-note { margin-top: 10px; color: var(--v3-ink); }

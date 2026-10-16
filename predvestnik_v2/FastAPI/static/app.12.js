@@ -633,7 +633,7 @@
       <details class="v3-more chest-odds"><summary>Точные шансы и размеры наград</summary>
         <section><h2>Шанс звёздности${_chestsV1Tier>1?` · ${esc(tierName)} ключ`:''}</h2><ul>${odds}</ul></section>
         <section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section>
-        <p>Сначала сервер выбирает звёздность, затем одну награду по процентам внутри неё. ${d.tiers_enabled?'Ключ уровня N поднимает звёзды ниже N до N; ':''}скорость тапов ничего не меняет.</p>
+        ${d.tiers_enabled?'<p>Ключ уровня N поднимает звёзды ниже N до N.</p>':''}
         ${d.message?`<p>${esc(d.message)}</p>`:''}<p><b>Карты не пропадут.</b> ${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</p>
       </details>`;
     v3EnterSync(root);
@@ -743,7 +743,7 @@
       body=`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
     }
     const tab=(id,label)=>`<button type="button" id="quest-tab-${id}" class="v3-tab${_questsV1Tab===id?' on':''}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" aria-controls="quest-panel" onclick="questsV1SetTab('${id}')">${label}</button>`;
-    root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю'})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`;
+    root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`;
     v3EnterSync(root);
     if(typeof v3QuestsDone==='function')v3QuestsDone(root);
   }
@@ -771,7 +771,7 @@
     if(['daily','weekly','rewards'].includes(tab))_questsV1Tab=tab;
     if(_activePage!=='questlog')switchPage('questlog');
     const root=el('pg-questlog');
-    if(!_questsV1Data)root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю'})}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:260px;border-radius:18px;margin-top:18px"></div>`;
+    if(!_questsV1Data)root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:260px;border-radius:18px;margin-top:18px"></div>`;
     else renderQuestsV1();
     const mine=++_questsV1Seq;
     api('/quests-v1/me').then(d=>{if(mine!==_questsV1Seq)return;_questsV1Data=d;renderQuestsV1();}).catch(e=>{
@@ -914,12 +914,8 @@
     const total = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
     const max = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
-    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub })}${achievementTabs()}
-      <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>
-      <details class="v3-more ach-help"><summary>Как растут достижения</summary>
-        <p>Пути в играх и приключениях растут от подтверждённых завершений и активных недель: для уровня нужны оба условия. Награда — Мора, она приходит сама, без скрытой косметики.</p>
-        <p>Достижения чата растут от активности в чатах с ботом; за каждый 10-й уровень — 🔮 эссенция.</p>
-      </details>`;
+    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub, end: v3GuideBtn('ach') })}${achievementTabs()}
+      <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
     v3EnterSync(root);
   }
 
@@ -979,7 +975,7 @@
     if (_activePage !== 'achievements-v1') switchPage('achievements-v1');
     const root = el('pg-achievements-v1');
     if (!_achievementsV1Data) {
-      root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()' })}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:320px;border-radius:18px;margin-top:18px"></div>`;
+      root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', end: v3GuideBtn('ach') })}<div class="sk" style="height:44px;border-radius:12px"></div><div class="sk" style="height:320px;border-radius:18px;margin-top:18px"></div>`;
     }
     const mine = ++_achievementsSeq;
     try {
