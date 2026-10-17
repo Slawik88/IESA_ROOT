@@ -3,9 +3,15 @@ const source=fs.readFileSync(path.join(__dirname,'../FastAPI/static/coin-market-
 const nodes={'cm2-amount':{value:'0'},'cm2-units':{value:'0.001'},'cm2-preview':{innerHTML:''}};
 let calls=[],quote={received:'0',commission:'0.000001',sold_units:'1',zero_payout:true,tick:7,price:'0.001'};
 nodes['cm2-name']={value:'My coin'};nodes['cm2-z']={value:'1000'};nodes['cm2-deposit']={value:'1000'};nodes['cm2-gems']={checked:false};
+const moneyCtx=vm.createContext({});
+vm.runInContext(source.slice(source.indexOf('const exactMoney='),source.indexOf('\n  const signed='))+';this.format=exactMoney;',moneyCtx);
+assert.equal(moneyCtx.format('10.000001'),'10,000001');
+assert.equal(moneyCtx.format('999999999999.123456'),'999\u00a0999\u00a0999\u00a0999,123456');
+assert.equal(moneyCtx.format('0.000001'),'0,000001');
+assert.equal(moneyCtx.format('0'),'0');
 const host={innerHTML:'',querySelector:()=>null};
 let respond=null;
-const ctx=vm.createContext({document:{getElementById:id=>nodes[id]},busy:false,formRevision:0,view:'deal',selected:{id:'dust',units:'1'},draft:null,root:()=>host,crypto:{randomUUID:()=> 'dust-explicit-confirmation'},num:String,escape:String,message(){},request:async(p,b)=>{calls.push({p,b});return respond?respond():quote;}});
+const ctx=vm.createContext({document:{getElementById:id=>nodes[id]},busy:false,formRevision:0,view:'deal',selected:{id:'dust',units:'1'},draft:null,root:()=>host,crypto:{randomUUID:()=> 'dust-explicit-confirmation'},num:String,exactMoney:moneyCtx.format,escape:String,message(){},request:async(p,b)=>{calls.push({p,b});return respond?respond():quote;}});
 vm.runInContext(source.slice(source.indexOf('function paint('),source.indexOf('\n  function message(')),ctx);
 vm.runInContext(source.slice(source.indexOf('function invalidate('),source.indexOf('\n  async function preview(')),ctx);
 vm.runInContext(source.slice(source.indexOf('async function preview('),source.indexOf('\n  function create(){')),ctx);
