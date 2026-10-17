@@ -30,6 +30,17 @@ to heading scale, single primary CTA, async feedback, native controls and tokens
 Owner clarification: wallet caption changed to «Ваш баланс · Мора».
 Node3suites, ASGI/static/shell and read-only critic PASS.
 
+Wallet transparency follow-up: exchange previously displayed spendable Mora as
+if it were the full wallet. The read-only payload now returns total/reserved/free
+from one snapshot; the UI shows «В кошельке · Мора» and a conditional split.
+Trading still spends only the free amount. Regression1094total/200hold/894free
+passes on real PostgreSQL without mutating the hold. A reported historical
+processing duel exposed the old retirement gap. Narrow offline recovery tool
+requires reviewed identities/stake, age>30days, unambiguous one-sided reserve,
+no other liabilities/settlement, locked rechecks, audit and unchanged wallets.
+Default is read-only; no automatic cleanup. PG proofs include refusal, rollback,
+concurrent exact replay and no currency issuance.
+
 Historical checkpoints below predate this live release.
 
 ## Exchange v2 recovery checkpoint — 2026-10-17

@@ -23,6 +23,13 @@ vm.runInContext(source.slice(source.indexOf('function invalidate('),source.index
 vm.runInContext(source.slice(source.indexOf('async function preview('),source.indexOf('\n  function create(){')),ctx);
 vm.runInContext(source.slice(source.indexOf('async function createPreview('),source.indexOf('\n  async function confirm(')),ctx);
 async function main(){
+ const walletCtx=vm.createContext({data:{balances:{mora:'894',mora_total:'1094',mora_reserved:'200'}},num:String});
+ vm.runInContext(source.slice(source.indexOf('function walletSummary('),source.indexOf('\n  function marketSummary(')),walletCtx);
+ const split=walletCtx.walletSummary();
+ assert.match(split,/В кошельке · Мора/);assert.match(split,/>1094<\/strong>/);
+ assert.match(split,/Для торговли<\/dt><dd>894/);assert.match(split,/В резерве<\/dt><dd>200/);
+ walletCtx.data.balances={mora:'1094',mora_total:'1094',mora_reserved:'0'};
+ assert.doesNotMatch(walletCtx.walletSummary(),/В резерве/,'empty reserve must not clutter the wallet');
  const refreshButton={disabled:false,textContent:'Обновить'};let finishRefresh,homeRenders=0;
  const marketCtx=vm.createContext({marketRefreshing:false,view:'home',formRevision:1,data:{old:true},document:{getElementById:()=>refreshButton},request:()=>new Promise(r=>finishRefresh=r),renderHome(){homeRenders++;},message(){}});
  vm.runInContext(source.slice(source.indexOf('async function refreshMarket('),source.indexOf('\n  function renderHome(')),marketCtx);

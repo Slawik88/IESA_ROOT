@@ -438,12 +438,17 @@ async def append_tick(db, coin_id, state):
 
 async def balances(db, user_id):
     row = await db.connection.fetchrow(
-        "SELECT GREATEST(0,u.user_balance_mora-COALESCE(r.reserved_mora,0)) user_balance_mora,u.user_balance_zarniki,u.user_balance_diamonds FROM users u LEFT JOIN user_reserve r ON r.user_id=u.user_tg_id WHERE u.user_tg_id=$1",
+        "SELECT GREATEST(0,u.user_balance_mora-COALESCE(r.reserved_mora,0)) user_balance_mora,"
+        "u.user_balance_mora AS mora_total,COALESCE(r.reserved_mora,0) AS mora_reserved,"
+        "u.user_balance_zarniki,u.user_balance_diamonds FROM users u "
+        "LEFT JOIN user_reserve r ON r.user_id=u.user_tg_id WHERE u.user_tg_id=$1",
         user_id,
     )
     return (
         {
             "mora": str(row["user_balance_mora"]),
+            "mora_total": str(row["mora_total"]),
+            "mora_reserved": str(row["mora_reserved"]),
             "zarniki": str(row["user_balance_zarniki"]),
             "diamonds": str(row["user_balance_diamonds"]),
         }

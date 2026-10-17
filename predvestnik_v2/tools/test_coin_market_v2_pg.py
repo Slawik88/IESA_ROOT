@@ -42,6 +42,48 @@ async def rejects(error, coro):
     raise AssertionError(f"Expected {error.__name__}")
 
 
+async def legacy_reserve_recovery(db,conn):
+    from tools.recover_legacy_duel_reserve import recover
+    from infrastructure.repositories import admin_log
+    await admin_log.ensure_table(db)
+    await conn.execute("""CREATE TABLE duels(id INT PRIMARY KEY,challenger_id BIGINT,challenged_id BIGINT,stake FLOAT8,status TEXT,created_at TIMESTAMP,resolved_at TIMESTAMP,winner_id BIGINT);
+      CREATE TABLE auction_lots(id INT PRIMARY KEY,status TEXT);
+      CREATE TABLE auction_bids(id INT PRIMARY KEY,lot_id INT,bidder_id BIGINT,is_active INT);
+      INSERT INTO users(user_tg_id,user_balance_mora) VALUES(21,1094),(22,189);
+      INSERT INTO user_reserve(user_id,reserved_mora) VALUES(21,200),(22,0);
+      INSERT INTO duels(id,challenger_id,challenged_id,stake,status,created_at) VALUES(3,21,22,200,'processing',NOW()-INTERVAL '60 days');""")
+    args=dict(duel_id=3,challenger_id=21,challenged_id=22,expected_reserve='200')
+    assert not (await recover(conn,**args))['applied']
+    assert await conn.fetchval('SELECT reserved_mora FROM user_reserve WHERE user_id=21')==200
+    await rejects(RuntimeError,recover(conn,**{**args,'expected_reserve':'201'},apply=True))
+    await conn.execute('UPDATE user_reserve SET reserved_mora=200 WHERE user_id=22')
+    await rejects(RuntimeError,recover(conn,**args,apply=True))
+    await conn.execute('UPDATE user_reserve SET reserved_mora=0 WHERE user_id=22')
+    await conn.execute("INSERT INTO auction_lots VALUES(1,'active'); INSERT INTO auction_bids VALUES(1,1,21,1)")
+    await rejects(RuntimeError,recover(conn,**args,apply=True))
+    await conn.execute('DELETE FROM auction_bids; DELETE FROM auction_lots')
+    await conn.execute("INSERT INTO wallet_log(user_id,source,delta_mora,created_at) VALUES(21,'duel_loss',-200,NOW()-INTERVAL '60 days')")
+    await rejects(RuntimeError,recover(conn,**args,apply=True))
+    await conn.execute("DELETE FROM wallet_log WHERE user_id=21 AND source='duel_loss'")
+    with patch.object(admin_log,'add',side_effect=RuntimeError('audit unavailable')):
+        await rejects(RuntimeError,recover(conn,**args,apply=True))
+    assert await conn.fetchval("SELECT status FROM duels WHERE id=3")=='processing'
+    assert await conn.fetchval('SELECT reserved_mora FROM user_reserve WHERE user_id=21')==200
+    async def attempt():
+        c,_=await connect()
+        try:return await recover(c,**args,apply=True)
+        finally:await c.close()
+    results=await asyncio.gather(attempt(),attempt())
+    assert sum(r['applied'] for r in results)==1 and sum(r.get('replayed',False) for r in results)==1
+    assert await conn.fetchval('SELECT reserved_mora FROM user_reserve WHERE user_id=21')==0
+    assert await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=21')==1094
+    assert await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=22')==189
+    assert await conn.fetchval("SELECT count(*) FROM admin_grant_log WHERE action='legacy_duel_reserve_release'")==1
+    assert (await recover(conn,**args,apply=True))['replayed']
+    await conn.execute('DELETE FROM user_reserve WHERE user_id IN(21,22); DELETE FROM users WHERE user_tg_id IN(21,22); DROP TABLE duels,auction_bids,auction_lots')
+    print('PASS: retired-duel reserve recovery dry-run, ambiguity refusal, settlement guard, rollback, concurrent replay and unchanged wallets')
+
+
 async def dust_regression(db, conn):
     created = await service.create_coin(db, 15, name="Dust fixture", zarniki=1000,
         deposit=1000 * MORA, action_id="dust_create_15")
@@ -242,6 +284,20 @@ async def run():
           CREATE TABLE stars_payment_receipts_v1(user_id BIGINT,status TEXT);
           INSERT INTO users(user_tg_id) SELECT generate_series(1,20);""")
         await economy_ledger.ensure_tables(db)
+        await legacy_reserve_recovery(db,conn)
+        # The exchange's spendable amount must not masquerade as the entire
+        # wallet. Showing the split must never alter or release a real hold.
+        async with conn.transaction():
+            await conn.execute("INSERT INTO users(user_tg_id,user_balance_mora) VALUES(21,1094)")
+            await conn.execute("INSERT INTO user_reserve(user_id,reserved_mora) VALUES(21,200)")
+            balance = await repo.balances(db,21)
+            assert Decimal(balance['mora_total']) == 1094
+            assert Decimal(balance['mora_reserved']) == 200
+            assert Decimal(balance['mora']) == 894
+            assert await conn.fetchval("SELECT reserved_mora FROM user_reserve WHERE user_id=21") == 200
+            await conn.execute("DELETE FROM user_reserve WHERE user_id=21")
+            assert Decimal((await repo.balances(db,21))['mora']) == 1094
+            await conn.execute("DELETE FROM users WHERE user_tg_id=21")
         await system_flags.ensure_table(db)
         await repo.ensure_tables(db)
         await repo.ensure_tables(db)

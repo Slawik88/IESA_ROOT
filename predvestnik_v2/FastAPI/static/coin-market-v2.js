@@ -146,7 +146,7 @@ window.CM2 = (() => {
     const body=visible.slice(0,limit).map(coinRow).join('');
     const empty=mine?'<div class="cm2-empty-block"><p>Здесь появятся купленные монеты и позиции на падение.</p><button class="cm2-plain" onclick="CM2.tab(\'market\')">Перейти на рынок</button></div>':'<div class="cm2-empty-block"><p>Монеты не найдены.</p></div>';
     paint(head('Биржа','navBack()')+
-      `<div class="cm2-marketbar"><div class="cm2-wallet"><span class="cm2-eyebrow">Ваш баланс · Мора</span><strong class="cm2-wallet-sum">${num(data.balances.mora)}</strong></div><button id="cm2-refresh" class="cm2-plain" onclick="CM2.refreshMarket()">Обновить</button></div>`+
+      walletSummary()+
       `<div class="cm2-tabs" role="tablist" aria-label="Раздел биржи"><button role="tab" aria-selected="${tab==='market'}" onclick="CM2.tab('market')">Рынок</button><button role="tab" aria-selected="${tab==='mine'}" onclick="CM2.tab('mine')">Мои позиции</button></div>`+
       (mine?portfolioSummary():marketSummary())+
       (data.news.length&&tab==='market'?`<h2 class="cm2-h2">Пока вас не было</h2><ul class="cm2-news">${data.news.map(n=>`<li>${n.coin_id?`<button onclick="CM2.coin('${n.coin_id}')"><span>${escape(n.text)}</span><span aria-hidden="true">›</span></button>`:`<p>${escape(n.text)}</p>`}</li>`).join('')}</ul>`:'')+
@@ -156,6 +156,10 @@ window.CM2 = (() => {
       (visible.length>limit?'<button class="cm2-plain cm2-more" onclick="CM2.more()">Показать ещё</button>':'')+
       (data.enabled?'<div class="cm2-actions cm2-create-line"><button class="cm2-plain" onclick="CM2.create()">Создать свою монету</button></div>':'<p class="cm2-dim">Новые сделки закрыты. Ваши позиции можно закрыть.</p>')+
       '<details class="cm2-help"><summary>Как работает биржа</summary><p>Курс меняет сервер по своему расписанию. Покупки игроков на него не влияют. Комиссия — 0,5% при покупке и продаже; чистый результат уже учитывает выход.</p><p>Позиция «на падение»: вы выделяете сумму, потерять можно только её. Если цены пойдут против позиции, сервер закроет её заранее. Остальной кошелёк не затрагивается.</p><button class="cm2-help-link" onclick="loadPlayerExchangeV1(true)">Проверить состояние прежней биржи</button></details>',focus);
+  }
+  function walletSummary(){
+    const balance=data.balances,reserved=Number(balance.mora_reserved||0)>0;
+    return `<div class="cm2-marketbar"><div class="cm2-wallet"><span class="cm2-eyebrow">В кошельке · Мора</span><strong class="cm2-wallet-sum">${num(balance.mora_total??balance.mora)}</strong></div><button id="cm2-refresh" class="cm2-plain" onclick="CM2.refreshMarket()">Обновить</button>${reserved?`<dl class="cm2-wallet-split"><div><dt>Для торговли</dt><dd>${num(balance.mora)}</dd></div><div><dt>В резерве</dt><dd>${num(balance.mora_reserved)}</dd></div></dl><p class="cm2-wallet-note">Зарезервированные средства недоступны для новых сделок.</p>`:''}</div>`;
   }
   function marketSummary(){
     const rising=data.coins.filter(c=>Number(c.change_24h)>0).length,falling=data.coins.filter(c=>Number(c.change_24h)<0).length;
