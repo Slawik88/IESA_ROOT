@@ -45,6 +45,17 @@ async def run(dsn: str) -> None:
             (actor, "module_operator"),
         )
 
+        # DEFAULT новых строк chat_settings выровнен на стандарт 1/1/2: пустой
+        # INSERT больше не создаёт «легаси» пороги 3/4/5 (до выравнивания DDL).
+        fresh_chat = -9_940_009
+        await db.execute("INSERT INTO chat_settings(chat_id) VALUES (?)", (fresh_chat,))
+        fresh_cursor = await db.execute(
+            "SELECT rank_mute, rank_kick, rank_ban FROM chat_settings WHERE chat_id=?",
+            (fresh_chat,),
+        )
+        fresh = await fresh_cursor.fetchone()
+        assert (int(fresh[0]), int(fresh[1]), int(fresh[2])) == (1, 1, 2)
+
         assert {item["key"] for item in chat_module_audit.catalog()} == CHAT_MODULE_KEYS
         assert chat_module_default("module_echo") is False
         assert next(item for item in chat_module_audit.catalog() if item["key"] == "module_echo")["default_enabled"] is False
@@ -93,8 +104,7 @@ async def run(dsn: str) -> None:
 
         # Сброс к стандарту: rank_warn возвращается к 2, выключенный module_mafia — к вкл.
         # Сначала выравниваем скалярные значения к дефолтам: preprod-БД могла хранить
-        # легаси rank_mute/rank_kick/rank_ban=3/4/5 из старых DDL-дефолтов (код с
-        # 42e31338 считает стандартом fallback get_chat_settings: 1/1/2).
+        # строку chat_settings, созданную до выравнивания DDL (легаси-пороги 3/4/5).
         from core.chat_settings_defaults import CHAT_SETTING_DEFAULTS
         from infrastructure.repositories.moderation import (
             get_chat_settings, update_chat_settings,

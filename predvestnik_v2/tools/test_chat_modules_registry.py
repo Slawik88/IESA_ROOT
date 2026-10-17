@@ -105,6 +105,14 @@ async def run() -> None:
     ).read_text(encoding="utf-8")
     assert "await ensure_chat_module_columns(db)" in schema_src
 
+    # DDL-дефолты порогов выровнены на стандарт 42e31338 (1/1/2), плюс ALTER
+    # для уже существующих таблиц (влияет только на будущие пустые INSERT).
+    db_norm = " ".join((ROOT / "bot" / "core" / "database.py").read_text(encoding="utf-8").split())
+    for marker in ("rank_mute INTEGER DEFAULT 1", "rank_kick INTEGER DEFAULT 1",
+                   "rank_ban INTEGER DEFAULT 2"):
+        assert marker in db_norm, marker
+    assert "ALTER TABLE chat_settings ALTER COLUMN {_col} SET DEFAULT {_default}" in db_norm
+
     # 3. Каталог: порядок = реестр, у каждого пункта раскрыта группа.
     catalog = chat_module_audit.catalog()
     assert [item["key"] for item in catalog] == list(CHAT_MODULES)
@@ -194,8 +202,16 @@ async def run() -> None:
         ROOT / "bot" / "handlers" / "_chat_module_ui.py"
     ).read_text(encoding="utf-8")
     assert "MASTER_CHAT_MODULE" in ui_src and "CHAT_MODULE_GROUPS" in ui_src
+
+    # 6b. Каждая страница группы собирается в клавиатуру: контекст «grp.<group>»
+    # не должен содержать ':' (разделитель CallbackData): с «grp:<group>» сборка
+    # страницы группы падала ValueError'ом и группа была недоступна.
+    from bot.handlers import chat_settings as _settings_ui
+    for _group in CHAT_MODULE_GROUPS:
+        _view = await _settings_ui._context_view(FakeDB(row=None), -100700, f"grp.{_group}", 77)
+        assert _view[1].inline_keyboard, _group
     web_src = (ROOT / "FastAPI" / "main.py").read_text(encoding="utf-8")
-    assert "ensure_chat_module_columns" in web_src
+    assert "install_schema as ensure_chat_module_schema" in web_src
     assert "(1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)" in web_src
     admin_src = (ROOT / "FastAPI" / "routers" / "admin.py").read_text(encoding="utf-8")
     assert "create_model(" in admin_src and "sorted(CHAT_MODULE_KEYS)" in admin_src

@@ -71,7 +71,12 @@ from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensu
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
-from infrastructure.repositories.chat_module_audit import ensure_chat_module_columns
+# install_schema, а не только ensure_chat_module_columns: цепочка создаёт
+# журналы chat_module_audit/chat_settings_audit с append-only триггерами.
+# Веб может стартовать раньше бота — без журналов панель падала 500.
+from infrastructure.repositories.chat_module_audit import (
+    install_schema as ensure_chat_module_schema,
+)
 from loguru import logger as _log
 
 
@@ -131,7 +136,7 @@ async def lifespan(app: FastAPI):
             (ensure_public_profiles_v1,             "public_profiles_v1"),
             (ensure_global_skins_v1,                 "global_skins_v1"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
-            (ensure_chat_module_columns,             "chat_module_columns"),
+            (ensure_chat_module_schema,              "chat_module_schema"),
         ]:
             try:
                 await _fn(PGAdapter(conn))

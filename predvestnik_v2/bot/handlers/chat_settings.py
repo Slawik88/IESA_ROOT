@@ -213,9 +213,9 @@ async def _section_view(db, chat_id: int, section: str, user_id: int):
 async def _context_view(db, chat_id: int, context: str, user_id: int):
     """Вернуть админа на экран, откуда он переключил чекбокс.
 
-    context = "features" | "grp:<группа>" | "" (старая карточка → главное меню).
+    context = "features" | "grp.<группа>" | "" (старая карточка → главное меню).
     """
-    if context.startswith("grp:"):
+    if context.startswith("grp."):
         settings = await mod_db.get_chat_settings(db, chat_id)
         view = module_ui.group_view(
             settings, context[4:], user_id, _pack_cb, _TOGGLE_SETTINGS,
@@ -235,7 +235,7 @@ async def _context_view(db, chat_id: int, context: str, user_id: int):
 
 def _context_cb_args(context: str) -> dict:
     """Параметры ChatSettingsCB для кнопки «вернуться на экран context»."""
-    if context.startswith("grp:"):
+    if context.startswith("grp."):
         return {"action": "fgroup", "key": context[4:]}
     if context:
         return {"action": "section", "key": "features"}

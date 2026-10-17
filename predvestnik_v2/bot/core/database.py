@@ -80,9 +80,9 @@ async def _init_users_and_chats(db):
             timezone_offset      INTEGER DEFAULT 0,
             last_chest_at        TIMESTAMP DEFAULT NULL,
             rank_warn            INTEGER DEFAULT 2,
-            rank_mute            INTEGER DEFAULT 3,
-            rank_kick            INTEGER DEFAULT 4,
-            rank_ban             INTEGER DEFAULT 5,
+            rank_mute            INTEGER DEFAULT 1,
+            rank_kick            INTEGER DEFAULT 1,
+            rank_ban             INTEGER DEFAULT 2,
             rank_shield          INTEGER DEFAULT 4,
             rank_immune          INTEGER DEFAULT 5,
             events_enabled       INTEGER DEFAULT 1,
@@ -125,6 +125,18 @@ async def _init_users_and_chats(db):
         try:
             await db.execute(
                 f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {_col} INTEGER DEFAULT {_default}"
+            )
+        except Exception:
+            pass
+
+    # Модерационные пороги: с коммита 42e31338 стандарт = fallback get_chat_settings
+    # (1/1/2, он же «сброс к стандарту»), но легаси-DDL создавал новые строки с
+    # 3/4/5. Выравниваем DEFAULT существующей таблицы: ALTER влияет только на
+    # будущие пустые INSERT, значения уже созданных чатов не переписываются.
+    for _col, _default in (("rank_mute", 1), ("rank_kick", 1), ("rank_ban", 2)):
+        try:
+            await db.execute(
+                f"ALTER TABLE chat_settings ALTER COLUMN {_col} SET DEFAULT {_default}"
             )
         except Exception:
             pass

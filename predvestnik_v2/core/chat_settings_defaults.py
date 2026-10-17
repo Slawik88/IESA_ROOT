@@ -13,9 +13,9 @@ from typing import Final
 # Только настройки, видимые в интерфейсах бота и сайта. Скрытые служебные
 # колонки (shield_duration_days, max_warnings, notif_* и т.п.) сброс не трогает.
 # rank_mute/rank_kick/rank_ban = 1/1/2 — дефолты из коммита 42e31338 («выровнены
-# на фактическое поведение бота до фикса»); легаси-DDL chat_settings всё ещё
-# хранит 3/4/5 для строк, созданных пустым INSERT — сброс приводит к 1/1/2
-# осознанно (fallback get_chat_settings = источник истины для стандарта).
+# на фактическое поведение бота до фикса»); DDL chat_settings выровнен на те же
+# значения (ALTER COLUMN SET DEFAULT в _init_users_and_chats — новые строки,
+# старые значения чатов не переписываются).
 CHAT_SETTING_DEFAULTS: Final = {
     "rank_warn": 2,
     "rank_mute": 1,

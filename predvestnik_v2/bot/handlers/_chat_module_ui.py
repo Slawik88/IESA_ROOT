@@ -26,7 +26,9 @@ def return_context_features() -> str:
 
 
 def return_context_group(group: str) -> str:
-    return f"grp:{group}"
+    # ':' — разделитель aiogram CallbackData, в value его класть нельзя
+    # (было «grp:<group>» → ValueError при сборке страницы группы).
+    return f"grp.{group}"
 
 
 def module_enabled(settings: dict, module_key: str) -> bool:
