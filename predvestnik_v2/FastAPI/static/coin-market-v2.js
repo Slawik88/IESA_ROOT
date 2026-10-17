@@ -136,7 +136,7 @@ window.CM2 = (() => {
     paint(head(selected.name,`CM2.home()`)+coinBody(selected));
     message('');
     const requested=id,hours=period;
-    try{const history=await request('/coins/'+id+'/history?hours='+period);if(view!=='coin'||selected?.id!==requested||period!==hours)return;draw(history);const last=history.points[history.points.length-1];if(selected)startLive(requested,last?last.tick:0);}
+    try{const history=await request('/coins/'+id+'/history?hours='+period);if(view!=='coin'||selected?.id!==requested||period!==hours)return;draw(history);const last=history.points[history.points.length-1];if(selected)startLive(requested,last?last.tick:0);if(last&&last.tick!==selected.tick)refreshCoin(requested);}
     catch(e){const chart=document.getElementById('cm2-chart');if(chart)chart.innerHTML='<p class="cm2-chart-empty">График временно недоступен.</p>';message(e.message,true);}
   }
   function coinBody(c){
@@ -196,7 +196,7 @@ window.CM2 = (() => {
       const history=await request('/coins/'+id+'/history?hours='+hours);
       if(!current())return;
       const lastPoint=history.points[history.points.length-1];
-      if(lastPoint&&lastPoint.tick!==live.last){live.last=lastPoint.tick;
+      if(lastPoint&&(lastPoint.tick!==live.last||lastPoint.tick!==selected.tick)){live.last=lastPoint.tick;
         const fresh=await request('/me');
         if(!current())return;data=fresh;
         selected=data.coins.find(x=>x.id===id)||selected;

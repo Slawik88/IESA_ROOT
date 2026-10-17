@@ -11,6 +11,13 @@ vm.runInContext(source.slice(source.indexOf('function invalidate('),source.index
 vm.runInContext(source.slice(source.indexOf('async function preview('),source.indexOf('\n  function create(){')),ctx);
 vm.runInContext(source.slice(source.indexOf('async function createPreview('),source.indexOf('\n  async function confirm(')),ctx);
 async function main(){
+ const refreshCalls=[];
+ const refreshCtx=vm.createContext({formRevision:0,view:'coin',period:24,selected:{id:'orb',tick:1},live:{last:2},data:null,
+  document:{getElementById:()=>null},draw(){},request:async p=>{refreshCalls.push(p);return p==='/me'?{coins:[{id:'orb',tick:2}]}:{points:[{tick:2,price:'1'}]};}});
+ vm.runInContext(source.slice(source.indexOf('async function refreshCoin('),source.indexOf('\n  async function complete(')),refreshCtx);
+ await refreshCtx.refreshCoin('orb');
+ assert(refreshCalls.includes('/me'),'opening an older snapshot must update the hero even when history is current');
+ assert.equal(refreshCtx.selected.tick,2);
  const requestCtx=vm.createContext({Headers,AbortController,setTimeout,clearTimeout,BASE:'/test',hdrs:()=>({'content-type':'application/json','x-session-token':'test-only'}),fetch:async(url,options)=>{
   assert.equal(options.headers.get('content-type'),'application/json','exactly one Content-Type');
   assert.equal(options.headers.get('x-session-token'),'test-only','auth preserved');
