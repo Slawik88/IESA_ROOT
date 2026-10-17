@@ -176,7 +176,7 @@
     <button type="button" class="v3-row" onclick="openBotAdmin()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><span>Админ-панель<small>Открыть или закрыть сайт, управлять ботом</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
   </section>
   <section class="v3-group" id="cc-exchange-v1" hidden><span class="v3-eyebrow">Рынок</span>
-    <button type="button" class="v3-row" onclick="openPlayerExchangeV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 3.5 3.5L20 7M15 7h5v5"/></svg><span>Биржа монет<small>Портфель, заявки и монеты игроков</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
+    <button type="button" class="v3-row" onclick="openPlayerExchangeV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l5-5 3.5 3.5L20 7M15 7h5v5"/></svg><span>Биржа монет<small>Купить, продать и создать свою монету</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button></section>
   <section class="v3-group"><span class="v3-eyebrow">Информация</span>
       <a class="v3-row" href="https://t.me/predvestnik_official" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l18-8-5 18-5-7-8-3zM11 14l10-11"/></svg><span>Официальное сообщество<small>Обновления, помощь и обсуждение проекта</small></span><span class="v3-end">›</span></a>
       <a class="v3-row" href="https://t.me/predvestnik_official/4" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Важные обновления бота<small>Коротко, с изображениями и пояснениями</small></span><span class="v3-end">›</span></a>
@@ -199,6 +199,8 @@
   <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>
 
+<link rel="stylesheet" href="{{BASE}}/static/coin-market-v2.css?v={{ASSET_VER}}"/>
+<script src="{{BASE}}/static/coin-market-v2.js?v={{ASSET_VER}}"></script>
 <script src="{{BASE}}/static/app.js?v={{ASSET_VER}}"></script>
 <!-- БЛОК 25: dev-оверлей — самодеактивируется для не-разработчиков (гейт на бэке) -->
 </body>

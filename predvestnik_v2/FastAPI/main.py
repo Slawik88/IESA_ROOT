@@ -84,7 +84,21 @@ from infrastructure.repositories.shop_v1 import ensure_tables as ensure_shop_v1
 from infrastructure.repositories.gifts_v2 import ensure_tables as ensure_gifts_v2
 from services.promo_v2 import ensure_schema as ensure_promo_v2
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
+from infrastructure.repositories.coin_market_v2 import ensure_tables as ensure_coin_market_v2
+from FastAPI.routers import coin_market_v2 as coin_market_v2_router
 from loguru import logger as _log
+
+
+async def _run_coin_market_v2() -> None:
+    """Web lifecycle owns price time even with no bot or site visitors."""
+    from services.coin_market_v2 import maintenance
+    while True:
+        await asyncio.sleep(15)
+        try:
+            async with get_pool().acquire() as conn:
+                await maintenance(PGAdapter(conn))
+        except Exception:
+            _log.exception("Coin market v2 maintenance failed; stale trading stays closed")
 
 
 async def _run_skins_v3_migration() -> None:
@@ -187,6 +201,7 @@ async def lifespan(app: FastAPI):
             (ensure_marks_v1,                        "marks_v1"),
             (ensure_presence_v1,                     "presence_v1"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
+            (ensure_coin_market_v2,                  "coin_market_v2"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -227,8 +242,9 @@ async def lifespan(app: FastAPI):
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     digest_task = asyncio.create_task(_run_owner_digest())
+    coin_market_task = asyncio.create_task(_run_coin_market_v2())
     yield
-    for task in (migration_task, scheduler_task, digest_task):
+    for task in (migration_task, scheduler_task, digest_task, coin_market_task):
         if task:
             task.cancel()
             try:
@@ -251,6 +267,7 @@ for r in [profile.router, marriage.router, wallet.router,
           rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
+app.include_router(coin_market_v2_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
 app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
@@ -438,7 +455,7 @@ _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
     "index.html", "rhythm-v2.html", "minesweeper-v2.html",
     "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js",
-    "skin-runtime-v3.css", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS,
+    "skin-runtime-v3.css", "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
@@ -578,6 +595,16 @@ async def official_update_image(name: str):
 @app.get("/static/app.css")
 async def static_css():
     return Response(_APP_CSS, media_type="text/css; charset=utf-8")
+
+
+@app.get('/static/coin-market-v2.css')
+async def coin_market_v2_css():
+    return Response(_read_static('coin-market-v2.css'),media_type='text/css; charset=utf-8')
+
+
+@app.get('/static/coin-market-v2.js')
+async def coin_market_v2_js():
+    return Response(_read_static('coin-market-v2.js'),media_type='application/javascript; charset=utf-8')
 
 
 @app.get("/static/app.js")

@@ -1,7 +1,39 @@
+## Exchange v2 recovery checkpoint — 2026-10-17
+
+Catalogue cap concurrency/read truncation, explicit owner-approved zero-Mora dust
+exit, stale quote/create-preview race and duplicate HTTP Content-Type are resolved
+locally. Evidence:15core tests, real PostgreSQL race/rollback/replay/dust/overflow
+suite and Node deferred-preview/header tests PASS; independent read-only review
+PASS. Actual browser quote now renders explicit zero outcome and confirmation.
+Public activation remains closed. Before release: fund the120000Mora bootstrap
+from an authorised real source, prove HTTP isolation/flags and unknown-POST recovery,
+reconcile latestmaster UI. This is a recovery checkpoint, not a release.
+
 # Predvestnik V2 — Release Backlog (fresh start)
 
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
+
+## EXCHANGE-V2-20261017 — Codex takeover; pure kernel verified, integration pending
+
+Owner delegated implementation choices to Codex in this side conversation.
+The old R/U-linked price proposal is superseded by `docs/COIN_MARKET_V2_MODEL.md`;
+source spec now records delegation without granting public activation.
+Implemented isolated `core/coin_market_v2.py`: server-only HMAC price path,
+fixed supply, funded maximum long claims, prefunded worst-case short gaps,
+explicit cash-conservation witnesses and creation valuation (no wallet writes).
+14 boundary/adversarial tests, Ruff and core MyPy pass. Simulation seed 20261017
+passes 100000 two-hour paths (2400000 ticks), 555309 exits and 1000 restarts;
+256 seven-day paths add 516096 ticks. Final genesis formula is covered separately
+by all nine contribution/tariff boundary cases after its adjustment.
+
+Real counterexample: ten perfectly timed 1000-Mora floor-to-ceiling round trips
+exhaust new-entry headroom of a 20000-Mora reserve; accepted claims still close.
+Release must calibrate funding/demand; finite capital is not self-replenishing.
+No SQL/API/browser/concurrency proof yet; no independent agent review in this side
+conversation. No flags, production data, v1 writers or UI changed. Next: durable
+PostgreSQL receipts, transaction/ownership/replay tests and scheduler contracts;
+then API/UI. Check production v1 obligations read-only before any transition.
 
 ## QUEST-VARIETY-20261016 — additive pet quests
 

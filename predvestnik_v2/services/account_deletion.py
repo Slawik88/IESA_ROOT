@@ -83,6 +83,9 @@ async def set_inactivity_days(db, user_id: int, days: int) -> tuple[bool, str]:
 
 async def request_deletion(db, user_id: int) -> tuple[bool, str]:
     """Шаг 1: код в ЛС бота."""
+    from infrastructure.repositories.coin_market_v2 import has_obligations
+    if await has_obligations(db,user_id):
+        return False,'Сначала продайте монеты и закройте позиции на бирже, затем повторите удаление.'
     if await _has_active_marriage(db, user_id):
         return False, (
             "Нельзя удалить аккаунт, пока он состоит в браке: это могло бы удалить "
@@ -208,6 +211,16 @@ async def restore_account(db, user_id: int) -> tuple[bool, str]:
 
 
 async def _mark_deleted(db, user_id: int) -> bool:
+    from infrastructure.repositories.coin_market_v2 import has_obligations
+    async with db.connection.transaction():
+        await db.execute('SELECT pg_advisory_xact_lock(?)',(user_id,))
+        if await has_obligations(db,user_id):
+            await db.execute("UPDATE account_deletions SET status='cancelled' WHERE user_id=?",(user_id,))
+            return False
+        return await _mark_deleted_without_market_obligations(db,user_id)
+
+
+async def _mark_deleted_without_market_obligations(db, user_id: int) -> bool:
     if await _has_active_marriage(db, user_id):
         await db.execute(
             "UPDATE account_deletions SET status = 'cancelled' WHERE user_id = ?", (user_id,)
@@ -278,14 +291,15 @@ async def _finalize(db, user_id: int) -> bool:
             due = await cursor.fetchone()
         if not user_row or not user_row[0] or not due:
             return False   # restored, cancelled or not due any more
-        if await _has_active_marriage(db, user_id):
+        from infrastructure.repositories.coin_market_v2 import has_obligations
+        if await _has_active_marriage(db, user_id) or await has_obligations(db,user_id):
             await db.execute("UPDATE users SET deleted_at = NULL WHERE user_tg_id = ?", (user_id,))
             await db.execute(
                 "UPDATE account_deletions SET status = 'cancelled', deleted_at = NULL, "
                 "restore_deadline = NULL WHERE user_id = ?",
                 (user_id,),
             )
-            logger.warning("account finalization cancelled for {}: active marriage", user_id)
+            logger.warning("account finalization cancelled for {}: active family or market state", user_id)
             return False
         # Chest history is append-only audit evidence. Move the account to a fresh
         # epoch and zero its spendable keys so old pending opens can never be

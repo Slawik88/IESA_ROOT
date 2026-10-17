@@ -22,11 +22,13 @@ async function _pxRecoveryRequest(path){
 
 function syncPlayerExchangeEntry(){
   const entry=el('cc-exchange-v1'); if(!entry)return;
+  if(_isFeatureEnabled('coin_market_v2')){entry.hidden=false;entry.dataset.v2='1';return;}
   if(_isFeatureEnabled('economy_player_exchange_v1')){ entry.hidden=false; return; }
   Promise.all([
     _pxRecoveryRequest('/player-exchange/v1/me?limit=1'),
-    _pxRecoveryRequest('/player-exchange/v1/shorts/me?limit=1')
-  ]).then(([spot,shorts])=>{entry.hidden=!(spot||shorts);}).catch(()=>{
+    _pxRecoveryRequest('/player-exchange/v1/shorts/me?limit=1'),
+    window.CM2 ? window.CM2.availability() : Promise.resolve(false)
+  ]).then(([spot,shorts,v2])=>{entry.dataset.v2=v2?'1':'';entry.hidden=!(spot||shorts||v2);}).catch(()=>{
     entry.hidden=false;entry.title='Состояние биржи временно недоступно. Откройте для повторной проверки.';
   });
 }
@@ -37,7 +39,8 @@ function _pxStatus(v){ return ({auction:'Сбор заявок',active:'Торг
 function _pxEmpty(text){ return `<p class="px-empty">${esc(text)}</p>`; }
 function _pxError(message){ const host=el('pg-exchange-v1'); if(host)host.innerHTML=`<section class="px-shell"><button class="px-back" type="button" onclick="navBack()">‹ Назад</button><h1>Биржа недоступна</h1>${_pxEmpty(message)}</section>`; }
 
-function loadPlayerExchangeV1(){
+function loadPlayerExchangeV1(forceLegacy=false){
+  if(!forceLegacy && window.CM2 && (_isFeatureEnabled('coin_market_v2') || el('cc-exchange-v1')?.dataset.v2==='1')){window.CM2.load();return;}
   const host=el('pg-exchange-v1'); if(!host)return;
   host.innerHTML='<section class="px-shell"><div class="loader">Загрузка биржи…</div></section>';
   Promise.all([

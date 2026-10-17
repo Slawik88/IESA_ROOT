@@ -21,6 +21,7 @@ from services.scheduler import (
     mafia_phase_task,
     maintenance_task,
     player_exchange_match_task,
+    coin_market_v2_task,
 )
 
 # Unique advisory lock key for this bot (arbitrary fixed integer).
@@ -268,6 +269,7 @@ async def main():
         background_tasks.extend([
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
+            _spawn_supervised("coin-market-v2", coin_market_v2_task(), failed=background_failed),
             _spawn_supervised("mafia-phases", mafia_phase_task(bot), failed=background_failed),
         ])
         try:

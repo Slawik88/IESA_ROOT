@@ -34,6 +34,17 @@ async def player_exchange_match_task() -> None:
             logger.exception(f"Player exchange matcher error: {exc}")
 
 
+async def coin_market_v2_task() -> None:
+    from services.coin_market_v2 import maintenance
+    while True:
+        await asyncio.sleep(15)
+        try:
+            async with get_pool().acquire() as conn:
+                await maintenance(PGAdapter(conn))
+        except Exception:
+            logger.exception('Coin market v2 maintenance failed; stale trading stays closed')
+
+
 # UTC day of the last SUCCESSFUL run of each daily job (audit A12). A failed job
 # is retried on the next maintenance pass (every 10 minutes), not the next day,
 # but at most _DAILY_MAX_ATTEMPTS times per UTC day: the job batches (LIMIT 50
