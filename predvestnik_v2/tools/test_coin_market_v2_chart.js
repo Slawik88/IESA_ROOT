@@ -31,6 +31,7 @@ assert(C.path([1,2,3],{min:1,max:3}).match(/L/g).length===2,'every point after t
 assert.equal(C.label(0,1,300),'00:00');assert.equal(C.label(288,24,300),'00:00');
 assert.equal(C.label(288,168,300),'02.01','a week-long window shows dates, not clock time');
 assert.equal(C.label(1,24,300),'00:05','one tick equals 300 server seconds');
+assert.equal(C.label(1,24,300,'Europe/Zurich'),'01:05','a specified timezone is shared by axis and readout');
 
 // downsample: keeps both ends and the order, never invents points
 const many=series([...Array(1000).keys()]);
@@ -58,5 +59,28 @@ assert.equal(late.x,PLOT.x1,'a marker after the window sticks to the last tick')
 // tooltip: indexes outside the series clamp instead of throwing
 const at=C.tooltipFor(values(data),{min:1,max:4});
 assert.equal(at(-5).tick,100);assert.equal(at(99).tick,103);close(at(99).y,PLOT.y0);
+
+// Render real markup with minimal DOM controls. Same history must preserve the
+// native input; a new tick preserves selected time and keyboard focus.
+const makeNode=()=>({attrs:{},handlers:{},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];},addEventListener(k,v){this.handlers[k]=v;}});
+const doc={activeElement:null};let writes=0,html='',control,output,svg,tip;
+const host={dataset:{},ownerDocument:doc,querySelector(s){return s==='svg'?svg:s==='.cm2-cursor'?control:s==='output'?output:null;},set innerHTML(s){
+ writes++;html=s;control=makeNode();control.focus=()=>{doc.activeElement=control;};output={};
+ const line=makeNode(),text=makeNode();tip=makeNode();tip.querySelector=s=>s==='line'?line:text;
+ svg=makeNode();svg.querySelector=()=>tip;svg.getBoundingClientRect=()=>({left:0,width:320});
+}};
+C.render(host,small);
+assert.equal((html.match(/class="cm2-time"/g)||[]).length,2,'two ticks have exactly two unique axis labels');
+assert.match(html,/type="range"/);assert.match(html,/aria-label="Выбрать время на графике"/);
+control.value='0';control.handlers.input();assert.equal(host.dataset.selectedTick,'100');
+assert.match(output.textContent,/Моры/);assert(control.attrs['aria-valuetext'].includes('Моры'));
+doc.activeElement=control;const original=control;
+C.render(host,small);assert.equal(writes,1,'unchanged polling must preserve DOM');assert.equal(control,original);
+C.render(host,series([1,2,3]));assert.equal(host.dataset.selectedTick,'100','preserve the published tick, not last index');assert.equal(doc.activeElement,control);
+host.dataset.selectedTick='777';
+C.render(host,series([...Array(1001).keys()]));
+const kept=C.downsample(series([...Array(1001).keys()]));
+const closest=kept.reduce((best,p)=>Math.abs(p.tick-777)<Math.abs(best.tick-777)?p:best);
+assert.equal(Number(host.dataset.selectedTick),closest.tick,'changed downsampling keeps nearest published time rather than jumping to end');
 
 console.log('OK: chart bounds, uniform path, UTC labels, downsample ends, tap radius, trade markers and tooltip clamping');

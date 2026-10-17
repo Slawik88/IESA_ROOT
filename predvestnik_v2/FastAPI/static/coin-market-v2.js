@@ -29,7 +29,7 @@ window.CM2 = (() => {
     star:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 4l3.6 7.6 8 .9-6 5.7 1.6 8L16 22.2 8.8 26.2l1.6-8-6-5.7 8-.9z"/></svg>',
     wave:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19c3-6 6-6 9 0s6 6 9 0 6-6 6 0M4 12c3-6 6-6 9 0"/></svg>',
     leaf:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M26 6C14 6 6 13 6 22c0 2 .5 3.5 1 4 5-11 12-14 19-20z"/><path d="M10 22c6-1 10-4 12-9"/></svg>'};
-  const icon=c=>ICON[c.icon]||ICON.coin;
+  const icon=c=>ICON[c.personal?c.icon:({orb:'coin',isk:'star',ine:'leaf',veg:'star',may:'coin',rif:'wave'}[c.id]||c.icon)]||ICON.coin;
 
   const pendingKey=()=>data?'cm2_pending_'+data.user_id:null;
   function pending(){try{return JSON.parse(localStorage.getItem(pendingKey())||'null');}catch(_){return null;}}
@@ -52,18 +52,19 @@ window.CM2 = (() => {
   function paint(html, focus=true){formRevision++;draft=null;const host=root();if(!host)return;host.innerHTML=`<section class="cm2">${html}<p id="cm2-message" class="cm2-status" role="status" aria-live="polite"></p></section>`;if(focus){const h=host.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}}}
   function message(text, error=false){const host=document.getElementById('cm2-message');if(host){host.textContent=text;host.classList.toggle('cm2-error',error);}}
 
-  function invalidate(){formRevision++;draft=null;const preview=document.getElementById('cm2-preview');if(preview)preview.innerHTML='';}
+  function invalidate(){formRevision++;draft=null;const preview=document.getElementById('cm2-preview');if(preview)preview.innerHTML='';const button=document.getElementById('cm2-check');if(button){button.className='cm2-primary';button.disabled=false;button.textContent=view==='create'?'Показать итог':'Проверить условия';}}
+  function quoteButton(loading, ready=false){const button=document.getElementById('cm2-check');if(!button)return;button.disabled=loading;button.className=ready?'cm2-plain cm2-recheck':'cm2-primary';button.textContent=loading?'Рассчитываем…':ready?'Пересчитать':view==='create'?'Показать итог':'Проверить условия';}
 
   async function preview(side, position){
-    if(busy)return;busy=true;invalidate();
+    if(busy)return;busy=true;invalidate();quoteButton(true);
     const revision=formRevision,screen=view,coinId=selected?.id,previewHost=document.getElementById('cm2-preview');
     const current=()=>revision===formRevision&&screen===view&&coinId===selected?.id&&previewHost===document.getElementById('cm2-preview');
     try{const amount=document.getElementById('cm2-amount')?.value.replace(',','.')||'0',raw=document.getElementById('cm2-units')?.value.replace(',','.');if(raw&&!/^\d+(\.\d{1,3})?$/.test(raw))throw Error('Количество монет — до трёх знаков после запятой.');
       const body={coin_id:selected.id,side,amount,units:raw?Math.round(Number(raw)*1000):0,position_id:position||null};
       const q=await request('/quote',body);if(!current())return;draft={path:'/trade',body:{...body,action_id:crypto.randomUUID(),tick:q.tick,price:q.price}};
       document.getElementById('cm2-preview').innerHTML=`<div class="cm2-ticket"><h2 class="cm2-focus">${q.spent?'Спишется '+exactMoney(q.spent):'Получите '+exactMoney(q.received)} Моры</h2><dl class="cm2-metrics"><dt>Комиссия</dt><dd>${exactMoney(q.commission)} Моры</dd>${q.received_units?`<dt>Монет</dt><dd>${num(Number(q.received_units)/1000,true)}</dd>`:''}${q.sold_units?`<dt>Продаёте</dt><dd>${num(Number(q.sold_units)/1000,true)} монет</dd>`:''}${q.liquidation_price?`<dt>Цена принудительного закрытия</dt><dd>${num(q.liquidation_price,true)} Моры</dd><dt>Максимальная потеря</dt><dd>${exactMoney(q.max_loss)} Моры</dd>`:''}${q.penalty&&Number(q.penalty)>0?`<dt>Штраф за закрытие</dt><dd>${exactMoney(q.penalty)} Моры</dd>`:''}</dl>${q.zero_payout?'<p class="cm2-dim">Получите 0 Моры — выбранный остаток закроется без выплаты. Мора из кошелька не списывается.</p>':''}<button class="cm2-primary ${side==='sell'?'cm2-danger':''}" onclick="CM2.confirm()">${q.zero_payout?'Продать за 0 Моры':'Подтвердить'}</button><p class="cm2-dim cm2-expiry" id="cm2-expiry"></p></div>`;
-      startExpiry(q.expires_at);message('Условия действуют до следующего обновления курса.');
-    }catch(e){if(current())message(e.message,true);}finally{busy=false;}
+      startExpiry(q.expires_at);quoteButton(false,true);message('');
+    }catch(e){if(current()){quoteButton(false);message(e.message,true);}}finally{busy=false;}
   }
   function startExpiry(expiresAt){
     const host=document.getElementById('cm2-expiry');if(!host)return;clearInterval(live.expiry);live.expiry=null;
@@ -74,25 +75,25 @@ window.CM2 = (() => {
 
   function create(){
     if(pending()){showPending();return;}stopLive();view='create';draft=null;
-    const z=[[1000,'1 000'],[2500,'2 500'],[5000,'5 000']].map(([v,l])=>`<button class="cm2-plain" aria-pressed="${v===1000}" data-z="${v}" onclick="CM2.zarniki(${v})">${l}</button>`).join('');
+    const z=[[1000,'1 000','Базовая'],[2500,'2 500','Цена +7,5%'],[5000,'5 000','Цена +20%']].map(([v,l,hint])=>`<button class="cm2-plain" aria-pressed="${v===1000}" data-z="${v}" onclick="CM2.zarniki(${v})"><strong>${l}</strong><small>${hint}</small></button>`).join('');
     const icons=Object.keys(ICON).map(k=>`<button class="cm2-icon-pick" aria-pressed="${k==='coin'}" data-icon="${k}" aria-label="${({coin:"Монета",star:"Звезда",wave:"Волна",leaf:"Лист"})[k]}" onclick="CM2.icon('${k}')">${ICON[k]}</button>`).join('');
-    paint(head('Своя монета')+'<p class="cm2-lead">Название и значок — затем вклад. Итог покажем до подтверждения.</p>'+
+    paint(head('Своя монета')+'<p class="cm2-lead">Ваша монета на общем рынке. Все расходы — до подтверждения.</p><h2 class="cm2-h2">Оформление</h2>'+
       `<div class="cm2-field"><label for="cm2-name">Название</label><input id="cm2-name" maxlength="24" placeholder="3–24 символа" autocomplete="off" oninput="CM2.invalidate()"></div>`+
       `<div class="cm2-field"><span class="cm2-label">Значок</span><div class="cm2-icons" role="group" aria-label="Значок монеты">${icons}</div><input type="hidden" id="cm2-icon" value="coin"></div>`+
       `<div class="cm2-field"><label for="cm2-desc">Описание <span class="cm2-dim">· необязательно</span></label><input id="cm2-desc" maxlength="160" placeholder="Одна короткая строка" autocomplete="off" oninput="CM2.invalidate()"></div>`+
-      `<div class="cm2-field"><span class="cm2-label">Зарников на создание</span><div class="cm2-presets cm2-segment" role="group" aria-label="Стоимость создания">${z}</div><input type="hidden" id="cm2-z" value="1000"></div>`+
+      `<h2 class="cm2-h2">Создание и обеспечение</h2><div class="cm2-field"><span class="cm2-label">Зарников на создание</span><div class="cm2-presets cm2-segment" role="group" aria-label="Стоимость создания">${z}</div><input type="hidden" id="cm2-z" value="1000"><p class="cm2-dim">Зарники влияют на стартовую цену, а не на будущую доходность.</p></div>`+
       `<div class="cm2-field"><label for="cm2-deposit">Вклад в монету, Моры</label><input id="cm2-deposit" inputmode="decimal" value="1000" oninput="CM2.invalidate()"><p class="cm2-dim">От 1 000 до 100 000 Моры. Вклад становится обеспечением монеты.</p></div>`+
       `<label class="cm2-check"><input type="checkbox" id="cm2-gems" onchange="CM2.invalidate()"><span>Внести алмазами <span class="cm2-dim">· 1 алмаз = 1 000 Моры</span></span></label>`+
-      '<button class="cm2-primary" onclick="CM2.createPreview()">Показать итог</button><div id="cm2-preview"></div>');
+      '<button id="cm2-check" class="cm2-primary" onclick="CM2.createPreview()">Показать итог</button><div id="cm2-preview"></div>');
   }
   async function createPreview(){
-    if(busy)return;busy=true;invalidate();
+    if(busy)return;busy=true;invalidate();quoteButton(true);
     const revision=formRevision,screen=view,coinId=selected?.id,previewHost=document.getElementById('cm2-preview');
     const current=()=>revision===formRevision&&screen===view&&coinId===selected?.id&&previewHost===document.getElementById('cm2-preview');
     try{const icon=document.getElementById('cm2-icon')?.value||'coin',description=document.getElementById('cm2-desc')?.value||'';
       const body={name:document.getElementById('cm2-name').value,zarniki:Number(document.getElementById('cm2-z')?.value||1000),deposit:document.getElementById('cm2-deposit').value.replace(',','.'),diamonds:document.getElementById('cm2-gems').checked,icon,description,action_id:crypto.randomUUID()};
       const q=await request('/create-quote',body);if(!current())return;draft={path:'/create',body};
-      document.getElementById('cm2-preview').innerHTML=`<div class="cm2-ticket"><h2 class="cm2-focus">${escape(q.name)}</h2><dl class="cm2-metrics"><dt>Создание</dt><dd>${num(q.zarniki)} Зарников</dd><dt>Вклад</dt><dd>${q.diamonds?num(Number(q.deposit)/1000,true)+' алм.':exactMoney(q.deposit)+' Моры'}</dd><dt>Стартовая цена</dt><dd>${num(q.price,true)} Моры</dd><dt>Ваша доля</dt><dd>${num(Number(q.creator_units)/1000)} монет · 20%</dd></dl><p class="cm2-dim">Забрать резерв напрямую нельзя. Свою долю можно продать по текущему курсу.</p><button class="cm2-primary" onclick="CM2.confirm()">Создать с этими условиями</button></div>`;}catch(e){if(current())message(e.message,true);}finally{busy=false;}
+      document.getElementById('cm2-preview').innerHTML=`<div class="cm2-ticket"><h2 class="cm2-focus">${escape(q.name)}</h2><dl class="cm2-metrics"><dt>Создание</dt><dd>${num(q.zarniki)} Зарников</dd><dt>Вклад</dt><dd>${q.diamonds?num(Number(q.deposit)/1000,true)+' алм.':exactMoney(q.deposit)+' Моры'}</dd><dt>Стартовая цена</dt><dd>${num(q.price,true)} Моры</dd><dt>Ваша доля</dt><dd>${num(Number(q.creator_units)/1000)} монет · 20%</dd></dl><p class="cm2-dim">Забрать резерв напрямую нельзя. Свою долю можно продать по текущему курсу.</p><button class="cm2-primary" onclick="CM2.confirm()">Создать с этими условиями</button></div>`;quoteButton(false,true);}catch(e){if(current()){quoteButton(false);message(e.message,true);}}finally{busy=false;}
   }
   async function confirm(){
     if(busy||!draft)return;if(pending()){showPending();return;}
@@ -119,18 +120,20 @@ window.CM2 = (() => {
     const body=visible.slice(0,limit).map(coinRow).join('');
     const empty=mine?'<div class="cm2-empty-block"><p>Здесь появятся купленные монеты и позиции на падение.</p><button class="cm2-plain" onclick="CM2.tab(\'market\')">Перейти на рынок</button></div>':'<div class="cm2-empty-block"><p>Монеты не найдены.</p></div>';
     paint(head('Биржа','navBack()')+
-      `<div class="cm2-wallet"><span class="cm2-eyebrow">Доступно Моры</span><strong class="cm2-wallet-sum">${num(data.balances.mora)}</strong></div>`+
-      `<div class="cm2-tabs" role="tablist" aria-label="Раздел биржи"><button role="tab" aria-selected="${tab==='market'}" onclick="CM2.tab('market')">Рынок</button><button role="tab" aria-selected="${tab==='mine'}" onclick="CM2.tab('mine')">Мои монеты</button></div>`+
+      `<div class="cm2-marketbar"><div class="cm2-wallet"><span class="cm2-eyebrow">Доступно Моры</span><strong class="cm2-wallet-sum">${num(data.balances.mora)}</strong></div><button class="cm2-plain" onclick="CM2.load(false)">Обновить</button></div>`+
+      `<div class="cm2-tabs" role="tablist" aria-label="Раздел биржи"><button role="tab" aria-selected="${tab==='market'}" onclick="CM2.tab('market')">Рынок</button><button role="tab" aria-selected="${tab==='mine'}" onclick="CM2.tab('mine')">Мои позиции</button></div>`+
       (data.news.length&&tab==='market'?`<h2 class="cm2-h2">Пока вас не было</h2><ul class="cm2-news">${data.news.map(n=>`<li>${n.coin_id?`<button onclick="CM2.coin('${n.coin_id}')"><span>${escape(n.text)}</span><span aria-hidden="true">›</span></button>`:`<p>${escape(n.text)}</p>`}</li>`).join('')}</ul>`:'')+
       (tab==='market'?`<div class="cm2-toolbar"><label class="sr-only" for="cm2-search">Найти монету</label><input id="cm2-search" type="search" value="${escape(search)}" placeholder="Найти монету" oninput="CM2.search(this.value)" autocomplete="off"></div><div class="cm2-chips" role="group" aria-label="Группы монет">${chips}</div>`:'')+
-      `<div id="cm2-list" class="cm2-list">${body}${shorts}${body||shorts?'':empty}</div>`+
+      (mine?`<p class="cm2-note cm2-dim">Стоимость — после комиссии продажи.${coins.some(c=>c.owned)?' Расходы на создание своей монеты в результате не учтены.':''}</p>`:'')+
+      `<div id="cm2-list" class="cm2-list">${mine&&body?'<h2 class="cm2-h2">Монеты</h2>':''}${body}${shorts?'<h2 class="cm2-h2">На падение</h2>':''}${shorts}${body||shorts?'':empty}</div>`+
       (visible.length>limit?'<button class="cm2-plain cm2-more" onclick="CM2.more()">Показать ещё</button>':'')+
       (data.enabled?'<div class="cm2-actions cm2-create-line"><button class="cm2-plain" onclick="CM2.create()">Создать свою монету</button></div>':'<p class="cm2-dim">Новые сделки закрыты. Ваши позиции можно закрыть.</p>')+
       '<details class="cm2-help"><summary>Как работает биржа</summary><p>Курс меняет сервер по своему расписанию. Покупки игроков на него не влияют. Комиссия — 0,5% при покупке и продаже; чистый результат уже учитывает выход.</p><p>Позиция «на падение»: вы выделяете сумму, потерять можно только её. Если цены пойдут против позиции, сервер закроет её заранее. Остальной кошелёк не затрагивается.</p><button class="cm2-help-link" onclick="loadPlayerExchangeV1(true)">Проверить состояние прежней биржи</button></details>');
   }
   function coinRow(c){
     const up=Number(c.change_24h)>=0;
-    return `<div class="cm2-rowwrap"><button class="cm2-row" onclick="CM2.coin('${c.id}')"><span class="cm2-ava">${icon(c)}</span><span class="cm2-name"><strong>${escape(c.name)}</strong><small>${escape(c.ticker)} · ${groupLabel(c)}${c.owned?' · ваша':''}</small></span><span class="cm2-end"><strong>${num(c.price,true)}</strong><span class="cm2-change ${up?'up':'down'}">${up?'▲':'▼'} ${num(Math.abs(c.change_24h))}% · ${escape(c.change_period)}</span></span></button><button class="cm2-star" aria-pressed="${c.favorite}" aria-label="${c.favorite?'Убрать из избранного':'В избранное'}" onclick="CM2.star('${c.id}')">★</button></div>`;
+    const mine=tab==='mine';
+    return `<div class="cm2-rowwrap"><button class="cm2-row" onclick="CM2.coin('${c.id}')"><span class="cm2-ava">${icon(c)}</span><span class="cm2-name"><strong>${escape(c.name)}</strong><small>${mine?num(Number(c.units)/1000,true)+' монет':escape(c.ticker)+' · '+groupLabel(c)}${c.owned?' · ваша':''}</small></span><span class="cm2-end"><strong>${mine?num(c.sell_value)+' Моры':num(c.price,true)}</strong><span class="cm2-change ${(mine?Number(c.result)>=0:up)?'up':'down'}">${mine?'Результат '+signed(c.result):`${up?'▲':'▼'} ${num(Math.abs(c.change_24h))}% · ${escape(c.change_period)}`}</span></span></button><button class="cm2-star" aria-pressed="${c.favorite}" aria-label="${c.favorite?'Убрать из избранного':'В избранное'}" onclick="CM2.star('${c.id}')">★</button></div>`;
   }
 
   async function coin(id){
@@ -140,23 +143,28 @@ window.CM2 = (() => {
     message('');
     const requested=id,hours=period;
     try{const history=await request('/coins/'+id+'/history?hours='+period);if(view!=='coin'||selected?.id!==requested||period!==hours)return;draw(history);const last=history.points[history.points.length-1];if(selected)startLive(requested,last?last.tick:0);if(last&&last.tick!==selected.tick)refreshCoin(requested);}
-    catch(e){const chart=document.getElementById('cm2-chart');if(chart)chart.innerHTML='<p class="cm2-chart-empty">График временно недоступен.</p>';message(e.message,true);}
+    catch(e){if(view!=='coin'||selected?.id!==requested||period!==hours)return;const chart=document.getElementById('cm2-chart');if(chart)chart.innerHTML='<p class="cm2-chart-empty">График временно недоступен.</p>';message(e.message,true);}
   }
   function coinBody(c){
     const own=Number(c.units)>0;
     return `<p class="cm2-dim cm2-sub">${escape(c.ticker)} · ${c.personal?'Монета игрока':'Системная монета'} · ${CHAR[c.character]||''}</p>`+
-      `<div class="cm2-quote"><strong class="cm2-price" id="cm2-price">${num(c.price,true)}</strong><small>Моры за монету</small><span class="cm2-change ${Number(c.change_24h)>=0?'up':'down'}" id="cm2-change">${Number(c.change_24h)>=0?'▲':'▼'} ${num(Math.abs(c.change_24h))}% · ${escape(c.change_period)}</span></div>`+
-      `<div class="cm2-chart-card"><div class="cm2-chart-head"><div class="cm2-period" role="group" aria-label="Период графика">${[[1,'1 ч'],[24,'24 ч'],[168,'7 д']].map(([h,l])=>`<button class="cm2-plain" data-period="${h}" aria-pressed="${period===h}" onclick="CM2.period(${h})">${l}</button>`).join('')}</div><span class="cm2-live" id="cm2-live" role="status" aria-live="off"></span></div><div id="cm2-chart" class="cm2-chart" role="img" aria-label="График курса">Загрузка графика…</div><p class="cm2-dim cm2-stamp" id="cm2-stamp"></p></div>`+
-      `<div id="cm2-position">${positionCard(c)}</div>`+
-      `<div class="cm2-actions">${data.enabled?`<button class="cm2-primary" onclick="CM2.deal('buy')">Купить</button>`:''}${own?`<button class="cm2-plain cm2-danger" onclick="CM2.deal('sell')">Продать</button>`:''}${data.shorts_enabled&&!data.shorts.some(p=>p.coin_id===c.id)?`<button class="cm2-plain" onclick="CM2.deal('short')">На падение</button>`:''}</div>`+
+      `<div class="cm2-quote"><strong class="cm2-price" id="cm2-price" tabindex="-1">${num(c.price,true)}</strong><small>Моры за монету</small><span class="cm2-change ${Number(c.change_24h)>=0?'up':'down'}" id="cm2-change">${Number(c.change_24h)>=0?'▲':'▼'} ${num(Math.abs(c.change_24h))}% · ${escape(c.change_period)}</span></div>`+
+      `<div class="cm2-chart-card"><div class="cm2-chart-head"><div class="cm2-period" role="group" aria-label="Период графика">${[[1,'1 ч'],[24,'24 ч'],[168,'7 д']].map(([h,l])=>`<button class="cm2-plain" data-period="${h}" aria-pressed="${period===h}" onclick="CM2.period(${h})">${l}</button>`).join('')}</div><span class="cm2-live" id="cm2-live" role="status" aria-live="off"></span></div><div id="cm2-chart" class="cm2-chart" role="group" aria-label="График курса">Загрузка графика…</div><p class="cm2-dim cm2-stamp" id="cm2-stamp"></p></div>`+
+      `<div id="cm2-position">${positionCard(c)}${shortCard(c)}</div>`+
+      coinActions(c)+
       `<div class="cm2-actions"><button class="cm2-plain" aria-pressed="${c.favorite}" onclick="CM2.favorite()">${c.favorite?'★ В избранном':'☆ В избранное'}</button></div>`+
       (c.description?`<p class="cm2-desc">${escape(c.description)}</p>`:'')+
       (c.owned?`<details class="cm2-help"><summary>Оформление моей монеты</summary><div class="cm2-field"><label for="cm2-edit-desc">Описание</label><input id="cm2-edit-desc" maxlength="160" value="${escape(c.description||'')}"></div><button class="cm2-plain" onclick="CM2.saveMetadata()">Сохранить</button></details>`:'')+
       `<details class="cm2-help"><summary>Характер монеты</summary><p>${CHAR_HINT[c.character]||'Серверный курс.'}</p><p>Курс может вырасти или упасть. Характер не является прогнозом. Новая покупка может быть ограничена запасом фонда; существующие остатки обеспечены для продажи.</p></details>`;
   }
+  function coinActions(c){const own=Number(c.units)>0;return `<div id="cm2-coin-actions" class="cm2-actions">${data.enabled?`<button class="cm2-primary" onclick="CM2.deal('buy')">Купить</button>`:''}${own?`<button class="cm2-plain cm2-danger" onclick="CM2.deal('sell')">Продать</button>`:''}${data.shorts_enabled&&!data.shorts.some(p=>p.coin_id===c.id)?`<button class="cm2-plain" onclick="CM2.deal('short')">На падение</button>`:''}</div>`;}
   function positionCard(c){
     if(Number(c.units)<=0)return '';
-    return `<div class="cm2-pos"><h2 class="cm2-h2">Мой остаток</h2><dl class="cm2-metrics"><dt>Монет</dt><dd>${num(Number(c.units)/1000,true)}</dd><dt>Вложено</dt><dd>${num(c.cost)} Моры</dd><dt>При продаже получите</dt><dd>${num(c.sell_value)} Моры</dd><dt>Результат после комиссии</dt><dd class="${Number(c.result)>=0?'cm2-up':'cm2-down'}">${signed(c.result)} Моры</dd></dl><button class="cm2-plain cm2-danger" onclick="CM2.deal('sell')">Продать</button></div>`;
+    return `<div class="cm2-pos"><h2 class="cm2-h2">Мой остаток</h2><dl class="cm2-metrics"><dt>Монет</dt><dd>${num(Number(c.units)/1000,true)}</dd><dt>Покупки</dt><dd>${num(c.cost)} Моры</dd><dt>При продаже получите</dt><dd>${num(c.sell_value)} Моры</dd><dt>Результат позиции</dt><dd class="${Number(c.result)>=0?'cm2-up':'cm2-down'}">${signed(c.result)} Моры</dd></dl>${c.owned?'<p class="cm2-dim cm2-note">Расходы на создание монеты здесь не учтены.</p>':''}</div>`;
+  }
+  function shortCard(c){
+    const p=data.shorts.find(x=>x.coin_id===c.id);if(!p)return '';
+    return `<div class="cm2-short-card"><div class="cm2-position-title"><h2 class="cm2-h2">На падение</h2><strong class="${Number(p.result)>=0?'cm2-up':'cm2-down'}">${signed(p.result)} Моры</strong></div><dl class="cm2-metrics"><dt>Выделено</dt><dd>${num(p.collateral)} Моры</dd><dt>При закрытии</dt><dd>${num(p.received)} Моры</dd><dt>Цена принудительного закрытия</dt><dd>${num(p.liquidation_price,true)} Моры</dd></dl><button class="cm2-plain" onclick="CM2.closeShort('${p.id}')">Закрыть позицию</button></div>`;
   }
   function draw(history){
     const chart=document.getElementById('cm2-chart');
@@ -177,7 +185,7 @@ window.CM2 = (() => {
       (side==='sell'?`<div class="cm2-field"><label for="cm2-units">Продать монет</label><input id="cm2-units" inputmode="decimal" value="${escape(unitsValue)}" oninput="CM2.invalidate()"><p class="cm2-dim">Ваш остаток: ${num(Number(c.units)/1000,true)} монет.</p></div><div class="cm2-presets">${[25,50,100].map(n=>`<button class="cm2-plain" onclick="CM2.fraction(${n})">${n}%</button>`).join('')}</div>`:'')+
       (side==='short'?`<div class="cm2-field"><label for="cm2-amount">Выделить для позиции, Моры</label><input id="cm2-amount" type="text" inputmode="decimal" value="${escape(amountValue)}" oninput="CM2.invalidate()"><p class="cm2-dim">Потерять можно только выделенную сумму. При нехватке обеспечения позиция закроется сама.</p></div><div class="cm2-presets">${[10,50,100].map(n=>`<button class="cm2-plain" onclick="CM2.amount('${n}')">${n}</button>`).join('')}</div>`:'')+
       (position?`<dl class="cm2-metrics"><dt>Было выделено</dt><dd>${num(position.collateral)} Моры</dd><dt>Текущий результат</dt><dd>${signed(position.result)} Моры</dd></dl>`:'')+
-      `<button class="cm2-primary" onclick="CM2.preview('${side}','${position?.id||''}')">Проверить условия</button><div id="cm2-preview"></div>`);
+      `<button id="cm2-check" class="cm2-primary" onclick="CM2.preview('${side}','${position?.id||''}')">Проверить условия</button><div id="cm2-preview"></div>`);
   }
   function startLive(id, lastTick){
     stopLive();live.last=lastTick||tickNow();live.next=data.next_tick_at||null;
@@ -199,14 +207,18 @@ window.CM2 = (() => {
       const history=await request('/coins/'+id+'/history?hours='+hours);
       if(!current())return;
       const lastPoint=history.points[history.points.length-1];
-      if(lastPoint&&(lastPoint.tick!==live.last||lastPoint.tick!==selected.tick)){live.last=lastPoint.tick;
+      if(lastPoint&&(lastPoint.tick!==live.last||lastPoint.tick!==selected.tick)){
         const fresh=await request('/me');
-        if(!current())return;data=fresh;
+        if(!current())return;data=fresh;live.last=lastPoint.tick;
         selected=data.coins.find(x=>x.id===id)||selected;
         const price=document.getElementById('cm2-price'),change=document.getElementById('cm2-change'),position=document.getElementById('cm2-position');
         if(price)price.textContent=num(selected.price,true);
         if(change){const up=Number(selected.change_24h)>=0;change.className='cm2-change '+(up?'up':'down');change.textContent=`${up?'▲':'▼'} ${num(Math.abs(selected.change_24h))}% · ${selected.change_period}`;}
-        if(position)position.innerHTML=positionCard(selected);
+        const focused=document.activeElement?.closest?.('#cm2-position button, #cm2-coin-actions button');
+        const action=focused?.getAttribute('onclick');
+        if(position)position.innerHTML=positionCard(selected)+shortCard(selected);
+        const actions=document.getElementById('cm2-coin-actions');if(actions)actions.outerHTML=coinActions(selected);
+        if(action){const target=[...document.querySelectorAll('#cm2-position button, #cm2-coin-actions button')].find(b=>b.getAttribute('onclick')===action);if(target)target.focus({preventScroll:true});else document.getElementById('cm2-price')?.focus({preventScroll:true});}
       }
       draw(history);
     }catch(_){/* живое обновление молча переживает сбой сети */}

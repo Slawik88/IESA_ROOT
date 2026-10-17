@@ -1,6 +1,7 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../FastAPI/static/coin-market-v2.js'),'utf8');
 const nodes={'cm2-amount':{value:'0'},'cm2-units':{value:'0.001'},'cm2-preview':{innerHTML:''}};
+nodes['cm2-check']={className:'cm2-primary',disabled:false,textContent:''};
 let calls=[],quote={received:'0',commission:'0.000001',sold_units:'1',zero_payout:true,tick:7,price:'0.001'};
 nodes['cm2-name']={value:'My coin'};nodes['cm2-z']={value:'1000'};nodes['cm2-deposit']={value:'1000'};nodes['cm2-gems']={checked:false};
 const moneyCtx=vm.createContext({});
@@ -38,6 +39,9 @@ async function main(){
  assert.match(nodes['cm2-preview'].innerHTML,/Продать за 0 Моры/);
  assert.match(nodes['cm2-preview'].innerHTML,/Мора из кошелька не списывается/);
  assert.equal(ctx.draft.path,'/trade');assert.equal(ctx.draft.body.units,1);
+ assert.equal(nodes['cm2-check'].className,'cm2-plain cm2-recheck','only final confirmation stays primary');
+ ctx.invalidate();assert.equal(nodes['cm2-check'].className,'cm2-primary','editing restores the first action');
+ assert.equal(ctx.draft,null,'editing cannot retain old confirmation');
  quote={...quote,received:'0.000001',zero_payout:false};calls=[];await ctx.preview('sell',null);
  assert.doesNotMatch(nodes['cm2-preview'].innerHTML,/Продать за 0 Моры|будет продан без выплаты/);
  assert.equal(calls.length,1,'preview must never submit a trade automatically');
@@ -61,6 +65,12 @@ async function main(){
  respond=null;ctx.view='create';await ctx.createPreview();
  assert.equal(ctx.draft.path,'/create','fresh creation preview still works');
  assert.match(nodes['cm2-preview'].innerHTML,/Создать с этими условиями/);
+ assert.equal(nodes['cm2-check'].className,'cm2-plain cm2-recheck');
+ const cards=vm.createContext({data:{enabled:false,shorts_enabled:false,shorts:[{id:'s1',coin_id:'orb',collateral:'100',received:'98',result:'-2',liquidation_price:'1.2'}]},num:String,signed:String});
+ vm.runInContext(source.slice(source.indexOf('function coinActions('),source.indexOf('\n  function draw(')),cards);
+ assert.match(cards.shortCard({id:'orb'}),/CM2.closeShort\('s1'\)/,'existing short can close even with entry flags off');
+ assert.match(cards.shortCard({id:'orb'}),/При закрытии/,'returned collateral is not labelled profit');
+ cards.data.shorts=[];assert.equal(cards.shortCard({id:'orb'}),'','liquidated positions disappear');
  console.log('PASS: explicit zero payout, manual confirmation, and stale trade/create quotes rejected after edits or navigation');
 }
 main().catch(e=>{console.error(e);process.exitCode=1;});

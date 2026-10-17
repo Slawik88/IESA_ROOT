@@ -1,19 +1,25 @@
-## Exchange v2 release preparation — 2026-10-17
+## Exchange v2 — live release and final design, 2026-10-17
 
-Owner authorised master/public launch and ONE initial system issuance of120000Mora
-(6x15000system reserves +30000conversion fund), immutable reference in funding log.
-No player debit/automatic refill. Offline release CLI requires explicit amount,
-checks funding/rules/secret/reserve reconciliation, then atomically enables v2+shorts
-and keepsv1off. Rest of file includes historical checkpoints.
+Production activation completed: six system coins; v2 and shorts enabled, v1 disabled.
+Owner-authorised one-time issuance120000Mora recorded once; independent read-only
+reconciliation: issuances1, gap_micro0. Autonomous tick advancement observed live.
+Public HTTP41 checks +8 exchange asset/auth boundaries PASS. No player funds used
+for verification. No additional issuance or automatic reserve refill.
 
-Validation:15core tests;100000pathsim PASS; realPG race/rollback/replay/dust/cap/
-bootstrapauthorization; actualHTTP auth/strictschemas/receipt+chartprivacy/flags/
-deletedaccount; fullUI Node lostPOST before/aftercommit +reload +exactretry;
-chart/preview/header/staticdelivery/publicroutes/shell contracts PASS.
-Currentmaster merged; UI polish:tokenised mobile lists/groups/linechart/tradepoints/
-quoteexpiry/tariffs/icons/description. Site exchange switch now coversv2.
-Live responsive proof320/390/430 hasnohorizontaloverflow. Release pending final
-productiondeploy/operatorbootstrap+enable and public smoke; do not label it live yet.
+Final UI wave uses existing Predvestnik skin tokens and UI UX Pro Max:
+compact wallet/market search and groups; separate holdings/shorts with exit values
+and position results; existing short visible and closable from coin page even when
+new entry is disabled; explicit creator-cost exclusion. One primary confirmation,
+loading/recheck states, actual six-place server amounts and pending-request recovery.
+Creation tariffs explain starting valuation and show selected icon/tariff correctly.
+Chart uses consistent local timezone, unique time labels, native keyboard cursor,
+nearest published time and preserved focus across live updates. No economic rules
+changed. Read-only critic review found no blocking regressions; two focus/time
+selection polish findings fixed. Node chart/preview/recovery, ASGI delivery/public
+routes and shell contracts PASS; real browser320/390/430 verification recorded in
+local visual evidence folder. Final design deploy is verified after master push.
+
+Historical checkpoints below predate this live release.
 
 ## Exchange v2 recovery checkpoint — 2026-10-17
 
