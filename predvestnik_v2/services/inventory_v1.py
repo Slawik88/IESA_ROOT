@@ -9,9 +9,11 @@ from __future__ import annotations
 import re
 
 from core.chests_v1 import FOODS, JOKER_RARITIES, PET_SPECIES
+from core.pets_v2 import SPECIES as TRAIL_SPECIES
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import chests_v1 as chests_repo
 from infrastructure.repositories import pets_v1 as pets_repo
+from infrastructure.repositories import pets_v2 as trail_repo
 from infrastructure.repositories.economy import get_inventory
 from services.inventory_resolve import resolve_item_id
 
@@ -67,7 +69,7 @@ async def archive(db, user_id: int) -> dict:
     return {"groups": shown, "kinds": sum(len(group["items"]) for group in shown), "pieces": sum(group["pieces"] for group in shown)}
 
 
-async def stock(db, user_id: int) -> dict:
+async def stock(db, user_id: int, *, trail: bool = False) -> dict:
     """What chests gave and what is in use now: keys, pet food, pet cards, jokers, pets found. Read-only: it never settles a pet run or touches endurance."""
     kept = await chests_repo.inventory_summary(db, user_id=int(user_id))
     foods = [{"id": food_id, "name": FOODS[food_id]["name"], "icon": FOODS[food_id]["icon"], "restore": int(FOODS[food_id]["restore"]), "quantity": int(kept["foods"][food_id])}
@@ -75,14 +77,19 @@ async def stock(db, user_id: int) -> dict:
     cards = [{"species_id": species_id, "name": meta["name"], "icon": meta["icon"], "rarity": meta["rarity"], "quantity": int(kept["pet_cards"][species_id])}
              for species_id, meta in PET_SPECIES.items() if int(kept["pet_cards"].get(species_id, 0)) > 0]   # in the order of the catalogue: from common to legendary
     jokers = [{"rarity": rarity, "quantity": int(kept["jokers"][rarity])} for rarity in JOKER_RARITIES if int(kept["jokers"].get(rarity, 0)) > 0]
-    profile = await pets_repo.get_profile(db, int(user_id))
+    profile = None if trail else await pets_repo.get_profile(db, int(user_id))
     active = int(profile["active_pet_id"]) if profile and profile.get("active_pet_id") else None
     pets = [{"id": int(pet["id"]), "name": pet.get("name") or "Питомец", "species_id": pet.get("species_id"), "rarity": pet.get("rarity"),
              "icon": (PET_SPECIES.get(str(pet.get("species_id") or "")) or {}).get("icon", "🐾"), "level": int(pet["level"] if pet["level"] is not None else 1), "active": int(pet["id"]) == active}
-            for pet in await pets_repo.list_owned_pets(db, int(user_id))]
-    return {"keys": await chests_repo.get_balance(db, int(user_id)), "foods": foods, "pet_cards": cards, "jokers": jokers, "pets": pets, "species_total": len(PET_SPECIES)}
+            for pet in await (trail_repo if trail else pets_repo).list_owned_pets(db, int(user_id))
+            if not trail or pet.get("species_id") in TRAIL_SPECIES]
+    result = {"keys": await chests_repo.get_balance(db, int(user_id)), "foods": foods, "pet_cards": cards, "jokers": jokers, "pets": pets, "species_total": len(PET_SPECIES)}
+    if trail:
+        result["pets_version"] = 2
+        result["talismans"] = await trail_repo.list_talismans(db, int(user_id))
+    return result
 
 
-async def overview(db, user_id: int, *, chests: bool) -> dict:
+async def overview(db, user_id: int, *, chests: bool, trail: bool = False) -> dict:
     """Everything the screen needs besides skins. `chests` is the global switch of the chest catalogue: off, the live stock is not shown at all (null)."""
-    return {"stock": await stock(db, user_id) if chests else None, "archive": await archive(db, user_id)}
+    return {"stock": await stock(db, user_id, trail=trail) if chests else None, "archive": await archive(db, user_id)}

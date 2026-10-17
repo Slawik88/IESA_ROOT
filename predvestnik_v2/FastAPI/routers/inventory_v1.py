@@ -12,7 +12,11 @@ router = APIRouter(prefix="/inventory-v1", tags=["inventory-v1"])
 @router.get("/me")
 async def my_inventory(db=Depends(get_db), user=Depends(require_tg_user)) -> dict:
     try:
-        return await inventory.overview(db, int(user["id"]), chests=await system_flags.is_enabled(db, "content_chests_v1"))
+        return await inventory.overview(
+            db, int(user["id"]),
+            chests=await system_flags.is_enabled(db, "content_chests_v1"),
+            trail=await system_flags.is_enabled(db, "pets_v2"),
+        )
     except Exception as exc:
         logger.exception("inventory_v1 failed")
         raise HTTPException(status_code=500, detail="Инвентарь временно недоступен") from exc

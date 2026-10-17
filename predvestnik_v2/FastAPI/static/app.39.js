@@ -80,9 +80,10 @@ function _invTal(t, stock) {
 function _invStuff(stock) {
   const grid = (title, tiles, link) => tiles.length ? `${_invSec(title, link)}<div class="inv-grid">${tiles.join('')}</div>` : '';
   const use = [_invTile('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys, 'keys'),
-    ...stock.foods.map(f => _invTile(_profileEsc(f.icon), _profileEsc(f.name), `Выносливость питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))];
-  const cards = [...stock.pet_cards.map(c => _invTile(_profileEsc(c.icon), _profileEsc(c.name), _profileEsc(rarLabel(c.rarity)), c.quantity, 'card')),
-    ...stock.jokers.map(j => _invTile('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker'))];
+    ...stock.foods.map(f => _invTile(_profileEsc(f.icon), _profileEsc(f.name), `${stock.pets_version === 2 ? 'Силы' : 'Выносливость'} питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))];
+  const keptCards = stock.pets_version === 2 ? 'Сохранено из прежней системы. В Тропе не расходуется.' : '';
+  const cards = [...stock.pet_cards.map(c => _invTile(_profileEsc(c.icon), _profileEsc(c.name), keptCards || _profileEsc(rarLabel(c.rarity)), c.quantity, 'card')),
+    ...stock.jokers.map(j => _invTile('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, keptCards || 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker'))];
   return grid('Ключи и еда', use, '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')
     + grid('Карты и джокеры', cards) + grid('Талисманы', (stock.talismans || []).map(t => _invTal(t, stock)));
 }

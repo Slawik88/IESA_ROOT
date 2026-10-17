@@ -3,6 +3,55 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## UIUX-20261017 — audit fixes, wave 1 (local; not released)
+
+Branch `codex/ui-ux-fixes`, base `origin/master` fcecff0d. Owner approved fixes
+after the global audit (68 captured states, 44 destinations). UI UX Pro Max
+used for recovery, accessible controls and visual hierarchy.
+
+- Inventory uses `pet_v2_state` while `pets_v2` is enabled, keeps the v1 read
+  model while disabled, and never creates/migrates progress. V2 talismans are
+  included; old active-pet selection is not presented as current. Cards/jokers
+  retained from v1 are identified as unused in the Trail.
+- Root cause of the VIP dead end: current VIP router was absent from `main.py`.
+  Register the single-product contract at `/vip-v2` and update the client and
+  store shutdown map. Retired `/vip/*` remains unreachable. Existing prices,
+  user lock, action IDs, ledger debits and receipts are unchanged. Insufficient
+  balance maps to 409. Separate read failures preserve a labelled last-known
+  status with retry/help, hide writes until refreshed, reject stale responses.
+  The daily mission displays the server-provided number of keys.
+- Admin switches show the current state, scope and accessible name. Native
+  keyboard focus is visible; hit areas are 46x44. Confirmation, POST payload,
+  inheritance and failed-write rollback are unchanged and behaviour-tested.
+- Wallet amount/currency have visible associated labels. Hint sheets use one
+  primary action. Track/trial recommendations do not claim a unique best pet
+  on tied scores, or any best trial pet at zero matches. Trial copy explains
+  the instant check and retained pet/energy without changing the mechanics.
+- Quest rewards use words and wrap as whole values. Follow-up DOM inspection
+  did NOT confirm horizontal overflow in audit F09: the small key glyph was
+  hard to recognise. This is a clarity fix, not a proven numeric truncation.
+
+Checks passed: inventory PostgreSQL (v1/v2 divergence, absent state, no writes,
+flags, talismans), VIP PostgreSQL (replay/concurrency/insufficient funds/daily
+serialization), release routes/auth/retired URLs/store scope, inventory/Trail/
+quests/shell/admin/UI-screen contracts, static ASGI delivery, Node behaviour
+tests for VIP recovery, switch cancellation/rollback and tied recommendations,
+JS parsing and `git diff --check`.
+
+Browser evidence: local real server for VIP, inventory, wallet, quests and
+guides; 320/390 px examples. Switch rendering/focus/hit areas checked at
+320/390/430 in an isolated component fixture using the real function and CSS.
+Full authenticated admin navigation is not proven: the synthetic main-app
+cookie login is not accepted by the separate Telegram admin login. No live
+flags, permissions, payments, player balances or moderation were changed.
+
+Independent code critic was requested but returned an account usage-limit
+error before reviewing this wave. Do not mark independent review as passed.
+No merge/deployment. Next: independent review of this exact diff, then continue
+audit F05/F06/F08/F10/F11/F12 (cosmetic readability, navigation comparison,
+summaries, Mines keyboard/touch, balance freshness and admin workflow clarity).
+Evidence is local: `C:/Users/makss/.codex/visualizations/2026/10/17/predvestnik-ui-ux-fixes/`.
+
 ## QUEST-VARIETY-20261016 — additive pet quests
 
 Implemented separately on `codex/quest-variety`, stacked on mechanics-community

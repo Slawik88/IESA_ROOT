@@ -7,6 +7,8 @@ sys.path.insert(0, str(ROOT))
 
 from FastAPI.main import app
 from fastapi.testclient import TestClient
+from FastAPI.deps import get_db
+from services.feature_switches import site_area
 
 
 paths = set()
@@ -30,7 +32,7 @@ for prefix in (
     assert not any(path == prefix or path.startswith(prefix + "/") for path in paths), prefix
 
 for prefix in (
-    "/profile", "/marriage", "/wallet", "/payments",
+    "/profile", "/marriage", "/wallet", "/payments", "/vip-v2",
     "/rhythm-v2", "/minesweeper-v2", "/mafia-v1", "/hub",
 ):
     assert any(path == prefix or path.startswith(prefix + "/") for path in paths), prefix
@@ -43,6 +45,24 @@ assert "/profile/{user_id}" not in paths
 # Route registration is the source of truth: a stale cached client must get a
 # plain 404 before authentication or any old business logic is reached.
 client = TestClient(app)
+assert {p for p in paths if p.startswith('/vip-v2/')} == {
+    '/vip-v2/status', '/vip-v2/purchase', '/vip-v2/preferences',
+}, 'only the current single-product VIP contract is exposed'
+for current in ('/vip-v2/status', '/vip-v2/purchase', '/vip-v2/preferences'):
+    assert site_area(current) == 'store', 'the existing store shutdown also covers current VIP'
+async def no_database():
+    yield None
+
+app.dependency_overrides[get_db] = no_database
+try:
+    for method, current in (('GET', '/vip-v2/status'), ('POST', '/vip-v2/purchase'), ('PUT', '/vip-v2/preferences')):
+        response = client.request(method, current, json={})
+        assert response.status_code == 401, (current, response.status_code)
+finally:
+    app.dependency_overrides.pop(get_db, None)
+for method, retired in (('GET', '/vip/status'), ('POST', '/vip/purchase'), ('PUT', '/vip/preferences')):
+    response = client.request(method, retired, json={})
+    assert response.status_code == 404, (retired, response.status_code)
 for retired_path in ("/gacha/info", "/auction/", "/exchange/crypto", "/battle_pass/status", "/games2/retire-active"):
     assert client.get(retired_path).status_code == 404, retired_path
 

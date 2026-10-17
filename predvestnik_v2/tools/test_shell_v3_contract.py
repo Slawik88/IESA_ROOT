@@ -164,7 +164,7 @@ assert "apTitle(ap)" not in (STATIC / "app.15.js").read_text(encoding="utf-8") a
 # Zarniki and VIP are one page that sells itself; the old top-up sheet and VIP modal are gone and every entry point leads to the page.
 store_js = (STATIC / "app.30.js").read_text(encoding="utf-8")
 assert 'id="pg-store"' in index and "store-v3.css" in index and not (STATIC / "app.24.js").exists()
-assert "function openStoreV3(" in store_js and "window.openZarnikiTopup" in store_js and "window.openVipModal" in store_js and "/payments/zarniki/invoice" in store_js and "/vip/purchase" in store_js
+assert "function openStoreV3(" in store_js and "window.openZarnikiTopup" in store_js and "window.openVipModal" in store_js and "/payments/zarniki/invoice" in store_js and "/vip-v2/purchase" in store_js
 assert "_svReach" in store_js and "_svRecommended" in store_js and "_svSee" in store_js and "apStage(" in store_js, "the page shows what a pack buys and how others see a VIP"
 assert "function openVipModal" not in (STATIC / "app.02.js").read_text(encoding="utf-8") and "_ztPay" not in store_js
 assert "openStoreV3('vip')" in (STATIC / "app.16.js").read_text(encoding="utf-8") and "openStoreV3('zarniki'" in (STATIC / "app.23.js").read_text(encoding="utf-8")

@@ -2046,11 +2046,18 @@ async function switchesView(main, chat = null) {
     const enabled = !localOff && !(chat && globalOff);
     const locked = chat && globalOff;
     const why = (localOff || globalOff || {}).reason;
+    const status = item.key === 'all' ? (enabled ? 'Бот работает' : 'Бот выключен')
+      : item.key === 'site' ? (enabled ? 'Сайт открыт' : 'Сайт закрыт') : (enabled ? 'Включено' : 'Выключено');
+    const scopeLabel = chat ? `в чате «${chat.title}»` : 'везде';
+    const label = `${item.title}: ${status.toLowerCase()}, ${scopeLabel}`;
+    const offHint = ['all', 'site', 'notice:achievements'].includes(item.key);
+    const hint = item.hint && item.hint !== 'Весь раздел' && (!offHint || !enabled)
+      ? `<div class="sub">${offHint ? 'При выключении: ' : ''}${esc(item.hint)}</div>` : '';
     return `<div class="sw-row ${enabled ? '' : 'off'}">
-      <div class="t"><b>${esc(item.title)}</b>${item.hint && item.hint !== 'Весь раздел' ? `<div class="sub">${esc(item.hint)}</div>` : ''}
+      <div class="t"><b>${esc(item.title)}</b><div class="sub">${esc(status)}</div>${hint}
         ${locked ? '<div class="locked">выключено везде — включается только во «Везде»</div>' : ''}
         ${!enabled && why ? `<div class="sub">Причина: ${esc(why)}</div>` : ''}</div>
-      <label class="toggle"><input type="checkbox" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span></span></label>
+      <label class="toggle"><input type="checkbox" aria-label="${esc(label)}" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span aria-hidden="true"></span></label>
     </div>`;
   };
   const group = item => item.items && item.items.length
@@ -2063,9 +2070,9 @@ async function switchesView(main, chat = null) {
     <div class="scope"><span class="sub">Где:</span>
       <button class="btn small ${chat ? '' : 'primary'}" id="sglobal">Везде</button>
       ${chat ? `<span class="chip ok">${esc(chat.title)}</span>` : ''}
-      <input id="schatq" placeholder="Выбрать чат…" style="flex:1;min-width:140px"/></div>
+      <input id="schatq" aria-label="Выбрать чат для управления функциями" placeholder="Выбрать чат…" style="flex:1;min-width:140px"/></div>
     <div class="found" id="schatfound"></div>
-    <div class="field"><label>Причина для игроков, когда выключаете (необязательно)</label>
+    <div class="field"><label for="sreason">Причина для игроков, когда выключаете (необязательно)</label>
       <input id="sreason" maxlength="200" placeholder="Например: чиним, вернём вечером"/></div>
     ${data.catalog.filter(g => !(chat && g.scope === 'site')).map(g => `
       <div class="card"><h3>${esc(g.title)} · ${scopeName}</h3>${g.items.map(group).join('')}</div>`).join('')}

@@ -19,6 +19,7 @@ from core.registry import ITEMS_REGISTRY  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import chests_v1 as chests_repo  # noqa: E402
 from infrastructure.repositories import pets_v1 as pets_repo  # noqa: E402
+from infrastructure.repositories import pets_v2 as trail_repo  # noqa: E402
 from services import inventory_v1 as inventory  # noqa: E402
 
 
@@ -40,6 +41,7 @@ async def run(dsn: str) -> None:
     db = PGAdapter(connection)
     await chests_repo.ensure_tables(db)
     await pets_repo.ensure_tables(db)
+    await trail_repo.ensure_tables(db)
     outer = connection.transaction()
     await outer.start()
     try:
@@ -100,6 +102,38 @@ async def run(dsn: str) -> None:
         assert empty["archive"] == {"groups": [], "kinds": 0, "pieces": 0}, empty
         assert empty["stock"] == {"keys": 0, "foods": [], "pet_cards": [], "jokers": [], "pets": [], "species_total": 12}, empty["stock"]
         assert await count(db, player) == before and await count(db, newcomer) == 0, "reading the inventory changes nothing"
+
+        # A legacy active pet and the Trail intentionally disagree. The flag selects
+        # the current read model, never migrates progress or creates missing state.
+        async with db.execute(
+            "INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?,?,?,?) RETURNING id",
+            (player, "Мотылёк", "ash_moth", "common"),
+        ) as cursor:
+            pet_id = int((await cursor.fetchone())[0])
+        await db.execute("INSERT INTO pet_v1_state(user_id,pet_id,level) VALUES (?,?,9)", (player, pet_id))
+        await db.execute("INSERT INTO pet_v1_profiles(user_id,active_pet_id) VALUES (?,?)", (player, pet_id))
+        await db.execute("INSERT INTO pet_v2_state(user_id,pet_id,level,xp,energy) VALUES (?,?,3,17,50)", (player, pet_id))
+        async with db.execute(
+            "INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?,?,?,?) RETURNING id",
+            (player, "Кот без состояния", "moss_cat", "common"),
+        ) as cursor:
+            fresh_id = int((await cursor.fetchone())[0])
+        await db.execute("INSERT INTO pet_v2_talismans(id,user_id,kind,tier,pet_id) VALUES (?,?,?,2,?)",
+                         ("inventory-test-talisman", player, "forest_fang", pet_id))
+        legacy = (await inventory.overview(db, player, chests=True))["stock"]
+        trail = (await inventory.overview(db, player, chests=True, trail=True))["stock"]
+        assert next(p for p in legacy["pets"] if p["id"] == pet_id)["level"] == 9
+        assert next(p for p in legacy["pets"] if p["id"] == pet_id)["active"] is True
+        assert next(p for p in trail["pets"] if p["id"] == pet_id)["level"] == 3
+        assert next(p for p in trail["pets"] if p["id"] == fresh_id)["level"] == 1
+        assert all(p["active"] is False for p in trail["pets"])
+        assert trail["pets_version"] == 2 and len(trail["talismans"]) == 1
+        assert (await inventory.overview(db, newcomer, chests=True, trail=True))["stock"]["pets"] == []
+        assert (await inventory.overview(db, player, chests=False, trail=True))["stock"] is None
+        async with db.execute("SELECT level,xp FROM pet_v2_state WHERE user_id=? AND pet_id=?", (player, pet_id)) as cursor:
+            assert tuple(await cursor.fetchone()) == (3, 17)
+        async with db.execute("SELECT COUNT(*) FROM pet_v2_state WHERE user_id=? AND pet_id=?", (player, fresh_id)) as cursor:
+            assert (await cursor.fetchone())[0] == 0, "viewing must not create missing state"
         assert inventory.split_icon("⚡️ Энергетик") == ("⚡️", "Энергетик") and inventory.split_icon("Без значка") == ("", "Без значка")
         print("OK: inventory v1 groups, names, notes, lost items, live stock, chest switch, read-only")
     finally:

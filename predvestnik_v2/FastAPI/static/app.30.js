@@ -2,8 +2,8 @@
 // «Зарники»: баланс, пакеты Telegram Stars строками (под выбранной целью заранее выбран тот, что хватит), на что хватит пакета, кнопка.
 // «VIP»: статус, поручение дня, как вас видят, что даёт, срок, значок у ника с автосохранением. Любая трата идёт через лист подтверждения (v3Confirm, app.28.js).
 // Вид монолитный: ни одного блока вокруг абзаца, строки с тонкой линией, одна выбранная строка (store-v3.css).
-// Деньги считает сервер (/payments/zarniki/*, /vip/*, /skins-v3/me); здесь показ и повторяемые запросы. Стили: store-v3.css.
-let _sv = { tab: 'zarniki', pk: null, vip: null, st: null, sel: null, term: 30, goal: null, busy: false, loading: false, paid: 0, failed: '', seq: 0, saved: false };
+// Деньги считает сервер (/payments/zarniki/*, /vip-v2/*, /skins-v3/me); здесь показ и повторяемые запросы. Стили: store-v3.css.
+let _sv = { tab: 'zarniki', pk: null, vip: null, st: null, sel: null, term: 30, goal: null, busy: false, loading: false, paid: 0, failed: '', vipFailed: false, vipReadAt: null, seq: 0, saved: false };
 const _svBal = () => Number(_profileData?.zarniki ?? _sv.st?.zarniki ?? 0);
 const _svItem = id => _sv.st?.items.find(i => i.id === id) || null;
 
@@ -11,10 +11,18 @@ function openStoreV3(tab, goal) {
   _sv = { ..._sv, tab: tab === 'vip' ? 'vip' : 'zarniki', goal: goal || null, paid: 0, failed: '', loading: true, sel: null, seq: _sv.seq + 1 };
   switchPage('store'); _svRender();
   const mine = _sv.seq;
-  Promise.all([api('/payments/zarniki/packages'), api('/vip/status').catch(() => null), api('/skins-v3/me').catch(() => null)]).then(([pk, vip, st]) => {
+  return Promise.allSettled([api('/payments/zarniki/packages'), api('/vip-v2/status'), api('/skins-v3/me')]).then(([pk, vip, st]) => {
     if (mine !== _sv.seq) return;
-    Object.assign(_sv, { pk, vip, st, loading: false, term: _svTermFor(vip) }); _svPick(_svRecommended(), true);
-  }).catch(e => { if (mine !== _sv.seq) return; Object.assign(_sv, { loading: false, failed: String(e || 'Не удалось загрузить') }); _svRender(); });
+    _sv.loading = false;
+    _sv.failed = pk.status === 'fulfilled' && Array.isArray(pk.value?.packages) ? '' : 'Не удалось загрузить пакеты Зарников.';
+    if (!_sv.failed) _sv.pk = pk.value;
+    _sv.vipFailed = vip.status !== 'fulfilled' || typeof vip.value?.active !== 'boolean';
+    if (!_sv.vipFailed) {
+      _sv.vip = vip.value; _sv.vipReadAt = new Date(); _sv.term = _svTermFor(vip.value);
+    }
+    if (st.status === 'fulfilled') _sv.st = st.value;
+    _svPick(_svRecommended(), true);
+  });
 }
 window.openZarnikiTopup = goal => openStoreV3('zarniki', typeof goal === 'string' ? goal : null);
 window.openVipModal = () => openStoreV3('vip');
@@ -116,12 +124,12 @@ function _svStatus(v) {
     ? `<section class="sv-status is-on" role="status">${_svRing(v.days_left || 0)}<div><b>VIP активен</b><span>ещё ${fmt(v.days_left || 0)} дн. · до ${_profileDate(v.expires_at)}</span></div></section>`
     : `<section class="sv-status" role="status">${_svRing(0)}<div><b>VIP не активен</b><span>С ним ваш образ видят все, а наград больше</span></div></section>`;
 }
-// Поручение дня: семь точек до бонуса, данные приходят с /vip/status
+// Поручение дня: семь точек до бонуса, данные приходят с /vip-v2/status
 function _svMission(v) {
   const m = v.daily_mission; if (!v.active || !m) return '';
   const done = Number(m.cycle_progress) || 0;
   return `<div class="sv-sec"><span class="v3-eyebrow">Поручение дня</span><span class="sv-mission-end"><span class="sv-dots" role="img" aria-label="До бонуса: ${done} из 7">${Array.from({ length: 7 }, (_, i) => `<i${i < done ? ' class="is-on"' : ''}></i>`).join('')}</span><em class="${m.completed_today ? 'is-done' : ''}">${m.completed_today ? 'Сегодня ✓' : 'Не выполнено'}</em></span></div>
-    <p class="sv-text"><b>${_profileEsc(m.title || 'Заверши одну игру')}</b> · +${fmt(m.daily_reward_mora || 20)} Моры; на седьмое ещё +${fmt(m.milestone_reward_mora || 100)} и ключ. Пропуски прогресс не сбрасывают</p>`;
+    <p class="sv-text"><b>${_profileEsc(m.title || 'Заверши одну игру')}</b> · +${fmt(m.daily_reward_mora ?? 20)} Моры; на седьмое ещё +${fmt(m.milestone_reward_mora ?? 100)} Моры и ключи: ${fmt(m.milestone_reward_keys ?? 0)}. Пропуски прогресс не сбрасывают</p>`;
 }
 // Как вас видят другие: две миниатюры профиля. Без VIP чужой видит обычный профиль, с VIP целиком ваш образ: фон, ореол, рамку на аватаре, ник и титул.
 // Показывается надетый образ в его нынешнем тире, а если образа нет, образ недели с потолком (так видно, что покупает VIP)
@@ -164,7 +172,7 @@ function _svNeed(price) {   // не хватает на VIP: на вкладку
   _sv.tab = 'zarniki'; _sv.goal = null; _sv.sel = Number((hit || packs[packs.length - 1] || {}).stars) || null; _haptic('select'); _svRender(); window.scrollTo(0, 0);
 }
 async function svVipBuy(days) {
-  const v = _sv.vip, tier = (v?.tiers || []).find(t => Number(t.duration_days) === Number(days)); if (_sv.busy || !tier) return;
+  const v = _sv.vip, tier = (v?.tiers || []).find(t => Number(t.duration_days) === Number(days)); if (_sv.loading || _sv.vipFailed || _sv.busy || !tier) return;
   const price = Number(tier.price_zarniki), from = v.active && v.expires_at ? new Date(v.expires_at) : new Date(), until = new Date(from.getTime() + Number(days) * 864e5);
   const ok = await v3Confirm({ title: v.active ? 'Продление VIP' : 'Оформление VIP', visual: '👑', name: `VIP на ${fmt(days)} дн.`, sub: `Будет действовать до ${_profileDate(until.toISOString())}`, price, icon: '✨', have: _svBal(), cta: `${v.active ? 'Продлить' : 'Оформить'} за ${fmt(price)} ✨`,
     note: v.active ? 'Дни добавятся к текущему сроку.' : 'Сразу после оплаты ваш образ увидят другие игроки.' });
@@ -172,9 +180,9 @@ async function svVipBuy(days) {
   _sv.busy = true; _svRender();
   try {
     const key = (_sv.vipKeys ||= {})[days] ||= (globalThis.crypto?.randomUUID?.() || `vip-${Date.now()}`);
-    const r = await api('/vip/purchase', { method: 'POST', body: JSON.stringify({ package_days: days, action_id: key }) });
+    const r = await api('/vip-v2/purchase', { method: 'POST', body: JSON.stringify({ package_days: days, action_id: key }) });
     _sv.vipKeys = {}; toast(`VIP продлён на ${fmt(r.package_days)} дней`); _haptic('success');
-    await Promise.all([loadProfile(), api('/vip/status').then(x => { _sv.vip = x; })]);
+    await Promise.all([loadProfile(), api('/vip-v2/status').then(x => { _sv.vip = x; })]);
   } catch (e) { toast(e?.message || e || 'Покупка не выполнена', false); }
   finally { _sv.busy = false; _svRender(); }
 }
@@ -193,25 +201,32 @@ function _svBadge(v) {
 }
 let _svSaveTimer = 0;
 function svBadgeSet(field, value) {
-  const v = _sv.vip; if (!v?.active) return;
+  const v = _sv.vip; if (_sv.loading || _sv.vipFailed || !v?.active) return;
   v.preferences = { ...(v.preferences || {}), [field]: value }; _sv.saved = false; _haptic('select'); _svRender();
   clearTimeout(_svSaveTimer);
   _svSaveTimer = setTimeout(() => {      // несколько нажатий подряд уходят одним запросом
     const p = v.preferences;
-    api('/vip/preferences', { method: 'PUT', body: JSON.stringify({ badge_id: p.badge_id || 'spark', badge_position: p.badge_position || 'left', reminder_enabled: p.reminder_enabled !== false }) })
+    api('/vip-v2/preferences', { method: 'PUT', body: JSON.stringify({ badge_id: p.badge_id || 'spark', badge_position: p.badge_position || 'left', reminder_enabled: p.reminder_enabled !== false }) })
       .then(() => { _sv.saved = true; _svRender(); loadProfile(); setTimeout(() => { _sv.saved = false; if (_sv.tab === 'vip') _svRender(); }, 1800); })
-      .catch(e => { toast(e?.message || e || 'Не удалось сохранить', false); api('/vip/status').then(x => { _sv.vip = x; _svRender(); }).catch(() => {}); });
+      .catch(e => { toast(e?.message || e || 'Не удалось сохранить', false); api('/vip-v2/status').then(x => { _sv.vip = x; _svRender(); }).catch(() => {}); });
   }, 450);
 }
 function _svVip() {
-  const v = _sv.vip; if (!v) return `<p class="sv-lead">VIP сейчас недоступен.</p>`;
+  const v = _sv.vip;
+  if (_sv.vipFailed || !v) {
+    // Cached/profile information is display-only: never enable purchases or preference writes from it.
+    const known = v || _profileData?.vip;
+    const stamp = v && _sv.vipReadAt ? `Обновлено ${_sv.vipReadAt.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}.` : 'Последние данные профиля.';
+    const status = known?.expires_at ? `<section class="sv-status" role="status">${_svRing(known.days_left || 0)}<div><b>VIP по последним данным</b><span>Срок до ${_profileDate(known.expires_at)}</span></div></section><p class="sv-fine sv-fine--left">${stamp} Текущий статус уточним после обновления.</p>` : '';
+    return `${status}<div class="v3-empty" role="alert"><b>Не удалось обновить VIP</b><span>Это ошибка загрузки, она не означает, что подписка закончилась.</span><button type="button" class="v3-pill" onclick="openStoreV3('vip')">Повторить</button><a class="v3-link" href="https://t.me/predvestnik_official" target="_blank" rel="noopener noreferrer">Помощь в сообществе</a></div>`;
+  }
   return `${_svStatus(v)}${_svTerms(v)}${_svMission(v)}<details class="sv-details"><summary>Что даёт VIP</summary>${_svPerks(v)}</details><details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`;
 }
 
 function _svRender() {
   const root = el('pg-store'); if (!root) return;
   const body = _sv.loading ? '<div class="sv-skel" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'
-    : _sv.failed ? `<div class="v3-empty">${_profileEsc(_sv.failed)} <button type="button" class="v3-link" onclick="openStoreV3('${_sv.tab}')">Повторить</button></div>`
+    : _sv.failed && _sv.tab === 'zarniki' ? `<div class="v3-empty" role="alert">${_profileEsc(_sv.failed)} <button type="button" class="v3-link" onclick="openStoreV3('zarniki')">Повторить</button></div>`
     : _sv.tab === 'vip' ? _svVip() : _svZarniki();
   root.innerHTML = `<div class="v3-scope lk-scope sv-scope v3-stagger">${_svTop()}${body}</div>`;
   v3EnterSync(root);

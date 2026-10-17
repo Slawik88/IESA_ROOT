@@ -4,10 +4,13 @@ from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
 from core.registry import VIP_PERKS_PITCH
+from core.economy_contract import InsufficientBalance
 from services.vip import (VIP_BADGES, VIP_PACKAGES, VipConflict, VipError, get_daily_status, get_preferences,
                           get_vip_info, get_vip_seniority_days, purchase_vip, set_preferences)
 
-router = APIRouter(prefix="/vip", tags=["vip"])
+# Keep retired /vip URLs closed to cached clients. The current single-product
+# contract has its own explicit release boundary.
+router = APIRouter(prefix="/vip-v2", tags=["vip-v2"])
 
 
 def _tiers_payload() -> list[dict]:
@@ -78,6 +81,8 @@ async def purchase_vip_endpoint(
         )
     except (VipError, VipConflict) as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+    except InsufficientBalance as error:
+        raise HTTPException(status_code=409, detail="Не хватает Зарников. Обновите баланс.") from error
 
 
 @router.put("/preferences")
