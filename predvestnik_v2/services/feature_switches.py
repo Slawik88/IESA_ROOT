@@ -25,7 +25,7 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     "minesweeper": ("💣 Сапёр", ("/minesweeper-v2", "/minesweeper")),
     "mafia": ("🕵️ Мафия: статистика", ("/mafia-v1",)),
     "skins": ("✨ Образы и внешний вид", ("/skins-v3", "/appearance", "/cosmetics")),
-    "store": ("💳 Покупки: Зарники и VIP", ("/payments", "/vip")),
+    "store": ("💳 Покупки: Зарники и VIP", ("/payments", "/vip", "/vip-v2")),
     "pets": ("🐾 Питомцы", ("/pets-v1",)),
     "quests": ("📜 Квесты", ("/quests-v1",)),
     "achievements": ("🏆 Достижения", ("/achievements-v1",)),

@@ -85,7 +85,7 @@ SCREENS = [
 PAGES = ("/rhythm-v2", "/minesweeper", "/legal/tos", "/legal/privacy")
 
 # Bottom dock tabs (the bug the owner saw: the dock flew below the screen when switching tabs)
-DOCK_TABS = ("arena", "looks", "questlog", "chests", "pets", "top", "more", "profile")
+DOCK_TABS = ("profile", "arena", "pets", "questlog", "looks", "chests", "inventory", "top", "more")
 
 # Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [

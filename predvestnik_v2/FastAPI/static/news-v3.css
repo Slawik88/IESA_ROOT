@@ -97,3 +97,4 @@ div.wn-hd { padding-right: 0; }
 @media (prefers-reduced-motion: reduce) { .wn-x, .wn-pop { animation: none; } .wn-chev { transition: none; } }
 .no-fx .wn-x, .no-fx .wn-pop, body[data-dev="low"] .wn-x, body[data-dev="low"] .wn-pop { animation: none; }
 .no-fx .wn-chev, body[data-dev="low"] .wn-chev { transition: none; }
+.v3-row[data-wn-page][data-wn] .v3-end::before { content:""; display:block; width:6px; height:6px; border-radius:50%; background:var(--v3-acc); flex:none; }

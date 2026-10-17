@@ -99,10 +99,10 @@ function _lkRender(anim) {
     <h1 class="lk-title">${_profileEsc(item.name)}</h1>
     <p class="lk-blurb">${_profileEsc(item.blurb)}</p>
     <div class="lk-tags"><span class="lk-tag lk-tag--tier">Тир ${_lk.tier}</span><span class="lk-tag">редкость ${item.rarity}</span>${setTag}${dayTag}${seasonTag}</div>
-    ${_lkSteps(item)}
     <p class="lk-note" aria-live="polite">${_profileEsc(note)}</p>
     <div class="lk-cta">${act.a ? `<button type="button" class="v3-pill${_lk.busy ? ' is-busy' : ''}" ${_lk.busy ? 'disabled aria-busy="true"' : ''} onclick="lkAct('${act.a}')">${_profileEsc(act.t)}</button>` : `<div class="lk-done">${_profileEsc(act.t)}</div>`}<small>${_profileEsc(act.sub || '')}</small>
       ${item.equipped ? '<button type="button" class="v3-link" onclick="lkAct(\'unequip\')">Снять образ</button>' : ''}</div>
+    <details class="lk-tiers"${_lk.tiersOpen ? ' open' : ''} ontoggle="_lk.tiersOpen=this.open"><summary>Примерить тиры · выбран ${_lk.tier}</summary>${_lkSteps(item)}</details>
     <p class="lk-fine">Полная прокачка до ${item.ceiling}: ${fmt(item.total_upgrade_essence)} Эссенции, это около ${fmt(total)} ✨. Вместе со скином ${fmt(item.full_price_zarniki)} ✨. Эссенция тратится только на тиры образов.</p>${owner}
     ${lkGoalHtml(st)}${lkWeekHtml(st)}${lkSoonHtml(st)}
     <div class="v3-sec"><span class="v3-eyebrow">Все образы</span></div>${_lkStrip(st)}

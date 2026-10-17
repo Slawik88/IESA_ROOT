@@ -240,11 +240,18 @@ function _wnTabDots(list) {
     if (go && go.tab && _wnKind(u) !== 'fix' && age <= _WN_DOT_DAYS && !ack.has(u.id)) (next[go.tab] = next[go.tab] || []).push(u.id);
   });
   _wnDots = next;
-  document.querySelectorAll('.nb[data-page]').forEach(btn => _wnDotSet(btn, !!next[btn.dataset.page]));
+  _wnPaintDots();
+}
+function _wnPaintDots() {
+  document.querySelectorAll('.nb[data-page]').forEach(btn => {
+    const pages = btn.dataset.page === 'more' ? ['more', 'store', 'shop', 'promo'] : [btn.dataset.page];
+    _wnDotSet(btn, pages.some(p => (_wnDots[p] || []).length));
+  });
+  document.querySelectorAll('[data-wn-page]').forEach(btn => _wnDotSet(btn, !!(_wnDots[btn.dataset.wnPage] || []).length));
 }
 function _wnTabVisit(page) {
   const ids = _wnDots[page]; if (!ids) return;
   delete _wnDots[page]; ids.forEach(id => _wnAckMem.add(id));
-  const btn = document.querySelector(`.nb[data-page="${page}"]`); if (btn) _wnDotSet(btn, false);
+  _wnPaintDots();
   try { localStorage.setItem('wn_dot_ack', JSON.stringify([...new Set([...ids, ..._wnAcked()])].slice(0, 80))); } catch (_) {}
 }

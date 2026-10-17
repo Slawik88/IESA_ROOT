@@ -35,6 +35,126 @@ conversation. No flags, production data, v1 writers or UI changed. Next: durable
 PostgreSQL receipts, transaction/ownership/replay tests and scheduler contracts;
 then API/UI. Check production v1 obligations read-only before any transition.
 
+## UIUX-20261017-nav10 — compact owner-approved direction
+
+Owner increased scope from7 to10 destinations, rejected a two-row prototype,
+then requested less height and a restrained design. Final: one swipeable row,
+54px tall,10 controls (9 pages + wallet dialog). Order: Profile/Games/Pets/
+Quests/Looks/Chests/Inventory/Top/Wallet/More. Buttons >=64x48; labels11px,
+icons20px. Current destination has only ink/accent and a short top line.
+No nested selected pill or identity backdrop. More unread aggregation excludes
+primary pages. _dockReveal scrolls only the navigation track and respects reduced
+motion. Keyboard Tab/ShiftTab reach both ends without moving the page vertically.
+Body/scoped-screen/banner/toast clearance uses --v3-dock-clear to match height.
+Two-row and62px snapshots are intermediate diagnostics, not final design.
+Tests: navigation/unread/reveal, shell, screen openers, static ASGI direct/prefix.
+Read-only critic: no blockers; browser review covers320/390/430 and wallet closure.
+Evidence: nav10-slim-final-{320,390,430}.png under the existing evidence folder.
+
+## UIUX-20261017-nav7 — owner correction
+
+Owner requested removal of the dark identity patch and 6–7 dock destinations.
+Removed the blurred identity pseudo-background; text has only a tight glyph
+shadow. Seven directions: Profile/Games/Pets/Quests/Looks/Chests/More. Top stays
+in More. Primary work/play routes first; cosmetic/reward routes next. More unread
+aggregation excludes direct primary tabs. At320 dock uses308px: 7x44px hit areas,
+54px high. All labels visible, no inactive-label hiding; narrow labels10px.
+At390/430 labels11px. Mobile screen review passed all3widths; real direct Chests
+navigation and active state verified without buying/opening a chest.
+Read-only critic: no blockers; label concern addressed and screenshot-verified.
+Node navigation, shell and screen contracts passed. No economy/API changes.
+Evidence: nav7-final-{320,390,430}.png in existing local evidence directory.
+The prior five-tab hierarchy below describes the previous released wave.
+
+## UIUX-20261017 — audit fixes, waves 1–2 (reviewed; master integration)
+
+Branch `codex/ui-ux-fixes`, base `origin/master` fcecff0d. Owner approved fixes
+after the global audit (68 captured states, 44 destinations). UI UX Pro Max
+used for recovery, accessible controls and visual hierarchy.
+
+- Inventory uses `pet_v2_state` while `pets_v2` is enabled, keeps the v1 read
+  model while disabled, and never creates/migrates progress. V2 talismans are
+  included; old active-pet selection is not presented as current. Cards/jokers
+  retained from v1 are identified as unused in the Trail.
+- Root cause of the VIP dead end: current VIP router was absent from `main.py`.
+  Register the single-product contract at `/vip-v2` and update the client and
+  store shutdown map. Retired `/vip/*` remains unreachable. Existing prices,
+  user lock, action IDs, ledger debits and receipts are unchanged. Insufficient
+  balance maps to 409. Separate read failures preserve a labelled last-known
+  status with retry/help, hide writes until refreshed, reject stale responses.
+  The daily mission displays the server-provided number of keys.
+- Admin switches show the current state, scope and accessible name. Native
+  keyboard focus is visible; hit areas are 46x44. Confirmation, POST payload,
+  inheritance and failed-write rollback are unchanged and behaviour-tested.
+- Wallet amount/currency have visible associated labels. Hint sheets use one
+  primary action. Track/trial recommendations do not claim a unique best pet
+  on tied scores, or any best trial pet at zero matches. Trial copy explains
+  the instant check and retained pet/energy without changing the mechanics.
+- Quest rewards use words and wrap as whole values. Follow-up DOM inspection
+  did NOT confirm horizontal overflow in audit F09: the small key glyph was
+  hard to recognise. This is a clarity fix, not a proven numeric truncation.
+
+Checks passed: inventory PostgreSQL (v1/v2 divergence, absent state, no writes,
+flags, talismans), VIP PostgreSQL (replay/concurrency/insufficient funds/daily
+serialization), release routes/auth/retired URLs/store scope, inventory/Trail/
+quests/shell/admin/UI-screen contracts, static ASGI delivery, Node behaviour
+tests for VIP recovery, switch cancellation/rollback and tied recommendations,
+JS parsing and `git diff --check`.
+
+Browser evidence: local real server for VIP, inventory, wallet, quests and
+guides; 320/390 px examples. Switch rendering/focus/hit areas checked at
+320/390/430 in an isolated component fixture using the real function and CSS.
+Full authenticated admin navigation is not proven: the synthetic main-app
+cookie login is not accepted by the separate Telegram admin login. No live
+flags, permissions, payments, player balances or moderation were changed.
+
+Wave 2 completes the bounded UI fixes:
+- Five primary destinations (Profile, Games, Quests, Pets, More), each 58x54
+  at 320px. Looks/Chests/Top remain explicit rows near the top of More, with
+  deep links and independent aggregated unread markers preserved.
+- Cosmetic scene effects are clipped in a separate decorative layer; content,
+  controls and focus are not clipped. Identity text has a soft quiet backdrop.
+  Looks has compact phone previews and an expandable tier preview after its CTA.
+- Pet send footer states selected pet, duration, route, energy and companion.
+  Trek copy promises reward after return. Workshop level 0/1 wording explicitly
+  reflects the unchanged tier-I ceiling; no economic benefit was invented.
+- Mines cells >=44x44 in a locally scrollable field, coordinate labels, grid
+  rows, one Tab stop, arrows/Home/End, restored focus and cancelled pan/hold.
+  Opening failure survives rendering; start button is guarded while pending.
+  Difficulty says “мин: 10”, not the ambiguous “10 мин”.
+- Wallet header, profile and open currency sheet use one flat-over-nested read
+  model; partial WebSocket events merge both shapes. Modal number patches do
+  not rebuild the exchange form. Original audit did not prove financial loss
+  or identify every source of stale reads; no such claim is made here.
+- Admin chat-attention list is collapsed with count visible. Today is labelled
+  incomplete UTC and does not show misleading percentages against a full day.
+  Destructive admin mutation handlers remain hash-contract checked.
+- A confirmed VIP purchase stays successful if subsequent status/profile reads
+  fail. Stale VIP writes are disabled until retry; unknown POST result retains
+  its action ID. No prices, rewards or ledger rules were changed.
+
+Independent read-only critic reviewed commit 773b4889 and the wave-2 working
+changes: no blocking regressions. Its missing More-row visual marker was fixed
+and verified at 320/390. Critic separately reran Node and Python contracts.
+Checks: six Node behaviour suites (store/admin/recommendations/Mines/wallet/nav),
+shell/Trail/quest/admin/screen contracts, inventory PostgreSQL, current and
+retired release routes/auth, direct and prefixed ASGI static delivery, parsing,
+and diff check. Earlier VIP PostgreSQL replay/concurrency checks still apply
+unchanged to this release's backend. No schema migration in this wave.
+
+Browser: real isolated local FastAPI + synthetic account with SSS sakura_storm;
+profile/More/looks/trip/Mines snapshots, 320/390/430 coverage. At 320, dock targets
+58x54 and Mines cells 44.88px; arrows/End reached column9 with opened=0/71.
+Evidence: C:/Users/makss/.codex/visualizations/2026/10/17/predvestnik-ui-ux-fixes/.
+
+Remaining follow-up scope, not claimed done: native Telegram touch/screen-reader
+hardware validation; full authenticated admin broadcast/cleaning final-step
+journeys; player feedback on the five-tab hierarchy; economic redesign of a
+workshop level that does not raise its ceiling. No real payments, broadcasts,
+cleaning, moderation, flags or player balances were changed during QA.
+Owner explicitly authorised master integration. Production deployment must be
+verified separately from the Git push. Exchange v2 remains a separate worktree.
+
 ## QUEST-VARIETY-20261016 — additive pet quests
 
 Implemented separately on `codex/quest-variety`, stacked on mechanics-community

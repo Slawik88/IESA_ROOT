@@ -51,7 +51,7 @@ function v3Guide(id) {
   const lead = book.lead ? `<p class="g-lead">${_trE(book.lead)}</p>` : '';
   const act = book.action ? `<button type="button" class="v3-pill v3-pill--full" onclick="_guideGo()">${_trE(book.action.label)}</button>` : '';
   const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${_guideTilesHtml(rows)}</div></div>`;
-  _guideSheet(`${body}<div class="tr-foot">${act}<button type="button" class="v3-pill v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
+  _guideSheet(`${body}<div class="tr-foot">${act}<button type="button" class="v3-pill${act ? ' v3-pill--ghost' : ''} v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
   _guideCurrent = id;
   if (typeof book.refresh === 'function') (window.requestAnimationFrame || (job => setTimeout(job, 40)))(() => book.refresh());
 }

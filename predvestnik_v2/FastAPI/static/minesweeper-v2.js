@@ -3,14 +3,14 @@
   const base=document.body.dataset.appBase||location.pathname.replace(/\/minesweeper\/?$/,'');
   const init=tg?.initData||'',session=localStorage.getItem('pv_sess')||'',headers={'Content-Type':'application/json'};if(init)headers['x-init-data']=init;if(session)headers['x-session-token']=session;
   const $=id=>document.getElementById(id),board=$('mine-board'),labels={easy:'Лёгкий',normal:'Обычный',hard:'Сложный'};
-  let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,pending=null,uncertain=null,ticker=null,clockAt=0,clockBase=0,longPress=null,skipClick=false;
+  let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,pending=null,uncertain=null,ticker=null,clockAt=0,clockBase=0,longPress=null,skipClick=false,focusCell=0,restoreFocus=false,errorText='',pointerAt=null;
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
   async function api(path,options={}){const response=await fetch(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.detail||'Не удалось связаться с сервером.');return data;}
   fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function format(ms){const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
   function time(){return clockBase+(clockAt?Date.now()-clockAt:0);}
   function updateClock(){if(run)$('timer').textContent=format(time());}
-  function setError(text){$('mine-hint').textContent=text||'';}
+  function setError(text){errorText=text||'';$('mine-hint').textContent=errorText;}
   function sync(result){
     run=result;new Set(result.revealed||[]).forEach(cell=>{if(!known.has(cell)){const item=(result.changed||[]).find(change=>change.cell===cell);if(item)known.set(cell,item.adjacent);}});
     (result.changed||[]).forEach(item=>known.set(item.cell,item.adjacent));mines=new Set(result.mines||[]);
@@ -18,22 +18,52 @@
     if(result.status==='active'&&!ticker)ticker=setInterval(updateClock,500);if(result.status==='won'||result.status==='lost'){clearInterval(ticker);ticker=null;clockAt=0;refreshLeaderboard();}
   }
   function status(){return !run?'Подключаемся…':run.status==='awaiting_first_open'?'Открой первую клетку':run.status==='active'?'Ищи безопасный путь':run.status==='won'?'Поле очищено!':'Мина! Попробуй ещё раз';}
-  function hint(){if(!run)return 'Подключаем игровое поле…';if(uncertain)return busy?'Восстанавливаем этот же ход…':'Ответ потерян. Нажми «Восстановить ход»: повтор уйдёт с тем же номером операции.';if(run.status==='awaiting_first_open')return mode==='flag'?'Первый ход всегда открывает клетку.':'Первый ход безопасен — начинай с любого места.';if(run.status==='active')return busy?'Проверяем клетку…':mode==='open'?'Касание открывает. Удержание клетки ставит флаг.':'Режим флага: касание ставит или снимает флаг.';return run.status==='won'?'Время подтверждено сервером. Новая партия уже готова.':'Мины показаны. Новая партия уже готова.';}
+  function hint(){if(errorText)return errorText;if(!run)return 'Подключаем игровое поле…';if(uncertain)return busy?'Восстанавливаем этот же ход…':'Ответ потерян. Нажми «Восстановить ход»: повтор уйдёт с тем же номером операции.';if(run.status==='awaiting_first_open')return mode==='flag'?'Первый ход всегда открывает клетку.':'Первый ход безопасен — начинай с любого места.';if(run.status==='active')return busy?'Проверяем клетку…':mode==='open'?'Касание открывает. Удержание клетки ставит флаг.':'Режим флага: касание ставит или снимает флаг.';return run.status==='won'?'Время подтверждено сервером. Новая партия уже готова.':'Мины показаны. Новая партия уже готова.';}
   function render(){
-    $('mine-status').textContent=status();setError(hint());$('new-game').textContent=uncertain?'Восстановить ход':'Новая партия';if(!run){board.replaceChildren();return;}
-    $('mine-copy').textContent=`${run.label}: поле ${run.size}×${run.size}, ${run.mine_count} мин. Первый ход и клетки вокруг него всегда безопасны.`;
+    restoreFocus = restoreFocus || board.contains(document.activeElement);
+    $('mine-status').textContent=!run&&errorText?'Поле недоступно':status();$('mine-hint').textContent=hint();$('new-game').disabled=busy;$('new-game').textContent=uncertain?'Восстановить ход':'Новая партия';if(!run){board.replaceChildren();return;}
+    $('mine-copy').textContent=`${run.label}: поле ${run.size}×${run.size}, Мин на поле: ${run.mine_count}. Первый ход и клетки вокруг него всегда безопасны.`;
     $('mines-left').textContent=run.flags_left;$('opened').textContent=`${(run.revealed||[]).filter(cell=>!mines.has(cell)).length} / ${run.size*run.size-run.mine_count}`;updateClock();board.style.setProperty('--mine-size',run.size);board.replaceChildren();
     const revealed=new Set(run.revealed||[]),flags=new Set(run.flags||[]);
+    board.setAttribute('aria-rowcount',run.size);board.setAttribute('aria-colcount',run.size);
+    let row;focusCell=Math.min(focusCell,run.size*run.size-1);
     for(let cell=0;cell<run.size*run.size;cell++){
-      const open=revealed.has(cell),flag=flags.has(cell),mine=mines.has(cell),adjacent=known.get(cell);const button=document.createElement('button');button.type='button';button.className=`mine-cell ${open?'open':''} ${flag?'flag':''} ${mine?'mine':''} ${open&&adjacent?`n${adjacent}`:''} ${pending===cell?'pending':''}`;button.textContent=flag?'⚑':mine?'✹':open?(adjacent||''):'';button.setAttribute('role','gridcell');button.setAttribute('aria-label',flag?'Флаг':mine?'Мина':open?(adjacent?`Открытая клетка: рядом мин ${adjacent}`:'Открытая пустая клетка'):'Закрытая клетка');button.disabled=busy||Boolean(uncertain)||run.status==='won'||run.status==='lost';button.addEventListener('pointerdown',()=>{if(mode==='open'&&run.status==='active')longPress=setTimeout(()=>{skipClick=true;act(cell,'toggle_flag');},420)});['pointerup','pointerleave','pointercancel'].forEach(event=>button.addEventListener(event,()=>clearTimeout(longPress)));button.onclick=()=>{if(skipClick){skipClick=false;return;}act(cell,mode==='flag'?'toggle_flag':'open');};board.append(button);
+      if(cell%run.size===0){row=document.createElement('div');row.className='mine-row';row.setAttribute('role','row');board.append(row);}
+      const open=revealed.has(cell),flag=flags.has(cell),mine=mines.has(cell),adjacent=known.get(cell);
+      const button=document.createElement('button');button.type='button';button.dataset.cell=cell;
+      button.className=`mine-cell ${open?'open':''} ${flag?'flag':''} ${mine?'mine':''} ${open&&adjacent?`n${adjacent}`:''} ${pending===cell?'pending':''}`;
+      button.textContent=flag?'⚑':mine?'✹':open?(adjacent||''):'';
+      button.setAttribute('role','gridcell');button.setAttribute('aria-rowindex',Math.floor(cell/run.size)+1);button.setAttribute('aria-colindex',cell%run.size+1);
+      button.setAttribute('aria-label',`Строка ${Math.floor(cell/run.size)+1}, столбец ${cell%run.size+1}: `+(flag?'Флаг':mine?'Мина':open?(adjacent?`рядом мин ${adjacent}`:'Открытая пустая клетка'):'Закрытая клетка'));
+      button.tabIndex=cell===focusCell?0:-1;button.disabled=busy||Boolean(uncertain)||run.status==='won'||run.status==='lost';
+      button.addEventListener('focus',()=>{focusCell=cell;board.querySelectorAll('.mine-cell').forEach(b=>b.tabIndex=b===button?0:-1);});
+      button.addEventListener('keydown',event=>{
+        let next=cell;const col=cell%run.size;
+        if(event.key==='ArrowLeft')next=cell-Math.min(1,col);
+        else if(event.key==='ArrowRight')next=cell+Math.min(1,run.size-1-col);
+        else if(event.key==='ArrowUp')next=Math.max(col,cell-run.size);
+        else if(event.key==='ArrowDown')next=Math.min((run.size-1)*run.size+col,cell+run.size);
+        else if(event.key==='Home')next=event.ctrlKey?0:cell-col;
+        else if(event.key==='End')next=event.ctrlKey?run.size*run.size-1:cell-col+run.size-1;
+        else return;
+        event.preventDefault();board.querySelector(`[data-cell="${next}"]`)?.focus();
+      });
+      button.addEventListener('pointerdown',event=>{focusCell=cell;pointerAt={x:event.clientX,y:event.clientY};skipClick=false;
+        if(mode==='open'&&run.status==='active')longPress=setTimeout(()=>{skipClick=true;act(cell,'toggle_flag');},420);
+      });
+      button.addEventListener('pointermove',event=>{if(pointerAt&&Math.hypot(event.clientX-pointerAt.x,event.clientY-pointerAt.y)>8){clearTimeout(longPress);skipClick=true;}});
+      ['pointerup','pointerleave','pointercancel'].forEach(event=>button.addEventListener(event,()=>{clearTimeout(longPress);if(event==='pointercancel')skipClick=true;pointerAt=null;}));
+      button.onclick=()=>{if(skipClick){skipClick=false;return;}focusCell=cell;act(cell,mode==='flag'?'toggle_flag':'open');};row.append(button);
     }
+    if(restoreFocus&&!busy&&!uncertain){if(document.activeElement&&document.activeElement!==document.body&&!board.contains(document.activeElement)){restoreFocus=false;return;}board.querySelector(`[data-cell="${focusCell}"]`)?.focus({preventScroll:true});restoreFocus=false;}
   }
   async function start(){
-    clearInterval(ticker);ticker=null;busy=true;pending=null;uncertain=null;known=new Map();mines=new Set();run=null;render();
+    if(busy)return;
+    errorText='';focusCell=0;restoreFocus=false;clearInterval(ticker);ticker=null;busy=true;pending=null;uncertain=null;known=new Map();mines=new Set();run=null;render();
     try{sync(await api('/runs',{method:'POST',body:JSON.stringify({difficulty})}));}catch(error){setError(error.message);}finally{busy=false;render();refreshLeaderboard();}
   }
   async function submitUncertain(){
-    if(!uncertain||busy)return;const request=uncertain;busy=true;pending=request.cell;render();
+    if(!uncertain||busy)return;const request=uncertain;errorText='';busy=true;pending=request.cell;render();
     try{const result=await api(`/runs/${encodeURIComponent(request.runId)}/actions`,{method:'POST',body:JSON.stringify({action_id:request.actionId,expected_revision:request.expectedRevision,kind:request.kind,cell:request.cell})});if(uncertain===request)uncertain=null;sync(result);haptic(result.status==='lost'?'heavy':result.status==='won'?'medium':'light');}
     catch(error){
       try{const current=await api(`/runs/${encodeURIComponent(request.runId)}`);sync(current);if(Number(current.revision)!==Number(request.expectedRevision)||['won','lost'].includes(current.status)){if(uncertain===request)uncertain=null;setError('Поле восстановлено с сервера: ход уже был учтён.');}else setError('Ход не подтверждён. Повтори восстановление — номер операции сохранён.');}
@@ -41,7 +71,7 @@
     }finally{pending=null;busy=false;render();}
   }
   async function act(cell,kind){
-    if(!run||busy||uncertain)return;if(run.status==='awaiting_first_open'&&kind!=='open'){setError('Первый ход должен открыть клетку.');return;}
+    if(!run||busy||uncertain||['won','lost'].includes(run.status))return;errorText='';if(run.status==='awaiting_first_open'&&kind!=='open'){setError('Первый ход должен открыть клетку.');return;}
     uncertain={runId:run.run_id,actionId:crypto.randomUUID(),expectedRevision:run.revision,kind,cell};await submitUncertain();
   }
   function seasonRewards(data){const box=$('season-rewards');if(!box)return;box.replaceChildren();((data.season||{}).rewards||[]).forEach(r=>{const li=document.createElement('li'),a=document.createElement('b'),b=document.createElement('span');a.textContent='Место '+r.label;b.textContent=r.mora+' Моры · '+r.essence+' Эссенции';li.append(a,b);box.append(li)})}

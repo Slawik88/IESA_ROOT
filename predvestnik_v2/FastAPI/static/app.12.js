@@ -702,8 +702,8 @@
   }
   function questRewardValue(reward){
     const keys=_sysFlags.content_chests_v1?Number(reward?.amount_keys||0):0,ess=Number(reward?.amount_essence||0);
-    // Значки валют, как в шапке: «22 🪙 + 5 💧 + 2 🗝» помещается в строку и на 320 px
-    return [`${fmt(reward?.amount_mora||0)} 🪙`,ess?`${fmt(ess)} 💧`:'',keys?`${keys} 🗝`:''].filter(Boolean).map(x=>`<span class="qs-nw">${x}</span>`).join(' + ');
+    // Names stay readable without relying on small emoji glyphs; whole values wrap together.
+    return [`${fmt(reward?.amount_mora||0)} Моры`,ess?`${fmt(ess)} Эссенции`:'',keys?`${fmt(keys)} ${achievementWord(keys,'ключ','ключа','ключей')}`:''].filter(Boolean).map(x=>`<span class="qs-nw">${x}</span>`).join(' + ');
   }
   function questRow(quest,period){
     const progress=Math.max(0,Number(quest.progress)||0),target=Math.max(1,Number(quest.target)||1);

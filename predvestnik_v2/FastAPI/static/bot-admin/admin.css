@@ -144,14 +144,15 @@ th { color: var(--muted); font-weight: 500; }
 .sw-row .t { min-width: 0; }
 .sw-row .t b { font-weight: 600; }
 .sw-row.off .t b { color: var(--muted); text-decoration: line-through; }
-.toggle { position: relative; width: 46px; height: 26px; flex: none; }
+.toggle { position: relative; width: 46px; height: 44px; flex: none; }
 .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-.toggle span { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: background .15s; cursor: pointer; }
+.toggle span { position: absolute; inset: 9px 0; background: var(--line); border-radius: 999px; transition: background .15s; cursor: pointer; }
 .toggle span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform .15s; }
 .toggle input:checked + span { background: var(--accent); }
 .toggle input:checked + span::after { background: var(--on-accent); }
 .toggle input:checked + span::after { transform: translateX(20px); }
 .toggle input:disabled + span { opacity: .45; cursor: not-allowed; }
+.toggle:focus-within { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 999px; }
 details.sw-group > summary { list-style: none; cursor: pointer; }
 details.sw-group > summary::-webkit-details-marker { display: none; }
 details.sw-group .sw-sub { padding-left: 14px; border-left: 2px solid var(--line); margin: 0 0 6px 4px; }

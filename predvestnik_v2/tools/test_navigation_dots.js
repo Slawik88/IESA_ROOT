@@ -1,0 +1,22 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../FastAPI/static/app.42.js'),'utf8');
+const buttons=['profile','arena','pets','questlog','looks','chests','inventory','top','more'].map(page=>({dataset:{page},querySelector:()=>null,insertAdjacentHTML(){}}));
+const links=['looks','chests','top'].map(wnPage=>({dataset:{wnPage},querySelector:()=>null,insertAdjacentHTML(){}}));
+const ctx=vm.createContext({document:{querySelectorAll:q=>q.startsWith('.nb')?buttons:links},localStorage:{getItem:()=>null,setItem(){}},console});
+const start=source.indexOf('let _wnDots = {}');vm.runInContext(source.slice(start),ctx);
+vm.runInContext("_wnDots={looks:['a'],chests:['b'],arena:['c']};_wnPaintDots();",ctx);
+assert.equal(buttons[8].dataset.wn,undefined,'More does not duplicate primary unread markers');assert.equal(buttons[4].dataset.wn,'1');assert.equal(links[0].dataset.wn,'1');
+vm.runInContext("_wnDots.store=['d'];_wnPaintDots();_wnTabVisit('looks')",ctx);
+assert.equal(links[0].dataset.wn,undefined);assert.equal(buttons[4].dataset.wn,undefined);assert.equal(buttons[8].dataset.wn,'1');assert.equal(buttons[5].dataset.wn,'1');
+vm.runInContext("_wnTabVisit('store')",ctx);assert.equal(buttons[8].dataset.wn,undefined);assert.equal(buttons[5].dataset.wn,'1');assert.equal(buttons[1].dataset.wn,'1');
+const html=fs.readFileSync(path.join(__dirname,'../FastAPI/static/index.html'),'utf8');const nav=html.split('<nav class="nav"')[1].split('</nav>')[0];assert.equal((nav.match(/class="nb/g)||[]).length,10);
+for(const key of ['looks','chests','top'])assert(html.includes(`data-wn-page="${key}"`));
+console.log('OK: ten dock controls, secondary entries and independent aggregated unread indicators');
+
+const app=fs.readFileSync(path.join(__dirname,'../FastAPI/static/app.01.js'),'utf8');
+vm.runInContext(app.slice(app.indexOf('function _dockReveal('),app.indexOf('function switchPage(')),ctx);
+let scroll;const track={scrollWidth:700,clientWidth:300,scrollTo:x=>{scroll=x;}};
+ctx.window={matchMedia:()=>({matches:true})};ctx.navButton={parentElement:track,offsetLeft:580,offsetWidth:64};
+vm.runInContext('_dockReveal(navButton)',ctx);assert.equal(scroll.left,462);assert.equal(scroll.behavior,'auto');
+track.scrollWidth=200;scroll=null;vm.runInContext('_dockReveal(navButton)',ctx);assert.equal(scroll,null);
+console.log('OK: selected destination is revealed without animation under reduced motion');

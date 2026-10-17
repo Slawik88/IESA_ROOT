@@ -293,7 +293,7 @@ function queueLiveBalance(event){
     if(!next||!_profileData)return;
     const keys=['mora','diamonds','zarniki','essence'];
     const patch={};keys.forEach(k=>{if(next[k]!==undefined)patch[k]=Number(next[k]);});
-    _profileData={..._profileData,...patch};
+    _profileData={..._profileData,...patch,balances:{...(_profileData.balances||{}),...patch}};
     try{updateCurrBar(_profileData);}catch(_){}
     try{_profileSyncStats(_profileData);}catch(_){}
     keys.forEach(k=>{const n=el('cm-bal-'+k);if(n&&patch[k]!==undefined)n.textContent=fmtF(patch[k]);});
@@ -559,6 +559,13 @@ function _showMaintenance(pg) {
   </div>`;
 }
 
+function _dockReveal(button) {
+  const nav=button.parentElement;
+  if(nav.scrollWidth<=nav.clientWidth)return;
+  const left=Math.max(0,button.offsetLeft-(nav.clientWidth-button.offsetWidth)/2);
+  nav.scrollTo({left,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+}
+
 function switchPage(name, _btn, _viaBack) {
   // Old game/economy pages are deliberately absent from the release surface.
   // Cached clients and stale deep links return to the current hub safely.
@@ -588,11 +595,11 @@ function switchPage(name, _btn, _viaBack) {
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
   const prim = document.querySelector(`.nb[data-page="${name}"]`);
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile','store','shop','promo'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const _profileChildren=['inventory','achievements-v1','public-profile'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
-  if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
+  if(activeNav) _dockReveal(activeNav);   // выбранный раздел остаётся виден в горизонтальной ленте
   showCurrBar(name !== 'profile');
   try { if (typeof _wnTabVisit === 'function') _wnTabVisit(name); } catch(_) {}   // точка «есть новое» на этой вкладке дока гаснет (app.42.js)
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');

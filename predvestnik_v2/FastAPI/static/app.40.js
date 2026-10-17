@@ -367,7 +367,7 @@ function _trSendHtml() {
   const best = _trBestPet(free, s.kind, s.hours, s.route), whyRow = _trWhyRow(best, watch ? '' : s.route);
   const pets = free.map(p => { const top = best && p.id === best.id; return radio(p.id === s.pet, `pet-${p.id}`, `trailSendSet('pet',${p.id})`, `${_trBestMark(top)}<span aria-hidden="true">${_trE(p.icon)}</span><b>${_trE(p.name)}</b><small>${Math.round(p.energy)} из ${p.energy_max}</small>`, `tr-chip tr-chip--i${p.energy < min ? ' is-dim' : ''}${top ? ' is-best' : ''}`); }).join('');
   const kinds = ['trek', 'expedition', 'watch'].map(k => radio(s.kind === k, `kind-${k}`, `trailSendSet('kind','${k}')`, _TR_KIND[k], 'tr-seg-b')).join('');
-  const note = { trek: 'Награда сразу, решений нет.', expedition: `На развилке вы выберете путь: награда больше, но есть риск. Следы ×${_trMult(rules.xp.expedition)}.`, watch: 'Долгий дозор без маршрута, для тех, кто заходит раз в день.' }[s.kind];
+  const note = { trek: 'Награда после возвращения. Развилок нет.', expedition: `На развилке вы выберете путь: награда больше, но есть риск. Следы ×${_trMult(rules.xp.expedition)}.`, watch: 'Долгий дозор без маршрута, для тех, кто заходит раз в день.' }[s.kind];
   const hours = (watch ? me.durations.watch : me.durations.run).map(h => radio(h === s.hours, `hours-${h}`, `trailSendSet('hours',${h})`, `<b>${h}\u00a0ч</b><small>${_trCost(s.kind, h)} сил</small>`, `tr-chip tr-chip--c${pet && _trCost(s.kind, h) > pet.energy ? ' is-dim' : ''}`)).join('');
   const fav = r => pet && (pet.favorite_route === r || pet.favorite_route === 'any');
   const routes = (me.routes || []).map(r => radio(r === s.route, `route-${r}`, `trailSendSet('route','${r}')`, `<span aria-hidden="true">${_TR_ROUTE[r][0]}</span><b>${_TR_ROUTE[r][1]}</b>${fav(r) ? '<small>любимый</small>' : ''}`, 'tr-chip tr-chip--i')).join('');
@@ -390,7 +390,8 @@ function _trSendHtml() {
     <div class="tr-grp"><span class="v3-eyebrow">Что делать</span><div class="tr-seg" role="radiogroup" aria-label="Что делать">${kinds}</div><p class="tr-note">${note}</p></div>
     <div class="tr-grp"><span class="v3-eyebrow">Сколько</span><div class="tr-chips tr-chips--3" role="radiogroup" aria-label="Сколько часов">${hours}</div></div>
     ${watch ? '' : `<div class="tr-grp"><span class="v3-eyebrow">Куда</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Маршрут">${routes}</div></div>`}${pair}${summary}`;
-  const foot = `${why ? `<p class="tr-note tr-why" role="status">${_trE(why)}</p>` : ''}<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailSendGo(this)"${why ? ' disabled' : ''}>Отправить в путь</button>`;
+  const selected = pet ? `<p class="tr-note tr-selected"><b>${_trE(pet.name)} · ${s.hours} ч</b><br>${_TR_KIND[s.kind]}${watch ? '' : ` · ${_TR_ROUTE[s.route][1]}`} · ${cost} сил${mate ? ` · спутник ${_trE(mate.name)}: ${pairCost} сил` : ''}</p>` : '';
+  const foot = `${selected}${why ? `<p class="tr-note tr-why" role="status">${_trE(why)}</p>` : ''}<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailSendGo(this)"${why ? ' disabled' : ''}>Отправить в путь</button>`;
   return _trSheetHtml('Отправить в путь', body, foot);
 }
 function trailSendGo(button) {

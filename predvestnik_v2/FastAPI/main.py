@@ -30,7 +30,7 @@ from FastAPI import notifications
 from FastAPI.static_assets import asset_version
 from FastAPI.deps import assert_account_active
 from infrastructure import readiness
-from FastAPI.routers import (profile, marriage, wallet,
+from FastAPI.routers import (profile, marriage, wallet, vip,
                               payments,
                               legal, analytics as analytics_router,
                               account,
@@ -261,7 +261,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 # not registered: hiding their buttons is not sufficient because a cached
 # client can still call a public endpoint directly.  Their data stays in the
 # database solely for the owner-approved final compensation audit.
-for r in [profile.router, marriage.router, wallet.router,
+for r in [profile.router, marriage.router, wallet.router, vip.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
           rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:

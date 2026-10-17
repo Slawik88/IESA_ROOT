@@ -56,7 +56,7 @@ function _apDust(ap) {
 function apStage(ap, inner) {
   if (!ap) return inner;
   const cls = `ap-t${ap.ti}${_apSig(ap)}`;
-  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div>${apScene(ap)}<div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}${inner}</div>`;
+  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-scene-clip" aria-hidden="true"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div>${apScene(ap)}<div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}</div>${inner}</div>`;
 }
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {

@@ -230,6 +230,7 @@ function fmtBar(v){
   return fmtF(v);
 }
 function updateCurrBar(data) {
+  if (typeof renderV3Bar === 'function') renderV3Bar(data);
   const bar = el('curr-bar');
   // Identity belongs to the header, not to the optional compact currency bar.
   // The profile no longer renders that bar on its main page, so returning here
@@ -279,7 +280,7 @@ function _ensureVipAvatar() {
 }
 
 function showCurrModal() {
-  const d = _profileData || {};
+  const d = _v3Wallet(_profileData || {});
   const mora = d.mora ?? 0, dia = d.diamonds ?? 0, zar = d.zarniki ?? 0;
   OM('💰 Валюты', `<div class="curr-modal">
     <div class="cm-block">
@@ -321,7 +322,7 @@ function showCurrModal() {
     <div class="cm-block" style="display:block">
       <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
       <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
-      <div style="display:flex;gap:6px"><input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="flex:1;margin:0"><select id="zar-exchange-target" class="v3-field" style="width:126px;margin:0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><label style="flex:1;min-width:100px">Сумма Зарников<input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="width:100%;margin:4px 0 0"></label><label style="flex:1;min-width:126px">Получить<select id="zar-exchange-target" class="v3-field" style="width:100%;margin:4px 0 0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></label></div>
       <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
     </div>
   </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
