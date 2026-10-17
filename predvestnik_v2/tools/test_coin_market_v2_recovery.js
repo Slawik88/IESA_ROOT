@@ -17,7 +17,7 @@ function runtime(storage,server){
  vm.runInContext(source,vm.createContext(context));
  return context.window.CM2;
 }
-async function scenario(afterCommit){
+async function scenario(afterCommit,corrupt=null){
  const storage=new Map(),posts=[];let receipt=null,debits=0,release;
  let lose=true;
  const response=(value,status=200)=>({ok:status<400,status,json:async()=>structuredClone(value)});
@@ -29,7 +29,10 @@ async function scenario(afterCommit){
   if(path==='/trade'){
    const body=JSON.parse(options.body);posts.push(body);
    const commit=()=>{if(!receipt){debits++;receipt={ok:true,side:'buy',coin_id:'orb'};}};
-   if(lose){lose=false;if(afterCommit)commit();await new Promise(r=>{release=r;});throw Error('lost response');}
+   if(lose){lose=false;if(afterCommit)commit();await new Promise(r=>{release=r;});
+    if(corrupt==='empty')return response({});
+    if(corrupt==='html')return {ok:true,status:200,json:async()=>{throw Error('HTML instead of JSON');}};
+    throw Error('lost response');}
    commit();return response({...receipt,replayed:true});
   }
   if(path.startsWith('/receipt/'))return receipt?response(receipt):response({detail:'not yet found'},404);
@@ -52,6 +55,6 @@ async function scenario(afterCommit){
  assert.equal(debits,1,'exactly one server mutation despite lost response/reload');
  assert(!storage.has('cm2_pending_12'),'confirmed receipt clears pending storage');
 }
-async function main(){await scenario(false);await scenario(true);
- console.log('PASS: lost POST before/after commit, double click, navigation, full reload, receipt404 and exact retry');}
+async function main(){await scenario(false);await scenario(true);await scenario(true,'empty');await scenario(true,'html');
+ console.log('PASS: lost/malformed POST response, double click, navigation, full reload, receipt404 and exact retry');}
 main().catch(e=>{console.error(e);process.exitCode=1;});

@@ -40,7 +40,7 @@ window.CM2 = (() => {
       const headers=new Headers(typeof hdrs==='function'?hdrs():{});
       headers.set('Content-Type','application/json');
       const response=await fetch(BASE+'/coin-market/v2'+path,{method:method||(body?'POST':'GET'),headers,body:body?JSON.stringify(body):undefined,signal:controller.signal});
-      const payload=await response.json().catch(()=>({}));
+      const payload=await response.json();
       if(!response.ok){const d=payload.detail;const error=new Error(typeof d==='string'?d:d?.message||'Не удалось выполнить запрос.');error.status=response.status;error.code=d?.code;throw error;}
       return payload;
     }finally{clearTimeout(timer);}
@@ -210,6 +210,11 @@ window.CM2 = (() => {
   }
 
   async function complete(result){
+    const saved=pending();
+    if(result?.ok!==true||typeof result.coin_id!=='string'||
+       (saved?.path==='/trade'&&(result.coin_id!==saved.body.coin_id||result.side!==saved.body.side))){
+      throw Error('Сервер не подтвердил операцию. Сохранённый запрос можно проверить повторно.');
+    }
     store(null);draft=null;stopLive();
     let fresh=true;try{data=await request('/me');}catch(_){fresh=false;}
     if(typeof refreshCurrBar==='function')refreshCurrBar();
