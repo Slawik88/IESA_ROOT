@@ -154,7 +154,9 @@ window.CM2Chart = (() => {
     if (!host) return;
     const hours = options.hours || 24, tickSeconds = options.tickSeconds || 300;
     const list = downsample(points || []);
-    const signature = JSON.stringify([list,options.cost,options.markers,hours,tickSeconds]);
+    const width = host.getBoundingClientRect?.().width || W;
+    const labelSize = 12 * W / width;
+    const signature = JSON.stringify([list,options.cost,options.markers,hours,tickSeconds,width]);
     if(host.dataset.renderSignature===signature)return;
     host.dataset.renderSignature=signature;
     if (list.length < 2) {
@@ -164,7 +166,7 @@ window.CM2Chart = (() => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const focused = host.querySelector('.cm2-cursor') === host.ownerDocument?.activeElement;
     const b = body(list, { ...options, hours, tickSeconds, timeZone });
-    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Курс за период: от ${fmt(b.values[0].value)} до ${fmt(b.last.value)} Моры">` +
+    host.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="--cm2-chart-label-size:${labelSize}px" role="img" aria-label="Курс за период: от ${fmt(b.values[0].value)} до ${fmt(b.last.value)} Моры">` +
       `<defs><linearGradient id="cm2-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--v3-acc)" stop-opacity=".28"/><stop offset="1" stop-color="var(--v3-acc)" stop-opacity="0"/></linearGradient></defs>` +
       b.grid + b.cost +
       `<path class="cm2-area" d="${b.area}" fill="url(#cm2-fill)"/>` +

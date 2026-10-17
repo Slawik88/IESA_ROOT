@@ -19,6 +19,17 @@ selection polish findings fixed. Node chart/preview/recovery, ASGI delivery/publ
 routes and shell contracts PASS; real browser320/390/430 verification recorded in
 local visual evidence folder. Final design deploy is verified after master push.
 
+Second design wave: segmented market/positions tabs, token-based wallet surface,
+explicit market direction counts, outlined SVG favourites, two-row coin actions,
+portfolio exit valuation computed with BigInt and shown as approximate2decimals.
+Short valuation includes returned collateral and is labelled accordingly; total
+is not profit. Exact6place confirmation is unchanged. Context-preserving refresh
+retains search/caret and ignores stale navigation responses. Browser320 measured
+axis labels12CSSpx, no horizontal overflow. UI UX Pro Max recommendations applied
+to heading scale, single primary CTA, async feedback, native controls and tokens.
+Owner clarification: wallet caption changed to «Ваш баланс · Мора».
+Node3suites, ASGI/static/shell and read-only critic PASS.
+
 Historical checkpoints below predate this live release.
 
 ## Exchange v2 recovery checkpoint — 2026-10-17

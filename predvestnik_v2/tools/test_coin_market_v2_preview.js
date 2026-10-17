@@ -10,6 +10,11 @@ assert.equal(moneyCtx.format('10.000001'),'10,000001');
 assert.equal(moneyCtx.format('999999999999.123456'),'999\u00a0999\u00a0999\u00a0999,123456');
 assert.equal(moneyCtx.format('0.000001'),'0,000001');
 assert.equal(moneyCtx.format('0'),'0');
+vm.runInContext(source.slice(source.indexOf('function sumMoney('),source.indexOf('\n  const haptic='))+';this.sum=sumMoney;this.overview=overviewMoney;',moneyCtx);
+assert.equal(moneyCtx.sum(['999999999999.123456','0.000001']),'999999999999.123457','portfolio keeps micro precision beyond float-safe integers');
+assert.equal(moneyCtx.sum(['100','-1.000001']),'98.999999');
+assert.equal(moneyCtx.sum([]),'0.000000');assert.equal(moneyCtx.sum(['invalid']),null,'invalid money never becomes a fake zero valuation');
+assert.equal(moneyCtx.overview('395.914383'),'395,91');assert.equal(moneyCtx.overview('0.005000'),'0,01');assert.equal(moneyCtx.overview('999999999999.999999'),'1\u00a0000\u00a0000\u00a0000\u00a0000','overview rounding must carry without float loss');
 const host={innerHTML:'',querySelector:()=>null};
 let respond=null;
 const ctx=vm.createContext({document:{getElementById:id=>nodes[id]},busy:false,formRevision:0,view:'deal',selected:{id:'dust',units:'1'},draft:null,root:()=>host,crypto:{randomUUID:()=> 'dust-explicit-confirmation'},num:String,exactMoney:moneyCtx.format,escape:String,message(){},request:async(p,b)=>{calls.push({p,b});return respond?respond():quote;}});
@@ -18,6 +23,19 @@ vm.runInContext(source.slice(source.indexOf('function invalidate('),source.index
 vm.runInContext(source.slice(source.indexOf('async function preview('),source.indexOf('\n  function create(){')),ctx);
 vm.runInContext(source.slice(source.indexOf('async function createPreview('),source.indexOf('\n  async function confirm(')),ctx);
 async function main(){
+ const refreshButton={disabled:false,textContent:'Обновить'};let finishRefresh,homeRenders=0;
+ const marketCtx=vm.createContext({marketRefreshing:false,view:'home',formRevision:1,data:{old:true},document:{getElementById:()=>refreshButton},request:()=>new Promise(r=>finishRefresh=r),renderHome(){homeRenders++;},message(){}});
+ vm.runInContext(source.slice(source.indexOf('async function refreshMarket('),source.indexOf('\n  function renderHome(')),marketCtx);
+ const oldRefresh=marketCtx.refreshMarket();assert.equal(refreshButton.disabled,true);
+ marketCtx.view='coin';marketCtx.formRevision++;finishRefresh({new:true});await oldRefresh;
+ assert.equal(homeRenders,0,'a delayed refresh cannot return the player from coin to market');
+ assert.equal(marketCtx.data.old,true,'a stale response cannot replace another screen snapshot');
+ marketCtx.view='home';const freshRefresh=marketCtx.refreshMarket();
+ let caret=null,focusRestored=false;
+ marketCtx.document.activeElement={id:'cm2-search',selectionStart:2,selectionEnd:3};
+ marketCtx.document.getElementById=id=>id==='cm2-search'?{focus(){focusRestored=true;},setSelectionRange(a,b){caret=[a,b];}}:refreshButton;
+ finishRefresh({new:true});await freshRefresh;assert.equal(homeRenders,1);assert.equal(marketCtx.data.new,true);
+ assert(focusRestored,'typing during refresh retains search focus');assert.deepEqual(caret,[2,3],'refresh retains selection/caret');
  const refreshCalls=[];
  const refreshCtx=vm.createContext({formRevision:0,view:'coin',period:24,selected:{id:'orb',tick:1},live:{last:2},data:null,
   document:{getElementById:()=>null},draw(){},request:async p=>{refreshCalls.push(p);return p==='/me'?{coins:[{id:'orb',tick:2}]}:{points:[{tick:2,price:'1'}]};}});

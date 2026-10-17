@@ -25,15 +25,26 @@
 .cm2-head .cm2-plain { border: 0; padding: 0 6px 0 0; }
 
 /* ── кошелёк и вкладки ─────────────────────────────────────────────────────── */
-.cm2-marketbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:4px 0 18px; }
+.cm2-marketbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:4px 0 16px; padding:16px; border-radius:20px; background:linear-gradient(110deg,color-mix(in srgb,var(--v3-acc) 9%,transparent),var(--v3-faint)); }
 .cm2-marketbar > button { flex:none; font-size:12px; }
 .cm2-wallet { display: grid; gap: 4px; margin: 0; min-width:0; }
 .cm2-eyebrow { color: var(--v3-dim); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 .cm2-wallet-sum { font: var(--v3-w-num, 300) 28px/1.1 var(--v3-font); letter-spacing: -.02em; font-variant-numeric: tabular-nums; overflow-wrap:anywhere; }
 
-.cm2-tabs { display: flex; gap: 6px; box-shadow: inset 0 -1px 0 var(--v3-faint); }
+.cm2-tabs { display: flex; gap: 4px; padding:4px; border-radius:16px; background:var(--v3-faint); }
 .cm2-tabs button { flex: 1; min-width: 0; padding: 0 8px; color: var(--v3-dim); font-size: 14px; font-weight: 500; box-shadow: inset 0 -2px 0 transparent; }
-.cm2-tabs button[aria-selected="true"] { color: var(--v3-ink); font-weight: 600; box-shadow: inset 0 -2px 0 var(--v3-acc); }
+.cm2-tabs button { border-radius:12px; }
+.cm2-tabs button[aria-selected="true"] { color: var(--v3-ink); font-weight: 600; background:color-mix(in srgb,var(--v3-acc) 12%,var(--v3-bg)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--v3-acc) 24%,transparent); }
+.cm2-market-pulse { display:flex; align-items:center; gap:12px; margin:16px 0 0; color:var(--v3-dim); font-size:12px; font-variant-numeric:tabular-nums; }
+.cm2-market-pulse > span:first-child { display:flex; align-items:center; gap:7px; margin-right:auto; }
+.cm2-pulse-dot { width:6px; height:6px; border-radius:50%; background:var(--v3-acc); }
+.cm2-portfolio { margin:16px 0; padding:20px 16px 16px; border-radius:20px; background:linear-gradient(130deg,color-mix(in srgb,var(--v3-acc) 12%,transparent),var(--v3-faint)); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--v3-acc) 20%,transparent); }
+.cm2-portfolio-value { display:block; margin:8px 0 20px; font:500 32px/1.15 var(--v3-font); letter-spacing:-.025em; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.cm2-portfolio-split { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.cm2-portfolio-split > div { min-width:0; }
+.cm2-portfolio-split span { display:block; margin-bottom:5px; color:var(--v3-dim); font-size:12px; }
+.cm2-portfolio-split strong { font-size:16px; font-weight:500; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.cm2-portfolio > p { margin-top:14px; color:var(--v3-dim); font-size:12px; line-height:1.5; }
 
 .cm2-h2 { margin: 20px 0 6px; color: var(--v3-ink); font-size: 14px; font-weight: 600; }
 
@@ -56,7 +67,7 @@
 .cm2-rowwrap { display: flex; align-items: center; gap: 4px; }
 .cm2-rowwrap + .cm2-rowwrap { box-shadow: 0 -1px 0 var(--v3-faint); }
 .cm2-row { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 64px; padding: 8px 0; text-align: left; }
-.cm2-ava { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--v3-faint); color: var(--v3-dim); }
+.cm2-ava { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 14px; background:color-mix(in srgb,var(--v3-acc) 8%,transparent); color:var(--v3-acc); }
 .cm2-ava svg { width: 22px; height: 22px; }
 .cm2-ico-drop { color: var(--v3-err); }
 .cm2-name { flex: 1; min-width: 0; }
@@ -70,10 +81,19 @@
 .cm2-change.down { color: var(--v3-err); }
 .cm2-star { flex: none; width: 44px; padding: 0; border-radius: 50%; color: var(--v3-dim); font-size: 17px; line-height: 1; }
 .cm2-star[aria-pressed="true"] { color: var(--v3-acc); }
+.cm2-star svg { display:block; width:18px; height:18px; margin:auto; }
+.cm2-star[aria-pressed="true"] svg { fill:currentColor; }
+.cm2 button:active:not(:disabled) { opacity:.72; }
 
 .cm2-more { display: block; width: 100%; margin: 14px 0 0; color: var(--v3-dim); font-size: 13px; }
 .cm2-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
 .cm2-actions button { flex: 1; min-width: 96px; }
+.cm2-trade-actions:empty { display:none; }
+.cm2-secondary-actions { margin-top:8px; }
+.cm2-favorite { display:flex; align-items:center; justify-content:center; gap:6px; }
+.cm2-favorite svg { width:16px; height:16px; flex:none; }
+.cm2-favorite[aria-pressed="true"] { color:var(--v3-acc); }
+.cm2-favorite[aria-pressed="true"] svg { fill:currentColor; }
 .cm2-empty-block { display: grid; gap: 12px; margin: 14px 0 0; padding: 26px 16px; border-radius: 20px; background: var(--v3-faint); color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; text-align: center; }
 .cm2-empty-block button { justify-self: center; }
 .cm2-loading { min-height: 90px; padding: 18px 0; color: var(--v3-dim); font-size: 14px; }
@@ -102,9 +122,9 @@
 .cm2-line { fill: none; stroke: var(--v3-acc); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .cm2-area { stroke: none; }
 .cm2-grid { stroke: var(--v3-faint); stroke-width: 1; }
-.cm2-grid-label, .cm2-time { fill: var(--v3-dim); font-size: 9px; font-variant-numeric: tabular-nums; }
+.cm2-grid-label, .cm2-time { fill: var(--v3-dim); font-size:var(--cm2-chart-label-size,12px); font-variant-numeric: tabular-nums; }
 .cm2-cost { stroke: var(--v3-dim); stroke-width: 1; stroke-dasharray: 4 4; }
-.cm2-cost-label { fill: var(--v3-dim); font-size: 9px; }
+.cm2-cost-label { fill: var(--v3-dim); font-size:var(--cm2-chart-label-size,12px); }
 .cm2-mark { stroke: var(--v3-bg); stroke-width: 1.5; }
 .cm2-mark-buy { fill: var(--v3-ok); }
 .cm2-mark-sell { fill: var(--v3-err); }
@@ -157,10 +177,10 @@
 .cm2-create-line button { flex: 1; }
 
 /* ── билет: итог до подтверждения ──────────────────────────────────────────── */
-.cm2-ticket { display: grid; gap: 12px; margin: 16px 0 0; padding: 16px 14px; border-radius: 20px; background: color-mix(in srgb, var(--v3-acc) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-acc) 26%, transparent); }
+.cm2-ticket { display: grid; gap: 16px; margin: 20px 0 0; padding: 20px 16px 16px; border-radius: 20px; background: color-mix(in srgb, var(--v3-acc) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-acc) 26%, transparent); }
 .cm2-ticket .cm2-metrics { margin: 0; }
 .cm2-focus { margin: 14px 0 0; font-size: 20px; font-weight: 600; }
-.cm2-ticket .cm2-focus { margin: 0; }
+.cm2-ticket .cm2-focus { margin: 0; font-size:24px; line-height:1.25; overflow-wrap:anywhere; }
 .cm2-expiry { min-height: 16px; font-size: 11.5px; font-variant-numeric: tabular-nums; text-align: center; }
 
 /* ── пояснения свёрнуты ────────────────────────────────────────────────────── */
