@@ -6,6 +6,8 @@ from bot.filters.text_commands import TextCmd
 from infrastructure.repositories import moderation as mod_db
 from infrastructure.repositories import chat as chat_repo
 from infrastructure.repositories import chat_module_audit
+from infrastructure.repositories import chat_settings_audit, chat_settings_reset
+from infrastructure.repositories import routing
 from infrastructure.repositories.streak import get_chat_timezone, set_chat_timezone
 from services import roles
 from services.utils import check_callback_owner
@@ -116,7 +118,8 @@ def _settings_kb(user_id: int = 0) -> types.InlineKeyboardMarkup:
                        ("permissions", "👑 Ранги и права"),
                        ("features", "🧩 Функции чата"),
                        ("activity", "🏆 Активность и время"),
-                       ("routing", "🔗 Админ-чат и журналы")):
+                       ("routing", "🔗 Админ-чат и журналы"),
+                       ("audit", "📜 Изменения")):
         b.button(text=label, callback_data=ChatSettingsCB(action="section", key=key, user_id=user_id))
     b.adjust(1)
     return b.as_markup()
@@ -126,8 +129,38 @@ def _section_keys(section: str) -> tuple[str, ...]:
     return {
         "moderation": ("rank_warn", "rank_mute", "rank_kick", "rank_ban", "rank_shield", "rank_immune"),
         "permissions": ("purge_action_rank", "purge_write_rank", "rank_chat_lock", "rank_marriage"),
-        "features": tuple(_TOGGLE_SETTINGS) + tuple(_MODULE_SETTINGS),
     }.get(section, ())
+
+
+def _actor_tag(name, actor_id) -> str:
+    return f"@{name}" if name else f"ID {actor_id}"
+
+
+def _fmt_value(value) -> str:
+    return "—" if value is None or value == "" else str(value)
+
+
+async def _recent_changes(db, chat_id: int, limit: int = 10) -> list[str]:
+    """Строки журнала «📜 Изменения»: модули + скалярные настройки, свежие сверху."""
+    entries: list[tuple[str, str]] = []
+    modules = await chat_module_audit.recent(db, scope="chat", chat_id=chat_id, limit=limit)
+    for row in modules:
+        state = "включён" if row["after_enabled"] else "выключен"
+        entries.append((
+            str(row["created_at"]),
+            f"{row['module']['icon']} {row['module']['name']} — <b>{state}</b> · "
+            f"{_actor_tag(row.get('actor_name'), row['actor_id'])} · {row['created_at']}",
+        ))
+    settings_rows = await chat_settings_audit.recent(db, chat_id=chat_id, limit=limit)
+    for row in settings_rows:
+        entries.append((
+            str(row["created_at"]),
+            f"{row['label']}: {_fmt_value(row['before_value'])} → "
+            f"<b>{_fmt_value(row['after_value'])}</b> · "
+            f"{_actor_tag(row.get('actor_name'), row['actor_id'])} · {row['created_at']}",
+        ))
+    entries.sort(key=lambda item: item[0], reverse=True)
+    return [line for _, line in entries[:limit]]
 
 
 async def _section_view(db, chat_id: int, section: str, user_id: int):
@@ -135,7 +168,7 @@ async def _section_view(db, chat_id: int, section: str, user_id: int):
     b = InlineKeyboardBuilder()
     labels = {"moderation": "🛡 МОДЕРАЦИЯ", "permissions": "👑 РАНГИ И ПРАВА",
               "features": "🧩 ФУНКЦИИ", "activity": "🏆 АКТИВНОСТЬ",
-              "routing": "🔗 АДМИН-ЧАТ"}
+              "routing": "🔗 АДМИН-ЧАТ", "audit": "📜 ИЗМЕНЕНИЯ"}
     lines = [f"<b>{labels.get(section, 'НАСТРОЙКИ')}</b>", ""]
     if section in {"moderation", "permissions"}:
         for key in _section_keys(section):
@@ -143,16 +176,35 @@ async def _section_view(db, chat_id: int, section: str, user_id: int):
             lines.append(f"{icon} {desc}: <b>{_rank_label(int(settings.get(key, 0)))}</b>")
             b.button(text=f"{icon} {desc}", callback_data=ChatSettingsCB(action="set_rank", key=key, user_id=user_id))
     elif section == "features":
-        return module_ui.features_view(settings, user_id, _pack_cb, _TOGGLE_SETTINGS)
+        return module_ui.features_view(
+            settings, user_id, _pack_cb, _TOGGLE_SETTINGS,
+            global_states=await chat_module_audit.global_states(db),
+        )
     elif section == "activity":
         tz = await get_chat_timezone(db, chat_id)
         lines.extend([f"Часовой пояс локальных топов: <b>UTC{tz:+d}</b>",
                       "Глобальные топы используют UTC для всех чатов.", "",
-                      "Изменить: <code>бот часовой пояс, +3</code>"])
+                      "Меняется кнопками ниже или командой <code>бот часовой пояс, +3</code>."])
+        b.button(text="➖ Минус час", callback_data=ChatSettingsCB(action="tz", value="-1", user_id=user_id))
+        b.button(text="➕ Плюс час", callback_data=ChatSettingsCB(action="tz", value="1", user_id=user_id))
+        if tz != 0:
+            b.button(text="🌐 UTC±0", callback_data=ChatSettingsCB(action="tz", value="reset", user_id=user_id))
+    elif section == "audit":
+        lines.extend(await _recent_changes(db, chat_id) or ["Изменений ещё не было."])
     else:
-        lines.extend(["Привязка отделяет публичный чат от журнала модерации.", "",
-                      "Создать: <code>бот привязать админ чат</code>",
-                      "Проверить: <code>бот инфо чата</code>"])
+        admin_chat_id = await routing.get_admin_chat(db, chat_id)
+        if admin_chat_id:
+            lines.extend([f"✅ Админ-чат привязан: <code>{admin_chat_id}</code>",
+                          "Отчёты модерации и журнал уходят туда.",
+                          "Перенести можно новым кодом привязки.", ""])
+            b.button(text="❌ Отвязать админ-чат",
+                     callback_data=ChatSettingsCB(action="route_unlink", user_id=user_id))
+        else:
+            lines.extend(["❌ Админ-чат не привязан.",
+                          "Привязка отделяет публичный чат от журнала модерации:",
+                          "код создаётся здесь, а подтверждается в чате администрации.", ""])
+        b.button(text="🔗 Получить код привязки",
+                 callback_data=ChatSettingsCB(action="route_code", user_id=user_id))
     b.button(text="⬅️ Все настройки", callback_data=ChatSettingsCB(action="menu", user_id=user_id))
     b.adjust(1)
     return "\n".join(lines), b.as_markup()
@@ -165,12 +217,18 @@ async def _context_view(db, chat_id: int, context: str, user_id: int):
     """
     if context.startswith("grp:"):
         settings = await mod_db.get_chat_settings(db, chat_id)
-        view = module_ui.group_view(settings, context[4:], user_id, _pack_cb, _TOGGLE_SETTINGS)
+        view = module_ui.group_view(
+            settings, context[4:], user_id, _pack_cb, _TOGGLE_SETTINGS,
+            global_states=await chat_module_audit.global_states(db),
+        )
         if view is not None:
             return view
     if context:
         settings = await mod_db.get_chat_settings(db, chat_id)
-        return module_ui.features_view(settings, user_id, _pack_cb, _TOGGLE_SETTINGS)
+        return module_ui.features_view(
+            settings, user_id, _pack_cb, _TOGGLE_SETTINGS,
+            global_states=await chat_module_audit.global_states(db),
+        )
     text = await _build_menu_text(db, chat_id)
     return text, _settings_kb(user_id=user_id)
 
@@ -247,7 +305,7 @@ async def cb_settings_section(
 ):
     if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
         return
-    if callback_data.key not in {"moderation", "permissions", "features", "activity", "routing"}:
+    if callback_data.key not in {"moderation", "permissions", "features", "activity", "routing", "audit"}:
         return await query.answer("Раздел больше не используется.", show_alert=True)
     text, keyboard = await _section_view(db, query.message.chat.id, callback_data.key, callback_data.user_id)
     await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
@@ -265,6 +323,7 @@ async def cb_feature_group(
     settings = await mod_db.get_chat_settings(db, query.message.chat.id)
     view = module_ui.group_view(
         settings, callback_data.key, callback_data.user_id, _pack_cb, _TOGGLE_SETTINGS,
+        global_states=await chat_module_audit.global_states(db),
     )
     if view is None:
         return await query.answer("Раздел больше не используется.", show_alert=True)
@@ -298,11 +357,15 @@ async def cb_set_rank(
         valid_ranks = set(roles.LOCAL_RANKS_MAP.keys())
         if new_val not in valid_ranks:
             return await query.answer("❌ Недопустимый ранг.", show_alert=True)
-        updates = {key: new_val}
-        if key == "module_echo":
-            updates["echo_events_enabled"] = new_val
-        await mod_db.update_chat_settings(db, chat_id, **updates)
-        await db.commit()
+        settings = await mod_db.get_chat_settings(db, chat_id)
+        before = int(settings.get(key, 0) or 0)
+        if before != new_val:
+            await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
+            await chat_settings_audit.record(
+                db, chat_id=chat_id, setting_key=key, before=before, after=new_val,
+                actor_id=int(query.from_user.id), source="telegram_chat_settings",
+            )
+            await db.commit()
         await query.answer("✅ Сохранено!", show_alert=False)
         text = await _build_menu_text(db, chat_id)
         await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
@@ -372,6 +435,11 @@ async def cb_toggle_setting(
         bot_silence_invalidate(chat_id)
     else:
         await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
+        await chat_settings_audit.record(
+            db, chat_id=chat_id, setting_key=key,
+            before=int(bool(s.get(key, 1))), after=int(bool(new_val)),
+            actor_id=int(query.from_user.id), source="telegram_chat_settings",
+        )
     if key in _TOGGLE_SETTINGS:
         icon, desc = _TOGGLE_SETTINGS[key]
     else:
@@ -463,6 +531,11 @@ async def cmd_set_timezone(message: types.Message, db, developer_id: int = 0, te
         )
 
     await set_chat_timezone(db, message.chat.id, offset)
+    await chat_settings_audit.record(
+        db, chat_id=message.chat.id, setting_key="timezone",
+        before=current_tz, after=offset,
+        actor_id=int(message.from_user.id), source="telegram_chat_settings",
+    )
     new_sign = "+" if offset >= 0 else ""
     new_label = f"UTC{new_sign}{offset}"
     await message.answer(
@@ -471,3 +544,159 @@ async def cmd_set_timezone(message: types.Message, db, developer_id: int = 0, te
         f"{new_label}.</i>",
         parse_mode="HTML",
     )
+
+
+# ── Кнопочные действия: часовой пояс, админ-чат, сброс к стандарту ────────────
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "tz"))
+async def cb_set_timezone(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    """Сдвиг часового пояса кнопками −/+ в разделе «Активность»."""
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    chat_id = query.message.chat.id
+    current = await get_chat_timezone(db, chat_id)
+    if callback_data.value == "reset":
+        target = 0
+    else:
+        try:
+            delta = int(callback_data.value)
+        except (ValueError, TypeError):
+            return await query.answer("❌ Некорректное значение.", show_alert=True)
+        target = max(CHAT_TIMEZONE_MIN, min(CHAT_TIMEZONE_MAX, current + delta))
+    if target == current:
+        await query.answer(
+            f"Диапазон: UTC{CHAT_TIMEZONE_MIN} — UTC+{CHAT_TIMEZONE_MAX}.", show_alert=True,
+        )
+    else:
+        await set_chat_timezone(db, chat_id, target)
+        await chat_settings_audit.record(
+            db, chat_id=chat_id, setting_key="timezone", before=current, after=target,
+            actor_id=int(query.from_user.id), source="telegram_chat_settings",
+        )
+        await query.answer(f"🕓 Часовой пояс: UTC{target:+d}")
+    text, keyboard = await _section_view(db, chat_id, "activity", callback_data.user_id)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "route_code"))
+async def cb_route_code(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    """Шаг 1 привязки админ-чата: код, который подтверждают в чате администрации."""
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    chat_id = query.message.chat.id
+    title = query.message.chat.title or str(chat_id)
+    nonce = await routing.create_bind_request(db, chat_id, title, int(query.from_user.id))
+    b = InlineKeyboardBuilder()
+    b.button(text="⬅️ Админ-чат", callback_data=ChatSettingsCB(
+        action="section", key="routing", user_id=callback_data.user_id))
+    b.button(text="⬅️ Все настройки", callback_data=ChatSettingsCB(
+        action="menu", user_id=callback_data.user_id))
+    b.adjust(1)
+    await query.message.edit_text(
+        "🔗 <b>ПРИВЯЗКА АДМИН-ЧАТА</b>\n\n"
+        "Отправьте эту команду в чате администрации:\n\n"
+        f"<code>бот принять связь, {nonce}</code>\n\n"
+        "<i>⏳ Код действует 10 минут и подтверждается только его создателем.</i>",
+        reply_markup=b.as_markup(), parse_mode="HTML",
+    )
+    await query.answer()
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "route_unlink"))
+async def cb_route_unlink(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    b = InlineKeyboardBuilder()
+    b.button(text="❌ Да, отвязать", callback_data=ChatSettingsCB(
+        action="route_unlink_do", user_id=callback_data.user_id))
+    b.button(text="Отмена", callback_data=ChatSettingsCB(
+        action="section", key="routing", user_id=callback_data.user_id))
+    b.adjust(1)
+    await query.message.edit_text(
+        "⚠️ <b>Отвязать админ-чат?</b>\n\n"
+        "Отчёты модерации и журнал перестанут уходить в чат администрации.\n"
+        "Снятие попадёт в журнал настроек; повторная привязка — новым кодом.",
+        reply_markup=b.as_markup(), parse_mode="HTML",
+    )
+    await query.answer()
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "route_unlink_do"))
+async def cb_route_unlink_do(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    chat_id = query.message.chat.id
+    try:
+        previous = await routing.unbind_admin_chat(
+            db, main_chat_id=chat_id, actor_id=int(query.from_user.id),
+            source="telegram_chat_settings",
+        )
+    except routing.BindRequestError as exc:
+        await query.answer(f"❌ {exc}", show_alert=True)
+        return
+    if previous is None:
+        await query.answer("Админ-чат уже не привязан.", show_alert=True)
+    else:
+        await query.answer(f"Админ-чат {previous} отвязан.", show_alert=True)
+    text, keyboard = await _section_view(db, chat_id, "routing", callback_data.user_id)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "reset_confirm"))
+async def cb_reset_confirm(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    b = InlineKeyboardBuilder()
+    b.button(text="♻️ Да, вернуть стандарт", callback_data=ChatSettingsCB(
+        action="reset_do", user_id=callback_data.user_id))
+    b.button(text="Отмена", callback_data=ChatSettingsCB(
+        action="section", key="features", user_id=callback_data.user_id))
+    b.adjust(1)
+    await query.message.edit_text(
+        "♻️ <b>Вернуть стандартные настройки чата?</b>\n\n"
+        "Модули вернутся к заводским значениям, пороги рангов и тумблеры — к стандарту. "
+        "Каждое изменение попадёт в журнал «📜 Изменения».",
+        reply_markup=b.as_markup(), parse_mode="HTML",
+    )
+    await query.answer()
+
+
+@router.callback_query(ChatSettingsCB.filter(F.action == "reset_do"))
+async def cb_reset_do(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    """Откат настроек к реестру/дефолтам; чеки пишутся штатными каналами."""
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    chat_id = query.message.chat.id
+    result = await chat_settings_reset.reset_chat_settings_to_defaults(
+        db, chat_id=chat_id, actor_id=int(query.from_user.id),
+        source="telegram_chat_settings",
+    )
+    bot_silence_invalidate(chat_id)
+    if result["modules_changed"] or result["settings_changed"]:
+        await query.answer(
+            f"♻️ Стандарт: модулей {result['modules_changed']}, "
+            f"настроек {result['settings_changed']}.",
+            show_alert=True,
+        )
+    else:
+        await query.answer("Все настройки уже стандартные.", show_alert=True)
+    text, keyboard = await _context_view(db, chat_id, "features", callback_data.user_id)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")

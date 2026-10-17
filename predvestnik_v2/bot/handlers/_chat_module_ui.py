@@ -6,6 +6,7 @@ pack(action, key, value), чтобы не плодить циклический 
 """
 from __future__ import annotations
 
+from html import escape
 from typing import Callable
 
 from aiogram import types
@@ -38,9 +39,29 @@ def _status(enabled: bool) -> str:
     return "включено" if enabled else "выключено"
 
 
-def _group_mark(group: str, settings: dict) -> tuple[int, int]:
+def _is_globally_off(module_key: str, global_states: dict | None) -> bool:
+    """True = разработчик выключил модуль для всей сети (и он не заработает)."""
+    state = (global_states or {}).get(module_key)
+    return bool(state) and state.get("enabled", True) is False
+
+
+def _global_off_note(module_key: str, global_states: dict | None) -> str:
+    """Пометка «выключено разработчиком» для строки модуля (иначе пусто)."""
+    if not _is_globally_off(module_key, global_states):
+        return ""
+    reason = (global_states[module_key].get("disabled_reason") or "").strip()
+    note = "🌐 выключено глобально"
+    if reason:
+        note += f": {escape(reason)}"
+    return f" · <i>{note}</i>"
+
+
+def _group_mark(group: str, settings: dict, global_states: dict | None = None) -> tuple[int, int]:
     keys = [k for k, s in CHAT_MODULES.items() if s["group"] == group]
-    enabled = sum(1 for k in keys if module_enabled(settings, k))
+    enabled = sum(
+        1 for k in keys
+        if module_enabled(settings, k) and not _is_globally_off(k, global_states)
+    )
     return enabled, len(keys)
 
 
@@ -49,11 +70,16 @@ def features_view(
     user_id: int,
     pack: PackCB,
     extra_toggles: dict[str, tuple[str, str]],
+    global_states: dict | None = None,
 ) -> tuple[str, types.InlineKeyboardMarkup]:
     """Обзор «🧩 Функции чата»: мастер-стоп, группы и старые тумблеры."""
     total = len(CHAT_MODULES)
     off = total - sum(1 for key in CHAT_MODULES if module_enabled(settings, key))
     master_on = module_enabled(settings, MASTER_CHAT_MODULE)
+    global_off = [
+        key for key in CHAT_MODULES
+        if module_enabled(settings, key) and _is_globally_off(key, global_states)
+    ]
 
     lines = [
         "🧩 <b>ФУНКЦИИ ЧАТА</b>",
@@ -61,6 +87,11 @@ def features_view(
         f"Выключено модулей: <b>{off} из {total}</b>. Каждый пункт отвечает "
         "ровно за одну механику — можно гасить точечно.",
     ]
+    if global_off:
+        lines.append(
+            f"🌐 Разработчик выключил глобально: <b>{len(global_off)}</b> — "
+            "включение в этом чате не вернёт их в работу."
+        )
     b = InlineKeyboardBuilder()
     b.button(
         text=("✅" if master_on else "❌") + " 🚫 Весь бот в чатах",
@@ -70,7 +101,7 @@ def features_view(
         keys = [k for k, s in CHAT_MODULES.items() if s["group"] == group]
         if not keys:
             continue
-        enabled, count = _group_mark(group, settings)
+        enabled, count = _group_mark(group, settings, global_states)
         lines.append(f"{spec['icon']} {spec['name']}: <b>{enabled}/{count}</b>")
         b.button(
             text=f"{spec['icon']} {spec['name']} · {enabled}/{count}",
@@ -82,6 +113,10 @@ def features_view(
             text=f"{'✅' if enabled else '❌'} {icon} {desc}",
             callback_data=pack("toggle", key, return_context_features(), user_id),
         )
+    b.button(
+        text="♻️ Вернуть стандартные настройки",
+        callback_data=pack("reset_confirm", "", "", user_id),
+    )
     b.button(text="⬅️ Все настройки", callback_data=pack("menu", "", "", user_id))
     b.adjust(1)
     return "\n".join(lines), b.as_markup()
@@ -93,6 +128,7 @@ def group_view(
     user_id: int,
     pack: PackCB,
     extra_toggles: dict[str, tuple[str, str]] | None = None,
+    global_states: dict | None = None,
 ) -> tuple[str, types.InlineKeyboardMarkup] | None:
     """Страница группы: точечные переключатели модулей одной категории."""
     spec = CHAT_MODULE_GROUPS.get(group)
@@ -108,7 +144,10 @@ def group_view(
     for key in keys:
         m = CHAT_MODULES[key]
         enabled = module_enabled(settings, key)
-        lines.append(f"{m['icon']} {m['name']}: <b>{_status(enabled)}</b>")
+        lines.append(
+            f"{m['icon']} {m['name']}: <b>{_status(enabled)}</b>"
+            f"{_global_off_note(key, global_states)}"
+        )
         b.button(
             text=f"{'✅' if enabled else '❌'} {m['icon']} {m['name']}",
             callback_data=pack("toggle", key, return_context_group(group), user_id),

@@ -4,6 +4,8 @@ import asyncpg
 import secrets
 from dataclasses import dataclass
 
+from infrastructure.repositories import chat_settings_audit
+
 
 class BindRequestError(RuntimeError):
     pass
@@ -155,6 +157,42 @@ async def get_admin_chat(db: aiosqlite.Connection, main_chat_id: int) -> int | N
     ) as cursor:
         row = await cursor.fetchone()
         return row[0] if row else None
+
+
+async def unbind_admin_chat(db, *, main_chat_id: int, actor_id: int,
+                            source: str) -> int | None:
+    """Снять привязку админ-чата; вернуть прежний admin_chat_id (None — не было).
+
+    Чек уходит в chat_settings_audit: схема chat_bind_audit про связывание
+    (admin_chat_id NOT NULL), а снятие привязки — такая же настройка чата.
+    Блокировка на время активной чистки — как в consume_bind_request: иначе
+    досье и вердикты после снятия уходили бы в никуда.
+    """
+    async with db.connection.transaction():
+        async with db.execute(
+            "SELECT admin_chat_id FROM chat_links WHERE main_chat_id = ? FOR UPDATE",
+            (main_chat_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row or row[0] is None:
+            return None
+        previous = int(row[0])
+        async with db.execute(
+            "SELECT 1 FROM purge_sessions WHERE chat_id = ? AND status = 'active' "
+            "LIMIT 1 FOR UPDATE",
+            (main_chat_id,),
+        ) as cursor:
+            if await cursor.fetchone():
+                raise BindRequestError(
+                    "Нельзя менять админ-чат во время активной чистки. "
+                    "Сначала завершите или отмените её."
+                )
+        await db.execute("DELETE FROM chat_links WHERE main_chat_id = ?", (main_chat_id,))
+        await chat_settings_audit.record(
+            db, chat_id=main_chat_id, setting_key="admin_chat",
+            before=previous, after=None, actor_id=actor_id, source=source,
+        )
+    return previous
 
 
 async def get_broadcast_targets(db: aiosqlite.Connection, audience: str = "all") -> list[int]:

@@ -69,6 +69,69 @@ async def run(dsn: str) -> None:
         global_rows = await chat_module_audit.recent(db, scope="global")
         assert len(global_rows) == 1 and global_rows[0]["module_key"] == "module_echo"
 
+        # Глобальные состояния читаются поверх global_module_toggles (дефолт = реестр).
+        states = await chat_module_audit.global_states(db)
+        assert set(states) == set(CHAT_MODULE_KEYS)
+        assert states["module_echo"] == {"enabled": True, "disabled_reason": None}
+        assert states["module_mafia"]["enabled"] is True  # локальный выключатель ≠ глобальный
+
+        # Скалярный аудит настроек: no-op не пишется, изменение — пишется (с подписью).
+        from infrastructure.repositories import chat_settings_audit, chat_settings_reset
+        assert await chat_settings_audit.record(
+            db, chat_id=chat, setting_key="rank_warn", before=2, after=2,
+            actor_id=actor, source="contract_test",
+        ) is False
+        assert await chat_settings_audit.record(
+            db, chat_id=chat, setting_key="rank_warn", before=2, after=5,
+            actor_id=actor, source="contract_test",
+        ) is True
+        setting_rows = await chat_settings_audit.recent(db, chat_id=chat, limit=5)
+        assert len(setting_rows) == 1
+        assert setting_rows[0]["setting_key"] == "rank_warn"
+        assert setting_rows[0]["label"].startswith("⚠️")
+        assert setting_rows[0]["actor_name"] == "module_operator"
+
+        # Сброс к стандарту: rank_warn возвращается к 2, выключенный module_mafia — к вкл.
+        # Сначала выравниваем скалярные значения к дефолтам: preprod-БД могла хранить
+        # легаси rank_mute/rank_kick/rank_ban=3/4/5 из старых DDL-дефолтов (код с
+        # 42e31338 считает стандартом fallback get_chat_settings: 1/1/2).
+        from core.chat_settings_defaults import CHAT_SETTING_DEFAULTS
+        from infrastructure.repositories.moderation import (
+            get_chat_settings, update_chat_settings,
+        )
+        for key, default in CHAT_SETTING_DEFAULTS.items():
+            await update_chat_settings(db, chat, **{key: default})
+        await update_chat_settings(db, chat, rank_warn=5)
+        reset_result = await chat_settings_reset.reset_chat_settings_to_defaults(
+            db, chat_id=chat, actor_id=actor, source="contract_test",
+        )
+        assert reset_result == {"modules_changed": 1, "settings_changed": 1}
+        restored = await get_chat_settings(db, chat)
+        assert int(restored["rank_warn"]) == 2 and int(restored["module_mafia"]) == 1
+
+        # Отвязка админ-чата: DELETE маршрута + чек в журнал настроек.
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS chat_links("
+            "main_chat_id BIGINT PRIMARY KEY, admin_chat_id BIGINT, "
+            "added_at TIMESTAMP DEFAULT NOW())"
+        )
+        await db.execute(
+            "CREATE TABLE IF NOT EXISTS purge_sessions("
+            "id BIGSERIAL PRIMARY KEY, chat_id BIGINT, status TEXT)"
+        )
+        await db.execute(
+            "INSERT INTO chat_links(main_chat_id, admin_chat_id) VALUES (?, ?) "
+            "ON CONFLICT(main_chat_id) DO UPDATE SET admin_chat_id=EXCLUDED.admin_chat_id",
+            (chat, -9_940_003),
+        )
+        from infrastructure.repositories import routing
+        assert await routing.unbind_admin_chat(
+            db, main_chat_id=chat, actor_id=actor, source="contract_test",
+        ) == -9_940_003
+        assert await routing.get_admin_chat(db, chat) is None
+        unbind_rows = await chat_settings_audit.recent(db, chat_id=chat, limit=5)
+        assert unbind_rows[0]["setting_key"] == "admin_chat"
+
         savepoint = connection.transaction()
         await savepoint.start()
         try:
@@ -77,6 +140,16 @@ async def run(dsn: str) -> None:
             await savepoint.rollback()
         else:
             raise AssertionError("append-only audit row was deleted")
+
+        savepoint = connection.transaction()
+        await savepoint.start()
+        try:
+            await connection.execute(
+                "DELETE FROM chat_settings_audit WHERE id=$1", setting_rows[0]["id"])
+        except asyncpg.RaiseError:
+            await savepoint.rollback()
+        else:
+            raise AssertionError("append-only settings audit row was deleted")
     finally:
         await outer.rollback()
         await connection.close()

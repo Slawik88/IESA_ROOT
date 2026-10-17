@@ -15,7 +15,10 @@ from infrastructure.repositories.moderation import (
 from infrastructure.repositories.blacklist import get_chat_blacklist
 from infrastructure.repositories.chat import set_local_rank
 from infrastructure.repositories.routing import get_admin_chat
+from infrastructure.repositories.streak import get_chat_timezone
 from infrastructure.repositories import chat_module_audit as module_audit
+from infrastructure.repositories import chat_settings_audit as settings_audit
+from infrastructure.repositories import chat_settings_reset
 from core.chat_modules import CHAT_MODULE_KEYS
 from services import moderation as mod_service
 from services import roles
@@ -201,6 +204,18 @@ async def admin_dashboard(chat_id: int, db=Depends(get_db), user=Depends(require
     ) as c:
         active_today = (await c.fetchone())[0]
 
+    async with db.execute(
+        "SELECT COUNT(*) FROM user_chat_stats "
+        "WHERE chat_tg_id = ? AND muted_until > NOW() AND is_left = FALSE",
+        (chat_id,),
+    ) as c:
+        muted_count = (await c.fetchone())[0]
+
+    async with db.execute(
+        "SELECT COUNT(*) FROM chat_blacklist WHERE chat_id = ?", (chat_id,)
+    ) as c:
+        blacklist_count = (await c.fetchone())[0]
+
     return {
         "my_rank": actor_rank,
         "my_rank_name": _LOCAL_RANK_NAMES.get(actor_rank, "?"),
@@ -208,6 +223,9 @@ async def admin_dashboard(chat_id: int, db=Depends(get_db), user=Depends(require
         "warned_count": warned_count,
         "ban_count": ban_count,
         "active_today": active_today,
+        "muted_count": muted_count,
+        "blacklist_count": blacklist_count,
+        "last_modules": await module_audit.recent(db, scope="chat", chat_id=chat_id, limit=3),
         "can_warn": actor_rank >= settings.get("rank_warn", 2),
         "can_mute": actor_rank >= settings.get("rank_mute", 1),
         "can_kick": actor_rank >= settings.get("rank_kick", 1),
@@ -316,9 +334,14 @@ async def admin_get_settings(chat_id: int, db=Depends(get_db), user=Depends(requ
     await _require_admin(db, user["id"], chat_id)
     settings = await get_chat_settings(db, chat_id)
     settings["module_catalog"] = module_audit.catalog()
+    # Глобальные галочки разработчика: без них админ видел «ВКЛ» у модуля,
+    # который молчит для всей сети (и не понимал, почему).
+    settings["module_globals"] = await module_audit.global_states(db)
     settings["module_audit"] = await module_audit.recent(
         db, scope="chat", chat_id=chat_id, limit=12,
     )
+    settings["settings_audit"] = await settings_audit.recent(db, chat_id=chat_id, limit=12)
+    settings["timezone"] = await get_chat_timezone(db, chat_id)
     return settings
 
 
@@ -371,15 +394,34 @@ async def admin_update_settings(
     if not updates:
         return {"ok": True}
     module_updates = {key: bool(updates.pop(key)) for key in list(updates) if key in CHAT_MODULE_KEYS}
+    before = await get_chat_settings(db, chat_id)
     async with db.connection.transaction():
         if updates:
             await update_chat_settings(db, chat_id, **updates)
+            for key, value in updates.items():
+                await settings_audit.record(
+                    db, chat_id=chat_id, setting_key=key,
+                    before=before.get(key), after=value,
+                    actor_id=int(user["id"]), source="miniapp_chat_admin",
+                )
         for key, enabled in module_updates.items():
             await module_audit.set_chat_module(
                 db, chat_id=chat_id, module_key=key, enabled=enabled,
                 actor_id=int(user["id"]), source="miniapp_chat_admin",
             )
     return {"ok": True}
+
+
+@router.post("/{chat_id}/settings/reset")
+async def admin_reset_settings(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
+    """Вернуть модули и скалярные настройки к стандарту (с чеками в журналах)."""
+    actor_rank = await _require_admin(db, user["id"], chat_id)
+    if actor_rank < 5:
+        raise HTTPException(403, "Требуется ранг Совладелец (5) для изменения настроек.")
+    result = await chat_settings_reset.reset_chat_settings_to_defaults(
+        db, chat_id=chat_id, actor_id=int(user["id"]), source="miniapp_chat_admin",
+    )
+    return {"ok": True, **result}
 
 
 class ActionRequest(BaseModel):

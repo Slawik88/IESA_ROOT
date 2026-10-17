@@ -68,6 +68,11 @@ async def install_schema(db) -> None:
         "ON chat_module_audit(chat_id, created_at DESC) WHERE scope = 'chat'"
     )
     await ensure_chat_module_columns(db)
+    # Единая точка установки схем админ-журналов: её уже вызывают init_db бота
+    # и lifespan FastAPI, поэтому журнал настроек не требует регистрации в них.
+    from infrastructure.repositories import chat_settings_audit
+
+    await chat_settings_audit.install_schema(db)
 
 
 def catalog() -> list[dict]:
@@ -82,6 +87,30 @@ def catalog() -> list[dict]:
             "group_icon": group.get("icon", "🧩"),
         })
     return items
+
+
+async def global_states(db) -> dict[str, dict]:
+    """Эффективное глобальное состояние модулей: {key: {enabled, disabled_reason}}.
+
+    Строки нет → дефолт реестра. Чатовые админки по этому словарю отличают
+    «выключено в этом чате» от «выключено разработчиком для всей сети».
+    """
+    states = {
+        key: {"enabled": chat_module_default(key), "disabled_reason": None}
+        for key in CHAT_MODULE_KEYS
+    }
+    async with db.execute(
+        "SELECT module_key, enabled, disabled_reason FROM global_module_toggles"
+    ) as cursor:
+        rows = await cursor.fetchall()
+    for row in rows:
+        key = row["module_key"]
+        if key in states:
+            states[key] = {
+                "enabled": bool(row["enabled"]),
+                "disabled_reason": row["disabled_reason"],
+            }
+    return states
 
 
 async def set_chat_module(db, *, chat_id: int, module_key: str, enabled: bool,

@@ -35,6 +35,11 @@ class FakeCursor:
     async def fetchone(self):
         return self.row
 
+    async def fetchall(self):
+        if self.row is None:
+            return []
+        return list(self.row) if isinstance(self.row, list) else [self.row]
+
 
 class FakeExec:
     """aiosqlite-like handle: годится и для `await db.execute(...)`, и для `async with`."""
@@ -127,6 +132,52 @@ async def run() -> None:
     else:
         raise AssertionError("unknown chat setting must raise ValueError")
 
+    # 5b. Дефолты скалярных настроек: синхрон с get_chat_settings + подпись для журнала.
+    from core.chat_settings_defaults import CHAT_SETTING_DEFAULTS, chat_setting_label
+    from infrastructure.repositories import chat_settings_audit, chat_settings_reset
+
+    fallback = await get_chat_settings(FakeDB(row=None), -100700)
+    for key, value in CHAT_SETTING_DEFAULTS.items():
+        assert fallback[key] == value, key
+        assert chat_setting_label(key) != key, key
+        test_db = FakeDB()
+        await update_chat_settings(test_db, -100700, **{key: 0})
+        assert test_db.commits == 1, key
+
+    # record — no-op без записи; реальное изменение — один INSERT.
+    audit_db = FakeDB()
+    assert await chat_settings_audit.record(
+        audit_db, chat_id=-100700, setting_key="rank_warn", before=2, after=2,
+        actor_id=1, source="test",
+    ) is False
+    assert audit_db.sql == []
+    assert await chat_settings_audit.record(
+        audit_db, chat_id=-100700, setting_key="rank_warn", before=2, after=3,
+        actor_id=1, source="test",
+    ) is True
+    assert len(audit_db.sql) == 1 and "INSERT INTO chat_settings_audit" in audit_db.sql[0]
+
+    # Сброс на дефолтной строке ничего не пишет.
+    reset_db = FakeDB(row=None)
+    result = await chat_settings_reset.reset_chat_settings_to_defaults(
+        reset_db, chat_id=-100700, actor_id=1, source="test",
+    )
+    assert result == {"modules_changed": 0, "settings_changed": 0}
+    assert not any("UPDATE chat_settings" in sql for sql in reset_db.sql)
+
+    # 5c. Глобальные состояния: строки из global_module_toggles, отсутствие = дефолт.
+    states = await chat_module_audit.global_states(FakeDB())
+    assert set(states) == set(CHAT_MODULE_KEYS)
+    for key, state in states.items():
+        assert state == {"enabled": chat_module_default(key), "disabled_reason": None}, key
+    states = await chat_module_audit.global_states(FakeDB(row=[
+        {"module_key": "module_mafia", "enabled": 0, "disabled_reason": "ремонт"},
+        {"module_key": "unknown_key", "enabled": 0, "disabled_reason": None},
+    ]))
+    assert states["module_mafia"] == {"enabled": False, "disabled_reason": "ремонт"}
+    assert states["module_echo"]["enabled"] is False  # дефолт реестра
+    assert states[MASTER_CHAT_MODULE]["enabled"] is True
+
     # 6. Проводка по поверхностям: бот, middleware, веб, mini app.
     mw_src = (
         ROOT / "bot" / "middlewares" / "module_check_mw.py"
@@ -148,6 +199,37 @@ async def run() -> None:
     assert "(1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)" in web_src
     admin_src = (ROOT / "FastAPI" / "routers" / "admin.py").read_text(encoding="utf-8")
     assert "create_model(" in admin_src and "sorted(CHAT_MODULE_KEYS)" in admin_src
+
+    # 7. Прозрачность админки: глобальный статус, журнал настроек, сброс, админ-чат.
+    assert "global_states" in schema_src and "chat_settings_audit.install_schema" in schema_src
+    audit_src = (
+        ROOT / "infrastructure" / "repositories" / "chat_settings_audit.py"
+    ).read_text(encoding="utf-8")
+    assert "chat_settings_audit is append-only" in audit_src
+    reset_src = (
+        ROOT / "infrastructure" / "repositories" / "chat_settings_reset.py"
+    ).read_text(encoding="utf-8")
+    assert "CHAT_SETTING_DEFAULTS" in reset_src and "set_chat_module" in reset_src
+    assert "global_states=await chat_module_audit.global_states(db)" in settings_src
+    assert "_recent_changes" in settings_src
+    for marker in ("route_code", "route_unlink", "reset_confirm", "reset_do", 'F.action == "tz"'):
+        assert marker in settings_src, marker
+    assert "🌐 выключено глобально" in ui_src and "reset_confirm" in ui_src
+    routing_src = (
+        ROOT / "infrastructure" / "repositories" / "routing.py"
+    ).read_text(encoding="utf-8")
+    assert "unbind_admin_chat" in routing_src and 'setting_key="admin_chat"' in routing_src
+    for marker in ("module_globals", "settings_audit", "/settings/reset",
+                   "module_audit.global_states(db)"):
+        assert marker in admin_src, marker
+    app15_src = (ROOT / "FastAPI" / "static" / "app.15.js").read_text(encoding="utf-8")
+    for marker in ("module_globals", "settings_audit", "settings/reset",
+                   "chatSettingsAuditCardHtml", "chatToolsCardHtml"):
+        assert marker in app15_src, marker
+    app07_src = (ROOT / "FastAPI" / "static" / "app.07.js").read_text(encoding="utf-8")
+    for marker in ("_setAdmTabBadges", "purge/status", "goAdmTab",
+                   "chatToolsCardHtml(s)", "chatSettingsAuditCardHtml(s)"):
+        assert marker in app07_src, marker
 
 
 asyncio.run(run())

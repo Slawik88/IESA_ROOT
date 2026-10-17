@@ -61,7 +61,26 @@ function swAdminByName(tab) {
 function loadAdminDash() {
   if(!_adminChatId) return;
   el('adm-dash').innerHTML='<div class="loader">Загрузка...</div>';
-  api(`/admin/${_adminChatId}/dashboard`).then(d=>{
+  Promise.all([
+    api(`/admin/${_adminChatId}/dashboard`),
+    api(`/admin/${_adminChatId}/purge/status`).catch(()=>null),
+  ]).then(([d,st])=>{
+    const lastMods=(d.last_modules||[]);
+    // Активная чистка видна сразу на дашборде, а не только внутри «Настроек».
+    const purgeCard=st&&st.active?`
+      <div class="card">
+        <div class="card-title">🧹 Чистка идёт</div>
+        <div class="irow"><span class="ik">Сессия #${st.session?st.session.id:'?'} · норма ${st.session?st.session.norm:'-'}</span>
+          <span style="color:var(--gold)">${(st.counts&&st.counts.decided)||0}/${(st.counts&&st.counts.total)||0}</span></div>
+        <div style="font-size:11px;color:var(--muted);margin:6px 0 8px">Досье: ${(st.counts&&st.counts.sent)||0}/${(st.counts&&st.counts.total)||0} · вердикты и завершение — во вкладке «⚙️ Настройки».</div>
+        <button class="btn btn-gold btn-full" onclick="goAdmTab('settings')">Открыть настройки</button>
+      </div>`:'';
+    const modsCard=lastMods.length?`
+      <div class="card">
+        <div class="card-title">🕘 Последние изменения модулей</div>
+        ${lastMods.map(r=>`<div class="irow"><span class="ik" style="font-size:11px">${r.after_enabled?'↗':'↘'} ${esc(r.module?.name||r.module_key)}<div class="module-desc">@${esc(r.actor_name||String(r.actor_id))} · ${fmtUTC(r.created_at)}</div></span><span style="color:${r.after_enabled?'var(--green)':'var(--red)'};font-size:11px">${r.after_enabled?'ВКЛ':'ВЫКЛ'}</span></div>`).join('')}
+        <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="goAdmTab('settings')">Все настройки</button>
+      </div>`:'';
     el('adm-dash').innerHTML=`
       <div class="card">
         <div class="card-title">📊 Сводка</div>
@@ -69,8 +88,10 @@ function loadAdminDash() {
         <div class="irow"><span class="ik">Участников</span><span>${d.member_count}</span></div>
         <div class="irow"><span class="ik">Активны сегодня</span><span>${d.active_today}</span></div>
         <div class="irow"><span class="ik">С предупреждениями</span><span style="color:${d.warned_count>0?'var(--gold)':'var(--muted)'}">${d.warned_count}</span></div>
+        <div class="irow"><span class="ik">В муте сейчас</span><span style="color:${d.muted_count>0?'var(--gold)':'var(--muted)'}">${d.muted_count||0}</span></div>
         <div class="irow"><span class="ik">Заблокированных</span><span style="color:${d.ban_count>0?'var(--red)':'var(--muted)'}">${d.ban_count}</span></div>
       </div>
+      ${purgeCard}
       <div class="card">
         <div class="card-title">⚙️ Ваши права</div>
         ${[['Варн',d.can_warn],['Мут',d.can_mute],['Кик',d.can_kick],['Бан',d.can_ban]].map(([n,v])=>
@@ -84,9 +105,22 @@ function loadAdminDash() {
           <button class="btn btn-red" style="flex:1" onclick="doChatLock(false)">🔒 Закрыть</button>
           <button class="btn btn-gold" style="flex:1" onclick="doChatLock(true)">🔓 Открыть</button>
         </div>
-      </div>`;
+      </div>
+      ${modsCard}`;
+    _setAdmTabBadges(d);
   }).catch(e=>{el('adm-dash').innerHTML=`<div class="err">${e}</div>`;});
 }
+// Счётчики на вкладках: модератор видит «где горит» без захода внутрь.
+function _setAdmTabBadges(d) {
+  const put=(tab,count)=>{
+    const btn=document.querySelector(`#pg-admin .tb[onclick*="'${tab}'"]`); if(!btn) return;
+    if(!btn.dataset.base) btn.dataset.base=btn.textContent;
+    btn.textContent=count>0?`${btn.dataset.base} · ${count}`:btn.dataset.base;
+  };
+  put('bl', d.blacklist_count||0);
+  put('mod', (d.muted_count||0)+(d.warned_count||0));
+}
+function goAdmTab(tab) { swAdminByName(tab); }
 function doChatLock(open) {
   api(`/admin/${_adminChatId}/chat-lock`,{method:'POST',body:JSON.stringify({open})})
     .then(()=>toast(open?'🔓 Чат открыт':'🔒 Чат закрыт'))
@@ -250,6 +284,8 @@ function loadAdminSettings() {
     </div>`;
     el('adm-settings').innerHTML=`
       ${chatModulesCardHtml(s)}
+      ${chatToolsCardHtml(s)}
+      ${chatSettingsAuditCardHtml(s)}
       <div class="card">
         <div class="card-title">🤝 Социальные ограничения</div>
         ${tog('nsfw_warps_allowed','🔞 NSFW варпы',s.nsfw_warps_allowed)}
