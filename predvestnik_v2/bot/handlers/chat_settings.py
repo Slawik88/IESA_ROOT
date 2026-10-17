@@ -12,6 +12,8 @@ from services.utils import check_callback_owner
 from core.constants import CHAT_TIMEZONE_MIN, CHAT_TIMEZONE_MAX
 from bot.keyboards.cta import answer_group_only
 from core.chat_modules import CHAT_MODULES
+from bot.handlers import _chat_module_ui as module_ui
+from bot.middlewares.module_check_mw import bot_silence_invalidate
 
 router = Router(name="chat_settings_router")
 
@@ -49,6 +51,11 @@ _MODULE_SETTINGS: dict = {
 }
 
 _RANK_NAMES = roles.LOCAL_RANKS_MAP
+
+
+def _pack_cb(action: str, key: str = "", value: str = "", user_id: int = 0) -> str:
+    """Фабрика отложенных кнопок для _chat_module_ui (без циклического импорта)."""
+    return ChatSettingsCB(action=action, key=key, value=value, user_id=user_id).pack()
 
 
 def _rank_label(rank_id: int) -> str:
@@ -136,11 +143,7 @@ async def _section_view(db, chat_id: int, section: str, user_id: int):
             lines.append(f"{icon} {desc}: <b>{_rank_label(int(settings.get(key, 0)))}</b>")
             b.button(text=f"{icon} {desc}", callback_data=ChatSettingsCB(action="set_rank", key=key, user_id=user_id))
     elif section == "features":
-        for key in _section_keys(section):
-            icon, desc = (_TOGGLE_SETTINGS | _MODULE_SETTINGS)[key]
-            enabled = bool(settings.get(key, 1))
-            lines.append(f"{icon} {desc}: <b>{'включено' if enabled else 'выключено'}</b>")
-            b.button(text=f"{'✅' if enabled else '❌'} {desc}", callback_data=ChatSettingsCB(action="toggle", key=key, user_id=user_id))
+        return module_ui.features_view(settings, user_id, _pack_cb, _TOGGLE_SETTINGS)
     elif section == "activity":
         tz = await get_chat_timezone(db, chat_id)
         lines.extend([f"Часовой пояс локальных топов: <b>UTC{tz:+d}</b>",
@@ -153,6 +156,32 @@ async def _section_view(db, chat_id: int, section: str, user_id: int):
     b.button(text="⬅️ Все настройки", callback_data=ChatSettingsCB(action="menu", user_id=user_id))
     b.adjust(1)
     return "\n".join(lines), b.as_markup()
+
+
+async def _context_view(db, chat_id: int, context: str, user_id: int):
+    """Вернуть админа на экран, откуда он переключил чекбокс.
+
+    context = "features" | "grp:<группа>" | "" (старая карточка → главное меню).
+    """
+    if context.startswith("grp:"):
+        settings = await mod_db.get_chat_settings(db, chat_id)
+        view = module_ui.group_view(settings, context[4:], user_id, _pack_cb, _TOGGLE_SETTINGS)
+        if view is not None:
+            return view
+    if context:
+        settings = await mod_db.get_chat_settings(db, chat_id)
+        return module_ui.features_view(settings, user_id, _pack_cb, _TOGGLE_SETTINGS)
+    text = await _build_menu_text(db, chat_id)
+    return text, _settings_kb(user_id=user_id)
+
+
+def _context_cb_args(context: str) -> dict:
+    """Параметры ChatSettingsCB для кнопки «вернуться на экран context»."""
+    if context.startswith("grp:"):
+        return {"action": "fgroup", "key": context[4:]}
+    if context:
+        return {"action": "section", "key": "features"}
+    return {"action": "menu"}
 
 
 def _rank_picker_kb(key: str, current: int, label: str, user_id: int = 0) -> types.InlineKeyboardMarkup:
@@ -225,6 +254,25 @@ async def cb_settings_section(
     await query.answer()
 
 
+@router.callback_query(ChatSettingsCB.filter(F.action == "fgroup"))
+async def cb_feature_group(
+    query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
+    bot: Bot, developer_id: int = 0,
+):
+    """Страница одной группы модулей: точечные переключатели."""
+    if not await _can_use_settings_callback(query, callback_data, db, bot, developer_id):
+        return
+    settings = await mod_db.get_chat_settings(db, query.message.chat.id)
+    view = module_ui.group_view(
+        settings, callback_data.key, callback_data.user_id, _pack_cb, _TOGGLE_SETTINGS,
+    )
+    if view is None:
+        return await query.answer("Раздел больше не используется.", show_alert=True)
+    text, keyboard = view
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    await query.answer()
+
+
 @router.callback_query(ChatSettingsCB.filter(F.action == "set_rank"))
 async def cb_set_rank(
     query: types.CallbackQuery, callback_data: ChatSettingsCB, db,
@@ -292,21 +340,27 @@ async def cb_toggle_setting(
         return await query.answer("❌ Эта старая настройка больше не используется.", show_alert=True)
     s = await mod_db.get_chat_settings(db, chat_id)
     new_val = 0 if s.get(key, 1) else 1
+    context = callback_data.value
     if key in _MODULE_SETTINGS and not new_val:
         icon, name = _MODULE_SETTINGS[key]
+        warn = (
+            "Бот замолчит на все команды в этом чате, пока модуль не вернут.\n"
+            if key == "module_bot"
+            else "Он сразу перестанет работать в этом чате.\n"
+        )
         b = InlineKeyboardBuilder()
         b.button(
             text=f"Отключить {icon} {name}",
-            callback_data=ChatSettingsCB(action="confirm_off", key=key, user_id=uid),
+            callback_data=ChatSettingsCB(action="confirm_off", key=key, value=context, user_id=uid),
         )
         b.button(
             text="Отмена",
-            callback_data=ChatSettingsCB(action="section", key="features", user_id=uid),
+            callback_data=ChatSettingsCB(user_id=uid, **_context_cb_args(context)),
         )
         b.adjust(1)
         await query.message.edit_text(
             f"⚠️ <b>Отключить модуль «{name}»?</b>\n\n"
-            "Он сразу перестанет работать в этом чате. Действие сохранится в журнале.",
+            f"{warn}Действие сохранится в журнале.",
             reply_markup=b.as_markup(), parse_mode="HTML",
         )
         return await query.answer()
@@ -315,6 +369,7 @@ async def cb_toggle_setting(
             db, chat_id=chat_id, module_key=key, enabled=bool(new_val),
             actor_id=int(query.from_user.id), source="telegram_chat_settings",
         )
+        bot_silence_invalidate(chat_id)
     else:
         await mod_db.update_chat_settings(db, chat_id, **{key: new_val})
     if key in _TOGGLE_SETTINGS:
@@ -324,8 +379,8 @@ async def cb_toggle_setting(
         desc = f"Модуль «{name}»"
     status = "включено" if new_val else "выключено"
     await query.answer(f"{icon} {desc} — {status}!", show_alert=not new_val)
-    text = await _build_menu_text(db, chat_id)
-    await query.message.edit_text(text, reply_markup=_settings_kb(user_id=uid), parse_mode="HTML")
+    text, keyboard = await _context_view(db, chat_id, context, uid)
+    await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
 
 
 @router.callback_query(ChatSettingsCB.filter(F.action == "confirm_off"))
@@ -346,8 +401,9 @@ async def cb_confirm_module_off(
         db, chat_id=chat_id, module_key=key, enabled=False,
         actor_id=int(query.from_user.id), source="telegram_chat_settings",
     )
+    bot_silence_invalidate(chat_id)
     icon, name = _MODULE_SETTINGS[key]
-    text, keyboard = await _section_view(db, chat_id, "features", callback_data.user_id)
+    text, keyboard = await _context_view(db, chat_id, callback_data.value, callback_data.user_id)
     await query.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
     await query.answer(f"{icon} {name} — выключено", show_alert=True)
 

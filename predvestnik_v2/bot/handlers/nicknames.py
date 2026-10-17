@@ -17,6 +17,10 @@ from services.vip import is_vip_active
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="nicknames_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_profile"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_profile"))
 
 _MAX_LEN = 20
 _MIN_LEN = 2

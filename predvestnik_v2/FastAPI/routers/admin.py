@@ -5,7 +5,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, create_model
 
 from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.moderation import (
@@ -322,7 +322,8 @@ async def admin_get_settings(chat_id: int, db=Depends(get_db), user=Depends(requ
     return settings
 
 
-class SettingsUpdateRequest(BaseModel):
+class _SettingsBase(BaseModel):
+    """Не-модульные поля chat_settings в панели модератора."""
     shield_duration_days: Optional[int] = None
     max_warnings: Optional[int] = None
     rank_warn: Optional[int] = None
@@ -339,18 +340,21 @@ class SettingsUpdateRequest(BaseModel):
     purge_write_rank: Optional[int] = None   # admin_audit B5: 0 = пишут все
     rank_chat_lock: Optional[int] = None
     events_enabled: Optional[int] = None
-    module_mafia: Optional[int] = None
-    module_rhythm: Optional[int] = None
-    module_pets: Optional[int] = None
-    module_quests: Optional[int] = None
-    module_warps: Optional[int] = None
-    module_echo: Optional[int] = None
     nsfw_warps_allowed: Optional[int] = None
     # Категорийные тумблеры игровых уведомлений чата (2026-07-12)
     notif_auction: Optional[int] = None
     notif_gacha: Optional[int] = None
     notif_expeditions: Optional[int] = None
     notif_quests: Optional[int] = None
+
+
+# Поля модулей генерируются из реестра core.chat_modules: добавил модуль в
+# CHAT_MODULES — поле в API и запись через audit-канал появились сами.
+SettingsUpdateRequest = create_model(
+    "SettingsUpdateRequest",
+    __base__=_SettingsBase,
+    **{key: (Optional[int], None) for key in sorted(CHAT_MODULE_KEYS)},
+)
 
 
 @router.post("/{chat_id}/settings")

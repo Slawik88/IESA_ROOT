@@ -12,6 +12,10 @@ from services.skill_games import get_active_session_summary, refund_active_sessi
 from services.utils import check_callback_owner
 
 router = Router(name="games_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_games"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_games"))
 
 
 class LegacyGameRefundCB(CallbackData, prefix="game_refund"):

@@ -21,6 +21,10 @@ from bot.keyboards.cta import answer_group_only
 
 
 router = Router(name="moderation_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_moderation"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_moderation"))
 logger = logging.getLogger(__name__)
 
 async def _check_target_rights(db, chat_id, admin_id, target_id, min_rank,

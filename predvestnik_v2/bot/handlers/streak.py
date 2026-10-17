@@ -7,6 +7,10 @@ from bot.keyboards.cta import answer_group_only
 from infrastructure.repositories import streak as streak_repo
 
 router = Router(name="streak_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_profile"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_profile"))
 
 
 class StreakRecoverCallback(CallbackData, prefix="streak_rec"):

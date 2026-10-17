@@ -11,6 +11,10 @@ from services.utils import format_currency
 
 
 router = Router(name="dark_mora_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_dark_mora"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_dark_mora"))
 
 
 @router.message(TextCmd(["тёмная мора", "темная мора", "тмора", "dark mora", "баланс тморы"]))

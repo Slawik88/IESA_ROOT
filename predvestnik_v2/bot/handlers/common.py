@@ -22,6 +22,10 @@ _WEB_BASE_URL = os.getenv("WEB_BASE_URL", "")
 _MINIAPP_URL = miniapp_web_url()
 
 router = Router(name="common_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_base"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_base"))
 
 # Определяем структуру данных для кнопок
 class HelpCallback(CallbackData, prefix="help"):

@@ -23,7 +23,7 @@ from infrastructure.repositories import shadow_merchant as sm_repo
 router = APIRouter(
     prefix="/dark-mora",
     tags=["dark-mora"],
-    dependencies=[Depends(require_module("module_warps"))],
+    dependencies=[Depends(require_module("module_dark_mora"))],
 )
 
 

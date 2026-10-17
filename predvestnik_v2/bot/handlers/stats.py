@@ -29,6 +29,10 @@ def _trunc_name(s: str) -> str:
 
 
 router = Router(name="stats_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_stats"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_stats"))
 
 
 class MessageTopV2(CallbackData, prefix="msgtop"):

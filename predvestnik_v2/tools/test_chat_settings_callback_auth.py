@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 from bot.handlers import chat_settings
 from bot.middlewares.module_check_mw import module_disabled_reason
+from core.chat_modules import CHAT_MODULE_KEYS
 
 
 class Query:
@@ -101,10 +102,9 @@ async def run() -> None:
         assert writes == []
         assert stale.answers and "больше не используется" in stale.answers[0]
 
-        assert set(chat_settings._MODULE_SETTINGS) == {
-            "module_mafia", "module_rhythm", "module_pets",
-            "module_quests", "module_warps", "module_echo",
-        }
+        # Список модулей в UI — всегда реестр (core.chat_modules), без ручных копий.
+        assert set(chat_settings._MODULE_SETTINGS) == set(CHAT_MODULE_KEYS)
+        assert "module_bot" in chat_settings._MODULE_SETTINGS
         assert set(chat_settings._TOGGLE_SETTINGS) == {
             "nsfw_warps_allowed", "include_in_global_top",
         }
@@ -135,12 +135,17 @@ async def run() -> None:
         ) is None
 
         admin_ui = (ROOT / "FastAPI" / "static" / "app.07.js").read_text(encoding="utf-8")
-        assert "module_catalog" in admin_ui
-        assert "'module_mafia','module_rhythm','module_pets','module_quests','module_warps','module_echo'" in admin_ui
+        assert "chatModulesCardHtml(s)" in admin_ui
+        assert "_admSettingKeys" in admin_ui            # ключи сохранения — из каталога
+        assert "tog('module_mafia'" not in admin_ui     # плоские тумблеры модулей удалены
         assert "tog('module_games'" not in admin_ui
         assert "tog('module_auction'" not in admin_ui
         assert "tog('module_expeditions'" not in admin_ui
         assert "tog('notif_auction'" not in admin_ui
+        module_ui = (ROOT / "FastAPI" / "static" / "app.15.js").read_text(encoding="utf-8")
+        assert "module_catalog" in module_ui
+        assert "_admSettingKeys=cat.map(m=>m.key)" in module_ui
+        assert "module-group" in module_ui
         console_ui = (ROOT / "FastAPI" / "static" / "app.08.js").read_text(encoding="utf-8")
         assert "d.catalog||[]" in console_ui
         assert "module_shop','🛒'" not in console_ui

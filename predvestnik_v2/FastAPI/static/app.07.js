@@ -248,15 +248,8 @@ function loadAdminSettings() {
         ${(fromZero?[0,1,2,3,4,5,6]:[1,2,3,4,5,6]).map(r=>`<option value="${r}" ${val===r?'selected':''}>${_RANK_NAMES[r]}</option>`).join('')}
       </select>
     </div>`;
-    const modules=(s.module_catalog||[]).map(m=>tog(m.key,`${m.icon} ${esc(m.name)}`,s[m.key])).join('');
-    const moduleAudit=(s.module_audit||[]).length?`<details class="module-audit"><summary>Последние изменения · ${s.module_audit.length}</summary>${s.module_audit.map(r=>`<div><span>${r.after_enabled?'↗':'↘'}</span><p><b>${esc(r.module?.name||r.module_key)}</b><small>@${esc(r.actor_name||String(r.actor_id))} · ${fmtUTC(r.created_at)}</small></p><strong>${r.after_enabled?'включён':'выключен'}</strong></div>`).join('')}</details>`:'<div class="module-audit-empty">Изменений модулей ещё не было.</div>';
     el('adm-settings').innerHTML=`
-      <div class="card module-control-card">
-        <div class="card-title">🧩 Функции чата</div>
-        <div class="module-control-help">Каждый переключатель управляет одной понятной механикой. Изменения сохраняются в журнале.</div>
-        ${modules}
-        ${moduleAudit}
-      </div>
+      ${chatModulesCardHtml(s)}
       <div class="card">
         <div class="card-title">🤝 Социальные ограничения</div>
         ${tog('nsfw_warps_allowed','🔞 NSFW варпы',s.nsfw_warps_allowed)}
@@ -377,7 +370,10 @@ function toggleAdmSetting(key) {
   const el2=el('aset-'+key); if(!el2) return;
   const cur=el2.textContent==='ВКЛ';
   if(key.startsWith('module_')&&cur){
-    OM('Отключить модуль?','<div style="padding:10px 0;color:var(--muted);line-height:1.5">Функция сразу исчезнет из этого чата. Включить её обратно можно в любой момент.</div>',[
+    const warn=key==='module_bot'
+      ?'Бот замолчит на все команды в этом чате, пока модуль не вернут. Включается обратно одним нажатием.'
+      :'Функция сразу исчезнет из этого чата. Включить её обратно можно в любой момент.';
+    OM('Отключить модуль?',`<div style="padding:10px 0;color:var(--muted);line-height:1.5">${warn}</div>`,[
       {l:'Отключить',c:'btn-red',f:`CM();commitAdmToggle('${key}')`},
       {l:'Отмена',c:'btn-ghost',f:'CM()'}]);
     return;
@@ -397,7 +393,7 @@ function queueAdmSave() {
   _admSaveTimer=setTimeout(saveAdmSettings, 1000);
 }
 function saveAdmSettings() {
-  const keys=['module_mafia','module_rhythm','module_pets','module_quests','module_warps','module_echo',
+  const keys=[..._admSettingKeys,
               'nsfw_warps_allowed','rank_warn','rank_mute','rank_kick','rank_ban',
               'rank_shield','rank_immune','rank_marriage','rank_give','purge_min_rank',
               'purge_action_rank','purge_write_rank','rank_chat_lock'];

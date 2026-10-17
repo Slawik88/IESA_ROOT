@@ -8,6 +8,10 @@ from infrastructure.repositories.wallet_log import get_recent
 from services.utils import format_currency, check_callback_owner
 
 router = Router(name="wallet_history_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_profile"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_profile"))
 
 _SOURCE_LABELS: dict[str, str] = {
     "expedition": "🗺 Поход",

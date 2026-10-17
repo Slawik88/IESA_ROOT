@@ -71,6 +71,7 @@ from infrastructure.repositories.public_profiles_v1 import ensure_tables as ensu
 from infrastructure.repositories.global_skins_v1 import ensure_tables as ensure_global_skins_v1
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chests_v1
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
+from infrastructure.repositories.chat_module_audit import ensure_chat_module_columns
 from loguru import logger as _log
 
 
@@ -130,6 +131,7 @@ async def lifespan(app: FastAPI):
             (ensure_public_profiles_v1,             "public_profiles_v1"),
             (ensure_global_skins_v1,                 "global_skins_v1"),
             (ensure_player_exchange_v1,              "player_exchange_v1"),
+            (ensure_chat_module_columns,             "chat_module_columns"),
         ]:
             try:
                 await _fn(PGAdapter(conn))
@@ -296,7 +298,7 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)]
 
 # Cache-busting version = newest mtime among the static assets.
 _ASSET_VER = str(int(max(

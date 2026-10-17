@@ -24,6 +24,10 @@ from services.utils import format_currency, resolve_display_name
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="marriage_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_family"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_family"))
 
 class MarriageAction(CallbackData, prefix="marry"):
     action: str

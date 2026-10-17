@@ -14,6 +14,10 @@ from services.utils import feature_guard
 from bot.keyboards.cta import answer_group_only
 
 router = Router(name="purge_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_purge"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_purge"))
 
 
 @router.message(TextCmd(["чистка", "начать чистку"]))

@@ -1,6 +1,18 @@
 # infrastructure/repositories/moderation.py
 import aiosqlite
 
+from core.chat_modules import CHAT_MODULES
+
+
+# Колонки модулей и их дефолты — строго из реестра core.chat_modules.
+_MODULE_SELECT = ", ".join(
+    f"COALESCE({key}, {int(spec['default_enabled'])}) AS {key}"
+    for key, spec in CHAT_MODULES.items()
+)
+_MODULE_DEFAULTS = {
+    key: int(spec["default_enabled"]) for key, spec in CHAT_MODULES.items()
+}
+
 
 async def set_user_left_status(
     db: aiosqlite.Connection, chat_id: int, user_id: int, is_left: bool
@@ -72,20 +84,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
         "COALESCE(rank_duel, 0) AS rank_duel, "
         "COALESCE(rank_marriage, 0) AS rank_marriage, "
         "COALESCE(rank_give, 0) AS rank_give, "
-        "COALESCE(module_shop, 1) AS module_shop, "
-        "COALESCE(module_gacha, 1) AS module_gacha, "
-        "COALESCE(module_expeditions, 1) AS module_expeditions, "
-        "COALESCE(module_auction, 1) AS module_auction, "
-        "COALESCE(module_games, 1) AS module_games, "
-        "COALESCE(module_exchange, 1) AS module_exchange, "
-        "COALESCE(module_quests, 1) AS module_quests, "
-        "COALESCE(module_zoo, 1) AS module_zoo, "
-        "COALESCE(module_warps, 1) AS module_warps, "
-        "COALESCE(module_daily_deal, 1) AS module_daily_deal, "
-        "COALESCE(module_mafia, 1) AS module_mafia, "
-        "COALESCE(module_rhythm, 1) AS module_rhythm, "
-        "COALESCE(module_pets, 1) AS module_pets, "
-        "COALESCE(module_echo, 0) AS module_echo, "
+        f"{_MODULE_SELECT}, "
         "COALESCE(include_in_global_top, 1) AS include_in_global_top, "
         "COALESCE(notif_auction, 1) AS notif_auction, "
         "COALESCE(notif_gacha, 1) AS notif_gacha, "
@@ -105,10 +104,7 @@ async def get_chat_settings(db: aiosqlite.Connection, chat_id: int) -> dict:
             "events_enabled": 1, "nsfw_warps_allowed": 1, "auction_min_rank": 0,
             "echo_events_enabled": 0,
             "rank_duel": 0, "rank_marriage": 0, "rank_give": 0,
-            "module_shop": 1, "module_gacha": 1, "module_expeditions": 1,
-            "module_auction": 1, "module_games": 1, "module_exchange": 1,
-            "module_quests": 1, "module_zoo": 1, "module_warps": 1, "module_daily_deal": 1,
-            "module_mafia": 1, "module_rhythm": 1, "module_pets": 1, "module_echo": 0,
+            **_MODULE_DEFAULTS,
             "include_in_global_top": 1,
             "notif_auction": 1, "notif_gacha": 1, "notif_expeditions": 1, "notif_quests": 1,
         }
@@ -139,13 +135,12 @@ async def update_chat_settings(db: aiosqlite.Connection, chat_id: int, **kwargs)
         "purge_action_rank", "purge_write_rank", "rank_chat_lock", "rank_warn",
         "rank_mute", "rank_kick", "rank_ban", "rank_shield", "rank_immune",
         "rank_marriage", "nsfw_warps_allowed", "echo_events_enabled",
-        "module_mafia", "module_rhythm", "module_pets", "module_quests",
-        "module_warps", "module_echo", "include_in_global_top",
+        "include_in_global_top",
         "events_enabled", "auction_min_rank", "rank_duel", "rank_give",
         "module_shop", "module_gacha", "module_expeditions", "module_auction",
-        "module_games", "module_exchange", "module_zoo", "module_daily_deal",
+        "module_exchange", "module_zoo", "module_daily_deal",
         "notif_auction", "notif_gacha", "notif_expeditions", "notif_quests",
-    }
+    } | set(CHAT_MODULES)
     unknown = set(kwargs) - allowed
     if unknown:
         raise ValueError(f"unsupported chat settings: {', '.join(sorted(unknown))}")

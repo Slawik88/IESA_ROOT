@@ -1,11 +1,30 @@
 """Canonical module mutations with append-only operator receipts."""
 from __future__ import annotations
 
-from core.chat_modules import CHAT_MODULES, CHAT_MODULE_KEYS, chat_module_default
+from core.chat_modules import (
+    CHAT_MODULES,
+    CHAT_MODULE_GROUPS,
+    CHAT_MODULE_KEYS,
+    chat_module_default,
+)
 
 
 def _default(module_key: str) -> int:
     return int(chat_module_default(module_key))
+
+
+async def ensure_chat_module_columns(db) -> None:
+    """Идемпотентно добавляет колонку каждому модулю реестра.
+
+    Реестр — единственный источник правды: добавил модуль в CHAT_MODULES —
+    колонка появится сама. ALTER без данных: существующие значения не тронуты,
+    DEFAULT = default_enabled реестра применяется только к новым строкам.
+    """
+    for module_key, spec in CHAT_MODULES.items():
+        await db.execute(
+            f"ALTER TABLE chat_settings ADD COLUMN IF NOT EXISTS {module_key} "
+            f"INTEGER DEFAULT {int(spec['default_enabled'])}"
+        )
 
 
 async def install_schema(db) -> None:
@@ -48,11 +67,21 @@ async def install_schema(db) -> None:
         "CREATE INDEX IF NOT EXISTS idx_chat_module_audit_chat "
         "ON chat_module_audit(chat_id, created_at DESC) WHERE scope = 'chat'"
     )
+    await ensure_chat_module_columns(db)
 
 
 def catalog() -> list[dict]:
-    return [{"key": key, **spec}
-            for key, spec in CHAT_MODULES.items()]
+    """Каталог модулей в порядке реестра, с разрешённой группой для UI."""
+    items = []
+    for key, spec in CHAT_MODULES.items():
+        group = CHAT_MODULE_GROUPS.get(spec["group"], {})
+        items.append({
+            "key": key,
+            **spec,
+            "group_name": group.get("name", str(spec["group"])),
+            "group_icon": group.get("icon", "🧩"),
+        })
+    return items
 
 
 async def set_chat_module(db, *, chat_id: int, module_key: str, enabled: bool,

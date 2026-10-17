@@ -14,6 +14,7 @@ from bot.middlewares.config_mw import config_middleware
 from bot.middlewares.preprod_gate_mw import preprod_gate_middleware
 from bot.middlewares.global_sanctions_mw import global_sanctions_middleware
 from bot.middlewares.purge_gate_mw import purge_gate_middleware
+from bot.middlewares.module_check_mw import bot_silence_middleware
 from bot.middlewares.outbound_throttle import OutboundThrottleMiddleware
 from bot.handlers import main_router
 from bot.handlers.payments import star_payment_reconciliation_task
@@ -213,6 +214,7 @@ async def main():
     dp.update.middleware(db_middleware)
     dp.update.middleware(global_sanctions_middleware)
     dp.update.middleware(purge_gate_middleware)   # admin_audit B5: режим письма при чистке
+    dp.update.middleware(bot_silence_middleware)  # «Весь бот в чатах»: тихий стоп команд
 
     logger.info("📡 Регистрация роутеров...")
     dp.include_router(main_router)

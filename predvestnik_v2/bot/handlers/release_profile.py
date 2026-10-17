@@ -15,6 +15,10 @@ from core.miniapp_links import miniapp_url
 from services.utils import safe_html
 
 router = Router(name="release_profile_router")
+from bot.middlewares.module_check_mw import ModuleCheckMiddleware
+
+router.message.middleware(ModuleCheckMiddleware("module_profile"))
+router.callback_query.middleware(ModuleCheckMiddleware("module_profile"))
 
 
 def _hub_keyboard() -> types.InlineKeyboardMarkup:
