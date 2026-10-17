@@ -1,5 +1,9 @@
 // ── Shell V3 · постоянная панель, «Дальше», печать VIP, путь по аспектам ─────────
-function _v3Wallet(d) { return (d && typeof d.balances === 'object' && d.balances) ? d.balances : (d || {}); }
+function _v3Wallet(d) {
+  const wallet = { ...(d?.balances || {}) };
+  ['mora', 'diamonds', 'zarniki', 'essence'].forEach(k => { if (d?.[k] !== undefined) wallet[k] = d[k]; });
+  return wallet;
+}
 function _v3Short(n, from = 1e4) {
   const v = Number(n) || 0;
   if (v >= 1e6) return `${(v / 1e6).toFixed(1).replace('.', ',').replace(',0', '')}М`;
@@ -32,6 +36,9 @@ document.fonts?.ready?.then(v3ChipsFade);   // шрифт приходит по�
 function renderV3Bar(d) {
   const bar = el('v3-bar'); if (!bar || !d) return;
   const wallet = _v3Wallet(d), level = Math.max(1, Number(d.account_level) || 1);
+  ['mora', 'diamonds', 'zarniki', 'essence'].forEach(k => {
+    const node = el('cm-bal-' + k); if (node && wallet[k] !== undefined) node.textContent = fmtF(wallet[k]);
+  });
   const need = Number(d.xp_to_next) > 0 ? Number(d.xp_to_next) : 0, xp = Math.max(0, Number(d.xp_into) || 0);
   const me = el('v3-bar-me');
   if (me) {

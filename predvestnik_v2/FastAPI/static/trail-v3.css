@@ -281,3 +281,4 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .mafia-review-timeline{padding-left:18px}.mafia-review-timeline>li{margin:16px 0}.mafia-review-timeline p{margin:8px 0}
 #web-purge-host .v3-field,#web-purge-host select,#web-purge-host input{width:100%;box-sizing:border-box;min-height:44px;margin:8px 0 14px}
 #web-purge-host .tr-grp h3{overflow-wrap:anywhere}#web-purge-host .tr-list{list-style:none;padding:0}
+.tr-selected { color:var(--v3-ink); line-height:1.45; }

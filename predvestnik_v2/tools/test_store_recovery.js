@@ -5,13 +5,13 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../FastAPI/static/app.30.js'), 'utf8');
 const root = { innerHTML: '' };
-let calls = [], responses = {};
+let calls = [], responses = {}, notices = [];
 const ctx = vm.createContext({
   console, Date, Promise, setTimeout, clearTimeout, window: {scrollTo: () => {}},
   _profileData: { vip: { days_left: 5, expires_at: '2030-01-01T00:00:00Z' } },
   el: () => root, switchPage: () => {}, v3EnterSync: () => {}, _haptic: () => {},
   _profileEsc: x => String(x).replaceAll('<', '&lt;'), _profileDate: x => x,
-  fmt: x => String(x),
+  fmt: x => String(x), toast: x => notices.push(String(x)), v3Confirm: async () => true, loadProfile: async () => {throw new Error("profile offline");},
   api: p => { calls.push(p); return responses[p](); },
 });
 vm.runInContext(source, ctx);
@@ -66,6 +66,18 @@ async function main() {
   await old;
   assert.match(root.innerHTML, /VIP не активен/);
   assert.doesNotMatch(root.innerHTML, /2040/);
+  // A confirmed write remains successful when a subsequent read fails.
+  setup(fail); notices=[];
+  responses['/vip-v2/purchase']=ok({package_days:30});
+  run("_svRender=()=>{}; _profileData.zarniki=1000; _sv.loading=false; _sv.vipFailed=false; _sv.vip={active:false,tiers:[{duration_days:30,price_zarniki:100}]};");
+  await run('svVipBuy(30)');
+  assert.equal(calls.filter(x=>x==='/vip-v2/purchase').length,1);
+  assert(notices.some(x=>/продлён/.test(x)));
+  assert(notices.some(x=>/Покупка подтверждена/.test(x)));
+  assert(!notices.some(x=>/Покупка не выполнена|offline/.test(x)));
+  assert.equal(run('_sv.vipFailed'),true);
+  await run('svVipBuy(30)');
+  assert.equal(calls.filter(x=>x==='/vip-v2/purchase').length,1,'stale status cannot buy again');
   console.log('OK: VIP recovery, independent reads, invalid payload, retry, stale-response rejection and write guards');
 }
 main().catch(e => { console.error(e);process.exitCode=1; });

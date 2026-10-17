@@ -182,7 +182,13 @@ async function svVipBuy(days) {
     const key = (_sv.vipKeys ||= {})[days] ||= (globalThis.crypto?.randomUUID?.() || `vip-${Date.now()}`);
     const r = await api('/vip-v2/purchase', { method: 'POST', body: JSON.stringify({ package_days: days, action_id: key }) });
     _sv.vipKeys = {}; toast(`VIP продлён на ${fmt(r.package_days)} дней`); _haptic('success');
-    await Promise.all([loadProfile(), api('/vip-v2/status').then(x => { _sv.vip = x; })]);
+    const reads = await Promise.allSettled([loadProfile(), api('/vip-v2/status')]);
+    if (reads[1].status === 'fulfilled' && Array.isArray(reads[1].value?.tiers)) {
+      _sv.vip = reads[1].value; _sv.vipFailed = false; _sv.vipReadAt = new Date();
+    } else {
+      _sv.vipFailed = true;
+      toast('Покупка подтверждена. Данные VIP не обновились — нажмите «Повторить».', false);
+    }
   } catch (e) { toast(e?.message || e || 'Покупка не выполнена', false); }
   finally { _sv.busy = false; _svRender(); }
 }

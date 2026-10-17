@@ -247,7 +247,7 @@ function _trBldFx(b, level) {   // что постройка даёт на эт�
   const c = _tr.me.rules.camp || {};
   if (b === 'lounge') return level ? `Отдых сил +${(c.lounge || [])[level]}\u00a0%` : 'Отдых сил без бонуса';
   if (b === 'markers') return `Повтор маршрута за день: Следы ×${_trMult((c.markers || [])[level])}`;
-  return `Талисманы до тира ${_TR_TIER[(c.workshop || [])[level]] || ''}`;
+  return level === 0 ? 'Без улучшения мастерской · талисманы до тира I' : `Талисманы до тира ${_TR_TIER[(c.workshop || [])[level]] || ''}${level === 1 ? ' · первый уровень постройки' : ''}`;
 }
 function _trBldRow(b, me, job) {
   const camp = me.camp, lv = camp.levels[b] || 0, cost = camp.next_costs?.[b], name = _TR_BLD[b];

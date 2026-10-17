@@ -85,3 +85,9 @@
 .ap-anim .ap-pt-ring i { animation-name: apburst; animation-duration: calc(var(--d) * .5); animation-timing-function: ease-out; }
 
 @media (prefers-reduced-motion: reduce) { .ap-bg b, .ap-bg::after, .ap-fx i { animation: none !important; } }
+
+/* Confine decorative effects without clipping content, focus or controls. */
+.ap-scene-clip { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:-1; border-radius:inherit; }
+.v3-id.has-look > div:last-child { position:relative; isolation:isolate; }
+.v3-id.has-look > div:last-child::before { content:""; position:absolute; inset:-5px -8px; z-index:-1; pointer-events:none; background:color-mix(in srgb,var(--v3-bg) 85%,transparent); filter:blur(12px); }
+.ap-scene-clip { -webkit-mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); }

@@ -230,6 +230,7 @@ function fmtBar(v){
   return fmtF(v);
 }
 function updateCurrBar(data) {
+  if (typeof renderV3Bar === 'function') renderV3Bar(data);
   const bar = el('curr-bar');
   // Identity belongs to the header, not to the optional compact currency bar.
   // The profile no longer renders that bar on its main page, so returning here
@@ -279,7 +280,7 @@ function _ensureVipAvatar() {
 }
 
 function showCurrModal() {
-  const d = _profileData || {};
+  const d = _v3Wallet(_profileData || {});
   const mora = d.mora ?? 0, dia = d.diamonds ?? 0, zar = d.zarniki ?? 0;
   OM('💰 Валюты', `<div class="curr-modal">
     <div class="cm-block">

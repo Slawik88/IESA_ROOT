@@ -633,8 +633,8 @@ async function peopleSearch(main, query = '') {
     if (showAttn) api('/chats/attention').then(att => {
       const host = $('#pplattn');
       if (!host || !att.total) return;
-      host.innerHTML = `<div class="card"><h3>⚠️ Чаты требуют внимания · ${att.total}</h3><div class="list">${attentionRows(att.items.slice(0, 5))}</div>
-        ${att.total > 5 ? '<button class="btn small more" id="attnall">Показать все</button>' : ''}</div>`;
+      host.innerHTML = `<details class="card"><summary>⚠️ Чаты требуют внимания · ${att.total}</summary><div class="list">${attentionRows(att.items.slice(0, 5))}</div>
+        ${att.total > 5 ? '<button class="btn small more" id="attnall">Показать все</button>' : ''}</details>`;
       if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
     }).catch(() => {});
     if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
@@ -1084,6 +1084,7 @@ async function metricsView(main, days = 1) {
   const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
   if (!m) return;
   const s = m.site, b = m.bot, c = m.chats, cmp = m.compare || {};
+  const metricTrend = (cur, prev) => m.days === 1 ? '' : trend(cur, prev);
   const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
   const dmy = d => d.split('-').reverse().join('.');
   main.innerHTML = `
@@ -1093,13 +1094,13 @@ async function metricsView(main, days = 1) {
       <span class="sub">${m.days === 1 ? dmy(m.until) : dmy(m.since) + ' — ' + dmy(m.until)}</span>
       <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
     <div class="kpis hero">
-      ${kpi('👤 Уникальных людей', num(m.everyone), trend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), trend(s.visitors, cmp.visitors))}
-      ${kpi('🤖 Команд бота', num(b.commands), trend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), trend(c.messages, cmp.messages))}</div>
+      ${kpi('👤 Уникальных людей', num(m.everyone), metricTrend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), metricTrend(s.visitors, cmp.visitors))}
+      ${kpi('🤖 Команд бота', num(b.commands), metricTrend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages))}</div>
     <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
-      в чате с ботом. Стрелки — сравнение с ${m.days === 1 ? 'прошлыми сутками целиком' : `предыдущими ${m.days} днями`}.
+      в чате с ботом. ${m.days === 1 ? 'Сегодняшний день ещё не завершён (UTC); проценты к полным прошлым суткам не показываем.' : `Стрелки — сравнение с предыдущими ${m.days} днями. Текущий период включает незавершённый день (UTC).`}
       ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
     ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
-      ${kpi('Посетителей', num(s.visitors), trend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
+      ${kpi('Посетителей', num(s.visitors), metricTrend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
       ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
       ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
       ${s.pages.length ? tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
@@ -1108,14 +1109,14 @@ async function metricsView(main, days = 1) {
       ${s.subpages.length ? `<details class="more-d"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
         ${tbl(['Вкладка', 'Открытий', 'Людей'], s.subpages.map(p => [esc(p.tab), num(p.visits), `${num(p.users)} чел.`]))}</details>` : ''}`)}
     ${section('m-bot', '🤖 Команды бота', `<div class="kpis">
-      ${kpi('Команд', num(b.commands), trend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
-      ${kpi('Людей', num(b.users), trend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
+      ${kpi('Команд', num(b.commands), metricTrend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
+      ${kpi('Людей', num(b.users), metricTrend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
       ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
       ${b.top.length ? tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))
         : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
       ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}`)}
     ${section('m-chats', '💬 Чаты', `<div class="kpis">
-      ${kpi('Сообщений', num(c.messages), trend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', trend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
+      ${kpi('Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', metricTrend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
       ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
       ${c.top.length ? tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)])) : ''}`)}
     ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}`;

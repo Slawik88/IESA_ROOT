@@ -3,7 +3,7 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
-## UIUX-20261017 — audit fixes, wave 1 (local; not released)
+## UIUX-20261017 — audit fixes, waves 1–2 (reviewed; master integration)
 
 Branch `codex/ui-ux-fixes`, base `origin/master` fcecff0d. Owner approved fixes
 after the global audit (68 captured states, 44 destinations). UI UX Pro Max
@@ -45,12 +45,52 @@ Full authenticated admin navigation is not proven: the synthetic main-app
 cookie login is not accepted by the separate Telegram admin login. No live
 flags, permissions, payments, player balances or moderation were changed.
 
-Independent code critic was requested but returned an account usage-limit
-error before reviewing this wave. Do not mark independent review as passed.
-No merge/deployment. Next: independent review of this exact diff, then continue
-audit F05/F06/F08/F10/F11/F12 (cosmetic readability, navigation comparison,
-summaries, Mines keyboard/touch, balance freshness and admin workflow clarity).
-Evidence is local: `C:/Users/makss/.codex/visualizations/2026/10/17/predvestnik-ui-ux-fixes/`.
+Wave 2 completes the bounded UI fixes:
+- Five primary destinations (Profile, Games, Quests, Pets, More), each 58x54
+  at 320px. Looks/Chests/Top remain explicit rows near the top of More, with
+  deep links and independent aggregated unread markers preserved.
+- Cosmetic scene effects are clipped in a separate decorative layer; content,
+  controls and focus are not clipped. Identity text has a soft quiet backdrop.
+  Looks has compact phone previews and an expandable tier preview after its CTA.
+- Pet send footer states selected pet, duration, route, energy and companion.
+  Trek copy promises reward after return. Workshop level 0/1 wording explicitly
+  reflects the unchanged tier-I ceiling; no economic benefit was invented.
+- Mines cells >=44x44 in a locally scrollable field, coordinate labels, grid
+  rows, one Tab stop, arrows/Home/End, restored focus and cancelled pan/hold.
+  Opening failure survives rendering; start button is guarded while pending.
+  Difficulty says “мин: 10”, not the ambiguous “10 мин”.
+- Wallet header, profile and open currency sheet use one flat-over-nested read
+  model; partial WebSocket events merge both shapes. Modal number patches do
+  not rebuild the exchange form. Original audit did not prove financial loss
+  or identify every source of stale reads; no such claim is made here.
+- Admin chat-attention list is collapsed with count visible. Today is labelled
+  incomplete UTC and does not show misleading percentages against a full day.
+  Destructive admin mutation handlers remain hash-contract checked.
+- A confirmed VIP purchase stays successful if subsequent status/profile reads
+  fail. Stale VIP writes are disabled until retry; unknown POST result retains
+  its action ID. No prices, rewards or ledger rules were changed.
+
+Independent read-only critic reviewed commit 773b4889 and the wave-2 working
+changes: no blocking regressions. Its missing More-row visual marker was fixed
+and verified at 320/390. Critic separately reran Node and Python contracts.
+Checks: six Node behaviour suites (store/admin/recommendations/Mines/wallet/nav),
+shell/Trail/quest/admin/screen contracts, inventory PostgreSQL, current and
+retired release routes/auth, direct and prefixed ASGI static delivery, parsing,
+and diff check. Earlier VIP PostgreSQL replay/concurrency checks still apply
+unchanged to this release's backend. No schema migration in this wave.
+
+Browser: real isolated local FastAPI + synthetic account with SSS sakura_storm;
+profile/More/looks/trip/Mines snapshots, 320/390/430 coverage. At 320, dock targets
+58x54 and Mines cells 44.88px; arrows/End reached column9 with opened=0/71.
+Evidence: C:/Users/makss/.codex/visualizations/2026/10/17/predvestnik-ui-ux-fixes/.
+
+Remaining follow-up scope, not claimed done: native Telegram touch/screen-reader
+hardware validation; full authenticated admin broadcast/cleaning final-step
+journeys; player feedback on the five-tab hierarchy; economic redesign of a
+workshop level that does not raise its ceiling. No real payments, broadcasts,
+cleaning, moderation, flags or player balances were changed during QA.
+Owner explicitly authorised master integration. Production deployment must be
+verified separately from the Git push. Exchange v2 remains a separate worktree.
 
 ## QUEST-VARIETY-20261016 — additive pet quests
 

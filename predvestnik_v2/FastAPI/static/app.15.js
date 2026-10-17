@@ -40,7 +40,7 @@ function _v3Avatar(d) {
 }
 function renderProfileHome(data) {
   const d = data || {};
-  const wallet = (d.balances && typeof d.balances === 'object') ? d.balances : d;
+  const wallet = _v3Wallet(d);
   const level = Math.max(1, Number(d.account_level) || 1);
   const xp = Math.max(0, Number(d.xp_into) || 0);
   const xpNeed = Math.max(1, Number(d.xp_to_next) || Number(d.xp_per_level) || 1);
