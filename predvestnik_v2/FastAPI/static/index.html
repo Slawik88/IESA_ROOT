@@ -192,11 +192,13 @@
 
 <!-- ═══ НИЖНИЙ ДОК ═══ -->
 <!-- Вне .page: анимация страницы использует transform и иначе ломает fixed-позицию dock. -->
-<nav class="nav" aria-label="Основные разделы" style="--nav-n:5;--nav-i:0">
+<nav class="nav" aria-label="Основные разделы" style="--nav-n:7;--nav-i:0">
   <button type="button" class="nb active" data-page="profile" aria-current="page" onclick="switchPage('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль</span></button>
   <button type="button" class="nb" data-page="arena" onclick="switchPage('arena')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры</span></button>
-  <button type="button" class="nb" data-page="questlog" onclick="openQuestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 6.5 1.6 1.6L9 5M4.5 12.5l1.6 1.6L9 11M4.5 18.5l1.6 1.6L9 17M13 7h6.5M13 13h6.5M13 19h6.5"/></svg><span>Задания</span></button>
   <button type="button" class="nb" data-page="pets" onclick="openPetsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="11" r="1.7"/><circle cx="10" cy="6.5" r="1.7"/><circle cx="14" cy="6.5" r="1.7"/><circle cx="17.5" cy="11" r="1.7"/><path d="M12 12.5c-3 0-5 2.7-4 4.6.8 1.5 2.4 1.2 4 1.2s3.2.3 4-1.2c1-1.9-1-4.6-4-4.6z"/></svg><span>Питомцы</span></button>
+  <button type="button" class="nb" data-page="questlog" onclick="openQuestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4.5 6.5 1.6 1.6L9 5M4.5 12.5l1.6 1.6L9 11M4.5 18.5l1.6 1.6L9 17M13 7h6.5M13 13h6.5M13 19h6.5"/></svg><span>Задания</span></button>
+  <button type="button" class="nb" data-page="looks" onclick="openLooksModal()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.2 4h11.6L21 9l-9 11L3 9z"/><path d="M3 9h18M9.2 4 12 9l2.8-5M12 9v11"/></svg><span>Образы</span></button>
+  <button type="button" class="nb" data-page="chests" onclick="openChestsV1()"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v3M4 11h16v7.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5zM4 14h16"/><path d="M12 12.5v3"/></svg><span>Сундуки</span></button>
   <button type="button" class="nb" id="nb-more" data-page="more" onclick="switchPage('more')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/></svg><span>Ещё</span></button>
 </nav>
 

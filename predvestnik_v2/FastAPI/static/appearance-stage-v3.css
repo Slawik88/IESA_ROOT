@@ -88,6 +88,6 @@
 
 /* Confine decorative effects without clipping content, focus or controls. */
 .ap-scene-clip { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:-1; border-radius:inherit; }
-.v3-id.has-look > div:last-child { position:relative; isolation:isolate; }
-.v3-id.has-look > div:last-child::before { content:""; position:absolute; inset:-5px -8px; z-index:-1; pointer-events:none; background:color-mix(in srgb,var(--v3-bg) 85%,transparent); filter:blur(12px); }
 .ap-scene-clip { -webkit-mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); }
+
+.v3-id.has-look :is(.v3-sub,.v3-greet) { color:var(--v3-ink); text-shadow:0 1px 3px #000; }

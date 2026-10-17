@@ -3,6 +3,21 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## UIUX-20261017-nav7 — owner correction
+
+Owner requested removal of the dark identity patch and 6–7 dock destinations.
+Removed the blurred identity pseudo-background; text has only a tight glyph
+shadow. Seven directions: Profile/Games/Pets/Quests/Looks/Chests/More. Top stays
+in More. Primary work/play routes first; cosmetic/reward routes next. More unread
+aggregation excludes direct primary tabs. At320 dock uses308px: 7x44px hit areas,
+54px high. All labels visible, no inactive-label hiding; narrow labels10px.
+At390/430 labels11px. Mobile screen review passed all3widths; real direct Chests
+navigation and active state verified without buying/opening a chest.
+Read-only critic: no blockers; label concern addressed and screenshot-verified.
+Node navigation, shell and screen contracts passed. No economy/API changes.
+Evidence: nav7-final-{320,390,430}.png in existing local evidence directory.
+The prior five-tab hierarchy below describes the previous released wave.
+
 ## UIUX-20261017 — audit fixes, waves 1–2 (reviewed; master integration)
 
 Branch `codex/ui-ux-fixes`, base `origin/master` fcecff0d. Owner approved fixes
