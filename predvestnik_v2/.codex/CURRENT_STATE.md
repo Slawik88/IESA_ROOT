@@ -31,9 +31,11 @@ User clarified VERY casual, available day1, ready system coins without waiting
 for player issuers, optional very simple own coin1000..5000Zarniki+Mora ORdiamonds.
 User accepted DISCUSSING base: Zarniki pay creation/affect initial valuation;
 Mora/diamonds locked, trading onlyMora. No formulas/rates/reserve/short/migration
-rules approved. New owner decision: SYSTEM coin prices/volatility depend ONLY
+rules approved. New owner decision: ALL system AND personally issued coin prices/volatility depend ONLY
 on server algorithms, never player buy/sell/volume/positions. Formula still TBD.
-Whether the same applies to personally issued coins needs confirmation.
+Owner explicitly confirmed the same principle for personal coins on2026-10-17.
+Initial contribution affects start price; no trade impact afterwards.
+New mechanics proposals in docs/EXCHANGE_CASUAL_MECHANICS.md are NOT approved.
 docs/EXCHANGE_CASUAL_AI_PROMPT.md is detailed DRAFT and permits
 only audit/design stage0 until decisions filled. Do not hand it off as authority
 to invent economic constants. Next step: agree valuation vs real liquidity,
