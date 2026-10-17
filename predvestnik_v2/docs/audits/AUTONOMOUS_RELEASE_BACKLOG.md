@@ -1,3 +1,20 @@
+## Exchange v2 release preparation — 2026-10-17
+
+Owner authorised master/public launch and ONE initial system issuance of120000Mora
+(6x15000system reserves +30000conversion fund), immutable reference in funding log.
+No player debit/automatic refill. Offline release CLI requires explicit amount,
+checks funding/rules/secret/reserve reconciliation, then atomically enables v2+shorts
+and keepsv1off. Rest of file includes historical checkpoints.
+
+Validation:15core tests;100000pathsim PASS; realPG race/rollback/replay/dust/cap/
+bootstrapauthorization; actualHTTP auth/strictschemas/receipt+chartprivacy/flags/
+deletedaccount; fullUI Node lostPOST before/aftercommit +reload +exactretry;
+chart/preview/header/staticdelivery/publicroutes/shell contracts PASS.
+Currentmaster merged; UI polish:tokenised mobile lists/groups/linechart/tradepoints/
+quoteexpiry/tariffs/icons/description. Site exchange switch now coversv2.
+Live responsive proof320/390/430 hasnohorizontaloverflow. Release pending final
+productiondeploy/operatorbootstrap+enable and public smoke; do not label it live yet.
+
 ## Exchange v2 recovery checkpoint — 2026-10-17
 
 Catalogue cap concurrency/read truncation, explicit owner-approved zero-Mora dust

@@ -153,6 +153,79 @@ async def catalogue_regression(db, conn):
     print("PASS: catalogue 499-way boundary, two-connection create race, rollback and historical overflow short/maintenance")
 
 
+async def http_regression(db, conn):
+    import httpx
+    from fastapi import FastAPI
+    from FastAPI import deps
+    from FastAPI.auth import create_session_token
+    from FastAPI.routers.coin_market_v2 import router
+
+    app = FastAPI()
+    app.include_router(router)
+
+    async def test_db():
+        yield db
+
+    app.dependency_overrides[deps.get_db] = test_db
+    # Only connection plumbing and unrelated presence telemetry are isolated;
+    # real token verification and account-deletion dependencies remain active.
+    with patch.dict(os.environ, {'BOT_TOKEN': '123456:offline-http-regression'}), \
+            patch.object(deps, 'require_preprod_user', return_value=True), \
+            patch.object(deps, '_fire_and_forget', side_effect=lambda c: c.close()):
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            prefix = '/coin-market/v2'
+            endpoints = [('GET', '/me'), ('GET', '/availability'), ('GET', '/coins/orb/history'),
+                ('POST', '/quote'), ('POST', '/trade'), ('POST', '/create-quote'),
+                ('POST', '/create'), ('PUT', '/coins/orb/metadata'),
+                ('PUT', '/coins/orb/favorite'), ('GET', '/receipt/http_buy_12')]
+            for method, url in endpoints:
+                r = await client.request(method, prefix+url, json={})
+                assert r.status_code == 401, (method, url, r.status_code, r.text)
+            headers = {'x-session-token': create_session_token(12)}
+            other = {'x-session-token': create_session_token(13)}
+            bad = await client.get(prefix+'/me', headers={'x-session-token':'forged'})
+            assert bad.status_code == 401
+            assert (await client.get(prefix+'/me', headers=headers)).status_code == 200
+            for payload in ({'coin_id':'orb','side':'buy','amount':10},
+                            {'coin_id':'orb','side':'buy','units':True},
+                            {'coin_id':'orb','side':'buy','payout':'999'}):
+                assert (await client.post(prefix+'/quote', headers=headers, json=payload)).status_code == 422
+            q = await client.post(prefix+'/quote', headers=headers,
+                json={'coin_id':'orb','side':'buy','amount':'10'})
+            assert q.status_code == 200, q.text
+            q = q.json()
+            body = {'coin_id':'orb','side':'buy','amount':'10','action_id':'http_buy_12',
+                    'tick':q['tick'], 'price':q['price']}
+            result = await client.post(prefix+'/trade', headers=headers, json=body)
+            assert result.status_code == 200, result.text
+            assert (await client.post(prefix+'/trade', headers=headers, json=body)).json()['replayed']
+            assert (await client.get(prefix+'/receipt/http_buy_12', headers=other)).status_code == 404
+            assert (await client.get(prefix+'/receipt/http_buy_12', headers=headers)).status_code == 200
+            count = await conn.fetchval("SELECT count(*) FROM economic_operations WHERE user_id=12 AND idempotency_key='cm2:http_buy_12'")
+            assert count == 1
+            assert (await client.put(prefix+'/coins/orb/metadata', headers=other,
+                json={'icon':'star','description':'not owner'})).status_code == 400
+            chart = (await client.get(prefix+'/coins/orb/history', headers=headers)).json()
+            assert any(m['side']=='buy' for m in chart['markers'])
+            other_chart = (await client.get(prefix+'/coins/orb/history', headers=other)).json()
+            assert not other_chart['markers'], 'chart leaks another player trades'
+            await system_flags.set_flag(db, 'coin_market_v2_shorts', False)
+            assert (await client.post(prefix+'/quote', headers=headers,
+                json={'coin_id':'orb','side':'short','amount':'10'})).status_code == 503
+            await system_flags.set_flag(db, 'coin_market_v2', False)
+            assert (await client.post(prefix+'/quote', headers=headers,
+                json={'coin_id':'orb','side':'buy','amount':'10'})).status_code == 503
+            units, _ = await repo.account(db, 'orb', 12)
+            assert (await client.post(prefix+'/quote', headers=headers,
+                json={'coin_id':'orb','side':'sell','units':units})).status_code == 200
+            await conn.execute('UPDATE users SET deleted_at=now() WHERE user_tg_id=13')
+            assert (await client.get(prefix+'/me', headers=other)).status_code == 403
+            await conn.execute('UPDATE users SET deleted_at=NULL WHERE user_tg_id=13')
+            await system_flags.set_flag(db, 'coin_market_v2', True)
+            await system_flags.set_flag(db, 'coin_market_v2_shorts', True)
+    print('PASS: actual HTTP auth, strict payloads, wallet replay, private receipts/chart, ownership, flags and deletion gate')
+
+
 async def run():
     admin = await asyncpg.connect(DSN)
     await admin.execute(f'CREATE SCHEMA "{SCHEMA}"')
@@ -173,9 +246,44 @@ async def run():
         await repo.ensure_tables(db)
         await repo.ensure_tables(db)
         assert not await system_flags.is_enabled(db, "coin_market_v2")
-        assert await service.bootstrap(db, source="explicit_test_funding")
-        assert not await service.bootstrap(db, source="explicit_test_funding")
+        await rejects(ValueError, service.bootstrap(db, source="missing_authorization"))
+        assert await repo.coin_count(db) == 0
+        with patch.object(repo, "insert_coin", side_effect=RuntimeError("interrupted genesis")):
+            await rejects(RuntimeError, service.bootstrap(db, source="fixture",
+                issuance_authorization="disposable_test_fixture_only"))
+        assert await conn.fetchval("SELECT count(*) FROM coin_market_v2_funding") == 0
+        assert await conn.fetchval("SELECT count(*) FROM coin_market_v2_fund") == 0
+        assert await service.bootstrap(db, source="explicit_test_funding", issuance_authorization="disposable_test_fixture_only")
+        assert not await service.bootstrap(db, source="explicit_test_funding", issuance_authorization="disposable_test_fixture_only")
         assert await conn.fetchval("SELECT count(*) FROM coin_market_v2_coins") == 6
+        funding = await conn.fetchrow("SELECT mora,metadata FROM coin_market_v2_funding WHERE id='initial-v2'")
+        assert int(funding['mora']) == 120000 * MORA
+        assert repo.decode(funding['metadata'])['kind'] == 'one_time_system_issuance'
+        await rejects(asyncpg.RaiseError, conn.execute("UPDATE coin_market_v2_funding SET source='tampered'"))
+        from tools import release_coin_market_v2 as release
+        await rejects(RuntimeError, release.verify(db))  # A test fixture is not owner approval.
+        with patch.object(release, 'AUTHORIZATION', 'disposable_test_fixture_only'):
+            status = await release.verify(db)
+            assert status['coins'] == 6 and status['initial_issuance_mora'] == '120000'
+            from contextlib import asynccontextmanager
+            from types import SimpleNamespace
+            class TestPool:
+                @asynccontextmanager
+                async def acquire(self):
+                    yield conn
+                async def close(self):
+                    pass
+            with patch.object(release, 'create_pool', new=AsyncMock(return_value=TestPool())):
+                args = SimpleNamespace(prepare=False, enable=True)
+                await conn.execute("DELETE FROM system_flags WHERE key='coin_market_v2_shorts'")
+                await rejects(RuntimeError, release.run(args))
+                assert not await system_flags.is_enabled(db, 'coin_market_v2')
+                await system_flags.ensure_table(db)
+                await release.run(args)
+                assert await system_flags.is_enabled(db, 'coin_market_v2')
+                assert await system_flags.is_enabled(db, 'coin_market_v2_shorts')
+                await system_flags.set_flag(db, 'coin_market_v2', False)
+                await system_flags.set_flag(db, 'coin_market_v2_shorts', False)
         await rejects(
             service.Unavailable, service.quote(db, 1, "orb", "buy", amount=10 * MORA)
         )
@@ -423,6 +531,7 @@ async def run():
         else:
             raise AssertionError("receipts must be immutable")
         await dust_regression(db, conn)
+        await http_regression(db, conn)
         await catalogue_regression(db, conn)
         print(
             "PASS: real PostgreSQL bootstrap, 12-way replay, conflicts, stale quote, ownership, rollback, closed-entry exit, partial cash, short double-close, creation, treasury and restart"

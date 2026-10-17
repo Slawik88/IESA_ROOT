@@ -223,21 +223,22 @@ async def market(db, user_id, *, visit=False):
     if not enabled and not owns:
         raise Unavailable("Биржа ещё не открыта.")
     tick = await repo.current_tick(db)
+    changes = await repo.market_changes(db, max(0, tick - 288))
     coins = []
     for row in rows:
         public = public_coin(row)
         public["owned"] = row["owner_id"] == user_id
-        previous = await repo.history(db, row["id"], max(0, tick - 288))
+        entry = changes.get(row["id"])
         start = (
-            int(previous[0]["price"])
-            if previous
+            entry["price"]
+            if entry
             else int(repo.decode(row["price_state"])["price"])
         )
         public["change_24h"] = round(
             (float(public["price"]) * rules.MORA / start - 1) * 100, 2
         )
         public["change_period"] = (
-            "24ч" if previous and previous[0]["tick"] <= tick - 288 else "с запуска"
+            "24ч" if entry and entry["tick"] <= tick - 288 else "с запуска"
         )
         public["fresh"] = public["tick"] == tick
         coins.append(public)
@@ -302,6 +303,9 @@ async def market(db, user_id, *, visit=False):
         "rules": rules.RULES_VERSION,
         "balances": await repo.balances(db, user_id),
         "user_id": user_id,
+        "tick": tick,
+        "tick_seconds": rules.TICK_SECONDS,
+        "next_tick_at": (tick + 1) * rules.TICK_SECONDS,
     }
 
 
@@ -314,6 +318,46 @@ async def availability(db, user_id):
     return {
         "visible": any(int(r["user_units"]) or r["owner_id"] == user_id for r in rows)
         or bool(await repo.user_shorts(db, user_id))
+    }
+
+
+def _downsample(points, cap=360):
+    """Bounded chart payload: keep every nth published tick and always the last."""
+    if len(points) <= cap:
+        return points
+    step = (len(points) + cap - 1) // cap
+    trimmed = points[::step]
+    if trimmed[-1]["tick"] != points[-1]["tick"]:
+        trimmed.append(points[-1])
+    return trimmed
+
+
+async def history_view(db, user_id, coin_id, hours):
+    start = await repo.current_tick(db) - hours * 12
+    points = [
+        {"tick": int(p["tick"]), "price": shown(int(p["price"]))}
+        for p in await repo.history(db, coin_id, start)
+    ]
+    units, cost = await repo.account(db, coin_id, user_id)
+    markers = []
+    for marker in reversed(await repo.user_trade_markers(db, user_id, coin_id)):
+        try:
+            tick_value = int(marker["tick"])
+        except (TypeError, ValueError):
+            continue
+        if tick_value < start:
+            continue
+        markers.append(
+            {
+                "tick": tick_value,
+                "price": shown(money(marker["price"])),
+                "side": marker["side"],
+            }
+        )
+    return {
+        "points": _downsample(points),
+        "markers": markers,
+        "cost": shown(cost * rules.TOKEN // units) if units else None,
     }
 
 
@@ -532,6 +576,23 @@ def creation_terms(name, zarniki, deposit):
     return name, genesis
 
 
+ICONS = ("coin", "star", "wave", "leaf")
+
+
+def valid_icon(icon):
+    if icon not in ICONS:
+        raise rules.MarketError("Выберите значок из каталога.")
+    return icon
+
+
+def valid_description(description):
+    if not isinstance(description, str) or len(description) > 160:
+        raise rules.MarketError("Описание — не длиннее 160 символов.")
+    if any(unicodedata.category(ch).startswith("C") for ch in description):
+        raise rules.MarketError("Описание содержит недопустимые символы.")
+    return description.strip()
+
+
 async def creation_quote(db,user_id, *, name,zarniki,deposit,diamonds=False):
     await require(db)
     name,g=creation_terms(name,zarniki,deposit)
@@ -558,14 +619,16 @@ async def creation_quote(db,user_id, *, name,zarniki,deposit,diamonds=False):
 
 
 async def create_coin(
-    db, user_id, *, name, zarniki, deposit, diamonds=False, action_id, icon='coin'
+    db, user_id, *, name, zarniki, deposit, diamonds=False, action_id, icon='coin',
+    description=''
 ):
     action(action_id)
     name, _ = creation_terms(name, zarniki, deposit)
-    if icon not in ('coin','star','wave','leaf'):
-        raise rules.MarketError('Выберите значок из каталога.')
+    icon = valid_icon(icon)
+    description = valid_description(description)
     signature = fingerprint(
-        {"create": name, "zarniki": zarniki, "deposit": deposit, "diamonds": diamonds,'icon':icon}
+        {"create": name, "zarniki": zarniki, "deposit": deposit, "diamonds": diamonds,
+         'icon': icon, 'description': description}
     )
     await require(db, new=False)
     async with db.connection.transaction():
@@ -612,6 +675,7 @@ async def create_coin(
             group="personal-" + str(int(key[:2], 16) % 3),
             rules=rules.RULES_VERSION,
             secret_id=secret_id,
+            description=description,
         )
         await repo.put_account(db, key, user_id, genesis.creator_units, 0)
         op = await wallet(
@@ -626,6 +690,8 @@ async def create_coin(
             "zarniki_spent": zarniki,
             "deposit": shown(deposit),
             "diamonds": diamonds,
+            "icon": icon,
+            "description": description,
         }
         flow = rules.Flow(
             0 if diamonds else -deposit,
@@ -641,10 +707,8 @@ async def create_coin(
 
 
 async def edit_metadata(db,user_id,coin_id,icon,description):
-    if icon not in ('coin','star','wave','leaf') or not isinstance(description,str) or len(description)>160:
-        raise rules.MarketError('Значок из каталога, описание — не длиннее 160 символов.')
-    if any(unicodedata.category(ch).startswith('C') for ch in description):
-        raise rules.MarketError('Описание содержит недопустимые символы.')
+    icon = valid_icon(icon)
+    description = valid_description(description)
     await require(db,new=False)
     async with db.connection.transaction():
         row=await repo.load(db,coin_id,lock=True)
@@ -652,7 +716,7 @@ async def edit_metadata(db,user_id,coin_id,icon,description):
             raise rules.MarketError('Изменять оформление может только создатель монеты.')
         await repo.user_lock(db,user_id)
         await repo.require_active(db,user_id)
-        await repo.edit_metadata(db,coin_id,icon,description.strip())
+        await repo.edit_metadata(db,coin_id,icon,description)
     return {'ok':True}
 
 
@@ -666,7 +730,7 @@ SYSTEM_COINS = (
 )
 
 
-async def bootstrap(db, *, source):
+async def bootstrap(db, *, source, issuance_authorization=None):
     """Explicit offline release operation, never a startup or public endpoint."""
     if await system_flags.is_enabled(db, "coin_market_v2"):
         raise rules.MarketError("Закройте вход в биржу перед начальной настройкой.")
@@ -678,4 +742,5 @@ async def bootstrap(db, *, source):
         rules.RULES_VERSION,
         await repo.current_tick(db),
         source=source,
+        issuance_authorization=issuance_authorization,
     )

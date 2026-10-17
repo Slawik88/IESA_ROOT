@@ -40,7 +40,7 @@ async def seed():
             key,
             RULES_VERSION,
             await repo.current_tick(db) - 288,
-            source="isolated_visual_fixture",
+            source="isolated_visual_fixture", issuance_authorization="disposable_visual_fixture_only",
         )
         await service.maintenance(db)
         await system_flags.set_flag(db, "coin_market_v2", True)

@@ -30,7 +30,7 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     "quests": ("📜 Квесты", ("/quests-v1",)),
     "achievements": ("🏆 Достижения", ("/achievements-v1",)),
     "chests": ("🎁 Сундуки", ("/chests-v1",)),
-    "exchange": ("📈 Биржа монет", ("/player-exchange/v1",)),
+    "exchange": ("📈 Биржа монет", ("/player-exchange/v1", "/coin-market/v2")),
     "family": ("💞 Семья", ("/marriage",)),
     "top": ("🏅 Топы", ("/leaderboards",)),
     "profiles": ("👤 Профили и регалии", ("/public-profile-v3", "/marks-v1")),

@@ -39,6 +39,7 @@ class Create(BaseModel):
     diamonds: StrictBool = False
     action_id: StrictStr = Field(min_length=8, max_length=96)
     icon: StrictStr=Field(default='coin',pattern=r'^(coin|star|wave|leaf)$')
+    description: StrictStr = Field(default="", max_length=160)
 
 
 class Metadata(BaseModel):
@@ -93,21 +94,14 @@ async def availability(db: DB, user: User):
 
 @router.get("/coins/{coin_id}/history")
 async def history(coin_id: str, db: DB, user: User, hours: int = 24):
-    await call(service.require(db, new=False))
-    if not (await service.availability(db,int(user['id'])))['visible']:
-        raise HTTPException(503,'Биржа ещё не открыта.')
     if hours not in (1, 24, 168):
         raise HTTPException(400, "Неверный период.")
-    row = await repo.load(db, coin_id)
-    if not row:
+    await call(service.require(db, new=False))
+    if not (await service.availability(db, int(user["id"])))["visible"]:
+        raise HTTPException(503, "Биржа ещё не открыта.")
+    if not await repo.load(db, coin_id):
         raise HTTPException(404, "Монета не найдена.")
-    tick = await repo.current_tick(db)
-    return {
-        "points": [
-            {"tick": p["tick"], "price": service.shown(int(p["price"]))}
-            for p in await repo.history(db, coin_id, tick - hours * 12)
-        ]
-    }
+    return await service.history_view(db, int(user["id"]), coin_id, hours)
 
 
 @router.post("/quote")
@@ -154,6 +148,7 @@ async def create(body: Create, db: DB, user: User):
             diamonds=body.diamonds,
             action_id=body.action_id,
             icon=body.icon,
+            description=body.description,
         )
 
     return await call(run())

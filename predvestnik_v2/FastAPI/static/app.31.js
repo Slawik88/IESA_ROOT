@@ -100,7 +100,7 @@ function v3EnterSync(root) {
 function v3EnterReset(page) {
   const playerPages = ['pg-profile', 'pg-arena', 'pg-questlog', 'pg-achievements-v1', 'pg-help', 'pg-news', 'pg-top', 'pg-looks', 'pg-store', 'pg-settings', 'pg-pets', 'pg-chests', 'pg-inventory', 'pg-public-profile', 'pg-chat-tracker', 'pg-exchange-v1', 'pg-shop', 'pg-more', 'pg-promo'];
   if (!page || !playerPages.includes(page.id)) return;
-  const roots = { 'pg-profile': '#pro-main', 'pg-arena': '#game-hub', 'pg-looks': '.lk-scope', 'pg-store': '.sv-scope', 'pg-exchange-v1': '.px-shell' };
+  const roots = { 'pg-profile': '#pro-main', 'pg-arena': '#game-hub', 'pg-looks': '.lk-scope', 'pg-store': '.sv-scope', 'pg-exchange-v1': '.px-shell, .cm2' };
   const target = (roots[page.id] ? page.querySelector(roots[page.id]) : null) || page;
   target?.classList.add('v3-stagger');
   page?.querySelectorAll('.v3-stagger').forEach(n => { delete n.dataset.enterAt; n.style.removeProperty('--enter-skip'); });

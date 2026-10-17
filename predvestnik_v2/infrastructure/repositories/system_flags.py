@@ -27,8 +27,8 @@ _DEFAULTS = [
     ("season_pass_v1",         "🏁 Сезонный пропуск игр (dev)", False),
     ("economy_player_exchange_v1", "📈 Биржа монет игроков (dev)", False),
     ("economy_player_exchange_shorts_v1", "📉 Шорты биржи монет игроков (dev)", False),
-    ("coin_market_v2", "📈 Простая биржа v2 (dev)", False),
-    ("coin_market_v2_shorts", "📉 На падение v2 (dev)", False),
+    ("coin_market_v2", "📈 Биржа монет v2", False),
+    ("coin_market_v2_shorts", "📉 Позиции на падение v2", False),
     # Видимость игры и финансовая выдача не могут быть одним переключателем.
     ("reconstruction_real_settlement_v1", "🧾 Reconstruction: реальные награды", False),
 ]

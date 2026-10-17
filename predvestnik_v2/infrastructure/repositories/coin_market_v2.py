@@ -265,11 +265,12 @@ async def insert_coin(
     group,
     rules,
     secret_id,
+    description="",
 ):
     await db.connection.execute(
         """INSERT INTO coin_market_v2_coins
-      (id,owner_id,name,name_key,ticker,icon,character,group_key,base,supply,loan_pool,reserve,insurance,held,borrowed,price_state,rules,secret_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18)""",
+      (id,owner_id,name,name_key,ticker,icon,character,group_key,base,supply,loan_pool,reserve,insurance,held,borrowed,price_state,rules,secret_id,description)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18,$19)""",
         coin.key,
         owner_id,
         name,
@@ -288,6 +289,7 @@ async def insert_coin(
         json.dumps(asdict(state)),
         rules,
         secret_id,
+        description,
     )
     await db.connection.execute(
         "INSERT INTO coin_market_v2_ticks(coin_id,tick,price) VALUES($1,$2,$3)",
@@ -368,6 +370,35 @@ async def history(db, coin_id, start):
     ]
 
 
+async def market_changes(db, since):
+    """One row per coin: the earliest published tick inside the change window."""
+    rows = await db.connection.fetch(
+        """SELECT DISTINCT ON (coin_id) coin_id,tick,price
+       FROM coin_market_v2_ticks WHERE tick>=$1 ORDER BY coin_id,tick""",
+        since,
+    )
+    return {
+        row["coin_id"]: {"tick": int(row["tick"]), "price": int(row["price"])}
+        for row in rows
+    }
+
+
+async def user_trade_markers(db, user_id, coin_id, *, limit=40):
+    """The player's own buy/sell ticks for the chart. Receipts are append-only."""
+    return [
+        dict(row)
+        for row in await db.connection.fetch(
+            """SELECT response->>'tick' tick,response->>'price' price,response->>'side' side
+       FROM coin_market_v2_receipts
+       WHERE user_id=$1 AND response->>'coin_id'=$2 AND response->>'side' IN ('buy','sell')
+       ORDER BY (response->>'tick')::bigint DESC LIMIT $3""",
+            user_id,
+            coin_id,
+            limit,
+        )
+    ]
+
+
 async def favorite(db, user_id, coin_id, enabled):
     if enabled:
         await db.connection.execute(
@@ -425,7 +456,14 @@ async def edit_metadata(db,coin_id,icon,description):
     await db.connection.execute('UPDATE coin_market_v2_coins SET icon=$2,description=$3 WHERE id=$1',coin_id,icon,description)
 
 
-async def bootstrap(db, coins, secret_id, rules, tick, *, source):
+async def bootstrap(db, coins, secret_id, rules, tick, *, source, issuance_authorization=None):
+    # Initial capital is an explicit, owner-approved issuance, not a transfer
+    # from player wallets and never an automatic response to reserve depletion.
+    if (not isinstance(issuance_authorization, str)
+            or not 8 <= len(issuance_authorization) <= 200):
+        raise ValueError("Explicit one-time 120000 Mora issuance authorization required")
+    if len(coins) != 6 or len({c[0] for c in coins}) != 6:
+        raise ValueError("Initial issuance funds exactly six distinct system coins")
     async with db.connection.transaction():
         await db.connection.execute(
             "SELECT pg_advisory_xact_lock(hashtextextended('cm2-bootstrap',0))"
@@ -441,7 +479,9 @@ async def bootstrap(db, coins, secret_id, rules, tick, *, source):
             "INSERT INTO coin_market_v2_funding(id,source,mora,metadata) VALUES('initial-v2',$1,120000000000,$2::jsonb)",
             source,
             json.dumps(
-                {"per_coin_mora": 15000, "conversion_fund_mora": 30000, "rules": rules}
+                {"kind": "one_time_system_issuance", "currency": "mora",
+                 "amount": "120000", "authorization": issuance_authorization,
+                 "per_coin_mora": 15000, "conversion_fund_mora": 30000, "rules": rules}
             ),
         )
         await db.connection.execute(

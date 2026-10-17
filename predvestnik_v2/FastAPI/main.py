@@ -455,7 +455,7 @@ _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
     "index.html", "rhythm-v2.html", "minesweeper-v2.html",
     "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js",
-    "skin-runtime-v3.css", "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
+    "skin-runtime-v3.css", "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
@@ -605,6 +605,11 @@ async def coin_market_v2_css():
 @app.get('/static/coin-market-v2.js')
 async def coin_market_v2_js():
     return Response(_read_static('coin-market-v2.js'),media_type='application/javascript; charset=utf-8')
+
+
+@app.get('/static/coin-market-chart.js')
+async def coin_market_chart_js():
+    return Response(_read_static('coin-market-chart.js'),media_type='application/javascript; charset=utf-8')
 
 
 @app.get("/static/app.js")
