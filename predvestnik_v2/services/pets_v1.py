@@ -167,6 +167,12 @@ async def overview(db, user_id: int) -> dict:
             "activity_reward_label": "За завершённый поход или экспедицию: 1 ключ"}
 
 
+async def chat_overview(db, user_id: int) -> dict:
+    """Overview with a lazy chat bootstrap: the bot may be first to touch tables."""
+    await repo.ensure_tables(db)
+    return await overview(db, int(user_id))
+
+
 async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: str) -> dict:
     action_id = str(action_id or "").strip()
     if not action_id or len(action_id) > 96:

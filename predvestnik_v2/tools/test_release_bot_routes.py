@@ -9,6 +9,11 @@ scheduler = (ROOT / "services/scheduler.py").read_text(encoding="utf-8")
 profile = (ROOT / "bot/handlers/release_profile.py").read_text(encoding="utf-8")
 quests = (ROOT / "bot/handlers/quests_v1.py").read_text(encoding="utf-8")
 pets = (ROOT / "bot/handlers/pets_v1.py").read_text(encoding="utf-8")
+pets_ui = "".join(
+    (ROOT / f"bot/handlers/{name}").read_text(encoding="utf-8")
+    for name in ("_pets_ui.py", "_pets_ui_base.py", "_pets_ui_pets.py", "_pets_ui_activity.py")
+)
+pets_chat = (ROOT / "bot/handlers/pets_v1_callbacks.py").read_text(encoding="utf-8")
 account = (ROOT / "bot/handlers/account.py").read_text(encoding="utf-8")
 
 for approved in (
@@ -62,8 +67,12 @@ assert "Центр активностей" in profile
 assert 'miniapp_url("quests")' in quests
 assert "reward_parts" in quests and "Награды доступны в Mini App" in quests
 assert "record_metric" not in quests
-assert 'miniapp_url("pets")' in pets
-assert "select_active_pet" not in pets
+# Pets are fully manageable from chat now: owner-locked callbacks may call the
+# approved service writers, while the Mini App link stays as the secondary entry.
+assert 'miniapp_url("pets")' in pets_ui
+assert "check_callback_owner" in pets_chat
+for chat_call in ("select_active_pet", "feed_pet", "start_activity", "choose_expedition"):
+    assert chat_call in pets_chat or chat_call in pets, chat_call
 assert 'TextCmd(["отменить удаление", "отмена удаления"])' in account
 assert 'TextCmd(["восстановить аккаунт", "восстановление аккаунта"])' in account
 assert "account_deletion.cancel_deletion" in account
