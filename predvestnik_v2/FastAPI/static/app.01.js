@@ -559,6 +559,13 @@ function _showMaintenance(pg) {
   </div>`;
 }
 
+function _dockReveal(button) {
+  const nav=button.parentElement;
+  if(nav.scrollWidth<=nav.clientWidth)return;
+  const left=Math.max(0,button.offsetLeft-(nav.clientWidth-button.offsetWidth)/2);
+  nav.scrollTo({left,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+}
+
 function switchPage(name, _btn, _viaBack) {
   // Old game/economy pages are deliberately absent from the release surface.
   // Cached clients and stale deep links return to the current hub safely.
@@ -592,7 +599,7 @@ function switchPage(name, _btn, _viaBack) {
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
-  if(activeNav) activeNav.parentElement.style.setProperty('--nav-i', String([...activeNav.parentElement.querySelectorAll('.nb')].indexOf(activeNav)));   // подсветка док едет к текущей вкладке
+  if(activeNav) _dockReveal(activeNav);   // выбранный раздел остаётся виден в горизонтальной ленте
   showCurrBar(name !== 'profile');
   try { if (typeof _wnTabVisit === 'function') _wnTabVisit(name); } catch(_) {}   // точка «есть новое» на этой вкладке дока гаснет (app.42.js)
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');

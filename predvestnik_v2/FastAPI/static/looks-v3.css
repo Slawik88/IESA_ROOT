@@ -3,7 +3,7 @@
    Никаких карточек: герой-сцена, лента, шаги тира, одно главное действие. Анимации только transform/opacity. */
 
 #pg-looks { padding-bottom: 0; } /* отступ под док уже внутри lk-scope: внешний оставлял границу фона */
-.v3-scope.lk-scope { padding-bottom: calc(110px + var(--v3-safe-b)); }
+.v3-scope.lk-scope { padding-bottom: calc(var(--v3-dock-clear) + var(--v3-safe-b)); }
 .lk-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lk-wallet { display: flex; gap: 6px; }
 .lk-wallet button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 0; border-radius: 99px; background: var(--v3-faint); color: var(--v3-ink); font: 500 13px var(--v3-font); cursor: pointer; }

@@ -2,7 +2,7 @@
    Капсула над доком. Форма (рамка), значок (частицы), цвет (палитра) и насыщенность (тир) берутся из надетого образа:
    разные образы дают разные уведомления. Без образа тост нейтральный. Движение: transform/opacity и только под .ap-anim. */
 
-.toast { --tv: var(--ap-a, var(--v3-acc, #d8cffd)); position: fixed; z-index: 600; left: 50%; bottom: calc(92px + var(--v3-safe-b, 0px)); display: flex; align-items: center; gap: 12px;
+.toast { --tv: var(--ap-a, var(--v3-acc, #d8cffd)); position: fixed; z-index: 600; left: 50%; bottom: calc(var(--v3-dock-clear, 104px) - 12px + var(--v3-safe-b, 0px)); display: flex; align-items: center; gap: 12px;
   width: max-content; max-width: min(calc(100vw - 24px), 420px); min-height: 48px; box-sizing: border-box; padding: 9px 20px 9px 10px; overflow: hidden; border-radius: 18px;
   background: var(--v3-sheet, #14161e); color: var(--v3-ink, #f1f2f6); font: 500 14px/1.35 var(--v3-font, inherit); text-align: left;
   box-shadow: 0 12px 32px rgba(0, 0, 0, .42), inset 0 0 0 1px color-mix(in srgb, var(--tv) 38%, transparent);

@@ -3,6 +3,22 @@
 **Created:** 2026-08-29
 **Scope:** current code only. Historical specifications, plans, audits and visual evidence were intentionally removed at the owner's request.
 
+## UIUX-20261017-nav10 — compact owner-approved direction
+
+Owner increased scope from7 to10 destinations, rejected a two-row prototype,
+then requested less height and a restrained design. Final: one swipeable row,
+54px tall,10 controls (9 pages + wallet dialog). Order: Profile/Games/Pets/
+Quests/Looks/Chests/Inventory/Top/Wallet/More. Buttons >=64x48; labels11px,
+icons20px. Current destination has only ink/accent and a short top line.
+No nested selected pill or identity backdrop. More unread aggregation excludes
+primary pages. _dockReveal scrolls only the navigation track and respects reduced
+motion. Keyboard Tab/ShiftTab reach both ends without moving the page vertically.
+Body/scoped-screen/banner/toast clearance uses --v3-dock-clear to match height.
+Two-row and62px snapshots are intermediate diagnostics, not final design.
+Tests: navigation/unread/reveal, shell, screen openers, static ASGI direct/prefix.
+Read-only critic: no blockers; browser review covers320/390/430 and wallet closure.
+Evidence: nav10-slim-final-{320,390,430}.png under the existing evidence folder.
+
 ## UIUX-20261017-nav7 — owner correction
 
 Owner requested removal of the dark identity patch and 6–7 dock destinations.

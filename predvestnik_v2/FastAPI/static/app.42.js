@@ -244,7 +244,7 @@ function _wnTabDots(list) {
 }
 function _wnPaintDots() {
   document.querySelectorAll('.nb[data-page]').forEach(btn => {
-    const pages = btn.dataset.page === 'more' ? ['more', 'top', 'store', 'shop', 'promo'] : [btn.dataset.page];
+    const pages = btn.dataset.page === 'more' ? ['more', 'store', 'shop', 'promo'] : [btn.dataset.page];
     _wnDotSet(btn, pages.some(p => (_wnDots[p] || []).length));
   });
   document.querySelectorAll('[data-wn-page]').forEach(btn => _wnDotSet(btn, !!(_wnDots[btn.dataset.wnPage] || []).length));

@@ -43,7 +43,7 @@ assert "overscroll-behavior: none" in css and "touch-action: manipulation" in cs
 assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
-assert index.count('type="button" class="nb') == 7
+assert index.count('type="button" class="nb') == 10
 for page in ('looks', 'chests', 'top'):
     assert f'data-wn-page="{page}"' in index
 assert 'role="status"' in index and 'id="dev-notice"' not in index, "the player shell has no «in development» notice"
@@ -51,7 +51,7 @@ assert 'id="app-update-banner"' in index and "applyAppUpdate()" in index
 assert "event?.type === 'app_version'" in app and "event?.type === 'data_changed'" in app
 assert "event?.type === 'notification_pending'" in app and "queueDynamicRefresh" in app
 assert "setInterval(refreshCurrBar" not in app, "dynamic player data must stay push-driven"
-assert "bottom: calc(82px + var(--v3-safe-b))" in css and "@keyframes appUpdateRise" in css
+assert "bottom: calc(var(--v3-dock-clear) - 22px + var(--v3-safe-b))" in css and "@keyframes appUpdateRise" in css
 assert "/vip/" not in home and "Магазине" not in (STATIC / "app.02.js").read_text(encoding="utf-8").split("function showCurrModal", 1)[1][:2500]
 # Skin tiers: server contract, cumulative fx classes, motion budget in the tier stylesheet.
 skins_src = (ROOT / "core/skins_v3.py").read_text(encoding="utf-8")
