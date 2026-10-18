@@ -1,3 +1,41 @@
+## Activity chart polish and info layer («бот я / бот кто»), 2026-10-18
+
+Follow-up cosmetics + content wave on the chart from the entry below (owner tasks 6/18),
+same worktree and branch. The renderer `bot/chat/activity_graph.py` keeps the same data
+source and one-query discipline: `get_graph` now pulls a double window with a single
+`daily_counts` call — the fresh 30 days for the chart, the previous 30 for the «динамика»
+figure, compared by daily averages so partial history cannot lie.
+
+Visual polish (existing elements; cosmos default, gold/light carry the same token set):
+brand font Onest — three static weights plus the OFL license bundled in
+`bot/chat/assets/fonts`, registered once per process, silent fallback to the default font
+when files are missing; rounded gradient bars with a top light; y-ceiling that hugs the
+data (660 → 700 instead of 800, no empty headroom, grid steps unchanged); fine dotted
+grid without the duplicate zero line; edge-fading baseline; full-figure background
+gradient with dithering (keeps Telegram's JPEG step from banding on the gradient);
+two-tone subtitle; whisper weekend bands, measured +4/255 on dark themes and −5/255 on
+light, explained by a legend item; legend rework — mini-bar swatch plus a dashed
+«среднее» sample.
+
+Info layer, all computed from the already fetched counts (zero extra queries): top row
+«сегодня · динамика · в среднем · лучший день»; dashed average line and a peak-value
+label above the tallest bar; «сегодня» as the last x label; bottom footnote
+«всего · активных дней · серия». Renders are 2× (2000×1120, ~150 KB PNG) so phone
+screens get crisp text; the render still runs in a worker thread behind the per-day
+cache, ~0.5 s warm once per player and day.
+
+Evidence: `tools/test_activity_graph.py` PASS (unchanged contract — three themes, day
+series math, cache hit issues no second SQL, three concurrent renders); `py_compile`
+PASS; smoke renders of all three themes are valid PNGs. Design reference (script + PNG,
+verified to run against the bundled fonts):
+`docs/design-refs/render_activity_polish_final_preview.py`,
+`docs/design-refs/img/activity-polish-final.png`.
+
+Gate: not re-run in full for this renderer-only wave — the chart suite is green and no
+other suite depends on the renderer's styling; pre-existing gate reds are unchanged
+(list and root causes in the entry below). Live Telegram smoke was not possible on this
+machine (no bot token) — post-deploy check on the owner's side.
+
 ## Player activity chart above the card and broadcast filter for admin chats, 2026-10-18
 
 Owner tasks 6 and 18 implemented in worktree `predvestnik-activity-broadcast`
