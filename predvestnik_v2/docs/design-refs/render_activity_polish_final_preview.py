@@ -36,3 +36,7 @@ PREV_AVG = 240.0   # заглушка: у мока нет истории до 19
 png = activity_graph.render(COUNTS, START, theme="cosmos", prev_avg=PREV_AVG)
 OUT.write_bytes(png)
 print(f"saved: {OUT} ({len(png) // 1024} KB)")
+for theme in activity_graph.THEMES:
+    target = HERE / "img" / f"activity-{theme}-mobile.png"
+    target.write_bytes(activity_graph.render(COUNTS, START, theme=theme, prev_avg=PREV_AVG))
+    print(f"theme reference: {target.name}")

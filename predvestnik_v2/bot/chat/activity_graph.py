@@ -17,8 +17,10 @@ THEMES, чтобы косметику можно было менять, не т�
 для резкости краёв, и для крупных подписей: текст на картинке читается с
 телефона без увеличения.
 
-Скорость: рендер идёт в отдельном потоке, результат кэшируется на день
-(повторные «бот я» в тот же день картинку не перерисовывают). matplotlib и
+Скорость: рендер идёт в отдельном потоке, результат кэшируется на минуту.
+Во время обновления возвращается предыдущая картинка; холодный рендер ждём
+до 0,75 секунды, затем карточка идёт без графика, а результат готовится в фоне.
+Этот бюджет не включает SQL и отправку изображения в Telegram. matplotlib и
 фирменный шрифт прогреваются один раз при старте бота (prewarm).
 
 Данные: daily_counts тянет два окна одним запросом — текущие DAYS дней для
@@ -34,6 +36,8 @@ import asyncio
 import io
 import math
 import threading
+import time
+from loguru import logger
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -42,6 +46,9 @@ from bot.chat.tracking import local_now
 DAYS = 30                       # окно графика, дней
 DEFAULT_THEME = "cosmos"
 MAX_CACHE = 256                 # картинок в памяти; ключ включает день, старые вытесняются
+CACHE_TTL_SEC = 60
+MAX_PENDING_RENDERS = 4
+RENDER_BUDGET_SEC = 0.75
 DPI = 200                       # полотно 1120×960: 2× от показа на телефоне, ~140 КБ на PNG
 FIG_W, FIG_H = 5.6, 4.8         # дюймы: ширина подобрана так, чтобы текст читался с телефона
 
@@ -141,6 +148,33 @@ THEMES = {
 }
 
 _cache: dict[tuple, bytes] = {}
+_cached_at: dict[tuple, float] = {}
+_pending: dict[tuple, asyncio.Task] = {}
+
+
+async def _render_cached(key, counts, start, *, theme, prev_avg):
+    png = await asyncio.to_thread(render, counts, start, theme=theme, prev_avg=prev_avg)
+    _cache[key] = png
+    _cached_at[key] = time.monotonic()
+    while len(_cache) > MAX_CACHE:
+        oldest = next(iter(_cache))
+        _cache.pop(oldest, None)
+        _cached_at.pop(oldest, None)
+    return png
+
+
+def _render_done(key, task):
+    if _pending.get(key) is task:
+        _pending.pop(key, None)
+    if not task.cancelled() and task.exception() is not None:
+        logger.warning("Activity graph render failed: {}", type(task.exception()).__name__)
+
+
+async def _wait_render(task, fallback):
+    try:
+        return await asyncio.wait_for(asyncio.shield(task), RENDER_BUDGET_SEC)
+    except Exception:
+        return fallback
 
 
 def _ensure_fonts() -> None:
@@ -504,20 +538,31 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
     today = local_now().date().isoformat()
     key = (user_id, chat_id or 0, days, theme, today)
     hit = _cache.get(key)
-    if hit is not None:
+    if hit is not None and time.monotonic() - _cached_at.get(key, 0) < CACHE_TTL_SEC:
+        return hit
+    task = _pending.get(key)
+    if task is not None:
+        return hit if hit is not None else await _wait_render(task, hit)
+    if len(_pending) >= MAX_PENDING_RENDERS:
         return hit
     start, span = await daily_counts(db, user_id, chat_id, days * 2)
     counts = span[days:]
     prev = span[:days]
     if not any(counts):
+        _cache.pop(key, None)
+        _cached_at.pop(key, None)
         return None
     prev_avg = (sum(prev) / len(prev)) if any(prev) else None
-    png = await asyncio.to_thread(render, counts, start + timedelta(days=days),
-                                  theme=theme, prev_avg=prev_avg)
-    _cache[key] = png
-    while len(_cache) > MAX_CACHE:
-        _cache.pop(next(iter(_cache)))
-    return png
+    # Recheck after the SQL await: another request may already have started the
+    # same render. Background work receives only numbers, never a borrowed DB.
+    task = _pending.get(key)
+    if task is None:
+        if len(_pending) >= MAX_PENDING_RENDERS:
+            return hit
+        task = asyncio.create_task(_render_cached(key, counts, start + timedelta(days=days), theme=theme, prev_avg=prev_avg))
+        _pending[key] = task
+        task.add_done_callback(lambda done: _render_done(key, done))
+    return hit if hit is not None else await _wait_render(task, hit)
 
 
 def prewarm() -> None:

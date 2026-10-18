@@ -1,3 +1,18 @@
+## Owner revision 2026-10-18 — activity graph references/performance (item 6)
+
+Presented production-rendered Cosmos/Gold/Light phone references to the owner;
+theme choice is pending, current Cosmos is preserved. Added a 60-second cache TTL
+(previously the current day stayed stale all day), shared rendering, a four-task
+admission bound and a 0.75-second render wait budget. Stale PNGs remain available
+while refreshing. Cold over-budget rendering continues with only copied counts,
+never the request database; the card falls back to text and later calls use PNG.
+SQL and Telegram upload are outside the render-only time budget.
+
+Evidence: actual PNG/theme/caption tests and deterministic concurrency, failure,
+freshness, timeout, cancellation and queue-bound proofs pass. Independent
+read-only critique reviewed races, database lifetime and queue admission. The
+reference generator now reproduces all three mobile theme PNGs.
+
 ## Owner revision 2026-10-18 — new regalia concepts (item 7 proposal complete)
 
 MARKS_V1.md now contains eight proposals covering exploration, useful pet care,
