@@ -22,7 +22,7 @@ async def lock_user(db, user_id: int) -> None:
 async def usage_today(db, user_id: int) -> int:
     async with db.execute(
         "SELECT zarniki_spent FROM zarniki_exchange_usage_v1 "
-        "WHERE user_id=? AND utc_date=CURRENT_DATE FOR UPDATE",
+        "WHERE user_id=? AND utc_date=(NOW() AT TIME ZONE 'UTC')::date FOR UPDATE",
         (int(user_id),),
     ) as cursor:
         row = await cursor.fetchone()
@@ -32,7 +32,7 @@ async def usage_today(db, user_id: int) -> int:
 async def add_usage_today(db, user_id: int, amount: int) -> int:
     async with db.execute(
         "INSERT INTO zarniki_exchange_usage_v1(user_id,utc_date,zarniki_spent) "
-        "VALUES (?,CURRENT_DATE,?) ON CONFLICT(user_id,utc_date) DO UPDATE "
+        "VALUES (?,(NOW() AT TIME ZONE 'UTC')::date,?) ON CONFLICT(user_id,utc_date) DO UPDATE "
         "SET zarniki_spent=zarniki_exchange_usage_v1.zarniki_spent+EXCLUDED.zarniki_spent,updated_at=NOW() "
         "RETURNING zarniki_spent",
         (int(user_id), int(amount)),

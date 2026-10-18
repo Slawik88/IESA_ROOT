@@ -1,3 +1,27 @@
+## Owner revision 2026-10-18 — wallet rebuild (item 10 complete)
+
+Replaced the explanatory wall with a clear Zarniki balance, three exact balances,
+one converter and folded help. Every active spendable currency is available:
+Mora and Diamonds through the existing capped writer, Essence through the same
+packs/writer as Looks. GET /wallet/exchange-policy projects canonical constants:
+10 Mora / .01 Diamond / 2.5 Essence per Zarniki. No new rates or reverse exchange
+were introduced. Mora/Diamonds share 50 Zarniki per UTC day; Essence keeps its
+existing pack policy. Explicit UTC quota dates no longer depend on session zone.
+Shop polishing is not a cheaper premium-currency detour.
+
+Confirmation captures its draft; duplicate presses cannot create two requests;
+lost-response retries retain a key per target/amount. A successful write clears
+its key before reconciliation; a failed read presents a read-only balance retry,
+not an invitation to replay a completed spend. Closing the dialog prevents later
+responses from reopening it. Existing live balances still update in place.
+
+Evidence: canonical rate/pack and real PostgreSQL quota/replay/hold/alternate-zone
+tests; Node cancel/double-tap/captured-draft/retry/closed-dialog/read-failure/Essence
+writer tests; live-wallet/shops/shell contracts pass. Browser checks on 320×640,
+390×640, 390×780 and 430×780 cover all three currencies and prove the primary
+action is fully visible above the footer; screenshots inspected. Independent
+read-only review found the closed-dialog/stale-read cases and both were fixed.
+
 ## Owner refinement 2026-10-18 — compact phone activity chart
 
 Owner chose a standard theme for now (Cosmos), with per-cosmetic styling deferred,

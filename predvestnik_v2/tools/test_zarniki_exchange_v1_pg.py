@@ -71,6 +71,19 @@ async def run(dsn: str) -> None:
         async with db.execute("SELECT user_balance_mora,user_balance_diamonds,user_balance_zarniki FROM users WHERE user_tg_id=?", (user,)) as cursor:
             balances = await cursor.fetchone()
         assert tuple(float(value) for value in balances) == (500.0, 0.0, 50.0)
+        policy = await zarniki_exchange_v1.policy(db, user_id=user)
+        from core.zarniki_exchange_v1 import EXCHANGE_ROUTES
+        from core.skins_v3 import ESSENCE_PACKS, purchased_essence
+        assert policy['remaining_today'] == 0 and policy['used_today'] == 50
+        routes = {route['id']: route for route in policy['routes']}
+        assert {key: routes[key]['rate'] for key in EXCHANGE_ROUTES} == {key: str(value) for key, value in EXCHANGE_ROUTES.items()}
+        assert routes['essence']['packs'] == [{'zarniki': n, 'amount': purchased_essence(n)} for n in ESSENCE_PACKS]
+        # Quota is explicitly UTC even if a deployment/session uses another zone.
+        await db.execute("SET LOCAL TIME ZONE 'Pacific/Kiritimati'")
+        assert (await zarniki_exchange_v1.policy(db, user_id=user))['remaining_today'] == 0
+        await usage_repo.add_usage_today(db, 976203, 7)
+        async with db.execute("SELECT utc_date=(NOW() AT TIME ZONE 'UTC')::date FROM zarniki_exchange_usage_v1 WHERE user_id=976203") as cursor:
+            assert (await cursor.fetchone())[0]
     finally:
         await transaction.rollback()
         await conn.close()

@@ -302,77 +302,90 @@ function _ensureVipAvatar() {
   }).finally(() => { _vipAvatarLoading = null; _vipAvatarRetryAt = Date.now() + 30000; });
 }
 
+let _walletPolicy = null, _walletTarget = 'mora', _walletSeq = 0, _walletBusy = false;
+const _walletRequests = new Map();
+function _walletIcon(code) {
+  const paths = {mora:'<circle cx="12" cy="12" r="8"/><path d="M8 8h8M8 16h8M10 8v8M14 8v8"/>',diamonds:'<path d="m4 9 4-5h8l4 5-8 11zM4 9h16M8 4l4 16 4-16"/>',essence:'<path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/>',zarniki:'<path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3z"/>'};
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[code] || paths.zarniki}</svg>`;
+}
 function showCurrModal() {
-  const d = _v3Wallet(_profileData || {});
-  const mora = d.mora ?? 0, dia = d.diamonds ?? 0, zar = d.zarniki ?? 0;
-  OM('💰 Валюты', `<div class="curr-modal">
-    <div class="cm-block">
-      <div class="cm-icon">🪙</div>
-      <div class="cm-info">
-        <div class="cm-name">Мора <span class="cm-val" id="cm-bal-mora">${fmtF(mora)}</span></div>
-        <div class="cm-desc">Основная валюта: награды за квесты и игры.</div>
-      </div>
-    </div>
-    <div class="cm-block">
-      <div class="cm-icon">💎</div>
-      <div class="cm-info">
-        <div class="cm-name">Алмазы <span class="cm-val" id="cm-bal-diamonds">${fmtF(dia)}</span></div>
-        <div class="cm-desc">Редкая валюта: награды за достижения и сундуки.</div>
-      </div>
-    </div>
-    <div class="cm-block">
-      <div class="cm-icon">💧</div>
-      <div class="cm-info">
-        <div class="cm-name">Эссенция <span class="cm-val" id="cm-bal-essence">${fmtF(d.essence ?? 0)}</span></div>
-        <div class="cm-desc">Растит образы по тирам. Её дают задания, ещё её можно взять за Зарники в разделе «Образы».</div>
-      </div>
-    </div>
-    <div class="cm-block">
-      <div class="cm-icon">✨</div>
-      <div class="cm-info">
-        <div class="cm-name">Зарники <span class="cm-val" id="cm-bal-zarniki">${fmtF(zar)}</span></div>
-        <div class="cm-desc">Донат-валюта. Можно обменять в пределах общего суточного лимита — без прямой покупки Моры или Алмазов за Stars.</div>
-      </div>
-    </div>
-    <div class="cm-block" data-shop-entry ${typeof _shopOn !== 'undefined' && _shopOn === true ? '' : 'hidden'}>
-      <div class="cm-icon">🛒</div>
-      <div class="cm-info">
-        <div class="cm-name">Магазин</div>
-        <div class="cm-desc">Ключи по звёздам, Шлифовка за Мору и Алмазы, обменник Зарников.</div>
-        <button type="button" class="v3-pill v3-pill--ghost" style="margin-top:7px" onclick="openShop()">Открыть магазин</button>
-      </div>
-    </div>
-    <div class="cm-block" style="display:block">
-      <div class="cm-name" style="margin-bottom:6px">💱 Обмен Зарников</div>
-      <div class="cm-desc" style="margin-bottom:8px">1✨ = 10🪙 или 0,01💎. Лимит: суммарно 50✨ за UTC-день. После успешного обмена услуга оказана и операция необратима.</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><label style="flex:1;min-width:100px">Сумма Зарников<input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="50" step="1" placeholder="1–50" style="width:100%;margin:4px 0 0"></label><label style="flex:1;min-width:126px">Получить<select id="zar-exchange-target" class="v3-field" style="width:100%;margin:4px 0 0"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option></select></label></div>
-      <button id="zar-exchange-submit" class="v3-pill v3-pill--full" style="margin-top:7px" onclick="exchangeZarnikiV1()">Обменять</button>
-    </div>
-  </div>`, [{l:'Пополнить Зарники', c:'primary', f:'CM();openZarnikiTopup()'}, {l:'Закрыть', c:'ghost', f:'CM()'}]);
-  if (typeof shopProbe === 'function') shopProbe();   // кнопка «Магазин» появится, если флаг shop_v1 включён
+  const d = _v3Wallet(_profileData || {}), mine = ++_walletSeq;
+  _walletPolicy = null;
+  OM('Кошелёк', `<div class="wallet-v4">
+    <div class="wallet-summary"><span>${_walletIcon('zarniki')} Зарники</span><strong id="cm-bal-zarniki">${fmtF(d.zarniki || 0)}</strong></div>
+    <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
+    <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>
+    <details class="wallet-help"><summary>Как устроен обмен</summary><p>Курсы общие для кошелька, магазина и «Образов». Мора и Алмазы делят суточный лимит. Эссенция продаётся теми же наборами, что в «Образах».</p></details>
+  </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}]);
+  api('/wallet/exchange-policy').then(p => {
+    if (mine !== _walletSeq || !el('modal')?.open || !el('wallet-exchange')) return;
+    if (!Array.isArray(p?.routes) || !p.routes.length) throw new Error('Курсы временно недоступны');
+    _walletPolicy = p; _walletRenderExchange();
+  }).catch(() => {
+    if (mine === _walletSeq && el('modal')?.open && el('wallet-exchange')) el('wallet-exchange').innerHTML = '<p class="v3-sub">Не удалось загрузить курсы.</p><button type="button" class="v3-link" onclick="showCurrModal()">Повторить</button>';
+  });
 }
-
-// Обмен Зарников: сначала лист подтверждения с тем, что отдаём и получаем (курс 1✨ = 10🪙 или 0,01💎), потом сам запрос
-async function exchangeZarnikiV1(){
-  const raw=(el('zar-exchange-amount')?.value||'').trim(),amount=Number(raw),target=el('zar-exchange-target')?.value;
-  if(/^\d+$/.test(raw)&&Number.isSafeInteger(amount)&&amount>=1&&amount<=50&&(target==='mora'||target==='diamonds')){
-    const got=target==='mora'?`${fmt(amount*10)} 🪙 Моры`:`${(amount/100).toLocaleString('ru')} 💎 Алмазов`;
-    if(!(await v3Confirm({title:'Обмен Зарников',visual:'💱',name:`${fmt(amount)} ✨ → ${got}`,sub:'По курсу сервера',rows:[['Отдадите',`${fmt(amount)} ✨`],['Получите',got,true]],cta:'Обменять',note:'Обмен необратим. Лимит: 50 ✨ суммарно за сутки по UTC.'})))return;
-  }
-  return _exchangeZarnikiRun();
+function _walletRoute() { return _walletPolicy?.routes.find(r => r.id === _walletTarget); }
+function _walletRenderExchange() {
+  const root = el('wallet-exchange'); if (!root || !_walletPolicy) return;
+  const route = _walletRoute() || _walletPolicy.routes[0]; _walletTarget = route.id;
+  const amount = route.packs ? route.packs[0].zarniki : Math.min(10, _walletPolicy.remaining_today);
+  root.innerHTML = `<h3>Обменять Зарники</h3><div class="wallet-fields"><label>Получить<select id="zar-exchange-target" class="v3-field" onchange="walletPickTarget(this.value)">${_walletPolicy.routes.map(r=>`<option value="${_profileEsc(r.id)}" ${r.id===route.id?'selected':''}>${_profileEsc(r.name)}</option>`).join('')}</select></label>
+    <label>Отдать, Зарники${route.packs ? `<select id="zar-exchange-amount" class="v3-field" onchange="walletQuote()">${route.packs.map(p=>`<option value="${p.zarniki}">${fmt(p.zarniki)}</option>`).join('')}</select>` : `<input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="${_walletPolicy.remaining_today}" step="1" value="${amount || ''}" placeholder="Сумма" oninput="walletQuote()">`}</label></div>
+    <div class="wallet-quote"><span>Получите</span><strong id="wallet-receive">—</strong></div>
+    <p class="wallet-rate">1 Зарник = ${fmtF(Number(route.rate))} ${_profileEsc(route.unit || route.name)}. ${route.shared_daily_limit ? `Осталось ${fmt(_walletPolicy.remaining_today)} из ${fmt(_walletPolicy.daily_cap)} на сегодня · UTC.` : 'Без суточного лимита · наборы как в «Образах».'}</p>
+    <button type="button" class="v3-pill v3-pill--full" id="zar-exchange-submit" onclick="exchangeZarnikiV1()">Обменять</button><p class="wallet-message" id="wallet-message" role="status"></p>`;
+  walletQuote();
 }
-function _exchangeZarnikiRun(){
-  const input=el('zar-exchange-amount'),button=el('zar-exchange-submit');
-  const raw=(input?.value||'').trim(), amount=Number(raw), target=el('zar-exchange-target')?.value;
-  if(!/^\d+$/.test(raw)||!Number.isSafeInteger(amount)||amount<1||amount>50)return toast('Введите целое число от 1 до 50.',false);
-  if(target!=='mora'&&target!=='diamonds')return toast('Выбери Мору или Алмазы.',false);
-  if(button?.dataset.busy==='1')return;
-  const key=button?.dataset.requestKey||(globalThis.crypto?.randomUUID?.()||`zar-exchange-${Date.now()}`);
-  if(button){button.dataset.busy='1';button.dataset.requestKey=key;button.disabled=true;}
-  api('/wallet/exchange-zarniki',{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({amount,to:target})}).then(r=>{
-    const icon=target==='mora'?'🪙':'💎';toast(`Обменено ${r.zarniki_spent}✨ → ${fmtF(r.amount_received)}${icon}`);refreshCurrBar();
-    if(input)input.value='';if(button)delete button.dataset.requestKey;
-  }).catch(e=>toast(e,false)).finally(()=>{if(button){delete button.dataset.busy;button.disabled=false;}});
+function walletPickTarget(value) { if (_walletBusy) return; _walletTarget = value; _walletRenderExchange(); }
+function _walletDraft() {
+  const raw = String(el('zar-exchange-amount')?.value || '').trim(), amount = Number(raw), route = _walletRoute();
+  if (!route || !/^\d+$/.test(raw) || !Number.isSafeInteger(amount) || amount < 1) return null;
+  const pack = route.packs?.find(p => Number(p.zarniki) === amount);
+  if (route.packs ? !pack : amount > _walletPolicy.remaining_today) return null;
+  return { amount, target: route.id, name: route.unit || route.name, received: pack ? Number(pack.amount) : Math.round(amount * Number(route.rate) * 1e6) / 1e6 };
+}
+function walletQuote() {
+  const draft = _walletDraft(), b = el('zar-exchange-submit'), receive = el('wallet-receive'), message = el('wallet-message');
+  const enough = draft && draft.amount <= Number(_v3Wallet(_profileData || {}).zarniki || 0);
+  if (receive) receive.textContent = draft ? `${fmtF(draft.received)} ${draft.name}` : '—';
+  if (message) message.textContent = !draft ? 'Выберите доступную сумму обмена.' : !enough ? 'Не хватает Зарников.' : '';
+  if (b) { b.disabled = _walletBusy || !draft || !enough; b.textContent = _walletBusy ? 'Обмениваем…' : 'Обменять'; }
+  for (const id of ['zar-exchange-target','zar-exchange-amount']) { const field = el(id); if (field) field.disabled = _walletBusy; }
+}
+async function exchangeZarnikiV1() {
+  const draft = _walletDraft(); if (!draft || _walletBusy) return;
+  const mine = _walletSeq;
+  _walletBusy = true; walletQuote();
+  try {
+    if (!(await v3Confirm({title:'Обмен Зарников',visual:_walletIcon(draft.target),name:`${fmt(draft.amount)} Зарников → ${fmtF(draft.received)} ${draft.name}`,rows:[['Отдадите',`${fmt(draft.amount)} Зарников`],['Получите',`${fmtF(draft.received)} ${draft.name}`,true]],cta:'Подтвердить обмен',note:'После получения валюты обмен необратим.'}))) return;
+    const signature = `${draft.target}:${draft.amount}`, key = _walletRequests.get(signature) || economyRequestKey('wallet-exchange');
+    _walletRequests.set(signature, key);
+    const essence = draft.target === 'essence';
+    const result = await api(essence ? '/skins-v3/essence' : '/wallet/exchange-zarniki', {method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify(essence ? {zarniki:draft.amount} : {amount:draft.amount,to:draft.target})});
+    _walletRequests.delete(signature);
+    toast(essence ? result.message : `Получено ${fmtF(result.amount_received)} ${draft.name}`);
+    if (essence && result.state) {
+      _profileData = {...(_profileData || {}), essence:result.state.essence.balance,zarniki:result.state.zarniki};
+      updateCurrBar(_profileData);
+    }
+    const reconciled = await refreshCurrBar();
+    // The refresh is a reconciliation read; do not replay a completed spend if
+    // loading the new quota fails afterwards.
+    if (mine === _walletSeq && el('modal')?.open && el('wallet-exchange')) {
+      if (reconciled) showCurrModal();
+      else {
+        for (const code of ['mora','diamonds','zarniki','essence']) { const node = el('cm-bal-' + code); if (node) node.textContent = '—'; }
+        el('wallet-exchange').innerHTML = '<p class="v3-sub">Обмен выполнен. Не удалось обновить балансы.</p><button type="button" class="v3-pill v3-pill--full" onclick="walletRefreshBalances()">Обновить балансы</button>';
+      }
+    }
+  } catch (e) { toast(e, false); }
+  finally { _walletBusy = false; walletQuote(); }
+}
+async function walletRefreshBalances() {
+  const mine = _walletSeq, data = await refreshCurrBar();
+  if (mine === _walletSeq && el('modal')?.open && data) showCurrModal();
+  else if (!data) toast('Не удалось обновить балансы. Повторите позже.', false);
 }
 
 function showCurrBar(show) {
@@ -386,10 +399,11 @@ el('curr-bar')?.addEventListener('click', showCurrModal);
 // Normal changes arrive as exact transactional `balance_changed` events.
 function refreshCurrBar() {
   if (!_uid || !_currBarVisible) return;
-  api('/profile/me').then(d => {
+  return api('/profile/me').then(d => {
     updateCurrBar(d);
     _profileData = {...(_profileData||{}), ...d};
     _profileSyncStats(d);
+    return d;
   }).catch(()=>{});
 }
 // Точечный патч цифр на карточке профиля (Мора/Алмазы/Зарники/Ачивки/Стрик) —

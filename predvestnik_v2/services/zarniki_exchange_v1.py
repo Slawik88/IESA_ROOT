@@ -3,6 +3,23 @@ from __future__ import annotations
 
 from core.zarniki_exchange_v1 import DAILY_ZARNIKI_CAP, ZarnikiExchangePolicyError, quote
 from infrastructure.repositories import economy_ledger, star_payments_v1, zarniki_exchange_v1 as repo
+from core.zarniki_exchange_v1 import EXCHANGE_ROUTES, POLICY_VERSION
+from core.skins_v3 import ESSENCE_PACKS, ESSENCE_PER_ZARNIK, purchased_essence
+
+
+async def policy(db, *, user_id: int) -> dict:
+    """One read projection for wallet and shop; existing writers keep their rules."""
+    await repo.ensure_tables(db)
+    used = await repo.usage_today(db, int(user_id))
+    return {"version": POLICY_VERSION, "daily_cap": DAILY_ZARNIKI_CAP, "used_today": used,
+            "remaining_today": max(0, DAILY_ZARNIKI_CAP - used), "quota_timezone": "UTC",
+            "routes": [
+                {"id": key, "name": {"mora": "Мора", "diamonds": "Алмазы"}[key], "unit": {"mora": "Моры", "diamonds": "Алмазов"}[key], "rate": str(rate),
+                 "min": 1, "max": DAILY_ZARNIKI_CAP, "shared_daily_limit": True}
+                for key, rate in EXCHANGE_ROUTES.items()
+            ] + [{"id": "essence", "name": "Эссенция", "unit": "Эссенции", "rate": str(ESSENCE_PER_ZARNIK),
+                  "packs": [{"zarniki": n, "amount": purchased_essence(n)} for n in ESSENCE_PACKS],
+                  "shared_daily_limit": False}]}
 
 
 class ZarnikiExchangeConflict(ZarnikiExchangePolicyError):

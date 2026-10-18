@@ -111,6 +111,11 @@ class ExchangeZarnikiRequest(BaseModel):
     to: str = Field(pattern="^(mora|diamonds)$")
 
 
+@router.get("/exchange-policy")
+async def exchange_policy(db=Depends(get_db), user=Depends(require_tg_user)):
+    return await zarniki_exchange_v1.policy(db, user_id=int(user["id"]))
+
+
 @router.post("/exchange-zarniki")
 async def exchange_zarniki_endpoint(
     body: ExchangeZarnikiRequest,
