@@ -1,3 +1,16 @@
+## Owner revision 2026-10-18 — cosmetic boundaries (item 3 complete)
+
+Replaced narrow fixed-pixel edge masks with proportional multi-stop fades on the
+shared decorative scene layer. Large silhouettes and particles dissolve across
+roughly one third of each edge; avatar, nickname, titles and controls remain
+unmasked. No blur, new animation or runtime work was introduced.
+
+Evidence: six real-browser profile/Looks scenarios at 320/390/430 pass with no
+warnings; before/after screenshots in .local/ui-before and .local/ui-after-edges
+were inspected. Skins visual contract and whitespace checks pass. A first second-
+port smoke attempt timed out during app startup; a sequential rerun on the usual
+stand completed all six scenarios.
+
 ## Owner revision 2026-10-18 — exchange dock entry (item 5 complete)
 
 The existing flag-controlled exchange destination now follows Games, rather than

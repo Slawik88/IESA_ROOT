@@ -90,6 +90,16 @@
    Кромки сцены растворяются со всех четырёх сторон: ровный край блока читался как рамка вокруг образа (замечание владельца).
    Нижняя рампа длиннее — внизу сцены земля и крупные силуэты, им нужен самый плавный уход. */
 .ap-scene-clip { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:-1; border-radius:inherit; }
-.ap-scene-clip { -webkit-mask-image:linear-gradient(transparent,#000 30px,#000 calc(100% - 44px),transparent),linear-gradient(90deg,transparent,#000 34px,#000 calc(100% - 34px),transparent); -webkit-mask-composite:source-in; mask-image:linear-gradient(transparent,#000 30px,#000 calc(100% - 44px),transparent),linear-gradient(90deg,transparent,#000 34px,#000 calc(100% - 34px),transparent); mask-composite:intersect; }
+.ap-scene-clip {
+  /* Proportional, multi-stop ramps dissolve large illustrations as well as
+     compact previews. Only decoration is masked; avatar, name and controls
+     retain their full contrast and hit areas. No blur or animated filter. */
+  --ap-scene-fade-y: linear-gradient(transparent, #0000000d 5%, #0000004d 12%, #000000bf 23%, #000 34%, #000 64%, #000000bf 75%, #0000004d 88%, #0000000d 95%, transparent);
+  --ap-scene-fade-x: linear-gradient(90deg, transparent, #0000000d 5%, #0000004d 12%, #000000bf 22%, #000 32%, #000 68%, #000000bf 78%, #0000004d 88%, #0000000d 95%, transparent);
+  -webkit-mask-image:var(--ap-scene-fade-y),var(--ap-scene-fade-x);
+  -webkit-mask-composite:source-in;
+  mask-image:var(--ap-scene-fade-y),var(--ap-scene-fade-x);
+  mask-composite:intersect;
+}
 
 .v3-id.has-look :is(.v3-sub,.v3-greet) { color:var(--v3-ink); text-shadow:0 1px 3px #000; }
