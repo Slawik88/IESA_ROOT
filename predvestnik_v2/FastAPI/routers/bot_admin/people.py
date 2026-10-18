@@ -10,7 +10,7 @@ import uuid
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from loguru import logger
 
 from FastAPI.deps import get_db
@@ -157,8 +157,8 @@ def _tg_error(exc: Exception) -> HTTPException:
 # ── Поиск и карточки ─────────────────────────────────────────────────────────
 
 @router.get("/search")
-async def search(q: str = "", filter: str = "", user=Depends(_user), db=Depends(get_db)):
-    return await admin_people.search(db, q, flt=filter)
+async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=1_000_000), user=Depends(_user), db=Depends(get_db)):
+    return await admin_people.search(db, q, flt=filter, offset=offset)
 
 
 @router.get("/chats/attention")

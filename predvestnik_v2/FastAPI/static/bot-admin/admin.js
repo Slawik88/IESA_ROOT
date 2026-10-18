@@ -339,7 +339,7 @@ const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
 const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
 const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
-  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал']];
+  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
 
 function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
   const box = $('#sheet');
@@ -553,12 +553,13 @@ async function peopleSearch(main, query = '') {
   if (!PEOPLE.restored) {   // последний выбранный быстрый фильтр возвращается при следующем открытии
     PEOPLE.restored = true;
     const saved = PREFS.get('people.filter', '');
-    if (PEOPLE_FILTERS.some(([key]) => key === saved)) PEOPLE.filter = saved;
+    if (PEOPLE_FILTERS.some(([key]) => key === saved) || /^(?:marked|missing):[a-z_]+$/.test(saved) || ['manual_marks','no_manual_marks'].includes(saved)) PEOPLE.filter = saved;
   }
   rootBack();
   main.innerHTML = `
     <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
     <div class="chips filters" id="pplf"></div>
+    <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div>
     <div id="pplbulk"></div>
     <div id="pplres"><div class="empty">Загрузка…</div></div>`;
   let timer;
@@ -567,6 +568,8 @@ async function peopleSearch(main, query = '') {
   const drawFilters = () => {
     $('#pplf').innerHTML = PEOPLE_FILTERS.map(([key, title]) =>
       `<span class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</span>`).join('');
+    const marks = $('#pplmarks');
+    if (marks) marks.value = [...marks.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
   };
   $('#pplf').onclick = e => {
     const c = e.target.closest('[data-flt]');
@@ -574,6 +577,16 @@ async function peopleSearch(main, query = '') {
     PEOPLE.filter = c.dataset.flt; PREFS.set('people.filter', PEOPLE.filter); drawFilters(); load($('#pplq').value);
   };
   drawFilters();
+  api('/marks').then(catalog => {
+    const select = $('#pplmarks'); if (!select) return;
+    select.innerHTML = '<option value="">Все регалии</option><option value="manual_marks">Есть ручные регалии</option><option value="no_manual_marks">Нет ручных регалий</option>' +
+      catalog.items.map(m => `<optgroup label="${esc(m.title)}"><option value="marked:${esc(m.id)}">Есть: ${esc(m.glyph)} ${esc(m.title)}</option><option value="missing:${esc(m.id)}">Нет: ${esc(m.glyph)} ${esc(m.title)}</option></optgroup>`).join('');
+    select.value = [...select.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
+    select.onchange = () => {
+      PEOPLE.filter = select.value; PEOPLE.picked.clear(); PREFS.set('people.filter', PEOPLE.filter);
+      drawFilters(); load($('#pplq').value);
+    };
+  }).catch(e => toast(e.message, true));
   const drawBulk = () => {
     const host = $('#pplbulk'); if (!host) return;
     if (!PEOPLE.select) { host.innerHTML = ''; return; }
@@ -594,13 +607,13 @@ async function peopleSearch(main, query = '') {
     row.classList.toggle('picked', on);
     const box = row.querySelector('.pick'); if (box) box.checked = on;
   });
-  async function load(q) {
+  async function load(q, offset = 0) {
     PEOPLE.query = q;
     const host = $('#pplres'); if (!host) return;
-    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + PEOPLE.filter : ''}`, () => load(q), 'people');
+    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + encodeURIComponent(PEOPLE.filter) : ''}&offset=${offset}`, () => load(q, offset), 'people');
     if (!data) return;
     const {players, chats, total} = data;
-    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1];
+    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
     const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
     const showAttn = !q.trim() && !PEOPLE.filter;
     const recent = showAttn ? PREFS.get('recent', []) : [];
@@ -620,6 +633,13 @@ async function peopleSearch(main, query = '') {
         <div class="head"><b>${esc(c.title)}</b><span class="sub">${num(c.members)} уч.</span></div>
         <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
+    if (data.offset !== undefined) {
+      const pager = document.createElement('div'); pager.className = 'actions';
+      pager.innerHTML = `<span class="sub">${total ? offset + 1 : 0}–${offset + players.length} из ${num(total)}</span><button class="btn small" data-prev ${offset ? '' : 'disabled'}>Назад</button><button class="btn small" data-next ${data.next_offset == null ? 'disabled' : ''}>Дальше</button>`;
+      pager.querySelector('[data-prev]').onclick = () => load(q, Math.max(0, offset - data.limit));
+      pager.querySelector('[data-next]').onclick = () => load(q, data.next_offset);
+      $('#pplres').appendChild(pager);
+    }
     markPicked(); drawBulk();
     if (showAttn) api('/chats/onboarding').then(f => {
       const host = $('#pplonb');
@@ -645,7 +665,9 @@ async function peopleSearch(main, query = '') {
     const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
     if (p && PEOPLE.select) {   // в режиме выбора нажатие отмечает игрока, а не открывает карточку
       const id = +p.dataset.player;
-      if (PEOPLE.picked.has(id)) PEOPLE.picked.delete(id); else PEOPLE.picked.add(id);
+      if (PEOPLE.picked.has(id)) PEOPLE.picked.delete(id);
+      else if (PEOPLE.picked.size < 50) PEOPLE.picked.add(id);
+      else { toast('За один раз можно выбрать до 50 игроков.', true); return; }
       markPicked(); drawBulk();
       return;
     }

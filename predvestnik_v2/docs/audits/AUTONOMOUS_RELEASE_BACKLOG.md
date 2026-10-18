@@ -1,3 +1,20 @@
+## Owner revision 2026-10-18 — admin mark review queues (item 8 complete)
+
+People search now has a staff-without-badge queue, filters with/without each
+manual regalia, with/without any manual regalia, bounded 30-row pages and totals.
+Bulk selection spans pages and stops at 50; existing per-recipient permission,
+reason and audit checks remain the mutation boundary. Deleted accounts are
+excluded, tester rank is not mistaken for helper, creator override is respected.
+
+Evidence: PostgreSQL proof exercises 37 synthetic players, non-overlapping pages,
+role matching, deleted accounts, assigned/missing marks and literal wildcard
+search. Browser proofs at 320/390 verify real staff authentication, dropdown,
+pagination, no JS errors and no horizontal overflow; screenshots inspected.
+Admin UI contract, JS syntax and whitespace pass. The broader existing people
+test stops at unchanged Cyrillic ILIKE matching under this C-locale test cluster
+(same result on a fresh separate test DB); not counted as a passing full gate.
+Read-only critique covered permissions, bulk guards and pagination requirements.
+
 ## Owner revision 2026-10-18 — dock density (item 4 complete)
 
 Dock targets now have a consistent 56px pitch and 48px minimum height, without

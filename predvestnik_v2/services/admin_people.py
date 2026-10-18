@@ -15,6 +15,7 @@ from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from services import feature_switches, global_moderation, member_tags, name_history, staff_watch
 from services import vip as vip_service
+from core.marks_v1 import GRANTABLE
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS bot_admin_actions (
@@ -167,10 +168,55 @@ def _filter_sql(flt: str) -> tuple[str, tuple]:
     return "", ()
 
 
-async def search(db, q: str, limit: int = 20, flt: str = "") -> dict:
+def is_mark_filter(flt: str) -> bool:
+    return flt in {"needs_staff_mark", "manual_marks", "no_manual_marks"} or any(
+        flt == f"{prefix}:{mark}" for prefix in ("marked", "missing") for mark in GRANTABLE)
+
+
+async def _mark_search(db, q: str, flt: str, offset: int) -> dict:
+    """A paged review queue; no automatic/manual awards are inferred here."""
+    from infrastructure.repositories import marks_v1
+    from bot.config import config
+    await marks_v1.ensure_tables(db)
+    params = []
+    manual = "EXISTS (SELECT 1 FROM player_marks_v1 m WHERE m.user_id=u.user_tg_id AND m.mark_id=ANY(?::text[]))"
+    if flt == "needs_staff_mark":
+        # Keep creator override consistent with get_bot_rank; testers have no
+        # staff badge recommendation and never enter this queue.
+        role = "CASE WHEN u.user_tg_id=? THEN 6 ELSE COALESCE(u.bot_rank,0) END"
+        expected = f"CASE ({role}) WHEN 2 THEN 'helper' WHEN 3 THEN 'helper' WHEN 4 THEN 'senior_helper' WHEN 5 THEN 'developer' WHEN 6 THEN 'developer' END"
+        cond = f"({expected}) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM player_marks_v1 m WHERE m.user_id=u.user_tg_id AND m.mark_id=({expected}))"
+        params = [config.developer_id, config.developer_id]
+    elif flt in {"manual_marks", "no_manual_marks"}:
+        cond = ("NOT " if flt == "no_manual_marks" else "") + manual
+        params = [list(GRANTABLE)]
+    else:
+        mode, mark = flt.split(":", 1)
+        cond = ("NOT " if mode == "missing" else "") + "EXISTS (SELECT 1 FROM player_marks_v1 m WHERE m.user_id=u.user_tg_id AND m.mark_id=?)"
+        params = [mark]
+    where = "u.deleted_at IS NULL AND (" + cond + ")"
+    if q:
+        if q.isdecimal() and len(q) <= 15:
+            where += " AND u.user_tg_id=?"
+            params.append(int(q))
+        else:
+            where += " AND (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ?)"
+            params.extend([_like(q.lstrip('@')), _like(q)])
+    async with db.execute("SELECT COUNT(*) FROM users u WHERE " + where, tuple(params)) as c:
+        total = int((await c.fetchone())[0])
+    async with db.execute(_PLAYER_SQL + "WHERE " + where + " ORDER BY s.last DESC NULLS LAST,u.user_tg_id LIMIT ? OFFSET ?",
+                          (*params, FILTER_LIMIT, offset)) as c:
+        players = await _with_tags(db, [_player_row(r) for r in await c.fetchall()])
+    return {"players": players, "chats": [], "total": total, "offset": offset, "limit": FILTER_LIMIT,
+            "next_offset": offset + FILTER_LIMIT if offset + FILTER_LIMIT < total else None}
+
+
+async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:
     """Игроки и чаты по ID, @нику (можно кусок), имени из Telegram или нику в чате; чаты по названию.
     Пустой запрос — самые свежие по активности. flt — быстрый фильтр игроков (FILTERS): чаты тогда не ищутся."""
     q = (q or "").strip()
+    if is_mark_filter(flt):
+        return await _mark_search(db, q, flt, max(0, min(int(offset), 1_000_000)))
     flt = flt if flt in FILTERS else ""
     cond, cparams = _filter_sql(flt)
     if flt:
