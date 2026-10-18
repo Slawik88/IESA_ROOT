@@ -571,7 +571,35 @@
     const key=`decision:${decision}`,action=_pendingAction(_petsV1PendingActions,key,'pet-decision-');
     api('/pets-v1/expedition/decision',{method:'POST',body:JSON.stringify({decision:decision,action_id:action})}).then(d=>{_petsV1PendingActions.delete(key);toast(petRouteToast(d));openPetsV1();}).catch(e=>{toast(`${e} Проверяем итог маршрута.`,false);openPetsV1();});
   };
-  let _chestsV1Data=null,_chestsV1Busy=false,_chestsV1Prepared=null,_chestsV1LastResult=null,_chestsV1Tier=1;
+  let _chestsV1Data=null,_chestsV1Busy=false,_chestsV1Prepared=null,_chestsV1LastResult=null,_chestsV1Tier=1,_chestsV1RevealView=null;
+  function chestRevealArt(step=0){
+    return `<span class="chest-art" style="--ch-lift:${Math.min(10,Math.max(0,step))}"><svg viewBox="0 0 160 140" aria-hidden="true"><ellipse class="chest-shadow" cx="80" cy="125" rx="55" ry="8"/><path class="chest-body" d="M25 65h110v46a10 10 0 0 1-10 10H35a10 10 0 0 1-10-10Z"/><path class="chest-band" d="M39 65v56m82-56v56M25 82h110"/><g class="chest-lid"><path d="M23 63v-9a57 32 0 0 1 114 0v9Z"/><path class="chest-band" d="M39 60V37m82 23V37"/></g><rect class="chest-lock" x="69" y="68" width="22" height="26" rx="5"/><path class="chest-keyhole" d="M80 77v8"/></svg></span>`;
+  }
+  function chestRevealScene(){
+    const v=_chestsV1RevealView,done=v.step>=v.stars;
+    const stars=Array.from({length:10},(_,i)=>`<i class="${i<v.step?'is-lit':''}">★</i>`).join('');
+    return `<section class="chest-reveal" style="--ch-power:${v.step/10}" aria-label="Раскрытие сундука">
+      ${done?`<div class="chest-reveal-final">${chestRevealArt(v.step)}</div>`:`<button type="button" class="chest-reveal-tap" onclick="chestsV1RevealStep()" aria-label="Открыть следующую звезду">${chestRevealArt(v.step)}</button>`}
+      <div class="chest-reveal-stars" aria-hidden="true">${stars}</div>
+      <div class="chest-reveal-status" role="status" aria-live="polite"><b>${v.step} ${achievementWord(v.step,'звезда','звезды','звёзд')}</b><span>${done?chestRewardText(v.result.reward):'Коснись сундука ещё раз'}</span></div>
+      ${done?'<button type="button" class="v3-pill v3-pill--full" onclick="chestsV1FinishReveal()">Готово</button>':'<button type="button" class="v3-link" onclick="chestsV1SkipReveal()">Сразу показать награду</button>'}
+    </section>`;
+  }
+  function chestRevealPaint(){
+    if(_activePage!=='chests')return;
+    renderChestsV1();
+    requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-reveal-tap, .chest-reveal .v3-pill')?.focus({preventScroll:true}));
+  }
+  function chestRevealCelebrate(){
+    const v=_chestsV1RevealView;
+    if(v&&v.step>=v.stars&&!v.celebrated){v.celebrated=true;if(_activePage==='chests'){v3Reward();if(typeof _haptic==='function')_haptic('success');}}
+  }
+  window.chestsV1RevealStep=function(){
+    const v=_chestsV1RevealView;if(!v||v.step>=v.stars)return;
+    v.step++;if(typeof _haptic==='function')_haptic('light');chestRevealPaint();chestRevealCelebrate();
+  };
+  window.chestsV1SkipReveal=function(){if(!_chestsV1RevealView)return;_chestsV1RevealView.step=_chestsV1RevealView.stars;chestRevealPaint();chestRevealCelebrate();};
+  window.chestsV1FinishReveal=function(){if(!_chestsV1RevealView||_chestsV1RevealView.step<_chestsV1RevealView.stars)return;_chestsV1LastResult=_chestsV1RevealView.result;_chestsV1RevealView=null;_chestsV1RefreshVisible();};
   const CHEST_PRICE_ICONS={mora:'🪙',diamonds:'💎',zarniki:'✨',essence:'💧'};
   function chestPriceText(price){return Object.entries(price||{}).map(([k,v])=>`${fmt(v)} ${CHEST_PRICE_ICONS[k]||k}`).join(' + ');}
   function chestTierInfo(d,tier){return (d.key_tiers||[]).find(t=>Number(t.tier)===Number(tier))||null;}
@@ -608,17 +636,18 @@
     const tierInfo=chestTierInfo(d,_chestsV1Tier),odds=((tierInfo&&tierInfo.star_odds)||d.star_odds||[]).map(row=>`<li><span>${row.stars}★</span><b>${String(row.percent).replace('.',',')}%</b></li>`).join('');
     const rewards=(d.rewards||[]).map(row=>`<details class="chest-tier"><summary><b>${row.stars}★</b><span>${String(row.star_percent).replace('.',',')}% сундуков</span></summary><ul>${(row.outcomes||[]).map(outcome=>`<li><span><b>${esc(outcome.label)}</b>${chestOddsDetails(outcome)}</span><em>${outcome.conditional_percent}%${chestAmountText(outcome)?` · ${chestAmountText(outcome)}`:''}</em></li>`).join('')}</ul></details>`).join('');
     const paid=d.funding||{},remaining=Math.max(0,Number(paid.remaining_today)||0),price=Number(paid.price_zarniki)||0,canBuy=paid.paid!==false;
-    const tierBal=chestTierBalance(d,_chestsV1Tier),tierName=tierInfo?tierInfo.name:'Обычный',busy=_chestsV1Busy||!!_chestsV1Prepared;
+    const tierBal=chestTierBalance(d,_chestsV1Tier),tierName=tierInfo?tierInfo.name:'Обычный',busy=_chestsV1Busy||!!_chestsV1Prepared||!!_chestsV1RevealView;
     const inv=d.inventory||{},owned=Object.keys(inv.unlocked_pets||{}).length,cards=Object.values(inv.pet_cards||{}).reduce((a,b)=>a+Number(b||0),0),food=Object.values(inv.foods||{}).reduce((a,b)=>a+Number(b||0),0),jokers=Object.values(inv.jokers||{}).reduce((a,b)=>a+Number(b||0),0);
     // Ключи разных уровней — выбор, каким открыть; показываются, только если есть ключ выше обычного
     const higher=(d.key_tiers||[]).some(t=>Number(t.tier)>1&&chestTierBalance(d,t.tier)>0);
     const tiers=higher?`<div class="ch-tiers" role="group" aria-label="Каким ключом открыть">${(d.key_tiers||[]).filter(t=>Number(t.tier)===1||chestTierBalance(d,t.tier)>0).map(t=>`<button type="button" class="chest-tier-chip${Number(t.tier)===_chestsV1Tier?' is-on':''}" aria-pressed="${Number(t.tier)===_chestsV1Tier}" onclick="chestsV1PickTier(${Number(t.tier)})">${esc(t.name)}${Number(t.tier)>1?` ${t.tier}★+`:''} · <b>${fmt(chestTierBalance(d,t.tier))}</b></button>`).join('')}</div>`:'';
     let action;
-    if(_chestsV1Prepared)action=`<button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук"><span aria-hidden="true">✦</span><b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button>`;
+    if(_chestsV1RevealView)action=chestRevealScene();
+    else if(_chestsV1Prepared)action=`<button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук">${chestRevealArt(0)}<b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button>`;
     else if(tierBal>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${busy?'disabled':''}>${_chestsV1Tier>1?`Открыть: ${esc(tierName)} ключ`:'Открыть за 1 ключ'}</button>${canBuy?`<button type="button" class="v3-link ch-buy-more" onclick="chestsV1AskBuy(this)" ${busy||remaining<1?'disabled':''}>Купить ${_chestsV1Tier>1?'обычный':'ещё'} ключ за ${fmt(price)} ✨</button>`:''}`;
     else if(canBuy&&remaining>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1AskBuy(this)" ${busy?'disabled':''}>Купить ключ за ${fmt(price)} ✨</button><p class="ch-hint">Сегодня можно купить ещё ${remaining} из ${paid.daily_limit}. Бесплатно ключ дают за полный день и неделю заданий.</p>`;
     else action=`<p class="ch-hint">${canBuy?'Покупки на сегодня закончились. ':''}Ключ дают за полный день и неделю заданий.</p><button type="button" class="v3-pill v3-pill--ghost chest-open-btn" onclick="openQuestsV1()">К заданиям</button>`;
-    const result=!_chestsV1Prepared&&_chestsV1LastResult?`<p class="ch-last" role="status"><span aria-hidden="true">${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span> Последний: ${chestRewardText(_chestsV1LastResult.reward)}</p>`:'';
+    const result=!_chestsV1RevealView&&!_chestsV1Prepared&&_chestsV1LastResult?`<p class="ch-last" role="status"><span aria-hidden="true">${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span> Последний: ${chestRewardText(_chestsV1LastResult.reward)}</p>`:'';
     const offers=d.tiers_enabled?(d.offers||[]).map(o=>{
       const left=Number(o.remaining)>0?`осталось ${o.remaining} из ${o.limit} ${o.window==='day'?'сегодня':'на неделе'}`:(o.window==='day'?'лимит на сегодня исчерпан':'лимит на неделю исчерпан');
       return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
@@ -646,46 +675,53 @@
     if(!_chestsV1Data)root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}<div class="sk" style="height:64px;border-radius:14px"></div><div class="sk" style="height:52px;border-radius:99px;margin-top:16px"></div>`;
     const mine=++_chestsV1Seq;
     api('/chests-v1/me').then(d=>{if(mine!==_chestsV1Seq)return;if(d.pending_open)[..._chestsV1PendingActions.keys()].filter(k=>k.startsWith('prepare:')).forEach(k=>_chestsV1PendingActions.delete(k));   // сундук уже подготовлен: старый номер операции больше не нужен
-      _chestsV1Data=d;_chestsV1Prepared=d.pending_open||null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>{
+      _chestsV1Data=d;_chestsV1Prepared=d.pending_open&&d.pending_open.open_id!==_chestsV1RevealView?.result.open_id?d.pending_open:null;_chestsV1LastResult=d.last_result||null;renderChestsV1();}).catch(e=>{
       if(mine!==_chestsV1Seq)return;
       const text=String(e?.message||e||'Ошибка').replace(/^Error:\s*/,'');
       if(_chestsV1Data){toast(`Сундуки не обновились: ${text}`,false);return;}
       root.innerHTML=`${v3Head('Сундуки')}<div class="v3-empty" role="alert"><b>Сундуки не загрузились</b><span>${esc(text)}</span> <button type="button" class="v3-link" onclick="openChestsV1()">Повторить</button></div>`;
     });
   };
+  function _chestsV1RefreshVisible(){if(_activePage==='chests')openChestsV1();}
   // После подготовки экран перечитывает /me: остаток ключей по уровням знает только сервер
   window.chestsV1Prepare=function(){
-    if(_chestsV1Busy||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
+    if(_chestsV1Busy||_chestsV1RevealView||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
     const tier=_chestsV1Tier,key=`prepare:${tier}`,action=_pendingAction(_chestsV1PendingActions,key,'chest-open-');
-    api('/chests-v1/prepare',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest,key_tier:tier})}).then(d=>{_chestsV1PendingActions.delete(key);_chestsV1Prepared=d;_chestsV1Data.key_balance=d.key_balance;_chestsV1Busy=false;renderChestsV1();requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-orb')?.focus());openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: ключ не спишется второй раз.`,false);openChestsV1();});
+    api('/chests-v1/prepare',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest,key_tier:tier})}).then(d=>{_chestsV1PendingActions.delete(key);_chestsV1Prepared=d;_chestsV1Data.key_balance=d.key_balance;_chestsV1Busy=false;renderChestsV1();requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-orb')?.focus());_chestsV1RefreshVisible();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: ключ не спишется второй раз.`,false);_chestsV1RefreshVisible();});
   };
   window.chestsV1Buy=function(){
-    if(_chestsV1Busy||!_chestsV1Data||Number(_chestsV1Data.funding?.remaining_today||0)<1)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
+    if(_chestsV1Busy||_chestsV1RevealView||!_chestsV1Data||Number(_chestsV1Data.funding?.remaining_today||0)<1)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
     const key='purchase',action=_pendingAction(_chestsV1PendingActions,key,'chest-buy-');
-    api('/chests-v1/purchase',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest})}).then(d=>{_chestsV1PendingActions.delete(key);toast(`Ключ куплен за ${fmt(d.price_zarniki)} ✨`);_chestsV1Busy=false;openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: покупка сохранит тот же номер операции.`,false);openChestsV1();});
+    api('/chests-v1/purchase',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest})}).then(d=>{_chestsV1PendingActions.delete(key);toast(`Ключ куплен за ${fmt(d.price_zarniki)} ✨`);_chestsV1Busy=false;_chestsV1RefreshVisible();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: покупка сохранит тот же номер операции.`,false);_chestsV1RefreshVisible();});
   };
-  window.chestsV1PickTier=function(tier){if(_chestsV1Busy)return;_chestsV1Tier=Number(tier)||1;renderChestsV1();};
+  window.chestsV1PickTier=function(tier){if(_chestsV1Busy||_chestsV1Prepared||_chestsV1RevealView)return;_chestsV1Tier=Number(tier)||1;renderChestsV1();};
   window.chestsV1AskOffer=function(offerId,trigger){
-    if(_chestsV1Busy||!_chestsV1Data)return;
+    if(_chestsV1Busy||_chestsV1RevealView||!_chestsV1Data)return;
     const o=(_chestsV1Data.offers||[]).find(x=>x.offer_id===offerId);if(!o)return;
     const info=chestTierInfo(_chestsV1Data,o.key_tier),top=info&&info.star_odds&&info.star_odds[0];
     if(trigger)trigger.dataset.modalTrigger='true';
     OM('Купить ключ',`<div class="chest-buy-confirm"><b>${esc(o.name)} ключ ${o.key_tier}★+</b><p>Отдаёшь: ${chestPriceText(o.price)}.<br>Получаешь: 1 ключ, звёзды ниже ${o.key_tier} становятся ${o.key_tier}${top?` (ровно ${o.key_tier}★ — ${String(top.percent).replace('.',',')}%)`:''}.</p><p>После покупки останется ${Math.max(0,Number(o.remaining)-1)} из ${o.limit} ${o.window==='day'?'сегодня':'на этой неделе'}.</p><small>Покупка необратима: ключ не возвращается.</small></div>`,[{l:`Купить за ${chestPriceText(o.price)}`,c:'primary',f:`chestsV1BuyOffer('${esc(o.offer_id)}');CM()`},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.chestsV1BuyOffer=function(offerId){
-    if(_chestsV1Busy||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
+    if(_chestsV1Busy||_chestsV1RevealView||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
     const key=`offer:${offerId}`,action=_pendingAction(_chestsV1PendingActions,key,'chest-offer-');
-    api(`/chests-v1/offers/${encodeURIComponent(offerId)}/buy`,{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest})}).then(d=>{_chestsV1PendingActions.delete(key);toast('Ключ куплен');_chestsV1Tier=Number(d.key_tier)||_chestsV1Tier;_chestsV1Busy=false;openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: покупка сохранит тот же номер операции.`,false);openChestsV1();});
+    api(`/chests-v1/offers/${encodeURIComponent(offerId)}/buy`,{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest})}).then(d=>{_chestsV1PendingActions.delete(key);toast('Ключ куплен');_chestsV1Tier=Number(d.key_tier)||_chestsV1Tier;_chestsV1Busy=false;_chestsV1RefreshVisible();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: покупка сохранит тот же номер операции.`,false);_chestsV1RefreshVisible();});
   };
   window.chestsV1AskBuy=function(trigger){
-    if(_chestsV1Busy||!_chestsV1Data)return;
+    if(_chestsV1Busy||_chestsV1RevealView||!_chestsV1Data)return;
     const funding=_chestsV1Data.funding||{},price=Number(funding.price_zarniki)||0,remaining=Number(funding.remaining_today)||0;
     if(trigger)trigger.dataset.modalTrigger='true';
     OM('Купить ключ',`<div class="chest-buy-confirm"><b>1 ключ за ${fmt(price)} ✨</b><p>Шансы полностью совпадают с бесплатным ключом. Сегодня после покупки останется ${Math.max(0,remaining-1)} из ${funding.daily_limit||0} покупок.</p><small>Неиспользованный купленный ключ можно вернуть через поддержку.</small></div>`,[{l:`Купить за ${fmt(price)} ✨`,c:'primary',f:'chestsV1Buy();CM()'},{l:'Отмена',c:'ghost',f:'CM()'}]);
   };
   window.chestsV1Reveal=function(){
-    if(_chestsV1Busy||!_chestsV1Prepared)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
-    api(`/chests-v1/${encodeURIComponent(_chestsV1Prepared.open_id)}/reveal`,{method:'POST'}).then(d=>{_chestsV1Busy=false;_chestsV1Prepared=null;_chestsV1LastResult=d;toast(`${d.stars}★ · ${chestRewardText(d.reward)}`);v3Reward();openChestsV1();}).catch(e=>{_chestsV1Busy=false;toast(e,false);openChestsV1();});
+    if(_chestsV1Busy||_chestsV1RevealView||!_chestsV1Prepared)return;
+    const openId=_chestsV1Prepared.open_id;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
+    api(`/chests-v1/${encodeURIComponent(openId)}/reveal`,{method:'POST'}).then(d=>{
+      if(!d||d.open_id!==openId||!d.revealed||!Number.isInteger(Number(d.stars))||Number(d.stars)<1||Number(d.stars)>10||!d.reward)throw new Error('Не удалось прочитать награду. Повторите раскрытие: сервер сохранит тот же результат.');
+      _chestsV1Busy=false;_chestsV1Prepared=null;_chestsV1LastResult=d;
+      _chestsV1RevealView={result:d,stars:Math.max(1,Math.min(10,Math.floor(Number(d.stars)||1))),step:1,celebrated:false};
+      chestRevealPaint();chestRevealCelebrate();
+    }).catch(e=>{_chestsV1Busy=false;toast(e,false);if(_activePage==='chests')renderChestsV1();});
   };
   // ── Задания: строка на задание (значок, что сделать, одна полоса, «2/4» справа); переход к игре и замена — в листе по нажатию.
   // Готовая награда — одна строка с «Забрать» над вкладками: это главное действие экрана. Правила вида: docs/MINIAPP_DESIGN_RULES.md. Стили: quests-v3.css.

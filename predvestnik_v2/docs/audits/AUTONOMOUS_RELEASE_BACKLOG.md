@@ -1,3 +1,22 @@
+## Owner revision 2026-10-18 — tap-to-reveal chests (item 15 complete)
+
+First tap performs the existing atomic server reveal; each subsequent tap opens
+one more star until the saved result's star count is reached. A custom SVG chest,
+opening lid, glow, ten-star track and short tap pulse replace the generic orb.
+Full reward/celebration waits until the final tap; a secondary skip reveals it
+immediately. Delivery itself is never delayed by presentation. No client RNG or
+new reward writer exists. New opens, key changes and purchases are blocked during
+the presentation. Refresh preserves the current stage; leaving the screen during
+the POST does not navigate back. Focus is restored after each stage; reduced
+motion removes the pulse while preserving controls.
+
+Evidence: Node proof covers 1/3/10 exact taps, one POST, skip, refresh, blocked
+new prepare, lost-response retry and navigation away. Real-browser fixtures at
+320/390/430 cover 1/3/10 stars, reduced motion, no JS errors/overflow and one POST;
+screenshots inspected. Existing PostgreSQL atomic/rollback/idempotency chest
+proof and visual contract pass. Independent read-only critique checked spoiler,
+navigation, focus and refresh boundaries. Loot revision remains a separate item.
+
 ## Owner revision 2026-10-18 — wallet rebuild (item 10 complete)
 
 Replaced the explanatory wall with a clear Zarniki balance, three exact balances,

@@ -27,6 +27,29 @@
 .chest-orb b { font-size: 15px; }
 .chest-orb small { max-width: 80%; color: var(--v3-dim); font-size: 12px; text-align: center; }
 .chest-orb:disabled { opacity: .6; }
+.chest-art { display:block; width:min(46vw,160px); color:var(--v3-acc); }
+.chest-art svg { display:block; width:100%; height:auto; overflow:visible; }
+.chest-shadow { fill:#000; opacity:.28; }
+.chest-body,.chest-lid { fill:color-mix(in srgb,var(--v3-acc) 18%,var(--v3-sheet)); stroke:var(--v3-acc); stroke-width:2; stroke-linejoin:round; }
+.chest-band { fill:none; stroke:color-mix(in srgb,var(--v3-ink) 70%,var(--v3-acc)); stroke-width:4; }
+.chest-lid { transform:translateY(calc(var(--ch-lift,0) * -1px)) rotate(calc(var(--ch-lift,0) * -.7deg)); transform-origin:24px 63px; }
+.chest-lock { fill:var(--v3-acc); }
+.chest-keyhole { stroke:var(--v3-bg); stroke-width:4; stroke-linecap:round; }
+.chest-reveal { display:grid; justify-items:center; gap:13px; padding:4px 0 12px; }
+.chest-reveal-tap,.chest-reveal-final { display:grid; place-items:center; width:min(64vw,224px); aspect-ratio:1; border:0; border-radius:50%; background:radial-gradient(circle,color-mix(in srgb,var(--v3-acc) 24%,transparent),transparent 70%); color:var(--v3-ink); }
+.chest-reveal-tap { cursor:pointer; animation:chestStarPulse .3s ease-out; }
+.chest-reveal-final .chest-lid { transform:translateY(-18px) rotate(-18deg); }
+.chest-reveal-tap:focus-visible { outline:2px solid var(--v3-ink); outline-offset:3px; }
+.chest-reveal-tap:active { transform:scale(.96); }
+.chest-reveal-stars { display:flex; gap:3px; }
+.chest-reveal-stars i { color:var(--v3-track); font-size:18px; font-style:normal; line-height:1.2; }
+.chest-reveal-stars .is-lit { color:var(--v3-acc); }
+.chest-reveal-status { display:grid; gap:6px; text-align:center; }
+.chest-reveal-status b { font-size:21px; font-variant-numeric:tabular-nums; }
+.chest-reveal-status span { color:var(--v3-dim); font-size:13px; }
+.chest-reveal .v3-link { color:var(--v3-dim); }
+@keyframes chestStarPulse { from { opacity:.65; transform:scale(.93); } to { opacity:1; transform:scale(1); } }
+@media(prefers-reduced-motion:reduce) { .chest-reveal-tap { animation:none; } .chest-reveal-tap:active { transform:none; } }
 
 /* ключи по звёздам: строка — название, остаток лимита, цена */
 .ch-list .ch-row + .ch-row { box-shadow: 0 -1px 0 var(--v3-faint); }
