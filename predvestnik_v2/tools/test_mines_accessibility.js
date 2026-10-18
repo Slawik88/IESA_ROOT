@@ -12,7 +12,7 @@ const nodes=new Map(),get=id=>nodes.get(id)||(nodes.set(id,new El()),nodes.get(i
 const document={body:{dataset:{appBase:'/predvestnik'}},activeElement:null,getElementById:get,createElement:()=>new El(),querySelectorAll:()=>[]};
 let failStart=false,actions=0,revision=0,delayed;
 const state=()=>({run_id:'test',status:'active',revision:revision++,size:9,mine_count:10,label:'Обычный',flags_left:10,revealed:[],changed:[],flags:[],mines:[]});
-const ctx=vm.createContext({document,window:{},location:{pathname:'/predvestnik/minesweeper'},localStorage:{getItem:()=>''},crypto:{randomUUID:()=> 'same-id'},Date,Map,Set,Math,Number,String,Boolean,JSON,
+const ctx=vm.createContext({document,window:{},location:{pathname:'/predvestnik/minesweeper'},localStorage:{getItem:()=>''},crypto:{randomUUID:()=> 'same-id'},Date,performance:{now:()=>100},Map,Set,Math,Number,String,Boolean,JSON,
  setInterval:()=>1,clearInterval(){},setTimeout:f=>{delayed=f;return 1;},clearTimeout:()=>{delayed=null;},
  fetch:async url=>{if(url.endsWith('/runs')&&failStart)throw new Error('offline');if(url.endsWith('/actions'))actions++;const data=url.includes('/leaderboard/')?{top:[]}:state();return {ok:true,json:async()=>data};},console});
 const tick=async()=>{for(let i=0;i<15;i++)await Promise.resolve();};

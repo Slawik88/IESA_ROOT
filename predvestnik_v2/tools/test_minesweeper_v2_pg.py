@@ -60,6 +60,10 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("foreign user must not read the run")
+        resumed = await game.start_run(db, user_id=976001, difficulty="hard", resume_existing=True)
+        assert resumed["run_id"] == first["run_id"] and resumed["difficulty"] == "easy"
+        assert resumed["revision"] == state["revision"] and resumed["revealed"] == state["revealed"]
+        assert {c["cell"] for c in resumed["changed"]} == set(state["revealed"]), "resume sends every known number"
         layout = await layout_for(db, first["run_id"])
         mine = next(iter(layout["mines"]))
         lost = await game.act(db, user_id=976001, run_id=first["run_id"], action_id="mine", expected_revision=state["revision"], kind="open", cell=mine)
@@ -110,8 +114,31 @@ async def run(dsn: str) -> None:
             assert [row[0] for row in await cursor.fetchall()] == [
                 'game_completed', 'minesweeper_completed', 'minesweeper_hard_win', 'minesweeper_win',
             ]
+        # Explicit New Game cancels and freezes the old timer; resume never does.
+        previous = await game.start_run(db, user_id=976009, difficulty="normal")
+        active = await game.act(db, user_id=976009, run_id=previous["run_id"], action_id="open-before-reload", expected_revision=0, kind="open", cell=0)
+        closed = next(c for c in range(81) if c not in active["revealed"])
+        flagged = await game.act(db, user_id=976009, run_id=previous["run_id"], action_id="flag-before-reload", expected_revision=active["revision"], kind="toggle_flag", cell=closed)
+        saved = await game.start_run(db, user_id=976009, difficulty="easy", resume_existing=True)
+        assert saved["run_id"] == previous["run_id"] and saved["flags"] == flagged["flags"]
+        await game.start_run(db, user_id=976009, difficulty="hard")
+        cancelled1 = await game.current_run(db, user_id=976009, run_id=previous["run_id"])
+        await connection.execute("SELECT pg_sleep(0.03)")
+        cancelled2 = await game.current_run(db, user_id=976009, run_id=previous["run_id"])
+        assert cancelled1["status"] == "cancelled" and cancelled1["elapsed_ms"] == cancelled2["elapsed_ms"]
     finally:
         await transaction.rollback(); await connection.close()
+
+    # Concurrent fresh browser loads must share one active board.
+    from uuid import uuid4
+    user = 995000000 + uuid4().int % 1000000
+    clients = [await asyncpg.connect(dsn) for _ in range(3)]
+    try:
+        results = await asyncio.wait_for(asyncio.gather(*(game.start_run(PGAdapter(c), user_id=user, difficulty="normal", resume_existing=True) for c in clients)), 10)
+        assert len({r["run_id"] for r in results}) == 1
+        assert await clients[0].fetchval("SELECT COUNT(*) FROM minesweeper_v2_runs WHERE user_id=$1 AND status IN ('active','awaiting_first_open')", user) == 1
+    finally:
+        await asyncio.gather(*(c.close() for c in clients))
 
 
 parser = argparse.ArgumentParser(); parser.add_argument("--dsn", required=True, type=local_dsn)

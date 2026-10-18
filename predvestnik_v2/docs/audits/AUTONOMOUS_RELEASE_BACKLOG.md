@@ -1,3 +1,21 @@
+## Owner revision 2026-10-19 — complete Mines audit follow-up
+
+Initial entry now resumes the current owned board instead of cancelling it.
+Explicit restart/difficulty change retains existing semantics. A namespaced
+start lock serializes concurrent fresh resumes without inverting progression's
+user/run lock order. Cancelled server timers freeze; local timer is monotonic.
+
+Client validates snapshots before changing the board, retains uncertain action
+identity until valid state, and reconciles historical replay responses with a
+fresh GET. Failed initial connection retries resume rather than cancelling.
+Right-click/touch-hold are deduplicated; cancelled gestures cannot create flags
+or clicks, while keyboard shortcuts remain usable. Screen status is announced.
+
+Detailed scope, findings, passing checks and browser limitations:
+`docs/audits/MINESWEEPER_REVISION_2026-10-19.md`. Independent read-only critique
+found the cancellation timer and caught a new context-menu double-action before
+commit. Original mine-placement and economy rules remain unchanged.
+
 ## Minesweeper owner screenshots — numbers and scrolling addressed
 
 The supplied screenshots show a clipped board and nearly invisible terminal

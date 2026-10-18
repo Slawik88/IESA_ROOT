@@ -77,8 +77,9 @@ def _public(row: dict, *, revealed: set[int] | None = None, flags: set[int] | No
         cells = [{"cell": cell, "adjacent": layout["adjacent"][cell]} for cell in changed]
     started_at = row.get("started_at")
     elapsed_ms = row.get("elapsed_ms")
-    if elapsed_ms is None and started_at and now:
-        elapsed_ms = max(0, int((now - started_at).total_seconds() * 1000))
+    end = row.get("finished_at") if row["status"] in ("won", "lost", "cancelled") else now
+    if elapsed_ms is None and started_at and end:
+        elapsed_ms = max(0, int((end - started_at).total_seconds() * 1000))
     return {
         "run_id": row["run_id"], "difficulty": spec.id, "label": spec.label, "size": spec.size, "mine_count": spec.mines,
         "ruleset_version": row["ruleset_version"], "status": row["status"], "revision": int(row["revision"]),
@@ -88,7 +89,7 @@ def _public(row: dict, *, revealed: set[int] | None = None, flags: set[int] | No
     }
 
 
-async def start_run(db, *, user_id: int, difficulty: str) -> dict:
+async def start_run(db, *, user_id: int, difficulty: str, resume_existing: bool = False) -> dict:
     try:
         spec = rules.difficulty(difficulty)
     except rules.MinesweeperRuleError as exc:
@@ -96,10 +97,19 @@ async def start_run(db, *, user_id: int, difficulty: str) -> dict:
     await repo.ensure_tables(db)
     run_id = str(uuid4())
     async with db.connection.transaction():
-        async with db.execute("SELECT run_id FROM minesweeper_v2_runs WHERE user_id=? AND status IN ('awaiting_first_open','active') FOR UPDATE", (int(user_id),)) as cursor:
+        # Separate from progression's plain user-id lock: settlement locks a run
+        # first, so sharing that advisory key here would invert the lock order.
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,0))",
+                         (f"minesweeper:start:{int(user_id)}",))
+        async with db.execute("SELECT *,CLOCK_TIMESTAMP() AS server_now FROM minesweeper_v2_runs WHERE user_id=? AND status IN ('awaiting_first_open','active') FOR UPDATE", (int(user_id),)) as cursor:
             existing = await cursor.fetchone()
         if existing:
-            await db.execute("UPDATE minesweeper_v2_runs SET status='cancelled',finished_at=CLOCK_TIMESTAMP(),revision=revision+1 WHERE run_id=?", (str(existing["run_id"]),))
+            if resume_existing:
+                return _public(dict(existing), now=existing["server_now"])
+            await db.execute("UPDATE minesweeper_v2_runs SET status='cancelled',finished_at=CLOCK_TIMESTAMP(),"
+                             "elapsed_ms=CASE WHEN started_at IS NULL THEN 0 ELSE "
+                             "GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (CLOCK_TIMESTAMP()-started_at))*1000))::bigint END,"
+                             "revision=revision+1 WHERE run_id=?", (str(existing["run_id"]),))
         try:
             await db.execute("INSERT INTO minesweeper_v2_runs(run_id,user_id,difficulty,ruleset_version,seed,status) VALUES (?,?,?,?,?,'awaiting_first_open')", (run_id, int(user_id), spec.id, rules.RULESET_VERSION, secrets.token_bytes(32)))
         except UniqueViolationError as exc:

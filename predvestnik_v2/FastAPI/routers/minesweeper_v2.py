@@ -16,6 +16,7 @@ _feature_gate = Depends(require_tab_enabled("game_minesweeper_v2"))
 
 class StartBody(BaseModel):
     difficulty: Literal["easy", "normal", "hard"]
+    resume_existing: bool = False
 
 
 class ActionBody(BaseModel):
@@ -32,7 +33,8 @@ def _raise(exc: game.MinesweeperError) -> None:
 @router.post("/runs", dependencies=[_feature_gate])
 async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_user)):
     try:
-        return await game.start_run(db, user_id=int(user["id"]), difficulty=body.difficulty)
+        return await game.start_run(db, user_id=int(user["id"]), difficulty=body.difficulty,
+                                    resume_existing=body.resume_existing)
     except game.MinesweeperError as exc:
         _raise(exc)
 

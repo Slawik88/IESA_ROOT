@@ -11,7 +11,8 @@ assert "action_id:request.actionId" in CLIENT
 assert "expected_revision:request.expectedRevision" in CLIENT
 assert "await api(`/runs/${encodeURIComponent(request.runId)}`)" in CLIENT
 assert "Number(current.revision)!==Number(request.expectedRevision)" in CLIENT
-assert "uncertain?'Восстановить ход':'Новая партия'" in CLIENT
+assert "uncertain?'Восстановить ход'" in CLIENT and "'Повторить подключение'" in CLIENT
+assert "submitUncertain():start(!run);start(true)" in CLIENT
 assert "button.disabled=busy||Boolean(uncertain)" in CLIENT
 assert "localStorage.getItem('pv_sess')" in CLIENT
 assert "headers['x-session-token']=session" in CLIENT
