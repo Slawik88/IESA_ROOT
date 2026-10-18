@@ -1,3 +1,26 @@
+## Owner revision 2026-10-18 — chest provisions (item 14 complete)
+
+Every newly prepared chest seals an additional ration: basic at 1–3 stars,
+fried at 4–7, stew at 8–10 (15/30/50 energy). The primary lottery, amounts and
+key prices are unchanged. Old pending opens retain exactly their old reward.
+The catalogue digest includes the ration mapping. The API preserves reward for
+old clients and adds rewards for the complete result; animation/history and odds
+explain both items. Food-on-food adds both portions to inventory.
+
+Bonus receipts are append-only and use the primary economic operation, within
+the same transaction and user lock. Receipt replay cannot credit twice. A DB
+reveal trigger rejects bonus-bearing opens without matching delivery, including
+overlapping old workers. Startup/readiness includes the bonus schema and seal.
+
+Evidence: mixed PG proof covers frozen catalogue snapshot, legacy pending,
+primary-food collision, rollback after bonus credit, missing-bonus rejection,
+receipt identity, replay, concurrent reveal and immutable history. Existing
+chest PG atomicity proof passes. All 10,000 rolls for every key tier guarantee
+food (18.3 mean bonus energy at tiers 1/3; 30.3 at 4/6). The million-open economy
+proof includes food utility and remains below the 10-Zarniki key price. Node
+reveal proof and real browser 320/390/430 show both rewards with no overflow.
+Read-only critique prompted the overlapping-worker DB guard.
+
 ## Owner revision 2026-10-18 — tap-to-reveal chests (item 15 complete)
 
 First tap performs the existing atomic server reveal; each subsequent tap opens

@@ -581,7 +581,7 @@
     return `<section class="chest-reveal" style="--ch-power:${v.step/10}" aria-label="Раскрытие сундука">
       ${done?`<div class="chest-reveal-final">${chestRevealArt(v.step)}</div>`:`<button type="button" class="chest-reveal-tap" onclick="chestsV1RevealStep()" aria-label="Открыть следующую звезду">${chestRevealArt(v.step)}</button>`}
       <div class="chest-reveal-stars" aria-hidden="true">${stars}</div>
-      <div class="chest-reveal-status" role="status" aria-live="polite"><b>${v.step} ${achievementWord(v.step,'звезда','звезды','звёзд')}</b><span>${done?chestRewardText(v.result.reward):'Коснись сундука ещё раз'}</span></div>
+      <div class="chest-reveal-status" role="status" aria-live="polite"><b>${v.step} ${achievementWord(v.step,'звезда','звезды','звёзд')}</b><span>${done?chestRewardsText(v.result):'Коснись сундука ещё раз'}</span></div>
       ${done?'<button type="button" class="v3-pill v3-pill--full" onclick="chestsV1FinishReveal()">Готово</button>':'<button type="button" class="v3-link" onclick="chestsV1SkipReveal()">Сразу показать награду</button>'}
     </section>`;
   }
@@ -604,6 +604,9 @@
   function chestPriceText(price){return Object.entries(price||{}).map(([k,v])=>`${fmt(v)} ${CHEST_PRICE_ICONS[k]||k}`).join(' + ');}
   function chestTierInfo(d,tier){return (d.key_tiers||[]).find(t=>Number(t.tier)===Number(tier))||null;}
   function chestTierBalance(d,tier){const b=d.key_balances;return b?Number(b[String(tier)]||0):(Number(tier)===1?Number(d.key_balance||0):0);}
+  function chestRewardsText(result){
+    return (Array.isArray(result?.rewards)&&result.rewards.length?result.rewards:[result?.reward]).map(chestRewardText).join(' + ');
+  }
   function chestRewardText(reward){
     if(!reward)return'Награда';
     const amount=fmt(reward.amount||0),name=esc(reward.name||reward.kind||'Награда'),icon=esc(reward.icon||'🎁');
@@ -647,7 +650,7 @@
     else if(tierBal>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1Prepare()" ${busy?'disabled':''}>${_chestsV1Tier>1?`Открыть: ${esc(tierName)} ключ`:'Открыть за 1 ключ'}</button>${canBuy?`<button type="button" class="v3-link ch-buy-more" onclick="chestsV1AskBuy(this)" ${busy||remaining<1?'disabled':''}>Купить ${_chestsV1Tier>1?'обычный':'ещё'} ключ за ${fmt(price)} ✨</button>`:''}`;
     else if(canBuy&&remaining>0)action=`<button type="button" class="v3-pill chest-open-btn" onclick="chestsV1AskBuy(this)" ${busy?'disabled':''}>Купить ключ за ${fmt(price)} ✨</button><p class="ch-hint">Сегодня можно купить ещё ${remaining} из ${paid.daily_limit}. Бесплатно ключ дают за полный день и неделю заданий.</p>`;
     else action=`<p class="ch-hint">${canBuy?'Покупки на сегодня закончились. ':''}Ключ дают за полный день и неделю заданий.</p><button type="button" class="v3-pill v3-pill--ghost chest-open-btn" onclick="openQuestsV1()">К заданиям</button>`;
-    const result=!_chestsV1RevealView&&!_chestsV1Prepared&&_chestsV1LastResult?`<p class="ch-last" role="status"><span aria-hidden="true">${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span> Последний: ${chestRewardText(_chestsV1LastResult.reward)}</p>`:'';
+    const result=!_chestsV1RevealView&&!_chestsV1Prepared&&_chestsV1LastResult?`<p class="ch-last" role="status"><span aria-hidden="true">${'★'.repeat(Math.min(10,Number(_chestsV1LastResult.stars)||1))}</span> Последний: ${chestRewardsText(_chestsV1LastResult)}</p>`:'';
     const offers=d.tiers_enabled?(d.offers||[]).map(o=>{
       const left=Number(o.remaining)>0?`осталось ${o.remaining} из ${o.limit} ${o.window==='day'?'сегодня':'на неделе'}`:(o.window==='day'?'лимит на сегодня исчерпан':'лимит на неделю исчерпан');
       return `<div class="ch-row"><span class="ch-tx"><b>${esc(o.name)} ${o.key_tier}★+</b><small>${left}</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost chest-offer" data-offer="${esc(o.offer_id)}" onclick="chestsV1AskOffer(this.dataset.offer,this)" ${busy||Number(o.remaining)<1?'disabled':''}>${chestPriceText(o.price)}</button></div>`;
@@ -661,7 +664,7 @@
       <button type="button" class="v3-row ch-loot" onclick="openInventory()"><span><span class="ch-loot-t">В инвентаре</span><small>${loot}</small></span><span class="v3-end">›</span></button>
       <details class="v3-more chest-odds"><summary>Точные шансы и размеры наград</summary>
         <section><h2>Шанс звёздности${_chestsV1Tier>1?` · ${esc(tierName)} ключ`:''}</h2><ul>${odds}</ul></section>
-        <section class="chest-reward-tiers"><h2>Награда внутри звёздности</h2>${rewards}</section>
+        <section class="chest-reward-tiers"><h2>Основная награда</h2>${d.provisions?`<p>${esc(d.provisions)}</p>`:''}${rewards}</section>
         ${d.tiers_enabled?'<p>Ключ уровня N поднимает звёзды ниже N до N.</p>':''}
         ${d.message?`<p>${esc(d.message)}</p>`:''}<p><b>Карты не пропадут.</b> ${esc(d.surplus_policy||'Лишние карты сохраняются в инвентаре.')}</p>
       </details>`;

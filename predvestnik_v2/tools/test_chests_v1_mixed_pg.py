@@ -94,7 +94,7 @@ async def run(dsn: str) -> None:
         pet = await open_as(db, user, "pet", ChestOutcome(6200, 3, "pet_card", 4, "moss_cat", "common"))
         assert food["reward"]["ref"] == "food_basic" and pet["reward"]["ref"] == "moss_cat"
         inventory = await repo.inventory_summary(db, user_id=user)
-        assert inventory["foods"]["food_basic"] == 1
+        assert inventory["foods"]["food_basic"] == 3
         assert inventory["pet_cards"]["moss_cat"] == 3 and "moss_cat" in inventory["unlocked_pets"]
 
         delivery_cases = (
@@ -109,6 +109,9 @@ async def run(dsn: str) -> None:
             result = await open_as(db, user, f"mixed-open:{index}", outcome)
             replayed = await chests_v1.reveal(db, user_id=user, open_id=result["open_id"])
             assert result == replayed and result["reward"]["kind"] == outcome.reward_kind
+        async with db.execute("SELECT COUNT(*) FROM chest_bonus_deliveries_v1 b JOIN chest_deliveries_v1 d USING(open_id) WHERE b.user_id=? AND b.operation_id=d.operation_id", (user,)) as cursor:
+            assert int((await cursor.fetchone())[0]) == 9
+        assert len(food["rewards"]) == 2 and food["rewards"][1]["ref"] == "food_basic"
         inventory = await repo.inventory_summary(db, user_id=user)
         assert inventory["pet_cards"]["moss_cat"] == 8 and inventory["jokers"]["rare"] == 2
         assert PET_SPECIES["moss_cat"]["rarity"] == "common"
@@ -138,6 +141,69 @@ async def run(dsn: str) -> None:
             assert int((await cursor.fetchone())[0]) == 1, "an existing canonical pet must not be unlocked twice"
         legacy_inventory = await repo.inventory_summary(db, user_id=legacy_user)
         assert legacy_inventory["pet_cards"]["moss_cat"] == 4, "legacy ownership must not consume a new unlock card"
+
+        # New loot is sealed; subsequent catalogue changes cannot change it.
+        from unittest.mock import patch
+        bonus_user = user + 30
+        await direct_key(db, bonus_user, "sealed-bonus")
+        with patch.object(chests_v1, "roll_outcome", return_value=ChestOutcome(9000, 5, "mora", 22)):
+            prepared = await chests_v1.prepare_free_open(
+                db, user_id=bonus_user, action_id="sealed-bonus", requested_catalog_version=CATALOG_VERSION,
+                requested_catalog_digest=catalog_digest())
+        async with db.execute("SELECT COUNT(*) FROM chest_bonus_deliveries_v1 WHERE user_id=?", (bonus_user,)) as cursor:
+            assert (await cursor.fetchone())[0] == 0
+        # Overlapping old workers cannot settle a new chest while omitting its bonus.
+        async def old_worker_omits_bonus(*args, **kwargs):
+            pass
+        with patch.object(repo, "deliver_bonus_food", old_worker_omits_bonus):
+            try:
+                await chests_v1.reveal(db, user_id=bonus_user, open_id=prepared["open_id"])
+            except Exception as exc:
+                assert "bonus must be delivered" in str(exc)
+            else:
+                raise AssertionError("database must reject a reveal without the sealed bonus")
+        original_bonus = repo.deliver_bonus_food
+        async def failing_bonus(*args, **kwargs):
+            await original_bonus(*args, **kwargs)
+            raise RuntimeError("simulated bonus failure")
+        with patch.object(repo, "deliver_bonus_food", failing_bonus):
+            try:
+                await chests_v1.reveal(db, user_id=bonus_user, open_id=prepared["open_id"])
+            except RuntimeError as exc:
+                assert str(exc) == "simulated bonus failure"
+            else:
+                raise AssertionError("bonus failure must abort reveal")
+        assert not (await repo.get_open(db, user_id=bonus_user, open_id=prepared["open_id"]))["revealed"]
+        assert not (await repo.inventory_summary(db, user_id=bonus_user))["foods"]
+        async with db.execute("SELECT COUNT(*) FROM chest_deliveries_v1 WHERE user_id=?", (bonus_user,)) as cursor:
+            assert (await cursor.fetchone())[0] == 0
+        with patch.object(chests_v1, "PROVISIONS_BY_STARS", {5: "food_stew"}):
+            sealed = await chests_v1.reveal(db, user_id=bonus_user, open_id=prepared["open_id"])
+        assert sealed["rewards"][1]["ref"] == "food_fried"
+        row = await repo.get_open(db, user_id=bonus_user, open_id=prepared["open_id"])
+        async with db.execute("SELECT operation_id FROM chest_bonus_deliveries_v1 WHERE open_id=?", (prepared["open_id"],)) as cursor:
+            operation = (await cursor.fetchone())[0]
+        await original_bonus(db, user_id=bonus_user, open_id=prepared["open_id"], food_id="food_fried", quantity=1, operation_id=operation)
+        assert (await repo.inventory_summary(db, user_id=bonus_user))["foods"]["food_fried"] == 1
+        for sql in ("UPDATE chest_bonus_deliveries_v1 SET quantity=1 WHERE open_id=?",
+                    "DELETE FROM chest_bonus_deliveries_v1 WHERE open_id=?"):
+            try:
+                async with conn.transaction():
+                    await db.execute(sql, (prepared["open_id"],))
+            except Exception as exc:
+                assert "append-only" in str(exc)
+            else:
+                raise AssertionError("bonus receipts must be immutable")
+        # A pre-migration snapshot has no ration, even with a high star count.
+        await direct_key(db, bonus_user, "legacy-no-bonus")
+        account = await repo.lock_account(db, bonus_user)
+        legacy_id = uuid4().hex
+        await repo.create_open(db, open_id=legacy_id, user_id=bonus_user, action_id="legacy-no-bonus",
+            request_hash="a"*64, catalog_version="legacy", catalog_digest="b"*64, roll=9999, stars=10,
+            reward_kind="mora", reward_amount=7, key_balance_before=account["balance"], account_epoch=account["account_epoch"])
+        old = await chests_v1.reveal(db, user_id=bonus_user, open_id=legacy_id)
+        assert len(old["rewards"]) == 1
+        assert (await repo.inventory_summary(db, user_id=bonus_user))["foods"]["food_fried"] == 1
 
         refund_user = user + 1
         await economy_ledger.apply_balance_change(
@@ -199,6 +265,13 @@ async def run(dsn: str) -> None:
         assert await repo.get_balance(check, race_user) == 2
         async with check.execute("SELECT user_balance_zarniki FROM users WHERE user_tg_id=?", (race_user,)) as cursor:
             assert float((await cursor.fetchone())[0]) == 80
+        prepared = await chests_v1.prepare_free_open(
+            check, user_id=race_user, action_id="race-reveal", requested_catalog_version=CATALOG_VERSION,
+            requested_catalog_digest=catalog_digest())
+        reveals = await asyncio.gather(*(chests_v1.reveal(PGAdapter(c), user_id=race_user, open_id=prepared["open_id"]) for c in connections))
+        assert reveals[0] == reveals[1] == reveals[2] and len(reveals[0]["rewards"]) == 2
+        async with check.execute("SELECT COUNT(*) FROM chest_bonus_deliveries_v1 WHERE open_id=?", (prepared["open_id"],)) as cursor:
+            assert (await cursor.fetchone())[0] == 1
     finally:
         await asyncio.gather(*(connection.close() for connection in connections))
     print("OK: paid quota/provenance and every mixed reward deliver atomically without compensation")

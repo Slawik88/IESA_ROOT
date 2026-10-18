@@ -8,7 +8,13 @@ from typing import Callable, Final, Mapping, Sequence
 
 
 POLICY_VERSION: Final = "chests-v1-2026-09-12-paid-1"
-CATALOG_VERSION: Final = "chests-mixed-s1-v3"
+CATALOG_VERSION: Final = "chests-mixed-s1-v4-provisions"
+# A guaranteed ration is additional to the unchanged primary lottery. It is
+# sealed at preparation, so future catalogue changes cannot alter pending loot.
+PROVISIONS_BY_STARS: Final = {
+    stars: "food_basic" if stars <= 3 else "food_fried" if stars <= 7 else "food_stew"
+    for stars in range(1, 11)
+}
 PAID_KEY_PRICE_ZARNIKI: Final = 10
 PAID_KEY_DAILY_LIMIT: Final = 2
 KEY_SOURCE_AMOUNTS: Final = {
@@ -228,6 +234,7 @@ def catalog_payload() -> dict[str, object]:
         "joker_rarity_weights": JOKER_RARITY_WEIGHTS, "mora_ranges": MORA_RANGES,
         "diamond_ranges": DIAMOND_RANGES, "zarniki_ranges": ZARNIKI_RANGES,
         "foods": FOODS, "food_by_stars": FOOD_BY_STARS, "pet_species": PET_SPECIES,
+        "provisions_by_stars": PROVISIONS_BY_STARS, "provisions_amount": 1,
         "vip_days": VIP_DAYS, "vip_cosmetic_ids": VIP_COSMETIC_POOL,
         "vip_cosmetic_names": VIP_COSMETIC_NAMES,
         "card_amounts": CARD_AMOUNTS, "joker_amounts": JOKER_AMOUNTS,

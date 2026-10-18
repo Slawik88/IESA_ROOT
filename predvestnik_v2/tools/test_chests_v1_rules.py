@@ -90,3 +90,14 @@ assert {"mora", "food", "pet_card", "diamonds", "joker", "zarniki", "vip_cosmeti
 assert CATALOG_VERSION
 
 print("OK: mixed chest catalogue, exact odds, 12 species, references and no compensation")
+
+# Enumerate every roll for each key tier: one guaranteed ration, no currency change.
+for tier in chest_rules.KEY_TIERS:
+    energy = 0
+    for roll in range(10000):
+        stars = chest_rules.stars_for_tier_roll(roll, tier)
+        food = chest_rules.PROVISIONS_BY_STARS[stars]
+        assert food == ("food_basic" if stars <= 3 else "food_fried" if stars <= 7 else "food_stew")
+        energy += FOODS[food]["restore"]
+    assert 15 <= energy/10000 <= 50
+    print(f"Tier {tier}: food in 100% of new chests, bonus energy {energy/10000:.3f}/open")

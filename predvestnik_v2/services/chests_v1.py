@@ -8,7 +8,7 @@ import secrets
 from uuid import uuid4
 
 from core.chests_v1 import (
-    CATALOG_VERSION, FOODS, KEY_OFFERS, KEY_OFFERS_FLAG, KEY_TIER_NAMES, KEY_TIERS,
+    CATALOG_VERSION, FOODS, PROVISIONS_BY_STARS, KEY_OFFERS, KEY_OFFERS_FLAG, KEY_TIER_NAMES, KEY_TIERS,
     PAID_KEY_DAILY_LIMIT, PAID_KEY_PRICE_ZARNIKI,
     PET_SPECIES, POLICY_VERSION, STAR_WEIGHTS, VIP_COSMETIC_POOL, KeyGrant,
     catalog_digest, canonical_snapshot_fingerprint, key_tier as checked_key_tier, public_reward_rows,
@@ -174,10 +174,11 @@ async def overview(db, *, user_id: int) -> dict:
             for stars, weight in STAR_WEIGHTS.items()
         ],
         "rewards": public_reward_rows(),
+        "provisions": "В каждом новом сундуке — ещё 1 порция еды: 1–3★ паёк (+15 энергии), 4–7★ жаркое (+30), 8–10★ рагу (+50).",
         "inventory": await repo.inventory_summary(db, user_id=int(user_id)),
         "message": ("Ключ уровня N открывает тот же сундук, но звёзды ниже N становятся N. "
-                    "Сервер фиксирует одну награду до раскрытия." if tiers_on else
-                    "Бесплатный и купленный ключи имеют одинаковые шансы. Сервер фиксирует одну награду до раскрытия."),
+                    "Основная награда и гарантированная еда фиксируются до раскрытия." if tiers_on else
+                    "Бесплатный и купленный ключи имеют одинаковые шансы. Основная награда и гарантированная еда фиксируются до раскрытия."),
         "surplus_policy": "Лишние карты сохраняются. Обмен и компенсация появятся только после отдельного предрелизного решения.",
     }
 
@@ -199,10 +200,14 @@ def _prepared(row: dict) -> dict:
 
 
 def _revealed(row: dict) -> dict:
+    rewards = [_reward_public(row)]
+    if row.get("bonus_food_ref") and int(row.get("bonus_food_amount") or 0) > 0:
+        rewards.append(_reward_public({"reward_kind": "food", "reward_ref": row["bonus_food_ref"],
+                                      "reward_amount": row["bonus_food_amount"]}))
     return {
         "open_id": str(row["id"]), "catalog_version": str(row["catalog_version"]),
         "catalog_digest": str(row["catalog_digest"]), "stars": int(row["stars"]),
-        "key_tier": _row_tier(row), "reward": _reward_public(row),
+        "key_tier": _row_tier(row), "reward": rewards[0], "rewards": rewards,
         "key_balance": int(row["key_balance_after"]), "revealed": True,
     }
 
@@ -507,6 +512,7 @@ async def prepare_free_open(
             reward_ref=outcome.reward_ref, reward_rarity=outcome.rarity,
             key_balance_before=before, account_epoch=int(account["account_epoch"]),
             grant_id=str(grant["id"]),
+            bonus_food_ref=PROVISIONS_BY_STARS[outcome.stars], bonus_food_amount=1,
         )
         row = await repo.find_open_by_action(db, user_id=int(user_id), action_id=action_id)
         if not row:
@@ -531,7 +537,9 @@ async def reveal(db, *, user_id: int, open_id: str) -> dict:
         metadata = {"policy_version": POLICY_VERSION, "catalog_version": str(row["catalog_version"]),
                     "catalog_digest": str(row["catalog_digest"]), "roll": int(row["roll"]),
                     "stars": int(row["stars"]), "reward_kind": kind,
-                    "reward_ref": ref, "reward_amount": amount, "key_tier": _row_tier(row)}
+                    "reward_ref": ref, "reward_amount": amount, "key_tier": _row_tier(row),
+                    "bonus_food_ref": row.get("bonus_food_ref"),
+                    "bonus_food_amount": int(row.get("bonus_food_amount") or 0)}
         if kind in {"mora", "diamonds", "zarniki"}:
             mutation = await economy_ledger.apply_balance_change(
                 db, int(user_id), {kind: amount}, reason_code="chest_v1_reward",
@@ -564,6 +572,11 @@ async def reveal(db, *, user_id: int, open_id: str) -> dict:
                 pass
             mutation = _Mutation()
             mutation.operation_id = operation_id
+        if row.get("bonus_food_ref"):
+            await repo.deliver_bonus_food(
+                db, user_id=int(user_id), open_id=open_id, food_id=str(row["bonus_food_ref"]),
+                quantity=int(row["bonus_food_amount"]), operation_id=str(mutation.operation_id),
+            )
         inserted = await repo.reveal_open(
             db, user_id=int(user_id), open_id=open_id,
             economy_operation_id=str(mutation.operation_id),

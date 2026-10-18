@@ -14,6 +14,7 @@ function boot(stars){
     switchPage:p=>{switches++;ctx._activePage=p;},
     api:(url,opts)=>{if(opts?.method==='POST'){posts.push(url);return Promise.resolve(result);}reads.push(url);return Promise.resolve({key_balance:0,pending_open:null,last_result:result});},
   });
+  result.rewards=[result.reward,{kind:'food',name:'Жаркое',icon:'food',amount:1}];
   ctx.window=ctx;
   vm.runInContext(block,ctx);
   ctx.renderChestsV1=()=>{};
@@ -25,6 +26,7 @@ async function main(){
   for(const n of [1,3,10]){
     const b=boot(n);
     b.run('chestsV1Reveal();chestsV1Reveal()');await tick();
+    assert.ok(b.run('chestRewardsText(_chestsV1RevealView.result)').includes('Жаркое'));
     assert.equal(b.posts.length,1,'rapid first taps share one server reveal');
     assert.equal(b.run('_chestsV1RevealView.step'),1);
     for(let step=1;step<n;step++){

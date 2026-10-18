@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-from core.chests_v1 import FOODS, PAID_KEY_PRICE_ZARNIKI, roll_outcome
+from core.chests_v1 import FOODS, PROVISIONS_BY_STARS, PAID_KEY_PRICE_ZARNIKI, roll_outcome
 
 
 N = 1_000_000
@@ -16,9 +16,11 @@ rng = random.Random(20260912)
 totals = Counter()
 species_cards = Counter()
 utility_zarniki = 0.0
+bonus_energy = 0
 for _ in range(N):
     outcome = roll_outcome(rng.randrange)
     totals[outcome.reward_kind] += outcome.amount
+    bonus_energy += FOODS[PROVISIONS_BY_STARS[outcome.stars]]["restore"]
     if outcome.reward_kind == "mora":
         utility_zarniki += outcome.amount * 0.1  # published 1✨ -> 10 Mora rate
     elif outcome.reward_kind == "diamonds":
@@ -48,12 +50,14 @@ max_paid_two_year_cards = common_per_open * 31 * 104
 # player still moves about as fast as before (more keys, smaller packs) and a
 # max-frequency player finishes one chosen 89,586-card Common curve in ~2.5 years.
 assert 4.0 <= ev <= PAID_KEY_PRICE_ZARNIKI
+combined_ev = ev + bonus_energy / N * 0.1
+assert combined_ev < PAID_KEY_PRICE_ZARNIKI
 assert 30_000 <= free_two_year_cards <= 45_000
 assert 60_000 <= max_paid_two_year_cards <= 120_000
 assert totals["zarniki"] / N < 0.03  # cashback cannot self-fund a purchase loop
 assert totals["diamonds"] / N < 0.03
 
 print(
-    f"OK: 1m-open EV={ev:.2f}/{PAID_KEY_PRICE_ZARNIKI} Zarniki; "
+    f"OK: 1m-open primary/with-food EV={ev:.2f}/{combined_ev:.2f} vs {PAID_KEY_PRICE_ZARNIKI} Zarniki; "
     f"chosen Common cards free/max={free_two_year_cards:.0f}/{max_paid_two_year_cards:.0f} in 2y"
 )

@@ -91,13 +91,25 @@ async def _schema_ready(db) -> bool:
                 'chest_opens_v1', 'chest_key_spends_v1', 'chest_reveals_v1',
                 'chest_key_purchases_v1', 'chest_key_allocations_v1', 'chest_key_refunds_v1',
                 'chest_key_revocations_v1', 'chest_pet_unlocks_v1', 'chest_deliveries_v1',
-                'chest_key_offer_purchases_v1'
+                'chest_key_offer_purchases_v1', 'chest_bonus_deliveries_v1'
             ]) AS name
             WHERE to_regclass(name) IS NULL OR NOT EXISTS (
                 SELECT 1 FROM pg_trigger
                 WHERE tgrelid=to_regclass(name) AND tgname=name || '_append_only' AND NOT tgisinternal
             )
         )
+    """) as cursor:
+        if not bool((await cursor.fetchone())[0]):
+            return False
+    async with db.execute("""
+        SELECT (SELECT COUNT(*) FROM pg_attribute
+                WHERE attrelid='chest_opens_v1'::regclass AND NOT attisdropped
+                  AND attname IN ('bonus_food_ref','bonus_food_amount')) = 2
+           AND EXISTS (SELECT 1 FROM pg_constraint
+                       WHERE conrelid='chest_opens_v1'::regclass
+                         AND conname='chest_opens_v1_bonus_food' AND convalidated)
+           AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='chest_reveals_v1'::regclass
+                       AND tgname='chest_reveals_v1_bonus_seal' AND tgenabled <> 'D')
     """) as cursor:
         if not bool((await cursor.fetchone())[0]):
             return False
@@ -202,6 +214,19 @@ async def _ensure_tables_unlocked(db) -> None:
     """)
     await db.execute("ALTER TABLE chest_opens_v1 ADD COLUMN IF NOT EXISTS reward_ref TEXT NULL")
     await db.execute("ALTER TABLE chest_opens_v1 ADD COLUMN IF NOT EXISTS reward_rarity TEXT NULL")
+    await db.execute("ALTER TABLE chest_opens_v1 ADD COLUMN IF NOT EXISTS bonus_food_ref TEXT NULL")
+    await db.execute("ALTER TABLE chest_opens_v1 ADD COLUMN IF NOT EXISTS bonus_food_amount SMALLINT NOT NULL DEFAULT 0")
+    await db.execute("""
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint
+                         WHERE conrelid='chest_opens_v1'::regclass AND conname='chest_opens_v1_bonus_food') THEN
+            ALTER TABLE chest_opens_v1 ADD CONSTRAINT chest_opens_v1_bonus_food CHECK (
+              (bonus_food_ref IS NULL AND bonus_food_amount=0) OR
+              (bonus_food_ref IS NOT NULL AND bonus_food_ref IN ('food_basic','food_fried','food_stew')
+                AND bonus_food_amount=1));
+          END IF;
+        END $$
+    """)
     await db.execute("""
         DO $$ DECLARE item RECORD; BEGIN
           FOR item IN SELECT conname FROM pg_constraint
@@ -317,6 +342,16 @@ async def _ensure_tables_unlocked(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS chest_bonus_deliveries_v1 (
+            open_id TEXT PRIMARY KEY REFERENCES chest_opens_v1(id) ON DELETE RESTRICT,
+            user_id BIGINT NOT NULL,
+            food_id TEXT NOT NULL CHECK(food_id IN ('food_basic','food_fried','food_stew')),
+            quantity SMALLINT NOT NULL CHECK(quantity=1),
+            operation_id TEXT NOT NULL REFERENCES economic_operations(id) ON DELETE RESTRICT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CLOCK_TIMESTAMP()
+        )
+    """)
+    await db.execute("""
         CREATE TABLE IF NOT EXISTS chest_key_offer_purchases_v1 (
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
             offer_id TEXT NOT NULL CHECK(offer_id IN ('bronze_mora','silver_craft','silver_zarniki',
@@ -351,7 +386,8 @@ async def _ensure_tables_unlocked(db) -> None:
     for table in ("chest_account_retirements_v1", "chest_key_grants_v1", "chest_key_ledger_v1", "chest_opens_v1",
                   "chest_key_spends_v1", "chest_reveals_v1", "chest_key_purchases_v1",
                   "chest_key_allocations_v1", "chest_key_refunds_v1", "chest_key_revocations_v1",
-                  "chest_pet_unlocks_v1", "chest_deliveries_v1", "chest_key_offer_purchases_v1"):
+                  "chest_pet_unlocks_v1", "chest_deliveries_v1", "chest_key_offer_purchases_v1",
+                  "chest_bonus_deliveries_v1"):
         trigger = f"{table}_append_only"
         await db.execute(f"""
             DO $$ BEGIN
@@ -368,6 +404,29 @@ async def _ensure_tables_unlocked(db) -> None:
                 END IF;
             END $$
         """)
+    await db.execute("""
+        CREATE OR REPLACE FUNCTION enforce_chest_bonus_seal_v1()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM chest_opens_v1 o WHERE o.id=NEW.open_id
+                     AND o.bonus_food_ref IS NOT NULL AND NOT EXISTS (
+                       SELECT 1 FROM chest_bonus_deliveries_v1 b WHERE b.open_id=o.id
+                         AND b.user_id=NEW.user_id AND b.food_id=o.bonus_food_ref
+                         AND b.quantity=o.bonus_food_amount AND b.operation_id=NEW.economy_operation_id)) THEN
+            RAISE EXCEPTION 'chest bonus must be delivered before reveal';
+          END IF;
+          RETURN NEW;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='chest_reveals_v1'::regclass
+                         AND tgname='chest_reveals_v1_bonus_seal') THEN
+            CREATE TRIGGER chest_reveals_v1_bonus_seal BEFORE INSERT ON chest_reveals_v1
+              FOR EACH ROW EXECUTE FUNCTION enforce_chest_bonus_seal_v1();
+          END IF;
+        END $$
+    """)
     await db.commit()
 
 
@@ -378,6 +437,8 @@ async def lock_user(db, user_id: int) -> None:
 
 async def assert_delivery_ready(db) -> None:
     """Fail closed if the reveal delivery migration did not fully seal."""
+    if not await _schema_ready(db):
+        raise RuntimeError("Chest delivery schema is not ready; canary is fail-closed.")
     async with db.execute("""
         SELECT a.attnotnull,
                EXISTS(
@@ -650,16 +711,18 @@ async def create_open(
     catalog_version: str, catalog_digest: str, roll: int, stars: int,
     reward_kind: str, reward_amount: int, key_balance_before: int, account_epoch: int,
     reward_ref: str | None = None, reward_rarity: str | None = None, grant_id: str | None = None,
+    bonus_food_ref: str | None = None, bonus_food_amount: int = 0,
 ) -> None:
     key_balance_after = int(key_balance_before) - 1
     if key_balance_after < 0:
         raise RuntimeError("Chest key balance cannot become negative.")
     await db.execute(
         "INSERT INTO chest_opens_v1 "
-        "(id,user_id,action_id,request_hash,catalog_version,catalog_digest,roll,stars,reward_kind,reward_amount,reward_ref,reward_rarity,economy_operation_id,account_epoch) "
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "(id,user_id,action_id,request_hash,catalog_version,catalog_digest,roll,stars,reward_kind,reward_amount,reward_ref,reward_rarity,economy_operation_id,account_epoch,bonus_food_ref,bonus_food_amount) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (open_id, int(user_id), str(action_id), request_hash, catalog_version, catalog_digest,
-         int(roll), int(stars), reward_kind, int(reward_amount), reward_ref, reward_rarity, None, int(account_epoch)),
+         int(roll), int(stars), reward_kind, int(reward_amount), reward_ref, reward_rarity, None, int(account_epoch),
+         bonus_food_ref, int(bonus_food_amount)),
     )
     async with db.execute(
         "UPDATE chest_key_accounts_v1 SET balance=?,updated_at=CLOCK_TIMESTAMP() "
@@ -677,6 +740,35 @@ async def create_open(
             "INSERT INTO chest_key_allocations_v1(open_id,grant_id,user_id) VALUES (?,?,?)",
             (str(open_id), str(grant_id), int(user_id)),
         )
+
+
+async def deliver_bonus_food(db, *, user_id: int, open_id: str, food_id: str,
+                             quantity: int, operation_id: str) -> None:
+    """Append a sealed bonus receipt before crediting; never credit a replay."""
+    async with db.execute(
+        "INSERT INTO chest_bonus_deliveries_v1(open_id,user_id,food_id,quantity,operation_id) "
+        "SELECT o.id,o.user_id,o.bonus_food_ref,o.bonus_food_amount,e.id "
+        "FROM chest_opens_v1 o JOIN economic_operations e ON e.id=? AND e.user_id=o.user_id "
+        "AND e.reference_type='chest_open' AND e.reference_id=o.id "
+        "WHERE o.id=? AND o.user_id=? AND o.bonus_food_ref=? AND o.bonus_food_amount=? "
+        "ON CONFLICT(open_id) DO NOTHING RETURNING 1",
+        (operation_id, open_id, int(user_id), food_id, int(quantity)),
+    ) as cursor:
+        inserted = bool(await cursor.fetchone())
+    if not inserted:
+        async with db.execute(
+            "SELECT 1 FROM chest_bonus_deliveries_v1 WHERE open_id=? AND user_id=? "
+            "AND food_id=? AND quantity=? AND operation_id=?",
+            (open_id, int(user_id), food_id, int(quantity), operation_id),
+        ) as cursor:
+            if not await cursor.fetchone():
+                raise RuntimeError("Chest bonus does not match its sealed receipt.")
+        return
+    await db.execute(
+        "INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?,?,?) "
+        "ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=chest_food_balances_v1.quantity+EXCLUDED.quantity,updated_at=CLOCK_TIMESTAMP()",
+        (int(user_id), food_id, int(quantity)),
+    )
 
 
 async def reveal_open(db, *, user_id: int, open_id: str, economy_operation_id: str) -> bool:
