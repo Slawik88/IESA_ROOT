@@ -56,6 +56,36 @@ talk as other ids («Тестовый стенд закрыт для этого 
 test_skin_scenes.py; the two long-known UI reds stay. A dedicated gate/shared-DB repair
 wave is needed before the suite can go green.
 
+## Lazy schema installation can no longer race itself; Rune Rhythm settlements survive, 2026-10-18
+
+Production 2026-10-18 11:34 logged DuplicateObjectError: trigger
+"quest_v1_reward_receipts_append_only" for relation "quest_v1_reward_receipts" already exists, and
+/quests-v1/me answered 500: after a dyno restart the first requests run ensure_tables in parallel,
+and the DROP TRIGGER + CREATE TRIGGER pair cannot survive that. The new
+tools/test_ensure_tables_race_pg.py reproduces the incident and its siblings — "tuple concurrently
+updated" from CREATE OR REPLACE FUNCTION and a deadlock on AccessExclusiveLock — by dropping each
+append-only trigger and running three parallel installs: the old code fails, the new code leaves
+exactly one trigger per table. A finished Rune Rhythm run settles through
+quests.record_metric -> chests_v1.ensure_tables, so this collision could roll a settlement back and
+cut a player's game short; that is why the fix is on master (81cb09b8).
+
+Eight repositories (achievements, chests, echo_shards, gifts, pets, quests, rhythm, shop) now create
+their append-only triggers through a guarded DO block that swallows a create/create race, and they
+follow the vip_v2 installer idiom: a catalog-only _schema_ready lookup answers an installed database
+without any DDL, otherwise one advisory lock (hashtextextended('ensure_tables:<repo>',0)) wraps the
+whole install. chests_v1 no longer runs the reveal-delivery seal migration on every game finish — it
+used to drop the append-only trigger, scan the reveal history and take ACCESS EXCLUSIVE locks; the
+fail-closed contract stays (a removed NOT NULL / index / FK re-runs the migration and still refuses
+an unbackfillable row). Verified on PostgreSQL 17 (127.0.0.1:5437) against the disposable preprod
+DSN: test_quests_v1_pg, test_chests_v1_pg, test_chests_v1_mixed_pg, test_chest_keys_multi_pg,
+test_chest_key_tiers_pg, test_rhythm_v2_pg, test_achievements_v1_pg, test_pets_v1_pg,
+test_pets_v1_rollout_guard_pg, test_pet_routes_v1_pg, test_shop_v1_pg, test_gifts_v2_pg,
+test_echo_shards_v1_pg, test_season_pass_pg, test_vip_v2_pg, test_readiness_pg and
+test_ensure_tables_race_pg all pass. Follow-up: the remaining lazy-DDL repositories that are not on
+the game path (balance_events, divorce_v1, marks_v1, chat_module_audit) still create functions and
+tables per request without an installer lock — give them the same _schema_ready + advisory-lock
+treatment when they are next touched.
+
 ## Owner UI wave: dock density, Exchange in the dock, seamless skin edges, 2026-10-18
 
 Three owner reports from the live release fixed on origin/master (54bbbef3). The dock now carries
