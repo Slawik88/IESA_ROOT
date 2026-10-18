@@ -1,3 +1,25 @@
+## Owner UI wave: dock density, Exchange in the dock, seamless skin edges, 2026-10-18
+
+Three owner reports from the live release fixed on origin/master (54bbbef3). The dock now carries
+eleven destinations: item pitch clamp(55px,(100vw-24px)/6.6,68px) with 10px labels — 6.7 visible on
+390px instead of 5.5, the longest label «Инвентарь» (52.5px in the bundled Onest) never ellipsizes
+at 320/360/390/430, and the 68px cap fills the 760px dock exactly on wide screens (measured 0px
+slack at 900px; the previous ten-tab spec was 74px/11px). «Биржа» moved out of the «Ещё»→«Рынок»
+row into the dock between «Кошелёк» and «Ещё»; the same element id keeps syncPlayerExchangeEntry()
+and the CM2 path intact. With the flag off the tab is display:none (ten slots) and a deep link to
+exchange-v1 opens the page while «Ещё» carries the highlight; a deeplink that lands before
+/profile/me now hands the highlight to the tab as soon as it appears (shared _dockActive, verified
+live: hidden→visible handoff and the restored state). Skin stage: .ap-scene-clip dissolves on all
+four sides (vertical 30/44px, horizontal 34px, mask-composite intersect) so the scene no longer ends
+in the straight frame the owner reported; the VIP store preview card keeps its previous short
+gradient explicitly. Evidence: shell / navigation-dots / whatsnew / ui-smoke / skins-visual /
+appearance / curated-looks contracts PASS; headless Chromium screenshots of the dock at
+320/360/390/430 and 900px, the exchange tab gated on and off, the pumpkin and chrono scenes and the
+VIP preview card; read-only critic pass over the diff — no blocker or major, its two findings (the
+highlight race above and the wide-screen underfill) fixed in this wave. Still red on base and
+untouched here: tools/test_inventory_v3_contract.py (eight-tab era) and
+tools/test_player_exchange_recovery_ui.js (its vm context lacks window).
+
 ## Exchange v2 — live release and final design, 2026-10-17
 
 Production activation completed: six system coins; v2 and shorts enabled, v1 disabled.

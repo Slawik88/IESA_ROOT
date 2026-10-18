@@ -22,14 +22,18 @@ async function _pxRecoveryRequest(path){
 
 function syncPlayerExchangeEntry(){
   const entry=el('cc-exchange-v1'); if(!entry)return;
-  if(_isFeatureEnabled('coin_market_v2')){entry.hidden=false;entry.dataset.v2='1';return;}
-  if(_isFeatureEnabled('economy_player_exchange_v1')){ entry.hidden=false; return; }
+  const wasHidden=entry.hidden;
+  // Вкладка могла появиться позже диплинка (флаги приходят после старта) или исчезнуть вместе с флагом —
+  // тогда пересобираем подсветку дока: «Биржа» вместо «Ещё» и наоборот.
+  const resyncDock=()=>{ if(wasHidden!==!!entry.hidden && typeof _dockActive==='function' && _activePage==='exchange-v1') _dockActive('exchange-v1'); };
+  if(_isFeatureEnabled('coin_market_v2')){entry.hidden=false;entry.dataset.v2='1';resyncDock();return;}
+  if(_isFeatureEnabled('economy_player_exchange_v1')){ entry.hidden=false; resyncDock(); return; }
   Promise.all([
     _pxRecoveryRequest('/player-exchange/v1/me?limit=1'),
     _pxRecoveryRequest('/player-exchange/v1/shorts/me?limit=1'),
     window.CM2 ? window.CM2.availability() : Promise.resolve(false)
-  ]).then(([spot,shorts,v2])=>{entry.dataset.v2=v2?'1':'';entry.hidden=!(spot||shorts||v2);}).catch(()=>{
-    entry.hidden=false;entry.title='Состояние биржи временно недоступно. Откройте для повторной проверки.';
+  ]).then(([spot,shorts,v2])=>{entry.dataset.v2=v2?'1':'';entry.hidden=!(spot||shorts||v2);resyncDock();}).catch(()=>{
+    entry.hidden=false;entry.title='Состояние биржи временно недоступно. Откройте для повторной проверки.';resyncDock();
   });
 }
 function openPlayerExchangeV1(){ switchPage('exchange-v1'); }

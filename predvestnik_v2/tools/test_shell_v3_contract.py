@@ -43,7 +43,8 @@ assert "overscroll-behavior: none" in css and "touch-action: manipulation" in cs
 assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
-assert index.count('type="button" class="nb') == 10
+assert index.count('type="button" class="nb') == 11
+assert ':not([hidden])' in app, "a dock tab hidden by its feature flag must not keep the active highlight"
 for page in ('looks', 'chests', 'top'):
     assert f'data-wn-page="{page}"' in index
 assert 'role="status"' in index and 'id="dev-notice"' not in index, "the player shell has no «in development» notice"

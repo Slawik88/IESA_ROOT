@@ -566,6 +566,24 @@ function _dockReveal(button) {
   nav.scrollTo({left,behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
 }
 
+// Подсветка выбранной вкладки в доке — единственное место, где она ставится. Вынесена в функцию,
+// чтобы появление или исчезновение гейтнутой вкладки (флаги приходят позже диплинка) могло пересобрать
+// подсветку без перезагрузки: скрытая вкладка подсветку не ловит, её берёт «Ещё».
+function _dockActive(name) {
+  document.querySelectorAll('.nb').forEach(b=>{
+    b.classList.remove('active');
+    b.removeAttribute('aria-current');
+  });
+  const prim = document.querySelector(`.nb[data-page="${name}"]:not([hidden])`);   // скрытая флагом вкладка подсветку не ловит
+  // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
+  const _profileChildren=['inventory','achievements-v1','public-profile'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
+  activeNav?.classList.add('active');
+  activeNav?.setAttribute('aria-current','page');
+  if(activeNav) _dockReveal(activeNav);   // выбранный раздел остаётся виден в горизонтальной ленте
+  return activeNav;
+}
+
 function switchPage(name, _btn, _viaBack) {
   // Old game/economy pages are deliberately absent from the release surface.
   // Cached clients and stale deep links return to the current hub safely.
@@ -586,20 +604,10 @@ function switchPage(name, _btn, _viaBack) {
   _activePage = name;
   if(name==='more' && typeof loadPurgeEntry==='function') loadPurgeEntry();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nb').forEach(b=>{
-    b.classList.remove('active');
-    b.removeAttribute('aria-current');
-  });
   if(typeof v3EnterReset==='function')v3EnterReset(el('pg-'+name));   // каскад секций на этой странице снова сыграет один раз
   el('pg-'+name).classList.add('active');
   { const head=el('pg-'+name).querySelector('h1,.v3-name,.v3-gname,.v3-eyebrow'); if(head){ head.tabIndex=-1; head.focus({preventScroll:true}); } }   // экранный диктор озвучивает новый экран
-  const prim = document.querySelector(`.nb[data-page="${name}"]`);
-  // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
-  const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
-  activeNav?.classList.add('active');
-  activeNav?.setAttribute('aria-current','page');
-  if(activeNav) _dockReveal(activeNav);   // выбранный раздел остаётся виден в горизонтальной ленте
+  _dockActive(name);
   showCurrBar(name !== 'profile');
   try { if (typeof _wnTabVisit === 'function') _wnTabVisit(name); } catch(_) {}   // точка «есть новое» на этой вкладке дока гаснет (app.42.js)
   document.body.classList.toggle('pg-wide', name === 'global' || name === 'console');
