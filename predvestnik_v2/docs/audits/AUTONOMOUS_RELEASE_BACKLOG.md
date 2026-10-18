@@ -1,3 +1,11 @@
+## Season pass follow-up — stale reads
+
+Independent review resumed after the quota reset and found one additional race:
+a read started before a claim could overwrite the confirmed result afterward.
+Reads now carry a generation; claiming invalidates prior reads. A deferred-
+promise regression proves the old response cannot restore stale claimed levels
+or remove the read-only recovery notice. UI behavior: 21 sections pass.
+
 ## Owner follow-up 2026-10-18 — pet progression verified and visible (item 21)
 
 The active Trail overrides the classic pet page. Its progression is automatic

@@ -472,6 +472,23 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
     assert.equal(t.gifts.length, 1);
   });
 
+  await section('Старое чтение до получения не отменяет подтверждённый результат', async () => {
+    const t = boot(); t.sp.state.me = plain(answer()); t.ctx._loaded.add('pass');
+    let resolveOld, gets = 0;
+    t.ctx.api = (route, opts) => {
+      if (opts?.method === 'POST') return Promise.resolve({season:1,claimed_level:6,claimed_levels:'4-6',mora:120,essence:30});
+      if (++gets === 1) return new Promise(resolve => { resolveOld = resolve; });
+      return Promise.reject(new Error('offline'));
+    };
+    const old = t.sp._spLoad(true);
+    t.sp.spClaim(1); await settle();
+    assert.ok(t.sp.state.refreshNotice);
+    resolveOld(plain(answer())); await old; await settle();
+    assert.equal(t.sp.state.me.seasons[0].claimed_level, 6);
+    assert.ok(t.sp.state.refreshNotice, 'старый GET не убирает сообщение о необходимости обновления');
+    assert.ok(!t.page.innerHTML.includes('spClaim('));
+  });
+
   await section('Получение: только Мора или только Эссенция, пустой ответ', async () => {
     let t = boot(); t.net.claim = () => Promise.resolve({ season: 1, claimed_levels: '7', mora: 40, essence: 0, claimed_level: 7 });
     t.sp.spClaim(1); await settle();

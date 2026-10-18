@@ -12,7 +12,7 @@ const _SP_ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6
 const _SP_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const _SP_LV_NAME = { got: 'получен', ready: 'можно забрать', next: 'следующий', lock: 'впереди' };
 
-let _sp = { me: null, at: 0, busy: false, loading: false, checking: false, refreshNotice: '' };
+let _sp = { me: null, at: 0, busy: false, loading: false, checking: false, refreshNotice: '', readSeq: 0 };
 
 const _spWord = (n, one, few, many) => { const m = Math.abs(n) % 100, d = m % 10; return m > 10 && m < 20 ? many : d === 1 ? one : d > 1 && d < 5 ? few : many; };
 const _spLevels = n => `${fmt(n)} ${_spWord(n, 'уровень', 'уровня', 'уровней')}`;
@@ -42,7 +42,11 @@ const _spReady = me => me && me.enabled ? ((me.seasons || []).reduce((n, s) => n
 
 function _spLoad(force) {
   if (!force && _sp.me && Date.now() - _sp.at < _SP_CACHE_MS) return Promise.resolve(_sp.me);
-  return api('/season-pass/me').then(me => { _sp.me = me; _sp.at = Date.now(); _sp.refreshNotice = ''; return me; });
+  const seq = ++_sp.readSeq;
+  return api('/season-pass/me').then(me => {
+    if (seq !== _sp.readSeq) return _sp.me || me;
+    _sp.me = me; _sp.at = Date.now(); _sp.refreshNotice = ''; return me;
+  });
 }
 
 // ── Точка на вкладке «Игры»: есть уровни к получению и аккаунт может их забрать ──────
@@ -205,7 +209,7 @@ function spClaim(season) {
   season = Number(season);
   if (_sp.busy || _sp.refreshNotice || !season) return;
   const before = _spSeason(_sp.me, season), was = before ? Number(before.claimed_level) : 0, button = document.querySelector(`.sp-claim[data-season="${season}"] button`);
-  _sp.busy = true; if (button) button.disabled = true;
+  _sp.busy = true; ++_sp.readSeq; if (button) button.disabled = true;
   const done = () => { _sp.busy = false; };
   api('/season-pass/claim', { method: 'POST', body: JSON.stringify({ season }) }).then(r => {
     _spCelebrate(r.claimed_levels, Number(r.mora) || 0, Number(r.essence) || 0);
