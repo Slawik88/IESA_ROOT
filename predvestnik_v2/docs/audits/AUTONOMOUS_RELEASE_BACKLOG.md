@@ -1,3 +1,11 @@
+## Owner revision 2026-10-18 — new regalia concepts (item 7 proposal complete)
+
+MARKS_V1.md now contains eight proposals covering exploration, useful pet care,
+accepted bug reports, mentoring, guides, accepted art, seasons and return play.
+Each has an evidence/abuse boundary; none grants currency or trading power.
+Suggested first trio: Cartographer, Bug Catcher, Mentor. These are proposals as
+requested; no unexplained automatic/manual awards were added to live players.
+
 ## Owner revision 2026-10-18 — admin mark review queues (item 8 complete)
 
 People search now has a staff-without-badge queue, filters with/without each
