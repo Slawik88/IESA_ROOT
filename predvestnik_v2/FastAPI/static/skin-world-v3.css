@@ -1,0 +1,17 @@
+/* Full viewport, below content and above the body paint. No card-shaped masks. */
+body.has-skin-world { isolation:isolate; }
+body.has-skin-world::before { z-index:-3; }
+#skin-world { position:fixed; inset:0; z-index:-2; overflow:hidden; pointer-events:none; }
+.skin-world-canvas { position:absolute; inset:0; width:100%; --bleed:0px; }
+#skin-world .ap-bg, #skin-world .ap-scene { inset:0; z-index:0; mask-image:none; -webkit-mask-image:none; }
+#skin-world .ap-scene { z-index:1; width:min(100%,1100px); margin-inline:auto; }
+#skin-world::after { content:""; position:absolute; z-index:2; inset:0; background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--v3-bg,#0b0b14) 72%,transparent) 26% 74%,transparent); }
+#skin-world *, #skin-world *::before, #skin-world *::after { animation:none!important; transition:none!important; will-change:auto!important; }
+.ap-world-profile-effects { position:absolute; inset:0; pointer-events:none; z-index:-1; overflow:visible; }
+/* Foreground ornamentation still belongs to the profile; the landscape is shared. */
+.ap-stage.ap-world-profile { isolation:auto; }
+
+@media(min-width:1100px) { #skin-world .ap-scene { mask-image:linear-gradient(90deg,transparent,#000 12% 88%,transparent); -webkit-mask-image:linear-gradient(90deg,transparent,#000 12% 88%,transparent); } }
+
+/* A static radial wash replaces the large blurred conic layer of vortex. */
+#skin-world .ap-bg-vortex b:first-child { filter:none; background:radial-gradient(ellipse,color-mix(in srgb,var(--ap-a) 32%,transparent),transparent 65%); }

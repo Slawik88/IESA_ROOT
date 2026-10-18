@@ -1,3 +1,21 @@
+## Owner revision 2026-10-19 — site-wide equipped cosmetics (item 23)
+
+All 33 catalog scenes now extend across the viewport on every Mini App tab,
+Rhythm and Minesweeper. The renderer reuses each scene's existing artwork,
+palette and current entitled tier. Up to eight static environmental layers
+surround the content; moving foreground frames, particles and personal ornaments
+remain in the profile. Preview/public scenes retain their independent rendering.
+Unequipping clears the world. D retains the palette background without granting
+C+ scene layers. A central veil protects text; desktop edges fade into the wash.
+
+Validation: Node enumerates 33 scenes x seven tiers (bounds, static geometry,
+art classes including numeric suffixes, invalid/removed looks, preview isolation).
+ASGI static delivery passes at root and /predvestnik. Real Edge at 320/430/1280
+checks all 33 actual catalog payloads, viewport bounds, zero world animations,
+profile without duplicate landscape, and equipped scenery on both game pages.
+Local evidence: .local/ui-world/. Independent read-only review caught numeric
+art classes and a large vortex blur; both fixed and covered before commit.
+
 ## Owner revision 2026-10-19 — complete Mines audit follow-up
 
 Initial entry now resumes the current owned board instead of cancelling it.

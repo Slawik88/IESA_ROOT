@@ -10,6 +10,8 @@
     applied.forEach(key => body.style.removeProperty(key)); applied = [];
     const worn = state && Array.isArray(state.items) ? state.items.find(item => item && item.equipped === true) : null;
     body.classList.toggle('skin-v3', !!(worn && worn.tokens));
+    window.applySkinWorldV3(worn);
+    body.dataset.skin = worn?.id || '';
     if (!worn || !worn.tokens) return;
     Object.entries(worn.tokens).forEach(([key, value]) => { if (KEY.test(key) && safe(value)) { body.style.setProperty(key, value); applied.push(key); } });
   };
