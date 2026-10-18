@@ -6,6 +6,32 @@ from typing import Any
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE triggers collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:pets_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last statement creates the
+    duplicate-progression trigger, and the reward trigger follows chest_key_grants_v1."""
+    async with db.execute(
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='pet_v1_duplicate_progressions_append_only' "
+        "AND tgrelid=to_regclass('pet_v1_duplicate_progressions') AND NOT tgisinternal) AND ("
+        "to_regclass('chest_key_grants_v1') IS NULL OR EXISTS (SELECT 1 FROM pg_trigger "
+        "WHERE tgname='pet_v1_activity_rewards_append_only' "
+        "AND tgrelid=to_regclass('pet_v1_activity_rewards') AND NOT tgisinternal))"
+    ) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_profiles (
             user_id BIGINT PRIMARY KEY,
@@ -79,10 +105,23 @@ async def ensure_tables(db) -> None:
             CREATE OR REPLACE FUNCTION reject_pet_v1_activity_reward_rewrite()
             RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'pet activity rewards are append-only'; END; $$
         """)
-        await db.execute("DROP TRIGGER IF EXISTS pet_v1_activity_rewards_append_only ON pet_v1_activity_rewards")
+        # Guard on the catalog and swallow a create/create race: the former DROP+CREATE
+        # pair let parallel first requests collide (production, 2026-10-18).
         await db.execute("""
-            CREATE TRIGGER pet_v1_activity_rewards_append_only BEFORE UPDATE OR DELETE ON pet_v1_activity_rewards
-            FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_activity_reward_rewrite()
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger
+                    WHERE tgname='pet_v1_activity_rewards_append_only'
+                      AND tgrelid='pet_v1_activity_rewards'::regclass AND NOT tgisinternal
+                ) THEN
+                    BEGIN
+                        CREATE TRIGGER pet_v1_activity_rewards_append_only
+                        BEFORE UPDATE OR DELETE ON pet_v1_activity_rewards
+                        FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_activity_reward_rewrite();
+                    EXCEPTION WHEN duplicate_object THEN NULL;
+                    END;
+                END IF;
+            END $$
         """)
     await db.execute("ALTER TABLE pet_v1_runs ADD COLUMN IF NOT EXISTS decision TEXT NULL")
     # ensure_tables runs on every overview request: swap the CHECK only once, never concurrently with itself.
@@ -131,11 +170,23 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS pet_v1_duplicate_sources_append_only ON pet_v1_duplicate_sources")
+    # Guard on the catalog and swallow a create/create race: the former DROP+CREATE
+    # pair let parallel first requests collide (production, 2026-10-18).
     await db.execute("""
-        CREATE TRIGGER pet_v1_duplicate_sources_append_only
-        BEFORE UPDATE OR DELETE ON pet_v1_duplicate_sources
-        FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_duplicate_source_rewrite()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='pet_v1_duplicate_sources_append_only'
+                  AND tgrelid='pet_v1_duplicate_sources'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER pet_v1_duplicate_sources_append_only
+                    BEFORE UPDATE OR DELETE ON pet_v1_duplicate_sources
+                    FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_duplicate_source_rewrite();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v1_duplicate_progressions (
@@ -167,11 +218,23 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS pet_v1_duplicate_progressions_append_only ON pet_v1_duplicate_progressions")
+    # Guard on the catalog and swallow a create/create race: the former DROP+CREATE
+    # pair let parallel first requests collide (production, 2026-10-18).
     await db.execute("""
-        CREATE TRIGGER pet_v1_duplicate_progressions_append_only
-        BEFORE UPDATE OR DELETE ON pet_v1_duplicate_progressions
-        FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_duplicate_progression_rewrite()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='pet_v1_duplicate_progressions_append_only'
+                  AND tgrelid='pet_v1_duplicate_progressions'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER pet_v1_duplicate_progressions_append_only
+                    BEFORE UPDATE OR DELETE ON pet_v1_duplicate_progressions
+                    FOR EACH ROW EXECUTE FUNCTION reject_pet_v1_duplicate_progression_rewrite();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.commit()
 

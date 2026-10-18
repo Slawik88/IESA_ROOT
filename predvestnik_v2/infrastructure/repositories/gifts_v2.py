@@ -14,11 +14,26 @@ from infrastructure.repositories import shop_v1 as shop_repo
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE trigger collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:gifts_v2', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
     # Hot paths call this on every request: a catalog lookup is cheap, DDL is not.
     async with db.execute("SELECT to_regclass('gift_pins_v2') IS NOT NULL AND EXISTS("
                           "SELECT 1 FROM pg_trigger WHERE tgname='gift_sends_v2_append_only')") as cursor:
-        if (await cursor.fetchone())[0]:
-            return
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     # gift_id is a pattern, not a list: a new gift in core/gifts_v2.py needs no constraint migration.
     # Named CHECKs mirror core/gifts_v2.py (TIERS, NOTE_MAX). This fast path never alters an existing table:
     # changing either constant needs an explicit ALTER TABLE ... DROP/ADD CONSTRAINT gift_sends_v2_tier_range / _note_length.
@@ -47,11 +62,24 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS gift_sends_v2_append_only ON gift_sends_v2")
+    # Cold start only: two first requests after a restart used to collide on the
+    # DROP+CREATE pair (production, 2026-10-18).  Guard on the catalog and swallow
+    # a create/create race: the trigger exists exactly once either way.
     await db.execute("""
-        CREATE TRIGGER gift_sends_v2_append_only
-        BEFORE UPDATE OR DELETE ON gift_sends_v2
-        FOR EACH ROW EXECUTE FUNCTION reject_gift_history_rewrite_v2()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='gift_sends_v2_append_only'
+                  AND tgrelid='gift_sends_v2'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER gift_sends_v2_append_only
+                    BEFORE UPDATE OR DELETE ON gift_sends_v2
+                    FOR EACH ROW EXECUTE FUNCTION reject_gift_history_rewrite_v2();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS gift_pins_v2 (

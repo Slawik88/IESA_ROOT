@@ -9,6 +9,29 @@ def _load(value):
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE triggers collided with "already exists".  One installer lock
+    # wraps the whole operation; _schema_ready keeps an installed database away from it.
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:quests_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last statement creates this trigger."""
+    async with db.execute(
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='quest_v1_reward_receipts_append_only' "
+        "AND tgrelid=to_regclass('quest_v1_reward_receipts') AND NOT tgisinternal)"
+    ) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS quest_v1_assignments (
             user_id BIGINT NOT NULL,
@@ -84,11 +107,26 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS quest_v1_reward_receipts_append_only ON quest_v1_reward_receipts")
+    # A rollout restarts the dyno, so the first requests run ensure_tables in
+    # parallel.  The former DROP+CREATE pair let them collide with "trigger ...
+    # already exists" and took /quests-v1/me down (production, 2026-10-18).  Create
+    # only when absent and swallow a create/create race: the append-only trigger
+    # exists exactly once either way.
     await db.execute("""
-        CREATE TRIGGER quest_v1_reward_receipts_append_only
-        BEFORE UPDATE OR DELETE ON quest_v1_reward_receipts
-        FOR EACH ROW EXECUTE FUNCTION reject_quest_reward_receipt_rewrite_v1()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='quest_v1_reward_receipts_append_only'
+                  AND tgrelid='quest_v1_reward_receipts'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER quest_v1_reward_receipts_append_only
+                    BEFORE UPDATE OR DELETE ON quest_v1_reward_receipts
+                    FOR EACH ROW EXECUTE FUNCTION reject_quest_reward_receipt_rewrite_v1();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.commit()
 

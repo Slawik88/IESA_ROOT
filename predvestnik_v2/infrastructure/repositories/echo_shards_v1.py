@@ -6,6 +6,31 @@ from typing import Any
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE triggers collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:echo_shards_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last statements create these triggers."""
+    async with db.execute("""
+        SELECT
+            EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='echo_shard_ledger_append_only_v1'
+                    AND tgrelid=to_regclass('echo_shard_ledger_v1') AND NOT tgisinternal)
+        AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='echo_shard_compensations_append_only_v1'
+                    AND tgrelid=to_regclass('echo_shard_compensations_v1') AND NOT tgisinternal)
+    """) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS echo_shard_accounts_v1 (
             user_id BIGINT PRIMARY KEY,
@@ -89,11 +114,24 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS echo_shard_ledger_append_only_v1 ON echo_shard_ledger_v1")
+    # Guard on the catalog and swallow a create/create race: the former DROP+CREATE
+    # pair let parallel first requests collide with "trigger ... already exists"
+    # (production, 2026-10-18).
     await db.execute("""
-        CREATE TRIGGER echo_shard_ledger_append_only_v1
-        BEFORE UPDATE OR DELETE ON echo_shard_ledger_v1
-        FOR EACH ROW EXECUTE FUNCTION reject_echo_shard_ledger_rewrite_v1()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='echo_shard_ledger_append_only_v1'
+                  AND tgrelid='echo_shard_ledger_v1'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER echo_shard_ledger_append_only_v1
+                    BEFORE UPDATE OR DELETE ON echo_shard_ledger_v1
+                    FOR EACH ROW EXECUTE FUNCTION reject_echo_shard_ledger_rewrite_v1();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.execute("""
         CREATE OR REPLACE FUNCTION reject_echo_shard_compensation_rewrite_v1()
@@ -103,11 +141,24 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS echo_shard_compensations_append_only_v1 ON echo_shard_compensations_v1")
+    # Guard on the catalog and swallow a create/create race: the former DROP+CREATE
+    # pair let parallel first requests collide with "trigger ... already exists"
+    # (production, 2026-10-18).
     await db.execute("""
-        CREATE TRIGGER echo_shard_compensations_append_only_v1
-        BEFORE UPDATE OR DELETE ON echo_shard_compensations_v1
-        FOR EACH ROW EXECUTE FUNCTION reject_echo_shard_compensation_rewrite_v1()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='echo_shard_compensations_append_only_v1'
+                  AND tgrelid='echo_shard_compensations_v1'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER echo_shard_compensations_append_only_v1
+                    BEFORE UPDATE OR DELETE ON echo_shard_compensations_v1
+                    FOR EACH ROW EXECUTE FUNCTION reject_echo_shard_compensation_rewrite_v1();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
 
 

@@ -7,6 +7,28 @@ from infrastructure.repositories import public_profiles_v1 as public_profiles
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # start_run/rankings hit this on the gameplay path, and the first requests after a
+    # rollout arrive in parallel.  PostgreSQL does not serialize concurrent DDL:
+    # CREATE OR REPLACE FUNCTION answered "tuple concurrently updated" (production,
+    # 2026-10-18) and the former DROP+CREATE trigger collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:rhythm_v2', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last statement creates this trigger."""
+    async with db.execute(
+        "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='rhythm_v2_integrity_reviews_append_only' "
+        "AND tgrelid=to_regclass('rhythm_v2_integrity_reviews') AND NOT tgisinternal)"
+    ) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await public_profiles.ensure_tables(db)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS rhythm_v2_runs (
@@ -127,11 +149,24 @@ async def ensure_tables(db) -> None:
         BEGIN RAISE EXCEPTION 'rhythm v2 integrity reviews are append-only'; END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS rhythm_v2_integrity_reviews_append_only ON rhythm_v2_integrity_reviews")
+    # start_run/rankings call this on the gameplay path, so two players may race it.
+    # Guard on the catalog and swallow a create/create race instead of dropping and
+    # recreating the trigger under an ACCESS EXCLUSIVE lock (production, 2026-10-18).
     await db.execute("""
-        CREATE TRIGGER rhythm_v2_integrity_reviews_append_only
-        BEFORE UPDATE OR DELETE ON rhythm_v2_integrity_reviews
-        FOR EACH ROW EXECUTE FUNCTION reject_rhythm_v2_integrity_review_rewrite()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='rhythm_v2_integrity_reviews_append_only'
+                  AND tgrelid='rhythm_v2_integrity_reviews'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER rhythm_v2_integrity_reviews_append_only
+                    BEFORE UPDATE OR DELETE ON rhythm_v2_integrity_reviews
+                    FOR EACH ROW EXECUTE FUNCTION reject_rhythm_v2_integrity_review_rewrite();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
 
 

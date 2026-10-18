@@ -6,7 +6,105 @@ from typing import Any
 from uuid import uuid4
 
 
+async def _reveal_delivery_sealed(db) -> bool:
+    """True once the reveal-delivery migration is fully applied and cannot regress."""
+    async with db.execute("""
+        SELECT a.attnotnull,
+               EXISTS (
+                   SELECT 1 FROM pg_constraint c
+                   WHERE c.conname='fk_chest_reveal_economy_operation_v1'
+                     AND c.conrelid='chest_reveals_v1'::regclass AND c.contype='f'
+               ),
+               EXISTS (
+                   SELECT 1 FROM pg_index i
+                   JOIN pg_class ix ON ix.oid=i.indexrelid
+                   WHERE ix.relname='uq_chest_reveals_v1_economy_operation_full'
+                     AND i.indrelid='chest_reveals_v1'::regclass
+                     AND i.indisunique AND i.indpred IS NULL
+               )
+        FROM pg_attribute a
+        WHERE a.attrelid='chest_reveals_v1'::regclass
+          AND a.attname='economy_operation_id' AND NOT a.attisdropped
+    """) as cursor:
+        row = await cursor.fetchone()
+    return bool(row) and bool(row[0]) and bool(row[1]) and bool(row[2])
+
+
+async def _migrate_reveal_deliveries(db) -> None:
+    """One earlier local canary revision credited at prepare time and stored the
+    canonical operation on the open. Migration is one transaction: an
+    unbackfillable row rolls the trigger DROP back too, never leaving mutable
+    history behind while startup continues after logging the failure."""
+    async with db.connection.transaction():
+        await db.execute("DROP TRIGGER IF EXISTS chest_reveals_v1_append_only ON chest_reveals_v1")
+        await db.execute(
+            "UPDATE chest_reveals_v1 r SET economy_operation_id=o.economy_operation_id "
+            "FROM chest_opens_v1 o WHERE o.id=r.open_id AND r.economy_operation_id IS NULL "
+            "AND o.economy_operation_id IS NOT NULL"
+        )
+        async with db.execute(
+            "SELECT COUNT(*) FROM chest_reveals_v1 WHERE economy_operation_id IS NULL"
+        ) as cursor:
+            if int((await cursor.fetchone())[0]):
+                raise RuntimeError("Chest reveal migration found a delivery without an economic operation.")
+        await db.execute("ALTER TABLE chest_reveals_v1 ALTER COLUMN economy_operation_id SET NOT NULL")
+        await db.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_chest_reveals_v1_economy_operation_full "
+            "ON chest_reveals_v1(economy_operation_id)"
+        )
+        await db.execute("""
+            DO $$ BEGIN
+                IF to_regclass('economic_operations') IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname='fk_chest_reveal_economy_operation_v1'
+                ) THEN
+                    ALTER TABLE chest_reveals_v1 ADD CONSTRAINT fk_chest_reveal_economy_operation_v1
+                    FOREIGN KEY (economy_operation_id) REFERENCES economic_operations(id) ON DELETE RESTRICT;
+                END IF;
+            END $$
+        """)
+
+
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE triggers collided with "already exists".  A finished game run
+    # calls this through quests.record_metric, so one installer lock wraps the whole
+    # operation and _schema_ready keeps an installed database away from it.
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:chests_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last loop creates every
+    append-only trigger.  The reveal-delivery seal is part of the same contract, so a
+    schema whose NOT NULL/index/FK was undone still runs the fail-closed migration."""
+    async with db.execute("""
+        SELECT NOT EXISTS (
+            SELECT 1
+            FROM unnest(ARRAY[
+                'chest_account_retirements_v1', 'chest_key_grants_v1', 'chest_key_ledger_v1',
+                'chest_opens_v1', 'chest_key_spends_v1', 'chest_reveals_v1',
+                'chest_key_purchases_v1', 'chest_key_allocations_v1', 'chest_key_refunds_v1',
+                'chest_key_revocations_v1', 'chest_pet_unlocks_v1', 'chest_deliveries_v1',
+                'chest_key_offer_purchases_v1'
+            ]) AS name
+            WHERE to_regclass(name) IS NULL OR NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgrelid=to_regclass(name) AND tgname=name || '_append_only' AND NOT tgisinternal
+            )
+        )
+    """) as cursor:
+        if not bool((await cursor.fetchone())[0]):
+            return False
+    return await _reveal_delivery_sealed(db)
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute(
         "CREATE TABLE IF NOT EXISTS user_cosmetics ("
         "user_id BIGINT NOT NULL, cosmetic_id TEXT NOT NULL, acquired_at TIMESTAMP DEFAULT NOW(), "
@@ -141,37 +239,11 @@ async def ensure_tables(db) -> None:
     await db.execute(
         "ALTER TABLE chest_reveals_v1 ADD COLUMN IF NOT EXISTS economy_operation_id TEXT NULL"
     )
-    # One earlier local canary revision credited at prepare time and stored the
-    # canonical operation on the open. Migration is one transaction: an
-    # unbackfillable row rolls the trigger DROP back too, never leaving mutable
-    # history behind while startup continues after logging the failure.
-    async with db.connection.transaction():
-        await db.execute("DROP TRIGGER IF EXISTS chest_reveals_v1_append_only ON chest_reveals_v1")
-        await db.execute(
-            "UPDATE chest_reveals_v1 r SET economy_operation_id=o.economy_operation_id "
-            "FROM chest_opens_v1 o WHERE o.id=r.open_id AND r.economy_operation_id IS NULL "
-            "AND o.economy_operation_id IS NOT NULL"
-        )
-        async with db.execute(
-            "SELECT COUNT(*) FROM chest_reveals_v1 WHERE economy_operation_id IS NULL"
-        ) as cursor:
-            if int((await cursor.fetchone())[0]):
-                raise RuntimeError("Chest reveal migration found a delivery without an economic operation.")
-        await db.execute("ALTER TABLE chest_reveals_v1 ALTER COLUMN economy_operation_id SET NOT NULL")
-        await db.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_chest_reveals_v1_economy_operation_full "
-            "ON chest_reveals_v1(economy_operation_id)"
-        )
-        await db.execute("""
-            DO $$ BEGIN
-                IF to_regclass('economic_operations') IS NOT NULL AND NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname='fk_chest_reveal_economy_operation_v1'
-                ) THEN
-                    ALTER TABLE chest_reveals_v1 ADD CONSTRAINT fk_chest_reveal_economy_operation_v1
-                    FOREIGN KEY (economy_operation_id) REFERENCES economic_operations(id) ON DELETE RESTRICT;
-                END IF;
-            END $$
-        """)
+    # This runs on every game finish (quests.record_metric -> ensure_tables), so once
+    # the seal holds it is skipped: the append-only trigger stays in place and the
+    # hot path never scans the reveal history or takes ACCESS EXCLUSIVE locks.
+    if not await _reveal_delivery_sealed(db):
+        await _migrate_reveal_deliveries(db)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS chest_key_purchases_v1 (
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
@@ -272,16 +344,29 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
+    # This loop runs on every game finish (quests.record_metric -> ensure_tables), so
+    # it must stay race free: the former DROP+CREATE pair collided with "trigger ...
+    # already exists" when two runs finished at once and rolled the settlement back
+    # (production, 2026-10-18).  Guard on the catalog and swallow a create/create race.
     for table in ("chest_account_retirements_v1", "chest_key_grants_v1", "chest_key_ledger_v1", "chest_opens_v1",
                   "chest_key_spends_v1", "chest_reveals_v1", "chest_key_purchases_v1",
                   "chest_key_allocations_v1", "chest_key_refunds_v1", "chest_key_revocations_v1",
                   "chest_pet_unlocks_v1", "chest_deliveries_v1", "chest_key_offer_purchases_v1"):
         trigger = f"{table}_append_only"
-        await db.execute(f"DROP TRIGGER IF EXISTS {trigger} ON {table}")
         await db.execute(f"""
-            CREATE TRIGGER {trigger}
-            BEFORE UPDATE OR DELETE ON {table}
-            FOR EACH ROW EXECUTE FUNCTION reject_chest_key_history_rewrite_v1()
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger
+                    WHERE tgname='{trigger}' AND tgrelid='{table}'::regclass AND NOT tgisinternal
+                ) THEN
+                    BEGIN
+                        CREATE TRIGGER {trigger}
+                        BEFORE UPDATE OR DELETE ON {table}
+                        FOR EACH ROW EXECUTE FUNCTION reject_chest_key_history_rewrite_v1();
+                    EXCEPTION WHEN duplicate_object THEN NULL;
+                    END;
+                END IF;
+            END $$
         """)
     await db.commit()
 

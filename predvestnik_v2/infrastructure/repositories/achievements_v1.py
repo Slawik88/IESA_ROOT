@@ -15,6 +15,36 @@ def _snapshot_value(value: Any) -> dict[str, Any]:
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE triggers collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:achievements_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    """True once _ensure_tables_unlocked completed: its last loop creates these triggers."""
+    async with db.execute("""
+        SELECT NOT EXISTS (
+            SELECT 1
+            FROM unnest(ARRAY[
+                'achievement_v1_metric_receipts', 'achievement_v1_active_weeks', 'achievement_v1_reward_receipts'
+            ]) AS name
+            WHERE to_regclass(name) IS NULL OR NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgrelid=to_regclass(name) AND tgname=name || '_append_only' AND NOT tgisinternal
+            )
+        )
+    """) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS achievement_v1_metric_receipts (
             user_id BIGINT NOT NULL, family TEXT NOT NULL, source_event_id TEXT NOT NULL,
@@ -54,13 +84,24 @@ async def ensure_tables(db) -> None:
         BEGIN RAISE EXCEPTION 'achievement v1 receipts are append-only'; END;
         $$
     """)
+    # Parallel first requests after a restart must not collide on trigger creation
+    # (production, 2026-10-18): guard on the catalog and swallow a create/create race.
     for table, trigger in (("achievement_v1_metric_receipts", "achievement_v1_metric_receipts_append_only"),
                            ("achievement_v1_active_weeks", "achievement_v1_active_weeks_append_only"),
                            ("achievement_v1_reward_receipts", "achievement_v1_reward_receipts_append_only")):
-        await db.execute(f"DROP TRIGGER IF EXISTS {trigger} ON {table}")
         await db.execute(f"""
-            CREATE TRIGGER {trigger} BEFORE UPDATE OR DELETE ON {table}
-            FOR EACH ROW EXECUTE FUNCTION reject_achievement_v1_receipt_rewrite()
+            DO $$ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger
+                    WHERE tgname='{trigger}' AND tgrelid='{table}'::regclass AND NOT tgisinternal
+                ) THEN
+                    BEGIN
+                        CREATE TRIGGER {trigger} BEFORE UPDATE OR DELETE ON {table}
+                        FOR EACH ROW EXECUTE FUNCTION reject_achievement_v1_receipt_rewrite();
+                    EXCEPTION WHEN duplicate_object THEN NULL;
+                    END;
+                END IF;
+            END $$
         """)
 
 

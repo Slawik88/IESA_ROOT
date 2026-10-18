@@ -11,11 +11,26 @@ from typing import Any
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):
+        return
+    # Request handlers reach lazy schema installation at the same moment after a
+    # rollout.  PostgreSQL does not serialize concurrent DDL: CREATE OR REPLACE
+    # FUNCTION answered "tuple concurrently updated" (production, 2026-10-18) and the
+    # former DROP+CREATE trigger collided with "already exists".
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:shop_v1', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
     # Hot paths call this on every request: a catalog lookup is cheap, DDL is not.
     async with db.execute("SELECT to_regclass('shop_purchases_v1') IS NOT NULL AND EXISTS("
                           "SELECT 1 FROM pg_trigger WHERE tgname='shop_purchases_v1_append_only')") as cursor:
-        if (await cursor.fetchone())[0]:
-            return
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS shop_purchases_v1 (
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, action_id TEXT NOT NULL,
@@ -40,11 +55,24 @@ async def ensure_tables(db) -> None:
         END;
         $$
     """)
-    await db.execute("DROP TRIGGER IF EXISTS shop_purchases_v1_append_only ON shop_purchases_v1")
+    # Cold start only: two first requests after a restart used to collide on the
+    # DROP+CREATE pair (production, 2026-10-18).  Guard on the catalog and swallow
+    # a create/create race: the trigger exists exactly once either way.
     await db.execute("""
-        CREATE TRIGGER shop_purchases_v1_append_only
-        BEFORE UPDATE OR DELETE ON shop_purchases_v1
-        FOR EACH ROW EXECUTE FUNCTION reject_shop_history_rewrite_v1()
+        DO $$ BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_trigger
+                WHERE tgname='shop_purchases_v1_append_only'
+                  AND tgrelid='shop_purchases_v1'::regclass AND NOT tgisinternal
+            ) THEN
+                BEGIN
+                    CREATE TRIGGER shop_purchases_v1_append_only
+                    BEFORE UPDATE OR DELETE ON shop_purchases_v1
+                    FOR EACH ROW EXECUTE FUNCTION reject_shop_history_rewrite_v1();
+                EXCEPTION WHEN duplicate_object THEN NULL;
+                END;
+            END IF;
+        END $$
     """)
     await db.commit()
 
