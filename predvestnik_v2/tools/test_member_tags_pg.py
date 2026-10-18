@@ -22,9 +22,17 @@ CHAT = -100
 ZW = "​"
 
 
-def link(name, tag=None):
-    """Ник в списках: ссылка на профиль в Telegram (t.me, без пинга) и тег после неё."""
-    return f'<a href="https://t.me/{name}">@{name}</a>' + (f" [{tag}]" if tag else "")
+def link(name, tag=None, soft=False):
+    """Ник в списках: ссылка на профиль в Telegram (t.me, без пинга) и тег после неё.
+
+    soft — как в рейтингах: тег курсивом без скобок, «/» и «|» внутри тега с пробелами."""
+    base = f'<a href="https://t.me/{name}">@{name}</a>'
+    if not tag:
+        return base
+    if soft:
+        tag = " / ".join(p.strip() for p in tag.replace("|", "/").split("/") if p.strip()) or tag
+        return base + f" <i>{tag}</i>"
+    return base + f" [{tag}]"
 
 
 def real_message(uid, username, text="привет", tag=None, chat_type="supergroup", chat_id=CHAT, **extra):
@@ -41,6 +49,7 @@ class FakeBot:
     def __init__(self):
         self.sent, self.tags = [], {}   # tags: user_id -> тег, который «знает» Telegram
         self.fail, self.asked = {}, []  # fail: user_id -> ошибка, которой ответит Telegram; asked: кого спрашивали
+        self.admin = False              # права бота в чате: чистке нужна админка с правом удаления
 
     async def me(self):
         return SimpleNamespace(id=999, username="predvestnik_bot")
@@ -52,6 +61,10 @@ class FakeBot:
         return SimpleNamespace(permissions=None)
 
     async def get_chat_member(self, chat_id, user_id):
+        if user_id == 999:   # сам бот: админ с удалением — иначе чистка не стартует
+            return SimpleNamespace(status="administrator" if self.admin else "member",
+                                   can_delete_messages=self.admin, can_restrict_members=self.admin,
+                                   tag=None, user=SimpleNamespace(id=user_id))
         self.asked.append((chat_id, user_id))
         if user_id in self.fail:
             raise self.fail[user_id]
@@ -70,7 +83,11 @@ class FakeBot:
 
 
 class FakeMessage:
+    _next_id = 1000
+
     def __init__(self, text, uid, username, chat=CHAT, reply_to=None, tag=None):
+        FakeMessage._next_id += 1
+        self.message_id = FakeMessage._next_id
         self.text, self.caption, self.entities = text, None, []
         self.from_user = SimpleNamespace(id=uid, is_bot=False, username=username, full_name=username, first_name=username.title())
         self.chat = SimpleNamespace(id=chat, type="supergroup", title="Тест")
@@ -257,7 +274,7 @@ async def shown_everywhere(db, bot):
     out = await run(db, bot, "бот ранги")
     assert link("beta", tag_beta) in out, out
     text, _ = await top.build(db, "c", "d", 0, CHAT)
-    assert link("alpha", "Итто") in text and link("talker", tag_talker) in text, text      # топ чата: ник — ссылка на профиль
+    assert link("alpha", "Итто", soft=True) in text and link("talker", tag_talker, soft=True) in text, text   # топ чата: ник — ссылка, тег курсивом
     text, _ = await top.build(db, "g", "d", 0, CHAT)
     assert "[Итто]" not in text, text                                       # в общем топе тега нет: он живёт в одном чате
     await run(db, bot, "бот мут, @talker 1ч")
@@ -306,6 +323,7 @@ async def purge_flow(db, bot):
     # Telegram знает свежий тег: перед досье бот его уточняет и сохраняет в базе и в снимке чистки
     bot.tags[2001] = "Свежий из Telegram"
     bot.tags[2002] = None
+    bot.admin = True           # чистка стартует только когда бот — админ с правом удаления
     out = await run(db, bot, f"бот чистка, 10 {span}")
     assert "Чистка началась" in out, out
     await asyncio.sleep(2.0)   # досье уходят фоном
@@ -423,15 +441,15 @@ async def backfill_flow(db):
     # Показ списка: тег дозапрашивается у Telegram сразу, без ожидания сообщений от людей
     text, _ = await top.build(db, "c", "d", 0, chat, bot)
     for who, tag in (("kovid", "Итто|Совлд."), ("tarta", "Тарталья"), ("lini", "Лини")):
-        assert link(who, tag) in text, text
-    assert "@diegoyuuki</a> [" not in text and "@quiet</a> [" not in text, text   # у кого тега нет — строка чистая
+        assert link(who, tag, soft=True) in text, text
+    assert "@diegoyuuki</a> <i>" not in text and "@quiet</a> <i>" not in text, text   # у кого тега нет — строка чистая
     assert link("diegoyuuki") in text, text
     assert await checked(db, 3002, chat) == ("Итто|Совлд.", True)
     assert await checked(db, 3001, chat) == (None, True), "«тега нет» тоже запомнено: повторно не спрашиваем"
     assert [v for v in await history(db, 3002)] == ["Итто|Совлд."]
     bot.asked.clear()
     text, _ = await top.build(db, "c", "d", 0, chat, bot)
-    assert bot.asked == [] and link("kovid", "Итто|Совлд.") in text, bot.asked   # второй показ — без запросов
+    assert bot.asked == [] and link("kovid", "Итто|Совлд.", soft=True) in text, bot.asked   # второй показ — без запросов
     text, _ = await top.build(db, "g", "d", 0, chat, bot)
     assert bot.asked == [], "общий топ тегов не показывает и Telegram не спрашивает"
 

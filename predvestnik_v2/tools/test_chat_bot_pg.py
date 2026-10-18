@@ -73,6 +73,7 @@ async def main():
 class FakeBot:
     def __init__(self):
         self.calls, self.sent = [], []
+        self.bot_admin = False   # права бота в чате: тесты включают их там, где они нужны (чистка, санкции)
 
     async def me(self):
         return SimpleNamespace(id=999, username="predvestnik_bot")
@@ -84,10 +85,14 @@ class FakeBot:
         return SimpleNamespace(permissions=None)
 
     async def get_chat_member(self, chat_id, user_id):
+        if user_id == 999:   # сам бот: как в живом чате — либо админ с удалением, либо обычный участник
+            return SimpleNamespace(status="administrator" if self.bot_admin else "member",
+                                   can_delete_messages=self.bot_admin, can_restrict_members=self.bot_admin)
         return SimpleNamespace(status="member", can_delete_messages=False)
 
     async def send_message(self, chat_id, text, **kw):
         self.sent.append((chat_id, text, kw))
+        return SimpleNamespace(message_id=len(self.sent))
 
     def __getattr__(self, name):   # restrict/ban/unban_chat_member
         async def call(*a, **kw):
@@ -96,7 +101,11 @@ class FakeBot:
 
 
 class FakeMessage:
+    _next_id = 1000
+
     def __init__(self, text, uid, username, chat=-100, reply_to=None, chat_type="supergroup"):
+        FakeMessage._next_id += 1
+        self.message_id = FakeMessage._next_id
         self.text, self.caption, self.entities = text, None, []
         self.from_user = SimpleNamespace(id=uid, is_bot=False, username=username, full_name=username,
                                          first_name=username.title())
@@ -218,6 +227,7 @@ async def purge_flow(db, bot):
     out = await run(db, bot, f"бот чистка, 10 {span}", uid=1002, username="beta")
     assert "нет права" in out, out
     await asyncio.sleep(0)
+    bot.bot_admin = True           # для чистки боту выдали админку с правом удаления (как в живом чате)
     out = await run(db, bot, f"бот чистка, 10 {span}")
     assert "Чистка началась" in out, out
     vs = await purge.find_violators(db, -100, purge.Plan(10, a, b))
@@ -337,11 +347,21 @@ async def profile_flow(db, bot):
         mid = (await cur.fetchone())[0]
     await db.execute("INSERT INTO marriage_members (user_id, marriage_id) VALUES (2002, ?), (1001, ?)", (mid, mid))
     out = await run(db, bot, "бот я", uid=2002, username="talker")
-    assert "@talker" in out and "1 500" in out and "12.5" in out and "Сообщения" in out, out
+    assert "@talker" in out and "1 500" in out and "12.5" in out and "Сообщения" in out and "Кошелёк" in out, out
     assert "@\u200balpha" in out and "@alpha" not in out, out          # партнёр без пинга
-    assert "ID:" not in out, out                                        # обычный игрок ID не видит
+    assert "ID:" not in out and "🆔" not in out, out                    # обычный игрок ID не видит
+    # Новые блоки: место в чате за месяц и уровни достижений (данные кладём руками).
+    from bot.chat.achievements_data import ACHIEVEMENTS
+    from bot.chat.tracking import local_now
+    await db.execute("INSERT INTO daily_user_stats (user_id, chat_id, date, message_count) VALUES (2002, -100, ?, 999) "
+                     "ON CONFLICT (user_id, chat_id, date) DO UPDATE SET message_count = 999", (local_now().date().isoformat(),))
+    await db.execute("INSERT INTO chat_achievement_levels (user_id, achievement, level) VALUES (2002, 'messages', 23) "
+                     "ON CONFLICT (user_id, achievement) DO UPDATE SET level = 23")
+    levels_max = sum(a.max_level for a in ACHIEVEMENTS)
+    out = await run(db, bot, "бот я", uid=2002, username="talker")
+    assert "место <b>#1</b>" in out and f"достижения <b>23/{levels_max}</b>" in out, out
     out = await run(db, bot, "бот кто, @talker", uid=42, username="devuser")
-    assert "ID: <code>2002</code>" in out and "Создатель" not in out, out
+    assert "🆔 2002" in out and "Создатель" not in out, out
     out = await run(db, bot, "бот кто @nobody_here")
     assert "Не нашёл" in out, out
     out = await run(db, bot, "бот баланс", uid=2002, username="talker")
@@ -367,15 +387,18 @@ async def presence_flow(db, bot):
     assert presence_of(None, None, None, None) is None
 
     # В БД: строка 2002 в чате -100 заведена 100 дней назад, колонка membership_since — «сегодня».
-    await db.execute("UPDATE user_chat_stats SET joined_at = NOW() - INTERVAL '100 days', membership_since = NOW(), "
+    # joined_at у бота — наивный UTC (см. tracking), поэтому пишем время в UTC: с NOW() на кластере
+    # с не-UTC часовым поясом счёт съезжает на день.
+    await db.execute("UPDATE user_chat_stats SET joined_at = (NOW() AT TIME ZONE 'UTC') - INTERVAL '100 days', "
+                     "membership_since = NOW(), "
                      "rejoined_at = NULL, is_left = FALSE WHERE user_tg_id = 2002 AND chat_tg_id = -100")
     out = await run(db, bot, "бот я", uid=2002, username="talker")
-    assert "В чате: 10" in out and "Вернулся" not in out, out         # 100 или 101 день, смотря на часовой пояс
+    assert "В чате <b>10" in out and "Вернулся" not in out, out      # 100 или 101 день, смотря на часовой пояс
     # Ушёл и вернулся (сообщением): отсчёт идёт с возвращения, первое появление помнится.
     await db.execute("UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = 2002 AND chat_tg_id = -100")
     await record_message(db, msg(2002, -100, "talker"))
     out = await run(db, bot, "бот я", uid=2002, username="talker")
-    assert "В чате: с сегодняшнего дня" in out and "Вернулся в чат" in out, out
+    assert "В чате с сегодняшнего дня" in out and "Вернулся в чат" in out, out
     await record_message(db, msg(2002, -100, "talker"))              # обычное сообщение возврат не сбрасывает
     async with db.execute("SELECT rejoined_at, is_left FROM user_chat_stats WHERE user_tg_id = 2002 "
                           "AND chat_tg_id = -100") as cur:
@@ -508,7 +531,11 @@ async def warps_flow(db, bot):
 
 
 class Call:
+    _next_id = 1
+
     def __init__(self, uid, msg_id=500):
+        Call._next_id += 1
+        self.id = f"callback-{Call._next_id}"
         self.from_user = SimpleNamespace(id=uid, full_name=f"U{uid}")
         self.edited, self.alerts = [], []
         async def edit_text(text, **kw):
@@ -720,6 +747,7 @@ async def games_flow(db, bot):
     from bot.chat.framework import dispatch
     await dispatch(registry, m, bot, db)
     assert "Игры Предвестника" in m.replies[0], m.replies
+    bot.bot_admin = False          # мафия проверяет права бота: без админки ждём предупреждение
     m = FakeMessage("бот мафия", 1001, "alpha")
     m.message_thread_id = None
     await dispatch(registry, m, bot, db)
