@@ -1,7 +1,10 @@
 """«бот я», «бот кто» — карточка игрока; «бот баланс» — кошелёк.
 
-Никого, кроме самого игрока, карточка не пингует: партнёр и прочие имена
-выводятся с невидимым пробелом после «@».
+Карточка компактная (стиль v2; макет — docs/design-refs/profile-card-preview.html):
+шапка без рамок, каждый смысловой блок отделён пустой строкой, счётчики идут
+парами в цитатах, значения — жирным вплотную к подписи (в начале строк цитат
+ничего не «висит»). Никого, кроме самого игрока, карточка не пингует: партнёр и
+прочие имена выводятся с невидимым пробелом после «@».
 """
 from __future__ import annotations
 
@@ -12,19 +15,23 @@ from datetime import timedelta
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from loguru import logger
-from services import member_tags, vip as vip_service
-from bot.chat import activity_graph, family, global_ranks, ranks
+from services import chat_bots, member_tags, vip as vip_service
+from bot.chat import activity_graph, family, global_ranks, ranks, streak
+from bot.chat.achievements_data import ACHIEVEMENTS
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
 from bot.chat.settings import CURRENCY_VIEW
+from bot.chat.style import quote
 from bot.chat.targets import Target, resolve_target
 from bot.chat.tracking import PRESENCE_SQL, local_now, presence_of
-from bot.chat.style import quote
 
 # Валюты, которые сейчас в игре (остальные — легаси и не показываются).
 SHOWN_CURRENCIES = ("mora", "diamonds", "essence", "zarniki")
 
 CAPTION_LIMIT = 1024   # лимит подписи к фото у Telegram, видимых символов
+
+# Знаменатель «достижения 23/641»: сумма максимальных уровней всех достижений.
+ACHIEVEMENT_LEVELS_MAX = sum(a.max_level for a in ACHIEVEMENTS)
 
 
 def esc(s) -> str:
@@ -32,7 +39,18 @@ def esc(s) -> str:
 
 
 def quiet(username: str | None, fallback: str) -> str:
-    return f"@​{username}" if username else fallback
+    return f"@\u200b{esc(username)}" if username else fallback
+
+
+async def username_of(db, user_id: int) -> str | None:
+    async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (user_id,)) as cur:
+        row = await cur.fetchone()
+    return row[0] if row else None
+
+
+async def quiet_name(db, user_id: int) -> str:
+    """Имя игрока без пинга: «@ник» (с нулевым пробелом) или id."""
+    return quiet(await username_of(db, user_id), f"id{user_id}")
 
 
 def fmt_num(v: float, decimals: int = 0) -> str:
@@ -48,13 +66,41 @@ def days_word(n: int) -> str:
     return "дней"
 
 
-async def balances(db, user_id: int) -> list[str]:
+def ago(seconds: int) -> str:
+    """Когда игрок писал в этот чат в последний раз: «<b>1</b> ч назад», «только что»."""
+    if seconds < 60:
+        return "только что"
+    if seconds < 3600:
+        return f"<b>{seconds // 60}</b> мин назад"
+    if seconds < 86400:
+        return f"<b>{seconds // 3600}</b> ч назад"
+    days = seconds // 86400
+    if days < 30:
+        return f"<b>{days}</b> {days_word(days)} назад"
+    return f"<b>{days // 30}</b> мес. назад"
+
+
+def pair(label: str, value: str) -> str:
+    return f"{label} <b>{value}</b>"
+
+
+def pair_rows(items: list[tuple[str, str]]) -> list[str]:
+    """Ячейки-пары раскладываются по две в строку: «серия 18 дней · рекорд 40 дней»."""
+    return [" · ".join(pair(*item) for item in items[i:i + 2]) for i in range(0, len(items), 2)]
+
+
+async def wallet_values(db, user_id: int) -> dict[str, float]:
     ledger = [c for c in SHOWN_CURRENCIES if c in CURRENCY_SPECS]
     cols = ", ".join(CURRENCY_SPECS[c].balance_column for c in ledger)
     async with db.execute(f"SELECT {cols} FROM users WHERE user_tg_id = ?", (user_id,)) as cur:
         row = await cur.fetchone()
     values = {c: float(row[i] or 0) if row else 0.0 for i, c in enumerate(ledger)}
     values["essence"] = float(await skins_v3_repo.essence_balance(db, user_id))
+    return values
+
+
+async def balances(db, user_id: int) -> list[str]:
+    values = await wallet_values(db, user_id)
     out = []
     for code in SHOWN_CURRENCIES:
         spec = CURRENCY_VIEW[code]
@@ -88,78 +134,152 @@ async def message_counts(db, chat_id: int, user_id: int) -> dict[str, int]:
     return out
 
 
-# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): роли курсивом, счётчики и баланс в цитатах. Место для будущих стилей карточек: между шапкой и ролями.
+async def chat_place(db, chat_id: int, user_id: int, since: str, until: str) -> int | None:
+    """Место в чате по сообщениям за период: 1 — больше всех. None, если игрок не писал."""
+    async with db.execute(
+        "SELECT COALESCE(SUM(message_count), 0) FROM daily_user_stats "
+        "WHERE chat_id = ? AND user_id = ? AND date BETWEEN ? AND ?",
+        (chat_id, user_id, since, until)) as cur:
+        mine = int((await cur.fetchone())[0])
+    if mine <= 0:
+        return None
+    async with db.execute(
+        "SELECT COUNT(*) FROM (SELECT d.user_id FROM daily_user_stats d "
+        "WHERE d.chat_id = ? AND d.date BETWEEN ? AND ? AND " + chat_bots.NOT_BOT_DAILY +
+        " GROUP BY d.user_id HAVING SUM(d.message_count) > ?) t",
+        (chat_id, since, until, mine)) as cur:
+        ahead = int((await cur.fetchone())[0])
+    return ahead + 1
+
+
+async def achievement_levels(db, user_id: int) -> int:
+    """Сколько уровней достижений набрано (максимум — ACHIEVEMENT_LEVELS_MAX)."""
+    async with db.execute("SELECT COALESCE(SUM(level), 0) FROM chat_achievement_levels WHERE user_id = ?",
+                          (user_id,)) as cur:
+        return int((await cur.fetchone())[0])
+
+
+# СТИЛЬ v2 (компактный; макет — docs/design-refs/profile-card-preview.html): шапка, блоки через
+# пустую строку, счётчики парами в цитатах, значения жирным. Новые стили карточек — сюда же.
 async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool) -> str:
     uid = target.user_id
-    async with db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (uid,)) as cur:
-        row = await cur.fetchone()
-    username = (row[0] if row else None) or target.username
+    today = local_now().date()
+
+    username = await username_of(db, uid) or target.username
     nick = None
     if is_group:
-        async with db.execute("SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?", (uid, chat_id)) as cur:
+        async with db.execute("SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
+                              (uid, chat_id)) as cur:
             r = await cur.fetchone()
         nick = r[0] if r else None
     title = nick or target.name or (f"@{username}" if username else f"id{uid}")
-    lines = [f"👤 <b>{esc(title)}</b>"]
-    if username:
-        lines.append(f"@{esc(username)}")   # сам игрок — единственный, кого можно отметить
+
+    head = [f"👤 <b>{esc(title)}</b>" + (f" · @{esc(username)}" if username else "")]
     tag = await member_tags.get(db, chat_id, uid) if is_group else None
     if tag:
-        lines.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата
-    if await global_ranks.get_bot_rank(db, viewer_id) >= global_ranks.HELPER_MIN:
-        lines.append(f"ID: <code>{uid}</code>")
-
+        head.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата
     roles = []
     if is_group:
-        roles.append(ranks.rank_name(await ranks.get_rank(db, chat_id, uid)))
+        rank = await ranks.get_rank(db, chat_id, uid)
+        if rank > 0:
+            roles.append(ranks.rank_name(rank))
     bot_rank = await global_ranks.get_bot_rank(db, uid)
     if bot_rank:
         roles.append(global_ranks.bot_rank_name(bot_rank))
     if await global_ranks.is_sponsor(db, uid):
         roles.append("💖 Спонсор")
-    if await vip_service.is_vip_active(db, uid):
-        roles.append("👑 VIP")
     if roles:
-        lines.append("\n<i>" + " · ".join(roles) + "</i>")
+        head.append(" · ".join(roles))
+    tail = []
+    if await vip_service.is_vip_active(db, uid):
+        tail.append("👑 VIP")
+    if await global_ranks.get_bot_rank(db, viewer_id) >= global_ranks.HELPER_MIN:
+        tail.append(f"🆔 {uid}")   # ID игроков видят только хелперы и выше
+    if tail:
+        head.append(" · ".join(tail))
+
+    blocks = []
 
     if is_group:
         c = await message_counts(db, chat_id, uid)
-        msg_rows = [
-            f"Сегодня: <b>{fmt_num(c['day'])}</b> · неделя: <b>{fmt_num(c['week'])}</b>",
-            f"Месяц: <b>{fmt_num(c['month'])}</b> · всего: <b>{fmt_num(c['all'])}</b>",
-        ]
+        rows = [" · ".join((pair("сегодня", fmt_num(c["day"])),
+                            pair("неделя", fmt_num(c["week"])),
+                            pair("месяц", fmt_num(c["month"]))))]
+        totals = [pair("всего", fmt_num(c["all"]))]
         if c["everywhere"] > c["all"]:
-            msg_rows.append(f"Во всех чатах: <b>{fmt_num(c['everywhere'])}</b>")
-        lines.append("\n💬 <b>Сообщения</b>\n" + quote(msg_rows))
+            totals.append(pair("во всех", fmt_num(c["everywhere"])))
+        rows.append(" · ".join(totals))
+        blocks.append("💬 <b>Сообщения</b>\n" + quote(rows))
+
+    current, best, _ = await streak.streak_of(db, uid, today)
+    month_start = today.replace(day=1).isoformat()
+    place = await chat_place(db, chat_id, uid, month_start, today.isoformat()) if is_group else None
+    levels = await achievement_levels(db, uid)
+    items = []
+    if current or best:
+        items.append(("серия", f"{current} {days_word(current)}" if current else "—"))
+    if best:
+        items.append(("рекорд", f"{best} {days_word(best)}"))
+    if place:
+        items.append(("место", f"#{place}"))
+    if levels:
+        items.append(("достижения", f"{levels}/{ACHIEVEMENT_LEVELS_MAX}"))
+    if items:
+        blocks.append("🔥 <b>Прогресс</b>\n" + quote(pair_rows(items)))
+
+    personal = []
+    if is_group:
         async with db.execute(
-            f"SELECT {PRESENCE_SQL} FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?",
-            (chat_id, uid)) as cur:
+                f"SELECT {PRESENCE_SQL}, EXTRACT(EPOCH FROM NOW() - s.last_message_at)::BIGINT "
+                "FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?",
+                (chat_id, uid)) as cur:
             r = await cur.fetchone()
-        pres = presence_of(*r) if r else None
+        pres = presence_of(*r[:4]) if r else None
+        away = int(r[4]) if r and r[4] is not None else None
         if pres:
-            if pres.days == 0:
-                lines.append(f"\n📅 В чате: с сегодняшнего дня")
-            else:
-                lines.append(f"\n📅 В чате: {pres.days} {days_word(pres.days)} (с {pres.since.strftime('%d.%m.%Y')})")
+            seen = f"В чате <b>{pres.days}</b> {days_word(pres.days)}" if pres.days else "В чате с сегодняшнего дня"
+            line = "📅 " + seen
+            if away is not None:
+                line += f" · 🕓 {ago(away)}"
+            personal.append(line)
             if pres.rejoined:
-                lines.append(f"↩️ Вернулся в чат · впервые здесь {pres.first_seen.strftime('%d.%m.%Y')}")
+                personal.append(f"↩️ Вернулся в чат · впервые здесь {pres.first_seen.strftime('%d.%m.%Y')}")
         warns = await active_warns(db, chat_id, uid)
         if warns:
-            lines.append(f"⚠️ Варнов: {len(warns)}")
+            personal.append(f"⚠️ Варнов <b>{len(warns)}</b>")
 
     fam = await family.family_of(db, uid)
     if fam:
-        names = await family.labels(db, fam.members, chat_id if is_group else None)
         if fam.is_parent(uid):
             partner = fam.partner_of(uid)
-            since = f" с {fam.since.strftime('%d.%m.%Y')}" if fam.since else ""
-            lines.append(f"\n💞 В браке с {names[partner]}{since}")
+            if partner:
+                personal.append(f"💞 В браке с {await quiet_name(db, partner)}")
+                quote_parts = []
+                partner_tag = await member_tags.get(db, chat_id, partner) if is_group else None
+                if partner_tag:
+                    quote_parts.append(f"[{esc(partner_tag)}]")
+                days = family.days_together(fam.since)
+                if days is not None:
+                    quote_parts.append(f"вместе {days} {days_word(days)}")
+                if quote_parts:
+                    personal.append(quote([" · ".join(quote_parts)]))
         else:
-            parents = " и ".join(names[p] for p in fam.parents)
-            lines.append(f"\n👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
+            parents = " и ".join([await quiet_name(db, p) for p in fam.parents])
+            personal.append(f"👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
+    if personal:
+        blocks.append("\n".join(personal))
 
-    lines.append("\n💰 <b>Баланс</b>\n" + quote(await balances(db, uid)))
-    return "\n".join(lines)
+    values = await wallet_values(db, uid)
+    wallet_rows = []
+    for i in range(0, len(SHOWN_CURRENCIES), 2):
+        cells = []
+        for code in SHOWN_CURRENCIES[i:i + 2]:
+            spec = CURRENCY_VIEW[code]
+            cells.append(f"{spec.label.lower()} <b>{fmt_num(values[code], spec.display_decimals)}</b> {spec.icon}")
+        wallet_rows.append(" · ".join(cells))
+    blocks.append("💰 <b>Кошелёк</b>\n" + quote(wallet_rows))
+
+    return "\n\n".join(["\n".join(head), *blocks])
 
 
 def caption_len(text: str) -> int:
