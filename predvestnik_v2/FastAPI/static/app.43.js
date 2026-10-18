@@ -12,7 +12,7 @@ const _SP_ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6
 const _SP_CHECK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const _SP_LV_NAME = { got: 'получен', ready: 'можно забрать', next: 'следующий', lock: 'впереди' };
 
-let _sp = { me: null, at: 0, busy: false, loading: false, checking: false };
+let _sp = { me: null, at: 0, busy: false, loading: false, checking: false, refreshNotice: '' };
 
 const _spWord = (n, one, few, many) => { const m = Math.abs(n) % 100, d = m % 10; return m > 10 && m < 20 ? many : d === 1 ? one : d > 1 && d < 5 ? few : many; };
 const _spLevels = n => `${fmt(n)} ${_spWord(n, 'уровень', 'уровня', 'уровней')}`;
@@ -42,7 +42,7 @@ const _spReady = me => me && me.enabled ? ((me.seasons || []).reduce((n, s) => n
 
 function _spLoad(force) {
   if (!force && _sp.me && Date.now() - _sp.at < _SP_CACHE_MS) return Promise.resolve(_sp.me);
-  return api('/season-pass/me').then(me => { _sp.me = me; _sp.at = Date.now(); return me; });
+  return api('/season-pass/me').then(me => { _sp.me = me; _sp.at = Date.now(); _sp.refreshNotice = ''; return me; });
 }
 
 // ── Точка на вкладке «Игры»: есть уровни к получению и аккаунт может их забрать ──────
@@ -51,7 +51,7 @@ function _spDock(on) {
   if (on) { btn.dataset.sp = '1'; if (!btn.querySelector('.sp-sr')) btn.insertAdjacentHTML('beforeend', '<i class="sr-only sp-sr">, есть награда пропуска</i>'); }
   else { delete btn.dataset.sp; const note = btn.querySelector('.sp-sr'); if (note) note.remove(); }
 }
-function _spDockSync(me) { _spDock(!!(me && me.enabled) && _spReady(me) > 0 && _spCanClaim(me)); }
+function _spDockSync(me) { _spDock(!_sp.refreshNotice && !!(me && me.enabled) && _spReady(me) > 0 && _spCanClaim(me)); }
 function passCheck() {
   if (_sysFlags.season_pass_v1 !== true) { _spDock(false); return; }
   if (_sp.checking) return;
@@ -97,6 +97,7 @@ function _spHero(s) {
 }
 // Блок «Забрать»: кнопка, что придёт, почему нельзя. prev: прошлый сезон со своим сроком
 function _spClaimBlock(s, me, prev) {
+  if (_sp.refreshNotice) return '';
   const n = Number(s.claimable_levels) || 0, acc = _spAccount(me), can = acc.eligible !== false, claimTill = Date.parse(s.claim_until), from = Date.parse(acc.eligible_from || '');
   if (n <= 0) return '';
   const lost = !can && prev && from && claimTill && from > claimTill;   // аккаунту исполнится нужный возраст уже после срока выдачи
@@ -162,7 +163,7 @@ function _spRender() {
   }
   // Прошлый сезон с наградами, которые скоро сгорят, стоит сразу под текущим «Забрать»; без наград это справка в конце страницы
   const old = _spPrev(prev, me), oldOpen = !!old && Number(prev.claimable_levels) > 0;
-  root.innerHTML = `${_spHead(cur)}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow(cur)}${oldOpen ? '' : old}`;
+  root.innerHTML = `${_spHead(cur)}${_sp.refreshNotice ? `<section class="sp-sec" role="status"><p>${_profileEsc(_sp.refreshNotice)}</p><button type="button" class="v3-pill v3-pill--full" onclick="loadSeasonPass()">Обновить данные</button></section>` : ''}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow(cur)}${oldOpen ? '' : old}`;
   v3EnterSync(root);
 }
 // Всё, что рисуется из ответа: страница, строка в хабе, точка. Зовётся после каждого чтения
@@ -202,13 +203,22 @@ function _spCelebrate(levels, mora, essence) {
 const _spSeason = (me, season) => ((me && me.seasons) || []).find(s => Number(s.season) === Number(season)) || null;
 function spClaim(season) {
   season = Number(season);
-  if (_sp.busy || !season) return;
+  if (_sp.busy || _sp.refreshNotice || !season) return;
   const before = _spSeason(_sp.me, season), was = before ? Number(before.claimed_level) : 0, button = document.querySelector(`.sp-claim[data-season="${season}"] button`);
   _sp.busy = true; if (button) button.disabled = true;
   const done = () => { _sp.busy = false; };
   api('/season-pass/claim', { method: 'POST', body: JSON.stringify({ season }) }).then(r => {
     _spCelebrate(r.claimed_levels, Number(r.mora) || 0, Number(r.essence) || 0);
-    return _spLoad(true).then(_spRepaint).catch(() => {});
+    // The write is confirmed. A failed refresh must only offer another read.
+    const confirmed = _spSeason(_sp.me, season);
+    if (confirmed && Number(r.claimed_level) >= Number(confirmed.claimed_level)) {
+      confirmed.claimed_level = Number(r.claimed_level);
+      confirmed.claimable_levels = Math.max(0, Number(confirmed.level) - confirmed.claimed_level);
+    }
+    return _spLoad(true).then(_spRepaint).catch(() => {
+      _sp.refreshNotice = 'Награды получены. Не удалось обновить данные пропуска.';
+      _sp.at = 0; _spDock(false); _spRepaint();
+    });
   }, err => {
     // Отказ сервера (строка) показываем как есть. Обрыв связи: ответ мог потеряться по дороге, поэтому данные перечитываются, и если уровни уже выданы, игрок видит их, а не ошибку
     const said = typeof err === 'string' && err ? err : '', text = said || _SP_OFFLINE;

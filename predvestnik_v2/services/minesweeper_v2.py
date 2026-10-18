@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 import secrets
 from uuid import uuid4
+from loguru import logger
 
 from asyncpg.exceptions import UniqueViolationError
 
@@ -30,14 +31,18 @@ async def _record_completed_quest(db, *, user_id: int, run_id: str, difficulty: 
     event_id = f"minesweeper:{run_id}"
     if season_pass_rules.minesweeper_qualifies(won=won):
         await season_pass.record_game(db, user_id=user_id, source="minesweeper", event_id=event_id)
-    sources = await quests.available_sources(db, user_id=user_id)
-    for metric in ("game_completed", "minesweeper_completed"):
-        await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
-                                   vip_active=False, sources=sources)
-    if won:
-        for metric in ("minesweeper_win", f"minesweeper_{difficulty}_win"):
-            await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
-                                       vip_active=False, sources=sources)
+    try:
+        async with db.connection.transaction():
+            sources = await quests.available_sources(db, user_id=user_id)
+            for metric in ("game_completed", "minesweeper_completed"):
+                await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
+                                           vip_active=False, sources=sources)
+            if won:
+                for metric in ("minesweeper_win", f"minesweeper_{difficulty}_win"):
+                    await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
+                                               vip_active=False, sources=sources)
+    except Exception:
+        logger.exception("Quest progression failed for minesweeper_v2 run {}; game and pass result preserved", run_id)
     await achievements.record_terminal(
         db, user_id=user_id, metric="minesweeper_completed", source_event_id=run_id,
         source_snapshot={"run_id": run_id},

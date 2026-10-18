@@ -1,3 +1,27 @@
+## Owner revision 2026-10-18 — season pass integration (item 19 code verified)
+
+The existing free 30-level games pass remains canonical. Deep links bp and
+battlepass now open it. Rhythm/Minesweeper quest hooks run inside one savepoint,
+including source lookup: a quest failure no longer rolls back a completed game,
+a manual integrity-clear decision or pass points. Failures log the run identity;
+failed optional quest progress is not automatically replayed by this change.
+
+After a confirmed claim, a failed status refresh now shows that rewards were
+received and offers a read-only refresh. Stale claim buttons are hidden/blocked;
+a successful read restores normal interaction. Server claim amounts/limits and
+feature flag remain unchanged. No production flag or deployment was changed.
+
+Evidence: full PostgreSQL proof passes (dark flag, cap, receipts, atomic claims,
+season edges), plus manual-review QuestConflict and real SQL errors at source
+lookup/second metric for both games. Pass points survive, partial quest writes
+roll back and the outer transaction remains usable. UI behavior has 20 passing
+sections including successful POST then failed GET; recovery issues no extra
+POST. Policy, lazy deep links and UI wiring contracts pass. Ten browser scenarios
+at 320/430 (normal, new account, max, previous season, closed) pass without warnings.
+Plan critique identified the reconciliation defect; final independent review
+could not run because the review agent reached its account usage limit. Own diff
+review and the above checks completed before commit.
+
 ## Owner follow-up 2026-10-18 — loot takes focus
 
 The final reveal now gives the screen to dropped items: large icons, quantities

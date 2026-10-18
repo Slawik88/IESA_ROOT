@@ -7,6 +7,7 @@ import copy
 import hashlib
 import secrets
 from uuid import uuid4
+from loguru import logger
 
 from asyncpg.exceptions import UniqueViolationError
 
@@ -41,18 +42,22 @@ async def _record_completed_quest(db, *, user_id: int, run_id: str, mode: str, s
     if season_pass_rules.rhythm_qualifies(integrity_status=integrity_status, correct_taps=correct_taps):
         await season_pass.record_game(db, user_id=user_id, source="rhythm", event_id=event_id,
                                       occurred_at=finished_at)
-    sources = await quests.available_sources(db, user_id=user_id)
-    metrics = ["game_completed", "rhythm_completed", f"rhythm_{mode}_completed"]
-    if picks > 0:
-        # Quest id/metric keep their historical "augments" name so players'
-        # already assigned quests stay valid; the gift draft is what counts now.
-        metrics.append("rhythm_augments_completed")
-    for metric in metrics:
-        await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
-                                   vip_active=False, sources=sources)
-    if int(score) >= 500:
-        await quests.record_metric(db, user_id=user_id, metric="rhythm_score_500", event_id=event_id,
-                                   vip_active=False, sources=sources)
+    try:
+        async with db.connection.transaction():
+            sources = await quests.available_sources(db, user_id=user_id)
+            metrics = ["game_completed", "rhythm_completed", f"rhythm_{mode}_completed"]
+            if picks > 0:
+                # Quest id/metric keep their historical "augments" name so players'
+                # already assigned quests stay valid; the gift draft is what counts now.
+                metrics.append("rhythm_augments_completed")
+            for metric in metrics:
+                await quests.record_metric(db, user_id=user_id, metric=metric, event_id=event_id,
+                                           vip_active=False, sources=sources)
+            if int(score) >= 500:
+                await quests.record_metric(db, user_id=user_id, metric="rhythm_score_500", event_id=event_id,
+                                           vip_active=False, sources=sources)
+    except Exception:
+        logger.exception("Quest progression failed for rhythm_v2 run {}; game and pass result preserved", run_id)
     await achievements.record_terminal(
         db, user_id=user_id, metric="rhythm_completed", source_event_id=run_id,
         source_snapshot={"run_id": run_id},

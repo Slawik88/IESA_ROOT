@@ -9,3 +9,6 @@ block = js[js.index("const LINKS={"):js.index("};", js.index("const LINKS={"))]
 bare = re.findall(r"\w+:(open[A-Za-z0-9]+)\s*[,}]", block)
 assert not bare, f"LINKS ссылается на {bare} напрямую: оберните в ()=>…()"
 print("OK: deep links resolve screens lazily")
+
+for alias in ('bp', 'battlepass', 'pass', 'season'):
+    assert f"{alias}:()=>openSeasonPass()" in block, f"{alias} should open the season pass"

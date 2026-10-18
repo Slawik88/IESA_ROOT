@@ -263,8 +263,14 @@ async def run(dsn: str) -> None:
             "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,score,"
             "integrity_status,correct_taps,created_at,finished_at) VALUES ($1,$2,'normal','test',$3,'[]'::jsonb,"
             "'finished',0,900,'review_required',25,$4,$4)", run_id, reviewed, b"x" * 32, noon(3))
-        await rhythm_game.review_run(db, reviewer_id=1, run_id=run_id, review_id=f"rv-{run_id}",
-                                     decision="clear", reason="проверено вручную: честный забег")
+        from unittest.mock import patch
+        from services import quests_v1 as quests
+        async def quest_conflict(*args, **kwargs):
+            raise quests.QuestConflict("fault: quest sources unavailable")
+        with patch.object(quests, "available_sources", quest_conflict):
+            await rhythm_game.review_run(db, reviewer_id=1, run_id=run_id, review_id=f"rv-{run_id}",
+                                         decision="clear", reason="проверено вручную: честный забег")
+        assert await db.connection.fetchval("SELECT integrity_status FROM rhythm_v2_runs WHERE run_id=$1", run_id) == 'clear'
         assert await points_of(reviewed) == 10, "a manual 'clear' must earn the pass points"
 
         # 11. The game hooks feed the pass only for qualifying games.
@@ -287,6 +293,32 @@ async def run(dsn: str) -> None:
         assert await points_of(third, current) == before, "a lost game earns nothing"
         await minesweeper_v2._record_completed_quest(db, user_id=third, run_id="m-won", difficulty="easy", won=True)
         assert await points_of(third, current) == before + 10, "a won game earns points"
+        # Real SQL aborts at lookup and after a first metric must only roll back
+        # the complete optional quest block, preserving pass and game settlement.
+        await db.execute("CREATE TEMP TABLE pass_quest_fault_probe (n INTEGER)")
+        for game in ("rhythm", "minesweeper"):
+            for phase in ("lookup", "late_metric"):
+                start_points = await points_of(third, current)
+                calls = []
+                async def sources(db_, **kwargs):
+                    if phase == "lookup":
+                        await db_.execute("SELECT 1 FROM no_such_quest_source")
+                    return {}
+                async def metric(db_, **kwargs):
+                    calls.append(kwargs["metric"])
+                    await db_.execute("INSERT INTO pass_quest_fault_probe VALUES (1)")
+                    if len(calls) == 2:
+                        await db_.execute("SELECT 1 FROM no_such_late_quest_metric")
+                with patch.object(quests, "available_sources", sources), patch.object(quests, "record_metric", metric):
+                    if game == "rhythm":
+                        await rhythm_v2._record_completed_quest(db, user_id=third, run_id=f"fault-{game}-{phase}", mode="normal", score=900,
+                            integrity_status="clear", correct_taps=20)
+                    else:
+                        await minesweeper_v2._record_completed_quest(db, user_id=third, run_id=f"fault-{game}-{phase}", difficulty="easy", won=True)
+                assert await points_of(third, current) == start_points + 10
+                assert await db.connection.fetchval("SELECT COUNT(*) FROM pass_quest_fault_probe") == 0
+                assert await db.connection.fetchval("SELECT 1") == 1
+
     finally:
         await transaction.rollback()
         await connection.close()

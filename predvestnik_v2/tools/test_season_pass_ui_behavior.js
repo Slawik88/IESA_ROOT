@@ -456,6 +456,22 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
     assert.equal(bad.sp.state.busy, false);
   });
 
+  await section('Получение подтверждено, обновление не удалось: только повтор чтения', async () => {
+    const t = boot(); t.sp.state.me = plain(answer()); t.ctx._loaded.add('pass');
+    t.net.claim = () => { t.net.meFail = new Error('offline'); return Promise.resolve({season:1,claimed_levels:'4-6',claimed_level:6,mora:120,essence:30}); };
+    t.sp.spClaim(1); await settle();
+    assert.match(t.page.innerHTML, /Награды получены/);
+    assert.match(t.page.innerHTML, /onclick="loadSeasonPass\(\)"/);
+    assert.ok(!t.page.innerHTML.includes('spClaim('));
+    t.sp.spClaim(1); await settle();
+    assert.equal(t.net.requests.filter(r => r.startsWith('POST')).length, 1);
+    t.net.meFail = null; t.net.me = answer({}, season(DONE));
+    t.sp.loadSeasonPass(); await settle();
+    assert.equal(t.sp.state.refreshNotice, '');
+    assert.equal(t.net.requests.filter(r => r.startsWith('POST')).length, 1);
+    assert.equal(t.gifts.length, 1);
+  });
+
   await section('Получение: только Мора или только Эссенция, пустой ответ', async () => {
     let t = boot(); t.net.claim = () => Promise.resolve({ season: 1, claimed_levels: '7', mora: 40, essence: 0, claimed_level: 7 });
     t.sp.spClaim(1); await settle();
