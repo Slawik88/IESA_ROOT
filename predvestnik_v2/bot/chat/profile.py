@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import html
+import re
 from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
@@ -22,6 +23,8 @@ from bot.chat.style import quote
 
 # Валюты, которые сейчас в игре (остальные — легаси и не показываются).
 SHOWN_CURRENCIES = ("mora", "diamonds", "essence", "zarniki")
+
+CAPTION_LIMIT = 1024   # лимит подписи к фото у Telegram, видимых символов
 
 
 def esc(s) -> str:
@@ -159,11 +162,22 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
     return "\n".join(lines)
 
 
-async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
-    """«бот я / бот кто»: сверху график активности картинкой, под ним — карточка.
+def caption_len(text: str) -> int:
+    """Длина подписи к фото так, как её считает Telegram: без HTML-тегов, в UTF-16.
 
-    В группе график — по этому чату, в личке — по всем чатам. Если рисовать
-    нечего или графика не вышло, карточка всё равно отправляется.
+    Каждый эмодзи вне BMP — два символа; считаем консервативно, чтобы подпись
+    гарантированно прошла лимит.
+    """
+    plain = html.unescape(re.sub(r"<[^>]+>", "", text))
+    return len(plain.encode("utf-16-le")) // 2
+
+
+async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
+    """«бот я / бот кто»: одним сообщением — график активности с карточкой в подписи.
+
+    В группе график — по этому чату, в личке — по всем чатам. Карточка, которая
+    не влезает в лимит подписи Telegram (или не принята подписью), уходит как
+    раньше: фото без подписи, затем текст. Если рисовать нечего — только текст.
     """
     chat_id = ctx.message.chat.id
     text = await card(ctx.db, chat_id, target, ctx.user_id, is_group)
@@ -173,9 +187,16 @@ async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
         logger.warning(f"График активности не построен: {exc}")
         png = None
     if png:
+        from aiogram.types import BufferedInputFile
+        photo = BufferedInputFile(png, filename="activity.png")
+        if caption_len(text) <= CAPTION_LIMIT:
+            try:
+                await ctx.message.answer_photo(photo, caption=text, parse_mode="HTML")
+                return
+            except Exception as exc:   # подпись важна, но карточку покажем и без неё
+                logger.warning(f"Карточка не легла подписью к графику: {exc}")
         try:
-            from aiogram.types import BufferedInputFile
-            await ctx.message.answer_photo(BufferedInputFile(png, filename="activity.png"))
+            await ctx.message.answer_photo(photo)
         except Exception as exc:   # карточка важнее: график не повод её не показать
             logger.warning(f"График активности не отправлен: {exc}")
     await ctx.reply(text)

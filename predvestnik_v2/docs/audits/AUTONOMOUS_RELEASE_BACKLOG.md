@@ -1,3 +1,47 @@
+## Activity chart mobile pass + one-message card (photo caption), 2026-10-18
+
+Owner follow-up in the same worktree/branch: the chart text was hard to read from a
+phone, and the chart and the card arrived as two separate messages.
+
+Renderer, phone-first (`bot/chat/activity_graph.py`): the canvas is now 1120×960
+(figsize 5.6×4.8 at DPI 200 — still a 2× render of the ~560 dp photo Telegram shows
+on a phone), with every font stepped up relative to width: title 19 bold; date
+window 12.5; KPI labels 12 with 17-medium values; legend 12; axis ticks 11;
+footnote 11/13. The header became stacked rows — title, date window, two KPI lines
+(«сегодня · динамика» / «в среднем · лучший день»), a dedicated legend row — with
+the plot below and the footnote row at the bottom. All KPI, peak and y-axis numbers
+use the thousands-space format; the left margin fits five-digit y labels. On the
+x axis a tick closer than 5 days to the appended last tick is dropped («14.10…» and
+«сегодня» no longer collide) and the last label is right-aligned so «сегодня» is
+not clipped. Grid lines thinned and the bar corner radius re-measured for the
+smaller canvas; the cosmos/gold/light token sets are unchanged.
+
+Message shape (`bot/chat/profile.py`): «бот я» / «бот кто» now answer with ONE
+message — the card travels as the photo caption (`answer_photo(caption=…)`, HTML)
+when its visible length fits Telegram's 1024 limit (tags stripped, UTF-16 units,
+emoji counted as two). A longer card, or one Telegram rejects as a caption, keeps
+the old order: photo without caption, then the text card. No chart — text only,
+as before.
+
+Evidence: `tools/test_activity_graph.py` PASS — three themes, both header branches
+(with and without «динамика»), cache hit issues no second SQL, three concurrent
+renders, plus new caption checks: caption fits → single photo message with
+parse_mode=HTML; over-limit caption → photo + separate text; caption rejected →
+same fallback; no chart → text only; the length helper strips tags and counts
+UTF-16. `py_compile` PASS for all four touched files. The design reference now
+renders the production module itself, so the PNG cannot drift:
+`docs/design-refs/render_activity_polish_final_preview.py` →
+`docs/design-refs/img/activity-polish-final.png` (1120×960). The widened test also
+caught a regression during this wave: `_row` had lost its width return, crashing
+every header that has «динамика»; fixed before commit.
+
+Gate: not re-run in full (renderer + a single send path, same as the wave above).
+`tools/test_chat_bot_pg.py` (pre-existing red) drives the profile flow with a fake
+bot that has no `answer_photo`; both photo attempts sit inside the existing
+try/except, so that harness still ends in the same `reply(text)` and its red is
+unchanged. Live Telegram smoke remains on the owner's side (no bot token here):
+verify the single chart+card message, a long-card fallback, and phone readability.
+
 ## Activity chart polish and info layer («бот я / бот кто»), 2026-10-18
 
 Follow-up cosmetics + content wave on the chart from the entry below (owner tasks 6/18),

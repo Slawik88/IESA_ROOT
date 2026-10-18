@@ -8,14 +8,18 @@ THEMES, чтобы косметику можно было менять, не т�
   * столбики по дням (окно DAYS), последняя неделя — золотом, выходные —
     тихими полосами (объяснены в легенде);
   * линия среднего за период — ориентир «выше/ниже нормы»;
-  * строка цифр вверху: сегодня · динамика к прошлым DAYS дням · в среднем ·
-    лучший день; внизу: всего · активных дней · текущая серия;
+  * две строки цифр вверху: сегодня · динамика · в среднем / лучший день;
+    внизу: всего · активных дней · текущая серия;
   * масштаб оси подстраивается под данные (без пустоты сверху).
 
+Размер полотна рассчитан на телефон: фото в чате показывается шириной около
+560 dp, поэтому canvas 1120×960 (figsize 5.6×4.8 при DPI 200) — это «2×» и
+для резкости краёв, и для крупных подписей: текст на картинке читается с
+телефона без увеличения.
+
 Скорость: рендер идёт в отдельном потоке, результат кэшируется на день
-(повторные «бот я» в тот же день картинку не перерисовывают), рендер 2× —
-на телефонах текст и края резче. matplotlib и фирменный шрифт прогреваются
-один раз при старте бота (prewarm).
+(повторные «бот я» в тот же день картинку не перерисовывают). matplotlib и
+фирменный шрифт прогреваются один раз при старте бота (prewarm).
 
 Данные: daily_counts тянет два окна одним запросом — текущие DAYS дней для
 графика и предыдущие DAYS для «динамики». Все остальные цифры считаются из
@@ -38,7 +42,18 @@ from bot.chat.tracking import local_now
 DAYS = 30                       # окно графика, дней
 DEFAULT_THEME = "cosmos"
 MAX_CACHE = 256                 # картинок в памяти; ключ включает день, старые вытесняются
-DPI = 200                       # рендер 2×: резче на Retina-экранах, ~100 КБ на PNG
+DPI = 200                       # полотно 1120×960: 2× от показа на телефоне, ~140 КБ на PNG
+FIG_W, FIG_H = 5.6, 4.8         # дюймы: ширина подобрана так, чтобы текст читался с телефона
+
+# Пропорции полотна: поля subplots_adjust (левое — с запасом под пятизначные
+# подписи оси) и левый край текстового блока шапки. Нужны, чтобы радиусы
+# скругления столбиков оставались «на глаз» одинаковыми при любом масштабе
+# данных (px считаем от размера полотна, а не от значений оси).
+X_TEXT = 0.08
+_LEFT, _RIGHT = 0.105, 0.975
+_TOP, _BOTTOM = 0.635, 0.175
+_PLOT_W_PX = (_RIGHT - _LEFT) * FIG_W * DPI
+_PLOT_H_PX = (_TOP - _BOTTOM) * FIG_H * DPI
 
 _FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 _FONT_FILES = ("Onest-400.ttf", "Onest-500.ttf", "Onest-700.ttf")
@@ -48,12 +63,6 @@ _fonts_done = False
 
 _LEGEND_AVG = "среднее"
 _LEGEND_WEEKEND = "выходные"
-
-# Пропорции полотна: figure 10×5.6 дюйма и поля subplots_adjust. Нужны, чтобы
-# радиусы скругления столбиков оставались «на глаз» одинаковыми при любом
-# масштабе данных (px считаем от размера полотна, а не от значений оси).
-_PLOT_W_PX = 0.9 * 10 * DPI
-_PLOT_H_PX = 0.68 * 5.6 * DPI
 
 # Оформление: цвета и подписи. Косметику правим здесь, не трогая рендер.
 # Ключи: bg_* — фон-градиент, bar/bar_last — столбики, grid/baseline/avg —
@@ -271,7 +280,7 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
         else:
             trend_s = "0%"
 
-    fig = Figure(figsize=(10, 5.6), dpi=DPI)
+    fig = Figure(figsize=(FIG_W, FIG_H), dpi=DPI)
     FigureCanvasAgg(fig)
     fig.patch.set_facecolor(st["bg"])
 
@@ -288,7 +297,7 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
 
     ax = fig.add_subplot(111, zorder=1)
     ax.patch.set_visible(False)
-    fig.subplots_adjust(left=0.075, right=0.975, top=0.84, bottom=0.16)
+    fig.subplots_adjust(left=_LEFT, right=_RIGHT, top=_TOP, bottom=_BOTTOM)
 
     # ── выходные: тихие полосы по всему полю ────────────────────────────────
     for i in range(n):
@@ -300,7 +309,7 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
         spine.set_visible(False)
     ax.set_axisbelow(True)
     for y in range(step, int(ceill) + 1, step):
-        ax.axhline(y, color=st["grid"], linewidth=0.75, linestyle=(0, (2, 4)),
+        ax.axhline(y, color=st["grid"], linewidth=0.6, linestyle=(0, (2, 4)),
                    zorder=0.9)
     ax.axhline(avg, color=st["avg"], linewidth=0.9, linestyle=(0, (3, 5)), zorder=1.05)
 
@@ -316,8 +325,8 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
 
     # ── столбики: скруглённые верхушки + градиент ───────────────────────────
     x_pad = 0.36
-    rx = 13.0 * (n + 0.45) / _PLOT_W_PX
-    ry = 13.0 * float(ceill) / _PLOT_H_PX
+    rx = 10.0 * (n + 0.45) / _PLOT_W_PX
+    ry = 10.0 * float(ceill) / _PLOT_H_PX
     for i, h in enumerate(counts):
         if h <= 0:
             continue
@@ -334,26 +343,31 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
 
     # ── подпись пика ────────────────────────────────────────────────────────
     if top > 0:
-        ax.text(peak_i, top + 0.01 * float(ceill), str(top), ha="center",
-                va="bottom", fontsize=8.5, color=st["label"], zorder=4,
+        ax.text(peak_i, top + 0.01 * float(ceill), _fmt(top), ha="center",
+                va="bottom", fontsize=11, color=st["label"], zorder=4,
                 **_ff("normal"))
 
     # ── оси; последняя метка — «сегодня» ────────────────────────────────────
     ax.set_ylim(0, ceill)
-    ax.set_yticks([y for y in range(0, int(ceill) + 1, step)])
+    yticks = list(range(0, int(ceill) + 1, step))
+    ax.set_yticks(yticks)
+    ax.set_yticklabels([_fmt(y) for y in yticks])
     ax.set_xlim(-0.7, n - 0.25)
 
     ticks = list(range(0, n, 5))
-    if n - 1 not in ticks:
+    if ticks and n - 1 not in ticks:
+        if n - 1 - ticks[-1] < 5:      # «14.10» и «сегодня» не должны слипаться
+            ticks.pop()
         ticks.append(n - 1)
     ax.set_xticks(ticks)
     xlabels = [(start + timedelta(days=i)).strftime("%d.%m") for i in ticks]
     if start + timedelta(days=n - 1) == local_now().date():
         xlabels[-1] = "сегодня"
     ax.set_xticklabels(xlabels)
-    ax.tick_params(axis="both", length=0, labelsize=9.5)
+    ax.tick_params(axis="both", length=0, labelsize=11)
     ax.tick_params(axis="y", colors=st["y_label"])
     ax.tick_params(axis="x", colors=st["x_label"])
+    ax.get_xticklabels()[-1].set_ha("right")   # иначе «сегодня» режется о правый край
     if _FAMILY:
         for lbl in ax.get_xticklabels() + ax.get_yticklabels():
             lbl.set_fontfamily(_FAMILY)
@@ -361,16 +375,16 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
     renderer = fig.canvas.get_renderer()
     scale = 1.0 / (fig.get_figwidth() * fig.dpi)
 
-    # ── заголовок и двухтоновый подзаголовок ────────────────────────────────
-    fig.text(0.075, 0.935, f"Активность за {n} дней", color=st["title"],
-             fontsize=16, ha="left", va="top", **_ff("bold"))
+    # ── шапка: заголовок, окно дат, две строки цифр ─────────────────────────
+    fig.text(X_TEXT, 0.975, f"Активность за {n} дней", color=st["title"],
+             fontsize=19, ha="left", va="top", **_ff("bold"))
     end = start + timedelta(days=n - 1)
-    t_dates = fig.text(0.075, 0.878, f"{start:%d.%m.%Y} — {end:%d.%m.%Y}",
-                       color=st["dates"], fontsize=10, ha="left", va="top",
+    t_dates = fig.text(X_TEXT, 0.906, f"{start:%d.%m.%Y} — {end:%d.%m.%Y}",
+                       color=st["dates"], fontsize=12.5, ha="left", va="top",
                        **_ff("medium"))
     w_px = t_dates.get_window_extent(renderer=renderer).width
-    fig.text(0.075 + w_px * scale + 0.007, 0.878, "· сообщений в день",
-             color=st["label"], fontsize=10, ha="left", va="top", **_ff("medium"))
+    fig.text(X_TEXT + w_px * scale + 0.008, 0.906, "· сообщений в день",
+             color=st["label"], fontsize=12.5, ha="left", va="top", **_ff("medium"))
 
     def _row(items, y_base, *, start_x=None, end_x=None):
         """Строка из кусочков «подпись значение · …»; выравнивание слева/справа.
@@ -389,32 +403,34 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
         for (_, _, _, _, pad), w, tt in zip(items, widths, texts):
             tt.set_position((cur, y_base))
             cur += (w + pad) * scale
+        return total_px
 
-    # строка-справка: сегодня · динамика · в среднем · лучший день
-    kpi = [("сегодня", st["label"], 9.5, "normal", 5),
-           (str(today_v), st["value"], 12, "medium", 16)]
+    # строка 1: сегодня · динамика; строка 2: в среднем · лучший день
+    w1 = _row([("сегодня", st["label"], 12, "normal", 6),
+               (_fmt(today_v), st["value"], 17, "medium", 16)], 0.833,
+              start_x=X_TEXT)
     if trend_s is not None:
-        kpi += [("·", st["sep"], 9.5, "normal", 16),
-                ("динамика", st["label"], 9.5, "normal", 5),
-                (trend_s, trend_c, 12, "medium", 16)]
-    kpi += [("·", st["sep"], 9.5, "normal", 16),
-            ("в среднем", st["label"], 9.5, "normal", 5),
-            (f"{avg_r}/день", st["value"], 12, "medium", 16),
-            ("·", st["sep"], 9.5, "normal", 16),
-            ("лучший день", st["label"], 9.5, "normal", 5),
-            (f"{peak_date} · {top}", st["value"], 12, "medium", 0)]
-    _row(kpi, 0.913, end_x=0.975)
+        _row([("·", st["sep"], 12, "normal", 16),
+              ("динамика", st["label"], 12, "normal", 6),
+              (trend_s, trend_c, 17, "medium", 0)], 0.833,
+             start_x=X_TEXT + w1 * scale)
+    _row([("в среднем", st["label"], 12, "normal", 6),
+          (f"{_fmt(avg_r)}/день", st["value"], 17, "medium", 16),
+          ("·", st["sep"], 12, "normal", 16),
+          ("лучший день", st["label"], 12, "normal", 6),
+          (f"{peak_date} · {_fmt(top)}", st["value"], 17, "medium", 0)], 0.768,
+         start_x=X_TEXT)
 
     # нижняя строка: всего · активных дней · серия
-    _row([("всего", st["label"], 9, "normal", 5),
-          (_fmt(total), st["foot"], 11, "medium", 13),
-          ("·", st["sep"], 9, "normal", 13),
-          ("активных дней", st["label"], 9, "normal", 5),
-          (f"{active} из {n}", st["foot"], 11, "medium", 13),
-          ("·", st["sep"], 9, "normal", 13),
-          ("серия", st["label"], 9, "normal", 5),
-          (f"{streak} дней", st["foot"], 11, "medium", 0)],
-         0.058, start_x=0.075)
+    _row([("всего", st["label"], 11, "normal", 6),
+          (_fmt(total), st["foot"], 13, "medium", 16),
+          ("·", st["sep"], 11, "normal", 16),
+          ("активных дней", st["label"], 11, "normal", 6),
+          (f"{active} из {n}", st["foot"], 13, "medium", 16),
+          ("·", st["sep"], 11, "normal", 16),
+          ("серия", st["label"], 11, "normal", 6),
+          (f"{streak} дней", st["foot"], 13, "medium", 0)],
+         0.045, start_x=X_TEXT)
 
     # ── легенда: неделя + среднее + выходные ────────────────────────────────
     class _MiniBarSwatch(HandlerPatch):
@@ -440,8 +456,9 @@ def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
                          label=_LEGEND_WEEKEND))
     legend = ax.legend(
         handles=handles, handler_map={Patch: _MiniBarSwatch()},
-        loc="upper right", bbox_to_anchor=(0.975, 0.9), bbox_transform=fig.transFigure,
-        frameon=False, fontsize=9.5, handlelength=1.35, handleheight=1.25,
+        loc="upper left", bbox_to_anchor=(X_TEXT, 0.712),
+        bbox_transform=fig.transFigure,
+        frameon=False, fontsize=12, handlelength=1.3, handleheight=1.2,
         ncol=len(handles), columnspacing=1.3, borderpad=0, labelspacing=0,
         handletextpad=0.5)
     for text in legend.get_texts():
