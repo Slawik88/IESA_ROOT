@@ -54,7 +54,9 @@ function Initialize-PreprodCluster {
         return
     }
     New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
-    & $initdb --no-locale --encoding=UTF8 --auth=trust --username=$role --pgdata=$dataDir
+    # builtin C.UTF-8, а не --no-locale: в C-локали LOWER/ILIKE не сворачивают кириллицу, и регистронезависимый
+    # поиск (теги, ники) в гейте ведёт себя не как в проде. Требуется PostgreSQL 17+.
+    & $initdb --locale-provider=builtin --builtin-locale=C.UTF-8 --encoding=UTF8 --auth=trust --username=$role --pgdata=$dataDir
     if ($LASTEXITCODE -ne 0) {
         throw "initdb failed with exit code $LASTEXITCODE."
     }

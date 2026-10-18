@@ -15,7 +15,9 @@ esac
 init() {
   if [ ! -f "$data_dir/PG_VERSION" ]; then
     mkdir -p "$data_dir"
-    initdb --no-locale --encoding=UTF8 --auth=trust --username="$role" --pgdata="$data_dir" >/dev/null
+    # builtin C.UTF-8, а не --no-locale: в C-локали LOWER/ILIKE не сворачивают кириллицу, и регистронезависимый
+    # поиск (теги, ники) в гейте ведёт себя не как в проде. Требуется PostgreSQL 17+.
+    initdb --locale-provider=builtin --builtin-locale=C.UTF-8 --encoding=UTF8 --auth=trust --username="$role" --pgdata="$data_dir" >/dev/null
   fi
 }
 
