@@ -142,3 +142,15 @@ button:disabled { opacity: .4; }
 .mine-shell .how-to .mine-copy, .mine-shell .how-to .mine-foot { margin: 6px 0; text-align: left; font-size: 13px; }
 :is(body, body.skin-v3) :is(.leaderboard, .mine-leaderboard) li.is-me { padding-left: 10px; font-weight: 700; box-shadow: inset 3px 0 0 var(--g-track), 0 -1px 0 var(--g-faint); }   /* своя строка: жирнее и с меткой слева, без акцента */
 :is(body, body.skin-v3) .mine-shell header .mine-new { border: 0; font-family: inherit; white-space: nowrap; }
+
+/* Grid states override generic pill colours; a finished board stays readable. */
+:is(body, body.skin-v3) .mine-board .mine-cell { background:var(--skin-cell,#2c405b); color:var(--ink,#edf3ff); opacity:1; -webkit-text-fill-color:currentColor; }
+:is(body, body.skin-v3) .mine-board .mine-cell:disabled { opacity:1; cursor:default; }
+:is(body, body.skin-v3) .mine-board .mine-cell.open { background:#152235; color:var(--mine-number,#edf3ff); }
+.mine-cell.n1 { --mine-number:#67baff; }.mine-cell.n2 { --mine-number:#75df9b; }
+.mine-cell.n3 { --mine-number:#ffac8b; }.mine-cell.n4 { --mine-number:#d5a1ff; }
+.mine-cell.n5 { --mine-number:#ff9fb6; }.mine-cell.n6 { --mine-number:#77d9dc; }
+.mine-cell.n7 { --mine-number:#f0e2ae; }.mine-cell.n8 { --mine-number:#d7ddeb; }
+:is(body, body.skin-v3) .mine-board .mine-cell.flag { background:var(--skin-cell-flag,#403b2c); color:var(--gold,#ffd06e); }
+:is(body, body.skin-v3) .mine-board .mine-cell.mine { background:#592d3b; color:#ffd0d0; box-shadow:inset 0 0 0 1.5px #ef8f9d; }
+:is(body, body.skin-v3) .mine-board .mine-cell.wrong-flag { background:#152235; color:#ffb3bd; box-shadow:inset 0 0 0 1px #98636f; }

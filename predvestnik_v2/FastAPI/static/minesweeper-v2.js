@@ -25,18 +25,18 @@
     restoreFocus = restoreFocus || board.contains(document.activeElement);
     $('mine-status').textContent=!run&&errorText?'Поле недоступно':status();$('mine-hint').textContent=hint();$('new-game').disabled=busy;$('new-game').textContent=uncertain?'Восстановить ход':'Новая партия';if(!run){board.replaceChildren();return;}
     $('mine-copy').textContent=`${run.label}: поле ${run.size}×${run.size}, Мин на поле: ${run.mine_count}. Первый ход и клетки вокруг него всегда безопасны.`;
-    $('mines-left').textContent=run.flags_left;$('opened').textContent=`${(run.revealed||[]).filter(cell=>!mines.has(cell)).length} / ${run.size*run.size-run.mine_count}`;updateClock();board.style.setProperty('--mine-size',run.size);board.replaceChildren();
+    $('mines-left').textContent=run.mine_count;$('opened').textContent=`${(run.revealed||[]).filter(cell=>!mines.has(cell)).length} / ${run.size*run.size-run.mine_count}`;updateClock();board.style.setProperty('--mine-size',run.size);board.replaceChildren();
     const revealed=new Set(run.revealed||[]),flags=new Set(run.flags||[]);
     board.setAttribute('aria-rowcount',run.size);board.setAttribute('aria-colcount',run.size);
     let row;focusCell=Math.min(focusCell,run.size*run.size-1);
     for(let cell=0;cell<run.size*run.size;cell++){
       if(cell%run.size===0){row=document.createElement('div');row.className='mine-row';row.setAttribute('role','row');board.append(row);}
-      const open=revealed.has(cell),flag=flags.has(cell),mine=mines.has(cell),adjacent=known.get(cell);
+      const open=revealed.has(cell),flag=flags.has(cell),mine=mines.has(cell),wrongFlag=run.status==='lost'&&flag&&!mine,adjacent=known.get(cell);
       const button=document.createElement('button');button.type='button';button.dataset.cell=cell;
-      button.className=`mine-cell ${open?'open':''} ${flag?'flag':''} ${mine?'mine':''} ${open&&adjacent?`n${adjacent}`:''} ${pending===cell?'pending':''}`;
-      button.textContent=flag?'⚑':mine?'✹':open?(adjacent||''):'';
+      button.className=`mine-cell ${open?'open':''} ${flag?'flag':''} ${mine?'mine':''} ${wrongFlag?'wrong-flag':''} ${open&&!mine&&adjacent?`n${adjacent}`:''} ${pending===cell?'pending':''}`;
+      button.textContent=wrongFlag?'×':mine?'✹':flag?'⚑':open?(adjacent||''):'';
       button.setAttribute('role','gridcell');button.setAttribute('aria-rowindex',Math.floor(cell/run.size)+1);button.setAttribute('aria-colindex',cell%run.size+1);
-      button.setAttribute('aria-label',`Строка ${Math.floor(cell/run.size)+1}, столбец ${cell%run.size+1}: `+(flag?'Флаг':mine?'Мина':open?(adjacent?`рядом мин ${adjacent}`:'Открытая пустая клетка'):'Закрытая клетка'));
+      button.setAttribute('aria-label',`Строка ${Math.floor(cell/run.size)+1}, столбец ${cell%run.size+1}: `+(wrongFlag?'Ошибочный флаг, мины нет':mine?'Мина':flag?'Флаг':open?(adjacent?`рядом мин ${adjacent}`:'Открытая пустая клетка'):'Закрытая клетка'));
       button.tabIndex=cell===focusCell?0:-1;button.disabled=busy||Boolean(uncertain)||finished(run.status);
       button.addEventListener('focus',()=>{focusCell=cell;board.querySelectorAll('.mine-cell').forEach(b=>b.tabIndex=b===button?0:-1);});
       button.addEventListener('keydown',event=>{
@@ -83,6 +83,7 @@
     const seq=++leaderSeq,selected=difficulty;
     $('leaderboard-difficulty').textContent=labels[selected];try{const data=await api('/leaderboard/'+selected);if(seq!==leaderSeq||selected!==difficulty)return;$('season-note').textContent=seasonNote(data);seasonRewards(data);const list=$('leaderboard-list');list.replaceChildren();if(!data.top.length)emptyLeaderboard('Пока нет побед.');else data.top.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),name=document.createElement('a'),result=document.createElement('b'),player=row.player||{};place.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));result.textContent=format(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,name,result);list.append(item);});$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${format(data.personal.best_elapsed_ms)}`:'Победи, чтобы попасть в таблицу.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.');}
   }
+  $('mine-view-toggle').onclick=()=>{const large=document.body.dataset.mineZoom!=='large';document.body.dataset.mineZoom=large?'large':'fit';$('mine-view-toggle').setAttribute('aria-pressed',String(large));$('mine-view-toggle').textContent=large?'Показать всё поле':'Крупные клетки';$('mine-view-label').textContent=large?'Прокручивай поле вбок':'Поле целиком';};
   document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{mode=button.dataset.mode;if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.selectionChanged();document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();});
   document.querySelectorAll('[data-difficulty]').forEach(button=>button.onclick=()=>{if(busy||uncertain||difficulty===button.dataset.difficulty)return;difficulty=button.dataset.difficulty;document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item===button)));start();});$('new-game').onclick=()=>uncertain?submitUncertain():start();start();
 })();

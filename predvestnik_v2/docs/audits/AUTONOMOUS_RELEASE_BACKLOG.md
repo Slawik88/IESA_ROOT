@@ -1,3 +1,23 @@
+## Minesweeper owner screenshots — numbers and scrolling addressed
+
+The supplied screenshots show a clipped board and nearly invisible terminal
+mines. The old 9-column minimum was 428 px, and games-v3's generic pill colour
+and disabled opacity also overrode grid readability. The whole board now fits
+by default; an explicit large-cell mode keeps 44px targets and sideways panning.
+Terminal cells stay at full opacity, with semantic number colours, clear mines,
+and crosses for wrong flags. The MИНЫ counter is total mine_count, not flags_left.
+Help explains diagonal neighbours and the difference between guesses and mines.
+
+Independent direct-coordinate oracles found no arithmetic mismatch: committed
+suite checks 768 boards; read-only critique independently checked 3,168 boards /
+230,688 adjacency values. Real browser at 320/390/430 compares every opened value
+with actual DB-seeded mine coordinates, verifies no clipping in fit mode, 44px
+cells and panning in large mode, all actual mine glyphs after loss, wrong flags,
+opacity=1, and visible closed-safe count = total-safe minus opened-safe. All pass;
+final 320px screenshot inspected. Existing PG and Node suites pass. No mine
+placement or winning condition was changed. Further concrete reports remain
+welcome; no claim of disproving unknown/live-state bugs is made.
+
 ## Owner follow-up 2026-10-18 — Minesweeper first fixes (item 22 ongoing)
 
 Fixed four reproducible client defects: cancelled runs from another tab now

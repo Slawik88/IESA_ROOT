@@ -25,3 +25,17 @@ mine = next(iter(layout["mines"]))
 revealed, flags, status, changed = rules.apply_action(spec=spec, layout=layout, revealed=revealed, flags=flags, kind="open", cell=mine)
 assert status == "lost" and changed == (mine,)
 print("minesweeper_v2_rules: safe start, counts, flags and terminal loss OK")
+
+# Independent geometric oracle: never call neighbours to validate neighbours.
+# Corners, edges and centres on every difficulty, many seeds and safe first cells.
+for spec in rules.DIFFICULTIES.values():
+    total = spec.size ** 2
+    for seed_id in range(64):
+        for first in (0, spec.size-1, total//2, total-1):
+            layout = rules.board(seed_id.to_bytes(32, "big"), spec, first)
+            coords = [divmod(mine, spec.size) for mine in layout["mines"]]
+            for cell, value in layout["adjacent"].items():
+                row,col = divmod(cell, spec.size)
+                expected = sum(max(abs(row-y),abs(col-x)) == 1 for y,x in coords)
+                assert value == expected, (spec.id,seed_id,first,cell,value,expected)
+print("Mines numbers: independent 8-neighbour geometry oracle passes 768 boards")

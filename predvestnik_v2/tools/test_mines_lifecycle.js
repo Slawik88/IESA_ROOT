@@ -43,6 +43,15 @@ async function main(){
   first.cells()[1].onclick();await tick();
   assert.equal(JSON.parse(first.requests.filter(r=>r.url.endsWith('/actions')).at(-1).opts.body).kind,'toggle_flag');
 
+  first.get('mine-view-toggle').onclick();assert.equal(first.ctx.document.body.dataset.mineZoom,'large');
+  first.get('mine-view-toggle').onclick();assert.equal(first.ctx.document.body.dataset.mineZoom,'fit');
+  first.m.sync(state({status:'lost',revealed:[7],changed:[{cell:7,adjacent:1}],flags:[0,1,8],mines:[0]}));first.m.render();
+  assert.equal(first.cells()[7].textContent,1);
+  assert.equal(first.cells()[0].textContent,'✹','confirmed mine replaces the guess flag');
+  assert.equal(first.cells()[1].textContent,'×');assert.equal(first.cells()[8].textContent,'×');
+  assert.match(first.cells()[1].attrs['aria-label'],/мины нет/);
+  assert.equal(first.get('mines-left').textContent,5,'total mines is independent of guessed flags');
+
   const cancelled=boot();await tick();cancelled.net.action=()=>{throw Error('connection lost');};
   cancelled.net.current=state({status:'cancelled'});cancelled.cells()[0].onclick();await tick();
   assert.equal(cancelled.get('mine-status').textContent,'Партия закрыта');
