@@ -1,3 +1,22 @@
+## Owner follow-up 2026-10-18 — Minesweeper first fixes (item 22 ongoing)
+
+Fixed four reproducible client defects: cancelled runs from another tab now
+stop their timer, disable cells and release pending recovery; the first tap in
+flag mode safely opens instead of contradicting its hint; stale leaderboard
+success/failure responses cannot overwrite another difficulty; denied browser
+storage no longer crashes startup when Telegram authentication is available.
+Lost network responses retain the same action id and expected revision.
+
+Evidence: new production-script behavior suite proves cancelled recovery even
+at equal revision, restart, flag-first/normal flags, storage denial with Telegram
+proof preserved, stable retry identity, and both stale leaderboard outcomes.
+Existing keyboard/scroll/recovery tests and full Mines PG ownership/transitions/
+replay/ranking proof pass. Real browser at 320/430 verifies a safe flag-mode first
+move, cancellation by a second tab, disabled old board, working restart and no
+JS errors/horizontal overflow. Read-only critique fixed a misleading cancelled
+recovery hint. Owner-specific reproductions are still requested; this is not a
+claim that every reported bug is resolved.
+
 ## Season pass follow-up — stale reads
 
 Independent review resumed after the quota reset and found one additional race:
