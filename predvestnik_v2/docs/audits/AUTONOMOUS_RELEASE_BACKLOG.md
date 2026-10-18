@@ -1,3 +1,18 @@
+## Owner follow-up 2026-10-18 — loot takes focus
+
+The final reveal now gives the screen to dropped items: large icons, quantities
+and full names in separate responsive cards. The opened chest and star track
+become a small secondary row. Keys, offers, inventory summary and odds return
+only after Done. Food duplicates merge for display without mutating the server
+result. Single legacy rewards keep the same layout. Before the final star, no
+reward cards exist in the DOM. No delivery changes.
+
+Evidence: Node proof covers exact taps/replay plus legacy/duplicate food cards.
+Real browser at 320/390/430 by 640 px verifies both rewards, no JS errors or
+horizontal overflow, and Done above the bottom navigation. Final screenshots
+inspected after the startup overlay has gone. Reduced motion removes entrance
+animation. Read-only critique checked focus, spoilers and long-text wrapping.
+
 ## Owner revision 2026-10-18 — chest provisions (item 14 complete)
 
 Every newly prepared chest seals an additional ration: basic at 1–3 stars,

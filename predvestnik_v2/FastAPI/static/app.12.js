@@ -578,10 +578,9 @@
   function chestRevealScene(){
     const v=_chestsV1RevealView,done=v.step>=v.stars;
     const stars=Array.from({length:10},(_,i)=>`<i class="${i<v.step?'is-lit':''}">★</i>`).join('');
-    return `<section class="chest-reveal" style="--ch-power:${v.step/10}" aria-label="Раскрытие сундука">
-      ${done?`<div class="chest-reveal-final">${chestRevealArt(v.step)}</div>`:`<button type="button" class="chest-reveal-tap" onclick="chestsV1RevealStep()" aria-label="Открыть следующую звезду">${chestRevealArt(v.step)}</button>`}
-      <div class="chest-reveal-stars" aria-hidden="true">${stars}</div>
-      <div class="chest-reveal-status" role="status" aria-live="polite"><b>${v.step} ${achievementWord(v.step,'звезда','звезды','звёзд')}</b><span>${done?chestRewardsText(v.result):'Коснись сундука ещё раз'}</span></div>
+    return `<section class="chest-reveal${done?' is-complete':''}" style="--ch-power:${v.step/10}" aria-label="Раскрытие сундука">
+      ${done?`<div class="chest-result-origin" aria-label="Сундук на ${v.stars} звёзд"><div class="chest-reveal-final">${chestRevealArt(v.step)}</div><div class="chest-reveal-stars" aria-hidden="true">${stars}</div></div>`:`<button type="button" class="chest-reveal-tap" onclick="chestsV1RevealStep()" aria-label="Открыть следующую звезду">${chestRevealArt(v.step)}</button><div class="chest-reveal-stars" aria-hidden="true">${stars}</div>`}
+      <div class="chest-reveal-status" role="status" aria-live="polite">${done?`<h2>Получено</h2>${chestLootCards(v.result)}`:`<b>${v.step} ${achievementWord(v.step,'звезда','звезды','звёзд')}</b><span>Коснись сундука ещё раз</span>`}</div>
       ${done?'<button type="button" class="v3-pill v3-pill--full" onclick="chestsV1FinishReveal()">Готово</button>':'<button type="button" class="v3-link" onclick="chestsV1SkipReveal()">Сразу показать награду</button>'}
     </section>`;
   }
@@ -606,6 +605,19 @@
   function chestTierBalance(d,tier){const b=d.key_balances;return b?Number(b[String(tier)]||0):(Number(tier)===1?Number(d.key_balance||0):0);}
   function chestRewardsText(result){
     return (Array.isArray(result?.rewards)&&result.rewards.length?result.rewards:[result?.reward]).map(chestRewardText).join(' + ');
+  }
+  function chestLootCards(result){
+    const rewards=[];
+    for(const reward of (Array.isArray(result?.rewards)&&result.rewards.length?result.rewards:[result?.reward]).filter(Boolean)){
+      const same=reward.kind==='food'&&rewards.find(r=>r.kind==='food'&&r.ref===reward.ref);
+      if(same)same.amount=Number(same.amount||0)+Number(reward.amount||0);
+      else rewards.push({...reward});
+    }
+    return `<ul class="chest-loot-cards${rewards.length===1?' is-single':''}" aria-label="Выпавшие награды">${rewards.filter(Boolean).map(reward=>{
+      const kind=['mora','diamonds','zarniki','food','pet_card','joker','vip_days','vip_cosmetic'].includes(reward.kind)?reward.kind:'item';
+      const unit=kind==='vip_days'?achievementWord(Number(reward.amount)||0,'день','дня','дней'):['food','pet_card','joker'].includes(kind)?'шт.':'';
+      return `<li class="chest-loot-card is-${kind}"><div class="chest-loot-icon" aria-hidden="true">${esc(reward.icon||'🎁')}</div><strong>+${fmt(reward.amount||0)}${unit?` <small>${unit}</small>`:''}</strong><p>${esc(reward.name||reward.kind||'Награда')}</p></li>`;
+    }).join('')}</ul>`;
   }
   function chestRewardText(reward){
     if(!reward)return'Награда';
@@ -635,6 +647,10 @@
   // ключи по звёздам и добыча — строками, шансы и правила — свёрнуты внизу. Правила вида: docs/MINIAPP_DESIGN_RULES.md. Стили: chests-v3.css.
   function renderChestsV1(){
     const d=_chestsV1Data,root=el('pg-chests');if(!d||!root)return;
+    if(_chestsV1RevealView){
+      root.innerHTML=`${v3Head('Сундуки')}${chestRevealScene()}`;
+      v3EnterSync(root);return;
+    }
     if((_chestsV1Tier!==1&&!chestTierInfo(d,_chestsV1Tier))||chestTierBalance(d,_chestsV1Tier)<1)_chestsV1Tier=(d.key_tiers||[]).map(t=>Number(t.tier)).filter(t=>t>1&&chestTierBalance(d,t)>0).sort((a,b)=>b-a)[0]||1;
     const tierInfo=chestTierInfo(d,_chestsV1Tier),odds=((tierInfo&&tierInfo.star_odds)||d.star_odds||[]).map(row=>`<li><span>${row.stars}★</span><b>${String(row.percent).replace('.',',')}%</b></li>`).join('');
     const rewards=(d.rewards||[]).map(row=>`<details class="chest-tier"><summary><b>${row.stars}★</b><span>${String(row.star_percent).replace('.',',')}% сундуков</span></summary><ul>${(row.outcomes||[]).map(outcome=>`<li><span><b>${esc(outcome.label)}</b>${chestOddsDetails(outcome)}</span><em>${outcome.conditional_percent}%${chestAmountText(outcome)?` · ${chestAmountText(outcome)}`:''}</em></li>`).join('')}</ul></details>`).join('');

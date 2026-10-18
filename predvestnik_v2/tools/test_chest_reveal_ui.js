@@ -36,6 +36,10 @@ async function main(){
       assert.equal(b.run('_chestsV1RevealView.step'),step+1);
     }
     assert.ok(b.run('chestRevealScene()').includes('100'));
+    assert.ok(b.run('chestRevealScene()').includes('chest-loot-card'));
+    assert.ok(!b.run('chestLootCards({reward:{kind:"food",ref:"basic",name:"Паёк",amount:1}})').includes('undefined'));
+    assert.equal((b.run('chestLootCards({rewards:[{kind:"food",ref:"basic",amount:1},{kind:"food",ref:"basic",amount:1}]})').match(/<li /g)||[]).length,1);
+    assert.ok(b.run('chestLootCards({rewards:[{kind:"food",ref:"basic",amount:1},{kind:"food",ref:"basic",amount:1}]})').includes('+2'));
     assert.equal(b.posts.length,1);assert.equal(b.celebrations(),1);
     b.run('chestsV1RevealStep();chestsV1SkipReveal()');assert.equal(b.celebrations(),1);
     const step=b.run('_chestsV1RevealView.step');b.run('openChestsV1()');await tick();
