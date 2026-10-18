@@ -14,6 +14,7 @@ from core.skins_v3_catalog import SKINS
 from core.skins_v3_collection import PERMANENT
 from infrastructure.repositories import marks_v1 as repo
 from infrastructure.repositories import skins_v3 as skins_repo
+from infrastructure.repositories.users import get_first_seen
 
 
 class MarkConflict(RuntimeError):
@@ -39,6 +40,8 @@ def _recent_facts(windows: dict[int, int] | None) -> dict:
 async def facts_for(db, user_id: int, *, streak=0, joined=None) -> dict:
     """The numbers earned marks are computed from. The caller passes what the profile already loaded; skins and the streak history are read here.
     `streak` is the current one; the fact is the best known: the current, the one lost at the last break, or the legacy best."""
+    if joined is None:
+        joined = await get_first_seen(db, user_id)
     await skins_repo.ensure_tables(db)
     owned = await skins_repo.owned(db, user_id)
     maxed = sum(1 for sid, tier in owned.items() if sid in SKINS and tier == CEILING)
@@ -74,8 +77,9 @@ async def sheet(db, user_id: int, *, streak=0, joined=None) -> dict:
     await repo.ensure_tables(db)
     facts = await facts_for(db, user_id, streak=streak, joined=joined)
     worn = await _worn(db, user_id, facts)
+    worn_ids = {mark["id"] for mark in worn}
     ahead = [{**public(s["id"]), "how": MARKS[s["id"]]["how"], "have": s["have"], "need": s["need"]}
-             for s in sorted(earned_state(facts) + live_state(facts), key=lambda s: -MARKS[s["id"]]["weight"]) if not s["done"]]
+             for s in sorted(earned_state(facts) + live_state(facts), key=lambda s: -MARKS[s["id"]]["weight"]) if not s["done"] and s["id"] not in worn_ids]
     return {"marks": worn, "ahead": ahead, "name": PLAYER_NAME,
             "special": "Заслуженные регалии приходят сами и остаются навсегда, даже за то, что вы сделали раньше. Динамическая держится, пока вы сохраняете темп. Особые выдают разработчики."}
 
@@ -134,7 +138,7 @@ async def admin_view(db, user_id: int) -> dict:
     """What the console shows for a player: given marks, earned ones the server stored, the log, what can be given, and a hint for the bot rank."""
     await repo.ensure_tables(db)
     held = stored(await repo.held(db, user_id))
-    async with db.execute("SELECT COALESCE(global_rank, 0) FROM users WHERE user_tg_id=?", (int(user_id),)) as c:
+    async with db.execute("SELECT COALESCE(bot_rank, 0) FROM users WHERE user_tg_id=?", (int(user_id),)) as c:
         row = await c.fetchone()
     rank = int(row[0]) if row else 0
     hint = staff_hint(rank)

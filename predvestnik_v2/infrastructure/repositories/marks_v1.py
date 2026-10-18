@@ -110,6 +110,6 @@ async def messages_recent_batch(db, user_ids: list[int], windows: tuple[int, ...
         return {}
     marks = ",".join("?" for _ in ids)
     sums = ", ".join(f"COALESCE(SUM(message_count) FILTER (WHERE date >= {_since(w)}), 0)" for w in windows)
-    async with db.execute(f"SELECT user_id, {sums} FROM daily_user_stats WHERE user_id IN ({marks}) AND date >= {_since(max(windows))} GROUP BY user_id",
+    async with db.execute(f"SELECT user_id, {sums} FROM daily_user_stats WHERE user_id IN ({marks}) AND date >= {_since(max(windows))} AND date <= {_since(1)} GROUP BY user_id",
                           tuple(ids)) as c:
         return {int(r[0]): {w: int(r[1 + k] or 0) for k, w in enumerate(windows)} for r in await c.fetchall()}

@@ -1,3 +1,19 @@
+## Owner revision 2026-10-18 — regalia logic (item 2 complete)
+
+Unified tenure with the existing season-reward account-age lookup (earliest chat
+join, membership or daily-message evidence). Own/public profiles and marks sheet
+now use the same history. Marks without a supplied join date look it up rather
+than treating an established account as new. Held earned marks no longer appear
+in the upcoming goals; future message rows cannot qualify dynamic marks. Staff
+hints use current bot_rank 0–6 instead of the retired global_rank 0–3.
+
+Evidence: all 16 mark rules and PostgreSQL grant/revoke/sticky/history/window
+tests pass, including old-message tenure with recent joined_at, membership-only
+evidence, retention cleanup and future messages. Season age rules pass; the full
+season-pass PostgreSQL test currently fails in unrelated quest sampling with
+QuestConflict (not claimed as passing). Independent read-only critique approved
+the tenure/sticky/window fix. No historical production data was fabricated.
+
 ## Owner revision 2026-10-18 — avatar recovery (item 1 complete)
 
 Fixed six-hour negative avatar caching, stale-photo loss, one-attempt client

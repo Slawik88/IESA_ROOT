@@ -1,5 +1,6 @@
 # infrastructure/repositories/users.py
 import aiosqlite
+from datetime import datetime
 
 
 async def update_user(db: aiosqlite.Connection, user_id: int, username: str | None):
@@ -76,13 +77,10 @@ async def accept_tos(db: aiosqlite.Connection, user_id: int,
     await db.commit()
 
 
-async def get_first_seen(db: aiosqlite.Connection, user_id: int) -> str | None:
-    """Return ISO date string of the earliest joined_at across all chats, or None."""
-    async with db.execute(
-        "SELECT MIN(joined_at) FROM user_chat_stats WHERE user_tg_id = ?", (user_id,)
-    ) as c:
-        row = await c.fetchone()
-    return row[0] if row and row[0] else None
+async def get_first_seen(db: aiosqlite.Connection, user_id: int) -> datetime | None:
+    """Earliest evidenced presence, shared with season-reward eligibility."""
+    from infrastructure.repositories.account_age import first_seen
+    return (await first_seen(db, [int(user_id)])).get(int(user_id))
 
 
 async def get_messages_global(db: aiosqlite.Connection, user_id: int) -> dict:

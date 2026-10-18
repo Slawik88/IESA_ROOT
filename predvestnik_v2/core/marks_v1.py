@@ -61,9 +61,9 @@ LIVE_RULES: Final = {"chatter": ("messages_30d", 10_000), "personal_life": ("mes
 GRANTABLE: Final = tuple(k for k, m in MARKS.items() if m["kind"] in ("staff", "granted"))
 
 
-def staff_hint(global_rank: int) -> str | None:
+def staff_hint(bot_rank: int) -> str | None:
     """The staff mark that matches a bot rank. Only a hint for the console («this helper has no badge yet»): it never shows anything by itself."""
-    return {3: "developer", 2: "senior_helper", 1: "helper"}.get(min(3, max(0, int(global_rank or 0))))
+    return {2: "helper", 3: "helper", 4: "senior_helper", 5: "developer", 6: "developer"}.get(int(bot_rank or 0))
 
 
 def _have(facts: dict, fact: str) -> int:

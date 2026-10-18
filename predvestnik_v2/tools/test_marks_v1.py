@@ -32,7 +32,7 @@ def catalog() -> None:
 
 
 def staff() -> None:
-    check([staff_hint(r) for r in (0, 1, 2, 3, 9)] == [None, "helper", "senior_helper", "developer", "developer"], "the rank only suggests a badge to the console")
+    check([staff_hint(r) for r in (0, 1, 2, 3, 4, 5, 6, 9)] == [None, None, "helper", "helper", "senior_helper", "developer", "developer", None], "current bot staff ranks only suggest a badge; testers are not helpers")
     check(not any("автомат" in MARKS[k]["how"].lower() for k, m in MARKS.items() if m["kind"] == "staff"), "staff marks are never described as automatic")
 
 

@@ -54,6 +54,7 @@ async def run(dsn: str) -> None:
         admin, player, helper, nobody, late, old_chat, quiet, grinder, edge, edge2 = 983001, 983002, 983003, 983004, 983005, 983006, 983007, 983008, 983009, 983010
         for uid, rank in ((admin, 3), (player, 0), (helper, 1), (nobody, 0), (late, 0), (old_chat, 0), (quiet, 0), (grinder, 0), (edge, 0), (edge2, 0)):
             await db.execute("INSERT INTO users(user_tg_id,user_tg_username,global_rank) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET global_rank=EXCLUDED.global_rank", (uid, f"m{uid}", rank))
+        await db.execute("UPDATE users SET bot_rank=CASE WHEN user_tg_id=? THEN 5 WHEN user_tg_id=? THEN 3 ELSE 0 END WHERE user_tg_id BETWEEN 983001 AND 983010", (admin, helper))
 
         # guards: only what the console may give, only with a reason, only for a real player; earned marks are the server's alone
         await conflict(marks.grant(db, player, "veteran", admin, "x"), "сервер выдаёт сам")
@@ -127,6 +128,25 @@ async def run(dsn: str) -> None:
         assert ahead["chatter"]["have"] == 4_000 and ahead["chatter"]["need"] == 10_000 and ahead["personal_life"]["have"] == 4_000 and ahead["personal_life"]["need"] == 50_000
         assert [m["id"] for m in sheet["marks"]] == ["veteran"] and ahead["streak30"]["have"] == 12 and ahead["streak30"]["need"] == 30
         assert "new_year" in ahead and "halloween" in ahead and "veteran" not in ahead and all("how" in a for a in ahead.values()) and sheet["name"] == "Регалии"
+
+        # A broken current streak never makes a permanently earned mark a goal again.
+        retained = await marks.sheet(db, player, streak=0)
+        assert "streak30" in {m["id"] for m in retained["marks"]}
+        assert "streak30" not in {m["id"] for m in retained["ahead"]}
+        # Imported chat membership can be recent while an older message proves tenure.
+        veteran = 983011
+        await db.execute("INSERT INTO users(user_tg_id) VALUES (?) ON CONFLICT DO NOTHING", (veteran,))
+        await db.execute("INSERT INTO user_chat_stats(user_tg_id,chat_tg_id,joined_at,membership_since) VALUES (?,1,NOW(),NOW())", (veteran,))
+        await messages(db, veteran, 366, 1)
+        assert "veteran" in {m["id"] for m in await marks.marks_for(db, veteran)}, "historical messages prove veteran age"
+        from infrastructure.repositories.users import get_first_seen
+        assert marks._joined_days(await get_first_seen(db, veteran)) >= 365
+        await db.execute("DELETE FROM daily_user_stats WHERE user_id=?", (veteran,))
+        assert "veteran" in {m["id"] for m in await marks.marks_for(db, veteran)}, "earned tenure survives retention cleanup"
+        await messages(db, veteran, -2, 100_000)
+        assert not {"chatter", "personal_life"} & {m["id"] for m in await marks.marks_for(db, veteran)}, "future-dated activity never qualifies"
+        await db.execute("UPDATE user_chat_stats SET membership_since=NOW()-INTERVAL '400 days' WHERE user_tg_id=?", (veteran,))
+        assert marks._joined_days(await get_first_seen(db, veteran)) >= 400, "earlier membership is evidence too"
 
         # list rows: the heaviest stored mark, one per player
         batch = await marks.top_mark_batch(db, [admin, player, helper, nobody, quiet, grinder, 999_999_998])

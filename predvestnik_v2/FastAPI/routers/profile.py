@@ -499,7 +499,7 @@ async def my_profile(db=Depends(get_db), user=Depends(require_tg_user)):
 
     vip_info = await get_vip_info(db, user_id)
     vip_preferences = await get_preferences(db, user_id=user_id) if vip_info else None
-    joined_date = row["joined_date"]
+    joined_date = await get_first_seen(db, user_id)
     is_vip = bool(row["is_vip"])
 
     # whatsnew_seen_id вынесен из основного запроса и достаётся отдельно с мягкой
