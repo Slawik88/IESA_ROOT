@@ -1,3 +1,12 @@
+## Owner revision 2026-10-18 — dock density (item 4 complete)
+
+Dock targets now have a consistent 56px pitch and 48px minimum height, without
+growing to 68px on wider devices. The dock fits its contents up to the viewport
+width, avoiding empty trailing space when destinations are disabled. Labels,
+focus outlines, safe-area clearance and horizontal navigation remain intact.
+Three real-browser scenarios at 320/390/430 pass without warnings; the 390px
+screenshot was inspected. Existing shell tap-target contract passes.
+
 ## Owner revision 2026-10-18 — cosmetic boundaries (item 3 complete)
 
 Replaced narrow fixed-pixel edge masks with proportional multi-stop fades on the
