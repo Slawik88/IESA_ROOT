@@ -21,14 +21,14 @@ async def main():
         return b'png' + str(counts[-1]).encode()
     async def counts(*args):
         await asyncio.sleep(0)  # reproduce concurrent misses during SQL
-        return date(2026, 1, 1), [0, 0, 0, 1, 2, 3]
+        return date(2026, 1, 1), [1, 2, 3]
     g._cache.clear(); g._cached_at.clear()
     with patch.object(g, 'daily_counts', counts), patch.object(g, 'render', render), patch.object(g, 'RENDER_BUDGET_SEC', .5):
         results = await asyncio.gather(*(g.get_graph(None, 10, days=3) for _ in range(6)))
         assert results == [b'png3'] * 6 and len(calls) == 1
         key = next(iter(g._cache))
         g._cached_at[key] -= 61
-        with patch.object(g, 'daily_counts', AsyncMock(return_value=(date(2026,1,1), [0,0,0,1,2,9]))):
+        with patch.object(g, 'daily_counts', AsyncMock(return_value=(date(2026,1,1), [1,2,9]))):
             assert await g.get_graph(None, 10, days=3) == b'png3', 'stale photo served while refreshing'
             await asyncio.gather(*g._pending.values())
             assert await g.get_graph(None, 10, days=3) == b'png9'

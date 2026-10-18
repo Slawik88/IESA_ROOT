@@ -1,34 +1,15 @@
-"""График активности игрока по дням — картинка вверху карточки «бот я / бот кто».
+"""Компактный график «бот я / бот кто»: столбики по дням, сегодня и сумма за период.
 
-База: matplotlib рисует PNG. Тема по умолчанию — «Космос» (ночь, фиолетовые
-столбики со скруглением, последняя неделя золотом); всё оформление живёт в
-THEMES, чтобы косметику можно было менять, не трогая логику.
+Телефонный формат 1120×700: заголовок и итог слева, крупное число за сегодня
+справа. Только последний столбик выделен золотом. Без легенды, сравнений,
+серии, выходных и дополнительных KPI; на оси — три даты и редкая сетка.
 
-Что на картинке:
-  * столбики по дням (окно DAYS), последняя неделя — золотом, выходные —
-    тихими полосами (объяснены в легенде);
-  * линия среднего за период — ориентир «выше/ниже нормы»;
-  * две строки цифр вверху: сегодня · динамика · в среднем / лучший день;
-    внизу: всего · активных дней · текущая серия;
-  * масштаб оси подстраивается под данные (без пустоты сверху).
-
-Размер полотна рассчитан на телефон: фото в чате показывается шириной около
-560 dp, поэтому canvas 1120×960 (figsize 5.6×4.8 при DPI 200) — это «2×» и
-для резкости краёв, и для крупных подписей: текст на картинке читается с
-телефона без увеличения.
-
-Скорость: рендер идёт в отдельном потоке, результат кэшируется на минуту.
-Во время обновления возвращается предыдущая картинка; холодный рендер ждём
-до 0,75 секунды, затем карточка идёт без графика, а результат готовится в фоне.
-Этот бюджет не включает SQL и отправку изображения в Telegram. matplotlib и
-фирменный шрифт прогреваются один раз при старте бота (prewarm).
-
-Данные: daily_counts тянет два окна одним запросом — текущие DAYS дней для
-графика и предыдущие DAYS для «динамики». Все остальные цифры считаются из
-уже полученного списка, без дополнительных запросов к базе.
-
-Шрифт: Onest (лицензия OFL, файлы в bot/chat/assets/fonts). Если файлов нет —
-тихо падаем на шрифт matplotlib по умолчанию, картинка всё равно рисуется.
+Рендер — в отдельном потоке, кэш на минуту, общий рендер для одновременных
+запросов и не более четырёх незавершённых задач. Предыдущая картинка доступна
+во время обновления. Холодный рендер ждём до 0,75 секунды; затем карточка идёт
+текстом, а готовая картинка остаётся для следующего запроса. Бюджет рендера
+не включает SQL и отправку в Telegram. Фоновая задача не использует соединение
+БД. Данные — один запрос только за видимое окно, без истории для сравнений.
 """
 from __future__ import annotations
 
@@ -49,8 +30,8 @@ MAX_CACHE = 256                 # картинок в памяти; ключ в�
 CACHE_TTL_SEC = 60
 MAX_PENDING_RENDERS = 4
 RENDER_BUDGET_SEC = 0.75
-DPI = 200                       # полотно 1120×960: 2× от показа на телефоне, ~140 КБ на PNG
-FIG_W, FIG_H = 5.6, 4.8         # дюймы: ширина подобрана так, чтобы текст читался с телефона
+DPI = 200                       # 1120×700, компактная карточка для телефона
+FIG_W, FIG_H = 5.6, 3.5         # дюймы: ширина подобрана так, чтобы текст читался с телефона
 
 # Пропорции полотна: поля subplots_adjust (левое — с запасом под пятизначные
 # подписи оси) и левый край текстового блока шапки. Нужны, чтобы радиусы
@@ -58,7 +39,7 @@ FIG_W, FIG_H = 5.6, 4.8         # дюймы: ширина подобрана т
 # данных (px считаем от размера полотна, а не от значений оси).
 X_TEXT = 0.08
 _LEFT, _RIGHT = 0.105, 0.975
-_TOP, _BOTTOM = 0.635, 0.175
+_TOP, _BOTTOM = 0.68, 0.14
 _PLOT_W_PX = (_RIGHT - _LEFT) * FIG_W * DPI
 _PLOT_H_PX = (_TOP - _BOTTOM) * FIG_H * DPI
 
@@ -129,6 +110,7 @@ THEMES = {
         "bar": "#d09b2e",
         "bar_last": "#e8b54d",
         "grid": "#eef1f7",
+        "headline": "#8a5d10",
         "baseline": "#dfe4ee",
         "avg": "#98a0bd",
         "band": (0.0, 0.0, 0.0, 0.018),
@@ -208,7 +190,10 @@ def _step(top: int) -> int:
     for step in (1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000):
         if top <= step * 6:
             return step
-    return 10000
+    scale = 10000
+    while top > scale * 6:
+        scale *= 10
+    return next(value for value in (scale // 5, scale // 2, scale) if top <= value * 6)
 
 
 def _ceiling(top: int, step: int) -> float:
@@ -264,243 +249,101 @@ def _gradient(base, rows=512):
 
 def render(counts: list[int], start: date, *, theme: str = DEFAULT_THEME,
            prev_avg: float | None = None) -> bytes:
-    """PNG-байты графика. Синхронный: вызывать из потока (asyncio.to_thread).
+    """Phone-first PNG: daily bars, today's count and one period total.
 
-    Без pyplot: Figure и FigureCanvasAgg не трогают глобальное состояние
-    matplotlib, поэтому параллельные рендеры в потоках не мешают друг другу.
-
-    prev_avg — среднее за предыдущее окно (для «динамики»); None — группа
-    динамики не показывается (нет истории).
+    prev_avg remains an accepted argument for older callers; comparisons are
+    deliberately absent from the compact card. No pyplot/global figure state.
     """
     import numpy as np
     from matplotlib.backends.backend_agg import FigureCanvasAgg
     from matplotlib.collections import LineCollection
     from matplotlib.colors import to_rgba
     from matplotlib.figure import Figure
-    from matplotlib.legend_handler import HandlerPatch
-    from matplotlib.lines import Line2D
-    from matplotlib.patches import FancyBboxPatch, Patch, PathPatch
+    from matplotlib.patches import PathPatch
 
     _ensure_fonts()
-
     st = THEMES.get(theme) or THEMES[DEFAULT_THEME]
     n = len(counts)
     top = max(counts, default=0)
-    step = _step(top)
+    step = _step(top) * 2
     ceill = _ceiling(top, step)
-
     total = sum(counts)
-    avg = total / n if n else 0.0
-    avg_r = int(round(avg))
-    peak_i = counts.index(top) if top > 0 else 0
-    peak_date = (start + timedelta(days=peak_i)).strftime("%d.%m")
     today_v = counts[-1] if n else 0
-    active = sum(1 for c in counts if c > 0)
-    streak = 0
-    for c in reversed(counts):
-        if c > 0:
-            streak += 1
-        else:
-            break
-
-    trend_s: str | None = None
-    trend_c = st["label"]
-    if prev_avg:
-        trend = avg / prev_avg - 1.0
-        if trend > 0.005:
-            trend_s, trend_c = f"+{trend * 100:.0f}%", st["green"]
-        elif trend < -0.005:
-            trend_s, trend_c = f"{trend * 100:.0f}%", st["red"]
-        else:
-            trend_s = "0%"
-
     fig = Figure(figsize=(FIG_W, FIG_H), dpi=DPI)
     FigureCanvasAgg(fig)
     fig.patch.set_facecolor(st["bg"])
 
-    # ── фон: мягкий вертикальный градиент + дизеринг (без бандинга) ─────────
     bg = fig.add_axes([0, 0, 1, 1], zorder=0)
     bg.set_axis_off()
-    rows = 2048
+    rows = 1024
     v = np.linspace(0.0, 1.0, rows)[:, None]
     bg_img = np.zeros((rows, 1, 3))
-    bg_img[:, 0, :] = np.array(_rgb(st["bg_top"])) * (1 - v) + np.array(_rgb(st["bg_bot"])) * v
+    bg_img[:, 0, :] = np.array(_rgb(st["bg_top"])) * (1-v) + np.array(_rgb(st["bg_bot"])) * v
     noise = np.random.default_rng(7).uniform(-2, 2, size=(rows, 1)) / 255.0
-    bg_img = np.clip(bg_img + noise[:, :, None], 0, 1)
-    bg.imshow(bg_img, extent=(0, 1, 0, 1), aspect="auto", interpolation="bilinear")
+    bg.imshow(np.clip(bg_img + noise[:, :, None], 0, 1), extent=(0, 1, 0, 1),
+              aspect="auto", interpolation="bilinear")
+
+    # Two visual anchors: title + period total at left, today's number at right.
+    # No legend, date paragraph, secondary KPIs or text below the plot.
+    fig.text(X_TEXT, .94, "Активность", color=st["title"], fontsize=19,
+             ha="left", va="top", **_ff("bold"))
+    fig.text(X_TEXT, .83, f"{_fmt(total)} сообщений · {n} дней", color=st["dates"],
+             fontsize=12.5, ha="left", va="top", **_ff("medium"))
+    fig.text(.95, .945, _fmt(today_v), color=st.get("headline", st["bar_last"]), fontsize=28 if today_v < 1_000_000 else 23,
+             ha="right", va="top", **_ff("bold"))
+    fig.text(.95, .79, "сегодня", color=st["dates"], fontsize=12.5,
+             ha="right", va="top", **_ff("medium"))
 
     ax = fig.add_subplot(111, zorder=1)
     ax.patch.set_visible(False)
     fig.subplots_adjust(left=_LEFT, right=_RIGHT, top=_TOP, bottom=_BOTTOM)
-
-    # ── выходные: тихие полосы по всему полю ────────────────────────────────
-    for i in range(n):
-        if (start + timedelta(days=i)).weekday() >= 5:
-            ax.axvspan(i - 0.5, i + 0.5, color=st["band"], zorder=0.5, linewidth=0)
-
-    # ── сетка, среднее, база ────────────────────────────────────────────────
     for spine in ax.spines.values():
         spine.set_visible(False)
-    ax.set_axisbelow(True)
-    for y in range(step, int(ceill) + 1, step):
-        ax.axhline(y, color=st["grid"], linewidth=0.6, linestyle=(0, (2, 4)),
-                   zorder=0.9)
-    ax.axhline(avg, color=st["avg"], linewidth=0.9, linestyle=(0, (3, 5)), zorder=1.05)
-
+    for y in range(step, int(ceill)+1, step):
+        ax.axhline(y, color=st["grid"], linewidth=.6, linestyle=(0, (2, 4)), zorder=.9)
     br, bg_c, bb = to_rgba(st["baseline"])[:3]
-    bl_x = np.linspace(-0.7, n - 0.25, 121)
+    bl_x = np.linspace(-.7, n-.25, 121)
     t = np.linspace(0.0, 1.0, bl_x.size)
-    s = np.clip(np.minimum(t, 1 - t) / 0.08, 0, 1)
-    alpha = s * s * (3 - 2 * s)
-    segs = [[(bl_x[i], 0), (bl_x[i + 1], 0)] for i in range(bl_x.size - 1)]
+    fade = np.clip(np.minimum(t, 1-t)/.08, 0, 1)
+    alpha = fade*fade*(3-2*fade)
     ax.add_collection(LineCollection(
-        segs, colors=[(br, bg_c, bb, float(a)) for a in alpha[:-1]],
-        linewidths=1.0, zorder=2.6))
+        [[(bl_x[i], 0), (bl_x[i+1], 0)] for i in range(bl_x.size-1)],
+        colors=[(br, bg_c, bb, float(a)) for a in alpha[:-1]], linewidths=1, zorder=2.6))
 
-    # ── столбики: скруглённые верхушки + градиент ───────────────────────────
-    x_pad = 0.36
-    rx = 10.0 * (n + 0.45) / _PLOT_W_PX
-    ry = 10.0 * float(ceill) / _PLOT_H_PX
-    for i, h in enumerate(counts):
-        if h <= 0:
+    x_pad = .34
+    rx = 9.0 * (n+.45) / _PLOT_W_PX
+    ry = 9.0 * float(ceill) / _PLOT_H_PX
+    for i, height in enumerate(counts):
+        if height <= 0:
             continue
-        base = _rgb(st["bar_last"] if i >= n - 7 else st["bar"])
-        path = _bar_path(i - x_pad, i + x_pad, h, rx, ry)
-        under = PathPatch(path, facecolor=_mix(base, (1.0, 1.0, 1.0), 0.10),
-                          edgecolor="none", linewidth=0,
-                          transform=ax.transData, zorder=3)
+        # One highlighted day, corresponding to the single headline KPI.
+        base = _rgb(st["bar_last"] if i == n-1 else st["bar"])
+        path = _bar_path(i-x_pad, i+x_pad, height, rx, ry)
+        under = PathPatch(path, facecolor=_mix(base, (1., 1., 1.), .10),
+                          edgecolor="none", linewidth=0, transform=ax.transData, zorder=3)
         ax.add_patch(under)
-        im = ax.imshow(_gradient(base), extent=(i - x_pad, i + x_pad, 0, h),
-                       origin="lower", aspect="auto", interpolation="bilinear",
-                       zorder=3.1)
+        im = ax.imshow(_gradient(base), extent=(i-x_pad, i+x_pad, 0, height),
+                       origin="lower", aspect="auto", interpolation="bilinear", zorder=3.1)
         im.set_clip_path(under)
 
-    # ── подпись пика ────────────────────────────────────────────────────────
-    if top > 0:
-        ax.text(peak_i, top + 0.01 * float(ceill), _fmt(top), ha="center",
-                va="bottom", fontsize=11, color=st["label"], zorder=4,
-                **_ff("normal"))
-
-    # ── оси; последняя метка — «сегодня» ────────────────────────────────────
     ax.set_ylim(0, ceill)
-    yticks = list(range(0, int(ceill) + 1, step))
+    yticks = list(range(0, int(ceill)+1, step))
     ax.set_yticks(yticks)
     ax.set_yticklabels([_fmt(y) for y in yticks])
-    ax.set_xlim(-0.7, n - 0.25)
-
-    ticks = list(range(0, n, 5))
-    if ticks and n - 1 not in ticks:
-        if n - 1 - ticks[-1] < 5:      # «14.10» и «сегодня» не должны слипаться
-            ticks.pop()
-        ticks.append(n - 1)
+    ax.set_xlim(-.7, max(.25, n-.25))
+    ticks = sorted({0, max(0, (n-1)//2), max(0, n-1)})
     ax.set_xticks(ticks)
-    xlabels = [(start + timedelta(days=i)).strftime("%d.%m") for i in ticks]
-    if start + timedelta(days=n - 1) == local_now().date():
-        xlabels[-1] = "сегодня"
-    ax.set_xticklabels(xlabels)
-    ax.tick_params(axis="both", length=0, labelsize=11)
-    ax.tick_params(axis="y", colors=st["y_label"])
-    ax.tick_params(axis="x", colors=st["x_label"])
-    ax.get_xticklabels()[-1].set_ha("right")   # иначе «сегодня» режется о правый край
+    labels = [(start+timedelta(days=i)).strftime("%d.%m") for i in ticks]
+    if n and start+timedelta(days=n-1) == local_now().date():
+        labels[-1] = "сегодня"
+    ax.set_xticklabels(labels)
+    ax.tick_params(axis="both", length=0, labelsize=12)
+    ax.tick_params(axis="y", colors=st["y_label"], pad=7)
+    ax.tick_params(axis="x", colors=st["dates"], pad=9)
+    ax.get_xticklabels()[-1].set_ha("right")
     if _FAMILY:
-        for lbl in ax.get_xticklabels() + ax.get_yticklabels():
-            lbl.set_fontfamily(_FAMILY)
-
-    renderer = fig.canvas.get_renderer()
-    scale = 1.0 / (fig.get_figwidth() * fig.dpi)
-
-    # ── шапка: заголовок, окно дат, две строки цифр ─────────────────────────
-    fig.text(X_TEXT, 0.975, f"Активность за {n} дней", color=st["title"],
-             fontsize=19, ha="left", va="top", **_ff("bold"))
-    end = start + timedelta(days=n - 1)
-    t_dates = fig.text(X_TEXT, 0.906, f"{start:%d.%m.%Y} — {end:%d.%m.%Y}",
-                       color=st["dates"], fontsize=12.5, ha="left", va="top",
-                       **_ff("medium"))
-    w_px = t_dates.get_window_extent(renderer=renderer).width
-    fig.text(X_TEXT + w_px * scale + 0.008, 0.906, "· сообщений в день",
-             color=st["label"], fontsize=12.5, ha="left", va="top", **_ff("medium"))
-
-    def _row(items, y_base, *, start_x=None, end_x=None):
-        """Строка из кусочков «подпись значение · …»; выравнивание слева/справа.
-
-        Ширины меряются рендерером — паддинги задаём сами (пробелы в тексте
-        matplotlib в расчёт ширины не берёт).
-        """
-        texts, widths = [], []
-        for label, color, fontsize, weight, _pad in items:
-            tt = fig.text(0, y_base, label, color=color, fontsize=fontsize,
-                          ha="left", va="baseline", **_ff(weight))
-            texts.append(tt)
-            widths.append(tt.get_window_extent(renderer=renderer).width)
-        total_px = sum(w + p for (_, _, _, _, p), w in zip(items, widths))
-        cur = (end_x - total_px * scale) if end_x is not None else start_x
-        for (_, _, _, _, pad), w, tt in zip(items, widths, texts):
-            tt.set_position((cur, y_base))
-            cur += (w + pad) * scale
-        return total_px
-
-    # строка 1: сегодня · динамика; строка 2: в среднем · лучший день
-    w1 = _row([("сегодня", st["label"], 12, "normal", 6),
-               (_fmt(today_v), st["value"], 17, "medium", 16)], 0.833,
-              start_x=X_TEXT)
-    if trend_s is not None:
-        _row([("·", st["sep"], 12, "normal", 16),
-              ("динамика", st["label"], 12, "normal", 6),
-              (trend_s, trend_c, 17, "medium", 0)], 0.833,
-             start_x=X_TEXT + w1 * scale)
-    _row([("в среднем", st["label"], 12, "normal", 6),
-          (f"{_fmt(avg_r)}/день", st["value"], 17, "medium", 16),
-          ("·", st["sep"], 12, "normal", 16),
-          ("лучший день", st["label"], 12, "normal", 6),
-          (f"{peak_date} · {_fmt(top)}", st["value"], 17, "medium", 0)], 0.768,
-         start_x=X_TEXT)
-
-    # нижняя строка: всего · активных дней · серия
-    _row([("всего", st["label"], 11, "normal", 6),
-          (_fmt(total), st["foot"], 13, "medium", 16),
-          ("·", st["sep"], 11, "normal", 16),
-          ("активных дней", st["label"], 11, "normal", 6),
-          (f"{active} из {n}", st["foot"], 13, "medium", 16),
-          ("·", st["sep"], 11, "normal", 16),
-          ("серия", st["label"], 11, "normal", 6),
-          (f"{streak} дней", st["foot"], 13, "medium", 0)],
-         0.045, start_x=X_TEXT)
-
-    # ── легенда: неделя + среднее + выходные ────────────────────────────────
-    class _MiniBarSwatch(HandlerPatch):
-        """Мини-столбик в легенде; центрируется в своём слоте."""
-
-        def create_artists(self, legend, orig_handle, xdescent, ydescent,
-                           width, height, fontsize, trans):
-            bw = min(width, height * 0.5)
-            patch = FancyBboxPatch(
-                (xdescent + (width - bw) / 2.0, ydescent), bw, height,
-                boxstyle="round,pad=0,rounding_size=%.3f" % (min(bw, height) * 0.28),
-                facecolor=orig_handle.get_facecolor(), edgecolor="none",
-                transform=trans)
-            return [patch]
-
-    handles = []
-    if st.get("legend"):
-        handles.append(Patch(facecolor=st["bar_last"], edgecolor="none",
-                             label=st["legend"]))
-    handles.append(Line2D([], [], color=st["avg"], linestyle=(0, (2.2, 2.2)),
-                          linewidth=1.2, label=_LEGEND_AVG))
-    handles.append(Patch(facecolor=st["band_sample"], edgecolor="none",
-                         label=_LEGEND_WEEKEND))
-    legend = ax.legend(
-        handles=handles, handler_map={Patch: _MiniBarSwatch()},
-        loc="upper left", bbox_to_anchor=(X_TEXT, 0.712),
-        bbox_transform=fig.transFigure,
-        frameon=False, fontsize=12, handlelength=1.3, handleheight=1.2,
-        ncol=len(handles), columnspacing=1.3, borderpad=0, labelspacing=0,
-        handletextpad=0.5)
-    for text in legend.get_texts():
-        text.set_color(st["label"])
-        if _FAMILY:
-            text.set_fontfamily(_FAMILY)
-            text.set_fontweight("medium")
-
+        for label in ax.get_xticklabels()+ax.get_yticklabels():
+            label.set_fontfamily(_FAMILY)
     buf = io.BytesIO()
     fig.savefig(buf, format="png", facecolor=to_rgba(st["bg_bot"]))
     return buf.getvalue()
@@ -532,8 +375,8 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
                     days: int = DAYS, theme: str = DEFAULT_THEME) -> bytes | None:
     """PNG для карточки или None, если рисовать нечего (ни одного сообщения в окне).
 
-    Одним запросом тянется двойное окно: свежие days — для графика, предыдущие
-    days — для «динамики» (сравнение по средним, чтобы неполная история не врала).
+    Одним запросом читается только видимое окно; при медленном рендере
+    возвращается предыдущая картинка либо None для текстовой карточки.
     """
     today = local_now().date().isoformat()
     key = (user_id, chat_id or 0, days, theme, today)
@@ -545,21 +388,18 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
         return hit if hit is not None else await _wait_render(task, hit)
     if len(_pending) >= MAX_PENDING_RENDERS:
         return hit
-    start, span = await daily_counts(db, user_id, chat_id, days * 2)
-    counts = span[days:]
-    prev = span[:days]
+    start, counts = await daily_counts(db, user_id, chat_id, days)
     if not any(counts):
         _cache.pop(key, None)
         _cached_at.pop(key, None)
         return None
-    prev_avg = (sum(prev) / len(prev)) if any(prev) else None
     # Recheck after the SQL await: another request may already have started the
     # same render. Background work receives only numbers, never a borrowed DB.
     task = _pending.get(key)
     if task is None:
         if len(_pending) >= MAX_PENDING_RENDERS:
             return hit
-        task = asyncio.create_task(_render_cached(key, counts, start + timedelta(days=days), theme=theme, prev_avg=prev_avg))
+        task = asyncio.create_task(_render_cached(key, counts, start, theme=theme, prev_avg=None))
         _pending[key] = task
         task.add_done_callback(lambda done: _render_done(key, done))
     return hit if hit is not None else await _wait_render(task, hit)

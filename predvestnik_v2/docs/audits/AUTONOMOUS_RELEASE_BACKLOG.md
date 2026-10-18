@@ -1,7 +1,24 @@
+## Owner refinement 2026-10-18 — compact phone activity chart
+
+Owner chose a standard theme for now (Cosmos), with per-cosmetic styling deferred,
+then asked to remove the dense text. Renderer is now 1120×700 with only title,
+period total and today's large value above the bars. Three date labels, sparse
+scale and one gold bar for today replace legend, week highlighting, weekend
+bands, average/trend, peak annotation, active-day/streak footer and full date prose.
+The SQL query reads only the visible window. Mobile references use identical
+demonstration data (1194 messages, today 44) for direct before/after comparison.
+
+Evidence: PNG/theme/caption and deterministic cache/recovery tests pass. Real
+renders cover empty data, one day, zeros, large counts and today=0. Independent
+read-only critique inspected the compact image and found the large-counter grid
+risk; adaptive scale now also bounds grid labels for arbitrarily large counts.
+Reference PNG drops from about 137KB to about 60KB. Wallet changes remain a
+separate unfinished work item and are not staged in this chart commit.
+
 ## Owner revision 2026-10-18 — activity graph references/performance (item 6)
 
 Presented production-rendered Cosmos/Gold/Light phone references to the owner;
-theme choice is pending, current Cosmos is preserved. Added a 60-second cache TTL
+owner chose a standard theme; Cosmos is preserved. Added a 60-second cache TTL
 (previously the current day stayed stale all day), shared rendering, a four-task
 admission bound and a 0.75-second render wait budget. Stale PNGs remain available
 while refreshing. Cold over-budget rendering continues with only copied counts,
