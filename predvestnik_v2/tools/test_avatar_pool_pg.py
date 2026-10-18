@@ -34,6 +34,8 @@ from FastAPI.deps import require_tg_user_base
 from FastAPI.main import app
 from FastAPI.routers import profile
 from infrastructure.database import create_pool, get_pool
+from infrastructure.pg_adapter import PGAdapter
+from infrastructure.repositories import public_profiles_v1
 
 USER_ID = 940_000_000_000 + int(time.time()) % 100_000
 DELETED_ID = USER_ID + 1
@@ -56,6 +58,8 @@ async def main() -> None:
     async with get_pool().acquire() as conn:
         await conn.execute("INSERT INTO users (user_tg_id) VALUES ($1), ($2)", USER_ID, DELETED_ID)
         await conn.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = $1", DELETED_ID)
+        ref = await public_profiles_v1.ensure_reference(PGAdapter(conn), user_id=USER_ID)
+        deleted_ref = await public_profiles_v1.ensure_reference(PGAdapter(conn), user_id=DELETED_ID)
     profile._fetch_tg_avatar = hanging_telegram
     profile.is_vip_active = always_vip
     profile._AVATAR_BUDGET_SEC = 1.0
@@ -77,6 +81,16 @@ async def main() -> None:
             assert elapsed < 5, f"budget not applied: {elapsed:.1f}s"
             assert calls == 1, f"downloads not shared: {calls}"
 
+            profile._AVATAR_CACHE[USER_ID] = ("data:image/jpeg;base64,AAAA", time.time())
+            public = await client.get("/profile/avatar", params={"profile_ref": ref})
+            assert public.json() == {"avatar": "data:image/jpeg;base64,AAAA", "vip": True}
+            assert (await client.get("/profile/avatar", params={"profile_ref": "invalid"})).status_code == 404
+            assert (await client.get("/profile/avatar", params={"profile_ref": deleted_ref})).status_code == 403
+            async def no_vip(db, user_id):
+                return False
+            profile.is_vip_active = no_vip
+            assert (await client.get("/profile/avatar", params={"profile_ref": ref})).json() == {"avatar": None, "vip": False}
+
             current["id"] = DELETED_ID
             denied = await client.get("/profile/avatar")
             assert denied.status_code == 403 and "ACCOUNT_DELETED" in denied.text, denied.text
@@ -85,6 +99,7 @@ async def main() -> None:
         for task in list(profile._AVATAR_INFLIGHT.values()):
             task.cancel()
         async with get_pool().acquire() as conn:
+            await conn.execute("DELETE FROM public_profile_v1_refs WHERE user_id = ANY($1::bigint[])", [USER_ID, DELETED_ID])
             await conn.execute("DELETE FROM users WHERE user_tg_id = ANY($1::bigint[])", [USER_ID, DELETED_ID])
 
 

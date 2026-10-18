@@ -15,7 +15,17 @@ function openPublicCardV3(ref) {
   const mine = ++_ppSeq;
   root.innerHTML = `<div class="v3-scope pp-neutral">${_PP_BACK}<div class="sk" style="height:96px;width:96px;border-radius:50%;margin:34px auto 0"></div><div class="sk" style="height:24px;width:46%;border-radius:12px;margin:22px auto 0"></div><div class="sk" style="height:120px;border-radius:14px;margin-top:34px"></div></div>`;
   api(`/public-profile-v3/${encodeURIComponent(id)}`)
-    .then(d => { if (mine === _ppSeq) root.innerHTML = renderPublicCardV3(d); })
+    .then(d => {
+      if (mine !== _ppSeq) return;
+      root.innerHTML = renderPublicCardV3(d);
+      if (d.vip && !d.avatar) {
+        const current = () => mine === _ppSeq && _activePage === 'public-profile';
+        _requestVipAvatar(id, current).then(avatar => {
+          const slot = root.querySelector('.pp-ring .v3-ava');
+          if (avatar && current() && slot) slot.innerHTML = _v3Avatar({ avatar });
+        });
+      }
+    })
     .catch(e => { if (mine === _ppSeq) root.innerHTML = `<div class="v3-scope pp-neutral">${_PP_BACK}<div class="v3-empty">${_profileEsc(e)} <button type="button" class="v3-link" onclick="openPublicCardV3('${id}')">Повторить</button></div></div>`; });
 }
 window.openPublicProfile = openPublicCardV3;   // старые ссылки (startapp, чаты) ведут на новую карточку

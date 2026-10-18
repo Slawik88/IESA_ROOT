@@ -59,6 +59,7 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # дёргать Bot API на каждый рендер профиля незачем. Значение — (data_uri|None, ts).
 _AVATAR_CACHE: dict[int, tuple[str | None, float]] = {}
 _AVATAR_TTL = 6 * 3600  # 6 часов
+_AVATAR_MISS_TTL = 15  # a Telegram failure must not hide a photo for six hours
 # One Telegram download per user at a time; a request waits at most this long
 # (audit A13). A slow download keeps running and fills the cache for the next call.
 _AVATAR_INFLIGHT: dict[int, asyncio.Task] = {}
@@ -154,6 +155,12 @@ async def _essence_balance(db, user_id: int) -> int:
 
 async def _fetch_and_cache_avatar(user_id: int) -> str | None:
     avatar = await _fetch_tg_avatar(user_id)
+    previous = _AVATAR_CACHE.get(user_id)
+    if not avatar and previous and previous[0]:
+        # Keep the last known photo during a transient Telegram outage, but
+        # retry shortly rather than renewing the six-hour success lifetime.
+        _AVATAR_CACHE[user_id] = (previous[0], time.time() - _AVATAR_TTL + _AVATAR_MISS_TTL)
+        return previous[0]
     _AVATAR_CACHE[user_id] = (avatar, time.time())
     return avatar
 
@@ -181,19 +188,20 @@ async def _vip_avatar(db, user_id: int, *, vip_active: bool | None = None, wait:
     if not vip_active:
         return None
     cached = _AVATAR_CACHE.get(user_id)
-    if cached and time.time() - cached[1] < _AVATAR_TTL:
+    ttl = _AVATAR_TTL if cached and cached[0] else _AVATAR_MISS_TTL
+    if cached and time.time() - cached[1] < ttl:
         return cached[0]
     task = _avatar_download(user_id)
     if not wait:
-        return None
+        return cached[0] if cached else None
     try:
         return await asyncio.wait_for(asyncio.shield(task), _AVATAR_BUDGET_SEC)
     except asyncio.TimeoutError:
-        return None
+        return cached[0] if cached else None
 
 
 @router.get("/avatar")
-async def my_avatar(user=Depends(require_tg_user_base)):
+async def my_avatar(user=Depends(require_tg_user_base), profile_ref: str | None = None):
     """Аватарка из Telegram (data URI) — перк активного VIP. Иначе avatar=null.
     Соединение БД берётся только на проверки и отпускается до обращения к
     Telegram: медленный Telegram не занимает слот общего пула (audit A13)."""
@@ -202,6 +210,12 @@ async def my_avatar(user=Depends(require_tg_user_base)):
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         await assert_account_active(db, user_id)
+        if profile_ref is not None:
+            target = await public_profiles.resolve_reference(db, profile_ref=profile_ref)
+            if target is None:
+                raise HTTPException(404, "Игрок не найден.")
+            await assert_account_active(db, target)
+            user_id = int(target)
         vip = await is_vip_active(db, user_id)
     avatar = await _vip_avatar(None, user_id, vip_active=True) if vip else None
     return {"avatar": avatar, "vip": vip}

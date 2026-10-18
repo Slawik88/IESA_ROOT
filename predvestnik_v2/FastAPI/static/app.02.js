@@ -14,6 +14,8 @@ function loadProfile() {
     _cid = _initChatId || d.chats?.[0]?.chat_tg_id || 0;
     if(d.user_id) _uid = d.user_id;
     _profileData = d;
+    if (d.is_vip && !d.avatar && _vipAvatar) d.avatar = _vipAvatar;
+    if (!d.is_vip) _vipAvatar = null;
     const adminEntry=el('v3-admin-entry');
     if(adminEntry) adminEntry.hidden=!(d.is_developer||d.is_staff);
     if(typeof v3NoteServerClock==='function') v3NoteServerClock(d.server_clock);
@@ -261,9 +263,31 @@ function updateCurrBar(data) {
 
 // ── VIP Telegram avatar (Block 3) ──────────────────────────────────────────────
 // Грузим один раз за сессию, кэшируем, применяем к хедеру и карточке профиля.
-let _vipAvatar = null, _vipAvatarTried = false;
+let _vipAvatar = null, _vipAvatarLoading = null, _vipAvatarRetryAt = 0;
+function _validAvatar(value) {
+  return typeof value === 'string' && /^data:image\/(?:png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(value);
+}
+async function _requestVipAvatar(ref, current = () => true) {
+  // Bounded recovery covers a cold background download and the short negative
+  // cache. Leaving a card stops its retries; the next visit can try again.
+  for (const delay of [0, 2000, 6000, 12000]) {
+    if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+    if (!current()) return null;
+    try {
+      const r = await api('/profile/avatar' + (ref ? `?profile_ref=${encodeURIComponent(ref)}` : ''));
+      if (!current()) return null;
+      if (r?.vip === false) return null;
+      if (_validAvatar(r?.avatar)) return r.avatar;
+    } catch (_) { /* a transient network error is retried within this budget */ }
+  }
+  return null;
+}
 function _applyVipAvatar() {
   if (!_vipAvatar) return;
+  if (_profileData?.is_vip) {
+    _profileData.avatar = _vipAvatar;
+    if (typeof v3SaveProfileCache === 'function') v3SaveProfileCache(_profileData);
+  }
   const img = `<img src="${_vipAvatar}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;display:block">`;
   const h = el('hdr-ava'); if (h) h.innerHTML = img;
   const p = el('pro-ava'); if (p) p.innerHTML = img;
@@ -272,11 +296,10 @@ function _applyVipAvatar() {
 }
 function _ensureVipAvatar() {
   if (_vipAvatar) { _applyVipAvatar(); return; }
-  if (_vipAvatarTried) return;
-  _vipAvatarTried = true;
-  api('/profile/avatar').then(r => {
-    if (r && r.avatar) { _vipAvatar = r.avatar; _applyVipAvatar(); }
-  }).catch(()=>{});
+  if (_vipAvatarLoading || Date.now() < _vipAvatarRetryAt) return;
+  _vipAvatarLoading = _requestVipAvatar(null, () => !!_profileData?.is_vip).then(avatar => {
+    if (avatar && _profileData?.is_vip) { _vipAvatar = avatar; _applyVipAvatar(); }
+  }).finally(() => { _vipAvatarLoading = null; _vipAvatarRetryAt = Date.now() + 30000; });
 }
 
 function showCurrModal() {

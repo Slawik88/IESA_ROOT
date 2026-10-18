@@ -1,3 +1,25 @@
+## Owner revision 2026-10-18 — avatar recovery (item 1 complete)
+
+Fixed six-hour negative avatar caching, stale-photo loss, one-attempt client
+loading, recovered-photo loss on rerender and missing public-card hydration.
+Public hydration uses opaque references, authenticates viewer and target, checks
+VIP and releases the database connection before Telegram I/O. Retries are bounded;
+late responses cannot update a different public card. Existing successful photos
+survive a Telegram outage, and a failed first lookup is retried after 15 seconds.
+
+Evidence: Python cache/timeout recovery test, Node transport/DOM recovery test,
+real PostgreSQL pool isolation and public-reference/VIP/deleted-account proof,
+ASGI static delivery, JS syntax and diff whitespace checks all pass. Read-only
+subagent critique confirmed the causes and recovery boundaries.
+
+Remaining owner scope: 2 regalia audit; 3 cosmetic edges; 4 dock spacing; 5 exchange
+in dock; 6 activity chart references/performance; 7 new regalia proposals; 8 admin
+mark QoL; 9 exchange visuals; 10 wallet/conversion consistency; 11 VIP stops;
+12 chat administration; 13 achievements; 14 multi-item chest loot/food;
+15 tap-to-reveal chest stars; 16 balanced Rhythm augments; 17 pets UX;
+18 admin-chat broadcast filter; 19 complete season pass. Several have earlier
+implementations on master: verify behavior before marking them complete.
+
 ## Activity chart mobile pass + one-message card (photo caption), 2026-10-18
 
 Owner follow-up in the same worktree/branch: the chart text was hard to read from a
