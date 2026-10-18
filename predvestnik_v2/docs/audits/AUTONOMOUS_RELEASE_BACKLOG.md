@@ -1,3 +1,36 @@
+## Owner follow-up 2026-10-18 — pet progression verified and visible (item 21)
+
+The active Trail overrides the classic pet page. Its progression is automatic
+from Следы, not the old cards/Mora button. Pet cards now say this directly and
+show exact Следы remaining in the main list. At a bond ceiling the progress meter
+remains visible; the screen no longer falsely says that enough traces have
+already been accumulated. Next bond requirement is stated separately.
+
+Evidence: real PostgreSQL feed test starts at level 1 / 35 traces, credits 10,
+asserts level 2 / surplus 5, and proves replay does not grant another level. The
+full pets_v2 PG suite and Trail contract pass. Six real browser scenarios at
+320/430 (hub, pet card, busy pet) pass without warnings; screenshot inspected.
+No progression cost, flag or balance was changed. Broader pet UX audit (item 17)
+remains pending.
+
+## Owner additions 2026-10-18 — active queue
+
+- 20. Extend the lightweight image-card approach beyond bot я / bot кто where
+  a visual materially helps. Candidates to assess: personal weekly summary,
+  pet progression and season results; avoid decorative images for short answers.
+- 21. Verify pet upgrading and make its entry/progression understandable. The
+  active pets_v2 Trail overrides classic UI: levels grow automatically from
+  Следы; the old card/Mora upgrade button is not its progression contract.
+- 22. Thorough Minesweeper bug audit/fixes. Owner asked for many bugs; requested
+  concrete reproductions asynchronously while auditing existing scenarios.
+- 23. Expand every equipped cosmetic across the whole site, including profile
+  edges and standalone game pages, preserving the individual design. Earlier
+  item 3's soft edge fade is insufficient for this newly clarified scope.
+
+Initial checks: pets_v2 PostgreSQL progression/replay/cap suite and Minesweeper
+PostgreSQL ownership/transitions/replay/ranking plus keyboard/scroll recovery
+proof pass. This does not establish that the reported UX bugs are absent.
+
 ## Owner revision 2026-10-18 — season pass integration (item 19 code verified)
 
 The existing free 30-level games pass remains canonical. Deep links bp and

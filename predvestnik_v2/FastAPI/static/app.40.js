@@ -152,7 +152,7 @@ function _trSlots(me) {
 function _trLevelLine(p) {
   if (p.level >= (_tr.me.rules.max_level || 30)) return '<small class="tr-sub">Высший уровень</small>';
   if (p.level >= p.ceiling) return `<small class="tr-sub">Ждёт Связи: ${p.bond_days} из ${p.next_gate_days} дн.</small>`;
-  return _trMeter(p.xp / p.next_cost, { cls: 'tr-meter--xp' });
+  return `${_trMeter(p.xp / Math.max(1,p.next_cost), { cls: 'tr-meter--xp' })}<small class="tr-sub">До ${p.level+1} ур. — ещё ${fmt(Math.max(0,Math.ceil(p.next_cost-p.xp)))} Следов</small>`;
 }
 function _trPetRow(p) {
   const s = _trState(p), min = _trMinCost(_tr.me), low = p.energy < min;

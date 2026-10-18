@@ -62,10 +62,10 @@ function _trCardState(p) {
 function _trCardLevel(p) {
   const max = _tr.me.rules.max_level || 30, atMax = p.level >= max, atCeil = !atMax && p.level >= p.ceiling;
   const left = p.next_gate_days == null ? 0 : Math.max(1, p.next_gate_days - p.bond_days), nextCeil = Math.min(max, p.ceiling + 5);
-  const xp = atMax || atCeil ? '' : `${_trMeter(p.xp / p.next_cost, { cls: 'tr-meter--xp', label: `Следы до следующего уровня: ${Math.floor(p.xp)} из ${p.next_cost}` })}<p class="tr-note">Следы: ${fmt(Math.floor(p.xp))} из ${fmt(p.next_cost)} до уровня ${p.level + 1}.</p>`;
-  const wait = atCeil ? `<p class="tr-note">Следы накоплены. Уровень ${p.level + 1} откроется, когда потолок поднимется: нужно дней Связи ${p.next_gate_days}, сейчас ${p.bond_days}. День засчитывается, когда питомец возвращается из занятия.</p>` : '';
+  const xp = atMax ? '' : `${_trMeter(p.xp / Math.max(1,p.next_cost), { cls: 'tr-meter--xp', label: `Следы до следующего уровня: ${Math.floor(p.xp)} из ${p.next_cost}` })}<p class="tr-note">Следы: ${fmt(Math.floor(p.xp))} из ${fmt(p.next_cost)} до уровня ${p.level + 1}.</p>`;
+  const wait = atCeil ? `<p class="tr-note">Для уровня ${p.level + 1} нужна ещё Связь: ${p.bond_days} из ${p.next_gate_days} дней. День засчитывается при получении награды за занятие.</p>` : '';
   const rail = `${_trMeter(p.level / max, { cls: 'tr-meter--lad', notch: p.ceiling / max, label: `Уровень ${p.level} из ${max}, потолок ступени ${p.ceiling}` })}<p class="tr-rail"><span>Потолок ступени: ${p.ceiling}\u00a0ур.</span><span>${p.next_gate_days == null ? 'Высшая ступень' : `Дальше ${nextCeil}\u00a0ур.: ещё ${_trDays(left)} Связи`}</span></p>`;
-  return `<section class="tr-sec">${_trSec('Уровень')}<p class="tr-big"><b>${p.level}</b><span>из ${max}</span></p>${xp}${wait}${rail}</section>`;
+  return `<section class="tr-sec">${_trSec('Развитие')}<p class="tr-big"><b>${p.level}</b><span>из ${max}</span></p><p class="tr-note">${atMax?'Максимальный уровень достигнут.':'Уровень повышается автоматически за Следы. Забирай награды за занятия; первое кормление за сутки тоже даёт Следы.'}</p>${xp}${wait}${rail}</section>`;
 }
 function _trCardEnergy(p) {
   const me = _tr.me, min = _trMinCost(me), lounge = (me.rules.camp?.lounge || [])[me.camp?.levels?.lounge || 0] || 0, full = p.energy >= p.energy_max - 0.5;

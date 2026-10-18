@@ -381,9 +381,12 @@ async def run(dsn: str) -> None:
         await db.execute("DELETE FROM pet_v2_daily WHERE user_id=?", (user,))
         await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (user,))
         await db.execute("INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?, 'food_basic', 3) ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=3", (user,))
-        await db.execute("UPDATE pet_v2_state SET energy=20, energy_at=NOW() WHERE user_id=? AND pet_id=?", (user, cat))
+        await db.execute("UPDATE pet_v2_state SET energy=20, energy_at=NOW(),level=1,xp=35,fed_xp_on=NULL WHERE user_id=? AND pet_id=?", (user, cat))
         fed = await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f1")
         assert fed["favorite"] and fed["remaining"] == 2 and fed["energy"] >= 35 and fed["xp_credited"] > 0
+        async with db.execute("SELECT level,xp FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, cat)) as c:
+            level_after, xp_after = await c.fetchone()
+        assert level_after == 2 and xp_after == 5, "crossing 40 Следов automatically levels the pet and retains surplus"
         assert (await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f1"))["idempotent_replay"]
         again = await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f2")
         assert again["xp_credited"] == 0 and again["remaining"] == 1, "Следы за кормление — раз в сутки"
