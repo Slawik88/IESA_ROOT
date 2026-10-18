@@ -1,3 +1,9 @@
+## Owner revision 2026-10-18 — exchange dock entry (item 5 complete)
+
+The existing flag-controlled exchange destination now follows Games, rather than
+being near the end of the horizontal dock. It remains hidden when the server
+disables the exchange. Existing shell and exchange UI contracts pass.
+
 ## Owner revision 2026-10-18 — regalia logic (item 2 complete)
 
 Unified tenure with the existing season-reward account-age lookup (earliest chat

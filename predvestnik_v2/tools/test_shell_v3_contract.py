@@ -44,6 +44,7 @@ assert "input, textarea" in css and "user-select: text" in css
 
 # Navigation and honest copy.
 assert index.count('type="button" class="nb') == 11
+assert index.index('id="cc-exchange-v1"') < index.index('class="nb" data-page="pets"'), "exchange stays in the first visible dock destinations"
 assert ':not([hidden])' in app, "a dock tab hidden by its feature flag must not keep the active highlight"
 for page in ('looks', 'chests', 'top'):
     assert f'data-wn-page="{page}"' in index
