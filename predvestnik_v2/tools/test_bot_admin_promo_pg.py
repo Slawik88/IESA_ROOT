@@ -103,7 +103,7 @@ async def http_checks():
     assert [x["tier"] for x in opts["skins"]][0] == "D" and [x["tier"] for x in opts["skins"]][-1] == "SSS"   # по редкости
     assert opts["skins"][0]["items"]["title"] and opts["skins"][0]["tokens"]["--v3-acc"], opts["skins"][0]
     chats = (await client.get("/bot-admin/api/chats?q=основ", headers=dev)).json()["items"]
-    assert chats == [{"id": -100, "title": "Основной чат"}], chats
+    assert chats == [{"id": -100, "title": "Основной чат", "admin": False}], chats
 
     body = {"code": "spring-25", "max_activations": 2, "allowed_chats": [-100], "note": "весна",
             "rewards": [{"type": "mora", "amount": 500}, {"type": "essence", "amount": 20},

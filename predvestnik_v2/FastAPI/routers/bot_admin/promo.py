@@ -45,11 +45,12 @@ async def chats(q: str = "", user=Depends(_user), db=Depends(get_db)):
     params: tuple = ()
     where = ""
     if q:
-        where = "WHERE chat_title ILIKE ? OR CAST(chat_id AS TEXT) LIKE ?"
+        where = "WHERE c.chat_title ILIKE ? OR CAST(c.chat_id AS TEXT) LIKE ?"
         params = (promo_v2.like_pattern(q), promo_v2.like_pattern(q))
-    async with db.execute(f"SELECT chat_id, chat_title FROM chat_settings {where} "
-                          "ORDER BY chat_title NULLS LAST LIMIT 30", params) as cur:
-        return {"items": [{"id": int(r[0]), "title": r[1] or str(r[0])} for r in await cur.fetchall()]}
+    async with db.execute(f"SELECT c.chat_id, c.chat_title, l.admin_chat_id IS NOT NULL "
+                          "FROM chat_settings c LEFT JOIN chat_links l ON l.admin_chat_id = c.chat_id "
+                          f"{where} ORDER BY c.chat_title NULLS LAST LIMIT 30", params) as cur:
+        return {"items": [{"id": int(r[0]), "title": r[1] or str(r[0]), "admin": bool(r[2])} for r in await cur.fetchall()]}
 
 
 @router.post("/promo/preview")

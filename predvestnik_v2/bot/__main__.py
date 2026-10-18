@@ -293,6 +293,14 @@ async def main():
             background_tasks.append(_spawn_supervised(
                 "stars-reconciliation", star_payment_reconciliation_task(bot, pool), failed=background_failed,
             ))
+        # Прогрев графика активности: matplotlib и шрифты готовим заранее,
+        # чтобы первый «бот я» не платил за импорт библиотеки.
+        try:
+            from bot.chat import activity_graph
+            await asyncio.to_thread(activity_graph.prewarm)
+            logger.info("📈 График активности: рендер прогрет")
+        except Exception as _e:
+            logger.warning(f"График активности не прогрет: {_e}")
         polling = asyncio.create_task(dp.start_polling(bot), name="predvestnik:polling")
         failed_wait = asyncio.create_task(background_failed.wait(), name="predvestnik:background-failure")
         done, pending = await asyncio.wait({polling, failed_wait}, return_when=asyncio.FIRST_COMPLETED)

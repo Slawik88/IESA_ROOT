@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>График активности — референсы: настоящий график-картинка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* ── Deep Space Gold (как в Mini App и админке) ─────────────────────────── */
+  :root{
+    --bg0:#07080f; --bg1:#0e1019; --bg2:#151827; --bg3:#1c2033;
+    --text:#c9cede; --bright:#f1f3fa; --muted:#9aa3bc; --dim:#232739;
+    --gold:#e8b54d; --gold2:#f5d488; --gold-dim:rgba(232,181,77,.12);
+    --violet:#8b6cf0; --violet-dim:rgba(139,108,240,.14);
+    --border:rgba(232,181,77,.28); --line:rgba(255,255,255,.07);
+    /* Telegram-бабл (тёмная тема) */
+    --bub:#182533; --bub-name:#ffffff; --bub-sub:#8696a0;
+    --quote:#4a708c; --codebg:rgba(255,255,255,.07);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--text);
+       font:15px/1.5 Onest,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+       background:
+         radial-gradient(1100px 500px at 85% -10%, rgba(139,108,240,.10), transparent 60%),
+         radial-gradient(900px 420px at -10% 0%, rgba(232,181,77,.07), transparent 55%),
+         var(--bg0);}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 90px}
+  h1{font-size:24px;margin:0 0 6px;font-weight:800;color:var(--bright)}
+  h2{font-size:17px;margin:0;font-weight:800;color:var(--bright)}
+  h3{font-size:13px;margin:16px 0 8px;color:var(--gold2);font-weight:800;
+     letter-spacing:.04em;text-transform:uppercase}
+  p{margin:6px 0}
+  .sub{color:var(--muted);font-size:13px}
+  .gold{color:var(--gold2)} .vio{color:var(--violet)}
+  b{color:var(--bright)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px}
+  .badge{font-size:12px;border:1px solid var(--border);border-radius:20px;padding:3px 12px;
+         color:var(--gold2);background:var(--gold-dim);white-space:nowrap}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin:14px 0 24px}
+  .cardx{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--line);
+         border-radius:16px;padding:14px 16px}
+  .cardx b.h{display:block;color:var(--gold2);font-size:13px;letter-spacing:.03em;margin-bottom:6px}
+  .pill{display:inline-block;font-size:12px;border-radius:20px;padding:2px 10px;border:1px solid var(--line);
+        color:var(--muted);margin:3px 4px 0 0}
+  .pill.gold{color:var(--gold2);border-color:rgba(232,181,77,.35);background:var(--gold-dim)}
+  .pill.vio{color:#b9a6ff;border-color:rgba(139,108,240,.4);background:var(--violet-dim)}
+
+  .ruler{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--border);
+         border-radius:16px;padding:16px 18px;margin:18px 0}
+  .ruler .row{display:grid;grid-template-columns:250px 1fr;gap:14px;padding:10px 0;
+              border-top:1px dashed rgba(255,255,255,.09);align-items:center}
+  .ruler .row:first-of-type{border-top:0}
+  .ruler .lbl{font-size:13px;color:var(--muted)}
+  .ruler .lbl b{display:block;color:var(--bright);font-size:14px}
+  .num{font-variant-numeric:tabular-nums;color:var(--gold2);font-weight:600}
+
+  .variant{background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--line);
+           border-radius:18px;padding:18px;margin:18px 0}
+  .vhead{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .tag{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:2px 10px;white-space:nowrap}
+  .vbody{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,380px);gap:20px;margin-top:14px}
+  @media (max-width:880px){ .vbody{grid-template-columns:1fr} }
+
+  .shot{display:block;width:100%;border-radius:14px;border:1px solid var(--line);
+        box-shadow:0 12px 34px rgba(0,0,0,.4)}
+
+  /* телефон + сообщение (как выглядит в Telegram, тёмная тема) */
+  .phone{background:#0b1118;border:1px solid var(--line);border-radius:16px;padding:14px 12px;align-self:start}
+  .chan{color:var(--bub-sub);font-size:12px;margin:0 4px 8px}
+  .msg{display:flex;justify-content:flex-start}
+  .bubble{background:var(--bub);border-radius:13px;border-top-left-radius:4px;padding:10px 13px;
+          max-width:100%;font-size:14.5px;line-height:1.45;box-shadow:0 1px 2px rgba(0,0,0,.25);
+          overflow-wrap:anywhere;color:#e9edf1}
+  .bubble .nm{font-weight:700;color:var(--bub-name)}
+  .bubble .rw{color:var(--bub-sub)}
+  blockquote{margin:7px 0;padding:2px 0 2px 10px;border-left:3px solid var(--quote);color:#dfe6ee}
+  code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;background:var(--codebg);
+       border-radius:4px;padding:1px 5px;font-size:13.5px;white-space:nowrap}
+  .photob{background:var(--bub);border-radius:13px;border-top-left-radius:4px;padding:5px;
+          margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .photob img{display:block;width:100%;border-radius:9px}
+  .arrow{color:var(--muted);font-size:12px;text-align:center;margin-top:8px}
+  ul{margin:6px 0 0;padding-left:18px}
+  li{margin:4px 0;font-size:13.5px;color:var(--text)}
+  li b{color:var(--gold2)}
+  .meter{margin-top:10px}
+  .foot{margin-top:26px;font-size:13px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>📊 График активности — настоящий график-картинка</h1>
+      <p class="sub">как в твоём примере: столбики за 365 дней с осями и подписями · в тёмной теме Предвестника ·
+      рендер ~0,35–0,5 с, из кэша — мгновенно · фото встаёт первым, карточка сразу под ним</p>
+    </div>
+    <span class="badge">🔮 Предвестник · чат-бот</span>
+  </div>
+
+  <div class="cards">
+    <div class="cardx">
+      <b class="h">Настоящий график — как ты просил</b>
+      <p>Каждый день года — столбик с высотой «сколько сообщений». Слева шкала, снизу даты, под графиком
+      строка статистики: <b>всего · активных дней · пик с датой</b>. История читается с одного взгляда:
+      тихий старт → весенний взрыв → летние всплески → отпуск в сентябре → возвращение в октябре.</p>
+      <div class="meter"><span class="pill gold">365 дней</span><span class="pill gold">сообщений в день</span><span class="pill gold">осям и датам — верим</span></div>
+    </div>
+    <div class="cardx">
+      <b class="h">Тема Предвестника</b>
+      <p>«Deep Space Gold» из Mini App и админки: глубокая ночь, тёплое золото, тихая сетка.
+      Заголовок золотом, деликатный вордмарк «ПРЕДВЕСТНИК» в углу — выглядит фирменно, а не «графиком из интернета».</p>
+      <div class="meter"><span class="pill vio">ночь + золото</span><span class="pill vio">фиолет — в варианте «Космос»</span></div>
+    </div>
+    <div class="cardx">
+      <b class="h">Быстро и без задержек</b>
+      <p>Библиотека рендера уже есть в продовых зависимостях. Библиотека греется один раз при старте бота;
+      сам график рисуется <b>в фоне, пока считаются данные карточки</b>, и кэшируется на день.
+      Никаких внешних сервисов.</p>
+      <div class="meter"><span class="pill gold">~0,35 с рендер</span><span class="pill gold">~25 КБ PNG</span><span class="pill gold">кэш на день</span></div>
+    </div>
+  </div>
+
+  <div class="ruler">
+    <h3 style="margin:0 0 4px">Скорость — честные цифры (замерено)</h3>
+    <div class="row">
+      <div class="lbl"><b>Импорт движка рисования</b>~1,5 с, один раз за жизнь процесса</div>
+      <div>Прогреваем при старте бота — в момент ответа движок уже готов. В расчёт задержки не входит.</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>Рендер и сохранение PNG</b><span class="num">~0,35–0,5 с</span> · 1000×560</div>
+      <div>Рисуем в отдельном потоке <b>параллельно</b> с запросами к базе для карточки — задержка не складывается.</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>Вес картинки</b><span class="num">23–33 КБ</span> PNG</div>
+      <div>Отправка фото — одна отправка перед карточкой, <span class="num">≈ +0,2–0,4 с</span>.</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>Повторный «бот я» в тот же день</b><span class="num">0 мс рендера</span></div>
+      <div>Кэш по (игрок · день): второй и последующие показы берут готовую картинку.</div>
+    </div>
+    <div class="row">
+      <div class="lbl"><b>Итог для первого показа</b><span class="num">+≈0,4–0,6 с</span> к ответу</div>
+      <div>Дальше — почти незаметно. Если захочешь совсем без задержки — см. «Как не тормозим» ниже.</div>
+    </div>
+  </div>
+
+  <p class="sub">Три варианта стиля одного и того же графика (данные демонстрационные). Слева — сам график, справа — как это
+  выглядит в чате: фото первым сообщением, карточка сразу под ним. Все числа на графике — из <code>daily_user_stats</code>.</p>
+
+  <!-- ================= A · НОЧНОЕ ЗОЛОТО ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>A · «Ночное золото»</h2><span class="tag">рекомендую · рендер ~0,35 с · 23 КБ</span></div>
+    <div class="vbody">
+      <div><img class="shot" src="img/chart-gold.png" alt="График A — ночное золото"/></div>
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div style="width:100%">
+          <div class="photob"><img src="img/chart-gold.png" alt=""/></div>
+          <div class="bubble">
+            <div><span class="nm">👤 Иван Грозный</span></div>
+            <div>@ivan_grozny</div>
+            <div>🏷 <b>Волк</b></div>
+            <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+            <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+            <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b><br/>Во всех чатах: <b>98 123</b></blockquote>
+            <div>📅 В чате: 214 дней (с 17.03.2026)</div>
+            <div style="margin-top:7px">💰 <b>Баланс</b></div>
+            <blockquote>🪙 Мора: <b>154 300</b><br/>💎 Алмазы: <b>42</b></blockquote>
+          </div>
+        </div></div>
+        <div class="arrow">фото первым → карточка под ним: график стоит над ответом бота</div>
+      </div>
+    </div>
+    <div class="meter"><span class="pill gold">один цвет — ноль путаницы</span><span class="pill gold">тёплый заголовок золотом</span><span class="pill gold">вордмарк Предвестника</span></div>
+    <ul>
+      <li>Глубокий тёмный фон — как в Mini App; золотые столбики светятся, но не слепят.</li>
+      <li>Сетка по сотням, даты снизу, статистика строкой: сразу видно взлёты, затишья и «отпуск» в сентябре.</li>
+      <li>Самый спокойный и читаемый: все внимание — форме активности.</li>
+    </ul>
+  </section>
+
+  <!-- ================= B · КОСМОС ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>B · «Космос»</h2><span class="tag">фиолет + золотая свежесть · рендер ~0,35 с · 25 КБ</span></div>
+    <div class="vbody">
+      <div><img class="shot" src="img/chart-cosmos.png" alt="График B — космос"/></div>
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div style="width:100%">
+          <div class="photob"><img src="img/chart-cosmos.png" alt=""/></div>
+          <div class="bubble">
+            <div><span class="nm">👤 Иван Грозный</span></div>
+            <div>@ivan_grozny</div>
+            <div>🏷 <b>Волк</b></div>
+            <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+            <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+            <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b><br/>Во всех чатах: <b>98 123</b></blockquote>
+            <div>📅 В чате: 214 дней (с 17.03.2026)</div>
+          </div>
+        </div></div>
+        <div class="arrow">последняя неделя подсвечена золотом — видно «как дела сейчас»</div>
+      </div>
+    </div>
+    <div class="meter"><span class="pill vio">космос-палитра</span><span class="pill gold">акцент на свежести</span></div>
+    <ul>
+      <li>Фиолетовые столбики — космос и 💜-язык Предвестника; золото отмечает последние 7 дней.</li>
+      <li>Одно правило цвета с подписью-легендой — читается мгновенно, но цвета больше, чем в A.</li>
+    </ul>
+  </section>
+
+  <!-- ================= C · СВЕТЛАЯ МЕТРИКА ================= -->
+  <section class="variant">
+    <div class="vhead"><h2>C · «Светлая метрика»</h2><span class="tag">для светлой темы · рендер ~0,35 с · 24 КБ</span></div>
+    <div class="vbody">
+      <div><img class="shot" src="img/chart-light.png" alt="График C — светлая метрика"/></div>
+      <div class="phone">
+        <div class="chan">💬 Тайное общество · 19:42</div>
+        <div class="msg"><div style="width:100%">
+          <div class="photob"><img src="img/chart-light.png" alt=""/></div>
+          <div class="bubble">
+            <div><span class="nm">👤 Иван Грозный</span></div>
+            <div>@ivan_grozny</div>
+            <div>🏷 <b>Волк</b></div>
+            <div class="rw"><i>🛡 Модератор · 💖 Спонсор</i></div>
+            <div style="margin-top:7px">💬 <b>Сообщения</b></div>
+            <blockquote>Сегодня: <b>23</b> · неделя: <b>187</b><br/>Месяц: <b>654</b> · всего: <b>12 348</b></blockquote>
+          </div>
+        </div></div>
+        <div class="arrow">белый фон, фирменное золото потемнее — для контраста</div>
+      </div>
+    </div>
+    <div class="meter"><span class="pill">светлая тема Telegram</span><span class="pill">запасной вариант</span></div>
+    <ul>
+      <li>Чистая «аналитика»: белый фон, плотное золото, та же сетка и подписи.</li>
+      <li>Минус: в тёмном чате Предвестника выглядит «пришлым» — поэтому держим как запасной.</li>
+    </ul>
+  </section>
+
+  <div class="ruler">
+    <h3 style="margin:0 0 4px">Как не тормозим ответ бота</h3>
+    <div class="row"><div class="lbl"><b>Рендер в фоне</b></div><div>График рисуется в отдельном потоке одновременно с запросами для карточки — времена накладываются, а не складываются.</div></div>
+    <div class="row"><div class="lbl"><b>Кэш на день</b></div><div>Готовая картинка хранится до конца дня: повторные «бот я / бот кто» в тот же день не рисуют заново.</div></div>
+    <div class="row"><div class="lbl"><b>Прогрев при старте</b></div><div>Движок рисования и шрифты прогреваются один раз при запуске бота — первый реальный график не платит за это.</div></div>
+    <div class="row"><div class="lbl"><b>Хочешь совсем нулевую задержку?</b></div><div>Есть режим: карточка приходит первой, график — вторым сообщением под ней. Но тогда он не сверху — поэтому по умолчанию делаем как ты просил: <b>фото первым</b>.</div></div>
+    <div class="row"><div class="lbl"><b>Если карточка короткая</b></div><div>Можно уложить её подписью прямо под фото — одна отправка вместо двух (ещё быстрее). Включим, если карточка ≤ 1024 символов.</div></div>
+  </div>
+
+  <div class="ruler">
+    <h3 style="margin:0 0 4px">Что выбрать</h3>
+    <div class="row"><div class="lbl"><b>Рекомендую — A</b></div><div>«Ночное золото»: чище всего, родная палитра, читается с одного взгляда. Тёмная тема Telegram — как у Предвестника.</div></div>
+    <div class="row"><div class="lbl"><b>С фишкой — B</b></div><div>«Космос»: фиолет + золотая свежесть последней недели; наряднее, но цвета больше.</div></div>
+    <div class="row"><div class="lbl"><b>Запасной — C</b></div><div>«Светлая метрика»: для светлой темы; выбивается из тёмного канала.</div></div>
+    <div class="row"><div class="lbl"><b>Мелочи, которые решаем</b></div><div>Период окна (365 дней, можно 180 или 90) · заголовок · строка статистики под графиком · вордмарк. Скажи — подправлю за минуту.</div></div>
+  </div>
+
+  <p class="foot">Данные: <code>daily_user_stats</code> — та же таблица, что кормит «бот стрик» и счётчики карточки. В группе график
+  строится по этому чату, в личке — по всем чатам. Порядок в чате: сначала фото с графиком, затем текстовая карточка
+  (надёжно при любой длине карточки). Технически: рендер — стандартная библиотека из зависимостей проекта, никаких внешних сервисов.</p>
+
+</div>
+</body>
+</html>

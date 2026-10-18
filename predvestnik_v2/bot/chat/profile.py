@@ -10,8 +10,9 @@ from datetime import timedelta
 
 from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
+from loguru import logger
 from services import member_tags, vip as vip_service
-from bot.chat import family, global_ranks, ranks
+from bot.chat import activity_graph, family, global_ranks, ranks
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
 from bot.chat.settings import CURRENCY_VIEW
@@ -158,13 +159,35 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool)
     return "\n".join(lines)
 
 
+async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
+    """«бот я / бот кто»: сверху график активности картинкой, под ним — карточка.
+
+    В группе график — по этому чату, в личке — по всем чатам. Если рисовать
+    нечего или графика не вышло, карточка всё равно отправляется.
+    """
+    chat_id = ctx.message.chat.id
+    text = await card(ctx.db, chat_id, target, ctx.user_id, is_group)
+    try:
+        png = await activity_graph.get_graph(ctx.db, target.user_id, chat_id if is_group else None)
+    except Exception as exc:
+        logger.warning(f"График активности не построен: {exc}")
+        png = None
+    if png:
+        try:
+            from aiogram.types import BufferedInputFile
+            await ctx.message.answer_photo(BufferedInputFile(png, filename="activity.png"))
+        except Exception as exc:   # карточка важнее: график не повод её не показать
+            logger.warning(f"График активности не отправлен: {exc}")
+    await ctx.reply(text)
+
+
 @registry.command("я", aliases=("профиль", "кто я"), usage="бот я", section="profile",
                   summary="Ваша карточка: сообщения, ранг, брак, баланс.")
 async def cmd_me(ctx: Ctx) -> None:
     u = ctx.message.from_user
     target = Target(u.id, u.username, u.full_name)
     is_group = ctx.message.chat.type in ("group", "supergroup")
-    await ctx.reply(await card(ctx.db, ctx.message.chat.id, target, ctx.user_id, is_group))
+    await send_card(ctx, target, is_group)
 
 
 @registry.command("кто", usage="бот кто, @ник  (или ответом на сообщение)", section="profile",
@@ -177,7 +200,7 @@ async def cmd_who(ctx: Ctx) -> None:
             return
         raise UsageError("бот кто, @ник  (или ответом на сообщение)")
     is_group = ctx.message.chat.type in ("group", "supergroup")
-    await ctx.reply(await card(ctx.db, ctx.message.chat.id, target, ctx.user_id, is_group))
+    await send_card(ctx, target, is_group)
 
 
 @registry.command("баланс", aliases=("кошелек", "кошелёк"), usage="бот баланс", section="profile",

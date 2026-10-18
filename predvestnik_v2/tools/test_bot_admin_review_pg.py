@@ -129,6 +129,22 @@ async def run():
     async with get_pool().acquire() as conn:
         everyone = await broadcasts.recipients(PGAdapter(conn), {"kind": "players"})
     assert GONE not in everyone and P1 in everyone, everyone
+    # Админ-чаты отделяются от основных: фильтр «какие чаты» смотрит в chat_links.
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await db.execute("INSERT INTO chat_settings (chat_id, chat_title) VALUES (-200, 'Админ-чат') "
+                         "ON CONFLICT DO NOTHING")
+        await db.execute("INSERT INTO chat_links (main_chat_id, admin_chat_id) VALUES (-100, -200) "
+                         "ON CONFLICT DO NOTHING")
+        main_chats = await broadcasts.recipients(db, {"kind": "chats", "chat_kind": "main"})
+        admin_chats = await broadcasts.recipients(db, {"kind": "chats", "chat_kind": "admin"})
+        every_chat = await broadcasts.recipients(db, {"kind": "chats"})
+    assert main_chats == [-100] and admin_chats == [-200], (main_chats, admin_chats)
+    assert set(every_chat) == {-100, -200}, every_chat
+    # Кривой тип чатов — 400, а не 500.
+    r = await client.post(f"{api}/broadcasts/preview", headers=h[CODER],
+                          json={"segment": {"kind": "chats", "chat_kind": "нет"}})
+    assert r.status_code == 400, (r.status_code, r.text)
     # Отказ по проверке не оставляет админу пробное сообщение.
     bot.sent.clear()
     r = await client.post(f"{api}/broadcasts", headers=h[CODER], json={"audience": "players", "text": "x" * 4000, "html": True})

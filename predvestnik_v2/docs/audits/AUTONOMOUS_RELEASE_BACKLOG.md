@@ -1,3 +1,61 @@
+## Player activity chart above the card and broadcast filter for admin chats, 2026-10-18
+
+Owner tasks 6 and 18 implemented in worktree `predvestnik-activity-broadcast`
+(branch `codex/predvestnik-activity-broadcast`, committed and pushed to master).
+
+«Бот я» / «бот кто» now answer with a real chart image above the text card: 30-day daily
+activity from `daily_user_stats` (current chat in groups, all chats in DM). Rendering is
+`bot/chat/activity_graph.py` (matplotlib, already a pinned dependency): cosmos site theme
+by default, all styling kept in one `THEMES` dict for the later cosmetics pass. No
+per-request matplotlib import cost: `prewarm()` at bot startup, render in a worker thread,
+per-(player · chat · day) cache; the card arrives alone when there is no activity or the
+chart fails — the chart never blocks it. Pyplot-free rendering
+(`Figure` + `FigureCanvasAgg`) keeps parallel cache-fill renders thread-safe.
+
+Broadcast segment «chats» gained a `chat_kind` filter — all chats / 🏠 main chats without
+admin chats / 🛡 admin chats only — derived from `chat_links` (unique index gives
+one-row-per-chat joins), validated with a 400, shown in the audience line, and marked 🛡
+in the admin chat picker; recipients, preview count and scheduled/resumed sends share the
+same filter.
+
+Evidence: `tools/test_activity_graph.py` PASS (three themes render valid PNGs, day series
+math, cache hit issues no second SQL, three concurrent renders); `py_compile` and
+`node --check` PASS. Read-only critic audit of the whole wave: no production blockers or
+majors; it found and we fixed one release-gate regression
+(`tools/test_bot_admin_promo_pg.py` expected the exact `/chats` dict without the new
+`admin` key) plus the renderer hardening above. To run on a scratch PostgreSQL:
+`tools/test_bot_admin_review_pg.py` (new chat_kind block), `tools/test_bot_admin_promo_pg.py`,
+`tools/test_chat_bot_pg.py`.
+
+Release gate (`tools/run_preprod_tests.ps1`, scratch cluster, project `.venv`): total=194
+passed=164 failed=30 — clean master dab61401 fails the identical 30 under the same
+conditions, so this wave adds no reds (its own `test_activity_graph.py` is green in the
+gate; promo and review behave as documented above when run per-suite on a fresh DB).
+Still red on base and untouched here: test_account_recovery_bot.py,
+test_bot_admin_chats_reports_pg.py, test_bot_admin_entry_pg.py, test_bot_admin_matrix_pg.py,
+test_bot_admin_metrics_pg.py, test_bot_admin_owner_pg.py, test_bot_admin_people_pg.py,
+test_bot_admin_player_tools_pg.py, test_bot_admin_promo_pg.py, test_bot_admin_reports_pg.py,
+test_bot_admin_review_pg.py, test_bot_admin_security_pg.py, test_bot_feature_switches_pg.py,
+test_bot_health_pg.py, test_chat_bot_pg.py, test_chat_bots_pg.py, test_chests_v1_mixed_pg.py,
+test_current_game_docs.py, test_game_seasons_pg.py, test_inventory_v3_contract.py,
+test_mafia_v1_pg.py, test_mafia_v1_sim_pg.py, test_mechanics_community_pg.py,
+test_member_tags_pg.py, test_pets_v1_pg.py, test_presence_v1_pg.py,
+test_profile_query_budget_pg.py, test_profile_release_experience.py, test_skin_scenes.py,
+test_player_exchange_recovery_ui.js. Dominant cause: the gate runs every suite against one
+shared database while the newer suites are documented as «пустая тестовая БД» — fixed ids
+collide (`users(1001)` → `users_pkey`, `(user_tg_id, chat_tg_id)=(2001,-100)`, relation
+`purge_start_receipt`), and leaked chat_settings/chat_links state changes endpoint payloads
+(`KeyError: 'settings'/'players'/'sections'`). Independently: the review suite's journal
+page check is TZ-dependent (PGAdapter coerces aware datetimes to naive UTC; asyncpg binds
+them as Europe/Berlin local, so the `before` cursor lands two hours in the past — a UTC
+server is unaffected); test_chat_bot_pg/test_chat_bots_pg mock the bot as member/False
+before the new live Telegram bot-rights check of purge (message_id / callback id /
+`send_message` return drift too — with those locally repaired the suite reaches
+`profile_flow`, the «бот я» chart path); the preprod allowlist (101, 202) blocks suites that
+talk as other ids («Тестовый стенд закрыт для этого аккаунта»); Windows path length breaks
+test_skin_scenes.py; the two long-known UI reds stay. A dedicated gate/shared-DB repair
+wave is needed before the suite can go green.
+
 ## Owner UI wave: dock density, Exchange in the dock, seamless skin edges, 2026-10-18
 
 Three owner reports from the live release fixed on origin/master (54bbbef3). The dock now carries

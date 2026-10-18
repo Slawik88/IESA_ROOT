@@ -1391,17 +1391,18 @@ function pickerField(host, {hint, placeholder, search, items, onChange}) {
   };
 }
 
-const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: c.title}));
+const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: (c.admin ? '🛡 ' : '') + c.title}));
 const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`)).players
   .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id}));
 
 // Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
-const BC = {kind: 'players', chats: [], players: [], active: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
+const BC = {kind: 'players', chats: [], players: [], active: '', chatKind: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
             btnText: '', btnUrl: '', later: false, at: ''};
 
 function bcSegment() {
   const seg = {kind: BC.kind};
   if (BC.chats.length) seg.chats = BC.chats.map(x => x.id);
+  if (BC.kind === 'chats' && (BC.chatKind === 'main' || BC.chatKind === 'admin')) seg.chat_kind = BC.chatKind;
   if (+BC.active) seg.active_days = +BC.active;
   if (BC.kind === 'players') {
     if (BC.vip !== '') seg.vip = BC.vip === '1';
@@ -1498,6 +1499,8 @@ async function broadcastView(main) {
     const players = BC.kind === 'players';
     $('#bseg').innerHTML = `
       <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
+      ${players ? '' : `<div class="field"><label>Какие чаты</label><select id="bckind">
+        ${[['', 'Все чаты — основные и админ-чаты'], ['main', '🏠 Только основные (без админ-чатов)'], ['admin', '🛡 Только админ-чаты']].map(([v, t]) => `<option value="${v}" ${BC.chatKind === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`}
       ${players ? `<div class="field"><label>Только эти игроки (пусто — любые)</label><div id="bpplayers"></div></div>` : ''}
       <div class="grid2">
         ${numberField('bactive', players ? 'Писали хоть где-то за N дней' : 'Писали в чате за N дней', 'active', 'Любые')}
@@ -1506,10 +1509,10 @@ async function broadcastView(main) {
         ${numberField('bnew', 'Новички: впервые замечены за N дней', 'newDays', 'Любые')}
         ${numberField('bmin', 'Сообщений всего — не меньше', 'minMsg', 'Любые')}` : ''}
       </div>`;
-    pickerField($('#bpchats'), {hint: players ? 'Любые чаты' : 'Все чаты бота', placeholder: 'Найти чат по названию или ID', search: searchChats, items: BC.chats, onChange: refreshCount});
+    pickerField($('#bpchats'), {hint: players ? 'Любые чаты' : 'Все чаты бота · 🛡 — админ-чат', placeholder: 'Найти чат по названию или ID', search: searchChats, items: BC.chats, onChange: refreshCount});
     if (players) pickerField($('#bpplayers'), {hint: 'Любые игроки', placeholder: 'Найти игрока по @нику или ID', search: searchPlayers, items: BC.players, onChange: refreshCount});
     const bind = (id, key) => { const el = $('#' + id); if (el) el.oninput = el.onchange = () => { BC[key] = el.value; refreshCount(); }; };
-    bind('bactive', 'active'); bind('bvip', 'vip'); bind('bnew', 'newDays'); bind('bmin', 'minMsg');
+    bind('bactive', 'active'); bind('bvip', 'vip'); bind('bnew', 'newDays'); bind('bmin', 'minMsg'); bind('bckind', 'chatKind');
     refreshCount();
   }
   $('#bkind').onchange = () => { BC.kind = $('#bkind').value; drawSegment(); };

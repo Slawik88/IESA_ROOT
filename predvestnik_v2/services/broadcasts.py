@@ -147,6 +147,12 @@ def normalize_segment(raw, audience: str | None = None) -> dict:
     chats = _ids(raw.get("chats"), "Чаты")
     if chats:
         seg["chats"] = chats
+    if kind == "chats":
+        chat_kind = str(raw.get("chat_kind") or "")
+        if chat_kind not in ("", "all", "main", "admin"):
+            raise BroadcastError("Тип чатов: все, основные или админ-чаты.")
+        if chat_kind in ("main", "admin"):
+            seg["chat_kind"] = chat_kind
     if (days := _int(raw.get("active_days"), 1, 365, "Активность, дней")):
         seg["active_days"] = days
     if kind == "players":
@@ -172,7 +178,19 @@ def describe_segment(seg: dict) -> str:
         return f"Повтор недоставленным (рассылка №{seg['retry_of']}) · {len(seg.get('target_ids') or [])}"
     parts = []
     if seg["kind"] == "chats":
-        parts.append(f"выбранные чаты ({len(seg['chats'])})" if seg.get("chats") else "все чаты")
+        chat_kind = seg.get("chat_kind")
+        if seg.get("chats"):
+            parts.append(f"выбранные чаты ({len(seg['chats'])})")
+            if chat_kind == "main":
+                parts.append("🏠 без админ-чатов")
+            elif chat_kind == "admin":
+                parts.append("🛡 только админ-чаты")
+        elif chat_kind == "main":
+            parts.append("основные чаты (🏠 без админ-чатов)")
+        elif chat_kind == "admin":
+            parts.append("только админ-чаты 🛡")
+        else:
+            parts.append("все чаты")
         if seg.get("active_days"):
             parts.append(f"писали за {seg['active_days']} дн.")
         return "Чаты: " + ", ".join(parts)
@@ -204,6 +222,10 @@ async def recipients(db, seg: dict) -> list[int]:
         if seg.get("chats"):
             where.append("c.chat_id = ANY(?::bigint[])")
             args.append(seg["chats"])
+        if seg.get("chat_kind") == "main":
+            where.append("NOT EXISTS (SELECT 1 FROM chat_links l WHERE l.admin_chat_id = c.chat_id)")
+        elif seg.get("chat_kind") == "admin":
+            where.append("EXISTS (SELECT 1 FROM chat_links l WHERE l.admin_chat_id = c.chat_id)")
         if seg.get("active_days"):
             since = (local_now().date() - timedelta(days=seg["active_days"] - 1)).isoformat()
             where.append("EXISTS (SELECT 1 FROM daily_user_stats d WHERE d.chat_id = c.chat_id AND d.date >= ?)")
