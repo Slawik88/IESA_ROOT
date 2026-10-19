@@ -391,3 +391,16 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .fact b { display: block; font-size: 17px; font-weight: 650; letter-spacing: -.01em; margin-top: 2px; overflow-wrap: anywhere; }
 .fact b small { font-size: 11.5px; color: var(--muted); font-weight: 500; }
 .cap { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+
+/* ═══ ADM-04 · одно меню действий вместо россыпи кнопок ═══
+   Группы «В этом чате / Везде / Профиль / Служебное», у каждой строки — последствие. */
+.sec-title { margin: 16px 0 2px; font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.arow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 2px; background: none; border: 0; border-top: 1px solid var(--line); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.arow:first-of-type { border-top: 0; }
+.arow:active { opacity: .75; }
+.arow .aico { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); font-size: 16px; }
+.arow .atxt { flex: 1; min-width: 0; }
+.arow .atxt b { display: block; font-weight: 600; font-size: 14.5px; overflow-wrap: anywhere; }
+.arow .atxt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.arow .arr { color: var(--muted); font-size: 16px; flex: none; }
+.arow.danger .atxt b { color: var(--bad); }

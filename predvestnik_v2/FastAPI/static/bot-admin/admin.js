@@ -689,6 +689,97 @@ async function peopleSearch(main, query = '') {
   load(query);
 }
 
+// ── Все действия над человеком — в одной шторке ───────────────────────────────
+// Группы и подсказки: что произойдёт, если нажать. Опасные строки красные,
+// подтверждение и ввод ID остаются в runAction — здесь только выбор действия.
+const ACTION_GROUPS = [
+  ['chat', 'В этом чате', ['local_rank', 'warn', 'mute', 'unmute', 'kick', 'ban', 'unban', 'unwarn_all']],
+  ['everywhere', 'Везде', ['global_ban', 'global_unban', 'block', 'unblock']],
+  ['profile', 'Профиль', ['balance', 'vip', 'rank']],
+  ['service', 'Служебное', ['revoke_sessions']],
+];
+const ACTION_HINTS = {
+  local_rank: 'Ранг только в этом чате: права в нём, глобальная роль не меняется',
+  warn: 'Предупреждение в этом чате; когда их станет много — наказание по лимиту чата',
+  mute: 'Не сможет писать в этом чате до конца срока',
+  unmute: 'Снова сможет писать в этом чате',
+  kick: 'Выйдет из чата, но сможет вернуться по ссылке',
+  ban: 'Не сможет вернуться в этот чат сам',
+  unban: 'Снова сможет зайти в этот чат',
+  unwarn_all: 'Снять все действующие предупреждения во всех чатах',
+  global_ban: 'Потеряет доступ во всех чатах, где есть бот',
+  global_unban: 'Снять бан во всех чатах бота',
+  block: 'Бот не будет отвечать игроку, в чатах он останется',
+  unblock: 'Бот снова начнёт отвечать игроку',
+  balance: 'Мора, алмазы, эссенция; крупные суммы — с подтверждением',
+  vip: 'Дни добавятся к текущему сроку',
+  rank: 'Открывает разделы админки; выдать можно только роль ниже своей',
+  revoke_sessions: 'Сотрудник выйдет из админки на всех устройствах',
+};
+
+// Какие действия в чате сейчас бессмысленны (мут уже стоит, бана нет и т. п.).
+function memberFits(key, c) {
+  return !(key === 'local_rank' && (c.left || c.local_rank >= 9))
+    && !(key === 'mute' && c.muted) && !(key === 'unmute' && !c.muted)
+    && !(key === 'unban' && !c.ban) && !(key === 'ban' && c.ban)
+    && !(key === 'kick' && (c.left || c.ban)) && !(key === 'unwarn_all' && !c.warns);
+}
+
+function actionRow(a, attrs) {
+  // Подпись с сервера начинается с эмодзи: «🔇 Мут в чате» → иконка + текст.
+  const parts = a.title.split(' ');
+  const icon = parts.length > 1 ? parts[0] : '•', label = parts.length > 1 ? parts.slice(1).join(' ') : a.title;
+  const hint = ACTION_HINTS[a.key] || '';
+  return `<button type="button" class="arow${DANGEROUS.has(a.key) ? ' danger' : ''}" ${attrs}>
+    <span class="aico" aria-hidden="true">${esc(icon)}</span>
+    <span class="atxt"><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</span>
+    <span class="arr" aria-hidden="true">›</span></button>`;
+}
+
+function actionsSheet(p, chatId, reopen) {
+  const chats = p.chats || [];
+  const cur = chats.find(c => c.id === chatId) || chats[0] || null;
+  // Взаимоисключающие пары: показываем только то, что сейчас можно сделать.
+  // Метки сюда не входят — они выдаются в своей карточке ниже.
+  const hidden = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  const player = new Set(p.actions.player.map(a => a.key)), member = new Set(p.actions.member.map(a => a.key));
+  const rows = [];
+  for (const [key, title, keys] of ACTION_GROUPS) {
+    let list;
+    if (key === 'chat') {
+      if (!cur) continue;
+      list = keys.filter(k => member.has(k) && memberFits(k, cur)).map(k => p.actions.member.find(a => a.key === k));
+    } else {
+      list = keys.filter(k => player.has(k) && !hidden.has(k)).map(k => p.actions.player.find(a => a.key === k));
+    }
+    if (!list.length) {
+      if (key === 'chat') rows.push(`<div class="sec-title">${title}</div><div class="sub">В этом чате действий нет.</div>`);
+      continue;
+    }
+    rows.push(`<div class="sec-title">${esc(title)}</div>`);
+    if (key === 'chat') {
+      rows.push(chats.length > 1
+        ? `<div class="field" style="margin:0 0 4px"><label>Чат</label><select id="aschats">${chats.map(c =>
+          `<option value="${c.id}"${c.id === cur.id ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select></div>`
+        : `<div class="sub" style="margin:0 0 4px">Чат: ${esc(cur.title)}</div>`);
+    }
+    rows.push(list.map(a => actionRow(a, key === 'chat'
+      ? `data-mact="${a.key}" data-cid="${cur.id}" data-ctitle="${esc(cur.title)}"`
+      : `data-act="${a.key}"`)).join(''));
+  }
+  const whoText = p.name || (p.username ? '@' + p.username : 'id' + p.id);
+  sheet('Действия · ' + whoText, `<div class="sub" style="margin:-4px 0 4px">${who(p.id, p.username)} · ID ${p.id}</div>` + rows.join(''),
+    'Закрыть', () => {}, {info: true});
+  const pick = $('#aschats');
+  if (pick) pick.onchange = () => actionsSheet(p, +pick.value, reopen);
+  const ctx = cur ? {...p, local_rank: cur.local_rank} : p;
+  $('#sheet').querySelectorAll('[data-act]').forEach(b => b.onclick = () =>
+    runAction(p.actions.player.find(a => a.key === b.dataset.act), `/player/${p.id}/action`, p, {}, reopen));
+  $('#sheet').querySelectorAll('[data-mact]').forEach(b => b.onclick = () =>
+    runAction(p.actions.member.find(a => a.key === b.dataset.mact), `/player/${p.id}/action`, ctx,
+      {chat_id: +b.dataset.cid, chat_title: b.dataset.ctitle}, reopen));
+}
+
 async function playerView(main, id, push = true, from = null) {
   const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
   if (!p) return;
@@ -711,13 +802,9 @@ async function playerView(main, id, push = true, from = null) {
     p.deleted_at ? '<span class="chip warn">аккаунт удаляется</span>' : '',
     p.watch ? '<span class="chip warn">👁 на контроле</span>' : '',
   ].join(' ');
-  // Глобальные действия — без взаимоисключающих пар.
-  const hide = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
-  if (!p.rank) hide.add('revoke_sessions');   // сессии админки бывают только у сотрудников
   const mk = p.marks || {given: [], earned: [], grantable: []};
-  // Метки выдаются и снимаются в своей карточке ниже, а не общими кнопками.
+  // Метки выдаются и снимаются в своей карточке ниже, а не в общей шторке действий.
   const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
-  hide.add('mark_grant'); hide.add('mark_revoke');
   const held = new Set(mk.given.map(m => m.id));
   const free = mk.grantable.filter(m => !held.has(m.id));
   const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
@@ -768,10 +855,6 @@ async function playerView(main, id, push = true, from = null) {
       ${lk.same_username.length ? `<h3 class="sec">Тот же ник раньше или сейчас</h3>${lk.same_username.map(u => linkRow(u, '@' + esc(u.value))).join('')}` : ''}
       ${lk.same_name.length ? `<h3 class="sec">Такое же имя в Telegram</h3>${lk.same_name.map(u => linkRow(u, esc(u.name))).join('')}` : ''}
       ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
-  const globalActs = p.actions.player.filter(a => !hide.has(a.key));
-  const memberActs = c => p.actions.member.filter(a =>
-    !(a.key === 'local_rank' && (c.left || c.local_rank>=9)) && !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
-    && !(a.key === 'ban' && c.ban) && !(a.key === 'kick' && (c.left || c.ban)) && !(a.key === 'unwarn_all' && !c.warns));
   main.innerHTML = `${backBar()}
     <div class="card">
       <div class="profile-head">
@@ -801,9 +884,8 @@ async function playerView(main, id, push = true, from = null) {
       ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
       ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
       ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
-      <div class="actions" style="margin-top:12px"><button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
-      ${globalActs.length ? `<div class="actions" style="margin-top:8px">${globalActs.map(a =>
-        `<button class="btn small ${/ban|block/.test(a.key) && !a.key.startsWith('un') && a.key !== 'global_unban' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}</div>` : ''}
+      <div class="actions" style="margin-top:12px"><button class="btn primary" id="pacts">Действия</button>
+        <button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
     </div>
     ${marksCard}
     ${reportsCard}
@@ -819,8 +901,7 @@ async function playerView(main, id, push = true, from = null) {
           ${c.muted ? `<span class="chip warn">🔇 мут${c.muted_until ? ' до ' + when(c.muted_until) : ' навсегда'}</span>` : ''}
           ${c.ban ? `<span class="chip bad">⛔ бан${c.ban.until ? ' до ' + when(c.ban.until) : ''}</span>` : ''}
           ${c.warns ? `<span class="chip warn">⚠️ варнов: ${c.warns}</span>` : ''}</div>
-        ${memberActs(c).length ? `<div class="actions">${memberActs(c).map(a =>
-          `<button class="btn small" data-mact="${a.key}" data-cid="${c.id}" data-ctitle="${esc(c.title)}">${esc(a.title)}</button>`).join('')}</div>` : ''}
+        ${p.actions.member.some(a => memberFits(a.key, c)) ? `<div class="actions"><button class="btn small" data-chatacts="${c.id}">Действия в этом чате</button></div>` : ''}
       </div>`).join('') || '<div class="sub">Не писал ни в одном чате с ботом.</div>'}
     </div>
     ${historyCard(p.history)}`;
@@ -836,8 +917,8 @@ async function playerView(main, id, push = true, from = null) {
     else sheet('👁 На контроль', `<div class="sub">Игрок: ${who(p.id, p.username)}. Он об этом не узнает, ограничений нет: список для персонала.</div>${reasonField()}`,
       'Поставить', () => done(true)(($('#freason') || {}).value));
   };
-  main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
-    runAction(p.actions.player.find(a => a.key === btn.dataset.act), `/player/${id}/action`, p, {}, reopen));
+  $('#pacts').onclick = () => actionsSheet(p, p.chats[0] ? p.chats[0].id : 0, reopen);
+  main.querySelectorAll('[data-chatacts]').forEach(btn => btn.onclick = () => actionsSheet(p, +btn.dataset.chatacts, reopen));
   const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
       <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
       <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
@@ -876,9 +957,6 @@ async function playerView(main, id, push = true, from = null) {
   };
   main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
   main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
-  main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
-    runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, {...p,local_rank:p.chats.find(c=>c.id===+btn.dataset.cid)?.local_rank},
-      {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));
   main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
   main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
 }
