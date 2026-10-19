@@ -41,11 +41,10 @@ body:not(.fx-2) .v3-id::before { animation: none; }
 .fx-5 .v3-gname, .fx-5 .v3-title { position: relative; --ap-hl: linear-gradient(100deg, transparent 38%, rgba(255,255,255,.85) 50%, transparent 62%); --ap-hlk: .44; --ap-hlr: calc(1 - var(--ap-hlk)); --ap-hlg: calc(var(--ap-hlr) / var(--ap-hlk)); --ap-glint: calc(7.1s * var(--v3-loop, 1)); --ap-px: 0px; --ap-py: 0px; }
 .fx-5 .v3-gname > .ap-gl, .fx-5 .v3-title > .ap-gl { display: block; }
 
-/* SS · fx-6: параллакс по наклону/указателю (два пятна света в canvas сдвигаются на 10 px), боковой переход экранов, световое пятно на доке */
+/* SS · fx-6: параллакс по наклону/указателю (два пятна света в canvas сдвигаются на 10 px), боковой переход экранов */
 @keyframes v3slide { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
 .fx-6 .page.active { animation: v3slide var(--v3-dur) var(--v3-ease) backwards; }
 .fx-6 .page.active.v3-stagger, .fx-6 .page.active:has(.v3-stagger) { animation: none; }
-.fx-6 .nav::after { content: ""; position: absolute; inset: 0; border-radius: 99px; pointer-events: none; background: radial-gradient(70px 36px at calc(50% + var(--tilt-x, 0) * 60px) 0, rgba(255,255,255,.2), transparent); }
 
 /* SSS · fx-7: две ленты света (canvas, 26 и 34 с), круги от касаний, кольцо-ударная волна награды */
 .v3-ripple { position: fixed; left: 0; top: 0; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; z-index: 300; pointer-events: none; background: radial-gradient(closest-side, rgba(var(--acc-rgb), .32), transparent); will-change: transform, opacity; }

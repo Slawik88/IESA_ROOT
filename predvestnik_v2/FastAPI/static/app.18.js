@@ -178,16 +178,15 @@ new MutationObserver(() => {
   _v3FxOled = oled; _V3_FX.colorsAt = 0; _v3FxRun();
 }).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 // Наклон телефона и указатель двигают слой SS+. В руке телефон никогда не лежит неподвижно: сырой наклон дрожит, а запись переменной в body пересчитывает стиль всей страницы.
-// Поэтому: ноль берётся из первого замера, дрожь меньше мёртвой зоны гасится, движение сглаживается и пишется только в слой эффектов и док (не в body), редко и пока есть что менять.
+// Поэтому: ноль берётся из первого замера, дрожь меньше мёртвой зоны гасится, движение сглаживается и пишется только в слой эффектов (не в body), редко и пока есть что менять.
 function _v3BindTilt() {
   if (_v3PointerOn) return; _v3PointerOn = true;
   let frame = 0, goalX = 0, goalY = 0, curX = 0, curY = 0, base = null, lastPush = 0;
-  const targets = () => [document.querySelector('.nav')].filter(Boolean);   // свет страницы читает наклон из _V3_FX.tilt, переменные нужны только доку
   const push = now => {
     frame = 0;
     curX += (goalX - curX) * 0.1; curY += (goalY - curY) * 0.1;
     if (now - lastPush >= 66 && (Math.abs(goalX - curX) > 0.004 || Math.abs(goalY - curY) > 0.004)) {   // не чаще 15 раз в секунду
-      lastPush = now; _V3_FX.tilt = [curX, curY]; targets().forEach(n => { n.style.setProperty('--tilt-x', curX.toFixed(3)); n.style.setProperty('--tilt-y', curY.toFixed(3)); });
+      lastPush = now; _V3_FX.tilt = [curX, curY];
       _v3FxRun();   // свет сдвигается вслед за наклоном сразу, а не на следующем шаге таймера
     }
     if (Math.abs(goalX - curX) > 0.004 || Math.abs(goalY - curY) > 0.004) frame = requestAnimationFrame(push);

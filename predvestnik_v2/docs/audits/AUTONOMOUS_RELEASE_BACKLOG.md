@@ -1,3 +1,10 @@
+## Dock spotlight removal 2026-10-19
+
+Removed the SS+ white radial spotlight pseudo-element from the bottom dock and
+its unused cursor/tilt CSS variable writes. The independent page-light tilt
+still uses its existing canvas state. Edge verifies no dock ::after content or
+background for all7 tiers, 390/1280 widths and both pointer positions.
+
 ## Cosmetic nicknames 2026-10-19 — all39 skins /seven tiers
 
 Shared nickname renderer for own/public profiles, cosmetic previews, message
