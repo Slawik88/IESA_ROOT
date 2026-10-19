@@ -632,7 +632,7 @@ async function peopleSearch(main, query = '') {
     const recent = showAttn ? PREFS.get('recent', []) : [];
     const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
       `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
-    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplonb"></div><div id="pplattn"></div>' : '') + head + `
+    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
@@ -665,11 +665,15 @@ async function peopleSearch(main, query = '') {
         <button class="btn small more" id="onbmore">Где застревают</button></div>`;
       $('#onbmore').onclick = () => onboardingSheet(f.days).catch(err => toast(err.message, true));
     }).catch(() => {});
-    if (showAttn) api('/chats/attention').then(att => {
+    if (showAttn) Promise.all([api('/people/attention'), api('/chats/attention').catch(() => null)]).then(([ppl, att]) => {
       const host = $('#pplattn');
-      if (!host || !att.total) return;
-      host.innerHTML = `<details class="card"><summary>⚠️ Чаты требуют внимания · ${att.total}</summary><div class="list">${attentionRows(att.items.slice(0, 5))}</div>
-        ${att.total > 5 ? '<button class="btn small more" id="attnall">Показать все</button>' : ''}</details>`;
+      if (!host) return;
+      const people = (ppl.items || []).map(attentionPersonRow).join('');
+      const chats = att && att.items.length ? attentionRows(att.items.slice(0, 3)) : '';
+      if (!people && !chats) return;
+      const more = att && att.total > 3 ? `<div class="actions" style="margin-top:8px"><button class="btn small" id="attnall">Все проблемы чатов · ${att.total}</button></div>` : '';
+      host.innerHTML = `<div class="sec-title">Требуют внимания</div>
+        <div class="card" style="border-top:0;padding-top:0">${people}${chats}${more}</div>`;
       if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
     }).catch(() => {});
     if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
@@ -1026,6 +1030,14 @@ function wireChatRights(c, id) {
   };
 }
 
+// Человек, которому нужно внимание: фото, кто это и почему его стоит открыть.
+function attentionPersonRow(x) {
+  const at = x.at ? ` · ${esc(x.at_label || '')}${x.at_label ? ' ' : ''}${when(x.at)}` : '';
+  return `<div class="prow" data-player="${x.id}">${ava(x)}
+    <div class="pmain"><div class="pname">${esc(x.name || who(x.id, x.username))}</div>
+      <div class="pmeta">${x.username ? '@' + esc(x.username) + ' · ' : ''}ID ${x.id}${x.note ? ' · ' + esc(x.note) : ''}${at}</div></div>
+    <span class="chip ${x.flag_kind || ''}">${esc(x.flag)}</span></div>`;
+}
 // Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
 function attentionRows(items) {
   const cls = {no_rights: 'warn', quiet: 'off', left: 'bad'};

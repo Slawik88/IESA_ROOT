@@ -13,12 +13,14 @@ from infrastructure.preprod import require_preprod_user
 from services import admin_access, admin_people, admin_security
 
 # Минимальная глобальная роль для раздела (1 тестер … 5 разработчик, 6 создатель).
+# Порядок — это порядок нижней панели: сначала ежедневное (люди, жалобы, журнал, рассылка),
+# реже нужное уезжает в «Ещё». Роль у раздела при этом не меняется.
 SECTIONS: dict[str, tuple[str, int]] = {
     "people": ("Игроки и чаты", 2),
     "reports": ("Жалобы", 2),
-    "metrics": ("Метрики", 4),
     "journal": ("Журнал", 4),
     "broadcast": ("Рассылка", 5),
+    "metrics": ("Метрики", 4),
     "promo": ("Промокоды", 5),
     "switches": ("Функции", 5),
     "settings": ("Настройки", 5),

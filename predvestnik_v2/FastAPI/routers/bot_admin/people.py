@@ -14,7 +14,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from loguru import logger
 
 from FastAPI.deps import get_db
-from FastAPI.routers.bot_admin.auth import section
+from FastAPI.routers.bot_admin.auth import SECTIONS, section
 from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat import moderation
 from bot.chat.access import is_developer
@@ -167,6 +167,13 @@ async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=
 async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db)):
     """Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили."""
     return await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
+
+
+@router.get("/people/attention")
+async def people_attention(limit: int = Query(6, ge=1, le=50), user=Depends(_user), db=Depends(get_db)):
+    """Люди, которым нужно внимание: бан во всех чатах, повторные жалобы, контроль персонала."""
+    reports_on = user["rank"] >= admin_access.min_rank(user, "section:reports", SECTIONS["reports"][1])
+    return await admin_people.people_attention(db, reports_on=reports_on, limit=limit)
 
 
 @router.get("/chats/onboarding")

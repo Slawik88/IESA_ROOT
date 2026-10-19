@@ -147,6 +147,25 @@ async def checks():
     assert (await client.post(f"/bot-admin/api/reports/{first['id']}", headers=h[HELPER], json={"action": "take"})).status_code == 200
     assert (await badges(HELPER)).json() == {"reports": 7}                                    # взятая в работу уходит из «новых»
 
+    # ── Люди, которым нужно внимание: бан важнее жалоб, контроль виден, дублей нет ──
+    from services import global_moderation, staff_watch as staff_watch_service
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        await global_moderation.ensure_schema(db)
+        await staff_watch_service.ensure_schema(db)
+        await db.execute("INSERT INTO chat_blacklist (chat_id, user_id, reason, added_by, expires_at) "
+                         "VALUES (0, ?, 'спам-рассылка', ?, NULL)", (P[5], HELPER))
+        await staff_watch_service.add(db, P[3], HELPER, "новичок в мутных историях")
+    assert (await get(P[1], "/people/attention")).status_code == 403
+    attn = (await get(HELPER, "/people/attention")).json()
+    by_id = {x["id"]: x for x in attn["items"]}
+    assert [x["id"] for x in attn["items"]][0] == P[5], attn["items"]                                 # бан впереди
+    assert by_id[P[5]]["flag_kind"] == "bad" and "во всех чатах" in by_id[P[5]]["flag"], by_id[P[5]]  # и без дубля с жалобами
+    assert by_id[P[6]]["flag_kind"] == "warn" and by_id[P[6]]["flag"] == "⚠️ жалоб: 3", by_id[P[6]]
+    assert by_id[P[3]]["flag_kind"] == "warn" and "контроле" in by_id[P[3]]["flag"], by_id[P[3]]
+    assert by_id[P[5]]["avatar"].startswith("/bot-admin/avatar/"), by_id[P[5]]
+    assert (await get(HELPER, "/people/attention?limit=2")).json()["total"] >= 3                      # limit режет показ, не поиск
+
 
 def main():
     loop = asyncio.new_event_loop()

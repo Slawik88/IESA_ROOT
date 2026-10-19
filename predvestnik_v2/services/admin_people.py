@@ -14,6 +14,7 @@ from bot.chat.global_ranks import bot_rank_name, get_bot_rank
 from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from services import admin_avatars, feature_switches, global_moderation, member_tags, name_history, staff_watch
+from services import reports as reports_service
 from services import vip as vip_service
 from core.marks_v1 import GRANTABLE
 
@@ -590,6 +591,58 @@ async def chats_attention(db, kind: str = "") -> dict:
                           "problems": [{"key": k, "title": ATTENTION_KINDS[k]} for k in problems]})
     items.sort(key=lambda x: (-x["members"], x["id"]))
     return {"items": items[:ATTENTION_LIMIT], "total": len(items), "kinds": ATTENTION_KINDS}
+
+
+PEOPLE_ATTENTION_LIMIT = 6
+
+
+async def people_attention(db, *, reports_on: bool = True, limit: int = PEOPLE_ATTENTION_LIMIT) -> dict:
+    """Кто требует внимания прямо сейчас: бан во всех чатах, повторные жалобы, контроль персонала.
+
+    Каждая строка — человек и одна причина открыть его карточку: сначала баны, затем жалобы,
+    затем контроль. Повторные жалобы считает служба жалоб (3+ за 30 дней, отклонённые не в счёт),
+    и видны они только тому, кому открыт раздел «Жалобы» (reports_on). Один человек — одна строка.
+    """
+    limit = max(1, min(int(limit or PEOPLE_ATTENTION_LIMIT), 50))
+    items: list[dict] = []
+    seen: set[int] = set()
+
+    def add(uid, username, name, flag, kind, note, at, label):
+        uid = int(uid)
+        if uid in seen:
+            return
+        seen.add(uid)
+        items.append({"id": uid, "username": username or None, "name": name or "",
+                      "avatar": admin_avatars.avatar_url(uid), "flag": flag, "flag_kind": kind,
+                      "note": note or "", "at": at.isoformat() if hasattr(at, "isoformat") else at,
+                      "at_label": label})
+
+    async with db.execute(
+        "SELECT b.user_id, u.user_tg_username, u.user_tg_name, b.reason, b.added_at FROM chat_blacklist b "
+        "LEFT JOIN users u ON u.user_tg_id = b.user_id "
+        "WHERE b.chat_id = ? AND (b.expires_at IS NULL OR b.expires_at > NOW()) ORDER BY b.added_at DESC LIMIT ?",
+        (global_moderation.GLOBAL_CHAT, limit)) as cur:
+        for uid, username, name, reason, at in await cur.fetchall():
+            add(uid, username, name or ("@" + username if username else None), "🚫 бан во всех чатах", "bad",
+                f"причина: {str(reason)[:80]}" if reason else "", at, "забанен")
+    if reports_on:
+        for r in await reports_service.repeat_offenders(db, limit=limit):
+            bits = []
+            if r["open"]:
+                bits.append(f"в работе: {r['open']}")
+            if r["confirmed"]:
+                bits.append(f"подтверждено: {r['confirmed']}")
+            add(r["id"], None, r["name"], f"⚠️ жалоб: {r['reports']}", "warn",
+                " · ".join(bits) or "ещё не разобраны", r["last"], "последняя жалоба")
+    await staff_watch.ensure_schema(db)
+    async with db.execute(
+        "SELECT t.user_id, u.user_tg_username, u.user_tg_name, t.reason, t.added_at FROM bot_staff_watch t "
+        "LEFT JOIN users u ON u.user_tg_id = t.user_id WHERE t.removed_at IS NULL ORDER BY t.added_at DESC LIMIT ?",
+        (limit,)) as cur:
+        for uid, username, name, reason, at in await cur.fetchall():
+            add(uid, username, name or ("@" + username if username else None), "👁 на контроле", "warn",
+                f"причина: {str(reason)[:80]}" if reason else "", at, "на контроле с")
+    return {"items": items[:limit], "total": len(items)}
 
 
 async def linked(db, uid: int) -> dict:
