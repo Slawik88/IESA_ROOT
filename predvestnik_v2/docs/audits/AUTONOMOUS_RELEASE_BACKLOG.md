@@ -1,3 +1,20 @@
+## Owner revision 2026-10-19 — exchange artwork and chart (item 9)
+
+Each of the six system coins now has its own original SVG emblem: orbit,
+lightning spark, ice crystal, Vega star, lighthouse and reef. Personal coins
+retain their selected symbols. The chart reserves a separate right-hand axis,
+uses compact scale captions, a taller plot, quieter dashed guides and a soft
+area wash. Exact published prices remain in the selected-point readout.
+The timeline retains its 44 px touch target with a smaller visual track.
+Programmatic heading focus no longer draws an input-like outline.
+
+Validation: chart math/interaction, trade preview and transaction recovery Node
+checks pass. Edge 320/430 with an HTTP visual fixture confirms six distinct SVGs,
+price-axis bounds for normal, tiny and large values, exact keyboard-selected
+prices and no page overflow. Original server ticks, execution, fees and price
+generation remain unchanged. Read-only review caught the narrow-axis edge and
+prompted the tiny/large-price browser cases. Evidence: .local/ui-market-polish/.
+
 ## Pet feeding review follow-up — bond-gated growth
 
 The usefulness hint also checks remaining stored XP capacity at a bond gate.

@@ -41,7 +41,18 @@ window.CM2 = (() => {
     star:'<svg aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 4l3.6 7.6 8 .9-6 5.7 1.6 8L16 22.2 8.8 26.2l1.6-8-6-5.7 8-.9z"/></svg>',
     wave:'<svg aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19c3-6 6-6 9 0s6 6 9 0 6-6 6 0M4 12c3-6 6-6 9 0"/></svg>',
     leaf:'<svg aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M26 6C14 6 6 13 6 22c0 2 .5 3.5 1 4 5-11 12-14 19-20z"/><path d="M10 22c6-1 10-4 12-9"/></svg>'};
-  const icon=c=>ICON[c.personal?c.icon:({orb:'coin',isk:'star',ine:'leaf',veg:'star',may:'coin',rif:'wave'}[c.id]||c.icon)]||ICON.coin;
+  // Six original emblems; personal coins retain the owner's chosen icon.
+  const SYSTEM_ART = {
+    orb:'<ellipse cx="16" cy="16" rx="12" ry="5.5" transform="rotate(-35 16 16)"/><circle cx="16" cy="16" r="4" fill="currentColor" stroke="none"/><circle cx="25.8" cy="9.2" r="2" fill="currentColor" stroke="none"/>',
+    isk:'<path d="M18 3L7 18h8l-1 11 11-16h-8z" fill="currentColor" fill-opacity=".18"/><path d="M6 7l2 2M25 23l2 2M26 5l-2 3"/>',
+    ine:'<path d="M16 3v26M4.7 9.5l22.6 13M4.7 22.5l22.6-13M12 6l4 4 4-4M12 26l4-4 4 4M5 14l5-1-1-5M23 24l-1-5 5-1M5 18l5 1-1 5M23 8l-1 5 5 1"/>',
+    veg:'<path d="M16 3l3.4 9.6L29 16l-9.6 3.4L16 29l-3.4-9.6L3 16l9.6-3.4z" fill="currentColor" fill-opacity=".16"/><circle cx="16" cy="16" r="2.4" fill="currentColor" stroke="none"/>',
+    may:'<path d="M11 26l2-14h6l2 14M10 26h12M12 8h8v4h-8zM14 5h4l2 3h-8zM16 16v3M4 7l5 2M28 7l-5 2M3 15l6-3M29 15l-6-3"/><path d="M12 22h8"/>',
+    rif:'<path d="M16 28V12M16 21l-7-5v-6M9 16l-5-3V7M16 16l7-5V5M23 11l5-3M16 25l9-5v-4M9 11l4-4M6 28h20"/><circle cx="16" cy="9" r="2" fill="currentColor" stroke="none"/>'
+  };
+  const icon=c=>!c.personal && SYSTEM_ART[c.id]
+    ? `<svg class="cm2-emblem cm2-emblem-${c.id}" aria-hidden="true" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${SYSTEM_ART[c.id]}</svg>`
+    : ICON[c.icon] || ICON.coin;
 
   const pendingKey=()=>data?'cm2_pending_'+data.user_id:null;
   function pending(){try{return JSON.parse(localStorage.getItem(pendingKey())||'null');}catch(_){return null;}}

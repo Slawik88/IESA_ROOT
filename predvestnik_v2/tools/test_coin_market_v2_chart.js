@@ -8,8 +8,9 @@ const close=(got,want,eps=.51)=>assert(Math.abs(got-want)<=eps,`expected ${want}
 const series=(values,from=100)=>values.map((value,index)=>({tick:from+index,price:String(value)}));
 const values=list=>list.map(p=>({tick:p.tick,value:Number(p.price)}));
 
+assert.equal(C.axisPrice(1234.5678),'1,235к');assert.equal(C.axisPrice(.000012345),'1,23E-5');
 assert.equal(typeof C.render,'function','render stays the public entry point');
-assert.equal(PLOT.x0,10);assert.equal(PLOT.x1,W-12);assert.equal(PLOT.y1,H-26,'time labels need room under the plot');
+assert.equal(PLOT.x0,10);assert.equal(PLOT.x1,W-68);assert.equal(PLOT.y1,H-26,'time labels need room under the plot');
 
 // bounds: а flush series must not collapse into a zero-height plot; values order is free
 assert.deepEqual({...C.bounds([3,1,2])},{min:1,max:3});

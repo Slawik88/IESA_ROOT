@@ -2,8 +2,8 @@
    Только отрисовка уже опубликованных сервером тиков; генератор не трогает.
    Чистые функции экспортируются для контрактного Node-теста. */
 window.CM2Chart = (() => {
-  const W = 320, H = 180;
-  const PAD = { top: 18, right: 12, bottom: 26, left: 10 };
+  const W = 320, H = 204;
+  const PAD = { top: 18, right: 68, bottom: 26, left: 10 };
   const PLOT = { x0: PAD.left, x1: W - PAD.right, y0: PAD.top, y1: H - PAD.bottom };
 
   /* ── чистые помощники (тестируются без DOM) ─────────────────────────────── */
@@ -50,6 +50,16 @@ window.CM2Chart = (() => {
     const n = Number(value);
     if (!Number.isFinite(n)) return '—';
     return n.toLocaleString('ru-RU', { maximumFractionDigits: 8 });
+  }
+
+  // Compact axis only; the selected point and trade confirmation keep exact prices.
+  function axisPrice(value) {
+    const n = Number(value), a = Math.abs(n);
+    if (!Number.isFinite(n)) return '—';
+    if (a > 0 && a < .01 || a >= 1e9) return n.toLocaleString('ru-RU', {notation:'scientific',maximumFractionDigits:2});
+    const scale = a >= 1e6 ? 1e6 : a >= 1e3 ? 1e3 : 1;
+    const suffix = scale === 1e6 ? 'м' : scale === 1e3 ? 'к' : '';
+    return (n / scale).toLocaleString('ru-RU', {maximumSignificantDigits:a < .1 ? 3 : 4}) + suffix;
   }
 
   function markerPoints(ticks, values, span) {
@@ -128,7 +138,7 @@ window.CM2Chart = (() => {
       const y = PLOT.y0 + (PLOT.y1 - PLOT.y0) * k;
       const val = span.max - (span.max - span.min) * k;
       return `<line class="cm2-grid" x1="${PLOT.x0}" y1="${y.toFixed(2)}" x2="${PLOT.x1}" y2="${y.toFixed(2)}"/>` +
-        `<text class="cm2-grid-label" x="${PLOT.x1}" y="${(y - 4).toFixed(2)}" text-anchor="end">${fmt(val)}</text>`;
+        `<text class="cm2-grid-label" x="${PLOT.x1 + 10}" y="${(y + 4).toFixed(2)}" text-anchor="start">${axisPrice(val)}</text>`;
     }).join('');
     const cost = options.cost && Number.isFinite(Number(options.cost))
       ? (() => {
@@ -179,5 +189,5 @@ window.CM2Chart = (() => {
     if (focused) host.querySelector('.cm2-cursor')?.focus({preventScroll:true});
   }
 
-  return { render, path, bounds, downsample, label, nearest, markerPoints, tooltipFor, PLOT, W, H };
+  return { render, path, bounds, axisPrice, downsample, label, nearest, markerPoints, tooltipFor, PLOT, W, H };
 })();
