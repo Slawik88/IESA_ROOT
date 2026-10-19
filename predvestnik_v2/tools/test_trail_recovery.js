@@ -34,6 +34,8 @@ vm.runInContext(more.match(/^function _trFeedBenefit\([\s\S]*?^\}/m)[0],box);
  assert(box._trFeedBenefit({...p,fed_today:false},f,me).xp);
  assert(box._trFeedBenefit({...p,fed_favorite:false},f,me).favorite);
  assert(!box._trFeedBenefit({...p,fed_today:false},f,{...me,daily:{credited:625,max:625}}).useful);
+ assert(!box._trFeedBenefit({...p,fed_today:false,level:10,ceiling:10,xp:100,next_cost:100},f,me).useful,'a full bond-gated XP bar gains no growth from food');
+ assert(box._trFeedBenefit({...p,fed_today:false,level:10,ceiling:10,xp:90,next_cost:100},f,me).xp);
  assert.equal(box._trFeedBenefit({...p,energy:92},f,me).gain,8);
  console.log('PASS: failed writes retain identity; confirmed writes/read failure cannot repeat spend; stale reads ignored; track stays responsive; food usefulness');
 })().catch(e=>{console.error(e);process.exitCode=1;});

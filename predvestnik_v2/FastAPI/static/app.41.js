@@ -215,7 +215,8 @@ function trailFeed(petId) {
 function _trFeedBenefit(p, food, me) {
   const gain = Math.max(0, Math.min(p.energy_max, p.energy + food.restore) - p.energy);
   const favorite = food.id === p.favorite_food && !p.fed_favorite;
-  const xp = !p.fed_today && p.level < (me.rules.max_level || 30) && Number(me.daily?.credited || 0) < Number(me.daily?.max || 625);
+  const roomForGrowth = p.level < p.ceiling || Number(p.xp || 0) < Number(p.next_cost || 1);
+  const xp = !p.fed_today && roomForGrowth && p.level < (me.rules.max_level || 30) && Number(me.daily?.credited || 0) < Number(me.daily?.max || 625);
   return { gain, favorite, xp, useful: gain > 0 || favorite || xp };
 }
 function _trFeedHtml() {

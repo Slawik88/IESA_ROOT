@@ -1,3 +1,11 @@
+## Pet feeding review follow-up — bond-gated growth
+
+The usefulness hint also checks remaining stored XP capacity at a bond gate.
+A full-energy pet whose next-level XP is already stored no longer offers food
+only for first-feed growth that cannot be retained. Energy/favorite benefits
+remain available. Controlled production JS tests cover both full and partial
+bond-gated XP bars. Server rules are unchanged.
+
 ## Owner revision 2026-10-19 — broadcast admin-chat filters (item 18)
 
 Existing master already provides all/main/admin selection in broadcasts,
