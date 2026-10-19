@@ -1,0 +1,10 @@
+/* Master V3 signatures: no new surface, clipping or page background. */
+.holiday-seal { position: absolute; inset: -15%; width: 130%; height: 130%; fill: none; stroke: var(--ap-c); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.ap-sig-ravenmask .holiday-seal { stroke: var(--ap-c); transform: rotate(-8deg); }
+.ap-sig-ghostcoach .holiday-seal { stroke: var(--ap-a); stroke-dasharray: 4 1; }
+.ap-sig-sugarhouse .holiday-seal { stroke: var(--ap-c); stroke-width: 1.4; }
+.ap-sig-northtrain .holiday-seal { stroke: var(--ap-c); }
+.ap-sig-rosequill .holiday-seal { stroke: var(--ap-a); transform: rotate(8deg); }
+.ap-sig-crystalheart .holiday-seal { stroke: var(--ap-c); stroke-width: .8; }
+/* Keep the photograph clear: engraving appears above it, on the outer crest. */
+.ap-frame > .holiday-seal { inset: -22% 0 auto auto; width: 32%; height: 32%; padding: 3%; border-radius: 50%; background: color-mix(in srgb,var(--ap-b) 32%,#111); }

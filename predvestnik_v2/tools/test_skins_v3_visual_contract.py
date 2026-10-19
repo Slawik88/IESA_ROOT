@@ -13,10 +13,10 @@ STATIC = ROOT / "FastAPI/static"
 from core.skins_v3 import TIERS  # noqa: E402
 from core.skins_v3_catalog import SETS, SKINS  # noqa: E402
 
-CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css", "toast-v3.css")
+CSS_FILES = ("appearance-v3.css", "appearance-ring-v3.css", "appearance-stage-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-holidays-v3.css", "looks-v3.css", "public-card-v3.css", "collect-v3.css", "toast-v3.css")
 css = {name: (STATIC / name).read_text(encoding="utf-8") for name in CSS_FILES}
 every = "".join(css.values())
-decor = "".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in ("22", "32", "33", "34"))   # signature art: app.22 (S and up, personal) and the SSS parts of the lower rarities
+decor = "".join((STATIC / f"app.{n}.js").read_text(encoding="utf-8") for n in ("22", "32", "33", "34", "48"))   # signature art: app.22 (S and up, personal) and the SSS parts of the lower rarities
 renderer = (STATIC / "app.20.js").read_text(encoding="utf-8")
 
 # Shape of the catalog: three or more skins of every rarity, each with a palette that reads on its background.
@@ -43,8 +43,8 @@ for level in range(1, 8):
 
 # Sets reference real skins of mixed rarity.
 for set_id, spec in SETS.items():
-    assert len(spec["members"]) == 3 and all(SKINS[m]["set"] == set_id for m in spec["members"]), set_id
-    assert len({SKINS[m]["tier"] for m in spec["members"]}) == 3, f"{set_id}: members should span three rarities"
+    assert 2 <= len(spec["members"]) <= 3 and all(SKINS[m]["set"] == set_id for m in spec["members"]), set_id
+    assert len({SKINS[m]["tier"] for m in spec["members"]}) == len(spec["members"]), f"{set_id}: members should have distinct rarities"
 
 # Motion: any animation inside the appearance layers lives under .ap-anim (or the reduced-motion reset), and files stay small.
 def strip_blocks(text: str, head: str) -> str:

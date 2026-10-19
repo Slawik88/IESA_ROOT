@@ -1,3 +1,24 @@
+## Holiday cosmetics 2026-10-19 — six original V3 skins
+
+Based on master f962a401, using the existing scene engine, D..SSS progression,
+Essence prices, VIP projection and atomic purchase path. Six separately drawn
+skins: raven_masquerade, phantom_carriage, gingerbread_house, polar_express,
+rose_letter, glass_heart. Twelve original vector illustrations and six engraved
+signature medallions; 39 total scenes /191 pictures. No old artwork, clipping,
+whole-site surface or owned progression was changed.
+
+Acquisition follows existing Halloween/New Year UTC windows; new Valentine's
+window is [February07, February21). Three separate two-member sets preserve all
+existing set members/reward receipts. Permanent ranks/weekly rotations still
+exclude seasonal skins. Economy cap passes (8470 total one-time Essence).
+
+Proof: real PostgreSQL all six purchases at opening, refusal before opening and
+at closing without charge, replay and owned equip after closing; old purchase,
+Essence/refund tests pass. Edge verifies all39 scenes at320/430/1280. A CSS data
+URL newline defect found visually was fixed in the source art generator.
+Tier/scene/visual contracts and explicit static routes pass; readonly critique
+found no remaining blockers. No real player purchase was used for verification.
+
 ## Player release 2026-10-19 — live confirmation, then original cosmetics restored
 
 The production read-only release endpoint returned HTTP 200 and both rollout

@@ -17,7 +17,8 @@ sys.path.insert(0, str(ROOT))
 from unittest import mock  # noqa: E402
 
 from core.skins_v3 import BUY_PRICE_ZARNIKI, ESSENCE_PER_ZARNIK, ESSENCE_PACKS, purchased_essence, TIERS, UPGRADE_ESSENCE  # noqa: E402
-from core.skins_v3_collection import featured_bonus, milestones, row_bonus, set_bonus  # noqa: E402
+from core.skins_v3_catalog import SKINS, SETS
+from core.skins_v3_collection import season_of, featured_bonus, milestones, row_bonus, set_bonus  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
 from infrastructure.repositories import global_skins_v1 as old_skins  # noqa: E402
@@ -61,7 +62,7 @@ async def run(dsn: str) -> None:
         await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?,?,?) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=EXCLUDED.user_balance_zarniki", (user, "skin_v3", 3000))
 
         initial = await skins.state(db, user)
-        assert len(initial["items"]) == 31 and len(initial["sets"]) == 4 and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
+        assert len(initial["items"]) == sum(not s["exclusive"] for s in SKINS.values()) and len(initial["sets"]) == len(SETS) and not any(i["owned"] for i in initial["items"]) and initial["essence"]["balance"] == 0
         assert initial["equipped"] is None and initial["zarniki"] == 3000
 
         # buy: charged once, owned at D, equipped; repeating the same request does not charge twice
@@ -316,6 +317,33 @@ async def run(dsn: str) -> None:
         message, _ = await skins.buy_essence(db, pack_user, 30, idempotency_key="old-rate")
         assert message == "Получено 120 Эссенции." and await zarniki(db, pack_user) == 120
         assert await repo.essence_balance(db, pack_user) == before_e + 120
+        # New holiday collection: boundaries on the authoritative service, no charge
+        # outside the window, replay after close and owned equip remain available.
+        from datetime import datetime, timedelta, timezone
+        new_ids = ("raven_masquerade", "phantom_carriage", "gingerbread_house", "polar_express", "rose_letter", "glass_heart")
+        seasonal_user = 981011
+        await db.execute("INSERT INTO users(user_tg_id,user_tg_username,user_balance_zarniki) VALUES (?, 'holiday_test', 100000) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=100000", (seasonal_user,))
+        closed_user = 981012
+        await db.execute("INSERT INTO users(user_tg_id,user_balance_zarniki) VALUES (?,100000) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_zarniki=100000", (closed_user,))
+        for sid in new_ids:
+            win = season_of(sid, datetime(2026, 6, 1, tzinfo=timezone.utc))
+            start, end = (datetime.fromisoformat(win[k]) for k in ("starts_at", "ends_at"))
+            before = await zarniki(db, seasonal_user)
+            with mock.patch.object(skins, "_now", lambda: start - timedelta(seconds=1)):
+                await expect_conflict(skins.buy(db, seasonal_user, sid, idempotency_key=f"holiday:{sid}:early"), "откроется")
+                assert await zarniki(db, seasonal_user) == before
+            with mock.patch.object(skins, "_now", lambda: start):
+                _, state = await skins.buy(db, seasonal_user, sid, idempotency_key=f"holiday:{sid}")
+                assert next(i for i in state["items"] if i["id"] == sid)["level"] == "D"
+                assert await zarniki(db, seasonal_user) == before - BUY_PRICE_ZARNIKI[SKINS[sid]["tier"]]
+            with mock.patch.object(skins, "_now", lambda: end):
+                await expect_conflict(skins.buy(db, closed_user, sid, idempotency_key=f"closed:{sid}"), "откроется")
+                assert await zarniki(db, closed_user) == 100000
+                await skins.buy(db, seasonal_user, sid, idempotency_key=f"holiday:{sid}")
+                await skins.equip(db, seasonal_user, sid)
+                assert (await skins.own_look(db, seasonal_user))["id"] == sid
+                assert await zarniki(db, seasonal_user) == before - BUY_PRICE_ZARNIKI[SKINS[sid]["tier"]]
+        print("OK: all six holiday acquisitions: start boundary, no early charge, replay/equip after close")
         print("OK: skins v3 purchases, six integer packs, old-rate replay, conflicts and rollback; migration refunds exactly once")
     finally:
         await outer.rollback()
