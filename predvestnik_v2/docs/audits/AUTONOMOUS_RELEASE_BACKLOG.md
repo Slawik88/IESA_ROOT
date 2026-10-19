@@ -1,3 +1,16 @@
+## Owner revision 2026-10-19 — broadcast admin-chat filters (item 18)
+
+Existing master already provides all/main/admin selection in broadcasts,
+server-side recipient intersection, preview counts and admin markers in the
+chat picker. Verified the actual PostgreSQL query rather than adding a duplicate
+filter. The control now explains that admin chats are identified by their saved
+link to a main chat, and that explicit chat selection further limits recipients.
+
+New rollback-only PostgreSQL proof checks linked admins, ordinary/unlinked
+chats, bot-left exclusion, selected-chat intersections, retry targets, activity
+filters and invalid kinds. All pass against isolated preprod. No broadcast was
+created and no Telegram message was sent. admin.js syntax check passes.
+
 ## Owner revision 2026-10-19 — pet tab review (item 17)
 
 Reviewed the real 320 px hub, pet card and feeding sheet. Energy/feeding now

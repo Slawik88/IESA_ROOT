@@ -1521,8 +1521,8 @@ async function broadcastView(main) {
     const players = BC.kind === 'players';
     $('#bseg').innerHTML = `
       <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
-      ${players ? '' : `<div class="field"><label>Какие чаты</label><select id="bckind">
-        ${[['', 'Все чаты — основные и админ-чаты'], ['main', '🏠 Только основные (без админ-чатов)'], ['admin', '🛡 Только админ-чаты']].map(([v, t]) => `<option value="${v}" ${BC.chatKind === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`}
+      ${players ? '' : `<div class="field"><label for="bckind">Какие чаты</label><select id="bckind" aria-describedby="bckind-note">
+        ${[['', 'Все чаты — основные и админ-чаты'], ['main', '🏠 Только основные (без админ-чатов)'], ['admin', '🛡 Только админ-чаты']].map(([v, t]) => `<option value="${v}" ${BC.chatKind === v ? 'selected' : ''}>${t}</option>`).join('')}</select><p id="bckind-note" class="sub">Админ-чаты определяются по связке с основным чатом. Выбор чатов выше дополнительно ограничивает список.</p></div>`}
       ${players ? `<div class="field"><label>Только эти игроки (пусто — любые)</label><div id="bpplayers"></div></div>` : ''}
       <div class="grid2">
         ${numberField('bactive', players ? 'Писали хоть где-то за N дней' : 'Писали в чате за N дней', 'active', 'Любые')}
