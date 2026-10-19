@@ -66,6 +66,7 @@ function _shopBalances(b) {
 }
 
 function _shopLimit(item) {
+  if (item.limit?.period === 'none') return 'Без суточного лимита';
   const l = item.limit || {}, left = Number(l.left) || 0, max = Number(l.max) || 0;
   if (l.period === 'week') return left > 0 ? `Осталось ${left} из ${max} на этой неделе` : 'Лимит на этой неделе исчерпан';
   const reset = `до сброса ${_shopHours(l.resets_in_seconds)} ч`;
@@ -90,11 +91,11 @@ function _shopGaps(item) {
 function _shopCard(item, group) {
   const gaps = _shopGaps(item), short = Object.keys(gaps).length > 0, busy = _shop.busy === item.id;
   const amount = item.mode === 'exchange' ? _shopAmount(item) : 1;
-  const tooMuch = item.mode === 'exchange' && (amount < 1 || amount > Number(item.limit?.left || 0));
+  const tooMuch = item.mode === 'exchange' && (amount < 1 || (item.limit?.left != null && amount > Number(item.limit.left)));
   const off = !item.available || short || tooMuch || !!_shop.busy;
   const price = Object.entries(item.cost || {}).map(([k, v]) => `<span class="${gaps[k] ? 'is-miss' : ''}">${_shopNum(item.mode === 'exchange' ? v * Math.max(1, amount) : v)} ${_SHOP_ICONS[k] || k}</span>`).join('<span aria-hidden="true">+</span>');
   const sw = group ? `<div class="shop-switch" role="group" aria-label="Способ">${Object.entries(_SHOP_SWITCH[group]).map(([id, label]) => `<button type="button" aria-pressed="${id === item.id}" onclick="shopPick('${group}','${id}')">${label}</button>`).join('')}</div>` : '';
-  const amt = item.mode === 'exchange' ? `<label class="shop-amount"><input class="v3-field" type="number" inputmode="numeric" min="1" max="${Number(item.limit?.left || 0)}" step="1" value="${amount || ''}" aria-label="Сколько Зарников обменять" oninput="shopAmount('${item.id}',this.value)"><small>→ ${_shopExchangeGets(item, amount)}</small></label>` : '';
+  const amt = item.mode === 'exchange' ? `<label class="shop-amount"><input class="v3-field" type="number" inputmode="numeric" min="1" max="${Number(item.max_amount || 0)}" step="1" value="${amount || ''}" aria-label="Сколько Зарников обменять" oninput="shopAmount('${item.id}',this.value)"><small>→ ${_shopExchangeGets(item, amount)}</small></label>` : '';
   const err = _shop.errors[item.id] ? `<div class="shop-err" role="alert"><span>${esc(_shop.errors[item.id])}</span><button type="button" onclick="shopRetry('${item.id}')">Повторить</button></div>` : '';
   return `<article class="shop-card${item.available ? '' : ' is-off'}" data-item="${esc(item.id)}">
     <div class="shop-card-top"><span class="shop-ico${item.tier ? ` t${item.tier}` : ''}" aria-hidden="true">${esc(item.icon || '🛒')}</span><div><b>${esc(item.name)}</b><small>${esc(item.gives?.text || '')}</small></div>${item.tier ? `<span class="shop-tier">${item.tier}★</span>` : ''}</div>
@@ -118,7 +119,7 @@ function _shopSection(section) {
   let hint = '';
   if (section.id === 'keys') hint = (_shop.me.key_odds || []).map(o => `Ключ ${o.stars}★: ${o.stars === 6 ? 'около' : 'примерно'} ${String(o.percent).replace('.', ',')}% выпадет ${o.stars}★${o.stars === 6 ? '' : ', остальное выше'}.`).join(' ');
   if (section.id === 'essence') hint = 'Эссенция растит образы по тирам.';
-  if (section.id === 'exchange') { const x = _shop.me.exchange || {}; hint = `Лимит ${fmt(x.daily_cap || 0)}✨ в сутки, осталось ${fmt(x.left || 0)}. Обмен необратим.`; }
+  if (section.id === 'exchange') { const x = _shop.me.exchange || {}; hint = x.daily_cap == null ? 'Без суточного лимита. Обмен необратим.' : `Лимит ${fmt(x.daily_cap)}✨ в сутки, осталось ${fmt(x.left || 0)}. Обмен необратим.`; }
   return `${hint ? `<p class="shop-hint">${esc(hint)}</p>` : ''}<div class="shop-list">${cards.join('')}</div>`;
 }
 

@@ -201,22 +201,21 @@ async def run(dsn: str) -> None:
         craft = by_id(view)["key_t4_craft"]
         assert craft["cost"] == KEY_OFFERS["silver_craft"]["price"] and craft["mode"] == "craft" and craft["limit"]["left"] == 1
 
-        # Exchange through the shop: the shared 50 ✨ daily cap holds; the action id is the idempotency key.
+        # Exchange through the shop: there is no daily cap; the action id is the idempotency key.
         trader = 994_000_021
         await fund(db, trader, mora=0, diamonds=0, zarniki=200)
         first_ex = await buy(db, trader, "exchange_mora", "ex-1", amount=30)
         assert first_ex["receipt"]["zarniki_spent"] == 30 and first_ex["balances"]["mora"] == 300
         assert (await buy(db, trader, "exchange_mora", "ex-1", amount=30))["receipt"]["idempotent_replay"] is True
         await refused(buy(db, trader, "exchange_mora", "ex-1", amount=31), "action_id")
-        await refused(buy(db, trader, "exchange_dia", "ex-2", amount=21), "осталось 20")
-        assert (await buy(db, trader, "exchange_dia", "ex-2", amount=20))["balances"]["diamonds"] == 0.2
-        await refused(buy(db, trader, "exchange_mora", "ex-3", amount=1), "осталось 0")
+        assert (await buy(db, trader, "exchange_dia", "ex-2", amount=120))["balances"]["diamonds"] == 1.2
+        assert (await buy(db, trader, "exchange_mora", "ex-3", amount=50))["balances"]["mora"] == 800
         await refused(buy(db, trader, "exchange_mora", "ex-4"), "Сумма обмена")
         await refused(buy(db, trader, "ess_polish", "ex-5", amount=2), "по одному")
         ex = by_id(await shop.overview(db, user_id=trader))
-        assert ex["exchange_mora"]["limit"]["left"] == 0 and ex["exchange_dia"]["limit"]["used"] == 50
-        assert ex["exchange_mora"]["max_amount"] == 0 and ex["exchange_mora"]["available"] is False
-        assert (await balances(db, trader))[2] == 150
+        assert ex["exchange_mora"]["limit"]["left"] is None and ex["exchange_dia"]["limit"]["max"] is None
+        assert ex["exchange_mora"]["max_amount"] == 0 and ex["exchange_mora"]["available"] is True
+        assert (await balances(db, trader))[2] == 0
 
         # /me: left, missing and affordable per currency for a player who can pay for some things only.
         mid = 994_000_031
@@ -231,7 +230,7 @@ async def run(dsn: str) -> None:
         assert items["key_t4_craft"]["missing"] == {"essence": 50} and items["key_t3_mora"]["missing"] == {"mora": 100}
         assert items["key_t6_zar"]["missing"] == {"zarniki": 170}
         assert items["key_t6_dia"]["missing"] == {"diamonds": 5, "mora": 2300}
-        assert items["exchange_mora"]["max_amount"] == 50 and items["exchange_mora"]["affordable"] is True
+        assert items["exchange_mora"]["max_amount"] == 130 and items["exchange_mora"]["affordable"] is True
         assert 0 < items["key_t4_zar"]["limit"]["resets_in_seconds"] <= 86400
         assert all(item["available"] for item in items.values())
         assert "dark_mora" not in view["balances"] and "echo" not in str(view).lower()
@@ -242,7 +241,7 @@ async def run(dsn: str) -> None:
 
     await race(dsn)
     print("OK: shop — Polish shortages debit nothing and name each currency, replay = same receipt, action id bound to "
-          "one item, 2/week on the UTC ISO week, flag gate, keys = chest offer receipts, exchange 50 ✨ cap, /me states, 16×30 race")
+          "one item, 2/week on the UTC ISO week, flag gate, keys = chest offer receipts, exchange without daily cap, /me states, 16×30 race")
 
 
 async def race(dsn: str) -> None:

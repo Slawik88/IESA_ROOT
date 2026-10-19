@@ -27,10 +27,11 @@ assert "shop_v1_router.router" in main_py and '(ensure_shop_v1,' in main_py and 
 assert 'prefix="/shop-v1"' in router and "HTTPException(404" in router and "HTTPException(409" in router
 assert re.search(r"suppressBrowserBack=\[[^\]]*'shop'[^\]]*\]", shell) and "'pg-shop'" in enter_js
 
-# Entry only while /shop-v1/me answers: the profile row and the wallet button start hidden, 404 «Магазин пока закрыт» keeps them hidden.
-assert "shopEntryRow()" in home_js and "data-shop-entry" in wallet_js and "shopProbe()" in wallet_js
-assert "_shopOn === true ? '' : 'hidden" in wallet_js and "node.hidden = _shopOn !== true" in js
-assert "api('/shop-v1/me')" in js and "Магазин пока закрыт" in js and "openShop()" in wallet_js
+# Profile shop entry is flag gated; the redesigned wallet owns its direct
+# exchange-policy surface instead of the retired secondary shop button.
+assert "shopEntryRow()" in home_js and "node.hidden = _shopOn !== true" in js
+assert "api('/shop-v1/me')" in js and "Магазин пока закрыт" in js
+assert "api('/wallet/exchange-policy')" in wallet_js
 
 # Tabs and words from the brief; gifts (PR-C) live in app.45.js and join only through the _shopExtra hook.
 for word in ("'Ключи'", "'Эссенция'", "'Обменник'", "'Купить'", "'Скрафтить'", "'Обменять'"):
@@ -42,7 +43,9 @@ assert "Не хватает: " in js and "is-miss" in js and "item.missing" in j
 assert "_SHOP_SWITCH = { key_t4:" in js and "'Крафт'" in js and "'За ✨'" in js, "Silver: one tile with a method switch"
 assert "🗝" in js and "b.keys" in js, "the balance strip shows keys per tier"
 assert "key_odds" in js and "остальное выше" in js and "o.percent" in js, "odds come from data"
-assert "Лимит ${fmt(x.daily_cap || 0)}✨ в сутки, осталось ${fmt(x.left || 0)}. Обмен необратим." in js
+assert "x.daily_cap == null" in js and "Без суточного лимита. Обмен необратим." in js
+assert "if (item.limit?.period === 'none')" in js
+assert "max=\"${_walletPolicy.remaining_today}" not in wallet_js
 assert 'inputmode="numeric"' in js and "body.amount = amount" in js
 
 # Confirm before every debit: pay, get, balance before → after; irreversible lines.

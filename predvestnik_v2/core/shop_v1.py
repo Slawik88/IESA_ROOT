@@ -80,7 +80,7 @@ def _exchange_item(item_id: str, target: str) -> dict[str, object]:
         "id": item_id, "section": "exchange", "mode": "exchange", "name": name, "icon": icon, "tier": None,
         "group": None, "target": target, "cost": {"zarniki": 1}, "rate": str(rate),
         "gives": {"text": text, target: str(rate)},
-        "limit": {"period": "day", "max": DAILY_ZARNIKI_CAP, "unit": "zarniki", "shared": True},
+        "limit": {"period": "none", "max": DAILY_ZARNIKI_CAP, "unit": "zarniki", "shared": False},
     }
 
 

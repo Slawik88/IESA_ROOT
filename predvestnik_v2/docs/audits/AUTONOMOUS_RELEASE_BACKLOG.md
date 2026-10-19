@@ -1,3 +1,21 @@
+## Unlimited wallet conversion 2026-10-19
+
+Owner explicitly removed the daily Zarniki conversion cap. Core policy now
+reports null quota; wallet and shop use the same uncapped service/rates (10Mora
+or0.01diamonds per Zarniki). Essence retains its existing packs. Legacy quota
+rows are retained without new counter writes; every exchange stays in the
+immutable economy ledger. Locks, balance checks, payment-review holds and
+idempotency remain. API inputs retain only the JS exact-integer precision bound.
+Other shop purchase limits are untouched; null-aware text no longer says limit0.
+
+Proof: pure quotes above50, real PG2000→20000Mora plus1000→10diamonds same day,
+legacy exhausted quota ignored, replay no double debit, changed quote refused,
+insufficient balance and payment holds refuse without spending. Shop pure/PG
+and UI contract, wallet doubletap/replay JS pass. Edge390 uses real local GET
+policy, accepts2200 and quotes22000Mora with no input quota; no player exchange
+submitted. Static shop test updated from retired secondary-wallet entry to the
+current direct-policy wallet. Read-only critic's null-hint finding fixed.
+
 ## Dock spotlight removal 2026-10-19
 
 Removed the SS+ white radial spotlight pseudo-element from the bottom dock and

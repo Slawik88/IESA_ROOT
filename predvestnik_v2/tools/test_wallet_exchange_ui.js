@@ -14,12 +14,19 @@ async function main() {
     refreshCurrBar:async()=>read,
     api:async(url, opts)=>{writes.push({url,...opts});return {amount_received:100,zarniki_spent:10};},
     v3Confirm:async()=>{confirms++;return true;},
-    policy:{remaining_today:50,routes:[{id:'mora',name:'Мора',rate:'10'},{id:'diamonds',name:'Алмазы',rate:'.01'},{id:'essence',name:'Эссенция',rate:'2.5',packs:[{zarniki:20,amount:50}]}]},
+    policy:{daily_cap:null,remaining_today:null,routes:[{id:'mora',name:'Мора',rate:'10'},{id:'diamonds',name:'Алмазы',rate:'.01'},{id:'essence',name:'Эссенция',rate:'2.5',packs:[{zarniki:20,amount:50}]}]},
   });
   const run = code => vm.runInContext(code,ctx);
   vm.runInContext(block,ctx);
   ctx.showCurrModal = () => { opens++; };
   run('_walletPolicy=policy');
+  nodes['zar-exchange-amount'].value='1000';
+  assert.equal(run('_walletDraft().amount'),1000,'wallet accepts amount above former daily quota');
+  run('walletQuote()');
+  assert.equal(nodes['zar-exchange-submit'].disabled,false);
+  nodes['zar-exchange-amount'].value='1001';run('walletQuote()');
+  assert.equal(nodes['zar-exchange-submit'].disabled,true,'balance still bounds conversion');
+  nodes['zar-exchange-amount'].value='10';
   let finishPrompt;
   ctx.v3Confirm = () => { confirms++; return new Promise(resolve => {finishPrompt=resolve;}); };
   const cancelled = run('exchangeZarnikiV1()');

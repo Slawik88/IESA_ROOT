@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, StrictInt
 
 from FastAPI.deps import get_db, require_tg_user
-from core.zarniki_exchange_v1 import DAILY_ZARNIKI_CAP
+from core.zarniki_exchange_v1 import MAX_EXCHANGE_ZARNIKI
 from services import shop_v1
 
 
@@ -17,7 +17,7 @@ class BuyRequest(BaseModel):
     action_id: str = Field(min_length=1, max_length=96)
     catalog_version: str = Field(min_length=1, max_length=96)
     catalog_digest: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
-    amount: StrictInt | None = Field(default=None, ge=1, le=DAILY_ZARNIKI_CAP)
+    amount: StrictInt | None = Field(default=None, ge=1, le=MAX_EXCHANGE_ZARNIKI)
 
 
 @router.get("/me")

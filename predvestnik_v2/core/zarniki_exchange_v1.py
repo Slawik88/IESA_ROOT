@@ -1,4 +1,4 @@
-"""Owner-approved, deliberately rate-limited premium exchange policy.
+"""Owner-approved premium exchange policy without a daily conversion quota.
 
 This is not an invoice policy: Stars can only purchase Zarniki through the
 separate Telegram payment contract.  This module quotes already-held Zarniki
@@ -11,8 +11,9 @@ from decimal import Decimal
 from typing import Final
 
 
-POLICY_VERSION: Final = "zarniki-exchange-v1-2026-09-05"
-DAILY_ZARNIKI_CAP: Final = 50
+POLICY_VERSION: Final = "zarniki-exchange-v1-2026-10-19"
+DAILY_ZARNIKI_CAP: Final = None  # null means unlimited; retained in the public policy shape
+MAX_EXCHANGE_ZARNIKI: Final = 2**53 - 1  # exact whole input in every JS client
 EXCHANGE_ROUTES: Final = {
     "mora": Decimal("10"),
     "diamonds": Decimal("0.01"),
@@ -28,7 +29,7 @@ class ExchangeQuote:
     target: str
     zarniki_spent: int
     amount_received: Decimal
-    daily_cap: int = DAILY_ZARNIKI_CAP
+    daily_cap: int | None = DAILY_ZARNIKI_CAP
     policy_version: str = POLICY_VERSION
 
 
@@ -39,10 +40,8 @@ def quote(*, zarniki: int, target: str) -> ExchangeQuote:
     rate = EXCHANGE_ROUTES.get(normalized)
     if rate is None:
         raise ZarnikiExchangePolicyError("Доступен обмен только в Мору или Алмазы.")
-    if zarniki > DAILY_ZARNIKI_CAP:
-        raise ZarnikiExchangePolicyError(
-            f"За один UTC-день можно обменять не больше {DAILY_ZARNIKI_CAP}✨."
-        )
+    if zarniki > MAX_EXCHANGE_ZARNIKI:
+        raise ZarnikiExchangePolicyError("Сумма превышает точность целого числа в кошельке.")
     return ExchangeQuote(
         target=normalized,
         zarniki_spent=zarniki,
@@ -54,7 +53,7 @@ def simulate_stars_package(*, zarniki: int) -> dict[str, int]:
     """Show the economic guardrail without enabling a payment or exchange."""
     if isinstance(zarniki, bool) or not isinstance(zarniki, int) or zarniki < 1:
         raise ZarnikiExchangePolicyError("Количество Зарников должно быть положительным целым.")
-    days = (zarniki + DAILY_ZARNIKI_CAP - 1) // DAILY_ZARNIKI_CAP
+    days = 1
     return {
         "zarniki": zarniki,
         "minimum_utc_days": days,

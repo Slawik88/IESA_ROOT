@@ -20,7 +20,7 @@ from core.chests_v1 import (
     canonical_snapshot_fingerprint, catalog_digest as chest_catalog_digest, tier_star_odds,
 )
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
-from core.zarniki_exchange_v1 import DAILY_ZARNIKI_CAP, ZarnikiExchangePolicyError
+from core.zarniki_exchange_v1 import DAILY_ZARNIKI_CAP, MAX_EXCHANGE_ZARNIKI, ZarnikiExchangePolicyError
 from infrastructure.repositories import economy_ledger, system_flags
 from infrastructure.repositories import chests_v1 as chests_repo
 from infrastructure.repositories import shop_v1 as repo
@@ -103,8 +103,7 @@ async def overview(db, *, user_id: int) -> dict:
     keys_on = await keys_enabled(db)
     offers = {row["offer_id"]: row for row in await chests_v1._offers_public(db, user_id)} if keys_on else {}
     polish_used = await repo.purchases_in_week(db, user_id=user_id, item_id=policy.POLISH_ITEM, week=week)
-    exchange_used = await exchange_repo.usage_today(db, user_id)
-    exchange_left = max(0, DAILY_ZARNIKI_CAP - exchange_used)
+    exchange_used, exchange_left = None, None
     sections = {section: [] for section, _name in policy.SECTIONS}
     for row in policy.items():
         item = {key: value for key, value in row.items() if key not in {"offer_id", "target"}}
@@ -118,13 +117,16 @@ async def overview(db, *, user_id: int) -> dict:
             used, reason = polish_used, None
         else:
             used, reason = exchange_used, None
-        limit.update(used=used, left=max(0, int(limit["max"]) - used),
-                     resets_in_seconds=_resets_in(str(limit["period"]), day, week, now))
+        if row["section"] == "exchange":
+            limit.update(used=None, left=None, resets_in_seconds=None)
+        else:
+            limit.update(used=used, left=max(0, int(limit["max"]) - used),
+                         resets_in_seconds=_resets_in(str(limit["period"]), day, week, now))
         gaps = missing(dict(row["cost"]), have)
         item.update(limit=limit, missing=gaps, affordable=not gaps,
-                    available=reason is None and limit["left"] > 0, unavailable_reason=reason)
+                    available=reason is None and (limit["left"] is None or limit["left"] > 0), unavailable_reason=reason)
         if row["section"] == "exchange":
-            item["max_amount"] = max(0, min(exchange_left, math.floor(have["zarniki"])))
+            item["max_amount"] = max(0, math.floor(have["zarniki"]))
         sections[str(row["section"])].append(item)
     pass_on = await system_flags.is_enabled(db, "season_pass_v1")
     links = [link for link in policy.links() if not link["flag"] or (link["flag"] == "season_pass_v1" and pass_on)]
@@ -225,8 +227,8 @@ async def buy(
         raise ShopConflict(str(exc)) from exc
     kind = _KINDS[str(item["section"])]
     if kind == "exchange":
-        if isinstance(amount, bool) or not isinstance(amount, int) or not 1 <= amount <= DAILY_ZARNIKI_CAP:
-            raise ShopConflict(f"Сумма обмена — целое число Зарников от 1 до {DAILY_ZARNIKI_CAP}.")
+        if isinstance(amount, bool) or not isinstance(amount, int) or not 1 <= amount <= MAX_EXCHANGE_ZARNIKI:
+            raise ShopConflict("Сумма обмена — положительное целое число Зарников в пределах точности кошелька.")
     elif amount not in (None, 1):
         raise ShopConflict("Этот товар покупается по одному.")
     await ensure_ready(db)

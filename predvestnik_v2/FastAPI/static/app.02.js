@@ -315,7 +315,7 @@ function showCurrModal() {
     <div class="wallet-summary"><span>${_walletIcon('zarniki')} Зарники</span><strong id="cm-bal-zarniki">${fmtF(d.zarniki || 0)}</strong></div>
     <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
     <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>
-    <details class="wallet-help"><summary>Как устроен обмен</summary><p>Курсы общие для кошелька, магазина и «Образов». Мора и Алмазы делят суточный лимит. Эссенция продаётся теми же наборами, что в «Образах».</p></details>
+    <details class="wallet-help"><summary>Как устроен обмен</summary><p>Курсы общие для кошелька, магазина и «Образов». Обмен в Мору и Алмазы без суточного лимита. Эссенция продаётся теми же наборами, что в «Образах».</p></details>
   </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/wallet/exchange-policy').then(p => {
     if (mine !== _walletSeq || !el('modal')?.open || !el('wallet-exchange')) return;
@@ -329,11 +329,11 @@ function _walletRoute() { return _walletPolicy?.routes.find(r => r.id === _walle
 function _walletRenderExchange() {
   const root = el('wallet-exchange'); if (!root || !_walletPolicy) return;
   const route = _walletRoute() || _walletPolicy.routes[0]; _walletTarget = route.id;
-  const amount = route.packs ? route.packs[0].zarniki : Math.min(10, _walletPolicy.remaining_today);
+  const amount = route.packs ? route.packs[0].zarniki : 10;
   root.innerHTML = `<h3>Обменять Зарники</h3><div class="wallet-fields"><label>Получить<select id="zar-exchange-target" class="v3-field" onchange="walletPickTarget(this.value)">${_walletPolicy.routes.map(r=>`<option value="${_profileEsc(r.id)}" ${r.id===route.id?'selected':''}>${_profileEsc(r.name)}</option>`).join('')}</select></label>
-    <label>Отдать, Зарники${route.packs ? `<select id="zar-exchange-amount" class="v3-field" onchange="walletQuote()">${route.packs.map(p=>`<option value="${p.zarniki}">${fmt(p.zarniki)}</option>`).join('')}</select>` : `<input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" max="${_walletPolicy.remaining_today}" step="1" value="${amount || ''}" placeholder="Сумма" oninput="walletQuote()">`}</label></div>
+    <label>Отдать, Зарники${route.packs ? `<select id="zar-exchange-amount" class="v3-field" onchange="walletQuote()">${route.packs.map(p=>`<option value="${p.zarniki}">${fmt(p.zarniki)}</option>`).join('')}</select>` : `<input id="zar-exchange-amount" class="v3-field" type="number" inputmode="numeric" min="1" step="1" value="${amount || ''}" placeholder="Сумма" oninput="walletQuote()">`}</label></div>
     <div class="wallet-quote"><span>Получите</span><strong id="wallet-receive">—</strong></div>
-    <p class="wallet-rate">1 Зарник = ${fmtF(Number(route.rate))} ${_profileEsc(route.unit || route.name)}. ${route.shared_daily_limit ? `Осталось ${fmt(_walletPolicy.remaining_today)} из ${fmt(_walletPolicy.daily_cap)} на сегодня · UTC.` : 'Без суточного лимита · наборы как в «Образах».'}</p>
+    <p class="wallet-rate">1 Зарник = ${fmtF(Number(route.rate))} ${_profileEsc(route.unit || route.name)}. ${route.shared_daily_limit ? `Осталось ${fmt(_walletPolicy.remaining_today)} из ${fmt(_walletPolicy.daily_cap)} на сегодня · UTC.` : (route.packs ? 'Без суточного лимита · наборы как в «Образах».' : 'Без суточного лимита.')}</p>
     <button type="button" class="v3-pill v3-pill--full" id="zar-exchange-submit" onclick="exchangeZarnikiV1()">Обменять</button><p class="wallet-message" id="wallet-message" role="status"></p>`;
   walletQuote();
 }
@@ -342,7 +342,7 @@ function _walletDraft() {
   const raw = String(el('zar-exchange-amount')?.value || '').trim(), amount = Number(raw), route = _walletRoute();
   if (!route || !/^\d+$/.test(raw) || !Number.isSafeInteger(amount) || amount < 1) return null;
   const pack = route.packs?.find(p => Number(p.zarniki) === amount);
-  if (route.packs ? !pack : amount > _walletPolicy.remaining_today) return null;
+  if (route.packs ? !pack : route.shared_daily_limit && amount > _walletPolicy.remaining_today) return null;
   return { amount, target: route.id, name: route.unit || route.name, received: pack ? Number(pack.amount) : Math.round(amount * Number(route.rate) * 1e6) / 1e6 };
 }
 function walletQuote() {

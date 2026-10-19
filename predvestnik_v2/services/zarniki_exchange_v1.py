@@ -10,12 +10,12 @@ from core.skins_v3 import ESSENCE_PACKS, ESSENCE_PER_ZARNIK, purchased_essence
 async def policy(db, *, user_id: int) -> dict:
     """One read projection for wallet and shop; existing writers keep their rules."""
     await repo.ensure_tables(db)
-    used = await repo.usage_today(db, int(user_id))
+    used = None
     return {"version": POLICY_VERSION, "daily_cap": DAILY_ZARNIKI_CAP, "used_today": used,
-            "remaining_today": max(0, DAILY_ZARNIKI_CAP - used), "quota_timezone": "UTC",
+            "remaining_today": None, "quota_timezone": None,
             "routes": [
                 {"id": key, "name": {"mora": "Мора", "diamonds": "Алмазы"}[key], "unit": {"mora": "Моры", "diamonds": "Алмазов"}[key], "rate": str(rate),
-                 "min": 1, "max": DAILY_ZARNIKI_CAP, "shared_daily_limit": True}
+                 "min": 1, "max": DAILY_ZARNIKI_CAP, "shared_daily_limit": False}
                 for key, rate in EXCHANGE_ROUTES.items()
             ] + [{"id": "essence", "name": "Эссенция", "unit": "Эссенции", "rate": str(ESSENCE_PER_ZARNIK),
                   "packs": [{"zarniki": n, "amount": purchased_essence(n)} for n in ESSENCE_PACKS],
@@ -27,7 +27,7 @@ class ZarnikiExchangeConflict(ZarnikiExchangePolicyError):
 
 
 async def exchange(db, *, user_id: int, zarniki: int, target: str, action_id: str) -> dict:
-    """Atomically debit paid currency, credit one target and consume shared quota."""
+    """Atomically debit paid currency, credit one target without a daily quota."""
     action_id = str(action_id or "").strip()
     if not action_id:
         raise ZarnikiExchangePolicyError("Idempotency-Key обязателен.")
@@ -44,11 +44,6 @@ async def exchange(db, *, user_id: int, zarniki: int, target: str, action_id: st
             return _response(exchange_quote, replay, used_today=None, replayed=True)
         if await star_payments_v1.has_open_premium_hold(db, user_id):
             raise ZarnikiExchangeConflict("Обмен временно недоступен: платёж ожидает ручной проверки.")
-        used = await repo.usage_today(db, user_id)
-        if used + exchange_quote.zarniki_spent > DAILY_ZARNIKI_CAP:
-            raise ZarnikiExchangeConflict(
-                f"На сегодня осталось {max(0, DAILY_ZARNIKI_CAP - used)}✨ лимита обмена."
-            )
         mutation = await economy_ledger.apply_balance_change(
             db, user_id, currency_delta, reason_code=reason, idempotency_key=action_id,
             source_type="zarniki_exchange", reference_type="exchange_request", reference_id=action_id,
@@ -63,8 +58,8 @@ async def exchange(db, *, user_id: int, zarniki: int, target: str, action_id: st
             },
             note=f"✨ {exchange_quote.zarniki_spent} → {exchange_quote.target}",
         )
-        used_after = await repo.add_usage_today(db, user_id, exchange_quote.zarniki_spent)
-    return _response(exchange_quote, mutation, used_today=used_after, replayed=False)
+        # Historical quota rows are retained; the ledger records every new exchange.
+    return _response(exchange_quote, mutation, used_today=None, replayed=False)
 
 
 def _response(exchange_quote, mutation, *, used_today: int | None, replayed: bool) -> dict:

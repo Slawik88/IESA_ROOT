@@ -47,7 +47,7 @@ def run() -> None:
     for item_id, target in shop.EXCHANGE_ITEMS.items():
         row = items[item_id]
         assert row["rate"] == str(EXCHANGE_ROUTES[target]) and row["limit"]["max"] == DAILY_ZARNIKI_CAP
-        assert row["cost"] == {"zarniki": 1} and row["limit"]["shared"] is True
+        assert row["cost"] == {"zarniki": 1} and row["limit"]["shared"] is False
     assert items["exchange_mora"]["gives"]["text"] == "10 Моры за 1✨"
     assert items["exchange_dia"]["gives"]["text"] == "0,01 💎 за 1✨ (1 💎 за 100✨)"
 

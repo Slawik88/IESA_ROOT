@@ -5,7 +5,7 @@ from FastAPI.deps import get_db, require_tg_user
 from infrastructure.repositories.wallet_log import get_recent
 from infrastructure.repositories import zarniki_exchange_v1 as exchange_repo
 from services import zarniki_exchange_v1
-from core.zarniki_exchange_v1 import ZarnikiExchangePolicyError
+from core.zarniki_exchange_v1 import MAX_EXCHANGE_ZARNIKI, ZarnikiExchangePolicyError
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 
 router = APIRouter(prefix="/wallet", tags=["wallet"])
@@ -107,7 +107,7 @@ async def wallet_history(
 
 
 class ExchangeZarnikiRequest(BaseModel):
-    amount: StrictInt = Field(ge=1, le=50)
+    amount: StrictInt = Field(ge=1, le=MAX_EXCHANGE_ZARNIKI)
     to: str = Field(pattern="^(mora|diamonds)$")
 
 
@@ -123,7 +123,7 @@ async def exchange_zarniki_endpoint(
     user=Depends(require_tg_user),
     request_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
-    """Exchange already-held whole Zarniki under the versioned daily policy."""
+    """Exchange already-held whole Zarniki under the versioned exchange policy."""
     if request_key is None or not request_key.strip() or len(request_key.strip()) > 120:
         raise HTTPException(400, "Idempotency-Key должен содержать 1–120 символов.")
     try:
