@@ -1,3 +1,21 @@
+## Owner revision 2026-10-19 — chat rank authority (item 12)
+
+The chat card now lets global developers/creator edit all 20 local rank
+thresholds, including moderation, rank assignment, closed-chat access and
+settings. Standard values can be selected before saving. Each save requires a
+reason and records before/after values atomically. Stale forms return a conflict;
+Telegram and web writes serialize through the same chat lock. No permission
+cache delays enforcement. The developer bypass and local rank hierarchy remain.
+Fixed a misleading summary that read retired rank columns instead of the bot's
+actual permission table. Existing close/open, warning limits and moderation
+controls remain available in the same chat card.
+
+Validation: rollback-only PG verifies actual bot authorization, isolation,
+staff/owner guards, invalid inputs, stale saves and audit rollback; mobile
+320/430 renderer verifies all controls, save payload and no overflow. Existing
+admin UI safety/page contracts pass. Read-only review reproduced an asyncpg
+parameter-cast bug before release; fixed and covered by the PG proof.
+
 ## Owner revision 2026-10-19 — useful bot cards (item 20)
 
 Extended the existing standard activity image to `бот стрик`, `бот серия` and

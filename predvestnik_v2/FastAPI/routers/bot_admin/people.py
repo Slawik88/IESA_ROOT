@@ -26,6 +26,7 @@ from services import admin_access, admin_people, admin_security, feature_switche
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
+from services import chat_rank_admin
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("people")
@@ -324,7 +325,23 @@ async def chat_card(cid: int, user=Depends(_user), db=Depends(get_db)):
         item["title"] = titles.get(item["key"], item["key"])
     card["actions"] = {"chat": _allowed(user, "chat"), "member": _allowed(user, "member")}
     card["history"] = await admin_people.history(db, chat_id=cid)
+    card["rank_rights"] = await chat_rank_admin.snapshot(db, cid)
+    card["can_edit_rights"] = user.get("kind", "staff") == "staff" and user["rank"] >= 5
     return card
+
+
+@router.post("/chat/{cid}/rights")
+async def chat_rights(cid: int, data: dict = Body(...), user=Depends(_user), db=Depends(get_db)):
+    admin_access.require_chat(user, cid)
+    try:
+        return await chat_rank_admin.update(db, user, cid, changes=data.get("changes"),
+            expected=data.get("expected"), reason=data.get("reason"))
+    except chat_rank_admin.Denied as exc:
+        raise HTTPException(403, str(exc))
+    except chat_rank_admin.StaleRights as exc:
+        raise HTTPException(409, str(exc))
+    except chat_rank_admin.RightsError as exc:
+        raise HTTPException(400, str(exc))
 
 
 @router.get("/chat/{cid}/sanctions")

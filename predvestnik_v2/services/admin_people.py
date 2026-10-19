@@ -33,7 +33,7 @@ STATEMENTS = (
 
 # Подписи действий в журнале: и из админки, и из чата (moderation_logs).
 ACTION_TITLES = {
-    "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
+    "chat_rights": "Права рангов чата", "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
     "global_ban": "Бан во всех чатах", "global_unban": "Снят бан во всех чатах",
     "close": "Чат закрыт", "open": "Чат открыт", "warn_limit": "Лимит варнов", "message": "Сообщение от бота",
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
@@ -542,8 +542,9 @@ async def chat_settings_summary(db, cid: int) -> dict:
     if not row:
         return {}
     v = dict(zip(cols, row))
+    rights = await ranks.rights_map(db, cid)
     return {
-        "ranks": [{"key": c, "title": t, "rank": int(v[c]), "name": ranks.rank_name(int(v[c]))} for c, t in _RANK_COLUMNS],
+        "ranks": [{"key": c, "title": t, "rank": rights[c.removeprefix("rank_")], "name": ranks.rank_name(rights[c.removeprefix("rank_")])} for c, t in _RANK_COLUMNS],
         "purge": {"on": bool(v["is_purging"]), "min_rank": ranks.rank_name(int(v["purge_min_rank"])),
                   "action_rank": ranks.rank_name(int(v["purge_action_rank"]))},
         "shield_days": int(v["shield_duration_days"]),

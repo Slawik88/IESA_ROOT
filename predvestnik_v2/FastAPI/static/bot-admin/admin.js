@@ -863,7 +863,7 @@ async function playerView(main, id, push = true, from = null) {
 function chatSettingsCard(st) {
   if (!st || !st.ranks) return '';
   const flag = (title, on) => `<span class="chip ${on ? 'ok' : 'off'}">${on ? '✓' : '✕'} ${esc(title)}</span>`;
-  return `<div class="card"><h3>⚙️ Настройки чата</h3>
+  return `<div class="card" id="chatsettings"><h3>⚙️ Настройки чата</h3>
     <h3 class="sec">Кто что может (с какого ранга в чате)</h3>
     ${st.ranks.map(r => `<div class="sw-row"><div class="t">${esc(r.title)}</div><span class="sub">${esc(r.name)}</span></div>`).join('')}
     <h3 class="sec">Чистка</h3>
@@ -871,6 +871,53 @@ function chatSettingsCard(st) {
     ${st.shield_days ? `<div class="sub">Защита от чистки длится ${st.shield_days} дн.</div>` : ''}
     <h3 class="sec">Модули чата</h3><div class="chips">${st.modules.map(m => flag(m.icon + ' ' + m.name, m.on)).join('')}</div>
     <h3 class="sec">Прочее</h3><div class="chips">${st.flags.map(f => flag(f.title, f.on)).join('')}</div></div>`;
+}
+
+function chatRightsCard(c) {
+  const r = c.rank_rights;
+  if (!r || !c.can_edit_rights) return '';
+  return `<div class="card" id="chatrights"><h3>Права рангов</h3>
+    <p class="sub">Минимальный ранг для каждого действия. Старшие ранги тоже получают это право. Разработчик сохраняет доступ.</p>
+    <details><summary class="btn">Настроить ${r.actions.length} прав</summary>
+    ${r.actions.map(a => `<div class="field"><label for="cr-${a.key}">${esc(a.title)}</label><select id="cr-${a.key}" data-right="${a.key}">
+      ${r.ranks.map(x => `<option value="${x.rank}" ${x.rank===r.values[a.key]?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`).join('')}
+    <button class="btn small" id="crdefaults">Выбрать стандартные права</button>
+    <div class="field"><label for="crreason">Причина изменения</label><input id="crreason" minlength="3" maxlength="200" placeholder="Что и зачем меняем"/></div>
+    <button class="btn primary" id="crsave">Сохранить права чата</button>
+    <p class="sub" id="crresult" role="status"></p></details></div>`;
+}
+function wireChatRights(c, id) {
+  if (!$('#crsave')) return;
+  $('#crdefaults').onclick = () => c.rank_rights.actions.forEach(a => { $(`#cr-${a.key}`).value=a.default; });
+  $('#crsave').onclick = async e => {
+    const button=e.currentTarget;
+    if (button.disabled) return;
+    const changes={}, expected={};
+    document.querySelectorAll('[data-right]').forEach(x => {
+      const k=x.dataset.right, value=+x.value;
+      if(value!==c.rank_rights.values[k]) {changes[k]=value;expected[k]=c.rank_rights.values[k];}
+    });
+    if (!Object.keys(changes).length) return toast('Нет изменений');
+    const reason=$('#crreason').value.trim();
+    if(reason.length<3) return toast('Укажите причину изменения', true);
+    button.disabled=true;
+    try {
+      const result=await api(`/chat/${id}/rights`, {method:'POST',body:JSON.stringify({changes,expected,reason})});
+      Object.assign(c.rank_rights.values,changes);
+      if(c.settings && c.settings.ranks) {
+        c.settings.ranks.forEach(r => {
+          const key=r.key.replace(/^rank_/, '');
+          r.rank=c.rank_rights.values[key];
+          r.name=c.rank_rights.ranks.find(x=>x.rank===r.rank).name;
+        });
+        const settings=$('#chatsettings');
+        if(settings) settings.outerHTML=chatSettingsCard(c.settings);
+      }
+      $('#crresult').textContent=result.message;
+      toast(result.message);
+    } catch(err) { $('#crresult').textContent=err.message;toast(err.message,true); }
+    finally {button.disabled=false;}
+  };
 }
 
 // Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
@@ -950,11 +997,13 @@ async function chatView(main, id, push = true, from = null) {
       ${c.switched_off.length ? `<div class="sub" style="margin-top:8px">Выключено: ${c.switched_off.map(x =>
         esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
     </div>
+    ${chatRightsCard(c)}
     ${chatSettingsCard(c.settings)}
     <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username, tag: x.tag})}</div>
       <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
     ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
     ${historyCard(c.history)}`;
+  wireChatRights(c, id);
   wireBack(main);
   const here = {type: 'chat', id};
   main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
