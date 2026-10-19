@@ -391,6 +391,11 @@ async def run(dsn: str) -> None:
         again = await service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_basic", action_id="f2")
         assert again["xp_credited"] == 0 and again["remaining"] == 1, "Следы за кормление — раз в сутки"
         await rejects(service.feed_pet(db, user_id=user, pet_id=cat, food_id="food_feast", action_id="f3"))
+        async with db.execute("SELECT completed_events FROM achievement_v1_progress WHERE user_id=? AND family='care'", (user,)) as c:
+            assert (await c.fetchone())[0] == 1, 'repeat feed and replay count one care day'
+        async with db.execute("SELECT completed_events FROM achievement_v1_progress WHERE user_id=? AND family='builder'", (user,)) as c:
+            assert (await c.fetchone())[0] == 2, 'two paid camp levels, no replay/failed upgrade'
+
         view = await service.overview(db, user)
         fed_view = next(p for p in view["pets"] if p["id"] == cat)
         assert fed_view["fed_favorite"] and fed_view["fed_today"], "кормление дня видно в обзоре"

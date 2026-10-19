@@ -33,8 +33,8 @@ async def run(dsn: str) -> None:
         user_id = 976401
         before = await achievements.overview(db, user_id=user_id)
         assert all(family["level"] == 0 for family in before["families"])
-        assert before["summary"] == {"families": 5, "total_levels": 0, "claimed_mora": 0}
-        assert all(len(family["milestones"]) == 6 for family in before["families"])
+        assert before["summary"] == {"families": 9, "max_levels":228, "total_levels": 0, "claimed_mora": 0}
+        assert all(len(family["milestones"]) == 6 for family in before["families"] if family["category"] != "progression")
 
         first = await achievements.record_terminal(
             db, user_id=user_id, metric="rhythm_completed", source_event_id="run-a",
@@ -83,7 +83,7 @@ async def run(dsn: str) -> None:
         assert rhythm["level"] == 1 and rhythm["claimed_levels"] == [1]
         assert rhythm["milestones"][0]["status"] == "claimed"
         assert rhythm["milestones"][-1]["events_required"] == 2400
-        assert after["summary"] == {"families": 5, "total_levels": 1, "claimed_mora": 5}
+        assert after["summary"] == {"families": 9, "max_levels":228, "total_levels": 1, "claimed_mora": 5}
 
         # The read model must report the immutable receipt amount, not recalculate
         # history through whatever reward policy happens to be current later.

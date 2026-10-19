@@ -190,6 +190,9 @@ async def run(dsn: str) -> None:
         assert state["collection"]["maxed"] == 1 and state["collection"]["maxed_badge"] == "Огранщик"
         await expect_conflict(skins.upgrade(db, climber, "forest", idempotency_key="c-up-6"), "максимальном")
         assert (await repo.essence_balance(db, climber)) == 0, "the chain was paid in full and nothing more"
+        async with db.execute("SELECT completed_events,level FROM achievement_v1_progress WHERE user_id=? AND family='stylist'", (climber,)) as c:
+            assert tuple(await c.fetchone()) == (6,3), 'six actual tiers, failed SSS and replay do not count'
+
 
         # ── personal skins: never sold, invisible in the shop, given and taken back by hand, one holder each ──────────────────────────
         pal_owner, other, stranger = 981050, 981051, 981052

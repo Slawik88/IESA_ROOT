@@ -865,13 +865,17 @@
   let _achievementsV1Data = null;
   let _achievementsV1Filter = 'all';
   let _chatAchievementsData = null;
-  const ACHIEVEMENT_FILTERS = Object.freeze([['all', 'Все'], ['games', 'Игры'], ['collection', 'Приключения'], ['chat', 'Чат']]);
+  const ACHIEVEMENT_FILTERS = Object.freeze([['all', 'Все'], ['games', 'Игры'], ['collection', 'Приключения'], ['progression', 'Развитие'], ['chat', 'Чат']]);
   const ACHIEVEMENT_ACTIONS = Object.freeze({
     rhythm: 'openRhythmV2Game()',
     minesweeper: 'openMinesweeperGame()',
     mafia: 'openMafiaStats()',
     chests: 'openChestsV1()',
     pets: 'openPetsV1()',
+    care: 'openPetsV1()',
+    builder: 'openPetsV1()',
+    stylist: 'openLooksModal()',
+    quester: 'openQuestsV1()',
   });
 
   function achievementPct(value, target) {
@@ -894,7 +898,7 @@
     const final = (family.milestones || []).find((m) => Number(m.level) === Number(family.max_level));
     return {
       events: Number(family.next?.events_required) || Number(final?.events_required) || 1,
-      weeks: Number(family.next?.weeks_required) || Number(_achievementsV1Data?.max_active_weeks) || 156,
+      weeks: Number(family.next?.weeks_required ?? final?.weeks_required ?? family.week_gate ?? _achievementsV1Data?.max_active_weeks ?? 156),
     };
   }
 
@@ -903,7 +907,7 @@
     const t = achievementTargets(family);
     const events = Number(family.completed_events || 0), weeks = Number(family.active_weeks || 0);
     const leftE = Math.max(0, t.events - events), leftW = Math.max(0, t.weeks - weeks);
-    const left = [leftE ? `${fmt(leftE)} ${achievementWord(leftE, 'завершение', 'завершения', 'завершений')}` : '',
+    const left = [leftE ? `${fmt(leftE)} ${achievementWord(leftE, ...(family.measure || ['завершение', 'завершения', 'завершений']))}` : '',
       leftW ? `${fmt(leftW)} ${achievementWord(leftW, 'неделя', 'недели', 'недель')}` : ''].filter(Boolean);
     // Номер следующего уровня читается из «0/40» справа, награда за него — под ним: подсказке остаётся только «что сделать»
     const hint = family.next ? (left.length ? `Ещё ${left.join(' и ')}` : 'Условия выполнены') : 'Путь пройден';
@@ -941,7 +945,8 @@
     const chat = _chatAchievementsData?.achievements || [];
     const groups = [
       ['games', 'Игры', families.filter((f) => f.category === 'games').map(achievementPathItem)],
-      ['collection', 'Приключения', families.filter((f) => f.category !== 'games').map(achievementPathItem)],
+      ['collection', 'Приключения', families.filter((f) => f.category === 'collection').map(achievementPathItem)],
+      ['progression', 'Развитие', families.filter((f) => f.category === 'progression').map(achievementPathItem)],
       ['chat', 'Чат', chat.map(achievementChatItem)],
     ].filter(([id]) => _achievementsV1Filter === 'all' || _achievementsV1Filter === id);
     _achievementsShown = [];
@@ -967,7 +972,7 @@
     const summary = _achievementsV1Data.summary || {};
     const chatSummary = _chatAchievementsData?.summary || {};
     const total = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
-    const max = (summary.families || 5) * 40 + Number(chatSummary.max_levels || 0);
+    const max = Number(summary.max_levels ?? (_achievementsV1Data.families || []).reduce((n,f)=>n+Number(f.max_level || 40),0)) + Number(chatSummary.max_levels || 0);
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
     root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub, end: v3GuideBtn('ach') })}${achievementTabs()}
       <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
@@ -981,7 +986,7 @@
   function achievementMilestones(family) {
     return (family.milestones || []).map((m) => {
       const mark = m.status === 'claimed' ? '✓' : (m.status === 'reached' ? '•' : '');
-      return `<li class="is-${esc(m.status)}"><b>${m.level} ур.</b><small>${fmt(m.events_required)} ${achievementWord(m.events_required, 'завершение', 'завершения', 'завершений')} · ${m.weeks_required} нед.</small><span>+${fmt(m.reward_mora)} 🪙 ${mark}</span></li>`;
+      return `<li class="is-${esc(m.status)}"><b>${m.level} ур.</b><small>${fmt(m.events_required)} ${achievementWord(m.events_required, ...(family.measure || ['завершение', 'завершения', 'завершений']))}${m.weeks_required ? ` · ${m.weeks_required} нед.` : ''}</small><span>+${fmt(m.reward_mora)} 🪙 ${mark}</span></li>`;
     }).join('');
   }
 
@@ -1000,8 +1005,8 @@
     const f = item.family, t = achievementTargets(f);
     const action = ACHIEVEMENT_ACTIONS[f.id] || "goTo('activities')";
     OM(title, `<div class="ach-sheet"><p>${esc(f.help)}</p>
-      ${achievementMeter('Завершения', Number(f.completed_events || 0), t.events)}
-      ${achievementMeter('Активные недели', Number(f.active_weeks || 0), t.weeks)}
+      ${achievementMeter(f.category === 'progression' ? 'Подтверждено' : 'Завершения', Number(f.completed_events || 0), t.events)}
+      ${t.weeks ? achievementMeter('Активные недели', Number(f.active_weeks || 0), t.weeks) : ''}
       <div class="v3-sec"><span class="v3-eyebrow">Вехи · Мора за сам уровень</span></div>
       <ul class="ach-steps">${achievementMilestones(f)}</ul></div>`,
       [{ l: esc(f.action_label || 'К активности'), f: `CM();${action}`, c: 'primary' }]);
@@ -1035,7 +1040,7 @@
     const mine = ++_achievementsSeq;
     try {
       const [paths, chat] = await Promise.all([
-        api('/achievements-v1/me'),
+        api('/achievements-v1/reconcile', {method:'POST'}),
         api('/achievements-v1/chat').catch(() => null),
       ]);
       if (mine !== _achievementsSeq) return;

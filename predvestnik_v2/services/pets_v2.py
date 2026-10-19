@@ -697,6 +697,9 @@ async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> di
     if building not in rules.CAMP_BUILDINGS:
         raise PetV2PolicyError("Неизвестная постройка.")
     request = {"type": "camp_upgrade", "building": building}
+    from infrastructure.repositories import achievements_v1 as achievement_repo
+    from services import achievements_v1 as achievement_service
+    await achievement_repo.ensure_tables(db)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         replay = await repo.cached_action(db, user_id, action_id)
@@ -727,6 +730,7 @@ async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> di
         await repo.start_camp_job(db, user_id, building, levels[building] + 1, cost["hours"])
         response = {"ok": True, "building": building, "to_level": levels[building] + 1, "cost": cost, "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
+        await achievement_service.record_life_event(db, user_id=user_id, family='builder', fact=f'{building}:{levels[building] + 1}')
     return response
 
 
@@ -931,6 +935,9 @@ async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: st
     if food_id not in FOODS:
         raise PetV2PolicyError("Неизвестная еда.")
     request = {"type": "feed", "pet_id": int(pet_id), "food_id": food_id}
+    from infrastructure.repositories import achievements_v1 as achievement_repo
+    from services import achievements_v1 as achievement_service
+    await achievement_repo.ensure_tables(db)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         replay = await repo.cached_action(db, user_id, action_id)
@@ -966,4 +973,5 @@ async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: st
         response = {"ok": True, "pet_id": int(pet_id), "food_id": food_id, "energy": round(energy, 1), "remaining": remaining,
                     "favorite": favorite, "xp_credited": round(credited, 2), "idempotent_replay": False}
         await repo.save_action(db, user_id, action_id, request, response)
+        await achievement_service.record_life_event(db, user_id=user_id, family='care', fact=day.isoformat())
     return response

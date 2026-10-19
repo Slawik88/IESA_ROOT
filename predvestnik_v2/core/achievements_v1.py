@@ -5,7 +5,7 @@ from math import ceil
 from typing import Final
 
 
-POLICY_VERSION: Final = "achievements-v1-2026-09-13-2"
+POLICY_VERSION: Final = "achievements-v1-2026-10-19-life"
 MAX_LEVEL: Final = 40
 MAX_ACTIVE_WEEKS: Final = 156
 
@@ -24,6 +24,35 @@ FAMILIES: Final = {
              "source_kind": "pet_v1_terminal", "help": "Завершай походы и экспедиции с питомцами.", "action_label": "К питомцам"},
 }
 
+# Finite achievements use concrete milestones, without the legacy weekly gate.
+FAMILIES.update({
+    'care': {'title':'Заботливый', 'icon':'♡', 'category':'progression', 'metric':'pet_care_day', 'source_kind':'pet_feed_day',
+             'thresholds':(1,3,7,14,30,60,120,365), 'measure':('день заботы','дня заботы','дней заботы'),
+             'help':'Корми питомцев в разные дни. Несколько питомцев за день считаются одним днём заботы.', 'action_label':'К питомцам'},
+    'builder': {'title':'Мастер лагеря', 'icon':'⌂', 'category':'progression', 'metric':'camp_upgrade_started', 'source_kind':'pet_camp_paid_upgrade',
+                'thresholds':(1,3,6,10,15), 'measure':('улучшение','улучшения','улучшений'),
+                'help':'Начинай улучшения построек лагеря. Засчитывается подтверждённая оплата каждого уровня, включая прошлые улучшения.', 'action_label':'К питомцам'},
+    'stylist': {'title':'Мастер образов', 'icon':'✧', 'category':'progression', 'metric':'skin_tier_upgraded', 'source_kind':'skin_v3_paid_upgrade',
+                'thresholds':(1,3,6,12,24,48,96), 'measure':('тир образа','тира образов','тиров образов'),
+                'help':'Повышай тиры разных образов. Каждая пара образ + новый тир учитывается один раз; подтверждённые прошлые улучшения тоже засчитываются.', 'action_label':'К образам'},
+    'quester': {'title':'Дело дня', 'icon':'✓', 'category':'progression', 'metric':'daily_quest_bundle_claimed', 'source_kind':'quest_v1_daily_reward',
+                'thresholds':(1,3,7,14,30,60,120,365), 'measure':('дневной комплект','дневных комплекта','дневных комплектов'),
+                'help':'Забирай награду за выполненные дневные квесты. Одна награда за день; недельная и общая награды не дублируют прогресс.', 'action_label':'К заданиям'},
+})
+
+
+def max_level(family: str) -> int:
+    return len(FAMILIES[family]['thresholds']) if 'thresholds' in FAMILIES[family] else MAX_LEVEL
+
+
+def required_weeks(family: str, level: int) -> int:
+    return 0 if 'thresholds' in FAMILIES[family] else week_threshold(level)
+
+
+def milestones(family: str) -> tuple[int, ...]:
+    return tuple(range(1, max_level(family)+1)) if 'thresholds' in FAMILIES[family] else MILESTONE_LEVELS
+
+
 MILESTONE_LEVELS: Final = (1, 5, 10, 20, 30, 40)
 
 
@@ -40,8 +69,10 @@ def family_for_metric(metric: str) -> str:
 
 def event_threshold(family: str, level: int) -> int:
     definition = FAMILIES.get(family)
-    if not definition or not 1 <= int(level) <= MAX_LEVEL:
+    if not definition or not 1 <= int(level) <= max_level(family):
         raise AchievementPolicyError("Unknown achievement level.")
+    if "thresholds" in definition:
+        return definition["thresholds"][int(level)-1]
     return max(int(level), ceil(int(definition["cap_events"]) * (int(level) / MAX_LEVEL) ** 2.25))
 
 
@@ -54,8 +85,8 @@ def week_threshold(level: int) -> int:
 def unlocked_level(family: str, *, completed_events: int, active_weeks: int) -> int:
     if family not in FAMILIES or completed_events < 0 or active_weeks < 0:
         raise AchievementPolicyError("Invalid achievement progress.")
-    return max((level for level in range(1, MAX_LEVEL + 1)
-                if completed_events >= event_threshold(family, level) and active_weeks >= week_threshold(level)), default=0)
+    return max((level for level in range(1, max_level(family) + 1)
+                if completed_events >= event_threshold(family, level) and active_weeks >= required_weeks(family, level)), default=0)
 
 
 def reward_mora(level: int) -> int:
@@ -79,10 +110,11 @@ def lifetime_mora() -> int:
 
 
 def validate() -> None:
-    if len(FAMILIES) != 5 or lifetime_mora() != 515:
+    if len(FAMILIES) != 9 or lifetime_mora() != 515:
         raise AchievementPolicyError("Achievement reward policy changed unexpectedly.")
     for family, definition in FAMILIES.items():
-        if definition.get("category") not in {"games", "collection"} or not definition.get("icon"):
+        if definition.get("category") not in {"games", "collection", "progression"} or not definition.get("icon"):
             raise AchievementPolicyError("Achievement family presentation metadata is incomplete.")
-        if unlocked_level(family, completed_events=int(definition["cap_events"]), active_weeks=MAX_ACTIVE_WEEKS) != MAX_LEVEL:
+        cap = definition.get("cap_events", definition.get("thresholds", (0,))[-1])
+        if unlocked_level(family, completed_events=int(cap), active_weeks=MAX_ACTIVE_WEEKS) != max_level(family):
             raise AchievementPolicyError("Level 40 must remain reachable at its stated cap.")

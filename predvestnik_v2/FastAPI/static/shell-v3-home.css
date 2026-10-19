@@ -78,7 +78,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-qring b { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--v3-acc); }
 
 /* ── Путь: пять аспектов в одну строку ── */
-.v3-path-row { display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; }
+.v3-path-row { display: grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap: 4px; margin-top: 4px; }
 .v3-aspect { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--v3-dim); font: 500 10.5px/1.2 var(--v3-font); cursor: pointer; transition: transform .15s; }
 .v3-aspect > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v3-aspect-ring { position: relative; width: 44px; height: 44px; }

@@ -1,3 +1,13 @@
+## Owner revision 2026-10-19 — achievement revision (item 13)
+
+Added four finite non-game series: care, camp development, skin tiers and daily
+quest bundles. Preserved the original five paths and all historical awards.
+Verified history restores past camp/skin accomplishments, including maxed users;
+canonical receipts prevent repeat awards. New lifetime budget: 140 Mora total.
+The screen has a Development filter, correct per-family limits and no artificial
+weekly requirement for the new series. Full findings and validation are in
+`docs/audits/ACHIEVEMENTS_REVISION_2026-10-19.md`.
+
 ## Owner revision 2026-10-19 — exchange artwork and chart (item 9)
 
 Each of the six system coins now has its own original SVG emblem: orbit,

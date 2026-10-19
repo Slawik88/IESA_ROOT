@@ -33,7 +33,7 @@ async def _schema_ready(db) -> bool:
         SELECT NOT EXISTS (
             SELECT 1
             FROM unnest(ARRAY[
-                'achievement_v1_metric_receipts', 'achievement_v1_active_weeks', 'achievement_v1_reward_receipts'
+                'achievement_v1_metric_receipts', 'achievement_v1_active_weeks', 'achievement_v1_reward_receipts', 'achievement_v1_history_imports'
             ]) AS name
             WHERE to_regclass(name) IS NULL OR NOT EXISTS (
                 SELECT 1 FROM pg_trigger
@@ -79,6 +79,12 @@ async def _ensure_tables_unlocked(db) -> None:
         )
     """)
     await db.execute("""
+        CREATE TABLE IF NOT EXISTS achievement_v1_history_imports (
+            user_id BIGINT NOT NULL, version TEXT NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY(user_id,version)
+        )
+    """)
+    await db.execute("""
         CREATE OR REPLACE FUNCTION reject_achievement_v1_receipt_rewrite()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'achievement v1 receipts are append-only'; END;
@@ -88,7 +94,8 @@ async def _ensure_tables_unlocked(db) -> None:
     # (production, 2026-10-18): guard on the catalog and swallow a create/create race.
     for table, trigger in (("achievement_v1_metric_receipts", "achievement_v1_metric_receipts_append_only"),
                            ("achievement_v1_active_weeks", "achievement_v1_active_weeks_append_only"),
-                           ("achievement_v1_reward_receipts", "achievement_v1_reward_receipts_append_only")):
+                           ("achievement_v1_reward_receipts", "achievement_v1_reward_receipts_append_only"),
+                           ("achievement_v1_history_imports", "achievement_v1_history_imports_append_only")):
         await db.execute(f"""
             DO $$ BEGIN
                 IF NOT EXISTS (
@@ -176,3 +183,37 @@ async def list_rewards(db, user_id: int) -> dict[tuple[str, int], dict[str, Any]
     ) as cursor:
         return {(str(row[0]), int(row[1])): {"amount_mora": int(row[2]), "policy_version": str(row[3])}
                 for row in await cursor.fetchall()}
+
+
+async def history_imported(db, user_id: int, version: str) -> bool:
+    async with db.execute('SELECT 1 FROM achievement_v1_history_imports WHERE user_id=? AND version=?', (user_id,version)) as c:
+        return bool(await c.fetchone())
+
+
+async def known_life_facts(db, user_id: int) -> set[tuple[str,str]]:
+    async with db.execute("SELECT family,source_event_id FROM achievement_v1_metric_receipts WHERE user_id=? AND family IN ('care','builder','stylist','quester')", (user_id,)) as c:
+        return {(row['family'],row['source_event_id']) for row in await c.fetchall()}
+
+
+async def mark_history_import(db, user_id: int, version: str) -> None:
+    await db.execute('INSERT INTO achievement_v1_history_imports(user_id,version) VALUES (?,?) ON CONFLICT DO NOTHING', (user_id,version))
+
+
+async def life_history_sources(db, user_id: int) -> dict:
+    """Owned durable source rows; absent optional modules have no history."""
+    async def exists(table):
+        async with db.execute('SELECT to_regclass(?)', (table,)) as c:
+            return (await c.fetchone())[0] is not None
+    async with db.execute("SELECT (CLOCK_TIMESTAMP() AT TIME ZONE 'UTC')::date") as c:
+        today = (await c.fetchone())[0]
+    result = {'today':today, 'upgrades':[], 'feeds':[], 'quests':[]}
+    if await exists('skins_v3_essence_ledger'):
+        async with db.execute("SELECT DISTINCT reason,reference FROM skins_v3_essence_ledger WHERE user_id=? AND created_at<=CLOCK_TIMESTAMP() AND delta<0 AND reason IN ('skin_upgrade','pet_v2_camp')", (user_id,)) as c:
+            result['upgrades'] = await c.fetchall()
+    if await exists('pet_v2_actions'):
+        async with db.execute('SELECT request_json,response_json,created_at FROM pet_v2_actions WHERE user_id=? AND created_at<=CLOCK_TIMESTAMP() AND request_json LIKE ?', (user_id,'%"feed"%')) as c:
+            result['feeds'] = await c.fetchall()
+    if await exists('quest_v1_reward_receipts'):
+        async with db.execute("SELECT reward_id FROM quest_v1_reward_receipts WHERE user_id=? AND granted_at<=CLOCK_TIMESTAMP() AND reward_kind='daily' AND amount_mora>0", (user_id,)) as c:
+            result['quests'] = await c.fetchall()
+    return result

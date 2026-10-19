@@ -238,8 +238,12 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
     skin = SKINS.get(str(skin_id or ""))
     if not skin:
         raise SkinConflict("Такого скина нет.")
+    from infrastructure.repositories import achievements_v1 as achievement_repo
+    from services import achievements_v1 as achievement_service
+    await achievement_repo.ensure_tables(db)
     await repo.ensure_tables(db)
     async with db.connection.transaction():
+        await achievement_repo.lock_user(db, user_id)
         await _lock_user(db, user_id)
         key = f"skin-v3:upgrade:{idempotency_key}"
         async with db.execute("SELECT 1 FROM skins_v3_essence_ledger WHERE user_id=? AND idempotency_key=?", (int(user_id), key)) as c:
@@ -262,6 +266,7 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
         if applied:
             before = _maxed_count(await repo.owned(db, user_id))
             await repo.set_tier(db, user_id, skin_id, target)
+            await achievement_service.record_life_event(db, user_id=user_id, family='stylist', fact=f'{skin_id}:{target}')
             owned_now = await repo.owned(db, user_id)
             events.append({"kind": "tier", "skin_id": skin_id, "name": skin["name"], "tier": target, "maxed": target == CEILING, "sig": bool(skin["sig"]) and target == signature_tier(skin["tier"])})
             after = _maxed_count(owned_now)

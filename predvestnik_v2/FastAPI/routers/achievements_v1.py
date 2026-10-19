@@ -21,3 +21,11 @@ async def my_chat_achievements(db=Depends(get_db), user=Depends(require_tg_user)
     """Chat-bot achievements (messages, warps, family, games) — read-only, no level writes or payouts."""
     await chat_achievements.ensure_schema(db)
     return await chat_achievements.overview(db, int(user["id"]))
+
+
+@router.post('/reconcile')
+async def reconcile_my_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Project only the authenticated player's verified history, never client counters."""
+    await ensure_tables(db)
+    await achievements.reconcile_history(db, user_id=int(user['id']))
+    return await achievements.overview(db, user_id=int(user['id']))

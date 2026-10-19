@@ -368,6 +368,9 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
     """Credit one completed milestone once, atomically with its receipt."""
     if kind not in REWARD_MORA:
         raise QuestError('Неизвестная награда квеста.')
+    from infrastructure.repositories import achievements_v1 as achievement_repo
+    from services import achievements_v1 as achievement_service
+    await achievement_repo.ensure_tables(db)
     keys = period_keys()
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
@@ -413,6 +416,8 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
                     db, user_id, REWARD_ESSENCE[kind], reason='quest_reward', reference=reward_id)
         except Exception:
             essence = 0
+        if kind == 'daily':
+            await achievement_service.record_life_event(db, user_id=user_id, family='quester', fact=str(keys['daily']))
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
     return {**state, 'reward_result': {'kind': kind, 'already_claimed': False,
                                         'amount_mora': reward_mora(kind, vip_active=vip_active),

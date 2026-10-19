@@ -115,9 +115,12 @@ async def run(dsn: str) -> None:
             f"weekly:{complete['weekly']['period_key']}",
         ]
         async with db.execute("SELECT user_balance_mora FROM users WHERE user_tg_id=?", (user,)) as cursor:
-            assert float((await cursor.fetchone())[0]) == 195.0
+            assert float((await cursor.fetchone())[0]) == 200.0  # 195 quest rewards + first daily achievement (5 Mora)
         async with db.execute("SELECT COUNT(*) FROM economic_operations WHERE user_id=? AND reason_code='quest_reward'", (user,)) as cursor:
             assert (await cursor.fetchone())[0] == 3
+
+        async with db.execute("SELECT completed_events,level FROM achievement_v1_progress WHERE user_id=? AND family='quester'", (user,)) as cursor:
+            assert tuple(await cursor.fetchone()) == (1,1), 'weekly, combined and replay must not duplicate daily achievement'
 
         disabled_user = 976209
         disabled = await quests_v1.overview(db, user_id=disabled_user, vip_active=False, sources=sources)
