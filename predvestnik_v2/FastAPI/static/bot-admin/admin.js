@@ -350,7 +350,7 @@ const pinline = (p, extra = '') => p && p.id
   ? `<span class="pinline">${ava(p)}<b>${p.name ? esc(p.name) : who(p.id, p.username)}</b>${p.name && p.username ? `<span class="sub">@${esc(p.username)}</span>` : ''}${extra}</span>`
   : '';
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
-const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
+const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С предупреждениями'],
   ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
 
 function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
@@ -379,7 +379,7 @@ const reasonField = (required = false) => `<div class="field"><label>Причи�
 function actionForm(key, ctx) {
   const v = id => ($('#' + id) || {}).value;
   switch (key) {
-    case 'warn': return [hint('Варн действует выбранный срок. Когда варнов станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
+    case 'warn': return [hint('Предупреждение действует выбранный срок. Когда их станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'mute': return [hint('Игрок не сможет писать в этом чате до конца срока. Раньше можно снять кнопкой «Снять мут».') + durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'ban': return [hint('Игрока уберут из этого чата, вернуться он не сможет. Снимается кнопкой «Снять бан в чате».') + durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
     case 'kick': case 'global_ban': return [hint(key === 'kick' ? 'Игрок выйдет из чата, но сможет вернуться по ссылке.'
@@ -430,9 +430,9 @@ function needsTypedConfirm(key, payload, ctx) {
   const limit = key === 'balance' ? rules.balance[payload.currency] : undefined;
   return limit !== undefined && Math.abs(parseFloat(payload.amount)) >= limit;
 }
-const CONFIRM_TITLE = {ban: '⛔ Бан в чате', kick: '👢 Кик из чата', global_ban: '🚫 Бан во всех чатах', block: '🙈 Бот перестанет отвечать',
-  balance: '💰 Изменение баланса', rank: '🎖 Новая глобальная роль', vip: '👑 Выдача VIP', leave: '🚪 Бот уйдёт из чата',
-  message: '📣 Сообщение от бота в чат', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
+const CONFIRM_TITLE = {ban: '⛔ Забанить в чате', kick: '👢 Выгнать из чата', global_ban: '🚫 Забанить во всех чатах', block: '🙈 Бот перестанет отвечать',
+  balance: '💰 Изменить баланс', rank: '🎖 Изменить роль', vip: '👑 Выдать VIP', leave: '🚪 Бот выйдет из чата',
+  message: '📣 Написать от бота', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
 function confirmLines(key, payload, ctx, extra) {
   const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
   const lines = [];
@@ -537,7 +537,7 @@ function historyCard(items) {
 }
 
 // Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
-const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять варны везде', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
+const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять все предупреждения', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
 async function bulkRun(action, ids, after) {
   const count = `Игроков: <b>${ids.length}</b>.`;
   const send = async extra => {
@@ -557,7 +557,7 @@ async function bulkRun(action, ids, after) {
       ${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>${reasonField(true)}`,
     action === 'mark_grant' ? 'Выдать' : 'Снять', () => send({mark: $('#fmark').value, reason: ($('#freason') || {}).value}));
   }
-  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие варны во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
+  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие предупреждения во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
     'Выполнить', () => send({}));
 }
 
@@ -717,11 +717,11 @@ const ACTION_HINTS = {
   unwarn_all: 'Снять все действующие предупреждения во всех чатах',
   global_ban: 'Потеряет доступ во всех чатах, где есть бот',
   global_unban: 'Снять бан во всех чатах бота',
-  block: 'Бот не будет отвечать игроку, в чатах он останется',
+  block: 'В чатах он останется, команды работать не будут',
   unblock: 'Бот снова начнёт отвечать игроку',
   balance: 'Мора, алмазы, эссенция; крупные суммы — с подтверждением',
   vip: 'Дни добавятся к текущему сроку',
-  rank: 'Открывает разделы админки; выдать можно только роль ниже своей',
+  rank: 'Откроет или закроет разделы админки; выдать можно только роль ниже своей',
   revoke_sessions: 'Сотрудник выйдет из админки на всех устройствах',
 };
 
@@ -734,7 +734,7 @@ function memberFits(key, c) {
 }
 
 function actionRow(a, attrs) {
-  // Подпись с сервера начинается с эмодзи: «🔇 Мут в чате» → иконка + текст.
+  // Подпись с сервера начинается с эмодзи: «🔇 Замутить в чате» → иконка + текст.
   const parts = a.title.split(' ');
   const icon = parts.length > 1 ? parts[0] : '•', label = parts.length > 1 ? parts.slice(1).join(' ') : a.title;
   const hint = ACTION_HINTS[a.key] || '';
@@ -1036,7 +1036,7 @@ function attentionPersonRow(x) {
   return `<div class="prow" data-player="${x.id}">${ava(x)}
     <div class="pmain"><div class="pname">${esc(x.name || who(x.id, x.username))}</div>
       <div class="pmeta">${x.username ? '@' + esc(x.username) + ' · ' : ''}ID ${x.id}${x.note ? ' · ' + esc(x.note) : ''}${at}</div></div>
-    <span class="chip ${x.flag_kind || ''}">${esc(x.flag)}</span></div>`;
+    <span class="pflag ${x.flag_kind || ''}">${esc(x.flag)}</span></div>`;
 }
 // Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
 function attentionRows(items) {
@@ -2291,8 +2291,8 @@ async function ownerView(main) {
         [who(w.id, w.username), w.count, lift('unwarn_all', w.id)])) : none}`)}
     ${section('o-member', '👤 Действие с участником', `${hint('Введите числовой ID участника этого чата. Игроков с ролью в боте и самого бота это не затрагивает.')}
       <div class="field"><label>ID участника</label><input id="o-uid" inputmode="numeric" pattern="[0-9]*"/></div>
-      <div class="field"><label>Действие</label><select id="o-act"><option value="warn">⚠️ Варн</option><option value="mute">🔇 Мут</option>
-        <option value="kick">👢 Кик</option><option value="ban">⛔ Бан</option></select></div>
+      <div class="field"><label>Действие</label><select id="o-act"><option value="warn">⚠️ Выдать предупреждение</option><option value="mute">🔇 Замутить в чате</option>
+        <option value="kick">👢 Выгнать из чата</option><option value="ban">⛔ Забанить в чате</option></select></div>
       <div class="field" id="o-minw"><label>Срок</label><select id="o-min">${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === 60 ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
       <div class="field"><label>Причина (необязательно)</label><input id="o-reason" maxlength="200"/></div>
       <div class="actions"><button type="button" class="btn primary" id="o-go">Применить</button></div>`)}`;
@@ -2317,7 +2317,7 @@ async function ownerView(main) {
     if (!Number.isSafeInteger(uid) || uid <= 0) { toast('Введите числовой ID участника', true); return; }
     const body = {action: act.value, reason: $('#o-reason').value.trim(), minutes: +$('#o-min').value};
     const run = async () => { done((await post(`/owner/chat/${c.id}/member/${uid}/action`, body)).message); };
-    if (act.value === 'kick' || act.value === 'ban') sheet(act.value === 'ban' ? 'Забанить участника?' : 'Выгнать участника?', hint('id ' + uid), 'Да', run);
+    if (act.value === 'kick' || act.value === 'ban') sheet(CONFIRM_TITLE[act.value], hint('ID ' + uid), 'Да', run);
     else run().catch(e => toast(e.message, true));
   };
 }

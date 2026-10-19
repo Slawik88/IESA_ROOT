@@ -162,7 +162,7 @@ async function reportsView(main, kind = 'open') {
     host.querySelectorAll('[data-repbulk]').forEach(b => b.onclick = () => {
       const act = b.dataset.repbulk, ids = [...REPORT_PICK];
       const body = `<div class="sub" style="margin-bottom:8px">Жалоб: <b>${ids.length}</b>. ${act === 'take' ? 'Все они будут помечены как ваши.'
-        : 'Авторам бот напишет в личку, чем всё закончилось. Нарушителей это не наказывает: выдать варн, мут или бан можно из самой жалобы.'}</div>
+        : 'Авторам бот напишет в личку, чем всё закончилось. Нарушителей это не наказывает: выдать предупреждение, замутить или забанить можно из самой жалобы.'}</div>
         ${act === 'take' ? '' : '<div class="field"><label>Комментарий (необязательно)</label><input id="fnote" maxlength="300"/></div>'}`;
       sheet(BULK_REPORT[act][1], body, 'Готово', async () => {
         const res = await api('/reports/bulk', {method: 'POST', body: JSON.stringify({action: act, ids, note: ($('#fnote') || {}).value || ''})});
