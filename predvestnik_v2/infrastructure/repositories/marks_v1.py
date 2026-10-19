@@ -113,3 +113,14 @@ async def messages_recent_batch(db, user_ids: list[int], windows: tuple[int, ...
     async with db.execute(f"SELECT user_id, {sums} FROM daily_user_stats WHERE user_id IN ({marks}) AND date >= {_since(max(windows))} AND date <= {_since(1)} GROUP BY user_id",
                           tuple(ids)) as c:
         return {int(r[0]): {w: int(r[1 + k] or 0) for k, w in enumerate(windows)} for r in await c.fetchall()}
+
+
+async def completed_pet_routes(db, user_id: int) -> int:
+    """Only claimed expedition receipts count; absent legacy storage means zero."""
+    async with db.execute("SELECT to_regclass('pet_v2_runs') IS NOT NULL") as c:
+        if not (await c.fetchone())[0]:return 0
+    async with db.execute("""SELECT COUNT(DISTINCT route) FROM pet_v2_runs
+        WHERE user_id=? AND kind='expedition' AND status='claimed'
+        AND route IN ('forest','pass','ruins','swamp') AND claimed_at IS NOT NULL
+        AND claimed_at<=NOW()""",(int(user_id),)) as c:
+        return int((await c.fetchone())[0])

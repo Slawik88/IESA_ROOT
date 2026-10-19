@@ -37,6 +37,10 @@ def staff() -> None:
 
 
 def composition() -> None:
+    check('cartographer' not in GRANTABLE, "cartographer cannot be given by hand")
+    check(all(k in GRANTABLE for k in ('bug_hunter','mentor','chronicler','visual_creator','community_keeper')), "contribution marks use audited manual grants")
+    check(not compose(held_ids=[],facts={'pet_routes':3}), "three routes are insufficient")
+    check([m['id'] for m in compose(held_ids=[],facts={'pet_routes':4})]==['cartographer'], "all four routes award cartographer")
     facts = {"streak": 31, "joined_days": 400, "messages_30d": 50, "owned_permanent": 12, "maxed": 1, "seasons": {"halloween"}}
     got = [m["id"] for m in compose(held_ids=["tester", "founder", "helper"], facts=facts)]
     check(got == ["helper", "founder", "tester", "collector", "streak30", "veteran", "halloween"], got)

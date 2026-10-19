@@ -48,6 +48,7 @@ async def facts_for(db, user_id: int, *, streak=0, joined=None) -> dict:
     seasons = {SKINS[sid]["season"] for sid in owned if sid in SKINS and SKINS[sid].get("season")}
     best = max(int(streak or 0), await repo.best_streak_before(db, user_id))
     return {"streak": best, "joined_days": _joined_days(joined), **_recent_facts((await repo.messages_recent_batch(db, [user_id])).get(int(user_id))),
+            "pet_routes": await repo.completed_pet_routes(db, user_id),
             "owned_permanent": sum(1 for sid in owned if sid in PERMANENT), "maxed": maxed, "seasons": seasons}
 
 

@@ -1,3 +1,14 @@
+## Player release 2026-10-19 — six new regalia enabled in the catalog
+
+Implemented Cartographer from four distinct owned, claimed expedition routes;
+existing history counts, repeated/active/trek/other-player/future runs do not.
+Five contribution badges use the existing manual reason, grant/revoke, bulk queue
+and audit paths: bug hunting, mentoring, guides, accepted visual work and events.
+No currency rewards. Existing marks and ordering remain compatible. Pure 22-mark
+rules, existing rollback PG grant/sticky tests and new route fact PG proof pass;
+read-only review found no blocker. Owner confirmed master automatically deploys
+to the DigitalOcean app at iesaroot-app-8kuyb.ondigitalocean.app/predvestnik.
+
 ## Follow-up 2026-10-19 — activity SQL shares the image latency budget
 
 The graph's 0.75-second budget previously covered only PNG rendering; its history
