@@ -14,6 +14,7 @@ async def main():
         cid=-991212111;other=-991212112;uid=991212113
         for chat in [cid,other]:
             await c.execute('INSERT INTO chat_settings(chat_id,chat_title) VALUES($1,$2)',chat,'Rights proof')
+        await c.execute('UPDATE chat_settings SET owner_id=$2 WHERE chat_id=$1',cid,uid+1)
         db=PGAdapter(c);actor={'id':uid,'rank':6,'kind':'staff'}
         original=await ranks.rights_map(db,cid)
         assert original['mute']==4
@@ -21,7 +22,7 @@ async def main():
         assert await ranks.can(db,cid,uid,'mute')
         assert not await ranks.can(db,other,uid,'mute')
         assert (await ranks.rights_map(db,cid))['rights']==9
-        await ranks.set_right(db,cid,'mute',6,uid)
+        await ranks.set_right(db,cid,'mute',6,uid+1)
         assert not await ranks.can(db,cid,uid,'mute')
         snap=await svc.snapshot(db,cid)
         assert snap['values']['mute']==6 and len(snap['actions'])==20

@@ -205,7 +205,11 @@ async def on_rights(call: CallbackQuery, callback_data: RightsCB, db) -> None:
                 and await ranks.get_rank(db, cb.chat, cb.uid) < ranks.OWNER:
             await call.answer("Передать право настройки может только владелец.", show_alert=True)
             return
-        await ranks.set_right(db, cb.chat, cb.act, val, cb.uid)
+        try:
+            await ranks.set_right(db, cb.chat, cb.act, val, cb.uid)
+        except PermissionError as exc:
+            await call.answer(str(exc), show_alert=True)
+            return
         await call.answer(f"Сохранено: {ranks.rank_name(val)}")
         text, kb = await _rights_main(db, cb.uid, cb.chat)
     try:

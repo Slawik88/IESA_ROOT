@@ -25,6 +25,13 @@ async def set_right(db, chat_id: int, action: str, min_rank: int, actor_id: int)
         raise ValueError("Некорректное право или ранг.")
     async with db.connection.transaction():
         await rights_repo.lock(db, chat_id)
+        # The permission may have been revoked by the web editor while this
+        # callback was waiting. Authorize again under the shared write lock.
+        if not await can(db, chat_id, actor_id, "rights"):
+            raise PermissionError("Нет права менять права рангов.")
+        if action == "rights" and min_rank < OWNER and not is_developer(actor_id) \
+                and await get_rank(db, chat_id, actor_id) < OWNER:
+            raise PermissionError("Передать право настройки может только владелец.")
         await rights_repo.write(db, chat_id, {action: min_rank}, actor_id)
     await _commit(db)
 

@@ -1,3 +1,16 @@
+## Follow-up 2026-10-19 — queued Telegram rights writes respect revocation
+
+A retained Telegram button checked permission before waiting for the shared chat
+write lock. A web revocation could commit while that callback waited, after
+which the callback could still change the threshold. The locked writer now
+revalidates live permission and owner-only delegation. A late refusal returns
+an alert, without a success message or menu edit.
+
+A disposable two-connection PostgreSQL proof waits for an actual advisory-lock
+wait, revokes through the web service, then confirms the queued callback cannot
+write. Owner access and delegated boundaries remain valid. Existing web rights
+regression passes; the read-only reviewer independently reran the race proof.
+
 ## Owner revision 2026-10-19 — VIP automatic spot orders (item 11)
 
 Added server-side conditional buys/sells to the actual v2 exchange: below/above
