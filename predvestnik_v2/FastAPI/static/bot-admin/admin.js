@@ -386,6 +386,7 @@ function actionForm(key, ctx) {
         <input id="fdays" type="number" min="1" max="3650" value="7"/>
         <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
       () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
+    case 'local_rank': return [hint('Ранг действует только в выбранном чате. Владелец и глобальная роль этим действием не меняются.') + `<div class="field"><label>Ранг в чате</label><select id="flocalrank">${ctx.local_ranks.map(r=>`<option value="${r.rank}" ${r.rank===ctx.local_rank?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>` + reasonField(true),()=>({rank:+v('flocalrank'),expected_rank:ctx.local_rank,reason:v('freason')})];
     case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.') + `<div class="field"><label>Новая роль</label><select id="frank">
         ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
         + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
@@ -755,7 +756,7 @@ async function playerView(main, id, push = true, from = null) {
       ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
   const globalActs = p.actions.player.filter(a => !hide.has(a.key));
   const memberActs = c => p.actions.member.filter(a =>
-    !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
+    !(a.key === 'local_rank' && (c.left || c.local_rank>=9)) && !(a.key === 'mute' && c.muted) && !(a.key === 'unmute' && !c.muted) && !(a.key === 'unban' && !c.ban)
     && !(a.key === 'ban' && c.ban) && !(a.key === 'kick' && (c.left || c.ban)) && !(a.key === 'unwarn_all' && !c.warns));
   main.innerHTML = `${backBar()}
     <div class="card">
@@ -853,7 +854,7 @@ async function playerView(main, id, push = true, from = null) {
   main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
   main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
   main.querySelectorAll('[data-mact]').forEach(btn => btn.onclick = () =>
-    runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, p,
+    runAction(p.actions.member.find(a => a.key === btn.dataset.mact), `/player/${id}/action`, {...p,local_rank:p.chats.find(c=>c.id===+btn.dataset.cid)?.local_rank},
       {chat_id: +btn.dataset.cid, chat_title: btn.dataset.ctitle}, reopen));
   main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
   main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });

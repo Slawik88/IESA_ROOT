@@ -19,7 +19,7 @@ CSS = open(os.path.join(STATIC, "admin.css"), encoding="utf-8").read()
 
 # имя функции -> sha1 текста (с первой строки объявления до закрывающей скобки в нулевой колонке)
 PINNED = {
-    "actionForm": "56895e848dd8", "runAction": "26380af046a7", "needsTypedConfirm": "02d44637f82f", "confirmLines": "a0c36bee0b8d",
+    "actionForm": "ece8d5f567b3", "runAction": "26380af046a7", "needsTypedConfirm": "02d44637f82f", "confirmLines": "a0c36bee0b8d",
     "sheet": "219efbebaf00", "bulkRun": "448b1e5043c4", "api": "648a2f15c38d",
 }
 

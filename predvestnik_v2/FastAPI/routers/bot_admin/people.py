@@ -34,6 +34,7 @@ _user = section("people")
 # Действие -> (подпись, минимальная глобальная роль, к чему применяется).
 # Роли: 2 мл. хелпер, 3 хелпер, 4 ст. хелпер, 5 разработчик, 6 создатель.
 ACTIONS: dict[str, tuple[str, int, str]] = {
+    "local_rank": ("🎖 Ранг в чате", 5, "member"),
     "warn": ("⚠️ Варн в чате", 3, "member"),
     "mute": ("🔇 Мут в чате", 3, "member"),
     "unmute": ("🔊 Снять мут", 3, "member"),
@@ -181,6 +182,8 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
     if not card:
         raise HTTPException(404, "Игрок не найден.")
     card["actions"] = {"player": _allowed(user, "player"), "member": _allowed(user, "member")}
+    from core.chat_rank_policy import RANKS, rank_name
+    card["local_ranks"] = [{"rank":i,"name":rank_name(i)} for i in range(len(RANKS)-1)]
     card["ranks"] = [{"rank": i, "name": bot_rank_name(i)} for i in range(len(BOT_RANKS))
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
     card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()
@@ -374,6 +377,13 @@ async def player_action(uid: int, data: dict = Body(...), user=Depends(_user), d
         chat_id = int(data.get("chat_id") or 0)
         admin_access.require_chat(user, chat_id)
         await _known_chat(db, chat_id)
+        if action == "local_rank":
+            try:
+                return await chat_rank_admin.assign_member(db,user,chat_id,uid,rank=data.get("rank"),
+                    expected=data.get("expected_rank"),reason=reason)
+            except chat_rank_admin.Denied as exc:raise HTTPException(403,str(exc))
+            except chat_rank_admin.StaleRights as exc:raise HTTPException(409,str(exc))
+            except chat_rank_admin.RightsError as exc:raise HTTPException(400,str(exc))
         bot = get_bot()
         try:
             if action == "mute":

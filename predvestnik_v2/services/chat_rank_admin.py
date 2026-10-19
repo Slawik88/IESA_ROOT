@@ -44,3 +44,22 @@ async def update(db, actor, chat_id, *, changes, expected, reason):
         await repo.write(db,chat_id,changes,actor['id'])
         await repo.audit(db,actor['id'],chat_id,before,changes,reason)
     return {'ok':True,'message':'Права чата сохранены. Бот применяет их сразу.'}
+
+
+async def assign_member(db, actor, chat_id, user_id, *, rank, expected, reason):
+    authorize(actor)
+    if type(rank) is not int or type(expected) is not int or not 0<=rank<OWNER or not 0<=expected<OWNER:
+        raise RightsError('Ранг участника — от 0 до 8; владелец назначается отдельно.')
+    reason=str(reason or '').strip()
+    if not 3<=len(reason)<=200:raise RightsError('Укажите причину: от 3 до 200 символов.')
+    async with db.connection.transaction():
+        await repo.lock(db,chat_id)
+        member=await repo.member(db,chat_id,user_id)
+        if not member or member.get('left'):raise RightsError('Игрок не состоит в этом чате.')
+        if member.get('owner'):raise RightsError('Ранг владельца этим действием не меняется.')
+        current=max(0,min(member['rank'],OWNER-1))
+        if current!=expected:raise StaleRights('Ранг уже изменился. Обновите карточку игрока.')
+        if current!=rank:
+            await repo.write_member(db,chat_id,user_id,rank)
+            await repo.audit_member(db,actor['id'],chat_id,user_id,current,rank,reason)
+    return {'ok':True,'message':'Ранг в чате: '+rank_name(rank)}

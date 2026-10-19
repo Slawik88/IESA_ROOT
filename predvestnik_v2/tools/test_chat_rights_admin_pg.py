@@ -46,6 +46,16 @@ async def main():
             except RuntimeError:pass
             else:raise AssertionError('audit failure hidden')
         assert (await ranks.rights_map(db,cid))['mute']==6
+        await c.execute('INSERT INTO user_chat_stats(user_tg_id,chat_tg_id,chat_rank) VALUES($1,$2,0)',uid,cid)
+        await svc.assign_member(db,actor,cid,uid,rank=4,expected=0,reason='Promote moderator')
+        assert await ranks.get_rank(db,cid,uid)==4
+        try:await svc.assign_member(db,actor,cid,uid,rank=7,expected=0,reason='Stale form')
+        except svc.StaleRights:pass
+        else:raise AssertionError('stale rank allowed')
+        try:await svc.assign_member(db,actor,cid,uid+1,rank=0,expected=0,reason='Demote owner')
+        except svc.RightsError:pass
+        else:raise AssertionError('owner demoted')
+        assert await c.fetchval("SELECT COUNT(*) FROM bot_admin_actions WHERE chat_id=$1 AND action='chat_rank'",cid)==1
         print('PASS: shared bot/web rights; scope, staff guard, input, stale update and atomic audit')
     finally:await tx.rollback();await c.close()
 if __name__=='__main__':asyncio.run(main())

@@ -33,7 +33,7 @@ STATEMENTS = (
 
 # Подписи действий в журнале: и из админки, и из чата (moderation_logs).
 ACTION_TITLES = {
-    "chat_rights": "Права рангов чата", "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
+    "chat_rank": "Ранг участника чата", "chat_rights": "Права рангов чата", "rank": "Глобальная роль", "mark_grant": "Выдана метка", "mark_revoke": "Снята метка", "balance": "Баланс", "vip": "VIP", "block": "Бот не отвечает", "unblock": "Бот снова отвечает",
     "global_ban": "Бан во всех чатах", "global_unban": "Снят бан во всех чатах",
     "close": "Чат закрыт", "open": "Чат открыт", "warn_limit": "Лимит варнов", "message": "Сообщение от бота",
     "leave": "Бот вышел из чата", "mute": "Мут", "unmute": "Снят мут", "kick": "Кик", "ban": "Бан", "unban": "Снят бан",
@@ -485,14 +485,15 @@ async def player(db, uid: int) -> dict | None:
     chats = []
     for cid, title, total, last, left, muted, muted_until, tag in rows:
         cid = int(cid)
+        local_rank = await ranks.get_rank(db, cid, uid)
         chats.append({"id": cid, "title": title or str(cid), "messages": int(total), "last": _iso(last), "tag": member_tags.clean(tag),
                       "left": bool(left), "muted": bool(muted), "muted_until": _iso(muted_until),
                       "ban": bans.get(cid), "warns": warns.get(cid, 0),
-                      "rank_name": ranks.rank_name(await ranks.get_rank(db, cid, uid))})
+                      "rank_name": ranks.rank_name(local_rank), "local_rank": local_rank})
     for cid, title in extra_titles.items():   # забанен в чате, где не писал
         chats.append({"id": cid, "title": title or str(cid), "messages": 0, "last": None, "left": True,
                       "muted": False, "muted_until": None, "ban": bans[cid], "warns": warns.get(cid, 0),
-                      "rank_name": ranks.rank_name(0), "tag": None})
+                      "rank_name": ranks.rank_name(0), "local_rank":0, "tag": None})
 
     names = await _names(db, [family["partner"]] if family and family["partner"] else [])
     if family and family["partner"]:

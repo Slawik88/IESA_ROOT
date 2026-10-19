@@ -111,11 +111,13 @@ async def can(db, chat_id: int, user_id: int, action: str) -> bool:
 
 
 async def store_rank(db, chat_id: int, user_id: int, rank: int) -> None:
-    await db.execute(
-        "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, chat_rank) VALUES (?, ?, ?) "
-        "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET chat_rank = EXCLUDED.chat_rank",
-        (user_id, chat_id, rank),
-    )
+    async with db.connection.transaction():
+        await rights_repo.lock(db, chat_id)
+        await db.execute(
+            "INSERT INTO user_chat_stats (user_tg_id, chat_tg_id, chat_rank) VALUES (?, ?, ?) "
+            "ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE SET chat_rank = EXCLUDED.chat_rank",
+            (user_id, chat_id, rank),
+        )
     await _commit(db)
 
 
@@ -136,3 +138,27 @@ async def _commit(db) -> None:
     commit = getattr(db, "commit", None)
     if commit:
         await commit()
+
+
+async def assign_rank(db, chat_id, user_id, new_rank, actor_id, *, expected_rank):
+    """Authorize the final assignment after any wait for the web/Telegram lock."""
+    if type(new_rank) is not int or not 0<=new_rank<=OWNER:
+        raise PermissionError('Неизвестный ранг.')
+    async with db.connection.transaction():
+        await rights_repo.lock(db,chat_id)
+        if not await can(db,chat_id,actor_id,'set_rank'):
+            raise PermissionError('У вашего ранга нет права выдавать ранги.')
+        if is_developer(user_id) and not is_developer(actor_id):
+            raise PermissionError('Ранг разработчика бота изменить нельзя.')
+        actor_rank=await get_rank(db,chat_id,actor_id)
+        target_rank=await get_rank(db,chat_id,user_id)
+        if target_rank!=expected_rank:raise PermissionError('Ранг игрока уже изменился. Повторите команду.')
+        reason=check_assign(actor_rank,target_rank,new_rank)
+        if reason:raise PermissionError(reason)
+        if new_rank>=OWNER:
+            await rights_repo.owner_override(db,chat_id,user_id)
+        else:
+            if target_rank>=OWNER and not is_developer(user_id):
+                await rights_repo.owner_override(db,chat_id,None)
+            await rights_repo.store_member(db,chat_id,user_id,new_rank)
+    await _commit(db)

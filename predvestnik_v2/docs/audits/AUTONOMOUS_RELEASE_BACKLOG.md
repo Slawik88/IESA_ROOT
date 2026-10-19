@@ -1,3 +1,18 @@
+## Player release 2026-10-19 — assign chat-local member ranks from admin
+
+Global developers/creator can now assign ranks 0–8 directly from a player's
+chat card, with a mandatory reason, atomic audit and expected-current-rank check.
+The owner, departed members and protected global staff remain guarded. This is
+a local-chat rank and never grants a global staff role. Telegram assignments
+recheck actor authority and target state under the same chat lock, including
+owner override paths; a queued button cannot undo an admin demotion.
+
+Real PG proves live bot rank, stale form refusal, owner protection and audit.
+Two-connection revocation proof covers a waiting Telegram assignment after web
+demotion. Mobile 320/430 renders all nine allowed ranks, current value and CAS
+payload without overflow. The actionForm safety hash was deliberately updated
+for the new local_rank branch; other protected UI functions are unchanged.
+
 ## Player release 2026-10-19 — six new regalia enabled in the catalog
 
 Implemented Cartographer from four distinct owned, claimed expedition routes;
