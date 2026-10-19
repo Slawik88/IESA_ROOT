@@ -358,3 +358,36 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 [data-sec="o-sanc"] .tbl td:last-child { width: 1%; }
 [data-sec="o-sanc"] .tbl .btn { min-height: 40px; padding: 0 14px; font-size: 13px; }
 [data-sec="o-sanc"] .tbl td:first-child { overflow-wrap: anywhere; }
+
+/* ═══ ADM-03 · люди с фото: аватар, строка человека, шапка карточки, факты ═══
+   Новые классы не трогают `.card`: на нём держатся жалобы, выбор и рассылка. */
+.ava { position: relative; width: 44px; height: 44px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 55%, var(--panel)), color-mix(in srgb, var(--accent) 12%, var(--panel)));
+  color: var(--text); font-weight: 700; font-size: 16px; user-select: none; }
+.ava img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ava::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); pointer-events: none; }
+.ava.lg { width: 78px; height: 78px; font-size: 27px; }
+.ava.chat { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 24%, var(--panel)), color-mix(in srgb, var(--accent) 6%, var(--panel))); color: var(--accent); }
+.ava-wrap { position: relative; flex: none; }
+
+/* Строка человека: фото, имя, факты одной строкой — так список читается без раскрытия карточки. */
+.prow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.prow:first-child { border-top: 0; }
+.prow:hover .pname, .prow:hover b { color: var(--accent); }
+.prow .pmain { min-width: 0; flex: 1; }
+.prow.picked { background: color-mix(in srgb, var(--accent) 12%, transparent); margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 10px; }
+.pname { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pname .chip { font-size: 11px; padding: 1px 8px; }
+.pname .pick { width: 18px; min-height: 18px; height: 18px; }
+.pmeta { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+
+/* Шапка карточки: лицо и кто это — до любых цифр. */
+.profile-head { display: flex; gap: 14px; align-items: center; }
+.profile-head .pname { font-size: 21px; letter-spacing: -.02em; }
+.profile-head .pmeta { white-space: normal; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+.fact { border-radius: 13px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); padding: 9px 10px; min-width: 0; }
+.fact span { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.25; }
+.fact b { display: block; font-size: 17px; font-weight: 650; letter-spacing: -.01em; margin-top: 2px; overflow-wrap: anywhere; }
+.fact b small { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+.cap { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }

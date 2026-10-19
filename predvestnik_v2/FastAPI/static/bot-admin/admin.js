@@ -337,6 +337,14 @@ function hotkeysSheet() {
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
 // Тег игрока в чате (подпись справа от имени в Telegram): после имени серым, пусто если тега нет
 const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
+// Фото человека: сервер отдаёт подписанную ссылку, BASE — префикс приложения.
+// Нет фото или ссылка устарела — остаётся цветной кружок с инициалом, без битой картинки.
+const pic = url => url ? esc(BASE + url) : '';
+function ava(p, cls = '') {
+  const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
+  const letter = (p.name || p.username || '?').trim().charAt(0).toUpperCase();
+  return `<span class="ava ${cls}" aria-hidden="true">${photo}<b>${esc(letter)}</b></span>`;
+}
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
 const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
   ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
@@ -624,15 +632,17 @@ async function peopleSearch(main, query = '') {
       <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
         <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
         ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
-      <div class="list">${players.map(p => `<div class="row" data-player="${p.id}">
-        <div class="head"><b>${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${who(p.id, p.username)}</b>${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
-        <div class="sub">${p.name ? esc(p.name) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
-        ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div>`).join('')
+      <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
+        ${ava(p)}
+        <div class="pmain"><div class="pname">${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${p.name ? esc(p.name) : who(p.id, p.username)}${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
+          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
+          ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
       ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
-      <div class="list">${chats.map(c => `<div class="row" data-chat="${c.id}">
-        <div class="head"><b>${esc(c.title)}</b><span class="sub">${num(c.members)} уч.</span></div>
-        <div class="sub">ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div>`).join('')
+      <div class="list">${chats.map(c => `<div class="prow" data-chat="${c.id}">
+        <span class="ava chat" aria-hidden="true"><b>#</b></span>
+        <div class="pmain"><div class="pname">${esc(c.title)}</div>
+          <div class="pmeta">${num(c.members)} участников · ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div></div>`).join('')
         || '<div class="sub">Ничего</div>'}</div>`}`;
     if (data.offset !== undefined) {
       const pager = document.createElement('div'); pager.className = 'actions';
@@ -687,6 +697,11 @@ async function playerView(main, id, push = true, from = null) {
   const reopen = () => playerView(main, id, false);
   const b = p.balances;
   const fam = p.family;
+  const rp = p.reports || {total: 0, open: 0, confirmed: 0, last: []};
+  // «Последняя активность» — самый свежий чат; ISO-строки сравниваются как есть.
+  const lastSeen = p.chats.reduce((last, c) => (c.last && c.last > last ? c.last : last), '');
+  const warns = p.chats.reduce((n, c) => n + (c.warns || 0), 0);
+  const title = p.name ? esc(p.name) : who(p.id, p.username);
   const chips = [
     `<span class="chip">${esc(p.rank_name)}</span>`,
     p.vip ? `<span class="chip ok">👑 VIP · ${p.vip.days_left} дн.</span>` : '',
@@ -717,7 +732,6 @@ async function playerView(main, id, push = true, from = null) {
         `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
         : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
     </div>`;
-  const rp = p.reports || {total: 0, open: 0, confirmed: 0, last: []};
   const canReports = ME.sections.some(z => z.key === 'reports');
   const reportsCard = `<div class="card"><h3>📨 Жалобы на игрока · ${rp.total}</h3>
       ${rp.total ? `<div class="chips"><span class="chip ${rp.open ? 'warn' : ''}">открытых: ${rp.open}</span><span class="chip ${rp.confirmed ? 'bad' : ''}">подтверждено: ${rp.confirmed}</span></div>
@@ -760,18 +774,27 @@ async function playerView(main, id, push = true, from = null) {
     && !(a.key === 'ban' && c.ban) && !(a.key === 'kick' && (c.left || c.ban)) && !(a.key === 'unwarn_all' && !c.warns));
   main.innerHTML = `${backBar()}
     <div class="card">
-      <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-        <span style="font-size:20px;font-weight:700">${who(p.id, p.username)}</span><span class="sub">ID ${p.id}</span></div>
-      ${p.name ? `<div class="sub">${esc(p.name)}</div>` : ''}
-      <div class="chips">${chips}</div>
+      <div class="profile-head">
+        <div class="ava-wrap">${ava(p, 'lg')}</div>
+        <div style="min-width:0">
+          <div class="pname">${title}</div>
+          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id}</div>
+          <div class="chips">${chips}</div>
+        </div>
+      </div>
+      <div class="facts">
+        <div class="fact"><span>Последняя активность</span><b style="font-size:13.5px">${lastSeen ? when(lastSeen) : 'не писал'}</b></div>
+        <div class="fact"><span>Сообщений за 7 дней</span><b>${num(p.messages.week)}</b></div>
+        <div class="fact"><span>Чатов</span><b>${p.chats.length}</b></div>
+        <div class="fact"><span>Варнов в чатах</span><b>${warns}</b></div>
+        <div class="fact"><span>Жалоб</span><b>${rp.total}${rp.open ? `<small> · ${rp.open} откр.</small>` : ''}</b></div>
+        <div class="fact"><span>Заметок</span><b>${p.notes.total}</b></div>
+      </div>
       <div class="stats">
         <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
         <div><span>🔮 Эссенция</span><b>${num(b.essence)}</b></div><div><span>✨ Зарники</span><b>${num(b.zarniki)}</b></div>
-        <div><span>💬 Сегодня / 7 дней</span><b>${num(p.messages.today)} / ${num(p.messages.week)}</b></div>
-        <div><span>💬 Всего</span><b>${num(p.messages.total)}</b></div>
-        <div><span>🔥 Стрик</span><b>${p.streak.current} <small>(лучший ${p.streak.best})</small></b></div>
-        <div><span>🏆 Достижения</span><b>${p.achievements.count} <small>· ур. ${p.achievements.levels}</small></b></div>
       </div>
+      <div class="sub" style="margin-top:8px">💬 сегодня ${num(p.messages.today)} · всего ${num(p.messages.total)} · 🔥 стрик ${p.streak.current} <small>(лучший ${p.streak.best})</small> · 🏆 достижения ${p.achievements.count} <small>(ур. ${p.achievements.levels})</small></div>
       ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
           ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
           : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}

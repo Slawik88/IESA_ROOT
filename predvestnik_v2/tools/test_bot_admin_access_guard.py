@@ -35,9 +35,19 @@ def _deps(dependant):
         yield from _deps(d)
 
 
+def _routes(router):
+    """FastAPI 0.121 включает роутеры лениво: настоящие маршруты лежат внутри original_router."""
+    for route in router.routes:
+        inner = getattr(route, "original_router", None)
+        if inner is not None:
+            yield from _routes(inner)
+        else:
+            yield route
+
+
 def unguarded(router) -> list[str]:
     out = []
-    for route in router.routes:
+    for route in _routes(router):
         if isinstance(route, APIRoute) and route.path.startswith(PREFIX):
             if not any(getattr(c, "admin_guard", False) for c in _deps(route.dependant)):
                 out.append(f"{sorted(route.methods)} {route.path}")
@@ -75,7 +85,7 @@ def main():
     # 1. страж маршрутов + мутация
     found = unguarded(bot_admin.router)
     assert not found, f"маршруты без стража: {found}"
-    total = sum(1 for r in bot_admin.router.routes if isinstance(r, APIRoute) and r.path.startswith(PREFIX))
+    total = sum(1 for r in _routes(bot_admin.router) if isinstance(r, APIRoute) and r.path.startswith(PREFIX))
     assert total > 40, total
     mutant = APIRouter()
 

@@ -13,7 +13,7 @@ from bot.chat import ranks
 from bot.chat.global_ranks import bot_rank_name, get_bot_rank
 from bot.chat.tracking import local_now
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from services import feature_switches, global_moderation, member_tags, name_history, staff_watch
+from services import admin_avatars, feature_switches, global_moderation, member_tags, name_history, staff_watch
 from services import vip as vip_service
 from core.marks_v1 import GRANTABLE
 
@@ -212,6 +212,13 @@ async def _mark_search(db, q: str, flt: str, offset: int) -> dict:
 
 
 async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:
+    """Поиск людей и чатов; к найденным людям добавляет подписанную ссылку на фото."""
+    data = await _search(db, q, limit=limit, flt=flt, offset=offset)
+    admin_avatars.attach(data.get("players") or [])
+    return data
+
+
+async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:
     """Игроки и чаты по ID, @нику (можно кусок), имени из Telegram или нику в чате; чаты по названию.
     Пустой запрос — самые свежие по активности. flt — быстрый фильтр игроков (FILTERS): чаты тогда не ищутся."""
     q = (q or "").strip()
@@ -499,7 +506,8 @@ async def player(db, uid: int) -> dict | None:
     if family and family["partner"]:
         family["partner_username"] = names.get(family["partner"])
     return {
-        "id": uid, "username": u[0], "name": u[6] or "", "rank": rank, "rank_name": bot_rank_name(rank), "sponsor": bool(u[4]),
+        "id": uid, "username": u[0], "name": u[6] or "", "avatar": admin_avatars.avatar_url(uid),
+        "rank": rank, "rank_name": bot_rank_name(rank), "sponsor": bool(u[4]),
         "deleted_at": _iso(u[5]),
         "balances": {"mora": float(u[1]), "diamonds": float(u[2]), "zarniki": float(u[3]),
                      "essence": await skins_v3_repo.essence_balance(db, uid)},
