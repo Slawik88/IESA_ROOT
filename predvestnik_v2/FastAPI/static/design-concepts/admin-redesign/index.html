@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Предвестник · прототип админки 2.0 (люди с фото)</title>
+<!-- Боевые стили админки: прототип показывает новый UX теми же токенами и классами -->
+<link rel="stylesheet" href="../../bot-admin/admin.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap"/>
+<style>
+/* ── только каркас стенда; всё внутри телефона — боевые классы admin.css ─────────────────────────── */
+body { padding: 0; }
+.demo-top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+.demo-top b { font-size: 14px; margin-right: 8px; }
+.demo-top .demo-note { color: var(--muted); font-size: 12px; margin-left: auto; }
+.demo-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.demo-tabs button { min-height: 34px; padding: 0 13px; border: 1px solid var(--line); border-radius: 99px; background: none; color: var(--muted); font-weight: 600; font-size: 12.5px; cursor: pointer; }
+.demo-tabs button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.demo-wrap { display: flex; gap: 26px; justify-content: center; align-items: flex-start; padding: 20px 16px 70px; }
+.demo-side { width: 300px; flex: none; position: sticky; top: 76px; }
+.demo-side .side-card { border-radius: 16px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); padding: 14px 16px; margin-bottom: 12px; }
+.demo-side h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.demo-side ul { margin: 0; padding-left: 18px; color: var(--text); font-size: 13px; line-height: 1.5; }
+.demo-side li { margin-bottom: 6px; }
+.demo-side .muted { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+.phone { position: relative; flex: none; width: min(430px, 100%); height: min(884px, calc(100vh - 118px)); min-height: 620px;
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 36px; background: var(--bg);
+  box-shadow: 0 0 0 1px var(--line), 0 34px 80px rgba(0,0,0,.55); }
+.phone > main { flex: 1; overflow-y: auto; overflow-x: hidden; }
+.phone .nav { position: absolute; }
+.phone .top { flex: none; }
+.demo-ribbon { position: absolute; top: 13px; right: -34px; transform: rotate(38deg); background: var(--warn); color: #241a05; font: 700 10.5px/1 Onest, sans-serif; letter-spacing: .08em; padding: 5px 38px; z-index: 8; }
+@media (max-width: 880px) { .demo-wrap { flex-direction: column; align-items: center; } .demo-side { position: static; width: min(430px, 100%); } .phone { height: 78vh; } }
+
+/* ── новые компоненты, которые прототип предлагает вынести в admin.css ───────────────────────────── */
+.ava { position: relative; width: 44px; height: 44px; flex: none; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 55%, var(--panel)), color-mix(in srgb, var(--accent) 12%, var(--panel)));
+  color: var(--text); font-weight: 700; font-size: 16px; user-select: none; }
+.ava img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ava::after { content: ""; position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); pointer-events: none; }
+.ava.sm { width: 30px; height: 30px; font-size: 12px; }
+.ava.lg { width: 78px; height: 78px; font-size: 27px; }
+.ava-wrap { position: relative; flex: none; }
+.ava-wrap .badge-dot { position: absolute; right: -2px; bottom: -2px; min-width: 19px; height: 19px; padding: 0 5px; border-radius: 10px;
+  display: grid; place-items: center; background: var(--bad); color: #230b0b; font: 700 11px/1 Onest, sans-serif; box-shadow: 0 0 0 2px var(--bg); }
+.prow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.prow:first-child { border-top: 0; }
+.prow:hover .pname { color: var(--accent); }
+.prow .pmain { min-width: 0; flex: 1; }
+.pname { font-weight: 600; font-size: 14.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pname .chip { font-size: 11px; padding: 1px 8px; }
+.pmeta { color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.pflag { flex: none; font-size: 12px; color: var(--muted); text-align: right; max-width: 96px; }
+.pflag.warn { color: var(--warn); }
+.pflag.bad { color: var(--bad); }
+.pflag.ok { color: var(--ok); }
+.pinline { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
+.pinline .ava { width: 22px; height: 22px; font-size: 10px; }
+.profile-head { display: flex; gap: 14px; align-items: center; }
+.profile-head .pname { font-size: 21px; letter-spacing: -.02em; }
+.profile-head .pmeta { white-space: normal; }
+.sec-title { margin: 20px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 12px; }
+.fact { border-radius: 13px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); padding: 9px 10px; min-width: 0; }
+.fact span { display: block; color: var(--muted); font-size: 11.5px; line-height: 1.25; }
+.fact b { display: block; font-size: 17px; font-weight: 650; letter-spacing: -.01em; margin-top: 2px; overflow-wrap: anywhere; }
+.fact b small { font-size: 11.5px; color: var(--muted); font-weight: 500; }
+.arow { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 2px; background: none; border: 0; border-top: 1px solid var(--line); color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.arow:first-of-type { border-top: 0; }
+.arow:active { opacity: .75; }
+.arow .aico { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--surface-line); font-size: 16px; }
+.arow .atxt { flex: 1; min-width: 0; }
+.arow .atxt b { display: block; font-weight: 600; font-size: 14.5px; }
+.arow .atxt small { display: block; color: var(--muted); font-size: 12px; line-height: 1.3; }
+.arow .arr { color: var(--muted); font-size: 16px; flex: none; }
+.arow.danger .atxt b { color: var(--bad); }
+.confirm-lines { margin: 10px 0 0; }
+.cap { color: var(--muted); font-size: 12.5px; margin: 2px 0 0; }
+.dock-sheet .go-list button { min-height: 50px; }
+</style>
+</head>
+<body>
+<div class="demo-top">
+  <b>🔮 Админка 2.0 · прототип</b>
+  <div class="demo-tabs" id="dtabs">
+    <button data-screen="people" class="on">Поиск людей</button>
+    <button data-screen="player">Карточка игрока</button>
+    <button data-screen="reports">Жалобы</button>
+    <button data-screen="journal">Журнал</button>
+    <button data-screen="broadcast">Рассылка</button>
+    <button data-screen="access">Права</button>
+    <button data-screen="actions">Действия</button>
+  </div>
+  <button class="btn small" id="dtheme" type="button">◐ Тема</button>
+  <span class="demo-note">данные вымышленные · стили боевые (admin.css)</span>
+</div>
+
+<div class="demo-wrap">
+  <div class="phone">
+    <span class="demo-ribbon">ПРОТОТИП</span>
+    <header class="top">
+      <a class="back-app" href="#" aria-label="Вернуться в Предвестник" onclick="return false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></a>
+      <div class="brand">🔮 Админка</div>
+      <div class="who">Разработчик</div>
+    </header>
+    <main id="main" aria-busy="false"></main>
+    <nav class="nav" id="tabs" style="--nav-n:5;--nav-i:0" aria-label="Разделы админки"></nav>
+    <div class="sheet-back" id="sheet" hidden></div>
+    <div class="toast" id="toast" hidden></div>
+  </div>
+
+  <aside class="demo-side">
+    <div class="side-card">
+      <h4>Что изменилось</h4>
+      <ul>
+        <li>Фото из Telegram — в поиске, карточке, жалобах, журнале, рассылке и правах.</li>
+        <li>Единый поиск: имя, @ник, ID, тег и название чата в одном поле.</li>
+        <li>Карточка — сверху лицо и факты, ниже прокрутка, а не простыня цифр.</li>
+        <li>Все действия над человеком — в одной шторке, опасные — с итогом, сроком и причиной.</li>
+        <li>Списки людей — компактные строки: фото, имя, @ник, ID, статус и причина внимания.</li>
+      </ul>
+    </div>
+    <div class="side-card">
+      <h4>Что нажать</h4>
+      <div class="muted">Нажимайте людей в списке — откроется карточка. В карточке — «Действия», выберите «Замутить в чате» и посмотрите подтверждение. В «Жалобах» кнопка «Замутить» открывает ту же шторку с жалобой в контексте.</div>
+    </div>
+    <div class="side-card">
+      <h4>Без фото</h4>
+      <div class="muted">Иван Петров и Ольга Смирнова — пример отображения без аватарки: цветной кружок с инициалом, без битых картинок и ошибок в консоли.</div>
+    </div>
+  </aside>
+</div>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = n => Number(n).toLocaleString('ru-RU');
+const asset = f => 'assets/' + f;
+
+/* ── вымышленные люди (в бою сюда приходят avatar_url с сервера) ─────────────────────────────── */
+const PEOPLE = {
+  maria: {id: 348291004, name: 'Мария Соколова', un: 'msokol', photo: 'p-maria.jpg', rank: 'Хелпер', last: '5 минут назад', msgs7: 412, chats: 3,
+    warns: 0, reports: 3, notes: 1, watch: 'Следим за отчётами', vip: false, fact: ['3 жалобы за 30 дней', 'bad']},
+  alexey: {id: 271004512, name: 'Алексей Кузнецов', un: 'alexk', photo: 'p-alexey.jpg', rank: 'VIP', last: '2 часа назад', msgs7: 96, chats: 2,
+    warns: 1, reports: 1, notes: 0, vip: true, fact: ['1 варн', 'warn']},
+  dmitry: {id: 500112388, name: 'Дмитрий Орлов', un: 'dorlov', photo: 'p-dmitry.jpg', rank: 'Игрок', last: 'вчера', msgs7: 18, chats: 4,
+    warns: 2, reports: 5, notes: 2, globalBan: true, watch: '', fact: ['5 жалоб, бан везде', 'bad']},
+  kira: {id: 118990776, name: 'Кира Лебедева', un: 'kiral', photo: 'p-kira.jpg', rank: 'Новичок', last: '20 минут назад', msgs7: 7, chats: 1,
+    warns: 0, reports: 0, notes: 0, fact: ['новичок, 3 дня', 'ok']},
+  ivan: {id: 245600991, name: 'Иван Петров', un: 'ivan_p', photo: '', rank: 'Игрок', last: '1 час назад', msgs7: 33, chats: 2,
+    warns: 0, reports: 0, notes: 0, fact: ['без фото', '']},
+  olga: {id: 701204466, name: 'Ольга Смирнова', un: '', photo: '', rank: 'Тестер', last: '3 дня назад', msgs7: 0, chats: 1,
+    warns: 0, reports: 0, notes: 0, fact: ['без @ника', '']},
+};
+const CHATS = {
+  main: {id: -1001777, title: 'Предвестник · Основной', members: 2412, last: '1 минуту назад'},
+  fun: {id: -1002455, title: 'Кухня · флудильня', members: 318, last: '12 минут назад', problem: 'нет прав модерации'},
+};
+
+const liv = (iso, text) => text;
+
+function ava(p, cls = '') {
+  const initial = (p.name || p.un || '?').trim().charAt(0).toUpperCase();
+  const img = p.photo ? `<img src="${asset(p.photo)}" alt="" loading="lazy" onerror="this.remove()"/>` : '';
+  return `<span class="ava ${cls}" aria-hidden="true">${img}<b>${esc(initial)}</b></span>`;
+}
+function pinline(p, extra = '') {
+  const label = p.un ? '@' + p.un : 'id' + p.id;
+  return `<span class="pinline">${ava(p, 'sm')}<b>${esc(p.name)}</b><span class="sub">${esc(label)}</span>${extra}</span>`;
+}
+function prow(p, right = '') {
+  const label = p.un ? '@' + p.un : 'без ника';
+  return `<div class="prow" data-person="${p.id}">
+    <div class="ava-wrap">${ava(p)}</div>
+    <div class="pmain"><div class="pname">${esc(p.name)}${p.rank ? `<span class="chip">${esc(p.rank)}</span>` : ''}</div>
+      <div class="pmeta">${esc(label)} · ID ${p.id} · ${esc(p.last)}</div></div>
+    ${right || ''}
+  </div>`;
+}
+const flag = (text, cls = '') => text ? `<span class="pflag ${cls}">${esc(text)}</span>` : '';
+
+/* ── экраны ──────────────────────────────────────────────────────────────────────────────────── */
+const SCREENS = {};
+
+SCREENS.people = () => `
+  <div class="bar"><input id="q" placeholder="Найти человека: имя, @ник, ID, тег, название чата" value=""/></div>
+  <div class="chips filters"><span class="chip ok">Все</span><span class="chip">👑 VIP</span><span class="chip">⚠️ С варнами</span>
+    <span class="chip">⛔ С баном</span><span class="chip">👁 На контроле</span><span class="chip">🎖 Персонал</span></div>
+  <div class="sec-title">Требуют внимания</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    ${prow(PEOPLE.dmitry, flag('бан во всех чатах', 'bad'))}
+    ${prow(PEOPLE.maria, flag('3 жалобы', 'warn'))}
+    <div class="prow" data-chat="${CHATS.fun.id}">
+      <div class="ava" style="background:linear-gradient(140deg,#3b4a7a,#232a44)"><b>К</b></div>
+      <div class="pmain"><div class="pname">Кухня · флудильня <span class="chip">чат</span></div>
+        <div class="pmeta">318 участников · 12 минут назад</div></div>
+      ${flag('нет прав модерации', 'warn')}
+    </div>
+  </div>
+  <div class="sec-title">Недавние</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    ${prow(PEOPLE.alexey, flag('VIP', 'ok'))}
+    ${prow(PEOPLE.kira, flag('новичок', 'ok'))}
+    ${prow(PEOPLE.ivan, flag('без фото'))}
+    ${prow(PEOPLE.olga, flag('без @ника'))}
+  </div>
+  <div class="sec-title">Чаты</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="prow" data-chat="${CHATS.main.id}"><div class="ava" style="background:linear-gradient(140deg,#4a3f7a,#232a44)"><b>П</b></div>
+      <div class="pmain"><div class="pname">Предвестник · Основной</div><div class="pmeta">2 412 участников · 1 минуту назад</div></div>
+      ${flag('бот админ', 'ok')}</div>
+  </div>`;
+
+SCREENS.player = () => {
+  const p = PEOPLE.maria;
+  return `
+  <div class="bar"><button class="btn" data-screen-go="people">← Назад</button><button class="btn" data-screen-go="people">🔍 Поиск</button></div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="profile-head">
+      <div class="ava-wrap">${ava(p, 'lg')}<span class="badge-dot">3</span></div>
+      <div style="min-width:0">
+        <div class="pname">${esc(p.name)}</div>
+        <div class="pmeta">@${p.un} · ID ${p.id}</div>
+        <div class="chips"><span class="chip">🎖 Хелпер</span><span class="chip warn">👁 на контроле</span><span class="chip bad">⚠️ 3 жалобы</span></div>
+      </div>
+    </div>
+    <div class="actions" style="margin-top:12px">
+      <button class="btn primary" data-actions="${p.id}">Действия</button>
+      <button class="btn" data-note="${p.id}">📝 Заметка</button>
+      <button class="btn" data-watchlike="${p.id}">👁 Снять с контроля</button>
+    </div>
+    <div class="facts">
+      <div class="fact"><span>Последняя активность</span><b style="font-size:14px">5 мин назад</b></div>
+      <div class="fact"><span>Сообщений за 7 дней</span><b>412</b></div>
+      <div class="fact"><span>Чатов</span><b>3</b></div>
+      <div class="fact"><span>Варнов</span><b>0</b></div>
+      <div class="fact"><span>Жалоб</span><b>3 <small>· 1 открытая</small></b></div>
+      <div class="fact"><span>Заметок</span><b>1</b></div>
+    </div>
+    <p class="cap">Опаснее всего: 3 жалобы за 30 дней · активность не падает · на контроле с 14 октября (поставил @dev).</p>
+  </div>
+
+  <div class="sec-title">Где человек сейчас</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="prow" data-chat="${CHATS.main.id}">
+      <div class="ava" style="background:linear-gradient(140deg,#4a3f7a,#232a44)"><b>П</b></div>
+      <div class="pmain"><div class="pname">Предвестник · Основной <span class="chip">Участник</span></div>
+        <div class="pmeta">сообщений 380 · последнее 5 минут назад</div></div>
+      <span class="sub">нет санкций</span>
+    </div>
+    <div class="prow" data-chat="${CHATS.fun.id}">
+      <div class="ava" style="background:linear-gradient(140deg,#3b4a7a,#232a44)"><b>К</b></div>
+      <div class="pmain"><div class="pname">Кухня · флудильня <span class="chip">Хелпер</span></div>
+        <div class="pmeta">сообщений 32 · последнее 2 часа назад</div></div>
+      ${flag('🔇 мут до 18:40', 'warn')}
+    </div>
+  </div>
+
+  <div class="sec-title">Жалобы · 3</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="log"><div><b>№1042</b> <span class="chip warn">новая</span> Спам ссылками</div>
+      <div class="sub">сегодня 14:02 · Предвестник · Основной · <a href="#" onclick="return false">открыть очередь</a></div></div>
+    <div class="log"><div><b>№1039</b> <span class="chip ok">подтверждена</span> Оскорбления</div>
+      <div class="sub">13 октября 19:20 · Кухня · флудильня · комментарий: выдан варн</div></div>
+  </div>
+
+  <div class="sec-title">Заметки персонала · 1</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="log"><div style="white-space:pre-wrap">Готовит еженедельный отчёт по чату. Предупредили за спам-ссылку.</div>
+      <div class="sub">${pinline(PEOPLE.alexey)} · 14 октября 12:11 · <a href="#" onclick="return false">убрать</a></div></div>
+  </div>
+
+  <div class="sec-title">Последние действия</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="log"><div>⚠️ <b>Предупреждение</b> в чате «Кухня · флудильня»</div>
+      <div class="sub">${pinline(PEOPLE.alexey)} · сегодня 13:40 · причина: оффтоп</div></div>
+    <div class="log"><div>👁 <b>Поставлена на контроль</b></div>
+      <div class="sub">${pinline(PEOPLE.dmitry)} · 14 октября 09:12 · причина: серия жалоб</div></div>
+  </div>`;
+};
+
+/* ── шторка действий ─────────────────────────────────────────────────────────────────────────── */
+const ACTIONS = [
+  {key: 'mute', ico: '🔇', title: 'Замутить в чате', hint: 'Писать не сможет только в выбранном чате', group: 'В этом чате', chat: true},
+  {key: 'warn', ico: '⚠️', title: 'Выдать предупреждение', hint: 'До наказания осталось 1 из 3', group: 'В этом чате', chat: true},
+  {key: 'kick', ico: '👢', title: 'Выгнать из чата', hint: 'Сможет вернуться по ссылке', group: 'В этом чате', chat: true},
+  {key: 'ban', ico: '⛔', title: 'Забанить в чате', hint: 'Вернуться сам не сможет', group: 'В этом чате', chat: true, danger: true},
+  {key: 'global_ban', ico: '🚫', title: 'Забанить во всех чатах', hint: 'Потеряет доступ везде, где есть бот', group: 'Везде', danger: true, typed: true},
+  {key: 'block', ico: '🙈', title: 'Бот перестанет отвечать', hint: 'В чатах останется, команды работать не будут', group: 'Везде', danger: true},
+  {key: 'balance', ico: '💰', title: 'Изменить баланс', hint: 'Мора, алмазы, эссенция; крупные суммы — с подтверждением', group: 'Профиль', danger: true},
+  {key: 'vip', ico: '👑', title: 'Выдать VIP', hint: 'Дни добавятся к текущему сроку', group: 'Профиль'},
+  {key: 'rank', ico: '🎖', title: 'Изменить роль', hint: 'Откроет или закроет разделы админки', group: 'Профиль', danger: true, typed: true},
+  {key: 'mark', ico: '🏅', title: 'Выдать регалию', hint: 'Видна в профиле игрока', group: 'Профиль'},
+  {key: 'watch', ico: '👁', title: 'Поставить на контроль', hint: 'Игрок не узнает, ограничений нет', group: 'Служебное'},
+  {key: 'sessions', ico: '🔒', title: 'Завершить сессии админки', hint: 'Сотрудник выйдет на всех устройствах', group: 'Служебное', danger: true},
+];
+
+const DUR = [['15', '15 минут'], ['60', '1 час'], ['1440', '1 день'], ['10080', '7 дней'], ['43200', '30 дней'], ['0', 'навсегда']];
+let lastChatId = CHATS.main.id;
+
+function sheetOpen(title, html, submit, onSubmit, {info = false} = {}) {
+  const box = $('#sheet');
+  box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${html}
+    <div class="actions" style="margin-top:14px">
+      ${submit ? `<button class="btn primary" id="sok">${esc(submit)}</button>` : ''}
+      <button class="btn" id="sx">${info ? 'Понятно' : 'Отмена'}</button></div></div>`;
+  box.hidden = false;
+  const close = () => { box.hidden = true; box.innerHTML = ''; };
+  box.onclick = e => { if (e.target === box) close(); };
+  $('#sx').onclick = close;
+  if (submit) $('#sok').onclick = () => { close(); onSubmit && onSubmit(); };
+}
+
+function personHeaderLine(p, chatId) {
+  const chat = chatId ? Object.values(CHATS).find(c => c.id === chatId) : null;
+  return `<div class="sub" style="margin:-4px 0 8px">Игрок: ${pinline(p)}${chat ? ` · чат «${esc(chat.title)}»` : ''}</div>`;
+}
+
+function actionsSheet(p, chatId) {
+  const groups = [...new Set(ACTIONS.map(a => a.group))];
+  const body = personHeaderLine(p, chatId) + groups.map(g => `
+    <div class="sec-title" style="margin-top:12px">${esc(g)}</div>
+    ${ACTIONS.filter(a => a.group === g).map(a => `<button type="button" class="arow ${a.danger ? 'danger' : ''}" data-act="${a.key}">
+      <span class="aico">${a.ico}</span>
+      <span class="atxt"><b>${esc(a.title)}</b><small>${esc(a.hint)}</small></span>
+      <span class="arr">›</span></button>`).join('')}`).join('');
+  sheetOpen('Действия · ' + p.name, body, '', () => {});
+  $('#sheet').querySelectorAll('[data-act]').forEach(b => b.onclick = () => actionForm(p, b.dataset.act, chatId));
+}
+
+function actionForm(p, key, chatId, reportId) {
+  const chat = Object.values(CHATS).find(c => c.id === (chatId || lastChatId)) || CHATS.main;
+  const context = reportId ? `Жалоба №${reportId}: ${p.fact[0]}` : '';
+  const reason = f => `<div class="field"><label>Причина ${key === 'warn' ? '(обязательно)' : '(необязательно)'}</label><input id="fr" maxlength="200" placeholder="${key === 'warn' ? 'за что предупреждаем' : 'видно только персоналу'}"/></div>`;
+  let fields = '', submit = 'Выполнить', confirm = '', typed = false;
+  if (key === 'mute') {
+    fields = `<div class="field"><label>Срок</label><select id="fd">${DUR.map(([v, t]) => `<option value="${v}" ${v === '60' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` + reason();
+    submit = 'Замутить на 1 час';
+  } else if (key === 'warn') {
+    fields = `<div class="field"><label>Срок действия</label><select id="fd">${DUR.map(([v, t]) => `<option value="${v}" ${v === '10080' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` + reason(true);
+    submit = 'Выдать предупреждение';
+  } else if (key === 'kick') { fields = reason(); submit = 'Выгнать из чата'; }
+  else if (key === 'ban') {
+    fields = `<div class="field"><label>Срок</label><select id="fd">${DUR.map(([v, t]) => `<option value="${v}" ${v === '0' ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` + reason();
+    submit = 'Забанить в чате'; confirm = `Срок: <b>навсегда</b>. Вернуться сам не сможет.`;
+  } else if (key === 'global_ban') {
+    fields = reason(); submit = 'Забанить во всех чатах'; typed = true;
+    confirm = `Игрок потеряет доступ <b>во всех чатах бота</b>. Снять можно только вручную.`;
+  } else if (key === 'block') {
+    fields = `<div class="field"><label>На сколько</label><select id="fd"><option value="1">1 день</option><option value="7">7 дней</option><option value="30" selected>30 дней</option><option value="0">пока не снимут</option></select></div>` + reason();
+    submit = 'Бот перестанет отвечать'; confirm = 'Бот перестанет отвечать игроку: <b>30 дней</b>.';
+  } else if (key === 'balance') {
+    fields = `<div class="grid2"><div class="field"><label>Валюта</label><select id="fc"><option>🪙 Мора</option><option>💎 Алмазы</option><option>🔮 Эссенция</option></select></div>
+      <div class="field"><label>Сумма (минус — списать)</label><input id="fa" inputmode="decimal" placeholder="500 или -500"/></div></div>` + reason(true);
+    submit = 'Изменить баланс'; confirm = `Мора: <b>+500</b> · было 1 240, станет 1 740.`;
+  } else if (key === 'vip') {
+    fields = `<div class="field"><label>Дней VIP</label><div class="chips">${[7, 30, 90, 365].map((d, i) => `<span class="chip ${i === 0 ? 'ok' : ''}">${d} дн.</span>`).join('')}</div></div>` + reason();
+    submit = 'Выдать VIP на 7 дней';
+  } else if (key === 'rank') {
+    fields = `<div class="field"><label>Новая роль</label><select id="fd"><option>🎖 Хелпер</option><option selected>🎖 Старший хелпер</option><option>🛠 Разработчик</option></select></div>` + reason(true);
+    submit = 'Сделать старшим хелпером'; typed = true; confirm = `Роль: Хелпер → <b>Старший хелпер</b>. Откроет разделы админки.`;
+  } else if (key === 'mark') {
+    fields = `<div class="field"><label>Регалия</label><select id="fd"><option>🏅 Наставник — помогает новичкам</option><option>🧭 Проводник — водит по чатам</option></select></div>` + reason(true);
+    submit = 'Выдать регалию';
+  } else if (key === 'watch') { fields = reason(); submit = 'Поставить на контроль'; }
+  else if (key === 'sessions') { fields = reason(); submit = 'Завершить сессии'; confirm = 'Сотрудник выйдет из админки на всех устройствах.'; }
+
+  const confirmBlock = confirm ? `<div class="confirm confirm-lines">${typed ? `<div>Для подтверждения введите ID игрока: <b>${p.id}</b></div><div class="field" style="margin:8px 0 0"><input id="fconfirm" inputmode="numeric" placeholder="${p.id}"/></div>` : `<div>${confirm}</div>`}</div>` : '';
+  sheetOpen((ACTIONS.find(a => a.key === key) || {}).title || 'Действие',
+    personHeaderLine(p, chatId) + (context ? `<div class="cap">${esc(context)}</div>` : '') + fields + confirmBlock,
+    submit, () => {
+      const label = {mute: 'замучена на 1 час', warn: 'получила предупреждение', kick: 'выгнана из чата', ban: 'забанена в чате',
+        global_ban: 'забанена во всех чатах', block: 'бот больше не отвечает', balance: 'баланс изменён', vip: 'VIP выдан на 7 дней',
+        rank: 'роль изменена', mark: 'регалия выдана', watch: 'поставлена на контроль', sessions: 'сессии завершены'}[key] || 'готово';
+      toast(`${p.name} ${label}${key === 'mute' ? ' · чат «' + chat.title + '»' : ''}${reportId ? ' · жалоба №' + reportId + ' закрыта' : ''}`);
+    });
+}
+
+SCREENS.actions = () => { setTimeout(() => actionsSheet(PEOPLE.maria, CHATS.main.id), 60); return SCREENS.player(); };
+
+SCREENS.reports = () => `
+  <h2 class="page-head" style="font-size:20px">⚑ Жалобы</h2>
+  <p class="sub" style="margin-top:-8px">Что прислали игроки и что с этим решили</p>
+  <div class="kpis"><div class="kpi warn sm"><span>Новых</span><b>4</b></div><div class="kpi sm"><span>В работе</span><b>2</b></div>
+    <div class="kpi sm"><span>Закрыто за сутки</span><b>11</b></div></div>
+  <div class="scope"><button class="btn small primary">Очередь · 6</button><button class="btn small">Закрытые · 128</button></div>
+  <div class="alert" role="status">🔒 Жалобы анонимны. Автор виден по настройкам жалоб; наказание выдаётся из карточки.</div>
+  <div class="sec-title" style="margin-top:16px">🔁 Повторные нарушители · 1</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    ${prow(PEOPLE.dmitry, `<button class="btn small" data-person="${PEOPLE.dmitry.id}">Карточка</button>`)}
+    <div class="cap" style="padding:0 0 8px 54px;margin-top:-8px">жалоб: 5 · от 4 разных игроков · открытых: 2 · подтверждено: 3</div>
+  </div>
+  <div class="card rep new" style="margin-top:12px">
+    <div><span class="chip warn">новая</span> <b>№1042</b> <span class="sub">· сегодня 14:02 · Предвестник · Основной</span></div>
+    <div style="margin-top:8px">На ${pinline(PEOPLE.dmitry)} <span class="chip bad">жалоб всего: 5</span></div>
+    <div class="rep-why"><b>Причина:</b> Спам-ссылки в чате</div>
+    <blockquote class="rep-msg">«Заходите на этот сайт, там раздают алмазы бесплатно»</blockquote>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn small" data-person="${PEOPLE.dmitry.id}">👤 Карточка</button>
+      <button class="btn small" data-punish="mute" data-report="1042">🔇 Замутить</button>
+      <button class="btn small danger" data-punish="ban" data-report="1042">⛔ Забанить</button>
+      <button class="btn small primary">✅ Нарушение</button>
+      <button class="btn small">✖️ Отклонить</button></div>
+  </div>
+  <div class="card rep">
+    <div><span class="chip">в работе</span> <b>№1039</b> <span class="sub">· сегодня 11:20 · Кухня · флудильня</span></div>
+    <div style="margin-top:8px">На ${pinline(PEOPLE.alexey)} <span class="sub">· автор скрыт</span></div>
+    <div class="rep-why"><b>Причина:</b> Оскорбления</div>
+    <div class="actions" style="margin-top:10px">
+      <button class="btn small" data-person="${PEOPLE.alexey.id}">👤 Карточка</button>
+      <button class="btn small" data-punish="warn" data-report="1039">⚠️ Предупреждение</button>
+      <button class="btn small primary">✅ Нарушение</button>
+      <button class="btn small">✖️ Отклонить</button></div>
+  </div>`;
+
+SCREENS.journal = () => `
+  <h2 class="page-head" style="font-size:20px">☰ Журнал</h2>
+  <p class="sub" style="margin-top:-8px">Кто из команды и что сделал</p>
+  <div class="scope"><button class="btn small">Сутки</button><button class="btn small primary">7 дней</button><button class="btn small">30 дней</button><button class="btn small">90 дней</button></div>
+  <div class="grid2 jfilters"><div class="field"><label>Что</label><select><option>Всё</option><option>Модерация</option><option>Игроки</option><option>Жалобы</option></select></div>
+    <div class="field"><label>Кто</label><select><option>Все</option><option>@dev</option><option>@alexk</option></select></div></div>
+  <div class="day-h">Сегодня</div>
+  <div class="log"><div>⚠️ <b>Предупреждение</b> в чате «Кухня · флудильня»</div>
+    <div class="sub">${pinline(PEOPLE.alexey)} → ${pinline(PEOPLE.dmitry, '<span class="sub">причина: оффтоп</span>')} · 13:40</div></div>
+  <div class="log"><div>🔇 <b>Замутил</b> в чате «Предвестник · Основной» на 1 час</div>
+    <div class="sub">${pinline(PEOPLE.maria)} → ${pinline(PEOPLE.dmitry, '<span class="sub">причина: спам-ссылки</span>')} · 13:12</div></div>
+  <div class="log"><div>✅ <b>Жалоба №1041 подтверждена</b></div>
+    <div class="sub">${pinline(PEOPLE.olga)} · 12:48 · комментарий: наказание выдано</div></div>
+  <div class="log"><div>💰 <b>Баланс: Мора +500</b></div>
+    <div class="sub">${pinline(PEOPLE.ivan)} → ${pinline(PEOPLE.kira)} · 11:02 · причина: конкурс недели</div></div>
+  <div class="day-h">Вчера</div>
+  <div class="log"><div>👁 <b>Поставил на контроль</b></div>
+    <div class="sub">${pinline(PEOPLE.maria)} → ${pinline(PEOPLE.dmitry)} · 09:12</div></div>`;
+
+SCREENS.broadcast = () => `
+  <h2 class="page-head" style="font-size:20px">⌁ Рассылка</h2>
+  <p class="sub" style="margin-top:-8px">Кому, что и когда отправим</p>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="sec-title" style="margin-top:0">Кому</div>
+    <div class="scope"><button class="btn small primary">Игроки</button><button class="btn small">Чаты</button><button class="btn small">Только VIP</button></div>
+    <div class="chips">
+      <span class="chip">🎯 Игроки, активные 7 дней</span><span class="chip">🏠 Только основной чат</span>
+      <span class="chip">🎖 Без персонала</span>
+    </div>
+    <div class="sec-title">Получатели · 12 480</div>
+    <div class="chips">
+      <span class="chip">${ava(PEOPLE.maria, 'sm')} @msokol ✕</span>
+      <span class="chip">${ava(PEOPLE.alexey, 'sm')} @alexk ✕</span>
+      <span class="chip">${ava(PEOPLE.kira, 'sm')} @kiral ✕</span>
+      <span class="chip">+ ещё 12 477</span>
+    </div>
+    <div class="field" style="margin-top:14px"><label>Текст</label>
+      <textarea rows="4">Новая неделя в Предвестнике: сезонный образ «Пепел», общий топ и розыгрыш моры в основном чате. Подробности — в приложении.</textarea></div>
+    <div class="sub">Предпросмотр</div>
+    <div class="card" style="white-space:pre-wrap;margin-top:6px">Новая неделя в Предвестнике: сезонный образ «Пепел», общий топ и розыгрыш моры в основном чате. Подробности — в приложении.</div>
+    <div class="actions" style="margin-top:10px"><button class="btn">✉️ Себе в личку</button><button class="btn primary">Проверить и отправить</button></div>
+  </div>
+  <div class="sec-title">История</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="log"><div><b>Игроки, активные 7 дней</b> · доставлено · 12 480/12 511</div>
+      <div class="sub">сегодня 10:00 · ${pinline(PEOPLE.maria)}</div></div>
+    <div class="log"><div><b>Все чаты</b> · остановлена на 4 210/9 300</div>
+      <div class="sub">12 октября 18:30 · ${pinline(PEOPLE.alexey)} · <a href="#" onclick="return false">Отчёт</a></div></div>
+  </div>`;
+
+SCREENS.access = () => `
+  <h2 class="page-head" style="font-size:20px">🛡 Права</h2>
+  <p class="sub" style="margin-top:-8px">С какой роли доступно каждое право</p>
+  <div class="alert" role="status">Роль выше или равная выбранной получает право. Выдать можно только то, что перечислено ниже.</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="sw-row"><div class="t"><b>⚠️ Варн в чате</b><div class="sub">по умолчанию: Хелпер</div></div>
+      <select><option>Мл. хелпер</option><option selected>Хелпер</option><option>Ст. хелпер</option></select></div>
+    <div class="sw-row"><div class="t"><b>⛔ Бан в чате</b><div class="sub">✎ изменено · по умолчанию: Ст. хелпер</div></div>
+      <select><option>Хелпер</option><option selected>Ст. хелпер</option><option>Разработчик</option></select>
+      <button class="btn small">Сбросить</button></div>
+    <div class="sw-row"><div class="t"><b>🗂 Раздел «Жалобы»</b><div class="sub">по умолчанию: Мл. хелпер</div></div>
+      <select><option selected>Мл. хелпер</option><option>Хелпер</option></select></div>
+  </div>
+  <div class="sec-title">🧑‍💼 Владельцы чатов</div>
+  <div class="card" style="border-top:0;padding-top:0">
+    <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">Открыт · не больше 5 чатов на человека</div></div>
+      <label class="toggle"><input type="checkbox" checked/><span></span></label></div>
+    <div class="sec-title">Доступ отозван</div>
+    ${prow(PEOPLE.olga, `<button class="btn small">Вернуть</button>`)}
+    <div class="cap" style="margin-top:-6px">причина: подозрительный вход</div>
+  </div>`;
+
+/* ── док ─────────────────────────────────────────────────────────────────────────────────────── */
+const DOCK = [['people', 'Игроки'], ['reports', 'Жалобы'], ['journal', 'Журнал'], ['broadcast', 'Рассылка']];
+const ICON = {people: '◉', reports: '⚑', journal: '☰', broadcast: '⌁', more: '⋯'};
+let CURRENT = 'people';
+
+function dock() {
+  const nav = $('#tabs');
+  const i = Math.max(0, DOCK.findIndex(d => d[0] === CURRENT));
+  nav.style.setProperty('--nav-n', 5);
+  nav.style.setProperty('--nav-i', i);
+  nav.innerHTML = DOCK.map(([k, t]) => `<button type="button" class="nb ${k === CURRENT ? 'on' : ''}" data-screen="${k}">${ICON[k]}<span>${esc(t)}</span></button>`).join('')
+    + `<button type="button" class="nb" data-more="1">${ICON.more}<span>Ещё</span></button>`;
+  nav.querySelectorAll('[data-more]').forEach(b => b.onclick = () => {
+    sheetOpen('Разделы', `<div class="go-list dock-sheet">
+      ${[['▥', 'Метрики'], ['✦', 'Промокоды'], ['⏻', 'Функции'], ['⚙', 'Настройки'], ['♥', 'Состояние'], ['🛡', 'Права']].map(([i, t]) =>
+        `<button type="button">${i}<span>${esc(t)}</span></button>`).join('')}</div>`, '', () => {});
+  });
+}
+
+function go(screen) {
+  CURRENT = SCREENS[screen] ? screen : 'people';
+  document.querySelectorAll('#dtabs button').forEach(b => b.classList.toggle('on', b.dataset.screen === CURRENT));
+  $('#main').innerHTML = SCREENS[CURRENT]();
+  $('#main').scrollTop = 0;
+  dock();
+  if (CURRENT === 'actions') { LAST_SCREEN = 'player'; }
+}
+let LAST_SCREEN = 'people';
+
+/* ── события ─────────────────────────────────────────────────────────────────────────────────── */
+document.addEventListener('click', e => {
+  const scr = e.target.closest('[data-screen]');
+  if (scr) { go(scr.dataset.screen); return; }
+  const scrGo = e.target.closest('[data-screen-go]');
+  if (scrGo) { go(scrGo.dataset.screenGo); return; }
+  const person = e.target.closest('[data-person]');
+  if (person && !e.target.closest('[data-punish]')) { go('player'); return; }
+  const chat = e.target.closest('[data-chat]');
+  if (chat) { toast('Карточка чата — в следующей фазе прототипа'); return; }
+  const actions = e.target.closest('[data-actions]');
+  if (actions) {
+    const p = Object.values(PEOPLE).find(x => x.id === +actions.dataset.actions) || PEOPLE.maria;
+    actionsSheet(p, CHATS.main.id); return;
+  }
+  const note = e.target.closest('[data-note]');
+  if (note) { sheetOpen('Заметка для персонала', `<div class="field"><textarea rows="3" placeholder="Что важно знать другим модераторам"></textarea></div>`, 'Добавить заметку', () => toast('Заметка добавлена')); return; }
+  const watchlike = e.target.closest('[data-watchlike]');
+  if (watchlike) { toast('Игрок снят с контроля'); go('player'); return; }
+  const punish = e.target.closest('[data-punish]');
+  if (punish) {
+    const p = punish.dataset.punish === 'ban' ? PEOPLE.dmitry : PEOPLE.alexey;
+    actionForm(p, punish.dataset.punish, CHATS[p === PEOPLE.dmitry ? 'main' : 'fun'].id, punish.dataset.report); return;
+  }
+});
+document.querySelectorAll('#dtabs button').forEach(b => b.onclick = () => go(b.dataset.screen));
+$('#dtheme').onclick = () => {
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+};
+
+function toast(text, bad = false) {
+  const t = $('#toast'); t.textContent = text; t.className = 'toast' + (bad ? ' bad' : ''); t.hidden = false;
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 3600);
+}
+go('people');
+</script>
+</body>
+</html>
