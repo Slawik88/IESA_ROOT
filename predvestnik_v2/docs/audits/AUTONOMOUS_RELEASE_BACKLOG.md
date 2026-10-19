@@ -1,3 +1,19 @@
+## Follow-up 2026-10-19 — activity SQL shares the image latency budget
+
+The graph's 0.75-second budget previously covered only PNG rendering; its history
+query could delay the text reply without that bound. The query and rendering now
+share one deadline. Slow history reads return the previous image or text fallback.
+A cancelled query is isolated in a read transaction/savepoint and cleaned up before
+returning the borrowed connection. Only PNG work may outlive the request; it never
+receives the DB connection. BEGIN/rollback themselves are not interrupted by the
+optional-image timer, so transaction setup/cleanup can exceed the soft deadline.
+
+Tests cover slow SQL cancellation, stale-image fallback, remaining render budget,
+render sharing and caller cancellation. A real PostgreSQL pg_sleep proof verifies
+connection reuse and preservation of a write made before the graph savepoint.
+Full graph/profile-caption and streak delivery checks pass. The read-only reviewer
+independently reran the PG and recovery proofs without finding a blocker.
+
 ## Follow-up 2026-10-19 — queued Telegram rights writes respect revocation
 
 A retained Telegram button checked permission before waiting for the shared chat

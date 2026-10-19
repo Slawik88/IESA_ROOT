@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import asyncio
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -34,9 +36,15 @@ class FakeCursor:
         return False
 
 
+@asynccontextmanager
+async def fake_transaction():
+    yield
+
+
 class FakeDB:
     def __init__(self, rows):
         self.rows = rows
+        self.connection = SimpleNamespace(transaction=fake_transaction)
         self.calls: list[tuple] = []
 
     def execute(self, sql, args=()):

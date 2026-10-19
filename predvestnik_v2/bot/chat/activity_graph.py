@@ -6,9 +6,10 @@
 
 Рендер — в отдельном потоке, кэш на минуту, общий рендер для одновременных
 запросов и не более четырёх незавершённых задач. Предыдущая картинка доступна
-во время обновления. Холодный рендер ждём до 0,75 секунды; затем карточка идёт
-текстом, а готовая картинка остаётся для следующего запроса. Бюджет рендера
-не включает SQL и отправку в Telegram. Фоновая задача не использует соединение
+во время обновления. SQL и холодную отрисовку ждём суммарно до 0,75 секунды;
+затем карточка идёт текстом, а готовая картинка остаётся для следующего запроса.
+Отмена SQL дожидается отката savepoint; отправка в Telegram в бюджет не входит.
+Фоновая задача не использует соединение
 БД. Данные — один запрос только за видимое окно, без истории для сравнений.
 """
 from __future__ import annotations
@@ -152,9 +153,10 @@ def _render_done(key, task):
         logger.warning("Activity graph render failed: {}", type(task.exception()).__name__)
 
 
-async def _wait_render(task, fallback):
+async def _wait_render(task, fallback, *, budget_sec=None):
     try:
-        return await asyncio.wait_for(asyncio.shield(task), RENDER_BUDGET_SEC)
+        return await asyncio.wait_for(asyncio.shield(task),
+            RENDER_BUDGET_SEC if budget_sec is None else max(0, budget_sec))
     except Exception:
         return fallback
 
@@ -371,11 +373,24 @@ async def daily_counts(db, user_id: int, chat_id: int | None = None,
     return start, counts
 
 
+async def _read_counts(db, user_id, chat_id, days, deadline):
+    # Query cancellation must not abort a caller's surrounding transaction.
+    # The read stays on the borrowed connection and is fully cleaned up before
+    # returning; only the subsequent PNG render may continue in the background.
+    async with db.connection.transaction():
+        # Time out only the query, never BEGIN/ROLLBACK themselves: interrupting
+        # a transaction boundary could leave a borrowed connection inside a tx.
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
+        return await asyncio.wait_for(daily_counts(db, user_id, chat_id, days), remaining)
+
+
 async def get_graph(db, user_id: int, chat_id: int | None = None, *,
                     days: int = DAYS, theme: str = DEFAULT_THEME) -> bytes | None:
     """PNG для карточки или None, если рисовать нечего (ни одного сообщения в окне).
 
-    Одним запросом читается только видимое окно; при медленном рендере
+    Одним запросом читается только видимое окно; при медленном SQL или рендере
     возвращается предыдущая картинка либо None для текстовой карточки.
     """
     today = local_now().date().isoformat()
@@ -388,7 +403,11 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
         return hit if hit is not None else await _wait_render(task, hit)
     if len(_pending) >= MAX_PENDING_RENDERS:
         return hit
-    start, counts = await daily_counts(db, user_id, chat_id, days)
+    deadline = time.monotonic() + RENDER_BUDGET_SEC
+    try:
+        start, counts = await _read_counts(db, user_id, chat_id, days, deadline)
+    except asyncio.TimeoutError:
+        return hit
     if not any(counts):
         _cache.pop(key, None)
         _cached_at.pop(key, None)
@@ -402,7 +421,8 @@ async def get_graph(db, user_id: int, chat_id: int | None = None, *,
         task = asyncio.create_task(_render_cached(key, counts, start, theme=theme, prev_avg=None))
         _pending[key] = task
         task.add_done_callback(lambda done: _render_done(key, done))
-    return hit if hit is not None else await _wait_render(task, hit)
+    return hit if hit is not None else await _wait_render(
+        task, hit, budget_sec=deadline - time.monotonic())
 
 
 def prewarm() -> None:
