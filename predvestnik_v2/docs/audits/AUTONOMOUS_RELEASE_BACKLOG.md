@@ -1,3 +1,21 @@
+## Cosmetic nicknames 2026-10-19 — all39 skins /seven tiers
+
+Shared nickname renderer for own/public profiles, cosmetic previews, message
+and game tops, standalone Rhythm/Mines boards, partner/proposals and family
+trees. Each skin has its own drawn vector emblem, engraved line and type/color
+treatment; tiers unlock gradient, emblem, engraving, bright inlay, end ornament
+and SSS crown. Rows remain static. The server's existing VIP visibility rule
+is preserved; owners always see their own skin in the family tree. Admin UI is
+unchanged. Name strings stay escaped and a failed shared-script request falls
+back to readable text instead of breaking profile rendering.
+
+Proof: all273 real payloads through both renderers; Edge at320/390/430/1280,
+long names without page overflow, 39 distinct motifs, CSS URL parsing for all12
+new holiday illustrations. PostgreSQL family/privacy suite passes, including
+its concurrent receipt checks after preparing isolated local schema. Root and
+/predvestnik static ASGI checks include the new JS/CSS routes and pass; no admin
+asset includes the new renderer. Appearance and readonly critique also pass.
+
 ## Holiday cosmetics 2026-10-19 — six original V3 skins
 
 Based on master f962a401, using the existing scene engine, D..SSS progression,

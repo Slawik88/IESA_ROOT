@@ -1,0 +1,59 @@
+/* Each skin keeps its palette and drawn motif. Tiers add craftsmanship rather
+   than changing the name into unreadable symbols. No animated layers in lists. */
+.ap-name.ap-designed { display:inline-flex; align-items:center; gap:.3em; max-width:100%; min-width:0; padding:2px 1px 4px; margin:-2px -1px -4px; background:none; -webkit-text-fill-color:initial; color:var(--ap-a); filter:none; text-shadow:none; overflow:hidden; font-weight:650; letter-spacing:0; isolation:isolate; animation:none!important; }
+.ap-name.ap-designed::before,.ap-name.ap-designed::after { content:none!important; }
+.ap-designed .ap-nick-text { position:relative; display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:inherit; padding-bottom:2px; }
+.ap-designed:not(.ap-t1) .ap-nick-text { background:linear-gradient(var(--nick-angle,110deg),var(--ap-c),var(--ap-a) 32%,color-mix(in srgb,var(--ap-a) 78%,var(--ap-b)) 74%,var(--ap-a)); background-clip:text; -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.ap-designed .ap-nick-emblem,.ap-designed .ap-nick-rank { flex:none; width:.95em; height:1.1em; fill:none; stroke:var(--ap-a); stroke-width:1.2; stroke-linecap:round; stroke-linejoin:round; }
+.ap-designed .ap-nick-rail { position:absolute; left:0; bottom:-2px; width:100%; height:7px; fill:none; stroke:var(--ap-a); stroke-width:.9; opacity:.55; pointer-events:none; }
+.ap-designed.ap-t4 { padding-bottom:6px; margin-bottom:-6px; }
+.ap-designed:is(.ap-t5,.ap-t6,.ap-t7) { padding-bottom:7px; margin-bottom:-7px; }
+.ap-designed:is(.ap-t5,.ap-t6,.ap-t7) .ap-nick-text { filter:drop-shadow(0 0 3px color-mix(in srgb,var(--ap-a) 28%,transparent)); }
+.ap-designed.ap-t5 .ap-nick-rail { stroke-width:1.2; opacity:.8; }
+.ap-designed.ap-t5 .ap-nick-emblem { stroke:var(--ap-c); }
+.ap-designed:is(.ap-t6,.ap-t7) .ap-nick-emblem { stroke:var(--ap-c); stroke-width:1.4; }
+.ap-designed .ap-nick-rank { width:.55em; stroke:var(--ap-c); opacity:.8; }
+.ap-designed.ap-t7 .ap-nick-rail { stroke:var(--ap-c); stroke-width:1.2; opacity:.9; }
+.ap-designed.ap-t7 .ap-nick-text { font-weight:800; }
+.ap-name.ap-designed[data-sk="forest"] { --nick-angle:145deg; font-weight:620; }
+.ap-name.ap-designed[data-sk="dune"] { --nick-angle:25deg; letter-spacing:.015em; }
+.ap-name.ap-designed[data-sk="harbor"] { --nick-angle:180deg; font-weight:700; }
+.ap-name.ap-designed[data-sk="lotus_pond"] { --nick-angle:145deg; }
+.ap-name.ap-designed[data-sk="threshold"] { --nick-angle:90deg; letter-spacing:.02em; }
+.ap-name.ap-designed[data-sk="frost"] { --nick-angle:170deg; font-weight:650; }
+.ap-name.ap-designed[data-sk="copper"] { --nick-angle:50deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="sakura_bud"] { --nick-angle:135deg; }
+.ap-name.ap-designed[data-sk="inferno"] { --nick-angle:0deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="hanami"] { --nick-angle:155deg; }
+.ap-name.ap-designed[data-sk="jade"] { --nick-angle:70deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="celestial"] { --nick-angle:15deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="ruby"] { --nick-angle:95deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="observatory"] { --nick-angle:160deg; letter-spacing:.015em; }
+.ap-name.ap-designed[data-sk="lotus_gold"] { --nick-angle:25deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="void"] { --nick-angle:90deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="aurora"] { --nick-angle:150deg; }
+.ap-name.ap-designed[data-sk="solar"] { --nick-angle:10deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="sakura_storm"] { --nick-angle:135deg; }
+.ap-name.ap-designed[data-sk="artifact"] { --nick-angle:90deg; font-family:ui-monospace,monospace; }
+.ap-name.ap-designed[data-sk="moon_lotus"] { --nick-angle:165deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="ryujin_tide"] { --nick-angle:35deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="midnight_comet"] { --nick-angle:125deg; letter-spacing:.02em; }
+.ap-name.ap-designed[data-sk="chrono"] { --nick-angle:90deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="starheart"] { --nick-angle:0deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="pumpkin_lantern"] { --nick-angle:15deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="cobweb"] { --nick-angle:130deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="witch_hour"] { --nick-angle:80deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="snow_globe"] { --nick-angle:170deg; }
+.ap-name.ap-designed[data-sk="garland"] { --nick-angle:65deg; font-weight:700; }
+.ap-name.ap-designed[data-sk="midnight_chimes"] { --nick-angle:90deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="scarlet_star"] { --nick-angle:135deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="crimson_dark"] { --nick-angle:0deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="raven_masquerade"] { --nick-angle:120deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="phantom_carriage"] { --nick-angle:170deg; letter-spacing:.015em; }
+.ap-name.ap-designed[data-sk="gingerbread_house"] { --nick-angle:25deg; font-weight:800; }
+.ap-name.ap-designed[data-sk="polar_express"] { --nick-angle:135deg; font-weight:750; }
+.ap-name.ap-designed[data-sk="rose_letter"] { --nick-angle:145deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="glass_heart"] { --nick-angle:65deg; }
+.v3-who .ap-name.ap-designed { flex:0 1 auto; white-space:nowrap; }
+.v3-name .ap-name.ap-designed,.pp-name .ap-name.ap-designed,.lk-name .ap-name.ap-designed { display:inline-flex; -webkit-line-clamp:unset; line-clamp:unset; }
+.v3-name .ap-designed .ap-nick-text,.pp-name .ap-designed .ap-nick-text,.lk-name .ap-designed .ap-nick-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2; white-space:normal; overflow-wrap:anywhere; }

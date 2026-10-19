@@ -33,6 +33,8 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
     partner_id = m["user2_id"] if m["user1_id"] == user["id"] else m["user1_id"]
     partner_name = m["user2_name"] if m["user1_id"] == user["id"] else m["user1_name"]
     partner_is_vip = await is_vip_active(db, partner_id)
+    from services.appearance_public_v3 import nick_styles
+    partner_look = (await nick_styles(db, [partner_id])).get(partner_id)
 
     # Family pets (marriage_id set on pets)
     async with db.execute(
@@ -65,6 +67,7 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
         "partner_id": partner_id,
         "partner_name": partner_name,
         "partner_is_vip": partner_is_vip,
+        "partner_look": partner_look,
         "family_balance": float(m["family_balance"] or 0),
         "family_balance_diamonds": float(m.get("family_balance_diamonds", 0) or 0),
         "family_balance_dark_mora": float(m.get("family_balance_dark_mora", 0) or 0),
@@ -305,7 +308,9 @@ async def get_proposals(db=Depends(get_db), user=Depends(require_tg_user)):
         (user["id"],),
     ) as c:
         rows = [dict(r) for r in await c.fetchall()]
-    return {"proposals": rows}
+    from services.appearance_public_v3 import nick_styles
+    looks = await nick_styles(db, [int(r["proposer_id"]) for r in rows])
+    return {"proposals": [{**r, "look": looks.get(int(r["proposer_id"]))} for r in rows]}
 
 
 class ProposalActionRequest(BaseModel):

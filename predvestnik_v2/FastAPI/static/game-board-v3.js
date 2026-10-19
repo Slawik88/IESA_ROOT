@@ -22,7 +22,7 @@
   // player: {display_name, look, mark, is_vip}; возвращает HTML для вставки внутрь ссылки на профиль
   window.gameWhoV3 = function (player) {
     const p = player || {}, ap = fromLook(p.look), name = esc(p.display_name || 'Игрок');
-    const nick = ap ? `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.name}${sig(ap)}"${sk(ap)} style="${ap.vars}" data-t="${name}">${name}</span>` : `<span class="ap-plain">${name}</span>`;
+    const nick = ap && typeof window.skinNicknameV3 === 'function' ? window.skinNicknameV3(ap, name, p.display_name || 'Игрок') : `<span class="ap-plain">${name}</span>`;
     const title = ap && ap.title ? `<span class="ap-title ap-t${ap.ti}${sig(ap)}"${sk(ap)} style="${ap.vars}">${esc(ap.title)}</span>` : '';
     return `<span class="v3-who"><span>${nick}${p.is_vip ? ' <em class="v3-vipdot" aria-label="VIP"></em>' : ''}${markDot(p.mark)}</span>${title}</span>`;
   };

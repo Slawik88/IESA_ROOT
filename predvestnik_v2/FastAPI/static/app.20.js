@@ -29,9 +29,8 @@ function v3Head(title, { sub = '', back = '', end = '' } = {}) {
 }
 function apName(ap, html, plain) {
   if (!ap) return html;
-  const text = plain ?? String(html).replace(/<[^>]*>/g, '');
-  const glint = ap.ti >= 4 && _AP_GLINT_KINDS.includes(ap.k.name) ? `<span class="ap-gl" aria-hidden="true"><span data-t="${text}"></span></span>` : '';   // «окно» блика с белой копией ника: движется только transform (appearance-v3.css)
-  return `<span class="ap-name ap-t${ap.ti} ap-nm-${ap.k.name}${_apSig(ap)}"${_apSk(ap)} style="${ap.vars}" data-t="${text}">${html}${glint}</span>`;
+  const text = plain ?? String(html).replace(/<[^>]*>/g, '').replace(/&(amp|lt|gt|quot|#39|#x27);/g, e => ({'&amp;':'&','&lt;':'<','&gt;':'>','&quot;':'"','&#39;':"'",'&#x27;':"'"}[e]));
+  return typeof window.skinNicknameV3 === 'function' ? window.skinNicknameV3(ap, html, text) : html;
 }
 function apCrest(ap) {   // знак собранного сета: сервер присылает его только владельцу или тем, кто вправе видеть образ
   const c = ap?.look?.crest;
