@@ -420,13 +420,17 @@ async def feed(db, *, kind: str = "", actor_id: int | None = None, days: int = 7
     for actor, action, uid, cid, extra, at in rows:
         details = _details(extra)
         kind_of = next((k for k, (_, acts) in FEED_KINDS.items() if action in acts), "")
-        items.append({
+        item = {
             "action": action, "kind": kind_of, "title": ACTION_TITLES.get(action, action), "text": describe(action, details),
             "reason": str(details.get("reason") or ""), "at": _iso(at),
             "actor": {"id": actor, "username": names.get(int(actor)) if actor else None},
             "user": {"id": uid, "username": names.get(int(uid)) if uid else None,
                      "tag": tags.get((int(cid), int(uid))) if cid else None} if uid else None,
-            "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None})
+            "chat": {"id": cid, "title": titles.get(int(cid)) if cid else None} if cid else None}
+        for person in (item["actor"], item["user"]):   # лица в ленте: кто сделал и с кем
+            if person:
+                person["avatar"] = admin_avatars.avatar_url(person["id"])
+        items.append(item)
     async with db.execute(
         "SELECT DISTINCT actor_id FROM bot_admin_actions WHERE actor_id IS NOT NULL AND created_at > NOW() - INTERVAL '90 days' "
         "UNION SELECT DISTINCT admin_id FROM moderation_logs WHERE admin_id IS NOT NULL "

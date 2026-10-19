@@ -370,6 +370,14 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .ava.chat { background: linear-gradient(140deg, color-mix(in srgb, var(--accent) 24%, var(--panel)), color-mix(in srgb, var(--accent) 6%, var(--panel))); color: var(--accent); }
 .ava-wrap { position: relative; flex: none; }
 
+/* Человек внутри строки текста: фото + имя + @ник (журнал, жалобы, владельцы чатов). */
+.pinline { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; max-width: 100%; }
+.pinline .ava { width: 22px; height: 22px; font-size: 10px; }
+.pinline b { font-weight: 600; overflow-wrap: anywhere; }
+.pinline .sub { font-size: 12px; }
+.chip .ava { display: inline-grid; width: 20px; height: 20px; font-size: 9px; vertical-align: -5px; margin-right: 4px; }
+.found button .ava { display: inline-grid; width: 26px; height: 26px; font-size: 11px; vertical-align: -8px; margin-right: 6px; }
+
 /* Строка человека: фото, имя, факты одной строкой — так список читается без раскрытия карточки. */
 .prow { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); cursor: pointer; }
 .prow:first-child { border-top: 0; }

@@ -7,7 +7,7 @@ from FastAPI.deps import get_db
 from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin.people import get_bot
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_people, admin_security
+from services import admin_avatars, admin_people, admin_security
 from services import broadcasts as broadcasts_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -147,6 +147,7 @@ async def broadcast_report(bid: int, user=Depends(_user), db=Depends(get_db), _=
     rep = await broadcasts_service.report(db, bid)
     if not rep:
         raise HTTPException(404, "Рассылки нет.")
+    admin_avatars.attach(rep.get("failed_sample") or [])   # у чатов id отрицательный — фото просто не будет
     return rep
 
 

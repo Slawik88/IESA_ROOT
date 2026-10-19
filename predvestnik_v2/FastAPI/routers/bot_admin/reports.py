@@ -14,7 +14,7 @@ from FastAPI.routers.bot_admin.auth import section
 from FastAPI.routers.bot_admin import people
 from FastAPI.routers.bot_admin.people import get_bot
 from FastAPI.routers.bot_admin.safe import AdminRoute
-from services import admin_access, admin_people, admin_security
+from services import admin_access, admin_avatars, admin_people, admin_security
 from services import reports as reports_service
 
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
@@ -40,9 +40,14 @@ NOTICE = {"resolved": "✅ Ваша жалоба №{id} рассмотрена:
 async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _=Depends(_tables)):
     conf = await reports_service.settings(db)
     show = user["rank"] >= conf["reporter_min_rank"]
-    return {"items": await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show),
-            "counts": await reports_service.counts(db), "can_see_reporter": show,
-            "repeat": await reports_service.repeat_offenders(db) if kind != "closed" else [],
+    items = await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show)
+    for row in items:   # лица нарушителя, автора и того, кто закрыл жалобу
+        for person in (row.get("target"), row.get("reporter"), row.get("handled_by")):
+            if person:
+                person["avatar"] = admin_avatars.avatar_url(person["id"])
+    repeat = await reports_service.repeat_offenders(db) if kind != "closed" else []
+    return {"items": items, "counts": await reports_service.counts(db), "can_see_reporter": show,
+            "repeat": admin_avatars.attach(repeat),
             "punish": [{"key": k, "title": people.ACTIONS[k][0]} for k in PUNISH if user["rank"] >= people._min(user, k)]}
 
 

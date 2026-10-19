@@ -9,7 +9,7 @@ from FastAPI.routers.bot_admin.safe import AdminRoute
 from bot.chat.global_ranks import CREATOR, bot_rank_name
 from FastAPI.routers.bot_admin.auth import SECTIONS
 from FastAPI.routers.bot_admin.people import ACTIONS
-from services import admin_access, admin_people, admin_security, owner_access
+from services import admin_access, admin_avatars, admin_people, admin_security, owner_access
 
 router = APIRouter(prefix="/bot-admin/api/access", tags=["bot-admin"], route_class=AdminRoute)
 _user = section("access")
@@ -23,7 +23,8 @@ def _creator(user: dict) -> None:
 @router.get("/owners")
 async def owners_state(user=Depends(_user), db=Depends(get_db)):
     _creator(user)
-    return {"enabled": await owner_access.enabled(db), "blocked": await owner_access.blocked_list(db),
+    blocked = await owner_access.blocked_list(db)
+    return {"enabled": await owner_access.enabled(db), "blocked": admin_avatars.attach(blocked),
             "max_chats": owner_access.MAX_CHATS}
 
 

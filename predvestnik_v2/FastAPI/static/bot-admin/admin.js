@@ -342,9 +342,13 @@ const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
 const pic = url => url ? esc(BASE + url) : '';
 function ava(p, cls = '') {
   const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
-  const letter = (p.name || p.username || '?').trim().charAt(0).toUpperCase();
+  const letter = (p.name || p.username || '?').replace(/^@+/, '').trim().charAt(0).toUpperCase() || '?';
   return `<span class="ava ${cls}" aria-hidden="true">${photo}<b>${esc(letter)}</b></span>`;
 }
+// Человек одной строкой: фото, имя, @ник. Для ленты, жалоб и списков, где важна не строка, а лицо.
+const pinline = (p, extra = '') => p && p.id
+  ? `<span class="pinline">${ava(p)}<b>${p.name ? esc(p.name) : who(p.id, p.username)}</b>${p.name && p.username ? `<span class="sub">@${esc(p.username)}</span>` : ''}${extra}</span>`
+  : '';
 const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
 const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С варнами'],
   ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
@@ -1345,7 +1349,9 @@ async function journalView(main, more = '') {
   if (!data) return;
   if (JOURNAL.kind && !data.kinds.some(k => k.key === JOURNAL.kind)) { JOURNAL.kind = ''; saveJournal(); return journalView(main); }   // запомненный вид исчез
   const canPeople = ME.sections.some(z => z.key === 'people');
-  const person = x => x && x.id ? (canPeople ? `<a href="#" data-player="${x.id}">${who(x.id, x.username)}</a>` : who(x.id, x.username)) + tagSfx(x.tag) : '';
+  const person = x => x && x.id
+    ? (canPeople ? `<a href="#" data-player="${x.id}">${pinline(x)}</a>` : pinline(x)) + tagSfx(x.tag)
+    : '';
   if (!more) JOURNAL.lastDay = '';   // разделитель дня не повторяется на подгруженной странице
   const dayHead = iso => {
     const d = iso ? new Date(iso).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long', weekday: 'short'}) : '';
@@ -1397,7 +1403,7 @@ async function reportsView(main, kind = 'open') {
   refreshBadges();
   const c = data.counts;
   const canPeople = ME.sections.some(z => z.key === 'people');
-  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${esc(p.name)}</a>` : esc(p.name)) + tagSfx(p.tag) : '—';
+  const person = p => p ? (canPeople ? `<a href="#" data-player="${p.id}">${pinline(p)}</a>` : pinline(p)) + tagSfx(p.tag) : '—';
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
     ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
@@ -1407,7 +1413,7 @@ async function reportsView(main, kind = 'open') {
     <div class="sub note">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
     ${data.repeat && data.repeat.length ? `<section class="section" data-sec="r-repeat"><h3 class="sec-h">🔁 Повторные нарушители <small class="cnt">· ${data.repeat.length}</small></h3>
       <div class="sub note">3 жалобы и больше за 30 дней, отклонённые не считаются.</div>
-      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person({id: x.id, name: x.name})}
+      ${data.repeat.map(x => `<div class="sw-row"><div class="t">${person(x)}
         <div class="sub">жалоб: ${x.reports} · от ${x.reporters} ${x.reporters === 1 ? 'игрока' : 'разных игроков'} · открытых: ${x.open} · подтверждено: ${x.confirmed}</div></div>
         ${canPeople ? `<button class="btn small" data-player="${x.id}">👤 Карточка</button>` : ''}</div>`).join('')}</section>` : ''}
     ${kind === 'open' && data.items.length > 1 ? '<div id="repbulk"></div>' : ''}
@@ -1418,7 +1424,7 @@ async function reportsView(main, kind = 'open') {
         <span class="sub">${r.reporter ? 'от ' + person(r.reporter) : '· автор скрыт'}</span></div>
       <div class="rep-why"><b>Причина:</b> ${esc(r.reason)}</div>
       ${r.message_text ? `<blockquote class="rep-msg">${esc(r.message_text)}</blockquote>` : ''}
-      ${r.handled_by ? `<div class="sub" style="margin-top:6px">${esc(r.handled_by.name)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
+      ${r.handled_by ? `<div class="sub" style="margin-top:6px">${pinline(r.handled_by)} · ${when(r.handled_at)}${r.note ? ' · ' + esc(r.note) : ''}</div>` : ''}
       ${kind === 'open' ? `<div class="actions" style="margin-top:10px">
         ${canPeople ? `<button class="btn small" data-player="${r.target.id}">👤 Карточка</button>` : ''}
         ${(data.punish || []).map(a => `<button class="btn small danger" data-punish="${a.key}" data-rid="${r.id}">${esc(a.title)}</button>`).join('')}
@@ -1536,7 +1542,7 @@ function pickerField(host, {hint, placeholder, search, items, onChange}) {
   const input = $('input', host), found = $('.found', host), chips = $('.chips', host);
   const draw = () => {
     chips.innerHTML = items.length
-      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${esc(x.label)} ✕</span>`).join('')
+      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} ✕</span>`).join('')
       : `<span class="sub">${esc(hint)}</span>`;
   };
   draw();
@@ -1549,7 +1555,7 @@ function pickerField(host, {hint, placeholder, search, items, onChange}) {
     timer = setTimeout(async () => {
       try {
         const list = (await search(q)).filter(x => !items.some(y => y.id === x.id));
-        found.innerHTML = list.map((x, i) => `<button type="button" data-add="${i}">${esc(x.label)} <span class="sub">${x.id}</span></button>`).join('')
+        found.innerHTML = list.map((x, i) => `<button type="button" data-add="${i}">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} <span class="sub">${x.id}</span></button>`).join('')
           || '<span class="sub">Не найдено</span>';
         found._list = list;
       } catch (e) { found.innerHTML = `<span class="sub">${esc(e.message)}</span>`; }
@@ -1566,7 +1572,7 @@ function pickerField(host, {hint, placeholder, search, items, onChange}) {
 
 const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: (c.admin ? '🛡 ' : '') + c.title}));
 const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`)).players
-  .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id}));
+  .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id, username: u.username, name: u.name, avatar: u.avatar}));
 
 // Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
 const BC = {kind: 'players', chats: [], players: [], active: '', chatKind: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
@@ -1605,7 +1611,7 @@ function bcHistoryRow(b) {
 async function bcReport(id, refresh) {
   const rep = await api(`/broadcasts/${id}`);
   const b = rep.broadcast;
-  const names = rep.failed_sample.map(x => `<div class="log"><b>${esc(x.name)}</b> <span class="sub">${esc(x.reason)}</span></div>`).join('');
+  const names = rep.failed_sample.map(x => `<div class="log">${pinline(x)} <span class="sub">${esc(x.reason)}</span></div>`).join('');
   sheet(`Рассылка №${b.id}`, `
     <div class="sub" style="margin-bottom:6px">${esc(b.audience_title)} · ${esc(b.status_title)}</div>
     <div class="grid2"><div class="card"><div class="sub">Дошло</div><b>${num(rep.sent)}</b></div>
@@ -2517,7 +2523,7 @@ async function ownersAccessCard(main) {
     <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">${st.enabled ? 'Открыт' : 'Закрыт'}</div></div>
       <label class="toggle"><input type="checkbox" id="own-on" ${st.enabled ? 'checked' : ''}/><span></span></label></div>
     <div class="sub" style="margin:10px 0 4px">Доступ отозван</div>
-    ${st.blocked.length ? st.blocked.map(b => `<div class="sw-row"><div class="t"><b>${who(b.id, b.username)}</b><div class="sub">${esc(b.reason || 'без причины')}</div></div>
+    ${st.blocked.length ? st.blocked.map(b => `<div class="sw-row"><div class="t">${pinline(b)}<div class="sub">${esc(b.reason || 'без причины')}</div></div>
       <button type="button" class="btn" data-ounblock="${b.id}">Вернуть</button></div>`).join('') : '<div class="sub">Никто не отозван.</div>'}
     <div class="field" style="margin-top:10px"><label>Отозвать доступ: ID человека</label><input id="own-uid" inputmode="numeric"/></div>
     <div class="field"><label>Причина (необязательно)</label><input id="own-reason" maxlength="200"/></div>
