@@ -1,3 +1,13 @@
+## Owner revision 2026-10-19 — creative Rhythm gifts (item 16)
+
+Added Metronome, Last Spark and Second Wind, each with a real cost and a distinct
+conditional mechanic. Preserved the old pool for already-started runs. Corrected
+the balance simulator to include the actual network grace. Read-only combination
+review caught and reduced an overly strong Spark/Glass ordering before release.
+7689 eligible combinations, 6000 simulations, real PG transport/reconnect and
+mobile draft checks pass. Final rules and evidence:
+`docs/audits/RHYTHM_GIFTS_REVISION_2026-10-19.md`.
+
 ## Owner revision 2026-10-19 — achievement revision (item 13)
 
 Added four finite non-game series: care, camp development, skin tiers and daily

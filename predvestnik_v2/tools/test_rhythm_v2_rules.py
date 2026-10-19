@@ -46,14 +46,14 @@ for draft_no in range(1, 60):
 assert len(seen) >= 12, "offers must vary across the whole pool"
 
 # Every gift carries a bonus AND a price, both written down and both real.
-assert len(rules.PERKS) == 14
+assert len(rules.PERKS) == 17
 for item in rules.PERKS:
     assert item.bonus and item.cost, item.id
-good_fields = ("heal", "shield", "ebb", "bloody", "regen_every", "combo_step", "timeout_free", "sharp_eye")
+good_fields = ("heal", "shield", "ebb", "bloody", "regen_every", "combo_step", "timeout_free", "sharp_eye", "cadence_every", "low_health_bonus_pct", "recovery_signals")
 for item in rules.PERKS:
     pluses = item.window_pct > 0 or item.score_pct > 0 or any(getattr(item, f) for f in good_fields)
     minuses = (item.window_pct < 0 or item.score_pct < 0 or item.pace_pct > 0 or item.damage_extra
-               or item.wrong_extra or item.cap_health or item.sharp_eye or item.id == "blood_price")
+               or item.wrong_extra or item.cap_health or item.sacrifice or item.sharp_eye or item.id == "blood_price")
     assert pluses and minuses, f"{item.id} must have both a bonus and a cost"
 
 # Effects.

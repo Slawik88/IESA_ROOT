@@ -390,9 +390,54 @@ async def grace_proof(dsn: str) -> None:
         await connection.close()
 
 
+async def gift_state_proof(dsn: str) -> None:
+    connection = await asyncpg.connect(dsn)
+    db = PGAdapter(connection)
+    tx = connection.transaction(); await tx.start()
+    try:
+        uid = 975021
+        run = await rhythm.start_run(db, user_id=uid, mode='normal')
+        run_id = run['run_id']
+        new = {'metronome','last_spark','second_wind'}
+        for i in range(10000):
+            seed = i.to_bytes(32,'big')
+            if set(rhythm.rules.perk_offers(seed,1,health=5,perks=rhythm.rules.new_perks())) == new:
+                break
+        else:
+            raise AssertionError('test seed not found')
+        await connection.execute("UPDATE rhythm_v2_runs SET seed=$2,next_signal_no=21,combo=20,correct_streak=20,correct_taps=20,signal_opened_at=NULL,ruleset_version='rhythm-v2-rules-5' WHERE run_id=$1",run_id,seed)
+        ticket = await rhythm.issue_transport_ticket(db,user_id=uid,run_id=run_id)
+        _, lease, old = await rhythm.connect_transport(db,run_id=run_id,ticket=ticket['ticket'])
+        assert not new.intersection(o['id'] for o in old['draft']['offers']), 'old run keeps old pool'
+        await connection.execute('UPDATE rhythm_v2_runs SET ruleset_version=$2 WHERE run_id=$1',run_id,rhythm.rules.RULESET_VERSION)
+        current = await rhythm.transport_state(db,user_id=uid,run_id=run_id,lease=lease)
+        assert {o['id'] for o in current['draft']['offers']} == new
+        picked = await rhythm.transport_pick(db,user_id=uid,run_id=run_id,lease=lease,perk_id='second_wind',action_id='wind-pick')
+        assert picked['selected_perks']==['second_wind'] and picked['perks']['recovery']==0
+        await connection.execute("UPDATE rhythm_v2_runs SET signal_opened_at=CLOCK_TIMESTAMP()-INTERVAL '20 milliseconds' WHERE run_id=$1",run_id)
+        current = await rhythm.transport_state(db,user_id=uid,run_id=run_id,lease=lease)
+        wrong = next(r for r in rhythm.rules.RUNES if r != current['rune'])
+        hurt = await rhythm.transport_tap(db,user_id=uid,run_id=run_id,lease=lease,signal_no=current['next_signal_no'],rune=wrong,action_id='wind-hurt')
+        assert hurt['health']==4 and hurt['perks']['recovery']==3
+        await rhythm.release_transport(db,user_id=uid,run_id=run_id,lease=lease)
+        ticket = await rhythm.issue_transport_ticket(db,user_id=uid,run_id=run_id)
+        _, lease, resumed = await rhythm.connect_transport(db,run_id=run_id,ticket=ticket['ticket'])
+        assert resumed['health']==4 and resumed['perks']['recovery']==3 and resumed['selected_perks']==['second_wind']
+        for left in (2,1,0):
+            await connection.execute("UPDATE rhythm_v2_runs SET signal_opened_at=CLOCK_TIMESTAMP()-INTERVAL '20 milliseconds' WHERE run_id=$1",run_id)
+            current = await rhythm.transport_state(db,user_id=uid,run_id=run_id,lease=lease)
+            current = await rhythm.transport_tap(db,user_id=uid,run_id=run_id,lease=lease,signal_no=current['next_signal_no'],rune=current['rune'],action_id=f'wind-correct-{left}')
+            assert current['perks']['recovery']==left and current['health']==4
+        assert (await rhythm.transport_state(db,user_id=uid,run_id=run_id,lease=lease))['perks']['recovery']==0
+        print('PASS: legacy draft preserved; new pool offered; paid error arms recovery; reconnect preserves it; exactly three subsequent signals consume it')
+    finally:
+        await tx.rollback(); await connection.close()
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
 asyncio.run(grace_proof(args.dsn))
+asyncio.run(gift_state_proof(args.dsn))
 print("Rhythm v2: PostgreSQL replay/seed/finish/leaderboard proof OK")

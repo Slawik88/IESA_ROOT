@@ -116,7 +116,7 @@ def _draft(row: dict, state: dict) -> dict | None:
     if not _draft_pending(state):
         return None
     number = len(state["selected"]) + 1
-    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"])
+    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"], legacy=row.get("ruleset_version") != rules.RULESET_VERSION)
     return {"number": number, "offers": [
         {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost,
          "preview": _perk_preview(item.id, state)}
@@ -132,7 +132,7 @@ def _perk_preview(perk_id: str, state: dict) -> dict:
         return {"health": hp, "window_ms": window, "speed_percent": rules.speed_percent(signal, effects),
                 "shield": effects["shield"], "ebb": effects["ebb"], "bloody": effects["bloody"],
                 "sample_score": rules.score_for_correct(elapsed_ms=window // 2, allowed_window_ms=window,
-                                                        combo_before=state["combo"], perks=effects)}
+                                                        combo_before=state["combo"], perks=effects, health=hp)}
     return {"before": view(state["health"], state["perks"]), "after": view(health, perks)}
 
 
@@ -372,7 +372,7 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
             expected = rules.expected_rune(bytes(row["seed"]), state["next_signal_no"])
             window = rules.window_ms(state["next_signal_no"], state["perks"])
             if action["rune"] == expected and action["elapsed_ms"] <= window:
-                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
+                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"])
                 state["combo"] += 1; state["correct_streak"] += 1; state["correct_taps"] += 1; state["next_signal_no"] += 1
             else:
                 _resolve_error(row, state, now=now, timed_out=action["rune"] is None or action["elapsed_ms"] > window)
@@ -437,7 +437,7 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
         window = rules.window_ms(signal_no, state["perks"])
         correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window + rules.TAP_GRACE_MS
         if correct:
-            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"])
+            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"])
             state["combo"] += 1
             state["correct_streak"] += 1
             state["health"], state["perks"] = rules.after_correct(

@@ -119,7 +119,7 @@
     socket.send(JSON.stringify({ type: 'pick', perk_id: id, action_id: pendingGift.actionId }));
   }
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
-  function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);return parts.join(' · ')}
+  function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);if(p.recovery>0)parts.push('Второе дыхание: ещё '+p.recovery+' такта');return parts.join(' · ')}
   async function cancel(){if(!state?.run_id)return;try{leaving=true;clearTimeout(reconnectTimer);if(socket){socket.onclose=null;socket.close();socket=null}await api('/runs/'+state.run_id+'/cancel',{method:'POST'});clearInterval(timer);pendingTap=null;state=null;localStorage.removeItem(storageKey);show('intro');err('Забег отменён.')}catch(error){err(error.message)}finally{leaving=false}}
   function cancelOnPageExit(){
     if(!state?.run_id||leaving)return;
