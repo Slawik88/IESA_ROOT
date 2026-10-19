@@ -1,10 +1,13 @@
-"""«бот стрик» — серия дней с активностью и панель активности за 9 недель."""
+"""«бот стрик» — серия и компактная карточка активности."""
 from __future__ import annotations
 
 import html
 from datetime import date, timedelta
 
 from bot.chat.framework import Ctx, registry
+from bot.chat import activity_graph
+from aiogram.types import BufferedInputFile
+from loguru import logger
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.tracking import local_now
 
@@ -57,7 +60,7 @@ async def streak_of(db, user_id: int, today: date) -> tuple[int, int, bool]:
 
 
 @registry.command("стрик", aliases=("серия", "активность"), usage="бот стрик [@ник]", section="profile",
-                  summary="Сколько дней подряд вы активны и панель активности за 2 месяца.")
+                  summary="Серия активных дней и график сообщений за месяц.")
 # СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md)
 async def cmd_streak(ctx: Ctx) -> None:
     target, _ = await resolve_target(ctx.db, ctx.message, ctx.args)
@@ -65,17 +68,25 @@ async def cmd_streak(ctx: Ctx) -> None:
         await ctx.reply(NOT_FOUND)
         return
     uid = target.user_id if target else ctx.user_id
-    who = html.escape(target.label()) if target else "Ваш"
+    who = html.escape(target.label()[:120]) if target else "Ваш"
     today = local_now().date()
     current, best, done = await streak_of(ctx.db, uid, today)
-    first = today - timedelta(days=today.weekday()) - timedelta(weeks=WEEKS - 1)
-    counts = await activity(ctx.db, uid, first, today)
-    active_days = sum(1 for v in counts.values() if v > 0)
-    status = "✅ сегодня засчитан" if done else "⏳ сегодня ещё не засчитан — напишите что-нибудь в чат"
-    await ctx.reply(
+    status = "✅ Сегодня засчитан" if done else "⏳ Напишите в чат, чтобы засчитать сегодня"
+    text = (
         f"🔥 <b>{who} стрик: {current}</b>\n"
-        f"Лучший: {best} · {status}\n\n"
-        f"{heatmap(counts, today)}\n\n"
-        f"Активных дней за {WEEKS} недель: <b>{active_days}</b>\n"
-        f"<i>{''.join(LEVELS)} — от тишины до пика</i>"
+        f"Лучший: <b>{best}</b> дней\n{status}\n"
+        "<i>Серия и график учитывают активность во всех чатах.</i>"
     )
+    # Same scope and cache as a private profile. No second history query and no
+    # extra render while the previous profile image is still fresh.
+    try:
+        png = await activity_graph.get_graph(ctx.db, uid)
+        if png:
+            await ctx.message.answer_photo(
+                BufferedInputFile(png, filename="streak-activity.png"),
+                caption=text, parse_mode="HTML",
+            )
+            return
+    except Exception as exc:
+        logger.warning("Карточка серии недоступна: {}", exc)
+    await ctx.reply(text)

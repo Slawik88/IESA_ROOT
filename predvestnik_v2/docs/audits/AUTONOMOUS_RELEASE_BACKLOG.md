@@ -1,3 +1,16 @@
+## Owner revision 2026-10-19 — useful bot cards (item 20)
+
+Extended the existing standard activity image to `бот стрик`, `бот серия` and
+`бот активность`, including target lookup. A compact caption carries current
+and best streak plus today's status. Explicit all-chat scope matches the streak
+itself. Reuses the private-profile 30-day cache, single-flight renderer and
+latency budget; no duplicate history query or second image design. Empty history,
+render or Telegram image failures retain a useful text reply. Interactive TOP
+pagination remains text-based, where a static picture would remove useful controls.
+
+Validation: streak delivery/target/escaping/fallback tests and existing graph
+recovery checks pass; no live Telegram messages sent.
+
 ## Owner revision 2026-10-19 — creative Rhythm gifts (item 16)
 
 Added Metronome, Last Spark and Second Wind, each with a real cost and a distinct
