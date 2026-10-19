@@ -85,6 +85,8 @@ from infrastructure.repositories.gifts_v2 import ensure_tables as ensure_gifts_v
 from services.promo_v2 import ensure_schema as ensure_promo_v2
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
 from infrastructure.repositories.coin_market_v2 import ensure_tables as ensure_coin_market_v2
+from infrastructure.repositories.pets_v2 import ensure_tables as ensure_pets_v2
+from infrastructure.repositories.season_pass import ensure_tables as ensure_season_pass
 from FastAPI.routers import coin_market_v2 as coin_market_v2_router
 from loguru import logger as _log
 
@@ -192,6 +194,8 @@ async def lifespan(app: FastAPI):
             (ensure_gifts_v2,                    "gifts_v2"),
             (ensure_promo_v2,                    "promo_v2"),   # show_in_app для GET /promo-v2/me, не дожидаясь старта бота
             (ensure_pets_v1,                     "pets_v1"),
+            (ensure_pets_v2,                     "pets_v2"),
+            (ensure_season_pass,                 "season_pass"),
             (ensure_quests_v1,                    "quests_v1"),
             (ensure_echo_shards_v1,                "echo_shards_v1"),
             (ensure_achievements_v1,                "achievements_v1"),
@@ -238,6 +242,9 @@ async def lifespan(app: FastAPI):
     if _failed_ensures:
         _log.error(f"[lifespan] not ready: failed ensures {', '.join(_failed_ensures)}")
     else:
+        from services.player_release import activate
+        async with get_pool().acquire() as connection:
+            await activate(PGAdapter(connection))
         readiness.mark_startup_complete()
     migration_task = asyncio.create_task(_run_skins_v3_migration()) if skins_v3_migration.enabled() else None
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
@@ -369,6 +376,15 @@ async def ws_endpoint(websocket: WebSocket, user_id: int, token: str = "", init:
 
 
 # ── Health & legacy ────────────────────────────────────────────────────────────
+
+@app.get("/api/player-release")
+async def player_release_status():
+    from core import player_release as policy
+    from infrastructure.repositories import player_release as release_repo
+    await create_pool()
+    async with get_pool().acquire() as connection:
+        return JSONResponse({"release":policy.RELEASE_ID, **(await release_repo.status(PGAdapter(connection),(*policy.FLAGS,'coin_market_v2')))},headers={"Cache-Control":"no-store"})
+
 
 @app.get("/api/health")
 async def health():

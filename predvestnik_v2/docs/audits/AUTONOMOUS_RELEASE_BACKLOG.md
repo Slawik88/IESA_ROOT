@@ -1,3 +1,26 @@
+## Player release 2026-10-19 — owner-authorized activation at verified startup
+
+Owner explicitly requested publishing the full revision to players and confirmed
+DigitalOcean auto-deploys master. Bot and standalone web startup now run the
+approved activation after successful schema installation: Rhythm v2, Mines v2,
+pet chests, Trail pets and the season pass/tab. An atomic one-time receipt and
+shared lock prevent partial activation and preserve later admin pauses.
+Standalone startup now installs Trail and pass schemas explicitly. Chest receipt
+and bonus seals must be ready. No legacy generation, paid pet shortcut or unrelated
+experimental mode is enabled.
+
+The existing spot market is enabled only after its configured secret, exact
+previously authorized funding, system coin set and locked fresh-book reconciliation
+pass. No new capital is issued. A separate receipt prevents later restarts from
+undoing a spot pause. Public read-only `/api/player-release` exposes only release
+IDs and player-feature booleans for deployment verification, with no-store caching.
+
+Real PG verifies exact scope, missing-schema/flag refusal, atomic flags/receipt,
+repeat pause preservation and fresh locked spot checks. Real startup/HTTP status
+and season pass cap/replay/claim/failure-isolation tests pass. Independent review
+caught and verified fixes for a stale spot snapshot during concurrent trading.
+Live deployment verification follows this push.
+
 ## Player release 2026-10-19 — assign chat-local member ranks from admin
 
 Global developers/creator can now assign ranks 0–8 directly from a player's
