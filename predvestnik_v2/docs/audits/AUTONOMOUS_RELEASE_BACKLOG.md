@@ -1,3 +1,23 @@
+## Owner revision 2026-10-19 — VIP automatic spot orders (item 11)
+
+Added server-side conditional buys/sells to the actual v2 exchange: below/above
+threshold, ten active orders, thirty-day expiry, own list/history and cancellation.
+The form explicitly explains no reservation and execution at the server price.
+Uses the same fees, ledger, inventory and cost basis as manual trades. VIP and
+resources are checked again at execution. Failed conditions have a visible reason;
+closed entry pauses automation but preserves pending-order access and cancellation.
+Persisted action recovery prevents duplicate creation after a lost response.
+
+Full existing exchange PG regression plus new fill/cancel/cross-coin races,
+rollback, replay, ownership, VIP/flags/expiry checks pass. Mobile 320/430 form and
+receipt recovery pass, as do core/chart/preview/recovery tests. Read-only review
+caught unnecessary no-op participant locks and pending-buy access with entry off;
+both are fixed and tested. Details: `VIP_ORDERS_REVISION_2026-10-19.md`.
+
+The complete owner revision queue (1–19 and additions 20–23) now has implementation
+or explicit verification/proposal evidence above and in the earlier entries.
+Master pushes are code delivery; production feature flags/deployment were not changed.
+
 ## Owner revision 2026-10-19 — chat rank authority (item 12)
 
 The chat card now lets global developers/creator edit all 20 local rank

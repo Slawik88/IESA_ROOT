@@ -31,6 +31,17 @@ class Trade(Quote):
     price: StrictStr
 
 
+class ConditionalOrder(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    coin_id: StrictStr = Field(min_length=1,max_length=64)
+    side: StrictStr = Field(pattern=r"^(buy|sell)$")
+    direction: StrictStr = Field(pattern=r"^(below|above)$")
+    threshold: StrictStr
+    amount: StrictStr = "0"
+    units: StrictInt = Field(default=0,ge=0,le=1_000_000_000)
+    action_id: StrictStr = Field(min_length=8,max_length=96)
+
+
 class Create(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: StrictStr = Field(min_length=3, max_length=100)
@@ -125,6 +136,20 @@ async def trade(body: Trade, db: DB, user: User):
         )
 
     return await call(run())
+
+
+@router.post("/orders")
+async def place_order(body: ConditionalOrder, db: DB, user: User):
+    async def run():
+        return await service.place_order(db,int(user["id"]),body.coin_id,body.side,body.direction,
+            service.money(body.threshold),amount=service.money(body.amount) if body.amount!="0" else 0,
+            units=body.units,action_id=body.action_id)
+    return await call(run())
+
+
+@router.post("/orders/{order_id}/cancel")
+async def cancel_order(order_id: str, db: DB, user: User):
+    return await call(service.cancel_order(db,int(user["id"]),order_id))
 
 
 @router.post("/create-quote")

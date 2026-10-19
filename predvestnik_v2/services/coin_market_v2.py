@@ -11,7 +11,10 @@ from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from core import coin_market_v2 as rules
-from core.economy_contract import IdempotencyConflict
+from core.economy_contract import IdempotencyConflict, InsufficientBalance
+from core import coin_market_orders as order_rules
+from infrastructure.repositories import coin_market_orders as orders_repo
+from services import vip
 from infrastructure.repositories import coin_market_v2 as repo
 from infrastructure.repositories import economy_ledger, star_payments_v1, system_flags
 
@@ -149,13 +152,64 @@ async def settle_short(db, row, book, state, position_row, *, automatic=False):
     return result.book, response
 
 
+async def execute_spot(db, row, book, state, user_id, side, amount, units, action_id, signature):
+    coin, _, _, _ = checked(row)
+    held, cost = await repo.account(db, coin.key, user_id)
+    if side == "sell" and units > held:
+        raise rules.MarketError("Недостаточно ваших монет.")
+    result, preview = quote_result(coin, book, state, side, amount, units)
+    op = await wallet(db, user_id, result.flow.wallet, action_id, coin.key)
+    response = {"ok":True, **preview, "side":side, "coin_id":coin.key,
+                "price":shown(state.price), "tick":state.tick}
+    if side == "buy":
+        await repo.put_account(db, coin.key, user_id, held+result.units, cost-result.flow.wallet)
+    else:
+        allocated = cost if units == held else cost*units//held
+        await repo.put_account(db, coin.key, user_id, held-units, cost-allocated)
+        response["realized_result"] = shown(result.flow.wallet-allocated)
+    await repo.receipt(db,user_id,action_id,signature,response,op,coin.key,result.flow)
+    return result.book, response
+
+
+async def execute_orders(db, row, book, state):
+    # Coin lock is held by advance, followed by the same user lock as manual trade.
+    enabled = await system_flags.is_enabled(db, "coin_market_v2")
+    for order in await orders_repo.candidates(db,row['id'],state.tick,state.price):
+        uid=int(order['user_id'])
+        await repo.user_lock(db,uid)
+        if state.tick >= order['expires_tick']:
+            await orders_repo.finish(db,order['id'],'expired',{'message':'Срок заявки истёк.'})
+            continue
+        if not enabled:
+            continue  # entry switch pauses automatic trades, including sells
+        if not await vip.is_vip_active(db,uid):
+            await orders_repo.finish(db,order['id'],'failed',{'message':'VIP закончился; сделка не выполнена.'})
+            continue
+        aid='order-fill:'+order['id']
+        try:
+            async with db.connection.transaction():
+                await repo.require_active(db,uid)
+                new_book,response=await execute_spot(db,row,book,state,uid,order['side'],
+                    int(order['amount']),int(order['units']),aid,
+                    fingerprint({'order_id':order['id'],'tick':state.tick}))
+                await orders_repo.finish(db,order['id'],'filled',response)
+            book=new_book
+        except (rules.MarketError,InsufficientBalance) as exc:
+            # Each failed attempt rolls back its wallet/account/receipt writes.
+            reason='Недостаточно свободной Моры.' if isinstance(exc,InsufficientBalance) else str(exc)
+            await orders_repo.finish(db,order['id'],'failed',{'message':reason})
+    return book
+
+
 async def advance(db, coin_id, *, target_tick=None, limit=288):
     """Coin lock serializes ticks/maintenance/manual trades across all workers."""
     async with db.connection.transaction():
         row = await repo.load(db, coin_id, lock=True)
         coin, book, state, secret = checked(row)
-        await repo.reconcile(db, row, book)
         target = await repo.current_tick(db) if target_tick is None else target_tick
+        if target > state.tick:
+            await orders_repo.lock_participants(db, coin_id)
+        await repo.reconcile(db, row, book)
         for _ in range(min(limit, max(0, target - state.tick))):
             state = rules.next_price(
                 coin,
@@ -171,6 +225,7 @@ async def advance(db, coin_id, *, target_tick=None, limit=288):
                     book, _ = await settle_short(
                         db, row, book, state, position, automatic=True
                     )
+            book = await execute_orders(db, row, book, state)
             await repo.save(db, coin_id, book, state)
             await repo.append_tick(db, coin_id, state)
         await repo.reconcile(db, row, book)
@@ -219,7 +274,7 @@ async def market(db, user_id, *, visit=False):
     positions = await repo.user_shorts(db, user_id)
     owns = any(int(r["user_units"]) or r["owner_id"] == user_id for r in rows) or bool(
         positions
-    )
+    ) or await orders_repo.active_count(db, user_id)>0
     if not enabled and not owns:
         raise Unavailable("Биржа ещё не открыта.")
     tick = await repo.current_tick(db)
@@ -299,6 +354,8 @@ async def market(db, user_id, *, visit=False):
         and await system_flags.is_enabled(db, "coin_market_v2_shorts"),
         "coins": coins,
         "shorts": short_list,
+        "vip_orders": await vip.is_vip_active(db, user_id),
+        "orders": [public_order(o) for o in await orders_repo.listing(db, user_id)],
         "news": news[:3],
         "rules": rules.RULES_VERSION,
         "balances": await repo.balances(db, user_id),
@@ -318,6 +375,7 @@ async def availability(db, user_id):
     return {
         "visible": any(int(r["user_units"]) or r["owner_id"] == user_id for r in rows)
         or bool(await repo.user_shorts(db, user_id))
+        or await orders_repo.active_count(db, user_id)>0
     }
 
 
@@ -512,6 +570,8 @@ async def trade(
                 state,
                 {**position, "action_id": action_id, "signature": signature},
             )
+        elif side in ("buy", "sell"):
+            book, response = await execute_spot(db,row,book,state,user_id,side,amount,units,action_id,signature)
         else:
             if side == "short" and any(p["user_id"] == user_id for p in positions):
                 raise rules.MarketError(
@@ -527,27 +587,10 @@ async def trade(
                 "price": shown(state.price),
                 "tick": state.tick,
             }
-            if side == "buy":
-                await repo.put_account(
-                    db, coin_id, user_id, held + result.units, cost - result.flow.wallet
-                )
-            elif side == "sell":
-                allocated = cost if units == held else cost * units // held
-                await repo.put_account(
-                    db, coin_id, user_id, held - units, cost - allocated
-                )
-                response["realized_result"] = shown(result.flow.wallet - allocated)
-            else:
-                pid = uuid4().hex
-                await repo.put_short(
-                    db,
-                    position_id=pid,
-                    coin_id=coin_id,
-                    user_id=user_id,
-                    position=result.position,
-                    tick=state.tick,
-                )
-                response["position_id"] = pid
+            pid = uuid4().hex
+            await repo.put_short(db,position_id=pid,coin_id=coin_id,user_id=user_id,
+                position=result.position,tick=state.tick)
+            response["position_id"] = pid
             book = result.book
             await repo.receipt(
                 db, user_id, action_id, signature, response, op, coin_id, result.flow
@@ -717,7 +760,8 @@ async def edit_metadata(db,user_id,coin_id,icon,description):
         await repo.user_lock(db,user_id)
         await repo.require_active(db,user_id)
         await repo.edit_metadata(db,coin_id,icon,description)
-    return {'ok':True}
+    final=await orders_repo.get(db,order_id,user_id)
+    return {'ok':True,'status':final['status'],'result':repo.decode(final['result'])}
 
 
 SYSTEM_COINS = (
@@ -744,3 +788,58 @@ async def bootstrap(db, *, source, issuance_authorization=None):
         source=source,
         issuance_authorization=issuance_authorization,
     )
+
+
+def public_order(row):
+    return {"id":row['id'],"coin_id":row['coin_id'],"side":row['side'],
+        "direction":row['direction'],"threshold":shown(int(row['threshold'])),
+        "amount":shown(int(row['amount'])),"units":str(row['units']),"status":row['status'],
+        "expires_at":int(row['expires_tick'])*rules.TICK_SECONDS,"result":repo.decode(row['result'])}
+
+
+async def place_order(db,user_id,coin_id,side,direction,threshold,*,amount=0,units=0,action_id):
+    action(action_id)
+    signature=fingerprint({'kind':'conditional_order','coin':coin_id,'side':side,
+        'direction':direction,'threshold':threshold,'amount':amount,'units':units})
+    await require(db,new=False)
+    previous=await replay(db,user_id,action_id,signature)
+    if previous: return previous
+    await require(db)
+    if not await advance(db,coin_id): raise Unavailable('Рынок обновляется.')
+    async with db.connection.transaction():
+        row=await repo.load(db,coin_id,lock=True)
+        coin,book,state,_=checked(row)
+        await repo.user_lock(db,user_id)
+        previous=await replay(db,user_id,action_id,signature)
+        if previous:return previous
+        await require(db)
+        await repo.require_active(db,user_id)
+        if not await vip.is_vip_active(db,user_id):raise rules.MarketError('Автозаявки доступны при активном VIP.')
+        if state.tick != await repo.current_tick(db):raise Requote("Цена обновилась. Повторите создание заявки.")
+        order_rules.validate(coin,state,side,direction,threshold,amount,units)
+        if await orders_repo.active_count(db,user_id)>=order_rules.MAX_ACTIVE:
+            raise rules.MarketError('Можно оставить не больше 10 активных заявок.')
+        # Funds are checked now, but intentionally NOT reserved; execution checks again.
+        held,_=await repo.account(db,coin_id,user_id)
+        if side=='sell' and units>held:raise rules.MarketError('Недостаточно ваших монет.')
+        quote_result(coin,book,state,side,amount,units)
+        if side=='buy' and Decimal((await repo.balances(db,user_id))['mora'])*rules.MORA < amount:
+            raise rules.MarketError('Недостаточно свободной Моры.')
+        oid=uuid4().hex
+        await orders_repo.insert(db,oid,user_id,coin_id,side,direction,threshold,amount,units,
+            state.tick,state.tick+order_rules.LIFETIME_TICKS)
+        response={'ok':True,'coin_id':coin_id,'side':'order','order_id':oid}
+        await repo.receipt(db,user_id,action_id,signature,response,None,coin_id,rules.Flow(0,0,0,0,0))
+        return response
+
+
+async def cancel_order(db,user_id,order_id):
+    await require(db,new=False)
+    order=await orders_repo.get(db,order_id,user_id)
+    if not order:raise rules.MarketError('Заявка не найдена.')
+    async with db.connection.transaction():
+        await repo.load(db,order['coin_id'],lock=True)
+        await repo.user_lock(db,user_id)
+        await orders_repo.finish(db,order_id,'cancelled',{'message':'Вы отменили заявку.'})
+    final=await orders_repo.get(db,order_id,user_id)
+    return {'ok':True,'status':final['status'],'result':repo.decode(final['result'])}

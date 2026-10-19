@@ -218,7 +218,7 @@ async def http_regression(db, conn):
             prefix = '/coin-market/v2'
             endpoints = [('GET', '/me'), ('GET', '/availability'), ('GET', '/coins/orb/history'),
                 ('POST', '/quote'), ('POST', '/trade'), ('POST', '/create-quote'),
-                ('POST', '/create'), ('PUT', '/coins/orb/metadata'),
+                ('POST', '/create'), ('POST', '/orders'), ('POST', '/orders/unknown/cancel'), ('PUT', '/coins/orb/metadata'),
                 ('PUT', '/coins/orb/favorite'), ('GET', '/receipt/http_buy_12')]
             for method, url in endpoints:
                 r = await client.request(method, prefix+url, json={})
@@ -232,6 +232,9 @@ async def http_regression(db, conn):
                             {'coin_id':'orb','side':'buy','units':True},
                             {'coin_id':'orb','side':'buy','payout':'999'}):
                 assert (await client.post(prefix+'/quote', headers=headers, json=payload)).status_code == 422
+            order_body={'coin_id':'orb','side':'buy','direction':'below','threshold':'1','amount':'10','action_id':'http_order_bad'}
+            for change in ({'units':True},{'threshold':1},{'side':'short'},{'payout':'999'}):
+                assert (await client.post(prefix+'/orders',headers=headers,json={**order_body,**change})).status_code==422
             q = await client.post(prefix+'/quote', headers=headers,
                 json={'coin_id':'orb','side':'buy','amount':'10'})
             assert q.status_code == 200, q.text
@@ -277,6 +280,7 @@ async def run():
         await conn.execute("""CREATE TABLE users(user_tg_id BIGINT PRIMARY KEY,
           user_balance_mora NUMERIC(24,6) DEFAULT 100000,user_balance_zarniki NUMERIC(24,6) DEFAULT 10000,
           user_balance_diamonds NUMERIC(24,6) DEFAULT 100,user_balance_dark_mora NUMERIC(24,6) DEFAULT 0,deleted_at TIMESTAMPTZ);
+          CREATE TABLE vip_subscriptions(user_id BIGINT PRIMARY KEY,expires_at TIMESTAMPTZ);
           CREATE TABLE user_reserve(user_id BIGINT PRIMARY KEY,reserved_mora NUMERIC(24,6) DEFAULT 0);
           CREATE TABLE wallet_log(id BIGSERIAL PRIMARY KEY,user_id BIGINT,chat_id BIGINT,target_id BIGINT,source TEXT,note TEXT,
           delta_mora NUMERIC(24,6),delta_zarniki NUMERIC(24,6),delta_diamonds NUMERIC(24,6),delta_dark_mora NUMERIC(24,6),
@@ -589,6 +593,8 @@ async def run():
         await dust_regression(db, conn)
         await http_regression(db, conn)
         await catalogue_regression(db, conn)
+        from tools.test_coin_market_orders_pg import proof
+        await proof(db,conn,connect)
         print(
             "PASS: real PostgreSQL bootstrap, 12-way replay, conflicts, stale quote, ownership, rollback, closed-entry exit, partial cash, short double-close, creation, treasury and restart"
         )

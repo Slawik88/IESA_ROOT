@@ -227,3 +227,12 @@
 .cm2-cursor::-webkit-slider-thumb { appearance:none; -webkit-appearance:none; width:16px; height:16px; margin-top:-6.5px; border-radius:50%; border:2px solid var(--v3-bg); background:var(--v3-acc); box-shadow:0 0 0 1px var(--v3-acc); }
 .cm2-cursor::-moz-range-track { height:3px; border-radius:3px; background:var(--v3-track); }
 .cm2-cursor::-moz-range-thumb { width:12px; height:12px; border-radius:50%; border:2px solid var(--v3-bg); background:var(--v3-acc); box-shadow:0 0 0 1px var(--v3-acc); }
+
+.cm2-order{padding:14px 0;border-bottom:1px solid var(--border,rgba(255,255,255,.09));overflow-wrap:anywhere}
+.cm2-order>div{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cm2-order p{margin:6px 0;font-size:13px;line-height:1.5}
+.cm2-order small,.cm2-order-status{color:var(--text-muted,#aaa);font-size:12px}
+.cm2-order .cm2-plain{display:block;margin-top:10px;min-height:44px}
+.cm2-orders{margin:18px 0}
+.cm2-field select{width:100%;min-width:0;min-height:48px;font:inherit;color:inherit;background:var(--surface,#211c1a);border:1px solid var(--border,rgba(255,255,255,.15));border-radius:12px;padding:10px}
+.cm2-secondary-actions{flex-wrap:wrap}

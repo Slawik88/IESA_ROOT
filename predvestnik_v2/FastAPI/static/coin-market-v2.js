@@ -160,6 +160,7 @@ window.CM2 = (() => {
       walletSummary()+
       `<div class="cm2-tabs" role="tablist" aria-label="Раздел биржи"><button role="tab" aria-selected="${tab==='market'}" onclick="CM2.tab('market')">Рынок</button><button role="tab" aria-selected="${tab==='mine'}" onclick="CM2.tab('mine')">Мои позиции</button></div>`+
       (mine?portfolioSummary():marketSummary())+
+      (mine?ordersPanel():'')+
       (data.news.length&&tab==='market'?`<h2 class="cm2-h2">Пока вас не было</h2><ul class="cm2-news">${data.news.map(n=>`<li>${n.coin_id?`<button onclick="CM2.coin('${n.coin_id}')"><span>${escape(n.text)}</span><span aria-hidden="true">›</span></button>`:`<p>${escape(n.text)}</p>`}</li>`).join('')}</ul>`:'')+
       (tab==='market'?`<div class="cm2-toolbar"><label class="sr-only" for="cm2-search">Найти монету</label><input id="cm2-search" type="search" value="${escape(search)}" placeholder="Найти монету" oninput="CM2.search(this.value)" autocomplete="off"></div><div class="cm2-chips" role="group" aria-label="Группы монет">${chips}</div>`:'')+
       (mine&&coins.some(c=>c.owned)?'<p class="cm2-note cm2-dim">Расходы на создание своей монеты в результате не учтены.</p>':'')+
@@ -204,13 +205,64 @@ window.CM2 = (() => {
       `<div class="cm2-quote"><strong class="cm2-price" id="cm2-price" tabindex="-1">${num(c.price,true)}</strong><small>Моры за монету</small><span class="cm2-change ${Number(c.change_24h)>=0?'up':'down'}" id="cm2-change">${Number(c.change_24h)>=0?'▲':'▼'} ${num(Math.abs(c.change_24h))}% · ${escape(c.change_period)}</span></div>`+
       `<div class="cm2-chart-card"><div class="cm2-chart-head"><div class="cm2-period" role="group" aria-label="Период графика">${[[1,'1 ч'],[24,'24 ч'],[168,'7 д']].map(([h,l])=>`<button class="cm2-plain" data-period="${h}" aria-pressed="${period===h}" onclick="CM2.period(${h})">${l}</button>`).join('')}</div><span class="cm2-live" id="cm2-live" role="status" aria-live="off"></span></div><div id="cm2-chart" class="cm2-chart" role="group" aria-label="График курса">Загрузка графика…</div><p class="cm2-dim cm2-stamp" id="cm2-stamp"></p></div>`+
       `<div id="cm2-position">${positionCard(c)}${shortCard(c)}</div>`+
-      coinActions(c)+
+      coinActions(c)+ordersPanel(c.id)+
       (c.description?`<p class="cm2-desc">${escape(c.description)}</p>`:'')+
       (c.owned?`<details class="cm2-help"><summary>Оформление моей монеты</summary><div class="cm2-field"><label for="cm2-edit-desc">Описание</label><input id="cm2-edit-desc" maxlength="160" value="${escape(c.description||'')}"></div><button class="cm2-plain" onclick="CM2.saveMetadata()">Сохранить</button></details>`:'')+
       `<details class="cm2-help"><summary>Характер монеты</summary><p>${CHAR_HINT[c.character]||'Серверный курс.'}</p><p>Курс может вырасти или упасть. Характер не является прогнозом. Новая покупка может быть ограничена запасом фонда; существующие остатки обеспечены для продажи.</p></details>`;
   }
   function coinActions(c){const own=Number(c.units)>0;
-    return `<div id="cm2-coin-actions"><div class="cm2-actions cm2-trade-actions">${data.enabled?`<button class="cm2-primary" onclick="CM2.deal('buy')">Купить</button>`:''}${own?`<button class="cm2-plain cm2-danger" onclick="CM2.deal('sell')">Продать</button>`:''}</div><div class="cm2-actions cm2-secondary-actions">${data.shorts_enabled&&!data.shorts.some(p=>p.coin_id===c.id)?`<button class="cm2-plain" onclick="CM2.deal('short')">На падение</button>`:''}<button class="cm2-plain cm2-favorite" aria-pressed="${c.favorite}" onclick="CM2.favorite()">${ICON.star}<span>Избранное</span></button></div></div>`;
+    return `<div id="cm2-coin-actions"><div class="cm2-actions cm2-trade-actions">${data.enabled?`<button class="cm2-primary" onclick="CM2.deal('buy')">Купить</button>`:''}${own?`<button class="cm2-plain cm2-danger" onclick="CM2.deal('sell')">Продать</button>`:''}</div><div class="cm2-actions cm2-secondary-actions">${data.shorts_enabled&&!data.shorts.some(p=>p.coin_id===c.id)?`<button class="cm2-plain" onclick="CM2.deal('short')">На падение</button>`:''}${data.vip_orders&&data.enabled?`<button class="cm2-plain" onclick="CM2.orderForm()">Автозаявка · VIP</button>`:''}<button class="cm2-plain cm2-favorite" aria-pressed="${c.favorite}" onclick="CM2.favorite()">${ICON.star}<span>Избранное</span></button></div></div>`;
+  }
+
+  const ORDER_STATUS={pending:'Ожидает',filled:'Исполнена',cancelled:'Отменена',failed:'Не выполнена',expired:'Срок истёк'};
+  function ordersPanel(coinId){
+    const list=(data.orders||[]).filter(o=>!coinId||o.coin_id===coinId);
+    if(!list.length)return '';
+    const row=o=>{
+      const c=data.coins.find(c=>c.id===o.coin_id);
+      return `<article class="cm2-order"><div><strong>${o.side==='buy'?'Купить':'Продать'} · ${escape(c?.ticker||'Монета')}</strong><span class="cm2-order-status">${ORDER_STATUS[o.status]||''}</span></div>
+        <p>Цена ${o.direction==='below'?'≤':'≥'} ${exactMoney(o.threshold)} Моры · ${o.side==='buy'?exactMoney(o.amount)+' Моры':num(Number(o.units)/1000,true)+' монет'}</p>
+        ${o.status==='pending'?`<small>До ${new Date(o.expires_at*1000).toLocaleDateString('ru-RU')}</small><button class="cm2-plain" onclick="CM2.cancelOrder('${o.id}')">Отменить</button>`:
+          `<small>${escape(o.result?.message||(o.result?.price?'Цена исполнения: '+exactMoney(o.result.price)+' Моры':''))}</small>`}</article>`;
+    };
+    const active=list.filter(o=>o.status==='pending'),past=list.filter(o=>o.status!=='pending');
+    return `<section class="cm2-orders"><h2 class="cm2-h2">Автозаявки${active.length?' · '+active.length:''}</h2>${!data.enabled?'<p class="cm2-dim">Автосделки на паузе, пока биржа закрыта для новых сделок. Срок заявок продолжает идти.</p>':''}
+      ${active.map(row).join('')}${past.length?`<details class="cm2-help"><summary>Последние завершённые · ${Math.min(10,past.length)}</summary>${past.slice(0,10).map(row).join('')}</details>`:''}</section>`;
+  }
+  function orderForm(){
+    if(pending()){showPending();return;}if(!data.vip_orders||!data.enabled)return;
+    stopLive();view='order';const c=selected;
+    paint(head('Автозаявка · VIP',`CM2.coin('${c.id}')`)+`<p class="cm2-lead">${escape(c.name)} · сейчас ${exactMoney(c.price)} Моры</p>
+      <div class="cm2-field"><label for="cm2-order-side">Действие</label><select id="cm2-order-side" onchange="CM2.orderSide()"><option value="buy">Купить</option>${Number(c.units)>0?'<option value="sell">Продать</option>':''}</select></div>
+      <div class="cm2-field"><label for="cm2-order-direction">Когда цена</label><select id="cm2-order-direction" onchange="CM2.invalidate()"><option value="below">Опустится до порога или ниже</option><option value="above">Поднимется до порога или выше</option></select></div>
+      <div class="cm2-field"><label for="cm2-order-price">Порог, Моры за монету</label><input id="cm2-order-price" inputmode="decimal" placeholder="Укажите цену" oninput="CM2.invalidate()"></div>
+      <div class="cm2-field"><label id="cm2-order-label" for="cm2-order-value">Бюджет покупки, Моры</label><input id="cm2-order-value" inputmode="decimal" oninput="CM2.invalidate()"></div>
+      <p class="cm2-note">Работает на сервере при закрытом приложении. До 10 заявок, срок — 30 дней. Нужен действующий VIP при исполнении.</p>
+      <p class="cm2-dim">Средства и монеты не резервируются. Если их не хватит, заявка завершится без сделки. Комиссия — обычные 0,5%. Цена исполнения может пройти дальше порога.</p>
+      <button id="cm2-check" class="cm2-primary" onclick="CM2.orderPreview()">Проверить заявку</button><div id="cm2-preview"></div>`);
+  }
+  function orderSide(){
+    const sell=document.getElementById('cm2-order-side').value==='sell';
+    document.getElementById('cm2-order-label').textContent=sell?'Количество монет · доступно '+num(Number(selected.units)/1000,true):'Бюджет покупки, Моры';
+    document.getElementById('cm2-order-value').value='';invalidate();
+  }
+  function orderPreview(){
+    const side=document.getElementById('cm2-order-side').value,direction=document.getElementById('cm2-order-direction').value;
+    const threshold=document.getElementById('cm2-order-price').value.trim().replace(',','.'),value=document.getElementById('cm2-order-value').value.trim().replace(',','.');
+    if(!/^\d{1,12}(?:\.\d{1,6})?$/.test(threshold)||Number(threshold)<=0||!/^\d{1,12}(?:\.\d{1,6})?$/.test(value)||Number(value)<=0){message('Укажите положительный порог и сумму.',true);return;}
+    if(side==='buy'&&Number(value)<10){message('Минимальный бюджет — 10 Моры.',true);return;}
+    if(side==='sell'&&(!/^\d+(?:\.\d{1,3})?$/.test(value)||Math.round(Number(value)*1000)>Number(selected.units))){message('Количество — до трёх знаков после запятой, в пределах ваших монет.',true);return;}
+    draft={path:'/orders',body:{coin_id:selected.id,side,direction,threshold,amount:side==='buy'?value:'0',units:side==='sell'?Math.round(Number(value)*1000):0,action_id:crypto.randomUUID()}};
+    document.getElementById('cm2-preview').innerHTML=`<div class="cm2-ticket"><span class="cm2-eyebrow">Условие заявки</span><h2>${side==='buy'?'Купить':'Продать'} при цене ${direction==='below'?'≤':'≥'} ${exactMoney(threshold)}</h2><p>${side==='buy'?'Бюджет: '+exactMoney(value)+' Моры':'Количество: '+num(value,true)+' монет'}</p><p class="cm2-dim">Исполнение по серверному курсу, без гарантии точной цены порога. При нехватке средств сделка не состоится.</p><button class="cm2-primary" onclick="CM2.confirm()">Создать автозаявку</button></div>`;
+  }
+  async function cancelOrder(id){
+    if(busy)return;if(pending()){showPending();return;}busy=true;const revision=formRevision;
+    try{
+      const r=await request('/orders/'+id+'/cancel',{});
+      const order=(data.orders||[]).find(o=>o.id===id);if(order){order.status=r.status;order.result=r.result||{};}
+      let fresh=true;try{data=await request('/me');}catch(_){fresh=false;}
+      if(revision===formRevision){renderHome();message((r.status==='cancelled'?'Заявка отменена.':'Заявка уже завершена: '+(ORDER_STATUS[r.status]||''))+(!fresh?' Обновите рынок для свежих данных.':''));}
+    }catch(e){if(revision===formRevision)message(e.message,true);}finally{busy=false;}
   }
 
   function positionCard(c){
@@ -282,14 +334,15 @@ window.CM2 = (() => {
   async function complete(result){
     const saved=pending();
     if(result?.ok!==true||typeof result.coin_id!=='string'||
-       (saved?.path==='/trade'&&(result.coin_id!==saved.body.coin_id||result.side!==saved.body.side))){
+       (saved?.path==='/trade'&&(result.coin_id!==saved.body.coin_id||result.side!==saved.body.side))||
+       (saved?.path==='/orders'&&(result.coin_id!==saved.body.coin_id||result.side!=='order'||typeof result.order_id!=='string'))){
       throw Error('Сервер не подтвердил операцию. Сохранённый запрос можно проверить повторно.');
     }
     store(null);draft=null;stopLive();
     let fresh=true;try{data=await request('/me');}catch(_){fresh=false;}
     if(typeof refreshCurrBar==='function')refreshCurrBar();
     renderHome();
-    message(fresh?(result.side==='buy'?'Монеты куплены.':result.side==='sell'?'Продажа выполнена.':result.side==='short'?'Позиция открыта.':result.coin_id&&result.name?'Монета создана.':'Операция выполнена.'):'Операция выполнена. Не удалось обновить рынок — откройте биржу заново.');
+    message(fresh?(result.side==='order'?'Автозаявка создана. Условие проверит сервер.':result.side==='buy'?'Монеты куплены.':result.side==='sell'?'Продажа выполнена.':result.side==='short'?'Позиция открыта.':result.coin_id&&result.name?'Монета создана.':'Операция выполнена.'):'Операция выполнена. Не удалось обновить рынок — откройте биржу заново.');
   }
   async function sendPending(){
     if(busy)return;const p=pending();if(!p)return;busy=true;showPending();message('Операция выполняется…');
@@ -317,7 +370,7 @@ window.CM2 = (() => {
   async function availability(){const r=await request('/availability');return r.visible;}
   async function saveMetadata(){const description=document.getElementById('cm2-edit-desc')?.value??'';busy=true;try{await request('/coins/'+selected.id+'/metadata',{icon:selected.icon,description},'PUT');selected.description=description.trim();message('Оформление сохранено.');}catch(e){message(e.message,true);}finally{busy=false;}}
 
-  return {load,refreshMarket,coin,deal,preview,confirm,create,createPreview,check,retry:sendPending,favorite,star,availability,invalidate,saveMetadata,
+  return {orderForm,orderSide,orderPreview,cancelOrder,load,refreshMarket,coin,deal,preview,confirm,create,createPreview,check,retry:sendPending,favorite,star,availability,invalidate,saveMetadata,
     home(){if(pending())showPending();else renderHome();},
     tab(t){tab=t;search='';group='all';limit=30;renderHome();},
     group(g){group=g;renderHome();},

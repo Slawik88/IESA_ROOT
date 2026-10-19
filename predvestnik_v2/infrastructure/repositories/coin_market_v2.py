@@ -84,6 +84,8 @@ async def ensure_tables(db):
       END LOOP;
     END $$;
     """)
+    from infrastructure.repositories import coin_market_orders
+    await coin_market_orders.ensure_tables(db)
 
 
 async def ready(db):
