@@ -2,7 +2,7 @@
 // Питомцы v2 (/pets-v2/*, флаг pets_v2): Следы дня, три слота занятий, список питомцев, отправка в путь, развилка экспедиции и экран награды. Рисуется в #pg-pets, на экране вкладки «Питомцы».
 // Карточка питомца, сборка, кормление, Лагерь, Выслеживание и Испытание недели живут в app.41.js (они подключают себя в _TR_VIEWS). Цифры правил приходят в ответе (me.rules): клиент не хранит их копию.
 // Флаг выключен или сервер ответил «Тропа пока закрыта»: остаётся прежний экран питомцев (openPetsV1 из app.12.js). Стили: trail-v3.css.
-let _tr = { me: null, view: 'hub', pet: 0, seq: 0, skew: 0, keys: {}, scroll: 0, bad: '', busy: false, send: null, pick: null, opener: null, late: {} };
+let _tr = { me: null, view: 'hub', pet: 0, seq: 0, skew: 0, keys: {}, scroll: 0, bad: '', busy: false, needsRefresh: false, send: null, pick: null, opener: null, late: {} };
 let _trKeys = null;
 const _trClassic = window.openPetsV1;
 const _trE = _profileEsc;
@@ -50,7 +50,7 @@ function _trLoad() {
   const mine = ++_tr.seq;
   return api('/pets-v2/me').then(me => {
     if (mine !== _tr.seq) return false;
-    _tr.me = me; _tr.bad = '';
+    _tr.me = me; _tr.bad = ''; _tr.needsRefresh = false;
     const at = _trTime(me.now); if (Number.isFinite(at)) _tr.skew = at - Date.now();
     return true;
   }).catch(error => {
@@ -58,7 +58,7 @@ function _trLoad() {
     const text = typeof error === 'string' ? error : 'Нет связи. Проверьте интернет и повторите.';
     if (/Тропа пока закрыта/.test(text)) { _sysFlags.pets_v2 = false; _tr.me = null; _trClassic(); return false; }   // флаг выключили, пока приложение было открыто
     _tr.bad = text;
-    if (_tr.me) toast(text, false); else _trPaintFail(text);
+    if (_tr.me) { toast(text, false); if (_tr.needsRefresh) _trRender(); } else _trPaintFail(text);
     return false;
   });
 }
@@ -68,10 +68,19 @@ function _trPaintFail(text) {
   v3EnterSync(root);
 }
 function _trRefresh() { return _trLoad().then(ok => { if (ok) _trRender(); return ok; }); }
+function _trRecoveryHtml() {
+  return '<div class="tr-recovery" role="status"><b>Действие выполнено</b><span>Обновите запасы перед следующим действием.</span><button type="button" class="v3-link" onclick="trailRecover()">Обновить данные</button></div>';
+}
+async function trailRecover() {
+  const ok = await _trRefresh();
+  if (ok && document.getElementById('tr-sheet')) {
+    trailClose(true); toast('Данные обновлены', true);
+  }
+}
 function _trRender() {
   const root = el('pg-pets'); if (!root || _activePage !== 'pets' || !_tr.me) return;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
-  root.innerHTML = view(_tr.me);
+  root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}`;
   v3EnterSync(root);
 }
 
@@ -228,7 +237,7 @@ function _trRepaint(html) {
 }
 
 // ── Действия: один номер операции на одно действие ───────────────────────────────────────────────
-// Номер (action_id) живёт, пока сервер не ответил: повтор после обрыва связи уходит с тем же номером и не списывает второй раз. Любой ответ сервера, в том числе отказ правил, номер снимает.
+// Keep action identity through every failure: api() also represents uncertain HTTP 5xx as text. Confirmed writes require fresh state before another mutation.
 function _trKey(...parts) {
   const k = parts.join(':');
   return _tr.keys[k] ||= { k, id: `tr-${String(parts[0]).slice(0, 12)}-${globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 10)}` };
@@ -236,13 +245,18 @@ function _trKey(...parts) {
 function _trPost(path, body, ...parts) {
   const key = _trKey(...parts);
   return api(`/pets-v2/${path}`, { method: 'POST', body: JSON.stringify({ ...body, action_id: key.id }) }).then(
-    data => { delete _tr.keys[key.k]; return data; },
-    error => { if (typeof error === 'string') delete _tr.keys[key.k]; throw error; });
+    data => { ++_tr.seq; _tr.needsRefresh = !((path === 'track/start' || path === 'track/open') && data.track?.status === 'open'); delete _tr.keys[key.k]; return data; });
 }
 async function _trRun(button, job) {
   if (_tr.busy) return;
   _tr.busy = true; if (button) button.disabled = true;
-  try { return await job(); } finally { _tr.busy = false; if (button && button.isConnected) button.disabled = false; }
+  try {
+    if (_tr.needsRefresh) {
+      toast('Предыдущее действие выполнено. Обновляем запасы.', true);
+      await trailRecover(); return;
+    }
+    return await job();
+  } finally { _tr.busy = false; if (button && button.isConnected) button.disabled = false; }
 }
 // Отказ правил (HTTP 409) показывается дословно: внутри окна строкой над кнопкой, на экране тостом. Состояние могло устареть, поэтому тихо обновляем данные
 function _trFail(error) {

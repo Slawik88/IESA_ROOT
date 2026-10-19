@@ -1,3 +1,23 @@
+## Owner revision 2026-10-19 — pet tab review (item 17)
+
+Reviewed the real 320 px hub, pet card and feeding sheet. Energy/feeding now
+precedes the longer development section. Feeding shows actual energy restored,
+retains favorite-food and first-feed benefits, and disables consumption when a
+full pet gains neither energy, daily growth nor a new favorite-food bonus.
+Unavailable food is collapsed; empty stock offers the chest path.
+
+Fixed a confirmed-write/failed-refresh trap: successful mutations invalidate
+older reads and require fresh inventory before another mutation. Recovery taps
+perform GET only. Failed/uncertain responses keep their action identity,
+including HTTP 5xx represented as strings by the shared API helper. Live tracking
+responses already include their complete changing state and retain immediate
+cell interaction. Existing server growth, feeding and economy rules are unchanged.
+
+Validation: Trail static contract, recommendation checks and controlled production
+JS recovery tests pass. Edge 320/430 checks card/feed layout, full/empty states,
+POST success plus aborted GET, repeated tap without another POST, and successful
+read-only recovery. Local screenshots: .local/ui-pets-audit/.
+
 ## Owner revision 2026-10-19 — site-wide equipped cosmetics (item 23)
 
 All 33 catalog scenes now extend across the viewport on every Mini App tab,

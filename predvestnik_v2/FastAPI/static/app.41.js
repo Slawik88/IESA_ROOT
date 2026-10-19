@@ -106,7 +106,7 @@ _TR_VIEWS.pet = me => {
   const p = _trPet(_tr.pet);
   if (!p) { _tr.view = 'hub'; return _TR_VIEWS.hub(me); }
   const head = v3Head(p.name, { back: 'trailBack()', sub: `${rarLabel(p.rarity)} · ${_trTraces(me, true)}`, end: `<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>` });
-  return `${head}${_trCardState(p)}${_trCardLevel(p)}${_trCardEnergy(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
+  return `${head}${_trCardState(p)}${_trCardEnergy(p)}${_trCardLevel(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
 };
 
 // ── Сборка: призвание, черты, талисманы; цена видна до сохранения ───────────────────────────────────────
@@ -212,25 +212,36 @@ function trailFeed(petId) {
   _tr.feed = { pet: p.id, note: '' };
   _trSheet(_trFeedHtml());
 }
+function _trFeedBenefit(p, food, me) {
+  const gain = Math.max(0, Math.min(p.energy_max, p.energy + food.restore) - p.energy);
+  const favorite = food.id === p.favorite_food && !p.fed_favorite;
+  const xp = !p.fed_today && p.level < (me.rules.max_level || 30) && Number(me.daily?.credited || 0) < Number(me.daily?.max || 625);
+  return { gain, favorite, xp, useful: gain > 0 || favorite || xp };
+}
 function _trFeedHtml() {
   const me = _tr.me, f = _tr.feed, p = _trPet(f.pet);
   if (!p) return _trSheetHtml('Кормление', '<p class="tr-note">Питомец не найден.</p>');
-  const foods = me.foods || [], any = foods.some(x => x.quantity > 0), xp = me.rules.feed_xp || 10;
-  const rows = foods.map(x => {
-    const fav = x.id === p.favorite_food, gain = Math.max(0, Math.min(p.energy_max, p.energy + x.restore) - p.energy);
-    const sub = `+${x.restore} сил${gain < x.restore ? ` (поместится ${Math.round(gain)})` : ''} · в запасе ${fmt(x.quantity)}`;
-    return `<li class="tr-food${fav ? ' is-fav' : ''}"><span class="tr-ic" aria-hidden="true">${_trE(x.icon)}</span><span class="tr-nm"><b>${_trE(x.name)}</b><small>${sub}</small>${fav ? `<small class="tr-fav">${p.fed_favorite ? 'Сыт любимым до конца суток' : 'Любимое: +2 к Выдержке до конца суток'}</small>` : ''}</span><button type="button" class="v3-pill v3-pill--sm${x.quantity ? '' : ' v3-pill--ghost'}" data-id="${_trE(x.id)}" onclick="trailFeedGo(this)"${x.quantity ? '' : ' disabled'}>${x.quantity ? 'Дать' : 'Нет'}</button></li>`;
-  }).join('');
+  const foods = me.foods || [], available = foods.filter(x => x.quantity > 0), empty = foods.filter(x => !(x.quantity > 0));
+  const row = x => {
+    const fav = x.id === p.favorite_food, benefit = _trFeedBenefit(p, x, me), enabled = x.quantity > 0 && benefit.useful;
+    const gain = Math.round(benefit.gain * 10) / 10;
+    const sub = benefit.gain > 0 ? `+${_trMult(gain)} сил${benefit.gain < x.restore ? ` из ${x.restore}` : ''}` : 'Силы уже полные';
+    const bonus = benefit.favorite ? 'Любимое · +2 к Выдержке на сутки' : fav ? 'Бонус любимого уже действует' : '';
+    return `<li class="tr-food${fav ? ' is-fav' : ''}"><span class="tr-ic" aria-hidden="true">${_trE(x.icon)}</span><span class="tr-nm"><b>${_trE(x.name)}</b><small>${sub} · есть ${fmt(x.quantity)}</small>${bonus ? `<small class="tr-fav">${bonus}</small>` : ''}${x.quantity > 0 && !benefit.useful ? '<small>Сохраните еду на потом</small>' : ''}</span><button type="button" class="v3-pill v3-pill--sm" data-id="${_trE(x.id)}" onclick="trailFeedGo(this)"${enabled ? '' : ' disabled'}>${x.quantity > 0 ? enabled ? 'Дать' : 'Сыт' : 'Нет'}</button></li>`;
+  };
+  const xp = _trFeedBenefit(p, foods[0] || {restore:0}, me).xp;
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Силы ${Math.round(p.energy)} из ${p.energy_max}</small></span></p>
+    ${_trMeter(p.energy / p.energy_max, {label:`Силы: ${Math.round(p.energy)} из ${p.energy_max}`})}
     ${f.note ? `<p class="tr-ok" role="status">${_trE(f.note)}</p>` : ''}
-    ${any ? '' : '<p class="tr-note">Еды в запасе нет. Её находят питомцы на Тропе и получают из сундуков.</p>'}
-    <ul class="tr-list tr-foods">${rows}</ul>
-    <p class="tr-note">${p.fed_today ? 'Следы за кормление сегодня уже получены.' : `Первое кормление за сутки даёт ещё +${xp} Следов.`}</p>`;
-  return _trSheetHtml('Покормить', body, `<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full v3-pill--ghost" onclick="trailClose()">Готово</button>`);
+    ${available.length ? `<ul class="tr-list tr-foods">${available.map(row).join('')}</ul>` : `<div class="v3-empty tr-empty"><b>Еда закончилась</b><span>В каждом новом сундуке есть еда. Её также находят питомцы в пути.</span>${_sysFlags.content_chests_v1 === true ? '<button type="button" class="v3-link" onclick="trailClose(true);openChestsV1()">Открыть сундуки ›</button>' : ''}</div>`}
+    ${empty.length ? `<details class="tr-grp tr-food-empty"><summary>Нет в запасе · ${empty.length}</summary><ul class="tr-list tr-foods">${empty.map(row).join('')}</ul></details>` : ''}
+    <p class="tr-note">${xp ? `Первое кормление сегодня даёт до +${me.rules.feed_xp || 10} Следов с учётом дневного лимита.` : p.fed_today ? 'Следы за кормление сегодня уже получены.' : 'Сегодня кормление восстановит силы и даст бонус любимой еды.'}</p>`;
+  return _trSheetHtml('Покормить', body, `${_tr.needsRefresh ? _trRecoveryHtml() : ''}<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full v3-pill--ghost" onclick="trailClose()">Готово</button>`);
 }
 function trailFeedGo(button) {
   const f = _tr.feed, p = f && _trPet(f.pet), id = button.dataset.id; if (!p || !id) return;
   const food = (_tr.me.foods || []).find(x => x.id === id);
+  if (!food || food.quantity < 1 || !_trFeedBenefit(p, food, _tr.me).useful) return;
   _trRun(button, () => _trPost('feed', { pet_id: p.id, food_id: id }, 'feed', p.id, id).then(async r => {
     _haptic('success');
     const bits = [`${food ? food.name : 'Еда'}: силы ${Math.round(r.energy)} из ${p.energy_max}`];

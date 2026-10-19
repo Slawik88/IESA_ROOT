@@ -30,12 +30,13 @@ assert "const _trClassic = window.openPetsV1;" in hub
 assert re.search(r"window\.openPetsV1 = function \(\) \{\s*if \(_sysFlags\.pets_v2 !== true\) return _trClassic\.apply\(this, arguments\);\s*return openTrail\(\);", hub)
 assert "Тропа пока закрыта" in hub and "_sysFlags.pets_v2 = false" in hub and "_trClassic()" in hub
 
-# Every write goes through one function that attaches an action id (at most 96 characters); the id lives until the server answers: kept when the network breaks, dropped on any answer.
+# Every write goes through one function that attaches an action id (at most 96 characters); the id lives until the server answers: kept on every failed/uncertain response, dropped only on confirmed success.
 forecast = hub[hub.index("function _trForecastSchedule"):hub.index("function _trSendHtml")]
 assert "api('/pets-v2/preview'" in forecast and len(re.findall(r"method:\s*'POST'", forecast)) == 1
 assert len(re.findall(r"method:\s*'POST'", js.replace(forecast, ""))) == 1 and "action_id: key.id" in hub
 assert ".slice(0, 12)" in hub and "randomUUID" in hub, "id = short prefix + uuid, far below 96 characters"
-assert "delete _tr.keys[key.k]; return data;" in hub and "if (typeof error === 'string') delete _tr.keys[key.k]; throw error;" in hub
+assert "delete _tr.keys[key.k]; return data;" in hub and "if (typeof error === 'string') delete _tr.keys[key.k]" not in hub
+assert "_tr.needsRefresh" in hub and "await trailRecover(); return;" in hub
 for path in ("start", "claim", "build", "build-presets", "camp/upgrade", "talisman/reforge", "track/start", "track/open", "trial", "feed"):
     assert f"_trPost('{path}'" in js, path
 assert "_tr.busy" in hub and "async function _trRun" in hub, "one action at a time: a second tap does not send a second request"

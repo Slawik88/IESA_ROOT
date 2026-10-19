@@ -1,0 +1,39 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const dir=path.join(__dirname,'../FastAPI/static');
+const hub=fs.readFileSync(path.join(dir,'app.40.js'),'utf8'),more=fs.readFileSync(path.join(dir,'app.41.js'),'utf8');
+const state={keys:{},seq:0,needsRefresh:false,busy:false,me:{pets:[]}},calls=[];
+let handler=()=>Promise.reject('offline');
+const box={_tr:state,api:(p,o)=>{calls.push({p,o});return handler(p,o);},crypto:{randomUUID:()=>String(Math.random())},toast(){},document:{getElementById(){return null;}},_trRender(){},_trTime:Date.parse,_trPaintFail(){},_trClassic(){},_sysFlags:{},_activePage:'pets'};
+vm.createContext(box);
+for(const name of ['_trKey','_trPost','_trLoad','_trRefresh','trailRecover','_trRun']){
+ const m=hub.match(new RegExp(`^(?:async )?function ${name}\\([\\s\\S]*?^\\}`,'m'));assert(m,name);vm.runInContext(m[0],box);
+}
+vm.runInContext(more.match(/^function _trFeedBenefit\([\s\S]*?^\}/m)[0],box);
+(async()=>{
+ handler=()=>Promise.reject('Сервер прилёг отдохнуть');
+ await assert.rejects(box._trPost('feed',{pet_id:1,food_id:'basic'},'feed',1,'basic'));
+ const first=JSON.parse(calls.at(-1).o.body).action_id;
+ assert.equal(Object.keys(state.keys).length,1,'uncertain HTTP error keeps identity');
+ let stale;handler=()=>new Promise(resolve=>stale=resolve);
+ const oldRead=box._trLoad();
+ handler=()=>Promise.resolve({energy:15});
+ await box._trPost('feed',{pet_id:1,food_id:'basic'},'feed',1,'basic');
+ assert.equal(JSON.parse(calls.at(-1).o.body).action_id,first);
+ assert(state.needsRefresh);stale({pets:[{id:999}],now:new Date().toISOString()});
+ assert.equal(await oldRead,false);assert.equal(state.me.pets.length,0,'old read cannot restore stale stock');
+ let writes=0;handler=()=>Promise.reject(new Error('offline'));
+ await box._trRun(null,()=>{writes++;});assert.equal(writes,0);assert(state.needsRefresh);
+ handler=()=>Promise.resolve({pets:[],now:new Date().toISOString()});
+ await box._trRun(null,()=>{writes++;});assert.equal(writes,0,'recovery tap only reads');assert(!state.needsRefresh);
+ await box._trRun(null,()=>{writes++;});assert.equal(writes,1);
+ handler=()=>Promise.resolve({track:{status:'open'}});
+ await box._trPost('track/open',{track_id:'x',cell:1},'cell',1);assert(!state.needsRefresh,'authoritative live track response needs no extra round trip');
+ const me={rules:{max_level:30},daily:{credited:0,max:625}},p={energy:100,energy_max:100,level:5,fed_today:true,fed_favorite:true,favorite_food:'basic'};
+ const f={id:'basic',restore:15};
+ assert(!box._trFeedBenefit(p,f,me).useful,'do not waste food on a full fed pet');
+ assert(box._trFeedBenefit({...p,fed_today:false},f,me).xp);
+ assert(box._trFeedBenefit({...p,fed_favorite:false},f,me).favorite);
+ assert(!box._trFeedBenefit({...p,fed_today:false},f,{...me,daily:{credited:625,max:625}}).useful);
+ assert.equal(box._trFeedBenefit({...p,energy:92},f,me).gain,8);
+ console.log('PASS: failed writes retain identity; confirmed writes/read failure cannot repeat spend; stale reads ignored; track stays responsive; food usefulness');
+})().catch(e=>{console.error(e);process.exitCode=1;});
