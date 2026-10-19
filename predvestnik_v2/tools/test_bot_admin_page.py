@@ -43,9 +43,11 @@ def version_in_page():
 
 
 def main():
-    index = '<link href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/><script src="{{BASE}}/bot-admin/admin.js?v={{VER}}"></script>'
+    index = ('<link href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/><script src="{{BASE}}/bot-admin/admin.js?v={{VER}}"></script>'
+             '<script src="{{BASE}}/bot-admin/admin-lists.js?v={{VER}}"></script><script src="{{BASE}}/bot-admin/admin-boot.js?v={{VER}}"></script>')
     with tempfile.TemporaryDirectory() as tmp:
-        write(tmp, index_html=index, admin_js="console.log(1)", admin_css="body{}")
+        write(tmp, index_html=index, admin_js="console.log(1)", admin_css="body{}",
+              **{"admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')"})
         page.load(tmp)
         first = version_in_page()
         assert "{{" not in page._PAGE
@@ -58,6 +60,10 @@ def main():
         write(tmp, admin_css="body{color:red}")
         page.load(tmp)
         assert version_in_page() not in (first, second), "правка стилей не меняет версию"
+        third = version_in_page()
+        write(tmp, **{"admin-lists.js": "console.log('lists2')"})
+        page.load(tmp)
+        assert version_in_page() not in (first, second, third), "правка вынесенного раздела не меняет версию"
         # то же содержимое — та же версия (кеш работает)
         page.load(tmp)
         again = version_in_page()
@@ -71,7 +77,8 @@ def main():
     # Страница не кешируется, файлы проверяются по ETag и не «вечные»
     response = asyncio.run(page.admin_page())
     assert response.headers["cache-control"] == "no-store"
-    for name, media in (("admin.js", "javascript"), ("admin.css", "css")):
+    for name, media in (("admin.js", "javascript"), ("admin-lists.js", "javascript"),
+                        ("admin-boot.js", "javascript"), ("admin.css", "css")):
         assert f"/bot-admin/{name}?v={ver}" in page._PAGE, name
         res = asset(name)
         assert res.status_code == 200 and media in res.media_type and res.body, name

@@ -14,7 +14,11 @@ import re
 import sys
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
+# Ядро и все вынесенные файлы: пинны хэшей ищутся только в admin.js, а хуки — в любом из них,
+# чтобы дробление файла не выглядело пропажей привязки.
 JS = open(os.path.join(STATIC, "admin.js"), encoding="utf-8").read()
+JS_ALL = "\n".join(open(os.path.join(STATIC, name), encoding="utf-8").read()
+                   for name in sorted(n for n in os.listdir(STATIC) if n.startswith("admin") and n.endswith(".js")))
 CSS = open(os.path.join(STATIC, "admin.css"), encoding="utf-8").read()
 
 # имя функции -> sha1 текста (с первой строки объявления до закрывающей скобки в нулевой колонке)
@@ -47,11 +51,11 @@ def main() -> int:
         if got != pinned:
             bad.append(f"функция {name} изменилась (хэш {got}, ожидался {pinned})")
     for hook in HOOKS_JS:
-        if hook not in JS:
-            bad.append(f"в admin.js пропала привязка {hook}")
+        if hook not in JS_ALL:
+            bad.append(f"в файлах админки пропала привязка {hook}")
     for i in IDS:
-        if f'id="{i}"' not in JS:
-            bad.append(f"в admin.js пропал элемент id={i}")
+        if f'id="{i}"' not in JS_ALL:
+            bad.append(f"в файлах админки пропал элемент id={i}")
     for hook in HOOKS_CSS:
         if hook not in CSS:
             bad.append(f"в admin.css пропало правило {hook}")
