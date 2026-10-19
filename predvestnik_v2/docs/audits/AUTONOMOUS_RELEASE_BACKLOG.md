@@ -1,3 +1,25 @@
+## Player release 2026-10-19 — live confirmation, then original cosmetics restored
+
+The production read-only release endpoint returned HTTP 200 and both rollout
+receipts. Rhythm v2, Mines v2, chests, Trail pets, season pass/tab and spot exchange
+all reported enabled on the owner-confirmed DigitalOcean URL. Master is auto-deployed.
+This proves deployed release/configuration, not a real player's private gameplay.
+
+At the owner's explicit request, restored cosmetic composition from before the
+first clipping change (`76069502^`): original appearance-stage CSS and apStage;
+removed the later broad scene masks and whole-site world renderer. Existing
+artwork, tiers, palette, saved ownership and avatar reliability fixes remain.
+This supersedes the earlier requested world expansion. Non-cosmetic navigation,
+wallet, pet, chest, game, admin and release work is retained.
+
+Edge at 320/430/1280 verifies all 33 real skin payloads with original local scenes,
+no clipping container/world and no horizontal overflow. Scene data/artwork (179
+pictures), tier rules, appearance contract and root/prefixed static delivery pass;
+all 28 cropped artwork layers retain their pixels in a separate Edge proof.
+Scene test commands now pass large JS via UTF-8 stdin to avoid Windows argv limits.
+Read-only review confirms release hooks and unrelated fixes survive the restoration.
+Live cosmetic asset verification follows this push.
+
 ## Player release 2026-10-19 — owner-authorized activation at verified startup
 
 Owner explicitly requested publishing the full revision to players and confirmed

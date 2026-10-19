@@ -60,7 +60,7 @@ function renderProfileHome(data) {
       ${_v3VipSeal(d.vip)}
       <div class="v3-sub" style="margin-top:2px">${capped ? 'Максимальный уровень' : `${fmt(left)} XP до ${level + 1} уровня`}</div></div>
     </section>`;
-  return `${apStage(ap, identity, true)}
+  return `${apStage(ap, identity)}
     <section class="v3-next-wrap" id="v3-next" aria-live="polite"><div class="sk" style="height:76px;border-radius:14px"></div></section>
     ${_v3TodayShell()}
     <section class="v3-bal" aria-label="Баланс">

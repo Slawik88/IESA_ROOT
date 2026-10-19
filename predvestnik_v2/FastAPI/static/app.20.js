@@ -53,13 +53,10 @@ function _apDust(ap) {
   }).join('');
 }
 // Сцена профиля: фон и частицы за блоком личности. inner — сам блок. Без образа возвращается как есть.
-function apStage(ap, inner, ownWorld = false) {
+function apStage(ap, inner) {
   if (!ap) return inner;
   const cls = `ap-t${ap.ti}${_apSig(ap)}`;
-  if (ownWorld && document.getElementById('skin-world')?.dataset.skin === ap.id) {
-    return `<div class="ap-stage ap-world-profile ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-world-profile-effects" aria-hidden="true"><div class="ap-fx ${cls} ap-pt-${ap.k.pt}">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}</div>${inner}</div>`;
-  }
-  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-scene-clip" aria-hidden="true"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div>${apScene(ap)}<div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}</div>${inner}</div>`;
+  return `<div class="ap-stage ${cls}"${_apSk(ap)} style="${ap.vars}"><div class="ap-bg ${cls} ap-bg-${ap.k.bg}" aria-hidden="true"><b></b><b></b></div>${apScene(ap)}<div class="ap-fx ${cls} ap-pt-${ap.k.pt}" aria-hidden="true">${_apDust(ap)}</div>${typeof apOrn === 'function' ? apOrn(ap) : ''}${inner}</div>`;
 }
 // Имя и титул одной строки списка (топ): ник со стилем, титул-«таблетка», точка VIP
 function apWho(row) {

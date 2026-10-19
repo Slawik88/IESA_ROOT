@@ -95,8 +95,6 @@
 .sv-prev.is-vip > i { left: 14px; color: var(--v3-vip, #f1cf7e); }
 .sv-prev .ap-stage { position: absolute; inset: 0; display: grid; place-items: center; padding-top: 18px; --bleed: 0px; }
 .sv-prev .ap-bg { inset: 0; -webkit-mask-image: none; mask-image: none; }
-/* Показ VIP живёт внутри карточки: растворяющие кромки сцены здесь не нужны, оставляем прежний короткий градиент. */
-.sv-prev .ap-scene-clip { -webkit-mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); -webkit-mask-composite:source-over; mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 20px),transparent); mask-composite:add; }
 .sv-prev-id { display: grid; justify-items: center; gap: 9px; min-width: 0; max-width: 100%; }
 .sv-prev .v3-ring { margin: 4px 0 2px; }
 .sv-prev-name { max-width: 100%; font: 600 18px/1.15 var(--v3-font); letter-spacing: -.02em; text-align: center; }

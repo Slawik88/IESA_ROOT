@@ -21,7 +21,6 @@ function v3ApplyLook(look) {
     }
   }
   document.body.dataset.skin = look && /^[a-z_]{2,24}$/.test(look.id || '') ? look.id : '';
-  window.applySkinWorldV3(look);
   document.dispatchEvent(new CustomEvent('skinchange', { detail: { css_class: '', tier: _AP_TIERS.includes(look?.tier) ? look.tier : 'D' } }));
 }
 

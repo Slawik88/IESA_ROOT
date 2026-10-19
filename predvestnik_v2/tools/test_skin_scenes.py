@@ -68,7 +68,7 @@ if not shutil.which("node"):
     sys.exit(0)
 
 source = "\n".join(p.read_text(encoding="utf-8") for p in parts) + "\nprocess.stdout.write(JSON.stringify([..._AP_SCENES]));"
-done = subprocess.run(["node", "-e", source], capture_output=True, text=True)
+done = subprocess.run(["node"], input=source, capture_output=True, text=True, encoding="utf-8")
 assert done.returncode == 0, done.stderr[:400]
 scenes = dict(json.loads(done.stdout))
 assert set(scenes) <= set(SKINS), f"scenes for unknown looks: {sorted(set(scenes) - set(SKINS))}"

@@ -22,8 +22,6 @@ ALLOWED = {
     "/static/minesweeper-v2.js": "application/javascript",
     "/static/skin-runtime-v3.css": "text/css",
     "/static/skin-runtime-v3.js": "application/javascript",
-    "/static/skin-world-v3.js": "application/javascript",
-    "/static/skin-world-v3.css": "text/css",
     "/static/appearance-v3.css": "text/css",
     "/static/appearance-ring-v3.css": "text/css",
     "/static/appearance-stage-v3.css": "text/css",
@@ -175,7 +173,6 @@ def main() -> None:
     assert '/static/skin-runtime-v3.js?v=' in rhythm.text
     assert '/static/games-v3.css?v=' in rhythm.text
     for page in (rhythm, minesweeper):
-        assert '/static/skin-world-v3.js?v=' in page.text and '/static/skin-world-v3.css?v=' in page.text
         assert '/static/game-board-v3.js?v=' in page.text and '/static/appearance-v3.css?v=' in page.text and '/static/marks-v3.css?v=' in page.text, 'game leaderboards load the skin renderer'
 
     if os.environ.get("STATIC_DELIVERY_ROOTED") == "1":
