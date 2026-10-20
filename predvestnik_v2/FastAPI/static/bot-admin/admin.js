@@ -665,7 +665,9 @@ async function peopleSearch(main, query = '') {
         <button class="btn small more" id="onbmore">Где застревают</button></div>`;
       $('#onbmore').onclick = () => onboardingSheet(f.days).catch(err => toast(err.message, true));
     }).catch(() => {});
-    if (showAttn) Promise.all([api('/people/attention'), api('/chats/attention').catch(() => null)]).then(([ppl, att]) => {
+    if (showAttn) Promise.allSettled([api('/people/attention'), api('/chats/attention')]).then(([pr, ar]) => {
+      const ppl = pr.status === 'fulfilled' ? pr.value : {items: []};
+      const att = ar.status === 'fulfilled' ? ar.value : null;
       const host = $('#pplattn');
       if (!host) return;
       const people = (ppl.items || []).map(attentionPersonRow).join('');
@@ -750,6 +752,7 @@ function actionsSheet(p, chatId, reopen) {
   // Взаимоисключающие пары: показываем только то, что сейчас можно сделать.
   // Метки сюда не входят — они выдаются в своей карточке ниже.
   const hidden = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
+  if (!p.rank) hidden.add('revoke_sessions');   // сессии админки бывают только у сотрудников
   const player = new Set(p.actions.player.map(a => a.key)), member = new Set(p.actions.member.map(a => a.key));
   const rows = [];
   for (const [key, title, keys] of ACTION_GROUPS) {
@@ -1033,9 +1036,11 @@ function wireChatRights(c, id) {
 // Человек, которому нужно внимание: фото, кто это и почему его стоит открыть.
 function attentionPersonRow(x) {
   const at = x.at ? ` · ${esc(x.at_label || '')}${x.at_label ? ' ' : ''}${when(x.at)}` : '';
+  const shown = x.name || who(x.id, x.username);
+  const uname = x.username && shown !== '@' + x.username ? '@' + esc(x.username) + ' · ' : '';
   return `<div class="prow" data-player="${x.id}">${ava(x)}
-    <div class="pmain"><div class="pname">${esc(x.name || who(x.id, x.username))}</div>
-      <div class="pmeta">${x.username ? '@' + esc(x.username) + ' · ' : ''}ID ${x.id}${x.note ? ' · ' + esc(x.note) : ''}${at}</div></div>
+    <div class="pmain"><div class="pname">${esc(shown)}</div>
+      <div class="pmeta">${uname}ID ${x.id}${x.note ? ' · ' + esc(x.note) : ''}${at}</div></div>
     <span class="pflag ${x.flag_kind || ''}">${esc(x.flag)}</span></div>`;
 }
 // Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.

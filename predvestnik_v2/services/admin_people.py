@@ -228,7 +228,7 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
     flt = flt if flt in FILTERS else ""
     cond, cparams = _filter_sql(flt)
     if flt:
-        await staff_watch.ensure_schema(db)   # фильтр «на контроле» читает таблицу, которой на свежей базе ещё может не быть
+        await staff_watch.ensure_once(db)   # фильтр «на контроле» читает таблицу, которой на свежей базе ещё может не быть
     if not q:
         where = cond or "s.last IS NOT NULL"
         async with db.execute(_PLAYER_SQL + f"WHERE {where} ORDER BY s.last DESC NULLS LAST, u.user_tg_id LIMIT ?",
@@ -634,7 +634,7 @@ async def people_attention(db, *, reports_on: bool = True, limit: int = PEOPLE_A
                 bits.append(f"подтверждено: {r['confirmed']}")
             add(r["id"], None, r["name"], f"⚠️ жалоб: {r['reports']}", "warn",
                 " · ".join(bits) or "ещё не разобраны", r["last"], "последняя жалоба")
-    await staff_watch.ensure_schema(db)
+    await staff_watch.ensure_once(db)
     async with db.execute(
         "SELECT t.user_id, u.user_tg_username, u.user_tg_name, t.reason, t.added_at FROM bot_staff_watch t "
         "LEFT JOIN users u ON u.user_tg_id = t.user_id WHERE t.removed_at IS NULL ORDER BY t.added_at DESC LIMIT ?",

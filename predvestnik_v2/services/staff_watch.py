@@ -33,6 +33,11 @@ async def _ensure(db) -> None:
         await ensure_schema(db)
 
 
+async def ensure_once(db) -> None:
+    """Создать таблицу только при первом обращении в процессе: без DDL на каждом запросе."""
+    await _ensure(db)
+
+
 async def info(db, user_id: int) -> dict | None:
     """Кто и почему поставил игрока на контроль; None — не на контроле."""
     await _ensure(db)
