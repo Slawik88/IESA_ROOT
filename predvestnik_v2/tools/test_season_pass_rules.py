@@ -7,7 +7,7 @@ from core import seasons
 
 utc = lambda *a: datetime(*a, tzinfo=timezone.utc)
 
-assert (p.LEVELS, p.POINTS_PER_LEVEL, p.POINTS_PER_GAME, p.DAILY_POINT_CAP) == (30, 300, 10, 100)
+assert (p.LEVELS, p.POINTS_PER_LEVEL, p.MINESWEEPER_POINTS, p.RHYTHM_LEVEL_SCORE) == (30, 300, 10, 10_000)
 assert (p.FULL_TRACK_MORA, p.FULL_TRACK_ESSENCE) == (1200, 300), "owner-approved budget 'Средний'"
 assert (p.MORA_PER_LEVEL, p.ESSENCE_PER_LEVEL) == (40, 10)
 assert p.reward_for_levels(0, p.LEVELS) == (1200, 300), "the whole track pays exactly the approved budget"
@@ -16,8 +16,14 @@ assert p.reward_for_levels(10, 10) == (0, 0) and p.reward_for_levels(12, 5) == (
 assert p.reward_for_levels(3, 5) == (80, 20)
 
 assert [p.level_of(x) for x in (0, 299, 300, 8999, 9000, 10**9)] == [0, 0, 1, 29, 30, 30]
-assert [p.granted_points(x) for x in (0, 90, 95, 100, 130)] == [10, 10, 5, 0, 0]
-assert 10 * p.DAILY_POINT_CAP // p.DAILY_POINT_CAP == 10 and p.DAILY_POINT_CAP // p.POINTS_PER_GAME == 10
+# Rhythm pays by score: linear up to one level at 10k, then each tripling of the score adds a level.
+assert [p.rhythm_points(x) for x in (-5, 0, 100, 2000, 10_000)] == [1, 1, 3, 60, 300]
+assert [p.rhythm_points(x) for x in (30_000, 70_000, 90_000)] == [600, 831, 900]
+assert p.rhythm_points(10**9) == p.RHYTHM_MAX_POINTS == 1500
+scores = list(range(0, 2_000_001, 997))
+assert all(p.rhythm_points(a) <= p.rhythm_points(b) for a, b in zip(scores, scores[1:])), "more score never pays less"
+assert all(p.rhythm_points(b) / b <= p.rhythm_points(a) / a + 1e-9 for a, b in zip(scores[11:], scores[12:])), \
+    "points per score point never grow"
 
 assert p.SOURCES == ("rhythm", "minesweeper"), "Mafia events are not verified yet"
 assert p.rhythm_qualifies(integrity_status="clear", correct_taps=20)

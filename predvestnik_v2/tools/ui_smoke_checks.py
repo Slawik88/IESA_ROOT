@@ -56,11 +56,11 @@ SCREENS = [
     # Пропуск сезона (флаг season_pass_v1). Первый экран идёт по настоящему ответу стенда (три уровня к получению), остальные правят этот ответ на месте
     ("pass", "openSeasonPass()"),
     ("pass-new", _pass_screen("me.account = {eligible: false, eligible_from: '" + _days(9) + "', min_days: 14};")),
-    ("pass-idle", _pass_screen("s.claimed_level = s.level; s.claimable_levels = 0; s.claimable = {mora: 0, essence: 0}; s.points_today = s.points_today_cap;")),
+    ("pass-idle", _pass_screen("s.claimed_level = s.level; s.claimable_levels = 0; s.claimable = {mora: 0, essence: 0};")),
     ("pass-finish", _pass_screen(_PASS_ALL + "s.claimed_level = 24; s.claimable_levels = 6; s.claimable = {mora: 240, essence: 60};")),
     ("pass-max", _pass_screen(_PASS_ALL + "s.claimed_level = 30; s.claimable_levels = 0; s.claimable = {mora: 0, essence: 0};")),
     ("pass-prev", _pass_screen("const old = JSON.parse(JSON.stringify(s)); Object.assign(old, {current: false, season: 1, level: 11, points: 3410, points_to_next: 190, claimed_level: 4, claimable_levels: 7, "
-                               "claimable: {mora: 280, essence: 70}, ends_at: '" + _days(-10) + "', claim_until: '" + _days(20) + "', points_today: 0}); "
+                               "claimable: {mora: 280, essence: 70}, ends_at: '" + _days(-10) + "', claim_until: '" + _days(20) + "'}); "
                                "Object.assign(s, {season: 2, starts_at: '" + _days(-10) + "', ends_at: '" + _days(200) + "', points: 640, level: 2, points_to_next: 260, claimed_level: 2, claimable_levels: 0, claimable: {mora: 0, essence: 0}}); "
                                "me.seasons = [old, s];")),
     ("pass-refused", "openSeasonPass(); setTimeout(() => _spShowError(1, 'Нет новых уровней для получения.'), 1200)"),

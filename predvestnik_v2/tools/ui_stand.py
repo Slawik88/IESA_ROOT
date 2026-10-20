@@ -131,7 +131,6 @@ PASS_SCENARIOS = {
     "idle": (40, 2410, 8, 30),         # everything reached is already claimed
     "finish": (40, 9400, 24, 70),      # all 30 levels reached, six not claimed yet
     "max": (40, 9400, 30, 70),         # the whole path claimed
-    "capped": (40, 2410, 8, 100),      # the day's points are used up
 }
 PASS_CHAT_ID = -1009900000001          # a chat that exists only as the age record of the persona (the profile lists chats from user_chat_stats, so that table stays untouched)
 
@@ -301,7 +300,7 @@ def main() -> None:
     parser.add_argument("--own", default="", help="comma separated extra skin ids to own at tier D")
     parser.add_argument("--trail", choices=("default", "empty", "capped", "none"), default="default", help="pets of the Trail screens: a lived-in camp, no pets, the day's Следы used up, or leave as is")
     parser.add_argument("--pass", dest="season_pass", choices=(*PASS_SCENARIOS, "none"), default="default",
-                        help="season pass of the persona: default (three levels to claim), fresh, new (account under 14 days), idle, finish, max, capped, or none (leave as is)")
+                        help="season pass of the persona: default (three levels to claim), fresh, new (account under 14 days), idle, finish, max, or none (leave as is)")
     args = parser.parse_args()
     if args.flags != "keep":
         asyncio.run(set_game_flags(args.dsn, args.flags == "on"))

@@ -66,7 +66,7 @@ assert rules.FLAG == "season_pass_v1" and "_sysFlags.season_pass_v1 !== true" in
 assert re.search(r'\("season_pass_v1",\s+"[^"]+",\s+False\)', flags_repo), "the flag is registered and off by default"
 assert "season_pass_v1" in GAME_FLAGS, "the stand switches the flag together with the other modules"
 assert re.search(rf"_SP_RHYTHM_TAPS = {rules.RHYTHM_MIN_CORRECT_TAPS};", script), "the hint «от N верных нажатий» repeats RHYTHM_MIN_CORRECT_TAPS of core/season_pass.py"
-for number in (rules.LEVELS, rules.POINTS_PER_LEVEL, rules.MORA_PER_LEVEL, rules.ESSENCE_PER_LEVEL, rules.FULL_TRACK_MORA, rules.POINTS_PER_GAME, rules.DAILY_POINT_CAP, 14):
+for number in (rules.LEVELS, rules.POINTS_PER_LEVEL, rules.MORA_PER_LEVEL, rules.ESSENCE_PER_LEVEL, rules.FULL_TRACK_MORA, rules.MINESWEEPER_POINTS, rules.RHYTHM_LEVEL_SCORE, 14):
     assert not re.search(rf"(?<![\w.#-]){number}(?![\w%.])", code), f"{number} comes from the server, the client does not recompute the rules"
 assert "claimed_level" in script and "per_level" in script and "claimable_levels" in script, "the screen reads the numbers the server sends"
 
@@ -101,7 +101,7 @@ assert entry["open"] == "pass" and entry["area"] == "games" and entry.get("kind"
 assert entry["where"].startswith("Игры") and len(entry["short"]) <= 150 and len(entry["details"]) >= 4
 
 # The stand and the smoke suite show every state; the docs name every scenario and screen so that the next agent can find them.
-assert {"default", "fresh", "new", "idle", "finish", "max", "capped"} <= set(PASS_SCENARIOS)
+assert {"default", "fresh", "new", "idle", "finish", "max"} <= set(PASS_SCENARIOS)
 screens = {name for name, _ in SCREENS if name.startswith("pass")}
 assert {"pass", "pass-new", "pass-idle", "pass-finish", "pass-max", "pass-prev", "pass-refused", "pass-closed", "pass-error"} <= screens, screens
 for name in sorted(screens) + sorted(PASS_SCENARIOS) + ["season_pass_v1", "/season-pass/me", "/season-pass/claim", "RHYTHM_MIN_CORRECT_TAPS"]:

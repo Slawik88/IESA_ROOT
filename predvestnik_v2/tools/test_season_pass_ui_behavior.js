@@ -25,7 +25,7 @@ const section = async (name, fn) => { try { await fn(); sections++; } catch (err
 const season = (o = {}) => Object.assign({
   season: 1, starts_at: '2026-10-11T00:00:00+00:00', ends_at: '2027-05-11T00:00:00+00:00', claim_until: '2027-06-10T00:00:00+00:00',
   points: 1820, level: 6, levels: 30, points_per_level: 300, points_to_next: 280, claimed_level: 3, claimable_levels: 3, claimable: { mora: 120, essence: 30 },
-  per_level: { mora: 40, essence: 10 }, full_track: { mora: 1200, essence: 300 }, points_per_game: 10, points_today: 40, points_today_cap: 100, current: true,
+  per_level: { mora: 40, essence: 10 }, full_track: { mora: 1200, essence: 300 }, current: true,
 }, o);
 const answer = (o = {}, ...seasons) => Object.assign({ enabled: true, account: { eligible: true, eligible_from: '2026-09-01T00:00:00+00:00', min_days: 14 }, seasons: seasons.length ? seasons : [season()] }, o);
 const DONE = { claimed_level: 6, claimable_levels: 0, claimable: { mora: 0, essence: 0 } };   // те же три уровня, уже полученные
@@ -144,26 +144,12 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
     assert.match(html, /<ol class="sp-track" role="list" aria-label="Уровни пропуска">/);
     assert.match(text(html), /Каждый уровень: 40 🪙 Моры и 10 💧 Эссенции\. Весь путь: 1 200 🪙 Моры и 300 💧 Эссенции\./);
     // как копить очки
-    assert.match(text(html), /\+10 за каждую зачётную игру, до 100 очков в сутки\./);
-    assert.match(html, /aria-label="Очки за сегодня" aria-valuemin="0" aria-valuemax="100" aria-valuenow="40"><span><i style="--p:0\.4000">/);
-    assert.match(text(html), /Сегодня 40 из 100/);
-    assert.ok(!html.includes('Новые очки откроются'), 'до предела дня ещё далеко');
+    assert.match(text(html), /Очки приходят за зачётные игры: чем лучше игра, тем больше очков\./);
+    assert.ok(!/в сутки|Сегодня|Очки за сегодня|Новые очки откроются/.test(html), 'предела дня нет, правило начисления не раскрывается');
     assert.match(text(html), /Ритм: чистый забег, от 20 верных нажатий\./);
     assert.match(text(html), /Сапёр: победа\./);
     assert.match(text(html), /Награды за места в таблице сезона платятся отдельно и в пропуск не входят\./);
     assert.ok(!html.includes('закончился'), 'прошлого сезона нет');
-  });
-
-  await section('Страница: предел дня выбран', () => {
-    const t = boot(), html = render(t, answer({}, season({ points_today: 100 })));
-    assert.match(html, /Сегодня <b>100<\/b> из 100<\/span><span>Новые очки откроются в \d\d:\d\d<\/span>/);
-    assert.match(html, /aria-valuenow="100"><span><i style="--p:1\.0000">/);
-    const over = render(t, answer({}, season({ points_today: 140 })));
-    assert.match(over, /--p:1\.0000/, 'шкала дня не вылезает за край, даже если сервер отдал больше предела');
-    assert.match(over, /Новые очки откроются/);
-    const zero = render(t, answer({}, season({ points_today: 0 })));
-    assert.match(zero, /Сегодня <b>0<\/b> из 100/);
-    assert.match(zero, /aria-valuenow="0"><span><i style="--p:0\.0000">/);
   });
 
   await section('Страница: нечего забирать, путь пройден, тридцатый уровень', () => {
@@ -189,7 +175,7 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
     assert.match(text(html), /Все награды сезона получены\./);
     assert.equal(count(html, 'class="sp-lv is-got"'), 30);
     // новичок: очков нет
-    html = render(t, answer({}, season({ points: 0, level: 0, points_to_next: 300, claimed_level: 0, claimable_levels: 0, claimable: { mora: 0, essence: 0 }, points_today: 0 })));
+    html = render(t, answer({}, season({ points: 0, level: 0, points_to_next: 300, claimed_level: 0, claimable_levels: 0, claimable: { mora: 0, essence: 0 } })));
     assert.match(html, /<b>0<\/b>/);
     assert.match(html, /До 1 уровня: <b>300 очков<\/b>/);
     assert.match(html, /aria-valuenow="0"><span><i style="--p:0\.0000">/);
@@ -215,7 +201,7 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
 
   await section('Страница: прошлый сезон', () => {
     const t = boot();
-    const prev = (o = {}) => season({ season: 1, current: false, level: 11, points: 3410, points_to_next: 190, claimed_level: 4, claimable_levels: 7, claimable: { mora: 280, essence: 70 }, ends_at: '2026-10-03T00:00:00+00:00', claim_until: '2026-11-12T00:00:00+00:00', points_today: 0, ...o });
+    const prev = (o = {}) => season({ season: 1, current: false, level: 11, points: 3410, points_to_next: 190, claimed_level: 4, claimable_levels: 7, claimable: { mora: 280, essence: 70 }, ends_at: '2026-10-03T00:00:00+00:00', claim_until: '2026-11-12T00:00:00+00:00', ...o });
     const cur = season({ season: 2, points: 640, level: 2, points_to_next: 260, claimed_level: 2, claimable_levels: 0, claimable: { mora: 0, essence: 0 } });
     let html = render(t, answer({}, prev(), cur));
     assert.match(html, /<span class="v3-eyebrow">Сезон 2 · до 11 мая 2027<\/span>/, 'шапка про текущий сезон');
@@ -265,7 +251,7 @@ const text = html => flat(html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).tr
   await section('Чужой текст и мусор вместо чисел не становятся разметкой', () => {
     const t = boot(), evil = '"><img src=x onerror=alert(1)><script>alert(2)</script>';
     const hostile = season({ season: evil, starts_at: evil, ends_at: evil, claim_until: evil, claimable: { mora: evil, essence: 5 }, per_level: { mora: evil, essence: evil }, full_track: { mora: evil, essence: evil },
-      points: evil, level: 6, points_to_next: evil, points_today: evil, points_per_game: evil });
+      points: evil, level: 6, points_to_next: evil });
     for (const me of [answer({ account: { eligible: false, eligible_from: evil, min_days: evil } }, hostile), answer({}, { ...hostile, current: false }, { ...hostile, current: true })]) {
       const html = render(t, me);
       assert.ok(!/<img|<script|onerror=alert/i.test(html), 'в разметку попал чужой тег');

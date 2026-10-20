@@ -1,12 +1,13 @@
 """Pure rules of the free season pass (games only).
 
-One pass per game season (``core.seasons``).  Points come from qualifying games,
-a day is capped, levels pay a fixed slice of the full-track budget in Mora and
-Essence.  Never cosmetics, keys or Zarniki.  Budget and curve were simulated in
+One pass per game season (``core.seasons``).  Points come from qualifying games
+(a Rhythm run pays by its score, with diminishing returns), levels pay a fixed
+slice of the full-track budget in Mora and Essence.  Never cosmetics, keys or Zarniki.  Budget and curve were simulated in
 ``tools/season_pass_sim.py`` and approved by the owner (pipeline ECO-01).
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 from typing import Final
 
@@ -15,8 +16,11 @@ from core import seasons
 FLAG: Final = "season_pass_v1"
 LEVELS: Final = 30
 POINTS_PER_LEVEL: Final = 300
-POINTS_PER_GAME: Final = 10
-DAILY_POINT_CAP: Final = 100            # 10 qualifying games per UTC day
+MINESWEEPER_POINTS: Final = 10          # a won board
+# Rhythm: linear up to RHYTHM_LEVEL_SCORE (one level), then every tripling of the score adds one more
+# level (10k -> 1, 30k -> 2, 70k -> ~2.8, 90k -> 3), so long runs stay worth it without breaking the track.
+RHYTHM_LEVEL_SCORE: Final = 10_000
+RHYTHM_MAX_POINTS: Final = 5 * POINTS_PER_LEVEL
 FULL_TRACK_MORA: Final = 1200           # approved budget "Средний" for completing all levels
 FULL_TRACK_ESSENCE: Final = 300
 MORA_PER_LEVEL: Final = FULL_TRACK_MORA // LEVELS          # 40
@@ -49,9 +53,13 @@ def level_of(points: int) -> int:
     return max(0, min(LEVELS, int(points) // POINTS_PER_LEVEL))
 
 
-def granted_points(day_points: int) -> int:
-    """Points one more qualifying game adds on a day that already holds ``day_points``."""
-    return max(0, min(POINTS_PER_GAME, DAILY_POINT_CAP - int(day_points)))
+def rhythm_points(score: int) -> int:
+    """Points one qualifying Rhythm run adds for its final score."""
+    score = max(0, int(score))
+    if score <= RHYTHM_LEVEL_SCORE:
+        return max(1, score * POINTS_PER_LEVEL // RHYTHM_LEVEL_SCORE)
+    levels = 1 + math.log(score / RHYTHM_LEVEL_SCORE, 3)
+    return min(RHYTHM_MAX_POINTS, int(levels * POINTS_PER_LEVEL + 1e-9))
 
 
 def reward_for_levels(claimed: int, reached: int) -> tuple[int, int]:

@@ -30,7 +30,8 @@ async def _record_completed_quest(db, *, user_id: int, run_id: str, difficulty: 
     """One terminal run advances clear quests and long-horizon achievements."""
     event_id = f"minesweeper:{run_id}"
     if season_pass_rules.minesweeper_qualifies(won=won):
-        await season_pass.record_game(db, user_id=user_id, source="minesweeper", event_id=event_id)
+        await season_pass.record_game(db, user_id=user_id, source="minesweeper", event_id=event_id,
+                                      points=season_pass_rules.MINESWEEPER_POINTS)
     try:
         async with db.connection.transaction():
             sources = await quests.available_sources(db, user_id=user_id)

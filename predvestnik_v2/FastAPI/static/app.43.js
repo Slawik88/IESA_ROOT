@@ -127,15 +127,10 @@ function _spTrack(s) {
     <p class="sp-note">Каждый уровень: ${_profileEsc(_spGain(s.per_level))}. Весь путь: ${_profileEsc(_spGain(s.full_track))}.</p>
   </section>`;
 }
-function _spHow(s) {
-  const cap = s.points_today >= s.points_today_cap, reset = new Date(); reset.setUTCHours(24, 0, 0, 0);
-  const at = reset.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  const p = Math.max(0, Math.min(1, s.points_today / (s.points_today_cap || 1)));
+function _spHow() {
   return `<section class="sp-sec" aria-labelledby="sp-h-how">
     <div class="v3-sec"><span class="v3-eyebrow" id="sp-h-how">Как копить очки</span></div>
-    <p class="sp-rule"><b>+${fmt(s.points_per_game)}</b> за каждую зачётную игру, до ${_profileEsc(_spPoints(s.points_today_cap))} в сутки.</p>
-    <div class="sp-meter sp-meter--sm" role="progressbar" aria-label="Очки за сегодня" aria-valuemin="0" aria-valuemax="${Number(s.points_today_cap)}" aria-valuenow="${Number(s.points_today)}"><span><i style="--p:${p.toFixed(4)}"></i></span></div>
-    <p class="sp-line"><span>Сегодня <b>${fmt(s.points_today)}</b> из ${fmt(s.points_today_cap)}</span>${cap ? `<span>Новые очки откроются в ${_profileEsc(at)}</span>` : ''}</p>
+    <p class="sp-rule">Очки приходят за зачётные игры: чем лучше игра, тем больше очков.</p>
     <ul class="sp-rules">
       <li><b>Ритм:</b> чистый забег, от ${_SP_RHYTHM_TAPS} верных нажатий.</li>
       <li><b>Сапёр:</b> победа.</li>
@@ -167,7 +162,7 @@ function _spRender() {
   }
   // Прошлый сезон с наградами, которые скоро сгорят, стоит сразу под текущим «Забрать»; без наград это справка в конце страницы
   const old = _spPrev(prev, me), oldOpen = !!old && Number(prev.claimable_levels) > 0;
-  root.innerHTML = `${_spHead(cur)}${_sp.refreshNotice ? `<section class="sp-sec" role="status"><p>${_profileEsc(_sp.refreshNotice)}</p><button type="button" class="v3-pill v3-pill--full" onclick="loadSeasonPass()">Обновить данные</button></section>` : ''}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow(cur)}${oldOpen ? '' : old}`;
+  root.innerHTML = `${_spHead(cur)}${_sp.refreshNotice ? `<section class="sp-sec" role="status"><p>${_profileEsc(_sp.refreshNotice)}</p><button type="button" class="v3-pill v3-pill--full" onclick="loadSeasonPass()">Обновить данные</button></section>` : ''}${_spHero(cur)}<section class="sp-sec sp-take">${_spClaimBlock(cur, me, false)}${_spNext(cur)}</section>${oldOpen ? old : ''}${_spTrack(cur)}${_spHow()}${oldOpen ? '' : old}`;
   v3EnterSync(root);
 }
 // Всё, что рисуется из ответа: страница, строка в хабе, точка. Зовётся после каждого чтения

@@ -18,8 +18,6 @@
 .sp-meter { position: relative; height: 6px; }
 .sp-meter > span { position: absolute; inset: 0; overflow: hidden; border-radius: 99px; background: var(--v3-faint); }
 .sp-meter > span > i { position: absolute; top: 0; bottom: 0; left: 0; width: calc(var(--p, 0) * 100%); border-radius: 99px; background: var(--v3-acc); animation: spslide .8s var(--v3-ease) backwards; }
-.sp-meter--sm { height: 4px; margin-top: 12px; }
-.sp-meter--sm > span > i { background: color-mix(in srgb, var(--v3-ink) 62%, transparent); }
 
 /* забрать: кнопка, что придёт, почему нельзя */
 .sp-take { margin-top: 22px; }

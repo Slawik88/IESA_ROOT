@@ -1,4 +1,4 @@
-"""Storage of the free season pass: point receipts, daily caps, progress and claims."""
+"""Storage of the free season pass: point receipts, points per day, progress and claims."""
 from __future__ import annotations
 
 from datetime import date
@@ -39,19 +39,6 @@ async def ensure_tables(db) -> None:
     """)
 
 
-async def lock_day(db, *, user_id: int, season: int, day: date) -> int:
-    """Create the day row if needed, lock it, and return the points already earned that day."""
-    await db.execute(
-        "INSERT INTO season_pass_days(user_id,season,day,points) VALUES (?,?,?,0) ON CONFLICT DO NOTHING",
-        (int(user_id), int(season), day),
-    )
-    async with db.execute(
-        "SELECT points FROM season_pass_days WHERE user_id=? AND season=? AND day=? FOR UPDATE",
-        (int(user_id), int(season), day),
-    ) as cursor:
-        return int((await cursor.fetchone())[0])
-
-
 async def insert_receipt(db, *, user_id: int, source: str, event_id: str, season: int, day: date, points: int) -> bool:
     """False when this game was already counted."""
     async with db.execute(
@@ -64,8 +51,9 @@ async def insert_receipt(db, *, user_id: int, source: str, event_id: str, season
 
 async def add_points(db, *, user_id: int, season: int, day: date, points: int) -> None:
     await db.execute(
-        "UPDATE season_pass_days SET points=points+? WHERE user_id=? AND season=? AND day=?",
-        (int(points), int(user_id), int(season), day),
+        "INSERT INTO season_pass_days(user_id,season,day,points) VALUES (?,?,?,?) "
+        "ON CONFLICT (user_id,season,day) DO UPDATE SET points=season_pass_days.points+?",
+        (int(user_id), int(season), day, int(points), int(points)),
     )
     await db.execute(
         "INSERT INTO season_pass_progress(user_id,season,points) VALUES (?,?,?) "

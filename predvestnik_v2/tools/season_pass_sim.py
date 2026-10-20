@@ -4,6 +4,8 @@
 Run: PYTHONPATH=. python3 tools/season_pass_sim.py
 Pure model, no database.  A pass has LEVELS levels of POINTS_PER_LEVEL points;
 a qualifying game earns POINTS_PER_GAME, a day is capped at DAILY_POINT_CAP.
+This is the original flat model the budget was approved on (ECO-01); the live
+rules pay points differently (``core.season_pass``), the budget stays the same.
 The budget is what a player who finishes every level receives; rewards grow
 linearly with the level.  Synthetic players: casual / regular / hardcore, each
 quitting at a random day.  Compare with PR-1 place rewards and quests.
@@ -12,7 +14,10 @@ from __future__ import annotations
 
 import random
 
-from core.season_pass import DAILY_POINT_CAP, LEVELS, POINTS_PER_GAME, POINTS_PER_LEVEL   # the shipped rules
+from core.season_pass import LEVELS, POINTS_PER_LEVEL   # the shipped track
+
+POINTS_PER_GAME = 10              # the original flat model
+DAILY_POINT_CAP = 100
 
 SEASON_DAYS = 212                 # 7 calendar months
 QUALIFYING_SHARE = 0.7            # of games a player finishes, the share that counts

@@ -41,7 +41,7 @@ async def _record_completed_quest(db, *, user_id: int, run_id: str, mode: str, s
     event_id = f"rhythm:{run_id}"
     if season_pass_rules.rhythm_qualifies(integrity_status=integrity_status, correct_taps=correct_taps):
         await season_pass.record_game(db, user_id=user_id, source="rhythm", event_id=event_id,
-                                      occurred_at=finished_at)
+                                      points=season_pass_rules.rhythm_points(score), occurred_at=finished_at)
     try:
         async with db.connection.transaction():
             sources = await quests.available_sources(db, user_id=user_id)

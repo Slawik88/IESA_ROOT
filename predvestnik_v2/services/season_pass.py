@@ -28,11 +28,11 @@ async def enabled(db) -> bool:
     return await system_flags.is_enabled(db, rules.FLAG)
 
 
-async def record_game(db, *, user_id: int, source: str, event_id: str,
+async def record_game(db, *, user_id: int, source: str, event_id: str, points: int,
                       occurred_at: datetime | None = None) -> int:
-    """Count one qualifying game; returns the points added (0 when off, capped or already counted).
+    """Count one qualifying game worth ``points``; returns the points added (0 when off or already counted).
 
-    The caller has already decided the game qualifies (see ``core.season_pass``).
+    The caller has already decided the game qualifies and its worth (see ``core.season_pass``).
     """
     if source not in rules.SOURCES:
         raise SeasonPassError(f"unknown point source: {source}")
@@ -44,7 +44,7 @@ async def record_game(db, *, user_id: int, source: str, event_id: str,
         async with db.connection.transaction():
             if not await enabled(db):
                 return 0
-            granted = rules.granted_points(await repo.lock_day(db, user_id=user_id, season=season, day=day))
+            granted = max(0, int(points))
             if not await repo.insert_receipt(db, user_id=user_id, source=source, event_id=str(event_id),
                                              season=season, day=day, points=granted):
                 return 0
@@ -57,7 +57,7 @@ async def record_game(db, *, user_id: int, source: str, event_id: str,
         return 0
 
 
-def _view(season: int, progress: dict | None, today_points: int, now: datetime) -> dict:
+def _view(season: int, progress: dict | None, now: datetime) -> dict:
     points = int(progress["points"]) if progress else 0
     claimed = int(progress["claimed_level"]) if progress else 0
     level = rules.level_of(points)
@@ -72,8 +72,6 @@ def _view(season: int, progress: dict | None, today_points: int, now: datetime) 
         "claimable": {"mora": mora, "essence": essence},
         "per_level": {"mora": rules.MORA_PER_LEVEL, "essence": rules.ESSENCE_PER_LEVEL},
         "full_track": {"mora": rules.FULL_TRACK_MORA, "essence": rules.FULL_TRACK_ESSENCE},
-        "points_per_game": rules.POINTS_PER_GAME,
-        "points_today": today_points, "points_today_cap": rules.DAILY_POINT_CAP,
         "current": season == seasons.season_number(now),
     }
 
@@ -82,8 +80,6 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
     now = rules.utc(now or datetime.now(timezone.utc))
     if not await enabled(db):
         return {"enabled": False}
-    current = seasons.season_number(now)
-    today = await repo.day_points(db, user_id=user_id, season=current, day=now.date())
     seen = (await account_age_repo.first_seen(db, [user_id])).get(int(user_id))
     start = account_age.eligible_from(seen)
     return {"enabled": True,
@@ -91,8 +87,7 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
                         "eligible_from": start.isoformat() if start else None,
                         "min_days": account_age.MIN_ACCOUNT_AGE.days},
             "seasons": [
-        _view(season, await repo.progress(db, user_id=user_id, season=season),
-              today if season == current else 0, now)
+        _view(season, await repo.progress(db, user_id=user_id, season=season), now)
         for season in rules.claimable_seasons(now)]}
 
 

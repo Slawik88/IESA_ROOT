@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real PostgreSQL proof of the season pass: dark flag, daily cap, receipts, claims, season edges."""
+"""Real PostgreSQL proof of the season pass: dark flag, no daily cap, receipts, claims, season edges."""
 from __future__ import annotations
 
 import argparse
@@ -62,7 +62,7 @@ async def run(dsn: str) -> None:
 
         async def play(n: int, day: int, *, user: int = USER, tag: str = "g") -> int:
             return sum([await service.record_game(db, user_id=user, source="rhythm", event_id=f"{tag}{day}-{i}",
-                                                   occurred_at=noon(day)) for i in range(n)])
+                                                   points=10, occurred_at=noon(day)) for i in range(n)])
 
         async def mora_of(user: int) -> int:
             async with db.execute("SELECT COALESCE(SUM(delta),0) FROM economic_ledger "
@@ -80,7 +80,7 @@ async def run(dsn: str) -> None:
 
         # 1. Dark by default: no points, no rows, no claim.
         await db.execute("UPDATE system_flags SET enabled=0 WHERE key=?", (rules.FLAG,))
-        assert await service.record_game(db, user_id=USER, source="rhythm", event_id="dark", occurred_at=noon(1)) == 0
+        assert await service.record_game(db, user_id=USER, source="rhythm", event_id="dark", points=10, occurred_at=noon(1)) == 0
         assert await points_of(USER) == 0
         assert await service.status(db, user_id=USER, now=noon(1)) == {"enabled": False}
         try:
@@ -91,21 +91,24 @@ async def run(dsn: str) -> None:
             raise AssertionError("claim must be refused while the pass is dark")
         await db.execute("UPDATE system_flags SET enabled=1 WHERE key=?", (rules.FLAG,))
 
-        # 2. Daily cap and receipts: 10 games fill the day, the 11th adds nothing; a replay adds nothing.
+        # 2. No daily cap, one receipt per game: the 11th game of a day still counts, a replay adds nothing.
         assert await play(10, 1) == 100 and await points_of(USER) == 100
-        assert await play(1, 1, tag="extra") == 0 and await points_of(USER) == 100
-        assert await service.record_game(db, user_id=USER, source="rhythm", event_id="g1-0", occurred_at=noon(1)) == 0
-        assert await points_of(USER) == 100
+        assert await play(1, 1, tag="extra") == 10 and await points_of(USER) == 110
+        assert await service.record_game(db, user_id=USER, source="rhythm", event_id="g1-0", points=10,
+                                         occurred_at=noon(1)) == 0
+        assert await points_of(USER) == 110
         async with db.execute("SELECT COUNT(*),COALESCE(SUM(points),0) FROM season_pass_receipts WHERE user_id=?", (USER,)) as cursor:
-            assert tuple(await cursor.fetchone()) == (11, 100), "the capped game still leaves a receipt (zero points)"
-        assert await play(10, 2) == 100 and await points_of(USER) == 200
-        # An overlapping day cap: 95 points earned, the next game grants only 5.
-        assert await play(9, 3, tag="a") == 90 and await play(1, 3, tag="b") == 10 and await play(1, 3, tag="c") == 0
-        assert await service.record_game(db, user_id=OTHER, source="minesweeper", event_id="m1", occurred_at=noon(1)) == 10
+            assert tuple(await cursor.fetchone()) == (11, 110)
+        assert await repo.day_points(db, user_id=USER, season=1, day=noon(1).date()) == 110
+        # A long run pays by its score in one go.
+        assert await service.record_game(db, user_id=USER, source="rhythm", event_id="long", occurred_at=noon(2),
+                                         points=rules.rhythm_points(70_000)) == 831
+        assert await points_of(USER) == 941
+        assert await service.record_game(db, user_id=OTHER, source="minesweeper", event_id="m1", points=10, occurred_at=noon(1)) == 10
 
         # 3. Unknown sources are rejected loudly (a programming error, not a game failure).
         try:
-            await service.record_game(db, user_id=USER, source="mafia", event_id="x")
+            await service.record_game(db, user_id=USER, source="mafia", event_id="x", points=10)
         except service.SeasonPassError:
             pass
         else:
@@ -119,12 +122,12 @@ async def run(dsn: str) -> None:
 
         repo.insert_receipt = broken
         try:
-            assert await service.record_game(db, user_id=USER, source="rhythm", event_id="boom", occurred_at=noon(9)) == 0
+            assert await service.record_game(db, user_id=USER, source="rhythm", event_id="boom", points=10, occurred_at=noon(9)) == 0
         finally:
             repo.insert_receipt = real
         assert await repo.day_points(db, user_id=USER, season=1, day=noon(9).date()) == 0
 
-        # 5. Reach level 10 (3000 points) and claim: 400 Mora + 100 Essence once, in one transaction.
+        # 5. Reach a few levels and claim: Mora + Essence once, in one transaction.
         for day in range(4, 14):
             await play(10, day)
         total = await points_of(USER)
@@ -132,7 +135,7 @@ async def run(dsn: str) -> None:
         assert view["points"] == total and view["level"] == total // 300 and view["current"] is True, view
         level = view["level"]
         assert view["claimable"] == {"mora": level * 40, "essence": level * 10}, view
-        assert view["points_today"] == 100 and view["points_today_cap"] == 100
+        assert "points_today" not in view and "points_per_game" not in view, "the rule of points stays hidden"
         result = await service.claim(db, user_id=USER, season=1, now=noon(13))
         assert result == {"season": 1, "claimed_levels": f"1-{level}", "mora": level * 40, "essence": level * 10,
                           "claimed_level": level}, result
@@ -184,9 +187,9 @@ async def run(dsn: str) -> None:
             raise AssertionError("the track is complete")
 
         # 9. Season edges: the last second belongs to season 1, the end instant to season 2.
-        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge1",
+        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge1", points=10,
                                          occurred_at=s1_end - timedelta(seconds=1)) == 10
-        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge2", occurred_at=s1_end) == 10
+        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge2", points=10, occurred_at=s1_end) == 10
         assert await points_of(OTHER, 1) == 20 and await points_of(OTHER, 2) == 10
 
         # 10. Claim window: season 1 stays claimable 30 days after its end, then lapses.
@@ -227,7 +230,7 @@ async def run(dsn: str) -> None:
                          (NEWBIE, (noon(5) - timedelta(days=40)).date().isoformat()))
         assert (await service.status(db, user_id=NEWBIE, now=noon(10)))["account"]["eligible"] is True
         # No chat record at all: new by definition.
-        await service.record_game(db, user_id=NO_RECORD, source="rhythm", event_id="x", occurred_at=noon(2))
+        await service.record_game(db, user_id=NO_RECORD, source="rhythm", event_id="x", points=10, occurred_at=noon(2))
         await db.execute("UPDATE season_pass_progress SET points=300 WHERE user_id=? AND season=1", (NO_RECORD,))
         assert (await service.status(db, user_id=NO_RECORD, now=noon(30)))["account"] == \
             {"eligible": False, "eligible_from": None, "min_days": 14}
@@ -247,7 +250,7 @@ async def run(dsn: str) -> None:
         system_flags.is_enabled = broken_flag
         try:
             async with db.connection.transaction():
-                assert await service.record_game(db, user_id=USER, source="rhythm", event_id="flag-down",
+                assert await service.record_game(db, user_id=USER, source="rhythm", event_id="flag-down", points=10,
                                                  occurred_at=noon(2)) == 0
                 async with db.execute("SELECT 1") as cursor:
                     assert (await cursor.fetchone())[0] == 1, "the outer transaction must stay usable"
@@ -271,7 +274,7 @@ async def run(dsn: str) -> None:
             await rhythm_game.review_run(db, reviewer_id=1, run_id=run_id, review_id=f"rv-{run_id}",
                                          decision="clear", reason="проверено вручную: честный забег")
         assert await db.connection.fetchval("SELECT integrity_status FROM rhythm_v2_runs WHERE run_id=$1", run_id) == 'clear'
-        assert await points_of(reviewed) == 10, "a manual 'clear' must earn the pass points"
+        assert await points_of(reviewed) == rules.rhythm_points(900) == 27, "a manual 'clear' must earn the pass points"
 
         # 11. The game hooks feed the pass only for qualifying games.
         from services import minesweeper_v2, rhythm_v2
@@ -283,16 +286,16 @@ async def run(dsn: str) -> None:
         assert await points_of(third) == 0
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-ok", mode="normal", score=900,
                                                 integrity_status="clear", correct_taps=20, finished_at=noon(30))
-        assert await points_of(third) == 10
+        assert await points_of(third) == rules.rhythm_points(900) == 27, "a run pays by its score"
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-ok", mode="normal", score=900,
                                                 integrity_status="clear", correct_taps=20, finished_at=noon(30))
-        assert await points_of(third) == 10, "the same run counts once"
+        assert await points_of(third) == 27, "the same run counts once"
         current = seasons.season_number(datetime.now(timezone.utc))   # Minesweeper points land "now"
         before = await points_of(third, current)
         await minesweeper_v2._record_completed_quest(db, user_id=third, run_id="m-lost", difficulty="easy", won=False)
         assert await points_of(third, current) == before, "a lost game earns nothing"
         await minesweeper_v2._record_completed_quest(db, user_id=third, run_id="m-won", difficulty="easy", won=True)
-        assert await points_of(third, current) == before + 10, "a won game earns points"
+        assert await points_of(third, current) == before + rules.MINESWEEPER_POINTS, "a won game earns points"
         # Real SQL aborts at lookup and after a first metric must only roll back
         # the complete optional quest block, preserving pass and game settlement.
         await db.execute("CREATE TEMP TABLE pass_quest_fault_probe (n INTEGER)")
@@ -315,7 +318,7 @@ async def run(dsn: str) -> None:
                             integrity_status="clear", correct_taps=20)
                     else:
                         await minesweeper_v2._record_completed_quest(db, user_id=third, run_id=f"fault-{game}-{phase}", difficulty="easy", won=True)
-                assert await points_of(third, current) == start_points + 10
+                assert await points_of(third, current) == start_points + (rules.rhythm_points(900) if game == "rhythm" else rules.MINESWEEPER_POINTS)
                 assert await db.connection.fetchval("SELECT COUNT(*) FROM pass_quest_fault_probe") == 0
                 assert await db.connection.fetchval("SELECT 1") == 1
 
@@ -328,4 +331,4 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--dsn", required=True, type=local_dsn)
 args = parser.parse_args()
 asyncio.run(run(args.dsn))
-print("season pass: PostgreSQL dark flag, daily cap, receipts, atomic claims, season edges OK")
+print("season pass: PostgreSQL dark flag, no daily cap, receipts, atomic claims, season edges OK")
