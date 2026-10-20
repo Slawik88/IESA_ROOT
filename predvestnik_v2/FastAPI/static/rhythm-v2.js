@@ -1,35 +1,55 @@
 (() => {
   const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
   const base = document.body.dataset.appBase || location.pathname.replace(/\/rhythm-v2\/?$/, '');
-  const init = tg?.initData || '', session = localStorage.getItem('pv_sess') || '', headers = {'Content-Type':'application/json'};
+  const init = tg?.initData || new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || '', session = (()=>{try{return localStorage.getItem('pv_sess')||''}catch(_){return ''}})(), headers = {'Content-Type':'application/json'};
   if (init) headers['x-init-data'] = init;
   if (session) headers['x-session-token'] = session;
   const $ = id => document.getElementById(id), storageKey = 'predvestnik-rhythm-v2-live';
-  let tickEnd = 0, tickSignal = 0, leadTimer = null, leadTick = null, shownDraft = null, state = null, socket = null, pendingTap = null, timer = null, reconnectTimer = null, reconnectAttempt = 0, leaderboardMode = 'normal', boardPage = null, leaving = false;
-  let pendingGift = null;
+  let tickEnd=0, state=null, timer=null, leaderboardMode='normal', boardPage=null, leaving=false;
+  const store = new PVLocal.Store('rhythm', tg, session, init);
+  let generation=0;let engine=null, journal=[], paused=false, resolving=false, remaining=null, expectedRune=null, loading=false;
   const show = id => ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
   const err = text => { $('error').textContent = text || ''; };
-  async function api(path, options={}) { const response=await fetch(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok) throw new Error(data.detail||'Не удалось связаться с сервером.'); return data; }
+  async function api(path, options={}) { const response=await PVLocal.request(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok){const error=new Error(data.detail||'Не удалось связаться с сервером.');error.status=response.status;throw error;} return data; }
+  if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
   fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
-  function save(){ if(state?.run_id&&['active'].includes(state.status))localStorage.setItem(storageKey,JSON.stringify({state,pendingGift}));else localStorage.removeItem(storageKey); }
+  function save(){if(engine){store.data.active={packet:engine.packet,state:engine.state,journal,remaining:remaining??Math.max(0,tickEnd-performance.now())};store.save();}}
   function setButtons(disabled, selected=null){buttons().forEach(b=>{b.disabled=disabled;b.classList.toggle('pending',b.dataset.rune===selected&&disabled)})}
   function connection(mark,text){$('connection').textContent=mark;$('connection').setAttribute('aria-label',text)}
-  function tick(remaining,windowMs){clearInterval(timer);const started=performance.now(),duration=Math.max(0,Number(remaining)||0),full=Math.max(1,Number(windowMs)||1);const go=()=>{const left=Math.max(0,(duration-(performance.now()-started))/full);$('timebar').style.transform='scaleX('+left+')';if(left===0){clearInterval(timer);setButtons(true);$('tap-feedback').textContent='Время вышло';$('tap-feedback').dataset.state='pending'}};go();timer=setInterval(go,33)}
+  function tick(duration,full){
+    clearInterval(timer);remaining=null;tickEnd=performance.now()+duration;
+    timer=setInterval(()=>{const left=Math.max(0,tickEnd-performance.now());$('timebar').style.transform='scaleX('+left/full+')';if(left===0){clearInterval(timer);sendTap(null);}},16);
+  }
+  function pause(){if(!engine||engine.state.status!=='active')return;remaining=remaining??Math.max(0,tickEnd-performance.now());paused=true;clearInterval(timer);save();setButtons(true);$('resume-run').classList.remove('hidden');$('tap-feedback').textContent='На паузе — сердца сохранены';}
+  async function localDraw(){
+    if(!engine)return;const current=engine,version=generation;const view=await current.view();if(engine!==current||version!==generation)return;state=view;expectedRune=view.rune;
+    connection(navigator.onLine?'●':'○','Игра работает на устройстве');err(store.durable?'':'Не удалось сохранить игру на устройстве. Не закрывай приложение.');
+    $('health').textContent='♥'.repeat(view.health)||'—';$('score').textContent=view.score;$('combo').textContent=view.combo;
+    $('speed').textContent=view.speed_percent+'%';$('perks').textContent=perksLine(view);
+    if(view.status==='finished'){store.data.last={packet:engine.packet,state:engine.state,journal};store.queue(engine.packet,journal);finish({...view,integrity_status:'saved_local'});flushResults();return;}
+    if(view.draft){clearInterval(timer);remaining=null;offers();return;}
+    $('instruction').textContent='Нажми руну '+glyph(view.rune);$('run-note').textContent='Такт '+view.next_signal_no+' · чанк '+view.chunk+' · окно '+view.window_ms+' мс';
+    $('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state='';show('run');
+    if(document.hidden)paused=true;
+    $('resume-run').classList.toggle('hidden',!paused);setButtons(paused);
+    if(!paused)tick(remaining??view.window_ms,view.window_ms);else save();
+  }
+  async function flushResults(){try{await store.flush(api,result=>{if(state?.run_id===result.run_id&&state.status==='finished'){if(result.rejected){$('result-status').textContent='Не удалось подтвердить результат';err(result.message);}else finish(result);}});}catch(error){if(state?.status==='finished')$('result-status').textContent=error.status===401?'Сохранено · открой игру заново в Telegram для отправки':'Сохранено на устройстве · отправим при подключении';}}
+  setInterval(flushResults,5000);window.addEventListener('online',()=>{flushResults();store.refreshRules(api).catch(()=>{});});
   function finish(result) {
-    state = result; pendingTap = null; pendingGift = null;
-    localStorage.removeItem(storageKey); clearInterval(timer); clearTimeout(reconnectTimer);
-    if (socket) { socket.onclose = null; socket.close(); socket = null; }
+    state = result;
+    try{localStorage.removeItem(storageKey);}catch(_){} clearInterval(timer);
     const clear = result.integrity_status === 'clear';
-    const labels = { clear: 'Забег подтверждён', review_required: 'Результат ожидает проверки',
+    const labels = { saved_local: 'Сохранено на устройстве', clear: 'Забег подтверждён', review_required: 'Результат ожидает проверки',
       quarantined: 'Результат не допущен в рейтинг', legacy_unverified: 'Старый результат без проверки' };
     connection(clear ? '●' : '◐', labels[result.integrity_status] || 'Результат сохранён без рейтингового допуска');
     $('final-score').textContent = Number(result.score).toLocaleString('ru-RU');
     const n = Number(result.correct_taps) + Number(result.mistakes), acc = n ? (100 * result.correct_taps / n).toFixed(1) : '0';
     $('final-detail').textContent = result.correct_taps + ' из ' + n + ' тактов верно';
     const status = $('result-status');
-    status.textContent = ({clear:'В рейтинге',review_required:'На проверке',quarantined:'Вне рейтинга',legacy_unverified:'Без проверки'})[result.integrity_status] || 'Без допуска';
+    status.textContent = ({saved_local:'Сохранено · отправляем результат',clear:'В рейтинге',review_required:'На проверке',quarantined:'Вне рейтинга',legacy_unverified:'Без проверки'})[result.integrity_status] || 'Без допуска';
     status.dataset.state = clear ? 'clear' : 'pending'; status.title = labels[result.integrity_status] || 'Нет рейтингового допуска';
     $('final-accuracy').textContent = acc.replace('.', ',') + '%';
     $('result-accuracy').style.setProperty('--accuracy', acc + '%');
@@ -60,39 +80,40 @@
       const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=value;row.append(dt,dd);extra.append(row);
     }
     details.append(extra);
-    const caveat=document.createElement('p');caveat.className='r-analysis-caveat';caveat.textContent='Время включает сеть, а пропуски могут быть связаны с обрывом связи. Это не оценка чистой реакции.';details.append(caveat);
+    const caveat=document.createElement('p');caveat.className='r-analysis-caveat';caveat.textContent='Время ответа измерено на устройстве. Паузы и ожидание сети не отнимают сердца.';details.append(caveat);
     const list = document.createElement('ol');
     (a.chunks || []).forEach(row => { const li = document.createElement('li'); li.textContent = 'Блок ' + row.chunk + (row.merged ? ' и далее' : '') + ': верных ' + row.correct + ', неверных ' + row.wrong + ', пропусков ' + row.timeouts + ', потеряно сердец ' + row.hearts_lost + '.'; list.append(li); });
     details.append(list);
     if (result.gifts?.length) { const p=document.createElement('p');p.textContent='Сборка: '+result.gifts.map(g=>g.name+(g.count>1?' ×'+g.count:'')).join(' · ');details.append(p); }
     box.append(details);
   }
-  function drawLive(next){
-    const previousSignal=Number(state?.next_signal_no||0);state={...(state||{}),...next};save();connection('●','Связь с игровым сервером установлена');err('');
-    if(state.status==='finished')return finish(state);if(state.status!=='active')return;if(pendingGift&&(!state.draft||state.draft.number!==pendingGift.number)){pendingGift=null;save()}if(state.draft){pendingTap=null;$('health').textContent='♥'.repeat(state.health)||'—';$('score').textContent=state.score;$('perks').textContent=perksLine(state);if(shownDraft!==state.draft.number){shownDraft=state.draft.number;offers()}if(pendingGift&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'pick',perk_id:pendingGift.id,action_id:pendingGift.actionId}));return}shownDraft=null;
-    clearInterval(leadTick);clearTimeout(leadTimer);
-    if(Number(state.starts_in_ms)>0){pendingTap=null;const total=Number(state.starts_in_ms);$('health').textContent='♥'.repeat(state.health)||'—';$('score').textContent=state.score;$('combo').textContent=state.combo;$('speed').textContent=state.speed_percent+'%';$('perks').textContent=perksLine(state);$('instruction').textContent='Приготовься';$('run-note').textContent='Такт '+state.next_signal_no+' · окно '+state.window_ms+' мс';clearInterval(timer);$('timebar').style.transform='scaleX(1)';setButtons(true);show('run');const end=performance.now()+total,upd=()=>{$('tap-feedback').textContent='Старт через '+Math.max(1,Math.ceil((end-performance.now())/1000))+'…';$('tap-feedback').dataset.state='pending'};upd();leadTick=setInterval(upd,200);leadTimer=setTimeout(()=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'sync'}))},total+40);return}
-    if(pendingTap&&Number(state.next_signal_no)!==Number(pendingTap.signal_no))pendingTap=null;
-    $('health').textContent='♥'.repeat(state.health)||'—';$('score').textContent=state.score;$('combo').textContent=state.combo;$('speed').textContent=state.speed_percent+'%';$('perks').textContent=perksLine(state);$('instruction').textContent='Нажми руну '+glyph(state.rune);$('run-note').textContent='Такт '+state.next_signal_no+' · чанк '+state.chunk+' · окно '+state.window_ms+' мс';
-    if(!pendingTap||previousSignal!==Number(state.next_signal_no)){$('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state=''}
-    setButtons(Boolean(pendingTap)||socket?.readyState!==WebSocket.OPEN,pendingTap?.rune||null);show('run');const endAt=performance.now()+Number(state.remaining_ms||0);if(!(tickEnd&&tickSignal===state.next_signal_no&&(pendingTap||Math.abs(endAt-tickEnd)<120))){tickSignal=state.next_signal_no;tickEnd=endAt;tick(state.remaining_ms,state.window_ms)} /* a periodic state must not re-anchor the bar: no visible jitter */
-    if(pendingTap&&Number(state.next_signal_no)===Number(pendingTap.signal_no)&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
+  async function sendTap(rune){
+    if(!engine||engine.state.status!=='active'||paused||resolving||state?.draft)return;
+    resolving=true;clearInterval(timer);const elapsed=rune===null?engine.window()+1:Math.min(60000,Math.max(0,Math.floor(engine.window()-(remaining??Math.max(0,tickEnd-performance.now())))));
+    journal.push({kind:'tap',signal_no:engine.state.next_signal_no,rune,elapsed_ms:elapsed});
+    engine.step(rune,elapsed,expectedRune);remaining=engine.window();save();setButtons(true);
+    try{await localDraw();}finally{resolving=false;}
   }
-  function scheduleReconnect(message){
-    if(leaving||!state?.run_id||state.status!=='active')return;clearTimeout(reconnectTimer);connection('○','Переподключение к игровому серверу');err(message||'Связь прервалась. Восстанавливаю этот же забег…');const wait=Math.min(4000,350*(2**reconnectAttempt++));reconnectTimer=setTimeout(()=>connectTransport(),wait);
+  async function start(mode){
+    if(loading)return;loading=true;
+    try{err('');leaving=false;paused=false;remaining=null;
+      const version=++generation;
+      let packet=await store.fresh('rhythm');
+      if(!packet){
+        const started=await api('/runs',{method:'POST',body:JSON.stringify({mode})});
+        packet=await api('/runs/'+started.run_id+'/local-packet',{method:'POST'});
+      }
+      if(version!==generation)return;
+      store.data.template=packet;if(navigator.onLine)store.refreshRules(api).catch(()=>{});
+      engine=new PVLocal.Rhythm(packet);journal=[];state={run_id:packet.run_id,status:'active'};remaining=engine.window();save();
+      if(await countdown())await localDraw();
+    }catch(error){err(error.message);}finally{loading=false;}
   }
-  async function connectTransport(){
-    if(leaving||!state?.run_id)return;try{const issued=await api('/runs/'+state.run_id+'/transport-ticket',{method:'POST'});const target=new URL(base+'/rhythm-v2/runs/'+encodeURIComponent(state.run_id)+'/live',location.origin);target.protocol=location.protocol==='https:'?'wss:':'ws:';const ws=new WebSocket(target);socket=ws;connection('○','Подключение к игровому серверу');ws.onopen=()=>ws.send(JSON.stringify({type:'authenticate',ticket:issued.ticket}));ws.onmessage=event=>{let message;try{message=JSON.parse(event.data)}catch(_){return}if(message?.type==='state'){reconnectAttempt=0;drawLive(message.state)}};ws.onerror=()=>{};ws.onclose=()=>{if(socket===ws)socket=null;scheduleReconnect('Связь прервалась. Восстанавливаю этот же забег…')};}catch(error){scheduleReconnect(error.message)}
-  }
-  function sendTap(rune){
-    if(!state||state.status!=='active'||pendingTap||socket?.readyState!==WebSocket.OPEN)return;pendingTap={signal_no:Number(state.next_signal_no),rune,actionId:crypto.randomUUID()};clearInterval(timer);setButtons(true,rune);const hit=rune===state.rune;$('tap-feedback').textContent=hit?'Верно':'Мимо';$('tap-feedback').dataset.state=hit?'accepted':'pending'; /* instant local verdict: no visible wait for the server */socket.send(JSON.stringify({type:'tap',signal_no:pendingTap.signal_no,rune:pendingTap.rune,action_id:pendingTap.actionId}));
-  }
-  async function start(mode){try{err('');leaving=false;state=await api('/runs',{method:'POST',body:JSON.stringify({mode})});save();if(await countdown())await connectTransport()}catch(error){err(error.message)}}
   const kindLabel={safe:'Надёжный',boost:'Усиление',risk:'Риск'};
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   async function countdown(){show('countdown');const id=state.run_id;for(let n=5;n>0;n--){$('count-num').textContent=n;await sleep(1000);if(leaving||!state||state.run_id!==id)return false}return true}
   function offers() {
-    clearInterval(timer); clearInterval(leadTick); clearTimeout(leadTimer); setButtons(true); show('choice');
+    clearInterval(timer); setButtons(true); show('choice');
     $('draft-title').textContent = 'Рун-дар №' + state.draft.number;
     const box = $('gifts'); box.replaceChildren();
     state.draft.offers.forEach(gift => {
@@ -111,21 +132,18 @@
       }
       b.onclick = () => pickGift(gift.id); box.append(b);
     });
-    box_disable(Boolean(pendingGift));
+    box_disable(false);
   }
-  function pickGift(id) {
-    if (!state?.draft || socket?.readyState !== WebSocket.OPEN || pendingGift) return;
-    pendingGift = { id, number: state.draft.number, actionId: crypto.randomUUID() }; save(); box_disable(true);
-    socket.send(JSON.stringify({ type: 'pick', perk_id: id, action_id: pendingGift.actionId }));
+  async function pickGift(id){
+    if(!state?.draft||resolving||!state.draft.offers.some(g=>g.id===id))return;
+    resolving=true;clearInterval(timer);journal.push({kind:'pick',perk_id:id});engine.pick(id);remaining=engine.window();save();box_disable(true);
+    try{await localDraw();}finally{resolving=false;}
   }
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
   function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);if(p.recovery>0)parts.push('Второе дыхание: ещё '+p.recovery+' такта');return parts.join(' · ')}
-  async function cancel(){if(!state?.run_id)return;try{leaving=true;clearTimeout(reconnectTimer);if(socket){socket.onclose=null;socket.close();socket=null}await api('/runs/'+state.run_id+'/cancel',{method:'POST'});clearInterval(timer);pendingTap=null;state=null;localStorage.removeItem(storageKey);show('intro');err('Забег отменён.')}catch(error){err(error.message)}finally{leaving=false}}
-  function cancelOnPageExit(){
-    if(!state?.run_id||leaving)return;
-    leaving=true;
-    localStorage.removeItem(storageKey);clearTimeout(reconnectTimer);if(socket){socket.onclose=null;socket.close();socket=null}
-    fetch(base+'/rhythm-v2/runs/'+encodeURIComponent(state.run_id)+'/cancel',{method:'POST',headers,keepalive:true}).catch(()=>{});
+  async function cancel(){
+    const id=state?.run_id;++generation;leaving=true;clearInterval(timer);engine=null;state=null;journal=[];store.data.active=null;store.save();
+    show('intro');if(id)api('/runs/'+id+'/cancel',{method:'POST'}).catch(()=>{});leaving=false;
   }
   function empty(text){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='leaderboard-empty';row.textContent=text;list.append(row)}
   // Сезон: срок в подписи над результатом, призы и условия свёрнуты в «Награды сезона», прошлый сезон одной строкой под результатом
@@ -140,6 +158,24 @@
   function more(data){const box=$('leaderboard-more');box.replaceChildren();if(boardPage===null){if(data.top.length>5)box.append(boardButton('Весь топ ›','',()=>openBoard(0)));return}if(data.pages>1){const at=document.createElement('span');at.textContent=(data.page+1)+' / '+data.pages;box.append(boardButton('‹','Предыдущая страница',()=>openBoard(data.page-1),data.page<=0),at,boardButton('›','Следующая страница',()=>openBoard(data.page+1),data.page+1>=data.pages))}box.append(boardButton('Свернуть','',()=>openBoard(null)))}
   function openBoard(page){boardPage=page;refreshLeaderboard()}
   async function refreshLeaderboard(){try{list(await api(boardPage===null?'/leaderboard/'+leaderboardMode:'/leaderboard/'+leaderboardMode+'/full?page='+boardPage))}catch(error){$('leaderboard-more').replaceChildren();if(boardPage===null)$('leaderboard-personal').textContent='';empty(init?'Таблица временно недоступна.':'Войдите через Telegram, чтобы увидеть результаты.')}}
-  function restore(){try{const saved=JSON.parse(localStorage.getItem(storageKey)||'null');if(saved?.state?.run_id){state=saved.state;pendingGift=saved.pendingGift||null;if(state.status==='active')connectTransport()}}catch(_){localStorage.removeItem(storageKey)}}
-  localStorage.removeItem('predvestnik-rhythm-v2-local');document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));$('exit-run').onclick=cancel;$('exit-count').onclick=cancel;window.addEventListener('pagehide',cancelOnPageExit);buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));$('again').onclick=()=>{state=null;pendingTap=null;show('intro');refreshLeaderboard()};$('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard()};refreshLeaderboard();restore();
+  async function restore(){
+    const version=generation;const active=store.data.active||(store.data.outbox.length?store.data.last:null);
+    if(active?.packet?.protocol==='resilient-local-v1'){
+      store.data.template=active.packet;engine=new PVLocal.Rhythm(active.packet,active.state);journal=active.journal||[];remaining=active.remaining??engine.window();paused=true;await localDraw();
+    }else{
+      // Take over a run left by the previous WS client without charging the
+      // disconnected interval. Only remove the old checkpoint after success.
+      try{const saved=JSON.parse(localStorage.getItem(storageKey)||'null');if(saved?.state?.run_id&&saved.state.status==='active'){
+        const packet=await api('/runs/'+saved.state.run_id+'/local-packet',{method:'POST'});if(version!==generation)return;engine=new PVLocal.Rhythm(packet);journal=[];remaining=engine.window();paused=true;save();await localDraw();localStorage.removeItem(storageKey);
+      }}catch(_){}
+    }
+    flushResults();if(navigator.onLine)store.refreshRules(api).catch(()=>{});
+  }
+  document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));
+  $('exit-run').onclick=cancel;$('exit-count').onclick=cancel;
+  $('resume-run').onclick=()=>{paused=false;$('resume-run').classList.add('hidden');localDraw();};
+  window.addEventListener('pagehide',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+  buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));
+  $('again').onclick=()=>{engine=null;state=null;show('intro');refreshLeaderboard();};
+  $('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard();};refreshLeaderboard();restore();
 })();

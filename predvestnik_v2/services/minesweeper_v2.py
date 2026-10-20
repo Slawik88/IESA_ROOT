@@ -142,6 +142,8 @@ async def act(db, *, user_id: int, run_id: str, action_id: str, expected_revisio
                 raise MinesweeperConflict("action id was already used with another action")
             result = repo.load(recorded["result_json"]); result["idempotent_replay"] = True
             return result
+        if await repo.action(db, run_id=run_id, action_id="local:packet:v1"):
+            raise MinesweeperConflict("Продолжи партию в локальном режиме.")
         if int(row["revision"]) != expected_revision:
             raise MinesweeperConflict("Minesweeper board changed; refresh it before the next action")
         if row["status"] not in ("awaiting_first_open", "active"):

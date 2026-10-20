@@ -1,3 +1,50 @@
+## GAME-001 / GAME-002 / FAM-001 reliability wave — 2026-10-20
+
+Owner explicitly prioritizes uninterrupted play on weak/offline connections over
+anti-cheat. This supersedes the earlier requirement that the shipped Rhythm
+client wait for server-timed WebSocket verdicts and quarantine client timing.
+Both current clients now play locally, including gifts, safe-first Mines boards,
+new games from cached rules, hidden-page pauses and reload recovery. Authenticated
+settlement replays journals rather than trusting totals. The seed/layout/timing
+are client-visible; these runs may rank and advance progression by owner decision,
+so this policy does not assert human timing or cheat-resistant competition.
+
+`services/local_games.py` stores an immutable packet and a single terminal receipt
+under the owned run lock. A late offline UUID is registered as cancelled before
+settlement, so it cannot replace an unrelated active run. Legacy WS leases and
+mutation paths cannot alter a local packet. Outbox retries survive lost replies,
+reloads and subsequent runs; permanent rejections remain separately inspectable
+and do not block later results. Optional new-rule refresh affects only future
+games. Shell/asset caching excludes authenticated APIs; required cache installation
+is atomic and gateway/network failures fall back to the prior cached game.
+The Telegram SDK loads asynchronously; signed launch data from the URL keeps
+a slow SDK/CDN outside the gameplay startup path. The first download still requires a connection and browser storage/cache support.
+
+Family wallet: the existing form had no DOM host, so every public family entry
+opened only the tree. The family dialog now renders marriage/wallet plus the tree,
+reads canonical custody balances including essence, and supports essence transfers.
+Pending transfers persist their exact body and idempotency key through unknown
+HTTP outcomes; a retry cannot silently create a second transfer. The Telegram
+family card offers owner-checked deposit/withdraw amount/currency buttons with
+the existing persisted intent and wallet-readiness boundaries.
+
+Proof: 292 Python/JS Rhythm effect/timing cases, all 198 first-open Mines layouts
+and independently generated offline layouts; real PostgreSQL two-chunk gifts,
+lost replies, replacement before upload, foreign-owner rejection and true concurrent
+(two-connection) finalization/import with one receipt/progression. Real-browser
+390 px proof covers 45 offline signals + two gifts, background pause/reload,
+next offline run and Mines next-game/reload; 320/390/430 px have no overflow.
+Wallet JS proof covers a committed-but-lost response, 5xx retry with the same key,
+definite rejection recovery and invalid amounts. Worker proof covers partial
+installation failure, 503 fallback and API exclusion. Focused game, static-delivery
+and family PostgreSQL gates pass. The initial all-product run was 176/215; 34 of
+39 failures reproduce on pristine `8164625b` in the same isolated PostgreSQL
+setup. Five changed-contract tests were updated and rerun green. Those baseline
+failures (admin/chat fixture drift, hardcoded ports, unrelated profile/pet/market
+contracts) remain follow-ups; this is not a claim that the full bot gate is green.
+Independent read-only criticism found no P0/P1; its timer/queue/cache/template
+P2 findings were corrected and covered by focused checks.
+
 ## Admin v2 release — faces, one action sheet, attention block (2026-10-20)
 
 Rebuilt /bot-admin around people instead of forms. Telegram profile photos now arrive through signed

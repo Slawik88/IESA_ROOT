@@ -291,6 +291,8 @@ async def pick_perk(db, *, user_id: int, run_id: str, perk_id: str, action_id: s
             response = repo.load(recorded["result_json"])
             response["idempotent_replay"] = True
             return response
+        if row.get("integrity_reason") == "resilient-local-v1":
+            raise RhythmConflict("Продолжи забег в локальном режиме.")
         state, now = _state(row), row["server_now"]
         # No expiry here: while a gift is owed the clock is paused, so there is
         # nothing to expire and the pick can never finish (and so strand) a run.
@@ -321,6 +323,8 @@ async def offline_packet(db, *, user_id: int, run_id: str) -> dict:
         row = await repo.lock_owned_run(db, run_id=run_id, user_id=user_id)
         if not row or row["status"] != "active":
             raise RhythmConflict("only an active Rhythm run can load a packet")
+        if row.get("integrity_reason") == "resilient-local-v1":
+            raise RhythmConflict("Продолжи забег в локальном режиме.")
         state = _state(row)
         if state["next_signal_no"] != 1 or state["signal_opened_at"] is not None:
             raise RhythmConflict("this Rhythm run is not an offline run")
@@ -364,6 +368,8 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
                 raise RhythmConflict("finalize id was already used with another result")
             response = repo.load(recorded["result_json"]); response["idempotent_replay"] = True
             return response
+        if row.get("integrity_reason") == "resilient-local-v1":
+            raise RhythmConflict("Продолжи забег в локальном режиме.")
         state, now = _state(row), row["server_now"]
         state["analysis"] = None  # local journal is not server-observed timing telemetry
         if state["status"] != "active" or state["next_signal_no"] != 1 or state["signal_opened_at"] is not None:
@@ -410,6 +416,8 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
             response = repo.load(recorded["result_json"])
             response["idempotent_replay"] = True
             return response
+        if row.get("integrity_reason") == "resilient-local-v1":
+            raise RhythmConflict("Продолжи забег в локальном режиме.")
         state, now = _state(row), row["server_now"]
         if state["status"] != "active":
             raise RhythmConflict("Rhythm run is not active")

@@ -289,7 +289,8 @@ def _assert_schema_and_boundaries_wired():
     client_base = (ROOT / "FastAPI/static/app.01.js").read_text(encoding="utf-8")
     client_wallet = (ROOT / "FastAPI/static/app.06.js").read_text(encoding="utf-8")
     assert "function economyRequestKey(scope)" in client_base
-    assert "'Idempotency-Key':requestKey" in client_wallet
+    assert "'Idempotency-Key':pending.key" in client_wallet
+    assert "localStorage.setItem(storageKey,JSON.stringify(pending))" in client_wallet
 
 
 async def _assert_apply_replay_conflict_and_rollback():

@@ -235,3 +235,33 @@ async def live_run(websocket: WebSocket, run_id: str):
                     await game.release_transport(PGAdapter(connection), user_id=user_id, run_id=run_id, lease=lease)
             except Exception:
                 pass
+
+
+class LocalResultBody(BaseModel):
+    origin: dict | None = None
+    actions: list[dict] = Field(min_length=1, max_length=100_000)
+
+
+@router.post("/runs/{run_id}/local-packet", dependencies=[_feature_gate])
+async def local_packet(run_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    from services import local_games
+    try:
+        return await local_games.packet(db, game="rhythm", user_id=int(user["id"]), run_id=run_id)
+    except game.RhythmError as exc:
+        _raise(exc)
+
+
+@router.post("/runs/{run_id}/local-result", dependencies=[_feature_gate])
+async def local_result(run_id: str, body: LocalResultBody, db=Depends(get_db), user=Depends(require_tg_user)):
+    from services import local_games
+    try:
+        return await local_games.finalize(db, game="rhythm", user_id=int(user["id"]), run_id=run_id, actions=body.actions, origin=body.origin)
+    except game.RhythmError as exc:
+        _raise(exc)
+
+
+@router.get("/local-rules", dependencies=[_feature_gate])
+async def local_rules(user=Depends(require_tg_user)):
+    from dataclasses import asdict
+    from core import rhythm_v2 as rules
+    return {"ruleset_version": rules.RULESET_VERSION, "catalog": [asdict(g) for g in rules.PERKS]}

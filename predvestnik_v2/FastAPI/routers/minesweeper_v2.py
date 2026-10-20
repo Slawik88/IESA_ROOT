@@ -62,3 +62,33 @@ async def leaderboard(difficulty: Literal["easy", "normal", "hard"], db=Depends(
         return await game.rankings(db, user_id=int(user["id"]), difficulty=difficulty)
     except game.MinesweeperError as exc:
         _raise(exc)
+
+
+class LocalResultBody(BaseModel):
+    origin: dict | None = None
+    actions: list[dict] = Field(min_length=1, max_length=100_000)
+
+
+@router.post("/runs/{run_id}/local-packet", dependencies=[_feature_gate])
+async def local_packet(run_id: str, db=Depends(get_db), user=Depends(require_tg_user)):
+    from services import local_games
+    try:
+        return await local_games.packet(db, game="minesweeper", user_id=int(user["id"]), run_id=run_id)
+    except game.MinesweeperError as exc:
+        _raise(exc)
+
+
+@router.post("/runs/{run_id}/local-result", dependencies=[_feature_gate])
+async def local_result(run_id: str, body: LocalResultBody, db=Depends(get_db), user=Depends(require_tg_user)):
+    from services import local_games
+    try:
+        return await local_games.finalize(db, game="minesweeper", user_id=int(user["id"]), run_id=run_id, actions=body.actions, origin=body.origin)
+    except game.MinesweeperError as exc:
+        _raise(exc)
+
+
+@router.get("/local-rules", dependencies=[_feature_gate])
+async def local_rules(user=Depends(require_tg_user)):
+    from dataclasses import asdict
+    from core import minesweeper_v2 as rules
+    return {"ruleset_version": rules.RULESET_VERSION}

@@ -1,5 +1,6 @@
 """FastAPI/main.py — Predvestnik Mini App entry point. Adapter layer only."""
 import asyncio
+import json
 import os
 from contextlib import asynccontextmanager
 
@@ -470,7 +471,7 @@ _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v
 _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html",
-    "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js",
+    "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.css", "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
@@ -508,6 +509,7 @@ _RHYTHM_V2_HTML = (
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
     .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
+    .replace('src="/static/local-games-v1.js"', f'src="{_ASSET_BASE}/static/local-games-v1.js?v={_ASSET_VER}"')
     .replace('src="/static/rhythm-v2.js"', f'src="{_ASSET_BASE}/static/rhythm-v2.js?v={_ASSET_VER}"')
 )
 _MINESWEEPER_V2_HTML = (
@@ -519,6 +521,7 @@ _MINESWEEPER_V2_HTML = (
     .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
     .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
     .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
+    .replace('src="/static/local-games-v1.js"', f'src="{_ASSET_BASE}/static/local-games-v1.js?v={_ASSET_VER}"')
     .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
 )
 
@@ -647,6 +650,21 @@ async def rhythm_v2_js():
 @app.get("/static/nickname-v3.js")
 async def nickname_js():
     return Response(_read_static("nickname-v3.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/local-games-sw.js")
+async def local_games_worker():
+    assets = [f"{_ASSET_BASE}/rhythm-v2", f"{_ASSET_BASE}/minesweeper"]
+    assets += [f"{_ASSET_BASE}/static/{name}?v={_ASSET_VER}" for name in (
+        "local-games-v1.js", "rhythm-v2.js", "rhythm-v2.css", "minesweeper-v2.js", "minesweeper-v2.css",
+        "skin-runtime-v3.js", "skin-runtime-v3.css", "games-v3.css", "nickname-v3.js", *_GAME_BOARD_ASSETS)]
+    source = _read_static("local-games-sw.js").replace("{{VERSION}}", _ASSET_VER).replace("{{PRECACHE}}", json.dumps(assets))
+    return Response(source, media_type="application/javascript; charset=utf-8", headers={"Cache-Control": "no-cache"})
+
+
+@app.get("/static/local-games-v1.js")
+async def local_games_js():
+    return Response(_read_static("local-games-v1.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/game-board-v3.js")

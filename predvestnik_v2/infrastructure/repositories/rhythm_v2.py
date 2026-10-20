@@ -227,8 +227,8 @@ async def set_integrity(db, *, run_id: str, status: str, reason: str, evidence: 
         raise ValueError("unsupported Rhythm integrity status")
     await db.execute(
         "UPDATE rhythm_v2_runs SET integrity_status=?,integrity_reason=?,integrity_evidence=?::jsonb,integrity_checked_at=CLOCK_TIMESTAMP() "
-        "WHERE run_id=? AND (integrity_status='pending' OR (?='quarantined' AND integrity_status='offline_exposed'))",
-        (status, str(reason), dumps(evidence), str(run_id), status),
+        "WHERE run_id=? AND (integrity_status='pending' OR (?='quarantined' AND integrity_status='offline_exposed') OR (integrity_status='offline_exposed' AND integrity_reason='resilient-local-v1' AND ?='clear' AND ?='resilient-local-v1'))",
+        (status, str(reason), dumps(evidence), str(run_id), status, status, str(reason)),
     )
 
 

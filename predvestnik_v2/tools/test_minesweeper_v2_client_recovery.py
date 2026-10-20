@@ -6,15 +6,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT = (ROOT / "FastAPI/static/minesweeper-v2.js").read_text(encoding="utf-8")
 
-assert "uncertain={runId:run.run_id,actionId:crypto.randomUUID(),expectedRevision:run.revision,kind,cell}" in CLIENT
-assert "action_id:request.actionId" in CLIENT
-assert "expected_revision:request.expectedRevision" in CLIENT
-assert "await api(`/runs/${encodeURIComponent(request.runId)}`)" in CLIENT
-assert "Number(current.revision)!==Number(request.expectedRevision)" in CLIENT
-assert "uncertain?'Восстановить ход'" in CLIENT and "'Повторить подключение'" in CLIENT
-assert "submitUncertain():start(!run);start(true)" in CLIENT
-assert "button.disabled=busy||Boolean(uncertain)" in CLIENT
+assert "PVLocal.Mines" in CLIENT
+assert "/local-packet" in CLIENT and "store.fresh('minesweeper',difficulty)" in CLIENT
+assert "journal.push({kind,cell,elapsed_ms:elapsed})" in CLIENT
+assert "store.queue(engine.packet,journal)" in CLIENT
+assert "store.data.active" in CLIENT and "function restore()" in CLIENT
 assert "localStorage.getItem('pv_sess')" in CLIENT
 assert "headers['x-session-token']=session" in CLIENT
-
-print("OK: uncertain Minesweeper actions reuse their id and refetch authority")
+print("OK: Minesweeper actions resolve locally and terminal results persist across connection loss")

@@ -38,7 +38,7 @@
       <div class="metrics"><div><small>ЗДОРОВЬЕ</small><b id="health">♥♥♥</b></div><div><small>СЧЁТ</small><b id="score">0</b></div><div><small>СЕРИЯ</small><b id="combo">0</b></div></div>
       <div class="pace"><span>Ускорение</span><b id="speed">100%</b><div><i id="timebar"></i></div></div>
       <p id="perks" class="perks-line" aria-live="polite"></p><p id="instruction" aria-live="polite">Нажми нужную руну</p><div class="runes" role="group" aria-label="Руны"><button data-rune="left">ᚠ</button><button data-rune="center">ᚱ</button><button data-rune="right">ᚦ</button></div>
-      <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
+      <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="resume-run" class="secondary hidden" type="button">Продолжить забег</button><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
     </section>
     <section id="result" class="panel hidden">
       <div class="r-result-head"><p class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p><span id="result-status" class="r-result-status"></span></div>
@@ -47,5 +47,5 @@
       <button id="again">Ещё раз</button><button id="results-leaderboard" class="secondary" type="button">Лидеры сезона</button>
     </section>
     <p id="error" role="alert"></p>
-  </main><script src="https://telegram.org/js/telegram-web-app.js"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="/static/rhythm-v2.js" defer></script>
+  </main><script async src="https://telegram.org/js/telegram-web-app.js" onload="Telegram.WebApp.ready();Telegram.WebApp.expand()"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="/static/local-games-v1.js"></script><script src="/static/rhythm-v2.js" defer></script>
 </body></html>

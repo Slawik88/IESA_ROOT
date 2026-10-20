@@ -425,7 +425,13 @@ async def cmd_family(ctx: Ctx) -> None:
         who = "У вас" if uid == ctx.user_id else "У этого игрока"
         await ctx.reply(f"💞 {who} пока нет семьи. Создать в чате: <code>бот брак, @ник</code>")
         return
-    await ctx.reply(await card(ctx.db, fam, ctx.message.chat.id))
+    keyboard = None
+    if uid == ctx.user_id and fam.is_parent(ctx.user_id):
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="Внести в кошелёк", callback_data=WalletMenuCB(uid=uid, action="deposit", amount=0).pack()),
+            InlineKeyboardButton(text="Вывести из кошелька", callback_data=WalletMenuCB(uid=uid, action="withdrawal", amount=0).pack()),
+        ]])
+    await ctx.reply(await card(ctx.db, fam, ctx.message.chat.id), reply_markup=keyboard)
 
 
 UP_TITLES = ("Родители", "Бабушки и дедушки", "Прабабушки и прадедушки")
@@ -701,6 +707,40 @@ class WalletCB(CallbackData, prefix="fw"):
     uid: int
     intent: str
     cur: str     # код валюты или x — отмена
+
+
+class WalletMenuCB(CallbackData, prefix="fwm"):
+    uid: int
+    action: str
+    amount: int
+
+
+@router.callback_query(WalletMenuCB.filter())
+async def on_wallet_menu(call: CallbackQuery, callback_data: WalletMenuCB, db) -> None:
+    cb = callback_data
+    if call.from_user.id != cb.uid:
+        await call.answer("Это не ваш кошелёк.", show_alert=True)
+        return
+    fam = await family_of(db, cb.uid)
+    if fam is None or not fam.is_parent(cb.uid) or cb.action not in {"deposit", "withdrawal"}:
+        await call.answer("Кошелёк доступен только супругам.", show_alert=True)
+        return
+    word = "положить" if cb.action == "deposit" else "снять"
+    if cb.amount == 0:
+        rows = [[InlineKeyboardButton(text=str(amount), callback_data=WalletMenuCB(uid=cb.uid, action=cb.action, amount=amount).pack()) for amount in (100, 1000)]]
+        await call.message.answer(f"🏦 Выбери сумму. Другая сумма: <code>бот семья {word}, 250</code>", reply_markup=InlineKeyboardMarkup(inline_keyboard=rows))
+    elif cb.amount in {100, 1000}:
+        if not await wallet_ready(db):
+            await call.answer("Кошелёк временно недоступен. Попробуй позже.", show_alert=True)
+            return
+        try:
+            intent = await family_wallet_v1.create_telegram_transfer_intent(db, actor_id=cb.uid, action=cb.action, amount=cb.amount)
+        except EconomyContractError as exc:
+            await call.answer(str(exc)[:190], show_alert=True)
+            return
+        buttons = [InlineKeyboardButton(text=f"{CURRENCY_VIEW[c].icon} {CURRENCY_VIEW[c].label}", callback_data=WalletCB(uid=cb.uid, intent=intent, cur=c).pack()) for c in WALLET_BUTTONS]
+        await call.message.answer(f"🏦 {word.capitalize()}: <b>{cb.amount}</b>. Какую валюту?", reply_markup=InlineKeyboardMarkup(inline_keyboard=[buttons[:2], buttons[2:]]))
+    await call.answer()
 
 
 async def _wallet_command(ctx: Ctx, action: str) -> None:

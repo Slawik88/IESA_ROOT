@@ -61,6 +61,15 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
     except Exception:
         pass
 
+    # Read custody, not the historical mirror columns (essence has no mirror).
+    async with db.execute("SELECT to_regclass('family_wallet_balances')") as cursor:
+        custody_ready = (await cursor.fetchone())[0] is not None
+    balances = {}
+    if custody_ready:
+        async with db.execute("SELECT mora,diamonds,dark_mora,zarniki,essence FROM family_wallet_balances WHERE marriage_id=?", (m["id"],)) as cursor:
+            custody = await cursor.fetchone()
+        if custody:
+            balances = {key: float(custody[index] or 0) for index, key in enumerate(("mora", "diamonds", "dark_mora", "zarniki", "essence"))}
     return {
         "married": True,
         "marriage_id": m["id"],
@@ -68,10 +77,11 @@ async def my_marriage(db=Depends(get_db), user=Depends(require_tg_user)):
         "partner_name": partner_name,
         "partner_is_vip": partner_is_vip,
         "partner_look": partner_look,
-        "family_balance": float(m["family_balance"] or 0),
-        "family_balance_diamonds": float(m.get("family_balance_diamonds", 0) or 0),
-        "family_balance_dark_mora": float(m.get("family_balance_dark_mora", 0) or 0),
-        "family_balance_zarniki": float(m.get("family_balance_zarniki", 0) or 0),
+        "family_balance": balances.get("mora", float(m["family_balance"] or 0)),
+        "family_balance_diamonds": balances.get("diamonds", float(m.get("family_balance_diamonds", 0) or 0)),
+        "family_balance_dark_mora": balances.get("dark_mora", float(m.get("family_balance_dark_mora", 0) or 0)),
+        "family_balance_zarniki": balances.get("zarniki", float(m.get("family_balance_zarniki", 0) or 0)),
+        "family_balance_essence": balances.get("essence", 0),
         "days": days,
         "family_pets": family_pets,
         "received_gifts": [
@@ -99,7 +109,7 @@ async def family_bank(
     """Депозит или вывод любой из 4 валют семейного кошелька."""
     if body.action not in ("deposit", "withdraw"):
         raise HTTPException(400, "action: 'deposit' или 'withdraw'")
-    if body.currency not in FAMILY_CURRENCIES:
+    if body.currency not in (*FAMILY_CURRENCIES, "essence"):
         raise HTTPException(400, "Неизвестная валюта.")
     if not request_key:
         raise HTTPException(400, "Нужен Idempotency-Key для перевода.")
@@ -135,7 +145,7 @@ async def fund_from_family(
     """Block 5.2 (авто-перевод): перенести сумму из семейного кошелька на личный
     счёт перед покупкой. marriage_id резолвится сервером. Излишек (если была
     скидка) просто останется на личном — деньги не теряются."""
-    if body.currency not in FAMILY_CURRENCIES:
+    if body.currency not in (*FAMILY_CURRENCIES, "essence"):
         raise HTTPException(400, "Неизвестная валюта.")
     if body.amount <= 0:
         raise HTTPException(400, "Сумма должна быть больше нуля.")

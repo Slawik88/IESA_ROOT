@@ -38,9 +38,15 @@ async def run() -> None:
             marriage_router.BankRequest(amount=3, action="withdraw", currency="zarniki"),
             db=object(), user={"id": 123}, request_key="family-http-key",
         )
+        zarniki_call = dict(captured)
+        await marriage_router.family_bank(
+            marriage_router.BankRequest(amount=2, action="deposit", currency="essence"),
+            db=object(), user={"id": 123}, request_key="family-essence-key",
+        )
+        assert captured["currency"] == "essence" and captured["action"] == "deposit"
     finally:
         marriage_router.transfer_between_personal_and_family = original
-    assert captured == {
+    assert zarniki_call == {
         "actor_id": 123, "currency": "zarniki", "amount": 3.0,
         "action": "withdrawal", "idempotency_key": "family-http-key",
     }

@@ -1,18 +1,54 @@
 // Current profile support only. Retired game/economy interfaces are not shipped.
 function loadMarriageCard(){
   const host=el('pro-marriage-card'); if(!host)return;
-  const treeEntry='<button type="button" class="v3-pill v3-pill--full v3-pill--ghost" onclick="openFamilyTree()">Моя семья · родословная ›</button>';
+  const treeEntry=`<button type="button" class="v3-pill v3-pill--full v3-pill--ghost" onclick="el('family-tree-section').open=true;el('family-tree-section').scrollIntoView({block:'nearest'})">Родословная ›</button>`;
   Promise.all([api('/marriage/'),api('/marriage/proposals')]).then(([m,p])=>{
     const proposals=p.proposals||[];
     const inbox=proposals.length?`<details class="profile-fold profile-fold--gold" open><summary><span class="profile-fold-title">💌 Предложения руки и сердца</span><span class="profile-fold-meta">${proposals.length}</span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body">${proposals.map(x=>`<div class="v3-line"><span class="">${apName(apFromLook(x.look), esc(vipName(x.proposer_name||`ID${x.proposer_id}`,x.proposer_is_vip)))}</span><span><button class="v3-pill v3-pill--sm" onclick="acceptProposal(${x.id},this)">Принять</button> <button class="v3-pill v3-pill--sm v3-pill--ghost" onclick="declineProposal(${x.id},this)">Отклонить</button></span></div>`).join('')}</div></details>`:'';
     if(!m.married){host.innerHTML=treeEntry+inbox+`<details class="profile-fold"><summary><span class="profile-fold-title">💔 Брак</span><span class="profile-fold-meta">Не заключён</span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body"><div class="v3-dim" style="font-size:11px">В группе с ботом напишите: <code>бот брак, @username</code>.</div></div></details>`;return;}
-    const rows=[['🪙',m.family_balance,'Мора'],['💎',m.family_balance_diamonds,'Алмазы'],['✨',m.family_balance_zarniki,'Зарники']].map(([i,v,n])=>`<div class="family-balance"><span>${i}</span><b>${fmt(v||0)}</b><small>${n}</small></div>`).join('');
+    const rows=[['🪙',m.family_balance,'Мора'],['💎',m.family_balance_diamonds,'Алмазы'],['✦',m.family_balance_essence,'Эссенция'],['✨',m.family_balance_zarniki,'Зарники']].map(([i,v,n])=>`<div class="family-balance"><span>${i}</span><b>${fmt(v||0)}</b><small>${n}</small></div>`).join('');
     const gifts=(m.received_gifts||[]).map(g=>`<div class="family-gift"><span>🎁</span><b>${esc(g.name)}</b><small>${(g.sent_at||'').slice(0,10)}</small></div>`).join('');
-    host.innerHTML=treeEntry+inbox+`<details class="profile-fold profile-fold--gold family-fold"><summary><span class="profile-fold-title">💍 ${apName(apFromLook(m.partner_look), esc(vipName(m.partner_name||'Партнёр',m.partner_is_vip)))}</span><span class="profile-fold-meta">вместе ${m.days} дн.</span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body"><div class="family-wallet-head"><span>Семейный кошелёк</span><small>Все операции сохраняются в истории</small></div><div class="family-balances">${rows}</div><div class="family-bank-form"><input id="bank-amt" class="v3-field" type="number" min="0.000001" step="any" placeholder="Сумма"><select id="bank-cur" class="v3-field"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option><option value="zarniki">✨ Зарники</option></select><button class="v3-pill v3-pill--sm" onclick="familyBank('deposit')">Внести</button><button class="v3-pill v3-pill--sm v3-pill--ghost" onclick="familyBank('withdraw')">Вывести</button></div><button class="v3-pill v3-pill--sm v3-pill--full v3-pill--ghost" style="margin-top:8px" onclick="openPartnerGifts()">🎁 Подарить партнёру</button>${gifts?`<div class="family-gifts"><small>Недавние подарки</small>${gifts}</div>`:''}<button class="v3-pill v3-pill--full v3-pill--danger" style="margin-top:10px" onclick="confirmDivorce()">💔 Развестись</button></div></details>`;
-  }).catch(()=>{host.innerHTML='';});
+    host.innerHTML=treeEntry+inbox+`<details class="profile-fold profile-fold--gold family-fold" open><summary><span class="profile-fold-title">💍 ${apName(apFromLook(m.partner_look), esc(vipName(m.partner_name||'Партнёр',m.partner_is_vip)))}</span><span class="profile-fold-meta">вместе ${m.days} дн.</span><span class="profile-fold-arrow">›</span></summary><div class="profile-fold-body"><div class="family-wallet-head"><span>Семейный кошелёк</span><small>Все операции сохраняются в истории</small></div><div class="family-balances">${rows}</div><div class="family-bank-form"><input id="bank-amt" class="v3-field" aria-label="Сумма перевода" type="number" min="0.000001" step="any" placeholder="Сумма"><select id="bank-cur" class="v3-field" aria-label="Валюта перевода"><option value="mora">🪙 Мора</option><option value="diamonds">💎 Алмазы</option><option value="essence">✦ Эссенция</option><option value="zarniki">✨ Зарники</option></select><button class="v3-pill v3-pill--sm" onclick="familyBank('deposit')">Внести</button><button class="v3-pill v3-pill--sm v3-pill--ghost" onclick="familyBank('withdraw')">Вывести</button></div><p id="bank-status" class="v3-dim" role="status"></p><button class="v3-pill v3-pill--sm v3-pill--full v3-pill--ghost" style="margin-top:8px" onclick="openPartnerGifts()">🎁 Подарить партнёру</button>${gifts?`<div class="family-gifts"><small>Недавние подарки</small>${gifts}</div>`:''}<button class="v3-pill v3-pill--full v3-pill--danger" style="margin-top:10px" onclick="confirmDivorce()">💔 Развестись</button></div></details>`;
+    familyBankPending();
+  }).catch(()=>{host.innerHTML='<p role="alert">Кошелёк временно недоступен.</p><button type="button" class="v3-pill" onclick="loadMarriageCard()">Повторить</button>';});
 }
 let _familyBankMutation=null;
-function familyBank(action){if(_familyBankMutation)return;const amount=parseFloat(el('bank-amt')?.value||0);if(!amount||amount<=0)return toast('Введите сумму.',false);const currency=el('bank-cur')?.value||'mora',requestKey=globalThis.crypto?.randomUUID?.()||`family-${Date.now()}`;_familyBankMutation=api('/marriage/bank',{method:'POST',headers:{'Idempotency-Key':requestKey},body:JSON.stringify({amount,action,currency})}).then(r=>{toast(`✅ ${r.message}`);refreshCurrBar();loadMarriageCard();}).catch(e=>toast(e,false)).finally(()=>{_familyBankMutation=null;});}
+function familyBankStorageKey(){return 'pv-family-bank:'+String(_uid||localStorage.getItem(UK)||'');}
+function familyBankPending(){
+  let pending=null;try{pending=JSON.parse(localStorage.getItem(familyBankStorageKey())||'null');}catch(_){}
+  if(pending){
+    if(el('bank-amt')){el('bank-amt').value=pending.body.amount;el('bank-amt').disabled=true;}
+    if(el('bank-cur')){el('bank-cur').value=pending.body.currency;el('bank-cur').disabled=true;}
+    if(el('bank-status'))el('bank-status').textContent='Перевод ожидает ответа. Нажми «Внести» или «Вывести», чтобы проверить ту же операцию.';
+  }
+  return pending;
+}
+async function familyBank(action){
+  if(_familyBankMutation)return;const storageKey=familyBankStorageKey();
+  let pending=familyBankPending();
+  if(!pending){
+    const amount=Number(el('bank-amt')?.value||0),currency=el('bank-cur')?.value||'mora';
+    if(!Number.isFinite(amount)||amount<=0)return toast('Введите сумму.',false);
+    if(['zarniki','essence'].includes(currency)&&!Number.isInteger(amount))return toast('Эта валюта переводится целым числом.',false);
+    if(!['deposit','withdraw'].includes(action))return;
+    pending={key:crypto.randomUUID(),body:{amount,action,currency}};
+    try{localStorage.setItem(storageKey,JSON.stringify(pending));}catch(_){return toast('Не удалось сохранить номер перевода. Проверь свободное место и повтори.',false);}
+  }
+  _familyBankMutation=pending;familyBankPending();
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),12000);
+  try{
+    const response=await fetch(BASE+'/marriage/bank',{method:'POST',signal:controller.signal,headers:{...hdrs(),'Idempotency-Key':pending.key},body:JSON.stringify(pending.body)});
+    const result=await response.json();
+    if(!response.ok){
+      // Explicit validation/conflict replies prove that this attempt did not
+      // commit. Network failures and 5xx leave the original key for recovery.
+      if([400,409,422].includes(response.status))localStorage.removeItem(storageKey);
+      throw new Error(typeof result.detail==='string'?result.detail:'Перевод пока не подтверждён.');
+    }
+    localStorage.removeItem(storageKey);toast(result.message);refreshCurrBar();
+  }catch(error){toast(error.message||'Ответ потерян. Повтори: номер перевода сохранён.',false);}
+  finally{clearTimeout(timeout);_familyBankMutation=null;loadMarriageCard();}
+}
 let _divorceIntent=null;
 function confirmDivorce(){api('/marriage/divorce/intent',{method:'POST'}).then(r=>{_divorceIntent=r.intent_id;const body=r.needs_allocation?`<div class="v3-dim" style="padding:10px 0;line-height:1.5"><b>Это действие необратимо.</b> Средства будут разделены поровну, неделимый остаток получит партнёр с меньшим ID. ${r.family_pet_count||0} питомц. будут переданы обоим по очереди, после чего брак сразу завершится. Ничего не удаляется.</div>`:'<div class="v3-dim" style="padding:10px 0">Имущество уже распределено. Подтвердите развод отдельным нажатием.</div>';OM('💔 Развод',body,r.needs_allocation?[{l:'⚖️ Разделить и развестись',c:'danger',f:'allocateDivorce()'},{l:'Отмена',c:'ghost',f:'CM()'}]:[{l:'Развестись',c:'danger',f:'doDivorce()'},{l:'Отмена',c:'ghost',f:'CM()'}]);}).catch(e=>toast(e,false));}
 function allocateDivorce(){if(!_divorceIntent)return;api(`/marriage/divorce/${encodeURIComponent(_divorceIntent)}/allocate`,{method:'POST'}).then(r=>{toast('💔 Имущество распределено, брак завершён.');_divorceIntent=null;CM();refreshCurrBar();loadMarriageCard();}).catch(e=>toast(e,false));}
@@ -31,7 +67,8 @@ function saveNick(){const nickname=(el('nick-inp')?.value||'').trim();if(!nickna
 
 let _familyTree = null;
 function openFamilyTree() {
-  OM('Моя родословная', '<div id="family-tree-host" class="v3-empty" role="status">Загружаем родственные связи…</div>', [{l:'Закрыть',f:'CM()'}]);
+  OM('Моя семья', '<div id="pro-marriage-card" role="region" aria-label="Брак и семейный кошелёк">Загружаем семейный кошелёк…</div><details id="family-tree-section" open><summary>Родословная</summary><div id="family-tree-host" class="v3-empty" role="status">Загружаем родственные связи…</div></details>', [{l:'Закрыть',f:'CM()'}]);
+  loadMarriageCard();
   const host = el('family-tree-host');
   api('/marriage/tree').then(d => {
     if (!host?.isConnected) return;
