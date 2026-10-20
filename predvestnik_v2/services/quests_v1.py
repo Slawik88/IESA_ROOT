@@ -408,14 +408,10 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
             key_receipt = await grant_quest_completion_key_in_transaction(
                 db, user_id=user_id, reward_kind=kind, reward_id=reward_id,
             )
-        essence = 0
-        try:
-            # Savepoint: a skins-table hiccup must never take the Mora reward down with it.
-            async with db.connection.transaction():
-                essence = await skins_service.grant_essence_in_transaction(
-                    db, user_id, REWARD_ESSENCE[kind], reason='quest_reward', reference=reward_id)
-        except Exception:
-            essence = 0
+        # Mora, keys, essence and the claim receipt describe one reward.
+        # Any failed leg must roll everything back so a retry can deliver it.
+        essence = await skins_service.grant_essence_in_transaction(
+            db, user_id, REWARD_ESSENCE[kind], reason='quest_reward', reference=reward_id)
         if kind == 'daily':
             await achievement_service.record_life_event(db, user_id=user_id, family='quester', fact=str(keys['daily']))
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)

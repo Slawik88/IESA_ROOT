@@ -40,7 +40,7 @@ const _WN_GO = {
   pets:         { cta: 'Открыть Питомцы', tab: 'pets', run: () => openPetsV1() },
   top:          { cta: 'Открыть Топ', tab: 'top', run: () => openTopV3() },
   profile:      { cta: 'Открыть Профиль', tab: 'profile', run: () => switchPage('profile') },
-  family:       { cta: 'Открыть Родословную', tab: 'profile', run: () => openFamilyTree() },
+  family:       { cta: 'Открыть Мою семью', tab: 'profile', run: () => openFamilyTree() },
   inventory:    { cta: 'Открыть Инвентарь', run: () => openInventory() },
   achievements: { cta: 'Открыть Достижения', run: () => openAchievementsV1() },
   promo:        { cta: 'Ввести промокод', run: () => openPromoSheet() },
@@ -216,7 +216,9 @@ function loadWhatsNew() {
   _wnFetch().then(list => {
     _wn.loading = false;
     _wnRender(list, seen);
-    _wnMarkSeen(list);   // открыл ленту: всё прочитано, точки гаснут
+    // A slow response may arrive after navigation or while the app is hidden.
+    // Keep the rendered page for Back, but never acknowledge unseen news.
+    if ((typeof _activePage === 'undefined' || _activePage === 'news') && !document.hidden) _wnMarkSeen(list);
     _wnTabDots(list);
   }).catch(err => {
     _wn.loading = false;

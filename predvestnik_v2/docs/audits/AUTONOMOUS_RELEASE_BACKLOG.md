@@ -1,3 +1,35 @@
+## Account / quest / release reliability — 2026-10-20 follow-up
+
+Owner asked to continue across the bot and keep «Что нового» current.
+Maintenance candidate selection was stale: a successful cancellation could be
+followed by soft deletion, and an inactivity warning could overwrite a fresh
+self-deletion code/cooling request. Cancellation and warning issuance now share
+the lifecycle advisory lock; deletion rechecks current source/status/deadline,
+activity and chosen retention atomically. A failed old code delivery only removes
+its matching still-confirming request. Restore-window policy is unchanged.
+
+Quest claims previously swallowed an essence failure after committing the claim
+receipt, Mora and keys. All advertised reward legs now share the claim transaction;
+a failure leaves the reward claimable. The quest-screen receipt also names the
+credited essence. Existing historical partial claims are not silently rewritten.
+
+The release feed adds three player-facing 20 October entries covering the earlier
+offline games/family wallet and these account/quest fixes, with real Games/Family
+navigation. Family CTA says «Открыть Мою семью». A slow feed response now preserves
+unread status after navigation away or while the document is hidden.
+
+Proof: independent PostgreSQL connections exercise cancel/delete in both lock
+orders, renewed cooldown/code, recent chat, changed retention, stale warnings
+waiting behind both code creation and confirmation. Quest fault injection raises
+after the essence ledger write and proves full rollback of Mora/keys/essence and
+receipt, then one complete retry. Account confirmation, family guard, destructive
+finalization rollback, quest variety and achievement-life gates pass. What's New
+behavior passes 18 sections; real-browser checks cover Games/Family announcements,
+the Family action and widths 320/390/430 px without overflow. The live-feed
+release audit is READY with no blocking
+findings. Read-only independent review returned ACCEPT. No production balances,
+accounts or Telegram messages were changed by the checks.
+
 ## GAME-001 / GAME-002 / FAM-001 reliability wave — 2026-10-20
 
 Owner explicitly prioritizes uninterrupted play on weak/offline connections over

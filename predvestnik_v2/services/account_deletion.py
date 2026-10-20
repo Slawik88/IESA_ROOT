@@ -99,7 +99,10 @@ async def request_deletion(db, user_id: int) -> tuple[bool, str]:
     # pass the resend interval (audit A11).
     async with db.connection.transaction():
         await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
-        d = (await get_state(db, user_id))["deletion"]
+        current = await get_state(db, user_id)
+        if current["deleted_at"]:
+            return False, "Аккаунт уже удалён — доступно восстановление."
+        d = current["deletion"]
         if d and d["status"] == "cooling" and d.get("source") == "self":
             return False, "Процесс удаления уже запущен. Отменить: «бот отменить удаление»."
         if d and d["status"] == "confirming" and d.get("source") == "self":
@@ -127,7 +130,7 @@ async def request_deletion(db, user_id: int) -> tuple[bool, str]:
         f"⚠️ Если это не вы — просто игнорируйте: без кода ничего не произойдёт, "
         f"и смените пароль Telegram."))
     if not r.get("ok"):
-        await db.execute("DELETE FROM account_deletions WHERE user_id = ?", (user_id,))
+        await db.execute("DELETE FROM account_deletions WHERE user_id = ? AND source = 'self' AND status = 'confirming' AND confirm_code = ?", (user_id, code))
         await db.commit()
         return False, "Не удалось отправить код в ЛС — откройте диалог с ботом и попробуйте снова."
     return True, "📨 Код подтверждения отправлен вам в ЛС бота."
@@ -178,13 +181,18 @@ async def confirm_deletion(db, user_id: int, code: str, phrase: str) -> tuple[bo
 
 
 async def cancel_deletion(db, user_id: int) -> tuple[bool, str]:
-    st = await get_state(db, user_id)
-    d = st["deletion"]
-    if not d or d["status"] not in ("confirming", "cooling"):
-        return False, "Активного процесса удаления нет."
-    await db.execute(
-        "UPDATE account_deletions SET status = 'cancelled' WHERE user_id = ?", (user_id,))
-    await db.commit()
+    # Serialize with the maintenance worker. A successful cancellation must
+    # remain true even if the worker already selected an expired candidate.
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
+        async with db.execute(
+            "UPDATE account_deletions SET status = 'cancelled', confirm_code = NULL "
+            "WHERE user_id = ? AND status IN ('confirming','cooling') RETURNING user_id",
+            (user_id,),
+        ) as cursor:
+            cancelled = await cursor.fetchone()
+        if not cancelled:
+            return False, "Активного процесса удаления нет."
     return True, "✅ Удаление аккаунта отменено. Ничего не изменилось."
 
 
@@ -226,7 +234,22 @@ async def _mark_deleted_without_market_obligations(db, user_id: int) -> bool:
             "UPDATE account_deletions SET status = 'cancelled' WHERE user_id = ?", (user_id,)
         )
         return False
-    await db.execute("UPDATE users SET deleted_at = NOW() WHERE user_tg_id = ?", (user_id,))
+    # Candidate lists are only hints. Recheck the live status, deadline,
+    # activity and configured retention in the same statement that deletes.
+    async with db.execute(
+        "UPDATE users u SET deleted_at = NOW() FROM account_deletions ad "
+        "WHERE u.user_tg_id = ? AND u.deleted_at IS NULL AND ad.user_id = u.user_tg_id "
+        "AND ((ad.source = 'self' AND ad.status = 'cooling' AND ad.cooling_until <= NOW()) "
+        "OR (ad.source = 'inactivity' AND ad.status = 'confirming' "
+        "AND ad.warned_at <= NOW() - make_interval(days => ?) "
+        "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s WHERE s.user_tg_id = u.user_tg_id) < ad.warned_at "
+        "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s WHERE s.user_tg_id = u.user_tg_id) "
+        "< NOW() - make_interval(days => COALESCE(u.delete_after_days, 365)))) RETURNING u.user_tg_id",
+        (user_id, ACCOUNT_DELETE_WARN_DAYS),
+    ) as cursor:
+        marked = await cursor.fetchone()
+    if not marked:
+        return False
     await db.execute(
         "UPDATE account_deletions SET status = 'pending_restore', deleted_at = NOW(), "
         "restore_deadline = NOW() + make_interval(days => ?) WHERE user_id = ?",
@@ -317,6 +340,44 @@ async def _finalize(db, user_id: int) -> bool:
     return True
 
 
+async def _warning_candidates(db, user_id: int | None = None) -> list[dict]:
+    async with db.execute(
+        "SELECT u.user_tg_id, COALESCE(u.delete_after_days, 365) AS dd "
+        "FROM users u "
+        "WHERE u.deleted_at IS NULL "
+        "AND NOT EXISTS (SELECT 1 FROM account_deletions ad WHERE ad.user_id = u.user_tg_id "
+        "                AND (ad.status IN ('cooling','pending_restore') "
+        "                     OR (ad.status = 'confirming' AND ((ad.source <> 'inactivity' "
+        "                          AND ad.requested_at > NOW() - make_interval(mins => ?)) "
+        "                          OR (ad.source = 'inactivity' AND (ad.warned_at IS NULL "
+        "                          OR ad.warned_at >= (SELECT MAX(s2.last_message_at) FROM user_chat_stats s2 "
+        "                                              WHERE s2.user_tg_id = u.user_tg_id))))))) "
+        "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
+        "     WHERE s.user_tg_id = u.user_tg_id) "
+        "    < NOW() - make_interval(days => COALESCE(u.delete_after_days, 365) - ?) "
+        + ("AND u.user_tg_id = ? " if user_id is not None else "") + "LIMIT 50",
+        (ACCOUNT_DELETE_CODE_TTL_MIN, ACCOUNT_DELETE_WARN_DAYS, *(() if user_id is None else (user_id,))),
+    ) as c:
+        return [dict(x) for x in await c.fetchall()]
+
+
+async def _warn_inactive(db, user_id: int) -> bool:
+    # A warning selected earlier cannot overwrite a new code/cooling request.
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(?)", (user_id,))
+        if not await _warning_candidates(db, user_id):
+            return False
+        await db.execute("DELETE FROM account_deletions WHERE user_id = ? AND status IN ('cancelled','restored')", (user_id,))
+        await db.execute(
+            "INSERT INTO account_deletions (user_id, source, status, warned_at) "
+            "VALUES (?, 'inactivity', 'confirming', NOW()) "
+            "ON CONFLICT (user_id) DO UPDATE SET warned_at = NOW(), source = 'inactivity', "
+            "status = 'confirming', confirm_code = NULL, confirm_attempts = 0",
+            (user_id,),
+        )
+    return True
+
+
 async def daily_tick(db) -> None:
     """Ежедневный проход (шедулер): остывание → удаление; неактив-предупреждение;
     неактив-удаление; финализация просроченных."""
@@ -332,34 +393,12 @@ async def daily_tick(db) -> None:
                     f"{ACCOUNT_DELETE_RESTORE_DAYS} дней: <code>бот восстановить аккаунт</code>."))
 
     # 2) авто-неактив: предупреждение за N дней
-    async with db.execute(
-        "SELECT u.user_tg_id, COALESCE(u.delete_after_days, 365) AS dd "
-        "FROM users u "
-        "WHERE u.deleted_at IS NULL "
-        "AND NOT EXISTS (SELECT 1 FROM account_deletions ad WHERE ad.user_id = u.user_tg_id "
-        "                AND (ad.status IN ('cooling','pending_restore') "
-        "                     OR (ad.status = 'confirming' AND ((ad.source <> 'inactivity' "
-        "                          AND ad.requested_at > NOW() - make_interval(mins => ?)) "
-        "                          OR (ad.source = 'inactivity' AND (ad.warned_at IS NULL "
-        "                          OR ad.warned_at >= (SELECT MAX(s2.last_message_at) FROM user_chat_stats s2 "
-        "                                              WHERE s2.user_tg_id = u.user_tg_id))))))) "
-        "AND (SELECT MAX(s.last_message_at) FROM user_chat_stats s "
-        "     WHERE s.user_tg_id = u.user_tg_id) "
-        "    < NOW() - make_interval(days => COALESCE(u.delete_after_days, 365) - ?) "
-        "LIMIT 50",
-        (ACCOUNT_DELETE_CODE_TTL_MIN, ACCOUNT_DELETE_WARN_DAYS),
-    ) as c:
-        warn_candidates = [dict(x) for x in await c.fetchall()]
+    warn_candidates = await _warning_candidates(db)
     # Старая отметка «предупреждён» после возвращения игрока устарела: предупреждаем заново (ON CONFLICT ниже).
     for u in warn_candidates:
         uid = u["user_tg_id"]
-        await db.execute("DELETE FROM account_deletions WHERE user_id = ? AND status IN ('cancelled','restored')", (uid,))
-        await db.execute(
-            "INSERT INTO account_deletions (user_id, source, status, warned_at) "
-            "VALUES (?, 'inactivity', 'confirming', NOW()) "
-            "ON CONFLICT (user_id) DO UPDATE SET warned_at = NOW(), source = 'inactivity'",
-            (uid,),
-        )
+        if not await _warn_inactive(db, uid):
+            continue
         await _tg("sendMessage", chat_id=uid, parse_mode="HTML", text=(
             f"😴 <b>Вы давно не появлялись.</b> По вашей настройке аккаунт будет "
             f"удалён через ~{ACCOUNT_DELETE_WARN_DAYS} дней неактива.\n"

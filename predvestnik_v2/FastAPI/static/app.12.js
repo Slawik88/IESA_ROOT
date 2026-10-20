@@ -856,7 +856,7 @@
     const box=document.querySelector(`#pg-questlog .quest-reward-claim[onclick*="'${kind}'"]`)?.getBoundingClientRect(),origin=box?{x:box.left+box.width/2,y:box.top+box.height/2}:null;   // откуда полетят монеты
     _questsV1Busy=true;_questsV1Seq++;renderQuestsV1();
     api('/quests-v1/claim-reward',{method:'POST',body:JSON.stringify({kind})}).then(d=>{
-      _questsV1Data=d;if(!d.reward_result?.already_claimed&&Number(d.reward_result?.amount_mora)>0)v3Fly(origin,'mora','🪙');const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${keys?` + ${keys} 🗝`:''}`);
+      _questsV1Data=d;if(!d.reward_result?.already_claimed&&Number(d.reward_result?.amount_mora)>0)v3Fly(origin,'mora','🪙');const keys=_sysFlags.content_chests_v1?(Number(d.reward_result?.amount_keys)||0):0,essence=Number(d.reward_result?.amount_essence)||0;toast(d.reward_result?.already_claimed?'Награда уже получена':`Получено: ${d.reward_result?.amount_mora||0} 🪙${essence?` + ${essence} Эссенции`:''}${keys?` + ${keys} 🗝`:''}`);
     }).catch(e=>toast(e,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
   // ── Достижения: пути (GET /achievements-v1/me) и достижения чата (GET /achievements-v1/chat) ──

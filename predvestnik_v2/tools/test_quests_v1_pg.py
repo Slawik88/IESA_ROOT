@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse, asyncio, pathlib, sys
 from urllib.parse import urlparse
 import asyncpg
+from unittest.mock import patch
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 from infrastructure.pg_adapter import PGAdapter
@@ -83,7 +84,31 @@ async def run(dsn: str) -> None:
         assert {kind: value['claimable'] for kind, value in complete['rewards']['items'].items()} == {
             'daily': True, 'weekly': True, 'combined': True,
         }
+        mora_before = await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', user)
+        keys_before = await chest_repo.get_balance(db, user)
+        essence_before = await conn.fetchval('SELECT balance FROM skins_v3_essence_accounts WHERE user_id=$1', user) or 0
+        original_grant = quests_v1.skins_service.grant_essence_in_transaction
+        async def grant_then_fail(*args, **kwargs):
+            await original_grant(*args, **kwargs)
+            raise RuntimeError('injected essence failure after writing')
+        with patch.object(quests_v1.skins_service, 'grant_essence_in_transaction', grant_then_fail):
+            try:
+                await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError('essence failure silently consumed the reward')
+        assert await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', user) == mora_before
+        assert await chest_repo.get_balance(db, user) == keys_before
+        assert (await conn.fetchval('SELECT balance FROM skins_v3_essence_accounts WHERE user_id=$1', user) or 0) == essence_before
+        assert await conn.fetchval('SELECT COUNT(*) FROM quest_v1_reward_receipts WHERE user_id=$1', user) == 0
+        assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=$1 AND reason_code='quest_reward'", user) == 0
         daily_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
+        assert daily_reward['reward_result']['amount_essence'] == quests_v1.REWARD_ESSENCE['daily']
+        repeat_daily = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
+        assert repeat_daily['reward_result']['already_claimed']
+        assert await conn.fetchval("SELECT COUNT(*) FROM skins_v3_essence_ledger WHERE user_id=$1 AND reason='quest_reward'", user) == 1
+
         weekly_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='weekly', sources=sources)
         combined_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='combined', sources=sources)
         assert daily_reward['reward_result']['amount_mora'] == 20

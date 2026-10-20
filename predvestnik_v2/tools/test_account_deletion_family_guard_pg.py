@@ -75,6 +75,10 @@ async def run(dsn: str) -> None:
         assert await scalar(db, "SELECT status = 'cancelled' FROM account_deletions WHERE user_id = ?", (married,))
         assert await scalar(db, "SELECT COUNT(*) FROM marriages WHERE user1_id = ? OR user2_id = ?", (married, married)) == 1
 
+        await db.execute(
+            "INSERT INTO account_deletions(user_id,source,status,cooling_until) VALUES (?,'self','cooling',NOW()-INTERVAL '1 second')",
+            (single,),
+        )
         assert await _mark_deleted(db, single)
         assert await scalar(db, "SELECT deleted_at IS NOT NULL FROM users WHERE user_tg_id = ?", (single,))
         await global_skins_repo.ensure_tables(db)
@@ -93,7 +97,8 @@ async def run(dsn: str) -> None:
         )
         await db.execute(
             "INSERT INTO account_deletions (user_id, source, status, restore_deadline) "
-            "VALUES (?, 'self', 'pending_restore', NOW() - INTERVAL '1 day')",
+            "VALUES (?, 'self', 'pending_restore', NOW() - INTERVAL '1 day') "
+            "ON CONFLICT(user_id) DO UPDATE SET restore_deadline=EXCLUDED.restore_deadline",
             (single,),
         )
         assert await _finalize(db, single)

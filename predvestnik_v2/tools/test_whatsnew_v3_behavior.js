@@ -382,6 +382,19 @@ const count = (html, needle) => html.split(needle).length - 1;
     assert.match(els['pg-news'].innerHTML, /История · /, 'повтор показывает ленту');
   });
 
+  await section('Медленная лента: уход и сворачивание не отмечают новости прочитанными', async () => {
+    const {ctx,els,calls}=boot({_activePage:'news'}),list=feed(3);
+    els['pg-news']={innerHTML:'',contains:()=>true};let resolve;
+    ctx._wnFetch=()=>new Promise(done=>{resolve=done;});
+    ctx.loadWhatsNew();ctx._activePage='profile';resolve(list);await tick();
+    assert(!calls.some(c=>c[0]==='mark'),'уход до ответа сохраняет непрочитанное');
+    assert.match(els['pg-news'].innerHTML,/История/,'страница остаётся готова для Назад');
+    ctx._activePage='news';ctx.document.hidden=true;ctx.loadWhatsNew();resolve(list);await tick();
+    assert(!calls.some(c=>c[0]==='mark'),'свёрнутое приложение не читает новости за игрока');
+    ctx.document.hidden=false;ctx.loadWhatsNew();resolve(list);await tick();
+    assert.equal(calls.filter(c=>c[0]==='mark').length,1,'видимый повторный вход отмечает новости один раз');
+  });
+
   await section('Точки на вкладках дока', () => {
     const t = boot(), { wn, ctx, buttons, store } = t;
     const mkBtn = page => { const b = { dataset: { page }, html: '', querySelector(sel) { return sel === '.wn-sr' && this.html ? { remove: () => { this.html = ''; } } : null; }, insertAdjacentHTML(_, h) { this.html += h; } }; buttons.push(b); return b; };
