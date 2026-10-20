@@ -57,17 +57,19 @@ def main() -> int:
         if url.netloc != "stand.local":
             return route.abort()
         path = url.path
-        if path == "/bot-admin/api/export" or path.startswith("/bot-admin/api/"):
+        if path.endswith("/bot-admin/api/export") or path.startswith("/bot-admin/api/"):
             key = path[len("/bot-admin/api"):]
             routes = OWNER_ROUTES if args.owner else ROUTES
             if key in routes:
                 status, body = routes[key] if isinstance(routes[key], tuple) else (200, routes[key])
                 return route.fulfill(status=status, content_type="application/json", body=json.dumps(body))
             return route.fulfill(status=404, content_type="application/json", body='{"detail":"нет фикстуры"}')
-        if path.endswith("admin.js"):
-            return route.fulfill(status=200, content_type="text/javascript", body=read("admin.js"))
-        if path.endswith("admin.css"):
-            return route.fulfill(status=200, content_type="text/css", body=read("admin.css"))
+        # После разделения ядра на admin*.js стенд должен отдавать все части, а не только admin.js.
+        name = path.rsplit("/", 1)[-1]
+        if name.startswith("admin") and name.endswith(".js"):
+            return route.fulfill(status=200, content_type="text/javascript", body=read(name))
+        if name.startswith("admin") and name.endswith(".css"):
+            return route.fulfill(status=200, content_type="text/css", body=read(name))
         return route.fulfill(status=200, content_type="text/html", body=html)
 
     with sync_playwright() as pw:

@@ -639,7 +639,7 @@ async function peopleSearch(main, query = '') {
       <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
         ${ava(p)}
         <div class="pmain"><div class="pname">${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${p.name ? esc(p.name) : who(p.id, p.username)}${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
-          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
+          <div class="pmeta">${p.username ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
           ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`).join('')
         || '<div class="sub">Никого</div>'}</div>
       ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
@@ -716,7 +716,7 @@ const ACTION_HINTS = {
   kick: 'Выйдет из чата, но сможет вернуться по ссылке',
   ban: 'Не сможет вернуться в этот чат сам',
   unban: 'Снова сможет зайти в этот чат',
-  unwarn_all: 'Снять все действующие предупреждения во всех чатах',
+  unwarn_all: 'Снять все действующие предупреждения в этом чате',
   global_ban: 'Потеряет доступ во всех чатах, где есть бот',
   global_unban: 'Снять бан во всех чатах бота',
   block: 'В чатах он останется, команды работать не будут',
@@ -872,7 +872,7 @@ async function playerView(main, id, push = true, from = null) {
         <div class="ava-wrap">${ava(p, 'lg')}</div>
         <div style="min-width:0">
           <div class="pname">${title}</div>
-          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id}</div>
+          <div class="pmeta">${p.username ? who(p.id, p.username) + ' · ' : ''}ID ${p.id}</div>
           <div class="chips">${chips}</div>
         </div>
       </div>
@@ -884,7 +884,7 @@ async function playerView(main, id, push = true, from = null) {
         <div class="fact"><span>Жалоб</span><b>${rp.total}${rp.open ? `<small> · ${rp.open} откр.</small>` : ''}</b></div>
         <div class="fact"><span>Заметок</span><b>${p.notes.total}</b></div>
       </div>
-      <div class="stats">
+      <div class="stats balances">
         <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
         <div><span>🔮 Эссенция</span><b>${num(b.essence)}</b></div><div><span>✨ Зарники</span><b>${num(b.zarniki)}</b></div>
       </div>
@@ -1451,6 +1451,7 @@ async function broadcastView(main) {
   if (!data) return;
   let items = data.items, templates = data.templates || [];
   main.innerHTML = `
+    ${pageHead('⌁', 'Рассылка', 'Сообщения игрокам и история отправок')}
     ${ME.creator ? '<div class="card"><h3>Важные обновления проекта</h3><p class="sub">Одна новость со скриншотом в официальную тему. Отдельно от массовых рассылок.</p><button class="btn primary" onclick="officialUpdatesOpen()">Подготовить публикацию</button></div>' : ''}
     <div class="card"><h3>📣 Новая рассылка</h3>
       <div class="field"><label>Шаблон</label><select id="btpl"></select>
@@ -1639,6 +1640,7 @@ function when(iso) {
 
 async function promoList(main, query = '') {
   main.innerHTML = `
+    ${pageHead('✦', 'Промокоды', 'Коды, награды и активации')}
     <div class="bar"><input id="pq" placeholder="Поиск по коду" value="${esc(query)}"/>
       <button class="btn" id="pbulk" title="Много одноразовых кодов с одной наградой">Пачка</button>
       <button class="btn primary" id="pnew">+ Новый</button></div>
@@ -2069,6 +2071,7 @@ async function switchesView(main, chat = null) {
   // Раскрытые группы запоминаем: после каждого переключателя экран рисуется заново, и они сворачивались.
   const opened = new Set([...main.querySelectorAll('details.sw-group[open] > summary b')].map(b => b.textContent));
   main.innerHTML = `
+    ${pageHead('⏻', 'Функции', 'Что включено — везде или в отдельном чате')}
     <div class="scope"><span class="sub">Где:</span>
       <button class="btn small ${chat ? '' : 'primary'}" id="sglobal">Везде</button>
       ${chat ? `<span class="chip ok">${esc(chat.title)}</span>` : ''}
@@ -2164,6 +2167,7 @@ async function settingsView(main) {
   const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
   if (!data) return;
   main.innerHTML = `
+    ${pageHead('⚙', 'Настройки', 'Переводы, жалобы и безопасность')}
     <div class="card"><h3>Переводы между игроками</h3>
       <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
       ${data.transfer.map(c => `<div class="sw-row ${c.enabled ? '' : 'off'}">

@@ -4,13 +4,16 @@
 """
 from __future__ import annotations
 
+import base64
+
 SECTIONS = [
     {"key": "people", "title": "Игроки и чаты"}, {"key": "reports", "title": "Жалобы"}, {"key": "metrics", "title": "Метрики"},
     {"key": "journal", "title": "Журнал"}, {"key": "broadcast", "title": "Рассылка"}, {"key": "promo", "title": "Промокоды"},
     {"key": "switches", "title": "Функции"}, {"key": "settings", "title": "Настройки"}, {"key": "health", "title": "Состояние"},
     {"key": "access", "title": "Права"},
 ]
-ME = {"rank_name": "Владелец", "sections": SECTIONS, "creator": True}
+ME = {"user_id": 5000, "rank": 6, "rank_name": "Владелец", "sections": SECTIONS, "creator": True,
+      "ranks": ["🌱 Младший хелпер", "💬 Хелпер", "🎓 Старший хелпер", "🛠 Разработчик", "👑 Владелец"]}
 
 _DAYS = [f"2026-10-{d:02d}" for d in range(6, 13)]
 METRICS = {
@@ -50,6 +53,128 @@ HEALTH = {
 }
 
 _LONG = "Очень длинное название чата для проверки переноса строк"
+
+
+def _avatar(color: str, letter: str) -> str:
+    """Круглая картинка-заглушка вместо фото из Telegram: стенд не ходит в Bot API."""
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96">'
+           f'<rect width="96" height="96" rx="48" fill="{color}"/>'
+           f'<text x="48" y="63" text-anchor="middle" font-family="Arial,sans-serif" font-size="44" '
+           f'font-weight="700" fill="#fff">{letter}</text></svg>')
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode()
+
+
+_AVA = [_avatar("#2563eb", "А"), _avatar("#0f766e", "Б"), _avatar("#9333ea", "В"), _avatar("#b45309", "Г")]
+PEOPLE = {
+    "total": 137, "offset": 0, "limit": 20, "next_offset": 20,
+    "players": [
+        {"id": 5000, "username": "anna_very_long_username", "name": "Анна Очень-Длинная-Фамилия", "rank_name": "🎓 Старший хелпер",
+         "messages": 123456, "last": "2026-10-12T09:00:00+00:00", "avatar": _AVA[0],
+         "tags": ["Нин Гуан/ст.адм", "Клан «Очень длинное название для переноса»"]},
+        {"id": 5001, "username": "just_nick", "name": "", "rank_name": "", "messages": 0,
+         "last": None, "avatar": _AVA[1], "tags": []},
+        {"id": 5002, "username": None, "name": "Борис", "rank_name": "🌱 Младший хелпер", "messages": 42,
+         "last": "2026-10-10T18:30:00+00:00", "avatar": None, "tags": ["Новичок"]},
+        {"id": 5003, "username": "n" * 32, "name": "Игрок с очень длинным именем, которое не помещается в одну строку на телефоне",
+         "rank_name": "", "messages": 9876543, "last": "2026-09-01T10:00:00+00:00", "avatar": _AVA[2], "tags": []},
+        {"id": 5004, "username": None, "name": "", "rank_name": "🛠 Разработчик", "messages": 7,
+         "last": None, "avatar": None, "tags": ["На контроле", "Баг-хантер"]},
+    ],
+    "chats": [
+        {"id": -1001234567890, "title": _LONG + " и ещё немного", "members": 12345, "messages": 987654,
+         "last": "2026-10-12T08:00:00+00:00"},
+        {"id": -1009876543210, "title": "Чат без сообщений", "members": 3, "messages": 0, "last": None},
+    ],
+}
+MARKS = {"items": [
+    {"id": "bug_hunter", "title": "Баг-хантер", "glyph": "🐞"},
+    {"id": "veteran", "title": "Ветеран", "glyph": "🎖"},
+    {"id": "storyteller", "title": "Рассказчик", "glyph": "📖"},
+    {"id": "very_long_mark", "title": "Очень длинное название регалии для проверки", "glyph": "🏅"},
+]}
+_MEMBER_ACTIONS = [
+    {"key": "local_rank", "title": "🎖 Ранг в чате"}, {"key": "warn", "title": "⚠️ Выдать предупреждение"},
+    {"key": "mute", "title": "🔇 Замутить в чате"}, {"key": "unmute", "title": "🔊 Снять мут"},
+    {"key": "unwarn_all", "title": "🧽 Снять все предупреждения"}, {"key": "kick", "title": "👢 Выгнать из чата"},
+    {"key": "ban", "title": "⛔ Забанить в чате"}, {"key": "unban", "title": "✅ Снять бан в чате"},
+]
+_PLAYER_ACTIONS = [
+    {"key": "block", "title": "🙈 Бот перестанет отвечать"}, {"key": "global_ban", "title": "🚫 Забанить во всех чатах"},
+    {"key": "balance", "title": "💰 Изменить баланс"}, {"key": "vip", "title": "👑 Выдать VIP"},
+    {"key": "rank", "title": "🎖 Изменить роль"}, {"key": "mark_grant", "title": "🏅 Выдать метку"},
+    {"key": "mark_revoke", "title": "✖️ Снять метку"}, {"key": "revoke_sessions", "title": "🔒 Завершить сессии админки"},
+]
+PLAYER = {
+    "id": 5000, "username": "anna_very_long_username", "name": "Анна Очень-Длинная-Фамилия", "avatar": _AVA[0],
+    "rank": 4, "rank_name": "🎓 Старший хелпер", "sponsor": True, "deleted_at": None,
+    "balances": {"mora": 1234567, "diamonds": 1200, "zarniki": 99, "essence": 5400},
+    "vip": {"until": "2026-10-27T10:00:00+00:00", "days_left": 7},
+    "family": {"partner": 5001, "partner_username": "just_nick", "since": "2026-01-01T10:00:00+00:00",
+               "children": 2, "parents": 2, "is_parent": True},
+    "streak": {"current": 5, "best": 12}, "achievements": {"count": 3, "levels": 7},
+    "messages": {"today": 42, "week": 300, "total": 12345},
+    "chats": [
+        {"id": -1001234567890, "title": _LONG, "messages": 12000, "last": "2026-10-12T09:00:00+00:00",
+         "tag": "Нин Гуан/ст.адм", "left": False, "muted": False, "muted_until": None, "ban": None, "warns": 1,
+         "rank_name": "🎓 Старший хелпер", "local_rank": 4},
+        {"id": -1009876543210, "title": "Второй чат", "messages": 345, "last": "2026-10-01T10:00:00+00:00",
+         "tag": None, "left": True, "muted": True, "muted_until": "2026-10-20T10:00:00+00:00",
+         "ban": {"until": None}, "warns": 0, "rank_name": "👤 Игрок", "local_rank": 0},
+    ],
+    "global_ban": None, "blocked": None, "watch": None,
+    "names": [{"kind": "username", "value": "anna_old_nick", "at": "2026-09-01T10:00:00+00:00"}],
+    "tag_history": [{"tag": "Нин Гуан/ст.адм", "chat_id": -1001234567890, "chat_title": _LONG,
+                     "at": "2026-10-01T10:00:00+00:00"}],
+    "nicknames": [{"nickname": "Анна", "chat": {"id": -1001234567890, "title": _LONG}}],
+    "marks": {"given": [{"id": "veteran", "title": "Ветеран", "glyph": "🎖", "desc": "Давно с проектом"}],
+              "earned": [{"id": "storyteller", "title": "Рассказчик", "glyph": "📖", "desc": "Много историй"}],
+              "grantable": [{"id": "bug_hunter", "title": "Баг-хантер", "glyph": "🐞", "desc": "Нашёл ошибку"},
+                            {"id": "very_long_mark", "title": "Очень длинное название регалии", "glyph": "🏅", "desc": "Проверка переноса"}]},
+    "reports": {"total": 3, "open": 1, "confirmed": 2, "last": [
+        {"id": 100, "status": "new", "status_title": "Новая", "reason": "Спам ссылками",
+         "chat": _LONG, "created_at": "2026-10-12T09:00:00+00:00"}]},
+    "notes": {"total": 2, "next": None, "items": [
+        {"id": 1, "text": "Проверяли жалобу на спам: пока не подтвердилось.", "at": "2026-10-10T10:00:00+00:00",
+         "author": {"id": 1, "username": "mod_with_long_username"}, "can_remove": True},
+        {"id": 2, "text": "Второй аккаунт под вопросом.", "at": "2026-10-09T10:00:00+00:00",
+         "author": {"id": 2, "username": "helper"}, "can_remove": False}]},
+    "linked": {"invited_by": {"id": 5001, "username": "just_nick"},
+               "invited": {"total": 2, "items": [{"id": 5002, "username": None}]},
+               "same_username": [{"id": 5004, "username": "anna_old_nick", "value": "anna_old_nick"}],
+               "same_name": [{"id": 5003, "username": "n" * 32, "name": "Анна Очень-Длинная-Фамилия"}]},
+    "history": [
+        {"title": "Предупреждение", "text": "", "reason": "оффтоп", "at": "2026-10-11T10:00:00+00:00",
+         "actor": {"id": 1, "username": "mod_with_long_username"}, "user": {"id": 5000, "username": "anna_very_long_username", "tag": "Нин Гуан/ст.адм"},
+         "chat": {"id": -1001234567890, "title": _LONG}},
+        {"title": "Баланс", "text": "🪙 +500", "reason": "конкурс", "at": "2026-10-10T10:00:00+00:00",
+         "actor": {"id": 1, "username": "mod_with_long_username"}, "user": {"id": 5000, "username": "anna_very_long_username", "tag": None},
+         "chat": None}],
+    "actions": {"player": _PLAYER_ACTIONS, "member": _MEMBER_ACTIONS},
+    "local_ranks": [{"rank": i, "name": f"Ранг {i}"} for i in range(1, 9)],
+    "ranks": [{"rank": i, "name": f"Роль {i}"} for i in range(1, 6)],
+    "currencies": [{"code": "mora", "title": "🪙 Мора", "decimals": 0}],
+    "confirm_rules": {},
+}
+ATTENTION = {"items": [
+    {"id": 5000, "username": "anna_very_long_username", "name": "Анна Очень-Длинная-Фамилия", "avatar": _AVA[0],
+     "flag": "⛔ бан во всех чатах", "flag_kind": "bad", "note": "причина: спам ссылками", "at": "2026-10-12T09:00:00+00:00", "at_label": "забанена"},
+    {"id": 5003, "username": "n" * 32, "name": "", "avatar": _AVA[2],
+     "flag": "⚠️ жалоб: 3", "flag_kind": "warn", "note": "в работе: 1 · подтверждено: 2", "at": "2026-10-01T10:00:00+00:00", "at_label": "последняя жалоба"},
+    {"id": 5004, "username": None, "name": "Игрок без ника", "avatar": None,
+     "flag": "👁 на контроле", "flag_kind": "warn", "note": "причина: проверяем жалобы", "at": "2026-10-11T10:00:00+00:00", "at_label": "на контроле с"},
+], "total": 3}
+CHATS_ATTENTION = {"items": [
+    {"id": -1001234567890, "title": _LONG, "members": 12345, "last": "2026-08-01T10:00:00+00:00",
+     "problems": [{"key": "no_rights", "title": "у бота нет прав"}, {"key": "quiet", "title": "тихо 30 дней"}]},
+    {"id": -1009876543210, "title": "Маленький чат", "members": 3, "last": None,
+     "problems": [{"key": "left", "title": "бота удалили"}]},
+], "total": 7}
+ONBOARDING = {"days": 7, "added": 12, "ready": 7, "waiting": 3, "gave_up": 2,
+              "events": [{"title": "Открыли мастер", "count": 12, "chats": 10},
+                         {"title": "Выбрали чат", "count": 9, "chats": 8},
+                         {"title": "Выдали права", "count": 7, "chats": 7}],
+              "stuck": [{"id": -1001234567890, "title": _LONG, "reminders": 2,
+                         "added_at": "2026-10-08T10:00:00+00:00", "inviter": {"id": 5000, "username": "anna_very_long_username"}}]}
 def _report(i, status):
     return {"id": 100 + i, "status": status, "status_title": {"new": "Новая", "in_work": "В работе", "resolved": "Нарушение", "rejected": "Отклонена"}[status],
             "created_at": "2026-10-12T09:00:00+00:00", "chat": {"title": _LONG}, "target": {"id": 500 + i, "name": "@очень_длинный_ник_нарушителя_" + str(i), "tag": "Нин Гуан/ст.адм"},
@@ -58,13 +183,59 @@ def _report(i, status):
             "handled_by": {"name": "@mod"} if status in ("resolved", "rejected") else None, "handled_at": "2026-10-12T10:00:00+00:00", "note": "ок"}
 REPORTS = {"counts": {"new": 3, "in_work": 1, "resolved": 12, "rejected": 5}, "can_see_reporter": False,
            "repeat": [{"id": 700 + i, "name": "@повторный_нарушитель_" + str(i), "reports": 5, "reporters": 3, "open": 1, "confirmed": 2} for i in range(2)],
-           "punish": [{"key": "warn", "title": "Варн"}, {"key": "mute", "title": "Мут"}, {"key": "ban", "title": "Бан"}],
+           "punish": [{"key": "warn", "title": "⚠️ Выдать предупреждение"}, {"key": "mute", "title": "🔇 Замутить в чате"}, {"key": "ban", "title": "⛔ Забанить в чате"}],
            "items": [_report(0, "new"), _report(1, "new"), _report(2, "in_work")]}
 JOURNAL = {"kinds": [{"key": "ban", "title": "Баны"}, {"key": "warn", "title": "Варны"}], "actors": [{"id": 1, "username": "mod_with_long_username"}], "more": False, "next": None,
-           "items": [{"title": "Бан", "text": "в чате " + _LONG, "reason": "спам " + "x" * 80, "at": "2026-10-12T09:00:00+00:00",
+           "items": [{"title": "Бан", "text": "", "reason": "спам " + "x" * 80, "at": "2026-10-12T09:00:00+00:00",
                       "actor": {"id": 1, "username": "mod_with_long_username", "tag": None}, "user": {"id": 500 + i, "username": "нарушитель_" + str(i), "tag": "Нин Гуан/ст.адм"},
                       "chat": {"id": -100, "title": _LONG}} for i in range(8)]}
-ROUTES = {"/me": ME, "/badges": {"reports": 7}, "/metrics": METRICS, "/health": HEALTH, "/reports": REPORTS, "/journal": JOURNAL}
+ROUTES = {"/me": ME, "/badges": {"reports": 7}, "/metrics": METRICS, "/health": HEALTH, "/reports": REPORTS, "/journal": JOURNAL,
+          "/search": PEOPLE, "/marks": MARKS, "/people/attention": ATTENTION, "/chats/attention": CHATS_ATTENTION,
+          "/chats/onboarding": ONBOARDING}
+BROADCAST = {
+    "audiences": [{"key": "players", "title": "Игроки"}, {"key": "chats", "title": "Чаты"}],
+    "sizes": {"players": 98765, "chats": 321},
+    "templates": [{"id": 1, "title": "Шаблон с очень длинным названием для проверки", "text": "Текст шаблона",
+                   "html": False, "button": {"text": "Играть", "url": "https://t.me/predvestnik_bot"}}],
+    "items": [
+        {"id": 12, "audience_title": "Все игроки", "status": "done", "status_title": "Отправлена",
+         "sent": 12345, "total": 12345, "failed": 5, "created_at": "2026-10-12T09:00:00+00:00", "actor": "@mod",
+         "text": "Текст рассылки с очень длинной строкой без пробелов: " + "x" * 90, "html": False, "button": None},
+        {"id": 13, "audience_title": "Чаты", "status": "scheduled", "status_title": "Запланирована",
+         "sent": 0, "total": 321, "failed": 0, "created_at": "2026-10-12T09:00:00+00:00",
+         "scheduled_at": "2026-10-20T09:00:00+00:00", "actor": "mod_with_long_username",
+         "text": "Напоминание", "html": True, "button": {"text": "Открыть", "url": "https://t.me/x"}},
+    ],
+}
+ROUTES["/broadcasts"] = BROADCAST
+ROUTES["/broadcasts/preview"] = {"count": 98765, "title": "Все игроки"}
+ROUTES["/player/5000"] = PLAYER
+PROMO = {"items": [
+    {"code": "WELCOME2026", "is_active": True, "legacy": False, "activations": 321, "max_activations": 1000,
+     "rewards_text": ["🪙 500 моры", "👑 VIP на 3 дня"], "allowed_chats": [{"id": -1001234567890}],
+     "valid_until": "2026-11-01T10:00:00+00:00", "valid_from": None, "show_in_app": True},
+    {"code": "ОЧЕНЬ-ДЛИННЫЙ-КОД-ДЛЯ-ПРОВЕРКИ-ПЕРЕНОСА", "is_active": False, "legacy": False, "activations": 0,
+     "max_activations": None, "rewards_text": [], "allowed_chats": [], "valid_until": None, "valid_from": None},
+    {"code": "OLDCODE", "is_active": True, "legacy": True, "activations": 12, "max_activations": None,
+     "rewards_text": ["Старый формат"], "allowed_chats": [], "valid_until": None, "valid_from": None},
+]}
+ROUTES["/promo"] = PROMO
+SWITCHES = {
+    "state": {"global": {"notice:achievements": {"reason": "чиним до вечера"}}, "chat": {}},
+    "catalog": [
+        {"title": "Основное", "scope": "global", "items": [
+            {"key": "all", "title": "Бот целиком", "hint": "Все команды, игры и уведомления"},
+            {"key": "site", "title": "Сайт", "hint": "Мини-приложение и веб-страницы"},
+            {"key": "games", "title": "Игры", "hint": "Запуск игр в чатах"},
+        ]},
+        {"title": "Уведомления", "scope": "global", "items": [
+            {"key": "notice:achievements", "title": "Достижения", "hint": "Сообщения о новых достижениях"},
+            {"key": "notice:reports", "title": "Жалобы", "hint": "Уведомления о новых жалобах"},
+            {"key": "notice:reports_dm", "title": "Жалобы в личку", "hint": "Только для персонала"},
+        ]},
+    ],
+}
+ROUTES["/switches"] = SWITCHES
 
 SETTINGS = {"transfer": [{"code": "mora", "title": "🪙 Мора", "enabled": True, "locked": False}, {"code": "zarniki", "title": "✨ Зарники", "enabled": False, "locked": True}],
             "reports": {"to_admin_chat": True, "dm_chat_rank": 4, "dm_staff_rank": 0, "reporter_min_rank": 5},

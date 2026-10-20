@@ -40,9 +40,15 @@ async function journalView(main, more = '') {
     if (!d || d === JOURNAL.lastDay) return '';
     JOURNAL.lastDay = d; return `<div class="day-h">${d}</div>`;
   };
-  const rows = data.items.map(x => `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>
-      ${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
-      <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''}${x.chat ? ' · ' + (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(x.chat.title || x.chat.id)}</a>` : esc(x.chat.title || x.chat.id)) : ''}</div></div>`).join('');
+  const rows = data.items.map(x => {
+    const chatTitle = x.chat ? String(x.chat.title || x.chat.id) : '';
+    const chat = chatTitle ? (canPeople ? `<a href="#" data-chat="${x.chat.id}">${esc(chatTitle)}</a>` : esc(chatTitle)) : '';
+    // В описании переключателя чат уже назван словами — второй раз его не показываем.
+    const where = chat && !String(x.text || '').includes(chatTitle) ? ` в чате «${chat}»` : '';
+    const reason = x.reason ? ` · причина: ${esc(x.reason)}` : '';
+    return `${dayHead(x.at)}<div class="log"><div><b>${esc(x.title)}</b>${x.text ? ' ' + esc(x.text) : ''}${where}</div>
+      <div class="sub">${x.actor && x.actor.id ? person(x.actor) : 'бот'}${x.user ? ' → ' + person(x.user) : ''} · ${when(x.at)}${reason}</div></div>`;
+  }).join('');
   const body = rows || (more ? '' : '<div class="empty">За этот период действий нет.</div>');
   if (more) {
     main.querySelector('#jmore')?.remove();
@@ -89,7 +95,7 @@ async function reportsView(main, kind = 'open') {
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
     ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
-    <div class="kpis">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
+    <div class="kpis rep-counts">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
     <div class="sub note">🔒 Жалобы анонимны. ${data.can_see_reporter ? 'Вам автор виден по настройкам жалоб.' : 'Автора жалобы видит только персонал с доступом.'}</div>
