@@ -14,9 +14,10 @@ from fastapi.responses import HTMLResponse, Response
 
 _DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "bot-admin")
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
-# Порядок важен: разделы (lists) опираются на помощники из admin.js, а старт (boot) — на все разделы.
-_TYPES = {"admin.js": "text/javascript; charset=utf-8", "admin-lists.js": "text/javascript; charset=utf-8",
-          "admin-boot.js": "text/javascript; charset=utf-8", "admin.css": "text/css; charset=utf-8"}
+# Порядок важен и совпадает с index.html: разделы опираются на ядро admin.js, а старт (boot) — на все разделы.
+_JS = "text/javascript; charset=utf-8"
+_TYPES = {"admin.js": _JS, "admin-home.js": _JS, "admin-people.js": _JS, "admin-lists.js": _JS, "admin-ops.js": _JS,
+          "admin-boot.js": _JS, "admin.css": "text/css; charset=utf-8"}
 router = APIRouter()
 
 _PAGE = ""

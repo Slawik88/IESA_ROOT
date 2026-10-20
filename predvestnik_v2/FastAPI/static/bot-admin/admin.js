@@ -1,14 +1,59 @@
-// Админка Предвестника. Разделы приходят с сервера (/me) — по роли пользователя.
+// Админка Предвестника 3.0 — ядро (docs/audits/ADMIN_V3_REDESIGN_2026-10-20.md).
+// Здесь: запросы, роутер с адресами экранов (#/player/123), оболочка (шапка, док, «Ещё»), стек шторок,
+// общие компоненты разметки и безопасные действия над людьми. Разделы — в admin-home/people/lists/ops.js,
+// старт — admin-boot.js. Разделы приходят с сервера (/me) по роли; каждый запрос проверяется сервером отдельно.
 'use strict';
 
 const BASE = window.ADMIN_BASE || '';
 const TG = window.Telegram && window.Telegram.WebApp;
 const INIT = (TG && TG.initData) || '';
 const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const num = n => Number(n).toLocaleString('ru-RU');
+const num = n => Number(n || 0).toLocaleString('ru-RU');
+const coarse = () => !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+const newRid = () => (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
 
-// Личные настройки на этом устройстве: последние фильтры, срок, тема, недавние игроки. Без хранилища браузера всё работает как по умолчанию.
+// Склонение: plural(5, 'жалоба', 'жалобы', 'жалоб') → «жалоб».
+function plural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
+}
+function when(iso) {
+  return iso ? new Date(iso).toLocaleString('ru-RU', {dateStyle: 'short', timeStyle: 'short'}) : '';
+}
+// «5 мин назад», «вчера 14:20», «12 окт» — глазу проще, чем 12.10.2026, 14:20.
+function ago(iso) {
+  if (!iso) return '';
+  const t = new Date(iso), s = (Date.now() - t) / 1000;
+  if (Number.isNaN(s)) return '';
+  if (s < 0) return 'через ' + left(iso);
+  if (s < 60) return 'только что';
+  if (s < 3600) return Math.floor(s / 60) + ' мин назад';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const hm = t.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+  if (t >= today) return 'сегодня ' + hm;
+  if (t >= today - 864e5) return 'вчера ' + hm;
+  if (s < 30 * 86400) return t.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) + ' ' + hm;
+  return t.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short', year: 'numeric'});
+}
+function left(iso) {   // сколько осталось до срока: «2 ч», «3 дн.»
+  const s = (new Date(iso) - Date.now()) / 1000;
+  if (s <= 0) return 'истёк';
+  if (s < 3600) return Math.ceil(s / 60) + ' мин';
+  if (s < 86400) return Math.round(s / 3600) + ' ч';
+  return Math.round(s / 86400) + ' дн.';
+}
+const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : 'навсегда';
+function dur(sec) {
+  sec = Math.round(sec || 0);
+  if (sec < 60) return `${sec} с`;
+  const m = Math.floor(sec / 60), h = Math.floor(m / 60);
+  if (h) return `${num(h)} ч ${m % 60} мин`;
+  return m >= 10 || !(sec % 60) ? `${m} мин` : `${m} мин ${sec % 60} с`;
+}
+
+// Личные настройки на этом устройстве: тема, фильтры, недавние люди и причины. Без хранилища всё работает по умолчанию.
 const PREFS = (() => {
   let data = {};
   try { data = JSON.parse(localStorage.getItem('pv_admin_prefs') || '{}') || {}; } catch (_) {}
@@ -19,91 +64,9 @@ const PREFS = (() => {
 })();
 
 let ME = null;
-const SECTIONS = {};          // key -> render(main)
-const SECTION_META = {
-  start: ['✦', 'Открываем пульт', 'Проверяем доступ и собираем разделы'],
-  people: ['◉', 'Игроки и чаты', 'Поднимаем свежие профили и активность'],
-  reports: ['⚑', 'Жалобы', 'Сверяем очередь и решения команды'],
-  metrics: ['▥', 'Метрики', 'Собираем показатели без кэшированных цифр'],
-  broadcast: ['⌁', 'Рассылка', 'Считаем аудитории и историю отправок'],
-  promo: ['✦', 'Промокоды', 'Проверяем коды, награды и ограничения'],
-  switches: ['⏻', 'Функции', 'Читаем актуальное состояние переключателей'],
-  settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
-  health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
-  access: ['🛡', 'Права', 'Читаем права ролей и вход владельцев'],
-  mychats: ['💬', 'Мои чаты', 'Проверяем, что вы владелец, и собираем чат'],
-};
-let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
+const has = key => !!(ME && ME.sections && ME.sections.some(s => s.key === key));
 
-let CURRENT = 'start';   // раздел из «Ещё» не подсвечен в доке, поэтому текущий раздел помним сами
-function currentSection() { return CURRENT; }
-function clearLoadStages() { _loadStageTimers.forEach(clearTimeout); _loadStageTimers = []; }
-function loadingMarkup(key = currentSection()) {
-  const [icon, title, hint] = SECTION_META[key] || ['✦', 'Загрузка', 'Получаем свежие данные'];
-  return `<section class="admin-load" role="status" aria-live="polite">
-    <div class="load-sigil" aria-hidden="true"><i></i><span>${icon}</span></div>
-    <div class="load-copy"><small>Предвестник · синхронизация</small><h2>${esc(title)}</h2><p>${esc(hint)}</p></div>
-    <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-    <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
-  </section>`;
-}
-function showSectionLoading(main, key = currentSection()) {
-  clearLoadStages(); main.setAttribute('aria-busy', 'true'); main.innerHTML = loadingMarkup(key);
-  const stage = () => main.querySelector('.load-stage span');
-  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Читаем актуальные данные'; }, 900));
-  _loadStageTimers.push(setTimeout(() => { const n = stage(); if (n) n.textContent = 'Ответ занимает чуть больше времени'; }, 4000));
-}
-// Экраны «нет входа» и «нет доступа»: то же оформление, что у заставки загрузки, и понятный следующий шаг.
-function accessMarkup(error) {
-  const code = error?.status, msg = error?.message || '';
-  let icon = '↻', small = 'Связь прервалась', title = 'Не удалось открыть админку', text = msg || 'Попробуйте ещё раз.', retry = true;
-  if (code === 403 && error.owner) {
-    icon = '🛡'; small = 'Вход владельцев чатов'; title = 'Доступ к админке закрыт'; text = msg; retry = false;
-  } else if (code === 403) {
-    icon = '🛡'; small = 'Нет доступа'; title = 'Только для персонала бота'; retry = false;
-    text = msg + (/персонал/.test(msg) ? ' Если вы в команде, попросите создателя выдать вам роль, а потом напишите боту «бот админка».' : '');
-  } else if (code === 401) {
-    icon = '🔒'; retry = false;
-    if (/завершен/i.test(msg)) { small = 'Нужен новый вход'; title = 'Сессия завершена'; text = 'Откройте админку заново: напишите боту в личку «бот админка» и нажмите кнопку.'; }
-    else { small = 'Нужен вход'; title = 'Откройте админку из Telegram'; text = 'Напишите боту в личку «бот админка» и нажмите кнопку «🛠 Открыть админку».'; }
-  }
-  return `<section class="admin-load load-failed${retry ? '' : ' access'}" role="alert">
-    <div class="load-sigil" aria-hidden="true"><span>${icon}</span></div>
-    <div class="load-copy"><small>${esc(small)}</small><h2>${esc(title)}</h2><p>${esc(text)}</p></div>
-    ${retry ? '<button type="button" class="btn primary load-retry">Повторить</button>' : `<a class="btn" href="${esc(BASE)}/">← В Предвестник</a>`}</section>`;
-}
-function showLoadError(main, key, error, retry) {
-  clearLoadStages(); main.setAttribute('aria-busy', 'false');
-  if (error?.status === 401 || error?.status === 403) { if (ME && ME.owner) error.owner = true; $('#main').innerHTML = accessMarkup(error); return; }   // повтор не поможет: нужен вход или роль; закрываем весь экран, не одну вставку
-  const timedOut = error?.name === 'AbortError';
-  main.innerHTML = `<section class="admin-load load-failed" role="alert">
-    <div class="load-sigil" aria-hidden="true"><span>↻</span></div>
-    <div class="load-copy"><small>Связь прервалась</small><h2>${timedOut ? 'Сервер отвечает слишком долго' : 'Раздел не загрузился'}</h2>
-      <p>${esc(timedOut ? 'Мы остановили ожидание, чтобы экран не завис навсегда.' : (error?.message || 'Попробуйте ещё раз.'))}</p></div>
-    <button type="button" class="btn primary load-retry">Повторить</button>
-  </section>`;
-  main.querySelector('.load-retry').onclick = () => { showSectionLoading(main, key); retry(); };
-}
-async function loadSectionData(main, path, retry, key = currentSection()) {
-  if (_viewAbort) _viewAbort.abort();
-  const controller = new AbortController(), request = ++_viewRequest;
-  _viewAbort = controller;
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try { return await api(path, {signal: controller.signal}); }
-  catch (error) {
-    if (request !== _viewRequest) return null;
-    showLoadError(main, key, error, retry); return null;
-  } finally {
-    clearTimeout(timeout);
-    if (request === _viewRequest) { _viewAbort = null; clearLoadStages(); main.setAttribute('aria-busy', 'false'); }
-  }
-}
-
-// Раздел может нарисоваться и без loadSectionData (игроки): «занято» снимается, как только заставку заменило содержимое.
-new MutationObserver(() => {
-  const m = $('#main');
-  if (m.getAttribute('aria-busy') === 'true' && !m.querySelector('.admin-load:not(.load-failed)')) m.setAttribute('aria-busy', 'false');
-}).observe($('#main'), {childList: true});
+// ── Запросы ──────────────────────────────────────────────────────────────────
 
 async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
@@ -115,33 +78,49 @@ async function api(path, opts = {}) {
   if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
   return data;
 }
+const post = (path, body = {}) => api(path, {method: 'POST', body: JSON.stringify(body)});
 
-function toast(text, bad = false) {
+// ── Отклик: тост с действием ─────────────────────────────────────────────────
+
+function toast(text, opt = {}) {
+  if (opt === true) opt = {bad: true};
   const t = $('#toast');
-  t.textContent = text;
-  t.className = 'toast' + (bad ? ' bad' : '');
+  t.className = 'toast' + (opt.bad ? ' bad' : opt.ok ? ' ok' : '');
+  t.innerHTML = `<span>${esc(text)}</span>${opt.action ? `<button type="button">${esc(opt.action[0])}</button>` : ''}`;
+  if (opt.action) t.querySelector('button').onclick = () => { t.hidden = true; opt.action[1](); };
   t.hidden = false;
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { t.hidden = true; }, 3200);
+  toast.timer = setTimeout(() => { t.hidden = true; }, opt.bad ? 6500 : opt.action ? 5000 : 3000);   // ошибку дольше: её надо успеть прочитать
+  haptic(opt.bad ? 'error' : 'success');
 }
-
-// Копирование в буфер: современный API, а где он закрыт (старые WebView) — через скрытое поле.
+function haptic(kind) {
+  try {
+    const h = TG && TG.HapticFeedback;
+    if (!h) return;
+    if (kind === 'select') h.selectionChanged();
+    else if (kind === 'light' || kind === 'medium') h.impactOccurred(kind);
+    else h.notificationOccurred(kind);
+  } catch (_) {}
+}
+// Копирование: современный API, а где он закрыт (старые WebView) — через скрытое поле.
 async function copyText(text, done = 'Скопировано') {
-  try { await navigator.clipboard.writeText(text); toast(done); return true; } catch (_) {}
+  try { await navigator.clipboard.writeText(text); toast(done, {ok: true}); return true; } catch (_) {}
   try {
     const field = Object.assign(document.createElement('textarea'), {value: text});
     field.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
     document.body.append(field); field.select();
     const ok = document.execCommand('copy');
     field.remove();
-    if (ok) { toast(done); return true; }
+    if (ok) { toast(done, {ok: true}); return true; }
   } catch (_) {}
   toast('Не удалось скопировать: выделите текст и скопируйте вручную', true);
   return false;
 }
 
-// Значки разделов для нижнего дока (тот же штрих, что у дока Mini App).
+// ── Значки ───────────────────────────────────────────────────────────────────
+
 const ICONS = {
+  home: '<path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z"/>',
   people: '<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.7-3.2 3-4.8 5.5-4.8s4.8 1.6 5.5 4.8M16 5.5a3 3 0 0 1 0 5.8M17.5 14.6c1.8.5 3 2 3.5 4.4"/>',
   reports: '<path d="M5.5 21V4M5.5 5h11l-2 3.5 2 3.5h-11"/>',
   metrics: '<path d="M4.5 20v-7h4.5v7M9.8 20V5h4.4v15M15 20v-9.5h4.5V20"/>',
@@ -153,89 +132,365 @@ const ICONS = {
   health: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
   mychats: '<path d="M4 5.5h16v10H9l-5 4z"/>',
   access: '<path d="M12 3.5 5 6v5.5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
-  more: '<circle cx="6" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="18" cy="12" r="1.2"/>',
+  more: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>',
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/>',
+  back: '<path d="m14.5 5-7 7 7 7"/>',
+  close: '<path d="M6 6l12 12M18 6 6 18"/>',
+  copy: '<rect x="8" y="8" width="11" height="11" rx="2.5"/><path d="M5 15.5V6a1 1 0 0 1 1-1h9.5"/>',
+  theme: '<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>',
+  keys: '<rect x="3" y="6.5" width="18" height="11" rx="2.5"/><path d="M7 10.5h.01M10.5 10.5h.01M14 10.5h.01M17 10.5h.01M8 14h8"/>',
+  out: '<path d="M14 5h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h9"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  send: '<path d="M4 12 20 4l-4 16-4-6.5z"/>',
+  filter: '<path d="M4 6h16M7 12h10M10 18h4"/>',
+  trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
 };
-const icon = key => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
-const SHORT = {people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды', switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права'};
-const DOCK_MAX = 5;   // как в Mini App: пять мест, лишнее в «Ещё»
+const icon = (key, cls = 'ico') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[key] || ICONS.more}</svg>`;
 
-function dockSplit() {
-  const all = ME.sections;
-  return all.length <= DOCK_MAX ? {main: all, rest: []} : {main: all.slice(0, DOCK_MAX - 1), rest: all.slice(DOCK_MAX - 1)};
-}
+// ── Компоненты разметки (строки). Обработчики — через data-on="имя" и on(view, {...}). ──
 
-// Значки на вкладках: пока только число новых жалоб. Обновляются раз в минуту и после действий с жалобами.
-let BADGES = {};
-function paintBadges() {
-  document.querySelectorAll('#tabs .nb[data-tab]').forEach(b => {
-    const n = BADGES[b.dataset.tab] || 0;
-    let dot = b.querySelector('.badge');
-    if (!n) { if (dot) dot.remove(); return; }
-    if (!dot) { dot = document.createElement('i'); dot.className = 'badge'; b.append(dot); }
-    dot.textContent = n > 99 ? '99+' : n;
-  });
+const hue = id => Math.abs(Number(id) || 0) * 47 % 360;   // один человек — всегда один цвет кружка
+const initial = s => (String(s || '?').replace(/^[@#\s]+/, '').trim().charAt(0) || '?').toUpperCase();
+const pic = url => url ? esc(BASE + url) : '';
+const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
+const nameOf = p => p.name || (p.username ? '@' + p.username : 'id' + p.id);
+function ava(p, size = '') {
+  const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
+  return `<span class="ava ${size}" style="--h:${hue(p.id)}" aria-hidden="true">${esc(initial(p.name || p.username || p.id))}${photo}${p.dot ? '<i class="dot"></i>' : ''}</span>`;
 }
-async function refreshBadges() {
-  if (ME && ME.owner) return;   // значки жалоб — для персонала
-  try { BADGES = await api('/badges'); } catch (_) { return; }
-  paintBadges();
+const chatAva = (c, size = '') => `<span class="ava chat ${size}" style="--h:${hue(c.id)}" aria-hidden="true">${esc(initial(c.title))}</span>`;
+// Человек одной строкой (журнал, жалобы): маленькое лицо, имя, @ник. Ссылка на карточку, если раздел открыт.
+function person(p, {link = true} = {}) {
+  if (!p || !p.id) return '';
+  const name = p.name || p.username && '@' + p.username || 'id' + p.id;
+  const inner = `${ava(p, 'xs')}<b>${esc(name)}</b>${p.name && p.username ? `<span>@${esc(p.username)}</span>` : ''}${p.tag ? `<span>[${esc(p.tag)}]</span>` : ''}`;
+  return link && has('people') ? `<a class="who-i" href="#/player/${p.id}">${inner}</a>` : `<span class="who-i">${inner}</span>`;
 }
+const chatLink = c => c ? (has('people') ? `<a href="#/chat/${c.id}">${esc(c.title || c.id)}</a>` : esc(c.title || c.id)) : '';
+const pill = (text, tone = '', plain = false) => text ? `<span class="pill ${tone}${plain ? ' plain' : ''}">${esc(text)}</span>` : '';
+// Строка списка: lead — лицо или значок, end — значение справа. on — имя обработчика, data — data-атрибуты.
+function row({lead = '', title, sub = '', pills = '', end = '', on = '', data = {}, href = '', cls = '', chev = !!(on || href), tag = ''}) {
+  const attrs = Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
+  const t = tag || (href ? 'a' : on ? 'button' : 'div');
+  return `<${t} class="row ${cls}"${t === 'button' ? ' type="button"' : ''}${href ? ` href="${esc(href)}"` : ''}${on ? ` data-on="${on}"` : ''}${attrs}>
+    ${lead}<span class="row-t"><b>${title}</b>${sub ? `<span>${sub}</span>` : ''}${pills ? `<span class="pills">${pills}</span>` : ''}</span>
+    ${end || chev ? `<span class="row-e">${end}${chev ? '<span class="chev" aria-hidden="true">›</span>' : ''}</span>` : ''}</${t}>`;
+}
+const lead = (glyph, tone = '') => `<span class="lead ${tone ? 'tone-' + tone : ''}" aria-hidden="true">${glyph}</span>`;
+const sh = (title, {count = null, link = '', on = ''} = {}) => `<div class="sh"><h3>${title}</h3>${count == null ? '' : `<span class="cnt">${count}</span>`}
+  ${link ? `<a href="${esc(link)}">Все ›</a>` : on ? `<button type="button" class="lnk" data-on="${on}">Все ›</button>` : ''}</div>`;
+const callout = (tone, glyph, html, btn = '') => `<div class="callout ${tone}"><span class="ci" aria-hidden="true">${glyph}</span><div>${html}</div>${btn}</div>`;
+const help = (title, html) => `<details class="help"><summary>${esc(title)}</summary>${html}</details>`;
+const emptyBox = (title, text = '') => `<div class="empty"><b>${esc(title)}</b>${esc(text)}</div>`;
+function trend(cur, prev) {
+  if (prev == null || (!prev && !cur)) return '';
+  if (!prev) return '<span class="delta up" title="В прошлом периоде было 0">▲ новое</span>';
+  const pct = Math.round((cur - prev) / prev * 100);
+  if (!pct) return '<span class="delta flat" title="Как в прошлом периоде">＝</span>';
+  return `<span class="delta ${pct > 0 ? 'up' : 'down'}" title="В прошлом периоде: ${num(prev)}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</span>`;
+}
+function spark(values) {
+  if (!values || values.length < 2) return '';
+  const max = Math.max(1, ...values), w = 100, h = 26, step = w / (values.length - 1);
+  const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(h - 2 - v / max * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`;
+}
+const stat = (label, value, {tone = '', extra = '', small = '', sparkline = null, on = '', data = {}} = {}) => {
+  const attrs = Object.entries(data).map(([k, v]) => ` data-${k}="${esc(v)}"`).join('');
+  const t = on ? 'button' : 'div';
+  return `<${t} class="stat ${tone}"${on ? ` type="button" data-on="${on}"` : ''}${attrs}><span>${label}</span><b>${value}${extra}</b>${small ? `<small>${small}</small>` : ''}${sparkline ? spark(sparkline) : ''}</${t}>`;
+};
+// Столбики по дням. Больше недели — подписи только числом дня: «01.10» не помещается под узким столбиком.
+function bars(days, daily, field) {
+  if (days.length < 2) return '';
+  const vals = days.map(d => (daily[d] || {})[field] || 0), max = Math.max(1, ...vals);
+  return `<div class="bars">${days.map((d, i) => `<div class="b" title="${d}: ${num(vals[i])}"><i style="height:${Math.round(vals[i] / max * 100)}%"></i>
+    <span>${days.length <= 7 ? `${d.slice(8)}.${d.slice(5, 7)}` : i % 5 === 0 || i === days.length - 1 ? d.slice(8) : ''}</span></div>`).join('')}</div>`;
+}
+const meter = (share, tone = '') => `<div class="meter ${tone}"><i style="width:${Math.max(1, Math.min(100, share))}%"></i></div>`;
+// Сегменты: выбор одного из нескольких (период, вид). Кнопки с aria-selected.
+const seg = (name, options, current, {cls = ''} = {}) => `<div class="seg ${cls}" role="tablist">${options.map(([v, t, n, tone]) =>
+  `<button type="button" role="tab" data-on="${name}" data-v="${esc(v)}" aria-selected="${String(v) === String(current)}">${esc(t)}${n != null ? `<span class="n ${tone || ''}">${esc(n)}</span>` : ''}</button>`).join('')}</div>`;
+// Чипы: тот же выбор, но с переносом (сроки, причины, фильтры).
+const chipPick = (name, options, current, {scroll = false} = {}) => `<div class="chipset ${scroll ? 'scroll' : ''}">${options.map(([v, t]) =>
+  `<button type="button" class="chip" data-on="${name}" data-v="${esc(v)}" aria-pressed="${String(v) === String(current)}">${esc(t)}</button>`).join('')}</div>`;
+const field = (label, control, hintText = '', forId = '') => `<div class="field">${label ? `<label${forId ? ` for="${forId}"` : ''}>${label}</label>` : ''}${control}${hintText ? `<div class="hint">${hintText}</div>` : ''}</div>`;
+const toggle = (attrs, on, label, disabled = false) => `<label class="toggle"><input type="checkbox" ${attrs} aria-label="${esc(label)}" ${on ? 'checked' : ''} ${disabled ? 'disabled' : ''}/><span aria-hidden="true"></span></label>`;
+const skeleton = (rows = 6, {stats = false} = {}) => `<div aria-hidden="true"><div class="sk sk-title"></div>${stats ? '<div class="sk-stats"><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i></div>' : ''}
+  ${Array.from({length: rows}, () => '<div class="sk-row"><i class="sk"></i><div><i class="sk"></i><i class="sk"></i></div></div>').join('')}</div>`;
 
-function tabs(active) {
-  CURRENT = active;
-  const {main, rest} = dockSplit(), nav = $('#tabs');
-  const inRest = rest.some(s => s.key === active);
-  const slots = main.length + (rest.length ? 1 : 0);
-  nav.hidden = false;
-  nav.style.setProperty('--nav-n', slots);
-  nav.style.setProperty('--nav-i', Math.max(0, inRest ? main.length : main.findIndex(s => s.key === active)));
-  nav.innerHTML = main.map(s =>
-    `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}">${icon(s.key)}<span>${esc(SHORT[s.key] || s.title)}</span></button>`).join('')
-    + (rest.length ? `<button type="button" class="nb ${inRest ? 'here' : ''}" data-more="1">${icon('more')}<span>Ещё</span></button>` : '');
-  paintBadges();
-}
-
-function moreSheet() {
-  const {rest} = dockSplit(), box = $('#sheet'), active = currentSection();
-  box.innerHTML = `<div class="sheet"><h3>Разделы</h3><div class="go-list">${rest.map(s =>
-    `<button type="button" data-go="${s.key}" class="${s.key === active ? 'here' : ''}">${icon(s.key)}<span>${esc(s.title)}</span></button>`).join('')}</div></div>`;
-  box.hidden = false;
-  box.onclick = e => {
-    const go = e.target.closest('[data-go]');
-    if (go || e.target === box) { box.hidden = true; box.innerHTML = ''; }
-    if (go) open(go.dataset.go);
+// Делегирование: один обработчик на экран. data-on — нажатие, data-change / data-input — поля.
+function on(root, handlers) {
+  const pick = (e, attr) => {
+    const el = e.target.closest(`[${attr}]`);
+    if (!el || !root.contains(el)) return;
+    const fn = handlers[el.getAttribute(attr)];
+    if (fn) { if (el.tagName === 'A' && !el.getAttribute('href')?.startsWith('#/')) e.preventDefault(); fn(el, e); }
   };
+  root.addEventListener('click', e => pick(e, 'data-on'));
+  root.addEventListener('change', e => pick(e, 'data-change'));
+  root.addEventListener('input', e => pick(e, 'data-input'));
+}
+// Кнопка «занята», пока идёт запрос: второй тап ничего не делает.
+async function busy(btn, fn) {
+  if (btn && btn.disabled) return;
+  if (btn) { btn.disabled = true; btn.classList.add('busy'); }
+  try { return await fn(); }
+  catch (e) { toast(e.message, true); }
+  finally { if (btn && btn.isConnected) { btn.disabled = false; btn.classList.remove('busy'); } }
 }
 
-// Кнопка «назад» на верхнем уровне ведёт обратно в Предвестник (внутри Telegram и в браузере одинаково).
-function goApp() { location.href = (BASE || '') + '/'; }
-function rootBack() {
-  const bb = TG && TG.BackButton;
-  if (!bb) return;
-  if (PEOPLE.bb) { bb.offClick(PEOPLE.bb); PEOPLE.bb = null; }
-  bb.offClick(goApp); bb.onClick(goApp); bb.show();
-}
+// ── Роутер: у каждого экрана свой адрес, «назад» везде одинаковый ─────────────
+// Адрес — #/путь?параметры. Глубину своей истории храним в history.state.adm: на нулевой «назад» ведёт
+// из админки в Предвестник, иначе — history.back(). Хэш Telegram (#tgWebAppData=…) роутом не считается.
 
-function open(key) {
-  rootBack();
-  if (_viewAbort) { _viewRequest++; _viewAbort.abort(); _viewAbort = null; }
-  tabs(key);
-  try { localStorage.setItem('pv_admin_tab', key); } catch (_) {}
-  const render = SECTIONS[key];
-  showSectionLoading($('#main'), key);
-  if (render) render($('#main'));
-}
+const ROUTES = [];
+const NAV = {seq: 0, depth: 0, ctrl: null, path: '', scroll: new Map()};
+const CACHE = new Map();   // путь API -> {at, data}: мгновенный «назад» без заставки
+const SECTION_META = {
+  home: ['Главная', 'Что требует внимания сейчас'], people: ['Игроки и чаты'], reports: ['Жалобы'], metrics: ['Метрики'], journal: ['Журнал'],
+  broadcast: ['Рассылка'], promo: ['Промокоды'], switches: ['Функции'], settings: ['Настройки'], health: ['Состояние'], access: ['Права'], mychats: ['Мои чаты'],
+};
+const SHORT = {home: 'Главная', people: 'Игроки', reports: 'Жалобы', metrics: 'Метрики', journal: 'Журнал', broadcast: 'Рассылка', promo: 'Коды',
+  switches: 'Функции', settings: 'Настройки', health: 'Состояние', mychats: 'Мои чаты', access: 'Права'};
+const SECTION_HINT = {people: 'Поиск, карточки, наказания', reports: 'Очередь и решения', metrics: 'Люди, команды, экономика', journal: 'Кто что сделал',
+  broadcast: 'Сообщения игрокам и в чаты', promo: 'Коды и награды', switches: 'Включить и выключить', settings: 'Переводы, жалобы, сессии',
+  health: 'Бот, база, ошибки', access: 'Кто что может', mychats: 'Ваши чаты'};
 
-document.addEventListener('click', e => {
-  const tab = e.target.closest('[data-tab]');
-  if (tab) { open(tab.dataset.tab); return; }
-  if (e.target.closest('[data-more]')) moreSheet();
+function route(pattern, opts) {
+  const keys = [];
+  const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; }) + '$');
+  ROUTES.push({re, keys, ...opts});
+}
+function parseHash() {
+  const raw = location.hash.startsWith('#/') ? location.hash.slice(2) : '';
+  const [path, qs] = raw.split('?');
+  return {path: decodeURIComponent(path || ''), query: new URLSearchParams(qs || '')};
+}
+function match(path) {
+  // Точные адреса раньше адресов с параметрами: «promo/new» — экран создания, а не код NEW.
+  for (const r of [...ROUTES].sort((x, y) => x.keys.length - y.keys.length)) {
+    const m = r.re.exec(path);
+    if (m) return {r, params: Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]))};
+  }
+  return null;
+}
+const homePath = () => (ME && ME.owner ? 'mychats' : 'home');
+function go(path, {replace = false} = {}) {
+  NAV.scroll.set(NAV.path, window.scrollY);
+  if (replace) history.replaceState({adm: NAV.depth}, '', '#/' + path);
+  else { NAV.depth++; history.pushState({adm: NAV.depth}, '', '#/' + path); }
+  render('push');
+}
+// Тот же экран с другими параметрами (фильтр, вкладка) — без новой записи в истории.
+function setQuery(params) {
+  const {path, query} = parseHash();
+  Object.entries(params).forEach(([k, v]) => (v === '' || v == null ? query.delete(k) : query.set(k, v)));
+  const qs = query.toString();
+  history.replaceState({adm: NAV.depth}, '', '#/' + path + (qs ? '?' + qs : ''));
+}
+function goBack() {
+  if (SHEETS.length) { popSheet(); return; }
+  if (NAV.depth > 0) { history.back(); return; }
+  const {path} = parseHash(), m = match(path);
+  if (m && !m.r.root) { go(m.r.up ? m.r.up(m.params) : (m.r.section === 'home' ? homePath() : m.r.section), {replace: true}); return; }
+  location.href = (BASE || '') + '/';   // корень админки: обратно в Предвестник
+}
+window.addEventListener('popstate', e => {
+  NAV.scroll.set(NAV.path, window.scrollY);
+  NAV.depth = (e.state && e.state.adm) || 0;
+  if (SHEETS.length) closeSheets();
+  render('pop');
 });
 
-// ── Тема: тёмная (как Mini App), светлая или как в Telegram ─────────────────────
+// Данные экрана: отмена прошлого запроса, тайм-аут 15 с, кэш для «назад».
+async function load(ctx, path, {cache = true} = {}) {
+  const hit = CACHE.get(path);
+  if (ctx.mode === 'pop' && cache && hit && Date.now() - hit.at < 120000) {
+    ctx.revalidate.push(path);
+    return hit.data;
+  }
+  const controller = new AbortController();
+  ctx.ctrls.push(controller);
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const data = await api(path, {signal: controller.signal});
+    if (cache) CACHE.set(path, {at: Date.now(), data});
+    return data;
+  } finally { clearTimeout(timer); }
+}
+
+function sectionTitle(key) { return (ME && (ME.sections.find(s => s.key === key) || {}).title) || (SECTION_META[key] || [key])[0]; }
+
+async function render(mode = 'push') {
+  const {path, query} = parseHash();
+  const found = match(path);
+  if (!found) { go(homePath(), {replace: true}); return; }
+  const {r, params} = found;
+  NAV.path = location.hash;
+  const seq = ++NAV.seq;
+  if (NAV.ctrls) NAV.ctrls.forEach(c => c.abort());
+  const main = $('#main');
+  const ctx = {mode, params, query, seq, ctrls: [], revalidate: [], main, alive: () => seq === NAV.seq};
+  NAV.ctrls = ctx.ctrls;
+  ctx.view = Object.assign(document.createElement('div'), {className: 'view'});
+  ctx.$ = sel => ctx.view.querySelector(sel);
+  ctx.load = (p, o) => load(ctx, p, o);
+  ctx.mount = () => { if (ctx.alive() && ctx.view.parentNode !== main) main.replaceChildren(ctx.view); };
+  ctx.refresh = () => { if (ctx.alive()) render('soft'); };
+  ctx.title = (t, sub = '') => { if (ctx.alive()) setTitle(t, sub); };
+  // Липкая панель главного действия экрана: создаётся заново на каждую отрисовку, обработчики — этого экрана.
+  ctx.bar = (html, handlers = {}, cls = '') => {
+    let b = $('#actbar');
+    if (!ctx.alive()) return null;
+    if (!html) { if (b) b.remove(); main.classList.remove('with-bar'); return null; }
+    if (!b || b.dataset.seq !== String(seq)) {
+      if (b) b.remove();
+      b = Object.assign(document.createElement('div'), {id: 'actbar'});
+      b.dataset.seq = seq; document.body.append(b); on(b, handlers);
+    }
+    b.className = 'actbar ' + cls; b.innerHTML = html; main.classList.add('with-bar');
+    return b;
+  };
+  if (mode !== 'soft') { const b = $('#actbar'); if (b) b.remove(); main.classList.remove('with-bar'); }
+  const section = r.section;
+  dock(section);
+  setTitle(r.title ? r.title(params) : sectionTitle(section), '');
+  backButton();
+  if (section !== 'home' && section !== 'mychats' && !has(section)) {
+    main.replaceChildren(stateEl('🛡', 'Раздел закрыт', 'Для вашей роли этот раздел недоступен.', ['На главную', () => go(homePath(), {replace: true})]));
+    return;
+  }
+  if (mode === 'push') { main.setAttribute('aria-busy', 'true'); main.innerHTML = skeleton(7, {stats: !!r.stats}); window.scrollTo(0, 0); }
+  try {
+    await r.render(ctx);
+    if (!ctx.alive()) return;
+    ctx.mount();
+    if (mode === 'pop' || mode === 'soft') {
+      const y = mode === 'soft' ? window.scrollY : NAV.scroll.get(location.hash) || 0;
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+    // Вернулись «назад» на данные из кэша — тихо проверяем свежие; перерисуем, только если что-то изменилось и человек ничего не печатает.
+    if (ctx.revalidate.length) setTimeout(async () => {
+      try {
+        const fresh = await Promise.all(ctx.revalidate.map(p => api(p)));
+        if (!ctx.alive()) return;
+        const changed = ctx.revalidate.some((p, i) => JSON.stringify((CACHE.get(p) || {}).data) !== JSON.stringify(fresh[i]));
+        ctx.revalidate.forEach((p, i) => CACHE.set(p, {at: Date.now(), data: fresh[i]}));
+        const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && main.contains(document.activeElement);
+        if (changed && !typing && !SHEETS.length) render('soft');
+      } catch (_) {}
+    }, 50);
+  } catch (e) {
+    if (!ctx.alive()) return;
+    showError(main, e, () => render('push'));
+  } finally {
+    if (ctx.alive()) main.setAttribute('aria-busy', 'false');
+  }
+}
+function stateEl(glyph, title, text, btn = null, tone = '') {
+  const el = Object.assign(document.createElement('section'), {className: 'state ' + tone});
+  el.setAttribute('role', tone === 'bad' ? 'alert' : 'status');
+  el.innerHTML = `<div class="si" aria-hidden="true">${glyph}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${btn ? `<button type="button" class="btn primary">${esc(btn[0])}</button>` : ''}`;
+  if (btn) el.querySelector('button').onclick = btn[1];
+  return el;
+}
+// Экраны «нет входа» и «нет доступа»: повтор не поможет — нужен вход из Telegram или роль.
+function accessMarkup(error) {
+  const code = error && error.status, msg = (error && error.message) || '';
+  let glyph = '↻', title = 'Не удалось открыть админку', text = msg || 'Попробуйте ещё раз.', retry = true;
+  if (code === 403 && error.owner) { glyph = '🛡'; title = 'Доступ к админке закрыт'; retry = false; }
+  else if (code === 403) {
+    glyph = '🛡'; title = 'Только для персонала бота'; retry = false;
+    text = msg + (/персонал/.test(msg) ? ' Если вы в команде, попросите создателя выдать вам роль, а потом напишите боту «бот админка».' : '');
+  } else if (code === 401) {
+    glyph = '🔒'; retry = false;
+    if (/завершен/i.test(msg)) { title = 'Сессия завершена'; text = 'Откройте админку заново: напишите боту в личку «бот админка» и нажмите кнопку.'; }
+    else { title = 'Откройте админку из Telegram'; text = 'Напишите боту в личку «бот админка» и нажмите кнопку «🛠 Открыть админку».'; }
+  }
+  return `<section class="state" role="alert"><div class="si" aria-hidden="true">${glyph}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>
+    ${retry ? '<button type="button" class="btn primary load-retry">Повторить</button>' : `<a class="btn" href="${esc(BASE)}/">← В Предвестник</a>`}</section>`;
+}
+function showError(main, error, retry) {
+  if (error && (error.status === 401 || error.status === 403) && !error.soft) {
+    if (ME && ME.owner) error.owner = true;
+    main.innerHTML = accessMarkup(error);
+    const again = $('.load-retry', main); if (again) again.onclick = () => location.reload();
+    return;
+  }
+  const timedOut = error && error.name === 'AbortError';
+  main.replaceChildren(stateEl('↻', timedOut ? 'Сервер отвечает слишком долго' : 'Не загрузилось',
+    timedOut ? 'Мы остановили ожидание, чтобы экран не завис.' : (error && error.message) || 'Попробуйте ещё раз.', ['Повторить', retry], 'bad'));
+}
+
+// ── Оболочка: шапка, док, «Ещё» ──────────────────────────────────────────────
+
+function setTitle(title, sub = '') {
+  $('#ttl').innerHTML = esc(title) + (sub ? `<small>${esc(sub)}</small>` : '');
+  document.title = title + ' · Админка';
+}
+// Кнопка «назад»: своя в шапке (браузер) и системная Telegram. Обработчик Telegram ставится один раз.
+function backButton() {
+  const bb = TG && TG.BackButton;
+  if (!bb) return;
+  try { bb.show(); } catch (_) {}
+}
+const DOCK_MAX = 5;
+function dockItems() {
+  if (ME.owner) return {main: ME.sections, rest: []};
+  const pref = ['people', 'reports', 'journal'];
+  const keys = ME.sections.map(s => s.key);
+  const first = ['home', ...pref.filter(k => keys.includes(k)), ...keys.filter(k => !pref.includes(k))];
+  const items = first.map(k => ({key: k, title: k === 'home' ? 'Главная' : sectionTitle(k)}));
+  return items.length <= DOCK_MAX ? {main: items, rest: []} : {main: items.slice(0, DOCK_MAX - 1), rest: items.slice(DOCK_MAX - 1)};
+}
+let BADGES = {};
+function dock(active) {
+  const nav = $('#tabs');
+  if (!ME) { nav.hidden = true; return; }
+  const {main, rest} = dockItems();
+  const inRest = rest.some(s => s.key === active);
+  nav.hidden = main.length + rest.length < 2;   // один раздел (владелец чата) — доку нечего переключать
+  nav.style.setProperty('--nav-n', main.length + (rest.length ? 1 : 0));
+  nav.innerHTML = main.map(s => `<button type="button" class="nb ${s.key === active ? 'on' : ''}" data-tab="${s.key}" ${s.key === active ? 'aria-current="page"' : ''}>${icon(s.key, '')}<span>${esc(SHORT[s.key] || s.title)}</span>${BADGES[s.key] ? `<i class="badge">${BADGES[s.key] > 99 ? '99+' : BADGES[s.key]}</i>` : ''}</button>`).join('')
+    + (rest.length ? `<button type="button" class="nb ${inRest ? 'on' : ''}" data-more="1">${icon('more', '')}<span>Ещё</span>${rest.some(s => BADGES[s.key]) ? '<i class="badge">•</i>' : ''}</button>` : '');
+  NAV.section = active;
+}
+async function refreshBadges() {
+  if (!ME || ME.owner) return;   // значки — для персонала
+  try { BADGES = await api('/badges'); } catch (_) { return; }
+  dock(NAV.section);
+}
+// Ссылки на экраны (#/…) идут через роутер: так «назад» знает глубину и не выходит из админки раньше времени.
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#/"]');
+  if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey) return;
+  e.preventDefault();
+  if (SHEETS.length) closeSheets();
+  go(a.getAttribute('href').slice(2));
+});
+document.addEventListener('click', e => {
+  const tab = e.target.closest('#tabs [data-tab]');
+  if (tab) { haptic('select'); const k = tab.dataset.tab; if (NAV.section === k && parseHash().path === k) window.scrollTo({top: 0, behavior: 'smooth'}); else go(k); return; }
+  if (e.target.closest('#tabs [data-more]')) { haptic('select'); moreSheet(); }
+});
+// «Ещё»: все разделы плитками, оформление, клавиши и выход — одно место для редкого.
+function moreSheet() {
+  const {main, rest} = dockItems();
+  const all = ME.owner ? main : [...main.filter(s => s.key !== 'home'), ...rest];
+  const tiles = `<div class="tiles">${all.map(s => `<button type="button" class="tile" data-on="go" data-v="${s.key}" ${s.key === NAV.section ? 'aria-current="page"' : ''}>
+      ${icon(s.key, '')}<span>${esc(SHORT[s.key] || s.title)}</span>${BADGES[s.key] ? `<i class="badge">${BADGES[s.key]}</i>` : ''}</button>`).join('')}</div>`;
+  const panel = openSheet({title: 'Все разделы', sub: ME.rank_name, body: tiles + `<div class="list" style="margin-top:14px">
+      ${row({lead: lead(icon('theme', 'ico')), title: 'Оформление', sub: THEMES.find(t => t[0] === themePref())[1], on: 'theme'})}
+      ${!coarse() ? row({lead: lead(icon('keys', 'ico')), title: 'Горячие клавиши', sub: '/ — поиск, g затем буква — раздел', on: 'keys'}) : ''}
+      ${row({lead: lead(icon('out', 'ico')), title: 'Вернуться в Предвестник', on: 'app'})}</div>`});
+  on(panel.el, {go: el => go(el.dataset.v), theme: () => themeSheet(), keys: () => hotkeysSheet(), app: () => { location.href = (BASE || '') + '/'; }});
+}
+
+// ── Тема: тёмная (как Mini App), светлая или как в Telegram ─────────────────
 
 const THEMES = [['auto', '📱 Как в Telegram', 'Сама меняется вслед за темой Telegram'], ['dark', '🌙 Тёмная', 'Как в Предвестнике'], ['light', '☀️ Светлая', 'Для яркого дня']];
-const PAGE_COLOR = {dark: '#08090c', light: '#f3f4f8'};
+const PAGE_COLOR = {dark: '#08090c', light: '#f2f3f7'};
 const themePref = () => { const t = PREFS.get('theme', 'auto'); return THEMES.some(z => z[0] === t) ? t : 'auto'; };
 function resolveTheme(pref = themePref()) {
   if (pref === 'light' || pref === 'dark') return pref;
@@ -244,8 +499,7 @@ function resolveTheme(pref = themePref()) {
   if (scheme === 'light' || scheme === 'dark') return scheme;
   return window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
-// Шапка, фон и нижняя полоса Telegram того же цвета, что страница.
-function paintTmaShell(color) {
+function paintTmaShell(color) {   // шапка, фон и нижняя полоса Telegram того же цвета, что страница
   if (!TG) return;
   const call = (method, since) => { try { if (TG[method] && (!TG.isVersionAtLeast || TG.isVersionAtLeast(since))) TG[method](color); } catch (_) {} };
   call('setHeaderColor', '6.1'); call('setBackgroundColor', '6.1'); call('setBottomBarColor', '7.10');
@@ -258,165 +512,156 @@ function applyTheme() {
   paintTmaShell(PAGE_COLOR[theme]);
 }
 function themeSheet() {
-  const current = themePref();
-  sheet('Оформление', `<div class="go-list">${THEMES.map(([key, title, sub]) =>
-    `<button type="button" data-theme-pick="${key}" class="${key === current ? 'here' : ''}"><span>${title}<small class="sub" style="display:block">${sub}</small></span></button>`).join('')}</div>
-    <div class="sub" style="margin-top:8px">Хранится на этом устройстве.</div>`, 'Готово', () => {}, {info: true});
-  $('#sheet').querySelectorAll('[data-theme-pick]').forEach(btn => btn.onclick = () => {
-    PREFS.set('theme', btn.dataset.themePick); applyTheme();
-    $('#sheet').querySelectorAll('[data-theme-pick]').forEach(b => b.classList.toggle('here', b === btn));
-  });
+  const draw = () => `<div class="list">${THEMES.map(([key, title, sub]) => `<button type="button" class="row" data-theme-pick="${key}" data-on="pick" data-v="${key}">
+      <span class="row-t"><b>${title}</b><span>${sub}</span></span><span class="row-e">${key === themePref() ? '<b style="color:var(--accent)">✓</b>' : ''}</span></button>`).join('')}</div>
+    <p class="sub">Хранится на этом устройстве.</p>`;
+  const panel = openSheet({title: 'Оформление', body: draw()});
+  on(panel.el, {pick: el => { PREFS.set('theme', el.dataset.v); applyTheme(); $('.sheet-b', panel.el).innerHTML = draw(); }});
 }
 applyTheme();
 try { if (TG && TG.onEvent) TG.onEvent('themeChanged', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
 try { if (window.matchMedia) matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themePref() === 'auto') applyTheme(); }); } catch (_) {}
 
-// Оболочка Telegram: смахивание вниз не закрывает админку посреди формы; лёгкий отклик на нажатия, как в приложении.
-(function initTmaShell() {
-  if (!TG) return;
-  try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}
-  document.addEventListener('click', e => {
-    const t = e.target.closest('.nb, .btn');
-    if (!t || t.disabled) return;
-    try { const h = TG.HapticFeedback; if (h) { t.classList.contains('nb') ? h.selectionChanged() : h.impactOccurred(t.classList.contains('primary') ? 'medium' : 'light'); } } catch (_) {}
-  }, true);
-})();
+// ── Шторки: стек. «‹» в шторке — к прошлому шагу, ✕ и тап по фону — закрыть всё ──
+// Нижняя панель шторки липкая: главная кнопка видна всегда, даже над клавиатурой.
 
-// ── Горячие клавиши (компьютер) ───────────────────────────────────────────────
-
-const GO_KEYS = {p: 'people', r: 'reports', m: 'metrics', j: 'journal', b: 'broadcast', c: 'promo', f: 'switches', s: 'settings', h: 'health'};
-const HOTKEYS = [['/', 'Искать: игроки и чаты, промокоды'], ['g, затем p', 'Игроки'], ['g, затем r', 'Жалобы'], ['g, затем m', 'Метрики'], ['g, затем j', 'Журнал'],
-  ['g, затем b', 'Рассылка'], ['g, затем c', 'Промокоды'], ['g, затем f', 'Функции'], ['g, затем s', 'Настройки'], ['g, затем h', 'Состояние'],
-  ['Esc', 'Закрыть окно, убрать курсор из поля, вернуться назад'], ['Ctrl + Enter', 'Подтвердить окно'], ['?', 'Эта подсказка']];
-function hotkeysSheet() {
-  const mine = key => !/^g, /.test(key) || ME.sections.some(z => z.key === GO_KEYS[key.slice(-1)]);
-  sheet('Горячие клавиши', `<div class="keys">${HOTKEYS.filter(([key]) => mine(key)).map(([key, text]) =>
-    `<div><kbd>${esc(key)}</kbd><span>${esc(text)}</span></div>`).join('')}</div>`, 'Понятно', () => {}, {info: true});
-}
-(function initHotkeys() {
-  if (!(window.matchMedia && matchMedia('(pointer: fine)').matches)) return;   // на телефоне клавиатуры нет
-  let goAt = 0;
-  const closeSheet = () => { const box = $('#sheet'); box.hidden = true; box.innerHTML = ''; };
-  const focusSearch = () => {
-    const field = $('#pplq') || $('#pq');
-    if (field) { field.focus(); field.select(); return true; }
-    return false;
-  };
-  document.addEventListener('keydown', e => {
-    if (!ME || e.metaKey || e.altKey) return;
-    const sheetOpen = !$('#sheet').hidden;
-    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
-    if (e.key === 'Enter' && e.ctrlKey && sheetOpen) {
-      const ok = $('#sok');
-      if (ok && !ok.disabled) { e.preventDefault(); ok.click(); }
-      return;
-    }
-    if (e.key === 'Escape') {
-      if (sheetOpen) { e.preventDefault(); closeSheet(); }
-      else if (typing) e.target.blur();
-      else { const back = $('#pback'); if (back) { e.preventDefault(); back.click(); } }
-      return;
-    }
-    if (typing || e.ctrlKey || sheetOpen) return;
-    if (goAt && Date.now() - goAt < 1500) {
-      goAt = 0;
-      const key = GO_KEYS[e.key.toLowerCase()];
-      if (key && ME.sections.some(z => z.key === key)) { e.preventDefault(); open(key); }
-      return;
-    }
-    if (e.key === 'g') { goAt = Date.now(); return; }
-    if (e.key === '/') {
-      e.preventDefault();
-      if (!focusSearch() && ME.sections.some(z => z.key === 'people')) { open('people'); setTimeout(focusSearch, 500); }
-    } else if (e.key === '?') { e.preventDefault(); hotkeysSheet(); }
-  });
-})();
-
-// ── Игроки и чаты: поиск, карточки, действия ─────────────────────────────────
-
-const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
-// Тег игрока в чате (подпись справа от имени в Telegram): после имени серым, пусто если тега нет
-const tagSfx = tag => tag ? ` <span class="sub tag">[${esc(tag)}]</span>` : '';
-// Фото человека: сервер отдаёт подписанную ссылку, BASE — префикс приложения.
-// Нет фото или ссылка устарела — остаётся цветной кружок с инициалом, без битой картинки.
-const pic = url => url ? esc(BASE + url) : '';
-function ava(p, cls = '') {
-  const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
-  const letter = (p.name || p.username || '?').replace(/^@+/, '').trim().charAt(0).toUpperCase() || '?';
-  return `<span class="ava ${cls}" aria-hidden="true">${photo}<b>${esc(letter)}</b></span>`;
-}
-// Человек одной строкой: фото, имя, @ник. Для ленты, жалоб и списков, где важна не строка, а лицо.
-const pinline = (p, extra = '') => p && p.id
-  ? `<span class="pinline">${ava(p)}<b>${p.name ? esc(p.name) : who(p.id, p.username)}</b>${p.name && p.username ? `<span class="sub">@${esc(p.username)}</span>` : ''}${extra}</span>`
-  : '';
-const PEOPLE = {query: '', filter: '', stack: [], select: false, picked: new Set()};   // stack — откуда пришли (для «Назад»)
-const PEOPLE_FILTERS = [['', 'Все'], ['vip', '👑 VIP'], ['banned', '⛔ С баном'], ['warned', '⚠️ С предупреждениями'],
-  ['new', '🌱 Новые за 7 дней'], ['watch', '👁 На контроле'], ['staff', '🎖 Персонал'], ['needs_staff_mark', '🏅 Персонал без регалии']];
-
-function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена'} = {}) {
-  const box = $('#sheet');
-  box.innerHTML = `<div class="sheet"><h3>${esc(title)}</h3>${body}
-    <div class="actions" style="margin-top:12px"><button class="btn primary" id="sok">${esc(submitText)}</button>
-      ${info ? '' : `<button class="btn" id="scancel">${esc(cancelText)}</button>`}</div></div>`;
+const SHEETS = [];
+function sheetBox() { return $('#sheet'); }
+function openSheet({title, sub = '', body = '', actions = [], wide = false, onClose = null} = {}) {
+  const box = sheetBox();
+  const el = Object.assign(document.createElement('div'), {className: 'sheet' + (wide ? ' wide' : '')});
+  el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', title); el.tabIndex = -1;
+  const backable = SHEETS.length > 0;
+  el.innerHTML = `<div class="sheet-h">${backable ? `<button type="button" class="ib" data-sh="back" aria-label="Назад">${icon('back')}</button>` : ''}
+      <h3>${esc(title)}${sub ? `<small>${esc(sub)}</small>` : ''}</h3><button type="button" class="ib" data-sh="close" aria-label="Закрыть">${icon('close')}</button></div>
+    <div class="sheet-b">${body}</div>
+    ${actions.length ? `<div class="sheet-f"><div class="err" role="alert" hidden></div><div class="btns">${actions.map((a, i) =>
+      `<button type="button" class="btn ${a.kind || (i === 0 ? 'primary' : '')}" data-sa="${i}">${esc(a.label)}</button>`).join('')}</div></div>` : ''}`;
+  SHEETS.forEach(s => s.el.classList.remove('is-top'));
+  const api_ = {el, q: sel => el.querySelector(sel), qa: sel => $$(sel, el), close: () => closeSheets(), pop: () => popSheet(), onClose,
+    error(text) { const e = el.querySelector('.sheet-f .err'); if (e) { e.textContent = text || ''; e.hidden = !text; } }};
+  SHEETS.push(api_);
+  box.append(el);
+  el.classList.add('is-top');
   box.hidden = false;
-  const close = () => { box.hidden = true; box.innerHTML = ''; };
-  if (!info) $('#scancel').onclick = close;
-  box.onclick = e => { if (e.target === box) close(); };
-  $('#sok').onclick = async () => {
-    $('#sok').disabled = true;
-    try { if (await onSubmit(box) !== 'keep') close(); } catch (e) { toast(e.message, true); $('#sok').disabled = false; }
-  };
+  document.body.classList.add('locked');
+  el.querySelector('[data-sh="close"]').onclick = () => closeSheets();
+  if (backable) el.querySelector('[data-sh="back"]').onclick = () => popSheet();
+  el.querySelectorAll('[data-sa]').forEach(btn => btn.onclick = async () => {
+    const a = actions[+btn.dataset.sa];
+    if (btn.disabled) return;   // двойной тап по «Подтвердить» не отправит второй запрос
+    api_.error('');
+    if (!a.run) { if (SHEETS.includes(api_)) { while (SHEETS[SHEETS.length - 1] !== api_) popSheet(); popSheet(); } return; }   // «Отмена» закрывает только это окно
+    btn.disabled = true; btn.classList.add('busy');
+    try {
+      const res = await a.run(api_);
+      if (res !== 'keep' && SHEETS.includes(api_)) closeSheets();
+    } catch (e) { api_.error(e.message); haptic('error'); }
+    finally { if (btn.isConnected) { btn.disabled = false; btn.classList.remove('busy'); } }
+  });
+  const first = el.querySelector('.sheet-b input:not([type=checkbox]):not([readonly]), .sheet-b textarea');
+  setTimeout(() => { if (first && !coarse()) first.focus(); else el.focus(); }, 30);
+  return api_;
+}
+function popSheet() {
+  const top = SHEETS.pop();
+  if (!top) return;
+  top.el.remove();
+  if (top.onClose) try { top.onClose(); } catch (_) {}
+  if (SHEETS.length) SHEETS[SHEETS.length - 1].el.classList.add('is-top');
+  else { sheetBox().hidden = true; document.body.classList.remove('locked'); }
+}
+function closeSheets() { while (SHEETS.length) popSheet(); }
+// Короткая форма: заголовок, содержимое, одна главная кнопка (и «Отмена»). onSubmit может вернуть 'keep'.
+function sheet(title, body, submitText, onSubmit, {info = false, cancelText = 'Отмена', kind = 'primary', sub = ''} = {}) {
+  return openSheet({title, sub, body, actions: info ? [{label: submitText, kind: '', run: null}]
+    : [{label: submitText, kind, run: p => onSubmit(p)}, {label: cancelText, kind: '', run: null}]});
+}
+// Подтверждение в стиле админки вместо системного confirm(): обещание true/false.
+function ask(title, html, okText, {danger = true} = {}) {
+  return new Promise(resolve => {
+    let done = false;
+    const p = openSheet({title, body: html, actions: [{label: okText, kind: danger ? 'btn danger fill' : 'primary', run: () => { done = true; resolve(true); }},
+      {label: 'Отмена', kind: '', run: null}], onClose: () => { if (!done) resolve(false); }});
+    return p;
+  });
+}
+sheetBox().addEventListener('click', e => { if (e.target === sheetBox()) closeSheets(); });
+// Клавиатура телефона: шторка не прячется под неё (высота видимой части экрана).
+if (window.visualViewport) {
+  const fit = () => document.documentElement.style.setProperty('--vvh', visualViewport.height + 'px');
+  visualViewport.addEventListener('resize', fit); fit();
 }
 
-const DURATIONS = [[15, '15 минут'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
-const durationField = (def = 60) => `<div class="field"><label>Срок</label><select id="fmin">
-  ${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === def ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`;
-const hint = text => `<div class="sub hint">${text}</div>`;   // короткое пояснение над полями: что произойдёт
-const reasonField = (required = false) => `<div class="field"><label>Причина${required ? '' : ' (необязательно)'}</label>
-  <input id="freason" maxlength="200"/></div>`;
+// ── Действия над людьми и чатами: поля, итог, подтверждение ─────────────────
 
-// Форма под каждое действие: поля + что отправить.
+const DURATIONS = [[15, '15 мин'], [60, '1 час'], [1440, '1 день'], [10080, '7 дней'], [43200, '30 дней'], [0, 'навсегда']];
+const REASONS = ['Спам', 'Флуд', 'Оскорбления', 'Реклама', 'Провокации', '18+', 'Обход наказания'];
+function rememberReason(text) {
+  const r = String(text || '').trim();
+  if (!r || REASONS.includes(r)) return;
+  PREFS.set('reasons', [r, ...PREFS.get('reasons', []).filter(x => x !== r)].slice(0, 4));
+}
+// Срок одним касанием; значение — в скрытом поле #fmin.
+const durationField = (def = 60, label = 'Срок') => field(label, `<input type="hidden" id="fmin" value="${def}"/>${chipPick('fdur', DURATIONS, def)}`);
+// Причина: поле + готовые и недавние причины одним касанием.
+const reasonField = (required = false, value = '') => {
+  const list = [...PREFS.get('reasons', []), ...REASONS].slice(0, 9);
+  return field(`Причина${required ? '' : ' <span style="font-weight:400">(необязательно)</span>'}`,
+    `<input id="freason" maxlength="200" value="${esc(value)}" ${required ? 'data-required="1"' : ''} autocomplete="off"/>${chipPick('freason', list.map(x => [x, x]), '')}`);
+};
+const hint = text => `<p class="sub" style="margin:0 0 14px">${text}</p>`;
+// Поля шторки: чипы срока и причины пишут в свои поля.
+function wireFormChips(root) {
+  root.addEventListener('click', e => {
+    const c = e.target.closest('.chip[data-on]');
+    if (!c || !root.contains(c)) return;
+    const key = c.dataset.on;
+    if (key === 'fdur') { root.querySelector('#fmin').value = c.dataset.v; }
+    else if (key === 'freason') { const f = root.querySelector('#freason'); f.value = c.dataset.v; }
+    else if (key === 'fdays') { root.querySelector('#fdays').value = c.dataset.v; }
+    else return;
+    c.parentNode.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', String(x === c)));
+    haptic('select');
+  });
+}
+
+// Форма под каждое действие: [разметка, collect(шторка) → что отправить].
 function actionForm(key, ctx) {
-  const v = id => ($('#' + id) || {}).value;
+  const v = (root, id) => ((root && root.querySelector('#' + id)) || {}).value;
   switch (key) {
-    case 'warn': return [hint('Предупреждение действует выбранный срок. Когда их станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'mute': return [hint('Игрок не сможет писать в этом чате до конца срока. Раньше можно снять кнопкой «Снять мут».') + durationField(60) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'ban': return [hint('Игрока уберут из этого чата, вернуться он не сможет. Снимается кнопкой «Снять бан в чате».') + durationField(0) + reasonField(), () => ({minutes: +v('fmin'), reason: v('freason')})];
-    case 'kick': case 'global_ban': return [hint(key === 'kick' ? 'Игрок выйдет из чата, но сможет вернуться по ссылке.'
-        : 'Бан сразу во всех чатах, где есть бот и у него есть права. Снимается кнопкой «Снять бан во всех чатах». Понадобится ввести ID игрока.') + reasonField(), () => ({reason: v('freason')})];
-    case 'block': return [hint('Бот перестанет отвечать игроку и считать его команды. В чатах он остаётся и может писать.') + `<div class="field"><label>На сколько</label><select id="fdays">
-        <option value="1">1 день</option><option value="7">7 дней</option><option value="30">30 дней</option>
-        <option value="0" selected>пока не снимут</option></select></div>` + reasonField(),
-      () => ({days: +v('fdays'), reason: v('freason')})];
-    case 'balance': return [hint('Минус спишет. Причина обязательна, она попадёт в журнал. Крупные суммы (от ' + Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции', zarniki: 'зарников'})[c] || c}`).join(', ') + ') попросят ввести ID игрока.') + `<div class="grid2"><div class="field"><label>Валюта</label><select id="fcur">
-        ${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)}</option>`).join('')}</select></div>
-        <div class="field"><label>Сумма (минус — списать)</label><input id="famount" inputmode="decimal" placeholder="500 или -500"/></div></div>
-        ${reasonField(true)}`,
-      () => ({currency: v('fcur'), amount: (v('famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v('freason'),
-              request_id: ctx._rid})];
-    case 'vip': return [`<div class="field"><label>Дней VIP (добавятся к текущему сроку)</label>
-        <input id="fdays" type="number" min="1" max="3650" value="7"/>
-        <div class="chips">${[7, 30, 90, 365].map(d => `<span class="chip" onclick="document.getElementById('fdays').value=${d}">${d} дн.</span>`).join('')}</div></div>` + reasonField(),
-      () => ({days: +v('fdays'), reason: v('freason'), request_id: ctx._rid})];
-    case 'local_rank': return [hint('Ранг действует только в выбранном чате. Владелец и глобальная роль этим действием не меняются.') + `<div class="field"><label>Ранг в чате</label><select id="flocalrank">${ctx.local_ranks.map(r=>`<option value="${r.rank}" ${r.rank===ctx.local_rank?'selected':''}>${esc(r.name)}</option>`).join('')}</select></div>` + reasonField(true),()=>({rank:+v('flocalrank'),expected_rank:ctx.local_rank,reason:v('freason')})];
-    case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.') + `<div class="field"><label>Новая роль</label><select id="frank">
-        ${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></div>`
-        + reasonField(), () => ({rank: +v('frank'), reason: v('freason')})];
-    case 'mark_grant': {
-      const have = new Set(ctx.marks.given.map(m => m.id));
-      const free = ctx.marks.grantable.filter(m => !have.has(m.id));
-      return [`<div class="field"><label>Метка (в профиле — «Регалии»)</label><select id="fmark">
-        ${free.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)} — ${esc(m.desc)}</option>`).join('')}</select></div>`
-        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
+    case 'warn': return [hint('Предупреждение действует выбранный срок. Когда их станет столько, сколько стоит в лимите чата, бот напишет об этом в чат.') + durationField(10080) + reasonField(false, ctx.reason),
+      r => ({minutes: +v(r, 'fmin'), reason: v(r, 'freason')})];
+    case 'mute': return [hint('Не сможет писать в этом чате до конца срока. Снять раньше — «Снять мут».') + durationField(60) + reasonField(false, ctx.reason),
+      r => ({minutes: +v(r, 'fmin'), reason: v(r, 'freason')})];
+    case 'ban': return [hint('Уберут из этого чата, вернуться сам не сможет. Снять — «Снять бан в чате».') + durationField(0) + reasonField(false, ctx.reason),
+      r => ({minutes: +v(r, 'fmin'), reason: v(r, 'freason')})];
+    case 'kick': case 'global_ban': return [hint(key === 'kick' ? 'Выйдет из чата, но сможет вернуться по ссылке.'
+        : 'Бан сразу во всех чатах, где есть бот и у него есть права. Снять — «Снять бан во всех чатах». Понадобится ввести ID игрока.') + reasonField(false, ctx.reason),
+      r => ({reason: v(r, 'freason')})];
+    case 'block': return [hint('Бот перестанет отвечать игроку и считать его команды. В чатах он остаётся и может писать.')
+        + field('На сколько', `<input type="hidden" id="fdays" value="0"/>${chipPick('fdays', [[1, '1 день'], [7, '7 дней'], [30, '30 дней'], [0, 'пока не снимут']], 0)}`) + reasonField(),
+      r => ({days: +v(r, 'fdays'), reason: v(r, 'freason')})];
+    case 'balance': {
+      const rules = Object.entries(ctx.confirm_rules ? ctx.confirm_rules.balance : {}).map(([c, n]) => `${num(n)} ${({mora: 'мора', diamonds: 'алмазов', essence: 'эссенции', zarniki: 'зарников'})[c] || c}`).join(', ');
+      return [hint('Минус спишет. Причина обязательна, она попадёт в журнал.' + (rules ? ` Крупные суммы (от ${rules}) попросят ввести ID игрока.` : ''))
+        + `<div class="grid2">${field('Валюта', `<select id="fcur">${ctx.currencies.map(c => `<option value="${c.code}">${esc(c.title)} · ${num((ctx.balances || {})[c.code])}</option>`).join('')}</select>`)}
+          ${field('Сумма', '<input id="famount" inputmode="decimal" placeholder="500 или -500" autocomplete="off"/>', 'Минус — списать')}</div>` + reasonField(true),
+        r => ({currency: v(r, 'fcur'), amount: (v(r, 'famount') || '').replace(',', '.').replace(/\s/g, ''), reason: v(r, 'freason'), request_id: ctx._rid})];
     }
-    case 'mark_revoke': return [`<div class="field"><label>Какую снять</label><select id="fmark">
-        ${ctx.marks.given.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>`
-        + reasonField(true), () => ({mark: v('fmark'), reason: v('freason')})];
-    case 'warn_limit': return [hint('Сколько варнов у игрока в этом чате считается пределом: на этом бот напишет в чат.') + `<div class="field"><label>Варнов до наказания</label>
-        <input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/></div>`, () => ({value: +v('fval')})];
-    case 'message': return [hint('Сообщение сразу уйдёт в чат от имени бота, его увидят все участники.') + `<div class="field"><label>Текст (без разметки)</label><textarea id="ftext" maxlength="3500"></textarea></div>`,
-      () => ({text: v('ftext')})];
-    default: return ['<div class="sub">Подтвердите действие.</div>', () => ({})];
+    case 'vip': return [field('Дней VIP (добавятся к текущему сроку)', `<input id="fdays" type="number" min="1" max="3650" value="7"/>${chipPick('fdays', [[7, '7 дн.'], [30, '30 дн.'], [90, '90 дн.'], [365, '365 дн.']], 7)}`) + reasonField(),
+      r => ({days: +v(r, 'fdays'), reason: v(r, 'freason'), request_id: ctx._rid})];
+    case 'local_rank': return [hint('Ранг действует только в выбранном чате. Владелец и глобальная роль этим не меняются.')
+        + field('Ранг в чате', `<select id="flocalrank">${ctx.local_ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.local_rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`) + reasonField(true),
+      r => ({rank: +v(r, 'flocalrank'), expected_rank: ctx.local_rank, reason: v(r, 'freason')})];
+    case 'rank': return [hint('Роль открывает разделы админки и права в боте. Выдать можно только роль ниже своей. Понадобится ввести ID игрока.')
+        + field('Новая роль', `<select id="frank">${ctx.ranks.map(r => `<option value="${r.rank}" ${r.rank === ctx.rank ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`) + reasonField(),
+      r => ({rank: +v(r, 'frank'), reason: v(r, 'freason')})];
+    case 'warn_limit': return [hint('Сколько предупреждений в этом чате считается пределом: на нём бот напишет в чат.')
+        + field('Предупреждений до наказания', `<input id="fval" type="number" min="1" max="20" value="${ctx.warn_limit || 3}"/>`), r => ({value: +v(r, 'fval')})];
+    case 'message': return [hint('Сообщение сразу уйдёт в чат от имени бота, его увидят все участники.') + field('Текст (без разметки)', '<textarea id="ftext" maxlength="3500"></textarea>'),
+      r => ({text: v(r, 'ftext')})];
+    default: return [hint('Подтвердите действие.'), () => ({})];
   }
 }
 
@@ -433,1997 +678,210 @@ function needsTypedConfirm(key, payload, ctx) {
 const CONFIRM_TITLE = {ban: '⛔ Забанить в чате', kick: '👢 Выгнать из чата', global_ban: '🚫 Забанить во всех чатах', block: '🙈 Бот перестанет отвечать',
   balance: '💰 Изменить баланс', rank: '🎖 Изменить роль', vip: '👑 Выдать VIP', leave: '🚪 Бот выйдет из чата',
   message: '📣 Написать от бота', close: '🔒 Чат закроется', revoke_sessions: '🔒 Сессии админки завершатся'};
+// Итог перед подтверждением: строки [подпись, значение-разметка].
 function confirmLines(key, payload, ctx, extra) {
-  const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([v]) => v === m) || [0, m + ' мин'])[1];
+  const minutes = m => !m ? 'навсегда' : (DURATIONS.find(([x]) => x === m) || [0, m + ' мин'])[1];
   const lines = [];
-  const whom = ctx.username !== undefined ? `Игрок: <b>${who(ctx.id, ctx.username)}</b> · ID ${ctx.id} · ${esc(ctx.rank_name || '')}` : '';
-  const chat = extra.chat_title ? `Чат: <b>${esc(extra.chat_title)}</b>` : (ctx.title ? `Чат: <b>${esc(ctx.title)}</b>` : '');
-  if (whom) lines.push(whom);
-  if (chat) lines.push(chat);
-  if (key === 'ban') lines.push(`Срок: <b>${minutes(payload.minutes)}</b>. Игрока удалят из чата, обратно он сам не войдёт.`);
-  else if (key === 'kick') lines.push('Игрока удалят из чата, вернуться по ссылке он сможет.');
-  else if (key === 'global_ban') lines.push('Игрок потеряет доступ <b>во всех чатах бота</b>. Это видно в его карточке, снимается кнопкой «Снять бан во всех чатах».');
-  else if (key === 'block') lines.push(`Бот перестанет отвечать игроку: <b>${payload.days ? payload.days + ' дн.' : 'пока не снимут'}</b>.`);
+  if (ctx.username !== undefined) lines.push(['Кто', `<b>${esc(ctx.name || '')}${ctx.name ? ' · ' : ''}${who(ctx.id, ctx.username)}</b> · ID ${ctx.id}${ctx.rank_name ? ' · ' + esc(ctx.rank_name) : ''}`]);
+  const chat = extra.chat_title || ctx.title;
+  if (chat) lines.push(['Чат', `<b>${esc(chat)}</b>`]);
+  if (key === 'ban') lines.push(['Что', `Бан на <b>${minutes(payload.minutes)}</b>. Удалят из чата, обратно сам не войдёт.`]);
+  else if (key === 'kick') lines.push(['Что', 'Удалят из чата, вернуться по ссылке сможет.']);
+  else if (key === 'global_ban') lines.push(['Что', 'Потеряет доступ <b>во всех чатах бота</b>. Снять — «Снять бан во всех чатах».']);
+  else if (key === 'block') lines.push(['Что', `Бот перестанет отвечать: <b>${payload.days ? payload.days + ' дн.' : 'пока не снимут'}</b>.`]);
   else if (key === 'balance') {
     const cur = ctx.currencies.find(c => c.code === payload.currency) || {title: payload.currency};
     const now = (ctx.balances || {})[payload.currency], delta = parseFloat(payload.amount);
-    lines.push(`${esc(cur.title)}: <b>${delta > 0 ? '+' : ''}${esc(payload.amount)}</b>${now !== undefined && !isNaN(delta) ? ` · было ${num(now)}, станет ${num(Math.round((now + delta) * 100) / 100)}` : ''}`);
-  } else if (key === 'rank') lines.push(`Роль: ${esc(ctx.rank_name || '')} → <b>${esc((ctx.ranks.find(r => r.rank === payload.rank) || {}).name || payload.rank)}</b>`);
-  else if (key === 'vip') lines.push(`К VIP добавится <b>${payload.days} дн.</b>${ctx.vip ? ` (сейчас осталось ${ctx.vip.days_left})` : ''}`);
-  else if (key === 'leave') lines.push('Бот выйдет из чата, обратно его придётся добавлять заново.');
-  else if (key === 'message') lines.push(`Текст увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`);
-  else if (key === 'close') lines.push('Участники не смогут писать, пока чат не откроют.');
-  else if (key === 'revoke_sessions') lines.push('Сотрудник выйдет из админки на всех устройствах и откроет её заново. Роль не меняется.');
-  if (payload.reason) lines.push(`Причина: ${esc(payload.reason)}`);
+    lines.push(['Сумма', `${esc(cur.title)}: <b>${delta > 0 ? '+' : ''}${esc(payload.amount)}</b>${now !== undefined && !Number.isNaN(delta) ? ` · было ${num(now)}, станет <b>${num(Math.round((now + delta) * 100) / 100)}</b>` : ''}`]);
+  } else if (key === 'rank') lines.push(['Роль', `${esc(ctx.rank_name || '')} → <b>${esc((ctx.ranks.find(r => r.rank === payload.rank) || {}).name || payload.rank)}</b>`]);
+  else if (key === 'vip') lines.push(['VIP', `+<b>${payload.days} дн.</b>${ctx.vip ? ` (сейчас осталось ${ctx.vip.days_left})` : ''}`]);
+  else if (key === 'leave') lines.push(['Что', 'Бот выйдет из чата, обратно его придётся добавлять заново.']);
+  else if (key === 'message') lines.push(['Текст', `Увидят все участники чата:<blockquote>${esc(payload.text || '')}</blockquote>`]);
+  else if (key === 'close') lines.push(['Что', 'Участники не смогут писать, пока чат не откроют.']);
+  else if (key === 'revoke_sessions') lines.push(['Что', 'Сотрудник выйдет из админки на всех устройствах. Роль не меняется.']);
+  if (payload.reason) lines.push(['Причина', esc(payload.reason)]);
   return lines;
 }
+const summary = (lines, danger = true) => `<div class="sum ${danger ? 'danger' : ''}">${lines.map(([k, v]) => `<div><span>${k}</span><span>${v}</span></div>`).join('')}</div>`;
 
+// Действие: форма → (для опасного) итог и подтверждение. «‹» с итога возвращает к форме с теми же полями.
+// Один request_id на открытое действие: повторное «Подтвердить» после потерянного ответа не начислит дважды.
 function runAction(action, target, ctx, extra, after) {
-  // Один ключ на открытое окно: повторное «Выполнить» после потерянного ответа не начислит дважды.
-  ctx._rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
+  ctx = {...ctx, _rid: newRid()};
   const [body, collect] = actionForm(action.key, ctx);
-  const place = extra.chat_title ? `<div class="sub" style="margin-bottom:10px">Чат: ${esc(extra.chat_title)}</div>` : '';
+  const danger = DANGEROUS.has(action.key);
   const perform = async payload => {
-    const res = await api(target, {method: 'POST', body: JSON.stringify(payload)});
-    toast(res.message || 'Готово');
-    const keep = window.scrollY;   // после действия карточка перерисовывается: остаёмся на том же месте, а не наверху
-    Promise.resolve(after()).then(() => window.scrollTo(0, keep));
+    const res = await post(target, payload);
+    rememberReason(payload.reason);
+    closeSheets();
+    toast(res.message || 'Готово', {ok: true});
+    if (after) await after(res);
   };
-  sheet(action.title, place + body, DANGEROUS.has(action.key) ? 'Далее' : 'Выполнить', async () => {
-    const payload = {action: action.key, ...collect(), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
-    if (!DANGEROUS.has(action.key)) return perform(payload);
-    const typed = needsTypedConfirm(action.key, payload, ctx);
-    sheet(CONFIRM_TITLE[action.key] || action.title, `<div class="sub" style="margin-bottom:8px">Проверьте перед выполнением:</div>
-      <div class="confirm">${confirmLines(action.key, payload, ctx, extra).map(l => `<div>${l}</div>`).join('')}</div>
-      ${typed ? `<div class="field" style="margin-top:10px"><label>Для подтверждения введите ID игрока: <b>${ctx.id}</b></label>
-        <input id="fconfirm" inputmode="numeric" autocomplete="off"/></div>` : ''}`,
-      'Подтвердить', () => {
-        if (!typed) return perform(payload);
-        const typedId = ($('#fconfirm').value || '').trim();
-        if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
-        return perform({...payload, confirm: typedId});
-      });
-    return 'keep';
-  });
+  const form = openSheet({title: action.title, sub: extra.chat_title ? 'Чат: ' + extra.chat_title : (ctx.username !== undefined ? nameOf(ctx) : ''), body,
+    actions: [{label: danger ? 'Далее' : 'Выполнить', kind: danger ? 'danger' : 'primary', run: async panel => {
+      const req = panel.q('[data-required]');
+      if (req && !req.value.trim()) { req.focus(); throw new Error('Укажите причину: она попадёт в журнал.'); }
+      const payload = {action: action.key, ...collect(panel.el), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
+      if (!danger) { await perform(payload); return 'keep'; }
+      const typed = needsTypedConfirm(action.key, payload, ctx);
+      openSheet({title: CONFIRM_TITLE[action.key] || action.title, sub: 'Проверьте перед выполнением',
+        body: summary(confirmLines(action.key, payload, ctx, extra)) + (typed ? field(`Для подтверждения введите ID игрока: <b>${ctx.id}</b>`,
+          '<input id="fconfirm" inputmode="numeric" autocomplete="off"/>') : ''),
+        actions: [{label: 'Подтвердить', kind: 'btn danger fill', run: async p2 => {
+          if (!typed) { await perform(payload); return 'keep'; }
+          const typedId = (p2.q('#fconfirm').value || '').trim();
+          if (typedId !== String(ctx.id)) throw new Error('ID не совпал: введите ' + ctx.id);
+          await perform({...payload, confirm: typedId});
+          return 'keep';
+        }}]});
+      return 'keep';
+    }}, {label: 'Отмена', kind: '', run: null}]});
+  wireFormChips(form.el);
+  return form;
 }
 
-function back(main) {
-  const prev = PEOPLE.stack.pop();
-  if (!prev) return peopleSearch(main, PEOPLE.query);
-  return prev.type === 'player' ? playerView(main, prev.id, false) : chatView(main, prev.id, false);
-}
-
-function backBar(label = '← Назад') {
-  return `<div class="bar"><button class="btn" id="pback">${label}</button>
-    <button class="btn" id="psearch">🔍 Поиск</button></div>`;
-}
-
-// Длинные списки в карточках (чаты игрока, журнал) показываем по 5 строк, остальное по кнопке: страница не растёт на экраны.
-function trim(main, keep = 5) {
-  main.querySelectorAll('.card').forEach(card => {
-    const rows = [...card.children].filter(n => n.matches('.member, .log'));
-    if (rows.length <= keep + 1) return;
-    rows.slice(keep).forEach(n => { n.hidden = true; });
-    const more = document.createElement('button');
-    more.className = 'btn small more'; more.textContent = `Показать ещё ${rows.length - keep}`;
-    more.onclick = () => { rows.forEach(n => { n.hidden = false; }); more.remove(); };
-    card.appendChild(more);
-  });
-}
-
-// Кнопка «назад» самого Telegram ведёт по карточкам так же, как «← Назад» на странице.
-function nativeBack(main) {
-  const bb = TG && TG.BackButton;
-  if (!bb) return;
-  if (PEOPLE.bb) bb.offClick(PEOPLE.bb);
-  bb.offClick(goApp);
-  PEOPLE.bb = () => back(main);
-  bb.onClick(PEOPLE.bb); bb.show();
-}
-
-function wireBack(main) {
-  trim(main); nativeBack(main);
-  window.scrollTo(0, 0);
-  $('#pback').onclick = () => back(main);
-  $('#psearch').onclick = () => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
-}
-
-function historyCard(items) {
-  if (!items.length) return '<div class="card"><h3>Журнал</h3><div class="sub">Пока пусто.</div></div>';
-  return `<div class="card"><h3>Журнал</h3>${items.map(x => `
-    <div class="log"><div><b>${esc(x.title)}</b> ${esc(x.text)}</div>${x.reason ? `<div class="sub">Причина: ${esc(x.reason)}</div>` : ''}
-      <div class="sub">${when(x.at)} · ${x.actor && x.actor.id ? who(x.actor.id, x.actor.username) : 'бот'}
-        ${x.chat ? ' · ' + esc(x.chat.title || x.chat.id) : ''}${x.user ? ' · ' + who(x.user.id, x.user.username) + tagSfx(x.user.tag) : ''}</div></div>`).join('')}</div>`;
-}
-
-// Массовые действия над выбранными в списке: каждое открывает шторку и шлёт один запрос на всех.
-const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять все предупреждения', mark_grant: '🏅 Выдать метку', mark_revoke: '✖️ Снять метку'};
+// Массовые действия над выбранными игроками: одна шторка, один запрос на всех, список тех, у кого не вышло.
+const BULK_TITLES = {watch: '👁 На контроль', unwatch: 'Снять с контроля', unwarn_all: '🧽 Снять все предупреждения', mark_grant: '🏅 Выдать регалию', mark_revoke: '✖️ Снять регалию'};
+const BULK_MAX = 50;
 async function bulkRun(action, ids, after) {
-  const count = `Игроков: <b>${ids.length}</b>.`;
+  const count = `<p class="sub">Игроков: <b>${ids.length}</b>.</p>`;
   const send = async extra => {
-    const res = await api('/players/bulk', {method: 'POST', body: JSON.stringify({action, ids, ...extra})});
-    toast(res.message);
+    const res = await post('/players/bulk', {action, ids, ...extra});
+    closeSheets();
+    toast(res.message, {ok: !res.failed.length});
     if (res.failed.length) {
-      sheet('Не всем получилось', `<div class="sub">${esc(res.message)}</div>${res.failed.map(f =>
-        `<div class="log"><b>${who(f.id, f.username)}</b><div class="sub">${esc(f.reason)}</div></div>`).join('')}`, 'Понятно', () => {}, {info: true});
+      sheet('Не всем получилось', `<p class="sub">${esc(res.message)}</p><div class="list">${res.failed.map(f =>
+        row({title: who(f.id, f.username), sub: esc(f.reason)})).join('')}</div>`, 'Понятно', null, {info: true});
     }
     after();
+    return 'keep';
   };
-  if (action === 'watch') return sheet(BULK_TITLES[action], `<div class="sub">${count} Они появятся в фильтре «На контроле».</div>${reasonField()}`,
-    'Поставить', () => send({reason: ($('#freason') || {}).value}));
-  if (action === 'mark_grant' || action === 'mark_revoke') {
+  let p;
+  if (action === 'watch') p = sheet(BULK_TITLES[action], count + hint('Они появятся в фильтре «На контроле».') + reasonField(), 'Поставить', s => send({reason: s.q('#freason').value}));
+  else if (action === 'mark_grant' || action === 'mark_revoke') {
     const marks = await api('/marks');
-    return sheet(BULK_TITLES[action], `<div class="sub">${count}</div><div class="field"><label>Метка</label><select id="fmark">
-      ${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select></div>${reasonField(true)}`,
-    action === 'mark_grant' ? 'Выдать' : 'Снять', () => send({mark: $('#fmark').value, reason: ($('#freason') || {}).value}));
-  }
-  return sheet(BULK_TITLES[action], `<div class="sub">${count} ${action === 'unwarn_all' ? 'Все действующие предупреждения во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'}</div>`,
-    'Выполнить', () => send({}));
+    p = sheet(BULK_TITLES[action], count + field('Регалия', `<select id="fmark">${marks.items.map(m => `<option value="${esc(m.id)}">${esc(m.glyph)} ${esc(m.title)}</option>`).join('')}</select>`) + reasonField(true),
+      action === 'mark_grant' ? 'Выдать' : 'Снять', s => {
+        if (!s.q('#freason').value.trim()) throw new Error('Укажите причину.');
+        return send({mark: s.q('#fmark').value, reason: s.q('#freason').value});
+      });
+  } else p = sheet(BULK_TITLES[action], count + hint(action === 'unwarn_all' ? 'Все действующие предупреждения во всех чатах будут сняты.' : 'Они уйдут из фильтра «На контроле».'), 'Выполнить', () => send({}));
+  wireFormChips(p.el);
 }
 
-async function peopleSearch(main, query = '') {
-  PEOPLE.query = query;
-  if (!PEOPLE.restored) {   // последний выбранный быстрый фильтр возвращается при следующем открытии
-    PEOPLE.restored = true;
-    const saved = PREFS.get('people.filter', '');
-    if (PEOPLE_FILTERS.some(([key]) => key === saved) || /^(?:marked|missing):[a-z_]+$/.test(saved) || ['manual_marks','no_manual_marks'].includes(saved)) PEOPLE.filter = saved;
-  }
-  rootBack();
-  main.innerHTML = `
-    <div class="bar"><input id="pplq" placeholder="ID, @ник, имя, тег или название чата" value="${esc(query)}" autocomplete="off"/></div>
-    <div class="chips filters" id="pplf"></div>
-    <div class="field"><label for="pplmarks">Регалии</label><select id="pplmarks"><option value="">Все регалии</option></select></div>
-    <div id="pplbulk"></div>
-    <div id="pplres"><div class="empty">Загрузка…</div></div>`;
-  let timer;
-  if (!(window.matchMedia && matchMedia('(pointer: coarse)').matches)) $('#pplq').focus();   // с клавиатуры сразу печатать; на телефоне клавиатуру без нужды не поднимаем
-  $('#pplq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
-  const drawFilters = () => {
-    $('#pplf').innerHTML = PEOPLE_FILTERS.map(([key, title]) =>
-      `<span class="chip ${key === PEOPLE.filter ? 'ok' : ''}" data-flt="${key}">${esc(title)}</span>`).join('');
-    const marks = $('#pplmarks');
-    if (marks) marks.value = [...marks.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
+// ── Глобальный поиск: игроки, чаты, промокоды и разделы из одного поля ───────
+
+function searchSheet(initial = '') {
+  if (!ME || ME.owner) return;   // владельцу поиск по базе не положен (owner.py)
+  const panel = openSheet({title: 'Поиск', body: `<div class="search">${icon('search')}<input id="gq" placeholder="${has('people') ? 'Игрок, @ник, ID, чат' : 'Раздел'}${has('promo') ? ', промокод' : ''}" autocomplete="off" enterkeyhint="search" value="${esc(initial)}"/></div><div id="gres"></div>`});
+  const input = panel.q('#gq'), out = panel.q('#gres');
+  let timer, ctrl, seq = 0;
+  const sections = q => ME.sections.filter(s => !q || s.title.toLowerCase().includes(q.toLowerCase()) || (SHORT[s.key] || '').toLowerCase().includes(q.toLowerCase()));
+  const recent = () => {
+    const rec = PREFS.get('recent', []);
+    out.innerHTML = (rec.length ? sh('Недавно открывали') + `<div class="faces">${rec.map(r => `<button type="button" class="face" data-go="player/${r.id}">${ava({id: r.id, name: r.n, username: r.u, avatar: r.a})}<span>${esc(r.n || (r.u ? '@' + r.u : 'id' + r.id))}</span></button>`).join('')}</div>` : '')
+      + sh('Разделы') + `<div class="list">${sections('').map(s => row({lead: lead(icon(s.key, 'ico'), 'accent'), title: esc(s.title), sub: esc(SECTION_HINT[s.key] || ''), data: {go: s.key}, tag: 'button'})).join('')}</div>`;
   };
-  $('#pplf').onclick = e => {
-    const c = e.target.closest('[data-flt]');
-    if (!c || c.dataset.flt === PEOPLE.filter) return;
-    PEOPLE.filter = c.dataset.flt; PREFS.set('people.filter', PEOPLE.filter); drawFilters(); load($('#pplq').value);
+  const find = async q => {
+    const mine = ++seq;
+    if (ctrl) ctrl.abort();
+    ctrl = new AbortController();
+    const wantPeople = has('people') && (q.length >= 2 || /^-?\d+$/.test(q));
+    const jobs = [wantPeople ? api(`/search?q=${encodeURIComponent(q)}`, {signal: ctrl.signal}) : Promise.resolve(null)];
+    jobs.push(has('promo') && q.length >= 2 ? api(`/promo?q=${encodeURIComponent(q)}`, {signal: ctrl.signal}) : Promise.resolve(null));
+    const [people, promo] = await Promise.allSettled(jobs).then(rs => rs.map(r => r.status === 'fulfilled' ? r.value : null));
+    if (mine !== seq) return;
+    const secs = sections(q);
+    const players = (people && people.players) || [], chats = (people && people.chats) || [], codes = ((promo && promo.items) || []).slice(0, 5);
+    out.innerHTML = (players.length ? sh('Игроки', {count: players.length}) + `<div class="list">${players.slice(0, 8).map(playerRow).join('')}</div>` : '')
+      + (chats.length ? sh('Чаты', {count: chats.length}) + `<div class="list">${chats.slice(0, 5).map(chatRow).join('')}</div>` : '')
+      + (codes.length ? sh('Промокоды') + `<div class="list">${codes.map(p => row({lead: lead('🎟'), title: `<span class="code">${esc(p.code)}</span>`, sub: esc(p.rewards_text.join(' · ')), data: {go: 'promo/' + encodeURIComponent(p.code)}, tag: 'button'})).join('')}</div>` : '')
+      + (secs.length ? sh('Разделы') + `<div class="list">${secs.map(s => row({lead: lead(icon(s.key, 'ico'), 'accent'), title: esc(s.title), data: {go: s.key}, tag: 'button'})).join('')}</div>` : '')
+      || emptyBox('Ничего не нашлось', 'Попробуйте ID, @ник или часть названия.');
   };
-  drawFilters();
-  api('/marks').then(catalog => {
-    const select = $('#pplmarks'); if (!select) return;
-    select.innerHTML = '<option value="">Все регалии</option><option value="manual_marks">Есть ручные регалии</option><option value="no_manual_marks">Нет ручных регалий</option>' +
-      catalog.items.map(m => `<optgroup label="${esc(m.title)}"><option value="marked:${esc(m.id)}">Есть: ${esc(m.glyph)} ${esc(m.title)}</option><option value="missing:${esc(m.id)}">Нет: ${esc(m.glyph)} ${esc(m.title)}</option></optgroup>`).join('');
-    select.value = [...select.options].some(o => o.value === PEOPLE.filter) ? PEOPLE.filter : '';
-    select.onchange = () => {
-      PEOPLE.filter = select.value; PEOPLE.picked.clear(); PREFS.set('people.filter', PEOPLE.filter);
-      drawFilters(); load($('#pplq').value);
-    };
-  }).catch(e => toast(e.message, true));
-  const drawBulk = () => {
-    const host = $('#pplbulk'); if (!host) return;
-    if (!PEOPLE.select) { host.innerHTML = ''; return; }
-    const n = PEOPLE.picked.size, can = key => key !== 'mark_grant' && key !== 'mark_revoke' ? true : ME.rank >= 5;
-    host.innerHTML = `<div class="card bulkbar"><div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-        <b>Выбрано: ${n}</b><span class="sub">${n ? '<a href="#" id="bkclear">сбросить</a>' : 'Нажимайте на игроков в списке'}</span></div>
-      ${n ? `<div class="actions" style="margin-top:8px">${Object.entries(BULK_TITLES).filter(([key]) => can(key)).map(([key, title]) =>
-        `<button class="btn small" data-bulk="${key}">${esc(title)}</button>`).join('')}</div>` : ''}</div>`;
-    if (n) {
-      $('#bkclear').onclick = e => { e.preventDefault(); PEOPLE.picked.clear(); drawBulk(); markPicked(); };
-      host.querySelectorAll('[data-bulk]').forEach(b => b.onclick = () => bulkRun(b.dataset.bulk, [...PEOPLE.picked], () => {
-        PEOPLE.picked.clear(); drawBulk(); load($('#pplq').value);
-      }).catch(err => toast(err.message, true)));
-    }
-  };
-  const markPicked = () => document.querySelectorAll('#pplres [data-player]').forEach(row => {
-    const on = PEOPLE.picked.has(+row.dataset.player);
-    row.classList.toggle('picked', on);
-    const box = row.querySelector('.pick'); if (box) box.checked = on;
-  });
-  async function load(q, offset = 0) {
-    PEOPLE.query = q;
-    const host = $('#pplres'); if (!host) return;
-    const data = await loadSectionData(host, `/search?q=${encodeURIComponent(q.trim())}${PEOPLE.filter ? '&filter=' + encodeURIComponent(PEOPLE.filter) : ''}&offset=${offset}`, () => load(q, offset), 'people');
-    if (!data) return;
-    const {players, chats, total} = data;
-    const title = (PEOPLE_FILTERS.find(f => f[0] === PEOPLE.filter) || [])[1] || $('#pplmarks')?.selectedOptions[0]?.textContent || 'Регалии';
-    const head = q.trim() ? '' : `<div class="sub" style="margin-bottom:8px">${PEOPLE.filter ? esc(title) : 'Недавно активные'}</div>`;
-    const showAttn = !q.trim() && !PEOPLE.filter;
-    const recent = showAttn ? PREFS.get('recent', []) : [];
-    const recentHtml = recent.length ? `<div class="chips recent"><span class="sub">Недавно открывали:</span>${recent.map(r =>
-      `<span class="chip" data-recent="${r.id}">${r.u ? '@' + esc(r.u) : 'id' + r.id}</span>`).join('')}</div>` : '';
-    $('#pplres').innerHTML = recentHtml + (showAttn ? '<div id="pplattn"></div><div id="pplonb"></div>' : '') + head + `
-      <h3 class="sec" style="display:flex;justify-content:space-between;align-items:center">
-        <span>Игроки · ${players.length}${total > players.length ? ' из ' + num(total) : ''}</span>
-        ${players.length ? `<button class="btn small" id="pplsel">${PEOPLE.select ? 'Готово' : 'Выбрать'}</button>` : ''}</h3>
-      <div class="list">${players.map(p => `<div class="prow" data-player="${p.id}">
-        ${ava(p)}
-        <div class="pmain"><div class="pname">${PEOPLE.select ? `<input type="checkbox" class="pick" aria-label="Выбрать"/> ` : ''}${p.name ? esc(p.name) : who(p.id, p.username)}${p.rank_name ? `<span class="chip">${esc(p.rank_name)}</span>` : ''}</div>
-          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id} · сообщений ${num(p.messages)}${p.last ? ' · был ' + when(p.last) : ''}</div>
-          ${p.tags && p.tags.length ? `<div class="chips tags">${p.tags.map(t => `<span class="chip tag">🏷 ${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`).join('')
-        || '<div class="sub">Никого</div>'}</div>
-      ${PEOPLE.filter ? '' : `<h3 class="sec">Чаты · ${chats.length}</h3>
-      <div class="list">${chats.map(c => `<div class="prow" data-chat="${c.id}">
-        <span class="ava chat" aria-hidden="true"><b>#</b></span>
-        <div class="pmain"><div class="pname">${esc(c.title)}</div>
-          <div class="pmeta">${num(c.members)} участников · ID ${c.id} · сообщений ${num(c.messages)}${c.last ? ' · активность ' + when(c.last) : ''}</div></div></div>`).join('')
-        || '<div class="sub">Ничего</div>'}</div>`}`;
-    if (data.offset !== undefined) {
-      const pager = document.createElement('div'); pager.className = 'actions';
-      pager.innerHTML = `<span class="sub">${total ? offset + 1 : 0}–${offset + players.length} из ${num(total)}</span><button class="btn small" data-prev ${offset ? '' : 'disabled'}>Назад</button><button class="btn small" data-next ${data.next_offset == null ? 'disabled' : ''}>Дальше</button>`;
-      pager.querySelector('[data-prev]').onclick = () => load(q, Math.max(0, offset - data.limit));
-      pager.querySelector('[data-next]').onclick = () => load(q, data.next_offset);
-      $('#pplres').appendChild(pager);
-    }
-    markPicked(); drawBulk();
-    if (showAttn) api('/chats/onboarding').then(f => {
-      const host = $('#pplonb');
-      if (!host || !f.added) return;
-      host.innerHTML = `<div class="card"><h3>🚪 Подключение чатов · ${f.days} дн.</h3>
-        <div class="chips"><span class="chip">добавили ${f.added}</span><span class="chip ok">выдали права ${f.ready}</span>
-        ${f.waiting ? `<span class="chip warn">ждут прав ${f.waiting}</span>` : ''}${f.gave_up ? `<span class="chip bad">ушли без прав ${f.gave_up}</span>` : ''}</div>
-        <button class="btn small more" id="onbmore">Где застревают</button></div>`;
-      $('#onbmore').onclick = () => onboardingSheet(f.days).catch(err => toast(err.message, true));
-    }).catch(() => {});
-    if (showAttn) Promise.allSettled([api('/people/attention'), api('/chats/attention')]).then(([pr, ar]) => {
-      const ppl = pr.status === 'fulfilled' ? pr.value : {items: []};
-      const att = ar.status === 'fulfilled' ? ar.value : null;
-      const host = $('#pplattn');
-      if (!host) return;
-      const people = (ppl.items || []).map(attentionPersonRow).join('');
-      const chats = att && att.items.length ? attentionRows(att.items.slice(0, 3)) : '';
-      if (!people && !chats) return;
-      const more = att && att.total > 3 ? `<div class="actions" style="margin-top:8px"><button class="btn small" id="attnall">Все проблемы чатов · ${att.total}</button></div>` : '';
-      host.innerHTML = `<div class="sec-title">Требуют внимания</div>
-        <div class="card" style="border-top:0;padding-top:0">${people}${chats}${more}</div>`;
-      if ($('#attnall')) $('#attnall').onclick = () => attentionSheet('', '⚠️ Чаты требуют внимания').catch(err => toast(err.message, true));
-    }).catch(() => {});
-    if ($('#pplsel')) $('#pplsel').onclick = () => { PEOPLE.select = !PEOPLE.select; if (!PEOPLE.select) PEOPLE.picked.clear(); load($('#pplq').value); };
-  }
-  $('#pplres').onclick = e => {
-    const rec = e.target.closest('[data-recent]');
-    if (rec) { PEOPLE.stack = []; playerView(main, +rec.dataset.recent); return; }
-    const p = e.target.closest('[data-player]'), c = e.target.closest('[data-chat]');
-    if (p && PEOPLE.select) {   // в режиме выбора нажатие отмечает игрока, а не открывает карточку
-      const id = +p.dataset.player;
-      if (PEOPLE.picked.has(id)) PEOPLE.picked.delete(id);
-      else if (PEOPLE.picked.size < 50) PEOPLE.picked.add(id);
-      else { toast('За один раз можно выбрать до 50 игроков.', true); return; }
-      markPicked(); drawBulk();
-      return;
-    }
-    PEOPLE.stack = [];
-    if (p) playerView(main, +p.dataset.player);
-    else if (c) chatView(main, +c.dataset.chat);
-  };
-  load(query);
-}
-
-// ── Все действия над человеком — в одной шторке ───────────────────────────────
-// Группы и подсказки: что произойдёт, если нажать. Опасные строки красные,
-// подтверждение и ввод ID остаются в runAction — здесь только выбор действия.
-const ACTION_GROUPS = [
-  ['chat', 'В этом чате', ['local_rank', 'warn', 'mute', 'unmute', 'kick', 'ban', 'unban', 'unwarn_all']],
-  ['everywhere', 'Везде', ['global_ban', 'global_unban', 'block', 'unblock']],
-  ['profile', 'Профиль', ['balance', 'vip', 'rank']],
-  ['service', 'Служебное', ['revoke_sessions']],
-];
-const ACTION_HINTS = {
-  local_rank: 'Ранг только в этом чате: права в нём, глобальная роль не меняется',
-  warn: 'Предупреждение в этом чате; когда их станет много — наказание по лимиту чата',
-  mute: 'Не сможет писать в этом чате до конца срока',
-  unmute: 'Снова сможет писать в этом чате',
-  kick: 'Выйдет из чата, но сможет вернуться по ссылке',
-  ban: 'Не сможет вернуться в этот чат сам',
-  unban: 'Снова сможет зайти в этот чат',
-  unwarn_all: 'Снять все действующие предупреждения во всех чатах',
-  global_ban: 'Потеряет доступ во всех чатах, где есть бот',
-  global_unban: 'Снять бан во всех чатах бота',
-  block: 'В чатах он останется, команды работать не будут',
-  unblock: 'Бот снова начнёт отвечать игроку',
-  balance: 'Мора, алмазы, эссенция; крупные суммы — с подтверждением',
-  vip: 'Дни добавятся к текущему сроку',
-  rank: 'Откроет или закроет разделы админки; выдать можно только роль ниже своей',
-  revoke_sessions: 'Сотрудник выйдет из админки на всех устройствах',
-};
-
-// Какие действия в чате сейчас бессмысленны (мут уже стоит, бана нет и т. п.).
-function memberFits(key, c) {
-  return !(key === 'local_rank' && (c.left || c.local_rank >= 9))
-    && !(key === 'mute' && c.muted) && !(key === 'unmute' && !c.muted)
-    && !(key === 'unban' && !c.ban) && !(key === 'ban' && c.ban)
-    && !(key === 'kick' && (c.left || c.ban)) && !(key === 'unwarn_all' && !c.warns);
-}
-
-function actionRow(a, attrs) {
-  // Подпись с сервера начинается с эмодзи: «🔇 Замутить в чате» → иконка + текст.
-  const parts = a.title.split(' ');
-  const icon = parts.length > 1 ? parts[0] : '•', label = parts.length > 1 ? parts.slice(1).join(' ') : a.title;
-  const hint = ACTION_HINTS[a.key] || '';
-  return `<button type="button" class="arow${DANGEROUS.has(a.key) ? ' danger' : ''}" ${attrs}>
-    <span class="aico" aria-hidden="true">${esc(icon)}</span>
-    <span class="atxt"><b>${esc(label)}</b>${hint ? `<small>${esc(hint)}</small>` : ''}</span>
-    <span class="arr" aria-hidden="true">›</span></button>`;
-}
-
-function actionsSheet(p, chatId, reopen) {
-  const chats = p.chats || [];
-  const cur = chats.find(c => c.id === chatId) || chats[0] || null;
-  // Взаимоисключающие пары: показываем только то, что сейчас можно сделать.
-  // Метки сюда не входят — они выдаются в своей карточке ниже.
-  const hidden = new Set([p.blocked ? 'block' : 'unblock', p.global_ban ? 'global_ban' : 'global_unban']);
-  if (!p.rank) hidden.add('revoke_sessions');   // сессии админки бывают только у сотрудников
-  const player = new Set(p.actions.player.map(a => a.key)), member = new Set(p.actions.member.map(a => a.key));
-  const rows = [];
-  for (const [key, title, keys] of ACTION_GROUPS) {
-    let list;
-    if (key === 'chat') {
-      if (!cur) continue;
-      list = keys.filter(k => member.has(k) && memberFits(k, cur)).map(k => p.actions.member.find(a => a.key === k));
-    } else {
-      list = keys.filter(k => player.has(k) && !hidden.has(k)).map(k => p.actions.player.find(a => a.key === k));
-    }
-    if (!list.length) {
-      if (key === 'chat') rows.push(`<div class="sec-title">${title}</div><div class="sub">В этом чате действий нет.</div>`);
-      continue;
-    }
-    rows.push(`<div class="sec-title">${esc(title)}</div>`);
-    if (key === 'chat') {
-      rows.push(chats.length > 1
-        ? `<div class="field" style="margin:0 0 4px"><label>Чат</label><select id="aschats">${chats.map(c =>
-          `<option value="${c.id}"${c.id === cur.id ? ' selected' : ''}>${esc(c.title)}</option>`).join('')}</select></div>`
-        : `<div class="sub" style="margin:0 0 4px">Чат: ${esc(cur.title)}</div>`);
-    }
-    rows.push(list.map(a => actionRow(a, key === 'chat'
-      ? `data-mact="${a.key}" data-cid="${cur.id}" data-ctitle="${esc(cur.title)}"`
-      : `data-act="${a.key}"`)).join(''));
-  }
-  const whoText = p.name || (p.username ? '@' + p.username : 'id' + p.id);
-  sheet('Действия · ' + whoText, `<div class="sub" style="margin:-4px 0 4px">${who(p.id, p.username)} · ID ${p.id}</div>` + rows.join(''),
-    'Закрыть', () => {}, {info: true});
-  const pick = $('#aschats');
-  if (pick) pick.onchange = () => actionsSheet(p, +pick.value, reopen);
-  const ctx = cur ? {...p, local_rank: cur.local_rank} : p;
-  $('#sheet').querySelectorAll('[data-act]').forEach(b => b.onclick = () =>
-    runAction(p.actions.player.find(a => a.key === b.dataset.act), `/player/${p.id}/action`, p, {}, reopen));
-  $('#sheet').querySelectorAll('[data-mact]').forEach(b => b.onclick = () =>
-    runAction(p.actions.member.find(a => a.key === b.dataset.mact), `/player/${p.id}/action`, ctx,
-      {chat_id: +b.dataset.cid, chat_title: b.dataset.ctitle}, reopen));
-}
-
-async function playerView(main, id, push = true, from = null) {
-  const p = await loadSectionData(main, `/player/${id}`, () => playerView(main, id, push, from), 'people');
-  if (!p) return;
-  PREFS.set('recent', [{id: p.id, u: p.username || ''}, ...PREFS.get('recent', []).filter(r => r.id !== p.id)].slice(0, 6));
-  if (push && from) PEOPLE.stack.push(from);
-  const reopen = () => playerView(main, id, false);
-  const b = p.balances;
-  const fam = p.family;
-  const rp = p.reports || {total: 0, open: 0, confirmed: 0, last: []};
-  // «Последняя активность» — самый свежий чат; ISO-строки сравниваются как есть.
-  const lastSeen = p.chats.reduce((last, c) => (c.last && c.last > last ? c.last : last), '');
-  const warns = p.chats.reduce((n, c) => n + (c.warns || 0), 0);
-  const title = p.name ? esc(p.name) : who(p.id, p.username);
-  const chips = [
-    `<span class="chip">${esc(p.rank_name)}</span>`,
-    p.vip ? `<span class="chip ok">👑 VIP · ${p.vip.days_left} дн.</span>` : '',
-    p.sponsor ? '<span class="chip ok">спонсор</span>' : '',
-    p.blocked ? `<span class="chip bad">🙈 бот не отвечает${p.blocked.until ? ' до ' + when(p.blocked.until) : ''}</span>` : '',
-    p.global_ban ? '<span class="chip bad">🚫 бан во всех чатах</span>' : '',
-    p.deleted_at ? '<span class="chip warn">аккаунт удаляется</span>' : '',
-    p.watch ? '<span class="chip warn">👁 на контроле</span>' : '',
-  ].join(' ');
-  const mk = p.marks || {given: [], earned: [], grantable: []};
-  // Метки выдаются и снимаются в своей карточке ниже, а не в общей шторке действий.
-  const canGrant = p.actions.player.find(a => a.key === 'mark_grant'), canRevoke = p.actions.player.find(a => a.key === 'mark_revoke');
-  const held = new Set(mk.given.map(m => m.id));
-  const free = mk.grantable.filter(m => !held.has(m.id));
-  const markRow = (m, btn) => `<div class="sw-row"><div class="t"><b>${esc(m.glyph)} ${esc(m.title)}</b><div class="sub">${esc(m.desc || '')}</div></div>${btn}</div>`;
-  const marksCard = `<div class="card"><h3>🏅 Метки · в профиле игрока это «Регалии»</h3>
-      <h3 class="sec">Выданы · ${mk.given.length}</h3>
-      ${mk.given.length ? mk.given.map(m => markRow(m, canRevoke ? `<button class="btn small" data-unmark="${esc(m.id)}">✖️ Снять</button>` : '')).join('')
-        : '<div class="sub">Пока ни одной.</div>'}
-      ${mk.earned.length ? `<h3 class="sec">Заработаны сами · ${mk.earned.length}</h3><div class="chips">${mk.earned.map(m =>
-        `<span class="chip" title="${esc(m.desc)}">${esc(m.glyph)} ${esc(m.title)}</span>`).join('')}</div>
-        <div class="sub">Их выдаёт игра, вручную не снимаются.</div>` : ''}
-      ${canGrant ? `<h3 class="sec">Выдать · нажмите на метку</h3>${free.length ? `<div class="mark-grid">${free.map(m =>
-        `<button type="button" class="mark-tile" data-mark="${esc(m.id)}"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></button>`).join('')}</div>`
-        : '<div class="sub">Все метки уже выданы.</div>'}` : '<div class="sub">Выдавать метки может роль «Разработчик» и выше.</div>'}
-    </div>`;
-  const canReports = ME.sections.some(z => z.key === 'reports');
-  const reportsCard = `<div class="card"><h3>📨 Жалобы на игрока · ${rp.total}</h3>
-      ${rp.total ? `<div class="chips"><span class="chip ${rp.open ? 'warn' : ''}">открытых: ${rp.open}</span><span class="chip ${rp.confirmed ? 'bad' : ''}">подтверждено: ${rp.confirmed}</span></div>
-        ${rp.last.map(r => `<div class="log"><div><b>№${r.id}</b> <span class="chip">${esc(r.status_title)}</span> ${esc(r.reason)}</div>
-          <div class="sub">${when(r.created_at)} · ${esc(r.chat)}</div></div>`).join('')}
-        ${canReports ? '<div class="sub" style="margin-top:6px">Все жалобы — в разделе «Жалобы». Авторов жалоб здесь не видно: жалобы анонимны.</div>' : ''}`
-        : '<div class="sub">Жалоб не было.</div>'}</div>`;
-  const noteRow = n => `<div class="log" data-note="${n.id}"><div style="white-space:pre-wrap">${esc(n.text)}</div>
-      <div class="sub">${when(n.at)} · ${who(n.author.id, n.author.username)}${n.can_remove ? ` · <a href="#" data-rmnote="${n.id}">убрать</a>` : ''}</div></div>`;
-  const notesCard = `<div class="card" id="notescard"><h3>📝 Заметки персонала · ${p.notes.total}</h3>
-      <div class="sub" style="margin-bottom:6px">Видят только сотрудники, игрок — нет.</div>
-      <div id="notelist">${p.notes.items.map(noteRow).join('') || '<div class="sub">Пока нет заметок.</div>'}</div>
-      ${p.notes.next ? '<button class="btn small more" id="notemore">Показать ещё</button>' : ''}
-      <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
-      <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
-  const NAME_KINDS = {username: '@ник', name: 'имя'};
-  const namesCard = p.names.length || p.nicknames.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
-      ${p.names.length ? `<div class="sub" style="margin-bottom:4px">Как игрок назывался в Telegram: бот записывает, когда ник или имя меняются.</div>
-        ${p.names.map(n => `<div class="log"><b>${esc(n.kind === 'username' ? '@' + n.value : n.value)}</b>
-          <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}
-      ${p.nicknames.length ? `<h3 class="sec">Ники в чатах</h3>${p.nicknames.map(n => `<div class="log"><b>${esc(n.nickname)}</b>
-        <div class="sub"><a href="#" data-chat="${n.chat.id}">${esc(n.chat.title)}</a></div></div>`).join('')}` : ''}</div>` : '';
-  const tagsCard = p.tag_history && p.tag_history.length ? `<div class="card"><h3>🏷 Теги в чатах</h3>
-      <div class="sub" style="margin-bottom:4px">Подпись справа от имени в списке участников. Бот записывает, когда тег меняется.</div>
-      ${p.tag_history.map(t => `<div class="log"><b>${t.tag ? esc(t.tag) : '— тег убрали —'}</b>
-        <div class="sub"><a href="#" data-chat="${t.chat_id}">${esc(t.chat_title || t.chat_id)}</a> · ${when(t.at)}</div></div>`).join('')}</div>` : '';
-  const lk = p.linked;
-  const linkRow = (u, extra = '') => `<div class="log"><a href="#" data-player="${u.id}"><b>${who(u.id, u.username)}</b></a>${extra ? `<div class="sub">${extra}</div>` : ''}</div>`;
-  const linkedCard = lk ? `<div class="card"><h3>🔗 Возможные связи</h3>
-      <div class="sub" style="margin-bottom:4px">Совпадение ника или имени — повод присмотреться, а не доказательство. Устройства и адреса бот не собирает.</div>
-      ${lk.invited_by ? `<h3 class="sec">Пришёл по приглашению</h3>${linkRow(lk.invited_by)}` : ''}
-      ${lk.invited.total ? `<h3 class="sec">Пригласил · ${lk.invited.total}</h3>${lk.invited.items.map(u => linkRow(u)).join('')}
-        ${lk.invited.total > lk.invited.items.length ? `<div class="sub">…и ещё ${lk.invited.total - lk.invited.items.length}</div>` : ''}` : ''}
-      ${lk.same_username.length ? `<h3 class="sec">Тот же ник раньше или сейчас</h3>${lk.same_username.map(u => linkRow(u, '@' + esc(u.value))).join('')}` : ''}
-      ${lk.same_name.length ? `<h3 class="sec">Такое же имя в Telegram</h3>${lk.same_name.map(u => linkRow(u, esc(u.name))).join('')}` : ''}
-      ${!lk.invited_by && !lk.invited.total && !lk.same_username.length && !lk.same_name.length ? '<div class="sub">Связей не найдено.</div>' : ''}</div>` : '';
-  main.innerHTML = `${backBar()}
-    <div class="card">
-      <div class="profile-head">
-        <div class="ava-wrap">${ava(p, 'lg')}</div>
-        <div style="min-width:0">
-          <div class="pname">${title}</div>
-          <div class="pmeta">${p.name ? who(p.id, p.username) + ' · ' : ''}ID ${p.id}</div>
-          <div class="chips">${chips}</div>
-        </div>
-      </div>
-      <div class="facts">
-        <div class="fact"><span>Последняя активность</span><b style="font-size:13.5px">${lastSeen ? when(lastSeen) : 'не писал'}</b></div>
-        <div class="fact"><span>Сообщений за 7 дней</span><b>${num(p.messages.week)}</b></div>
-        <div class="fact"><span>Чатов</span><b>${p.chats.length}</b></div>
-        <div class="fact"><span>Варнов в чатах</span><b>${warns}</b></div>
-        <div class="fact"><span>Жалоб</span><b>${rp.total}${rp.open ? `<small> · ${rp.open} откр.</small>` : ''}</b></div>
-        <div class="fact"><span>Заметок</span><b>${p.notes.total}</b></div>
-      </div>
-      <div class="stats">
-        <div><span>🪙 Мора</span><b>${num(b.mora)}</b></div><div><span>💎 Алмазы</span><b>${num(b.diamonds)}</b></div>
-        <div><span>🔮 Эссенция</span><b>${num(b.essence)}</b></div><div><span>✨ Зарники</span><b>${num(b.zarniki)}</b></div>
-      </div>
-      <div class="sub" style="margin-top:8px">💬 сегодня ${num(p.messages.today)} · всего ${num(p.messages.total)} · 🔥 стрик ${p.streak.current} <small>(лучший ${p.streak.best})</small> · 🏆 достижения ${p.achievements.count} <small>(ур. ${p.achievements.levels})</small></div>
-      ${fam ? `<div class="sub" style="margin-top:8px">💞 ${fam.partner
-          ? `В браке с <a href="#" data-player="${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}`
-          : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}</div>` : ''}
-      ${p.blocked && p.blocked.reason ? `<div class="sub">Блокировка: ${esc(p.blocked.reason)}</div>` : ''}
-      ${p.global_ban && p.global_ban.reason ? `<div class="sub">Глобальный бан: ${esc(p.global_ban.reason)}</div>` : ''}
-      ${p.watch ? `<div class="sub">На контроле: ${p.watch.reason ? esc(p.watch.reason) + ' · ' : ''}${who(p.watch.by.id, p.watch.by.username)}, ${when(p.watch.at)}</div>` : ''}
-      <div class="actions" style="margin-top:12px"><button class="btn primary" id="pacts">Действия</button>
-        <button class="btn small" id="pwatch">${p.watch ? '👁 Снять с контроля' : '👁 Поставить на контроль'}</button></div>
-    </div>
-    ${marksCard}
-    ${reportsCard}
-    ${notesCard}
-    ${namesCard}
-    ${tagsCard}
-    ${linkedCard}
-    <div class="card"><h3>Чаты · ${p.chats.length}</h3>
-      ${p.chats.map(c => `<div class="member">
-        <div class="head"><a href="#" data-chat="${c.id}"><b>${esc(c.title)}</b></a><span class="sub">${esc(c.rank_name)}</span></div>
-        <div class="sub">сообщений ${num(c.messages)}${c.last ? ' · ' + when(c.last) : ''}</div>
-        <div class="chips">${c.tag ? `<span class="chip tag" title="Тег в этом чате">🏷 ${esc(c.tag)}</span>` : ''}${c.left ? '<span class="chip off">не в чате</span>' : ''}
-          ${c.muted ? `<span class="chip warn">🔇 мут${c.muted_until ? ' до ' + when(c.muted_until) : ' навсегда'}</span>` : ''}
-          ${c.ban ? `<span class="chip bad">⛔ бан${c.ban.until ? ' до ' + when(c.ban.until) : ''}</span>` : ''}
-          ${c.warns ? `<span class="chip warn">⚠️ варнов: ${c.warns}</span>` : ''}</div>
-        ${p.actions.member.some(a => memberFits(a.key, c)) ? `<div class="actions"><button class="btn small" data-chatacts="${c.id}">Действия в этом чате</button></div>` : ''}
-      </div>`).join('') || '<div class="sub">Не писал ни в одном чате с ботом.</div>'}
-    </div>
-    ${historyCard(p.history)}`;
-  wireBack(main);
-  const here = {type: 'player', id};
-  $('#pwatch').onclick = () => {
-    const done = on => async reason => {
-      await api(`/player/${id}/watch`, {method: 'POST', body: JSON.stringify({on, reason})});
-      toast(on ? 'Игрок на контроле' : 'Снят с контроля');
-      reopen();
-    };
-    if (p.watch) done(false)('').catch(err => toast(err.message, true));
-    else sheet('👁 На контроль', `<div class="sub">Игрок: ${who(p.id, p.username)}. Он об этом не узнает, ограничений нет: список для персонала.</div>${reasonField()}`,
-      'Поставить', () => done(true)(($('#freason') || {}).value));
-  };
-  $('#pacts').onclick = () => actionsSheet(p, p.chats[0] ? p.chats[0].id : 0, reopen);
-  main.querySelectorAll('[data-chatacts]').forEach(btn => btn.onclick = () => actionsSheet(p, +btn.dataset.chatacts, reopen));
-  const markSheet = (action, m) => sheet(`${action === 'mark_grant' ? 'Выдать' : 'Снять'} метку`, `
-      <div class="mark-tile" style="pointer-events:none;margin-bottom:10px"><span class="g">${esc(m.glyph)}</span><b>${esc(m.title)}</b><small>${esc(m.desc || '')}</small></div>
-      <div class="sub" style="margin-bottom:8px">Игрок: ${who(p.id, p.username)}</div>${reasonField(true)}`,
-    action === 'mark_grant' ? 'Выдать' : 'Снять', async () => {
-      const res = await api(`/player/${id}/action`, {method: 'POST', body: JSON.stringify({action, mark: m.id, reason: ($('#freason') || {}).value})});
-      toast(res.message || 'Готово');
-      const keep = window.scrollY; Promise.resolve(reopen()).then(() => window.scrollTo(0, keep));
-    });
-  // Заметки: добавить, убрать, «Показать ещё».
-  const drawNotes = (data, append = false) => {
-    const list = $('#notelist');
-    list.innerHTML = (append ? list.innerHTML : '') + (data.items.map(noteRow).join('') || (append ? '' : '<div class="sub">Пока нет заметок.</div>'));
-    $('#notescard h3').textContent = `📝 Заметки персонала · ${data.total}`;
-    const more = $('#notemore');
-    if (more) { if (data.next) more.dataset.next = data.next; else more.remove(); }
-    else if (data.next) $('#notelist').insertAdjacentHTML('afterend', '<button class="btn small more" id="notemore">Показать ещё</button>');
-    if ($('#notemore')) { $('#notemore').dataset.next = data.next || ''; $('#notemore').onclick = loadMoreNotes; }
-  };
-  const loadMoreNotes = async () => drawNotes(await api(`/player/${id}/notes?offset=${$('#notemore').dataset.next}`), true);
-  if ($('#notemore')) { $('#notemore').dataset.next = p.notes.next; $('#notemore').onclick = loadMoreNotes; }
-  $('#noteadd').onclick = async e => {
-    const btn = e.currentTarget, text = $('#notetext').value.trim();
-    if (!text) return toast('Напишите текст заметки', true);
-    if (btn.disabled) return;
-    btn.disabled = true;   // двойной клик не должен создавать две одинаковые заметки
-    try { drawNotes(await api(`/player/${id}/notes`, {method: 'POST', body: JSON.stringify({text})})); $('#notetext').value = ''; toast('Заметка добавлена'); }
-    catch (err) { toast(err.message, true); }
-    finally { btn.disabled = false; }
-  };
-  $('#notescard').onclick = async e => {
-    const a = e.target.closest('[data-rmnote]');
-    if (!a) return;
-    e.preventDefault();
-    try { drawNotes(await api(`/player/${id}/notes/${a.dataset.rmnote}`, {method: 'DELETE'})); toast('Заметка убрана'); }
-    catch (err) { toast(err.message, true); }
-  };
-  main.querySelectorAll('[data-mark]').forEach(b => b.onclick = () => markSheet('mark_grant', mk.grantable.find(m => m.id === b.dataset.mark)));
-  main.querySelectorAll('[data-unmark]').forEach(b => b.onclick = () => markSheet('mark_revoke', mk.given.find(m => m.id === b.dataset.unmark)));
-  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
-  main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
-}
-
-// Настройки чата одним взглядом: кто что может, чистка, модули и флаги. Меняются командами в самом чате и в «Функциях».
-function chatSettingsCard(st) {
-  if (!st || !st.ranks) return '';
-  const flag = (title, on) => `<span class="chip ${on ? 'ok' : 'off'}">${on ? '✓' : '✕'} ${esc(title)}</span>`;
-  return `<div class="card" id="chatsettings"><h3>⚙️ Настройки чата</h3>
-    <h3 class="sec">Кто что может (с какого ранга в чате)</h3>
-    ${st.ranks.map(r => `<div class="sw-row"><div class="t">${esc(r.title)}</div><span class="sub">${esc(r.name)}</span></div>`).join('')}
-    <h3 class="sec">Чистка</h3>
-    <div class="sub">${st.purge.on ? 'Включена' : 'Выключена'} · запускает ${esc(st.purge.min_rank)} · действия с ${esc(st.purge.action_rank)}</div>
-    ${st.shield_days ? `<div class="sub">Защита от чистки длится ${st.shield_days} дн.</div>` : ''}
-    <h3 class="sec">Модули чата</h3><div class="chips">${st.modules.map(m => flag(m.icon + ' ' + m.name, m.on)).join('')}</div>
-    <h3 class="sec">Прочее</h3><div class="chips">${st.flags.map(f => flag(f.title, f.on)).join('')}</div></div>`;
-}
-
-function chatRightsCard(c) {
-  const r = c.rank_rights;
-  if (!r || !c.can_edit_rights) return '';
-  return `<div class="card" id="chatrights"><h3>Права рангов</h3>
-    <p class="sub">Минимальный ранг для каждого действия. Старшие ранги тоже получают это право. Разработчик сохраняет доступ.</p>
-    <details><summary class="btn">Настроить ${r.actions.length} прав</summary>
-    ${r.actions.map(a => `<div class="field"><label for="cr-${a.key}">${esc(a.title)}</label><select id="cr-${a.key}" data-right="${a.key}">
-      ${r.ranks.map(x => `<option value="${x.rank}" ${x.rank===r.values[a.key]?'selected':''}>${esc(x.name)}</option>`).join('')}</select></div>`).join('')}
-    <button class="btn small" id="crdefaults">Выбрать стандартные права</button>
-    <div class="field"><label for="crreason">Причина изменения</label><input id="crreason" minlength="3" maxlength="200" placeholder="Что и зачем меняем"/></div>
-    <button class="btn primary" id="crsave">Сохранить права чата</button>
-    <p class="sub" id="crresult" role="status"></p></details></div>`;
-}
-function wireChatRights(c, id) {
-  if (!$('#crsave')) return;
-  $('#crdefaults').onclick = () => c.rank_rights.actions.forEach(a => { $(`#cr-${a.key}`).value=a.default; });
-  $('#crsave').onclick = async e => {
-    const button=e.currentTarget;
-    if (button.disabled) return;
-    const changes={}, expected={};
-    document.querySelectorAll('[data-right]').forEach(x => {
-      const k=x.dataset.right, value=+x.value;
-      if(value!==c.rank_rights.values[k]) {changes[k]=value;expected[k]=c.rank_rights.values[k];}
-    });
-    if (!Object.keys(changes).length) return toast('Нет изменений');
-    const reason=$('#crreason').value.trim();
-    if(reason.length<3) return toast('Укажите причину изменения', true);
-    button.disabled=true;
-    try {
-      const result=await api(`/chat/${id}/rights`, {method:'POST',body:JSON.stringify({changes,expected,reason})});
-      Object.assign(c.rank_rights.values,changes);
-      if(c.settings && c.settings.ranks) {
-        c.settings.ranks.forEach(r => {
-          const key=r.key.replace(/^rank_/, '');
-          r.rank=c.rank_rights.values[key];
-          r.name=c.rank_rights.ranks.find(x=>x.rank===r.rank).name;
-        });
-        const settings=$('#chatsettings');
-        if(settings) settings.outerHTML=chatSettingsCard(c.settings);
-      }
-      $('#crresult').textContent=result.message;
-      toast(result.message);
-    } catch(err) { $('#crresult').textContent=err.message;toast(err.message,true); }
-    finally {button.disabled=false;}
-  };
-}
-
-// Человек, которому нужно внимание: фото, кто это и почему его стоит открыть.
-function attentionPersonRow(x) {
-  const at = x.at ? ` · ${esc(x.at_label || '')}${x.at_label ? ' ' : ''}${when(x.at)}` : '';
-  const shown = x.name || who(x.id, x.username);
-  const uname = x.username && shown !== '@' + x.username ? '@' + esc(x.username) + ' · ' : '';
-  return `<div class="prow" data-player="${x.id}">${ava(x)}
-    <div class="pmain"><div class="pname">${esc(shown)}</div>
-      <div class="pmeta">${uname}ID ${x.id}${x.note ? ' · ' + esc(x.note) : ''}${at}</div></div>
-    <span class="pflag ${x.flag_kind || ''}">${esc(x.flag)}</span></div>`;
-}
-// Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили.
-function attentionRows(items) {
-  const cls = {no_rights: 'warn', quiet: 'off', left: 'bad'};
-  return items.map(x => `<div class="row" data-chat="${x.id}">
-    <div class="head"><b>${esc(x.title)}</b><span class="sub">${num(x.members)} уч.</span></div>
-    <div class="chips" style="margin-top:4px">${x.problems.map(p => `<span class="chip ${cls[p.key] || ''}">${esc(p.title)}</span>`).join('')}</div>
-    <div class="sub">${x.last ? 'последнее сообщение ' + when(x.last) : 'сообщений не было'}</div></div>`).join('');
-}
-// Воронка подключения: шаги, на которых люди нажимали кнопки мастера, и чаты, где бота так и не сделали админом.
-async function onboardingSheet(days) {
-  const f = await api(`/chats/onboarding?days=${days}`);
-  const stuck = f.stuck.map(x => `<div class="row" data-chat="${x.id}"><div class="head"><b>${esc(x.title)}</b>
-    <span class="sub">${x.reminders ? 'напоминаний: ' + x.reminders : 'без напоминаний'}</span></div>
-    <div class="sub">добавили ${when(x.added_at)}${x.inviter ? ' · ' + who(x.inviter.id, x.inviter.username) : ''}</div></div>`).join('');
-  sheet(`🚪 Подключение чатов · ${f.days} дн.`,
-    `<div class="list">${f.events.map(e => `<div class="row"><div class="head"><b>${esc(e.title)}</b>
-      <span class="sub">${num(e.count)} раз · чатов ${num(e.chats)}</span></div></div>`).join('') || '<div class="sub">Пока никто не подключал бота.</div>'}</div>
-      ${stuck ? `<h3 class="sec">Ждут прав · ${f.waiting}</h3><div class="list">${stuck}</div>` : ''}`,
-    'Закрыть', () => {}, {info: true});
-  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
-}
-function goChat(id) {
-  const box = $('#sheet'); box.hidden = true; box.innerHTML = '';
-  open('people'); PEOPLE.stack = []; chatView($('#main'), id);
-}
-async function attentionSheet(kind, title) {
-  const data = await api(`/chats/attention?kind=${kind}`);
-  sheet(title, data.items.length ? `<div class="list">${attentionRows(data.items)}</div>${data.total > data.items.length ? `<div class="sub" style="margin-top:8px">Показаны ${data.items.length} из ${data.total}: самые людные.</div>` : ''}`
-    : '<div class="sub">Таких чатов нет.</div>', 'Закрыть', () => {}, {info: true});
-  $('#sheet').querySelectorAll('[data-chat]').forEach(r => r.onclick = () => goChat(+r.dataset.chat));
-}
-
-async function chatView(main, id, push = true, from = null) {
-  const c = await loadSectionData(main, `/chat/${id}`, () => chatView(main, id, push, from), 'people');
-  if (!c) return;
-  if (push && from) PEOPLE.stack.push(from);
-  const reopen = () => chatView(main, id, false);
-  const m = c.messages;
-  const acts = c.actions.chat.filter(a => !(a.key === 'close' && c.closed) && !(a.key === 'open' && !c.closed));
-  const can = key => c.actions.member.find(a => a.key === key);
-  const person = x => `<a href="#" data-player="${x.user}">${who(x.user, x.username)}</a>${tagSfx(x.tag)}`;
-  const sanctionRow = (x, line, undo) => `<div class="sw-row"><div class="t">${person(x)}<div class="sub">${line(x)}</div></div>
-      ${can(undo) ? `<button class="btn small" data-undo="${undo}" data-uid="${x.user}">${esc(can(undo).title)}</button>` : ''}</div>`;
-  const SANCTIONS = {
-    bans: ['⛔ Баны', x => (x.until ? 'до ' + when(x.until) : 'навсегда') + (x.reason ? ' · ' + esc(x.reason) : ''), 'unban'],
-    mutes: ['🔇 Муты', x => x.until ? 'до ' + when(x.until) : 'навсегда', 'unmute'],
-    warns: ['⚠️ Варны', x => 'действующих: ' + x.count, 'unwarn_all'],
-  };
-  const sanction = kind => {
-    const list = c.sanctions[kind], [title, line, undo] = SANCTIONS[kind];
-    return list.total ? `<div data-kind="${kind}"><h3 class="sec">${title} · ${list.total}</h3><div class="srows">${list.items.map(x => sanctionRow(x, line, undo)).join('')}</div>
-      ${list.next ? `<button class="btn small more" data-more="${kind}" data-next="${list.next}">Показать ещё</button>` : ''}</div>` : '';
-  };
-  const s = c.sanctions;
-  main.innerHTML = `${backBar()}
-    <div class="card">
-      <div class="head" style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
-        <span style="font-size:20px;font-weight:700">${esc(c.title)}</span><span class="sub">ID ${c.id}</span></div>
-      <div class="chips">${c.closed ? '<span class="chip warn">🔒 закрыт</span>' : '<span class="chip ok">открыт</span>'}
-        ${c.bot && c.bot.left_at ? `<span class="chip bad">бота удалили · ${when(c.bot.left_at)}</span>` : c.bot && c.bot.can_moderate === false ? '<span class="chip warn">у бота нет прав модерации</span>' : ''}
-        <span class="chip">⚠️ лимит варнов ${c.warn_limit}</span><a class="btn small" href="${BASE}/?startapp=purge_${c.id}">Чистка ›</a>
-        ${c.tagged ? `<span class="chip" title="Участников с тегом: бот видит его в каждом сообщении">🏷 с тегом: ${c.tagged}</span>` : ''}
-        ${c.switched_off.length ? `<span class="chip warn">выключено функций: ${c.switched_off.length}</span>` : ''}</div>
-      <div class="sub" style="margin-top:8px">Владелец: ${c.owner ? `<a href="#" data-player="${c.owner.id}">${who(c.owner.id, c.owner.username)}</a>` : 'неизвестен'}
-        ${c.admin_chat ? ` · админ-чат: <a href="#" data-chat="${c.admin_chat.id}">${esc(c.admin_chat.title)}</a>` : ''}</div>
-      <div class="stats">
-        <div><span>👥 Участников</span><b>${num(c.members)}</b></div><div><span>💬 Всего</span><b>${num(m.total)}</b></div>
-        <div><span>Сегодня</span><b>${num(m.today.messages)} <small>· ${m.today.active} чел.</small></b></div>
-        <div><span>7 дней</span><b>${num(m.week.messages)} <small>· ${m.week.active} чел.</small></b></div>
-        <div><span>30 дней</span><b>${num(m.month.messages)} <small>· ${m.month.active} чел.</small></b></div>
-      </div>
-      <div class="actions" style="margin-top:12px">${acts.map(a =>
-        `<button class="btn small ${a.key === 'leave' ? 'danger' : ''}" data-act="${a.key}">${esc(a.title)}</button>`).join('')}
-        ${ME.sections.some(x => x.key === 'switches') ? '<button class="btn small" id="cswitch">⚙️ Функции чата</button>' : ''}</div>
-      ${c.switched_off.length ? `<div class="sub" style="margin-top:8px">Выключено: ${c.switched_off.map(x =>
-        esc(x.title) + (x.reason ? ` («${esc(x.reason)}»)` : '')).join(', ')}</div>` : ''}
-    </div>
-    ${chatRightsCard(c)}
-    ${chatSettingsCard(c.settings)}
-    <div class="card"><h3>Самые активные</h3>${c.top.map((x, i) => `<div class="sw-row"><div class="t">${i + 1}. ${person({user: x.id, username: x.username, tag: x.tag})}</div>
-      <span class="sub">${num(x.messages)}</span></div>`).join('') || '<div class="sub">Пока никого.</div>'}</div>
-    ${s.bans.total || s.mutes.total || s.warns.total ? `<div class="card" id="sanctions">${sanction('bans')}${sanction('mutes')}${sanction('warns')}</div>` : ''}
-    ${historyCard(c.history)}`;
-  wireChatRights(c, id);
-  wireBack(main);
-  const here = {type: 'chat', id};
-  main.querySelectorAll('[data-act]').forEach(btn => btn.onclick = () =>
-    runAction(c.actions.chat.find(a => a.key === btn.dataset.act), `/chat/${id}/action`, c, {}, reopen));
-  const wirePlayers = () => main.querySelectorAll('a[data-player]').forEach(a => a.onclick = e => { e.preventDefault(); playerView(main, +a.dataset.player, true, here); });
-  const wireUndo = () => main.querySelectorAll('[data-undo]').forEach(btn => btn.onclick = () =>
-    runAction(can(btn.dataset.undo), `/player/${btn.dataset.uid}/action`, c, {chat_id: id, chat_title: c.title}, reopen));
-  wireUndo(); wirePlayers();
-  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => { e.preventDefault(); chatView(main, +a.dataset.chat, true, here); });
-  main.querySelectorAll('[data-more]').forEach(btn => btn.onclick = async () => {   // «Показать ещё»: следующая страница списка
-    const kind = btn.dataset.more, [, line, undo] = SANCTIONS[kind];
-    btn.disabled = true;
-    try {
-      const page = await api(`/chat/${id}/sanctions?kind=${kind}&offset=${btn.dataset.next}`);
-      btn.closest('[data-kind]').querySelector('.srows').insertAdjacentHTML('beforeend', page.items.map(x => sanctionRow(x, line, undo)).join(''));
-      if (page.next) { btn.dataset.next = page.next; btn.disabled = false; } else btn.remove();
-      wireUndo(); wirePlayers();
-    } catch (e) { toast(e.message, true); btn.disabled = false; }
-  });
-  const sw = $('#cswitch');
-  if (sw) sw.onclick = () => { tabs('switches'); switchesView(main, {id: c.id, title: c.title}); };
-}
-
-SECTIONS.people = main => { PEOPLE.stack = []; peopleSearch(main, PEOPLE.query); };
-
-// ── Метрики ──────────────────────────────────────────────────────────────────
-
-function dur(sec) {
-  sec = Math.round(sec || 0);
-  if (sec < 60) return `${sec} с`;
-  const m = Math.floor(sec / 60), h = Math.floor(m / 60);
-  if (h) return `${num(h)} ч ${m % 60} мин`;
-  return m >= 10 || !(sec % 60) ? `${m} мин` : `${m} мин ${sec % 60} с`;
-}
-
-function bars(days, daily, field, title) {
-  if (days.length < 2) return '';
-  const vals = days.map(d => (daily[d] || {})[field] || 0);
-  const max = Math.max(1, ...vals);
-  return `<div class="sub" style="margin-top:12px">${esc(title)}</div><div class="bars">${days.map((d, i) => `
-    <div class="b" title="${d}: ${num(vals[i])}"><i style="height:${Math.round(vals[i] / max * 100)}%"></i>
-      ${days.length <= 7 || i % 5 === 0 || i === days.length - 1 ? `<span>${d.slice(8)}.${d.slice(5, 7)}</span>` : '<span></span>'}</div>`).join('')}</div>`;
-}
-
-const tile = (label, value, extra = '') => `<div><span>${label}</span><b>${value}</b>${extra}</div>`;
-
-// Сравнение с предыдущим таким же периодом: ▲ выросло, ▼ упало.
-function trend(cur, prev) {
-  if (prev == null) return '';
-  if (!prev && !cur) return '';
-  if (!prev) return ' <small class="trend up" title="В прошлом периоде было 0">▲ новое</small>';
-  const pct = Math.round((cur - prev) / prev * 100);
-  if (!pct) return ' <small class="trend" title="Как в прошлом периоде">＝</small>';
-  return ` <small class="trend ${pct > 0 ? 'up' : 'down'}" title="В прошлом периоде: ${num(prev)}">${pct > 0 ? '▲' : '▼'} ${Math.abs(pct)}%</small>`;
-}
-
-// Структура вкладок (ADM-01). Новые блоки: заголовок вкладки, акцентные плитки, группа-секция, алерт, таблица.
-// `.card` не трогаем: его роли (жалобы, панель выбора, рассылка) держатся на старых правилах.
-const FOLD = new Map();   // ключ секции -> раскрыта ли; переживает перерисовку вкладки (main.innerHTML = …)
-document.addEventListener('toggle', e => {
-  const d = e.target;
-  if (d.matches && d.matches('details.section[data-sec]')) FOLD.set(d.dataset.sec, d.open);
-}, true);
-
-const pageHead = (icon, title, sub) => `<header class="page-head"><h2><span aria-hidden="true">${icon}</span> ${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ''}</header>`;
-const kpi = (label, value, extra = '', cls = '') => `<div class="kpi ${cls}"><span>${label}</span><b>${value}</b>${extra}</div>`;
-const alertBox = (kind, html) => `<div class="alert ${kind}" role="status">${html}</div>`;
-// Свёрнутая секция помнит выбор человека; без ключа или без fold это обычная открытая группа.
-function section(key, title, body, {fold = false, open = true, count = null} = {}) {
-  const cnt = count == null ? '' : ` <small class="cnt">· ${count}</small>`;
-  if (!fold) return `<section class="section" data-sec="${key}"><h3 class="sec-h">${title}${cnt}</h3>${body}</section>`;
-  const isOpen = FOLD.has(key) ? FOLD.get(key) : open;
-  return `<details class="section" data-sec="${key}" ${isOpen ? 'open' : ''}><summary class="sec-h">${title}${cnt}</summary><div class="sec-body">${body}</div></details>`;
-}
-// Таблица: на узком экране, если колонок больше трёх, строки превращаются в карточки (подписи берутся из шапки).
-function tbl(heads, rows) {
-  const cards = heads.length > 3 ? ' tbl-cards' : '';
-  return `<table class="tbl${cards}"><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr>${rows.map(r =>
-    `<tr>${r.map((c, i) => `<td data-label="${esc(String(heads[i]).replace(/<[^>]*>/g, ''))}">${c}</td>`).join('')}</tr>`).join('')}</table>`;
-}
-
-const CURRENCIES = {mora: '🪙 Мора', diamonds: '💎 Алмазы', dark_mora: '🌑 Тёмная мора', zarniki: '✨ Зарники'};
-const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + num(Math.abs(v));
-
-function retentionCard(r) {
-  if (!r) return '';
-  const names = {d1: 'На следующий день', d7: 'За 7 дней', d30: 'За 30 дней'};
-  return section('m-retention', '🔁 Удержание', `<div class="kpis">
-    ${Object.entries(names).map(([k, t]) => r[k] && r[k].cohort
-      ? kpi(t, r[k].percent + '%', `<small> ${num(r[k].returned)} из ${num(r[k].cohort)}</small>`, 'sm') : kpi(t, '—', '<small> данных пока нет</small>', 'sm')).join('')}</div>
-    <p class="sub note">Доля новых людей, которые вернулись. «Новый» — впервые замечен в сообщениях чатов или командах бота;
-    у каждого срока своя группа, чтобы нужное время уже прошло у всех. Считается по данным с начала учёта.</p>`, {fold: true, open: false});
-}
-
-function funnelCard(f) {
-  if (!f || !f.steps || !f.steps[0].users) return section('m-funnel', '🪜 Воронка мини-приложения', '<div class="sub">За период приложение никто не открывал.</div>', {fold: true, open: false});
-  return section('m-funnel', '🪜 Воронка мини-приложения', `
-    ${f.steps.map(x => x.users == null
-      ? `<div class="sub" style="margin-top:10px">${esc(x.title)} — данных пока нет</div>`
-      : `<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;gap:8px"><span>${esc(x.title)}</span>
-          <b>${num(x.users)}${x.of_first == null ? '' : ` <small class="sub">· ${x.of_first}%</small>`}</b></div>
-        <div style="height:8px;border-radius:4px;background:var(--line);margin-top:4px"><i style="display:block;height:100%;width:${Math.max(2, x.of_first || 0)}%;background:var(--accent);border-radius:4px"></i></div>
-        ${x.of_prev == null || x.key === 'opened' ? '' : `<div class="sub" style="margin-top:2px">${x.of_prev}% от прошлого шага</div>`}</div>`).join('')}
-    ${f.with_bot_percent == null ? '' : `<div class="sub" style="margin-top:12px">Из открывших приложение ещё и пользуются командами бота: ${num(f.with_bot)} (${f.with_bot_percent}%)</div>`}
-    <p class="sub note">Каждый шаг входит в предыдущий: считаются одни и те же люди за выбранный период. «Потратили валюту» — любая трата в приложении
-    (покупка, ставка, образ, питомец).</p>`, {fold: true, open: false});
-}
-
-const staffEco = st => {
-  const rows = Object.entries(st || {}).filter(([k]) => CURRENCIES[k]);
-  return rows.length ? `<p class="sub note">На аккаунтах команды: ${rows.map(([k, c]) => `${CURRENCIES[k]} выдано ${num(c.issued)}, потрачено ${num(c.spent)}`).join('; ')}.</p>` : '';
-};
-function economyCard(e) {
-  const cur = Object.entries(e || {}).filter(([k, c]) => CURRENCIES[k] && (c.issued || c.spent));
-  if (!cur.length) return section('m-economy', '💰 Экономика', '<div class="sub">За период движений валюты не было.</div>', {fold: true, open: false});
-  const list = (items, label) => items.length ? `<details style="margin-top:6px"><summary class="sub">${label} · ${items.length}</summary>
-    ${tbl(['Что', 'Сумма'], items.map(x => [esc(x.title), num(x.amount)]))}</details>` : '';
-  return section('m-economy', '💰 Экономика', `${cur.map(([k, c]) => `
-    <div class="sub cur"><b>${CURRENCIES[k]}</b></div>
-    <div class="kpis">${kpi('Выдано', num(c.issued), '', 'sm')}${kpi('Потрачено', num(c.spent), '', 'sm')}${kpi('Итого', signed(c.net), '', 'sm')}</div>
-    ${list(c.sources, 'Откуда пришло')}${list(c.sinks, 'На что ушло')}`).join('')}
-    ${staffEco(e._staff)}
-    <p class="sub note">Переводы между игроками не считаются: деньги только переходят от человека к человеку. Аккаунты команды в счёт не входят.</p>`, {fold: true, open: false, count: cur.length});
-}
-
-// Выгрузка в CSV: в браузере скачивается файлом, а в Telegram (где файлы не скачать) — копируется в буфер.
-async function exportMetrics(days) {
-  const headers = {};
-  if (INIT) headers['x-init-data'] = INIT;
-  try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
-  const res = await fetch(`${BASE}/bot-admin/api/metrics/export?days=${days}`, {headers});
-  if (!res.ok) throw new Error(`Ошибка ${res.status}`);
-  const text = await res.text();
-  if (window.Telegram?.WebApp?.initData) {
-    await navigator.clipboard.writeText(text.replace(/^\ufeff/, ''));
-    toast('Таблица скопирована: вставьте её в Excel или Google Таблицы.');
-    return;
-  }
-  const url = URL.createObjectURL(new Blob([text], {type: 'text/csv;charset=utf-8'}));
-  const a = Object.assign(document.createElement('a'), {href: url, download: `metrics-${days}d.csv`});
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-async function metricsView(main, days = 1) {
-  if (![1, 7, 30].includes(days)) days = 1;
-  PREFS.set('metrics.days', days);
-  showSectionLoading(main, 'metrics');
-  const m = await loadSectionData(main, `/metrics?days=${days}`, () => metricsView(main, days), 'metrics');
-  if (!m) return;
-  const s = m.site, b = m.bot, c = m.chats, cmp = m.compare || {};
-  const metricTrend = (cur, prev) => m.days === 1 ? '' : trend(cur, prev);
-  const period = {1: 'Сегодня', 7: '7 дней', 30: '30 дней'};
-  const dmy = d => d.split('-').reverse().join('.');
-  main.innerHTML = `
-    ${pageHead('▥', 'Метрики', 'Сколько людей и чего происходит в боте и приложении')}
-    <div class="scope">${Object.entries(period).map(([d, t]) =>
-      `<button class="btn small ${+d === m.days ? 'primary' : ''}" data-days="${d}">${t}</button>`).join('')}
-      <span class="sub">${m.days === 1 ? dmy(m.until) : dmy(m.since) + ' — ' + dmy(m.until)}</span>
-      <button class="btn small" id="mexport" style="margin-left:auto">⬇ Таблица CSV</button></div>
-    <div class="kpis hero">
-      ${kpi('👤 Уникальных людей', num(m.everyone), metricTrend(m.everyone, cmp.everyone))}${kpi('📱 В приложении', num(s.visitors), metricTrend(s.visitors, cmp.visitors))}
-      ${kpi('🤖 Команд бота', num(b.commands), metricTrend(b.commands, cmp.commands))}${kpi('💬 Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages))}</div>
-    <p class="sub note">В базе ${num(m.players_total)} игроков и ${num(m.chats_total)} чатов с ботом. Уникальные — кто открыл приложение, вызвал команду или писал
-      в чате с ботом. ${m.days === 1 ? 'Сегодняшний день ещё не завершён (UTC); проценты к полным прошлым суткам не показываем.' : `Стрелки — сравнение с предыдущими ${m.days} днями. Текущий период включает незавершённый день (UTC).`}
-      ${m.excluded ? `<br>Без аккаунтов команды (разработчик, создатель, тестеры): ${num(m.excluded)}. Их действия в метрики не входят.` : ''}</p>
-    ${section('m-app', '📱 Мини-приложение', `<div class="kpis">
-      ${kpi('Посетителей', num(s.visitors), metricTrend(s.visitors, cmp.visitors), 'sm')}${kpi('Сессий', num(s.sessions), '', 'sm')}${kpi('Открытий вкладок', num(s.visits), '', 'sm')}
-      ${kpi('Время всего', dur(s.seconds), '', 'sm')}${kpi('На человека', dur(s.avg_seconds_per_visitor), '', 'sm')}</div>
-      ${bars(m.day_list, s.daily, 'users', 'Посетители по дням')}
-      ${s.pages.length ? tbl(['Вкладка', 'Открытий', 'Людей', 'Время', 'Среднее'],
-        s.pages.map(p => [esc(p.title), num(p.visits), num(p.users), dur(p.seconds), dur(p.avg_seconds)]))
-        : '<div class="sub" style="margin-top:8px">За период никто не открывал.</div>'}
-      ${s.subpages.length ? `<details class="more-d"><summary class="sub">Разделы внутри вкладок · ${s.subpages.length}</summary>
-        ${tbl(['Вкладка', 'Открытий', 'Людей'], s.subpages.map(p => [esc(p.tab), num(p.visits), `${num(p.users)} чел.`]))}</details>` : ''}`)}
-    ${section('m-bot', '🤖 Команды бота', `<div class="kpis">
-      ${kpi('Команд', num(b.commands), metricTrend(b.commands, cmp.commands), 'sm')}${kpi('В чатах', num(b.commands_group), '', 'sm')}${kpi('В личке', num(b.commands_private), '', 'sm')}
-      ${kpi('Людей', num(b.users), metricTrend(b.users, cmp.bot_users), 'sm')}${kpi('Людей в чатах', num(b.users_group), '', 'sm')}${kpi('Людей в личке', num(b.users_private), '', 'sm')}</div>
-      ${bars(m.day_list, b.daily, 'users', 'Люди, вызывавшие команды, по дням')}
-      ${b.top.length ? tbl(['Команда', 'В чатах', 'В личке', 'Всего'], b.top.map(x => [`бот ${esc(x.command)}`, num(x.group), num(x.private), num(x.total)]))
-        : '<div class="sub" style="margin-top:8px">Команд за период не было.</div>'}
-      ${b.top_includes_staff ? '<p class="sub note">Рейтинг команд считается без разбивки по людям, поэтому в нём остаются и команды аккаунтов команды. Плитки выше их не включают.</p>' : ''}`)}
-    ${section('m-chats', '💬 Чаты', `<div class="kpis">
-      ${kpi('Сообщений', num(c.messages), metricTrend(c.messages, cmp.messages), 'sm')}${kpi('Писали', num(c.users) + ' чел.', metricTrend(c.users, cmp.chat_users), 'sm')}${kpi('Активных чатов', num(c.chats), '', 'sm')}</div>
-      ${bars(m.day_list, c.daily, 'messages', 'Сообщения по дням')}
-      ${c.top.length ? tbl(['Чат', 'Сообщений', 'Писали'], c.top.map(x => [ME.sections.some(z => z.key === 'people') ? `<a href="#" data-chat="${x.id}">${esc(x.title)}</a>` : esc(x.title), num(x.messages), num(x.users)])) : ''}`)}
-    ${economyCard(m.economy)}${retentionCard(m.retention)}${funnelCard(m.funnel)}`;
-  $('#mexport').onclick = async e => {
-    e.target.disabled = true;
-    try { await exportMetrics(m.days); } catch (err) { toast(err.message || 'Не удалось выгрузить', true); }
-    e.target.disabled = false;
-  };
-  main.querySelectorAll('table').forEach(t => {   // длинные таблицы (топ команд) по 8 строк, остальное по кнопке
-    const rows = [...t.querySelectorAll('tr')].slice(1);
-    if (rows.length <= 10) return;
-    rows.slice(8).forEach(r => { r.hidden = true; });
-    const more = document.createElement('button');
-    more.className = 'btn small more'; more.style.marginTop = '8px'; more.textContent = `Показать ещё ${rows.length - 8}`;
-    more.onclick = () => { rows.forEach(r => { r.hidden = false; }); more.remove(); };
-    t.after(more);
-  });
-  main.querySelectorAll('[data-days]').forEach(btn => btn.onclick = () => metricsView(main, +btn.dataset.days));
-  main.querySelectorAll('a[data-chat]').forEach(a => a.onclick = e => {
-    e.preventDefault(); tabs('people'); PEOPLE.stack = []; chatView(main, +a.dataset.chat);
-  });
-}
-
-SECTIONS.metrics = main => metricsView(main, PREFS.get('metrics.days', 1));
-
-// ── Рассылка ─────────────────────────────────────────────────────────────────
-
-// Предпросмотр HTML Telegram: всё экранируется, обратно включаются только теги, которые понимает Telegram.
-function tgHtml(text) {
-  const html = esc(text)
-    .replace(/&lt;(\/?)(b|strong|i|em|u|ins|s|strike|del|code|pre|blockquote|tg-spoiler)&gt;/g, '<$1$2>')
-    .replace(/&lt;a href=&quot;(https?:\/\/[^&"]*)&quot;&gt;/g, '<a href="$1" target="_blank" rel="noopener">')
-    .replace(/&lt;\/a&gt;/g, '</a>');
-  // Теги закрываем сами: обрезанный на полуслове текст («<b>жирный…») не должен делать жирными соседние строки.
-  const open = [];
-  const balanced = html.replace(/<(\/?)([a-z-]+)[^>]*>/g, (m, close, tag) => {
-    if (!close) { open.push(tag); return m; }
-    const at = open.lastIndexOf(tag);
-    if (at < 0) return '';
-    return open.splice(at).reverse().map(t => `</${t}>`).join('');
-  });
-  return balanced + open.reverse().map(t => `</${t}>`).join('');
-}
-
-// Выбор людей или чатов поиском: чипы + подсказки. items — массив {id, label}, меняется на месте.
-function pickerField(host, {hint, placeholder, search, items, onChange}) {
-  host.innerHTML = `<input placeholder="${esc(placeholder)}"/><div class="found"></div><div class="chips"></div>`;
-  const input = $('input', host), found = $('.found', host), chips = $('.chips', host);
-  const draw = () => {
-    chips.innerHTML = items.length
-      ? items.map((x, i) => `<span class="chip" data-un="${i}" title="Убрать">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} ✕</span>`).join('')
-      : `<span class="sub">${esc(hint)}</span>`;
-  };
-  draw();
-  chips.onclick = e => { const c = e.target.closest('[data-un]'); if (c) { items.splice(+c.dataset.un, 1); draw(); onChange(); } };
-  let timer;
   input.oninput = () => {
     clearTimeout(timer);
     const q = input.value.trim();
-    if (!q) { found.innerHTML = ''; return; }
-    timer = setTimeout(async () => {
-      try {
-        const list = (await search(q)).filter(x => !items.some(y => y.id === x.id));
-        found.innerHTML = list.map((x, i) => `<button type="button" data-add="${i}">${x.avatar !== undefined ? ava(x) : ''}${esc(x.label)} <span class="sub">${x.id}</span></button>`).join('')
-          || '<span class="sub">Не найдено</span>';
-        found._list = list;
-      } catch (e) { found.innerHTML = `<span class="sub">${esc(e.message)}</span>`; }
-    }, 250);
+    if (!q) { seq++; recent(); return; }
+    timer = setTimeout(() => find(q).catch(() => {}), 280);   // не на каждую букву: лишние запросы и входы в журнал
   };
-  found.onclick = e => {
-    const b = e.target.closest('[data-add]');
-    if (!b || !found._list) return;
-    items.push(found._list[+b.dataset.add]);
-    found.innerHTML = ''; input.value = '';
-    draw(); onChange();
-  };
-}
-
-const searchChats = async q => (await api(`/chats?q=${encodeURIComponent(q)}`)).items.map(c => ({id: c.id, label: (c.admin ? '🛡 ' : '') + c.title}));
-const searchPlayers = async q => (await api(`/search?q=${encodeURIComponent(q)}`)).players
-  .map(u => ({id: u.id, label: u.username ? '@' + u.username : 'id' + u.id, username: u.username, name: u.name, avatar: u.avatar}));
-
-// Черновик живёт, пока открыта админка: обновление списка или ошибка не стирают набранное.
-const BC = {kind: 'players', chats: [], players: [], active: '', chatKind: '', vip: '', newDays: '', minMsg: '', text: '', html: true,
-            btnText: '', btnUrl: '', later: false, at: ''};
-
-function bcSegment() {
-  const seg = {kind: BC.kind};
-  if (BC.chats.length) seg.chats = BC.chats.map(x => x.id);
-  if (BC.kind === 'chats' && (BC.chatKind === 'main' || BC.chatKind === 'admin')) seg.chat_kind = BC.chatKind;
-  if (+BC.active) seg.active_days = +BC.active;
-  if (BC.kind === 'players') {
-    if (BC.vip !== '') seg.vip = BC.vip === '1';
-    if (+BC.newDays) seg.new_days = +BC.newDays;
-    if (+BC.minMsg) seg.min_messages = +BC.minMsg;
-    if (BC.players.length) seg.players = BC.players.map(x => x.id);
-  }
-  return seg;
-}
-const bcButton = () => (BC.btnText.trim() || BC.btnUrl.trim()) ? {text: BC.btnText.trim(), url: BC.btnUrl.trim()} : null;
-
-function bcHistoryRow(b) {
-  const text = b.text.length > 160 ? b.text.slice(0, 160) + '…' : b.text;
-  const progress = b.status === 'scheduled' ? `отправится ${when(b.scheduled_at)}` : `${num(b.sent)}/${num(b.total)}${b.failed ? ` · не дошло ${num(b.failed)}` : ''}`;
-  const resumable = b.status === 'interrupted' || (b.status === 'stopped' && b.total > b.sent + b.failed);
-  return `<div class="log"><div><b>${esc(b.audience_title)}</b> · ${esc(b.status_title)} · ${progress}</div>
-    <div class="sub" style="white-space:pre-wrap">${(b.html ? tgHtml : esc)(text)}${b.button ? `\n[ ${esc(b.button.text)} ]` : ''}</div>
-    <div class="sub">${when(b.created_at)} · ${esc(b.actor)}</div>
-    <div class="actions" style="margin-top:6px">
-      ${b.status === 'running' ? `<button class="btn small" data-bstop="${b.id}">⏹ Остановить</button>` : ''}
-      ${b.status === 'scheduled' ? `<button class="btn small" data-bstop="${b.id}">✖ Отменить</button>` : ''}
-      ${resumable ? `<button class="btn small" data-bresume="${b.id}">▶ Продолжить</button>` : ''}
-      ${b.status !== 'scheduled' ? `<button class="btn small" data-breport="${b.id}">📋 Отчёт</button>` : ''}
-    </div></div>`;
-}
-
-async function bcReport(id, refresh) {
-  const rep = await api(`/broadcasts/${id}`);
-  const b = rep.broadcast;
-  const names = rep.failed_sample.map(x => `<div class="log">${pinline(x)} <span class="sub">${esc(x.reason)}</span></div>`).join('');
-  sheet(`Рассылка №${b.id}`, `
-    <div class="sub" style="margin-bottom:6px">${esc(b.audience_title)} · ${esc(b.status_title)}</div>
-    <div class="grid2"><div class="card"><div class="sub">Дошло</div><b>${num(rep.sent)}</b></div>
-      <div class="card"><div class="sub">Не дошло</div><b>${num(rep.failed)}</b></div></div>
-    ${rep.pending ? `<div class="sub">Ещё не отправлено: ${num(rep.pending)}</div>` : ''}
-    ${rep.reasons.length ? `<h4>Почему не дошло</h4>${rep.reasons.map(r => `<div class="log">${esc(r.title)} <b>${num(r.count)}</b></div>`).join('')}` : ''}
-    ${names ? `<h4>Кому не дошло${rep.failed > rep.failed_sample.length ? ` (первые ${rep.failed_sample.length})` : ''}</h4>${names}` : ''}
-    <div class="card" style="white-space:pre-wrap;margin-top:8px">${(b.html ? tgHtml : esc)(b.text)}</div>`,
-    rep.failed ? 'Повторить недоставленным' : 'Закрыть', async () => {
-      if (!rep.failed) return;
-      const res = await api(`/broadcasts/${id}/retry`, {method: 'POST'});
-      toast(res.message); refresh();
-    });
-}
-
-async function broadcastView(main) {
-  const data = await loadSectionData(main, '/broadcasts', () => broadcastView(main), 'broadcast');
-  if (!data) return;
-  let items = data.items, templates = data.templates || [];
-  main.innerHTML = `
-    ${ME.creator ? '<div class="card"><h3>Важные обновления проекта</h3><p class="sub">Одна новость со скриншотом в официальную тему. Отдельно от массовых рассылок.</p><button class="btn primary" onclick="officialUpdatesOpen()">Подготовить публикацию</button></div>' : ''}
-    <div class="card"><h3>📣 Новая рассылка</h3>
-      <div class="field"><label>Шаблон</label><select id="btpl"></select>
-        <div class="actions" style="margin-top:6px"><button class="btn small" id="btplsave">💾 Сохранить как шаблон</button>
-        <button class="btn small danger" id="btpldel" hidden>Удалить шаблон</button></div></div>
-      <div class="field"><label>Кому</label><select id="bkind">${data.audiences.map(a =>
-        `<option value="${a.key}" ${a.key === BC.kind ? 'selected' : ''}>${esc(a.title)} · всего ${num(data.sizes[a.key] || 0)}</option>`).join('')}</select></div>
-      <div id="bseg"></div>
-      <div class="card" id="bcount" style="margin:8px 0">Считаем получателей…</div>
-      <div class="field"><label>Текст (до 3500 символов)</label><textarea id="btext" maxlength="3500" rows="6"></textarea></div>
-      <div class="field switch"><input type="checkbox" id="bhtml"/><label for="bhtml" style="margin:0">HTML-разметка Telegram</label></div>
-      <div class="sub" id="bhelp">Можно: &lt;b&gt;жирный&lt;/b&gt;, &lt;i&gt;курсив&lt;/i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="https://…"&gt;ссылка&lt;/a&gt;.</div>
-      <div class="grid2" style="margin-top:8px">
-        <div class="field"><label>Кнопка под сообщением: подпись</label><input id="bbtext" maxlength="64" placeholder="Например: Играть"/></div>
-        <div class="field"><label>Ссылка кнопки</label><input id="bburl" maxlength="512" placeholder="https://t.me/…"/></div></div>
-      <div class="sub" style="margin-top:6px">Предпросмотр</div>
-      <div class="card" id="bprev" style="white-space:pre-wrap;min-height:44px"></div>
-      <div class="field switch"><input type="checkbox" id="blater"/><label for="blater" style="margin:0">Отправить позже</label></div>
-      <div class="field" id="batwrap" hidden><label>Когда (по вашему времени)</label><input type="datetime-local" id="bat"/></div>
-      <div class="sub">В личку дойдёт только тем, кто хоть раз открывал диалог с ботом. Заблокированным и забаненным везде не отправляется. Получателей отложенной рассылки бот считает в момент отправки.</div>
-      <div class="actions" style="margin-top:10px"><button class="btn" id="btest">✉️ Отправить себе в личку</button>
-        <button class="btn primary" id="bgo">Проверить и отправить</button></div>
-      <div class="sub" id="bbusy" style="margin-top:6px" hidden>Сейчас идёт другая рассылка: дождитесь её или остановите.</div>
-    </div>
-    <div class="card"><h3>История</h3><div id="bhist"></div></div>`;
-
-  // ── Сегмент ──
-  const refreshCount = (() => {
-    let timer, seq = 0;
-    return () => {
-      clearTimeout(timer);
-      timer = setTimeout(async () => {
-        const mine = ++seq, box = $('#bcount');
-        if (!box) return;
-        try {
-          const res = await api('/broadcasts/preview', {method: 'POST', body: JSON.stringify({segment: bcSegment()})});
-          if (mine === seq && $('#bcount')) { BC.count = res.count; BC.title = res.title; box.innerHTML = `Получателей: <b>${num(res.count)}</b> · <span class="sub">${esc(res.title)}</span>`; }
-        } catch (e) { if (mine === seq && $('#bcount')) { BC.count = null; box.innerHTML = `<span class="sub">${esc(e.message)}</span>`; } }
-      }, 300);
-    };
-  })();
-  const numberField = (id, label, key, ph) => `<div class="field"><label>${label}</label><input id="${id}" type="number" min="0" inputmode="numeric" value="${esc(BC[key])}" placeholder="${ph}"/></div>`;
-  function drawSegment() {
-    const players = BC.kind === 'players';
-    $('#bseg').innerHTML = `
-      <div class="field"><label>${players ? 'Только участники этих чатов (пусто — любых)' : 'Только эти чаты (пусто — все чаты бота)'}</label><div id="bpchats"></div></div>
-      ${players ? '' : `<div class="field"><label for="bckind">Какие чаты</label><select id="bckind" aria-describedby="bckind-note">
-        ${[['', 'Все чаты — основные и админ-чаты'], ['main', '🏠 Только основные (без админ-чатов)'], ['admin', '🛡 Только админ-чаты']].map(([v, t]) => `<option value="${v}" ${BC.chatKind === v ? 'selected' : ''}>${t}</option>`).join('')}</select><p id="bckind-note" class="sub">Админ-чаты определяются по связке с основным чатом. Выбор чатов выше дополнительно ограничивает список.</p></div>`}
-      ${players ? `<div class="field"><label>Только эти игроки (пусто — любые)</label><div id="bpplayers"></div></div>` : ''}
-      <div class="grid2">
-        ${numberField('bactive', players ? 'Писали хоть где-то за N дней' : 'Писали в чате за N дней', 'active', 'Любые')}
-        ${players ? `<div class="field"><label>VIP</label><select id="bvip">
-          ${[['', 'Не важно'], ['1', 'Только с VIP'], ['0', 'Только без VIP']].map(([v, t]) => `<option value="${v}" ${BC.vip === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-        ${numberField('bnew', 'Новички: впервые замечены за N дней', 'newDays', 'Любые')}
-        ${numberField('bmin', 'Сообщений всего — не меньше', 'minMsg', 'Любые')}` : ''}
-      </div>`;
-    pickerField($('#bpchats'), {hint: players ? 'Любые чаты' : 'Все чаты бота · 🛡 — админ-чат', placeholder: 'Найти чат по названию или ID', search: searchChats, items: BC.chats, onChange: refreshCount});
-    if (players) pickerField($('#bpplayers'), {hint: 'Любые игроки', placeholder: 'Найти игрока по @нику или ID', search: searchPlayers, items: BC.players, onChange: refreshCount});
-    const bind = (id, key) => { const el = $('#' + id); if (el) el.oninput = el.onchange = () => { BC[key] = el.value; refreshCount(); }; };
-    bind('bactive', 'active'); bind('bvip', 'vip'); bind('bnew', 'newDays'); bind('bmin', 'minMsg'); bind('bckind', 'chatKind');
-    refreshCount();
-  }
-  $('#bkind').onchange = () => { BC.kind = $('#bkind').value; drawSegment(); };
-  drawSegment();
-
-  // ── Текст, кнопка, расписание ──
-  const draw = () => {
-    BC.text = $('#btext').value; BC.html = $('#bhtml').checked; BC.btnText = $('#bbtext').value; BC.btnUrl = $('#bburl').value;
-    BC.later = $('#blater').checked; BC.at = $('#bat').value;
-    $('#bprev').innerHTML = (BC.html ? tgHtml : esc)(BC.text) + (bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText || '…')}</span></div>` : '');
-    $('#bhelp').hidden = !BC.html;
-    $('#batwrap').hidden = !BC.later;
-    $('#bgo').textContent = BC.later ? 'Проверить и запланировать' : 'Проверить и отправить';
-  };
-  $('#btext').value = BC.text; $('#bhtml').checked = BC.html; $('#bbtext').value = BC.btnText; $('#bburl').value = BC.btnUrl;
-  $('#blater').checked = BC.later; $('#bat').value = BC.at;
-  ['#btext', '#bbtext', '#bburl', '#bat'].forEach(sel => $(sel).oninput = draw);
-  $('#bhtml').onchange = $('#blater').onchange = draw;
-  draw();
-
-  // ── Шаблоны ──
-  const drawTemplates = () => {
-    $('#btpl').innerHTML = `<option value="">— без шаблона —</option>` + templates.map(t => `<option value="${t.id}">${esc(t.title)}</option>`).join('');
-    $('#btpldel').hidden = true;
-  };
-  drawTemplates();
-  $('#btpl').onchange = () => {
-    const t = templates.find(x => String(x.id) === $('#btpl').value);
-    $('#btpldel').hidden = !t;
-    if (!t) return;
-    $('#btext').value = t.text; $('#bhtml').checked = t.html;
-    $('#bbtext').value = t.button ? t.button.text : ''; $('#bburl').value = t.button ? t.button.url : '';
-    draw();
-  };
-  $('#btplsave').onclick = () => {
-    if (!$('#btext').value.trim()) { toast('Сначала напишите текст.', true); return; }
-    sheet('Сохранить как шаблон', `<div class="field"><label>Название</label><input id="btitle" maxlength="60" placeholder="Например: Новости недели"/></div>
-      <div class="sub">Сохранятся текст, разметка и кнопка. Получатели и время — нет.</div>`, 'Сохранить', async () => {
-      const res = await api('/broadcasts/templates', {method: 'POST', body: JSON.stringify({
-        title: $('#btitle').value, text: $('#btext').value.trim(), html: $('#bhtml').checked, button: bcButton()})});
-      templates = res.items; drawTemplates(); toast(res.message);
-    });
-  };
-  $('#btpldel').onclick = async () => {
-    const t = templates.find(x => String(x.id) === $('#btpl').value);
-    if (!t || !confirm(`Удалить шаблон «${t.title}»?`)) return;
-    try { templates = (await api(`/broadcasts/templates/${t.id}`, {method: 'DELETE'})).items; drawTemplates(); toast('Шаблон удалён.'); }
-    catch (e) { toast(e.message, true); }
-  };
-
-  // ── Отправка ──
-  $('#btest').onclick = async () => {
-    const text = $('#btext').value.trim();
-    if (!text) { toast('Напишите текст.', true); return; }
-    $('#btest').disabled = true;
-    try { toast((await api('/broadcasts/test', {method: 'POST', body: JSON.stringify({text, html: BC.html, button: bcButton()})})).message); }
-    catch (e) { toast(e.message, true); }
-    $('#btest').disabled = false;
-  };
-  $('#bgo').onclick = () => {
-    const text = BC.text.trim();
-    if (!text) { toast('Напишите текст.', true); return; }
-    if (BC.later && !BC.at) { toast('Выберите время отправки.', true); return; }
-    const rid = (crypto.randomUUID && crypto.randomUUID()) || String(Date.now()) + Math.random();
-    const who = BC.count == null ? 'Получатели не посчитаны' : `${num(BC.count)} получателей · ${BC.title}`;
-    sheet(BC.later ? 'Запланировать рассылку?' : 'Отправить рассылку?', `
-      <div class="sub" style="margin-bottom:8px">${esc(who)}${BC.later ? `<br/>Отправится ${when(BC.at)}.` : '<br/>Отменить уже отправленное нельзя.'}</div>
-      <div class="card" style="white-space:pre-wrap">${(BC.html ? tgHtml : esc)(text)}${bcButton() ? `<div style="margin-top:8px"><span class="chip">${esc(BC.btnText)}</span> <span class="sub">${esc(BC.btnUrl)}</span></div>` : ''}</div>`,
-      BC.later ? 'Запланировать' : 'Отправить', async () => {
-        const res = await api('/broadcasts', {method: 'POST', body: JSON.stringify({
-          audience: BC.kind, segment: bcSegment(), text, html: BC.html, button: bcButton(), request_id: rid,
-          scheduled_at: BC.later ? new Date(BC.at).toISOString() : null})});
-        toast(res.message || 'Готово');
-        Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: ''});
-        broadcastView(main);
-      });
-  };
-
-  // ── История: перерисовывается отдельно, пока идёт рассылка (форма остаётся как есть) ──
-  const alive = () => document.body.contains(main) && $('#bhist') && currentSection() === 'broadcast';
-  let poll;
-  function drawHistory() {
-    clearTimeout(poll);
-    const running = items.some(b => b.status === 'running');
-    $('#bgo').disabled = running; $('#bbusy').hidden = !running;
-    $('#bhist').innerHTML = items.length ? items.map(bcHistoryRow).join('') : '<div class="sub">Рассылок ещё не было.</div>';
-    if (running || items.some(b => b.status === 'scheduled')) {
-      poll = setTimeout(async () => {
-        if (!alive()) return;
-        try { items = (await api('/broadcasts')).items; } catch (_) {}
-        if (alive()) drawHistory();
-      }, running ? 4000 : 30000);
-    }
-  }
-  const reload = async () => { items = (await api('/broadcasts')).items; drawHistory(); };
-  $('#bhist').onclick = async e => {
-    const stop = e.target.closest('[data-bstop]'), resume = e.target.closest('[data-bresume]'), report = e.target.closest('[data-breport]');
-    try {
-      if (stop) { toast((await api(`/broadcasts/${stop.dataset.bstop}/stop`, {method: 'POST'})).message); await reload(); }
-      else if (resume) { toast((await api(`/broadcasts/${resume.dataset.bresume}/resume`, {method: 'POST'})).message); await reload(); }
-      else if (report) await bcReport(report.dataset.breport, reload);
-    } catch (err) { toast(err.message, true); }
-  };
-  drawHistory();
-}
-
-SECTIONS.broadcast = main => broadcastView(main);
-
-// ── Промокоды ────────────────────────────────────────────────────────────────
-
-let OPTIONS = null;
-
-function promoStatus(p) {
-  if (p.legacy) return '<span class="chip warn">старый формат</span>';
-  const now = Date.now();
-  if (!p.is_active) return '<span class="chip off">выключен</span>';
-  if (p.valid_until && Date.parse(p.valid_until) < now) return '<span class="chip off">истёк</span>';
-  if (p.valid_from && Date.parse(p.valid_from) > now) return '<span class="chip warn">ещё не начался</span>';
-  if (p.max_activations && p.activations >= p.max_activations) return '<span class="chip off">исчерпан</span>';
-  return '<span class="chip ok">работает</span>';
-}
-
-function when(iso) {
-  return iso ? new Date(iso).toLocaleString('ru-RU', {dateStyle: 'short', timeStyle: 'short'}) : '';
-}
-
-async function promoList(main, query = '') {
-  main.innerHTML = `
-    <div class="bar"><input id="pq" placeholder="Поиск по коду" value="${esc(query)}"/>
-      <button class="btn" id="pbulk" title="Много одноразовых кодов с одной наградой">Пачка</button>
-      <button class="btn primary" id="pnew">+ Новый</button></div>
-    <div class="list" id="plist"><div class="empty">Загрузка…</div></div>`;
-  $('#pnew').onclick = () => promoEdit(main, null);
-  $('#pbulk').onclick = () => promoEdit(main, null, {bulk: true});
-  let timer;
-  $('#pq').oninput = e => { clearTimeout(timer); timer = setTimeout(() => load(e.target.value), 250); };
-  async function load(q) {
-    const host = $('#plist'); if (!host) return;
-    const data = await loadSectionData(host, `/promo?q=${encodeURIComponent(q)}`, () => load(q), 'promo');
-    if (!data) return;
-    const {items} = data;
-    $('#plist').innerHTML = items.length ? items.map(p => `
-      <div class="row" data-code="${esc(p.code)}">
-        <div class="head"><span class="code">${esc(p.code)}</span>${promoStatus(p)}</div>
-        <div class="sub">${p.rewards_text.length ? esc(p.rewards_text.join(' · ')) : 'наград нового формата нет'}</div>
-        <div class="sub">Активаций: ${num(p.activations)}${p.max_activations ? ' из ' + num(p.max_activations) : ''}
-          ${p.allowed_chats.length ? ' · чатов: ' + p.allowed_chats.length : ' · во всех чатах'}
-          ${p.valid_until ? ' · до ' + when(p.valid_until) : ''}</div>
-      </div>`).join('') : '<div class="empty">Промокодов нет</div>';
-    for (const row of main.querySelectorAll('[data-code]')) row.onclick = () => promoView(main, row.dataset.code);
-  }
-  load(query);
-}
-
-const SPENT_TITLES = [['mora', 'мора'], ['diamonds', 'алмазов'], ['essence', 'эссенции'], ['zarniki', 'зарников'], ['vip_days', 'дн. VIP']];
-
-// Как идёт код: сколько осталось, где и когда активировали, сколько награды уже ушло и что в нём стоит перепроверить.
-function promoStats(p) {
-  const s = p.stats;
-  if (!s) return '';
-  const days = s.per_day.map(d => d.day), daily = Object.fromEntries(s.per_day.map(d => [d.day, {n: d.n}]));
-  const spent = SPENT_TITLES.filter(([key]) => s.spent && s.spent[key] != null && +s.spent[key] > 0)
-    .map(([key, title]) => `${num(s.spent[key])} ${title}`);
-  const share = s.limit ? Math.min(100, Math.round(s.activations / s.limit * 100)) : 0;
-  return `<div class="card"><h3>Как идёт</h3>
-    ${(p.warnings || []).map(w => `<div class="chip warn" style="display:block;margin-bottom:6px;border-radius:12px">${esc(w)}</div>`).join('')}
-    ${s.limit ? `<div class="meter" title="${share}%"><i style="width:${share}%"></i></div>` : ''}
-    <div class="stats">
-      ${tile('Активаций', num(s.activations) + (s.limit ? ` <small>из ${num(s.limit)}</small>` : ''))}
-      ${s.left != null ? tile('Осталось', num(s.left)) : ''}
-      ${tile('Чатов', num(s.chats))}${tile('В личке', num(s.private))}
-    </div>
-    <div class="sub" style="margin-top:8px">${s.first_at ? `Первая: ${when(s.first_at)} · последняя: ${when(s.last_at)}` : 'Пока никто не активировал'}</div>
-    ${spent.length ? `<div class="sub" style="margin-top:4px">Уже выдано примерно: ${spent.map(esc).join(' · ')}</div>` : ''}
-    ${s.activations ? bars(days, daily, 'n', 'Активации за 14 дней') : ''}</div>`;
-}
-
-async function promoView(main, code) {
-  const p = await loadSectionData(main, `/promo/${encodeURIComponent(code)}`, () => promoView(main, code), 'promo');
-  if (!p) return;
-  main.innerHTML = `
-    <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
-    <div class="card">
-      <div class="head" style="display:flex;justify-content:space-between;gap:8px">
-        <span class="code" style="font-size:20px">${esc(p.code)}</span>${promoStatus(p)}</div>
-      ${p.note ? `<div class="sub" style="margin-top:6px">${esc(p.note)}</div>` : ''}
-      <div class="actions" style="margin-top:8px"><button class="btn small" id="pcopy">Копировать код</button>
-        <button class="btn small" id="pcopycmd" title="Что игроку написать в чате">Копировать «бот промокод …»</button></div>
-      <div style="margin-top:10px">${p.rewards_text.map(r => `<div>${esc(r)}</div>`).join('') || '<div class="sub">Нет наград нового формата — пересохраните код.</div>'}</div>
-      <div class="sub" style="margin-top:10px">Активаций: ${num(p.activations)}${p.max_activations ? ' из ' + num(p.max_activations) : ' (без лимита)'}<br>
-        ${p.valid_from ? 'С ' + when(p.valid_from) + ' ' : ''}${p.valid_until ? 'до ' + when(p.valid_until) : (p.valid_from ? '' : 'Без срока')}<br>
-        ${p.chats.length ? 'Только в чатах: ' + p.chats.map(c => esc(c.title)).join(', ') : 'Во всех чатах и в личке с ботом'}
-        ${p.allowed_users.length ? '<br>Только для ID: ' + p.allowed_users.join(', ') : ''}
-        <br>${p.show_in_app && !p.chats.length ? 'Виден игрокам в Mini App («Доступно сейчас»)' : p.allowed_users.length && !p.chats.length ? 'В Mini App виден только этим игрокам' : 'В Mini App не показывается'}</div>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn primary" id="pedit">Изменить</button>
-        <button class="btn ${p.is_active ? 'danger' : ''}" id="ptoggle">${p.is_active ? 'Выключить' : 'Включить'}</button>
-      </div>
-    </div>
-    ${promoStats(p)}
-    <div class="card"><h3>Кто активировал · ${p.redemptions.length}</h3>
-      ${p.redemptions.length ? `<table><tr><th>Игрок</th><th>Где</th><th>Когда</th><th>Получил</th></tr>
-        ${p.redemptions.map(r => `<tr><td>${r.username ? '@' + esc(r.username) : r.user_id}<div class="sub">${r.user_id}</div></td>
-          <td>${r.chat_id ? esc(r.chat_title || r.chat_id) : 'личка'}</td><td>${when(r.at)}</td>
-          <td>${esc((r.granted || []).join(', '))}</td></tr>`).join('')}</table>` : '<div class="sub">Пока никто.</div>'}
-    </div>`;
-  $('#pback').onclick = () => promoList(main);
-  $('#pcopy').onclick = () => copyText(p.code, 'Код скопирован');
-  $('#pcopycmd').onclick = () => copyText(`бот промокод ${p.code}`, 'Команда скопирована');
-  $('#pedit').onclick = () => promoEdit(main, p);
-  $('#ptoggle').onclick = async () => {
-    try {
-      await api(`/promo/${encodeURIComponent(p.code)}/active`, {method: 'POST', body: JSON.stringify({active: !p.is_active})});
-      toast(p.is_active ? 'Выключен' : 'Включён');
-      promoView(main, p.code);
-    } catch (e) { toast(e.message, true); }
-  };
-}
-
-function localInput(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Выбор образа для награды: сетка карточек в цветах палитры образа (фон, кольцо, свечение), фильтр по тиру, поиск по названию.
-const SKIN_SLOTS = [['title', 'Титул'], ['name_glow', 'Ник'], ['avatar_frame', 'Рамка'], ['avatar_halo', 'Ореол'], ['profile_bg', 'Фон'], ['card_fx', 'Частицы']];
-const FRAME_LINE = {ring: 'solid', dash: 'dashed', double: 'double', seg: 'dotted', drip: 'solid'};
-const TIER_TITLES = {D: 'D · обычные', C: 'C · необычные', B: 'B · редкие', A: 'A · очень редкие', S: 'S · эпические', SS: 'SS · легендарные', SSS: 'SSS · высшие'};
-
-// Мини-профиль в цветах образа: фон, рамка аватара, ореол и ник так же, как в приложении.
-function skinArt(k) {
-  const t = k.tokens || {}, acc = t['--v3-acc'] || (k.pal || [])[0] || '#8b7cf6', bg = t['--v3-bg'] || k.bg || '#0e0f14';
-  const ink = t['--v3-ink'] || '#f4f5f8', line = FRAME_LINE[k.frame] || 'solid';
-  return `<span class="skin-art" style="background:${t['--v3-wash'] ? esc(t['--v3-wash']) + ',' : ''}${esc(bg)};--sa:${esc(acc)};--sb:${esc(bg)};--si:${esc(ink)};--sl:${line}">
-    <i class="skin-av"></i><span class="skin-nick">${esc((k.items && k.items.title) || k.name)}</span><b class="skin-t">${esc(k.tier)}</b></span>`;
-}
-function skinOwner(k) {
-  if (!k.exclusive) return '';
-  const h = (k.holders || [])[0];
-  return h ? `<span class="chip warn">🌟 личный · у ${esc(h.name)}</span>` : '<span class="chip ok">🌟 личный · свободен</span>';
-}
-function skinTags(k) {
-  return [skinOwner(k), k.set_name ? `<span class="chip">🧩 ${esc(k.set_name)}</span>` : '', k.season ? `<span class="chip warn">🎃 сезонный${k.season_name ? ' · ' + esc(k.season_name) : ''}</span>` : '']
-    .filter(Boolean).join('');
-}
-function skinCard(k, on, dim = false) {
-  return `<button type="button" class="skin ${on ? 'on' : ''} ${dim ? 'dim' : ''}" data-skin="${esc(k.id)}" aria-pressed="${on}" ${dim ? 'disabled' : ''}>
-    ${skinArt(k)}<span class="skin-n">${esc(k.name)}</span><span class="skin-b">${esc(k.blurb || '')}</span>
-    <span class="chips">${skinTags(k)}</span></button>`;
-}
-function skinDetail(k) {
-  if (!k) return '<div class="sub">Нажмите на образ, чтобы посмотреть, из чего он состоит.</div>';
-  return `<div class="skin-detail">${skinArt(k)}<div><b>${esc(k.name)}</b> <span class="sub">· ${esc(TIER_TITLES[k.tier] || k.tier)}</span>
-    <div class="sub" style="margin:4px 0 6px">${esc(k.blurb || '')}</div><div class="chips">${skinTags(k)}</div>
-    ${k.exclusive ? '<div class="sub" style="margin-top:6px">Достаётся одному игроку: промокод на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>' : ''}
-    <div class="skin-items">${SKIN_SLOTS.filter(([key]) => k.items && k.items[key]).map(([key, label]) =>
-      `<span><small>${label}</small>${esc(k.items[key])}</span>`).join('')}</div></div></div>`;
-}
-function skinPicker(currentId, onPick, {noPrivate = false} = {}) {
-  const box = $('#sheet'), all = OPTIONS.skins, priv = noPrivate ? [] : OPTIONS.private_skins || [], pool = [...all, ...priv];
-  const filters = [['all', `Все · ${all.length}`], ...[...new Set(all.map(k => k.tier))].map(t => [t, t]),
-    ['season', 'Сезонные'], ['set', 'Наборы'], ...(priv.length ? [['private', `Личные · ${priv.length}`]] : [])];
-  let filter = 'all', q = '', chosen = pool.find(k => k.id === currentId) || null;
-  const close = () => { box.hidden = true; box.innerHTML = ''; };
-  box.innerHTML = `<div class="sheet sheet-skins"><h3>Выберите образ</h3>
-    <div id="skd"></div>
-    <input id="skq" placeholder="Поиск: название, набор, описание, титул" autocomplete="off"/>
-    <div class="chips" id="skt"></div><div id="skg"></div>
-    <div class="actions skin-bar"><button class="btn primary" id="sko">Выбрать</button><button class="btn" id="skx">Закрыть</button></div></div>`;
-  box.hidden = false;
-  const match = k => {
-    if (filter === 'season' && !k.season) return false;
-    if (filter === 'set' && !k.set) return false;
-    if (filter === 'private' && !k.exclusive) return false;
-    if (!['all', 'season', 'set', 'private'].includes(filter) && k.tier !== filter) return false;
-    const hay = [k.name, k.blurb, k.set_name, k.season_name, ...Object.values(k.items || {})].join(' ').toLowerCase();
-    return !q || hay.includes(q);
-  };
-  const draw = () => {
-    $('#skt').innerHTML = filters.map(([key, t]) => `<span class="chip ${key === filter ? 'ok' : ''}" data-f="${esc(key)}">${esc(t)}</span>`).join('');
-    const list = filter === 'private' ? [] : all.filter(match), tiers = [...new Set(list.map(k => k.tier))];
-    const privList = ['all', 'private'].includes(filter) || q ? priv.filter(match) : [];
-    $('#skg').innerHTML = (tiers.map(t => `<h3 class="sec">${esc(TIER_TITLES[t] || t)} · ${list.filter(k => k.tier === t).length}</h3>
-      <div class="skin-grid">${list.filter(k => k.tier === t).map(k => skinCard(k, chosen && k.id === chosen.id)).join('')}</div>`).join('')
-      || (privList.length ? '' : '<div class="sub" style="margin-top:12px">Ничего не нашлось.</div>'))
-      + (privList.length ? `<h3 class="sec">Личные образы · ${privList.length}</h3>
-        <div class="sub">У каждого один владелец: промокод с таким образом — на 1 активацию или для одного игрока. Занятый образ сначала отзывают у владельца.</div>
-        <div class="skin-grid">${privList.map(k => skinCard(k, chosen && k.id === chosen.id, (k.holders || []).length > 0)).join('')}</div>` : '');
-    $('#skd').innerHTML = skinDetail(chosen);
-    $('#sko').disabled = !chosen;
-  };
-  draw();
-  $('#skq').oninput = e => { q = e.target.value.trim().toLowerCase(); draw(); };
-  $('#skt').onclick = e => { const c = e.target.closest('[data-f]'); if (c) { filter = c.dataset.f; draw(); } };
-  $('#skg').onclick = e => {
-    const b = e.target.closest('[data-skin]');
-    if (b) { chosen = pool.find(k => k.id === b.dataset.skin) || chosen; draw(); const d = $('#skd'); if (d && d.scrollIntoView) d.scrollIntoView({block: 'nearest'}); }
-  };
-  $('#sko').onclick = () => { if (chosen) { close(); onPick(chosen.id); } };
-  $('#skx').onclick = close;
-  box.onclick = e => { if (e.target === box) close(); };
-}
-
-// Как игрок увидит ответ бота и что стоит перепроверить (код при этом не сохраняется).
-const promoWarnings = list => list.map(w => `<div class="chip warn" style="display:block;margin-top:8px;border-radius:12px">${esc(w)}</div>`).join('');
-function promoPreviewHtml(pv) {
-  return `<div class="sub">Так бот ответит игроку:</div>
-    <div class="card" style="margin:8px 0">🎟 Промокод <b>${esc(pv.code)}</b> активирован!
-      <div style="border-left:3px solid var(--accent);padding-left:10px;margin-top:6px">${pv.player_text.map(esc).join('<br>')}</div></div>
-    <div class="sub">Кто может: ${esc(pv.who_can)}.</div>${promoWarnings(pv.warnings)}`;
-}
-
-async function promoEdit(main, p, {bulk = false} = {}) {
-  OPTIONS = OPTIONS || await api('/promo-options');
-  const isNew = !p;
-  bulk = bulk && isNew;
-  const state = {
-    rewards: p && p.rewards.length ? p.rewards.map(r => ({...r})) : [{type: 'mora', amount: ''}],
-    chats: p ? p.chats.map(c => ({...c})) : [],
-  };
-  main.innerHTML = `
-    <div class="bar"><button class="btn" id="pback">← Назад</button></div>
-    <div class="card">
-      <h3>${bulk ? 'Пачка одноразовых кодов' : isNew ? 'Новый промокод' : 'Промокод ' + esc(p.code)}</h3>
-      ${bulk ? `<div class="sub" style="margin-bottom:10px">Много разных кодов с одной наградой. Каждый сработает один раз: удобно раздавать в конкурсах и в подарок.</div>
-        <div class="grid2"><div class="field"><label>Начало кода (необязательно)</label>
-          <input id="fprefix" maxlength="16" placeholder="например, EVENT" style="text-transform:uppercase"/></div>
-        <div class="field"><label>Сколько кодов (1–200)</label><input id="fcount" type="number" min="1" max="200" value="10"/></div></div>`
-      : isNew ? `<div class="field"><label>Код (латиница, цифры, - и _)</label>
-        <div class="bar" style="margin:0"><input id="fcode" maxlength="32" style="text-transform:uppercase"/>
-        <button class="btn" id="fgen">Случайный</button></div></div>` : ''}
-      <div class="field"><label>Награды</label><div id="frewards"></div>
-        <button class="btn small" id="fadd">+ Награда</button></div>
-      <div class="grid2">
-        ${bulk ? '' : `<div class="field"><label>Лимит активаций (0 — без лимита)</label><input id="fmax" type="number" min="0" value="${p ? p.max_activations : 0}"/></div>
-        <div class="field switch"><input id="factive" type="checkbox" ${!p || p.is_active ? 'checked' : ''}/><label for="factive" style="margin:0">Включён</label></div>
-        <div class="field switch"><input id="fshow" type="checkbox" ${p && p.show_in_app ? 'checked' : ''}/><label for="fshow" style="margin:0" title="Игроки увидят код в Mini App в разделе «Промокоды» и заберут в одно касание. Коды для чатов там не показываются">Показывать в Mini App</label></div>`}
-        <div class="field"><label>Начало (необязательно)</label><input id="ffrom" type="datetime-local" value="${localInput(p && p.valid_from)}"/></div>
-        <div class="field"><label>Конец (необязательно)</label><input id="funtil" type="datetime-local" value="${localInput(p && p.valid_until)}"/></div>
-      </div>
-      <div class="field"><label>Где активировать: пусто — везде, иначе только в выбранных чатах</label>
-        <input id="fchatq" placeholder="Найти чат по названию или ID"/><div class="found" id="fchatfound"></div>
-        <div class="chips" id="fchats"></div></div>
-      ${bulk ? '' : `<div class="field"><label>Только для игроков: пусто — для всех</label>
-        <input id="fuserq" placeholder="Найти игрока по @нику или ID"/><div class="found" id="fuserfound"></div>
-        <div class="chips" id="fusers"></div></div>`}
-      <div class="field"><label>Заметка для себя</label><textarea id="fnote" maxlength="300">${esc(p ? p.note : '')}</textarea></div>
-      <div class="actions"><button class="btn primary" id="fsave">${bulk ? 'Создать пачку' : isNew ? 'Создать' : 'Сохранить'}</button>
-        <button class="btn" id="fpreview">Как увидит игрок</button></div>
-    </div>`;
-  $('#pback').onclick = () => (p ? promoView(main, p.code) : promoList(main));
-  if (isNew && !bulk) $('#fgen').onclick = () => {
-    const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    $('#fcode').value = Array.from({length: 8}, () => abc[Math.floor(Math.random() * abc.length)]).join('');
-  };
-
-  function drawRewards() {
-    $('#frewards').innerHTML = state.rewards.map((r, i) => {
-      const opt = OPTIONS.rewards.find(o => o.type === r.type) || OPTIONS.rewards[0];
-      const value = opt.field === 'id'
-        ? `<div class="skin-pick" data-pick="${i}">${(k => k ? skinCard(k, false).replace('<button type="button"', '<div').replace('</button>', '</div>') : '<span class="sub">Образ не выбран</span>')([...OPTIONS.skins, ...(OPTIONS.private_skins || [])].find(x => x.id === r.id))}<span class="btn small">Сменить</span></div>`
-        : `<input data-i="${i}" data-k="${opt.field}" type="number" min="0" step="${r.type === 'diamonds' ? '0.01' : '1'}" value="${esc(r[opt.field] ?? '')}" placeholder="Сколько"/>`;
-      return `<div class="reward">
-        <select data-i="${i}" data-k="type">${OPTIONS.rewards.map(o => `<option value="${o.type}" ${o.type === r.type ? 'selected' : ''}>${esc(o.title)}</option>`).join('')}</select>
-        ${value}<button class="btn small danger" data-del="${i}">✕</button></div>`;
-    }).join('');
-  }
-  drawRewards();
-  $('#frewards').addEventListener('change', e => {
-    const i = +e.target.dataset.i, k = e.target.dataset.k;
-    if (k === 'type') { state.rewards[i] = {type: e.target.value}; if (e.target.value === 'skin') state.rewards[i].id = OPTIONS.skins[0]?.id; drawRewards(); }
-    else state.rewards[i][k] = e.target.value;
-  });
-  $('#frewards').addEventListener('input', e => { const i = +e.target.dataset.i; if (e.target.dataset.k && e.target.dataset.k !== 'type') state.rewards[i][e.target.dataset.k] = e.target.value; });
-  $('#frewards').addEventListener('click', e => {
-    const pk = e.target.closest('[data-pick]');
-    if (pk) skinPicker(state.rewards[+pk.dataset.pick].id, id => {
-      state.rewards[+pk.dataset.pick].id = id; drawRewards();
-      // Личный образ у одного владельца: сами ставим лимит 1, если админ не выбрал игрока.
-      if (!bulk && (OPTIONS.private_skins || []).some(k => k.id === id) && !+$('#fmax').value && !users.length) {
-        $('#fmax').value = 1; toast('Личный образ: лимит активаций поставлен в 1');
-      }
-    }, {noPrivate: bulk});
-  });
-  $('#frewards').addEventListener('click', e => { const d = e.target.closest('[data-del]'); if (d) { state.rewards.splice(+d.dataset.del, 1); drawRewards(); } });
-  $('#fadd').onclick = () => { state.rewards.push({type: 'mora', amount: ''}); drawRewards(); };
-
-  function drawChats() {
-    $('#fchats').innerHTML = state.chats.length
-      ? state.chats.map((c, i) => `<span class="chip" data-unchat="${i}" title="Убрать">${esc(c.title)} ✕</span>`).join('')
-      : '<span class="sub">Во всех чатах и в личке с ботом</span>';
-  }
-  drawChats();
-  $('#fchats').onclick = e => { const c = e.target.closest('[data-unchat]'); if (c) { state.chats.splice(+c.dataset.unchat, 1); drawChats(); } };
-  let ct;
-  $('#fchatq').oninput = e => {
-    clearTimeout(ct);
-    const q = e.target.value.trim();
-    if (!q) { $('#fchatfound').innerHTML = ''; return; }
-    ct = setTimeout(async () => {
-      const {items} = await api(`/chats?q=${encodeURIComponent(q)}`);
-      $('#fchatfound').innerHTML = items.filter(c => !state.chats.some(x => x.id === c.id))
-        .map(c => `<button data-addchat="${c.id}" data-title="${esc(c.title)}">${esc(c.title)} <span class="sub">${c.id}</span></button>`).join('')
-        || '<span class="sub">Не найдено</span>';
-    }, 250);
-  };
-  $('#fchatfound').onclick = e => {
-    const b = e.target.closest('[data-addchat]');
+  out.addEventListener('click', e => {
+    const b = e.target.closest('[data-go], a[href^="#/"]');
     if (!b) return;
-    state.chats.push({id: +b.dataset.addchat, title: b.dataset.title});
-    $('#fchatfound').innerHTML = ''; $('#fchatq').value = '';
-    drawChats();
-  };
-
-  // Игроки-получатели: поиск по нику или ID и чипы, как у чатов (раньше нужно было вписывать ID через запятую).
-  const users = ((p && p.allowed_users) || []).map(id => ({id: +id, label: 'id' + id}));
-  const drawUsers = () => {
-    $('#fusers').innerHTML = users.length
-      ? users.map((u, i) => `<span class="chip" data-unuser="${i}" title="Убрать">${esc(u.label)} ✕</span>`).join('')
-      : '<span class="sub">Для всех игроков</span>';
-  };
-  if (!bulk) {
-    drawUsers();
-    $('#fusers').onclick = e => { const c = e.target.closest('[data-unuser]'); if (c) { users.splice(+c.dataset.unuser, 1); drawUsers(); } };
-    let ut;
-    $('#fuserq').oninput = e => {
-      clearTimeout(ut);
-      const q = e.target.value.trim();
-      if (!q) { $('#fuserfound').innerHTML = ''; return; }
-      ut = setTimeout(async () => {
-        const {players} = await api(`/search?q=${encodeURIComponent(q)}`);
-        $('#fuserfound').innerHTML = players.filter(u => !users.some(x => x.id === u.id))
-          .map(u => `<button data-adduser="${u.id}" data-label="${esc(u.username ? '@' + u.username : 'id' + u.id)}">${u.username ? '@' + esc(u.username) : 'id' + u.id} <span class="sub">${u.id}</span></button>`).join('')
-          || '<span class="sub">Не найдено</span>';
-      }, 250);
-    };
-    $('#fuserfound').onclick = e => {
-      const b = e.target.closest('[data-adduser]');
-      if (!b) return;
-      users.push({id: +b.dataset.adduser, label: b.dataset.label});
-      $('#fuserfound').innerHTML = ''; $('#fuserq').value = '';
-      drawUsers();
-    };
-  }
-
-  const toIso = v => (v ? new Date(v).toISOString() : null);
-  const collect = () => {
-    const common = {rewards: state.rewards, valid_from: toIso($('#ffrom').value), valid_until: toIso($('#funtil').value),
-      allowed_chats: state.chats.map(c => c.id), note: $('#fnote').value};
-    return bulk
-      ? {...common, prefix: $('#fprefix').value.trim().toUpperCase(), count: +$('#fcount').value || 0}
-      : {...common, code: isNew ? $('#fcode').value.trim().toUpperCase() : p.code, max_activations: +$('#fmax').value || 0,
-         is_active: $('#factive').checked, show_in_app: $('#fshow').checked, allowed_users: users.map(u => u.id)};
-  };
-  // Предпросмотр у сервера: он же знает, что считается «слишком много». Сохранять он не мешает.
-  const preview = body => api('/promo/preview', {method: 'POST', body: JSON.stringify(bulk ? {...body, max_activations: 1} : body)});
-
-  $('#fpreview').onclick = async () => {
-    try {
-      const pv = await preview(collect());
-      sheet('Как увидит игрок', promoPreviewHtml(pv) + (bulk ? '<div class="sub" style="margin-top:8px">Каждый код сработает один раз.</div>' : ''),
-        'Понятно', () => {}, {info: true});
-    } catch (err) { toast(err.message, true); }
-  };
-
-  $('#fsave').onclick = async e => {
-    const btn = e.currentTarget;
-    if (btn.disabled) return;
-    const body = collect();
-    const save = async () => {
-      btn.disabled = true;   // повторный клик во время запроса не должен пытаться создать код второй раз
-      try {
-        if (bulk) {
-          const made = await api('/promo/bulk', {method: 'POST', body: JSON.stringify(body)});
-          toast(`Создано кодов: ${made.codes.length}`);
-          promoBulkDone(main, made, body.prefix);
-          return;
-        }
-        const saved = isNew
-          ? await api('/promo', {method: 'POST', body: JSON.stringify(body)})
-          : await api(`/promo/${encodeURIComponent(p.code)}`, {method: 'PUT', body: JSON.stringify(body)});
-        toast(isNew ? 'Промокод создан' : 'Сохранено');
-        promoView(main, saved.code);
-      } catch (err) { toast(err.message, true); btn.disabled = false; }
-    };
-    let warnings = [];
-    try { warnings = (await preview(body)).warnings; } catch (err) { toast(err.message, true); return; }
-    if (!warnings.length) return save();
-    sheet('Проверьте перед сохранением', `<div class="sub">Код сработает, но вот что стоит перепроверить:</div>${promoWarnings(warnings)}`,
-      bulk ? 'Всё верно, создать' : 'Всё верно, сохранить', async () => { await save(); }, {cancelText: 'Вернуться'});
-  };
-}
-
-// Готовая пачка: все коды списком, чтобы сразу скопировать или сохранить файлом и раздать.
-function promoBulkDone(main, made, prefix) {
-  const text = made.codes.join('\n');
-  const canDownload = !window.Telegram?.WebApp?.initData;   // в Telegram файлы не скачать, там только копирование
-  main.innerHTML = `
-    <div class="bar"><button class="btn" id="pback">← Все промокоды</button></div>
-    <div class="card"><h3>Пачка готова · ${made.codes.length}</h3>
-      <div>${made.rewards_text.map(r => `<div>${esc(r)}</div>`).join('')}</div>
-      <div class="sub" style="margin:6px 0 10px">Каждый код сработает один раз. Игрок пишет боту: «бот промокод КОД».</div>
-      <div class="field"><label>Коды (по одному в строке)</label>
-        <textarea id="bcodes" readonly rows="${Math.min(12, made.codes.length + 1)}" style="font-family:ui-monospace,Menlo,monospace">${esc(text)}</textarea></div>
-      <div class="actions"><button class="btn primary" id="bcopy">Копировать все</button>
-        ${canDownload ? '<button class="btn" id="bsave">Скачать .txt</button>' : ''}
-        <button class="btn" id="blist">Открыть в списке</button></div>
-    </div>`;
-  $('#pback').onclick = () => promoList(main);
-  $('#blist').onclick = () => promoList(main, prefix || '');
-  $('#bcopy').onclick = () => copyText(text, 'Коды скопированы');
-  if (canDownload) $('#bsave').onclick = () => {
-    const url = URL.createObjectURL(new Blob([text + '\n'], {type: 'text/plain;charset=utf-8'}));
-    const a = Object.assign(document.createElement('a'), {href: url, download: `promo-${prefix || 'codes'}-${made.codes.length}.txt`});
-    document.body.append(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  };
-}
-
-SECTIONS.promo = main => promoList(main);
-
-// ── Функции: выключатели бота и сайта ────────────────────────────────────────
-
-async function switchesView(main, chat = null) {
-  const data = await loadSectionData(main, `/switches?chat_id=${chat ? chat.id : 0}`, () => switchesView(main, chat), 'switches');
-  if (!data) return;
-  const off = data.state;   // {global: {key: {reason}}, chat: {...}}
-  const scopeName = chat ? `в чате «${esc(chat.title)}»` : 'везде';
-  const row = (item, nested = false) => {
-    if (!item.key) return '';
-    const globalOff = off.global[item.key];
-    const localOff = chat ? off.chat[item.key] : globalOff;
-    const enabled = !localOff && !(chat && globalOff);
-    const locked = chat && globalOff;
-    const why = (localOff || globalOff || {}).reason;
-    const status = item.key === 'all' ? (enabled ? 'Бот работает' : 'Бот выключен')
-      : item.key === 'site' ? (enabled ? 'Сайт открыт' : 'Сайт закрыт') : (enabled ? 'Включено' : 'Выключено');
-    const scopeLabel = chat ? `в чате «${chat.title}»` : 'везде';
-    const label = `${item.title}: ${status.toLowerCase()}, ${scopeLabel}`;
-    const offHint = ['all', 'site', 'notice:achievements'].includes(item.key);
-    const hint = item.hint && item.hint !== 'Весь раздел' && (!offHint || !enabled)
-      ? `<div class="sub">${offHint ? 'При выключении: ' : ''}${esc(item.hint)}</div>` : '';
-    return `<div class="sw-row ${enabled ? '' : 'off'}">
-      <div class="t"><b>${esc(item.title)}</b><div class="sub">${esc(status)}</div>${hint}
-        ${locked ? '<div class="locked">выключено везде — включается только во «Везде»</div>' : ''}
-        ${!enabled && why ? `<div class="sub">Причина: ${esc(why)}</div>` : ''}</div>
-      <label class="toggle"><input type="checkbox" aria-label="${esc(label)}" data-sw="${esc(item.key)}" ${enabled ? 'checked' : ''} ${locked ? 'disabled' : ''}/><span aria-hidden="true"></span></label>
-    </div>`;
-  };
-  const group = item => item.items && item.items.length
-    ? `<details class="sw-group"><summary>${row(item) || `<div class="sw-row"><div class="t"><b>${esc(item.title)}</b></div></div>`}</summary>
-        <div class="sw-sub">${item.items.map(x => row(x, true)).join('')}</div></details>`
-    : row(item);
-  // Раскрытые группы запоминаем: после каждого переключателя экран рисуется заново, и они сворачивались.
-  const opened = new Set([...main.querySelectorAll('details.sw-group[open] > summary b')].map(b => b.textContent));
-  main.innerHTML = `
-    <div class="scope"><span class="sub">Где:</span>
-      <button class="btn small ${chat ? '' : 'primary'}" id="sglobal">Везде</button>
-      ${chat ? `<span class="chip ok">${esc(chat.title)}</span>` : ''}
-      <input id="schatq" aria-label="Выбрать чат для управления функциями" placeholder="Выбрать чат…" style="flex:1;min-width:140px"/></div>
-    <div class="found" id="schatfound"></div>
-    <div class="field"><label for="sreason">Причина для игроков, когда выключаете (необязательно)</label>
-      <input id="sreason" maxlength="200" placeholder="Например: чиним, вернём вечером"/></div>
-    ${data.catalog.filter(g => !(chat && g.scope === 'site')).map(g => `
-      <div class="card"><h3>${esc(g.title)} · ${scopeName}</h3>${g.items.map(group).join('')}</div>`).join('')}
-    ${chat ? '<div class="sub">Сайт выключается только целиком для всех — переключитесь на «Везде».</div>' : ''}`;
-  main.querySelectorAll('details.sw-group').forEach(d => { if (opened.has(d.querySelector('summary b')?.textContent)) d.open = true; });
-  $('#sglobal').onclick = () => switchesView(main, null);
-  let t;
-  $('#schatq').oninput = e => {
-    clearTimeout(t);
-    const q = e.target.value.trim();
-    if (!q) { $('#schatfound').innerHTML = ''; return; }
-    t = setTimeout(async () => {
-      const {items} = await api(`/chats?q=${encodeURIComponent(q)}`);
-      $('#schatfound').innerHTML = items.map(c => `<button data-pick="${c.id}" data-title="${esc(c.title)}">${esc(c.title)} <span class="sub">${c.id}</span></button>`).join('') || '<span class="sub">Не найдено</span>';
-    }, 250);
-  };
-  $('#schatfound').onclick = e => {
-    const b = e.target.closest('[data-pick]');
-    if (b) switchesView(main, {id: +b.dataset.pick, title: b.dataset.title});
-  };
-  main.querySelectorAll('[data-sw]').forEach(input => {
-    input.addEventListener('click', e => e.stopPropagation());
-    input.onchange = async () => {
-      const enabled = input.checked;
-      if (!enabled && input.dataset.sw === 'all' || !enabled && input.dataset.sw === 'site') {
-        if (!confirm(input.dataset.sw === 'all' ? 'Выключить весь бот ' + (chat ? 'в этом чате' : 'во всех чатах') + '?' : 'Закрыть весь сайт для игроков?')) {
-          input.checked = true; return;
-        }
-      }
-      try {
-        await api('/switches', {method: 'POST', body: JSON.stringify({
-          feature: input.dataset.sw, chat_id: chat ? chat.id : 0, enabled, reason: $('#sreason').value})});
-        toast(enabled ? 'Включено' : 'Выключено');
-        switchesView(main, chat);
-      } catch (err) { toast(err.message, true); input.checked = !enabled; }
-    };
-  });
-}
-
-SECTIONS.switches = main => switchesView(main);
-
-// ── Настройки бота ───────────────────────────────────────────────────────────
-
-function reportSettingsCard(data) {
-  const r = data.reports, o = data.report_options;
-  const select = (id, value, list, offTitle) => `<select id="${id}">${offTitle ? `<option value="0" ${!value ? 'selected' : ''}>${offTitle}</option>` : ''}
-    ${list.map(x => `<option value="${x.value}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
-  return `<div class="card" id="repset"><h3>Жалобы</h3>
-    <div class="sub" style="margin-bottom:6px">Жалоба анонимна: игроки в чате и нарушитель не видят, кто пожаловался. Бот убирает команду из чата (нужно право удалять сообщения) и отвечает автору в личку.</div>
-    <div class="sw-row ${r.to_admin_chat ? '' : 'off'}"><div class="t"><b>Отчёт в админ-чат</b><div class="sub">Если к чату привязан админ-чат, жалоба приходит туда без имени автора.</div></div>
-      <label class="toggle"><input type="checkbox" id="rs-admin" ${r.to_admin_chat ? 'checked' : ''}/><span></span></label></div>
-    <div class="field"><label>Отчёт в личку модераторам чата — с ранга в чате</label>${select('rs-chat', r.dm_chat_rank, o.chat_ranks, 'Не писать в личку')}</div>
-    <div class="field"><label>Отчёт в личку персоналу бота — с роли</label>${select('rs-staff', r.dm_staff_rank, o.staff_ranks, 'Не писать в личку')}</div>
-    <div class="field"><label>Автора жалобы в админке видят — с роли</label>${select('rs-see', r.reporter_min_rank, o.staff_ranks, '')}
-      <div class="sub">Остальные видят «автор скрыт». В личку пишем только тем, кто открывал диалог с ботом.</div></div>
-    <div class="actions"><button class="btn primary" id="rs-save">Сохранить</button></div></div>`;
-}
-function bindReportSettings(main, data) {
-  const save = main.querySelector('#rs-save');
-  if (!save) return;
-  save.onclick = async () => {
-    const body = {to_admin_chat: main.querySelector('#rs-admin').checked, dm_chat_rank: +main.querySelector('#rs-chat').value,
-      dm_staff_rank: +main.querySelector('#rs-staff').value, reporter_min_rank: +main.querySelector('#rs-see').value};
-    try { await api('/settings/reports', {method: 'POST', body: JSON.stringify(body)}); toast('Сохранено'); settingsView(main); }
-    catch (e) { toast(e.message, true); }
-  };
-}
-
-function securityCard() {
-  return `<div class="card" id="secset"><h3>🔐 Безопасность</h3>
-    <div class="sub" style="margin-bottom:8px">Если потеряли телефон или вошли с чужого устройства, завершите сессии: админку придётся открыть заново через Telegram.
-      Опасные действия (бан во всех чатах, смена роли, крупная выдача) просят ввести ID игрока, а при необычной активности владельцам приходит сообщение в личку.</div>
-    <div class="actions"><button class="btn" id="revself">Выйти на всех моих устройствах</button>
-      ${ME.creator ? '<button class="btn danger" id="revall">Завершить сессии всех сотрудников</button>' : ''}</div></div>`;
-}
-function bindSecurityCard(main) {
-  const run = (title, text, all) => sheet(title, `<div class="sub">${text}</div>`, 'Завершить', async () => {
-    const res = await api('/sessions/revoke', {method: 'POST', body: JSON.stringify({all})});
-    main.innerHTML = `<div class="empty">✅ ${esc(res.message)}</div>`;
-  });
-  const own = main.querySelector('#revself'), all = main.querySelector('#revall');
-  if (own) own.onclick = () => run('Выйти на всех устройствах', 'Админка закроется везде, где она открыта, включая этот экран. Роль не меняется.', false);
-  if (all) all.onclick = () => run('Сессии всех сотрудников', 'Все сотрудники, включая вас, выйдут из админки и откроют её заново. Роли не меняются.', true);
-}
-
-async function settingsView(main) {
-  const data = await loadSectionData(main, '/settings', () => settingsView(main), 'settings');
-  if (!data) return;
-  main.innerHTML = `
-    <div class="card"><h3>Переводы между игроками</h3>
-      <div class="sub" style="margin-bottom:6px">Какие валюты можно отправить командой «бот перевод».</div>
-      ${data.transfer.map(c => `<div class="sw-row ${c.enabled ? '' : 'off'}">
-        <div class="t"><b>${esc(c.title)}</b>${c.locked ? '<div class="sub">Переводить нельзя никогда</div>' : ''}</div>
-        <label class="toggle"><input type="checkbox" data-cur="${c.code}" ${c.enabled ? 'checked' : ''} ${c.locked ? 'disabled' : ''}/><span></span></label>
-      </div>`).join('')}
-    </div>
-    ${reportSettingsCard(data)}
-    ${securityCard()}`;
-  bindReportSettings(main, data);
-  bindSecurityCard(main);
-  main.querySelectorAll('[data-cur]').forEach(input => {
-    input.onchange = async () => {
-      const currencies = [...main.querySelectorAll('[data-cur]')].filter(x => x.checked && !x.disabled).map(x => x.dataset.cur);
-      try { await api('/settings/transfer', {method: 'POST', body: JSON.stringify({currencies})}); toast('Сохранено'); settingsView(main); }
-      catch (e) { toast(e.message, true); input.checked = !input.checked; }
-    };
-  });
-}
-
-SECTIONS.settings = main => settingsView(main);
-
-// ── Состояние ────────────────────────────────────────────────────────────────
-
-const duration = sec => {
-  const d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
-  return d ? `${d} д ${h} ч` : h ? `${h} ч ${m} мин` : `${m} мин`;
-};
-
-async function healthView(main) {
-  const h = await loadSectionData(main, '/health', () => healthView(main), 'health');
-  if (!h) return;
-  const tg = h.telegram, dot = ok => `<span class="chip ${ok ? 'ok' : 'bad'}">${ok ? 'работает' : 'не отвечает'}</span>`;
-  const row = (title, value, sub = '') => `<div class="log"><div>${title} <b>${value}</b></div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
-  const dg = h.digest;
-  main.innerHTML = `
-    ${pageHead('♥', 'Состояние', 'Живы ли бот, база и очереди')}
-    ${tg && !tg.ok ? alertBox('bad', '<b>Telegram не отвечает.</b> Бот не получает и не отправляет сообщения: ' + esc(tg.error || 'причина не указана')) : ''}
-    <div class="kpis hero">
-      ${kpi('🤖 Telegram', tg ? (tg.ok ? 'работает' : 'не отвечает') : '—', tg && tg.ok ? `<small> ${tg.ms} мс</small>` : '', tg ? (tg.ok ? 'ok' : 'bad') : '')}
-      ${kpi('🗄 База', `${h.database.ms} мс`)}${kpi('⏱ Работает', duration(h.process.uptime_seconds))}${kpi('⚠️ Ошибок за сутки', num(h.errors.count_24h))}</div>
-    <p class="sub note">Ошибки и время работы считаются с последнего перезапуска: каждый выкат новой версии обнуляет их, поэтому «0» сразу после выката ничего не доказывает.</p>
-    <section class="section" data-sec="h-bot"><h3 class="sec-h">🤖 Бот</h3>
-      ${row('Telegram', tg ? dot(tg.ok) : '—', tg ? (tg.ok ? `@${esc(tg.username)} · ответ ${tg.ms} мс` : esc(tg.error)) : '')}
-      ${row('Работает', duration(h.process.uptime_seconds), `с ${when(h.process.started_at)} · Python ${esc(h.process.python)}${h.process.commit ? ` · версия ${esc(h.process.commit)}` : ''}`)}
-      ${row('База данных', `${h.database.ms} мс`, h.database.pool && h.database.pool.size != null ? `соединений занято ${h.database.pool.size - h.database.pool.idle} из ${h.database.pool.size} (максимум ${h.database.pool.max})` : '')}
-    </section>
-    <section class="section" data-sec="h-err"><h3 class="sec-h">⚠️ Ошибки за сутки <small class="cnt">· ${num(h.errors.count_24h)}</small></h3>
-      ${h.errors.recent.length ? h.errors.recent.map(e => `<div class="log"><div>${esc(e.text)}</div><div class="sub">${when(e.at)}</div></div>`).join('')
-        : '<div class="sub">Ошибок нет. Считаются с последнего перезапуска.</div>'}
-      ${h.errors.count_24h > h.errors.recent.length ? `<div class="sub">Показаны последние ${h.errors.recent.length}.</div>` : ''}
-    </section>
-    <section class="section" data-sec="h-chats"><h3 class="sec-h">💬 Чаты и игроки</h3>
-      ${row('Чатов с ботом', num(h.chats.active))}
-      ${row('Бота удалили из чатов', num(h.chats.left), h.chats.left ? 'В рассылки они не попадают. <a href="#" data-attn="left">Какие чаты</a>' : '')}
-      ${row('Без прав модерации', num(h.chats.no_rights), h.chats.no_rights ? 'Бот там не админ или не может удалять и блокировать: мут, бан и чистка не сработают. <a href="#" data-attn="no_rights">Какие чаты</a>' : '')}
-      ${row('Тихих чатов (30 дней без сообщений)', num(h.chats.quiet), h.chats.quiet ? '<a href="#" data-attn="quiet">Какие чаты</a>' : '')}
-      ${row('Игроков', num(h.players.total))}
-      ${row('Заблокировали бота', num(h.players.blocked_bot), h.players.blocked_bot ? 'В личку им рассылка не уходит.' : '')}
-    </section>
-    <section class="section" data-sec="h-queues"><h3 class="sec-h">📬 Очереди</h3>
-      ${row('Рассылок идёт', num(h.queues.broadcasts_running))}
-      ${row('Рассылок запланировано', num(h.queues.broadcasts_scheduled))}
-      ${row('Открытых жалоб', num(h.queues.reports_open))}
-    </section>
-    <details class="section" data-sec="h-digest" ${FOLD.get('h-digest') ? 'open' : ''}><summary class="sec-h">🌅 Итоги дня владельцу</summary><div class="sec-body">
-      <div class="sub" style="margin-bottom:8px">Раз в сутки бот пишет владельцу в личку: новые игроки, сообщения, команды, жалобы, ошибки, чаты без прав.</div>
-      <div class="field switch"><input type="checkbox" id="dgon" ${dg.enabled ? 'checked' : ''} ${dg.can_edit ? '' : 'disabled'}/><label for="dgon" style="margin:0">Присылать итоги дня</label></div>
-      <div class="field"><label>Во сколько (по времени бота)</label><select id="dghour" ${dg.can_edit ? '' : 'disabled'}>
-        ${Array.from({length: 24}, (_, i) => `<option value="${i}" ${i === dg.hour ? 'selected' : ''}>${String(i).padStart(2, '0')}:00</option>`).join('')}</select></div>
-      ${dg.can_edit ? '' : '<div class="sub">Настраивает только владелец.</div>'}
-      <div class="actions"><button class="btn" id="dgtest">✉️ Прислать мне за вчера</button></div>
-    </div></details>`;
-  const ATTN_TITLES = {left: 'Бота удалили из чатов', no_rights: 'Без прав модерации', quiet: 'Тихие чаты'};
-  main.querySelectorAll('[data-attn]').forEach(a => a.onclick = e => {
     e.preventDefault();
-    attentionSheet(a.dataset.attn, ATTN_TITLES[a.dataset.attn]).catch(err => toast(err.message, true));
+    closeSheets();
+    go(b.dataset.go || b.getAttribute('href').slice(2));
   });
-  const save = async () => {
-    try {
-      await api('/health/digest', {method: 'POST', body: JSON.stringify({enabled: $('#dgon').checked, hour: +$('#dghour').value})});
-      toast('Сохранено');
-    } catch (e) { toast(e.message, true); }
-  };
-  $('#dgon').onchange = save; $('#dghour').onchange = save;
-  $('#dgtest').onclick = async () => {
-    $('#dgtest').disabled = true;
-    try { toast((await api('/health/digest/test', {method: 'POST'})).message); } catch (e) { toast(e.message, true); }
-    $('#dgtest').disabled = false;
-  };
+  if (initial) input.oninput(); else recent();
+  setTimeout(() => input.focus(), 60);
+}
+// Строки людей и чатов — одни и те же везде (поиск, внимание, выбор).
+function playerRow(p, extra = {}) {
+  const flags = [p.rank_name ? pill(p.rank_name, 'accent', true) : '', ...(p.tags || []).slice(0, 2).map(t => pill('🏷 ' + t, '', true))].join('');
+  return row({lead: ava(p), title: esc(p.name || (p.username ? '@' + p.username : 'id' + p.id)),
+    sub: [p.name && p.username ? '@' + esc(p.username) : '', p.last ? 'был ' + ago(p.last) : 'не писал', p.messages != null ? num(p.messages) + ' сообщ.' : ''].filter(Boolean).join(' · '),
+    pills: flags, href: '#/player/' + p.id, ...extra});
+}
+function chatRow(c, extra = {}) {
+  return row({lead: chatAva(c), title: esc(c.title), sub: `${num(c.members)} ${plural(c.members, 'участник', 'участника', 'участников')}${c.last ? ' · ' + ago(c.last) : ''}`,
+    href: '#/chat/' + c.id, ...extra});
+}
+function rememberPerson(p) {
+  PREFS.set('recent', [{id: p.id, u: p.username || '', n: p.name || '', a: p.avatar || ''}, ...PREFS.get('recent', []).filter(r => r.id !== p.id)].slice(0, 8));
 }
 
-SECTIONS.health = main => healthView(main);
+// ── Горячие клавиши (компьютер) ───────────────────────────────────────────────
 
-// ── Владелец чата (ADM-02): только свои чаты, только то, что можно командами «бот …» ──────────────
-
-const OWNER = {chats: [], chat: 0};
-async function ownerBoot() {
-  try {
-    const o = await api('/owner/me');
-    OWNER.chats = o.chats; OWNER.chat = (o.chats.find(c => c.id === OWNER.chat) || o.chats[0]).id;
-    return {rank_name: 'Владелец чата', sections: [{key: 'mychats', title: 'Мои чаты'}], creator: false, owner: true};
-  } catch (e) { e.owner = true; throw e; }
+const GO_KEYS = {h: 'home', p: 'people', r: 'reports', m: 'metrics', j: 'journal', b: 'broadcast', c: 'promo', f: 'switches', s: 'settings', e: 'health'};
+const HOTKEYS = [['/', 'Поиск: игроки, чаты, промокоды, разделы'], ['g, затем h', 'Главная'], ['g, затем p', 'Игроки'], ['g, затем r', 'Жалобы'], ['g, затем m', 'Метрики'],
+  ['g, затем j', 'Журнал'], ['g, затем b', 'Рассылка'], ['g, затем c', 'Промокоды'], ['g, затем f', 'Функции'], ['g, затем s', 'Настройки'], ['g, затем e', 'Состояние'],
+  ['Esc', 'Закрыть окно или вернуться назад'], ['Ctrl + Enter', 'Главная кнопка окна'], ['?', 'Эта подсказка']];
+function hotkeysSheet() {
+  const mine = key => !/^g, /.test(key) || GO_KEYS[key.slice(-1)] === 'home' || has(GO_KEYS[key.slice(-1)]);
+  sheet('Горячие клавиши', `<div class="keys">${HOTKEYS.filter(([key]) => mine(key)).map(([key, text]) =>
+    `<div><kbd>${esc(key)}</kbd><span>${esc(text)}</span></div>`).join('')}</div>`, 'Понятно', null, {info: true});
 }
-const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : 'навсегда';
-
-async function ownerView(main) {
-  const c = await loadSectionData(main, `/owner/chat/${OWNER.chat}`, () => ownerView(main), 'mychats');
-  if (!c) return;
-  const picker = OWNER.chats.length > 1 ? `<div class="scope" style="margin-bottom:10px">${OWNER.chats.map(x =>
-    `<button type="button" class="btn small ${x.id === OWNER.chat ? 'primary' : ''}" data-ochat="${x.id}">${esc(x.title)}</button>`).join('')}</div>` : '';
-  const sanc = c.sanctions;
-  const lift = (kind, id) => `<button type="button" class="btn" data-olift="${kind}" data-ouid="${id}">Снять</button>`;
-  const none = '<div class="sub">Нет.</div>';
-  main.innerHTML = `
-    ${pageHead('💬', c.title, 'Ваш чат: здесь вы управляете только им')}
-    ${picker}
-    ${c.bot.can_moderate ? '' : alertBox('warn', 'У бота нет прав модератора в этом чате. Выдайте боту права администратора (удаление сообщений и ограничение участников), иначе мут, бан и кик не сработают.')}
-    <div class="kpis">${kpi('Участников', num(c.members), '', 'sm')}${kpi('Чат', c.closed ? 'закрыт' : 'открыт', '', 'sm ' + (c.closed ? 'warn' : 'ok'))}${kpi('Лимит варнов', c.max_warnings, '', 'sm')}</div>
-    <a class="btn" href="${BASE}/?startapp=purge_${c.id}">Чистка: досье и решения ›</a>
-    ${section('o-chat', '⚙️ Чат', `<div class="actions"><button type="button" class="btn ${c.closed ? '' : 'danger'}" id="o-toggle">${c.closed ? '🔓 Открыть чат' : '🔒 Закрыть чат'}</button></div>
-      <div class="field" style="margin-top:10px"><label>Лимит варнов до наказания (1–20)</label><input id="o-limit" type="number" min="1" max="20" value="${c.max_warnings}"/></div>
-      <div class="actions"><button type="button" class="btn primary" id="o-limit-save">Сохранить лимит</button></div>`)}
-    ${section('o-sanc', '🚫 Санкции', `
-      <div class="sub" style="margin:4px 0">Баны</div>${sanc.bans.length ? tbl(['Кто', 'Срок', ''], sanc.bans.map(b =>
-        [who(b.id, b.username) + (b.reason ? `<div class="sub">${esc(b.reason)}</div>` : ''), untilText(b.until), lift('unban', b.id)])) : none}
-      <div class="sub" style="margin:10px 0 4px">Муты</div>${sanc.mutes.length ? tbl(['Кто', 'Срок', ''], sanc.mutes.map(m =>
-        [who(m.id, m.username), untilText(m.until), lift('unmute', m.id)])) : none}
-      <div class="sub" style="margin:10px 0 4px">Варны</div>${sanc.warns.length ? tbl(['Кто', 'Варнов', ''], sanc.warns.map(w =>
-        [who(w.id, w.username), w.count, lift('unwarn_all', w.id)])) : none}`)}
-    ${section('o-member', '👤 Действие с участником', `${hint('Введите числовой ID участника этого чата. Игроков с ролью в боте и самого бота это не затрагивает.')}
-      <div class="field"><label>ID участника</label><input id="o-uid" inputmode="numeric" pattern="[0-9]*"/></div>
-      <div class="field"><label>Действие</label><select id="o-act"><option value="warn">⚠️ Выдать предупреждение</option><option value="mute">🔇 Замутить в чате</option>
-        <option value="kick">👢 Выгнать из чата</option><option value="ban">⛔ Забанить в чате</option></select></div>
-      <div class="field" id="o-minw"><label>Срок</label><select id="o-min">${DURATIONS.map(([m, t]) => `<option value="${m}" ${m === 60 ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="field"><label>Причина (необязательно)</label><input id="o-reason" maxlength="200"/></div>
-      <div class="actions"><button type="button" class="btn primary" id="o-go">Применить</button></div>`)}`;
-  const done = msg => { toast(msg); ownerView(main); };
-  main.querySelectorAll('[data-ochat]').forEach(b => b.onclick = () => { OWNER.chat = +b.dataset.ochat; showSectionLoading(main, 'mychats'); ownerView(main); });
-  const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
-  $('#o-toggle').onclick = () => sheet(c.closed ? 'Открыть чат?' : 'Закрыть чат?',
-    hint(c.closed ? 'Участники снова смогут писать.' : 'Писать смогут только ранги с правом.'), c.closed ? 'Открыть' : 'Закрыть',
-    async () => { done((await post(`/owner/chat/${c.id}/action`, {action: c.closed ? 'open' : 'close'})).message); });
-  $('#o-limit-save').onclick = async () => {
-    try { done((await post(`/owner/chat/${c.id}/action`, {action: 'warn_limit', value: +$('#o-limit').value})).message); } catch (e) { toast(e.message, true); }
-  };
-  main.querySelectorAll('[data-olift]').forEach(b => b.onclick = async () => {
-    b.disabled = true;
-    try { done((await post(`/owner/chat/${c.id}/member/${b.dataset.ouid}/action`, {action: b.dataset.olift})).message); } catch (e) { toast(e.message, true); b.disabled = false; }
+(function initHotkeys() {
+  let goAt = 0;
+  document.addEventListener('keydown', e => {
+    if (!ME || e.metaKey || e.altKey) return;
+    const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || '') || e.target.isContentEditable;
+    if (e.key === 'Enter' && e.ctrlKey && SHEETS.length) {
+      const ok = $('.sheet.is-top .sheet-f [data-sa="0"]');
+      if (ok && !ok.disabled) { e.preventDefault(); ok.click(); }
+      return;
+    }
+    if (e.key === 'Escape') {
+      if (SHEETS.length) { e.preventDefault(); popSheet(); }
+      else if (typing) e.target.blur();
+      else goBack();
+      return;
+    }
+    if (typing || e.ctrlKey || SHEETS.length) return;
+    if (goAt && Date.now() - goAt < 1500) {
+      goAt = 0;
+      const key = GO_KEYS[e.key.toLowerCase()];
+      if (key && (key === 'home' || has(key))) { e.preventDefault(); go(key === 'home' ? homePath() : key); }
+      return;
+    }
+    if (e.key === 'g') { goAt = Date.now(); return; }
+    if (e.key === '/') { e.preventDefault(); searchSheet(); }
+    else if (e.key === '?') { e.preventDefault(); hotkeysSheet(); }
   });
-  const act = $('#o-act'), minw = $('#o-minw');
-  const syncMin = () => { minw.hidden = act.value === 'kick'; };
-  act.onchange = syncMin; syncMin();
-  $('#o-go').onclick = () => {
-    const uid = +$('#o-uid').value;
-    if (!Number.isSafeInteger(uid) || uid <= 0) { toast('Введите числовой ID участника', true); return; }
-    const body = {action: act.value, reason: $('#o-reason').value.trim(), minutes: +$('#o-min').value};
-    const run = async () => { done((await post(`/owner/chat/${c.id}/member/${uid}/action`, body)).message); };
-    if (act.value === 'kick' || act.value === 'ban') sheet(CONFIRM_TITLE[act.value], hint('ID ' + uid), 'Да', run);
-    else run().catch(e => toast(e.message, true));
-  };
-}
-SECTIONS.mychats = main => ownerView(main);
+})();
 
-// Создатель: пускать ли владельцев чатов в админку и кого отозвать. По умолчанию вход закрыт.
-async function ownersAccessCard(main) {
-  if (!ME.creator) return;
-  let st;
-  try { st = await api('/access/owners'); } catch (_) { return; }
-  if (currentSection() !== 'access' || !main.querySelector('.page-head') || main.querySelector('#ownacc')) return;   // человек успел уйти на другую вкладку
-  const box = document.createElement('div');
-  box.className = 'card'; box.id = 'ownacc';
-  box.innerHTML = `<h3>🧑‍💼 Владельцы чатов</h3>
-    <div class="sub" style="margin-bottom:6px">Если включить, владельцы групп с ботом смогут входить в админку и управлять только своими чатами (не больше ${st.max_chats} на человека).
-      Владение проверяется по Telegram при каждом входе.</div>
-    <div class="sw-row"><div class="t"><b>Вход владельцев чатов</b><div class="sub">${st.enabled ? 'Открыт' : 'Закрыт'}</div></div>
-      <label class="toggle"><input type="checkbox" id="own-on" ${st.enabled ? 'checked' : ''}/><span></span></label></div>
-    <div class="sub" style="margin:10px 0 4px">Доступ отозван</div>
-    ${st.blocked.length ? st.blocked.map(b => `<div class="sw-row"><div class="t">${pinline(b)}<div class="sub">${esc(b.reason || 'без причины')}</div></div>
-      <button type="button" class="btn" data-ounblock="${b.id}">Вернуть</button></div>`).join('') : '<div class="sub">Никто не отозван.</div>'}
-    <div class="field" style="margin-top:10px"><label>Отозвать доступ: ID человека</label><input id="own-uid" inputmode="numeric"/></div>
-    <div class="field"><label>Причина (необязательно)</label><input id="own-reason" maxlength="200"/></div>
-    <div class="actions"><button type="button" class="btn danger" id="own-block">Отозвать доступ</button></div>`;
-  main.append(box);
-  const post = (path, body) => api(path, {method: 'POST', body: JSON.stringify(body)});
-  const redo = () => { box.remove(); ownersAccessCard(main); };
-  $('#own-on').onchange = async e => {
-    const on = e.target.checked;
-    if (on && !confirm('Пустить владельцев чатов в админку? Любой, кто создал группу с ботом, сможет входить и модерировать свой чат.')) { e.target.checked = false; return; }
-    try { await post('/access/owners', {enabled: on}); toast(on ? 'Вход владельцев открыт' : 'Вход владельцев закрыт'); redo(); }
-    catch (err) { toast(err.message, true); e.target.checked = !on; }
-  };
-  box.querySelectorAll('[data-ounblock]').forEach(b => b.onclick = async () => {
-    try { await post('/access/owners/block', {user_id: +b.dataset.ounblock, blocked: false}); toast('Доступ возвращён'); redo(); } catch (err) { toast(err.message, true); }
-  });
-  $('#own-block').onclick = async () => {
-    const uid = +$('#own-uid').value;
-    if (!Number.isSafeInteger(uid) || uid <= 0) { toast('Введите числовой ID', true); return; }
-    try { await post('/access/owners/block', {user_id: uid, blocked: true, reason: $('#own-reason').value.trim()}); toast('Доступ отозван'); redo(); } catch (err) { toast(err.message, true); }
-  };
-}
+// ── Оболочка Telegram ────────────────────────────────────────────────────────
 
-// ── Права (только создатель): кто из ролей что может, и вход владельцев чатов ───────────────────
-
-const roleWord = name => name.replace(/^\S+\s/, '').toLowerCase();   // «💬 Хелпер» -> «хелпер»: этим словом подтверждается изменение
-async function accessView(main) {
-  const d = await loadSectionData(main, '/access/matrix', () => accessView(main), 'access');
-  if (!d) return;
-  const word = r => roleWord(d.roles.find(x => x.rank === r).name);
-  const row = i => `<div class="sw-row"><div class="t"><b>${esc(i.title)}</b>
-      <div class="sub">${i.changed ? '✎ изменено · ' : ''}по умолчанию: ${esc(d.roles.find(x => x.rank === i.default)?.name || i.default)}</div></div>
-      <select data-akey="${esc(i.key)}" aria-label="${esc(i.title)}: с какой роли">${d.roles.map(r =>
-        `<option value="${r.rank}" ${r.rank === i.current ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
-      ${i.changed ? `<button type="button" class="btn small" data-areset="${esc(i.key)}">Сбросить</button>` : ''}</div>`;
-  const group = g => d.items.filter(i => i.group === g).map(row).join('');
-  main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право. Меняется только то, что перечислено ниже')}
-    ${alertBox('info', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
-    ${section('a-sec', '🗂 Разделы', group('section'))}
-    ${section('a-mod', '🛡 Модерация', group('moderation'))}`;
-  const post = body => api('/access/matrix', {method: 'POST', body: JSON.stringify(body)});
-  const ask = (title, key, rank, expect) => sheet(title,
-    `${hint('Изменение вступает в силу сразу для всех сотрудников. Для подтверждения введите «' + esc(expect) + '».')}<div class="field"><label>Подтверждение</label><input id="a-confirm" autocomplete="off"/></div>`,
-    'Изменить', async () => { await post({key, min_rank: rank, confirm: $('#a-confirm').value}); toast('Сохранено'); accessView(main); });
-  main.querySelectorAll('[data-akey]').forEach(sel => {
-    const was = sel.value;
-    sel.onchange = () => {
-      const rank = +sel.value;
-      sel.value = was;   // пока человек не подтвердит, на экране прежнее значение
-      ask(`Изменить право «${sel.getAttribute('aria-label').split(':')[0]}»`, sel.dataset.akey, rank, word(rank));
-    };
-  });
-  main.querySelectorAll('[data-areset]').forEach(b => b.onclick = () => ask('Вернуть значение по умолчанию', b.dataset.areset, null, 'сброс'));
-  await ownersAccessCard(main);
-}
-SECTIONS.access = main => accessView(main);
-
-
-let OFFICIAL_POSTS = [], OFFICIAL_PREVIEW = null;
-const OFFICIAL_KINDS = {pets:'Питомцы',rhythm:'Ритм',mafia:'Мафия',family:'Родословная',purge:'Чистка'};
-const OFFICIAL_STATES = {draft:'Черновик',sending:'Отправляется',sent:'Доставлено',unknown:'Нужна сверка',failed:'Не отправлено'};
-const OFFICIAL_IMAGES = {'pets-forecast.png':'Прогноз питомца · с пометкой','rhythm-analysis.png':'Разбор Ритма · с пометкой','family-tree.png':'Родословная · с пометкой','mafia-review.png':'Разбор Мафии','purge-web.png':'Чистка на сайте'};
-async function officialUpdatesOpen() {
-  const d = await api('/official-updates'); OFFICIAL_POSTS = d.items; const requestKey = `update-${Date.now()}-${crypto.randomUUID().slice(0,8)}`;
-  sheet('Важные обновления бота', `<p class="sub">Назначение: <a href="${esc(d.target)}" target="_blank" rel="noopener">тема обновлений официальной группы</a>. Не чаще одного важного поста в сутки. Мелкие изменения объединяем.</p>${d.topic_verified ? '' : '<p class="warn">Рабочий бот ещё не зафиксировал сообщение в теме. До подтверждения публикация заблокирована.</p>'}<label>Раздел<select id="ou-kind">${d.kinds.map(k=>`<option value="${k}">${esc(OFFICIAL_KINDS[k]||k)}</option>`).join('')}</select></label><label>Короткая новость<textarea id="ou-caption" rows="5" minlength="30" maxlength="900" placeholder="Что стало удобнее, где попробовать, один следующий шаг"></textarea></label><label>Проверенный скриншот<select id="ou-image"><option value="">Выберите изображение</option>${d.images.map(name=>`<option value="${esc(name)}">${esc(OFFICIAL_IMAGES[name]||name)}</option>`).join('')}</select></label><p class="sub">На изображении — реальный интерфейс без личных данных. Достаточно одной-двух пометок. До предпросмотра публикация недоступна.</p><h3>Последние публикации</h3>${d.items.map((p,i)=>`<div class="card"><b>${esc(OFFICIAL_KINDS[p.kind]||p.kind)}</b><p>${esc(p.caption.slice(0,100))}</p><p class="sub">${esc(OFFICIAL_STATES[p.status]||p.status)}${p.error?' · '+esc(p.error):''}</p><button class="btn small" onclick="officialUpdatesPreview(${i})">Посмотреть</button>${['sending','unknown'].includes(p.status)?`<button class="btn small" onclick="officialUpdatesReconcile(${i})">Сверить отправку</button>`:''}</div>`).join('')}`, 'Сохранить и посмотреть', async()=>{
-    const row=await api('/official-updates/draft',{method:'POST',body:JSON.stringify({release_key:requestKey,kind:$('#ou-kind').value,caption:$('#ou-caption').value.trim(),image_name:$('#ou-image').value})});
-    OFFICIAL_POSTS.unshift(row); officialUpdatesPreview(0); return 'keep';
-  });
-}
-function officialUpdatesPreview(index) {
-  const p = OFFICIAL_POSTS[index]; if(!p)return; OFFICIAL_PREVIEW=p;
-  sheet('Предпросмотр публикации', `<p class="sub">Будет опубликовано в <a href="https://t.me/predvestnik_official/4" target="_blank" rel="noopener">официальной теме обновлений</a>.</p><img src="${BASE}/static/announcements/${encodeURIComponent(p.image_name)}" alt="Скриншот к обновлению" style="display:block;width:100%;height:auto;border-radius:12px"><p style="white-space:pre-wrap">${esc(p.caption)}</p><p><b>${esc(p.button)}</b></p><p class="sub">После подтверждения бот отправит это изображение, подпись и одну кнопку. Статус: ${esc(OFFICIAL_STATES[p.status]||p.status)}.</p>`, p.status==='sent'?'Уже опубликовано':'Опубликовать в теме',async()=>{
-    if(p.status==='sent'){toast('Публикация уже доставлена.');return;}
-    const result=await api(`/official-updates/${encodeURIComponent(p.release_key)}/publish`,{method:'POST',body:JSON.stringify({expected_digest:p.content_digest})});
-    toast(result.replayed?'Этот пост уже был опубликован.':'Публикация доставлена.');
-  });
-}
-function officialUpdatesReconcile(index) {
-  const p=OFFICIAL_POSTS[index]; if(!p)return;
-  sheet('Сверить публикацию', `<p>Откройте <a href="https://t.me/predvestnik_official/4" target="_blank" rel="noopener">тему обновлений</a>. При потерянном ответе пост мог быть доставлен. Ничего повторно не отправляется.</p><label>Проверенный результат<select id="ou-resolution"><option value="">Выберите</option><option value="sent">Пост найден</option><option value="absent">Поста точно нет</option></select></label><label>Номер найденного сообщения<input id="ou-message" type="number" min="1" placeholder="Последнее число в ссылке сообщения"></label><label>Как проверено<textarea id="ou-reason" minlength="12" maxlength="300"></textarea></label>`, 'Записать сверку',async()=>{
-    const resolution=$('#ou-resolution').value;if(!resolution)throw new Error('Выберите результат проверки.');
-    await api(`/official-updates/${encodeURIComponent(p.release_key)}/reconcile`,{method:'POST',body:JSON.stringify({expected_digest:p.content_digest,message_id:resolution==='sent'?Number($('#ou-message').value):null,confirmed_absent:resolution==='absent',reason:$('#ou-reason').value.trim()})});toast('Сверка записана.');
-  });
-}
+(function initShell() {
+  $('#hback').onclick = () => goBack();
+  $('#hsearch').onclick = () => searchSheet();
+  window.addEventListener('scroll', () => $('.top').classList.toggle('scrolled', window.scrollY > 4), {passive: true});
+  if (!TG) return;
+  try { if (TG.disableVerticalSwipes) TG.disableVerticalSwipes(); } catch (_) {}   // смахивание не закрывает админку посреди формы
+  try { if (TG.BackButton) TG.BackButton.onClick(goBack); } catch (_) {}         // один обработчик на всё время: не копятся
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.btn, .chip, .row[data-on], .tile, .seg button');
+    if (!t || t.disabled) return;
+    haptic(t.classList.contains('primary') ? 'medium' : t.classList.contains('btn') ? 'light' : 'select');
+  }, true);
+})();

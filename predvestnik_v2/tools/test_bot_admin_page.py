@@ -43,11 +43,10 @@ def version_in_page():
 
 
 def main():
-    index = ('<link href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/><script src="{{BASE}}/bot-admin/admin.js?v={{VER}}"></script>'
-             '<script src="{{BASE}}/bot-admin/admin-lists.js?v={{VER}}"></script><script src="{{BASE}}/bot-admin/admin-boot.js?v={{VER}}"></script>')
+    scripts = [n for n in page._TYPES if n.endswith(".js")]
+    index = '<link href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/>' + "".join(f'<script src="{{{{BASE}}}}/bot-admin/{n}?v={{{{VER}}}}"></script>' for n in scripts)
     with tempfile.TemporaryDirectory() as tmp:
-        write(tmp, index_html=index, admin_js="console.log(1)", admin_css="body{}",
-              **{"admin-lists.js": "console.log('lists')", "admin-boot.js": "console.log('boot')"})
+        write(tmp, index_html=index, admin_css="body{}", **{n: f"console.log('{n}')" for n in scripts})
         page.load(tmp)
         first = version_in_page()
         assert "{{" not in page._PAGE
@@ -77,8 +76,13 @@ def main():
     # Страница не кешируется, файлы проверяются по ETag и не «вечные»
     response = asyncio.run(page.admin_page())
     assert response.headers["cache-control"] == "no-store"
-    for name, media in (("admin.js", "javascript"), ("admin-lists.js", "javascript"),
-                        ("admin-boot.js", "javascript"), ("admin.css", "css")):
+    # Каждый файл из _TYPES подключён в index.html в том же порядке (ядро первым, старт последним)
+    real_index = open(os.path.join(REAL_DIR, "index.html"), encoding="utf-8").read()
+    order = re.findall(r'/bot-admin/(admin[\w-]*\.js)\?v=', real_index)
+    assert order == [n for n in page._TYPES if n.endswith(".js")], order
+    assert order[0] == "admin.js" and order[-1] == "admin-boot.js"
+    for name in page._TYPES:
+        media = "css" if name.endswith(".css") else "javascript"
         assert f"/bot-admin/{name}?v={ver}" in page._PAGE, name
         res = asset(name)
         assert res.status_code == 200 and media in res.media_type and res.body, name
@@ -98,7 +102,7 @@ def main():
     assert "{{" not in page._PAGE and 'id="tabs"' in page._PAGE and 'id="main"' in page._PAGE
 
     # Тема: по умолчанию как в Telegram, светлая и тёмная выбираются вручную, тема применяется до отрисовки без мигания
-    js = open(os.path.join(REAL_DIR, "admin.js"), encoding="utf-8").read()
+    js = open(os.path.join(REAL_DIR, "admin.js"), encoding="utf-8").read()   # тема — в ядре
     css = open(os.path.join(REAL_DIR, "admin.css"), encoding="utf-8").read()
     assert "PREFS.get('theme', 'auto')" in js and "TG.onEvent('themeChanged'" in js and "data-theme-pick" in js
     assert "TG.platform !== 'unknown'" in js, "вне Telegram SDK всегда говорит «светлая»: его схему нельзя брать вслепую"

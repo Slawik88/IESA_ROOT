@@ -17,27 +17,25 @@
 </script>
 <link rel="stylesheet" href="{{BASE}}/bot-admin/admin.css?v={{VER}}"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap"/></noscript>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'"/>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap"/></noscript>
 </head>
 <body>
 <header class="top">
-  <a class="back-app" id="backapp" href="{{BASE}}/" aria-label="Вернуться в Предвестник"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></a>
-  <div class="brand">🔮 Админка</div>
-  <div class="who" id="who"></div>
+  <button type="button" class="ib" id="hback" aria-label="Назад"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7"/></svg></button>
+  <h1 id="ttl">Админка</h1>
+  <button type="button" class="ib" id="hsearch" aria-label="Поиск (/)" title="Поиск (/)" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg></button>
 </header>
-<main id="main"><section class="admin-load" role="status" aria-live="polite">
-  <div class="load-sigil" aria-hidden="true"><i></i><span>✦</span></div>
-  <div class="load-copy"><small>Предвестник · синхронизация</small><h2>Открываем пульт</h2><p>Проверяем доступ и собираем разделы</p></div>
-  <div class="load-map" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-  <div class="load-stage"><i></i><span>Подключаемся к серверу</span></div>
-</section></main>
+<main id="main" aria-live="polite"><section class="boot" role="status"><div class="orb" aria-hidden="true"></div><b>Открываем админку</b><span>Проверяем доступ</span></section></main>
 <nav class="nav" id="tabs" aria-label="Разделы админки" hidden></nav>
 <div class="sheet-back" id="sheet" hidden></div>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 <script>window.ADMIN_BASE = "{{BASE}}";</script>
 <script src="{{BASE}}/bot-admin/admin.js?v={{VER}}"></script>
+<script src="{{BASE}}/bot-admin/admin-home.js?v={{VER}}"></script>
+<script src="{{BASE}}/bot-admin/admin-people.js?v={{VER}}"></script>
 <script src="{{BASE}}/bot-admin/admin-lists.js?v={{VER}}"></script>
+<script src="{{BASE}}/bot-admin/admin-ops.js?v={{VER}}"></script>
 <script src="{{BASE}}/bot-admin/admin-boot.js?v={{VER}}"></script>
 </body>
 </html>

@@ -201,6 +201,27 @@ async def run():
         await PGAdapter(conn).execute("INSERT INTO chat_blacklist (chat_id, user_id, reason, added_by) VALUES (?, ?, 'x', ?)", (A, P2, OWN_A))
     assert (await post(OWN_A, f"/owner/chat/{A}/member/{P2}/action", action="unban")).status_code == 200
 
+    # ── поиск участника своего чата (админка 3.0): вместо ввода числового ID ──
+    admin_security.reset_limits()
+    async def found(q, cid=A):
+        r = await get(OWN_A, f"/owner/chat/{cid}/members?q={q}")
+        assert r.status_code == 200, (q, r.status_code, r.text)
+        return [x["id"] for x in r.json()["items"]]
+    assert await found("p") == [], "один символ — не ищем"
+    assert await found("@p1") == [P1] and await found(str(P3)) == [P3]
+    assert await found("canary") == [], "вышедший из чата не находится"
+    assert await found("helper") == [], "персонал бота не показывается: его не раскрываем"
+    assert await found("ownA") == [OWN_A]
+    item = (await get(OWN_A, f"/owner/chat/{A}/members?q=p1")).json()["items"][0]
+    assert set(item) == {"id", "username", "name", "messages", "last", "avatar"}, item   # ни баланса, ни других чатов
+    assert "777777" not in json.dumps(item)
+    assert (await get(OWN_A, f"/owner/chat/{B}/members?q=p1")).status_code == 403, "чужой чат"
+    assert (await get(STRANGER, f"/owner/chat/{A}/members?q=p1")).status_code == 403
+    codes = [(await get(OWN_A, f"/owner/chat/{A}/members?q=p{i}")).status_code for i in range(125)]
+    assert codes[0] == 200 and 429 in codes, "перебор поиска упирается в свой лимит"
+    admin_security.reset_limits()
+    assert (await post(OWN_A, f"/owner/chat/{A}/member/{P3}/action", action="warn")).status_code == 200, "поиск не съедает лимит действий"
+
     # ── владелец закрыт от всего, что для сотрудников ──
     staff_gets = ("/search?q=p1", f"/player/{P1}", f"/chat/{B}", f"/chat/{A}", "/metrics", "/metrics/export", "/journal",
                   f"/switches?chat_id={B}", "/reports", "/promo", "/chats", "/settings", "/health", "/broadcasts", "/badges",

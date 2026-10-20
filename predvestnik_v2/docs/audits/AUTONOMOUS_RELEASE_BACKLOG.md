@@ -1,3 +1,14 @@
+## Admin 3.0 — the whole /bot-admin rebuilt from scratch (2026-10-20)
+
+Owner asked for a full rebuild: phone-first, things next to where they are needed, less routine, visual memory,
+friendly to players (chat owners), staff and developers. Audit, 19 criteria and proof:
+`docs/audits/ADMIN_V3_REDESIGN_2026-10-20.md`. Frontend rewritten over the existing API (hash routes, home screen,
+global search, sheet stack, skeletons, reason/duration chips, tabbed player/chat cards, one-button report decisions,
+stepped broadcast). One new server route: `GET /owner/chat/{cid}/members` (own chat only, present members, no bot
+staff, separate `lookup` rate limit) so chat owners no longer type numeric IDs. Hash-pinned UI contract replaced by
+behaviour tests (`tools/test_admin_safety.js`, `tools/test_bot_admin_ui_flows.py`); stand fixed and extended.
+Not yet verified in a live Telegram client.
+
 ## Admin v2 release — faces, one action sheet, attention block (2026-10-20)
 
 Rebuilt /bot-admin around people instead of forms. Telegram profile photos now arrive through signed

@@ -128,6 +128,40 @@ async def owner_chat(cid: int, user=Depends(owner_user), db=Depends(get_db)):
             "sanctions": {"bans": bans, "mutes": mutes, "warns": warns}}
 
 
+@router.get("/chat/{cid}/members")
+async def owner_members(cid: int, q: str = "", user=Depends(owner_user), db=Depends(get_db)):
+    """Участник своего чата по @нику, имени или ID: владельцу не нужно знать числовой ID.
+    Только этот чат, только те, кто в нём сейчас, до 20 строк; без ролей и данных вне чата, без персонала бота.
+    Запросы считаются отдельным лимитом «lookup», чтобы перебором нельзя было выгрузить базу."""
+    admin_access.require_chat(user, cid)
+    q = (q or "").strip()[:64]
+    name = q.lstrip("@")
+    if not (q.isdecimal() or len(name) >= 2):
+        return {"items": []}
+    wait = admin_security.rate_wait(user["id"], user["rank"], "lookup")
+    if wait:
+        raise HTTPException(429, f"Слишком много поисков подряд. Подождите примерно {(wait + 59) // 60} мин.")
+    sql = ("SELECT s.user_tg_id, u.user_tg_username, u.user_tg_name, COALESCE(s.user_messages_count_all_time, 0), "
+           "s.last_message_at FROM user_chat_stats s JOIN users u ON u.user_tg_id = s.user_tg_id "
+           "WHERE s.chat_tg_id = ? AND NOT COALESCE(s.is_left, FALSE) AND COALESCE(u.bot_rank, 0) = 0 AND ")
+    if q.isdecimal():
+        args: tuple = (cid, int(q))
+        sql += "s.user_tg_id = ? LIMIT 1"
+    else:
+        like = admin_people._like(name)
+        args = (cid, like, admin_people._like(q), name)
+        sql += ("(u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ?) "
+                "ORDER BY lower(COALESCE(u.user_tg_username, '')) = lower(?) DESC, s.last_message_at DESC NULLS LAST LIMIT 20")
+    async with db.execute(sql, args) as cur:
+        rows = await cur.fetchall()
+    # Персонал бота не показываем вовсе: действия с ним владельцу закрыты, а пометка «защищён» раскрывала бы штат.
+    items = [{"id": int(r[0]), "username": r[1], "name": r[2] or "", "messages": int(r[3]),
+              "last": r[4].isoformat() if r[4] else None} for r in rows if not is_developer(int(r[0]))]
+    from services import admin_avatars
+    admin_avatars.attach(items)
+    return {"items": items}
+
+
 @router.post("/chat/{cid}/action")
 async def owner_chat_action(cid: int, data: dict = Body(...), user=Depends(owner_user), db=Depends(get_db)):
     action = str(data.get("action") or "")

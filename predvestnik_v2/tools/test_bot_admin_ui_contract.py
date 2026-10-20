@@ -1,78 +1,83 @@
-"""Контракт админки: перекладка вкладок не должна трогать логику опасных действий и привязки JS к разметке (ADM-01).
+"""Контракт админки 3.0: каркас страницы, адреса экранов и привязки, на которых держатся безопасность и разделы.
 
-1) Функции, от которых зависят подтверждения, баны, баланс и рассылка, не меняются: сверяется хэш их текста.
-   Правите такую функцию осознанно: обновите хэш здесь и скажите об этом в PR отдельной строкой.
-2) Идентификаторы и хуки, на которые опирается JS, остаются в файлах.
+Поведение опасных действий проверяет tools/test_admin_safety.js (настоящие функции в vm), а путь в браузере —
+tools/test_bot_admin_ui_flows.py. Здесь — то, что легко потерять при правке разметки:
+1) каркас index.html (шапка, док, шторка, тост) и подключение всех файлов;
+2) у каждого раздела с сервера есть экран (route) — иначе пункт меню ведёт в пустоту;
+3) ключевые хуки безопасности в коде (request_id на окно, ввод ID, «Далее» у опасного, блок двойного нажатия);
+4) правила интерфейса из docs/MINIAPP_DESIGN_RULES.md, которые проверяются текстом: зоны нажатия, без inline-обработчиков.
 
 Запуск: python tools/test_bot_admin_ui_contract.py (ничего не нужно, ни база, ни браузер)
 """
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import sys
 
 STATIC = os.path.join(os.path.dirname(__file__), "..", "FastAPI", "static", "bot-admin")
-# Ядро и все вынесенные файлы: пинны хэшей ищутся только в admin.js, а хуки — в любом из них,
-# чтобы дробление файла не выглядело пропажей привязки.
-JS = open(os.path.join(STATIC, "admin.js"), encoding="utf-8").read()
-JS_ALL = "\n".join(open(os.path.join(STATIC, name), encoding="utf-8").read()
-                   for name in sorted(n for n in os.listdir(STATIC) if n.startswith("admin") and n.endswith(".js")))
-CSS = open(os.path.join(STATIC, "admin.css"), encoding="utf-8").read()
-
-# имя функции -> sha1 текста (с первой строки объявления до закрывающей скобки в нулевой колонке)
-PINNED = {
-    "actionForm": "4a21ef700980", "runAction": "26380af046a7", "needsTypedConfirm": "02d44637f82f", "confirmLines": "a0c36bee0b8d",
-    "sheet": "219efbebaf00", "bulkRun": "7208d733c384", "api": "648a2f15c38d",
-}
-
-HOOKS_JS = [  # куски разметки/селекторов, на которые опирается код
-    "$('#notescard h3')", "data-mact", "data-punish", "data-cid", "data-ctitle",
-]
-IDS = ["bcount", "bprev", "bgo", "btest", "bhist", "pback", "psearch", "sglobal", "dgon", "dghour", "repset", "secset", "revself", "revall"]
-HOOKS_CSS = ["main > .bar:first-child", ".bulkbar", ".card.picked", ".mark-tile", ".sheet-back"]
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+os.environ.setdefault("BOT_TOKEN", "1:x")
+os.environ.setdefault("DATABASE_URL", "postgresql://unused/unused")
 
 
-def source(name: str) -> str:
-    m = re.search(rf"^(?:async )?function {name}\(.*?^\}}\n", JS, re.S | re.M)
-    assert m, f"функция {name} не найдена в admin.js"
-    return m.group(0)
-
-
-def digest(name: str) -> str:
-    return hashlib.sha1(source(name).encode("utf-8")).hexdigest()[:12]
+def read(name: str) -> str:
+    with open(os.path.join(STATIC, name), encoding="utf-8") as f:
+        return f.read()
 
 
 def main() -> int:
+    from FastAPI.routers.bot_admin.page import _TYPES
+    from FastAPI.routers.bot_admin.auth import SECTIONS
     bad = []
-    for name, pinned in PINNED.items():
-        got = digest(name)
-        if got != pinned:
-            bad.append(f"функция {name} изменилась (хэш {got}, ожидался {pinned})")
-    for hook in HOOKS_JS:
-        if hook not in JS_ALL:
-            bad.append(f"в файлах админки пропала привязка {hook}")
-    for i in IDS:
-        if f'id="{i}"' not in JS_ALL:
-            bad.append(f"в файлах админки пропал элемент id={i}")
-    for hook in HOOKS_CSS:
-        if hook not in CSS:
-            bad.append(f"в admin.css пропало правило {hook}")
-    # `.card` не должен менять роль «просто группа блоков»: у него остаётся прежнее определение без фона и рамки
-    m = re.search(r"^\.card \{([^}]*)\}", CSS, re.M)
-    if not m or "background" in m.group(1) or "box-shadow" in m.group(1):
-        bad.append("правило .card получило фон или рамку: на нём держатся жалобы, панель выбора и рассылка, используйте .section")
+    html = read("index.html")
+    js = {n: read(n) for n in _TYPES if n.endswith(".js")}
+    JS = "\n".join(js.values())
+    css = read("admin.css")
+
+    for hook in ('id="main"', 'id="tabs"', 'id="sheet"', 'id="toast"', 'id="ttl"', 'id="hback"', 'id="hsearch"'):
+        if hook not in html:
+            bad.append(f"в index.html пропал каркас {hook}")
+    # Экран на каждый раздел сервера и на главную
+    routes = set(re.findall(r"route\('([\w/:]+)'", JS))
+    for key in [*SECTIONS, "home", "mychats", "player/:id", "chat/:id"]:
+        if key not in routes:
+            bad.append(f"нет экрана для раздела «{key}»")
+    hooks = {
+        "один request_id на открытое действие": "ctx = {...ctx, _rid: newRid()}",
+        "сумма и VIP уходят с request_id": "request_id: ctx._rid",
+        "ввод ID для самого опасного": "if (typedId !== String(ctx.id))",
+        "опасное идёт через «Далее»": "label: danger ? 'Далее' : 'Выполнить'",
+        "второй тап по кнопке шторки ничего не делает": "if (btn.disabled) return;",
+        "рассылка: ключ на окно подтверждения": "const rid = newRid();",
+        "рассылка: опрос только пока экран открыт": "if (!ctx.alive()) return;",
+        "лимит выбора игроков": "PICK.ids.size < BULK_MAX",
+        "жалоба: бан из жалобы с итогом": "openSheet({title: CONFIRM_TITLE.ban",
+        "личный образ: лимит 1": "$v('#fmax').value = 1",
+        "владельцу нет поиска по базе": "if (!ME || ME.owner) return;",
+        "/me всегда при старте (кука разработчика)": "ME = await api('/me')",
+        "назад Telegram — один обработчик": "TG.BackButton.onClick(goBack)",
+        "выключение всего бота — красное подтверждение": "input.dataset.k === 'all' || input.dataset.k === 'site'",
+    }
+    for what, needle in hooks.items():
+        if needle not in JS:
+            bad.append(f"пропала проверка: {what} ({needle})")
+    if re.search(r"""\son(click|change|input)=["']""", JS):
+        bad.append("inline-обработчик onclick=\"…\" в разметке: используйте data-on и on(view, {...})")
+    if re.search(r"(?<![\w.])confirm\(\s*[`'\"]", JS):
+        bad.append("системный confirm(): используйте ask() — шторку в стиле админки")
+    for rule, needle in ((".btn {", "min-height: 44px"), (".ib {", "height: 44px"), (".row {", "min-height: 60px")):
+        m = re.search(re.escape(rule) + r"[^}]*", css)
+        if not m or needle not in m.group(0):
+            bad.append(f"в admin.css у {rule} нет {needle} (зона нажатия)")
+    if ':root[data-theme="light"]' not in css or "prefers-reduced-motion" not in css:
+        bad.append("в admin.css нет светлой темы или уважения к prefers-reduced-motion")
     for line in bad:
         print("✗", line)
     if not bad:
-        print("OK: логика опасных действий и хуки админки не тронуты")
+        print("OK: каркас, экраны разделов, хуки безопасности и правила интерфейса на месте")
     return 1 if bad else 0
 
 
 if __name__ == "__main__":
-    if "--print" in sys.argv:
-        for n in PINNED:
-            print(n, digest(n))
-        sys.exit(0)
     sys.exit(main())
