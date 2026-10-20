@@ -17,6 +17,7 @@ from core.skins_v3_collection import (BASE_RANK, MAXED_BADGES, PERMANENT, SET_GL
                                       row_members, season_of, season_window, set_bonus)
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import skins_v3 as repo
+from services import skins_chat
 from services.vip import is_vip_active
 
 VERSION = "skins-v3-2026-10"
@@ -211,6 +212,7 @@ async def buy(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tuple[
                     metadata={"skin_id": skin_id, "rarity": skin["tier"], "price_zarniki": price}, note=skin_id)
                 await repo.grant(db, user_id, skin_id)
                 events = await _purchase_rewards(db, user_id, skin_id, await repo.owned(db, user_id))
+                await skins_chat.news(db, user_id, skin_id, "buy", "D")   # the chat news is bought with the skin: a rollback drops both
             await repo.set_equipped(db, user_id, skin_id)
     except InsufficientBalance as exc:
         raise SkinConflict(f"Нужно {price}✨ для этого скина.") from exc
@@ -269,6 +271,8 @@ async def upgrade(db, user_id: int, skin_id: str, *, idempotency_key: str) -> tu
             await achievement_service.record_life_event(db, user_id=user_id, family='stylist', fact=f'{skin_id}:{target}')
             owned_now = await repo.owned(db, user_id)
             events.append({"kind": "tier", "skin_id": skin_id, "name": skin["name"], "tier": target, "maxed": target == CEILING, "sig": bool(skin["sig"]) and target == signature_tier(skin["tier"])})
+            if target == CEILING:
+                await skins_chat.news(db, user_id, skin_id, "sss", target)
             after = _maxed_count(owned_now)
             if after > before and maxed_badge(after) != maxed_badge(before):
                 events.append({"kind": "badge", "title": maxed_badge(after), "maxed": after})

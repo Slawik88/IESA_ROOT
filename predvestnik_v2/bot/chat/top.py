@@ -10,7 +10,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 from bot.chat.framework import Ctx, registry
 from bot.chat.style import profile_link, quote
 from bot.chat.tracking import local_now
-from services import chat_bots, member_tags
+from services import chat_bots, member_tags, skins_chat
 
 PAGE_SIZE = 25
 PERIODS = {"d": "День", "w": "Неделя", "lw": "Прошлая неделя"}
@@ -123,8 +123,9 @@ async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> 
     ) as cur:
         data = await cur.fetchall()
     tags = await member_tags.many_fresh(bot, db, chat, [r[0] for r in data]) if scope == "c" else {}   # тег живёт в одном чате: в общем топе его нет
+    marks = await skins_chat.glyphs(db, [int(r[0]) for r in data], chat)   # знак скина: пусто, если косметика в чате выключена
     rows = [
-        (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0])), soft=True), int(r[2]))
+        (page * PAGE_SIZE + i + 1, profile_link(int(r[0]), r[1], tags.get(int(r[0])), soft=True, mark=marks.get(int(r[0]))), int(r[2]))
         for i, r in enumerate(data)
     ]
     return render(title, rows, page, pages, period, scope), pages

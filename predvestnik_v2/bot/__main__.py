@@ -284,6 +284,12 @@ async def main():
                 "member-tags-backfill", _member_tags.backfill_task(bot, _bc.pool_db_factory()), failed=background_failed))
         except Exception as _e:
             logger.warning(f"Обход тегов не запущен: {_e}")
+        try:
+            from services import broadcasts as _bc, skin_chat_news as _skin_news
+            background_tasks.append(_spawn_supervised(
+                "skin-chat-news", _skin_news.task(bot, _bc.pool_db_factory()), failed=background_failed))
+        except Exception as _e:
+            logger.warning(f"Новости о скинах в чатах не запущены: {_e}")
         # Preprod intentionally has no Stars history/reconciliation access.
         # Do not spawn a coroutine that correctly returns immediately and then
         # misclassify that policy as a supervisor crash.

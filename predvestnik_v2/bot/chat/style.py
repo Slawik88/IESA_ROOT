@@ -11,15 +11,17 @@ def reason_quote(reason: str | None) -> str:
     return f"\n<blockquote>Причина: {escape(reason)}</blockquote>" if reason else ""
 
 
-def profile_link(user_id: int, username: str | None, tag: str | None = None, soft: bool = False) -> str:
+def profile_link(user_id: int, username: str | None, tag: str | None = None, soft: bool = False, mark: str | None = None) -> str:
     """Игрок в списке: ник ссылкой на профиль в Telegram, после него тег `[Сяо]`. Тег приходит уже очищенным, здесь он экранируется.
 
     Для ника ссылка t.me/<ник>: она открывает профиль и никого не пингует, в отличие от tg://user?id=. Без ника другого пути нет,
-    остаётся tg://user?id (такие игроки в списках редки)."""
+    остаётся tg://user?id (такие игроки в списках редки). mark — знак надетого скина перед ником (services.skins_chat.glyphs)."""
     if username:
         name = f'<a href="https://t.me/{escape(username, quote=True)}">@{escape(username)}</a>'
     else:
         name = f'<a href="tg://user?id={int(user_id)}">id{int(user_id)}</a>'
+    if mark:
+        name = f"{escape(mark)} {name}"
     if not tag:
         return name
     # soft: тег курсивом без скобок, «/» и «|» внутри тега с пробелами: так в рейтингах он не режет глаз

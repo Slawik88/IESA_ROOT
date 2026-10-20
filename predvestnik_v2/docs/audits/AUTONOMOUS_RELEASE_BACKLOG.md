@@ -1,3 +1,20 @@
+## Skins in group chats — 2026-10-20
+
+Owner asked that a bought skin also decorate the player in Telegram chats, then to release directly without a mockup.
+A worn skin now styles «бот я»/«бот кто»: the activity graph in the skin palette inside a framed card (frame, background,
+particles and header from the catalog kinds; more effects per tier), and the caption text (section icons, separator from B,
+ornament frame from S, SSS phrase). Top and chat roster show the skin emoji before the nick. In chat everyone sees the skin
+(one message for all); the tier still obeys cap_tier (SSS needs VIP). A purchase or a raise to SSS queues a news row inside
+the same transaction; a supervised loop sends it to every main chat (not linked as admin chat, bot present, cosmetics on)
+where the player wrote within 30 days, coalescing a run of purchases (90 s quiet), dropping news older than a day, and
+claiming (news, chat) before sending so overlapping deploys cannot double-post. «бот косметика вкл|выкл» toggles it per chat
+(rights permission, chat_module_audit).
+
+Proof: tools/test_skins_chat_style.py renders all 39 skins × 7 tiers (slowest card 0.16 s against a 0.9 s budget) and checks
+text rules; tools/test_skins_chat_pg.py covers card/top, VIP cap, switch and permission, enqueue on buy/replay/SSS, chat
+selection (old, admin, left, bot gone, switched off), coalescing, concurrent delivery, stale news and a kicked bot. A mutation
+removing the admin-chat exclusion fails the PG test. Full Linux suite compared with clean origin/master: no new failures.
+
 ## Account / quest / release reliability — 2026-10-20 follow-up
 
 Owner asked to continue across the bot and keep «Что нового» current.

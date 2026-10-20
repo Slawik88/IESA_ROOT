@@ -10,7 +10,7 @@ from bot.chat import ranks
 from bot.chat.style import profile_link, quote
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
-from services import member_tags
+from services import member_tags, skins_chat
 
 router = Router(name="chat_ranks")
 
@@ -115,9 +115,10 @@ async def cmd_ranks(ctx: Ctx) -> None:
     groups: dict[int, list[tuple[str, str]]] = {}   # ранг -> [(ник для сортировки, строка с ссылкой на профиль)]
     names: dict[int, str] = {}
     tags = await member_tags.many_fresh(ctx.bot, ctx.db, chat_id, [r[0] for r in rows] + ([owner] if owner else []))
+    marks = await skins_chat.glyphs(ctx.db, [int(r[0]) for r in rows] + ([owner] if owner else []), chat_id)
     for uid, uname, cr in rows:
         rank = int(cr or 0)
-        label = profile_link(int(uid), uname, tags.get(int(uid)))
+        label = profile_link(int(uid), uname, tags.get(int(uid)), mark=marks.get(int(uid)))
         names[int(uid)] = label
         if int(uid) != owner and rank > 0:
             groups.setdefault(min(rank, ranks.OWNER - 1), []).append(((uname or f"id{uid}").lower(), label))
@@ -127,7 +128,7 @@ async def cmd_ranks(ctx: Ctx) -> None:
         if owner_label is None:
             async with ctx.db.execute("SELECT user_tg_username FROM users WHERE user_tg_id = ?", (owner,)) as cur:
                 r = await cur.fetchone()
-            owner_label = profile_link(owner, r[0] if r else None, tags.get(owner))
+            owner_label = profile_link(owner, r[0] if r else None, tags.get(owner), mark=marks.get(owner))
         lines.append(f"\n<b>{ranks.rank_name(ranks.OWNER)}</b>\n" + quote([owner_label]))
     for rank in sorted(groups, reverse=True):
         lines.append(f"\n<b>{ranks.rank_name(rank)}</b>\n" + quote([label for _, label in sorted(groups[rank])]))
