@@ -585,6 +585,10 @@ async def reveal(db, *, user_id: int, open_id: str) -> dict:
             raise RuntimeError("Chest reward was credited without its reveal receipt.")
         from services import quests_v1 as quests
         quest_sources = await quests.available_sources(db, user_id=int(user_id))
+        # prepare_free_open spends the key before the reward is revealed, so the
+        # live source list no longer contains "chests" for the last key.  The
+        # reveal itself is proof that the chest activity happened.
+        quest_sources = frozenset(quest_sources | {'chests'})
         vip_active = await vip.is_vip_active(db, int(user_id))
         await quests.record_metric(
             db, user_id=int(user_id), metric="chest_revealed", event_id=open_id,

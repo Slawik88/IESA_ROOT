@@ -192,12 +192,22 @@ async def available_sources(db, *, user_id: int, now: datetime | None = None) ->
 
 
 async def _ensure_period(db, *, user_id: int, period: str, period_key: str,
-                         sources: frozenset[str] | set[str] | None = None) -> list[dict]:
+                         sources: frozenset[str] | set[str] | None = None,
+                         refresh: bool = True) -> list[dict]:
     definitions = list(rules.definitions(period, sources))
     existing = await repo.list_assignments(db, user_id=user_id, period=period, period_key=period_key)
     if existing:
         if len(existing) != _count(period):
             raise QuestConflict('quest assignment set is incomplete; contact support')
+        if not refresh:
+            # A terminal event must only add progress.  Some sources disappear
+            # exactly because the player did the action: the last chest key is
+            # spent before its reward is revealed, the last food is eaten before
+            # pet_fed is written.  Rewriting the untouched set here silently
+            # replaced the quest and dropped the event, so players completed the
+            # action and saw 0/1.  Availability is reconciled on the next screen
+            # load, never in the middle of a receipt.
+            return existing
         policy_stale = any(_definition(row).get('policy_version') != rules.POLICY_VERSION for row in existing)
         pristine = all(not int(row['progress']) and row['completed_at'] is None for row in existing)
         if policy_stale and not pristine:
@@ -442,7 +452,8 @@ async def record_metric(db, *, user_id: int, metric: str, event_id: str, vip_act
         if not await repo.save_metric_receipt(db, user_id=user_id, metric=metric, event_id=event_id):
             return await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
         for period in ('daily', 'weekly'):
-            await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)
+            await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period],
+                                 sources=sources, refresh=False)
             await repo.increment_metric(db, user_id=user_id, period=period, period_key=keys[period], metric=metric)
         vip_daily = None
         if metric in {'rhythm_completed', 'minesweeper_completed', 'mafia_completed'}:

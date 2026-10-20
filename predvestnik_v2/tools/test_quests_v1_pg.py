@@ -11,6 +11,7 @@ from infrastructure.repositories import quests_v1 as repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import chests_v1 as chest_repo
 from infrastructure.repositories import system_flags
+from core import quests_v1 as rules
 from services import quests_v1
 
 
@@ -192,6 +193,34 @@ async def run(dsn: str) -> None:
         async with db.execute("SELECT period,slot,quest_id,definition_json::text FROM quest_v1_assignments WHERE user_id=? AND period='daily' ORDER BY period,slot", (partial_user,)) as cursor:
             after_partial = [tuple(row) for row in await cursor.fetchall()]
         assert after_partial == before_partial, 'a partially progressed stale period must remain byte-for-byte intact'
+
+        # Regression: a terminal event must never rewrite the untouched set.
+        # Both sources below disappear *because* the player did the action:
+        # the chest key is spent before the reward is revealed, and the last
+        # food is eaten before pet_fed is written.
+        event_user = 976210
+        seeded_event = await quests_v1.overview(db, user_id=event_user, vip_active=False, sources=sources)
+        daily_key = seeded_event['daily']['period_key']
+        await db.execute("DELETE FROM quest_v1_assignments WHERE user_id=? AND period='daily'", (event_user,))
+        for slot, quest_id in enumerate(('chest_open_1', 'pet_feed_1', 'any_game_4', 'minesweeper_plays_2')):
+            await repo.create_assignment(
+                db, user_id=event_user, period='daily', period_key=daily_key, slot=slot,
+                definition={**rules.definition(quest_id), 'policy_version': rules.POLICY_VERSION},
+            )
+        after_chest = await quests_v1.record_metric(
+            db, user_id=event_user, metric='chest_revealed', event_id='last-key', vip_active=False,
+            sources=frozenset({'rhythm', 'minesweeper'}),
+        )
+        chest_quest = next(q for q in after_chest['daily']['quests'] if q['id'] == 'chest_open_1')
+        assert chest_quest['progress'] == 1 and chest_quest['completed'], \
+            'the last spent key must still complete the chest quest'
+        after_feed = await quests_v1.record_metric(
+            db, user_id=event_user, metric='pet_fed', event_id='last-food', vip_active=False,
+            sources=frozenset({'rhythm', 'minesweeper'}),
+        )
+        feed_quest = next(q for q in after_feed['daily']['quests'] if q['id'] == 'pet_feed_1')
+        assert feed_quest['progress'] == 1 and feed_quest['completed'], \
+            'the last food must still complete the feeding quest'
     finally:
         await tx.rollback()
         await conn.close()

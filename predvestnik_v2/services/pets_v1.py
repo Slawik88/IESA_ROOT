@@ -239,10 +239,13 @@ async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: st
         await repo.save_action(db, int(user_id), action_id, request, response)
         from services import quests_v1 as quests
         from services.vip import is_vip_active
+        # Food is consumed and endurance may reach 100 before this receipt, so
+        # "pet_care" can vanish from the live sources.  The feed itself is proof.
+        sources = await quests.available_sources(db, user_id=int(user_id))
+        sources = frozenset(sources | {'pet_care'})
         await quests.record_metric(
             db, user_id=int(user_id), metric="pet_fed", event_id=action_id,
-            vip_active=await is_vip_active(db, int(user_id)),
-            sources=await quests.available_sources(db, user_id=int(user_id)),
+            vip_active=await is_vip_active(db, int(user_id)), sources=sources,
         )
     return response
 
