@@ -60,6 +60,13 @@ def run(owner: bool = False):
     return pw, browser, page, posts, fail_next, errors
 
 
+def wait_posts(page, posts, n=1):
+    for _ in range(40):
+        if len(posts) >= n:
+            return
+        page.wait_for_timeout(100)
+
+
 def settle(page):
     page.wait_for_function("() => document.querySelector('#main').getAttribute('aria-busy') !== 'true' && document.querySelector('#main .view')", timeout=8000)
     page.wait_for_timeout(200)
@@ -102,10 +109,10 @@ def staff_flows():
     top(page, "#fconfirm").fill("500")
     fail_next.append("/player/500/action")
     top(page, '[data-sa="0"]').click()
-    page.wait_for_timeout(300)
-    assert "Сеть оборвалась" in top(page, ".err").inner_text(), "ошибка видна в шторке"
+    page.wait_for_function("() => (document.querySelector('.sheet.is-top .err') || {}).textContent?.includes('Сеть оборвалась')", timeout=3000)   # ошибка видна в шторке
     top(page, '[data-sa="0"]').click()
-    page.wait_for_timeout(300)
+    wait_posts(page, posts, 2)
+    page.wait_for_timeout(200)
     (k1, b1), (k2, b2) = posts[0], posts[1]
     assert k1 == k2 == "/player/500/action" and b1["action"] == "balance" and b1["confirm"] == "500" and b1["amount"] == "100000"
     assert b1["request_id"] and b1["request_id"] == b2["request_id"], "повтор после сбоя обязан идти с тем же request_id"
@@ -116,15 +123,30 @@ def staff_flows():
     # Новое окно — новый ключ
     page.click('[data-on="acts"]'); top(page, '[data-k="balance"]').click()
     top(page, "#famount").fill("5"); top(page, "#freason").fill("тест"); top(page, '[data-sa="0"]').click(); top(page, '[data-sa="0"]').click()
-    page.wait_for_timeout(300)
+    wait_posts(page, posts)
     assert posts[0][1]["request_id"] != b1["request_id"]
+    settle(page); posts.clear()
+
+    # Поменяли сумму после «‹» — это уже другое действие: новый ключ (иначе сервер принял бы его за повтор старого)
+    page.click('[data-on="acts"]'); top(page, '[data-k="balance"]').click()
+    top(page, "#famount").fill("7"); top(page, "#freason").fill("тест"); top(page, '[data-sa="0"]').click()
+    top(page, '[data-sh="back"]').click(); top(page, "#famount").fill("8"); top(page, '[data-sa="0"]').click(); top(page, '[data-sa="0"]').click()
+    wait_posts(page, posts)
+    assert posts[0][1]["amount"] == "8" and posts[0][1]["request_id"] not in (b1["request_id"],), posts
+    first_rid = posts[0][1]["request_id"]
+    settle(page); posts.clear()
+    page.click('[data-on="acts"]'); top(page, '[data-k="balance"]').click()
+    top(page, "#famount").fill("8"); top(page, "#freason").fill("тест"); top(page, '[data-sa="0"]').click(); top(page, '[data-sa="0"]').click()
+    wait_posts(page, posts)
+    assert posts, page.evaluate("[...document.querySelectorAll('.sheet')].map(x => x.innerText.slice(0, 200))")
+    assert posts[0][1]["request_id"] != first_rid
     settle(page); posts.clear()
 
     # Причина-чип и срок-чип попадают в запрос; мут не опасный — без итога
     page.click('[data-on="acts"]'); top(page, '[data-k="warn"]').click()
     top(page, '.chip[data-on="freason"][data-v="Спам"]').click()
     top(page, '.chip[data-on="fdur"][data-v="1440"]').click()
-    top(page, '[data-sa="0"]').click(); page.wait_for_timeout(300)
+    top(page, '[data-sa="0"]').click(); wait_posts(page, posts)
     assert posts[0][1] == {"action": "warn", "minutes": 1440, "reason": "Спам", "chat_id": -100}, posts[0]
     settle(page); posts.clear()
 
@@ -142,7 +164,7 @@ def staff_flows():
     assert top(page, "#freason").input_value().startswith("Оскорбления"), "причина подставляется из жалобы"
     top(page, '[data-sa="0"]').click()
     assert "Жалоба" in top(page, ".sum").inner_text() and not posts
-    top(page, '[data-sa="0"]').click(); page.wait_for_timeout(300)
+    top(page, '[data-sa="0"]').click(); wait_posts(page, posts)
     assert posts[0][0] == "/reports/100/punish" and posts[0][1]["action"] == "ban" and posts[0][1]["close"] is True and posts[0][1]["minutes"] == 0, posts
     settle(page); posts.clear()
 
@@ -155,9 +177,22 @@ def staff_flows():
     assert box.is_checked() and not posts, "отмена не должна выключать"
     box.click()
     top(page, '.chip[data-on="sr"]').first.click()
-    top(page, '[data-sa="0"]').click(); page.wait_for_timeout(300)
+    top(page, '[data-sa="0"]').click(); wait_posts(page, posts)
     assert posts[0] == ("/switches", {"feature": "all", "chat_id": 0, "enabled": False, "reason": "Чиним, вернём скоро"}), posts
     settle(page); posts.clear()
+
+    # Вкладки дока не копят историю: между разделами — замена записи
+    depth = page.evaluate("history.length")
+    for tab in ("people", "reports", "journal", "people", "home"):
+        page.click(f'#tabs [data-tab="{tab}"]'); settle(page)
+    assert page.evaluate("history.length") == depth, "переключение разделов не должно добавлять шаги «назад»"
+
+    # Рассылка: пока получатели не посчитаны, отправить нельзя; после подсчёта — можно
+    page.goto(f"{HOST}/bot-admin/#/broadcast"); settle(page)
+    page.wait_for_function("() => (document.querySelector('#bcount') || {}).textContent?.replace(/\\s/g, '').includes('12345')", timeout=4000)
+    page.click('[data-on="bkind"][data-v="chats"]')
+    assert "Считаем" in page.inner_text("#bcount") and page.locator("#bgo").is_disabled(), "сменили получателей — старое число не годится"
+    page.wait_for_function("() => (document.querySelector('#bcount') || {}).textContent?.replace(/\\s/g, '').includes('12345')", timeout=4000)
 
     # Глобальный поиск открывает карточку и закрывается
     page.keyboard.press("/")
@@ -183,7 +218,7 @@ def owner_flow():
     top(page, '[data-k="ban"]').click()
     top(page, '[data-sa="0"]').click()
     assert "Участник Чата" in top(page, ".sum").inner_text() and not posts
-    top(page, '[data-sa="0"]').click(); page.wait_for_timeout(300)
+    top(page, '[data-sa="0"]').click(); wait_posts(page, posts)
     assert posts[0][0] == "/owner/chat/-100/member/800/action" and posts[0][1]["action"] == "ban", posts
     assert not errors, errors
     browser.close()

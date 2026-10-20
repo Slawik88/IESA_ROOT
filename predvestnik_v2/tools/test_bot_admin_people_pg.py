@@ -139,6 +139,8 @@ async def checks():
     assert found["players"] and found["chats"][0]["id"] in (-100, -200), found
     found = (await client.get("/bot-admin/api/search?q=@u2002", headers=h[HELPER])).json()
     assert [p["id"] for p in found["players"]] == [P1] and found["players"][0]["messages"] == 125, found
+    flags = found["players"][0]["flags"]   # значки строки поиска (админка 3.0): одно действующее предупреждение, без бана
+    assert flags["warns"] == 1 and not flags["global_ban"] and not flags["bans"] and not flags["vip"], flags
     found = (await client.get("/bot-admin/api/search?q=2003", headers=h[HELPER])).json()
     assert [p["id"] for p in found["players"]] == [P2], found
     found = (await client.get("/bot-admin/api/search?q=основ", headers=h[HELPER])).json()
@@ -358,6 +360,8 @@ async def checks():
         assert await is_blacklisted(db, -300, P1)
         card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()
         assert card["global_ban"]["reason"] == "мошенник" and all(c["left"] for c in card["chats"]), card
+        flags = (await client.get("/bot-admin/api/search?q=@u2002", headers=h[HELPER])).json()["players"][0]["flags"]
+        assert flags["global_ban"], flags   # кольцо и «⛔ везде» в списке
         r = await act(CODER, P1, action="global_unban")
         assert r.status_code == 200 and not await is_blacklisted(db, -300, P1), r.text
         assert ("unban", -100, P1) in bot.calls

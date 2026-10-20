@@ -162,3 +162,12 @@ ROUTES.update({"/search": SEARCH, "/player/500": PLAYER, "/chat/-100": CHAT, "/p
                "/marks": {"items": [_MARK("helper", "🛡", "Помощник")]}, "/broadcasts": BROADCASTS, "/broadcasts/preview": {"count": 12345, "title": "Все игроки"},
                "/promo": PROMO_ITEMS, "/promo/AUTUMN2026LONGCODE": PROMO, "/promo-options": PROMO_OPTIONS, "/switches": SWITCHES, "/logins": LOGINS})
 OWNER_ROUTES["/owner/chat/-100/members"] = {"items": [{**_P(800, "Участник Чата", "member_one"), "messages": 120, "last": "2026-10-12T09:00:00+00:00"}]}
+
+# Волна 2: значки состояния в поиске (кольцо вокруг лица и иконки справа) — разные сочетания.
+_FLAGS = [{"vip": False, "global_ban": True, "bans": 0, "warns": 0, "muted": False, "blocked": False, "watch": True},
+          {"vip": False, "global_ban": False, "bans": 0, "warns": 3, "muted": True, "blocked": False, "watch": False},
+          {"vip": True, "global_ban": False, "bans": 0, "warns": 0, "muted": False, "blocked": False, "watch": False},
+          {"vip": True, "global_ban": False, "bans": 2, "warns": 1, "muted": True, "blocked": True, "watch": True}]
+for _i, _p in enumerate(SEARCH["players"][:4]):
+    _p["flags"] = _FLAGS[_i]
+SEARCH["players"][5]["last"] = "2099-01-01T00:00:00+00:00"[:0] or None   # «не писал»

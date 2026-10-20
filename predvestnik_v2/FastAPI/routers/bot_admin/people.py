@@ -22,7 +22,7 @@ from bot.chat.global_ranks import BOT_RANKS, CREATOR, bot_rank_name, get_bot_ran
 from core.economy_contract import InsufficientBalance
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from infrastructure.repositories.economy_ledger import apply_balance_change
-from services import admin_access, admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
+from services import admin_avatars, admin_access, admin_people, admin_security, feature_switches, global_moderation, staff_notes, staff_watch
 from services import reports as reports_service
 from services import marks_v1 as marks_service
 from services import vip as vip_service
@@ -166,7 +166,9 @@ async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=
 @router.get("/chats/attention")
 async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db)):
     """Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили."""
-    return await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
+    data = await admin_people.chats_attention(db, kind if kind in admin_people.ATTENTION_KINDS else "")
+    admin_avatars.attach(data["items"])
+    return data
 
 
 @router.get("/people/attention")
@@ -180,7 +182,9 @@ async def people_attention(limit: int = Query(6, ge=1, le=50), user=Depends(_use
 async def chats_onboarding(days: int = 7, user=Depends(_user), db=Depends(get_db)):
     """Как люди подключают бота к чатам: сколько добавили, у скольких есть права и на каком шаге застревают."""
     from services import chat_setup
-    return await chat_setup.funnel(db, days)
+    data = await chat_setup.funnel(db, days)
+    admin_avatars.attach(data.get("stuck") or [])
+    return data
 
 
 @router.get("/player/{uid}")
@@ -195,6 +199,7 @@ async def player_card(uid: int, user=Depends(_user), db=Depends(get_db)):
                      if i < CREATOR and (i < user["rank"] or user["rank"] >= CREATOR)]
     card["currencies"] = [{"code": k, "title": t, "decimals": d} for k, (t, d) in BALANCE_CURRENCIES.items()
                           if k not in CREATOR_ONLY_CURRENCIES or user["rank"] >= CREATOR]
+    admin_avatars.attach(card["chats"])   # чаты узнаются по фото группы
     card["history"] = await admin_people.history(db, user_id=uid)
     # Метки (в профиле игрока — «Регалии»): выданные вручную, заработанные и что можно выдать.
     card["marks"] = await marks_service.admin_view(db, uid)
@@ -335,6 +340,10 @@ async def chat_card(cid: int, user=Depends(_user), db=Depends(get_db)):
         item["title"] = titles.get(item["key"], item["key"])
     card["actions"] = {"chat": _allowed(user, "chat"), "member": _allowed(user, "member")}
     card["history"] = await admin_people.history(db, chat_id=cid)
+    card["avatar"] = admin_avatars.avatar_url(cid)
+    admin_avatars.attach(card["top"])
+    for kind in admin_people.SANCTION_KINDS:   # нарушителей узнают по лицу, а не по нику
+        admin_avatars.attach(card["sanctions"][kind]["items"], key="user")
     card["rank_rights"] = await chat_rank_admin.snapshot(db, cid)
     card["can_edit_rights"] = user.get("kind", "staff") == "staff" and user["rank"] >= 5
     return card
@@ -361,7 +370,9 @@ async def chat_sanctions(cid: int, kind: str = "bans", offset: int = 0, user=Dep
         raise HTTPException(400, "Нет такого списка.")
     admin_access.require_chat(user, cid)
     await _known_chat(db, cid)
-    return await admin_people.chat_sanctions(db, cid, kind, offset)
+    page = await admin_people.chat_sanctions(db, cid, kind, offset)
+    admin_avatars.attach(page["items"], key="user")
+    return page
 
 
 # ── Действия с игроком ───────────────────────────────────────────────────────

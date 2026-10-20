@@ -50,7 +50,8 @@ async def chats(q: str = "", user=Depends(_user), db=Depends(get_db)):
     async with db.execute(f"SELECT c.chat_id, c.chat_title, l.admin_chat_id IS NOT NULL "
                           "FROM chat_settings c LEFT JOIN chat_links l ON l.admin_chat_id = c.chat_id "
                           f"{where} ORDER BY c.chat_title NULLS LAST LIMIT 30", params) as cur:
-        return {"items": [{"id": int(r[0]), "title": r[1] or str(r[0]), "admin": bool(r[2])} for r in await cur.fetchall()]}
+        from services import admin_avatars
+        return {"items": admin_avatars.attach([{"id": int(r[0]), "title": r[1] or str(r[0]), "admin": bool(r[2])} for r in await cur.fetchall()])}
 
 
 @router.post("/promo/preview")
@@ -79,6 +80,8 @@ async def get_promo(code: str, user=Depends(_user), db=Depends(get_db)):
     item = await promo_v2.get_code(db, code)
     if not item:
         raise HTTPException(404, "Промокод не найден.")
+    from services import admin_avatars
+    admin_avatars.attach(item.get("redemptions") or [], key="user_id")   # кто активировал — с лицами
     return item
 
 

@@ -45,17 +45,19 @@ async function peopleView(ctx) {
   const playerLine = p => PICK.on
     ? row({lead: `<span class="tick" aria-hidden="true">✓</span>` + ava(p), title: esc(nameOf(p)), sub: `${p.name && p.username ? '@' + esc(p.username) + ' · ' : ''}ID ${p.id}`,
         on: 'pick', data: {pid: p.id, n: nameOf(p)}, chev: false, cls: PICK.ids.has(p.id) ? 'picked' : ''})
-    : playerRow(p, {data: {pid: p.id}});
+    : playerRow(p, {data: {pid: p.id}}, q);
   const draw = (data = null) => {
     if (data) { ({total = 0} = data); }
     const players = rows, chats = data ? data.chats || [] : (draw.chats || []);
     draw.chats = chats;
     const label = !q.trim() ? (flt ? (PEOPLE_FILTERS.find(f => f[0] === flt) || [])[1] || markTitle(flt) : 'Недавно активные') : '';
-    host().innerHTML = (players.length || !chats.length ? sh(label ? esc(label) : 'Игроки', {count: total > players.length ? `${players.length} из ${num(total)}` : players.length}).replace('</div>',
+    const recent = !q.trim() && !flt && !PICK.on ? PREFS.get('recent', []) : [];
+    host().innerHTML = (recent.length ? sh('Вы открывали') + `<div class="faces">${recent.map(r => `<a class="face" href="#/player/${r.id}">${ava({id: r.id, name: r.n, username: r.u, avatar: r.a})}<span>${esc(r.n || (r.u ? '@' + r.u : 'id' + r.id))}</span></a>`).join('')}</div>` : '')
+      + (players.length || !chats.length ? sh(label ? esc(label) : 'Игроки', {count: total > players.length ? `${players.length} из ${num(total)}` : players.length}).replace('</div>',
         players.length ? `<button type="button" class="lnk" data-on="select">${PICK.on ? 'Готово' : 'Выбрать'}</button></div>` : '</div>') : '')
       + (players.length ? `<div class="list">${players.map(playerLine).join('')}</div>` : (q || flt ? emptyBox('Никого не нашли', q ? 'Проверьте написание или поищите по ID.' : 'В этом фильтре пока пусто.') : ''))
       + (draw.more ? `<button type="button" class="btn more" data-on="more">Показать ещё</button>` : '')
-      + (!flt && chats.length ? sh('Чаты', {count: chats.length}) + `<div class="list">${chats.map(c => chatRow(c)).join('')}</div>` : '');
+      + (!flt && chats.length ? sh('Чаты', {count: chats.length}) + `<div class="list">${chats.map(c => chatRow(c, {}, q)).join('')}</div>` : '');
   };
   // Поиск и фильтр не перерисовывают экран целиком: поле ввода не теряет фокус, старые ответы не перетирают новые.
   async function loadPage(off) {
@@ -82,7 +84,7 @@ async function peopleView(ctx) {
     more: el => busy(el, () => loadPage(draw.next)),
   });
   const setFilter = f => {
-    flt = f; PREFS.set('people.filter', f); setQuery({f}); PICK.ids.clear();
+    flt = f; PREFS.set('people.filter', f); setQuery({f}); PICK.ids.clear(); drawBar();
     $$('#pplf [data-on="flt"]', v).forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === f)));
     const mc = v.querySelector('[data-on="marks"]');
     mc.setAttribute('aria-pressed', String(isMark(f)));
@@ -91,7 +93,7 @@ async function peopleView(ctx) {
   };
   v.querySelector('#pplq').addEventListener('input', e => {
     clearTimeout(timer);
-    timer = setTimeout(() => { q = e.target.value.trim(); setQuery({q}); loadPage(0).catch(err => toast(err.message, true)); }, 300);
+    timer = setTimeout(() => { if (!ctx.alive()) return; q = e.target.value.trim(); setQuery({q}); loadPage(0).catch(err => toast(err.message, true)); }, 300);
   });
   await loadPage(0);
   drawBar();
@@ -187,11 +189,18 @@ async function playerView(ctx) {
   const warns = p.chats.reduce((n, c) => n + (c.warns || 0), 0);
   const sanctioned = p.chats.filter(c => c.ban || c.muted).length;
   ctx.title(nameOf(p), p.rank_name || 'Игрок');
+  // Вердикт одной строкой: можно не читать всю карточку, чтобы понять, «чистый» ли человек.
+  const bansIn = p.chats.filter(c => c.ban).length, mutedIn = p.chats.filter(c => c.muted).length;
+  const verdict = p.global_ban || p.blocked || bansIn
+    ? ['bad', '!', 'Под наказанием', [p.global_ban ? 'бан во всех чатах' : '', p.blocked ? 'бот не отвечает' : '', bansIn ? `бан в ${bansIn} ${plural(bansIn, 'чате', 'чатах', 'чатах')}` : '', mutedIn ? `мут в ${mutedIn} ${plural(mutedIn, 'чате', 'чатах', 'чатах')}` : ''].filter(Boolean).join(' · ')]
+    : mutedIn || warns || rp.open || p.watch
+      ? ['warn', '•', 'Есть замечания', [mutedIn ? `мут в ${mutedIn} ${plural(mutedIn, 'чате', 'чатах', 'чатах')}` : '', warns ? `${warns} ${plural(warns, 'предупреждение', 'предупреждения', 'предупреждений')}` : '', rp.open ? `${rp.open} ${plural(rp.open, 'открытая жалоба', 'открытые жалобы', 'открытых жалоб')}` : '', p.watch ? 'на контроле' : ''].filter(Boolean).join(' · ')]
+      : ['ok', '✓', 'Нарушений нет', rp.confirmed ? `раньше подтверждено жалоб: ${rp.confirmed}` : 'ни банов, ни мутов, ни предупреждений'];
+  p.ring = verdict[0] === 'ok' ? '' : verdict[0];
   const pills = [
     p.rank ? pill(p.rank_name, 'accent') : '',
     p.vip ? pill(`👑 VIP · ${p.vip.days_left} дн.`, 'ok') : '', p.sponsor ? pill('спонсор', 'ok') : '',
-    p.global_ban ? pill('🚫 бан во всех чатах', 'bad') : '', p.blocked ? pill('🙈 бот не отвечает', 'bad') : '',
-    p.watch ? pill('👁 на контроле', 'warn') : '', p.deleted_at ? pill('аккаунт удаляется', 'warn') : '',
+    p.deleted_at ? pill('аккаунт удаляется', 'warn') : '',   // бан везде, «бот молчит» и контроль — ниже плашками с «Снять», не повторяем
   ].join('');
   // «Что сейчас»: состояние, которое важнее всего, и как его снять — рядом.
   const undo = key => playerActionKeys(p).includes(key) ? `<button type="button" class="btn sm" data-on="quick" data-k="${key}">Снять</button>` : '';
@@ -209,6 +218,7 @@ async function playerView(ctx) {
   v.innerHTML = `<div class="hero">${ava(p, 'lg')}<div><h2>${esc(nameOf(p))}</h2>
       <div class="ids">${p.username ? `<button type="button" data-on="copy" data-v="@${esc(p.username)}">@${esc(p.username)}</button>` : ''}<button type="button" data-on="copy" data-v="${p.id}">ID ${p.id}</button></div>
       ${pills ? `<div class="pills">${pills}</div>` : ''}</div></div>
+    <div class="verdict ${verdict[0]}" role="status"><span class="vi" aria-hidden="true">${verdict[1]}</span><div><b>${verdict[2]}</b><small>${esc(verdict[3])}</small></div></div>
     ${now}
     <div class="facts">
       <div><span>Был</span><b>${lastSeen ? esc(ago(lastSeen)).replace(/ (\d\d:\d\d)$/, '<small>$1</small>') : 'не писал'}</b></div>
@@ -217,12 +227,11 @@ async function playerView(ctx) {
       <button type="button" data-on="tab" data-v="chats"><span>Предупреждений</span><b class="${warns ? 'warn' : ''}">${warns}</b></button>
       <button type="button" data-on="tab" data-v="reports"><span>Жалоб</span><b class="${rp.open ? 'bad' : ''}">${rp.total}${rp.open ? `<small>${rp.open} открыто</small>` : ''}</b></button>
       <button type="button" data-on="tab" data-v="notes"><span>Заметок</span><b>${p.notes.total}</b></button></div>
-    <div class="money">${Object.keys(CUR_ICON).map(k => `<div title="${CUR_NAME[k]}"><span aria-hidden="true">${CUR_ICON[k]}</span><b>${num(p.balances[k])}</b><small>${CUR_NAME[k]}</small></div>`).join('')}</div>
+    <div class="money">${Object.keys(CUR_ICON).map(k => `<div title="${CUR_NAME[k]}: ${num(p.balances[k])}"><span aria-hidden="true">${CUR_ICON[k]}</span><b>${short(p.balances[k])}</b><small>${CUR_NAME[k]}</small></div>`).join('')}</div>
     <p class="line-i">💬 сегодня <b>${num(p.messages.today)}</b> · всего <b>${num(p.messages.total)}</b> · 🔥 стрик <b>${p.streak.current}</b> (лучший ${p.streak.best}) · 🏆 <b>${p.achievements.count}</b> достижений
       ${fam ? `<br>💞 ${fam.partner ? `В браке с <a href="#/player/${fam.partner}">${who(fam.partner, fam.partner_username)}</a>${fam.since ? ' с ' + new Date(fam.since).toLocaleDateString('ru-RU') : ''}` : 'Ребёнок в семье'}${fam.children ? ` · детей: ${fam.children}` : ''}` : ''}</p>
-    <div class="btns grow mt"><button type="button" class="btn primary" data-on="acts">Действия</button>
-      ${p.watch ? '' : '<button type="button" class="btn" data-on="watch">👁 На контроль</button>'}
-      <a class="btn" href="tg://user?id=${p.id}" title="Открыть профиль в Telegram">✉️ Профиль</a></div>
+    <div class="btns grow mt">${p.watch ? '' : '<button type="button" class="btn" data-on="watch">👁 На контроль</button>'}
+      ${p.username ? `<button type="button" class="btn" data-on="tgopen" data-v="${esc(p.username)}">✉️ Написать</button>` : ''}</div>
     <div class="tabs" role="tablist">${tabs}</div>
     <div id="ptab"></div>`;
   const drawTab = k => {
@@ -232,11 +241,20 @@ async function playerView(ctx) {
   };
   drawTab(tab);
   const reopen = () => { CACHE.delete(`/player/${id}`); ctx.refresh(); };
+  // Главная кнопка всегда под большим пальцем: лицо, имя и «Действия» в липкой панели, сколько ни листай карточку.
+  ctx.bar(`${ava({...p, ring: p.ring}, 'sm')}<div><b>${esc(nameOf(p))}</b>${esc(verdict[2])}</div><div class="btns"><button type="button" class="btn sm primary" data-on="acts">Действия</button></div>`,
+    {acts: () => actionsSheet(p, p.chats[0] ? p.chats[0].id : 0, reopen)});
   const memberAction = (key, cid) => {
     const c = p.chats.find(x => x.id === cid), a = p.actions.member.find(x => x.key === key);
-    if (a && c) runAction(a, `/player/${id}/action`, {...p, local_rank: c.local_rank}, {chat_id: cid, chat_title: c.title}, reopen);
+    if (a && c) runAction(a, `/player/${id}/action`, {...p, local_rank: c.local_rank}, {chat_id: cid, chat_title: c.title, who: nameOf(p)}, reopen);
   };
   on(v, {
+    tgopen: el => {   // профиль по @нику: в Telegram — родным переходом, в браузере — ссылкой t.me
+      const url = 'https://t.me/' + el.dataset.v;
+      try { if (TG && TG.openTelegramLink) { TG.openTelegramLink(url); return; } } catch (_) {}
+      window.open(url, '_blank', 'noopener');
+    },
+    showall: el => { $$('[data-more-row]', v).forEach(r => { r.hidden = false; }); el.remove(); },
     tab: el => { drawTab(el.dataset.v); const t = v.querySelector('.tabs'); if (t.getBoundingClientRect().top < 0 || window.scrollY > t.offsetTop) window.scrollTo({top: t.offsetTop - 56, behavior: 'smooth'}); },
     copy: el => copyText(el.dataset.v, el.dataset.v.startsWith('@') ? 'Ник скопирован' : 'ID скопирован'),
     acts: () => actionsSheet(p, p.chats[0] ? p.chats[0].id : 0, reopen),
@@ -280,17 +298,21 @@ const PLAYER_TAB_DRAW = {
   chats(p) {
     if (!p.chats.length) return emptyBox('Не писал ни в одном чате с ботом');
     const member = new Set(p.actions.member.map(a => a.key));
-    return `<div class="list">${p.chats.map(c => {
+    // Чаты с баном, мутом или предупреждениями — наверху: ради них карточку обычно и открывают.
+    const weight = c => (c.ban ? 4 : 0) + (c.muted ? 2 : 0) + (c.warns ? 1 : 0);
+    const list = [...p.chats].sort((a, b) => weight(b) - weight(a));
+    const SHOW = 6;
+    return `<div class="list" id="pchats">${list.map((c, i) => {
       const st = [c.ban ? pill(`⛔ бан ${c.ban.until ? untilText(c.ban.until) : 'навсегда'}`, 'bad') : '', c.muted ? pill(`🔇 мут ${c.muted_until ? untilText(c.muted_until) : 'навсегда'}`, 'warn') : '',
         c.warns ? pill(`⚠️ ${c.warns} ${plural(c.warns, 'предупреждение', 'предупреждения', 'предупреждений')}`, 'warn') : '', c.left ? pill('не в чате', '') : '', c.tag ? pill('🏷 ' + c.tag, '', true) : ''].join('');
       const quick = [c.ban && member.has('unban') ? ['unban', 'Снять бан'] : null, c.muted && member.has('unmute') ? ['unmute', 'Снять мут'] : null,
         c.warns && member.has('unwarn_all') ? ['unwarn_all', 'Снять предупр.'] : null].filter(Boolean);
       const acts = p.actions.member.some(a => memberFits(a.key, c));
-      return `<div class="row" style="flex-wrap:wrap">${chatAva(c, 'sm')}<span class="row-t"><b><a href="#/chat/${c.id}" style="color:inherit">${esc(c.title)}</a></b>
+      return `<div class="row" style="flex-wrap:wrap"${i >= SHOW ? ' hidden data-more-row' : ''}>${chatAva({...c, ring: c.ban ? 'bad' : c.muted || c.warns ? 'warn' : ''}, 'sm')}<span class="row-t"><b><a href="#/chat/${c.id}" style="color:inherit">${esc(c.title)}</a></b>
           <span>${esc(c.rank_name)} · ${num(c.messages)} сообщ.${c.last ? ' · ' + ago(c.last) : ''}</span>${st ? `<span class="pills">${st}</span>` : ''}</span>
         ${quick.length || acts ? `<div class="btns" style="flex-basis:100%;padding-left:44px">${quick.map(([k, t]) => `<button type="button" class="btn sm" data-on="mact" data-k="${k}" data-cid="${c.id}">${t}</button>`).join('')}
           ${acts ? `<button type="button" class="btn sm ghost" data-on="chatacts" data-cid="${c.id}">Действия в чате</button>` : ''}</div>` : ''}</div>`;
-    }).join('')}</div>`;
+    }).join('')}</div>${list.length > SHOW ? `<button type="button" class="btn more" data-on="showall">Показать все чаты · ${list.length}</button>` : ''}`;
   },
   reports(p, rp) {
     if (!rp.total) return emptyBox('Жалоб не было');
@@ -377,12 +399,17 @@ async function chatView(ctx) {
   const sanctionRow = (kind, x) => {
     const [, line, undo] = SANCTIONS[kind];
     return `<div class="row">${ava({id: x.user, username: x.username, avatar: x.avatar, name: x.name})}<span class="row-t"><b><a href="#/player/${x.user}" style="color:inherit">${who(x.user, x.username)}</a>${x.tag ? ` <span class="sub">[${esc(x.tag)}]</span>` : ''}</b><span>${line(x)}</span></span>
-      ${can(undo) ? `<button type="button" class="btn sm" data-on="undo" data-k="${undo}" data-uid="${x.user}">Снять</button>` : ''}</div>`;
+      ${can(undo) ? `<button type="button" class="btn sm" data-on="undo" data-k="${undo}" data-uid="${x.user}" data-who="${esc(x.username ? '@' + x.username : 'id' + x.user)}">Снять</button>` : ''}</div>`;
   };
   const TAB = {
     sanctions: () => nSanc ? Object.keys(SANCTIONS).filter(k => s[k].total).map(k => `<div data-kind="${k}">${sh(SANCTIONS[k][0], {count: s[k].total})}<div class="list srows">${s[k].items.map(x => sanctionRow(k, x)).join('')}</div>
       ${s[k].next ? `<button type="button" class="btn more" data-on="smore" data-v="${k}" data-next="${s[k].next}">Показать ещё</button>` : ''}</div>`).join('') : emptyBox('Нарушителей нет', 'Банов, мутов и предупреждений сейчас нет.'),
-    top: () => c.top.length ? `<div class="list">${c.top.map((x, i) => row({lead: `<span class="lead">${i + 1}</span>`, title: who(x.id, x.username) + (x.tag ? ` <span class="sub">[${esc(x.tag)}]</span>` : ''), end: `<b>${num(x.messages)}</b>`, href: '#/player/' + x.id})).join('')}</div>` : emptyBox('Пока никого'),
+    top: () => {
+      if (!c.top.length) return emptyBox('Пока никого');
+      const max = Math.max(1, ...c.top.map(x => x.messages));
+      return `<div class="list">${c.top.map((x, i) => `<a class="row" href="#/player/${x.id}">${ava(x)}<span class="row-t"><b>${i < 3 ? `<span class="medal" aria-label="место ${i + 1}">${['🥇', '🥈', '🥉'][i]}</span> ` : ''}${who(x.id, x.username)}</b>
+        <span>${x.tag ? `[${esc(x.tag)}] · ` : ''}${num(x.messages)} сообщ.</span>${meter(x.messages / max * 100, i === 0 ? 'accent' : '')}</span><span class="chev" aria-hidden="true">›</span></a>`).join('')}</div>`;
+    },
     history: () => journalList(c.history, {chat: false}),
     settings: () => chatRightsCard(c) + chatSettingsCard(c.settings) || emptyBox('Настроек нет'),
   };
@@ -393,7 +420,7 @@ async function chatView(ctx) {
     tab: el => drawTab(el.dataset.v),
     copy: el => copyText(el.dataset.v, 'ID скопирован'),
     act: el => runAction(c.actions.chat.find(a => a.key === el.dataset.k), `/chat/${id}/action`, c, {}, reopen),
-    undo: el => runAction(can(el.dataset.k), `/player/${el.dataset.uid}/action`, c, {chat_id: id, chat_title: c.title}, reopen),
+    undo: el => runAction(can(el.dataset.k), `/player/${el.dataset.uid}/action`, c, {chat_id: id, chat_title: c.title, who: el.dataset.who}, reopen),
     smore: el => busy(el, async () => {
       const kind = el.dataset.v, page = await api(`/chat/${id}/sanctions?kind=${kind}&offset=${el.dataset.next}`);
       s[kind].items.push(...page.items); s[kind].next = page.next;

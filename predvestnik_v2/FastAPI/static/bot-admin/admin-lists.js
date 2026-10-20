@@ -97,8 +97,8 @@ async function reportsView(ctx) {
   const selecting = open && REPORT_SELECT && data.items.length > 1;
   const card = r => `<article class="rep ${r.status}${REPORT_PICK.has(r.id) ? ' picked' : ''}" data-card="${r.id}">
       <div class="rep-top">${selecting ? `<input type="checkbox" class="pick" data-change="pick" data-v="${r.id}" ${REPORT_PICK.has(r.id) ? 'checked' : ''} aria-label="Выбрать жалобу №${r.id}" style="width:22px;height:22px"/>` : ''}
-        ${pill(r.status_title, REPORT_TONE[r.status])}<span>№${r.id} · ${ago(r.created_at)} · ${esc(r.chat.title)}</span></div>
-      <${has('people') ? `a href="#/player/${r.target.id}"` : 'div'} class="rep-who">${ava(r.target)}<div><b>${esc(r.target.name)}</b>
+        ${pill(r.status_title, REPORT_TONE[r.status])}<span>№${r.id} · ${ago(r.created_at)}</span>${chatAva(r.chat, 'xs')}<span>${esc(r.chat.title)}</span></div>
+      <${has('people') ? `a href="#/player/${r.target.id}"` : 'div'} class="rep-who">${ava({...r.target, ring: r.target_reports >= 3 ? 'bad' : r.target_reports > 1 ? 'warn' : ''})}<div><b>${esc(r.target.name)}</b>
         <span>${r.target.tag ? `[${esc(r.target.tag)}] · ` : ''}${r.target_reports > 1 ? `<span style="color:var(--bad);font-weight:600">${r.target_reports} ${plural(r.target_reports, 'жалоба', 'жалобы', 'жалоб')} всего</span> · ` : ''}${r.reporter ? 'от ' + esc(r.reporter.name) : 'автор скрыт'}</span></div>
         ${has('people') ? '<span class="chev" aria-hidden="true">›</span>' : ''}</${has('people') ? 'a' : 'div'}>
       <div class="rep-why">${esc(r.reason)}</div>
@@ -176,7 +176,7 @@ async function reportsView(ctx) {
     const p = openSheet({title: 'Решить жалобу', sub: `№${r.id} · ${r.target.name}`, body: `<div class="sum" style="margin-bottom:6px"><div><span>Причина</span><span><b>${esc(r.reason)}</b></span></div>
         ${r.message_text ? `<div><span>Сообщение</span><span class="wrap">${esc(r.message_text.slice(0, 300))}</span></div>` : ''}</div>
       ${sh('Наказать в этом чате')}<div class="list">${(data.punish || []).map(a => {
-        const [glyph, title, tone] = PUNISH_LOOK[a.key] || ['•', a.title, ''];
+        const [glyph, title, tone] = PUNISH_LOOK[a.key] || ['•', esc(a.title), ''];
         return row({lead: lead(glyph, tone), title, sub: esc(ACTION_HINTS[a.key] || ''), on: 'pun', data: {k: a.key}, cls: tone === 'bad' ? 'danger' : ''});
       }).join('')}</div>
       ${sh('Закрыть без наказания')}<div class="list">${row({lead: lead('✅', 'ok'), title: 'Нарушение подтверждено', sub: 'Наказание уже выдано или не нужно', on: 'cl', data: {k: 'resolve'}})}
@@ -194,5 +194,9 @@ async function reportsView(ctx) {
   });
   ctx.mount();
   drawBar();
+  // Пришли с главной по конкретной жалобе (#/reports?r=123) — показываем её и подсвечиваем.
+  const focus = +ctx.query.get('r');
+  const target = focus && v.querySelector(`[data-card="${focus}"]`);
+  if (target && ctx.mode === 'push') requestAnimationFrame(() => { target.scrollIntoView({block: 'center'}); target.classList.add('focus'); setTimeout(() => target.classList.remove('focus'), 2200); });
 }
 route('reports', {section: 'reports', root: true, title: () => 'Жалобы', render: reportsView});

@@ -155,6 +155,10 @@ function bcSegment() {
   }
   return s;
 }
+// Текст черновика сохраняется на устройстве: случайно закрытый Telegram не стирает длинное сообщение.
+(() => { const d = PREFS.get('bc.draft', null); if (d && typeof d === 'object') Object.assign(BC, {text: d.text || '', html: d.html !== false, btnText: d.btnText || '', btnUrl: d.btnUrl || ''}); })();
+let bcSaveTimer;
+const bcSaveDraft = () => { clearTimeout(bcSaveTimer); bcSaveTimer = setTimeout(() => PREFS.set('bc.draft', BC.text || BC.btnText || BC.btnUrl ? {text: BC.text, html: BC.html, btnText: BC.btnText, btnUrl: BC.btnUrl} : null), 400); };
 const bcButton = () => (BC.btnText.trim() || BC.btnUrl.trim()) ? {text: BC.btnText.trim(), url: BC.btnUrl.trim()} : null;
 const BC_TONE = {running: 'info', scheduled: 'accent', done: 'ok', sent: 'ok', stopped: '', interrupted: 'warn', failed: 'bad'};
 const bubble = (text, html, btn) => `<div class="chatbg"><div class="bubble ${text ? '' : 'empty-b'}">${text ? (html ? tgHtml : esc)(text) : 'Здесь будет сообщение'}</div>${btn ? `<div class="bubble-btn">${esc(btn.text || '…')}</div>` : ''}</div>`;
@@ -201,6 +205,7 @@ async function broadcastView(ctx) {
     <details class="fold" id="bfold" ${BC.chats.length || BC.players.length || BC.active || BC.vip || BC.newDays || BC.minMsg || BC.chatKind ? 'open' : ''}><summary>Уточнить получателей</summary><div id="bseg"></div></details>
     <div class="step"><i>2</i><h3>Текст</h3></div>
     ${templates.length ? field('', `<div class="chipset scroll" id="btpls">${templates.map(t => `<button type="button" class="chip" data-on="tpl" data-v="${t.id}">📄 ${esc(t.title)}</button>`).join('')}</div>`) : ''}
+    ${BC.text ? '<p class="sub" style="margin:0 0 6px">✎ Черновик восстановлен с прошлого раза.</p>' : ''}
     <div class="field"><label for="btext">Сообщение <span class="counter" id="bcnt">0 / 3500</span></label><textarea id="btext" maxlength="3500" rows="6" data-input="draw" placeholder="Что хотите сказать игрокам"></textarea></div>
     <label class="row" style="min-height:52px;border-top:0"><span class="row-t"><b>HTML-разметка Telegram</b><span>&lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;s&gt;, &lt;code&gt;, &lt;blockquote&gt;, &lt;tg-spoiler&gt;, &lt;a href="…"&gt;</span></span>${toggle('id="bhtml" data-change="draw"', BC.html, 'HTML-разметка')}</label>
     <details class="fold" ${BC.btnText || BC.btnUrl ? 'open' : ''}><summary>Кнопка под сообщением</summary><div class="grid2">
@@ -221,17 +226,18 @@ async function broadcastView(ctx) {
   // ── Получатели: счётчик пересчитывается с задержкой; ответ на старый запрос не перетирает новый ──
   let countTimer, countSeq = 0, running = false;
   const paintBar = () => ctx.bar(`<div><b id="bcount">${BC.count == null ? 'Считаем…' : `👥 ${num(BC.count)}`}</b>
-      ${running ? '<span id="bbusy">Идёт другая рассылка</span>' : BC.count == null ? '' : `${plural(BC.count, 'получатель', 'получателя', 'получателей')} · ${esc(BC.title || '')}`}</div>
+      ${running ? '<span id="bbusy">Идёт другая рассылка</span>' : BC.countError ? `<span style="color:var(--bad)">${esc(BC.countError)}</span>` : BC.count == null ? '' : `${plural(BC.count, 'получатель', 'получателя', 'получателей')} · ${esc(BC.title || '')}`}</div>
     <div class="btns"><button type="button" class="btn sm ghost" id="btest" data-on="test">Себе</button>
-      <button type="button" class="btn sm primary" id="bgo" data-on="go" ${running ? 'disabled' : ''}>${BC.later ? 'Запланировать ›' : 'Проверить ›'}</button></div>`, barHandlers);
+      <button type="button" class="btn sm primary" id="bgo" data-on="go" ${running || BC.count == null ? 'disabled' : ''}>${BC.later ? 'Запланировать ›' : 'Проверить ›'}</button></div>`, barHandlers);
   const refreshCount = () => {
     clearTimeout(countTimer);
+    BC.count = null; BC.title = ''; BC.countError = ''; paintBar();   // пока не пересчитали — старое число не показываем и не отправляем
     countTimer = setTimeout(async () => {
       const mine = ++countSeq;
       try {
         const res = await post('/broadcasts/preview', {segment: bcSegment()});
         if (mine === countSeq && ctx.alive()) { BC.count = res.count; BC.title = res.title; paintBar(); }
-      } catch (e) { if (mine === countSeq && ctx.alive()) { BC.count = null; BC.title = e.message; paintBar(); } }
+      } catch (e) { if (mine === countSeq && ctx.alive()) { BC.count = null; BC.countError = e.message; paintBar(); } }
     }, 300);
   };
   const drawSegment = () => {
@@ -252,6 +258,7 @@ async function broadcastView(ctx) {
     $v('#bcnt').textContent = `${BC.text.length} / 3500`;
     $v('#batwrap').hidden = !BC.later;
     $v('#btpldel').hidden = !tplOn;
+    bcSaveDraft();
   };
   // ── История: перерисовывается отдельно, пока идёт рассылка; опрос живёт, только пока открыт этот экран ──
   let poll;
@@ -276,6 +283,8 @@ async function broadcastView(ctx) {
       const text = BC.text.trim();
       if (!text) { toast('Напишите текст.', true); $v('#btext').focus(); return; }
       if (BC.later && !BC.at) { toast('Выберите время отправки.', true); $v('#bat').focus(); return; }
+      if (BC.count == null) { toast('Дождитесь подсчёта получателей.', true); return; }
+      if (!BC.count) { toast('Получателей нет: уточните фильтры.', true); return; }
       const rid = newRid();   // один ключ на окно подтверждения: повтор после потерянного ответа не разошлёт дважды
       openSheet({title: BC.later ? 'Запланировать рассылку?' : 'Отправить рассылку?', sub: BC.count == null ? 'Получатели не посчитаны' : `${num(BC.count)} получателей`,
         body: summary([['Кому', esc(BC.title || '')], ['Когда', BC.later ? when(BC.at) : 'сейчас, отменить отправленное нельзя']], false) + `<div style="margin-top:12px">${bubble(text, BC.html, bcButton())}</div>`,
@@ -284,6 +293,7 @@ async function broadcastView(ctx) {
             scheduled_at: BC.later ? new Date(BC.at).toISOString() : null});
           toast(res.message || 'Готово', {ok: true});
           Object.assign(BC, {text: '', btnText: '', btnUrl: '', later: false, at: ''});
+          PREFS.set('bc.draft', null);
           closeSheets(); ctx.refresh(); return 'keep';
         }}, {label: 'Отмена', kind: '', run: null}]});
     },
@@ -335,7 +345,7 @@ async function officialUpdatesOpen() {
   const d = await api('/official-updates');
   OFFICIAL_POSTS = d.items;
   const requestKey = `update-${Date.now()}-${newRid().slice(0, 8)}`;
-  const p = openSheet({title: 'Важное обновление', sub: 'Не чаще одного поста в сутки', body: `<p class="sub" style="margin-top:0">Куда: <a href="${esc(d.target)}" target="_blank" rel="noopener">тема обновлений официальной группы</a>. Мелкие изменения объединяйте.</p>
+  const p = openSheet({title: 'Важное обновление', sub: 'Не чаще одного поста в сутки', body: `<p class="sub" style="margin-top:0">Куда: <a href="${/^https:\/\//.test(d.target) ? esc(d.target) : '#'}" target="_blank" rel="noopener">тема обновлений официальной группы</a>. Мелкие изменения объединяйте.</p>
     ${d.topic_verified ? '' : callout('warn', '⚠️', '<b>Тема не подтверждена</b><small>Рабочий бот ещё не зафиксировал сообщение в теме. До подтверждения публикация заблокирована.</small>')}
     ${field('Раздел', `<select id="ou-kind">${d.kinds.map(k => `<option value="${k}">${esc(OFFICIAL_KINDS[k] || k)}</option>`).join('')}</select>`)}
     ${field('Короткая новость', '<textarea id="ou-caption" rows="5" minlength="30" maxlength="900" placeholder="Что стало удобнее, где попробовать, один следующий шаг"></textarea>')}
@@ -408,7 +418,7 @@ async function promoList(ctx) {
   };
   on(v, {copy: el => copyText(el.dataset.v, 'Код скопирован')});
   let timer;
-  v.querySelector('#pq').addEventListener('input', e => { clearTimeout(timer); timer = setTimeout(() => { setQuery({q: e.target.value.trim()}); loadList(e.target.value.trim()).catch(err => toast(err.message, true)); }, 280); });
+  v.querySelector('#pq').addEventListener('input', e => { clearTimeout(timer); timer = setTimeout(() => { if (!ctx.alive()) return; setQuery({q: e.target.value.trim()}); loadList(e.target.value.trim()).catch(err => toast(err.message, true)); }, 280); });
   await loadList(q);
 }
 route('promo', {section: 'promo', root: true, title: () => 'Промокоды', render: promoList});
@@ -435,7 +445,7 @@ async function promoView(ctx) {
       ${row({lead: lead('🔢'), title: p.max_activations ? `${num(p.max_activations)} активаций` : 'Без лимита'})}
       ${row({lead: lead('🗓'), title: p.valid_from || p.valid_until ? `${p.valid_from ? 'с ' + when(p.valid_from) + ' ' : ''}${p.valid_until ? 'до ' + when(p.valid_until) : ''}` : 'Без срока'})}
       ${row({lead: lead('💬'), title: p.chats.length ? 'Только в чатах' : 'Во всех чатах и в личке', sub: p.chats.map(c => esc(c.title)).join(', ')})}
-      ${p.allowed_users.length ? row({lead: lead('👤'), title: 'Только для игроков', sub: p.allowed_users.join(', ')}) : ''}
+      ${p.allowed_users.length ? row({lead: lead('👤'), title: 'Только для игроков', sub: esc(p.allowed_users.join(', '))}) : ''}
       ${row({lead: lead('📱'), title: p.show_in_app && !p.chats.length ? 'Виден в Mini App' : p.allowed_users.length && !p.chats.length ? 'В Mini App — только этим игрокам' : 'В Mini App не показывается'})}</div>
     ${sh('Кто активировал', {count: p.redemptions.length})}
     ${p.redemptions.length ? `<div class="list">${p.redemptions.map(r => row({lead: ava({id: r.user_id, username: r.username, avatar: r.avatar}, 'sm'), title: r.username ? '@' + esc(r.username) : 'id' + r.user_id,
@@ -701,7 +711,7 @@ async function settingsView(ctx) {
   if (!ctx.alive()) return;
   const v = ctx.view, r = data.reports, o = data.report_options;
   const select = (id, value, list, offTitle) => `<select id="${id}">${offTitle ? `<option value="0" ${!value ? 'selected' : ''}>${offTitle}</option>` : ''}
-    ${list.map(x => `<option value="${x.value}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
+    ${list.map(x => `<option value="${esc(x.value)}" ${x.value === value ? 'selected' : ''}>${esc(x.title)}</option>`).join('')}</select>`;
   v.innerHTML = `${sh('💸 Переводы между игроками')}<p class="sub" style="margin-top:0">Какие валюты можно отправить командой «бот перевод».</p>
     <div class="list">${data.transfer.map(c => `<div class="row ${c.enabled ? '' : 'off'}"><span class="row-t"><b>${esc(c.title)}</b><span>${c.locked ? 'Переводить нельзя никогда' : c.enabled ? 'Можно переводить' : 'Переводы закрыты'}</span></span>
       ${toggle(`data-change="cur" data-cur="${c.code}"`, c.enabled, c.title, c.locked)}</div>`).join('')}</div>
@@ -875,10 +885,14 @@ async function ownerView(ctx) {
       if (!await ask(open ? 'Открыть чат?' : 'Закрыть чат?', hint(open ? 'Участники снова смогут писать.' : 'Писать смогут только ранги с правом.'), open ? 'Открыть' : 'Закрыть', {danger: !open})) return;
       try { done((await post_(`/owner/chat/${c.id}/action`, {action: open ? 'open' : 'close'})).message); } catch (e) { toast(e.message, true); }
     },
-    lim: el => {
+    lim: el => {   // несколько нажатий — один запрос; ошибка возвращает прежнее число; ушли с экрана — не отправляем
       const b = v.querySelector('#olim'), val = Math.max(1, Math.min(20, +b.textContent + +el.dataset.v));
       b.textContent = val; clearTimeout(limTimer);
-      limTimer = setTimeout(() => post_(`/owner/chat/${c.id}/action`, {action: 'warn_limit', value: val}).then(r => toast(r.message, {ok: true})).catch(e => toast(e.message, true)), 700);   // несколько нажатий — один запрос
+      limTimer = setTimeout(() => {
+        if (!ctx.alive()) return;
+        post_(`/owner/chat/${c.id}/action`, {action: 'warn_limit', value: val}).then(r => { c.max_warnings = val; toast(r.message, {ok: true}); })
+          .catch(e => { b.textContent = c.max_warnings; toast(e.message, true); });
+      }, 700);
     },
     punish: () => ownerPunish(c, () => ctx.refresh()),
   });

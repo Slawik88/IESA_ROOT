@@ -216,7 +216,43 @@ async def search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) ->
     """Поиск людей и чатов; к найденным людям добавляет подписанную ссылку на фото."""
     data = await _search(db, q, limit=limit, flt=flt, offset=offset)
     admin_avatars.attach(data.get("players") or [])
+    admin_avatars.attach(data.get("chats") or [])
+    await _with_flags(db, data.get("players") or [])
     return data
+
+
+async def _with_flags(db, players: list[dict]) -> list[dict]:
+    """Значки состояния в строке списка (VIP, бан, мут, предупреждения, контроль, «бот молчит»): одним запросом на страницу.
+    Администратор видит, кто есть кто, не открывая каждую карточку. Нет таблицы на свежей базе — просто без значков."""
+    ids = [p["id"] for p in players]
+    if not ids:
+        return players
+    marks = ", ".join("?" for _ in ids)
+    try:
+        await staff_watch.ensure_once(db)   # bot_user_blocks создаётся при старте бота; на свежей базе — просто без значков
+        async with db.execute(
+            "SELECT u.user_tg_id, "
+            "EXISTS (SELECT 1 FROM vip_subscriptions v WHERE v.user_id = u.user_tg_id AND v.expires_at > NOW()), "
+            "EXISTS (SELECT 1 FROM chat_blacklist b WHERE b.user_id = u.user_tg_id AND b.chat_id = 0), "
+            "(SELECT COUNT(*) FROM chat_blacklist b WHERE b.user_id = u.user_tg_id AND b.chat_id <> 0 "
+            " AND (b.expires_at IS NULL OR b.expires_at > NOW())), "
+            "(SELECT COUNT(*) FROM user_warnings w WHERE w.user_id = u.user_tg_id AND w.revoked_at IS NULL "
+            " AND (w.expires_at IS NULL OR w.expires_at > NOW())), "
+            "EXISTS (SELECT 1 FROM user_chat_stats s WHERE s.user_tg_id = u.user_tg_id AND s.muted_until > NOW()), "
+            "EXISTS (SELECT 1 FROM bot_user_blocks k WHERE k.user_id = u.user_tg_id AND (k.until IS NULL OR k.until > NOW())), "
+            "EXISTS (SELECT 1 FROM bot_staff_watch t WHERE t.user_id = u.user_tg_id AND t.removed_at IS NULL) "
+            f"FROM users u WHERE u.user_tg_id IN ({marks})", tuple(ids)) as cur:
+            rows = {int(r[0]): r for r in await cur.fetchall()}
+    except Exception as exc:   # noqa: BLE001 — значки не должны ронять поиск
+        from loguru import logger
+        logger.warning(f"admin search flags skipped: {exc}")
+        return players
+    for p in players:
+        r = rows.get(p["id"])
+        if r:
+            p["flags"] = {"vip": bool(r[1]), "global_ban": bool(r[2]), "bans": int(r[3]), "warns": int(r[4]),
+                          "muted": bool(r[5]), "blocked": bool(r[6]), "watch": bool(r[7])}
+    return players
 
 
 async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -> dict:

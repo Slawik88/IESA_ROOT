@@ -127,7 +127,10 @@ async def logins(days: int = 30, user_id: int = 0, user=Depends(staff_user), db=
     """Журнал входов в админку: только создатель (в нём адреса сотрудников)."""
     if user["rank"] < CREATOR:
         raise HTTPException(403, "Журнал входов видит только создатель.")
-    return {"items": await admin_security.logins(db, days, user_id or None)}
+    from services import admin_avatars
+    items = await admin_security.logins(db, days, user_id or None)
+    admin_avatars.attach([x["user"] for x in items])
+    return {"items": items}
 
 
 @router.post("/sessions/revoke")

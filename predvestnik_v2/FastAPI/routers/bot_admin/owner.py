@@ -88,7 +88,8 @@ async def owner_me(request: Request, user=Depends(owner_user), db=Depends(get_db
         await owner_access.record_login(db, user["id"], ip, request.headers.get("user-agent", ""), via)
     except Exception as exc:   # noqa: BLE001
         logger.warning(f"owner login journal skipped: {exc}")
-    return {"user_id": user["id"], "kind": "owner", "chats": user["chat_list"], "max_chats": owner_access.MAX_CHATS,
+    from services import admin_avatars
+    return {"user_id": user["id"], "kind": "owner", "chats": admin_avatars.attach([dict(c) for c in user["chat_list"]]), "max_chats": owner_access.MAX_CHATS,
             "chat_actions": [{"key": k, "title": t} for k, t in CHAT_ACTIONS.items()],
             "member_actions": list(MEMBER_ACTIONS)}
 
@@ -123,7 +124,10 @@ async def owner_chat(cid: int, user=Depends(owner_user), db=Depends(get_db)):
         "WHERE w.chat_id = ? AND w.revoked_at IS NULL AND (w.expires_at IS NULL OR w.expires_at > NOW()) "
         "GROUP BY w.user_id, u.user_tg_username ORDER BY COUNT(*) DESC LIMIT ?", (cid, LIST_LIMIT)) as cur:
         warns = [{"id": int(r[0]), "username": r[1], "count": int(r[2])} for r in await cur.fetchall()]
-    return {"id": cid, "title": row[0] or f"Чат {cid}", "closed": bool(row[1]), "max_warnings": int(row[2]),
+    from services import admin_avatars
+    for rows in (bans, mutes, warns):   # нарушителей своего чата владелец узнаёт по лицу
+        admin_avatars.attach(rows)
+    return {"id": cid, "title": row[0] or f"Чат {cid}", "avatar": admin_avatars.avatar_url(cid), "closed": bool(row[1]), "max_warnings": int(row[2]),
             "bot": {"is_admin": bool(row[3]), "can_moderate": bool(row[4])}, "members": members,
             "sanctions": {"bans": bans, "mutes": mutes, "warns": warns}}
 

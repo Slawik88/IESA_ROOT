@@ -37,13 +37,11 @@ function homeTiles() {
 async function homeView(ctx) {
   const v = ctx.view, hour = new Date().getHours();
   const hi = hour < 5 ? 'Доброй ночи' : hour < 12 ? 'Доброе утро' : hour < 18 ? 'Добрый день' : 'Добрый вечер';
-  const recent = PREFS.get('recent', []);
   v.innerHTML = `<div class="hello"><h2>${hi}</h2><p id="hsum">${esc(ME.rank_name)} · собираем сводку…</p></div>
     ${has('people') ? '<div id="h-attn">' + skeleton(2).replace('sk sk-title', 'sk sk-title" style="width:40%') + '</div>' : ''}
     ${has('reports') ? '<div id="h-rep"></div>' : ''}
     ${has('health') ? '<div id="h-health"></div>' : ''}
     ${has('metrics') ? '<div id="h-metrics"></div>' : ''}
-    ${recent.length && has('people') ? sh('Недавно открывали') + `<div class="faces">${recent.map(r => `<a class="face" href="#/player/${r.id}">${ava({id: r.id, name: r.n, username: r.u, avatar: r.a})}<span>${esc(r.n || (r.u ? '@' + r.u : 'id' + r.id))}</span></a>`).join('')}</div>` : ''}
     ${sh('Разделы')}${homeTiles()}`;
   ctx.mount();
   const todo = [];   // что ждёт человека: для строки под приветствием
@@ -71,7 +69,7 @@ async function homeView(ctx) {
     put('h-rep', sh('Жалобы', {count: open || '', link: '#/reports'}) + (open ? `<div class="stats three">
         ${stat('Новых', num(c.new), {tone: c.new ? 'warn' : '', on: 'rep'})}${stat('В работе', num(c.in_work), {on: 'rep'})}${stat('Закрыто', num(c.resolved + c.rejected), {on: 'rep'})}</div>
       <div class="box" style="margin-top:8px">${d.items.slice(0, 3).map(r => row({lead: ava(r.target), title: esc(r.target.name), sub: `${esc(r.reason)} · ${esc(r.chat.title)}`,
-        end: pill(r.status_title, r.status === 'new' ? 'warn' : 'info'), href: '#/reports', cls: 'c2'})).join('')}</div>`
+        end: pill(r.status_title, r.status === 'new' ? 'warn' : 'info'), href: '#/reports?kind=open&r=' + r.id, cls: 'c2'})).join('')}</div>`
       : `<div class="box">${row({lead: lead('✓', 'ok'), title: 'Очередь пуста', sub: 'Новых жалоб нет', cls: 'first', href: '#/reports'})}</div>`));
   }).catch(e => put('h-rep', sh('Жалобы') + `<p class="err">${esc(e.message)}</p>`)));
 

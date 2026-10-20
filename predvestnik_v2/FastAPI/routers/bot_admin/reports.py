@@ -41,7 +41,9 @@ async def reports(kind: str = "open", user=Depends(_user), db=Depends(get_db), _
     conf = await reports_service.settings(db)
     show = user["rank"] >= conf["reporter_min_rank"]
     items = await reports_service.listing(db, "closed" if kind == "closed" else "open", show_reporter=show)
-    for row in items:   # лица нарушителя, автора и того, кто закрыл жалобу
+    for row in items:   # лица нарушителя, автора и того, кто закрыл жалобу, и фото чата
+        if isinstance(row.get("chat"), dict):
+            row["chat"]["avatar"] = admin_avatars.avatar_url(row["chat"]["id"])
         for person in (row.get("target"), row.get("reporter"), row.get("handled_by")):
             if person:
                 person["avatar"] = admin_avatars.avatar_url(person["id"])

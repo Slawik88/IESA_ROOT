@@ -4,6 +4,7 @@
 памяти процесса: 6 часов, если фото есть, и 30 минут, если его нет. Токен бота
 наружу не уходит: карточка получает относительную ссылку с коротким
 HMAC-пропуском `uid:exp:sig`, а байты отдаёт /bot-admin/avatar/{uid}.
+Отрицательный ID — чат: его фото берётся через getChat (photo.small_file_id), чтобы чат узнавался по картинке, как в Telegram.
 
 Пропуск подписан ключом от BOT_TOKEN: нет токена — нет и ссылок, фронт покажет
 инициал, а не битую картинку. Ссылку минтит `avatar_url()`; её вызывают только
@@ -44,7 +45,7 @@ def _secret() -> bytes | None:
 def create_token(user_id: int) -> str:
     """Подписанный пропуск на просмотр одной аватарки: '{uid}:{exp}:{hmac}'."""
     secret, uid = _secret(), int(user_id)
-    if secret is None or uid <= 0:
+    if secret is None or uid == 0:
         return ""
     payload = f"{uid}:{int(time.time()) + TOKEN_TTL}"
     signature = hmac.new(secret, payload.encode(), hashlib.sha256).hexdigest()
@@ -62,7 +63,7 @@ def verify_token(token: str) -> int | None:
         if not hmac.compare_digest(expected, signature) or time.time() > int(expires_raw):
             return None
         uid = int(uid_raw)
-        return uid if uid > 0 else None
+        return uid or None
     except (TypeError, ValueError):
         return None
 
@@ -73,7 +74,7 @@ def avatar_url(user_id: int | None) -> str | None:
         uid = int(user_id or 0)
     except (TypeError, ValueError):
         return None
-    if uid <= 0:
+    if uid == 0:
         return None
     token = create_token(uid)
     return f"/bot-admin/avatar/{uid}?t={token}" if token else None
@@ -106,6 +107,17 @@ def _pick_size(sizes: list[dict]) -> dict | None:
     return sizes[-1] if sizes else None
 
 
+async def _fetch_file(client, api: str, token: str, file_id: str) -> bytes | None:
+    found = (await client.get(f"{api}/getFile", params={"file_id": file_id})).json()
+    path = (found.get("result") or {}).get("file_path")
+    if not found.get("ok") or not path:
+        return None
+    photo = await client.get(f"https://api.telegram.org/file/bot{token}/{path}")
+    if photo.status_code != 200 or not photo.content or len(photo.content) > MAX_BYTES:
+        return None
+    return photo.content
+
+
 async def _download(user_id: int) -> bytes | None:
     token = os.getenv("BOT_TOKEN", "")
     if not token:
@@ -113,6 +125,12 @@ async def _download(user_id: int) -> bytes | None:
     api = f"https://api.telegram.org/bot{token}"
     try:
         async with httpx.AsyncClient(timeout=8) as client:
+            if user_id < 0:   # чат: фото группы, маленький размер (160×160) — его и показываем
+                chat = (await client.get(f"{api}/getChat", params={"chat_id": int(user_id)})).json()
+                file_id = ((chat.get("result") or {}).get("photo") or {}).get("small_file_id") if chat.get("ok") else None
+                if not file_id:
+                    return None
+                return await _fetch_file(client, api, token, file_id)
             answer = (await client.get(f"{api}/getUserProfilePhotos",
                                        params={"user_id": int(user_id), "limit": 1})).json()
             photos = (answer.get("result") or {}).get("photos") or []

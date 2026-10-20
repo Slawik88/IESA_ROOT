@@ -44,7 +44,15 @@ function left(iso) {   // сколько осталось до срока: «2 �
   if (s < 86400) return Math.round(s / 3600) + ' ч';
   return Math.round(s / 86400) + ' дн.';
 }
-const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) : 'навсегда';
+// Срок наказания: дата и сколько осталось — «ещё 3 дн.» читается быстрее, чем считать от сегодняшней даты.
+const untilText = iso => iso ? 'до ' + new Date(iso).toLocaleString('ru-RU', {day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'}) + ` · ещё ${left(iso)}` : 'навсегда';
+// Крупные числа коротко: 1 234 567 → «1,2 млн». Точное значение — в подсказке.
+function short(n) {
+  n = Number(n || 0);
+  const a = Math.abs(n), f = (x, u) => (Math.round(x * 10) / 10).toLocaleString('ru-RU') + ' ' + u;
+  return a >= 1e9 ? f(n / 1e9, 'млрд') : a >= 1e6 ? f(n / 1e6, 'млн') : a >= 1e4 ? f(n / 1e3, 'тыс.') : num(n);
+}
+const isFresh = (iso, hours = 24) => !!iso && Date.now() - new Date(iso) < hours * 3600e3;
 function dur(sec) {
   sec = Math.round(sec || 0);
   if (sec < 60) return `${sec} с`;
@@ -72,11 +80,21 @@ async function api(path, opts = {}) {
   const headers = {'content-type': 'application/json'};
   if (INIT) headers['x-init-data'] = INIT;
   try { const s = localStorage.getItem('pv_sess'); if (s) headers['x-session-token'] = s; } catch (_) {}
-  const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, headers});
-  let data = null;
-  try { data = await res.json(); } catch (_) {}
-  if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
-  return data;
+  const write = opts.method && opts.method !== 'GET';
+  // Запись не крутится бесконечно: через 20 с — ошибка и повтор с тем же ключом запроса (сервер не выполнит дважды).
+  let timer = null, signal = opts.signal;
+  if (write && !signal) { const c = new AbortController(); signal = c.signal; timer = setTimeout(() => c.abort(), 20000); }
+  try {
+    const res = await fetch(`${BASE}/bot-admin/api${path}`, {...opts, signal, headers});
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) throw Object.assign(new Error((data && data.detail) || `Ошибка ${res.status}`), {status: res.status});
+    if (write && typeof CACHE !== 'undefined') CACHE.clear();   // после любого изменения «назад» не покажет старые данные
+    return data;
+  } catch (e) {
+    if (e.name === 'AbortError' && write) throw Object.assign(new Error('Сервер не ответил за 20 с. Проверьте результат и повторите — дважды не выполнится.'), {status: 0});
+    throw e;
+  } finally { clearTimeout(timer); }
 }
 const post = (path, body = {}) => api(path, {method: 'POST', body: JSON.stringify(body)});
 
@@ -154,11 +172,43 @@ const initial = s => (String(s || '?').replace(/^[@#\s]+/, '').trim().charAt(0) 
 const pic = url => url ? esc(BASE + url) : '';
 const who = (id, username) => username ? '@' + esc(username) : 'id' + id;
 const nameOf = p => p.name || (p.username ? '@' + p.username : 'id' + p.id);
+// Лицо человека. Кольцо вокруг — его состояние, видно не читая: красное — бан или «бот молчит»,
+// янтарное — мут или предупреждения. Зелёная точка — писал за последние сутки.
+function ringOf(p) {
+  const f = p.flags;
+  if (p.ring) return p.ring;
+  if (!f) return '';
+  return f.global_ban || f.bans || f.blocked ? 'bad' : f.muted || f.warns ? 'warn' : '';
+}
 function ava(p, size = '') {
   const photo = p.avatar ? `<img src="${pic(p.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
-  return `<span class="ava ${size}" style="--h:${hue(p.id)}" aria-hidden="true">${esc(initial(p.name || p.username || p.id))}${photo}${p.dot ? '<i class="dot"></i>' : ''}</span>`;
+  const ring = ringOf(p);
+  const dot = p.dot ? '<i class="dot"></i>' : p.online ? '<i class="dot on"></i>' : '';
+  return `<span class="ava ${size}${ring ? ' ring-' + ring : ''}" style="--h:${hue(p.id)}" aria-hidden="true">${esc(initial(p.name || p.username || p.id))}${photo}${dot}</span>`;
 }
-const chatAva = (c, size = '') => `<span class="ava chat ${size}" style="--h:${hue(c.id)}" aria-hidden="true">${esc(initial(c.title))}</span>`;
+// Чат — квадрат со скруглением: фото группы, если оно есть, иначе цветная буква (цвет постоянный для чата).
+function chatAva(c, size = '') {
+  const photo = c.avatar ? `<img src="${pic(c.avatar)}" alt="" loading="lazy" decoding="async" onerror="this.remove()"/>` : '';
+  return `<span class="ava chat ${size}${c.ring ? ' ring-' + c.ring : ''}" style="--h:${hue(c.id)}" aria-hidden="true">${esc(initial(c.title))}${photo}</span>`;
+}
+// Значки состояния в строке: что с человеком сейчас, коротко и с подписью для экранного диктора.
+function flagIcons(f) {
+  if (!f) return '';
+  const list = [f.global_ban ? ['⛔', 'везде', 'bad', 'Бан во всех чатах'] : f.bans ? ['⛔', f.bans > 1 ? f.bans : '', 'bad', `Бан в чатах: ${f.bans}`] : null,
+    f.blocked ? ['🙈', '', 'bad', 'Бот не отвечает'] : null, f.muted ? ['🔇', '', 'warn', 'Мут'] : null,
+    f.warns ? ['⚠️', f.warns, 'warn', `Предупреждений: ${f.warns}`] : null, f.watch ? ['👁', '', 'warn', 'На контроле'] : null,
+    f.vip ? ['👑', '', 'ok', 'VIP'] : null].filter(Boolean);
+  const shown = list.slice(0, 3), rest = list.slice(3);   // порядок — от самого серьёзного; лишнее одним «+N»
+  return list.length ? `<span class="flags">${shown.map(([g, n, tone, t]) => `<i class="fl ${tone}" title="${esc(t)}" aria-label="${esc(t)}">${g}${n ? `<b>${esc(n)}</b>` : ''}</i>`).join('')}${rest.length
+    ? `<i class="fl" title="${esc(rest.map(x => x[3]).join(', '))}" aria-label="${esc(rest.map(x => x[3]).join(', '))}"><b>+${rest.length}</b></i>` : ''}</span>` : '';
+}
+// Подсветка найденного: глаз сразу видит, почему эта строка в результатах.
+function hl(text, q) {
+  const t = String(text ?? ''), needle = String(q || '').replace(/^@/, '').trim();
+  if (!needle || needle.length < 2) return esc(t);
+  const at = t.toLowerCase().indexOf(needle.toLowerCase());
+  return at < 0 ? esc(t) : esc(t.slice(0, at)) + '<mark>' + esc(t.slice(at, at + needle.length)) + '</mark>' + esc(t.slice(at + needle.length));
+}
 // Человек одной строкой (журнал, жалобы): маленькое лицо, имя, @ник. Ссылка на карточку, если раздел открыт.
 function person(p, {link = true} = {}) {
   if (!p || !p.id) return '';
@@ -306,7 +356,7 @@ window.addEventListener('popstate', e => {
 // Данные экрана: отмена прошлого запроса, тайм-аут 15 с, кэш для «назад».
 async function load(ctx, path, {cache = true} = {}) {
   const hit = CACHE.get(path);
-  if (ctx.mode === 'pop' && cache && hit && Date.now() - hit.at < 120000) {
+  if (ctx.mode === 'pop' && !ctx.mounted && cache && hit && Date.now() - hit.at < 120000) {   // только первая загрузка после «назад»
     ctx.revalidate.push(path);
     return hit.data;
   }
@@ -322,6 +372,17 @@ async function load(ctx, path, {cache = true} = {}) {
 
 function sectionTitle(key) { return (ME && (ME.sections.find(s => s.key === key) || {}).title) || (SECTION_META[key] || [key])[0]; }
 
+// Можно ли обновить экран самому (вернулись в приложение, появилась сеть): нет, если открыта шторка,
+// человек печатает или на экране есть несохранённые правки (любой ввод после отрисовки).
+function canAutoRefresh() {
+  const main = $('#main'), a = document.activeElement;
+  return !!ME && !SHEETS.length && main.dataset.dirty !== '1' && !(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName));
+}
+['input', 'change'].forEach(t => $('#main').addEventListener(t, e => {
+  if (e.target.closest('.search')) return;   // поиск — не правка
+  $('#main').dataset.dirty = '1';
+}));
+
 async function render(mode = 'push') {
   const {path, query} = parseHash();
   const found = match(path);
@@ -331,6 +392,7 @@ async function render(mode = 'push') {
   const seq = ++NAV.seq;
   if (NAV.ctrls) NAV.ctrls.forEach(c => c.abort());
   const main = $('#main');
+  delete main.dataset.dirty;
   const ctx = {mode, params, query, seq, ctrls: [], revalidate: [], main, alive: () => seq === NAV.seq};
   NAV.ctrls = ctx.ctrls;
   ctx.view = Object.assign(document.createElement('div'), {className: 'view'});
@@ -356,7 +418,7 @@ async function render(mode = 'push') {
   const section = r.section;
   dock(section);
   setTitle(r.title ? r.title(params) : sectionTitle(section), '');
-  backButton();
+  backButton(!!r.root);
   if (section !== 'home' && section !== 'mychats' && !has(section)) {
     main.replaceChildren(stateEl('🛡', 'Раздел закрыт', 'Для вашей роли этот раздел недоступен.', ['На главную', () => go(homePath(), {replace: true})]));
     return;
@@ -366,6 +428,9 @@ async function render(mode = 'push') {
     await r.render(ctx);
     if (!ctx.alive()) return;
     ctx.mount();
+    ctx.mounted = true;
+    const stale = $('#actbar');   // панель от прошлой отрисовки, которую новая не заменила, — убрать
+    if (stale && stale.dataset.seq !== String(seq)) { stale.remove(); main.classList.remove('with-bar'); }
     if (mode === 'pop' || mode === 'soft') {
       const y = mode === 'soft' ? window.scrollY : NAV.scroll.get(location.hash) || 0;
       requestAnimationFrame(() => window.scrollTo(0, y));
@@ -377,12 +442,12 @@ async function render(mode = 'push') {
         if (!ctx.alive()) return;
         const changed = ctx.revalidate.some((p, i) => JSON.stringify((CACHE.get(p) || {}).data) !== JSON.stringify(fresh[i]));
         ctx.revalidate.forEach((p, i) => CACHE.set(p, {at: Date.now(), data: fresh[i]}));
-        const typing = document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && main.contains(document.activeElement);
-        if (changed && !typing && !SHEETS.length) render('soft');
+        if (changed && canAutoRefresh()) render('soft');
       } catch (_) {}
     }, 50);
   } catch (e) {
     if (!ctx.alive()) return;
+    const b = $('#actbar'); if (b) { b.remove(); main.classList.remove('with-bar'); }   // кнопки прошлого экрана над ошибкой не нужны
     showError(main, e, () => render('push'));
   } finally {
     if (ctx.alive()) main.setAttribute('aria-busy', 'false');
@@ -430,8 +495,11 @@ function setTitle(title, sub = '') {
   document.title = title + ' · Админка';
 }
 // Кнопка «назад»: своя в шапке (браузер) и системная Telegram. Обработчик Telegram ставится один раз.
-function backButton() {
-  const bb = TG && TG.BackButton;
+// Одна кнопка «назад»: в Telegram — системная (наша в шапке скрыта), в браузере — в шапке, кроме корня раздела,
+// чтобы случайный тап в углу главной не выкидывал из админки.
+function backButton(atRoot = false) {
+  const bb = TG && TG.platform && TG.platform !== 'unknown' && TG.BackButton;
+  $('#hback').classList.toggle('dim', !!bb || (atRoot && NAV.depth === 0));
   if (!bb) return;
   try { bb.show(); } catch (_) {}
 }
@@ -471,7 +539,7 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('click', e => {
   const tab = e.target.closest('#tabs [data-tab]');
-  if (tab) { haptic('select'); const k = tab.dataset.tab; if (NAV.section === k && parseHash().path === k) window.scrollTo({top: 0, behavior: 'smooth'}); else go(k); return; }
+  if (tab) { haptic('select'); const k = tab.dataset.tab; if (NAV.section === k && parseHash().path === k) window.scrollTo({top: 0, behavior: 'smooth'}); else { const m = match(parseHash().path); go(k, {replace: !!(m && m.r.root)}); } return; }   // между разделами — без лишних шагов «назад»
   if (e.target.closest('#tabs [data-more]')) { haptic('select'); moreSheet(); }
 });
 // «Ещё»: все разделы плитками, оформление, клавиши и выход — одно место для редкого.
@@ -587,6 +655,17 @@ function ask(title, html, okText, {danger = true} = {}) {
   });
 }
 sheetBox().addEventListener('click', e => { if (e.target === sheetBox()) closeSheets(); });
+// Tab не уходит из открытой шторки на страницу под ней.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Tab' || !SHEETS.length) return;
+  const el = SHEETS[SHEETS.length - 1].el;
+  const items = $$('button:not([disabled]), a[href], input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea', el).filter(x => x.offsetParent);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (!el.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 // Клавиатура телефона: шторка не прячется под неё (высота видимой части экрана).
 if (window.visualViewport) {
   const fit = () => document.documentElement.style.setProperty('--vvh', visualViewport.height + 'px');
@@ -708,6 +787,7 @@ const summary = (lines, danger = true) => `<div class="sum ${danger ? 'danger' :
 // Один request_id на открытое действие: повторное «Подтвердить» после потерянного ответа не начислит дважды.
 function runAction(action, target, ctx, extra, after) {
   ctx = {...ctx, _rid: newRid()};
+  let lastSig = '';
   const [body, collect] = actionForm(action.key, ctx);
   const danger = DANGEROUS.has(action.key);
   const perform = async payload => {
@@ -717,11 +797,15 @@ function runAction(action, target, ctx, extra, after) {
     toast(res.message || 'Готово', {ok: true});
     if (after) await after(res);
   };
-  const form = openSheet({title: action.title, sub: extra.chat_title ? 'Чат: ' + extra.chat_title : (ctx.username !== undefined ? nameOf(ctx) : ''), body,
+  const form = openSheet({title: action.title, sub: [extra.who || (ctx.username !== undefined ? nameOf(ctx) : ''), extra.chat_title ? 'чат: ' + extra.chat_title : ''].filter(Boolean).join(' · '), body,
     actions: [{label: danger ? 'Далее' : 'Выполнить', kind: danger ? 'danger' : 'primary', run: async panel => {
       const req = panel.q('[data-required]');
       if (req && !req.value.trim()) { req.focus(); throw new Error('Укажите причину: она попадёт в журнал.'); }
       const payload = {action: action.key, ...collect(panel.el), ...(extra.chat_id ? {chat_id: extra.chat_id} : {})};
+      // Тот же ключ — только для того же самого действия: поменяли сумму или срок после «‹» — это уже новое действие.
+      const sig = JSON.stringify({...payload, request_id: 0});
+      if (lastSig && sig !== lastSig && 'request_id' in payload) { ctx._rid = newRid(); payload.request_id = ctx._rid; }
+      lastSig = sig;
       if (!danger) { await perform(payload); return 'keep'; }
       const typed = needsTypedConfirm(action.key, payload, ctx);
       openSheet({title: CONFIRM_TITLE[action.key] || action.title, sub: 'Проверьте перед выполнением',
@@ -793,9 +877,9 @@ function searchSheet(initial = '') {
     if (mine !== seq) return;
     const secs = sections(q);
     const players = (people && people.players) || [], chats = (people && people.chats) || [], codes = ((promo && promo.items) || []).slice(0, 5);
-    out.innerHTML = (players.length ? sh('Игроки', {count: players.length}) + `<div class="list">${players.slice(0, 8).map(playerRow).join('')}</div>` : '')
-      + (chats.length ? sh('Чаты', {count: chats.length}) + `<div class="list">${chats.slice(0, 5).map(chatRow).join('')}</div>` : '')
-      + (codes.length ? sh('Промокоды') + `<div class="list">${codes.map(p => row({lead: lead('🎟'), title: `<span class="code">${esc(p.code)}</span>`, sub: esc(p.rewards_text.join(' · ')), data: {go: 'promo/' + encodeURIComponent(p.code)}, tag: 'button'})).join('')}</div>` : '')
+    out.innerHTML = (players.length ? sh('Игроки', {count: players.length}) + `<div class="list">${players.slice(0, 8).map(p => playerRow(p, {}, q)).join('')}</div>` : '')
+      + (chats.length ? sh('Чаты', {count: chats.length}) + `<div class="list">${chats.slice(0, 5).map(c => chatRow(c, {}, q)).join('')}</div>` : '')
+      + (codes.length ? sh('Промокоды') + `<div class="list">${codes.map(p => row({lead: lead('🎟'), title: `<span class="code">${hl(p.code, q)}</span>`, sub: esc(p.rewards_text.join(' · ')), data: {go: 'promo/' + encodeURIComponent(p.code)}, tag: 'button'})).join('')}</div>` : '')
       + (secs.length ? sh('Разделы') + `<div class="list">${secs.map(s => row({lead: lead(icon(s.key, 'ico'), 'accent'), title: esc(s.title), data: {go: s.key}, tag: 'button'})).join('')}</div>` : '')
       || emptyBox('Ничего не нашлось', 'Попробуйте ID, @ник или часть названия.');
   };
@@ -805,6 +889,11 @@ function searchSheet(initial = '') {
     if (!q) { seq++; recent(); return; }
     timer = setTimeout(() => find(q).catch(() => {}), 280);   // не на каждую букву: лишние запросы и входы в журнал
   };
+  input.addEventListener('keydown', e => {   // Enter — открыть первый результат
+    if (e.key !== 'Enter') return;
+    const first = out.querySelector('[data-go], a[href^="#/"]');
+    if (first) { e.preventDefault(); first.click(); }
+  });
   out.addEventListener('click', e => {
     const b = e.target.closest('[data-go], a[href^="#/"]');
     if (!b) return;
@@ -816,15 +905,18 @@ function searchSheet(initial = '') {
   setTimeout(() => input.focus(), 60);
 }
 // Строки людей и чатов — одни и те же везде (поиск, внимание, выбор).
-function playerRow(p, extra = {}) {
-  const flags = [p.rank_name ? pill(p.rank_name, 'accent', true) : '', ...(p.tags || []).slice(0, 2).map(t => pill('🏷 ' + t, '', true))].join('');
-  return row({lead: ava(p), title: esc(p.name || (p.username ? '@' + p.username : 'id' + p.id)),
-    sub: [p.name && p.username ? '@' + esc(p.username) : '', p.last ? 'был ' + ago(p.last) : 'не писал', p.messages != null ? num(p.messages) + ' сообщ.' : ''].filter(Boolean).join(' · '),
-    pills: flags, href: '#/player/' + p.id, ...extra});
+// Строки людей и чатов — одни и те же везде (поиск, внимание, выбор): лицо с кольцом состояния,
+// имя крупно, @ник и «когда был» мельче, справа — значки (бан, мут, VIP…). q — что искали, подсвечивается.
+function playerRow(p, extra = {}, q = '') {
+  const tags = [p.rank_name ? pill(p.rank_name, 'accent', true) : '', ...(p.tags || []).slice(0, 2).map(t => `<span class="pill plain">🏷 ${hl(t, q)}</span>`)].join('');
+  const seen = p.last ? `<span class="${isFresh(p.last) ? 'fresh' : ''}">был ${ago(p.last)}</span>` : 'не писал';
+  return row({lead: ava({...p, online: isFresh(p.last, 1)}), title: p.name ? hl(p.name, q) : p.username ? '@' + hl(p.username, q) : 'id' + hl(String(p.id), q),
+    sub: [p.name && p.username ? '@' + hl(p.username, q) : '', seen, p.messages ? `<span title="${num(p.messages)}">${short(p.messages)} сообщ.</span>` : ''].filter(Boolean).join(' · '),
+    pills: tags, end: flagIcons(p.flags), href: '#/player/' + p.id, ...extra});
 }
-function chatRow(c, extra = {}) {
-  return row({lead: chatAva(c), title: esc(c.title), sub: `${num(c.members)} ${plural(c.members, 'участник', 'участника', 'участников')}${c.last ? ' · ' + ago(c.last) : ''}`,
-    href: '#/chat/' + c.id, ...extra});
+function chatRow(c, extra = {}, q = '') {
+  const seen = c.last ? `<span class="${isFresh(c.last) ? 'fresh' : ''}">${ago(c.last)}</span>` : 'сообщений не было';
+  return row({lead: chatAva(c), title: hl(c.title, q), sub: `👥 ${short(c.members)} · ${seen}`, href: '#/chat/' + c.id, ...extra});
 }
 function rememberPerson(p) {
   PREFS.set('recent', [{id: p.id, u: p.username || '', n: p.name || '', a: p.avatar || ''}, ...PREFS.get('recent', []).filter(r => r.id !== p.id)].slice(0, 8));
@@ -872,7 +964,26 @@ function hotkeysSheet() {
 
 // ── Оболочка Telegram ────────────────────────────────────────────────────────
 
+// Нет сети — постоянная полоска сверху, а не загадочные ошибки; вернулась — тихо обновляем экран.
+// Вернулись в админку после перерыва (свернули Telegram) — данные на экране обновляются сами.
+(function initFreshness() {
+  const bar = () => {
+    let b = $('#offline');
+    if (navigator.onLine) { if (b) { b.remove(); if (canAutoRefresh()) render('soft'); } return; }
+    if (!b) { b = Object.assign(document.createElement('div'), {id: 'offline', className: 'offline', textContent: 'Нет сети: показаны последние данные'}); b.setAttribute('role', 'status'); document.body.append(b); }
+  };
+  window.addEventListener('offline', bar); window.addEventListener('online', bar);
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (ME && hiddenAt && Date.now() - hiddenAt > 60000) { refreshBadges(); if (canAutoRefresh()) render('soft'); }
+  });
+})();
+
 (function initShell() {
+  // Открыта клавиатура телефона (фокус в поле) — липкая панель и док не закрывают поля.
+  document.addEventListener('focusin', e => { if (coarse() && /^(INPUT|TEXTAREA)$/.test(e.target.tagName) && !e.target.closest('.sheet')) document.body.classList.add('kb'); });
+  document.addEventListener('focusout', () => setTimeout(() => { const a = document.activeElement; if (!a || !/^(INPUT|TEXTAREA)$/.test(a.tagName)) document.body.classList.remove('kb'); }, 50));
   $('#hback').onclick = () => goBack();
   $('#hsearch').onclick = () => searchSheet();
   window.addEventListener('scroll', () => $('.top').classList.toggle('scrolled', window.scrollY > 4), {passive: true});

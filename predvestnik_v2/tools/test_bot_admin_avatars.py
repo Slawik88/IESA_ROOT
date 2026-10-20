@@ -114,12 +114,49 @@ def test_route_is_token_gated() -> None:
     assert not any(getattr(dep, "admin_guard", False) for dep in deps), "картинка не может ждать заголовки входа"
 
 
+def test_chat_photos() -> None:
+    """Чат (отрицательный ID) получает свою подписанную ссылку; фото берётся через getChat, а не getUserProfilePhotos."""
+    url = av.avatar_url(-1001234567890)
+    assert url and url.startswith("/bot-admin/avatar/-1001234567890?t="), url
+    assert av.verify_token(url.rsplit("t=", 1)[1]) == -1001234567890
+    assert av.verify_token(av.create_token(-5)) != 5, "пропуск чата не открывает человека с тем же номером"
+    calls = []
+
+    class Resp:
+        def __init__(self, data=None, content=b""):
+            self._d, self.content, self.status_code = data, content, 200
+        def json(self):
+            return self._d
+
+    class Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url, params=None):
+            calls.append(url.rsplit("/", 1)[-1])
+            if url.endswith("/getChat"):
+                return Resp({"ok": True, "result": {"photo": {"small_file_id": "S", "big_file_id": "B"}}})
+            if url.endswith("/getFile"):
+                assert params == {"file_id": "S"}, params
+                return Resp({"ok": True, "result": {"file_path": "p.jpg"}})
+            return Resp(content=b"\xff\xd8jpeg")
+
+    real = av.httpx.AsyncClient
+    av.httpx.AsyncClient = Client
+    try:
+        data = asyncio.run(av._download(-100777))
+    finally:
+        av.httpx.AsyncClient = real
+    assert data == b"\xff\xd8jpeg" and calls[:2] == ["getChat", "getFile"] and "getUserProfilePhotos" not in calls, calls
+
+
 def main() -> None:
     test_tokens()
     test_urls_and_attach()
     test_bytes_and_cache()
     test_route_is_token_gated()
-    print("OK: фото админки — подпись, срок, негативный кэш, плейсхолдер и формат байтов")
+    test_chat_photos()
+    print("OK: фото админки и чатов — подпись, срок, негативный кэш, плейсхолдер и формат байтов")
 
 
 main()

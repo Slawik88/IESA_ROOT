@@ -1,3 +1,11 @@
+## Admin 3.0 wave 2 — at-a-glance reading and 16 weak spots (2026-10-20)
+
+Chat photos via getChat (signed links, negative ids), faces in every people list, status ring and icons in search
+(server `flags`, one query per page), match highlighting, one-line verdict on the player card, remaining time on
+sanctions. Fixed audit findings: stale cache after writes, auto-refresh over unsaved forms, request_id reuse across
+changed payloads, stale broadcast count, dock history growth, double back button, keyboard overlap and more.
+Proof in `docs/audits/ADMIN_V3_REDESIGN_2026-10-20.md` §6. Live Telegram client still not verified.
+
 ## Admin 3.0 — the whole /bot-admin rebuilt from scratch (2026-10-20)
 
 Owner asked for a full rebuild: phone-first, things next to where they are needed, less routine, visual memory,
