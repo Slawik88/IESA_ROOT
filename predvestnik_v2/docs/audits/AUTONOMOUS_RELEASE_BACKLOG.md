@@ -1,3 +1,39 @@
+## Admin v2 release — faces, one action sheet, attention block (2026-10-20)
+
+Rebuilt /bot-admin around people instead of forms. Telegram profile photos now arrive through signed
+three-hour links (`services/admin_avatars.py`, `GET /bot-admin/avatar/{uid}?t=…`, HMAC uid:exp, six-hour
+photo cache, 2 MB cap, transparent initial placeholder) and are shown in search, the player card, reports,
+the journal, broadcast failures and revoked owners. Every person action lives in one sheet with a chat
+picker, consequence hints and red dangerous rows. The home screen shows "Требуют внимания": global bans,
+repeat reports (3+ in 30 days) and staff watch, one row per person, plus up to three problem chats.
+Navigation is ordered for daily work (People, Reports, Journal, Broadcast, Metrics, then more). Action
+verbs follow the approved prototype. JS is split into admin.js, admin-lists.js and admin-boot.js with
+content-hashed versions in page.py.
+
+Proof: PostgreSQL 17.11 scratch cluster (fresh DB, ICU en-US). `test_bot_admin_chats_reports_pg.py`
+passes including the new attention assertions: 403 for a player, global ban before reports with no
+duplicate, "⚠️ жалоб: 3", staff watch, signed avatar URL, and limit cutting shown rows but not the search.
+`test_bot_admin_people_pg.py` passes. Both runs used temporary copies to bypass two pre-existing master
+reds, not repo edits: the chat card now reads the live bot permission table (warn threshold 3; the test
+expects the retired 2), and VIP days_left is 8 in CEST where the test expects 7. Non-DB gates: admin page
+content versions/ETag, UI contract (pins unchanged by these release fixes; the earlier actionForm/bulkRun
+re-pin was wording only), avatars, access guard (68 routes), node --check, py_compile and git diff --check.
+Browser stands cover sheet row → form → confirmation, the owner screen (same four action labels), attention
+rows, a failed /people/attention still rendering chat problems, revoke_sessions hidden for bot_rank 0, no
+duplicate @username, no overflow and a clean console.
+
+Read-only release audit found no blocker, XSS path, auth bypass or static-delivery regression. It found
+three UI regressions and one hot-path cost, all fixed before release: revoke_sessions was offered for
+non-staff targets (rank guard restored), one attention request failure hid the other block
+(Promise.allSettled), a nameless user showed @username twice, and staff_watch now does its DDL once per
+process instead of on every attention/search request.
+
+Follow-ups, not changed here: repeat_offenders scans bot_reports and no existing index covers
+`status <> 'rejected'`; add `CREATE INDEX ... ON bot_reports (created_at) WHERE status <> 'rejected'` (or
+a short cache) after measuring production. `/people/attention.total` counts shown rows, not the true
+total; the UI does not display it. Master push is code delivery; DigitalOcean auto-deploys master; no
+production flags were changed.
+
 ## Unlimited wallet conversion 2026-10-19
 
 Owner explicitly removed the daily Zarniki conversion cap. Core policy now
