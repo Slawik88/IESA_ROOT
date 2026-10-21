@@ -38,6 +38,11 @@ class EditBody(BaseModel):
     button: dict | None = None
 
 
+class SentEditBody(BaseModel):
+    revision: int = Field(ge=1)
+    text: str = Field(min_length=1, max_length=20000)
+
+
 class RevisionBody(BaseModel):
     revision: int = Field(ge=1)
 
@@ -88,7 +93,8 @@ async def notes(user=Depends(creator), db=Depends(get_db)):
     return {"target": rules.UPDATES_URL, "topic_verified": await repo.topic_verified(db, rules.CHAT_ID, rules.THREAD_ID),
             "items": [_summary(r) for r in await repo.list_notes(db)], "problems": problems, "library": library,
             "buttons": [{"key": k, "label": v[0]} for k, v in rules.BUTTONS.items()],
-            "limits": {"message": rules.MAX_MESSAGE, "caption": rules.MAX_CAPTION, "images": rules.MAX_IMAGES}}
+            "limits": {"message": rules.MAX_MESSAGE, "caption": rules.MAX_CAPTION, "images": rules.MAX_IMAGES},
+            "jargon": list(rules.JARGON)}
 
 
 @router.get("/{note_id}")
@@ -97,8 +103,10 @@ async def note(note_id: str, user=Depends(creator), db=Depends(get_db)):
     return {k: row.get(k) for k in ("note_id", "note_date", "status", "edited", "source_newer", "error", "revision",
                                     "text_html", "images", "button", "message_ids", "sent_at")} | {
         "source_text": row["source_text"] if row["source_newer"] else None,
-        "digest": await service.content_digest(db, row), "plan": sender.describe(row["text_html"], len(row["images"])),
-        "disabled_flags": await _disabled_flags(db, row)}
+        "digest": await service.content_digest(db, row),
+        "plan": sender.describe(row["text_html"], len(row["images"]), row["button"]),
+        "disabled_flags": await _disabled_flags(db, row), "issues": fmt.text_issues(row["text_html"]),
+        "older_pending": await repo.older_pending(db, note_id) if row["status"] in repo.PENDING else []}
 
 
 @router.get("/{note_id}/image")
@@ -119,6 +127,21 @@ async def edit(note_id: str, body: EditBody, user=Depends(creator), db=Depends(g
         await service.edit(db, note_id, body.revision, body.text, body.images, body.button, int(user["id"]))
     except service.PatchNoteError as error:
         raise HTTPException(409, str(error))
+    return await note(note_id, user, db)
+
+
+@router.post("/{note_id}/edit-sent")
+async def edit_sent(note_id: str, body: SentEditBody, user=Depends(creator), db=Depends(get_db)):
+    """Опечатка в уже опубликованном посте: бот правит сообщение в канале, фото и кнопка остаются."""
+    await _note(db, note_id)
+
+    async def editor(row, text):
+        await sender.edit_sent(get_bot(), row, text)
+    try:
+        await service.edit_sent(db, note_id, body.revision, body.text, int(user["id"]), editor)
+    except service.PatchNoteError as error:
+        raise HTTPException(409, str(error))
+    await admin_people.audit(db, int(user["id"]), "patch_note_edit_sent", details={"note_id": note_id})
     return await note(note_id, user, db)
 
 

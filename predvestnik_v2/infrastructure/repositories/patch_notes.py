@@ -65,9 +65,17 @@ async def get(db, note_id: str) -> dict | None:
 
 
 async def list_notes(db) -> list[dict]:
+    # Неотправленные — от старых к новым (в канал по порядку дней), история — свежие сверху.
     async with db.execute("SELECT * FROM patch_notes ORDER BY (status IN ('draft','failed','sending','unknown')) DESC, "
-                          "note_date DESC, note_id DESC LIMIT 60") as cursor:
+                          "CASE WHEN status IN ('draft','failed','sending','unknown') THEN note_id END, note_id DESC LIMIT 60") as cursor:
         return [_row(r) for r in await cursor.fetchall()]
+
+
+async def older_pending(db, note_id: str) -> list[str]:
+    """Неотправленные посты за более ранние дни: отправлять стоит по порядку, иначе в канале путаница."""
+    async with db.execute("SELECT note_id FROM patch_notes WHERE note_id < ? AND status IN ('draft','failed','sending','unknown') "
+                          "ORDER BY note_id LIMIT 5", (note_id,)) as cursor:
+        return [r[0] for r in await cursor.fetchall()]
 
 
 async def pending_count(db) -> int:
@@ -110,6 +118,19 @@ async def save_edit(db, note_id: str, revision: int, text: str, images: list, bu
         "revision=revision+1 WHERE note_id=? AND revision=? AND status IN ('draft','failed')",
         (text, json.dumps(images, ensure_ascii=False), json.dumps(button, ensure_ascii=False), actor, note_id, revision))
     return cursor.rowcount == 1
+
+
+async def save_sent_text(db, note_id: str, revision: int, text: str, actor: int) -> bool:
+    cursor = await db.execute(
+        "UPDATE patch_notes SET text_html=?, edited=TRUE, edited_by=?, edited_at=NOW(), revision=revision+1 "
+        "WHERE note_id=? AND revision=? AND status='sent'", (text, actor, note_id, revision))
+    return cursor.rowcount == 1
+
+
+async def drop_orphan_uploads(db) -> None:
+    """Фото, которые создатель загрузил и убрал из поста: через двое суток удаляются из базы."""
+    await db.execute("DELETE FROM patch_note_uploads u WHERE u.created_at < NOW() - INTERVAL '2 days' AND NOT EXISTS ("
+                     "SELECT 1 FROM patch_notes n WHERE n.images LIKE '%\"upload:' || u.id || '\"%')")
 
 
 async def reset_to_source(db, note_id: str, revision: int) -> bool:

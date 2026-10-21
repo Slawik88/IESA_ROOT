@@ -1,16 +1,18 @@
 // ── Патч-ноуты: кнопки редактора — сохранить, фото, сверка и отправка в канал ──────────
 
-function pnPlanText(n, images) {   // то же правило, что services/patch_notes_send.py: plan()
-  if (!images) return 'Одно сообщение с текстом и кнопкой.';
-  if (images === 1 && n <= 1024) return 'Одно фото, под ним текст и кнопка.';
-  return `Сначала ${images === 1 ? 'фото' : `альбом из ${images} фото`}, сразу следом текст с кнопкой (текст длиннее 1024 знаков или фото несколько).`;
+function pnPlanText(n, images, button) {   // то же правило, что services/patch_notes_send.py: plan()
+  if (!images) return 'Один пост: текст и кнопка.';
+  if (images === 1 && n <= 1024) return 'Один пост: фото, под ним текст и кнопка.';
+  if (images > 1 && n + (button ? pnLen(button.label) + 4 : 0) <= 1024) return `Один пост: альбом из ${images} фото, под ним текст и ссылка на приложение (у альбомов нет кнопок).`;
+  return 'Текст длиннее 1024 знаков и не влезает подписью: фото уйдут отдельно, текст следом. Лучше сократите.';
 }
+const pnPlanNow = () => pnPlanText(pnLen(PN.work.text), PN.work.images.length, PN.work.button);
 
 function pnWire(main) {
   const area = $('#pn-text', main), back = $('#pn-back', main);
   back.onclick = () => patchNotesView(main);
-  if (area && pnEditable()) {
-    area.oninput = () => { PN.work.text = area.value; pnChanged(main); $('#pn-plan', main).textContent = pnPlanText(pnLen(area.value), PN.work.images.length); };
+  if (area && pnTextEditable()) {
+    area.oninput = () => { PN.work.text = area.value; pnChanged(main); $('#pn-plan', main).textContent = pnPlanNow(); };
     main.querySelectorAll('[data-pntag]').forEach(b => b.onclick = () => pnWrap(area, b.dataset.pntag));
   }
   const key = $('#pn-bkey', main), label = $('#pn-blabel', main);
@@ -21,7 +23,7 @@ function pnWire(main) {
   };
   if (label) label.oninput = () => { if (PN.work.button) { PN.work.button.label = label.value; pnChanged(main); } };
   const on = (id, fn) => { const b = $('#' + id, main); if (b) b.onclick = () => fn(main).catch(e => toast(e.message, true)); };
-  on('pn-save', pnSave); on('pn-send', pnSendSheet); on('pn-recon', pnReconcileSheet);
+  on('pn-save', pnSave); on('pn-send', pnSendSheet); on('pn-recon', pnReconcileSheet); on('pn-fix', pnFixSent);
   on('pn-reset', pnReset); on('pn-reset2', pnReset); on('pn-src', pnSourceSheet);
   on('pn-skip', m => pnSkip(m, true)); on('pn-unskip', m => pnSkip(m, false));
   pnWireImages(main);
@@ -36,10 +38,13 @@ function pnWireImages(main) {
   main.querySelectorAll('[data-pndel]').forEach(b => b.onclick = () => { imgs.splice(+b.dataset.pndel, 1); PN.dirty = true; pnRedrawImages(main); });
   main.querySelectorAll('[data-pnalt]').forEach(b => b.onclick = () => {
     const img = imgs[+b.dataset.pnalt], cover = img.ref === 'cover';
-    const value = prompt(cover ? 'Заголовок на обложке' : 'Что на фото (видите только вы, для порядка)', cover ? img.title : img.alt || '');
-    if (value === null) return;
-    if (cover) { img.title = value.trim().slice(0, 80); img.alt = `Обложка: ${img.title}`; } else img.alt = value.trim().slice(0, 200);
-    PN.dirty = true; pnRedrawImages(main);
+    sheet(cover ? 'Заголовок на обложке' : 'Что на фото', `<div class="field"><label>${cover ? 'Крупный текст на обложке' : 'Видите только вы, для порядка'}</label>
+      <input id="pn-altv" maxlength="${cover ? 45 : 200}" value="${esc(cover ? img.title : img.alt || '')}"/></div>`, 'Готово', () => {
+      const value = $('#pn-altv').value.trim();
+      if (cover && value.length < 3) throw new Error('Заголовок: хотя бы 3 знака.');
+      if (cover) { img.title = value; img.alt = `Обложка: ${value}`; } else img.alt = value;
+      PN.dirty = true; pnRedrawImages(main);
+    });
   });
   const file = $('#pn-file', main);
   if (file) file.onchange = () => pnUpload(main, file.files[0]).catch(e => toast(e.message, true));
@@ -49,7 +54,7 @@ function pnWireImages(main) {
   });
   const cover = $('#pn-cover', main);
   if (cover) cover.onclick = () => sheet('Фирменная обложка', `${hint('Тёмная карточка Предвестника с крупным заголовком. Подходит, когда показать на скриншоте нечего.')}
-    <div class="field"><label>Заголовок</label><input id="pn-ctitle" maxlength="80"/></div><div class="field"><label>Метка</label><select id="pn-ckind">${Object.entries(PN_KIND).map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></div>`, 'Добавить', () => {
+    <div class="field"><label>Заголовок (коротко, до 45 знаков)</label><input id="pn-ctitle" maxlength="45"/></div><div class="field"><label>Метка</label><select id="pn-ckind">${Object.entries(PN_KIND).map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></div>`, 'Добавить', () => {
     const title = $('#pn-ctitle').value.trim();
     if (title.length < 3) throw new Error('Заголовок: хотя бы 3 знака.');
     imgs.push({ref: 'cover', title, kind: $('#pn-ckind').value, alt: `Обложка: ${title}`}); PN.dirty = true; pnRedrawImages(main);
@@ -100,6 +105,8 @@ async function pnSendSheet(main) {
   pnEditor(main);
   const flags = n.disabled_flags || [];
   sheet('Отправить в канал', `${hint('Последний взгляд: ниже ровно то, что появится в теме «Обновления». После отправки пост не редактируется отсюда.')}
+    ${(n.older_pending || []).length ? `<p class="warn">Не по порядку: ещё не отправлены посты за ${esc(n.older_pending.map(pnDate).join(', '))}.</p>` : ''}
+    ${(n.issues || []).length ? `<p class="warn">${esc(n.issues.join('; '))}.</p>` : ''}
     <div id="pn-final">${pnPreviewMarkup()}</div><p class="sub">${esc(n.plan)}</p>
     ${flags.length ? `<div class="field switch"><input type="checkbox" id="pn-flags"/><label for="pn-flags" style="margin:0">Знаю, что ${esc(flags.join(', '))} выключено для игроков — всё равно отправить</label></div>` : ''}`,
     'Отправить в канал', async () => {
@@ -108,6 +115,17 @@ async function pnSendSheet(main) {
       patchNoteOpen(main, n.note_id);
     }, {cancelText: 'Ещё поправлю'});
   pnPaintImages($('#pn-final'), n.note_id);
+}
+
+async function pnFixSent(main) {
+  const n = PN.note, issue = pnMarkupIssue(PN.work.text);
+  if (issue) throw new Error(issue);
+  if (PN.work.text === n.text_html) { toast('Текст не менялся.'); return; }
+  sheet('Исправить пост в канале', `${hint('Бот заменит текст уже опубликованного поста. Фото и кнопка не меняются, подписчикам ничего не придёт повторно.')}
+    <div class="pn-phone"><div class="pn-bubble">${pnHtml(PN.work.text).replace(/\n/g, '<br>')}</div></div>`, 'Исправить', async () => {
+    await api(`/patch-notes/${encodeURIComponent(n.note_id)}/edit-sent`, {method: 'POST', body: JSON.stringify({revision: n.revision, text: PN.work.text})});
+    PN.dirty = false; toast('Текст в канале исправлен.'); patchNoteOpen(main, n.note_id);
+  });
 }
 
 async function pnReconcileSheet(main) {

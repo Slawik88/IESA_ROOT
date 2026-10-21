@@ -18,6 +18,8 @@ _TAG_RE = re.compile(r"<(/?)([a-zA-Z][a-zA-Z0-9-]*)((?:\s[^<>]*)?)>")
 _ENTITY_RE = re.compile(r"&(?:#\d{1,7}|#x[0-9a-fA-F]{1,6}|lt|gt|amp|quot);")
 _ID_RE = re.compile(r"[a-z0-9][a-z0-9-]{5,79}")
 _IMAGE_RE = re.compile(r"[a-z0-9][a-z0-9._-]{0,90}")
+_JARGON_RE = re.compile(r"(?<![\w-])(?:" + "|".join(rules.JARGON) + r")(?![\w-])", re.IGNORECASE)
+_SENTENCE_RE = re.compile(r"[.!?…]+(?=\s|$)")
 
 
 def tg_len(text: str) -> int:
@@ -79,6 +81,17 @@ def long_date(value: str) -> str:
     return f"{day.day} {rules.MONTHS[day.month - 1]}"
 
 
+def jargon(text: str) -> list[str]:
+    """Слова разработчика в тексте для игроков (без разметки)."""
+    return sorted({m.group(0).lower() for m in _JARGON_RE.finditer(plain_text(text))})
+
+
+def text_issues(text: str) -> list[str]:
+    """Текст поста целиком глазами игрока: технические слова. Пусто — можно показывать."""
+    words = jargon(text)
+    return [f"технические слова, игроку непонятно: {', '.join(words)}"] if words else []
+
+
 def _check_text(where: str, value, limit: int, required: bool, markup: bool) -> list[str]:
     if value is None or value == "":
         return [f"{where}: пусто"] if required else []
@@ -87,8 +100,13 @@ def _check_text(where: str, value, limit: int, required: bool, markup: bool) -> 
     errors = [f"{where}: {e}" for e in markup_errors(value)] if markup else []
     if not markup and ("<" in value or ">" in value):
         errors.append(f"{where}: без разметки")
-    if tg_len(plain_text(value) if markup else value) > limit:
-        errors.append(f"{where}: длиннее {limit} знаков")
+    plain = plain_text(value) if markup else value
+    if tg_len(plain) > limit:
+        errors.append(f"{where}: длиннее {limit} знаков — короче, одной мыслью")
+    if len(_SENTENCE_RE.findall(plain.strip())) > rules.MAX_SENTENCES:
+        errors.append(f"{where}: больше {rules.MAX_SENTENCES} предложений — оставьте главное")
+    if jargon(plain):
+        errors.append(f"{where}: технические слова ({', '.join(jargon(plain))}) — напишите языком игрока")
     return errors
 
 
@@ -109,6 +127,20 @@ def _check_image(where: str, item: dict) -> list[str]:
         return [f"{where}: размер img/{image} вне 2 КБ–9 МБ"]
     if not item.get("image_alt"):
         return [f"{where}: опишите в image_alt, что на картинке"]
+    return _check_size(where, path)
+
+
+def _check_size(where: str, path: Path) -> list[str]:
+    from PIL import Image
+    try:
+        with Image.open(path) as img:
+            width, height = img.size
+    except Exception:
+        return [f"{where}: img/{path.name} не открывается как картинка"]
+    if min(width, height) < rules.IMAGE_MIN_SIDE or max(width, height) / min(width, height) > rules.IMAGE_MAX_RATIO:
+        return [f"{where}: img/{path.name} {width}×{height} — нужна сторона от {rules.IMAGE_MIN_SIDE} px и соотношение до 1:3"]
+    if width + height > 10_000:
+        return [f"{where}: img/{path.name} слишком большая для Telegram (ширина + высота до 10 000)"]
     return []
 
 
@@ -159,7 +191,7 @@ def validate(note) -> list[str]:
         if not isinstance(skip, dict) or not skip.get("id") or len(str(skip.get("why", ""))) < 8:
             errors.append("skipped: у каждой пропущенной записи нужны id и причина why")
     if not errors and tg_len(plain_text(compose(note))) > rules.MAX_MESSAGE:
-        errors.append(f"пост длиннее {rules.MAX_MESSAGE} знаков: сократите тексты")
+        errors.append(f"пост длиннее {rules.MAX_MESSAGE} знаков: сократите пункты или перенесите часть в другой день")
     return errors
 
 
@@ -176,9 +208,9 @@ def note_files() -> list[Path]:
     return sorted(p for p in rules.NOTES_DIR.glob("*.json") if re.fullmatch(r"\d{4}-\d{2}-\d{2}(-[a-z0-9-]{1,40})?", p.stem))
 
 
-def _item_block(item: dict) -> str:
+def _item_line(item: dict) -> str:
     emoji = (item.get("emoji") or ("✨" if item["kind"] == "new" else "⚡")).strip()
-    return f"{emoji} <b>{html.escape(item['title'], quote=False)}</b>\n{item['text'].strip()}"
+    return f"{emoji} <b>{html.escape(item['title'], quote=False)}</b> — {item['text'].strip()}"
 
 
 def _fixes_block(fixes: list[dict]) -> str:
@@ -188,17 +220,16 @@ def _fixes_block(fixes: list[dict]) -> str:
 
 
 def compose(note: dict) -> str:
-    """Готовый текст поста в разметке Telegram: заголовок, подводка, новинки, исправления, подпись."""
-    parts = [f"<b>🔮 {html.escape(note['headline'], quote=False)}</b>\n<i>Обновление · {long_date(note['date'])}</i>"]
+    """Готовый текст поста: заголовок, по строке на новинку, короткий список исправлений. Без воды."""
+    head = f"<b>🔮 {html.escape(note['headline'], quote=False)}</b>"
     if note.get("intro"):
-        parts.append(note["intro"].strip())
+        head += "\n" + note["intro"].strip()
     items = note["items"]
-    parts += [_item_block(i) for i in items if i["kind"] == "new"]
-    parts += [_item_block(i) for i in items if i["kind"] == "better"]
+    lines = [_item_line(i) for i in items if i["kind"] == "new"] + [_item_line(i) for i in items if i["kind"] == "better"]
+    parts = [head] + (["\n".join(lines)] if lines else [])
     fixes = [i for i in items if i["kind"] == "fix"]
     if fixes:
         parts.append(_fixes_block(fixes))
-    parts.append("<i>Все подробности — в приложении, раздел «Что нового».</i>")
     return "\n\n".join(parts)
 
 

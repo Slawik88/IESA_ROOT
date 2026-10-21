@@ -65,12 +65,15 @@ async def sync(db) -> list[dict]:
         if not items:
             continue
         part = {**note, "items": items}
+        if note_id != path.stem:   # дополнение к уже отправленному посту дня: другой заголовок, чтобы не повторяться в канале
+            part["headline"] = ("Ещё: " + note["headline"])[:rules.MAX_HEADLINE]
         text, images, btn = fmt.compose(part), fmt.images(part), _button(fmt.button(part))
         digest = _sha(json.dumps([text, images, btn], ensure_ascii=False).encode())
         if any(r["note_id"] == note_id and r["source_digest"] == digest for r in rows):
             continue
         await repo.upsert_source(db, note_id, note["date"], digest, text, images, btn, fmt.flags(part),
                                  path.stem, [i["id"] for i in items])
+    await repo.drop_orphan_uploads(db)
     return problems
 
 
@@ -145,8 +148,8 @@ def check_text(text: str) -> str:
     if errors:
         raise PatchNoteError("Разметка: " + "; ".join(errors[:3]) + ".")
     size = fmt.tg_len(fmt.plain_text(text))
-    if not 20 <= size <= rules.MAX_MESSAGE:
-        raise PatchNoteError(f"Текст поста: от 20 до {rules.MAX_MESSAGE} знаков (сейчас {size}).")
+    if not 20 <= size <= rules.MAX_CAPTION:
+        raise PatchNoteError(f"Текст поста: от 20 до {rules.MAX_CAPTION} знаков (сейчас {size}). Короче — лучше.")
     return text
 
 
@@ -168,6 +171,18 @@ async def edit(db, note_id: str, revision: int, text: str, images: list, button,
     images = _clean_images(images, await repo.upload_meta(db, ids), note_id)
     if not await repo.save_edit(db, note_id, revision, text, images, button, actor):
         raise PatchNoteError("Черновик уже изменился или отправлен. Обновите страницу, чтобы не затереть чужую правку.")
+    return await repo.get(db, note_id)
+
+
+async def edit_sent(db, note_id: str, revision: int, text: str, actor: int, editor) -> dict:
+    """Исправить опечатку в уже опубликованном посте: editor(row, text) меняет сообщение в канале, потом пишем себе."""
+    await repo.ensure_tables(db)
+    text = check_text(text)
+    row = await repo.get(db, note_id)
+    if not row or row["status"] != "sent" or row["revision"] != revision or not row["message_ids"]:
+        raise PatchNoteError("Пост изменился или ещё не опубликован. Обновите страницу.")
+    await editor(row, text)
+    await repo.save_sent_text(db, note_id, revision, text, actor)
     return await repo.get(db, note_id)
 
 

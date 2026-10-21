@@ -94,10 +94,20 @@ async def publish_flow(db, folder: Path) -> None:
     await service.sync(db)
     extra = await repo.get(db, f"{DAY}-dop1")
     assert extra and extra["item_ids"] == ["qa-d-item"] and "Текст пункта d" in extra["text_html"]
+    assert "Ещё: Проверка" in extra["text_html"], "дополнение не повторяет заголовок поста дня"
     assert "Пункт a" not in extra["text_html"] and (await repo.get(db, DAY))["status"] == "sent"
     await service.sync(db)
     assert (await repo.get(db, f"{DAY}-dop2")) is None, "повторная синхронизация не плодит дополнения"
-    print("OK: повтор не шлёт дубль, отправленный пост не правится, дописанный пункт уходит в дополнение")
+    edits = []
+
+    async def editor(r, text):
+        edits.append(text)
+    sent_row = await repo.get(db, DAY)
+    await denied(service.edit_sent(db, DAY, sent_row["revision"] + 1, "Исправленный текст поста дня", 1, editor), "Обновите")
+    fixed = await service.edit_sent(db, DAY, sent_row["revision"], "Исправленный текст поста дня", 1, editor)
+    assert edits == ["Исправленный текст поста дня"] and fixed["text_html"] == edits[0] and fixed["status"] == "sent"
+    await denied(service.edit_sent(db, f"{DAY}-dop1", 1, "Текст неотправленного поста", 1, editor), "не опубликован")
+    print("OK: повтор не шлёт дубль, черновик после отправки закрыт, опечатка правится в канале, дописанное уходит в дополнение")
 
 
 async def lost_answer(db) -> None:
@@ -140,7 +150,23 @@ async def uploads(db) -> None:
     await denied(service.image_bytes(db, DAY, edited["images"][0]), "не найдена")
     await denied(service.edit(db, DAY, 1, "Чужое фото в посте дня", [{"ref": up["ref"]}], None, 1))
     await denied(service.add_upload(db, DAY, raw.getvalue(), 1), "неотправленный")
-    print("OK: фото создателя перекодируется, принадлежит своему посту, в отправленный пост не добавляется")
+    orphan = await service.add_upload(db, note, raw.getvalue(), 1)
+    await db.execute("UPDATE patch_note_uploads SET created_at=NOW()-INTERVAL '3 days' WHERE id IN (?, ?)",
+                     (int(orphan["ref"][7:]), int(up["ref"][7:])))
+    await service.sync(db)
+    assert await repo.get_upload(db, int(orphan["ref"][7:])) is None, "брошенное фото не убрано"
+    assert await repo.get_upload(db, int(up["ref"][7:])), "фото из поста удалено"
+    print("OK: фото создателя перекодируется, принадлежит своему посту, брошенные загрузки убираются")
+
+
+async def order_hint(db) -> None:
+    await db.execute("UPDATE patch_notes SET status='draft' WHERE note_id=?", (f"{DAY}-dop1",))
+    ours = lambda ids: [i for i in ids if i.startswith(DAY)]   # в базе могут быть чужие черновики
+    assert ours(await repo.older_pending(db, f"{DAY}-race-one")) == [f"{DAY}-dop1"]
+    assert ours(await repo.older_pending(db, f"{DAY}-dop1")) == []
+    pending = [r["note_id"] for r in await repo.list_notes(db) if r["note_id"].startswith(DAY) and r["status"] in repo.PENDING]
+    assert pending == sorted(pending), "неотправленные идут от старых к новым"
+    print("OK: неотправленные посты по порядку дней, подсказка «сначала более ранний»")
 
 
 async def race(dsn: str, folder: Path) -> None:
@@ -200,8 +226,14 @@ class FakeBot:
         return await self._call("send_photo", **kw)
 
     async def send_media_group(self, chat_id, media, **kw):
-        await self._call("send_media_group", count=len(media), **kw)
+        await self._call("send_media_group", media=media, **kw)
         return [self._msg() for _ in media]
+
+    async def edit_message_text(self, **kw):
+        return await self._call("edit_message_text", **kw)
+
+    async def edit_message_caption(self, **kw):
+        return await self._call("edit_message_caption", **kw)
 
     async def delete_messages(self, chat_id, ids):
         self.deleted.extend(ids)
@@ -218,10 +250,13 @@ async def telegram_steps(db) -> None:
     assert bot.calls[0][1]["message_thread_id"] == rules.THREAD_ID and bot.calls[0][1]["parse_mode"] == "HTML"
     bot = FakeBot()
     ids = await sender.send(bot, db, {**row, "images": [cover, cover]})
-    assert [c[0] for c in bot.calls] == ["send_media_group", "send_message"] and len(ids) == 3
+    media = bot.calls[0][1]["media"]
+    assert [c[0] for c in bot.calls] == ["send_media_group"] and len(ids) == 2, "несколько фото — один пост-альбом"
+    assert media[0].caption.startswith("<b>Коротко</b>") and "👉 <a href=" in media[0].caption and media[1].caption is None
+    long = {**row, "text_html": "я" * 1020, "images": [cover, cover, cover]}
     bot = FakeBot(fail_on="send_message")
     try:
-        await sender.send(bot, db, {**row, "images": [cover, cover, cover]})
+        await sender.send(bot, db, long)
     except service.Rejected:
         assert len(bot.deleted) == 3 and len(set(bot.deleted)) == 3, bot.deleted
     else:
@@ -229,7 +264,13 @@ async def telegram_steps(db) -> None:
     bot = FakeBot()
     await sender.send(bot, db, {**row, "images": [], "button": None})
     assert bot.calls[0][0] == "send_message" and bot.calls[0][1]["reply_markup"] is None
-    print("OK: шаги отправки — фото с подписью, альбом и текст, обрывок удаляется при отказе Telegram")
+    for images, method in (([], "edit_message_text"), ([cover], "edit_message_caption"), ([cover, cover], "edit_message_caption")):
+        bot = FakeBot()
+        await sender.edit_sent(bot, {**row, "images": images, "message_ids": [41, 42]}, "<b>Без опечатки</b>")
+        assert bot.calls[0][0] == method, (images, bot.calls)
+        assert bot.calls[0][1]["message_id"] == (42 if not images else 41)
+    await denied(sender.edit_sent(FakeBot(), {**row, "images": [cover], "message_ids": [41]}, "я" * 1100), "вид поста")
+    print("OK: отправка одним постом (фото или альбом с подписью), обрывок удаляется при отказе, опечатку правим в канале")
 
 
 async def cleanup(db) -> None:
@@ -252,6 +293,7 @@ async def main(dsn: str) -> None:
             await lost_answer(db)
             await uploads(db)
             await race(dsn, Path(tmp))
+            await order_hint(db)
             await telegram_steps(db)
         finally:
             await cleanup(db)

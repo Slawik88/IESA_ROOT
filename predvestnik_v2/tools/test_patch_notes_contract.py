@@ -71,13 +71,16 @@ def markup_rules() -> None:
 
 def composition() -> None:
     note = {"date": "2026-10-21", "headline": "Тест & «кавычки»", "items": [
-        {"id": "x-new-thing", "kind": "new", "title": "Новое", "text": "Текст", "image": "cover"},
+        {"id": "x-new-thing", "kind": "new", "title": "Новое", "text": "одна строка сути.", "image": "cover"},
+        {"id": "x-better-thing", "kind": "better", "title": "Удобнее", "text": "вторая строка."},
         *[{"id": f"x-fix-{i}", "kind": "fix", "text": f"Исправление {i}"} for i in range(rules.FIXES_FOLD + 1)]]}
     assert not fmt.validate(note), fmt.validate(note)
     text = fmt.compose(note)
     assert not fmt.markup_errors(text), fmt.markup_errors(text)
-    assert "Тест &amp; «кавычки»" in text and "\n\n" in text and "<blockquote expandable>" in text and "21 октября" in text
-    short = {**note, "items": note["items"][:2]}
+    assert "Тест &amp; «кавычки»" in text and "<blockquote expandable>" in text
+    assert "✨ <b>Новое</b> — одна строка сути.\n⚡ <b>Удобнее</b> — вторая строка." in text, "новинка — одна строка"
+    assert "Что нового" not in text and "октября" not in text, "в посте нет подвала и даты: Telegram сам показывает дату"
+    short = {**note, "items": note["items"][:3]}
     assert "<blockquote" not in fmt.compose(short), "короткий список исправлений не сворачивается"
     assert fmt.images(note) == [{"ref": "cover", "title": "Новое", "kind": "new", "alt": "Обложка: Новое"}]
     assert fmt.button(note) == "home"
@@ -85,19 +88,38 @@ def composition() -> None:
     assert any("картинка" in e for e in fmt.validate(broken)), "новинка без картинки прошла"
     fix_img = {**note, "items": [{"id": "x-fix", "kind": "fix", "text": "Мелочь", "image": "cover"}]}
     assert fmt.validate(fix_img), "исправление с картинкой прошло"
-    long = {**note, "items": [{"id": f"x-{i}-long", "kind": "better", "title": "Пункт", "text": "я" * 410} for i in range(8)]
-            + [{"id": f"x-{i}-fix", "kind": "fix", "text": "ы" * 160} for i in range(12)]}
-    assert any("4000" in e for e in fmt.validate(long)), "слишком длинный пост прошёл"
+    wordy = {**note, "items": [{"id": "x-wordy", "kind": "better", "title": "Пункт", "text": "я" * (rules.MAX_TEXT + 1)}]}
+    assert any("короче" in e for e in fmt.validate(wordy)), "длинный пункт прошёл"
+    talky = {**note, "items": [{"id": "x-talky", "kind": "better", "title": "Пункт", "text": "Раз. Два. Три."}]}
+    assert any("предложений" in e for e in fmt.validate(talky)), "три предложения в пункте прошли"
+    many = {**note, "items": [{"id": f"x-{i}-many", "kind": "better", "title": "Пункт", "text": "строка."} for i in range(rules.MAX_ITEMS + 1)]}
+    assert any("не больше" in e for e in fmt.validate(many)), "слишком много новинок прошло"
+
+
+def plain_language() -> None:
+    """Технические слова не проходят ни в пункт, ни в заголовок; игровые слова (флаг в Сапёре) — проходят."""
+    for word in ("Починили баг", "Быстрее сервер", "Обновили кэш", "Новый API", "Рефакторинг профиля", "Миграция данных"):
+        note = {"date": "2026-10-21", "headline": "Обновление", "items": [{"id": "x-tech-fix", "kind": "fix", "text": word}]}
+        assert any("технические" in e for e in fmt.validate(note)), f"пропустили «{word}»"
+    ok = {"date": "2026-10-21", "headline": "Сапёр", "items": [{"id": "x-ok-fix", "kind": "fix", "text": "Флаги в Сапёре ставятся сразу."}]}
+    assert not fmt.validate(ok), fmt.validate(ok)
+    assert fmt.text_issues("Починили <b>баг</b>") and not fmt.text_issues("<b>бот я</b> оживает")
 
 
 def delivery_plan() -> None:
+    button = {"key": "looks", "label": "🎨 Открыть образы"}
     assert sender.plan("коротко", 0) == "text"
     assert sender.plan("коротко", 1) == "photo"
     assert sender.plan("я" * (rules.MAX_CAPTION + 1), 1) == "photos_then_text"
-    assert sender.plan("коротко", 2) == "photos_then_text"
+    assert sender.plan("коротко", 2, button) == "album", "несколько фото — один пост-альбом с подписью"
+    assert sender.plan("я" * rules.MAX_CAPTION, 2, button) == "photos_then_text"
+    assert sender.plan("я" * rules.MAX_MESSAGE, 2, button) == "album", "любой годный пост влезает подписью к альбому"
     assert sender.keyboard(None) is None
     js = (ROOT / "FastAPI/static/bot-admin/admin-patchnotes-actions.js").read_text(encoding="utf-8")
     assert f"n <= {rules.MAX_CAPTION}" in js, "предпросмотр админки считает подпись к фото не так, как отправка"
+    assert "prompt(" not in "".join((ROOT / "FastAPI/static/bot-admin" / f).read_text(encoding="utf-8")
+                                    for f in ("admin-patchnotes.js", "admin-patchnotes-edit.js", "admin-patchnotes-actions.js")), \
+        "window.prompt в WebView Telegram ненадёжен: только шторки"
 
 
 def images() -> None:
@@ -163,6 +185,7 @@ def main() -> None:
     images_are_referenced(notes)
     markup_rules()
     composition()
+    plain_language()
     delivery_plan()
     images()
     wiring()
