@@ -75,7 +75,10 @@ function _invPets(stock) {
 function _invTal(t, stock) {
   const known = typeof _TR_TAL !== 'undefined' && _TR_TAL[t.kind], tier = ['', 'I', 'II', 'III'][Number(t.tier)] || String(t.tier);
   const pet = t.pet_id ? (stock.pets || []).find(p => p.id === t.pet_id) : null;
-  return _invTile(known ? known[0] : '🧿', _profileEsc(known ? known[1] : t.name), pet ? `Носит ${_profileEsc(pet.name)}` : 'Свободен', 1, 'tal', tier);
+  const e = t.effects, route = id => typeof _TR_ROUTE !== 'undefined' && _TR_ROUTE[id] ? _TR_ROUTE[id][1] : id;
+  const effect = e ? `${route(e.route)}: +${e.plus_percent}% Следов. ${route(e.opposite)}: −${e.minus_percent}% Следов. Два одной темы: ещё +${e.set_percent}% на своём маршруте. Эффекты перемножаются. ` : '';
+  const holder = pet ? `Носит ${pet.name}` : 'Свободен';
+  return _invTile(known ? known[0] : '🧿', _profileEsc(known ? known[1] : t.name), _profileEsc(effect + holder), 1, 'tal', tier);
 }
 function _invStuff(stock) {
   const grid = (title, tiles, link) => tiles.length ? `${_invSec(title, link)}<div class="inv-grid">${tiles.join('')}</div>` : '';

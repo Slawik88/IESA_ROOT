@@ -40,6 +40,7 @@ class ApplyBuildRequest(BuildRequest):
 
 class CampRequest(BaseModel):
     building: str = Field(pattern="^(lounge|markers|workshop)$")
+    expected_level: int | None = Field(default=None, ge=0, le=4)
     action_id: str = Field(min_length=1, max_length=96)
 
 
@@ -50,6 +51,7 @@ class PresetRequest(BuildRequest):
 
 class ReforgeRequest(BaseModel):
     talisman_id: str = Field(min_length=1, max_length=96)
+    expected_tier: int | None = Field(default=None, ge=1, le=2)
     action_id: str = Field(min_length=1, max_length=96)
 
 
@@ -142,7 +144,7 @@ async def build(body: ApplyBuildRequest, db=Depends(get_db), user=Depends(requir
 async def camp_upgrade(body: CampRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     await _ready(db)
     try:
-        return await service.camp_upgrade(db, user_id=int(user["id"]), building=body.building, action_id=body.action_id)
+        return await service.camp_upgrade(db, user_id=int(user["id"]), building=body.building, action_id=body.action_id, expected_level=body.expected_level)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
 
@@ -151,7 +153,7 @@ async def camp_upgrade(body: CampRequest, db=Depends(get_db), user=Depends(requi
 async def reforge(body: ReforgeRequest, db=Depends(get_db), user=Depends(require_tg_user)):
     await _ready(db)
     try:
-        return await service.reforge_talisman(db, user_id=int(user["id"]), talisman_id=body.talisman_id, action_id=body.action_id)
+        return await service.reforge_talisman(db, user_id=int(user["id"]), talisman_id=body.talisman_id, action_id=body.action_id, expected_tier=body.expected_tier)
     except PetV2PolicyError as error:
         raise HTTPException(409, str(error))
 

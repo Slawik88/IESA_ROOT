@@ -128,6 +128,7 @@ async def run(dsn: str) -> None:
         assert next(p for p in trail["pets"] if p["id"] == fresh_id)["level"] == 1
         assert all(p["active"] is False for p in trail["pets"])
         assert trail["pets_version"] == 2 and len(trail["talismans"]) == 1
+        assert trail["talismans"][0]["effects"] == {"route": "forest", "opposite": "swamp", "plus_percent": 15, "minus_percent": 10, "set_percent": 5}, "inventory must explain the actual talisman effects without loading the Trail first"
         assert (await inventory.overview(db, newcomer, chests=True, trail=True))["stock"]["pets"] == []
         assert (await inventory.overview(db, player, chests=False, trail=True))["stock"] is None
         async with db.execute("SELECT level,xp FROM pet_v2_state WHERE user_id=? AND pet_id=?", (player, pet_id)) as cursor:

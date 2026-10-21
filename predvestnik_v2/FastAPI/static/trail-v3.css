@@ -63,7 +63,7 @@ button.tr-row:active { opacity: .6; }
 .tr-more .v3-row { min-height: 60px; }
 
 /* окно: прокручивается только содержимое, кнопка действия остаётся внизу */
-.tr-sheet { display: flex; flex-direction: column; max-height: 90vh; padding: 0; overflow: hidden; }
+.tr-sheet { display: flex; flex-direction: column; max-height: 90vh; max-height: 90dvh; padding: 0; overflow: hidden; }
 .tr-sbody { flex: 1 1 auto; min-height: 0; padding: 20px 22px 12px; overflow-y: auto; overscroll-behavior: contain; }
 .tr-foot { flex: none; padding: 4px 22px calc(18px + var(--v3-safe-b)); background: var(--v3-sheet); box-shadow: 0 -1px 0 var(--v3-faint); }
 .tr-foot .tr-note, .tr-foot .tr-err { margin-top: 10px; }

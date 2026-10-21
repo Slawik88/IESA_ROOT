@@ -6,6 +6,45 @@ from typing import Any
 
 
 async def ensure_tables(db) -> None:
+    # /me and debounced /preview are hot read paths. Even ALTER IF NOT EXISTS
+    # takes a table lock; use catalog reads once the installation is complete.
+    if await _schema_ready(db):
+        return
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:pets_v2', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    # No process cache: a recreated database or partially applied rollout must
+    # be detected by the next request, including in an already running worker.
+    async with db.execute("""
+        SELECT NOT EXISTS (
+            SELECT 1 FROM unnest(ARRAY[
+                'pet_v2_build_presets', 'pet_v2_state', 'pet_v2_talismans',
+                'pet_v2_bond_days', 'pet_v2_daily', 'pet_v2_runs',
+                'pet_v2_stage_rewards', 'pet_v2_camp', 'pet_v2_camp_jobs',
+                'pet_v2_tracks', 'pet_v2_trials', 'pet_v2_actions',
+                'idx_pet_v2_talismans_user', 'uq_pet_v2_one_open_run',
+                'idx_pet_v2_runs_user_day', 'idx_pet_v2_tracks_user_day'
+            ]) AS name WHERE to_regclass(name) IS NULL
+        ) AND NOT EXISTS (
+            SELECT 1 FROM (VALUES
+                ('pet_v2_state', 'calling'), ('pet_v2_state', 'traits'),
+                ('pet_v2_state', 'calling_changed_at'), ('pet_v2_state', 'traits_changed_at'),
+                ('pet_v2_state', 'fed_favorite_on'), ('pet_v2_state', 'fed_xp_on'),
+                ('pet_v2_runs', 'companion_id')
+            ) AS required(tbl, col) WHERE NOT EXISTS (
+                SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass(required.tbl)
+                    AND attname=required.col AND NOT attisdropped
+            )
+        )
+    """) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_build_presets (
             user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL,

@@ -38,6 +38,25 @@ async def run(dsn: str) -> None:
     try:
         for module in (chests_v1, achievements_v1, skins_v3, vip_v2, quests_repo, repo):
             await module.ensure_tables(db)
+        assert await repo._schema_ready(db)
+        class SchemaReadProbe:
+            statements = []
+            connection = db.connection
+            def execute(self, sql, args=()):
+                self.statements.append(sql)
+                return db.execute(sql, args)
+        probe = SchemaReadProbe()
+        await repo.ensure_tables(probe)
+        assert len(probe.statements) == 1 and probe.statements[0].lstrip().startswith("SELECT"), "installed schema must not run DDL on /me or /preview"
+        repair = conn.transaction()
+        await repair.start()
+        try:
+            await db.execute("ALTER TABLE pet_v2_state DROP COLUMN fed_xp_on")
+            assert not await repo._schema_ready(db), "partial rollouts must not hit the fast path"
+            await repo.ensure_tables(db)
+            assert await repo._schema_ready(db)
+        finally:
+            await repair.rollback()
         user, other = 977201, 977202
         await db.execute("INSERT INTO users(user_tg_id) VALUES (?),(?) ON CONFLICT DO NOTHING", (user, other))
         await db.execute(
@@ -236,6 +255,16 @@ async def run(dsn: str) -> None:
         assert await skins_v3.essence_balance(db, user) < 15, "paid swap must debit essence"
         await rejects(service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=["bogus"], talisman_ids=[], action_id="b6"))
         await rejects(service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["zz"], action_id="b7"))
+        await db.execute("UPDATE pet_v2_state SET energy=20,energy_at=NOW()-INTERVAL '3 hours' WHERE user_id=? AND pet_id=?", (user, fox))
+        old_energy = next(p for p in (await service.overview(db, user))["pets"] if p["id"] == fox)["energy"]
+        await service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["careful"], talisman_ids=["t1"], action_id="rest-build")
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, fox)) as c:
+            assert abs(float((await c.fetchone())[0]) - old_energy) < .11, "removing hardy must use the old rest rate for elapsed time"
+        await service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["hardy", "careful"], talisman_ids=["t1"], action_id="restore-hardy")
+        await db.execute("UPDATE pet_v2_state SET energy=?,energy_at=NOW()-INTERVAL '3 hours',traits_changed_at=NULL WHERE user_id=? AND pet_id=?", (rules.energy_max(15, "salt_fox", 15), user, fox))
+        await service.set_build(db, user_id=user, pet_id=fox, calling="feeder", traits=["careful"], talisman_ids=["t1"], action_id="clamp-build")
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, fox)) as c:
+            assert float((await c.fetchone())[0]) == rules.energy_max(15, "salt_fox"), "removing hardy must discard energy above the new cap"
         # Лагерь и перековка
         await rejects(service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu0"))  # нет Моры и Эссенции
         await db.execute("UPDATE skins_v3_essence_accounts SET balance=1000 WHERE user_id=?", (user,))
@@ -254,10 +283,29 @@ async def run(dsn: str) -> None:
         await db.execute("UPDATE pet_v2_camp_jobs SET ends_at=NOW()-INTERVAL '1 minute' WHERE user_id=?", (user,))
         assert (await repo.camp_levels(db, user))["workshop"] == 1
         await db.execute("UPDATE pet_v2_camp_jobs SET to_level=2 WHERE user_id=?", (user,))
-        reforged = await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1")
+        reforged = await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1", expected_tier=1)
         assert reforged["tier"] == 2 and reforged["essence_spent"] == 10
-        assert (await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1"))["idempotent_replay"]
+        assert (await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf1", expected_tier=1))["idempotent_replay"]
+        reforge_balance = await skins_v3.essence_balance(db, user)
+        try:
+            await service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf-stale", expected_tier=1)
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("a stale tier-I confirmation cannot pay for tier III")
+        assert await skins_v3.essence_balance(db, user) == reforge_balance
+        assert int((await repo.get_talisman(db, user, "t3"))["tier"]) == 2
         await rejects(service.reforge_talisman(db, user_id=user, talisman_id="t3", action_id="rf2"))  # тир III нужен 4 уровень
+        camp_balances = (await balance(db, user, "user_balance_mora"), await skins_v3.essence_balance(db, user))
+        camp_job_before = await repo.camp_job(db, user)
+        try:
+            await service.camp_upgrade(db, user_id=user, building="workshop", action_id="camp-stale", expected_level=0)
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("a stale construction confirmation cannot buy a higher level")
+        assert (await balance(db, user, "user_balance_mora"), await skins_v3.essence_balance(db, user)) == camp_balances
+        assert await repo.camp_job(db, user) == camp_job_before
         await service.camp_upgrade(db, user_id=user, building="lounge", action_id="cu3")
         # подсказка «лучший выбор»: карта «кто лучший на клетку» и связка на каждый вид занятия
         for pet_id, species, level in ((cat, "moss_cat", 1), (owl, "mirror_owl", 1), (fox, "salt_fox", 15), (beetle, "stone_beetle", 1)):
@@ -328,8 +376,12 @@ async def run(dsn: str) -> None:
         await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (user,))
         await rejects(service.submit_trial(db, user_id=user, pet_id=beetle, difficulty=3, action_id="tl0"))
         await service.set_build(db, user_id=user, pet_id=fox, calling=None, traits=full_traits, talisman_ids=["tr-t"], action_id="tb")
+        await db.execute("UPDATE pet_v2_state SET energy=20,energy_at=NOW()-INTERVAL '3 hours' WHERE user_id=? AND pet_id=?", (user, fox))
+        trial_energy = next(p for p in (await service.overview(db, user))["pets"] if p["id"] == fox)["energy"]
         before = await skins_v3.essence_balance(db, user)
         solved = await service.submit_trial(db, user_id=user, pet_id=fox, difficulty=3, action_id="tl1")
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, fox)) as c:
+            assert abs(float((await c.fetchone())[0]) - trial_energy) < .11, "weekly trial must preserve accumulated rest"
         assert solved["matches"] == 3 and solved["essence"] == 20
         assert next(p for p in (await service.overview(db, user))["pets"] if p["id"] == fox)["trial"] == {"matches": 3, "hits": {"route": True, "tempo": True, "style": True}}
         assert await skins_v3.essence_balance(db, user) >= before + 20
@@ -369,10 +421,27 @@ async def run(dsn: str) -> None:
             pass
         else:
             raise AssertionError("companion is busy")
+        await repo.add_talisman(db, user, "busy-pair-tal", "pass_stone", 1)
+        await db.execute("UPDATE pet_v2_talismans SET pet_id=? WHERE id='busy-pair-tal'", (beetle,))
+        reforge_balance = await skins_v3.essence_balance(db, user)
+        try:
+            await service.reforge_talisman(db, user_id=user, talisman_id="busy-pair-tal", action_id="rf-busy", expected_tier=1)
+        except service.PetV2Conflict:
+            pass
+        else:
+            raise AssertionError("a travelling companion's talisman must not change mid-run")
+        assert await skins_v3.essence_balance(db, user) == reforge_balance
         await finish_now(db, paired["run_id"])
+        await db.execute("UPDATE pet_v2_state SET energy=20,energy_at=NOW()-INTERVAL '3 hours' WHERE user_id=? AND pet_id=?", (user, beetle))
+        companion_energy = next(p for p in (await service.overview(db, user))["pets"] if p["id"] == beetle)["energy"]
         async with db.execute("SELECT xp FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
             xp0 = (await c.fetchone())[0]
         pair_done = await service.claim_run(db, user_id=user, run_id=paired["run_id"], action_id="pc1", rng=rng)
+        assert pair_done["companion"]["pet_id"] == beetle and pair_done["companion"]["xp_credited"] > 0
+        async with db.execute("SELECT energy FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
+            assert abs(float((await c.fetchone())[0]) - companion_energy) < .11, "claim must preserve the companion's rest"
+        replay_pair = await service.claim_run(db, user_id=user, run_id=paired["run_id"], action_id="pc1", rng=rng)
+        assert replay_pair["companion"] == pair_done["companion"] and replay_pair["idempotent_replay"]
         async with db.execute("SELECT xp,level FROM pet_v2_state WHERE user_id=? AND pet_id=?", (user, beetle)) as c:
             xp1, lvl1 = await c.fetchone()
         assert xp1 > xp0 or lvl1 > 1, "companion must earn Следы"

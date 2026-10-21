@@ -76,8 +76,8 @@
 .lk-packs.is-hint .v3-pill { animation: lkhint .7s var(--v3-ease) 2; }
 
 /* пополнение Зарников (шторка) */
-.lk-sheet-back { position: fixed; inset: 0; z-index: 400; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.55); animation: lkfade .2s ease both; }
-.lk-sheet { width: min(100%, 520px); max-height: 86vh; overflow-y: auto; padding: 22px 22px calc(26px + var(--v3-safe-b)); border-radius: 22px 22px 0 0; background: var(--v3-sheet); color: var(--v3-ink); animation: lkrise .3s var(--v3-ease) both; }
+.lk-sheet-back { position: fixed; inset: 0; z-index: 400; display: flex; align-items: flex-end; justify-content: center; overscroll-behavior: none; background: rgba(0,0,0,.55); animation: lkfade .2s ease both; }
+.lk-sheet { width: min(100%, 520px); max-height: 86vh; max-height: 86dvh; overflow-y: auto; overscroll-behavior: contain; padding: 22px 22px calc(26px + var(--v3-safe-b)); border-radius: 22px 22px 0 0; background: var(--v3-sheet); color: var(--v3-ink); animation: lkrise .3s var(--v3-ease) both; }
 @keyframes lkfade { from { opacity: 0; } } @keyframes lkrise { from { transform: translateY(40px); opacity: 0; } }
 .lk-sheet h2 { margin: 0; font: var(--v3-w-head) 20px var(--v3-font); } .lk-sheet p { margin: 6px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.45; }
 .lk-pack { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 0 2px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }

@@ -86,6 +86,7 @@ function _trRender() {
 
 // Подэкраны (карточка питомца, Лагерь…) лежат внутри той же страницы: «‹ Тропа» возвращает на главный и на то место, где игрок был
 function trailGo(view, id) {
+  if (typeof _syncOverlayScroll === 'function') _syncOverlayScroll();
   _haptic('select');
   if (_tr.view === 'hub') _tr.scroll = window.scrollY;
   _tr.view = view; _tr.pet = Number(id) || 0;
@@ -103,6 +104,7 @@ _backHooks.push(() => {
   return false;
 });
 function trailBack() {
+  if (typeof _syncOverlayScroll === 'function') _syncOverlayScroll();
   _haptic('select');
   const up = _tr.view === 'build' || _tr.view === 'feed' ? 'pet' : 'hub';
   _tr.view = up; _trRender();
@@ -220,9 +222,9 @@ function _trSheet(html) {
     if (document.getElementById('cf-sheet')) return;   // сверху окно подтверждения: клавиши принадлежат ему
     if (e.key === 'Escape') { e.preventDefault(); trailClose(); return; }
     if (e.key !== 'Tab') return;
-    const items = [...host.querySelectorAll('button:not([disabled])')], first = items[0], last = items[items.length - 1];
+    const items = [...host.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], summary, [tabindex="0"]')].filter(node => node.getClientRects().length), first = items[0], last = items[items.length - 1];
     if (!first) return;
-    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    if (!items.includes(document.activeElement) || (e.shiftKey && document.activeElement === first) || (!e.shiftKey && document.activeElement === last)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
   };
   document.addEventListener('keydown', _trKeys, true);
   document.body.appendChild(host); host.firstElementChild.focus({ preventScroll: true });
@@ -490,9 +492,11 @@ function _trResultHtml(act, pet, r) {
   const level = up ? `<p class="tr-lv is-up"><span>Новый уровень</span><b>${r.level_before} → ${r.level_after}</b></p>`
     : r.level_after >= r.ceiling && r.level_after < (me.rules.max_level || 30) ? `<p class="tr-note">Уровень ${r.level_after} — потолок этой ступени. Дальше питомец растёт со Связью: дней ${r.bond_days}.</p>` : '';
   const energy = `<p class="tr-note">Силы: ${Math.round(r.energy)}${Number(r.energy_loss) > 0 ? `, потеряно ${r.energy_loss}` : ''}. Дней Связи: ${r.bond_days}.</p>`;
+  const c = r.companion;
+  const companion = c ? `<section class="tr-grp" aria-label="Награда спутника"><b>Спутник: ${_trE(c.name)}</b><p class="tr-note">+${fmt(c.xp_credited)} Следов · силы ${Math.round(c.energy)}${c.level_after > c.level_before ? ` · уровень ${c.level_before} → ${c.level_after}` : ''}${c.stage_essence ? ` · +${fmt(c.stage_essence)} Эссенции за ступень` : ''}</p></section>` : '';
   const d = Object.assign({}, me.daily, { credited: Number(r.daily_credited) }), meter = _trTraces(Object.assign({}, me, { daily: d }));
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span><b>${title}</b><small>${_trE(sub)}</small></span></p>${calm}
-    <ul class="tr-gain" aria-label="Что получено">${rows.join('') || '<li class="tr-none">На этот раз без находок.</li>'}</ul>${level}${energy}${meter}`;
+    <ul class="tr-gain" aria-label="Что получено">${rows.join('') || '<li class="tr-none">На этот раз без находок.</li>'}</ul>${level}${energy}${companion}${meter}`;
   return _trSheetHtml('Награда', body, '<button type="button" class="v3-pill v3-pill--full" onclick="trailClose()">Готово</button>');
 }
 function _trResult(act, pet, r) {

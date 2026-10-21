@@ -12,7 +12,7 @@ const _TR_HEAT = { warm: 'тепло', cold: 'холодно', found: 'нахо�
 const _trTxt = s => _trE(String(s ?? '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/(\d) (%|ч)/g, '$1\u00a0$2'));   // тексты правил приходят с точкой и обычным пробелом
 const _trPl = s => s ? `<span class="tr-pl"><i class="sr-only">Плюс: </i>${_trTxt(s)}</span>` : '';
 const _trMi = s => s ? `<span class="tr-mi"><i class="sr-only">Минус: </i>${_trTxt(s)}</span>` : '';
-const _trOut = p => (_tr.me.activities || []).some(a => a.pet_id === p.id);   // ведущий занятия; Спутник сборку менять может
+const _trOut = p => !!p.run_id || (_tr.me.activities || []).some(a => a.pet_id === p.id || a.companion_id === p.id);
 const _trTal = t => _TR_TAL[t.kind] || ['🧿', t.kind];
 const _trDays = n => `${n}\u00a0${_trWord(n, 'день', 'дня', 'дней')}`;
 // Шапка подэкрана: общий v3Head с «‹» назад на главный экран питомцев, под заголовком — Следы дня
@@ -27,7 +27,11 @@ const _trCallFx = c => { const t = _tr.me.rules.calling_texts?.[c] || []; return
 const _trTraitFx = id => { const t = _tr.me.rules.traits?.[id] || []; return `${_trPl(t[0])}${_trMi(t[1])}`; };
 function _trTalFx(t) {   // «Лес +15 %, Болота −10 %»
   const k = _tr.me.rules.talisman || {}, ways = (k.kinds || {})[t.kind] || [], name = r => (_TR_ROUTE[r] || [])[1] || '';
-  return `${name(ways[0])} +${(k.plus || {})[t.tier] ?? ''}\u00a0%, ${name(ways[1])} −${k.minus ?? ''}\u00a0%`;
+  return `${name(ways[0])} +${(k.plus || {})[t.tier] ?? ''}\u00a0% Следов, ${name(ways[1])} −${k.minus ?? ''}\u00a0% Следов`;
+}
+function _trTalFxHtml(t) {
+  const [plus, minus] = _trTalFx(t).split(', ');
+  return `${_trPl(plus)}${_trMi(minus)}`;
 }
 // Найденное одним списком (общий вид наград: Выслеживание использует тот же)
 function _trFindRows(finds) {
@@ -96,7 +100,7 @@ function _trCardBuild(p) {
   const traits = p.traits.map(id => slot(_trE(_TR_TRAIT[id] || id), _trTraitFx(id)));
   for (let i = p.traits.length; i < slots; i++) traits.push(empty('Свободный слот'));
   if (nextSlot) traits.push(empty(`Следующий слот на ${nextSlot}\u00a0уровне`));
-  const tals = p.talismans.map(id => (me.talismans || []).find(t => t.id === id)).filter(Boolean).map(t => slot(`${_trTal(t)[0]} ${_trE(_trTal(t)[1])} ${_TR_TIER[t.tier] || ''}`, _trPl(_trTalFx(t))));
+  const tals = p.talismans.map(id => (me.talismans || []).find(t => t.id === id)).filter(Boolean).map(t => slot(`${_trTal(t)[0]} ${_trE(_trTal(t)[1])} ${_TR_TIER[t.tier] || ''}`, _trTalFxHtml(t)));
   for (let i = tals.length; i < cap; i++) tals.push(empty('Свободный слот'));
   const edit = out ? '' : `<button type="button" class="v3-link tr-go" onclick="trailBuild(${p.id})">Изменить ›</button>`;
   const grp = (title, items) => `<div class="tr-bg"><span class="v3-eyebrow">${title}</span><ul class="tr-bl">${items.join('')}</ul></div>`;
@@ -175,7 +179,8 @@ function _trBuildHtml() {
   const kinds = b.tal.map(id => (owned.find(t => t.id === id) || {}).kind).filter(Boolean), pair = kinds.length > 1 && kinds[0] === kinds[1];
   const tals = owned.length ? `<div class="tr-opts" role="group" aria-label="Талисманы">${owned.map((t, i) => {
     const on = b.tal.includes(t.id), [ic, nm] = _trTal(t), holder = t.pet_id && t.pet_id !== p.id ? _trPet(t.pet_id) : null;
-    return opt('checkbox', on, `tal-${i}`, `data-id="${_trE(t.id)}" onclick="trailBuildSet('tal',this.dataset.id)"`, `<span class="tr-opt-t"><b>${ic} ${_trE(nm)} ${_TR_TIER[t.tier] || ''}</b><small>${_trPl(_trTalFx(t))}${holder ? `<span>Сейчас у ${_trE(holder.name)}, перейдёт сюда</span>` : ''}</small></span>`, !on && b.tal.length >= talCap);
+    const busy = holder && _trOut(holder);
+    return opt('checkbox', on, `tal-${i}`, `data-id="${_trE(t.id)}" onclick="trailBuildSet('tal',this.dataset.id)"`, `<span class="tr-opt-t"><b>${ic} ${_trE(nm)} ${_TR_TIER[t.tier] || ''}</b><small>${_trTalFxHtml(t)}${holder ? `<span>${busy ? `У ${_trE(holder.name)} в пути — доступен после возвращения` : `Сейчас у ${_trE(holder.name)}, перейдёт сюда`}</span>` : ''}</small></span>`, busy || (!on && b.tal.length >= talCap));
   }).join('')}</div>${pair ? `<p class="tr-note">Два одинаковых талисмана: +${r.talisman?.set}\u00a0% Следов на их маршруте.</p>` : ''}`
     : '<p class="tr-note">Талисманов пока нет. Их находят питомцы в Походах и Экспедициях.</p>';
   const cost = _trBuildCost(p, b), have = _trHave('essence'), short = cost.total > 0 && have != null && have < cost.total;
@@ -186,7 +191,7 @@ function _trBuildHtml() {
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Уровень ${p.level}</small></span></p>${saved}
     <div class="tr-grp"><span class="v3-eyebrow">Призвание</span>${calling}</div>
     <div class="tr-grp"><span class="v3-eyebrow">Черты · ${b.traits.length} из ${slots}</span>${traits}</div>
-    <div class="tr-grp"><span class="v3-eyebrow">Талисманы · ${b.tal.length} из ${talCap}</span>${tals}</div>`;
+    <div class="tr-grp"><span class="v3-eyebrow">Талисманы · ${b.tal.length} из ${talCap}</span><p class="tr-note">Бонусы и штрафы к Следам перемножаются. Два талисмана одной темы дают дополнительный бонус на своём маршруте.</p>${tals}</div>`;
   const foot = `<p class="tr-note tr-why" role="status">${_trE(why)}</p><p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailBuildGo(this)"${!changed || short ? ' disabled' : ''}>Применить сборку</button>`;
   return _trSheetHtml('Сборка', body, foot);
 }
@@ -284,6 +289,7 @@ function _trReforgeRows(me) {
     let end = '', note = holder ? `носит ${holder.name}` : '';
     if (t.tier >= 3 || cost == null) note = [note, 'высший тир'].filter(Boolean).join(' · ');
     else if (t.tier >= top) note = [note, `нужна Мастерская ${_trNeedWorkshop(t.tier)}\u00a0ур.`].filter(Boolean).join(' · ');
+    else if (holder && _trOut(holder)) note = [note, 'перековка после возвращения'].filter(Boolean).join(' · ');
     else end = `<span class="tr-act"><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" data-id="${_trE(t.id)}" onclick="trailReforge(this.dataset.id)">Перековать</button><small>${fmt(cost)}\u00a0💧</small></span>`;
     return `<li class="tr-row tr-tal"><span class="tr-ic" aria-hidden="true">${ic}</span><span class="tr-nm"><b>${_trE(nm)} ${_TR_TIER[t.tier] || ''}</b><small>${_trE(_trTalFx(t))}</small>${note ? `<small>${_trE(note)}</small>` : ''}</span><span class="tr-end">${end}</span></li>`;
   }).join('')}</ul>`;
@@ -303,7 +309,7 @@ function trailUpgrade(building) {
   if (ess != null) rows.push(['Эссенции останется', `${fmt(Math.max(0, ess - cost.essence))} 💧`, true]);
   v3Confirm({ title: 'Улучшить постройку', visual: '⛺', name: `${_TR_BLD[building]} → ${lv + 1}\u00a0ур.`, sub: 'Плата списывается сразу', cta: 'Начать стройку', rows }).then(ok => {
     if (!ok) return;
-    _trRun(null, () => _trPost('camp/upgrade', { building }, 'camp', building, lv + 1).then(r => {
+    _trRun(null, () => _trPost('camp/upgrade', { building, expected_level: lv }, 'camp', building, lv + 1).then(r => {
       _haptic('success'); toast(`${_TR_BLD[building]}: стройка до ${r.to_level}\u00a0ур. началась · ${r.cost.hours}\u00a0ч`, true);
       return _trRefresh();
     }).catch(_trFail));
@@ -317,7 +323,7 @@ function trailReforge(talismanId) {
   if (ess != null) rows.push(['Эссенции останется', `${fmt(Math.max(0, ess - cost))} 💧`, true]);
   v3Confirm({ title: 'Перековать талисман', visual: ic, name: `${nm} ${_TR_TIER[t.tier]}`, sub: _trTalFx(t), cta: 'Перековать', rows }).then(ok => {
     if (!ok) return;
-    _trRun(null, () => _trPost('talisman/reforge', { talisman_id: t.id }, 'reforge', t.id, t.tier).then(r => {
+    _trRun(null, () => _trPost('talisman/reforge', { talisman_id: t.id, expected_tier: t.tier }, 'reforge', t.id, t.tier).then(r => {
       _haptic('success'); toast(`${nm}: тир ${_TR_TIER[r.tier]}`, true, { icon: ic });
       return _trRefresh();
     }).catch(_trFail));

@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 
 from core.chests_v1 import FOODS, JOKER_RARITIES, PET_SPECIES
-from core.pets_v2 import SPECIES as TRAIL_SPECIES
+from core.pets_v2 import (SPECIES as TRAIL_SPECIES, TALISMANS, TALISMAN_PLUS, TALISMAN_MINUS, TALISMAN_SET_BONUS)
 from core.registry import ITEMS_REGISTRY
 from infrastructure.repositories import chests_v1 as chests_repo
 from infrastructure.repositories import pets_v1 as pets_repo
@@ -87,6 +87,13 @@ async def stock(db, user_id: int, *, trail: bool = False) -> dict:
     if trail:
         result["pets_version"] = 2
         result["talismans"] = await trail_repo.list_talismans(db, int(user_id))
+        for talisman in result["talismans"]:
+            routes = TALISMANS.get(talisman["kind"])
+            plus = TALISMAN_PLUS.get(int(talisman["tier"]))
+            if routes and plus is not None:
+                talisman["effects"] = {"route": routes[0], "opposite": routes[1],
+                                       "plus_percent": round(plus * 100), "minus_percent": round(TALISMAN_MINUS * 100),
+                                       "set_percent": round(TALISMAN_SET_BONUS * 100)}
     return result
 
 

@@ -118,3 +118,40 @@
    в журнале и рангах (это бот + существующие тесты, не только админка).
 5. При дальнейшем росте `admin.js` дробить по тому же рецепту: новый файл → `page.py` `_TYPES` →
    `index.html` → фикстура в `test_bot_admin_page.py` → сканирование хуков в `test_bot_admin_ui_contract.py`.
+
+## PETS-UX-20261021 — complete locally, not deployed
+
+User requested a pets mechanics/website UX parity audit, bug/performance fixes,
+the modal background-scroll regression from the supplied video, an explanation
+of talismans and a proposal for five gear slots plus a separate fast mode.
+
+Correct working copy: `codex/pets-ux-audit`, based on `origin/master` 93422563,
+under `C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`. The original
+`F:/GitsRepos/IESA_ROOT` checkout is the stale backup v1 branch and was not edited.
+Video matches active pets-v2/Tропа. No push or production deployment performed.
+
+All 12 active pets-v2 endpoints have UI callers. Fixed shared overlay scroll lock
+(background 162→855 px reproduced before; fixed background and scroll restoration
+verified at 320/390/430), companion build/busy talismans, old-rest energy loss in
+pair claim/weekly trial/build changes, stale reforge/camp confirmations, unnecessary
+DDL on hot reads, missing companion reward receipt and absent inventory talisman
+effect descriptions. Talisman bonuses/minuses are clearly labelled as Следы.
+
+Main files: app.01/39/40/41.js, app.css, looks-v3.css, trail-v3.css;
+pets_v2 router/service/repository; inventory_v1 service; focused PG/JS tests.
+Full impact/coverage/fixes/product proposal recorded at the top of
+`docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md` (single work backlog).
+
+PASS: pets v2 PG/rules/advice; inventory v1 PG; trail UI/recovery/recommendations;
+ASGI static delivery; changed-file syntax and diff checks. Independent read-only
+review ACCEPT, including the last inventory projection delta. Local browser
+screenshots and measurement evidence: `output/playwright/pets-20261021/`.
+
+Pre-existing failures reproduced with clean HEAD input files:
+`test_shell_v3_contract.py:98` (retired cosmetic glint),
+`test_inventory_v3_contract.py:41` (retired eight-button dock).
+Do not claim a fully green release gate. No paid/loot balance changes or new mode.
+
+Next release step: review this branch, deploy through the normal release process,
+then smoke the background scroll gesture in real iOS/Android Telegram WebViews;
+local Chromium wheel/keyboard checks do not replace those devices.

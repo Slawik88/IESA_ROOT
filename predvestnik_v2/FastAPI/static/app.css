@@ -711,10 +711,12 @@ dialog#modal[open].looks-fitting-shared .sheet { animation: none; }
 .mtitle { font-size: 15px; font-weight: 800; color: var(--bright); }
 .mclose { border: none; background: var(--bg3); color: var(--muted); width: 28px; height: 28px;
   border-radius: 50%; cursor: pointer; font-size: 12px; }
-.mbody { padding: 10px 16px; overflow-y: auto; font-size: 12.5px; line-height: 1.5; }
+.mbody { min-height: 0; padding: 10px 16px; overflow-y: auto; overscroll-behavior: contain; font-size: 12.5px; line-height: 1.5; }
 .mfoot { display: flex; gap: 8px; padding: 8px 16px 4px; flex: none; }
 .mfoot .btn, .mfoot .v3-pill { flex: 1; }
 body.modal-open { overflow: hidden; }
+html.overlay-open, html.overlay-open body { overflow: hidden; overscroll-behavior: none; }
+html.overlay-open body { position: fixed; top: var(--overlay-scroll-top); left: 0; right: 0; width: 100%; }
 
 /* модалка валют */
 .cm-block { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border2); }

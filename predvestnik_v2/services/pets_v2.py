@@ -522,12 +522,19 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
         level_before = level
         level, xp, stage_essence, limit = await _apply_xp(db, user_id, int(pet["id"]), rarity, level, xp + credited, bond)
         await repo.save_state(db, user_id, int(pet["id"]), level=level, xp=xp, energy=energy, pity=pity)
+        companion_reward = None
         if companion:
             c_state = await repo.ensure_state(db, user_id, int(companion["id"]), rules.energy_max(1, companion["species_id"]))
+            c_build = _build(c_state, await repo.equipped_talismans(db, user_id, int(companion["id"])), camp, day)
+            c_energy = _rest(c_state, companion, clock["now"], c_build)
             c_bond = await repo.bond_days(db, user_id, int(companion["id"]))
-            c_level, c_xp, _, _ = await _apply_xp(db, user_id, int(companion["id"]), _species_row(companion)[0],
+            c_level, c_xp, c_essence, _ = await _apply_xp(db, user_id, int(companion["id"]), _species_row(companion)[0],
                                                   int(c_state["level"]), float(c_state["xp"]) + credited * rules.PAIR_COMPANION_SHARE, c_bond)
-            await repo.save_state(db, user_id, int(companion["id"]), level=c_level, xp=c_xp, energy=float(c_state["energy"]), pity=int(c_state["pity"]))
+            await repo.save_state(db, user_id, int(companion["id"]), level=c_level, xp=c_xp, energy=c_energy, pity=int(c_state["pity"]))
+            companion_reward = {"pet_id": int(companion["id"]), "name": companion["name"],
+                                "xp_credited": round(credited * rules.PAIR_COMPANION_SHARE, 2),
+                                "level_before": int(c_state["level"]), "level_after": c_level,
+                                "stage_essence": c_essence, "energy": round(c_energy, 1)}
 
         result = {
             "ok": True, "run_id": run["id"], "kind": run["kind"], "outcome": outcome, "path": path,
@@ -535,7 +542,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
             "xp_raw": round(raw, 2), "xp_credited": round(credited, 2), "daily_credited": round(daily["credited"] + total_credit, 1),
             "level_before": level_before, "level_after": level, "ceiling": limit, "bond_days": bond,
             "energy": round(energy, 1), "energy_loss": energy_loss, "finds": granted, "key": key_granted, "stage_essence": stage_essence,
-            "idempotent_replay": False,
+            "companion": companion_reward, "idempotent_replay": False,
         }
         await repo.finish_run(db, run["id"], result)
         await repo.save_action(db, user_id, action_id, request, result)
@@ -628,7 +635,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
                 raise PetV2PolicyError("Талисман не найден.")
             if row.get("pet_id") is not None and int(row["pet_id"]) != pet_id and int(row["pet_id"]) in busy:
                 raise PetV2Conflict("Нельзя снять талисман с питомца, который в пути.")
-        week = _week_start((await repo.clock(db))["day"])
+        clock = await repo.clock(db)
+        week = _week_start(clock["day"])
         old_calling, old_traits = state["calling"], _json_list(state["traits"])
         calling_at, traits_at = state["calling_changed_at"], state["traits_changed_at"]
         cost = 0
@@ -653,6 +661,13 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
                 )
             except ValueError as exc:
                 raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost}.") from exc
+        # Settle elapsed rest with the OLD cap/rate before changing hardy.
+        camp = await repo.camp_levels(db, user_id)
+        old_build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), camp, clock["day"])
+        energy = _rest(state, pet, clock["now"], old_build)
+        new_fx = rules.build_effects(calling, tuple(traits))
+        energy = min(energy, rules.energy_max(level, pet["species_id"], new_fx["energy_bonus"]))
+        await repo.save_state(db, user_id, pet_id, level=level, xp=float(state["xp"]), energy=energy, pity=int(state["pity"]))
         await repo.save_build(db, user_id, pet_id, calling=calling, traits=traits, calling_changed=calling_at, traits_changed=traits_at)
         await repo.set_talismans(db, user_id, pet_id, talisman_ids)
         response = {"ok": True, "pet_id": int(pet_id), "calling": calling, "traits": traits, "talismans": talisman_ids,
@@ -691,12 +706,14 @@ async def _camp_view(db, user_id: int, levels: dict) -> dict:
     }
 
 
-async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> dict:
+async def camp_upgrade(db, *, user_id: int, building: str, action_id: str, expected_level: int | None = None) -> dict:
     """Начать стройку: Мора и Эссенция списываются сразу, постройка готова через указанное время. Одна стройка за раз."""
     action_id = _action(action_id)
     if building not in rules.CAMP_BUILDINGS:
         raise PetV2PolicyError("Неизвестная постройка.")
     request = {"type": "camp_upgrade", "building": building}
+    if expected_level is not None:
+        request["expected_level"] = int(expected_level)
     from infrastructure.repositories import achievements_v1 as achievement_repo
     from services import achievements_v1 as achievement_service
     await achievement_repo.ensure_tables(db)
@@ -711,6 +728,8 @@ async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> di
         if await repo.camp_job(db, user_id):
             raise PetV2Conflict("Сначала дождись окончания текущей стройки.")
         levels = await repo.camp_levels(db, user_id)
+        if expected_level is not None and levels[building] != expected_level:
+            raise PetV2Conflict("Уровень и цена постройки изменились. Обновите лагерь и подтвердите новую цену.")
         if levels[building] >= 5:
             raise PetV2PolicyError("Постройка уже на максимальном уровне.")
         cost = rules.camp_upgrade_cost(building, levels[building] + 1)
@@ -734,10 +753,12 @@ async def camp_upgrade(db, *, user_id: int, building: str, action_id: str) -> di
     return response
 
 
-async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str) -> dict:
+async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str, expected_tier: int | None = None) -> dict:
     """Перековка: талисман на тир выше за Эссенцию, если позволяет Мастерская."""
     action_id = _action(action_id)
     request = {"type": "reforge", "talisman_id": str(talisman_id)}
+    if expected_tier is not None:
+        request["expected_tier"] = int(expected_tier)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         replay = await repo.cached_action(db, user_id, action_id)
@@ -749,6 +770,11 @@ async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str
         if not talisman:
             raise PetV2PolicyError("Талисман не найден.")
         tier = int(talisman["tier"])
+        if expected_tier is not None and tier != expected_tier:
+            raise PetV2Conflict("Тир и цена перековки изменились. Обновите талисманы и подтвердите новую цену.")
+        holder = talisman.get("pet_id")
+        if holder is not None and any(int(holder) in (r["pet_id"], r["companion_id"]) for r in await repo.open_runs(db, user_id)):
+            raise PetV2Conflict("Пока питомец в пути, его талисман перековать нельзя.")
         workshop = (await repo.camp_levels(db, user_id))["workshop"]
         if tier >= rules.workshop_max_tier(workshop):
             raise PetV2PolicyError("Мастерская пока не позволяет поднять тир.")
@@ -909,7 +935,8 @@ async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action
         bond = await repo.bond_days(db, user_id, pet_id)
         level_before = int(state["level"])
         level, xp, stage_essence, _ = await _apply_xp(db, user_id, pet_id, rarity, level_before, float(state["xp"]) + credited, bond)
-        await repo.save_state(db, user_id, pet_id, level=level, xp=xp, energy=float(state["energy"]), pity=int(state["pity"]))
+        energy = _rest(state, pet, clock["now"], build)
+        await repo.save_state(db, user_id, pet_id, level=level, xp=xp, energy=energy, pity=int(state["pity"]))
         from services.skins_v3 import grant_essence_in_transaction
         await grant_essence_in_transaction(db, user_id, essence, reason="pet_v2_trial", reference=week.isoformat())
         await repo.save_trial(db, user_id, week, pet_id, difficulty, essence)

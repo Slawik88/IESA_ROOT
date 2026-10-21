@@ -432,6 +432,26 @@ function rc(r) { return `<span class="rc ${RC[r]||'rc-common'}">${r}</span>`; }
 // toast() живёт в app.28.js: вид зависит от надетого образа
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
+// Native dialogs and v3 sheets share one background lock, including nested
+// confirmations. Fixed body also stops touch scrolling in mobile WebViews.
+let _overlayScrollPosition = null;
+function _syncOverlayScroll() {
+  const open = !!document.querySelector('dialog[open], body > .lk-sheet-back');
+  if (open && !_overlayScrollPosition) {
+    _overlayScrollPosition = { x: window.scrollX, y: window.scrollY };
+    document.body.style.setProperty('--overlay-scroll-top', `${-window.scrollY}px`);
+    document.documentElement.classList.add('overlay-open');
+  } else if (!open && _overlayScrollPosition) {
+    const position = _overlayScrollPosition; _overlayScrollPosition = null;
+    document.documentElement.classList.remove('overlay-open');
+    document.body.style.removeProperty('--overlay-scroll-top');
+    window.scrollTo({ left: position.x, top: position.y, behavior: 'instant' });
+  }
+}
+const _overlayScrollObserver = new MutationObserver(_syncOverlayScroll);
+// Observe only direct overlay insertion/removal, not every UI rerender/timer.
+_overlayScrollObserver.observe(document.body, { childList: true });
+_overlayScrollObserver.observe(el('modal'), { attributes: true, attributeFilter: ['open'] });
 let _modalReturnFocus=null;
 // Кнопки подвала окна: primary / ghost / danger. Окна консоли и модерации ещё передают старые имена btn-gold / btn-ghost / btn-red: такой подвал рисуется по-старому целиком.
 const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost',danger:' v3-pill--danger'};
@@ -449,6 +469,7 @@ function OM(title,body,btns=[]) {
 }
 const CM=()=>{
   el('modal').close();el('modal').classList.remove('looks-fitting-modal','looks-fitting-shared');document.body.classList.remove('modal-open');
+  _syncOverlayScroll();
   // R5: закрытие модалки = выход из live-комнаты лота (объявлена в app.06 —
   // к моменту клика склейка загружена целиком, hoisting function declaration)
   try{ if(typeof lotLiveLeave==='function') lotLiveLeave(); }catch(e){}
@@ -585,6 +606,9 @@ function _dockActive(name) {
 }
 
 function switchPage(name, _btn, _viaBack) {
+  // A closing sheet may have been removed in this same click handler. Unlock
+  // before navigation scrolls to the top, instead of restoring over that scroll.
+  _syncOverlayScroll();
   // Old game/economy pages are deliberately absent from the release surface.
   // Cached clients and stale deep links return to the current hub safely.
   if (['market','bp','auction','bestiary','craft','quests','ach','hof'].includes(name)) {
