@@ -14,5 +14,7 @@ const CLEAN=`for (const n of document.querySelectorAll('span,div,a,b')) { if (n.
   await p.goto(url); await p.waitForTimeout(4000); const home=p.url();
   for(const j of jobs){const i=j.indexOf('=');let name=j.slice(0,i);const js=j.slice(i+1);const full=name.endsWith('+full');name=name.replace('+full','');
     try{ await p.goto(home); await p.waitForTimeout(2500); if(js) await p.evaluate(js); await p.waitForTimeout(2600); await p.evaluate(CLEAN); if(full) await p.evaluate(()=>{for(const e of document.querySelectorAll('*')){if(getComputedStyle(e).position==='fixed')e.style.visibility='hidden';}});
-      await p.screenshot({path:`${out}/${name}.png`,fullPage:full}); console.log('ok',name);}catch(e){console.log('fail',name,e.message.slice(0,200));}}
+      // эффекты скина бывают шире экрана: снимок всей страницы режем по ширине телефона
+      const clip=full?{x:0,y:0,width:390,height:await p.evaluate(()=>document.documentElement.scrollHeight)}:undefined;
+      await p.screenshot({path:`${out}/${name}.png`,fullPage:full,clip}); console.log('ok',name);}catch(e){console.log('fail',name,e.message.slice(0,200));}}
   await b.close();})();
