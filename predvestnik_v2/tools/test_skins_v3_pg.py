@@ -23,6 +23,7 @@ from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import economy_ledger  # noqa: E402
 from infrastructure.repositories import global_skins_v1 as old_skins  # noqa: E402
 from infrastructure.repositories import skins_v3 as repo  # noqa: E402
+from infrastructure.repositories import skin_chat_v1  # noqa: E402
 from infrastructure.repositories import vip_v2 as vip_repo  # noqa: E402
 from services import skins_v3 as skins  # noqa: E402
 from services import skins_v3_migration as migration  # noqa: E402
@@ -55,6 +56,7 @@ async def run(dsn: str) -> None:
     await economy_ledger.ensure_tables(db)
     await old_skins.ensure_tables(db)
     await migration.ensure_tables(db)
+    await skin_chat_v1.ensure_tables(db)   # покупка и SSS пишут новость для чатов в своей транзакции
     outer = connection.transaction()
     await outer.start()
     try:

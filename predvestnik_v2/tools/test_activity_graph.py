@@ -100,10 +100,10 @@ async def check_caption_flow() -> None:
     caption = "<b>карточка</b>"
     orig_card, orig_graph = profile.card, activity_graph.get_graph
 
-    async def fake_card(_db, _chat, _t, _viewer, _group):
+    async def fake_card(_db, _chat, _t, _viewer, _group, _look=None):
         return caption
 
-    async def fake_graph(_db, _uid, _chat):
+    async def fake_graph(_db, _uid, _chat, theme=None):
         return b"\x89PNG\r\n\x1a\n" + b"0" * 64
 
     try:
@@ -118,7 +118,7 @@ async def check_caption_flow() -> None:
 
         # 2. Карточка длиннее лимита подписи: фото без подписи, затем текст.
         long_caption = "😀" * 600        # 1200 единиц UTF-16 — больше 1024
-        async def long_card(_db, _chat, _t, _viewer, _group):
+        async def long_card(_db, _chat, _t, _viewer, _group, _look=None):
             return long_caption
         profile.card = long_card
         ctx = make_ctx(PhotoMsg())
@@ -134,7 +134,7 @@ async def check_caption_flow() -> None:
         assert ctx.message.replies == [caption], ctx.message.replies
 
         # 4. Графика нет вовсе: только текст.
-        async def no_graph(_db, _uid, _chat):
+        async def no_graph(_db, _uid, _chat, theme=None):
             return None
         activity_graph.get_graph = no_graph
         ctx = make_ctx(PhotoMsg())
