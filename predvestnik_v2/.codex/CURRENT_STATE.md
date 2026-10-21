@@ -119,35 +119,39 @@
 5. При дальнейшем росте `admin.js` дробить по тому же рецепту: новый файл → `page.py` `_TYPES` →
    `index.html` → фикстура в `test_bot_admin_page.py` → сканирование хуков в `test_bot_admin_ui_contract.py`.
 
-## PETS-UX / MINES-20261021 — release preparation
+## PETS-UX / MINES-20261021 — released
 
-User explicitly authorized simulations and production release via master. Worktree:
-`C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`, branch codex/pets-ux-audit.
-Rebased onto master 76cb5d29; pets aa528f22, Mine e05288b1.
-Latest upstream Telegram names/patch notes retained. Original F: backup checkout and unrelated tracks untouched.
+User authorized simulations and production release via master. Worktree:
+`C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`, codex/pets-ux-audit.
+Runtime release pushed to master: c252a155 (pets aa528f22, Mine e05288b1), based
+on latest 76cb5d29; patch note draft added in 76dafba5. Original F: backup
+checkout and unrelated tracks untouched. No channel message was sent.
 
-Pets: overlay scroll lock verified at 320/390/430; companion/trial/build rest
-preserved; stale price and busy talisman guards; separate companion receipt;
-read-only inventory effects; schema catalog probe replaces hot-path DDL.
-Mines: seed536/first14 naturally wins first click; classify auto wins as unranked
-without deleting wins/history/progression. Filter seasonal runs BEFORE DISTINCT
-so an ordinary win becomes the player's best. Positive subsecond times show ms.
-Both server actions and offline imports covered by SQL/replay tests.
+Shipped: shared overlay background lock and restoration (320/390/430 tested),
+companion/trial/build rest preservation, stale price/busy talisman guards,
+companion reward receipt, inventory talisman effects, installed-schema SELECT
+probe. Mine safe first-open auto wins remain valid but are unranked; seasonal
+filter precedes per-player best selection. Offline/replay/progression preserved;
+subsecond leaderboard values display milliseconds and rules explain eligibility.
 
-PASS: 12 focused Python gates + Mines lifecycle/accessibility and Trail recovery/
-recommendations JS. Actual rules/service simulation: 17,280 rest cases, no
-invariant failures; 15 automatic wins / 10,000 deterministic easy boards.
-Full gate e6e75861+patch: 187/222 pass, 35 fail. All 35 failures reproduced using
-clean e6e75861 source exported via git archive and identical local test DB/env;
-not a green full gate. No failures in active pets-v2, inventory, Mines or local
-games suites. Logs output/pets-release/, browser evidence output/playwright/.
+PASS: 12 focused Python suites repeated after rebase, 4 JS suites; independent
+read-only release_critic ACCEPT (no P0–P2 blockers). Actual rules/service
+simulation: 17,280 rest cases, no invariant failures; 15 first-open wins from
+10,000 deterministic easy boards. Policy/loot/XP cap/prices unchanged.
+Five gear slots and new mode remain a design proposal, not released content.
 
-Five gear slots/new mode remain a design proposal, not shipped. Simulation
-shows blindly copying talisman multipliers from 2 to 5 slots is unsuitable;
-prices, rewards, drops, XP caps and paid mechanics unchanged by this release.
-Final review ACCEPT (release_critic), no P0–P2 blockers in our diff; reviewer
-independently repeated 4 Python +4 JS suites. All 12 targeted Python suites
-repeated after rebase PASS. Release feed audit READY. Full post-rebase gate
-still running, output/pets-release/final-gate.log; do not claim it is green.
-Next: push master and verify deployed bundles plus health/readiness/auth.
-Real Telegram iOS/Android gesture smoke remains outside available hardware.
+Live HTTP verification PASS: 5 exact JS/CSS SHA256 matches, new asset version
+in index, new feed entries and Mine shell rules, health/ready 200 and protected
+pets/inventory/Mine/profile APIs 401. Evidence output/pets-release/after-deploy.json.
+Browser screenshots output/playwright/pets-20261021/.
+
+Full post-rebase gate: 225 total, 184 PASS /41 FAIL. One new missing patch-note
+coverage failure fixed in 76dafba5 and contract retested PASS. Remaining 40
+also fail on clean e6e75861 source in same disposable DB/env (corrected .env.test
+setup); 38 matching terminal errors, 2 different assertions under shared fixture
+pollution. Not a green full gate. Full logs and comparison JSON under
+output/pets-release/. No failures in targeted pets-v2/inventory-v1/Mine/local games.
+Real Telegram iOS/Android gesture smoke not performed; local Chromium checked.
+
+Task complete for the released fixes. Known unrelated test/fixture debt remains
+in the single release backlog; no production data cleanup or reward migration.
