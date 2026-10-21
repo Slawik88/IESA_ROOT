@@ -47,6 +47,15 @@ async def card_look(db, user_id: int, chat_id: int) -> ChatLook | None:
     return chat_look(found.skin_id, found.tier, set_complete=all(m in owned for m in SETS[set_id]["members"]))
 
 
+async def safe_card_look(db, user_id: int, chat_id: int) -> ChatLook | None:
+    """card_look для сообщений бота: сбой косметики не должен мешать самому сообщению."""
+    try:
+        return await card_look(db, user_id, chat_id)
+    except Exception as exc:
+        logger.warning(f"skin look for {user_id} in {chat_id}: {type(exc).__name__}: {exc}")
+        return None
+
+
 async def glyphs(db, user_ids: list[int], chat_id: int) -> dict[int, str]:
     """{user_id: emoji} for marks in front of names in the bot's lists. A failure here leaves the list without marks, never breaks it."""
     try:
@@ -63,4 +72,4 @@ async def news(db, user_id: int, skin_id: str, kind: str, tier: str) -> None:
     await chat_repo.enqueue(db, user_id, skin_id, kind, tier)
 
 
-__all__ = ["looks", "card_look", "glyphs", "news"]
+__all__ = ["looks", "card_look", "safe_card_look", "glyphs", "news"]

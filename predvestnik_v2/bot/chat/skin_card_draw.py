@@ -114,20 +114,30 @@ def _free(x: float, y: float) -> bool:
     return not (y < HEAD - 10 and (x < 640 or x > W - 330))
 
 
-def _particles(img: Image.Image, skin: dict, t: int, rnd: random.Random) -> None:
-    count = PARTICLES[t]
-    if not count:
-        return
-    d = ImageDraw.Draw(img)
+def particle_field(skin_id: str, tier: str) -> list[tuple[float, float, int, tuple, float]]:
+    """Частицы скина на тире: (x, y, радиус, цвет, фаза). Одинаковы для одного скина и тира; рисует draw_particles."""
+    skin, t = SKINS[skin_id], TIERS.index(tier)
+    rnd = random.Random(f"{skin_id}:{tier}:pt")
     p0, _p1, p2 = skin["pal"]
-    placed = tries = 0
-    while placed < count and tries < count * 30:
+    out: list[tuple[float, float, int, tuple, float]] = []
+    tries = 0
+    while len(out) < PARTICLES[t] and tries < PARTICLES[t] * 30:
         tries += 1
         x, y = rnd.uniform(4, W - 4), rnd.uniform(4, H - 4)
         if _free(x, y):
-            color = rgb(rnd.choice((p0, p2))) + (rnd.randint(110, 220),)
-            _particle(d, skin["kinds"]["pt"], x, y, rnd.randint(6, 14), color, rnd)
-            placed += 1
+            out.append((x, y, rnd.randint(6, 14), rgb(rnd.choice((p0, p2))) + (rnd.randint(110, 220),), rnd.uniform(0, 2 * math.pi)))
+    return out
+
+
+def draw_particles(img: Image.Image, skin_id: str, field: list, phase: float | None = None) -> None:
+    """phase=None — неподвижная картинка; иначе частица мерцает и чуть плывёт по кругу (кадр анимации)."""
+    d, kind = ImageDraw.Draw(img), SKINS[skin_id]["kinds"]["pt"]
+    for i, (x, y, r, color, own) in enumerate(field):
+        rnd = random.Random(i)
+        if phase is not None:
+            x, y = x + 6 * math.cos(phase + own), y + 6 * math.sin(phase + own)
+            color = color[:3] + (int(color[3] * (0.55 + 0.45 * math.sin(phase * 2 + own))),)
+        _particle(d, kind, x, y, r, color, rnd)
 
 
 def _gradient(pal) -> Image.Image:
@@ -180,12 +190,13 @@ def _frame(img: Image.Image, skin: dict, t: int) -> None:
             _particle(d, "star", x, y, 22, color, random.Random(0))
 
 
-def decor(skin_id: str, tier: str) -> Image.Image:
-    """Фон, частицы и рамка карточки, без текста и графика. Детерминирован: одинаковый скин — одинаковая картинка."""
+def decor(skin_id: str, tier: str, *, particles: bool = True) -> Image.Image:
+    """Фон, частицы и рамка карточки, без текста и графика. Детерминирован: одинаковый скин — одинаковая картинка.
+    particles=False — для анимации: частицы рисуются в каждом кадре своим положением (bot/chat/skin_motion.py)."""
     skin, t = SKINS[skin_id], TIERS.index(tier)
-    rnd = random.Random(f"{skin_id}:{tier}")
     img = _background(skin, t)
-    _texture(img, skin, t, rnd)
-    _particles(img, skin, t, rnd)
+    _texture(img, skin, t, random.Random(f"{skin_id}:{tier}"))
+    if particles:
+        draw_particles(img, skin_id, particle_field(skin_id, tier))
     _frame(img, skin, t)
     return img

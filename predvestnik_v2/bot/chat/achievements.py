@@ -354,27 +354,45 @@ GROUP_TITLES = {"chat": "Общение", "warps": "Взаимодействия
                 "family": "Семья", "games": "Игры"}
 
 
-# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): группы и пороги в цитатах.
-async def card(db, user_id: int, who: str) -> str:
-    ups = await evaluate(db, user_id)          # в карточке всегда свежие цифры
-    fresh = {u.achievement.id for u in ups}
+async def _levels(db, user_id: int) -> list[tuple[Achievement, int, int, bool]]:
+    """(достижение, уровень, значение, только что выросло) в порядке каталога; в карточке всегда свежие цифры."""
+    fresh = {u.achievement.id for u in await evaluate(db, user_id)}
     stored = await stored_levels(db, user_id)
-    lines, block, total, total_max, title = [], [], 0, 0, None
+    out = []
     for a in ACHIEVEMENTS:
         value = await value_of(db, user_id, a)
-        level = max(stored.get(a.id, 0), level_of(a, value))
-        total += level
-        total_max += a.max_level
+        out.append((a, max(stored.get(a.id, 0), level_of(a, value)), value, a.id in fresh))
+    return out
+
+
+FOOTNOTE = f"За каждый {MILESTONE_EVERY}-й уровень — 🔮 эссенция. Подробно: <code>бот достижение болтун</code>"
+
+
+# СТИЛЬ v1 (оформлено, см. docs/CHAT_BOT_DESIGN_HANDOFF.md): группы и пороги в цитатах. Со скином — разделы скина.
+async def card(db, user_id: int, who: str, look=None) -> str:
+    rows = await _levels(db, user_id)
+    total, total_max = sum(r[1] for r in rows), sum(r[0].max_level for r in rows)
+    if look:
+        return _styled(look, who, rows, total, total_max)
+    lines, block, title = [], [], None
+    for a, level, value, fresh in rows:
         if GROUP_TITLES[a.group] != title:
             if block:
                 lines.append(quote(block))
             title, block = GROUP_TITLES[a.group], []
             lines.append(f"\n<b>{title}</b>")
-        block.append(line(a, level, value) + (" ✨" if a.id in fresh else ""))
+        block.append(line(a, level, value) + (" ✨" if fresh else ""))
     if block:
         lines.append(quote(block))
-    return (f"🏆 <b>{who} достижения</b> · уровней: {total} из {total_max}\n" + "\n".join(lines) +
-            f"\n\nЗа каждый {MILESTONE_EVERY}-й уровень — 🔮 эссенция. Подробно: <code>бот достижение болтун</code>")
+    return f"🏆 <b>{who} достижения</b> · уровней: {total} из {total_max}\n" + "\n".join(lines) + f"\n\n{FOOTNOTE}"
+
+
+def _styled(look, who: str, rows: list, total: int, total_max: int) -> str:
+    from bot.chat import profile_view
+    items = [(GROUP_TITLES[a.group], f"{medal(level, a.max_level)} {a.icon} <b>{a.name}</b>" + (" ✨" if fresh else ""),
+              f"ур. {level}/{a.max_level} · " + ("максимум" if level >= a.max_level else f"{fmt(value)} / {fmt(a.thresholds[level])}"))
+             for a, level, value, fresh in rows]
+    return profile_view.achievements(look, who, items, total, total_max, FOOTNOTE)
 
 
 async def detail(db, user_id: int, a: Achievement) -> str:
@@ -413,4 +431,6 @@ async def cmd_achievements(ctx: Ctx) -> None:
         names = ", ".join(x.name.lower() for x in ACHIEVEMENTS)
         await ctx.reply(f"Нет такого достижения. Есть: {names}.")
         return
-    await ctx.reply(await card(ctx.db, uid, html.escape(target.label()) if target else "Ваши"))
+    from services import skins_chat
+    look = await skins_chat.safe_card_look(ctx.db, uid, ctx.message.chat.id)
+    await ctx.reply(await card(ctx.db, uid, html.escape(target.label()) if target else "Ваши", look))

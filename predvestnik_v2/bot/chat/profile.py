@@ -16,7 +16,8 @@ from core.economy_contract import CURRENCY_SPECS
 from infrastructure.repositories import skins_v3 as skins_v3_repo
 from loguru import logger
 from services import chat_bots, member_tags, vip as vip_service
-from bot.chat import activity_graph, family, global_ranks, ranks, skin_card, skin_text, streak
+from bot.chat import family, global_ranks, profile_view, ranks, skin_card, streak
+from bot.chat.profile_view import CardData, esc
 from bot.chat.achievements_data import ACHIEVEMENTS
 from bot.chat.framework import Ctx, UsageError, registry
 from bot.chat.moderation import active_warns
@@ -34,10 +35,6 @@ CAPTION_LIMIT = 1024   # лимит подписи к фото у Telegram, ви
 
 # Знаменатель «достижения 23/641»: сумма максимальных уровней всех достижений.
 ACHIEVEMENT_LEVELS_MAX = sum(a.max_level for a in ACHIEVEMENTS)
-
-
-def esc(s) -> str:
-    return html.escape(str(s or ""))
 
 
 def quiet(username: str | None, fallback: str) -> str:
@@ -80,15 +77,6 @@ def ago(seconds: int) -> str:
     if days < 30:
         return f"<b>{days}</b> {days_word(days)} назад"
     return f"<b>{days // 30}</b> мес. назад"
-
-
-def pair(label: str, value: str) -> str:
-    return f"{label} <b>{value}</b>"
-
-
-def pair_rows(items: list[tuple[str, str]], sep: str = " · ") -> list[str]:
-    """Ячейки-пары раскладываются по две в строку: «серия 18 дней · рекорд 40 дней»."""
-    return [sep.join(pair(*item) for item in items[i:i + 2]) for i in range(0, len(items), 2)]
 
 
 async def wallet_values(db, user_id: int) -> dict[str, float]:
@@ -162,13 +150,9 @@ async def achievement_levels(db, user_id: int) -> int:
 
 
 # СТИЛЬ v2 (компактный; макет — docs/design-refs/profile-card-preview.html): шапка, блоки через
-# пустую строку, счётчики парами в цитатах, значения жирным. Новые стили карточек — сюда же.
-async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool, look: ChatLook | None = None) -> str:
-    """look — надетый скин игрока (services.skins_chat.card_look): значки, разделитель и орнамент; без него как раньше."""
+# пустую строку, счётчики парами в цитатах, значения жирным. Со скином — core/skins_v3_chat_layout.py.
+async def _head(db, chat_id: int, target: Target, viewer_id: int, is_group: bool) -> CardData:
     uid = target.user_id
-    sep = skin_text.sep(look)
-    today = local_now().date()
-
     username = await username_of(db, uid) or target.username
     nick = None
     if is_group:
@@ -176,13 +160,10 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool,
                               (uid, chat_id)) as cur:
             r = await cur.fetchone()
         nick = r[0] if r else None
-    title = nick or target.name or (f"@{username}" if username else f"id{uid}")
-
-    head = [f"{skin_text.name_icon(look)} <b>{esc(title)}</b>" + (f" · @{esc(username)}" if username else "")]
-    head.extend(skin_text.head_lines(look))
+    data = CardData(title=nick or target.name or (f"@{username}" if username else f"id{uid}"), username=username)
     tag = await member_tags.get(db, chat_id, uid) if is_group else None
     if tag:
-        head.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата
+        data.head.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата
     roles = []
     if is_group:
         rank = await ranks.get_rank(db, chat_id, uid)
@@ -194,31 +175,27 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool,
     if await global_ranks.is_sponsor(db, uid):
         roles.append("💖 Спонсор")
     if roles:
-        head.append(" · ".join(roles))
+        data.head.append(" · ".join(roles))
     tail = []
     if await vip_service.is_vip_active(db, uid):
         tail.append("👑 VIP")
     if await global_ranks.get_bot_rank(db, viewer_id) >= global_ranks.HELPER_MIN:
         tail.append(f"🆔 {uid}")   # ID игроков видят только хелперы и выше
     if tail:
-        head.append(" · ".join(tail))
+        data.head.append(" · ".join(tail))
+    return data
 
-    blocks = []
 
+async def _counters(db, data: CardData, chat_id: int, uid: int, is_group: bool) -> None:
+    today = local_now().date()
     if is_group:
         c = await message_counts(db, chat_id, uid)
-        rows = [sep.join((pair("сегодня", fmt_num(c["day"])),
-                            pair("неделя", fmt_num(c["week"])),
-                            pair("месяц", fmt_num(c["month"]))))]
-        totals = [pair("всего", fmt_num(c["all"]))]
+        data.messages = [("сегодня", fmt_num(c["day"])), ("неделя", fmt_num(c["week"])), ("месяц", fmt_num(c["month"]))]
+        data.totals = [("всего", fmt_num(c["all"]))]
         if c["everywhere"] > c["all"]:
-            totals.append(pair("во всех", fmt_num(c["everywhere"])))
-        rows.append(sep.join(totals))
-        blocks.append(f"{skin_text.icon(look, skin_text.MESSAGES, '💬')} <b>Сообщения</b>\n" + quote(rows))
-
+            data.totals.append(("во всех", fmt_num(c["everywhere"])))
     current, best, _ = await streak.streak_of(db, uid, today)
-    month_start = today.replace(day=1).isoformat()
-    place = await chat_place(db, chat_id, uid, month_start, today.isoformat()) if is_group else None
+    place = await chat_place(db, chat_id, uid, today.replace(day=1).isoformat(), today.isoformat()) if is_group else None
     levels = await achievement_levels(db, uid)
     items = []
     if current or best:
@@ -229,62 +206,62 @@ async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool,
         items.append(("место", f"#{place}"))
     if levels:
         items.append(("достижения", f"{levels}/{ACHIEVEMENT_LEVELS_MAX}"))
-    if items:
-        blocks.append(f"{skin_text.icon(look, skin_text.PROGRESS, '🔥')} <b>Прогресс</b>\n" + quote(pair_rows(items, sep)))
-
-    personal = []
-    if is_group:
-        async with db.execute(
-                f"SELECT {PRESENCE_SQL}, EXTRACT(EPOCH FROM NOW() - s.last_message_at)::BIGINT "
-                "FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?",
-                (chat_id, uid)) as cur:
-            r = await cur.fetchone()
-        pres = presence_of(*r[:4]) if r else None
-        away = int(r[4]) if r and r[4] is not None else None
-        if pres:
-            seen = f"В чате <b>{pres.days}</b> {days_word(pres.days)}" if pres.days else "В чате с сегодняшнего дня"
-            line = "📅 " + seen
-            if away is not None:
-                line += f" · 🕓 {ago(away)}"
-            personal.append(line)
-            if pres.rejoined:
-                personal.append(f"↩️ Вернулся в чат · впервые здесь {pres.first_seen.strftime('%d.%m.%Y')}")
-        warns = await active_warns(db, chat_id, uid)
-        if warns:
-            personal.append(f"⚠️ Варнов <b>{len(warns)}</b>")
-
-    fam = await family.family_of(db, uid)
-    if fam:
-        if fam.is_parent(uid):
-            partner = fam.partner_of(uid)
-            if partner:
-                personal.append(f"💞 В браке с {await quiet_name(db, partner)}")
-                quote_parts = []
-                partner_tag = await member_tags.get(db, chat_id, partner) if is_group else None
-                if partner_tag:
-                    quote_parts.append(f"[{esc(partner_tag)}]")
-                days = family.days_together(fam.since)
-                if days is not None:
-                    quote_parts.append(f"вместе {days} {days_word(days)}")
-                if quote_parts:
-                    personal.append(quote([" · ".join(quote_parts)]))
-        else:
-            parents = " и ".join([await quiet_name(db, p) for p in fam.parents])
-            personal.append(f"👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
-    if personal:
-        blocks.append("\n".join(personal))
-
+    data.progress = items
     values = await wallet_values(db, uid)
-    wallet_rows = []
-    for i in range(0, len(SHOWN_CURRENCIES), 2):
-        cells = []
-        for code in SHOWN_CURRENCIES[i:i + 2]:
-            spec = CURRENCY_VIEW[code]
-            cells.append(f"{spec.label.lower()} <b>{fmt_num(values[code], spec.display_decimals)}</b> {spec.icon}")
-        wallet_rows.append(sep.join(cells))
-    blocks.append(f"{skin_text.icon(look, skin_text.WALLET, '💰')} <b>Кошелёк</b>\n" + quote(wallet_rows))
+    for code in SHOWN_CURRENCIES:
+        spec = CURRENCY_VIEW[code]
+        data.wallet.append(f"{spec.label.lower()} <b>{fmt_num(values[code], spec.display_decimals)}</b> {spec.icon}")
 
-    return skin_text.frame(look, "\n\n".join(["\n".join(head), *blocks]))
+
+async def _presence(db, data: CardData, chat_id: int, uid: int) -> None:
+    async with db.execute(
+            f"SELECT {PRESENCE_SQL}, EXTRACT(EPOCH FROM NOW() - s.last_message_at)::BIGINT "
+            "FROM user_chat_stats s WHERE s.chat_tg_id = ? AND s.user_tg_id = ?",
+            (chat_id, uid)) as cur:
+        r = await cur.fetchone()
+    pres = presence_of(*r[:4]) if r else None
+    away = int(r[4]) if r and r[4] is not None else None
+    if pres:
+        seen = f"В чате <b>{pres.days}</b> {days_word(pres.days)}" if pres.days else "В чате с сегодняшнего дня"
+        data.personal.append("📅 " + seen + (f" · 🕓 {ago(away)}" if away is not None else ""))
+        if pres.rejoined:
+            data.personal.append(f"↩️ Вернулся в чат · впервые здесь {pres.first_seen.strftime('%d.%m.%Y')}")
+    warns = await active_warns(db, chat_id, uid)
+    if warns:
+        data.personal.append(f"⚠️ Варнов <b>{len(warns)}</b>")
+
+
+async def _family(db, data: CardData, chat_id: int, uid: int, is_group: bool) -> None:
+    fam = await family.family_of(db, uid)
+    if not fam:
+        return
+    if not fam.is_parent(uid):
+        parents = " и ".join([await quiet_name(db, p) for p in fam.parents])
+        data.personal.append(f"👪 В семье {parents} · {fam.roles.get(uid, 'ребёнок')}")
+        return
+    partner = fam.partner_of(uid)
+    if not partner:
+        return
+    data.personal.append(f"💞 В браке с {await quiet_name(db, partner)}")
+    parts = []
+    partner_tag = await member_tags.get(db, chat_id, partner) if is_group else None
+    if partner_tag:
+        parts.append(f"[{esc(partner_tag)}]")
+    days = family.days_together(fam.since)
+    if days is not None:
+        parts.append(f"вместе {days} {days_word(days)}")
+    if parts:
+        data.personal.append("\x00" + " · ".join(parts))   # подстрока: в обычной карточке — цитата, в стиле скина — «╰»
+
+
+async def card(db, chat_id: int, target: Target, viewer_id: int, is_group: bool, look: ChatLook | None = None) -> str:
+    """look — надетый скин игрока (services.skins_chat.card_look); без него карточка как раньше."""
+    data = await _head(db, chat_id, target, viewer_id, is_group)
+    await _counters(db, data, chat_id, target.user_id, is_group)
+    if is_group:
+        await _presence(db, data, chat_id, target.user_id)
+    await _family(db, data, chat_id, target.user_id, is_group)
+    return profile_view.styled(data, look) if look else profile_view.plain(data)
 
 
 def caption_len(text: str) -> int:
@@ -297,46 +274,39 @@ def caption_len(text: str) -> int:
     return len(plain.encode("utf-16-le")) // 2
 
 
-async def _look(db, user_id: int, chat_id: int) -> ChatLook | None:
-    """Надетый скин для карточки; сбой косметики не должен мешать самой карточке."""
+async def send_media_card(ctx: Ctx, text: str, user_id: int, chat_scope: int | None, look: ChatLook | None,
+                          name: str, username: str | None) -> None:
+    """График (в стиле скина — картинкой или видео на SSS) с текстом в подписи.
+
+    Текст, который не влезает в лимит подписи Telegram (или не принят подписью), уходит как
+    раньше: график без подписи, затем текст. Если рисовать нечего — только текст."""
     try:
-        return await skins_chat.card_look(db, user_id, chat_id)
+        media = await skin_card.graph_media(ctx.db, user_id, chat_scope, look, name, username)
     except Exception as exc:
-        logger.warning(f"Скин для карточки не прочитан: {exc}")
-        return None
+        logger.warning(f"График активности не построен: {exc}")
+        media = None
+    if media:
+        if caption_len(text) <= CAPTION_LIMIT:
+            try:
+                await skin_card.answer(ctx.message, media, text)
+                return
+            except Exception as exc:   # подпись важна, но карточку покажем и без неё
+                logger.warning(f"Карточка не легла подписью к графику: {exc}")
+        try:
+            await skin_card.answer(ctx.message, media)
+        except Exception as exc:   # карточка важнее: график не повод её не показать
+            logger.warning(f"График активности не отправлен: {exc}")
+    await ctx.reply(text)
 
 
 async def send_card(ctx: Ctx, target: Target, is_group: bool) -> None:
     """«бот я / бот кто»: одним сообщением — график активности с карточкой в подписи.
 
-    В группе график — по этому чату, в личке — по всем чатам. Карточка, которая
-    не влезает в лимит подписи Telegram (или не принята подписью), уходит как
-    раньше: фото без подписи, затем текст. Если рисовать нечего — только текст.
-    """
+    В группе график — по этому чату, в личке — по всем чатам."""
     chat_id = ctx.message.chat.id
-    look = await _look(ctx.db, target.user_id, chat_id)
+    look = await skins_chat.safe_card_look(ctx.db, target.user_id, chat_id)
     text = await card(ctx.db, chat_id, target, ctx.user_id, is_group, look)
-    try:
-        theme = skin_card.theme_for(look) if look else activity_graph.DEFAULT_THEME
-        png = await activity_graph.get_graph(ctx.db, target.user_id, chat_id if is_group else None, theme=theme)
-    except Exception as exc:
-        logger.warning(f"График активности не построен: {exc}")
-        png = None
-    if png:
-        from aiogram.types import BufferedInputFile
-        styled = await skin_card.card_image(png, look, target.name or "", target.username) if look else None
-        photo = BufferedInputFile(styled, filename="card.jpg") if styled else BufferedInputFile(png, filename="activity.png")
-        if caption_len(text) <= CAPTION_LIMIT:
-            try:
-                await ctx.message.answer_photo(photo, caption=text, parse_mode="HTML")
-                return
-            except Exception as exc:   # подпись важна, но карточку покажем и без неё
-                logger.warning(f"Карточка не легла подписью к графику: {exc}")
-        try:
-            await ctx.message.answer_photo(photo)
-        except Exception as exc:   # карточка важнее: график не повод её не показать
-            logger.warning(f"График активности не отправлен: {exc}")
-    await ctx.reply(text)
+    await send_media_card(ctx, text, target.user_id, chat_id if is_group else None, look, target.name or "", target.username)
 
 
 @registry.command("я", aliases=("профиль", "кто я"), usage="бот я", section="profile",
@@ -364,4 +334,9 @@ async def cmd_who(ctx: Ctx) -> None:
 @registry.command("баланс", aliases=("кошелек", "кошелёк"), usage="бот баланс", section="profile",
                   summary="Сколько у вас валюты.")
 async def cmd_balance(ctx: Ctx) -> None:
-    await ctx.reply("💰 <b>Баланс</b>\n" + quote(await balances(ctx.db, ctx.user_id)))
+    lines = await balances(ctx.db, ctx.user_id)
+    look = await skins_chat.safe_card_look(ctx.db, ctx.user_id, ctx.message.chat.id)
+    if not look:
+        await ctx.reply("💰 <b>Баланс</b>\n" + quote(lines))
+        return
+    await ctx.reply(profile_view.balance(look, lines))

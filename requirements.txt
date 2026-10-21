@@ -63,6 +63,7 @@ loguru==0.7.3
 asyncpg==0.30.0
 pymorphY3==2.0.2
 matplotlib==3.9.4
+av==15.1.0  # видео-карточка скина SSS в чате (bot/chat/skin_motion.py); без него бот шлёт картинку
 fastapi==0.115.12
 uvicorn[standard]==0.34.3
 

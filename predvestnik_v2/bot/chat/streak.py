@@ -4,10 +4,8 @@ from __future__ import annotations
 import html
 from datetime import date, timedelta
 
+from bot.chat import activity_graph  # noqa: F401  (график стрика идёт через skin_card.graph_media)
 from bot.chat.framework import Ctx, registry
-from bot.chat import activity_graph
-from aiogram.types import BufferedInputFile
-from loguru import logger
 from bot.chat.targets import NOT_FOUND, names_someone, resolve_target
 from bot.chat.tracking import local_now
 
@@ -72,21 +70,18 @@ async def cmd_streak(ctx: Ctx) -> None:
     today = local_now().date()
     current, best, done = await streak_of(ctx.db, uid, today)
     status = "✅ Сегодня засчитан" if done else "⏳ Напишите в чат, чтобы засчитать сегодня"
-    text = (
+    from bot.chat import profile, profile_view   # profile сам импортирует streak
+    from services import skins_chat
+    chat = getattr(ctx.message, "chat", None)
+    look = await skins_chat.safe_card_look(ctx.db, uid, chat.id) if chat is not None else None
+    text = profile_view.streak(look, who, current, best, status) if look else (
         f"🔥 <b>{who} стрик: {current}</b>\n"
         f"Лучший: <b>{best}</b> дней\n{status}\n"
         "<i>Серия и график учитывают активность во всех чатах.</i>"
     )
+    user = target or getattr(ctx.message, "from_user", None)
+    name = getattr(user, "name", None) or getattr(user, "full_name", "") or ""
     # Same scope and cache as a private profile. No second history query and no
     # extra render while the previous profile image is still fresh.
-    try:
-        png = await activity_graph.get_graph(ctx.db, uid)
-        if png:
-            await ctx.message.answer_photo(
-                BufferedInputFile(png, filename="streak-activity.png"),
-                caption=text, parse_mode="HTML",
-            )
-            return
-    except Exception as exc:
-        logger.warning("Карточка серии недоступна: {}", exc)
-    await ctx.reply(text)
+    await profile.send_media_card(ctx, text, uid, None, look, name, getattr(user, "username", None))
+

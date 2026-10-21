@@ -16,18 +16,20 @@ from pathlib import Path
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
 
-from bot.chat import activity_graph
+from bot.chat import activity_graph, skin_motion
 from bot.chat.skin_card_draw import GRAPH_H, GRAPH_W, HEAD, M, W, decor, mix, rgb
 from core.skins_v3_catalog import SKINS
 from core.skins_v3_chat import ChatLook
 
 COMPOSE_BUDGET_SEC = 0.9
+MOTION_BUDGET_SEC = 3.0            # видео для SSS; не успели — уходит картинка
 CACHE_TTL_SEC = 60.0
 MAX_CACHE = 64
 DECOR_CACHE = 8                     # ~4 МБ на штуку
 _FONT_DIR = Path(__file__).resolve().parent / "assets" / "fonts"
 _cache: dict[tuple, tuple[float, bytes]] = {}
 _lock = threading.Lock()
+_motion_busy = asyncio.Semaphore(1)  # одно видео за раз: второй запрос в это время получает картинку
 
 
 def theme_for(look: ChatLook) -> str:
@@ -79,8 +81,8 @@ def _fit(d: ImageDraw.ImageDraw, text: str, font, width: int) -> str:
 
 
 @functools.lru_cache(maxsize=DECOR_CACHE)
-def _decor(skin_id: str, tier: str) -> Image.Image:
-    return decor(skin_id, tier)
+def _decor(skin_id: str, tier: str, particles: bool = True) -> Image.Image:
+    return decor(skin_id, tier, particles=particles)
 
 
 def _header(img: Image.Image, look: ChatLook, name: str, username: str | None) -> None:
@@ -106,35 +108,81 @@ def _header(img: Image.Image, look: ChatLook, name: str, username: str | None) -
     d.text((left, 104), _fit(d, look.title, _font("500", 30), room), font=_font("500", 30), fill=rgb(p0))
 
 
-def compose(png: bytes, look: ChatLook, name: str, username: str | None) -> bytes:
-    """JPEG карточки. png — график activity_graph в теме theme_for(look)."""
+def _base(png: bytes, look: ChatLook, name: str, username: str | None, particles: bool = True) -> Image.Image:
     graph = Image.open(io.BytesIO(png)).convert("RGBA")
     if graph.size != (GRAPH_W, GRAPH_H):
         graph = graph.resize((GRAPH_W, GRAPH_H), Image.LANCZOS)
-    img = _decor(look.skin_id, look.tier).copy()
+    img = _decor(look.skin_id, look.tier, particles).copy()
     rounded = Image.new("L", graph.size, 0)
     ImageDraw.Draw(rounded).rounded_rectangle([0, 0, *graph.size], 22, fill=255)
     img.paste(graph, (M, HEAD), rounded)
     _header(img, look, name, username)
+    return img
+
+
+def compose(png: bytes, look: ChatLook, name: str, username: str | None) -> bytes:
+    """JPEG карточки. png — график activity_graph в теме theme_for(look)."""
     out = io.BytesIO()
-    img.convert("RGB").save(out, "JPEG", quality=88, optimize=True)
+    _base(png, look, name, username).convert("RGB").save(out, "JPEG", quality=88, optimize=True)
     return out.getvalue()
 
 
-async def card_image(png: bytes, look: ChatLook, name: str, username: str | None) -> bytes | None:
-    """Готовая картинка или None (не успели, ошибка): тогда вызывающий шлёт обычный график."""
-    key = (hashlib.blake2b(png, digest_size=12).digest(), look.skin_id, look.tier, name, username)
+def motion(png: bytes, look: ChatLook, name: str, username: str | None) -> bytes:
+    """MP4 карточки для SSS: частицы движутся (bot/chat/skin_motion.py)."""
+    return skin_motion.animate(_base(png, look, name, username, particles=False), look.skin_id, look.tier)
+
+
+Media = tuple[str, bytes, str]      # ("photo" | "animation", данные, имя файла)
+
+
+async def _built(key: tuple, build, budget: float) -> bytes | None:
     with _lock:
         hit = _cache.get(key)
     if hit and time.monotonic() - hit[0] < CACHE_TTL_SEC:
         return hit[1]
     try:
-        jpeg = await asyncio.wait_for(asyncio.to_thread(compose, png, look, name, username), COMPOSE_BUDGET_SEC)
+        data = await asyncio.wait_for(asyncio.to_thread(build), budget)
     except Exception as exc:
-        logger.warning(f"Карточка скина не собрана ({look.skin_id}/{look.tier}): {type(exc).__name__}: {exc}")
+        logger.warning(f"Карточка скина не собрана ({key[1]}/{key[2]}/{key[-1]}): {type(exc).__name__}: {exc}")
         return None
     with _lock:
-        _cache[key] = (time.monotonic(), jpeg)
+        _cache[key] = (time.monotonic(), data)
         while len(_cache) > MAX_CACHE:
             _cache.pop(next(iter(_cache)), None)
-    return jpeg
+    return data
+
+
+async def card_media(png: bytes, look: ChatLook, name: str, username: str | None) -> Media | None:
+    """SSS — видео (если есть кодировщик и свободен), иначе картинка; None — не собралось, шлётся обычный график."""
+    key = (hashlib.blake2b(png, digest_size=12).digest(), look.skin_id, look.tier, name, username)
+    if look.tier == "SSS" and skin_motion.available() and not _motion_busy.locked():
+        async with _motion_busy:
+            mp4 = await _built((*key, "mp4"), lambda: motion(png, look, name, username), MOTION_BUDGET_SEC)
+        if mp4:
+            return "animation", mp4, "card.mp4"
+    jpeg = await _built((*key, "jpg"), lambda: compose(png, look, name, username), COMPOSE_BUDGET_SEC)
+    return ("photo", jpeg, "card.jpg") if jpeg else None
+
+
+async def graph_media(db, user_id: int, chat_id: int | None, look: ChatLook | None, name: str, username: str | None) -> Media | None:
+    """График активности для сообщения: в стиле скина, если он надет. chat_id=None — по всем чатам."""
+    if look:
+        png = await activity_graph.get_graph(db, user_id, chat_id, theme=theme_for(look))
+    else:   # без скина — тот же вызов, что был до скинов
+        png = await (activity_graph.get_graph(db, user_id, chat_id) if chat_id is not None else activity_graph.get_graph(db, user_id))
+    if not png:
+        return None
+    styled = await card_media(png, look, name, username) if look else None
+    return styled or ("photo", png, "activity.png")
+
+
+async def answer(message, media: Media, caption: str | None = None) -> None:
+    """Отправить картинку или видео; caption=None — без подписи."""
+    from aiogram.types import BufferedInputFile
+    kind, data, filename = media
+    extra = {"caption": caption, "parse_mode": "HTML"} if caption is not None else {}
+    file = BufferedInputFile(data, filename=filename)
+    if kind == "animation":
+        await message.answer_animation(file, **extra)
+    else:
+        await message.answer_photo(file, **extra)

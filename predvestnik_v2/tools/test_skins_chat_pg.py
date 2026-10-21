@@ -83,8 +83,8 @@ async def looks_and_card(db) -> None:
     assert looks[A].tier == "SSS" and looks[B].tier == "SS" and C not in looks, looks   # SSS без VIP показывается как SS
     look = await skins_chat.card_look(db, A, MAIN)
     text = await profile.card(db, MAIN, Target(A, f"p{A}", "Игрок А"), A, True, look)
-    assert text.startswith(look.frame) and "❄️ <b>Игрок А</b>" in text and "🧊 <b>Сообщения</b>" in text, text
-    assert " ❄ " in text and "Мороз рисует узоры" in text and "<i>Дитя Стужи · Изморозь · SSS</i>" in text, text
+    assert text.startswith("⊱⟡┄┄꧁༺ ❄ ༻꧂┄┄⟡⊰") and "┊꧁ ❄️ <b>Игрок А</b> ꧂┊" in text and "🧊<b>СООБЩЕНИЯ</b>" in text, text
+    assert "┊ день <b>30</b>" in text and "꧁༺ <b>SSS</b> ༻꧂" in text and "«Мороз рисует узоры" in text and "<i>Дитя Стужи · Изморозь</i>" in text, text
     plain = await profile.card(db, MAIN, Target(C, f"p{C}", "Игрок В"), C, True, None)
     assert "👤 <b>Игрок В</b>" in plain and "💬 <b>Сообщения</b>" in plain and "❄" not in plain, plain
     assert profile.caption_len(text) <= profile.CAPTION_LIMIT
@@ -115,6 +115,24 @@ async def switch(db) -> None:
     assert "<b>включена</b>" in replies[-1] and await skins_chat.looks(db, [A], MAIN), replies
 
 
+async def other_commands(db) -> None:
+    """«бот баланс» и «бот достижения»: со скином — разделы скина, без скина — как раньше."""
+    from bot.chat import achievements, profile
+    from services import skins_chat
+    replies: list[str] = []
+
+    async def reply(text, **kw):
+        replies.append(text)
+    for uid in (A, C):
+        await profile.cmd_balance(SimpleNamespace(db=db, user_id=uid, reply=reply, message=SimpleNamespace(chat=SimpleNamespace(id=MAIN))))
+    assert "🌨<b>КОШЕЛЁК</b>" not in replies[0] and "<b>КОШЕЛЁК</b>" in replies[0] and "«Мороз рисует" in replies[0], replies[0]
+    assert replies[1].startswith("💰 <b>Баланс</b>\n<blockquote>"), replies[1]
+    styled = await achievements.card(db, A, "Ваши", await skins_chat.card_look(db, A, MAIN))
+    plain = await achievements.card(db, C, "Ваши")
+    assert "❄️ <b>Ваши достижения</b>" in styled and "<b>ОБЩЕНИЕ</b>" in styled and "┊ ╰ ур. " in styled, styled
+    assert plain.startswith("🏆 <b>Ваши достижения</b> · уровней:") and "┊" not in plain, plain
+
+
 async def age(db, user_id: int, seconds: int) -> None:
     await db.execute("UPDATE skin_chat_news SET created_at = NOW() - make_interval(secs => ?) WHERE user_id = ? AND done_at IS NULL", (seconds, user_id))
 
@@ -143,7 +161,7 @@ async def delivery(db) -> None:
     assert await skin_chat_news.tick(bot, pool_db) == 1, bot.sent
     chat_id, text, markup = bot.sent[0]
     assert chat_id == MAIN, bot.sent   # не старый чат, не админ-чат, не вышел, не без бота, не с выключенной косметикой
-    assert "пополняет коллекцию" in text and "Изморозь</b> · новый" in text and "Лепестковый Вихрь</b> · новый" in text and "Изморозь</b> · SSS" in text, text
+    assert "🎨<b>КОЛЛЕКЦИЯ</b>" in text and "пополняет коллекцию" in text and "Изморозь</b> · новый" in text and "Лепестковый Вихрь</b>" in text and "Изморозь</b> · SSS" in text, text
     assert "startapp=looks" in markup.inline_keyboard[0][0].url
     assert await skin_chat_news.tick(bot, pool_db) == 0 and len(bot.sent) == 1   # отправленное не повторяется
     # одна новость — свой текст; две доставки одновременно — одно сообщение
@@ -152,7 +170,7 @@ async def delivery(db) -> None:
     await age(db, D, 120)
     racing = FakeBot()
     await asyncio.gather(skin_chat_news.deliver_user(racing, pool_db, D), skin_chat_news.deliver_user(racing, pool_db, D))
-    assert len(racing.sent) == 1 and "новый образ <b>Инферно</b>" in racing.sent[0][1] and "редкость B" in racing.sent[0][1], racing.sent
+    assert len(racing.sent) == 1 and "┊ ╰ новый образ\n┊ <b>Инферно</b>" in racing.sent[0][1] and "редкость B" in racing.sent[0][1], racing.sent
     # старое не новость; ошибка чата записывается и не повторяется
     await skins_chat.news(db, D, "void", "sss", "SSS")
     await age(db, D, 3 * 24 * 3600)
@@ -168,7 +186,7 @@ async def delivery(db) -> None:
     async with db.execute("SELECT COUNT(*) FROM skin_chat_news WHERE user_id = ? AND done_at IS NULL", (D,)) as cur:
         assert (await cur.fetchone())[0] == 0
     single = skin_chat_news.text(D, f"p{D}", [{"skin_id": "frost", "kind": "sss"}])
-    assert single.startswith("┄┄┄┄ ❄ ┄┄┄┄") and "<b>Изморозь</b> теперь <b>SSS</b>" in single and "Мороз рисует" in single, single
+    assert "👑<b>SSS</b>" in single and "<b>Изморозь</b> теперь <b>SSS</b>" in single and "«Мороз рисует" in single, single
 
 
 async def main() -> None:
@@ -188,6 +206,7 @@ async def main() -> None:
             await seed(db)
             await looks_and_card(db)
             await switch(db)
+            await other_commands(db)
             await purchases(db)
             await delivery(db)
         finally:

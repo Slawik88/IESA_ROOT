@@ -14,8 +14,8 @@ from html import escape
 from loguru import logger
 
 from core.skins_v3_catalog import SKINS
-from core.skins_v3_chat import glyph_of, ornament_line, title_of
-from core.skins_v3_chat_phrases import PHRASES
+from core import skins_v3_chat_layout as layout
+from core.skins_v3_chat import chat_look, glyph_of, title_of
 from infrastructure.repositories import skin_chat_v1 as repo
 
 ACTIVE_DAYS = 30
@@ -29,30 +29,38 @@ USERS_PER_TICK = 20
 def _who(user_id: int, username: str | None) -> str:
     """The same name link as bot.chat.style.profile_link: t.me/<nick> opens the profile and pings nobody."""
     if username:
-        return f'<a href="https://t.me/{escape(username, quote=True)}">@{escape(username)}</a>'
+        shown = escape(layout.cut(f"@{username}", layout.LINE_EM - 4))   # длинный ник не рвётся посередине; ссылка ведёт на полный
+        return f'<a href="https://t.me/{escape(username, quote=True)}">{shown}</a>'
     return f'<a href="tg://user?id={int(user_id)}">id{int(user_id)}</a>'
 
 
+def _look(skin_id: str, kind: str):
+    """Новость всегда в полном оформлении скина: покупка — как тир B, SSS — как SSS."""
+    return chat_look(skin_id, "SSS" if kind == "sss" else "B")
+
+
 def _one(user_id: int, username: str | None, item: dict) -> str:
-    sid = item["skin_id"]
-    skin, mark = SKINS[sid], glyph_of(sid)
-    head = escape(ornament_line(sid))
-    if item["kind"] == "sss":
-        phrase = PHRASES.get(sid)
-        body = f"👑 {mark} {_who(user_id, username)}: <b>{escape(skin['name'])}</b> теперь <b>SSS</b>"
-        return f"{head}\n{body}" + (f"\n<blockquote><i>{escape(phrase)}</i></blockquote>" if phrase else "")
-    return (f"{head}\n{mark} {_who(user_id, username)} — новый образ <b>{escape(skin['name'])}</b>\n"
-            f"<blockquote><i>{escape(title_of(sid))}</i> · редкость {skin['tier']}</blockquote>")
+    sid, kind = item["skin_id"], item["kind"]
+    skin, look = SKINS[sid], _look(sid, kind)
+    who = f"{look.glyph} {_who(user_id, username)}"
+    if kind == "sss":
+        rows = [layout.ROW + who, *layout.wrap(f"<b>{escape(skin['name'])}</b> теперь <b>SSS</b>", layout.SUB)]
+        body = layout.section(look, "👑", "SSS", rows)
+        return body + (f"\n\n«{escape(look.phrase)}» ✨" if look.phrase else "")
+    rows = [layout.ROW + who, layout.SUB + "новый образ", *layout.wrap(f"<b>{escape(skin['name'])}</b>"),
+            *layout.wrap(f"<i>{escape(title_of(sid))}</i> · редкость {skin['tier']}", layout.SUB)]
+    return layout.section(look, "✨", "Образ", rows)
 
 
 def text(user_id: int, username: str | None, items: list[dict]) -> str:
     """One message for all of a player's news in this chat."""
     if len(items) == 1:
         return _one(user_id, username, items[0])
-    rows = [f"{glyph_of(i['skin_id'])} <b>{escape(SKINS[i['skin_id']]['name'])}</b> · {'SSS' if i['kind'] == 'sss' else 'новый'}"
-            for i in items]
-    return (f"{escape(ornament_line(items[-1]['skin_id']))}\n✨ {_who(user_id, username)} пополняет коллекцию образов\n"
-            "<blockquote>" + "\n".join(rows) + "</blockquote>")
+    look = _look(items[-1]["skin_id"], items[-1]["kind"])
+    rows = [layout.ROW + f"✨ {_who(user_id, username)}", layout.SUB + "пополняет коллекцию"]
+    for i in items:
+        rows += layout.wrap(f"{glyph_of(i['skin_id'])} <b>{escape(SKINS[i['skin_id']]['name'])}</b> · {'SSS' if i['kind'] == 'sss' else 'новый'}")
+    return layout.section(look, "🎨", "Коллекция", rows)
 
 
 def markup():

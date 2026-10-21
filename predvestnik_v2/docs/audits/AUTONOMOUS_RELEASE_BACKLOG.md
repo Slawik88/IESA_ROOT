@@ -1,3 +1,13 @@
+## Skins in chat — text frames, all profile commands, SSS motion — 2026-10-21
+
+Owner supplied a reference layout (⊱⟡━𓊈…𓊉━⟡⊰ sections, ┊ rows, ╰ sub-rows) and asked that it never break on small
+screens. core/skins_v3_chat_layout.py measures every framed line with DejaVu Sans metrics (wider than Telegram fonts;
+bold measured bold, emoji 1.25 em) against 15 em (a 320 pt bubble); overflowing cells move to the next ┊ row, long
+parts wrap by words into ╰ rows without splitting links, long nicks are shortened. «бот я/кто/баланс/стрик/достижения»
+and chat news use it. SSS cards become a 2 s MP4 loop (PyAV, libx264; 0.5–1.1 s locally, 3 s budget, photo fallback).
+Proof: test_skins_chat_style checks every framed line for 39 skins × 7 tiers, caption ≤ 1024, plain card byte-identical,
+motion output; PG test covers balance/achievements; streak and graph contract tests unchanged and passing.
+
 ## Skins in group chats — 2026-10-20
 
 Owner asked that a bought skin also decorate the player in Telegram chats, then to release directly without a mockup.
