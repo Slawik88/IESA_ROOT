@@ -41,6 +41,7 @@
 | Коммиты, пуш, ветки, выкатка на прод, проверка после деплоя | `docs/agent/06-git-and-release.md` |
 | Запуск сайта локально, тесты, грабли Windows | `docs/agent/07-local-run-and-tests.md` |
 | Предвестник: патч-ноуты в официальный TG-канал (что писать, формат, картинки) | `predvestnik_v2/docs/PATCH_NOTES.md` |
+| Предвестник: промо-видео для TikTok (бриф, генератор MP4) | `predvestnik_v2/tools/promo_video/BRIEF.md` |
 | Что делали и почему (аудит регистрации, 2026-10) | `IESA_ROOT/docs/audits/2026-10-07-auth-registration/README.md` |
 
 Предвестник: сначала `predvestnik_v2/AGENTS.md`, дальше по его маршрутизации.
