@@ -2,6 +2,18 @@
 """Fast deterministic tests for Minesweeper board and state rules."""
 from core import minesweeper_v2 as rules
 
+# A real safe-halo board can win on its first open. Preserve the win while
+# excluding it from a speed contest: no manual solving time was measured.
+spec = rules.difficulty("easy")
+layout = rules.board((536).to_bytes(32, "big"), spec, 14)
+revealed, _, status, _ = rules.apply_action(spec=spec, layout=layout, revealed=set(), flags=set(), kind="open", cell=14)
+assert status == "won" and len(revealed) == 30
+assert not rules.speed_ranked(status=status, opened_actions=1, elapsed_ms=0)
+assert not rules.speed_ranked(status=status, opened_actions=1, elapsed_ms=1200)
+assert not rules.speed_ranked(status=status, opened_actions=2, elapsed_ms=0)
+assert not rules.speed_ranked(status="active", opened_actions=2, elapsed_ms=250)
+assert rules.speed_ranked(status=status, opened_actions=2, elapsed_ms=250)
+
 
 for spec in rules.DIFFICULTIES.values():
     first = (spec.size * spec.size) // 2

@@ -119,39 +119,32 @@
 5. При дальнейшем росте `admin.js` дробить по тому же рецепту: новый файл → `page.py` `_TYPES` →
    `index.html` → фикстура в `test_bot_admin_page.py` → сканирование хуков в `test_bot_admin_ui_contract.py`.
 
-## PETS-UX-20261021 — complete locally, not deployed
+## PETS-UX / MINES-20261021 — release preparation
 
-User requested a pets mechanics/website UX parity audit, bug/performance fixes,
-the modal background-scroll regression from the supplied video, an explanation
-of talismans and a proposal for five gear slots plus a separate fast mode.
+User explicitly authorized simulations and production release via master. Worktree:
+`C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`, branch codex/pets-ux-audit.
+Pets fixes committed 6ab7f9bc atop e6e75861; latest master fetched 76cb5d29,
+merge/rebase pending. Original F: backup checkout and unrelated tracks untouched.
 
-Correct working copy: `codex/pets-ux-audit`, based on `origin/master` 93422563,
-under `C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`. The original
-`F:/GitsRepos/IESA_ROOT` checkout is the stale backup v1 branch and was not edited.
-Video matches active pets-v2/Tропа. No push or production deployment performed.
+Pets: overlay scroll lock verified at 320/390/430; companion/trial/build rest
+preserved; stale price and busy talisman guards; separate companion receipt;
+read-only inventory effects; schema catalog probe replaces hot-path DDL.
+Mines: seed536/first14 naturally wins first click; classify auto wins as unranked
+without deleting wins/history/progression. Filter seasonal runs BEFORE DISTINCT
+so an ordinary win becomes the player's best. Positive subsecond times show ms.
+Both server actions and offline imports covered by SQL/replay tests.
 
-All 12 active pets-v2 endpoints have UI callers. Fixed shared overlay scroll lock
-(background 162→855 px reproduced before; fixed background and scroll restoration
-verified at 320/390/430), companion build/busy talismans, old-rest energy loss in
-pair claim/weekly trial/build changes, stale reforge/camp confirmations, unnecessary
-DDL on hot reads, missing companion reward receipt and absent inventory talisman
-effect descriptions. Talisman bonuses/minuses are clearly labelled as Следы.
+PASS: 12 focused Python gates + Mines lifecycle/accessibility and Trail recovery/
+recommendations JS. Actual rules/service simulation: 17,280 rest cases, no
+invariant failures; 15 automatic wins / 10,000 deterministic easy boards.
+Full gate e6e75861+patch: 187/222 pass, 35 fail. All 35 failures reproduced using
+clean e6e75861 source exported via git archive and identical local test DB/env;
+not a green full gate. No failures in active pets-v2, inventory, Mines or local
+games suites. Logs output/pets-release/, browser evidence output/playwright/.
 
-Main files: app.01/39/40/41.js, app.css, looks-v3.css, trail-v3.css;
-pets_v2 router/service/repository; inventory_v1 service; focused PG/JS tests.
-Full impact/coverage/fixes/product proposal recorded at the top of
-`docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md` (single work backlog).
-
-PASS: pets v2 PG/rules/advice; inventory v1 PG; trail UI/recovery/recommendations;
-ASGI static delivery; changed-file syntax and diff checks. Independent read-only
-review ACCEPT, including the last inventory projection delta. Local browser
-screenshots and measurement evidence: `output/playwright/pets-20261021/`.
-
-Pre-existing failures reproduced with clean HEAD input files:
-`test_shell_v3_contract.py:98` (retired cosmetic glint),
-`test_inventory_v3_contract.py:41` (retired eight-button dock).
-Do not claim a fully green release gate. No paid/loot balance changes or new mode.
-
-Next release step: review this branch, deploy through the normal release process,
-then smoke the background scroll gesture in real iOS/Android Telegram WebViews;
-local Chromium wheel/keyboard checks do not replace those devices.
+Five gear slots/new mode remain a design proposal, not shipped. Simulation
+shows blindly copying talisman multipliers from 2 to 5 slots is unsuitable;
+prices, rewards, drops, XP caps and paid mechanics unchanged by this release.
+Next: integrate latest master, independent final review, repeat relevant gates,
+push master and verify actual deployed bundles plus health/readiness/auth.
+Real Telegram iOS/Android gesture smoke remains outside available hardware.

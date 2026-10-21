@@ -29,6 +29,11 @@ class MinesweeperRuleError(ValueError):
     pass
 
 
+def speed_ranked(*, status: str, opened_actions: int, elapsed_ms: int | None) -> bool:
+    """A safe first-click flood is a win, but measures no solving time."""
+    return status == "won" and opened_actions >= 2 and elapsed_ms is not None and elapsed_ms > 0
+
+
 def difficulty(value: str) -> Difficulty:
     try:
         return DIFFICULTIES[value]

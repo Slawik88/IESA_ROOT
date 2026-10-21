@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from core import minesweeper_v2 as rules
 from infrastructure.repositories import public_profiles_v1 as public_profiles
 
 
@@ -94,6 +95,8 @@ async def update_run(db, *, run_id: str, first_cell: int | None, revealed: set[i
 
 async def upsert_leaderboard(db, *, run_id: str, user_id: int, difficulty: str,
                              ruleset_version: str, elapsed_ms: int, opened_actions: int) -> None:
+    if not rules.speed_ranked(status="won", opened_actions=opened_actions, elapsed_ms=elapsed_ms):
+        return
     await public_profiles.ensure_reference(db, user_id=int(user_id))
     await db.execute(
         "INSERT INTO minesweeper_v2_leaderboard(user_id,difficulty,ruleset_version,best_elapsed_ms,best_opened_actions,best_run_id) VALUES (?,?,?,?,?,?) "
@@ -105,7 +108,7 @@ async def upsert_leaderboard(db, *, run_id: str, user_id: int, difficulty: str,
 
 _SEASON_BEST = (
     "WITH best AS (SELECT DISTINCT ON (user_id) user_id,elapsed_ms AS best_elapsed_ms,opened_actions AS best_opened_actions,finished_at "
-    "FROM minesweeper_v2_runs WHERE difficulty=? AND status='won' AND elapsed_ms IS NOT NULL "
+    "FROM minesweeper_v2_runs WHERE difficulty=? AND status='won' AND elapsed_ms>0 AND opened_actions>=2 "
     "AND finished_at>=(?::timestamp AT TIME ZONE 'UTC') AND finished_at<(?::timestamp AT TIME ZONE 'UTC') "
     "ORDER BY user_id,elapsed_ms ASC,opened_actions ASC,finished_at ASC,run_id ASC), "
     "ranked AS (SELECT user_id,best_elapsed_ms,best_opened_actions,"

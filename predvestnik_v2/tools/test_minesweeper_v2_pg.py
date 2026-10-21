@@ -37,6 +37,8 @@ async def run(dsn: str) -> None:
     transaction = connection.transaction(); await transaction.start()
     try:
         first = await game.start_run(db, user_id=976001, difficulty="easy")
+        # Stable ordinary board: random first-open auto-wins are tested below.
+        await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", (bytes(range(32)), first["run_id"]))
         assert first["status"] == "awaiting_first_open" and first["size"] == 6
         try:
             await game.act(db, user_id=976001, run_id=first["run_id"], action_id="first-flag", expected_revision=0, kind="toggle_flag", cell=0)
@@ -83,6 +85,7 @@ async def run(dsn: str) -> None:
             raise AssertionError("terminal loss must be immutable")
 
         winner = await game.start_run(db, user_id=976001, difficulty="easy")
+        await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", (bytes(range(32)), winner["run_id"]))
         state = await game.act(db, user_id=976001, run_id=winner["run_id"], action_id="start-win", expected_revision=0, kind="open", cell=14)
         layout = await layout_for(db, winner["run_id"])
         counter = 0
@@ -99,6 +102,25 @@ async def run(dsn: str) -> None:
         ranking = await game.rankings(db, user_id=976001, difficulty="easy")
         assert ranking["personal"] and ranking["personal"]["best_elapsed_ms"] == state["elapsed_ms"]
         assert ranking["top"] and all({"look", "mark", "is_vip"} <= set(row["player"]) and "user_id" not in row["player"] for row in ranking["top"]) and all("is_me" in row for row in ranking["top"]), "game boards carry the same skin and own-row fields as the message tops"
+
+        # Automatic wins remain valid and idempotent, but cannot displace a
+        # player's real best time. Filter before DISTINCT ON, including history.
+        for user in (976001, 976002):
+            auto = await game.start_run(db, user_id=user, difficulty="easy")
+            await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", ((536).to_bytes(32, "big"), auto["run_id"]))
+            args = dict(user_id=user, run_id=auto["run_id"], action_id="auto", expected_revision=0, kind="open", cell=14)
+            result = await game.act(db, **args)
+            assert result["status"] == "won" and result["elapsed_ms"] == 0 and not result["speed_ranked"]
+            assert not (await game.current_run(db, user_id=user, run_id=auto["run_id"]))["speed_ranked"]
+            assert (await game.act(db, **args))["idempotent_replay"]
+            async with db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE user_id=? AND metric='minesweeper_win' AND event_id=?", (user, f"minesweeper:{auto['run_id']}")) as cursor:
+                assert (await cursor.fetchone())[0] == 1
+        ranking = await game.rankings(db, user_id=976001, difficulty="easy")
+        assert ranking["personal"]["best_elapsed_ms"] == state["elapsed_ms"]
+        assert (await game.rankings(db, user_id=976002, difficulty="easy"))["personal"] is None
+        # Subsecond multi-open wins are legitimate; do not round or clamp them.
+        await db.execute("UPDATE minesweeper_v2_runs SET elapsed_ms=250,opened_actions=2 WHERE run_id=?", (auto["run_id"],))
+        assert (await game.rankings(db, user_id=976002, difficulty="easy"))["personal"]["best_elapsed_ms"] == 250
 
         hard = await game.start_run(db, user_id=976003, difficulty="hard")
         hard_state = await game.act(db, user_id=976003, run_id=hard["run_id"], action_id="hard-start", expected_revision=0, kind="open", cell=40)

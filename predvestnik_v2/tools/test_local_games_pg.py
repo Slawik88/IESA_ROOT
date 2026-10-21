@@ -109,7 +109,16 @@ async def run(dsn):
             assert await local.finalize(db,game='minesweeper',user_id=uid,run_id=run_id,actions=actions)==result
             await rejected(local.finalize(db,game='minesweeper',user_id=uid,run_id=run_id,actions=actions+[actions[-1]]),mine.MinesweeperConflict)
             assert await c.fetchval('SELECT COUNT(*) FROM achievement_v1_metric_receipts WHERE user_id=$1 AND source_event_id=$2',uid,run_id)==1
-        print('OK: real PostgreSQL local packets, two gift chunks, abandoned WS, no reconnect damage, lost response, immutable result, replacement/outbox, foreign user, Mines loss+win, one achievement receipt')
+        # An ordinary offline first-open flood is valid, unranked, and replayable.
+        auto_id=str(uuid4())
+        auto_actions=[dict(kind='open',cell=14,elapsed_ms=0)]
+        auto_origin={'seed':(536).to_bytes(32,'big').hex(),'ruleset_version':m.RULESET_VERSION,'difficulty':'easy'}
+        auto=await local.finalize(db,game='minesweeper',user_id=uid,run_id=auto_id,actions=auto_actions,origin=auto_origin)
+        assert auto['status']=='won' and auto['opened_actions']==1 and not auto['speed_ranked']
+        assert await local.finalize(db,game='minesweeper',user_id=uid,run_id=auto_id,actions=auto_actions,origin=auto_origin)==auto
+        assert await c.fetchval("SELECT COUNT(*) FROM minesweeper_v2_runs WHERE run_id=$1 AND status='won'",auto_id)==1
+        assert await c.fetchval('SELECT COUNT(*) FROM minesweeper_v2_leaderboard WHERE best_run_id=$1',auto_id)==0
+        print('OK: real PostgreSQL local packets, replay, ownership, Mines loss+win, automatic win unranked and preserved')
     finally:
         await tx.rollback();await c.close()
 

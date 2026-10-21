@@ -87,6 +87,7 @@ def _public(row: dict, *, revealed: set[int] | None = None, flags: set[int] | No
         "revealed": sorted(revealed), "flags": sorted(flags), "changed": cells,
         "mines": sorted(mines), "opened_actions": int(row["opened_actions"]), "flags_left": spec.mines - len(flags),
         "elapsed_ms": elapsed_ms,
+        "speed_ranked": rules.speed_ranked(status=row["status"], opened_actions=int(row["opened_actions"]), elapsed_ms=elapsed_ms),
     }
 
 

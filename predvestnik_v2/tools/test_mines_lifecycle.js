@@ -27,5 +27,14 @@ const text=e=>e.textContent+' '+e.children.map(text).join(' ');
     if(rejectOld)reject(Error('old failure'));else resolveOld({top:[{place:1,player:{display_name:'OLD'},best_elapsed_ms:9}]});
     await pending;await h.tick();assert.match(text(h.get('leaderboard-list')),/HARD/);
   }
-  console.log('OK: Mines first-open, blocked storage, hold/right-click dedupe, keyboard flags, malformed state and leaderboard race');
+  const ranking=boot();await ranking.tick();
+  ranking.net.leader=async()=>({top:[{place:1,player:{display_name:'FAST'},best_elapsed_ms:250}],personal:{place:1,best_elapsed_ms:250}});
+  await ranking.m.refreshLeaderboard();
+  assert.match(text(ranking.get('leaderboard-list')),/0:00\.250/);
+  assert.match(text(ranking.get('leaderboard-personal')),/0:00\.250/);
+  const auto={...ranking.m.engine().state,status:'won',opened_actions:1,elapsed_ms:0};
+  ranking.m.sync(auto);ranking.m.render();
+  assert.match(text(ranking.get('mine-hint')),/Поле открылось первым ходом/);
+  assert.match(text(ranking.get('mine-hint')),/В рейтинг времени/);
+  console.log('OK: Mines lifecycle, leaderboard race, subsecond records and automatic-win explanation');
 })().catch(e=>{console.error(e);process.exitCode=1;});
