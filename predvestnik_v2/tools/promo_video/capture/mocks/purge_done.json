@@ -1,0 +1,8 @@
+{"/purge-v1/chats/-1004": {"active": true, "session": {"id": 7, "norm": 50, "date_from": "2026-10-14", "date_to": "2026-10-20"},
+  "counts": {"decided": 7, "total": 34}, "has_more": true,
+  "items": [
+   {"user_id": 501, "username": "ghost_228", "msg_count": 3, "required_norm": 50, "days_in_chat": 214, "warns": 1, "verdict": "kick", "decision_state": "done"},
+   {"user_id": 502, "username": "molchun_vasya", "msg_count": 0, "required_norm": 50, "days_in_chat": 90, "warns": 0, "verdict": null, "decision_state": "idle"},
+   {"user_id": 503, "username": "nastya_new", "msg_count": 12, "required_norm": 21, "days_in_chat": 3, "warns": 0, "verdict": null, "decision_state": "idle"},
+   {"user_id": 504, "username": "sleepy_bear", "msg_count": 7, "required_norm": 50, "days_in_chat": 400, "warns": 2, "verdict": null, "decision_state": "idle"}]},
+ "/purge-v1/chats": {"items": [{"id": -1004, "title": "ФЛУД 18:00 ☕"}, {"id": -1001, "title": "Флудилка 🌚"}]}}

@@ -24,51 +24,62 @@ const opt = (name, def) => { const i = args.indexOf(name); if (i < 0) return def
 const OUT = path.resolve(opt("--out", path.join(HERE, "out")));
 const WORKERS = Number(opt("--workers", Math.max(2, Math.min(6, require("os").cpus().length))));
 const STILLS = opt("--stills", null);
+const AUDIO_ONLY = args.includes("--audio-only") && args.splice(args.indexOf("--audio-only"), 1);
 const CRF = opt("--crf", "16");
 const files = args.length ? args.map(a => path.resolve(a))
   : fs.readdirSync(path.join(HERE, "scenarios")).filter(f => f.endsWith(".json")).sort().map(f => path.join(HERE, "scenarios", f));
 
 // ---------- звуки интерфейса (синтез, без чужих сэмплов) ----------
+// Звук — фон под музыку TikTok: мягкие низкие тона, плавная атака (без щелчка в начале), без резких верхов.
+// Итог нормируется: пик не выше −10 dBFS, средняя громкость около −28 dB.
 const RATE = 44100;
-function synth(kind, r) {
+const PEAK = Math.pow(10, -10 / 20);
+function synth(kind) {
   const n = s => Math.floor(s * RATE);
   const out = (dur, fn) => { const a = new Float32Array(n(dur)); for (let i = 0; i < a.length; i++) a[i] = fn(i / RATE); return a; };
+  const env = (t, atk, dec) => Math.min(1, t / atk) * Math.exp(-t * dec);   // плавная атака, затухание
   const sweep = (f0, f1, len) => { let ph = 0; return t => { const f = f0 + (f1 - f0) * Math.min(1, t / len); ph += 2 * Math.PI * f / RATE; return Math.sin(ph); }; };
+  const sine = f => t => Math.sin(2 * Math.PI * f * t);
   switch (kind) {
-    case "pop": { const s = sweep(1500, 520, .06); return out(.13, t => .38 * s(t) * Math.exp(-t * 38)); }
-    case "send": { const s = sweep(480, 1500, .08); return out(.14, t => .26 * s(t) * Math.exp(-t * 26)); }
-    case "ding": return out(.75, t => .2 * (Math.sin(2 * Math.PI * 1318.5 * t) * Math.exp(-t * 6) + .6 * Math.sin(2 * Math.PI * 1975.5 * t) * Math.exp(-t * 9)) * Math.min(1, t * 400));
-    case "tick": return out(.05, t => .16 * Math.sin(2 * Math.PI * 2600 * t) * Math.exp(-t * 90));
-    case "key": return out(.03, t => .1 * (r() * 2 - 1) * Math.exp(-t * 200));
-    case "click": return out(.06, t => .22 * (Math.sin(2 * Math.PI * 1800 * t) + .5 * Math.sin(2 * Math.PI * 700 * t)) * Math.exp(-t * 110));
-    case "whoosh": { let lp = 0; return out(.38, t => { const c = .04 + .5 * Math.sin(Math.PI * t / .38); lp += c * ((r() * 2 - 1) - lp); return .55 * lp * Math.sin(Math.PI * t / .38); }); }
-    case "boom": { const s = sweep(120, 42, .25); return out(.9, t => .85 * s(t) * Math.exp(-t * 4.5) + .25 * (r() * 2 - 1) * Math.exp(-t * 60)); }
-    case "hit": { const s = sweep(160, 60, .15); return out(.4, t => .6 * s(t) * Math.exp(-t * 9) + .18 * (r() * 2 - 1) * Math.exp(-t * 80)); }
+    case "pop": { const s = sweep(760, 420, .05); return out(.16, t => .5 * s(t) * env(t, .004, 30)); }
+    case "send": { const s = sweep(380, 720, .07); return out(.18, t => .4 * s(t) * env(t, .006, 24)); }
+    case "ding": { const a = sine(784), b = sine(1175); return out(.7, t => .32 * (a(t) * env(t, .006, 7) + .35 * b(t) * env(t, .006, 11))); }
+    case "tick": { const a = sine(1050); return out(.06, t => .16 * a(t) * env(t, .003, 70)); }
+    case "click": { const a = sine(640); return out(.08, t => .3 * a(t) * env(t, .003, 60)); }
+    case "whoosh": {
+      let lp = 0, seed = 7; const r = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      return out(.42, t => { const c = .02 + .1 * Math.sin(Math.PI * t / .42); lp += c * ((r() * 2 - 1) - lp); return 1.3 * lp * Math.sin(Math.PI * t / .42) ** 2; });
+    }
+    case "boom": { const s = sweep(95, 45, .3); return out(.9, t => .9 * s(t) * env(t, .01, 4.5)); }
+    case "hit": { const s = sweep(120, 60, .2); return out(.45, t => .65 * s(t) * env(t, .008, 9)); }
     case "sparkle": {
-      const notes = [2093, 2637, 3136, 3951, 3520];
-      return out(.8, t => notes.reduce((acc, f, i) => { const lt = t - i * .07; return lt < 0 ? acc : acc + .07 * Math.sin(2 * Math.PI * f * lt) * Math.exp(-lt * 9); }, 0));
+      const notes = [1047, 1319, 1568, 2093];
+      return out(.9, t => notes.reduce((acc, f, i) => { const lt = t - i * .08; return lt < 0 ? acc : acc + .12 * Math.sin(2 * Math.PI * f * lt) * env(lt, .005, 8); }, 0));
     }
     default: return new Float32Array(0);
   }
 }
 
 function writeWav(file, cues, duration) {
-  let seed = 12345; const r = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
   const len = Math.ceil(duration * RATE) + RATE;
   const mix = new Float32Array(len);
   const bank = {};
   for (const c of cues) {
-    const snd = bank[c.s] || (bank[c.s] = synth(c.s, r));
+    const snd = bank[c.s] || (bank[c.s] = synth(c.s));
     const off = Math.floor(c.t * RATE), v = c.v ?? 1;
     for (let i = 0; i < snd.length && off + i < len; i++) mix[off + i] += snd[i] * v;
   }
+  // мягкий срез верхов (~5 кГц) и нормировка пика
+  let lp = 0, peak = 1e-9; const k = 1 - Math.exp(-2 * Math.PI * 5000 / RATE);
+  for (let i = 0; i < len; i++) { lp += k * (mix[i] - lp); mix[i] = Math.tanh(lp); peak = Math.max(peak, Math.abs(mix[i])); }
+  const gain = Math.min(1, PEAK / peak);
   const n = Math.ceil(duration * RATE);
   const buf = Buffer.alloc(44 + n * 4);
   buf.write("RIFF", 0); buf.writeUInt32LE(36 + n * 4, 4); buf.write("WAVE", 8); buf.write("fmt ", 12);
   buf.writeUInt32LE(16, 16); buf.writeUInt16LE(1, 20); buf.writeUInt16LE(2, 22); buf.writeUInt32LE(RATE, 24);
   buf.writeUInt32LE(RATE * 4, 28); buf.writeUInt16LE(4, 32); buf.writeUInt16LE(16, 34); buf.write("data", 36); buf.writeUInt32LE(n * 4, 40);
   for (let i = 0; i < n; i++) {
-    const s = Math.round(Math.tanh(mix[i] * 1.1) * 30000);
+    const s = Math.round(mix[i] * gain * 32767);
     buf.writeInt16LE(s, 44 + i * 4); buf.writeInt16LE(s, 46 + i * 4);
   }
   fs.writeFileSync(file, buf);
@@ -90,6 +101,8 @@ async function shot(page, t) {
 
 async function renderOne(browser, file) {
   const scenario = JSON.parse(fs.readFileSync(file, "utf8"));
+  // настоящие тексты бота (capture/real_texts.py): путь от файла сценария
+  if (scenario.texts) scenario.textsData = JSON.parse(fs.readFileSync(path.resolve(path.dirname(file), scenario.texts), "utf8"));
   const name = path.basename(file, ".json");
   const base = "file://" + path.dirname(file) + "/";
   fs.mkdirSync(OUT, { recursive: true });
@@ -102,6 +115,19 @@ async function renderOne(browser, file) {
       fs.writeFileSync(f, png); console.log("  кадр:", f);
     }
     await page.close();
+    return;
+  }
+
+  if (AUDIO_ONLY) {   // только звук: новая дорожка в уже готовый out/<имя>.mp4, картинка не пересчитывается
+    const { page, info } = await openPage(browser, scenario, base);
+    await page.close();
+    const mp4 = path.join(OUT, `${name}.mp4`), wav = path.join(OUT, `${name}.wav`), tmp = path.join(OUT, `${name}.tmp.mp4`);
+    if (!fs.existsSync(mp4)) { console.log(`  нет ${mp4}, пропуск`); return; }
+    writeWav(wav, info.cues, info.duration);
+    await new Promise((res, rej) => spawn("ffmpeg", ["-y", "-loglevel", "error", "-i", mp4, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+      "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", tmp], { stdio: "inherit" }).on("close", c => (c ? rej(new Error("ffmpeg " + c)) : res())));
+    fs.renameSync(tmp, mp4); fs.unlinkSync(wav);
+    console.log(`  звук обновлён: ${mp4}`);
     return;
   }
 

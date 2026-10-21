@@ -27,7 +27,7 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .scene { position: absolute; inset: 0; transform-origin: 50% 45%; }
 
 /* Подпись сверху */
-.cap { position: absolute; left: 50px; right: 50px; top: 230px; text-align: center;
+.cap { position: absolute; z-index: 10; left: 50px; right: 50px; top: 230px; text-align: center;
   font-weight: 900; font-size: 80px; line-height: 1.14; letter-spacing: -1.5px;
   text-shadow: 0 6px 0 rgba(0,0,0,.35), 0 0 46px rgba(0,0,0,.65); transform-origin: 50% 60%; }
 .acc { background: var(--grad); padding: 0 .16em; border-radius: .2em; -webkit-box-decoration-break: clone;
@@ -193,3 +193,45 @@ html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; backgro
 .cta-sub { position: absolute; left: 0; right: 0; top: 1370px; text-align: center; font-size: 40px; font-weight: 700; color: #d9cff2; }
 
 .shot { position: absolute; inset: 0; background-size: cover; background-position: 50% 0; }
+
+/* Фото в сообщении (карточка «бот я»), ссылки */
+.bubble .photo { display: block; width: 720px; border-radius: 22px; margin: 4px 0 10px; }
+.bubble a { color: #c9a6ff; text-decoration: none; }
+
+/* Глава */
+.chap { position: absolute; left: 70px; right: 70px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center;
+  padding-bottom: 240px; }
+.chap-num { width: 150px; height: 150px; border-radius: 44px; background: var(--grad); display: flex; align-items: center; justify-content: center;
+  font-size: 88px; font-weight: 900; box-shadow: 0 20px 70px rgba(255,95,168,.45); margin-bottom: 34px; }
+.chap-emoji { font-size: 150px; line-height: 1.1; margin-bottom: 20px; }
+.chap-title { font-size: 112px; font-weight: 900; line-height: 1.04; letter-spacing: -3px; text-shadow: 0 10px 0 rgba(0,0,0,.3), 0 0 60px rgba(0,0,0,.6); }
+.chap-sub { margin-top: 30px; font-size: 52px; font-weight: 700; color: #e6defa; line-height: 1.25; }
+
+/* Сравнение */
+.cmp { position: absolute; left: 50px; right: 50px; border-radius: 40px; padding: 30px 36px; }
+.cmp.bad { top: 470px; background: rgba(40,34,52,.92); border: 2px solid rgba(255,255,255,.08); }
+.cmp.good { top: 1020px; background: linear-gradient(160deg, rgba(123,63,228,.55), rgba(255,95,168,.35)); border: 3px solid rgba(255,255,255,.18); }
+.cmp-h { font-size: 50px; font-weight: 900; margin-bottom: 14px; }
+.cmp-row { display: flex; gap: 20px; align-items: flex-start; font-size: 42px; font-weight: 700; line-height: 1.25; padding: 9px 0; }
+.cmp-m { flex: none; width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 34px; font-weight: 900; }
+.cmp.bad .cmp-m { background: rgba(255,77,109,.2); color: #ff6b88; }
+.cmp.good .cmp-m { background: rgba(255,255,255,.22); color: #fff; }
+
+/* Список участников */
+.mlist { position: absolute; left: 0; right: 0; top: 0; }
+.mrow { display: flex; gap: 22px; align-items: center; padding: 14px 30px; border-bottom: 1px solid rgba(255,255,255,.05); }
+.mname { font-size: 36px; font-weight: 700; }
+.mstat { font-size: 28px; color: var(--muted); margin-top: 2px; }
+.mhud { position: absolute; left: 50%; top: 1600px; transform: translateX(-50%); display: flex; gap: 20px; white-space: nowrap; }
+.mhud > div { padding: 14px 28px; border-radius: 30px; background: rgba(255,77,109,.9); font-size: 40px; font-weight: 800; }
+.mhud-t { background: rgba(20,14,30,.92) !important; border: 2px solid rgba(255,255,255,.15); font-family: var(--mono); }
+
+/* Телефон с настоящими экранами */
+.phone2 { position: absolute; left: 80px; top: 440px; width: 920px; height: 1470px; border-radius: 86px; background: #050308; padding: 16px;
+  box-shadow: 0 40px 120px rgba(0,0,0,.75), 0 0 0 3px rgba(255,255,255,.12), 0 0 110px rgba(168,85,255,.35); transform-origin: 50% 40%; }
+.screen2 { position: relative; width: 888px; height: 1438px; border-radius: 70px; overflow: hidden; background: #000; }
+.shot2 { position: absolute; left: 0; top: 0; width: 888px; }
+.notch { position: absolute; left: 50%; top: 30px; width: 190px; height: 50px; margin-left: -95px; border-radius: 26px; background: #000; z-index: 5; }
+.ring { position: absolute; z-index: 4; border-radius: 26px; border: 6px solid #ff5fa8; box-shadow: 0 0 0 9999px rgba(0,0,0,.38), 0 0 40px rgba(255,95,168,.9);
+  pointer-events: none; transform-origin: 50% 50%; }
+.tapfx { position: absolute; z-index: 4; width: 60px; height: 60px; border-radius: 50%; background: rgba(255,255,255,.55); pointer-events: none; }

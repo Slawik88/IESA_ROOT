@@ -1,0 +1,93 @@
+{
+  "title": "Чистка вручную = 3 часа",
+  "idea": "Боль админа: ручная чистка и зубрёжка команд. Решение по шагам: чистка одной командой → досье с кнопками → то же на сайте → модерация фразой → санкции списком.",
+  "fps": 30,
+  "texts": "../assets/texts.json",
+  "palette": ["#ff3d77", "#7b3fe4", "#3a4cff"],
+  "people": {
+    "Кира": { "emoji": "🌸", "color": "#ffd36b", "tag": "админ" },
+    "Тёма": { "emoji": "🐸", "color": "#6ee7b0" },
+    "Соня": { "emoji": "🐱", "color": "#d6a6ff" },
+    "krypta_tut": { "emoji": "💸", "color": "#ff9d7a" },
+    "ghost_228": { "emoji": "👻", "color": "#a99fc4" }
+  },
+  "scenes": [
+    {
+      "type": "hook", "dur": 2.4, "emoji": "😵‍💫",
+      "lines": [{ "text": "Чистка чата", "at": 0, "size": 130 }, { "text": "вручную?", "at": 0.35, "accent": true }],
+      "sub": { "text": "это *3 часа* твоей жизни", "at": 1.0 }
+    },
+    {
+      "type": "members", "dur": 3.8, "total": "2 431",
+      "caption": [{ "at": 0, "text": "листать *каждого* участника…" }, { "at": 1.9, "text": "кто писал? кто *молчит*? 🤯" }]
+    },
+    {
+      "type": "chapter", "dur": 1.6, "num": "1", "title": "Чистка —\n*одна команда*", "sub": "бот сам считает, кто молчит"
+    },
+    {
+      "type": "chat", "dur": 6.5, "title": "ФЛУД 18:00 ☕", "members": "2 431 участник",
+      "caption": [{ "at": 0, "text": "пишешь *одну* команду" }, { "at": 2.6, "text": "бот закрывает чат\nи *всё считает сам*" }],
+      "messages": [
+        { "at": -1, "from": "Тёма", "text": "го в мафию вечером" },
+        { "at": 1.3, "me": true, "text": "бот чистка, 50", "typed": 0.9 },
+        { "at": 2.1, "from": "bot", "real": "purge_start" }
+      ],
+      "camera": [{ "at": 0, "scale": 1 }, { "at": 2.8, "scale": 1.1, "y": -40, "dur": 0.5 }]
+    },
+    {
+      "type": "chat", "dur": 7, "title": "ФЛУД 18:00 ☕", "members": "2 431 участник", "carry": false,
+      "caption": [{ "at": 0, "text": "на каждого — *досье*" }, { "at": 2.3, "text": "решение — *одной кнопкой*" }, { "at": 4.4, "text": "новичкам — *честная* норма 👌" }],
+      "messages": [
+        { "at": 0.3, "from": "bot", "real": "dossier_0", "press": { "at": 2.4, "row": 0, "col": 1 },
+          "edit": { "at": 2.7, "real": "dossier_0_kick", "buttons": [] } },
+        { "at": 4.2, "from": "bot", "real": "dossier_1" }
+      ],
+      "camera": [{ "at": 0, "scale": 1.04 }, { "at": 4.3, "scale": 1.1, "y": -30, "dur": 0.5 }]
+    },
+    {
+      "type": "chapter", "dur": 1.5, "num": "2", "title": "Или *на сайте*", "sub": "все досье — одним списком"
+    },
+    {
+      "type": "screens", "dur": 7.4,
+      "caption": [{ "at": 0, "text": "чистка в *приложении* 📱" }, { "at": 2.2, "text": "Оставить · Варн · Мут · *Кик*" }, { "at": 5.2, "text": "готово ✅ без команд" }],
+      "shots": [
+        { "src": "../assets/screens/purge_start.jpg", "dur": 2.2, "scroll": [0, 300], "ring": { "at": 0.5, "x": 20, "y": 1370, "w": 1040, "h": 140 } },
+        { "src": "../assets/screens/purge.jpg", "dur": 3.0, "scroll": [0, 330], "ring": { "at": 0.5, "x": 12, "y": 1270, "w": 1056, "h": 630 }, "tap": { "at": 2.3, "x": 200, "y": 1800 } },
+        { "src": "../assets/screens/purge_done.jpg", "dur": 2.2, "scroll": [330, 330], "fade": true, "ring": { "at": 0.3, "x": 20, "y": 1600, "w": 1040, "h": 120 } }
+      ]
+    },
+    {
+      "type": "chapter", "dur": 1.5, "num": "3", "title": "Модерация\n*без зубрёжки*", "sub": "одна фраза — и готово"
+    },
+    {
+      "type": "chat", "dur": 7, "title": "ФЛУД 18:00 ☕", "members": "2 431 участник",
+      "caption": [{ "at": 0, "text": "мут — *одной фразой*" }, { "at": 3.3, "text": "лимит варнов? бот *сам зовёт* админов 🚨" }],
+      "messages": [
+        { "at": 0.2, "from": "krypta_tut", "text": "💸 КРИПТА х100 ЗАХОДИ ПО ССЫЛКЕ 💸" },
+        { "at": 1.5, "me": true, "text": "бот мут, @krypta_tut 2ч спам", "typed": 1.0 },
+        { "at": 2.1, "from": "bot", "real": "mute", "react": { "at": 2.5, "items": [["👏", 31]] } },
+        { "at": 3.6, "from": "bot", "real": "warn_limit", "press": { "at": 5.4, "row": 1, "col": 0 },
+          "edit": { "at": 5.7, "real": "warn_limit_kick", "buttons": [] } }
+      ],
+      "camera": [{ "at": 0, "scale": 1 }, { "at": 3.8, "scale": 1.08, "y": -20, "dur": 0.5 }]
+    },
+    {
+      "type": "screens", "dur": 5.6,
+      "caption": [{ "at": 0, "text": "все санкции — *списком*" }, { "at": 3.2, "text": "снять — *одной кнопкой*" }],
+      "shots": [
+        { "src": "../assets/screens/admin_owner.jpg", "dur": 5.6, "scroll": [0, 1460], "scrollAt": 0.6, "scrollDur": 2.2,
+          "ring": { "at": 3.0, "x": 16, "y": 2040, "w": 1048, "h": 300 }, "tap": { "at": 4.4, "x": 912, "y": 2136 } }
+      ]
+    },
+    {
+      "type": "compare", "dur": 5,
+      "caption": "итог 👇",
+      "before": { "title": "Без бота", "items": ["листать *каждого* участника", "учить десятки команд", "следить за спамом 24/7"] },
+      "after": { "title": "С Предвестником", "items": ["чистка — *1 команда*", "решения — *кнопками*", "бот *сам* зовёт админов"] }
+    },
+    {
+      "type": "cta", "dur": 3.4, "caption": "админ, *выдыхай* 😮‍💨",
+      "handle": "@IIIPredvestnikIIIBot", "button": "➕ Добавить в чат", "sub": "бесплатно · дай боту права админа"
+    }
+  ]
+}

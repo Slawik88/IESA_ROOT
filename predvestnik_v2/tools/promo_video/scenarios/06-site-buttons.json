@@ -1,0 +1,85 @@
+{
+  "title": "Не учи команды — жми кнопки",
+  "idea": "Боль: в ботах всё командами, их надо учить. Решение: одна команда «бот сайт» → приложение в Telegram, где всё кнопками; со скином меняется весь вид. По порядку: игроку → соревнование → админу.",
+  "fps": 30,
+  "texts": "../assets/texts.json",
+  "palette": ["#a855ff", "#ff5fa8", "#ffb84d"],
+  "people": {
+    "Лиза": { "emoji": "🦊", "color": "#ff9fcf" },
+    "Тёма": { "emoji": "🐸", "color": "#6ee7b0" }
+  },
+  "scenes": [
+    {
+      "type": "hook", "dur": 2.4, "emoji": "🤯",
+      "lines": [{ "text": "Не хочешь", "at": 0 }, { "text": "учить команды?", "at": 0.35, "accent": true, "size": 120 }],
+      "sub": { "text": "и не надо 😌", "at": 1.0 }
+    },
+    {
+      "type": "compare", "dur": 4.8, "interval": 0.4,
+      "caption": "в чём разница 👇",
+      "before": { "title": "Обычный бот", "items": ["/команда_1 … /команда_50", "шпаргалки в закрепе", "«а как это сделать?» 🙃"] },
+      "after": { "title": "Предвестник", "items": ["всё — *кнопками* в приложении", "открывается *прямо в Telegram*", "твой *скин* — на каждом экране"] }
+    },
+    {
+      "type": "chat", "dur": 4.4, "title": "Флудилка 🌚", "members": "1 284 участника",
+      "caption": [{ "at": 0, "text": "запомни *одну* команду" }, { "at": 2.4, "text": "дальше — *только кнопки* 👆" }],
+      "messages": [
+        { "at": -1, "from": "Тёма", "text": "а как посмотреть питомцев?" },
+        { "at": 1.0, "me": true, "text": "бот сайт", "typed": 0.7 },
+        { "at": 1.6, "from": "bot", "real": "site", "press": { "at": 3.4, "row": 0, "col": 0 } }
+      ],
+      "camera": [{ "at": 0, "scale": 1 }, { "at": 1.9, "scale": 1.1, "y": 60, "dur": 0.5 }]
+    },
+    {
+      "type": "chapter", "dur": 1.4, "emoji": "✨", "title": "Для игрока", "sub": "всё о тебе — в одном месте"
+    },
+    {
+      "type": "screens", "dur": 17.6,
+      "caption": [
+        { "at": 0, "text": "твой *профиль* в скине ✨" },
+        { "at": 3.4, "text": "скин меняет *весь вид* 🎨" },
+        { "at": 7.3, "text": "образы: S · SS · *SSS*" },
+        { "at": 9.9, "text": "*задания* на день и неделю" },
+        { "at": 12.5, "text": "*питомцы* ходят в походы 🐾" },
+        { "at": 15.1, "text": "*пропуск* сезона — бесплатно" }
+      ],
+      "shots": [
+        { "src": "../assets/screens/profile.jpg", "dur": 3.4, "scroll": [0, 1300], "scrollAt": 1.0, "scrollDur": 2.0 },
+        { "src": "../assets/screens/profile_scarlet.jpg", "dur": 1.3, "fade": true },
+        { "src": "../assets/screens/profile_comet.jpg", "dur": 1.3, "fade": true },
+        { "src": "../assets/screens/profile_sakura.jpg", "dur": 1.3, "fade": true },
+        { "src": "../assets/screens/looks.jpg", "dur": 2.6, "ring": { "at": 0.6, "x": 270, "y": 1270, "w": 540, "h": 100 } },
+        { "src": "../assets/screens/quests.jpg", "dur": 2.6, "ring": { "at": 0.6, "x": 16, "y": 560, "w": 1048, "h": 640 } },
+        { "src": "../assets/screens/pets.jpg", "dur": 2.6, "ring": { "at": 0.5, "x": 16, "y": 990, "w": 1048, "h": 230 }, "tap": { "at": 1.7, "x": 841, "y": 1103 } },
+        { "src": "../assets/screens/pass.jpg", "dur": 2.5, "ring": { "at": 0.4, "x": 16, "y": 740, "w": 1048, "h": 200 }, "tap": { "at": 1.6, "x": 540, "y": 1149 } }
+      ]
+    },
+    {
+      "type": "chapter", "dur": 1.4, "emoji": "🏆", "title": "Соревнуйся", "sub": "с игроками и с другими чатами"
+    },
+    {
+      "type": "screens", "dur": 7.6,
+      "caption": [{ "at": 0, "text": "*топ* игроков…" }, { "at": 2.6, "text": "…и *топ чатов* 🔥" }, { "at": 5.2, "text": "все твои чаты — *в одном месте*" }],
+      "shots": [
+        { "src": "../assets/screens/top.jpg", "dur": 2.6, "ring": { "at": 0.4, "x": 16, "y": 1200, "w": 1048, "h": 170 }, "tap": { "at": 1.9, "x": 337, "y": 707 } },
+        { "src": "../assets/screens/topchats.jpg", "dur": 2.6, "fade": true, "ring": { "at": 0.4, "x": 16, "y": 1040, "w": 1048, "h": 150 } },
+        { "src": "../assets/screens/tracker.jpg", "dur": 2.4, "ring": { "at": 0.4, "x": 16, "y": 520, "w": 1048, "h": 210 } }
+      ]
+    },
+    {
+      "type": "chapter", "dur": 1.4, "emoji": "🛡", "title": "А админу —", "sub": "чистка и санкции без команд"
+    },
+    {
+      "type": "screens", "dur": 6,
+      "caption": [{ "at": 0, "text": "чистка — *кнопками*" }, { "at": 3, "text": "санкции — *списком*" }],
+      "shots": [
+        { "src": "../assets/screens/purge.jpg", "dur": 3, "scroll": [0, 330], "ring": { "at": 0.5, "x": 12, "y": 1270, "w": 1056, "h": 630 }, "tap": { "at": 2.2, "x": 200, "y": 1800 } },
+        { "src": "../assets/screens/admin_owner.jpg", "dur": 3, "scroll": [1100, 1460], "scrollAt": 0.2, "scrollDur": 1.0, "ring": { "at": 1.3, "x": 16, "y": 2040, "w": 1048, "h": 300 } }
+      ]
+    },
+    {
+      "type": "cta", "dur": 3.4, "caption": "одна команда — *бот сайт* 👇",
+      "handle": "@IIIPredvestnikIIIBot", "button": "➕ Добавить в чат", "sub": "бесплатно · всё кнопками"
+    }
+  ]
+}

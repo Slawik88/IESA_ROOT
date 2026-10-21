@@ -49,6 +49,17 @@
     return a;
   }
 
+  // Цитата в Telegram — отдельный блок: перенос строки рядом с ней не даёт пустой строки
+  const tgHtml = h => h.replace(/<\/blockquote>\n/g, "</blockquote>").replace(/\n<blockquote>/g, "<blockquote>");
+
+  // {"real": "top_chat"} → настоящий текст и кнопки бота из assets/texts.json (capture/real_texts.py)
+  function resolveReal(m) {
+    if (!m || !m.real) return m;
+    const r = (S.sc.textsData || {})[m.real];
+    if (!r) throw new Error(`нет текста «${m.real}» в texts.json`);
+    return { ...m, html: m.html ?? r.html, buttons: m.buttons === undefined ? r.buttons : m.buttons };
+  }
+
   // Подпись сверху: показывается последняя с at ≤ t, новая «выпрыгивает».
   function captionTrack(root, list) {
     const items = (typeof list === "string" ? [{ at: 0, text: list }] : list || []).slice().sort((a, b) => a.at - b.at);
@@ -201,7 +212,8 @@
       const send = el("div", "tg-send", "➤"); input.appendChild(send);
       win.appendChild(input);
 
-      const msgs = (sc.messages || []).map((m, i, arr) => {
+      const waits = [];
+      const msgs = (sc.messages || []).map(resolveReal).map((m, i, arr) => {
         const prev = arr[i - 1];
         const first = !prev || prev.from !== m.from || prev.me !== m.me || prev.from === "service";
         let node;
@@ -223,12 +235,26 @@
             bub.appendChild(q);
           }
           if (m.card) bub.appendChild(activityCard(m.card, i));
+          if (m.img) {
+            const ph = el("img", "photo"); ph.src = new URL(m.img, S.base).href; bub.appendChild(ph);
+            waits.push(ph.decode().catch(() => {}));
+          }
           const txt = m.html != null ? m.html : esc(m.text).replace(/(@[\wА-Яа-яЁё]+)/g, '<span class="mention">$1</span>');
-          if (txt) bub.appendChild(el("div", "txt", txt));
-          if (m.buttons) {
-            const kb = el("div", "kb");
-            m.buttons.forEach(row => { const r = el("div", "kb-row"); row.forEach(b => r.appendChild(el("div", "btn", esc(b)))); kb.appendChild(r); });
-            bub.appendChild(kb);
+          const body = el("div", "txt", tgHtml(txt || "")); bub.appendChild(body);
+          if (!txt) body.style.display = "none";
+          const kb = el("div", "kb"); bub.appendChild(kb);
+          const fillKb = rows => { kb.innerHTML = ""; (rows || []).forEach(row => { const r = el("div", "kb-row"); row.forEach(b => r.appendChild(el("div", "btn", esc(b)))); kb.appendChild(r); }); kb.style.display = rows && rows.length ? "" : "none"; };
+          fillKb(m.buttons);
+          if (m.edit) {   // бот правит своё сообщение (как на нажатие кнопки в Telegram)
+            const e = resolveReal(m.edit);
+            const before = [txt, m.buttons];
+            node._edit = t => {
+              const after = t >= e.at;
+              if (node._edited === after) return;
+              node._edited = after;
+              body.innerHTML = tgHtml(after ? e.html : before[0]); body.style.display = (after ? e.html : before[0]) ? "" : "none";
+              fillKb(after ? e.buttons : before[1]);
+            };
           }
           if (m.react) {
             const rs = el("div", "reacts");
@@ -241,8 +267,6 @@
         list.appendChild(node);
         return { m, node };
       });
-      // замер после вёрстки: шрифты уже загружены в __load
-      msgs.forEach(x => { x.top = x.node.offsetTop; x.h = x.node.offsetHeight; });
       const viewH = body.clientHeight;
       const cam = camera(sc.camera);
       const finger = el("div", "finger", "👆"); finger.style.opacity = 0; root.appendChild(finger);
@@ -261,8 +285,10 @@
       const grayUntil = sc.grayUntil || 0;
 
       return {
+        ready: Promise.all(waits),
         update(t) {
           cap.update(t);
+          msgs.forEach(x => x.node._edit && x.node._edit(t));
           let last = -1;
           msgs.forEach((x, i) => { if (x.m.at <= t) last = i; });
           msgs.forEach((x, i) => {
@@ -284,10 +310,10 @@
           });
           // прокрутка: низ последнего сообщения прижат к полю ввода
           let bottom = 0;
-          if (last >= 0) {
+          if (last >= 0) {   // высоты меряются каждый кадр: правка сообщения меняет его размер
             const cur = msgs[last], prev = msgs[last - 1];
-            const prevBottom = prev ? prev.top + prev.h : 0;
-            bottom = lerp(prevBottom, cur.top + cur.h, easeOut(prog(t, cur.m.at, .3)));
+            const prevBottom = prev ? prev.node.offsetTop + prev.node.offsetHeight : 0;
+            bottom = lerp(prevBottom, cur.node.offsetTop + cur.node.offsetHeight, easeOut(prog(t, cur.m.at, .3)));
           }
           list.style.transform = `translateY(${viewH - bottom - 18}px)`;
 
@@ -316,7 +342,9 @@
               x.node.querySelectorAll(".ripple").forEach(r => r.remove());
               return;
             }
-            const btn = x.node.querySelectorAll(".kb-row")[pr.row || 0].children[pr.col || 0];
+            const row = x.node.querySelectorAll(".kb-row")[pr.row || 0];
+            const btn = row && row.children[pr.col || 0];
+            if (!btn) return;   // бот уже заменил сообщение без кнопок
             const r = btn.getBoundingClientRect();
             const appear = easeOut(prog(t, pr.at - .5, .35));
             const tap = t >= pr.at ? Math.max(0, 1 - (t - pr.at) / .25) : 0;
@@ -351,7 +379,6 @@
         out.push({ t: m.at, s: m.from === "service" ? "tick" : m.me ? "send" : m.from === "bot" ? "ding" : "pop" });
         if (m.press) out.push({ t: m.press.at, s: "click" });
         if (m.react) m.react.items.forEach((_, j) => out.push({ t: m.react.at + j * .12, s: "pop", v: .5 }));
-        if (m.me && m.typed) for (let k = m.at - m.typed; k < m.at - .1; k += .09) out.push({ t: k, s: "key", v: .5 });
       });
       (sc.bursts || []).forEach(b => out.push({ t: b.at, s: "sparkle" }));
       if (sc.grayUntil) out.push({ t: sc.grayUntil, s: "boom" });
@@ -451,7 +478,6 @@
     cues(sc) {
       const out = [];
       const len = sc.countLen || 1;
-      for (let k = .1; k < .1 + len; k += .07) out.push({ t: k, s: "key", v: .45 });
       out.push({ t: .1 + len, s: "hit" });
       (sc.chips || []).forEach((_, i) => out.push({ t: .5 + i * .09, s: "pop", v: .35 }));
       return out;
@@ -606,6 +632,178 @@
     cues() { return []; },
   };
 
+  // Глава: переход к новой теме — номер, заголовок, одна строка «зачем».
+  TYPES.chapter = {
+    mount(sc, root) {
+      const wrap = el("div", "chap");
+      const num = sc.num != null ? el("div", "chap-num", esc(sc.num)) : null;
+      if (num) wrap.appendChild(num);
+      const emoji = sc.emoji ? el("div", "chap-emoji", esc(sc.emoji)) : null;
+      if (emoji) wrap.appendChild(emoji);
+      const title = el("div", "chap-title", rich(sc.title || "")); wrap.appendChild(title);
+      const sub = sc.sub ? el("div", "chap-sub", rich(sc.sub)) : null;
+      if (sub) wrap.appendChild(sub);
+      root.appendChild(wrap);
+      return {
+        update(t) {
+          const k = easeOut(prog(t, 0, .45));
+          wrap.style.transform = `translateX(${(1 - k) * 260}px)`;
+          wrap.style.opacity = clamp(k * 1.5);
+          if (num) num.style.transform = `scale(${easeBack(prog(t, .05, .4))}) rotate(${(1 - easeOut(prog(t, .05, .5))) * -30}deg)`;
+          if (emoji) emoji.style.transform = `scale(${easeBack(prog(t, .1, .4))}) translateY(${Math.sin(t * 3) * 8}px)`;
+          if (sub) { const sk = easeOut(prog(t, .45, .35)); sub.style.opacity = sk; sub.style.transform = `translateY(${(1 - sk) * 30}px)`; }
+          const out = prog(t, sc.dur - .25, .25);
+          if (out > 0) { wrap.style.opacity = 1 - out; wrap.style.transform = `translateX(${-out * 200}px)`; }
+        },
+      };
+    },
+    cues(sc) { return [{ t: .05, s: "hit", v: .6 }].concat(sc.sub ? [{ t: .45, s: "tick" }] : []); },
+  };
+
+  // Сравнение: «как сейчас» (серое, ❌) и «с ботом» (✅). Пункты появляются по одному.
+  TYPES.compare = {
+    mount(sc, root) {
+      const cap = captionTrack(root, sc.caption);
+      const mk = (cls, side) => {
+        const box = el("div", "cmp " + cls);
+        box.appendChild(el("div", "cmp-h", rich(side.title)));
+        const rows = (side.items || []).map(it => { const r = el("div", "cmp-row", `<span class="cmp-m">${cls === "bad" ? "✕" : "✓"}</span><span>${rich(it)}</span>`); box.appendChild(r); return r; });
+        root.appendChild(box); return { box, rows };
+      };
+      const bad = mk("bad", sc.before || {}), good = mk("good", sc.after || {});
+      const step = sc.interval || .45, b0 = .25, g0 = sc.afterAt ?? b0 + (sc.before?.items?.length || 0) * step + .35;
+      return {
+        update(t) {
+          cap.update(t);
+          const show = (node, at, dx) => { const k = prog(t, at, .35); node.style.opacity = clamp(k * 2); node.style.transform = `translateX(${(1 - easeOut(k)) * dx}px)`; };
+          show(bad.box, 0, -120); bad.rows.forEach((r, i) => show(r, b0 + i * step, -60));
+          show(good.box, g0 - .1, 120); good.rows.forEach((r, i) => show(r, g0 + .2 + i * step * .8, 60));
+          const dim = easeOut(prog(t, g0, .4));
+          bad.box.style.filter = `grayscale(${dim}) brightness(${1 - dim * .35})`;
+          good.box.style.boxShadow = `0 0 ${60 * dim}px rgba(168,85,255,${.5 * dim}), 0 20px 50px rgba(0,0,0,.4)`;
+        },
+      };
+    },
+    cues(sc) {
+      const step = sc.interval || .45, b0 = .25, g0 = sc.afterAt ?? b0 + (sc.before?.items?.length || 0) * step + .35;
+      return [...(sc.before?.items || []).map((_, i) => ({ t: b0 + i * step, s: "tick" })), { t: g0, s: "hit", v: .7 },
+        ...(sc.after?.items || []).map((_, i) => ({ t: g0 + .2 + i * step * .8, s: "pop", v: .7 }))];
+    },
+  };
+
+  // Боль ручной работы: список участников Telegram листается бесконечно, счётчик проверенных и таймер.
+  TYPES.members = {
+    mount(sc, root) {
+      const cap = captionTrack(root, sc.caption);
+      const win = el("div", "tg"); root.appendChild(win);
+      win.appendChild(el("div", "tg-wall"));
+      const head = el("div", "tg-head", `<div class="tg-back">‹</div><div><div class="tg-title">Участники</div><div class="tg-sub">${esc(sc.total || "2 431")} участник</div></div>`);
+      win.appendChild(head);
+      const body = el("div", "tg-body"); body.style.bottom = "0"; win.appendChild(body);
+      const list = el("div", "mlist"); body.appendChild(list);
+      const r = rng(31);
+      const NAMES = ["Аня", "Ваня", "ghost_228", "Полина", "Дима К.", "sleepy_bear", "Ксюша", "Артём", "Лера", "molchun", "Никита", "Даша", "Рома", "Саша П.", "Олег", "Юля", "Миша", "Катя", "nastya_new", "Стас"];
+      const STATUS = ["был(а) недавно", "был(а) 2 недели назад", "был(а) давно", "был(а) 3 дня назад", "был(а) месяц назад", "в сети"];
+      for (let i = 0; i < 60; i++) {
+        const nm = NAMES[i % NAMES.length];
+        const row = el("div", "mrow");
+        row.appendChild(avatar(person(nm + i)));
+        row.appendChild(el("div", null, `<div class="mname">${esc(nm)}</div><div class="mstat">${STATUS[Math.floor(r() * STATUS.length)]}</div>`));
+        list.appendChild(row);
+      }
+      const hud = el("div", "mhud", '<div class="mhud-n"></div><div class="mhud-t"></div>'); root.appendChild(hud);
+      const n = hud.firstChild, clock = hud.lastChild;
+      const speed = sc.speed || 520;
+      return {
+        update(t) {
+          cap.update(t);
+          list.style.transform = `translateY(${-((t * speed) % 3000)}px)`;
+          n.innerHTML = `проверено <b>${Math.floor(t * 9)}</b> из ${esc(sc.total || "2 431")}`;
+          const secs = Math.floor(t * 1400);   // время «бежит» быстрее: ощущение часов ручной работы
+          clock.textContent = `⏱ ${Math.floor(secs / 3600)}:${String(Math.floor(secs / 60) % 60).padStart(2, "0")}:${String(secs % 60).padStart(2, "0")}`;
+          win.style.filter = `grayscale(.7) brightness(.8)`;
+          hud.style.transform = `translateX(-50%) scale(${easeBack(prog(t, .2, .35))})`;
+        },
+      };
+    },
+    cues() { return []; },
+  };
+
+  // Настоящие экраны мини-приложения в телефоне: снимки сменяются, палец нажимает, подсветка, прокрутка.
+  TYPES.screens = {
+    mount(sc, root) {
+      const cap = captionTrack(root, sc.caption);
+      const phone = el("div", "phone2"); root.appendChild(phone);
+      const screen = el("div", "screen2"); phone.appendChild(screen);
+      phone.appendChild(el("div", "notch"));
+      const W = 888, K = W / 1080;   // снимки 1080 px шириной
+      const waits = [];
+      let at = 0;
+      const shots = (sc.shots || []).map(sh => {
+        const img = el("img", "shot2"); img.src = new URL(sh.src, S.base).href; screen.appendChild(img);
+        waits.push(img.decode().catch(() => {}));
+        const x = { sh, img, at, dur: sh.dur || 2.5 }; at += x.dur; return x;
+      });
+      const ring = el("div", "ring"); screen.appendChild(ring);
+      const finger = el("div", "finger", "👆"); root.appendChild(finger);
+      const ripple = el("div", "tapfx"); screen.appendChild(ripple);
+      const cam = camera(sc.camera);
+      return {
+        ready: Promise.all(waits),
+        update(t) {
+          cap.update(t);
+          let cur = 0; shots.forEach((x, i) => { if (t >= x.at) cur = i; });
+          shots.forEach((x, i) => {
+            const lt = t - x.at;
+            const k = i === 0 ? 1 : easeOut(prog(lt, 0, .35));
+            const vis = i === cur || (i === cur - 1 && t - shots[cur].at < .35);
+            x.img.style.visibility = vis ? "visible" : "hidden";
+            const sc0 = x.sh.scroll || [0, 0];
+            const y = lerp(sc0[0], sc0[1], easeInOut(prog(lt, x.sh.scrollAt ?? .4, x.sh.scrollDur ?? Math.max(.5, x.dur - .9))));
+            const slide = x.sh.fade ? 0 : (1 - k) * W;
+            x.img.style.transform = `translate(${i === cur ? slide : -(1 - (t - shots[cur].at) / .35) * 0}px, ${-y * K}px)`;
+            x.img.style.opacity = i === cur ? (x.sh.fade ? k : 1) : 1;
+            x.img.style.zIndex = i === cur ? 2 : 1;
+          });
+          // подсветка и нажатие на текущем снимке (координаты — в пикселях снимка)
+          const x = shots[cur], lt = t - x.at, sh = x.sh;
+          const sy = (() => { const s0 = sh.scroll || [0, 0]; return lerp(s0[0], s0[1], easeInOut(prog(lt, sh.scrollAt ?? .4, sh.scrollDur ?? Math.max(.5, x.dur - .9)))); })();
+          if (sh.ring && lt >= sh.ring.at) {
+            const rk = easeBack(prog(lt, sh.ring.at, .35)), pulse = 1 + Math.sin((lt - sh.ring.at) * 6) * .015;
+            Object.assign(ring.style, { opacity: 1, left: `${sh.ring.x * K}px`, top: `${(sh.ring.y - sy) * K}px`, width: `${sh.ring.w * K}px`, height: `${sh.ring.h * K}px`,
+              transform: `scale(${rk * pulse})` });
+          } else ring.style.opacity = 0;
+          finger.style.opacity = 0; ripple.style.opacity = 0;
+          if (sh.tap && lt >= sh.tap.at - .5 && lt < sh.tap.at + .5) {
+            const pr = phone.getBoundingClientRect(), sr = screen.getBoundingClientRect();
+            const scale = sr.width / W;
+            const fx = sr.left + sh.tap.x * K * scale, fy = sr.top + (sh.tap.y - sy) * K * scale;
+            const ap = easeOut(prog(lt, sh.tap.at - .5, .35)), tap = lt >= sh.tap.at ? Math.max(0, 1 - (lt - sh.tap.at) / .25) : 0;
+            finger.style.opacity = lt > sh.tap.at + .3 ? clamp(1 - (lt - sh.tap.at - .3) / .2) : ap;
+            finger.style.left = `${fx - 40}px`; finger.style.top = `${fy - 10 + (1 - ap) * 160}px`;
+            finger.style.transform = `scale(${1 - tap * .15})`;
+            if (lt >= sh.tap.at) {
+              const rk = prog(lt, sh.tap.at, .45);
+              Object.assign(ripple.style, { opacity: 1 - rk, left: `${sh.tap.x * K - 30}px`, top: `${(sh.tap.y - sy) * K - 30}px`, transform: `scale(${1 + rk * 4})` });
+            }
+            void pr;
+          }
+          phone.style.transform = `translateY(${(1 - easeOut(prog(t, 0, .4))) * 180}px) ${cam(t)}`;
+        },
+      };
+    },
+    cues(sc) {
+      const out = []; let at = 0;
+      (sc.shots || []).forEach((sh, i) => {
+        if (i > 0) out.push({ t: at, s: "whoosh", v: .45 });
+        if (sh.tap) out.push({ t: at + sh.tap.at, s: "click" });
+        if (sh.ring) out.push({ t: at + sh.ring.at, s: "tick" });
+        at += sh.dur || 2.5;
+      });
+      return out;
+    },
+  };
+
   // Финал: аватар, @ник, кнопка «добавить».
   TYPES.cta = {
     mount(sc, root) {
@@ -695,7 +893,7 @@
       if (s.type === "chat" && s.carry !== false && prev && prev.type === "chat" && prev.title === s.title) {
         const tail = prev.messages.slice(-6).map((m, j) => {
           const { press, typed, ...rest } = m;
-          return { ...rest, at: -10 + j * .01, react: m.react && { ...m.react, at: -9 } };
+          return { ...rest, at: -10 + j * .01, react: m.react && { ...m.react, at: -9 }, edit: m.edit && { ...m.edit, at: -9 } };
         });
         x.messages = [...tail, ...s.messages];
         x.bursts = (s.bursts || []).map(b => (typeof b.from === "number" ? { ...b, from: b.from + tail.length } : b));
