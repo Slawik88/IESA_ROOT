@@ -36,14 +36,11 @@ async def resolve_display_name(
     chat_id: int,
     fallback: str,
 ) -> str:
-    """Return the user's local nickname if set, otherwise `fallback` (first_name/username).
-    Always pass through safe_html so callers can embed the result in HTML directly.
-    Applies the player's configured VIP badge when the subscription is active."""
-    from infrastructure.repositories.users import get_nickname
+    """Return `fallback` (the Telegram name) passed through safe_html, with the player's VIP badge when active.
+    Chat nicknames of the old bot (user_nicknames) are no longer shown (owner, 2026-10-21); chat_id stays for callers."""
     from services.vip import VIP_BADGES, get_preferences, is_vip_active
     from services.profile_render import format_display_name
-    nick = await get_nickname(db, user_id, chat_id)
-    name = safe_html(nick if nick else fallback)
+    name = safe_html(fallback)
     active = await is_vip_active(db, user_id)
     preferences = await get_preferences(db, user_id=user_id) if active else {}
     name = format_display_name(

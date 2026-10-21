@@ -45,6 +45,7 @@ async def cleanup(db) -> None:
                        ("user_chat_stats", "user_tg_id")):
         await db.execute(f"DELETE FROM {table} WHERE {col} = ANY(?::bigint[])", (list(USERS),))
     await db.execute("DELETE FROM chat_links WHERE main_chat_id = ANY(?::bigint[])", (list(CHATS),))
+    await db.execute("DELETE FROM user_nicknames WHERE user_id = ANY(?::bigint[])", (list(USERS),))
     await db.execute("DELETE FROM chat_settings WHERE chat_id = ANY(?::bigint[])", (list(CHATS),))
 
 
@@ -82,7 +83,10 @@ async def looks_and_card(db) -> None:
     looks = await skins_chat.looks(db, [A, B, C], MAIN)
     assert looks[A].tier == "SSS" and looks[B].tier == "SS" and C not in looks, looks   # SSS без VIP показывается как SS
     look = await skins_chat.card_look(db, A, MAIN)
+    await db.execute("INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, ?, 'своего фаната') "
+                     "ON CONFLICT (user_id, chat_id) DO UPDATE SET nickname = EXCLUDED.nickname", (A, MAIN))
     text = await profile.card(db, MAIN, Target(A, f"p{A}", "Игрок А"), A, True, look)
+    assert "своего фаната" not in text, text   # ник старого бота больше не показывается: имя из Telegram
     assert text.startswith("❅┄꧁❆ ❄️ ❆꧂┄❅") and "┆꧁❆ ❄️ <b>Игрок А</b> ❆꧂┆" in text and "<b>СООБЩЕНИЯ</b>" in text, text   # набор «Изморози»
     assert "┆ день <b>30</b>" in text and "꧁❆ <b>SSS</b> ❆꧂" in text and "«Мороз рисует узоры" in text and "<i>Дитя Стужи · Изморозь</i>" in text, text
     plain = await profile.card(db, MAIN, Target(C, f"p{C}", "Игрок В"), C, True, None)

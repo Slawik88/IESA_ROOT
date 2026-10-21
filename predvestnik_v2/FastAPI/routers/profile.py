@@ -16,16 +16,13 @@ from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories.streak import get_global_streak
 from services.roles import GLOBAL_RANKS_MAP
-from core.constants import NICKNAME_FREE_CHANGES_PER_MONTH
 from services.leveling import account_progress
-from services.formatting import safe_html
 from services.vip import VIP_BADGES, get_preferences, is_vip_active, get_vip_info
 from services.cosmetics import get_active_cosmetics, get_fitting_cosmetics
 from services import marks_v1 as marks_service
 from services import skins_v3 as skins_v3_service
 from infrastructure.repositories import skins_v3 as skins_v3_repo
-from infrastructure.repositories.economy import get_item_quantity, remove_item
-from infrastructure.repositories.users import set_nickname, get_first_seen
+from infrastructure.repositories.users import get_first_seen
 from bot.chat.tracking import local_now
 from infrastructure.repositories.achievements import get_all_achievements
 from infrastructure.repositories import system_flags as _system_flags
@@ -224,8 +221,6 @@ async def my_avatar(user=Depends(require_tg_user_base), profile_ref: str | None 
 # (та же таблица, что использует бот через get_global_rank_name).
 _RANK_NAMES = GLOBAL_RANKS_MAP
 
-_MIN_NICK_LEN = 2
-_MAX_NICK_LEN = 20
 _PROFILE_TABLES_READY = False
 _PROFILE_TABLES_LOCK = asyncio.Lock()
 
@@ -865,98 +860,14 @@ class NicknameRequest(BaseModel):
 
 @router.post("/set-nickname")
 async def set_nickname_endpoint(body: NicknameRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Установить ник в чате (2–20 символов, без HTML-тегов)."""
-    nick = body.nickname.strip()
-    user_id = user["id"]
-    chat_id = body.chat_id
-
-    if len(nick) < _MIN_NICK_LEN:
-        raise HTTPException(400, f"Ник слишком короткий. Минимум {_MIN_NICK_LEN} символа.")
-    if len(nick) > _MAX_NICK_LEN:
-        raise HTTPException(400, f"Ник слишком длинный. Максимум {_MAX_NICK_LEN} символов.")
-    if safe_html(nick) != nick:
-        raise HTTPException(400, "Ник содержит недопустимые символы (< > & \").")
-    if chat_id == 0:
-        raise HTTPException(400, "Нужен ID чата.")
-
-    async with db.execute(
-        "SELECT 1 FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
-        (user_id, chat_id),
-    ) as c:
-        if not await c.fetchone():
-            raise HTTPException(400, "Вы не состоите в этом чате.")
-
-    # Uniqueness check (case-insensitive, per chat)
-    async with db.execute(
-        "SELECT user_id FROM user_nicknames WHERE chat_id = ? AND LOWER(nickname) = LOWER(?)",
-        (chat_id, nick),
-    ) as c:
-        existing = await c.fetchone()
-    if existing and existing[0] != user_id:
-        raise HTTPException(400, "Этот ник уже занят в данном чате.")
-
-    # Monthly change limit — VIP = unlimited, zarniki_nickname_token = bypass
-    is_vip = await is_vip_active(db, user_id)
-    use_token = False
-    count = 0
-    reset_at = None
-    if not is_vip:
-        async with db.execute(
-            "SELECT nickname_changes_count, nickname_changes_reset_at "
-            "FROM user_chat_stats WHERE user_tg_id = ? AND chat_tg_id = ?",
-            (user_id, chat_id),
-        ) as c:
-            row = await c.fetchone()
-        # nickname_changes_reset_at — TIMESTAMP без зоны (naive); asyncpg падает
-        # с "can't subtract offset-naive and offset-aware datetimes" при записи
-        # aware-значения в naive-колонку. now/reset_at держим naive — сравниваем
-        # только .year/.month (это просто int-атрибуты, awareness не важна).
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        count = row[0] if row else 0
-        reset_at = row[1] if row else now
-        if reset_at.tzinfo is not None:
-            reset_at = reset_at.replace(tzinfo=None)
-        if not reset_at or (now.year, now.month) != (reset_at.year, reset_at.month):
-            count = 0
-            reset_at = now
-        if count >= NICKNAME_FREE_CHANGES_PER_MONTH:
-            if await get_item_quantity(db, user_id, "zarniki_nickname_token") > 0:
-                use_token = True
-            else:
-                raise HTTPException(
-                    400,
-                    f"Лимит смены ника исчерпан ({NICKNAME_FREE_CHANGES_PER_MONTH}/мес в этом чате). "
-                    "Сброс в начале следующего месяца. "
-                    "Оформи VIP или используй Жетон смены ника.",
-                )
-
-    await set_nickname(db, user_id, chat_id, nick)
-    if not is_vip:
-        if use_token:
-            await remove_item(db, user_id, "zarniki_nickname_token", 1)
-        else:
-            await db.execute(
-                "INSERT INTO user_chat_stats "
-                "(user_tg_id, chat_tg_id, nickname_changes_count, nickname_changes_reset_at) "
-                "VALUES (?, ?, ?, ?) ON CONFLICT (user_tg_id, chat_tg_id) DO UPDATE "
-                "SET nickname_changes_count = ?, nickname_changes_reset_at = ?",
-                (user_id, chat_id, count + 1, reset_at, count + 1, reset_at),
-            )
-            await db.commit()
-    return {"ok": True, "nickname": nick}
+    """Ники в чате отключены (владелец, 2026-10-21): бот везде показывает имя из Telegram. Старый клиент получает 410."""
+    raise HTTPException(410, "Ники в чате отключены: бот показывает имя из Telegram.")
 
 
 @router.get("/nickname")
-async def get_nickname_endpoint(chat_id: int = 0, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Текущий ник пользователя в чате."""
-    if chat_id == 0:
-        return {"nickname": None}
-    async with db.execute(
-        "SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
-        (user["id"], chat_id),
-    ) as c:
-        row = await c.fetchone()
-    return {"nickname": row[0] if row else None}
+async def get_nickname_endpoint(chat_id: int = 0, user=Depends(require_tg_user)):
+    """Ники в чате отключены (владелец, 2026-10-21): всегда пусто."""
+    return {"nickname": None}
 
 
 # ── Настройки актуальных персональных DM-уведомлений ───────────────────────────

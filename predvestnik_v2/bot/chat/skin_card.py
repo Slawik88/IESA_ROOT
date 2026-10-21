@@ -22,6 +22,7 @@ from core.skins_v3_catalog import SKINS
 from core.skins_v3_chat import ChatLook
 
 COMPOSE_BUDGET_SEC = 0.9
+VIDEO_INSET_LEFT, VIDEO_INSET_RIGHT = 150, 110   # px картинки 1200: столько занимают «GIF» и «⋮» на телефоне
 MOTION_BUDGET_SEC = 3.0            # видео для SSS; не успели — уходит картинка
 CACHE_TTL_SEC = 60.0
 MAX_CACHE = 64
@@ -85,20 +86,22 @@ def _decor(skin_id: str, tier: str, particles: bool = True) -> Image.Image:
     return decor(skin_id, tier, particles=particles)
 
 
-def _header(img: Image.Image, look: ChatLook, name: str, username: str | None) -> None:
+def _header(img: Image.Image, look: ChatLook, name: str, username: str | None, video: bool = False) -> None:
+    """video — поверх видео Telegram рисует метку «GIF» слева сверху и «⋮» справа: имя и тир отступают от них."""
     skin = SKINS[look.skin_id]
     tk, p0 = skin["tokens"], skin["pal"][0]
     ink, dim = rgb(tk["--v3-ink"]), rgb(tk["--v3-dim"])
     d = ImageDraw.Draw(img)
     badge_font, small = _font("700", 30), _font("400", 24)
     badge_w = int(d.textlength(look.tier, font=badge_font)) + 40
-    right = W - M - 30
+    right = W - M - 30 - (VIDEO_INSET_RIGHT if video else 0)
     d.rounded_rectangle([right - badge_w, 46, right, 94], 24, fill=rgb(p0) + (255,))
     d.text((right - badge_w + 20, 51), look.tier, font=badge_font, fill=rgb(tk["--v3-on-acc"]))
     if look.name != look.title:
         label = _fit(d, look.name, small, 300)
         d.text((right - d.textlength(label, font=small), 108), label, font=small, fill=dim)
-    left, room = M + 30, W - 2 * M - 60 - max(badge_w, 300) - 30
+    left = M + 30 + (VIDEO_INSET_LEFT if video else 0)
+    room = right - max(badge_w, 300) - 30 - left
     title_font = _font("700", 50)
     shown = _fit(d, drawable(name) or (f"@{username}" if username else "Игрок"), title_font, room)
     d.text((left, 34), shown, font=title_font, fill=ink)
@@ -116,7 +119,7 @@ def _base(png: bytes, look: ChatLook, name: str, username: str | None, particles
     rounded = Image.new("L", graph.size, 0)
     ImageDraw.Draw(rounded).rounded_rectangle([0, 0, *graph.size], 22, fill=255)
     img.paste(graph, (M, HEAD), rounded)
-    _header(img, look, name, username)
+    _header(img, look, name, username, video=not particles)   # без частиц — кадр видео
     return img
 
 

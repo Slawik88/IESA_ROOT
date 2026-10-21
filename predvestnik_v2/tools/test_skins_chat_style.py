@@ -77,6 +77,7 @@ def layout() -> None:
             look = chat_look(sid, tier, set_complete=True)
             text = profile_view.styled(sample(), look)
             check_lines(text, f"card {sid}/{tier}")
+            assert "\u200b" not in text and '<a href="https://t.me/lina_ash_the_longest">' in text, (sid, tier)   # партнёр — ссылкой
             assert profile.caption_len(text) <= profile.CAPTION_LIMIT, (sid, tier, profile.caption_len(text))
             check_lines(profile_view.balance(look, balance), f"balance {sid}/{tier}")
             check_lines(profile_view.streak(look, "@​a_rather_long_username", 112, 400, "⏳ Напишите в чат, чтобы засчитать сегодня"), f"streak {sid}/{tier}")

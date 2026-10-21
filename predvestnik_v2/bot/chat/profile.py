@@ -154,13 +154,8 @@ async def achievement_levels(db, user_id: int) -> int:
 async def _head(db, chat_id: int, target: Target, viewer_id: int, is_group: bool) -> CardData:
     uid = target.user_id
     username = await username_of(db, uid) or target.username
-    nick = None
-    if is_group:
-        async with db.execute("SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
-                              (uid, chat_id)) as cur:
-            r = await cur.fetchone()
-        nick = r[0] if r else None
-    data = CardData(title=nick or target.name or (f"@{username}" if username else f"id{uid}"), username=username)
+    # Имя из Telegram. Ники старого бота (user_nicknames) больше не показываются: владелец, 2026-10-21.
+    data = CardData(title=target.name or (f"@{username}" if username else f"id{uid}"), username=username)
     tag = await member_tags.get(db, chat_id, uid) if is_group else None
     if tag:
         data.head.append(f"🏷 <b>{esc(tag)}</b>")   # подпись справа от имени в списке участников этого чата

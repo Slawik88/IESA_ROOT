@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass, field
 
 from bot.chat.style import quote
@@ -58,6 +59,12 @@ def _cells(items: list[tuple[str, str]]) -> list[str]:
     return [pair(SHORT.get(label, label), value) for label, value in items]
 
 
+def _linked(line: str) -> str:
+    """«@\u200bник» (не пингует) → ссылка t.me/ник (тоже не пингует). Невидимый пробел в начале строки
+    ломал вид раздела на Android (скриншот владельца, 2026-10-21), ссылка ведёт себя как в топе."""
+    return re.sub(r"@\u200b([A-Za-z0-9_]{3,32})", r'<a href="https://t.me/\1">@\1</a>', line)
+
+
 def styled(data: CardData, look: ChatLook) -> str:
     """Карточка в стиле скина: шапка, разделы со строками скина, подпись SS/SSS (core/skins_v3_chat_layout.py)."""
     profile_rows = [r for line in data.head for r in L.wrap(look, line)]
@@ -71,7 +78,7 @@ def styled(data: CardData, look: ChatLook) -> str:
         parts.append(L.section(look, look.icons[1], "Прогресс", L.pack(look, _cells(data.progress))))
     if data.personal:
         rows = []
-        for line in data.personal:
+        for line in map(_linked, data.personal):
             rows += L.wrap(look, line[1:], nested=True) if line.startswith("\x00") else L.wrap(look, line)
         parts.append(L.section(look, "📅", "В чате", rows))
     parts.append(L.section(look, look.icons[2], "Кошелёк", L.pack(look, data.wallet)))
