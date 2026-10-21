@@ -6,7 +6,7 @@ vm.runInThisContext(fs.readFileSync(require('path').join(__dirname,'../FastAPI/s
 (async()=>{
   const input=JSON.parse(fs.readFileSync(0,'utf8')), results=[];
   for(const test of input){
-    if(test.game==='fresh'){const store=new PVLocal.Store('fresh',null,'');store.data.template=test.packet;results.push(await store.fresh(test.target,test.difficulty));continue;}
+    if(test.game==='fresh'){const store=new PVLocal.Store('fresh',null,'');store.data.template=test.packet;const previous=global.crypto;if(test.seed)global.crypto={...previous,subtle:previous.subtle,randomUUID:()=>previous.randomUUID(),getRandomValues:a=>{a.set(Buffer.from(test.seed,'hex'));return a;}};try{results.push(await store.fresh(test.target,test.difficulty));}finally{global.crypto=previous;}continue;}
     if(test.game==='rhythm'){
       const engine=new PVLocal.Rhythm(test.packet), initial=await engine.view();
       for(const action of test.actions){if(action.kind==='pick')engine.pick(action.perk_id);else engine.step(action.rune,action.elapsed_ms,(await engine.view()).rune);}

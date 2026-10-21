@@ -6,7 +6,10 @@ import hashlib
 from typing import Final, Literal
 
 
-RULESET_VERSION: Final = "minesweeper-v1"
+LEGACY_RULESET_VERSION: Final = "minesweeper-v1"
+RULESET_VERSION: Final = "minesweeper-v2"
+SUPPORTED_RULESETS: Final = frozenset((LEGACY_RULESET_VERSION, RULESET_VERSION))
+GENERATOR_ATTEMPTS: Final = 8
 ActionKind = Literal["open", "toggle_flag"]
 
 
@@ -61,7 +64,7 @@ def _random_order(seed: bytes, values: list[int]) -> list[int]:
     return ordered
 
 
-def board(seed: bytes, spec: Difficulty, first_cell: int) -> dict:
+def _board_v1(seed: bytes, spec: Difficulty, first_cell: int) -> dict:
     total = spec.size * spec.size
     if not 0 <= int(first_cell) < total:
         raise MinesweeperRuleError("cell is outside the Minesweeper board")
@@ -75,6 +78,32 @@ def board(seed: bytes, spec: Difficulty, first_cell: int) -> dict:
     mines = frozenset(_random_order(bytes(seed), candidates)[:spec.mines])
     adjacent = {cell: sum(next_cell in mines for next_cell in neighbours(spec.size, cell)) for cell in range(total)}
     return {"mines": mines, "adjacent": adjacent}
+
+
+def board(seed: bytes, spec: Difficulty, first_cell: int, *, ruleset_version: str = RULESET_VERSION) -> dict:
+    """Versioned deterministic boards: new games cannot win on their first open.
+
+    Old runs/packets keep exactly their original layout. Bounded rejection plus
+    a verified safe fallback prevents either a trivial board or an endless loop.
+    """
+    if ruleset_version not in SUPPORTED_RULESETS:
+        raise MinesweeperRuleError("unknown Minesweeper ruleset")
+    for attempt in range(GENERATOR_ATTEMPTS):
+        candidate_seed = bytes(seed) if attempt == 0 else hashlib.sha256(
+            bytes(seed) + b":minesweeper-v2:" + attempt.to_bytes(4, "big")
+        ).digest()
+        layout = _board_v1(candidate_seed, spec, first_cell)
+        if ruleset_version == LEGACY_RULESET_VERSION or not _first_open_wins(layout, spec, first_cell):
+            return layout
+    # This layout is nontrivial for all 198 first cells of the shipped specs.
+    layout = _board_v1(bytes(32), spec, first_cell)
+    if _first_open_wins(layout, spec, first_cell):
+        raise MinesweeperRuleError("difficulty has no nontrivial fallback board")
+    return layout
+
+
+def _first_open_wins(layout: dict, spec: Difficulty, first_cell: int) -> bool:
+    return apply_action(spec=spec, layout=layout, revealed=set(), flags=set(), kind="open", cell=first_cell)[2] == "won"
 
 
 def apply_action(*, spec: Difficulty, layout: dict, revealed: set[int], flags: set[int],

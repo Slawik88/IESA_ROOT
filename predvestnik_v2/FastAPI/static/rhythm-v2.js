@@ -8,6 +8,7 @@
   let tickEnd=0, state=null, timer=null, leaderboardMode='normal', boardPage=null, leaving=false;
   const store = new PVLocal.Store('rhythm', tg, session, init);
   let generation=0;let engine=null, journal=[], paused=false, resolving=false, remaining=null, expectedRune=null, loading=false;
+  let drawSeq=0, preparing=false, prepareTimer=null, prepareDone=null;
   const show = id => ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
@@ -22,19 +23,36 @@
     clearInterval(timer);remaining=null;tickEnd=performance.now()+duration;
     timer=setInterval(()=>{const left=Math.max(0,tickEnd-performance.now());$('timebar').style.transform='scaleX('+left/full+')';if(left===0){clearInterval(timer);sendTap(null);}},16);
   }
-  function pause(){if(!engine||engine.state.status!=='active')return;remaining=remaining??Math.max(0,tickEnd-performance.now());paused=true;clearInterval(timer);save();setButtons(true);$('resume-run').classList.remove('hidden');$('tap-feedback').textContent='На паузе — сердца сохранены';}
-  async function localDraw(){
-    if(!engine)return;const current=engine,version=generation;const view=await current.view();if(engine!==current||version!==generation)return;state=view;expectedRune=view.rune;
+  function stopPreparation(){clearTimeout(prepareTimer);prepareTimer=null;const done=prepareDone;prepareDone=null;preparing=false;done?.(false);$('run').classList.remove('preparing');}
+  function pause(){
+    if(!engine||engine.state.status!=='active')return;
+    remaining=remaining??Math.max(0,tickEnd-performance.now());paused=true;++drawSeq;clearInterval(timer);stopPreparation();expectedRune=null;
+    $('instruction').textContent='На паузе';save();setButtons(true);$('resume-run').classList.remove('hidden');$('tap-feedback').textContent='На паузе — сердца сохранены';
+    // A pending view (e.g. immediately after a gift) must not leave an obsolete
+    // disabled choice screen behind when the page is hidden mid-transition.
+    localDraw();
+  }
+  async function localDraw({prepare=false}={}){
+    if(!engine)return;const current=engine,version=generation,draw=++drawSeq;
+    if(prepare){stopPreparation();preparing=true;paused=true;remaining=current.window();expectedRune=null;setButtons(true);}
+    const view=await current.view();if(engine!==current||version!==generation||draw!==drawSeq)return;state=view;
     connection(navigator.onLine?'●':'○','Игра работает на устройстве');err(store.durable?'':'Не удалось сохранить игру на устройстве. Не закрывай приложение.');
     $('health').textContent='♥'.repeat(view.health)||'—';$('score').textContent=view.score;$('combo').textContent=view.combo;
     $('speed').textContent=view.speed_percent+'%';$('perks').textContent=perksLine(view);
     if(view.status==='finished'){store.data.last={packet:engine.packet,state:engine.state,journal};store.queue(engine.packet,journal);finish({...view,integrity_status:'saved_local'});flushResults();return;}
-    if(view.draft){clearInterval(timer);remaining=null;offers();return;}
-    $('instruction').textContent='Нажми руну '+glyph(view.rune);$('run-note').textContent='Такт '+view.next_signal_no+' · чанк '+view.chunk+' · окно '+view.window_ms+' мс';
-    $('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state='';show('run');
+    if(view.draft){stopPreparation();expectedRune=null;paused=true;clearInterval(timer);remaining=null;offers();return;}
+    $('run-note').textContent='Такт '+view.next_signal_no+' · чанк '+view.chunk+' · окно '+view.window_ms+' мс';show('run');
     if(document.hidden)paused=true;
-    $('resume-run').classList.toggle('hidden',!paused);setButtons(paused);
-    if(!paused)tick(remaining??view.window_ms,view.window_ms);else save();
+    if(prepare&&!document.hidden){
+      $('instruction').textContent='Приготовься';$('tap-feedback').textContent='Следующая руна появится после отсчёта';$('tap-feedback').dataset.state='';
+      $('resume-run').classList.add('hidden');$('timebar').style.transform='scaleX(1)';setButtons(true);save();
+      if(!await countdown(current,draw)||engine!==current||draw!==drawSeq||version!==generation||document.hidden)return;
+      paused=false;
+    }else if(paused){
+      stopPreparation();expectedRune=null;$('instruction').textContent='На паузе';$('tap-feedback').textContent='Продолжи, когда будешь готов';$('resume-run').classList.remove('hidden');setButtons(true);save();return;
+    }
+    expectedRune=view.rune;$('instruction').textContent='Нажми руну '+glyph(view.rune);$('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state='';
+    $('resume-run').classList.add('hidden');setButtons(false);tick(remaining??view.window_ms,view.window_ms);
   }
   async function flushResults(){try{await store.flush(api,result=>{if(state?.run_id===result.run_id&&state.status==='finished'){if(result.rejected){$('result-status').textContent='Не удалось подтвердить результат';err(result.message);}else finish(result);}});}catch(error){if(state?.status==='finished')$('result-status').textContent=error.status===401?'Сохранено · открой игру заново в Telegram для отправки':'Сохранено на устройстве · отправим при подключении';}}
   setInterval(flushResults,5000);window.addEventListener('online',()=>{flushResults();store.refreshRules(api).catch(()=>{});});
@@ -88,7 +106,7 @@
     box.append(details);
   }
   async function sendTap(rune){
-    if(!engine||engine.state.status!=='active'||paused||resolving||state?.draft)return;
+    if(!engine||engine.state.status!=='active'||paused||preparing||resolving||expectedRune===null||state?.draft)return;
     resolving=true;clearInterval(timer);const elapsed=rune===null?engine.window()+1:Math.min(60000,Math.max(0,Math.floor(engine.window()-(remaining??Math.max(0,tickEnd-performance.now())))));
     journal.push({kind:'tap',signal_no:engine.state.next_signal_no,rune,elapsed_ms:elapsed});
     engine.step(rune,elapsed,expectedRune);remaining=engine.window();save();setButtons(true);
@@ -96,7 +114,7 @@
   }
   async function start(mode){
     if(loading)return;loading=true;
-    try{err('');leaving=false;paused=false;remaining=null;
+    try{err('');leaving=false;stopPreparation();++drawSeq;clearInterval(timer);paused=true;remaining=null;expectedRune=null;
       const version=++generation;
       let packet=await store.fresh('rhythm');
       if(!packet){
@@ -106,12 +124,23 @@
       if(version!==generation)return;
       store.data.template=packet;if(navigator.onLine)store.refreshRules(api).catch(()=>{});
       engine=new PVLocal.Rhythm(packet);journal=[];state={run_id:packet.run_id,status:'active'};remaining=engine.window();save();
-      if(await countdown())await localDraw();
+      await localDraw({prepare:true});
     }catch(error){err(error.message);}finally{loading=false;}
   }
   const kindLabel={safe:'Надёжный',boost:'Усиление',risk:'Риск'};
-  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  async function countdown(){show('countdown');const id=state.run_id;for(let n=5;n>0;n--){$('count-num').textContent=n;await sleep(1000);if(leaving||!state||state.run_id!==id)return false}return true}
+  function countdown(current,draw){
+    return new Promise(resolve=>{
+      preparing=true;$('run').classList.add('preparing');
+      let n=4;
+      const finish=ok=>{clearTimeout(prepareTimer);prepareTimer=null;prepareDone=null;preparing=false;$('run').classList.remove('preparing');resolve(ok);};
+      prepareDone=finish;
+      const step=()=>{
+        if(leaving||engine!==current||draw!==drawSeq||document.hidden||current.state.status!=='active'){finish(false);return;}
+        if(n===0){finish(true);return;}
+        $('instruction').textContent='Начинаем через '+n--;prepareTimer=setTimeout(step,1000);
+      };step();
+    });
+  }
   function offers() {
     clearInterval(timer); setButtons(true); show('choice');
     $('draft-title').textContent = 'Рун-дар №' + state.draft.number;
@@ -137,12 +166,12 @@
   async function pickGift(id){
     if(!state?.draft||resolving||!state.draft.offers.some(g=>g.id===id))return;
     resolving=true;clearInterval(timer);journal.push({kind:'pick',perk_id:id});engine.pick(id);remaining=engine.window();save();box_disable(true);
-    try{await localDraw();}finally{resolving=false;}
+    try{await localDraw({prepare:true});}finally{resolving=false;}
   }
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
   function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);if(p.recovery>0)parts.push('Второе дыхание: ещё '+p.recovery+' такта');return parts.join(' · ')}
   async function cancel(){
-    const id=state?.run_id;++generation;leaving=true;clearInterval(timer);engine=null;state=null;journal=[];store.data.active=null;store.save();
+    const id=state?.run_id;++generation;++drawSeq;leaving=true;clearInterval(timer);stopPreparation();expectedRune=null;engine=null;state=null;journal=[];store.data.active=null;store.save();
     show('intro');if(id)api('/runs/'+id+'/cancel',{method:'POST'}).catch(()=>{});leaving=false;
   }
   function empty(text){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='leaderboard-empty';row.textContent=text;list.append(row)}
@@ -173,7 +202,7 @@
   }
   document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));
   $('exit-run').onclick=cancel;$('exit-count').onclick=cancel;
-  $('resume-run').onclick=()=>{paused=false;$('resume-run').classList.add('hidden');localDraw();};
+  $('resume-run').onclick=()=>{if(!preparing&&engine?.state.status==='active')localDraw({prepare:true});};
   window.addEventListener('pagehide',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
   buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));
   $('again').onclick=()=>{engine=null;state=null;show('intro');refreshLeaderboard();};

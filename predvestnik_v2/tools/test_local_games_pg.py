@@ -112,7 +112,7 @@ async def run(dsn):
         # An ordinary offline first-open flood is valid, unranked, and replayable.
         auto_id=str(uuid4())
         auto_actions=[dict(kind='open',cell=14,elapsed_ms=0)]
-        auto_origin={'seed':(536).to_bytes(32,'big').hex(),'ruleset_version':m.RULESET_VERSION,'difficulty':'easy'}
+        auto_origin={'seed':(536).to_bytes(32,'big').hex(),'ruleset_version':m.LEGACY_RULESET_VERSION,'difficulty':'easy'}
         auto=await local.finalize(db,game='minesweeper',user_id=uid,run_id=auto_id,actions=auto_actions,origin=auto_origin)
         assert auto['status']=='won' and auto['opened_actions']==1 and not auto['speed_ranked']
         assert await local.finalize(db,game='minesweeper',user_id=uid,run_id=auto_id,actions=auto_actions,origin=auto_origin)==auto

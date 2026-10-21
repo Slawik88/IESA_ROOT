@@ -54,7 +54,7 @@ async def packet(db, *, game: str, user_id: int, run_id: str) -> dict:
             state = mine._public(row, now=row["server_now"])
             spec = mine._spec(row)
             first = row["first_cell"]
-            layouts = {str(c): sorted(mine_rules.board(bytes(row["seed"]), spec, c)["mines"])
+            layouts = {str(c): sorted(mine_rules.board(bytes(row["seed"]), spec, c, ruleset_version=row["ruleset_version"])["mines"])
                        for c in (range(spec.size * spec.size) if first is None else [int(first)])}
             result.update(state=state, first_cell=first, layouts=layouts)
         await save(db, run_id=run_id, action_id=PACKET_ID, request={"protocol": PROTOCOL}, result=result)
@@ -123,7 +123,8 @@ def replay_mine(packet: dict, actions: list[dict]) -> dict:
             if kind != "open":
                 raise ValueError("Сначала открой клетку.")
             first = cell
-        layout = mine_rules.board(bytes.fromhex(packet["seed"]), spec, first)
+        layout = mine_rules.board(bytes.fromhex(packet["seed"]), spec, first,
+                                 ruleset_version=row.get("ruleset_version", mine_rules.LEGACY_RULESET_VERSION))
         row["opened_actions"] += int(kind == "open" and cell not in revealed and cell not in flags)
         revealed, flags, status, _ = mine_rules.apply_action(spec=spec, layout=layout, revealed=revealed, flags=flags, kind=kind, cell=cell)
         row["status"], row["revision"], elapsed = status, row["revision"]+1, at
@@ -146,7 +147,7 @@ async def _import_local_run(db, *, game: str, user_id: int, run_id: str, origin:
             raise ValueError("invalid run id")
         seed = bytes.fromhex(origin["seed"])
         version = origin.get("ruleset_version")
-        supported = {rhythm_rules.RULESET_VERSION, "rhythm-v2-rules-5", "rhythm-v2-rules-6"} if game == "rhythm" else {mine_rules.RULESET_VERSION}
+        supported = {rhythm_rules.RULESET_VERSION, "rhythm-v2-rules-5", "rhythm-v2-rules-6"} if game == "rhythm" else mine_rules.SUPPORTED_RULESETS
         if len(seed) != 32 or version not in supported:
             raise ValueError("Обнови правила игры при подключении.")
         spec = mine_rules.difficulty(origin.get("difficulty", "normal")) if game != "rhythm" else None

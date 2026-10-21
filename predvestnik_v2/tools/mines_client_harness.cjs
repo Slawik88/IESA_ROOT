@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 module.exports=function boot({blockedStorage=false,status='active',size=9}={}){
-  let document;
+  let document;const events={};
   class El{
     constructor(){this.children=[];this.attrs={};this.dataset={};this.listeners={};this.style={setProperty(){}};this.textContent='';}
     setAttribute(k,v){this.attrs[k]=String(v);}append(...xs){this.children.push(...xs);}replaceChildren(){this.children=[];}
@@ -12,7 +12,7 @@ module.exports=function boot({blockedStorage=false,status='active',size=9}={}){
   const nodes=new Map(),get=id=>nodes.get(id)||(nodes.set(id,new El()),nodes.get(id));
   const modes=['open','flag'].map(mode=>Object.assign(new El(),{dataset:{mode}}));
   const difficulties=['easy','normal','hard'].map(difficulty=>Object.assign(new El(),{dataset:{difficulty}}));
-  document={body:{dataset:{appBase:'/app'}},activeElement:null,getElementById:get,createElement:()=>new El(),addEventListener(){},querySelectorAll:q=>q.includes('data-mode')?modes:q.includes('data-difficulty')?difficulties:[]};
+  document={body:{dataset:{appBase:'/app'}},activeElement:null,getElementById:get,createElement:()=>new El(),addEventListener:(k,f)=>events[k]=f,querySelectorAll:q=>q.includes('data-mode')?modes:q.includes('data-difficulty')?difficulties:[]};
   const timers=new Map(),memory=new Map();let nextTimer=0;
   const state={run_id:'fixture',status,revision:0,size,mine_count:6,label:'Лёгкий',difficulty:'easy',ruleset_version:'minesweeper-v1',opened_actions:0,revealed:[],changed:[],flags:[],mines:[],elapsed_ms:0};
   const packet={protocol:'resilient-local-v1',state,first_cell:status==='active'?0:null,layouts:Object.fromEntries(Array.from({length:size*size},(_,c)=>[c,[2,3,4,5,6,7]])),run_id:'fixture',seed:'00'.repeat(32)};
@@ -25,7 +25,7 @@ module.exports=function boot({blockedStorage=false,status='active',size=9}={}){
     fetch:async(url,opts={})=>{requests.push({url,opts});if(net.offline)throw Error('offline');if(url.includes('/skins-'))return response(null);if(url.includes('/leaderboard/'))return response(net.leader?await net.leader(url):{top:[]});if(url.endsWith('/local-packet'))return response(packet);return response(state);}});
   const staticDir=path.join(__dirname,'../FastAPI/static');
   vm.runInContext(fs.readFileSync(path.join(staticDir,'local-games-v1.js'),'utf8'),context);context.PVLocal=context.window.PVLocal;
-  const source=fs.readFileSync(path.join(staticDir,'minesweeper-v2.js'),'utf8').replace(/\}\)\(\);\s*$/,'globalThis.testMines={sync,render,refreshLeaderboard,updateClock,journal:()=>journal,engine:()=>engine};})();');
+  const source=fs.readFileSync(path.join(staticDir,'minesweeper-v2.js'),'utf8').replace(/\}\)\(\);\s*$/,'globalThis.testMines={sync,render,refreshLeaderboard,updateClock,journal:()=>journal,engine:()=>engine,store:()=>store};})();');
   vm.runInContext(source,context);
-  return {ctx:context,m:context.testMines,get,modes,difficulties,requests,net,cells:()=>get('mine-board').querySelectorAll(),runTimers:()=>{const pending=[...timers.values()];timers.clear();pending.forEach(f=>f());},tick:async()=>{for(let i=0;i<100;i++)await Promise.resolve();}};
+  return {ctx:context,m:context.testMines,events,get,modes,difficulties,requests,net,cells:()=>get('mine-board').querySelectorAll(),runTimers:()=>{const pending=[...timers.values()];timers.clear();pending.forEach(f=>f());},tick:async()=>{for(let i=0;i<100;i++)await Promise.resolve();}};
 };

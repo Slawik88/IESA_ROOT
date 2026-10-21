@@ -63,14 +63,14 @@ for spec in m.DIFFICULTIES.values():
         layout=m.board(seed,spec,first)
         assert not ({first,*m.neighbours(spec.size,first)} & layout["mines"])
         s=dict(run_id="mine",status="awaiting_first_open",size=spec.size,mine_count=spec.mines,
-               difficulty=spec.id,revision=0,opened_actions=0,revealed=[],flags=[],changed=[],mines=[],elapsed_ms=0)
+               difficulty=spec.id,ruleset_version=m.RULESET_VERSION,revision=0,opened_actions=0,revealed=[],flags=[],changed=[],mines=[],elapsed_ms=0)
         p=dict(state=s,first_cell=None,layouts=layouts,seed=seed.hex())
         actions=[dict(kind="open",cell=first,elapsed_ms=0),dict(kind="open",cell=next(iter(layout["mines"])),elapsed_ms=1234)]
         tests.append(dict(game="minesweeper",packet=p,actions=actions));expected.append(local_games.replay_mine(p,actions))
 
 fresh_start=len(tests)
 for difficulty in ('easy','normal','hard'):
-    tests.append(dict(game='fresh',target='minesweeper',difficulty=difficulty,packet=p));expected.append(None)
+    tests.append(dict(game='fresh',target='minesweeper',difficulty=difficulty,packet=p,seed=(536).to_bytes(32,'big').hex()));expected.append(None)
 tests.append(dict(game='fresh',target='rhythm',packet=packet(state())));expected.append(None)
 
 result=subprocess.run(['node',str(Path(__file__).with_name('local_games_probe.cjs'))],input=json.dumps(tests),text=True,encoding='utf-8',capture_output=True,check=True)
@@ -81,6 +81,7 @@ for index,(test,want,got) in enumerate(zip(tests,expected,results)):
         if test['target']=='minesweeper':
             spec=m.difficulty(test['difficulty'])
             assert got['state']['size']==spec.size
+            assert got['state']['ruleset_version']==got['origin']['ruleset_version']==m.RULESET_VERSION
             for first in range(spec.size**2):assert got['layouts'][str(first)]==sorted(m.board(seed_new,spec,first)['mines'])
         else:assert got['state']==state()
     elif index<rhythm_count:

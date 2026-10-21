@@ -46,7 +46,7 @@ def simulate() -> dict:
     auto = 0
     spec = mine.difficulty("easy")
     for seed in range(10000):
-        layout = mine.board(seed.to_bytes(32, "big"), spec, 14)
+        layout = mine.board(seed.to_bytes(32, "big"), spec, 14, ruleset_version=mine.LEGACY_RULESET_VERSION)
         _, _, status, _ = mine.apply_action(spec=spec, layout=layout, revealed=set(), flags=set(), kind="open", cell=14)
         if status == "won":
             auto += 1

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
@@ -31,10 +31,11 @@ def _raise(exc: game.MinesweeperError) -> None:
 
 
 @router.post("/runs", dependencies=[_feature_gate])
-async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_user)):
+async def start(body: StartBody, db=Depends(get_db), user=Depends(require_tg_user),
+                x_minesweeper_ruleset: Literal["minesweeper-v1", "minesweeper-v2"] = Header("minesweeper-v1")):
     try:
         return await game.start_run(db, user_id=int(user["id"]), difficulty=body.difficulty,
-                                    resume_existing=body.resume_existing)
+                                    resume_existing=body.resume_existing, ruleset_version=x_minesweeper_ruleset)
     except game.MinesweeperError as exc:
         _raise(exc)
 
@@ -88,7 +89,10 @@ async def local_result(run_id: str, body: LocalResultBody, db=Depends(get_db), u
 
 
 @router.get("/local-rules", dependencies=[_feature_gate])
-async def local_rules(user=Depends(require_tg_user)):
+async def local_rules(user=Depends(require_tg_user),
+                      x_minesweeper_ruleset: Literal["minesweeper-v1", "minesweeper-v2"] = Header("minesweeper-v1")):
     from dataclasses import asdict
     from core import minesweeper_v2 as rules
-    return {"ruleset_version": rules.RULESET_VERSION}
+    # A still-open v1 JS bundle cannot generate v2 boards. Never relabel its
+    # future offline packets with rules it does not implement.
+    return {"ruleset_version": x_minesweeper_ruleset}

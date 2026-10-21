@@ -6,6 +6,7 @@
   const $=id=>document.getElementById(id),board=$('mine-board'),labels={easy:'Лёгкий',normal:'Обычный',hard:'Сложный'};
   let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,ticker=null,clockAt=null,clockBase=0,longPress=null,skipClick=false,focusCell=0,restoreFocus=false,errorText='',pointerAt=null,leaderSeq=0,longPressDone=false,gestureCancelled=false;
   const store=new PVLocal.Store('minesweeper',tg,session,init);let engine=null,journal=[];
+  headers['x-minesweeper-ruleset']='minesweeper-v2';
   const finished=status=>['won','lost','cancelled'].includes(status);
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
   async function api(path,options={}){const response=await PVLocal.request(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.detail||'Не удалось связаться с сервером.');error.status=response.status;throw error;}return data;}
@@ -36,7 +37,7 @@
     $('mine-status').textContent=!run&&errorText?'Поле недоступно':status();$('mine-hint').textContent=hint();$('new-game').disabled=busy;$('new-game').textContent=!run&&errorText?'Повторить подключение':'Новая партия';if(!run){board.replaceChildren();return;}
     $('mine-copy').textContent=`${run.label}: поле ${run.size}×${run.size}, Мин на поле: ${run.mine_count}. Первый ход и клетки вокруг него всегда безопасны.`;
     $('mines-left').textContent=Math.max(0,run.mine_count-(run.flags||[]).length);$('opened').textContent=`${(run.revealed||[]).filter(cell=>!mines.has(cell)).length} / ${run.size*run.size-run.mine_count}`;updateClock();board.style.setProperty('--mine-size',run.size);board.replaceChildren();
-    const revealed=new Set(run.revealed||[]),flags=new Set(run.flags||[]);
+    const renderedRun=run.run_id,revealed=new Set(run.revealed||[]),flags=new Set(run.flags||[]);
     board.setAttribute('aria-rowcount',run.size);board.setAttribute('aria-colcount',run.size);
     let row;focusCell=Math.min(focusCell,run.size*run.size-1);
     for(let cell=0;cell<run.size*run.size;cell++){
@@ -50,7 +51,7 @@
       button.tabIndex=cell===focusCell?0:-1;button.disabled=busy||finished(run.status);
       button.addEventListener('focus',()=>{focusCell=cell;board.querySelectorAll('.mine-cell').forEach(b=>b.tabIndex=b===button?0:-1);});
       button.addEventListener('keydown',event=>{
-        if(event.key==='f'||event.key==='F'||event.key==='ContextMenu'||(event.key==='F10'&&event.shiftKey)){event.preventDefault();clearTimeout(longPress);if(run.status==='active')act(cell,'toggle_flag');return;}
+        if(event.key==='f'||event.key==='F'||event.key==='ContextMenu'||(event.key==='F10'&&event.shiftKey)){event.preventDefault();clearTimeout(longPress);if(!event.repeat&&run.status==='active')act(cell,'toggle_flag',renderedRun);return;}
         let next=cell;const col=cell%run.size;
         if(event.key==='ArrowLeft')next=cell-Math.min(1,col);
         else if(event.key==='ArrowRight')next=cell+Math.min(1,run.size-1-col);
@@ -62,12 +63,12 @@
         event.preventDefault();board.querySelector(`[data-cell="${next}"]`)?.focus();
       });
       button.addEventListener('pointerdown',event=>{clearTimeout(longPress);longPressDone=false;gestureCancelled=false;skipClick=false;focusCell=cell;if(event.button!==undefined&&event.button!==0){pointerAt=null;return;}pointerAt={x:event.clientX,y:event.clientY};
-        if(mode==='open'&&run.status==='active')longPress=setTimeout(()=>{longPressDone=true;skipClick=true;pointerAt=null;act(cell,'toggle_flag');},420);
+        const gestureEngine=engine;if(mode==='open'&&run.status==='active')longPress=setTimeout(()=>{if(document.hidden||busy||run?.run_id!==renderedRun||engine!==gestureEngine)return;longPressDone=true;skipClick=true;pointerAt=null;act(cell,'toggle_flag',renderedRun);},420);
       });
       button.addEventListener('pointermove',event=>{if(pointerAt&&Math.hypot(event.clientX-pointerAt.x,event.clientY-pointerAt.y)>8){clearTimeout(longPress);gestureCancelled=true;skipClick=true;}});
       ['pointerup','pointerleave','pointercancel'].forEach(event=>button.addEventListener(event,()=>{clearTimeout(longPress);if(event==='pointercancel'||(event==='pointerleave'&&pointerAt)){gestureCancelled=true;skipClick=true;}pointerAt=null;}));
-      button.addEventListener('contextmenu',event=>{event.preventDefault();clearTimeout(longPress);pointerAt=null;skipClick=true;if(gestureCancelled||longPressDone)return;longPressDone=true;if(run.status==='active')act(cell,'toggle_flag');});
-      button.onclick=event=>{if(event?.detail===0){skipClick=false;gestureCancelled=false;}if(skipClick||gestureCancelled){skipClick=false;return;}focusCell=cell;act(cell,mode==='flag'?'toggle_flag':'open');};row.append(button);
+      button.addEventListener('contextmenu',event=>{event.preventDefault();clearTimeout(longPress);pointerAt=null;skipClick=true;if(gestureCancelled||longPressDone)return;longPressDone=true;if(run.status==='active')act(cell,'toggle_flag',renderedRun);});
+      button.onclick=event=>{if(event?.detail===0){skipClick=false;gestureCancelled=false;}if(skipClick||gestureCancelled){skipClick=false;return;}focusCell=cell;act(cell,mode==='flag'?'toggle_flag':'open',renderedRun);};row.append(button);
     }
     if(restoreFocus&&!busy){if(document.activeElement&&document.activeElement!==document.body&&!board.contains(document.activeElement)){restoreFocus=false;return;}board.querySelector(`[data-cell="${focusCell}"]`)?.focus({preventScroll:true});restoreFocus=false;}
   }
@@ -75,7 +76,7 @@
   async function flushResults(){try{await store.flush(api,result=>{if(result.rejected&&run?.run_id===result.run_id){setError('Сервер не подтвердил результат: '+result.message);render();}else{refreshLeaderboard();render();}});}catch(error){if(error.status===401&&run&&finished(run.status)){setError('Результат сохранён. Открой игру заново в Telegram для отправки.');render();}} }
   setInterval(flushResults,5000);window.addEventListener('online',()=>{flushResults();store.refreshRules(api).catch(()=>{});});
   async function start(resumeExisting=false){
-    if(busy)return;errorText='';busy=true;render();
+    if(busy)return;cancelGesture();errorText='';busy=true;render();
     try{
       let packet=resumeExisting?null:await store.fresh('minesweeper',difficulty);
       if(!packet){
@@ -86,11 +87,15 @@
       engine=new PVLocal.Mines(packet);journal=[];focusCell=0;restoreFocus=false;known=new Map();mines=new Set();
       sync(engine.state);difficulty=engine.state.difficulty;saveLocal();
       document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.difficulty===difficulty)));
-    }catch(error){setError('Для загрузки новой партии нужна связь. Текущая игра сохранена. '+error.message);}
+    }catch(error){
+      difficulty=run?.difficulty||difficulty;
+      document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.difficulty===difficulty)));
+      setError('Для загрузки новой партии нужна связь. Текущая игра сохранена. '+error.message);
+    }
     finally{busy=false;render();refreshLeaderboard();}
   }
-  async function act(cell,kind){
-    if(!run||!engine||busy||finished(run.status))return;errorText='';
+  async function act(cell,kind,boardId=run?.run_id){
+    if(!run||!engine||busy||finished(run.status)||run.run_id!==boardId||!Number.isInteger(cell)||cell<0||cell>=run.size*run.size)return;errorText='';
     if(run.status==='awaiting_first_open')kind='open';
     const elapsed=run.status==='awaiting_first_open'?0:Math.floor(time());
     journal.push({kind,cell,elapsed_ms:elapsed});const result=engine.step(cell,kind,elapsed);
@@ -98,7 +103,8 @@
     if(finished(result.status)){store.data.last={packet:engine.packet,state:engine.state,first:engine.first,journal};store.queue(engine.packet,journal);flushResults();}
     if(!store.durable)setError('Не удалось сохранить игру на устройстве. Не закрывай приложение.');
   }
-  function pause(){if(!engine||finished(engine.state.status))return;clockBase=Math.floor(time());clockAt=null;saveLocal();}
+  function cancelGesture(){clearTimeout(longPress);pointerAt=null;gestureCancelled=true;skipClick=true;}
+  function pause(){cancelGesture();if(!engine||finished(engine.state.status))return;clockBase=Math.floor(time());clockAt=null;saveLocal();}
   window.addEventListener('pagehide',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();else if(run?.status==='active')clockAt=performance.now();});
   function restore(){
     const active=store.data.active||(store.data.outbox.length?store.data.last:null);
@@ -117,6 +123,6 @@
     $('leaderboard-difficulty').textContent=labels[selected];try{const data=await api('/leaderboard/'+selected);if(seq!==leaderSeq||selected!==difficulty)return;$('season-note').textContent=seasonNote(data);seasonRewards(data);const list=$('leaderboard-list');list.replaceChildren();if(!data.top.length)emptyLeaderboard('Пока нет побед.');else data.top.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),name=document.createElement('a'),result=document.createElement('b'),player=row.player||{};place.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,name,result);list.append(item);});$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${formatRank(data.personal.best_elapsed_ms)}`:'Для рейтинга пройди поле минимум за два открытия.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.');}
   }
   $('mine-view-toggle').onclick=()=>{const large=document.body.dataset.mineZoom!=='large';document.body.dataset.mineZoom=large?'large':'fit';$('mine-view-toggle').setAttribute('aria-pressed',String(large));$('mine-view-toggle').textContent=large?'Показать всё поле':'Крупные клетки';$('mine-view-label').textContent=large?'Прокручивай поле вбок':'Поле целиком';};
-  document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{mode=button.dataset.mode;if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.selectionChanged();document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();});
+  document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{cancelGesture();mode=button.dataset.mode;if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.selectionChanged();document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();});
   document.querySelectorAll('[data-difficulty]').forEach(button=>button.onclick=()=>{if(busy||difficulty===button.dataset.difficulty)return;difficulty=button.dataset.difficulty;document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item===button)));start();});$('new-game').onclick=()=>start(!run);restore();
 })();

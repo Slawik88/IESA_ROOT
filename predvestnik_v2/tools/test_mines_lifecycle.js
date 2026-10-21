@@ -3,10 +3,10 @@ const text=e=>e.textContent+' '+e.children.map(text).join(' ');
 (async()=>{
   const first=boot({blockedStorage:true,status:'awaiting_first_open',size:6});await first.tick();assert.equal(first.cells().length,36);
   assert.equal(first.requests.find(r=>r.url.endsWith('/runs')).opts.headers['x-init-data'],'telegram-proof');
-  first.modes[1].onclick();first.cells()[0].onclick();await first.tick();assert.equal(first.m.journal()[0].kind,'open');
-  first.cells()[3].onclick();await first.tick();assert.equal(first.m.journal()[1].kind,'toggle_flag');
-  first.get('mine-view-toggle').onclick();assert.equal(first.ctx.document.body.dataset.mineZoom,'large');
-  first.get('mine-view-toggle').onclick();assert.equal(first.ctx.document.body.dataset.mineZoom,'fit');
+  first.modes[1].onclick({detail:0});first.cells()[0].onclick({detail:0});await first.tick();assert.equal(first.m.journal()[0].kind,'open');
+  first.cells()[3].onclick({detail:0});await first.tick();assert.equal(first.m.journal()[1].kind,'toggle_flag');
+  first.get('mine-view-toggle').onclick({detail:0});assert.equal(first.ctx.document.body.dataset.mineZoom,'large');
+  first.get('mine-view-toggle').onclick({detail:0});assert.equal(first.ctx.document.body.dataset.mineZoom,'fit');
   for(const touch of [false,true]){
     const h=boot();await h.tick();const cell=h.cells()[0];
     cell.listeners.pointerdown({button:touch?0:2,clientX:1,clientY:1});if(touch){h.runTimers();await h.tick();}
@@ -21,7 +21,7 @@ const text=e=>e.textContent+' '+e.children.map(text).join(' ');
   for(const rejectOld of [false,true]){
     const h=boot();await h.tick();let resolveOld,reject;
     h.net.leader=url=>url.endsWith('/easy')?new Promise((yes,no)=>{resolveOld=yes;reject=no;}):Promise.resolve({top:[{place:1,player:{display_name:'HARD'},best_elapsed_ms:1234}]});
-    const pending=h.m.refreshLeaderboard();await h.tick();h.difficulties[2].onclick();await h.tick();
+    const pending=h.m.refreshLeaderboard();await h.tick();h.difficulties[2].onclick({detail:0});await h.tick();
     await new Promise(resolve=>setTimeout(resolve,50));await h.tick();
     assert.match(text(h.get('leaderboard-list')),/HARD/);
     if(rejectOld)reject(Error('old failure'));else resolveOld({top:[{place:1,player:{display_name:'OLD'},best_elapsed_ms:9}]});

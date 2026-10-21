@@ -2,10 +2,10 @@
 """Fast deterministic tests for Minesweeper board and state rules."""
 from core import minesweeper_v2 as rules
 
-# A real safe-halo board can win on its first open. Preserve the win while
+# A legacy safe-halo board can win on its first open. Preserve the win while
 # excluding it from a speed contest: no manual solving time was measured.
 spec = rules.difficulty("easy")
-layout = rules.board((536).to_bytes(32, "big"), spec, 14)
+layout = rules.board((536).to_bytes(32, "big"), spec, 14, ruleset_version=rules.LEGACY_RULESET_VERSION)
 revealed, _, status, _ = rules.apply_action(spec=spec, layout=layout, revealed=set(), flags=set(), kind="open", cell=14)
 assert status == "won" and len(revealed) == 30
 assert not rules.speed_ranked(status=status, opened_actions=1, elapsed_ms=0)
@@ -51,3 +51,18 @@ for spec in rules.DIFFICULTIES.values():
                 expected = sum(max(abs(row-y),abs(col-x)) == 1 for y,x in coords)
                 assert value == expected, (spec.id,seed_id,first,cell,value,expected)
 print("Mines numbers: independent 8-neighbour geometry oracle passes 768 boards")
+
+# All new boards require actual solving; legacy seed reproduces the old cause.
+for seed in range(10000):
+    layout = rules.board(seed.to_bytes(32, "big"), rules.difficulty("easy"), 14)
+    assert not rules._first_open_wins(layout, rules.difficulty("easy"), 14), seed
+# Force exhausted retry budget: bounded fallback works for all shipped cells.
+from unittest.mock import patch
+with patch.object(rules, "GENERATOR_ATTEMPTS", 0):
+    for spec in rules.DIFFICULTIES.values():
+        for first in range(spec.size**2):
+            layout = rules.board(b"x"*32, spec, first)
+            assert len(layout["mines"]) == spec.mines
+            assert not ({first,*rules.neighbours(spec.size,first)} & layout["mines"])
+            assert not rules._first_open_wins(layout,spec,first)
+print("Mines v2: 10,000 nontrivial boards; all 198 forced fallback cells safe and nontrivial")

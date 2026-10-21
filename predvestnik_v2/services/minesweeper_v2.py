@@ -58,7 +58,7 @@ def _layout(row):
     first = row["first_cell"]
     if first is None:
         return None
-    return rules.board(bytes(row["seed"]), _spec(row), int(first))
+    return rules.board(bytes(row["seed"]), _spec(row), int(first), ruleset_version=row["ruleset_version"])
 
 
 def _public(row: dict, *, revealed: set[int] | None = None, flags: set[int] | None = None,
@@ -91,11 +91,14 @@ def _public(row: dict, *, revealed: set[int] | None = None, flags: set[int] | No
     }
 
 
-async def start_run(db, *, user_id: int, difficulty: str, resume_existing: bool = False) -> dict:
+async def start_run(db, *, user_id: int, difficulty: str, resume_existing: bool = False,
+                    ruleset_version: str = rules.RULESET_VERSION) -> dict:
     try:
         spec = rules.difficulty(difficulty)
     except rules.MinesweeperRuleError as exc:
         raise MinesweeperError(str(exc)) from exc
+    if ruleset_version not in rules.SUPPORTED_RULESETS:
+        raise MinesweeperError("unknown Minesweeper ruleset")
     await repo.ensure_tables(db)
     run_id = str(uuid4())
     async with db.connection.transaction():
@@ -113,10 +116,10 @@ async def start_run(db, *, user_id: int, difficulty: str, resume_existing: bool 
                              "GREATEST(0,FLOOR(EXTRACT(EPOCH FROM (CLOCK_TIMESTAMP()-started_at))*1000))::bigint END,"
                              "revision=revision+1 WHERE run_id=?", (str(existing["run_id"]),))
         try:
-            await db.execute("INSERT INTO minesweeper_v2_runs(run_id,user_id,difficulty,ruleset_version,seed,status) VALUES (?,?,?,?,?,'awaiting_first_open')", (run_id, int(user_id), spec.id, rules.RULESET_VERSION, secrets.token_bytes(32)))
+            await db.execute("INSERT INTO minesweeper_v2_runs(run_id,user_id,difficulty,ruleset_version,seed,status) VALUES (?,?,?,?,?,'awaiting_first_open')", (run_id, int(user_id), spec.id, ruleset_version, secrets.token_bytes(32)))
         except UniqueViolationError as exc:
             raise MinesweeperConflict("another Minesweeper run is still closing") from exc
-        row = {"run_id": run_id, "difficulty": spec.id, "ruleset_version": rules.RULESET_VERSION, "seed": b"", "first_cell": None,
+        row = {"run_id": run_id, "difficulty": spec.id, "ruleset_version": ruleset_version, "seed": b"", "first_cell": None,
                "revealed_json": [], "flags_json": [], "status": "awaiting_first_open", "revision": 0, "opened_actions": 0,
                "started_at": None, "elapsed_ms": None}
         return _public(row)
@@ -155,7 +158,7 @@ async def act(db, *, user_id: int, run_id: str, action_id: str, expected_revisio
             if kind != "open":
                 raise MinesweeperConflict("first Minesweeper action must open a cell")
             try:
-                rules.board(bytes(row["seed"]), _spec(row), cell)
+                rules.board(bytes(row["seed"]), _spec(row), cell, ruleset_version=row["ruleset_version"])
             except rules.MinesweeperRuleError as exc:
                 raise MinesweeperError(str(exc)) from exc
             row["first_cell"], row["started_at"], row["status"] = cell, now, "active"

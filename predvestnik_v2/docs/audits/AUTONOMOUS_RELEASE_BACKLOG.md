@@ -1,3 +1,30 @@
+## WAVE-GAMES-GEAR-20261021 — в работе, прямой push master разрешён
+
+Порядок владельца и текущая очередь (не заменять новым последним сообщением):
+1. Сапёр: запретить first-click auto-win генерацией v2, сохранить legacy runs/
+   offline packets через version negotiation; детальный audit именно gameplay.
+   Исправлены longpress после hidden/смены доски, autorepeat F, tab/board mismatch
+   при failed difficulty change. Python/JS независимый BFS oracle:144boards,
+   5271actions; 10,000 v2 boards безauto;198 forcedfallback; PG/ASGI negotiation,
+   legacy offline import/replay и newpacket parity PASS. Read-only review PASS.
+2. Ритм: после старта, дара, паузы/restore дать4s видеть поле без target rune;
+   после ожидания начать окно реакции, отменять warmup при hidden/cancel и не
+   двигать кнопки в момент его окончания. Исправлено:4s visible field/no target,
+   full reaction window, hide/cancel tokens, no162px layout jump. Fake-clock
+   tests и независимый Chromium320×568 smoke PASS.
+3. Мафия: imagegen для полезных поверхностей, именно стиль Предвестника.
+   Первый noir-набор сгенерирован, слишком sepia; переделать под obsidian/violet,
+   интегрировать role/help/history/hub и приватные role cards, проверить UX.
+4. Пять слотов экипировки + отдельная быстрая «Вылазка»: владелец явно подтвердил
+   реализацию в этом выпуске и влияние экипировки на ТЕКУЩИЕ походы и Следы.
+   Функциональные слоты, отдельный 3–5мин забег с последовательными выборами,
+   риском, припасами и ранним выходом; прогноз/receipt/лимиты/идемпотентность.
+5. ПОСЛЕДНИМ: Mines leaderboard грузится около минуты (скриншот владельца).
+   Измерить цепочку client/API/SQL на репрезентативных данных и устранить причину.
+
+Read-only release_critic исследует generator parity и gameplay, новых файлов
+не меняет. Worktree прежний, master512c8c6a. Весь незавершённый scope сохранять.
+
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 
 Владелец явно разрешил симуляции и выкладку в master. Подтверждён естественный

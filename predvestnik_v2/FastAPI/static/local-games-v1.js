@@ -33,24 +33,46 @@
       p.origin={seed:p.seed,ruleset_version:p.ruleset_version||p.state.ruleset_version,difficulty:p.state.difficulty};
       if(game==='rhythm')p.state={status:'active',selected:[],perks:{owned:{},shield:0,ebb:0,bloody:0,miss_debt:0,recovery:0},health:5,score:0,combo:0,correct_streak:0,correct_taps:0,mistakes:0,next_signal_no:1,signal_opened_at:null,finished_at:null,analysis:null};
       else {
+        // Upgrade only NEW boards, never mutate an active packet or its journal.
+        p.ruleset_version=p.origin.ruleset_version='minesweeper-v2';
         const [size,mineCount,label]={easy:[6,6,'Лёгкий'],normal:[9,10,'Обычный'],hard:[9,18,'Сложный']}[difficulty];
-        p.state={run_id:p.run_id,difficulty,label,size,mine_count:mineCount,ruleset_version:p.state.ruleset_version,status:'awaiting_first_open',revision:0,opened_actions:0,revealed:[],flags:[],changed:[],mines:[],elapsed_ms:0};
+        p.state={run_id:p.run_id,difficulty,label,size,mine_count:mineCount,ruleset_version:p.ruleset_version,status:'awaiting_first_open',revision:0,opened_actions:0,revealed:[],flags:[],changed:[],mines:[],elapsed_ms:0};
         p.origin.difficulty=difficulty;p.first_cell=null;p.layouts={};
         const seed=Uint8Array.from(p.seed.match(/../g),x=>parseInt(x,16));
         // The server shuffle hashes only seed+index. Compute its swaps once,
         // then prepare every first-cell board without network or input delay.
-        const swaps=await Promise.all(Array.from({length:size*size},async(_,i)=>{
-          const data=new Uint8Array(36);data.set(seed);new DataView(data.buffer).setUint32(32,i);
+        const swapsFor=async source=>Promise.all(Array.from({length:size*size},async(_,i)=>{
+          const data=new Uint8Array(36);data.set(source);new DataView(data.buffer).setUint32(32,i);
           const h=new Uint8Array(await crypto.subtle.digest('SHA-256',data));
           let value=0n;for(const byte of h.slice(0,8))value=value*256n+BigInt(byte);
           return Number(value%BigInt(i+1));
         }));
+        const swapsByAttempt=new Map([[0,await swapsFor(seed)]]);
+        const attemptSwaps=async attempt=>{
+          if(!swapsByAttempt.has(attempt)){
+            let source=new Uint8Array(32);
+            if(attempt!==8){
+              const salt=new TextEncoder().encode(':minesweeper-v2:'),data=new Uint8Array(32+salt.length+4);
+              data.set(seed);data.set(salt,32);new DataView(data.buffer).setUint32(32+salt.length,attempt);
+              source=new Uint8Array(await crypto.subtle.digest('SHA-256',data));
+            }
+            swapsByAttempt.set(attempt,await swapsFor(source));
+          }
+          return swapsByAttempt.get(attempt);
+        };
         const engine=new Mines(p);
         for(let first=0;first<size*size;first++){
-          const protectedCells=new Set([first,...engine.neighbours(first)]),cells=[];
-          for(let c=0;c<size*size;c++)if(!protectedCells.has(c))cells.push(c);
-          for(let i=cells.length-1;i>0;i--)[cells[i],cells[swaps[i]]]=[cells[swaps[i]],cells[i]];
-          p.layouts[first]=cells.slice(0,mineCount).sort((a,b)=>a-b);
+          const protectedCells=new Set([first,...engine.neighbours(first)]),candidates=[];
+          for(let c=0;c<size*size;c++)if(!protectedCells.has(c))candidates.push(c);
+          // Attempts 0..7 mirror core; attempt 8 is the verified zero-seed fallback.
+          for(let attempt=0;attempt<=8;attempt++){
+            const cells=[...candidates],swaps=await attemptSwaps(attempt);
+            for(let i=cells.length-1;i>0;i--)[cells[i],cells[swaps[i]]]=[cells[swaps[i]],cells[i]];
+            const layout=cells.slice(0,mineCount).sort((a,b)=>a-b);
+            const trial=new Mines({state:p.state,first_cell:null,layouts:{[first]:layout}});
+            if(trial.step(first,'open',0).status!=='won'){p.layouts[first]=layout;break;}
+          }
+          if(!p.layouts[first])throw new Error('Не удалось подготовить поле Сапёра.');
         }
       }
       return p;

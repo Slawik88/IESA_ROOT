@@ -25,10 +25,10 @@ def local_dsn(value: str) -> str:
 
 
 async def layout_for(db, run_id: str):
-    async with db.execute("SELECT seed,difficulty,first_cell FROM minesweeper_v2_runs WHERE run_id=?", (run_id,)) as cursor:
+    async with db.execute("SELECT seed,difficulty,first_cell,ruleset_version FROM minesweeper_v2_runs WHERE run_id=?", (run_id,)) as cursor:
         row = await cursor.fetchone()
     assert row and row["first_cell"] is not None
-    return rules.board(bytes(row["seed"]), rules.difficulty(row["difficulty"]), int(row["first_cell"]))
+    return rules.board(bytes(row["seed"]), rules.difficulty(row["difficulty"]), int(row["first_cell"]), ruleset_version=row["ruleset_version"])
 
 
 async def run(dsn: str) -> None:
@@ -38,6 +38,26 @@ async def run(dsn: str) -> None:
     await economy_ledger.ensure_tables(db)
     transaction = connection.transaction(); await transaction.start()
     try:
+        # An old open tab must not be handed a generator version it cannot
+        # implement; a new client negotiates v2. Resume preserves saved rules.
+        import httpx
+        from fastapi import FastAPI
+        from FastAPI.routers import minesweeper_v2 as router
+        app = FastAPI(); app.include_router(router.router)
+        app.dependency_overrides[router.get_db] = lambda: db
+        app.dependency_overrides[router.require_tg_user] = lambda: {"id": 976050}
+        app.dependency_overrides[router._feature_gate.dependency] = lambda: None
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            old = await client.post("/minesweeper-v2/runs", json={"difficulty":"easy"})
+            assert old.status_code == 200 and old.json()["ruleset_version"] == rules.LEGACY_RULESET_VERSION
+            assert (await client.get("/minesweeper-v2/local-rules")).json()["ruleset_version"] == rules.LEGACY_RULESET_VERSION
+            headers = {"x-minesweeper-ruleset":rules.RULESET_VERSION}
+            resume = await client.post("/minesweeper-v2/runs", headers=headers,json={"difficulty":"hard","resume_existing":True})
+            assert resume.json()["run_id"] == old.json()["run_id"] and resume.json()["ruleset_version"] == rules.LEGACY_RULESET_VERSION
+            new = await client.post("/minesweeper-v2/runs",headers=headers,json={"difficulty":"easy"})
+            assert new.json()["ruleset_version"] == rules.RULESET_VERSION
+            assert (await client.get("/minesweeper-v2/local-rules",headers=headers)).json()["ruleset_version"] == rules.RULESET_VERSION
+            assert (await client.get("/minesweeper-v2/local-rules",headers={"x-minesweeper-ruleset":"bad"})).status_code == 422
         first = await game.start_run(db, user_id=976001, difficulty="easy")
         # Stable ordinary board: random first-open auto-wins are tested below.
         await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", (bytes(range(32)), first["run_id"]))
@@ -114,7 +134,7 @@ async def run(dsn: str) -> None:
         # Automatic wins remain valid and idempotent, but cannot displace a
         # player's real best time. Filter before DISTINCT ON, including history.
         for user in (976001, 976002):
-            auto = await game.start_run(db, user_id=user, difficulty="easy")
+            auto = await game.start_run(db, user_id=user, difficulty="easy", ruleset_version=rules.LEGACY_RULESET_VERSION)
             await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", ((536).to_bytes(32, "big"), auto["run_id"]))
             args = dict(user_id=user, run_id=auto["run_id"], action_id="auto", expected_revision=0, kind="open", cell=14)
             result = await game.act(db, **args)
@@ -126,6 +146,12 @@ async def run(dsn: str) -> None:
         ranking = await game.rankings(db, user_id=976001, difficulty="easy")
         assert ranking["personal"]["best_elapsed_ms"] == state["elapsed_ms"]
         assert (await game.rankings(db, user_id=976002, difficulty="easy"))["personal"] is None
+        upgraded = await game.start_run(db, user_id=976002, difficulty="easy")
+        await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", ((536).to_bytes(32,"big"),upgraded["run_id"]))
+        new_state = await game.act(db,user_id=976002,run_id=upgraded["run_id"],action_id="new-first",expected_revision=0,kind="open",cell=14)
+        assert new_state["status"] == "active" and new_state["ruleset_version"] == rules.RULESET_VERSION
+        recovered = await game.current_run(db,user_id=976002,run_id=upgraded["run_id"])
+        assert recovered["revealed"] == new_state["revealed"]
         # Subsecond multi-open wins are legitimate; do not round or clamp them.
         await db.execute("UPDATE minesweeper_v2_runs SET elapsed_ms=250,opened_actions=2 WHERE run_id=?", (auto["run_id"],))
         assert (await game.rankings(db, user_id=976002, difficulty="easy"))["personal"]["best_elapsed_ms"] == 250

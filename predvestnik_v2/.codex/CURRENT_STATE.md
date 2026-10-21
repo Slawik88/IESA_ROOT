@@ -155,3 +155,39 @@ Real Telegram iOS/Android gesture smoke not performed; local Chromium checked.
 
 Task complete for the released fixes. Known unrelated test/fixture debt remains
 in the single release backlog; no production data cleanup or reward migration.
+
+## WAVE-GAMES-GEAR-20261021 — ACTIVE, preserve every user task
+
+Same worktree. User explicitly demands all unfinished work and immediate master
+pushes. Confirmed NEW implementation: five pet equipment slots + separate quick
+«Вылазка», gear ALSO affects current trips and Следы (both async answers YES).
+No further approval needed for that scope. Mafia generated images must match
+Predvestnik OBSIDIAN/cold violet style. Leaderboard ~minute load goes LAST.
+
+Stage1 ready locally: Mine v2 bounded8 candidate generator+zero seed fallback;
+legacy run/packet version dispatch, no-header API negotiatesv1 vs new bundle
+x-minesweeper-ruleset=v2; current new fresh explicitly upgrades old templates.
+Fixed hidden/stale longpress across board/mode, F autorepeat, difficulty rollback.
+Rhythm4s visible field/no target for start/gift/resume/restore, full reaction
+window then starts. Hidden/cancel abortPromise, drawSeq ignores stale views,
+field no layout jump305->305px (independent Chromium320x568).
+PASS Mine10k,198fallback; Python/JS/BFS144boards5271actions; PG+HTTP negotiation,
+local games PG, rules/parity;4JS gameplay/lifecycle/accessibility/resume. Independent
+release_critic ACCEPT; reviewer also4554 parity layouts/180 random games/48 full
+wrongflag games. Static delivery needs retry WITH dummyenv (lastfailedmissingtoken).
+
+Before commit fetched master18417a3d (all-time Mine/Mafia wins tops, separate from
+Mine speed board). Integrate carefully: updates feed/patch-note drafts and PGtests.
+Our two new release notes live in patch-notes/2026-10-21-games.json so daily fix
+limit isn't exceeded. Then targeted checks and push first critical batch.
+
+Remaining order: Mafia art+integration ->5gear+Вылазка+balance sim -> leaderboard
+latency LAST. Art first6 noir images generated, rejected as too sepia. Brand edits
+running functions cell92 (imagegen six edits, initial120s yielded). Results stored
+functions load('mafiaBrandResults'), prior paths/prompts load('mafiaImageResults'),
+load('mafiaBrandPrompts'); all default files under Codex generated_images/thread.
+Copy chosen brand art into workspace, encode web assets, retain prompt manifest.
+Mafia use surfaces: hub, howto5roles, history empty/completedreview, private role DM
+(send_dm/role cards in bot/chat/mafia_dm.py). Avoid per-tick image spam/secret role
+leaks to public chat. Existing text phasecards edit_message_text should stay text.
+Gear and Вылазка not yet coded; backlog top has full approved scope.
