@@ -123,8 +123,8 @@
 
 User explicitly authorized simulations and production release via master. Worktree:
 `C:/Users/makss/.codex/worktrees/pets-ux-audit/IESA_ROOT`, branch codex/pets-ux-audit.
-Pets fixes committed 6ab7f9bc atop e6e75861; latest master fetched 76cb5d29,
-merge/rebase pending. Original F: backup checkout and unrelated tracks untouched.
+Rebased onto master 76cb5d29; pets aa528f22, Mine e05288b1.
+Latest upstream Telegram names/patch notes retained. Original F: backup checkout and unrelated tracks untouched.
 
 Pets: overlay scroll lock verified at 320/390/430; companion/trial/build rest
 preserved; stale price and busy talisman guards; separate companion receipt;
@@ -145,6 +145,9 @@ games suites. Logs output/pets-release/, browser evidence output/playwright/.
 Five gear slots/new mode remain a design proposal, not shipped. Simulation
 shows blindly copying talisman multipliers from 2 to 5 slots is unsuitable;
 prices, rewards, drops, XP caps and paid mechanics unchanged by this release.
-Next: integrate latest master, independent final review, repeat relevant gates,
-push master and verify actual deployed bundles plus health/readiness/auth.
+Final review ACCEPT (release_critic), no P0–P2 blockers in our diff; reviewer
+independently repeated 4 Python +4 JS suites. All 12 targeted Python suites
+repeated after rebase PASS. Release feed audit READY. Full post-rebase gate
+still running, output/pets-release/final-gate.log; do not claim it is green.
+Next: push master and verify deployed bundles plus health/readiness/auth.
 Real Telegram iOS/Android gesture smoke remains outside available hardware.
