@@ -45,6 +45,7 @@ RELEASE_RELEVANT_PREFIXES = (
 )
 RELEASE_RELEVANT_EXCLUSIONS = (
     "FastAPI/static/updates.json",
+    "FastAPI/static/patch-notes/",
     "tests/",
     "tools/",
     "docs/",

@@ -26,6 +26,7 @@ SECTIONS: dict[str, tuple[str, int]] = {
     "settings": ("Настройки", 5),
     "health": ("Состояние", 4),
     "access": ("Права", 6),   # только создатель: матрица прав ролей и вход владельцев чатов
+    "patchnotes": ("Патч-ноуты", 6),   # только создатель: посты обновлений в официальный канал
 }
 router = APIRouter(prefix="/bot-admin/api", tags=["bot-admin"], route_class=AdminRoute)
 
@@ -91,6 +92,10 @@ async def badges(user=Depends(staff_user), db=Depends(get_db)):
         from services import reports as reports_service
         await reports_service._ensure(db)
         out["reports"] = (await reports_service.counts(db))["new"]
+    if user["rank"] >= CREATOR:   # неотправленные патч-ноуты: создатель видит, что пост дня ждёт проверки
+        from infrastructure.repositories import patch_notes as patch_repo
+        await patch_repo.ensure_tables(db)
+        out["patchnotes"] = await patch_repo.pending_count(db)
     return out
 
 

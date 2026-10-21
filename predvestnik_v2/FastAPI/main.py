@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -603,12 +603,6 @@ async def minesweeper_game():
 @app.get("/updates.json")
 async def updates_feed():
     return Response(_UPDATES_JSON, media_type="application/json; charset=utf-8")
-
-
-@app.get("/static/announcements/{name}")
-async def official_update_image(name: str):
-    from FastAPI.routers.bot_admin.official_updates import image_path
-    return FileResponse(image_path(name), media_type="image/png", headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/static/app.css")

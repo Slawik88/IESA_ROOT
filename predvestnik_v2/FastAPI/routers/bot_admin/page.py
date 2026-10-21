@@ -16,6 +16,8 @@ _DIR = os.path.join(os.path.dirname(__file__), "..", "..", "static", "bot-admin"
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
 # Порядок важен: разделы (lists) опираются на помощники из admin.js, а старт (boot) — на все разделы.
 _TYPES = {"admin.js": "text/javascript; charset=utf-8", "admin-lists.js": "text/javascript; charset=utf-8",
+          "admin-patchnotes.js": "text/javascript; charset=utf-8", "admin-patchnotes-edit.js": "text/javascript; charset=utf-8",
+          "admin-patchnotes-actions.js": "text/javascript; charset=utf-8",
           "admin-boot.js": "text/javascript; charset=utf-8", "admin.css": "text/css; charset=utf-8"}
 router = APIRouter()
 

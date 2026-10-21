@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 import asyncpg
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from infrastructure.pg_adapter import PGAdapter
-from infrastructure.repositories import pets_v2 as pets_repo, mafia_v1 as mafia_repo, official_updates as news_repo
-from services import pets_v2 as pets, family_tree, mafia_review, purge, official_updates as news
+from infrastructure.repositories import pets_v2 as pets_repo, mafia_v1 as mafia_repo
+from services import pets_v2 as pets, family_tree, mafia_review, purge
 from services import rhythm_v2 as rhythm
 from core import pets_v2 as pet_rules
 
@@ -32,7 +32,7 @@ async def run(dsn):
     transaction = conn.transaction()
     await transaction.start()
     try:
-        await pets_repo.ensure_tables(db); await mafia_repo.ensure_tables(db); await news_repo.ensure_tables(db)
+        await pets_repo.ensure_tables(db); await mafia_repo.ensure_tables(db)
         users = [98761101,98761102,98761103,98761104]
         for i, uid in enumerate(users):
             await db.execute("INSERT INTO users(user_tg_id,user_tg_username) VALUES (?,?) ON CONFLICT DO NOTHING", (uid,f"wave_qa_{i}"))
@@ -136,34 +136,19 @@ async def run(dsn):
         assert a["timeouts"] == rhythm.rules.initial_health() and a["wrong"] == 0
         assert a["signals"] == 1 + a["timeouts"] and a["hearts_lost"] == a["timeouts"]
         assert a["response_ms"] is not None and finished["integrity_status"] == "clear"
-        key="wave-qa-"+uuid4().hex
-        draft = await news.draft(db,key=key,kind="pets",caption="Важное обновление питомцев: прогноз перед отправкой и сохранённые сборки.",image="qa.png",image_digest="abc",version="qa",actor=owner)
-        sent=[]
-        async def preflight(row): pass
-        async def send(row): sent.append(row["release_key"]); return 123
-        send_args=dict(key=key,expected_digest=draft["content_digest"],version="qa",preflight=preflight,send=send)
-        assert (await news.publish(db,**send_args))["ok"]
-        assert (await news.publish(db,**send_args))["replayed"] and len(sent)==1
-        await db.execute("UPDATE official_update_posts SET sent_at=NOW()-INTERVAL '2 days' WHERE release_key=?",(key,))
-        badkey="wave-qa-"+uuid4().hex
-        draft2=await news.draft(db,key=badkey,kind="family",caption="Семейное дерево появилось в приложении: теперь близких видно вместе.",image="qa.png",image_digest="abc",version="qa",actor=owner)
-        await denied(news.publish(db,key=badkey,expected_digest=draft2["content_digest"],version="qa",preflight=preflight,send=uncertain))
-        assert (await news_repo.get(db,badkey))["status"]=="unknown"
-        await denied(news.publish(db,key=badkey,expected_digest=draft2["content_digest"],version="qa",preflight=preflight,send=send))
-        print("OK: PostgreSQL forecast/presets/privacy/family/shared purge and publication receipt boundaries")
+        print("OK: PostgreSQL forecast/presets/privacy/family/shared purge and rhythm analysis boundaries")
     finally:
         await transaction.rollback()
         await conn.close()
 
 
 async def concurrent(dsn):
-    """Two real connections competing for one verdict / one publication slot."""
+    """Two real connections competing for one verdict."""
     connections = [await asyncpg.connect(dsn) for _ in range(2)]
     for connection in connections:
         await connection.execute("SET search_path TO predvestnik,public")
     a, b = [PGAdapter(c) for c in connections]
     cid = -int(uuid4().int % 1000000000 + 7000000000)
-    keys = ["wave-race-"+uuid4().hex for _ in range(2)]
     sid = None
     try:
         start = dict(chat_id=cid,actor=101,norm=10,date_from="2026-10-01",date_to="2026-10-07",destination=cid,action_id="concurrent-start",
@@ -180,31 +165,13 @@ async def concurrent(dsn):
             return await purge.decide(db,session_id=sid,user_id=202,actor=actor,action="warn",action_id=f"actor-{actor}",authorize=authorize,execute=effect)
         results = await asyncio.gather(decide(a,101),decide(b,303))
         assert len(effects)==1 and sum(bool(r.get("replayed")) for r in results)==1
-        await news_repo.ensure_tables(a)
-        drafts=[]
-        for key in keys:
-            drafts.append(await news.draft(a,key=key,kind="pets",caption="Важное обновление: прогноз питомца проверяет сборку до отправки в путь.",image="qa.png",image_digest="abc",version="qa",actor=101))
-        sent=[]
-        async def preflight(*args):pass
-        async def send(row):
-            sent.append(row["release_key"])
-            await asyncio.sleep(.08)
-            return 123
-        async def publish(db,row):
-            try:
-                return await news.publish(db,key=row["release_key"],expected_digest=row["content_digest"],version="qa",preflight=preflight,send=send)
-            except news.PublicationError:
-                return None
-        results=await asyncio.gather(publish(a,drafts[0]),publish(b,drafts[1]))
-        assert len(sent)==1 and sum(r is not None for r in results)==1
-        print("OK: real concurrent moderators apply once; concurrent releases send at most one post")
+        print("OK: real concurrent moderators apply once")
     finally:
         if sid:
             await a.execute("DELETE FROM purge_targets WHERE session_id=?",(sid,))
             await a.execute("DELETE FROM purge_sessions WHERE id=?",(sid,))
         await a.execute("DELETE FROM moderation_logs WHERE chat_id=?",(cid,))
         await a.execute("DELETE FROM chat_settings WHERE chat_id=?",(cid,))
-        for key in keys:await a.execute("DELETE FROM official_update_posts WHERE release_key=?",(key,))
         for connection in connections:await connection.close()
 
 

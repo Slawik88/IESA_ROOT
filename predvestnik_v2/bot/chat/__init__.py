@@ -103,7 +103,7 @@ async def on_message(message: Message, bot, db) -> None:
     if (message.chat.id == official_policy.CHAT_ID and message.is_topic_message
             and message.message_thread_id == official_policy.THREAD_ID):
         try:
-            from infrastructure.repositories import official_updates as official_repo
+            from infrastructure.repositories import patch_notes as official_repo
             await official_repo.ensure_tables(db)
             await official_repo.topic_seen(db, official_policy.CHAT_ID, official_policy.THREAD_ID)
         except Exception as error:

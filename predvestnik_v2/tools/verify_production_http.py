@@ -49,7 +49,6 @@ def main() -> None:
         "/mafia-v1/me": 401,
         "/purge-v1/chats": 401,
         "/marriage/tree": 401,
-        "/static/announcements/family-tree.png": 200,
         "/profile/1": 404,
         "/gacha/info": 404,
         "/auction/": 404,
