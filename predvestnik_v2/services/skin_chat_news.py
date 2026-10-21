@@ -44,11 +44,10 @@ def _one(user_id: int, username: str | None, item: dict) -> str:
     skin, look = SKINS[sid], _look(sid, kind)
     who = f"{look.glyph} {_who(user_id, username)}"
     if kind == "sss":
-        rows = [layout.ROW + who, *layout.wrap(f"<b>{escape(skin['name'])}</b> теперь <b>SSS</b>", layout.SUB)]
-        body = layout.section(look, "👑", "SSS", rows)
-        return body + (f"\n\n«{escape(look.phrase)}» ✨" if look.phrase else "")
-    rows = [layout.ROW + who, layout.SUB + "новый образ", *layout.wrap(f"<b>{escape(skin['name'])}</b>"),
-            *layout.wrap(f"<i>{escape(title_of(sid))}</i> · редкость {skin['tier']}", layout.SUB)]
+        rows = [layout.row(look) + who, *layout.wrap(look, f"<b>{escape(skin['name'])}</b> теперь <b>SSS</b>", nested=True)]
+        return layout.message(look, [layout.section(look, "👑", "SSS", rows)])
+    rows = [layout.row(look) + who, layout.sub(look) + "новый образ", *layout.wrap(look, f"<b>{escape(skin['name'])}</b>"),
+            *layout.wrap(look, f"<i>{escape(title_of(sid))}</i> · редкость {skin['tier']}", nested=True)]
     return layout.section(look, "✨", "Образ", rows)
 
 
@@ -57,9 +56,9 @@ def text(user_id: int, username: str | None, items: list[dict]) -> str:
     if len(items) == 1:
         return _one(user_id, username, items[0])
     look = _look(items[-1]["skin_id"], items[-1]["kind"])
-    rows = [layout.ROW + f"✨ {_who(user_id, username)}", layout.SUB + "пополняет коллекцию"]
+    rows = [layout.row(look) + f"✨ {_who(user_id, username)}", layout.sub(look) + "пополняет коллекцию"]
     for i in items:
-        rows += layout.wrap(f"{glyph_of(i['skin_id'])} <b>{escape(SKINS[i['skin_id']]['name'])}</b> · {'SSS' if i['kind'] == 'sss' else 'новый'}")
+        rows += layout.wrap(look, f"{glyph_of(i['skin_id'])} <b>{escape(SKINS[i['skin_id']]['name'])}</b> · {'SSS' if i['kind'] == 'sss' else 'новый'}")
     return layout.section(look, "🎨", "Коллекция", rows)
 
 

@@ -59,33 +59,33 @@ def _cells(items: list[tuple[str, str]]) -> list[str]:
 
 
 def styled(data: CardData, look: ChatLook) -> str:
-    """Карточка в стиле скина: шапка, разделы со строками «┊», подпись SSS (core/skins_v3_chat_layout.py)."""
-    profile_rows = [r for line in data.head for r in L.wrap(line)]
+    """Карточка в стиле скина: шапка, разделы со строками скина, подпись SS/SSS (core/skins_v3_chat_layout.py)."""
+    profile_rows = [r for line in data.head for r in L.wrap(look, line)]
     profile_rows += L.crest_rows(look)
     parts = [L.banner(look, data.title, data.username)]
     if profile_rows:
         parts.append(L.section(look, look.glyph, "Профиль", profile_rows))
     if data.messages:
-        parts.append(L.section(look, look.icons[0], "Сообщения", L.pack(_cells(data.messages + data.totals), look.sep)))
+        parts.append(L.section(look, look.icons[0], "Сообщения", L.pack(look, _cells(data.messages + data.totals))))
     if data.progress:
-        parts.append(L.section(look, look.icons[1], "Прогресс", L.pack(_cells(data.progress), look.sep)))
+        parts.append(L.section(look, look.icons[1], "Прогресс", L.pack(look, _cells(data.progress))))
     if data.personal:
         rows = []
         for line in data.personal:
-            rows += L.wrap(line[1:], L.SUB) if line.startswith("\x00") else L.wrap(line)
+            rows += L.wrap(look, line[1:], nested=True) if line.startswith("\x00") else L.wrap(look, line)
         parts.append(L.section(look, "📅", "В чате", rows))
-    parts.append(L.section(look, look.icons[2], "Кошелёк", L.pack(data.wallet, look.sep)))
+    parts.append(L.section(look, look.icons[2], "Кошелёк", L.pack(look, data.wallet)))
     return L.message(look, parts)
 
 
 def balance(look: ChatLook, lines: list[str]) -> str:
     """«бот баланс» в стиле скина: строки баланса — раздел «Кошелёк»."""
-    return L.message(look, [f"{look.glyph} <b>Баланс</b>", L.section(look, look.icons[2], "Кошелёк", [r for x in lines for r in L.wrap(x)])])
+    return L.message(look, [f"{look.glyph} <b>Баланс</b>", L.section(look, look.icons[2], "Кошелёк", [r for x in lines for r in L.wrap(look, x)])])
 
 
 def streak(look: ChatLook, who: str, current: int, best: int, status: str) -> str:
     """«бот стрик» в стиле скина."""
-    rows = [L.ROW + f"🔥 сейчас <b>{current}</b>", L.ROW + f"🏅 лучший <b>{best}</b>", *L.wrap(status)]
+    rows = [L.row(look) + f"🔥 сейчас <b>{current}</b>", L.row(look) + f"🏅 лучший <b>{best}</b>", *L.wrap(look, status)]
     return L.message(look, [L.heading(look, who, "стрик"), L.section(look, look.icons[1], "Серия", rows),
                             "<i>Серия и график учитывают активность во всех чатах.</i>"])
 
@@ -94,7 +94,7 @@ def achievements(look: ChatLook, who: str, items: list[tuple[str, str, str]], to
     """«бот достижения» в стиле скина: раздел на группу; items — (группа, строка с именем, строка прогресса)."""
     groups: dict[str, list[str]] = {}
     for group, head, progress in items:
-        groups.setdefault(group, []).extend(L.wrap(head) + L.wrap(progress, L.SUB))
-    parts = [f"{L.heading(look, who, 'достижения')}\n{L.ROW}уровней: <b>{total}</b> из {total_max}"]
+        groups.setdefault(group, []).extend(L.wrap(look, head) + L.wrap(look, progress, nested=True))
+    parts = [f"{L.heading(look, who, 'достижения')}\n{L.row(look)}уровней: <b>{total}</b> из {total_max}"]
     parts += [L.section(look, "🏆", title, rows) for title, rows in groups.items()]
     return L.message(look, [*parts, footnote])

@@ -27,6 +27,7 @@ from core.skins_v3 import TIERS  # noqa: E402
 from core.skins_v3_catalog import SKINS  # noqa: E402
 from core.skins_v3_chat import ORNAMENT_MAX, chat_look, ornament_line  # noqa: E402
 from core.skins_v3_chat_phrases import PHRASES  # noqa: E402
+from core.skins_v3_chat_kits import KITS  # noqa: E402
 from services import skin_chat_news  # noqa: E402
 
 COMPOSE_LIMIT_SEC = 0.6     # картинка с холодным декором; бюджет в боте 0.9 с
@@ -86,6 +87,15 @@ def layout() -> None:
     check_lines(skin_chat_news.text(1, "a_rather_long_username_x32chars", many), "news many")
 
 
+def kits_and_tiers() -> None:
+    """У каждого скина свой набор символов, у каждого тира — свой вид."""
+    assert set(KITS) == set(SKINS), set(SKINS) ^ set(KITS)
+    assert len(set(KITS.values())) == len(KITS), "два скина с одинаковым набором символов"
+    for sid in SKINS:
+        views = {profile_view.styled(sample(), chat_look(sid, tier)) for tier in TIERS}
+        assert len(views) == len(TIERS), (sid, len(views))
+
+
 def plain_unchanged() -> None:
     """Без скина карточка ровно та, что была до скинов (стиль v2)."""
     d = profile_view.CardData(title="Макс", username="maks", head=["🏷 <b>Сяо</b>"],
@@ -131,6 +141,7 @@ def images_and_motion() -> None:
 
 if __name__ == "__main__":
     catalog_rules()
+    kits_and_tiers()
     plain_unchanged()
     layout()
     images_and_motion()
