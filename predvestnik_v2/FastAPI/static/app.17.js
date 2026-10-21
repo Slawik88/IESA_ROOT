@@ -1,8 +1,10 @@
-// ── Shell V3 · компактные лидерборды: сообщения (неделя, всё время) и Ритм ──────
+// ── Shell V3 · компактные лидерборды: сообщения, Ритм, Сапёр и Мафия ──────────────
 const _V3_TOPS = [
   { id: 'week', label: 'Неделя', url: '/leaderboards/messages?period=week', unit: 'сообщ.' },
   { id: 'all_time', label: 'Всё время', url: '/leaderboards/messages?period=all_time', unit: 'сообщ.' },
-  { id: 'rhythm', label: 'Ритм', url: '/rhythm-v2/leaderboard/normal', unit: 'очк.', flag: 'game_rhythm_v2' }
+  { id: 'rhythm', label: 'Ритм', url: '/rhythm-v2/leaderboard/normal', unit: 'очк.', flag: 'game_rhythm_v2' },
+  { id: 'minesweeper', label: 'Сапёр', url: '/leaderboards/game/minesweeper', unit: 'поб.', flag: 'game_minesweeper_v2' },
+  { id: 'mafia', label: 'Мафия', url: '/leaderboards/game/mafia', unit: 'поб.', flag: 'game_mafia_v1' }
 ];
 let _v3TopTab = 'week', _v3TopCache = {}, _v3TopSeq = 0;
 function _v3TopShell() {
@@ -13,6 +15,10 @@ function _v3TopNormalize(id, d) {
   if (id === 'rhythm') {
     return { top: (d.top || []).slice(0, 5).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
+  }
+  if (id === 'minesweeper' || id === 'mafia') {
+    return { top: (d.items || []).slice(0, 5).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
+      personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
   }
   return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
     personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
@@ -35,7 +41,7 @@ function renderV3Top(state) {
   else {
     const inTop = data.top.some(r => r.is_me);
     body = `<ol class="v3-top-list">${data.top.map(r => `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.value)}</li>`).join('')}</ol>
-      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${tab.id === 'rhythm' ? "openTopV3('rhythm')" : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
+      <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${['rhythm', 'minesweeper', 'mafia'].includes(tab.id) ? `openTopV3('${tab.id}')` : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
   }
   host.innerHTML = `${head}<div class="v3-top-body">${body}</div>`;
 }

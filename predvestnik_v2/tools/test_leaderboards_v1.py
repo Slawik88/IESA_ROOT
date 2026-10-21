@@ -96,6 +96,30 @@ async def main() -> None:
         raise AssertionError("unknown scope must be rejected")
     compact = await lb.message_top(db, user_id=3, period="week", now=THURSDAY)
     assert compact["top"][0]["place"] == 1 and compact["personal"]["place"] == 3
+    # Game tops: all-time wins use the same row shape and clamp an out-of-range page.
+    async def fake_win_players(db): return 12
+
+    async def fake_win_standings(db, *, limit, offset):
+        return [{"user_id": 100 + i, "wins": 20 - (offset + i)} for i in range(min(limit, max(0, 12 - offset)))]
+
+    async def fake_win_position(db, *, user_id): return {"place": 3, "wins": 5}
+
+    async def fake_vips(db, ids): return {100}
+
+    lb.minesweeper_repo.win_players = fake_win_players
+    lb.minesweeper_repo.win_standings = fake_win_standings
+    lb.minesweeper_repo.win_position = fake_win_position
+    lb.is_vip_active_batch = fake_vips
+    board = await lb.game_top(db, user_id=100, game="minesweeper", page=99)
+    assert board["page"] == 1 and board["pages"] == 2 and board["total"] == 12
+    assert board["items"][0]["place"] == 11 and board["items"][0]["is_me"] and board["items"][0]["is_vip"]
+    assert board["personal"] == {"place": 3, "count": 5, "total": 12}
+    try:
+        await lb.game_top(db, user_id=3, game="rhythm")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown game top must be rejected")
 
 
 asyncio.run(main())

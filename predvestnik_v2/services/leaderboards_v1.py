@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from infrastructure.repositories import public_profiles_v1 as public_profiles
 from services import appearance_public_v3, marks_v1 as marks_service
 from infrastructure.repositories import stats as stats_repo
+from infrastructure.repositories import mafia_v1 as mafia_repo, minesweeper_v2 as minesweeper_repo
 from infrastructure.repositories.streak import get_chat_timezone
 from services.membership import bot_tg_id
 from services.vip import is_vip_active_batch
@@ -85,6 +86,47 @@ async def decorate_game_board(db, board: dict, user_id: int | None = None) -> di
         row["player"] = {**row["player"], "look": looks.get(uid), "mark": marks.get(uid), "is_vip": uid in vips}
         row["is_me"] = user_id is not None and uid == int(user_id)
     return board
+
+
+async def _win_rows(db, rows: list[dict], user_id: int, first_place: int) -> list[dict]:
+    """Win rows in the same flat shape as the message top, so both screens share one renderer."""
+    ids = [int(row["user_id"]) for row in rows]
+    players = await public_profiles.player_projection(db, user_ids=ids)
+    looks = await appearance_public_v3.nick_styles(db, ids)
+    marks = await marks_service.top_mark_batch(db, ids)
+    vips = await is_vip_active_batch(db, ids)
+    out = []
+    for index, row in enumerate(rows):
+        uid = int(row["user_id"])
+        out.append({
+            "place": first_place + index,
+            "name": players[uid]["display_name"],
+            "ref": players[uid]["profile_ref"],
+            "look": looks.get(uid),
+            "mark": marks.get(uid),
+            "count": int(row["wins"]),
+            "is_vip": uid in vips,
+            "is_me": uid == int(user_id),
+        })
+    return out
+
+
+async def game_top(db, *, user_id: int, game: str, page: int = 0) -> dict:
+    """All-time win board for the two Mini App games. Mafia and Minesweeper have no shared season."""
+    repo = {"mafia": mafia_repo, "minesweeper": minesweeper_repo}.get(game)
+    if repo is None:
+        raise ValueError("unsupported game top")
+    total = await repo.win_players(db)
+    pages = max(1, -(-total // PAGE_SIZE))
+    page = max(0, min(int(page), pages - 1))
+    rows = await repo.win_standings(db, limit=PAGE_SIZE, offset=page * PAGE_SIZE)
+    position = await repo.win_position(db, user_id=int(user_id))
+    return {
+        "game": game, "page": page, "pages": pages, "total": total,
+        "items": await _win_rows(db, rows, int(user_id), page * PAGE_SIZE + 1),
+        "personal": ({"place": int(position["place"]), "count": int(position["wins"]), "total": total}
+                     if position else None),
+    }
 
 
 async def message_top(db, *, user_id: int, period: str, now: datetime | None = None) -> dict:

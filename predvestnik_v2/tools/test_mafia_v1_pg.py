@@ -209,10 +209,16 @@ async def check_gate_and_votes(db, match_id: int, roles: dict[int, str], bot: Fa
 
 
 async def check_finish(db, match_id: int, roles: dict[int, str]) -> None:
+    before = {uid: await repo.win_position(db, user_id=uid) for uid in roles}
     await db.execute("UPDATE mafia_v1_players SET alive=FALSE WHERE match_id=? AND role!='mafia'", (match_id,))
     await db.execute("UPDATE mafia_v1_matches SET phase='night',phase_deadline=CLOCK_TIMESTAMP()-INTERVAL '1 second' WHERE id=?", (match_id,))
     done = await mafia.advance_due_match(db, match_id=match_id)
     assert done and done["view"]["phase"] == "finished" and done["view"]["roles_reveal"], "the end reveals every role"
+    after = {uid: await repo.win_position(db, user_id=uid) for uid in roles}
+    for uid, role in roles.items():
+        won = mafia.rules.faction(role) == done["view"]["winner"]
+        delta = (after[uid]["wins"] if after[uid] else 0) - (before[uid]["wins"] if before[uid] else 0)
+        assert delta == (1 if won else 0), f"the Mafia top counts a {role} win correctly"
     assert await mafia.record_terminal_rewards(db, match_id=match_id), "receipts are issued after the phase has committed"
     assert await mafia.record_terminal_rewards(db, match_id=match_id), "and a retry changes nothing"
     count = lambda metric: db.execute("SELECT COUNT(*) FROM quest_v1_metric_receipts WHERE metric=? AND event_id=?", (metric, f"mafia:{match_id}"))  # noqa: E731

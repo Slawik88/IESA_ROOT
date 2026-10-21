@@ -12,6 +12,8 @@ from core import minesweeper_v2 as rules
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import achievements_v1 as achievements_repo
 from infrastructure.repositories import economy_ledger
+from infrastructure.repositories import minesweeper_v2 as mines_repo
+from services import leaderboards_v1
 from services import minesweeper_v2 as game
 
 
@@ -86,6 +88,7 @@ async def run(dsn: str) -> None:
 
         winner = await game.start_run(db, user_id=976001, difficulty="easy")
         await db.execute("UPDATE minesweeper_v2_runs SET seed=? WHERE run_id=?", (bytes(range(32)), winner["run_id"]))
+        wins_before = await mines_repo.win_position(db, user_id=976001)
         state = await game.act(db, user_id=976001, run_id=winner["run_id"], action_id="start-win", expected_revision=0, kind="open", cell=14)
         layout = await layout_for(db, winner["run_id"])
         counter = 0
@@ -95,6 +98,11 @@ async def run(dsn: str) -> None:
             counter += 1
             state = await game.act(db, user_id=976001, run_id=winner["run_id"], action_id=f"safe-{counter}", expected_revision=state["revision"], kind="open", cell=safe)
         assert state["status"] == "won" and state["elapsed_ms"] is not None
+        wins_after = await mines_repo.win_position(db, user_id=976001)
+        assert (wins_after["wins"] if wins_after else 0) == (wins_before["wins"] if wins_before else 0) + 1
+        game_top = await leaderboards_v1.game_top(db, user_id=976001, game="minesweeper")
+        assert game_top["personal"] and game_top["personal"]["count"] == wins_after["wins"], "the game top counts wins"
+        assert game_top["items"] and all({"name", "ref", "count", "is_me"} <= set(row) for row in game_top["items"])
         async with db.execute("SELECT metric FROM quest_v1_metric_receipts WHERE user_id=? AND event_id=? ORDER BY metric", (976001, f"minesweeper:{winner['run_id']}")) as cursor:
             assert [row[0] for row in await cursor.fetchall()] == [
                 'game_completed', 'minesweeper_completed', 'minesweeper_easy_win', 'minesweeper_win',

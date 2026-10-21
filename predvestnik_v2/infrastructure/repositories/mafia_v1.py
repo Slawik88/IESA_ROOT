@@ -197,6 +197,45 @@ async def actions(db, *, match_id: int, phase_number: int) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+# A win is the player's faction matching the finished match winner, the same rule as the chat achievement.
+_MAFIA_WIN = ("((m.winner='mafia' AND p.role IN ('mafia','don')) OR "
+              "(m.winner='town' AND p.role IN ('citizen','doctor','detective')))")
+
+
+async def win_players(db) -> int:
+    async with db.execute(
+        "SELECT COUNT(DISTINCT p.user_id) FROM mafia_v1_players p "
+        "JOIN mafia_v1_matches m ON m.id=p.match_id "
+        "WHERE m.phase='finished' AND " + _MAFIA_WIN,
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
+
+
+async def win_standings(db, *, limit: int, offset: int = 0) -> list[dict]:
+    """All-time wins, one row per player; Mafia is chat-native and has no seasons."""
+    async with db.execute(
+        "SELECT p.user_id,COUNT(*) AS wins FROM mafia_v1_players p "
+        "JOIN mafia_v1_matches m ON m.id=p.match_id "
+        "WHERE m.phase='finished' AND " + _MAFIA_WIN + " "
+        "GROUP BY p.user_id ORDER BY wins DESC,p.user_id ASC LIMIT ? OFFSET ?",
+        (int(limit), int(offset)),
+    ) as cursor:
+        return [{"user_id": int(row["user_id"]), "wins": int(row["wins"])} for row in await cursor.fetchall()]
+
+
+async def win_position(db, *, user_id: int) -> dict | None:
+    async with db.execute(
+        "WITH w AS (SELECT p.user_id,COUNT(*) AS wins FROM mafia_v1_players p "
+        "JOIN mafia_v1_matches m ON m.id=p.match_id "
+        "WHERE m.phase='finished' AND " + _MAFIA_WIN + " GROUP BY p.user_id), "
+        "ranked AS (SELECT user_id,wins,ROW_NUMBER() OVER (ORDER BY wins DESC,user_id ASC) AS place FROM w) "
+        "SELECT place,wins FROM ranked WHERE user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {"place": int(row["place"]), "wins": int(row["wins"])} if row else None
+
+
 async def player_history(db, *, user_id: int, limit: int = 20) -> list[dict]:
     """The player's own latest finished matches (own role only)."""
     async with db.execute(

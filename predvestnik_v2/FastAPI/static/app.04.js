@@ -57,7 +57,7 @@ const _V3_GAMES = [
   {flag:'game_minesweeper_v2', name:'Сапёр', desc:'Открывай клетки и ставь флаги. В рейтинг попадают только победы.', hint:'Логика, победы попадают в топ', cta:'Играть', open:'openMinesweeperGame()'},
   {flag:'game_mafia_v1', name:'Мафия', desc:'Играется в групповом чате: напиши «бот мафия». Здесь история ваших партий.', hint:'Играется в чате, здесь ваши партии', cta:'Мои партии', open:'openMafiaStats()'}
 ];
-// Личный результат в строке игры: из таблицы сезона (`personal`). Только Ритм и Сапёр; у Мафии таблицы нет.
+// Личный результат в строке игры: из таблицы сезона (`personal`). Только Ритм и Сапёр; топ Мафии по победам живёт на экране «Топ».
 const _V3_GAME_BOARDS={game_rhythm_v2:'/rhythm-v2/leaderboard/normal', game_minesweeper_v2:'/minesweeper-v2/leaderboard/normal'};
 let _hubSeq=0, _hubScore={}, _hubAt={};   // _hubAt: когда пришёл результат (таблица пересчитывает сезон на сервере, не дёргаем чаще раза в минуту)   // _hubScore[flag]: undefined = грузится, null = нет данных, {place,best_score} = есть
 function _hubLine(g){

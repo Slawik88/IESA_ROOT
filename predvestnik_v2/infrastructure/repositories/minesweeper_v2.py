@@ -127,6 +127,32 @@ async def season_standings(db, *, difficulty: str, starts_at, ends_at, limit: in
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def win_players(db) -> int:
+    async with db.execute("SELECT COUNT(DISTINCT user_id) FROM minesweeper_v2_runs WHERE status='won'") as cursor:
+        return int((await cursor.fetchone())[0])
+
+
+async def win_standings(db, *, limit: int, offset: int = 0) -> list[dict]:
+    """All-time wins, one row per player; the game top is not tied to a season."""
+    async with db.execute(
+        "SELECT user_id,COUNT(*) AS wins FROM minesweeper_v2_runs WHERE status='won' "
+        "GROUP BY user_id ORDER BY wins DESC,user_id ASC LIMIT ? OFFSET ?",
+        (int(limit), int(offset)),
+    ) as cursor:
+        return [{"user_id": int(row["user_id"]), "wins": int(row["wins"])} for row in await cursor.fetchall()]
+
+
+async def win_position(db, *, user_id: int) -> dict | None:
+    async with db.execute(
+        "WITH w AS (SELECT user_id,COUNT(*) AS wins FROM minesweeper_v2_runs WHERE status='won' GROUP BY user_id), "
+        "ranked AS (SELECT user_id,wins,ROW_NUMBER() OVER (ORDER BY wins DESC,user_id ASC) AS place FROM w) "
+        "SELECT place,wins FROM ranked WHERE user_id=?",
+        (int(user_id),),
+    ) as cursor:
+        row = await cursor.fetchone()
+    return {"place": int(row["place"]), "wins": int(row["wins"])} if row else None
+
+
 async def leaderboard(db, *, user_id: int, difficulty: str, starts_at, ends_at) -> dict:
     top = await season_standings(db, difficulty=difficulty, starts_at=starts_at, ends_at=ends_at, limit=20)
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])

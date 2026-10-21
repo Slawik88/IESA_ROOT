@@ -88,6 +88,7 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 
 /* ── Лидерборды: пять строк, без карточек ── */
 .v3-tabs { display: flex; gap: 2px; margin-right: -10px; }
+#v3-top .v3-tabs, #pg-top .v3-tabs { flex-wrap: wrap; }   /* пять областей рейтинга переносятся, а не режутся на 320 px */
 .v3-tab { position: relative; min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--v3-dim); font: 600 12px/1 var(--v3-font); cursor: pointer; }
 .v3-tab.on { color: var(--v3-ink); }
 .v3-tab.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 9px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
