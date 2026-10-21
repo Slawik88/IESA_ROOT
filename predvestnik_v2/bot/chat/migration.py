@@ -14,7 +14,6 @@ STATE_TABLES = (
     ("chat_blacklist", "chat_id"),
     ("user_warnings", "chat_id"),
     ("moderation_logs", "chat_id"),
-    ("user_nicknames", "chat_id"),
     ("bot_feature_switches", "chat_id"),
     ("marriages", "chat_id"),
     ("daily_login", "chat_id"),

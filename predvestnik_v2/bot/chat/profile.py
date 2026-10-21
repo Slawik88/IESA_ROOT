@@ -154,7 +154,7 @@ async def achievement_levels(db, user_id: int) -> int:
 async def _head(db, chat_id: int, target: Target, viewer_id: int, is_group: bool) -> CardData:
     uid = target.user_id
     username = await username_of(db, uid) or target.username
-    # Имя из Telegram. Ники старого бота (user_nicknames) больше не показываются: владелец, 2026-10-21.
+    # Имя из Telegram: ники старого бота удалены (владелец, 2026-10-21).
     data = CardData(title=target.name or (f"@{username}" if username else f"id{uid}"), username=username)
     tag = await member_tags.get(db, chat_id, uid) if is_group else None
     if tag:

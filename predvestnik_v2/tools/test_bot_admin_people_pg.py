@@ -186,16 +186,15 @@ async def checks():
     assert "Варн" in {x["title"] for x in card["history"]}
     assert (await act(HELPER, P2, action="unwarn_all", chat_id=-100)).json()["message"] == "Снято варнов: 3."
 
-    # Поиск по имени из Telegram и нику в чате; имя запоминается с сообщений
+    # Поиск по имени из Telegram (ники старого бота удалены); имя запоминается с сообщений
     from bot.chat.tracking import record_message
     async with get_pool().acquire() as conn:
         db = PGAdapter(conn)
         await db.execute("UPDATE users SET user_tg_name = 'Иван Петров' WHERE user_tg_id = ?", (P2,))
-        await db.execute("INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, -100, 'Шмель')", (P1,))
         await record_message(db, SimpleNamespace(
             from_user=SimpleNamespace(id=6006, is_bot=False, username="maria6006", full_name="Мария Кодер"),
             chat=SimpleNamespace(id=-300, type="supergroup", title="Новый чат")))
-    for q, want in (("петров", [P2]), ("ИВАН", [P2]), ("шмел", [P1]), ("мария", [6006]), ("u200", [P1, P2])):
+    for q, want in (("петров", [P2]), ("ИВАН", [P2]), ("шмел", []), ("мария", [6006]), ("u200", [P1, P2])):
         found = (await client.get(f"/bot-admin/api/search?q={q}", headers=h[HELPER])).json()
         assert sorted(p["id"] for p in found["players"]) == sorted(want), (q, found)
     found = (await client.get("/bot-admin/api/search?q=петров", headers=h[HELPER])).json()

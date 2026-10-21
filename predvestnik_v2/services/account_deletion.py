@@ -277,7 +277,6 @@ _FINALIZE_STEPS = [
     ("daily_quests", "DELETE FROM daily_quests WHERE user_id = ?"),
     ("crypto_holdings", "DELETE FROM crypto_holdings WHERE user_id = ?"),
     ("crypto_watchlist", "DELETE FROM crypto_watchlist WHERE user_id = ?"),
-    ("user_nicknames", "DELETE FROM user_nicknames WHERE user_id = ?"),
     ("clan_members", "DELETE FROM clan_members WHERE user_id = ?"),
     ("user_chat_stats", "UPDATE user_chat_stats SET is_left = TRUE WHERE user_tg_id = ?"),
     ("users", "UPDATE users SET user_balance_mora = 0, user_balance_diamonds = 0, "

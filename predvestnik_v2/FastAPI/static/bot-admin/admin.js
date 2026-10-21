@@ -846,12 +846,10 @@ async function playerView(main, id, push = true, from = null) {
       <div class="field" style="margin-top:10px"><textarea id="notetext" maxlength="1000" placeholder="Что важно знать другим модераторам"></textarea></div>
       <div class="actions"><button class="btn small primary" id="noteadd">Добавить заметку</button></div></div>`;
   const NAME_KINDS = {username: '@ник', name: 'имя'};
-  const namesCard = p.names.length || p.nicknames.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
+  const namesCard = p.names.length ? `<div class="card"><h3>🕘 Ники и имена</h3>
       ${p.names.length ? `<div class="sub" style="margin-bottom:4px">Как игрок назывался в Telegram: бот записывает, когда ник или имя меняются.</div>
         ${p.names.map(n => `<div class="log"><b>${esc(n.kind === 'username' ? '@' + n.value : n.value)}</b>
-          <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}
-      ${p.nicknames.length ? `<h3 class="sec">Ники в чатах</h3>${p.nicknames.map(n => `<div class="log"><b>${esc(n.nickname)}</b>
-        <div class="sub"><a href="#" data-chat="${n.chat.id}">${esc(n.chat.title)}</a></div></div>`).join('')}` : ''}</div>` : '';
+          <div class="sub">${NAME_KINDS[n.kind] || n.kind} · с ${when(n.at)}</div></div>`).join('')}` : ''}</div>` : '';
   const tagsCard = p.tag_history && p.tag_history.length ? `<div class="card"><h3>🏷 Теги в чатах</h3>
       <div class="sub" style="margin-bottom:4px">Подпись справа от имени в списке участников. Бот записывает, когда тег меняется.</div>
       ${p.tag_history.map(t => `<div class="log"><b>${t.tag ? esc(t.tag) : '— тег убрали —'}</b>

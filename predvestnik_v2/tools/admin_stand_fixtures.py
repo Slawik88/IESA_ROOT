@@ -125,7 +125,6 @@ PLAYER = {
     "names": [{"kind": "username", "value": "anna_old_nick", "at": "2026-09-01T10:00:00+00:00"}],
     "tag_history": [{"tag": "Нин Гуан/ст.адм", "chat_id": -1001234567890, "chat_title": _LONG,
                      "at": "2026-10-01T10:00:00+00:00"}],
-    "nicknames": [{"nickname": "Анна", "chat": {"id": -1001234567890, "title": _LONG}}],
     "marks": {"given": [{"id": "veteran", "title": "Ветеран", "glyph": "🎖", "desc": "Давно с проектом"}],
               "earned": [{"id": "storyteller", "title": "Рассказчик", "glyph": "📖", "desc": "Много историй"}],
               "grantable": [{"id": "bug_hunter", "title": "Баг-хантер", "glyph": "🐞", "desc": "Нашёл ошибку"},

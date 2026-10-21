@@ -29,7 +29,7 @@ ARCHIVE_GROUPS = (
 )
 _FALLBACK_GROUP = ARCHIVE_GROUPS[-1][0]
 
-# The registry text of these items sends the player to a «Зоопарк» that is gone; the quantity is kept and nothing consumes it. The nickname token is live and keeps its own text.
+# The registry text of these items sends the player to a «Зоопарк» that is gone; the quantity is kept and nothing consumes it.
 _FOOD_NOTE = "Прежний корм питомцев: количество сохранено. Еда новых питомцев лежит в разделе «Питомцы»."
 _PET_ITEM_NOTE = "Прежний предмет для питомцев: количество сохранено и сейчас не расходуется."
 _STALE_NOTES = {

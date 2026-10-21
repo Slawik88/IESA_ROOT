@@ -140,13 +140,12 @@ async def checks():
         await record_message(db, msg(P1, "p1new", "Общее Имя Тест"))
         await record_message(db, msg(P3, "shared", "Другой Человек"))                # занял освободившийся ник
         await record_message(db, msg(P4, "fresh4", "Общее Имя Тест"))
-        await db.execute("INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, -100, 'Шмель')", (P1,))
         await db.execute("UPDATE users SET referred_by = ? WHERE user_tg_id IN (?, ?)", (P1, P3, P4))
     card = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()
     assert sorted((n["kind"], n["value"]) for n in card["names"]) == sorted(
         [("username", "p1new"), ("username", "shared"), ("name", "Общее Имя Тест")]), card["names"]
     assert card["names"][0]["value"] == "p1new" and card["names"][0]["at"], card["names"]   # свежее первым
-    assert card["nicknames"] == [{"chat": {"id": -100, "title": "Основной чат"}, "nickname": "Шмель"}], card["nicknames"]
+    assert "nicknames" not in card, "ники старого бота удалены"
     assert card["linked"] is None, "младшие хелперы связей не видят"
     assert (await client.get(f"/bot-admin/api/player/{P1}", headers=h[HELPER])).json()["linked"] is None
     link = (await client.get(f"/bot-admin/api/player/{P1}", headers=h[SENIOR])).json()["linked"]

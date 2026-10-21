@@ -256,10 +256,9 @@ async def _search(db, q: str, limit: int = 20, flt: str = "", offset: int = 0) -
     name = q.lstrip("@")
     async with db.execute(
         _PLAYER_SQL + "WHERE (u.user_tg_username ILIKE ? OR u.user_tg_name ILIKE ? "
-        "OR EXISTS (SELECT 1 FROM user_nicknames n WHERE n.user_id = u.user_tg_id AND n.nickname ILIKE ?) "
         "OR EXISTS (SELECT 1 FROM user_chat_stats t WHERE t.user_tg_id = u.user_tg_id AND t.member_tag ILIKE ?))" + tail +
         " ORDER BY lower(u.user_tg_username) = lower(?) DESC, lower(COALESCE(u.user_tg_name, '')) = lower(?) DESC, "
-        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), _like(q), *cparams, name, q, limit)) as cur:
+        "COALESCE(s.total, 0) DESC LIMIT ?", (_like(name), _like(q), _like(q), *cparams, name, q, limit)) as cur:
         players = await _with_tags(db, [_player_row(r) for r in await cur.fetchall()])
     chats = []
     if not flt:
@@ -526,15 +525,7 @@ async def player(db, uid: int) -> dict | None:
         "watch": await staff_watch.info(db, uid),
         "names": await name_history.of_user(db, uid, 20),
         "tag_history": await member_tags.history(db, uid, 20),
-        "nicknames": await _chat_nicknames(db, uid),
     }
-
-
-async def _chat_nicknames(db, uid: int) -> list[dict]:
-    async with db.execute(
-        "SELECT n.chat_id, c.chat_title, n.nickname FROM user_nicknames n LEFT JOIN chat_settings c ON c.chat_id = n.chat_id "
-        "WHERE n.user_id = ? ORDER BY n.chat_id LIMIT 20", (uid,)) as cur:
-        return [{"chat": {"id": int(r[0]), "title": r[1] or str(r[0])}, "nickname": r[2]} for r in await cur.fetchall()]
 
 
 LINKED_LIMIT = 10

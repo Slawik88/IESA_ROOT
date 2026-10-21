@@ -9,7 +9,7 @@ from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import coin_market_v2 as coin_market_v2_repo
 from infrastructure.repositories import (
     achievements_v1 as achievements_v1_repo, game_seasons as game_seasons_repo, gifts_v2 as gifts_v2_repo, global_skins_v1 as global_skins_v1_repo, mafia_v1 as mafia_v1_repo, marks_v1 as marks_v1_repo,
-    minesweeper_v2 as minesweeper_v2_repo, pets_v1 as pets_v1_repo, pets_v2 as pets_v2_repo, player_exchange_v1 as player_exchange_v1_repo, presence_v1 as presence_v1_repo,
+    minesweeper_v2 as minesweeper_v2_repo, nicknames_retired, pets_v1 as pets_v1_repo, pets_v2 as pets_v2_repo, player_exchange_v1 as player_exchange_v1_repo, presence_v1 as presence_v1_repo,
     public_profiles_v1 as public_profiles_v1_repo, rhythm_v2 as rhythm_v2_repo, season_pass as season_pass_repo, shop_v1 as shop_v1_repo, skin_chat_v1 as skin_chat_v1_repo, skins_v3 as skins_v3_repo,
     system_flags, vip_v2 as vip_v2_repo,
 )
@@ -36,6 +36,7 @@ ENSURES = (
     ("presence_v1", presence_v1_repo.ensure_tables),    # «был в сети»
     ("shop_v1", shop_v1_repo.ensure_tables),            # чеки магазина (Шлифовка); после economic_operations из init_db
     ("gifts_v2", gifts_v2_repo.ensure_tables),          # чеки подарков и витрина полки; после economic_operations из init_db
+    ("nicknames_retired", nicknames_retired.ensure_tables),   # ники старого бота удалены; после init_db (inventory, user_chat_stats)
 )
 
 

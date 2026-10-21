@@ -547,7 +547,6 @@ RELIC_TOP_GLOBAL_CHAT_COUNT: int = 3
 RELIC_TOP_GLOBAL_USERS_PER_CHAT: int = 5
 
 # ── VIP perks (Implementation Block 4) ─────────────────────────────────────────
-NICKNAME_FREE_CHANGES_PER_MONTH: int = 5  # non-VIP nickname changes per chat per calendar month
 VIP_EXPIRY_REMINDER_DAYS: int = 3         # send "VIP expiring soon" reminder this many days before expiry
 
 # ── Notification preferences (Implementation Block 15) ─────────────────────────

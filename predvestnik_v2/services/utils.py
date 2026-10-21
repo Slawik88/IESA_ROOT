@@ -37,7 +37,7 @@ async def resolve_display_name(
     fallback: str,
 ) -> str:
     """Return `fallback` (the Telegram name) passed through safe_html, with the player's VIP badge when active.
-    Chat nicknames of the old bot (user_nicknames) are no longer shown (owner, 2026-10-21); chat_id stays for callers."""
+    Chat nicknames of the old bot are gone (owner, 2026-10-21); chat_id stays for callers."""
     from services.vip import VIP_BADGES, get_preferences, is_vip_active
     from services.profile_render import format_display_name
     name = safe_html(fallback)

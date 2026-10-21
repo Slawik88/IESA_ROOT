@@ -853,23 +853,6 @@ async def public_profile(profile_ref: str, db=Depends(get_db), user=Depends(requ
     }
 
 
-class NicknameRequest(BaseModel):
-    chat_id: int
-    nickname: str
-
-
-@router.post("/set-nickname")
-async def set_nickname_endpoint(body: NicknameRequest, db=Depends(get_db), user=Depends(require_tg_user)):
-    """Ники в чате отключены (владелец, 2026-10-21): бот везде показывает имя из Telegram. Старый клиент получает 410."""
-    raise HTTPException(410, "Ники в чате отключены: бот показывает имя из Telegram.")
-
-
-@router.get("/nickname")
-async def get_nickname_endpoint(chat_id: int = 0, user=Depends(require_tg_user)):
-    """Ники в чате отключены (владелец, 2026-10-21): всегда пусто."""
-    return {"nickname": None}
-
-
 # ── Настройки актуальных персональных DM-уведомлений ───────────────────────────
 
 class NotifPrefRequest(BaseModel):

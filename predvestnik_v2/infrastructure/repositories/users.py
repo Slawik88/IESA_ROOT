@@ -99,35 +99,6 @@ async def get_messages_global(db: aiosqlite.Connection, user_id: int) -> dict:
     return {"day": row[0], "week": row[1], "all_time": row[2]}
 
 
-async def get_nickname(db: aiosqlite.Connection, user_id: int, chat_id: int) -> str | None:
-    async with db.execute(
-        "SELECT nickname FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
-        (user_id, chat_id),
-    ) as c:
-        row = await c.fetchone()
-    return row[0] if row else None
-
-
-async def set_nickname(
-    db: aiosqlite.Connection, user_id: int, chat_id: int, nickname: str
-) -> None:
-    await db.execute(
-        "INSERT INTO user_nicknames (user_id, chat_id, nickname) VALUES (?, ?, ?) "
-        "ON CONFLICT(user_id, chat_id) DO UPDATE SET nickname = excluded.nickname, "
-        "set_at = CURRENT_TIMESTAMP",
-        (user_id, chat_id, nickname),
-    )
-    await db.commit()
-
-
-async def delete_nickname(db: aiosqlite.Connection, user_id: int, chat_id: int) -> None:
-    await db.execute(
-        "DELETE FROM user_nicknames WHERE user_id = ? AND chat_id = ?",
-        (user_id, chat_id),
-    )
-    await db.commit()
-
-
 # ── Уровень аккаунта и legacy Индекс Силы ──────────────────────────────────────
 
 async def _reset_aborted_tx(db) -> None:

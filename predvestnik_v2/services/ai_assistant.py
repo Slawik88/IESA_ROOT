@@ -457,11 +457,10 @@ async def _tool_propose_transfer(db, user_id: int, chat_id: int, ctx: dict, args
     else:
         like = f"%{q}%"
         async with db.execute(
-            "SELECT u.user_tg_id, u.user_tg_username, n.nickname "
+            "SELECT u.user_tg_id, u.user_tg_username, u.user_tg_name "
             "FROM user_chat_stats s JOIN users u ON u.user_tg_id = s.user_tg_id "
-            "LEFT JOIN user_nicknames n ON n.user_id = u.user_tg_id AND n.chat_id = s.chat_tg_id "
             "WHERE s.chat_tg_id = ? "
-            "AND (LOWER(u.user_tg_username) LIKE ? OR LOWER(n.nickname) LIKE ?) "
+            "AND (LOWER(u.user_tg_username) LIKE ? OR LOWER(u.user_tg_name) LIKE ?) "
             "LIMIT 5",
             (chat_id, like, like),
         ) as c:

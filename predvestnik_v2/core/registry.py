@@ -163,11 +163,6 @@ ITEMS_REGISTRY: Dict[str, Dict[str, Any]] = {
         "fatigue_restore": 50, "buff": "expedition_cd_reset", "is_tradable": False,
         "description": "Донат за ✨: −50 усталости и сброс кулдауна экспедиции (питомца сразу снова в поход), но награда похода −50% (досрочное завершение). Применить: Зоопарк → карточка питомца.",
     },
-    "zarniki_nickname_token": {
-        "name": "✨ Жетон смены ника", "category": "donate", "price_zarniki": 20,
-        "is_tradable": False,
-        "description": "Донат за ✨: +1 к месячному лимиту смены ника. Срабатывает при следующей смене ника.",
-    },
 }
 
 

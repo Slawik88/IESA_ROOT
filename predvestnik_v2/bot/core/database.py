@@ -526,17 +526,6 @@ async def _init_progression_and_economy(db):
         )
     """)
 
-    # 24. Nicknames
-    await db.execute("""
-        CREATE TABLE IF NOT EXISTS user_nicknames (
-            user_id   BIGINT,
-            chat_id   BIGINT,
-            nickname  TEXT NOT NULL,
-            set_at    TIMESTAMP DEFAULT NOW(),
-            PRIMARY KEY (user_id, chat_id)
-        )
-    """)
-
     # 25. Duels
     await db.execute("""
         CREATE TABLE IF NOT EXISTS duels (
@@ -1177,8 +1166,6 @@ async def _init_features_extra(db):
     for _stmt in [
         "ALTER TABLE moderation_logs ADD COLUMN IF NOT EXISTS reason TEXT",
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS muted_until TIMESTAMP DEFAULT NULL",
-        "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_count INTEGER DEFAULT 0",
-        "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS nickname_changes_reset_at TIMESTAMP DEFAULT NOW()",
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS membership_since TIMESTAMPTZ DEFAULT NOW()",
         "ALTER TABLE user_chat_stats ADD COLUMN IF NOT EXISTS is_bot BOOLEAN DEFAULT FALSE",
         # Когда игрок вернулся в чат после ухода (NULL — не уходил); см. bot/chat/tracking.py
@@ -1338,7 +1325,6 @@ async def _init_indexes(db):
         "CREATE INDEX IF NOT EXISTS idx_auction_bids ON auction_bids(lot_id, is_active)",
         "CREATE INDEX IF NOT EXISTS idx_chest_events ON chest_events(chat_id, status)",
         "CREATE INDEX IF NOT EXISTS idx_daily_quests ON daily_quests(user_id, chat_id, date)",
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_nickname_unique ON user_nicknames(chat_id, LOWER(nickname))",
         "CREATE INDEX IF NOT EXISTS idx_promo_redemptions ON promocode_redemptions(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_user_themes ON user_themes(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_shadow_events ON shadow_merchant_events(status, expires_at)",

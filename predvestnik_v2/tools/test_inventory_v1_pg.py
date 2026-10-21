@@ -47,7 +47,7 @@ async def run(dsn: str) -> None:
     try:
         player, newcomer, keeper = 984001, 984002, 984003
         for item_id, quantity in (("soul_shard", 12), ("star_dust_s", 3), ("chest_style", 1), ("spin_token", 2), ("food_basic", 5), ("zarniki_fatigue_reset", 1),
-                                  ("zarniki_nickname_token", 2), ("lucky_charm", 0), ("no_such_item", 4)):
+                                  ("lucky_charm", 0), ("no_such_item", 4)):
             await db.execute("INSERT INTO inventory(user_id, item_id, quantity) VALUES (?, ?, ?)", (player, item_id, quantity))
         await db.execute("INSERT INTO chest_key_accounts_v1(user_id, balance) VALUES (?, 3) ON CONFLICT (user_id) DO UPDATE SET balance = 3", (player,))
         for food_id, quantity in (("food_stew", 1), ("food_basic", 2), ("food_unknown", 9)):
@@ -63,15 +63,15 @@ async def run(dsn: str) -> None:
         groups = {group["id"]: group for group in archive["groups"]}
         # groups come in the order of the screen and only when they hold something
         assert [group["id"] for group in archive["groups"]] == ["donate", "material", "chest", "spin_token", "food", "utility"], archive["groups"]
-        assert archive["kinds"] == 8 and archive["pieces"] == 12 + 3 + 1 + 2 + 5 + 1 + 2 + 4, archive
+        assert archive["kinds"] == 7 and archive["pieces"] == 12 + 3 + 1 + 2 + 5 + 1 + 4, archive
         shard = groups["material"]["items"][0]
         assert (shard["id"], shard["icon"], shard["name"], shard["quantity"]) == ("soul_shard", "💠", "Осколок Души", 12), shard
         assert all("lucky_charm" != item["id"] for group in archive["groups"] for item in group["items"]), "an empty row is not an item"
-        # the old text of a food that sent the player to a Zoo that is gone is replaced; the live nickname token keeps its own text
+        # the old text of a food that sent the player to a Zoo that is gone is replaced
         food = groups["food"]["items"][0]
         assert food["id"] == "food_basic" and "Зоопарк" not in food["note"] and "«Питомцы»" in food["note"], food
         donate = {item["id"]: item for item in groups["donate"]["items"]}
-        assert "не расходуется" in donate["zarniki_fatigue_reset"]["note"] and "смене ника" in donate["zarniki_nickname_token"]["note"], donate
+        assert "не расходуется" in donate["zarniki_fatigue_reset"]["note"], donate
         lost = groups["utility"]["items"][0]
         assert (lost["id"], lost["icon"], lost["name"], lost["quantity"]) == ("no_such_item", "❓", "Предмет #no_such_item", 4), lost
 
