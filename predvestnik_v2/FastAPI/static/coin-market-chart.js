@@ -78,7 +78,7 @@ window.CM2Chart = (() => {
       const p = values[Math.max(0, Math.min(steps - 1, index))];
       const x = steps === 1 ? (PLOT.x0 + PLOT.x1) / 2 : PLOT.x0 + (PLOT.x1 - PLOT.x0) * index / (steps - 1);
       const y = PLOT.y1 - (PLOT.y1 - PLOT.y0) * (p.value - span.min) / (span.max - span.min);
-      return { x, y, tick: p.tick, price: p.value };
+      return { x, y, tick: p.tick, at: p.at, price: p.value };
     };
   }
 
@@ -102,7 +102,7 @@ window.CM2Chart = (() => {
       const point = at(index);
       host.dataset.selectedTick = String(point.tick);
       if (cursor) cursor.value = String(index);
-      const caption = new Date(point.tick * tickSeconds * 1000).toLocaleString('ru-RU', {timeZone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + ' · ' + fmt(point.price) + ' Моры';
+      const caption = new Date(point.at * 1000).toLocaleString('ru-RU', {timeZone,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + ' · ' + fmt(point.price) + ' Моры';
       if (output) output.textContent = caption;
       if (cursor) cursor.setAttribute('aria-valuetext',caption);
       tip.setAttribute('transform', `translate(${point.x},${point.y})`);
@@ -127,7 +127,8 @@ window.CM2Chart = (() => {
   }
 
   function body(points, options) {
-    const values = points.map(p => ({ tick: p.tick, value: Number(p.price) }));
+    /* Сервер присылает время тика (at): длина тика менялась, номер×длина врёт. */
+    const values = points.map(p => ({ tick: p.tick, at: Number.isFinite(p.at) ? p.at : p.tick * (options.tickSeconds || 300), value: Number(p.price) }));
     const span = bounds(values.map(p => p.value));
     const line = path(values.map(p => p.value), span);
     const area = `${line} L${PLOT.x1.toFixed(2)},${PLOT.y1} L${PLOT.x0.toFixed(2)},${PLOT.y1} Z`;
@@ -155,7 +156,7 @@ window.CM2Chart = (() => {
     const times = ticks.map((i, k) => {
       const x = values.length === 1 ? (PLOT.x0 + PLOT.x1) / 2 : PLOT.x0 + (PLOT.x1 - PLOT.x0) * i / (values.length - 1);
       const anchor = k === 0 ? 'start' : k === ticks.length-1 ? 'end' : 'middle';
-      return `<text class="cm2-time" x="${x.toFixed(2)}" y="${H - 6}" text-anchor="${anchor}">${label(values[i].tick, options.hours, options.tickSeconds, options.timeZone)}</text>`;
+      return `<text class="cm2-time" x="${x.toFixed(2)}" y="${H - 6}" text-anchor="${anchor}">${label(values[i].at, options.hours, 1, options.timeZone)}</text>`;
     }).join('');
     return { values, span, line, area, grid, cost, marks, times, last, lastX, lastY };
   }

@@ -279,7 +279,7 @@ window.CM2 = (() => {
     if(chart&&window.CM2Chart){window.CM2Chart.render(chart,points,{hours:period,tickSeconds:data.tick_seconds||300,cost:history.cost,markers:history.markers||[]});}
     const stamp=document.getElementById('cm2-stamp');
     const last=points[points.length-1];
-    if(stamp)stamp.textContent=last?'Последнее значение: '+new Date(last.tick*(data.tick_seconds||300)*1000).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
+    if(stamp)stamp.textContent=last?'Последнее значение: '+new Date((last.at??last.tick*300)*1000).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'';
   }
 
   function deal(side, position, initial){

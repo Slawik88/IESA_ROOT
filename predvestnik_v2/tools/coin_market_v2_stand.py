@@ -39,7 +39,7 @@ async def seed():
             service.SYSTEM_COINS,
             key,
             RULES_VERSION,
-            await repo.current_tick(db) - 288,
+            await repo.current_tick(db) - 576,
             source="isolated_visual_fixture", issuance_authorization="disposable_visual_fixture_only",
         )
         await service.maintenance(db)

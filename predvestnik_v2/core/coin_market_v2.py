@@ -12,7 +12,6 @@ from dataclasses import dataclass, replace
 MORA = 1_000_000
 TOKEN = 1_000
 BPS = 10_000
-TICK_SECONDS = 300
 FEE_BPS = 50
 TOTAL_UNITS = 1_000_000 * TOKEN
 RULES_VERSION = "coin-market-v2-candidate-2026-10-17"
