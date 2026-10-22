@@ -32,14 +32,14 @@ EVENTS = {"peek", "flash", "cross", "sweep", "rise", "ripple", "twinkle"}   # hi
 MAX_LAYERS = 24            # per look, everything at SSS
 MAX_LITE_ANIMATED = 15     # animated layers a mid phone (no .w2) still runs at SSS
 
-parts = sorted(STATIC.glob("app.3[5-8].js")) + [STATIC / "app.48.js"]
+parts = sorted(STATIC.glob("app.3[5-8].js")) + [STATIC / "app.48.js", STATIC / "app.53.js"]
 assert parts and parts[0].name == "app.35.js"
 main_py = (ROOT / "FastAPI/main.py").read_text(encoding="utf-8")
 index = (STATIC / "index.html").read_text(encoding="utf-8")
 for part in parts:
     assert f'"{part.name}"' in main_py or re.search(rf"\b{int(part.name[4:6])}\b", re.search(r"_APP_JS_PARTS = \[.*?\]", main_py, re.S).group(0)), f"{part.name} is not in _APP_JS_PARTS"
 art_css = {}
-for letter in "abcdeg":
+for letter in "abcdefg":
     name = f"skin-scene-{letter}-v3.css"
     assert name in main_py and name in index, f"{name} must be listed in _SHELL_V3_CSS and linked in index.html"
     art_css[letter] = (STATIC / name).read_text(encoding="utf-8")

@@ -38,6 +38,7 @@ ALLOWED = {
     "/static/skin-sig-a-v3.css": "text/css",
     "/static/skin-sig-b-v3.css": "text/css",
     "/static/skin-sig-c-v3.css": "text/css",
+    "/static/skin-sig-d-v3.css": "text/css",
     "/static/public-card-v3.css": "text/css",
     "/static/collect-v3.css": "text/css",
     "/static/toast-v3.css": "text/css",
