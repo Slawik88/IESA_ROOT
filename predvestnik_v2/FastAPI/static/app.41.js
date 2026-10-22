@@ -53,7 +53,7 @@ function _trCardState(p) {
   let title = s.label, sub = what, end = '';
   if (s.k === 'free') {
     sub = p.energy >= min ? _trFem(p, 'Готов к пути', 'Готова к пути') : `Мало сил: для самого короткого занятия нужно ${min}`;
-    end = `<button type="button" class="v3-pill v3-pill--sm" data-f="pet-send" onclick="trailSend(${p.id})"${p.energy < min ? ' disabled' : ''}>Отправить</button>`;
+    end = `<button type="button" class="v3-pill v3-pill--sm${_tr.sendDraft?.pet===p.id?' v3-pill--ghost':''}" data-f="pet-send" onclick="trailSend(${p.id})"${p.energy < min ? ' disabled' : ''}>Отправить</button>`;
   } else if (s.k === 'outing') {
     sub = 'Забег сохранён. Вернись к развилке или забери добычу.';
     end = '<button type="button" class="v3-pill v3-pill--sm" onclick="trailGo(\'outing\')">Продолжить</button>';
@@ -247,7 +247,7 @@ function _trFeedHtml() {
     const gain = Math.round(benefit.gain * 10) / 10;
     const sub = benefit.gain > 0 ? `+${_trMult(gain)} сил${benefit.gain < x.restore ? ` из ${x.restore}` : ''}` : 'Силы уже полные';
     const bonus = benefit.favorite ? 'Любимое · +2 к Выдержке на сутки' : fav ? 'Бонус любимого уже действует' : '';
-    return `<li class="tr-food${fav ? ' is-fav' : ''}"><span class="tr-ic" aria-hidden="true">${_trE(x.icon)}</span><span class="tr-nm"><b>${_trE(x.name)}</b><small>${sub} · есть ${fmt(x.quantity)}</small>${bonus ? `<small class="tr-fav">${bonus}</small>` : ''}${x.quantity > 0 && !benefit.useful ? '<small>Сохраните еду на потом</small>' : ''}</span><button type="button" class="v3-pill v3-pill--sm" data-id="${_trE(x.id)}" onclick="trailFeedGo(this)"${enabled ? '' : ' disabled'}>${x.quantity > 0 ? enabled ? 'Дать' : 'Сыт' : 'Нет'}</button></li>`;
+    return `<li class="tr-food${fav ? ' is-fav' : ''}"><span class="tr-ic" aria-hidden="true">${_trE(x.icon)}</span><span class="tr-nm"><b>${_trE(x.name)}</b><small>${sub} · есть ${fmt(x.quantity)}</small>${bonus ? `<small class="tr-fav">${bonus}</small>` : ''}${x.quantity > 0 && !benefit.useful ? '<small>Сохраните еду на потом</small>' : ''}</span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" data-id="${_trE(x.id)}" onclick="trailFeedGo(this)"${enabled ? '' : ' disabled'}>${x.quantity > 0 ? enabled ? 'Дать' : 'Сыт' : 'Нет'}</button></li>`;
   };
   const xp = _trFeedBenefit(p, foods[0] || {restore:0}, me).xp;
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span><b>${_trE(p.name)}</b><small>Силы ${Math.round(p.energy)} из ${p.energy_max}</small></span></p>
@@ -290,7 +290,7 @@ function _trBldRow(b, me, job) {
     if (mora != null && mora < cost.mora) lack.push(`Моры ${fmt(cost.mora - mora)}`);
     if (ess != null && ess < cost.essence) lack.push(`Эссенции ${fmt(cost.essence - ess)}`);
     const why = !job && lack.length ? `Не хватает: ${lack.join(', ')}.` : '';
-    next = `<div class="tr-bld-n"><span class="tr-nm"><b>Уровень ${lv + 1}: ${_trE(_trBldFx(b, lv + 1))}</b><small>${fmt(cost.mora)}\u00a0🪙 · ${fmt(cost.essence)}\u00a0💧 · ${cost.hours}\u00a0ч</small></span><button type="button" class="v3-pill v3-pill--sm" onclick="trailUpgrade('${b}')"${job ? ' aria-describedby="tr-job" disabled' : why ? ' disabled' : ''}>Улучшить</button></div>${why ? `<p class="tr-note tr-why">${_trE(why)}</p>` : ''}`;
+    next = `<div class="tr-bld-n"><span class="tr-nm"><b>Уровень ${lv + 1}: ${_trE(_trBldFx(b, lv + 1))}</b><small>${fmt(cost.mora)}\u00a0🪙 · ${fmt(cost.essence)}\u00a0💧 · ${cost.hours}\u00a0ч</small></span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" onclick="trailUpgrade('${b}')"${job ? ' aria-describedby="tr-job" disabled' : why ? ' disabled' : ''}>Улучшить</button></div>${why ? `<p class="tr-note tr-why">${_trE(why)}</p>` : ''}`;
   } else next = '<p class="tr-note">Высший уровень.</p>';
   return `<li class="tr-bld"><div class="tr-bld-h"><span class="tr-nm"><b>${name}</b><small>${_trE(_trBldFx(b, lv))}</small></span><span class="tr-bld-l" role="img" aria-label="Уровень ${lv} из 5"><b>${lv}</b><small>из 5</small></span></div><div class="tr-pips" aria-hidden="true">${pips}</div>${next}</li>`;
 }

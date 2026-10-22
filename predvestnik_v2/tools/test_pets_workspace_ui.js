@@ -20,6 +20,7 @@ run('trailBack();trailBack()');assert.equal(run('_tr.view'),'hub');assert.equal(
 run("trailGo('trial',1);trailPet(1);trailGo('trial',1);trailTrialPick(2);trailBack();trailBack()");assert.equal(run('_tr.trial.pet'),1,'nested trial selection restores the original candidate');
 run('trailTab("overview")');let html=run('_TR_VIEWS.hub(_tr.me)');
 assert.match(html,/Вылазка/);assert.match(html,/Выслеживание/);assert.match(html,/Испытание недели/);assert.match(html,/Отправить в путь/,'daily cap does not block activities');
+run('_tr.me.activities=[{id:"a",pet_id:1,kind:"trek",hours:3,ready:true},{id:"b",pet_id:2,kind:"trek",hours:3,ready:true}]');html=run('_trSlots(_tr.me)');assert.equal((html.match(/<button[^>]*class="[^"]*v3-pill[^"]*"[^>]*>/g)||[]).filter(tag=>!tag.includes('v3-pill--ghost')).length,1,'ready work has one primary filled action');run('_tr.me.activities=[]');
 run('_tr.pet=1');html=run('_TR_VIEWS.pet(_tr.me)');
 assert.ok(html.indexOf('Пять слотов')<html.indexOf('Развитие'));assert.ok(html.includes('Сова &lt;тест&gt;'));assert.ok(!html.includes('Сова <тест>'));
 run('_tr.me.activities=[{id:"run",pet_id:1,hours:3,kind:"trek",ends_at:"2099-01-01T00:00:00Z"}];_tr.me.pets[0].run_id="run"');

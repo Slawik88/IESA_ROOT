@@ -233,3 +233,9 @@ Browser actual exp6h -> gear change -> resume retained intent; Escape pet-send;
 Back free-filter; Tab trap; 320px pageY0/sheetY351; outing reload/resume/early-return2.
 Fresh proof output/playwright/pets-redesign-20261022/{before,after}/.
 Final release checks/master push remain; no Telegram channel messages sent.
+
+Post-push refinement: MINIAPP_DESIGN_RULES one-primary-action emphasis checked;
+neutral selection/decoration, secondary compare/feed/camp/outing actions ghost,
+first ready claim primary, retained draft respects busy state. Actual-render
+regressions and independent read-only critic PASS. Pending final deployed identity.
+Next owner task: attractive Chests tab redesign, keep published odds/prices unchanged.

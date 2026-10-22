@@ -88,7 +88,7 @@ function _trRender() {
   root.dataset.trView = `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
   opened.forEach(key => root.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open', ''));
   v3EnterSync(root);
-  if (_tr.sendDraft && _tr.view === 'pet' && _tr.sendDraft.pet === _tr.pet) root.insertAdjacentHTML('beforeend', '<div class="tr-draft"><span>Маршрут сохранён</span><button type="button" class="v3-pill" data-f="resume-send" onclick="trailResumeSend(this)">К отправке ›</button></div>');
+  if (_tr.sendDraft && _tr.view === 'pet' && _tr.sendDraft.pet === _tr.pet) root.insertAdjacentHTML('beforeend', `<div class="tr-draft"><span>Маршрут сохранён</span><button type="button" class="v3-pill${_trPet(_tr.pet)?.run_id || _trPet(_tr.pet)?.outing ? ' v3-pill--ghost' : ''}" data-f="resume-send" onclick="trailResumeSend(this)">К отправке ›</button></div>`);
   if (focus) root.querySelector(`[data-f="${focus}"]`)?.focus({preventScroll:true});
 }
 
@@ -160,12 +160,12 @@ function _trTraces(me, compact) {
   if (compact) return `Следы: ${fmt(shown)} из ${fmt(max)}`;
   return `<section class="tr-sec tr-traces" aria-label="Следы за сегодня"><p class="tr-tline"><span>Следы за сегодня</span><b>${fmt(shown)}<small> из ${fmt(max)}</small></b></p>${_trMeter(cur / max, { notch: soft / max, label })}<p class="tr-note">${note}</p></section>`;
 }
-function _trSlot(act) {
+function _trSlot(act, primary = false) {
   const pet = _trPet(act.pet_id); if (!pet) return '';
   const mate = (_tr.me.pets || []).find(p => p.id !== pet.id && p.run_id === act.id), route = act.route ? _TR_ROUTE[act.route] : null;
   const what = [_TR_KIND[act.kind] || act.kind, `${act.hours}\u00a0ч`, route ? `${route[0]}\u00a0${route[1]}` : ''].filter(Boolean).join(' · ');
   const end = act.ready
-    ? `<button type="button" class="v3-pill v3-pill--sm" data-run="${_trE(act.id)}" onclick="trailRun(this)">${act.kind === 'expedition' ? 'Выбрать путь' : 'Забрать'}</button>`
+    ? `<button type="button" class="v3-pill v3-pill--sm${primary ? '' : ' v3-pill--ghost'}" data-run="${_trE(act.id)}" onclick="trailRun(this)">${act.kind === 'expedition' ? 'Выбрать путь' : 'Забрать'}</button>`
     : `<span class="tr-left"><small>осталось</small><b data-end="${_trTime(act.ends_at)}" data-id="${_trE(act.id)}">${_trDur(_trLeft(act))}</b></span>`;
   return `<li class="tr-row tr-slot is-${act.ready ? 'ready' : 'busy'}"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span class="tr-nm"><b>${_trE(pet.name)}</b><small>${_trE(what)}</small>${mate ? `<small>Спутник: ${_trE(mate.name)}</small>` : ''}</span><span class="tr-end">${end}</span></li>`;
 }
@@ -174,7 +174,7 @@ function _trSlots(me) {
   const acts = me.activities || [], slots = Number(me.slots) || 3;
   const free = Math.max(0, slots - acts.length), min = _trMinCost(me);
   const sendable = me.pets.some(p => !p.run_id && !p.outing && p.energy >= min);
-  return `<section class="tr-sec" id="tr-slots">${_trSec('В пути и возвращения', `<span class="tr-count">${acts.length}/${slots} слотов</span>`)}${acts.length ? `<ul class="tr-list" aria-label="Занятия">${acts.slice().sort((a,b)=>Number(b.ready)-Number(a.ready)).map(_trSlot).join('')}</ul>` : '<p class="tr-note">Пока никто не в пути. Отправь питомца за Следами и находками.</p>'}<div class="tr-launch"><span class="tr-note">${free ? `Свободно слотов: ${free}` : 'Все слоты заняты. Дождись возвращения и забери награду.'}</span><button type="button" class="v3-pill" data-f="send" onclick="trailSend()"${free && sendable ? '' : ' disabled'}>Отправить в путь</button></div>${free && !sendable ? '<p class="tr-note">Нет свободного питомца с нужными силами. Покорми питомца или забери награду за его занятие.</p>' : ''}</section>`;
+  return `<section class="tr-sec" id="tr-slots">${_trSec('В пути и возвращения', `<span class="tr-count">${acts.length}/${slots} слотов</span>`)}${acts.length ? `<ul class="tr-list" aria-label="Занятия">${acts.slice().sort((a,b)=>Number(b.ready)-Number(a.ready)).map((a,i)=>_trSlot(a,i===0 && a.ready)).join('')}</ul>` : '<p class="tr-note">Пока никто не в пути. Отправь питомца за Следами и находками.</p>'}<div class="tr-launch"><span class="tr-note">${free ? `Свободно слотов: ${free}` : 'Все слоты заняты. Дождись возвращения и забери награду.'}</span><button type="button" class="v3-pill${acts.some(a=>a.ready)?' v3-pill--ghost':''}" data-f="send" onclick="trailSend()"${free && sendable ? '' : ' disabled'}>Отправить в путь</button></div>${free && !sendable ? '<p class="tr-note">Нет свободного питомца с нужными силами. Покорми питомца или забери награду за его занятие.</p>' : ''}</section>`;
 }
 function _trLevelLine(p) {
   if (p.level >= (_tr.me.rules.max_level || 30)) return '<small class="tr-sub">Высший уровень</small>';
