@@ -156,7 +156,7 @@ Real Telegram iOS/Android gesture smoke not performed; local Chromium checked.
 Task complete for the released fixes. Known unrelated test/fixture debt remains
 in the single release backlog; no production data cleanup or reward migration.
 
-## WAVE-GAMES-GEAR-20261021 — ACTIVE, preserve every user task
+## WAVE-GAMES-GEAR-20261021 — RELEASED
 
 Same worktree. User explicitly demands all unfinished work and immediate master
 pushes. Confirmed NEW implementation: five pet equipment slots + separate quick
@@ -207,9 +207,17 @@ Firstschema repair creates normalindex, canwaitwriters once;warmread0DDL.
 Browseractualrestore18cellsactive->reload: leaderboardloaded (emptytestboard),
 proofoutput/playwright/leaderboard-20261022/restored-loaded.png.
 
-NEXT: runnotes/feed/static gates, commit/push latencybatch (fetch/rebaseifneeded),
-verifycurrentexactproductionassets+allnewfeed+health/auth then finalreport.
-Oct22privateTGKdraft has3newfeatures/screenshots+leaderboardfix; NOchannel sends.
-Fullprojectgate debt40baseline failures remains documented, not green.
-Local Stand59754on8403, --trailnone,persona990000001, dummy123456:stand,
-PG55432 disposable shared. Alluserrequestedimplementationdone; rollout pending.
+All requested implementation and rollout complete. Runtime master446e47b7
+(gear74a2df4f,Mafia3757e89e,Mine/Rhythm5c7fa566). Final production verification
+PASS asset_version 710b638fa34288be16a4:8JS/CSS exactSHA256,12JPG/WebP exactbytes,
+all6newfeedIDs,24HTTPchecks inclhealth/ready200 andprivateAPIs401.
+Evidence output/pets-release/final-after-deploy.json; screenshotpaths above.
+Notes/feed/staticgates PASS. Cleanworktree beforethishandoffupdate.
+Oct22TGKdraft has3newfeatures/screenshots+leaderboardfix; Oct21-gamesdraft has
+Mine/Rhythmfixes. Readabletext output/pets-release/tgk-2026-10-22.html (547chars).
+NOchannelmessages sent. Imagegen builtin; finalassets andfullpromptmanifest under
+FastAPI/static/mafia-art/. RealdeviceTelegramgesturetestnotperformed, Chromium
+smokes above. Fullprojectgate40pre-existingbaselinefailures remainsseparated
+anddocumented; thiswave'stargetedgatesallpass. No furtherrequestedwork pending.
+Local Stand59754on8403 --trailnone,persona990000001,dummy123456:stand,
+PG55432 disposable shared cluster; do not stop sharedPG. Worktree retained.

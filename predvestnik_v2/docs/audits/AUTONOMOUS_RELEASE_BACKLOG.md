@@ -14,7 +14,7 @@
 ненастоящие; тесты rules/parity/pg/asgi PASS. Дальше: календарь месяцами, опыт за обычные игры, настоящий
 Пропуск после расчёта экономики, публичный запуск Лиги.
 
-## WAVE-GAMES-GEAR-20261021 — в работе, прямой push master разрешён
+## WAVE-GAMES-GEAR-20261021 — выпущено в master / production
 
 Порядок владельца и текущая очередь (не заменять новым последним сообщением):
 1. Сапёр: запретить first-click auto-win генерацией v2, сохранить legacy runs/
@@ -55,7 +55,9 @@
 Stage1 (пункты1–2) отправлен вmaster5c7fa566 поверх18417a3d.
 Read-only release_critic проверяет Mafia batch; новых файлов не меняет.
 Mafia3757e89e уже отправлена иproduction identity verified PASS:8JS/CSS
-и6artassets,health/ready/feed/auth. Gear74a2df4f отправленвmaster; latencybatchготовкфинальномуgate/пушу.
+и6artassets,health/ready/feed/auth. Gear74a2df4f отправленвmaster; latency446e47b7 выпущен. ФинальныйproductionHTTPidentityPASS:8JS/CSS,
+12artfiles,6feedIDs,health/ready/auth; output/pets-release/final-after-deploy.json.
+Все задачи этой волны завершены. TGKdraftsготовы, liveканалнеиспользовался.
 
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 
