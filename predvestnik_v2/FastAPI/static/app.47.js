@@ -143,6 +143,54 @@ function trailAdvice(me) {
   return '<section class="tr-sec tr-now"><p class="tr-now-t">Силы восстанавливаются сами — кормление ускорит.</p></section>';
 }
 
+// ── Сундуки: сцена с сундуком и «полка» ключей четырёх металлов (рисует renderChestsV1, app.12.js) ─────────
+// Рисунок сундука и остаток ключей приходят из app.12.js (они живут в его замыкании). Сундук светится металлом выбранного ключа; ключ — плитка с картинкой и числом. При открытии ключ летит в сундук (только с движением,
+// запрос уходит сразу и анимацию не ждёт). Ключей уровня нет — плитка видна приглушённой: ключи выше обычного дают задания и Пропуск.
+const _CH_METAL = { 1: 'iron', 3: 'bronze', 4: 'silver', 6: 'platinum' };
+const _CH_KEY_SVG = '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="11" r="7.2" fill="none" stroke="currentColor" stroke-width="3.4"/><path d="M16 16l11 11M21.5 21.5l3-3M24.5 24.5l2.6-2.6" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/><path d="M6.8 8.4a5 5 0 0 1 3-2.6" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.5" stroke-linecap="round"/></svg>';
+// shelf: на полке уже видно число каждого ключа — под сундуком только название выбранного (одно число не показывается дважды)
+function chestsScene(art, tier, bal, label, shelf) {
+  return `<div class="ch-scene ch-m-${_CH_METAL[tier] || 'iron'}"><i class="ch-glow" aria-hidden="true"></i>${art}
+    ${shelf ? `<p class="ch-keys ch-keys--name"><span>${label}</span></p>` : `<p class="ch-keys"><b>${fmt(bal)}</b><span>${label}</span></p>`}</div>`;
+}
+function chestsShelf(d, tier, busy, balance) {
+  const tiers = (d.key_tiers || []).slice().sort((a, b) => Number(a.tier) - Number(b.tier));
+  if (tiers.length < 2) return '';
+  return `<div class="ch-tiers ch-shelf" role="group" aria-label="Каким ключом открыть">${tiers.map(t => {
+    const n = Number(t.tier), have = balance(d, n), on = n === tier;
+    return `<button type="button" class="chest-tier-chip ch-key ch-m-${_CH_METAL[n] || 'iron'}${on ? ' is-on' : ''}${have ? '' : ' is-empty'}" aria-pressed="${on}"
+      aria-label="${esc(t.name)} ключ${n > 1 ? `, звёзд не меньше ${n}` : ''}: ${fmt(have)}" onclick="chestsV1PickTier(${n})" ${busy || (!have && !on) ? 'disabled' : ''}>
+      <span class="ch-key-art">${_CH_KEY_SVG}</span><b>${fmt(have)}</b><small>${n > 1 ? `${n}★+` : 'обычный'}</small></button>`;
+  }).join('')}</div>`;
+}
+// Значки валют в карточках добычи — те же рисунки, что в Пропуске Лиги (league-art.js); прочее остаётся своим значком
+const _CH_LOOT_ART = {
+  mora: '<svg viewBox="0 0 32 32"><defs><linearGradient id="chl-c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".5" stop-color="#f0bf4c"/><stop offset="1" stop-color="#b9781b"/></linearGradient></defs><circle cx="16" cy="16" r="13" fill="url(#chl-c)"/><circle cx="16" cy="16" r="9.6" fill="none" stroke="#8a5a12" stroke-opacity=".55" stroke-width="1.4"/><path d="M11 21V11l5 6 5-6v10" fill="none" stroke="#7a4c0c" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  diamonds: '<svg viewBox="0 0 32 32"><defs><linearGradient id="chl-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e9fbff"/><stop offset=".45" stop-color="#8fd8ff"/><stop offset="1" stop-color="#7a6bff"/></linearGradient></defs><path d="M9 5h14l6 8-13 15L3 13z" fill="url(#chl-g)"/><path d="M3 13h26M9 5l4 8 3 15M23 5l-4 8-3 15M13 13l3-8 3 8" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/></svg>',
+  zarniki: '<svg viewBox="0 0 32 32"><defs><linearGradient id="chl-s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d6"/><stop offset=".5" stop-color="#ffc35c"/><stop offset="1" stop-color="#d36bff"/></linearGradient></defs><path d="M16 2l3.4 9.2L29 14l-8.2 4.6L22 29l-6-6.8L10 29l1.2-10.4L3 14l9.6-2.8z" fill="url(#chl-s)"/></svg>',
+};
+const chestLootArt = kind => _CH_LOOT_ART[kind] || '';
+
+// Ключ летит из полки (или от числа ключей) в сундук; сундук вздрагивает
+function chestsFlyKey() {
+  const root = el('pg-chests'), chest = root?.querySelector('.ch-scene .chest-art');
+  const from = root?.querySelector('.ch-key.is-on') || root?.querySelector('.ch-keys');
+  if (!chest || !from || typeof _v3Moves !== 'function' || !_v3Moves() || !document.body.animate) return;
+  const a = from.getBoundingClientRect(), b = chest.getBoundingClientRect();
+  const metal = from.className.match(/ch-m-\w+/)?.[0] || root.querySelector('.ch-scene').className.match(/ch-m-\w+/)?.[0] || 'ch-m-iron';
+  const key = document.createElement('i'); key.className = `ch-fly ${metal}`; key.setAttribute('aria-hidden', 'true'); key.innerHTML = _CH_KEY_SVG; document.body.appendChild(key);
+  const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, x1 = b.left + b.width / 2, y1 = b.top + b.height * .55;
+  key.animate([
+    { transform: `translate(${x0}px, ${y0}px) rotate(-30deg) scale(.8)`, opacity: 0 },
+    { transform: `translate(${(x0 + x1) / 2}px, ${Math.min(y0, y1) - 40}px) rotate(20deg) scale(1.2)`, opacity: 1, offset: .5 },
+    { transform: `translate(${x1}px, ${y1}px) rotate(90deg) scale(.6)`, opacity: 0 },
+  ], { duration: 560, easing: 'cubic-bezier(.3,.1,.2,1)', fill: 'both' }).onfinish = () => {
+    key.remove();
+    const now = el('pg-chests')?.querySelector('.ch-scene .chest-art');   // экран мог перерисоваться, пока ключ летел
+    if (now) now.animate([{ transform: 'none' }, { transform: 'rotate(-4deg) scale(1.04)' }, { transform: 'rotate(3deg)' }, { transform: 'none' }], { duration: 320, easing: 'ease-out' });
+  };
+}
+
 // ── Подсказки «Сундуки»: плитка «Награда ждёт» и живые остатки приходят дозапросом ─────────────
 // Пока вкладка не открыта, данных на клиенте нет: сначала общий набор, после ответа сервера
 // плитки перерисовываются (v3Guide → refresh). Открытый лист перерисовывается на месте.

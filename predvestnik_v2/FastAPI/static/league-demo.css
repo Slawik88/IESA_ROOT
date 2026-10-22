@@ -38,7 +38,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, [tabindex]:focus-v
 .lg-inline { width: 1.1em; height: 1.1em; margin-right: 4px; }
 .lga.is-on { fill: var(--lg-gold); }
 .lga.is-off { fill: none; stroke: var(--lg-dim); stroke-width: 2; opacity: .55; }
-.lga-key--iron { color: #c9d0dc; } .lga-key--bronze { color: #e0965a; } .lga-key--silver { color: #eef2fa; } .lga-key--platinum { color: #a9ecff; }
+.lga-key--iron { color: #9ea7b6; } .lga-key--bronze { color: #e0965a; } .lga-key--silver { color: #eef2fa; } .lga-key--platinum { color: #a9ecff; }
 html[data-theme="light"] body:not(.skin-v3) .lga-key--iron { color: #6f7a8c; }
 html[data-theme="light"] body:not(.skin-v3) .lga-key--bronze { color: #a85f22; }
 html[data-theme="light"] body:not(.skin-v3) .lga-key--silver { color: #7f8ca3; }

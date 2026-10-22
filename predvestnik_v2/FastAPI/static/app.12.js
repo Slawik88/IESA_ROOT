@@ -616,7 +616,7 @@
     return `<ul class="chest-loot-cards${rewards.length===1?' is-single':''}" aria-label="Выпавшие награды">${rewards.filter(Boolean).map(reward=>{
       const kind=['mora','diamonds','zarniki','food','pet_card','joker','vip_days','vip_cosmetic'].includes(reward.kind)?reward.kind:'item';
       const unit=kind==='vip_days'?achievementWord(Number(reward.amount)||0,'день','дня','дней'):['food','pet_card','joker'].includes(kind)?'шт.':'';
-      return `<li class="chest-loot-card is-${kind}"><div class="chest-loot-icon" aria-hidden="true">${esc(reward.icon||'🎁')}</div><strong>+${fmt(reward.amount||0)}${unit?` <small>${unit}</small>`:''}</strong><p>${esc(reward.name||reward.kind||'Награда')}</p></li>`;
+      return `<li class="chest-loot-card is-${kind}"><div class="chest-loot-icon" aria-hidden="true">${(typeof chestLootArt==='function'&&chestLootArt(kind))||esc(reward.icon||'🎁')}</div><strong>+${fmt(reward.amount||0)}${unit?` <small>${unit}</small>`:''}</strong><p>${esc(reward.name||reward.kind||'Награда')}</p></li>`;
     }).join('')}</ul>`;
   }
   function chestRewardText(reward){
@@ -657,9 +657,7 @@
     const paid=d.funding||{},remaining=Math.max(0,Number(paid.remaining_today)||0),price=Number(paid.price_zarniki)||0,canBuy=paid.paid!==false;
     const tierBal=chestTierBalance(d,_chestsV1Tier),tierName=tierInfo?tierInfo.name:'Обычный',busy=_chestsV1Busy||!!_chestsV1Prepared||!!_chestsV1RevealView;
     const inv=d.inventory||{},owned=Object.keys(inv.unlocked_pets||{}).length,cards=Object.values(inv.pet_cards||{}).reduce((a,b)=>a+Number(b||0),0),food=Object.values(inv.foods||{}).reduce((a,b)=>a+Number(b||0),0),jokers=Object.values(inv.jokers||{}).reduce((a,b)=>a+Number(b||0),0);
-    // Ключи разных уровней — выбор, каким открыть; показываются, только если есть ключ выше обычного
-    const higher=(d.key_tiers||[]).some(t=>Number(t.tier)>1&&chestTierBalance(d,t.tier)>0);
-    const tiers=higher?`<div class="ch-tiers" role="group" aria-label="Каким ключом открыть">${(d.key_tiers||[]).filter(t=>Number(t.tier)===1||chestTierBalance(d,t.tier)>0).map(t=>`<button type="button" class="chest-tier-chip${Number(t.tier)===_chestsV1Tier?' is-on':''}" aria-pressed="${Number(t.tier)===_chestsV1Tier}" onclick="chestsV1PickTier(${Number(t.tier)})">${esc(t.name)}${Number(t.tier)>1?` ${t.tier}★+`:''} · <b>${fmt(chestTierBalance(d,t.tier))}</b></button>`).join('')}</div>`:'';
+    const shelf=_chestsV1Prepared?'':chestsShelf(d,_chestsV1Tier,busy,chestTierBalance);   // ключи четырёх металлов (app.47.js)
     let action;
     if(_chestsV1RevealView)action=chestRevealScene();
     else if(_chestsV1Prepared)action=`<button type="button" class="chest-orb" onclick="chestsV1Reveal()" ${_chestsV1Busy?'disabled':''} aria-label="Раскрыть подготовленный сундук">${chestRevealArt(0)}<b>${_chestsV1Busy?'Раскрываю…':'Коснись, чтобы раскрыть'}</b><small>Награда уже сохранена сервером</small></button>`;
@@ -673,8 +671,8 @@
     }).join(''):'';
     const loot=`${owned}/12 питомцев · ${fmt(cards)} карт · ${fmt(food)} еды · ${fmt(jokers)} джокеров`;
     root.innerHTML=`${v3Head('Сундуки',{sub:'Награду фиксирует сервер до раскрытия',end:v3GuideBtn('chests')})}
-      <div class="ch-keys"><b>${fmt(tierBal)}</b><span>${_chestsV1Tier>1?`${esc(tierName)} ${_chestsV1Tier}★+`:achievementWord(tierBal,'ключ','ключа','ключей')}</span></div>
-      ${tiers}<div class="ch-action">${action}</div>${result}
+      ${_chestsV1Prepared?'':chestsScene(chestRevealArt(0),_chestsV1Tier,tierBal,shelf?`${esc(tierName)} ключ${_chestsV1Tier>1?` · звёзд от ${_chestsV1Tier}`:''}`:_chestsV1Tier>1?`${esc(tierName)} ${_chestsV1Tier}★+`:achievementWord(tierBal,'ключ','ключа','ключей'),!!shelf)}
+      ${shelf}<div class="ch-action">${action}</div>${result}
       ${offers?`<div class="v3-sec"><span class="v3-eyebrow">Ключи по звёздам</span></div><p class="ch-hint">Тот же сундук, но звёзды ниже N становятся N.</p><div class="ch-list">${offers}</div>`:''}
       <div class="v3-sec"><span class="v3-eyebrow">Добыча из сундуков</span></div>
       <button type="button" class="v3-row ch-loot" onclick="openInventory()"><span><span class="ch-loot-t">В инвентаре</span><small>${loot}</small></span><span class="v3-end">›</span></button>
@@ -704,7 +702,7 @@
   function _chestsV1RefreshVisible(){if(_activePage==='chests')openChestsV1();}
   // После подготовки экран перечитывает /me: остаток ключей по уровням знает только сервер
   window.chestsV1Prepare=function(){
-    if(_chestsV1Busy||_chestsV1RevealView||_chestsV1Prepared||!_chestsV1Data)return;_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
+    if(_chestsV1Busy||_chestsV1RevealView||_chestsV1Prepared||!_chestsV1Data)return;if(typeof chestsFlyKey==='function')chestsFlyKey();_chestsV1Busy=true;_chestsV1Seq++;renderChestsV1();
     const tier=_chestsV1Tier,key=`prepare:${tier}`,action=_pendingAction(_chestsV1PendingActions,key,'chest-open-');
     api('/chests-v1/prepare',{method:'POST',body:JSON.stringify({action_id:action,catalog_version:_chestsV1Data.catalog_version,catalog_digest:_chestsV1Data.catalog_digest,key_tier:tier})}).then(d=>{_chestsV1PendingActions.delete(key);_chestsV1Prepared=d;_chestsV1Data.key_balance=d.key_balance;_chestsV1Busy=false;renderChestsV1();requestAnimationFrame(()=>el('pg-chests')?.querySelector('.chest-orb')?.focus());_chestsV1RefreshVisible();}).catch(e=>{_chestsV1Busy=false;toast(`${e} Повтори: ключ не спишется второй раз.`,false);_chestsV1RefreshVisible();});
   };

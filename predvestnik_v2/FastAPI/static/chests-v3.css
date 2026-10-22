@@ -103,3 +103,34 @@
   .chest-loot-card { padding:16px 10px; }
   .chest-loot-icon { width:56px; height:56px; font-size:42px; margin-bottom:10px; }
 }
+
+/* ═══ Сцена сундука и «полка» ключей четырёх металлов (chestsScene/chestsShelf, app.47.js) ═══
+   Металл ключа — один цвет (--ch-metal): им светится сундук за выбранным ключом и рисуется ключ. Акцент экрана остаётся у главной кнопки. */
+.ch-m-iron { --ch-metal: #9ea7b6; } .ch-m-bronze { --ch-metal: #e0965a; } .ch-m-silver { --ch-metal: #eef2fa; } .ch-m-platinum { --ch-metal: #a9ecff; }
+.ch-scene { position: relative; display: grid; justify-items: center; margin: 6px 0 0; isolation: isolate; }
+.ch-glow { position: absolute; top: -6%; left: 50%; z-index: -1; width: min(70vw, 260px); aspect-ratio: 1; border-radius: 50%; transform: translateX(-50%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--ch-metal) 26%, transparent) 0, transparent 66%); transition: opacity .3s var(--v3-ease); }
+.ch-scene .chest-art { width: min(44vw, 168px); }
+.ch-scene .chest-lock { fill: var(--ch-metal); }
+.ch-scene :is(.chest-body, .chest-lid) { fill: color-mix(in srgb, var(--ch-metal) 16%, var(--v3-sheet)); stroke: var(--ch-metal); }
+.ch-scene .chest-band { stroke: color-mix(in srgb, var(--ch-metal) 70%, var(--v3-ink)); }
+.ch-keys--name span { color: var(--v3-ink); font-size: 15px; font-weight: 500; }
+.ch-scene .ch-keys { justify-content: center; margin: 6px 0 0; }
+.ch-shelf { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 16px 0 0; }
+.ch-shelf .ch-key { display: grid; justify-items: center; align-content: center; gap: 2px; min-height: 92px; padding: 8px 4px; border-radius: 18px;
+  background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ch-metal) 14%, transparent), transparent 70%), var(--v3-faint); color: var(--v3-dim); }
+.ch-key-art { display: grid; place-items: center; width: 36px; height: 36px; color: var(--ch-metal); }
+.ch-key-art svg { width: 100%; height: 100%; }
+.ch-shelf .ch-key b { color: var(--v3-ink); font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.ch-shelf .ch-key small { max-width: 100%; overflow: hidden; font-size: 11px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.ch-shelf .ch-key.is-on { box-shadow: inset 0 0 0 1.5px var(--ch-metal); color: var(--v3-ink); }
+.ch-shelf .ch-key.is-empty { opacity: .45; }
+.ch-shelf .ch-key:not(:disabled):active { transform: scale(.95); }
+.ch-shelf .ch-key.is-on .ch-key-art { animation: chKeyPick .32s var(--v3-ease); }
+@keyframes chKeyPick { from { transform: rotate(-24deg) scale(.8); } to { transform: none; } }
+.ch-fly { position: fixed; left: 0; top: 0; z-index: 80; width: 34px; height: 34px; margin: -17px 0 0 -17px; color: var(--ch-metal); pointer-events: none; }
+.ch-fly svg { width: 100%; height: 100%; }
+@media (max-width: 340px) { .ch-shelf { gap: 6px; } .ch-shelf .ch-key small { font-size: 10px; } }
+@media (prefers-reduced-motion: reduce) { .ch-glow { transition: none; } .ch-shelf .ch-key.is-on .ch-key-art { animation: none; } .ch-shelf .ch-key:active { transform: none; } }
+body:is(.no-fx, .ap-low) .ch-shelf .ch-key.is-on .ch-key-art { animation: none; }
+.chest-loot-icon svg { width: 60px; height: 60px; }
