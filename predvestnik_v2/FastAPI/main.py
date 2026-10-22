@@ -35,7 +35,7 @@ from FastAPI.routers import (profile, marriage, wallet, vip,
                               payments,
                               legal, analytics as analytics_router,
                               account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, pet_nudge_v1 as pet_nudge_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, gifts_v2 as gifts_v2_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, pet_nudge_v1 as pet_nudge_v1_router, casino_v1 as casino_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, gifts_v2 as gifts_v2_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
@@ -277,7 +277,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 for r in [profile.router, marriage.router, wallet.router, vip.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, pet_nudge_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, pet_nudge_v1_router.router, casino_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(coin_market_v2_router.router)
@@ -461,12 +461,12 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
-                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css")
+                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css")
 
 # Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
 _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",

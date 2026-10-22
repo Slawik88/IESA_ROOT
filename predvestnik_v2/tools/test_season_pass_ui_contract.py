@@ -46,7 +46,7 @@ for name in ("openSeasonPass", "loadSeasonPass", "spBack", "spClaim", "passCheck
     assert owners == [43], f"{name} is defined once, in app.43.js: {owners}"
 assert "pass:loadSeasonPass" in shell, "the page loader of #pg-pass"
 assert re.search(r"suppressBrowserBack=\[[^\]]*'pass'[^\]]*\]", shell), "the page has its own «‹ Назад», the floating one stays hidden"
-assert "_gamesChildren=['pass']" in shell and "_gamesChildren.includes(name)" in shell, "the «Игры» tab stays lit on the pass page"
+assert "_gamesChildren=['pass'," in shell and "_gamesChildren.includes(name)" in shell, "the «Игры» tab stays lit on the pass page"
 assert "typeof passHubRow==='function'" in hub and "passHubRow(host)" in hub, "the games hub asks the pass for its row"
 assert re.search(r"try \{ checkWhatsNewBadge\(\); \} catch \(_\) \{\}\s*\n\s*try \{ passCheck\(\); \} catch \(_\) \{\}", core), "the profile load re-reads the pass for the dot on the «Игры» tab; a failure there never breaks the profile"
 assert "pass:()=>openSeasonPass()" in core and "season:()=>openSeasonPass()" in core, "deep links"

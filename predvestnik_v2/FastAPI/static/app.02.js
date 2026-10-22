@@ -198,7 +198,7 @@ function _handleStartParam(){
     quests:()=>openQuestsV1(), achievements:()=>openAchievementsV1(), achievement:()=>openAchievementsV1(), pets:()=>openPetsV1(), zoo:()=>openPetsV1(),
     looks:()=>openLooksModal(), cosmetics:()=>openLooksModal(), themes:()=>openLooksModal(), shop:()=>openLooksModal(), goods:()=>openLooksModal(), inventory:()=>openInventory(), inv:()=>openInventory(),
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
-    exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
+    casino:()=>openCasino(), exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
     notifications:settings, notifprefs:settings, settings:()=>openSettingsModal(), top:()=>openTopV3(), news:()=>openWhatsNew(), pass:()=>openSeasonPass(), season:()=>openSeasonPass(), bp:()=>openSeasonPass(), battlepass:()=>openSeasonPass(),
   };
   if(base==='public'){
@@ -207,7 +207,7 @@ function _handleStartParam(){
     return;
   }
   if(LINKS[base]) { run(LINKS[base]); return; }
-  if(['arena','games','game','casino','barracks','gates','gacha','deal','craft','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
+  if(['arena','games','game','barracks','gates','gacha','deal','craft','auction','market','relics','clans','ach'].includes(base)) run(()=>goTo('arena','game'));
 }
 if(INIT_DATA||sess()||LOCAL_PREPROD_TEST){loadProfile();_loaded.add('profile');setTimeout(loadPendingNotifications,1000);_handleStartParam();}
 

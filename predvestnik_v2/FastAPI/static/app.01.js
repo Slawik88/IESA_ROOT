@@ -556,7 +556,7 @@ const _PAGE_LOADERS = {
 };
 
 // Карта page→flag_key: только те страницы, которые управляются ползунком в dev-консоли.
-const _PAGE_FLAG = {};
+const _PAGE_FLAG = { casino: 'game_casino_v1' };
 let _sysFlags = {};  // заполняется из /profile/me (system_flags) при loadProfile()
 function _applySysFlags(flagsList) {
   _sysFlags = Object.fromEntries((flagsList||[]).map(f=>[f.key,!!f.enabled]));
@@ -597,7 +597,7 @@ function _dockActive(name) {
   });
   const prim = document.querySelector(`.nb[data-page="${name}"]:not([hidden])`);   // скрытая флагом вкладка подсветку не ловит
   // У образов, заданий и топа своя вкладка; подэкраны профиля (питомцы, сундуки, достижения, чужой профиль) подсвечивают «Профиль», остальное — «Ещё».
-  const _profileChildren=['inventory','achievements-v1','public-profile'], _gamesChildren=['pass'];   // «Пропуск сезона» живёт в «Играх»
+  const _profileChildren=['inventory','achievements-v1','public-profile'], _gamesChildren=['pass','casino'];   // «Пропуск сезона» живёт в «Играх»
   const activeNav=prim || (_profileChildren.includes(name)?document.querySelector('.nb[data-page="profile"]'):_gamesChildren.includes(name)?document.querySelector('.nb[data-page="arena"]'):el('nb-more'));
   activeNav?.classList.add('active');
   activeNav?.setAttribute('aria-current','page');
@@ -661,7 +661,7 @@ function _syncBackButton(){
   // Верхнеуровневые страницы уже имеют нижнюю навигацию, а отдельные экраны —
   // собственную стрелку в шапке. Браузерный fallback там не помогает вернуться:
   // он лишь дублирует выход и может перекрыть основное действие у нижнего края.
-  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass','shop','promo'].includes(_activePage);
+  const suppressBrowserBack=['profile','arena','more','looks','questlog','chests','inventory','achievements-v1','pets','public-profile','chat-tracker','top','exchange-v1','settings','store','news','pass','shop','promo','casino'].includes(_activePage);
   let btn=el('nav-back');
   if(!btn && has && !inTg && !suppressBrowserBack){
     btn=document.createElement('button');
