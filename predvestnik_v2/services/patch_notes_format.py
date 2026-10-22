@@ -162,7 +162,23 @@ def _check_item(where: str, item) -> list[str]:
     covers = item.get("covers", [])
     if not isinstance(covers, list) or not all(isinstance(c, str) for c in covers):
         errors.append(f"{where}.covers: список id из «Что нового»")
-    return errors + _check_image(where, item)
+    return errors + _check_image(where, item) + _check_extra(where, item)
+
+
+def _check_extra(where: str, item: dict) -> list[str]:
+    """Дополнительные фото пункта (extra_images): когда за день сведено несколько обновлений, их скриншоты остаются в посте-альбоме."""
+    extra = item.get("extra_images")
+    if extra is None:
+        return []
+    if item.get("kind") == "fix" or not isinstance(extra, list) or not all(isinstance(e, dict) for e in extra):
+        return [f"{where}.extra_images: список {{image, image_alt}} у новинки или улучшения"]
+    errors = []
+    for n, e in enumerate(extra):
+        if e.get("image") in (None, "cover"):
+            errors.append(f"{where}.extra_images[{n}]: нужен файл из img/")
+        else:
+            errors += _check_image(f"{where}.extra_images[{n}]", {**e, "kind": item.get("kind")})
+    return errors
 
 
 def validate(note) -> list[str]:
@@ -185,6 +201,9 @@ def validate(note) -> list[str]:
         errors.append(f"items: не больше {rules.MAX_ITEMS} новинок в посте, остальное в следующий")
     if kinds.count("fix") > rules.MAX_FIXES:
         errors.append(f"items: не больше {rules.MAX_FIXES} исправлений, мелочь объединяйте")
+    photos = sum(bool(i.get("image")) + len(i.get("extra_images") or []) for i in items if isinstance(i, dict) and isinstance(i.get("extra_images") or [], list))
+    if photos > rules.MAX_IMAGES:
+        errors.append(f"в посте {photos} фото, Telegram берёт в альбом не больше {rules.MAX_IMAGES}")
     if note.get("button") is not None and note["button"] not in rules.BUTTONS:
         errors.append("button: неизвестный раздел")
     for skip in note.get("skipped") or []:
@@ -242,6 +261,7 @@ def images(note: dict) -> list[dict]:
             out.append({"ref": "cover", "title": item["title"], "kind": item["kind"], "alt": f"Обложка: {item['title']}"})
         elif item.get("image"):
             out.append({"ref": f"repo:{item['image']}", "alt": item.get("image_alt") or item["title"]})
+        out += [{"ref": f"repo:{e['image']}", "alt": e.get("image_alt") or item["title"]} for e in item.get("extra_images") or []]
     return out[:rules.MAX_IMAGES]
 
 

@@ -12,7 +12,21 @@
       "image": "2026-10-22-pet-outing.png",
       "image_alt": "Развилка Вылазки: здоровье, припасы, три варианта и видимые шансы",
       "open": "pets",
-      "covers": ["2026-10-22-pet-equipment", "2026-10-22-pet-outing", "2026-10-22-pets-workspace"]
+      "covers": [
+        "2026-10-22-pet-equipment",
+        "2026-10-22-pet-outing",
+        "2026-10-22-pets-workspace"
+      ],
+      "extra_images": [
+        {
+          "image": "2026-10-22-pet-equipment.png",
+          "image_alt": "Инструменты питомца с эффектами и ценами улучшения"
+        },
+        {
+          "image": "2026-10-22-pets-workspace.png",
+          "image_alt": "Карточка питомца с силами и пятью слотами подготовки"
+        }
+      ]
     },
     {
       "id": "2026-10-22-mafia-art",
@@ -42,7 +56,21 @@
       "text": "Настройки с ровными переключателями, подиум в топе, полка ключей у сундуков и значки у заданий.",
       "image": "2026-10-22-settings-redesign.jpg",
       "image_alt": "Экран «Настройки»: группа «Внешний вид» со значками и переключателями",
-      "open": "settings"
+      "open": "settings",
+      "extra_images": [
+        {
+          "image": "2026-10-22-top-podium.jpg",
+          "image_alt": "Экран «Топ» с пьедесталом из трёх игроков"
+        },
+        {
+          "image": "2026-10-22-chests-keys.png",
+          "image_alt": "Экран «Сундуки»: сундук и полка из четырёх ключей"
+        },
+        {
+          "image": "2026-10-22-quests-icons.png",
+          "image_alt": "Экран «Задания» с цветными значками"
+        }
+      ]
     },
     {
       "id": "2026-10-22-mines-leaderboard-loading",
