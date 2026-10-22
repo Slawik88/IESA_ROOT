@@ -199,6 +199,15 @@ async def set_account_level(db, user_id: int, level: int) -> None:
     )
 
 
+async def account_levels(db, user_ids: list[int]) -> dict[int, int]:
+    """Уровень аккаунта для строк топа: по нему рисуется личное созвездие-аватар (число звёзд), как в публичном профиле."""
+    ids = [int(u) for u in dict.fromkeys(user_ids or [])]
+    if not ids:
+        return {}
+    async with db.execute("SELECT user_tg_id, COALESCE(account_level, 1) AS lv FROM users WHERE user_tg_id = ANY(?::bigint[])", (ids,)) as c:
+        return {int(r["user_tg_id"]): int(r["lv"]) for r in await c.fetchall()}
+
+
 async def get_account_progress(db, user_id: int) -> dict:
     """{account_xp, account_level} игрока (0/1, если строки users ещё нет)."""
     async with db.execute(

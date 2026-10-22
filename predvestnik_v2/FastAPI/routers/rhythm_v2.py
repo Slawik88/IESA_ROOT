@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
+from FastAPI.routers.leaderboards import podium_avatars
 from services import rhythm_v2 as game
 from infrastructure.database import create_pool, get_pool
 from infrastructure.pg_adapter import PGAdapter
@@ -124,7 +125,9 @@ async def transport_ticket(run_id: str, db=Depends(get_db), user=Depends(require
 @router.get("/leaderboard/{mode}", dependencies=[_feature_gate])
 async def leaderboard(mode: Literal["normal", "augments"], db=Depends(get_db), user=Depends(require_tg_user)):
     try:
-        return await game.rankings(db, user_id=int(user["id"]), mode=mode)
+        board = await game.rankings(db, user_id=int(user["id"]), mode=mode)
+        await podium_avatars(db, board.get("top") or [], nested=True)
+        return board
     except game.RhythmError as exc:
         _raise(exc)
 
@@ -135,7 +138,9 @@ async def leaderboard_full(
     db=Depends(get_db), user=Depends(require_tg_user),
 ):
     try:
-        return await game.rankings_page(db, user_id=int(user["id"]), mode=mode, page=page)
+        board = await game.rankings_page(db, user_id=int(user["id"]), mode=mode, page=page)
+        await podium_avatars(db, board["items"], nested=True)
+        return board
     except game.RhythmError as exc:
         _raise(exc)
 

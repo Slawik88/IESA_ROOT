@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from infrastructure.repositories import public_profiles_v1 as public_profiles
 from services import appearance_public_v3, marks_v1 as marks_service
-from infrastructure.repositories import stats as stats_repo
+from infrastructure.repositories import stats as stats_repo, users as users_repo
 from infrastructure.repositories import mafia_v1 as mafia_repo, minesweeper_v2 as minesweeper_repo
 from infrastructure.repositories.streak import get_chat_timezone
 from services.membership import bot_tg_id
@@ -56,6 +56,7 @@ async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> 
     players = await public_profiles.player_projection(db, user_ids=ids)
     looks = await appearance_public_v3.nick_styles(db, ids)   # VIP owners only
     marks = await marks_service.top_mark_batch(db, ids)       # staff and hand-given marks, one glyph per row
+    levels = await users_repo.account_levels(db, ids)          # constellation avatar on the podium, as in the public card
     return [
         {
             "place": first_place + index,
@@ -63,6 +64,7 @@ async def _player_rows(db, rows: list[dict], user_id: int, first_place: int) -> 
             "ref": players[int(row["user_tg_id"])]["profile_ref"],
             "look": looks.get(int(row["user_tg_id"])),
             "mark": marks.get(int(row["user_tg_id"])),
+            "level": levels.get(int(row["user_tg_id"]), 1),
             "count": int(row["msg_count"]),
             "is_vip": bool(row.get("is_vip")),
             "is_me": int(row["user_tg_id"]) == int(user_id),
@@ -81,9 +83,10 @@ async def decorate_game_board(db, board: dict, user_id: int | None = None) -> di
     looks = await appearance_public_v3.nick_styles(db, ids)
     marks = await marks_service.top_mark_batch(db, ids)
     vips = await is_vip_active_batch(db, ids)
+    levels = await users_repo.account_levels(db, ids)
     for row in rows:
         uid = refs.get(row["player"]["profile_ref"])
-        row["player"] = {**row["player"], "look": looks.get(uid), "mark": marks.get(uid), "is_vip": uid in vips}
+        row["player"] = {**row["player"], "look": looks.get(uid), "mark": marks.get(uid), "is_vip": uid in vips, "level": levels.get(uid, 1)}
         row["is_me"] = user_id is not None and uid == int(user_id)
     return board
 
@@ -95,6 +98,7 @@ async def _win_rows(db, rows: list[dict], user_id: int, first_place: int) -> lis
     looks = await appearance_public_v3.nick_styles(db, ids)
     marks = await marks_service.top_mark_batch(db, ids)
     vips = await is_vip_active_batch(db, ids)
+    levels = await users_repo.account_levels(db, ids)
     out = []
     for index, row in enumerate(rows):
         uid = int(row["user_id"])
@@ -104,6 +108,7 @@ async def _win_rows(db, rows: list[dict], user_id: int, first_place: int) -> lis
             "ref": players[uid]["profile_ref"],
             "look": looks.get(uid),
             "mark": marks.get(uid),
+            "level": levels.get(uid, 1),
             "count": int(row["wins"]),
             "is_vip": uid in vips,
             "is_me": uid == int(user_id),

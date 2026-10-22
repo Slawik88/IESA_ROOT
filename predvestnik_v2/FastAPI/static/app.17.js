@@ -13,14 +13,14 @@ function _v3TopShell() {
 // Ответы двух API приводятся к одному виду: {top:[{place,name,value,is_vip,is_me}], personal:{place,value}|null}
 function _v3TopNormalize(id, d) {
   if (id === 'rhythm') {
-    return { top: (d.top || []).slice(0, 10).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null })),
+    return { top: (d.top || []).slice(0, 10).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null, avatar: r.player?.avatar, level: r.player?.level })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
   }
   if (id === 'minesweeper' || id === 'mafia') {
-    return { top: (d.items || []).slice(0, 10).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
+    return { top: (d.items || []).slice(0, 10).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, level: r.level })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
   }
-  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
+  return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark, avatar: r.avatar, level: r.level })),
     personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
 }
 function _v3TopTabs() {
@@ -74,7 +74,11 @@ function v3LazyTop() {
 }
 
 // Строка рейтинга: нажатие открывает публичную карточку игрока (ник со стилем виден только у VIP)
+// Фото VIP в строке топа (перк VIP: аватарку видно везде); без фото строка как раньше
+function _v3RowAva(row) {
+  return typeof row.avatar === 'string' && /^data:image\/(?:png|jpe?g|webp);base64,/i.test(row.avatar) ? `<span class="v3-row-ava"><img src="${_profileEsc(row.avatar)}" alt="" decoding="async" loading="lazy"></span>` : '';
+}
 function _v3RowButton(row, value) {
   const open = row.ref && /^[A-Za-z0-9_-]{16,64}$/.test(row.ref) ? ` onclick="openPublicProfile('${row.ref}')"` : ' disabled';
-  return `<button type="button" class="v3-rowbtn"${open} aria-label="Профиль игрока ${_profileEsc(row.name)}"><i>${row.place}</i><span>${apWho(row)}</span><b>${fmt(value)}</b></button>`;
+  return `<button type="button" class="v3-rowbtn"${open} aria-label="Профиль игрока ${_profileEsc(row.name)}"><i>${row.place}</i>${_v3RowAva(row)}<span>${apWho(row)}</span><b>${fmt(value)}</b></button>`;
 }

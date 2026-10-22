@@ -69,6 +69,13 @@ async def fake_styles(db, ids):
 lb.appearance_public_v3.nick_styles = fake_styles
 
 
+async def fake_levels(db, ids):
+    return {int(i): 30 for i in ids if int(i) == 1}
+
+
+lb.users_repo.account_levels = fake_levels   # уровень рисует созвездие-аватар на подиуме, как в публичном профиле
+
+
 async def main() -> None:
     db = Db()
     page0 = await lb.message_top_page(db, user_id=3, scope="global", period="week", page=0, now=THURSDAY)
@@ -96,6 +103,7 @@ async def main() -> None:
         raise AssertionError("unknown scope must be rejected")
     compact = await lb.message_top(db, user_id=3, period="week", now=THURSDAY)
     assert compact["top"][0]["place"] == 1 and compact["personal"]["place"] == 3
+    assert compact["top"][0]["level"] == 30 and compact["top"][1]["level"] == 1, "уровень у строки топа, по умолчанию 1"
     assert lb.TOP_LIMIT == 10, "профиль показывает топ-10: подиум и семь строк под ним"
     # Game tops: all-time wins use the same row shape and clamp an out-of-range page.
     async def fake_win_players(db): return 12

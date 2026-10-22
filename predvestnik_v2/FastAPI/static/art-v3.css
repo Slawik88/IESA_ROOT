@@ -69,29 +69,41 @@ svg.v3-cur, :is(.v3-pill, .v3-row, .wallet-v4, .v3-link) svg.v3-cur { fill: init
 .sv-pile-3 { left: 6px; bottom: 16px; } .sv-pile-4 { left: 17px; bottom: 20px; width: 24px !important; height: 24px !important; }
 .sv-opt-main b .v3-cur { width: 18px; height: 18px; }
 
-/* ── подиум тройки лидеров ── */
-.v3-podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin: 8px 0 6px; padding: 0; list-style: none; }
+/* фото VIP в строке топа: рядом с ником, в золотом ободке VIP */
+.v3-top-list .v3-rowbtn > .v3-row-ava, .v3-row-ava { flex: 0 0 30px; width: 30px; min-width: 30px; height: 30px; margin: 0; padding: 0; overflow: hidden; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--v3-vip, #f1cf7e); }
+.v3-row-ava img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ── подиум тройки лидеров: карточка-сцена с образом игрока, как в его публичном профиле ── */
+.v3-podium { display: grid; grid-template-columns: 1fr 1.12fr 1fr; align-items: end; gap: 6px; margin: 8px 0 6px; padding: 0; list-style: none; }
 .v3-pod { display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
-.v3-pod-btn { display: grid; justify-items: center; gap: 2px; width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.v3-pod-btn { display: grid; justify-items: center; gap: 4px; width: 100%; min-width: 0; min-height: 44px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .v3-pod-btn:disabled { cursor: default; }
 .v3-pod-btn:not(:disabled):active { opacity: .6; }
-.v3-pod-name { display: flex; justify-content: center; max-width: 100%; min-width: 0; color: var(--v3-ink); font-size: 13px; font-weight: 600; }
-.v3-pod-name .v3-who { justify-content: center; flex-wrap: nowrap; max-width: 100%; } .v3-pod-name .ap-title { display: none; }   /* титул скина — в списке, на узком пьедестале только ник */
-.v3-pod-name .v3-who { overflow: hidden; }
-.v3-pod-name .v3-who > span:first-child { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* длинный ник — многоточием, а не в соседнюю колонку */
-.v3-pod-name .ap-name { display: inline; }
+.v3-pod-card { position: relative; display: block; width: 100%; min-width: 0; overflow: hidden; isolation: isolate; border-radius: 16px; background: color-mix(in srgb, var(--v3-ink) 4%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.v3-pod-card .ap-stage { --bleed: 0px; }
+.v3-pod-card .ap-bg { inset: 0; -webkit-mask-image: none; mask-image: none; }
+.v3-pod-id { display: grid; justify-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 12px 5px 10px; }
+.v3-pod .v3-ring { zoom: .74; } .v3-pod.is-p1 .v3-ring { zoom: .86; }   /* вся связка ореол · аватар · рамка уменьшается разом */
+.v3-pod .v3-ring > svg circle { stroke: var(--v3-track); }
+.v3-pod-name { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; min-width: 0; color: var(--v3-ink); font-size: 13px; font-weight: 600; line-height: 1.2; }
+.v3-pod-name > :first-child { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* длинный ник — многоточием, а не в соседнюю колонку */
+.v3-pod-name > :not(:first-child) { flex: none; }
+.v3-pod-card .ap-title { max-width: 100%; overflow: hidden; padding: 1px 6px; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
+.v3-pod-card .ap-crest { display: none; }
 /* узкий экран: пять областей рейтинга помещаются в одну строку */
-@media (max-width: 360px) { #pg-top .v3-tabs--wide .v3-tab { padding-right: 7px; margin-right: 2px; font-size: 12.5px; } #pg-top .v3-tabs--wide .v3-tab.on::after { right: 7px; } }
+@media (max-width: 360px) { #pg-top .v3-tabs--wide .v3-tab { padding-right: 7px; margin-right: 2px; font-size: 12.5px; } #pg-top .v3-tabs--wide .v3-tab.on::after { right: 7px; } .v3-pod-name { font-size: 12px; } }
 .v3-pod small { color: var(--v3-dim); font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.v3-pod > i { display: block; width: 100%; margin-top: 6px; border-radius: 12px 12px 4px 4px; background: linear-gradient(180deg, color-mix(in srgb, var(--v3-ink) 10%, transparent), color-mix(in srgb, var(--v3-ink) 3%, transparent)); }
-.v3-pod.is-p1 > i { height: 58px; --pc: #f5cf73; } .v3-pod.is-p2 > i { height: 40px; --pc: #cfd6e4; } .v3-pod.is-p3 > i { height: 28px; --pc: #d08a4e; }
+.v3-pod > i { display: block; width: 100%; margin-top: 4px; border-radius: 12px 12px 4px 4px; }
+.v3-pod.is-p1 > i { height: 40px; --pc: #f5cf73; } .v3-pod.is-p2 > i { height: 26px; --pc: #cfd6e4; } .v3-pod.is-p3 > i { height: 16px; --pc: #d08a4e; }
 .v3-pod > i { background: linear-gradient(180deg, color-mix(in srgb, var(--pc, var(--v3-ink)) 22%, transparent), color-mix(in srgb, var(--pc, var(--v3-ink)) 4%, transparent)); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--pc, var(--v3-ink)) 40%, transparent); }   /* пьедестал в цвет медали */
 .v3-pod.is-me small::after { content: " · вы"; color: var(--v3-dim); font-weight: 500; }
-.v3-pod-medal { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 4px; border-radius: 50%; font-size: 15px; font-weight: 750; color: #2b1d02;
-  background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c45a 55%, #b97f1d); box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); }
-.v3-pod.is-p1 .v3-pod-medal { width: 42px; height: 42px; font-size: 17px; }
+.v3-pod.is-p1 .v3-pod-card { box-shadow: inset 0 0 0 1px color-mix(in srgb, #f5cf73 34%, transparent); }
+/* медаль сидит на нижнем крае аватара, как значок уровня в профиле */
+.v3-pod-medal { position: absolute; left: 50%; bottom: -6px; z-index: 4; display: grid; place-items: center; width: 30px; height: 30px; transform: translateX(-50%); border-radius: 50%; font-size: 15px; font-weight: 750; color: #2b1d02;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c45a 55%, #b97f1d); box-shadow: 0 0 0 2px var(--v3-bg), inset 0 -2px 0 rgba(0,0,0,.18); }
 .v3-pod.is-p2 .v3-pod-medal { color: #1d2230; background: radial-gradient(circle at 35% 30%, #fff, #cfd6e4 55%, #8a94a8); }
 .v3-pod.is-p3 .v3-pod-medal { color: #2c1505; background: radial-gradient(circle at 35% 30%, #ffe0c2, #d08a4e 55%, #8a4f22); }
+.v3-pod .v3-ring { display: block; margin-bottom: 6px; }
 .v3-pod-empty { padding: 4px 0 6px; text-align: center; } .v3-pod-empty p { margin: 10px auto 0; max-width: 300px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; }
 .v3-podium.is-ghost .v3-pod-medal { filter: saturate(.25); opacity: .55; } .v3-podium.is-ghost .v3-pod-name { color: var(--v3-dim); } .v3-podium.is-ghost .v3-pod > i { opacity: .55; }
 .v3-podium .v3-pod { animation: v3podin .5s var(--v3-ease) both; animation-delay: calc(var(--d, 0ms) - var(--enter-skip, 0ms)); }

@@ -25,7 +25,7 @@ function loadTopV3() {
 }
 // Сезонная таблица Ритма приводится к виду таблицы сообщений: очки идут в count
 function _v3RhythmFull(d) {
-  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score }));
+  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score, avatar: r.player?.avatar, level: r.player?.level }));
   const personal = d.personal ? { place: d.personal.place, total: d.personal.total, count: d.personal.best_score } : null;
   return { page: d.page, pages: d.pages, items, personal, season: d.season, chats: _v3Full.data?.chats };
 }
