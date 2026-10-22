@@ -12,7 +12,7 @@ from __future__ import annotations
 import html
 import time
 
-from aiogram import Bot, Router
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.filters.callback_data import CallbackData
@@ -504,6 +504,7 @@ async def _picture_screen(call: CallbackQuery, bot: Bot, kind: str, screen: Scre
 
 
 DM_HINT = ("👋 Привет! Я бот и лучше всего понимаю кнопки и команды.\n"
+           "Команду со значением пишите через «бот», например: <code>бот промокод КОД</code>. Все команды: <code>помощь</code>.\n\n"
            "Чтобы подключить меня к чату или просто посмотреть, что я умею, начните отсюда 👇")
 DM_HINT_PAUSE = 600.0
 _dm_hint_at: dict[int, float] = {}
@@ -713,21 +714,32 @@ async def slash_setup(message: Message, bot: Bot, db) -> None:
     await open_setup(message, bot, db)
 
 
-@router.message(Command("help"))
-async def slash_help(message: Message) -> None:
+async def _quiet(message: Message, db) -> bool:
+    from bot.chat import _silent   # заблокирован в админке или бот выключен — молчим, как на остальные команды
+    try:
+        return await _silent(message, db)
+    except Exception:   # noqa: BLE001
+        return False
+
+
+# Только в личке: в группе слэш-команда прошла бы мимо закрытого чата и чистки; там есть «бот помощь» и «бот сайт».
+@router.message(Command("help"), F.chat.type == "private")
+async def slash_help(message: Message, db) -> None:
     """/help из меню «/»: та же справка, что «бот помощь»."""
     from bot.chat import help as help_mod
-    if message.from_user is None:
+    if message.from_user is None or await _quiet(message, db):
         return
     private = message.chat.type == "private"
     await message.answer(help_mod.main_text(private), parse_mode="HTML",
                          reply_markup=help_mod.main_keyboard(message.from_user.id, private))
 
 
-@router.message(Command("site"))
-async def slash_site(message: Message, bot: Bot) -> None:
+@router.message(Command("site"), F.chat.type == "private")
+async def slash_site(message: Message, bot: Bot, db) -> None:
     """/site из меню «/»: кнопка сайта Предвестника, как «бот сайт»."""
     from bot.chat.site import SITE_TEXT, site_keyboard
+    if await _quiet(message, db):
+        return
     kb = site_keyboard(message.chat.type, await _username(bot))
     if kb is None:
         await message.answer("🔮 Сайт сейчас недоступен. Попробуйте позже.")

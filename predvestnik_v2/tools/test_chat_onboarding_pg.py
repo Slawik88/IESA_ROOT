@@ -721,12 +721,14 @@ async def entry_points(db, bot):
     assert "Как играть" in screen.text and find(screen.edited[-1][1], "Назад").callback_data == "onb:home:0"
     # Написал в личку «привет»: команды нет, бот не молчит, но и не повторяет меню каждые пять секунд
     from bot.chat import registry as reg
-    from bot.chat.framework import dispatch as disp
+    from bot.chat.framework import Parsed, dispatch as disp, parse
     hello = FakeMessage("привет", 8002, "hello", 8002, "private")
     assert not await disp(reg, hello, bot, db)
     await ob.dm_hint(hello, bot, db)
     text, kb = hello.replies[-1]
     assert "Привет" in text and find(kb, "Добавить бота в чат") and find(kb, "Как подключить")
+    for example in re.findall(r"<code>(бот [^<]+)</code>", text):   # пример в подсказке — настоящая команда
+        assert isinstance(parse(reg, example, BOT_NAME, True), Parsed), example
     await ob.dm_hint(hello, bot, db)
     assert len(hello.replies) == 1
     photo_only = FakeMessage(None, 8003, "pic", 8003, "private")

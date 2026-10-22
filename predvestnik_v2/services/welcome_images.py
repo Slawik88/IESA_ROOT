@@ -154,8 +154,7 @@ def clean_name(first_name: str | None) -> str:
 
 # ── Картинки ────────────────────────────────────────────────────────────────
 
-@lru_cache(maxsize=256)
-def welcome(name: str = "") -> bytes:
+def welcome(name: str = "") -> bytes:   # без кэша: после первой отправки Telegram отдаёт её по file_id
     """Приветствие 1280×720: «Привет, Имя!», кто такой бот и три главных умения."""
     img = _background()
     d = ImageDraw.Draw(img)
