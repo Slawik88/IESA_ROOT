@@ -58,3 +58,4 @@
   .inv-grid, .inv-pets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .inv-looks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.inv-key { display: inline-grid; width: 26px; height: 26px; color: var(--ch-metal, #9ea7b6); } .inv-key svg { width: 100%; height: 100%; }

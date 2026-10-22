@@ -745,13 +745,13 @@
   let _questsV1Data=null,_questsV1Tab='daily',_questsV1Busy=false;
   const QUEST_REWARD_LABELS={daily:'За день',weekly:'За неделю',combined:'За всё'};
   function questMetricMeta(metric){
-    if(metric==='game_completed')return{icon:'◆',label:'Выбрать игру',action:"goTo('arena','game')"};
-    if(metric.startsWith('rhythm_'))return{icon:'ᚱ',label:'Открыть Ритм',action:'openRhythmV2Game()'};
-    if(metric.startsWith('minesweeper_'))return{icon:'▦',label:'Открыть Сапёр',action:'openMinesweeperGame()'};
-    if(metric.startsWith('mafia_'))return{icon:'◈',label:'Открыть игры',action:"goTo('arena','game')"};
-    if(metric==='chest_revealed')return{icon:'✦',label:'К сундукам',action:'openChestsV1()'};
-    if(['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(metric))return{icon:'🐾',label:'К питомцам',action:'openPetsV1()'};
-    return{icon:'◆',label:'К играм',action:"goTo('arena','game')"};
+    if(metric==='game_completed')return{icon:'◆',kind:'game',label:'Выбрать игру',action:"goTo('arena','game')"};
+    if(metric.startsWith('rhythm_'))return{icon:'ᚱ',kind:'rhythm',label:'Открыть Ритм',action:'openRhythmV2Game()'};
+    if(metric.startsWith('minesweeper_'))return{icon:'▦',kind:'mines',label:'Открыть Сапёр',action:'openMinesweeperGame()'};
+    if(metric.startsWith('mafia_'))return{icon:'◈',kind:'mafia',label:'Открыть игры',action:"goTo('arena','game')"};
+    if(metric==='chest_revealed')return{icon:'✦',kind:'chest',label:'К сундукам',action:'openChestsV1()'};
+    if(['pet_fed','pet_activity_completed','pet_trek_completed','pet_expedition_completed','pet_watch_completed'].includes(metric))return{icon:'🐾',kind:'pet',label:'К питомцам',action:'openPetsV1()'};
+    return{icon:'◆',kind:'game',label:'К играм',action:"goTo('arena','game')"};
   }
   function questRewardValue(reward){
     const keys=_sysFlags.content_chests_v1?Number(reward?.amount_keys||0):0,ess=Number(reward?.amount_essence||0);
@@ -762,7 +762,7 @@
     const progress=Math.max(0,Number(quest.progress)||0),target=Math.max(1,Number(quest.target)||1);
     const percent=Math.min(100,Math.round(progress/target*100)),meta=questMetricMeta(quest.metric),done=!!quest.completed;
     return `<button type="button" class="quest-card qs-row${done?' is-done':''}" data-q="${period}-${quest.slot}" onclick="questsV1Open('${period}',${Number(quest.slot)})" aria-label="${esc(quest.title)}: ${done?'выполнено':`${Math.min(progress,target)} из ${target}`}">
-      <span class="quest-card-icon qs-ic" aria-hidden="true">${done?'✓':meta.icon}</span>
+      <span class="quest-card-icon qs-ic qs-ic--${done?'done':meta.kind}" aria-hidden="true">${(typeof questArt==='function'&&questArt(done?'done':meta.kind))||(done?'✓':meta.icon)}</span>
       <span class="qs-tx"><b>${esc(quest.title)}</b><small>${esc(quest.help)}</small>${done?'':`<i class="qs-bar" aria-hidden="true"><i style="width:${percent}%"></i></i>`}</span>
       ${done?'':`<span class="qs-end">${fmt(Math.min(progress,target))}<small>/${fmt(target)}</small></span>`}
     </button>`;
@@ -847,7 +847,7 @@
     if(_questsV1Busy)return;
     _questsV1Busy=true;_questsV1Seq++;renderQuestsV1();   // ответ /me, запрошенный до замены, уже устарел
     const key=`reroll:${period}:${slot}`,action=_pendingAction(_questsV1PendingActions,key,'quest-reroll-');
-    api('/quests-v1/reroll',{method:'POST',body:JSON.stringify({period,slot,action_id:action})}).then(d=>{_questsV1PendingActions.delete(key);_questsV1Data=d;toast('Квест заменён');}).catch(e=>toast(`${e} Повтори: лимит не спишется второй раз.`,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
+    api('/quests-v1/reroll',{method:'POST',body:JSON.stringify({period,slot,action_id:action})}).then(d=>{_questsV1PendingActions.delete(key);_questsV1Data=d;toast('Задание заменено');}).catch(e=>toast(`${e} Повтори: лимит не спишется второй раз.`,false)).finally(()=>{_questsV1Busy=false;renderQuestsV1();});
   };
   window.questsV1Claim=function(kind){
     if(_questsV1Busy)return;

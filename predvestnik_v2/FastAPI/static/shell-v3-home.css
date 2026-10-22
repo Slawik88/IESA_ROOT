@@ -80,7 +80,8 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 /* ── Путь: пять аспектов в одну строку ── */
 .v3-path-row { display: grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap: 4px; margin-top: 4px; }
 .v3-aspect { flex: 1; min-width: 0; display: grid; justify-items: center; gap: 6px; padding: 6px 0; border: 0; background: none; color: var(--v3-dim); font: 500 10.5px/1.2 var(--v3-font); cursor: pointer; transition: transform .15s; }
-.v3-aspect > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v3-aspect > span:last-child { display: -webkit-box; max-width: 100%; overflow: hidden; text-align: center; hyphens: auto; -webkit-hyphens: auto; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+@media (max-width: 360px) { .v3-aspect { font-size: 9.5px; letter-spacing: -.01em; } }   /* «Мастер лагеря» — в две строки, а не «Мастер ла…» */
 .v3-aspect-ring { position: relative; width: 44px; height: 44px; }
 .v3-aspect-ring svg { width: 44px; height: 44px; transform: rotate(-90deg); fill: none; stroke-width: 3; stroke-linecap: round; }
 .v3-aspect-ring b { position: absolute; inset: 0; display: grid; place-items: center; color: var(--v3-ink); font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -88,11 +89,17 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 
 /* ── Лидерборды: пять строк, без карточек ── */
 .v3-tabs { display: flex; gap: 2px; margin-right: -10px; }
-#v3-top .v3-tabs, #pg-top .v3-tabs { flex-wrap: wrap; }   /* пять областей рейтинга переносятся, а не режутся на 320 px */
+#pg-top .v3-tabs { flex-wrap: wrap; }   /* пять областей рейтинга переносятся, а не режутся на 320 px */
+/* «Топ-5» в профиле: подпись строкой выше, вкладки одной строкой с прокруткой вбок (раньше «Мафия» падала на вторую строку под подписью) */
+#v3-top .v3-sec { flex-wrap: wrap; }
+#v3-top .v3-tabs { flex: 1 0 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#v3-top .v3-tabs::-webkit-scrollbar { display: none; }
+#v3-top .v3-tab { flex: none; }
 .v3-tab { position: relative; min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--v3-dim); font: 600 12px/1 var(--v3-font); cursor: pointer; }
 .v3-tab.on { color: var(--v3-ink); }
 .v3-tab.on::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 9px; height: 2px; border-radius: 2px; background: var(--v3-acc); }
 .v3-top-body { min-height: 170px; }
+.v3-top-body:has(> .v3-empty) { min-height: 0; }   /* пустой рейтинг — одна строка, без пустого поля под ней */
 .v3-top-list { margin: 0; padding: 0; list-style: none; }
 .v3-top-list li { display: block; font-size: 14px; font-variant-numeric: tabular-nums; }
 .v3-top-list li + li { box-shadow: 0 -1px 0 var(--v3-faint); }
@@ -164,3 +171,6 @@ body { --v3-bar-h: 52px; --v3-vip: #f1cf7e; padding-top: calc(var(--v3-bar-h) + 
 .v3-league-dot { width: 7px; height: 7px; border-radius: 50%; background: #f5cf73; }
 .v3-league > svg:last-child { position: relative; }
 .v3-league-go + svg { margin-left: 0; }
+
+/* Ссылка раздела («Все задания ›») не ломается в столбик рядом с длинной подписью */
+.v3-sec > .v3-link { flex: none; white-space: nowrap; }

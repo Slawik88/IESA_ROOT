@@ -35,7 +35,9 @@ function _invFail(text, retry) {
 // tier: ступень талисмана (одна вещь, а не стопка) — тогда в углу и в листе ступень, а не количество
 function _invTile(icon, name, hint, n, sheet, tier) {
   const say = tier ? `${name}: ступень ${tier}` : `${name}: ${fmt(n)}`, mark = tier || fmt(n);
-  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-tier="${tier || ''}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${icon}</span><b class="inv-n">${mark}</b><small>${name}</small></button>`;
+  // ключ — тот же рисунок, что на полке Сундуков (app.47.js), остальное — свой значок
+  const art = sheet === 'keys' && typeof _CH_KEY_SVG !== 'undefined' ? `<span class="inv-key ch-m-iron">${_CH_KEY_SVG}</span>` : icon;
+  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-tier="${tier || ''}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${art}</span><b class="inv-n">${mark}</b><small>${name}</small></button>`;
 }
 // Лист предмета: ключи, еда, карты, джокеры и талисманы. Ничего не списывает: кнопка ведёт на экран, где предмет нужен.
 const _INV_SHEET = { keys: ['К сундукам', 'openChestsV1()'], food: ['К питомцам', 'openPetsV1()'], card: ['К питомцам', 'openPetsV1()'], joker: ['К питомцам', 'openPetsV1()'], tal: ['К питомцам', 'openPetsV1()'] };

@@ -76,7 +76,7 @@ function renderProfileHome(data) {
       ${_v3Row('hanger', 'Образы', 'openLooksModal()', d.essence ? `Скины и сеты · Эссенция ${fmt(d.essence)}` : 'Скины, прокачка тиров и сеты')}
       ${_v3Row('bag', 'Инвентарь', 'openInventory()', 'Образы, питомцы, ключи и вещи')}
       ${_v3Row('paw', 'Питомцы', 'openPetsV1()')}
-      ${_v3Row('flag', 'Квесты', 'openQuestsV1()')}
+      ${_v3Row('flag', 'Задания', 'openQuestsV1()')}
       ${chests}
       ${typeof shopEntryRow === 'function' ? shopEntryRow() : ''}
       ${_v3Row('trophy', 'Достижения', 'openAchievementsV1()')}
@@ -169,8 +169,8 @@ function _v3QuestRow(q) {
 }
 function renderV3Today(failed) {
   const host = el('v3-today'); if (!host) return;
-  const head = `<div class="v3-sec"><span class="v3-eyebrow">Сегодня · обновятся через ${v3UntilReset()}</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все квесты</button></div>`;
-  if (failed) { host.innerHTML = `${head}<div class="v3-empty">Квесты не загрузились. <button type="button" class="v3-link" onclick="loadV3Today()">Повторить</button></div>`; return; }
+  const head = `<div class="v3-sec"><span class="v3-eyebrow">Сегодня · новые через ${v3UntilReset()}</span><button type="button" class="v3-link" onclick="openQuestsV1()">Все задания</button></div>`;
+  if (failed) { host.innerHTML = `${head}<div class="v3-empty">Задания не загрузились. <button type="button" class="v3-link" onclick="loadV3Today()">Повторить</button></div>`; return; }
   const quests = _v3Quests?.daily?.quests || [];
   host.innerHTML = `${head}${quests.length ? quests.map(_v3QuestRow).join('') : '<div class="v3-empty">Заданий пока нет. Загляните чуть позже, мы что-нибудь придумаем.</div>'}`;
   renderV3Next();

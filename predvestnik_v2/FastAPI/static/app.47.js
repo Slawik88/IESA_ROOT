@@ -191,6 +191,18 @@ function chestsFlyKey() {
   };
 }
 
+// ── Задания: рисованные значки по виду задания (questRow, app.12.js). Цвет вида — в quests-v3.css (--qs-c) ──
+const _QS_ART = {
+  game: '<path d="M9 7.5v9l7.5-4.5z" fill="currentColor"/>',
+  rhythm: '<path d="M12 3l9 9-9 9-9-9z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 7.5v9M10 7.8l3.6 2.4-3.6 2.2 3.8 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+  mines: '<g fill="currentColor" opacity=".35"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></g><path d="M14.5 11V4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M15 5h5l-1.4 1.8L20 8.6h-5z" fill="currentColor"/><circle cx="7.5" cy="16.5" r="2.6" fill="currentColor"/>',
+  mafia: '<path d="M4 9c2.5-1.2 5.2-1.5 8-1.5s5.5.3 8 1.5c-.3 4.5-3 7.5-8 7.5S4.3 13.5 4 9z" fill="currentColor" opacity=".9"/><circle cx="9" cy="11" r="1.5" fill="#0b0c10"/><circle cx="15" cy="11" r="1.5" fill="#0b0c10"/>',
+  chest: '<path d="M4 10c0-3 3.5-5 8-5s8 2 8 5v1.5H4z" fill="currentColor" opacity=".55"/><rect x="4" y="11" width="16" height="8" rx="1.6" fill="currentColor"/><rect x="10.5" y="10" width="3" height="4" rx=".8" fill="#0b0c10"/>',
+  pet: '<g fill="currentColor"><ellipse cx="12" cy="15.5" rx="4" ry="3.4"/><circle cx="6.8" cy="10.6" r="1.8"/><circle cx="17.2" cy="10.6" r="1.8"/><circle cx="9.6" cy="7" r="1.8"/><circle cx="14.4" cy="7" r="1.8"/></g>',
+  done: '<path d="M6 12.5l4 4 8-9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+const questArt = kind => _QS_ART[kind] ? `<svg viewBox="0 0 24 24">${_QS_ART[kind]}</svg>` : '';
+
 // ── Подсказки «Сундуки»: плитка «Награда ждёт» и живые остатки приходят дозапросом ─────────────
 // Пока вкладка не открыта, данных на клиенте нет: сначала общий набор, после ответа сервера
 // плитки перерисовываются (v3Guide → refresh). Открытый лист перерисовывается на месте.
@@ -232,7 +244,7 @@ guideDefine('quests', { title: 'Задания — подсказки', lead: '�
 guideDefine('ach', { title: 'Достижения — подсказки', lead: 'Игры, забота, развитие и общение.', tiles: [
   { icon: '🏁', title: 'Завершения', text: 'это игры, которые вы довели до конца' },
   { icon: '📅', title: 'Активные недели', text: 'это недели, когда вы играли' },
-  { icon: '⚖️', title: 'Развитие', text: 'забота, лагерь, образы и дневные квесты — без требования недель' },
+  { icon: '⚖️', title: 'Развитие', text: 'забота, лагерь, образы и дневные задания — без требования недель' },
   { icon: '🧾', title: 'История', text: 'прошлые улучшения учитываются по подтверждённым операциям' },
   { icon: '🪙', title: 'Награда', text: 'Мора за каждый уровень — приходит сама' },
   { icon: '💬', title: 'Достижения чата', text: 'за общение с ботом; каждые 10 уровней — Эссенция' },
@@ -243,6 +255,7 @@ guideDefine('ach', { title: 'Достижения — подсказки', lead:
 function _helpGameTiles() {
   const on = k => _sysFlags[k] === true;
   const t = [];
+  if (typeof _league !== 'undefined' && _league && _league.allowed) t.push({ icon: '🏆', title: 'Лига сезона', text: 'уровни Сапёра и Ритма на звёзды; за них — опыт Пропуска' });
   if (on('game_rhythm_v2')) t.push({ icon: '🎵', title: 'Ритм', text: 'нажимайте руны в такт музыке' });
   if (on('game_minesweeper_v2')) t.push({ icon: '💣', title: 'Сапёр', text: 'открывайте клетки и не попадите на мину' });
   if (on('game_mafia_v1')) t.push({ icon: '🕵️', title: 'Мафия', text: 'игра в чате: напишите боту «бот мафия»' });

@@ -143,7 +143,7 @@ dialog#modal::backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; b
 
 /* ── Общие элементы ── */
 .v3-eyebrow { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--v3-dim); font-weight: 500; }
-.v3-sec { display: flex; justify-content: space-between; align-items: center; min-height: 44px; margin: 14px 0 0; }
+.v3-sec { display: flex; justify-content: space-between; align-items: center; gap: 10px; min-height: 44px; margin: 14px 0 0; }
 .v3-pill { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 0 20px; border: 0; border-radius: 99px; background: var(--v3-acc); color: var(--v3-on-acc); font: 600 13px/1 var(--v3-font); cursor: pointer; transition: transform .15s; }
 .v3-pill svg, .v3-row svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .v3-pill svg { width: 15px; height: 15px; }
