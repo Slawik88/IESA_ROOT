@@ -218,7 +218,7 @@ async def main():
             try:
                 await bot.set_chat_menu_button(
                     menu_button=MenuButtonWebApp(
-                        text="🔮 Мини-апп",
+                        text="🔮 Сайт",
                         web_app=WebAppInfo(url=_miniapp_url),
                     )
                 )
@@ -232,9 +232,13 @@ async def main():
             await bot.set_my_commands([
                 BotCommand(command="start", description="Начало: как добавить бота в чат"),
                 BotCommand(command="setup", description="Проверить и настроить бота в чате"),
+                BotCommand(command="help", description="Все команды бота"),
+                BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
             ])
         except Exception as _e:
             logger.warning(f"Меню команд не установлено: {_e}")
+        from bot.chat.onboarding import ensure_descriptions
+        await ensure_descriptions(bot)
 
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")

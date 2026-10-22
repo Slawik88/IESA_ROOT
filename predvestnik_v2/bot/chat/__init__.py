@@ -147,5 +147,11 @@ async def on_message(message: Message, bot, db) -> None:
         await mafia.after_message(db, bot, message)
     except Exception as exc:
         logger.warning(f"mafia lobby repost failed: {exc}")
-    await dispatch(registry, message, bot, db)
+    handled = await dispatch(registry, message, bot, db)
+    if not handled and message.chat.type == "private":   # «привет» в личке: не молчим, показываем, с чего начать
+        try:
+            if not await _silent(message, db):
+                await onboarding.dm_hint(message, bot, db)
+        except Exception as exc:
+            logger.warning(f"dm hint failed: {exc}")
     await achievements.after_message(db, message)   # после ответа на команду, сам ловит ошибки
