@@ -6,6 +6,7 @@
   const $=id=>document.getElementById(id),board=$('mine-board'),labels={easy:'Лёгкий',normal:'Обычный',hard:'Сложный'};
   let run=null,difficulty='normal',mode='open',known=new Map(),mines=new Set(),busy=false,ticker=null,clockAt=null,clockBase=0,longPress=null,skipClick=false,focusCell=0,restoreFocus=false,errorText='',pointerAt=null,leaderSeq=0,longPressDone=false,gestureCancelled=false;
   const store=new PVLocal.Store('minesweeper',tg,session,init);let engine=null,journal=[];
+  const leaderPending=new Map();let leaderRenderedDifficulty=null;
   headers['x-minesweeper-ruleset']='minesweeper-v2';
   const finished=status=>['won','lost','cancelled'].includes(status);
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
@@ -73,8 +74,8 @@
     if(restoreFocus&&!busy){if(document.activeElement&&document.activeElement!==document.body&&!board.contains(document.activeElement)){restoreFocus=false;return;}board.querySelector(`[data-cell="${focusCell}"]`)?.focus({preventScroll:true});restoreFocus=false;}
   }
   function saveLocal(){if(engine){engine.state.elapsed_ms=Math.floor(time());store.data.active={packet:engine.packet,state:engine.state,first:engine.first,journal};store.save();}}
-  async function flushResults(){try{await store.flush(api,result=>{if(result.rejected&&run?.run_id===result.run_id){setError('Сервер не подтвердил результат: '+result.message);render();}else{refreshLeaderboard();render();}});}catch(error){if(error.status===401&&run&&finished(run.status)){setError('Результат сохранён. Открой игру заново в Telegram для отправки.');render();}} }
-  setInterval(flushResults,5000);window.addEventListener('online',()=>{flushResults();store.refreshRules(api).catch(()=>{});});
+  async function flushResults(){try{await store.flush(api,result=>{if(result.rejected&&run?.run_id===result.run_id){setError('Сервер не подтвердил результат: '+result.message);render();}else{refreshLeaderboard(true);render();}});}catch(error){if(error.status===401&&run&&finished(run.status)){setError('Результат сохранён. Открой игру заново в Telegram для отправки.');render();}} }
+  setInterval(flushResults,5000);window.addEventListener('online',()=>{refreshLeaderboard(true);flushResults();store.refreshRules(api).catch(()=>{});});
   async function start(resumeExisting=false){
     if(busy)return;cancelGesture();errorText='';busy=true;render();
     try{
@@ -113,14 +114,24 @@
       document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item.dataset.difficulty===difficulty)));render();
       if(finished(run.status)){store.data.last={packet:engine.packet,state:engine.state,first:engine.first,journal};store.queue(engine.packet,journal);flushResults();}
     }else start(!store.data.template);
-    flushResults();if(navigator.onLine)store.refreshRules(api).catch(()=>{});
+    refreshLeaderboard();flushResults();if(navigator.onLine)store.refreshRules(api).catch(()=>{});
   }
   function seasonRewards(data){const box=$('season-rewards');if(!box)return;box.replaceChildren();((data.season||{}).rewards||[]).forEach(r=>{const li=document.createElement('li'),a=document.createElement('b'),b=document.createElement('span');a.textContent='Место '+r.label;b.textContent=r.mora+' Моры · '+r.essence+' Эссенции';li.append(a,b);box.append(li)})}
   function seasonNote(data){const s=data.season,l=data.last_season;if(!s)return '';const end=new Date(s.ends_at).toLocaleDateString('ru-RU'),left=s.days_left;let t='Сезон '+s.number+' · до '+end+' · осталось '+left+' дн.';const top=(s.rewards||[])[0];if(top)t+=' · Топ-1: '+top.mora+' Моры и '+top.essence+' Эссенции';if(s.paying===false)t+=' · Награды за места в Сапёре пока не выдаются';if(l)t+=' · Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+l.reward_mora+' Моры':'')+(l.reward_essence?' и '+l.reward_essence+' Эссенции':'');return t}
-  function emptyLeaderboard(text){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.textContent=text;list.append(row);}
-  async function refreshLeaderboard(){
+  function emptyLeaderboard(text,retry=false){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.textContent=text;if(retry){const button=document.createElement('button');button.type='button';button.textContent='Повторить';button.onclick=()=>refreshLeaderboard(true);row.append(button);}list.append(row);}
+  function leaderboardData(selected,force){
+    let pending=leaderPending.get(selected);
+    if(pending){if(force)pending.dirty=true;return pending.promise;}
+    pending={dirty:false,promise:null};leaderPending.set(selected,pending);
+    pending.promise=(async()=>{
+      try{let data;do{pending.dirty=false;data=await api('/leaderboard/'+selected);}while(pending.dirty);return data;}
+      finally{leaderPending.delete(selected);}
+    })();return pending.promise;
+  }
+  async function refreshLeaderboard(force=false){
     const seq=++leaderSeq,selected=difficulty;
-    $('leaderboard-difficulty').textContent=labels[selected];try{const data=await api('/leaderboard/'+selected);if(seq!==leaderSeq||selected!==difficulty)return;$('season-note').textContent=seasonNote(data);seasonRewards(data);const list=$('leaderboard-list');list.replaceChildren();if(!data.top.length)emptyLeaderboard('Пока нет побед.');else data.top.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),name=document.createElement('a'),result=document.createElement('b'),player=row.player||{};place.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,name,result);list.append(item);});$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${formatRank(data.personal.best_elapsed_ms)}`:'Для рейтинга пройди поле минимум за два открытия.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.');}
+    if(leaderRenderedDifficulty!==selected){emptyLeaderboard('Загружаем…');$('season-note').textContent='';$('leaderboard-personal').textContent='';}
+    $('leaderboard-difficulty').textContent=labels[selected];try{const data=await leaderboardData(selected,force);if(seq!==leaderSeq||selected!==difficulty)return;leaderRenderedDifficulty=selected;$('season-note').textContent=seasonNote(data);seasonRewards(data);const list=$('leaderboard-list');list.replaceChildren();if(!data.top.length)emptyLeaderboard('Пока нет побед.');else data.top.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),name=document.createElement('a'),result=document.createElement('b'),player=row.player||{};place.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,name,result);list.append(item);});$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${formatRank(data.personal.best_elapsed_ms)}`:'Для рейтинга пройди поле минимум за два открытия.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.',true);}
   }
   $('mine-view-toggle').onclick=()=>{const large=document.body.dataset.mineZoom!=='large';document.body.dataset.mineZoom=large?'large':'fit';$('mine-view-toggle').setAttribute('aria-pressed',String(large));$('mine-view-toggle').textContent=large?'Показать всё поле':'Крупные клетки';$('mine-view-label').textContent=large?'Прокручивай поле вбок':'Поле целиком';};
   document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{cancelGesture();mode=button.dataset.mode;if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.selectionChanged();document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();});

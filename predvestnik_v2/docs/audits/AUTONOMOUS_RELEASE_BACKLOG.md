@@ -42,12 +42,20 @@
    60000sim/96builds; независимыйoracle79896outcomes ифинальныйACCEPT.
    Chromium7steps/reload/craft/equipPASS,320/390/430 nooverflow.
 5. ПОСЛЕДНИМ: Mines leaderboard грузится около минуты (скриншот владельца).
-   Измерить цепочку client/API/SQL на репрезентативных данных и устранить причину.
+   Исправлено: restore active не запускалGET, coldstart ждалgame/packet;
+   refresh теперь независимый, pendingperdifficulty+dirtytrailingafterwin, retry/online.
+   Server warm20:96SQL/46DDL ->15SQL/0DDL; writerlock TRUE->FALSE.
+   100000mixedruns14.75mslocalfullreply,SQL4.303msnewpartialindex.
+   Bulkrefs/cold2conn/schema/race/collision/privacy/ties/place25/endboundaryPGPASS;
+   Mine/Mafia/Rhythm sharedprojection иJSracesPASS,read-onlyACCEPT.
+   Chromiumactive18cells->reload stillactive+leaderboardloadedPASS.
+   Evidence output/pets-release/leaderboard-{before,after,scale}.json.
+   Index firstrepair uses normal CREATEINDEX; one-time writer wait remains possible.
 
 Stage1 (пункты1–2) отправлен вmaster5c7fa566 поверх18417a3d.
 Read-only release_critic проверяет Mafia batch; новых файлов не меняет.
 Mafia3757e89e уже отправлена иproduction identity verified PASS:8JS/CSS
-и6artassets,health/ready/feed/auth. Gearbatchготовкпушу; latency последняя.
+и6artassets,health/ready/feed/auth. Gear74a2df4f отправленвmaster; latencybatchготовкфинальномуgate/пушу.
 
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 

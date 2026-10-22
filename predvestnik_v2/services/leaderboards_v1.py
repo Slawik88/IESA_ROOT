@@ -76,7 +76,7 @@ async def decorate_game_board(db, board: dict, user_id: int | None = None) -> di
     rows = [row for row in board.get("top", []) if row.get("player")]
     if not rows:
         return board
-    refs = {row["player"]["profile_ref"]: await public_profiles.resolve_reference(db, profile_ref=row["player"]["profile_ref"]) for row in rows}
+    refs = await public_profiles.resolve_references(db, [row['player']['profile_ref'] for row in rows])
     ids = [uid for uid in refs.values() if uid is not None]
     looks = await appearance_public_v3.nick_styles(db, ids)
     marks = await marks_service.top_mark_batch(db, ids)

@@ -191,8 +191,25 @@ independent79896outcomeoracle and finalrelease_critic ACCEPT. Browser playedall7
 reloadsavedreceipt, craftedlensfor8from10parts/equipped;320/390/430nooverflow.
 Proof output/playwright/gear-20261022. Oct22feed+TGKdraft includesall3newfeatures.
 
-NEXT: validate notes/feed, commit+push gearbatch/rebaseifneeded, verify production.
-Then investigate Mine leaderboard latency LAST; not started yet. Do not stopafter
-gear. Fullprojectgate debt40baseline failures remains documented, not green.
-Local Stand73983 on8403 --trailnone preserves persona990000001gear; dummytoken
-123456:stand,PG55432 disposable shared cluster. Never send live TGmessages.
+Gear74a2df4f pushedmaster. Final leaderboard batch locally complete (lasttask).
+Causes: restored active client never requestedranking; coldstartwaitedgamebootstrap;
+96SQL/46DDL for20players and schemaCREATEINDEX blockedbyordinarywriter.
+Fixed independent restore/cold GET, coalesceddifficultyrequests+dirtytrailingafter
+confirmedwin, retry/online; batchrefs collision/race-safe sortedIDs/separateSELECT,
+batchresolver; public/MineSELECTschemafastpath andtransaction/advisoryrepair;
+oneCTEtop+personal exactties,partialseasonindex.
+PASS warmprobe15SQL/0DDL/~12ms andno writerblocking;100000mixedruns14.75ms
+fullreply,EXPLAIN4.303msseasonindex. Bulkrefs cold2conn+reverseorder race+forced
+collision; ties1/1/3,personalplace25,exclusiveend/unrankedzero/privacy PG PASS.
+MinePG,sharedMafia/RhythmPG +independentdecoratorprobe +4JS suites/newloading
+suitePASS. Read-onlycritic finalACCEPT (alsoeasy->hard->easylate responseprobe).
+Firstschema repair creates normalindex, canwaitwriters once;warmread0DDL.
+Browseractualrestore18cellsactive->reload: leaderboardloaded (emptytestboard),
+proofoutput/playwright/leaderboard-20261022/restored-loaded.png.
+
+NEXT: runnotes/feed/static gates, commit/push latencybatch (fetch/rebaseifneeded),
+verifycurrentexactproductionassets+allnewfeed+health/auth then finalreport.
+Oct22privateTGKdraft has3newfeatures/screenshots+leaderboardfix; NOchannel sends.
+Fullprojectgate debt40baseline failures remains documented, not green.
+Local Stand59754on8403, --trailnone,persona990000001, dummy123456:stand,
+PG55432 disposable shared. Alluserrequestedimplementationdone; rollout pending.
