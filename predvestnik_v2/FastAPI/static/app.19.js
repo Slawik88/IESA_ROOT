@@ -49,7 +49,10 @@ function renderTopV3() {
   let body;
   if (f.failed) body = `<div class="v3-empty">${_profileEsc(f.failed)} <button type="button" class="v3-link" onclick="loadTopV3()">Повторить</button></div>`;
   else if (!d) body = '<div class="sk" style="height:340px;border-radius:14px"></div>';
-  else if (!d.items.length) body = `<div class="v3-empty">${rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : winBoard ? 'Пока нет побед. Завершите партию победой — и вы первым окажетесь в списке.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.'}</div>`;
+  else if (!d.items.length) {
+    const text = rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : winBoard ? 'Пока нет побед. Завершите партию победой — и вы первым окажетесь в списке.' : f.scope === 'chats' ? 'Пока тихо: чаты попадут сюда, когда в них начнут писать.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.';
+    body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty(text) : `<div class="v3-empty">${text}</div>`;
+  }
   else {
     const me = d.personal ? `<div class="v3-top-me">Вы: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} ${unit}${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
       : (f.scope === 'chats' ? '' : `<div class="v3-top-me">${rhythm ? 'Вашего забега в этом сезоне пока нет.' : winBoard ? 'У вас пока нет побед.' : 'У вас пока нет сообщений за выбранный период.'}</div>`);

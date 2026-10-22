@@ -37,7 +37,7 @@ function renderV3Top(state) {
   let body;
   if (state === 'error') body = `<div class="v3-empty">Топ не загрузился. <button type="button" class="v3-link" onclick="loadV3Top()">Повторить</button></div>`;
   else if (!data) body = '<div class="sk" style="height:170px;border-radius:14px"></div>';
-  else if (!data.top.length) body = '<div class="v3-empty">Пока никого в рейтинге. Станьте первым.</div>';
+  else if (!data.top.length) body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty('Пока никого в рейтинге. Станьте первым.') : '<div class="v3-empty">Пока никого в рейтинге. Станьте первым.</div>';
   else {
     const inTop = data.top.some(r => r.is_me);
     const podium = typeof v3Podium === 'function' ? v3Podium(data.top, r => `${fmt(r.value)} ${tab.unit}`) : '';   // тройка — подиумом с медалями (app.50.js)

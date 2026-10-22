@@ -48,10 +48,15 @@ function v3Hero(kind, title, sub = '', { eyebrow = '', end = '', stat = '' } = {
 function v3Podium(rows, value) {
   const top = [rows[1], rows[0], rows[2]].filter(Boolean);
   if (top.length < 2) return '';
-  // нажатие открывает профиль игрока — как строка списка (_v3RowButton, app.17.js)
+  // нажатие открывает профиль игрока, ник — как в строке списка: скин, VIP и регалия (apWho, app.20.js)
   const open = r => r.ref && /^[A-Za-z0-9_-]{16,64}$/.test(r.ref) ? ` onclick="openPublicProfile('${r.ref}')"` : ' disabled';
   return `<ol class="v3-podium" aria-label="Тройка лидеров">${top.map(r => `<li class="v3-pod is-p${r.place}${r.is_me ? ' is-me' : ''}"><button type="button" class="v3-pod-btn"${open(r)} aria-label="${r.place} место: ${esc(r.name)}, ${value(r)}">
-    <span class="v3-pod-medal" aria-hidden="true">${r.place}</span><b>${esc(r.name)}</b><small>${value(r)}</small></button><i aria-hidden="true"></i></li>`).join('')}</ol>`;
+    <span class="v3-pod-medal" aria-hidden="true">${r.place}</span><b class="v3-pod-name">${typeof apWho === 'function' ? apWho(r) : esc(r.name)}</b><small>${value(r)}</small></button><i aria-hidden="true"></i></li>`).join('')}</ol>`;
+}
+
+// Пустой рейтинг: пьедестал ждёт первых — три пустых места с медалями и подсказка, как туда попасть
+function v3PodiumEmpty(text) {
+  return `<div class="v3-pod-empty"><ol class="v3-podium is-ghost" aria-hidden="true">${[2, 1, 3].map(p => `<li class="v3-pod is-p${p}"><span class="v3-pod-medal">${p}</span><b class="v3-pod-name">?</b><i></i></li>`).join('')}</ol><p>${text}</p></div>`;
 }
 
 function _v3Word(n, one, few, many) { n = Math.abs(Number(n) || 0); return n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many; }
