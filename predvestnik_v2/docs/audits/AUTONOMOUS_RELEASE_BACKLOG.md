@@ -35,14 +35,19 @@
    Read-only critic: исправлен edit_text→edit_caption для первого ночного хода.
 4. Пять слотов экипировки + отдельная быстрая «Вылазка»: владелец явно подтвердил
    реализацию в этом выпуске и влияние экипировки на ТЕКУЩИЕ походы и Следы.
-   Функциональные слоты, отдельный 3–5мин забег с последовательными выборами,
-   риском, припасами и ранним выходом; прогноз/receipt/лимиты/идемпотентность.
+   Готово локально:5slots/10items/3tiers, бесплатныйstarter, детали8/12/24;
+   7развилок,9событий,HP/supplies/cargo,earlybank/rescue,32parts/run,3starts/day.
+   Gear включён в реальные preview/claim/advice/rest/limits;625cap сохранён.
+   PASS PGactualclaim+2connectionchoice/rewardrace, UIlostnonce/recovery,
+   60000sim/96builds; независимыйoracle79896outcomes ифинальныйACCEPT.
+   Chromium7steps/reload/craft/equipPASS,320/390/430 nooverflow.
 5. ПОСЛЕДНИМ: Mines leaderboard грузится около минуты (скриншот владельца).
    Измерить цепочку client/API/SQL на репрезентативных данных и устранить причину.
 
 Stage1 (пункты1–2) отправлен вmaster5c7fa566 поверх18417a3d.
 Read-only release_critic проверяет Mafia batch; новых файлов не меняет.
-Gear+Вылазка и latency остаются обязательными следующими задачами.
+Mafia3757e89e уже отправлена иproduction identity verified PASS:8JS/CSS
+и6artassets,health/ready/feed/auth. Gearbatchготовкпушу; latency последняя.
 
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 

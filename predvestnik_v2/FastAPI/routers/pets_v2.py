@@ -6,8 +6,50 @@ from FastAPI.deps import get_db, require_tg_user
 from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import chests_v1 as chest_repo, pets_v2 as repo, system_flags
 from services import pets_v2 as service
+from services import pet_equipment as gear_service
 
 router = APIRouter(prefix="/pets-v2", tags=["pets-v2"])
+
+
+class EquipmentRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    operation: str = Field(pattern='^(starter|craft|upgrade|equip|unequip)$')
+    item: str | None = Field(default=None, max_length=32)
+    expected_tier: int | None = Field(default=None, ge=0, le=3)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class OutingStartRequest(BaseModel):
+    pet_id: int = Field(gt=0)
+    action_id: str = Field(min_length=1, max_length=96)
+
+
+class OutingChoiceRequest(BaseModel):
+    outing_id: str = Field(min_length=1,max_length=64)
+    step: int = Field(ge=0,le=6)
+    choice: int | str
+    action_id: str = Field(min_length=1,max_length=96)
+
+
+@router.post('/equipment')
+async def equipment_change(body: EquipmentRequest,db=Depends(get_db),user=Depends(require_tg_user)):
+    await _ready(db)
+    try:return await gear_service.change(db,user_id=int(user['id']),**body.model_dump())
+    except PetV2PolicyError as error:raise HTTPException(409,str(error))
+
+
+@router.post('/outing/start')
+async def outing_start(body: OutingStartRequest,db=Depends(get_db),user=Depends(require_tg_user)):
+    await _ready(db)
+    try:return await gear_service.start(db,user_id=int(user['id']),**body.model_dump())
+    except PetV2PolicyError as error:raise HTTPException(409,str(error))
+
+
+@router.post('/outing/choose')
+async def outing_choose(body: OutingChoiceRequest,db=Depends(get_db),user=Depends(require_tg_user)):
+    await _ready(db)
+    try:return await gear_service.choose(db,user_id=int(user['id']),**body.model_dump())
+    except PetV2PolicyError as error:raise HTTPException(409,str(error))
 
 
 class RunPreviewRequest(BaseModel):

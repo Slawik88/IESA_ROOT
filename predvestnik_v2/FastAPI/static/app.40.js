@@ -106,13 +106,14 @@ _backHooks.push(() => {
 function trailBack() {
   if (typeof _syncOverlayScroll === 'function') _syncOverlayScroll();
   _haptic('select');
-  const up = _tr.view === 'build' || _tr.view === 'feed' ? 'pet' : 'hub';
+  const up = ['build','feed','equipment'].includes(_tr.view) ? 'pet' : 'hub';
   _tr.view = up; _trRender();
   try { window.scrollTo(0, up === 'hub' ? _tr.scroll : 0); } catch (_) { /* прокрутка недоступна */ }
 }
 
 // ── Состояние питомца: у ведущего своё занятие, у Спутника занятие ведущего (run_id у обоих) ──────────
 function _trState(p) {
+  if (p.outing) return { k: 'outing', label: 'Вылазка продолжается' };
   const act = p.run_id ? _trAct(p.run_id) : null;
   if (!act) return { k: 'free', label: 'В лагере' };
   const lead = act.pet_id === p.id;
@@ -155,7 +156,7 @@ function _trFreeSlot(me, sendable) {
 function _trMinCost(me) { return Math.min(...Object.values(me.rules.energy.run), ...Object.values(me.rules.energy.watch)); }
 function _trSlots(me) {
   const acts = me.activities || [], slots = Number(me.slots) || 3, min = _trMinCost(me);
-  const sendable = (me.pets || []).filter(p => !p.run_id && p.energy >= min).length;
+  const sendable = (me.pets || []).filter(p => !p.run_id && !p.outing && p.energy >= min).length;
   const free = Math.max(0, slots - acts.length);
   const rows = acts.map(_trSlot).join('') + Array.from({ length: free }, () => _trFreeSlot(me, sendable)).join('');
   return `<section class="tr-sec" id="tr-slots">${_trSec('Занятия')}<ul class="tr-list" aria-label="Занятия">${rows}</ul></section>`;
@@ -171,7 +172,7 @@ function _trPetRow(p) {
   return `<li><button type="button" class="tr-row tr-pet is-${s.k}${low ? ' is-low' : ''}" onclick="trailPet(${p.id})" aria-label="${_trE(say)}"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span class="tr-nm"><b>${_trE(p.name)}</b><small>Ур.\u00a0${p.level} · <em class="tr-s">${s.label}</em></small>${_trLevelLine(p)}</span><span class="tr-en" aria-hidden="true"><b>${Math.round(p.energy)}</b><small>/${p.energy_max}</small>${_trMeter(p.energy / p.energy_max, { cls: 'tr-meter--sm' })}${low ? '<em>мало сил</em>' : ''}</span></button></li>`;
 }
 function _trPets(me) {
-  const rank = { ready: 0, free: 1, busy: 2 }, pets = (me.pets || []).slice().sort((a, b) => rank[_trState(a).k] - rank[_trState(b).k] || b.level - a.level || a.id - b.id);
+  const rank = { ready: 0, free: 1, busy: 2, outing: 2 }, pets = (me.pets || []).slice().sort((a, b) => rank[_trState(a).k] - rank[_trState(b).k] || b.level - a.level || a.id - b.id);
   // Без счётчиков над списком: состояние каждого питомца написано в его строке, вернувшиеся стоят первыми
   return `<section class="tr-sec" id="tr-pets">${_trSec('Все питомцы')}<ul class="tr-list">${pets.map(_trPetRow).join('')}</ul></section>`;
 }
@@ -186,6 +187,7 @@ function _trMore(me) {
   const trackHint = track.open ? 'Игра не закончена, можно продолжить' : track.attempts_left ? `Попыток сегодня: ${track.attempts_left} из ${me.rules.track.daily}` : 'Попытки на сегодня закончились';
   const trialHint = trial.done ? 'На этой неделе сдано' : trial.tags ? _trE(_trTags(trial.tags)) : '';
   const rows = [_v3Row('tent', 'Лагерь', "trailGo('camp')", campHint)];
+  if (pets && me.equipment) rows.push(_v3Row('scope', 'Вылазка', "trailGo('outing')", me.equipment.open ? 'Продолжить забег · можно вернуться с добычей' : `Семь решений · попыток ${me.equipment.attempts_left} · деталей ${me.equipment.parts}`));
   if (pets) rows.push(_v3Row('scope', 'Выслеживание', "trailGo('track')", trackHint), _v3Row('trophy', 'Испытание недели', "trailGo('trial')", trialHint));
   return `<section class="tr-sec tr-more">${_trSec('Ещё')}${rows.join('')}</section>`;
 }
@@ -277,7 +279,7 @@ const _trCost = (kind, hours) => Number(_tr.me.rules.energy[kind === 'watch' ? '
 // любимый маршрут), дозор — только запас сил (у него нет ни броска, ни надбавок). Занятый питомец или
 // тот, кому не хватит сил на выбранные часы, в подсказке не участвует. Своих чисел не заводим.
 function _trFitKey(p, kind, hours, route) {
-  if (p.run_id || p.energy < _trCost(kind, hours)) return null;
+  if (p.run_id || p.outing || p.energy < _trCost(kind, hours)) return null;
   const fav = route && (p.favorite_route === route || p.favorite_route === 'any') ? 1 : 0, fed = p.fed_favorite ? 1 : 0, stars = Number(p.stars) || 0;
   if (kind === 'watch') return [p.energy];
   return kind === 'expedition' ? [p.resilience, stars, fav, fed, p.energy] : [stars, fav, fed, p.energy];
@@ -289,7 +291,7 @@ function _trAdvice(kind, hours, route) {
   const map = _tr.me && _tr.me.advice ? _tr.me.advice.map : null;
   const id = map ? Number(map[`${kind}|${hours}|${route || ''}`]) : 0;
   const pet = id ? _trPet(id) : null;
-  return pet && !pet.run_id && pet.energy >= _trCost(kind, hours) ? pet : null;
+  return pet && !pet.run_id && !pet.outing && pet.energy >= _trCost(kind, hours) ? pet : null;
 }
 function _trBestPet(list, kind, hours, route) {
   const advised = _trAdvice(kind, hours, route);
@@ -323,10 +325,10 @@ function _trBestMate(list, lead) {
 }
 function trailSend(petId) {
   const me = _tr.me; if (!me) return;
-  const free = (me.pets || []).filter(p => !p.run_id), first = (me.durations.run || [3])[0];
+  const free = (me.pets || []).filter(p => !p.run_id && !p.outing), first = (me.durations.run || [3])[0];
   const plan = petId ? null : (me.advice && me.advice.best ? me.advice.best.trek : null) || null;   // связка сервера: питомец, часы, маршрут
   const planPet = plan ? _trPet(plan.pet_id) : null;
-  const pick = (petId ? _trPet(petId) : planPet && !planPet.run_id && planPet.energy >= _trCost('trek', plan.hours) ? planPet : null)
+  const pick = (petId ? _trPet(petId) : planPet && !planPet.run_id && !planPet.outing && planPet.energy >= _trCost('trek', plan.hours) ? planPet : null)
     || _trBestPet(free, 'trek', first, '') || free[0];
   const usePlan = !!plan && pick === planPet;
   _tr.send = { pet: pick ? pick.id : 0, kind: 'trek', hours: usePlan ? plan.hours : 3, route: usePlan ? plan.route : '',
@@ -377,7 +379,7 @@ function _trForecastSchedule() {
 }
 function _trSendHtml() {
   const me = _tr.me, s = _tr.send, rules = me.rules, pet = _trPet(s.pet), watch = s.kind === 'watch';
-  const free = (me.pets || []).filter(p => !p.run_id), min = _trMinCost(me), cost = _trCost(s.kind, s.hours), pairCost = Number(rules.energy.pair) || 10;
+  const free = (me.pets || []).filter(p => !p.run_id && !p.outing), min = _trMinCost(me), cost = _trCost(s.kind, s.hours), pairCost = Number(rules.energy.pair) || 10;
   const slotsLeft = Math.max(0, (Number(me.slots) || 3) - (me.activities || []).length), mate = !watch && s.comp ? _trPet(s.comp) : null;
   const radio = (on, f, click, inner, cls = 'tr-chip') => `<button type="button" class="${cls}" role="radio" aria-checked="${on}" data-f="${f}" onclick="${click}">${inner}</button>`;
   const best = _trBestPet(free, s.kind, s.hours, s.route), whyRow = _trWhyRow(best, watch ? '' : s.route);

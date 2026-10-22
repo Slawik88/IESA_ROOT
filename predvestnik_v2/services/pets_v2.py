@@ -10,9 +10,11 @@ from math import floor
 from uuid import uuid4
 
 from core import pets_v2 as rules
+from core import pet_equipment as equipment
 from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import pets_v2 as repo
 from services import pets_v2_advice as advice
+from services import pet_equipment as gear_service
 
 
 class PetV2Conflict(PetV2PolicyError):
@@ -46,12 +48,12 @@ def _json_list(value) -> list:
 
 def _build(state: dict, talismans: list[dict], camp: dict | None = None, day=None) -> dict:
     return {"camp": camp or {}, "fed": day is not None and state.get("fed_favorite_on") == day, "calling": state.get("calling"), "traits": tuple(_json_list(state.get("traits"))),
-            "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans)}
+            "talismans": tuple((t["kind"], int(t["tier"])) for t in talismans), "equipment": equipment.active(state.get('equipment'))}
 
 
 def _fx(build: dict, hours: int = 3, route: str | None = None, paired: bool = False) -> dict:
     return rules.build_effects(build["calling"], build["traits"], build["talismans"], hours=hours, route=route, paired=paired,
-                               fed_favorite=build.get("fed", False))
+                               fed_favorite=build.get("fed", False), equipment=build.get('equipment', ()))
 
 
 def _rest(state: dict, pet: dict, now, build: dict) -> float:
@@ -126,6 +128,8 @@ async def overview(db, user_id: int) -> dict:
     day, week = clock["day"], _week_start(clock["day"])
     daily = await repo.get_daily(db, user_id, day)
     runs = await repo.open_runs(db, user_id)
+    gear_view = await gear_service.summary(db, user_id, day)
+    outing_pet = gear_view['open']['pet_id'] if gear_view['open'] else None
     by_pet = {int(run["pet_id"]): run for run in runs}
     pets = []
     owned = await repo.list_owned_pets(db, user_id)
@@ -159,6 +163,7 @@ async def overview(db, user_id: int) -> dict:
             "favorite_route": _species_row(pet)[1], "run_id": None,
             "calling": build["calling"], "traits": list(build["traits"]), "trait_slots": rules.trait_slots(level),
             "talismans": [t["id"] for t in mine],
+            "equipment": equipment.gear(pet.get('equipment')), "outing": int(pet['id']) == outing_pet,
             # для экранов: значок вида, любимая еда и кормление дня, бесплатная ли замена в эту неделю, ступень Связи, звёзды вида, теги Испытания
             "icon": PET_SPECIES.get(pet["species_id"], {}).get("icon", "🐾"), "favorite_food": rules.favorite_food(pet["species_id"]), "find_bias": _species_row(pet)[4], "track_points": rules.track_points(level, pet["species_id"]),
             "fed_favorite": pet.get("fed_favorite_on") == day, "fed_today": pet.get("fed_xp_on") == day,
@@ -171,9 +176,9 @@ async def overview(db, user_id: int) -> dict:
             item["run_id"] = run["id"]
         pets.append(item)
         # вход подсказки «лучший выбор»: живые числа питомца, без отдельных запросов
-        plans.append({"id": int(pet["id"]), "busy": run is not None, "energy": float(energy), "level": level, "species_id": pet["species_id"],
+        plans.append({"id": int(pet["id"]), "busy": run is not None or int(pet['id']) == outing_pet, "energy": float(energy), "level": level, "species_id": pet["species_id"],
                       "favorite": item["favorite_route"], "stars": int(item["stars"]), "pity": int(pet["pity"] or 0), "fed": bool(item["fed_favorite"]),
-                      "calling": build["calling"], "traits": build["traits"], "talismans": build["talismans"], "camp": build["camp"]})
+                      "calling": build["calling"], "traits": build["traits"], "talismans": build["talismans"], "camp": build["camp"], 'equipment': build['equipment']})
     activities = []
     for run in runs:
         entry = {"id": run["id"], "pet_id": int(run["pet_id"]), "kind": run["kind"], "hours": int(run["hours"]),
@@ -211,6 +216,7 @@ async def overview(db, user_id: int) -> dict:
         "advice": advice.build(plans, routes=rules.ROUTES, run_hours=rules.RUN_HOURS, watch_hours=rules.WATCH_HOURS,
                                repeats_by_route=await repo.route_claims_today(db, user_id, day)),
         "build_presets": await repo.build_presets(db, user_id),
+        "equipment": gear_view,
     }
 
 
@@ -231,7 +237,7 @@ async def preview_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, r
     owned = {t["id"]: t for t in view["talismans"]}
     build = {"calling": pet["calling"], "traits": tuple(pet["traits"]),
              "talismans": tuple((owned[t]["kind"], owned[t]["tier"]) for t in pet["talismans"]),
-             "fed": pet["fed_favorite"], "camp": camp}
+             "fed": pet["fed_favorite"], "camp": camp, "equipment": equipment.active(pet['equipment'])}
     async with db.execute("SELECT COUNT(*) AS n FROM pet_v2_bond_days WHERE user_id=? AND pet_id=? AND day=?",
                           (user_id, pet_id, clock["day"])) as cursor:
         new_day = not int((await cursor.fetchone())["n"])
@@ -243,7 +249,7 @@ async def preview_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, r
                                      repeat_decay=rules.markers_decay(camp["markers"]), paired=bool(mate))
     energy_cost = rules.ACTIVITY_ENERGY.get(("watch" if kind == "watch" else "run", hours), 0)
     reasons = []
-    if pet["run_id"] or (mate and mate["run_id"]):
+    if pet["run_id"] or pet['outing'] or (mate and (mate["run_id"] or mate['outing'])):
         reasons.append("Питомец или спутник уже в пути.")
     if len(view["activities"]) >= view["slots"]:
         reasons.append("Все слоты заняты.")
@@ -318,7 +324,7 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
             raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
         _species_row(pet)
         runs = await repo.open_runs(db, user_id)
-        busy = {int(r["pet_id"]) for r in runs} | {int(r["companion_id"]) for r in runs if r["companion_id"] is not None}
+        busy = await gear_service.busy_ids(db, user_id)
         if int(pet_id) in busy:
             raise PetV2Conflict("Этот питомец уже занят.")
         if len(runs) >= rules.SLOTS:
@@ -619,7 +625,7 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
         if not pet:
             raise PetV2PolicyError("Питомец не найден или принадлежит другому игроку.")
         _species_row(pet)
-        busy = {int(p) for r in await repo.open_runs(db, user_id) for p in (r["pet_id"], r["companion_id"]) if p is not None}
+        busy = await gear_service.busy_ids(db, user_id)
         if int(pet_id) in busy:
             raise PetV2Conflict("Пока питомец в пути, сборку менять нельзя.")
         state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))
@@ -665,7 +671,7 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
         camp = await repo.camp_levels(db, user_id)
         old_build = _build(state, await repo.equipped_talismans(db, user_id, pet_id), camp, clock["day"])
         energy = _rest(state, pet, clock["now"], old_build)
-        new_fx = rules.build_effects(calling, tuple(traits))
+        new_fx = rules.build_effects(calling, tuple(traits), equipment=equipment.active(state.get('equipment')))
         energy = min(energy, rules.energy_max(level, pet["species_id"], new_fx["energy_bonus"]))
         await repo.save_state(db, user_id, pet_id, level=level, xp=float(state["xp"]), energy=energy, pity=int(state["pity"]))
         await repo.save_build(db, user_id, pet_id, calling=calling, traits=traits, calling_changed=calling_at, traits_changed=traits_at)
@@ -773,7 +779,7 @@ async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str
         if expected_tier is not None and tier != expected_tier:
             raise PetV2Conflict("Тир и цена перековки изменились. Обновите талисманы и подтвердите новую цену.")
         holder = talisman.get("pet_id")
-        if holder is not None and any(int(holder) in (r["pet_id"], r["companion_id"]) for r in await repo.open_runs(db, user_id)):
+        if holder is not None and int(holder) in await gear_service.busy_ids(db, user_id):
             raise PetV2Conflict("Пока питомец в пути, его талисман перековать нельзя.")
         workshop = (await repo.camp_levels(db, user_id))["workshop"]
         if tier >= rules.workshop_max_tier(workshop):

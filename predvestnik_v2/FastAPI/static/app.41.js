@@ -12,7 +12,7 @@ const _TR_HEAT = { warm: 'тепло', cold: 'холодно', found: 'нахо�
 const _trTxt = s => _trE(String(s ?? '').replace(/(\d)\.(\d)/g, '$1,$2').replace(/(\d) (%|ч)/g, '$1\u00a0$2'));   // тексты правил приходят с точкой и обычным пробелом
 const _trPl = s => s ? `<span class="tr-pl"><i class="sr-only">Плюс: </i>${_trTxt(s)}</span>` : '';
 const _trMi = s => s ? `<span class="tr-mi"><i class="sr-only">Минус: </i>${_trTxt(s)}</span>` : '';
-const _trOut = p => !!p.run_id || (_tr.me.activities || []).some(a => a.pet_id === p.id || a.companion_id === p.id);
+const _trOut = p => !!p.run_id || !!p.outing || (_tr.me.activities || []).some(a => a.pet_id === p.id || a.companion_id === p.id);
 const _trTal = t => _TR_TAL[t.kind] || ['🧿', t.kind];
 const _trDays = n => `${n}\u00a0${_trWord(n, 'день', 'дня', 'дней')}`;
 // Шапка подэкрана: общий v3Head с «‹» назад на главный экран питомцев, под заголовком — Следы дня
@@ -54,6 +54,9 @@ function _trCardState(p) {
   if (s.k === 'free') {
     sub = p.energy >= min ? _trFem(p, 'Готов к пути', 'Готова к пути') : `Мало сил: для самого короткого занятия нужно ${min}`;
     end = `<button type="button" class="v3-pill v3-pill--sm" onclick="trailSend(${p.id})"${p.energy < min ? ' disabled' : ''}>Отправить</button>`;
+  } else if (s.k === 'outing') {
+    sub = 'Забег сохранён. Вернись к развилке или забери добычу.';
+    end = '<button type="button" class="v3-pill v3-pill--sm" onclick="trailGo(\'outing\')">Продолжить</button>';
   } else if (s.k === 'ready') {
     if (s.lead) end = `<button type="button" class="v3-pill v3-pill--sm" data-run="${_trE(act.id)}" onclick="trailRun(this)">${act.kind === 'expedition' ? 'Выбрать путь' : 'Забрать'}</button>`;
     else { sub = lead ? `Награду заберёт ${lead.name}` : ''; end = lead ? `<button type="button" class="v3-link tr-go" onclick="trailPet(${lead.id})">${_trE(lead.name)} ›</button>` : ''; }
@@ -110,7 +113,7 @@ _TR_VIEWS.pet = me => {
   const p = _trPet(_tr.pet);
   if (!p) { _tr.view = 'hub'; return _TR_VIEWS.hub(me); }
   const head = v3Head(p.name, { back: 'trailBack()', sub: `${rarLabel(p.rarity)} · ${_trTraces(me, true)}`, end: `<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>` });
-  return `${head}${_trCardState(p)}${_trCardEnergy(p)}${_trCardLevel(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}`;
+  return `${head}${_trCardState(p)}${_trCardEnergy(p)}${_trCardLevel(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}${_trEquipmentLink(p)}`;
 };
 
 // ── Сборка: призвание, черты, талисманы; цена видна до сохранения ───────────────────────────────────────

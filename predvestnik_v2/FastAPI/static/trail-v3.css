@@ -287,3 +287,13 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 .tr-recovery span { color:var(--v3-dim); }
 .tr-recovery .v3-link { justify-self:start; min-height:44px; }
 .tr-food-empty summary { color:var(--v3-dim); min-height:44px; cursor:pointer; padding-block:12px; font-size:13px; }
+/* Equipment and short outing: choices remain readable at 320px. */
+.tr-gear-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tr-gear-item{align-items:flex-start}.tr-gear-item .tr-nm{min-width:0;overflow-wrap:anywhere}
+.tr-outing-stats{display:flex;flex-wrap:wrap;gap:20px;font-weight:700}
+.tr-outing-choices{display:grid;gap:12px;margin:18px 0}
+.tr-outing-choice{width:100%;text-align:left;display:grid;gap:7px;padding:16px;border:1px solid var(--line,#34313e);border-radius:16px;background:var(--card,#16151e);color:inherit;min-height:100px;cursor:pointer}
+.tr-outing-choice small{color:var(--muted,#aaa4b8);line-height:1.5}
+.tr-outing-choice:focus-visible{outline:2px solid var(--accent,#b09aff);outline-offset:3px}
+.tr-outing-choice:disabled{opacity:.5;cursor:default}
+.tr-outing-log{padding-left:20px}.tr-outing-log li{padding:8px 0}.tr-outing-log span{display:block;color:var(--muted,#aaa4b8);font-size:12px}

@@ -169,19 +169,30 @@ legacy negotiation/replay preserved; longpress/F/difficulty gameplay fixes;
 Rhythm4s field/no target start/gift/resume/restore with full reaction window.
 Targeted rules/PG/JS/static gates PASS; independent read-only ACCEPT.
 
-Mafia batch locally complete Oct22:6 generated obsidian/violet illustrations,
-WebP forhub/help/history/review and JPG private rolecard. Prompt manifest tracked.
-Photo role callbacks use edit_caption, longcaption keeps buttons+toast. No public
-active role disclosure. PASS real-aiogram delivery/callback/cache/fallback/retry,
-mafia_v1PG55432, staticdelivery12assets/manifest404, patchnotescontract and feed
-READY. Chromium320 all6loaded/nooverflow,390 roles verified, screenshots under
-output/playwright/mafia-20261022. Read-only critic found stale selection on caption overflow: fixed by clearing
-previous line; regression witness long escaped name PASS. Reviewer hit account
-usage limit before final verdict; prior independent review completed, findings
-fixed. No unreviewed blockers known; do not claim final ACCEPT for this batch.
-Stage1 production identity will be verified with Mafia batch deployment.
+Mafia shipped3757e89e (rebased onto8e2eb05c early-accessLeague work preserved).
+Production HTTP identity PASS:8JS/CSS exact SHA256,6art200,manifest404,
+health/ready/feed/auth; output/pets-release/mafia-after-deploy.json. Reviewer
+resumed and final ACCEPT; all caption findings fixed. Private TGK draft includes
+real role screenshot; no channel messages sent.
 
-Remaining order: push Mafia+verify production ->5gear+Вылазка+balance sim ->
-leaderboard latency LAST. Gear and newmode not yet coded; explicitly authorized.
-Local Stand91009 on8403, dummy123456:stand, PG55432 shared disposable cluster.
-Do not stop after Mafia. No channel messages sent; patch-note drafts only.
+Gear+outing locally complete: core/pet_equipment.py; ownservice/repo; equipment
+JSONB onstate, parts/outings tables installed under old schema advisorylock,
+installed schema probe remains SELECT-only. app49registeredinbundle, petcardlink,
+hubouting, allbusyfilters. Fivefunctional slots/10items/3tiers; free starteronce,
+craft8,upgrade12/24; per-pet bound, revisions avoid lost-response nonceghosts.
+Gear affects existing preview/claim/advice/rest/build changes,625dailyXPcap stays.
+Outing7choices/9events,3options each,HP4/supplies3,bank/halfrescue/completionbonus,
+32parts/run,3starts/day/account,energy10; gearimmutable snapshot,expectedstep,
+actionreceipt/userlock. Lastreceipt persists, costs/heal actual deltas exposed.
+PASS actualPG gearclaim/ownership/rest/staleprice/busy/resume; two connections
+samechoice->oneapply,differentleave->onereward; rules/advice/static/trailcontracts,
+JSnonce/recovery/recommendations. 60000simulation/96builds,maxXPx1.2208;
+independent79896outcomeoracle and finalrelease_critic ACCEPT. Browser playedall7,
+reloadsavedreceipt, craftedlensfor8from10parts/equipped;320/390/430nooverflow.
+Proof output/playwright/gear-20261022. Oct22feed+TGKdraft includesall3newfeatures.
+
+NEXT: validate notes/feed, commit+push gearbatch/rebaseifneeded, verify production.
+Then investigate Mine leaderboard latency LAST; not started yet. Do not stopafter
+gear. Fullprojectgate debt40baseline failures remains documented, not green.
+Local Stand73983 on8403 --trailnone preserves persona990000001gear; dummytoken
+123456:stand,PG55432 disposable shared cluster. Never send live TGmessages.

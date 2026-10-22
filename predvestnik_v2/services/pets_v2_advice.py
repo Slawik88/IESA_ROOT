@@ -50,7 +50,7 @@ def _plan_score(plan: dict, kind: str, hours: int, route: str | None, repeats: i
     """Ожидание одной отправки. None — питомец занят или ему не хватает сил на эти часы."""
     if plan["busy"] or plan["energy"] < rules.ACTIVITY_ENERGY[(_ENERGY_KIND[kind], int(hours))]:
         return None
-    fx = rules.build_effects(plan["calling"], plan["traits"], plan["talismans"], hours=int(hours), route=route, fed_favorite=plan["fed"])
+    fx = rules.build_effects(plan["calling"], plan["traits"], plan["talismans"], hours=int(hours), route=route, fed_favorite=plan["fed"], equipment=plan.get('equipment', ()))
     if kind == "watch":
         return float(plan["energy"]) + int(hours) * 0.001   # Следы дозора от питомца не зависят: важен запас сил, при равенстве — смена подлиннее
     terrain = bool(route) and plan["favorite"] in (route, "any")
