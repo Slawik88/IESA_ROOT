@@ -35,10 +35,10 @@ assert p.minesweeper_qualifies(won=True) and not p.minesweeper_qualifies(won=Fal
 # Claim windows: the current season and a finished one for 30 days after its end.
 end1 = seasons.season_bounds(1)[1]
 assert p.claim_deadline(1) == end1 + timedelta(days=30)
-assert p.claimable_seasons(utc(2026, 11, 1)) == [1]
-assert p.claimable_seasons(end1 + timedelta(days=29)) == [1, 2]
-assert p.claimable_seasons(end1 + timedelta(days=30)) == [2]
-assert p.claimable_seasons(utc(2028, 2, 1)) == [3]
+assert p.claimable_seasons(utc(2026, 10, 21)) == [1]
+assert p.claimable_seasons(end1 + timedelta(days=29)) == [1], "season 1 stays claimable for 30 days"
+assert p.claimable_seasons(end1 + timedelta(days=30)) == [], "this pass ends with season 1: the League pass takes over"
+assert p.claimable_seasons(utc(2028, 2, 1)) == []
 
 assert p.utc(datetime(2027, 1, 1)).tzinfo == timezone.utc
 

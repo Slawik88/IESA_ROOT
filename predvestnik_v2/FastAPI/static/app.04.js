@@ -89,7 +89,7 @@ function loadActivitiesHub(){
     host.innerHTML=`<div class="v3-eyebrow">Играть</div>
       <section class="v3-games v3-games--hub" aria-label="Игры">${open.map(g=>_hubRow(g,chev)).join('')}</section>`;
     if(typeof passHubRow==='function')passHubRow(host);   // строка «Пропуск сезона», пока включён флаг season_pass_v1 (app.43.js)
-    leagueHubRow(host,chev);   // «Лига · ранний доступ»: только тем, кому создатель открыл ранний доступ
+    leagueHubRow(host,chev);   // «Лига сезона» всем с сезона 2; до него — только с ранним доступом
     if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
   };
   draw();
@@ -107,16 +107,18 @@ function loadActivitiesHub(){
   });
 }
 
-// Демо Лиги (новый рейтинговый режим) видно только с правом «Ранний доступ к контенту»; ответ запоминается на минуту.
-let _leagueAccess=null,_leagueAt=0;
+// Лига (рейтинг уровнями + Пропуск сезона): до сезона 2 — только с правом «Ранний доступ к контенту», с сезона 2 — всем.
+// Ответ сервера запоминается на минуту.
+let _league=null,_leagueAt=0;
 function leagueHubRow(host,chev){
   const paint=()=>{
     const list=host.querySelector('.v3-games--hub');
-    if(!_leagueAccess||!list||host.querySelector('.v3-game[data-game="league_demo"]'))return;
-    list.insertAdjacentHTML('beforeend',`<button type="button" class="v3-game" data-game="league_demo" onclick="location.href=BASE+'/league-demo'"><span><b>Лига · ранний доступ</b><small>Демо нового сезона: уровни и звёзды</small></span><span class="v3-game-go">Открыть</span>${chev}</button>`);
+    if(!_league||!_league.allowed||!list||host.querySelector('.v3-game[data-game="league"]'))return;
+    const title=_league.public?'Лига сезона':'Лига · ранний доступ', sub=_league.public?'Рейтинг уровнями и Пропуск сезона':'Демо нового сезона: уровни и звёзды';
+    list.insertAdjacentHTML('afterbegin',`<button type="button" class="v3-game" data-game="league" onclick="location.href=BASE+'/league'"><span><b>${title}</b><small>${sub}</small></span><span class="v3-game-go">Открыть</span>${chev}</button>`);
   };
   if(Date.now()-_leagueAt<60000){paint();return;}
-  api('/league-demo/api/access').then(r=>{_leagueAccess=!!(r&&r.allowed);_leagueAt=Date.now();paint();}).catch(()=>{});
+  api('/league-demo/api/access').then(r=>{_league=r||null;_leagueAt=Date.now();paint();}).catch(()=>{});
 }
 
 function loadArena(){ swArena('game'); }

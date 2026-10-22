@@ -110,6 +110,7 @@ async def _schema_ready(db) -> bool:
                          AND conname='chest_opens_v1_bonus_food' AND convalidated)
            AND EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='chest_reveals_v1'::regclass
                        AND tgname='chest_reveals_v1_bonus_seal' AND tgenabled <> 'D')
+           AND EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chest_key_grants_v1_source_kind_pass')
     """) as cursor:
         if not bool((await cursor.fetchone())[0]):
             return False
@@ -176,6 +177,23 @@ async def _ensure_tables_unlocked(db) -> None:
                                   'pet_trek_complete','pet_expedition_complete','vip_daily_milestone',
                                   'offer_bronze_mora','offer_silver_craft','offer_silver_zarniki',
                                   'offer_platinum_diamonds','offer_platinum_zarniki'));
+          END IF;
+        END $$
+    """)
+    await db.execute("""
+        DO $$ DECLARE item RECORD; BEGIN
+          IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='chest_key_grants_v1_source_kind_pass') THEN
+            FOR item IN SELECT conname FROM pg_constraint
+              WHERE conrelid='chest_key_grants_v1'::regclass AND contype='c'
+                AND pg_get_constraintdef(oid) LIKE '%source_kind%'
+            LOOP EXECUTE format('ALTER TABLE chest_key_grants_v1 DROP CONSTRAINT %I',item.conname); END LOOP;
+            -- Season 2: the League pass grants keys of every tier (pass_tier1/3/4/6).
+            ALTER TABLE chest_key_grants_v1 ADD CONSTRAINT chest_key_grants_v1_source_kind_pass
+            CHECK(source_kind IN ('quest_daily_set_complete','quest_weekly_set_complete','zarniki_purchase',
+                                  'pet_trek_complete','pet_expedition_complete','vip_daily_milestone',
+                                  'offer_bronze_mora','offer_silver_craft','offer_silver_zarniki',
+                                  'offer_platinum_diamonds','offer_platinum_zarniki',
+                                  'pass_tier1','pass_tier3','pass_tier4','pass_tier6'));
           END IF;
         END $$
     """)

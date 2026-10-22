@@ -7,23 +7,25 @@ from core import seasons as s
 utc = lambda *a: datetime(*a, tzinfo=timezone.utc)
 
 start1, end1 = s.season_bounds(1)
-assert start1 == s.SEASON_ONE_START and end1 == utc(2027, 5, 11)
+assert start1 == s.SEASON_ONE_START and end1 == utc(2026, 10, 25), "season 1 closes early on 25.10"
 start2, end2 = s.season_bounds(2)
-assert start2 == end1 and end2 == utc(2027, 12, 11), (start2, end2)
-assert s.season_bounds(3)[0] == end2 and s.season_bounds(3)[1] == utc(2028, 7, 11)
+assert start2 == end1 and end2 == utc(2026, 12, 1), (start2, end2)
+assert s.season_bounds(3) == (utc(2026, 12, 1), utc(2027, 1, 1)), "from season 3 one calendar month each"
+assert s.season_bounds(4) == (utc(2027, 1, 1), utc(2027, 2, 1)) and s.season_bounds(14)[0] == utc(2027, 11, 1)
 
 assert s.season_number(utc(2026, 1, 1)) == 1, "before launch belongs to season 1"
 assert s.season_number(start1) == 1
-assert s.season_number(utc(2027, 5, 10, 23, 59, 59)) == 1
+assert s.season_number(utc(2026, 10, 24, 23, 59, 59)) == 1
 assert s.season_number(end1) == 2
-assert s.season_number(utc(2027, 12, 10)) == 2 and s.season_number(utc(2027, 12, 11)) == 3
+assert s.season_number(utc(2026, 11, 30, 23, 59)) == 2 and s.season_number(utc(2026, 12, 1)) == 3
+assert s.season_number(utc(2027, 2, 15)) == 5
 assert s.season_number(utc(2040, 1, 1)) > 3
-for n in range(1, 30):
+for n in range(1, 60):
     a, b = s.season_bounds(n)
-    assert s.season_number(a) == n and s.season_number(b) == n + 1
+    assert s.season_number(a) == n and s.season_number(b) == n + 1 and a < b
 
-info = s.current_season(utc(2027, 5, 1))
-assert info["number"] == 1 and info["days_left"] == 10, info
+info = s.current_season(utc(2026, 10, 21))
+assert info["number"] == 1 and info["days_left"] == 4, info
 
 assert [s.reward(p) for p in (1, 2, 3, 4, 10, 11, 25, 26, 5000)] == [
     (800, 200), (600, 150), (450, 120), (250, 80), (250, 80), (120, 40), (120, 40), (40, 10), (40, 10)]
@@ -51,7 +53,8 @@ except s.SeasonRuleError:
     pass
 else:
     raise AssertionError("place 0 must be rejected")
-assert s.is_paying("rhythm", "normal")
+assert s.is_paying("rhythm", "normal") and s.is_paying("rhythm", "normal", 1)
+assert not s.is_paying("rhythm", "normal", 2) and s.paying_boards(2) == (), "from season 2 the League replaces the old boards"
 assert not any(s.is_paying("minesweeper", b) for b in ("easy", "normal", "hard")), "Minesweeper pays nothing yet"
 assert s.SETTLEMENT_DELAY.total_seconds() == 48 * 3600
 assert s.terms() == {"min_runs": 5, "min_days": 3, "min_account_days": 14, "podium_min_players": {"3": 10, "10": 20, "25": 50}}

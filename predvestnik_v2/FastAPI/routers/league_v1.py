@@ -1,12 +1,13 @@
-"""League demo (early access only): the page /league-demo and its API under /league-demo/api.
+"""The League: the page /league (alias /league-demo) and its API under /league-demo/api.
 
-The page shell is public (Telegram passes initData to JavaScript, not to the first navigation);
-every API call requires a signed-in player whose global role is at or above the creator's threshold
-for «Ранний доступ к контенту» (admin «Права»).  Rewards in the demo are fake.
+The page shell is public (Telegram passes initData to JavaScript, not to the first navigation).  Before
+season 2 every League call needs «Ранний доступ к контенту» (admin «Права») and plays a fake demo; from
+season 2 the League is open to every signed-in player.  The season pass API serves everyone.
 """
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,12 +16,14 @@ from pydantic import BaseModel, Field
 
 from FastAPI.deps import get_db, require_tg_user
 from FastAPI.static_assets import asset_version
-from services import early_access, league_v1 as league
+from core import league_v1 as league_rules
+from services import early_access, league_pass, league_v1 as league
 
 router = APIRouter(tags=["league-demo"])
 _STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 _ASSETS = {"league-demo.css": "text/css", "league-demo.js": "application/javascript",
-           "league-mines.js": "application/javascript", "league-rhythm.js": "application/javascript"}
+           "league-mines.js": "application/javascript", "league-rhythm.js": "application/javascript",
+           "league-pass.js": "application/javascript"}
 _VER = asset_version(_STATIC, ("league-demo.html", *_ASSETS))
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
 
@@ -33,8 +36,12 @@ def _read(name: str) -> str:
 _HTML = _read("league-demo.html").replace("{{BASE}}", _BASE).replace("{{VER}}", _VER)
 
 
+async def _open_for(db, user_id: int) -> bool:
+    return league_rules.is_public(datetime.now(timezone.utc)) or await early_access.allowed(db, user_id)
+
+
 async def _early(user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
-    if not await early_access.allowed(db, int(user["id"])):
+    if not await _open_for(db, int(user["id"])):
         raise HTTPException(403, "Ранний доступ к этому режиму закрыт.")
     return user
 
@@ -58,6 +65,11 @@ class RhythmBody(BaseModel):
     actions: list[dict] = Field(max_length=200)
 
 
+class ClaimBody(BaseModel):
+    season: int = Field(ge=2, le=10_000)
+
+
+@router.get("/league", response_class=HTMLResponse)
 @router.get("/league-demo", response_class=HTMLResponse)
 async def page():
     return HTMLResponse(_HTML, headers={"Cache-Control": "no-cache"})
@@ -72,7 +84,21 @@ async def asset(name: str):
 
 @router.get("/league-demo/api/access")
 async def access(user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
-    return {"allowed": await early_access.allowed(db, int(user["id"]))}
+    public = league_rules.is_public(datetime.now(timezone.utc))
+    return {"allowed": public or await early_access.allowed(db, int(user["id"])), "public": public}
+
+
+@router.get("/league-demo/api/pass")
+async def pass_status(user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
+    return await league_pass.status(db, user_id=int(user["id"]))
+
+
+@router.post("/league-demo/api/pass/claim")
+async def pass_claim(body: ClaimBody, user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
+    try:
+        return await league_pass.claim(db, user_id=int(user["id"]), season=body.season)
+    except league_pass.PassError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
 
 @router.get("/league-demo/api/me")
@@ -107,5 +133,8 @@ async def rhythm(run_id: str, body: RhythmBody, user=Depends(_early), db=Depends
 
 @router.post("/league-demo/api/reset")
 async def reset(user=Depends(_early), db=Depends(get_db)) -> dict:
-    await league.reset(db, user_id=int(user["id"]))
+    try:
+        await league.reset(db, user_id=int(user["id"]))
+    except league.LeagueError as exc:
+        _fail(exc)
     return {"ok": True}

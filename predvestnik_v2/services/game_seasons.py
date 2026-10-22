@@ -146,7 +146,7 @@ async def settle_due(db, *, boards: Mapping[BoardKey, Standings], now: datetime 
                 logger.warning("Season {} is overdue and its settlement lock is held elsewhere", season)
             continue
         try:
-            for game, board in rules.PAYING_BOARDS:
+            for game, board in rules.paying_boards(season):
                 if await _snapshot_board(db, season=season, game=game, board=board,
                                          standings=boards[(game, board)]):
                     summary["snapshots"] += 1
@@ -165,7 +165,7 @@ def season_view(now: datetime | None = None, *, game: str | None = None, board: 
     """Current season for a leaderboard; ``paying`` and ``terms`` describe its payout."""
     view = rules.current_season(now)
     if game is not None:
-        view["paying"] = rules.is_paying(game, board or "")
+        view["paying"] = rules.is_paying(game, board or "", view["number"])
         if view["paying"]:
             view["terms"] = rules.terms()
         else:

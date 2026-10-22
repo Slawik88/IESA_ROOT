@@ -3,6 +3,9 @@
 A season is a fixed UTC window.  Leaderboards are computed from the runs that
 finished inside the window, so a season "reset" is only the calendar moving on:
 no player result is ever deleted or rewritten.
+
+Calendar (owner, 22.10.2026): season 1 ran 11.10–25.10.2026 (closed early), season 2
+runs 25.10–01.12.2026, every later season is one calendar month from the 1st (UTC).
 """
 from __future__ import annotations
 
@@ -11,10 +14,9 @@ from typing import Final
 
 from core import account_age
 
-SEASON_MONTHS: Final = 7
-# Season 1 opens here (UTC).  Day 11 exists in every month, so month
-# arithmetic below never has to clamp a day.
 SEASON_ONE_START: Final = datetime(2026, 10, 11, tzinfo=timezone.utc)
+SEASON_TWO_START: Final = datetime(2026, 10, 25, tzinfo=timezone.utc)
+MONTHLY_FROM: Final = datetime(2026, 12, 1, tzinfo=timezone.utc)   # season 3 and later: one calendar month each
 
 # (max place, Mora, Essence).  The first matching tier wins; the last entry is
 # the participation reward for everyone with at least one ranked result.
@@ -24,12 +26,12 @@ SEASON_ONE_START: Final = datetime(2026, 10, 11, tzinfo=timezone.utc)
 REWARD_TIERS: Final = ((1, 800, 200), (2, 600, 150), (3, 450, 120), (10, 250, 80),
                        (25, 120, 40), (10**9, 40, 10))
 
-# Only these boards pay for places.  Minesweeper stays a ranked board without a
-# payout until its results have an integrity check and a minimum win time: a
-# solver bot could otherwise take every podium.  Adding a board here is the one
-# switch that starts paying it; a player is still paid once per season, for the
-# best reward over all paying boards (never the sum).
+# Only these boards pay for places, and only in season 1: from season 2 the ranked
+# League replaces the old best-run boards (their results are client-timed and stay
+# casual).  A player is paid once per season, for the best reward over all paying
+# boards (never the sum).
 PAYING_BOARDS: Final = (("rhythm", "normal"),)
+LAST_PAYING_SEASON: Final = 1
 # Wait after the season ends before the places are frozen, so runs that are
 # still pending an integrity verdict can resolve first.
 SETTLEMENT_DELAY: Final = timedelta(hours=48)
@@ -50,8 +52,12 @@ def _add_months(moment: datetime, months: int) -> datetime:
     return moment.replace(year=total // 12, month=total % 12 + 1)
 
 
-def is_paying(game: str, board: str) -> bool:
-    return (str(game), str(board)) in PAYING_BOARDS
+def paying_boards(season: int) -> tuple[tuple[str, str], ...]:
+    return PAYING_BOARDS if int(season) <= LAST_PAYING_SEASON else ()
+
+
+def is_paying(game: str, board: str, season: int = 1) -> bool:
+    return (str(game), str(board)) in paying_boards(season)
 
 
 def qualifies(runs: int, days: int) -> bool:
@@ -60,24 +66,25 @@ def qualifies(runs: int, days: int) -> bool:
 
 def season_bounds(number: int) -> tuple[datetime, datetime]:
     """Half-open [start, end) window of a season; seasons are numbered from 1."""
-    if int(number) < 1:
+    number = int(number)
+    if number < 1:
         raise SeasonRuleError("season number must be positive")
-    start = _add_months(SEASON_ONE_START, (int(number) - 1) * SEASON_MONTHS)
-    return start, _add_months(start, SEASON_MONTHS)
+    if number == 1:
+        return SEASON_ONE_START, SEASON_TWO_START
+    if number == 2:
+        return SEASON_TWO_START, MONTHLY_FROM
+    return _add_months(MONTHLY_FROM, number - 3), _add_months(MONTHLY_FROM, number - 2)
 
 
 def season_number(now: datetime) -> int:
     """Season containing ``now``; moments before the launch belong to season 1."""
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
-    months = (now.year - SEASON_ONE_START.year) * 12 + now.month - SEASON_ONE_START.month
-    number = max(0, months // SEASON_MONTHS) + 1
-    # Month division is only an estimate (the 12th may not have arrived yet).
-    while number > 1 and now < season_bounds(number)[0]:
-        number -= 1
-    while now >= season_bounds(number)[1]:
-        number += 1
-    return number
+    if now < SEASON_TWO_START:
+        return 1
+    if now < MONTHLY_FROM:
+        return 2
+    return 3 + (now.year - MONTHLY_FROM.year) * 12 + now.month - MONTHLY_FROM.month
 
 
 def current_season(now: datetime | None = None) -> dict:

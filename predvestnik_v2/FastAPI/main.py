@@ -89,6 +89,8 @@ from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensu
 from infrastructure.repositories.coin_market_v2 import ensure_tables as ensure_coin_market_v2
 from infrastructure.repositories.pets_v2 import ensure_tables as ensure_pets_v2
 from infrastructure.repositories.season_pass import ensure_tables as ensure_season_pass
+from infrastructure.repositories.league_pass import ensure_tables as ensure_league_pass
+from infrastructure.repositories.league_v1 import ensure_tables as ensure_league_v1
 from FastAPI.routers import coin_market_v2 as coin_market_v2_router
 from loguru import logger as _log
 
@@ -198,6 +200,8 @@ async def lifespan(app: FastAPI):
             (ensure_pets_v1,                     "pets_v1"),
             (ensure_pets_v2,                     "pets_v2"),
             (ensure_season_pass,                 "season_pass"),
+            (ensure_league_pass,                 "league_pass"),
+            (ensure_league_v1,                   "league_v1"),
             (ensure_quests_v1,                    "quests_v1"),
             (ensure_echo_shards_v1,                "echo_shards_v1"),
             (ensure_achievements_v1,                "achievements_v1"),
@@ -291,7 +295,7 @@ async def revalidate_mini_app_assets(request, call_next):
     # HTML must discover each release's content hash; bare asset URLs must also
     # revalidate. This does not change caching of authenticated API responses.
     path = request.url.path
-    if path in ("/", "/rhythm-v2", "/minesweeper") or path.startswith("/static/"):
+    if path in ("/", "/rhythm-v2", "/minesweeper", "/league", "/league-demo") or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
 

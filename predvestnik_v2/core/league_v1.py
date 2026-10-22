@@ -3,17 +3,20 @@
 Both games are ladders of levels.  Every player gets their own board / rune order, but a level's
 conditions (size, mines, depth of logic; tempo, length, gift plan) are identical for everyone, and
 for Minesweeper the server proves each board can be cleared without a guess.  Progress resets every
-season.  Stars: 1 = level passed (opens the next one), 2 and 3 = how well.  Rewards in the demo are
-fake: experience is only shown, nothing is granted.  Design: docs/SEASON_2_RATING_AND_PASS.md.
+season.  Stars: 1 = level passed (opens the next one), 2 and 3 = how well.  Before season 2 only early
+access plays a demo whose experience is fake; from season 2 the League is public and its experience feeds
+the real season pass (core.league_pass).  Design: docs/SEASON_2_RATING_AND_PASS.md.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import hashlib
 import hmac
 from typing import Final
 
 from core import rhythm_v2 as rhythm
+from core import seasons
 
 FLAG_KEY: Final = "feature:early_access"   # admin «Права»: from which role the early access is open
 DEMO_SEASON: Final = "demo-1"
@@ -24,6 +27,20 @@ XP_BY_STARS: Final = {1: 60, 2: 80, 3: 100}   # pass experience for the best sta
 
 class LeagueRuleError(ValueError):
     pass
+
+
+def is_public(now: datetime) -> bool:
+    """The League opens to everyone with season 2; before that only early access plays the demo."""
+    return now >= seasons.SEASON_TWO_START
+
+
+def season_key(now: datetime) -> str:
+    """Progress key: the fake demo before the launch, the real season number after it."""
+    return f"s{seasons.season_number(now)}" if is_public(now) else DEMO_SEASON
+
+
+def is_demo(season: str) -> bool:
+    return season == DEMO_SEASON
 
 
 def check_level(level: int) -> int:

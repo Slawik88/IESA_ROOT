@@ -35,6 +35,7 @@ async def setup(db) -> None:
     for table in ("league_demo_runs", "league_demo_progress", "admin_role_grants"):
         await db.execute(f"DROP TABLE IF EXISTS {table}")
     await db.execute("CREATE TABLE IF NOT EXISTS users (user_tg_id BIGINT PRIMARY KEY, user_tg_username TEXT, bot_rank INT DEFAULT 0)")
+    await db.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS bot_rank SMALLINT DEFAULT 0")   # bot/chat/schema.py on a full schema
     await db.execute("DELETE FROM users WHERE user_tg_id IN (?,?)", (TESTER, PLAYER))
     await db.execute("INSERT INTO users(user_tg_id,user_tg_username,bot_rank) VALUES (?,?,1),(?,?,0)", (TESTER, "tester", PLAYER, "player"))
     await public_profiles.ensure_tables(db)
@@ -126,15 +127,40 @@ async def overview_and_reset(db) -> None:
     assert (await league.overview(db, user_id=TESTER))["games"]["minesweeper"]["unlocked"] == 1
 
 
+async def real_season(db) -> None:
+    """After the switch: the League is public, its season is real and a level feeds the season pass."""
+    from infrastructure.repositories import league_pass as pass_repo
+    await pass_repo.ensure_tables(db)
+    original = league._season
+    league._season = lambda now=None: "s2"
+    try:
+        won = await clear(db, await league.start(db, user_id=TESTER, game="minesweeper", level=1))
+        assert won["result"]["stars"] == 3 and won["result"]["xp"] == 100
+        assert await pass_repo.xp(db, user_id=TESTER, season=2) == 100, "a real season level feeds the pass"
+        me = await league.overview(db, user_id=TESTER)
+        assert me["demo"] is False and me["pass"] is None and me["games"]["minesweeper"]["unlocked"] == 2
+        try:
+            await league.reset(db, user_id=TESTER)
+        except league.LeagueError:
+            pass
+        else:
+            raise AssertionError("a real season can never be reset")
+    finally:
+        league._season = original
+    assert rules.season_key(rules.seasons.SEASON_TWO_START) == "s2" and rules.is_public(rules.seasons.SEASON_TWO_START)
+
+
 async def run(dsn: str) -> None:
     connection = await asyncpg.connect(dsn)
     db = PGAdapter(connection)
+    league._season = lambda now=None: rules.DEMO_SEASON   # fixed clock: the demo before season 2
     try:
         await setup(db)
         await gate(db)
         await minesweeper(db)
         await rhythm(db)
         await overview_and_reset(db)
+        await real_season(db)
     finally:
         await connection.close()
     print("PASS league demo on PostgreSQL: gate, server Minesweeper, Rhythm journals, stars, experience, reset")

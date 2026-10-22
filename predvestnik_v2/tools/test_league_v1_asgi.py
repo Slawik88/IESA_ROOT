@@ -39,27 +39,44 @@ async def run(dsn: str) -> None:
 
     app.dependency_overrides[deps.get_db] = fake_db
     app.dependency_overrides[deps.require_tg_user] = fake_user
+    from core import league_pass as pass_rules
+    from services import league_v1 as league
+    public = {"on": False}   # the test fixes the clock: first before season 2, then after it
+    router_module.league_rules.is_public = lambda now: public["on"]
+    pass_rules.active = lambda now: public["on"]
+    league._season = lambda now=None: "s2" if public["on"] else "demo-1"
     try:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
-            page = await client.get("/league-demo")
-            assert page.status_code == 200 and "Лига сезона" in page.text and "{{" not in page.text
-            for name in ("league-demo.css", "league-demo.js", "league-mines.js", "league-rhythm.js"):
+            for path in ("/league", "/league-demo"):
+                page = await client.get(path)
+                assert page.status_code == 200 and "Лига сезона" in page.text and "{{" not in page.text, path
+            for name in ("league-demo.css", "league-demo.js", "league-mines.js", "league-rhythm.js", "league-pass.js"):
                 assert (await client.get(f"/static/league-demo/{name}")).status_code == 200, name
             assert (await client.get("/static/league-demo/secret.py")).status_code == 404
-            assert (await client.get("/league-demo/api/access")).json() == {"allowed": False}
+            assert (await client.get("/league-demo/api/access")).json() == {"allowed": False, "public": False}
+            state = (await client.get("/league-demo/api/pass")).json()
+            assert state["active"] is False and state["starts_at"].startswith("2026-10-25"), state
+            refused = await client.post("/league-demo/api/pass/claim", json={"season": 2})
+            assert refused.status_code == 409, "nothing to claim before season 2"
             for method, path, body in (("GET", "/league-demo/api/me", None), ("POST", "/league-demo/api/runs", {"game": "rhythm", "level": 1}),
                                        ("POST", "/league-demo/api/reset", {})):
                 response = await client.request(method, path, json=body)
                 assert response.status_code == 403, (path, response.status_code)
             who["id"] = TESTER
-            assert (await client.get("/league-demo/api/access")).json() == {"allowed": True}
+            assert (await client.get("/league-demo/api/access")).json() == {"allowed": True, "public": False}
             me = await client.get("/league-demo/api/me")
             assert me.status_code == 200 and me.json()["demo"] is True
             bad = await client.post("/league-demo/api/runs", json={"game": "minesweeper", "level": 5})
             assert bad.status_code == 409 and "предыдущий" in bad.json()["detail"]
+            public["on"] = True
+            who["id"] = PLAYER
+            assert (await client.get("/league-demo/api/access")).json() == {"allowed": True, "public": True}
+            me = await client.get("/league-demo/api/me")
+            assert me.status_code == 200 and me.json()["demo"] is False, "from season 2 every player plays the League"
+            assert (await client.post("/league-demo/api/reset", json={})).status_code == 409, "a real season cannot be reset"
     finally:
         await connection.close()
-    print("PASS league demo HTTP: page and assets, 403 without early access, 409 for a locked level")
+    print("PASS league HTTP: page and assets; before season 2 early access only (403), after it open to all")
 
 
 if __name__ == "__main__":

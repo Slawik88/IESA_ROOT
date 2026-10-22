@@ -28,6 +28,9 @@ ESSENCE_PER_LEVEL: Final = FULL_TRACK_ESSENCE // LEVELS    # 10
 CLAIM_GRACE: Final = timedelta(days=30)  # unclaimed levels lapse this long after the season ends
 RHYTHM_MIN_CORRECT_TAPS: Final = 20      # one chunk of real play
 SOURCES: Final = ("rhythm", "minesweeper")   # the only places points can come from
+# This free pass belongs to season 1 only.  From season 2 the League pass (core.league_v1,
+# core.league_pass) replaces it: no new points, season 1 levels stay claimable for CLAIM_GRACE.
+LAST_SEASON: Final = 1
 
 assert MORA_PER_LEVEL * LEVELS == FULL_TRACK_MORA and ESSENCE_PER_LEVEL * LEVELS == FULL_TRACK_ESSENCE
 
@@ -73,10 +76,8 @@ def claim_deadline(season: int) -> datetime:
 
 
 def claimable_seasons(now: datetime) -> list[int]:
-    """Seasons whose levels can still be claimed: the current one and a finished one within the grace."""
+    """Seasons whose levels can still be claimed: the running one and finished ones within the grace (never after LAST_SEASON)."""
     now = utc(now)
     current = seasons.season_number(now)
-    result = [current]
-    if current > 1 and now < claim_deadline(current - 1):
-        result.insert(0, current - 1)
-    return result
+    return [n for n in range(max(1, min(current, LAST_SEASON) - 1), min(current, LAST_SEASON) + 1)
+            if n == current or now < claim_deadline(n)]

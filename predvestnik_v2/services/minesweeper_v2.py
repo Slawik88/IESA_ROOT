@@ -13,7 +13,7 @@ from core import season_pass as season_pass_rules
 from core import seasons as season_rules
 from infrastructure.repositories import minesweeper_v2 as repo
 from services import achievements_v1 as achievements
-from services import game_seasons, season_pass
+from services import game_seasons, league_pass, season_pass
 from services import leaderboards_v1
 from services import quests_v1 as quests
 
@@ -32,6 +32,7 @@ async def _record_completed_quest(db, *, user_id: int, run_id: str, difficulty: 
     if season_pass_rules.minesweeper_qualifies(won=won):
         await season_pass.record_game(db, user_id=user_id, source="minesweeper", event_id=event_id,
                                       points=season_pass_rules.MINESWEEPER_POINTS)
+    await league_pass.record_mines(db, user_id=user_id, run_id=run_id, won=won, difficulty=difficulty)
     try:
         async with db.connection.transaction():
             sources = await quests.available_sources(db, user_id=user_id)

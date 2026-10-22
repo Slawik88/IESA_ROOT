@@ -39,6 +39,8 @@ async def record_game(db, *, user_id: int, source: str, event_id: str, points: i
     try:
         at = rules.utc(occurred_at or datetime.now(timezone.utc))
         season, day = seasons.season_number(at), at.date()
+        if season > rules.LAST_SEASON:   # the League pass counts from season 2 (services.league_pass)
+            return 0
         # Everything, the flag read included, runs in this savepoint: a failure here must not
         # leave the caller's transaction in the aborted state.
         async with db.connection.transaction():
@@ -72,13 +74,15 @@ def _view(season: int, progress: dict | None, now: datetime) -> dict:
         "claimable": {"mora": mora, "essence": essence},
         "per_level": {"mora": rules.MORA_PER_LEVEL, "essence": rules.ESSENCE_PER_LEVEL},
         "full_track": {"mora": rules.FULL_TRACK_MORA, "essence": rules.FULL_TRACK_ESSENCE},
-        "current": season == seasons.season_number(now),
+        # After season 1 the page keeps showing season 1 alone, as the one to claim from.
+        "current": season == min(seasons.season_number(now), rules.LAST_SEASON),
+        "closed": season < seasons.season_number(now),
     }
 
 
 async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
     now = rules.utc(now or datetime.now(timezone.utc))
-    if not await enabled(db):
+    if not await enabled(db) or not rules.claimable_seasons(now):
         return {"enabled": False}
     seen = (await account_age_repo.first_seen(db, [user_id])).get(int(user_id))
     start = account_age.eligible_from(seen)

@@ -1,4 +1,5 @@
-// Демо Лиги (ранний доступ): вкладки, лестница уровней со звёздами, топ, демо-Пропуск. Игры — league-mines.js и league-rhythm.js.
+// Лига: вкладки, лестница уровней со звёздами, топ, Пропуск. До сезона 2 — демо раннего доступа, с ним — для всех.
+// Игры — league-mines.js и league-rhythm.js, настоящий Пропуск — league-pass.js.
 // Сервер — единственный источник правил и звёзд; опыт и награды здесь ненастоящие.
 (() => {
   const webApp = () => window.Telegram?.WebApp || null;   // скрипт Telegram грузится асинхронно
@@ -57,10 +58,10 @@
       <h3>Уровни</h3>${levelGrid(game, info)}
       <div class="lg-row"><button type="button" data-play="${info.unlocked}">Играть уровень ${info.unlocked}</button></div>
       <h3>Как устроено</h3>${RULES[game]}
-      <h3>Топ сезона (демо)</h3><ol class="lg-top">${top}</ol>
-      <div class="lg-row"><button type="button" class="secondary" id="lg-reset">Сбросить мой прогресс демо</button></div>`;
+      <h3>Топ сезона${state.me.demo ? ' (демо)' : ''}</h3><ol class="lg-top">${top}</ol>
+      ${state.me.demo ? '<div class="lg-row"><button type="button" class="secondary" id="lg-reset">Сбросить мой прогресс демо</button></div>' : ''}`;
     $('lg-view').querySelectorAll('[data-play]').forEach(b => { b.onclick = () => play(game, Number(b.dataset.play)); });
-    $('lg-reset').onclick = resetDemo;
+    if ($('lg-reset')) $('lg-reset').onclick = resetDemo;
   }
 
   function renderPass() {
@@ -76,7 +77,12 @@
   function render() {
     document.querySelectorAll('.lg-tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
     if (!state.me) return;
-    if (state.tab === 'pass') renderPass(); else renderGame(state.tab);
+    const demo = state.me.demo;
+    $('lg-eyebrow').textContent = demo ? 'Ранний доступ · демо' : `Сезон ${String(state.me.season).replace(/^s/, '')} · рейтинг`;
+    $('lg-note').classList.toggle('lg-hidden', !demo);
+    if (state.tab !== 'pass') renderGame(state.tab);
+    else if (demo) renderPass();
+    else window.LeaguePass?.render($('lg-view'));
   }
 
   async function refresh() {
@@ -107,6 +113,7 @@
   }
 
   window.League = {api, show, back, esc, stars, haptic, $};
+  if (location.hash === '#pass') state.tab = 'pass';
   document.querySelectorAll('.lg-tabs button').forEach(b => { b.onclick = () => { state.tab = b.dataset.tab; render(); }; });
   window.addEventListener('load', () => {
     const app = webApp();

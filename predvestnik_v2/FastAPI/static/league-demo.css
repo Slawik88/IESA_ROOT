@@ -20,6 +20,7 @@ button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 .lg-level.locked{opacity:.4}
 .lg-top{margin:0;padding:0;list-style:none;display:grid;gap:4px}.lg-top li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;padding:7px 10px;border-radius:10px;background:#111628;font-size:13px}
 .lg-top li.me{outline:1px solid var(--accent)}
+.lg-pass li{grid-template-columns:22px 1fr 1fr;align-items:center}.lg-pass b{font-weight:600;text-align:right}
 .lg-rules{color:var(--muted);font-size:13px;line-height:1.5}.lg-rules b{color:var(--ink)}
 .lg-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .lg-board{display:grid;gap:3px;margin:10px auto;touch-action:manipulation}

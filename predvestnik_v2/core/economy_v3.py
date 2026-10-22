@@ -33,6 +33,9 @@ ZARNIKI_REWARD_SOURCES: Final = (
     # a promo code. Both paths are creator-only and always leave a journal entry (services/promo_v2.py, bot_admin/people.py).
     "bot_admin_zarniki_grant",
     "promocode_zarniki",
+    # Owner-approved (2026-10-22): the season pass from season 2 holds a few Zarniki, at most 30 on the free
+    # track and 80 on the VIP track per season (core.league_pass; one receipt per level and track).
+    "season_pass_v2_reward",
 )
 
 

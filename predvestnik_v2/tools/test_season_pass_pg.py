@@ -186,11 +186,11 @@ async def run(dsn: str) -> None:
         else:
             raise AssertionError("the track is complete")
 
-        # 9. Season edges: the last second belongs to season 1, the end instant to season 2.
+        # 9. Season edges: the last second belongs to season 1; from season 2 this pass takes no points (the League pass does).
         assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge1", points=10,
                                          occurred_at=s1_end - timedelta(seconds=1)) == 10
-        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge2", points=10, occurred_at=s1_end) == 10
-        assert await points_of(OTHER, 1) == 20 and await points_of(OTHER, 2) == 10
+        assert await service.record_game(db, user_id=OTHER, source="rhythm", event_id="edge2", points=10, occurred_at=s1_end) == 0
+        assert await points_of(OTHER, 1) == 20 and await points_of(OTHER, 2) == 0
 
         # 10. Claim window: season 1 stays claimable 30 days after its end, then lapses.
         await db.execute("UPDATE season_pass_progress SET points=300, claimed_level=0 WHERE user_id=? AND season=1", (OTHER,))
@@ -203,9 +203,10 @@ async def run(dsn: str) -> None:
         late = await service.claim(db, user_id=OTHER, season=1, now=s1_end + timedelta(days=29))
         assert late["mora"] == 40 and late["essence"] == 10
         status = await service.status(db, user_id=OTHER, now=s1_end + timedelta(days=29))
-        assert [row["season"] for row in status["seasons"]] == [1, 2], status
+        assert [row["season"] for row in status["seasons"]] == [1] and status["seasons"][0]["closed"], status
+        assert status["seasons"][0]["current"], "the page keeps season 1 as its season while it can be claimed"
         status = await service.status(db, user_id=OTHER, now=s1_end + timedelta(days=31))
-        assert [row["season"] for row in status["seasons"]] == [2], status
+        assert status == {"enabled": False}, status
 
         # 11a. Account age: 14 days in the bot are needed to claim; points still accrue, no record = new.
         await seen_in_chat(NEWBIE, noon(5))
@@ -280,15 +281,15 @@ async def run(dsn: str) -> None:
         from services import minesweeper_v2, rhythm_v2
         third = 978003
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-short", mode="normal", score=900,
-                                                integrity_status="clear", correct_taps=19, finished_at=noon(30))
+                                                integrity_status="clear", correct_taps=19, finished_at=noon(10))
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-review", mode="normal", score=900,
-                                                integrity_status="review_required", correct_taps=99, finished_at=noon(30))
+                                                integrity_status="review_required", correct_taps=99, finished_at=noon(10))
         assert await points_of(third) == 0
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-ok", mode="normal", score=900,
-                                                integrity_status="clear", correct_taps=20, finished_at=noon(30))
+                                                integrity_status="clear", correct_taps=20, finished_at=noon(10))
         assert await points_of(third) == rules.rhythm_points(900) == 27, "a run pays by its score"
         await rhythm_v2._record_completed_quest(db, user_id=third, run_id="r-ok", mode="normal", score=900,
-                                                integrity_status="clear", correct_taps=20, finished_at=noon(30))
+                                                integrity_status="clear", correct_taps=20, finished_at=noon(10))
         assert await points_of(third) == 27, "the same run counts once"
         current = seasons.season_number(datetime.now(timezone.utc))   # Minesweeper points land "now"
         before = await points_of(third, current)

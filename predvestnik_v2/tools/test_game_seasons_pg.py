@@ -142,6 +142,14 @@ async def run(dsn: str) -> None:
         assert await game_seasons.settle_due(db, boards=boards, now=now) == {"snapshots": 0, "paid": 0, "failed": 0, "closed": 0}
         assert await mora_of(PLAYERS[0]) == 800
 
+        # From season 2 the old boards pay nothing (the League replaces them): a finished season 2 closes empty.
+        real_last = rules.LAST_PAYING_SEASON
+        probe = await game_seasons.settle_due(db, boards=boards, now=s2_end + rules.SETTLEMENT_DELAY + timedelta(hours=1))
+        assert probe["snapshots"] == 0 and probe["paid"] == 0, probe
+        await db.execute("DELETE FROM game_season_closed WHERE season=2")
+        # The payout mechanics below stay proven on seasons 2 and 3 with the old boards switched back on.
+        rules.LAST_PAYING_SEASON = 10**6
+
         # 6. A player on two paying boards is paid once, for the better reward (never the sum).
         async def minesweeper(db_, start, end):
             return [{"user_id": PLAYERS[5], "place": 1, "runs": 9, "days": 9},
@@ -198,12 +206,15 @@ async def run(dsn: str) -> None:
             assert await mora_of(user_id) - before[user_id] == 40, "5 eligible players: participation only, no podium"
         async with db.execute("SELECT players FROM game_season_closed WHERE season=3") as cursor:
             assert int((await cursor.fetchone())[0]) == 5
+        rules.LAST_PAYING_SEASON = real_last
 
         # 7. Minesweeper does not pay and shows no reward table.
-        view = game_seasons.season_view(game="minesweeper", board="hard")
+        in_s1 = s1_start + timedelta(days=1)
+        view = game_seasons.season_view(in_s1, game="minesweeper", board="hard")
         assert view["paying"] is False and view["rewards"] == [], view
-        view = game_seasons.season_view(game="rhythm", board="normal")
+        view = game_seasons.season_view(in_s1, game="rhythm", board="normal")
         assert view["paying"] is True and view["rewards"] and view["terms"]["min_runs"] == 5, view
+        assert game_seasons.season_view(s2_start, game="rhythm", board="normal")["paying"] is False
 
         # 8. One worker settles a season at a time (session lock visible from another connection).
         assert await repo.try_lock_season(db, season=77)

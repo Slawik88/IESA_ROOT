@@ -1,24 +1,26 @@
-"""League demo (early access): ranked ladders of Minesweeper and Rhythm levels with stars.
+"""The League: ranked ladders of Minesweeper and Rhythm levels with stars (demo before season 2, public from it).
 
 Minesweeper is server-authoritative (a click is one short request; the board never reaches the phone).
 Rhythm is played on the phone level by level and checked by the server in the pause after each level
-(services.league_rhythm).  Progress resets every season.  Experience and pass rewards are fake: shown,
-never granted.  Nothing here writes balances, inventory or quests.
+(services.league_rhythm).  Progress resets every season.  In the demo season experience is only shown; in a
+real season it goes to the season pass (services.league_pass), which is the only economy writer.
 """
 from __future__ import annotations
 
 import asyncio
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from core import league_mines, league_pass_demo, mines_logic
 from core import league_v1 as rules
 from infrastructure.repositories import league_v1 as repo
 from infrastructure.repositories import public_profiles_v1 as public_profiles
-from services import league_rhythm
+from services import league_pass, league_rhythm
 
-SEASON = rules.DEMO_SEASON
+
+def _season(now: datetime | None = None) -> str:
+    return rules.season_key(now or datetime.now(timezone.utc))
 
 
 class LeagueError(Exception):
@@ -36,11 +38,12 @@ def unlocked(rows: list[dict], game: str) -> int:
 
 async def overview(db, *, user_id: int) -> dict:
     await repo.ensure_tables(db)
-    rows = await repo.progress(db, user_id=user_id, season=SEASON)
+    season = _season()
+    rows = await repo.progress(db, user_id=user_id, season=season)
     games = {}
     for game in rules.GAMES:
         mine = _levels(rows, game)
-        top = await repo.top(db, season=SEASON, game=game)
+        top = await repo.top(db, season=season, game=game)
         names = await public_profiles.player_projection(db, user_ids=[int(r["user_id"]) for r in top])
         games[game] = {
             "unlocked": unlocked(rows, game), "stars": sum(r["stars"] for r in mine),
@@ -48,8 +51,9 @@ async def overview(db, *, user_id: int) -> dict:
             "top": [{"place": i + 1, "name": names[int(r["user_id"])]["display_name"], "level": int(r["best_level"]),
                      "stars": int(r["stars"]), "me": int(r["user_id"]) == int(user_id)} for i, r in enumerate(top)],
         }
-    return {"season": SEASON, "demo": True, "games": games,
-            "pass": league_pass_demo.view(sum(r["xp"] for r in rows)), "xp_by_stars": rules.XP_BY_STARS}
+    demo = rules.is_demo(season)
+    return {"season": season, "demo": demo, "games": games, "xp_by_stars": rules.XP_BY_STARS,
+            "pass": league_pass_demo.view(sum(r["xp"] for r in rows)) if demo else None}
 
 
 async def _cancel_active(db, *, user_id: int, game: str) -> None:
@@ -57,7 +61,7 @@ async def _cancel_active(db, *, user_id: int, game: str) -> None:
     if row:
         await repo.update_run(db, run_id=row["run_id"], status="cancelled", state=repo.load(row["state_json"]),
                               revision=int(row["revision"]) + 1, finished=True)
-        await repo.save_level(db, user_id=user_id, season=SEASON, game=game, level=int(row["level"]), stars=0, xp=0, best=None)
+        await repo.save_level(db, user_id=user_id, season=row["season"], game=game, level=int(row["level"]), stars=0, xp=0, best=None)
 
 
 async def start(db, *, user_id: int, game: str, level: int) -> dict:
@@ -69,23 +73,24 @@ async def start(db, *, user_id: int, game: str, level: int) -> dict:
         raise LeagueError(str(exc)) from exc
     await repo.ensure_tables(db)
     # Checked before the (possibly slow) board generation, and again under the lock below.
-    if level > unlocked(await repo.progress(db, user_id=user_id, season=SEASON), game):
+    season = _season()
+    if level > unlocked(await repo.progress(db, user_id=user_id, season=season), game):
         raise LeagueError("Сначала пройди предыдущий уровень.")
     seed = secrets.token_bytes(32)
     board = await asyncio.to_thread(_mines_board, seed, level) if game == "minesweeper" else {}
     run_id = str(uuid4())
     async with db.connection.transaction():
         await repo.lock_user(db, user_id=user_id)
-        rows = await repo.progress(db, user_id=user_id, season=SEASON)
+        rows = await repo.progress(db, user_id=user_id, season=season)
         if level > unlocked(rows, game):
             raise LeagueError("Сначала пройди предыдущий уровень.")
         await _cancel_active(db, user_id=user_id, game=game)
         state = _mines_initial(board) if game == "minesweeper" else {}
-        await repo.insert_run(db, run_id=run_id, user_id=user_id, season=SEASON, game=game, level=level,
+        await repo.insert_run(db, run_id=run_id, user_id=user_id, season=season, game=game, level=level,
                               seed=seed, board=board, state=state)
         row = await repo.lock_run(db, run_id=run_id, user_id=user_id)
     if game == "rhythm":
-        return {"run_id": run_id, "game": game, **league_rhythm.packet(season=SEASON, level=level, seed=seed)}
+        return {"run_id": run_id, "game": game, **league_rhythm.packet(season=season, level=level, seed=seed)}
     return _mines_view(row)
 
 
@@ -207,7 +212,7 @@ async def rhythm_finish(db, *, user_id: int, run_id: str, actions: list) -> dict
 # ── Progress ───────────────────────────────────────────────────────────────────────────
 
 async def _record(db, row: dict, stars: int, detail: dict) -> dict:
-    """Count the attempt, keep the best stars, add only the experience of the improvement (fake, shown only)."""
+    """Count the attempt, keep the best stars, add only the experience of the improvement (to the pass in a real season)."""
     user_id, game, level = int(row["user_id"]), row["game"], int(row["level"])
     await repo.lock_user(db, user_id=user_id)
     before = await repo.level_row(db, user_id=user_id, season=row["season"], game=game, level=level)
@@ -215,6 +220,9 @@ async def _record(db, row: dict, stars: int, detail: dict) -> dict:
     xp = rules.xp_gain(old, stars)
     await repo.save_level(db, user_id=user_id, season=row["season"], game=game, level=level, stars=stars, xp=xp,
                           best=detail if stars > old else None)
+    if xp and not rules.is_demo(row["season"]):
+        await league_pass.add_xp(db, user_id=user_id, source="league", event_id=f"{row['season']}:{game}:{level}:{stars}",
+                                 xp=xp, casual=False, at=row["server_now"], season=int(row["season"].lstrip("s")))
     return {"run_id": row["run_id"], "game": game, "level": level, "stars": stars, "best_stars": max(old, stars),
             "xp": xp, "next_unlocked": stars > 0, "detail": detail}
 
@@ -223,4 +231,7 @@ async def reset(db, *, user_id: int) -> None:
     await repo.ensure_tables(db)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id=user_id)
-        await repo.reset(db, user_id=user_id, season=SEASON)
+        season = _season()
+        if not rules.is_demo(season):
+            raise LeagueError("Сбросить можно только прогресс демо.")
+        await repo.reset(db, user_id=user_id, season=season)

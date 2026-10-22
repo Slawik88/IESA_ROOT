@@ -56,7 +56,9 @@ KEY_TIER_BY_SOURCE: Final = {
     "quest_daily_set_complete": 1, "quest_weekly_set_complete": 1, "zarniki_purchase": 1,
     "pet_trek_complete": 1, "pet_expedition_complete": 1, "vip_daily_milestone": 1,
     **{f"offer_{offer_id}": int(offer["tier"]) for offer_id, offer in KEY_OFFERS.items()},
+    **{f"pass_tier{tier}": tier for tier in KEY_TIERS},   # League season pass rewards (core.league_pass)
 }
+PASS_KEY_SOURCES: Final = tuple(f"pass_tier{tier}" for tier in KEY_TIERS)
 STAR_WEIGHTS: Final = {
     1: 3500, 2: 2700, 3: 1800, 4: 900, 5: 500,
     6: 300, 7: 150, 8: 80, 9: 40, 10: 30,
