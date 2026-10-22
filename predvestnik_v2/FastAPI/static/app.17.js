@@ -8,16 +8,16 @@ const _V3_TOPS = [
 ];
 let _v3TopTab = 'week', _v3TopCache = {}, _v3TopSeq = 0;
 function _v3TopShell() {
-  return `<section class="v3-top" id="v3-top" aria-label="Лидерборды"><div class="v3-sec"><span class="v3-eyebrow">Топ-5</span></div><div class="v3-top-body"><div class="sk" style="height:170px;border-radius:14px"></div></div></section>`;
+  return `<section class="v3-top" id="v3-top" aria-label="Лидерборды"><div class="v3-sec"><span class="v3-eyebrow">Топ-10</span></div><div class="v3-top-body"><div class="sk" style="height:300px;border-radius:14px"></div></div></section>`;
 }
 // Ответы двух API приводятся к одному виду: {top:[{place,name,value,is_vip,is_me}], personal:{place,value}|null}
 function _v3TopNormalize(id, d) {
   if (id === 'rhythm') {
-    return { top: (d.top || []).slice(0, 5).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null })),
+    return { top: (d.top || []).slice(0, 10).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, value: r.best_score, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, look: r.player?.look || null, mark: r.player?.mark || null })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.best_score } : null };
   }
   if (id === 'minesweeper' || id === 'mafia') {
-    return { top: (d.items || []).slice(0, 5).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
+    return { top: (d.items || []).slice(0, 10).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
       personal: d.personal ? { place: d.personal.place, value: d.personal.count } : null };
   }
   return { top: (d.top || []).map(r => ({ place: r.place, name: r.name, ref: r.ref, value: r.count, is_vip: r.is_vip, is_me: r.is_me, look: r.look, mark: r.mark })),
@@ -31,12 +31,12 @@ function _v3TopTabs() {
 function renderV3Top(state) {
   const host = el('v3-top'); if (!host) return;
   const tabs = _v3TopTabs(), tab = tabs.find(t => t.id === _v3TopTab);
-  const head = `<div class="v3-sec"><span class="v3-eyebrow">Топ-5</span><div class="v3-tabs" role="tablist">${tabs.map(t =>
+  const head = `<div class="v3-sec"><span class="v3-eyebrow">Топ-10</span><div class="v3-tabs" role="tablist">${tabs.map(t =>
     `<button type="button" role="tab" class="v3-tab${t.id === _v3TopTab ? ' on' : ''}" aria-selected="${t.id === _v3TopTab}" onclick="v3TopSelect('${t.id}')">${t.label}</button>`).join('')}</div></div>`;
   const data = _v3TopCache[_v3TopTab];
   let body;
   if (state === 'error') body = `<div class="v3-empty">Топ не загрузился. <button type="button" class="v3-link" onclick="loadV3Top()">Повторить</button></div>`;
-  else if (!data) body = '<div class="sk" style="height:170px;border-radius:14px"></div>';
+  else if (!data) body = '<div class="sk" style="height:300px;border-radius:14px"></div>';
   else if (!data.top.length) body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty('Пока никого в рейтинге. Станьте первым.') : '<div class="v3-empty">Пока никого в рейтинге. Станьте первым.</div>';
   else {
     const inTop = data.top.some(r => r.is_me);

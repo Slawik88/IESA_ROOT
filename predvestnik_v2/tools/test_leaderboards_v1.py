@@ -96,6 +96,7 @@ async def main() -> None:
         raise AssertionError("unknown scope must be rejected")
     compact = await lb.message_top(db, user_id=3, period="week", now=THURSDAY)
     assert compact["top"][0]["place"] == 1 and compact["personal"]["place"] == 3
+    assert lb.TOP_LIMIT == 10, "профиль показывает топ-10: подиум и семь строк под ним"
     # Game tops: all-time wins use the same row shape and clamp an out-of-range page.
     async def fake_win_players(db): return 12
 

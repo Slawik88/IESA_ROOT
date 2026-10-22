@@ -15,7 +15,7 @@ from infrastructure.repositories.streak import get_chat_timezone
 from services.membership import bot_tg_id
 from services.vip import is_vip_active_batch
 
-TOP_LIMIT = 5
+TOP_LIMIT = 10
 PAGE_SIZE = 10
 PERIODS = ("day", "week", "month", "all_time")
 SCOPES = ("global", "chats", "local")
@@ -130,7 +130,7 @@ async def game_top(db, *, user_id: int, game: str, page: int = 0) -> dict:
 
 
 async def message_top(db, *, user_id: int, period: str, now: datetime | None = None) -> dict:
-    """Compact home board: top 5 players across all chats plus the caller's exact place."""
+    """Compact home board: top 10 players across all chats plus the caller's exact place."""
     if period not in ("week", "all_time"):
         raise ValueError("unsupported top period")
     bounds = period_bounds((now or datetime.now(timezone.utc)).astimezone(timezone.utc), period)

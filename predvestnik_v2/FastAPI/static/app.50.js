@@ -44,7 +44,7 @@ function v3Hero(kind, title, sub = '', { eyebrow = '', end = '', stat = '' } = {
   return `<header class="v3-hero">${V3_SKY || ''}${v3Emblem(kind)}<div class="v3-hero-tx">${eyebrow ? `<small class="v3-hero-eb">${eyebrow}</small>` : ''}<h1 class="v3-title">${esc(title)}</h1>${sub ? `<p class="v3-head-s">${sub}</p>` : ''}</div>${stat}${end}</header>`;
 }
 
-// Подиум тройки лидеров (Топ и «Топ-5» в профиле): 2 · 1 · 3 с медалями; строки ниже — как раньше
+// Подиум тройки лидеров (Топ и «Топ-10» в профиле): 2 · 1 · 3 с медалями; строки ниже — как раньше
 function v3Podium(rows, value) {
   const top = [rows[1], rows[0], rows[2]].filter(Boolean);
   if (top.length < 2) return '';
