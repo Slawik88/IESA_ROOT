@@ -1,3 +1,31 @@
+## PETS-UX-20261022 — complete Pets workspace redesign (release verification)
+
+Owner request: rebuild the Pets tab around when the player needs each fact/action;
+no economy or rules changes. Runtime files: app.40/41/49.js and trail-v3.css.
+
+Fresh 390px audit evidence: `output/playwright/pets-redesign-20261022/before/`.
+Hub duplicated the ready action and free slots, then buried modes below seven pets;
+pet detail put equipment after ~1700px of serial facts; send sheet put its forecast
+before all choices and repeated the entire roster on every opening.
+
+Implemented: Overview / Pets / Camp navigation; active/resumable work and instant
+mode cards; collection state filters; pet vitals, five gear slots and build together;
+progress/day norm and contextual features; two alternatives for the selected gear
+slot with replacement effects, prices and disabled reasons. Send prep keeps its
+intent and reloads /me + preview; history restores pet/filter/slot/scroll/disclosures
+and trial/track candidate. Navigation/dialog generations retire stale async intent.
+Busy pets retain their lawful feed/track/trial access; daily cap does not block finds.
+Outing stats are labelled, each new event/receipt starts at top, history folds below CTA.
+
+PASS: workspace UI executable regressions, recovery, recommendations, outing UI,
+Trail contract, pets rules/advice, ASGI delivery. Independent read-only critic ACCEPT;
+fixed nested trial selection, resume ABA/dialog races, passive rest explanation and
+semantic focus return. Fresh browser: 320/390/430px, sheet pageY0/sheetY351, Tab trap,
+Escape to pet-send, free-filter Back, real equip + fresh exp6h draft recovery, saved
+outing after reload, early return of two parts. Evidence under corresponding after/.
+TGK day note and in-app feed updated, no channel message sent.
+Remaining: final release identity/health checks after master push.
+
 ## SEASON-2-REWORK — концепция готова, ждёт решений владельца (21.10.2026)
 
 Владелец: сезоны Пропуска и мини-игр по 60 дней с одним счётчиком; сезон 1 закрыть через 3 дня;

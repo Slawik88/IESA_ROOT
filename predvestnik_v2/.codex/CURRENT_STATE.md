@@ -221,3 +221,15 @@ smokes above. Fullprojectgate40pre-existingbaselinefailures remainsseparated
 anddocumented; thiswave'stargetedgatesallpass. No furtherrequestedwork pending.
 Local Stand59754on8403 --trailnone,persona990000001,dummy123456:stand,
 PG55432 disposable shared cluster; do not stop sharedPG. Worktree retained.
+
+## 2026-10-22 — owner-requested complete Pets UI rebuild
+
+Active worktree pets-ux-audit, branch codex/pets-ux-audit; frontend only app40/41/49,
+trail CSS + feed/day patch note. Overview/collection/camp, contextual preparation,
+5-slot comparison, send draft with fresh authoritative quote, nested history and
+navigation/dialog race guards. No balance/service/schema changes. Read-only critic
+ACCEPT; focused executable UI/contract/rules/advice/static-delivery checks PASS.
+Browser actual exp6h -> gear change -> resume retained intent; Escape pet-send;
+Back free-filter; Tab trap; 320px pageY0/sheetY351; outing reload/resume/early-return2.
+Fresh proof output/playwright/pets-redesign-20261022/{before,after}/.
+Final release checks/master push remain; no Telegram channel messages sent.

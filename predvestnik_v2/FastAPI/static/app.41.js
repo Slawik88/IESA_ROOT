@@ -43,8 +43,8 @@ function _trFlyRows(host) {
   Object.entries(_TR_FIND).forEach(([key, f]) => { const g = f[2] && host.querySelector(`.tr-gain li[data-k="${key}"] .tr-g`); if (g) v3Fly(g, f[2], f[0], 4); });
 }
 // Экраны со своим состоянием (Выслеживание, Испытание) начинают с чистого листа при каждом входе с главного экрана
-_TR_ENTER.track = () => { _tr.track = { pet: 0, done: null }; };
-_TR_ENTER.trial = () => { const best = (_tr.me.pets || []).slice().sort((a, b) => (b.trial?.matches || 0) - (a.trial?.matches || 0) || b.level - a.level)[0]; _tr.trial = { pet: best ? best.id : 0 }; };
+_TR_ENTER.track = () => { _tr.track = { pet: _tr.pet || 0, done: null }; };
+_TR_ENTER.trial = () => { const best = (_tr.me.pets || []).slice().sort((a, b) => (b.trial?.matches || 0) - (a.trial?.matches || 0) || b.level - a.level)[0]; _tr.trial = { pet: _tr.pet || (best ? best.id : 0) }; };
 
 // ── Карточка питомца ─────────────────────────────────────────────────────────────────────────────────
 function _trCardState(p) {
@@ -53,7 +53,7 @@ function _trCardState(p) {
   let title = s.label, sub = what, end = '';
   if (s.k === 'free') {
     sub = p.energy >= min ? _trFem(p, 'Готов к пути', 'Готова к пути') : `Мало сил: для самого короткого занятия нужно ${min}`;
-    end = `<button type="button" class="v3-pill v3-pill--sm" onclick="trailSend(${p.id})"${p.energy < min ? ' disabled' : ''}>Отправить</button>`;
+    end = `<button type="button" class="v3-pill v3-pill--sm" data-f="pet-send" onclick="trailSend(${p.id})"${p.energy < min ? ' disabled' : ''}>Отправить</button>`;
   } else if (s.k === 'outing') {
     sub = 'Забег сохранён. Вернись к развилке или забери добычу.';
     end = '<button type="button" class="v3-pill v3-pill--sm" onclick="trailGo(\'outing\')">Продолжить</button>';
@@ -73,12 +73,6 @@ function _trCardLevel(p) {
   const wait = atCeil ? `<p class="tr-note">Для уровня ${p.level + 1} нужна ещё Связь: ${p.bond_days} из ${p.next_gate_days} дней. День засчитывается при получении награды за занятие.</p>` : '';
   const rail = `${_trMeter(p.level / max, { cls: 'tr-meter--lad', notch: p.ceiling / max, label: `Уровень ${p.level} из ${max}, потолок ступени ${p.ceiling}` })}<p class="tr-rail"><span>Потолок ступени: ${p.ceiling}\u00a0ур.</span><span>${p.next_gate_days == null ? 'Высшая ступень' : `Дальше ${nextCeil}\u00a0ур.: ещё ${_trDays(left)} Связи`}</span></p>`;
   return `<section class="tr-sec">${_trSec('Развитие')}<p class="tr-big"><b>${p.level}</b><span>из ${max}</span></p><p class="tr-note">${atMax?'Максимальный уровень достигнут.':'Уровень повышается автоматически за Следы. Забирай награды за занятия; первое кормление за сутки тоже даёт Следы.'}</p>${xp}${wait}${rail}</section>`;
-}
-function _trCardEnergy(p) {
-  const me = _tr.me, min = _trMinCost(me), lounge = (me.rules.camp?.lounge || [])[me.camp?.levels?.lounge || 0] || 0, full = p.energy >= p.energy_max - 0.5;
-  const note = full ? 'Силы полные.' : `${p.energy < min ? `Для самого короткого занятия нужно ${min} сил. ` : ''}Питомец отдыхает сам${lounge ? `, Лежанка в Лагере добавляет ${lounge}\u00a0%` : ''}. Быстрее восстановит еда.`;
-  const feed = `<button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" onclick="trailFeed(${p.id})">Покормить</button>`;
-  return `<section class="tr-sec">${_trSec('Силы', feed)}<p class="tr-big"><b>${Math.round(p.energy)}</b><span>из ${p.energy_max}</span></p>${_trMeter(p.energy / p.energy_max, { label: `Силы: ${Math.round(p.energy)} из ${p.energy_max}` })}<p class="tr-note">${note}</p></section>`;
 }
 function _trCardFacts(p) {
   const seal = _tr.me.rules.seal || {}, stars = Math.max(0, Math.min(5, Number(p.stars) || 0));
@@ -109,11 +103,28 @@ function _trCardBuild(p) {
   const grp = (title, items) => `<div class="tr-bg"><span class="v3-eyebrow">${title}</span><ul class="tr-bl">${items.join('')}</ul></div>`;
   return `<section class="tr-sec">${_trSec('Сборка', edit)}${out ? '<p class="tr-note">Пока питомец в пути, сборку менять нельзя.</p>' : ''}${grp('Призвание', [call])}${grp(`Черты · ${p.traits.length} из ${slots}`, traits)}${grp(`Талисманы · ${p.talismans.length} из ${cap}`, tals)}</section>`;
 }
+function _trPetPrep(p) {
+  const me = _tr.me, g = me.equipment, gear = p.equipment || {}, out = _trOut(p), route = _TR_ROUTE[p.favorite_route] || _TR_ROUTE.any;
+  const slots = g ? `<div class="tr-loadout" role="group" aria-label="Пять слотов экипировки">${Object.entries(g.slots).map(([slot,name])=>{
+    const item = g.catalog.find(i=>i.id===gear.equipped?.[slot]);
+    return `<button type="button" data-f="prep-${slot}" onclick="trailEquipment(${p.id},'${slot}')" aria-label="${_trE(name)}: ${item ? _trE(item.name)+' '+_TR_TIER[gear.items?.[item.id] || 1] : 'пусто'}. Открыть экипировку"><span aria-hidden="true">${item?.icon || '＋'}</span><small>${_trE(slot === 'tool' ? 'Инструм.' : name)}</small><b>${item ? _TR_TIER[gear.items?.[item.id] || 1] : '—'}</b></button>`;
+  }).join('')}</div>` : '';
+  const call = p.calling ? _TR_CALL[p.calling] : p.level >= me.rules.calling_min_level ? 'Выбери призвание' : `Призвание с ${me.rules.calling_min_level} ур.`;
+  return `<section class="tr-sec">${_trSec('Подготовка',g?`<span class="tr-count">${Object.keys(gear.equipped || {}).length}/5 надето</span>`:'')}${slots}<div class="tr-prep-build"><span><b>${_trE(call)}</b><small>Черты ${p.traits.length}/${p.trait_slots} · талисманы ${p.talismans.length}/${me.rules.talisman_slots}</small></span><button type="button" class="v3-link" data-f="build" onclick="trailBuild(${p.id})"${out?' disabled':''}>Сборка ›</button></div>${out?'<p class="tr-note">Сборку и экипировку можно менять после возвращения.</p>':''}<p class="tr-route-fit"><span aria-hidden="true">${route[0]}</span><span><b>${route[1]}</b> · любимый маршрут<br><small>+${Math.round((me.rules.affinity_bonus || .2)*100)}% Следов и выше шанс в экспедиции</small></span></p></section>`;
+}
+function _trPetGrowth(p) {
+  const max = _tr.me.rules.max_level || 30, capped = p.level >= p.ceiling && p.level < max;
+  return `<section class="tr-sec tr-growth">${_trSec('Развитие',`<span class="tr-count">Уровень ${p.level}/${max}</span>`)}${_trLevelLine(p)}<p class="tr-note">${_trTraces(_tr.me,true)} за сегодня. ${Number(_tr.me.daily?.credited)>=Number(_tr.me.daily?.max || 625)?'Норма дня выбрана; находки остаются.':''}</p>${capped?`<p class="tr-note">Рост ждёт Связи: ${p.bond_days}/${p.next_gate_days} дней. День Связи засчитывается при получении награды за занятие.</p>`:''}<details class="tr-details" data-detail="growth"><summary data-f="detail-growth">Уровни, ступени и Связь</summary>${_trCardLevel(p)}</details></section>`;
+}
 _TR_VIEWS.pet = me => {
   const p = _trPet(_tr.pet);
   if (!p) { _tr.view = 'hub'; return _TR_VIEWS.hub(me); }
-  const head = v3Head(p.name, { back: 'trailBack()', sub: `${rarLabel(p.rarity)} · ${_trTraces(me, true)}`, end: `<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>` });
-  return `${head}${_trCardState(p)}${_trCardEnergy(p)}${_trCardLevel(p)}${_trCardFacts(p)}${_trCardLoves(p)}${_trCardBuild(p)}${_trEquipmentLink(p)}`;
+  const head = v3Head(p.name,{back:'trailBack()',sub:`${rarLabel(p.rarity)} · уровень ${p.level}`,end:`<span class="tr-ic tr-ic--lg" aria-hidden="true">${_trE(p.icon)}</span>`});
+  const lounge = me.rules.camp?.lounge?.[me.camp?.levels?.lounge || 0] || 0;
+  const rest = p.energy >= p.energy_max-.5 ? 'Силы полные.' : `Силы восстанавливаются сами${lounge ? ` · Лежанка +${lounge}% к отдыху` : ''}. Еда ускорит подготовку.`;
+  const energy = `<section class="tr-vitals"><div class="tr-vitals-top"><span><b>${Math.round(p.energy)}<small>/${p.energy_max}</small></b> сил</span><button type="button" class="v3-pill v3-pill--sm v3-pill--ghost" data-f="feed" onclick="trailFeed(${p.id})">Покормить</button></div>${_trMeter(p.energy/p.energy_max,{label:`Силы ${Math.round(p.energy)} из ${p.energy_max}`})}<p class="tr-note">Выдержка ${Math.round(p.resilience)} · Связь ${_trDays(p.bond_days)} · ${p.stars}★ вида</p><p class="tr-note">${rest}</p></section>`;
+  const modes = `<section class="tr-sec">${_trSec('С этим питомцем')}<div class="tr-context-actions">${me.equipment?`<button type="button" data-f="pet-outing" onclick="trailGo('outing',${p.id})"><b>Вылазка ›</b><small>${p.outing?'Продолжить забег':_trOut(p)?'Можно после возвращения':`${me.equipment.energy} сил · детали для вещей`}</small></button>`:''}<button type="button" data-f="pet-track" onclick="trailGo('track',${p.id})"><b>Выслеживание ›</b><small>${p.track_points} очков внимания</small></button><button type="button" data-f="pet-trial" onclick="trailGo('trial',${p.id})"><b>Испытание ›</b><small>${p.trial?.matches || 0}/3 тегов недели</small></button></div></section>`;
+  return `${head}${_trCardState(p)}${energy}${_trPetPrep(p)}${_trPetGrowth(p)}${modes}<details class="tr-details" data-detail="pet-facts"><summary data-f="detail-pet-facts">Особенности вида и любимая еда</summary>${_trCardLoves(p)}${_trCardFacts(p)}</details><details class="tr-details" data-detail="build-facts"><summary data-f="detail-build-facts">Все эффекты сборки и талисманов</summary>${_trCardBuild(p)}</details>`;
 };
 
 // ── Сборка: призвание, черты, талисманы; цена видна до сохранения ───────────────────────────────────────
@@ -301,7 +312,7 @@ _TR_VIEWS.camp = me => {
   const camp = me.camp || { levels: {}, job: null }, job = camp.job && !camp.job.done ? camp.job : null;
   const rows = ['lounge', 'markers', 'workshop'].map(b => _trBldRow(b, me, job)).join('');
   const busy = job ? `<div class="tr-state is-busy" id="tr-job" role="status"><div class="tr-state-t"><b>Идёт стройка</b><small>${_trE(_TR_BLD[job.building] || job.building)}, уровень ${job.to_level}. Другую можно начать после неё.</small></div><div class="tr-end"><span class="tr-left"><small>осталось</small><b data-end="${_trTime(job.ends_at)}" data-id="camp-${_trTime(job.ends_at)}">${_trDur(_trTime(job.ends_at) - _trNow())}</b></span></div></div>` : '';
-  return `${_trSubHead('Лагерь')}${busy}<section class="tr-sec">${_trSec('Постройки')}<p class="tr-note">Каждую можно улучшить до 5 уровня. Стройка идёт сама, пока вас нет: одна за раз.</p><ul class="tr-list tr-blds">${rows}</ul></section>
+  return `${_trHead()}${_trTabs()}<p class="tr-note">Постройки усиливают всех питомцев. Перековка улучшает два маршрутных талисмана; пять предметов экипировки настраиваются в карточке питомца.</p>${busy}<section class="tr-sec">${_trSec('Постройки')}<p class="tr-note">Каждую можно улучшить до 5 уровня. Стройка идёт сама, пока вас нет: одна за раз.</p><ul class="tr-list tr-blds">${rows}</ul></section>
     <section class="tr-sec">${_trSec('Перековка талисманов', `<span class="tr-count">${(me.talismans || []).length}</span>`)}<p class="tr-note">Перековка поднимает тир талисмана за Эссенцию. Высший тир открывает Мастерская.</p>${_trReforgeRows(me)}</section>`;
 };
 function trailUpgrade(building) {
@@ -432,7 +443,7 @@ _TR_VIEWS.trial = me => {
   const why = !p ? 'Питомцев пока нет.' : n < 1 ? 'Сборка этого питомца не закрывает ни одного тега.' : '';
   const cta = n ? `Сдать на ${n} из 3` : 'Сдать испытание';
   return `${head}<section class="tr-sec">${_trSec('Теги недели')}<ul class="tr-list tr-tagl">${rows}</ul>${reward}</section>
-    <section class="tr-sec">${_trSec('Питомец для испытания')}<p class="tr-note">Проверка мгновенная: питомец остаётся с вами, силы сохраняются.</p><ul class="tr-list" role="radiogroup" aria-label="Питомец для испытания">${_trTrialPets(me, tags)}</ul>${need}${why ? `<p class="tr-note tr-why">${why}</p>` : ''}
+    <section class="tr-sec">${_trSec('Питомец для испытания')}<p class="tr-note">Проверка мгновенная: питомец остаётся с вами, силы сохраняются.</p><ul class="tr-list" role="radiogroup" aria-label="Питомец для испытания">${_trTrialPets(me, tags)}</ul>${need}${p ? `<button type="button" class="v3-link" data-f="trial-prep" onclick="trailPet(${p.id})">Подготовить ${_trE(p.name)} ›</button>` : ''}${why ? `<p class="tr-note tr-why">${why}</p>` : ''}
     <button type="button" class="v3-pill v3-pill--full tr-cta" onclick="trailTrialGo(this)"${why ? ' disabled' : ''}>${cta}${n ? ` · Эссенция ${ess[n]}` : ''}</button></section>`;
 };
 function trailTrialPick(id) { _haptic('select'); _tr.trial.pet = Number(id); _trRender(); document.querySelector(`#pg-pets [data-f="trial-${id}"]`)?.focus({ preventScroll: true }); }

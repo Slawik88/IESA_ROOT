@@ -39,9 +39,10 @@ window.openPetsV1 = function () {
   return openTrail();
 };
 function openTrail() {
+  _tr.nav = (_tr.nav || 0) + 1;
   switchPage('pets');
   const root = el('pg-pets'); if (!root) return Promise.resolve();
-  _tr.view = 'hub'; _tr.send = null; _tr.pick = null;
+  _tr.view = 'hub'; _tr.tab = 'overview'; _tr.history = []; _tr.send = null; _tr.sendDraft = null; _tr.pick = null;
   if (_tr.me) _trRender();
   else { root.innerHTML = '<div class="sk" style="height:110px;border-radius:18px;margin-top:8px"></div><div class="sk" style="height:150px;border-radius:18px;margin-top:22px"></div><div class="sk" style="height:220px;border-radius:18px;margin-top:22px"></div>'; v3EnterSync(root); }
   return _trLoad().then(ok => { if (ok) _trRender(); });
@@ -79,20 +80,32 @@ async function trailRecover() {
 }
 function _trRender() {
   const root = el('pg-pets'); if (!root || _activePage !== 'pets' || !_tr.me) return;
+  const same = root.dataset.trView === `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
+  const opened = same ? [...root.querySelectorAll('details[data-detail][open]')].map(n => n.dataset.detail) : [];
+  const focus = same && root.contains(document.activeElement) ? document.activeElement?.dataset?.f : null;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
   root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}`;
+  root.dataset.trView = `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
+  opened.forEach(key => root.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open', ''));
   v3EnterSync(root);
+  if (_tr.sendDraft && _tr.view === 'pet' && _tr.sendDraft.pet === _tr.pet) root.insertAdjacentHTML('beforeend', '<div class="tr-draft"><span>Маршрут сохранён</span><button type="button" class="v3-pill" data-f="resume-send" onclick="trailResumeSend(this)">К отправке ›</button></div>');
+  if (focus) root.querySelector(`[data-f="${focus}"]`)?.focus({preventScroll:true});
 }
 
 // Подэкраны (карточка питомца, Лагерь…) лежат внутри той же страницы: «‹ Тропа» возвращает на главный и на то место, где игрок был
-function trailGo(view, id) {
+function trailGo(view, id, gearSlot) {
+  _tr.nav = (_tr.nav || 0) + 1;
   if (typeof _syncOverlayScroll === 'function') _syncOverlayScroll();
   _haptic('select');
   if (_tr.view === 'hub') _tr.scroll = window.scrollY;
+  (_tr.history ||= []).push({view:_tr.view, pet:_tr.pet, tab:_tr.tab, filter:_tr.filter, gearSlot:_tr.gearSlot, trialPet:_tr.trial?.pet, trackPet:_tr.track?.pet, scroll:window.scrollY, focus:document.activeElement?.dataset?.f, opened:[...el('pg-pets').querySelectorAll('details[data-detail][open]')].map(n=>n.dataset.detail)});
   _tr.view = view; _tr.pet = Number(id) || 0;
+  if (view === 'equipment') _tr.gearSlot = gearSlot || null;
   if (_tr.me && _TR_ENTER[view]) _TR_ENTER[view]();
   _trRender(); try { window.scrollTo(0, 0); } catch (_) { /* прокрутка недоступна */ }
+  _trFocusHead();
 }
+function _trFocusHead() { const h = el('pg-pets')?.querySelector('h1'); if (h) { h.tabIndex = -1; h.focus({preventScroll:true}); } }
 function trailPet(id) { trailGo('pet', id); }
 // Системная кнопка «Назад» (app.01.js, navBack) сначала закрывает окно или подэкран Тропы и только потом уводит со страницы
 _backHooks.push(() => {
@@ -104,11 +117,18 @@ _backHooks.push(() => {
   return false;
 });
 function trailBack() {
+  _tr.nav = (_tr.nav || 0) + 1;
   if (typeof _syncOverlayScroll === 'function') _syncOverlayScroll();
   _haptic('select');
-  const up = ['build','feed','equipment'].includes(_tr.view) ? 'pet' : 'hub';
-  _tr.view = up; _trRender();
-  try { window.scrollTo(0, up === 'hub' ? _tr.scroll : 0); } catch (_) { /* прокрутка недоступна */ }
+  const frame = (_tr.history || []).pop() || {view:'hub', pet:0, tab:'overview', scroll:_tr.scroll};
+  Object.assign(_tr, {view:frame.view, pet:frame.pet, tab:frame.tab, filter:frame.filter, gearSlot:frame.gearSlot});
+  if (frame.view === 'trial' && _tr.trial) _tr.trial.pet = frame.trialPet || 0;
+  if (frame.view === 'track' && _tr.track) _tr.track.pet = frame.trackPet || 0;
+  _trRender();
+  (frame.opened || []).forEach(key=>el('pg-pets')?.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open',''));
+  try { window.scrollTo(0, frame.scroll || 0); } catch (_) { /* прокрутка недоступна */ }
+  const focus = frame.focus && el('pg-pets')?.querySelector(`[data-f="${frame.focus}"]`);
+  if (focus) focus.focus({preventScroll:true}); else _trFocusHead();
 }
 
 // ── Состояние питомца: у ведущего своё занятие, у Спутника занятие ведущего (run_id у обоих) ──────────
@@ -149,17 +169,12 @@ function _trSlot(act) {
     : `<span class="tr-left"><small>осталось</small><b data-end="${_trTime(act.ends_at)}" data-id="${_trE(act.id)}">${_trDur(_trLeft(act))}</b></span>`;
   return `<li class="tr-row tr-slot is-${act.ready ? 'ready' : 'busy'}"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span class="tr-nm"><b>${_trE(pet.name)}</b><small>${_trE(what)}</small>${mate ? `<small>Спутник: ${_trE(mate.name)}</small>` : ''}</span><span class="tr-end">${end}</span></li>`;
 }
-function _trFreeSlot(me, sendable) {
-  const hint = sendable ? `${sendable} ${_trWord(sendable, 'питомец готов', 'питомца готовы', 'питомцев готовы')} к пути` : 'Свободных питомцев с силами нет';
-  return `<li class="tr-row tr-slot is-free"><span class="tr-ic tr-ic--empty" aria-hidden="true"></span><span class="tr-nm"><b>Свободный слот</b><small>${hint}</small></span><span class="tr-end">${sendable ? '<button type="button" class="v3-link tr-go" onclick="trailSend()">Отправить ›</button>' : ''}</span></li>`;
-}
 function _trMinCost(me) { return Math.min(...Object.values(me.rules.energy.run), ...Object.values(me.rules.energy.watch)); }
 function _trSlots(me) {
-  const acts = me.activities || [], slots = Number(me.slots) || 3, min = _trMinCost(me);
-  const sendable = (me.pets || []).filter(p => !p.run_id && !p.outing && p.energy >= min).length;
-  const free = Math.max(0, slots - acts.length);
-  const rows = acts.map(_trSlot).join('') + Array.from({ length: free }, () => _trFreeSlot(me, sendable)).join('');
-  return `<section class="tr-sec" id="tr-slots">${_trSec('Занятия')}<ul class="tr-list" aria-label="Занятия">${rows}</ul></section>`;
+  const acts = me.activities || [], slots = Number(me.slots) || 3;
+  const free = Math.max(0, slots - acts.length), min = _trMinCost(me);
+  const sendable = me.pets.some(p => !p.run_id && !p.outing && p.energy >= min);
+  return `<section class="tr-sec" id="tr-slots">${_trSec('В пути и возвращения', `<span class="tr-count">${acts.length}/${slots} слотов</span>`)}${acts.length ? `<ul class="tr-list" aria-label="Занятия">${acts.slice().sort((a,b)=>Number(b.ready)-Number(a.ready)).map(_trSlot).join('')}</ul>` : '<p class="tr-note">Пока никто не в пути. Отправь питомца за Следами и находками.</p>'}<div class="tr-launch"><span class="tr-note">${free ? `Свободно слотов: ${free}` : 'Все слоты заняты. Дождись возвращения и забери награду.'}</span><button type="button" class="v3-pill" data-f="send" onclick="trailSend()"${free && sendable ? '' : ' disabled'}>Отправить в путь</button></div>${free && !sendable ? '<p class="tr-note">Нет свободного питомца с нужными силами. Покорми питомца или забери награду за его занятие.</p>' : ''}</section>`;
 }
 function _trLevelLine(p) {
   if (p.level >= (_tr.me.rules.max_level || 30)) return '<small class="tr-sub">Высший уровень</small>';
@@ -169,29 +184,62 @@ function _trLevelLine(p) {
 function _trPetRow(p) {
   const s = _trState(p), min = _trMinCost(_tr.me), low = p.energy < min;
   const say = `${p.name}, уровень ${p.level}, ${s.label.toLowerCase()}, силы ${Math.round(p.energy)} из ${p.energy_max}`;
-  return `<li><button type="button" class="tr-row tr-pet is-${s.k}${low ? ' is-low' : ''}" onclick="trailPet(${p.id})" aria-label="${_trE(say)}"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span class="tr-nm"><b>${_trE(p.name)}</b><small>Ур.\u00a0${p.level} · <em class="tr-s">${s.label}</em></small>${_trLevelLine(p)}</span><span class="tr-en" aria-hidden="true"><b>${Math.round(p.energy)}</b><small>/${p.energy_max}</small>${_trMeter(p.energy / p.energy_max, { cls: 'tr-meter--sm' })}${low ? '<em>мало сил</em>' : ''}</span></button></li>`;
+  return `<li><button type="button" class="tr-row tr-pet is-${s.k}${low ? ' is-low' : ''}" data-f="pet-${p.id}" onclick="trailPet(${p.id})" aria-label="${_trE(say)}"><span class="tr-ic" aria-hidden="true">${_trE(p.icon)}</span><span class="tr-nm"><b>${_trE(p.name)}</b><small>Ур.\u00a0${p.level} · <em class="tr-s">${s.label}</em></small>${_trLevelLine(p)}<small>Экипировка ${Object.keys(p.equipment?.equipped || {}).length}/5 · ${_TR_ROUTE[p.favorite_route]?.[1] || "Любой маршрут"}</small></span><span class="tr-en" aria-hidden="true"><b>${Math.round(p.energy)}</b><small>/${p.energy_max}</small>${_trMeter(p.energy / p.energy_max, { cls: 'tr-meter--sm' })}${low ? '<em>мало сил</em>' : ''}</span></button></li>`;
 }
-function _trPets(me) {
-  const rank = { ready: 0, free: 1, busy: 2, outing: 2 }, pets = (me.pets || []).slice().sort((a, b) => rank[_trState(a).k] - rank[_trState(b).k] || b.level - a.level || a.id - b.id);
-  // Без счётчиков над списком: состояние каждого питомца написано в его строке, вернувшиеся стоят первыми
-  return `<section class="tr-sec" id="tr-pets">${_trSec('Все питомцы')}<ul class="tr-list">${pets.map(_trPetRow).join('')}</ul></section>`;
+function _trPetMatches(p, filter) {
+  const state = _trState(p).k;
+  if (filter === 'free') return state === 'free';
+  if (filter === 'ready') return state === 'ready';
+  if (filter === 'busy') return state === 'busy' || state === 'outing';
+  return true;
+}
+function trailCollectionFilter(filter) {
+  _tr.filter = ['all','free','ready','busy'].includes(filter) ? filter : 'all';
+  _trRender(); el('pg-pets')?.querySelector(`[data-f="filter-${_tr.filter}"]`)?.focus({preventScroll:true});
+}
+function _trPets(me, preview = false) {
+  const rank = { ready: 0, free: 1, busy: 2, outing: 2 }, all = (me.pets || []).slice().sort((a,b)=>rank[_trState(a).k]-rank[_trState(b).k] || b.level-a.level || a.id-b.id);
+  const filter = _tr.filter || 'all', filtered = all.filter(p=>_trPetMatches(p,filter));
+  const filters = preview ? '' : `<div class="tr-filters" role="group" aria-label="Состояние питомцев">${[['all','Все'],['free','В лагере'],['ready','Вернулись'],['busy','В пути']].map(([key,label])=>`<button type="button" data-f="filter-${key}" aria-pressed="${filter===key}" onclick="trailCollectionFilter('${key}')">${label} <small>${all.filter(p=>_trPetMatches(p,key)).length}</small></button>`).join('')}</div>`;
+  const pets = preview ? all.slice(0,2) : filtered;
+  return `<section class="tr-sec" id="tr-pets">${_trSec(preview ? 'Мои питомцы' : `Коллекция · ${all.length}`, preview ? `<button type="button" class="v3-link" data-f="all-pets" onclick="trailTab('collection')">Все питомцы ›</button>` : '')}${filters}${pets.length ? `<ul class="tr-list">${pets.map(_trPetRow).join('')}</ul>` : '<p class="tr-note" role="status">В этой группе пока нет питомцев. Выбери другой фильтр.</p>'}</section>`;
 }
 function _trEmpty() {
   return `<section class="tr-sec"><div class="v3-empty tr-empty"><b>Питомцев пока нет, их можно получить в сундуках.</b>${_sysFlags.content_chests_v1 === true ? '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>' : ''}</div></section>`;
 }
 function _trTags(t) { return [(_TR_ROUTE[t.route] || [])[1], `${t.tempo}\u00a0ч`, t.style === 'careful' ? 'осторожный путь' : 'рискованный путь'].filter(Boolean).join(' · '); }
-function _trMore(me) {
-  const camp = me.camp || {}, lv = camp.levels || {}, job = camp.job, pets = (me.pets || []).length, trial = me.trial || {}, track = me.track || {};
-  const campHint = job ? (job.done ? 'Стройка завершена' : `Идёт стройка · осталось <span data-end="${_trTime(job.ends_at)}" data-id="camp-${_trTime(job.ends_at)}">${_trDur(_trTime(job.ends_at) - _trNow())}</span>`)
-    : `Лежанка ${lv.lounge || 0} · Указатели ${lv.markers || 0} · Мастерская ${lv.workshop || 0}`;
-  const trackHint = track.open ? 'Игра не закончена, можно продолжить' : track.attempts_left ? `Попыток сегодня: ${track.attempts_left} из ${me.rules.track.daily}` : 'Попытки на сегодня закончились';
-  const trialHint = trial.done ? 'На этой неделе сдано' : trial.tags ? _trE(_trTags(trial.tags)) : '';
-  const rows = [_v3Row('tent', 'Лагерь', "trailGo('camp')", campHint)];
-  if (pets && me.equipment) rows.push(_v3Row('scope', 'Вылазка', "trailGo('outing')", me.equipment.open ? 'Продолжить забег · можно вернуться с добычей' : `Семь решений · попыток ${me.equipment.attempts_left} · деталей ${me.equipment.parts}`));
-  if (pets) rows.push(_v3Row('scope', 'Выслеживание', "trailGo('track')", trackHint), _v3Row('trophy', 'Испытание недели', "trailGo('trial')", trialHint));
-  return `<section class="tr-sec tr-more">${_trSec('Ещё')}${rows.join('')}</section>`;
+function _trTabs() {
+  const current = _tr.view === 'camp' ? 'camp' : (_tr.tab || 'overview');
+  return `<nav class="tr-nav" aria-label="Разделы питомцев">${[['overview','Обзор'],['collection','Питомцы'],['camp','Лагерь']].map(([key,label])=>`<button type="button" data-f="tab-${key}"${current===key?' aria-current="page"':''} onclick="trailTab('${key}')">${label}</button>`).join('')}</nav>`;
 }
-_TR_VIEWS.hub = me => `${_trHead()}${_trTraces(me)}${trailAdvice(me)}${(me.pets || []).length ? `${_trSlots(me)}${_trPets(me)}` : _trEmpty()}${_trMore(me)}`;
+function trailTab(tab) {
+  if (!['overview','collection','camp'].includes(tab)) return;
+  _tr.nav = (_tr.nav || 0) + 1;
+  _tr.tab = tab; _tr.view = tab === 'camp' ? 'camp' : 'hub'; _tr.pet = 0; _tr.history = [];
+  _trRender(); window.scrollTo(0,0); el('pg-pets')?.querySelector(`[data-f="tab-${tab}"]`)?.focus({preventScroll:true});
+}
+function _trModeCard(icon,title,tag,description,action,key) {
+  return `<button type="button" class="tr-mode" data-f="mode-${key}" onclick="${action}"><span class="tr-mode-icon" aria-hidden="true">${_v3Icon(icon)}</span><span class="tr-mode-tag">${tag}</span><b>${title}</b><span>${description}</span><small>Открыть <i aria-hidden="true">↗</i></small></button>`;
+}
+function _trModes(me) {
+  const g = me.equipment, track = me.track || {}, trial = me.trial || {}, r = me.rules;
+  const cards = [];
+  if (g) cards.push(_trModeCard('bag','Вылазка',g.open?'Продолжить':`${g.attempts_left}/${g.daily} попыток`,`${g.open?'Забег сохранён.':'7 решений без ожидания.'} Детали для экипировки${g.open?'':` · вход ${g.energy} сил`}.`,"trailGo('outing')",'outing'));
+  cards.push(_trModeCard('scope','Выслеживание',track.open?'Продолжить':`${track.attempts_left || 0}/${r.track.daily} попыток`,'Находка на поле 3×3. Больше внимания — больше открытий.',"trailGo('track')",'track'));
+  cards.push(_trModeCard('trophy','Испытание недели',trial.done?'Сдано':'Раз в неделю',trial.done?'Новое испытание в понедельник.':`${trial.xp || 0} Следов и Эссенция за подходящую сборку. Силы не тратятся.`,"trailGo('trial')",'trial'));
+  return `<section class="tr-sec">${_trSec('Сыграть сейчас')}<div class="tr-modes">${cards.join('')}</div></section>`;
+}
+function _trResume(me) {
+  const rows = [];
+  if (me.equipment?.open) rows.push(_v3Row('bag','Вылазка ждёт решения',"trailGo('outing')",`Развилка ${me.equipment.open.step+1} из ${me.equipment.open.steps} · добыча ${me.equipment.open.cargo} дет.`));
+  if (me.track?.open) rows.push(_v3Row('scope','Продолжить выслеживание',"trailGo('track')",`Внимание: ${me.track.open.points}. Поле сохранено.`));
+  return rows.length ? `<section class="tr-resume" aria-label="Продолжить игру">${rows.join('')}</section>` : '';
+}
+_TR_VIEWS.hub = me => {
+  const pets = (me.pets || []).length, collection = _tr.tab === 'collection';
+  const daily = `<details class="tr-daily" data-detail="daily"><summary data-f="detail-daily"><span>Следы сегодня</span><b>${_trTraces(me,true).replace('Следы: ','')}</b></summary>${_trTraces(me)}</details>`;
+  return `${_trHead()}${_trTabs()}${daily}${collection ? (pets ? _trPets(me) : _trEmpty()) : `${_trResume(me)}${pets ? `${_trSlots(me)}${_trModes(me)}${_trPets(me,true)}` : _trEmpty()}${me.camp?.job?.done ? `<button class="tr-camp-notice" type="button" onclick="trailTab('camp')">Постройка в лагере готова · посмотреть ›</button>` : ''}`}`;
+};
 
 // Секундомер: правит только текст таймеров (разметку не пересобирает). Время вышло, а сервер ещё не отметил занятие готовым: просим свежий ответ, не чаще раза в 4 секунды
 setInterval(() => {
@@ -215,6 +263,7 @@ function trailClose(now) {
 }
 const _trSheetHtml = (title, body, foot) => `<div class="tr-sbody"><div class="tr-shead"><h2 id="tr-sheet-t">${title}</h2><button type="button" class="v3-link" onclick="trailClose()">Закрыть</button></div>${body}</div>${foot ? `<div class="tr-foot">${foot}</div>` : ''}`;
 function _trSheet(html) {
+  _tr.dialog = (_tr.dialog || 0) + 1;
   const keep = document.getElementById('tr-sheet') ? _tr.opener : document.activeElement;
   trailClose(true); _tr.opener = keep;
   const host = document.createElement('div'); host.id = 'tr-sheet'; host.className = 'lk-sheet-back';
@@ -235,7 +284,9 @@ function _trSheet(html) {
 function _trRepaint(html) {
   const sheet = document.querySelector('#tr-sheet .tr-sheet'); if (!sheet) return _trSheet(html);
   const body = sheet.querySelector('.tr-sbody'), top = body ? body.scrollTop : 0, key = document.activeElement?.dataset?.f;
+  const opened = [...sheet.querySelectorAll('details[data-detail][open]')].map(n=>n.dataset.detail);
   sheet.innerHTML = html;
+  opened.forEach(key=>sheet.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open',''));
   const next = sheet.querySelector('.tr-sbody'); if (next) next.scrollTop = top;
   (key && sheet.querySelector(`[data-f="${key}"]`) || sheet).focus({ preventScroll: true });
 }
@@ -253,6 +304,7 @@ function _trPost(path, body, ...parts) {
 }
 async function _trRun(button, job) {
   if (_tr.busy) return;
+  const focus = button?.dataset?.f, navigation = _tr.nav || 0;
   _tr.busy = true; if (button) button.disabled = true;
   try {
     if (_tr.needsRefresh) {
@@ -260,7 +312,13 @@ async function _trRun(button, job) {
       await trailRecover(); return;
     }
     return await job();
-  } finally { _tr.busy = false; if (button && button.isConnected) button.disabled = false; }
+  } finally {
+    _tr.busy = false; if (button && button.isConnected) button.disabled = false;
+    // Disabling a focused writer moves focus to body; reconnect it after the authoritative refresh.
+    if (focus && navigation === (_tr.nav || 0) && _activePage === 'pets' && document.activeElement === document.body && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
+      el('pg-pets')?.querySelector(`[data-f="${focus}"]:not(:disabled)`)?.focus({preventScroll:true});
+    }
+  }
 }
 // Отказ правил (HTTP 409) показывается дословно: внутри окна строкой над кнопкой, на экране тостом. Состояние могло устареть, поэтому тихо обновляем данные
 function _trFail(error) {
@@ -324,6 +382,7 @@ function _trBestMate(list, lead) {
   return list.slice().sort((a, b) => (b.find_bias !== own) - (a.find_bias !== own) || b.energy - a.energy || a.id - b.id)[0] || null;
 }
 function trailSend(petId) {
+  _tr.sendDraft = null;
   const me = _tr.me; if (!me) return;
   const free = (me.pets || []).filter(p => !p.run_id && !p.outing), first = (me.durations.run || [3])[0];
   const plan = petId ? null : (me.advice && me.advice.best ? me.advice.best.trek : null) || null;   // связка сервера: питомец, часы, маршрут
@@ -367,13 +426,14 @@ function _trForecastSchedule() {
       const node = el('tr-send-forecast');
       if (seq !== _trForecastSeq || _tr.send !== s || !node) return;
       const range = (low, high) => low === high ? fmt(low) : `${fmt(low)}–${fmt(high)}`;
+      const quote = el('tr-send-quote'); if (quote) quote.textContent = `Прогноз: ${range(q.min.credited,q.max.credited)} Следов`;
       const f = q.factors, paths = Object.entries(q.paths || {}).map(([path, row]) =>
         `<div><dt>${_TR_PATH[path]}</dt><dd>${range(row.min.credited, row.max.credited)}</dd></div>`).join('');
       node.innerHTML = `<details class="tr-forecast"><summary><span>Прогноз для питомца</span><b>${range(q.min.credited,q.max.credited)} Следов</b></summary><dl class="cf-rows"><div><dt>До дневной нормы</dt><dd>${range(q.min.raw,q.max.raw)}</dd></div>${body.companion_id ? `<div><dt>Спутнику</dt><dd>${range(q.min.companion,q.max.companion)}</dd></div>` : ''}${paths}</dl><p class="tr-note">Сборка ×${_trMult(f.build)}${f.favorite ? ' · любимый маршрут' : ''}${f.stars ? ` · звёзд привязанности: ${f.stars}` : ''}${f.repeats ? ` · повторов сегодня: ${f.repeats}, множитель ×${_trMult(f.repeat_multiplier)}` : ''}</p><p class="tr-note">${_trE(q.notice)}</p>${q.reasons.length ? `<p class="tr-note">${q.reasons.map(_trE).join(' ')}</p>` : ''}</details><p class="tr-note">Без случайных находок. Норма и сборка при возвращении могут измениться.</p>`;
 
     } catch (_) {
       const node = el('tr-send-forecast');
-      if (seq === _trForecastSeq && _tr.send === s && node) node.innerHTML = '<p class="tr-note">Прогноз недоступен. Награда будет рассчитана сервером при возвращении.</p><button type="button" class="v3-link" onclick="_trForecastSchedule()">Повторить расчёт</button>';
+      if (seq === _trForecastSeq && _tr.send === s && node) { const quote = el('tr-send-quote'); if (quote) quote.textContent = 'Прогноз временно недоступен'; node.innerHTML = '<p class="tr-note">Прогноз недоступен. Награда будет рассчитана сервером при возвращении.</p><button type="button" class="v3-link" onclick="_trForecastSchedule()">Повторить расчёт</button>'; }
     }
   }, 220);
 }
@@ -396,28 +456,53 @@ function _trSendHtml() {
   if (!watch) {
     const need = me.pair?.need || 5;
     pair = me.pair?.unlocked
-      ? `<div class="tr-grp"><span class="v3-eyebrow">Спутник</span><div class="tr-chips" role="radiogroup" aria-label="Спутник">${radio(!s.comp, 'comp-0', "trailSendSet('comp',0)", '<b>Без спутника</b>')}${mateChips}</div><p class="tr-note">Спутник тратит ${pairCost} сил и получает ${Math.round((rules.pair_share || .3) * 100)}\u00a0% Следов.</p></div>`
+      ? `<details class="tr-grp tr-details" data-detail="send-comp"><summary data-f="detail-send-comp">Спутник · ${mate ? _trE(mate.name) : 'без спутника'}</summary><div class="tr-chips" role="radiogroup" aria-label="Спутник">${radio(!s.comp, 'comp-0', "trailSendSet('comp',0)", '<b>Без спутника</b>')}${mateChips}</div><p class="tr-note">Спутник тратит ${pairCost} сил и получает ${Math.round((rules.pair_share || .3) * 100)}\u00a0% Следов.</p></details>`
       : `<p class="tr-note tr-hint">Спутник открывается при ${need} разных видах питомцев, сейчас их ${me.pair?.species || 0}.</p>`;
   }
-  const base = watch ? rules.xp.watch[s.hours] : rules.xp.run[s.hours], mods = [];
-  if (s.kind === 'expedition') mods.push(`экспедиция ×${_trMult(rules.xp.expedition)}`);
-  if (!watch && fav(s.route)) mods.push(`любимый маршрут +${Math.round((rules.affinity_bonus || .2) * 100)}\u00a0%`);
   const enough = pet && pet.energy >= cost, why = !pet ? 'Выберите питомца.' : !slotsLeft ? 'Все слоты заняты.' : !enough ? `Не хватает сил: нужно ${cost}, у питомца ${Math.floor(pet.energy)}.` : mate && mate.energy < pairCost ? `Спутнику нужно ${pairCost} сил.` : '';
-  const summary = pet ? `<dl class="cf-rows tr-sum"><div><dt>Силы</dt><dd>${Math.round(pet.energy)} → ${Math.max(0, Math.round(pet.energy - cost))} из ${pet.energy_max}</dd></div>${mate ? `<div><dt>Силы спутника</dt><dd>${Math.round(mate.energy)} → ${Math.round(mate.energy - pairCost)}</dd></div>` : ''}<div><dt>Базовые Следы${mods.length ? `<small>${mods.join(' · ')}</small>` : ''}</dt><dd>${fmt(base)}</dd></div></dl>` : '';
-  const body = `<section id="tr-send-forecast" aria-live="polite" aria-label="Прогноз Следов"><p class="tr-note">Считаем прогноз…</p></section><div class="tr-grp"><span class="v3-eyebrow">Кто идёт</span>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>${whyRow}` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</div>
-    <div class="tr-grp"><span class="v3-eyebrow">Что делать</span><div class="tr-seg" role="radiogroup" aria-label="Что делать">${kinds}</div><p class="tr-note">${note}</p></div>
-    <div class="tr-grp"><span class="v3-eyebrow">Сколько</span><div class="tr-chips tr-chips--3" role="radiogroup" aria-label="Сколько часов">${hours}</div></div>
-    ${watch ? '' : `<div class="tr-grp"><span class="v3-eyebrow">Куда</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Маршрут">${routes}</div></div>`}${pair}${summary}`;
-  const selected = pet ? `<p class="tr-note tr-selected"><b>${_trE(pet.name)} · ${s.hours} ч</b><br>${_TR_KIND[s.kind]}${watch ? '' : ` · ${_TR_ROUTE[s.route][1]}`} · ${cost} сил${mate ? ` · спутник ${_trE(mate.name)}: ${pairCost} сил` : ''}</p>` : '';
-  const foot = `${selected}${why ? `<p class="tr-note tr-why" role="status">${_trE(why)}</p>` : ''}<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailSendGo(this)"${why ? ' disabled' : ''}>Отправить в путь</button>`;
+  const who = pet ? `<div class="tr-send-pet"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span><b>${_trE(pet.name)}</b><small>Ур. ${pet.level} · ${Math.round(pet.energy)}/${pet.energy_max} сил · экипировка ${Object.keys(pet.equipment?.equipped || {}).length}/5</small></span><button type="button" class="v3-link" data-f="send-prep" onclick="trailPrepareSend()">Подготовить ›</button></div>` : '';
+  const body = `${who}<details class="tr-details" data-detail="send-pet"${pet?'':' open'}><summary data-f="detail-send-pet">Сменить питомца · доступно ${free.length}</summary>${free.length ? `<div class="tr-chips" role="radiogroup" aria-label="Кто идёт">${pets}</div>${whyRow}` : '<p class="tr-note">Свободных питомцев нет: все в пути или ждут награды.</p>'}</details>
+    <div class="tr-grp"><span class="v3-eyebrow">Занятие</span><div class="tr-seg" role="radiogroup" aria-label="Что делать">${kinds}</div><p class="tr-note">${note}</p></div>
+    <div class="tr-grp"><span class="v3-eyebrow">Время и стоимость</span><div class="tr-chips tr-chips--3" role="radiogroup" aria-label="Сколько часов">${hours}</div></div>
+    ${watch ? '' : `<div class="tr-grp"><span class="v3-eyebrow">Маршрут</span><div class="tr-chips tr-chips--2" role="radiogroup" aria-label="Маршрут">${routes}</div></div>`}${pair}<section id="tr-send-forecast" class="tr-grp" aria-live="polite" aria-label="Прогноз Следов"><p class="tr-note">Считаем прогноз с учётом сборки и дневной нормы…</p></section>`;
+  const selected = pet ? `<p class="tr-selected"><b>${_trE(pet.name)} · ${_TR_KIND[s.kind]} ${s.hours} ч</b><span>${watch ? '' : _TR_ROUTE[s.route][1]+' · '}силы ${Math.round(pet.energy)} → ${Math.max(0,Math.round(pet.energy-cost))}${mate ? ` · спутник −${pairCost}` : ''}</span></p>` : '';
+  const foot = `${selected}<p class="tr-quote" id="tr-send-quote" role="status">Прогноз рассчитывается…</p>${why ? `<p class="tr-note tr-why" role="status">${_trE(why)}</p>` : ''}<p class="tr-err" role="alert" hidden></p><button type="button" class="v3-pill v3-pill--full" onclick="trailSendGo(this)"${why ? ' disabled' : ''}>Отправить в путь</button>`;
   return _trSheetHtml('Отправить в путь', body, foot);
+}
+function trailPrepareSend() {
+  const s = _tr.send; if (!s?.pet) return;
+  _tr.sendDraft = {...s}; ++_trForecastSeq; clearTimeout(_trForecastTimer);
+  trailClose(true);
+  if (_tr.view === 'pet' && _tr.pet === s.pet) _trRender(); else trailPet(s.pet);
+}
+async function trailResumeSend(button) {
+  const navigation = _tr.nav || 0;
+  if (_tr.busy || _tr.resumeRequest?.navigation === navigation) return;
+  const request = {navigation}; _tr.resumeRequest = request;
+  if (button) button.disabled = true;
+  const draft = _tr.sendDraft, dialog = _tr.dialog || 0;
+  let ok;
+  try { ok = await _trLoad(); }
+  finally { if (_tr.resumeRequest === request) _tr.resumeRequest = null; if (button?.isConnected) button.disabled = false; }
+  if (!ok || _tr.busy || navigation !== (_tr.nav || 0) || dialog !== (_tr.dialog || 0) || document.querySelector('[role="dialog"][aria-modal="true"]') || !draft || _tr.sendDraft !== draft || _activePage !== 'pets' || _tr.view !== 'pet' || _tr.pet !== draft.pet) return;
+  const pet = _trPet(draft.pet);
+  if (!pet || pet.run_id || pet.outing) { _tr.sendDraft = null; _trRender(); toast('Питомец уже в пути. Выбери другое занятие после возвращения.',false); return; }
+  const companion = draft.comp ? _trPet(draft.comp) : null;
+  if (draft.comp && (!companion || companion.run_id || companion.outing || companion.energy < Number(_tr.me.rules.energy.pair))) {
+    draft.comp = 0; toast('Спутник больше недоступен. Маршрут сохранён без спутника.',false);
+  }
+  _tr.sendDraft = null; _tr.send = {...draft}; _trSendFit();
+  _trRender();
+  const opener = el('pg-pets')?.querySelector('[data-f="pet-send"]:not(:disabled)');
+  if (opener) opener.focus({preventScroll:true}); else _trFocusHead();
+  _trSheet(_trSendHtml()); _trForecastSchedule();
 }
 function trailSendGo(button) {
   const s = _tr.send, pet = s && _trPet(s.pet); if (!pet) return;
   const watch = s.kind === 'watch', body = { pet_id: pet.id, kind: s.kind, hours: s.hours, route: watch ? null : s.route };
   if (!watch && s.comp) body.companion_id = s.comp;
   _trRun(button, () => _trPost('start', body, 'start', pet.id, s.kind, s.hours, body.route || '', body.companion_id || 0).then(r => {
-    _haptic('success'); trailClose();
+    _haptic('success'); _tr.sendDraft = null; trailClose();
     const route = body.route ? ` · ${_TR_ROUTE[body.route][1]}` : '';
     toast(`${pet.name}: ${_TR_KIND[s.kind].toLowerCase()} на ${s.hours}\u00a0ч${route}`, true, { icon: pet.icon });
     return _trRefresh();
