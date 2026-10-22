@@ -21,9 +21,11 @@ from services import early_access, league_pass, league_v1 as league
 
 router = APIRouter(tags=["league-demo"])
 _STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
-_ASSETS = {"league-demo.css": "text/css", "league-demo.js": "application/javascript",
-           "league-mines.js": "application/javascript", "league-rhythm.js": "application/javascript",
-           "league-pass.js": "application/javascript"}
+_JS, _CSS = "application/javascript", "text/css"
+_ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS,
+           "league-art.js": _JS, "league-fx.js": _JS, "league-demo.js": _JS, "league-ladder.js": _JS, "league-result.js": _JS,
+           "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS,
+           "skin-runtime-v3.js": _JS}   # палитра надетого образа (--v3-acc), как в играх
 _VER = asset_version(_STATIC, ("league-demo.html", *_ASSETS))
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
 

@@ -75,44 +75,48 @@
     over() { return this.s.health <= 0 || this.s.signal > this.p.signals; }
   }
 
-  let engine = null, run = null, shownAt = 0, timeout = null, live = false, hiddenPause = false;
+  // Ниже — ход уровня. Вид (сцена, сердца, таймер, отклики, веер даров) — league-rhythm-fx.js; Engine выше не меняется.
+  const V = () => window.LeagueRhythmView, Fx = () => window.LeagueFx;
+  let engine = null, run = null, shownAt = 0, timeout = null, live = false, hiddenPause = false, prevStars = 0, epoch = 0;
 
   async function start(level) {
+    epoch++;
     run = await L().api('/runs', {method: 'POST', body: JSON.stringify({game: 'rhythm', level})});
     engine = new Engine(run);
-    L().show(`<h2>Ритм · уровень ${run.level}</h2>
-      <p class="lg-rules">${run.signals} тактов, ${run.hearts} сердца, окно в начале ${run.base_window_ms} мс. Дойди до конца, сохранив сердце.
-      ★★ — от ${Math.ceil(run.reference * run.star_pct[0] / 100)} очков, ★★★ — от ${Math.ceil(run.reference * run.star_pct[1] / 100)}.</p>
-      <div class="lg-row"><button type="button" id="lgr-go">Старт</button><button type="button" class="secondary" id="lgr-exit">К уровням</button></div>`);
+    prevStars = L().state.me?.games.rhythm.levels[String(level)]?.stars || 0;
+    L().show(`<div class="lgm-head"><h2>Уровень ${run.level}</h2><button type="button" class="lg-link" id="lgr-exit">К уровням</button></div>
+      <div class="lgr-intro">${window.LeagueArt.icon('frame', 'lgr-intro-art')}<dl><div><dt>Тактов</dt><dd>${run.signals}</dd></div><div><dt>Сердца</dt><dd>${run.hearts}</dd></div><div><dt>Окно</dt><dd>${run.base_window_ms} мс</dd></div></dl></div>
+      <p class="lg-rules">Дойди до конца, сохранив сердце. ★★ — от ${Math.ceil(run.reference * run.star_pct[0] / 100)} очков, ★★★ — от ${Math.ceil(run.reference * run.star_pct[1] / 100)}.</p>
+      <button type="button" class="lg-cta" id="lgr-go">Старт</button>`, 1);
     L().$('lgr-go').onclick = () => countdown(COUNTDOWN);
-    L().$('lgr-exit').onclick = () => L().back();
+    L().$('lgr-exit').onclick = exit;
   }
 
-  function hud() {
-    const s = engine.s;
-    return `<div class="lg-stats"><div><b>${'❤'.repeat(Math.max(0, s.health))}</b><small>сердца</small></div><div><b>${s.score}</b><small>очки</small></div><div><b>${Math.min(s.signal, run.signals)}/${run.signals}</b><small>такт</small></div></div>`;
-  }
+  function exit() { epoch++; live = false; clearTimeout(timeout); L().back(); }
 
-  function countdown(n) {
+  function countdown(n, mine = epoch) {
+    if (mine !== epoch) return;
     live = false;
-    L().show(`<h2>Уровень ${run.level}</h2>${hud()}<div class="lg-target" aria-live="assertive">${n}</div>`);
-    if (n > 0) setTimeout(() => countdown(n - 1), 1000); else next();
+    V().stage(run, GLYPH, answer);
+    V().hud(engine, run);
+    V().count(n);
+    if (n > 0) setTimeout(() => countdown(n - 1, mine), 1000); else next();
   }
 
   function next() {
     if (engine.over()) return finish();
     const offers = engine.draftDue();
     if (offers) return draft(offers);
-    const rune = run.runes[engine.s.signal - 1];
-    L().show(`<h2>Уровень ${run.level}</h2>${hud()}<div class="lg-target" aria-label="Нажми руну">${GLYPH[rune]}</div>
-      <div class="lg-bar"><i id="lgr-bar"></i></div>
-      <div class="lg-runes" role="group" aria-label="Руны">${Object.keys(GLYPH).map(r => `<button type="button" data-rune="${r}">${GLYPH[r]}</button>`).join('')}</div>`);
-    const w = engine.window(), bar = L().$('lgr-bar');
+    const rune = run.runes[engine.s.signal - 1], mine = epoch;
+    V().stage(run, GLYPH, answer);
+    V().hud(engine, run);
+    V().rune(GLYPH[rune]);
+    const w = engine.window();
     requestAnimationFrame(() => {
+      if (mine !== epoch) return;
       shownAt = performance.now(); live = true;
-      bar.style.transition = `transform ${w}ms linear`; bar.style.transform = 'scaleX(0)';
+      V().timer(w);
     });
-    document.querySelectorAll('[data-rune]').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); answer(b.dataset.rune); }));
     timeout = setTimeout(() => answer(null), w + 1);
   }
 
@@ -120,36 +124,43 @@
     if (!live) return;
     live = false; clearTimeout(timeout);
     const elapsed = rune === null ? engine.window() + 1 : Math.max(0, Math.round(performance.now() - shownAt));
+    const w = engine.window(), score = engine.s.score;
     const ok = engine.tap(rune, elapsed);
+    V().feedback({ok, perfect: ok && elapsed * 3 <= w, gained: engine.s.score - score, combo: engine.s.combo});
+    V().hud(engine, run);
     L().haptic(ok ? 'light' : 'heavy');
-    setTimeout(next, GAP_MS);
+    const mine = epoch;
+    setTimeout(() => { if (mine === epoch) next(); }, GAP_MS);
   }
 
   function draft(offers) {
-    const card = id => { const g = engine.cat[id], ok = engine.allowed(id);
-      return `<button type="button" class="lg-gift ${g.kind === 'risk' ? 'risk' : ''}" data-gift="${id}" ${ok ? '' : 'disabled'}>${L().esc(g.name)}
-        <small>＋ ${L().esc(g.bonus)} · − ${L().esc(g.cost)}${ok ? '' : ' · сейчас нельзя'}</small></button>`; };
-    L().show(`<h2>Дар уровня</h2><p class="lg-rules">Эти три дара одинаковые у всех игроков этого уровня. Можно пропустить.</p>${hud()}
-      <div class="lg-gifts">${offers.map(card).join('')}<button type="button" class="secondary" data-gift="">Пропустить дар</button></div>`);
-    document.querySelectorAll('[data-gift]').forEach(b => { b.onclick = () => { engine.pick(b.dataset.gift || null); countdown(COUNTDOWN); }; });
+    V().stage(run, GLYPH, answer);
+    V().hud(engine, run);
+    V().draft(engine, offers, id => { engine.pick(id); V().hud(engine, run); countdown(COUNTDOWN); });
   }
 
-  async function finish(retry = false) {
-    L().show(`<h2>Уровень ${run.level}</h2>${hud()}<p class="lg-rules">Проверяем уровень…</p>`);
+  async function finish() {
+    const mine = epoch;
+    L().show(`<div class="lg-empty"><h2>Уровень ${run.level}</h2><div class="lg-skel" aria-hidden="true"><i class="h48 w60"></i></div><p class="lg-rules" role="status">Проверяем уровень…</p></div>`);
     try {
       const r = await L().api(`/runs/${encodeURIComponent(run.run_id)}/rhythm`, {method: 'POST', body: JSON.stringify({actions: engine.s.journal})});
-      const d = r.detail || {};
-      L().show(`<h2>Уровень ${run.level}</h2><div class="lg-stars" aria-label="Звёзд: ${r.stars} из 3">${L().stars(r.stars)}</div>
-        <p class="lg-rules">${r.stars ? 'Уровень пройден!' : 'Сердца кончились.'} Очки: ${d.score}, верных: ${d.correct}, ошибок: ${d.mistakes}.${r.xp ? ` +${r.xp} опыта Пропуска (демо).` : ''}</p>
-        <div class="lg-row">${r.stars ? `<button type="button" id="lgr-next">Уровень ${run.level + 1}</button>` : ''}<button type="button" class="${r.stars ? 'secondary' : ''}" id="lgr-again">Ещё раз</button><button type="button" class="secondary" id="lgr-exit">К уровням</button></div>`);
-      L().$('lgr-again').onclick = () => start(run.level).catch(e => alert(e.message));
-      if (L().$('lgr-next')) L().$('lgr-next').onclick = () => start(run.level + 1).catch(e => alert(e.message));
-      L().$('lgr-exit').onclick = () => L().back();
+      if (mine !== epoch) return;
+      const d = r.detail || {}, level = run.level;
+      window.LeagueResult.show({
+        game: 'rhythm', level, stars: r.stars, xp: r.xp || 0, prevStars,
+        title: r.stars ? 'Уровень пройден!' : 'Сердца кончились',
+        lines: `Очки: <b>${d.score}</b> · верных: ${d.correct} · ошибок: ${d.mistakes}`,
+        why: r.stars && r.stars < 3 ? `Для ★★★ нужно ${Math.ceil(run.reference * run.star_pct[1] / 100)} очков.` : '',
+        onNext: () => start(level + 1).catch(e => Fx().toast(L().esc(e.message), 'is-bad')),
+        onAgain: () => start(level).catch(e => Fx().toast(L().esc(e.message), 'is-bad')),
+        onExit: exit,
+      });
     } catch (error) {
-      L().show(`<h2>Уровень ${run.level}</h2><p class="lg-error" role="alert">${L().esc(error.message)}</p>
-        <div class="lg-row">${error.status === 409 ? '' : '<button type="button" id="lgr-send">Отправить ещё раз</button>'}<button type="button" class="secondary" id="lgr-exit">К уровням</button></div>`);
-      if (L().$('lgr-send')) L().$('lgr-send').onclick = () => finish(true);
-      L().$('lgr-exit').onclick = () => L().back();
+      if (mine !== epoch) return;
+      L().show(`<div class="lg-empty"><h2>Уровень ${run.level}</h2><p class="lg-error" role="alert">${L().esc(error.message)}</p>
+        ${error.status === 409 ? '' : '<button type="button" class="lg-cta" id="lgr-send">Отправить ещё раз</button>'}<button type="button" class="lg-link" id="lgr-exit">К уровням</button></div>`);
+      if (L().$('lgr-send')) L().$('lgr-send').onclick = () => finish();
+      L().$('lgr-exit').onclick = exit;
     }
   }
 

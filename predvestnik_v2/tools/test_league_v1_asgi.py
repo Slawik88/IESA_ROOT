@@ -50,8 +50,9 @@ async def run(dsn: str) -> None:
             for path in ("/league", "/league-demo"):
                 page = await client.get(path)
                 assert page.status_code == 200 and "Лига сезона" in page.text and "{{" not in page.text, path
-            for name in ("league-demo.css", "league-demo.js", "league-mines.js", "league-rhythm.js", "league-pass.js"):
+            for name in router_module._ASSETS:
                 assert (await client.get(f"/static/league-demo/{name}")).status_code == 200, name
+                assert f"/static/league-demo/{name}?v=" in page.text, f"{name} is served but not linked from the page"
             assert (await client.get("/static/league-demo/secret.py")).status_code == 404
             assert (await client.get("/league-demo/api/access")).json() == {"allowed": False, "public": False}
             state = (await client.get("/league-demo/api/pass")).json()

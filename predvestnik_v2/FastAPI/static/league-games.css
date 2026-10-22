@@ -1,0 +1,99 @@
+/* Лига: игровые экраны — Сапёр, Ритм, итог уровня. Токены и правила движения — league-demo.css. */
+body { --lg-cell: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.07)); --lg-cell-open: rgba(255,255,255,.025); --lg-cell-edge: rgba(0,0,0,.3); --lg-cell-line: rgba(255,255,255,.05);
+  --n1: #8fb8ff; --n2: #7fd6a4; --n3: #ffb08a; --n4: #c9a2ff; --n5: #ff9fb6; --n6: #77d9dc; --n7: #f0e2ae; }
+html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg, #fff, #ece8f8); --lg-cell-open: rgba(60,30,140,.06); --lg-cell-edge: rgba(40,24,90,.16); --lg-cell-line: rgba(40,24,90,.08);
+  --n1: #2f62c9; --n2: #1d8553; --n3: #c4582a; --n4: #7a3fd0; --n5: #c23a63; --n6: #19858a; --n7: #8a6d12; }
+.lgm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lgm-head h2 { margin: 0; font-size: 22px; }
+.lgm-head .lg-link { margin: 0 -10px 0 0; }
+.lg-hud { display: grid; grid-template-columns: repeat(3, 1fr); margin: 10px 0; text-align: center; }
+.lg-hud > span { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+.lg-hud > span + span { border-left: 1px solid var(--lg-faint); }
+.lg-hud b { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.lg-hud small { color: var(--lg-dim); font-size: 12px; }
+.lg-hud-ico { width: 16px; height: 16px; align-self: center; color: var(--lg-dim); }
+.lg-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--lg-surf); }
+.lg-seg button { border: 0; background: none; color: var(--lg-dim); }
+.lg-seg button[aria-pressed="true"] { background: rgba(var(--acc-rgb), .16); color: var(--lg-ink); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }
+
+/* Сапёр: клетки «выпуклые», открытые утоплены; нажатая ждёт ответа «вдавленной» */
+.lg-board-wrap { position: relative; margin: 12px auto 4px; overflow: hidden; border-radius: 12px; }
+.lg-board { display: grid; gap: 3px; touch-action: manipulation; }
+.lg-cell { position: relative; aspect-ratio: 1; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid var(--lg-faint); border-radius: 8px;
+  background: var(--lg-cell); box-shadow: inset 0 -2px 0 var(--lg-cell-edge); color: var(--lg-ink); font-weight: 800; font-size: clamp(13px, 4.2vw, 20px);
+  font-variant-numeric: tabular-nums; transition: transform .1s var(--lg-ease); }
+.lg-cell:disabled { opacity: 1; cursor: default; }
+.lg-cell.open { background: var(--lg-cell-open); box-shadow: none; border-color: var(--lg-cell-line); }
+.lg-cell.is-pressed { transform: scale(.88); box-shadow: none; }
+.lg-cell .lga { width: 58%; height: 58%; }
+.lg-cell.flag { color: var(--lg-gold); }
+.lg-cell.mine { background: rgba(255,90,110,.16); border-color: rgba(255,90,110,.35); color: var(--lg-bad); box-shadow: none; }
+.lg-cell.mine.hit { background: var(--lg-bad); color: #fff; }
+.lg-cell.n1 { color: var(--n1); } .lg-cell.n2 { color: var(--n2); } .lg-cell.n3 { color: var(--n3); } .lg-cell.n4 { color: var(--n4); }
+.lg-cell.n5 { color: var(--n5); } .lg-cell.n6 { color: var(--n6); } .lg-cell.n7, .lg-cell.n8 { color: var(--n7); }
+.lgm-sweep { position: absolute; top: 0; bottom: 0; left: 20%; width: 60%; opacity: 0; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,240,200,.35), transparent); }
+
+/* Ритм: сцена — сердца, очки, такт; арена с круговым таймером окна; руны в рамках. Фон теплеет с темпом (только прозрачность). */
+.lgr-stage { position: relative; isolation: isolate; }
+.lgr-tempo { position: absolute; inset: -40px -16px; z-index: -1; opacity: 0; pointer-events: none; transition: opacity .6s var(--lg-ease);
+  background: radial-gradient(60% 45% at 50% 42%, rgba(var(--acc-rgb), .26), transparent 70%); }
+.lgr-hud { display: grid; grid-template-columns: 1.3fr 1fr 1fr; align-items: center; gap: 6px; text-align: center; }
+.lgr-hud > span { display: grid; justify-items: center; }
+.lgr-hud b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.lgr-hud small { color: var(--lg-dim); font-size: 11px; }
+.lgr-hearts { display: flex !important; justify-content: flex-start; gap: 4px; min-height: 26px; }
+.lgr-owned { display: flex; flex-wrap: wrap; gap: 6px; min-height: 26px; margin: 8px 0 0; }
+.lgr-chip { padding: 3px 9px; border: 1px solid var(--lg-faint); border-radius: 999px; background: var(--lg-surf); color: var(--lg-ink); font-size: 11px; font-style: normal; font-weight: 600; white-space: nowrap; }
+.lgr-chip.is-safe { border-color: rgba(127,214,164,.5); } .lgr-chip.is-boost { border-color: rgba(245,207,115,.6); } .lgr-chip.is-risk { border-color: rgba(255,138,138,.6); }
+.lgr-arena { position: relative; display: grid; place-items: center; width: min(62vw, 230px); aspect-ratio: 1; margin: 10px auto 16px; }
+.lgr-timer { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.lgr-timer circle { fill: none; stroke-width: 5; }
+.lgr-timer-bg { stroke: var(--lg-faint); }
+.lgr-timer-arc { stroke: var(--lg-ink); stroke-linecap: round; }
+[data-mode="count"] .lgr-timer-arc { opacity: 0; }
+.lgr-target { position: relative; display: grid; place-items: center; width: 74%; height: 74%; border-radius: 50%; font-size: clamp(56px, 18vw, 76px); line-height: 1;
+  background: radial-gradient(circle, var(--lg-surf2) 0, transparent 70%); }
+.lgr-target.is-count { font-size: clamp(64px, 22vw, 92px); font-weight: 750; font-variant-numeric: tabular-nums; }
+.lgr-target.is-miss { color: var(--lg-bad); }
+.lgr-flash { position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle, rgba(255,90,110,.55), transparent 70%); opacity: 0; pointer-events: none; }
+.lgr-combo { position: absolute; top: 2%; right: -2%; color: var(--lg-gold); font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.lgr-combo.is-hot { font-size: 22px; }
+.lgr-judge { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); font-size: 13px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.lgr-judge.is-perfect { color: var(--lg-gold); } .lgr-judge.is-ok { color: var(--lg-ok); } .lgr-judge.is-miss { color: var(--lg-bad); }
+.lg-runes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.lg-runes button { position: relative; display: grid; place-items: center; min-height: 86px; padding: 0; border-radius: 18px; background: var(--lg-surf); transition: transform .08s var(--lg-ease); }
+.lg-runes button:active { transform: scale(.94); }
+.lgr-rune-frame { position: absolute; inset: 12%; width: 76%; height: 76%; color: var(--lg-dim); opacity: .6; }
+.lg-runes b { position: relative; font-size: 34px; font-weight: 500; }
+.lgr-draft { display: none; }
+[data-mode="draft"] .lgr-draft { display: block; }
+[data-mode="draft"] .lgr-arena, [data-mode="draft"] .lg-runes { display: none; }
+.lgr-fan { display: grid; gap: 10px; margin-top: 4px; }
+.lgr-card { display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--lg-faint); border-radius: 16px; background: var(--lg-surf); text-align: left; }
+.lgr-card small { color: var(--lg-dim); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.lgr-card b { font-size: 16px; } .lgr-card span { color: var(--lg-dim); font-size: 13px; font-weight: 500; } .lgr-card em { color: var(--lg-bad); font-size: 12px; font-style: normal; }
+.lgr-card.is-safe { border-color: rgba(127,214,164,.45); } .lgr-card.is-boost { border-color: rgba(245,207,115,.55); } .lgr-card.is-risk { border-color: rgba(255,138,138,.55); }
+.lgr-intro { display: flex; align-items: center; gap: 16px; margin: 14px 0 6px; }
+.lgr-intro-art { width: 60px; height: 60px; color: var(--lg-dim); }
+
+/* Итог уровня: звёзды по одной, полоса опыта Пропуска, одна залитая кнопка */
+.lgr { padding: 8px 0; text-align: center; }
+.lgr .lg-eyebrow { margin: 6px 0 4px; }
+.lgr h2 { margin: 0 0 14px; font-size: 26px; }
+.lgr-stars { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin: 4px 0 14px; }
+.lgr-star { position: relative; display: grid; place-items: center; width: 64px; height: 64px; }
+.lgr-star:nth-child(2) { width: 78px; height: 78px; }
+.lgr-star-ico { width: 100%; height: 100%; fill: none; stroke: var(--lg-dim); stroke-width: 1.4; opacity: .55; }
+.lgr-star.is-on .lgr-star-ico { fill: url(#lga-g-gold); stroke: none; opacity: 1; }
+.lgr-badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 10px; }
+.lgr-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid rgba(245,207,115,.55); border-radius: 999px; color: var(--lg-gold); font-size: 13px; font-weight: 650; }
+.lgr-badge-ico { width: 16px; height: 16px; color: var(--lg-gold); }
+.lgr-lines { margin: 0 0 4px; font-variant-numeric: tabular-nums; }
+.lgr-xp { margin: 14px 0 6px; padding: 12px 14px; border-radius: 14px; background: var(--lg-surf); text-align: left; }
+.lgr-xp-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; font-size: 14px; }
+.lgr-xp-top b { color: var(--lg-gold); font-variant-numeric: tabular-nums; } .lgr-xp-top small { color: var(--lg-dim); font-size: 12px; }
+.lgr-bar { position: relative; height: 8px; margin-top: 10px; overflow: hidden; border-radius: 4px; background: var(--lg-faint); }
+.lgr-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); }
+#lgr-bar-add { background: var(--lg-gold); } #lgr-bar-was { z-index: 1; background: var(--lg-ink); opacity: .55; }
+.lgr-btns { display: grid; gap: 8px; margin-top: 14px; }
+.lgr-btns .lg-cta { margin: 0; }

@@ -113,17 +113,31 @@ function loadActivitiesHub(){
 }
 
 // Лига (рейтинг уровнями + Пропуск сезона): до сезона 2 — только с правом «Ранний доступ к контенту», с сезона 2 — всем.
-// Ответ сервера запоминается на минуту.
+// Карточка-герой: мини-созвездие, текущие уровни обеих игр и сколько наград Пропуска ждёт (точка). Ответы сервера запоминаются на минуту.
 let _league=null,_leagueAt=0;
+const _LEAGUE_SKY='<svg class="v3-league-sky" viewBox="0 0 160 90" aria-hidden="true"><path d="M30 24L64 14L96 34L128 20M96 34L88 66L124 78M64 14L52 50L88 66" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width=".8"/><g fill="currentColor"><circle cx="30" cy="24" r="1.3"/><circle cx="64" cy="14" r="2"/><circle cx="96" cy="34" r="1.5"/><circle cx="128" cy="20" r="1.2"/><circle cx="88" cy="66" r="2.2"/><circle cx="124" cy="78" r="1.2"/><circle cx="52" cy="50" r="1.1"/><circle cx="150" cy="54" r=".9" opacity=".5"/><circle cx="12" cy="70" r=".8" opacity=".4"/></g></svg>';
+function _leagueCard(chev){
+  const r=_league, me=r.me, ps=r.pass, cur=ps&&ps.active&&ps.seasons.find(x=>x.current);
+  const ready=ps&&ps.active&&ps.account&&ps.account.eligible?ps.seasons.reduce((n,x)=>n+x.track.filter(t=>t.free.state==='ready').length+x.track.filter(t=>t.vip.state==='ready').length,0):0;
+  const days=cur?Math.max(0,Math.ceil((Date.parse(cur.ends_at)-Date.now())/864e5)):null;
+  const top=r.public?`Сезон ${me?String(me.season).replace(/^s/,''):''}${days!==null?` · ${days} дн.`:''}`:'Ранний доступ · демо';
+  const lv=me?`<span class="v3-league-lv"><span>Сапёр <i>ур. ${Number(me.games.minesweeper.unlocked)}</i></span><span>Ритм <i>ур. ${Number(me.games.rhythm.unlocked)}</i></span></span>`:'<small>Рейтинг уровнями и Пропуск сезона</small>';
+  const go=ready?`<span class="v3-league-ready"><i class="v3-league-dot" aria-hidden="true"></i>К получению: ${ready}</span>`:'';
+  return `<button type="button" class="v3-game v3-league" data-game="league" onclick="location.href=BASE+'/league'${ready?"+'#pass'":''}" aria-label="Лига сезона${ready?`, наград к получению: ${ready}`:''}">${_LEAGUE_SKY}<span class="v3-league-t"><small>${top}</small><b>Лига сезона</b>${lv}${go}</span>${ready?'':'<span class="v3-league-go">Открыть</span>'}${chev}</button>`;
+}
 function leagueHubRow(host,chev){
   const paint=()=>{
     const list=host.querySelector('.v3-games--hub');
-    if(!_league||!_league.allowed||!list||host.querySelector('.v3-game[data-game="league"]'))return;
-    const title=_league.public?'Лига сезона':'Лига · ранний доступ', sub=_league.public?'Рейтинг уровнями и Пропуск сезона':'Демо нового сезона: уровни и звёзды';
-    list.insertAdjacentHTML('afterbegin',`<button type="button" class="v3-game" data-game="league" onclick="location.href=BASE+'/league'"><span><b>${title}</b><small>${sub}</small></span><span class="v3-game-go">Открыть</span>${chev}</button>`);
+    if(!_league||!_league.allowed||!list)return;
+    const old=host.querySelector('.v3-game[data-game="league"]');
+    if(old)old.outerHTML=_leagueCard(chev); else list.insertAdjacentHTML('afterbegin',_leagueCard(chev));
   };
   if(Date.now()-_leagueAt<60000){paint();return;}
-  api('/league-demo/api/access').then(r=>{_league=r||null;_leagueAt=Date.now();paint();}).catch(()=>{});
+  api('/league-demo/api/access').then(async r=>{
+    if(!r||!r.allowed){_league=r||null;_leagueAt=Date.now();return;}
+    const [me,pass]=await Promise.all([api('/league-demo/api/me').catch(()=>null),r.public?api('/league-demo/api/pass').catch(()=>null):null]);
+    _league={...r,me,pass};_leagueAt=Date.now();paint();
+  }).catch(()=>{});
 }
 
 function loadArena(){ swArena('game'); }
