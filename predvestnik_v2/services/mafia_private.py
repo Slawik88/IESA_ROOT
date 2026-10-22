@@ -9,6 +9,10 @@ from core import mafia_v1 as rules
 from infrastructure.repositories import mafia_v1 as repo
 
 
+async def self_save_used(db, *, match_id: int, user_id: int, phase_number: int) -> bool:
+    return await repo.self_saves(db, match_id=match_id, user_id=user_id, before_phase=phase_number) > 0
+
+
 def target_label(player: dict) -> str:
     return f"#{player['join_order']} {player['display_name']}"
 

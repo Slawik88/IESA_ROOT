@@ -101,7 +101,8 @@ async def early_close(h: Harness) -> None:
     fix = await t.pick(u4, u6)  # misclick can still be fixed
     ok("Выбор принят" in fix.text, "the last player can still correct a misclick")
     await t.next_phase()
-    ok("прошла спокойно" in h.world.last(t.chat, "Рассвет").text, "the doctor saved the victim → a quiet night")
+    dawn = h.world.last(t.chat, "Рассвет").text
+    ok("Доктор успел" in dawn and "выбыл" not in dawn, f"the doctor saved the victim → the town hears it: {dawn}")
     ok(any("не мафия" in m.text for m in h.dm(u4)), "the detective gets the check result")
 
 
@@ -208,3 +209,65 @@ async def open_voting_shows_every_choice(h: Harness) -> None:
     card = h.world.last(t.chat, "ГОЛОСОВАНИЕ")
     ok("Кто за кого" in card.text and "Игрок1" in card.text and "• Никого: Игрок2" in card.text, f"open mode lists choices and abstainers: {card.text}")
     ok(any("3. Игрок3 · 1" in b["text"] for b in card.buttons()), "vote counts appear on the buttons")
+
+
+@scenario
+async def doctor_heals_self_once(h: Harness) -> None:
+    from services import mafia_v1 as mafia
+    t = await Table.create(h, 6)
+    await t.start_with_roles(["citizen", "mafia", "doctor", "detective", "citizen", "citizen"])
+    u1, u2, u3, u4, u5, u6 = t.users
+    await t.pick(u3, u3)          # night 1: the Doctor heals themself
+    await t.pick(u2, u3)
+    await t.pick(u4, u2)
+    await t.next_phase()
+    ok(await t.phase() == "discussion" and u3.id in await t.alive(), "the self-heal worked")
+    await t.next_phase()
+    for voter in (u1, u2, u3, u4, u5, u6):
+        await t.vote(voter, None)
+    await t.next_phase()
+    ok(await t.phase() == "night", "second night")
+    labels = [b["text"] for b in t.action_message(u3).buttons()]
+    ok(labels and not any(u3.name in label for label in labels), f"night 2: no button to heal self again: {labels}")
+    from infrastructure.database import get_pool
+    from infrastructure.pg_adapter import PGAdapter
+    row = await t.match()
+    refused = ""
+    async with get_pool().acquire() as conn:
+        try:
+            await mafia.submit_action(PGAdapter(conn), match_id=row["id"], chat_id=t.chat, user_id=u3.id,
+                                      phase_number=row["phase_number"], action_type="doctor_save", target_user_id=u3.id)
+        except mafia.MafiaConflict as exc:
+            refused = str(exc)
+    ok("один раз" in refused, f"the server refuses a second self-heal too: {refused!r}")
+    other = await t.pick(u3, u1 if u1.id in await t.alive() else u5)
+    ok("Выбор принят" in other.text, "healing somebody else still works")
+
+
+@scenario
+async def night_clock_starts_on_delivery(h: Harness) -> None:
+    from infrastructure.database import get_pool
+    from infrastructure.pg_adapter import PGAdapter
+    from infrastructure.repositories import mafia_v1_ops as ops
+    t = await Table.create(h, 5)
+    await t.start_with_roles(FIVE)
+    mid, number = (await t.match())["id"], (await t.match())["phase_number"]
+    before = await _remaining(h, t)
+    await h.sql("UPDATE predvestnik.mafia_v1_matches SET phase_started_at=phase_started_at-INTERVAL '10 seconds', "
+                "phase_deadline=phase_deadline-INTERVAL '10 seconds' WHERE id=$1", mid)   # delivery took 10 s
+    async with get_pool().acquire() as conn:
+        db = PGAdapter(conn)
+        moved = await ops.restart_clock(db, match_id=mid, phase="night", phase_number=number, seconds=rules.NIGHT_SECONDS)
+        again = await ops.restart_clock(db, match_id=mid, phase="night", phase_number=number, seconds=rules.NIGHT_SECONDS)
+        ok(moved and not again, f"the timer restarts once: {moved}, {again}")
+        left = await _remaining(h, t)
+        ok(abs(left - before) < 2, f"players keep the whole night: {before:.1f} → {left:.1f}")
+        await h.sql("UPDATE predvestnik.mafia_v1_matches SET phase_started_at=phase_started_at-INTERVAL '10 seconds', "
+                    "phase_deadline=CLOCK_TIMESTAMP()+INTERVAL '6 seconds' WHERE id=$1", mid)   # closed early
+        ok(not await ops.restart_clock(db, match_id=mid, phase="night", phase_number=number, seconds=rules.NIGHT_SECONDS),
+           "an early-closed night is never stretched")
+        await h.sql("UPDATE predvestnik.mafia_v1_matches SET phase_started_at=CLOCK_TIMESTAMP()-INTERVAL '5 minutes', "
+                    "phase_deadline=CLOCK_TIMESTAMP()-INTERVAL '5 minutes'+make_interval(secs=>$2) WHERE id=$1", mid, rules.NIGHT_SECONDS)
+        ok(await ops.restart_clock(db, match_id=mid, phase="night", phase_number=number, seconds=rules.NIGHT_SECONDS),
+           "a very slow delivery still moves the timer")
+        ok(await _remaining(h, t) < 0, "but never by more than the 30-second cap: the long-overdue night still ends")

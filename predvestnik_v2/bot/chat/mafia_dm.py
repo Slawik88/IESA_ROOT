@@ -1,7 +1,10 @@
 """Private (DM) side of chat Mafia: role cards, night buttons, mafia board, stale-button cleanup."""
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from typing import Any, Awaitable, Callable
+
 from aiogram import Bot
 from aiogram.types import FSInputFile
 from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramForbiddenError,
@@ -55,6 +58,24 @@ async def send_dm(bot: Bot, user_id: int, text: str, markup=None, *, art_role: s
         return None
 
 
+# Private messages go out side by side (Telegram allows ~30 per second across chats); the database
+# work stays sequential in the caller, because one connection cannot run two queries at once.
+FAN_OUT = 6
+
+
+async def _fan_out(items: list, send: Callable[[Any], Awaitable[Any]]) -> list:
+    """Results in input order; a transient failure comes back as a RetryLater instance."""
+    gate = asyncio.Semaphore(FAN_OUT)
+
+    async def one(item):
+        async with gate:
+            try:
+                return await send(item)
+            except RetryLater as exc:
+                return exc
+    return list(await asyncio.gather(*(one(item) for item in items)))
+
+
 async def _remember(db, view: dict, user_id: int, kind: str, message) -> None:
     if message is not None:
         await ops.save_prompt(db, match_id=view["match_id"], phase_number=view["phase_number"],
@@ -72,21 +93,33 @@ async def send_role_cards(bot: Bot, db, view: dict, *, chat_title: str | None) -
     """First message of a game: role, goal, how to act (+ team for mafia).  Returns unreachable ids."""
     players, failed = await repo.players(db, match_id=view["match_id"]), []
     seconds = rules.phase_seconds(view["tempo"], "night")
-    for me in (p for p in players if p.get("role_sent_at") is None):  # a retry never repeats a delivered card
+    todo = [p for p in players if p.get("role_sent_at") is None]  # a retry never repeats a delivered card
+
+    def card(me: dict):
         role = me["role"]
         mates = [(p["display_name"], p["role"]) for p in players
                  if role in ("mafia", "don") and p["role"] in ("mafia", "don") and p["user_id"] != me["user_id"]]
         text = copy.role_card(role, mates, chat_title=chat_title) + "\n\n" + copy.night_prompt(role, 1, seconds, first=True)
         markup = night_keyboard(match_id=view["match_id"], phase_number=view["phase_number"], role=role,
                                 players=players, actor_id=int(me["user_id"]))
-        sent = await send_dm(bot, int(me["user_id"]), text, markup, art_role=role)
+        return markup, send_dm(bot, int(me["user_id"]), text, markup, art_role=role)
+
+    cards = {int(me["user_id"]): card(me) for me in todo}
+    results = await _fan_out(todo, lambda me: cards[int(me["user_id"])][1])
+    retry = None
+    for me, sent in zip(todo, results):
+        if isinstance(sent, RetryLater):
+            retry = retry or sent
+            continue
         if sent is None:
             failed.append(int(me["user_id"]))
             continue
-        await _remember(db, view, int(me["user_id"]), "action", sent if markup else None)
-        if role in ("mafia", "don"):
+        await _remember(db, view, int(me["user_id"]), "action", sent if cards[int(me["user_id"])][0] else None)
+        await ops.mark_role_sent(db, match_id=view["match_id"], user_id=int(me["user_id"]))  # before the board: no second card
+        if me["role"] in ("mafia", "don"):
             await _send_board(bot, db, view, int(me["user_id"]))
-        await ops.mark_role_sent(db, match_id=view["match_id"], user_id=int(me["user_id"]))
+    if retry is not None:
+        raise retry
     return failed
 
 
@@ -95,17 +128,28 @@ async def send_night_prompts(bot: Bot, db, view: dict) -> list[int]:
     players = await repo.players(db, match_id=view["match_id"])
     prompted = {p["user_id"] for p in await ops.prompts(db, match_id=view["match_id"], phase_number=view["phase_number"], kind="action")}
     seconds, failed = rules.phase_seconds(view["tempo"], "night"), []
-    for me in (p for p in players if p["alive"] and rules.night_action_for(p["role"]) and int(p["user_id"]) not in prompted):
-        markup = night_keyboard(match_id=view["match_id"], phase_number=view["phase_number"], role=me["role"],
-                                players=players, actor_id=int(me["user_id"]))
-        text = copy.night_prompt(me["role"], view["round_number"], seconds)
-        sent = await send_dm(bot, int(me["user_id"]), text, markup)
+    todo = [p for p in players if p["alive"] and rules.night_action_for(p["role"]) and int(p["user_id"]) not in prompted]
+    markups = {}
+    for me in todo:
+        used = me["role"] == "doctor" and await private.self_save_used(
+            db, match_id=view["match_id"], user_id=int(me["user_id"]), phase_number=view["phase_number"])
+        markups[int(me["user_id"])] = night_keyboard(match_id=view["match_id"], phase_number=view["phase_number"], role=me["role"],
+                                                     players=players, actor_id=int(me["user_id"]), self_save_used=used)
+    results = await _fan_out(todo, lambda me: send_dm(bot, int(me["user_id"]), copy.night_prompt(me["role"], view["round_number"], seconds),
+                                                      markups[int(me["user_id"])]))
+    retry = None
+    for me, sent in zip(todo, results):
+        if isinstance(sent, RetryLater):
+            retry = retry or sent
+            continue
         if sent is None:
             failed.append(int(me["user_id"]))
             continue
         await _remember(db, view, int(me["user_id"]), "action", sent)
         if me["role"] in ("mafia", "don"):
             await _send_board(bot, db, view, int(me["user_id"]))
+    if retry is not None:
+        raise retry
     return failed
 
 
@@ -115,9 +159,16 @@ async def send_vote_prompts(bot: Bot, db, view: dict) -> None:
     prompted = {p["user_id"] for p in await ops.prompts(db, match_id=view["match_id"], phase_number=view["phase_number"], kind="action")}
     seconds = rules.phase_seconds(view["tempo"], "voting")
     markup = vote_dm_keyboard(match_id=view["match_id"], phase_number=view["phase_number"], players=players)
-    for me in (p for p in players if p["alive"] and int(p["user_id"]) not in prompted):
-        sent = await send_dm(bot, int(me["user_id"]), copy.vote_prompt(seconds), markup)
+    todo = [p for p in players if p["alive"] and int(p["user_id"]) not in prompted]
+    results = await _fan_out(todo, lambda me: send_dm(bot, int(me["user_id"]), copy.vote_prompt(seconds), markup))
+    retry = None
+    for me, sent in zip(todo, results):
+        if isinstance(sent, RetryLater):
+            retry = retry or sent
+            continue
         await _remember(db, view, int(me["user_id"]), "action", sent)
+    if retry is not None:
+        raise retry
 
 
 async def refresh_team_board(bot: Bot, db, *, match_id: int, phase_number: int) -> None:
@@ -133,13 +184,13 @@ async def refresh_team_board(bot: Bot, db, *, match_id: int, phase_number: int) 
 
 async def strip_old_prompts(bot: Bot, db, *, match_id: int, phase_number: int) -> None:
     """Remove buttons of finished phases so nobody taps a dead keyboard."""
-    for prompt in await ops.prompts_before(db, match_id=match_id, phase_number=phase_number):
-        if prompt["kind"] != "action":
-            continue
+    async def strip(prompt: dict) -> None:
         try:
             await bot.edit_message_reply_markup(chat_id=prompt["user_id"], message_id=prompt["message_id"], reply_markup=None)
         except TelegramAPIError as exc:
             logger.debug(f"Mafia stale keyboard cleanup skipped: {exc}")
+    stale = [p for p in await ops.prompts_before(db, match_id=match_id, phase_number=phase_number) if p["kind"] == "action"]
+    await _fan_out(stale, strip)
     await ops.delete_prompts_before(db, match_id=match_id, phase_number=phase_number)
 
 

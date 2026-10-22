@@ -108,14 +108,15 @@ def phase_keyboard(view: dict, username: str | None = None) -> types.InlineKeybo
 
 
 def night_keyboard(*, match_id: int, phase_number: int, role: str, players: list[dict], actor_id: int,
-                   chosen: int | None = None) -> types.InlineKeyboardMarkup | None:
+                   chosen: int | None = None, self_save_used: bool = False) -> types.InlineKeyboardMarkup | None:
     action = rules.night_action_for(role)
     if not action:
         return None
     builder = InlineKeyboardBuilder()
     for p in players:
         mafia_ally = action == "mafia_target" and p.get("role") in {"mafia", "don"}
-        if not p["alive"] or mafia_ally or (action == "detective_check" and int(p["user_id"]) == int(actor_id)):
+        me = int(p["user_id"]) == int(actor_id)
+        if not p["alive"] or mafia_ally or (me and (action == "detective_check" or self_save_used)):
             continue
         mark = "✅ " if chosen is not None and int(p["user_id"]) == int(chosen) else ""
         data = MafiaActionCB(match_id=match_id, phase_number=phase_number, action=action, target_user_id=int(p["user_id"]))
@@ -137,9 +138,11 @@ def vote_dm_keyboard(*, match_id: int, phase_number: int, players: list[dict], c
     return builder.as_markup()
 
 
-def dawn_text(view: dict, eliminated: dict | None) -> str:
+def dawn_text(view: dict, eliminated: dict | None, saved: bool = False) -> str:
     if eliminated:
         head = f"☀️ <b>Рассвет.</b> Этой ночью из игры выбыл: <b>{safe_html(eliminated['display_name'])}</b>."
+    elif saved:
+        head = "☀️ <b>Рассвет.</b> Мафия вышла на охоту, но Доктор успел вовремя — все живы. 💉"
     else:
         head = "☀️ <b>Рассвет.</b> Эта ночь прошла спокойно — никто не выбыл."
     if view["phase"] != "discussion":

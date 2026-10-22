@@ -180,6 +180,9 @@ async def submit_action(db, *, match_id: int, chat_id: int, user_id: int, phase_
         if target_user_id is not None and (not target or not target["alive"]):
             raise MafiaConflict("Этот игрок уже выбыл — выбери другого.")
         _check_move_allowed(row["phase"], actor["role"], action_type, target, user_id)
+        if action_type == "doctor_save" and int(target_user_id) == int(user_id) and await repo.self_saves(
+                db, match_id=match_id, user_id=user_id, before_phase=int(row["phase_number"])):
+            raise MafiaConflict("Себя Доктор лечит только один раз за игру — выбери другого игрока.")
         await repo.upsert_action(db, match_id=match_id, phase_number=int(row["phase_number"]), user_id=user_id,
                                  action_type=action_type, target_user_id=target_user_id)
         await repo.audit(db, match_id=match_id, event_type="action_changed", actor_id=user_id,

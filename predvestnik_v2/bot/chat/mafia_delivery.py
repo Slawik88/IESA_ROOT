@@ -7,6 +7,7 @@ dawn message from step 1.  A retry happens on the next tick (every 2 seconds).
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Awaitable, Callable
 
 from aiogram import Bot
@@ -56,8 +57,10 @@ class PhaseDelivery:
         self.bot, self.db, self.view, self.event = bot, db, view, event
 
     def steps(self) -> list[Step]:
-        return [("announce", self.announce), ("checks", self.checks), ("eliminated", self.eliminated),
-                ("strip", self.strip), ("prompts", self.prompts), ("card", self.card), ("final", self.final),
+        # Buttons and the card go first, then the clock restarts: delivery time is not taken from the
+        # players. Removing dead keyboards of the previous phase can wait (an old tap is refused anyway).
+        return [("announce", self.announce), ("checks", self.checks), ("prompts", self.prompts), ("clock", self.clock),
+                ("card", self.card), ("eliminated", self.eliminated), ("final", self.final), ("strip", self.strip),
                 ("rewards", self.rewards)]
 
     def _victim(self) -> dict | None:
@@ -67,7 +70,7 @@ class PhaseDelivery:
     async def announce(self) -> bool:
         previous = self.event.get("previous_phase")
         if previous == "night":
-            return await group_say(self.bot, self.view, dawn_text(self.view, self._victim()))
+            return await group_say(self.bot, self.view, dawn_text(self.view, self._victim(), bool(self.event.get("saved"))))
         if previous == "voting":
             return await group_say(self.bot, self.view, vote_result_text(self._victim()))
         return True
@@ -97,6 +100,14 @@ class PhaseDelivery:
             names = [p["display_name"] for p in self.view["players"] if int(p["user_id"]) in failed]
             await mafia.pause_match(self.db, match_id=self.view["match_id"], reason="private_action_delivery_failed",
                                     detail=", ".join(names)[:300])
+            self.view = await mafia.current_view(self.db, match_id=self.view["match_id"]) or self.view
+        return True
+
+    async def clock(self) -> bool:
+        if self.view["phase"] in ("night", "voting"):
+            await ops.restart_clock(self.db, match_id=self.view["match_id"], phase=self.view["phase"],
+                                    phase_number=self.view["phase_number"],
+                                    seconds=rules.phase_seconds(self.view["tempo"], self.view["phase"]))
             self.view = await mafia.current_view(self.db, match_id=self.view["match_id"]) or self.view
         return True
 
@@ -247,21 +258,47 @@ async def _guarded(label: str, coro) -> None:
         logger.exception(f"Mafia tick: {label} failed")
 
 
-async def tick(bot: Bot, db) -> None:
-    """One scheduler pass: expire lobbies, close due phases, deliver events, refresh timer cards."""
+# Several chats play at once: one chat's slow delivery (twelve role cards) must not hold the others' dawn.
+# Kept small on purpose: the database pool is shared with the bot and the Mini App (DB_POOL_MAX_SIZE, 5 by default).
+MATCH_CONCURRENCY = 2
+
+
+async def _per_match(db, pool, ids: list[int], label: str, work: Callable) -> None:
+    """Run ``work(db, match_id)`` for each match; with a pool, side by side on separate connections."""
+    if pool is None or len(ids) < 2:
+        for match_id in ids:
+            await _guarded(f"{label} {match_id}", work(db, match_id))
+        return
+    from infrastructure.pg_adapter import PGAdapter
+    gate = asyncio.Semaphore(MATCH_CONCURRENCY)
+
+    async def one(match_id: int) -> None:
+        async with gate, pool.acquire() as connection:
+            await _guarded(f"{label} {match_id}", work(PGAdapter(connection), match_id))
+    await asyncio.gather(*(one(match_id) for match_id in ids))
+
+
+async def _refresh(bot: Bot, db, match_id: int) -> None:
+    view = await mafia.current_view(db, match_id=match_id)
+    if view:
+        gap = rules.CARD_VOTING_REFRESH_SECONDS if view["phase"] == "voting" else rules.CARD_REFRESH_SECONDS
+        await publish_phase(bot, db, view, gap=gap)
+
+
+async def tick(bot: Bot, db, pool=None) -> None:
+    """One scheduler pass: expire lobbies, close due phases, deliver events, refresh timer cards.
+
+    Phase changes are fast database work and stay sequential; Telegram delivery and card refreshes
+    run per match in parallel when the caller passes the connection ``pool``.
+    """
     if not await system_flags.is_enabled(db, "game_mafia_v1"):
         return
     await _guarded("lobby expiry", mafia.expire_stale_lobbies(db))
     for match_id in await repo.due_match_ids(db):
         await _guarded(f"advance {match_id}", mafia.advance_due_match(db, match_id=match_id))
-    for match_id in await ops.pending_event_ids(db):
-        await _guarded(f"deliver {match_id}", deliver_for_match(bot, db, match_id))
+    await _per_match(db, pool, await ops.pending_event_ids(db), "deliver",
+                     lambda conn, match_id: deliver_for_match(bot, conn, match_id))
     timed = await repo.timed_matches(db)
     pending = set(await ops.pending_event_ids(db))   # у них карточку выложит доставка события, второй раз не нужно
-    for row in timed:
-        if int(row["id"]) in pending:
-            continue
-        view = await mafia.current_view(db, match_id=int(row["id"]))
-        if view:
-            gap = rules.CARD_VOTING_REFRESH_SECONDS if view["phase"] == "voting" else rules.CARD_REFRESH_SECONDS
-            await _guarded(f"refresh {row['id']}", publish_phase(bot, db, view, gap=gap))
+    await _per_match(db, pool, [int(row["id"]) for row in timed if int(row["id"]) not in pending], "refresh",
+                     lambda conn, match_id: _refresh(bot, conn, match_id))

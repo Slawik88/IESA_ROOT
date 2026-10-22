@@ -23,6 +23,7 @@ async def check_selection():
         else:fields.update(text=caption)
         query=SimpleNamespace(message=Message(**fields),from_user=SimpleNamespace(id=1))
         with patch.object(play.private,'private_view',new=AsyncMock(return_value=view)), \
+             patch.object(play.private,'self_save_used',new=AsyncMock(return_value=False)), \
              patch.object(Message,'edit_caption',new=AsyncMock()) as edit_caption, \
              patch.object(Message,'edit_text',new=AsyncMock()) as edit_text, \
              patch.object(Message,'edit_reply_markup',new=AsyncMock()) as edit_markup:
