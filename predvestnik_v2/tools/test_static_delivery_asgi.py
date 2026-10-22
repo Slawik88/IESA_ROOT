@@ -50,6 +50,7 @@ ALLOWED = {
     "/static/pass-v3.css": "text/css",
     "/static/store-v3.css": "text/css",
     "/static/motion-v3.css": "text/css",
+    "/static/art-v3.css": "text/css",
     "/static/confirm-v3.css": "text/css",
     "/static/monolith-v3.css": "text/css",
     "/static/monolith-player-v3.css": "text/css",

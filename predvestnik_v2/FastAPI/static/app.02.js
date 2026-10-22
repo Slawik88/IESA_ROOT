@@ -305,6 +305,7 @@ function _ensureVipAvatar() {
 let _walletPolicy = null, _walletTarget = 'mora', _walletSeq = 0, _walletBusy = false;
 const _walletRequests = new Map();
 function _walletIcon(code) {
+  if (typeof v3Cur === 'function' && v3Cur(code)) return v3Cur(code, 'wallet-cur');   // рисованные валюты (app.50.js), как в Пропуске и сундуках
   const paths = {mora:'<circle cx="12" cy="12" r="8"/><path d="M8 8h8M8 16h8M10 8v8M14 8v8"/>',diamonds:'<path d="m4 9 4-5h8l4 5-8 11zM4 9h16M8 4l4 16 4-16"/>',essence:'<path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/>',zarniki:'<path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3z"/>'};
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[code] || paths.zarniki}</svg>`;
 }

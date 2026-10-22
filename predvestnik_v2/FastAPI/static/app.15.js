@@ -65,8 +65,8 @@ function renderProfileHome(data) {
     ${_v3TodayShell()}
     <section class="v3-bal" aria-label="Баланс">
       <div class="v3-bal-head"><span class="v3-eyebrow">Мора</span><button type="button" class="v3-link" onclick="showCurrModal()">Кошелёк ›</button></div>
-      <div class="v3-bal-row"><div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div>
-        <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
+      <div class="v3-bal-row"><div class="v3-bal-mora">${typeof v3Cur === 'function' ? v3Cur('mora', 'v3-bal-coin') : ''}<div class="v3-num" data-key="mora" data-n="${Number(wallet.mora) || 0}">${fmt(wallet.mora || 0)}</div></div>
+        <button type="button" class="v3-pill v3-pill--ghost" onclick="openZarnikiTopup()" aria-label="Пополнить Зарники. Баланс ${fmt(wallet.zarniki || 0)}">${_v3Icon('plus')}${typeof v3Cur === 'function' ? v3Cur('zarniki') : ''}Зарники ${fmt(wallet.zarniki || 0)}</button></div>
     </section>
     <section class="v3-stats" aria-label="Показатели игрока"><span class="v3-eyebrow v3-stats-label">Активность</span><div><b data-key="streak" data-n="${Number(d.streak) || 0}">${fmt(d.streak || 0)}</b><span>дней подряд</span></div><div><b data-key="ach" data-n="${Number(d.achievements) || 0}">${fmt(d.achievements || 0)}</b><span>достижений</span></div><div><b data-key="msgs" data-f="short" data-n="${Number(d.messages_all_time) || 0}">${_v3Short(d.messages_all_time || 0)}</b><span>сообщений</span></div></section>
     ${_v3PathShell()}

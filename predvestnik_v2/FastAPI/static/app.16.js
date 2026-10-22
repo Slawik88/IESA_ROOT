@@ -105,7 +105,7 @@ function renderV3Path(failed) {
   if (failed || !families.length) { host.innerHTML = `${head}<div class="v3-empty">${failed ? 'Прогресс не загрузился. <button type="button" class="v3-link" onclick="loadV3Path()">Повторить</button>' : 'Сыграйте разок, и здесь вспыхнут первые кольца.'}</div>`; return; }
   host.innerHTML = `${head}<div class="v3-path-row">${families.map(f => {
     const max = Math.max(1, Number(f.max_level) || 40), level = Math.min(max, Number(f.level) || 0);
-    return `<button type="button" class="v3-aspect" onclick="openAchievementsV1()" aria-label="${_profileEsc(f.title)}: уровень ${level} из ${max}">
+    return `<button type="button" class="v3-aspect" data-f="${_profileEsc(f.id || '')}" onclick="openAchievementsV1()" aria-label="${_profileEsc(f.title)}: уровень ${level} из ${max}">
       <span class="v3-aspect-ring">${_v3Ring(level / max * 100)}<b>${level}</b></span><span>${_profileEsc(f.title)}</span></button>`;
   }).join('')}</div>`;
 }

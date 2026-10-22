@@ -793,7 +793,8 @@
       const period=_questsV1Tab,sum=period==='weekly'?weekly:daily,quests=d[period]?.quests||[];
       // Невыполненные выше, выполненные — внизу списка
       const rows=[...quests].sort((a,b)=>Number(!!a.completed)-Number(!!b.completed)).map(q=>questRow(q,period)).join('');
-      body=`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
+      const goal=typeof v3GoalCard==='function'?v3GoalCard({done:sum.done,total:sum.total,label:period==='weekly'?'За все задания недели':'За все задания дня',reward:items[period],claimed:items[period]?.claimed}):'';
+      body=`${goal||`<p class="qs-state">${sum.done}/${sum.total} · за все ${questRewardValue(items[period])}</p>`}${rows?`<div class="qs-list">${rows}</div>`:'<div class="v3-empty"><b>Нет доступных заданий</b><span>Задания появятся, как только откроется доступная игра.</span> <button type="button" class="v3-link" onclick="openQuestsV1()">Обновить</button></div>'}`;
     }
     const tab=(id,label)=>`<button type="button" id="quest-tab-${id}" class="v3-tab${_questsV1Tab===id?' on':''}" role="tab" tabindex="${_questsV1Tab===id?'0':'-1'}" aria-selected="${_questsV1Tab===id}" aria-controls="quest-panel" onclick="questsV1SetTab('${id}')">${label}</button>`;
     root.innerHTML=`${v3Head('Задания',{sub:'Цели на день и неделю',end:v3GuideBtn('quests')})}${banner}<nav class="v3-tabs v3-tabs--wide quest-tabs${ready?' has-ready':''}" role="tablist" aria-label="Разделы заданий" onkeydown="questsV1TabKey(event)">${tab('daily','Сегодня')}${tab('weekly','Неделя')}${tab('rewards','Награды')}</nav><section id="quest-panel" role="tabpanel" aria-labelledby="quest-tab-${_questsV1Tab}">${body}</section>`;
@@ -972,7 +973,9 @@
     const total = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
     const max = Number(summary.max_levels ?? (_achievementsV1Data.families || []).reduce((n,f)=>n+Number(f.max_level || 40),0)) + Number(chatSummary.max_levels || 0);
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
-    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub, end: v3GuideBtn('ach') })}${achievementTabs()}
+    // Карточка общего пути: кольцо открытых уровней и полученная Мора рисованной монетой (app.50.js); без неё — строка под заголовком
+    const card = typeof v3GoalCard === 'function' ? v3GoalCard({ done: total, total: max, label: 'Открыто уровней · получено за них', reward: { amount_mora: summary.claimed_mora || 0 } }) : '';
+    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub: card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
       <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
     v3EnterSync(root);
   }

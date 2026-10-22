@@ -64,10 +64,13 @@ function _svReach(total) {
 }
 function _svPacks() {
   const packs = _sv.pk?.packages || [];
-  return `<div class="sv-opts" role="radiogroup" aria-label="Пакет Зарников">${packs.map(p => {
+  const cur = typeof v3Cur === 'function' ? v3Cur('zarniki') : '<i>✨</i>';
+  // горка Зарников у пакета: чем больше пакет, тем выше горка (1–5 искр, рисунок app.50.js)
+  const pile = i => typeof v3Cur === 'function' ? `<span class="sv-pile" aria-hidden="true">${Array.from({ length: Math.min(5, i + 1) }, (_, k) => v3Cur('zarniki', `sv-pile-${k}`)).join('')}</span>` : '';
+  return `<div class="sv-opts" role="radiogroup" aria-label="Пакет Зарников">${packs.map((p, i) => {
     const on = Number(p.stars) === _sv.sel;
     return `<button type="button" role="radio" aria-checked="${on}" class="sv-opt${on ? ' is-on' : ''}" onclick="svSelect(${Number(p.stars)})">
-      <span class="sv-opt-main"><b>${fmt(p.total)} <i>✨</i>${p.popular ? '<em class="sv-hit">Хит</em>' : ''}</b><small>${p.bonus ? `<span class="sv-plus">+${fmt(p.bonus)} бонус</span>` : 'без бонуса'}</small></span>
+      ${pile(i)}<span class="sv-opt-main"><b>${fmt(p.total)} ${cur}${p.popular ? '<em class="sv-hit">Хит</em>' : ''}</b><small>${p.bonus ? `<span class="sv-plus">+${fmt(p.bonus)} бонус</span>` : 'без бонуса'}</small></span>
       <span class="sv-opt-end">${fmt(p.stars)} ⭐</span><i class="sv-radio" aria-hidden="true"></i></button>`;
   }).join('')}</div>`;
 }
@@ -83,7 +86,8 @@ function _svZarniki() {
   const pk = _sv.pk, pack = (pk?.packages || []).find(p => Number(p.stars) === _sv.sel);
   if (!pk) return '';
   const off = pk.purchase_enabled === false;
-  return `<p class="sv-lead">Образы, Эссенция и VIP за Зарники.</p>
+  const bal = typeof v3Cur === 'function' ? `<div class="sv-wal">${v3Cur('zarniki', 'sv-wal-cur')}<span><small>На счёте</small><b>${fmt(_svBal())}</b></span></div>` : '';
+  return `${bal}<p class="sv-lead">Образы, Эссенция и VIP за Зарники.</p>
     ${_sv.paid ? `<p class="sv-ok" role="status"><b>+${fmt(_sv.paid)} ✨</b> зачислено${_sv.goal && _svItem(_sv.goal) && !_svItem(_sv.goal).owned ? ` <button type="button" class="v3-link" onclick="navBack()">К образу ›</button>` : ''}</p>` : ''}
     <div class="sv-sec"><span class="v3-eyebrow">Пополнить</span></div>${_svPacks()}
     ${off ? `<p class="sv-fine">${pk.purchase_disabled_reason === 'preprod' ? 'На тестовом стенде платежи отключены. В продакшене пополнение работает.' : 'Пополнение сейчас недоступно.'}</p>`
