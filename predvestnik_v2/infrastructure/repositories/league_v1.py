@@ -16,6 +16,28 @@ def load(value):
 
 
 async def ensure_tables(db) -> None:
+    # No DDL on installed /me and pet-action paths; recheck after the schema lock.
+    if await _schema_ready(db):
+        return
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:league_demo', 0))")
+        if not await _schema_ready(db):
+            await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    async with db.execute("""
+        SELECT NOT EXISTS (
+            SELECT 1 FROM unnest(ARRAY[
+                'league_demo_runs', 'league_demo_one_active_run',
+                'league_demo_progress', 'league_demo_pet_xp_events'
+            ]) AS name WHERE to_regclass(name) IS NULL
+        )
+    """) as cursor:
+        return bool((await cursor.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS league_demo_runs (
             run_id TEXT PRIMARY KEY,
@@ -52,6 +74,33 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY (user_id, season, game, level)
         )
     """)
+    await db.execute("""
+        CREATE TABLE IF NOT EXISTS league_demo_pet_xp_events (
+            user_id BIGINT NOT NULL,
+            season TEXT NOT NULL,
+            source TEXT NOT NULL,
+            event_id TEXT NOT NULL,
+            xp INTEGER NOT NULL CHECK (xp > 0),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (user_id, season, source, event_id)
+        )
+    """)
+
+
+async def add_pet_xp(db, *, user_id: int, season: str, source: str, event_id: str, xp: int) -> None:
+    await db.execute(
+        "INSERT INTO league_demo_pet_xp_events(user_id,season,source,event_id,xp) VALUES (?,?,?,?,?) "
+        "ON CONFLICT (user_id,season,source,event_id) DO NOTHING",
+        (int(user_id), season, source, str(event_id), int(xp)),
+    )
+
+
+async def pet_xp(db, *, user_id: int, season: str) -> int:
+    async with db.execute(
+        "SELECT COALESCE(SUM(xp),0) FROM league_demo_pet_xp_events WHERE user_id=? AND season=?",
+        (int(user_id), season),
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
 
 
 async def lock_user(db, *, user_id: int) -> None:
@@ -138,5 +187,6 @@ async def top(db, *, season: str, game: str, limit: int = 10) -> list[dict]:
 
 async def reset(db, *, user_id: int, season: str) -> None:
     """Demo only: forget the caller's own progress and runs of this season."""
+    await db.execute("DELETE FROM league_demo_pet_xp_events WHERE user_id=? AND season=?", (int(user_id), season))
     await db.execute("DELETE FROM league_demo_progress WHERE user_id=? AND season=?", (int(user_id), season))
     await db.execute("DELETE FROM league_demo_runs WHERE user_id=? AND season=?", (int(user_id), season))

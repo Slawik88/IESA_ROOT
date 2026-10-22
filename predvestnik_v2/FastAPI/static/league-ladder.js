@@ -86,7 +86,7 @@
     host.innerHTML = `<div class="lg-state"><div><b>${p.level}</b><small>уровень из ${p.levels}</small></div><div><b>${p.xp}</b><small>опыта</small></div><div><b>${p.xp_to_next}</b><small>до следующего</small></div></div>
       <p class="lg-demo-note">Награды показаны для примера и не выдаются. Скинов в Пропуске нет.</p>
       <h3 class="lg-eyebrow">Бесплатно · VIP</h3><ol class="lg-top lg-pass">${rows}</ol>
-      <details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Опыт дают только пройденные рейтинговые уровни: ★ — ${me.xp_by_stars[1]}, ★★ — ${me.xp_by_stars[2]}, ★★★ — ${me.xp_by_stars[3]} опыта, один раз за уровень в сезоне.</p></details>`;
+      <details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Опыт дают пройденные рейтинговые уровни: ★ — ${me.xp_by_stars[1]}, ★★ — ${me.xp_by_stars[2]}, ★★★ — ${me.xp_by_stars[3]} опыта, один раз за уровень в сезоне. Действия с питомцами — ещё по ${me.pet_action_xp} опыта: кормление, занятия, выслеживание, испытания, сборки и снаряжение. Повтор запроса и просмотр экранов опыта не дают.</p></details>`;
   }
 
   window.LeagueLadder = {render, demoPass, spec};

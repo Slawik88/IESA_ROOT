@@ -40,11 +40,16 @@ async def overview(db, *, user_id: int) -> dict:
     await repo.ensure_tables(db)
     season = _season()
     rows = await repo.progress(db, user_id=user_id, season=season)
+    # Resolve each player once even if they rank in both games.
+    tops = {game: await repo.top(db, season=season, game=game) for game in rules.GAMES}
+    names = await public_profiles.player_projection(
+        db, user_ids=sorted({int(r["user_id"]) for top in tops.values() for r in top}),
+    )
+    pet_xp = await repo.pet_xp(db, user_id=user_id, season=season) if rules.is_demo(season) else 0
     games = {}
     for game in rules.GAMES:
         mine = _levels(rows, game)
-        top = await repo.top(db, season=season, game=game)
-        names = await public_profiles.player_projection(db, user_ids=[int(r["user_id"]) for r in top])
+        top = tops[game]
         games[game] = {
             "unlocked": unlocked(rows, game), "stars": sum(r["stars"] for r in mine),
             "levels": {str(r["level"]): {"stars": r["stars"], "attempts": r["attempts"]} for r in mine},
@@ -53,7 +58,8 @@ async def overview(db, *, user_id: int) -> dict:
         }
     demo = rules.is_demo(season)
     return {"season": season, "demo": demo, "games": games, "xp_by_stars": rules.XP_BY_STARS,
-            "pass": league_pass_demo.view(sum(r["xp"] for r in rows)) if demo else None}
+            "pass": league_pass_demo.view(sum(r["xp"] for r in rows) + pet_xp) if demo else None,
+            "pet_action_xp": league_pass_demo.PET_ACTION_XP if demo else 0, "pet_xp": pet_xp}
 
 
 async def _cancel_active(db, *, user_id: int, game: str) -> None:

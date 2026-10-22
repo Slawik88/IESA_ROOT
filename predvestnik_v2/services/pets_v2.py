@@ -8,6 +8,7 @@ import json
 import random
 from math import floor
 from uuid import uuid4
+from services.pet_actions import save_v2_action
 
 from core import pets_v2 as rules
 from core import pet_equipment as equipment
@@ -293,7 +294,7 @@ async def save_build_preset(db, *, user_id: int, pet_id: int, slot: int, name: s
             raise PetV2PolicyError("Талисман не найден.")
         await repo.put_build_preset(db, user_id, pet_id, slot, name, draft)
         response = {"ok": True, "slot": slot, "name": name, "build": draft}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
         return response
 
 
@@ -355,7 +356,7 @@ async def start_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, rou
         run = await repo.create_run(db, run_id=uuid4().hex, user_id=user_id, pet_id=pet_id, kind=kind, hours=hours, route=route,
                                     companion_id=int(companion_id) if companion_id is not None else None)
         response = {"ok": True, "run_id": run["id"], "ends_at": str(run["ends_at"]), "energy": round(energy, 1), "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -551,7 +552,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
             "companion": companion_reward, "idempotent_replay": False,
         }
         await repo.finish_run(db, run["id"], result)
-        await repo.save_action(db, user_id, action_id, request, result)
+        await save_v2_action(db, user_id, action_id, request, result)
         await _record_progress(db, user_id, run, occurred_at=clock['now'])
     return result
 
@@ -678,7 +679,7 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
         await repo.set_talismans(db, user_id, pet_id, talisman_ids)
         response = {"ok": True, "pet_id": int(pet_id), "calling": calling, "traits": traits, "talismans": talisman_ids,
                     "essence_spent": cost, "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -754,7 +755,7 @@ async def camp_upgrade(db, *, user_id: int, building: str, action_id: str, expec
             raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost['essence']}.") from exc
         await repo.start_camp_job(db, user_id, building, levels[building] + 1, cost["hours"])
         response = {"ok": True, "building": building, "to_level": levels[building] + 1, "cost": cost, "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
         await achievement_service.record_life_event(db, user_id=user_id, family='builder', fact=f'{building}:{levels[building] + 1}')
     return response
 
@@ -795,7 +796,7 @@ async def reforge_talisman(db, *, user_id: int, talisman_id: str, action_id: str
             raise PetV2PolicyError(f"Не хватает Эссенции: нужно {cost}.") from exc
         await repo.set_talisman_tier(db, user_id, talisman_id, tier + 1)
         response = {"ok": True, "talisman_id": str(talisman_id), "tier": tier + 1, "essence_spent": cost, "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -840,7 +841,7 @@ async def start_track(db, *, user_id: int, pet_id: int, action_id: str, rng=None
         response = {"ok": True, "track": _track_view({"id": track_id, "pet_id": pet_id, "status": "open", "points": points,
                                                         "opened": opened, "hidden": hidden}), "attempts_left": rules.TRACK_DAILY - len(today) - 1,
                     "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -884,7 +885,7 @@ async def open_track_cell(db, *, user_id: int, track_id: str, cell: int, action_
         await repo.save_track(db, track["id"], opened=opened, points=max(points, 0), status=status, result=result)
         response = {"ok": True, "track": _track_view({**track, "opened": opened, "points": max(points, 0), "status": status, "result": result}),
                     "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -949,7 +950,7 @@ async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action
         response = {"ok": True, "week": week.isoformat(), "matches": matches, "difficulty": int(difficulty), "essence": essence,
                     "xp_credited": round(credited, 2), "level_before": level_before, "level_after": level,
                     "stage_essence": stage_essence, "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -1005,6 +1006,6 @@ async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: st
                                 fed_xp_on=day, xp=xp, level=level)
         response = {"ok": True, "pet_id": int(pet_id), "food_id": food_id, "energy": round(energy, 1), "remaining": remaining,
                     "favorite": favorite, "xp_credited": round(credited, 2), "idempotent_replay": False}
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v2_action(db, user_id, action_id, request, response)
         await achievement_service.record_life_event(db, user_id=user_id, family='care', fact=day.isoformat())
     return response

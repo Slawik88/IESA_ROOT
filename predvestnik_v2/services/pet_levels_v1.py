@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from uuid import uuid4
+from services.pet_actions import save_v1_action
 
 from core.economy_contract import InsufficientBalance
 from core.pet_levels_v1 import FLAG, POLICY_VERSION, REASON_CODE, level_up_cost
@@ -78,7 +79,7 @@ async def level_up_pet(db, *, user_id: int, pet_id: int, action_id: str) -> dict
         response = {"ok": True, "pet_id": int(pet_id), "level_before": cost.level_before,
                     "level_after": cost.level_after, "cost": _cost_dict(cost), "cards_left": cards_left,
                     "idempotent_replay": False}
-        await repo.save_action(db, int(user_id), action_id, request, response)
+        await save_v1_action(db, int(user_id), action_id, request, response)
     return response
 
 
