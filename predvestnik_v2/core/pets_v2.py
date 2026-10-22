@@ -511,7 +511,7 @@ FREE_SWAP_DAYS: Final = 7
 
 
 def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple[tuple[str, int], ...] = (),
-                  *, hours: int = 3, route: str | None = None, paired: bool = False, fed_favorite: bool = False) -> dict:
+                  *, hours: int = 3, route: str | None = None, paired: bool = False, fed_favorite: bool = False, equipment: tuple = ()) -> dict:
     """Сводка билда: множитель Следов, множители находок, поправки Выдержки, шанса и награды путей."""
     if calling is not None and calling not in CALLINGS:
         raise PetV2PolicyError("Неизвестное призвание.")
@@ -563,6 +563,12 @@ def build_effects(calling: str | None, traits: tuple[str, ...], talismans: tuple
     for kind in set(kinds):
         if kinds.count(kind) >= 2 and route == TALISMANS[kind][0]:
             xp *= 1 + TALISMAN_SET_BONUS
+    from core.pet_equipment import effects
+    gear = effects(equipment)
+    xp *= gear['xp']; resilience_extra += gear['resilience']; energy_bonus += int(gear['energy']); regen_delta += gear['regen']
+    chance['careful'] += gear['careful']
+    for key in ('bonus_xp', 'treat'):
+        if gear[key] != 1: mul(key, gear[key])
     return {"xp_mult": xp, "find_mods": mods, "resilience_extra": resilience_extra, "energy_bonus": energy_bonus,
             "regen_delta": regen_delta, "extra_key_chance": extra_key, "chance_bonus": chance, "reward_mult": reward, "guardian": calling == "guardian"}
 

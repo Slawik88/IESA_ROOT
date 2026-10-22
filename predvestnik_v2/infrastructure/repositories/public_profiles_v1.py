@@ -11,6 +11,18 @@ from collections.abc import Iterable
 
 
 async def ensure_tables(db) -> None:
+    if await _schema_ready(db):return
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:public_profiles_v1',0))")
+        if not await _schema_ready(db):await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    async with db.execute("SELECT to_regclass('public_profile_v1_refs') IS NOT NULL") as c:
+        return bool((await c.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS public_profile_v1_refs (
             user_id BIGINT PRIMARY KEY,
@@ -61,15 +73,42 @@ async def ensure_reference(db, *, user_id: int) -> str:
 
 
 async def ensure_references(db, user_ids: Iterable[int]) -> dict[int, str]:
-    refs: dict[int, str] = {}
-    for user_id in dict.fromkeys(int(value) for value in user_ids):
-        refs[user_id] = await ensure_reference(db, user_id=user_id)
-    return refs
+    ids = sorted(set(int(value) for value in user_ids))
+    if not ids:return {}
+    await ensure_tables(db)
+    refs = {}
+    for attempt in range(6):
+        missing = [uid for uid in ids if uid not in refs]
+        marks = ','.join('?' for _ in missing)
+        async with db.execute(f'SELECT user_id,profile_ref FROM public_profile_v1_refs WHERE user_id IN ({marks})',tuple(missing)) as c:
+            refs.update({int(r['user_id']):str(r['profile_ref']) for r in await c.fetchall()})
+        missing = [uid for uid in ids if uid not in refs]
+        if not missing:return refs
+        if attempt == 5:break
+        # Separate SELECT sees a concurrent winner. Generic conflict handling
+        # also retries a rare random-token collision, with a new candidate.
+        values = ','.join('(?,?)' for _ in missing)
+        params = tuple(v for uid in missing for v in (uid,secrets.token_urlsafe(18)))
+        await db.execute(f'INSERT INTO public_profile_v1_refs(user_id,profile_ref) VALUES {values} ON CONFLICT DO NOTHING',params)
+    raise RuntimeError('could not allocate public profile references')
+
+
+def valid_reference(ref: str) -> bool:
+    return 16 <= len(ref) <= 64 and all(char.isascii() and (char.isalnum() or char in '-_') for char in ref)
+
+
+async def resolve_references(db, profile_refs: Iterable[str]) -> dict[str,int]:
+    refs = sorted({str(ref) for ref in profile_refs if valid_reference(str(ref))})
+    if not refs:return {}
+    await ensure_tables(db)
+    marks = ','.join('?' for _ in refs)
+    async with db.execute(f'SELECT profile_ref,user_id FROM public_profile_v1_refs WHERE profile_ref IN ({marks})',tuple(refs)) as c:
+        return {str(r['profile_ref']):int(r['user_id']) for r in await c.fetchall()}
 
 
 async def resolve_reference(db, *, profile_ref: str) -> int | None:
     ref = str(profile_ref or "")
-    if not 16 <= len(ref) <= 64 or not all(char.isascii() and (char.isalnum() or char in "-_") for char in ref):
+    if not valid_reference(ref):
         return None
     await ensure_tables(db)
     async with db.execute(

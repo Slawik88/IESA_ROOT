@@ -82,3 +82,14 @@
 .mafia-howto-role dt { font-size: 14px; font-weight: 600; }
 .mafia-howto-role dd { margin: 2px 0 0; color: var(--v3-dim); font-size: 13px; line-height: 1.4; }
 @media (prefers-reduced-motion: reduce) { .mafia-howto-title::after { transition: none; } }
+
+/* Generated Mafia illustrations remain decorative; role text and buttons work without them. */
+.mafia-city-art{display:block;width:100%;height:auto;max-height:170px;object-fit:cover;border-radius:16px;margin:0 0 14px;background:var(--v3-sheet)}
+.mafia-howto-role{display:flow-root;min-height:84px}
+.mafia-role-art{float:left;width:64px;height:64px;object-fit:cover;border-radius:14px;margin:0 12px 2px 0;background:var(--v3-sheet)}
+.mafia-howto-role dd{margin-left:76px}
+.mafia-role-mini{float:left;width:40px;height:40px;object-fit:cover;border-radius:10px;margin-right:10px;background:var(--v3-sheet)}
+.mafia-result-art{float:right;width:56px;height:56px;object-fit:cover;border-radius:14px;margin:0 0 8px 12px}
+.mafia-review-player{display:flow-root;list-style:none;min-height:48px;padding:6px 0}
+.v3-game[data-game="game_mafia_v1"]>span:first-child{display:grid;grid-template-columns:52px minmax(0,1fr);column-gap:10px;align-items:center}
+.mafia-hub-art{grid-row:span 2;width:52px;height:52px;border-radius:12px;object-fit:cover}

@@ -73,6 +73,11 @@ BLOCKED = (
 
 
 def assert_surface(client: TestClient, prefix: str = "") -> None:
+    for role in ("city", "citizen", "mafia", "don", "doctor", "detective"):
+        for ext, mime in (("jpg", "image/jpeg"), ("webp", "image/webp")):
+            ALLOWED[f"/static/mafia-art/{role}.{ext}"] = mime
+    assert client.get(f"{prefix}/static/mafia-art/prompts.json").status_code == 404
+    assert client.get(f"{prefix}/static/mafia-art/unknown.jpg").status_code == 404
     # Patch-note drafts and their screenshots are not public before the creator sends them (admin API only).
     for note in (ROOT / "FastAPI/static/patch-notes").glob("*.json"):
         assert client.get(f"{prefix}/static/patch-notes/{note.name}").status_code == 404, note.name

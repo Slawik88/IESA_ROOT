@@ -156,7 +156,7 @@ Real Telegram iOS/Android gesture smoke not performed; local Chromium checked.
 Task complete for the released fixes. Known unrelated test/fixture debt remains
 in the single release backlog; no production data cleanup or reward migration.
 
-## WAVE-GAMES-GEAR-20261021 — ACTIVE, preserve every user task
+## WAVE-GAMES-GEAR-20261021 — RELEASED
 
 Same worktree. User explicitly demands all unfinished work and immediate master
 pushes. Confirmed NEW implementation: five pet equipment slots + separate quick
@@ -164,30 +164,78 @@ pushes. Confirmed NEW implementation: five pet equipment slots + separate quick
 No further approval needed for that scope. Mafia generated images must match
 Predvestnik OBSIDIAN/cold violet style. Leaderboard ~minute load goes LAST.
 
-Stage1 ready locally: Mine v2 bounded8 candidate generator+zero seed fallback;
-legacy run/packet version dispatch, no-header API negotiatesv1 vs new bundle
-x-minesweeper-ruleset=v2; current new fresh explicitly upgrades old templates.
-Fixed hidden/stale longpress across board/mode, F autorepeat, difficulty rollback.
-Rhythm4s visible field/no target for start/gift/resume/restore, full reaction
-window then starts. Hidden/cancel abortPromise, drawSeq ignores stale views,
-field no layout jump305->305px (independent Chromium320x568).
-PASS Mine10k,198fallback; Python/JS/BFS144boards5271actions; PG+HTTP negotiation,
-local games PG, rules/parity;4JS gameplay/lifecycle/accessibility/resume. Independent
-release_critic ACCEPT; reviewer also4554 parity layouts/180 random games/48 full
-wrongflag games. Static delivery needs retry WITH dummyenv (lastfailedmissingtoken).
+Stage1 shipped to master5c7fa566 atop18417a3d: nontrivial Mine v2 boards,
+legacy negotiation/replay preserved; longpress/F/difficulty gameplay fixes;
+Rhythm4s field/no target start/gift/resume/restore with full reaction window.
+Targeted rules/PG/JS/static gates PASS; independent read-only ACCEPT.
 
-Before commit fetched master18417a3d (all-time Mine/Mafia wins tops, separate from
-Mine speed board). Integrate carefully: updates feed/patch-note drafts and PGtests.
-Our two new release notes live in patch-notes/2026-10-21-games.json so daily fix
-limit isn't exceeded. Then targeted checks and push first critical batch.
+Mafia shipped3757e89e (rebased onto8e2eb05c early-accessLeague work preserved).
+Production HTTP identity PASS:8JS/CSS exact SHA256,6art200,manifest404,
+health/ready/feed/auth; output/pets-release/mafia-after-deploy.json. Reviewer
+resumed and final ACCEPT; all caption findings fixed. Private TGK draft includes
+real role screenshot; no channel messages sent.
 
-Remaining order: Mafia art+integration ->5gear+Вылазка+balance sim -> leaderboard
-latency LAST. Art first6 noir images generated, rejected as too sepia. Brand edits
-running functions cell92 (imagegen six edits, initial120s yielded). Results stored
-functions load('mafiaBrandResults'), prior paths/prompts load('mafiaImageResults'),
-load('mafiaBrandPrompts'); all default files under Codex generated_images/thread.
-Copy chosen brand art into workspace, encode web assets, retain prompt manifest.
-Mafia use surfaces: hub, howto5roles, history empty/completedreview, private role DM
-(send_dm/role cards in bot/chat/mafia_dm.py). Avoid per-tick image spam/secret role
-leaks to public chat. Existing text phasecards edit_message_text should stay text.
-Gear and Вылазка not yet coded; backlog top has full approved scope.
+Gear+outing locally complete: core/pet_equipment.py; ownservice/repo; equipment
+JSONB onstate, parts/outings tables installed under old schema advisorylock,
+installed schema probe remains SELECT-only. app49registeredinbundle, petcardlink,
+hubouting, allbusyfilters. Fivefunctional slots/10items/3tiers; free starteronce,
+craft8,upgrade12/24; per-pet bound, revisions avoid lost-response nonceghosts.
+Gear affects existing preview/claim/advice/rest/build changes,625dailyXPcap stays.
+Outing7choices/9events,3options each,HP4/supplies3,bank/halfrescue/completionbonus,
+32parts/run,3starts/day/account,energy10; gearimmutable snapshot,expectedstep,
+actionreceipt/userlock. Lastreceipt persists, costs/heal actual deltas exposed.
+PASS actualPG gearclaim/ownership/rest/staleprice/busy/resume; two connections
+samechoice->oneapply,differentleave->onereward; rules/advice/static/trailcontracts,
+JSnonce/recovery/recommendations. 60000simulation/96builds,maxXPx1.2208;
+independent79896outcomeoracle and finalrelease_critic ACCEPT. Browser playedall7,
+reloadsavedreceipt, craftedlensfor8from10parts/equipped;320/390/430nooverflow.
+Proof output/playwright/gear-20261022. Oct22feed+TGKdraft includesall3newfeatures.
+
+Gear74a2df4f pushedmaster. Final leaderboard batch locally complete (lasttask).
+Causes: restored active client never requestedranking; coldstartwaitedgamebootstrap;
+96SQL/46DDL for20players and schemaCREATEINDEX blockedbyordinarywriter.
+Fixed independent restore/cold GET, coalesceddifficultyrequests+dirtytrailingafter
+confirmedwin, retry/online; batchrefs collision/race-safe sortedIDs/separateSELECT,
+batchresolver; public/MineSELECTschemafastpath andtransaction/advisoryrepair;
+oneCTEtop+personal exactties,partialseasonindex.
+PASS warmprobe15SQL/0DDL/~12ms andno writerblocking;100000mixedruns14.75ms
+fullreply,EXPLAIN4.303msseasonindex. Bulkrefs cold2conn+reverseorder race+forced
+collision; ties1/1/3,personalplace25,exclusiveend/unrankedzero/privacy PG PASS.
+MinePG,sharedMafia/RhythmPG +independentdecoratorprobe +4JS suites/newloading
+suitePASS. Read-onlycritic finalACCEPT (alsoeasy->hard->easylate responseprobe).
+Firstschema repair creates normalindex, canwaitwriters once;warmread0DDL.
+Browseractualrestore18cellsactive->reload: leaderboardloaded (emptytestboard),
+proofoutput/playwright/leaderboard-20261022/restored-loaded.png.
+
+All requested implementation and rollout complete. Runtime master446e47b7
+(gear74a2df4f,Mafia3757e89e,Mine/Rhythm5c7fa566). Final production verification
+PASS asset_version 710b638fa34288be16a4:8JS/CSS exactSHA256,12JPG/WebP exactbytes,
+all6newfeedIDs,24HTTPchecks inclhealth/ready200 andprivateAPIs401.
+Evidence output/pets-release/final-after-deploy.json; screenshotpaths above.
+Notes/feed/staticgates PASS. Cleanworktree beforethishandoffupdate.
+Oct22TGKdraft has3newfeatures/screenshots+leaderboardfix; Oct21-gamesdraft has
+Mine/Rhythmfixes. Readabletext output/pets-release/tgk-2026-10-22.html (547chars).
+NOchannelmessages sent. Imagegen builtin; finalassets andfullpromptmanifest under
+FastAPI/static/mafia-art/. RealdeviceTelegramgesturetestnotperformed, Chromium
+smokes above. Fullprojectgate40pre-existingbaselinefailures remainsseparated
+anddocumented; thiswave'stargetedgatesallpass. No furtherrequestedwork pending.
+Local Stand59754on8403 --trailnone,persona990000001,dummy123456:stand,
+PG55432 disposable shared cluster; do not stop sharedPG. Worktree retained.
+
+## 2026-10-22 — owner-requested complete Pets UI rebuild
+
+Active worktree pets-ux-audit, branch codex/pets-ux-audit; frontend only app40/41/49,
+trail CSS + feed/day patch note. Overview/collection/camp, contextual preparation,
+5-slot comparison, send draft with fresh authoritative quote, nested history and
+navigation/dialog race guards. No balance/service/schema changes. Read-only critic
+ACCEPT; focused executable UI/contract/rules/advice/static-delivery checks PASS.
+Browser actual exp6h -> gear change -> resume retained intent; Escape pet-send;
+Back free-filter; Tab trap; 320px pageY0/sheetY351; outing reload/resume/early-return2.
+Fresh proof output/playwright/pets-redesign-20261022/{before,after}/.
+Final release checks/master push remain; no Telegram channel messages sent.
+
+Post-push refinement: MINIAPP_DESIGN_RULES one-primary-action emphasis checked;
+neutral selection/decoration, secondary compare/feed/camp/outing actions ghost,
+first ready claim primary, retained draft respects busy state. Actual-render
+regressions and independent read-only critic PASS. Pending final deployed identity.
+Next owner task: attractive Chests tab redesign, keep published odds/prices unchanged.

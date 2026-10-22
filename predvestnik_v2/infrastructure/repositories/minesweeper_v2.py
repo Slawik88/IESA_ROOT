@@ -17,6 +17,21 @@ def load(value):
 
 async def ensure_tables(db) -> None:
     await public_profiles.ensure_tables(db)
+    if await _schema_ready(db):return
+    async with db.connection.transaction():
+        await db.execute("SELECT pg_advisory_xact_lock(hashtextextended('ensure_tables:minesweeper_v2',0))")
+        if not await _schema_ready(db):await _ensure_tables_unlocked(db)
+
+
+async def _schema_ready(db) -> bool:
+    async with db.execute("""SELECT NOT EXISTS (SELECT 1 FROM unnest(ARRAY[
+        'minesweeper_v2_runs','minesweeper_v2_actions','minesweeper_v2_leaderboard',
+        'minesweeper_v2_one_open_run_per_user','minesweeper_v2_leaderboard_rank','minesweeper_v2_season_rank'
+    ]) AS name WHERE to_regclass(name) IS NULL)""") as c:
+        return bool((await c.fetchone())[0])
+
+
+async def _ensure_tables_unlocked(db) -> None:
     await db.execute("""
         CREATE TABLE IF NOT EXISTS minesweeper_v2_runs (
             run_id TEXT PRIMARY KEY,
@@ -66,6 +81,9 @@ async def ensure_tables(db) -> None:
         CREATE INDEX IF NOT EXISTS minesweeper_v2_leaderboard_rank
         ON minesweeper_v2_leaderboard(difficulty,ruleset_version,best_elapsed_ms,best_opened_actions,updated_at)
     """)
+    await db.execute("""CREATE INDEX IF NOT EXISTS minesweeper_v2_season_rank
+        ON minesweeper_v2_runs(difficulty,finished_at,user_id,elapsed_ms,opened_actions,run_id)
+        WHERE status='won' AND elapsed_ms>0 AND opened_actions>=2""")
 
 
 async def lock_owned_run(db, *, run_id: str, user_id: int) -> dict | None:
@@ -154,7 +172,13 @@ async def win_position(db, *, user_id: int) -> dict | None:
 
 
 async def leaderboard(db, *, user_id: int, difficulty: str, starts_at, ends_at) -> dict:
-    top = await season_standings(db, difficulty=difficulty, starts_at=starts_at, ends_at=ends_at, limit=20)
+    # Both parts use one season/ranking snapshot, including all ties.
+    async with db.execute(_SEASON_BEST +
+        "SELECT 'top' AS row_kind,* FROM (SELECT * FROM ranked ORDER BY place,user_id LIMIT 20) t "
+        "UNION ALL SELECT 'personal' AS row_kind,* FROM ranked WHERE user_id=?",
+        (str(difficulty),starts_at,ends_at,int(user_id))) as cursor:
+        rows = [dict(r) for r in await cursor.fetchall()]
+    top = sorted([r for r in rows if r['row_kind']=='top'],key=lambda r:(r['place'],r['user_id']))
     players = await public_profiles.player_projection(db, user_ids=[row["user_id"] for row in top])
     public_top = [
         {"place": int(row["place"]), "best_elapsed_ms": int(row["best_elapsed_ms"]),
@@ -162,9 +186,5 @@ async def leaderboard(db, *, user_id: int, difficulty: str, starts_at, ends_at) 
          "player": players[int(row["user_id"])]}
         for row in top
     ]
-    async with db.execute(
-        _SEASON_BEST + "SELECT place,best_elapsed_ms,best_opened_actions FROM ranked WHERE user_id=?",
-        (str(difficulty), starts_at, ends_at, int(user_id)),
-    ) as cursor:
-        personal = await cursor.fetchone()
-    return {"top": public_top, "personal": dict(personal) if personal else None}
+    personal = next(({k:int(r[k]) for k in ('place','best_elapsed_ms','best_opened_actions')} for r in rows if r['row_kind']=='personal'),None)
+    return {"top": public_top, "personal": personal}

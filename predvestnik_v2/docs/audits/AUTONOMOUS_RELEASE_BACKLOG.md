@@ -1,3 +1,31 @@
+## PETS-UX-20261022 — complete Pets workspace redesign (release verification)
+
+Owner request: rebuild the Pets tab around when the player needs each fact/action;
+no economy or rules changes. Runtime files: app.40/41/49.js and trail-v3.css.
+
+Fresh 390px audit evidence: `output/playwright/pets-redesign-20261022/before/`.
+Hub duplicated the ready action and free slots, then buried modes below seven pets;
+pet detail put equipment after ~1700px of serial facts; send sheet put its forecast
+before all choices and repeated the entire roster on every opening.
+
+Implemented: Overview / Pets / Camp navigation; active/resumable work and instant
+mode cards; collection state filters; pet vitals, five gear slots and build together;
+progress/day norm and contextual features; two alternatives for the selected gear
+slot with replacement effects, prices and disabled reasons. Send prep keeps its
+intent and reloads /me + preview; history restores pet/filter/slot/scroll/disclosures
+and trial/track candidate. Navigation/dialog generations retire stale async intent.
+Busy pets retain their lawful feed/track/trial access; daily cap does not block finds.
+Outing stats are labelled, each new event/receipt starts at top, history folds below CTA.
+
+PASS: workspace UI executable regressions, recovery, recommendations, outing UI,
+Trail contract, pets rules/advice, ASGI delivery. Independent read-only critic ACCEPT;
+fixed nested trial selection, resume ABA/dialog races, passive rest explanation and
+semantic focus return. Fresh browser: 320/390/430px, sheet pageY0/sheetY351, Tab trap,
+Escape to pet-send, free-filter Back, real equip + fresh exp6h draft recovery, saved
+outing after reload, early return of two parts. Evidence under corresponding after/.
+TGK day note and in-app feed updated, no channel message sent.
+Remaining: final release identity/health checks after master push.
+
 ## SEASON-2-REWORK — концепция готова, ждёт решений владельца (21.10.2026)
 
 Владелец: сезоны Пропуска и мини-игр по 60 дней с одним счётчиком; сезон 1 закрыть через 3 дня;
@@ -18,7 +46,7 @@
 на получение сезона 1 до 24.11, старые доски платят только за сезон 1. Патч-ноут 2026-10-25 ждёт отправки владельцем.
 TODO после 24.11: удалить легаси по списку в docs/SEASON_2_RATING_AND_PASS.md («Переключение 25.10»).
 
-## WAVE-GAMES-GEAR-20261021 — в работе, прямой push master разрешён
+## WAVE-GAMES-GEAR-20261021 — выпущено в master / production
 
 Порядок владельца и текущая очередь (не заменять новым последним сообщением):
 1. Сапёр: запретить first-click auto-win генерацией v2, сохранить legacy runs/
@@ -33,17 +61,35 @@ TODO после 24.11: удалить легаси по списку в docs/SEA
    full reaction window, hide/cancel tokens, no162px layout jump. Fake-clock
    tests и независимый Chromium320×568 smoke PASS.
 3. Мафия: imagegen для полезных поверхностей, именно стиль Предвестника.
-   Первый noir-набор сгенерирован, слишком sepia; переделать под obsidian/violet,
-   интегрировать role/help/history/hub и приватные role cards, проверить UX.
+   Готовы6 obsidian/violet assets: hub/help/history/review/private role cards.
+   Проверены media fallback/retry, caption-aware выбор и длинная подпись;
+   ASGI12assets+404manifest, PGmafia PASS, Chromium320 nooverflow.
+   Read-only critic: исправлен edit_text→edit_caption для первого ночного хода.
 4. Пять слотов экипировки + отдельная быстрая «Вылазка»: владелец явно подтвердил
    реализацию в этом выпуске и влияние экипировки на ТЕКУЩИЕ походы и Следы.
-   Функциональные слоты, отдельный 3–5мин забег с последовательными выборами,
-   риском, припасами и ранним выходом; прогноз/receipt/лимиты/идемпотентность.
+   Готово локально:5slots/10items/3tiers, бесплатныйstarter, детали8/12/24;
+   7развилок,9событий,HP/supplies/cargo,earlybank/rescue,32parts/run,3starts/day.
+   Gear включён в реальные preview/claim/advice/rest/limits;625cap сохранён.
+   PASS PGactualclaim+2connectionchoice/rewardrace, UIlostnonce/recovery,
+   60000sim/96builds; независимыйoracle79896outcomes ифинальныйACCEPT.
+   Chromium7steps/reload/craft/equipPASS,320/390/430 nooverflow.
 5. ПОСЛЕДНИМ: Mines leaderboard грузится около минуты (скриншот владельца).
-   Измерить цепочку client/API/SQL на репрезентативных данных и устранить причину.
+   Исправлено: restore active не запускалGET, coldstart ждалgame/packet;
+   refresh теперь независимый, pendingperdifficulty+dirtytrailingafterwin, retry/online.
+   Server warm20:96SQL/46DDL ->15SQL/0DDL; writerlock TRUE->FALSE.
+   100000mixedruns14.75mslocalfullreply,SQL4.303msnewpartialindex.
+   Bulkrefs/cold2conn/schema/race/collision/privacy/ties/place25/endboundaryPGPASS;
+   Mine/Mafia/Rhythm sharedprojection иJSracesPASS,read-onlyACCEPT.
+   Chromiumactive18cells->reload stillactive+leaderboardloadedPASS.
+   Evidence output/pets-release/leaderboard-{before,after,scale}.json.
+   Index firstrepair uses normal CREATEINDEX; one-time writer wait remains possible.
 
-Read-only release_critic исследует generator parity и gameplay, новых файлов
-не меняет. Worktree прежний, master512c8c6a. Весь незавершённый scope сохранять.
+Stage1 (пункты1–2) отправлен вmaster5c7fa566 поверх18417a3d.
+Read-only release_critic проверяет Mafia batch; новых файлов не меняет.
+Mafia3757e89e уже отправлена иproduction identity verified PASS:8JS/CSS
+и6artassets,health/ready/feed/auth. Gear74a2df4f отправленвmaster; latency446e47b7 выпущен. ФинальныйproductionHTTPidentityPASS:8JS/CSS,
+12artfiles,6feedIDs,health/ready/auth; output/pets-release/final-after-deploy.json.
+Все задачи этой волны завершены. TGKdraftsготовы, liveканалнеиспользовался.
 
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 

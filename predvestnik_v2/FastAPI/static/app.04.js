@@ -27,9 +27,14 @@ const MAFIA_HOWTO_ROLES=[
   ['💉','Доктор','Ночью лечит одного игрока.'],
   ['🔎','Детектив','Ночью проверяет, мафия ли игрок.']
 ];
+const MAFIA_ART_ROLES=['citizen','mafia','don','doctor','detective'];
+function mafiaArt(role,cls='',loading='lazy'){
+  if(role!=='city'&&!MAFIA_ART_ROLES.includes(role))return '';
+  return `<img class="${cls}" src="${BASE}/static/mafia-art/${role}.webp" alt="" width="${role==='city'?800:64}" height="${role==='city'?400:64}" loading="${loading}" decoding="async">`;
+}
 function mafiaHowTo(){
   const steps=MAFIA_HOWTO_STEPS.map(x=>`<li class="mafia-howto-step"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></li>`).join('');
-  const roles=MAFIA_HOWTO_ROLES.map(x=>`<div class="mafia-howto-role"><dt>${x[0]} ${esc(x[1])}</dt><dd>${esc(x[2])}</dd></div>`).join('');
+  const roles=MAFIA_HOWTO_ROLES.map((x,i)=>`<div class="mafia-howto-role"><dt>${mafiaArt(MAFIA_ART_ROLES[i],'mafia-role-art')}${x[0]} ${esc(x[1])}</dt><dd>${esc(x[2])}</dd></div>`).join('');
   return `<details class="mafia-howto"><summary class="mafia-howto-title">Как играть в Мафию</summary><ol class="mafia-howto-steps">${steps}</ol><dl class="mafia-howto-roles">${roles}</dl></details>`;
 }
 
@@ -41,13 +46,13 @@ function openMafiaStats(){
     const role={citizen:['🧑','Мирный житель'],mafia:['🔫','Мафия'],don:['🎩','Дон'],doctor:['💉','Доктор'],detective:['🔎','Детектив']};
     const phase={lobby:'Набор игроков',night:'Ночь',discussion:'Обсуждение',voting:'Голосование',paused:'На паузе'};
     const r=m=>role[m.role]||['❔','Роль ещё не выдана'];
-    const live=(d.live||[]).map(m=>`<div class="v3-line mafia-live"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>Идёт сейчас · ${esc(phase[m.phase]||m.phase)}</small></span></div>`).join('');
+    const live=(d.live||[]).map(m=>`<div class="v3-line mafia-live"><span>${mafiaArt(m.role,'mafia-role-mini')}<b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>Идёт сейчас · ${esc(phase[m.phase]||m.phase)}</small></span></div>`).join('');
     const rows=(d.matches||[]).map(m=>{ const when=mafiaDate(m.finished_at||m.started_at), side=m.winner==='town'?'победили мирные':m.winner==='mafia'?'победила мафия':'';
       return `<div class="v3-line mafia-row"><span><b>${r(m)[0]} ${esc(r(m)[1])}</b><br><small>${esc([when,side].filter(Boolean).join(' · '))}</small></span><em class="mafia-res ${m.won===true?'win':''}">${m.won===true?'Победа':m.won===false?'Поражение':''}</em><button type="button" class="v3-link" onclick="openMafiaReview(${Number(m.match_id)})">Разбор ›</button></div>`; }).join('');
     const summary=played?`<div class="mafia-sum"><div><b>${played}</b><span>сыграно</span></div><div><b>${wins}</b><span>побед</span></div><div><b>${Math.round(wins*100/played)}%</b><span>успех</span></div></div>${s.favorite_role&&role[s.favorite_role]&&played>=3?`<p class="v3-stat-line">Чаще всего: ${esc(role[s.favorite_role][1])}</p>`:''}${Number(s.win_streak||0)>=2?`<p class="v3-stat-line">Серия побед: ${Number(s.win_streak)}${Number(s.win_streak)>=50?'+':''}</p>`:''}`:'';
     const hidden='';
     const empty='<div class="v3-empty">🕵️<b>Партий пока нет</b>В нужной Telegram-группе напиши: «бот мафия». Игра начнётся прямо там.</div>';
-    el('mb').innerHTML=`${mafiaHowTo()}<div class="v3-eyebrow">Моя статистика</div>${summary}${live}${rows||(live?'':empty)}${hidden}`;
+    el('mb').innerHTML=`${mafiaArt('city','mafia-city-art','eager')}${mafiaHowTo()}<div class="v3-eyebrow">Моя статистика</div>${summary}${live}${rows||(live?'':empty)}${hidden}`;
   }).catch(e=>{ el('mb').innerHTML=`<div class="v3-err">${esc(String(e))}</div>`; });
 }
 
@@ -72,7 +77,7 @@ function _hubLine(g){
 }
 function _hubTime(ms){ const t=Math.max(0,Math.round(Number(ms)/1000)||0); return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`; }
 function _hubRow(g,chev){
-  return `<button type="button" class="v3-game" data-game="${g.flag}" onclick="${g.open}"><span><b>${g.name}</b><small>${_hubLine(g)}</small></span><span class="v3-game-go">${g.cta}</span>${chev}</button>`;
+  return `<button type="button" class="v3-game" data-game="${g.flag}" onclick="${g.open}"><span>${g.flag==='game_mafia_v1'?mafiaArt('city','mafia-hub-art'):''}<b>${g.name}</b><small>${_hubLine(g)}</small></span><span class="v3-game-go">${g.cta}</span>${chev}</button>`;
 }
 function loadActivitiesHub(){
   const host=el('game-hub'); if(!host)return;
@@ -142,6 +147,6 @@ function openMafiaReview(id, page = 0) {
     const phase = {night:'Ночь',discussion:'Обсуждение',voting:'Голосование'};
     const timeline = d.timeline.map(r => `<li class="v3-line"><div><b>Раунд ${r.round} · ${phase[r.phase]}</b><p>${r.phase === 'discussion' ? 'Началось голосование.' : r.eliminated ? `Выбыл: ${name(r.eliminated)}.` : 'Никто не выбыл.'}</p>${r.phase === 'voting' ? `<p>Подано голосов: ${r.participated}</p><ul>${r.votes.map(v => `<li>${name(v.target)}: ${v.count}</li>`).join('') || '<li>Голосов нет.</li>'}</ul>${d.vote_mode === 'open' && r.ballots.length ? `<details><summary>Кто как голосовал</summary><ul>${r.ballots.map(v => `<li>${name(v.voter)} → ${name(v.target)}</li>`).join('')}</ul></details>` : ''}` : ''}</div></li>`).join('');
     host.className = '';
-    host.innerHTML = `<p class="v3-stat-line">${d.winner === 'town' ? 'Победили мирные' : d.winner === 'mafia' ? 'Победила мафия' : 'Партия завершена'} · ${mafiaDate(d.finished_at)}</p><p class="tr-note">${esc(d.disclosure)}</p><details><summary>Участники и раскрытые роли · ${d.players.length}</summary><ul>${d.players.map(p => `<li>${esc(p.name)} · ${esc(roles[p.role] || 'Роль не сохранена')}${p.survived ? ' · в игре до финала' : ''}</li>`).join('')}</ul></details><ol class="mafia-review-timeline">${timeline || '<li>Подробные этапы этой партии не сохранились. Итог показан по архивным данным.</li>'}</ol><div class="tr-chips">${page ? `<button class="v3-pill v3-pill--ghost" onclick="openMafiaReview(${Number(id)},${page-1})">Предыдущие этапы</button>` : ''}${d.has_more ? `<button class="v3-pill" onclick="openMafiaReview(${Number(id)},${page+1})">Следующие этапы</button>` : ''}</div>`;
+    host.innerHTML = `<p class="v3-stat-line">${mafiaArt(d.winner==='town'?'citizen':d.winner==='mafia'?'mafia':null,'mafia-result-art')}${d.winner === 'town' ? 'Победили мирные' : d.winner === 'mafia' ? 'Победила мафия' : 'Партия завершена'} · ${mafiaDate(d.finished_at)}</p><p class="tr-note">${esc(d.disclosure)}</p><details><summary>Участники и раскрытые роли · ${d.players.length}</summary><ul>${d.players.map(p => `<li class="mafia-review-player">${mafiaArt(p.role,'mafia-role-mini')}${esc(p.name)} · ${esc(roles[p.role] || 'Роль не сохранена')}${p.survived ? ' · в игре до финала' : ''}</li>`).join('')}</ul></details><ol class="mafia-review-timeline">${timeline || '<li>Подробные этапы этой партии не сохранились. Итог показан по архивным данным.</li>'}</ol><div class="tr-chips">${page ? `<button class="v3-pill v3-pill--ghost" onclick="openMafiaReview(${Number(id)},${page-1})">Предыдущие этапы</button>` : ''}${d.has_more ? `<button class="v3-pill" onclick="openMafiaReview(${Number(id)},${page+1})">Следующие этапы</button>` : ''}</div>`;
   }).catch(e => { if (seq === _mafiaReviewSeq && host?.isConnected) host.innerHTML = `<p class="v3-err" role="alert">${esc(String(e))}</p><button class="v3-link" onclick="openMafiaReview(${Number(id)},${page})">Повторить</button>`; });
 }

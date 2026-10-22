@@ -72,7 +72,7 @@ assert "setInterval(() =>" in hub and "document.hidden" in hub, "the clock does 
 used = set(re.findall(r"\b(tr-[a-z0-9]+(?:-[a-z0-9]+)*)\b", re.sub(r"\$\{[^}]*\}", " ", js)))
 styled = set(re.findall(r"\.(tr-[a-z0-9]+(?:-[a-z0-9]+)*)", plain_css))
 hooks = {"tr-sheet-t", "tr-slots", "tr-pets", "tr-traces", "tr-slot", "tr-more", "tr-pet", "tr-job", "tr-who", "tr-facts-list", "tr-tal"}   # ids and hooks that only the scripts or the tests look for
-hooks.update({"tr-preset-name", "tr-preset-slot", "tr-send-forecast"})  # labelled inputs and live forecast region
+hooks.update({"tr-preset-name", "tr-preset-slot", "tr-send-forecast", "tr-send-quote"})  # labelled inputs and live forecast regions
 assert used - styled - hooks == set(), f"classes without a rule: {sorted(used - styled - hooks)}"
 for name, props in re.findall(r"@keyframes\s+([\w-]+)\s*\{(.*?)\n(?=@|\.|/|\n|$)", plain_css, flags=re.S):
     assert set(re.findall(r"([a-z-]+)\s*:", props)) <= {"transform", "opacity"}, f"{name} animates more than transform and opacity"

@@ -218,7 +218,7 @@ async def main():
             try:
                 await bot.set_chat_menu_button(
                     menu_button=MenuButtonWebApp(
-                        text="🔮 Мини-апп",
+                        text="🔮 Сайт",
                         web_app=WebAppInfo(url=_miniapp_url),
                     )
                 )
@@ -228,13 +228,21 @@ async def main():
 
         # Меню команд (кнопка «/» в Telegram): те два входа, которые нужны новому человеку, чтобы подключить бота.
         try:
-            from aiogram.types import BotCommand
+            from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
             await bot.set_my_commands([
                 BotCommand(command="start", description="Начало: как добавить бота в чат"),
                 BotCommand(command="setup", description="Проверить и настроить бота в чате"),
             ])
+            await bot.set_my_commands([   # в личке ещё справка и сайт; в группах для этого «бот помощь» и «бот сайт»
+                BotCommand(command="start", description="Начало: как добавить бота в чат"),
+                BotCommand(command="help", description="Все команды бота"),
+                BotCommand(command="site", description="Сайт Предвестника: профиль, игры, питомцы"),
+                BotCommand(command="setup", description="Мои чаты: проверить и настроить бота"),
+            ], scope=BotCommandScopeAllPrivateChats())
         except Exception as _e:
             logger.warning(f"Меню команд не установлено: {_e}")
+        from bot.chat.onboarding import ensure_descriptions
+        await ensure_descriptions(bot)
 
         # Log RARITY_STICKER_ID so developer can easily copy it
         _rarity_sid = os.getenv("RARITY_STICKER_ID", "")

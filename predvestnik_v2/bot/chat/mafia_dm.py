@@ -1,7 +1,9 @@
 """Private (DM) side of chat Mafia: role cards, night buttons, mafia board, stale-button cleanup."""
 from __future__ import annotations
 
+from pathlib import Path
 from aiogram import Bot
+from aiogram.types import FSInputFile
 from aiogram.exceptions import (TelegramAPIError, TelegramBadRequest, TelegramForbiddenError,
                                 TelegramNetworkError, TelegramRetryAfter, TelegramServerError)
 from loguru import logger
@@ -19,9 +21,29 @@ class RetryLater(Exception):
     """A transient Telegram failure: keep the stored event and try again next tick."""
 
 
-async def send_dm(bot: Bot, user_id: int, text: str, markup=None):
+_ART_DIR = Path(__file__).resolve().parents[2] / "FastAPI" / "static" / "mafia-art"
+_PHOTO_IDS: dict[tuple[int, str], str] = {}
+
+
+async def send_dm(bot: Bot, user_id: int, text: str, markup=None, *, art_role: str | None = None):
     """Message or None when the user cannot be reached; transient errors raise RetryLater."""
     try:
+        # Only the initial PRIVATE role card gets an illustration. Normal night
+        # prompts and public phase edits stay compact text with existing buttons.
+        if art_role in rules.ALL_ROLES and len(text.encode('utf-16-le'))//2 <= 900 and hasattr(bot, "send_photo"):
+            image = _ART_DIR / f"{art_role}.jpg"
+            if image.is_file():
+                key = (int(getattr(bot, "id", 0)), art_role)
+                photo = _PHOTO_IDS.get(key) or FSInputFile(image)
+                try:
+                    sent = await bot.send_photo(int(user_id), photo=photo, caption=text, reply_markup=markup, parse_mode="HTML")
+                    if key[0] and getattr(sent, "photo", None):
+                        _PHOTO_IDS[key] = sent.photo[-1].file_id
+                    return sent
+                except TelegramBadRequest:
+                    # Old cached file IDs or a rejected photo must not prevent
+                    # the role and action buttons from reaching the player.
+                    _PHOTO_IDS.pop(key, None)
         return await bot.send_message(int(user_id), text, reply_markup=markup, parse_mode="HTML")
     except TelegramForbiddenError:
         return None
@@ -57,7 +79,7 @@ async def send_role_cards(bot: Bot, db, view: dict, *, chat_title: str | None) -
         text = copy.role_card(role, mates, chat_title=chat_title) + "\n\n" + copy.night_prompt(role, 1, seconds, first=True)
         markup = night_keyboard(match_id=view["match_id"], phase_number=view["phase_number"], role=role,
                                 players=players, actor_id=int(me["user_id"]))
-        sent = await send_dm(bot, int(me["user_id"]), text, markup)
+        sent = await send_dm(bot, int(me["user_id"]), text, markup, art_role=role)
         if sent is None:
             failed.append(int(me["user_id"]))
             continue

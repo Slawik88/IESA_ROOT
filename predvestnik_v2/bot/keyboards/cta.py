@@ -20,7 +20,7 @@ GROUP_ONLY_TEXT = (
     "🌘 Эта команда живёт в <b>группе</b> — там идёт игра.\n\n"
     "Что можно прямо сейчас:\n"
     "➕ добавить бота в свою группу — и играть там\n"
-    "🌐 или открыть мини-апп: профиль, магазин, Казарма и бои работают и отсюда"
+    "🔮 или открыть сайт Предвестника: профиль, магазин, игры и питомцы работают и отсюда"
 )
 
 
@@ -29,7 +29,7 @@ def dm_cta_kb() -> types.InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(text="➕ Добавить бота в группу", url=ADD_TO_GROUP_URL)
     if MINIAPP_URL:
-        b.button(text="🌐 Открыть мини-апп", web_app=types.WebAppInfo(url=MINIAPP_URL))
+        b.button(text="🔮 Открыть сайт Предвестника", web_app=types.WebAppInfo(url=MINIAPP_URL))
     b.adjust(1)
     return b.as_markup()
 

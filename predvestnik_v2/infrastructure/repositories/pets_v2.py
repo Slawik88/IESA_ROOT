@@ -25,7 +25,7 @@ async def _schema_ready(db) -> bool:
                 'pet_v2_build_presets', 'pet_v2_state', 'pet_v2_talismans',
                 'pet_v2_bond_days', 'pet_v2_daily', 'pet_v2_runs',
                 'pet_v2_stage_rewards', 'pet_v2_camp', 'pet_v2_camp_jobs',
-                'pet_v2_tracks', 'pet_v2_trials', 'pet_v2_actions',
+                'pet_v2_tracks', 'pet_v2_trials', 'pet_v2_actions', 'pet_v2_parts', 'pet_v2_outings', 'uq_pet_v2_outing_active', 'idx_pet_v2_outing_day',
                 'idx_pet_v2_talismans_user', 'uq_pet_v2_one_open_run',
                 'idx_pet_v2_runs_user_day', 'idx_pet_v2_tracks_user_day'
             ]) AS name WHERE to_regclass(name) IS NULL
@@ -34,7 +34,7 @@ async def _schema_ready(db) -> bool:
                 ('pet_v2_state', 'calling'), ('pet_v2_state', 'traits'),
                 ('pet_v2_state', 'calling_changed_at'), ('pet_v2_state', 'traits_changed_at'),
                 ('pet_v2_state', 'fed_favorite_on'), ('pet_v2_state', 'fed_xp_on'),
-                ('pet_v2_runs', 'companion_id')
+                ('pet_v2_runs', 'companion_id'), ('pet_v2_state', 'equipment')
             ) AS required(tbl, col) WHERE NOT EXISTS (
                 SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass(required.tbl)
                     AND attname=required.col AND NOT attisdropped
@@ -72,6 +72,13 @@ async def _ensure_tables_unlocked(db) -> None:
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS traits_changed_at DATE NULL")
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS fed_favorite_on DATE NULL")
     await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS fed_xp_on DATE NULL")
+    await db.execute("ALTER TABLE pet_v2_state ADD COLUMN IF NOT EXISTS equipment JSONB NOT NULL DEFAULT '{}'::jsonb")
+    await db.execute("CREATE TABLE IF NOT EXISTS pet_v2_parts (user_id BIGINT PRIMARY KEY, amount INTEGER NOT NULL DEFAULT 0 CHECK(amount>=0))")
+    await db.execute("""CREATE TABLE IF NOT EXISTS pet_v2_outings (
+        id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, pet_id BIGINT NOT NULL, day DATE NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT TRUE, state JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())""")
+    await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_pet_v2_outing_active ON pet_v2_outings(user_id) WHERE active")
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_pet_v2_outing_day ON pet_v2_outings(user_id,day)")
     await db.execute("""
         CREATE TABLE IF NOT EXISTS pet_v2_talismans (
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, kind TEXT NOT NULL,
@@ -200,7 +207,7 @@ async def save_action(db, user_id: int, action_id: str, request: dict, response:
 async def list_owned_pets(db, user_id: int) -> list[dict[str, Any]]:
     async with db.execute(
         "SELECT p.id,p.name,p.species_id,p.rarity,s.level,s.xp,s.energy,s.energy_at,s.pity,s.calling,s.traits,s.fed_favorite_on,"
-        "s.fed_xp_on,s.calling_changed_at,s.traits_changed_at "
+        "s.fed_xp_on,s.calling_changed_at,s.traits_changed_at,s.equipment "
         "FROM pets p LEFT JOIN pet_v2_state s ON s.user_id=p.owner_id AND s.pet_id=p.id "
         "WHERE p.owner_id=? ORDER BY p.created_at,p.id", (int(user_id),)
     ) as c:

@@ -4,13 +4,15 @@
  - личка с ботом (/start, /setup, «бот настройка»): главный экран, «как добавить», «мои чаты», настройка выбранного чата;
  - сам чат: когда бота добавили, он пишет чек-лист «что уже есть и чего не хватает», сам обновляет его, как только выдали права,
    и зовёт продолжить в личке (кнопка-ссылка). Человеку, который добавил бота, чек-лист приходит в личку сам, если он уже писал боту.
+Новичку в личке: приветствие картинкой по имени, «Как подключить» (3 шага на картинке), «Я просто играю» (что есть на сайте)
+и короткая подсказка в ответ на «привет»; картинки рисует services/welcome_images.py и показывает не чаще раза в 6 часов.
 Логика проверки чата, журнал шагов и напоминания — services/chat_setup.py; здесь тексты, кнопки и обработчики."""
 from __future__ import annotations
 
 import html
 import time
 
-from aiogram import Bot, Router
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.filters.callback_data import CallbackData
@@ -31,7 +33,7 @@ RIGHT_RESTRICT = "Блокировка пользователей"
 
 
 class OnbCB(CallbackData, prefix="onb"):
-    a: str       # действие: home, add, my, chat, chk, rights, trouble, staff, staffok, adm, admcode, guide
+    a: str       # действие: home, add, play, my, chat, chk, rights, trouble, staff, staffok, adm, admcode, guide
     c: int = 0   # чат, к которому относится кнопка (0 — ни к какому)
 
 
@@ -145,6 +147,7 @@ def group_screen(s: cs.Setup, username: str, reminder: bool = False) -> Screen:
                     "\nКоманды начинаются со слова «бот». Что дальше:\n"
                     "• <code>бот помощь</code> — все команды\n"
                     "• <code>бот ранги</code> — кто с каким рангом\n"
+                    "• <code>бот сайт</code> — сайт Предвестника: профиль, игры, питомцы\n"
                     "• модераторов и админ-чат удобно настроить в личке: кнопка ниже")
         else:
             text = ("✅ <b>Права получены</b>\n" + checklist(s, True) +
@@ -287,34 +290,54 @@ GUIDE = (
     "🚩 <b>Жалобы.</b> <code>бот жалоба спам в чате</code> ответом на сообщение: модераторы получат её анонимно.\n\n"
     "🏆 <b>Профили и топ.</b> <code>бот я</code>, <code>бот топ</code>, <code>бот тег</code>.\n\n"
     "🎮 <b>Игры.</b> Мафия, Ритм, Сапёр и задания: <code>бот игры</code>, <code>бот мафия</code>, <code>бот квесты</code>.\n\n"
+    "🔮 <b>Сайт Предвестника.</b> Профиль, образы, питомцы и игры открываются прямо в Telegram: <code>бот сайт</code>.\n\n"
     "Полный список с примерами: <code>бот помощь</code>."
 )
 
 
-def guide_screen(chat_id: int) -> Screen:
-    return GUIDE, _kb([_btn("◀️ Назад", "chat" if chat_id else "home", chat_id)])
+def _site_btn(miniapp_url: str) -> list[InlineKeyboardButton]:
+    """Кнопка сайта (мини-приложения): только в личке, в группах Telegram такие кнопки не пускает."""
+    if not miniapp_url:
+        return []
+    from aiogram.types import WebAppInfo
+    return [InlineKeyboardButton(text="🔮 Открыть сайт Предвестника", web_app=WebAppInfo(url=miniapp_url))]
+
+
+def guide_screen(chat_id: int, miniapp_url: str = "") -> Screen:
+    return GUIDE, _kb(_site_btn(miniapp_url), [_btn("◀️ Назад", "chat" if chat_id else "home", chat_id)])
 
 
 # ── Экраны личного чата ─────────────────────────────────────────────────────
 
 def home_screen(username: str, miniapp_url: str = "") -> Screen:
-    text = ("🌘 <b>Предвестник</b>\n\n"
-            "Бот для чатов Telegram. Что он умеет:\n" +
-            quote(["🛡 модерация: муты, варны, баны, ранги модераторов",
-                   "🧹 чистка тех, кто почти не пишет",
-                   "🏆 профили, топ активных, игры"]) +
-            "\nПодключение занимает пару минут, я веду по шагам. Что нужно?\n"
-            "➕ <b>Добавить бота в чат</b> — первый раз\n"
-            "⚙️ <b>Настроить мой чат</b> — бот уже там, проверим права и поможем с модераторами\n"
-            "📖 <b>Что умеет бот</b> — коротко о командах\n\n"
-            "<i>В чате команды пишутся со слова «бот», например: бот помощь.</i>")
+    """Первый экран лички. Главное — подключить бота к своему чату; остальное коротко и по кнопке."""
+    text = ("🌘 <b>Предвестник</b> — бот для групп в Telegram\n\n"
+            "Добавьте меня в свой чат: я возьму на себя порядок, топ активных, профили и игры. "
+            "Подключение занимает пару минут, я веду по шагам и сам проверяю права.\n" +
+            quote(["➕ <b>Добавить бота в чат</b> — сразу выбрать группу",
+                   "❔ <b>Как подключить</b> — три шага на картинке",
+                   "⚙️ <b>Мой чат</b> — бот уже там, проверим настройки",
+                   "🎮 <b>Я просто играю</b> — профиль, игры и питомцы на сайте"]) +
+            "\n<i>В чате команды начинаются со слова «бот», например: бот помощь. Здесь, в личке, можно без него: помощь.</i>")
     rows = [[_url("➕ Добавить бота в чат", cs.add_url(username))],
-            [_btn("⚙️ Настроить мой чат", "my")],
-            [_btn("📖 Что умеет бот", "guide")]]
-    if miniapp_url:
-        from aiogram.types import WebAppInfo
-        rows.append([InlineKeyboardButton(text="🌐 Открыть мини-апп", web_app=WebAppInfo(url=miniapp_url))])
+            [_btn("❔ Как подключить", "add"), _btn("⚙️ Мой чат", "my")],
+            [_btn("🎮 Я просто играю", "play"), _btn("📖 Что умеет бот", "guide")],
+            _site_btn(miniapp_url)]
     return text, _kb(*rows)
+
+
+def play_screen(username: str, miniapp_url: str = "") -> Screen:
+    """Для того, кто пришёл играть, а не настраивать чат: где сайт и что писать в чате."""
+    site = ("1. <b>Сайт Предвестника</b> — кнопка ниже. Профиль, образы, Ритм, Сапёр, питомцы, задания и топ. "
+            "Входить никуда не нужно: сайт узнаёт вас по Telegram.\n" if miniapp_url else
+            "1. <b>Сайт Предвестника</b> — напишите <code>сайт</code>, я пришлю кнопку.\n")
+    text = ("🎮 <b>Как играть</b>\n\n" + site +
+            "2. <b>В чате с ботом</b> — напишите там <code>бот я</code>, и увидите свой профиль. "
+            "Игры: <code>бот игры</code>, Мафия: <code>бот мафия</code>.\n"
+            "3. <b>Нет такого чата?</b> Добавьте меня в свою группу или попросите об этом админа вашего чата.\n\n"
+            "Здесь, в личке, тоже работает: <code>баланс</code> · <code>топ</code> · <code>стрик</code> · <code>помощь</code>.")
+    return text, _kb(_site_btn(miniapp_url), [_url("➕ Добавить бота в свой чат", cs.add_url(username))],
+                     [_btn("◀️ Назад", "home")])
 
 
 def add_screen(username: str) -> Screen:
@@ -330,6 +353,23 @@ def add_screen(username: str) -> Screen:
             "это можно исправить позже: в чате я подскажу как.</i>")
     return text, _kb([_url("➕ Выбрать чат", cs.add_url(username))],
                      [_btn("⚙️ Я уже добавил, проверить", "my")], [_btn("◀️ Назад", "home")])
+
+
+ADD_CAPTION = ("➕ <b>Как подключить бота</b>\n\n"
+               "1. Нажмите «Выбрать чат» и выберите группу. Вы должны быть в ней владельцем или администратором.\n"
+               f"2. Telegram сам предложит права <b>{RIGHT_DELETE}</b> и <b>{RIGHT_RESTRICT}</b>. Подтвердите.\n"
+               "3. Напишите в чате <code>бот помощь</code>. Ответил — всё готово.\n\n"
+               "Я напишу в чате и здесь, если чего-то не хватит. Вы не владелец? Перешлите это сообщение владельцу.")
+
+
+def add_photo_screen(username: str) -> Screen:
+    """Подпись и кнопки под картинкой «3 шага» (подпись Telegram — до 1024 знаков)."""
+    return ADD_CAPTION, _kb([_url("➕ Выбрать чат", cs.add_url(username))], [_btn("⚙️ Я уже добавил, проверить", "my")])
+
+
+def play_photo_screen(username: str, miniapp_url: str = "") -> Screen:
+    text, _ = play_screen(username, miniapp_url)
+    return text, _kb(_site_btn(miniapp_url), [_url("➕ Добавить бота в свой чат", cs.add_url(username))])
 
 
 def my_screen(chats: list[dict], username: str) -> Screen:
@@ -385,6 +425,10 @@ def _miniapp() -> str:
 
 async def _edit(call: CallbackQuery, screen: Screen, same: str = "") -> None:
     text, kb = screen
+    if getattr(call.message, "photo", None):   # под картинкой подпись короче и другие правила: следующий экран — новым сообщением
+        await call.message.answer(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
+        await call.answer()
+        return
     try:
         await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
     except TelegramBadRequest as exc:
@@ -401,6 +445,84 @@ async def _commit(db) -> None:
         await db.commit()
     except Exception:   # noqa: BLE001 - соединение могло работать в автокоммите
         pass
+
+
+# ── Картинки знакомства (services/welcome_images.py) ────────────────────────
+
+PICTURE_PAUSE = 6 * 3600              # одну и ту же картинку человеку не чаще раза в 6 часов: показать, но не надоедать
+_picture_shown: dict[tuple[int, str], float] = {}
+_photo_ids: dict[str, str] = {}       # картинка -> file_id: Telegram хранит её у себя, второй раз не загружаем
+
+
+def _picture_due(user_id: int, kind: str) -> bool:
+    now = time.monotonic()
+    if _picture_shown.get((user_id, kind), -PICTURE_PAUSE) + PICTURE_PAUSE > now:
+        return False
+    if len(_picture_shown) > 5000:
+        _picture_shown.clear()
+    _picture_shown[(user_id, kind)] = now
+    return True
+
+
+async def _send_picture(bot: Bot, chat_id: int, key: str, render, caption: str = "",
+                        kb: InlineKeyboardMarkup | None = None) -> bool:
+    """Отправить картинку. Не нарисовалась или Telegram отказал — False, и человек получит обычный текст."""
+    import asyncio
+    from aiogram.types import BufferedInputFile
+    try:
+        photo = _photo_ids.get(key)
+        if photo is None:
+            photo = BufferedInputFile(await asyncio.to_thread(render), filename=f"{key.split(':')[0]}.jpg")
+        msg = await bot.send_photo(chat_id, photo, caption=caption or None, parse_mode="HTML", reply_markup=kb)
+    except Exception as exc:   # noqa: BLE001 - картинка украшает, но не должна ломать знакомство
+        logger.warning(f"welcome picture {key} not sent: {exc}")
+        _photo_ids.pop(key, None)
+        return False
+    if getattr(msg, "photo", None) and len(_photo_ids) < 1000:
+        _photo_ids[key] = msg.photo[-1].file_id
+    return True
+
+
+async def _welcome_picture(bot: Bot, user) -> None:
+    from services import welcome_images as wi
+    if user is None or not _picture_due(user.id, "welcome"):
+        return
+    name = wi.clean_name(getattr(user, "first_name", ""))
+    await _send_picture(bot, user.id, f"welcome:{name}", lambda: wi.welcome(name))
+
+
+async def _picture_screen(call: CallbackQuery, bot: Bot, kind: str, screen: Screen) -> bool:
+    """Первое нажатие «Как подключить» / «Я просто играю»: картинка с подписью и кнопками. Повторное — обычный экран."""
+    from services import welcome_images as wi
+    if not _picture_due(call.from_user.id, kind):
+        return False
+    render = wi.connect_steps if kind == "steps" else wi.site_tour
+    if not await _send_picture(bot, call.from_user.id, kind, render, *screen):
+        return False
+    await call.answer()
+    return True
+
+
+DM_HINT = ("👋 Привет! Я бот и лучше всего понимаю кнопки и команды.\n"
+           "Команду со значением пишите через «бот», например: <code>бот промокод КОД</code>. Все команды: <code>помощь</code>.\n\n"
+           "Чтобы подключить меня к чату или просто посмотреть, что я умею, начните отсюда 👇")
+DM_HINT_PAUSE = 600.0
+_dm_hint_at: dict[int, float] = {}
+
+
+async def dm_hint(message: Message, bot: Bot, db) -> None:
+    """Человек написал в личку что-то своё («привет», «/help», стикер): не молчим, а показываем, с чего начать. Не чаще раза в 10 минут."""
+    user = message.from_user
+    if user is None or user.is_bot or not (message.text or getattr(message, "sticker", None)):
+        return
+    now = time.monotonic()
+    if _dm_hint_at.get(user.id, -DM_HINT_PAUSE) + DM_HINT_PAUSE > now:
+        return
+    if len(_dm_hint_at) > 5000:
+        _dm_hint_at.clear()
+    _dm_hint_at[user.id] = now
+    _, kb = home_screen(await _username(bot), _miniapp())
+    await message.answer(DM_HINT, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
 
 
 # ── Вход бота в чат, смена прав, уход ───────────────────────────────────────
@@ -550,8 +672,11 @@ async def dm_start(message: Message, bot: Bot, db, payload: str = "") -> None:
             screen = await _chat_for(bot, db, chat_id, message.from_user.id, username)
             await message.answer(screen[0], parse_mode="HTML", reply_markup=screen[1], disable_web_page_preview=True)
             return
+    await _welcome_picture(bot, message.from_user)
     text, kb = home_screen(username, _miniapp())
     await message.answer(text, parse_mode="HTML", reply_markup=kb, disable_web_page_preview=True)
+    if message.from_user:
+        _dm_hint_at[message.from_user.id] = time.monotonic()   # меню только что показали: «привет» следом не повторит его
 
 
 async def _chat_for(bot: Bot, db, chat_id: int, user_id: int, username: str, intro: str = "") -> Screen:
@@ -589,6 +714,59 @@ async def slash_setup(message: Message, bot: Bot, db) -> None:
     await open_setup(message, bot, db)
 
 
+async def _quiet(message: Message, db) -> bool:
+    from bot.chat import _silent   # заблокирован в админке или бот выключен — молчим, как на остальные команды
+    try:
+        return await _silent(message, db)
+    except Exception:   # noqa: BLE001
+        return False
+
+
+# Только в личке: в группе слэш-команда прошла бы мимо закрытого чата и чистки; там есть «бот помощь» и «бот сайт».
+@router.message(Command("help"), F.chat.type == "private")
+async def slash_help(message: Message, db) -> None:
+    """/help из меню «/»: та же справка, что «бот помощь»."""
+    from bot.chat import help as help_mod
+    if message.from_user is None or await _quiet(message, db):
+        return
+    private = message.chat.type == "private"
+    await message.answer(help_mod.main_text(private), parse_mode="HTML",
+                         reply_markup=help_mod.main_keyboard(message.from_user.id, private))
+
+
+@router.message(Command("site"), F.chat.type == "private")
+async def slash_site(message: Message, bot: Bot, db) -> None:
+    """/site из меню «/»: кнопка сайта Предвестника, как «бот сайт»."""
+    from bot.chat.site import SITE_TEXT, site_keyboard
+    if await _quiet(message, db):
+        return
+    kb = site_keyboard(message.chat.type, await _username(bot))
+    if kb is None:
+        await message.answer("🔮 Сайт сейчас недоступен. Попробуйте позже.")
+        return
+    await message.answer(SITE_TEXT, parse_mode="HTML", reply_markup=kb)
+
+
+BOT_DESCRIPTION = ("👋 Я Предвестник — бот для групп в Telegram.\n\n"
+                   "🛡 Порядок в чате: муты, варны, баны, ранги модераторов\n"
+                   "🏆 Профили, топ активных, награды\n"
+                   "🎮 Игры: Мафия, Ритм, Сапёр, питомцы\n"
+                   "🔮 Свой сайт прямо в Telegram\n\n"
+                   "Нажмите «Старт» — покажу, как за пару минут добавить меня в ваш чат.")
+BOT_SHORT_DESCRIPTION = "Порядок, топ, профили и игры для вашего чата. Подключение — пара минут, веду по шагам."
+
+
+async def ensure_descriptions(bot: Bot) -> None:
+    """Текст, который человек видит в пустом чате с ботом до «Старт». Свой текст из BotFather не перезаписываем."""
+    try:
+        if not (await bot.get_my_description()).description:
+            await bot.set_my_description(BOT_DESCRIPTION)
+        if not (await bot.get_my_short_description()).short_description:
+            await bot.set_my_short_description(BOT_SHORT_DESCRIPTION)
+    except Exception as exc:   # noqa: BLE001 - без описания бот работает
+        logger.warning(f"bot description not set: {exc}")
+
+
 @router.callback_query(OnbCB.filter())
 async def on_onboarding(call: CallbackQuery, callback_data: OnbCB, bot: Bot, db) -> None:
     a, chat_id, user_id = callback_data.a, callback_data.c, call.from_user.id
@@ -602,12 +780,18 @@ async def on_onboarding(call: CallbackQuery, callback_data: OnbCB, bot: Bot, db)
     if a == "home":
         await _edit(call, home_screen(username, _miniapp()))
     elif a == "add":
-        await _edit(call, add_screen(username))
+        await cs.log_event(db, 0, user_id, "add_help")
+        if not await _picture_screen(call, bot, "steps", add_photo_screen(username)):
+            await _edit(call, add_screen(username))
+    elif a == "play":
+        await cs.log_event(db, 0, user_id, "play")
+        if not await _picture_screen(call, bot, "site", play_photo_screen(username, _miniapp())):
+            await _edit(call, play_screen(username, _miniapp()))
     elif a == "my":
         await _edit(call, my_screen(await cs.my_chats(db, user_id, bot=bot), username))
     elif a == "guide" and not chat_id:
         await cs.log_event(db, 0, user_id, "guide")
-        await _edit(call, guide_screen(0))
+        await _edit(call, guide_screen(0, _miniapp()))
     elif chat_id >= 0:
         await call.answer()
     elif not await can_open(bot, db, chat_id, user_id):

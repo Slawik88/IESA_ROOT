@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -461,7 +461,7 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
@@ -700,3 +700,12 @@ async def skin_runtime_js():
 @app.get("/static/minesweeper-v2.js")
 async def minesweeper_js():
     return Response(_read_static("minesweeper-v2.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/mafia-art/{name}")
+async def mafia_art(name: str):
+    # Public fictional role art, never a projection of an active player's role.
+    if name not in {f"{role}.{ext}" for role in ("city", "citizen", "mafia", "don", "doctor", "detective") for ext in ("jpg", "webp")}:
+        raise HTTPException(404)
+    return FileResponse(os.path.join(_STATIC_DIR, "mafia-art", name),
+                        media_type="image/webp" if name.endswith(".webp") else "image/jpeg")

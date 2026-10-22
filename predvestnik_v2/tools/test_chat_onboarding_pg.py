@@ -58,6 +58,7 @@ class FakeBot:
         self.cannot_write: set[int] = set()     # чаты, где бот писать не может
         self.sent: list[tuple[int, str, dict]] = []
         self.edits: list[tuple[int, int, str]] = []
+        self.photos: list[tuple[int, object, str | None, object]] = []   # (кому, фото, подпись, кнопки)
         self.texts: dict[tuple[int, int], str] = {}
         self._next = 100
 
@@ -95,6 +96,12 @@ class FakeBot:
         self.texts[(chat_id, self._next)] = text
         note("отправлено", "личка" if chat_id > 0 else "чат", text, kw.get("reply_markup"))
         return SimpleNamespace(message_id=self._next)
+
+    async def send_photo(self, chat_id, photo, caption=None, reply_markup=None, **kw):
+        self._next += 1
+        self.photos.append((chat_id, photo, caption, reply_markup))
+        note("картинка", "личка" if chat_id > 0 else "чат", caption or "(без подписи)", reply_markup)
+        return SimpleNamespace(message_id=self._next, photo=[SimpleNamespace(file_id=f"photo-{self._next}")])
 
     async def edit_message_text(self, text, chat_id=None, message_id=None, **kw):
         if self.texts.get((chat_id, message_id)) == text:
@@ -157,6 +164,12 @@ class FakeCbMessage:
         self.message_id = message_id
         self.text = ""
         self.edited: list[tuple[str, object]] = []
+        self.answers: list[tuple[str, object]] = []
+        self.photo = None
+
+    async def answer(self, text, **kw):   # новое сообщение в тот же чат
+        self.answers.append((text, kw.get("reply_markup")))
+        note("ответ", f"{'личка' if self.chat.type == 'private' else 'чат'}", text, kw.get("reply_markup"))
 
     async def edit_text(self, text, **kw):
         if text == self.text:
@@ -182,7 +195,7 @@ class FakeMessage:
         self.from_user = SimpleNamespace(id=uid, is_bot=False, username=name, full_name=name.title(), first_name=name.title())
         self.chat = SimpleNamespace(id=chat_id, type=chat_type, title="Моя группа")
         self.message_id = message_id
-        self.content_type, self.sender_tag, self.reply_to_message = "text", None, None
+        self.content_type, self.sender_tag, self.reply_to_message, self.sticker = "text", None, None, None
         self.replies: list[tuple[str, object]] = []
 
     async def answer(self, text, **kw):
@@ -271,6 +284,8 @@ async def pure(bot):
                ob.chat_screen(gone, BOT_NAME), ob.chat_screen(waiting, BOT_NAME), ob.group_screen(waiting, BOT_NAME), ob.rights_screen(s, BOT_NAME), ob.trouble_screen(s), ob.staff_screen(ready, proposals, legend=ob.rank_legend({"warn": 3, "mute": 4, "kick": 5, "ban": 6, "close_chat": 6}, [4, 3])),
                ob.staff_screen(ready, []), ob.staff_screen(ready, None), ob.admin_screen(ready), ob.admin_screen(s), ob.admin_screen(s, "abcd1234"),
                ob.guide_screen(0), ob.guide_screen(-1001), ob.home_screen(BOT_NAME, "https://example.org/app"), ob.add_screen(BOT_NAME),
+               ob.home_screen(BOT_NAME), ob.guide_screen(0, "https://example.org/app"), ob.play_screen(BOT_NAME, "https://example.org/app"),
+               ob.play_screen(BOT_NAME), ob.add_photo_screen(BOT_NAME), ob.play_photo_screen(BOT_NAME, "https://example.org/app"),
                ob.my_screen([], BOT_NAME), ob.my_screen([{"id": -1, "title": "T" * 80, "ready": True}], BOT_NAME), ob.denied_screen()]
     examples = set()
     for text, kb in screens:
@@ -286,6 +301,15 @@ async def pure(bot):
         example = example.replace("CODE", "abcd1234")
         parsed = parse(registry, example, BOT_NAME, False)
         assert isinstance(parsed, Parsed), f"в подсказке команда, которой нет: «{example}» -> {parsed}"
+    # Подписи под картинками укладываются в лимит Telegram (1024 видимых знака)
+    for text, _ in (ob.add_photo_screen(BOT_NAME), ob.play_photo_screen(BOT_NAME, "https://example.org/app")):
+        assert len(re.sub(r"<[^>]+>", "", text)) < 1000, len(text)
+    # Картинки знакомства рисуются, имя без эмодзи и экзотики (их нет в шрифте)
+    from services import welcome_images as wi
+    for pic in (wi.welcome("Слава"), wi.welcome(""), wi.connect_steps(), wi.site_tour()):
+        assert pic[:2] == b"\xff\xd8" and 20_000 < len(pic) < 2_000_000, len(pic)
+    assert wi.clean_name("Слава 🔥") == "Слава" and wi.clean_name("🔥🔥") == "" and wi.clean_name(None) == ""
+    assert wi.clean_name("Alexander Very Long Name").endswith("…") and wi.clean_name("<b>Иван</b>") == "bИванb"
     # Название чата с HTML не ломает разметку
     assert "&lt;b&gt;&amp;" in ob.chat_screen(s, BOT_NAME)[0]
     # Чек-лист: чего не хватает, названо словами Telegram
@@ -668,10 +692,48 @@ async def entry_points(db, bot):
     assert "Предвестник" in text and "Подключение занимает" in text, text
     add = find(kb, "Добавить бота в чат")
     assert add.url == f"https://t.me/{BOT_NAME}?startgroup=setup&admin=delete_messages+restrict_members"
-    assert find(kb, "Настроить мой чат").callback_data == "onb:my:0" and find(kb, "Что умеет бот").callback_data == "onb:guide:0"
+    assert buttons(kb)[0] is add   # главное действие — первой кнопкой
+    assert find(kb, "Мой чат").callback_data == "onb:my:0" and find(kb, "Что умеет бот").callback_data == "onb:guide:0"
+    assert find(kb, "Как подключить").callback_data == "onb:add:0" and find(kb, "Я просто играю").callback_data == "onb:play:0"
+    # Приветствие картинкой — один раз, повторный /start не засыпает картинками
+    bot.photos = [p for p in bot.photos if p[0] == 8001]
+    assert len(bot.photos) == 1 and bot.photos[0][2] is None, bot.photos
+    await cmd_start(FakeMessage("/start", 8001, "newbie", 8001, "private"), SimpleNamespace(args=None), db, bot)
+    assert len(bot.photos) == 1
+    # «Как подключить»: первый раз — картинка «3 шага» с подписью и кнопками, второй — обычный экран
     screen = FakeCbMessage(8001, "private")
     await press(bot, db, 8001, "newbie", screen, "add")
-    assert "Выбрать чат" in screen.text and "Удаление сообщений" in screen.text
+    _, photo, caption, pkb = bot.photos[-1]
+    assert len(bot.photos) == 2 and "Как подключить" in caption and find(pkb, "Выбрать чат").url == add.url
+    assert find(pkb, "Я уже добавил").callback_data == "onb:my:0" and not screen.edited
+    from bot.chat import onboarding as ob
+    assert ob._photo_ids["steps"] == "photo-" + str(bot._next)   # второй показ уйдёт по file_id, без новой загрузки
+    photo_msg = FakeCbMessage(8001, "private")
+    photo_msg.photo = [SimpleNamespace(file_id="x")]
+    call = await press(bot, db, 8001, "newbie", photo_msg, "my")   # кнопка под картинкой: следующий экран новым сообщением
+    assert not photo_msg.edited and call.toasts and "Мои чаты" in photo_msg.answers[-1][0]
+    await press(bot, db, 8001, "newbie", screen, "add")
+    assert "Выбрать чат" in screen.text and "Удаление сообщений" in screen.text and len(bot.photos) == 2
+    # «Я просто играю»: тур по сайту картинкой, потом текстом; кнопка сайта и путь в свой чат
+    await press(bot, db, 8001, "newbie", screen, "play")
+    assert len(bot.photos) == 3 and "Как играть" in bot.photos[-1][2] and find(bot.photos[-1][3], "Добавить бота")
+    await press(bot, db, 8001, "newbie", screen, "play")
+    assert "Как играть" in screen.text and find(screen.edited[-1][1], "Назад").callback_data == "onb:home:0"
+    # Написал в личку «привет»: команды нет, бот не молчит, но и не повторяет меню каждые пять секунд
+    from bot.chat import registry as reg
+    from bot.chat.framework import Parsed, dispatch as disp, parse
+    hello = FakeMessage("привет", 8002, "hello", 8002, "private")
+    assert not await disp(reg, hello, bot, db)
+    await ob.dm_hint(hello, bot, db)
+    text, kb = hello.replies[-1]
+    assert "Привет" in text and find(kb, "Добавить бота в чат") and find(kb, "Как подключить")
+    for example in re.findall(r"<code>(бот [^<]+)</code>", text):   # пример в подсказке — настоящая команда
+        assert isinstance(parse(reg, example, BOT_NAME, True), Parsed), example
+    await ob.dm_hint(hello, bot, db)
+    assert len(hello.replies) == 1
+    photo_only = FakeMessage(None, 8003, "pic", 8003, "private")
+    await ob.dm_hint(photo_only, bot, db)
+    assert not photo_only.replies   # фото, оплаты и служебные сообщения подсказку не вызывают
     await press(bot, db, 8001, "newbie", screen, "guide")
     assert "Что я умею" in screen.text and find(screen.edited[-1][1], "Назад").callback_data == "onb:home:0"
     await press(bot, db, 8001, "newbie", screen, "home")
