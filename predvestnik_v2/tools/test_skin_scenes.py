@@ -39,7 +39,7 @@ index = (STATIC / "index.html").read_text(encoding="utf-8")
 for part in parts:
     assert f'"{part.name}"' in main_py or re.search(rf"\b{int(part.name[4:6])}\b", re.search(r"_APP_JS_PARTS = \[.*?\]", main_py, re.S).group(0)), f"{part.name} is not in _APP_JS_PARTS"
 art_css = {}
-for letter in "abcde":
+for letter in "abcdeg":
     name = f"skin-scene-{letter}-v3.css"
     assert name in main_py and name in index, f"{name} must be listed in _SHELL_V3_CSS and linked in index.html"
     art_css[letter] = (STATIC / name).read_text(encoding="utf-8")
