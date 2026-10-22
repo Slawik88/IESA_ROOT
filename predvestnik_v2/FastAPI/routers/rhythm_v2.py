@@ -269,4 +269,6 @@ async def local_result(run_id: str, body: LocalResultBody, db=Depends(get_db), u
 async def local_rules(user=Depends(require_tg_user)):
     from dataclasses import asdict
     from core import rhythm_v2 as rules
-    return {"ruleset_version": rules.RULESET_VERSION, "catalog": [asdict(g) for g in rules.PERKS]}
+    from services import local_games, rhythm_v2 as rhythm_service
+    version = rhythm_service.ruleset_for_new_run()
+    return {"ruleset_version": version, "catalog": [asdict(g) for g in rules.PERKS], "weather": local_games.weather_packet(version)}

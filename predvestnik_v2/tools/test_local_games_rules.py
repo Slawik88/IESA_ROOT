@@ -17,17 +17,21 @@ def state():
                 signal_opened_at=None, finished_at=None, analysis=None)
 
 
-def packet(s):
+def packet(s, weather=False):
+    version = r.RULESET_VERSION if weather else r.PREVIOUS_RULESET_VERSION
     return dict(state=s, seed=seed.hex(), catalog=[asdict(p) for p in r.PERKS],
-                legacy=False, run_id="test", ruleset_version=r.RULESET_VERSION)
+                legacy=False, run_id="test", ruleset_version=version, weather=local_games.weather_packet(version))
 
 
 tests, expected = [], []
+# Weather chunks (calm 1, gold 3, storm 5, spring 7, calm again 9) with and without weather; streak 15 → 16 crosses Spring's 8.
+cases = [(signal, False) for signal in (1, 21, 301, 801)] + [(signal, True) for signal in (1, 21, 61, 101, 141, 181, 301, 801)]
 for gift in (None, *r.PERKS):
-    for signal in (1, 21, 301, 801):
+    for signal, weather in cases:
         for timing in (0, 1, 2, 3):
             s = state()
-            s.update(health=4, combo=14, correct_streak=14, next_signal_no=signal)
+            s["perks"]["weather"] = int(weather)
+            s.update(health=4, combo=15, correct_streak=15, next_signal_no=signal)
             if gift:
                 s["perks"]["owned"][gift.id] = 1
                 s["perks"].update(shield=gift.shield, ebb=gift.ebb, bloody=gift.bloody, miss_debt=1, recovery=2)
@@ -41,15 +45,15 @@ for gift in (None, *r.PERKS):
             # intermediate expected state without depending on service writers.
             result = copy.deepcopy(s)
             if timing < 3:
-                result["score"] += r.score_for_correct(elapsed_ms=elapsed,allowed_window_ms=w,combo_before=14,perks=s["perks"],health=4)
+                result["score"] += r.score_for_correct(elapsed_ms=elapsed,allowed_window_ms=w,combo_before=15,perks=s["perks"],health=4,signal_no=signal)
                 result["combo"] += 1; result["correct_streak"] += 1; result["correct_taps"] += 1
-                result["health"],result["perks"] = r.after_correct(s["perks"],health=4,streak_after=15)
+                result["health"],result["perks"] = r.after_correct(s["perks"],health=4,streak_after=16,signal_no=signal)
             else:
                 result["combo"]=result["correct_streak"]=0;result["mistakes"]+=1
-                result["health"],result["perks"] = r.after_error(health=4,perks=s["perks"],timed_out=True)
+                result["health"],result["perks"] = r.after_error(health=4,perks=s["perks"],timed_out=True,signal_no=signal)
             result["next_signal_no"] += 1
             if result["health"] == 0: result["status"]="finished"
-            tests.append(dict(game="rhythm",packet=packet(s),actions=[action]));expected.append(result)
+            tests.append(dict(game="rhythm",packet=packet(s, weather),actions=[action]));expected.append(result)
 
 # Gifts are offered with exactly the same HMAC order and eligibility filters.
 for health in (1, 2, 4, 7):
@@ -87,6 +91,10 @@ for index,(test,want,got) in enumerate(zip(tests,expected,results)):
     elif index<rhythm_count:
         assert got['state']==want,(index,got['state'],want)
         assert got['initial']['window_ms']==r.window_ms(test['packet']['state']['next_signal_no'],test['packet']['state']['perks'])
+        chunk=r.chunk_for_signal(test['packet']['state']['next_signal_no'])
+        from core import rhythm_weather
+        on=test['packet']['weather']['on']
+        assert got['initial']['weather']==(rhythm_weather.describe(chunk) if on else None),(got['initial']['weather'],chunk,on)
         draft=got['initial']['draft']
         if draft:
             s=test['packet']['state']

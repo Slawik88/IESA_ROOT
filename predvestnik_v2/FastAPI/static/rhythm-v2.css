@@ -24,3 +24,7 @@ button{min-height:52px;padding:10px 14px;border:0;border-radius:14px;background:
 @media(max-width:360px){.r-result-hero{grid-template-columns:minmax(0,1fr) 88px;gap:10px}.r-accuracy{width:88px;height:88px}.r-accuracy b{font-size:18px}.r-analysis-metrics div{padding:9px 6px}}
 
 #run.preparing .runes button:disabled{opacity:1;cursor:default}
+
+/* Погода блока тактов: тихая плашка под темпом и над дарами (одна строка, не акцент) */
+.r-weather{margin:10px 0 0;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.06);color:var(--ink);font-size:14px;line-height:1.35;text-align:center}
+.r-weather[hidden]{display:none}

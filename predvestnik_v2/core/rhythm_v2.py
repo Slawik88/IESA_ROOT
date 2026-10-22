@@ -16,8 +16,12 @@ import hashlib
 import hmac
 from typing import Final, Literal
 
+from core import rhythm_weather as weather
 
-RULESET_VERSION: Final = "rhythm-v2-rules-6"
+
+RULESET_VERSION: Final = "rhythm-v2-rules-7"     # + chunk weather (core/rhythm_weather.py)
+PREVIOUS_RULESET_VERSION: Final = "rhythm-v2-rules-6"
+LEGACY_RULESET_VERSIONS: Final = frozenset({"rhythm-v2-rules-5"})   # offered gifts without the three newer ones
 Mode = Literal["normal", "augments"]  # "augments" is only a legacy alias of "normal"
 PerkKind = Literal["safe", "boost", "risk"]
 RUNES: Final = ("left", "center", "right")
@@ -110,7 +114,7 @@ def perk(perk_id: str) -> Perk:
 
 def new_perks() -> dict:
     """Live state of the gifts of one run; persisted next to the run row."""
-    return {"owned": {}, "shield": 0, "ebb": 0, "bloody": 0, "miss_debt": 0, "recovery": 0}
+    return {"owned": {}, "shield": 0, "ebb": 0, "bloody": 0, "miss_debt": 0, "recovery": 0, "weather": 0}
 
 
 def normalize_perks(value) -> dict:
@@ -122,6 +126,7 @@ def normalize_perks(value) -> dict:
     for key in ("shield", "ebb", "bloody", "miss_debt", "recovery"):
         result[key] = max(0, int(value.get(key, 0) or 0))
     result["recovery"] = min(3, result["recovery"])
+    result["weather"] = 1 if value.get("weather") else 0   # derived from the run's ruleset by the service
     return result
 
 
@@ -226,7 +231,8 @@ def min_window_ms(signal_no: int) -> int:
 def window_ms(signal_no: int, perks: dict | None = None) -> int:
     perks = perks or new_perks()
     raw = BASE_WINDOW_MS * 100 // pace_percent(signal_no, perks)
-    percent = max(MIN_WINDOW_PCT, _total(perks, "window_pct") + (40 if perks["ebb"] > 0 else 0) + (25 if perks.get("recovery", 0) > 0 else 0))
+    percent = max(MIN_WINDOW_PCT, _total(perks, "window_pct") + (40 if perks["ebb"] > 0 else 0) + (25 if perks.get("recovery", 0) > 0 else 0)
+                  + weather.window_pct(signal_no, perks))
     return max(min_window_ms(signal_no), raw * (100 + percent) // 100)
 
 
@@ -235,7 +241,7 @@ def initial_health() -> int:
 
 
 def score_for_correct(*, elapsed_ms: int, allowed_window_ms: int, combo_before: int,
-                      perks: dict | None = None, health: int = BASE_HEALTH) -> int:
+                      perks: dict | None = None, health: int = BASE_HEALTH, signal_no: int | None = None) -> int:
     perks = perks or new_perks()
     if elapsed_ms < 0 or elapsed_ms > allowed_window_ms:
         raise RhythmRuleError("correct score requires an in-window tap")
@@ -252,22 +258,24 @@ def score_for_correct(*, elapsed_ms: int, allowed_window_ms: int, combo_before: 
                 if (item := _PERK_BY_ID[key]).cadence_every and (combo_before + 1) % item.cadence_every == 0)
     if health <= 2:
         bonus += _total(perks, 'low_health_bonus_pct')
-    percent = max(MIN_SCORE_PCT, _total(perks, "score_pct") + bonus)
+    percent = max(MIN_SCORE_PCT, _total(perks, "score_pct") + bonus + weather.score_pct(signal_no, perks))
     return max(1, raw * (100 + percent) // 100)
 
 
-def after_correct(perks: dict, *, health: int, streak_after: int) -> tuple[int, dict]:
+def after_correct(perks: dict, *, health: int, streak_after: int, signal_no: int | None = None) -> tuple[int, dict]:
     perks = dict(perks)
     perks["bloody"] = max(0, perks["bloody"] - 1)
     perks["ebb"] = max(0, perks["ebb"] - 1)
     perks["recovery"] = max(0, perks.get("recovery", 0) - 1)
     every = min((item.regen_every for key in perks["owned"] if (item := _PERK_BY_ID[key]).regen_every), default=0)
+    if weather.regen_every(signal_no, perks):
+        every = min(every or weather.SPRING_EVERY, weather.regen_every(signal_no, perks))
     if every and streak_after > 0 and streak_after % every == 0:
         health = min(MAX_HEALTH, health + 1)
     return health, perks
 
 
-def after_error(*, health: int, perks: dict, timed_out: bool) -> tuple[int, dict]:
+def after_error(*, health: int, perks: dict, timed_out: bool, signal_no: int | None = None) -> tuple[int, dict]:
     """A shield eats the whole mistake; otherwise gifts decide how deep it cuts."""
     perks = dict(perks)
     perks["ebb"] = max(0, perks["ebb"] - 1)
@@ -280,7 +288,7 @@ def after_error(*, health: int, perks: dict, timed_out: bool) -> tuple[int, dict
         perks["miss_debt"] += 1
         if perks["miss_debt"] % 2 == 1:
             return health, perks
-    damage = 1 + _total(perks, "damage_extra") + (0 if timed_out else _total(perks, "wrong_extra"))
+    damage = 1 + _total(perks, "damage_extra") + (0 if timed_out else _total(perks, "wrong_extra")) + weather.damage_extra(signal_no, perks)
     remaining = max(0, health - damage)
     if remaining > 0:
         perks['recovery'] = max(perks['recovery'], max((item.recovery_signals for key in perks['owned'] if (item := _PERK_BY_ID[key]).recovery_signals), default=0))

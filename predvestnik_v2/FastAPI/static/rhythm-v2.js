@@ -38,7 +38,7 @@
     const view=await current.view();if(engine!==current||version!==generation||draw!==drawSeq)return;state=view;
     connection(navigator.onLine?'●':'○','Игра работает на устройстве');err(store.durable?'':'Не удалось сохранить игру на устройстве. Не закрывай приложение.');
     $('health').textContent='♥'.repeat(view.health)||'—';$('score').textContent=view.score;$('combo').textContent=view.combo;
-    $('speed').textContent=view.speed_percent+'%';$('perks').textContent=perksLine(view);
+    $('speed').textContent=view.speed_percent+'%';$('perks').textContent=perksLine(view);weatherLine($('weather'),view.weather,'');
     if(view.status==='finished'){store.data.last={packet:engine.packet,state:engine.state,journal};store.queue(engine.packet,journal);finish({...view,integrity_status:'saved_local'});flushResults();return;}
     if(view.draft){stopPreparation();expectedRune=null;paused=true;clearInterval(timer);remaining=null;offers();return;}
     $('run-note').textContent='Такт '+view.next_signal_no+' · чанк '+view.chunk+' · окно '+view.window_ms+' мс';show('run');
@@ -144,6 +144,7 @@
   function offers() {
     clearInterval(timer); setButtons(true); show('choice');
     $('draft-title').textContent = 'Рун-дар №' + state.draft.number;
+    weatherLine($('draft-weather'), state.weather, 'Следующие 20 тактов: ');
     const box = $('gifts'); box.replaceChildren();
     state.draft.offers.forEach(gift => {
       const b = document.createElement('button'); b.className = 'gift'; b.dataset.kind = gift.kind;
@@ -168,6 +169,8 @@
     resolving=true;clearInterval(timer);journal.push({kind:'pick',perk_id:id});engine.pick(id);remaining=engine.window();save();box_disable(true);
     try{await localDraw({prepare:true});}finally{resolving=false;}
   }
+  // Погода блока (core/rhythm_weather.py): одна строка, у всех одинаковая; без погоды строки нет.
+  function weatherLine(node,w,lead){if(!node)return;node.hidden=!w;node.textContent=w?lead+w.icon+' '+w.name+' — '+w.effect:'';}
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
   function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);if(p.recovery>0)parts.push('Второе дыхание: ещё '+p.recovery+' такта');return parts.join(' · ')}
   async function cancel(){
