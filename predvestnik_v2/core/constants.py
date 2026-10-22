@@ -425,16 +425,16 @@ REFERRAL_SIGNUP_VIP_DAYS: int = 4
 REFERRAL_SIGNUP_VIP_TIER: str = "1m"           # см. core.registry.VIP_TIERS — стартовый тариф
 
 # ── Зарники: донат-экономика (Implementation Block 1) ─────────────────────────
-ZARNIKI_PER_STAR: int = 10              # 1⭐ = 10✨
+ZARNIKI_PER_STAR: int = 12              # 1⭐ = 12✨ (с 2026-10-22; раньше 10). Счета: core/payment_contract.py v2
 
-# (stars, base_zarniki, bonus_zarniki) — итого = base + bonus
+# (stars, base_zarniki, bonus_zarniki) — итого = base + bonus. Должно совпадать с замороженной v2.
 STARS_PACKAGES: list[tuple[int, int, int]] = [
-    (20,  200,  15),
-    (50,  500,  50),
-    (100, 1000, 100),   # MOST POPULAR
-    (200, 2000, 200),
-    (300, 3000, 300),
-    (400, 4000, 400),
+    (20,  240,  18),
+    (50,  600,  60),
+    (100, 1200, 120),   # MOST POPULAR
+    (200, 2400, 240),
+    (300, 3600, 360),
+    (400, 4800, 480),
 ]
 STARS_MOST_POPULAR: int = 100           # пакет со звёздочкой "самое популярное"
 

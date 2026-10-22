@@ -139,22 +139,25 @@ async def _run() -> None:
     assert payment_contract.is_stars_amount(100_001) is False
     package = payments._package_quote(20)
     custom = payments._custom_quote(20)
-    assert package and package.zarniki == 215
-    assert custom and custom.zarniki == 200
-    assert payment_contract.is_issuable_v1_quote(package)
-    assert payment_contract.is_issuable_v1_quote(custom)
-    assert not payment_contract.is_issuable_v1_quote(
-        payment_contract.ZarnikiQuote(100, 1100, "unknown", "v1")
+    assert package and package.zarniki == 258 and package.version == "v2"   # 1⭐ = 12✨ since 2026-10-22
+    assert custom and custom.zarniki == 240
+    assert payment_contract.is_issuable_quote(package)
+    assert payment_contract.is_issuable_quote(custom)
+    assert not payment_contract.is_issuable_quote(
+        payment_contract.ZarnikiQuote(100, 1320, "unknown", "v2")
     )
-    assert not payment_contract.is_issuable_v1_quote(
-        payment_contract.ZarnikiQuote(100, 1100, "p", "v2")
-    )
-    assert payments._invoice_payload(package) == "zarniki:v1:p:20:215"
-    assert payments._invoice_payload(custom) == "zarniki:v1:c:20:200"
+    assert not payment_contract.is_issuable_quote(
+        payment_contract.ZarnikiQuote(100, 1100, "p", "v1")
+    ), "the old rate is never issued again"
+    assert payments._invoice_payload(package) == "zarniki:v2:p:20:258"
+    assert payments._invoice_payload(custom) == "zarniki:v2:c:20:240"
 
     valid = (
         ("zarniki:v1:p:20:215", "XTR", 20, 215),
-        ("zarniki:v1:c:20:200", "XTR", 20, 200),
+        ("zarniki:v1:c:20:200", "XTR", 20, 200),   # an invoice opened before the rate change pays its own price
+        ("zarniki:v2:p:20:258", "XTR", 20, 258),
+        ("zarniki:v2:c:17:204", "XTR", 17, 204),
+        ("zarniki:v2:c:100000:1200000", "XTR", 100000, 1200000),
         ("zarniki:215", "XTR", 20, 215),       # deployed package invoice
         ("zarniki:200", "XTR", 20, 200),       # deployed custom invoice
     )
@@ -170,7 +173,7 @@ async def _run() -> None:
         historical_quote = payments._quote_from_paid_invoice("zarniki:v1:p:20:215", "XTR", 20)
         assert historical_quote and historical_quote.zarniki == 215
         assert payments._package_quote(20).zarniki == 220
-        assert payments._is_issuable_v1_quote(payments._package_quote(20)) is False
+        assert payments._is_issuable_quote(payments._package_quote(20)) is False
     finally:
         payment_contract.STARS_PACKAGES = original_packages
 
@@ -184,6 +187,9 @@ async def _run() -> None:
         ("zarniki:v1:p:20:215", "USD", 20),
         ("zarniki:v1:p:20:215", "XTR", 50),
         ("zarniki:v1:p:100001:1000010", "XTR", 100001),
+        ("zarniki:v2:p:20:215", "XTR", 20),     # v1 amount under the v2 label
+        ("zarniki:v2:c:20:200", "XTR", 20),
+        ("zarniki:v3:c:20:240", "XTR", 20),     # unknown future version
     )
     for payload, currency, total in invalid:
         assert payments._quote_from_paid_invoice(payload, currency, total) is None, payload
@@ -200,8 +206,8 @@ async def _run() -> None:
     await payments.cb_buy_package(package_query, payments.BuyZarnikiCB(stars=20), invoice_bot)
     await payments.msg_custom_zarniki_amount(FakeMessage(text="17"), invoice_bot)
     assert len(invoice_bot.invoices) == 2
-    assert invoice_bot.invoices[0]["payload"] == "zarniki:v1:p:20:215"
-    assert invoice_bot.invoices[1]["payload"] == "zarniki:v1:c:17:170"
+    assert invoice_bot.invoices[0]["payload"] == "zarniki:v2:p:20:258"
+    assert invoice_bot.invoices[1]["payload"] == "zarniki:v2:c:17:204"
     for invoice in invoice_bot.invoices:
         assert invoice["currency"] == "XTR"
         assert invoice["provider_token"] == ""
@@ -222,10 +228,10 @@ async def _run() -> None:
             web_payments.InvoiceRequest(stars=20), user={"id": 701})
         custom_invoice = await web_payments.zarniki_invoice(
             web_payments.InvoiceRequest(stars=17), user={"id": 701})
-        assert package_invoice == {"link": "https://t.me/$offline-invoice", "stars": 20, "zarniki": 215}
-        assert custom_invoice == {"link": "https://t.me/$offline-invoice", "stars": 17, "zarniki": 170}
+        assert package_invoice == {"link": "https://t.me/$offline-invoice", "stars": 20, "zarniki": 258}
+        assert custom_invoice == {"link": "https://t.me/$offline-invoice", "stars": 17, "zarniki": 204}
         assert [call[1]["payload"] for call in web_calls] == [
-            "zarniki:v1:p:20:215", "zarniki:v1:c:17:170",
+            "zarniki:v2:p:20:258", "zarniki:v2:c:17:204",
         ]
         for _method, call in web_calls:
             assert call["currency"] == "XTR" and call["provider_token"] == ""
@@ -239,7 +245,7 @@ async def _run() -> None:
         except Exception as error:
             assert getattr(error, "status_code", None) == 503
         else:
-            raise AssertionError("Mini App must fail closed when live tariff diverges from frozen v1.")
+            raise AssertionError("Mini App must fail closed when live tariff diverges from its frozen version.")
         assert len(web_calls) == prior_calls
     finally:
         payment_contract.STARS_PACKAGES = original_packages
