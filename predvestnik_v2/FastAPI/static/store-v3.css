@@ -139,3 +139,24 @@
 .sv-skel i:last-child { height: 48px; width: 100%; border-radius: 99px; }
 
 @media (max-width: 359px) { .sv-bal { font-size: 46px; } .sv-tabs button { font-size: 26px; } .sv-opt-main b { font-size: 20px; } .sv-pos button { font-size: 11.5px; } }
+
+/* ═══ VIP продаёт себя: золотая шапка с ценой «от», преимущества карточками, что возвращается игрой ═══ */
+.sv-hero { position: relative; flex-wrap: wrap; padding: 18px 16px; overflow: hidden; isolation: isolate; border-radius: 20px;
+  background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--v3-vip, #f1cf7e) 22%, transparent), transparent 62%), color-mix(in srgb, var(--v3-ink) 4%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--v3-vip, #f1cf7e) 30%, transparent); }
+.sv-hero > div { flex: 1; min-width: 0; }
+.sv-hero:not(.is-on) b { color: var(--v3-ink); }
+.sv-hero .sv-ring { width: 56px; height: 56px; }
+.sv-hero:not(.is-on) .sv-ring-crown { fill: var(--v3-vip, #f1cf7e); }
+.sv-hero-cta { flex: 1 0 100%; margin-top: 4px; background: var(--v3-vip, #f1cf7e); color: #2b1d02; }
+.sv-perks--grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.sv-perks--grid li { grid-template-columns: 1fr; row-gap: 4px; align-content: start; padding: 12px; border-radius: 16px; background: color-mix(in srgb, var(--v3-ink) 4%, transparent); box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.sv-perks--grid li + li { box-shadow: inset 0 0 0 1px var(--v3-faint); }
+.sv-perks--grid .sv-pi { grid-row: auto; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; font-size: 19px; background: color-mix(in srgb, var(--v3-vip, #f1cf7e) 14%, transparent); }
+.sv-perks--grid b { font-size: 14px; } .sv-perks--grid small { font-size: 12px; line-height: 1.4; }
+.sv-perks--grid li:first-child { grid-column: 1 / -1; }   /* главное — образ виден всем — на всю ширину */
+.sv-value { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.sv-value div { display: grid; gap: 2px; padding: 12px 8px; border-radius: 14px; text-align: center; background: color-mix(in srgb, var(--v3-vip, #f1cf7e) 9%, transparent); }
+.sv-value b { color: var(--v3-vip, #f1cf7e); font: var(--v3-w-head) 20px/1.1 var(--v3-font); font-variant-numeric: tabular-nums; }
+.sv-value small { color: var(--v3-dim); font-size: 11.5px; line-height: 1.3; }
+#sv-terms { scroll-margin-top: 80px; }

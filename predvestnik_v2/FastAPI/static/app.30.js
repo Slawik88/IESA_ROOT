@@ -123,10 +123,21 @@ function _svRing(days) {
   const share = Math.min(1, Math.max(0, days) / 30);
   return `<svg class="sv-ring" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="19" class="sv-ring-track"/><circle cx="22" cy="22" r="19" class="sv-ring-arc" stroke-dasharray="119.4" stroke-dashoffset="${(119.4 * (1 - share)).toFixed(1)}"/><path d="M13.5 28l2.2-9.6 4.4 4.8L22 16.6l1.9 6.6 4.4-4.8 2.2 9.6z" class="sv-ring-crown"/></svg>`;
 }
+// Шапка VIP: статус и главное обещание; без VIP сразу кнопка к срокам с ценой «от»
 function _svStatus(v) {
+  const tiers = v.tiers || [], min = tiers.length ? Math.min(...tiers.map(t => Number(t.price_zarniki))) : 0;
+  const cta = !v.active && min ? `<button type="button" class="v3-pill sv-buy sv-hero-cta" onclick="svToTerms()">Оформить VIP · от ${fmt(min)} ✨</button>` : '';
   return v.active
-    ? `<section class="sv-status is-on" role="status">${_svRing(v.days_left || 0)}<div><b>VIP активен</b><span>ещё ${fmt(v.days_left || 0)} дн. · до ${_profileDate(v.expires_at)}</span></div></section>`
-    : `<section class="sv-status" role="status">${_svRing(0)}<div><b>VIP не активен</b><span>С ним ваш образ видят все, а наград больше</span></div></section>`;
+    ? `<section class="sv-status sv-hero is-on" role="status">${_svRing(v.days_left || 0)}<div><b>VIP активен</b><span>ещё ${fmt(v.days_left || 0)} дн. · до ${_profileDate(v.expires_at)}</span></div></section>`
+    : `<section class="sv-status sv-hero" role="status">${_svRing(0)}<div><b>VIP не активен</b><span>С ним ваш образ видят все, а наград больше</span></div>${cta}</section>`;
+}
+function svToTerms() { const t = el('sv-terms'); if (t) t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); _haptic('select'); }
+// Сколько VIP возвращает за 30 дней: поручения дня (Мора и ключи) — числа с /vip-v2/status, без него — из описания перков
+function _svValue(v) {
+  const m = v.daily_mission || {}, day = Number(m.daily_reward_mora ?? 20), bonus = Number(m.milestone_reward_mora ?? 100), keys = Number(m.milestone_reward_keys ?? 1), weeks = Math.floor(30 / 7);
+  const tile = (n, t) => `<div><b>${n}</b><small>${t}</small></div>`;
+  return `<div class="sv-sec"><span class="v3-eyebrow">За 30 дней поручений</span></div><div class="sv-value">${tile(`+${fmt(day * 30 + bonus * weeks)}`, 'Моры')}${keys ? tile(`+${fmt(keys * weeks)}`, 'ключей к сундукам') : ''}${tile('+10%', 'Моры за задания')}</div>
+    <p class="sv-fine sv-fine--left">Одна завершённая игра в день — и поручение выполнено. Пропуски прогресс не сбрасывают.</p>`;
 }
 // Поручение дня: семь точек до бонуса, данные приходят с /vip-v2/status
 function _svMission(v) {
@@ -151,7 +162,7 @@ function _svSee() {
 }
 // Что даёт: сервер присылает строки «эмодзи Название: пояснение»
 function _svPerks(v) {
-  return `<ul class="sv-perks">${(v.perks || []).map(t => {
+  return `<ul class="sv-perks sv-perks--grid">${(v.perks || []).map(t => {
     const text = String(t), icon = (text.match(/^\S+/) || [''])[0], rest = text.slice(icon.length).trim(), cut = rest.indexOf(':');
     const title = cut > 0 ? rest.slice(0, cut) : rest, cap = cut > 0 ? rest.slice(cut + 1).trim() : '';
     return `<li><span class="sv-pi" aria-hidden="true">${_profileEsc(icon)}</span><b>${_profileEsc(title)}</b>${cap ? `<small>${_profileEsc(cap)}</small>` : ''}</li>`;
@@ -161,7 +172,7 @@ function _svTerms(v) {
   const tiers = v.tiers || [], bal = _svBal(), cur = tiers.find(t => Number(t.duration_days) === _sv.term) || tiers[0]; if (!cur) return '';
   const days = Number(cur.duration_days), price = Number(cur.price_zarniki), enough = bal >= price;
   const perDay = tiers.map(t => Number(t.price_zarniki) / Number(t.duration_days)), flat = perDay.every(x => Math.abs(x - perDay[0]) < .01);
-  return `<div class="sv-sec"><span class="v3-eyebrow">${v.active ? 'Продлить' : 'Оформить'}</span>${flat ? `<small>${fmt(Math.round(perDay[0]))} ✨ в день при любом сроке</small>` : ''}</div>
+  return `<div class="sv-sec" id="sv-terms"><span class="v3-eyebrow">${v.active ? 'Продлить' : 'Выберите срок'}</span>${flat ? `<small>${fmt(Math.round(perDay[0]))} ✨ в день при любом сроке</small>` : ''}</div>
     <div class="sv-opts" role="radiogroup" aria-label="Срок VIP">${tiers.map(t => {
       const d = Number(t.duration_days), on = d === days;
       return `<button type="button" role="radio" aria-checked="${on}" class="sv-opt${on ? ' is-on' : ''}" onclick="svTerm(${d})"><span class="sv-opt-main"><b>${fmt(d)} ${_svDaysWord(d)}</b>${d === 365 ? '<small>целый год</small>' : ''}</span><span class="sv-opt-end">${fmt(t.price_zarniki)} ✨</span><i class="sv-radio" aria-hidden="true"></i></button>`;
@@ -230,7 +241,11 @@ function _svVip() {
     const status = known?.expires_at ? `<section class="sv-status" role="status">${_svRing(known.days_left || 0)}<div><b>VIP по последним данным</b><span>Срок до ${_profileDate(known.expires_at)}</span></div></section><p class="sv-fine sv-fine--left">${stamp} Текущий статус уточним после обновления.</p>` : '';
     return `${status}<div class="v3-empty" role="alert"><b>Не удалось обновить VIP</b><span>Это ошибка загрузки, она не означает, что подписка закончилась.</span><button type="button" class="v3-pill" onclick="openStoreV3('vip')">Повторить</button><a class="v3-link" href="https://t.me/predvestnik_official" target="_blank" rel="noopener noreferrer">Помощь в сообществе</a></div>`;
   }
-  return `${_svStatus(v)}${_svTerms(v)}${_svMission(v)}<details class="sv-details"><summary>Что даёт VIP</summary>${_svPerks(v)}</details><details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`;
+  // Без VIP страница продаёт: сначала зачем (как вас увидят, что даёт, что возвращается игрой), потом сроки. С VIP — статус, продление, поручение
+  const perks = `<div class="sv-sec"><span class="v3-eyebrow">${v.active ? 'Ваш VIP даёт' : 'Что даёт VIP'}</span></div>${_svPerks(v)}`;
+  return v.active
+    ? `${_svStatus(v)}${_svMission(v)}${_svTerms(v)}${perks}<details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`
+    : `${_svStatus(v)}${_svSee()}${perks}${_svValue(v)}${_svTerms(v)}`;
 }
 
 function _svRender() {
