@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -696,3 +696,12 @@ async def skin_runtime_js():
 @app.get("/static/minesweeper-v2.js")
 async def minesweeper_js():
     return Response(_read_static("minesweeper-v2.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/mafia-art/{name}")
+async def mafia_art(name: str):
+    # Public fictional role art, never a projection of an active player's role.
+    if name not in {f"{role}.{ext}" for role in ("city", "citizen", "mafia", "don", "doctor", "detective") for ext in ("jpg", "webp")}:
+        raise HTTPException(404)
+    return FileResponse(os.path.join(_STATIC_DIR, "mafia-art", name),
+                        media_type="image/webp" if name.endswith(".webp") else "image/jpeg")

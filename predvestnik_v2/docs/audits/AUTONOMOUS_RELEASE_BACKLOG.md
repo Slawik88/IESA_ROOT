@@ -29,8 +29,10 @@
    full reaction window, hide/cancel tokens, no162px layout jump. Fake-clock
    tests и независимый Chromium320×568 smoke PASS.
 3. Мафия: imagegen для полезных поверхностей, именно стиль Предвестника.
-   Первый noir-набор сгенерирован, слишком sepia; переделать под obsidian/violet,
-   интегрировать role/help/history/hub и приватные role cards, проверить UX.
+   Готовы6 obsidian/violet assets: hub/help/history/review/private role cards.
+   Проверены media fallback/retry, caption-aware выбор и длинная подпись;
+   ASGI12assets+404manifest, PGmafia PASS, Chromium320 nooverflow.
+   Read-only critic: исправлен edit_text→edit_caption для первого ночного хода.
 4. Пять слотов экипировки + отдельная быстрая «Вылазка»: владелец явно подтвердил
    реализацию в этом выпуске и влияние экипировки на ТЕКУЩИЕ походы и Следы.
    Функциональные слоты, отдельный 3–5мин забег с последовательными выборами,
@@ -38,8 +40,9 @@
 5. ПОСЛЕДНИМ: Mines leaderboard грузится около минуты (скриншот владельца).
    Измерить цепочку client/API/SQL на репрезентативных данных и устранить причину.
 
-Read-only release_critic исследует generator parity и gameplay, новых файлов
-не меняет. Worktree прежний, master512c8c6a. Весь незавершённый scope сохранять.
+Stage1 (пункты1–2) отправлен вmaster5c7fa566 поверх18417a3d.
+Read-only release_critic проверяет Mafia batch; новых файлов не меняет.
+Gear+Вылазка и latency остаются обязательными следующими задачами.
 
 ## RELEASE-PETS-MINES-20261021 — выпущено в master / production
 

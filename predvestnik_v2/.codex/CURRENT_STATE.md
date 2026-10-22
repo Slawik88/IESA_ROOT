@@ -164,30 +164,24 @@ pushes. Confirmed NEW implementation: five pet equipment slots + separate quick
 No further approval needed for that scope. Mafia generated images must match
 Predvestnik OBSIDIAN/cold violet style. Leaderboard ~minute load goes LAST.
 
-Stage1 ready locally: Mine v2 bounded8 candidate generator+zero seed fallback;
-legacy run/packet version dispatch, no-header API negotiatesv1 vs new bundle
-x-minesweeper-ruleset=v2; current new fresh explicitly upgrades old templates.
-Fixed hidden/stale longpress across board/mode, F autorepeat, difficulty rollback.
-Rhythm4s visible field/no target for start/gift/resume/restore, full reaction
-window then starts. Hidden/cancel abortPromise, drawSeq ignores stale views,
-field no layout jump305->305px (independent Chromium320x568).
-PASS Mine10k,198fallback; Python/JS/BFS144boards5271actions; PG+HTTP negotiation,
-local games PG, rules/parity;4JS gameplay/lifecycle/accessibility/resume. Independent
-release_critic ACCEPT; reviewer also4554 parity layouts/180 random games/48 full
-wrongflag games. Static delivery needs retry WITH dummyenv (lastfailedmissingtoken).
+Stage1 shipped to master5c7fa566 atop18417a3d: nontrivial Mine v2 boards,
+legacy negotiation/replay preserved; longpress/F/difficulty gameplay fixes;
+Rhythm4s field/no target start/gift/resume/restore with full reaction window.
+Targeted rules/PG/JS/static gates PASS; independent read-only ACCEPT.
 
-Before commit fetched master18417a3d (all-time Mine/Mafia wins tops, separate from
-Mine speed board). Integrate carefully: updates feed/patch-note drafts and PGtests.
-Our two new release notes live in patch-notes/2026-10-21-games.json so daily fix
-limit isn't exceeded. Then targeted checks and push first critical batch.
+Mafia batch locally complete Oct22:6 generated obsidian/violet illustrations,
+WebP forhub/help/history/review and JPG private rolecard. Prompt manifest tracked.
+Photo role callbacks use edit_caption, longcaption keeps buttons+toast. No public
+active role disclosure. PASS real-aiogram delivery/callback/cache/fallback/retry,
+mafia_v1PG55432, staticdelivery12assets/manifest404, patchnotescontract and feed
+READY. Chromium320 all6loaded/nooverflow,390 roles verified, screenshots under
+output/playwright/mafia-20261022. Read-only critic found stale selection on caption overflow: fixed by clearing
+previous line; regression witness long escaped name PASS. Reviewer hit account
+usage limit before final verdict; prior independent review completed, findings
+fixed. No unreviewed blockers known; do not claim final ACCEPT for this batch.
+Stage1 production identity will be verified with Mafia batch deployment.
 
-Remaining order: Mafia art+integration ->5gear+Вылазка+balance sim -> leaderboard
-latency LAST. Art first6 noir images generated, rejected as too sepia. Brand edits
-running functions cell92 (imagegen six edits, initial120s yielded). Results stored
-functions load('mafiaBrandResults'), prior paths/prompts load('mafiaImageResults'),
-load('mafiaBrandPrompts'); all default files under Codex generated_images/thread.
-Copy chosen brand art into workspace, encode web assets, retain prompt manifest.
-Mafia use surfaces: hub, howto5roles, history empty/completedreview, private role DM
-(send_dm/role cards in bot/chat/mafia_dm.py). Avoid per-tick image spam/secret role
-leaks to public chat. Existing text phasecards edit_message_text should stay text.
-Gear and Вылазка not yet coded; backlog top has full approved scope.
+Remaining order: push Mafia+verify production ->5gear+Вылазка+balance sim ->
+leaderboard latency LAST. Gear and newmode not yet coded; explicitly authorized.
+Local Stand91009 on8403, dummy123456:stand, PG55432 shared disposable cluster.
+Do not stop after Mafia. No channel messages sent; patch-note drafts only.

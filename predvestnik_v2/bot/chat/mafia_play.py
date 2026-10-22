@@ -70,10 +70,20 @@ async def _edit_chosen(query: types.CallbackQuery, db, data: MafiaActionCB, targ
                                 players=me["players"], actor_id=int(query.from_user.id), chosen=target)
     if not label:
         return
+    photo = bool(query.message.photo)
     base = (query.message.html_text or "").split(CHOSEN_MARK)[0]
     line = copy.vote_chosen(label) if data.action == "vote" else copy.night_chosen(label)
+    text = f"{base}\n\n{line}"
     try:
-        await query.message.edit_text(f"{base}\n\n{line}", reply_markup=markup, parse_mode="HTML")
+        if photo:
+            if len(text.encode("utf-16-le")) // 2 <= 1024:
+                await query.message.edit_caption(caption=text, reply_markup=markup, parse_mode="HTML")
+            else:
+                # Clear any previous selection line as well as marking the new
+                # button, so a long name cannot leave a contradictory old target.
+                await query.message.edit_caption(caption=base, reply_markup=markup, parse_mode="HTML")
+        else:
+            await query.message.edit_text(text, reply_markup=markup, parse_mode="HTML")
     except TelegramBadRequest as exc:
         logger.debug(f"Mafia DM confirmation not shown: {exc}")
 
