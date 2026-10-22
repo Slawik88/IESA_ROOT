@@ -2375,17 +2375,19 @@ const roleWord = name => name.replace(/^\S+\s/, '').toLowerCase();   // «💬 �
 async function accessView(main) {
   const d = await loadSectionData(main, '/access/matrix', () => accessView(main), 'access');
   if (!d) return;
-  const word = r => roleWord(d.roles.find(x => x.rank === r).name);
+  const rolesOf = i => i.roles || d.roles;   // у раннего доступа свои границы: от тестера до создателя
+  const word = (r, key) => roleWord(rolesOf(d.items.find(x => x.key === key) || {}).find(x => x.rank === r).name);
   const row = i => `<div class="sw-row"><div class="t"><b>${esc(i.title)}</b>
-      <div class="sub">${i.changed ? '✎ изменено · ' : ''}по умолчанию: ${esc(d.roles.find(x => x.rank === i.default)?.name || i.default)}</div></div>
-      <select data-akey="${esc(i.key)}" aria-label="${esc(i.title)}: с какой роли">${d.roles.map(r =>
+      <div class="sub">${i.changed ? '✎ изменено · ' : ''}по умолчанию: ${esc(rolesOf(i).find(x => x.rank === i.default)?.name || i.default)}</div></div>
+      <select data-akey="${esc(i.key)}" aria-label="${esc(i.title)}: с какой роли">${rolesOf(i).map(r =>
         `<option value="${r.rank}" ${r.rank === i.current ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select>
       ${i.changed ? `<button type="button" class="btn small" data-areset="${esc(i.key)}">Сбросить</button>` : ''}</div>`;
   const group = g => d.items.filter(i => i.group === g).map(row).join('');
   main.innerHTML = `${pageHead('🛡', 'Права', 'С какой роли доступно каждое право. Меняется только то, что перечислено ниже')}
     ${alertBox('info', 'Роль выше или равная выбранной получает право. Выдать можно только то, что здесь перечислено: деньги, роли, рассылки, промокоды, переключатели и настройки закреплены за разработчиком и создателем. Действие над игроком с равной или высшей ролью остаётся закрытым.')}
     ${section('a-sec', '🗂 Разделы', group('section'))}
-    ${section('a-mod', '🛡 Модерация', group('moderation'))}`;
+    ${section('a-mod', '🛡 Модерация', group('moderation'))}
+    ${section('a-feat', '🧪 Ранний доступ', alertBox('info', 'Новый контент до публичного запуска: сейчас это демо нового сезона (Лига Сапёра и Ритма). Награды в демо ненастоящие.') + group('feature'))}`;
   const post = body => api('/access/matrix', {method: 'POST', body: JSON.stringify(body)});
   const ask = (title, key, rank, expect) => sheet(title,
     `${hint('Изменение вступает в силу сразу для всех сотрудников. Для подтверждения введите «' + esc(expect) + '».')}<div class="field"><label>Подтверждение</label><input id="a-confirm" autocomplete="off"/></div>`,
@@ -2395,7 +2397,7 @@ async function accessView(main) {
     sel.onchange = () => {
       const rank = +sel.value;
       sel.value = was;   // пока человек не подтвердит, на экране прежнее значение
-      ask(`Изменить право «${sel.getAttribute('aria-label').split(':')[0]}»`, sel.dataset.akey, rank, word(rank));
+      ask(`Изменить право «${sel.getAttribute('aria-label').split(':')[0]}»`, sel.dataset.akey, rank, word(rank, sel.dataset.akey));
     };
   });
   main.querySelectorAll('[data-areset]').forEach(b => b.onclick = () => ask('Вернуть значение по умолчанию', b.dataset.areset, null, 'сброс'));

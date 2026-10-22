@@ -40,6 +40,7 @@ from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import purge_v1 as purge_v1_router
+from FastAPI.routers import league_v1 as league_v1_router  # демо Лиги, только ранний доступ
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -280,6 +281,7 @@ app.include_router(promo_redeem_router.router)   # ввод промокода �
 app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
 app.include_router(purge_v1_router.router)
+app.include_router(league_v1_router.router)
 app.middleware("http")(bot_admin_router.site_gate)   # выключатели сайта из админки
 
 

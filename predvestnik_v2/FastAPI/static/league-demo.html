@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Лига — ранний доступ</title>
+  <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-demo.css?v={{VER}}">
+</head>
+<body data-app-base="{{BASE}}">
+  <main class="lg-shell">
+    <header class="lg-head">
+      <a href="{{BASE}}/?startapp=games" aria-label="Назад к играм">‹</a>
+      <div><small>Ранний доступ · демо</small><h1>Лига сезона</h1></div>
+    </header>
+    <p class="lg-demo-note" role="note">Это демо нового рейтингового режима. Награды и опыт здесь ненастоящие: ничего не начисляется.</p>
+    <nav class="lg-tabs" role="tablist" aria-label="Разделы Лиги">
+      <button type="button" role="tab" data-tab="minesweeper" aria-selected="true">Сапёр</button>
+      <button type="button" role="tab" data-tab="rhythm" aria-selected="false">Ритм</button>
+      <button type="button" role="tab" data-tab="pass" aria-selected="false">Пропуск</button>
+    </nav>
+    <section id="lg-view" class="lg-panel" aria-live="polite"><p class="lg-muted">Загружаем Лигу…</p></section>
+    <section id="lg-play" class="lg-panel lg-hidden" aria-live="polite"></section>
+  </main>
+  <script async src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="{{BASE}}/static/league-demo/league-demo.js?v={{VER}}"></script>
+  <script src="{{BASE}}/static/league-demo/league-mines.js?v={{VER}}"></script>
+  <script src="{{BASE}}/static/league-demo/league-rhythm.js?v={{VER}}"></script>
+</body>
+</html>

@@ -56,10 +56,13 @@ async def owners_block(data: dict = Body(...), user=Depends(_user), db=Depends(g
 
 def _items() -> list[dict]:
     out = []
+    sources = {"section": (SECTIONS, "section"), "action": (ACTIONS, "moderation"), "feature": (admin_access.FEATURES, "feature")}
     for key in sorted(admin_access.CONFIGURABLE):
         kind, name = key.split(":", 1)
-        title, default = (SECTIONS[name][0], SECTIONS[name][1]) if kind == "section" else (ACTIONS[name][0], ACTIONS[name][1])
-        out.append({"key": key, "group": "section" if kind == "section" else "moderation", "title": title, "default": default})
+        table, group = sources[kind]
+        low, high = admin_access.bounds(key)
+        out.append({"key": key, "group": group, "title": table[name][0], "default": table[name][1],
+                    "roles": [{"rank": r, "name": bot_rank_name(r)} for r in range(low, high + 1)]})
     return out
 
 
@@ -87,8 +90,9 @@ async def matrix_set(data: dict = Body(...), user=Depends(_user), db=Depends(get
         raise HTTPException(400, "Это право закреплено в коде и не настраивается.")
     raw = data.get("min_rank")
     new = None if raw in (None, "") else int(raw)
-    if new is not None and not admin_access.FLOOR <= new <= admin_access.CEILING:
-        raise HTTPException(400, f"Порог — от {admin_access.FLOOR} до {admin_access.CEILING}.")
+    low, high = admin_access.bounds(key)
+    if new is not None and not low <= new <= high:
+        raise HTTPException(400, f"Порог — от {low} до {high}.")
     word = "сброс" if new is None else _role_word(new)
     if str(data.get("confirm") or "").strip().lower() != word:
         raise HTTPException(400, f"Для подтверждения введите «{word}».")

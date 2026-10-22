@@ -25,7 +25,14 @@ CONFIGURABLE = frozenset({
     "section:people", "section:reports", "section:metrics", "section:journal", "section:health",
     "action:warn", "action:mute", "action:unmute", "action:unwarn_all", "action:kick", "action:ban", "action:unban",
     "action:close", "action:open", "action:warn_limit",
+    "feature:early_access",
 })
+# Своя граница у права, которое не опасно и выдаётся точечно: ранний доступ к контенту можно открыть и тестерам
+# (1), а по умолчанию он только у создателя (6). Остальные права живут в общих [FLOOR, CEILING].
+KEY_BOUNDS = {"feature:early_access": (1, 6)}
+FEATURES: dict[str, tuple[str, int]] = {
+    "early_access": ("Ранний доступ к контенту", 6),   # пока только демо нового сезона (Лига), награды в нём ненастоящие
+}
 
 STATEMENTS = (
     """CREATE TABLE IF NOT EXISTS admin_role_grants (
@@ -72,11 +79,17 @@ def require_chat(principal: dict, chat_id: int) -> None:
     raise HTTPException(403, "Этот чат вам недоступен.")
 
 
+def bounds(key: str) -> tuple[int, int]:
+    """[пол, потолок] порога этого права."""
+    return KEY_BOUNDS.get(key, (FLOOR, CEILING))
+
+
 def effective_min(key: str, default: int, grants: dict[str, int] | None = None) -> int:
-    """Минимальная роль на действие: порог из БД, ужатый до [FLOOR, CEILING]; не настраиваемое — как в коде."""
+    """Минимальная роль на действие: порог из БД, ужатый до границ права; не настраиваемое — как в коде."""
     if key not in CONFIGURABLE or not grants or key not in grants:
         return default
-    return max(FLOOR, min(int(grants[key]), CEILING))
+    low, high = bounds(key)
+    return max(low, min(int(grants[key]), high))
 
 
 async def ensure_schema(db) -> None:
@@ -100,8 +113,9 @@ async def set_grant(db, actor: dict, key: str, min_rank: int | None) -> None:
         raise HTTPException(403, "Права ролей меняет только создатель.")
     if key not in CONFIGURABLE:
         raise HTTPException(400, "Это право закреплено в коде и не настраивается.")
-    if min_rank is not None and not FLOOR <= int(min_rank) <= CEILING:
-        raise HTTPException(400, f"Порог — от {FLOOR} до {CEILING}.")
+    low, high = bounds(key)
+    if min_rank is not None and not low <= int(min_rank) <= high:
+        raise HTTPException(400, f"Порог — от {low} до {high}.")
     if not _ready:
         await ensure_schema(db)
     if min_rank is None:
