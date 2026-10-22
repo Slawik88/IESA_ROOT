@@ -14,6 +14,7 @@ from core import pets_v2 as rules
 from core import pet_equipment as equipment
 from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import pets_v2 as repo
+from infrastructure.repositories import pet_equipment as gear_repo
 from services import pets_v2_advice as advice
 from services import pet_equipment as gear_service
 
@@ -122,6 +123,36 @@ def _rules_view() -> dict:
     }
 
 
+def _pet_state(pet: dict, talismans: list[dict], camp: dict, clock: dict) -> tuple:
+    """Shared energy/build projection for the overview and a departure quote; no writes."""
+    level = int(pet["level"] or 1)
+    build = _build(pet, talismans, camp, clock["day"])
+    fx = _fx(build)
+    energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
+    energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
+    if pet["energy_at"] is not None:
+        energy = _rest({"energy": energy, "energy_at": pet["energy_at"], "level": level}, pet, clock["now"], build)
+    return build, fx, energy, energy_cap
+
+
+def _talismans_by_pet(talismans: list[dict]) -> dict[int, list[dict]]:
+    equipped: dict[int, list[dict]] = {}
+    for talisman in talismans:
+        if talisman["pet_id"] is not None:
+            equipped.setdefault(int(talisman["pet_id"]), []).append(talisman)
+    return equipped
+
+
+def _runs_by_pet(runs: list[dict]) -> dict[int, dict]:
+    # Keep the existing last-primary / first-companion preference.
+    result = {}
+    for run in runs:
+        if run["companion_id"] is not None:
+            result.setdefault(int(run["companion_id"]), run)
+    result.update({int(run["pet_id"]): run for run in runs})
+    return result
+
+
 async def overview(db, user_id: int) -> dict:
     """Только чтение: ничего не создаёт и не меняет."""
     from core.chests_v1 import FOODS, PET_SPECIES
@@ -131,10 +162,12 @@ async def overview(db, user_id: int) -> dict:
     runs = await repo.open_runs(db, user_id)
     gear_view = await gear_service.summary(db, user_id, day)
     outing_pet = gear_view['open']['pet_id'] if gear_view['open'] else None
-    by_pet = {int(run["pet_id"]): run for run in runs}
+    by_pet = _runs_by_pet(runs)
     pets = []
     owned = await repo.list_owned_pets(db, user_id)
     all_talismans = await repo.list_talismans(db, user_id)
+    equipped = _talismans_by_pet(all_talismans)
+    owned_by_id = {int(pet["id"]): pet for pet in owned}
     camp = await repo.camp_levels(db, user_id)
     bond_by_pet, bond_by_species = await repo.bond_days_all(db, user_id)
     week_trial = rules.weekly_trial(week.toordinal())
@@ -144,13 +177,9 @@ async def overview(db, user_id: int) -> dict:
         if pet.get("species_id") not in rules.SPECIES:
             continue
         level = int(pet["level"] or 1)
-        mine = [t for t in all_talismans if t["pet_id"] is not None and int(t["pet_id"]) == int(pet["id"])]
-        build = builds[int(pet["id"])] = _build(pet, mine, camp, day)
-        fx = _fx(build)
-        energy_cap = rules.energy_max(level, pet["species_id"], fx["energy_bonus"])
-        energy = float(pet["energy"]) if pet["energy"] is not None else float(rules.energy_max(1, pet["species_id"]))
-        if pet["energy_at"] is not None:
-            energy = _rest({"energy": energy, "energy_at": pet["energy_at"], "level": level}, pet, clock["now"], build)
+        mine = equipped.get(int(pet["id"]), [])
+        build, fx, energy, energy_cap = _pet_state(pet, mine, camp, clock)
+        builds[int(pet["id"])] = build
         bond = bond_by_pet.get(int(pet["id"]), 0)
         hits = rules.trial_hits(week_trial, _species_row(pet)[1], build["traits"], build["talismans"])
         item = {
@@ -172,7 +201,7 @@ async def overview(db, user_id: int) -> dict:
             "next_gate_days": rules.next_gate_days(bond), "stars": rules.seal_stars(bond_by_species.get(pet["species_id"], 0)),
             "trial": {"matches": sum(hits.values()), "hits": hits},
         }
-        run = by_pet.get(int(pet["id"])) or next((r for r in runs if r["companion_id"] is not None and int(r["companion_id"]) == int(pet["id"])), None)
+        run = by_pet.get(int(pet["id"]))
         if run:
             item["run_id"] = run["id"]
         pets.append(item)
@@ -185,7 +214,7 @@ async def overview(db, user_id: int) -> dict:
         entry = {"id": run["id"], "pet_id": int(run["pet_id"]), "kind": run["kind"], "hours": int(run["hours"]),
                  "route": run["route"], "ends_at": str(run["ends_at"]), "ready": bool(run["ready"])}
         if run["kind"] == "expedition" and run["ready"]:
-            pet = next((p for p in owned if int(p["id"]) == int(run["pet_id"])), None)
+            pet = owned_by_id.get(int(run["pet_id"]))
             if pet and pet["level"] is not None:
                 build = builds[int(pet["id"])]
                 state = {"level": pet["level"], "energy": pet["energy"], "energy_at": pet["energy_at"], "pity": pet["pity"]}
@@ -224,21 +253,29 @@ async def overview(db, user_id: int) -> dict:
 async def preview_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, route: str | None,
                       companion_id: int | None = None) -> dict:
     """Read-only snapshot. Never creates state, reserves a slot or rolls finds."""
-    view = await overview(db, user_id)
-    pet = next((p for p in view["pets"] if p["id"] == pet_id), None)
+    # A quote needs the selected pets, not the full screen's advice, stock,
+    # trial, camp jobs, tracking board and equipment catalog.
+    owned = await repo.list_owned_pets(db, user_id)
+    supported = {int(p["id"]): p for p in owned if p.get("species_id") in rules.SPECIES}
+    pet = supported.get(pet_id)
     if not pet:
         raise PetV2PolicyError("Питомец не найден.")
-    mate = next((p for p in view["pets"] if p["id"] == companion_id), None) if companion_id else None
+    mate = supported.get(companion_id) if companion_id else None
     if companion_id and (not mate or companion_id == pet_id):
         raise PetV2PolicyError("Спутник не найден.")
-    if mate and not view["pair"]["unlocked"]:
+    species_owned = len({p["species_id"] for p in owned if p.get("species_id")})
+    if mate and species_owned < rules.PAIR_MIN_SPECIES:
         raise PetV2PolicyError("Пара ещё не открыта.")
     camp = await repo.camp_levels(db, user_id)
     clock = await repo.clock(db)
-    owned = {t["id"]: t for t in view["talismans"]}
-    build = {"calling": pet["calling"], "traits": tuple(pet["traits"]),
-             "talismans": tuple((owned[t]["kind"], owned[t]["tier"]) for t in pet["talismans"]),
-             "fed": pet["fed_favorite"], "camp": camp, "equipment": equipment.active(pet['equipment'])}
+    equipped = _talismans_by_pet(await repo.list_talismans(db, user_id))
+    build, _, energy, _ = _pet_state(pet, equipped.get(pet_id, []), camp, clock)
+    mate_energy = _pet_state(mate, equipped.get(companion_id, []), camp, clock)[2] if mate else None
+    runs = await repo.open_runs(db, user_id)
+    busy = _runs_by_pet(runs)
+    outing = await gear_repo.active_outing(db, user_id)
+    if outing:
+        busy[int(outing["pet_id"])] = outing
     async with db.execute("SELECT COUNT(*) AS n FROM pet_v2_bond_days WHERE user_id=? AND pet_id=? AND day=?",
                           (user_id, pet_id, clock["day"])) as cursor:
         new_day = not int((await cursor.fetchone())["n"])
@@ -250,11 +287,11 @@ async def preview_run(db, *, user_id: int, pet_id: int, kind: str, hours: int, r
                                      repeat_decay=rules.markers_decay(camp["markers"]), paired=bool(mate))
     energy_cost = rules.ACTIVITY_ENERGY.get(("watch" if kind == "watch" else "run", hours), 0)
     reasons = []
-    if pet["run_id"] or pet['outing'] or (mate and (mate["run_id"] or mate['outing'])):
+    if pet_id in busy or (mate and companion_id in busy):
         reasons.append("Питомец или спутник уже в пути.")
-    if len(view["activities"]) >= view["slots"]:
+    if len(runs) >= rules.SLOTS:
         reasons.append("Все слоты заняты.")
-    if pet["energy"] < energy_cost or (mate and mate["energy"] < rules.PAIR_ENERGY):
+    if round(energy, 1) < energy_cost or (mate and round(mate_energy, 1) < rules.PAIR_ENERGY):
         reasons.append("Не хватает сил.")
     return {**quote, "as_of": clock["now"].isoformat(), "day": str(clock["day"]),
             "can_start": not reasons, "reasons": reasons, "energy_cost": energy_cost,

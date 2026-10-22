@@ -390,13 +390,16 @@ async def save_build(db, user_id: int, pet_id: int, *, calling, traits: list[str
 async def camp_levels(db, user_id: int) -> dict[str, int]:
     """Уровни построек с учётом уже завершённой стройки (без записи)."""
     levels = {"lounge": 0, "markers": 0, "workshop": 0}
-    async with db.execute("SELECT building,level FROM pet_v2_camp WHERE user_id=?", (int(user_id),)) as c:
+    # Apply stored levels first, then a completed job, in one read snapshot.
+    async with db.execute(
+        "SELECT building,level,FALSE AS completed FROM pet_v2_camp WHERE user_id=? "
+        "UNION ALL SELECT building,to_level,TRUE AS completed FROM pet_v2_camp_jobs "
+        "WHERE user_id=? AND ends_at<=NOW() ORDER BY completed",
+        (int(user_id), int(user_id)),
+    ) as c:
         for row in await c.fetchall():
-            levels[row["building"]] = int(row["level"])
-    async with db.execute("SELECT building,to_level FROM pet_v2_camp_jobs WHERE user_id=? AND ends_at<=NOW()", (int(user_id),)) as c:
-        row = await c.fetchone()
-    if row:
-        levels[row["building"]] = max(levels[row["building"]], int(row["to_level"]))
+            building, level = row["building"], int(row["level"])
+            levels[building] = max(levels[building], level) if row["completed"] else level
     return levels
 
 
