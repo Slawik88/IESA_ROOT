@@ -8,6 +8,7 @@ from services.pets_v1 import PetConflict, choose_expedition, feed_pet, select_ac
 from core.pets_v1 import PetPolicyError
 from infrastructure.repositories.pets_v1 import ensure_tables
 from infrastructure.repositories.chests_v1 import ensure_tables as ensure_chest_tables
+from services import pet_nudge_v1 as pet_nudge
 
 router = APIRouter(prefix="/pets-v1", tags=["pets-v1"])
 
@@ -43,6 +44,7 @@ async def my_pets(db=Depends(get_db), user=Depends(require_tg_user)):
     # schema initializer reaches this new table.  The idempotent ensure keeps
     # the read path fail-safe during a rolling deployment.
     await _ensure_release_tables(db)
+    await pet_nudge.pets_opened(db, int(user["id"]))
     return await overview(db, int(user["id"]))
 
 @router.post("/active")

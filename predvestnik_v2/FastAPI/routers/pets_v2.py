@@ -7,6 +7,7 @@ from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import chests_v1 as chest_repo, pets_v2 as repo, system_flags
 from services import pets_v2 as service
 from services import pet_equipment as gear_service
+from services import pet_nudge_v1 as pet_nudge
 
 router = APIRouter(prefix="/pets-v2", tags=["pets-v2"])
 
@@ -130,6 +131,7 @@ async def _ready(db) -> None:
 @router.get("/me")
 async def my_pets(db=Depends(get_db), user=Depends(require_tg_user)):
     await _ready(db)
+    await pet_nudge.pets_opened(db, int(user["id"]))
     return await service.overview(db, int(user["id"]))
 
 
