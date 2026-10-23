@@ -1,4 +1,4 @@
-# CASINO/PETS/STARDUST-20261023 — реализация и финальный дизайн-review завершены
+# CASINO/PETS/STARDUST/ONLINE-MAFIA-20261023 — RELEASED TO MASTER AND LIVE
 
 Дополнительный запрос «найди места, которые можно улучшить» выполнен:
 - Casino draft/open/error/focus сохраняются по владельцу; отказ раскрывает форму
@@ -15,10 +15,11 @@
   Подробности в docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md (верхняя запись).
 
 
-Ветка codex/casino-polish в managed worktree от origin/master23152873:
+Ветка codex/casino-polish в managed worktree; обе пачки rebased на master2f2e90ef:
 C:/Users/makss/.codex/worktrees/casino-polish/IESA_ROOT.
 Исходный backup-checkout и его изменения не затронуты. Казино/pets/dust
-закоммичены ad557cb6 поверх05cbf47b. Перенос Мафии и отправка master в процессе.
+закоммичены526c0a69; Мафия +production timer/schema +casino fence —8314d6d6.
+Оба коммита отправлены непосредственно в origin/master и подтверждены ls-remote.
 
 Казино: RTP рун95,572→98,143%, выплаты31,659→33,422%, чистаяпобеда4,307→5,111%.
 Пустота7→6, Fehu8→9, тройкаFehu×11→×8,5. Колесо: один0→×1,5, один×3→×2;
@@ -81,8 +82,25 @@ NodeVM критик:delayed account switch — PASS послеисправлен
 Скриншоты: predvestnik_v2/.local/{casino-final-proof,dust-ui}; внешние копии
 C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeebe2e6/casino-polish/review-2026-10-23.
 Локальный изолированный PostgreSQL55439 и UI-stand остановлены после проверок.
-Следующий шаг: финальные интеграционные проверки и push master.
-по запросу владельца с drain старыхcasinoпроцессов.
+Release verification2026-10-23T15:27:33Z PASS on live App Platform:
+public bundle1074286bytes SHA256a7e5c59d2824325304cab3f6506e4f8f9b341aebd6a83ce0307acae42d5bdcfd
+matches the complete local production bundle exactly; casino/trail/online-Mafia
+CSS and updates.json exact bytes. Health/ready200; casino/dust/Mafia/staff API401.
+Runtime flags game_casino_v1/star_dust_v1/game_mafia_online alltrue; durable
+owner-mafia-online-2026-10-23 activation receipt present. Website serves new code.
+Mafia unique source services/API/controller copied byte-identically (app55/56),
+newer master app50/51/skins prices preserved. Fixed original missing bot startup
+schema and supervised timer (production web lifespan is off). Command is in DM,
+group and generated help. PG fullgame/resilience/lifecycle/access/poll and real
+browser mobile/two-player/recovery suites PASS; independent release critic ACCEPT.
+Combined release casino36layouts +dust6layouts and lost-reply regressions PASS.
+Final patchnotes contract18posts PASS after preserving concurrent master updates.
+Evidence .local/master-release-live.json and external copy under
+C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeebe2e6/casino-polish/master-release-2026-10-23/.
+Production deployment completed automatically; DigitalOcean login not needed.
+Isolated PostgreSQL55439 and UI stand stopped. NO Telegram channel messages sent;
+TGK drafts and in-app feed are delivered through the existing mechanism.
+All requested implementation/master publishing complete; no required work remains.
 
 # Состояние: админка 2.0 — люди и лица
 

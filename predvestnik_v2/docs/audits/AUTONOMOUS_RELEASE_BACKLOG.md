@@ -1,7 +1,7 @@
-## MASTER-RELEASE-20261023 — integrated, final publishing checks
+## MASTER-RELEASE-20261023 — RELEASED master8314d6d6 / live verified
 
 Root cause of missing changes: casino/pets/dust and online Mafia were uncommitted
-in separate worktrees. Casino batch committed ad557cb6 on latest master05cbf47b;
+in separate worktrees. Casino batch526c0a69 and Mafia batch8314d6d6 pushed on latest master2f2e90ef;
 Mafia copied selectively from patch-note-republish, preserving unrelated changes.
 Old Mafia app50/51 renamed55/56 so current appearance code remains intact.
 Fixed missing production schema and supervised timer (web lifespan is off).
@@ -16,8 +16,14 @@ workers cannot write after schema installation; full money transaction rolls bac
 Marker is transaction-local and checked before INSERT/UPDATE. This permits
 rolling deployment without access to the DigitalOcean administration panel.
 Public pre-release check confirmed old assets, health/ready200, existing flags.
-No channel messages sent. Next: final combined browser/startup gate, push master,
-then verify exact served bytes, runtime feature flags and health.
+No channel messages sent. Final combined casino36layouts/dust6layouts and
+startup gates PASS;18patchnote contracts PASS after preserving concurrent master.
+2026-10-23T15:27:33Z live verification PASS: entire1074286-byte JS bundle exact
+SHA256, casino/trail/Mafia CSS and feed exact bytes, health/ready200, protected
+casino/dust/Mafia/staff API401. All3new runtime flags enabled and Mafia activation
+receipt exists. Live evidence .local/master-release-live.json with external copy
+in the chat visualization directory/master-release-2026-10-23. Isolated PG55439
+and UI stand stopped. Requested publishing and verification complete.
 
 ## CASINO-PETS-DUST-UX-20261023 — completed locally
 
