@@ -7,12 +7,11 @@ Returns HTML string compatible with both Telegram's HTML parse_mode
 AND browser innerHTML (same tag subset: <b>, <i>, <code>, <a>).
 """
 import re
-from datetime import datetime
 
 from services.leveling import account_progress
 from core.registry import PET_SPECIES
 from services import roles
-from services.formatting import parse_dt
+from services.formatting import parse_dt, utcnow_naive
 from services.utils import safe_html, resolve_display_name
 
 
@@ -73,7 +72,7 @@ def _marriage_duration(val) -> str:
     dt = parse_dt(val)
     if not dt:
         return "?"
-    delta = datetime.now() - dt
+    delta = utcnow_naive() - dt
     d, h = delta.days, delta.seconds // 3600
     return f"{d} дн." if d > 0 else f"{h} ч."
 
@@ -523,7 +522,7 @@ async def build_profile_text(
         shield_line = "🛡 Абс. иммунитет"
     elif immune_until:
         dt = parse_dt(immune_until)
-        shield_line = f"🛡 до {dt.strftime('%d.%m %H:%M')}" if dt and dt > datetime.now() else ""
+        shield_line = f"🛡 до {dt.strftime('%d.%m %H:%M')}" if dt and dt > utcnow_naive() else ""
     else:
         shield_line = ""
 

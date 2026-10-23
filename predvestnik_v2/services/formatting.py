@@ -1,7 +1,7 @@
 # services/formatting.py
 # Pure text-formatting utilities. No DB, no platform, no side effects.
 import html as _html
-from datetime import datetime as _dt
+from datetime import datetime as _dt, timezone as _tz
 
 
 def format_currency(amount: float) -> str:
@@ -50,6 +50,13 @@ def parse_dt(val) -> '_dt | None':
         except ValueError:
             continue
     return None
+
+
+def utcnow_naive() -> '_dt':
+    """Naive-UTC «сейчас» — та же конвенция, что у parse_dt (метки БД = naive UTC).
+    Локальное время сервера здесь сдвигало бы окна промокодов и щитов
+    на любом хосте вне UTC (локальный прогон на Windows UTC+3 врал на 3 часа)."""
+    return _dt.now(_tz.utc).replace(tzinfo=None)
 
 
 def format_chest_rewards_text(rewards: dict[int, float], top3_bonus_label: str = "🎟 Жетон") -> str:

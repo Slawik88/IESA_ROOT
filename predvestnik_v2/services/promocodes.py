@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from services.formatting import parse_dt
+from services.formatting import parse_dt, utcnow_naive
 
 import aiosqlite
 
@@ -36,7 +36,7 @@ async def activate_promocode(
     if not promo["is_active"]:
         raise PromoError("❌ Этот промокод деактивирован.")
 
-    now = datetime.now()
+    now = utcnow_naive()
 
     if promo["valid_from"]:
         try:
