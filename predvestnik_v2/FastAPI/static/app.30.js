@@ -106,15 +106,25 @@ async function svPay() {
   try {
     const invoice = await api('/payments/zarniki/invoice', { method: 'POST', body: JSON.stringify({ stars }) });
     if (!invoice?.link) throw new Error('Счёт не создан.');
-    if (typeof tg?.openInvoice === 'function') {
-      tg.openInvoice(invoice.link, status => {
-        if (status !== 'paid') return;
-        _haptic('success'); _sv.paid = Number(pack.total); _v3RefreshBalance(); v3Fly(origin, 'zarniki', '✨', 6);
-        api('/skins-v3/me').then(st => { _sv.st = st; _svRender(); }).catch(() => _svRender());
-      });
-    } else location.assign(invoice.link);
+    const onPaid = () => {
+      _haptic('success'); _sv.paid = Number(pack.total); _v3RefreshBalance(); v3Fly(origin, 'zarniki', '✨', 6);
+      api('/skins-v3/me').then(st => { _sv.st = st; _svRender(); }).catch(() => _svRender());
+    };
+    if (!_svOpenInvoice(invoice.link, status => { if (status === 'paid') onPaid(); })) _svInvoiceFallback(invoice.link);
   } catch (e) { toast(e, false); }
   finally { _sv.busy = false; _svRender(); }
+}
+// openInvoice есть только с WebApp 6.1: в старом клиенте или при запуске по обычной ссылке SDK бросает WebAppMethodUnsupported
+function _svOpenInvoice(link, cb) {
+  if (typeof tg?.openInvoice !== 'function' || (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.1'))) return false;
+  try { tg.openInvoice(link, cb); return true; } catch (_) { return false; }
+}
+// Без openInvoice счёт открывает сам Telegram по t.me-ссылке; колбэка нет, поэтому баланс обновим, когда игрок вернётся
+function _svInvoiceFallback(link) {
+  const back = () => { if (document.hidden) return; document.removeEventListener('visibilitychange', back); _v3RefreshBalance(); api('/skins-v3/me').then(st => { _sv.st = st; _svRender(); }).catch(() => {}); };
+  document.addEventListener('visibilitychange', back);
+  try { if (typeof tg?.openTelegramLink === 'function') { tg.openTelegramLink(link); return; } } catch (_) {}
+  location.assign(link);
 }
 
 // ── VIP ──────────────────────────────────────────────────────────────────────────
