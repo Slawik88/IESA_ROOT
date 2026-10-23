@@ -25,12 +25,14 @@ def _action(value: object) -> str:
 def _wallet_view(row: dict | None, today) -> dict:
     row = row or {}
     bought = int(row.get("bought_today") or 0) if row.get("buy_day") == today else 0
-    return {"chips": int(row.get("chips") or 0), "gift_ready": row.get("gift_day") != today,
+    chips = int(row.get('chips') or 0)
+    real = int(row.get('available_redeemable', row.get('redeemable_chips')) or 0)
+    return {"chips": chips, "redeemable": real, "bonus": chips-real, "gift_ready": row.get("gift_day") != today,
             "buy_left": max(0, rules.DAILY_BUY_CAP_CHIPS - bought)}
 
 
 def _round_view(row: dict) -> dict:
-    return {"game": row["game"], "stake": int(row["stake"]), "mult": int(row["mult"]), "payout": int(row["payout"]),
+    return {"id": row["id"], "game": row["game"], "stake": int(row["stake"]), "mult": int(row["mult"]), "payout": int(row["payout"]),
             "detail": row["detail"]}
 
 
@@ -41,8 +43,13 @@ async def overview(db, user_id: int) -> dict:
     board = {"top": [{"place": i + 1, "player": players.get(int(r["user_id"])), "game": r["game"], "mult": int(r["mult"]),
                       "payout": int(r["payout"])} for i, r in enumerate(rows) if players.get(int(r["user_id"]))]}
     await leaderboards_v1.decorate_game_board(db, board, user_id)
-    return {"wallet": _wallet_view(wallet, today), "rules": rules.public_rules(),
-            "recent": [_round_view(r) for r in await repo.recent_rounds(db, user_id)], "luck": board["top"]}
+    return {"user_id": int(user_id), "wallet": _wallet_view(wallet, today), "rules": rules.public_rules(),
+            "recent": [_round_view(r) for r in await repo.recent_rounds(db, user_id)], "luck": board["top"],
+            "achievements": await achievements(db, user_id)}
+
+
+async def achievements(db, user_id: int) -> list[dict]:
+    return rules.badge_progress(await repo.achievement_stats(db, user_id))
 
 
 async def claim_gift(db, user_id: int) -> dict:
@@ -56,9 +63,9 @@ async def claim_gift(db, user_id: int) -> dict:
 
 
 async def buy_chips(db, user_id: int, *, mora: int, action_id: str) -> dict:
-    """Мора → chips at the fixed rate, one way, within the daily cap; the Мора debit is a ledger operation."""
+    """Mora buys redeemable chips at the current rate; replay retains its original receipt amount."""
     action_id = _action(action_id)
-    if isinstance(mora, bool) or mora not in rules.MORA_PACKS:
+    if isinstance(mora, bool) or not isinstance(mora, int) or mora not in rules.MORA_PACKS:
         raise CasinoError("Выберите пакет жетонов.")
     chips = mora * rules.CHIPS_PER_MORA
     async with db.connection.transaction():
@@ -87,26 +94,60 @@ async def buy_chips(db, user_id: int, *, mora: int, action_id: str) -> dict:
         return {"wallet": _wallet_view(row, row["today"]), "chips": chips, "replayed": False}
 
 
-async def play(db, user_id: int, *, game: str, stake: int, params: dict, action_id: str) -> dict:
+async def withdraw(db, user_id: int, *, chips: int, action_id: str) -> dict:
+    """Redeem funded chips 1:1; the debit, canonical Mora credit and receipt commit together."""
+    action_id = _action(action_id)
+    if isinstance(chips, bool) or not isinstance(chips, int) or not 1 <= chips <= rules.MAX_EXCHANGE:
+        raise CasinoError('Укажите целое положительное число жетонов.')
+    async with db.connection.transaction():
+        row = await repo.lock_wallet(db, user_id)
+        replay = await repo.find_withdrawal(db, user_id, action_id)
+        if replay:
+            if int(replay['chips']) != chips:
+                raise CasinoError('Этот запрос уже использован для другой суммы.')
+            return {'wallet': _wallet_view(row,row['today']), 'mora':int(replay['mora']), 'replayed':True}
+        if await repo.withdraw_chips(db, user_id, chips) < 0:
+            raise CasinoError('Не хватает жетонов с выводом. Подарочные жетоны в Мору не меняются.')
+        withdrawal_id = uuid4().hex
+        mutation = await economy_ledger.apply_balance_change(
+            db,int(user_id),{'mora':chips},reason_code='casino_withdrawal',
+            idempotency_key=f'casino-withdraw:{withdrawal_id}', source_type='casino_v1',
+            reference_type='casino_withdrawal',reference_id=withdrawal_id,
+            metadata={'policy_version':rules.POLICY_VERSION,'chips':chips,'rate':'1:1'}, note=f'Вывод жетонов: {chips} Моры')
+        if mutation.balances_after['mora'] > rules.MAX_EXCHANGE:
+            raise CasinoError('Баланс Моры слишком велик для этого вывода. Выберите меньшую сумму.')
+        await repo.insert_withdrawal(db,withdrawal_id=withdrawal_id,user_id=user_id,action_id=action_id,
+                                     chips=chips,operation_id=str(mutation.operation_id))
+        row = await repo.lock_wallet(db,user_id)
+        return {'wallet':_wallet_view(row,row['today']), 'mora':chips,'replayed':False}
+
+
+async def play(db, user_id: int, *, game: str, stake: int, params: dict, action_id: str, funds: str = 'bonus') -> dict:
     """One round: the server draws, debits the stake and credits the win atomically. A retry returns the same round."""
     action_id = _action(action_id)
+    if funds not in rules.FUNDS:
+        raise CasinoError('Выберите подарочные жетоны или жетоны с выводом.')
     async with db.connection.transaction():
         row = await repo.lock_wallet(db, user_id)
         replay = await repo.find_round(db, user_id, action_id)
         if replay:
-            if replay["game"] != game or int(replay["stake"]) != stake:
+            if (replay["game"] != game or int(replay["stake"]) != stake
+                    or replay['detail'].get('funds','bonus') != funds
+                    or (game == "dice" and replay["detail"].get("chance") != (params or {}).get("chance"))):
                 raise CasinoError("Этот запрос уже использован для другой ставки.")
             return {"round": _round_view(replay), "wallet": _wallet_view(row, row["today"]), "replayed": True}
         try:
             outcome = rules.play(game, stake, params, secrets.randbelow)
         except rules.CasinoRuleError as exc:
             raise CasinoError(str(exc)) from exc
-        chips_after = await repo.settle_round(db, user_id, stake, outcome.payout)
+        chips_after = await repo.settle_round(db, user_id, stake, outcome.payout, funds)
         if chips_after < 0:
-            raise CasinoError("Не хватает жетонов. Заберите подарок дня или купите жетоны за Мору.")
-        await repo.insert_round(db, round_id=uuid4().hex, user_id=user_id, action_id=action_id, game=game, stake=stake,
-                                mult=outcome.mult, payout=outcome.payout, detail=outcome.detail, chips_after=chips_after,
+            raise CasinoError("Не хватает жетонов на выбранном балансе. Смените баланс или ставку.")
+        detail = {**outcome.detail,'funds':funds}
+        round_id = uuid4().hex
+        await repo.insert_round(db, round_id=round_id, user_id=user_id, action_id=action_id, game=game, stake=stake,
+                                mult=outcome.mult, payout=outcome.payout, detail=detail, chips_after=chips_after,
                                 policy_version=rules.POLICY_VERSION)
         row = await repo.lock_wallet(db, user_id)
-        return {"round": {"game": game, "stake": stake, "mult": outcome.mult, "payout": outcome.payout, "detail": outcome.detail},
+        return {"round": {"id": round_id, "game": game, "stake": stake, "mult": outcome.mult, "payout": outcome.payout, "detail": detail},
                 "wallet": _wallet_view(row, row["today"]), "replayed": False}

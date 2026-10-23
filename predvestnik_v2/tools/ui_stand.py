@@ -48,7 +48,7 @@ def _env(port: int, dsn: str) -> Path | None:
     return path
 
 
-GAME_FLAGS = ("content_chests_v1", "pets_v2", "game_mafia_v1", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1", "season_pass_v1")
+GAME_FLAGS = ("content_chests_v1", "pets_v2", "game_mafia_v1", "game_mafia_online", "game_minesweeper_v2", "game_rhythm_v2", "economy_player_exchange_v1", "economy_player_exchange_shorts_v1", "season_pass_v1")
 
 
 async def set_game_flags(dsn: str, enabled: bool) -> None:

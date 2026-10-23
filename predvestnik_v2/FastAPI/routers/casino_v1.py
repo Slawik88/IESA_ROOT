@@ -2,6 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field, StrictInt
+from typing import Literal
+from core.casino_v1 import MAX_EXCHANGE
 
 from FastAPI.deps import get_db, require_tab_enabled, require_tg_user
 from services import casino_v1 as service
@@ -20,6 +22,12 @@ class PlayRequest(BaseModel):
     stake: StrictInt
     chance: StrictInt | None = None
     action_id: str = Field(min_length=8, max_length=96)
+    funds: Literal['bonus','redeemable'] = 'bonus'
+
+
+class WithdrawRequest(BaseModel):
+    chips: StrictInt = Field(gt=0,le=MAX_EXCHANGE)
+    action_id: str = Field(min_length=8,max_length=96)
 
 
 async def _guard(call):
@@ -51,4 +59,9 @@ async def buy(body: BuyRequest, db=Depends(get_db), user=Depends(require_tg_user
 async def play(body: PlayRequest, db=Depends(get_db), user=Depends(require_tg_user)) -> dict:
     params = {"chance": body.chance} if body.game == "dice" else {}
     return await _guard(service.play(db, int(user["id"]), game=body.game, stake=body.stake, params=params,
-                                     action_id=body.action_id))
+                                     action_id=body.action_id, funds=body.funds))
+
+
+@router.post('/withdraw', dependencies=[_gate])
+async def withdraw(body: WithdrawRequest, db=Depends(get_db), user=Depends(require_tg_user)) -> dict:
+    return await _guard(service.withdraw(db,int(user['id']),chips=body.chips,action_id=body.action_id))

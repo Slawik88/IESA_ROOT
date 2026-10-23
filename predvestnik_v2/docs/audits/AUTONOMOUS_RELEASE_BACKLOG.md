@@ -1,3 +1,61 @@
+## MASTER-RELEASE-20261023 — RELEASED master8314d6d6 / live verified
+
+Root cause of missing changes: casino/pets/dust and online Mafia were uncommitted
+in separate worktrees. Casino batch526c0a69 and Mafia batch8314d6d6 pushed on latest master2f2e90ef;
+Mafia copied selectively from patch-note-republish, preserving unrelated changes.
+Old Mafia app50/51 renamed55/56 so current appearance code remains intact.
+Fixed missing production schema and supervised timer (web lifespan is off).
+One-time approved flag receipt opens the mode and respects later operator pauses.
+Bot command works in private/group and appears in registry-generated help.
+
+PASS local PostgreSQL full game, resilience, lifecycle/restart/competing timers,
+access boundaries, polling generations, real two-browser mobile UI. Casino
+cashout/pet chat/star dust regressions and17day patch-note contracts pass.
+Read-only release critic accepted wiring and SQL compatibility fence: old casino
+workers cannot write after schema installation; full money transaction rolls back.
+Marker is transaction-local and checked before INSERT/UPDATE. This permits
+rolling deployment without access to the DigitalOcean administration panel.
+Public pre-release check confirmed old assets, health/ready200, existing flags.
+No channel messages sent. Final combined casino36layouts/dust6layouts and
+startup gates PASS;18patchnote contracts PASS after preserving concurrent master.
+2026-10-23T15:27:33Z live verification PASS: entire1074286-byte JS bundle exact
+SHA256, casino/trail/Mafia CSS and feed exact bytes, health/ready200, protected
+casino/dust/Mafia/staff API401. All3new runtime flags enabled and Mafia activation
+receipt exists. Live evidence .local/master-release-live.json with external copy
+in the chat visualization directory/master-release-2026-10-23. Isolated PG55439
+and UI stand stopped. Requested publishing and verification complete.
+
+## CASINO-PETS-DUST-UX-20261023 — completed locally
+
+Owner follow-up: find and implement useful improvements after the casino/pet/dust
+release work. No balance changes and no dust storage/redemption limits.
+
+Confirmed counterexamples and fixes:
+- Casino rerender erased an entered cashout amount and collapsed disclosures.
+  Per-owner draft/open state now persists; only confirmed cashout clears the draft.
+- Refusing a money request after the user collapsed the pending form hid its error.
+  A one-render force-open override reveals inline errors; field/submit/summary focus
+  is retained. Pending frozen bodies still outrank editable drafts.
+- Dust custom days silently rejected invalid input. Form now explains errors,
+  supports Enter, retains draft on Back, and focuses the relevant control.
+- Shop hid active VIP expiry and fractional progress. Both now display; a guarded
+  refresh preserves data/input on failure. Chat dust menu also shows expiry/fraction.
+- Reopening during VIP exchange could apply a GET snapshot from before the commit.
+  Read/write generations and ready-sequence guards prevent stale or cross-owner data.
+- Identical pet return buttons, unclear feeding effects and anonymous talisman IDs:
+  named actions, actual restoration/food effect, named tiers and transfer warnings.
+
+PASS: verify_casino_ui.py (36 visible layouts, closed-during-request409, draft/focus,
+inline errors plus prior replay/animation proof); verify_star_dust_ui.py (6 visible
+layouts, invalid days/Enter/Back, refresh503, fractional progress, real stale-read
+ordering plus prior lost-commit replay); test_star_dust_pg.py; test_pet_chat_pg.py;
+patch_notes_contract.py; node/py_compile; diff check. Screenshot readiness now waits
+for the real preloader to disappear. Evidence in .local/casino-ux-proof and dust-ui.
+Independent read-only critic reproduced and rechecked same-owner reopen, account
+switch and closed-form refusal: all PASS; no remaining confirmed blockers.
+Seven in-app updates covered by the existing 2026-10-23 TGK day note (4 items,
+3 fixes); no external post. Next: review/deploy separately on owner request.
+
 ## PETS-UX-20261022 — complete Pets workspace redesign (release verification)
 
 Owner request: rebuild the Pets tab around when the player needs each fact/action;

@@ -23,6 +23,13 @@ async def my_chat_achievements(db=Depends(get_db), user=Depends(require_tg_user)
     return await chat_achievements.overview(db, int(user["id"]))
 
 
+@router.get("/casino")
+async def my_casino_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
+    """Historical badges remain visible even when playing is disabled. No currency grants."""
+    from services import casino_v1
+    return {"badges": await casino_v1.achievements(db, int(user["id"]))}
+
+
 @router.post('/reconcile')
 async def reconcile_my_achievements(db=Depends(get_db), user=Depends(require_tg_user)):
     """Project only the authenticated player's verified history, never client counters."""

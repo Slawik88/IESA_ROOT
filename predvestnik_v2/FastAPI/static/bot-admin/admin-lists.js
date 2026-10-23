@@ -95,6 +95,7 @@ async function reportsView(main, kind = 'open') {
   const chipCls = {new: 'warn', in_work: '', resolved: 'ok', rejected: 'bad'};
   main.innerHTML = `
     ${pageHead('⚑', 'Жалобы', 'Что прислали игроки и что с этим решили')}
+    <button type="button" class="btn small" onclick="mafiaOnlineReports(document.getElementById('main'))">Межчатовая Мафия ›</button>
     <div class="kpis rep-counts">${kpi('Новых', num(c.new), '', c.new ? 'sm warn' : 'sm')}${kpi('В работе', num(c.in_work), '', 'sm')}${kpi('Закрыто', num(c.resolved + c.rejected), '', 'sm')}</div>
     <div class="scope"><button class="btn small ${kind === 'open' ? 'primary' : ''}" data-kind="open">Очередь · ${c.new + c.in_work}</button>
       <button class="btn small ${kind === 'closed' ? 'primary' : ''}" data-kind="closed">Закрытые · ${c.resolved + c.rejected}</button></div>
@@ -204,4 +205,31 @@ async function reportsView(main, kind = 'open') {
 }
 
 SECTIONS.reports = main => reportsView(main, PREFS.get('reports.kind', 'open'));
+
+async function mafiaOnlineReports(main, closed = false, before = 0) {
+  const d = await loadSectionData(main, `/mafia-online-reports?resolved=${closed}&before=${before}`, () => mafiaOnlineReports(main, closed, before), 'reports');
+  if (!d) return;
+  main.innerHTML = `<button class="btn small" id="mfo-reports-back">‹ Жалобы</button>
+    ${pageHead('⚑', 'Межчатовая Мафия', 'Сообщения, на которые пожаловались игроки')}
+    <div class="scope"><button class="btn small ${closed?'':'primary'}" id="mfo-open">Открытые</button><button class="btn small ${closed?'primary':''}" id="mfo-closed">Решённые</button></div>
+    ${d.items.map(m => `<div class="card"><div class="sub">Город #${m.room_id} · ${esc(({table:'Стол',mafia:'Мафия',afterlife:'Выбывшие'})[m.channel] || '')} · жалоб ${num(m.reports)}</div>
+      <p><b>${esc(m.name)}</b></p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(m.body)}</p>
+      <p class="sub">${esc(m.reasons.join(' · '))}</p><div class="actions">
+      ${m.hidden ? '<span class="chip">Скрыто</span>' : `<button class="btn small" data-mfo-action="hide" data-msg="${m.id}">Скрыть</button>`}
+      <button class="btn small" data-mfo-action="mute" data-msg="${m.id}">Мут в этой партии</button>
+      <button class="btn small" data-mfo-action="unmute" data-msg="${m.id}">Снять мут</button>
+      ${closed?'':`<button class="btn small" data-mfo-action="resolve" data-msg="${m.id}">Закрыть жалобы</button>`}</div></div>`).join('') || `<p class="empty">${closed?'Решённых':'Открытых'} жалоб нет.</p>`}
+    ${d.next_before?'<button class="btn small" id="mfo-earlier">Раньше</button>':''}`;
+  $('#mfo-reports-back', main).onclick = () => reportsView(main);
+  $('#mfo-open',main).onclick=()=>mafiaOnlineReports(main,false);
+  $('#mfo-closed',main).onclick=()=>mafiaOnlineReports(main,true);
+  if(d.next_before)$('#mfo-earlier',main).onclick=()=>mafiaOnlineReports(main,closed,d.next_before);
+  main.querySelectorAll('[data-mfo-action]').forEach(button => button.onclick = () => {
+    const kind = button.dataset.mfoAction, id = Number(button.dataset.msg);
+    sheet('Решение по сообщению', hint(({hide:'Сообщение скроется у всех участников.', mute:'Игрок не сможет писать в этой партии. Голосование останется доступно.', unmute:'Игрок снова сможет писать, когда это разрешает этап.', resolve:'Жалобы на это сообщение будут закрыты.'})[kind]), 'Применить', async () => {
+      await api(`/mafia-online-reports/${id}`, {method:'POST', body:JSON.stringify({kind})});
+      toast('Решение сохранено.'); mafiaOnlineReports(main,closed,before);
+    });
+  });
+}
 

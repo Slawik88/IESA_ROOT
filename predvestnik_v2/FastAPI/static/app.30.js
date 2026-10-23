@@ -137,6 +137,7 @@ function _svRing(days) {
 function _svStatus(v) {
   const tiers = v.tiers || [], min = tiers.length ? Math.min(...tiers.map(t => Number(t.price_zarniki))) : 0;
   const cta = !v.active && min ? `<button type="button" class="v3-pill sv-buy sv-hero-cta" onclick="svToTerms()">Оформить VIP · от ${fmt(min)} ✨</button>` : '';
+  const dust = _sysFlags.star_dust_v1 === true ? '<section class="sv-sec"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 VIP за звёздную пыль ›</button></section>' : '';
   return v.active
     ? `<section class="sv-status sv-hero is-on" role="status">${_svRing(v.days_left || 0)}<div><b>VIP активен</b><span>ещё ${fmt(v.days_left || 0)} дн. · до ${_profileDate(v.expires_at)}</span></div></section>`
     : `<section class="sv-status sv-hero" role="status">${_svRing(0)}<div><b>VIP не активен</b><span>С ним ваш образ видят все, а наград больше</span></div>${cta}</section>`;
@@ -254,8 +255,8 @@ function _svVip() {
   // Без VIP страница продаёт: сначала зачем (как вас увидят, что даёт, что возвращается игрой), потом сроки. С VIP — статус, продление, поручение
   const perks = `<div class="sv-sec"><span class="v3-eyebrow">${v.active ? 'Ваш VIP даёт' : 'Что даёт VIP'}</span></div>${_svPerks(v)}`;
   return v.active
-    ? `${_svStatus(v)}${_svMission(v)}${_svTerms(v)}${perks}<details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`
-    : `${_svStatus(v)}${_svSee()}${perks}${_svValue(v)}${_svTerms(v)}`;
+    ? `${_svStatus(v)}${_svMission(v)}${_svTerms(v)}${dust}${perks}<details class="sv-details"><summary>Как вас видят другие</summary>${_svSee()}</details><details class="sv-details"><summary>Значок у ника</summary>${_svBadge(v)}</details>`
+    : `${_svStatus(v)}${_svSee()}${perks}${_svValue(v)}${_svTerms(v)}${dust}`;
 }
 
 function _svRender() {

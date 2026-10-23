@@ -35,7 +35,7 @@ from FastAPI.routers import (profile, marriage, wallet, vip,
                               payments,
                               legal, analytics as analytics_router,
                               account,
-                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, pet_nudge_v1 as pet_nudge_v1_router, casino_v1 as casino_v1_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, gifts_v2 as gifts_v2_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
+                              rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, pet_nudge_v1 as pet_nudge_v1_router, casino_v1 as casino_v1_router, star_dust as star_dust_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, gifts_v2 as gifts_v2_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
@@ -71,6 +71,9 @@ from infrastructure.repositories.rhythm_v2 import ensure_tables as ensure_rhythm
 from infrastructure.repositories.supporter_cosmetics_v1 import ensure_tables as ensure_supporter_cosmetics_v1
 from infrastructure.repositories.minesweeper_v2 import ensure_tables as ensure_minesweeper_v2
 from infrastructure.repositories.mafia_v1 import ensure_tables as ensure_mafia_v1
+from infrastructure.repositories.mafia_online import ensure_tables as ensure_mafia_online
+from FastAPI.routers import mafia_online as mafia_online_router
+from services.mafia_online_scheduler import run as run_mafia_online_scheduler
 from infrastructure.repositories.pets_v1 import ensure_tables as ensure_pets_v1
 from infrastructure.repositories.quests_v1 import ensure_tables as ensure_quests_v1
 from infrastructure.repositories.echo_shards_v1 import ensure_tables as ensure_echo_shards_v1
@@ -88,6 +91,7 @@ from services.promo_v2 import ensure_schema as ensure_promo_v2
 from infrastructure.repositories.player_exchange_v1 import ensure_tables as ensure_player_exchange_v1
 from infrastructure.repositories.coin_market_v2 import ensure_tables as ensure_coin_market_v2
 from infrastructure.repositories.pets_v2 import ensure_tables as ensure_pets_v2
+from infrastructure.repositories.star_dust import ensure_tables as ensure_star_dust
 from infrastructure.repositories.season_pass import ensure_tables as ensure_season_pass
 from infrastructure.repositories.league_pass import ensure_tables as ensure_league_pass
 from infrastructure.repositories.league_v1 import ensure_tables as ensure_league_v1
@@ -193,12 +197,14 @@ async def lifespan(app: FastAPI):
             (ensure_supporter_cosmetics_v1,    "supporter_cosmetics_v1"),
             (ensure_minesweeper_v2,             "minesweeper_v2"),
             (ensure_mafia_v1,                    "mafia_v1"),
+            (ensure_mafia_online,                "mafia_online"),
             (ensure_chests_v1,                   "chests_v1"),
             (ensure_shop_v1,                     "shop_v1"),
             (ensure_gifts_v2,                    "gifts_v2"),
             (ensure_promo_v2,                    "promo_v2"),   # show_in_app для GET /promo-v2/me, не дожидаясь старта бота
             (ensure_pets_v1,                     "pets_v1"),
             (ensure_pets_v2,                     "pets_v2"),
+            (ensure_star_dust, "star_dust"),
             (ensure_season_pass,                 "season_pass"),
             (ensure_league_pass,                 "league_pass"),
             (ensure_league_v1,                   "league_v1"),
@@ -256,8 +262,9 @@ async def lifespan(app: FastAPI):
     scheduler_task = asyncio.create_task(_run_broadcast_scheduler())
     digest_task = asyncio.create_task(_run_owner_digest())
     coin_market_task = asyncio.create_task(_run_coin_market_v2())
+    mafia_online_task = asyncio.create_task(run_mafia_online_scheduler())
     yield
-    for task in (migration_task, scheduler_task, digest_task, coin_market_task):
+    for task in (migration_task, scheduler_task, digest_task, coin_market_task, mafia_online_task):
         if task:
             task.cancel()
             try:
@@ -267,6 +274,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Predvestnik Mini App", lifespan=lifespan)
+app.include_router(mafia_online_router.router)
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
@@ -277,7 +285,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"],
 for r in [profile.router, marriage.router, wallet.router, vip.router,
           payments.router, legal.router, notif_router.router,
           analytics_router.router, account.router,
-          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, pet_nudge_v1_router.router, casino_v1_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:
+          rhythm_v2_router.router, minesweeper_v2_router.router, mafia_v1_router.router, hub.router, leaderboards_router.router, public_profile_v3_router.router, marks_v1_router.router, appearance.router, cosmetics_router.router, skins_v3_router.router, presence_v1_router.router, pets_v1_router.router, pets_v2_router.router, pet_nudge_v1_router.router, casino_v1_router.router, star_dust_router.router, quests_v1_router.router, achievements_v1_router.router, chests_v1_router.router, shop_v1_router.router, gifts_v2_router.router, inventory_v1_router.router, season_pass_router.router]:
     app.include_router(r)
 app.include_router(player_exchange_v1_router.router)
 app.include_router(coin_market_v2_router.router)
@@ -390,7 +398,7 @@ async def player_release_status():
     from infrastructure.repositories import player_release as release_repo
     await create_pool()
     async with get_pool().acquire() as connection:
-        return JSONResponse({"release":policy.RELEASE_ID, **(await release_repo.status(PGAdapter(connection),(*policy.FLAGS,'coin_market_v2')))},headers={"Cache-Control":"no-store"})
+        return JSONResponse({"release":policy.RELEASE_ID, **(await release_repo.status(PGAdapter(connection),(*policy.FLAGS,'coin_market_v2','game_mafia_online','star_dust_v1','game_casino_v1')))},headers={"Cache-Control":"no-store"})
 
 
 @app.get("/api/health")
@@ -461,10 +469,10 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
-_SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "fx-tiers-v3.css", "appearance-v3.css",
+_SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-scene-f-v3.css", "skin-scene-g-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
                  "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css")
 

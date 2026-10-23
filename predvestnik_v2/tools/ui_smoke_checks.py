@@ -21,6 +21,7 @@ _PASS_ALL = "s.points = 9400; s.level = 30; s.points_to_next = 0; "
 SCREENS = [
     ("profile", "switchPage('profile')"),
     ("arena", "switchPage('arena')"),
+    ("mafia-online", "openMafiaOnline()"),
     ("looks", "openLooksModal()"),
     ("looks-album", "openLooksModal();setTimeout(()=>{ if (typeof lkView==='function') lkView('album'); },500)"),
     ("questlog", "openQuestsV1()"),

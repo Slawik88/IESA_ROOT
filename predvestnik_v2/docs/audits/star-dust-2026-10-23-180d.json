@@ -1,0 +1,1151 @@
+{
+  "seed": 20261023,
+  "policy_version": "star-dust-trail-2026-10-23",
+  "rules_audit": {
+    "command_mean_dust_exact": 7.988446011553989,
+    "max_pet_dust_per_24h": 48,
+    "max_chat_dust_per_utc_day": 24,
+    "max_total_dust_per_day_long_run": 72,
+    "vip_day_cost": 100,
+    "perfect_luck_30d_vip_capacity": 21.6,
+    "stress_24h_30d_expected_vip_capacity": 16.796533803466197,
+    "limitations": [
+      "Activity profiles are explicit assumptions, not real telemetry.",
+      "Three level-1 pets, no paid bonuses; energy regenerates during trips as in production.",
+      "Expedition stress assumes careful decisions with no extra energy loss; ordinary finds do not affect dust.",
+      "No purchase or inventory limits. Long-term saving may buy weeks at once: only source rate is balanced.",
+      "Only completed trips count; unfinished last-day trips carry rewards into the next month.",
+      "VIP-day counts are affordable whole days, not observed redemption or retention."
+    ]
+  },
+  "profiles": [
+    {
+      "profile": "casual",
+      "assumptions": "12 active days/month; one 6h trek from 08:00; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 1440.025,
+        "p10": 1251,
+        "median": 1435.0,
+        "p90": 1635,
+        "min": 1062,
+        "max": 1891
+      },
+      "dust_chat": {
+        "mean": 576.697,
+        "p10": 474,
+        "median": 573.0,
+        "p90": 688,
+        "min": 340,
+        "max": 857
+      },
+      "dust_pets": {
+        "mean": 863.328,
+        "p10": 756,
+        "median": 864.0,
+        "p90": 972,
+        "min": 612,
+        "max": 1116
+      },
+      "vip_days_affordable": {
+        "mean": 13.9,
+        "p10": 12,
+        "median": 14.0,
+        "p90": 16,
+        "min": 10,
+        "max": 18
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 50.025,
+        "p10": 10,
+        "median": 50.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 71.944,
+        "p10": 63,
+        "median": 72.0,
+        "p90": 81,
+        "min": 51,
+        "max": 93
+      },
+      "slot_hours": {
+        "mean": 431.664,
+        "p10": 378.0,
+        "median": 432.0,
+        "p90": 486.0,
+        "min": 306.0,
+        "max": 558.0
+      },
+      "coverage_hours": {
+        "mean": 431.664,
+        "p10": 378.0,
+        "median": 432.0,
+        "p90": 486.0,
+        "min": 306.0,
+        "max": 558.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 14.4,
+        "p10": 12.51,
+        "median": 14.35,
+        "p90": 16.35,
+        "min": 10.62,
+        "max": 18.91
+      }
+    },
+    {
+      "profile": "medium",
+      "assumptions": "21 active days/month; 9h trek from 08:00, then 3h trek on half those days; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 3640.607,
+        "p10": 3390,
+        "median": 3644.0,
+        "p90": 3894,
+        "min": 3099,
+        "max": 4227
+      },
+      "dust_chat": {
+        "mean": 1000.763,
+        "p10": 883,
+        "median": 1000.5,
+        "p90": 1117,
+        "min": 712,
+        "max": 1319
+      },
+      "dust_pets": {
+        "mean": 2639.844,
+        "p10": 2472,
+        "median": 2640.0,
+        "p90": 2808,
+        "min": 2268,
+        "max": 3000
+      },
+      "vip_days_affordable": {
+        "mean": 35.914,
+        "p10": 33,
+        "median": 36.0,
+        "p90": 38,
+        "min": 30,
+        "max": 42
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 49.207,
+        "p10": 9,
+        "median": 50.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 188.378,
+        "p10": 175,
+        "median": 188.0,
+        "p90": 202,
+        "min": 156,
+        "max": 223
+      },
+      "slot_hours": {
+        "mean": 1319.922,
+        "p10": 1236.0,
+        "median": 1320.0,
+        "p90": 1404.0,
+        "min": 1134.0,
+        "max": 1500.0
+      },
+      "coverage_hours": {
+        "mean": 1319.922,
+        "p10": 1236.0,
+        "median": 1320.0,
+        "p90": 1404.0,
+        "min": 1134.0,
+        "max": 1500.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 36.406,
+        "p10": 33.9,
+        "median": 36.44,
+        "p90": 38.94,
+        "min": 30.99,
+        "max": 42.27
+      }
+    },
+    {
+      "profile": "active_27_days",
+      "assumptions": "27 active days/month; sequential 9h+6h+(3h or 6h equally), 18/21h coverage; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 7614.831,
+        "p10": 7492,
+        "median": 7616.0,
+        "p90": 7738,
+        "min": 7322,
+        "max": 7894
+      },
+      "dust_chat": {
+        "mean": 1295.517,
+        "p10": 1185,
+        "median": 1293.0,
+        "p90": 1409,
+        "min": 1010,
+        "max": 1614
+      },
+      "dust_pets": {
+        "mean": 6319.314,
+        "p10": 6270,
+        "median": 6318.0,
+        "p90": 6366,
+        "min": 6210,
+        "max": 6450
+      },
+      "vip_days_affordable": {
+        "mean": 75.662,
+        "p10": 74,
+        "median": 76.0,
+        "p90": 77,
+        "min": 73,
+        "max": 78
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 48.631,
+        "p10": 9,
+        "median": 48.5,
+        "p90": 89,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 486.0,
+        "p10": 486,
+        "median": 486.0,
+        "p90": 486,
+        "min": 486,
+        "max": 486
+      },
+      "slot_hours": {
+        "mean": 3159.657,
+        "p10": 3135.0,
+        "median": 3159.0,
+        "p90": 3183.0,
+        "min": 3105.0,
+        "max": 3225.0
+      },
+      "coverage_hours": {
+        "mean": 3159.657,
+        "p10": 3135.0,
+        "median": 3159.0,
+        "p90": 3183.0,
+        "min": 3105.0,
+        "max": 3225.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 76.148,
+        "p10": 74.92,
+        "median": 76.16,
+        "p90": 77.38,
+        "min": 73.22,
+        "max": 78.94
+      }
+    },
+    {
+      "profile": "active_28_days",
+      "assumptions": "28 active days/month; sequential 9h+6h+(3h or 6h equally), 18/21h coverage; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 7894.941,
+        "p10": 7765,
+        "median": 7894.5,
+        "p90": 8030,
+        "min": 7535,
+        "max": 8206
+      },
+      "dust_chat": {
+        "mean": 1344.249,
+        "p10": 1224,
+        "median": 1339.0,
+        "p90": 1469,
+        "min": 1031,
+        "max": 1642
+      },
+      "dust_pets": {
+        "mean": 6550.692,
+        "p10": 6504,
+        "median": 6552.0,
+        "p90": 6600,
+        "min": 6414,
+        "max": 6684
+      },
+      "vip_days_affordable": {
+        "mean": 78.451,
+        "p10": 77,
+        "median": 78.0,
+        "p90": 80,
+        "min": 75,
+        "max": 82
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 49.841,
+        "p10": 9,
+        "median": 50.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 504.0,
+        "p10": 504,
+        "median": 504.0,
+        "p90": 504,
+        "min": 504,
+        "max": 504
+      },
+      "slot_hours": {
+        "mean": 3275.346,
+        "p10": 3252.0,
+        "median": 3276.0,
+        "p90": 3300.0,
+        "min": 3207.0,
+        "max": 3342.0
+      },
+      "coverage_hours": {
+        "mean": 3275.346,
+        "p10": 3252.0,
+        "median": 3276.0,
+        "p90": 3300.0,
+        "min": 3207.0,
+        "max": 3342.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 78.949,
+        "p10": 77.65,
+        "median": 78.945,
+        "p90": 80.3,
+        "min": 75.35,
+        "max": 82.06
+      }
+    },
+    {
+      "profile": "active_29_days",
+      "assumptions": "29 active days/month; sequential 9h+6h+(3h or 6h equally), 18/21h coverage; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 8175.996,
+        "p10": 8042,
+        "median": 8177.0,
+        "p90": 8308,
+        "min": 7888,
+        "max": 8600
+      },
+      "dust_chat": {
+        "mean": 1388.184,
+        "p10": 1264,
+        "median": 1389.0,
+        "p90": 1509,
+        "min": 1061,
+        "max": 1766
+      },
+      "dust_pets": {
+        "mean": 6787.812,
+        "p10": 6738,
+        "median": 6786.0,
+        "p90": 6834,
+        "min": 6678,
+        "max": 6906
+      },
+      "vip_days_affordable": {
+        "mean": 81.267,
+        "p10": 80,
+        "median": 81.0,
+        "p90": 83,
+        "min": 78,
+        "max": 86
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 49.296,
+        "p10": 8,
+        "median": 49.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 522.0,
+        "p10": 522,
+        "median": 522.0,
+        "p90": 522,
+        "min": 522,
+        "max": 522
+      },
+      "slot_hours": {
+        "mean": 3393.906,
+        "p10": 3369.0,
+        "median": 3393.0,
+        "p90": 3417.0,
+        "min": 3339.0,
+        "max": 3453.0
+      },
+      "coverage_hours": {
+        "mean": 3393.906,
+        "p10": 3369.0,
+        "median": 3393.0,
+        "p90": 3417.0,
+        "min": 3339.0,
+        "max": 3453.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 81.76,
+        "p10": 80.42,
+        "median": 81.77,
+        "p90": 83.08,
+        "min": 78.88,
+        "max": 86.0
+      }
+    },
+    {
+      "profile": "active",
+      "assumptions": "30 active days/month; sequential 9h+6h+(3h or 6h equally), 18/21h coverage; chat on active days",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 8457.961,
+        "p10": 8324,
+        "median": 8460.5,
+        "p90": 8588,
+        "min": 8102,
+        "max": 8759
+      },
+      "dust_chat": {
+        "mean": 1436.467,
+        "p10": 1307,
+        "median": 1439.5,
+        "p90": 1558,
+        "min": 1124,
+        "max": 1775
+      },
+      "dust_pets": {
+        "mean": 7021.494,
+        "p10": 6972,
+        "median": 7020.0,
+        "p90": 7068,
+        "min": 6888,
+        "max": 7164
+      },
+      "vip_days_affordable": {
+        "mean": 84.083,
+        "p10": 83,
+        "median": 84.0,
+        "p90": 85,
+        "min": 81,
+        "max": 87
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 49.661,
+        "p10": 8,
+        "median": 50.5,
+        "p90": 89,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 540.0,
+        "p10": 540,
+        "median": 540.0,
+        "p90": 540,
+        "min": 540,
+        "max": 540
+      },
+      "slot_hours": {
+        "mean": 3510.747,
+        "p10": 3486.0,
+        "median": 3510.0,
+        "p90": 3534.0,
+        "min": 3444.0,
+        "max": 3582.0
+      },
+      "coverage_hours": {
+        "mean": 3510.747,
+        "p10": 3486.0,
+        "median": 3510.0,
+        "p90": 3534.0,
+        "min": 3444.0,
+        "max": 3582.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 84.58,
+        "p10": 83.24,
+        "median": 84.60499999999999,
+        "p90": 85.88,
+        "min": 81.02,
+        "max": 87.59
+      }
+    },
+    {
+      "profile": "watch_24h",
+      "assumptions": "All three pets in parallel 24h watch; one collection/start daily; chat daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 2301.96,
+        "p10": 2179,
+        "median": 2300.0,
+        "p90": 2431,
+        "min": 1945,
+        "max": 2655
+      },
+      "dust_chat": {
+        "mean": 1437.96,
+        "p10": 1315,
+        "median": 1436.0,
+        "p90": 1567,
+        "min": 1081,
+        "max": 1791
+      },
+      "dust_pets": {
+        "mean": 864.0,
+        "p10": 864,
+        "median": 864.0,
+        "p90": 864,
+        "min": 864,
+        "max": 864
+      },
+      "vip_days_affordable": {
+        "mean": 22.529,
+        "p10": 21,
+        "median": 23.0,
+        "p90": 24,
+        "min": 19,
+        "max": 26
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 49.06,
+        "p10": 10,
+        "median": 50.0,
+        "p90": 89,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 540.0,
+        "p10": 540,
+        "median": 540.0,
+        "p90": 540,
+        "min": 540,
+        "max": 540
+      },
+      "slot_hours": {
+        "mean": 12960.0,
+        "p10": 12960.0,
+        "median": 12960.0,
+        "p90": 12960.0,
+        "min": 12960.0,
+        "max": 12960.0
+      },
+      "coverage_hours": {
+        "mean": 4320.0,
+        "p10": 4320.0,
+        "median": 4320.0,
+        "p90": 4320.0,
+        "min": 4320.0,
+        "max": 4320.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 23.02,
+        "p10": 21.79,
+        "median": 23.0,
+        "p90": 24.31,
+        "min": 19.45,
+        "max": 26.55
+      }
+    },
+    {
+      "profile": "watch_12h",
+      "assumptions": "All three pets in parallel 12h watch twice daily; chat daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 2299.728,
+        "p10": 2174,
+        "median": 2299.0,
+        "p90": 2430,
+        "min": 1998,
+        "max": 2618
+      },
+      "dust_chat": {
+        "mean": 1435.728,
+        "p10": 1310,
+        "median": 1435.0,
+        "p90": 1566,
+        "min": 1134,
+        "max": 1754
+      },
+      "dust_pets": {
+        "mean": 864.0,
+        "p10": 864,
+        "median": 864.0,
+        "p90": 864,
+        "min": 864,
+        "max": 864
+      },
+      "vip_days_affordable": {
+        "mean": 22.49,
+        "p10": 21,
+        "median": 22.0,
+        "p90": 24,
+        "min": 19,
+        "max": 26
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 50.728,
+        "p10": 10,
+        "median": 50.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 1080.0,
+        "p10": 1080,
+        "median": 1080.0,
+        "p90": 1080,
+        "min": 1080,
+        "max": 1080
+      },
+      "slot_hours": {
+        "mean": 12960.0,
+        "p10": 12960.0,
+        "median": 12960.0,
+        "p90": 12960.0,
+        "min": 12960.0,
+        "max": 12960.0
+      },
+      "coverage_hours": {
+        "mean": 4320.0,
+        "p10": 4320.0,
+        "median": 4320.0,
+        "p90": 4320.0,
+        "min": 4320.0,
+        "max": 4320.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 22.997,
+        "p10": 21.74,
+        "median": 22.99,
+        "p90": 24.3,
+        "min": 19.98,
+        "max": 26.18
+      }
+    },
+    {
+      "profile": "chat_only",
+      "assumptions": "No pet trips; one chat claim daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 1438.179,
+        "p10": 1308,
+        "median": 1437.0,
+        "p90": 1566,
+        "min": 1161,
+        "max": 1789
+      },
+      "dust_chat": {
+        "mean": 1438.179,
+        "p10": 1308,
+        "median": 1437.0,
+        "p90": 1566,
+        "min": 1161,
+        "max": 1789
+      },
+      "dust_pets": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_days_affordable": {
+        "mean": 13.892,
+        "p10": 13,
+        "median": 14.0,
+        "p90": 15,
+        "min": 11,
+        "max": 17
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 48.979,
+        "p10": 9,
+        "median": 48.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_hours": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "coverage_hours": {
+        "mean": 0.0,
+        "p10": 0.0,
+        "median": 0.0,
+        "p90": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 14.382,
+        "p10": 13.08,
+        "median": 14.37,
+        "p90": 15.66,
+        "min": 11.61,
+        "max": 17.89
+      }
+    },
+    {
+      "profile": "stress_24h",
+      "assumptions": "One 3h expedition every 3h, rotating three pets, seamless 24h coverage; chat daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 10081.246,
+        "p10": 9958,
+        "median": 10076.5,
+        "p90": 10208,
+        "min": 9824,
+        "max": 10403
+      },
+      "dust_chat": {
+        "mean": 1441.246,
+        "p10": 1318,
+        "median": 1436.5,
+        "p90": 1568,
+        "min": 1184,
+        "max": 1763
+      },
+      "dust_pets": {
+        "mean": 8640.0,
+        "p10": 8640,
+        "median": 8640.0,
+        "p90": 8640,
+        "min": 8640,
+        "max": 8640
+      },
+      "vip_days_affordable": {
+        "mean": 100.323,
+        "p10": 99,
+        "median": 100.0,
+        "p90": 102,
+        "min": 98,
+        "max": 104
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 48.946,
+        "p10": 9,
+        "median": 48.5,
+        "p90": 89,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 1440.0,
+        "p10": 1440,
+        "median": 1440.0,
+        "p90": 1440,
+        "min": 1440,
+        "max": 1440
+      },
+      "slot_hours": {
+        "mean": 4320.0,
+        "p10": 4320.0,
+        "median": 4320.0,
+        "p90": 4320.0,
+        "min": 4320.0,
+        "max": 4320.0
+      },
+      "coverage_hours": {
+        "mean": 4320.0,
+        "p10": 4320.0,
+        "median": 4320.0,
+        "p90": 4320.0,
+        "min": 4320.0,
+        "max": 4320.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 100.812,
+        "p10": 99.58,
+        "median": 100.765,
+        "p90": 102.08,
+        "min": 98.24,
+        "max": 104.03
+      }
+    },
+    {
+      "profile": "stress_parallel",
+      "assumptions": "All three pets in parallel on sequential 9h+9h+6h expeditions, 72 slot-hours/day; chat daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 8241.427,
+        "p10": 8113,
+        "median": 8239.0,
+        "p90": 8358,
+        "min": 7969,
+        "max": 8568
+      },
+      "dust_chat": {
+        "mean": 1437.427,
+        "p10": 1309,
+        "median": 1435.0,
+        "p90": 1554,
+        "min": 1165,
+        "max": 1764
+      },
+      "dust_pets": {
+        "mean": 6804.0,
+        "p10": 6804,
+        "median": 6804.0,
+        "p90": 6804,
+        "min": 6804,
+        "max": 6804
+      },
+      "vip_days_affordable": {
+        "mean": 81.944,
+        "p10": 81,
+        "median": 82.0,
+        "p90": 83,
+        "min": 79,
+        "max": 85
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 47.027,
+        "p10": 8,
+        "median": 46.0,
+        "p90": 90,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 1314.0,
+        "p10": 1314,
+        "median": 1314.0,
+        "p90": 1314,
+        "min": 1314,
+        "max": 1314
+      },
+      "slot_hours": {
+        "mean": 10206.0,
+        "p10": 10206.0,
+        "median": 10206.0,
+        "p90": 10206.0,
+        "min": 10206.0,
+        "max": 10206.0
+      },
+      "coverage_hours": {
+        "mean": 3402.0,
+        "p10": 3402.0,
+        "median": 3402.0,
+        "p90": 3402.0,
+        "min": 3402.0,
+        "max": 3402.0
+      },
+      "energy_rejected_departures": {
+        "mean": 306.0,
+        "p10": 306,
+        "median": 306.0,
+        "p90": 306,
+        "min": 306,
+        "max": 306
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 82.414,
+        "p10": 81.13,
+        "median": 82.39,
+        "p90": 83.58,
+        "min": 79.69,
+        "max": 85.68
+      }
+    },
+    {
+      "profile": "stress_staggered",
+      "assumptions": "Three 9h expeditions/day starting 00:00/08:00/16:00, seamless coverage; chat daily",
+      "users": 1000,
+      "days": 180,
+      "dust_earned": {
+        "mean": 10062.471,
+        "p10": 9931,
+        "median": 10062.0,
+        "p90": 10189,
+        "min": 9790,
+        "max": 10404
+      },
+      "dust_chat": {
+        "mean": 1436.471,
+        "p10": 1305,
+        "median": 1436.0,
+        "p90": 1563,
+        "min": 1164,
+        "max": 1778
+      },
+      "dust_pets": {
+        "mean": 8626.0,
+        "p10": 8626,
+        "median": 8626.0,
+        "p90": 8626,
+        "min": 8626,
+        "max": 8626
+      },
+      "vip_days_affordable": {
+        "mean": 100.144,
+        "p10": 99,
+        "median": 100.0,
+        "p90": 101,
+        "min": 97,
+        "max": 104
+      },
+      "dust_reserve_after_exchange": {
+        "mean": 48.071,
+        "p10": 8,
+        "median": 48.5,
+        "p90": 89,
+        "min": 0,
+        "max": 99
+      },
+      "completed_trips": {
+        "mean": 539.0,
+        "p10": 539,
+        "median": 539.0,
+        "p90": 539,
+        "min": 539,
+        "max": 539
+      },
+      "slot_hours": {
+        "mean": 4851.0,
+        "p10": 4851.0,
+        "median": 4851.0,
+        "p90": 4851.0,
+        "min": 4851.0,
+        "max": 4851.0
+      },
+      "coverage_hours": {
+        "mean": 4313.0,
+        "p10": 4313.0,
+        "median": 4313.0,
+        "p90": 4313.0,
+        "min": 4313.0,
+        "max": 4313.0
+      },
+      "energy_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "slot_rejected_departures": {
+        "mean": 0.0,
+        "p10": 0,
+        "median": 0.0,
+        "p90": 0,
+        "min": 0,
+        "max": 0
+      },
+      "vip_day_equivalent": {
+        "mean": 100.625,
+        "p10": 99.31,
+        "median": 100.62,
+        "p90": 101.89,
+        "min": 97.9,
+        "max": 104.04
+      }
+    }
+  ]
+}
