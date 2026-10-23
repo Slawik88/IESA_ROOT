@@ -108,7 +108,7 @@ async def hopeless_delivery_still_pays_out_and_cancels_roleless_games(h: Harness
         await h.say(u.users[0], u.chat, "бот мафия")
         await u.join_all()
         late = {x.id for x in u.users[2:]}
-        h.world.fail(lambda name, params: name == "SendMessage" and params["chat_id"] in late, FLOOD, times=999)
+        h.world.fail(lambda name, params: name in ("SendMessage", "SendPhoto") and params["chat_id"] in late, FLOOD, times=999)
         await u.start()
         for _ in range(10):
             await h.tick()

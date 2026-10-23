@@ -31,7 +31,7 @@
       const p=clone(this.data.template);
       p.run_id=crypto.randomUUID();p.seed=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
       p.origin={seed:p.seed,ruleset_version:p.ruleset_version||p.state.ruleset_version,difficulty:p.state.difficulty};
-      if(game==='rhythm')p.state={status:'active',selected:[],perks:{owned:{},shield:0,ebb:0,bloody:0,miss_debt:0,recovery:0},health:5,score:0,combo:0,correct_streak:0,correct_taps:0,mistakes:0,next_signal_no:1,signal_opened_at:null,finished_at:null,analysis:null};
+      if(game==='rhythm')p.state={status:'active',selected:[],perks:{owned:{},shield:0,ebb:0,bloody:0,miss_debt:0,recovery:0,weather:0},health:5,score:0,combo:0,correct_streak:0,correct_taps:0,mistakes:0,next_signal_no:1,signal_opened_at:null,finished_at:null,analysis:null};
       else {
         // Upgrade only NEW boards, never mutate an active packet or its journal.
         p.ruleset_version=p.origin.ruleset_version='minesweeper-v2';
@@ -84,6 +84,7 @@
       next.ruleset_version=rules.ruleset_version;
       next.state.ruleset_version=rules.ruleset_version;
       if(rules.catalog){next.catalog=rules.catalog;next.legacy=false;}
+      if(rules.weather)next.weather=rules.weather;
       this.data.template=next;this.save();
     }
     queue(packet, actions) {
@@ -122,10 +123,14 @@
     async hash(text) { return new Uint8Array(await crypto.subtle.sign('HMAC', await this.key, new TextEncoder().encode(text))); }
     total(field, p = this.state.perks) { return Object.entries(p.owned).reduce((n, [id, count]) => n + (this.catalog[id][field] || 0) * count, 0); }
     chunk() { return floor((this.state.next_signal_no - 1) / 20); }
+    // Погода такта (core/rhythm_weather.py): по номеру блока, одинаково для всех; таблицу присылает сервер в пакете.
+    ev(chunk = this.chunk()) { const w = this.packet.weather; if (!w || !w.on || chunk < 1 || chunk % 2 === 0) return null; const id = w.cycle[floor(chunk / 2) % w.cycle.length]; return { id, ...w.events[id] }; }
+    fx(field) { const e = this.ev(); return (e && e[field]) || 0; }
+    describe(chunk) { const e = this.ev(chunk); return e ? { id: e.id, name: e.name, icon: e.icon, effect: e.effect } : null; }
     pace(p = this.state.perks) { const c = BigInt(this.chunk()); return Math.max(100, Number(100n * 108n ** c / 100n ** c) + this.total('pace_pct', p)); }
     window(p = this.state.perks) {
       const min = Math.max(200, 350 - Math.max(0, this.chunk() - 14) * 15);
-      const percent = Math.max(-45, this.total('window_pct', p) + (p.ebb > 0 ? 40 : 0) + (p.recovery > 0 ? 25 : 0));
+      const percent = Math.max(-45, this.total('window_pct', p) + (p.ebb > 0 ? 40 : 0) + (p.recovery > 0 ? 25 : 0) + this.fx('window_pct'));
       return Math.max(min, floor(floor(220000 / this.pace(p)) * (100 + percent) / 100));
     }
     score(elapsed, p = this.state.perks, health = this.state.health) {
@@ -136,7 +141,7 @@
       let bonus = 0;
       for (const [id, count] of Object.entries(p.owned)) { const g = this.catalog[id]; if (g.cadence_every && (s.combo + 1) % g.cadence_every === 0) bonus += count * g.cadence_bonus_pct; }
       if (health <= 2) bonus += this.total('low_health_bonus_pct', p);
-      return Math.max(1, floor(raw * (100 + Math.max(-60, this.total('score_pct', p) + bonus)) / 100));
+      return Math.max(1, floor(raw * (100 + Math.max(-60, this.total('score_pct', p) + bonus + this.fx('score_pct'))) / 100));
     }
     eligible(g) {
       const s = this.state, p = s.perks;
@@ -168,14 +173,14 @@
       if (correct) {
         s.score += this.score(elapsed); s.combo++; s.correct_streak++; s.correct_taps++;
         p.bloody = Math.max(0, p.bloody - 1);
-        const every = Object.keys(p.owned).map(id => this.catalog[id].regen_every).filter(Boolean);
+        const every = [...Object.keys(p.owned).map(id => this.catalog[id].regen_every), this.fx('regen_every')].filter(Boolean);
         if (every.length && s.correct_streak % Math.min(...every) === 0) s.health = Math.min(7, s.health + 1);
       } else { s.combo = s.correct_streak = 0; s.mistakes++; }
       p.ebb = Math.max(0, p.ebb - 1); p.recovery = Math.max(0, p.recovery - 1);
       if (!correct) {
         if (p.shield > 0) p.shield--;
         else if (!(timeout && this.total('timeout_free') && ++p.miss_debt % 2 === 1)) {
-          s.health = Math.max(0, s.health - 1 - this.total('damage_extra') - (timeout ? 0 : this.total('wrong_extra')));
+          s.health = Math.max(0, s.health - 1 - this.total('damage_extra') - (timeout ? 0 : this.total('wrong_extra')) - this.fx('damage_extra'));
           if (s.health > 0) p.recovery = Math.max(p.recovery, ...Object.keys(p.owned).map(id => this.catalog[id].recovery_signals));
         }
       }
@@ -187,7 +192,8 @@
         selected_perks:s.selected, gifts:Object.entries(s.perks.owned).map(([id,count]) => ({id,count,name:this.catalog[id].name})),
         rune:['left','center','right'][(await this.hash('rune:' + s.next_signal_no))[0] % 3],
         draft:draft?{number:s.selected.length+1, offers:await this.offers()}:null,
-        speed_percent:this.pace(), window_ms:this.window(), remaining_ms:this.window(), chunk:this.chunk(), starts_in_ms:0};
+        speed_percent:this.pace(), window_ms:this.window(), remaining_ms:this.window(), chunk:this.chunk(), starts_in_ms:0,
+        weather:this.describe(this.chunk()), next_weather:this.packet.weather?.on ? this.describe(this.chunk() + 1) : null};
     }
   }
   class Mines {

@@ -48,6 +48,9 @@ SCREENS = [
     ("store-zarniki", "openStoreV3('zarniki')"),
     ("store-vip", "openStoreV3('vip')"),
     ("exchange", "openPlayerExchangeV1()"),
+    ("casino", "openCasino()"),
+    ("casino-wheel", "openCasino().then(() => casinoGame('wheel'))"),
+    ("casino-dice", "openCasino().then(() => casinoGame('dice'))"),
     ("news", "openWhatsNew()"),
     # «Что нового» в трёх состояниях. «Прочитано» задаётся до открытия: страница читает его в момент захода, а потом отмечает всё прочитанным
     ("news-first", "if (_profileData) _profileData.whatsnew_seen_id = ''; try { localStorage.removeItem('wn_seen_id'); } catch (e) {} openWhatsNew()"),

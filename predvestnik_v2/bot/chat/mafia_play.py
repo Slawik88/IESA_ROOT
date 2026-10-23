@@ -66,8 +66,10 @@ async def _edit_chosen(query: types.CallbackQuery, db, data: MafiaActionCB, targ
         markup = vote_dm_keyboard(match_id=data.match_id, phase_number=data.phase_number, players=me["players"], chosen=target)
     else:
         label = next((private.target_label(p) for p in me["players"] if int(p["user_id"]) == target), "")
+        used = me["role"] == "doctor" and await private.self_save_used(
+            db, match_id=data.match_id, user_id=int(query.from_user.id), phase_number=data.phase_number)
         markup = night_keyboard(match_id=data.match_id, phase_number=data.phase_number, role=me["role"],
-                                players=me["players"], actor_id=int(query.from_user.id), chosen=target)
+                                players=me["players"], actor_id=int(query.from_user.id), chosen=target, self_save_used=used)
     if not label:
         return
     photo = bool(query.message.photo)
@@ -122,16 +124,16 @@ async def cb_mafia_action(query: types.CallbackQuery, callback_data: MafiaAction
             source_message_id=int(message.message_id) if is_vote and not in_dm else None)
     except mafia.MafiaError as exc:
         return await answer(query, str(exc), alert=True)
+    # The move is saved: confirm at once, so the button never spins while the cards are being edited.
+    await answer(query, _toast(callback_data, result, target))
+    if in_dm:
+        await _edit_chosen(query, db, callback_data, int(target or 0))
     if is_vote:
         view = await mafia.current_view(db, match_id=callback_data.match_id)
         if view:
             await publish_phase(bot, db, view, gap=rules.CARD_EVENT_GAP_SECONDS)
-    if in_dm:
-        await _edit_chosen(query, db, callback_data, int(target or 0))
-    if not is_vote:
-        if callback_data.action == "mafia_target":
-            await dm.refresh_team_board(bot, db, match_id=callback_data.match_id, phase_number=callback_data.phase_number)
-    await answer(query, _toast(callback_data, result, target))
+    elif callback_data.action == "mafia_target":
+        await dm.refresh_team_board(bot, db, match_id=callback_data.match_id, phase_number=callback_data.phase_number)
 
 
 async def _role_popup(query, db, data: MafiaControlCB) -> None:
@@ -164,8 +166,8 @@ async def _skip(query, db, bot: Bot) -> None:
         await mafia.advance_due_match(db, match_id=view["match_id"])
     except mafia.MafiaError as exc:
         return await answer(query, str(exc), alert=True)
-    await deliver_for_match(bot, db, view["match_id"])
     await answer(query, "Переходим к голосованию.")
+    await deliver_for_match(bot, db, view["match_id"])
 
 
 async def _stop_ask(query, db, bot: Bot, data: MafiaControlCB) -> None:

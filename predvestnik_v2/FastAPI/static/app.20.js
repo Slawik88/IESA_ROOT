@@ -25,7 +25,8 @@ const v3GlintMark = text => `<span class="ap-gl" aria-hidden="true"><span data-t
 // Шапка вкладки (docs/MINIAPP_DESIGN_RULES.md, п. 5): «‹» только у экранов вне нижнего меню, заголовок, одна строка пояснения, справа необязательное действие (end — готовая разметка). title и sub — простой текст, экранируются
 function v3Head(title, { sub = '', back = '', end = '' } = {}) {
   const btn = back ? `<button type="button" class="v3-head-back" onclick="${back}" aria-label="Назад">‹</button>` : '';
-  return `<header class="v3-head">${btn}<div class="v3-head-tx"><h1 class="v3-title">${esc(title)}${v3GlintMark(title)}</h1>${sub ? `<p class="v3-head-s">${esc(sub)}</p>` : ''}</div>${end}</header>`;
+  const emb = typeof _V3_HEAD_EMB === 'object' && _V3_HEAD_EMB ? _V3_HEAD_EMB[title] : '';   // эмблема и созвездие вкладки (app.50.js)
+  return `<header class="v3-head${emb ? ' v3-head--hero' : ''}">${emb ? V3_SKY : ''}${btn}${emb ? v3Emblem(emb) : ''}<div class="v3-head-tx"><h1 class="v3-title">${esc(title)}${v3GlintMark(title)}</h1>${sub ? `<p class="v3-head-s">${esc(sub)}</p>` : ''}</div>${end}</header>`;
 }
 function apName(ap, html, plain) {
   if (!ap) return html;

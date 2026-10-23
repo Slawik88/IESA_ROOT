@@ -25,7 +25,7 @@ function loadTopV3() {
 }
 // Сезонная таблица Ритма приводится к виду таблицы сообщений: очки идут в count
 function _v3RhythmFull(d) {
-  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score }));
+  const items = (d.items || []).map(r => ({ place: r.place, name: r.player?.display_name || 'Игрок', ref: r.player?.profile_ref, look: r.player?.look || null, mark: r.player?.mark || null, is_vip: !!r.player?.is_vip, is_me: !!r.is_me, count: r.best_score, avatar: r.player?.avatar, level: r.player?.level }));
   const personal = d.personal ? { place: d.personal.place, total: d.personal.total, count: d.personal.best_score } : null;
   return { page: d.page, pages: d.pages, items, personal, season: d.season, chats: _v3Full.data?.chats };
 }
@@ -49,15 +49,20 @@ function renderTopV3() {
   let body;
   if (f.failed) body = `<div class="v3-empty">${_profileEsc(f.failed)} <button type="button" class="v3-link" onclick="loadTopV3()">Повторить</button></div>`;
   else if (!d) body = '<div class="sk" style="height:340px;border-radius:14px"></div>';
-  else if (!d.items.length) body = `<div class="v3-empty">${rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : winBoard ? 'Пока нет побед. Завершите партию победой — и вы первым окажетесь в списке.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.'}</div>`;
+  else if (!d.items.length) {
+    const text = rhythm ? 'В этом сезоне ещё нет подтверждённых забегов.' : winBoard ? 'Пока нет побед. Завершите партию победой — и вы первым окажетесь в списке.' : f.scope === 'chats' ? 'Пока тихо: чаты попадут сюда, когда в них начнут писать.' : 'Пока тихо. Напишите в чате, и вы первым окажетесь в списке.';
+    body = typeof v3PodiumEmpty === 'function' ? v3PodiumEmpty(text) : `<div class="v3-empty">${text}</div>`;
+  }
   else {
     const me = d.personal ? `<div class="v3-top-me">Вы: #${fmt(d.personal.place)} из ${fmt(d.personal.total)} · ${fmt(d.personal.count)} ${unit}${d.personal.delta != null ? ` · <span class="${d.personal.delta >= 0 ? 'v3-up' : ''}">${d.personal.delta >= 0 ? '+' : ''}${fmt(d.personal.delta)} к прошлому периоду</span>` : ''}</div>`
       : (f.scope === 'chats' ? '' : `<div class="v3-top-me">${rhythm ? 'Вашего забега в этом сезоне пока нет.' : winBoard ? 'У вас пока нет побед.' : 'У вас пока нет сообщений за выбранный период.'}</div>`);
     const pager = d.pages > 1 ? `<div class="v3-pager"><button type="button" class="v3-link" ${d.page <= 0 ? 'disabled' : ''} onclick="v3FullSet('page',${d.page - 1})" aria-label="Предыдущая страница">‹</button><span>${d.page + 1} / ${d.pages}</span><button type="button" class="v3-link" ${d.page + 1 >= d.pages ? 'disabled' : ''} onclick="v3FullSet('page',${d.page + 1})" aria-label="Следующая страница">›</button></div>` : '';
-    body = `${me}<div class="v3-ranking-labels"><span>Место · ${f.scope === 'chats' ? 'чат' : 'игрок'}</span><span>${rhythm ? 'Очки' : winBoard ? 'Победы' : 'Сообщения'}</span></div><ol class="v3-top-list v3-top-list--full">${d.items.map(r => _v3FullRow(r, f.scope)).join('')}</ol>${pager}`;
+    // на первой странице тройка — подиумом с медалями (app.50.js), список продолжается с 4-го места
+    const podium = d.page === 0 && typeof v3Podium === 'function' ? v3Podium(d.items, r => `${fmt(r.count)} ${unit}`) : '', rows = podium ? d.items.slice(3) : d.items;
+    body = `${podium}${me}${rows.length ? `<div class="v3-ranking-labels"><span>Место · ${f.scope === 'chats' ? 'чат' : 'игрок'}</span><span>${rhythm ? 'Очки' : winBoard ? 'Победы' : 'Сообщения'}</span></div><ol class="v3-top-list v3-top-list--full">${rows.map(r => _v3FullRow(r, f.scope)).join('')}</ol>` : ''}${pager}`;
   }
   host.innerHTML = `<div class="eyebrow-row"><button type="button" class="v3-link" onclick="switchPage('profile')" aria-label="Назад в профиль">‹ Профиль</button></div>
-    <header class="v3-screen-head"><span class="v3-eyebrow">Рейтинг сообщества</span><h1 class="v3-title">Топ${v3GlintMark('Топ')}</h1><p class="v3-sub">${rhythm ? `Лучшие забеги Ритма${d?.season ? ` · сезон ${fmt(d.season.number)}` : ''}.` : winBoard ? `Больше всех побед в ${f.scope === 'minesweeper' ? 'Сапёре' : 'Мафии'} за всё время.` : `Кто задаёт темп ${f.period === 'all_time' ? 'за всё время' : f.period === 'day' ? 'сегодня' : f.period === 'month' ? 'в этом месяце' : 'на этой неделе'}.`}</p></header>
+    <header class="v3-screen-head v3-hero">${typeof V3_SKY === 'string' ? V3_SKY : ''}${typeof v3Emblem === 'function' ? v3Emblem('trophy') : ''}<div class="v3-hero-tx"><span class="v3-eyebrow">Рейтинг сообщества</span><h1 class="v3-title">Топ${v3GlintMark('Топ')}</h1><p class="v3-sub">${rhythm ? `Лучшие забеги Ритма${d?.season ? ` · сезон ${fmt(d.season.number)}` : ''}.` : winBoard ? `Больше всех побед в ${f.scope === 'minesweeper' ? 'Сапёре' : 'Мафии'} за всё время.` : `Кто задаёт темп ${f.period === 'all_time' ? 'за всё время' : f.period === 'day' ? 'сегодня' : f.period === 'month' ? 'в этом месяце' : 'на этой неделе'}.`}</p></div></header>
     <div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Область рейтинга">${seg(scopes, f.scope, 'scope')}</div>
     ${game ? '' : `<div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Период">${seg(_V3_TOP_PERIODS, f.period, 'period')}</div>`}
     ${chatPick}<div class="v3-top-body${f.loading && d ? ' is-loading' : ''}" aria-live="polite" aria-busy="${!!f.loading}">${body}</div>`;

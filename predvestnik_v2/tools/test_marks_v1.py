@@ -66,6 +66,8 @@ def progress() -> None:
     check(state["streak30"] == {"id": "streak30", "done": False, "have": 12, "need": 30}, "progress below the need")
     check(state["collector"]["done"] and state["collector"]["have"] == 10, "progress never exceeds the need")
     check(state["new_year"]["done"] and not state["halloween"]["done"], "a season mark needs a skin of that season")
+    check(not state["valentine"]["done"] and {s["id"]: s for s in earned_state({"seasons": {"valentine"}})}["valentine"]["done"],
+          "every season has its mark, «Праздник Двух Сердец» included")
     check(not any(s["done"] for s in earned_state({})), "no facts, no earned marks")
     check(next(s for s in earned_state({"streak": 45}) if s["id"] == "streak30")["done"], "a best streak above the need is enough: nobody farms it again")
 

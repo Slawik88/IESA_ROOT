@@ -25,14 +25,14 @@ from loguru import logger
 from bot.chat.framework import Ctx, registry
 from infrastructure.repositories import economy as eco_db
 from infrastructure.repositories import star_payments_v1 as payment_repo
-from core.constants import STARS_PACKAGES, STARS_MOST_POPULAR
+from core.constants import STARS_PACKAGES, STARS_MOST_POPULAR, ZARNIKI_PER_STAR
 from core.payment_contract import (
     MAX_STARS as _MAX_STARS,
     STARS_CURRENCY as _STARS_CURRENCY,
     ZarnikiQuote,
     custom_quote as _custom_quote,
     invoice_payload as _invoice_payload,
-    is_issuable_v1_quote as _is_issuable_v1_quote,
+    is_issuable_quote as _is_issuable_quote,
     package_quote as _package_quote,
     quote_from_paid_invoice as _quote_from_paid_invoice,
 )
@@ -214,7 +214,7 @@ async def _send_packages_menu(message: types.Message):
         total = base + bonus
         popular = " — <b>самое популярное!</b> 🔥" if stars == STARS_MOST_POPULAR else ""
         lines.append(f"├ {stars}⭐ = {base} + {bonus} бонус = <b>{total}✨</b>{popular}")
-    lines.append("\n💡 Своя сумма: 1⭐ = 10✨ (без бонуса)")
+    lines.append(f"\n💡 Своя сумма: 1⭐ = {ZARNIKI_PER_STAR}✨ (без бонуса)")
     text = "\n".join(lines)
     await message.answer(text, reply_markup=_packages_keyboard().as_markup(), parse_mode="HTML")
 
@@ -295,8 +295,8 @@ async def cb_buy_package(query: types.CallbackQuery, callback_data: BuyZarnikiCB
         # unknown stale button into an unreviewed custom invoice.
         await query.answer("Этот пакет больше недоступен. Откройте список заново.", show_alert=True)
         return
-    if not _is_issuable_v1_quote(quote):
-        logger.critical("Current package tariff differs from frozen v1: stars={}, zarniki={}", stars, quote.zarniki)
+    if not _is_issuable_quote(quote):
+        logger.critical("Current package tariff differs from its frozen version: stars={}, zarniki={}", stars, quote.zarniki)
         await query.answer("Покупка временно обновляется. Попробуйте чуть позже.", show_alert=True)
         return
     if not await _send_zarniki_invoice(bot, query.from_user.id, quote):
@@ -329,8 +329,8 @@ async def msg_custom_zarniki_amount(message: types.Message, bot: Bot):
     quote = _custom_quote(stars)
     if not quote:  # defensive: the range check above is intentionally explicit for UX
         return await message.answer("⚠️ Не удалось определить сумму. Откройте покупку заново.")
-    if not _is_issuable_v1_quote(quote):
-        logger.critical("Current custom Stars tariff differs from frozen v1: stars={}, zarniki={}", stars, quote.zarniki)
+    if not _is_issuable_quote(quote):
+        logger.critical("Current custom Stars tariff differs from its frozen version: stars={}, zarniki={}", stars, quote.zarniki)
         return await message.answer("⚠️ Покупка временно обновляется. Попробуйте чуть позже.")
     if not await _send_zarniki_invoice(bot, message.from_user.id, quote):
         return await message.answer("⚠️ Покупки Stars отключены на тестовом стенде.")

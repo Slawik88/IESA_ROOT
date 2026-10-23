@@ -2,7 +2,7 @@
 from __future__ import annotations
 from core import rhythm_analysis
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import copy
 import hashlib
 import secrets
@@ -12,6 +12,7 @@ from loguru import logger
 from asyncpg.exceptions import UniqueViolationError
 
 from core import rhythm_v2 as rules
+from core import rhythm_weather as weather
 from core import season_pass as season_pass_rules
 from core import seasons as season_rules
 from infrastructure.repositories import rhythm_v2 as repo
@@ -98,7 +99,8 @@ def _state(row: dict) -> dict:
     return {
         "analysis": repo.load(row.get("analysis_json")),
         "status": row["status"], "selected": list(repo.load(row["selected_json"]) or []),
-        "perks": rules.normalize_perks(repo.load(row.get("perk_state_json"))),
+        "perks": {**rules.normalize_perks(repo.load(row.get("perk_state_json"))),
+                  "weather": 1 if weather.has_weather(row.get("ruleset_version")) else 0},
         "health": int(row["health"]), "score": int(row["score"]), "combo": int(row["combo"]),
         "correct_streak": int(row["correct_streak"]), "correct_taps": int(row["correct_taps"]),
         "mistakes": int(row["mistakes"]), "next_signal_no": int(row["next_signal_no"]),
@@ -117,7 +119,7 @@ def _draft(row: dict, state: dict) -> dict | None:
     if not _draft_pending(state):
         return None
     number = len(state["selected"]) + 1
-    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"], legacy=row.get("ruleset_version") != rules.RULESET_VERSION)
+    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"], legacy=row.get("ruleset_version") in rules.LEGACY_RULESET_VERSIONS)
     return {"number": number, "offers": [
         {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost,
          "preview": _perk_preview(item.id, state)}
@@ -133,7 +135,7 @@ def _perk_preview(perk_id: str, state: dict) -> dict:
         return {"health": hp, "window_ms": window, "speed_percent": rules.speed_percent(signal, effects),
                 "shield": effects["shield"], "ebb": effects["ebb"], "bloody": effects["bloody"],
                 "sample_score": rules.score_for_correct(elapsed_ms=window // 2, allowed_window_ms=window,
-                                                        combo_before=state["combo"], perks=effects, health=hp)}
+                                                        combo_before=state["combo"], perks=effects, health=hp, signal_no=signal)}
     return {"before": view(state["health"], state["perks"]), "after": view(health, perks)}
 
 
@@ -166,6 +168,9 @@ def _view(row: dict, state: dict, *, now: datetime) -> dict:
         # and all future sequence values stay server-side.
         "rune": rules.expected_rune(bytes(row["seed"]), signal_no) if active and opened_at and not starts_in_ms else None,
         "draft": _draft(row, state),
+        # Weather of this chunk and the next one: the same for every player, announced in advance.
+        "weather": weather.describe(rules.chunk_for_signal(signal_no)) if state["perks"].get("weather") else None,
+        "next_weather": weather.describe(rules.chunk_for_signal(signal_no) + 1) if state["perks"].get("weather") else None,
         "perks": state["perks"], "selected_perks": selected, "gifts": rules.owned_gifts(state["perks"]),
         "starts_in_ms": starts_in_ms,
         "integrity_status": str(row.get("integrity_status") or "legacy_unverified"),
@@ -190,7 +195,7 @@ def _cancel(state: dict, now: datetime) -> None:
 def _resolve_error(row: dict, state: dict, *, now: datetime, timed_out: bool) -> None:
     before_health = state["health"]
     state["health"], state["perks"] = rules.after_error(
-        health=state["health"], perks=state["perks"], timed_out=timed_out,
+        health=state["health"], perks=state["perks"], timed_out=timed_out, signal_no=state["next_signal_no"],
     )
     state["combo"] = 0
     state["mistakes"] += 1
@@ -222,11 +227,17 @@ def _advance_expired(row: dict, state: dict, *, now: datetime) -> None:
             state["signal_opened_at"] = deadline
 
 
+def ruleset_for_new_run(now: datetime | None = None) -> str:
+    """Weather arrives with season 2: the running season keeps the rules it started with."""
+    now = now or datetime.now(timezone.utc)
+    return rules.RULESET_VERSION if now >= season_rules.SEASON_TWO_START else rules.PREVIOUS_RULESET_VERSION
+
+
 async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
     if mode not in ("normal", "augments"):
         raise RhythmError("unknown rhythm mode")
     await repo.ensure_tables(db)
-    run_id, seed = str(uuid4()), secrets.token_bytes(32)
+    run_id, seed, version = str(uuid4()), secrets.token_bytes(32), ruleset_for_new_run()
     # One ranked mode.  "augments" survives only so that an already open
     # Mini App tab can still start a run; gifts now come during the run.
     mode, state, offers = "normal", "active", {}
@@ -252,7 +263,7 @@ async def start_run(db, *, user_id: int, mode: rules.Mode) -> dict:
             await db.execute(
                 "INSERT INTO rhythm_v2_runs(run_id,user_id,mode,ruleset_version,seed,offers_json,status,health,signal_opened_at,analysis_json) "
                 "VALUES (?,?,?,?,?,?::jsonb,?,?,NULL,?::jsonb)",
-                (run_id, int(user_id), mode, rules.RULESET_VERSION, seed, repo.dumps(offers), state, health, repo.dumps(rhythm_analysis.fresh())),
+                (run_id, int(user_id), mode, version, seed, repo.dumps(offers), state, health, repo.dumps(rhythm_analysis.fresh())),
             )
     except UniqueViolationError as exc:
         # The partial unique index is intentional: a player must resume/finish
@@ -379,7 +390,7 @@ async def finalize_offline_run(db, *, user_id: int, run_id: str, actions: list[d
             expected = rules.expected_rune(bytes(row["seed"]), state["next_signal_no"])
             window = rules.window_ms(state["next_signal_no"], state["perks"])
             if action["rune"] == expected and action["elapsed_ms"] <= window:
-                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"])
+                state["score"] += rules.score_for_correct(elapsed_ms=action["elapsed_ms"], allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"], signal_no=state["next_signal_no"])
                 state["combo"] += 1; state["correct_streak"] += 1; state["correct_taps"] += 1; state["next_signal_no"] += 1
             else:
                 _resolve_error(row, state, now=now, timed_out=action["rune"] is None or action["elapsed_ms"] > window)
@@ -446,11 +457,11 @@ async def tap(db, *, user_id: int, run_id: str, signal_no: int, rune: str,
         window = rules.window_ms(signal_no, state["perks"])
         correct = rune == rules.expected_rune(bytes(row["seed"]), signal_no) and elapsed_ms <= window + rules.TAP_GRACE_MS
         if correct:
-            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"])
+            state["score"] += rules.score_for_correct(elapsed_ms=min(elapsed_ms, window), allowed_window_ms=window, combo_before=state["combo"], perks=state["perks"], health=state["health"], signal_no=signal_no)
             state["combo"] += 1
             state["correct_streak"] += 1
             state["health"], state["perks"] = rules.after_correct(
-                state["perks"], health=state["health"], streak_after=state["correct_streak"])
+                state["perks"], health=state["health"], streak_after=state["correct_streak"], signal_no=signal_no)
             state["correct_taps"] += 1
             rhythm_analysis.record(state.get("analysis"), signal=signal_no, chunk_size=rules.CHUNK_SIZE, window=window,
                                    correct=True, elapsed=elapsed_ms, streak=state["correct_streak"])

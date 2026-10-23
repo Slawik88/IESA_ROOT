@@ -11,6 +11,7 @@ from core.pet_info_v1 import level_milestones, species_info
 from core.echo_shards_v1 import MaxDuplicateCompensation
 from services.echo_shards_v1 import EchoShardReceipt, compensate_max_duplicate_in_transaction
 from uuid import uuid4
+from services.pet_actions import record_pet_event, save_v1_action
 
 
 class PetConflict(PetPolicyError): pass
@@ -68,6 +69,7 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             source_snapshot={"run_id": str(run["id"]), "activity_kind": kind,
                              "duration_hours": int(run["duration_hours"]), "pet_id": int(run["pet_id"])},
         )
+        await record_pet_event(db, user_id=int(user_id), source="pet_v1_complete", event_id=str(run["id"]))
         receipts.append({"run_id": str(run["id"]), "activity_kind": kind,
                          "amount_keys": await chest_repo.grant_total(
                              db, user_id=int(user_id), source_kind=grant.source_kind,
@@ -138,6 +140,7 @@ async def apply_duplicate_progression(db, *, user_id: int, pet_id: int, source_e
             )
             if receipt.amount != 1:
                 raise RuntimeError("Echo Shard policy returned an invalid pet duplicate amount.")
+        await record_pet_event(db, user_id=int(user_id), source="pet_duplicate", event_id=source_event_id)
         return {"ok": True, "pet_id": int(pet_id), "outcome": outcome, "level_before": before,
                 "level_after": after, "echo_amount": echo_amount, "idempotent_replay": False}
 
@@ -236,7 +239,7 @@ async def feed_pet(db, *, user_id: int, pet_id: int, food_id: str, action_id: st
             raise PetPolicyError(str(exc)) from exc
         response = {"ok": True, "pet_id": int(pet_id), "food_id": food_id,
                     "endurance": endurance, "remaining": remaining, "idempotent_replay": False}
-        await repo.save_action(db, int(user_id), action_id, request, response)
+        await save_v1_action(db, int(user_id), action_id, request, response)
         from services import quests_v1 as quests
         from services.vip import is_vip_active
         await quests.record_metric(
@@ -269,7 +272,7 @@ async def select_active_pet(db, user_id: int, pet_id: int, action_id: str) -> di
         await repo.save_profile(db,user_id,int(pet_id))
         next_state=await repo.get_state(db,user_id,int(pet_id))
         response={"ok":True,"active_pet_id":int(pet_id),"previous_pet_id":current,"previous_pet_endurance":endurance,"level":level_effects(int(next_state["level"]))}
-        await repo.save_action(db,user_id,action_id,request,response)
+        await save_v1_action(db,user_id,action_id,request,response)
     return response
 
 
@@ -311,7 +314,7 @@ async def start_activity(db, *, user_id: int, kind: str, hours: int, action_id: 
             "ok": True, "endurance_cost": endurance_cost, "endurance": remaining_endurance,
             "activity": {key: (str(value) if key.endswith('_at') and value is not None else value) for key, value in run.items() if key != 'server_now'},
         }
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v1_action(db, user_id, action_id, request, response)
     return response
 
 
@@ -416,5 +419,5 @@ async def choose_expedition(db, *, user_id: int, decision: str, action_id: str) 
                 for key, value in run.items() if key != 'server_now'
             },
         }
-        await repo.save_action(db, user_id, action_id, request, response)
+        await save_v1_action(db, user_id, action_id, request, response)
     return response

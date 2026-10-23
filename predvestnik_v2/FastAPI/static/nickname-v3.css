@@ -46,6 +46,9 @@
 .ap-name.ap-designed[data-sk="snow_globe"] { --nick-angle:170deg; }
 .ap-name.ap-designed[data-sk="garland"] { --nick-angle:65deg; font-weight:700; }
 .ap-name.ap-designed[data-sk="midnight_chimes"] { --nick-angle:90deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="quiet_library"] { --nick-angle:160deg; font-family:Georgia,serif; }
+.ap-name.ap-designed[data-sk="alchemist"] { --nick-angle:75deg; font-weight:700; }
+.ap-name.ap-designed[data-sk="grimoire"] { --nick-angle:115deg; font-family:Georgia,serif; letter-spacing:.02em; }
 .ap-name.ap-designed[data-sk="scarlet_star"] { --nick-angle:135deg; font-weight:800; }
 .ap-name.ap-designed[data-sk="crimson_dark"] { --nick-angle:0deg; font-family:Georgia,serif; }
 .ap-name.ap-designed[data-sk="raven_masquerade"] { --nick-angle:120deg; font-family:Georgia,serif; }

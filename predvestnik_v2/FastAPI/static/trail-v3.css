@@ -410,3 +410,13 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
 
 .tr-forecast { border-color:var(--v3-faint); }
 .tr-forecast summary b, .tr-best-i, .tr-bestwhy > span[aria-hidden=true]:first-of-type { color:var(--v3-ink); }
+/* Любая свёрнутая группа Тропы раскрывается пальцем: строка не ниже 44px («Мои шаблоны» была 20px) */
+#pg-pets details > summary, .tr-grp > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; }   /* и в листах (Сборка) — они вне #pg-pets */
+.tr-forecast summary { min-height: 44px; }
+.tr-camp-help { margin-top: 18px; }   /* правила лагеря свёрнуты под списками */
+/* Узкий экран: у талисмана кнопка «Перековать» уходит под описание, текст читается в две строки, а не в пять */
+@media (max-width: 360px) {
+  .tr-tal { grid-template-columns: 44px minmax(0, 1fr); row-gap: 8px; }
+  .tr-tal .tr-end { grid-column: 2; justify-content: flex-start; }
+  .tr-tal .tr-act { flex-direction: row; align-items: center; gap: 10px; }
+}

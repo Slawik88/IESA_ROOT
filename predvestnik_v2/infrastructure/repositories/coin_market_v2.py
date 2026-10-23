@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 
+from core.coin_market_clock import LEGACY_SECONDS, TICK_SECONDS, Clock
 from core.coin_market_v2 import Book, Coin, PriceState, Short
 
 
@@ -86,6 +87,47 @@ async def ensure_tables(db):
     """)
     from infrastructure.repositories import coin_market_orders
     await coin_market_orders.ensure_tables(db)
+    await ensure_clock(db)
+
+
+async def ensure_clock(db):
+    """Fix the fast-tick switch at the next legacy boundary, once.
+
+    The inserting worker also stretches pending order expiries in the same
+    statement, so an order keeps its wall-clock lifetime.
+    """
+    await db.connection.execute("""
+    CREATE TABLE IF NOT EXISTS coin_market_v2_clock (
+      singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(singleton),
+      switch_epoch BIGINT NOT NULL, base_tick BIGINT NOT NULL,
+      CHECK(switch_epoch=base_tick*300)
+    )""")
+    await db.connection.execute(
+        """WITH c AS (
+             INSERT INTO coin_market_v2_clock(switch_epoch,base_tick)
+             SELECT b*$1::bigint, b FROM (SELECT FLOOR(EXTRACT(EPOCH FROM clock_timestamp())/$1)::bigint+1 b) n
+             ON CONFLICT DO NOTHING RETURNING base_tick)
+           UPDATE coin_market_v2_orders o SET expires_tick=c.base_tick+(o.expires_tick-c.base_tick)*$1/$2
+           FROM c WHERE o.status='pending' AND o.expires_tick>c.base_tick""",
+        LEGACY_SECONDS,
+        TICK_SECONDS,
+    )
+
+
+_clock: Clock | None = None
+
+
+async def clock(db):
+    """Immutable once written, so one read per process is enough."""
+    global _clock
+    if _clock is None:
+        row = await db.connection.fetchrow(
+            "SELECT switch_epoch,base_tick FROM coin_market_v2_clock"
+        )
+        if row is None:
+            return None
+        _clock = Clock(int(row["switch_epoch"]), int(row["base_tick"]))
+    return _clock
 
 
 async def ready(db):
@@ -248,7 +290,12 @@ async def reconcile(db, row, book):
 async def current_tick(db):
     return int(
         await db.connection.fetchval(
-            "SELECT FLOOR(EXTRACT(EPOCH FROM clock_timestamp())/300)::bigint"
+            """SELECT CASE WHEN c.switch_epoch IS NULL OR n.e<c.switch_epoch THEN FLOOR(n.e/$1)
+                      ELSE c.base_tick+FLOOR((n.e-c.switch_epoch)/$2) END::bigint
+               FROM (SELECT EXTRACT(EPOCH FROM clock_timestamp()) e) n
+               LEFT JOIN coin_market_v2_clock c ON TRUE""",
+            LEGACY_SECONDS,
+            TICK_SECONDS,
         )
     )
 

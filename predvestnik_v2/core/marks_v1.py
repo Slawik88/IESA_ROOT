@@ -52,6 +52,7 @@ _ROWS: Final = {
     "chatter":     ("Душа чата", "💬", "live", "acc", 280, "Десять тысяч сообщений и больше за последние 30 дней.", "Пишите от 10 000 сообщений за 30 дней: регалия держится, пока темп не упал."),
     "halloween":   ("Ночь Тыкв", "🎃", "earned", "orange", 200, "Взял образ из сезона «Ночь Тыкв».", "Купите образ из сезона «Ночь Тыкв»."),
     "new_year":    ("Новогодняя Ночь", "🎄", "earned", "green", 190, "Взял образ из сезона «Новогодняя Ночь».", "Купите образ из сезона «Новогодняя Ночь»."),
+    "valentine":   ("Два Сердца", "💌", "earned", "pink", 180, "Взял образ из сезона «Праздник Двух Сердец».", "Купите образ из сезона «Праздник Двух Сердец»."),
 }
 MARKS: Final = {key: {"id": key, "title": r[0], "glyph": r[1], "kind": r[2], "tone": r[3], "weight": r[4], "desc": r[5], "how": r[6]} for key, r in _ROWS.items()}
 
@@ -59,7 +60,7 @@ MARKS: Final = {key: {"id": key, "title": r[0], "glyph": r[1], "kind": r[2], "to
 EARNED_RULES: Final = {
     "tier_master": ("maxed", 3), "collector": ("owned_permanent", 10), "streak30": ("streak", 30), "veteran": ("joined_days", 365),
     "cartographer": ("pet_routes", 4),
-    "halloween": ("season:halloween", 1), "new_year": ("season:new_year", 1),
+    "halloween": ("season:halloween", 1), "new_year": ("season:new_year", 1), "valentine": ("season:valentine", 1),
 }
 # live rule: id -> (fact, need). The window is the last N days including today, in the bot's time zone (infrastructure/repositories/marks_v1.py).
 LIVE_WINDOWS: Final = (30, 60)

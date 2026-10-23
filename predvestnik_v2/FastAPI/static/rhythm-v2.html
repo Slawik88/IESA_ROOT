@@ -30,13 +30,15 @@
       </details>
       <details class="how-to"><summary>Как устроен забег</summary>
         <p>Нажимай руну, которую показывает сервер. Скорость растёт, ошибки забирают сердца, а забег рано или поздно заканчивается. Каждые 20 тактов он замирает: ты берёшь один из трёх рун-даров, и у каждого есть и плюс, и минус.</p>
+        <p>Каждый второй блок тактов — с погодой: 🌙 Затишье, ✨ Золотой такт, ⛈ Буря и 💧 Родник по кругу. Погода у всех одинаковая и объявляется заранее — выбирай дар с её учётом.</p>
       </details>
     </section>
     <section id="countdown" class="panel hidden" aria-live="assertive"><p class="eyebrow">ПРИГОТОВЬСЯ</p><h2 id="count-num" class="count-num">5</h2><button id="exit-count" class="secondary" type="button">Отмена</button></section>
-    <section id="choice" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАМЕР</p><h2 id="draft-title">Рун-дар</h2><p>Выбери один дар. Время стоит, пока ты не решишь.</p><p class="gift-preview-note">Показаны изменения для вашей сборки. Пример очков — ответ в середине окна с текущей серией; фактические очки зависят от нажатия.</p><div id="gifts" class="gift-list"></div></section>
+    <section id="choice" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАМЕР</p><h2 id="draft-title">Рун-дар</h2><p>Выбери один дар. Время стоит, пока ты не решишь.</p><p id="draft-weather" class="r-weather" hidden></p><p class="gift-preview-note">Показаны изменения для вашей сборки. Пример очков — ответ в середине окна с текущей серией; фактические очки зависят от нажатия.</p><div id="gifts" class="gift-list"></div></section>
     <section id="run" class="hidden">
       <div class="metrics"><div><small>ЗДОРОВЬЕ</small><b id="health">♥♥♥</b></div><div><small>СЧЁТ</small><b id="score">0</b></div><div><small>СЕРИЯ</small><b id="combo">0</b></div></div>
       <div class="pace"><span>Ускорение</span><b id="speed">100%</b><div><i id="timebar"></i></div></div>
+      <p id="weather" class="r-weather" aria-live="polite" hidden></p>
       <p id="perks" class="perks-line" aria-live="polite"></p><p id="instruction" aria-live="polite">Нажми нужную руну</p><div class="runes" role="group" aria-label="Руны"><button data-rune="left">ᚠ</button><button data-rune="center">ᚱ</button><button data-rune="right">ᚦ</button></div>
       <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="resume-run" class="secondary hidden" type="button">Продолжить забег</button><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
     </section>

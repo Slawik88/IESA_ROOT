@@ -228,8 +228,8 @@ async def flood_in_the_middle_of_role_delivery(h: Harness) -> None:
 async def undeliverable_role_cancels_cleanly(h: Harness) -> None:
     t = await Table.create(h, 5)
     await t.join_all()
-    h.world.fail(lambda name, params: name == "SendMessage" and params["chat_id"] == t.users[2].id
-                 and "Партия Мафии" in (params.get("text") or ""), TgError(403, "Forbidden: bot was blocked by the user"), times=1)
+    h.world.fail(lambda name, params: name in ("SendMessage", "SendPhoto") and params["chat_id"] == t.users[2].id
+                 and "Партия Мафии" in (params.get("text") or params.get("caption") or ""), TgError(403, "Forbidden: bot was blocked by the user"), times=1)
     click = await t.start()
     ok(click.alert and "отменена" in click.text, f"the host is told the game was cancelled: {click.text}")
     ok(await t.phase() == "cancelled" and (await t.match())["finished_reason"] == "private_role_delivery_failed", "match cancelled")

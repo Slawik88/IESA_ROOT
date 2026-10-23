@@ -53,6 +53,7 @@ def whatsnew_is_covered(notes: dict[str, dict]) -> None:
 
 def images_are_referenced(notes: dict[str, dict]) -> None:
     used = {i["image"] for n in notes.values() for i in n["items"] if i.get("image") not in (None, "cover")}
+    used |= {e["image"] for n in notes.values() for i in n["items"] for e in i.get("extra_images") or []}
     present = {p.name for p in rules.IMAGES_DIR.glob("*")} if rules.IMAGES_DIR.is_dir() else set()
     assert not present - used, f"картинки без патч-ноута (удалите или используйте): {sorted(present - used)}"
 

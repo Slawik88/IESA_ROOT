@@ -1463,11 +1463,11 @@ dialog .sheet { background:radial-gradient(circle at 90% 0,rgba(139,108,240,.08)
 .chat-tracker-history ul { display:grid; gap:5px; margin:0; padding:0; list-style:none; }
 .chat-tracker-history li { display:flex; justify-content:space-between; gap:8px; padding:9px 0; border-top:1px solid var(--border2); color:var(--muted); font-size:11px; line-height:1.4; }
 .chat-tracker-history time { flex:none; }
-.chat-tracker-empty { min-height:160px; display:grid; place-content:center; gap:7px; padding:18px; border:1px dashed var(--border2); border-radius:16px; color:var(--muted); text-align:center; }
+.chat-tracker-empty { display:grid; place-content:center; gap:7px; padding:28px 18px; color:var(--muted); text-align:center; }   /* пустое состояние: строка и действие, без пустой рамки (docs/MINIAPP_DESIGN_RULES.md) */
 .chat-tracker-empty b { color:var(--bright); font-size:14px; }
 .chat-tracker-empty span { max-width:270px; font-size:11px; line-height:1.45; }
 .chat-tracker-empty button { min-height:44px; margin:4px auto 0; padding:0 14px; border:1px solid var(--border); border-radius:10px; background:var(--gold-dim); color:var(--gold2); font:800 11px/1 inherit; }
-.chat-tracker-empty.is-error { border-color:rgba(220,154,154,.28); background:rgba(120,50,55,.08); }
+.chat-tracker-empty.is-error b { color:var(--red); }
 .chat-tracker-more { width:100%; min-height:46px; margin-top:10px; border:1px solid var(--border); border-radius:12px; background:var(--gold-dim); color:var(--gold2); font:800 11px/1 inherit; }
 .chat-tracker-more:disabled { opacity:.52; }
 .chat-tracker-page-error { min-height:50px; display:flex; align-items:center; justify-content:space-between; gap:9px; margin-top:9px; padding:8px 9px 8px 11px; border:1px solid rgba(220,154,154,.28); border-radius:11px; background:rgba(120,50,55,.09); color:#e1adad; font-size:10px; }

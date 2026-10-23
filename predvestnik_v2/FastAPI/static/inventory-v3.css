@@ -58,3 +58,13 @@
   .inv-grid, .inv-pets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .inv-looks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+.inv-key { display: inline-grid; width: 26px; height: 26px; color: var(--ch-metal, #9ea7b6); } .inv-key svg { width: 100%; height: 100%; }
+/* Сводка запаса над списками: четыре крупных числа с картинками (без движения: экран читают, а не играют) */
+.inv-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 4px 0 6px; }
+button.inv-sum-c { border: 0; color: var(--v3-ink); font: inherit; cursor: pointer; min-height: 44px; }
+button.inv-sum-c:active { opacity: .6; }
+.inv-sum-c { display: grid; justify-items: center; gap: 2px; padding: 12px 4px 10px; border-radius: 18px; background: radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--v3-ink) 10%, transparent), color-mix(in srgb, var(--v3-ink) 3%, transparent) 75%); text-align: center; }
+.inv-sum-art { display: grid; place-items: center; height: 30px; font-size: 24px; line-height: 1; }
+.inv-sum-art .inv-key { width: 28px; height: 28px; }
+.inv-sum-c b { font-size: 19px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.inv-sum-c small { color: var(--v3-dim); font-size: 11.5px; }

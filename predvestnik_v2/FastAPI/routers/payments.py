@@ -23,7 +23,7 @@ from core.payment_contract import (
     STARS_CURRENCY,
     custom_quote,
     invoice_payload,
-    is_issuable_v1_quote,
+    is_issuable_quote,
     is_stars_amount,
     package_quote,
 )
@@ -155,7 +155,7 @@ async def zarniki_invoice(body: InvoiceRequest, user=Depends(require_tg_user)):
         raise HTTPException(400, f"Количество звёзд: от 1 до {MAX_STARS}.")
 
     quote = package_quote(stars) or custom_quote(stars)
-    if not quote or not is_issuable_v1_quote(quote):
+    if not quote or not is_issuable_quote(quote):
         # A tariff revision must introduce a new frozen payload version before
         # selling anything.  Do not create an invoice the bot will reject.
         raise HTTPException(503, "Покупка временно обновляется. Попробуйте чуть позже.")

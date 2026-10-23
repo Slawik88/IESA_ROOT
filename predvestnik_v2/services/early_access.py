@@ -16,4 +16,7 @@ async def min_rank(db) -> int:
 
 
 async def allowed(db, user_id: int) -> bool:
-    return await get_bot_rank(db, int(user_id)) >= await min_rank(db)
+    rank = await get_bot_rank(db, int(user_id))
+    if rank < admin_access.bounds(FLAG_KEY)[0]:
+        return False
+    return rank >= await min_rank(db)

@@ -80,7 +80,7 @@ async def run(dsn):
 
         imported_id=str(uuid4())
         uploaded=await local.finalize(db,game='rhythm',user_id=uid,run_id=imported_id,actions=actions,
-                    origin={'seed':packet['seed'],'ruleset_version':r.RULESET_VERSION})
+                    origin={'seed':packet['seed'],'ruleset_version':packet['ruleset_version']})
         assert uploaded['score']==result['score'] and uploaded['integrity_status']=='clear'
         assert await local.finalize(db,game='rhythm',user_id=uid,run_id=imported_id,actions=actions)==uploaded
 

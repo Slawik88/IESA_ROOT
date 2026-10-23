@@ -1,6 +1,7 @@
 """One user lock and action receipt for equipment, outing choices and rewards."""
 import random
 from uuid import uuid4
+from services.pet_actions import save_v2_action
 from core import pet_equipment as rules, pets_v2 as pets
 from infrastructure.repositories import pet_equipment as repo, pets_v2 as pr
 
@@ -78,7 +79,7 @@ async def change(db,*,user_id,pet_id,operation,item,expected_tier,action_id):
         await repo.save_gear(db,user_id,pet_id,value)
         if cost:await repo.add_parts(db,user_id,-cost)
         response=dict(ok=True,equipment=value,parts=await repo.parts(db,user_id),spent=cost,energy=round(energy,1),idempotent_replay=False)
-        await pr.save_action(db,user_id,action_id,request,response)
+        await save_v2_action(db,user_id,action_id,request,response)
         return response
 
 
@@ -101,7 +102,7 @@ async def start(db,*,user_id,pet_id,action_id,rng=None):
         outing_id=uuid4().hex
         await repo.create_outing(db,user_id,pet_id,outing_id,clock['day'],value)
         response=dict(ok=True,outing=rules.outing_view(dict(id=outing_id,pet_id=pet_id,state=value)),energy=round(energy-rules.OUTING_ENERGY,1),idempotent_replay=False)
-        await pr.save_action(db,user_id,action_id,request,response)
+        await save_v2_action(db,user_id,action_id,request,response)
         return response
 
 
@@ -121,5 +122,5 @@ async def choose(db,*,user_id,outing_id,step,choice,action_id,rng=None):
         if value['status']!='active':await repo.add_parts(db,user_id,value['reward'])
         await repo.save_outing(db,outing_id,value);row['state']=value
         response=dict(ok=True,outing=rules.outing_view(row),parts=await repo.parts(db,user_id),idempotent_replay=False)
-        await pr.save_action(db,user_id,action_id,request,response)
+        await save_v2_action(db,user_id,action_id,request,response)
         return response

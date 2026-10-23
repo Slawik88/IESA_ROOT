@@ -312,8 +312,11 @@ _TR_VIEWS.camp = me => {
   const camp = me.camp || { levels: {}, job: null }, job = camp.job && !camp.job.done ? camp.job : null;
   const rows = ['lounge', 'markers', 'workshop'].map(b => _trBldRow(b, me, job)).join('');
   const busy = job ? `<div class="tr-state is-busy" id="tr-job" role="status"><div class="tr-state-t"><b>Идёт стройка</b><small>${_trE(_TR_BLD[job.building] || job.building)}, уровень ${job.to_level}. Другую можно начать после неё.</small></div><div class="tr-end"><span class="tr-left"><small>осталось</small><b data-end="${_trTime(job.ends_at)}" data-id="camp-${_trTime(job.ends_at)}">${_trDur(_trTime(job.ends_at) - _trNow())}</b></span></div></div>` : '';
-  return `${_trHead()}${_trTabs()}<p class="tr-note">Постройки усиливают всех питомцев. Перековка улучшает два маршрутных талисмана; пять предметов экипировки настраиваются в карточке питомца.</p>${busy}<section class="tr-sec">${_trSec('Постройки')}<p class="tr-note">Каждую можно улучшить до 5 уровня. Стройка идёт сама, пока вас нет: одна за раз.</p><ul class="tr-list tr-blds">${rows}</ul></section>
-    <section class="tr-sec">${_trSec('Перековка талисманов', `<span class="tr-count">${(me.talismans || []).length}</span>`)}<p class="tr-note">Перековка поднимает тир талисмана за Эссенцию. Высший тир открывает Мастерская.</p>${_trReforgeRows(me)}</section>`;
+  // Правила лагеря — свёрнуты внизу (справка не стоит между игроком и постройками: docs/MINIAPP_DESIGN_RULES.md, п. 2)
+  return `${_trHead()}${_trTabs()}${busy}<section class="tr-sec">${_trSec('Постройки')}<ul class="tr-list tr-blds">${rows}</ul></section>
+    <section class="tr-sec">${_trSec('Перековка талисманов', `<span class="tr-count">${(me.talismans || []).length}</span>`)}${_trReforgeRows(me)}</section>
+    <details class="v3-more tr-camp-help"><summary>Как устроен лагерь</summary><p class="tr-note">Постройки усиливают всех питомцев. Каждую можно улучшить до 5 уровня; стройка идёт сама, пока вас нет, одна за раз.</p>
+      <p class="tr-note">Перековка поднимает тир маршрутного талисмана за Эссенцию, высший тир открывает Мастерская. Пять предметов экипировки настраиваются в карточке питомца.</p></details>`;
 };
 function trailUpgrade(building) {
   const camp = _tr.me.camp, lv = camp.levels[building] || 0, cost = camp.next_costs?.[building]; if (!cost || !_TR_BLD[building]) return;

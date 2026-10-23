@@ -38,7 +38,9 @@ async def _close_night(db, row: dict, players: list[dict]) -> dict:
         if action["action_type"] == "detective_check" and checked:
             checks.append({"user_id": int(action["user_id"]), "target_user_id": int(checked["user_id"]),
                            "is_mafia": rules.faction(checked["role"]) == "mafia"})
-    return {"eliminated_user_id": killed, "private_checks": checks, "idle": not actions}
+    # saved: the Doctor stood exactly where the mafia struck; the dawn tells the town (not who healed)
+    return {"eliminated_user_id": killed, "saved": target is not None and killed is None, "private_checks": checks,
+            "idle": not actions}
 
 
 async def _close_voting(db, row: dict, players: list[dict]) -> dict:

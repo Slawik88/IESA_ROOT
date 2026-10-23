@@ -35,7 +35,9 @@ function _invFail(text, retry) {
 // tier: ступень талисмана (одна вещь, а не стопка) — тогда в углу и в листе ступень, а не количество
 function _invTile(icon, name, hint, n, sheet, tier) {
   const say = tier ? `${name}: ступень ${tier}` : `${name}: ${fmt(n)}`, mark = tier || fmt(n);
-  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-tier="${tier || ''}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${icon}</span><b class="inv-n">${mark}</b><small>${name}</small></button>`;
+  // ключ — тот же рисунок, что на полке Сундуков (app.47.js), остальное — свой значок
+  const art = sheet === 'keys' && typeof _CH_KEY_SVG !== 'undefined' ? `<span class="inv-key ch-m-iron">${_CH_KEY_SVG}</span>` : icon;
+  return `<button type="button" class="inv-tile${Number(n) ? '' : ' is-zero'}" onclick="invItem('${sheet}', this)" data-name="${name}" data-hint="${hint || ''}" data-n="${Number(n)}" data-tier="${tier || ''}" data-ic="${icon}" aria-label="${say}"><span class="inv-ic" aria-hidden="true">${art}</span><b class="inv-n">${mark}</b><small>${name}</small></button>`;
 }
 // Лист предмета: ключи, еда, карты, джокеры и талисманы. Ничего не списывает: кнопка ведёт на экран, где предмет нужен.
 const _INV_SHEET = { keys: ['К сундукам', 'openChestsV1()'], food: ['К питомцам', 'openPetsV1()'], card: ['К питомцам', 'openPetsV1()'], joker: ['К питомцам', 'openPetsV1()'], tal: ['К питомцам', 'openPetsV1()'] };
@@ -82,12 +84,18 @@ function _invTal(t, stock) {
 }
 function _invStuff(stock) {
   const grid = (title, tiles, link) => tiles.length ? `${_invSec(title, link)}<div class="inv-grid">${tiles.join('')}</div>` : '';
-  const use = [_invTile('🗝', 'Ключи', 'Один ключ открывает один сундук', stock.keys, 'keys'),
-    ...stock.foods.map(f => _invTile(_profileEsc(f.icon), _profileEsc(f.name), `${stock.pets_version === 2 ? 'Силы' : 'Выносливость'} питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))];
+  // ключи — в сводке сверху (одно число не показывается дважды); их лист открывает клетка сводки
+  const use = [...stock.foods.map(f => _invTile(_profileEsc(f.icon), _profileEsc(f.name), `${stock.pets_version === 2 ? 'Силы' : 'Выносливость'} питомца +${_profileEsc(f.restore)}`, f.quantity, 'food'))];
   const keptCards = stock.pets_version === 2 ? 'Сохранено из прежней системы. В Тропе не расходуется.' : '';
   const cards = [...stock.pet_cards.map(c => _invTile(_profileEsc(c.icon), _profileEsc(c.name), keptCards || _profileEsc(rarLabel(c.rarity)), c.quantity, 'card')),
     ...stock.jokers.map(j => _invTile('🃏', `Джокер · ${_profileEsc(rarLabel(j.rarity).toLowerCase())}`, keptCards || 'Заменяет карту любого питомца своей редкости', j.quantity, 'joker'))];
-  return grid('Ключи и еда', use, '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')
+  // Сводка запаса крупными числами с картинками: сколько ключей, еды, карт и талисманов — до списков
+  const sumN = list => list.reduce((n, x) => n + Number(x.quantity || 0), 0);
+  const cell = (art, n, label) => `<div class="inv-sum-c"><span class="inv-sum-art" aria-hidden="true">${art}</span><b>${fmt(n)}</b><small>${label}</small></div>`;
+  const keyArt = typeof _CH_KEY_SVG !== 'undefined' ? `<span class="inv-key">${_CH_KEY_SVG}</span>` : '🗝';
+  const keyCell = `<button type="button" class="inv-sum-c" onclick="invItem('keys', this)" data-name="Ключи" data-hint="Один ключ открывает один сундук" data-n="${Number(stock.keys)}" data-tier="" data-ic="🗝" aria-label="Ключи: ${fmt(stock.keys)}"><span class="inv-sum-art" aria-hidden="true">${keyArt}</span><b>${fmt(stock.keys)}</b><small>ключей</small></button>`;
+  const summary = `<div class="inv-sum" aria-label="Запас">${keyCell}${cell(_profileEsc(stock.foods[0]?.icon || '🍲'), sumN(stock.foods), 'еды')}${cell(_profileEsc(stock.pet_cards[0]?.icon || '🃏'), sumN(stock.pet_cards) + sumN(stock.jokers), 'карт')}${cell('🧿', (stock.talismans || []).length, 'талисманов')}</div>`;
+  return summary + grid('Еда', use, '<button type="button" class="v3-link" onclick="openChestsV1()">К сундукам ›</button>')
     + grid('Карты и джокеры', cards) + grid('Талисманы', (stock.talismans || []).map(t => _invTal(t, stock)));
 }
 function _invArchive(archive) {

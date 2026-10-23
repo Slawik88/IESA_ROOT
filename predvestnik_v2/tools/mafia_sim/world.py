@@ -209,6 +209,15 @@ class World:
         self.messages[(chat_id, stored.message_id)] = stored
         return self._message_json(stored)
 
+    def _m_SendPhoto(self, params: dict) -> dict:
+        """A photo with a caption (role cards): stored like a text message whose text is the caption."""
+        caption = params.get("caption") or ""
+        if len(self._visible(caption, params.get("parse_mode"))[0]) > 1024:
+            raise TgError(400, "Bad Request: message caption is too long")
+        data = self._m_SendMessage({**params, "text": caption})
+        data["photo"] = [{"file_id": f"sim-photo-{data['message_id']}", "file_unique_id": f"u{data['message_id']}", "width": 640, "height": 640}]
+        return data
+
     def _m_EditMessageText(self, params: dict) -> dict:
         key = (int(params["chat_id"]), int(params["message_id"]))
         stored = self.messages.get(key)

@@ -197,6 +197,15 @@ async def actions(db, *, match_id: int, phase_number: int) -> list[dict]:
         return [dict(row) for row in await cursor.fetchall()]
 
 
+async def self_saves(db, *, match_id: int, user_id: int, before_phase: int) -> int:
+    """How many earlier nights this Doctor chose to heal themself (the rule allows one per game)."""
+    async with db.execute(
+        "SELECT COUNT(*) FROM mafia_v1_actions WHERE match_id=? AND user_id=? AND action_type='doctor_save' "
+        "AND target_user_id=user_id AND phase_number<?", (int(match_id), int(user_id), int(before_phase)),
+    ) as cursor:
+        return int((await cursor.fetchone())[0])
+
+
 # A win is the player's faction matching the finished match winner, the same rule as the chat achievement.
 _MAFIA_WIN = ("((m.winner='mafia' AND p.role IN ('mafia','don')) OR "
               "(m.winner='town' AND p.role IN ('citizen','doctor','detective')))")

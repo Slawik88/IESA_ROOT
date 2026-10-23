@@ -18,6 +18,7 @@ _DEFAULTS = [
     ("game_rhythm_v2",         "ᚱ Новый Ритм (dev)", False),
     ("game_minesweeper_v2",    "💣 Новый Сапёр (dev)", False),
     ("game_mafia_v1",          "🕵️ Мафия (dev)", False),
+    ("game_casino_v1",         "🎰 Казино «Зал Фортуны» (жетоны)", True),
     ("content_chests_v1",       "🗝 Сундуки питомцев (canary)", False),
     ("pets_v2",                "🐾 Питомцы: Тропа (dev)", False),
     ("pets_level_up_v1",      "🐾 Улучшение питомцев за валюты (dev)", False),

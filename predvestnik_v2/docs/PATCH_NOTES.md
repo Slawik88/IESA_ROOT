@@ -135,7 +135,8 @@
 | `items[].title` | название пункта, до 45 знаков, без разметки (у `fix` не нужен) |
 | `items[].text` | суть после тире: до 120 знаков, до двух предложений (у `fix` — вся строка, до 80) |
 | `items[].image`, `image_alt` | файл из `img/` или `"cover"`; описание картинки |
-| `items[].open` | раздел приложения, куда ведёт кнопка: `games pass looks quests pets top family inventory achievements zarniki vip settings news home` |
+| `items[].extra_images` | необязательно: ещё фото пункта `[{"image": "…png", "image_alt": "…"}]` — когда за день сведено несколько обновлений, их скриншоты остаются в альбоме (всего в посте до 10 фото). Картинки, на которые уже ссылаются черновики в админке, не удаляйте |
+| `items[].open` | раздел приложения, куда ведёт кнопка: `games pass looks quests pets top family inventory achievements zarniki vip settings news exchange home` |
 | `items[].flag` | ключ модуля, если функция за выключателем: админка предупредит, если он выключен |
 | `items[].covers` | какие записи «Что нового» описывает пункт (по умолчанию его `id`) |
 | `skipped` | записи «Что нового», которые сознательно не идут в канал, с причиной `why` |

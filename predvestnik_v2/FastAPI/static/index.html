@@ -27,6 +27,8 @@
 <link rel="stylesheet" href="{{BASE}}/static/appearance-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/nickname-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-e-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-scene-f-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-scene-g-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-holidays-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-ring-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/appearance-stage-v3.css?v={{ASSET_VER}}"/>
@@ -38,6 +40,7 @@
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-a-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-b-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-sig-c-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/skin-sig-d-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-a-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/skin-scene-b-v3.css?v={{ASSET_VER}}"/>
@@ -62,6 +65,8 @@
 <link rel="stylesheet" href="{{BASE}}/static/monolith-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/pets-v3.css?v={{ASSET_VER}}"/>
 <link rel="stylesheet" href="{{BASE}}/static/monolith-player-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/art-v3.css?v={{ASSET_VER}}"/>
+<link rel="stylesheet" href="{{BASE}}/static/casino-v3.css?v={{ASSET_VER}}"/>
 </head>
 <body>
 
@@ -136,10 +141,10 @@
 
 <!-- ═══ 14. ПОМОЩЬ ═══ -->
 <div id="pg-help" class="page">
-  <section class="help-hero"><span>?</span><div><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — откроются короткие подсказки и переход туда, где действовать.</p></div></section>
+  <section class="help-hero v3-hero" data-v3-hero="lantern"><div class="v3-hero-tx"><small>Быстрый старт</small><h1>Чем помочь?</h1><p>Выберите тему — откроются короткие подсказки и переход туда, где действовать.</p></div></section>
   <section class="v3-group">
-    <button type="button" class="v3-row" onclick="v3Guide('help-games')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры<small>Ритм, Сапёр и Мафия</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
-    <button type="button" class="v3-row" onclick="v3Guide('help-profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль<small>Квесты, VIP и достижения</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-games')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Игры<small>Лига сезона, игры и Мафия</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
+    <button type="button" class="v3-row" onclick="v3Guide('help-profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>Профиль<small>Задания, VIP и достижения</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="v3Guide('help-pets')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="11" r="1.7"/><circle cx="10" cy="6.5" r="1.7"/><circle cx="14" cy="6.5" r="1.7"/><circle cx="17.5" cy="11" r="1.7"/><path d="M12 12.5c-3 0-5 2.7-4 4.6.8 1.5 2.4 1.2 4 1.2s3.2.3 4-1.2c1-1.9-1-4.6-4-4.6z"/></svg><span>Питомцы<small>Походы и находки</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="v3Guide('help-inventory')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg><span>Инвентарь<small>Всё, что у вас есть</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
     <button type="button" class="v3-row" onclick="v3Guide('help-wallet')"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9 10h6M9 14h6"/></svg><span>Зарники и образы<small>Пополнение и косметика</small></span><span class="v3-end"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span></button>
@@ -159,12 +164,13 @@
 <div id="pg-shop" class="page"></div>
 <div id="pg-inventory" class="page"></div>
 <div id="pg-promo" class="page"></div>
+<div id="pg-casino" class="page"></div>
 <div id="pg-public-profile" class="page"></div>
 <div id="pg-chat-tracker" class="page"></div>
 <div id="pg-exchange-v1" class="page"></div>
 
 <div id="pg-more" class="page v3-stagger">
-  <div class="v3-eyebrow">Меню</div><h1 class="v3-title">Ещё<span class="ap-gl" aria-hidden="true"><span data-t="Ещё"></span></span></h1>
+  <header class="v3-hero" data-v3-hero="compass"><div class="v3-hero-tx"><div class="v3-eyebrow">Меню</div><h1 class="v3-title">Ещё<span class="ap-gl" aria-hidden="true"><span data-t="Ещё"></span></span></h1></div></header>
   <section class="v3-group"><span class="v3-eyebrow">Магазин</span>
     <button type="button" class="v3-row" onclick="openStoreV3('zarniki')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Зарники<small>Пополнение и что на них можно взять</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>
     <button type="button" class="v3-row" onclick="openStoreV3('vip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg><span>VIP<small>Ваш образ увидят все, плюс удобства</small></span><span class="v3-end"><span id="cc-manage-badge" class="v3-badge" style="display:none"></span></button>

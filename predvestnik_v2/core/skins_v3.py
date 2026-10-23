@@ -15,8 +15,8 @@ DEFAULT_SKIN_ID: Final = "default"
 
 # ── Prices ─────────────────────────────────────────────────────────────────────────────────────────────────────
 # Price of the skin itself (it starts at tier D); the ceiling decides how far it can grow. Launch prices were
-# 100/160/240/340/480/650/900; they are now x3.0 (D) rising to x4.0 (SSS) of that.
-BUY_PRICE_ZARNIKI: Final = {"D": 300, "C": 500, "B": 750, "A": 1100, "S": 1700, "SS": 2500, "SSS": 3600}
+# 100/160/240/340/480/650/900; they are now about x4 of that (owner, 2026-10-23: every rarity +100…200 ✨, quietly, no patch note).
+BUY_PRICE_ZARNIKI: Final = {"D": 400, "C": 650, "B": 900, "A": 1250, "S": 1850, "SS": 2700, "SSS": 3800}
 # Essence needed to move a skin INTO the given tier. C and B are cheap on purpose: a player who never pays sees the first tiers
 # fall within one and three weeks of quests, so free progress looks real. From A on the steps are the full ones, and the road to
 # a full set stays months long (tools/test_skins_v3_economy.py pins the number of weeks).

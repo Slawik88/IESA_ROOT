@@ -1,7 +1,7 @@
 """Conditional spot orders. All amounts remain integer micro-Mora / milli-coins."""
 from core.coin_market_v2 import MarketError, integer, MORA
 MAX_ACTIVE=10
-LIFETIME_TICKS=30*288
+LIFETIME_TICKS=30*576  # 30 days of 150-second ticks
 
 def triggered(direction, price, threshold):
     return price<=threshold if direction=='below' else price>=threshold

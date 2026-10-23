@@ -21,6 +21,26 @@ async def shorten_deadline(db, *, match_id: int, deadline) -> bool:
         return bool(await cursor.fetchone())
 
 
+async def restart_clock(db, *, match_id: int, phase: str, phase_number: int, seconds: int,
+                        max_shift_seconds: int = 30) -> bool:
+    """Start the phase timer when the buttons were actually delivered, not when the phase was committed.
+
+    Moves only an untouched timer (not shortened by an early close, not paused) and only by the real
+    delivery delay, capped: a slow Telegram never steals a player's night, nor stretches it unboundedly.
+    """
+    async with db.execute(
+        "UPDATE mafia_v1_matches SET "
+        "phase_deadline=phase_deadline+LEAST(CLOCK_TIMESTAMP()-phase_started_at,(?::int*INTERVAL '1 second')),"
+        "phase_started_at=phase_started_at+LEAST(CLOCK_TIMESTAMP()-phase_started_at,(?::int*INTERVAL '1 second')),"
+        "state_version=state_version+1 "
+        "WHERE id=? AND phase=? AND phase_number=? AND phase_started_at IS NOT NULL "
+        "AND CLOCK_TIMESTAMP()-phase_started_at>=INTERVAL '2 seconds' "
+        "AND ABS(EXTRACT(EPOCH FROM phase_deadline-phase_started_at)-?::int)<1 RETURNING id",
+        (int(max_shift_seconds), int(max_shift_seconds), int(match_id), str(phase), int(phase_number), int(seconds)),
+    ) as cursor:
+        return bool(await cursor.fetchone())
+
+
 async def claim_card_refresh(db, *, match_id: int, gap_seconds: float) -> bool:
     """Atomically win the right to edit a phase card (multi-process safe pacing)."""
     async with db.execute(

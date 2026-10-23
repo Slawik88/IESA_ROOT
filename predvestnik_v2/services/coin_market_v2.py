@@ -10,6 +10,7 @@ import unicodedata
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
+from core import coin_market_clock as clock_rules
 from core import coin_market_v2 as rules
 from core.economy_contract import IdempotencyConflict, InsufficientBalance
 from core import coin_market_orders as order_rules
@@ -278,7 +279,9 @@ async def market(db, user_id, *, visit=False):
     if not enabled and not owns:
         raise Unavailable("Биржа ещё не открыта.")
     tick = await repo.current_tick(db)
-    changes = await repo.market_changes(db, max(0, tick - 288))
+    clock = await repo.clock(db)
+    day_start = clock_rules.ticks_back(tick, clock_rules.DAY_SECONDS, clock)
+    changes = await repo.market_changes(db, day_start)
     coins = []
     for row in rows:
         public = public_coin(row)
@@ -293,7 +296,7 @@ async def market(db, user_id, *, visit=False):
             (float(public["price"]) * rules.MORA / start - 1) * 100, 2
         )
         public["change_period"] = (
-            "24ч" if entry and entry["tick"] <= tick - 288 else "с запуска"
+            "24ч" if entry and entry["tick"] <= day_start else "с запуска"
         )
         public["fresh"] = public["tick"] == tick
         coins.append(public)
@@ -355,14 +358,14 @@ async def market(db, user_id, *, visit=False):
         "coins": coins,
         "shorts": short_list,
         "vip_orders": await vip.is_vip_active(db, user_id),
-        "orders": [public_order(o) for o in await orders_repo.listing(db, user_id)],
+        "orders": [public_order(o, clock) for o in await orders_repo.listing(db, user_id)],
         "news": news[:3],
         "rules": rules.RULES_VERSION,
         "balances": await repo.balances(db, user_id),
         "user_id": user_id,
         "tick": tick,
-        "tick_seconds": rules.TICK_SECONDS,
-        "next_tick_at": (tick + 1) * rules.TICK_SECONDS,
+        "tick_seconds": clock_rules.TICK_SECONDS,
+        "next_tick_at": clock_rules.tick_at(tick + 1, clock),
     }
 
 
@@ -391,9 +394,11 @@ def _downsample(points, cap=360):
 
 
 async def history_view(db, user_id, coin_id, hours):
-    start = await repo.current_tick(db) - hours * 12
+    clock = await repo.clock(db)
+    start = clock_rules.ticks_back(await repo.current_tick(db), hours * 3600, clock)
     points = [
-        {"tick": int(p["tick"]), "price": shown(int(p["price"]))}
+        {"tick": int(p["tick"]), "at": clock_rules.tick_at(int(p["tick"]), clock),
+         "price": shown(int(p["price"]))}
         for p in await repo.history(db, coin_id, start)
     ]
     units, cost = await repo.account(db, coin_id, user_id)
@@ -408,6 +413,7 @@ async def history_view(db, user_id, coin_id, hours):
         markers.append(
             {
                 "tick": tick_value,
+                "at": clock_rules.tick_at(tick_value, clock),
                 "price": shown(money(marker["price"])),
                 "side": marker["side"],
             }
@@ -493,7 +499,7 @@ async def quote(db, user_id, coin_id, side, *, amount=0, units=0, position_id=No
         "side": side,
         "price": shown(state.price),
         "tick": state.tick,
-        "expires_at": (state.tick + 1) * rules.TICK_SECONDS,
+        "expires_at": clock_rules.tick_at(state.tick + 1, await repo.clock(db)),
     }
 
 
@@ -790,11 +796,11 @@ async def bootstrap(db, *, source, issuance_authorization=None):
     )
 
 
-def public_order(row):
+def public_order(row, clock):
     return {"id":row['id'],"coin_id":row['coin_id'],"side":row['side'],
         "direction":row['direction'],"threshold":shown(int(row['threshold'])),
         "amount":shown(int(row['amount'])),"units":str(row['units']),"status":row['status'],
-        "expires_at":int(row['expires_tick'])*rules.TICK_SECONDS,"result":repo.decode(row['result'])}
+        "expires_at":clock_rules.tick_at(int(row['expires_tick']),clock),"result":repo.decode(row['result'])}
 
 
 async def place_order(db,user_id,coin_id,side,direction,threshold,*,amount=0,units=0,action_id):

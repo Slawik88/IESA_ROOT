@@ -1,6 +1,6 @@
 """Demo track of the new season pass: free and VIP rows, shown only — nothing here is ever granted.
 
-Experience comes from League levels (``core.league_v1.XP_BY_STARS``).  Reward kinds follow the owner's
+Experience comes from League levels and successful pet actions (early access only).  Reward kinds follow the owner's
 brief: chests of different stars, food, pets, Mora, diamonds, jokers, a little of Zarniki (30 on the
 free row, 80 on the VIP row over the whole season); never skins.  Amounts are placeholders until the
 economy check of the real pass.
@@ -11,6 +11,7 @@ from typing import Final
 
 XP_PER_LEVEL: Final = 300
 LEVELS: Final = 30
+PET_ACTION_XP: Final = 10
 
 # level: (free reward, VIP reward)
 TRACK: Final = {

@@ -176,8 +176,9 @@ async def mafia_tick(bot: Bot) -> None:
     """One scheduler pass for chat Mafia (see bot.chat.mafia_delivery.tick)."""
     from bot.chat.mafia_delivery import tick
 
-    async with get_pool().acquire() as conn:
-        await tick(bot, PGAdapter(conn))
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        await tick(bot, PGAdapter(conn), pool)
 
 
 async def mafia_phase_task(bot: Bot) -> None:

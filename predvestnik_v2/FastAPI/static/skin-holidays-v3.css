@@ -1,10 +1,82 @@
-/* Master V3 signatures: no new surface, clipping or page background. */
-.holiday-seal { position: absolute; inset: -15%; width: 130%; height: 130%; fill: none; stroke: var(--ap-c); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-.ap-sig-ravenmask .holiday-seal { stroke: var(--ap-c); transform: rotate(-8deg); }
-.ap-sig-ghostcoach .holiday-seal { stroke: var(--ap-a); stroke-dasharray: 4 1; }
-.ap-sig-sugarhouse .holiday-seal { stroke: var(--ap-c); stroke-width: 1.4; }
-.ap-sig-northtrain .holiday-seal { stroke: var(--ap-c); }
-.ap-sig-rosequill .holiday-seal { stroke: var(--ap-a); transform: rotate(8deg); }
-.ap-sig-crystalheart .holiday-seal { stroke: var(--ap-c); stroke-width: .8; }
-/* Keep the photograph clear: engraving appears above it, on the outer crest. */
-.ap-frame > .holiday-seal { inset: -22% 0 auto auto; width: 32%; height: 32%; padding: 3%; border-radius: 50%; background: color-mix(in srgb,var(--ap-b) 32%,#111); }
+/* ═══ ФИРМЕННЫЕ ДЕТАЛИ SSS · сезонные истории ═══
+   Образы: raven_masquerade (.ap-sig-ravenmask), phantom_carriage (.ap-sig-ghostcoach), gingerbread_house (.ap-sig-sugarhouse),
+   polar_express (.ap-sig-northtrain), rose_letter (.ap-sig-rosequill), glass_heart (.ap-sig-crystalheart).
+   Рисунок это SVG на рамке аватара (app.48.js; позиция .ap-frame svg.sa из skin-sig-a-v3.css), цвет и движение здесь:
+   движение только под .ap-anim и только transform/opacity, .ap-low останавливает (правило .sa в skin-sig-a-v3.css), prefers-reduced-motion гасит всё.
+   Фото остаётся чистым: всё лежит на кольце и снаружи. */
+.ap-sig-ravenmask.ap-frame, .ap-sig-ghostcoach.ap-frame, .ap-sig-sugarhouse.ap-frame, .ap-sig-northtrain.ap-frame, .ap-sig-rosequill.ap-frame, .ap-sig-crystalheart.ap-frame { filter: none; box-shadow: 0 0 9px 1px color-mix(in srgb, var(--ap-a) 34%, transparent); }
+.hs-bob, .hs-rock, .hs-bud, .hs-glint, .hs-star, .hs-fall { transform-box: fill-box; }
+@keyframes hsbob { from { transform: rotate(-3deg) translateY(-.6px); } to { transform: rotate(3deg) translateY(.6px); } }
+@keyframes hsturn { to { transform: rotate(360deg); } }
+@keyframes hsswing { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+@keyframes hsglow { 0%, 100% { opacity: .35; } 50% { opacity: .8; } }
+@keyframes hstwk { 0%, 100% { transform: scale(.4); opacity: .3; } 50% { transform: scale(1); opacity: 1; } }
+
+/* ── Маскарад: полумаска соскользнула на оправу, лента и перо ворона ── */
+.hs-mask .hs-mk { fill: color-mix(in srgb, var(--ap-b) 70%, #12081a); stroke: var(--ap-c); stroke-width: .8; }
+.hs-mask .hs-fil { fill: none; stroke: var(--ap-c); stroke-width: .5; stroke-linecap: round; opacity: .8; }
+.hs-mask .hs-gem { fill: var(--ap-a); }
+.hs-mask .hs-rib { fill: none; stroke: var(--ap-a); stroke-width: 1.3; stroke-linecap: round; transform-origin: -19px -1px; }
+.hs-mask .hs-rib2 { stroke: var(--ap-c); stroke-width: .8; opacity: .7; }
+.hs-mask .hs-fth { fill: #0b0712; stroke: color-mix(in srgb, var(--ap-a) 50%, #000); stroke-width: .4; }
+.hs-mask .hs-vein { fill: none; stroke: var(--ap-a); stroke-width: .4; opacity: .7; }
+.hs-bob { transform-origin: 50% 50%; }
+.ap-anim .hs-mask .hs-bob { animation: hsbob 7s ease-in-out infinite alternate; }
+.ap-anim .hs-mask .hs-rib { animation: hsswing 4.4s ease-in-out infinite alternate; }
+
+/* ── Призрачный экипаж: фосфорное колесо катится за кольцом, фонарь качается на крюке ── */
+.hs-wheel .hs-rim { fill: none; stroke: var(--ap-a); stroke-width: 1.6; opacity: .75; }
+.hs-wheel .hs-rim2 { fill: none; stroke: var(--ap-a); stroke-width: .5; opacity: .45; }
+.hs-wheel .hs-spk { stroke: var(--ap-a); stroke-width: 1.1; stroke-linecap: round; opacity: .6; }
+.hs-wheel .hs-stud { fill: var(--ap-c); }
+.hs-wheel .hs-spin { transform-origin: 50px 50px; }
+.ap-anim .hs-wheel .hs-spin { animation: hsturn 48s linear infinite; }
+.hs-lamp .hs-hook { fill: none; stroke: color-mix(in srgb, var(--ap-a) 40%, #0c2226); stroke-width: 1.2; stroke-linecap: round; }
+.hs-lamp .hs-lbody { fill: #0c2226; stroke: var(--ap-a); stroke-width: .6; }
+.hs-lamp .hs-lglass { fill: var(--ap-c); opacity: .85; } .hs-lamp .hs-flame { fill: #fff; }
+.hs-lamp .hs-halo { fill: var(--ap-a); opacity: .35; }
+.hs-lamp .hs-swing { transform-origin: 14px -12px; }
+.ap-anim .hs-lamp .hs-swing { animation: hsswing 3.6s ease-in-out infinite alternate; }
+.ap-anim .hs-lamp .hs-halo { animation: hsglow 2.2s ease-in-out infinite; }
+
+/* ── Пряничный домик: кольцо глазури с посыпкой, человечек держится за оправу и покачивается ── */
+.hs-icing .hs-scal { fill: none; stroke: var(--ap-c); stroke-width: 2.2; stroke-linejoin: round; opacity: .9; }
+.hs-icing .hs-spr { stroke-width: 1.5; stroke-linecap: round; }
+.hs-icing .hs-spr0 { stroke: var(--ap-a); } .hs-icing .hs-spr1 { stroke: #ff8fb3; } .hs-icing .hs-spr2 { stroke: #9fe3ff; }
+.hs-icing .hs-gb { fill: color-mix(in srgb, var(--ap-b) 75%, #6b3416); stroke: color-mix(in srgb, var(--ap-b) 40%, #2a1206); stroke-width: .5; }
+.hs-icing .hs-gbi { fill: none; stroke: #fff3dc; stroke-width: .9; stroke-linecap: round; }
+.hs-rock { transform-origin: 50% 100%; }
+.ap-anim .hs-icing .hs-rock { animation: hsbob 2.8s ease-in-out infinite alternate; }
+
+/* ── Полярный экспресс: латунные рельсы вокруг, огонёк локомотива бежит по кругу, Полярная звезда ── */
+.hs-rail .hs-rl { fill: none; stroke: var(--ap-c); stroke-width: .6; opacity: .8; }
+.hs-rail .hs-tie { stroke: var(--ap-a); stroke-width: 1; opacity: .5; }
+.hs-rail .hs-lamp { fill: #fff; } .hs-rail .hs-lglow { fill: var(--ap-c); opacity: .4; }
+.hs-rail .hs-trail { fill: var(--ap-c); opacity: .5; } .hs-rail .hs-trail:first-child { opacity: .25; }
+.hs-rail .hs-run { transform-origin: 50px 50px; transform: rotate(-30deg); }
+.hs-rail .hs-star { fill: #fff3d6; transform-origin: center; }
+.ap-anim .hs-rail .hs-run { animation: hsturn 9s linear infinite; }
+.ap-anim .hs-rail .hs-star { animation: hstwk 4s ease-in-out infinite; }
+
+/* ── Письмо с розой: стебель вьётся по кольцу, бутон дышит и роняет лепесток ── */
+.hs-rose .hs-vine { fill: none; stroke: color-mix(in srgb, #3f8a6c 70%, var(--ap-b)); stroke-width: 1.4; stroke-linecap: round; }
+.hs-rose .hs-leaf { fill: #3f8a6c; } .hs-rose .hs-thorn { fill: #2f6a52; }
+.hs-rose .hs-pt { fill: var(--ap-a); } .hs-rose .hs-pt1 { fill: color-mix(in srgb, var(--ap-a) 70%, #5a0f2a); } .hs-rose .hs-sepal { fill: #3f8a6c; }
+.hs-rose .hs-fall { fill: var(--ap-a); opacity: 0; }
+.hs-bud { transform-origin: 50% 100%; }
+@keyframes hsbud { from { transform: scale(.88); } to { transform: scale(1.06); } }
+@keyframes hsfall { 0% { transform: translate(0, 0) rotate(0deg); opacity: 0; } 12% { opacity: .9; } 100% { transform: translate(-22px, 30px) rotate(200deg); opacity: 0; } }
+.ap-anim .hs-rose .hs-bud { animation: hsbud 5s ease-in-out infinite alternate; }
+.ap-anim .hs-rose .hs-fall { animation: hsfall 9s ease-in infinite; }
+
+/* ── Хрустальное сердце: кристаллы прорастают из оправы, блик бежит по грани, две звезды на парной орбите ── */
+.hs-cryst .hs-cf1 { fill: color-mix(in srgb, var(--ap-b) 60%, #2a1840); stroke: #f0e6ff; stroke-width: .35; stroke-opacity: .7; }
+.hs-cryst .hs-cf2 { fill: var(--ap-a); opacity: .55; }
+.hs-cryst .hs-ce { stroke: #fff; stroke-width: .3; opacity: .7; }
+.hs-cryst .hs-glint { fill: #fff; transform-origin: center; }
+.hs-cryst .hs-tw1 { fill: var(--ap-a); } .hs-cryst .hs-tw2 { fill: var(--ap-c); }
+.hs-cryst .hs-orb { transform-origin: 50px 50px; }
+.ap-anim .hs-cryst .hs-glint { animation: hstwk 3.4s ease-in-out infinite; }
+.ap-anim .hs-cryst .hs-orb { animation: hsturn 30s linear infinite; }
+.ap-low .hs-rail .hs-trail, .ap-low .hs-rose .hs-fall, .ap-low .hs-lamp .hs-halo { display: none; }
+@media (prefers-reduced-motion: reduce) { .sa[class*="hs-"], .sa[class*="hs-"] * { animation: none !important; } }

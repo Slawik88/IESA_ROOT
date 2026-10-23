@@ -10,7 +10,7 @@ from dataclasses import asdict
 from datetime import timedelta
 from uuid import UUID
 
-from core import rhythm_v2 as rhythm_rules, minesweeper_v2 as mine_rules, rhythm_analysis
+from core import rhythm_v2 as rhythm_rules, minesweeper_v2 as mine_rules, rhythm_analysis, rhythm_weather
 from infrastructure.repositories import rhythm_v2 as rr, minesweeper_v2 as mr
 from services import rhythm_v2 as rhythm, minesweeper_v2 as mine
 
@@ -49,7 +49,8 @@ async def packet(db, *, game: str, user_id: int, run_id: str) -> dict:
                                    reason=PROTOCOL, evidence={"protocol": PROTOCOL})
             await db.execute("UPDATE rhythm_v2_runs SET transport_lease=NULL,transport_lease_expires_at=NULL WHERE run_id=?", (run_id,))
             result.update(state=state, catalog=[asdict(p) for p in rhythm_rules.PERKS],
-                          ruleset_version=row["ruleset_version"], legacy=row["ruleset_version"] != rhythm_rules.RULESET_VERSION)
+                          ruleset_version=row["ruleset_version"], legacy=row["ruleset_version"] in rhythm_rules.LEGACY_RULESET_VERSIONS,
+                          weather=weather_packet(row["ruleset_version"]))
         else:
             state = mine._public(row, now=row["server_now"])
             spec = mine._spec(row)
@@ -61,10 +62,17 @@ async def packet(db, *, game: str, user_id: int, run_id: str) -> dict:
         return result
 
 
+def weather_packet(version: str) -> dict:
+    """The weather table travels in the packet: local play and the server replay read the same numbers."""
+    return {"on": rhythm_weather.has_weather(version), "events": rhythm_weather.EVENTS, "cycle": list(rhythm_weather.CYCLE)}
+
+
 def replay_rhythm(packet: dict, actions: list[dict]) -> dict:
     state = copy.deepcopy(packet["state"])
     seed = bytes.fromhex(packet["seed"])
     state["analysis"] = rhythm_analysis.fresh()
+    state["perks"] = {**rhythm_rules.normalize_perks(state.get("perks")),
+                      "weather": 1 if rhythm_weather.has_weather(packet.get("ruleset_version")) else 0}
     for action in actions:
         if state["status"] != "active":
             raise ValueError("Действие после завершения забега.")
@@ -87,13 +95,13 @@ def replay_rhythm(packet: dict, actions: list[dict]) -> dict:
         before = state["health"]
         if correct:
             state["score"] += rhythm_rules.score_for_correct(elapsed_ms=elapsed, allowed_window_ms=window,
-                combo_before=state["combo"], perks=state["perks"], health=state["health"])
+                combo_before=state["combo"], perks=state["perks"], health=state["health"], signal_no=signal)
             state["combo"] += 1
             state["correct_streak"] += 1
             state["correct_taps"] += 1
-            state["health"], state["perks"] = rhythm_rules.after_correct(state["perks"], health=state["health"], streak_after=state["correct_streak"])
+            state["health"], state["perks"] = rhythm_rules.after_correct(state["perks"], health=state["health"], streak_after=state["correct_streak"], signal_no=signal)
         else:
-            state["health"], state["perks"] = rhythm_rules.after_error(health=state["health"], perks=state["perks"], timed_out=rune is None or elapsed > window)
+            state["health"], state["perks"] = rhythm_rules.after_error(health=state["health"], perks=state["perks"], timed_out=rune is None or elapsed > window, signal_no=signal)
             state["combo"] = state["correct_streak"] = 0
             state["mistakes"] += 1
         rhythm_analysis.record(state["analysis"], signal=signal, chunk_size=rhythm_rules.CHUNK_SIZE,
@@ -147,7 +155,7 @@ async def _import_local_run(db, *, game: str, user_id: int, run_id: str, origin:
             raise ValueError("invalid run id")
         seed = bytes.fromhex(origin["seed"])
         version = origin.get("ruleset_version")
-        supported = {rhythm_rules.RULESET_VERSION, "rhythm-v2-rules-5", "rhythm-v2-rules-6"} if game == "rhythm" else mine_rules.SUPPORTED_RULESETS
+        supported = {rhythm_rules.RULESET_VERSION, rhythm_rules.PREVIOUS_RULESET_VERSION, "rhythm-v2-rules-5"} if game == "rhythm" else mine_rules.SUPPORTED_RULESETS
         if len(seed) != 32 or version not in supported:
             raise ValueError("Обнови правила игры при подключении.")
         spec = mine_rules.difficulty(origin.get("difficulty", "normal")) if game != "rhythm" else None
@@ -170,7 +178,7 @@ async def _import_local_run(db, *, game: str, user_id: int, run_id: str, origin:
     row["status"] = "active" if game == "rhythm" else "awaiting_first_open"
     p = {"protocol": PROTOCOL, "game": game, "run_id": run_id, "owner": str(user_id), "seed": seed.hex()}
     if game == "rhythm":
-        p.update(state=rhythm._state(row), catalog=[asdict(g) for g in rhythm_rules.PERKS], ruleset_version=version, legacy=version != rhythm_rules.RULESET_VERSION)
+        p.update(state=rhythm._state(row), catalog=[asdict(g) for g in rhythm_rules.PERKS], ruleset_version=version, legacy=version in rhythm_rules.LEGACY_RULESET_VERSIONS, weather=weather_packet(version))
         await rr.set_integrity(db, run_id=run_id, status="offline_exposed", reason=PROTOCOL, evidence={"protocol": PROTOCOL})
     else:
         p.update(state=mine._public(row), first_cell=None)

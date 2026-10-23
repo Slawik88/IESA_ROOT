@@ -1,4 +1,4 @@
-"""Skins V3 catalog: 25 permanent skins (at least three for every ceiling tier D … SSS), seasonal skins, and themed sets (Lotus, Sakura) and yearly seasonal sets (Night of Pumpkins, New Year).
+"""Skins V3 catalog: 25 permanent skins (at least three for every ceiling tier D … SSS), seasonal skins, and themed sets (Lotus, Sakura, Arcana) and yearly seasonal sets (Night of Pumpkins, New Year).
 
 Data only. `kinds` pick the shape of each part (frame, halo, particles, nickname effect, background); the effects
 themselves are CSS in FastAPI/static/appearance-v3.css and skin-signatures-v3.css. `sig` names a hand-made detail set
@@ -179,6 +179,20 @@ SKINS = dict([
           "rgba(190,100,225,.24)", "rgba(112,200,238,.13)", ("#f6b6ed", "#b5b5ef", "#e4fbff"),
           "dash", "orbit", "glint", "lens", "stars",
           ("Преломление чувств", "💎 Хранитель Двух Созвездий", "Серебряная огранка", "Парная орбита", "Хрустальная галерея", "Розовые преломления"), "crystalheart", "valentine", "valentine"),
+    # ── Набор «Тайное Знание»: постоянный, три разных способа рассказать о знании (тишина, реакция, живая книга) ──────
+    _skin("quiet_library", "Тихая Библиотека", "B", "Луч из высокого окна, пыль в нём и свеча над раскрытой книгой.", "#0f0c08", "#e9d3a3",
+          "rgba(201,165,106,.22)", "rgba(255,244,220,.08)", ("#e9d3a3", "#9a7444", "#fff4dc"),
+          "double", "rays", "dot", "ink", "wash",
+          ("Чернила и пергамент", "📚 Хранитель Тишины", "Корешок с тиснением", "Свет из окна", "Читальный зал", "Пыль в луче"), set_id="arcana"),
+    _skin("alchemist", "Лаборатория Алхимика", "A", "Зелёный эликсир бурлит, на полу светится круг стихий.", "#07100b", "#8cf2b0",
+          "rgba(63,207,134,.24)", "rgba(216,151,63,.14)", ("#8cf2b0", "#d8973f", "#e9fff2"),
+          "seg", "ripple", "spark", "foil", "grid",
+          ("Ртуть и сера", "⚗️ Мастер Великого Делания", "Медная реторта", "Кольцо стихий", "Подвал лаборатории", "Пузырьки эликсира"), set_id="arcana"),
+    _skin("grimoire", "Живой Гримуар", "S", "Страницы сами летят по кругу, руны горят на полях, книга читает тебя.", "#0b0814", "#c9b2ff",
+          "rgba(122,82,224,.28)", "rgba(255,230,168,.10)", ("#c9b2ff", "#7a52e0", "#ffe6a8"),
+          "dash", "orbit", "glint", "ink", "vortex",
+          ("Живые чернила", "📖 Тот, Кого Читает Книга", "Застёжка гримуара", "Руны на полях", "Кафедра в полночь", "Летящие страницы"),
+          sig="grimoire", set_id="arcana"),
     # ── Личные образы: не продаются и не видны в витрине, их выдаёт разработчик из консоли, каждый ровно одному игроку (EXCLUSIVE_HOLDERS) ──────────────
     # Стартуют с тира D, как будто их только что купили, и растут за Эссенцию, как любой образ.
     _skin("scarlet_star", "Алая Звезда", "SSS", "Чёрный фон, неоновый алый контур, звёзды в обводке и банты.", "#0a0406", "#ff3b5c",
@@ -218,6 +232,8 @@ _SSS_SIGNATURES = {
     "observatory": "telescope",
     "garland": "fairylights",
     "midnight_chimes": "bellchimes",
+    "quiet_library": "candlelit",
+    "alchemist": "ouroboros",
 }
 for _sid, _sig in _SSS_SIGNATURES.items():
     SKINS[_sid]["sig"] = _sig
@@ -244,6 +260,8 @@ SETS = {
                   "members": ("rose_letter", "glass_heart"), "season": "valentine"},
     "lotus": {"name": "Сад Лотоса", "blurb": "Пруд, золото рассвета и лунная вода: один лотос в трёх временах суток.",
               "members": ("lotus_pond", "lotus_gold", "moon_lotus")},
+    "arcana": {"name": "Тайное Знание", "blurb": "Тишина читального зала, реакция в колбе и книга, которая читает тебя.",
+               "members": ("quiet_library", "alchemist", "grimoire")},
     "sakura": {"name": "Сад Сакуры", "blurb": "От бутона на голой ветке до бури цветения.",
                "members": ("sakura_bud", "hanami", "sakura_storm")},
     "night_pumpkins": {"name": "Ночь Тыкв", "blurb": "Фонарь на пороге, паутина в ветвях и зелёный огонь под котлом: одна ночь осени в трёх образах.",
