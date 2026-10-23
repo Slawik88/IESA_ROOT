@@ -32,7 +32,7 @@ def check(condition: bool, message: str) -> None:
 def prices() -> None:
     for tier, old in LAUNCH_PRICES.items():
         ratio = BUY_PRICE_ZARNIKI[tier] / old
-        check(2.0 <= ratio <= 4.0, f"{tier}: price {BUY_PRICE_ZARNIKI[tier]} is x{ratio:.2f} of the launch price, the owner asked for x2 to x4")
+        check(2.0 <= ratio <= 4.3, f"{tier}: price {BUY_PRICE_ZARNIKI[tier]} is x{ratio:.2f} of the launch price, the owner asked for x2 to x4, then +100…200 on top")
     ordered = [BUY_PRICE_ZARNIKI[t] for t in TIERS]
     check(ordered == sorted(set(ordered)), "prices must strictly rise with rarity")
     steps = [UPGRADE_ESSENCE[t] for t in TIERS[1:]]
