@@ -194,6 +194,7 @@ function _handleStartParam(){
   // Диплинки живых разделов. Старые имена (рынок, аукцион, гача, кланы, БП и др.) ведут на «Игры»: их экранов больше нет.
   // Лениво: часть экранов (window.openQuestsV1 и др.) объявляется в более поздних частях скрипта, прямое обращение здесь роняло весь скрипт ReferenceError'ом.
   const LINKS={
+    mfo:()=>openMafiaOnline(Number(p.split('_')[1])||0,p.split('_')[2]||''),
     purge:()=>openPurgeHub(Number(p.split('_')[1])||0), family:()=>openFamilyTree(), mafia:()=>openMafiaReview(Number(p.split('_')[1])||0),
     quests:()=>openQuestsV1(), achievements:()=>openAchievementsV1(), achievement:()=>openAchievementsV1(), pets:()=>openPetsV1(), zoo:()=>openPetsV1(),
     looks:()=>openLooksModal(), cosmetics:()=>openLooksModal(), themes:()=>openLooksModal(), shop:()=>openLooksModal(), goods:()=>openLooksModal(), inventory:()=>openInventory(), inv:()=>openInventory(),

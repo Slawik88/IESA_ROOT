@@ -30,8 +30,10 @@ async def seed(dsn):
         db = PGAdapter(conn)
         await casino_v1.ensure_tables(db)
         await system_flags.set_flag(db, 'game_casino_v1', True)
-        await conn.execute("INSERT INTO casino_v1_wallets(user_id,chips,redeemable_chips,wallet_version) VALUES($1,20000,10000,2) "
-                           "ON CONFLICT(user_id) DO UPDATE SET chips=20000,redeemable_chips=10000,wallet_version=2,bought_today=0", PERSONA_ID)
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('predvestnik.casino_wallet_version','2',true)")
+            await conn.execute("INSERT INTO casino_v1_wallets(user_id,chips,redeemable_chips,wallet_version) VALUES($1,20000,10000,2) "
+                               "ON CONFLICT(user_id) DO UPDATE SET chips=20000,redeemable_chips=10000,wallet_version=2,bought_today=0", PERSONA_ID)
     finally:
         await conn.close()
 

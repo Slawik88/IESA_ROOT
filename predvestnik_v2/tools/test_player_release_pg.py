@@ -25,8 +25,14 @@ async def main():
             await svc.activate(db)
             assert not await c.fetchval("SELECT enabled FROM system_flags WHERE key='season_pass_v1'")
         for key,value in before.items():
-            if key not in (*policy.FLAGS,'coin_market_v2'):
+            if key not in (*policy.FLAGS,'coin_market_v2','game_mafia_online'):
                 assert await c.fetchval('SELECT enabled FROM system_flags WHERE key=$1',key)==value
+        # The newly approved interchat mode is activated once after its schema.
+        if await c.fetchval("SELECT to_regclass('mafia_online_rooms') IS NOT NULL"):
+            assert await c.fetchval("SELECT COUNT(*) FROM player_release_receipts WHERE id='owner-mafia-online-2026-10-23'") == 1
+            await c.execute("UPDATE system_flags SET enabled=0 WHERE key='game_mafia_online'")
+            await svc.activate(db)
+            assert not await c.fetchval("SELECT enabled FROM system_flags WHERE key='game_mafia_online'")
         other='failed-'+uuid4().hex
         with patch.object(repo,'required_storage',AsyncMock(return_value=False)),patch.object(policy,'RELEASE_ID',other):
             try:await svc.activate(db)

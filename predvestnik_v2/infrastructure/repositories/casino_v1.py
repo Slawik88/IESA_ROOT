@@ -73,8 +73,31 @@ async def _ensure_tables_unlocked(db) -> None:
     """)
 
 
+    # Rolling deployments can still route a request to an old worker. Fence its
+    # entire transaction before it can mix the legacy 10:1 wallet with cashout.
+    # Creating the trigger also waits for already-writing legacy transactions.
+    await db.execute("""CREATE OR REPLACE FUNCTION casino_v1_require_current_writer()
+        RETURNS trigger LANGUAGE plpgsql AS $$
+        BEGIN
+            IF current_setting('predvestnik.casino_wallet_version', true) IS DISTINCT FROM '2' THEN
+                RAISE EXCEPTION 'Casino writer must support separate cashout funds' USING ERRCODE='55000';
+            END IF;
+            RETURN NEW;
+        END $$""")
+    await db.execute("""DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='casino_v1_wallets'::regclass
+                       AND tgname='casino_v1_current_writer') THEN
+            CREATE TRIGGER casino_v1_current_writer BEFORE INSERT OR UPDATE ON casino_v1_wallets
+            FOR EACH ROW EXECUTE FUNCTION casino_v1_require_current_writer();
+        END IF;
+    END $$""")
+
+
 async def lock_wallet(db, user_id: int) -> dict:
     """Create on first use, then lock the row for the caller's transaction."""
+    if not db.connection.is_in_transaction():
+        raise RuntimeError("Casino wallet writes require a transaction")
+    await db.execute("SELECT set_config('predvestnik.casino_wallet_version', '2', true)")
     await db.execute("INSERT INTO casino_v1_wallets(user_id,wallet_version) VALUES (?,2) ON CONFLICT (user_id) DO NOTHING", (int(user_id),))
     async with db.execute(
         f"SELECT *, {_TODAY} AS today FROM casino_v1_wallets WHERE user_id=? FOR UPDATE", (int(user_id),)

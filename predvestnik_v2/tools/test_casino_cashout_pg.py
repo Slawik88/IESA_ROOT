@@ -44,7 +44,7 @@ async def run(dsn):
         return await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', uid)
 
     async def reset(uid, chips, real):
-        await conn.execute('INSERT INTO casino_v1_wallets(user_id,chips,redeemable_chips,wallet_version) '
+        await fixture_write('INSERT INTO casino_v1_wallets(user_id,chips,redeemable_chips,wallet_version) '
                            'VALUES($1,$2,$3,2) ON CONFLICT(user_id) DO UPDATE '
                            'SET chips=$2,redeemable_chips=$3,wallet_version=2', uid, chips, real)
 
@@ -67,6 +67,11 @@ async def run(dsn):
         finally:
             for connection, _ in pool:
                 await connection.close()
+
+    async def fixture_write(sql, *args):
+        async with conn.transaction():
+            await conn.execute("SELECT set_config('predvestnik.casino_wallet_version','2',true)")
+            return await conn.execute(sql, *args)
 
     try:
         await repo.ensure_tables(db)
@@ -104,6 +109,47 @@ async def run(dsn):
         await refused(casino.play(db, uid, game='wheel', stake=100, params={},
                                   action_id='no-bonus-fallback'), 'выбранном балансе')
         assert (await state(uid))['redeemable'] == 1000
+        # During rolling replacement an obsolete worker cannot debit Mora or
+        # mutate either pool. Its failed wallet write rolls the whole tx back.
+        legacy_conn, _ = await connect(dsn)
+        before_legacy = await snapshot(uid)
+        try:
+            for sql in ("UPDATE casino_v1_wallets SET chips=chips+1000 WHERE user_id=$1",
+                        "INSERT INTO casino_v1_wallets(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING"):
+                try:
+                    async with legacy_conn.transaction():
+                        await legacy_conn.execute('UPDATE users SET user_balance_mora=user_balance_mora-100 WHERE user_tg_id=$1', uid)
+                        await legacy_conn.execute(sql, uid)
+                except asyncpg.ObjectNotInPrerequisiteStateError:
+                    pass
+                else:
+                    raise AssertionError('obsolete casino writer crossed the cashout migration fence')
+                assert await snapshot(uid) == before_legacy
+            # A modern transaction must not leave permission on a pooled session.
+            await casino.buy_chips(db, uid, mora=100, action_id='writer-fence-modern')
+            try:
+                await conn.execute('UPDATE casino_v1_wallets SET chips=chips+1 WHERE user_id=$1', uid)
+            except asyncpg.ObjectNotInPrerequisiteStateError:
+                pass
+            else:
+                raise AssertionError('writer permission leaked outside its transaction')
+            before_rollback = await snapshot(uid)
+            try:
+                async with conn.transaction():
+                    await repo.lock_wallet(db, uid)
+                    raise RuntimeError('injected transaction rollback')
+            except RuntimeError:
+                pass
+            assert await snapshot(uid) == before_rollback
+            try:
+                await conn.execute('UPDATE casino_v1_wallets SET chips=chips+1 WHERE user_id=$1', uid)
+            except asyncpg.ObjectNotInPrerequisiteStateError:
+                pass
+            else:
+                raise AssertionError('writer permission leaked after rollback')
+            await reset(uid, 1000, 1000)
+        finally:
+            await legacy_conn.close()
         # Withdraw is a transfer: replay works even after spending the remaining balance.
         before = await money(uid)
         withdrawal = await casino.withdraw(db, uid, chips=1000, action_id='withdraw-once')
@@ -132,7 +178,7 @@ async def run(dsn):
         for index, (chips, paid, expected) in enumerate(((1000, 0, 0), (0, 100, 0), (9, 100, 0),
                                                        (105, 100, 10), (1000, 100, 100), (10000, 100, 100)), 1):
             legacy = owners[index]
-            await conn.execute('INSERT INTO casino_v1_wallets(user_id,chips,wallet_version) VALUES($1,$2,1)', legacy, chips)
+            await fixture_write('INSERT INTO casino_v1_wallets(user_id,chips,wallet_version) VALUES($1,$2,1)', legacy, chips)
             if paid:
                 await repo.insert_purchase(db, purchase_id=uuid4().hex, user_id=legacy, action_id='old-purchase',
                                            mora=paid, chips=paid * 10, operation_id='historical-ledger')
@@ -142,7 +188,7 @@ async def run(dsn):
             async with conn.transaction():
                 migrated = await repo.lock_wallet(db, legacy)
             assert migrated['wallet_version'] == 2 and migrated['redeemable_chips'] == expected
-            await conn.execute('UPDATE casino_v1_wallets SET chips=chips+10000 WHERE user_id=$1', legacy)
+            await fixture_write('UPDATE casino_v1_wallets SET chips=chips+10000 WHERE user_id=$1', legacy)
             async with conn.transaction():
                 still = await repo.lock_wallet(db, legacy)
             assert still['redeemable_chips'] == expected and still['chips'] == chips + 10000
@@ -168,7 +214,7 @@ async def run(dsn):
                                   action_id='old-dice-receipt'), 'другой ставки')
         # First concurrent buyers migrate once, then add 1:1 paid funds exactly once per ID.
         racing = owners[8]
-        await conn.execute('INSERT INTO casino_v1_wallets(user_id,chips,wallet_version) VALUES($1,1000,1)', racing)
+        await fixture_write('INSERT INTO casino_v1_wallets(user_id,chips,wallet_version) VALUES($1,1000,1)', racing)
         await repo.insert_purchase(db, purchase_id=uuid4().hex, user_id=racing, action_id='old-purchase',
                                    mora=100, chips=1000, operation_id='historical-ledger')
         results = await parallel([lambda adb: casino.buy_chips(adb, racing, mora=100, action_id='first-buyer-1'),

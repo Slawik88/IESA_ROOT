@@ -31,6 +31,11 @@ async def run(dsn):
     c, db = await connect(dsn)
     uid = 991_500_000 + int(uuid4().int % 100_000)
     other_uid = uid + 200_000
+    async def fixture_write(sql, *args):
+        async with c.transaction():
+            await c.execute("SELECT set_config('predvestnik.casino_wallet_version','2',true)")
+            return await c.execute(sql, *args)
+
     try:
         await repo.ensure_tables(db)
         await c.execute("INSERT INTO users(user_tg_id,user_balance_mora) VALUES($1,5000) ON CONFLICT (user_tg_id) DO UPDATE SET user_balance_mora=5000", uid)
@@ -48,9 +53,9 @@ async def run(dsn):
         assert int(await c.fetchval("SELECT user_balance_mora FROM users WHERE user_tg_id=$1", uid)) == 4000
         await refused(casino.buy_chips(db, uid, mora=500, action_id="buy-0001"), "другой покупки")
         await casino.buy_chips(db, uid, mora=1000, action_id="buy-0002")
-        await c.execute("UPDATE casino_v1_wallets SET bought_today=20000 WHERE user_id=$1", uid)
+        await fixture_write("UPDATE casino_v1_wallets SET bought_today=20000 WHERE user_id=$1", uid)
         await refused(casino.buy_chips(db, uid, mora=100, action_id="buy-0003"), "Сегодня можно купить ещё 0")
-        await c.execute("UPDATE casino_v1_wallets SET buy_day=buy_day-1 WHERE user_id=$1", uid)   # next day
+        await fixture_write("UPDATE casino_v1_wallets SET buy_day=buy_day-1 WHERE user_id=$1", uid)   # next day
         await c.execute("UPDATE users SET user_balance_mora=50 WHERE user_tg_id=$1", uid)
         await refused(casino.buy_chips(db, uid, mora=100, action_id="buy-0004"), "Не хватает Моры")
         assert int(await c.fetchval("SELECT chips FROM casino_v1_wallets WHERE user_id=$1", uid)) == 3_000
@@ -64,7 +69,7 @@ async def run(dsn):
         await refused(casino.play(db, uid, game="slots", stake=7, params={}, action_id="bet-0002"), "ставку")
         await refused(casino.play(db, uid, game="dice", stake=10, params={"chance": 33}, action_id="bet-0003"), "шанс")
         # Achievements derive solely from settled history, count actual profit and never mint Mora.
-        await c.execute("UPDATE casino_v1_wallets SET chips=redeemable_chips+1000 WHERE user_id=$1", uid)
+        await fixture_write("UPDATE casino_v1_wallets SET chips=redeemable_chips+1000 WHERE user_id=$1", uid)
         before_mora = await c.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', uid)
         for game, params, roll, action in (('slots', {}, 6, 'badge-slots'), ('wheel', {}, 1, 'badge-wheel'),
                                             ('dice', {'chance':10}, 0, 'badge-dice')):
@@ -87,7 +92,7 @@ async def run(dsn):
         assert not past['runes']['unlocked'] and not past['dice']['unlocked']
         assert past['explorer']['progress'] == 2
         # Parallel bets from five connections on 2 500 chips: the balance never goes below zero.
-        await c.execute("UPDATE casino_v1_wallets SET chips=2500,redeemable_chips=0 WHERE user_id=$1", uid)
+        await fixture_write("UPDATE casino_v1_wallets SET chips=2500,redeemable_chips=0 WHERE user_id=$1", uid)
         pool = [await connect(dsn) for _ in range(5)]
         try:
             results = await asyncio.gather(*(casino.play(adb, uid, game="slots", stake=1000, params={}, action_id=f"race-{i:04d}")

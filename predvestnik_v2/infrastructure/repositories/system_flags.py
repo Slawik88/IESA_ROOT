@@ -19,6 +19,7 @@ _DEFAULTS = [
     ("game_minesweeper_v2",    "💣 Новый Сапёр (dev)", False),
     ("game_mafia_v1",          "🕵️ Мафия (dev)", False),
     ("game_casino_v1",         "🎰 Казино «Зал Фортуны» (жетоны)", True),
+    ("game_mafia_online",      "🕵️ Межчатовая Мафия (dev)", False),
     ("content_chests_v1",       "🗝 Сундуки питомцев (canary)", False),
     ("star_dust_v1", "🌠 Звёздная пыль и VIP за активность", True),
     ("pets_v2",                "🐾 Питомцы: Тропа (dev)", False),

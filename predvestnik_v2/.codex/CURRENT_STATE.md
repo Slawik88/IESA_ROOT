@@ -17,8 +17,8 @@
 
 Ветка codex/casino-polish в managed worktree от origin/master23152873:
 C:/Users/makss/.codex/worktrees/casino-polish/IESA_ROOT.
-Исходный backup-checkout и его изменения не затронуты. Production/GitHub/TG
-не изменялись. Изменения пока не закоммичены.
+Исходный backup-checkout и его изменения не затронуты. Казино/pets/dust
+закоммичены ad557cb6 поверх05cbf47b. Перенос Мафии и отправка master в процессе.
 
 Казино: RTP рун95,572→98,143%, выплаты31,659→33,422%, чистаяпобеда4,307→5,111%.
 Пустота7→6, Fehu8→9, тройкаFehu×11→×8,5. Колесо: один0→×1,5, один×3→×2;
@@ -30,7 +30,11 @@ RTP97,5%, выплаты55→60%, чистаяпобеда30→35%. Кости: 
 redeemable=min(chips//10,historicalMoraSpent), остальное bonus, миграция одинраз.
 Вывод+canonicalMora ledger+immutable receipt атомарны; итогМоры≤2^53−1.
 Pending body/action_id сохраняются по владельцу в sessionStorage после reload/401/429.
-При выкладке обязательно drain старых casino writers, не знающих redeemable pool.
+Rolling rollout защищён SQL trigger: INSERT/UPDATE кошелька требует
+transaction-local writer_version2, который выставляет lock_wallet. Старые
+операции откатываются целиком; PG proof проверяет INSERT conflict/UPDATE,
+списание Моры и отсутствие утечки marker после commit/rollback. Откат к старому
+приложению сам по себе не снимает эту защиту.
 
 Питомцы: новый bot/chat/pets.py + pet_menu/details/builds; durable owner/chat/72h
 buttons в infrastructure/repositories/pet_chat.py. Group+DM, все registry/помощь:
@@ -77,7 +81,7 @@ NodeVM критик:delayed account switch — PASS послеисправлен
 Скриншоты: predvestnik_v2/.local/{casino-final-proof,dust-ui}; внешние копии
 C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeebe2e6/casino-polish/review-2026-10-23.
 Локальный изолированный PostgreSQL55439 и UI-stand остановлены после проверок.
-Следующий шаг: review ветки/отдельнаявыкладка
+Следующий шаг: финальные интеграционные проверки и push master.
 по запросу владельца с drain старыхcasinoпроцессов.
 
 # Состояние: админка 2.0 — люди и лица

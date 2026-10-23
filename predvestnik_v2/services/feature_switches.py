@@ -24,6 +24,7 @@ SITE_AREAS: dict[str, tuple[str, tuple[str, ...]]] = {
     "rhythm": ("🥁 Ритм", ("/rhythm-v2",)),
     "minesweeper": ("💣 Сапёр", ("/minesweeper-v2", "/minesweeper")),
     "mafia": ("🕵️ Мафия: статистика", ("/mafia-v1",)),
+    "mafia_online": ("🕵️ Межчатовая Мафия", ("/mafia-online",)),
     "skins": ("✨ Образы и внешний вид", ("/skins-v3", "/appearance", "/cosmetics")),
     "store": ("💳 Покупки: Зарники и VIP", ("/payments", "/vip", "/vip-v2")),
     "pets": ("🐾 Питомцы", ("/pets-v1",)),

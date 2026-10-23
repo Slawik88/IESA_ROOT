@@ -1,3 +1,24 @@
+## MASTER-RELEASE-20261023 — integrated, final publishing checks
+
+Root cause of missing changes: casino/pets/dust and online Mafia were uncommitted
+in separate worktrees. Casino batch committed ad557cb6 on latest master05cbf47b;
+Mafia copied selectively from patch-note-republish, preserving unrelated changes.
+Old Mafia app50/51 renamed55/56 so current appearance code remains intact.
+Fixed missing production schema and supervised timer (web lifespan is off).
+One-time approved flag receipt opens the mode and respects later operator pauses.
+Bot command works in private/group and appears in registry-generated help.
+
+PASS local PostgreSQL full game, resilience, lifecycle/restart/competing timers,
+access boundaries, polling generations, real two-browser mobile UI. Casino
+cashout/pet chat/star dust regressions and17day patch-note contracts pass.
+Read-only release critic accepted wiring and SQL compatibility fence: old casino
+workers cannot write after schema installation; full money transaction rolls back.
+Marker is transaction-local and checked before INSERT/UPDATE. This permits
+rolling deployment without access to the DigitalOcean administration panel.
+Public pre-release check confirmed old assets, health/ready200, existing flags.
+No channel messages sent. Next: final combined browser/startup gate, push master,
+then verify exact served bytes, runtime feature flags and health.
+
 ## CASINO-PETS-DUST-UX-20261023 — completed locally
 
 Owner follow-up: find and implement useful improvements after the casino/pet/dust

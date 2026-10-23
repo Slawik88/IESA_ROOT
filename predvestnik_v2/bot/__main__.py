@@ -274,7 +274,9 @@ async def main():
             ])
         except Exception as _e:
             logger.warning(f"Циклы админки (рассылки, итоги дня) не запущены: {_e}")
+        from services.mafia_online_scheduler import run as run_mafia_online
         background_tasks.extend([
+            _spawn_supervised("mafia-online-phases", run_mafia_online(), failed=background_failed),
             _spawn_supervised("maintenance", maintenance_task(bot), failed=background_failed),
             _spawn_supervised("player-exchange-match", player_exchange_match_task(), failed=background_failed),
             _spawn_supervised("coin-market-v2", coin_market_v2_task(), failed=background_failed),
