@@ -1,4 +1,12 @@
-@predvestnik_v2/BASE_PROMPT.md
+# Общие правила для всех ИИ-агентов (любой вендор)
+
+До первой правки кода в Предвестнике прочитай `predvestnik_v2/AGENTS.md` (точка входа:
+слои, маршрутизация по документам) и `predvestnik_v2/CLEAN_CODE.md` (обязательный
+стандарт кода: анти-мусор, git-гигиена, Definition of Done). Для инструментов,
+понимающих импорты, они подтянутся ниже; для остальных — это явное указание прочитать.
+
+@predvestnik_v2/AGENTS.md
+@predvestnik_v2/CLEAN_CODE.md
 @predvestnik_v2/AUTONOMOUS_MODE.md
 @predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md
 
