@@ -5794,6 +5794,361 @@ msgstr "Visites guidées terminées"
 msgid "Tracks which interactive tours user has finished"
 msgstr "Suit quelles visites guidées interactives l'utilisateur a terminées"
 
+msgid "At least 8 characters"
+msgstr "Au moins 8 caractères"
+
+msgid ""
+"Tip: a longer password is a stronger one. The one suggested by your phone "
+"works fine."
+msgstr ""
+"Astuce : plus un mot de passe est long, plus il est sûr. Celui proposé par "
+"votre téléphone convient très bien."
+
+msgid "We could not accept this password:"
+msgstr "Ce mot de passe n'a pas pu être accepté :"
+
+msgid "Too short"
+msgstr "Trop court"
+
+msgid "Enter a password of at least 8 characters."
+msgstr "Saisissez un mot de passe d'au moins 8 caractères."
+
+msgid "Repeat the same password in the second field."
+msgstr "Répétez le même mot de passe dans le second champ."
+
+msgid "Please enter a valid e-mail address."
+msgstr "Veuillez saisir une adresse e-mail valide."
+
+msgid "Please choose a username (at least 3 characters)."
+msgstr "Veuillez choisir un nom d'utilisateur (au moins 3 caractères)."
+
+msgid "Forgot your password?"
+msgstr "Mot de passe oublié ?"
+
+msgid "Sign in with your username or e-mail address."
+msgstr "Connectez-vous avec votre nom d'utilisateur ou votre adresse e-mail."
+
+msgid ""
+"Too many sign-up attempts from your network. Please wait a little and try "
+"again, or write to iesa@iesasport.ch."
+msgstr ""
+"Trop de tentatives d'inscription depuis votre réseau. Patientez un peu puis "
+"réessayez, ou écrivez à iesa@iesasport.ch."
+
+msgid "Too many requests. Please wait a little and try again."
+msgstr "Trop de demandes. Patientez un peu puis réessayez."
+
+msgid ""
+"Account created, but the confirmation e-mail could not be sent. You can "
+"request it again from your profile."
+msgstr ""
+"Compte créé, mais l'e-mail de confirmation n'a pas pu être envoyé. Vous "
+"pouvez le redemander depuis votre profil."
+
+msgid "Press 'Next' to continue or 'Skip' to close."
+msgstr "Appuyez sur « Suivant » pour continuer ou sur « Passer » pour fermer."
+
+msgid "Reset password"
+msgstr "Réinitialiser le mot de passe"
+
+msgid ""
+"Enter the e-mail address you registered with. We will send you a link to "
+"choose a new password."
+msgstr ""
+"Saisissez l'adresse e-mail utilisée lors de l'inscription. Nous vous "
+"enverrons un lien pour choisir un nouveau mot de passe."
+
+msgid "Send reset link"
+msgstr "Envoyer le lien"
+
+msgid "Back to sign in"
+msgstr "Retour à la connexion"
+
+msgid "Check your e-mail"
+msgstr "Vérifiez votre boîte mail"
+
+msgid ""
+"If an account exists for that address, we have sent a link to reset the "
+"password. The link works for 2 hours."
+msgstr ""
+"Si un compte existe pour cette adresse, nous avons envoyé un lien de "
+"réinitialisation. Le lien est valable 2 heures."
+
+msgid ""
+"Nothing in your inbox? Look in the spam folder, or try again in a few "
+"minutes."
+msgstr ""
+"Rien dans votre boîte de réception ? Regardez dans les spams ou réessayez "
+"dans quelques minutes."
+
+msgid "Choose a new password"
+msgstr "Choisissez un nouveau mot de passe"
+
+msgid ""
+"Use at least 8 characters. A password from your phone's password manager "
+"works fine."
+msgstr ""
+"Utilisez au moins 8 caractères. Un mot de passe généré par le gestionnaire "
+"de votre téléphone convient très bien."
+
+msgid "New password"
+msgstr "Nouveau mot de passe"
+
+msgid "Repeat the new password"
+msgstr "Répétez le nouveau mot de passe"
+
+msgid "Save new password"
+msgstr "Enregistrer le nouveau mot de passe"
+
+msgid "This link no longer works"
+msgstr "Ce lien ne fonctionne plus"
+
+msgid ""
+"The password reset link is invalid or has expired. Request a new one — it "
+"takes a few seconds."
+msgstr ""
+"Le lien de réinitialisation est invalide ou a expiré. Demandez-en un nouveau"
+" — cela prend quelques secondes."
+
+msgid "Request a new link"
+msgstr "Demander un nouveau lien"
+
+msgid "Password changed"
+msgstr "Mot de passe modifié"
+
+msgid ""
+"Your password has been updated. You can sign in with the new password now."
+msgstr ""
+"Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter "
+"avec le nouveau mot de passe."
+
+msgid "Reset your password — IESA Sport"
+msgstr "Réinitialisation du mot de passe — IESA Sport"
+
+msgid "Reset your password"
+msgstr "Réinitialisez votre mot de passe"
+
+msgid "Hello %(name)s,"
+msgstr "Bonjour %(name)s,"
+
+msgid ""
+"Hello %(name)s. We received a request to reset the password of your IESA "
+"account."
+msgstr ""
+"Bonjour %(name)s. Nous avons reçu une demande de réinitialisation du mot de "
+"passe de votre compte IESA."
+
+msgid ""
+"We received a request to reset the password of your IESA account. Open this "
+"link to choose a new password:"
+msgstr ""
+"Nous avons reçu une demande de réinitialisation du mot de passe de votre "
+"compte IESA. Ouvrez ce lien pour choisir un nouveau mot de passe :"
+
+msgid "Your username:"
+msgstr "Votre nom d'utilisateur :"
+
+msgid ""
+"The link works for 2 hours. If you did not ask for this, you can ignore this"
+" message — your password stays the same."
+msgstr ""
+"Le lien est valable 2 heures. Si vous n'êtes pas à l'origine de cette "
+"demande, ignorez ce message — votre mot de passe reste inchangé."
+
+msgid "Please use a permanent e-mail address, not a temporary mailbox."
+msgstr ""
+"Veuillez utiliser une adresse e-mail permanente, pas une boîte temporaire."
+
+msgid ""
+"We could not verify that you are human. Please reload the page and try "
+"again."
+msgstr ""
+"Nous n'avons pas pu vérifier que vous êtes humain. Rechargez la page et "
+"réessayez."
+
+msgid "Verifying that you are human… please try again in a second."
+msgstr "Vérification en cours… réessayez dans une seconde."
+
+msgid "Continue with"
+msgstr "Continuer avec"
+
+msgid "or with e-mail"
+msgstr "ou avec e-mail"
+
+msgid ""
+"Signing in with a provider creates your IESA account if you do not have one "
+"yet, and means you agree to become a member of IESA Sport. The privacy "
+"policy is still being prepared — we will notify every member when it is "
+"published."
+msgstr ""
+"La connexion via un fournisseur crée votre compte IESA si vous n'en avez pas"
+" encore et vaut accord pour devenir membre d'IESA Sport. La politique de "
+"confidentialité est en cours de préparation — nous informerons tous les "
+"membres dès sa publication."
+
+msgid "I agree to become a member of IESA Sport."
+msgstr "J'accepte de devenir membre d'IESA Sport."
+
+msgid ""
+"The privacy policy is still being prepared — we will notify every member as "
+"soon as it is published."
+msgstr ""
+"La politique de confidentialité est en cours de préparation — nous "
+"informerons tous les membres dès sa publication."
+
+msgid "Privacy policy"
+msgstr "Politique de confidentialité"
+
+msgid "In preparation"
+msgstr "En préparation"
+
+msgid ""
+"The IESA Sport privacy policy is being prepared. Registration and sign-in "
+"are not affected."
+msgstr ""
+"La politique de confidentialité d'IESA Sport est en préparation. "
+"L'inscription et la connexion ne sont pas affectées."
+
+msgid ""
+"Our privacy policy is not ready yet — we are still writing it. You can "
+"register and sign in as usual; nothing is blocked while it is in "
+"preparation."
+msgstr ""
+"Notre politique de confidentialité n'est pas encore prête — nous la "
+"rédigeons. Vous pouvez vous inscrire et vous connecter comme d'habitude ; "
+"rien n'est bloqué pendant sa préparation."
+
+msgid "We will tell you when it is ready"
+msgstr "Nous vous préviendrons dès qu'elle sera prête"
+
+msgid ""
+"As soon as the policy is published, we will notify every member by e-mail "
+"and on this site."
+msgstr ""
+"Dès la publication de la politique, nous informerons chaque membre par "
+"e-mail et sur ce site."
+
+msgid "What we keep in the meantime"
+msgstr "Ce que nous conservons en attendant"
+
+msgid ""
+"The details you give when you register: username, e-mail address and the "
+"profile information you choose to add."
+msgstr ""
+"Les informations saisies à l'inscription : nom d'utilisateur, adresse e-mail"
+" et les informations de profil que vous choisissez d'ajouter."
+
+msgid ""
+"Your membership activity on IESA: visits logged by partners, posts, comments"
+" and event registrations."
+msgstr ""
+"Votre activité de membre IESA : visites enregistrées par les partenaires, "
+"publications, commentaires et inscriptions aux événements."
+
+msgid "We use this only to run your IESA membership."
+msgstr "Nous l'utilisons uniquement pour gérer votre adhésion IESA."
+
+msgid "Questions or requests"
+msgstr "Questions ou demandes"
+
+msgid "If you want to see, correct or delete your data now, write to"
+msgstr ""
+"Si vous souhaitez consulter, corriger ou supprimer vos données dès "
+"maintenant, écrivez à"
+
+msgid "Continue with %(provider)s"
+msgstr "Continuer avec %(provider)s"
+
+msgid ""
+"You will be sent to the provider to confirm it is you, then brought back "
+"here."
+msgstr ""
+"Vous serez redirigé vers le fournisseur pour confirmer votre identité, puis "
+"ramené ici."
+
+msgid "One more step"
+msgstr "Encore une étape"
+
+msgid ""
+"%(provider)s did not share an e-mail address with us. Enter yours to finish "
+"creating your IESA account."
+msgstr ""
+"%(provider)s ne nous a pas transmis d'adresse e-mail. Saisissez la vôtre "
+"pour terminer la création de votre compte IESA."
+
+msgid ""
+"By continuing you agree to become a member of IESA Sport. The privacy policy"
+" is still being prepared — we will notify every member as soon as it is "
+"published."
+msgstr ""
+"En continuant, vous acceptez de devenir membre d'IESA Sport. La politique de"
+" confidentialité est en cours de préparation — nous informerons tous les "
+"membres dès sa publication."
+
+msgid "Create my account"
+msgstr "Créer mon compte"
+
+msgid "Sign-in did not work"
+msgstr "La connexion a échoué"
+
+msgid ""
+"We could not complete the sign-in with that provider. Please try again, or "
+"sign in with your username and password."
+msgstr ""
+"La connexion via ce fournisseur n'a pas pu aboutir. Réessayez ou connectez-"
+"vous avec votre nom d'utilisateur et votre mot de passe."
+
+msgid "Sign-in cancelled"
+msgstr "Connexion annulée"
+
+msgid "You cancelled signing in with that provider. No changes were made."
+msgstr ""
+"Vous avez annulé la connexion via ce fournisseur. Aucune modification n'a "
+"été effectuée."
+
+msgid "Account disabled"
+msgstr "Compte désactivé"
+
+msgid ""
+"This account is not active. Write to iesa@iesasport.ch if you think this is "
+"a mistake."
+msgstr ""
+"Ce compte n'est pas actif. Écrivez à iesa@iesasport.ch si vous pensez qu'il "
+"s'agit d'une erreur."
+
+msgid ""
+"An account with this e-mail address already exists. Sign in with your "
+"password (or reset it) — we could not safely link it to this provider."
+msgstr ""
+"Un compte existe déjà avec cette adresse e-mail. Connectez-vous avec votre "
+"mot de passe (ou réinitialisez-le) — nous n'avons pas pu le relier en toute "
+"sécurité à ce fournisseur."
+
+msgid "That account is no longer linked. Please sign in to it again."
+msgstr "Ce compte n'est plus lié. Veuillez vous y reconnecter."
+
+msgid "Switched to %(username)s."
+msgstr "Passage au compte %(username)s."
+
+msgid "Switch to"
+msgstr "Passer à"
+
+msgid "Add another account"
+msgstr "Ajouter un autre compte"
+
+msgid "Switch to this account"
+msgstr "Passer à ce compte"
+
+msgid "Stay signed in to both"
+msgstr "Rester connecté aux deux"
+
+msgid ""
+"You are signed in as %(name)s. Sign in to the other account here — you will "
+"be able to switch between the two from the menu."
+msgstr ""
+"Vous êtes connecté en tant que %(name)s. Connectez-vous ici à l'autre compte"
+" — vous pourrez ensuite passer de l'un à l'autre depuis le menu."
+
 #~ msgid "Extreme sport as a way of thinking and life"
 #~ msgstr "Le sport extrême comme manière de penser et de vivre"
 

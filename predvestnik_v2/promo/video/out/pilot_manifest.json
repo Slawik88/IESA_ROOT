@@ -1,0 +1,68 @@
+{
+  "status": "rendered_demo",
+  "file": "predvestnik_cleanup_pilot.mp4",
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "duration_seconds": 19,
+  "audio": "Original synthesized click tones; no licensed music",
+  "footage": "Unmodified current loadPurgePanel renderer with invented API fixtures",
+  "not_live_backend": true,
+  "not_publication_approved": true,
+  "scenes": [
+    {
+      "from": 0,
+      "to": 3,
+      "caption": [
+        "Мало сообщений.",
+        "Сразу исключать?"
+      ],
+      "ui": "candidates"
+    },
+    {
+      "from": 3,
+      "to": 6,
+      "caption": [
+        "Выбери период",
+        "и норму активности."
+      ],
+      "ui": "setup"
+    },
+    {
+      "from": 6,
+      "to": 9,
+      "caption": [
+        "Список готов.",
+        "Решение — за тобой."
+      ],
+      "ui": "candidates"
+    },
+    {
+      "from": 9,
+      "to": 12,
+      "caption": [
+        "Этого участника",
+        "оставляем."
+      ],
+      "ui": "skipped"
+    },
+    {
+      "from": 12,
+      "to": 15,
+      "caption": [
+        "А этому —",
+        "предупреждение."
+      ],
+      "ui": "resolved"
+    },
+    {
+      "from": 15,
+      "to": 19,
+      "caption": [
+        "Бот готовит список.",
+        "Администратор решает."
+      ],
+      "ui": "resolved"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+[
+  {
+    "path": "/blog/",
+    "desktop": 19,
+    "mobile": 15,
+    "desktopOnly": [
+      "SELECT:status",
+      "SELECT:sort"
+    ],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/blog/events/",
+    "desktop": 11,
+    "mobile": 6,
+    "desktopOnly": [
+      "A:/blog/",
+      "A:/blog/events/",
+      "SELECT:status",
+      "SELECT:sort"
+    ],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/products/",
+    "desktop": 1,
+    "mobile": 1,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/gallery/",
+    "desktop": 1,
+    "mobile": 1,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/auth/profile/",
+    "desktop": 26,
+    "mobile": 26,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/auth/profile/edit/",
+    "desktop": 20,
+    "mobile": 20,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/notifications/",
+    "desktop": 4,
+    "mobile": 4,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/auth/partner/dashboard/",
+    "desktop": 21,
+    "mobile": 23,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/auth/partner/analytics/",
+    "desktop": 8,
+    "mobile": 8,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  },
+  {
+    "path": "/auth/partner/profile/",
+    "desktop": 11,
+    "mobile": 11,
+    "desktopOnly": [],
+    "mobileOverflow": false
+  }
+]

@@ -11,6 +11,8 @@ from __future__ import annotations
 import logging
 import threading
 
+from django.db import close_old_connections
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 logger = logging.getLogger(__name__)
@@ -28,7 +30,7 @@ def notify_visit_logged(visit, partner, member) -> None:
     """
     from notifications.models import Notification as _Notif
 
-    _cost_txt = f' — {visit.cost} CHF' if visit.cost else ''
+    _cost_txt = f' — {visit.cost} CHF' if visit.cost is not None else ''
     _pin_txt  = ' ✓ (PIN verified)' if visit.pin_verified else ''
 
     _Notif.objects.create(
@@ -44,7 +46,7 @@ def notify_visit_logged(visit, partner, member) -> None:
             'service': visit.get_service_type_display(),
             'cost':    _cost_txt,
             'pin':     _pin_txt,
-            'date':    visit.timestamp.strftime('%d %b %Y, %H:%M'),
+            'date':    timezone.localtime(visit.timestamp).strftime('%d %b %Y, %H:%M'),
         },
         link=_PROFILE_PIN_LINK,
     )
@@ -53,6 +55,7 @@ def notify_visit_logged(visit, partner, member) -> None:
         _visit_id = visit.pk
 
         def _notify_tg():
+            close_old_connections()
             try:
                 from users.models import Visit as _Visit
                 from users.telegram.notify import notify_visit_confirmed as _notify
@@ -60,6 +63,8 @@ def notify_visit_logged(visit, partner, member) -> None:
                 _notify(_v)
             except Exception as exc:
                 logger.error("bg notify_visit_confirmed failed: %s", exc)
+            finally:
+                close_old_connections()
 
         threading.Thread(target=_notify_tg, daemon=True).start()
     else:
@@ -83,7 +88,7 @@ def notify_visit_edited(visit, audit, partner) -> None:
     from notifications.models import Notification as _Notif
     from users.telegram import notify_visit_edited as _tg_notify
 
-    _cost_txt = f' — {visit.cost} CHF' if visit.cost else ''
+    _cost_txt = f' — {visit.cost} CHF' if visit.cost is not None else ''
 
     _Notif.objects.create(
         recipient=visit.member,

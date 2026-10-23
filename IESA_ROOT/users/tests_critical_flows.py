@@ -273,7 +273,7 @@ class DashboardRedirectTest(TestCase):
         self.assertRedirects(response, reverse('users:profile'), fetch_redirect_response=False)
 
     def test_regular_user_goes_to_profile(self):
-        user = User.objects.create_user(username='regular', password='pass123X!')
+        User.objects.create_user(username='regular', password='pass123X!')
         self.client.login(username='regular', password='pass123X!')
         response = self.client.get(reverse('users:dashboard'))
         self.assertRedirects(response, reverse('users:profile'), fetch_redirect_response=False)

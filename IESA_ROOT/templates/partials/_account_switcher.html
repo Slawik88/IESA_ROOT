@@ -1,0 +1,35 @@
+{% comment %}
+Switch between accounts signed in on this device.
+Context: linked_accounts (from users.account_switch.context_processor), request.
+Include with `mobile=True` for the hamburger-menu variant.
+{% endcomment %}
+{% load i18n %}
+{% if mobile %}
+    {% for acc in linked_accounts %}
+    <li class="nav-item d-lg-none">
+        <form method="post" action="{% url 'users:switch_account' acc.pk %}">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="nav-link" style="background:none;border:none;width:100%;text-align:left;cursor:pointer;">
+                <i class="fas fa-right-left fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Switch to" %} <strong>{{ acc.username }}</strong>
+            </button>
+        </form>
+    </li>
+    {% endfor %}
+    <li class="nav-item d-lg-none">
+        <a class="nav-link" href="{% url 'users:login' %}?add_account=1"><i class="fas fa-user-plus fa-fw me-2 op-40" aria-hidden="true"></i>{% trans "Add another account" %}</a>
+    </li>
+{% else %}
+    <li><hr class="pnd-divider"></li>
+    {% for acc in linked_accounts %}
+    <li>
+        <form method="post" action="{% url 'users:switch_account' acc.pk %}" class="m-0">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button type="submit" class="dropdown-item pnd-item">
+                <span class="pnd-icon"><i class="fas fa-right-left" aria-hidden="true"></i></span>
+                <div><div class="pnd-label">{{ acc.username }}</div><div class="pnd-sub">{% trans "Switch to this account" %}</div></div>
+            </button>
+        </form>
+    </li>
+    {% endfor %}
+    <li><a class="dropdown-item pnd-item" href="{% url 'users:login' %}?add_account=1"><span class="pnd-icon"><i class="fas fa-user-plus" aria-hidden="true"></i></span><div><div class="pnd-label">{% trans "Add another account" %}</div><div class="pnd-sub">{% trans "Stay signed in to both" %}</div></div></a></li>
+{% endif %}

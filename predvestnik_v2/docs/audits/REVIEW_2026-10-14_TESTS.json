@@ -1,0 +1,1303 @@
+{
+  "date": "2026-10-14",
+  "head": "049d81d2",
+  "scope": "Disposable local PostgreSQL 18 on 127.0.0.1:55439; no production connection. Existing runner body, excluding pg_ctl start after launcher hang. Second run bootstrapped with init_db only; reviewed operator migrations were not applied.",
+  "runs": [
+    {
+      "setup": "empty_database",
+      "total": 114,
+      "passed": 94,
+      "failed": 20,
+      "tests": [
+        {
+          "test": "test_account_deletion_family_guard_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_account_recovery_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_achievements_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_achievements_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_achievements_v1_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_admin_bind_repository_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"chat_links\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\infrastructure\\pg_adapter.py\", line 230, in _run",
+            "    status = await self._conn.execute(pg_sql, *args)",
+            "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 349, in execute",
+            "    result = await self._protocol.query(query, timeout)",
+            "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 375, in query",
+            "asyncpg.exceptions.UndefinedTableError: relation \"chat_links\" does not exist"
+          ]
+        },
+        {
+          "test": "test_ai_daily_cap_vip.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_alliance_v3_policy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_auction_economy_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_battle_pass_cosmetic_entitlements.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_bot_payments_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_buy_lineup.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_buy_many.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_echo_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_module_audit_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_settings_callback_auth.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_tracker_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedColumnError: column ucs.muted_until does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedColumnError: column ucs.muted_until does not exist"
+          ]
+        },
+        {
+          "test": "test_chests_v1_economy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_http_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_mixed_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_chests_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_chests_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_client_idempotency_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_lifecycle.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_lineage.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_presets_postgres.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_presets.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_price_balance.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_purchase_ledger.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_curated_cosmetic_looks.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_currency_exchange_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_current_game_docs.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_dark_archive_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_database_pool_singleflight.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_development_notice.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_echo_shards_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_ledger.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_shadow.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_v3_policy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_ensure_account_columns_recovers.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_family_wallet_http_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_family_wallet_schema_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"marriages\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"marriages\" does not exist"
+          ]
+        },
+        {
+          "test": "test_family_wallet_telegram_intent_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_family_wallet_transfer_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_gameplay_events.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_gates_dark_mora_nerf.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_global_sanctions_gate.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_global_skins_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_hub_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_achievement_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_duel_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_onboarding_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_skill_games_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_mafia_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"chat_settings\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"chat_settings\" does not exist"
+          ]
+        },
+        {
+          "test": "test_mafia_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_marriage_integrity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_marriage_membership_registry_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"marriages\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"marriages\" does not exist"
+          ]
+        },
+        {
+          "test": "test_message_tops_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_minesweeper_v2_client_recovery.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_minesweeper_v2_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"system_flags\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"system_flags\" does not exist"
+          ]
+        },
+        {
+          "test": "test_minesweeper_v2_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_miniapp_links.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_my_admin_chats_dev_bypass.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_new_achievements.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_passive_progression_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_pets_v1_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_pets_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist"
+          ]
+        },
+        {
+          "test": "test_pets_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_shorts_model_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_ui_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_preprod_bot_gate.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_preprod_environment.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_product_surface_parity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_current_projection_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"global_sanctions\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"global_sanctions\" does not exist"
+          ]
+        },
+        {
+          "test": "test_profile_release_experience.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_text_wrap.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_whatsnew_resilient.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_promocode_v3_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_push_delivery_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_questlog_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_quests_v1_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_quests_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist"
+          ]
+        },
+        {
+          "test": "test_quests_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rank_requests_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_bot_routes.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_navigation_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_public_routes.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_whatsnew.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_retention_v3.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_retirement_compensation_audit.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"pets\" does not exist"
+          ]
+        },
+        {
+          "test": "test_rhythm_v2_review_auth.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_transport_client.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_safe_logging.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_showcase_bundle.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_sky_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_stars_reconciliation_state_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_stars_zarniki_refund_review_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_static_delivery_asgi.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_streak_atomicity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_supporter_cosmetics_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_theme_purchase_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_theme_purchase_postgres.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_top_name_wrap.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_turtle_discounts.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_vip_v2_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_weekly_case_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_zarniki_exchange_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"users\" does not exist"
+          ]
+        },
+        {
+          "test": "test_zarniki_exchange_v1_rules.py",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "setup": "after_init_db_only",
+      "total": 114,
+      "passed": 101,
+      "failed": 13,
+      "tests": [
+        {
+          "test": "test_account_deletion_family_guard_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist"
+          ]
+        },
+        {
+          "test": "test_account_recovery_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_achievements_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_achievements_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_achievements_v1_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_admin_bind_repository_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_ai_daily_cap_vip.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_alliance_v3_policy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_auction_economy_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_battle_pass_cosmetic_entitlements.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_bot_payments_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_buy_lineup.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_buy_many.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_echo_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_module_audit_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_settings_callback_auth.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chat_tracker_pg.py",
+          "result": "FAIL",
+          "last_error": "AssertionError",
+          "diagnostic_tail": [
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"C:\\Users\\makss\\AppData\\Local\\Programs\\Python\\Python311\\Lib\\asyncio\\base_events.py\", line 654, in run_until_complete",
+            "    return future.result()",
+            "           ^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\tools\\test_chat_tracker_pg.py\", line 71, in run",
+            "    assert found[\"filtered_count\"] == 1 and found[\"items\"][0][\"chat_title\"] == \"Лунный штаб\"",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "AssertionError"
+          ]
+        },
+        {
+          "test": "test_chests_v1_economy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_http_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_mixed_pg.py",
+          "result": "FAIL",
+          "last_error": "RuntimeError: Chest delivery schema is not ready; canary is fail-closed.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\tools\\test_chests_v1_mixed_pg.py\", line 67, in run",
+            "    first = await chests_v1.purchase_key(",
+            "            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\chests_v1.py\", line 207, in purchase_key",
+            "    await repo.assert_delivery_ready(db)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\infrastructure\\repositories\\chests_v1.py\", line 301, in assert_delivery_ready",
+            "    raise RuntimeError(\"Chest delivery schema is not ready; canary is fail-closed.\")",
+            "RuntimeError: Chest delivery schema is not ready; canary is fail-closed."
+          ]
+        },
+        {
+          "test": "test_chests_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "RuntimeError: Chest delivery schema is not ready; canary is fail-closed.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\chests_v1.py\", line 54, in grant_quest_completion_key",
+            "    return await grant_quest_completion_key_in_transaction(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\chests_v1.py\", line 63, in grant_quest_completion_key_in_transaction",
+            "    await repo.assert_delivery_ready(db)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\infrastructure\\repositories\\chests_v1.py\", line 301, in assert_delivery_ready",
+            "    raise RuntimeError(\"Chest delivery schema is not ready; canary is fail-closed.\")",
+            "RuntimeError: Chest delivery schema is not ready; canary is fail-closed."
+          ]
+        },
+        {
+          "test": "test_chests_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_chests_v1_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_client_idempotency_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_lifecycle.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_lineage.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_presets_postgres.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_presets.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_price_balance.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_purchase_ledger.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_cosmetic_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_curated_cosmetic_looks.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_currency_exchange_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_current_game_docs.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_dark_archive_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_database_pool_singleflight.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_development_notice.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_echo_shards_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_ledger.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_shadow.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_economy_v3_policy.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_ensure_account_columns_recovers.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_family_wallet_http_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_family_wallet_schema_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedColumnError: column \"ended_at\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedColumnError: column \"ended_at\" does not exist"
+          ]
+        },
+        {
+          "test": "test_family_wallet_telegram_intent_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist"
+          ]
+        },
+        {
+          "test": "test_family_wallet_transfer_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.UndefinedTableError: relation \"marriage_members\" does not exist"
+          ]
+        },
+        {
+          "test": "test_gameplay_events.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_gates_dark_mora_nerf.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_global_sanctions_gate.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_global_skins_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_hub_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_achievement_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_duel_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_onboarding_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_legacy_skill_games_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_mafia_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 417, in record_metric",
+            "    await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 232, in _ensure_period",
+            "    selected = _balanced_sample(definitions, _count(period))",
+            "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 116, in _balanced_sample",
+            "    raise QuestConflict('Недостаточно доступных разных типов квестов.')",
+            "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов."
+          ]
+        },
+        {
+          "test": "test_mafia_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_marriage_integrity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_marriage_membership_registry_pg.py",
+          "result": "FAIL",
+          "last_error": "asyncpg.exceptions.InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 2004, in _do_execute",
+            "    stmt = await self._get_statement(",
+            "           ^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\.venv\\Lib\\site-packages\\asyncpg\\connection.py\", line 432, in _get_statement",
+            "    statement = await self._protocol.prepare(",
+            "                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"asyncpg\\\\protocol\\\\protocol.pyx\", line 165, in prepare",
+            "asyncpg.exceptions.InFailedSQLTransactionError: current transaction is aborted, commands ignored until end of transaction block"
+          ]
+        },
+        {
+          "test": "test_message_tops_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_minesweeper_v2_client_recovery.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_minesweeper_v2_pg.py",
+          "result": "FAIL",
+          "last_error": "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 417, in record_metric",
+            "    await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 232, in _ensure_period",
+            "    selected = _balanced_sample(definitions, _count(period))",
+            "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 116, in _balanced_sample",
+            "    raise QuestConflict('Недостаточно доступных разных типов квестов.')",
+            "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов."
+          ]
+        },
+        {
+          "test": "test_minesweeper_v2_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_miniapp_links.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_my_admin_chats_dev_bypass.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_new_achievements.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_passive_progression_retirement.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_pets_v1_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_pets_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 417, in record_metric",
+            "    await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 232, in _ensure_period",
+            "    selected = _balanced_sample(definitions, _count(period))",
+            "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 116, in _balanced_sample",
+            "    raise QuestConflict('Недостаточно доступных разных типов квестов.')",
+            "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов."
+          ]
+        },
+        {
+          "test": "test_pets_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_shorts_model_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_player_exchange_v1_ui_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_preprod_bot_gate.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_preprod_environment.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_product_surface_parity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_current_projection_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_release_experience.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_text_wrap.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_profile_whatsnew_resilient.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_promocode_v3_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_push_delivery_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_questlog_visual_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_quests_v1_bot.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_quests_v1_pg.py",
+          "result": "FAIL",
+          "last_error": "RuntimeError: Chest delivery schema is not ready; canary is fail-closed.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 389, in claim_reward",
+            "    key_receipt = await grant_quest_completion_key_in_transaction(",
+            "                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\chests_v1.py\", line 63, in grant_quest_completion_key_in_transaction",
+            "    await repo.assert_delivery_ready(db)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\infrastructure\\repositories\\chests_v1.py\", line 301, in assert_delivery_ready",
+            "    raise RuntimeError(\"Chest delivery schema is not ready; canary is fail-closed.\")",
+            "RuntimeError: Chest delivery schema is not ready; canary is fail-closed."
+          ]
+        },
+        {
+          "test": "test_quests_v1_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rank_requests_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_bot_routes.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_navigation_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_public_routes.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_release_whatsnew.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_retention_v3.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_retirement_compensation_audit.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_pg.py",
+          "result": "FAIL",
+          "last_error": "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов.",
+          "diagnostic_tail": [
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 417, in record_metric",
+            "    await _ensure_period(db, user_id=user_id, period=period, period_key=keys[period], sources=sources)",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 232, in _ensure_period",
+            "    selected = _balanced_sample(definitions, _count(period))",
+            "               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+            "  File \"F:\\GitsRepos\\IESA_ROOT\\predvestnik_v2\\services\\quests_v1.py\", line 116, in _balanced_sample",
+            "    raise QuestConflict('Недостаточно доступных разных типов квестов.')",
+            "services.quests_v1.QuestConflict: Недостаточно доступных разных типов квестов."
+          ]
+        },
+        {
+          "test": "test_rhythm_v2_review_auth.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_rules.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_rhythm_v2_transport_client.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_safe_logging.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_showcase_bundle.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_sky_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_stars_reconciliation_state_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_stars_zarniki_refund_review_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_static_delivery_asgi.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_streak_atomicity.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_supporter_cosmetics_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_theme_purchase_contract.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_theme_purchase_postgres.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_top_name_wrap.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_turtle_discounts.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_vip_v2_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_weekly_case_v1.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_zarniki_exchange_v1_pg.py",
+          "result": "PASS"
+        },
+        {
+          "test": "test_zarniki_exchange_v1_rules.py",
+          "result": "PASS"
+        }
+      ]
+    }
+  ],
+  "additional_checks": {
+    "test_player_exchange_recovery_ui.js": "PLAYER_EXCHANGE_RECOVERY_UI_OK",
+    "audit_economy_mutations.py": "guard OK; known legacy and exception writers remain",
+    "audit_review_20261014.py --postgres": "12 current-defect probes reproduced"
+  }
+}

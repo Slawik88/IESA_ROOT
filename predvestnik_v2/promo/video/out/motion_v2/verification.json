@@ -1,0 +1,11 @@
+{
+  "full_decode": "pass",
+  "duration": 18,
+  "resolution": "1080x1920",
+  "fps": 30,
+  "audio": "AAC; Russian synthetic narration and original beat/effects",
+  "voice_overlap": "none",
+  "retention": "not measured",
+  "bytes": 2697356,
+  "motion": "continuous generated animation; actual UI fixture state switch at 10.25 seconds"
+}

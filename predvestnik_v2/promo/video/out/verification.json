@@ -1,0 +1,10 @@
+{
+  "full_decode": "pass",
+  "duration_seconds": 19,
+  "resolution": "1080x1920",
+  "video_codec": "h264",
+  "audio_codec": "aac",
+  "file_bytes": 515026,
+  "encoded_contact_sheet": "encoded_contact_sheet.jpg",
+  "status": "rendered_demo"
+}

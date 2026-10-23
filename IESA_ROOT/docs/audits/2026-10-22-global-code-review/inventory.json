@@ -1,0 +1,77 @@
+{
+  "scope": "Django website only; counts include migrations/tests and bundled assets",
+  "files_by_extension": {
+    ".py": 295,
+    ".html": 93,
+    ".js": 18,
+    ".css": 27
+  },
+  "largest_files": [
+    [
+      3406,
+      "IESA_ROOT/static/css/pages.css"
+    ],
+    [
+      2259,
+      "IESA_ROOT/static/css/homepage.css"
+    ],
+    [
+      2079,
+      "IESA_ROOT/static/css/partner-portal.css"
+    ],
+    [
+      1952,
+      "IESA_ROOT/users/templates/users/profile.html"
+    ],
+    [
+      1691,
+      "IESA_ROOT/static/css/components.css"
+    ],
+    [
+      1577,
+      "IESA_ROOT/static/css/responsive.css"
+    ],
+    [
+      1289,
+      "IESA_ROOT/users/models.py"
+    ],
+    [
+      1235,
+      "IESA_ROOT/scripts/translate_po.py"
+    ],
+    [
+      1157,
+      "IESA_ROOT/templates/base.html"
+    ],
+    [
+      1113,
+      "IESA_ROOT/core/templates/core/index.html"
+    ],
+    [
+      1005,
+      "IESA_ROOT/users/admin.py"
+    ],
+    [
+      1000,
+      "IESA_ROOT/static/css/layout.css"
+    ],
+    [
+      920,
+      "IESA_ROOT/static/css/profile-page.css"
+    ],
+    [
+      907,
+      "IESA_ROOT/static/css/light-theme.css"
+    ],
+    [
+      899,
+      "IESA_ROOT/users/templates/users/partner_calendar.html"
+    ]
+  ],
+  "shadowed_templates": {
+    "blog/htmx/post_search_results.html": [
+      "IESA_ROOT/templates/blog/htmx/post_search_results.html",
+      "IESA_ROOT/blog/templates/blog/htmx/post_search_results.html"
+    ]
+  }
+}

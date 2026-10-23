@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.utils.translation import gettext_lazy as _
+from .antispam import is_disposable_email
 from .models import User
 from .validators import (
     validate_phone_number, 
@@ -23,7 +24,7 @@ class CustomUserCreationForm(UserCreationForm):
     """
     membership_consent = forms.BooleanField(
         required=True,
-        label=_("I agree to become a member of IESA Sport and accept the privacy policy"),
+        label=_("I agree to become a member of IESA Sport."),
         error_messages={
             'required': _("You must agree to become a member to register."),
         },
@@ -43,6 +44,8 @@ class CustomUserCreationForm(UserCreationForm):
         email = (self.cleaned_data.get('email') or '').strip().lower()
         if User.objects.filter(email__iexact=email).exists():
             raise forms.ValidationError(_('An account with this e-mail address already exists.'))
+        if is_disposable_email(email):
+            raise forms.ValidationError(_('Please use a permanent e-mail address, not a temporary mailbox.'))
         return email
 
     def save(self, commit=True):

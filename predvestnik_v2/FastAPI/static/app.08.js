@@ -379,7 +379,11 @@ function _renderDevTwins(d){
        </div>`).join('');
     return `<div class="card" style="margin-bottom:6px;padding:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;cursor:pointer" onclick="_devTwinToggle(${i})">
-        <span style="font-size:12.5px">${unameLink(p.user_a,p.username_a,false,null)} ↔ ${unameLink(p.user_b,p.username_b,false,null)}</span>
+        <span style="font-size:12.5px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0">
+          ${admFlatUser({user_id:p.user_a,username:p.username_a,avatar_url:p.avatar_a})}
+          <span style="color:var(--muted)">↔</span>
+          ${admFlatUser({user_id:p.user_b,username:p.username_b,avatar_url:p.avatar_b})}
+        </span>
         <span class="top-title" style="background:var(--bg2);padding:2px 8px;border-radius:8px;white-space:nowrap">${p.score} очк.</span>
       </div>
       <div id="dev-twin-det-${i}" style="display:none;margin-top:6px;border-top:1px solid var(--border2);padding-top:6px">${sigs}</div>
@@ -553,22 +557,32 @@ function loadDevPulse(){
       <div style="font-size:22px;font-weight:800;color:${warn&&n>0?'var(--red)':'var(--gold2)'};font-variant-numeric:tabular-nums">${n}</div>
       <div style="font-size:9px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:2px">${label}</div>
     </div>`;
-    const apl=(d.appeals||[]).map(a=>`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border2);font-size:11px">
-      <span style="flex:1;min-width:0">⏳ <b>#${a.id}</b> ${gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${a.user_id})">@${esc(a.user_tg_username||('ID'+a.user_id))}</span>`:'@'+esc(a.user_tg_username||('ID'+a.user_id))}
-        <span style="color:var(--muted)">· ${esc(String(a.created_at||'').slice(5,16))}</span></span>
-      ${gp('appeals_view')?`<button class="btn btn-sm btn-teal" style="padding:2px 8px;flex:none" onclick="openAppealThread(${a.id})">💬</button>`:''}
-    </div>`).join('')||'<div style="font-size:10px;color:var(--muted)">Новых апелляций нет 🎉</div>';
-    const icons={warn:'⚠️',restrict:'🔇',ban:'🚫'};
+    const apl=(d.appeals||[]).map(a=>admMiniUser(
+      {user_id:a.user_id,username:a.user_tg_username,avatar_url:a.user_avatar_url},
+      {size:28,
+       tail:admChip('#'+a.id)+admChip('⏳'),
+       sub:esc(String(a.created_at||'').slice(5,16)),
+       actions:gp('appeals_view')?`<button class="btn btn-sm btn-teal" style="padding:2px 8px" onclick="openAppealThread(${a.id})">💬</button>`:''}
+    )).join('')||'<div style="font-size:10px;color:var(--muted)">Новых апелляций нет 🎉</div>';
     const sanc=(d.sanctions||[]).map(s=>{
-      const nm=s.target_type==='user'?('@'+(s.target_name||('ID'+s.target_id))):('Чат '+s.target_id);
-      return `<div style="padding:5px 0;border-bottom:1px solid var(--border2);font-size:11px">
-        ${icons[s.sanction_type]||'❔'} ${s.target_type==='user'&&gp('dossier_view')?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${s.target_id})">${esc(nm)}</span>`:esc(nm)}
-        <span style="color:var(--muted)">· ${esc((s.reason||'—').slice(0,42))} · @${esc(s.issued_by_name||'—')} · ${esc(String(s.created_at||'').slice(5,16))}</span>
-      </div>`;
+      const isUser=s.target_type==='user';
+      const lbl={warn:['⚠️','варн','adm-c-gold'],restrict:['🔇','ограничение','adm-c-gold'],ban:['🚫','бан','adm-c-red']}[s.sanction_type]||['❔','',''];
+      return admMiniUser(
+        {user_id:s.target_id,username:isUser?s.target_name:('Чат '+s.target_id)},
+        {size:28,
+         icon:isUser?null:'💬',
+         avatar:isUser?s.target_avatar_url:null,
+         center:false,
+         tail:admChip(lbl[0]+' '+lbl[1],lbl[2]),
+         sub:`${esc((s.reason||'—').slice(0,42))} · ${admFlatUser({user_id:s.issued_by,username:s.issued_by_name,avatar_url:s.issued_by_avatar_url},{size:16})} · ${esc(String(s.created_at||'').slice(5,16))}`}
+      );
     }).join('')||'<div style="font-size:10px;color:var(--muted)">Санкций ещё не было</div>';
-    const adm=(d.admin_actions||[]).map(g=>`<div style="padding:4px 0;border-bottom:1px solid var(--border2);font-size:10px;color:var(--muted)">
-      ${esc(String(g.created_at||'').slice(5,16))} · <b style="color:var(--text,inherit)">@${esc(g.admin_name||'—')}</b> ${esc(g.action||'')}: ${esc(g.detail||'')} ${g.amount>0?'+':''}${g.amount||''}${g.target_name?' → @'+esc(g.target_name):''}
-    </div>`).join('')||'<div style="font-size:10px;color:var(--muted)">Действий не было</div>';
+    const adm=(d.admin_actions||[]).map(g=>admMiniUser(
+      {user_id:g.admin_id,username:g.admin_name,avatar_url:g.admin_avatar_url},
+      {size:28,center:false,
+       tail:`<span style="font-weight:400;color:var(--muted)">${esc(String(g.created_at||'').slice(5,16))}</span>`,
+       sub:`${esc(g.action||'')}: ${esc(g.detail||'')} ${g.amount>0?'+':''}${g.amount||''}${g.target_name?` → ${admFlatUser({user_id:g.target_id,username:g.target_name,avatar_url:g.target_avatar_url},{size:16})}`:''}`}
+    )).join('')||'<div style="font-size:10px;color:var(--muted)">Действий не было</div>';
     box.innerHTML=`
       <div style="display:flex;gap:6px;margin-bottom:8px">
         ${tile(c.appeals_pending||0,'⏳ апелляции',true,"goTo('global','appeals')")}
@@ -607,9 +621,11 @@ function _devQSearch(v){
   v=(v||'').trim();
   if(v.length<2){ box.innerHTML=''; return; }
   api('/admin/dev/user-search?q='+encodeURIComponent(v)).then(d=>{
-    box.innerHTML=(d.results||[]).map(u=>`<div class="dev-cat-item" onclick="el('dev-qsearch').value='';el('dev-qsearch-res').innerHTML='';openPlayerCenter(${u.user_tg_id})">
-        <span>${u.has_sanction?'🚫 ':''}${u.is_vip?'👑 ':''}@${esc(u.user_tg_username||('ID'+u.user_tg_id))}${u.nickname?` <span style="color:var(--muted)">· ${esc(u.nickname)}</span>`:''}</span>
-        <span style="color:var(--muted);font-size:9px;font-family:monospace">${u.user_tg_id} · ${esc(u.global_rank_name||'')}</span>
+    box.innerHTML=(d.results||[]).map(u=>`<div class="dev-cat-item" style="align-items:center" onclick="el('dev-qsearch').value='';el('dev-qsearch-res').innerHTML='';openPlayerCenter(${u.user_tg_id})">
+        ${admMiniUser(u,{center:false,size:30,
+          tail:`${admStatusChips(u)}<span style="color:var(--muted);font-size:9px;font-family:monospace">${u.user_tg_id} ${esc(u.global_rank_name||'')}</span>`,
+          sub:u.nickname?`«${esc(u.nickname)}»`:'',
+        })}
       </div>`).join('')||'<div style="font-size:11px;color:var(--muted);padding:6px">Никого не нашли.</div>';
   }).catch(()=>{ box.innerHTML=''; });
 }
@@ -627,21 +643,21 @@ function loadDevLog(more) {
     _devLogOffset += log.length;
     box.insertAdjacentHTML('beforeend', log.map(e=>{
       const when = e.created_at ? fmtUTC(e.created_at) : '';
-      const admin = esc(e.admin_name || ('ID'+e.admin_id));
+      const admin = admFlatUser({user_id:e.admin_id,username:e.admin_name,avatar_url:e.admin_avatar_url},{size:18,center:false});
       const isSys = !e.target_id || e.target_id===0;
       if(isSys){
         // Системное действие (season_upsert/delete, bp_freeze, ...)
         return `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
-          <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> · <span style="color:var(--muted)">${esc(e.action||'')}</span></div>
+          <div><span style="color:var(--muted)">${when}</span> · ${admin} · <span style="color:var(--muted)">${esc(e.action||'')}</span></div>
           <div style="color:var(--bright)">${esc(e.detail||'—')}</div>
         </div>`;
       }
-      const target = esc(e.target_name || ('ID'+e.target_id));
+      const target = admFlatUser({user_id:e.target_id,username:e.target_name,avatar_url:e.target_avatar_url},{size:18});
       const amt = e.amount || 0;
       const sign = amt>0?'+':'';
       const reason = (e.reason||'').trim();
       return `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
-        <div><span style="color:var(--muted)">${when}</span> · <b>${admin}</b> → ${target}</div>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap"><span style="color:var(--muted)">${when}</span><span style="color:var(--muted)">·</span>${admin}<span style="color:var(--muted)">→</span>${target}</div>
         <div style="color:var(--gold)">${esc(e.detail||'')}: <b>${sign}${fmt(amt)}</b> · было ${fmt(e.before_val)} → стало ${fmt(e.after_val)}</div>
         ${reason?`<div style="color:var(--muted)">📝 ${esc(reason)}</div>`:'<div style="color:var(--red);font-size:10px">⚠ без причины</div>'}
       </div>`;
@@ -817,9 +833,11 @@ function _devMembersListHtml(ms){
   const flagged=sorted.filter(_devMemberFlagged).length;
   return `<div style="font-size:10px;color:var(--muted);margin:8px 0 4px">👥 Участники: ${ms.length} · с отметками модерации: ${flagged} · тап — Центр игрока</div>
     <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border2);border-radius:10px;padding:2px 8px">
-    ${sorted.map(u=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--dim);font-size:11px;cursor:pointer" onclick="openPlayerCenter(${u.user_tg_id})">
-      <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@${esc(u.username)}${u.rank_name?` <span style="color:var(--muted)">· ${esc(u.rank_name)}</span>`:''}</span>
-      <span style="white-space:nowrap">${_devMemberBadges(u)||'<span style="color:var(--muted)">—</span>'}</span>
+    ${sorted.map(u=>`<div style="cursor:pointer" onclick="openPlayerCenter(${u.user_tg_id})">
+      ${admMiniUser(u,{center:false,size:30,
+        tail:`${_devMemberBadges(u)||''}<span style="color:var(--muted);font-size:9.5px;font-weight:400">💬 ${fmt(u.msgs||0)}</span>`,
+        sub:`ID ${u.user_tg_id} · ур.${u.user_level||1}${u.rank_name?` · ${esc(u.rank_name)}`:''}${u.nickname?` · «${esc(u.nickname)}»`:''}`,
+      })}
     </div>`).join('')}
     </div>`;
 }
@@ -874,7 +892,20 @@ function devLookupUser() {
     _devUserId = d.user_tg_id;
     el('dev-user-result').innerHTML=`
       <div class="divider"></div>
-      <div class="irow"><span class="ik">@${esc(d.user_tg_username||'—')}</span><span class="iv">ID: ${d.user_tg_id}</span></div>
+      ${admPlayerCard(d, {
+        center: false,
+        size: 56,
+        meta: [`ID ${d.user_tg_id}`, d.nickname?`«${esc(d.nickname)}»`:'', d.global_rank_name].filter(Boolean).join(' · '),
+        stats: [
+          d.first_seen?`📅 в базе с ${fmtUTC(d.first_seen)}`:'',
+          d.last_seen?`🕓 ${admRel(d.last_seen.at)}`:'',
+        ].filter(Boolean).join(' · '),
+        extra: [
+          d.vip&&d.vip.active?admChip('👑 VIP '+esc(d.vip.tier),'adm-c-gold'):'',
+          d.vip&&!d.vip.active?admChip('👑 VIP истёк'):'',
+          d.battle_pass?admChip('🎖 БП ур. '+d.battle_pass.level):'',
+        ].filter(Boolean).join(''),
+      })}
       <div class="irow"><span class="ik">Глоб. ранг</span><span class="iv">${d.global_rank_name}</span></div>
       <div class="irow"><span class="ik">Балансы${gp('economy_balance')?' <span style="color:var(--muted);font-size:9px">(клик = ±)</span>':''}</span><span class="iv" style="font-size:11px">${[
         ['mora','🪙 Мора','🪙'+fmtF(d.mora)],
@@ -1265,7 +1296,7 @@ function devLoadChatMods(chatId) {
 }
 function _moduleAuditHtml(rows){
   if(!rows.length)return '<div class="module-audit-empty">Изменений ещё не было.</div>';
-  return '<details class="module-audit"><summary>Последние изменения · '+rows.length+'</summary>'+rows.map(r=>'<div><span>'+(r.after_enabled?'↗':'↘')+'</span><p><b>'+esc((r.module||{}).name||r.module_key)+'</b><small>@'+esc(r.actor_name||String(r.actor_id))+' · '+fmtUTC(r.created_at)+(r.reason?' · '+esc(r.reason):'')+'</small></p><strong>'+(r.after_enabled?'включён':'выключен')+'</strong></div>').join('')+'</details>';
+  return '<details class="module-audit"><summary>Последние изменения · '+rows.length+'</summary>'+rows.map(r=>'<div><span>'+(r.after_enabled?'↗':'↘')+'</span><p><b>'+esc((r.module||{}).name||r.module_key)+'</b><small>'+admFlatUser({user_id:r.actor_id,username:r.actor_name,avatar_url:r.actor_avatar_url},{size:16,center:false})+' · '+fmtUTC(r.created_at)+(r.reason?' · '+esc(r.reason):'')+'</small></p><strong>'+(r.after_enabled?'включён':'выключен')+'</strong></div>').join('')+'</details>';
 }
 function loadDevGlobalModules(){
   const box=el('dev-global-modules');if(!box)return;box.innerHTML='<div class="loader">Загрузка...</div>';

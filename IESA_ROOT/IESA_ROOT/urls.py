@@ -56,6 +56,9 @@ urlpatterns = [
     # Users app (Авторизация, Профиль, Телеграм-бот)
     path('auth/', include('users.urls')),
 
+    # Вход через соцсети (только OAuth-поток allauth, без его страниц входа/регистрации)
+    path('accounts/', include('users.allauth_urls')),
+
     # Blog app (Социальная сеть, События)
     path('blog/', include('blog.urls')),
 

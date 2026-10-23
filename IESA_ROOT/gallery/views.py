@@ -9,3 +9,6 @@ class GalleryView(ListView):
     template_name = 'gallery/gallery.html'
     context_object_name = 'photos'
     paginate_by = 20 # Пагинация для больших галерей
+
+    def get_queryset(self):
+        return super().get_queryset().order_by('-uploaded_at', '-pk')

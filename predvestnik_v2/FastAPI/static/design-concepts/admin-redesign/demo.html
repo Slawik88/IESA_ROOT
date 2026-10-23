@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predvestnik — админка 2.0 (прототип)</title>
+<link rel="stylesheet" href="../../app.css">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   Прототип новой админки. Токены — из боевого app.css.
+   Всё новое — под префиксом .ax- (admin experience), чтобы не течь в app.
+   ══════════════════════════════════════════════════════════════════════════ */
+body.ax-demo { padding: 0; min-height: 100vh; overflow-x: hidden; }
+
+.ax-wrap {
+  display: grid; grid-template-columns: 390px 360px; gap: 30px;
+  justify-content: center; align-items: start; padding: 26px 20px 60px;
+}
+@media (max-width: 860px) { .ax-wrap { grid-template-columns: 1fr; justify-items: center; gap: 18px; } }
+
+.ax-toolbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ax-toolbar .ax-seg { margin: 0; }
+.ax-toolbar-note { margin-left: auto; font-size: 10.5px; color: var(--muted); }
+
+/* ── Корпус телефона ───────────────────────────────────────────────────── */
+.ax-phone {
+  width: 390px; max-width: 100%; height: 844px;
+  padding: 9px; border-radius: 46px; background: #05060a;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.09), 0 30px 70px rgba(0,0,0,.65);
+  position: relative;
+}
+.ax-screen {
+  position: relative; width: 100%; height: 100%; border-radius: 38px;
+  overflow: hidden; background: var(--bg0); display: flex; flex-direction: column;
+}
+.ax-statusbar {
+  flex: none; height: 26px; display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 22px 0; font-size: 10px; color: var(--bright); font-weight: 600; letter-spacing: .3px;
+}
+.ax-statusbar i { font-style: normal; opacity: .8; }
+
+/* ── Шапка приложения (упрощённая, для контекста) ─────────────────────── */
+.ax-apphdr {
+  flex: none; display: flex; align-items: center; gap: 8px; padding: 4px 12px 6px;
+}
+.ax-apphdr .ax-hava { width: 30px; height: 30px; border-radius: 10px; overflow: hidden; flex: none; }
+.ax-apphdr b { display: block; font-size: 11.5px; color: var(--bright); line-height: 1.15; }
+.ax-apphdr small { font-size: 9px; color: var(--muted); }
+.ax-apphdr .ax-wallet { margin-left: auto; font-size: 10px; color: var(--gold2); font-weight: 700;
+  background: var(--gold-dim); border: 1px solid rgba(232,181,77,.22); padding: 3px 8px; border-radius: 99px; }
+
+/* ── Заголовок админки ────────────────────────────────────────────────── */
+.ax-topbar { flex: none; display: flex; align-items: center; gap: 6px; padding: 2px 10px 8px; }
+.ax-topbar .ax-ttl { flex: 1; min-width: 0; }
+.ax-topbar .ax-ttl b { display: block; font-size: 17px; color: var(--bright); letter-spacing: -.2px; line-height: 1.15; }
+.ax-topbar .ax-ttl small { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--muted); }
+.ax-topbar .ax-ttl small b { display: inline; font-size: 10px; color: var(--gold2); }
+.ax-ibtn {
+  width: 34px; height: 34px; flex: none; border-radius: 11px; border: 1px solid var(--border2);
+  background: var(--bg2); color: var(--text); font-size: 15px; display: grid; place-items: center; cursor: pointer;
+}
+.ax-ibtn:active { transform: scale(.93); }
+
+/* ── Навигация разделов ───────────────────────────────────────────────── */
+.ax-nav { flex: none; display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px; }
+.ax-nav button {
+  flex: 1 1 30%; min-width: 0; justify-content: center; display: inline-flex; align-items: center; gap: 4px;
+  height: 33px; padding: 0 5px;
+  border-radius: 10px; border: 1px solid var(--border2); background: var(--bg1);
+  color: var(--muted); font: 600 9.5px/1 inherit; cursor: pointer; white-space: nowrap;
+}
+.ax-nav button.on { background: var(--gold); border-color: var(--gold); color: #251b08; }
+.ax-nav button .ax-badge {
+  min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px; background: rgba(239,99,99,.9);
+  color: #fff; font-size: 9px; font-weight: 800; display: inline-grid; place-items: center;
+}
+.ax-nav button.on .ax-badge { background: #251b08; color: var(--gold2); }
+
+/* ── Контент ──────────────────────────────────────────────────────────── */
+.ax-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 2px 12px 18px; scroll-behavior: smooth; }
+.ax-scroll::-webkit-scrollbar { width: 0; }
+
+.ax-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: 16px; padding: 12px; margin-bottom: 9px; }
+.ax-card.tight { padding: 8px 12px; }
+.ax-card.gold { border-color: rgba(232,181,77,.3); background: linear-gradient(180deg, rgba(232,181,77,.07), var(--bg2)); }
+
+.ax-sec { display: flex; align-items: baseline; gap: 6px; margin: 14px 2px 7px; }
+.ax-sec:first-child { margin-top: 4px; }
+.ax-sec b { font-size: 12px; color: var(--bright); }
+.ax-sec small { font-size: 9.5px; color: var(--muted); }
+.ax-sec .ax-link { margin-left: auto; font-size: 10px; color: var(--gold2); background: none; border: 0; cursor: pointer; font-family: inherit; }
+
+/* ── Статус чата ──────────────────────────────────────────────────────── */
+.ax-hero { display: flex; align-items: center; gap: 10px; }
+.ax-hero .ax-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(86,196,106,.15); flex: none; }
+.ax-hero.warn .ax-dot { background: var(--gold); box-shadow: 0 0 0 4px rgba(232,181,77,.15); }
+.ax-hero b { display: block; font-size: 13px; color: var(--bright); }
+.ax-hero small { font-size: 10px; color: var(--muted); }
+.ax-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+.ax-kpi { background: var(--bg1); border: 1px solid var(--border2); border-radius: 11px; padding: 7px 6px; text-align: center; }
+.ax-kpi b { display: block; font-size: 15px; color: var(--bright); line-height: 1.1; }
+.ax-kpi span { font-size: 8.5px; color: var(--muted); display: block; margin-top: 2px; }
+.ax-kpi.hot b { color: var(--gold2); }
+
+/* ── «Требует внимания» ───────────────────────────────────────────────── */
+.ax-attn { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: none; border: 0;
+  border-bottom: 1px solid var(--border2); padding: 8px 0; cursor: pointer; color: inherit; font-family: inherit; }
+.ax-attn:last-child { border-bottom: 0; padding-bottom: 2px; }
+.ax-attn:first-of-type { padding-top: 2px; }
+.ax-attn .ax-ico { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font-size: 14px; flex: none; }
+.ax-attn .ax-ico.red { background: rgba(239,99,99,.12); border: 1px solid rgba(239,99,99,.25); }
+.ax-attn .ax-ico.gold { background: var(--gold-dim); border: 1px solid rgba(232,181,77,.25); }
+.ax-attn .ax-txt { flex: 1; min-width: 0; }
+.ax-attn .ax-txt b { display: block; font-size: 11px; color: var(--bright); }
+.ax-attn .ax-txt small { display: block; font-size: 9.5px; color: var(--muted); margin-top: 1px; }
+.ax-attn .ax-arr { color: var(--muted); font-size: 15px; flex: none; }
+
+/* ── Быстрые действия ─────────────────────────────────────────────────── */
+.ax-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.ax-quick button {
+  display: grid; place-items: center; gap: 3px; padding: 9px 3px 8px; border-radius: 12px;
+  border: 1px solid var(--border2); background: var(--bg1); color: var(--text);
+  font: 600 9px/1.15 inherit; cursor: pointer;
+}
+.ax-quick button span { font-size: 17px; line-height: 1; }
+.ax-quick button:active { transform: scale(.95); }
+
+/* ── Карточка человека ────────────────────────────────────────────────── */
+.ax-person { display: flex; align-items: center; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--border2); cursor: pointer; }
+.ax-person:last-child { border-bottom: 0; }
+.ax-pava { position: relative; flex: none; }
+.ax-pava .ax-av { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; display: block; }
+.ax-pava .ax-on { position: absolute; right: 1px; bottom: 1px; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--green); border: 2px solid var(--bg2); }
+.ax-pmain { flex: 1; min-width: 0; }
+.ax-pname { font-size: 12px; font-weight: 700; color: var(--bright); display: flex; align-items: center; gap: 4px; }
+.ax-pname .ax-vip { color: var(--gold2); font-size: 10px; }
+.ax-psub { font-size: 9.5px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ax-pchips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.ax-more { flex: none; width: 30px; height: 30px; border-radius: 9px; border: 1px solid var(--border2);
+  background: var(--bg1); color: var(--muted); font-size: 16px; line-height: 1; cursor: pointer; }
+.ax-more:active { transform: scale(.92); }
+
+.ax-chip { display: inline-flex; align-items: center; gap: 2px; padding: 1px 6px; border-radius: 99px;
+  border: 1px solid var(--border2); background: var(--dim); font-size: 8.5px; color: var(--muted); white-space: nowrap; }
+.ax-chip.gold { color: var(--gold2); border-color: rgba(220,180,90,.28); background: rgba(140,110,40,.12); }
+.ax-chip.red { color: #ef8f8f; border-color: rgba(220,110,110,.28); background: rgba(120,50,55,.12); }
+.ax-chip.blue { color: #8fb8e8; border-color: rgba(110,150,220,.28); background: rgba(50,80,140,.12); }
+.ax-chip.green { color: #86d494; border-color: rgba(90,190,110,.28); background: rgba(50,120,60,.12); }
+
+/* ── Фильтры ──────────────────────────────────────────────────────────── */
+.ax-filters { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0 7px; }
+.ax-filters button { flex: none; height: 27px; padding: 0 9px; border-radius: 99px; border: 1px solid var(--border2);
+  background: var(--bg1); color: var(--muted); font: 600 9.5px/1 inherit; cursor: pointer; }
+.ax-filters button.on { background: var(--gold-dim); border-color: rgba(232,181,77,.35); color: var(--gold2); }
+.ax-search {
+  display: flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px; border-radius: 11px;
+  border: 1px solid var(--border2); background: var(--bg1); color: var(--muted); font-size: 11px; cursor: text;
+}
+.ax-search span { font-size: 13px; }
+.ax-search i { font-style: normal; margin-left: auto; font-size: 8.5px; border: 1px solid var(--border2);
+  border-radius: 4px; padding: 1px 4px; color: var(--dim); }
+
+/* ── Настройки ────────────────────────────────────────────────────────── */
+.ax-set { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border2); }
+.ax-set:last-child { border-bottom: 0; }
+.ax-set .ax-st { flex: 1; min-width: 0; }
+.ax-set .ax-st b { display: block; font-size: 11px; color: var(--bright); font-weight: 600; }
+.ax-set .ax-st small { display: block; font-size: 9px; color: var(--muted); margin-top: 1px; line-height: 1.3; }
+.ax-switch { width: 40px; height: 23px; border-radius: 99px; border: 1px solid var(--border2); background: var(--bg3);
+  position: relative; flex: none; cursor: pointer; padding: 0; }
+.ax-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%;
+  background: var(--muted); transition: .16s; }
+.ax-switch.on { background: var(--gold); border-color: var(--gold); }
+.ax-switch.on::after { left: 19px; background: #251b08; }
+.ax-val { flex: none; font-size: 9.5px; color: var(--gold2); background: var(--gold-dim); border: 1px solid rgba(232,181,77,.22);
+  border-radius: 8px; padding: 4px 7px; cursor: pointer; font-family: inherit; }
+
+/* ── Журнал ───────────────────────────────────────────────────────────── */
+.ax-log { display: flex; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border2); }
+.ax-log:last-child { border-bottom: 0; }
+.ax-log .ax-ico { width: 27px; height: 27px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; flex: none; }
+.ax-log .ax-ico.red { background: rgba(239,99,99,.12); }
+.ax-log .ax-ico.gold { background: var(--gold-dim); }
+.ax-log .ax-ico.blue { background: rgba(94,155,240,.12); }
+.ax-log .ax-txt { flex: 1; min-width: 0; font-size: 10px; color: var(--text); line-height: 1.4; }
+.ax-log .ax-txt b { color: var(--bright); font-weight: 700; }
+.ax-log .ax-txt small { display: block; color: var(--muted); font-size: 9px; margin-top: 1px; }
+.ax-log time { flex: none; font-size: 8.5px; color: var(--muted); white-space: nowrap; padding-top: 1px; }
+
+/* ── Карточки чатов (сеть) ────────────────────────────────────────────── */
+.ax-chat { display: flex; align-items: center; gap: 9px; padding: 9px 0; border-bottom: 1px solid var(--border2); cursor: pointer; }
+.ax-chat:last-child { border-bottom: 0; }
+.ax-chat .ax-cava { width: 38px; height: 38px; border-radius: 11px; background: var(--bg3); display: grid; place-items: center; font-size: 17px; flex: none; }
+.ax-chat .ax-txt { flex: 1; min-width: 0; }
+.ax-chat .ax-txt b { display: block; font-size: 11.5px; color: var(--bright); }
+.ax-chat .ax-txt small { font-size: 9.5px; color: var(--muted); }
+.ax-chat .ax-arr { color: var(--muted); font-size: 15px; }
+
+/* ── Консоль: плитки инструментов ─────────────────────────────────────── */
+.ax-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ax-tool { display: grid; gap: 2px; text-align: left; padding: 10px; border-radius: 12px; border: 1px solid var(--border2);
+  background: var(--bg1); color: var(--text); font-family: inherit; cursor: pointer; }
+.ax-tool b { font-size: 11px; color: var(--bright); }
+.ax-tool small { font-size: 8.5px; color: var(--muted); line-height: 1.3; }
+.ax-tool .ax-ico { font-size: 15px; }
+
+/* ── Нижняя навигация приложения ──────────────────────────────────────── */
+.ax-tabbar { flex: none; display: flex; border-top: 1px solid var(--border2); background: rgba(14,16,25,.96); padding: 4px 4px 7px; }
+.ax-tabbar div { flex: 1; display: grid; place-items: center; gap: 2px; font-size: 8px; color: var(--muted); padding: 3px 0; }
+.ax-tabbar div span { font-size: 15px; opacity: .75; }
+.ax-tabbar div.on { color: var(--gold2); }
+.ax-tabbar div.on span { opacity: 1; }
+
+/* ── Шторки ───────────────────────────────────────────────────────────── */
+.ax-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.62); backdrop-filter: blur(3px);
+  z-index: 40; opacity: 0; pointer-events: none; transition: .18s; }
+.ax-backdrop.on { opacity: 1; pointer-events: auto; }
+.ax-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 41; background: var(--bg1);
+  border-radius: 24px 24px 0 0; border-top: 1px solid var(--border2);
+  padding: 8px 14px calc(16px + var(--safe-b)); transform: translateY(102%); transition: transform .24s cubic-bezier(.2,.8,.2,1);
+  max-height: 88%; overflow-y: auto;
+}
+.ax-sheet.on { transform: translateY(0); }
+.ax-sheet .ax-grab { width: 38px; height: 4px; border-radius: 99px; background: var(--dim); margin: 2px auto 10px; }
+.ax-sheet-h { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.ax-sheet-h .ax-av { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex: none; }
+.ax-sheet-h b { display: block; font-size: 14px; color: var(--bright); }
+.ax-sheet-h small { display: block; font-size: 9.5px; color: var(--muted); }
+.ax-sheet-title { font-size: 15px; color: var(--bright); font-weight: 700; margin: 2px 0 10px; }
+.ax-actgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.ax-actgrid button { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 7px 9px; border-radius: 10px;
+  border: 1px solid var(--border2); background: var(--bg2); color: var(--text); font: 600 10.5px/1.2 inherit; cursor: pointer; text-align: left; }
+.ax-actgrid button span { font-size: 14px; }
+.ax-actgrid button.red { color: #ef8f8f; border-color: rgba(239,99,99,.25); background: rgba(120,50,55,.1); }
+.ax-field { font-size: 9.5px; color: var(--muted); margin: 10px 2px 5px; text-transform: uppercase; letter-spacing: .4px; }
+.ax-seg { display: flex; gap: 4px; flex-wrap: wrap; }
+.ax-seg button { flex: 1 0 auto; min-height: 34px; padding: 0 9px; border-radius: 9px; border: 1px solid var(--border2);
+  background: var(--bg1); color: var(--text); font: 600 10px/1 inherit; cursor: pointer; }
+.ax-seg button.on { background: var(--gold-dim); border-color: rgba(232,181,77,.4); color: var(--gold2); }
+.ax-primary { width: 100%; min-height: 44px; margin-top: 12px; border-radius: 12px; border: 1px solid var(--gold);
+  background: var(--gold); color: #251b08; font: 800 12px/1 inherit; cursor: pointer; }
+.ax-primary.red { background: var(--red); border-color: var(--red); color: #2a0b0b; }
+.ax-ghost { width: 100%; min-height: 40px; margin-top: 6px; border-radius: 12px; border: 1px solid var(--border2);
+  background: transparent; color: var(--muted); font: 600 10.5px/1 inherit; cursor: pointer; }
+.ax-danger-note { font-size: 9px; color: var(--muted); text-align: center; margin-top: 8px; }
+
+/* ── Поиск ────────────────────────────────────────────────────────────── */
+.ax-searchlay { position: absolute; inset: 0; z-index: 45; background: var(--bg0); display: none; flex-direction: column; }
+.ax-searchlay.on { display: flex; }
+.ax-searchlay .ax-sbar { display: flex; align-items: center; gap: 7px; padding: 14px 12px 8px; }
+.ax-searchlay input { flex: 1; height: 38px; border-radius: 11px; border: 1px solid var(--border2); background: var(--bg1);
+  color: var(--bright); padding: 0 11px; font: 600 12px/1 inherit; outline: none; }
+.ax-searchlay input::placeholder { color: var(--muted); font-weight: 400; }
+.ax-searchlay .ax-cancel { background: none; border: 0; color: var(--gold2); font: 600 11px/1 inherit; cursor: pointer; padding: 6px; }
+.ax-searchlay .ax-res { flex: 1; overflow-y: auto; padding: 2px 12px 20px; }
+
+/* ── Тост ─────────────────────────────────────────────────────────────── */
+.ax-toast { position: absolute; left: 50%; bottom: 76px; transform: translate(-50%, 12px); z-index: 60;
+  background: rgba(28,32,51,.97); border: 1px solid var(--border); color: var(--bright);
+  font-size: 10.5px; padding: 8px 14px; border-radius: 99px; opacity: 0; pointer-events: none;
+  transition: .2s; max-width: 86%; text-align: center; }
+.ax-toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ── Панель пояснений ─────────────────────────────────────────────────── */
+.ax-notes { font-size: 11px; color: var(--text); }
+.ax-notes h1 { font-size: 18px; color: var(--bright); margin: 0 0 2px; letter-spacing: -.3px; }
+.ax-notes .ax-sub { font-size: 10.5px; color: var(--muted); margin-bottom: 14px; line-height: 1.45; }
+.ax-notes h2 { font-size: 9.5px; text-transform: uppercase; letter-spacing: .7px; color: var(--gold2); margin: 16px 0 6px; }
+.ax-notes ol, .ax-notes ul { margin: 0; padding-left: 16px; }
+.ax-notes li { margin: 0 0 6px; line-height: 1.45; }
+.ax-notes li b { color: var(--bright); }
+.ax-note { border-left: 2px solid rgba(232,181,77,.4); padding: 6px 0 6px 9px; color: var(--muted); font-size: 10px; line-height: 1.45; margin-top: 10px; }
+.ax-legend { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.ax-key { font-size: 9px; border: 1px solid var(--border2); background: var(--bg2); border-radius: 6px; padding: 2px 6px; color: var(--muted); }
+</style>
+</head>
+<body class="ax-demo">
+
+<div class="ax-wrap">
+
+  <div class="ax-toolbar">
+    <div class="ax-seg" id="modes">
+      <button data-mode="chat" class="on" onclick="setMode('chat')">Админка чата</button>
+      <button data-mode="net" onclick="setMode('net')">Вся сеть</button>
+      <button data-mode="dev" onclick="setMode('dev')">Консоль</button>
+    </div>
+    <span class="ax-toolbar-note">Прототип · кликайте по людям, «⋯» и поиску</span>
+  </div>
+
+  <!-- ═══ Телефон ═══ -->
+  <div class="ax-phone">
+    <div class="ax-screen" id="app">
+
+      <div class="ax-statusbar"><span>9:41</span><i>●●● ▮</i></div>
+
+      <div class="ax-apphdr">
+        <div class="ax-hava" id="meAva"></div>
+        <div><b>Максим</b><small>ID 990000001 · ✦ VIP</small></div>
+        <div class="ax-wallet">✨ 12 480</div>
+      </div>
+
+      <div class="ax-topbar">
+        <div class="ax-ttl">
+          <b id="pageTitle">Админка</b>
+          <small id="pageSub"></small>
+        </div>
+        <button class="ax-ibtn" title="Найти человека" onclick="openSearch()">🔍</button>
+        <button class="ax-ibtn" title="Ещё" onclick="toast('Меню чата: настройки, экспорт, выход')">⋯</button>
+      </div>
+
+      <div class="ax-nav" id="nav"></div>
+      <div class="ax-scroll" id="screen"></div>
+
+      <div class="ax-tabbar">
+        <div><span>🏠</span>Главная</div>
+        <div><span>🎮</span>Игры</div>
+        <div class="on"><span>🛡</span>Админка</div>
+        <div><span>👤</span>Профиль</div>
+        <div><span>⋯</span>Ещё</div>
+      </div>
+
+      <div class="ax-backdrop" id="backdrop" onclick="closeSheet()"></div>
+      <div class="ax-sheet" id="sheet"></div>
+
+      <div class="ax-searchlay" id="searchLayer">
+        <div class="ax-sbar">
+          <input id="searchInput" placeholder="Ник, @username или ID" oninput="renderSearch()">
+          <button class="ax-cancel" onclick="closeSearch()">Отмена</button>
+        </div>
+        <div class="ax-res" id="searchRes"></div>
+      </div>
+
+      <div class="ax-toast" id="toast"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Пояснения ═══ -->
+  <aside class="ax-notes">
+    <h1>Админка 2.0</h1>
+    <div class="ax-sub">Одна логика на все три поверхности: чат, сеть, консоль. Сначала — «что происходит», потом — «что сделать».</div>
+
+    <h2>Что изменилось</h2>
+    <ol>
+      <li><b>Обзор вместо дашборда-простыни.</b> Статус одной фразой, три числа, список «требует внимания» и быстрые действия.</li>
+      <li><b>«Люди» — отдельный раздел.</b> Поиск, фильтры и карточки с фото. Чёрный список стал фильтром, а не отдельной вкладкой.</li>
+      <li><b>Одно меню действий.</b> Вместо 3–5 кнопок в строке — «⋯» и понятный список: замутить, предупреждение, бан, ЧС, роль.</li>
+      <li><b>Опасное — с подтверждением.</b> Срок и причина выбираются в шторке, кнопка называет последствие.</li>
+      <li><b>Настройки по-человечески.</b> Группы «Что включено / Правила / Доступ», у каждой строки объяснение и текущее значение.</li>
+      <li><b>Журнал фразами.</b> «Маша замутила blackuser на 2 ч — спам» вместо кода операции.</li>
+      <li><b>Поиск из любого места.</b> 🔍 в шапке ищет человека по нику, @username или ID и сразу открывает карточку.</li>
+      <li><b>Сеть — карточки чатов.</b> Видно участников, санкции и то, где нужен ответ, без захода в каждый чат.</li>
+      <li><b>Консоль по задачам.</b> «Найти игрока», «Экономика», «Контент», «Система» — вместо имён внутренних модулей.</li>
+      <li><b>Один словарь.</b> «Замутить», «Снять мут», «Предупреждение», «Бан», «Чёрный список» — везде одинаково.</li>
+    </ol>
+
+    <h2>Попробуйте</h2>
+    <ul>
+      <li>Нажмите на человека — откроется карточка со всеми действиями.</li>
+      <li>«⋯» у человека → «Замутить» → срок и причина → подтверждение.</li>
+      <li>🔍 в шапке — поиск, работает по «ва», «@ma», «7».</li>
+      <li>Переключите «Вся сеть» и «Консоль» сверху.</li>
+      <li>В настройках переключатели живые.</li>
+    </ul>
+
+    <div class="ax-note">
+      Фото в прототипе — локальные заглушки. В боевой версии подставляется аватар Telegram
+      через уже готовый <code>/admin/avatar</code>, без фото — кружок с инициалом.
+    </div>
+
+    <h2>Принципы</h2>
+    <div class="ax-legend">
+      <span class="ax-key">1 экран = 1 вопрос</span>
+      <span class="ax-key">не глубже 2 уровней</span>
+      <span class="ax-key">действие рядом с объектом</span>
+      <span class="ax-key">текст объясняет, а не называет</span>
+      <span class="ax-key">опасное — явно</span>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════
+   Демо-данные
+   ══════════════════════════════════════════════════════════════════════════ */
+const el = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function portrait(bg, skin, hair, shirt) {
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop stop-color="${bg}"/><stop offset="1" stop-color="#000" stop-opacity=".28"/></linearGradient></defs>
+      <rect width="96" height="96" fill="url(#g)"/>
+      <circle cx="48" cy="37" r="17" fill="${skin}"/>
+      <path d="M23 96c3-19 12-29 25-29s22 10 25 29z" fill="${shirt}"/>
+      <path d="M31 36c-1-13 7-20 17-20s18 7 17 20c-1-4-5-8-9-9-4 2-14 3-19 1-3 1-5 5-6 8z" fill="${hair}"/>
+    </svg>`);
+}
+
+const P = {
+  7:  portrait('#35507e', '#f0c6a4', '#241a14', '#1f3557'),
+  1:  portrait('#6d3f74', '#f2c9ae', '#3a2318', '#482a52'),
+  4:  portrait('#2f6b5a', '#eec3a0', '#5a3520', '#244f45'),
+  3:  portrait('#6b3a3a', '#d8a98a', '#1d1512', '#4a2626'),
+  9:  portrait('#4a5a2e', '#f0c9a6', '#6b4a24', '#36421f'),
+  2:  portrait('#3d4654', '#c99c7c', '#2a211c', '#2b313b'),
+};
+
+const U = {
+  7: {id:7, name:'Вася Кот', un:'vasya', lvl:24, rank:'👮‍♂️ Админ', grank:'🛡 Хелпер', vip:true,
+      last:'12 мин назад', msgs:'15 420', warn:0, online:true, joined:'фев 2026'},
+  1: {id:1, name:'Маша', un:'masha', lvl:12, rank:'👁 Модератор', grank:'', vip:false,
+      last:'5 ч назад', msgs:'3 120', warn:0, joined:'янв 2026'},
+  4: {id:4, name:'Кира', un:'kira', lvl:17, rank:'👤 Пользователь', grank:'', vip:false,
+      last:'40 мин назад', msgs:'8 640', warn:1, muted:'до 20.10, 12:00', joined:'мар 2026'},
+  3: {id:3, name:'blackuser', un:'', lvl:8, rank:'👤 Пользователь', grank:'', vip:false,
+      last:'2 дн назад', msgs:'912', warn:2, banned:'бессрочно', joined:'авг 2026'},
+  9: {id:9, name:'Олег', un:'oleg', lvl:31, rank:'👤 Пользователь', grank:'', vip:false,
+      last:'1 ч назад', msgs:'21 300', warn:0, joined:'дек 2025'},
+  2: {id:2, name:'Тихий', un:'', lvl:3, rank:'👤 Пользователь', grank:'', vip:false,
+      last:'3 дн назад', msgs:'41', warn:3, left:true, joined:'окт 2026'},
+};
+
+const CHATS = [
+  {id:-1001, name:'Арлекино', icon:'🎭', members:'3 218', mute:3, bl:12, appeal:2, on:true},
+  {id:-1002, name:'Флудилка', icon:'💬', members:'1 405', mute:1, bl:4, appeal:1, on:true},
+  {id:-1003, name:'Игровая', icon:'🎮', members:'870', mute:0, bl:2, appeal:0, on:true},
+  {id:-1004, name:'Кино и сериалы', icon:'🎬', members:'612', mute:0, bl:0, appeal:0, on:false},
+  {id:-1005, name:'Тестовый', icon:'🧪', members:'4', mute:0, bl:0, appeal:0, on:true},
+];
+
+const LOG = [
+  {ico:'🔇', k:'gold', who:'Маша', act:'замутила', target:'blackuser', tail:'на 2 ч · спам', t:'12:40'},
+  {ico:'⚠️', k:'gold', who:'Вася Кот', act:'выдал предупреждение', target:'Кира', tail:'флуд', t:'11:05'},
+  {ico:'⚙️', k:'blue', who:'Вася Кот', act:'выключил модуль', target:'Экономика', tail:'планово', t:'10:32'},
+  {ico:'🚫', k:'red', who:'Маша', act:'забанила', target:'blackuser', tail:'реклама · бессрочно', t:'вчера'},
+  {ico:'🔓', k:'blue', who:'Вася Кот', act:'снял мут', target:'Олег', tail:'ошибка модератора', t:'вчера'},
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Состояние и каркас
+   ══════════════════════════════════════════════════════════════════════════ */
+let S = { mode:'chat', tab:'home', filter:'all', sheetUser:null };
+
+const NAV = {
+  chat: [
+    ['home','📊','Обзор'], ['people','👥','Люди'], ['mod','⚡','Модерация',2],
+    ['settings','⚙️','Настройки'], ['log','📋','Журнал'],
+  ],
+  net: [
+    ['chats','💬','Чаты'], ['sanctions','🚫','Санкции'], ['appeals','📨','Апелляции',3],
+    ['team','👮','Команда'], ['log','📋','Журнал'],
+  ],
+  dev: [
+    ['pulse','📥','Сводка'], ['players','👥','Игроки'], ['eco','💰','Экономика'],
+    ['content','🎫','Контент'], ['system','🖥','Система'],
+  ],
+};
+
+const TITLES = {
+  chat: ['Админка', '🎭 Арлекино · 3 218 участников'],
+  net:  ['Вся сеть', '5 чатов · 2 требуют внимания'],
+  dev:  ['Консоль', 'Полный доступ · разработчик'],
+};
+
+function setMode(mode) {
+  S.mode = mode;
+  S.tab = NAV[mode][0][0];
+  history.replaceState(null, '', '#' + mode + '/' + S.tab);
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  render();
+}
+
+function render() {
+  const [title, sub] = TITLES[S.mode];
+  el('pageTitle').textContent = title;
+  el('pageSub').innerHTML = sub;
+
+  el('nav').innerHTML = NAV[S.mode].map(([id, ico, label, badge]) =>
+    `<button class="${S.tab === id ? 'on' : ''}" onclick="go('${id}')">${ico} ${label}` +
+    (badge ? `<span class="ax-badge">${badge}</span>` : '') + `</button>`).join('');
+
+  const views = {chat: chatView, net: netView, dev: devView};
+  el('screen').innerHTML = views[S.mode][S.tab] ? views[S.mode][S.tab]() : '';
+}
+
+function go(tab) { S.tab = tab; history.replaceState(null, '', '#' + S.mode + '/' + tab); render(); el('screen').scrollTop = 0; }
+
+/* ── Общие блоки ──────────────────────────────────────────────────────── */
+const chip = (t, c = '') => `<span class="ax-chip ${c}">${t}</span>`;
+
+function ava(id, size = 46, cls = '') {
+  return `<span class="ax-av ${cls}" style="width:${size}px;height:${size}px;border-radius:50%;overflow:hidden;display:inline-block;flex:none">` +
+    `<img src="${P[id] || P[2]}" alt="" style="width:100%;height:100%;object-fit:cover;display:block"></span>`;
+}
+
+function statusChips(u) {
+  let out = chip(`${u.lvl} ур.`, 'blue');
+  if (u.rank && !u.rank.includes('Пользователь')) out += chip(u.rank, 'gold');
+  if (u.grank) out += chip(u.grank, 'gold');
+  if (u.vip) out += chip('✦ VIP', 'gold');
+  if (u.muted) out += chip('🔇 ' + u.muted, 'gold');
+  if (u.banned) out += chip('🚫 ' + u.banned, 'red');
+  if (u.warn) out += chip('⚠️ ' + u.warn, u.warn > 2 ? 'red' : '');
+  if (u.left) out += chip('ушёл', 'red');
+  return out;
+}
+
+function person(u) {
+  return `<div class="ax-person" onclick="openPlayer(${u.id})">
+    <span class="ax-pava">${ava(u.id, 46)}${u.online ? '<i class="ax-on"></i>' : ''}</span>
+    <span class="ax-pmain">
+      <span class="ax-pname">${esc(u.name)}${u.vip ? ' <span class="ax-vip">✦</span>' : ''}</span>
+      <span class="ax-psub">${u.un ? '@' + esc(u.un) : 'без @'} · ID ${u.id} · был ${u.last}</span>
+      <span class="ax-pchips">${statusChips(u)}</span>
+    </span>
+    <button class="ax-more" onclick="event.stopPropagation();openActions(${u.id})">⋯</button>
+  </div>`;
+}
+
+function sec(title, hint, action) {
+  return `<div class="ax-sec"><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}` +
+    (action ? `<button class="ax-link" onclick="${action[1]}">${action[0]}</button>` : '') + `</div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ЧАТ
+   ══════════════════════════════════════════════════════════════════════════ */
+const chatView = {
+  home() {
+    return `
+      <div class="ax-card gold">
+        <div class="ax-hero warn">
+          <i class="ax-dot"></i>
+          <div><b>2 дела ждут вас</b><small>Апелляция без ответа 2 ч · мут истекает через 40 мин</small></div>
+        </div>
+        <div class="ax-kpis">
+          <div class="ax-kpi"><b>3 218</b><span>участников</span></div>
+          <div class="ax-kpi hot"><b>3</b><span>в муте</span></div>
+          <div class="ax-kpi"><b>12</b><span>в ЧС</span></div>
+        </div>
+      </div>
+
+      ${sec('Требует внимания', 'сначала — срочное')}
+      <div class="ax-card tight">
+        <button class="ax-attn" onclick="go('mod')">
+          <span class="ax-ico red">📨</span>
+          <span class="ax-txt"><b>Апелляция #148 · Тихий</b><small>Просит снять бан · ждёт 2 ч 14 мин</small></span>
+          <span class="ax-arr">›</span>
+        </button>
+        <button class="ax-attn" onclick="go('mod')">
+          <span class="ax-ico gold">🔇</span>
+          <span class="ax-txt"><b>Мут у Киры истекает</b><small>через 40 минут · можно снять досрочно</small></span>
+          <span class="ax-arr">›</span>
+        </button>
+      </div>
+
+      ${sec('Быстрые действия')}
+      <div class="ax-quick">
+        <button onclick="openSearch()"><span>🔍</span>Найти<br>игрока</button>
+        <button onclick="pickFor('mute')"><span>🔇</span>Замутить</button>
+        <button onclick="pickFor('warn')"><span>⚠️</span>Предупредить</button>
+        <button onclick="go('settings')"><span>⚙️</span>Настройки</button>
+      </div>
+
+      ${sec('Последние события', 'за сутки', ['Весь журнал', "go('log')"])}
+      <div class="ax-card tight">
+        ${logRow(LOG[0])}${logRow(LOG[1])}${logRow(LOG[2])}
+      </div>`;
+  },
+
+  people() {
+    const f = S.filter;
+    const list = {
+      all: [7, 4, 1, 9, 3, 2],
+      staff: [7, 1],
+      mute: [4],
+      bl: [3],
+      left: [2],
+    }[f] || [];
+    const counts = {all:'3 218', staff:'4', mute:'3', bl:'12', left:'27'};
+    const flt = [['all','Все'],['staff','Модераторы'],['mute','В муте'],['bl','Чёрный список'],['left','Ушли']]
+      .map(([k, l]) => `<button class="${f === k ? 'on' : ''}" onclick="S.filter='${k}';render()">${l} ${counts[k]}</button>`).join('');
+
+    return `
+      <div class="ax-search" onclick="openSearch()"><span>🔍</span>Ник, @username или ID<i>⌘K</i></div>
+      <div class="ax-filters">${flt}</div>
+      ${sec("Люди", list.length + ' из ' + counts[f])}
+      <div class="ax-card tight">${list.map(id => person(U[id])).join('')}</div>
+      <button class="ax-ghost" onclick="toast('Показать ещё 20 участников')">Показать ещё</button>`;
+  },
+
+  mod() {
+    return `
+      ${sec('Сейчас в силе', '3 мута · 2 предупреждения')}
+      <div class="ax-card tight">
+        ${modRow(4, '🔇', 'gold', 'Мут 2 ч', 'флуд в общем чате', 'осталось 40 мин', 'Снять')}
+        ${modRow(3, '🔇', 'gold', 'Мут 1 день', 'капс и оскорбления', 'осталось 6 ч', 'Снять')}
+        ${modRow(2, '🔇', 'gold', 'Мут 30 мин', 'спойлеры', 'осталось 12 мин', 'Снять')}
+      </div>
+
+      ${sec('Предупреждения', 'сгорают через 30 дней')}
+      <div class="ax-card tight">
+        ${modRow(2, '⚠️', 'red', '3 из 3', 'флуд · 18.10', 'следующий — бан', 'Снять')}
+        ${modRow(3, '⚠️', 'red', '2 из 3', 'реклама · 16.10', 'осталось 24 дня', 'Снять')}
+      </div>
+
+      ${sec('Жалобы', 'новых нет')}
+      <div class="ax-card" style="text-align:center;padding:22px 12px">
+        <div style="font-size:22px;margin-bottom:4px">🕊</div>
+        <b style="font-size:11.5px;color:var(--bright)">Жалоб нет</b>
+        <div style="font-size:9.5px;color:var(--muted);margin-top:2px">Здесь появятся сообщения от участников</div>
+      </div>
+
+      ${sec('Быстро выдать', 'выберите человека')}
+      <div class="ax-quick">
+        <button onclick="pickFor('warn')"><span>⚠️</span>Предупредить</button>
+        <button onclick="pickFor('mute')"><span>🔇</span>Мут</button>
+        <button onclick="pickFor('ban')"><span>🔨</span>Бан</button>
+        <button onclick="pickFor('bl')"><span>🚫</span>В ЧС</button>
+      </div>`;
+  },
+
+  settings() {
+    return `
+      ${sec('Что включено', 'для этого чата')}
+      <div class="ax-card tight">
+        ${setToggle('🎮','Игры','Мафия, Ритм, Сапёр', true)}
+        ${setToggle('🐾','Питомцы','Походы, питомцы, бестиарий', true)}
+        ${setToggle('💰','Экономика','Мора, магазин, зарники', false)}
+        ${setToggle('📈','Профиль и статистика','Карточка, топ, достижения', true)}
+      </div>
+
+      ${sec('Правила модерации', 'порог ранга, с которого действует')}
+      <div class="ax-card tight">
+        ${setValue('🔇','Мут','с 1-го нарушения','Модератор+')}
+        ${setValue('👢','Кик','с 2-го нарушения','Модератор+')}
+        ${setValue('🔨','Бан','с 3-го нарушения','Админ')}
+        ${setValue('🕓','Часовой пояс','UTC+3 · Москва','изменить')}
+      </div>
+
+      ${sec('Доступ')}
+      <div class="ax-card tight">
+        ${setValue('🛡','Кто модерирует','модераторы и выше','настроить')}
+        ${setValue('📋','Кто видит журнал','админы','настроить')}
+        ${setValue('🔗','Админ-чат','подключён','отвязать')}
+      </div>
+
+      ${sec('Опасная зона')}
+      <div class="ax-card" style="border-color:rgba(239,99,99,.22)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1"><b style="font-size:11px;color:var(--bright)">Сбросить настройки</b>
+            <div style="font-size:9px;color:var(--muted);margin-top:1px">Вернуть модули и пороги к стандарту</div></div>
+          <button class="btn btn-sm btn-red" onclick="toast('Спросим подтверждение второй раз')">Сбросить</button>
+        </div>
+      </div>`;
+  },
+
+  log() {
+    return `
+      <div class="ax-filters">
+        <button class="on">Все</button><button onclick="toast('Фильтр: санкции')">Санкции</button>
+        <button onclick="toast('Фильтр: настройки')">Настройки</button>
+        <button onclick="toast('Фильтр: модули')">Модули</button>
+      </div>
+      ${sec('Сегодня', '5 событий')}
+      <div class="ax-card tight">${LOG.map(logRow).join('')}</div>
+      <button class="ax-ghost" onclick="toast('Загрузить более ранние события')">Показать раньше</button>`;
+  },
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   СЕТЬ
+   ══════════════════════════════════════════════════════════════════════════ */
+const netView = {
+  chats() {
+    return `
+      <div class="ax-card">
+        <div class="ax-hero">
+          <i class="ax-dot"></i>
+          <div><b>Сеть в порядке</b><small>5 чатов · 6 109 участников · 1 чат выключен</small></div>
+        </div>
+        <div class="ax-kpis">
+          <div class="ax-kpi"><b>5</b><span>чатов</span></div>
+          <div class="ax-kpi hot"><b>3</b><span>апелляции</span></div>
+          <div class="ax-kpi"><b>4</b><span>санкции</span></div>
+        </div>
+      </div>
+
+      ${sec('Чаты', 'нажмите, чтобы открыть админку')}
+      <div class="ax-card tight">
+        ${CHATS.map(c => `<div class="ax-chat" onclick="toast('Открыть админку: ${esc(c.name)}')">
+          <span class="ax-cava">${c.icon}</span>
+          <span class="ax-txt"><b>${esc(c.name)}${c.on ? '' : ' · выключен'}</b>
+            <small>${c.members} участников${c.mute ? ` · 🔇 ${c.mute}` : ''}${c.bl ? ` · 🚫 ${c.bl}` : ''}${c.appeal ? ` · 📨 ${c.appeal}` : ''}</small></span>
+          <span class="ax-arr">›</span></div>`).join('')}
+      </div>
+
+      ${sec('Требует внимания')}
+      <div class="ax-card tight">
+        <button class="ax-attn" onclick="go('appeals')">
+          <span class="ax-ico red">📨</span>
+          <span class="ax-txt"><b>3 апелляции без ответа</b><small>Больше всего ждёт #148 · 2 ч 14 мин</small></span>
+          <span class="ax-arr">›</span></button>
+        <button class="ax-attn" onclick="go('sanctions')">
+          <span class="ax-ico gold">🚫</span>
+          <span class="ax-txt"><b>1 бан истекает сегодня</b><small>blackuser · в 23:00</small></span>
+          <span class="ax-arr">›</span></button>
+      </div>`;
+  },
+
+  sanctions() {
+    return `
+      <div class="ax-filters">
+        <button class="on">Активные 4</button><button onclick="toast('Фильтр: истекли')">Истекли</button>
+        <button onclick="toast('Фильтр: сняты')">Сняты</button>
+      </div>
+      ${sec('Санкции', 'по всем чатам')}
+      <div class="ax-card tight">
+        ${sanction(3, '🔨', 'red', 'Бан · бессрочно', 'реклама в 3 чатах', 'выдал Вася Кот · 18.10')}
+        ${sanction(4, '🔇', 'gold', 'Мут · 2 ч', 'Арлекино · флуд', 'осталось 40 мин')}
+        ${sanction(9, '🚫', 'red', 'Чёрный список', 'Флудилка · спам', 'выдала Маша · 17.10')}
+        ${sanction(2, '⚠️', 'gold', '3 предупреждения', 'Арлекино · флуд', 'сгорают 17.11')}
+      </div>`;
+  },
+
+  appeals() {
+    return `
+      <div class="ax-filters">
+        <button class="on">Ждут ответа 3</button><button onclick="toast('Фильтр: отвечены')">Отвечены</button>
+        <button onclick="toast('Фильтр: отклонены')">Отклонены</button>
+      </div>
+      ${sec('Апелляции', 'сначала старые')}
+      ${appeal(148, 2, 'Тихий', 'Прошу разбанить, я не спамил — это был мой брат с телефона', '2 ч 14 мин', 'red')}
+      ${appeal(147, 4, 'Кира', 'Мут за флуд, но я писала по делу. Можно снять?', '48 мин', 'gold')}
+      ${appeal(146, 9, 'Олег', 'Почему меня добавили в ЧС? Я ничего не нарушал', '12 мин', 'gold')}`;
+  },
+
+  team() {
+    return `
+      ${sec('Команда', '2 человека')}
+      <div class="ax-card tight">
+        ${staff(7, '🛡 Хелпер', '12 санкций · 4 апелляции за 30 дней', true)}
+        ${staff(1, '⚔️ Старший хелпер', '3 санкции · 1 апелляция за 30 дней', false)}
+      </div>
+      ${sec('Заявки', 'нет новых')}
+      <div class="ax-card" style="text-align:center;padding:20px 12px">
+        <div style="font-size:20px;margin-bottom:4px">📭</div>
+        <div style="font-size:10px;color:var(--muted)">Когда кто-то попросит роль — появится здесь</div>
+      </div>`;
+  },
+
+  log() {
+    return `
+      <div class="ax-filters">
+        <button class="on">Все</button><button onclick="toast('Фильтр: санкции')">Санкции</button>
+        <button onclick="toast('Фильтр: апелляции')">Апелляции</button>
+        <button onclick="toast('Фильтр: роли')">Роли</button>
+      </div>
+      ${sec('Журнал сети', 'по всем чатам')}
+      <div class="ax-card tight">${LOG.map(logRow).join('')}</div>`;
+  },
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   КОНСОЛЬ
+   ══════════════════════════════════════════════════════════════════════════ */
+const devView = {
+  pulse() {
+    return `
+      <div class="ax-search" onclick="openSearch()"><span>🔍</span>Найти игрока: ник, @username, ID<i>⌘K</i></div>
+
+      ${sec('Требует внимания', 'за последний час')}
+      <div class="ax-card tight">
+        <button class="ax-attn" onclick="go('players')">
+          <span class="ax-ico red">📨</span>
+          <span class="ax-txt"><b>2 апелляции без ответа</b><small>#148 ждёт 2 ч 14 мин</small></span>
+          <span class="ax-arr">›</span></button>
+        <button class="ax-attn" onclick="go('system')">
+          <span class="ax-ico gold">⚙️</span>
+          <span class="ax-txt"><b>1 модуль выключен глобально</b><small>Экономика · выключил Вася Кот</small></span>
+          <span class="ax-arr">›</span></button>
+      </div>
+
+      ${sec('Частые задачи')}
+      <div class="ax-tools">
+        <button class="ax-tool" onclick="openSearch()"><span class="ax-ico">🔎</span><b>Найти игрока</b><small>Досье, баланс, санкции</small></button>
+        <button class="ax-tool" onclick="go('eco')"><span class="ax-ico">💰</span><b>Выдать валюту</b><small>Мора, Эссенция, предметы</small></button>
+        <button class="ax-tool" onclick="go('content')"><span class="ax-ico">🎫</span><b>Промокод</b><small>Создать и посмотреть</small></button>
+        <button class="ax-tool" onclick="go('system')"><span class="ax-ico">🔌</span><b>Модули и флаги</b><small>Включить во всей сети</small></button>
+      </div>
+
+      ${sec('Последние действия', 'кто что менял', ['Журнал', "toast('Полный журнал')"])}
+      <div class="ax-card tight">${LOG.slice(0, 3).map(logRow).join('')}</div>`;
+  },
+
+  players() {
+    return `
+      <div class="ax-search" onclick="openSearch()"><span>🔍</span>Ник, @username или ID</div>
+      ${sec('Карточка игрока', 'нажмите на человека')}
+      <div class="ax-card tight">${[7, 4, 1].map(id => person(U[id])).join('')}</div>
+      ${sec('Досье', 'последний открытый')}
+      <div class="ax-card">
+        ${dossier(7)}
+      </div>`;
+  },
+
+  eco() {
+    return `
+      ${sec('Баланс игрока', 'выберите человека')}
+      <div class="ax-search" onclick="openSearch()"><span>🔍</span>Найти игрока для операции</div>
+
+      ${sec('Выдать', 'операция попадёт в журнал')}
+      <div class="ax-card">
+        <div class="ax-field">Что выдать</div>
+        <div class="ax-seg">
+          <button class="on">💰 Мора</button><button>✨ Эссенция</button><button>🎁 Предмет</button><button>✦ VIP</button>
+        </div>
+        <div class="ax-field">Сколько</div>
+        <div class="ax-seg"><button>100</button><button class="on">1 000</button><button>10 000</button><button>Своё</button></div>
+        <div class="ax-field">Причина</div>
+        <div class="ax-seg"><button class="on">Компенсация</button><button>Награда</button><button>Тест</button></div>
+        <button class="ax-primary" onclick="toast('Проверим лимиты и покажем подтверждение')">Выдать 1 000 Моры</button>
+        <div class="ax-danger-note">Лимит на операцию: 50 000 · всё пишется в журнал</div>
+      </div>
+
+      ${sec('Последние выдачи', 'за сутки')}
+      <div class="ax-card tight">
+        ${logRow({ico:'💰', k:'gold', who:'Вася Кот', act:'выдал', target:'Олегу', tail:'+5 000 Моры · компенсация', t:'12:10'})}
+        ${logRow({ico:'🎁', k:'gold', who:'Маша', act:'выдала', target:'Кире', tail:'Сундук странника', t:'10:44'})}
+      </div>`;
+  },
+
+  content() {
+    return `
+      ${sec('Контент', 'безопасные операции')}
+      <div class="ax-tools">
+        <button class="ax-tool" onclick="toast('Открыть боевой пропуск')"><span class="ax-ico">🎫</span><b>Боевой пропуск</b><small>Сезон, награды, уровни</small></button>
+        <button class="ax-tool" onclick="toast('Открыть промокоды')"><span class="ax-ico">🎟</span><b>Промокоды</b><small>12 активных</small></button>
+        <button class="ax-tool" onclick="toast('Открыть темы оформления')"><span class="ax-ico">🎨</span><b>Темы</b><small>3 на проверке</small></button>
+        <button class="ax-tool" onclick="toast('Открыть вещание')"><span class="ax-ico">📢</span><b>Вещание</b><small>Рассылка по чатам</small></button>
+      </div>
+
+      ${sec('Требует проверки')}
+      <div class="ax-card tight">
+        <button class="ax-attn" onclick="toast('Открыть тему «Хэллоуин»')">
+          <span class="ax-ico gold">🎨</span>
+          <span class="ax-txt"><b>Тема «Хэллоуин» на проверке</b><small>загружена 18.10 · 3 файла</small></span>
+          <span class="ax-arr">›</span></button>
+      </div>`;
+  },
+
+  system() {
+    return `
+      <div class="ax-card" style="border-color:rgba(239,99,99,.22)">
+        <div class="ax-hero warn">
+          <i class="ax-dot"></i>
+          <div><b>Всё работает, но есть выключенное</b><small>Экономика выключена во всей сети · 14 модулей включены</small></div>
+        </div>
+      </div>
+
+      ${sec('Модули', 'глобальный рубильник')}
+      <div class="ax-card tight">
+        ${setToggle('🎮','Игры','во всех чатах', true)}
+        ${setToggle('🐾','Питомцы','во всех чатах', true)}
+        ${setToggle('💰','Экономика','выключено глобально', false)}
+        ${setToggle('📈','Профиль','во всех чатах', true)}
+      </div>
+
+      ${sec('Флаги запуска', 'не модули чата')}
+      <div class="ax-card tight">
+        ${setValue('🧪','pets_v2','включён','изменить')}
+        ${setValue('🧪','coin_market_v2','выключен','изменить')}
+        ${setValue('🧪','trail_v3','включён','изменить')}
+      </div>
+
+      ${sec('Опасная зона')}
+      <div class="ax-card">
+        <button class="ax-ghost" style="color:#ef8f8f;border-color:rgba(239,99,99,.25)" onclick="toast('SQL-консоль: только для разработчика')">🖥 SQL-консоль</button>
+        <button class="ax-ghost" style="color:#ef8f8f;border-color:rgba(239,99,99,.25)" onclick="toast('Массовая рассылка: подтверждение')">📢 Массовая рассылка</button>
+      </div>`;
+  },
+};
+
+/* ── Мелкие компоненты ────────────────────────────────────────────────── */
+function logRow(r) {
+  return `<div class="ax-log">
+    <span class="ax-ico ${r.k}">${r.ico}</span>
+    <span class="ax-txt"><b>${esc(r.who)}</b> ${r.act} <b>${esc(r.target)}</b><small>${esc(r.tail)}</small></span>
+    <time>${r.t}</time>
+  </div>`;
+}
+
+function modRow(id, ico, cls, title, reason, left, action) {
+  const u = U[id];
+  return `<div class="ax-person" onclick="openPlayer(${id})">
+    <span class="ax-pava">${ava(id, 42)}</span>
+    <span class="ax-pmain">
+      <span class="ax-pname">${esc(u.name)}</span>
+      <span class="ax-psub">${esc(title)} · ${esc(reason)}</span>
+      <span class="ax-pchips">${chip(left, cls)}</span>
+    </span>
+    <button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();toast('${action}: ${esc(u.name)}')">${action}</button>
+  </div>`;
+}
+
+function sanction(id, ico, cls, title, reason, meta) {
+  const u = U[id];
+  return `<div class="ax-person" onclick="openPlayer(${id})">
+    <span class="ax-pava">${ava(id, 42)}</span>
+    <span class="ax-pmain">
+      <span class="ax-pname">${esc(u.name)}</span>
+      <span class="ax-psub">${esc(reason)} · ${esc(meta)}</span>
+      <span class="ax-pchips">${chip(ico + ' ' + title, cls)}</span>
+    </span>
+    <button class="ax-more" onclick="event.stopPropagation();openActions(${id})">⋯</button>
+  </div>`;
+}
+
+function appeal(num, id, name, text, waited, cls) {
+  return `<div class="ax-card">
+    <div style="display:flex;align-items:center;gap:8px">
+      ${ava(id, 36)}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11.5px;font-weight:700;color:var(--bright)">${esc(name)} <span style="color:var(--muted);font-weight:400">· #${num}</span></div>
+        <div style="font-size:9px;color:var(--muted)">ждёт ${waited}</div>
+      </div>
+      ${chip('ждёт', cls)}
+    </div>
+    <div style="font-size:10.5px;color:var(--text);line-height:1.45;margin:8px 0 9px">«${esc(text)}»</div>
+    <div style="display:flex;gap:5px">
+      <button class="btn btn-sm btn-teal" style="flex:1" onclick="toast('Открыть диалог апелляции #${num}')">Ответить</button>
+      <button class="btn btn-sm btn-ghost" style="flex:1" onclick="toast('Отклонить #${num}')">Отклонить</button>
+    </div>
+  </div>`;
+}
+
+function staff(id, role, stats, first) {
+  const u = U[id];
+  return `<div class="ax-person" onclick="openPlayer(${id})">
+    <span class="ax-pava">${ava(id, 40)}</span>
+    <span class="ax-pmain">
+      <span class="ax-pname">${esc(u.name)}</span>
+      <span class="ax-psub">${esc(stats)}</span>
+      <span class="ax-pchips">${chip(role, 'gold')}</span>
+    </span>
+    <select class="num-input" style="width:auto;margin:0;font-size:9px;min-height:30px;padding:2px 4px"
+      onclick="event.stopPropagation()" onchange="toast('Роль изменена: ${esc(u.name)}')">
+      <option${first ? ' selected' : ''}>🛡 Хелпер</option><option${first ? '' : ' selected'}>⚔️ Ст. хелпер</option><option>❌ Снять</option>
+    </select>
+  </div>`;
+}
+
+function setToggle(ico, title, sub, on) {
+  return `<div class="ax-set">
+    <div style="width:25px;text-align:center;font-size:14px;flex:none">${ico}</div>
+    <div class="ax-st"><b>${title}</b><small>${sub}</small></div>
+    <button class="ax-switch ${on ? 'on' : ''}" aria-pressed="${on}" onclick="this.classList.toggle('on');toast('${title}: '+(this.classList.contains('on')?'включено':'выключено'))"></button>
+  </div>`;
+}
+
+function setValue(ico, title, value, action) {
+  return `<div class="ax-set">
+    <div style="width:25px;text-align:center;font-size:14px;flex:none">${ico}</div>
+    <div class="ax-st"><b>${title}</b><small>${value}</small></div>
+    <button class="ax-val" onclick="toast('${action}: ${title}')">${action}</button>
+  </div>`;
+}
+
+function dossier(id) {
+  const u = U[id];
+  return `<div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+      ${ava(id, 54)}
+      <div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--bright)">${esc(u.name)}</div>
+        <div style="font-size:9.5px;color:var(--muted)">${u.un ? '@' + esc(u.un) + ' · ' : ''}ID ${u.id} · в чате с ${u.joined}</div>
+        <div class="ax-pchips" style="margin-top:4px">${statusChips(u)}</div></div>
+    </div>
+    <div class="ax-kpis" style="margin-top:2px">
+      <div class="ax-kpi"><b>${u.msgs}</b><span>сообщений</span></div>
+      <div class="ax-kpi"><b>${u.warn}</b><span>предупреждений</span></div>
+      <div class="ax-kpi"><b>${u.lvl}</b><span>уровень</span></div>
+    </div>
+    <div style="display:flex;gap:5px;margin-top:9px">
+      <button class="btn btn-sm btn-ghost" style="flex:1" onclick="toast('Экономика игрока')">💰 Баланс</button>
+      <button class="btn btn-sm btn-ghost" style="flex:1" onclick="toast('История санкций')">🚫 Санкции</button>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Шторка действий
+   ══════════════════════════════════════════════════════════════════════════ */
+function openSheet(html) {
+  el('sheet').innerHTML = `<div class="ax-grab"></div>` + html;
+  el('sheet').classList.add('on');
+  el('backdrop').classList.add('on');
+}
+function closeSheet() {
+  el('sheet').classList.remove('on');
+  el('backdrop').classList.remove('on');
+  S.sheetUser = null;
+}
+
+function openPlayer(id) {
+  const u = U[id];
+  el('searchLayer').classList.remove('on');
+  S.sheetUser = id;
+  openSheet(`
+    <div class="ax-sheet-h">${ava(id, 46)}
+      <div style="flex:1;min-width:0"><b>${esc(u.name)}${u.vip ? ' ✦' : ''}</b>
+        <small>${u.un ? '@' + esc(u.un) + ' · ' : ''}ID ${u.id} · был ${u.last}</small></div>
+    </div>
+    <div class="ax-pchips" style="margin:-4px 0 10px">${statusChips(u)}</div>
+    <div class="ax-actgrid">
+      <button onclick="toast('Открыть личный диалог')"><span>💬</span>Написать</button>
+      <button onclick="toast('Центр игрока: досье и история')"><span>📁</span>Досье</button>
+      <button onclick="openMute(${id})"><span>🔇</span>Замутить</button>
+      <button onclick="openWarn(${id})"><span>⚠️</span>Предупреждение</button>
+      <button class="red" onclick="openBan(${id})"><span>🔨</span>Забанить</button>
+      <button class="red" onclick="toast('${esc(u.name)} добавлен в ЧС')"><span>🚫</span>В Чёрный список</button>
+      <button onclick="toast('Изменить роль')"><span>🎖</span>Роль</button>
+      <button onclick="toast('Кикнуть из чата')"><span>👢</span>Кикнуть</button>
+    </div>
+    <button class="ax-ghost" onclick="toast('Открыть полную карточку игрока')">Открыть центр игрока ›</button>
+    <div class="ax-danger-note">Опасные действия подтверждаются: срок + причина</div>`);
+}
+
+function openActions(id) { openPlayer(id); }
+
+function openMute(id) {
+  const u = U[id];
+  openSheet(`
+    <div class="ax-sheet-title">Замутить ${esc(u.name)}</div>
+    <div class="ax-field">На сколько</div>
+    <div class="ax-seg" id="dur">
+      <button onclick="pick(this)">15 минут</button><button class="on" onclick="pick(this)">1 час</button>
+      <button onclick="pick(this)">2 часа</button><button onclick="pick(this)">1 день</button><button onclick="pick(this)">Навсегда</button>
+    </div>
+    <div class="ax-field">Причина</div>
+    <div class="ax-seg" id="why">
+      <button onclick="pick(this)">Флуд</button><button onclick="pick(this)">Мат</button>
+      <button class="on" onclick="pick(this)">Спам</button><button onclick="pick(this)">Реклама</button><button onclick="pick(this)">Своя</button>
+    </div>
+    <button class="ax-primary" onclick="closeSheet();toast('${esc(u.name)} замучен на 1 час · спам')">Замутить на 1 час</button>
+    <button class="ax-ghost" onclick="closeSheet()">Отмена</button>`);
+}
+
+function openWarn(id) {
+  const u = U[id];
+  openSheet(`
+    <div class="ax-sheet-title">Предупреждение ${esc(u.name)}</div>
+    <div class="ax-field">Причина</div>
+    <div class="ax-seg">
+      <button class="on" onclick="pick(this)">Флуд</button><button onclick="pick(this)">Мат</button>
+      <button onclick="pick(this)">Спам</button><button onclick="pick(this)">Своя</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.4">У ${esc(u.name)} уже ${u.warn} из 3. После третьего — бан.</div>
+    <button class="ax-primary" onclick="closeSheet();toast('${esc(u.name)}: предупреждение выдано')">Выдать предупреждение</button>
+    <button class="ax-ghost" onclick="closeSheet()">Отмена</button>`);
+}
+
+function openBan(id) {
+  const u = U[id];
+  openSheet(`
+    <div class="ax-sheet-title" style="color:#ef8f8f">Забанить ${esc(u.name)}</div>
+    <div class="ax-field">Срок</div>
+    <div class="ax-seg"><button onclick="pick(this)">1 день</button><button onclick="pick(this)">7 дней</button><button class="on" onclick="pick(this)">Навсегда</button></div>
+    <div class="ax-field">Причина</div>
+    <div class="ax-seg"><button onclick="pick(this)">Реклама</button><button onclick="pick(this)">Скам</button><button class="on" onclick="pick(this)">Повторные нарушения</button></div>
+    <div style="font-size:9.5px;color:var(--muted);margin-top:10px;line-height:1.4">Бан действует во всех чатах сети. Игрок сможет подать апелляцию.</div>
+    <button class="ax-primary red" onclick="closeSheet();toast('${esc(u.name)} забанен бессрочно')">Забанить навсегда</button>
+    <button class="ax-ghost" onclick="closeSheet()">Отмена</button>`);
+}
+
+function pick(btn) {
+  [...btn.parentElement.children].forEach(b => b.classList.toggle('on', b === btn));
+}
+
+function pickFor(kind) {
+  const label = {mute:'Замутить', warn:'Предупреждение', ban:'Забанить', bl:'В Чёрный список'}[kind];
+  openSheet(`
+    <div class="ax-sheet-title">${label}: выберите человека</div>
+    <div class="ax-search" style="cursor:text" onclick="closeSheet();openSearch()"><span>🔍</span>Ник, @username или ID</div>
+    <div style="margin-top:8px">
+      ${[4, 9, 3].map(id => `<div class="ax-person" onclick="closeSheet();openPlayer(${id})">
+        ${ava(id, 38)}<span class="ax-pmain"><span class="ax-pname">${esc(U[id].name)}</span>
+        <span class="ax-psub">ID ${id} · ${U[id].un ? '@' + esc(U[id].un) : 'без @'}</span></span>
+        <span style="color:var(--muted)">›</span></div>`).join('')}
+    </div>`);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Поиск
+   ══════════════════════════════════════════════════════════════════════════ */
+function openSearch() {
+  el('searchLayer').classList.add('on');
+  el('searchInput').value = '';
+  renderSearch();
+  setTimeout(() => el('searchInput').focus(), 50);
+}
+function closeSearch() {
+  el('searchLayer').classList.remove('on');
+  el('searchInput').blur();
+}
+function renderSearch() {
+  const q = (el('searchInput').value || '').trim().toLowerCase().replace(/^@/, '');
+  const all = Object.values(U);
+  const found = q
+    ? all.filter(u => (u.name + ' ' + u.un + ' ' + u.id).toLowerCase().includes(q))
+    : all.slice(0, 4);
+
+  el('searchRes').innerHTML =
+    `<div class="ax-sec" style="margin-top:6px"><b>${q ? 'Найдено' : 'Недавние'}</b><small>${found.length}</small></div>` +
+    (found.length
+      ? `<div class="ax-card tight">${found.map(u => person(u)).join('')}</div>`
+      : `<div class="ax-card" style="text-align:center;padding:24px 12px">
+           <div style="font-size:20px;margin-bottom:4px">🔍</div>
+           <div style="font-size:10.5px;color:var(--muted)">Никого не нашли. Проверьте ID или @username.</div>
+         </div>`) +
+    `<div class="ax-sec"><b>Действия</b></div>
+     <div class="ax-card tight">
+       <button class="ax-attn" onclick="closeSearch();pickFor('mute')"><span class="ax-ico gold">🔇</span><span class="ax-txt"><b>Замутить</b><small>выбрать человека из списка</small></span><span class="ax-arr">›</span></button>
+       <button class="ax-attn" onclick="closeSearch();go('settings')"><span class="ax-ico gold">⚙️</span><span class="ax-txt"><b>Настройки чата</b><small>модули, правила, доступ</small></span><span class="ax-arr">›</span></button>
+     </div>`;
+}
+
+/* ── Тост ─────────────────────────────────────────────────────────────── */
+let toastTimer = null;
+function toast(text) {
+  const t = el('toast');
+  t.textContent = text;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2200);
+}
+
+/* ── Старт ────────────────────────────────────────────────────────────── */
+el('meAva').innerHTML = `<img src="${P[7]}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">`;
+render();
+
+/* Прямые ссылки на экран: #chat/people, #net/appeals, #dev/players */
+(function () {
+  const [mode, tab] = location.hash.replace('#', '').split('/');
+  if (NAV[mode] && NAV[mode].some(x => x[0] === tab)) {
+    S.mode = mode; S.tab = tab;
+    document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    render();
+  }
+})();
+</script>
+</body>
+</html>

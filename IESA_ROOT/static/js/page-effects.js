@@ -19,6 +19,10 @@
      0. CONSTANTS
      ────────────────────────────────────────────── */
   const EASE_OUT_CUBIC = 'cubic-bezier(.22,1,.36,1)';
+  const observedReveal = new WeakSet();
+  const observedCards = new WeakSet();
+  const observedCounters = new WeakSet();
+  const observedImages = new WeakSet();
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ──────────────────────────────────────────────
@@ -26,7 +30,9 @@
      Works on ALL pages, not just homepage
      ────────────────────────────────────────────── */
   function initScrollReveal() {
-    const els = document.querySelectorAll('[data-reveal]');
+    const els = Array.from(document.querySelectorAll('[data-reveal]'))
+      .filter(el => !observedReveal.has(el));
+    els.forEach(el => observedReveal.add(el));
     if (!els.length) return;
 
     // Inject CSS if not already present (subpages don't have it)
@@ -56,7 +62,7 @@
       document.head.appendChild(style);
     }
 
-    if (prefersReducedMotion) {
+    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
       els.forEach(el => el.classList.add('revealed'));
       return;
     }
@@ -83,8 +89,9 @@
       '.gallery-grid .col', '.row.g-4 > .col-md-6',
       '.row.g-4 > .col-lg-4', '.row.g-3 > .col-12'
     ];
-    const cards = document.querySelectorAll(selectors.join(','));
-    if (!cards.length || prefersReducedMotion) return;
+    const cards = Array.from(document.querySelectorAll(selectors.join(',')))
+      .filter(card => !observedCards.has(card));
+    if (!cards.length || prefersReducedMotion || !('IntersectionObserver' in window)) return;
 
     // Inject stagger CSS
     if (!document.getElementById('iesa-stagger-css')) {
@@ -115,6 +122,7 @@
     cards.forEach((card, i) => {
       // Don't double-apply if parent already has data-reveal
       if (card.closest('[data-reveal]') && !card.hasAttribute('data-reveal')) return;
+      observedCards.add(card);
       card.classList.add('iesa-stagger');
       card.style.transitionDelay = `${Math.min(i * 0.07, 0.6)}s`;
       io.observe(card);
@@ -253,8 +261,14 @@
      Add data-count="123" to any element
      ────────────────────────────────────────────── */
   function initCounters() {
-    const counters = document.querySelectorAll('[data-count]');
+    const counters = Array.from(document.querySelectorAll('[data-count]'))
+      .filter(el => !observedCounters.has(el));
+    counters.forEach(el => observedCounters.add(el));
     if (!counters.length) return;
+    if (prefersReducedMotion || !('IntersectionObserver' in window)) {
+      counters.forEach(el => { el.textContent = el.dataset.count; });
+      return;
+    }
 
     function animateCount(el, target, duration) {
       const start = performance.now();
@@ -624,6 +638,8 @@
     }
 
     document.querySelectorAll('img[loading="lazy"]').forEach(img => {
+      if (observedImages.has(img)) return;
+      observedImages.add(img);
       if (img.complete) {
         img.classList.add('iesa-loaded');
       } else {

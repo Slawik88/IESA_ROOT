@@ -1,0 +1,1771 @@
+[
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 111,
+    "function": "my_admin_chats",
+    "routes": [
+      "router.get('/my-chats')"
+    ],
+    "calls": [
+      "','.join",
+      "Depends",
+      "_LOCAL_RANK_NAMES.get",
+      "bool",
+      "c.fetchall",
+      "db.execute",
+      "dict",
+      "len",
+      "router.get",
+      "serves.values",
+      "set",
+      "str",
+      "titles.get",
+      "tuple"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 177,
+    "function": "admin_dashboard",
+    "routes": [
+      "router.get('/{chat_id}/dashboard')"
+    ],
+    "calls": [
+      "Depends",
+      "_LOCAL_RANK_NAMES.get",
+      "_require_admin",
+      "c.fetchone",
+      "db.execute",
+      "get_chat_settings",
+      "router.get",
+      "settings.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 219,
+    "function": "admin_users",
+    "routes": [
+      "router.get('/{chat_id}/users')"
+    ],
+    "calls": [
+      "Depends",
+      "Query",
+      "_LOCAL_RANK_NAMES.get",
+      "_require_admin",
+      "c.fetchall",
+      "c.fetchone",
+      "chat_sanctions_map",
+      "db.execute",
+      "dict",
+      "get_chat_settings",
+      "int",
+      "r.get",
+      "router.get",
+      "s.get",
+      "sanctions.get",
+      "settings.get",
+      "str",
+      "{'messages': 'ucs.user_messages_count_all_time DESC', 'level': 'ucs.user_level DESC', 'rank': 'ucs.local_rank DESC', 'warns': 'ucs.warnings DESC'}.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 315,
+    "function": "admin_get_settings",
+    "routes": [
+      "router.get('/{chat_id}/settings')"
+    ],
+    "calls": [
+      "Depends",
+      "_require_admin",
+      "get_chat_settings",
+      "module_audit.catalog",
+      "module_audit.recent",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 357,
+    "function": "admin_update_settings",
+    "routes": [
+      "router.post('/{chat_id}/settings')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "body.model_dump",
+      "body.model_dump().items",
+      "bool",
+      "db.connection.transaction",
+      "int",
+      "list",
+      "module_audit.set_chat_module",
+      "module_updates.items",
+      "router.post",
+      "update_chat_settings",
+      "updates.pop"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 389,
+    "function": "admin_action",
+    "routes": [
+      "router.post('/{chat_id}/action')"
+    ],
+    "calls": [
+      "(tg_result or {}).get",
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "_required.get",
+      "add_warn",
+      "c.fetchone",
+      "db.execute",
+      "expire_due_warns",
+      "get_chat_settings",
+      "log_moderation_action",
+      "mod_service.ban_user",
+      "mod_service.kick_user",
+      "mod_service.mute_user",
+      "mod_service.set_immune_user",
+      "mod_service.shield_user",
+      "mod_service.start_warn_court",
+      "mod_service.unban_user",
+      "mod_service.unmute_user",
+      "mod_service.unshield_user",
+      "remove_warn",
+      "resolve_display_name",
+      "router.post",
+      "settings.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 499,
+    "function": "admin_logs",
+    "routes": [
+      "router.get('/{chat_id}/logs')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Query",
+      "_require_admin",
+      "c.fetchall",
+      "c.fetchone",
+      "db.execute",
+      "dict",
+      "params.append",
+      "router.get",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 562,
+    "function": "admin_chat_lock",
+    "routes": [
+      "router.post('/{chat_id}/chat-lock')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "_tg_call",
+      "get_chat_settings",
+      "res.get",
+      "router.post",
+      "settings.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 578,
+    "function": "admin_left_users",
+    "routes": [
+      "router.get('/{chat_id}/left')"
+    ],
+    "calls": [
+      "Depends",
+      "_require_admin",
+      "get_left_users",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 600,
+    "function": "admin_blacklist",
+    "routes": [
+      "router.get('/{chat_id}/blacklist')"
+    ],
+    "calls": [
+      "','.join",
+      "Depends",
+      "_require_blacklist_rank",
+      "c.fetchall",
+      "db.execute",
+      "e.get",
+      "get_chat_blacklist",
+      "len",
+      "names.get",
+      "router.get",
+      "str",
+      "tuple"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 621,
+    "function": "admin_blacklist_add",
+    "routes": [
+      "router.post('/{chat_id}/blacklist')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_blacklist_rank",
+      "c.fetchone",
+      "db.execute",
+      "mod_service.blacklist_user",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 643,
+    "function": "admin_blacklist_remove",
+    "routes": [
+      "router.delete('/{chat_id}/blacklist/{user_id}')"
+    ],
+    "calls": [
+      "Depends",
+      "_require_blacklist_rank",
+      "mod_service.unblacklist_user",
+      "router.delete"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 658,
+    "function": "admin_set_rank",
+    "routes": [
+      "router.post('/{chat_id}/users/{user_id}/rank')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_LOCAL_RANK_NAMES.get",
+      "_require_admin",
+      "c.fetchone",
+      "db.commit",
+      "db.execute",
+      "log_moderation_action",
+      "roles.can_assign_local_rank",
+      "router.post",
+      "set_local_rank"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 700,
+    "function": "admin_purge_status",
+    "routes": [
+      "router.get('/{chat_id}/purge/status')"
+    ],
+    "calls": [
+      "Depends",
+      "_require_admin",
+      "bool",
+      "get_admin_chat",
+      "get_chat_settings",
+      "purge_svc.get_status",
+      "router.get",
+      "settings.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 736,
+    "function": "admin_purge_start",
+    "routes": [
+      "router.post('/{chat_id}/purge/start')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "datetime.now",
+      "datetime.strptime",
+      "end_d.strftime",
+      "purge_svc.start_purge",
+      "router.post",
+      "start_d.strftime",
+      "timedelta"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 760,
+    "function": "admin_purge_dossiers",
+    "routes": [
+      "router.post('/{chat_id}/purge/dossiers')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "purge_svc.get_status",
+      "purge_svc.send_next_batch",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 778,
+    "function": "admin_purge_verdict",
+    "routes": [
+      "router.post('/{chat_id}/purge/verdict')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "purge_svc.apply_verdict",
+      "purge_svc.get_status",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/admin.py",
+    "line": 795,
+    "function": "admin_purge_finish",
+    "routes": [
+      "router.post('/{chat_id}/purge/finish')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_require_admin",
+      "purge_svc.finish_purge",
+      "purge_svc.get_status",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 21,
+    "function": "my_marriage",
+    "routes": [
+      "router.get('/')"
+    ],
+    "calls": [
+      "Depends",
+      "PARTNER_GIFTS.get",
+      "PARTNER_GIFTS.get(g['gift_id'], {}).get",
+      "backfill_metric",
+      "c.fetchall",
+      "datetime.fromisoformat",
+      "datetime.now",
+      "db.commit",
+      "db.execute",
+      "dict",
+      "float",
+      "get_received_gifts",
+      "get_user_marriage",
+      "is_vip_active",
+      "m.get",
+      "router.get",
+      "since.replace",
+      "str",
+      "str(m['marriage_date']).replace"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 84,
+    "function": "family_bank",
+    "routes": [
+      "router.post('/bank')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "router.post",
+      "str",
+      "transfer_between_personal_and_family"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 120,
+    "function": "fund_from_family",
+    "routes": [
+      "router.post('/fund')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "router.post",
+      "str",
+      "transfer_between_personal_and_family"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 187,
+    "function": "gift_catalog",
+    "routes": [
+      "router.get('/gifts')"
+    ],
+    "calls": [
+      "Depends",
+      "PARTNER_GIFTS.items",
+      "_gift_currency",
+      "g.get",
+      "out.append",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 205,
+    "function": "send_partner_gift",
+    "routes": [
+      "router.post('/gift')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_notify_partner_gift",
+      "get_user_marriage",
+      "gift.get",
+      "len",
+      "purchase_partner_gift",
+      "request_key.strip",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 232,
+    "function": "divorce",
+    "routes": [
+      "router.post('/divorce')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "divorce_v1.create_intent",
+      "divorce_v1.settle_intent",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 245,
+    "function": "create_divorce_intent",
+    "routes": [
+      "router.post('/divorce/intent')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "any",
+      "divorce_v1.create_intent",
+      "float",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 258,
+    "function": "allocate_divorce_property",
+    "routes": [
+      "router.post('/divorce/{intent_id}/allocate')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "divorce_v1.allocate_property",
+      "len",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 273,
+    "function": "confirm_divorce",
+    "routes": [
+      "router.post('/divorce/{intent_id}/confirm')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "divorce_v1.settle_intent",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 286,
+    "function": "get_proposals",
+    "routes": [
+      "router.get('/proposals')"
+    ],
+    "calls": [
+      "Depends",
+      "c.fetchall",
+      "db.execute",
+      "dict",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 308,
+    "function": "accept_proposal",
+    "routes": [
+      "router.post('/proposals/accept')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "c.fetchone",
+      "create_marriage",
+      "db.execute",
+      "dict",
+      "get_user_marriage",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/marriage.py",
+    "line": 356,
+    "function": "decline_proposal",
+    "routes": [
+      "router.post('/proposals/decline')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "c.fetchone",
+      "db.commit",
+      "db.execute",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 122,
+    "function": "my_avatar",
+    "routes": [
+      "router.get('/avatar')"
+    ],
+    "calls": [
+      "Depends",
+      "_vip_avatar",
+      "is_vip_active",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 342,
+    "function": "my_profile",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "VIP_BADGES.get",
+      "_RANK_NAMES.get",
+      "_achievement_paths",
+      "_compensation_receipt",
+      "_ensure_profile_tables",
+      "_game_results",
+      "_iso",
+      "_profile_pets",
+      "_sanctions",
+      "_sky_sigil",
+      "_supporter_badge",
+      "_system_flags.get_all",
+      "_vip_avatar",
+      "account_progress",
+      "activity_row.get",
+      "bool",
+      "c.fetchall",
+      "c.fetchone",
+      "db.execute",
+      "dict",
+      "echo_shards.get_balance",
+      "float",
+      "get_active_cosmetics",
+      "get_first_seen",
+      "get_preferences",
+      "get_vip_info",
+      "getattr",
+      "global_skin_state",
+      "int",
+      "raw.execute",
+      "raw.is_in_transaction",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 494,
+    "function": "my_chat_tracker",
+    "routes": [
+      "router.get('/me/chat-tracker')"
+    ],
+    "calls": [
+      "','.join",
+      "Depends",
+      "HTTPException",
+      "_iso",
+      "activity_dates.get",
+      "activity_dates[int(row['chat_id'])].add",
+      "cursor.fetchall",
+      "cursor.fetchone",
+      "date.fromisoformat",
+      "datetime.now",
+      "datetime.now(timezone.utc).date",
+      "db.execute",
+      "dict",
+      "int",
+      "len",
+      "query.lower",
+      "query.lower().replace",
+      "query.lower().replace('\\\\', '\\\\\\\\').replace",
+      "query.lower().replace('\\\\', '\\\\\\\\').replace('%', '\\\\%').replace",
+      "router.get",
+      "row.pop",
+      "sanction_history.get",
+      "sanction_history[int(row['chat_id'])].append",
+      "set",
+      "str",
+      "str(query or '').strip",
+      "timedelta"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 604,
+    "function": "my_fitting_cosmetics",
+    "routes": [
+      "router.get('/me/fitting-cosmetics')"
+    ],
+    "calls": [
+      "Depends",
+      "get_fitting_cosmetics",
+      "int",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 619,
+    "function": "set_whatsnew_seen",
+    "routes": [
+      "router.post('/whatsnew-seen')"
+    ],
+    "calls": [
+      "Depends",
+      "db.commit",
+      "db.execute",
+      "getattr",
+      "raw.execute",
+      "raw.is_in_transaction",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 643,
+    "function": "public_profile",
+    "routes": [
+      "router.get('/public/{profile_ref}')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "VIP_BADGES.get",
+      "_RANK_NAMES.get",
+      "_achievement_paths",
+      "_ensure_profile_tables",
+      "_game_results",
+      "_iso",
+      "_profile_pets",
+      "_sanctions",
+      "_sky_sigil",
+      "_supporter_badge",
+      "_vip_avatar",
+      "account_progress",
+      "all_ach.items",
+      "bool",
+      "c.fetchone",
+      "clan.get",
+      "clans_repo.get_user_clan",
+      "db.execute",
+      "dict",
+      "echo_shards.get_balance",
+      "float",
+      "get_active_cosmetics",
+      "get_all_achievements",
+      "get_first_seen",
+      "get_global_streak",
+      "get_preferences",
+      "get_vip_info",
+      "int",
+      "public_profiles.display_name",
+      "public_profiles.resolve_reference",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 775,
+    "function": "set_nickname_endpoint",
+    "routes": [
+      "router.post('/set-nickname')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "body.nickname.strip",
+      "c.fetchone",
+      "datetime.now",
+      "datetime.now(timezone.utc).replace",
+      "db.commit",
+      "db.execute",
+      "get_item_quantity",
+      "is_vip_active",
+      "len",
+      "remove_item",
+      "reset_at.replace",
+      "router.post",
+      "safe_html",
+      "set_nickname"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 858,
+    "function": "get_nickname_endpoint",
+    "routes": [
+      "router.get('/nickname')"
+    ],
+    "calls": [
+      "Depends",
+      "c.fetchone",
+      "db.execute",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 878,
+    "function": "get_notification_prefs",
+    "routes": [
+      "router.get('/notification-prefs')"
+    ],
+    "calls": [
+      "Depends",
+      "NOTIFICATION_CATEGORIES.items",
+      "notif_repo.get_prefs",
+      "prefs.get",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/profile.py",
+    "line": 891,
+    "function": "set_notification_pref",
+    "routes": [
+      "router.post('/notification-prefs')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "notif_repo.set_pref",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 51,
+    "function": "cosmetics_catalog",
+    "routes": [
+      "router.get('/')"
+    ],
+    "calls": [
+      "Depends",
+      "get_catalog",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 61,
+    "function": "cosmetics_buy",
+    "routes": [
+      "router.post('/buy')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_economic_key",
+      "buy",
+      "db.commit",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 82,
+    "function": "cosmetics_buy_lineup",
+    "routes": [
+      "router.post('/buy-lineup')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_economic_key",
+      "buy_lineup",
+      "db.commit",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 101,
+    "function": "cosmetics_buy_many",
+    "routes": [
+      "router.post('/buy-many')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_economic_key",
+      "buy_many",
+      "db.commit",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 120,
+    "function": "cosmetics_equip",
+    "routes": [
+      "router.post('/equip')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "equip",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 132,
+    "function": "cosmetics_unequip",
+    "routes": [
+      "router.post('/unequip')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.post",
+      "unequip"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 144,
+    "function": "cosmetics_welcome",
+    "routes": [
+      "router.post('/welcome')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.post",
+      "set_welcome"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 154,
+    "function": "cosmetics_chests",
+    "routes": [
+      "router.get('/chests')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.get"
+    ],
+    "direct_http_410": true
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 167,
+    "function": "cosmetics_chest_open",
+    "routes": [
+      "router.post('/chest/open')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.post"
+    ],
+    "direct_http_410": true
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 172,
+    "function": "cosmetics_craft_catalog",
+    "routes": [
+      "router.get('/craft')"
+    ],
+    "calls": [
+      "Depends",
+      "craft_catalog",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 181,
+    "function": "cosmetics_craft",
+    "routes": [
+      "router.post('/craft')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.post"
+    ],
+    "direct_http_410": true
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 188,
+    "function": "cosmetics_gift_catalog",
+    "routes": [
+      "router.get('/gift/catalog')"
+    ],
+    "calls": [
+      "Depends",
+      "giftable_cosmetics",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 199,
+    "function": "cosmetics_gift",
+    "routes": [
+      "router.post('/gift')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_economic_key",
+      "_tg_dm",
+      "gift_cosmetic",
+      "router.post",
+      "str",
+      "users_repo.get_user_name"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 231,
+    "function": "cosmetics_chest_buy",
+    "routes": [
+      "router.post('/chest/buy')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "router.post"
+    ],
+    "direct_http_410": true
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 242,
+    "function": "cosmetics_list_presets",
+    "routes": [
+      "router.get('/presets')"
+    ],
+    "calls": [
+      "Depends",
+      "list_presets",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 251,
+    "function": "cosmetics_save_preset",
+    "routes": [
+      "router.post('/presets')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "router.post",
+      "save_preset"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 263,
+    "function": "cosmetics_rename_preset",
+    "routes": [
+      "router.patch('/presets/{preset_id}')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "rename_preset",
+      "router.patch"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 276,
+    "function": "cosmetics_apply_preset",
+    "routes": [
+      "router.post('/presets/{preset_id}/apply')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "apply_preset",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/cosmetics.py",
+    "line": 284,
+    "function": "cosmetics_delete_preset",
+    "routes": [
+      "router.delete('/presets/{preset_id}')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "delete_preset",
+      "router.delete"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appearance.py",
+    "line": 26,
+    "function": "my_wardrobe",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "get_fitting_inventory",
+      "int",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appearance.py",
+    "line": 31,
+    "function": "equip_my_cosmetic",
+    "routes": [
+      "router.post('/equip')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "equip",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appearance.py",
+    "line": 39,
+    "function": "unequip_my_cosmetic",
+    "routes": [
+      "router.post('/unequip')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "int",
+      "router.post",
+      "unequip"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/global_skins_v1.py",
+    "line": 28,
+    "function": "my_skin",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "int",
+      "router.get",
+      "skins.state"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/global_skins_v1.py",
+    "line": 33,
+    "function": "select_skin",
+    "routes": [
+      "router.post('/select')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "int",
+      "router.post",
+      "skins.select",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/global_skins_v1.py",
+    "line": 41,
+    "function": "buy_skin",
+    "routes": [
+      "router.post('/buy')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_economic_key",
+      "db.commit",
+      "int",
+      "router.post",
+      "skins.buy",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/pets_v1.py",
+    "line": 36,
+    "function": "my_pets",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "_ensure_release_tables",
+      "int",
+      "overview",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/pets_v1.py",
+    "line": 44,
+    "function": "set_active_pet",
+    "routes": [
+      "router.post('/active')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_ensure_release_tables",
+      "int",
+      "router.post",
+      "select_active_pet",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/pets_v1.py",
+    "line": 52,
+    "function": "start_pet_activity",
+    "routes": [
+      "router.post('/activity')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_ensure_release_tables",
+      "int",
+      "router.post",
+      "start_activity",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/pets_v1.py",
+    "line": 60,
+    "function": "decide_expedition",
+    "routes": [
+      "router.post('/expedition/decision')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_ensure_release_tables",
+      "choose_expedition",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/pets_v1.py",
+    "line": 68,
+    "function": "feed",
+    "routes": [
+      "router.post('/feed')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_ensure_release_tables",
+      "feed_pet",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/quests_v1.py",
+    "line": 26,
+    "function": "my_quests",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "ensure_tables",
+      "int",
+      "is_vip_active",
+      "quests.available_sources",
+      "quests.overview",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/quests_v1.py",
+    "line": 34,
+    "function": "reroll_quest",
+    "routes": [
+      "router.post('/reroll')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "ensure_tables",
+      "int",
+      "is_vip_active",
+      "quests.available_sources",
+      "quests.reroll",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/quests_v1.py",
+    "line": 46,
+    "function": "claim_quest_reward",
+    "routes": [
+      "router.post('/claim-reward')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "ensure_ledger_tables",
+      "ensure_tables",
+      "int",
+      "is_vip_active",
+      "quests.available_sources",
+      "quests.claim_reward",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/achievements_v1.py",
+    "line": 13,
+    "function": "my_achievements",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "achievements.overview",
+      "ensure_tables",
+      "int",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/chests_v1.py",
+    "line": 25,
+    "function": "my_chests",
+    "routes": [
+      "router.get('/me')"
+    ],
+    "calls": [
+      "Depends",
+      "chests_v1.overview",
+      "int",
+      "router.get"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/chests_v1.py",
+    "line": 30,
+    "function": "prepare",
+    "routes": [
+      "router.post('/prepare')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "chests_v1.prepare_free_open",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/chests_v1.py",
+    "line": 42,
+    "function": "purchase",
+    "routes": [
+      "router.post('/purchase')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "chests_v1.purchase_key",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/chests_v1.py",
+    "line": 54,
+    "function": "reveal",
+    "routes": [
+      "router.post('/{open_id}/reveal')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "chests_v1.reveal",
+      "int",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 16,
+    "function": "deletion_status",
+    "routes": [
+      "router.get('/deletion-status')"
+    ],
+    "calls": [
+      "Depends",
+      "acc.get_state",
+      "bool",
+      "d.get",
+      "int",
+      "router.get",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 33,
+    "function": "set_inactivity",
+    "routes": [
+      "router.post('/set-inactivity')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "acc.set_inactivity_days",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 42,
+    "function": "delete_request",
+    "routes": [
+      "router.post('/delete/request')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "acc.request_deletion",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 55,
+    "function": "delete_confirm",
+    "routes": [
+      "router.post('/delete/confirm')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "acc.confirm_deletion",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 64,
+    "function": "delete_cancel",
+    "routes": [
+      "router.post('/delete/cancel')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "acc.cancel_deletion",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/account.py",
+    "line": 72,
+    "function": "account_restore",
+    "routes": [
+      "router.post('/restore')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "acc.restore_account",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appeals.py",
+    "line": 25,
+    "function": "my_appeal",
+    "routes": [
+      "router.get('/my')"
+    ],
+    "calls": [
+      "Depends",
+      "bool",
+      "gm_repo.appeal_thread",
+      "gm_repo.get_active_sanction_for_user",
+      "gm_repo.get_open_appeal",
+      "int",
+      "json.loads",
+      "m.get",
+      "router.get",
+      "sanction.get",
+      "sanction['expires_at'].isoformat",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appeals.py",
+    "line": 53,
+    "function": "appeal_message",
+    "routes": [
+      "router.post('/message')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "gmod.appeal_add_message",
+      "gmod.notify_staff_about_appeal",
+      "int",
+      "router.post"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/appeals.py",
+    "line": 71,
+    "function": "appeal_photo",
+    "routes": [
+      "router.post('/photo')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "base64.b64decode",
+      "body.data_b64.split",
+      "c.post",
+      "gm_repo.get_active_sanction_for_user",
+      "gm_repo.get_open_appeal",
+      "httpx.AsyncClient",
+      "int",
+      "j.get",
+      "j['result'].get",
+      "len",
+      "os.getenv",
+      "r.json",
+      "router.post",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/payments.py",
+    "line": 46,
+    "function": "zarniki_packages",
+    "routes": [
+      "router.get('/zarniki/packages')"
+    ],
+    "calls": [
+      "Depends",
+      "router.get",
+      "stars_invoice_issuance_allowed"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/payments.py",
+    "line": 82,
+    "function": "cosmetic_offers",
+    "routes": [
+      "router.get('/cosmetics/offers')"
+    ],
+    "calls": [
+      "Depends",
+      "direct_stars_cosmetics_allowed",
+      "int",
+      "router.get",
+      "supporter_cosmetics_v1.overview",
+      "supporter_repo.schema_ready"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/payments.py",
+    "line": 90,
+    "function": "cosmetic_invoice",
+    "routes": [
+      "router.post('/cosmetics/invoice')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "_tg_call",
+      "direct_stars_cosmetics_allowed",
+      "int",
+      "isinstance",
+      "json.loads",
+      "order.get",
+      "res.get",
+      "router.post",
+      "str",
+      "supporter_cosmetics_v1.create_order",
+      "supporter_repo.schema_ready",
+      "supporter_repo.store_invoice_link"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/payments.py",
+    "line": 132,
+    "function": "cosmetic_select",
+    "routes": [
+      "router.post('/cosmetics/select')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "int",
+      "router.post",
+      "str",
+      "supporter_cosmetics_v1.select"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/payments.py",
+    "line": 146,
+    "function": "zarniki_invoice",
+    "routes": [
+      "router.post('/zarniki/invoice')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "_tg_call",
+      "custom_quote",
+      "invoice_payload",
+      "is_issuable_v1_quote",
+      "is_stars_amount",
+      "package_quote",
+      "res.get",
+      "router.post",
+      "stars_invoice_issuance_allowed"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/wallet.py",
+    "line": 67,
+    "function": "wallet_history",
+    "routes": [
+      "router.get('/history')"
+    ],
+    "calls": [
+      "Depends",
+      "Query",
+      "_SOURCE_LABELS.get",
+      "float",
+      "get_recent",
+      "r.get",
+      "result.append",
+      "router.get",
+      "str"
+    ],
+    "direct_http_410": false
+  },
+  {
+    "file": "FastAPI/routers/wallet.py",
+    "line": 104,
+    "function": "exchange_zarniki_endpoint",
+    "routes": [
+      "router.post('/exchange-zarniki')"
+    ],
+    "calls": [
+      "Depends",
+      "HTTPException",
+      "Header",
+      "exchange_repo.ensure_tables",
+      "int",
+      "len",
+      "request_key.strip",
+      "router.post",
+      "str",
+      "zarniki_exchange_v1.exchange"
+    ],
+    "direct_http_410": false
+  }
+]

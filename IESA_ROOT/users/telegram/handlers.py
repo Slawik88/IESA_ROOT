@@ -9,7 +9,6 @@ import asyncio
 import html as _html
 import logging
 import re
-from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.utils.translation import gettext as _
@@ -336,7 +335,7 @@ async def handle_new_channel_member(chat_id: str, new_member: dict, channel_titl
             ]
         }
 
-    from .client import send_message_async  # noqa: avoid circular at top level
+    from .client import send_message_async  # Avoid a circular import at module load.
     await send_message_async(
         text,
         chat_id=chat_id,

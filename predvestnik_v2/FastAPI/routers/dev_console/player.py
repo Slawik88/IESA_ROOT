@@ -13,6 +13,7 @@ from infrastructure.repositories.economy import (
 )
 from infrastructure.repositories import admin_log
 from infrastructure.repositories.dark_mora import add_dark_mora
+from FastAPI.routers.admin_avatar import attach_avatar_urls, avatar_url
 from services.battle_pass import get_active_season, refresh_seasons_cache
 from services.roles import GLOBAL_RANKS_MAP, LOCAL_RANKS_MAP
 from ._common import _classify_chat_links, require_console_perm, _send_admin_gift, _tg_call
@@ -77,7 +78,11 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
         f"SELECT u.user_tg_id, u.user_tg_username, COALESCE(u.global_rank,0) AS global_rank, "
         f"COALESCE(u.user_balance_mora,0) AS mora, COALESCE(u.user_balance_diamonds,0) AS diamonds, "
         f"COALESCE(u.user_balance_dark_mora,0) AS dark_mora, COALESCE(u.user_balance_zarniki,0) AS zarniki, "
-        f"u.active_theme FROM users u WHERE {where}", (arg,)
+        f"u.active_theme, "
+        f"(SELECT n.nickname FROM user_nicknames n WHERE n.user_id = u.user_tg_id "
+        f" ORDER BY n.set_at DESC LIMIT 1) AS nickname, "
+        f"(SELECT MIN(j.joined_at) FROM user_chat_stats j WHERE j.user_tg_id = u.user_tg_id) AS first_seen "
+        f"FROM users u WHERE {where}", (arg,)
     ) as c:
         row = await c.fetchone()
     if not row:
@@ -85,6 +90,9 @@ async def dev_user_lookup(q: str = Query(..., max_length=64),
     d = dict(row)
     uid = d["user_tg_id"]
     d["global_rank_name"] = GLOBAL_RANKS_MAP.get(d["global_rank"], "?")
+    # Карточка игрока: фото и «первое появление» — админам нужно с первого взгляда.
+    d["avatar_url"] = avatar_url(uid)
+    d["first_seen"] = str(d["first_seen"]) if d.get("first_seen") else None
 
     # VIP — со сроком: сколько дней осталось (days_left) и на сколько в целом текущая
     # подписка (span_days = started_at→expires_at), плюс накопленный стаж (total_days).
@@ -360,6 +368,8 @@ async def dev_admin_log(q: str = Query("", max_length=64), offset: int = Query(0
         rows = [dict(r) for r in await c.fetchall()]
     for r in rows:
         r["created_at"] = str(r["created_at"]) if r.get("created_at") else None
+        r["admin_avatar_url"] = avatar_url(r.get("admin_id"))
+        r["target_avatar_url"] = avatar_url(r.get("target_id"))
     return {"log": rows, "offset": offset, "has_more": len(rows) == 50}
 
 
@@ -395,14 +405,14 @@ async def dev_pulse(db=Depends(get_db), user=Depends(require_tg_user)):
         appeals = [dict(r) for r in await c.fetchall()]
     async with db.execute(
         "SELECT g.id, g.sanction_type, g.target_type, g.target_id, g.reason, g.created_at, "
-        "ut.user_tg_username AS target_name, ui.user_tg_username AS issued_by_name "
+        "g.issued_by, ut.user_tg_username AS target_name, ui.user_tg_username AS issued_by_name "
         "FROM global_sanctions g "
         "LEFT JOIN users ut ON ut.user_tg_id = g.target_id AND g.target_type = 'user' "
         "LEFT JOIN users ui ON ui.user_tg_id = g.issued_by "
         "ORDER BY g.id DESC LIMIT 5") as c:
         sanctions = [dict(r) for r in await c.fetchall()]
     async with db.execute(
-        "SELECT l.action, l.detail, l.amount, l.created_at, l.target_id, "
+        "SELECT l.action, l.detail, l.amount, l.created_at, l.target_id, l.admin_id, "
         "ua.user_tg_username AS admin_name, ut.user_tg_username AS target_name "
         "FROM admin_grant_log l "
         "LEFT JOIN users ua ON ua.user_tg_id = l.admin_id "
@@ -412,6 +422,14 @@ async def dev_pulse(db=Depends(get_db), user=Depends(require_tg_user)):
     for coll in (appeals, sanctions, admin_actions):
         for r in coll:
             r["created_at"] = str(r["created_at"]) if r.get("created_at") else None
+    for a in appeals:
+        a["user_avatar_url"] = avatar_url(a.get("user_id"))
+    for s in sanctions:
+        s["target_avatar_url"] = avatar_url(s.get("target_id")) if s.get("target_type") == "user" else None
+        s["issued_by_avatar_url"] = avatar_url(s.get("issued_by"))
+    for g in admin_actions:
+        g["admin_avatar_url"] = avatar_url(g.get("admin_id"))
+        g["target_avatar_url"] = avatar_url(g.get("target_id"))
     return {"counts": counts, "appeals": appeals, "sanctions": sanctions,
             "admin_actions": admin_actions}
 
@@ -451,7 +469,9 @@ async def dev_chat_members(chat_id: int, db=Depends(get_db), user=Depends(requir
         "COALESCE(u.user_tg_username, CAST(ucs.user_tg_id AS TEXT)) AS username, "
         "ucs.user_level, ucs.user_messages_count_all_time AS msgs, "
         "COALESCE(ucs.local_rank, 0) AS local_rank, COALESCE(ucs.warnings, 0) AS warnings, "
-        "ucs.muted_until, COALESCE(ucs.is_left, 0) AS is_left "
+        "ucs.muted_until, COALESCE(ucs.is_left, 0) AS is_left, "
+        "(SELECT n.nickname FROM user_nicknames n "
+        " WHERE n.user_id = ucs.user_tg_id AND n.chat_id = ucs.chat_tg_id) AS nickname "
         "FROM user_chat_stats ucs LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
         "WHERE ucs.chat_tg_id = ? "
         "ORDER BY COALESCE(ucs.is_left, 0) ASC, ucs.user_messages_count_all_time DESC LIMIT 300",
@@ -468,6 +488,7 @@ async def dev_chat_members(chat_id: int, db=Depends(get_db), user=Depends(requir
         m["global_ban"] = s.get("global_ban", False)
         m["rank_name"] = LOCAL_RANKS_MAP.get(m["local_rank"], "?") if m["local_rank"] else ""
         m["muted_until"] = str(m["muted_until"]) if m.get("muted_until") else None
+    attach_avatar_urls(members, "user_tg_id")
     return {"members": members}
 
 
@@ -509,6 +530,7 @@ async def dev_user_search(q: str = Query(..., max_length=64),
         r["global_rank_name"] = GLOBAL_RANKS_MAP.get(r["global_rank"] or 0, "?")
         r["mora"] = float(r["mora"]); r["zarniki"] = float(r["zarniki"])
         r["is_vip"] = bool(r["is_vip"]); r["has_sanction"] = bool(r["has_sanction"])
+    attach_avatar_urls(rows, "user_tg_id")
     return {"results": rows}
 
 

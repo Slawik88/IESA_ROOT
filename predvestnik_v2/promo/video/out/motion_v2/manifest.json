@@ -1,0 +1,58 @@
+{
+  "status": "rendered_demo",
+  "file": "predvestnik_motion_v2.mp4",
+  "duration_seconds": 18,
+  "fps": 30,
+  "size": [
+    1080,
+    1920
+  ],
+  "source_render_size": [
+    720,
+    1280
+  ],
+  "fictional_chat": true,
+  "real_backend_actions": false,
+  "ui": "Existing app.07.js loadPurgePanel captures, animated camera and pointer; fixture state change",
+  "voice": "Local Windows Pavel synthetic Russian voice",
+  "audio": "Original synthesized beat and effects",
+  "voice_timing": [
+    {
+      "start": 0.05,
+      "duration": 2.7498958333333334,
+      "file": "voice_00.wav"
+    },
+    {
+      "start": 2.92,
+      "duration": 2.668125,
+      "file": "voice_01.wav"
+    },
+    {
+      "start": 6.02,
+      "duration": 1.8615,
+      "file": "voice_02.wav"
+    },
+    {
+      "start": 8.0,
+      "duration": 1.7800625,
+      "file": "voice_03.wav"
+    },
+    {
+      "start": 9.9,
+      "duration": 1.623875,
+      "file": "voice_04.wav"
+    },
+    {
+      "start": 11.78,
+      "duration": 2.160833333333333,
+      "file": "voice_05.wav"
+    },
+    {
+      "start": 14.5,
+      "duration": 2.7022708333333334,
+      "file": "voice_06.wav"
+    }
+  ],
+  "retention": "Untested; no publication metrics",
+  "variant": "Narrative motion v2"
+}

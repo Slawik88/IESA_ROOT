@@ -4,6 +4,7 @@ Sync variants — вызываются из Django views/signals в фоново
 Async варианты — для вызова из async-контекстов (B3-06).
 """
 import logging
+from html import escape
 
 from django.utils.translation import gettext as _
 
@@ -18,7 +19,7 @@ def _visit_context(visit):
     if not chat_id:
         return None
     ts   = visit.timestamp.strftime("%d.%m.%Y %H:%M")
-    cost = f"{visit.cost} CHF" if visit.cost else "—"
+    cost = f"{visit.cost} CHF" if visit.cost is not None else "—"
     return chat_id, visit.member, visit.partner, ts, cost
 
 
@@ -29,16 +30,16 @@ def notify_visit_confirmed(visit) -> bool:
         return False
     chat_id, member, partner, ts, cost = ctx
     service = visit.get_service_type_display()
-    name    = member.get_full_name() or member.username
+    name    = escape(member.get_full_name() or member.username)
     text = (
         _("✅ <b>Visit confirmed</b>") + "\n\n"
         f"👤 {name}\n"
-        f"🏢 {partner.company_name}\n"
+        f"🏢 {escape(partner.company_name)}\n"
         f"🏃 {service}  💰 {cost}\n"
         f"🕐 {ts}"
     )
     if visit.service_description:
-        text += f"\n📝 {visit.service_description}"
+        text += f"\n📝 {escape(visit.service_description)}"
     return send_message(text, chat_id=chat_id)
 
 
@@ -47,16 +48,16 @@ def notify_visit_edited(visit, audit) -> bool:
     ctx = _visit_context(visit)
     if ctx is None:
         return False
-    chat_id, member, partner, ts, _ = ctx
-    old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
-    new_cost = f"{visit.cost} CHF" if visit.cost else "—"
+    chat_id, member, partner, ts, _cost = ctx
+    old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost is not None else "—"
+    new_cost = f"{visit.cost} CHF" if visit.cost is not None else "—"
     text = (
         _("📝 <b>Visit edited</b>") + "\n\n"
-        f"👤 {member.get_full_name() or member.username}\n"
-        f"🏢 {partner.company_name}  🕐 {ts}\n"
-        f"<s>{audit.previous_service_type} / {old_cost}</s>\n"
+        f"👤 {escape(member.get_full_name() or member.username)}\n"
+        f"🏢 {escape(partner.company_name)}  🕐 {ts}\n"
+        f"<s>{escape(audit.previous_service_type)} / {old_cost}</s>\n"
         f"✏️ {visit.get_service_type_display()} / {new_cost}\n"
-        f"📋 {audit.reason}"
+        f"📋 {escape(audit.reason)}"
     )
     return send_message(text, chat_id=chat_id)
 
@@ -66,14 +67,14 @@ def notify_visit_cancelled(visit, audit) -> bool:
     ctx = _visit_context(visit)
     if ctx is None:
         return False
-    chat_id, member, partner, ts, _ = ctx
-    old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost else "—"
+    chat_id, member, partner, ts, _cost = ctx
+    old_cost = f"{audit.previous_cost} CHF" if audit.previous_cost is not None else "—"
     text = (
         _("❌ <b>Visit cancelled</b>") + "\n\n"
-        f"👤 {member.get_full_name() or member.username}\n"
-        f"🏢 {partner.company_name}  🕐 {ts}\n"
-        f"🏃 {audit.previous_service_type} / {old_cost}\n"
-        f"📋 {audit.reason}"
+        f"👤 {escape(member.get_full_name() or member.username)}\n"
+        f"🏢 {escape(partner.company_name)}  🕐 {ts}\n"
+        f"🏃 {escape(audit.previous_service_type)} / {old_cost}\n"
+        f"📋 {escape(audit.reason)}"
     )
     return send_message(text, chat_id=chat_id)
 
@@ -91,18 +92,18 @@ async def notify_visit_confirmed_async(visit) -> bool:
     """Async variant of notify_visit_confirmed."""
     from asgiref.sync import sync_to_async
 
-    async def _get_data():
+    def _get_data():
         chat_id = getattr(visit.member, "telegram_chat_id", None)
         if not chat_id:
             return None
         member  = visit.member
         partner = visit.partner
         ts      = visit.timestamp.strftime("%d.%m.%Y %H:%M")
-        cost    = f"{visit.cost} CHF" if visit.cost else "—"
+        cost    = f"{visit.cost} CHF" if visit.cost is not None else "—"
         service = visit.get_service_type_display()
-        name    = member.get_full_name() or member.username
-        desc    = visit.service_description or ""
-        return chat_id, name, partner.company_name, service, cost, ts, desc
+        name    = escape(member.get_full_name() or member.username)
+        desc    = escape(visit.service_description or "")
+        return chat_id, name, escape(partner.company_name), service, cost, ts, desc
 
     data = await sync_to_async(_get_data)()
     if data is None:
@@ -122,7 +123,7 @@ def notify_membership_activated(user) -> bool:
     chat_id = getattr(user, "telegram_chat_id", None)
     if not chat_id:
         return False
-    name = user.get_full_name() or user.username
+    name = escape(user.get_full_name() or user.username)
     text = (
         _("🎉 <b>Membership activated!</b>") + "\n\n"
         + _('Hello, %(name)s!') % {'name': name} + "\n"

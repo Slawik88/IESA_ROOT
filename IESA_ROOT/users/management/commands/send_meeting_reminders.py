@@ -9,7 +9,8 @@
 С --hours 1 — о встречах через 1 час.
 """
 import logging
-from datetime import date, timedelta, datetime, time
+from html import escape
+from datetime import timedelta, datetime
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -43,7 +44,6 @@ class Command(BaseCommand):
         now      = timezone.localtime()
         target   = now + timedelta(hours=hours)
         t_date   = target.date()
-        t_hour   = target.hour
 
         self.stdout.write(
             f"[send_meeting_reminders] hours={hours} target={target.strftime('%Y-%m-%d %H:%M')} dry_run={dry_run}"
@@ -80,13 +80,13 @@ class Command(BaseCommand):
                 self.stdout.write(f"  DRY: partner={m.partner.user.username} → {msg_partner}")
             else:
                 # In-site notifications
-                Notification.objects.get_or_create(
+                _member_notification, member_created = Notification.objects.get_or_create(
                     recipient=m.member,
                     notification_type='event_reminder',
                     message=msg_member,
-                    defaults={'link': f'/auth/my-calendar/'},
+                    defaults={'link': '/auth/my-calendar/'},
                 )
-                Notification.objects.get_or_create(
+                _partner_notification, partner_created = Notification.objects.get_or_create(
                     recipient=m.partner.user,
                     notification_type='event_reminder',
                     message=msg_partner,
@@ -94,8 +94,10 @@ class Command(BaseCommand):
                 )
 
                 # Telegram уведомление если привязан
-                self._send_tg(m.member, f"📅 {msg_member}")
-                self._send_tg(m.partner.user, f"📅 {msg_partner}")
+                if member_created:
+                    self._send_tg(m.member, f"📅 {msg_member}")
+                if partner_created:
+                    self._send_tg(m.partner.user, f"📅 {msg_partner}")
 
             sent += 1
 
@@ -108,7 +110,7 @@ class Command(BaseCommand):
         if not getattr(user, 'telegram_chat_id', None):
             return
         try:
-            from users.telegram_bot import send_message
-            send_message(user.telegram_chat_id, text)
+            from users.telegram import send_message
+            send_message(escape(text), chat_id=user.telegram_chat_id)
         except Exception as e:
             logger.warning("TG reminder failed for user %s: %s", user.pk, e)

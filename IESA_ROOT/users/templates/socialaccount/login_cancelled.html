@@ -1,0 +1,9 @@
+{% extends "users/password_reset_base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Sign In" %} | IESA{% endblock %}
+{% block pr_body %}
+<div class="pr-icon"><i class="fas fa-ban" aria-hidden="true"></i></div>
+<h1 class="pr-title">{% trans "Sign-in cancelled" %}</h1>
+<p class="pr-text">{% trans "You cancelled signing in with that provider. No changes were made." %}</p>
+<a href="{% url 'users:login' %}" class="pr-btn">{% trans "Back to sign in" %}</a>
+{% endblock %}

@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Predvestnik — карточки игрока в админке (ADMPROFILE)</title>
+<link rel="stylesheet" href="../../app.css">
+<style>
+  body { padding: 14px 12px 40px; max-width: 480px; margin: 0 auto; }
+  .demo-h { font-size: 11px; font-weight: 700; color: var(--gold2); text-transform: uppercase;
+            letter-spacing: .6px; margin: 18px 0 6px; }
+  .demo-hint { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+  .demo-note { font-size: 10.5px; color: var(--muted); border-left: 2px solid var(--border2);
+               padding: 4px 0 4px 8px; margin: 10px 0; }
+  .demo-switch { display: flex; gap: 6px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<div class="demo-note">
+  Демо-стенд компонентов <b>app.16.js</b>. CSS и компоненты подключены из рабочей сборки
+  (<code>../../app.css</code>, <code>../../app.16.js</code>) — это ровно те же карточки,
+  что рисуются в админке. Круглые «фото» — заглушки-идентиконы, чтобы было видно сетку.
+</div>
+
+<div class="demo-switch">
+  <button class="btn btn-sm btn-ghost" onclick="withPhotos=true;render()">С фото</button>
+  <button class="btn btn-sm btn-ghost" onclick="withPhotos=false;render()">Без фото (инициалы)</button>
+</div>
+
+<div class="demo-h">1. Список участников чата / глобальная модерация</div>
+<div class="demo-hint">Фото · @ник · ник в игре «…» · ID/уровень/ранги · статусы · активность · действия</div>
+<div class="card" id="cards" style="padding:8px 14px"></div>
+
+<div class="demo-h">2. Компактные строки — муты, варны, ЧС, чистка, санкции</div>
+<div class="demo-hint">Фото 30px · ник · подпись (ID/причина/срок) · действия справа</div>
+<div class="card" id="minis" style="padding:8px 14px"></div>
+
+<div class="demo-h">3. Журналы — плоские строки «нарушитель → модератор»</div>
+<div class="card" id="flats" style="padding:8px 14px"></div>
+
+<div class="demo-h">4. Пульт дежурного (dev-консоль)</div>
+<div class="card" id="pulse"></div>
+
+<div class="demo-h">5. Штат: ранги, активность, выдача ранга</div>
+<div class="card" id="staff"></div>
+
+<script src="../../app.16.js"></script>
+<script>
+// ── Мини-заглушки общего скоупа приложения (в бою они уже есть) ────────────────
+const BASE = '';
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const vipName = (n, vip, badge = '✦') => (vip ? badge + ' ' + n : n);
+const fmt = n => Number(n || 0).toLocaleString('ru-RU');
+const fmtUTC = s => s ? new Date(s.replace(' ', 'T') + 'Z').toLocaleString('ru-RU',
+  {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+const gp = () => true;
+const openPlayerCenter = uid => alert('Центр игрока: ' + uid);
+const _RANK_NAMES = ['👤 Пользователь', '👁 Модератор', '👮‍♂️ Младший админ', '👮‍♂️ Админ'];
+
+// «Фото»: плоские цветные идентиконы вместо реальных байтов из /admin/avatar.
+const photo = (bg, ch) => 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" fill="${bg}"/>` +
+  `<circle cx="48" cy="34" r="16" fill="rgba(255,255,255,.85)"/><path d="M14 96c5-20 18-30 34-30s29 10 34 30z" fill="rgba(255,255,255,.85)"/>` +
+  `<text x="78" y="26" font-size="22" font-family="sans-serif" font-weight="700" fill="#fff">${ch}</text></svg>`);
+const PHOTOS = { 1: photo('#4f7fe0','1'), 2: photo('#a765e0','2'), 7: photo('#2fae68','7'), 9: photo('#d9992f','9') };
+let withPhotos = true;
+const ava = uid => (withPhotos ? (PHOTOS[uid] || ('/admin/avatar/' + uid)) : null);
+
+const now = new Date();
+const ago = h => new Date(now.getTime() - h * 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+const user = (o) => Object.assign({
+  user_level: 5, rank_name: '👁 Модератор', global_rank_name: '👤 Пользователь',
+  user_messages_count_all_time: 480, joined_at: '2026-02-11 10:00:00',
+  last_message_at: ago(1), is_vip: false, warnings: 0,
+}, o);
+
+function render() {
+  // 1. Карточки
+  const members = [
+    user({ user_tg_id: 7, user_tg_username: 'vasya', nickname: 'Вася Кот', user_level: 24,
+           rank_name: '👮‍♂️ Админ', global_rank_name: '🛡 Хелпер', user_messages_count_all_time: 15420,
+           last_message_at: ago(0.2), is_vip: true, warnings: 1 }),
+    user({ user_tg_id: 1, user_tg_username: 'masha', nickname: 'Маша', user_level: 12,
+           rank_name: '👁 Модератор', user_messages_count_all_time: 3120, last_message_at: ago(5) }),
+    user({ user_tg_id: 2, user_tg_username: null, nickname: null, user_level: 3,
+           rank_name: '👤 Пользователь', user_messages_count_all_time: 41,
+           last_message_at: ago(70), warnings: 3, was_kicked: true, is_left: true }),
+    user({ user_tg_id: 3, user_tg_username: 'blackuser', user_level: 8, muted_until: '2026-10-20 12:00:00',
+           is_banned: true, global_ban: true, user_messages_count_all_time: 900, last_message_at: ago(30) }),
+  ].map(u => Object.assign(u, { avatar_url: ava(u.user_tg_id) }));
+  el('cards').innerHTML = members.map(m => admPlayerCard(m, {
+    actions: `<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Разбанить">🔓</button>
+              <button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Действия модерации">⚡</button>
+              <button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Сменить ранг">🎖</button>`,
+  })).join('');
+
+  // 2. Компактные строки
+  const muted = Object.assign(user({ user_tg_id: 3, user_tg_username: 'blackuser', muted_until: '2026-10-20 12:00:00' }),
+    { avatar_url: ava(3) });
+  const warned = Object.assign(user({ user_tg_id: 2, warnings: 3 }), { avatar_url: ava(2) });
+  const sanc = Object.assign(user({ user_tg_id: 1, user_tg_username: 'masha', is_vip: true }),
+    { avatar_url: ava(1) });
+  el('minis').innerHTML =
+    admMiniUser(muted, { size: 30, sub: 'ID 3 · 🔇 до 20.10 12:00',
+      actions: '<button class="btn btn-sm btn-ghost">⚡</button>' }) +
+    admMiniUser(warned, { size: 30, sub: 'ID 2 · предупреждения',
+      tail: '<span style="color:var(--red);font-weight:700">3× ⚠️</span>',
+      actions: '<button class="btn btn-sm btn-ghost">⚡</button>' }) +
+    admMiniUser({ user_id: sanc.user_tg_id, username: sanc.user_tg_username }, {
+      size: 32, avatar: sanc.avatar_url, center: false,
+      name: '<span class="adm-mini-name-txt adm-link">@masha</span>',
+      tail: admChip('🔇 ограничение', 'adm-c-gold') + admChip('👑', 'adm-c-gold'),
+      sub: 'мат в общем чате · до 21.10 09:00 · выдал ' +
+           admFlatUser({ user_id: 7, username: 'vasya', avatar_url: ava(7) }, { size: 16 }),
+      actions: '<span style="display:flex;gap:4px"><button class="btn btn-sm btn-ghost" style="padding:3px 7px">✅</button><button class="btn btn-sm btn-ghost" style="padding:3px 7px">📁</button></span>',
+    }) +
+    admMiniUser({ user_tg_id: 9, user_tg_username: 'oleg' }, { size: 30, avatar: ava(9),
+      sub: 'ID 9 · 812 сообщ. · 14 дн в чате',
+      tail: '<span style="font-size:10px;color:var(--muted)">📨</span>',
+      actions: '<button class="btn btn-sm btn-ghost" style="padding:6px 10px">⚠️</button><button class="btn btn-sm btn-ghost" style="padding:6px 10px">👢</button><button class="btn btn-sm btn-ghost" style="padding:6px 10px">🔨</button><button class="btn btn-sm btn-ghost" style="padding:6px 10px">🕊</button>' });
+
+  // 3. Плоские строки журнала
+  el('flats').innerHTML = [
+    ['ban', 3, 'blackuser', 7, 'vasya', 'blackuser', 3, 'blackuser', 7, 'vasya', 'спам и реклама'],
+    ['mute', 1, 'masha', 7, 'vasya', 'masha', 1, 'masha', 7, 'vasya', 'капс'],
+  ].map(([action, uid, uname, aid, aname, tu, tid, tn, au, an, reason]) =>
+    `<div style="padding:6px 0;border-bottom:1px solid var(--border2);font-size:11px">
+       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline">
+         <span style="font-weight:600">${action}</span>
+         <span style="font-size:10px;color:var(--muted);white-space:nowrap">${fmtUTC(ago(2))}</span>
+       </div>
+       <div style="margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+         ${admFlatUser({ user_id: tid, username: tn, avatar_url: ava(tid) })}
+         <span style="color:var(--muted);font-size:10px">выдал</span>
+         ${admFlatUser({ user_id: au, username: an, avatar_url: ava(au) })}
+       </div>
+       <div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(reason)}</div>
+     </div>`).join('');
+
+  // 4. Пульт дежурного
+  el('pulse').innerHTML =
+    '<div class="card-title">⏳ Новые апелляции</div>' +
+    admMiniUser({ user_id: 2, username: null, user_avatar_url: ava(2) }, { size: 28,
+      tail: admChip('#148') + admChip('⏳'), sub: '10-19 08:20',
+      actions: '<button class="btn btn-sm btn-teal" style="padding:2px 8px">💬</button>' }) +
+    admMiniUser({ user_id: 9, username: 'oleg', user_avatar_url: ava(9) }, { size: 28,
+      tail: admChip('#147') + admChip('⏳'), sub: '10-19 07:02',
+      actions: '<button class="btn btn-sm btn-teal" style="padding:2px 8px">💬</button>' }) +
+    '<div class="card-title" style="margin-top:8px">🚫 Последние санкции</div>' +
+    admMiniUser({ user_id: 7, username: 'vasya' }, { size: 28, avatar: ava(7), center: false,
+      tail: admChip('🚫 бан', 'adm-c-red'),
+      sub: 'скам · ' + admFlatUser({ user_id: 1, username: 'masha', avatar_url: ava(1) }, { size: 16 }) + ' · 10-19 06:40' }) +
+    admMiniUser({ user_id: -100, username: 'Чат Флудилка' }, { size: 28, icon: '💬', center: false,
+      tail: admChip('🔇 ограничение', 'adm-c-gold'),
+      sub: 'флуд · ' + admFlatUser({ user_id: 7, username: 'vasya', avatar_url: ava(7) }, { size: 16 }) + ' · 10-18 22:11' });
+
+  // 5. Штат
+  el('staff').innerHTML =
+    '<div class="card-title">👮 Штат (2)</div>' +
+    admMiniUser(Object.assign(user({ user_tg_id: 7, user_tg_username: 'vasya' }), { avatar_url: ava(7) }), {
+      size: 34, tail: admChip('🛡 Хелпер', 'adm-c-gold'),
+      sub: 'за 30д: ⚡12 санкц. · ⚖️4 апелл.',
+      actions: '<select class="num-input" style="width:auto;margin:0;font-size:11px"><option>🛡 Хелпер</option><option>⚔️ Ст. хелпер</option><option>❌ Снять</option></select>' }) +
+    admMiniUser(Object.assign(user({ user_tg_id: 1, user_tg_username: 'masha' }), { avatar_url: ava(1) }), {
+      size: 34, tail: admChip('⚔️ Старший хелпер', 'adm-c-gold'),
+      sub: 'за 30д: ⚡3 санкц. · ⚖️1 апелл.',
+      actions: '<select class="num-input" style="width:auto;margin:0;font-size:11px"><option>🛡 Хелпер</option><option selected>⚔️ Ст. хелпер</option><option>❌ Снять</option></select>' });
+
+  el('cards').innerHTML = el('cards').innerHTML.replace(/<\/?script>/g, '');
+}
+const el = id => document.getElementById(id);
+render();
+</script>
+</body>
+</html>

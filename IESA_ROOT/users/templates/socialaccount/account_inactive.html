@@ -1,0 +1,9 @@
+{% extends "users/password_reset_base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Account disabled" %} | IESA{% endblock %}
+{% block pr_body %}
+<div class="pr-icon"><i class="fas fa-user-slash" aria-hidden="true"></i></div>
+<h1 class="pr-title">{% trans "Account disabled" %}</h1>
+<p class="pr-text">{% trans "This account is not active. Write to iesa@iesasport.ch if you think this is a mistake." %}</p>
+<a href="{% url 'users:login' %}" class="pr-btn">{% trans "Back to sign in" %}</a>
+{% endblock %}

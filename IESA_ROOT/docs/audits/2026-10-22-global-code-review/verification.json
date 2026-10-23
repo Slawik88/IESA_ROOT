@@ -1,0 +1,88 @@
+{
+  "baseline_tests": 175,
+  "dependencies_before": {
+    "certifi": {
+      "version": "2025.11.12",
+      "unique_advisory_ids": 1
+    },
+    "django": {
+      "version": "5.2.9",
+      "unique_advisory_ids": 26
+    },
+    "idna": {
+      "version": "3.11",
+      "unique_advisory_ids": 1
+    },
+    "pillow": {
+      "version": "12.0.0",
+      "unique_advisory_ids": 43
+    },
+    "pillow-heif": {
+      "version": "1.1.1",
+      "unique_advisory_ids": 1
+    },
+    "python-dotenv": {
+      "version": "1.2.1",
+      "unique_advisory_ids": 1
+    },
+    "requests": {
+      "version": "2.32.5",
+      "unique_advisory_ids": 1
+    },
+    "sqlparse": {
+      "version": "0.5.5",
+      "unique_advisory_ids": 5
+    },
+    "urllib3": {
+      "version": "2.6.2",
+      "unique_advisory_ids": 6
+    },
+    "gunicorn": {
+      "version": "21.2.0",
+      "unique_advisory_ids": 2
+    },
+    "daphne": {
+      "version": "4.2.1",
+      "unique_advisory_ids": 2
+    }
+  },
+  "dependencies_after": {
+    "twisted": {
+      "version": "26.4.0",
+      "advisory_ids": [
+        "CVE-2026-106454"
+      ]
+    }
+  },
+  "postgresql_local_run": false,
+  "ci_remote_run": false,
+  "shared_environment_compatibility": "pip resolver dry run passed; bot runtime not tested",
+  "browser": {
+    "viewport": [
+      390,
+      844
+    ],
+    "script_injection_executed": false,
+    "post_cancellation_confirmed": true,
+    "horizontal_overflow": false,
+    "meeting_controls": "native buttons",
+    "long_title_fits_popup": true
+  },
+  "tests_discovered": 247,
+  "tests_passed": 242,
+  "tests_skipped_postgresql": 5,
+  "new_tests_discovered": 72,
+  "javascript_syntax_files": 15,
+  "calendar_navigation_zurich_cases": 5,
+  "django_version": "5.2.18",
+  "pillow_version": "13.0.0",
+  "modeltranslation_version": "0.20.6",
+  "asgi_smoke": {
+    "server": "Daphne 4.2.2 on Windows",
+    "calendar": 200,
+    "sse_status": 200,
+    "sse_content_type": "text/event-stream",
+    "sse_first_event": "event: badge\ndata: 0\n\n",
+    "connection_cancelled": true
+  }
+}

@@ -78,11 +78,11 @@ def users_search(request):
         for user in users:
             highlighted_results.append({
                 'user': user,
-                'username_html':    highlight_text(user.username, normalized_q) if normalized_q else user.username,
-                'first_name_html':  highlight_text(user.first_name, normalized_q) if normalized_q else user.first_name,
-                'last_name_html':   highlight_text(user.last_name, normalized_q) if normalized_q else user.last_name,
-                'email_html':       highlight_text(user.email, normalized_q) if normalized_q else user.email,
-                'permanent_id_html': highlight_text(str(user.permanent_id), normalized_q) if normalized_q else str(user.permanent_id),
+                'username_html':    highlight_text(user.username, normalized_q),
+                'first_name_html':  highlight_text(user.first_name, normalized_q),
+                'last_name_html':   highlight_text(user.last_name, normalized_q),
+                'email_html':       highlight_text(user.email, normalized_q),
+                'permanent_id_html': highlight_text(str(user.permanent_id), normalized_q),
             })
         page_obj.object_list = highlighted_results
 

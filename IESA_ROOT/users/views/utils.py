@@ -2,13 +2,12 @@
 import uuid as _uuid_mod
 from functools import wraps
 
-from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 
-from ..models import User
+from ..models import Partner, User
 
 
 def _try_parse_uuid(s: str):
@@ -36,7 +35,7 @@ def is_partner(user) -> bool:
             User.objects.filter(pk=user.pk).update(is_partner=True)
             user.is_partner = True
         result = user.is_partner or has_profile
-    except Exception:
+    except Partner.DoesNotExist:
         result = bool(user.is_partner)
     user._is_partner_cached = result
     return result
@@ -59,6 +58,14 @@ def partner_required(view_func):
             )
         if not is_partner(request.user):
             return render(request, 'users/partner_access_denied.html', status=403)
+        # Every portal route needs the one-to-one profile, including a direct
+        # calendar/analytics URL before the partner first opens the dashboard.
+        if not hasattr(request.user, 'partner_profile'):
+            profile, _created = Partner.objects.get_or_create(
+                user=request.user,
+                defaults={'company_name': request.user.get_full_name() or request.user.username},
+            )
+            request.user.partner_profile = profile
         return view_func(request, *args, **kwargs)
     return _wrapped
 

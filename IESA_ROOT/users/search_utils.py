@@ -2,6 +2,8 @@
 Search utilities for highlighting matched text in results.
 """
 
+import re
+
 from django.utils.html import escape
 
 
@@ -23,24 +25,19 @@ def highlight_text(text, query):
     text = str(text)
     query = str(query).strip()
     
-    # Escape the text first for HTML safety
-    escaped_text = escape(text)
-    
-    # Split query into tokens and highlight each
-    tokens = [t.strip() for t in query.split() if t.strip()]
-    
-    for token in tokens:
-        # Case-insensitive highlighting
-        escaped_token = escape(token)
-        # Create a pattern that matches the token (case-insensitive)
-        import re
-        pattern = re.compile(re.escape(token), re.IGNORECASE)
-        # Find all matches and replace with highlighted version
-        def replace_match(match):
-            return f"<mark>{escape(match.group(0))}</mark>"
-        escaped_text = pattern.sub(replace_match, escaped_text)
-    
-    return escaped_text
+    # Match the original text once, then escape both matching and plain parts.
+    # Searching escaped HTML can corrupt entities or match inserted <mark> tags.
+    tokens = sorted(set(query.split()), key=len, reverse=True)
+    if not tokens:
+        return escape(text)
+    pattern = re.compile('|'.join(re.escape(token) for token in tokens), re.IGNORECASE)
+    parts = []
+    end = 0
+    for match in pattern.finditer(text):
+        parts.extend((str(escape(text[end:match.start()])), f'<mark>{escape(match.group())}</mark>'))
+        end = match.end()
+    parts.append(str(escape(text[end:])))
+    return ''.join(parts)
 
 
 def normalize_search_query(query):

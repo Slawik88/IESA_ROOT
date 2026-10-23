@@ -5769,6 +5769,355 @@ msgstr "Пройдені тури"
 msgid "Tracks which interactive tours user has finished"
 msgstr "Відстежує які інтерактивні тури користувач пройшов"
 
+msgid "At least 8 characters"
+msgstr "Щонайменше 8 символів"
+
+msgid ""
+"Tip: a longer password is a stronger one. The one suggested by your phone "
+"works fine."
+msgstr ""
+"Порада: чим довший пароль, тим він надійніший. Пароль, який пропонує ваш "
+"телефон, підходить."
+
+msgid "We could not accept this password:"
+msgstr "Не вдалося прийняти цей пароль:"
+
+msgid "Too short"
+msgstr "Занадто короткий"
+
+msgid "Enter a password of at least 8 characters."
+msgstr "Введіть пароль не коротше 8 символів."
+
+msgid "Repeat the same password in the second field."
+msgstr "Повторіть той самий пароль у другому полі."
+
+msgid "Please enter a valid e-mail address."
+msgstr "Введіть дійсну адресу електронної пошти."
+
+msgid "Please choose a username (at least 3 characters)."
+msgstr "Оберіть ім'я користувача (щонайменше 3 символи)."
+
+msgid "Forgot your password?"
+msgstr "Забули пароль?"
+
+msgid "Sign in with your username or e-mail address."
+msgstr "Увійдіть за іменем користувача або адресою електронної пошти."
+
+msgid ""
+"Too many sign-up attempts from your network. Please wait a little and try "
+"again, or write to iesa@iesasport.ch."
+msgstr ""
+"Забагато спроб реєстрації з вашої мережі. Зачекайте трохи й спробуйте знову "
+"або напишіть на iesa@iesasport.ch."
+
+msgid "Too many requests. Please wait a little and try again."
+msgstr "Забагато запитів. Зачекайте трохи й спробуйте знову."
+
+msgid ""
+"Account created, but the confirmation e-mail could not be sent. You can "
+"request it again from your profile."
+msgstr ""
+"Обліковий запис створено, але лист із підтвердженням не вдалося надіслати. "
+"Ви можете запросити його знову у своєму профілі."
+
+msgid "Press 'Next' to continue or 'Skip' to close."
+msgstr "Натисніть «Наступний», щоб продовжити, або «Пропустити», щоб закрити."
+
+msgid "Reset password"
+msgstr "Скидання пароля"
+
+msgid ""
+"Enter the e-mail address you registered with. We will send you a link to "
+"choose a new password."
+msgstr ""
+"Введіть адресу електронної пошти, з якою ви реєструвалися. Ми надішлемо "
+"посилання для вибору нового пароля."
+
+msgid "Send reset link"
+msgstr "Надіслати посилання"
+
+msgid "Back to sign in"
+msgstr "Назад до входу"
+
+msgid "Check your e-mail"
+msgstr "Перевірте пошту"
+
+msgid ""
+"If an account exists for that address, we have sent a link to reset the "
+"password. The link works for 2 hours."
+msgstr ""
+"Якщо для цієї адреси існує обліковий запис, ми надіслали посилання для "
+"скидання пароля. Посилання діє 2 години."
+
+msgid ""
+"Nothing in your inbox? Look in the spam folder, or try again in a few "
+"minutes."
+msgstr ""
+"Нічого немає у вхідних? Перевірте папку «Спам» або спробуйте ще раз за "
+"кілька хвилин."
+
+msgid "Choose a new password"
+msgstr "Оберіть новий пароль"
+
+msgid ""
+"Use at least 8 characters. A password from your phone's password manager "
+"works fine."
+msgstr ""
+"Використайте щонайменше 8 символів. Пароль із менеджера паролів вашого "
+"телефона підходить."
+
+msgid "New password"
+msgstr "Новий пароль"
+
+msgid "Repeat the new password"
+msgstr "Повторіть новий пароль"
+
+msgid "Save new password"
+msgstr "Зберегти новий пароль"
+
+msgid "This link no longer works"
+msgstr "Це посилання більше не працює"
+
+msgid ""
+"The password reset link is invalid or has expired. Request a new one — it "
+"takes a few seconds."
+msgstr ""
+"Посилання для скидання пароля недійсне або прострочене. Запросіть нове — це "
+"займе кілька секунд."
+
+msgid "Request a new link"
+msgstr "Запросити нове посилання"
+
+msgid "Password changed"
+msgstr "Пароль змінено"
+
+msgid ""
+"Your password has been updated. You can sign in with the new password now."
+msgstr "Ваш пароль оновлено. Тепер ви можете увійти з новим паролем."
+
+msgid "Reset your password — IESA Sport"
+msgstr "Скидання пароля — IESA Sport"
+
+msgid "Reset your password"
+msgstr "Скидання пароля"
+
+msgid "Hello %(name)s,"
+msgstr "Вітаємо, %(name)s,"
+
+msgid ""
+"Hello %(name)s. We received a request to reset the password of your IESA "
+"account."
+msgstr ""
+"Вітаємо, %(name)s. Ми отримали запит на скидання пароля вашого облікового "
+"запису IESA."
+
+msgid ""
+"We received a request to reset the password of your IESA account. Open this "
+"link to choose a new password:"
+msgstr ""
+"Ми отримали запит на скидання пароля вашого облікового запису IESA. "
+"Відкрийте це посилання, щоб обрати новий пароль:"
+
+msgid "Your username:"
+msgstr "Ваше ім'я користувача:"
+
+msgid ""
+"The link works for 2 hours. If you did not ask for this, you can ignore this"
+" message — your password stays the same."
+msgstr ""
+"Посилання діє 2 години. Якщо ви цього не запитували, просто ігноруйте цей "
+"лист — ваш пароль залишиться незмінним."
+
+msgid "Please use a permanent e-mail address, not a temporary mailbox."
+msgstr ""
+"Використовуйте постійну адресу електронної пошти, а не тимчасову скриньку."
+
+msgid ""
+"We could not verify that you are human. Please reload the page and try "
+"again."
+msgstr ""
+"Не вдалося підтвердити, що ви людина. Перезавантажте сторінку та спробуйте "
+"ще раз."
+
+msgid "Verifying that you are human… please try again in a second."
+msgstr "Перевіряємо, що ви людина… спробуйте ще раз за секунду."
+
+msgid "Continue with"
+msgstr "Продовжити через"
+
+msgid "or with e-mail"
+msgstr "або через e-mail"
+
+msgid ""
+"Signing in with a provider creates your IESA account if you do not have one "
+"yet, and means you agree to become a member of IESA Sport. The privacy "
+"policy is still being prepared — we will notify every member when it is "
+"published."
+msgstr ""
+"Вхід через провайдера створює ваш обліковий запис IESA, якщо його ще немає, "
+"і означає вашу згоду стати членом IESA Sport. Політика конфіденційності ще "
+"готується — ми повідомимо всіх учасників, щойно її буде опубліковано."
+
+msgid "I agree to become a member of IESA Sport."
+msgstr "Я погоджуюсь стати членом IESA Sport."
+
+msgid ""
+"The privacy policy is still being prepared — we will notify every member as "
+"soon as it is published."
+msgstr ""
+"Політика конфіденційності ще готується — ми повідомимо всіх учасників, щойно"
+" її буде опубліковано."
+
+msgid "Privacy policy"
+msgstr "Політика конфіденційності"
+
+msgid "In preparation"
+msgstr "У розробці"
+
+msgid ""
+"The IESA Sport privacy policy is being prepared. Registration and sign-in "
+"are not affected."
+msgstr ""
+"Політика конфіденційності IESA Sport готується. Реєстрація та вхід не "
+"обмежені."
+
+msgid ""
+"Our privacy policy is not ready yet — we are still writing it. You can "
+"register and sign in as usual; nothing is blocked while it is in "
+"preparation."
+msgstr ""
+"Наша політика конфіденційності ще не готова — ми над нею працюємо. Ви можете"
+" реєструватися та входити як зазвичай; поки вона готується, нічого не "
+"блокується."
+
+msgid "We will tell you when it is ready"
+msgstr "Ми повідомимо вас, коли вона буде готова"
+
+msgid ""
+"As soon as the policy is published, we will notify every member by e-mail "
+"and on this site."
+msgstr ""
+"Щойно політику буде опубліковано, ми повідомимо кожного учасника електронною"
+" поштою та на цьому сайті."
+
+msgid "What we keep in the meantime"
+msgstr "Що ми зберігаємо тим часом"
+
+msgid ""
+"The details you give when you register: username, e-mail address and the "
+"profile information you choose to add."
+msgstr ""
+"Дані, які ви вказуєте під час реєстрації: ім'я користувача, адреса "
+"електронної пошти та інформація профілю, яку ви обираєте додати."
+
+msgid ""
+"Your membership activity on IESA: visits logged by partners, posts, comments"
+" and event registrations."
+msgstr ""
+"Ваша активність як члена IESA: візити, зареєстровані партнерами, публікації,"
+" коментарі та реєстрації на події."
+
+msgid "We use this only to run your IESA membership."
+msgstr "Ми використовуємо це лише для ведення вашого членства в IESA."
+
+msgid "Questions or requests"
+msgstr "Питання або запити"
+
+msgid "If you want to see, correct or delete your data now, write to"
+msgstr ""
+"Якщо ви хочете переглянути, виправити або видалити свої дані вже зараз, "
+"напишіть на"
+
+msgid "Continue with %(provider)s"
+msgstr "Продовжити через %(provider)s"
+
+msgid ""
+"You will be sent to the provider to confirm it is you, then brought back "
+"here."
+msgstr ""
+"Вас буде перенаправлено до провайдера для підтвердження, а потім повернено "
+"сюди."
+
+msgid "One more step"
+msgstr "Ще один крок"
+
+msgid ""
+"%(provider)s did not share an e-mail address with us. Enter yours to finish "
+"creating your IESA account."
+msgstr ""
+"%(provider)s не передав нам адресу електронної пошти. Введіть свою, щоб "
+"завершити створення облікового запису IESA."
+
+msgid ""
+"By continuing you agree to become a member of IESA Sport. The privacy policy"
+" is still being prepared — we will notify every member as soon as it is "
+"published."
+msgstr ""
+"Продовжуючи, ви погоджуєтесь стати членом IESA Sport. Політика "
+"конфіденційності ще готується — ми повідомимо всіх учасників, щойно її буде "
+"опубліковано."
+
+msgid "Create my account"
+msgstr "Створити мій обліковий запис"
+
+msgid "Sign-in did not work"
+msgstr "Вхід не вдався"
+
+msgid ""
+"We could not complete the sign-in with that provider. Please try again, or "
+"sign in with your username and password."
+msgstr ""
+"Не вдалося завершити вхід через цього провайдера. Спробуйте ще раз або "
+"увійдіть за іменем користувача та паролем."
+
+msgid "Sign-in cancelled"
+msgstr "Вхід скасовано"
+
+msgid "You cancelled signing in with that provider. No changes were made."
+msgstr "Ви скасували вхід через цього провайдера. Жодних змін не внесено."
+
+msgid "Account disabled"
+msgstr "Обліковий запис вимкнено"
+
+msgid ""
+"This account is not active. Write to iesa@iesasport.ch if you think this is "
+"a mistake."
+msgstr ""
+"Цей обліковий запис не активний. Напишіть на iesa@iesasport.ch, якщо "
+"вважаєте, що це помилка."
+
+msgid ""
+"An account with this e-mail address already exists. Sign in with your "
+"password (or reset it) — we could not safely link it to this provider."
+msgstr ""
+"Обліковий запис із цією адресою вже існує. Увійдіть за паролем (або скиньте "
+"його) — ми не змогли безпечно пов'язати його з цим провайдером."
+
+msgid "That account is no longer linked. Please sign in to it again."
+msgstr "Цей обліковий запис більше не прив'язаний. Увійдіть до нього знову."
+
+msgid "Switched to %(username)s."
+msgstr "Перемкнено на %(username)s."
+
+msgid "Switch to"
+msgstr "Перемкнутися на"
+
+msgid "Add another account"
+msgstr "Додати інший обліковий запис"
+
+msgid "Switch to this account"
+msgstr "Перемкнутися на цей акаунт"
+
+msgid "Stay signed in to both"
+msgstr "Залишатися в обох"
+
+msgid ""
+"You are signed in as %(name)s. Sign in to the other account here — you will "
+"be able to switch between the two from the menu."
+msgstr ""
+"Ви увійшли як %(name)s. Увійдіть тут до другого облікового запису — потім ви"
+" зможете перемикатися між ними з меню."
+
 #~ msgid "IESA Programs for Kids and Adults"
 #~ msgstr "Програми IESA для дітей і дорослих"
 

@@ -78,7 +78,7 @@ function loadAdminDash() {
     const modsCard=lastMods.length?`
       <div class="card">
         <div class="card-title">🕘 Последние изменения модулей</div>
-        ${lastMods.map(r=>`<div class="irow"><span class="ik" style="font-size:11px">${r.after_enabled?'↗':'↘'} ${esc(r.module?.name||r.module_key)}<div class="module-desc">@${esc(r.actor_name||String(r.actor_id))} · ${fmtUTC(r.created_at)}</div></span><span style="color:${r.after_enabled?'var(--green)':'var(--red)'};font-size:11px">${r.after_enabled?'ВКЛ':'ВЫКЛ'}</span></div>`).join('')}
+        ${lastMods.map(r=>`<div class="irow"><span class="ik" style="font-size:11px">${r.after_enabled?'↗':'↘'} ${esc(r.module?.name||r.module_key)}<div class="module-desc">${admFlatUser({user_id:r.actor_id,username:r.actor_name,avatar_url:r.actor_avatar_url},{size:16,center:false})} · ${fmtUTC(r.created_at)}</div></span><span style="color:${r.after_enabled?'var(--green)':'var(--red)'};font-size:11px">${r.after_enabled?'ВКЛ':'ВЫКЛ'}</span></div>`).join('')}
         <button class="btn btn-ghost btn-full" style="margin-top:6px" onclick="goAdmTab('settings')">Все настройки</button>
       </div>`:'';
     el('adm-dash').innerHTML=`
@@ -151,29 +151,13 @@ function renderAdminUserTable(d) {
     </div>
     <div class="card" style="padding:8px 14px">
       ${d.users.map(u=>{
-        // UX: полный статус модерации участника (бан/глоб.ЧС/мут/кик/иммун/ушёл)
-        const status=[
-          u.is_banned?'<span style="color:var(--red)">🚫 забанен</span>':'',
-          u.global_ban?'<span style="color:var(--red)">⛔ глоб.ЧС</span>':'',
-          u.muted_until?`<span style="color:var(--gold)">🔇 до ${u.muted_until.slice(0,16)}</span>`:'',
-          (!u.is_banned&&u.was_kicked)?'<span style="color:var(--muted)">👢 кикали</span>':'',
-          u.is_immune?'🛡 Иммун':'',
-          u.is_left?'👋 Ушёл':'',
-        ].filter(Boolean).join(' · ');
-        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-        <span style="flex:1;min-width:0">
-          <span style="font-weight:600;font-size:12px;color:var(--bright)">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</span>
-          <span style="font-size:10px;color:var(--muted)"> · ур.${u.user_level||1} · ${_RANK_NAMES[u.local_rank||0]||'?'}</span>
-          ${(u.warnings||0)>0?`<span style="font-size:10px;color:var(--gold)"> · ⚠️${u.warnings}</span>`:''}
-          ${status?`<span style="font-size:10px"> · ${status}</span>`:''}<br>
-          <span style="font-size:10px;color:var(--muted)">ID ${u.user_tg_id} · ${u.user_messages_count_all_time||0} сообщ. · 📅 ${u.joined_at?fmtUTC(u.joined_at):'—'} · 🕓 ${u.last_message_at?fmtUTC(u.last_message_at):'—'}</span>
-        </span>
-        <span style="display:flex;gap:4px;flex:none">
+        // ADMPROFILE: карточка игрока — фото, ник в игре, статусы модерации.
+        const actions=`
           ${(u.is_banned&&u.can_ban)?`<button class="btn btn-sm btn-gold" style="padding:4px 8px" title="Разбанить одним тапом" onclick='doAdminUnban(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)})'>🔓</button>`:''}
-          ${u.can_act?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:''}
-          ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}
-        </span>
-      </div>`;}).join('')}
+          ${u.can_act?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Действия модерации" onclick='openAdminAction(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${JSON.stringify({w:u.can_warn,m:u.can_mute,k:u.can_kick,b:u.can_ban,s:u.can_shield,i:u.can_immune})})'>⚡</button>`:''}
+          ${u.can_set_rank?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px" title="Сменить ранг" onclick='openRankModal(${u.user_tg_id},${JSON.stringify(u.user_tg_username||'ID'+u.user_tg_id)},${u.local_rank||0})'>🎖</button>`:''}`;
+        return admPlayerCard(u, { actions });
+      }).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
       <span>Всего: ${total}</span>
@@ -340,7 +324,6 @@ function loadPurgePanel() {
     // остальным кнопки не рисуем вовсе, вместо мёртвых кнопок с 403.
     const canV=!!st.can_verdict;
     const rows=(st.targets||[]).map(t=>{
-      const name=esc(t.username||('ID '+t.user_id));
       const done=t.verdict?`<span style="font-size:14px">${vLabel[t.verdict]||t.verdict}</span>`:
         canV?`<span style="display:flex;gap:6px">
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Варн" aria-label="Варн" onclick="purgeVerdict(${t.user_id},'warn')">⚠️</button>
@@ -348,9 +331,12 @@ function loadPurgePanel() {
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px;color:var(--red)" title="Бан" aria-label="Бан" onclick="purgeVerdict(${t.user_id},'ban')">🔨</button>
           <button class="btn btn-sm btn-ghost" style="padding:6px 10px" title="Пропустить" aria-label="Пропустить" onclick="purgeVerdict(${t.user_id},'skip')">🕊</button>
         </span>`:`<span style="font-size:10px;color:var(--muted)">⏳ ждёт вердикта</span>`;
-      return `<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--dim);font-size:11px">
-        <span style="flex:1">${t.dossier_sent?'📨':'⏳'} ${name} <span style="color:var(--muted)">(${t.msg_count} msg · ${t.warns}⚠️)</span></span>${done}
-      </div>`;
+      return admMiniUser(t, {
+        size: 28,
+        tail: `<span style="font-size:10px;color:var(--muted)">${t.dossier_sent?'📨':'⏳'}</span>`,
+        sub: `${t.msg_count} сообщ. · ${t.warns}⚠️${t.days_in_chat!=null?` · ${t.days_in_chat} дн в чате`:''}`,
+        actions: done,
+      });
     }).join('');
     box.innerHTML=`
       <div style="font-size:12px;color:var(--gold2);margin-bottom:4px">Сессия #${s.id} · норма ${s.norm} · ${esc(s.date_from)} — ${esc(s.date_to)}</div>
@@ -457,7 +443,7 @@ function loadAdminLogs() {
       const rows=d.left||[];
       el('adm-logs').innerHTML=filterBar+(rows.length?`<div class="card">
         <div class="card-title">👋 Вышедшие из чата (${rows.length})</div>
-        ${rows.map(u=>`<div class="irow"><span class="ik">@${u.user_tg_username||'ID'+u.user_tg_id}</span><span class="iv" style="font-size:10px;color:var(--muted)">ID: ${u.user_tg_id}</span></div>`).join('')}
+        ${rows.map(u=>admMiniUser(u,{sub:`ID ${u.user_tg_id}`})).join('')}
       </div>`:'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Никто не выходил</div>');
     }).catch(e=>{el('adm-logs').innerHTML=filterBar+`<div class="err">${e}</div>`;});
     return;
@@ -471,8 +457,11 @@ function loadAdminLogs() {
             <span style="font-weight:600">${l.action}</span>
             <span style="font-size:10px;color:var(--muted);white-space:nowrap">${fmtUTC(l.created_at)||'?'}</span>
           </div>
-          <div style="margin-top:2px">@${vipName(l.target_name||'ID'+l.user_id, l.target_is_vip)}
-            <span style="color:var(--muted)">· выдал @${vipName(l.admin_name||'ID'+l.admin_id, l.admin_is_vip)}</span></div>
+          <div style="margin-top:2px;display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            ${admFlatUser({user_id:l.user_id,username:l.target_name,is_vip:l.target_is_vip,avatar_url:l.target_avatar_url})}
+            <span style="color:var(--muted);font-size:10px">выдал</span>
+            ${admFlatUser({user_id:l.admin_id,username:l.admin_name,is_vip:l.admin_is_vip,avatar_url:l.admin_avatar_url})}
+          </div>
           ${l.reason?`<div style="font-size:10px;color:var(--muted);margin-top:2px">${esc(l.reason)}</div>`:''}
         </div>`).join('')}
       </div>
@@ -508,20 +497,27 @@ function loadAdminMod() {
     const logs = (ld.logs||[]).slice(0,8);
     const ACTION_COL = {ban:'var(--red)',kick:'var(--red)',mute:'var(--gold)',
       unmute:'var(--green)',warn:'var(--gold)',unwarn:'var(--green)',unban:'var(--green)',immune:'var(--blue)'};
-    const userRow = (u,badge) => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border2)">
-      <span style="font-size:12px;color:var(--bright)">@${vipName(u.user_tg_username||'ID'+u.user_tg_id, u.is_vip)}</span>
-      <span style="font-size:11px">${badge}</span>
-    </div>`;
+    const userRow = (u,o) => admMiniUser(u, {
+      size: 30,
+      sub: `ID ${u.user_tg_id}${o.sub?` · ${o.sub}`:''}`,
+      tail: o.tail,
+      actions: o.actions,
+    });
+    const actBtn = u => `<button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{w:${!!u.can_warn},m:${!!u.can_mute},k:${!!u.can_kick},b:${!!u.can_ban},s:${!!u.can_shield},i:${!!u.can_immune}})">⚡</button>`;
     el('adm-mod').innerHTML=`
       ${muted.length?`<div class="card">
         <div class="card-title" style="color:var(--red)">🔇 Активные муты (${muted.length})</div>
-        ${muted.map(u=>userRow(u,`<span style="color:var(--muted);font-size:10px">до ${u.muted_until?.slice(0,16)||'?'}</span>
-          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{w:${!!u.can_warn},m:${!!u.can_mute},k:${!!u.can_kick},b:${!!u.can_ban},s:${!!u.can_shield},i:${!!u.can_immune}})">⚡</button>`)).join('')}
+        ${muted.map(u=>userRow(u,{
+          sub:`🔇 до ${u.muted_until?.slice(0,16)||'?'}`,
+          actions:actBtn(u),
+        })).join('')}
       </div>`:''}
       ${warned.length?`<div class="card">
         <div class="card-title" style="color:var(--gold)">⚠️ Предупреждения</div>
-        ${warned.slice(0,10).map(u=>userRow(u,`<span style="color:var(--red);font-weight:700">${u.warnings}× ⚠️</span>
-          <button class="btn btn-sm btn-ghost" style="margin-left:6px" onclick="openAdminAction(${u.user_tg_id},'@${u.user_tg_username||u.user_tg_id}',{w:${!!u.can_warn},m:${!!u.can_mute},k:${!!u.can_kick},b:${!!u.can_ban},s:${!!u.can_shield},i:${!!u.can_immune}})">⚡</button>`)).join('')}
+        ${warned.slice(0,10).map(u=>userRow(u,{
+          tail:`<span style="color:var(--red);font-weight:700">${u.warnings}× ⚠️</span>`,
+          actions:actBtn(u),
+        })).join('')}
       </div>`:''}
       ${!muted.length&&!warned.length?`<div class="card" style="text-align:center;padding:20px">
         <div style="font-size:28px;margin-bottom:8px">✅</div>
@@ -566,13 +562,9 @@ function loadAdminBlacklist() {
       </div>
       ${rows.length?`<div class="card">
         <div class="card-title">🚫 Чёрный список (${rows.length})</div>
-        ${rows.map(b=>`<div style="padding:6px 0;border-bottom:1px solid var(--border2)">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;font-weight:600">@${b.username||'ID'+b.user_id}</span>
-            <button class="btn btn-sm btn-ghost" onclick="doBlacklistRemove(${b.user_id})">✅ Убрать</button>
-          </div>
-          <div style="font-size:10px;color:var(--muted)">ID: ${b.user_id} · ${b.reason?esc(b.reason)+' · ':''}добавил @${b.added_by_name||'ID'+b.added_by}${b.added_at?' · '+fmtUTC(b.added_at):''}</div>
-        </div>`).join('')}
+        ${rows.map(b=>admMiniUser(b,{size:30,
+          sub:`ID ${b.user_id}${b.reason?` · ${esc(b.reason)}`:''} · добавил ${admFlatUser({user_id:b.added_by,username:b.added_by_name,avatar_url:b.added_by_avatar_url},{size:16})}${b.added_at?` · ${fmtUTC(b.added_at)}`:''}`,
+          actions:`<button class="btn btn-sm btn-ghost" onclick="doBlacklistRemove(${b.user_id})">✅ Убрать</button>`})).join('')}
       </div>`:'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">Чёрный список пуст</div>'}`;
   }).catch(e=>{el('adm-bl').innerHTML=`<div class="err">${e}</div>`;});
 }
@@ -787,14 +779,10 @@ function renderGlobalMembers(d) {
       </select>
     </div>
     <div class="card" style="padding:8px 14px">
-      ${d.members.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-        <span style="flex:1;min-width:0">
-          <span style="font-weight:600;font-size:12px;color:var(--bright);${gp('dossier_view')?'cursor:pointer;text-decoration:underline':''}" ${gp('dossier_view')?`onclick="openPlayerCenter(${m.user_tg_id})"`:''}>@${vipName(m.user_tg_username||'ID'+m.user_tg_id, m.is_vip)}</span>
-          <span style="font-size:10px;color:var(--muted)"> · ур.${m.user_level||1} · ${esc(m.global_rank_name||'')}</span><br>
-          <span style="font-size:10px;color:var(--muted)">ID ${m.user_tg_id} · ${m.user_messages_count_all_time||0} сообщ. · 📅 ${m.joined_at?fmtUTC(m.joined_at):'—'} · 🕓 ${m.last_message_at?fmtUTC(m.last_message_at):'—'}</span>
-        </span>
-        ${(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px;flex:none" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:''}
-      </div>`).join('')}
+      ${d.members.map(m=>admPlayerCard(m,{
+        size:44,
+        actions:(m.can_warn||m.can_restrict||m.can_ban)?`<button class="btn btn-sm btn-ghost" style="padding:4px 8px;flex:none" onclick='openGlobalSanctionForm("user",${m.user_tg_id},${JSON.stringify(m.user_tg_username||'ID'+m.user_tg_id)},${JSON.stringify({warn:m.can_warn,restrict:m.can_restrict,ban:m.can_ban})})'>⚡</button>`:'',
+      })).join('')}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;font-size:11px;color:var(--muted)">
       <span>Всего: ${total}</span>
@@ -1003,22 +991,23 @@ function _renderGlobalSanctions() {
   const rows=all.filter(s=>(!_glbSanctionsType||s.sanction_type===_glbSanctionsType)
     &&(!q||(s.target_name||'').toLowerCase().includes(q)||(s.reason||'').toLowerCase().includes(q)
        ||String(s.target_id).includes(q)));
-  const icons={warn:'⚠️',restrict:'🔇',ban:'🚫'};
   el('glb-sanc-list').innerHTML=rows.length?`<div class="card" style="padding:8px 14px">${rows.map(s=>{
-    const name=(s.target_type==='user'&&gp('dossier_view'))
-      ?`<span style="cursor:pointer;text-decoration:underline;font-weight:600;color:var(--bright)" onclick="openPlayerCenter(${s.target_id})">${esc(s.target_name)}</span>`
-      :`<span style="font-weight:600;color:var(--bright)">${s.target_type==='chat'?'💬 ':''}${esc(s.target_name)}</span>`;
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-      <span style="flex:1;min-width:0;font-size:11.5px">${icons[s.sanction_type]||'❔'} ${name}
-        <span style="color:var(--muted)">· ${esc((s.reason||'—').slice(0,48))}</span><br>
-        <span style="font-size:10px;color:var(--muted)">${s.expires_at?('до '+fmtUTC(s.expires_at)):'бессрочно'} · выдал ${esc(s.issued_by_name||'—')}</span>
-      </span>
-      <span style="display:flex;gap:4px;flex:none">
+    const isUser=s.target_type==='user';
+    const canOpen=isUser&&gp('dossier_view');
+    const lbl={warn:['⚠️','варн','adm-c-gold'],restrict:['🔇','ограничение','adm-c-gold'],ban:['🚫','бан','adm-c-red']}[s.sanction_type]||['❔','',''];
+    return admMiniUser({user_id:s.target_id,username:s.target_name},{
+      size:32,
+      name:`<span class="adm-mini-name-txt ${canOpen?'adm-link':''}"${canOpen?` onclick="admOpenCenter(${s.target_id})"`:''}>${esc(s.target_name)}</span>`,
+      icon:isUser?null:'💬',
+      avatar:isUser?s.target_avatar_url:null,
+      tail:admChip(lbl[0]+' '+lbl[1],lbl[2])+(s.target_is_vip?admChip('👑','adm-c-gold'):''),
+      sub:`${esc((s.reason||'—').slice(0,48))} · ${s.expires_at?('до '+fmtUTC(s.expires_at)):'бессрочно'} · выдал ${admFlatUser({user_id:s.issued_by,username:s.issued_by_name,avatar_url:s.issued_by_avatar_url},{size:16})}`,
+      actions:`<span style="display:flex;gap:4px;flex:none">
         <button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Снять" onclick="doRevokeGlobalSanction(${s.id})">✅</button>
         ${s.target_type==='user'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="История дел" onclick="openUserCase(${s.target_id})">📁</button>`:''}
         ${s.sanction_type!=='warn'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Изменить срок" onclick='openGlobalSanctionForm(${JSON.stringify(s.target_type)},${s.target_id},null,_actorSanctionPerms(${JSON.stringify(s.target_type)}))'>✏️</button>`:''}
-      </span>
-    </div>`;
+      </span>`,
+    });
   }).join('')}</div>`
   :'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">'+(q||_glbSanctionsType?'Ничего не найдено по фильтру':'Нет активных санкций')+'</div>';
 }
@@ -1046,10 +1035,12 @@ function loadGlobalLog() {
             ${d.logs.map(s=>`<tr>
               <td style="font-size:10px;white-space:nowrap">${fmtUTC(s.created_at)||'?'}</td>
               <td style="font-size:11px;font-weight:600">${_SANCTION_LABELS[s.sanction_type]||s.sanction_type}</td>
-              <td style="font-size:11px">${(s.target_type==='user'&&gp('dossier_view'))?`<span style="cursor:pointer;text-decoration:underline" onclick="openPlayerCenter(${s.target_id})">👤 ${esc(s.target_name)}</span>`:`${s.target_type==='chat'?'💬':'👤'} ${esc(s.target_name)}`}</td>
-              <td style="font-size:11px">${s.issued_by_name}</td>
+              <td style="font-size:11px">${s.target_type==='chat'
+                ? `<span class="adm-flat">${admIconHtml('💬',22)}<span class="adm-flat-name">${esc(s.target_name)}</span></span>`
+                : admFlatUser({user_id:s.target_id,username:s.target_name,avatar_url:s.target_avatar_url})}</td>
+              <td style="font-size:11px">${admFlatUser({user_id:s.issued_by,username:s.issued_by_name,avatar_url:s.issued_by_avatar_url},{center:false})}</td>
               <td style="font-size:10px;color:var(--muted)">${esc(s.reason||'—')}</td>
-              <td style="font-size:10px">${s.is_active?'<span style="color:var(--green)">Активна</span>':s.revoked_by_name?`<span style="color:var(--muted)">Снята: ${s.revoked_by_name}</span>`:'<span style="color:var(--muted)">Истекла</span>'}</td>
+              <td style="font-size:10px">${s.is_active?'<span style="color:var(--green)">Активна</span>':s.revoked_by_name?`<span style="color:var(--muted)">Снята: ${esc(s.revoked_by_name)}</span>`:'<span style="color:var(--muted)">Истекла</span>'}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -1095,20 +1086,21 @@ function _renderGlobalAppeals() {
   const st={pending:'⏳',accepted:'✅',rejected:'❌',closed:'📪'};
   const shown=rows.slice(0,_glbAppealsShown);
   box.innerHTML=(shown.length?`<div class="card" style="padding:8px 14px">${shown.map(a=>{
-    const name=gp('dossier_view')
-      ?`<span style="cursor:pointer;text-decoration:underline;font-weight:600;color:var(--bright)" onclick="openPlayerCenter(${a.user_id})">${esc(a.user_name)}</span>`
-      :`<span style="font-weight:600;color:var(--bright)">${esc(a.user_name)}</span>`;
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-      <span style="flex:1;min-width:0;font-size:11.5px">${st[a.status]||'❔'} <b>#${a.id}</b> ${name}
-        <span style="color:var(--muted)">· ${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (снята)':''} · ${esc((a.text||'').slice(0,44))}</span><br>
-        <span style="font-size:10px;color:var(--muted)">${fmtUTC(a.created_at)}${a.status!=='pending'&&a.resolved_by_name?' · решение: '+esc(a.resolved_by_name):''}</span>
-      </span>
-      <span style="display:flex;gap:4px;flex:none">
+    const canOpen=gp('dossier_view');
+    return admMiniUser({user_id:a.user_id,username:a.user_name},{
+      size:32,
+      center:false,
+      name:`<span class="adm-mini-name-txt ${canOpen?'adm-link':''}"${canOpen?` onclick="admOpenCenter(${a.user_id})"`:''}>${esc(a.user_name)}</span>`,
+      avatar:a.user_avatar_url,
+      tail:admChip(`#${a.id}`)+admChip(st[a.status]||'❔'),
+      sub:`${_SANCTION_LABELS[a.sanction_type]||'?'}${a.sanction_active===false?' (снята)':''} · ${esc((a.text||'').slice(0,44))} · ${fmtUTC(a.created_at)}${a.status!=='pending'&&a.resolved_by_name?` · решение: ${admFlatUser({user_id:a.resolved_by,username:a.resolved_by_name,avatar_url:a.resolved_by_avatar_url},{size:16})}`:''}`,
+      actions:`<span style="display:flex;gap:4px;flex:none">
         <button class="btn btn-sm btn-teal" style="padding:3px 7px" title="Диалог" onclick="openAppealThread(${a.id})">💬</button>
         ${a.status==='pending'?`<button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Снять санкцию" onclick="doResolveAppeal(${a.id},'accept')">✅</button>
         <button class="btn btn-sm btn-ghost" style="padding:3px 7px" title="Отклонить" onclick="doResolveAppeal(${a.id},'reject')">❌</button>`:''}
-      </span>
-    </div>`;}).join('')}</div>`
+      </span>`,
+    });
+  }).join('')}</div>`
     :'<div class="card" style="text-align:center;padding:20px;color:var(--muted)">'+(q?'Ничего не найдено':'Нет апелляций')+'</div>')
     +(rows.length>_glbAppealsShown?`<button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="_glbAppealsShown+=30;_renderGlobalAppeals()">⬇ Показать ещё (${rows.length-_glbAppealsShown})</button>`:'');
 }
@@ -1134,17 +1126,17 @@ function loadGlobalRanksTab() {
   el('glb-ranks').innerHTML='<div class="loader">Загрузка...</div>';
   Promise.all([api('/admin/global/ranks'), api('/admin/global/permissions')]).then(([sd,sp])=>{
     const staff=sd.staff||[];
-    const staffHtml=staff.map(s=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border2)">
-      <span style="flex:1;min-width:0;${gp('dossier_view')&&s.global_rank<3?'cursor:pointer':''}" ${gp('dossier_view')&&s.global_rank<3?`onclick="openPlayerCenter(${s.user_tg_id})"`:''}>
-        <span style="font-size:12px;font-weight:600;color:var(--bright)">@${esc(s.user_tg_username||('ID'+s.user_tg_id))}</span><br>
-        <span style="font-size:10px;color:var(--muted)">${esc(s.rank_name)} · за 30д: ⚡${s.sanctions_30d||0} санкц. · ⚖️${s.appeals_30d||0} апелл.</span>
-      </span>
-      ${s.global_rank<3?`<select class="num-input" style="width:auto;margin:0;font-size:11px" onchange="doSetGlobalRankFor(${s.user_tg_id},this.value)">
+    const staffHtml=staff.map(s=>admMiniUser(s,{size:34,
+      name:gp('dossier_view')&&s.global_rank<3
+        ?`<span class="adm-mini-name-txt adm-link" onclick="admOpenCenter(${s.user_tg_id})">${esc(s.user_tg_username||('ID'+s.user_tg_id))}</span>`
+        :null,
+      tail:admChip(esc(s.rank_name),'adm-c-gold'),
+      sub:`за 30д: ⚡${s.sanctions_30d||0} санкц. · ⚖️${s.appeals_30d||0} апелл.`,
+      actions:s.global_rank<3?`<select class="num-input" style="width:auto;margin:0;font-size:11px" onchange="doSetGlobalRankFor(${s.user_tg_id},this.value)">
         <option value="1" ${s.global_rank===1?'selected':''}>🛡 Хелпер</option>
         <option value="2" ${s.global_rank===2?'selected':''}>⚔️ Ст. хелпер</option>
         <option value="0">❌ Снять</option>
-      </select>`:`<span style="font-size:11px;color:var(--gold2)">🌌</span>`}
-    </div>`).join('')||'<div style="font-size:11px;color:var(--muted)">Штат пуст — назначьте первого хелпера ниже.</div>';
+      </select>`:`<span style="font-size:11px;color:var(--gold2)">🌌</span>`})).join('')||'<div style="font-size:11px;color:var(--muted)">Штат пуст — назначьте первого хелпера ниже.</div>';
     el('glb-ranks').innerHTML=`
       <div class="card"><div class="card-title">👮 Штат (${staff.length})</div>${staffHtml}</div>
       <div class="card">
@@ -1233,6 +1225,7 @@ function openAppealThread(id) {
     const open=a.status==='pending';
     OM(`💬 Апелляция #${id} ${open?'(открыта)':'— '+esc(a.status)}`,
       `<div style="font-size:11px;color:var(--muted)">Санкция #${a.sanction_id}: ${_SANCTION_LABELS[s.sanction_type]||''} · ${esc((s.reason||'').slice(0,120))}</div>
+       ${admMiniUser({user_id:a.user_id,username:a.user_display_name,avatar_url:a.user_avatar_url},{size:36,center:false,sub:`ID ${a.user_id}${a.created_at?` · апелляция от ${fmtUTC(a.created_at)}`:''}`})}
        <div style="max-height:38vh;overflow:auto;margin:6px 0">${msgs}</div>
        ${open?`<textarea id="apl-reply" class="num-input" style="min-height:70px;resize:vertical;margin:0 0 6px" placeholder="Ответ игроку (уйдёт ему в ЛС)…" maxlength="9999"></textarea>`:''}`,
       open?[{l:'💬 Ответить',c:'btn-gold',f:`_appealReplyGo(${id})`},
@@ -1276,6 +1269,7 @@ function openUserCase(uid) {
       </div>`).join('')||'<i style="font-size:11px;color:var(--muted)">Апелляций не было</i>';
     OM(`📁 История дел: ${esc(d.username||uid)}`,
       `<div style="max-height:50vh;overflow:auto">
+         ${admMiniUser({user_id:uid,username:d.username,avatar_url:d.avatar_url},{size:40,center:false,sub:`ID ${uid}`})}
          <div style="font-size:11px;color:var(--gold2);margin:4px 0">Санкции (${(d.sanctions||[]).length})</div>${sanc}
          <div style="font-size:11px;color:var(--gold2);margin:8px 0 4px">Апелляции (${(d.appeals||[]).length})</div>${apls}
        </div>`,

@@ -7,7 +7,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
 
 echo "🔄 Running database migrations..."
 cd "$PROJECT_ROOT"
-python manage.py migrate --noinput || echo "⚠️  Migration failed (DB may be overloaded) — continuing startup anyway"
+python manage.py migrate --noinput
 
 # V6 (дизайн-аудит 2026-07-17): легаси-данные лежали в сырых колонках (position, title...),
 # а переводные (position_en...) были пустыми — карточки рендерились с дырами.

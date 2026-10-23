@@ -19,7 +19,8 @@ from ..constants import (
 from ..forms import UserProfileEditForm
 from ..models import AccountChangeRequest, User, Visit
 from ..services.email_verification import send_email_verification
-from blog.models import BlogSubscription, Post
+from blog.models import BlogSubscription, Comment, Like, Post
+from blog.utils.querysets import related_count
 
 
 @method_decorator(login_required, name='dispatch')
@@ -38,7 +39,10 @@ class ProfileView(DetailView):
 
         all_posts = Post.objects.filter(
             author=user
-        ).select_related('author').prefetch_related('likes', 'comments').order_by('-created_at')
+        ).select_related('author').annotate(
+            likes_count=related_count(Like, 'post_id'),
+            comments_count=related_count(Comment, 'post_id'),
+        ).order_by('-created_at', '-pk')
         page_obj = Paginator(all_posts, self.paginate_by).get_page(self.request.GET.get('page'))
         context.update({'user_posts': page_obj, 'page_obj': page_obj,
                         'is_paginated': page_obj.has_other_pages()})
@@ -130,7 +134,7 @@ class ProfileEditView(UpdateView):
 def _get_public_profile_context(user_obj, request_user=None):
     user_posts = Post.objects.filter(
         author=user_obj, status='published'
-    ).select_related('author').prefetch_related('likes', 'comments').order_by('-created_at')
+    ).select_related('author').order_by('-created_at', '-pk')
     other_links_list = user_obj.other_links.splitlines() if user_obj.other_links else []
     is_subscribed = False
     if request_user and request_user.is_authenticated and request_user != user_obj:
@@ -151,12 +155,19 @@ def _get_public_profile_context(user_obj, request_user=None):
 
 def profile_public_by_username(request, username):
     user_obj = get_object_or_404(User, username=username)
-    return render(request, 'users/profile_public.html', _get_public_profile_context(user_obj, request.user))
+    return _render_public_profile(request, user_obj)
 
 
 def profile_public_by_card(request, permanent_id):
     user_obj = get_object_or_404(User, permanent_id=permanent_id)
-    return render(request, 'users/profile_public.html', _get_public_profile_context(user_obj, request.user))
+    return _render_public_profile(request, user_obj)
+
+
+def _render_public_profile(request, user_obj):
+    context = _get_public_profile_context(user_obj, request.user)
+    page = Paginator(context['user_posts'], PROFILE_POSTS_PER_PAGE).get_page(request.GET.get('page'))
+    context.update(user_posts=page, page_obj=page)
+    return render(request, 'users/profile_public.html', context)
 
 
 @login_required

@@ -2,14 +2,16 @@
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
-from django.db.models import Count
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
-from ..models import Post, Comment, Like, CommentLike
+from ..models import Comment, Like, CommentLike
+from ..utils.querysets import visible_posts
+from django.views.decorators.http import require_POST, require_http_methods
 
 
+@require_http_methods(['GET', 'POST'])
 def like_post(request, pk):
     """Кнопка лайка поста.
 
@@ -17,7 +19,7 @@ def like_post(request, pk):
     в post_detail не должен ни переключать лайк, ни свапать страницу логина).
     POST — переключение лайка (только для залогиненных).
     """
-    post = get_object_or_404(Post, pk=pk)
+    post = get_object_or_404(visible_posts(request.user), pk=pk)
 
     if request.method == 'POST':
         if not request.user.is_authenticated:
@@ -36,8 +38,7 @@ def like_post(request, pk):
         ).exists()
 
     if request.htmx:
-        # OPTIMIZATION: Use aggregate instead of .count() query
-        like_count = Like.objects.filter(post=post).aggregate(count=Count('id'))['count']
+        like_count = Like.objects.filter(post=post).count()
 
         return render(request, 'blog/htmx/like_button.html', {
             'post': post,
@@ -49,9 +50,11 @@ def like_post(request, pk):
 
 
 @login_required
+@require_POST
 def toggle_comment_like(request, pk, comment_pk):
     """Лайк/дизлайк комментария через HTMX"""
-    comment = get_object_or_404(Comment, pk=comment_pk, post_id=pk)
+    post = get_object_or_404(visible_posts(request.user), pk=pk)
+    comment = get_object_or_404(Comment, pk=comment_pk, post=post)
     
     # Переключаем лайк
     like, created = CommentLike.objects.get_or_create(

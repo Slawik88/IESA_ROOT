@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, create_model
 
 from FastAPI.deps import get_db, require_tg_user
+from FastAPI.routers.admin_avatar import attach_avatar_urls, avatar_url
 from infrastructure.repositories.moderation import (
     get_chat_settings, update_chat_settings, add_warn, remove_warn,
     log_moderation_action, get_left_users, expire_due_warns,
@@ -216,6 +217,11 @@ async def admin_dashboard(chat_id: int, db=Depends(get_db), user=Depends(require
     ) as c:
         blacklist_count = (await c.fetchone())[0]
 
+    # ADMPROFILE: в «последних изменениях модулей» видно, кто именно переключил.
+    last_modules = await module_audit.recent(db, scope="chat", chat_id=chat_id, limit=3)
+    for r in last_modules:
+        r["actor_avatar_url"] = avatar_url(r.get("actor_id"))
+
     return {
         "my_rank": actor_rank,
         "my_rank_name": _LOCAL_RANK_NAMES.get(actor_rank, "?"),
@@ -225,7 +231,7 @@ async def admin_dashboard(chat_id: int, db=Depends(get_db), user=Depends(require
         "active_today": active_today,
         "muted_count": muted_count,
         "blacklist_count": blacklist_count,
-        "last_modules": await module_audit.recent(db, scope="chat", chat_id=chat_id, limit=3),
+        "last_modules": last_modules,
         "can_warn": actor_rank >= settings.get("rank_warn", 2),
         "can_mute": actor_rank >= settings.get("rank_mute", 1),
         "can_kick": actor_rank >= settings.get("rank_kick", 1),
@@ -281,7 +287,9 @@ async def admin_users(
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
         f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, ucs.joined_at, "
-        f"(v.user_id IS NOT NULL) AS is_vip "
+        f"COALESCE(u.global_rank, 0) AS global_rank, (v.user_id IS NOT NULL) AS is_vip, "
+        f"(SELECT n.nickname FROM user_nicknames n "
+        f" WHERE n.user_id = ucs.user_tg_id AND n.chat_id = ucs.chat_tg_id) AS nickname "
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
         f"LEFT JOIN vip_subscriptions v ON v.user_id = ucs.user_tg_id AND v.expires_at > NOW() "
@@ -324,6 +332,9 @@ async def admin_users(
         r["immune_until"] = str(r["immune_until"]) if r.get("immune_until") else None
         r["last_message_at"] = str(r["last_message_at"]) if r.get("last_message_at") else None
         r["joined_at"] = str(r["joined_at"]) if r.get("joined_at") else None
+        # Карточка игрока (ADMPROFILE): фото + глобальный ранг рядом с локальным.
+        r["global_rank_name"] = roles.GLOBAL_RANKS_MAP.get(r.get("global_rank") or 0, "?")
+    attach_avatar_urls(rows, "user_tg_id")
 
     return {"users": rows, "total": total, "page": page, "page_size": page_size,
             "max_assignable_rank": actor_rank - 1}
@@ -588,6 +599,9 @@ async def admin_logs(
 
     for r in rows:
         r["created_at"] = str(r["created_at"])
+        # Карточка игрока: фото нарушителя и модератора видно прямо в журнале.
+        r["target_avatar_url"] = avatar_url(r.get("user_id"))
+        r["admin_avatar_url"] = avatar_url(r.get("admin_id"))
 
     return {"logs": rows, "total": total, "page": page, "page_size": page_size}
 
@@ -624,6 +638,7 @@ async def admin_chat_lock(chat_id: int, body: ChatLockRequest,
 async def admin_left_users(chat_id: int, db=Depends(get_db), user=Depends(require_tg_user)):
     await _require_admin(db, user["id"], chat_id)
     rows = await get_left_users(db, chat_id)
+    attach_avatar_urls(rows, "user_tg_id")
     return {"left": rows}
 
 
@@ -660,6 +675,8 @@ async def admin_blacklist(chat_id: int, db=Depends(get_db), user=Depends(require
         e["username"] = names.get(e["user_id"])
         e["added_by_name"] = names.get(e["added_by"])
         e["added_at"] = str(e["added_at"]) if e.get("added_at") else None
+        e["avatar_url"] = avatar_url(e.get("user_id"))
+        e["added_by_avatar_url"] = avatar_url(e.get("added_by"))
     return {"blacklist": entries}
 
 
@@ -772,7 +789,7 @@ async def admin_purge_status(chat_id: int, db=Depends(get_db), user=Depends(requ
             {"user_id": t["user_id"], "username": t["username"],
              "msg_count": t["msg_count"], "days_in_chat": t["days_in_chat"],
              "warns": t["warns"], "dossier_sent": bool(t["dossier_sent"]),
-             "verdict": t["verdict"]}
+             "verdict": t["verdict"], "avatar_url": avatar_url(t["user_id"])}
             for t in st["targets"]
         ]
     return out

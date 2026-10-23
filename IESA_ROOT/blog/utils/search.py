@@ -1,11 +1,12 @@
 """Утилиты поиска"""
 
-from django.db.models import Q, Count
-from ..models import Post, Event
+from django.db.models import Q, F
+from .querysets import related_count, visible_posts
+from ..models import Event, Like, Comment
 from ..constants import SEARCH_POSTS_LIMIT, SEARCH_EVENTS_LIMIT
 
 
-def search_posts(query, status=None, sort='latest', limit=SEARCH_POSTS_LIMIT):
+def search_posts(query, status=None, sort='latest', limit=SEARCH_POSTS_LIMIT, user=None):
     """
     Поиск постов
     
@@ -15,7 +16,10 @@ def search_posts(query, status=None, sort='latest', limit=SEARCH_POSTS_LIMIT):
         sort: сортировка (latest, popular, trending)
         limit: максимум результатов
     """
-    posts = Post.objects.all()
+    posts = visible_posts(user).select_related('author').annotate(
+        likes_count=related_count(Like, 'post_id'),
+        comments_count=related_count(Comment, 'post_id'),
+    )
     
     # Фильтр по статусу
     if status:
@@ -29,11 +33,11 @@ def search_posts(query, status=None, sort='latest', limit=SEARCH_POSTS_LIMIT):
     if sort == 'popular':
         from ..constants import LIKE_WEIGHT, COMMENT_WEIGHT
         posts = posts.annotate(
-            engagement=Count('likes') * LIKE_WEIGHT + Count('comments') * COMMENT_WEIGHT
+            engagement=F('likes_count') * LIKE_WEIGHT + F('comments_count') * COMMENT_WEIGHT
         ).order_by('-engagement', '-created_at')
     elif sort == 'trending':
         posts = posts.annotate(
-            engagement=Count('likes') + Count('comments')
+            engagement=F('likes_count') + F('comments_count')
         ).filter(engagement__gt=0).order_by('-engagement', '-created_at')
     else:  # latest
         posts = posts.order_by('-created_at')

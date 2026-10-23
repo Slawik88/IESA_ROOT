@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import user_passes_test
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -58,21 +59,29 @@ def invite_register(request, token):
     if request.method == 'POST':
         form = InviteRegisterForm(request.POST, invite=invite)
         if form.is_valid():
-            user = User.objects.create_user(
-                username=form.cleaned_data['username'],
-                email=form.cleaned_data['email'],
-                password=form.cleaned_data['password1'],
-                first_name=form.cleaned_data.get('first_name', ''),
-                last_name=form.cleaned_data.get('last_name', ''),
-                is_partner=True,
-            )
-            Partner.objects.create(
-                user=user,
-                company_name=form.cleaned_data.get('company_name', ''),
-                business_type=form.cleaned_data.get('business_type', 'other'),
-                partner_type=invite.partner_type,
-            )
-            invite.mark_used(user)
+            # Re-check after validation under the token lock: another request
+            # may have consumed the final use while this form was validated.
+            with transaction.atomic():
+                invite = InviteToken.objects.select_for_update().get(pk=invite.pk)
+                if not invite.is_valid():
+                    return render(request, 'users/invite_invalid.html', {
+                        'reason': 'expired' if timezone.now() >= invite.expires_at else 'used',
+                    }, status=410)
+                user = User.objects.create_user(
+                    username=form.cleaned_data['username'],
+                    email=form.cleaned_data['email'],
+                    password=form.cleaned_data['password1'],
+                    first_name=form.cleaned_data.get('first_name', ''),
+                    last_name=form.cleaned_data.get('last_name', ''),
+                    is_partner=True,
+                )
+                Partner.objects.create(
+                    user=user,
+                    company_name=form.cleaned_data.get('company_name', ''),
+                    business_type=form.cleaned_data.get('business_type') or 'other',
+                    partner_type=invite.partner_type,
+                )
+                invite.mark_used(user)
             auth_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             messages.success(request, _("Добро пожаловать! Ваш аккаунт партнёра создан."))
             if send_email_verification(user, request):

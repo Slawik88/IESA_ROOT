@@ -1,0 +1,44 @@
+# Generated graph data: never ingest an old map into a new one.
+graphify-out/
+**/graphify-out/
+
+# Tooling and local runtime state, not project architecture.
+.agents/skills/graphify/
+.claude/
+.codex/
+.impeccable/
+.local/
+.venv/
+.vscode/
+**/node_modules/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/logs/
+predvestnik_v2/~
+
+# Generated/build artifacts and local databases.
+**/dist/
+**/build/
+**/staticfiles/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.sqlite3-*
+*.log
+server_output.txt
+*.tsbuildinfo
+
+# Binary visual assets and audit screenshots are intentionally omitted from the
+# architecture graph. Their references remain visible in source and templates.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.pdf
+*.mp3
+*.mp4
+*.wav

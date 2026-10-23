@@ -268,6 +268,13 @@
                         </a>
                         {% endfor %}
                     </div>
+                    {% if page_obj.has_other_pages %}
+                    <nav class="d-flex justify-content-between align-items-center mt-3" aria-label="{% trans 'Pagination' %}">
+                        {% if page_obj.has_previous %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.previous_page_number }}">{% trans "Previous" %}</a>{% else %}<span></span>{% endif %}
+                        <span class="text-muted small">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+                        {% if page_obj.has_next %}<a class="btn btn-outline-secondary btn-sm" href="?page={{ page_obj.next_page_number }}">{% trans "Next" %}</a>{% else %}<span></span>{% endif %}
+                    </nav>
+                    {% endif %}
                     {% else %}
                     <div class="pp-empty">
                         <i class="fas fa-inbox fa-2x mb-3" style="display:block;opacity:.2;"></i>

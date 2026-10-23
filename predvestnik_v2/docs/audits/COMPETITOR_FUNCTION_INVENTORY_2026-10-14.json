@@ -1,0 +1,2826 @@
+{
+  "as_of": "2026-10-14",
+  "commit": "049d81d2",
+  "scope": "Registered bot handler modules and directly included FastAPI modules; feature flags and runtime health not inferred",
+  "telegram_handlers": [
+    {
+      "module": "account",
+      "file": "bot/handlers/account.py",
+      "line": 13,
+      "handler": "cmd_cancel_deletion",
+      "event": "message",
+      "filters": [
+        "TextCmd(['отменить удаление', 'отмена удаления'])"
+      ]
+    },
+    {
+      "module": "account",
+      "file": "bot/handlers/account.py",
+      "line": 19,
+      "handler": "cmd_restore_account",
+      "event": "message",
+      "filters": [
+        "TextCmd(['восстановить аккаунт', 'восстановление аккаунта'])"
+      ]
+    },
+    {
+      "module": "admin",
+      "file": "bot/handlers/admin.py",
+      "line": 22,
+      "handler": "cmd_setrankbot",
+      "event": "message",
+      "filters": [
+        "TextCmd(['ранг глобал', 'глобал ранг'])"
+      ]
+    },
+    {
+      "module": "admin",
+      "file": "bot/handlers/admin.py",
+      "line": 79,
+      "handler": "cmd_setrank",
+      "event": "message",
+      "filters": [
+        "TextCmd(['выдать ранг', 'дать ранг', 'сет ранг', 'ранг'])"
+      ]
+    },
+    {
+      "module": "admin",
+      "file": "bot/handlers/admin.py",
+      "line": 152,
+      "handler": "process_rank_confirmation",
+      "event": "callback_query",
+      "filters": [
+        "RankConfirmData.filter()"
+      ]
+    },
+    {
+      "module": "admin",
+      "file": "bot/handlers/admin.py",
+      "line": 211,
+      "handler": "cmd_sync_rank",
+      "event": "message",
+      "filters": [
+        "TextCmd(['обновить права', 'синх права', 'восстановить права'])"
+      ]
+    },
+    {
+      "module": "blacklist",
+      "file": "bot/handlers/blacklist.py",
+      "line": 40,
+      "handler": "cmd_blacklist_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['чс', 'blacklist', 'чёрный список', 'черный список'])"
+      ]
+    },
+    {
+      "module": "blacklist",
+      "file": "bot/handlers/blacklist.py",
+      "line": 68,
+      "handler": "cmd_blacklist_add",
+      "event": "message",
+      "filters": [
+        "TextCmd(['чс добавить', 'чс add', 'добавить в чс'])"
+      ]
+    },
+    {
+      "module": "blacklist",
+      "file": "bot/handlers/blacklist.py",
+      "line": 99,
+      "handler": "cmd_blacklist_remove",
+      "event": "message",
+      "filters": [
+        "TextCmd(['чс убрать', 'чс remove', 'убрать из чс'])"
+      ]
+    },
+    {
+      "module": "blacklist",
+      "file": "bot/handlers/blacklist.py",
+      "line": 133,
+      "handler": "cb_blacklist_action",
+      "event": "callback_query",
+      "filters": [
+        "BlacklistCB.filter()"
+      ]
+    },
+    {
+      "module": "chat_echo",
+      "file": "bot/handlers/chat_echo.py",
+      "line": 103,
+      "handler": "cmd_echo_status",
+      "event": "message",
+      "filters": [
+        "TextCmd(['эхо', 'эхо статус', 'echo status'])"
+      ]
+    },
+    {
+      "module": "chat_echo",
+      "file": "bot/handlers/chat_echo.py",
+      "line": 117,
+      "handler": "cmd_echo_start",
+      "event": "message",
+      "filters": [
+        "TextCmd(['эхо начать', 'запустить эхо', 'echo start'])"
+      ]
+    },
+    {
+      "module": "chat_echo",
+      "file": "bot/handlers/chat_echo.py",
+      "line": 145,
+      "handler": "cb_echo_start",
+      "event": "callback_query",
+      "filters": [
+        "EchoStartCB.filter()"
+      ]
+    },
+    {
+      "module": "chat_echo",
+      "file": "bot/handlers/chat_echo.py",
+      "line": 192,
+      "handler": "cb_echo",
+      "event": "callback_query",
+      "filters": [
+        "EchoCB.filter()"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 172,
+      "handler": "cmd_chat_settings",
+      "event": "message",
+      "filters": [
+        "TextCmd(['настройки чата', 'настройка чата', 'settings'])"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 202,
+      "handler": "cb_settings_menu",
+      "event": "callback_query",
+      "filters": [
+        "ChatSettingsCB.filter(F.action == 'menu')"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 215,
+      "handler": "cb_settings_section",
+      "event": "callback_query",
+      "filters": [
+        "ChatSettingsCB.filter(F.action == 'section')"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 229,
+      "handler": "cb_set_rank",
+      "event": "callback_query",
+      "filters": [
+        "ChatSettingsCB.filter(F.action == 'set_rank')"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 280,
+      "handler": "cb_toggle_setting",
+      "event": "callback_query",
+      "filters": [
+        "ChatSettingsCB.filter(F.action == 'toggle')"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 332,
+      "handler": "cb_confirm_module_off",
+      "event": "callback_query",
+      "filters": [
+        "ChatSettingsCB.filter(F.action == 'confirm_off')"
+      ]
+    },
+    {
+      "module": "chat_settings",
+      "file": "bot/handlers/chat_settings.py",
+      "line": 360,
+      "handler": "cmd_set_timezone",
+      "event": "message",
+      "filters": [
+        "TextCmd(['часовой пояс', 'timezone', 'часовойпояс', 'часовой пояс чата', 'timezone чата', 'пояс чата'])"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 392,
+      "handler": "cmd_bot_alone",
+      "event": "message",
+      "filters": [
+        "F.text.lower().strip() == 'бот'"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 403,
+      "handler": "cmd_help",
+      "event": "message",
+      "filters": [
+        "TextCmd(['помощь', 'меню', 'команды', 'хелп'])"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 413,
+      "handler": "handle_help_tabs",
+      "event": "callback_query",
+      "filters": [
+        "HelpCallback.filter()"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 443,
+      "handler": "cmd_web",
+      "event": "message",
+      "filters": [
+        "TextCmd(['сайт', 'веб', 'мини апп', 'miniapp', 'app', 'приложение'])"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 479,
+      "handler": "cmd_item_info",
+      "event": "message",
+      "filters": [
+        "TextCmd(['предмет', 'item info', 'инфо предмет'])"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 548,
+      "handler": "cmd_rarity",
+      "event": "message",
+      "filters": [
+        "F.text.lower().regexp('рар+и+т+и|раррити|рарит+и')"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 580,
+      "handler": "cmd_wrong_syntax",
+      "event": "message",
+      "filters": [
+        "WrongSyntaxCmd()"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 638,
+      "handler": "cb_ai_action",
+      "event": "callback_query",
+      "filters": [
+        "AiActionCB.filter()"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 709,
+      "handler": "cmd_ai_question",
+      "event": "message",
+      "filters": [
+        "AiQuestionCmd()"
+      ]
+    },
+    {
+      "module": "common",
+      "file": "bot/handlers/common.py",
+      "line": 779,
+      "handler": "cmd_suggest",
+      "event": "message",
+      "filters": [
+        "UnknownBotCmd()"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 20,
+      "handler": "cmd_dev_items",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev предметы', 'реестр предметов'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 30,
+      "handler": "cmd_dev_stat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev стат', 'dev stat', 'dev статистика'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 59,
+      "handler": "cmd_dev_user",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev юзер', 'dev user'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 92,
+      "handler": "cmd_dev_balance",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev баланс', 'dev balance'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 169,
+      "handler": "cmd_dev_reset_streak",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev сбросить стрик', 'dev reset streak'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 196,
+      "handler": "cmd_dev_modules",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev модули', 'dev modules'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 215,
+      "handler": "cmd_dev_module_on",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev модуль вкл', 'dev module on'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 229,
+      "handler": "cmd_dev_module_off",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev модуль выкл', 'dev module off'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 246,
+      "handler": "cmd_dev_global_bl_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev глобал чс', 'dev global bl'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 262,
+      "handler": "cmd_dev_global_bl_add",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev глобал чс добавить', 'dev global bl add'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 294,
+      "handler": "cmd_dev_global_bl_remove",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev глобал чс убрать', 'dev global bl remove'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 320,
+      "handler": "cmd_dev_reset_pity",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev гача сброс', 'dev reset pity'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 332,
+      "handler": "cmd_dev_lookup_ids",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev айди', 'dev id', 'dev lookup'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 396,
+      "handler": "cmd_dev_announce",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev анонс', 'dev announce', 'dev объявление'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 435,
+      "handler": "cmd_dev_chat_info",
+      "event": "message",
+      "filters": [
+        "TextCmd(['dev чат', 'dev chat info', 'dev chat'])"
+      ]
+    },
+    {
+      "module": "dev",
+      "file": "bot/handlers/dev.py",
+      "line": 670,
+      "handler": "log_sticker_id",
+      "event": "message",
+      "filters": [
+        "F.sticker",
+        "F.chat.type == 'private'"
+      ]
+    },
+    {
+      "module": "games",
+      "file": "bot/handlers/games.py",
+      "line": 40,
+      "handler": "cmd_games_moved",
+      "event": "message",
+      "filters": [
+        "TextCmd(['игры', 'казино', 'азарт', 'кости', 'монетка', 'числа', 'угадай число', 'рулетка'])"
+      ]
+    },
+    {
+      "module": "games",
+      "file": "bot/handlers/games.py",
+      "line": 59,
+      "handler": "cb_refund_legacy_games",
+      "event": "callback_query",
+      "filters": [
+        "LegacyGameRefundCB.filter()"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 61,
+      "handler": "cmd_global_warn",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб варн'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 89,
+      "handler": "cmd_global_unwarn",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб снять варн'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 134,
+      "handler": "cmd_global_restrict",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб ограничить'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 165,
+      "handler": "cmd_global_unrestrict",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб снять ограничение'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 192,
+      "handler": "cmd_global_ban",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб бан'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 223,
+      "handler": "cmd_global_unban",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб разбан'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 250,
+      "handler": "cmd_global_ban_chat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб бан чат'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 271,
+      "handler": "cmd_global_unban_chat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб разбан чат'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 296,
+      "handler": "cmd_global_sanctions_chat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб санкции чат'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 313,
+      "handler": "cmd_global_sanctions_user",
+      "event": "message",
+      "filters": [
+        "TextCmd(['глоб санкции'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 367,
+      "handler": "cb_sanction_notify",
+      "event": "callback_query",
+      "filters": [
+        "lambda c: c.data and c.data.startswith('sn:')"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 401,
+      "handler": "cmd_appeal_reply",
+      "event": "message",
+      "filters": [
+        "TextCmd(['апелляция ответ', 'ответ апелляция'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 432,
+      "handler": "cmd_appeal_close",
+      "event": "message",
+      "filters": [
+        "TextCmd(['апелляция закрыть', 'закрыть апелляцию'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 453,
+      "handler": "cmd_appeals_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['апелляции', 'список апелляций'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 487,
+      "handler": "cmd_appeal",
+      "event": "message",
+      "filters": [
+        "TextCmd(['апелляция'])"
+      ]
+    },
+    {
+      "module": "global_moderation",
+      "file": "bot/handlers/global_moderation.py",
+      "line": 518,
+      "handler": "dm_appeal_photo",
+      "event": "message",
+      "filters": [
+        "lambda m: m.chat.type == 'private' and m.photo"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 395,
+      "handler": "cmd_mafia",
+      "event": "message",
+      "filters": [
+        "TextCmd(['мафия', 'mafia'])"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 451,
+      "handler": "cb_mafia_lobby",
+      "event": "callback_query",
+      "filters": [
+        "MafiaLobbyCB.filter()"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 525,
+      "handler": "cb_mafia_ready",
+      "event": "callback_query",
+      "filters": [
+        "MafiaReadyCB.filter()"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 542,
+      "handler": "cb_mafia_settings",
+      "event": "callback_query",
+      "filters": [
+        "MafiaSettingsCB.filter()"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 612,
+      "handler": "cb_mafia_control",
+      "event": "callback_query",
+      "filters": [
+        "MafiaControlCB.filter()"
+      ]
+    },
+    {
+      "module": "mafia_v1",
+      "file": "bot/handlers/mafia_v1.py",
+      "line": 641,
+      "handler": "cb_mafia_action",
+      "event": "callback_query",
+      "filters": [
+        "MafiaActionCB.filter()"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 67,
+      "handler": "cmd_marriage",
+      "event": "message",
+      "filters": [
+        "TextCmd(['брак', 'свадьба', 'роспись'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 142,
+      "handler": "process_marriage_action",
+      "event": "callback_query",
+      "filters": [
+        "MarriageAction.filter()"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 208,
+      "handler": "cmd_divorce",
+      "event": "message",
+      "filters": [
+        "TextCmd(['развод', 'расстаться'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 246,
+      "handler": "process_divorce_confirm",
+      "event": "callback_query",
+      "filters": [
+        "DivorceConfirm.filter()"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 315,
+      "handler": "cmd_couple",
+      "event": "message",
+      "filters": [
+        "TextCmd(['пара', 'моя пара', 'мой брак'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 348,
+      "handler": "cmd_all_couples",
+      "event": "message",
+      "filters": [
+        "TextCmd(['все браки', 'пары', 'браки чата', 'пары чата'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 385,
+      "handler": "cmd_family_deposit",
+      "event": "message",
+      "filters": [
+        "TextCmd(['вложить', 'в общак'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 408,
+      "handler": "cmd_family_withdraw",
+      "event": "message",
+      "filters": [
+        "TextCmd(['снять', 'из общака'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 431,
+      "handler": "cb_family_bank",
+      "event": "callback_query",
+      "filters": [
+        "FamilyBankCB.filter()"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 460,
+      "handler": "cmd_family_info",
+      "event": "message",
+      "filters": [
+        "TextCmd(['общак', 'семейный баланс', 'семья'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 502,
+      "handler": "cmd_gift_partner",
+      "event": "message",
+      "filters": [
+        "TextCmd(['подарок', 'подарить партнёру', 'подарить партнеру', 'подарок партнёру'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 509,
+      "handler": "cmd_gift_catalog",
+      "event": "message",
+      "filters": [
+        "TextCmd(['подарки', 'подарки партнёру', 'витрина подарков', 'магазин подарков'])"
+      ]
+    },
+    {
+      "module": "marriage",
+      "file": "bot/handlers/marriage.py",
+      "line": 531,
+      "handler": "cb_gift_buy",
+      "event": "callback_query",
+      "filters": [
+        "GiftBuyCB.filter()"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 132,
+      "handler": "cmd_warn",
+      "event": "message",
+      "filters": [
+        "TextCmd(['варн', 'пред', 'предупреждение'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 212,
+      "handler": "cmd_unwarn",
+      "event": "message",
+      "filters": [
+        "TextCmd(['снять варн', 'снять пред'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 262,
+      "handler": "process_warn_action",
+      "event": "callback_query",
+      "filters": [
+        "WarnAction.filter()"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 332,
+      "handler": "cmd_immune",
+      "event": "message",
+      "filters": [
+        "TextCmd(['иммунитет'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 381,
+      "handler": "cmd_protect",
+      "event": "message",
+      "filters": [
+        "TextCmd(['рест', 'отдых', 'защита', 'защитить'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 460,
+      "handler": "process_shield_confirm",
+      "event": "callback_query",
+      "filters": [
+        "ShieldConfirm.filter()"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 492,
+      "handler": "cmd_unprotect",
+      "event": "message",
+      "filters": [
+        "TextCmd(['снять рест', 'снять защиту', 'убрать щит', 'убрать рест', 'конец реста'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 529,
+      "handler": "cmd_who_rested",
+      "event": "message",
+      "filters": [
+        "TextCmd(['кто рест', 'ресты', 'кто в ресте', 'список ресты'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 579,
+      "handler": "cmd_setshield",
+      "event": "message",
+      "filters": [
+        "TextCmd(['настройка щита', 'щит новичка'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 609,
+      "handler": "cmd_set_purge_rank",
+      "event": "message",
+      "filters": [
+        "TextCmd(['настройка чистки', 'ранг чистки'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 653,
+      "handler": "cmd_setwarns",
+      "event": "message",
+      "filters": [
+        "TextCmd(['лимит варнов', 'макс варнов'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 684,
+      "handler": "cmd_ban",
+      "event": "message",
+      "filters": [
+        "TextCmd(['бан', 'заблокировать'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 727,
+      "handler": "cmd_unban",
+      "event": "message",
+      "filters": [
+        "TextCmd(['разбан', 'разблокировать'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 769,
+      "handler": "cmd_kick",
+      "event": "message",
+      "filters": [
+        "TextCmd(['кик', 'выгнать'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 811,
+      "handler": "cmd_mute",
+      "event": "message",
+      "filters": [
+        "TextCmd(['мут', 'заглушить'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 865,
+      "handler": "cmd_unmute",
+      "event": "message",
+      "filters": [
+        "TextCmd(['размут', 'снять мут'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 917,
+      "handler": "cmd_close_chat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['-чат', 'закрыть чат', 'чат закрыть'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 941,
+      "handler": "cmd_open_chat",
+      "event": "message",
+      "filters": [
+        "TextCmd(['+чат', 'открыть чат', 'чат открыть'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 979,
+      "handler": "cmd_bans_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['баны', 'черный список', 'кто в бане'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 989,
+      "handler": "cmd_kicks_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['кики', 'выгнанные', 'кто в кике'])"
+      ]
+    },
+    {
+      "module": "moderation",
+      "file": "bot/handlers/moderation.py",
+      "line": 1003,
+      "handler": "cmd_left_list",
+      "event": "message",
+      "filters": [
+        "TextCmd(['ушли', 'вышли'])"
+      ]
+    },
+    {
+      "module": "nicknames",
+      "file": "bot/handlers/nicknames.py",
+      "line": 30,
+      "handler": "cmd_my_nick",
+      "event": "message",
+      "filters": [
+        "TextCmd(['мой ник', 'мой никнейм', 'псевдоним'])"
+      ]
+    },
+    {
+      "module": "nicknames",
+      "file": "bot/handlers/nicknames.py",
+      "line": 142,
+      "handler": "cb_nick_reset",
+      "event": "callback_query",
+      "filters": [
+        "NickCB.filter(F.action == 'reset')"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 70,
+      "handler": "cmd_pay_support",
+      "event": "message",
+      "filters": [
+        "Command('paysupport')"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 118,
+      "handler": "msg_pay_support",
+      "event": "message",
+      "filters": [
+        "_PaySupportReply()"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 131,
+      "handler": "cmd_refund_stars",
+      "event": "message",
+      "filters": [
+        "Command('refundstars')"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 224,
+      "handler": "cmd_buy_zarniki",
+      "event": "message",
+      "filters": [
+        "TextCmd(['купить зарники', 'донат'])"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 229,
+      "handler": "cmd_start",
+      "event": "message",
+      "filters": [
+        "CommandStart()"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 274,
+      "handler": "cmd_referral_link",
+      "event": "message",
+      "filters": [
+        "TextCmd(['рефералка', 'пригласить друга', 'реферальная ссылка'])"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 285,
+      "handler": "cb_buy_package",
+      "event": "callback_query",
+      "filters": [
+        "BuyZarnikiCB.filter()"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 334,
+      "handler": "msg_custom_zarniki_amount",
+      "event": "message",
+      "filters": [
+        "_ZarnikiAmountReply()"
+      ]
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 352,
+      "handler": "process_pre_checkout",
+      "event": "pre_checkout_query",
+      "filters": []
+    },
+    {
+      "module": "payments",
+      "file": "bot/handlers/payments.py",
+      "line": 761,
+      "handler": "on_successful_payment",
+      "event": "message",
+      "filters": [
+        "F.successful_payment"
+      ]
+    },
+    {
+      "module": "pets_v1",
+      "file": "bot/handlers/pets_v1.py",
+      "line": 86,
+      "handler": "cmd_pets_v1",
+      "event": "message",
+      "filters": [
+        "TextCmd(['мои питомцы', 'питомцы', 'питомец'])"
+      ]
+    },
+    {
+      "module": "pets_v1",
+      "file": "bot/handlers/pets_v1.py",
+      "line": 116,
+      "handler": "cmd_pet_trek",
+      "event": "message",
+      "filters": [
+        "TextCmd(['поход'])"
+      ]
+    },
+    {
+      "module": "pets_v1",
+      "file": "bot/handlers/pets_v1.py",
+      "line": 121,
+      "handler": "cmd_pet_expedition",
+      "event": "message",
+      "filters": [
+        "TextCmd(['экспедиция'])"
+      ]
+    },
+    {
+      "module": "pets_v1",
+      "file": "bot/handlers/pets_v1.py",
+      "line": 126,
+      "handler": "cmd_expedition_route",
+      "event": "message",
+      "filters": [
+        "TextCmd(['маршрут'])"
+      ]
+    },
+    {
+      "module": "purge",
+      "file": "bot/handlers/purge.py",
+      "line": 20,
+      "handler": "cmd_purge_start",
+      "event": "message",
+      "filters": [
+        "TextCmd(['чистка', 'начать чистку'])"
+      ]
+    },
+    {
+      "module": "purge",
+      "file": "bot/handlers/purge.py",
+      "line": 55,
+      "handler": "cb_purge_more",
+      "event": "callback_query",
+      "filters": [
+        "lambda c: c.data and c.data.startswith('pm:')"
+      ]
+    },
+    {
+      "module": "purge",
+      "file": "bot/handlers/purge.py",
+      "line": 74,
+      "handler": "cb_purge_verdict",
+      "event": "callback_query",
+      "filters": [
+        "lambda c: c.data and c.data.startswith('pv:')"
+      ]
+    },
+    {
+      "module": "purge",
+      "file": "bot/handlers/purge.py",
+      "line": 98,
+      "handler": "cmd_purge_status",
+      "event": "message",
+      "filters": [
+        "TextCmd(['чистка статус', 'статус чистки'])"
+      ]
+    },
+    {
+      "module": "purge",
+      "file": "bot/handlers/purge.py",
+      "line": 120,
+      "handler": "cmd_purge_stop",
+      "event": "message",
+      "filters": [
+        "TextCmd(['конец чистки', 'закончить чистку'])"
+      ]
+    },
+    {
+      "module": "quests_v1",
+      "file": "bot/handlers/quests_v1.py",
+      "line": 61,
+      "handler": "cmd_quests_v1",
+      "event": "message",
+      "filters": [
+        "TextCmd(['квесты', 'задания', 'квест'])"
+      ]
+    },
+    {
+      "module": "release_profile",
+      "file": "bot/handlers/release_profile.py",
+      "line": 27,
+      "handler": "cmd_release_profile",
+      "event": "message",
+      "filters": [
+        "TextCmd(['я', 'профиль', 'анкета', 'кто', 'инфо', 'досье'])"
+      ]
+    },
+    {
+      "module": "rhythm",
+      "file": "bot/handlers/rhythm.py",
+      "line": 45,
+      "handler": "cmd_rhythm",
+      "event": "message",
+      "filters": [
+        "Command('rhythm')"
+      ]
+    },
+    {
+      "module": "rhythm",
+      "file": "bot/handlers/rhythm.py",
+      "line": 45,
+      "handler": "cmd_rhythm",
+      "event": "message",
+      "filters": [
+        "TextCmd(['ритм', 'ритм дня', 'контракт ритма', 'мой контракт'])"
+      ]
+    },
+    {
+      "module": "routing",
+      "file": "bot/handlers/routing.py",
+      "line": 40,
+      "handler": "cmd_bind_admin",
+      "event": "message",
+      "filters": [
+        "TextCmd(['привязать админ чат', 'связать', 'привязать'])"
+      ]
+    },
+    {
+      "module": "routing",
+      "file": "bot/handlers/routing.py",
+      "line": 69,
+      "handler": "cmd_accept_bind",
+      "event": "message",
+      "filters": [
+        "TextCmd(['принять связь', 'accept bind'])"
+      ]
+    },
+    {
+      "module": "routing",
+      "file": "bot/handlers/routing.py",
+      "line": 131,
+      "handler": "cmd_chat_info",
+      "event": "message",
+      "filters": [
+        "TextCmd(['инфо чата', 'привязки'])"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 175,
+      "handler": "cmd_message_top_v2",
+      "event": "message",
+      "filters": [
+        "TopCmd(['топ', 'лидеры'], ['день', 'сегодня', 'неделя', 'месяц', 'все время', 'всё время', 'глобальный', 'глобально', 'все игроки', 'топ чатов', 'чатов'])"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 186,
+      "handler": "cb_message_top_v2",
+      "event": "callback_query",
+      "filters": [
+        "MessageTopV2.filter()"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 482,
+      "handler": "cb_top_cat",
+      "event": "callback_query",
+      "filters": [
+        "TopCatCB.filter(F.cat != 'activity')"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 493,
+      "handler": "cb_top_activity",
+      "event": "callback_query",
+      "filters": [
+        "TopCatCB.filter(F.cat == 'activity')"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 508,
+      "handler": "cmd_top_cat_shortcut",
+      "event": "message",
+      "filters": [
+        "TextCmd(['топ мора', 'топ алмазы', 'топ питомцев', 'топ достижений', 'топ стрик', 'топ аукцион', 'топ сообщений'])"
+      ]
+    },
+    {
+      "module": "stats",
+      "file": "bot/handlers/stats.py",
+      "line": 524,
+      "handler": "cmd_inactive",
+      "event": "message",
+      "filters": [
+        "TextCmd(['неактивные', 'призраки', 'мертвые', 'неактив', 'неактив чата'])"
+      ]
+    },
+    {
+      "module": "wallet_history",
+      "file": "bot/handlers/wallet_history.py",
+      "line": 134,
+      "handler": "cmd_wallet_history",
+      "event": "message",
+      "filters": [
+        "TextCmd(['история кошелька', 'история кошелка', 'кошелёк история', 'баланс лог', 'лог баланс', 'лог кошелька', 'лог кошелёк'])"
+      ]
+    },
+    {
+      "module": "wallet_history",
+      "file": "bot/handlers/wallet_history.py",
+      "line": 152,
+      "handler": "cb_wallet_filter",
+      "event": "callback_query",
+      "filters": [
+        "WalletCB.filter(F.action == 'filter')"
+      ]
+    },
+    {
+      "module": "wallet_history",
+      "file": "bot/handlers/wallet_history.py",
+      "line": 168,
+      "handler": "cmd_dev_wallet_log",
+      "event": "message",
+      "filters": [
+        "TextCmd(['god лог', 'god wallet log', 'god лог кошелька'])"
+      ]
+    },
+    {
+      "module": "warps",
+      "file": "bot/handlers/warps.py",
+      "line": 48,
+      "handler": "cmd_warp",
+      "event": "message",
+      "filters": [
+        "WarpCmd(ALL_WARP_ALIASES)"
+      ]
+    }
+  ],
+  "http_endpoints": [
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 16,
+      "handler": "deletion_status",
+      "method": "GET",
+      "path": "/account/deletion-status"
+    },
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 33,
+      "handler": "set_inactivity",
+      "method": "POST",
+      "path": "/account/set-inactivity"
+    },
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 42,
+      "handler": "delete_request",
+      "method": "POST",
+      "path": "/account/delete/request"
+    },
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 55,
+      "handler": "delete_confirm",
+      "method": "POST",
+      "path": "/account/delete/confirm"
+    },
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 64,
+      "handler": "delete_cancel",
+      "method": "POST",
+      "path": "/account/delete/cancel"
+    },
+    {
+      "module": "account",
+      "file": "FastAPI/routers/account.py",
+      "line": 72,
+      "handler": "account_restore",
+      "method": "POST",
+      "path": "/account/restore"
+    },
+    {
+      "module": "achievements_v1",
+      "file": "FastAPI/routers/achievements_v1.py",
+      "line": 13,
+      "handler": "my_achievements",
+      "method": "GET",
+      "path": "/achievements-v1/me"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 111,
+      "handler": "my_admin_chats",
+      "method": "GET",
+      "path": "/admin/my-chats"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 177,
+      "handler": "admin_dashboard",
+      "method": "GET",
+      "path": "/admin/{chat_id}/dashboard"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 219,
+      "handler": "admin_users",
+      "method": "GET",
+      "path": "/admin/{chat_id}/users"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 315,
+      "handler": "admin_get_settings",
+      "method": "GET",
+      "path": "/admin/{chat_id}/settings"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 357,
+      "handler": "admin_update_settings",
+      "method": "POST",
+      "path": "/admin/{chat_id}/settings"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 389,
+      "handler": "admin_action",
+      "method": "POST",
+      "path": "/admin/{chat_id}/action"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 499,
+      "handler": "admin_logs",
+      "method": "GET",
+      "path": "/admin/{chat_id}/logs"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 562,
+      "handler": "admin_chat_lock",
+      "method": "POST",
+      "path": "/admin/{chat_id}/chat-lock"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 578,
+      "handler": "admin_left_users",
+      "method": "GET",
+      "path": "/admin/{chat_id}/left"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 600,
+      "handler": "admin_blacklist",
+      "method": "GET",
+      "path": "/admin/{chat_id}/blacklist"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 621,
+      "handler": "admin_blacklist_add",
+      "method": "POST",
+      "path": "/admin/{chat_id}/blacklist"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 643,
+      "handler": "admin_blacklist_remove",
+      "method": "DELETE",
+      "path": "/admin/{chat_id}/blacklist/{user_id}"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 658,
+      "handler": "admin_set_rank",
+      "method": "POST",
+      "path": "/admin/{chat_id}/users/{user_id}/rank"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 700,
+      "handler": "admin_purge_status",
+      "method": "GET",
+      "path": "/admin/{chat_id}/purge/status"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 736,
+      "handler": "admin_purge_start",
+      "method": "POST",
+      "path": "/admin/{chat_id}/purge/start"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 760,
+      "handler": "admin_purge_dossiers",
+      "method": "POST",
+      "path": "/admin/{chat_id}/purge/dossiers"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 778,
+      "handler": "admin_purge_verdict",
+      "method": "POST",
+      "path": "/admin/{chat_id}/purge/verdict"
+    },
+    {
+      "module": "admin",
+      "file": "FastAPI/routers/admin.py",
+      "line": 795,
+      "handler": "admin_purge_finish",
+      "method": "POST",
+      "path": "/admin/{chat_id}/purge/finish"
+    },
+    {
+      "module": "analytics",
+      "file": "FastAPI/routers/analytics.py",
+      "line": 26,
+      "handler": "track_tab",
+      "method": "POST",
+      "path": "/analytics/tab"
+    },
+    {
+      "module": "analytics",
+      "file": "FastAPI/routers/analytics.py",
+      "line": 37,
+      "handler": "track_tab_duration",
+      "method": "POST",
+      "path": "/analytics/tab-duration"
+    },
+    {
+      "module": "appeals",
+      "file": "FastAPI/routers/appeals.py",
+      "line": 25,
+      "handler": "my_appeal",
+      "method": "GET",
+      "path": "/appeals/my"
+    },
+    {
+      "module": "appeals",
+      "file": "FastAPI/routers/appeals.py",
+      "line": 53,
+      "handler": "appeal_message",
+      "method": "POST",
+      "path": "/appeals/message"
+    },
+    {
+      "module": "appeals",
+      "file": "FastAPI/routers/appeals.py",
+      "line": 71,
+      "handler": "appeal_photo",
+      "method": "POST",
+      "path": "/appeals/photo"
+    },
+    {
+      "module": "appearance",
+      "file": "FastAPI/routers/appearance.py",
+      "line": 26,
+      "handler": "my_wardrobe",
+      "method": "GET",
+      "path": "/appearance/me"
+    },
+    {
+      "module": "appearance",
+      "file": "FastAPI/routers/appearance.py",
+      "line": 31,
+      "handler": "equip_my_cosmetic",
+      "method": "POST",
+      "path": "/appearance/equip"
+    },
+    {
+      "module": "appearance",
+      "file": "FastAPI/routers/appearance.py",
+      "line": 39,
+      "handler": "unequip_my_cosmetic",
+      "method": "POST",
+      "path": "/appearance/unequip"
+    },
+    {
+      "module": "chests_v1",
+      "file": "FastAPI/routers/chests_v1.py",
+      "line": 25,
+      "handler": "my_chests",
+      "method": "GET",
+      "path": "/chests-v1/me"
+    },
+    {
+      "module": "chests_v1",
+      "file": "FastAPI/routers/chests_v1.py",
+      "line": 30,
+      "handler": "prepare",
+      "method": "POST",
+      "path": "/chests-v1/prepare"
+    },
+    {
+      "module": "chests_v1",
+      "file": "FastAPI/routers/chests_v1.py",
+      "line": 42,
+      "handler": "purchase",
+      "method": "POST",
+      "path": "/chests-v1/purchase"
+    },
+    {
+      "module": "chests_v1",
+      "file": "FastAPI/routers/chests_v1.py",
+      "line": 54,
+      "handler": "reveal",
+      "method": "POST",
+      "path": "/chests-v1/{open_id}/reveal"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 51,
+      "handler": "cosmetics_catalog",
+      "method": "GET",
+      "path": "/cosmetics/"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 61,
+      "handler": "cosmetics_buy",
+      "method": "POST",
+      "path": "/cosmetics/buy"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 82,
+      "handler": "cosmetics_buy_lineup",
+      "method": "POST",
+      "path": "/cosmetics/buy-lineup"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 101,
+      "handler": "cosmetics_buy_many",
+      "method": "POST",
+      "path": "/cosmetics/buy-many"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 120,
+      "handler": "cosmetics_equip",
+      "method": "POST",
+      "path": "/cosmetics/equip"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 132,
+      "handler": "cosmetics_unequip",
+      "method": "POST",
+      "path": "/cosmetics/unequip"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 144,
+      "handler": "cosmetics_welcome",
+      "method": "POST",
+      "path": "/cosmetics/welcome"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 154,
+      "handler": "cosmetics_chests",
+      "method": "GET",
+      "path": "/cosmetics/chests"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 167,
+      "handler": "cosmetics_chest_open",
+      "method": "POST",
+      "path": "/cosmetics/chest/open"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 172,
+      "handler": "cosmetics_craft_catalog",
+      "method": "GET",
+      "path": "/cosmetics/craft"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 181,
+      "handler": "cosmetics_craft",
+      "method": "POST",
+      "path": "/cosmetics/craft"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 188,
+      "handler": "cosmetics_gift_catalog",
+      "method": "GET",
+      "path": "/cosmetics/gift/catalog"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 199,
+      "handler": "cosmetics_gift",
+      "method": "POST",
+      "path": "/cosmetics/gift"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 231,
+      "handler": "cosmetics_chest_buy",
+      "method": "POST",
+      "path": "/cosmetics/chest/buy"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 242,
+      "handler": "cosmetics_list_presets",
+      "method": "GET",
+      "path": "/cosmetics/presets"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 251,
+      "handler": "cosmetics_save_preset",
+      "method": "POST",
+      "path": "/cosmetics/presets"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 263,
+      "handler": "cosmetics_rename_preset",
+      "method": "PATCH",
+      "path": "/cosmetics/presets/{preset_id}"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 276,
+      "handler": "cosmetics_apply_preset",
+      "method": "POST",
+      "path": "/cosmetics/presets/{preset_id}/apply"
+    },
+    {
+      "module": "cosmetics",
+      "file": "FastAPI/routers/cosmetics.py",
+      "line": 284,
+      "handler": "cosmetics_delete_preset",
+      "method": "DELETE",
+      "path": "/cosmetics/presets/{preset_id}"
+    },
+    {
+      "module": "dev_overlay",
+      "file": "FastAPI/routers/dev_overlay.py",
+      "line": 30,
+      "handler": "check",
+      "method": "GET",
+      "path": "/admin/dev-overlay/check"
+    },
+    {
+      "module": "dev_overlay",
+      "file": "FastAPI/routers/dev_overlay.py",
+      "line": 36,
+      "handler": "raw_user_snapshot",
+      "method": "GET",
+      "path": "/admin/dev-overlay/user/{target_id}"
+    },
+    {
+      "module": "dev_overlay",
+      "file": "FastAPI/routers/dev_overlay.py",
+      "line": 93,
+      "handler": "full_registry",
+      "method": "GET",
+      "path": "/admin/dev-overlay/registry"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 183,
+      "handler": "global_chats",
+      "method": "GET",
+      "path": "/admin/global/chats"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 259,
+      "handler": "global_chat_members",
+      "method": "GET",
+      "path": "/admin/global/chats/{chat_id}/members"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 320,
+      "handler": "global_sanctions_list",
+      "method": "GET",
+      "path": "/admin/global/sanctions"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 345,
+      "handler": "global_sanctions_issue",
+      "method": "POST",
+      "path": "/admin/global/sanctions"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 399,
+      "handler": "global_appeal_thread",
+      "method": "GET",
+      "path": "/admin/global/appeals/{appeal_id}/thread"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 410,
+      "handler": "global_appeal_reply",
+      "method": "POST",
+      "path": "/admin/global/appeals/{appeal_id}/reply"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 426,
+      "handler": "global_appeal_close",
+      "method": "POST",
+      "path": "/admin/global/appeals/{appeal_id}/close"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 444,
+      "handler": "global_user_case",
+      "method": "GET",
+      "path": "/admin/global/user-case/{target_id}"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 454,
+      "handler": "global_tg_photo",
+      "method": "GET",
+      "path": "/admin/global/tg-photo/{file_id}"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 470,
+      "handler": "global_sanctions_revoke",
+      "method": "POST",
+      "path": "/admin/global/sanctions/{sanction_id}/revoke"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 483,
+      "handler": "global_sanctions_search",
+      "method": "GET",
+      "path": "/admin/global/sanctions/search"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 498,
+      "handler": "global_log",
+      "method": "GET",
+      "path": "/admin/global/log"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 520,
+      "handler": "global_appeals_list",
+      "method": "GET",
+      "path": "/admin/global/appeals"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 543,
+      "handler": "global_appeals_resolve",
+      "method": "POST",
+      "path": "/admin/global/appeals/{appeal_id}/resolve"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 583,
+      "handler": "global_set_rank",
+      "method": "POST",
+      "path": "/admin/global/ranks"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 596,
+      "handler": "global_my_permissions",
+      "method": "GET",
+      "path": "/admin/global/my-permissions"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 617,
+      "handler": "global_staff_list",
+      "method": "GET",
+      "path": "/admin/global/ranks"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 627,
+      "handler": "global_permissions_get",
+      "method": "GET",
+      "path": "/admin/global/permissions"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 641,
+      "handler": "global_permissions_set",
+      "method": "POST",
+      "path": "/admin/global/permissions"
+    },
+    {
+      "module": "global_admin",
+      "file": "FastAPI/routers/global_admin.py",
+      "line": 659,
+      "handler": "global_upload_photo",
+      "method": "POST",
+      "path": "/admin/global/upload-photo"
+    },
+    {
+      "module": "global_skins_v1",
+      "file": "FastAPI/routers/global_skins_v1.py",
+      "line": 28,
+      "handler": "my_skin",
+      "method": "GET",
+      "path": "/global-skins-v1/me"
+    },
+    {
+      "module": "global_skins_v1",
+      "file": "FastAPI/routers/global_skins_v1.py",
+      "line": 33,
+      "handler": "select_skin",
+      "method": "POST",
+      "path": "/global-skins-v1/select"
+    },
+    {
+      "module": "global_skins_v1",
+      "file": "FastAPI/routers/global_skins_v1.py",
+      "line": 41,
+      "handler": "buy_skin",
+      "method": "POST",
+      "path": "/global-skins-v1/buy"
+    },
+    {
+      "module": "hub",
+      "file": "FastAPI/routers/hub.py",
+      "line": 16,
+      "handler": "my_hub",
+      "method": "GET",
+      "path": "/hub/me"
+    },
+    {
+      "module": "legal",
+      "file": "FastAPI/routers/legal.py",
+      "line": 51,
+      "handler": "legal_page",
+      "method": "GET",
+      "path": "/legal/{slug}"
+    },
+    {
+      "module": "legal",
+      "file": "FastAPI/routers/legal.py",
+      "line": 59,
+      "handler": "legal_text",
+      "method": "GET",
+      "path": "/legal/{slug}/text"
+    },
+    {
+      "module": "legal",
+      "file": "FastAPI/routers/legal.py",
+      "line": 67,
+      "handler": "legal_accept",
+      "method": "POST",
+      "path": "/legal/accept"
+    },
+    {
+      "module": "mafia_v1",
+      "file": "FastAPI/routers/mafia_v1.py",
+      "line": 13,
+      "handler": "my_mafia_history",
+      "method": "GET",
+      "path": "/mafia-v1/me"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 21,
+      "handler": "my_marriage",
+      "method": "GET",
+      "path": "/marriage/"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 84,
+      "handler": "family_bank",
+      "method": "POST",
+      "path": "/marriage/bank"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 120,
+      "handler": "fund_from_family",
+      "method": "POST",
+      "path": "/marriage/fund"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 187,
+      "handler": "gift_catalog",
+      "method": "GET",
+      "path": "/marriage/gifts"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 205,
+      "handler": "send_partner_gift",
+      "method": "POST",
+      "path": "/marriage/gift"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 232,
+      "handler": "divorce",
+      "method": "POST",
+      "path": "/marriage/divorce"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 245,
+      "handler": "create_divorce_intent",
+      "method": "POST",
+      "path": "/marriage/divorce/intent"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 258,
+      "handler": "allocate_divorce_property",
+      "method": "POST",
+      "path": "/marriage/divorce/{intent_id}/allocate"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 273,
+      "handler": "confirm_divorce",
+      "method": "POST",
+      "path": "/marriage/divorce/{intent_id}/confirm"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 286,
+      "handler": "get_proposals",
+      "method": "GET",
+      "path": "/marriage/proposals"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 308,
+      "handler": "accept_proposal",
+      "method": "POST",
+      "path": "/marriage/proposals/accept"
+    },
+    {
+      "module": "marriage",
+      "file": "FastAPI/routers/marriage.py",
+      "line": 356,
+      "handler": "decline_proposal",
+      "method": "POST",
+      "path": "/marriage/proposals/decline"
+    },
+    {
+      "module": "minesweeper_v2",
+      "file": "FastAPI/routers/minesweeper_v2.py",
+      "line": 33,
+      "handler": "start",
+      "method": "POST",
+      "path": "/minesweeper-v2/runs"
+    },
+    {
+      "module": "minesweeper_v2",
+      "file": "FastAPI/routers/minesweeper_v2.py",
+      "line": 41,
+      "handler": "current",
+      "method": "GET",
+      "path": "/minesweeper-v2/runs/{run_id}"
+    },
+    {
+      "module": "minesweeper_v2",
+      "file": "FastAPI/routers/minesweeper_v2.py",
+      "line": 49,
+      "handler": "action",
+      "method": "POST",
+      "path": "/minesweeper-v2/runs/{run_id}/actions"
+    },
+    {
+      "module": "minesweeper_v2",
+      "file": "FastAPI/routers/minesweeper_v2.py",
+      "line": 58,
+      "handler": "leaderboard",
+      "method": "GET",
+      "path": "/minesweeper-v2/leaderboard/{difficulty}"
+    },
+    {
+      "module": "notifications",
+      "file": "FastAPI/routers/notifications.py",
+      "line": 12,
+      "handler": "pending",
+      "method": "GET",
+      "path": "/notifications/pending"
+    },
+    {
+      "module": "notifications",
+      "file": "FastAPI/routers/notifications.py",
+      "line": 23,
+      "handler": "seen",
+      "method": "POST",
+      "path": "/notifications/seen"
+    },
+    {
+      "module": "payments",
+      "file": "FastAPI/routers/payments.py",
+      "line": 46,
+      "handler": "zarniki_packages",
+      "method": "GET",
+      "path": "/payments/zarniki/packages"
+    },
+    {
+      "module": "payments",
+      "file": "FastAPI/routers/payments.py",
+      "line": 82,
+      "handler": "cosmetic_offers",
+      "method": "GET",
+      "path": "/payments/cosmetics/offers"
+    },
+    {
+      "module": "payments",
+      "file": "FastAPI/routers/payments.py",
+      "line": 90,
+      "handler": "cosmetic_invoice",
+      "method": "POST",
+      "path": "/payments/cosmetics/invoice"
+    },
+    {
+      "module": "payments",
+      "file": "FastAPI/routers/payments.py",
+      "line": 132,
+      "handler": "cosmetic_select",
+      "method": "POST",
+      "path": "/payments/cosmetics/select"
+    },
+    {
+      "module": "payments",
+      "file": "FastAPI/routers/payments.py",
+      "line": 146,
+      "handler": "zarniki_invoice",
+      "method": "POST",
+      "path": "/payments/zarniki/invoice"
+    },
+    {
+      "module": "pets_v1",
+      "file": "FastAPI/routers/pets_v1.py",
+      "line": 36,
+      "handler": "my_pets",
+      "method": "GET",
+      "path": "/pets-v1/me"
+    },
+    {
+      "module": "pets_v1",
+      "file": "FastAPI/routers/pets_v1.py",
+      "line": 44,
+      "handler": "set_active_pet",
+      "method": "POST",
+      "path": "/pets-v1/active"
+    },
+    {
+      "module": "pets_v1",
+      "file": "FastAPI/routers/pets_v1.py",
+      "line": 52,
+      "handler": "start_pet_activity",
+      "method": "POST",
+      "path": "/pets-v1/activity"
+    },
+    {
+      "module": "pets_v1",
+      "file": "FastAPI/routers/pets_v1.py",
+      "line": 60,
+      "handler": "decide_expedition",
+      "method": "POST",
+      "path": "/pets-v1/expedition/decision"
+    },
+    {
+      "module": "pets_v1",
+      "file": "FastAPI/routers/pets_v1.py",
+      "line": 68,
+      "handler": "feed",
+      "method": "POST",
+      "path": "/pets-v1/feed"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 116,
+      "handler": "my_exchange_state",
+      "method": "GET",
+      "path": "/player-exchange/v1/me"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 137,
+      "handler": "my_short_state",
+      "method": "GET",
+      "path": "/player-exchange/v1/shorts/me"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 155,
+      "handler": "short_liquidation_candidates",
+      "method": "GET",
+      "path": "/player-exchange/v1/shorts/coins/{coin_id}/liquidations"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 163,
+      "handler": "execute_short_liquidation",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/positions/{position_id}/liquidate"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 178,
+      "handler": "top_up_short_collateral",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/positions/{position_id}/collateral"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 194,
+      "handler": "deposit_short_lending",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/coins/{coin_id}/lending/deposit"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 210,
+      "handler": "withdraw_short_lending",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/coins/{coin_id}/lending/withdraw"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 226,
+      "handler": "open_short_position",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/coins/{coin_id}/positions"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 245,
+      "handler": "quote_short_open",
+      "method": "GET",
+      "path": "/player-exchange/v1/shorts/coins/{coin_id}/open-quote"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 258,
+      "handler": "reduce_short_position",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/positions/{position_id}/reduce"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 276,
+      "handler": "quote_short_close",
+      "method": "GET",
+      "path": "/player-exchange/v1/shorts/positions/{position_id}/close-quote"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 289,
+      "handler": "close_short_position",
+      "method": "POST",
+      "path": "/player-exchange/v1/shorts/positions/{position_id}/close"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 306,
+      "handler": "coins",
+      "method": "GET",
+      "path": "/player-exchange/v1/coins"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 315,
+      "handler": "create_coin",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 331,
+      "handler": "auction_bid",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/auction-bids"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 349,
+      "handler": "place_order",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/orders"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 367,
+      "handler": "cancel_order",
+      "method": "POST",
+      "path": "/player-exchange/v1/orders/{order_id}/cancel"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 375,
+      "handler": "market",
+      "method": "GET",
+      "path": "/player-exchange/v1/coins/{coin_id}/market"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 386,
+      "handler": "market_order",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/market-orders"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 404,
+      "handler": "halt_market",
+      "method": "POST",
+      "path": "/player-exchange/v1/admin/coins/{coin_id}/halt"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 421,
+      "handler": "request_emission",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/emissions"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 437,
+      "handler": "cancel_emission",
+      "method": "POST",
+      "path": "/player-exchange/v1/emissions/{emission_id}/cancel"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 452,
+      "handler": "claim_owner_vesting",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/owner-vesting/claim"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 468,
+      "handler": "place_treasury_order",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/treasury/orders"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 485,
+      "handler": "cancel_treasury_order",
+      "method": "POST",
+      "path": "/player-exchange/v1/treasury/orders/{order_id}/cancel"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 500,
+      "handler": "burn_treasury",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/treasury/burn"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 516,
+      "handler": "add_liquidity",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/liquidity/add"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 532,
+      "handler": "request_liquidity_withdrawal",
+      "method": "POST",
+      "path": "/player-exchange/v1/coins/{coin_id}/liquidity/withdrawals"
+    },
+    {
+      "module": "player_exchange_v1",
+      "file": "FastAPI/routers/player_exchange_v1.py",
+      "line": 548,
+      "handler": "cancel_liquidity_withdrawal",
+      "method": "POST",
+      "path": "/player-exchange/v1/liquidity/withdrawals/{withdrawal_id}/cancel"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 122,
+      "handler": "my_avatar",
+      "method": "GET",
+      "path": "/profile/avatar"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 342,
+      "handler": "my_profile",
+      "method": "GET",
+      "path": "/profile/me"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 494,
+      "handler": "my_chat_tracker",
+      "method": "GET",
+      "path": "/profile/me/chat-tracker"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 604,
+      "handler": "my_fitting_cosmetics",
+      "method": "GET",
+      "path": "/profile/me/fitting-cosmetics"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 619,
+      "handler": "set_whatsnew_seen",
+      "method": "POST",
+      "path": "/profile/whatsnew-seen"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 643,
+      "handler": "public_profile",
+      "method": "GET",
+      "path": "/profile/public/{profile_ref}"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 775,
+      "handler": "set_nickname_endpoint",
+      "method": "POST",
+      "path": "/profile/set-nickname"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 858,
+      "handler": "get_nickname_endpoint",
+      "method": "GET",
+      "path": "/profile/nickname"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 878,
+      "handler": "get_notification_prefs",
+      "method": "GET",
+      "path": "/profile/notification-prefs"
+    },
+    {
+      "module": "profile",
+      "file": "FastAPI/routers/profile.py",
+      "line": 891,
+      "handler": "set_notification_pref",
+      "method": "POST",
+      "path": "/profile/notification-prefs"
+    },
+    {
+      "module": "quests_v1",
+      "file": "FastAPI/routers/quests_v1.py",
+      "line": 26,
+      "handler": "my_quests",
+      "method": "GET",
+      "path": "/quests-v1/me"
+    },
+    {
+      "module": "quests_v1",
+      "file": "FastAPI/routers/quests_v1.py",
+      "line": 34,
+      "handler": "reroll_quest",
+      "method": "POST",
+      "path": "/quests-v1/reroll"
+    },
+    {
+      "module": "quests_v1",
+      "file": "FastAPI/routers/quests_v1.py",
+      "line": 46,
+      "handler": "claim_quest_reward",
+      "method": "POST",
+      "path": "/quests-v1/claim-reward"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 79,
+      "handler": "start",
+      "method": "POST",
+      "path": "/rhythm-v2/runs"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 87,
+      "handler": "select_augmentations",
+      "method": "POST",
+      "path": "/rhythm-v2/runs/{run_id}/augmentations"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 96,
+      "handler": "cancel",
+      "method": "POST",
+      "path": "/rhythm-v2/runs/{run_id}/cancel"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 104,
+      "handler": "current",
+      "method": "GET",
+      "path": "/rhythm-v2/runs/{run_id}"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 112,
+      "handler": "offline_packet",
+      "method": "POST",
+      "path": "/rhythm-v2/runs/{run_id}/offline-packet"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 120,
+      "handler": "finalize_offline",
+      "method": "POST",
+      "path": "/rhythm-v2/runs/{run_id}/finalize"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 131,
+      "handler": "transport_ticket",
+      "method": "POST",
+      "path": "/rhythm-v2/runs/{run_id}/transport-ticket"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 139,
+      "handler": "leaderboard",
+      "method": "GET",
+      "path": "/rhythm-v2/leaderboard/{mode}"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 147,
+      "handler": "integrity_reviews",
+      "method": "GET",
+      "path": "/rhythm-v2/integrity/reviews"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 156,
+      "handler": "decide_integrity_review",
+      "method": "POST",
+      "path": "/rhythm-v2/integrity/reviews/{run_id}"
+    },
+    {
+      "module": "rhythm_v2",
+      "file": "FastAPI/routers/rhythm_v2.py",
+      "line": 170,
+      "handler": "live_run",
+      "method": "WEBSOCKET",
+      "path": "/rhythm-v2/runs/{run_id}/live"
+    },
+    {
+      "module": "wallet",
+      "file": "FastAPI/routers/wallet.py",
+      "line": 67,
+      "handler": "wallet_history",
+      "method": "GET",
+      "path": "/wallet/history"
+    },
+    {
+      "module": "wallet",
+      "file": "FastAPI/routers/wallet.py",
+      "line": 104,
+      "handler": "exchange_zarniki_endpoint",
+      "method": "POST",
+      "path": "/wallet/exchange-zarniki"
+    }
+  ],
+  "included_api_modules": [
+    "account",
+    "achievements_v1",
+    "admin",
+    "analytics",
+    "appeals",
+    "appearance",
+    "chests_v1",
+    "cosmetics",
+    "dev_console",
+    "dev_overlay",
+    "global_admin",
+    "global_skins_v1",
+    "hub",
+    "legacy_combat_retirement",
+    "legal",
+    "mafia_v1",
+    "marriage",
+    "minesweeper_v2",
+    "notifications",
+    "payments",
+    "pets_v1",
+    "player_exchange_v1",
+    "profile",
+    "quests_v1",
+    "rhythm_v2",
+    "wallet"
+  ]
+}

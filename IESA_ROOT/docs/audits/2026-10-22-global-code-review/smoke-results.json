@@ -1,0 +1,23 @@
+{
+  "routes": {
+    "/": 200,
+    "/blog/": 200,
+    "/blog/events/": 200,
+    "/products/": 200,
+    "/gallery/": 200,
+    "/auth/login/": 200,
+    "/auth/register/": 200,
+    "/auth/password-reset/": 200,
+    "/privacy/": 200,
+    "/offline/": 200,
+    "/sitemap.xml": 200,
+    "/auth/partner/dashboard/": 200,
+    "/auth/partner/calendar/": 200,
+    "/auth/partner/analytics/": 200,
+    "/auth/profile/": 200,
+    "/notifications/": 200
+  },
+  "static_files": 547,
+  "manifest_exists": true,
+  "meeting_id": 1
+}

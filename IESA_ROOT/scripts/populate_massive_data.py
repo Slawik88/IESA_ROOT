@@ -20,7 +20,7 @@ import os
 import sys
 import django
 import random
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 # Настройка Django
@@ -31,7 +31,6 @@ django.setup()
 
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.db import connection
 from core.models import President, Partner, AssociationMember, SocialNetwork
 from blog.models import Post, Event, Comment
 
@@ -604,7 +603,7 @@ def main():
     admin = create_superuser()
     
     # 3. Создаем президента
-    president = create_president()
+    create_president()
     
     # 4. Создаем членов ассоциации
     members = create_members()

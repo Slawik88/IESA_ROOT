@@ -1,4 +1,4 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.conf import settings
 import logging
@@ -17,6 +17,9 @@ def ensure_qr_on_card_activation(sender, instance, created, **kwargs):
     QR код и идентификатор создаются при создании пользователя.
     Физическая карта (has_physical_card) - это просто отметка в админке.
     """
+    update_fields = kwargs.get('update_fields')
+    if not created and update_fields is not None and 'permanent_id' not in update_fields:
+        return
     try:
         if not instance.permanent_id:
             return

@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import calendar as _cal_mod
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
+from django.utils import timezone
 
 
 def build_month_grid(year: int, month: int, meetings_by_date: dict) -> list[list[dict | None]]:
@@ -21,7 +22,7 @@ def build_month_grid(year: int, month: int, meetings_by_date: dict) -> list[list
         Список недель (7 дней каждая). None = пустая ячейка (день вне месяца).
         Ячейка-словарь: date, num, is_today, is_selected, meetings, count.
     """
-    today = date.today()
+    today = timezone.localdate()
     cal_weeks = _cal_mod.monthcalendar(year, month)
 
     grid = []
@@ -58,7 +59,7 @@ def get_jump_options(current_year: int, current_month: int) -> list[dict]:
     """Список вариантов для быстрого прыжка: текущий год ± 2."""
     _MONTH_ABBR = ['', 'Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн',
                    'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек']
-    today = date.today()
+    today = timezone.localdate()
     options = []
     for y in range(today.year - 2, today.year + 4):
         for m in range(1, 13):

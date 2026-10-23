@@ -2,3 +2,278 @@ WARNING 2026-01-18 13:32:04,764 log Not Found: /messaging/
 WARNING 2026-01-18 13:32:04,765 basehttp "GET /messaging/?id=f44a3c5b-2cee-4a63-912c-a904fe93bdd5&vscodeBrowserReqId=1768739524742 HTTP/1.1" 404 4599
 WARNING 2026-01-20 15:37:10,556 log Not Found: /blog/events/create/
 WARNING 2026-01-20 15:37:10,558 log Not Found: /blog/events/create/
+WARNING 2026-10-12 11:28:47,079 log Not Found: /blog/events/create/
+WARNING 2026-10-12 11:28:47,087 log Not Found: /blog/events/create/
+WARNING 2026-10-12 11:30:45,915 log Not Found: /blog/events/create/
+WARNING 2026-10-12 11:30:45,923 log Not Found: /blog/events/create/
+ERROR 2026-10-12 11:31:04,709 log Internal Server Error: /
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such column: users_user.email_verified_at
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\views\generic\base.py", line 105, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\views\generic\base.py", line 144, in dispatch
+    return handler(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\views\generic\base.py", line 228, in get
+    context = self.get_context_data(**kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\core\views.py", line 109, in get_context_data
+    sections[key] = loader()
+                    ^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\core\views.py", line 102, in <lambda>
+    'idx:upcoming_events': lambda: list(Event.objects.filter(
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\models\query.py", line 386, in __iter__
+    self._fetch_all()
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\models\query.py", line 1954, in _fetch_all
+    self._result_cache = list(self._iterable_class(self))
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\models\query.py", line 93, in __iter__
+    results = compiler.execute_sql(
+              ^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such column: users_user.email_verified_at
+ERROR 2026-10-12 11:31:04,716 basehttp "GET / HTTP/1.1" 500 208467
+WARNING 2026-10-12 11:31:50,130 log Method Not Allowed (GET): /auth/switch/1/
+WARNING 2026-10-12 11:32:00,427 log Not Found: /wp-includes/wlwmanifest.xml
+WARNING 2026-10-12 11:32:00,427 log Not Found: /wp-admin/install.php
+WARNING 2026-10-12 11:32:00,428 log Not Found: /blog//wp-content/x.js
+WARNING 2026-10-12 11:32:00,429 log Not Found: /xmlrpc.php
+WARNING 2026-10-12 11:32:01,286 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,120 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,123 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,125 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,127 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,129 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,915 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:02,916 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-12 11:32:13,496 log Not Found: /accounts/email/
+WARNING 2026-10-12 11:32:13,504 log Not Found: /accounts/password/reset/
+WARNING 2026-10-12 11:32:18,503 antispam Turnstile verification unavailable; letting the request through
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\users\antispam.py", line 103, in turnstile_ok
+    response = requests.post(
+               ^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+requests.exceptions.ConnectionError: down
+ERROR 2026-10-12 11:32:44,481 forms Failed to send password reset email to 1
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\contrib\auth\forms.py", line 434, in send_mail
+    email_message.send()
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+OSError: smtp down
+WARNING 2026-10-12 11:33:02,380 log Forbidden: /auth/partner/test-telegram/
+WARNING 2026-10-12 11:33:18,538 log Unauthorized: /notifications/unread-count/
+WARNING 2026-10-12 11:33:19,400 log Forbidden: /auth/partner/member-autocomplete/
+WARNING 2026-10-12 11:33:25,799 log Gone: /auth/invite/c482bb3c-583a-4ca8-a2f6-81dde2dac1af/
+WARNING 2026-10-12 11:33:30,322 log Gone: /auth/invite/26e7528b-59ab-4db5-be45-e12c713c20b9/
+WARNING 2026-10-12 11:33:58,274 log Method Not Allowed (GET): /auth/email/resend/
+WARNING 2026-10-12 11:34:59,257 log Not Found: /blog/events/create/
+WARNING 2026-10-12 11:34:59,263 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:24:13,827 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:24:13,835 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:25:13,822 log Method Not Allowed (GET): /auth/switch/1/
+WARNING 2026-10-13 20:25:25,080 log Not Found: /wp-includes/wlwmanifest.xml
+WARNING 2026-10-13 20:25:25,081 log Not Found: /wp-admin/install.php
+WARNING 2026-10-13 20:25:25,082 log Not Found: /blog//wp-content/x.js
+WARNING 2026-10-13 20:25:25,083 log Not Found: /xmlrpc.php
+WARNING 2026-10-13 20:25:26,040 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:26,996 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:26,998 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:27,000 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:27,003 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:27,005 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:27,898 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:27,899 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:25:40,106 log Not Found: /accounts/email/
+WARNING 2026-10-13 20:25:40,116 log Not Found: /accounts/password/reset/
+WARNING 2026-10-13 20:25:45,719 antispam Turnstile verification unavailable; letting the request through
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\users\antispam.py", line 103, in turnstile_ok
+    response = requests.post(
+               ^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+requests.exceptions.ConnectionError: down
+ERROR 2026-10-13 20:26:10,872 forms Failed to send password reset email to 1
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\contrib\auth\forms.py", line 434, in send_mail
+    email_message.send()
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+OSError: smtp down
+WARNING 2026-10-13 20:26:27,949 log Forbidden: /auth/partner/test-telegram/
+WARNING 2026-10-13 20:26:44,966 log Unauthorized: /notifications/unread-count/
+WARNING 2026-10-13 20:26:45,773 log Forbidden: /auth/partner/member-autocomplete/
+WARNING 2026-10-13 20:26:51,888 log Gone: /auth/invite/d21d791f-f377-477a-943a-e9d2503a2492/
+WARNING 2026-10-13 20:26:56,183 log Gone: /auth/invite/b7dec6ab-71d4-4737-b535-cbb7760592fa/
+WARNING 2026-10-13 20:27:26,345 log Method Not Allowed (GET): /auth/email/resend/
+WARNING 2026-10-13 20:28:53,157 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:28:53,166 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:29:53,558 log Method Not Allowed (GET): /auth/switch/1/
+WARNING 2026-10-13 20:30:05,178 log Not Found: /wp-includes/wlwmanifest.xml
+WARNING 2026-10-13 20:30:05,178 log Not Found: /wp-admin/install.php
+WARNING 2026-10-13 20:30:05,179 log Not Found: /blog//wp-content/x.js
+WARNING 2026-10-13 20:30:05,179 log Not Found: /xmlrpc.php
+WARNING 2026-10-13 20:30:06,201 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:07,252 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:07,253 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:07,255 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:07,257 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:07,259 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:08,162 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:08,163 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:30:19,819 log Not Found: /accounts/email/
+WARNING 2026-10-13 20:30:19,827 log Not Found: /accounts/password/reset/
+WARNING 2026-10-13 20:30:25,834 antispam Turnstile verification unavailable; letting the request through
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\users\antispam.py", line 103, in turnstile_ok
+    response = requests.post(
+               ^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+requests.exceptions.ConnectionError: down
+ERROR 2026-10-13 20:30:50,552 forms Failed to send password reset email to 1
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\contrib\auth\forms.py", line 434, in send_mail
+    email_message.send()
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+OSError: smtp down
+WARNING 2026-10-13 20:31:08,051 log Forbidden: /auth/partner/test-telegram/
+WARNING 2026-10-13 20:31:24,012 log Unauthorized: /notifications/unread-count/
+WARNING 2026-10-13 20:31:24,876 log Forbidden: /auth/partner/member-autocomplete/
+WARNING 2026-10-13 20:31:30,997 log Gone: /auth/invite/1a84057a-3bf1-4c2e-aa2a-153b26618ddf/
+WARNING 2026-10-13 20:31:35,377 log Gone: /auth/invite/15b4e64c-19bb-4191-96c1-e5bbb7083870/
+WARNING 2026-10-13 20:32:04,448 log Method Not Allowed (GET): /auth/email/resend/
+WARNING 2026-10-13 20:32:57,013 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:32:57,020 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:52:08,108 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:52:08,119 log Not Found: /blog/events/create/
+WARNING 2026-10-13 20:53:24,939 log Method Not Allowed (GET): /auth/switch/1/
+WARNING 2026-10-13 20:53:37,280 log Not Found: /wp-includes/wlwmanifest.xml
+WARNING 2026-10-13 20:53:37,281 log Not Found: /wp-admin/install.php
+WARNING 2026-10-13 20:53:37,281 log Not Found: /blog//wp-content/x.js
+WARNING 2026-10-13 20:53:37,282 log Not Found: /xmlrpc.php
+WARNING 2026-10-13 20:53:38,485 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:40,487 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:40,490 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:40,492 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:40,496 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:40,501 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:41,628 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:41,629 email_verification E-mail verification throttled for user 1
+WARNING 2026-10-13 20:53:54,507 log Not Found: /accounts/email/
+WARNING 2026-10-13 20:53:54,513 log Not Found: /accounts/password/reset/
+WARNING 2026-10-13 20:54:00,306 antispam Turnstile verification unavailable; letting the request through
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\IESA_ROOT\users\antispam.py", line 103, in turnstile_ok
+    response = requests.post(
+               ^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+requests.exceptions.ConnectionError: down
+ERROR 2026-10-13 20:54:26,305 forms Failed to send password reset email to 1
+Traceback (most recent call last):
+  File "F:\GitsRepos\IESA_ROOT\.venv\Lib\site-packages\django\contrib\auth\forms.py", line 434, in send_mail
+    email_message.send()
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1124, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1128, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\makss\AppData\Local\Programs\Python\Python311\Lib\unittest\mock.py", line 1183, in _execute_mock_call
+    raise effect
+OSError: smtp down
+WARNING 2026-10-13 20:54:45,048 log Forbidden: /auth/partner/test-telegram/
+WARNING 2026-10-13 20:55:02,865 log Unauthorized: /notifications/unread-count/
+WARNING 2026-10-13 20:55:03,783 log Forbidden: /auth/partner/member-autocomplete/
+WARNING 2026-10-13 20:55:10,443 log Gone: /auth/invite/8b1417f9-ac9f-4ee0-8926-2fb2875bf647/
+WARNING 2026-10-13 20:55:15,321 log Gone: /auth/invite/3692f02d-445e-4b2e-974f-6ed9b9f560f8/
+WARNING 2026-10-13 20:55:42,975 log Method Not Allowed (GET): /auth/email/resend/
+WARNING 2026-10-13 21:02:29,870 log Not Found: /blog/events/create/
+WARNING 2026-10-13 21:02:29,877 log Not Found: /blog/events/create/
+WARNING 2026-10-13 21:05:24,684 log Not Found: /blog/events/create/
+WARNING 2026-10-13 21:05:24,697 log Not Found: /blog/events/create/

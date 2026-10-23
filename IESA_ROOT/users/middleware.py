@@ -1,5 +1,8 @@
 import re
-from django.core.cache import cache
+from datetime import timedelta
+
+from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import HttpResponseNotFound
 from django.utils import timezone
 from django.utils import translation
@@ -81,16 +84,21 @@ class BlockScannerMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
+    # Substrings that never occur on this site, wherever they sit in the path.
+    _BLOCKED_FRAGMENTS = ('/wp-includes/', '/wp-admin/', '/wp-content/', 'wlwmanifest.xml', 'xmlrpc')
+
     def _is_scanner_path(self, path_lower):
         return bool(
             path_lower in self._BLOCKED_FILES
+            or any(f in path_lower for f in self._BLOCKED_FRAGMENTS)
             or any(path_lower.endswith(s) for s in self._BLOCKED_SUFFIXES)
             or any(path_lower.startswith(p) for p in self._BLOCKED_PREFIXES)
             or self._BLOCKED_PATTERN.match(path_lower)
         )
 
     def __call__(self, request):
-        path_lower = request.path.lower()
+        # Scanners probe '//site/wp-includes/...' (double slash) to dodge prefix checks.
+        path_lower = re.sub(r'/{2,}', '/', request.path.lower())
         if not self._is_scanner_path(path_lower):
             return self.get_response(request)
 
@@ -117,8 +125,7 @@ class BlockScannerMiddleware:
 
 class LastOnlineMiddleware:
     """
-    Middleware, обновляющий поле last_online для авторизованного пользователя
-    при каждом его запросе.
+    Update activity at most once every five minutes without save signals.
     """
     def __init__(self, get_response):
         self.get_response = get_response
@@ -129,11 +136,15 @@ class LastOnlineMiddleware:
 
         # Логика обновления только для авторизованных пользователей
         if request.user.is_authenticated:
-            cache_key = f'last_online_{request.user.pk}'
-            if not cache.get(cache_key):
-                request.user.last_online = timezone.now()
-                request.user.save(update_fields=['last_online'])
-                cache.set(cache_key, True, 300)
+            now = timezone.now()
+            cutoff = now - timedelta(minutes=5)
+            if request.user.last_online is None or request.user.last_online < cutoff:
+                # Conditional UPDATE also bounds writes from concurrent requests.
+                # Activity must not regenerate QR images or emit profile signals.
+                get_user_model().objects.filter(pk=request.user.pk).filter(
+                    Q(last_online__isnull=True) | Q(last_online__lt=cutoff)
+                ).update(last_online=now)
+                request.user.last_online = now
 
         return response
 

@@ -4,7 +4,7 @@
 {% block title %}{% trans "Events" %} | IESA{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'css/cmd-bar.css' %}">
+<link rel="stylesheet" href="{% static 'css/cmd-bar.css' %}?v=mobile-parity-20261013-2">
 <link rel="stylesheet" href="{% static 'css/events-timeline.css' %}">
 <style>
 /* Event-list specific styles only (cmd-bar → cmd-bar.css, hero → .page-hero) */
@@ -39,7 +39,7 @@
 <div class="container-limited">
 
     <!-- Command Bar -->
-    <div class="cmd-bar" data-reveal>
+    <div class="cmd-bar cmd-bar--events" data-reveal>
         <div class="cmd-bar__inner">
 
             <!-- Mode Tabs -->
@@ -61,7 +61,8 @@
                   id="event-filters"
                   hx-get="{% url 'blog:event_list' %}"
                   hx-target="#events-container"
-                  hx-trigger="input from:[name='search'] delay:300ms, change from:select"
+                  hx-trigger="input changed from:#event-search delay:300ms, change from:[form='event-filters'], submit"
+                  hx-sync="this:replace"
                   hx-swap="innerHTML">
                 <label class="cmd-lbl" for="event-search">QUERY_</label>
                 <input id="event-search" type="text" name="search" value="{{ search }}" class="cmd-input"

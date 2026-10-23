@@ -13,6 +13,9 @@ users/views/ — пакет представлений (Block 7 рефактор
 from .auth import (
     RegisterView, LoginView, logout_view,
     verify_email, resend_email_verification,
+    PasswordResetView, PasswordResetDoneView,
+    PasswordResetConfirmView, PasswordResetCompleteView,
+    switch_account,
 )
 
 # ── Profile ───────────────────────────────────────────────────────────────────
@@ -83,6 +86,8 @@ from .onboarding import (
 __all__ = [
     'RegisterView', 'LoginView', 'logout_view',
     'verify_email', 'resend_email_verification',
+    'PasswordResetView', 'PasswordResetDoneView',
+    'PasswordResetConfirmView', 'PasswordResetCompleteView', 'switch_account',
     'ProfileView', 'ProfileEditView', '_get_public_profile_context',
     'profile_public_by_username', 'profile_public_by_card',
     'profile_deactivate', 'dashboard_redirect',
@@ -93,9 +98,13 @@ __all__ = [
     'public_profile', 'server_time',
     'partner_dashboard', 'log_visit', 'edit_visit', 'cancel_visit',
     'partner_member_visits', 'partner_analytics', 'partner_profile_edit',
+    'partner_today_stats', 'partner_visit_history', 'partner_visits_csv',
     'MeetingForm', 'partner_calendar', 'delete_meeting', 'user_calendar',
+    'user_calendar_ics',
     'test_telegram_view', 'connect_telegram_code_view', 'disconnect_telegram_view',
     'telegram_login_callback_view', 'telegram_webhook_view',
     'invite_list', 'invite_generate', 'invite_register',
     'insurance_agent_request',
+    'mark_onboarded', 'mark_tour_completed', 'username_available', 'email_available',
+    'how_it_works', 'member_autocomplete', 'profile_field_save',
 ]

@@ -1,1 +1,1 @@
-from .qr_service import QRCodeService
+from .qr_service import QRCodeService as QRCodeService

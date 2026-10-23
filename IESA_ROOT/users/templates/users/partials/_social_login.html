@@ -1,0 +1,55 @@
+{% comment %}
+"Continue with ..." buttons. Renders nothing until at least one provider has keys
+configured in the environment (see SOCIALACCOUNT_PROVIDERS in settings.py).
+Optional context: next (url to return to), social_intro (bool: show the sign-up note).
+{% endcomment %}
+{% load i18n socialaccount %}
+{% get_providers as socialaccount_providers %}
+{% if socialaccount_providers %}
+<style>
+.soc-wrap { margin: 0 0 1.5rem; }
+.soc-title { color: rgba(255,255,255,.8); font-size: .95rem; font-weight: 600; margin-bottom: .75rem; }
+.soc-grid { display: grid; grid-template-columns: 1fr; gap: .6rem; }
+.soc-grid form { margin: 0; }
+.soc-btn {
+    width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: .7rem;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.2); border-radius: 10px;
+    color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer; padding: .6rem 1rem;
+    transition: background .15s, border-color .15s;
+}
+.soc-btn:hover { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.4); }
+.soc-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+.soc-note { color: rgba(255,255,255,.7); font-size: .85rem; line-height: 1.5; margin: .85rem 0 0; }
+.soc-note a { color: #f87171; }
+.soc-or { display: flex; align-items: center; gap: .75rem; color: rgba(255,255,255,.55); font-size: .9rem; margin: 1.25rem 0 0; }
+.soc-or::before, .soc-or::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,.14); }
+@media (min-width: 520px) { .soc-grid { grid-template-columns: 1fr 1fr; } }
+</style>
+<div class="soc-wrap">
+    <div class="soc-title">{% trans "Continue with" %}</div>
+    <div class="soc-grid">
+        {% for provider in socialaccount_providers %}
+        <form method="post" action="{% provider_login_url provider process='login' %}">
+            {% csrf_token %}
+            {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            <button type="submit" class="soc-btn">
+                {% if provider.id == 'google' %}
+                <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-3.1-.4-4.6H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.7c4.3-4 6.9-9.9 6.9-17z"/><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 0 1 0-9.4l-7.9-6.1a24 24 0 0 0 0 21.6l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.7c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+                {% elif provider.id == 'microsoft' %}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#F25022" d="M1 1h10v10H1z"/><path fill="#7FBA00" d="M13 1h10v10H13z"/><path fill="#00A4EF" d="M1 13h10v10H1z"/><path fill="#FFB900" d="M13 13h10v10H13z"/></svg>
+                {% elif provider.id == 'facebook' %}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12a12 12 0 1 0-13.9 11.9v-8.4H7.1V12h3V9.4c0-3 1.8-4.7 4.5-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9V12h3.4l-.5 3.5h-2.9v8.4A12 12 0 0 0 24 12z"/></svg>
+                {% elif provider.id == 'apple' %}
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M16.4 12.6c0-2.4 2-3.5 2.1-3.6-1.1-1.7-2.9-1.9-3.5-1.9-1.5-.2-2.9.9-3.7.9-.8 0-1.9-.9-3.2-.8-1.6 0-3.1.9-4 2.4-1.7 3-.4 7.4 1.2 9.8.8 1.2 1.8 2.5 3 2.4 1.2 0 1.7-.8 3.2-.8 1.5 0 1.9.8 3.2.8 1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.500c.7-.8 1.1-1.9 1-3-.9 0-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1.1.1 2.1-.5 2.8-1.300z"/></svg>
+                {% endif %}
+                <span>{{ provider.name }}</span>
+            </button>
+        </form>
+        {% endfor %}
+    </div>
+    {% if social_intro %}
+    <p class="soc-note">{% trans "Signing in with a provider creates your IESA account if you do not have one yet, and means you agree to become a member of IESA Sport. The privacy policy is still being prepared — we will notify every member when it is published." %} <a href="{% url 'core:privacy' %}">{% trans "Details" %}</a></p>
+    {% endif %}
+    <div class="soc-or">{% trans "or with e-mail" %}</div>
+</div>
+{% endif %}

@@ -1,3 +1,6 @@
+import logging
+import os
+
 from django import forms as _dj_forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -7,6 +10,9 @@ from .models import (
     InviteToken, Meeting, Partner, SiteSettings, User, Visit, VisitAudit,
 )
 from .forms import CustomUserCreationForm, CustomUserChangeForm
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -702,8 +708,6 @@ class AccountChangeRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description='✅ Approve & assign role')
     def approve_request_action(self, request, queryset):
-        from django.utils import timezone
-        from .models import Partner as _Partner
         approved = 0
         skipped = 0
         for acr in queryset:

@@ -1,22 +1,24 @@
 """Partner + user calendar views and MeetingForm."""
 import calendar as _cal_mod
-import json
 import logging
 from datetime import date as _date_cls
+from html import escape
 
 from django import forms as _dj_forms
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
+from django.db import close_old_connections, transaction
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods, require_POST
 
-from ..constants import EDIT_WINDOW
-from ..models import Meeting, Partner, User
+from ..models import Meeting, User
 from ..services.calendar_service import (
     build_month_grid, get_jump_options, mark_selected, serialize_day_meetings,
 )
+from ..services.calendar_export import render_meetings_ics
 from .utils import partner_required
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,20 @@ class MeetingForm(_dj_forms.ModelForm):
         self.fields['date'].required       = False
         self.fields['start_time'].required = False
         self.fields['end_time'].required   = False
+
+    def clean(self):
+        cleaned = super().clean()
+        start, end = cleaned.get('start_time'), cleaned.get('end_time')
+        if end and not start:
+            self.add_error('start_time', _('Specify a start time when setting an end time.'))
+        elif start and end and end <= start:
+            self.add_error('end_time', _('End time must be later than start time.'))
+        return cleaned
+
+
+class ClientNoteForm(_dj_forms.Form):
+    note_member_id = _dj_forms.ModelChoiceField(queryset=User.objects.filter(is_active=True))
+    note_text = _dj_forms.CharField(max_length=10000)
 
 
 def _notify_meeting_created(meeting, partner) -> None:
@@ -70,6 +86,7 @@ def _notify_meeting_created(meeting, partner) -> None:
         import threading as _thr
         _mid = meeting.pk
         def _tg():
+            close_old_connections()
             try:
                 from users.telegram.notify import send_message as _sm
                 from users.models import Meeting as _M
@@ -77,14 +94,16 @@ def _notify_meeting_created(meeting, partner) -> None:
                 _d = m.date.strftime('%d %b %Y') if m.date else 'today'
                 _t = (f"{m.start_time.strftime('%H:%M')} — {m.end_time.strftime('%H:%M')}"
                       if m.start_time and m.end_time else 'time TBD')
-                _sm(m.member.telegram_chat_id, (
-                    f"📅 <b>Meeting scheduled</b>\n\n<b>{m.partner.company_name}</b>: {m.title}\n"
+                _sm((
+                    f"📅 <b>Meeting scheduled</b>\n\n<b>{escape(m.partner.company_name)}</b>: {escape(m.title)}\n"
                     f"📆 {_d} | 🕐 {_t}\n"
-                    + (f"📍 {m.address}\n" if m.address else '')
-                    + (f"🔄 Series: {m.series_label}\n" if m.series_label else '')
-                ), parse_mode='HTML')
+                    + (f"📍 {escape(m.address)}\n" if m.address else '')
+                    + (f"🔄 Series: {escape(m.series_label)}\n" if m.series_label else '')
+                ), chat_id=m.member.telegram_chat_id, parse_mode='HTML')
             except Exception as _e:
                 logger.error("meeting TG notify failed: %s", _e)
+            finally:
+                close_old_connections()
         _thr.Thread(target=_tg, daemon=True).start()
     meeting.notification_sent = True
     meeting.save(update_fields=['notification_sent'])
@@ -95,7 +114,7 @@ def _notify_meeting_created(meeting, partner) -> None:
 def partner_calendar(request):
     from ..models import ClientNote
     partner = request.user.partner_profile
-    today   = _date_cls.today()
+    today   = timezone.localdate()
 
     month_str = request.GET.get('jump') or request.GET.get('month', '')
     try:
@@ -131,11 +150,15 @@ def partner_calendar(request):
     upcoming     = Meeting.objects.filter(partner=partner, date__gte=today, status__in=['scheduled', 'confirmed']).select_related('member').order_by('date', 'start_time')[:20]
 
     if request.method == 'POST' and request.POST.get('action') == 'add_note':
-        note_mid  = request.POST.get('note_member_id')
-        note_text = request.POST.get('note_text', '').strip()
-        if note_mid and note_text:
-            ClientNote.objects.create(partner=partner, member_id=note_mid, note=note_text)
+        note_form = ClientNoteForm(request.POST)
+        if note_form.is_valid():
+            ClientNote.objects.create(
+                partner=partner, member=note_form.cleaned_data['note_member_id'],
+                note=note_form.cleaned_data['note_text'],
+            )
             messages.success(request, _('Note saved.'))
+        else:
+            messages.error(request, _('Select an active member and enter a note.'))
         return redirect(request.get_full_path())
 
     all_members = User.objects.filter(is_active=True).order_by('first_name', 'last_name', 'username')
@@ -145,8 +168,9 @@ def partner_calendar(request):
     if request.method == 'POST' and form.is_valid():
         meeting = form.save(commit=False)
         meeting.partner = partner; meeting.date = meeting.date or today
-        meeting.save()
-        _notify_meeting_created(meeting, partner)
+        with transaction.atomic():
+            meeting.save()
+            transaction.on_commit(lambda: _notify_meeting_created(meeting, partner), robust=True)
         messages.success(request, _('Meeting scheduled successfully!'))
         _mstr = f'{meeting.date.year}-{meeting.date.month:02d}'
         return redirect(f"{request.path}?month={_mstr}&day={meeting.date.isoformat()}")
@@ -170,7 +194,7 @@ def partner_calendar(request):
         'prev_month_str': f'{prev_y}-{prev_m:02d}', 'next_month_str': f'{next_y}-{next_m:02d}',
         'jump_options': get_jump_options(cal_year, cal_month),
         'meetings_by_date': meetings_by_date, 'day_meetings': day_meetings,
-        'day_meetings_json': json.dumps(serialize_day_meetings(day_meetings)),
+        'day_meetings_data': serialize_day_meetings(day_meetings),
         'selected_day': selected_day, 'today': today, 'upcoming': upcoming,
         'hour_slots': list(range(8, 23)),
         'prefill_date': request.GET.get('prefill_date', selected_day.strftime('%Y-%m-%d')),
@@ -183,19 +207,24 @@ def partner_calendar(request):
 
 @partner_required
 @require_POST
+@transaction.atomic
 def delete_meeting(request, meeting_id):
     partner = request.user.partner_profile
     meeting = get_object_or_404(Meeting, pk=meeting_id, partner=partner)
+    # Conditional update makes repeated cancellation requests idempotent.
+    changed = Meeting.objects.filter(pk=meeting.pk, status__in=['scheduled', 'confirmed']).update(
+        status='cancelled', updated_at=timezone.now(),
+    )
+    if not changed:
+        return redirect('users:partner_calendar')
     member  = meeting.member
-    meeting.status = 'cancelled'
-    meeting.save(update_fields=['status'])
     from notifications.models import Notification as _Notif
     _Notif.objects.create(
         recipient=member, notification_type='system',
         title=_('Meeting cancelled'),
         message=_('Meeting "%(title)s" at %(company)s on %(date)s has been cancelled.') % {
             'title': meeting.title, 'company': partner.company_name,
-            'date':  meeting.date.strftime('%d %b %Y'),
+            'date':  meeting.date.strftime('%d %b %Y') if meeting.date else _('Date not set'),
         },
         link='/auth/my-calendar/',
     )
@@ -205,7 +234,7 @@ def delete_meeting(request, meeting_id):
 
 @login_required
 def user_calendar(request):
-    today = _date_cls.today()
+    today = timezone.localdate()
     upcoming = Meeting.objects.filter(member=request.user, date__gte=today, status__in=['scheduled', 'confirmed']).select_related('partner').order_by('date', 'start_time')
     past     = Meeting.objects.filter(member=request.user, date__lt=today).select_related('partner').order_by('-date', '-start_time')[:20]
     return render(request, 'users/user_calendar.html', {'upcoming': upcoming, 'past': past, 'today': today})
@@ -215,45 +244,13 @@ def user_calendar(request):
 def user_calendar_ics(request):
     """10a: Экспорт всех предстоящих встреч в формате RFC 5545 iCalendar (.ics)."""
     from django.http import HttpResponse
-    import uuid as _uuid
-
-    today = _date_cls.today()
+    today = timezone.localdate()
     meetings = (Meeting.objects
                 .filter(member=request.user, date__gte=today, status__in=['scheduled', 'confirmed'])
                 .select_related('partner')
                 .order_by('date', 'start_time'))
 
-    lines = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'PRODID:-//IESA Sport//Calendar//EN',
-        'CALSCALE:GREGORIAN',
-        'METHOD:PUBLISH',
-        'X-WR-CALNAME:IESA Sport Meetings',
-    ]
-
-    for m in meetings:
-        dt_date = m.date.strftime('%Y%m%d')
-        uid = str(_uuid.uuid4())
-        summary = m.title or _('Meeting')
-        description = f'Partner: {m.partner.company_name}' if hasattr(m, 'partner') and m.partner else ''
-        if m.start_time:
-            dtstart = f'DTSTART:{dt_date}T{m.start_time.strftime("%H%M%S")}'
-            dtend   = f'DTEND:{dt_date}T{m.end_time.strftime("%H%M%S")}' if m.end_time else dtstart
-        else:
-            dtstart = f'DTSTART;VALUE=DATE:{dt_date}'
-            dtend   = f'DTEND;VALUE=DATE:{dt_date}'
-        lines += [
-            'BEGIN:VEVENT',
-            f'UID:{uid}',
-            dtstart, dtend,
-            f'SUMMARY:{summary}',
-            f'DESCRIPTION:{description}',
-            'END:VEVENT',
-        ]
-
-    lines.append('END:VCALENDAR')
-    content = '\r\n'.join(lines) + '\r\n'
+    content = render_meetings_ics(meetings)
     resp = HttpResponse(content, content_type='text/calendar; charset=utf-8')
     resp['Content-Disposition'] = 'attachment; filename="iesa-meetings.ics"'
     return resp

@@ -1,0 +1,21 @@
+{% load i18n %}
+<div class="modal fade site-search-modal" id="siteSearchModal" tabindex="-1" aria-labelledby="siteSearchTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="siteSearchTitle">{% trans "Search site" %}</h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+            </div>
+            <div class="modal-body">
+                <label for="global-community-search" class="visually-hidden">{% trans "Search site" %}</label>
+                <input type="search" name="q" id="global-community-search" class="form-control"
+                       placeholder="{% trans 'Posts, users, events…' %}" autocomplete="off"
+                       hx-get="{% url 'blog:global_search' %}" hx-trigger="input changed delay:400ms, search"
+                       hx-target="#community-search-results" hx-indicator="#search-spinner" hx-sync="this:replace" hx-swap="innerHTML">
+                <div id="search-spinner" class="htmx-indicator text-center py-2" aria-label="{% trans 'Searching' %}"><i class="fas fa-spinner fa-spin" aria-hidden="true"></i></div>
+                <div id="search-suggestions" hidden data-recent-label="{% trans 'Recent' %}" data-clear-label="{% trans 'Clear history' %}"></div>
+                <div id="community-search-results" class="navbar-search-results mt-1" role="region" aria-live="polite" aria-label="{% trans 'Search results' %}"></div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,62 @@
+[
+  {
+    "probe": "empty_bot_token",
+    "current_defect_reproduced": true,
+    "evidence": "Known-key token accepted when BOT_TOKEN is empty; conditional configuration defect."
+  },
+  {
+    "probe": "two_websockets",
+    "current_defect_reproduced": true,
+    "evidence": "Closing A removes the queue belonging to still-open B."
+  },
+  {
+    "probe": "websocket_memory",
+    "current_defect_reproduced": true,
+    "evidence": "100 reactions to nonexistent rooms leave 100 permanent keys after disconnect cleanup."
+  },
+  {
+    "probe": "websocket_gate",
+    "current_defect_reproduced": true,
+    "evidence": "Exact endpoint body accepts a signed identity without any account, ban or allowlist lookup; AST harness, not full ASGI."
+  },
+  {
+    "probe": "nested_pool_acquisition",
+    "current_defect_reproduced": true,
+    "evidence": "Five cold-cache requests hold all five slots and each waits for another slot; deterministic semaphore harness."
+  },
+  {
+    "probe": "sql_readonly_classification",
+    "current_defect_reproduced": true,
+    "evidence": "EXPLAIN ANALYZE UPDATE is classified readonly by its first word; static classification proof only."
+  },
+  {
+    "probe": "missing_connectWS",
+    "current_defect_reproduced": true,
+    "evidence": "Served JS calls connectWS but contains no function declaration or assignment; static bundle proof."
+  },
+  {
+    "probe": "partial_account_finalization",
+    "current_defect_reproduced": true,
+    "evidence": "Injected inventory cleanup failure is swallowed and finalized is still written; fake DB failure injection."
+  },
+  {
+    "probe": "namespace_only_readiness",
+    "current_defect_reproduced": true,
+    "evidence": "Only the namespace lookup is requested; readiness never asks for required tables or migrations."
+  },
+  {
+    "probe": "daily_maintenance_retry",
+    "current_defect_reproduced": true,
+    "evidence": "All three cleanup operations fail; the second invocation on the same day retries none."
+  },
+  {
+    "probe": "sql_explain_postgres",
+    "current_defect_reproduced": true,
+    "evidence": "Real local PostgreSQL changed temp row 0->1 with confirm=False and no admin log."
+  },
+  {
+    "probe": "sql_audit_atomicity_postgres",
+    "current_defect_reproduced": true,
+    "evidence": "Real local PostgreSQL retains mutation despite failed audit write and HTTP error."
+  }
+]

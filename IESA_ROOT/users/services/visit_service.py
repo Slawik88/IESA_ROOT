@@ -5,12 +5,13 @@
 """
 from __future__ import annotations
 
-from django.db.models import F
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from users.constants import (
+    EDIT_WINDOW,
     PIN_MAX_ATTEMPTS,
     PIN_LOCKOUT_MINUTES,
     IDEMPOTENCY_WINDOW,
@@ -29,6 +30,7 @@ def check_pin_lockout(member, now) -> tuple[bool, int]:
     return False, 0
 
 
+@transaction.atomic
 def process_pin_attempt(member, provided_pin, now) -> tuple[bool, str | None]:
     """Проверяет PIN и обновляет счётчики попыток атомарно.
 
@@ -44,38 +46,41 @@ def process_pin_attempt(member, provided_pin, now) -> tuple[bool, str | None]:
     """
     from users.models import User
 
-    if member.verify_pin(provided_pin):
-        # Сброс счётчика попыток атомарно (B1-03)
-        if member.failed_pin_attempts:
-            User.objects.filter(pk=member.pk).update(
-                failed_pin_attempts=0,
-                pin_lockout_until=None,
-            )
-            member.failed_pin_attempts = 0
-            member.pin_lockout_until = None
-        return True, None
-
-    # Неверный PIN — атомарный инкремент (B1-02)
-    with transaction.atomic():
-        User.objects.filter(pk=member.pk).update(
-            failed_pin_attempts=F('failed_pin_attempts') + 1
-        )
-        member.refresh_from_db(fields=['failed_pin_attempts'])
-
-    if member.failed_pin_attempts >= PIN_MAX_ATTEMPTS:
-        User.objects.filter(pk=member.pk).update(
-            pin_lockout_until=now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES),
-            failed_pin_attempts=0,
-        )
-        member.failed_pin_attempts = 0
+    # A caller's instance can predate a concurrent failed attempt or lockout.
+    current = User.objects.select_for_update().get(pk=member.pk)
+    locked, remaining = check_pin_lockout(current, now)
+    if locked:
+        member.failed_pin_attempts = current.failed_pin_attempts
+        member.pin_lockout_until = current.pin_lockout_until
         return False, _(
-            '🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes.'
-        ) % {'minutes': PIN_LOCKOUT_MINUTES}
+            'PIN entry is temporarily locked for this member. Please wait %(remaining)d minute(s).'
+        ) % {'remaining': remaining}
 
-    attempts_left = PIN_MAX_ATTEMPTS - member.failed_pin_attempts
-    return False, _(
-        '❌ Invalid PIN. %(left)d attempt(s) remaining before lockout.'
-    ) % {'left': attempts_left}
+    ok = current.verify_pin(provided_pin)
+    error = None
+    if ok:
+        current.failed_pin_attempts = 0
+        current.pin_lockout_until = None
+    else:
+        current.failed_pin_attempts += 1
+        if current.failed_pin_attempts >= PIN_MAX_ATTEMPTS:
+            current.failed_pin_attempts = 0
+            current.pin_lockout_until = now + timezone.timedelta(minutes=PIN_LOCKOUT_MINUTES)
+            error = _('🔒 Too many wrong PINs. PIN locked for %(minutes)d minutes.') % {
+                'minutes': PIN_LOCKOUT_MINUTES,
+            }
+        else:
+            error = _('❌ Invalid PIN. %(left)d attempt(s) remaining before lockout.') % {
+                'left': PIN_MAX_ATTEMPTS - current.failed_pin_attempts,
+            }
+    # Avoid unrelated User.save signals (QR storage, etc.).
+    User.objects.filter(pk=current.pk).update(
+        failed_pin_attempts=current.failed_pin_attempts,
+        pin_lockout_until=current.pin_lockout_until,
+    )
+    member.failed_pin_attempts = current.failed_pin_attempts
+    member.pin_lockout_until = current.pin_lockout_until
+    return ok, error
 
 
 def check_idempotent_visit(partner, member, service_type, cost, window=IDEMPOTENCY_WINDOW):
@@ -93,4 +98,61 @@ def check_idempotent_visit(partner, member, service_type, cost, window=IDEMPOTEN
         service_type=service_type,
         cost=cost,
         timestamp__gte=cutoff,
-    ).first()
+    ).order_by('-timestamp', '-pk').first()
+
+
+@transaction.atomic
+def log_verified_visit(*, partner, member, data):
+    """Serialize duplicate checks and creation; PIN must be checked by caller."""
+    from users.models import User, Visit
+    from .visit_notifications import notify_visit_logged
+
+    User.objects.select_for_update().get(pk=member.pk)
+    existing = check_idempotent_visit(partner, member, data['service_type'], data.get('cost'))
+    if existing:
+        return existing, False
+    visit = Visit.objects.create(
+        partner=partner, member=member, pin_verified=True, status='ACTIVE',
+        **{field: data[field] for field in ('service_type', 'service_description', 'cost', 'comments')},
+    )
+    transaction.on_commit(lambda: notify_visit_logged(visit, partner, member), robust=True)
+    return visit, True
+
+
+class VisitChangeError(ValueError):
+    """The locked record can no longer be changed (expired or cancelled)."""
+
+
+@transaction.atomic
+def change_visit(*, visit_id, partner, actor, data, cancel=False):
+    """Persist a visit and its previous values together, under a row lock.
+
+    Reload after validation: ModelForm.is_valid() mutates its instance.
+    Concurrent edits/cancellation must observe the latest committed record.
+    """
+    from users.models import Visit, VisitAudit
+    from .visit_notifications import notify_visit_cancelled, notify_visit_edited
+
+    visit = get_object_or_404(Visit.objects.select_for_update(), pk=visit_id, partner=partner)
+    if (timezone.now() - visit.timestamp).total_seconds() > EDIT_WINDOW:
+        raise VisitChangeError(_('The edit window has expired. Visits can only be edited within 20 minutes of logging.'))
+    if visit.status == 'CANCELLED':
+        raise VisitChangeError(_('Cancelled visits cannot be edited.'))
+
+    audit = VisitAudit.objects.create(
+        visit=visit, action=VisitAudit.ACTION_CANCEL if cancel else VisitAudit.ACTION_EDIT,
+        previous_service_type=visit.get_service_type_display(),
+        previous_service_description=visit.service_description,
+        previous_cost=visit.cost, previous_comments=visit.comments,
+        reason=data['reason'], changed_by=actor,
+    )
+    fields = ['status']
+    if not cancel:
+        fields += ['service_type', 'service_description', 'cost', 'comments']
+        for field in fields[1:]:
+            setattr(visit, field, data[field])
+    visit.status = 'CANCELLED' if cancel else 'EDITED'
+    visit.save(update_fields=fields)
+    notify = notify_visit_cancelled if cancel else notify_visit_edited
+    transaction.on_commit(lambda: notify(visit, audit, partner), robust=True)
+    return visit, audit

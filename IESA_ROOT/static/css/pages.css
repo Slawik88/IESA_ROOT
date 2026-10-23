@@ -2654,6 +2654,10 @@ mark {
 }
 .art-no-image i { font-size: 2rem; color: rgba(255,255,255,.08); position: relative; }
 .iesa-article--featured .art-no-image { height: 100%; min-height: 280px; }
+@media (max-width: 767px) {
+    /* A percentage height expands the empty cover to the entire card on mobile. */
+    .iesa-article--featured .art-no-image { height: 150px; min-height: 0; }
+}
 
 /* ── Body ── */
 .art-body {

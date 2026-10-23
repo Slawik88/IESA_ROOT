@@ -3,6 +3,7 @@ Forms for Membership Verification System
 """
 from django import forms
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from .models import Visit, Partner
@@ -218,6 +219,7 @@ class InviteRegisterForm(forms.Form):
 
     username = forms.CharField(
         max_length=150,
+        validators=[UnicodeUsernameValidator()],
         label=_('Username'),
         widget=forms.TextInput(attrs={'class': 'form-control', 'autocomplete': 'username'}),
     )
@@ -273,7 +275,7 @@ class InviteRegisterForm(forms.Form):
     def clean_username(self):
         from .models import User
         username = self.cleaned_data['username']
-        if User.objects.filter(username=username).exists():
+        if User.objects.filter(username__iexact=username).exists():
             raise ValidationError(_('This username is already taken.'))
         return username
 
@@ -292,7 +294,11 @@ class InviteRegisterForm(forms.Form):
             raise ValidationError({'password2': _('Passwords do not match.')})
         if p1:
             try:
-                validate_password(p1)
+                from .models import User
+                validate_password(p1, user=User(
+                    username=cleaned.get('username', ''), email=cleaned.get('email', ''),
+                    first_name=cleaned.get('first_name', ''), last_name=cleaned.get('last_name', ''),
+                ))
             except ValidationError as e:
                 raise ValidationError({'password1': e})
         return cleaned

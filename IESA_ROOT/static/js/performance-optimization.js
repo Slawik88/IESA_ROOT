@@ -3,16 +3,6 @@
  * Features: Code splitting, lazy loading, debouncing, caching
  */
 
-// B4-22: STATIC_BASE — base URL for static files (used in preloader).
-// Use /js/ as separator to work with ManifestStaticFilesStorage hashed filenames.
-const _ownScript = document.currentScript;
-const STATIC_BASE = (function() {
-    if (!_ownScript) return '/static/';
-    var src = _ownScript.src;
-    var idx = src.lastIndexOf('/js/');
-    return idx >= 0 ? src.substring(0, idx + 1) : '/static/';
-})();
-
 // Debounce utility
 function debounce(func, wait) {
     let timeout;
@@ -41,58 +31,60 @@ function throttle(func, limit) {
 /**
  * Lazy load images and iframes
  */
-function initLazyLoading() {
-    // Check if IntersectionObserver is supported
-    if ('IntersectionObserver' in window) {
-        const options = {
-            threshold: 0.1,
-            rootMargin: '50px'
-        };
+const observedMedia = new WeakSet();
+let mediaObserver;
 
-        const imageObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    
-                    if (img.dataset.src) {
-                        img.src = img.dataset.src;
-                        img.removeAttribute('data-src');
-                    }
-                    
-                    if (img.dataset.srcset) {
-                        img.srcset = img.dataset.srcset;
-                        img.removeAttribute('data-srcset');
-                    }
-                    
-                    img.classList.add('lazy-loaded');
-                    imageObserver.unobserve(img);
-                }
-            });
-        }, options);
-
-        document.querySelectorAll('img[data-src]').forEach(img => {
-            imageObserver.observe(img);
-        });
-
-        // Lazy load iframes
-        const iframeObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const iframe = entry.target;
-                    if (iframe.dataset.src) {
-                        iframe.src = iframe.dataset.src;
-                        iframe.removeAttribute('data-src');
-                    }
-                    iframeObserver.unobserve(iframe);
-                }
-            });
-        }, options);
-
-        document.querySelectorAll('iframe[data-src]').forEach(iframe => {
-            iframeObserver.observe(iframe);
-        });
+function loadMedia(element) {
+    // Set responsive candidates first to avoid downloading the fallback twice.
+    if (element.dataset.srcset) {
+        element.srcset = element.dataset.srcset;
+        element.removeAttribute('data-srcset');
     }
+    if (element.dataset.src) {
+        element.src = element.dataset.src;
+        element.removeAttribute('data-src');
+    }
+    element.classList.add('lazy-loaded');
 }
+
+function initLazyLoading(root = document) {
+    const selector = 'img[data-src], img[data-srcset], iframe[data-src]';
+    const elements = Array.from(root.querySelectorAll(selector));
+    if (root.matches?.(selector)) elements.unshift(root);
+    const pending = elements.filter(element => !observedMedia.has(element));
+    if (!pending.length) return;
+    if (!window.IntersectionObserver) {
+        pending.forEach(loadMedia);
+        return;
+    }
+    if (!mediaObserver) {
+        mediaObserver = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    loadMedia(entry.target);
+                    mediaObserver.unobserve(entry.target);
+                }
+            });
+        }, { rootMargin: '50px', threshold: 0.1 });
+    }
+    pending.forEach(element => {
+        observedMedia.add(element);
+        mediaObserver.observe(element);
+    });
+}
+
+// Release removed nodes, including swaps performed outside the main page.
+document.addEventListener('htmx:beforeCleanupElement', event => {
+    const root = event.detail.elt;
+    if (!mediaObserver || !root || typeof root.querySelectorAll !== 'function') return;
+    [root, ...root.querySelectorAll('img, iframe')].forEach(element => {
+        mediaObserver.unobserve(element);
+        observedMedia.delete(element);
+    });
+});
+document.addEventListener('htmx:afterSwap', event => {
+    initLazyLoading(event.detail.elt || document);
+});
 
 /**
  * Cache DOM elements for repeated access
@@ -163,37 +155,6 @@ const APICache = {
 };
 
 /**
- * Preload critical resources.
- * Derives STATIC_URL from this script's own src (set by {% static %}).
- */
-function preloadCriticalResources() {
-    const staticBase = STATIC_BASE;
-
-    // homepage.css already loaded via <link> in base.html — no preload needed
-    // page-specific JS (partner-card-effects, sections-interactions) not preloaded
-    // because ManifestStaticFilesStorage filenames include content hashes
-    const criticalCSS = [];
-    const criticalJS = [];
-    
-    // Preload critical CSS
-    criticalCSS.forEach(href => {
-        const link = document.createElement('link');
-        link.rel = 'preload';
-        link.as = 'style';
-        link.href = staticBase + href;
-        document.head.appendChild(link);
-    });
-    
-    // Prefetch critical JS
-    criticalJS.forEach(src => {
-        const script = document.createElement('link');
-        script.rel = 'prefetch';
-        script.href = staticBase + src;
-        document.head.appendChild(script);
-    });
-}
-
-/**
  * Monitor performance metrics
  */
 function monitorPerformance() {
@@ -212,24 +173,6 @@ function monitorPerformance() {
         });
     }
     
-    // Use Performance Observer API if available
-    if ('PerformanceObserver' in window) {
-        try {
-            const observer = new PerformanceObserver((list) => {
-                // Performance entries observed
-            });
-
-            observer.observe({ entryTypes: ['measure', 'navigation'] });
-
-            // B4-14: disconnect при HTMX swap чтобы не накапливать observers
-            document.addEventListener('htmx:beforeSwap', function _disconnectPerf() {
-                observer.disconnect();
-                document.removeEventListener('htmx:beforeSwap', _disconnectPerf);
-            }, { once: true });
-        } catch (e) {
-            // PerformanceObserver not supported
-        }
-    }
 }
 
 /**
@@ -253,7 +196,6 @@ function optimizeForDevice() {
  * Initialize all performance optimizations
  */
 function initPerformanceOptimizations() {
-    preloadCriticalResources();
     initLazyLoading();
     initOptimizedResize();
     optimizeForDevice();

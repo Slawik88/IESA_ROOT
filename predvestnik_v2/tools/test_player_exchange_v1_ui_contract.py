@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static release contract for the hidden player-exchange Mini App surface."""
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,7 +16,12 @@ assert "Игровой актив без вывода в деньги" in js
 assert "Цена может резко вырасти или упасть" in js
 assert 'aria-pressed="${_pxSide===\'buy\'}"' in js
 assert "min-height:44px" in css
-assert "app.{i:02d}.js\" for i in (1, 2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)" in main
+_parts = re.search(r"_APP_JS_PARTS = \[f\"app\.\{i:02d\}\.js\" for i in \(([^)]*)\)\]", main)
+assert _parts, "не найден список частей бандла в FastAPI/main.py"
+_part_ids = {int(p) for p in _parts.group(1).split(",")}
+# Контракт: app.14.js (player exchange) реально попадает в бандл. Список частей
+# намеренно не «заморожен» — новые части (app.15/app.16) допустимы.
+assert 14 in _part_ids
 assert "/player-exchange/v1/me?limit=100" in js
 assert "/cancel" in js
 assert "_pxRecoveryCoins" in js

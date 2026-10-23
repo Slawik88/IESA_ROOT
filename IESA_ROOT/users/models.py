@@ -9,6 +9,7 @@ import secrets
 import pyotp
 import base64
 from django.utils.translation import gettext_lazy as _
+from .validators import validate_discord_url, validate_telegram_url
 
 
 def _validate_avatar_size(file):
@@ -185,8 +186,8 @@ class User(AbstractUser):
 
     # Social / contact links (optional)
     github_url = models.URLField(blank=True, max_length=255, verbose_name=_('GitHub'))
-    discord_url = models.URLField(blank=True, max_length=255, verbose_name=_('Discord'))
-    telegram_url = models.URLField(blank=True, max_length=255, verbose_name=_('Telegram'))
+    discord_url = models.CharField(blank=True, max_length=255, validators=[validate_discord_url], verbose_name=_('Discord'))
+    telegram_url = models.CharField(blank=True, max_length=255, validators=[validate_telegram_url], verbose_name=_('Telegram'))
     website_url = models.URLField(blank=True, max_length=255, verbose_name=_('Website'))
     other_links = models.TextField(blank=True, verbose_name=_('Other links (one per line)'))
     # Statistics (computed but stored for performance)
@@ -261,17 +262,16 @@ class User(AbstractUser):
         FIX: Was doing 3 separate count queries (N+1 problem).
         Now uses single aggregate() call for efficiency.
         """
-        from blog.models import Post, Like, Comment
-        from django.db.models import Count, Q
+        from blog.models import Post, Comment
+        from django.db.models import Count
         
         # OPTIMIZATION: Single aggregate query instead of 3 separate count() queries
         # This replaces 3 database queries with 1 aggregate query
         stats = Post.objects.filter(
             author=self, status='published'
         ).aggregate(
-            post_count=Count('id'),
-            likes_count=Count('likes'),
-            comments_count=Count('comments')
+            post_count=Count('id', distinct=True),
+            likes_count=Count('likes', distinct=True),
         )
 
         # Also fetch comments made by user (separate aggregate)

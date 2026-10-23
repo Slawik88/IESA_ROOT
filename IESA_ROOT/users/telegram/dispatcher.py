@@ -8,7 +8,6 @@ from asgiref.sync import sync_to_async
 
 from .client import (
     answer_callback_query,
-    edit_message_reply_markup,
     edit_message_text,
     send_message_async,
     set_bot_commands,

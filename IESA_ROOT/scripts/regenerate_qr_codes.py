@@ -14,7 +14,6 @@ django.setup()
 
 from users.models import User
 from users.qr_utils import generate_qr_code_for_user
-from django.core.files.storage import default_storage
 import boto3
 
 print("=" * 80)

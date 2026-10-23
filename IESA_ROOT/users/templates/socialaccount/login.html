@@ -1,0 +1,14 @@
+{% extends "users/password_reset_base.html" %}
+{% load i18n %}
+{% block title %}{% trans "Sign In" %} | IESA{% endblock %}
+{% block pr_body %}
+<div class="pr-icon"><i class="fas fa-right-to-bracket" aria-hidden="true"></i></div>
+<h1 class="pr-title">{% blocktrans with provider=provider.name %}Continue with {{ provider }}{% endblocktrans %}</h1>
+<p class="pr-text">{% trans "You will be sent to the provider to confirm it is you, then brought back here." %}</p>
+<form method="post">
+    {% csrf_token %}
+    {{ redirect_field }}
+    <button type="submit" class="pr-btn">{% trans "Continue" %}</button>
+</form>
+<p class="pr-back"><a href="{% url 'users:login' %}">{% trans "Back to sign in" %}</a></p>
+{% endblock %}

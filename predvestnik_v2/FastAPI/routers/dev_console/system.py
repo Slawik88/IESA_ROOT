@@ -7,6 +7,7 @@ from infrastructure.repositories import system_flags as _flags_repo
 from infrastructure.repositories import dev_settings as _num_repo
 from infrastructure.repositories import chat_module_audit as _module_repo
 from core.chat_modules import CHAT_MODULES, CHAT_MODULE_KEYS, chat_module_default
+from FastAPI.routers.admin_avatar import attach_avatar_urls
 
 router = APIRouter()
 
@@ -72,8 +73,10 @@ async def dev_get_chat_modules(chat_id: int, db=Depends(get_db), user=Depends(re
         modules = {key: int(chat_module_default(key)) for key in keys}
     else:
         modules = {key: int(row[key]) for key in keys}
-    return {"modules": modules, "catalog": _module_repo.catalog(),
-            "audit": await _module_repo.recent(db, scope="chat", chat_id=chat_id, limit=12)}
+    # ADMPROFILE: в «последних изменениях» видно, кто именно переключил модуль.
+    audit = await _module_repo.recent(db, scope="chat", chat_id=chat_id, limit=12)
+    attach_avatar_urls(audit, "actor_id", "actor_avatar_url")
+    return {"modules": modules, "catalog": _module_repo.catalog(), "audit": audit}
 
 
 @router.post("/chat-modules/{chat_id}")
@@ -101,8 +104,9 @@ async def dev_get_global_modules(db=Depends(get_db), user=Depends(require_tg_use
             row = await cursor.fetchone()
         modules[key] = {"enabled": bool(row["enabled"]) if row else chat_module_default(key),
                         "reason": row["disabled_reason"] if row else None}
-    return {"catalog": _module_repo.catalog(), "modules": modules,
-            "audit": await _module_repo.recent(db, scope="global", limit=12)}
+    audit = await _module_repo.recent(db, scope="global", limit=12)
+    attach_avatar_urls(audit, "actor_id", "actor_avatar_url")
+    return {"catalog": _module_repo.catalog(), "modules": modules, "audit": audit}
 
 
 class _GlobalModuleBody(BaseModel):

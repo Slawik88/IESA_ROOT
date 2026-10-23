@@ -1,0 +1,178 @@
+{
+  "status": "rendered_demo",
+  "source": "FastAPI/static/app.07.js::loadPurgePanel",
+  "sha256": "4db7ac12f9f9304deb7caa8c9f252ec48e4f6fca12214d6137ca196964df20e7",
+  "method": "Unmodified current UI renderer; invented API fixtures; no live backend",
+  "real_participants": false,
+  "production_mutations": false,
+  "states": [
+    {
+      "name": "setup",
+      "width": 1200,
+      "height": 556,
+      "rowPoints": [],
+      "fixture": {
+        "active": false
+      }
+    },
+    {
+      "name": "candidates",
+      "width": 1200,
+      "height": 791,
+      "rowPoints": [
+        {
+          "x": 1110,
+          "y": 348.890625
+        },
+        {
+          "x": 1110,
+          "y": 495.890625
+        }
+      ],
+      "fixture": {
+        "active": true,
+        "can_verdict": true,
+        "purge_action_rank": 2,
+        "session": {
+          "id": 1,
+          "norm": 50,
+          "date_from": "2026-10-08",
+          "date_to": "2026-10-14"
+        },
+        "counts": {
+          "total": 2,
+          "sent": 2,
+          "decided": 0,
+          "warned": 0,
+          "kicked": 0,
+          "banned": 0,
+          "skipped": 0
+        },
+        "targets": [
+          {
+            "user_id": 101,
+            "username": "Лена",
+            "msg_count": 12,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": null
+          },
+          {
+            "user_id": 102,
+            "username": "Марк",
+            "msg_count": 8,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "skipped",
+      "width": 1200,
+      "height": 731,
+      "rowPoints": [
+        {
+          "x": 1110,
+          "y": 318.703125
+        },
+        {
+          "x": 1110,
+          "y": 435.515625
+        }
+      ],
+      "fixture": {
+        "active": true,
+        "can_verdict": true,
+        "purge_action_rank": 2,
+        "session": {
+          "id": 1,
+          "norm": 50,
+          "date_from": "2026-10-08",
+          "date_to": "2026-10-14"
+        },
+        "counts": {
+          "total": 2,
+          "sent": 2,
+          "decided": 1,
+          "warned": 0,
+          "kicked": 0,
+          "banned": 0,
+          "skipped": 1
+        },
+        "targets": [
+          {
+            "user_id": 101,
+            "username": "Лена",
+            "msg_count": 12,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": "skip"
+          },
+          {
+            "user_id": 102,
+            "username": "Марк",
+            "msg_count": 8,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": null
+          }
+        ]
+      }
+    },
+    {
+      "name": "resolved",
+      "width": 1200,
+      "height": 671,
+      "rowPoints": [
+        {
+          "x": 1110,
+          "y": 318.703125
+        },
+        {
+          "x": 1110,
+          "y": 405.328125
+        }
+      ],
+      "fixture": {
+        "active": true,
+        "can_verdict": true,
+        "purge_action_rank": 2,
+        "session": {
+          "id": 1,
+          "norm": 50,
+          "date_from": "2026-10-08",
+          "date_to": "2026-10-14"
+        },
+        "counts": {
+          "total": 2,
+          "sent": 2,
+          "decided": 2,
+          "warned": 1,
+          "kicked": 0,
+          "banned": 0,
+          "skipped": 1
+        },
+        "targets": [
+          {
+            "user_id": 101,
+            "username": "Лена",
+            "msg_count": 12,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": "skip"
+          },
+          {
+            "user_id": 102,
+            "username": "Марк",
+            "msg_count": 8,
+            "warns": 0,
+            "dossier_sent": true,
+            "verdict": "warn"
+          }
+        ]
+      }
+    }
+  ]
+}

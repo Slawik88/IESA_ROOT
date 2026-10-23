@@ -1,10 +1,12 @@
 """Onboarding views: welcome modal, profile completeness, username check, inline save (Blocks 1, 3)."""
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
+from django.http import QueryDict
 from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from ..models import User
+from ..forms_profile import ProfileFieldForm
 
 
 @login_required
@@ -92,26 +94,21 @@ def profile_field_save(request):
     POST/PATCH /auth/profile/field-save/ с body: field=xxx&value=yyy
     Возвращает: JSON {ok, field, saved_value} или {ok: false, error}
     """
-    ALLOWED = {
-        'first_name', 'last_name', 'phone_number', 'pseudonym',
-        'github_url', 'discord_url', 'telegram_url', 'website_url',
-    }
-    field = request.POST.get('field', '').strip()
-    value = request.POST.get('value', '').strip()
+    # Django populates request.POST only for POST, not for PATCH.
+    data = QueryDict(request.body, encoding=request.encoding or 'utf-8') if request.method == 'PATCH' else request.POST
+    field = data.get('field', '').strip()
+    value = data.get('value', '').strip()
 
-    if field not in ALLOWED:
+    if field not in ProfileFieldForm.allowed_fields:
         return JsonResponse({'ok': False, 'error': 'Field not allowed'}, status=400)
 
     user = request.user
-    # Базовая валидация длины
-    max_lengths = {'first_name': 150, 'last_name': 150, 'phone_number': 20,
-                   'pseudonym': 100, 'github_url': 255, 'discord_url': 255,
-                   'telegram_url': 255, 'website_url': 255}
-    if len(value) > max_lengths.get(field, 255):
-        return JsonResponse({'ok': False, 'error': 'Value too long'}, status=400)
-
-    setattr(user, field, value)
-    user.save(update_fields=[field])
+    form = ProfileFieldForm({field: value}, instance=user, field_name=field)
+    if not form.is_valid():
+        return JsonResponse({'ok': False, 'error': ' '.join(form.errors.get(field, form.non_field_errors()))}, status=400)
+    value = form.cleaned_data[field]
+    # Validated partial write; avoid QR-generation signals for a text change.
+    User.objects.filter(pk=user.pk).update(**{field: value})
 
     # Пересчитываем completeness чтобы progress-bar обновился
     completeness = user.profile_completeness

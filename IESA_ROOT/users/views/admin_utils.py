@@ -11,9 +11,12 @@ from ..models import AccountChangeRequest, User
 
 
 @user_passes_test(lambda u: u.is_staff)
+@require_POST
 def impersonate_user(request, pk):
     """Staff-only: log in as another user. Adds session tracking (Block 8f)."""
     target = get_object_or_404(User, pk=pk)
+    if not request.user.is_superuser and (target.is_staff or target.is_superuser):
+        return HttpResponseForbidden('Only a superuser can impersonate staff')
     if not target.is_active:
         return HttpResponseForbidden('Target user is not active')
     # Block 8f: store original admin for banner display

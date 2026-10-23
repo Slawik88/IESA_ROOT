@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from FastAPI.deps import (get_db, require_tg_user, check_global_perm,
                           check_global_perm_any, _actor_global_rank)
+from FastAPI.routers.admin_avatar import attach_avatar_urls, avatar_url
 from infrastructure.repositories import global_moderation as gm_repo
 from infrastructure.repositories import global_permissions as perm_repo
 from infrastructure.repositories import users as users_repo
@@ -119,8 +120,10 @@ async def _enrich_sanctions(db, rows: list[dict]) -> list[dict]:
         if d["target_type"] == "user":
             uname = usernames.get(d["target_id"])
             d["target_name"] = f"@{uname}" if uname else f"ID{d['target_id']}"
+            d["target_avatar_url"] = avatar_url(d["target_id"])
         else:
             d["target_name"] = chat_titles.get(d["target_id"]) or f"Chat {d['target_id']}"
+            d["target_avatar_url"] = None
         for key in ("issued_by", "revoked_by"):
             uid = d.get(key)
             if uid:
@@ -128,6 +131,7 @@ async def _enrich_sanctions(db, rows: list[dict]) -> list[dict]:
                 d[f"{key}_name"] = f"@{uname}" if uname else f"ID{uid}"
             else:
                 d[f"{key}_name"] = None
+            d[f"{key}_avatar_url"] = avatar_url(uid) if uid else None
         d["is_active"] = _is_active(d["revoked_at"], d["expires_at"])
         for key in ("created_at", "expires_at", "revoked_at"):
             d[key] = str(d[key]) if d[key] else None
@@ -160,11 +164,13 @@ async def _enrich_appeals(db, rows: list[dict]) -> list[dict]:
         d = dict(r)
         uname = usernames.get(d["user_id"])
         d["user_name"] = f"@{uname}" if uname else f"ID{d['user_id']}"
+        d["user_avatar_url"] = avatar_url(d["user_id"])
         if d["resolved_by"]:
             rname = usernames.get(d["resolved_by"])
             d["resolved_by_name"] = f"@{rname}" if rname else f"ID{d['resolved_by']}"
         else:
             d["resolved_by_name"] = None
+        d["resolved_by_avatar_url"] = avatar_url(d["resolved_by"]) if d["resolved_by"] else None
         s = sanctions.get(d["sanction_id"])
         if s:
             d["sanction_type"] = s["sanction_type"]
@@ -284,7 +290,9 @@ async def global_chat_members(
         f"SELECT ucs.user_tg_id, u.user_tg_username, ucs.user_level, ucs.user_xp, "
         f"ucs.local_rank, ucs.warnings, ucs.is_immune, ucs.immune_until, ucs.is_left, "
         f"ucs.user_messages_count_all_time, ucs.last_message_at, ucs.muted_until, ucs.joined_at, "
-        f"COALESCE(u.global_rank, 0) AS global_rank, (v.user_id IS NOT NULL) AS is_vip "
+        f"COALESCE(u.global_rank, 0) AS global_rank, (v.user_id IS NOT NULL) AS is_vip, "
+        f"(SELECT n.nickname FROM user_nicknames n "
+        f" WHERE n.user_id = ucs.user_tg_id AND n.chat_id = ucs.chat_tg_id) AS nickname "
         f"FROM user_chat_stats ucs "
         f"LEFT JOIN users u ON u.user_tg_id = ucs.user_tg_id "
         f"LEFT JOIN vip_subscriptions v ON v.user_id = ucs.user_tg_id AND v.expires_at > NOW() "
@@ -311,6 +319,7 @@ async def global_chat_members(
         r["immune_until"] = str(r["immune_until"]) if r.get("immune_until") else None
         r["last_message_at"] = str(r["last_message_at"]) if r.get("last_message_at") else None
         r["joined_at"] = str(r["joined_at"]) if r.get("joined_at") else None
+    attach_avatar_urls(rows, "user_tg_id")
 
     return {"members": rows, "total": total, "page": page, "page_size": page_size, **flags}
 
@@ -403,6 +412,10 @@ async def global_appeal_thread(appeal_id: int, db=Depends(get_db), user=Depends(
         raise HTTPException(404, "Апелляция не найдена.")
     thread = await gm_repo.appeal_thread(db, appeal_id)
     sanction = await gm_repo.get_sanction_by_id(db, appeal["sanction_id"])
+    # ADMPROFILE: в диалоге апелляции видно, кто именно апеллирует.
+    user_name = await users_repo.get_user_name(db, appeal["user_id"])
+    appeal["user_avatar_url"] = avatar_url(appeal["user_id"])
+    appeal["user_display_name"] = f"@{user_name}" if user_name else f"ID{appeal['user_id']}"
     return {"appeal": appeal, "thread": thread, "sanction": sanction}
 
 
@@ -447,7 +460,9 @@ async def global_user_case(target_id: int, db=Depends(get_db), user=Depends(requ
     await check_global_perm(db, user["id"], "sanctions_view")
     case = await gm_repo.user_case(db, target_id)
     uname = await users_repo.get_user_name(db, target_id)
-    return {"user_id": target_id, "username": uname, **case}
+    # ADMPROFILE: в «Истории дел» сверху — карточка игрока с фото.
+    return {"user_id": target_id, "username": uname,
+            "avatar_url": avatar_url(target_id), **case}
 
 
 @router.get("/tg-photo/{file_id}")
@@ -620,6 +635,7 @@ async def global_staff_list(db=Depends(get_db), user=Depends(require_tg_user)):
     staff = await perm_repo.list_staff(db)
     for s in staff:
         s["rank_name"] = GLOBAL_RANKS_MAP.get(s["global_rank"] or 0, "?")
+    attach_avatar_urls(staff, "user_tg_id")
     return {"staff": staff}
 
 

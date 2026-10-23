@@ -6,13 +6,18 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Max, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_http_methods
 from django_ratelimit.decorators import ratelimit
 
-from ..constants import EDIT_WINDOW, IDEMPOTENCY_WINDOW, PIN_LOCKOUT_MINUTES, PIN_MAX_ATTEMPTS
+from ..constants import EDIT_WINDOW
 from ..forms_verification import CancelVisitForm, EditVisitForm, MemberSearchForm, PartnerProfileForm, VisitForm
-from ..models import Partner, User, Visit, VisitAudit
+from ..models import User, Visit
+from ..services.visit_service import (
+    VisitChangeError, change_visit, check_pin_lockout, log_verified_visit, process_pin_attempt,
+)
+from ..services.csv_service import safe_csv_text
 from .utils import _try_parse_uuid, partner_required
 
 logger = logging.getLogger(__name__)
@@ -21,21 +26,7 @@ logger = logging.getLogger(__name__)
 @partner_required
 def partner_dashboard(request):
     """Partner dashboard: member search, visit log, statistics."""
-    try:
-        partner = request.user.partner_profile
-    except Partner.DoesNotExist:
-        # A partner flag can be granted before the business profile is filled
-        # in. Keep the portal usable and create the minimal one-to-one record
-        # atomically instead of raising a production 500.
-        if not request.user.is_partner:
-            messages.error(request, _('Partner profile is not configured. Contact an administrator.'))
-            return redirect('core:home')
-        partner, _created = Partner.objects.get_or_create(
-            user=request.user,
-            defaults={
-                'company_name': request.user.get_full_name() or request.user.username,
-            },
-        )
+    partner = request.user.partner_profile
 
     visits = Visit.objects.filter(partner=partner).select_related('member').order_by('-timestamp')
     _stats = Visit.objects.filter(partner=partner).aggregate(
@@ -114,7 +105,6 @@ def log_visit(request, member_id):
         form = VisitForm(request.POST)
         if form.is_valid():
             now = timezone.now()
-            from ..services.visit_service import check_pin_lockout, process_pin_attempt, check_idempotent_visit
 
             locked, remaining = check_pin_lockout(member, now)
             if locked:
@@ -131,22 +121,13 @@ def log_visit(request, member_id):
             if not pin_ok:
                 form.add_error('pin', pin_error)
             else:
-                existing = check_idempotent_visit(partner, member, form.cleaned_data['service_type'], form.cleaned_data.get('cost'))
-                if existing:
+                visit, created = log_verified_visit(partner=partner, member=member, data=form.cleaned_data)
+                if not created:
                     messages.warning(request, _(
                         'An identical visit was already logged for %(name)s within the last five minutes. No new record was created.'
                     ) % {'name': member.get_full_name() or member.username})
                     return redirect('users:partner_dashboard')
 
-                from django.db import transaction as _tx
-                with _tx.atomic():
-                    visit = form.save(commit=False)
-                    visit.member = member; visit.partner = partner
-                    visit.pin_verified = True; visit.status = 'ACTIVE'
-                    visit.save()
-
-                from ..services.visit_notifications import notify_visit_logged as _nv
-                _nv(visit, partner, member)
                 if not getattr(member, 'telegram_chat_id', None):
                     messages.info(request, _('The member has no linked Telegram account. An in-site notification was sent instead.'))
 
@@ -180,19 +161,11 @@ def edit_visit(request, visit_id):
     if request.method == 'POST':
         form = EditVisitForm(request.POST, instance=visit)
         if form.is_valid():
-            audit = VisitAudit(
-                visit=visit, action=VisitAudit.ACTION_EDIT,
-                previous_service_type=visit.get_service_type_display(),
-                previous_service_description=visit.service_description,
-                previous_cost=visit.cost, previous_comments=visit.comments,
-                reason=form.cleaned_data.get('reason', ''), changed_by=request.user,
-            )
-            updated_visit = form.save(commit=False)
-            updated_visit.status = 'EDITED'
-            updated_visit.save(); audit.save()
-
-            from ..services.visit_notifications import notify_visit_edited as _nv
-            _nv(updated_visit, audit, partner)
+            try:
+                change_visit(visit_id=visit.pk, partner=partner, actor=request.user, data=form.cleaned_data)
+            except VisitChangeError as exc:
+                messages.error(request, str(exc))
+                return redirect('users:partner_dashboard')
             messages.success(request, _('Visit updated. The member was notified.'))
             return redirect('users:partner_dashboard')
     else:
@@ -225,16 +198,11 @@ def cancel_visit(request, visit_id):
     if request.method == 'POST':
         form = CancelVisitForm(request.POST)
         if form.is_valid():
-            audit = VisitAudit(
-                visit=visit, action=VisitAudit.ACTION_CANCEL,
-                previous_service_type=visit.get_service_type_display(),
-                previous_service_description=visit.service_description,
-                previous_cost=visit.cost, previous_comments=visit.comments,
-                reason=form.cleaned_data['reason'], changed_by=request.user,
-            )
-            visit.status = 'CANCELLED'; visit.save(update_fields=['status']); audit.save()
-            from ..services.visit_notifications import notify_visit_cancelled as _nv
-            _nv(visit, audit, partner)
+            try:
+                change_visit(visit_id=visit.pk, partner=partner, actor=request.user, data=form.cleaned_data, cancel=True)
+            except VisitChangeError as exc:
+                messages.error(request, str(exc))
+                return redirect('users:partner_dashboard')
             messages.success(request, _('Visit cancelled. The member was notified.'))
             return redirect('users:partner_dashboard')
     else:
@@ -256,9 +224,13 @@ def partner_member_visits(request, member_id):
     member  = get_object_or_404(User, id=member_id)
     now = timezone.now()
     member_visits = Visit.objects.filter(partner=partner, member=member).order_by('-timestamp')
-    total         = member_visits.count()
-    total_revenue = member_visits.aggregate(r=Sum('cost'))['r'] or 0
-    verified_count = member_visits.filter(pin_verified=True).count()
+    stats = member_visits.aggregate(
+        total=Count('pk'), revenue=Sum('cost'),
+        verified=Count('pk', filter=Q(pin_verified=True)),
+    )
+    total = stats['total']
+    total_revenue = stats['revenue'] or 0
+    verified_count = stats['verified']
     last_visit    = member_visits.first()
     page_obj = Paginator(member_visits, 20).get_page(request.GET.get('page'))
     return render(request, 'users/partner_member_visits.html', {
@@ -395,15 +367,15 @@ def partner_visits_csv(request):
         for v in qs.iterator():
             yield writer.writerow([
                 v.timestamp.strftime('%Y-%m-%d %H:%M'),
-                v.member.get_full_name() or v.member.username,
-                v.member.username,
-                v.get_service_type_display(),
-                float(v.cost) if v.cost else '',
+                safe_csv_text(v.member.get_full_name() or v.member.username),
+                safe_csv_text(v.member.username),
+                safe_csv_text(v.get_service_type_display()),
+                str(v.cost) if v.cost is not None else '',
                 'Yes' if v.pin_verified else 'No',
                 v.status,
             ])
 
-    fname = f"visits_{partner.company_name.replace(' ', '_')}_{timezone.localdate()}.csv"
+    fname = f"visits_{slugify(partner.company_name) or partner.pk}_{timezone.localdate()}.csv"
     resp = StreamingHttpResponse(generate(), content_type='text/csv; charset=utf-8')
     resp['Content-Disposition'] = f'attachment; filename="{fname}"'
     return resp

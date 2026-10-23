@@ -1,4 +1,4 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% load static i18n %}
 
 {% block title %}{% trans "IESA — Extreme Sports Association" %}{% endblock %}
@@ -1003,6 +1003,8 @@ html.js .don-fill.animated { width:45%; }
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if(window.matchMedia('(prefers-reduced-data: reduce)').matches) return;
     const ctx = c.getContext('2d');
+    if (!ctx || !window.IntersectionObserver) return;
+    let frame = null, visible = false;
     let W, H, pts=[];
     const PARTICLE_COUNT = window.innerWidth < 768 ? 28 : 75;
     let resizeTimer;
@@ -1013,6 +1015,8 @@ html.js .don-fill.animated { width:45%; }
     window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer=setTimeout(resize,200); });
     for(let i=0;i<PARTICLE_COUNT;i++) pts.push({x:Math.random()*(W||1200),y:Math.random()*(H||800),dx:(Math.random()-.5)*.45,dy:(Math.random()-.5)*.45,r:Math.random()*1.8+.4,a:Math.random()*.5+.15});
     function draw(){
+        frame = null;
+        if (!visible || document.hidden) return;
         ctx.clearRect(0,0,W,H);
         pts.forEach(p=>{
             ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
@@ -1021,20 +1025,35 @@ html.js .don-fill.animated { width:45%; }
             if(p.x<0||p.x>W)p.dx*=-1; if(p.y<0||p.y>H)p.dy*=-1;
         });
         for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
-            const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
-            if(d<100){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.strokeStyle=`rgba(220,38,38,${.12*(1-d/100)})`; ctx.lineWidth=.6; ctx.stroke(); }
+            const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, distanceSquared=dx*dx+dy*dy;
+            if(distanceSquared<10000){ const d=Math.sqrt(distanceSquared); ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.strokeStyle=`rgba(220,38,38,${.12*(1-d/100)})`; ctx.lineWidth=.6; ctx.stroke(); }
         }
-        requestAnimationFrame(draw);
+        frame = requestAnimationFrame(draw);
     }
-    draw();
+    function syncAnimation(){
+        if (visible && !document.hidden) {
+            if (frame === null) frame = requestAnimationFrame(draw);
+        } else if (frame !== null) {
+            cancelAnimationFrame(frame);
+            frame = null;
+        }
+    }
+    const observer = new IntersectionObserver(entries => {
+        visible = entries[0].isIntersecting;
+        syncAnimation();
+    });
+    observer.observe(c);
+    document.addEventListener('visibilitychange', syncAnimation);
 })();
 
 /* ── 2. WORD SWAP ──────────────── */
 (function(){
     const el=document.getElementById('hero-dword'); if(!el) return;
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const words=['{% trans "Kitesurfing" %}','{% trans "Diving" %}','{% trans "Climbing" %}','{% trans "Yachting" %}','{% trans "Surfing" %}','{% trans "Boxing" %}'];
     let i=0;
     setInterval(()=>{
+        if(document.hidden || el.getBoundingClientRect().bottom < 0) return;
         el.classList.add('exiting');
         setTimeout(()=>{ i=(i+1)%words.length; el.textContent=words[i]; el.classList.remove('exiting'); }, 380);
     }, 2600);

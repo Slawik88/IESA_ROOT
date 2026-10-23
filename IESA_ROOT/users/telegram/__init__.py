@@ -37,7 +37,7 @@ __all__ = [
     "set_bot_commands",
     "is_configured", "token", "webhook_secret", "bot_name", "channel_id",
     "generate_link_code", "consume_link_code", "verify_telegram_auth",
-    "process_incoming_update", "init_bot_commands",
+    "process_incoming_update", "init_bot_commands", "handle_admin",
     "notify_visit_confirmed", "notify_visit_edited", "notify_visit_cancelled",
     "notify_membership_activated", "send_test_notification",
 ]

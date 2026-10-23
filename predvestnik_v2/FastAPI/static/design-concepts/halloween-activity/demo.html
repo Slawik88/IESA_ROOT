@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Предвестник · Активность по сообщениям · демо (Хэллоуин)</title>
+<link rel="stylesheet" href="activity.css">
+</head>
+<body class="hw-skin">
+
+<header class="demo-bar">
+  <div class="demo-brand"><b>Демо</b><span>карточка «бот я» → активность по сообщениям</span></div>
+  <div class="demo-controls">
+    <div class="demo-seg" role="group" aria-label="Ширина экрана">
+      <button type="button" data-w="320">320</button>
+      <button type="button" data-w="390" class="on">390</button>
+      <button type="button" data-w="430">430</button>
+      <button type="button" data-w="0">100%</button>
+    </div>
+    <label class="demo-switch">
+      <input type="checkbox" id="demo-hw" checked>
+      <span>🎃 Хэллоуин-стиль</span>
+    </label>
+  </div>
+</header>
+
+<div class="demo-stage">
+  <div class="phone" id="phone" style="--pw:390px">
+    <div class="phone-screen">
+
+      <!-- Карточка «бот я» — та же идентичность, что в чате -->
+      <section class="me-card">
+        <div class="me-ava" aria-hidden="true">🦇</div>
+        <div class="me-copy">
+          <strong class="me-name">Тёмный Мор</strong>
+          <span class="me-id">🆔 772748770</span>
+        </div>
+        <span class="me-rank">Ранг 3</span>
+      </section>
+
+      <!-- Карточка активности -->
+      <section class="hw-card" id="activity-card" aria-labelledby="hw-title">
+        <span class="hw-web" aria-hidden="true">
+          <svg viewBox="0 0 90 90" aria-hidden="true">
+            <path d="M0 0h90M0 0v90M0 0l64 64M0 0l32 64M0 0l64 32"></path>
+            <path d="M0 12h28M12 0v28M0 26h40M26 0v40"></path>
+          </svg>
+        </span>
+        <span class="hw-spider" aria-hidden="true">🕷</span>
+
+        <header class="hw-head">
+          <div class="hw-title">
+            <span class="hw-glyph" aria-hidden="true">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c4.4 0 7.4 3 7.4 7.1 0 4.4-3.4 8.6-7.4 10.9-4-2.3-7.4-6.5-7.4-10.9C4.6 6 7.6 3 12 3Z"/><path d="M9 9.4l2.4 2.3M15 9.4l-2.4 2.3M12 11.7V15"/></svg>
+            </span>
+            <div>
+              <h2 id="hw-title">Активность</h2>
+              <p id="hw-sub">сообщения по дням</p>
+            </div>
+          </div>
+          <div class="hw-chips">
+            <span class="hw-chip hw-chip--fire" id="hw-streak" title="Дней подряд с сообщениями">🔥 —</span>
+            <span class="hw-chip" id="hw-today" title="Сегодня">🏠 —</span>
+          </div>
+        </header>
+
+        <dl class="hw-rail" id="hw-rail"></dl>
+
+        <div class="hw-ctl">
+          <div class="hw-seg" role="tablist" aria-label="Период" id="hw-periods">
+            <button type="button" role="tab" data-period="7">7 дн</button>
+            <button type="button" role="tab" data-period="30" aria-selected="true" class="on">30 дн</button>
+            <button type="button" role="tab" data-period="90">90 дн</button>
+            <button type="button" role="tab" data-period="365">Год</button>
+          </div>
+          <div class="hw-seg hw-seg--mini" role="tablist" aria-label="Вид графика" id="hw-views">
+            <button type="button" role="tab" data-view="bars" aria-selected="true" class="on">Полосы</button>
+            <button type="button" role="tab" data-view="heat">Календарь</button>
+          </div>
+        </div>
+
+        <div class="hw-plot" id="hw-plot">
+          <svg id="hw-svg" role="img" aria-label="График активности"></svg>
+          <div class="hw-tip" id="hw-tip" role="status" hidden></div>
+          <div class="hw-fog" aria-hidden="true"></div>
+          <span class="hw-bat" aria-hidden="true">🦇</span>
+        </div>
+
+        <footer class="hw-foot" id="hw-legend"></footer>
+      </section>
+
+      <p class="demo-note">Данные в демо — синтетические. Числа, форма карточки и API — как в проекте.</p>
+    </div>
+  </div>
+</div>
+
+<script src="activity-chart.js"></script>
+<script src="activity-demo.js"></script>
+</body>
+</html>
