@@ -98,6 +98,17 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
             "account": {"eligible": account_age.is_eligible(seen, now), "min_days": account_age.MIN_ACCOUNT_AGE.days}}
 
 
+async def casual_receipt(db, *, user_id: int, source: str, event_id: str, now: datetime | None = None) -> dict:
+    """What one casual game gave the pass, for the line «+N опыта Пропуска» on its result screen."""
+    now = now or datetime.now(timezone.utc)
+    if not rules.active(now):
+        return {"active": False}
+    gained = await repo.receipt(db, user_id=user_id, source=source, event_id=event_id)
+    async with db.connection.transaction():
+        today = await repo.casual_today(db, user_id=user_id, day=now.date())
+    return {"active": True, "xp": gained or 0, "counted": gained is not None, "today": today, "cap": rules.CASUAL_DAILY_CAP}
+
+
 async def _grant(db, *, user_id: int, season: int, level: int, track: str, item: dict) -> None:
     ref = f"{season}:{level}:{track}"
     if "key" in item:

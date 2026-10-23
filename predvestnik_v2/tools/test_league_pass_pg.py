@@ -61,6 +61,13 @@ async def experience(db) -> None:
     added = [await service.record_rhythm(db, user_id=PLAYER, run_id=f"r{i}", score=30_000, at=DAY) for i in range(2, 12)]
     assert sum(added) == rules.CASUAL_DAILY_CAP - 40 - rules.RHYTHM_MAX_XP and added[-1] == 0, added
     assert await service.record_rhythm(db, user_id=PLAYER, run_id="next-day", score=30_000, at=DAY + timedelta(days=1)) == 60
+    # the result screen line «+N опыта Пропуска»: what one game gave, 0 once the day was full, nothing for a loss
+    line = await service.casual_receipt(db, user_id=PLAYER, source="minesweeper", event_id="m1", now=DAY)
+    assert line["active"] and line["counted"] and line["xp"] == 40 and line["today"] == rules.CASUAL_DAILY_CAP, line
+    assert (await service.casual_receipt(db, user_id=PLAYER, source="rhythm", event_id="r11", now=DAY))["xp"] == 0
+    assert (await service.casual_receipt(db, user_id=PLAYER, source="rhythm", event_id="r11", now=DAY))["counted"]
+    assert not (await service.casual_receipt(db, user_id=PLAYER, source="minesweeper", event_id="m2", now=DAY))["counted"]
+    assert (await service.casual_receipt(db, user_id=PLAYER, source="minesweeper", event_id="m1", now=before)) == {"active": False}
     gained = await service.add_xp(db, user_id=PLAYER, source="league", event_id="s2:minesweeper:1:3", xp=2_000, casual=False, at=DAY)
     assert gained == 2_000, "League levels are not limited by the casual cap"
     assert await repo.xp(db, user_id=PLAYER, season=2) == rules.CASUAL_DAILY_CAP + 60 + 2_000

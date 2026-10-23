@@ -468,9 +468,10 @@ _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-h
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-scene-f-v3.css", "skin-scene-g-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
                  "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css")
 
-# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
+# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script,
+# plus the «Обычный | Рейтинг» switch (game-mode-v3.js).
 _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
-                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js")
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js", "game-mode-v3.js")
 
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
@@ -670,6 +671,11 @@ async def local_games_js():
 @app.get("/static/game-board-v3.js")
 async def game_board_js():
     return Response(_read_static("game-board-v3.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/game-mode-v3.js")
+async def game_mode_js():
+    return Response(_read_static("game-mode-v3.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/static/minesweeper-v2.css")

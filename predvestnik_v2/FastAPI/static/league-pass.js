@@ -21,9 +21,9 @@
     const cols = s.track.map(r => `<li class="lgp-col ${r.level <= s.level ? 'is-reached' : ''} ${r.level === Math.min(s.levels, s.level + 1) ? 'is-current' : ''} ${r.level % 10 === 0 ? 'is-mile' : ''}">
       <span class="lgp-num">${r.level}</span>${cell(r.level, 'free', r.free)}${cell(r.level, 'vip', r.vip)}</li>`).join('');
     const why = !me.account.eligible ? `Награды выдаются аккаунтам, которые в боте не меньше ${me.account.min_days} дней. Опыт копится.`
-      : ready ? '' : s.current ? 'Новых наград пока нет — проходи уровни Лиги.' : '';
+      : ready ? '' : s.current ? 'Новых наград пока нет — проходи уровни в режиме «Рейтинг».' : '';
     return `<section class="lgp" data-season="${s.season}" aria-label="Пропуск сезона ${s.season}">
-      <div class="lgp-head"><div><small class="lg-eyebrow">Пропуск сезона ${s.season}${s.current ? '' : ' · закончился'}</small>
+      <div class="lgp-head"><div>${s.current ? '' : `<small class="lg-eyebrow">Пропуск сезона ${s.season} · закончился</small>`}
         <p class="lgp-lvl">Уровень <b data-count="pass-${s.season}">${s.level}</b><small> из ${s.levels}</small></p></div>
         <p class="lgp-vip ${me.vip ? 'is-on' : ''}">${A().icon('crown', 'lgp-crown')}<span>${me.vip ? 'VIP-дорожка открыта' : 'VIP — с активным VIP'}</span></p></div>
       <div class="lgp-xp"><div class="lgp-bar ${can ? 'is-ready' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="${s.xp_per_level}" aria-valuenow="${into}" aria-label="Опыт до следующего уровня">
@@ -36,7 +36,7 @@
   }
 
   function rules(me) {
-    return `<details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Главное — уровни Лиги: ★ 60, ★★ 80, ★★★ 100 опыта, один раз за уровень в сезоне (улучшил звёзды — получаешь разницу).
+    return `<details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Главное — уровни рейтинга (Ритм и Сапёр › «Рейтинг»): ★ 60, ★★ 80, ★★★ 100 опыта, один раз за уровень в сезоне (улучшил звёзды — получаешь разницу).
       Обычные игры дают меньше: Ритм — 1 опыт за 300 очков (до 60 за забег), победа в Сапёре — 12 / 20 / 40 по сложности.
       Из обычных игр за день засчитывается до ${me.casual.cap} опыта (сегодня ${me.casual.today}).</p>
       <p class="lg-rules">${A().icon('key', 'lg-inline lga-key--bronze')} Ключ открывает сундук: «3★+» значит, что звёзд у сундука будет не меньше трёх. Металл ключа — его уровень: обычный, бронзовый, серебряный, платиновый.

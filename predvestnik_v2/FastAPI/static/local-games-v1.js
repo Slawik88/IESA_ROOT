@@ -35,7 +35,7 @@
       else {
         // Upgrade only NEW boards, never mutate an active packet or its journal.
         p.ruleset_version=p.origin.ruleset_version='minesweeper-v2';
-        const [size,mineCount,label]={easy:[6,6,'Лёгкий'],normal:[9,10,'Обычный'],hard:[9,18,'Сложный']}[difficulty];
+        const [size,mineCount,label]={easy:[6,6,'Лёгкий'],normal:[9,10,'Средний'],hard:[9,18,'Сложный']}[difficulty];
         p.state={run_id:p.run_id,difficulty,label,size,mine_count:mineCount,ruleset_version:p.ruleset_version,status:'awaiting_first_open',revision:0,opened_actions:0,revealed:[],flags:[],changed:[],mines:[],elapsed_ms:0};
         p.origin.difficulty=difficulty;p.first_cell=null;p.layouts={};
         const seed=Uint8Array.from(p.seed.match(/../g),x=>parseInt(x,16));

@@ -49,7 +49,7 @@ async def run(dsn: str) -> None:
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
             for path in ("/league", "/league-demo"):
                 page = await client.get(path)
-                assert page.status_code == 200 and "Лига сезона" in page.text and "{{" not in page.text, path
+                assert page.status_code == 200 and "<title>Рейтинг" in page.text and "{{" not in page.text, path
             for name in router_module._ASSETS:
                 assert (await client.get(f"/static/league-demo/{name}")).status_code == 200, name
                 assert f"/static/league-demo/{name}?v=" in page.text, f"{name} is served but not linked from the page"
@@ -75,6 +75,9 @@ async def run(dsn: str) -> None:
             me = await client.get("/league-demo/api/me")
             assert me.status_code == 200 and me.json()["demo"] is False, "from season 2 every player plays the League"
             assert (await client.post("/league-demo/api/reset", json={})).status_code == 409, "a real season cannot be reset"
+            assert (await client.get("/league-demo/api/pass/casual/casino/x")).status_code == 422, "only the two casual games"
+            line = await client.get("/league-demo/api/pass/casual/rhythm/never-played")
+            assert line.status_code == 200 and line.json()["counted"] is False, line.text
     finally:
         await connection.close()
     print("PASS league HTTP: page and assets; before season 2 early access only (403), after it open to all")

@@ -83,6 +83,14 @@ async def add_xp(db, *, user_id: int, season: int, xp: int) -> None:
     )
 
 
+async def receipt(db, *, user_id: int, source: str, event_id: str) -> int | None:
+    """Experience one event gave (0 when the daily cap was full), None when it gave nothing at all."""
+    async with db.execute("SELECT xp FROM league_pass_receipts WHERE user_id=? AND source=? AND event_id=?",
+                          (int(user_id), source, str(event_id))) as cursor:
+        row = await cursor.fetchone()
+    return int(row[0]) if row else None
+
+
 async def xp(db, *, user_id: int, season: int) -> int:
     async with db.execute("SELECT xp FROM league_pass_progress WHERE user_id=? AND season=?",
                           (int(user_id), int(season))) as cursor:

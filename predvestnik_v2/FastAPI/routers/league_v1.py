@@ -10,7 +10,7 @@ import os
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ _STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 _JS, _CSS = "application/javascript", "text/css"
 _ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS,
            "league-art.js": _JS, "league-fx.js": _JS, "league-demo.js": _JS, "league-ladder.js": _JS, "league-result.js": _JS,
-           "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS,
+           "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS, "game-mode-v3.js": _JS,
            "skin-runtime-v3.js": _JS}   # палитра надетого образа (--v3-acc), как в играх
 _VER = asset_version(_STATIC, ("league-demo.html", *_ASSETS))
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
@@ -93,6 +93,13 @@ async def access(user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
 @router.get("/league-demo/api/pass")
 async def pass_status(user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
     return await league_pass.status(db, user_id=int(user["id"]))
+
+
+# Опыт Пропуска за одну обычную игру (строка на экране итога Ритма и Сапёра); только чтение своих записей
+@router.get("/league-demo/api/pass/casual/{source}/{event_id}")
+async def pass_casual(source: Literal["rhythm", "minesweeper"], event_id: str = Path(max_length=80),
+                      user=Depends(require_tg_user), db=Depends(get_db)) -> dict:
+    return await league_pass.casual_receipt(db, user_id=int(user["id"]), source=source, event_id=event_id)
 
 
 @router.post("/league-demo/api/pass/claim")

@@ -61,14 +61,16 @@
     try{localStorage.removeItem(storageKey);}catch(_){} clearInterval(timer);
     const clear = result.integrity_status === 'clear';
     const labels = { saved_local: 'Сохранено на устройстве', clear: 'Забег подтверждён', review_required: 'Результат ожидает проверки',
-      quarantined: 'Результат не допущен в рейтинг', legacy_unverified: 'Старый результат без проверки' };
-    connection(clear ? '●' : '◐', labels[result.integrity_status] || 'Результат сохранён без рейтингового допуска');
+      quarantined: 'Результат не допущен в таблицу сезона', legacy_unverified: 'Старый результат без проверки' };
+    connection(clear ? '●' : '◐', labels[result.integrity_status] || 'Результат сохранён, но не попал в таблицу');
     $('final-score').textContent = Number(result.score).toLocaleString('ru-RU');
     const n = Number(result.correct_taps) + Number(result.mistakes), acc = n ? (100 * result.correct_taps / n).toFixed(1) : '0';
     $('final-detail').textContent = result.correct_taps + ' из ' + n + ' тактов верно';
+    const passLine = $('pass-xp'); passLine.dataset.run = result.run_id || '';
+    if (clear) window.GameMode?.passXp('rhythm', result.run_id, passLine); else passLine.hidden = true;
     const status = $('result-status');
-    status.textContent = ({saved_local:'Сохранено · отправляем результат',clear:'В рейтинге',review_required:'На проверке',quarantined:'Вне рейтинга',legacy_unverified:'Без проверки'})[result.integrity_status] || 'Без допуска';
-    status.dataset.state = clear ? 'clear' : 'pending'; status.title = labels[result.integrity_status] || 'Нет рейтингового допуска';
+    status.textContent = ({saved_local:'Сохранено · отправляем результат',clear:'В таблице',review_required:'На проверке',quarantined:'Вне таблицы',legacy_unverified:'Без проверки'})[result.integrity_status] || 'Без допуска';
+    status.dataset.state = clear ? 'clear' : 'pending'; status.title = labels[result.integrity_status] || 'Не попал в таблицу сезона';
     $('final-accuracy').textContent = acc.replace('.', ',') + '%';
     $('result-accuracy').style.setProperty('--accuracy', acc + '%');
     $('result-accuracy').setAttribute('aria-label', 'Точность ' + acc.replace('.', ',') + ' процента');
@@ -84,7 +86,7 @@
     if (result.integrity_status === 'clear' && a.previous_best != null) {
       const delta = result.score - a.previous_best;
       const record = document.createElement('p'); record.className = 'r-result-record';
-      record.textContent = a.previous_best === 0 ? 'Первый результат в рейтинге' :
+      record.textContent = a.previous_best === 0 ? 'Первый результат в таблице сезона' :
         delta > 0 ? 'Новый рекорд · +' + delta + ' очков' : 'Личный рекорд · ' + a.previous_best;
       box.append(record);
     }
@@ -181,7 +183,7 @@
   // Сезон: срок в подписи над результатом, призы и условия свёрнуты в «Награды сезона», прошлый сезон одной строкой под результатом
   const num=n=>Number(n||0).toLocaleString('ru-RU');
   function seasonTerms(s){const t=s.terms;return t?'Награду получают игроки, у которых от '+t.min_runs+' забегов в '+t.min_days+' разных днях и аккаунт старше '+t.min_account_days+' дней. Призовые места открываются, когда в таблице '+Object.values(t.podium_min_players).join(' / ')+' игроков.':''}
-  function renderSeason(data){const s=data.season,l=data.last_season;if(!s)return;$('season-no').textContent=s.number;$('season-left').textContent=' · ещё '+s.days_left+' дн., до '+new Date(s.ends_at).toLocaleDateString('ru-RU');$('season-note').textContent=seasonTerms(s);$('season-note').hidden=!s.terms;$('season-rewards').closest('details').hidden=!(s.rewards||[]).length;const box=$('season-rewards');box.replaceChildren();(s.rewards||[]).forEach(r=>{const li=document.createElement('li'),place=document.createElement('b'),prize=document.createElement('span');place.textContent=r.label+' место';prize.textContent=num(r.mora)+' Моры + '+num(r.essence)+' Эссенции';li.append(place,prize);box.append(li)});const top=(s.rewards||[])[0];$('season-top').textContent=top?' · за 1 место '+num(top.mora)+' Моры':'';const last=$('season-last');last.hidden=!l;if(l)last.textContent='Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+num(l.reward_mora)+' Моры':'')+(l.reward_essence?' и '+num(l.reward_essence)+' Эссенции':'')}
+  function renderSeason(data){const s=data.season,l=data.last_season;if(!s)return;$('season-no').textContent=s.number;$('season-left').textContent=(s.days_left?' · ещё '+s.days_left+' дн.':' · последний день')+', до '+new Date(s.ends_at).toLocaleDateString('ru-RU');$('season-note').textContent=seasonTerms(s);$('season-note').hidden=!s.terms;$('season-rewards').closest('details').hidden=!(s.rewards||[]).length;const box=$('season-rewards');box.replaceChildren();(s.rewards||[]).forEach(r=>{const li=document.createElement('li'),place=document.createElement('b'),prize=document.createElement('span');place.textContent=r.label+' место';prize.textContent=num(r.mora)+' Моры + '+num(r.essence)+' Эссенции';li.append(place,prize);box.append(li)});const top=(s.rewards||[])[0];$('season-top').textContent=top?' · за 1 место '+num(top.mora)+' Моры':'';const last=$('season-last');last.hidden=!l;if(l)last.textContent='Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+num(l.reward_mora)+' Моры':'')+(l.reward_essence?' и '+num(l.reward_essence)+' Эссенции':'')}
   let knownTotal=0;   // «из N» приходит только со страницами полного топа: запоминаем, чтобы цифра в шапке не прыгала
   function personal(p){const box=$('leaderboard-personal');box.replaceChildren();if(!p){box.textContent='Тебя пока нет в таблице сезона. Заверши забег с очками, и он появится здесь.';box.classList.remove('has-place');return}if(p.total)knownTotal=p.total;const place=document.createElement('b'),rest=document.createElement('span');place.textContent='#'+p.place+(knownTotal?' из '+knownTotal:'');rest.textContent='лучший счёт '+num(p.best_score);box.append(place,rest);box.classList.add('has-place')}
   // По умолчанию видна пятёрка лидеров; «Весь топ» листает всех игроков сезона страницами (boardPage = номер страницы)

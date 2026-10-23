@@ -35,6 +35,6 @@ const text=e=>e.textContent+' '+e.children.map(text).join(' ');
   const auto={...ranking.m.engine().state,status:'won',opened_actions:1,elapsed_ms:0};
   ranking.m.sync(auto);ranking.m.render();
   assert.match(text(ranking.get('mine-hint')),/Поле открылось первым ходом/);
-  assert.match(text(ranking.get('mine-hint')),/В рейтинг времени/);
+  assert.match(text(ranking.get('mine-hint')),/В таблицу лидеров/);
   console.log('OK: Mines lifecycle, leaderboard race, subsecond records and automatic-win explanation');
 })().catch(e=>{console.error(e);process.exitCode=1;});

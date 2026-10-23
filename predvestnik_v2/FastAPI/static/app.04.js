@@ -9,8 +9,12 @@ const PET_SPECIES_EMOJI={};
 
 const _ARENA_TABS=['game'];
 
-function openRhythmV2Game(){ location.href=BASE+'/rhythm-v2'; }
-function openMinesweeperGame(){ location.href=BASE+'/minesweeper'; }
+// Ритм и Сапёр открываются в режиме, выбранном в игре последним («Обычный | Рейтинг», game-mode-v3.js).
+// Пока выбора не было, а Лига открыта, — рейтинг: с него начинается сезон, и переключиться можно сразу наверху экрана.
+function _ls(key){ try{ return localStorage.getItem(key); }catch(_){ return null; } }
+function _gameMode(game){ const open=_league?!!_league.allowed:_ls('pv_league_access')==='1'; return open&&_ls('pv_game_mode:'+game)!=='casual'?'ranked':'casual'; }
+function openRhythmV2Game(){ location.href=BASE+(_gameMode('rhythm')==='ranked'?'/league?game=rhythm':'/rhythm-v2'); }
+function openMinesweeperGame(){ location.href=BASE+(_gameMode('minesweeper')==='ranked'?'/league?game=minesweeper':'/minesweeper'); }
 
 // «Как играть» for people who have never played Mafia: plain steps + one line per role.
 // Keep the markup semantic (details/ol/dl); styling hooks are listed in docs/MAFIA_DESIGN_HANDOFF.md.
@@ -58,20 +62,23 @@ function openMafiaStats(){
 
 // Каждый режим показывается только при включённом серверном флаге (по умолчанию все выключены).
 const _V3_GAMES = [
-  {flag:'game_rhythm_v2', name:'Ритм', desc:'Бесконечный забег. Жми руны точно, скорость растёт.', hint:'Бесконечный забег, рейтинг подтверждённых результатов', cta:'Играть', open:'openRhythmV2Game()'},
-  {flag:'game_minesweeper_v2', name:'Сапёр', desc:'Открывай клетки и ставь флаги. В рейтинг попадают только победы.', hint:'Логика, победы попадают в топ', cta:'Играть', open:'openMinesweeperGame()'},
+  {flag:'game_rhythm_v2', name:'Ритм', desc:'Бесконечный забег. Жми руны точно, скорость растёт.', hint:'Бесконечный забег, таблица подтверждённых результатов', cta:'Играть', open:'openRhythmV2Game()'},
+  {flag:'game_minesweeper_v2', name:'Сапёр', desc:'Открывай клетки и ставь флаги. В таблицу лидеров попадают только победы.', hint:'Логика, победы попадают в топ', cta:'Играть', open:'openMinesweeperGame()'},
   {flag:'game_casino_v1', name:'Казино', desc:'Руны удачи, колесо и кости на жетоны. Подарок жетонов каждый день.', hint:'Слоты, колесо и кости · подарок дня', cta:'Играть', open:'openCasino()'},
   {flag:'game_mafia_v1', name:'Мафия', desc:'Играется в групповом чате: напиши «бот мафия». Здесь история ваших партий.', hint:'Играется в чате, здесь ваши партии', cta:'Мои партии', open:'openMafiaStats()'}
 ];
 // Личный результат в строке игры: из таблицы сезона (`personal`). Только Ритм и Сапёр; топ Мафии по победам живёт на экране «Топ».
 const _V3_GAME_BOARDS={game_rhythm_v2:'/rhythm-v2/leaderboard/normal', game_minesweeper_v2:'/minesweeper-v2/leaderboard/normal'};
 let _hubSeq=0, _hubScore={}, _hubAt={};   // _hubAt: когда пришёл результат (таблица пересчитывает сезон на сервере, не дёргаем чаще раза в минуту)   // _hubScore[flag]: undefined = грузится, null = нет данных, {place,best_score} = есть
+const _V3_LEAGUE_GAME={game_rhythm_v2:'rhythm', game_minesweeper_v2:'minesweeper'};
 function _hubLine(g){
   if(!_V3_GAME_BOARDS[g.flag])return g.hint;
+  const lg=_V3_LEAGUE_GAME[g.flag], me=_league&&_league.allowed&&_league.me;   // строка описывает тот режим, в котором игра откроется
+  if(me&&_gameMode(lg)==='ranked'){ const x=me.games[lg]; return `Рейтинг · уровень ${Number(x.unlocked)}${x.stars?` · ★ ${Number(x.stars)}`:''}`; }
   const r=_hubScore[g.flag];
   if(r===undefined)return 'Загружаем результат…';
   if(r===null)return 'Результат пока недоступен';
-  const pr=r.personal, tag=g.flag==='game_minesweeper_v2'?'Обычный · ':'';   // у Сапёра берётся одна сложность
+  const pr=r.personal, tag=g.flag==='game_minesweeper_v2'?'Средний · ':'';   // у Сапёра берётся одна сложность
   if(!pr)return tag+'Ещё не играл';
   const best=g.flag==='game_minesweeper_v2'?_hubTime(pr.best_elapsed_ms):fmt(pr.best_score);
   return `${tag}Лучший ${best} · место #${Number(pr.place)}`;
@@ -95,7 +102,7 @@ function loadActivitiesHub(){
     host.innerHTML=`<div class="v3-eyebrow">Играть</div>
       <section class="v3-games v3-games--hub" aria-label="Игры">${open.map(g=>_hubRow(g,chev)).join('')}</section>`;
     if(typeof passHubRow==='function')passHubRow(host);   // строка «Пропуск сезона», пока включён флаг season_pass_v1 (app.43.js)
-    leagueHubRow(host,chev);   // «Лига сезона» всем с сезона 2; до него — только с ранним доступом
+    leagueHubRow(host,chev);   // «Пропуск сезона» (Лига) всем с сезона 2; до него — только с ранним доступом
     if(typeof v3EnterSync==='function')v3EnterSync(host);   // перерисовка не перезапускает каскад
   };
   draw();
@@ -114,17 +121,19 @@ function loadActivitiesHub(){
 }
 
 // Лига (рейтинг уровнями + Пропуск сезона): до сезона 2 — только с правом «Ранний доступ к контенту», с сезона 2 — всем.
-// Карточка-герой: мини-созвездие, текущие уровни обеих игр и сколько наград Пропуска ждёт (точка). Ответы сервера запоминаются на минуту.
+// Карточка-герой «Пропуск сезона»: мини-созвездие, уровень Пропуска с полоской опыта и сколько наград ждёт (точка). Рейтинг каждой игры —
+// внутри самой игры (переключатель «Обычный | Рейтинг»), отдельной вкладки Лиги нет. Ответы сервера запоминаются на минуту.
 let _league=null,_leagueAt=0;
 const _LEAGUE_SKY='<svg class="v3-league-sky" viewBox="0 0 160 90" aria-hidden="true"><path d="M30 24L64 14L96 34L128 20M96 34L88 66L124 78M64 14L52 50L88 66" fill="none" stroke="currentColor" stroke-opacity=".28" stroke-width=".8"/><g fill="currentColor"><circle cx="30" cy="24" r="1.3"/><circle cx="64" cy="14" r="2"/><circle cx="96" cy="34" r="1.5"/><circle cx="128" cy="20" r="1.2"/><circle cx="88" cy="66" r="2.2"/><circle cx="124" cy="78" r="1.2"/><circle cx="52" cy="50" r="1.1"/><circle cx="150" cy="54" r=".9" opacity=".5"/><circle cx="12" cy="70" r=".8" opacity=".4"/></g></svg>';
 function _leagueCard(chev){
-  const r=_league, me=r.me, ps=r.pass, cur=ps&&ps.active&&ps.seasons.find(x=>x.current);
+  const r=_league, me=r.me, ps=r.pass, cur=ps&&ps.active&&ps.seasons.find(x=>x.current), p=me&&me.demo?me.pass:cur;
   const ready=ps&&ps.active&&ps.account&&ps.account.eligible?ps.seasons.reduce((n,x)=>n+x.track.filter(t=>t.free.state==='ready').length+x.track.filter(t=>t.vip.state==='ready').length,0):0;
-  const days=cur?Math.max(0,Math.ceil((Date.parse(cur.ends_at)-Date.now())/864e5)):null;
-  const top=r.public?`Сезон ${me?String(me.season).replace(/^s/,''):''}${days!==null?` · ${days} дн.`:''}`:'Ранний доступ · демо';
-  const lv=me?`<span class="v3-league-lv"><span>Сапёр <i>ур. ${Number(me.games.minesweeper.unlocked)}</i></span><span>Ритм <i>ур. ${Number(me.games.rhythm.unlocked)}</i></span></span>`:'<small>Рейтинг уровнями и Пропуск сезона</small>';
+  const days=cur?Math.max(0,Math.floor((Date.parse(cur.ends_at)-Date.now())/864e5)):null;   // целых дней, как на страницах игр
+  const top=r.public?`Сезон ${me?String(me.season).replace(/^s/,''):''}${days===null?'':days?` · ещё ${days} дн.`:' · последний день'}`:'Ранний доступ · демо';
+  const into=p?(p.level>=p.levels?p.xp_per_level:p.xp_per_level-p.xp_to_next):0;
+  const lv=p?`<span class="v3-league-lv"><span>Уровень <i>${Number(p.level)}</i> из ${Number(p.levels)}</span></span><span class="v3-league-bar" aria-hidden="true"><i style="transform:scaleX(${(into/p.xp_per_level).toFixed(3)})"></i></span>`:'<small>Награды за рейтинг и обычные игры</small>';
   const go=ready?`<span class="v3-league-ready"><i class="v3-league-dot" aria-hidden="true"></i>К получению: ${ready}</span>`:'';
-  return `<button type="button" class="v3-game v3-league" data-game="league" onclick="location.href=BASE+'/league'${ready?"+'#pass'":''}" aria-label="Лига сезона${ready?`, наград к получению: ${ready}`:''}">${_LEAGUE_SKY}<span class="v3-league-t"><small>${top}</small><b>Лига сезона</b>${lv}${go}</span>${ready?'':'<span class="v3-league-go">Открыть</span>'}${chev}</button>`;
+  return `<button type="button" class="v3-game v3-league" data-game="league" onclick="location.href=BASE+'/league#pass'" aria-label="Пропуск сезона${p?`, уровень ${Number(p.level)} из ${Number(p.levels)}`:''}${ready?`, наград к получению: ${ready}`:''}">${_LEAGUE_SKY}<span class="v3-league-t"><small>${top}</small><b>Пропуск сезона</b>${lv}${go}</span>${ready?'':'<span class="v3-league-go">Открыть</span>'}${chev}</button>`;
 }
 function leagueHubRow(host,chev){
   const paint=()=>{
@@ -132,9 +141,11 @@ function leagueHubRow(host,chev){
     if(!_league||!_league.allowed||!list)return;
     const old=host.querySelector('.v3-game[data-game="league"]');
     if(old)old.outerHTML=_leagueCard(chev); else list.insertAdjacentHTML('afterbegin',_leagueCard(chev));
+    Object.keys(_V3_LEAGUE_GAME).forEach(flag=>{ const g=_V3_GAMES.find(x=>x.flag===flag), small=host.querySelector(`.v3-game[data-game="${flag}"] small`); if(g&&small)small.textContent=_hubLine(g); });
   };
   if(Date.now()-_leagueAt<60000){paint();return;}
   api('/league-demo/api/access').then(async r=>{
+    try{ localStorage.setItem('pv_league_access',r&&r.allowed?'1':'0'); }catch(_){}   // тот же ответ помнит переключатель в играх
     if(!r||!r.allowed){_league=r||null;_leagueAt=Date.now();return;}
     const [me,pass]=await Promise.all([api('/league-demo/api/me').catch(()=>null),r.public?api('/league-demo/api/pass').catch(()=>null):null]);
     _league={...r,me,pass};_leagueAt=Date.now();paint();

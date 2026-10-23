@@ -1,4 +1,6 @@
-// Лига: оболочка (герой сезона, вкладки, переходы), до сезона 2 — демо раннего доступа, с ним — для всех.
+// Лига: рейтинговый режим одной игры (/league?game=rhythm|minesweeper) и Пропуск сезона (/league#pass).
+// Вкладок нет: «Обычный | Рейтинг» сверху (game-mode-v3.js) — тот же переключатель, что на страницах игр, а Пропуск — полоска с опытом.
+// До сезона 2 — демо раннего доступа, с ним — для всех.
 // Лестница и топ — league-ladder.js, игры — league-mines.js и league-rhythm.js, Пропуск — league-pass.js, итог уровня — league-result.js.
 // Сервер — единственный источник правил и звёзд; здесь только показ.
 (() => {
@@ -18,9 +20,11 @@
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
-  const TABS = ['minesweeper', 'rhythm', 'pass'];
-  const state = {tab: 'minesweeper', me: null, pass: null};
-  const SKELETON = '<div class="lg-skel" aria-hidden="true"><i class="w40"></i><i class="h96"></i><i class="h48 w60"></i><i></i><i class="w80"></i></div><p class="lg-sr">Загружаем Лигу…</p>';
+  const GAMES = ['minesweeper', 'rhythm'], NAMES = {minesweeper: 'Сапёр', rhythm: 'Ритм'};
+  const asked = new URLSearchParams(location.search).get('game');
+  // view — что на экране; game — игра, из которой пришли (к ней ведёт «‹» из Пропуска)
+  const state = {view: 'minesweeper', game: GAMES.includes(asked) ? asked : null, me: null, pass: null};
+  const SKELETON = '<div class="lg-skel" aria-hidden="true"><i class="w40"></i><i class="h96"></i><i class="h48 w60"></i><i></i><i class="w80"></i></div><p class="lg-sr">Загружаем…</p>';
 
   async function api(path, options = {}) {
     let response;
@@ -35,40 +39,68 @@
   }
 
   // Тема: как у Telegram (светлая/тёмная); надетый образ задаёт свою палитру и важнее темы (skin-runtime-v3.js)
+  // Тёмная, как меню и страницы игр: переключатель «Обычный | Рейтинг» не должен мигать светлым экраном.
+  // Светлая палитра в CSS остаётся на случай, если всё приложение получит светлую тему.
   function theme() {
-    const scheme = webApp()?.colorScheme || (window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-    document.documentElement.dataset.theme = scheme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = 'dark';
   }
 
-  function tabs(dir) {
-    const index = TABS.indexOf(state.tab);
-    document.querySelectorAll('.lg-tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === state.tab)));
-    const thumb = document.querySelector('.lg-tabs-thumb');
-    if (thumb) thumb.style.transform = `translateX(${index * 100}%)`;
-    return dir;
-  }
+  const ready = () => state.pass?.active && state.pass.account?.eligible ? state.pass.seasons.reduce((n, s) => n + s.track.filter(r => r.free.state === 'ready').length
+    + s.track.filter(r => r.vip.state === 'ready').length, 0) : 0;
 
-  // Шапка: номер сезона, сколько дней осталось, точка на «Пропуске», если есть что забрать
+  // Шапка: игра или «Пропуск сезона», номер сезона, сколько дней осталось; «‹» из Пропуска возвращает к игре, из игры — в меню игр
   function hero() {
-    const demo = state.me?.demo;
-    $('lg-eyebrow').textContent = !state.me ? 'Лига' : demo ? 'Ранний доступ · демо' : `Сезон ${String(state.me.season).replace(/^s/, '')}`;
+    const demo = state.me?.demo, pass = state.view === 'pass';
+    const season = !state.me ? 'Сезон' : demo ? 'Ранний доступ · демо' : `Сезон ${String(state.me.season).replace(/^s/, '')}`;
+    $('lg-eyebrow').textContent = pass || !state.me ? season : `${season} · рейтинг`;
+    $('lg-title').textContent = pass ? 'Пропуск сезона' : NAMES[state.view];
+    document.title = `${pass ? 'Пропуск сезона' : NAMES[state.view] + ' · рейтинг'} — Предвестник`;
     $('lg-note').classList.toggle('lg-hidden', !demo);
     const current = state.pass?.active && state.pass.seasons.find(s => s.current);
-    const days = current ? Math.max(0, Math.ceil((Date.parse(current.ends_at) - Date.now()) / 864e5)) : null;
+    // целых дней до конца — как «ещё N дн.» на страницах игр (core/seasons.py); в последний день так и написано
+    const days = current ? Math.max(0, Math.floor((Date.parse(current.ends_at) - Date.now()) / 864e5)) : null;
     $('lg-days').hidden = days === null;
-    if (days !== null) { $('lg-days').innerHTML = `<b data-count="days">${days}</b><small>${plural(days, 'день', 'дня', 'дней')} до конца</small>`; Fx().count($('lg-days')); }
-    const ready = state.pass?.active && state.pass.account?.eligible ? state.pass.seasons.reduce((n, s) => n + s.track.filter(r => r.free.state === 'ready').length
-      + s.track.filter(r => r.vip.state === 'ready').length, 0) : 0;
-    document.querySelector('[data-tab="pass"]').classList.toggle('has-dot', ready > 0);
+    if (days) { $('lg-days').innerHTML = `<b data-count="days">${days}</b><small>${plural(days, 'день', 'дня', 'дней')} до конца</small>`; Fx().count($('lg-days')); }
+    else if (days === 0) $('lg-days').innerHTML = '<small>последний<br>день сезона</small>';
+    const link = $('lg-back-link'), inPage = pass && state.game;
+    link.setAttribute('aria-label', inPage ? `Назад: ${NAMES[state.game]}` : 'Назад к играм');
+    link.onclick = inPage ? event => { event.preventDefault(); go(state.game, -1); } : null;
+  }
+
+  // Полоска Пропуска под переключателем: уровень, опыт до следующего, сколько наград ждёт. Нажатие — экран Пропуска.
+  function strip() {
+    const el = $('lg-strip'), me = state.me;
+    const s = me?.demo ? me.pass : state.pass?.active && state.pass.seasons.find(x => x.current);
+    el.hidden = state.view === 'pass' || !s;
+    if (el.hidden) return;
+    const max = s.level >= s.levels, into = max ? s.xp_per_level : s.xp_per_level - s.xp_to_next, n = ready();
+    const note = n ? `К получению: ${n}` : max ? 'Все уровни открыты' : `${s.xp_to_next} опыта до уровня ${s.level + 1}`;
+    el.innerHTML = `<span class="lgs-ico" aria-hidden="true">${window.LeagueArt.icon('chest')}</span>
+      <span class="lgs-t"><b>Пропуск · уровень ${s.level}<small> из ${s.levels}</small></b><small class="${n ? 'is-ready' : ''}">${n ? '<i class="lgs-dot" aria-hidden="true"></i>' : ''}${note}</small></span>
+      <span class="lgs-bar" aria-hidden="true"><i style="transform:scaleX(${(into / s.xp_per_level).toFixed(3)})"></i></span><span class="lgs-go" aria-hidden="true">›</span>`;
+    el.setAttribute('aria-label', `Пропуск сезона, уровень ${s.level} из ${s.levels}. ${note}`);
+    el.onclick = () => go('pass', 1);
+  }
+
+  function go(view, dir) {
+    if (view === state.view) return;
+    state.view = view;
+    if (view !== 'pass') state.game = view;
+    try { history.replaceState(null, '', view === 'pass' ? (state.game ? `?game=${state.game}#pass` : '#pass') : `?game=${view}`); } catch (_) { /* file:// */ }
+    render(dir);
+    window.scrollTo({top: 0});
   }
   const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
 
   function render(dir = 0) {
-    tabs(dir);
-    if (!state.me) return;
     hero();
+    if (!state.me) return;   // переключатель и полоска — после ответа сервера: без доступа их не видно
+    const mode = $('lg-mode');
+    if (state.view === 'pass') mode.hidden = true;
+    else if (mode.dataset.game !== state.view || mode.hidden) { mode.dataset.game = state.view; window.GameMode.mount(mode, {game: state.view, mode: 'ranked', known: true}); }
+    strip();
     const view = $('lg-view');
-    if (state.tab !== 'pass') window.LeagueLadder.render(view, state.tab);
+    if (state.view !== 'pass') window.LeagueLadder.render(view, state.view);
     else if (state.me.demo) window.LeagueLadder.demoPass(view);
     else window.LeaguePass?.render(view);
     if (dir) Fx().enter(view, dir);
@@ -81,7 +113,7 @@
       render();
     } catch (error) {
       const closed = error.status === 403 || error.status === 401;
-      $('lg-view').innerHTML = `<div class="lg-empty"><h2>${closed ? 'Ранний доступ закрыт' : 'Лига не загрузилась'}</h2><p class="lg-error" role="alert">${esc(error.message)}</p>
+      $('lg-view').innerHTML = `<div class="lg-empty"><h2>${closed ? 'Ранний доступ закрыт' : 'Не загрузилось'}</h2><p class="lg-error" role="alert">${esc(error.message)}</p>
         ${closed ? '' : '<button type="button" id="lg-retry">Повторить</button>'}</div>`;
       if (!closed) $('lg-retry').onclick = () => { $('lg-view').innerHTML = SKELETON; refresh(); };
     }
@@ -89,7 +121,7 @@
 
   // Сброс демо: подтверждение в листе, а не confirm()
   function resetDemo() {
-    Fx().sheet('Сбросить прогресс демо?', '<p class="lg-rules">Уровни и звёзды демо Лиги начнутся заново. Настоящий сезон это не трогает.</p>', [
+    Fx().sheet('Сбросить прогресс демо?', '<p class="lg-rules">Уровни и звёзды демо рейтинга начнутся заново. Настоящий сезон это не трогает.</p>', [
       {l: 'Сбросить', f: async () => {
         try { await api('/reset', {method: 'POST', body: '{}'}); await refresh(); } catch (error) { Fx().toast(esc(error.message), 'is-bad'); }
       }},
@@ -120,18 +152,13 @@
   }
 
   window.League = {api, show, back, esc, stars, haptic, $, state, play, refresh, resetDemo, plural};
-  if (location.hash === '#pass') state.tab = 'pass';
+  // Старая ссылка /league без игры открывает ту, в которую играли последней
+  if (location.hash === '#pass') state.view = 'pass';
+  else state.view = state.game || GAMES.find(g => window.GameMode.last(g) === 'ranked') || 'minesweeper';
+  if (state.view !== 'pass') state.game = state.view;
   theme();
-  tabs(0);
+  render();
   $('lg-view').innerHTML = SKELETON;
-  document.querySelectorAll('.lg-tabs button').forEach(b => {
-    b.onclick = () => {
-      if (b.dataset.tab === state.tab) return;
-      const dir = Math.sign(TABS.indexOf(b.dataset.tab) - TABS.indexOf(state.tab));
-      state.tab = b.dataset.tab;
-      render(dir);
-    };
-  });
   window.addEventListener('load', () => {
     const app = webApp();
     if (app) { try { app.ready(); app.expand(); app.onEvent?.('themeChanged', theme); } catch (_) { /* old client */ } }

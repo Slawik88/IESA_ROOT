@@ -23,7 +23,7 @@ class Difficulty:
 
 DIFFICULTIES: Final = {
     "easy": Difficulty("easy", 6, 6, "Лёгкий"),
-    "normal": Difficulty("normal", 9, 10, "Обычный"),
+    "normal": Difficulty("normal", 9, 10, "Средний"),
     "hard": Difficulty("hard", 9, 18, "Сложный"),
 }
 

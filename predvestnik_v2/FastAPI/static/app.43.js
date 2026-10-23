@@ -69,7 +69,7 @@ function _spHubHtml() {
   let small = me ? 'Откройте, чтобы посмотреть уровни' : 'Загружаем пропуск…', go = 'Открыть', hot = false;
   if (me && me.enabled && cur && cur.closed && !(Number(cur.claimable_levels) > 0)) return '';   // сезон 1 закрыт и забрать нечего: строку убирает новый Пропуск Лиги
   if (me && me.enabled && cur) {
-    if (ready && _spCanClaim(me)) { small = `К получению: ${_spLevels(ready)}`; go = 'Забрать'; hot = true; }
+    if (ready && _spCanClaim(me)) { small = `К получению: ${_spLevels(ready)}${cur.closed ? ` · до ${_spDate(cur.claim_until)}` : ''}`; go = 'Забрать'; hot = true; }
     else small = cur.level >= cur.levels ? 'Весь путь пройден' : `Уровень ${fmt(cur.level)} из ${fmt(cur.levels)} · до следующего ${_spPoints(cur.points_to_next)}`;
   } else if (me && !me.enabled) return '';
   return `<button type="button" class="v3-game sp-hub${hot ? ' is-hot' : ''}" data-pass onclick="openSeasonPass()"><span><b>${cur && cur.closed ? `Пропуск сезона ${fmt(cur.season)}` : 'Пропуск сезона'}</b><small>${_profileEsc(small)}</small></span><span class="v3-game-go">${go}</span>${_SP_ARROW}</button>`;

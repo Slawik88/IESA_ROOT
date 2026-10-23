@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Лига сезона — Предвестник</title>
+  <title>Рейтинг — Предвестник</title>
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-demo.css?v={{VER}}">
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-games.css?v={{VER}}">
   <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-pass.css?v={{VER}}">
@@ -17,16 +17,13 @@
           <circle cx="214" cy="62" r="1.1" opacity=".6"/><circle cx="150" cy="16" r=".8" opacity=".4"/><circle cx="120" cy="96" r=".9" opacity=".35"/><circle cx="350" cy="12" r=".9" opacity=".4"/>
           <circle cx="176" cy="104" r=".7" opacity=".35"/><circle class="lg-tw" cx="232" cy="18" r="3.2" opacity="0"/><circle class="lg-tw lg-tw2" cx="262" cy="78" r="3.4" opacity="0"/></g>
       </svg>
-      <a class="lg-back" href="{{BASE}}/?startapp=games" aria-label="Назад к играм">‹</a>
-      <div class="lg-hero-t"><small id="lg-eyebrow">Лига</small><h1>Лига сезона</h1></div>
+      <a class="lg-back" id="lg-back-link" href="{{BASE}}/?startapp=games" aria-label="Назад к играм">‹</a>
+      <div class="lg-hero-t"><small id="lg-eyebrow">Сезон</small><h1 id="lg-title">Рейтинг</h1></div>
       <p class="lg-days" id="lg-days" hidden></p>
     </header>
     <p class="lg-demo-note lg-hidden" id="lg-note" role="note">Это демо нового рейтингового режима. Награды и опыт здесь ненастоящие: ничего не начисляется.</p>
-    <nav class="lg-tabs" role="tablist" aria-label="Разделы Лиги"><i class="lg-tabs-thumb" aria-hidden="true"></i>
-      <button type="button" role="tab" data-tab="minesweeper" aria-selected="true">Сапёр</button>
-      <button type="button" role="tab" data-tab="rhythm" aria-selected="false">Ритм</button>
-      <button type="button" role="tab" data-tab="pass" aria-selected="false">Пропуск</button>
-    </nav>
+    <div class="gmode-host" id="lg-mode" hidden></div>
+    <button type="button" class="lgs" id="lg-strip" hidden></button>
     <section id="lg-view" class="lg-panel" aria-live="polite"></section>
     <section id="lg-play" class="lg-panel lg-hidden" aria-live="polite"></section>
   </main>
@@ -34,6 +31,7 @@
   <script src="{{BASE}}/static/league-demo/skin-runtime-v3.js?v={{VER}}"></script>
   <script src="{{BASE}}/static/league-demo/league-art.js?v={{VER}}"></script>
   <script src="{{BASE}}/static/league-demo/league-fx.js?v={{VER}}"></script>
+  <script src="{{BASE}}/static/league-demo/game-mode-v3.js?v={{VER}}"></script>
   <script src="{{BASE}}/static/league-demo/league-demo.js?v={{VER}}"></script>
   <script src="{{BASE}}/static/league-demo/league-ladder.js?v={{VER}}"></script>
   <script src="{{BASE}}/static/league-demo/league-result.js?v={{VER}}"></script>

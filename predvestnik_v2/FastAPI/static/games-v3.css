@@ -154,3 +154,21 @@ button:disabled { opacity: .4; }
 :is(body, body.skin-v3) .mine-board .mine-cell.flag { background:var(--skin-cell-flag,#403b2c); color:var(--gold,#ffd06e); }
 :is(body, body.skin-v3) .mine-board .mine-cell.mine { background:#592d3b; color:#ffd0d0; box-shadow:inset 0 0 0 1.5px #ef8f9d; }
 :is(body, body.skin-v3) .mine-board .mine-cell.wrong-flag { background:#152235; color:#ffb3bd; box-shadow:inset 0 0 0 1px #98636f; }
+
+/* ═══ «Обычный | Рейтинг» (game-mode-v3.js): один переключатель режима внутри игры, вместо отдельной вкладки Лиги ═══ */
+.gmode-host[hidden] { display: none; }
+.gmode-host { margin: 0 0 18px; }
+.gmode { position: relative; display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 14px; background: var(--g-faint); }
+.gmode-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--g-acc); transition: transform .18s cubic-bezier(.22,1,.36,1); }
+.gmode-thumb.is-right { transform: translateX(100%); }
+:is(body, body.skin-v3) .gmode button { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; width: auto; min-height: 40px; margin: 0; padding: 0 10px;
+  border: 0; border-radius: 10px; background: none; box-shadow: none; color: var(--g-dim); font: inherit; font-size: 14px; font-weight: 600; transition: color .18s; }
+:is(body, body.skin-v3) .gmode button[aria-pressed="true"] { color: var(--g-on); }
+.gmode-new { padding: 2px 6px; border-radius: 6px; background: var(--g-acc); color: var(--g-on); font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.gmode button[aria-pressed="true"] .gmode-new { background: var(--g-on); color: var(--g-acc); }
+@media (prefers-reduced-motion: reduce) { .gmode-thumb, .gmode button { transition: none; } }
+/* «+N опыта Пропуска» на итоге обычной игры (game-mode-v3.js passXp) */
+.pass-xp[hidden] { display: none; }
+:is(body, body.skin-v3) :is(.panel, .mine-panel) .pass-xp { margin: 10px 0 0; color: #f5cf73; font-size: 14px; font-weight: 600; text-align: center; animation: pass-xp-in .4s cubic-bezier(.22,1,.36,1) both; }
+@keyframes pass-xp-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .pass-xp { animation: none; } }
