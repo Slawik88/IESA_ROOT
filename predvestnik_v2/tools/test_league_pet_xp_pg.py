@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import asyncpg
 
+from core.league_pass import PET_XP
 from core.league_v1 import DEMO_SEASON, FLAG_KEY
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import league_v1 as repo, pets_v1 as v1, pets_v2 as v2
@@ -57,72 +58,75 @@ async def run(dsn: str) -> None:
         async def xp() -> int:
             return await repo.pet_xp(db, user_id=USER, season=DEMO_SEASON)
 
-        # Two real requests race on the existing pet lock: only one award.
-        results = await asyncio.gather(*(
-            pets_v1.select_active_pet(adapter, USER, pet, "same-id") for adapter in (db, db2)
-        ))
-        assert sum(bool(r.get("idempotent_replay")) for r in results) == 1
-        assert await xp() == 10
-        try:
-            await pets_v1.select_active_pet(db, USER, pet + 999999, "invalid")
-        except pets_v1.PetPolicyError:
-            pass
-        else:
-            raise AssertionError("an unowned pet must be rejected")
-        assert await xp() == 10
+        async def food(n: int) -> None:
+            await db.execute("INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?, 'food_basic',?) "
+                             "ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=EXCLUDED.quantity", (USER, n))
 
-        # Same action id in the other store is a distinct successful action.
+        def feeding(action_id: str, adapter=db):
+            return pets_v2.feed_pet(adapter, user_id=USER, pet_id=pet, food_id="food_basic", action_id=action_id)
+
+        FEED = PET_XP["feed"]
+        # Free toggles never award (core.league_pass.PET_XP): a tap loop is not a farm.
+        await pets_v1.select_active_pet(db, USER, pet, "active")
         gear = dict(user_id=USER, pet_id=pet, operation="starter", item=None, expected_tier=0, action_id="same-id")
         await pet_equipment.change(db, **gear)
-        assert await xp() == 20
         assert (await pet_equipment.change(db, **gear))["idempotent_replay"]
         await pets_v2.overview(db, USER)
         await pets_v2.preview_run(db, user_id=USER, pet_id=pet, kind="trek", hours=3, route="forest")
-        assert await xp() == 20, "reads and previews never award XP"
-
-        # Real Trail start is also connected, with its original replay behavior.
         trip = dict(user_id=USER, pet_id=pet, kind="trek", hours=3, route="forest", action_id="trip")
         await pets_v2.start_run(db, **trip)
         assert (await pets_v2.start_run(db, **trip))["idempotent_replay"]
-        assert await xp() == 30
+        assert await xp() == 0, "active pet, starter gear, reads, previews and a Trail start give nothing"
 
-        await db.execute("INSERT INTO chest_food_balances_v1(user_id,food_id,quantity) VALUES (?, 'food_basic',1) ON CONFLICT(user_id,food_id) DO UPDATE SET quantity=1", (USER,))
-        feeding = dict(user_id=USER, pet_id=pet, food_id="food_basic", action_id="feed")
-        assert (await pets_v2.feed_pet(db, **feeding))["remaining"] == 0
-        assert (await pets_v2.feed_pet(db, **feeding))["idempotent_replay"]
-        assert await xp() == 40
+        # Two real feeds race on the existing pet lock with one action id: one award.
+        await food(5)
+        results = await asyncio.gather(*(feeding("race", adapter) for adapter in (db, db2)))
+        assert sum(bool(r.get("idempotent_replay")) for r in results) == 1
+        assert await xp() == FEED
+        assert (await feeding("race"))["idempotent_replay"] and await xp() == FEED
+        try:
+            await pets_v2.feed_pet(db, user_id=USER, pet_id=pet + 999999, food_id="food_basic", action_id="invalid")
+        except pets_v2.PetV2PolicyError:
+            pass
+        else:
+            raise AssertionError("an unowned pet must be rejected")
+        assert await xp() == FEED
 
         # Optional demo failure leaves the real action committed and connection usable.
         async def fail_award(*args, **kwargs):
             await db.execute("SELECT * FROM intentionally_missing_demo_xp_table")
 
         with patch.object(repo, "add_pet_xp", side_effect=fail_award):
-            result = await pets_v1.select_active_pet(db, USER, pet, "award-failed")
-        assert result["ok"] and await v1.cached_action(db, USER, "award-failed")
-        assert await xp() == 40
+            result = await feeding("award-failed")
+        assert not result.get("idempotent_replay") and await v2.cached_action(db, USER, "award-failed")
+        assert await xp() == FEED
 
         # A later failure in the real writer still rolls back the receipt AND XP.
         try:
             async with connection.transaction():
-                await pets_v1.select_active_pet(db, USER, pet, "outer-rollback")
-                assert await xp() == 50
+                await feeding("outer-rollback")
+                assert await xp() == 2 * FEED
                 raise RuntimeError("rollback original action")
         except RuntimeError:
             pass
-        assert await xp() == 40 and not await v1.cached_action(db, USER, "outer-rollback")
+        assert await xp() == FEED and not await v2.cached_action(db, USER, "outer-rollback")
 
         # Threshold changes take effect immediately; ordinary users never earn.
         await db.execute("UPDATE admin_role_grants SET min_rank=5 WHERE key=?", (FLAG_KEY,))
-        await pets_v1.select_active_pet(db, USER, pet, "gate-closed")
-        await pet_actions.record_pet_event(db, user_id=PLAYER, source="pet_v1", event_id="ordinary")
-        assert await xp() == 40 and await repo.pet_xp(db, user_id=PLAYER, season=DEMO_SEASON) == 0
+        await feeding("gate-closed")
+        await pet_actions.record_pet_event(db, user_id=PLAYER, kind="feed", event_id="ordinary")
+        assert await xp() == FEED and await repo.pet_xp(db, user_id=PLAYER, season=DEMO_SEASON) == 0
         await db.execute("UPDATE admin_role_grants SET min_rank=1 WHERE key=?", (FLAG_KEY,))
 
-        # Public launch retires demo awards even for early-access staff.
-        with patch.object(pet_actions, "_demo_active", return_value=False), patch.object(repo, "add_pet_xp") as award:
-            await pet_actions.record_pet_event(db, user_id=USER, source="pet_v1", event_id="public-season")
+        # Public launch: the same counted action goes to the real pass, never to the demo.
+        from services import league_pass
+        with patch.object(pet_actions, "_demo_active", return_value=False), patch.object(repo, "add_pet_xp") as award, \
+                patch.object(league_pass, "record_pet") as real:
+            await pet_actions.record_pet_event(db, user_id=USER, kind="feed", event_id="public-season")
+            await pet_actions.record_pet_event(db, user_id=USER, kind=None, event_id="free-toggle")
             award.assert_not_awaited()
-        assert await xp() == 40
+            real.assert_awaited_once_with(db, user_id=USER, kind="feed", event_id="public-season")
+        assert await xp() == FEED
 
         # Combine game/pet progress without changing game stars/ranks.
         await repo.save_level(db, user_id=USER, season=DEMO_SEASON, game="rhythm", level=1, stars=3, xp=100, best={})
@@ -130,16 +134,15 @@ async def run(dsn: str) -> None:
         with patch.object(league.public_profiles, "player_projection", wraps=projection) as names:
             view = await league.overview(db, user_id=USER)
             assert names.await_count == 1, "both boards resolve player profiles in one batch"
-        assert view["pass"]["xp"] == 140 and view["pet_xp"] == 40 and view["pet_action_xp"] == 10
+        assert view["pass"]["xp"] == 100 + FEED and view["pet_xp"] == FEED and view["pets"]["xp"]["feed"] == FEED
         assert view["games"]["rhythm"]["stars"] == 3 and view["pass"]["fake"]
 
         await league.reset(db, user_id=USER)
         assert (await league.overview(db, user_id=USER))["pass"]["xp"] == 0
-        await pets_v1.select_active_pet(db, USER, pet, "same-id")
-        await pet_equipment.change(db, **gear)
+        await feeding("race")
         assert await xp() == 0, "old receipts cannot award again after a demo reset"
-        await pets_v1.select_active_pet(db, USER, pet, "after-reset")
-        assert await xp() == 10
+        await feeding("after-reset")
+        assert await xp() == FEED
 
         # Installed schema performs no DDL; a missing index is repaired without a process cache.
         class Probe:
@@ -161,7 +164,7 @@ async def run(dsn: str) -> None:
     finally:
         await other.close()
         await connection.close()
-    print("PASS demo pet XP: real v1/v2/equipment actions, concurrent retry, gates, reads, rollback, optional failure, reset, schema fast path")
+    print("PASS pet XP: only counted actions, concurrent retry, gates, free toggles and reads give nothing, rollback, optional failure, public routing, reset, schema fast path")
 
 
 if __name__ == "__main__":

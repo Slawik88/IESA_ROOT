@@ -35,10 +35,23 @@
         <ol role="list">${cols}</ol></div></section>`;
   }
 
+  // Питомцы: что даёт опыт и сколько (таблица с сервера, core/league_pass.py PET_XP), свой дневной предел
+  const PET_NAMES = [['feed', 'кормление'], ['activity_done', 'завершённое занятие'], ['trail_claim', 'забранный поход Тропы'],
+    ['tracking', 'выслеживание'], ['outing', 'вылазка'], ['trial', 'испытание недели'], ['level_up', 'улучшение питомца'],
+    ['camp_upgrade', 'стройка в лагере'], ['reforge', 'перековка талисмана'], ['gear_craft', 'новое снаряжение'],
+    ['gear_upgrade', 'улучшение снаряжения'], ['duplicate', 'дубликат из сундука']];
+  function petsRules(pets, today = null) {
+    if (!pets) return '';
+    const list = PET_NAMES.filter(([k]) => pets.xp[k]).map(([k, name]) => `${name} ${pets.xp[k]}`).join(', ');
+    return `<p class="lg-rules">🐾 <b>Питомцы</b> — тоже опыт, до ${pets.cap} в день${today === null ? '' : ` (сегодня ${today})`}: ${list}.
+      Смена питомца, сборки и «надеть / снять» опыта не дают.</p>`;
+  }
+
   function rules(me) {
     return `<details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Главное — уровни рейтинга (Ритм и Сапёр › «Рейтинг»): ★ 60, ★★ 80, ★★★ 100 опыта, один раз за уровень в сезоне (улучшил звёзды — получаешь разницу).
       Обычные игры дают меньше: Ритм — 1 опыт за 300 очков (до 60 за забег), победа в Сапёре — 12 / 20 / 40 по сложности.
       Из обычных игр за день засчитывается до ${me.casual.cap} опыта (сегодня ${me.casual.today}).</p>
+      ${petsRules(me.pets, me.pets?.today ?? null)}
       <p class="lg-rules">${A().icon('key', 'lg-inline lga-key--bronze')} Ключ открывает сундук: «3★+» значит, что звёзд у сундука будет не меньше трёх. Металл ключа — его уровень: обычный, бронзовый, серебряный, платиновый.
       В сундуках — еда, карточки питомцев, джокеры, Мора, алмазы. Скинов в Пропуске нет.</p></details>`;
   }
@@ -110,5 +123,5 @@
     await Fx().bump(chest, 1.3);
   }
 
-  window.LeaguePass = {render};
+  window.LeaguePass = {render, petsRules};
 })();

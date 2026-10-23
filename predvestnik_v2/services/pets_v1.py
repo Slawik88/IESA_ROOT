@@ -69,7 +69,7 @@ async def _settle_activity_keys(db, user_id: int) -> list[dict]:
             source_snapshot={"run_id": str(run["id"]), "activity_kind": kind,
                              "duration_hours": int(run["duration_hours"]), "pet_id": int(run["pet_id"])},
         )
-        await record_pet_event(db, user_id=int(user_id), source="pet_v1_complete", event_id=str(run["id"]))
+        await record_pet_event(db, user_id=int(user_id), kind="activity_done", event_id=str(run["id"]))
         receipts.append({"run_id": str(run["id"]), "activity_kind": kind,
                          "amount_keys": await chest_repo.grant_total(
                              db, user_id=int(user_id), source_kind=grant.source_kind,
@@ -140,7 +140,7 @@ async def apply_duplicate_progression(db, *, user_id: int, pet_id: int, source_e
             )
             if receipt.amount != 1:
                 raise RuntimeError("Echo Shard policy returned an invalid pet duplicate amount.")
-        await record_pet_event(db, user_id=int(user_id), source="pet_duplicate", event_id=source_event_id)
+        await record_pet_event(db, user_id=int(user_id), kind="duplicate", event_id=source_event_id)
         return {"ok": True, "pet_id": int(pet_id), "outcome": outcome, "level_before": before,
                 "level_after": after, "echo_amount": echo_amount, "idempotent_replay": False}
 

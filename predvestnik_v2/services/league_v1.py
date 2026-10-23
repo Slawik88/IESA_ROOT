@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from core import league_mines, league_pass_demo, mines_logic
+from core import league_pass as pass_rules
 from core import league_v1 as rules
 from infrastructure.repositories import league_v1 as repo
 from infrastructure.repositories import public_profiles_v1 as public_profiles
@@ -59,7 +60,7 @@ async def overview(db, *, user_id: int) -> dict:
     demo = rules.is_demo(season)
     return {"season": season, "demo": demo, "games": games, "xp_by_stars": rules.XP_BY_STARS,
             "pass": league_pass_demo.view(sum(r["xp"] for r in rows) + pet_xp) if demo else None,
-            "pet_action_xp": league_pass_demo.PET_ACTION_XP if demo else 0, "pet_xp": pet_xp}
+            "pets": {"xp": dict(pass_rules.PET_XP), "cap": pass_rules.PET_DAILY_CAP}, "pet_xp": pet_xp}
 
 
 async def _cancel_active(db, *, user_id: int, game: str) -> None:

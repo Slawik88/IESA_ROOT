@@ -26,6 +26,32 @@ RHYTHM_SCORE_PER_XP: Final = 300
 RHYTHM_MAX_XP: Final = 60
 MINES_WIN_XP: Final = {"easy": 12, "normal": 20, "hard": 40}
 
+# Pets (owner, 23.10.2026): real progress with a pet gives a little experience, under its own daily cap, so
+# pets alone fill about a third of the pass (100 a day × a month ≈ 10 of 30 levels) and never replace play.
+# Only an action that costs something counts: food, energy, Mora, Essence, cards or a weekly attempt.
+# Free toggles (active pet, builds and presets, equip/unequip, opening a tracking cell, the starter gear)
+# give nothing — otherwise a tap loop would be a farm.  What takes time counts when it pays off: an activity
+# when it completes, a Trail run when it is claimed.  One receipt per action: a replayed request adds nothing.
+PET_DAILY_CAP: Final = 100
+PET_XP: Final = {
+    "feed": 10,              # еда тратится
+    "activity_done": 20,     # занятие завершилось (старт не считается)
+    "expedition": 10,        # решение в экспедиции
+    "trail_claim": 20,       # забран поход/экспедиция Тропы (энергия потрачена на старте)
+    "tracking": 10,          # начато выслеживание (попытки ограничены)
+    "outing": 10,            # начата вылазка
+    "trial": 30,             # испытание недели, одна сдача в неделю
+    "level_up": 20,          # улучшение: карточки и Мора
+    "camp_upgrade": 20,      # стройка в лагере: Мора и Эссенция
+    "reforge": 20,           # перековка талисмана: Эссенция
+    "gear_craft": 10,        # снаряжение создано
+    "gear_upgrade": 10,      # снаряжение улучшено
+    "duplicate": 10,         # дубликат питомца из сундука
+}
+_PET_REQUEST_KIND: Final = {"feed": "feed", "choose_expedition": "expedition", "claim": "trail_claim", "track_start": "tracking",
+                            "outing_start": "outing", "trial": "trial", "level_up": "level_up", "camp_upgrade": "camp_upgrade",
+                            "reforge": "reforge"}
+
 # level: (free, VIP).  A reward is {"mora": n} | {"diamonds": n} | {"zarniki": n} | {"key": tier}.
 TRACK: Final = {
     1: ({"mora": 100}, {"mora": 300}), 2: ({"key": 1}, {"key": 3}), 3: ({"mora": 100}, {"diamonds": 5}),
@@ -79,9 +105,17 @@ def mines_casual_xp(*, won: bool, difficulty: str) -> int:
     return MINES_WIN_XP.get(difficulty, 0) if won else 0
 
 
-def capped(gain: int, earned_today: int) -> int:
-    """Casual experience left under today's cap."""
-    return max(0, min(int(gain), CASUAL_DAILY_CAP - max(0, int(earned_today))))
+def pet_action_kind(request: dict) -> str | None:
+    """Which counted pet action a saved pet request is; None for a free one (see PET_XP)."""
+    kind = request.get("type") if isinstance(request, dict) else None
+    if kind == "equipment":
+        return {"craft": "gear_craft", "upgrade": "gear_upgrade"}.get(request.get("operation"))
+    return _PET_REQUEST_KIND.get(kind)
+
+
+def capped(gain: int, earned_today: int, cap: int = CASUAL_DAILY_CAP) -> int:
+    """Experience left under today's cap (games and pets each have their own)."""
+    return max(0, min(int(gain), int(cap) - max(0, int(earned_today))))
 
 
 def active(now: datetime) -> bool:

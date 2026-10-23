@@ -26,8 +26,8 @@ class PassError(Exception):
 
 
 async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casual: bool,
-                 at: datetime | None = None, season: int | None = None) -> int:
-    """Add experience once per event; casual sources respect the daily cap.  Returns what was added.
+                 at: datetime | None = None, season: int | None = None, pet: bool = False) -> int:
+    """Add experience once per event; casual games and pets each respect their daily cap.  Returns what was added.
 
     ``season`` pins the pass season (a League level counts for the season of its run); by default it is
     the season of ``at``.
@@ -39,20 +39,27 @@ async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casua
     try:
         async with db.connection.transaction():   # tables come from the app start (FastAPI/main.py lifespan)
             await repo.lock_user(db, user_id=user_id)
-            gain = int(xp)
-            if casual:
-                gain = rules.capped(gain, await repo.casual_today(db, user_id=user_id, day=at.date()))
+            gain, bucket = int(xp), "pet" if pet else "casual" if casual else None
+            if bucket:
+                cap = rules.PET_DAILY_CAP if pet else rules.CASUAL_DAILY_CAP
+                gain = rules.capped(gain, (await repo.day_xp(db, user_id=user_id, day=at.date()))[bucket], cap)
             if not await repo.insert_receipt(db, user_id=user_id, source=source, event_id=event_id, season=season, xp=gain):
                 return 0
             if gain:
-                if casual:
-                    await repo.add_casual(db, user_id=user_id, day=at.date(), xp=gain)
+                if bucket:
+                    await repo.add_day(db, user_id=user_id, day=at.date(), bucket=bucket, xp=gain)
                 await repo.add_xp(db, user_id=user_id, season=season, xp=gain)
             return gain
     except Exception:
         logger.exception("League pass experience failed for user {} ({}:{}); the game result is unaffected",
                          user_id, source, event_id)
         return 0
+
+
+async def record_pet(db, *, user_id: int, kind: str, event_id: str, at=None) -> int:
+    """One counted pet action (core.league_pass.PET_XP); call inside the pet writer's transaction."""
+    return await add_xp(db, user_id=user_id, source="pet", event_id=f"{kind}:{event_id}",
+                        xp=rules.PET_XP.get(kind, 0), casual=False, pet=True, at=at)
 
 
 async def record_rhythm(db, *, user_id: int, run_id: str, score: int, at=None) -> int:
@@ -92,9 +99,10 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
                       for n in range(1, rules.LEVELS + 1)],
         })
     async with db.connection.transaction():
-        today = await repo.casual_today(db, user_id=user_id, day=now.date())
+        today = await repo.day_xp(db, user_id=user_id, day=now.date())
     return {"active": True, "vip": vip_open, "seasons": views,
-            "casual": {"today": today, "cap": rules.CASUAL_DAILY_CAP},
+            "casual": {"today": today["casual"], "cap": rules.CASUAL_DAILY_CAP},
+            "pets": {"today": today["pet"], "cap": rules.PET_DAILY_CAP, "xp": dict(rules.PET_XP)},
             "account": {"eligible": account_age.is_eligible(seen, now), "min_days": account_age.MIN_ACCOUNT_AGE.days}}
 
 
@@ -105,7 +113,7 @@ async def casual_receipt(db, *, user_id: int, source: str, event_id: str, now: d
         return {"active": False}
     gained = await repo.receipt(db, user_id=user_id, source=source, event_id=event_id)
     async with db.connection.transaction():
-        today = await repo.casual_today(db, user_id=user_id, day=now.date())
+        today = (await repo.day_xp(db, user_id=user_id, day=now.date()))["casual"]
     return {"active": True, "xp": gained or 0, "counted": gained is not None, "today": today, "cap": rules.CASUAL_DAILY_CAP}
 
 

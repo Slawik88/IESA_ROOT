@@ -188,3 +188,9 @@
 .pn-row small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.35; }
 .pn-body + .tr-foot .v3-pill--ghost { margin-top: 8px; }
 @media (prefers-reduced-motion: reduce) { .pn-pet { animation: none !important; } }
+
+/* Опыт Пропуска от питомцев за сегодня (app.12.js petPassLine), с сезона 2 */
+:is(body, body.skin-v3) .pet-pass { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px; margin: 8px 0 10px; padding: 8px 12px;
+  border: 1px solid rgba(245,207,115,.28); border-radius: 12px; background: rgba(245,207,115,.07); color: var(--v3-dim, #a3a9bc); font: inherit; font-size: 13px; text-align: left; }
+.pet-pass b { color: #f5cf73; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pet-pass.is-full b::after { content: " · предел"; color: var(--v3-dim, #a3a9bc); font-weight: 500; }

@@ -235,10 +235,29 @@ function _trResume(me) {
   if (me.track?.open) rows.push(_v3Row('scope','Продолжить выслеживание',"trailGo('track')",`Внимание: ${me.track.open.points}. Поле сохранено.`));
   return rows.length ? `<section class="tr-resume" aria-label="Продолжить игру">${rows.join('')}</section>` : '';
 }
+// С сезона 2 действия с питомцами дают опыт Пропуска (core/league_pass.py PET_XP, свой дневной предел).
+// Строка под «Следами»: из памяти сразу, свежий ответ — не чаще раза в 3 с (после каждого действия хаб перерисовывается).
+let _trPass = null, _trPassAt = 0;
+function _trPassHtml() {
+  const p = _trPass;
+  if (!p || !p.active || !p.pets) return '<div id="pet-pass-line" hidden></div>';
+  const full = Number(p.pets.today) >= Number(p.pets.cap);
+  return `<button type="button" id="pet-pass-line" class="pet-pass${full ? ' is-full' : ''}" onclick="location.href=BASE+'/league#pass'"><span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`;
+}
+function _trPassLoad() {
+  if (Date.now() - _trPassAt < 3000) return;
+  _trPassAt = Date.now();
+  api('/league-demo/api/pass').then(p => {
+    _trPass = p;
+    const node = document.getElementById('pet-pass-line');
+    if (node) node.outerHTML = _trPassHtml();
+  }).catch(() => {});
+}
 _TR_VIEWS.hub = me => {
+  setTimeout(_trPassLoad, 0);
   const pets = (me.pets || []).length, collection = _tr.tab === 'collection';
   const daily = `<details class="tr-daily" data-detail="daily"><summary data-f="detail-daily"><span>Следы сегодня</span><b>${_trTraces(me,true).replace('Следы: ','')}</b></summary>${_trTraces(me)}</details>`;
-  return `${_trHead()}${_trTabs()}${daily}${collection ? (pets ? _trPets(me) : _trEmpty()) : `${_trResume(me)}${pets ? `${_trSlots(me)}${_trModes(me)}${_trPets(me,true)}` : _trEmpty()}${me.camp?.job?.done ? `<button class="tr-camp-notice" type="button" onclick="trailTab('camp')">Постройка в лагере готова · посмотреть ›</button>` : ''}`}`;
+  return `${_trHead()}${_trTabs()}${daily}${_trPassHtml()}${collection ? (pets ? _trPets(me) : _trEmpty()) : `${_trResume(me)}${pets ? `${_trSlots(me)}${_trModes(me)}${_trPets(me,true)}` : _trEmpty()}${me.camp?.job?.done ? `<button class="tr-camp-notice" type="button" onclick="trailTab('camp')">Постройка в лагере готова · посмотреть ›</button>` : ''}`}`;
 };
 
 // Секундомер: правит только текст таймеров (разметку не пересобирает). Время вышло, а сервер ещё не отметил занятие готовым: просим свежий ответ, не чаще раза в 4 секунды

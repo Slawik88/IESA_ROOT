@@ -21,6 +21,7 @@ from infrastructure.repositories import league_pass as repo  # noqa: E402
 from services import league_pass as service  # noqa: E402
 
 PLAYER, VIP, NEWBIE = 981001, 981002, 981003
+KEEPER = 981004   # plays only with pets
 S2 = seasons.season_bounds(2)[0]
 DAY = S2 + timedelta(days=3, hours=12)
 
@@ -68,6 +69,20 @@ async def experience(db) -> None:
     assert (await service.casual_receipt(db, user_id=PLAYER, source="rhythm", event_id="r11", now=DAY))["counted"]
     assert not (await service.casual_receipt(db, user_id=PLAYER, source="minesweeper", event_id="m2", now=DAY))["counted"]
     assert (await service.casual_receipt(db, user_id=PLAYER, source="minesweeper", event_id="m1", now=before)) == {"active": False}
+    # pets: only counted actions, their own daily cap (separate from the games' cap)
+    assert await service.record_pet(db, user_id=KEEPER, kind="feed", event_id="v2:f1", at=DAY) == rules.PET_XP["feed"]
+    assert await service.record_pet(db, user_id=KEEPER, kind="feed", event_id="v2:f1", at=DAY) == 0, "a replayed action counts once"
+    assert await service.record_pet(db, user_id=KEEPER, kind="select_active", event_id="v1:x", at=DAY) == 0, "free toggles give nothing"
+    assert rules.pet_action_kind({"pet_id": 1}) is None and rules.pet_action_kind({"type": "build"}) is None
+    assert rules.pet_action_kind({"type": "start"}) is None, "a Trail start counts when it is claimed"
+    assert rules.pet_action_kind({"type": "equipment", "operation": "equip"}) is None
+    assert rules.pet_action_kind({"type": "equipment", "operation": "craft"}) == "gear_craft"
+    pets = [await service.record_pet(db, user_id=KEEPER, kind="trial", event_id=f"v2:t{i}", at=DAY) for i in range(5)]
+    assert sum(pets) == rules.PET_DAILY_CAP - rules.PET_XP["feed"] and pets[-1] == 0, pets
+    assert await service.record_pet(db, user_id=KEEPER, kind="feed", event_id="v2:next", at=DAY + timedelta(days=1)) == rules.PET_XP["feed"]
+    assert await service.record_pet(db, user_id=KEEPER, kind="feed", event_id="v2:early", at=before) == 0, "no pass before season 2"
+    await service.record_mines(db, user_id=KEEPER, run_id="k1", won=True, difficulty="hard", at=DAY)
+    assert (await repo.day_xp(db, user_id=KEEPER, day=DAY.date())) == {"casual": 40, "pet": rules.PET_DAILY_CAP}, "two separate daily caps"
     gained = await service.add_xp(db, user_id=PLAYER, source="league", event_id="s2:minesweeper:1:3", xp=2_000, casual=False, at=DAY)
     assert gained == 2_000, "League levels are not limited by the casual cap"
     assert await repo.xp(db, user_id=PLAYER, season=2) == rules.CASUAL_DAILY_CAP + 60 + 2_000
@@ -77,6 +92,7 @@ async def experience(db) -> None:
 
 async def claims(db) -> None:
     state = await service.status(db, user_id=PLAYER, now=DAY)
+    assert state["pets"]["today"] == 0 and state["pets"]["cap"] == rules.PET_DAILY_CAP and state["pets"]["xp"]["feed"] == 10
     season = state["seasons"][-1]
     assert state["active"] and not state["vip"] and season["level"] == 7 and season["track"][0]["vip"]["state"] == "vip"
     result = await service.claim(db, user_id=PLAYER, season=2, now=DAY)

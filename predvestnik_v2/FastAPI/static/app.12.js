@@ -441,6 +441,18 @@
       <div data-pet-panel="owned" ${ownedTab ? '' : 'hidden'}>${petOwnedPanel(data)}</div>
       <div data-pet-panel="bestiary" ${ownedTab ? 'hidden' : ''}>${petDex(data)}</div>`;
     if (_petDexFilter !== 'all') window.petDexFilter(_petDexFilter);
+    petPassLine(root);
+  }
+
+  // С сезона 2 действия с питомцами дают опыт Пропуска (свой дневной предел): строка под шапкой, нажатие — Пропуск
+  function petPassLine(root) {
+    api('/league-demo/api/pass').then((p) => {
+      const head = root.querySelector('.looks-head');
+      if (!p || !p.active || !p.pets || !head || !root.isConnected || root.querySelector('.pet-pass')) return;
+      const full = Number(p.pets.today) >= Number(p.pets.cap);
+      head.insertAdjacentHTML('afterend', `<button type="button" class="pet-pass${full ? ' is-full' : ''}" onclick="location.href=BASE+'/league#pass'">
+        <span>🎟 Опыт Пропуска от питомцев сегодня</span><b>${Number(p.pets.today)} / ${Number(p.pets.cap)}</b></button>`);
+    }).catch(() => {});
   }
 
   function petRefreshOwned() {

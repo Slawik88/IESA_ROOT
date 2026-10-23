@@ -11,7 +11,6 @@ from typing import Final
 
 XP_PER_LEVEL: Final = 300
 LEVELS: Final = 30
-PET_ACTION_XP: Final = 10
 
 # level: (free reward, VIP reward)
 TRACK: Final = {

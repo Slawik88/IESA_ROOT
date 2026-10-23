@@ -23,6 +23,13 @@ async def ensure_tables(db) -> None:
             PRIMARY KEY (user_id, day)
         )
     """)
+    # pets have their own daily cap (core.league_pass.PET_DAILY_CAP), added 23.10.2026; checked first so an
+    # ordinary restart takes no table lock
+    async with db.execute("SELECT 1 FROM information_schema.columns WHERE table_schema=current_schema() "
+                          "AND table_name='league_pass_days' AND column_name='pet_xp'") as cursor:
+        present = await cursor.fetchone()
+    if not present:
+        await db.execute("ALTER TABLE league_pass_days ADD COLUMN IF NOT EXISTS pet_xp INTEGER NOT NULL DEFAULT 0 CHECK (pet_xp >= 0)")
     # One receipt per (player, source, event): a replayed game or level never adds experience twice.
     await db.execute("""
         CREATE TABLE IF NOT EXISTS league_pass_receipts (
@@ -60,17 +67,22 @@ async def insert_receipt(db, *, user_id: int, source: str, event_id: str, season
         return bool(await cursor.fetchone())
 
 
-async def casual_today(db, *, user_id: int, day: date) -> int:
-    async with db.execute("SELECT casual_xp FROM league_pass_days WHERE user_id=? AND day=? FOR UPDATE",
+_BUCKETS = {"casual": "casual_xp", "pet": "pet_xp"}   # daily caps: casual games and pets
+
+
+async def day_xp(db, *, user_id: int, day: date) -> dict[str, int]:
+    """Experience counted today under each daily cap; locks the row inside a transaction."""
+    async with db.execute("SELECT casual_xp, pet_xp FROM league_pass_days WHERE user_id=? AND day=? FOR UPDATE",
                           (int(user_id), day)) as cursor:
         row = await cursor.fetchone()
-    return int(row[0]) if row else 0
+    return {"casual": int(row[0]), "pet": int(row[1])} if row else {"casual": 0, "pet": 0}
 
 
-async def add_casual(db, *, user_id: int, day: date, xp: int) -> None:
+async def add_day(db, *, user_id: int, day: date, bucket: str, xp: int) -> None:
+    column = _BUCKETS[bucket]
     await db.execute(
-        "INSERT INTO league_pass_days(user_id,day,casual_xp) VALUES (?,?,?) "
-        "ON CONFLICT (user_id,day) DO UPDATE SET casual_xp=league_pass_days.casual_xp+EXCLUDED.casual_xp",
+        f"INSERT INTO league_pass_days(user_id,day,{column}) VALUES (?,?,?) "
+        f"ON CONFLICT (user_id,day) DO UPDATE SET {column}=league_pass_days.{column}+EXCLUDED.{column}",
         (int(user_id), day, int(xp)),
     )
 
