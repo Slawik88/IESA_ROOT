@@ -10,12 +10,15 @@ async def send(db, room_id, uid, channel, text, nonce, reply_to=None):
         raise rules.OnlineError("Сообщение — от 1 до 600 знаков.", 422)
     async with db.connection.transaction():
         state = await locked(db, room_id)
+        previous = await repo.duplicate(db, room_id, uid, nonce)
+        if previous:
+            original = await repo.get_message(db, previous)
+            if (original["channel"], original["body"], original["reply_to"]) != (channel, text, reply_to):
+                raise rules.OnlineError("Этот запрос уже использован для другого сообщения.")
+            return {"id": previous, "replayed": True}
         me = rules.player(state, uid)
         if not me or me.get("left"):
             raise rules.OnlineError("Разговор доступен участникам этого стола.", 403)
-        previous = await repo.duplicate(db, room_id, uid, nonce)
-        if previous:
-            return {"id": previous, "replayed": True}
         if channel not in rules.channels(state, me) or not rules.can_write(state, me, channel):
             raise rules.OnlineError("Сейчас в этом разговоре писать нельзя.", 403)
         now = await repo.now(db)
@@ -27,6 +30,8 @@ async def send(db, room_id, uid, channel, text, nonce, reply_to=None):
             if not parent or parent["room_id"] != room_id or parent["channel"] != channel or parent["hidden"]:
                 raise rules.OnlineError("Это сообщение больше недоступно для ответа.")
         msg_id = await repo.message(db, room_id, channel, text, user_id=uid, name=me["name"], nonce=nonce, reply_to=reply_to, seat=me.get("seat"))
+        me["seen"] = now
+        await repo.save(db, state, bump=False)
         return {"id": msg_id, "replayed": False}
 
 

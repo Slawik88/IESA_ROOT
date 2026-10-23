@@ -3,7 +3,7 @@ const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/st
 const source=fs.readFileSync(path.join(__dirname,'../FastAPI/static/app.55.js'),'utf8');
 const start=source.indexOf('async function moPoll('),end=source.indexOf('async function moRefresh(',start);
 const pending=[],root={innerHTML:'healthy'},connection={textContent:''};
-const MO={gen:1,room:7,channel:'table',messages:new Map(),pollSeq:0,errors:0,data:null};
+const MO={gen:1,owner:1,room:7,channel:'table',messages:new Map(),pollSeq:0,errors:0,data:null};
 const context={MO,AbortController,document:{hidden:false},setTimeout:()=>1,
   moAlive:g=>g===MO.gen,moRequest:()=>new Promise((resolve,reject)=>pending.push({resolve,reject})),
   el:id=>id==='mo-root'?root:connection,moRenderRoom:()=>{},moChannel:()=>{throw Error('unexpected channel switch');},

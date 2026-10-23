@@ -49,7 +49,7 @@ def html():
     helpers = """const BASE='',tg=null;const el=id=>document.getElementById(id);
       const esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
       const _uid=Number(new URLSearchParams(location.search).get('user')||'101');
-      const hdrs=()=>({'x-test-user':String(_uid)});
+      const hdrs=()=>({'x-test-user':String(_uid),'content-type':'application/json'});
       let _modalReturnFocus=null;const _MF_VARIANT={primary:'',ghost:' v3-pill--ghost'};
       const CM=()=>el('modal').close();function v3GlintMark(){return '';}function openMafiaStats(){CM();}
     """
@@ -168,6 +168,19 @@ def check(dsn, out):
             pb.locator("#mo-quick").click()
             pb.locator("#mo-text").wait_for()
             assert pb.evaluate("MO.room") == room
+            for width in (320,390,430):
+                pa.set_viewport_size({'width':width,'height':640})
+                pa.screenshot(path=str(out/f'lobby-{width}-640.png'),full_page=True)
+                assert pa.evaluate("document.getElementById('mo-status').scrollHeight<=document.getElementById('mo-status').clientHeight+1"), 'lobby status must not hide controls in a nested scroller'
+                assert pa.locator('#mo-info-toggle').is_visible()
+                assert pa.locator('#mo-chat').bounding_box()['height']>=140
+                assert pa.locator('#mo-send').bounding_box()['y']+pa.locator('#mo-send').bounding_box()['height']<=640
+            pa.locator('#mo-text').focus()
+            pa.set_viewport_size({'width':320,'height':360})
+            pa.screenshot(path=str(out/'keyboard-320-360.png'),full_page=True)
+            assert pa.locator('#mo-send').bounding_box()['y']+pa.locator('#mo-send').bounding_box()['height']<=360
+            assert pa.locator('#mo-chat').bounding_box()['height']>=60
+            pa.locator('#mo-text').blur();pa.set_viewport_size({'width':390,'height':844})
             def lose_response(route):
                 route.fetch()  # Real server commits; the browser never receives the acknowledgement.
                 route.abort("failed")
@@ -177,9 +190,16 @@ def check(dsn, out):
             pa.get_by_text("Нет связи. Текст сохранён — отправьте снова.", exact=True).wait_for()
             assert pa.locator("#mo-text").input_value().startswith("Привет")
             pa.unroute("**/mafia-online/rooms/*/messages", lose_response)
+            pa.locator('#mo-text').fill('Новый текст после потерянного ответа')
             pa.locator("#mo-send").click()
+            pa.get_by_text('Сначала проверьте доставку прошлого сообщения. Новый текст сохранён.',exact=True).wait_for()
+            pa.reload();pa.locator('#entry').click();pa.locator('#mo-text').wait_for()
+            assert pa.locator('#mo-text').input_value()=='Новый текст после потерянного ответа'
+            pa.locator('#mo-message-pending').get_by_role('button',name='Проверить',exact=True).click()
             pb.get_by_text("Привет из другого чата <b>без HTML</b>", exact=True).wait_for()
-            pa.wait_for_function("document.getElementById('mo-text').value===''")
+            pa.wait_for_function("!document.getElementById('mo-message-pending').textContent")
+            assert pa.locator('#mo-text').input_value()=='Новый текст после потерянного ответа'
+            pa.locator('#mo-text').fill('')
             assert sum(m["body"].startswith("Привет") for m in http.get(f"/mafia-online/rooms/{room}", headers={"x-test-user":"101"}).json()["messages"]) == 1
             assert pb.locator("#mo-messages b").filter(has_text="без HTML").count() == 0
             pa.evaluate("window.qaMessage=document.querySelector('.mo-msg:not(.system)')")
@@ -194,7 +214,24 @@ def check(dsn, out):
             assert pa.locator('#mo-new').is_hidden()
             # Discard the synthetic UI-only row before further real-server polling.
             pa.evaluate("MO.messages.delete(999999);document.querySelector('[data-msg=\"999999\"]').remove()")
+            pa.locator('#mo-info-toggle').click()
             pa.locator('.mo-controls > summary').click()
+            # Confirmations and service errors remain visible in the info panel.
+            pa.locator('.mo-controls').get_by_role('button',name='Закрыть партию',exact=True).click()
+            assert pa.locator('#mo-error').is_visible()
+            pa.locator('#mo-error').get_by_role('button',name='Отмена',exact=True).click()
+            pa.locator('.mo-controls').get_by_role('button',name='Выйти из партии',exact=True).click()
+            assert pa.locator('#mo-error').is_visible()
+            pa.locator('#mo-error').get_by_role('button',name='Отмена',exact=True).click()
+            def forbidden_control(route):
+                route.fulfill(status=403,content_type='application/json',body='{"detail":"Только хозяин может начать партию."}')
+            pa.route('**/mafia-online/rooms/*/control',forbidden_control)
+            pa.evaluate("moControl('start')")
+            pa.locator('#mo-control-pending').get_by_role('button',name='Не повторять',exact=True).wait_for()
+            assert pa.locator('#mo-error').is_visible()
+            pa.locator('#mo-control-pending').get_by_role('button',name='Не повторять',exact=True).click()
+            pa.wait_for_function('moPendingCommand()===null&&!MO.busy')
+            pa.unroute('**/mafia-online/rooms/*/control',forbidden_control)
             pa.locator('#mo-settings-form select[name="tempo"]').focus()
             # A second window edits the server while this window keeps an old focused form.
             assert http.post(f'/mafia-online/rooms/{room}/control', headers={'x-test-user':'101'},
@@ -232,6 +269,7 @@ def check(dsn, out):
             for uid in (103, 104):
                 response = http.post(f"/mafia-online/rooms/{room}/join", headers={"x-test-user": str(uid)}, json={})
                 assert response.status_code == 200, response.text
+            pa.locator('#mo-info-toggle').click()
             pa.get_by_role("button", name="Начать партию", exact=True).click()
             pa.wait_for_function("MO.data?.phase==='night'")
             assert pa.evaluate("MO.data.players.every(p=>!('role' in p))")

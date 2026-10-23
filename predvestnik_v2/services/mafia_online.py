@@ -13,14 +13,16 @@ async def person(db, user, seat):
     name = " ".join(str(user.get(k) or "") for k in ("first_name", "last_name")).strip()
     name = name or user.get("username") or await repo.profile_name(db, int(user["id"])) or f"Игрок {seat}"
     return {"id": int(user["id"]), "name": " ".join(str(name).split())[:60], "seat": seat, "role": None,
-            "alive": True, "left": False, "muted": False, "checks": []}
+            "alive": True, "left": False, "muted": False, "checks": [], "seen": await repo.now(db)}
 
 
 def settings(seats=8, tempo="normal", roles_auto=True, roles=(), vote_mode="secret", visibility="public"):
     if tempo not in ("fast", "normal", "slow") or visibility not in ("public", "invite"):
         raise rules.OnlineError("Выберите темп и доступ к столу.")
     try:
-        validate_settings(max_players=seats, enabled_roles=roles, vote_mode=vote_mode)
+        # In auto mode the deck is chosen from the actual player count at start.
+        # Inactive manual checkboxes must not prevent shrinking an automatic table.
+        validate_settings(max_players=seats, enabled_roles=() if roles_auto else roles, vote_mode=vote_mode)
     except ValueError:
         raise rules.OnlineError("Выберите от 4 до 20 мест и подходящие роли.") from None
     return dict(seats=seats, tempo=tempo, roles_auto=roles_auto, roles=list(roles), vote_mode=vote_mode, visibility=visibility)
@@ -34,8 +36,18 @@ async def locked(db, room_id):
     return state
 
 
+async def active_room(db, user_id):
+    """Recover expired seats even while the background scheduler is restarting."""
+    async with db.connection.transaction():
+        await repo.user_lock(db, user_id)
+        room_id = await repo.current(db, user_id)
+        if room_id:
+            await locked(db, room_id)
+        return await repo.current(db, user_id)
+
+
 async def hub(db, user_id):
-    active = await repo.current(db, user_id)
+    active = await active_room(db, user_id)
     now = await repo.now(db)
     rooms = []
     for room_id in await repo.candidates(db):
@@ -50,7 +62,7 @@ async def create(db, user, **options):
     config = settings(**options)
     async with db.connection.transaction():
         await repo.user_lock(db, int(user["id"]))
-        active = await repo.current(db, int(user["id"]))
+        active = await active_room(db, int(user["id"]))
         if active:
             return active
         now = await repo.now(db)
@@ -65,6 +77,9 @@ async def create(db, user, **options):
 
 async def join(db, room_id, user, invite=""):
     uid = int(user["id"])
+    # Commit stale-seat recovery before locking the destination room. Keeping
+    # both room locks can deadlock two players following each other's old link.
+    await active_room(db, uid)
     async with db.connection.transaction():
         await repo.user_lock(db, uid)
         active = await repo.current(db, uid)
@@ -101,7 +116,7 @@ async def quick(db, user):
 
 
 async def _quick_locked(db, user):
-    active = await repo.current(db, int(user["id"]))
+    active = await active_room(db, int(user["id"]))
     if active:
         return active
     for room_id in await repo.candidates(db):
@@ -141,6 +156,7 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
             raise rules.OnlineError("Вы уже вышли из партии.", 403)
         if state["phase"] in rules.TERMINAL:
             raise rules.OnlineError("Эта партия уже закончилась.")
+        me["seen"] = await repo.now(db)
         if command == "settings" and expected_version is not None and expected_version != state["version"]:
             raise rules.OnlineError("Стол изменился. Проверьте его и повторите действие.")
         if command not in ("leave", "claim") and phase_number is not None and phase_number != state["phase_number"]:
@@ -182,6 +198,9 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
             elif state["phase"] not in rules.TERMINAL:
                 if uid == state["host"]:
                     state["host"] = next((p["id"] for p in state["players"] if not p.get("left")), uid)
+                    successor = rules.player(state, state["host"])
+                    if successor:
+                        successor["seen"] = await repo.now(db)
                 await engine.notice(db, state, f"{rules.label(me)} покинул стол.")
                 if state["phase"] != "lobby":
                     winner = rules.winner(p["role"] for p in state["players"] if p["alive"])
@@ -247,6 +266,7 @@ async def action(db, room_id, uid, phase_number, kind, target):
         if previous and previous["kind"] == kind and previous["target"] == target:
             return  # A lost response must not change a tie-break timestamp for the same choice.
         state["actions"][str(uid)] = {"kind": kind, "target": target, "time": await repo.now(db)}
+        me["seen"] = await repo.now(db)
         me.pop("choice_reset", None)
         engine.shorten(state, await repo.now(db))
         await repo.save(db, state)

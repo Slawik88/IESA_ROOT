@@ -1,5 +1,5 @@
 // Межчатовая Мафия · компактные состояния, роли и действия. Локальная история не меняется.
-function moHowto(){return `<details class="mo-howto"><summary>Как играть</summary><ol><li>Займите место. От четырёх игроков хозяин может начать.</li><li>Ночью действуйте своей ролью. Днём обсуждайте и голосуйте.</li><li>Мирные ищут мафию. Мафия остаётся в большинстве.</li></ol><p>Выбывшие читают стол и общаются отдельно. Внешние договорённости портят игру.</p></details>`;}
+function moHowto(){return `<details class="mo-howto"><summary>Как играть</summary><ol><li>Займите место. От четырёх игроков хозяин может начать.</li><li>Ночью действуйте своей ролью. Днём обсуждайте и голосуйте.</li><li>Мирные побеждают, когда мафии не осталось. Мафия — когда её не меньше, чем мирных.</li></ol><p>Выбывшие читают стол и общаются отдельно. Внешние договорённости портят игру.</p></details>`;}
 function moSettingsMarkup(d={}){
   return `<div class="mo-settings"><label>Мест<select name="seats">${[4,6,8,10,12,16,20].map(n=>`<option value="${n}" ${n===(d.seats||8)?'selected':''}>${n}</option>`).join('')}</select></label>
     <label>Темп<select name="tempo">${[['fast','Быстро'],['normal','Обычно'],['slow','Неспешно']].map(([k,v])=>`<option value="${k}" ${k===(d.tempo||'normal')?'selected':''}>${v}</option>`).join('')}</select></label>
@@ -45,13 +45,13 @@ function moRenderRoom(d){
   const phaseKey=JSON.stringify([d.version,d.me.can_write,d.channels,d.can_claim]);
   const editing=d.phase==='lobby'&&d.host_id===d.me.id&&el('mo-settings-form')?.contains(document.activeElement);
   if(MO.statusKey!==phaseKey){
-    const wasRole=el('mo-status')?.querySelector('.mo-role')?.open, wasPeople=el('mo-status')?.querySelector('.mo-people')?.open;
-    const wasControls=el('mo-status')?.querySelector('.mo-controls')?.open;
+    const wasRole=el('mo-status')?.querySelector('.mo-role')?.open, wasPeople=el('mo-info')?.querySelector('.mo-people')?.open;
+    const wasControls=el('mo-info')?.querySelector('.mo-controls')?.open;
     const wasVotes=el('mo-status')?.querySelector('.mo-open-votes')?.open,wasTeam=el('mo-status')?.querySelector('.mo-team-choices')?.open;
     const host=d.host_id===d.me.id;
     const lobby=d.phase==='lobby';
     const markup=`<div class="mo-phase"><span><small>${lobby?'Город собирается':ended?'Город #'+d.id:'Круг '+d.round}</small><b>${MO_PHASE[d.phase]}</b></span><time id="mo-clock" aria-label="Осталось времени"></time></div>
-      ${lobby?`<div class="mo-lobby"><span class="mo-seats">${d.players.length}<small> / ${d.seats}</small></span><p>${d.players.length<4?'Ещё '+(4-d.players.length)+' до начала':host?'Город готов. Можно начинать.':'Ждём старта от хозяина.'}</p>${host?`<button class="v3-pill" onclick="moControl('start')" ${d.players.length<4?'disabled':''}>Начать партию</button>`:''}</div>`:moRole(d)}
+      ${lobby?`<div class="mo-lobby"><span class="mo-seats">${d.players.length}<small> / ${d.seats}</small></span><p>${d.players.length<4?'Ещё '+(4-d.players.length)+' до начала':host?'Город готов. Можно начинать.':'Ждём старта от хозяина.'}</p>${host&&d.players.length>=4?`<button class="v3-pill" onclick="moControl('start')">Начать партию</button>`:''}</div>`:moRole(d)}
       ${ended?`<p class="mo-result">${d.winner==='town'?'Мирные победили':d.winner==='mafia'?'Мафия победила':d.winner==='draw'?'Ничья':'Стол закрыт'}</p><button class="v3-pill" onclick="moAgain()">Ещё партию</button>`:moTargets(d)}
       ${d.me.role==='citizen'&&d.phase==='night'&&d.me.alive?'<p class="mo-caption">Город спит. Утром начнётся обсуждение.</p>':''}
       ${!d.me.alive&&!ended?'<p class="mo-caption">Вы выбыли. Для общения есть «Выбывшие».</p>':''}
@@ -59,15 +59,16 @@ function moRenderRoom(d){
       ${moTeamChoices(d)}${moOpenVotes(d)}${moPeople(d)}
       ${!ended?`<details class="mo-controls"><summary>Управление столом</summary><div class="mo-control-row">${host?`${d.phase==='paused'?'<button class="v3-link" onclick="moControl(\'resume\')">Продолжить</button>':['night','discussion','voting'].includes(d.phase)?'<button class="v3-link" onclick="moControl(\'pause\')">Пауза</button>':''}${d.phase==='discussion'?`<button class="v3-link" onclick="moControl('skip',${d.phase_number})">К голосованию</button>`:''}<button class="v3-link" onclick="moConfirmControl('cancel')">Закрыть партию</button>`:''}${d.can_claim?'<button class="v3-link" onclick="moControl(\'claim\')">Взять стол</button>':''}<button class="v3-link" onclick="moConfirmControl('leave')">Выйти из партии</button></div>
       ${host&&lobby?`<form id="mo-settings-form">${moSettingsMarkup(MO.settingsDraft||d)}<button class="v3-pill v3-pill--ghost">Сохранить</button></form>`:''}</details>`:''}`;
-    const status=el('mo-status'),preserved=editing?status.querySelector('.mo-controls'):null;
-    if(preserved){
-      const template=document.createElement('template');template.innerHTML=markup;
-      for(const child of [...status.children])if(child!==preserved)child.remove();
-      for(const child of [...template.content.children])if(!child.classList.contains('mo-controls'))status.insertBefore(child,preserved);
-    }else status.innerHTML=markup;
+    const status=el('mo-status'),info=el('mo-info'),preserved=editing?info.querySelector('.mo-controls'):null;
+    const template=document.createElement('template');template.innerHTML=markup;
+    const sections=[...template.content.children].filter(child=>child.matches('.mo-people,.mo-controls'));
+    for(const child of sections)child.remove();
+    const scroll=status.scrollTop;status.replaceChildren(template.content);status.scrollTop=scroll;
+    if(preserved){for(const child of [...info.children])if(child!==preserved)child.remove();for(const child of sections)if(!child.classList.contains('mo-controls'))info.insertBefore(child,preserved);}
+    else info.replaceChildren(...sections);
     if(wasRole&&el('mo-status').querySelector('.mo-role'))el('mo-status').querySelector('.mo-role').open=true;
-    if(wasPeople&&el('mo-status').querySelector('.mo-people'))el('mo-status').querySelector('.mo-people').open=true;
-    if(wasControls&&el('mo-status').querySelector('.mo-controls'))el('mo-status').querySelector('.mo-controls').open=true;
+    if(wasPeople&&info.querySelector('.mo-people'))info.querySelector('.mo-people').open=true;
+    if(wasControls&&info.querySelector('.mo-controls'))info.querySelector('.mo-controls').open=true;
     if(wasVotes&&el('mo-status').querySelector('.mo-open-votes'))el('mo-status').querySelector('.mo-open-votes').open=true;
     if(wasTeam&&el('mo-status').querySelector('.mo-team-choices'))el('mo-status').querySelector('.mo-team-choices').open=true;
     const form=el('mo-settings-form');if(form){
@@ -128,8 +129,9 @@ function moCommandKey(room=MO.room){return `pv_mo_command_${typeof _uid!=='undef
 function moPendingCommand(){try{return JSON.parse(sessionStorage.getItem(moCommandKey())||'null');}catch(_){return null;}}
 function moPendingNotice(){
   const box=el('mo-control-pending');if(!box)return;
-  box.innerHTML=moPendingCommand()?'<span>Ответ на действие не пришёл</span><button class="v3-link" onclick="moRetryControl()">Проверить</button>':'';
+  box.innerHTML=moPendingCommand()?'<span>Ответ не пришёл. Действие могло примениться.</span><div><button type="button" class="v3-link" onclick="moRetryControl()">Проверить</button><button type="button" class="v3-link" onclick="moDiscardControl()">Не повторять</button></div>':'';
 }
+function moDiscardControl(){if(!moReady()||MO.busy)return;sessionStorage.removeItem(moCommandKey());moPendingNotice();if(el('mo-error'))el('mo-error').textContent='';if(el('mo-status'))return moRefresh();return moHub();}
 async function moRunControl(payload){
   const g=MO.gen,room=MO.room,key=moCommandKey(room);
   return moBusy(async()=>{
@@ -140,9 +142,10 @@ async function moRunControl(payload){
       if(payload.command==='settings'){MO.settingsDraft=null;MO.settingsVersion=null;MO.statusKey='';}
       moPendingNotice();el('mo-error').textContent='';
       if(payload.command==='leave')return moHub();
+      if(!el('mo-status'))return moEnter(room);
       await moRefresh();
     }catch(e){
-      if(e.status&&e.status<500){
+      if(e.status&&e.status<500&&![401,403,429].includes(e.status)){
         sessionStorage.removeItem(key);
         if(moAlive(g)){
           if(payload.command==='settings'&&e.status===409){MO.settingsDraft=null;MO.settingsVersion=null;MO.statusKey='';document.activeElement?.blur();}
@@ -155,7 +158,7 @@ async function moRunControl(payload){
 }
 function moRetryControl(){const payload=moPendingCommand();if(payload)return moRunControl(payload);}
 async function moControl(command,phase=null,settings=null,expectedVersion=null){
-  if(MO.busy)return;
+  if(!moReady()||MO.busy)return;
   if(moPendingCommand()){moPendingNotice();el('mo-error').textContent='Сначала проверьте предыдущее действие.';return;}
   const payload={command,phase_number:phase??MO.data?.phase_number,settings,expected_version:expectedVersion??MO.data?.version,nonce:crypto.randomUUID()};
   try{sessionStorage.setItem(moCommandKey(),JSON.stringify(payload));}catch(_){el('mo-error').textContent='Не удалось сохранить действие на устройстве. Попробуйте снова.';return;}
@@ -166,17 +169,51 @@ function moConfirmControl(command){
   root.innerHTML=`<span>${command==='leave'?'Покинуть партию? В активной игре вы выбываете.':'Закрыть партию для всех?'}</span><button class="v3-link" onclick="moControl('${command}',${MO.data.phase_number})">${command==='leave'?'Выйти':'Закрыть партию'}</button><button class="v3-link" onclick="el('mo-error').textContent=''">Отмена</button>`;
 }
 async function moAgain(){return moBusy(async()=>{const g=MO.gen,d=await moRequest('/quick',{});if(moAlive(g))moEnter(d.room_id);});}
-async function moSend(){
-  const input=el('mo-text');if(!input||!MO.data?.me.can_write||MO.busy)return;
-  const text=input.value.trim();if(!text)return;
-  if(!MO.nonce)MO.nonce=crypto.randomUUID();MO.draft=input.value;moStore();
-  const nonce=MO.nonce,g=MO.gen,room=MO.room,channel=MO.channel,reply=MO.reply;
+function moMessageKey(){return moDraftKey()+'_pending';}
+function moPendingMessage(){try{const d=JSON.parse(sessionStorage.getItem(moMessageKey())||'null');return d&&typeof d.nonce==='string'&&typeof d.text==='string'&&d.channel===MO.channel?d:null;}catch(_){return null;}}
+function moMessagePendingNotice(){
+  const box=el('mo-message-pending');if(!box)return;
+  box.innerHTML=moPendingMessage()?'<span>Ответ не пришёл. Сообщение могло уже доставиться.</span><div><button type="button" class="v3-link" onclick="moRetryMessage()">Проверить</button><button type="button" class="v3-link" onclick="moDiscardMessage()">Не повторять</button></div>':'';
+}
+function moDiscardMessage(){
+  if(!moReady()||MO.busy)return;const payload=moPendingMessage();if(!payload)return;
+  sessionStorage.removeItem(moMessageKey());
+  const input=el('mo-text');if(input?.value.trim()===payload.text&&(MO.reply?.id||null)===(payload.reply_to||null)){input.value='';MO.draft='';MO.nonce='';MO.reply=null;moStore();moReplyMarkup();}
+  moMessagePendingNotice();if(el('mo-error'))el('mo-error').textContent='';
+}
+function moRetryMessage(){const payload=moPendingMessage();if(payload)return moRunMessage(payload);}
+async function moRunMessage(payload){
+  const g=MO.gen,room=MO.room,key=moMessageKey(),draftKey=moDraftKey(),owner=moOwner();
   return moBusy(async()=>{
-    await moRequest(`/rooms/${room}/messages`,{channel,text,nonce,reply_to:reply?.id||null});
-    if(!moAlive(g))return;
-    if(MO.nonce===nonce){MO.draft='';MO.nonce='';MO.reply=null;input.value='';moStore();moReplyMarkup();}
-    el('mo-error').textContent='';await moRefresh();
+    try{
+      await moRequest(`/rooms/${room}/messages`,payload);
+      if(JSON.parse(sessionStorage.getItem(key)||'null')?.nonce===payload.nonce)sessionStorage.removeItem(key);
+      // A committed message must not return as a draft after leaving/reopening
+      // the room before its ACK. New text typed during the request stays intact.
+      const saved=JSON.parse(sessionStorage.getItem(draftKey)||'null');
+      if(saved?.text?.trim()===payload.text&&(saved.reply?.id||null)===(payload.reply_to||null))sessionStorage.removeItem(draftKey);
+      if(!moAlive(g)||owner!==moOwner())return;
+      const input=el('mo-text');
+      if(input.value.trim()===payload.text&&(MO.reply?.id||null)===(payload.reply_to||null)){MO.draft='';MO.nonce='';MO.reply=null;input.value='';moStore();moReplyMarkup();}
+      moMessagePendingNotice();el('mo-error').textContent='';await moRefresh();
+    }catch(e){
+      if(e.status&&e.status<500&&![401,403,429].includes(e.status))sessionStorage.removeItem(key);
+      if(moAlive(g))moMessagePendingNotice();throw e;
+    }
   });
+}
+async function moSend(){
+  if(!moReady())return;const input=el('mo-text');if(!input||!MO.data?.me.can_write||MO.busy)return;
+  const text=input.value.trim();if(!text)return;
+  const pending=moPendingMessage();
+  if(pending){
+    if(pending.text===text&&(pending.reply_to||null)===(MO.reply?.id||null))return moRunMessage(pending);
+    moMessagePendingNotice();el('mo-error').textContent='Сначала проверьте доставку прошлого сообщения. Новый текст сохранён.';return;
+  }
+  if(!MO.nonce)MO.nonce=crypto.randomUUID();MO.draft=input.value;moStore();
+  const payload={channel:MO.channel,text,nonce:MO.nonce,reply_to:MO.reply?.id||null};
+  try{sessionStorage.setItem(moMessageKey(),JSON.stringify(payload));}catch(_){el('mo-error').textContent='Не удалось сохранить сообщение на устройстве. Попробуйте снова.';return;}
+  return moRunMessage(payload);
 }
 function moReplyMarkup(){const box=el('mo-reply');if(box)box.innerHTML=MO.reply?`<span>Ответ ${esc(MO.reply.name)}: ${esc(MO.reply.body.slice(0,80))}</span><button type="button" class="v3-link" aria-label="Отменить ответ" onclick="MO.reply=null;MO.nonce='';moStore();moReplyMarkup()">×</button>`:'';}
 function moMessageMenu(id){

@@ -1,3 +1,33 @@
+## ONLINE-MAFIA-FIX-20261023 — implementation verified, publishing
+
+User reported many production Mafia bugs with screenshots. Worktree casino-polish
+fast-forwarded to master23137ec5; scoped only to predvestnik_v2 online Mafia.
+Confirmed original failure in COMPLETE authenticated app, not the isolated UI:
+real hdrs() lowercase content-type plus moRequest Content-Type caused fetch to
+send application/json, application/json; message POST422 reproduced exactly.
+Before proof .local/mafia-fix-before/{transport.json,02-original-send-failure-390.png}.
+
+Fixed case-insensitive JSON headers; frozen uncertain message body independent
+of edited draft; check/discard uncertain sends and controls; owner+auth guards,
+cold identity0→first user binding before slow profile; cold invitation sharing;
+hub poll rescheduling and duplicate own-table entry. Mobile status compact,
+participants/management separate panel with visible confirmation/error, real
+hidden elements,44pxclose,16pxinput,visualViewport keyboard fit, correct rulescopy.
+Backend recovers expired seats without background timer; separate pre-join
+recovery avoids opposite-room deadlock; exact message replay checks text/channel/
+reply and works after leave; host presence/transfer leases; auto role shrink.
+No Mafia rule/balance changes; no local Mafia changes; no production data writes.
+
+PASS full production shell realauth/JSON200/send/start/night/discussion/reload,
+6layouts320/390/430×640/430, managementconfirm/cancel, coldstartapp with delayed
+profile2500ms; dedicated browserPG320/390/430 andkeyboard320×360, lostACK+edited
+text/reload/exactreplay,settingsconflict,votes,redaction/navigation. RecoveryPG,
+fullgamePG,lifecyclePG,resiliencePG,access,clientVM,pollVM,19patchnotecontracts,
+complete JS/Python parse,diffcheck. Independent critic final ACCEPT.
+Full screenshots .local/mafia-fix-after and .local/mafia-fix-ui.
+4player feed entries +2026-10-23-mafia-fixes.json in existing TGK draft system;
+no channel messages sent. Next: pushmaster and exact live asset/runtime verification.
+
 ## MASTER-RELEASE-20261023 — RELEASED master8314d6d6 / live verified
 
 Root cause of missing changes: casino/pets/dust and online Mafia were uncommitted
