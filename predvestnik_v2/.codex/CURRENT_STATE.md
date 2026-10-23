@@ -1,4 +1,4 @@
-# ONLINE-MAFIA-FIX-20261023 — implementation verified, publishing
+# ONLINE-MAFIA-FIX-20261023 — RELEASED AND LIVE
 
 User reported many production Mafia bugs with screenshots. Worktree casino-polish
 fast-forwarded to master23137ec5; scoped only to predvestnik_v2 online Mafia.
@@ -26,7 +26,18 @@ fullgamePG,lifecyclePG,resiliencePG,access,clientVM,pollVM,19patchnotecontracts,
 complete JS/Python parse,diffcheck. Independent critic final ACCEPT.
 Full screenshots .local/mafia-fix-after and .local/mafia-fix-ui.
 4player feed entries +2026-10-23-mafia-fixes.json in existing TGK draft system;
-no channel messages sent. Next: pushmaster and exact live asset/runtime verification.
+no channel messages sent.
+Released code91c7cdceaee5a9160302aff04bf4c57f5186f78e directly to origin/master.
+Live verification 2026-10-23T16:20:43.667717+00:00 PASS: full JS bundle1083464bytes exact SHA2568d2cbdb8e0572aa412cb3f22bd98cb957e6c3d2aa0a7be7f9081e34c3ad7bc51;
+Mafia/casino/trail CSS and updates.json exact bytes, health/ready200, protected
+Mafia/chatmod/casino/dust API401, runtimeflags true. Custom domain
+https://iesasport.ch/predvestnik also returns exact fixed bundle and health/ready200.
+Evidence .local/mafia-fix-live.json and external directory
+C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeebe2e6/mafia-fix-2026-10-23/.
+Disposable PG55439 and local stands stopped; worktree retained. No Telegram channel
+messages sent; TGK draft uses the existing creator-only manual send mechanism.
+Requested large fix patch, master publishing and live verification complete.
+
 
 # CASINO/PETS/STARDUST/ONLINE-MAFIA-20261023 — RELEASED TO MASTER AND LIVE
 
