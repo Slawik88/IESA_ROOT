@@ -1,3 +1,38 @@
+## CLEAN-CODE-AUDIT-20261023 — completed, no runtime changes
+
+Owner task: pass the whole codebase against the new predvestnik_v2/CLEAN_CODE.md
+standard without breaking anything. Application code was NOT modified: the audit
+found the runtime layers already clean, so changes are repo hygiene only.
+
+Removed: 7 unreferenced root screenshots image.png, image-1..6.png (590 KB,
+image-2.png was 0 bytes). Reference check passed: zero matches for the filenames
+with and without extension across py/js/md/html/json/css; binary-content grep hits
+inside design-concept PNGs are false positives. patch-notes images and design
+references are all dated/named and stay.
+
+Verified clean (no action needed): print() absent in bot/services/core/
+infrastructure/FastAPI app code — all 200+ print sites live in tools/ and scripts/
+CLI utilities where output is their contract; console.* in shipped bundles is only
+deliberate warn/error logging, tools use console.log as test output; debugger/TODO/
+FIXME/XXX markers — zero in app layers; truly bare `except:` — zero (the single
+text hit is a docstring in infrastructure/repositories/analytics.py explaining the
+anti-pattern); duplicate top-level function names across the 46-part glued bundle —
+zero of 804; python -B -m compileall over bot/services/core/infrastructure/FastAPI/
+scripts/tools — exit 0; node --check passes every app.NN.js part and the full
+concatenation in _APP_JS_PARTS serving order. app.03/05-style retired bundles are
+intentional per FastAPI/main.py comment — untouched.
+
+Hygiene: predvestnik_v2/.gitignore now blocks /image*.png and *.bak (observed junk
+patterns); root .gitignore already covers .env/.env.test since an earlier master
+commit, so the untracked .env.test seen locally is a stale-checkout artifact only.
+Also on this branch: CLEAN_CODE.md standard + predvestnik_v2/AGENTS.md entry point
+(commit 46e9b3d9) and the dead BASE_PROMPT import removed from the root AGENTS.md.
+
+Checks after changes: python compileall exit 0, node --check OK, contract tests
+test_patch_notes_contract.py and test_static_asset_version.py PASS. No bundle
+bytes changed: the live 1074286-byte JS SHA256 verification remains valid.
+Not merged to master: push = production deploy, owner's call.
+
 ## ONLINE-MAFIA-FIX-20261023 — RELEASED AND LIVE
 
 User reported many production Mafia bugs with screenshots. Worktree casino-polish
@@ -37,7 +72,6 @@ C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeeb
 Disposable PG55439 and local stands stopped; worktree retained. No Telegram channel
 messages sent; TGK draft uses the existing creator-only manual send mechanism.
 Requested large fix patch, master publishing and live verification complete.
-
 
 ## MASTER-RELEASE-20261023 — RELEASED master8314d6d6 / live verified
 
