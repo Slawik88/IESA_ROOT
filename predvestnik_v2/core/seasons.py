@@ -32,9 +32,10 @@ REWARD_TIERS: Final = ((1, 800, 200), (2, 600, 150), (3, 450, 120), (10, 250, 80
 # boards (never the sum).
 PAYING_BOARDS: Final = (("rhythm", "normal"),)
 LAST_PAYING_SEASON: Final = 1
-# Wait after the season ends before the places are frozen, so runs that are
-# still pending an integrity verdict can resolve first.
-SETTLEMENT_DELAY: Final = timedelta(hours=48)
+# Wait after the season ends before the places are frozen.  One hour (owner, 23.10.2026: rewards right
+# after the switch): every run is phone-timed now and goes through the automatic screen
+# (services.rhythm_screen) at the snapshot, so nothing waits for a manual verdict.
+SETTLEMENT_DELAY: Final = timedelta(hours=1)
 # Participation terms: a payout needs real play, not a single run.
 MIN_PARTICIPATION_RUNS: Final = 5
 MIN_PARTICIPATION_DAYS: Final = 3

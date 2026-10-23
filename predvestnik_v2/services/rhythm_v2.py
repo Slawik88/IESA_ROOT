@@ -562,6 +562,8 @@ async def season_standings(db, start, end) -> list[dict]:
     """Ranked players with their participation, the input of the season settlement."""
     await repo.ensure_tables(db)
     await _promote_reviews(db)
+    from services import rhythm_screen   # forged phone journals leave the paid table before the snapshot
+    await rhythm_screen.screen_season(db, mode="normal", starts_at=start, ends_at=end)
     rows = await repo.season_standings(db, mode="normal", starts_at=start, ends_at=end)
     activity = await repo.season_activity(db, mode="normal", starts_at=start, ends_at=end)
     return [{**row, **activity.get(int(row["user_id"]), {"runs": 0, "days": 0})} for row in rows]
