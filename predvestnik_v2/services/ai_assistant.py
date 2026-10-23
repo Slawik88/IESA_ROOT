@@ -615,7 +615,7 @@ async def answer_question(
 
     quota_hit = False
     service_down = False
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15) as client:
         for model_name in _MODEL_CHAIN:
             # ctx пересоздаётся на каждую модель: если предыдущая успела
             # пометить действие и умерла — не тащим огрызок дальше
