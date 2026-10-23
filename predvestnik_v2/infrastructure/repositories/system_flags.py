@@ -20,6 +20,7 @@ _DEFAULTS = [
     ("game_mafia_v1",          "🕵️ Мафия (dev)", False),
     ("game_casino_v1",         "🎰 Казино «Зал Фортуны» (жетоны)", True),
     ("content_chests_v1",       "🗝 Сундуки питомцев (canary)", False),
+    ("star_dust_v1", "🌠 Звёздная пыль и VIP за активность", True),
     ("pets_v2",                "🐾 Питомцы: Тропа (dev)", False),
     ("pets_level_up_v1",      "🐾 Улучшение питомцев за валюты (dev)", False),
     ("pets_route_rewards_v1", "🐾 Награда Морой за маршруты экспедиций (dev)", False),

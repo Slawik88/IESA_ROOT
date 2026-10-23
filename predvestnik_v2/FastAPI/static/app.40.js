@@ -84,7 +84,7 @@ function _trRender() {
   const opened = same ? [...root.querySelectorAll('details[data-detail][open]')].map(n => n.dataset.detail) : [];
   const focus = same && root.contains(document.activeElement) ? document.activeElement?.dataset?.f : null;
   const view = _TR_VIEWS[_tr.view] || _TR_VIEWS.hub;
-  root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}`;
+  root.innerHTML = `${_tr.needsRefresh ? _trRecoveryHtml() : ''}${view(_tr.me)}${_tr.view === 'hub' && _tr.me.star_dust?.enabled ? `<section class="tr-grp"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 ${fmt(_tr.me.star_dust.balance)} пыли · VIP за игру ›</button></section>` : ''}`;
   root.dataset.trView = `${_tr.view}:${_tr.pet}:${_tr.tab || ''}`;
   opened.forEach(key => root.querySelector(`details[data-detail="${key}"]`)?.setAttribute('open', ''));
   v3EnterSync(root);
@@ -174,7 +174,7 @@ function _trSlots(me) {
   const acts = me.activities || [], slots = Number(me.slots) || 3;
   const free = Math.max(0, slots - acts.length), min = _trMinCost(me);
   const sendable = me.pets.some(p => !p.run_id && !p.outing && p.energy >= min);
-  return `<section class="tr-sec" id="tr-slots">${_trSec('В пути и возвращения', `<span class="tr-count">${acts.length}/${slots} слотов</span>`)}${acts.length ? `<ul class="tr-list" aria-label="Занятия">${acts.slice().sort((a,b)=>Number(b.ready)-Number(a.ready)).map((a,i)=>_trSlot(a,i===0 && a.ready)).join('')}</ul>` : '<p class="tr-note">Пока никто не в пути. Отправь питомца за Следами и находками.</p>'}<div class="tr-launch"><span class="tr-note">${free ? `Свободно слотов: ${free}` : 'Все слоты заняты. Дождись возвращения и забери награду.'}</span><button type="button" class="v3-pill${acts.some(a=>a.ready)?' v3-pill--ghost':''}" data-f="send" onclick="trailSend()"${free && sendable ? '' : ' disabled'}>Отправить в путь</button></div>${free && !sendable ? '<p class="tr-note">Нет свободного питомца с нужными силами. Покорми питомца или забери награду за его занятие.</p>' : ''}</section>`;
+  return `<section class="tr-sec" id="tr-slots">${_trSec('В пути и возвращения', `<span class="tr-count">${acts.length}/${slots} слотов</span>`)}${acts.length ? `<ul class="tr-list" aria-label="Занятия">${acts.slice().sort((a,b)=>Number(b.ready)-Number(a.ready)).map((a,i)=>_trSlot(a,i===0 && a.ready)).join('')}</ul>` : '<p class="tr-note">Пока никто не в пути. Отправь питомца за Следами и находками.</p>'}<div class="tr-launch"><span class="tr-note">${free ? `Свободно слотов: ${free}` : 'Все слоты заняты. Дождись возвращения и забери награду.'}</span><button type="button" class="v3-pill${acts.some(a=>a.ready)?' v3-pill--ghost':''}" data-f="send" onclick="trailSend()"${free && sendable ? '' : ' disabled'}>Отправить в путь</button></div>${me.star_dust?.enabled ? '<p class="tr-note">🌠 Отряд собирает общий звёздный след: 2 пыли в час пути, дозор — 1 за 5 часов. Перекрытия не умножают пыль, дробная часть сохраняется.</p>' : ''}${free && !sendable ? '<p class="tr-note">Нет свободного питомца с нужными силами. Покорми питомца или забери награду за его занятие.</p>' : ''}</section>`;
 }
 function _trLevelLine(p) {
   if (p.level >= (_tr.me.rules.max_level || 30)) return '<small class="tr-sub">Высший уровень</small>';
@@ -569,12 +569,13 @@ function _trResultHtml(act, pet, r) {
   const add = (glyph, n, label, kind = '') => rows.push(`<li data-k="${kind}" style="--i:${rows.length}"><span class="tr-g" aria-hidden="true">${glyph}</span><span class="tr-gl">${label}</span><b class="tr-n">+${fmt(n)}</b></li>`);
   if (Number(r.xp_credited) >= 0.5) add('🐾', Math.round(r.xp_credited), 'Следы');
   Object.entries(_TR_FIND).forEach(([key, f]) => { const n = Number((r.finds || {})[key]) || 0; if (n > 0) add(f[0], n, f[1], key); });
+  if (Number(r.star_dust?.amount) > 0) add('🌠', r.star_dust.amount, 'Звёздная пыль');
   if (Number(r.key) > 0) add('🗝', r.key, _trWord(r.key, 'Ключ', 'Ключа', 'Ключей'));
   if (Number(r.stage_essence) > 0) add('💧', r.stage_essence, 'Эссенция за ступень');
   const route = act.route ? _TR_ROUTE[act.route] : null, expedition = act.kind === 'expedition';
   const title = !expedition ? `${_trE(pet.name)} ${_trFem(pet, 'вернулся', 'вернулась')}` : r.outcome === 'success' ? 'Путь удался' : r.outcome === 'partial' ? 'Путь удался отчасти' : 'Не повезло на этот раз';
   const sub = [expedition ? `${_TR_PATH[r.path]} путь` : _TR_KIND[act.kind], `${act.hours}\u00a0ч`, route ? route[1] : '', expedition && r.outcome !== 'success' && Number(r.reward_mult) > 0 ? `награда ×${_trMult(r.reward_mult)}` : ''].filter(Boolean).join(' · ');
-  const calm = r.outcome === 'fail' ? `<p class="tr-note">Уровни, Связь и питомец остаются при вас.${Number(r.reward_mult) > 0 ? ' Часть награды сохранена.' : ' Рискованный путь на неудаче награды не даёт.'}</p>` : '';
+  const calm = r.outcome === 'fail' ? `<p class="tr-note">Уровни, Связь и питомец остаются при вас.${Number(r.reward_mult) > 0 ? ' Часть награды сохранена.' : ' На рискованном пути находок нет, но звёздная пыль за возвращение сохраняется.'}</p>` : '';
   const up = Number(r.level_after) > Number(r.level_before);
   const level = up ? `<p class="tr-lv is-up"><span>Новый уровень</span><b>${r.level_before} → ${r.level_after}</b></p>`
     : r.level_after >= r.ceiling && r.level_after < (me.rules.max_level || 30) ? `<p class="tr-note">Уровень ${r.level_after} — потолок этой ступени. Дальше питомец растёт со Связью: дней ${r.bond_days}.</p>` : '';
@@ -583,7 +584,7 @@ function _trResultHtml(act, pet, r) {
   const companion = c ? `<section class="tr-grp" aria-label="Награда спутника"><b>Спутник: ${_trE(c.name)}</b><p class="tr-note">+${fmt(c.xp_credited)} Следов · силы ${Math.round(c.energy)}${c.level_after > c.level_before ? ` · уровень ${c.level_before} → ${c.level_after}` : ''}${c.stage_essence ? ` · +${fmt(c.stage_essence)} Эссенции за ступень` : ''}</p></section>` : '';
   const d = Object.assign({}, me.daily, { credited: Number(r.daily_credited) }), meter = _trTraces(Object.assign({}, me, { daily: d }));
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span><b>${title}</b><small>${_trE(sub)}</small></span></p>${calm}
-    <ul class="tr-gain" aria-label="Что получено">${rows.join('') || '<li class="tr-none">На этот раз без находок.</li>'}</ul>${level}${energy}${companion}${meter}`;
+    <ul class="tr-gain" aria-label="Что получено">${rows.join('') || '<li class="tr-none">На этот раз без находок.</li>'}</ul>${r.star_dust?.shared_trail && !r.star_dust.amount ? `<p class="tr-note">🌠 ${r.star_dust.new_trail ? 'Частица звёздного следа сохранена до следующего возвращения.' : 'За это время звёздный след уже собран другим питомцем.'}</p>` : ''}${level}${energy}${companion}${meter}`;
   return _trSheetHtml('Награда', body, '<button type="button" class="v3-pill v3-pill--full" onclick="trailClose()">Готово</button>');
 }
 function _trResult(act, pet, r) {

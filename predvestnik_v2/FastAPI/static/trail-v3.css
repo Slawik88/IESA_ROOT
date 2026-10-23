@@ -420,3 +420,22 @@ button.tr-pet.is-picked { width: calc(100% + 24px); margin-inline: -12px; paddin
   .tr-tal .tr-end { grid-column: 2; justify-content: flex-start; }
   .tr-tal .tr-act { flex-direction: row; align-items: center; gap: 10px; }
 }
+
+/* Personal dust shop uses the Trail sheet and its existing theme tokens. */
+#sd-content .sd-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+#sd-content .sd-options .v3-pill { min-height:44px; white-space:normal; }
+#sd-content small { font-size:12px; font-weight:400; }
+
+#sd-content .sd-balance b { animation:none; overflow-wrap:anywhere; }
+#sd-content .sd-custom { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:16px; }
+#sd-content .sd-custom label { flex:1 1 100%; }
+#sd-content .sd-custom input { width:90px; min-height:44px; border:1px solid var(--v3-faint); border-radius:12px; padding:8px 12px; background:var(--v3-bg); color:var(--v3-ink); }
+
+#sd-content .sd-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#sd-content .sd-heading .v3-link { min-height:44px; }
+#sd-content .sd-heading p { margin:0; }
+#sd-content .sd-custom > span { flex:1 1 100%; margin:0; }
+#sd-content .sd-error { color:var(--v3-ink); }
+#sd-content input[aria-invalid="true"] { border-color:var(--v3-ink); }
+#sd-content .sd-progress { display:block; width:100%; height:4px; margin-top:10px; accent-color:var(--v3-ink); }
+#sd-content .sd-vip-status { margin-top:16px; color:var(--v3-ink); }

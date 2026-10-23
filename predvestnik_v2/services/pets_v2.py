@@ -16,6 +16,7 @@ from core.pets_v2 import PetV2PolicyError
 from infrastructure.repositories import pets_v2 as repo
 from infrastructure.repositories import pet_equipment as gear_repo
 from services import pets_v2_advice as advice
+from services import star_dust
 from services import pet_equipment as gear_service
 
 
@@ -230,7 +231,7 @@ async def overview(db, user_id: int) -> dict:
     stock = await repo.food_stock(db, user_id)
     species_owned = len({p["species_id"] for p in owned if p.get("species_id")})
     return {
-        "policy_version": rules.POLICY_VERSION, "slots": rules.SLOTS, "pets": pets, "activities": activities, "now": clock["now"].isoformat(),
+        "user_id":int(user_id), "policy_version": rules.POLICY_VERSION, "slots": rules.SLOTS, "pets": pets, "activities": activities, "now": clock["now"].isoformat(),
         "daily": {"raw": round(daily["raw"], 1), "credited": round(daily["credited"], 1), "max": rules.DAILY_MAX},
         "durations": {"run": list(rules.RUN_HOURS), "watch": list(rules.WATCH_HOURS)}, "routes": list(rules.ROUTES),
         "talismans": [{"id": t["id"], "kind": t["kind"], "tier": int(t["tier"]), "pet_id": t["pet_id"]} for t in all_talismans],
@@ -247,6 +248,7 @@ async def overview(db, user_id: int) -> dict:
                                repeats_by_route=await repo.route_claims_today(db, user_id, day)),
         "build_presets": await repo.build_presets(db, user_id),
         "equipment": gear_view,
+        "star_dust": await star_dust.overview(db, user_id) if await star_dust.enabled(db) else None,
     }
 
 
@@ -588,6 +590,7 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
             "energy": round(energy, 1), "energy_loss": energy_loss, "finds": granted, "key": key_granted, "stage_essence": stage_essence,
             "companion": companion_reward, "idempotent_replay": False,
         }
+        result["star_dust"] = await star_dust.grant_pet_in_transaction(db, user_id=user_id, run=run)
         await repo.finish_run(db, run["id"], result)
         await save_v2_action(db, user_id, action_id, request, result)
         await _record_progress(db, user_id, run, occurred_at=clock['now'])
@@ -634,7 +637,7 @@ def _week_start(day):
 
 
 async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, traits: list[str], talisman_ids: list[str], action_id: str,
-                    expected_essence: int | None = None) -> dict:
+                    expected_essence: int | None = None, expected_build: dict | None = None) -> dict:
     """Собрать билд: призвание (с 10 ур.), черты (слоты с 5/15/25 ур.), до 2 талисманов.
 
     Пустой слот заполняется бесплатно. Замена призвания или черты бесплатна раз в неделю, дальше — Эссенция.
@@ -644,6 +647,8 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
     request = {"type": "build", "pet_id": int(pet_id), "calling": calling, "traits": sorted(traits), "talismans": sorted(talisman_ids)}
     if expected_essence is not None:
         request["expected_essence"] = expected_essence
+    if expected_build is not None:
+        request['expected_build'] = expected_build
     if len(set(traits)) != len(traits) or len(set(talisman_ids)) != len(talisman_ids):
         raise PetV2PolicyError("Повторы в сборке не допускаются.")
     if any(t not in rules.AVAILABLE_TRAITS for t in traits):
@@ -682,6 +687,12 @@ async def set_build(db, *, user_id: int, pet_id: int, calling: str | None, trait
         clock = await repo.clock(db)
         week = _week_start(clock["day"])
         old_calling, old_traits = state["calling"], _json_list(state["traits"])
+        if expected_build is not None:
+            current = {'calling':old_calling,'traits':sorted(old_traits),
+                       'talisman_ids':sorted(t['id'] for t in await repo.equipped_talismans(db,user_id,pet_id))}
+            if current != {'calling':expected_build.get('calling'),'traits':sorted(expected_build.get('traits',[])),
+                           'talisman_ids':sorted(expected_build.get('talisman_ids',[]))}:
+                raise PetV2Conflict('Сборка уже изменилась. Открой питомца заново и подтверди новый вариант.')
         calling_at, traits_at = state["calling_changed_at"], state["traits_changed_at"]
         cost = 0
         if old_calling and calling != old_calling:
@@ -945,12 +956,13 @@ async def _apply_xp(db, user_id: int, pet_id: int, rarity: str, level: int, xp: 
     return level, xp, stage_essence, limit
 
 
-async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action_id: str) -> dict:
+async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action_id: str, expected_week: str | None = None) -> dict:
     """Испытание недели: одна сдача в неделю на аккаунт. Награда зависит от совпадения сборки с тегами недели."""
     action_id = _action(action_id)
     if difficulty not in rules.TRIAL_ESSENCE:
         raise PetV2PolicyError("Сложность 1, 2 или 3.")
     request = {"type": "trial", "pet_id": int(pet_id), "difficulty": int(difficulty)}
+    if expected_week is not None:request["expected_week"]=str(expected_week)
     async with db.connection.transaction():
         await repo.lock_user(db, user_id)
         replay = await repo.cached_action(db, user_id, action_id)
@@ -964,6 +976,8 @@ async def submit_trial(db, *, user_id: int, pet_id: int, difficulty: int, action
         rarity, favorite, _, _, _ = _species_row(pet)
         clock = await repo.clock(db)
         week = _week_start(clock["day"])
+        if expected_week is not None and str(expected_week)!=week.isoformat():
+            raise PetV2Conflict("Испытание недели изменилось. Откройте новое подтверждение.")
         if await repo.trial_done(db, user_id, week):
             raise PetV2Conflict("Испытание этой недели уже сдано.")
         state = await repo.ensure_state(db, user_id, pet_id, rules.energy_max(1, pet["species_id"]))

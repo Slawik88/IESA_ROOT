@@ -1,3 +1,85 @@
+# CASINO/PETS/STARDUST-20261023 — реализация и финальный дизайн-review завершены
+
+Дополнительный запрос «найди места, которые можно улучшить» выполнен:
+- Casino draft/open/error/focus сохраняются по владельцу; отказ раскрывает форму
+  даже после сворачивания во время запроса. Pending body по-прежнему заморожен.
+- Dust shop: Enter/валидация/inline ошибки/Back с черновиком, VIP expiry/active,
+  fractional progress и refresh с сохранением последнего состояния при сбое.
+  Read/write generations + readySeq закрыли stale GET при reopening во время
+  обмена и защитили данные при смене аккаунта. В чате также видны expiry/fraction.
+- Pet chat: именные возвраты, точное восстановление при кормлении, уровни/названия
+  талисманов и предупреждение переноса; убрана дублирующая кнопка списка.
+- Новые browser regressions PASS (36 casino +6 dust visible layouts,409/503,
+  фокус/Enter/Back, stale read ordering), PG dust/pet chat + patchnotes PASS.
+  Критик отдельно подтвердил закрытие3гонок; экономика не менялась.
+  Подробности в docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md (верхняя запись).
+
+
+Ветка codex/casino-polish в managed worktree от origin/master23152873:
+C:/Users/makss/.codex/worktrees/casino-polish/IESA_ROOT.
+Исходный backup-checkout и его изменения не затронуты. Production/GitHub/TG
+не изменялись. Изменения пока не закоммичены.
+
+Казино: RTP рун95,572→98,143%, выплаты31,659→33,422%, чистаяпобеда4,307→5,111%.
+Пустота7→6, Fehu8→9, тройкаFehu×11→×8,5. Колесо: один0→×1,5, один×3→×2;
+RTP97,5%, выплаты55→60%, чистаяпобеда30→35%. Кости: преимущество4→2%.
+Настоящие WAAPI-барабаны, stagger landing, cancel on leave, reduced motion;
+итог/выплата раздельно, история, CTA320×640,6read-onlyзначков с прошлыми партиями.
+Покупка1Мора=1жетон, вывод1:1. Bonus и redeemable раздельны, выбранныйпул
+фиксируется в ставке. Gift1000 и его выигрыши невыводимы. Legacy total прежний,
+redeemable=min(chips//10,historicalMoraSpent), остальное bonus, миграция одинраз.
+Вывод+canonicalMora ledger+immutable receipt атомарны; итогМоры≤2^53−1.
+Pending body/action_id сохраняются по владельцу в sessionStorage после reload/401/429.
+При выкладке обязательно drain старых casino writers, не знающих redeemable pool.
+
+Питомцы: новый bot/chat/pets.py + pet_menu/details/builds; durable owner/chat/72h
+buttons в infrastructure/repositories/pet_chat.py. Group+DM, все registry/помощь:
+питомцы, отправить/покормить питомца, лагерь, вылазка, выслеживание, испытание,
+бестиарий. Все действия существующих сервисов: gear/build/talismans/presets,
+кормление, отправка/возвращение/развилка,лагерь,trial,tracking,outing.
+Подтверждения сохраняют цену/сборку/уровень/неделю; replay до проверкисвежести.
+Каждый callback перечитывает block/deleted/system/module/chat/section/group/command.
+Критик помог закрыть bypass выключеннойподкоманды и stale-weektrial.
+
+Звёздная пыль: пользователь отверг14дней/30. УДАЛЕНЫ все caps: rollingVIP,
+future7, balance1400, petdaily42. Не возвращать их.100пыли=1деньVIP,
+любой доступный срок, оплаченный VIP продлевается. Источник — общий звёздный
+след отряда: trek/exp2пыли/час,watch0,2. Max интенсивности пересечений,
+не сумма питомцев. Обычный лут каждого прежний. Fraction/remainder сохраняются,
+микросекунды целочисленные, immutable интервалы, out-of-order возвращения
+доплачивают разницу. Нет companion/VIP/gear множителей. В общей tx claim_run.
+Max48pet+24chat=72пыли/сутки<100стоимостиVIP. Долгие накопления могуткупитьнедели.
+бот звездопад: secrets0..1,0..24пыли,1попытка/account/UTCday,нулевыетожефиксируются;
+красивые labels+0–5звёзд. бот пыль / бот вип за пыль [дней], все в помощи.
+Shop изpets/VIP, app54, arbitrarydays, durablepending, expectedowner, guarded
+refresh после смены аккаунта. Startup bot+web обеспечивают schema+flag.
+
+Симуляции actualcore+energy+3slots:120000персон×30дней и12000×180(12профилей),
+seed20261023. Средний607,684пыли/30дней;5,577целыхVIP+остаток,медиана6;
+180дней→5,986/месяц. Активный1409,154пыли/30дней;13,598целыхVIP+остаток,медиана14;
+180дней→14,014/месяц. Непрерывный≈16,72/месяц, дозоры+команда≈3,75.
+Это сценарии, не телеметрия. docs/audits/STAR_DUST_BALANCE_2026_10_23.md +
+соседние JSONresults/180d, tools/simulate_star_dust.py.6000случайныхпорядков
+пересечений совпали с независимым эталоном критика.
+
+Патчноуты:7записей updates.json + FastAPI/static/patch-notes/2026-10-23.json;
+cover штатный. После выкладки владелец админка→Патч-ноуты→предпросмотр/Отправить,
+как docs/PATCH_NOTES.md. В канал не отправляли.
+PASS: casino rules(900k+точныйперебор), casinoPG,cashoutPG,petsPG,pet_chatPG,
+star_dustPG(нулевойroll,overlap/reverse/fraction/race/rollback,20+30daysVIP,
+paidVIP,owner/gates/help),patchnotescontract16постов,ASGIstatic(rooted/unrooted),
+publicroutes,pycompile,nodecheck,diffcheck. Browsercasino36layouts/reels/reducedmotion/
+lostcommit+reload+401/429; dust6layouts+15days+lostcommit/reload/429/replay — PASS.
+NodeVM критик:delayed account switch — PASS послеисправления.
+Старый красный master gate shell_v3_contract:ожидает3игрывместо4 и старуюglintстроку;
+несвязанныйgateнеправили. Финальная визуальная критика закрыта: казино без общего rewardhero, деньги
+вышеистории,единицыставки,пустыесекторы; формаcashout6размеров безперекрытияdock.
+Скриншоты: predvestnik_v2/.local/{casino-final-proof,dust-ui}; внешние копии
+C:/Users/makss/.codex/visualizations/2026/10/22/01a165b2-9c11-7560-bdaa-2f50eeebe2e6/casino-polish/review-2026-10-23.
+Локальный изолированный PostgreSQL55439 и UI-stand остановлены после проверок.
+Следующий шаг: review ветки/отдельнаявыкладка
+по запросу владельца с drain старыхcasinoпроцессов.
+
 # Состояние: админка 2.0 — люди и лица
 
 Дата: 20.10.2026 · ветка `codex/admin-v2` · релиз `254f2f4d`…`6b8f89f6`, полировка поверх

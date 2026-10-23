@@ -864,7 +864,9 @@
   let _achievementsV1Data = null;
   let _achievementsV1Filter = 'all';
   let _chatAchievementsData = null;
-  const ACHIEVEMENT_FILTERS = Object.freeze([['all', 'Все'], ['games', 'Игры'], ['collection', 'Приключения'], ['progression', 'Развитие'], ['chat', 'Чат']]);
+  let _casinoAchievementsData = null;
+  let _casinoAchievementsError = false;
+  const ACHIEVEMENT_FILTERS = Object.freeze([['all', 'Все'], ['games', 'Игры'], ['collection', 'Приключения'], ['progression', 'Развитие'], ['chat', 'Чат'], ['casino', 'Казино']]);
   const ACHIEVEMENT_ACTIONS = Object.freeze({
     rhythm: 'openRhythmV2Game()',
     minesweeper: 'openMinesweeperGame()',
@@ -927,14 +929,21 @@
     };
   }
 
+  function achievementCasinoItem(badge) {
+    return { key: `casino:${badge.id}`, icon: badge.icon, title: badge.title,
+      level: Number(badge.unlocked), max: 1, pct: achievementPct(badge.progress, badge.target),
+      hint: badge.unlocked ? 'Значок открыт' : badge.help, done: badge.unlocked, badge };
+  }
+
   // Ближе к следующему уровню — выше; пройденные — в конце
   const achievementOrder = (a, b) => (a.done - b.done) || (b.pct - a.pct) || (b.level - a.level);
 
   function achievementRow(item, index) {
-    return `<button type="button" class="ach-row" onclick="achievementsV1Open(${index})" aria-label="${esc(item.title)}: уровень ${item.level} из ${item.max}. ${esc(item.hint)}${item.reward ? `, за следующий ${esc(item.reward)}` : ''}">
+    const status = item.badge ? (item.done ? 'значок открыт' : 'значок ещё не открыт') : `уровень ${item.level} из ${item.max}`;
+    return `<button type="button" class="ach-row" onclick="achievementsV1Open(${index})" aria-label="${esc(item.title)}: ${status}. ${esc(item.hint)}${item.reward ? `, за следующий ${esc(item.reward)}` : ''}">
       <span class="ach-ic" aria-hidden="true">${esc(item.icon)}</span>
       <span class="ach-tx"><b>${esc(item.title)}</b><small>${esc(item.hint)}</small><i class="ach-bar" aria-hidden="true"><i style="width:${item.pct}%"></i></i></span>
-      <span class="ach-lv">${item.level}<small>/${item.max}</small>${item.reward ? `<em>${item.reward}</em>` : ''}</span>
+      <span class="ach-lv">${item.badge ? (item.done ? '✓' : '◇') : `${item.level}<small>/${item.max}</small>`}${item.reward ? `<em>${item.reward}</em>` : ''}</span>
     </button>`;
   }
 
@@ -947,9 +956,13 @@
       ['collection', 'Приключения', families.filter((f) => f.category === 'collection').map(achievementPathItem)],
       ['progression', 'Развитие', families.filter((f) => f.category === 'progression').map(achievementPathItem)],
       ['chat', 'Чат', chat.map(achievementChatItem)],
+      ['casino', 'Казино · значки', (_casinoAchievementsData || []).map(achievementCasinoItem)],
     ].filter(([id]) => _achievementsV1Filter === 'all' || _achievementsV1Filter === id);
     _achievementsShown = [];
     return groups.map(([id, label, items]) => {
+      if (id === 'casino' && _casinoAchievementsError && !_casinoAchievementsData) {
+        return '<div class="v3-empty" role="alert"><b>Значки казино не загрузились</b><button type="button" class="v3-link" onclick="openAchievementsV1()">Повторить</button></div>';
+      }
       if (id === 'chat' && !_chatAchievementsData) {
         return `<div class="v3-empty" role="alert"><b>Достижения чата не загрузились</b> <button type="button" class="v3-link" onclick="openAchievementsV1()">Повторить</button></div>`;
       }
@@ -972,11 +985,15 @@
     const chatSummary = _chatAchievementsData?.summary || {};
     const total = Number(summary.total_levels || 0) + Number(chatSummary.total_levels || 0);
     const max = Number(summary.max_levels ?? (_achievementsV1Data.families || []).reduce((n,f)=>n+Number(f.max_level || 40),0)) + Number(chatSummary.max_levels || 0);
+    const badges = _casinoAchievementsData || [];
+    const badgeNote = badges.length ? `<p class="ach-note cs-dim">Казино: ${badges.filter(b => b.unlocked).length} из ${badges.length} значков · без валютных наград</p>` : '';
     const sub = `${fmt(total)} из ${fmt(max)} уровней · получено ${fmt(summary.claimed_mora || 0)} 🪙`;
     // Карточка общего пути: кольцо открытых уровней и полученная Мора рисованной монетой (app.50.js); без неё — строка под заголовком
-    const card = typeof v3GoalCard === 'function' ? v3GoalCard({ done: total, total: max, label: 'Открыто уровней · получено за них', reward: { amount_mora: summary.claimed_mora || 0 } }) : '';
-    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub: card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
-      <div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
+    const card = _achievementsV1Filter !== 'casino' && typeof v3GoalCard === 'function' ? v3GoalCard({ done: total, total: max, label: 'Открыто уровней · получено за них', reward: { amount_mora: summary.claimed_mora || 0 } }) : '';
+    root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub: _achievementsV1Filter === 'casino' ? 'Значки за партии · прошлые игры тоже учитываются' : card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
+      ${badgeNote}<div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
+    const tab = root.querySelector('.ach-tabs .v3-tab.on'), nav = tab?.parentElement;
+    if (nav) { const t = tab.getBoundingClientRect(), n = nav.getBoundingClientRect(); nav.scrollLeft += Math.max(0, t.right - n.right) + Math.min(0, t.left - n.left); }
     v3EnterSync(root);
   }
 
@@ -997,6 +1014,12 @@
     if (!item) return;
     _haptic('select');
     const title = `${item.icon} ${item.title} · ${item.level}/${item.max}`;
+    if (item.badge) {
+      const b = item.badge;
+      OM(`${item.icon} ${item.title}`, `<div class="ach-sheet"><p>${esc(b.help)}</p><p class="ach-note">${b.unlocked ? 'Значок открыт ✓' : 'Значок ещё не открыт'}. Засчитываются и прошлые партии. Валютной награды нет.</p></div>`,
+        [{ l: 'В казино', f: 'CM();openCasino()', c: 'primary' }]);
+      return;
+    }
     if (item.chat) {
       const c = item.chat, target = Number(c.next_threshold || 0);
       const reward = c.next_reward ? `<p class="ach-note">На ${c.next_reward.level}-м уровне · +${fmt(c.next_reward.essence)} 🔮</p>` : '';
@@ -1040,13 +1063,16 @@
     }
     const mine = ++_achievementsSeq;
     try {
-      const [paths, chat] = await Promise.all([
+      const [paths, chat, casino] = await Promise.all([
         api('/achievements-v1/reconcile', {method:'POST'}),
         api('/achievements-v1/chat').catch(() => null),
+        api('/achievements-v1/casino').catch(() => null),
       ]);
       if (mine !== _achievementsSeq) return;
       _achievementsV1Data = paths;
       _chatAchievementsData = chat || _chatAchievementsData;   // разовый сбой чата не стирает уже показанное
+      _casinoAchievementsError = !casino;
+      _casinoAchievementsData = casino?.badges || _casinoAchievementsData;
       renderAchievementsV1();
     } catch (error) {
       if (mine !== _achievementsSeq) return;

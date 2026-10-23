@@ -1,3 +1,34 @@
+## CASINO-PETS-DUST-UX-20261023 — completed locally
+
+Owner follow-up: find and implement useful improvements after the casino/pet/dust
+release work. No balance changes and no dust storage/redemption limits.
+
+Confirmed counterexamples and fixes:
+- Casino rerender erased an entered cashout amount and collapsed disclosures.
+  Per-owner draft/open state now persists; only confirmed cashout clears the draft.
+- Refusing a money request after the user collapsed the pending form hid its error.
+  A one-render force-open override reveals inline errors; field/submit/summary focus
+  is retained. Pending frozen bodies still outrank editable drafts.
+- Dust custom days silently rejected invalid input. Form now explains errors,
+  supports Enter, retains draft on Back, and focuses the relevant control.
+- Shop hid active VIP expiry and fractional progress. Both now display; a guarded
+  refresh preserves data/input on failure. Chat dust menu also shows expiry/fraction.
+- Reopening during VIP exchange could apply a GET snapshot from before the commit.
+  Read/write generations and ready-sequence guards prevent stale or cross-owner data.
+- Identical pet return buttons, unclear feeding effects and anonymous talisman IDs:
+  named actions, actual restoration/food effect, named tiers and transfer warnings.
+
+PASS: verify_casino_ui.py (36 visible layouts, closed-during-request409, draft/focus,
+inline errors plus prior replay/animation proof); verify_star_dust_ui.py (6 visible
+layouts, invalid days/Enter/Back, refresh503, fractional progress, real stale-read
+ordering plus prior lost-commit replay); test_star_dust_pg.py; test_pet_chat_pg.py;
+patch_notes_contract.py; node/py_compile; diff check. Screenshot readiness now waits
+for the real preloader to disappear. Evidence in .local/casino-ux-proof and dust-ui.
+Independent read-only critic reproduced and rechecked same-owner reopen, account
+switch and closed-form refusal: all PASS; no remaining confirmed blockers.
+Seven in-app updates covered by the existing 2026-10-23 TGK day note (4 items,
+3 fixes); no external post. Next: review/deploy separately on owner request.
+
 ## PETS-UX-20261022 — complete Pets workspace redesign (release verification)
 
 Owner request: rebuild the Pets tab around when the player needs each fact/action;

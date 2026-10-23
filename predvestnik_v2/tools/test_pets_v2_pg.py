@@ -21,7 +21,7 @@ def local_dsn(value: str) -> str:
 
 
 async def finish_now(db, run_id: str) -> None:
-    await db.execute("UPDATE pet_v2_runs SET ends_at=NOW()-INTERVAL '1 minute' WHERE id=?", (run_id,))
+    await db.execute("UPDATE pet_v2_runs SET starts_at=NOW()-make_interval(hours=>hours)-INTERVAL '1 minute',ends_at=NOW()-INTERVAL '1 minute' WHERE id=?", (run_id,))
 
 
 async def balance(db, user: int, column: str) -> float:
@@ -149,7 +149,7 @@ async def run(dsn: str) -> None:
             raise AssertionError("a finished run must not be claimed twice")
 
         # экспедиция: путь обязателен, подсказка сервера соответствует правилам
-        await db.execute("UPDATE pet_v2_runs SET ends_at=NOW()-INTERVAL '1 minute' WHERE status='active'")
+        await db.execute("UPDATE pet_v2_runs SET starts_at=NOW()-make_interval(hours=>hours)-INTERVAL '1 minute',ends_at=NOW()-INTERVAL '1 minute' WHERE status='active'")
         view = await service.overview(db, user)
         decision = next(a for a in view["activities"] if a["kind"] == "expedition")["decision"]
         assert decision["detail"] == "exact" and set(decision["paths"]) == set(rules.PATHS)
