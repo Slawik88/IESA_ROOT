@@ -26,10 +26,20 @@ _SCHEMA = "predvestnik"
 def _pool_max_size() -> int:
     """Keep one app process inside a small share of managed-Postgres slots."""
     try:
-        configured = int(os.environ.get("DB_POOL_MAX_SIZE", "5"))
+        configured = int(os.environ.get("DB_POOL_MAX_SIZE", "10"))
     except ValueError:
-        configured = 5
+        configured = 10
     return max(2, min(configured, 10))
+
+
+def _statement_timeout_ms() -> int:
+    """Server-side per-statement cap: зависший запрос не держит соединение пула.
+    30с с запасом покрывает самые тяжёлые легитимные запросы (leaderboard/биржа);
+    DDL идемпотентного старта состоит из миллисекундных выражений."""
+    try:
+        return max(1000, int(os.environ.get("DB_STATEMENT_TIMEOUT_MS", "30000")))
+    except ValueError:
+        return 30000
 
 
 def _mask_url(url: str) -> str:
@@ -155,7 +165,10 @@ async def _create_pool_unlocked() -> asyncpg.Pool:
                     max_size=_pool_max_size(),
                     statement_cache_size=0,   # required for DO managed PG / pgbouncer
                     timeout=30,
-                    server_settings={"search_path": f"{_SCHEMA},public"},
+                    server_settings={
+                        "search_path": f"{_SCHEMA},public",
+                        "statement_timeout": str(_statement_timeout_ms()),
+                    },
                     init=_set_schema,
                 )
                 logger.info(
