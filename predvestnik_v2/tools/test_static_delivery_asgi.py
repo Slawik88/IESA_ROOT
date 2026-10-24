@@ -91,7 +91,16 @@ def assert_surface(client: TestClient, prefix: str = "") -> None:
         assert response.status_code == 200, path
         assert media_type in response.headers.get("content-type", ""), path
         assert response.content, path
-        assert response.headers.get("cache-control") == "no-cache", path
+        if path == "/local-games-sw.js":
+            # SW — сам механизм обновления: всегда ревалидируется, даже с ?v=
+            assert response.headers.get("cache-control") == "no-cache", path
+            continue
+        # Content-addressed URLs cache forever: HTML always references the
+        # current release hash, so ?v= bytes are immutable by construction.
+        assert response.headers.get("cache-control") == "public, max-age=31536000, immutable", path
+    # Bare asset URLs (no ?v=) must still revalidate each load.
+    bare = client.get(f"{prefix}/static/app.css")
+    assert bare.headers.get("cache-control") == "no-cache", "bare asset revalidates"
     for path in BLOCKED:
         response = client.get(f"{prefix}{path}")
         assert response.status_code == 404, path

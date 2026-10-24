@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -303,9 +304,18 @@ async def revalidate_mini_app_assets(request, call_next):
     # HTML must discover each release's content hash; bare asset URLs must also
     # revalidate. This does not change caching of authenticated API responses.
     path = request.url.path
-    if path in ("/", "/rhythm-v2", "/minesweeper", "/league", "/league-demo") or path.startswith("/static/"):
+    if path.startswith("/static/") and request.query_params.get("v"):
+        # Content-addressed URL: HTML всегда ссылается на текущий хэш релиза,
+        # поэтому байты за данным ?v= неизменны — кэшируем навсегда без стейл-риска.
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    elif path in ("/", "/rhythm-v2", "/minesweeper", "/league", "/league-demo") or path.startswith("/static/"):
         response.headers["Cache-Control"] = "no-cache"
     return response
+
+
+# Сжатие текстовых ответов (статика ~1МБ JS, CSS, JSON API). Уже сжатые ответы
+# middleware пропускает (защита content_encoding_set в Starlette).
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
@@ -457,9 +467,19 @@ async def pwa_manifest():
 _STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 
+_STATIC_CACHE: dict[str, str] = {}
+
+
 def _read_static(name: str) -> str:
-    with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
-        return f.read()
+    # Раздача читает файлы на каждый запрос — держим исходник в памяти;
+    # контент идентифицируется _ASSET_VER, ручная правка файла на диске
+    # подхватывается только после рестарта процесса.
+    source = _STATIC_CACHE.get(name)
+    if source is None:
+        with open(os.path.join(_STATIC_DIR, name), encoding="utf-8") as f:
+            source = f.read()
+        _STATIC_CACHE[name] = source
+    return source
 
 
 # app.js разбит на части (рефакторинг §5: меньше файлы → проще grep/Read/правки).
