@@ -1,3 +1,30 @@
+## BACKEND-SAFE-FIXES-20261024 — completed locally, no runtime semantics changed
+
+Owner-approved safe slice of the backend audit. Three commits on
+feat/ai-clean-code-standard, based on current master2644d149:
+
+f0a5c722 naive datetimes pinned to UTC: parse_dt convention is naive-UTC but
+three sites used local server time (profile marriage duration, shield line,
+promo windows). On any non-UTC host windows shifted by the TZ offset (verified
+2h on the dev Windows box); prod is UTC so behaviour is unchanged there.
+New single helper utcnow_naive() in services/formatting.py. Promo rules and
+streak card tests PASS.
+
+99d0c454 explicit httpx client timeout (15s) for the AI assistant — the only
+client of nine without one; every real request already had per-request 15s.
+
+71b90c24 exchange ensure_tables 1106-line wall of DDL converted to a data
+tuple _ENSURE_TABLES_STATEMENTS + loop, same pattern as other modules.
+Equivalence proven by AST: all 112 SQL literals byte-identical before/after;
+parameterised schema-version INSERT and commit kept inline in order.
+compileall OK; player_exchange rules/shorts model tests PASS.
+
+Not done on purpose (owner's "do not break" rule): layering refactor of
+services/admin_* (33 imports into bot.*), batching startup DDL into one
+transaction, per-query command_timeout — behaviour changes, need their own
+task. A separate performance-optimization audit list was requested and
+delivered in chat (no code touched).
+
 ## CLEAN-CODE-AUDIT-20261023 — completed, no runtime changes
 
 Owner task: pass the whole codebase against the new predvestnik_v2/CLEAN_CODE.md
