@@ -1,3 +1,36 @@
+## PERF-SLICE-1-20261024 — completed locally (approved items 1,2,4,5,7,8,9)
+
+Owner approved specific optimization items; "startup DDL batching" rejected,
+"parallel loading" (item 6) deferred: blind asyncio.gather could reorder
+FOR UPDATE acquisition (deadlock risk) and /profile is query-budget
+contracted — needs a dedicated task with live PG, not a blind edit.
+
+e8115cba static delivery: versioned ?v=<hash> URLs now answer
+"public, max-age=31536000, immutable" (content-addressed; HTML always
+references the current release hash so bytes never change under an address);
+bare URLs, all HTML pages and the service worker keep no-cache — players
+always see the current UI, no refresh buttons. GZipMiddleware compresses
+text responses (app.js ~1MB raw → ~1/4 on the wire); Starlette's
+content-encoding guard prevents double compression. _read_static caches file
+sources in memory instead of a disk read per request. Contract test updated:
+immutable for ?v=, explicit no-cache branch for the SW and a new bare-URL
+revalidation check. Full ASGI static delivery contract PASS + an 8-point
+local suite (immutable/gzip/identity-bytes-equal/bare-no-cache/SW/HTML-hash/
+blocked-404/memory-cache) PASS.
+
+123eab89 pool default 5→10 (inside the existing hard cap) and server-side
+statement_timeout=30s (env DB_STATEMENT_TIMEOUT_MS) so a hung query can no
+longer hold a pool connection forever.
+
+769a8c95 prod log level INFO (DEBUG in preprod or via LOG_LEVEL) for both
+loguru and stdlib sinks; secret-redaction filters untouched.
+
+Item 5 (indexes) closed by analysis, no DDL: with correct DDL parsing,
+188 index combos + 355 PK columns cover every WHERE/JOIN column with ≥10
+occurrences across 850 runtime SQL fragments; catalog tables (pg_trigger etc.)
+excluded as system-indexed. No evidence-based index to add — live EXPLAIN
+remains the only honest next step if a slow query ever shows up.
+
 ## BACKEND-SAFE-FIXES-20261024 — completed locally, no runtime semantics changed
 
 Owner-approved safe slice of the backend audit. Three commits on
