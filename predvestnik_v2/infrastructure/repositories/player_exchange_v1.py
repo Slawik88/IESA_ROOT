@@ -15,8 +15,11 @@ from core.player_exchange_v1 import PRICE_SCALE, TOKEN_SCALE, depth_band_bounds
 SCHEMA_VERSION = "player-exchange-schema-v20-short-recovery-receipts-2026-10-06"
 
 
-async def ensure_tables(db) -> None:
-    await db.execute("""
+# DDL-простыня ensure_tables как данные: порядок важен, всё идемпотентно
+# (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / DO $$). Значения литералов
+# сохранены байт-в-байт из исходной функции — проверено AST-сравнением.
+_ENSURE_TABLES_STATEMENTS = (
+"""
         CREATE TABLE IF NOT EXISTS player_coins_v1 (
             id TEXT PRIMARY KEY,
             owner_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
@@ -34,25 +37,23 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CHECK (auction_ends_at > auction_starts_at)
         )
-    """)
-    await db.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_owner_live_v1 "
-        "ON player_coins_v1(owner_id) WHERE status IN ('auction','active','halted')"
-    )
-    await db.execute("ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS total_supply_units BIGINT")
-    await db.execute("ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS launched_at TIMESTAMPTZ NULL")
-    await db.execute("UPDATE player_coins_v1 SET total_supply_units=genesis_units WHERE total_supply_units IS NULL")
-    await db.execute("ALTER TABLE player_coins_v1 ALTER COLUMN total_supply_units SET NOT NULL")
-    await db.execute("ALTER TABLE player_coins_v1 DROP CONSTRAINT IF EXISTS ck_player_coin_total_supply_v1")
-    await db.execute("""
+    """,
+"CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_owner_live_v1 "
+        "ON player_coins_v1(owner_id) WHERE status IN ('auction','active','halted')",
+"ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS total_supply_units BIGINT",
+"ALTER TABLE player_coins_v1 ADD COLUMN IF NOT EXISTS launched_at TIMESTAMPTZ NULL",
+"UPDATE player_coins_v1 SET total_supply_units=genesis_units WHERE total_supply_units IS NULL",
+"ALTER TABLE player_coins_v1 ALTER COLUMN total_supply_units SET NOT NULL",
+"ALTER TABLE player_coins_v1 DROP CONSTRAINT IF EXISTS ck_player_coin_total_supply_v1",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_total_supply_v2') THEN
                 ALTER TABLE player_coins_v1 ADD CONSTRAINT ck_player_coin_total_supply_v2
                 CHECK (total_supply_units>0 AND total_supply_units>=circulating_units);
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_accounts_v1 (
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             account_key TEXT NOT NULL,
@@ -66,8 +67,8 @@ async def ensure_tables(db) -> None:
             CHECK ((account_kind='player' AND user_id IS NOT NULL) OR
                    (account_kind<>'player' AND user_id IS NULL))
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_events_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -78,16 +79,16 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (actor_id, action_id)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_mora_accounts_v1 (
             coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             treasury_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (treasury_mora >= 0),
             insurance_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (insurance_mora >= 0),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_auction_bids_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -104,8 +105,8 @@ async def ensure_tables(db) -> None:
             UNIQUE (bidder_id, action_id),
             UNIQUE (coin_id, bidder_id)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_auction_settlements_v1 (
             coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             success BOOLEAN NOT NULL,
@@ -114,13 +115,11 @@ async def ensure_tables(db) -> None:
             raised_mora NUMERIC(24,6) NOT NULL,
             settled_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute(
-        "UPDATE player_coins_v1 c SET launched_at=s.settled_at "
+    """,
+"UPDATE player_coins_v1 c SET launched_at=s.settled_at "
         "FROM player_coin_auction_settlements_v1 s "
-        "WHERE c.id=s.coin_id AND s.success=TRUE AND c.launched_at IS NULL"
-    )
-    await db.execute("""
+        "WHERE c.id=s.coin_id AND s.success=TRUE AND c.launched_at IS NULL",
+"""
         CREATE TABLE IF NOT EXISTS player_coin_orders_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -144,18 +143,14 @@ async def ensure_tables(db) -> None:
             closed_at TIMESTAMPTZ NULL,
             UNIQUE (user_id,action_id)
         )
-    """)
-    await db.execute(
-        "ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS slippage_percent INTEGER NULL "
-        "CHECK (slippage_percent IN (1,3,5))"
-    )
-    await db.execute("ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS actor_kind TEXT NOT NULL DEFAULT 'player'")
-    await db.execute(
-        "ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS treasury_token_bucket TEXT NULL "
-        "CHECK (treasury_token_bucket IN ('treasury','market_reserve'))"
-    )
-    await db.execute("ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS short_position_id TEXT NULL")
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS slippage_percent INTEGER NULL "
+        "CHECK (slippage_percent IN (1,3,5))",
+"ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS actor_kind TEXT NOT NULL DEFAULT 'player'",
+"ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS treasury_token_bucket TEXT NULL "
+        "CHECK (treasury_token_bucket IN ('treasury','market_reserve'))",
+"ALTER TABLE player_coin_orders_v1 ADD COLUMN IF NOT EXISTS short_position_id TEXT NULL",
+"""
         DO $$ BEGIN
             ALTER TABLE player_coin_orders_v1
                 DROP CONSTRAINT IF EXISTS ck_player_coin_order_actor_kind_v1,
@@ -163,12 +158,10 @@ async def ensure_tables(db) -> None:
             ALTER TABLE player_coin_orders_v1 ADD CONSTRAINT ck_player_coin_order_actor_kind_v1
                 CHECK (actor_kind IN ('player','treasury','short'));
         END $$
-    """)
-    await db.execute(
-        "CREATE INDEX IF NOT EXISTS idx_player_coin_order_book_v1 ON player_coin_orders_v1"
-        "(coin_id,status,side,limit_price_micromora,created_at,id)"
-    )
-    await db.execute("""
+    """,
+"CREATE INDEX IF NOT EXISTS idx_player_coin_order_book_v1 ON player_coin_orders_v1"
+        "(coin_id,status,side,limit_price_micromora,created_at,id)",
+"""
         CREATE TABLE IF NOT EXISTS player_coin_trades_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -186,10 +179,10 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CHECK (buyer_id <> seller_id)
         )
-    """)
-    await db.execute("ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS buyer_kind TEXT NOT NULL DEFAULT 'player'")
-    await db.execute("ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS seller_kind TEXT NOT NULL DEFAULT 'player'")
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS buyer_kind TEXT NOT NULL DEFAULT 'player'",
+"ALTER TABLE player_coin_trades_v1 ADD COLUMN IF NOT EXISTS seller_kind TEXT NOT NULL DEFAULT 'player'",
+"""
         DO $$ BEGIN
             ALTER TABLE player_coin_trades_v1
                 DROP CONSTRAINT IF EXISTS ck_player_coin_trade_actor_kinds_v1,
@@ -198,18 +191,16 @@ async def ensure_tables(db) -> None:
             ALTER TABLE player_coin_trades_v1 ADD CONSTRAINT ck_player_coin_trade_actor_kinds_v1
                 CHECK (buyer_kind IN ('player','treasury','short') AND seller_kind IN ('player','treasury','short'));
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_exchange_fee_fund_v1 (
             singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK(singleton),
             insurance_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK(insurance_mora >= 0),
             burned_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK(burned_mora >= 0)
         )
-    """)
-    await db.execute(
-        "INSERT INTO player_exchange_fee_fund_v1(singleton) VALUES(TRUE) ON CONFLICT DO NOTHING"
-    )
-    await db.execute("""
+    """,
+"INSERT INTO player_exchange_fee_fund_v1(singleton) VALUES(TRUE) ON CONFLICT DO NOTHING",
+"""
         CREATE TABLE IF NOT EXISTS player_coin_market_state_v1 (
             coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             halted_until TIMESTAMPTZ NULL,
@@ -220,19 +211,19 @@ async def ensure_tables(db) -> None:
             halt_reference_price_micromora BIGINT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_public_reason TEXT NULL")
-    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_kind TEXT NULL")
-    await db.execute("ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halted_by BIGINT NULL")
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_public_reason TEXT NULL",
+"ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halt_kind TEXT NULL",
+"ALTER TABLE player_coin_market_state_v1 ADD COLUMN IF NOT EXISTS halted_by BIGINT NULL",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_player_coin_halt_kind_v1') THEN
                 ALTER TABLE player_coin_market_state_v1 ADD CONSTRAINT ck_player_coin_halt_kind_v1
                 CHECK (halt_kind IN ('automatic','manual'));
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_emissions_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -251,12 +242,10 @@ async def ensure_tables(db) -> None:
             UNIQUE(owner_id,action_id),
             UNIQUE(owner_id,cancel_action_id)
         )
-    """)
-    await db.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_emission_v1 "
-        "ON player_coin_emissions_v1(coin_id) WHERE status='pending'"
-    )
-    await db.execute("""
+    """,
+"CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_emission_v1 "
+        "ON player_coin_emissions_v1(coin_id) WHERE status='pending'",
+"""
         CREATE TABLE IF NOT EXISTS player_coin_liquidity_withdrawals_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -274,17 +263,15 @@ async def ensure_tables(db) -> None:
             economy_operation_id TEXT NULL UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT,
             UNIQUE(owner_id,action_id)
         )
-    """)
-    await db.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_liquidity_withdrawal_v1 "
-        "ON player_coin_liquidity_withdrawals_v1(coin_id) WHERE status='pending'"
-    )
-    await db.execute("""
+    """,
+"CREATE UNIQUE INDEX IF NOT EXISTS uq_player_coin_pending_liquidity_withdrawal_v1 "
+        "ON player_coin_liquidity_withdrawals_v1(coin_id) WHERE status='pending'",
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_trade_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_trades_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_trades_immutable_v1'
@@ -294,8 +281,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_trade_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_mora_ledger_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -308,13 +295,13 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CHECK (balance_after = balance_before + delta)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_event_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_events_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_events_immutable_v1'
@@ -324,13 +311,13 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_event_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_mora_ledger_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_mora_ledger_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_mora_ledger_immutable_v1'
@@ -340,22 +327,18 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_mora_ledger_mutation_v1();
             END IF;
         END $$
-    """)
-    # Shorts stay behind their own disabled flag. These tables only preserve
-    # segregated state; no balance writer or player route uses them in this wave.
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_reserves_v1 (
             coin_id TEXT PRIMARY KEY REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             available_mora NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (available_mora>=0),
             shorts_paused BOOLEAN NOT NULL DEFAULT FALSE,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute(
-        "INSERT INTO player_coin_short_reserves_v1(coin_id) SELECT id FROM player_coins_v1 "
-        "ON CONFLICT(coin_id) DO NOTHING"
-    )
-    await db.execute("""
+    """,
+"INSERT INTO player_coin_short_reserves_v1(coin_id) SELECT id FROM player_coins_v1 "
+        "ON CONFLICT(coin_id) DO NOTHING",
+"""
         CREATE TABLE IF NOT EXISTS player_coin_lending_positions_v1 (
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             lender_id BIGINT NOT NULL REFERENCES users(user_tg_id) ON DELETE RESTRICT,
@@ -366,8 +349,8 @@ async def ensure_tables(db) -> None:
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             PRIMARY KEY (coin_id,lender_id)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_positions_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -390,30 +373,18 @@ async def ensure_tables(db) -> None:
             CHECK ((status IN ('open','closing') AND outstanding_debt_units>0 AND closed_at IS NULL) OR
                    (status IN ('closed','frozen') AND outstanding_debt_units=0 AND closed_at IS NOT NULL))
         )
-    """)
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS collateral_operation_id TEXT NULL "
-        "UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS cash_escrow_mora NUMERIC(24,6) NOT NULL DEFAULT 0 "
-        "CHECK (cash_escrow_mora>=0)"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS last_interest_accrued_at TIMESTAMPTZ NULL"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS open_apr_bps INTEGER NULL CHECK (open_apr_bps>=0)"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_mark_price_micromora BIGINT NULL "
-        "CHECK (interest_mark_price_micromora>0)"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_remainder_seconds INTEGER NOT NULL DEFAULT 0 "
-        "CHECK (interest_remainder_seconds>=0 AND interest_remainder_seconds<60)"
-    )
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS collateral_operation_id TEXT NULL "
+        "UNIQUE REFERENCES economic_operations(id) ON DELETE RESTRICT",
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS cash_escrow_mora NUMERIC(24,6) NOT NULL DEFAULT 0 "
+        "CHECK (cash_escrow_mora>=0)",
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS last_interest_accrued_at TIMESTAMPTZ NULL",
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS open_apr_bps INTEGER NULL CHECK (open_apr_bps>=0)",
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_mark_price_micromora BIGINT NULL "
+        "CHECK (interest_mark_price_micromora>0)",
+"ALTER TABLE player_coin_short_positions_v1 ADD COLUMN IF NOT EXISTS interest_remainder_seconds INTEGER NOT NULL DEFAULT 0 "
+        "CHECK (interest_remainder_seconds>=0 AND interest_remainder_seconds<60)",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_player_coin_order_short_position_v1') THEN
                 ALTER TABLE player_coin_orders_v1
@@ -428,8 +399,8 @@ async def ensure_tables(db) -> None:
                 (actor_kind<>'short' AND short_position_id IS NULL)
             );
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_cash_ledger_v1 (
             id TEXT PRIMARY KEY,
             position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
@@ -443,8 +414,8 @@ async def ensure_tables(db) -> None:
             UNIQUE (source_type,source_id),
             CHECK (balance_after=balance_before+delta_mora)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_interest_accruals_v1 (
             id TEXT PRIMARY KEY,
             position_id TEXT NOT NULL REFERENCES player_coin_short_positions_v1(id) ON DELETE RESTRICT,
@@ -458,8 +429,8 @@ async def ensure_tables(db) -> None:
             UNIQUE (position_id,accrued_from,accrued_to),
             CHECK (accrued_to>accrued_from)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_interest_pauses_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -469,28 +440,25 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CHECK (ends_at>starts_at)
         )
-    """)
-    # A pre-v15 position can only be an isolated test/rehearsal row. Its old
-    # counters are imported once, before the new append-only escrow journal is
-    # used. New writer paths always append real collateral/proceeds receipts.
-    await db.execute("""
+    """,
+"""
         UPDATE player_coin_short_positions_v1 p SET cash_escrow_mora=
             p.posted_collateral_mora+p.locked_sale_proceeds_mora
         WHERE p.cash_escrow_mora=0
           AND (p.posted_collateral_mora+p.locked_sale_proceeds_mora)>0
           AND NOT EXISTS (SELECT 1 FROM player_coin_short_cash_ledger_v1 e WHERE e.position_id=p.id)
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_cash_ledger_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_cash_ledger_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_interest_accrual_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_interest_accruals_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION guard_player_coin_short_interest_claim_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -505,8 +473,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NEW;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_interest_accrual_immutable_v1'
@@ -516,8 +484,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_interest_accrual_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_cash_ledger_immutable_v1'
@@ -527,8 +495,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_cash_ledger_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_loans_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -545,8 +513,8 @@ async def ensure_tables(db) -> None:
             FOREIGN KEY (position_id,coin_id) REFERENCES player_coin_short_positions_v1(id,coin_id) ON DELETE RESTRICT,
             CHECK (principal_units=outstanding_units+repaid_units+frozen_units)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_interest_claims_v1 (
             id TEXT PRIMARY KEY,
             accrual_id TEXT NOT NULL REFERENCES player_coin_short_interest_accruals_v1(id) ON DELETE RESTRICT,
@@ -562,26 +530,24 @@ async def ensure_tables(db) -> None:
             FOREIGN KEY (loan_id,coin_id,position_id,lender_id)
                 REFERENCES player_coin_short_loans_v1(id,coin_id,position_id,lender_id) ON DELETE RESTRICT
         )
-    """)
-    await db.execute(
-        "ALTER TABLE player_coin_short_interest_claims_v1 ADD COLUMN IF NOT EXISTS frozen_mora "
-        "NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (frozen_mora>=0 AND frozen_mora<=amount_mora)"
-    )
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_interest_claims_v1 ADD COLUMN IF NOT EXISTS frozen_mora "
+        "NUMERIC(24,6) NOT NULL DEFAULT 0 CHECK (frozen_mora>=0 AND frozen_mora<=amount_mora)",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_short_interest_claim_total_v1') THEN
                 ALTER TABLE player_coin_short_interest_claims_v1 ADD CONSTRAINT ck_short_interest_claim_total_v1
                 CHECK (settled_mora+frozen_mora<=amount_mora);
             END IF;
         END $$
-    """)
-    await db.execute("ALTER TABLE player_coin_short_interest_claims_v1 ADD COLUMN IF NOT EXISTS coin_id TEXT NULL")
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_interest_claims_v1 ADD COLUMN IF NOT EXISTS coin_id TEXT NULL",
+"""
         UPDATE player_coin_short_interest_claims_v1 c SET coin_id=p.coin_id
         FROM player_coin_short_positions_v1 p WHERE p.id=c.position_id AND c.coin_id IS NULL
-    """)
-    await db.execute("ALTER TABLE player_coin_short_interest_claims_v1 ALTER COLUMN coin_id SET NOT NULL")
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_interest_claims_v1 ALTER COLUMN coin_id SET NOT NULL",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_interest_claim_loan_identity_v1') THEN
                 ALTER TABLE player_coin_short_interest_claims_v1
@@ -590,8 +556,8 @@ async def ensure_tables(db) -> None:
                     REFERENCES player_coin_short_loans_v1(id,coin_id,position_id,lender_id) ON DELETE RESTRICT;
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_interest_claim_guard_v1'
@@ -601,8 +567,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION guard_player_coin_short_interest_claim_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION assert_player_coin_short_interest_reconciliation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE position_key TEXT; expected NUMERIC; actual NUMERIC;
@@ -621,8 +587,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE rel TEXT; trigger_name TEXT; BEGIN
             FOREACH rel IN ARRAY ARRAY['player_coin_short_positions_v1','player_coin_short_interest_claims_v1'] LOOP
                 trigger_name := CASE WHEN rel='player_coin_short_positions_v1'
@@ -636,8 +602,8 @@ async def ensure_tables(db) -> None:
                 END IF;
             END LOOP;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_frozen_claims_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -655,8 +621,8 @@ async def ensure_tables(db) -> None:
             CHECK ((status='open' AND remaining_units>0 AND settled_at IS NULL) OR
                    (status='settled' AND remaining_units=0 AND settled_at IS NOT NULL))
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_frozen_interest_claims_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -670,8 +636,8 @@ async def ensure_tables(db) -> None:
             CHECK ((status='open' AND remaining_mora>0 AND settled_at IS NULL) OR
                    (status='settled' AND remaining_mora=0 AND settled_at IS NOT NULL))
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_frozen_interest_settlements_v1 (
             id TEXT PRIMARY KEY,
             claim_id TEXT NOT NULL REFERENCES player_coin_short_frozen_interest_claims_v1(id) ON DELETE RESTRICT,
@@ -680,8 +646,8 @@ async def ensure_tables(db) -> None:
             payout_mora NUMERIC(24,6) NOT NULL CHECK (payout_mora>0),
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION guard_player_coin_short_frozen_interest_claim_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -694,8 +660,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NEW;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_frozen_interest_guard_v1'
@@ -705,8 +671,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION guard_player_coin_short_frozen_interest_claim_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION assert_frozen_interest_settlement_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE claim_key TEXT; expected NUMERIC; actual NUMERIC;
@@ -737,8 +703,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE rel TEXT; name TEXT; BEGIN
             FOREACH rel IN ARRAY ARRAY['player_coin_short_frozen_interest_claims_v1',
                                        'player_coin_short_frozen_interest_settlements_v1'] LOOP
@@ -750,8 +716,8 @@ async def ensure_tables(db) -> None:
                 END IF;
             END LOOP;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_reserve_ledger_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -766,8 +732,8 @@ async def ensure_tables(db) -> None:
             UNIQUE (source_type,source_id),
             CHECK (balance_after=balance_before+delta_mora)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION guard_player_coin_short_frozen_claim_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -787,8 +753,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NEW;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_frozen_claim_guard_v1'
@@ -798,8 +764,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION guard_player_coin_short_frozen_claim_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_buyback_cycles_v1 (
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
             cycle_hour TIMESTAMPTZ NOT NULL,
@@ -813,12 +779,12 @@ async def ensure_tables(db) -> None:
             CHECK (budget_mora=floor(reserve_snapshot_mora*5*1000000/100)/1000000),
             CHECK (spent_mora<=budget_mora)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         ALTER TABLE player_coin_short_buyback_cycles_v1
         DROP CONSTRAINT IF EXISTS player_coin_short_buyback_cycles_v1_check
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE old_name TEXT; BEGIN
             SELECT c.conname INTO old_name
             FROM pg_constraint c
@@ -834,25 +800,19 @@ async def ensure_tables(db) -> None:
                 CHECK (budget_mora=floor(reserve_snapshot_mora*5*1000000/100)/1000000);
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_short_buyback_cycle_hour_v1') THEN
                 ALTER TABLE player_coin_short_buyback_cycles_v1 ADD CONSTRAINT ck_short_buyback_cycle_hour_v1
                 CHECK (cycle_hour=date_trunc('hour',cycle_hour));
             END IF;
         END $$
-    """)
-    await db.execute(
-        "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS buyback_cycle_hour TIMESTAMPTZ NULL"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS frozen_interest_claim_id TEXT NULL"
-    )
-    await db.execute(
-        "ALTER TABLE player_coin_short_frozen_interest_settlements_v1 ADD COLUMN IF NOT EXISTS reserve_ledger_id TEXT NULL"
-    )
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS buyback_cycle_hour TIMESTAMPTZ NULL",
+"ALTER TABLE player_coin_short_reserve_ledger_v1 ADD COLUMN IF NOT EXISTS frozen_interest_claim_id TEXT NULL",
+"ALTER TABLE player_coin_short_frozen_interest_settlements_v1 ADD COLUMN IF NOT EXISTS reserve_ledger_id TEXT NULL",
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_reserve_ledger_frozen_interest_v1') THEN
                 ALTER TABLE player_coin_short_reserve_ledger_v1
@@ -867,13 +827,13 @@ async def ensure_tables(db) -> None:
                 REFERENCES player_coin_short_reserve_ledger_v1(id) ON DELETE RESTRICT;
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE UNIQUE INDEX IF NOT EXISTS uq_short_frozen_interest_settlement_ledger_v1
         ON player_coin_short_frozen_interest_settlements_v1(reserve_ledger_id)
         WHERE reserve_ledger_id IS NOT NULL
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_short_reserve_ledger_cycle_v1') THEN
                 ALTER TABLE player_coin_short_reserve_ledger_v1
@@ -882,8 +842,8 @@ async def ensure_tables(db) -> None:
                 REFERENCES player_coin_short_buyback_cycles_v1(coin_id,cycle_hour) ON DELETE RESTRICT;
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_events_v1 (
             id TEXT PRIMARY KEY,
             coin_id TEXT NOT NULL REFERENCES player_coins_v1(id) ON DELETE RESTRICT,
@@ -894,22 +854,18 @@ async def ensure_tables(db) -> None:
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             UNIQUE (action_id)
         )
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_coin_short_maintenance_cursor_v1 (
             singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
             last_position_id TEXT NULL,
             last_frozen_coin_id TEXT NULL,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
-    await db.execute(
-        "ALTER TABLE player_coin_short_maintenance_cursor_v1 ADD COLUMN IF NOT EXISTS last_frozen_coin_id TEXT NULL"
-    )
-    await db.execute(
-        "INSERT INTO player_coin_short_maintenance_cursor_v1(singleton) VALUES(TRUE) ON CONFLICT(singleton) DO NOTHING"
-    )
-    await db.execute("""
+    """,
+"ALTER TABLE player_coin_short_maintenance_cursor_v1 ADD COLUMN IF NOT EXISTS last_frozen_coin_id TEXT NULL",
+"INSERT INTO player_coin_short_maintenance_cursor_v1(singleton) VALUES(TRUE) ON CONFLICT(singleton) DO NOTHING",
+"""
         CREATE OR REPLACE FUNCTION sync_player_coin_short_pause_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE affected_coin TEXT;
@@ -927,8 +883,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION assert_frozen_interest_claim_reconciliation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE interest_key TEXT; expected NUMERIC; actual NUMERIC;
@@ -954,8 +910,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE rel TEXT; name TEXT; BEGIN
             FOREACH rel IN ARRAY ARRAY['player_coin_short_interest_claims_v1',
                                        'player_coin_short_frozen_interest_claims_v1'] LOOP
@@ -967,8 +923,8 @@ async def ensure_tables(db) -> None:
                 END IF;
             END LOOP;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_pause_v1'
@@ -978,8 +934,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION sync_player_coin_short_pause_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_interest_pause_v1'
@@ -989,8 +945,8 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION sync_player_coin_short_pause_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION assert_player_coin_short_reconciliation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE affected_coin TEXT; affected_lender BIGINT; affected_position TEXT;
@@ -1025,8 +981,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE rel TEXT; BEGIN
             FOREACH rel IN ARRAY ARRAY['player_coin_lending_positions_v1','player_coin_short_positions_v1',
                                        'player_coin_short_loans_v1','player_coin_short_frozen_claims_v1'] LOOP
@@ -1039,8 +995,8 @@ async def ensure_tables(db) -> None:
                 END IF;
             END LOOP;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION assert_player_coin_short_frozen_claim_reconciliation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE loan_key TEXT; expected BIGINT; actual BIGINT;
@@ -1059,8 +1015,8 @@ async def ensure_tables(db) -> None:
             END IF;
             RETURN NULL;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ DECLARE rel TEXT; trigger_name TEXT; BEGIN
             FOREACH rel IN ARRAY ARRAY['player_coin_short_loans_v1','player_coin_short_frozen_claims_v1'] LOOP
                 trigger_name := CASE WHEN rel='player_coin_short_loans_v1'
@@ -1074,13 +1030,13 @@ async def ensure_tables(db) -> None:
                 END IF;
             END LOOP;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_event_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_events_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_events_immutable_v1'
@@ -1090,13 +1046,13 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_event_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE OR REPLACE FUNCTION prevent_player_coin_short_reserve_ledger_mutation_v1()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN RAISE EXCEPTION 'player_coin_short_reserve_ledger_v1 is append-only'; END; $$
-    """)
-    await db.execute("""
+    """,
+"""
         DO $$ BEGIN
             IF NOT EXISTS (SELECT 1 FROM pg_trigger
                 WHERE tgname='trg_player_coin_short_reserve_ledger_immutable_v1'
@@ -1106,14 +1062,20 @@ async def ensure_tables(db) -> None:
                 FOR EACH ROW EXECUTE FUNCTION prevent_player_coin_short_reserve_ledger_mutation_v1();
             END IF;
         END $$
-    """)
-    await db.execute("""
+    """,
+"""
         CREATE TABLE IF NOT EXISTS player_exchange_schema_v1 (
             singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
             schema_version TEXT NOT NULL,
             installed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
-    """)
+    """,
+)
+
+
+async def ensure_tables(db) -> None:
+    for sql in _ENSURE_TABLES_STATEMENTS:
+        await db.execute(sql)
     await db.execute(
         "INSERT INTO player_exchange_schema_v1(singleton,schema_version,installed_at) "
         "VALUES (TRUE,?,NOW()) ON CONFLICT(singleton) DO UPDATE "
