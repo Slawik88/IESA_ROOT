@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import signal
+import sys
 from aiogram import Bot, Dispatcher
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from loguru import logger
@@ -70,8 +71,12 @@ class _SecretRedactingFormatter(logging.Formatter):
 
 
 def _configure_safe_logging() -> None:
-    logging.basicConfig(level=logging.INFO)
+    # Прод пишет только INFO+ (экономия диска/CPU); препрод и LOG_LEVELenv — DEBUG.
+    _level = os.getenv("LOG_LEVEL", "DEBUG" if is_preprod() else "INFO").upper()
+    logging.basicConfig(level=_level)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logger.remove()
+    logger.add(sys.stderr, level=_level)
     redaction_filter = _SecretRedactionFilter()
     for handler in logging.getLogger().handlers:
         handler.addFilter(redaction_filter)
