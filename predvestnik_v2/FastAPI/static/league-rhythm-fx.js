@@ -6,11 +6,13 @@
   const C = 2 * Math.PI * 54;   // длина дуги таймера (r = 54)
   let arc = null, shownHearts = null;
 
-  function stage(run, glyphs, onRune) {
+  // restart — функция, которая делает кнопку «Заново» (game-shell-v3.js): она стоит в верхнем углу сцены, подальше от рун
+  function stage(run, glyphs, onRune, restart = null) {
     if ($('lgr-stage')) return false;
     L().show(`<div id="lgr-stage" class="lgr-stage" data-mode="count"><i class="lgr-tempo" id="lgr-tempo" aria-hidden="true"></i>
+      <div class="lg-bar"><span class="lg-bar-t">Ритм · уровень ${run.level}</span><span id="lgr-restart"></span></div>
       <div class="lgr-hud"><span class="lgr-hearts" id="lgr-hearts" role="img"></span>
-        <span class="lgr-score"><b id="lgr-score">0</b><small>очки</small></span><span class="lgr-sig"><b id="lgr-sig"></b><small>такт</small></span></div>
+        <span class="lgr-score"><b id="lgr-score">0</b><small>очки</small></span><span class="lgr-sig"><b id="lgr-sig"></b><small>нажатий</small></span></div>
       <div class="lgr-owned" id="lgr-owned" aria-label="Взятые дары"></div>
       <div class="lgr-arena" id="lgr-arena">
         <svg class="lgr-timer" viewBox="0 0 120 120" aria-hidden="true"><circle class="lgr-timer-bg" r="54" cx="60" cy="60"/><circle class="lgr-timer-arc" id="lgr-arc" r="54" cx="60" cy="60" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="0"/></svg>
@@ -19,6 +21,7 @@
       <div class="lgr-draft" id="lgr-draft"></div>
       <div class="lg-runes" role="group" aria-label="Руны">${Object.entries(glyphs).map(([r, g]) => `<button type="button" data-rune="${r}" aria-label="Руна ${g}">${A().icon('frame', 'lgr-rune-frame')}<b>${g}</b></button>`).join('')}</div></div>`, 1);
     document.querySelectorAll('[data-rune]').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); onRune(b.dataset.rune); }));
+    if (restart) $('lgr-restart').append(restart());
     shownHearts = null;
     return true;
   }
@@ -111,7 +114,7 @@
     host.innerHTML = `<p class="lg-rules">Дар уровня — одинаковый у всех игроков. Можно пропустить.</p><div class="lgr-fan">${offers.map((id, i) => {
       const g = engine.cat[id], ok = engine.allowed(id);
       return `<button type="button" class="lgr-card is-${g.kind}" data-gift="${id}" style="--i:${i - 1}" ${ok ? '' : 'disabled'}><small>${KIND[g.kind] || ''}</small><b>${L().esc(g.name)}</b>
-        <span>＋ ${L().esc(g.bonus)}</span><span>− ${L().esc(g.cost)}</span>${ok ? '' : '<em>сейчас нельзя</em>'}</button>`;
+        <span class="g-plus">＋ ${L().esc(g.bonus)}</span><span class="g-minus">− ${L().esc(g.cost)}</span>${ok ? '' : '<em>сейчас нельзя</em>'}</button>`;
     }).join('')}</div><button type="button" class="lg-link" data-gift="">Пропустить дар</button>`;
     const cards = [...host.querySelectorAll('.lgr-card')];
     cards.forEach((c, i) => Fx().play(c, [{transform: `translateY(48px) rotate(${(i - 1) * 9}deg)`, opacity: 0}, {transform: 'none', opacity: 1}], {duration: 320, delay: i * 80}));

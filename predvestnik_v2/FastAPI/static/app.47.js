@@ -50,7 +50,8 @@ function v3Guide(id) {
   const rows = typeof book.tiles === 'function' ? (book.tiles() || []) : (book.tiles || []);
   const lead = book.lead ? `<p class="g-lead">${_trE(book.lead)}</p>` : '';
   const act = book.action ? `<button type="button" class="v3-pill v3-pill--full" onclick="_guideGo()">${_trE(book.action.label)}</button>` : '';
-  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${_guideTilesHtml(rows)}</div></div>`;
+  const more = book.topic ? '<button type="button" class="v3-link gv-more" onclick="_guideMore()">Подробнее в Путеводителе ›</button>' : '';
+  const body = `<div class="tr-sbody"><div class="tr-shead"><h2 id="g-sheet-t">${_trE(book.title)}</h2><button type="button" class="v3-link" onclick="_guideClose()">Закрыть</button></div>${lead}<div class="g-grid">${_guideTilesHtml(rows)}</div>${more}</div>`;
   _guideSheet(`${body}<div class="tr-foot">${act}<button type="button" class="v3-pill${act ? ' v3-pill--ghost' : ''} v3-pill--full" onclick="_guideClose()">Готово</button></div>`);
   _guideCurrent = id;
   if (typeof book.refresh === 'function') (window.requestAnimationFrame || (job => setTimeout(job, 40)))(() => book.refresh());
@@ -61,6 +62,12 @@ function _guideGo() {
   const go = book && book.action && book.action.go;
   _guideClose(true);
   if (typeof go === 'function') go();
+}
+// «Подробнее в Путеводителе»: закрывает лист и открывает тему (book.topic — id темы из guide-v3.json)
+function _guideMore() {
+  const topic = _guideCurrent && _GUIDE_BOOK[_guideCurrent] && _GUIDE_BOOK[_guideCurrent].topic;
+  _guideClose(true);
+  if (topic) openGuide(topic);
 }
 // Слепок кнопки для шапки вкладки: v3Head(..., { end: v3GuideBtn('trail') })
 // «Подсказки» — не «гайд»: слово понятно и тем, кто впервые открыл бота.
@@ -79,14 +86,14 @@ _backHooks.push(() => {
 // Адаптивность по ресурсам игрока: нет питомцев → свой набор; есть готовый к призыву/награде,
 // Спутник ещё закрыт, стройка идёт, попытки/день кончились, еда кончилась — плитки честно это пишут.
 // Числа берём из ответа (pair.need, daily/track/trial), копий правил клиент не хранит.
-guideDefine('trail', { title: 'Тропа — подсказки', lead: 'Отправляйте питомцев в путь: они растут и приносят находки.', tiles: _trailTiles });
+guideDefine('trail', { title: 'Тропа — подсказки', lead: 'Отправляй питомцев в путь: они растут и приносят находки.', tiles: _trailTiles, topic: 'trail' });
 
 function _trailTiles() {
   const me = _tr.me;
   const pets = me ? me.pets || [] : [], acts = me ? me.activities || [] : [];
   if (!pets.length) return [
-    { icon: '🐾', title: 'Питомцы', text: 'выпадают из сундуков' },
-    { icon: '🪙', title: 'Следы', text: 'опыт питомцев — копится в занятиях' },
+    { icon: '🐾', title: 'Питомцы', text: 'выпадают из сундуков в виде карточек' },
+    { icon: '🪙', title: 'Следы', text: 'очки роста: питомцы копят их в занятиях' },
   ];
   const ready = acts.filter(a => a.ready).length;
   const min = _trMinCost(me);
@@ -95,22 +102,22 @@ function _trailTiles() {
   const tiles = [];
   // карточка «В путь» говорит тем же языком, что и экран: что прямо сейчас происходит
   tiles.push({ icon: '🐾', title: 'В путь', text: ready
-    ? _trWord(ready, 'вернулся — заберите награду', 'вернулись — заберите награды', 'вернулись — заберите награды')
-    : free && slotsFree ? 'можно отправить в путь' : acts.length ? 'питомцы в пути — скоро вернутся' : 'нужны силы — покормите питомца' });
+    ? _trWord(ready, 'вернулся — забери награду', 'вернулись — забери награды', 'вернулись — забери награды')
+    : free && slotsFree ? 'можно отправить в путь' : acts.length ? 'питомцы в пути — скоро вернутся' : 'нужны силы — покорми питомца' });
   const daily = me.daily || {}, max = Number(daily.max) || 0, cur = Number(daily.credited) || 0;
-  tiles.push({ icon: '🪙', title: 'Следы', text: cur >= max - 0.5 ? 'на сегодня норма набрана' : 'опыт питомцев — копится в занятиях' });
-  tiles.push({ icon: '🎒', title: 'Занятия', text: 'поход · экспедиция · дозор' });
+  tiles.push({ icon: '🪙', title: 'Следы', text: cur >= max - 0.5 ? 'норма на сегодня набрана — дальше Следы идут медленнее' : 'очки роста: копятся в занятиях' });
+  tiles.push({ icon: '🎒', title: 'Занятия', text: 'поход, экспедиция и дозор: питомцы уходят на несколько часов' });
   const pair = me.pair || {};
-  tiles.push({ icon: '👫', title: 'Спутник', text: pair.unlocked ? 'в путь можно отправить вдвоём' : `откроется, когда соберёте ${Number(pair.need) || 5} видов` });
+  tiles.push({ icon: '👫', title: 'Спутник', text: pair.unlocked ? 'в путь можно отправить сразу двоих' : `откроется, когда соберёшь ${Number(pair.need) || 5} видов питомцев` });
   const camp = me.camp || {}, lv = camp.levels || {}, job = camp.job;
   tiles.push({ icon: '🏕️', title: 'Лагерь', text: job ? (job.done ? 'стройка завершена' : 'стройка идёт сама')
     : Object.values(lv).some(v => v > 0) ? 'постройки уже помогают в пути' : 'постройки помогают в пути' });
   const track = me.track || {};
-  tiles.push({ icon: '🔍', title: 'Выслеживание', text: track.open ? 'вернитесь к поиску' : Number(track.attempts_left) > 0 ? 'раз в день: ищите находки' : 'на сегодня поиск окончен' });
+  tiles.push({ icon: '🔍', title: 'Выслеживание', text: track.open ? 'вернись к поиску' : Number(track.attempts_left) > 0 ? 'ежедневная охота за находками' : 'на сегодня попытки кончились' });
   const trial = me.trial || {};
-  tiles.push({ icon: '🏆', title: 'Испытание', text: trial.done ? 'сдано — до следующей недели' : 'раз в неделю — испытание питомца' });
+  tiles.push({ icon: '🏆', title: 'Испытание', text: trial.done ? 'сдано — следующее на новой неделе' : 'раз в неделю: испытание для питомца с наградой' });
   const food = (me.foods || []).some(f => Number(f.quantity) > 0), tired = pets.some(p => p.energy < min);
-  tiles.push({ icon: '⏰', title: 'Силы', text: tired && !food ? 'силы кончились — нужна еда из сундуков' : tired ? 'покормите — силы восстановятся быстрее' : 'восстанавливаются сами' });
+  tiles.push({ icon: '⏰', title: 'Силы', text: tired && !food ? 'силы кончились — нужна еда из сундуков' : tired ? 'дай еду — силы вернутся быстрее' : 'восстанавливаются сами' });
   return tiles;
 }
 
@@ -123,7 +130,7 @@ function trailAdvice(me) {
   if (ready.length) {
     const act = ready[0], pet = pets.find(p => p.id === act.pet_id);
     const who = pet ? `${_trE(pet.name)} вернулся — ` : '';
-    return `<section class="tr-sec tr-now"><p class="tr-now-t">${who}${act.kind === 'expedition' ? 'выберите путь' : 'заберите награду'}</p>` +
+    return `<section class="tr-sec tr-now"><p class="tr-now-t">${who}${act.kind === 'expedition' ? 'выбери путь' : 'забери награду'}</p>` +
       `<button type="button" class="v3-pill v3-pill--sm" data-run="${_trE(act.id)}" onclick="trailRun(this)">${act.kind === 'expedition' ? 'Выбрать путь' : 'Забрать'}</button></section>`;
   }
   const min = _trMinCost(me), slotsFree = Math.max(0, (Number(me.slots) || 3) - acts.length);
@@ -131,7 +138,7 @@ function trailAdvice(me) {
   if (sendable.length && slotsFree) {
     const one = sendable.length === 1 ?
       `${_trE(sendable[0].name)} готов к пути — на ходу приносит Следы` :
-      `Свободных питомцев с силами: ${sendable.length} — отправьте в путь`;
+      `Свободных питомцев с силами: ${sendable.length} — отправь в путь`;
     return `<section class="tr-sec tr-now"><p class="tr-now-t">${one}</p>` +
       `<button type="button" class="v3-pill v3-pill--sm" onclick="trailSend()">Отправить ›</button></section>`;
   }
@@ -207,10 +214,10 @@ const questArt = kind => _QS_ART[kind] ? `<svg viewBox="0 0 24 24">${_QS_ART[kin
 // Пока вкладка не открыта, данных на клиенте нет: сначала общий набор, после ответа сервера
 // плитки перерисовываются (v3Guide → refresh). Открытый лист перерисовывается на месте.
 const _chestsTilesStatic = [
-  { icon: '🗝', title: 'Ключи', text: 'дают за полный день и неделю заданий' },
-  { icon: '✦', title: 'Открытие', text: 'один тап открывает одну звезду; награда выбрана заранее — нажимайте спокойно' },
-  { icon: '⭐', title: 'Звёзды', text: 'чем больше звёзд, тем лучше награда' },
-  { icon: '🐾', title: 'Что внутри', text: 'питомцы, их карты и еда' },
+  { icon: '🗝', title: 'Ключи', text: 'дают за задания, походы питомцев и Пропуск' },
+  { icon: '✦', title: 'Открытие', text: 'нажимай на сундук: он открывается звезда за звездой, награда выбрана заранее' },
+  { icon: '⭐', title: 'Звёзды', text: 'чем их больше, тем ценнее награда' },
+  { icon: '🐾', title: 'Что внутри', text: 'Мора, еда, карточки питомцев и джокеры' },
 ];
 function _chestsRefresh() {
   api('/chests-v1/me').then(d => _guideApply('chests', _chestsTilesLive(d))).catch(() => {});
@@ -222,79 +229,31 @@ function _chestsTilesLive(d) {
   const primary = ties.length ? ties[0].b : Number(d.key_balance || 0);
   const higher = ties.filter(k => k.t > 1 && k.b > 0);
   const tiles = [];
-  if (d.pending_open) tiles.push({ icon: '✦', title: 'Награда ждёт', text: 'она уже выбрана — откройте сундук' });
+  if (d.pending_open) tiles.push({ icon: '✦', title: 'Награда ждёт', text: 'она уже выбрана — открой сундук' });
   tiles.push({ icon: '🗝', title: 'Ключи', text: primary > 0
     ? `${fmt(primary)} обычных${higher.length ? ` · выше уровнем: ${higher.map(k => fmt(k.b)).join(' + ')}` : ''}`
-    : 'дают за полный день и неделю заданий' });
+    : 'дают за задания, походы питомцев и Пропуск' });
   tiles.push({ icon: '✨', title: 'Докупить ключ', text: canBuy && rem > 0
     ? `за ${fmt(Number(paid.price_zarniki) || 0)} ✨ · осталось сегодня: ${rem}` : canBuy ? 'на сегодня покупки закончились' : 'покупка сейчас недоступна' });
-  tiles.push({ icon: '⭐', title: 'Звёзды', text: higher.length ? 'лучший ключ поднимает звёзды выше' : 'чем больше звёзд, тем лучше награда' });
+  tiles.push({ icon: '⭐', title: 'Звёзды', text: higher.length ? 'ключ получше поднимает звёзды сундука' : 'чем их больше, тем ценнее награда' });
   const owned = Object.keys((d.inventory || {}).unlocked_pets || {}).length;
-  tiles.push({ icon: '🐾', title: 'Что внутри', text: `${owned} питомцев · карты и еда` });
+  tiles.push({ icon: '🐾', title: 'Что внутри', text: `у тебя ${owned} из 12 питомцев · ещё карточки и еда` });
   return tiles;
 }
-guideDefine('chests', { title: 'Сундуки — подсказки', lead: 'Ключи открывают сундуки, а шансы на награды честно показаны на экране.', tiles: () => _chestsTilesStatic, refresh: _chestsRefresh });
+guideDefine('chests', { title: 'Сундуки — подсказки', lead: 'Ключ открывает сундук. Чем больше звёзд, тем ценнее награда.', tiles: () => _chestsTilesStatic, refresh: _chestsRefresh, topic: 'keys' });
 
 // ── Подсказки «Задания» и «Достижения»: правила экранов — плитками; абзацы под списками убраны ──
-guideDefine('quests', { title: 'Задания — подсказки', lead: 'Выполняйте задания из списка — за них дают награды.', tiles: [
-  { icon: '🎯', title: 'Как выполнять', text: 'делайте то, что написано в задании' },
-  { icon: '↻', title: 'Можно заменить', text: 'не подошло — откройте задание и замените' },
-  { icon: '🎁', title: 'Награды', text: 'за день, за неделю и за весь список целиком' },
+guideDefine('quests', { title: 'Задания — подсказки', lead: 'Выполняй задания из списка — за них дают награды.', topic: 'quests', tiles: [
+  { icon: '🎯', title: 'Как выполнять', text: 'просто играй: задание засчитается само' },
+  { icon: '↻', title: 'Можно заменить', text: 'не подошло? Нажми на задание и выбери «Сменить»' },
+  { icon: '🎁', title: 'Награды', text: 'за все задания дня, за все задания недели и за всё сразу' },
+  { icon: '🕛', title: 'Обновление', text: 'новый день в 00:00 по UTC, новая неделя — с понедельника' },
 ], action: { label: 'К играм', go: () => goTo('arena', 'game') } });
-guideDefine('ach', { title: 'Достижения — подсказки', lead: 'Игры, забота, развитие и общение.', tiles: [
-  { icon: '🏁', title: 'Завершения', text: 'это игры, которые вы довели до конца' },
-  { icon: '📅', title: 'Активные недели', text: 'это недели, когда вы играли' },
-  { icon: '⚖️', title: 'Развитие', text: 'забота, лагерь, образы и дневные задания — без требования недель' },
-  { icon: '🧾', title: 'История', text: 'прошлые улучшения учитываются по подтверждённым операциям' },
-  { icon: '🪙', title: 'Награда', text: 'Мора за каждый уровень — приходит сама' },
+guideDefine('ach', { title: 'Достижения — подсказки', lead: 'Уровни за то, что ты делаешь в игре.', topic: 'ach', tiles: [
+  { icon: '🏁', title: 'Завершения', text: 'игры, которые ты довёл до конца' },
+  { icon: '📅', title: 'Активные недели', text: 'недели, когда ты играл' },
+  { icon: '⚖️', title: 'Развитие', text: 'забота о питомцах, лагерь, образы и задания дня; играть каждую неделю не нужно' },
+  { icon: '🪙', title: 'Награда', text: 'за каждый новый уровень Мора приходит сама' },
   { icon: '💬', title: 'Достижения чата', text: 'за общение с ботом; каждые 10 уровней — Эссенция' },
-  { icon: '◇', title: 'Значки казино', text: 'шесть игровых событий, включая прошлые партии; без валютных наград' },
+  { icon: '◇', title: 'Значки казино', text: 'показывают сыгранные партии, наград не дают' },
 ], action: { label: 'К играм', go: () => goTo('arena', 'game') } });
-
-// ── Подсказки «Справки»: тема — лист с плитками и кнопкой действия ─────────────────────────────
-// На самой справке остаются только строки тем; вводные абзацы живут здесь, по строке на плитку.
-function _helpGameTiles() {
-  const on = k => _sysFlags[k] === true;
-  const t = [];
-  if (typeof _league !== 'undefined' && _league && _league.allowed) t.push({ icon: '🏆', title: 'Лига сезона', text: 'уровни Сапёра и Ритма на звёзды; за них — опыт Пропуска' });
-  if (on('game_rhythm_v2')) t.push({ icon: '🎵', title: 'Ритм', text: 'нажимайте руны в такт музыке' });
-  if (on('game_minesweeper_v2')) t.push({ icon: '💣', title: 'Сапёр', text: 'открывайте клетки и не попадите на мину' });
-  if (on('game_mafia_v1')) t.push({ icon: '🕵️', title: 'Мафия', text: 'игра в чате: напишите боту «бот мафия»' });
-  if (on('season_pass_v1')) t.push({ icon: '🎫', title: 'Пропуск сезона', text: 'играйте — копите очки и получайте награды' });
-  if (!t.length) t.push({ icon: '🎮', title: 'Игры', text: 'скоро откроются' });
-  return t;
-}
-function _helpPetTiles() {
-  if (_sysFlags.pets_v2 === true) return [
-    { icon: '🐾', title: 'Тропа', text: 'отправляйте питомцев в походы и экспедиции' },
-    { icon: '🪙', title: 'Следы', text: 'опыт питомцев — копится в походах' },
-    { icon: '👫', title: 'Спутник', text: 'в путь можно отправить второго питомца' },
-    { icon: '🏕️', title: 'Лагерь', text: 'постройки помогают в пути' },
-  ];
-  return [
-    { icon: '🐾', title: 'Активный питомец', text: 'в поход ходит один питомец' },
-    { icon: '⚡', title: 'Выносливость', text: 'тратится в походе; еда её восполняет' },
-    { icon: '🥚', title: 'Питомцы', text: 'карточки выпадают из сундуков' },
-    { icon: '🧭', title: 'Поход и экспедиция', text: 'приносят ключи и находки' },
-  ];
-}
-guideDefine('help-games', { title: 'Игры — подсказки', lead: 'Выбирайте формат под настроение.', tiles: () => _helpGameTiles(), action: { label: 'Открыть игры', go: () => goTo('arena', 'game') } });
-guideDefine('help-profile', { title: 'Профиль — подсказки', lead: 'Прогресс, награды и разделы — на одном экране.', tiles: [
-  { icon: '✅', title: 'Квесты дня', text: 'сделайте задания дня — заберите награду' },
-  { icon: '🏆', title: 'Достижения', text: 'растут, пока вы играете; награда — Мора' },
-  { icon: '⭐', title: 'VIP', text: 'образ видят все, наград больше' },
-  { icon: '🎒', title: 'Разделы', text: 'образы · питомцы · инвентарь' },
-], action: { label: 'Открыть профиль', go: () => goTo('profile') } });
-guideDefine('help-pets', { title: 'Питомцы — подсказки', lead: 'Питомцы приносят ключи и находки.', tiles: () => _helpPetTiles(), action: { label: 'Открыть питомцев', go: () => openPetsV1() } });
-guideDefine('help-inventory', { title: 'Инвентарь — подсказки', lead: 'Здесь лежит всё, что у вас есть.', tiles: [
-  { icon: '👆', title: 'Плитки нажимаются', text: 'нажмите — откроется место, где вещь пригодится' },
-  { icon: '🖼️', title: 'Образы', text: 'меняют ваш вид; надеть — в «Образах»' },
-  { icon: '🗝', title: 'Ключи и еда', text: 'открывают сундуки и кормят питомцев' },
-  { icon: '📦', title: 'Вещи прежней игры', text: 'сохранены за вами' },
-], action: { label: 'Открыть инвентарь', go: () => openInventory() } });
-guideDefine('help-wallet', { title: 'Зарники и образы — подсказки', lead: 'Образы меняют вид, а не игру.', tiles: [
-  { icon: '🪙', title: 'Зарники', text: 'покупаются за деньги; меняются на Мору и Алмазы' },
-  { icon: '✨', title: 'Эссенция', text: 'тратится на образы' },
-  { icon: '⭐', title: 'VIP', text: 'образ видят все, наград больше' },
-  { icon: '🖼️', title: 'Образы', text: 'меняют только внешний вид' },
-], action: { label: 'Открыть образы', go: () => openLooksModal() } });

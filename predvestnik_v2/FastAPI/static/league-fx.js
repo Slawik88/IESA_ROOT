@@ -84,18 +84,21 @@
     ], {duration: 640, delay, easing: 'cubic-bezier(.3,.1,.2,1)', fill: 'both'}).then(() => node.remove());
   }
 
-  // Лист снизу (без alert/confirm): заголовок, содержимое, кнопки [{l, f, ghost}]. Esc и подложка закрывают, фокус возвращается.
-  function sheet(title, html, buttons = [{l: 'Закрыть'}]) {
+  // Лист снизу (без alert/confirm): заголовок, содержимое, кнопки [{l, f, ghost, arm}]. Esc и подложка закрывают, фокус возвращается.
+  // onDismiss — лист закрыт без выбора (Esc, подложка): так игра, вставшая на паузу ради вопроса, узнаёт, что можно продолжать.
+  // arm — кнопка включается через столько мс после показа: двойной тап по «Заново» не должен пролететь через лист насквозь.
+  function sheet(title, html, buttons = [{l: 'Закрыть'}], onDismiss = null) {
     const back = document.activeElement, host = document.createElement('div');
     host.className = 'lg-sheet-bg';
     host.innerHTML = `<div class="lg-sheet" role="dialog" aria-modal="true" aria-labelledby="lg-sheet-t"><i class="lg-sheet-grip" aria-hidden="true"></i>
       <h2 id="lg-sheet-t">${title}</h2><div class="lg-sheet-body">${html}</div>
       <div class="lg-sheet-btns">${buttons.map((b, i) => `<button type="button" class="${b.ghost ? 'secondary' : ''}" data-i="${i}">${b.l}</button>`).join('')}</div></div>`;
     document.body.appendChild(host);
-    let closed = false;
+    let closed = false, chosen = false;
     const close = () => {
       if (closed) return; closed = true;
       document.removeEventListener('keydown', key);
+      if (!chosen) onDismiss?.();
       const end = () => { host.remove(); back?.focus?.(); };
       if (!moves()) return end();
       play(host, [{opacity: 1}, {opacity: 0}], {duration: 170, fill: 'forwards'});
@@ -104,7 +107,11 @@
     const key = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('keydown', key);
     host.addEventListener('click', e => { if (e.target === host) close(); });
-    host.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => { const act = buttons[Number(b.dataset.i)].f; close(); act?.(); }; });
+    host.querySelectorAll('[data-i]').forEach(b => {
+      const spec = buttons[Number(b.dataset.i)];
+      if (spec.arm) { b.disabled = true; setTimeout(() => { b.disabled = false; }, spec.arm); }
+      b.onclick = () => { chosen = true; close(); spec.f?.(); };
+    });
     play(host, [{opacity: 0}, {opacity: 1}], {duration: 180});
     play(host.firstElementChild, [{transform: 'translateY(40px)', opacity: 0}, {transform: 'none', opacity: 1}], {duration: 260});
     host.querySelector('[data-i]')?.focus();

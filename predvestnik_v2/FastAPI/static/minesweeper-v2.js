@@ -10,17 +10,31 @@
   headers['x-minesweeper-ruleset']='minesweeper-v2';
   const finished=status=>['won','lost','cancelled'].includes(status);
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
-  async function api(path,options={}){const response=await PVLocal.request(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.detail||'Не удалось связаться с сервером.');error.status=response.status;throw error;}return data;}
+  async function api(path,options={}){const response=await PVLocal.request(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;}return data;}
   if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
   fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function format(ms){const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
+  const profileLink=player=>{const a=document.createElement('a');a.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!a.innerHTML)a.textContent=player.display_name||'Игрок';a.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');a.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));return a;};
+  // Тройка лидеров — подиум, остальные строками (как в рейтинге и в обычном Ритме)
+  function drawBoard(top){
+    const podium=$('leaderboard-podium'),list=$('leaderboard-list');podium.replaceChildren();list.replaceChildren();
+    if(!top.length){emptyLeaderboard('Пока нет побед.');return;}
+    [top.find(r=>r.place===2),top.find(r=>r.place===1),top.find(r=>r.place===3)].filter(Boolean).forEach(row=>{
+      const item=document.createElement('li'),medal=document.createElement('span'),name=profileLink(row.player||{}),score=document.createElement('small'),pillar=document.createElement('i');
+      item.className='lgl-pod is-p'+row.place+(row.is_me?' is-me':'');medal.className='lgl-medal-ico is-p'+row.place;medal.textContent=row.place;name.className='lgl-nick';score.textContent=formatRank(row.best_elapsed_ms);pillar.setAttribute('aria-hidden','true');
+      item.append(medal,name,score,pillar);podium.append(item);
+    });
+    const rest=top.filter(row=>row.place>3);
+    rest.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),result=document.createElement('b');place.textContent='#'+row.place;result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,profileLink(row.player||{}),result);list.append(item);});
+    if(rest.length)list.setAttribute('start',String(rest[0].place));
+  }
   function formatRank(ms){return ms>0&&ms<1000?`0:00.${String(Math.floor(ms)).padStart(3,'0')}`:format(ms);}
   function unrankedWin(){return run?.status==='won'&&(run.opened_actions<2||!(run.elapsed_ms>0));}
   function time(){return clockBase+(clockAt!==null?performance.now()-clockAt:0);}
   function updateClock(){if(run)$('timer').textContent=format(time());}
   function setError(text){errorText=text||'';$('mine-hint').textContent=errorText;}
   function sync(result){
-    const bad=()=>{throw new Error('Сервер вернул неполное поле. Попробуй восстановить связь.');};
+    const bad=()=>{throw new Error('Поле загрузилось не полностью. Проверь связь и попробуй ещё раз.');};
     if(!result||typeof result.run_id!=='string'||!result.run_id||![6,9].includes(result.size)||!['awaiting_first_open','active','won','lost','cancelled'].includes(result.status)||!Number.isInteger(result.revision)||result.revision<0)bad();
     const cellOk=cell=>Number.isInteger(cell)&&cell>=0&&cell<result.size*result.size;
     if(!['revealed','flags','mines','changed'].every(key=>Array.isArray(result[key]))||!['revealed','flags','mines'].every(key=>result[key].every(cellOk)))bad();
@@ -36,7 +50,7 @@
   function render(){
     restoreFocus = restoreFocus || board.contains(document.activeElement);
     if(!run||!finished(run.status))$('mine-pass').hidden=true;   // строка опыта — только у законченной партии
-    $('mine-status').textContent=!run&&errorText?'Поле недоступно':status();$('mine-hint').textContent=hint();$('new-game').disabled=busy;$('new-game').textContent=!run&&errorText?'Повторить подключение':'Новая партия';if(!run){board.replaceChildren();return;}
+    $('mine-status').textContent=!run&&errorText?'Поле недоступно':status();$('mine-hint').textContent=hint();$('new-game').disabled=busy;$('new-game-label').textContent=!run&&errorText?'Повторить':'Заново';if(!run){board.replaceChildren();return;}
     $('mine-copy').textContent=`${run.label}: поле ${run.size}×${run.size}, Мин на поле: ${run.mine_count}. Первый ход и клетки вокруг него всегда безопасны.`;
     $('mines-left').textContent=Math.max(0,run.mine_count-(run.flags||[]).length);$('opened').textContent=`${(run.revealed||[]).filter(cell=>!mines.has(cell)).length} / ${run.size*run.size-run.mine_count}`;updateClock();board.style.setProperty('--mine-size',run.size);board.replaceChildren();
     const renderedRun=run.run_id,revealed=new Set(run.revealed||[]),flags=new Set(run.flags||[]);
@@ -47,7 +61,7 @@
       const open=revealed.has(cell),flag=flags.has(cell),mine=mines.has(cell),wrongFlag=run.status==='lost'&&flag&&!mine,adjacent=known.get(cell);
       const button=document.createElement('button');button.type='button';button.dataset.cell=cell;
       button.className=`mine-cell ${open?'open':''} ${flag?'flag':''} ${mine?'mine':''} ${wrongFlag?'wrong-flag':''} ${open&&!mine&&adjacent?`n${adjacent}`:''}`;
-      button.textContent=wrongFlag?'×':mine?'✹':flag?'⚑':open?(adjacent||''):'';
+      if(window.LeagueArt&&(mine||flag))button.innerHTML=window.LeagueArt.icon(mine?'mine':'flag');else button.textContent=open?(adjacent||''):'';
       button.setAttribute('role','gridcell');button.setAttribute('aria-rowindex',Math.floor(cell/run.size)+1);button.setAttribute('aria-colindex',cell%run.size+1);
       button.setAttribute('aria-label',`Строка ${Math.floor(cell/run.size)+1}, столбец ${cell%run.size+1}: `+(wrongFlag?'Ошибочный флаг, мины нет':mine?'Мина':flag?'Флаг':open?(adjacent?`рядом мин ${adjacent}`:'Открытая пустая клетка'):'Закрытая клетка'));
       button.tabIndex=cell===focusCell?0:-1;button.disabled=busy||finished(run.status);
@@ -75,7 +89,7 @@
     if(restoreFocus&&!busy){if(document.activeElement&&document.activeElement!==document.body&&!board.contains(document.activeElement)){restoreFocus=false;return;}board.querySelector(`[data-cell="${focusCell}"]`)?.focus({preventScroll:true});restoreFocus=false;}
   }
   function saveLocal(){if(engine){engine.state.elapsed_ms=Math.floor(time());store.data.active={packet:engine.packet,state:engine.state,first:engine.first,journal};store.save();}}
-  async function flushResults(){try{await store.flush(api,result=>{if(result.rejected&&run?.run_id===result.run_id){setError('Сервер не подтвердил результат: '+result.message);render();}else{refreshLeaderboard(true);render();if(run?.run_id===result.run_id&&run.status==='won'){const line=$('mine-pass');line.dataset.run=run.run_id;window.GameMode?.passXp('minesweeper',run.run_id,line);}}});}catch(error){if(error.status===401&&run&&finished(run.status)){setError('Результат сохранён. Открой игру заново в Telegram для отправки.');render();}} }
+  async function flushResults(){try{await store.flush(api,result=>{if(result.rejected&&run?.run_id===result.run_id){setError('Результат не подтвердился: '+result.message);render();}else{refreshLeaderboard(true);render();if(run?.run_id===result.run_id&&run.status==='won'){const line=$('mine-pass');line.dataset.run=run.run_id;window.GameMode?.passXp('minesweeper',run.run_id,line);}}});}catch(error){if(error.status===401&&run&&finished(run.status)){setError('Результат сохранён. Открой игру заново в Telegram для отправки.');render();}} }
   setInterval(flushResults,5000);window.addEventListener('online',()=>{refreshLeaderboard(true);flushResults();store.refreshRules(api).catch(()=>{});});
   async function start(resumeExisting=false){
     if(busy)return;cancelGesture();errorText='';busy=true;render();
@@ -118,8 +132,8 @@
     refreshLeaderboard();flushResults();if(navigator.onLine)store.refreshRules(api).catch(()=>{});
   }
   function seasonRewards(data){const box=$('season-rewards');if(!box)return;box.replaceChildren();((data.season||{}).rewards||[]).forEach(r=>{const li=document.createElement('li'),a=document.createElement('b'),b=document.createElement('span');a.textContent='Место '+r.label;b.textContent=r.mora+' Моры · '+r.essence+' Эссенции';li.append(a,b);box.append(li)})}
-  function seasonNote(data){const s=data.season,l=data.last_season;if(!s)return '';const end=new Date(s.ends_at).toLocaleDateString('ru-RU'),left=s.days_left;let t='Сезон '+s.number+' · до '+end+(left?' · осталось '+left+' дн.':' · последний день');const top=(s.rewards||[])[0];if(top)t+=' · Топ-1: '+top.mora+' Моры и '+top.essence+' Эссенции';if(s.paying===false)t+=window.GameMode?.allowed()?' · Награды за места — в режиме «Рейтинг»':' · Награды за места в Сапёре пока не выдаются';if(l)t+=' · Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+l.reward_mora+' Моры':'')+(l.reward_essence?' и '+l.reward_essence+' Эссенции':'');return t}
-  function emptyLeaderboard(text,retry=false){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.textContent=text;if(retry){const button=document.createElement('button');button.type='button';button.textContent='Повторить';button.onclick=()=>refreshLeaderboard(true);row.append(button);}list.append(row);}
+  function seasonNote(data){const s=data.season,l=data.last_season;if(!s)return '';const end=new Date(s.ends_at).toLocaleDateString('ru-RU'),left=s.days_left;let t='Сезон '+s.number+' · до '+end+(left?' · осталось '+left+' дн.':' · последний день');const top=(s.rewards||[])[0];if(top)t+=' · Топ-1: '+top.mora+' Моры и '+top.essence+' Эссенции';if(s.paying===false)t+=' · За место награды нет, опыт Пропуска даёт сама игра'+(window.GameMode?.allowed()?', а больше всего — режим «Рейтинг»':'');if(l)t+=' · Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+l.reward_mora+' Моры':'')+(l.reward_essence?' и '+l.reward_essence+' Эссенции':'');return t}
+  function emptyLeaderboard(text,retry=false){$('leaderboard-podium').replaceChildren();const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='is-empty';row.textContent=text;if(retry){const button=document.createElement('button');button.type='button';button.textContent='Повторить';button.onclick=()=>refreshLeaderboard(true);row.append(button);}list.append(row);}
   function leaderboardData(selected,force){
     let pending=leaderPending.get(selected);
     if(pending){if(force)pending.dirty=true;return pending.promise;}
@@ -132,9 +146,13 @@
   async function refreshLeaderboard(force=false){
     const seq=++leaderSeq,selected=difficulty;
     if(leaderRenderedDifficulty!==selected){emptyLeaderboard('Загружаем…');$('season-note').textContent='';$('leaderboard-personal').textContent='';}
-    $('leaderboard-difficulty').textContent=labels[selected];try{const data=await leaderboardData(selected,force);if(seq!==leaderSeq||selected!==difficulty)return;leaderRenderedDifficulty=selected;$('season-note').textContent=seasonNote(data);seasonRewards(data);const list=$('leaderboard-list');list.replaceChildren();if(!data.top.length)emptyLeaderboard('Пока нет побед.');else data.top.forEach(row=>{const item=document.createElement('li'),place=document.createElement('span'),name=document.createElement('a'),result=document.createElement('b'),player=row.player||{};place.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));result.textContent=formatRank(row.best_elapsed_ms);if(row.is_me)item.className='is-me';item.append(place,name,result);list.append(item);});$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${formatRank(data.personal.best_elapsed_ms)}`:'Для таблицы лидеров пройди поле минимум за два открытия.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.',true);}
+    $('leaderboard-difficulty').textContent=labels[selected];try{const data=await leaderboardData(selected,force);if(seq!==leaderSeq||selected!==difficulty)return;leaderRenderedDifficulty=selected;$('season-note').textContent=seasonNote(data);seasonRewards(data);drawBoard(data.top);$('leaderboard-personal').textContent=data.personal?`Твоё место: #${data.personal.place} · ${formatRank(data.personal.best_elapsed_ms)}`:'Для таблицы лидеров пройди поле минимум за два открытия.';}catch(error){if(seq===leaderSeq&&selected===difficulty)emptyLeaderboard('Таблица временно недоступна.',true);}
   }
   $('mine-view-toggle').onclick=()=>{const large=document.body.dataset.mineZoom!=='large';document.body.dataset.mineZoom=large?'large':'fit';$('mine-view-toggle').setAttribute('aria-pressed',String(large));$('mine-view-toggle').textContent=large?'Показать всё поле':'Крупные клетки';$('mine-view-label').textContent=large?'Прокручивай поле вбок':'Поле целиком';};
   document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{cancelGesture();mode=button.dataset.mode;if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.selectionChanged();document.querySelectorAll('[data-mode]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();});
-  document.querySelectorAll('[data-difficulty]').forEach(button=>button.onclick=()=>{if(busy||difficulty===button.dataset.difficulty)return;difficulty=button.dataset.difficulty;document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item===button)));start();});$('new-game').onclick=()=>start(!run);restore();
+  document.querySelectorAll('[data-difficulty]').forEach(button=>button.onclick=()=>{if(busy||difficulty===button.dataset.difficulty)return;difficulty=button.dataset.difficulty;document.querySelectorAll('[data-difficulty]').forEach(item=>item.setAttribute('aria-selected',String(item===button)));start();});const shell=window.GameShell,newGame=()=>start(!run);
+  const resumeClock=()=>{if(run?.status==='active'&&clockAt===null)clockAt=performance.now();};
+  $('new-game').onclick=shell?shell.guarded({risky:()=>Boolean(run&&run.status==='active'&&engine),pause,resume:resumeClock,run:newGame,ask:{title:'Начать новую партию?',
+    text:'Эта партия не сохранится: открытые клетки и время пропадут. Поле будет новым.',confirm:'Да, начать заново'}}):newGame;
+  restore();shell?.mount({label:'обычный'});
 })();

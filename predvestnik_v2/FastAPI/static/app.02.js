@@ -200,6 +200,7 @@ function _handleStartParam(){
     looks:()=>openLooksModal(), cosmetics:()=>openLooksModal(), themes:()=>openLooksModal(), shop:()=>openLooksModal(), goods:()=>openLooksModal(), inventory:()=>openInventory(), inv:()=>openInventory(),
     vip:()=>openStoreV3('vip'), zarniki:()=>openStoreV3('zarniki'), topup:()=>openStoreV3('zarniki'),
     casino:()=>openCasino(), exchange:()=>openPlayerExchangeV1(), exch:()=>openPlayerExchangeV1(), crypto:()=>openPlayerExchangeV1(), birzha:()=>openPlayerExchangeV1(),
+    guide:()=>openGuide(p.split('_')[1]||''), help:()=>openGuide(p.split('_')[1]||''),
     notifications:settings, notifprefs:settings, settings:()=>openSettingsModal(), top:()=>openTopV3(), news:()=>openWhatsNew(), pass:()=>openSeasonPass(), season:()=>openSeasonPass(), bp:()=>openSeasonPass(), battlepass:()=>openSeasonPass(),
   };
   if(base==='public'){
@@ -317,7 +318,7 @@ function showCurrModal() {
     <div class="wallet-summary"><span>${_walletIcon('zarniki')} Зарники</span><strong id="cm-bal-zarniki">${fmtF(d.zarniki || 0)}</strong></div>
     <div class="wallet-assets">${[['mora','Мора','Игры и задания'],['diamonds','Алмазы','Редкие награды'],['essence','Эссенция','Развитие образов']].map(([id,name,sub])=>`<div class="wallet-asset">${_walletIcon(id)}<span><b>${name}</b><small>${sub}</small></span><strong id="cm-bal-${id}">${fmtF(d[id] || 0)}</strong></div>`).join('')}</div>
     <section class="wallet-exchange" id="wallet-exchange" aria-live="polite"><p class="v3-sub">Загружаем актуальные курсы…</p></section>
-    <details class="wallet-help"><summary>Как устроен обмен</summary><p>Курсы общие для кошелька, магазина и «Образов». Обмен в Мору и Алмазы без суточного лимита. Эссенция продаётся теми же наборами, что в «Образах».</p></details>
+    <details class="wallet-help"><summary>Как устроен обмен</summary><p>Зарники можно обменять на Мору, Алмазы или Эссенцию. Курс один для кошелька, магазина и «Образов».</p><p>Мору и Алмазы можно менять в любом количестве и в любой день. Эссенция продаётся готовыми наборами — такими же, как в «Образах».</p><p>Обмен нельзя отменить: обратно в Зарники ничего не превратится.</p></details>
   </div>`, [{l:'Пополнить Зарники',c:'ghost',f:'CM();openZarnikiTopup()'},{l:'Закрыть',c:'ghost',f:'CM()'}]);
   api('/wallet/exchange-policy').then(p => {
     if (mine !== _walletSeq || !el('modal')?.open || !el('wallet-exchange')) return;

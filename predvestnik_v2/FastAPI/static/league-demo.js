@@ -34,7 +34,7 @@
       throw new Error('Нет связи. Проверь интернет и попробуй ещё раз.');
     }
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) { const error = new Error(data.detail || 'Сервер не ответил.'); error.status = response.status; throw error; }
+    if (!response.ok) { const error = new Error(data.detail || 'Ответа нет. Попробуй ещё раз.'); error.status = response.status; throw error; }
     return data;
   }
 
@@ -45,8 +45,9 @@
     document.documentElement.dataset.theme = 'dark';
   }
 
-  const ready = () => state.pass?.active && state.pass.account?.eligible ? state.pass.seasons.reduce((n, s) => n + s.track.filter(r => r.free.state === 'ready').length
-    + s.track.filter(r => r.vip.state === 'ready').length, 0) : 0;
+  // Шапка, дни до конца и полоска Пропуска — общие с обычным режимом (game-shell-v3.js)
+  const Shell = () => window.GameShell;
+  const summary = () => Shell().summary(state.pass, state.me?.demo ? state.me.pass : null);
 
   // Шапка: игра или «Пропуск сезона», номер сезона, сколько дней осталось; «‹» из Пропуска возвращает к игре, из игры — в меню игр
   function hero() {
@@ -56,12 +57,7 @@
     $('lg-title').textContent = pass ? 'Пропуск сезона' : NAMES[state.view];
     document.title = `${pass ? 'Пропуск сезона' : NAMES[state.view] + ' · рейтинг'} — Предвестник`;
     $('lg-note').classList.toggle('lg-hidden', !demo);
-    const current = state.pass?.active && state.pass.seasons.find(s => s.current);
-    // целых дней до конца — как «ещё N дн.» на страницах игр (core/seasons.py); в последний день так и написано
-    const days = current ? Math.max(0, Math.floor((Date.parse(current.ends_at) - Date.now()) / 864e5)) : null;
-    $('lg-days').hidden = days === null;
-    if (days) { $('lg-days').innerHTML = `<b data-count="days">${days}</b><small>${plural(days, 'день', 'дня', 'дней')} до конца</small>`; Fx().count($('lg-days')); }
-    else if (days === 0) $('lg-days').innerHTML = '<small>последний<br>день сезона</small>';
+    Shell().paintDays(Shell().summary(state.pass));
     const link = $('lg-back-link'), inPage = pass && state.game;
     link.setAttribute('aria-label', inPage ? `Назад: ${NAMES[state.game]}` : 'Назад к играм');
     link.onclick = inPage ? event => { event.preventDefault(); go(state.game, -1); } : null;
@@ -69,17 +65,9 @@
 
   // Полоска Пропуска под переключателем: уровень, опыт до следующего, сколько наград ждёт. Нажатие — экран Пропуска.
   function strip() {
-    const el = $('lg-strip'), me = state.me;
-    const s = me?.demo ? me.pass : state.pass?.active && state.pass.seasons.find(x => x.current);
-    el.hidden = state.view === 'pass' || !s;
-    if (el.hidden) return;
-    const max = s.level >= s.levels, into = max ? s.xp_per_level : s.xp_per_level - s.xp_to_next, n = ready();
-    const note = n ? `К получению: ${n}` : max ? 'Все уровни открыты' : `${s.xp_to_next} опыта до уровня ${s.level + 1}`;
-    el.innerHTML = `<span class="lgs-ico" aria-hidden="true">${window.LeagueArt.icon('chest')}</span>
-      <span class="lgs-t"><b>Пропуск · уровень ${s.level}<small> из ${s.levels}</small></b><small class="${n ? 'is-ready' : ''}">${n ? '<i class="lgs-dot" aria-hidden="true"></i>' : ''}${note}</small></span>
-      <span class="lgs-bar" aria-hidden="true"><i style="transform:scaleX(${(into / s.xp_per_level).toFixed(3)})"></i></span><span class="lgs-go" aria-hidden="true">›</span>`;
-    el.setAttribute('aria-label', `Пропуск сезона, уровень ${s.level} из ${s.levels}. ${note}`);
-    el.onclick = () => go('pass', 1);
+    const sum = summary();
+    if (sum && !state.me?.demo) Shell().remember(sum);   // обычный режим нарисует то же с первого кадра
+    Shell().paintStrip(sum, () => go('pass', 1), state.view === 'pass');
   }
 
   function go(view, dir) {
@@ -90,12 +78,16 @@
     render(dir);
     window.scrollTo({top: 0});
   }
-  const plural = (n, one, few, many) => n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? few : many;
 
   function render(dir = 0) {
     hero();
-    if (!state.me) return;   // переключатель и полоска — после ответа сервера: без доступа их не видно
     const mode = $('lg-mode');
+    if (!state.me) {   // до ответа сервера: переключатель и полоска из памяти, чтобы шапка стояла на месте с первого кадра (без доступа их не видно)
+      if (state.view !== 'pass' && mode.dataset.game !== state.view) { mode.dataset.game = state.view; window.GameMode.mount(mode, {game: state.view, mode: 'ranked'}); }
+      Shell().paintStrip(Shell().cached(), () => go('pass', 1), state.view === 'pass');
+      Shell().paintDays(Shell().cached());
+      return;
+    }
     if (state.view === 'pass') mode.hidden = true;
     else if (mode.dataset.game !== state.view || mode.hidden) { mode.dataset.game = state.view; window.GameMode.mount(mode, {game: state.view, mode: 'ranked', known: true}); }
     strip();
@@ -151,7 +143,7 @@
     runner.start(level).catch(error => { show(`<div class="lg-empty"><h2>Уровень не открылся</h2><p class="lg-error" role="alert">${esc(error.message)}</p><button type="button" id="lg-back">К уровням</button></div>`); $('lg-back').onclick = back; });
   }
 
-  window.League = {api, show, back, esc, stars, haptic, $, state, play, refresh, resetDemo, plural};
+  window.League = {api, show, back, esc, stars, haptic, $, state, play, refresh, resetDemo, plural: window.GameShell.plural};
   // Старая ссылка /league без игры открывает ту, в которую играли последней
   if (location.hash === '#pass') state.view = 'pass';
   else state.view = state.game || GAMES.find(g => window.GameMode.last(g) === 'ranked') || 'minesweeper';

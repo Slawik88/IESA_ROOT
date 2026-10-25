@@ -36,7 +36,7 @@
     const cells = [];
     for (let c = 0; c < run.width * run.height; c++) cells.push(cellHtml(c));
     const left = run.mine_count - run.flags.length, total = run.width * run.height - run.mine_count;
-    L().show(`<div class="lgm-head"><h2>Уровень ${run.level}</h2><button type="button" class="lg-link" id="lgm-exit">К уровням</button></div>
+    L().show(`<div class="lgm-head"><h2>Уровень ${run.level}</h2><span class="lgm-tools"><span id="lgm-restart"></span><button type="button" class="lg-link" id="lgm-exit">К уровням</button></span></div>
       <p class="lg-sub">Поле ${run.width}×${run.height}, ${DEPTH[run.tier] || ''}. Без угадывания. Время на ★★★: ${clock(run.par_s * 1000)}.</p>
       <div class="lg-hud"><span>${A().icon('mine', 'lg-hud-ico')}<b>${left}</b><small>мин</small></span><span><b id="lgm-time">${clock(run.elapsed_ms)}</b><small>время</small></span>
         <span><b>${Object.keys(run.cells).length}</b><small>/${total} открыто</small></span></div>
@@ -80,6 +80,11 @@
   function bind() {
     const $ = L().$;
     $('lgm-exit').onclick = () => { stop(); L().back(); };
+    // «Заново»: после первого хода спрашиваем в листе (время на уровне идёт на сервере и не останавливается); до него — сразу
+    $('lgm-restart').append(window.GameShell.restartPill({
+      risky: () => run.status === 'active' && run.revision > 0, onRestart: () => start(run.level).catch(e => Fx().toast(L().esc(e.message), 'is-bad')),
+      ask: {title: 'Начать уровень заново?', text: 'Это поле не сохранится: открытые клетки и время пропадут. Поле будет новым, звёзды, которые у тебя уже есть, останутся.', confirm: 'Да, начать заново'},
+    }));
     document.querySelectorAll('.lg-seg button').forEach(b => { b.onclick = () => { mode = b.dataset.mode; draw(); }; });
     document.querySelectorAll('.lg-cell[data-cell]').forEach(b => {
       const cell = Number(b.dataset.cell);

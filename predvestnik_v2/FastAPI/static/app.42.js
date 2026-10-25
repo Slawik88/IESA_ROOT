@@ -48,7 +48,7 @@ const _WN_GO = {
   vip:          { cta: 'Открыть VIP', run: () => openStoreV3('vip') },
   settings:     { cta: 'Открыть Настройки', run: () => openSettingsModal() },
   chats:        { cta: 'Открыть Мои чаты', run: () => openChatTracker() },
-  help:         { cta: 'Как пользоваться', run: () => switchPage('help') },
+  help:         { cta: 'Открыть Путеводитель', run: () => openGuide() },
 };
 const _wnOwn = (table, key) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(table, key);   // ключи из JSON не должны дотянуться до служебных свойств объекта (__proto__, constructor)
 const _wnGo = key => _wnOwn(_WN_GO, key) ? _WN_GO[key] : null;

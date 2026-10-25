@@ -3,10 +3,12 @@
 // Последний выбор запоминается: из меню «Играть» игра откроется в нём (app.04.js). Страницы подключают его так:
 // <div data-game-mode="rhythm" data-gmode="casual" hidden></div> (монтируется сам) или GameMode.mount(host, {game, mode}).
 // Переключатель появляется, только когда Лига открыта игроку (до сезона 2 — ранний доступ).
+// Переход плавный: ползунок уезжает, содержимое под шапкой уходит в сторону нового режима (а шапка, переключатель и полоска Пропуска
+// остаются на месте — у обеих страниц они одинаковые), новая страница приходит с той же стороны. Следующая страница подгружается заранее.
 (() => {
   const base = document.body.dataset.appBase || '';
   const PAGES = {casual: {rhythm: '/rhythm-v2', minesweeper: '/minesweeper'}, ranked: {rhythm: '/league?game=rhythm', minesweeper: '/league?game=minesweeper'}};
-  const ACCESS = 'pv_league_access', SEEN = 'pv_league_seen', MODE = 'pv_game_mode:';
+  const ACCESS = 'pv_league_access', SEEN = 'pv_league_seen', MODE = 'pv_game_mode:', LEAVE_MS = 170;
   const read = key => { try { return localStorage.getItem(key); } catch (_) { return null; } };
   const write = (key, value) => { try { localStorage.setItem(key, value); } catch (_) { /* private mode */ } };
 
@@ -32,11 +34,26 @@
     }
   }
 
+  // Движение разрешено так же, как в Лиге (слабый телефон, «Спокойный режим», prefers-reduced-motion — без него)
+  const moves = () => window.LeagueFx ? window.LeagueFx.moves() : !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
   function go(game, mode) {
     write(MODE + game, mode);
     try { window.Telegram?.WebApp?.HapticFeedback?.selectionChanged(); } catch (_) { /* old client */ }
-    location.replace(base + PAGES[mode][game]);   // замена, а не переход: «назад» ведёт в меню игр, а не по кругу режимов
+    try { sessionStorage.setItem('pv_mode_dir', mode === 'ranked' ? '1' : '-1'); } catch (_) { /* без памяти: страница просто появится */ }
+    document.body.classList.add('gm-leaving', mode === 'ranked' ? 'gm-to-ranked' : 'gm-to-casual');
+    // замена, а не переход: «назад» ведёт в меню игр, а не по кругу режимов; ползунок и уход содержимого успевают доехать
+    setTimeout(() => location.replace(base + PAGES[mode][game]), moves() ? LEAVE_MS : 0);
   }
+
+  // Другой режим подгружается заранее, пока игрок смотрит на этот: при переключении страница уже рядом
+  function prefetch(url) {
+    if (document.querySelector(`link[rel="prefetch"][href="${url}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'prefetch'; link.href = url;
+    document.head.appendChild(link);
+  }
+  window.addEventListener('pageshow', event => { if (event.persisted) document.body.classList.remove('gm-leaving'); });
 
   // data-gmode, а не data-mode: страницы игр вешают обработчики на все [data-mode] (открыть/флаг, старт забега)
   function draw(host, game, mode) {
@@ -51,10 +68,10 @@
         host.dataset.leaving = '1';
         host.querySelector('.gmode-thumb').classList.toggle('is-right', b.dataset.gmode === 'ranked');
         host.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-        const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-        setTimeout(() => go(game, b.dataset.gmode), still ? 0 : 170);   // ползунок успевает доехать
+        go(game, b.dataset.gmode);
       };
     });
+    (window.requestIdleCallback || (job => setTimeout(job, 600)))(() => prefetch(base + PAGES[mode === 'ranked' ? 'casual' : 'ranked'][game]));
   }
 
   async function mount(host, {game, mode, known = false}) {
@@ -83,5 +100,5 @@
   }
 
   document.querySelectorAll('[data-game-mode]').forEach(host => mount(host, {game: host.dataset.gameMode, mode: host.dataset.gmode}));
-  window.GameMode = {mount, passXp, PAGES, last: game => read(MODE + game), allowed: () => read(ACCESS) === '1'};
+  window.GameMode = {mount, passXp, headers, PAGES, last: game => read(MODE + game), allowed: () => read(ACCESS) === '1'};
 })();

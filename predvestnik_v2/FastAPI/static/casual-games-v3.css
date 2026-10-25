@@ -1,0 +1,90 @@
+/* Обычный режим Ритма и Сапёра в языке Лиги: те же токены и компоненты (league-demo.css, league-games.css), здесь только то, чего в рейтинге нет —
+   таблица лидеров с подиумом, награды сезона, итог забега, погода, шаги «Как играть». Движение: transform и opacity, одноразовое (docs/MOTION_V3.md). */
+.hidden { display: none !important; }
+.lg-state.is-two { grid-template-columns: repeat(2, 1fr); }
+.cg-sub { margin: 10px 0 0; color: var(--lg-dim); font-size: 13px; line-height: 1.45; text-align: center; }
+.cg-sub:empty { display: none; }
+.cg-error { min-height: 0; margin: 8px 0 0; color: var(--lg-bad); font-size: 13px; text-align: center; }
+.cg-error:empty { display: none; }
+.cg-conn { color: var(--lg-ok); font-size: 12px; font-weight: 650; }
+.cg-conn[data-state="off"], .cg-conn[data-state="wait"] { color: var(--lg-gold); }
+
+/* Таблица лидеров: подиум 1–3 (общие классы Лиги .lgl-podium), дальше строки; своя строка выделена слева */
+.cg-board { margin-top: 4px; }
+.cg-board .lgl-pod a { display: block; min-width: 0; max-width: 100%; color: inherit; text-align: center; text-decoration: none; }
+.cg-board .lgl-pod .lgl-nick { max-width: 100%; overflow: hidden; font-size: 13px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.cg-board .lg-top li { grid-template-columns: 34px minmax(0, 1fr) auto; }
+.cg-board .lg-top li a { display: block; min-width: 0; min-height: 44px; overflow: hidden; color: var(--lg-ink); line-height: 44px; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.cg-board .lg-top li.is-me { position: static; background: var(--lg-surf); box-shadow: inset 3px 0 0 var(--v3-acc); border-radius: 10px; }
+.cg-board .lg-top li.is-empty { display: block; padding: 12px 0; color: var(--lg-dim); text-align: center; }
+.cg-more { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+.cg-more:empty { display: none; }
+.cg-more button { min-height: 40px; padding: 4px 14px; background: transparent; color: var(--lg-dim); }
+.cg-more span { color: var(--lg-dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.cg-rewards { display: grid; margin: 4px 0 0; padding: 0; list-style: none; }
+.cg-rewards li { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--lg-faint); font-size: 13px; }
+.cg-rewards li:first-child b { color: var(--lg-gold); }
+.cg-rewards span { color: var(--lg-dim); text-align: right; }
+
+/* Ритм: плашка погоды, взятые дары, подпись под ареной, подарки с расчётом «было → стало» */
+.cg-weather { margin: 8px 0 0; padding: 9px 12px; border-radius: 12px; background: var(--lg-surf); color: var(--lg-ink); font-size: 13px; line-height: 1.4; text-align: center; }
+.cg-weather[hidden] { display: none; }
+.cg-caption { min-height: 20px; margin: 0 0 10px; color: var(--lg-dim); font-size: 13px; text-align: center; }
+.cg-caption[data-state="pending"] { color: var(--v3-acc); }
+.cg-caption[data-state="accepted"] { color: var(--lg-ok); }
+#instruction.lgr-target { font-size: clamp(56px, 18vw, 76px); }
+#instruction[data-kind="count"] { font-size: clamp(64px, 22vw, 92px); font-weight: 750; font-variant-numeric: tabular-nums; }
+#instruction[data-kind="text"] { padding: 0 18%; font-size: 17px; font-weight: 650; line-height: 1.3; text-align: center; }
+.lg-runes button:disabled:not(.pending) { opacity: .32; }
+.lg-runes button.pending { background: var(--lg-surf2); transform: scale(.96); }
+.lg-runes button[data-rune="left"] b { color: #ffc45f; } .lg-runes button[data-rune="center"] b { color: #5ee6d6; } .lg-runes button[data-rune="right"] b { color: #ca9cff; }
+.cg-note { margin: 14px 0 6px; color: var(--lg-dim); font-size: 12px; text-align: center; }
+.lgr-card { width: 100%; color: var(--lg-ink); font: inherit; }
+.lgr-card .g-fx { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--lg-faint); color: var(--lg-dim); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.lgr-card:disabled { opacity: .5; }
+
+/* Итог забега */
+.cg-res-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cg-status { padding: 5px 10px; border: 1px solid var(--lg-faint); border-radius: 999px; color: var(--lg-dim); font-size: 11px; white-space: nowrap; }
+.cg-status[data-state="clear"] { border-color: rgba(127, 214, 164, .45); color: var(--lg-ok); }
+.cg-res-hero { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: center; gap: 14px; margin: 18px 0 10px; }
+.cg-res-hero h2 { margin: 0; font-size: clamp(38px, 13vw, 56px); font-weight: 300; letter-spacing: -.03em; line-height: 1; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.cg-res-hero p { margin: 8px 0 0; color: var(--lg-dim); font-size: 13px; }
+.cg-ring { display: grid; place-items: center; width: 96px; height: 96px; padding: 5px; border-radius: 50%; background: conic-gradient(var(--lg-ok) var(--accuracy, 0%), var(--lg-faint) 0); }
+.cg-ring > div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 100%; height: 100%; border-radius: 50%; background: var(--lg-bg); }
+.cg-ring b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.cg-ring small { color: var(--lg-dim); font-size: 10px; }
+.pass-xp { margin: 10px 0 0; color: var(--lg-gold); font-size: 14px; font-weight: 600; text-align: center; }
+.pass-xp[hidden] { display: none; }
+#run-analysis { font-size: 14px; line-height: 1.5; }
+#run-analysis .r-analysis-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; padding: 0; }
+#run-analysis .r-analysis-metrics div { padding: 10px 8px; border-radius: 12px; background: var(--lg-surf); text-align: left; }
+#run-analysis dt { min-height: 30px; color: var(--lg-dim); font-size: 11px; line-height: 1.3; }
+#run-analysis dd { margin: 4px 0 0; font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#run-analysis .r-result-record { margin: 12px 0 0; color: var(--lg-gold); font-size: 13px; font-weight: 600; }
+#run-analysis .r-result-hint { margin: 12px 0 0; padding-left: 12px; border-left: 2px solid var(--lg-faint); color: var(--lg-dim); font-size: 13px; line-height: 1.5; }
+#run-analysis .r-analysis-extra { display: grid; gap: 8px; margin: 0 0 8px; }
+#run-analysis .r-analysis-extra > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+#run-analysis .r-analysis-extra dd { margin: 0; font-size: 13px; font-weight: 600; }
+#run-analysis ol { margin: 8px 0; padding-left: 18px; color: var(--lg-dim); font-size: 12px; line-height: 1.5; }
+#run-analysis .r-analysis-caveat { color: var(--lg-dim); font-size: 12px; line-height: 1.5; }
+
+/* Сапёр: сложность — три вкладки, поле и клетки в том же виде, что в рейтинге (league-games.css) */
+.lg-seg.is-three { grid-template-columns: repeat(3, 1fr); }
+.lg-seg button small { display: block; margin-top: 1px; color: var(--lg-dim); font-size: 11px; font-weight: 500; }
+.lg-seg button[aria-selected="true"] { background: rgba(var(--acc-rgb), .16); color: var(--lg-ink); box-shadow: inset 0 0 0 1.5px var(--v3-acc); }
+.lg-hud b { white-space: nowrap; }
+#opened { font-size: 17px; }
+.cg-mine-status { margin: 12px 0 4px; font-size: 18px; font-weight: 650; }
+.cg-view { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 0; color: var(--lg-dim); font-size: 12px; }
+.cg-view button { min-height: 40px; padding: 4px 12px; background: transparent; color: var(--lg-dim); font-size: 13px; }
+.mine-scroll { margin: 6px -4px 0; padding: 4px; overflow-x: auto; overscroll-behavior-x: contain; }
+.mine-board { display: grid; grid-template-columns: repeat(var(--mine-size, 9), minmax(0, 1fr)); gap: 3px; width: 100%; touch-action: pan-x pan-y; }
+body[data-mine-zoom="large"] .mine-board { width: max(100%, calc(var(--mine-size, 9) * 48px - 3px)); }
+body[data-mine-zoom="large"] .mine-cell { min-width: 44px; min-height: 44px; }
+.mine-row { display: contents; }
+.mine-cell:focus-visible { outline: 3px solid var(--lg-gold); outline-offset: -3px; }
+.mine-cell.pending { outline: 2px solid var(--v3-acc); outline-offset: -2px; }
+.mine-cell.wrong-flag { color: var(--lg-bad); background: var(--lg-cell-open); }
+.mine-cell .lga { width: 58%; height: 58%; }
+@media (max-width: 340px) { .cg-res-hero { grid-template-columns: minmax(0, 1fr) 84px; } .cg-ring { width: 84px; height: 84px; } }

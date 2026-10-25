@@ -1,0 +1,105 @@
+/* ═══ ПУТЕВОДИТЕЛЬ · app.57.js, данные guide-v3.json ═══
+   Главная (поиск, быстрые ответы, группы тем), тема из блоков, словарь и вопросы. Только токены оболочки (--v3-*), без движения:
+   экран меняется сразу, поэтому «меньше движения» и слабый телефон не требуют отдельных правил. Правила текстов — docs/PLAYER_COPY.md. */
+
+.gv-scope { padding-bottom: 8px; }
+.gv-eb { display: block; margin-top: 24px; }
+.gv-sub { margin: 2px 0 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.4; }
+
+/* поиск: прилипает к верху, пока листаешь список тем */
+.gv-search { position: sticky; top: var(--v3-safe-t, 0px); z-index: 4; margin: 0 -22px 12px; padding: 6px 22px 8px; }
+.gv-search .v3-field { min-height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--v3-bg) 94%, var(--v3-ink)); box-shadow: inset 0 0 0 1.5px var(--v3-track), 0 6px 14px color-mix(in srgb, var(--v3-bg) 70%, transparent); font-size: 15px; }
+.gv-search .v3-field:focus { box-shadow: inset 0 0 0 1.5px var(--v3-acc), 0 6px 14px color-mix(in srgb, var(--v3-bg) 70%, transparent); }
+#gv-results { display: grid; gap: 10px; }
+#gv-results .gv-row { padding: 2px 0; }
+.gv-cta { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 6px; }
+.gv-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gv-chip { min-height: 40px; padding: 8px 14px; border: 0; border-radius: 99px; background: none; box-shadow: inset 0 0 0 1.5px var(--v3-track); color: var(--v3-ink); font: 500 13px/1.25 var(--v3-font); text-align: left; cursor: pointer; }
+.gv-chip:active { opacity: .55; }
+
+/* строка темы: значок, название и одна строка о чём тема */
+.gv-group { margin-top: 28px; }
+.gv-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 14px; align-items: center; gap: 14px; width: 100%; min-height: 64px; padding: 8px 0; border: 0; background: none; color: var(--v3-ink); font: inherit; text-align: left; cursor: pointer; }
+.gv-row + .gv-row { box-shadow: 0 -1px 0 var(--v3-faint); }
+.gv-row:active { opacity: .55; }
+.gv-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--v3-faint); font-size: 19px; line-height: 1; }
+.gv-tx b { display: block; font: 600 15px/1.3 var(--v3-font); }
+.gv-tx small { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 12.5px; line-height: 1.4; }
+.gv-chev { width: 7px; height: 7px; border: solid var(--v3-dim); border-width: 0 1.6px 1.6px 0; transform: rotate(-45deg); }
+
+/* тема */
+.gv-lead { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; color: var(--v3-ink); font: 500 16.5px/1.4 var(--v3-font); }
+.gv-bigic { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 16px; background: var(--v3-faint); font-size: 25px; }
+.gv-what { margin: 14px 0 0; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--v3-acc) 13%, transparent); color: var(--v3-ink); font-size: 15px; line-height: 1.5; }
+.gv-sec { margin-top: 24px; }
+.gv-h { margin: 0 0 6px; color: var(--v3-dim); font: 500 11px/1.3 var(--v3-font); letter-spacing: .14em; text-transform: uppercase; }
+
+.gv-steps { display: grid; gap: 14px; margin: 10px 0 0; padding: 0; list-style: none; counter-reset: gv; }
+.gv-steps li { position: relative; padding-left: 44px; counter-increment: gv; }
+.gv-steps li::before { content: counter(gv); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--v3-acc); color: var(--v3-on-acc); font: 700 14px/1 var(--v3-font); }
+.gv-steps b { display: block; font: 600 15px/1.35 var(--v3-font); }
+.gv-steps span { display: block; margin-top: 2px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+
+.gv-gives { display: grid; gap: 12px; margin: 10px 0 0; padding: 0; list-style: none; }
+.gv-gives li { display: grid; grid-template-columns: 38px minmax(0, 1fr); column-gap: 12px; align-items: start; }
+.gv-gives .gv-gi { grid-row: 1 / 3; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--v3-faint); font-size: 19px; }
+.gv-gives b { font: 600 14.5px/1.35 var(--v3-font); }
+.gv-gives li > span:last-child { color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+.gv-gives.is-compact { gap: 8px; }
+.gv-gives.is-compact li { padding: 8px 0; box-shadow: 0 -1px 0 var(--v3-faint); }
+.gv-gives.is-compact li:first-child { box-shadow: none; }
+
+.gv-words { margin: 8px 0 0; }
+.gv-words > div { padding: 10px 0; box-shadow: 0 -1px 0 var(--v3-faint); }
+.gv-words > div:first-child { box-shadow: none; }
+.gv-words dt { color: var(--v3-acc); font: 600 14px/1.3 var(--v3-font); }
+.gv-words dd { margin: 2px 0 0; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+
+.gv-note { margin-top: 22px; padding: 12px 14px 12px 16px; border-radius: 14px; }
+.gv-note b { display: block; font: 600 11px/1.3 var(--v3-font); letter-spacing: .14em; text-transform: uppercase; }
+.gv-note p { margin: 4px 0 0; color: var(--v3-ink); font-size: 14px; line-height: 1.5; }
+.gv-tip { background: var(--v3-faint); box-shadow: inset 3px 0 0 var(--v3-acc); }
+.gv-tip b { color: var(--v3-acc); }
+.gv-warn { background: color-mix(in srgb, var(--v3-err) 12%, transparent); box-shadow: inset 3px 0 0 var(--v3-err); }
+.gv-warn b { color: var(--v3-err); }
+
+.gv-pair { display: grid; gap: 10px; margin-top: 22px; }
+.gv-card { padding: 12px 14px; border-radius: 14px; background: var(--v3-faint); }
+.gv-card b { display: block; font: 600 14.5px/1.35 var(--v3-font); }
+.gv-card p { margin: 4px 0 2px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+.gv-card ul { display: grid; gap: 6px; margin: 8px 0 0; padding-left: 18px; color: var(--v3-dim); font-size: 13.5px; line-height: 1.45; }
+
+/* все дары Ритма: полоса слева — вид дара */
+.gv-gifts { display: grid; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.gv-gifts li { display: grid; gap: 2px; padding: 10px 12px 10px 14px; border-radius: 12px; background: var(--v3-faint); box-shadow: inset 3px 0 0 var(--v3-dim); }
+.gv-gifts li.is-safe { box-shadow: inset 3px 0 0 var(--v3-ok); }
+.gv-gifts li.is-boost { box-shadow: inset 3px 0 0 var(--v3-acc); }
+.gv-gifts li.is-risk { box-shadow: inset 3px 0 0 var(--v3-err); }
+.gv-gifts small { color: var(--v3-dim); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+.gv-gifts b { font: 600 14.5px/1.3 var(--v3-font); }
+.gv-plus { color: var(--v3-ok); font-size: 13px; line-height: 1.4; }
+.gv-minus { color: var(--v3-dim); font-size: 13px; line-height: 1.4; }
+
+.gv-where { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; padding: 14px 16px; border-radius: 16px; box-shadow: inset 0 0 0 1.5px var(--v3-track); }
+.gv-where small { display: block; color: var(--v3-dim); font: 500 10.5px/1.3 var(--v3-font); letter-spacing: .14em; text-transform: uppercase; }
+.gv-where b { display: block; margin-top: 3px; font: 600 14px/1.35 var(--v3-font); }
+.gv-where { flex-wrap: wrap; }
+.gv-where > div { flex: 1 1 150px; min-width: 0; }
+.gv-where .v3-pill { flex: none; }
+@media (max-width: 360px) { .gv-where .v3-pill { width: 100%; } }
+.gv-pager { display: flex; gap: 8px; margin-top: 22px; }
+.gv-pager .v3-pill, .gv-pager span { flex: 1; }
+.gv-pager .v3-pill { min-height: 48px; padding: 8px 14px; line-height: 1.25; text-align: center; }
+
+/* словарь и вопросы */
+.gv-terms { margin: 4px 0 0; }
+.gv-term { padding: 12px 0; box-shadow: 0 -1px 0 var(--v3-faint); }
+.gv-term:first-child { box-shadow: none; }
+.gv-term dt { font: 600 15px/1.3 var(--v3-font); }
+.gv-term dd { margin: 3px 0 0; color: var(--v3-dim); font-size: 13.5px; line-height: 1.5; }
+.gv-term .v3-link, .gv-q .v3-link, .gv-card .v3-link { min-height: 36px; padding: 0; color: var(--v3-acc); }
+.gv-q { padding: 4px 0; box-shadow: 0 -1px 0 var(--v3-faint); }
+.gv-q:first-child { box-shadow: none; }
+.gv-q summary { display: block; min-height: 48px; padding: 12px 0; font: 600 15px/1.35 var(--v3-font); cursor: pointer; }
+.gv-q p { margin: 0 0 4px; color: var(--v3-dim); font-size: 14px; line-height: 1.5; }
+.gv-more { display: block; margin: 10px auto 0; color: var(--v3-acc); }

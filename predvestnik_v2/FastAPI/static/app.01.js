@@ -551,7 +551,7 @@ const _backHooks=[];   // обработчики «Назад» для экра�
 let _activePage = 'profile';
 const _PAGE_LOADERS = {
   arena:loadArena,
-  help:()=>{},
+  help:()=>gvShow(),
   news:loadWhatsNew, pass:loadSeasonPass, 'exchange-v1':loadPlayerExchangeV1
 };
 

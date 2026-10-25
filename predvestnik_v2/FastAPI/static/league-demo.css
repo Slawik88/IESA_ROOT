@@ -71,7 +71,7 @@ body.lg-high .lg-tw { animation: lg-tw 2.6s var(--lg-ease) 1.2s 3 both; } body.l
 .gmode-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--v3-acc, #d8cffd);
   transition: transform .18s var(--lg-ease); }   /* акцент образа, как на страницах игр */
 .gmode-thumb.is-right { transform: translateX(100%); }
-.gmode button { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 0; background: none; color: var(--lg-dim); transition: color .18s; }
+.gmode button { position: relative; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; border: 0; background: none; color: var(--lg-dim); }
 .gmode button[aria-pressed="true"] { color: var(--v3-on-acc, #15112b); }
 .gmode-new { padding: 2px 6px; border-radius: 6px; background: var(--lg-gold); color: var(--lg-bg); font-size: 10px; font-style: normal; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 /* полоска Пропуска: уровень, опыт, «К получению» */
@@ -82,13 +82,35 @@ body.lg-high .lg-tw { animation: lg-tw 2.6s var(--lg-ease) 1.2s 3 both; } body.l
 .lgs-t { display: grid; gap: 2px; min-width: 0; }
 .lgs-t b { font-size: 14px; } .lgs-t b small { color: var(--lg-dim); font-weight: 500; }
 .lgs-t > small { color: var(--lg-dim); font-size: 12px; } .lgs-t > small.is-ready { color: var(--lg-gold); font-weight: 600; }
-.lgs-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--lg-gold); vertical-align: 1px; animation: lgs-pulse 1.8s var(--lg-ease) infinite; }
+.lgs-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--lg-gold); vertical-align: 1px; animation: lgs-pulse 1.8s var(--lg-ease) 4; }
 .lgs-go { grid-row: 1 / 3; grid-column: 3; color: var(--lg-dim); font-size: 22px; }
 .lgs-bar { grid-column: 2; height: 4px; overflow: hidden; border-radius: 4px; background: var(--lg-faint); }
 .lgs-bar i { display: block; height: 100%; background: var(--lg-gold); transform-origin: left; transition: transform .5s var(--lg-ease); }
 @keyframes lgs-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .gmode-thumb, .gmode button, .lgs-bar i { transition: none; } .lgs-dot { animation: none; } }
 .lg-playing :is(.gmode-host, .lgs) { display: none; }
+
+/* Переход «Обычный ↔ Рейтинг» (game-mode-v3.js): шапка, переключатель и полоска Пропуска стоят на месте у обеих страниц, а содержимое под ними уходит в сторону
+   нового режима и приходит с той же стороны. Где есть View Transitions, браузер сам держит эти три блока неподвижными между страницами. */
+@view-transition { navigation: auto; }
+.lg-hero { view-transition-name: lg-hero; }
+.gmode-host { view-transition-name: lg-mode; }
+.lgs { view-transition-name: lg-strip; }
+::view-transition-group(*) { animation-duration: .2s; }
+body.gm-leaving.gm-to-ranked main > :not(.lg-hero, .gmode-host, .lgs) { animation: gm-out-left .17s var(--lg-ease) both; }
+body.gm-leaving.gm-to-casual main > :not(.lg-hero, .gmode-host, .lgs) { animation: gm-out-right .17s var(--lg-ease) both; }
+html[data-gm="1"] main > :not(.lg-hero, .gmode-host, .lgs) { animation: gm-in-right .26s var(--lg-ease) both; }
+html[data-gm="-1"] main > :not(.lg-hero, .gmode-host, .lgs) { animation: gm-in-left .26s var(--lg-ease) both; }
+@keyframes gm-out-left { to { transform: translateX(-22px); opacity: 0; } }
+@keyframes gm-out-right { to { transform: translateX(22px); opacity: 0; } }
+@keyframes gm-in-right { from { transform: translateX(22px); opacity: 0; } }
+@keyframes gm-in-left { from { transform: translateX(-22px); opacity: 0; } }
+
+/* «Заново» (game-shell-v3.js restartPill): маленькая и тихая, в верхнем углу экрана игры — подальше от рун и клеток; акцентом не красится */
+.lg-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; margin: -2px 0 2px; }
+.lg-bar-t { min-width: 0; overflow: hidden; color: var(--lg-dim); font-size: 12px; font-weight: 650; letter-spacing: .1em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.lg-restart { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-right: -8px; padding: 0 10px; border: 0; border-radius: 12px; background: none; color: var(--lg-dim); font-size: 13px; font-weight: 600; }
+.lg-restart-ico { width: 16px; height: 16px; }
 .lg-panel h2 { margin: 0 0 6px; font-size: 20px; }
 .lg-eyebrow { display: block; margin: 24px 0 10px; color: var(--lg-dim); font-size: 11px; font-weight: 650; letter-spacing: .12em; text-transform: uppercase; }
 .lg-muted, .lg-sub { color: var(--lg-dim); font-size: 13px; line-height: 1.45; }
@@ -130,6 +152,8 @@ body.lg-high .lg-tw { animation: lg-tw 2.6s var(--lg-ease) 1.2s 3 both; } body.l
 
 /* Топ сезона: подиум 1–3, остальные строками; «я» прилипает к низу, пока не видна своя строка */
 .lgl-podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin: 0 0 4px; padding: 0; list-style: none; }
+/* места держат свои колонки: если игрок один или двое, подиум не съезжает влево */
+.lgl-pod.is-p1 { grid-column: 2; grid-row: 1; } .lgl-pod.is-p2 { grid-column: 1; grid-row: 1; } .lgl-pod.is-p3 { grid-column: 3; grid-row: 1; }
 .lgl-pod { display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
 .lgl-pod b { max-width: 100%; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .lgl-pod small { color: var(--lg-dim); font-size: 11px; font-variant-numeric: tabular-nums; }

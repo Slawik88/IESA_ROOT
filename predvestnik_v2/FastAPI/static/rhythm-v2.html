@@ -1,55 +1,83 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="color-scheme" content="dark">
   <title>Ритм — Предвестник</title>
-  <link rel="stylesheet" href="/static/rhythm-v2.css">
-  <link rel="stylesheet" href="/static/skin-runtime-v3.css">
-  <link rel="stylesheet" href="/static/fx-tiers-v3.css"><link rel="stylesheet" href="/static/appearance-v3.css"><link rel="stylesheet" href="/static/skin-signatures-v3.css"><link rel="stylesheet" href="/static/skin-signatures-2-v3.css"><link rel="stylesheet" href="/static/skins-exclusive-v3.css"><link rel="stylesheet" href="/static/skin-sig-a-v3.css"><link rel="stylesheet" href="/static/skin-sig-b-v3.css"><link rel="stylesheet" href="/static/skin-sig-c-v3.css"><link rel="stylesheet" href="/static/marks-v3.css"><link rel="stylesheet" href="/static/nickname-v3.css">
-  <link rel="stylesheet" href="/static/games-v3.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-demo.css?v={{VER}}">
+  <link rel="stylesheet" href="{{BASE}}/static/league-demo/league-games.css?v={{VER}}">
+  <link rel="stylesheet" href="{{BASE}}/static/league-demo/casual-games-v3.css?v={{VER}}">
+  <link rel="stylesheet" href="/static/fx-tiers-v3.css"><link rel="stylesheet" href="/static/appearance-v3.css"><link rel="stylesheet" href="/static/skin-signatures-v3.css"><link rel="stylesheet" href="/static/skin-signatures-2-v3.css"><link rel="stylesheet" href="/static/skins-exclusive-v3.css"><link rel="stylesheet" href="/static/skin-sig-a-v3.css"><link rel="stylesheet" href="/static/skin-sig-b-v3.css"><link rel="stylesheet" href="/static/skin-sig-c-v3.css"><link rel="stylesheet" href="/static/skin-sig-d-v3.css"><link rel="stylesheet" href="/static/marks-v3.css"><link rel="stylesheet" href="/static/nickname-v3.css">
 </head>
-<body data-app-base="">
-  <main class="rhythm-shell">
-    <header><a href="/?startapp=games" aria-label="Назад к играм">‹</a><h1>Ритм</h1><output id="connection">●</output></header>
-    <section id="intro" class="panel">
-      <div class="gmode-host" data-game-mode="rhythm" data-gmode="casual" hidden></div>
-      <div class="r-hero">
-        <p class="eyebrow">Сезон <span id="season-no">…</span><span id="season-left"></span></p>
-        <p id="leaderboard-personal" class="r-me" aria-live="polite">Загружаем таблицу сезона…</p>
-        <p id="season-last" class="r-last" hidden></p>
+<body data-app-base="{{BASE}}">
+  <main class="lg-shell">
+    {{GAME_HEAD}}
+    <section id="intro" class="lg-panel">
+      <div class="lg-state is-two" aria-live="polite">
+        <div><b id="r-place">—</b><small id="r-place-note">место в сезоне</small></div>
+        <div><b id="r-best">—</b><small>лучший счёт</small></div>
       </div>
-      <div class="mode-actions"><button data-mode="normal">Начать забег</button></div>
-      <section class="leaderboard" aria-labelledby="leaderboard-title">
-        <div class="leaderboard-head"><h3 id="leaderboard-title">Лидеры сезона</h3></div>
-        <ol id="leaderboard-list" aria-live="polite"><li>Загружаем результаты…</li></ol>
-        <div id="leaderboard-more" class="leaderboard-more"></div>
-      </section>
-      <details class="how-to r-prizes"><summary>Награды сезона<span id="season-top"></span></summary>
-        <ul id="season-rewards" class="season-rewards" aria-label="Награды за место в сезоне"></ul>
-        <p id="season-note" class="season-note">Загружаем сезон…</p>
+      <p id="leaderboard-personal" class="cg-sub" aria-live="polite">Загружаем таблицу сезона…</p>
+      <p id="season-last" class="cg-sub" hidden></p>
+      <div class="mode-actions"><button type="button" class="lg-cta" data-mode="normal">Начать забег</button></div>
+      <p class="cg-sub">Забег без конца: чем дольше держишься, тем больше очков. Сердца кончились — забег окончен.</p>
+      <h3 class="lg-eyebrow" id="leaderboard-title">Лидеры сезона</h3>
+      <div class="cg-board">
+        <ol id="leaderboard-podium" class="lgl-podium" aria-label="Тройка лидеров"></ol>
+        <ol id="leaderboard-list" class="lg-top" start="4" aria-live="polite"><li class="is-empty">Загружаем результаты…</li></ol>
+        <div id="leaderboard-more" class="cg-more"></div>
+      </div>
+      <details class="lg-help"><summary>Награды сезона<span id="season-top" class="lg-sub"></span></summary>
+        <ul id="season-rewards" class="cg-rewards" aria-label="Награды за место в сезоне"></ul>
       </details>
-      <details class="how-to"><summary>Как устроен забег</summary>
-        <p>Нажимай руну, которую показывает сервер. Скорость растёт, ошибки забирают сердца, а забег рано или поздно заканчивается. Каждые 20 тактов он замирает: ты берёшь один из трёх рун-даров, и у каждого есть и плюс, и минус.</p>
-        <p>Каждый второй блок тактов — с погодой: 🌙 Затишье, ✨ Золотой такт, ⛈ Буря и 💧 Родник по кругу. Погода у всех одинаковая и объявляется заранее — выбирай дар с её учётом.</p>
+      <p id="season-note" class="cg-sub"></p>
+      <details class="lg-help"><summary>Как играть</summary>
+        <ol class="gd-steps">
+          <li><b>Смотри на большую руну</b>Три руны внизу — ᚠ, ᚱ, ᚦ. На экране появляется одна из них. Нажми такую же внизу.</li>
+          <li><b>Успей, пока кольцо не опустело</b>У каждой руны есть время на нажатие — его показывает кольцо. Чем раньше нажал, тем больше очков.</li>
+          <li><b>Не ошибайся</b>Неверная руна или пропуск отнимает сердце. Верные нажатия подряд складываются в серию — она даёт больше очков.</li>
+          <li><b>Каждые 20 нажатий — дар</b>Забег замирает, и ты выбираешь один из трёх даров. У каждого есть польза и цена. Время стоит, пока выбираешь.</li>
+        </ol>
+        <dl class="gd-terms">
+          <div><dt>Серия</dt><dd>сколько верных нажатий подряд. Ошибка обрывает серию.</dd></div>
+          <div><dt>Блок</dt><dd>20 нажатий подряд. После каждого блока выбираешь дар, а времени на руну становится меньше.</dd></div>
+          <div><dt>Погода</dt><dd>каждый второй блок особый: Затишье, Золотой такт, Буря или Родник. Название видно заранее.</dd></div>
+        </dl>
+        <p class="gd-tip"><b>Можно свернуть приложение.</b> Забег встанет на паузу, сердца сохранятся. Потом нажми «Продолжить забег».</p>
+        <a class="gd-more" href="{{BASE}}/?startapp=guide_rhythm">Подробнее в Путеводителе ›</a>
       </details>
     </section>
-    <section id="countdown" class="panel hidden" aria-live="assertive"><p class="eyebrow">ПРИГОТОВЬСЯ</p><h2 id="count-num" class="count-num">5</h2><button id="exit-count" class="secondary" type="button">Отмена</button></section>
-    <section id="choice" class="panel hidden"><p class="eyebrow">ЗАБЕГ ЗАМЕР</p><h2 id="draft-title">Рун-дар</h2><p>Выбери один дар. Время стоит, пока ты не решишь.</p><p id="draft-weather" class="r-weather" hidden></p><p class="gift-preview-note">Показаны изменения для вашей сборки. Пример очков — ответ в середине окна с текущей серией; фактические очки зависят от нажатия.</p><div id="gifts" class="gift-list"></div></section>
+    <section id="countdown" class="lg-panel hidden" aria-live="assertive"><p class="lg-eyebrow">Приготовься</p><h2 id="count-num" class="count-num">5</h2><button id="exit-count" class="lg-link" type="button">Отмена</button></section>
+    <section id="choice" class="lg-panel hidden">
+      <div class="lg-bar"><span class="lg-bar-t" id="draft-title">Выбери дар</span></div>
+      <p class="lg-rules">Забег замер. Выбери один дар — у каждого есть польза и цена. Время стоит, пока ты не решишь.</p>
+      <p id="draft-weather" class="cg-weather" hidden></p>
+      <div id="gifts" class="lgr-fan"></div>
+      <p class="cg-note">Под каждым даром видно, как изменится игра. Очки в примере — за нажатие в середине отведённого времени при твоей серии.</p>
+    </section>
     <section id="run" class="hidden">
-      <div class="metrics"><div><small>ЗДОРОВЬЕ</small><b id="health">♥♥♥</b></div><div><small>СЧЁТ</small><b id="score">0</b></div><div><small>СЕРИЯ</small><b id="combo">0</b></div></div>
-      <div class="pace"><span>Ускорение</span><b id="speed">100%</b><div><i id="timebar"></i></div></div>
-      <p id="weather" class="r-weather" aria-live="polite" hidden></p>
-      <p id="perks" class="perks-line" aria-live="polite"></p><p id="instruction" aria-live="polite">Нажми нужную руну</p><div class="runes" role="group" aria-label="Руны"><button data-rune="left">ᚠ</button><button data-rune="center">ᚱ</button><button data-rune="right">ᚦ</button></div>
-      <p id="tap-feedback" aria-live="polite">Выбери руну</p><p id="run-note">Сервер ожидает действие…</p><button id="resume-run" class="secondary hidden" type="button">Продолжить забег</button><button id="exit-run" class="exit-run secondary" type="button">Выйти из забега</button>
+      <div class="lg-bar"><span class="lg-bar-t">Забег <output id="connection" class="cg-conn" data-state="on" aria-live="polite">●</output></span><span id="restart-slot"></span></div>
+      <div class="lgr-hud"><span class="lgr-hearts" id="health" role="img" aria-label="Сердец: 5"></span>
+        <span class="lgr-score"><b id="score">0</b><small>очки</small></span><span class="lgr-sig"><b id="combo">0</b><small>серия</small></span></div>
+      <p id="weather" class="cg-weather" aria-live="polite" hidden></p>
+      <div class="lgr-owned" id="perks" aria-live="polite" aria-label="Взятые дары"></div>
+      <div class="lgr-arena" id="arena">
+        <svg class="lgr-timer" viewBox="0 0 120 120" aria-hidden="true"><circle class="lgr-timer-bg" r="54" cx="60" cy="60"/><circle class="lgr-timer-arc" id="time-arc" r="54" cx="60" cy="60" stroke-dasharray="339.29" stroke-dashoffset="0"/></svg>
+        <div class="lgr-target" id="instruction" aria-live="polite">Нажми руну</div>
+      </div>
+      <p id="tap-feedback" class="cg-caption" aria-live="polite">Выбери руну</p>
+      <div class="lg-runes" role="group" aria-label="Руны"><button type="button" data-rune="left" aria-label="Руна ᚠ"><svg class="lga lgr-rune-frame" aria-hidden="true"><use href="#lga-frame"/></svg><b>ᚠ</b></button><button type="button" data-rune="center" aria-label="Руна ᚱ"><svg class="lga lgr-rune-frame" aria-hidden="true"><use href="#lga-frame"/></svg><b>ᚱ</b></button><button type="button" data-rune="right" aria-label="Руна ᚦ"><svg class="lga lgr-rune-frame" aria-hidden="true"><use href="#lga-frame"/></svg><b>ᚦ</b></button></div>
+      <p id="run-note" class="cg-note">Готовим забег…</p>
+      <button id="resume-run" class="lg-cta hidden" type="button">Продолжить забег</button>
+      <button id="exit-run" class="lg-link" type="button">Выйти из забега</button>
     </section>
-    <section id="result" class="panel hidden">
-      <div class="r-result-head"><p class="eyebrow">ЗАБЕГ ЗАВЕРШЁН</p><span id="result-status" class="r-result-status"></span></div>
-      <div class="r-result-hero"><div><h2 id="final-score">0</h2><span class="r-score-label">очков</span><p id="final-detail"></p></div><div id="result-accuracy" class="r-accuracy" role="img"><div><b id="final-accuracy">0%</b><small>точность</small></div></div></div>
+    <section id="result" class="lg-panel hidden">
+      <div class="cg-res-head"><p class="lg-eyebrow" style="margin:0">Забег завершён</p><span id="result-status" class="cg-status"></span></div>
+      <div class="cg-res-hero"><div><h2 id="final-score">0</h2><p>очков</p><p id="final-detail"></p></div><div id="result-accuracy" class="cg-ring" role="img"><div><b id="final-accuracy">0%</b><small>точность</small></div></div></div>
       <p id="pass-xp" class="pass-xp" aria-live="polite" hidden></p>
       <section id="run-analysis" aria-label="Разбор забега"></section>
-      <button id="again">Ещё раз</button><button id="results-leaderboard" class="secondary" type="button">Лидеры сезона</button>
+      <button id="again" class="lg-cta" type="button">Ещё раз</button><button id="results-leaderboard" class="lg-link" type="button">К лидерам сезона</button>
     </section>
-    <p id="error" role="alert"></p>
-  </main><script async src="https://telegram.org/js/telegram-web-app.js" onload="Telegram.WebApp.ready();Telegram.WebApp.expand()"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="/static/local-games-v1.js"></script><script src="/static/game-mode-v3.js"></script><script src="/static/rhythm-v2.js" defer></script>
+    <p id="error" class="cg-error" role="alert"></p>
+  </main>
+  <script async src="https://telegram.org/js/telegram-web-app.js" onload="Telegram.WebApp.ready();Telegram.WebApp.expand()"></script><script src="/static/skin-runtime-v3.js"></script><script src="/static/nickname-v3.js"></script><script src="/static/game-board-v3.js"></script><script src="{{BASE}}/static/league-demo/league-art.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/league-fx.js?v={{VER}}"></script><script src="/static/local-games-v1.js"></script><script src="{{BASE}}/static/league-demo/game-mode-v3.js?v={{VER}}"></script><script src="{{BASE}}/static/league-demo/game-shell-v3.js?v={{VER}}"></script><script src="/static/rhythm-v2.js" defer></script>
 </body></html>

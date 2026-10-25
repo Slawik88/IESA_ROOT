@@ -9,25 +9,57 @@
   const store = new PVLocal.Store('rhythm', tg, session, init);
   let generation=0;let engine=null, journal=[], paused=false, resolving=false, remaining=null, expectedRune=null, loading=false;
   let drawSeq=0, preparing=false, prepareTimer=null, prepareDone=null;
-  const show = id => ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+  const show = id => {
+    ['intro','countdown','choice','run','result'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+    document.body.classList?.toggle('lg-playing', id !== 'intro' && id !== 'result');   // во время забега случайное касание не переключает режим
+  };
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
   const err = text => { $('error').textContent = text || ''; };
-  async function api(path, options={}) { const response=await PVLocal.request(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok){const error=new Error(data.detail||'Не удалось связаться с сервером.');error.status=response.status;throw error;} return data; }
+  async function api(path, options={}) { const response=await PVLocal.request(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;} return data; }
   if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
   fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function save(){if(engine){store.data.active={packet:engine.packet,state:engine.state,journal,remaining:remaining??Math.max(0,tickEnd-performance.now())};store.save();}}
   function setButtons(disabled, selected=null){buttons().forEach(b=>{b.disabled=disabled;b.classList.toggle('pending',b.dataset.rune===selected&&disabled)})}
-  function connection(mark,text){$('connection').textContent=mark;$('connection').setAttribute('aria-label',text)}
+  function connection(mark,text){const out=$('connection');if(!out)return;out.textContent=mark;out.setAttribute('aria-label',text);out.dataset.state=mark==='●'?'on':mark==='○'?'off':'wait'}
+  // Вид забега — тот же, что у уровня рейтинга (league-rhythm-fx.js): сердца, кольцо времени, большая руна, чипы даров. Правила здесь не считаются.
+  const ARC=2*Math.PI*54,Art=()=>window.LeagueArt,Fx=()=>window.LeagueFx;
+  let shownHealth=null;
+  const setArc=share=>{const arc=$('time-arc');if(arc)arc.style.strokeDashoffset=String((1-Math.max(0,Math.min(1,share)))*ARC);};
+  const setTarget=(kind,text,label)=>{const t=$('instruction');t.textContent=text;t.dataset.kind=kind;t.setAttribute('aria-label',label||text);};
+  function drawHearts(health){
+    const box=$('health'),art=Art();box.setAttribute('aria-label','Сердец: '+health);
+    if(!art){box.textContent='♥'.repeat(health)||'—';return}
+    box.innerHTML=Array.from({length:Math.max(5,health)},(_,i)=>art.heart(i<health?'full':'empty')).join('');
+    if(shownHealth!==null&&health<shownHealth)Fx()?.shake(box);
+    shownHealth=health;
+  }
+  function drawPerks(view){
+    const box=$('perks'),p=view.perks||{};box.replaceChildren();
+    const chip=(text,kind)=>{const c=document.createElement('span');c.className='lgr-chip'+(kind?' is-'+kind:'');c.textContent=text;box.append(c)};
+    (view.gifts||[]).forEach(g=>chip(g.name+(g.count>1?' ×'+g.count:''),engine?.catalog?.[g.id]?.kind));
+    if(p.shield>0)chip('🛡 щит ×'+p.shield);
+    if(p.revive>0)chip('🔥 Феникс готов');
+    if(p.ebb>0)chip('🌊 отлив: ещё '+p.ebb+' нажатий с запасом времени');
+    if(p.bloody>0)chip('🩸 очки втрое больше: ещё '+p.bloody+' нажатий');
+    if(p.recovery>0)chip('Второе дыхание: ещё '+p.recovery+' нажатий с запасом времени');
+  }
+  // Отклик на нажатие: верно — кольцо и «+очки» (золотые за быстрый ответ), ошибка — встряска руны
+  function tapFeel(ok,gained,perfect){
+    const fx=Fx(),arena=$('arena');
+    if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(ok?'light':'heavy');
+    if(!fx||!arena)return;
+    if(ok){fx.ring(arena,perfect?'is-gold':'');fx.float(arena,'+'+gained,perfect?'is-gold':'');}else fx.shake($('instruction'));
+  }
   function tick(duration,full){
     clearInterval(timer);remaining=null;tickEnd=performance.now()+duration;
-    timer=setInterval(()=>{const left=Math.max(0,tickEnd-performance.now());$('timebar').style.transform='scaleX('+left/full+')';if(left===0){clearInterval(timer);sendTap(null);}},16);
+    timer=setInterval(()=>{const left=Math.max(0,tickEnd-performance.now());setArc(left/full);if(left===0){clearInterval(timer);sendTap(null);}},16);
   }
   function stopPreparation(){clearTimeout(prepareTimer);prepareTimer=null;const done=prepareDone;prepareDone=null;preparing=false;done?.(false);$('run').classList.remove('preparing');}
   function pause(){
     if(!engine||engine.state.status!=='active')return;
     remaining=remaining??Math.max(0,tickEnd-performance.now());paused=true;++drawSeq;clearInterval(timer);stopPreparation();expectedRune=null;
-    $('instruction').textContent='На паузе';save();setButtons(true);$('resume-run').classList.remove('hidden');$('tap-feedback').textContent='На паузе — сердца сохранены';
+    setTarget('text','Пауза');save();setButtons(true);$('resume-run').classList.remove('hidden');$('tap-feedback').textContent='Сердца сохранены. Продолжай, когда будешь готов';
     // A pending view (e.g. immediately after a gift) must not leave an obsolete
     // disabled choice screen behind when the page is hidden mid-transition.
     localDraw();
@@ -37,21 +69,21 @@
     if(prepare){stopPreparation();preparing=true;paused=true;remaining=current.window();expectedRune=null;setButtons(true);}
     const view=await current.view();if(engine!==current||version!==generation||draw!==drawSeq)return;state=view;
     connection(navigator.onLine?'●':'○','Игра работает на устройстве');err(store.durable?'':'Не удалось сохранить игру на устройстве. Не закрывай приложение.');
-    $('health').textContent='♥'.repeat(view.health)||'—';$('score').textContent=view.score;$('combo').textContent=view.combo;
-    $('speed').textContent=view.speed_percent+'%';$('perks').textContent=perksLine(view);weatherLine($('weather'),view.weather,'');
+    drawHearts(view.health);$('score').textContent=view.score;$('combo').textContent=view.combo;
+    drawPerks(view);weatherLine($('weather'),view.weather,'');
     if(view.status==='finished'){store.data.last={packet:engine.packet,state:engine.state,journal};store.queue(engine.packet,journal);finish({...view,integrity_status:'saved_local'});flushResults();return;}
     if(view.draft){stopPreparation();expectedRune=null;paused=true;clearInterval(timer);remaining=null;offers();return;}
-    $('run-note').textContent='Такт '+view.next_signal_no+' · чанк '+view.chunk+' · окно '+view.window_ms+' мс';show('run');
+    $('run-note').textContent='Нажатие '+view.next_signal_no+' · блок '+(view.chunk+1)+' · скорость '+view.speed_percent+'%';show('run');
     if(document.hidden)paused=true;
     if(prepare&&!document.hidden){
-      $('instruction').textContent='Приготовься';$('tap-feedback').textContent='Следующая руна появится после отсчёта';$('tap-feedback').dataset.state='';
-      $('resume-run').classList.add('hidden');$('timebar').style.transform='scaleX(1)';setButtons(true);save();
+      setTarget('text','Приготовься');$('tap-feedback').textContent='Первая руна появится после отсчёта';$('tap-feedback').dataset.state='';
+      $('resume-run').classList.add('hidden');setArc(1);setButtons(true);save();
       if(!await countdown(current,draw)||engine!==current||draw!==drawSeq||version!==generation||document.hidden)return;
       paused=false;
     }else if(paused){
-      stopPreparation();expectedRune=null;$('instruction').textContent='На паузе';$('tap-feedback').textContent='Продолжи, когда будешь готов';$('resume-run').classList.remove('hidden');setButtons(true);save();return;
+      stopPreparation();expectedRune=null;setTarget('text','Пауза');$('tap-feedback').textContent='Продолжи, когда будешь готов';$('resume-run').classList.remove('hidden');setButtons(true);save();return;
     }
-    expectedRune=view.rune;$('instruction').textContent='Нажми руну '+glyph(view.rune);$('tap-feedback').textContent='Выбери руну';$('tap-feedback').dataset.state='';
+    expectedRune=view.rune;setTarget('glyph',glyph(view.rune),'Нажми руну '+glyph(view.rune));$('tap-feedback').textContent='Выбери такую же руну';$('tap-feedback').dataset.state='';
     $('resume-run').classList.add('hidden');setButtons(false);tick(remaining??view.window_ms,view.window_ms);
   }
   async function flushResults(){try{await store.flush(api,result=>{if(state?.run_id===result.run_id&&state.status==='finished'){if(result.rejected){$('result-status').textContent='Не удалось подтвердить результат';err(result.message);}else finish(result);}});}catch(error){if(state?.status==='finished')$('result-status').textContent=error.status===401?'Сохранено · открой игру заново в Telegram для отправки':'Сохранено на устройстве · отправим при подключении';}}
@@ -65,7 +97,7 @@
     connection(clear ? '●' : '◐', labels[result.integrity_status] || 'Результат сохранён, но не попал в таблицу');
     $('final-score').textContent = Number(result.score).toLocaleString('ru-RU');
     const n = Number(result.correct_taps) + Number(result.mistakes), acc = n ? (100 * result.correct_taps / n).toFixed(1) : '0';
-    $('final-detail').textContent = result.correct_taps + ' из ' + n + ' тактов верно';
+    $('final-detail').textContent = result.correct_taps + ' из ' + n + ' нажатий верно';
     const passLine = $('pass-xp'); passLine.dataset.run = result.run_id || '';
     if (clear) window.GameMode?.passXp('rhythm', result.run_id, passLine); else passLine.hidden = true;
     const status = $('result-status');
@@ -90,11 +122,11 @@
         delta > 0 ? 'Новый рекорд · +' + delta + ' очков' : 'Личный рекорд · ' + a.previous_best;
       box.append(record);
     }
-    const tip = a.timeouts > a.wrong ? 'Чаще не хватало времени. Дар с широким окном может помочь.' :
+    const tip = a.timeouts > a.wrong ? 'Чаще не хватало времени. Поможет дар, который добавляет время на нажатие.' :
       a.wrong > 0 ? 'Смотри на форму руны: это поможет реже путать символы.' :
-      a.timing.late > a.timing.early ? 'Ответы ближе к краю окна. Попробуй более спокойный темп.' : '';
+      a.timing.late > a.timing.early ? 'Ты часто нажимал в самый последний момент. Старайся нажимать увереннее и раньше.' : '';
     if (tip) { const p = document.createElement('p'); p.className = 'r-result-hint'; p.textContent = tip; box.append(p); }
-    const details = document.createElement('details'), title = document.createElement('summary'); title.textContent = 'Разбор забега'; details.append(title);
+    const details = document.createElement('details'), title = document.createElement('summary'); details.className = 'lg-help'; title.textContent = 'Разбор забега'; details.append(title);
     const extra = document.createElement('dl'); extra.className = 'r-analysis-extra';
     for (const [name,value] of [['Потеряно сердец',a.hearts_lost],['Средний ответ',a.response_ms == null ? '—' : a.response_ms+' мс']]) {
       const row=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=name;dd.textContent=value;row.append(dt,dd);extra.append(row);
@@ -111,7 +143,8 @@
     if(!engine||engine.state.status!=='active'||paused||preparing||resolving||expectedRune===null||state?.draft)return;
     resolving=true;clearInterval(timer);const elapsed=rune===null?engine.window()+1:Math.min(60000,Math.max(0,Math.floor(engine.window()-(remaining??Math.max(0,tickEnd-performance.now())))));
     journal.push({kind:'tap',signal_no:engine.state.next_signal_no,rune,elapsed_ms:elapsed});
-    engine.step(rune,elapsed,expectedRune);remaining=engine.window();save();setButtons(true);
+    const before=engine.state.score,quick=elapsed*3<=engine.window(),ok=engine.step(rune,elapsed,expectedRune);
+    tapFeel(ok,engine.state.score-before,ok&&quick);remaining=engine.window();save();setButtons(true);
     try{await localDraw();}finally{resolving=false;}
   }
   async function start(mode){
@@ -139,28 +172,29 @@
       const step=()=>{
         if(leaving||engine!==current||draw!==drawSeq||document.hidden||current.state.status!=='active'){finish(false);return;}
         if(n===0){finish(true);return;}
-        $('instruction').textContent='Начинаем через '+n--;prepareTimer=setTimeout(step,1000);
+        const left=n--;setTarget('count',String(left),'Старт через '+left);prepareTimer=setTimeout(step,1000);
       };step();
     });
   }
   function offers() {
     clearInterval(timer); setButtons(true); show('choice');
-    $('draft-title').textContent = 'Рун-дар №' + state.draft.number;
-    weatherLine($('draft-weather'), state.weather, 'Следующие 20 тактов: ');
+    $('draft-title').textContent = 'Дар №' + state.draft.number;
+    weatherLine($('draft-weather'), state.weather, 'Следующие 20 нажатий: ');
     const box = $('gifts'); box.replaceChildren();
     state.draft.offers.forEach(gift => {
-      const b = document.createElement('button'); b.className = 'gift'; b.dataset.kind = gift.kind;
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'lgr-card is-' + gift.kind; b.dataset.kind = gift.kind;
       for (const [tag, cls, text] of [['small', '', kindLabel[gift.kind] || ''], ['b', '', gift.name],
-        ['span', 'gift-plus', '＋ ' + gift.bonus], ['span', 'gift-minus', '− ' + gift.cost]]) {
+        ['span', 'g-plus', '＋ ' + gift.bonus], ['span', 'g-minus', '− ' + gift.cost]]) {
         const node = document.createElement(tag); node.className = cls; node.textContent = text; b.append(node);
       }
       const p = gift.preview;
       if (p) {
-        const changes = [['health', 'Сердца', ''], ['window_ms', 'Окно', ' мс'], ['speed_percent', 'Темп', '%'],
-          ['shield', 'Щиты', ''], ['ebb', 'Такты отлива', ''], ['bloody', 'Тройные очки, тактов', ''], ['sample_score', 'Очки за примерный ответ', '']]
+        const sec = ms => (ms / 1000).toFixed(2).replace('.', ',') + ' с', pct = v => v + '%';
+        const changes = [['health', 'Сердца'], ['window_ms', 'Время на нажатие', sec], ['speed_percent', 'Скорость', pct],
+          ['shield', 'Щиты'], ['ebb', 'Нажатий с запасом времени'], ['bloody', 'Нажатий с тройными очками'], ['revive', 'Феникс вернёт с сердцами'], ['sample_score', 'Очки за нажатие']]
           .filter(([key]) => p.before[key] !== p.after[key])
-          .map(([key, label, unit]) => label + ': ' + p.before[key] + unit + ' → ' + p.after[key] + unit);
-        const summary = document.createElement('span'); summary.className = 'gift-effective'; summary.textContent = changes.join(' · ') || 'Параметры следующего такта не меняются.'; b.append(summary);
+          .map(([key, label, fmt = v => v]) => label + ': ' + fmt(p.before[key]) + ' → ' + fmt(p.after[key]));
+        const summary = document.createElement('span'); summary.className = 'g-fx'; summary.textContent = changes.join(' · ') || 'Следующее нажатие не меняется.'; b.append(summary);
       }
       b.onclick = () => pickGift(gift.id); box.append(b);
     });
@@ -174,20 +208,48 @@
   // Погода блока (core/rhythm_weather.py): одна строка, у всех одинаковая; без погоды строки нет.
   function weatherLine(node,w,lead){if(!node)return;node.hidden=!w;node.textContent=w?lead+w.icon+' '+w.name+' — '+w.effect:'';}
   function box_disable(flag){document.querySelectorAll('#gifts button').forEach(b=>{b.disabled=flag})}
-  function perksLine(s){const parts=(s?.gifts||[]).map(g=>g.name+(g.count>1?' ×'+g.count:''));const p=s?.perks||{};if(p.shield>0)parts.push('🛡 щит ×'+p.shield);if(p.ebb>0)parts.push('🌊 отлив ещё '+p.ebb);if(p.bloody>0)parts.push('🩸 тройные очки ещё '+p.bloody);if(p.recovery>0)parts.push('Второе дыхание: ещё '+p.recovery+' такта');return parts.join(' · ')}
-  async function cancel(){
+  async function cancel(keepScreen=false){   // keepScreen: «Заново» сразу начинает новый забег, экран до игры не мелькает
     const id=state?.run_id;++generation;++drawSeq;leaving=true;clearInterval(timer);stopPreparation();expectedRune=null;engine=null;state=null;journal=[];store.data.active=null;store.save();
-    show('intro');if(id)api('/runs/'+id+'/cancel',{method:'POST'}).catch(()=>{});leaving=false;
+    if(keepScreen!==true)show('intro');if(id)api('/runs/'+id+'/cancel',{method:'POST'}).catch(()=>{});leaving=false;
   }
-  function empty(text){const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='leaderboard-empty';row.textContent=text;list.append(row)}
+  function empty(text){$('leaderboard-podium').replaceChildren();const list=$('leaderboard-list');list.replaceChildren();const row=document.createElement('li');row.className='is-empty';row.textContent=text;list.append(row)}
   // Сезон: срок в подписи над результатом, призы и условия свёрнуты в «Награды сезона», прошлый сезон одной строкой под результатом
   const num=n=>Number(n||0).toLocaleString('ru-RU');
+  const SEASON_PLAIN='Место в таблице для интереса: наград за него нет. Опыт Пропуска даёт сама игра, а больше всего его в режиме «Рейтинг».';
   function seasonTerms(s){const t=s.terms;return t?'Награду получают игроки, у которых от '+t.min_runs+' забегов в '+t.min_days+' разных днях и аккаунт старше '+t.min_account_days+' дней. Призовые места открываются, когда в таблице '+Object.values(t.podium_min_players).join(' / ')+' игроков.':''}
-  function renderSeason(data){const s=data.season,l=data.last_season;if(!s)return;$('season-no').textContent=s.number;$('season-left').textContent=(s.days_left?' · ещё '+s.days_left+' дн.':' · последний день')+', до '+new Date(s.ends_at).toLocaleDateString('ru-RU');$('season-note').textContent=seasonTerms(s);$('season-note').hidden=!s.terms;$('season-rewards').closest('details').hidden=!(s.rewards||[]).length;const box=$('season-rewards');box.replaceChildren();(s.rewards||[]).forEach(r=>{const li=document.createElement('li'),place=document.createElement('b'),prize=document.createElement('span');place.textContent=r.label+' место';prize.textContent=num(r.mora)+' Моры + '+num(r.essence)+' Эссенции';li.append(place,prize);box.append(li)});const top=(s.rewards||[])[0];$('season-top').textContent=top?' · за 1 место '+num(top.mora)+' Моры':'';const last=$('season-last');last.hidden=!l;if(l)last.textContent='Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+num(l.reward_mora)+' Моры':'')+(l.reward_essence?' и '+num(l.reward_essence)+' Эссенции':'')}
+  function renderSeason(data){const s=data.season,l=data.last_season;if(!s)return;$('season-note').textContent=seasonTerms(s)||SEASON_PLAIN;$('season-rewards').closest('details').hidden=!(s.rewards||[]).length;const box=$('season-rewards');box.replaceChildren();(s.rewards||[]).forEach(r=>{const li=document.createElement('li'),place=document.createElement('b'),prize=document.createElement('span');place.textContent=r.label+' место';prize.textContent=num(r.mora)+' Моры + '+num(r.essence)+' Эссенции';li.append(place,prize);box.append(li)});const top=(s.rewards||[])[0];$('season-top').textContent=top?' · за 1 место '+num(top.mora)+' Моры':'';const last=$('season-last');last.hidden=!l;if(l)last.textContent='Прошлый сезон '+l.season+': место #'+l.place+(l.reward_mora?' · +'+num(l.reward_mora)+' Моры':'')+(l.reward_essence?' и '+num(l.reward_essence)+' Эссенции':'')}
   let knownTotal=0;   // «из N» приходит только со страницами полного топа: запоминаем, чтобы цифра в шапке не прыгала
-  function personal(p){const box=$('leaderboard-personal');box.replaceChildren();if(!p){box.textContent='Тебя пока нет в таблице сезона. Заверши забег с очками, и он появится здесь.';box.classList.remove('has-place');return}if(p.total)knownTotal=p.total;const place=document.createElement('b'),rest=document.createElement('span');place.textContent='#'+p.place+(knownTotal?' из '+knownTotal:'');rest.textContent='лучший счёт '+num(p.best_score);box.append(place,rest);box.classList.add('has-place')}
+  function personal(p){
+    const note=$('leaderboard-personal');
+    if(!p){$('r-place').textContent='—';$('r-best').textContent='—';$('r-place-note').textContent='место в сезоне';note.textContent='Тебя пока нет в таблице сезона. Заверши забег с очками, и он появится здесь.';return}
+    if(p.total)knownTotal=p.total;
+    $('r-place').textContent='#'+p.place;$('r-best').textContent=num(p.best_score);$('r-place-note').textContent=knownTotal?'место из '+knownTotal:'место в сезоне';note.textContent='';
+  }
   // По умолчанию видна пятёрка лидеров; «Весь топ» листает всех игроков сезона страницами (boardPage = номер страницы)
-  function list(data){if(data.season&&boardPage===null)renderSeason(data);const rows=boardPage===null?data.top.slice(0,5):data.items,target=$('leaderboard-list');target.replaceChildren();if(!rows.length)empty('Пока нет завершённых забегов.');else rows.forEach(row=>{const item=document.createElement('li'),p=document.createElement('span'),name=document.createElement('a'),score=document.createElement('b'),player=row.player||{};p.textContent='#'+row.place;name.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!name.innerHTML)name.textContent=player.display_name||'Игрок';name.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');name.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));score.textContent=row.best_score;if(row.is_me)item.className='is-me';item.append(p,name,score);target.append(item)});personal(data.personal);more(data);document.querySelectorAll('[data-leaderboard-mode]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.leaderboardMode===leaderboardMode)))}
+  const profileLink=player=>{const a=document.createElement('a');a.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!a.innerHTML)a.textContent=player.display_name||'Игрок';a.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');a.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));return a};
+  function podiumItem(row){
+    const item=document.createElement('li'),medal=document.createElement('span'),name=profileLink(row.player||{}),score=document.createElement('small'),pillar=document.createElement('i');
+    item.className='lgl-pod is-p'+row.place+(row.is_me?' is-me':'');medal.className='lgl-medal-ico is-p'+row.place;medal.textContent=row.place;name.className='lgl-nick';score.textContent=num(row.best_score);pillar.setAttribute('aria-hidden','true');
+    item.append(medal,name,score,pillar);return item;
+  }
+  function listItem(row){
+    const item=document.createElement('li'),place=document.createElement('span'),score=document.createElement('b');
+    place.textContent='#'+row.place;score.textContent=num(row.best_score);if(row.is_me)item.className='is-me';
+    item.append(place,profileLink(row.player||{}),score);return item;
+  }
+  function list(data){
+    if(data.season&&boardPage===null)renderSeason(data);
+    const rows=boardPage===null?data.top.slice(0,5):data.items,target=$('leaderboard-list'),podium=$('leaderboard-podium');
+    target.replaceChildren();podium.replaceChildren();
+    if(!rows.length)empty('Пока нет завершённых забегов.');
+    else{
+      const high=boardPage===null||boardPage===0?rows.filter(row=>row.place<=3):[],low=rows.filter(row=>!high.includes(row));
+      [high.find(r=>r.place===2),high.find(r=>r.place===1),high.find(r=>r.place===3)].filter(Boolean).forEach(row=>podium.append(podiumItem(row)));
+      low.forEach(row=>target.append(listItem(row)));
+      if(low.length)target.setAttribute('start',String(low[0].place));
+    }
+    personal(data.personal);more(data);
+  }
   function boardButton(text,label,go,disabled){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent=text;if(label)b.setAttribute('aria-label',label);b.disabled=!!disabled;b.onclick=go;return b}
   function more(data){const box=$('leaderboard-more');box.replaceChildren();if(boardPage===null){if(data.top.length>5)box.append(boardButton('Весь топ ›','',()=>openBoard(0)));return}if(data.pages>1){const at=document.createElement('span');at.textContent=(data.page+1)+' / '+data.pages;box.append(boardButton('‹','Предыдущая страница',()=>openBoard(data.page-1),data.page<=0),at,boardButton('›','Следующая страница',()=>openBoard(data.page+1),data.page+1>=data.pages))}box.append(boardButton('Свернуть','',()=>openBoard(null)))}
   function openBoard(page){boardPage=page;refreshLeaderboard()}
@@ -206,10 +268,19 @@
     flushResults();if(navigator.onLine)store.refreshRules(api).catch(()=>{});
   }
   document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>start(b.dataset.mode));
-  $('exit-run').onclick=cancel;$('exit-count').onclick=cancel;
-  $('resume-run').onclick=()=>{if(!preparing&&engine?.state.status==='active')localDraw({prepare:true});};
+  // «Заново» и «Выйти из забега»: если уже что-то сыграно, сначала вопрос в листе, забег на паузе (game-shell-v3.js). Нечего терять — сразу.
+  const progress=()=>Boolean(engine&&engine.state.status==='active'&&engine.state.next_signal_no>1);
+  const resumeRun=()=>{if(!preparing&&engine?.state.status==='active')localDraw({prepare:true});};
+  const shell=window.GameShell,again=async()=>{await cancel(true);await start('normal');};
+  const lose='Этот забег не сохранится: очки и сердца пропадут. Лучший результат сезона не изменится.';
+  if(shell){
+    $('restart-slot').append(shell.restartPill({risky:progress,pause,resume:resumeRun,onRestart:again,ask:{title:'Начать забег заново?',text:lose,confirm:'Да, начать заново'}}));
+    $('exit-run').onclick=shell.guarded({risky:progress,pause,resume:resumeRun,run:()=>cancel(),ask:{title:'Выйти из забега?',text:lose,confirm:'Да, выйти'}});
+  }else $('exit-run').onclick=cancel;
+  $('exit-count').onclick=cancel;
+  $('resume-run').onclick=resumeRun;
   window.addEventListener('pagehide',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
   buttons().forEach(b=>b.onclick=()=>sendTap(b.dataset.rune));
-  $('again').onclick=()=>{engine=null;state=null;show('intro');refreshLeaderboard();};
-  $('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard();};refreshLeaderboard();restore();
+  $('again').onclick=()=>{engine=null;state=null;start('normal');};
+  $('results-leaderboard').onclick=()=>{show('intro');refreshLeaderboard();};refreshLeaderboard();restore();shell?.mount({label:'обычный'});
 })();

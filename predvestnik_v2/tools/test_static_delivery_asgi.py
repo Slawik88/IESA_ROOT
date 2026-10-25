@@ -24,9 +24,7 @@ ALLOWED = {
     "/static/skin-scene-e-v3.css": "text/css",
     "/static/app.css": "text/css",
     "/static/app.js": "application/javascript",
-    "/static/minesweeper-v2.css": "text/css",
     "/static/minesweeper-v2.js": "application/javascript",
-    "/static/skin-runtime-v3.css": "text/css",
     "/static/skin-runtime-v3.js": "application/javascript",
     "/static/appearance-v3.css": "text/css",
     "/static/appearance-ring-v3.css": "text/css",
@@ -56,7 +54,6 @@ ALLOWED = {
     "/static/monolith-v3.css": "text/css",
     "/static/monolith-player-v3.css": "text/css",
     "/static/admin-legacy.css": "text/css",
-    "/static/games-v3.css": "text/css",
     "/static/game-board-v3.js": "application/javascript",
 }
 BLOCKED = (
@@ -147,6 +144,7 @@ def assert_prefix_redirect_scope() -> None:
 def main() -> None:
     from FastAPI.main import app, _ASSET_VER
     from FastAPI.prefix import strip_prefix_middleware
+    from FastAPI.routers.league_v1 import ASSET_VERSION as LEAGUE_VER
 
     direct = TestClient(app)
     assert_surface(direct)
@@ -154,7 +152,8 @@ def main() -> None:
         response = direct.get(path)
         assert response.headers.get("cache-control") == "no-cache", path
         versions = re.findall(r"/static/[^\"]+\?v=([^\"]+)", response.text)
-        assert versions and set(versions) == {_ASSET_VER}, (path, versions)
+        # the casual game pages also take their look and the shared header from the League assets (their own content hash)
+        assert versions and set(versions) == ({_ASSET_VER} if path == "/" else {_ASSET_VER, LEAGUE_VER}), (path, versions)
     assert re.fullmatch(r"[0-9a-f]{20}", _ASSET_VER), _ASSET_VER
     assert_prefix_redirect_scope()
     css = direct.get("/static/app.css")
@@ -170,8 +169,6 @@ def main() -> None:
     assert "function navBack()" in app_js and "function v3ApplyLook(" in app_js
     assert 'data-wn-page="looks"' in direct.get("/").text and 'id="pg-looks"' in direct.get("/").text, "looks is reachable from More and has its own page"
     assert "api('/themes" not in app_js and "api(`/themes" not in app_js
-    skin_css = direct.get("/static/skin-runtime-v3.css").text
-    assert "background-attachment: scroll !important" in skin_css
     assert "duel_wins" not in app_js.split("function renderPublicCardV3", 1)[1].split("\nfunction ", 1)[0]
     # The former Reconstruction URL is a compatibility redirect, not a hidden
     # route into retired writers.  The current hub owns its destination.
@@ -182,17 +179,16 @@ def main() -> None:
     minesweeper = direct.get("/minesweeper")
     assert minesweeper.status_code == 200
     assert '/static/minesweeper-v2.js?v=' in minesweeper.text
-    assert '/static/skin-runtime-v3.css?v=' in minesweeper.text
     assert '/static/skin-runtime-v3.js?v=' in minesweeper.text
-    assert '/static/games-v3.css?v=' in minesweeper.text
+    for asset in ("league-demo.css", "league-games.css", "casual-games-v3.css", "league-art.js", "league-fx.js", "game-mode-v3.js", "game-shell-v3.js"):
+        assert f'/static/league-demo/{asset}?v=' in minesweeper.text, f"the casual page takes {asset} from the League assets"
     base = os.environ.get("ROOT_PATH", "").rstrip("/")
     assert f'href="{base}/?startapp=games"' in minesweeper.text, "the back link keeps the mount of the app"
     rhythm = direct.get("/rhythm-v2")
     assert rhythm.status_code == 200
     assert f'href="{base}/?startapp=games"' in rhythm.text, "the back link keeps the mount of the app"
-    assert '/static/skin-runtime-v3.css?v=' in rhythm.text
     assert '/static/skin-runtime-v3.js?v=' in rhythm.text
-    assert '/static/games-v3.css?v=' in rhythm.text
+    assert '/static/league-demo/game-shell-v3.js?v=' in rhythm.text and '/static/league-demo/casual-games-v3.css?v=' in rhythm.text
     for page in (rhythm, minesweeper):
         assert '/static/game-board-v3.js?v=' in page.text and '/static/appearance-v3.css?v=' in page.text and '/static/marks-v3.css?v=' in page.text, 'game leaderboards load the skin renderer'
 

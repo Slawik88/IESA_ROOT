@@ -16,6 +16,7 @@ assert "Date.now()-(_hubAt" in js, "хаб не дёргает таблицу ч
 assert "Ещё не играл" in js and "Результат пока недоступен" in js, "нет данных показываются явно"
 assert "method:" not in hub, "хаб только читает"
 for page in ("rhythm-v2.html", "minesweeper-v2.html"):
-    assert 'href="/?startapp=games"' in (ROOT / page).read_text(encoding="utf-8"), f"{page}: «‹» ведёт не к хабу игр"
+    assert "{{GAME_HEAD}}" in (ROOT / page).read_text(encoding="utf-8"), f"{page}: шапка игры общая"
+assert 'href="{{BASE}}/?startapp=games"' in (ROOT / "game-shell-v3.html").read_text(encoding="utf-8"), "«‹» общей шапки ведёт к хабу игр"
 assert "'games'" in (ROOT / "app.02.js").read_text(encoding="utf-8"), "диплинк games"
 print("OK: games hub rows, race guard, per-game failure isolation and back link")

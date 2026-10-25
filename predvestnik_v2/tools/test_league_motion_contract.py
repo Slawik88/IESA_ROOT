@@ -13,9 +13,9 @@ import re
 from pathlib import Path
 
 STATIC = Path(__file__).resolve().parents[1] / "FastAPI" / "static"
-CSS = ("league-demo.css", "league-games.css", "league-pass.css")
+CSS = ("league-demo.css", "league-games.css", "league-pass.css", "casual-games-v3.css")
 JS = ("league-art.js", "league-fx.js", "league-demo.js", "league-ladder.js", "league-result.js", "league-mines.js",
-      "league-rhythm-fx.js", "league-rhythm.js", "league-pass.js")
+      "league-rhythm-fx.js", "league-rhythm.js", "league-pass.js", "game-shell-v3.js", "game-mode-v3.js")
 MOVING = {"transform", "opacity"}
 
 

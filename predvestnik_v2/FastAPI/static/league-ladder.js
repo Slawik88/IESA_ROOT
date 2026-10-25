@@ -4,7 +4,8 @@
 (() => {
   const L = () => window.League, A = () => window.LeagueArt, Fx = () => window.LeagueFx;
   const NAMES = {minesweeper: 'Сапёр', rhythm: 'Ритм'};
-  const DEPTH = {1: 'очевидная логика', 2: 'пары чисел', 3: 'глубокая логика'};
+  const DEPTH = {1: 'простая: хватает одной цифры', 2: 'средняя: сравни две цифры', 3: 'сложная: думай по всей группе'};
+  const sec = ms => `${(ms / 1000).toFixed(1).replace('.', ',')} с`;
   const BANDS = [[1, 3, 3], [4, 4, 4], [8, 5, 5], [13, 6, 6], [19, 7, 7], [26, 8, 8], [35, 9, 9], [46, 10, 10], [61, 11, 11], [81, 12, 12], [101, 12, 14], [121, 12, 16]];
   const pyRound = x => { const f = Math.floor(x), d = x - f; return d > .5 ? f + 1 : d < .5 ? f : (f % 2 ? f + 1 : f); };   // round() Питона: половина — к чётному
 
@@ -17,13 +18,6 @@
     const signals = Math.min(60, 30 + 2 * Math.floor(level / 4));
     return {signals, window: Math.max(400, Math.trunc(2200 * 0.988 ** (level - 1))), drafts: Math.floor((signals - 1) / 20)};
   }
-
-  const RULES = {
-    minesweeper: `<p class="lg-rules">Уровни идут лестницей: поле растёт с 3×3 до 12×16, мин больше, а логика глубже. <b>Каждое поле решается без угадывания</b> — это проверяется до того, как ты его увидишь, а старт открывается сам.</p>
-      <p class="lg-rules">★ — поле пройдено, открыт следующий уровень. ★★ — без единого неверного флага. ★★★ — ещё и за щедрое время (таймер не главное: его хватает с запасом).</p>`,
-    rhythm: `<p class="lg-rules">Уровень — короткий забег на 30–60 тактов: дойди до конца, сохранив хотя бы одно сердце. С каждым уровнем окно нажатия уже. <b>Дары уровня одинаковые у всех</b>, любой дар можно пропустить.</p>
-      <p class="lg-rules">★ — дошёл до конца. ★★ — 70% эталонного счёта. ★★★ — 90%. Игра идёт на телефоне без задержек, уровень проверяется в паузе после него.</p>`,
-  };
 
   function node(game, info, n) {
     const got = info.levels[String(n)]?.stars || 0, open = n <= info.unlocked, next = n === info.unlocked, mile = n % 10 === 0;
@@ -58,7 +52,7 @@
       ${trail(game, info)}
       <button type="button" class="lg-cta" data-play="${info.unlocked}">Играть уровень ${info.unlocked}</button>
       <h3 class="lg-eyebrow">Топ сезона${me.demo ? ' (демо)' : ''}</h3>${podium(info.top)}
-      <details class="lg-help"><summary>Как устроено</summary>${RULES[game]}</details>
+      ${window.LeagueHelp.rules(game, me.xp_by_stars)}
       ${me.demo ? '<button type="button" class="lg-link" id="lg-reset">Сбросить мой прогресс демо</button>' : ''}`;
     Fx().count(host);
     host.querySelector('[data-play]').onclick = () => L().play(game, info.unlocked);
@@ -71,8 +65,8 @@
   function preview(game, info, n) {
     const s = spec(game, n), got = info.levels[String(n)]?.stars || 0, open = n <= info.unlocked;
     const facts = game === 'minesweeper'
-      ? [['Поле', `${s.width}×${s.height}`], ['Мин', s.mines], ['Логика', DEPTH[s.tier]]]
-      : [['Тактов', s.signals], ['Окно', `${s.window} мс`], ['Даров', s.drafts ? `${s.drafts} выбор${s.drafts > 1 ? 'а' : ''}` : 'нет']];
+      ? [['Поле', `${s.width}×${s.height}`], ['Мин', s.mines], ['Сложность', DEPTH[s.tier]]]
+      : [['Нажатий', s.signals], ['Время на нажатие', sec(s.window)], ['Даров', s.drafts ? `${s.drafts} выбор${s.drafts > 1 ? 'а' : ''}` : 'нет']];
     const body = `<div class="lgl-pv">${A().icon(game === 'minesweeper' ? 'mine' : 'frame', 'lgl-pv-art')}<dl>${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl></div>
       <p class="lgl-pv-best" aria-label="Лучший результат: звёзд ${got} из 3">${A().stars(got, 'lgl-pv-star')}<span>${got ? 'Лучший результат' : open ? 'Ещё не пройден' : `Откроется после уровня ${n - 1}`}</span></p>
       ${n % 10 === 0 ? '<p class="lg-muted">Веха: каждый десятый уровень — рубеж сезона.</p>' : ''}`;
@@ -86,7 +80,7 @@
     host.innerHTML = `<div class="lg-state"><div><b>${p.level}</b><small>уровень из ${p.levels}</small></div><div><b>${p.xp}</b><small>опыта</small></div><div><b>${p.xp_to_next}</b><small>до следующего</small></div></div>
       <p class="lg-demo-note">Награды показаны для примера и не выдаются. Скинов в Пропуске нет.</p>
       <h3 class="lg-eyebrow">Бесплатно · VIP</h3><ol class="lg-top lg-pass">${rows}</ol>
-      <details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Опыт дают пройденные рейтинговые уровни: ★ — ${me.xp_by_stars[1]}, ★★ — ${me.xp_by_stars[2]}, ★★★ — ${me.xp_by_stars[3]} опыта, один раз за уровень в сезоне.</p>${window.LeaguePass?.petsRules(me.pets) || ''}</details>`;
+      ${window.LeagueHelp.xp({})}`;
   }
 
   window.LeagueLadder = {render, demoPass, spec};

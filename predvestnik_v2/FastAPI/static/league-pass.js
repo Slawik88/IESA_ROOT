@@ -20,7 +20,7 @@
     const max = s.level >= s.levels, into = max ? s.xp_per_level : s.xp_per_level - s.xp_to_next;
     const cols = s.track.map(r => `<li class="lgp-col ${r.level <= s.level ? 'is-reached' : ''} ${r.level === Math.min(s.levels, s.level + 1) ? 'is-current' : ''} ${r.level % 10 === 0 ? 'is-mile' : ''}">
       <span class="lgp-num">${r.level}</span>${cell(r.level, 'free', r.free)}${cell(r.level, 'vip', r.vip)}</li>`).join('');
-    const why = !me.account.eligible ? `Награды выдаются аккаунтам, которые в боте не меньше ${me.account.min_days} дней. Опыт копится.`
+    const why = !me.account.eligible ? `Забрать награды можно, когда аккаунту исполнится ${me.account.min_days} дней. Опыт копится уже сейчас.`
       : ready ? '' : s.current ? 'Новых наград пока нет — проходи уровни в режиме «Рейтинг».' : '';
     return `<section class="lgp" data-season="${s.season}" aria-label="Пропуск сезона ${s.season}">
       <div class="lgp-head"><div>${s.current ? '' : `<small class="lg-eyebrow">Пропуск сезона ${s.season} · закончился</small>`}
@@ -35,27 +35,6 @@
         <ol role="list">${cols}</ol></div></section>`;
   }
 
-  // Питомцы: что даёт опыт и сколько (таблица с сервера, core/league_pass.py PET_XP), свой дневной предел
-  const PET_NAMES = [['feed', 'кормление'], ['activity_done', 'завершённое занятие'], ['trail_claim', 'забранный поход Тропы'],
-    ['tracking', 'выслеживание'], ['outing', 'вылазка'], ['trial', 'испытание недели'], ['level_up', 'улучшение питомца'],
-    ['camp_upgrade', 'стройка в лагере'], ['reforge', 'перековка талисмана'], ['gear_craft', 'новое снаряжение'],
-    ['gear_upgrade', 'улучшение снаряжения'], ['duplicate', 'дубликат из сундука']];
-  function petsRules(pets, today = null) {
-    if (!pets) return '';
-    const list = PET_NAMES.filter(([k]) => pets.xp[k]).map(([k, name]) => `${name} ${pets.xp[k]}`).join(', ');
-    return `<p class="lg-rules">🐾 <b>Питомцы</b> — тоже опыт, до ${pets.cap} в день${today === null ? '' : ` (сегодня ${today})`}: ${list}.
-      Смена питомца, сборки и «надеть / снять» опыта не дают.</p>`;
-  }
-
-  function rules(me) {
-    return `<details class="lg-help"><summary>Как копить опыт</summary><p class="lg-rules">Главное — уровни рейтинга (Ритм и Сапёр › «Рейтинг»): ★ 60, ★★ 80, ★★★ 100 опыта, один раз за уровень в сезоне (улучшил звёзды — получаешь разницу).
-      Обычные игры дают меньше: Ритм — 1 опыт за 300 очков (до 60 за забег), победа в Сапёре — 12 / 20 / 40 по сложности.
-      Из обычных игр за день засчитывается до ${me.casual.cap} опыта (сегодня ${me.casual.today}).</p>
-      ${petsRules(me.pets, me.pets?.today ?? null)}
-      <p class="lg-rules">${A().icon('key', 'lg-inline lga-key--bronze')} Ключ открывает сундук: «3★+» значит, что звёзд у сундука будет не меньше трёх. Металл ключа — его уровень: обычный, бронзовый, серебряный, платиновый.
-      В сундуках — еда, карточки питомцев, джокеры, Мора, алмазы. Скинов в Пропуске нет.</p></details>`;
-  }
-
   async function render(host, fresh = null) {
     if (!fresh) host.innerHTML = '<div class="lg-skel" aria-hidden="true"><i class="w60"></i><i class="h48"></i><i class="h96"></i></div><p class="lg-sr">Загружаем Пропуск…</p>';
     let me = fresh;
@@ -66,7 +45,7 @@
     }
     L().state.pass = me;
     if (!me.active) { host.innerHTML = `<div class="lg-empty"><h2>Пропуск сезона</h2><p class="lg-rules">Новый Пропуск откроется ${date(me.starts_at)}.</p></div>`; return; }
-    host.innerHTML = me.seasons.map(s => season(s, me)).join('') + rules(me);
+    host.innerHTML = me.seasons.map(s => season(s, me)).join('') + window.LeagueHelp.xp(me);
     Fx().count(host);
     host.querySelectorAll('[data-claim]').forEach(b => { b.onclick = () => claim(host, Number(b.dataset.claim), b); });
     host.querySelectorAll('.lgp-ribbon').forEach(rb => {
@@ -123,5 +102,5 @@
     await Fx().bump(chest, 1.3);
   }
 
-  window.LeaguePass = {render, petsRules};
+  window.LeaguePass = {render};
 })();

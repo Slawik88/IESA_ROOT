@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
+from FastAPI import game_shell
 from FastAPI.deps import get_db, require_tg_user
 from FastAPI.static_assets import asset_version
 from core import league_v1 as league_rules
@@ -22,11 +23,14 @@ from services import early_access, league_pass, league_v1 as league
 router = APIRouter(tags=["league-demo"])
 _STATIC = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 _JS, _CSS = "application/javascript", "text/css"
-_ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS,
+_ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css": _CSS, "casual-games-v3.css": _CSS,
            "league-art.js": _JS, "league-fx.js": _JS, "league-demo.js": _JS, "league-ladder.js": _JS, "league-result.js": _JS,
-           "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS, "game-mode-v3.js": _JS,
-           "skin-runtime-v3.js": _JS}   # палитра надетого образа (--v3-acc), как в играх
-_VER = asset_version(_STATIC, ("league-demo.html", *_ASSETS))
+           "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS, "league-help.js": _JS, "game-mode-v3.js": _JS,
+           "game-shell-v3.js": _JS, "skin-runtime-v3.js": _JS}   # палитра надетого образа (--v3-acc), как в играх
+_VER = asset_version(_STATIC, ("league-demo.html", "game-shell-v3.html", *_ASSETS))
+# What the pages of the casual mode (Rhythm, Minesweeper) load from here: their look, the shared header and the mode switch
+CASUAL_PAGE_ASSETS = ("league-demo.css", "league-games.css", "casual-games-v3.css", "league-art.js", "league-fx.js", "game-mode-v3.js", "game-shell-v3.js")
+ASSET_VERSION = _VER   # страницы обычного режима грузят общие файлы Лиги по этой версии (FastAPI/main.py)
 _BASE = os.getenv("ROOT_PATH", "").rstrip("/")
 
 
@@ -35,7 +39,7 @@ def _read(name: str) -> str:
         return handle.read()
 
 
-_HTML = _read("league-demo.html").replace("{{BASE}}", _BASE).replace("{{VER}}", _VER)
+_HTML = game_shell.render(_read("league-demo.html"), base=_BASE, version=_VER, eyebrow="Сезон", title="Рейтинг")
 
 
 async def _open_for(db, user_id: int) -> bool:

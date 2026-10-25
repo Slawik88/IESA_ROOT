@@ -6,6 +6,8 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 .lgm-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lgm-head h2 { margin: 0; font-size: 22px; }
 .lgm-head .lg-link { margin: 0 -10px 0 0; }
+.lgm-tools { display: flex; align-items: center; }
+.lgm-head .lg-restart { margin-right: 0; }
 .lg-hud { display: grid; grid-template-columns: repeat(3, 1fr); margin: 10px 0; text-align: center; }
 .lg-hud > span { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
 .lg-hud > span + span { border-left: 1px solid var(--lg-faint); }
@@ -19,18 +21,18 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 /* Сапёр: клетки «выпуклые», открытые утоплены; нажатая ждёт ответа «вдавленной» */
 .lg-board-wrap { position: relative; margin: 12px auto 4px; overflow: hidden; border-radius: 12px; }
 .lg-board { display: grid; gap: 3px; touch-action: manipulation; }
-.lg-cell { position: relative; aspect-ratio: 1; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid var(--lg-faint); border-radius: 8px;
+:is(.lg-cell, .mine-cell) { position: relative; aspect-ratio: 1; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid var(--lg-faint); border-radius: 8px;
   background: var(--lg-cell); box-shadow: inset 0 -2px 0 var(--lg-cell-edge); color: var(--lg-ink); font-weight: 800; font-size: clamp(13px, 4.2vw, 20px);
   font-variant-numeric: tabular-nums; transition: transform .1s var(--lg-ease); }
-.lg-cell:disabled { opacity: 1; cursor: default; }
-.lg-cell.open { background: var(--lg-cell-open); box-shadow: none; border-color: var(--lg-cell-line); }
-.lg-cell.is-pressed { transform: scale(.88); box-shadow: none; }
-.lg-cell .lga { width: 58%; height: 58%; }
-.lg-cell.flag { color: var(--lg-gold); }
-.lg-cell.mine { background: rgba(255,90,110,.16); border-color: rgba(255,90,110,.35); color: var(--lg-bad); box-shadow: none; }
-.lg-cell.mine.hit { background: var(--lg-bad); color: #fff; }
-.lg-cell.n1 { color: var(--n1); } .lg-cell.n2 { color: var(--n2); } .lg-cell.n3 { color: var(--n3); } .lg-cell.n4 { color: var(--n4); }
-.lg-cell.n5 { color: var(--n5); } .lg-cell.n6 { color: var(--n6); } .lg-cell.n7, .lg-cell.n8 { color: var(--n7); }
+:is(.lg-cell, .mine-cell):disabled { opacity: 1; cursor: default; }
+:is(.lg-cell, .mine-cell).open { background: var(--lg-cell-open); box-shadow: none; border-color: var(--lg-cell-line); }
+:is(.lg-cell, .mine-cell).is-pressed { transform: scale(.88); box-shadow: none; }
+:is(.lg-cell, .mine-cell) .lga { width: 58%; height: 58%; }
+:is(.lg-cell, .mine-cell).flag { color: var(--lg-gold); }
+:is(.lg-cell, .mine-cell).mine { background: rgba(255,90,110,.16); border-color: rgba(255,90,110,.35); color: var(--lg-bad); box-shadow: none; }
+:is(.lg-cell, .mine-cell).mine.hit { background: var(--lg-bad); color: #fff; }
+:is(.lg-cell, .mine-cell).n1 { color: var(--n1); } :is(.lg-cell, .mine-cell).n2 { color: var(--n2); } :is(.lg-cell, .mine-cell).n3 { color: var(--n3); } :is(.lg-cell, .mine-cell).n4 { color: var(--n4); }
+:is(.lg-cell, .mine-cell).n5 { color: var(--n5); } :is(.lg-cell, .mine-cell).n6 { color: var(--n6); } :is(.lg-cell, .mine-cell).n7, :is(.lg-cell, .mine-cell).n8 { color: var(--n7); }
 .lgm-sweep { position: absolute; top: 0; bottom: 0; left: 20%; width: 60%; opacity: 0; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,240,200,.35), transparent); }
 
 /* Ритм: сцена — сердца, очки, такт; арена с круговым таймером окна; руны в рамках. Фон теплеет с темпом (только прозрачность). */
@@ -72,6 +74,7 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 .lgr-card { display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--lg-faint); border-radius: 16px; background: var(--lg-surf); text-align: left; }
 .lgr-card small { color: var(--lg-dim); font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .lgr-card b { font-size: 16px; } .lgr-card span { color: var(--lg-dim); font-size: 13px; font-weight: 500; } .lgr-card em { color: var(--lg-bad); font-size: 12px; font-style: normal; }
+.lgr-card .g-plus { color: var(--lg-ok); } .lgr-card .g-minus { color: var(--lg-bad); }
 .lgr-card.is-safe { border-color: rgba(127,214,164,.45); } .lgr-card.is-boost { border-color: rgba(245,207,115,.55); } .lgr-card.is-risk { border-color: rgba(255,138,138,.55); }
 .lgr-intro { display: flex; align-items: center; gap: 16px; margin: 14px 0 6px; }
 .lgr-intro-art { width: 60px; height: 60px; color: var(--lg-dim); }
@@ -97,3 +100,27 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 #lgr-bar-add { background: var(--lg-gold); } #lgr-bar-was { z-index: 1; background: var(--lg-ink); opacity: .55; }
 .lgr-btns { display: grid; gap: 8px; margin-top: 14px; }
 .lgr-btns .lg-cta { margin: 0; }
+
+/* «Как играть», «Как копить опыт» и подсказки (league-help.js, страницы обычного Ритма и Сапёра): шаги с номерами, слова, совет, карточки источников */
+.gd-steps { display: grid; gap: 12px; margin: 8px 0 4px; padding: 0; list-style: none; counter-reset: gd; }
+.gd-steps li { position: relative; padding-left: 40px; counter-increment: gd; color: var(--lg-dim); font-size: 13px; line-height: 1.5; }
+.gd-steps li::before { content: counter(gd); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--lg-surf2); color: var(--lg-ink); font-size: 13px; font-weight: 700; }
+.gd-steps b { display: block; color: var(--lg-ink); font-size: 14px; }
+.gd-terms { display: grid; gap: 8px; margin: 14px 0 4px; padding: 0; }
+.gd-terms div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: baseline; font-size: 13px; line-height: 1.45; }
+.gd-terms dt { color: var(--lg-ink); font-weight: 650; }
+.gd-terms dd { margin: 0; color: var(--lg-dim); }
+.gd-tip, .gd-note { margin: 14px 0 4px; padding: 10px 12px; border-radius: 12px; background: var(--lg-surf); color: var(--lg-dim); font-size: 13px; line-height: 1.5; }
+.gd-tip b { color: var(--lg-ink); }
+.gd-note { background: none; padding: 0 2px; font-size: 12.5px; }
+.gd-cards { display: grid; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.gd-card { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; align-items: center; padding: 12px; border-radius: 14px; background: var(--lg-surf); }
+.gd-ci { grid-row: 1 / 3; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; background: var(--lg-surf2); font-size: 18px; }
+.gd-card b { color: var(--lg-ink); font-size: 14px; }
+.gd-card em { color: var(--lg-gold); font-size: 13px; font-style: normal; font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+.gd-card small { grid-column: 2 / 4; color: var(--lg-dim); font-size: 12.5px; line-height: 1.45; }
+.gd-rows { display: grid; margin: 4px 0 0; padding: 0; list-style: none; }
+.gd-rows li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 2px; border-bottom: 1px solid var(--lg-faint); color: var(--lg-dim); font-size: 13px; }
+.gd-rows b { color: var(--lg-gold); font-variant-numeric: tabular-nums; }
+.gd-more { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 6px; color: var(--v3-acc); font-size: 13px; font-weight: 600; text-decoration: none; }
+@media (max-width: 340px) { .gd-terms div { grid-template-columns: 1fr; gap: 2px; } .gd-card em { grid-column: 2 / 4; text-align: left; } }

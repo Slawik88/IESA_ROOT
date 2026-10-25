@@ -39,9 +39,11 @@ from FastAPI.routers import (profile, marriage, wallet, vip,
                               rhythm_v2 as rhythm_v2_router, minesweeper_v2 as minesweeper_v2_router, mafia_v1 as mafia_v1_router, hub, leaderboards as leaderboards_router, public_profile_v3 as public_profile_v3_router, marks_v1 as marks_v1_router, appearance, cosmetics as cosmetics_router, skins_v3 as skins_v3_router, presence_v1 as presence_v1_router, pets_v1 as pets_v1_router, pets_v2 as pets_v2_router, pet_nudge_v1 as pet_nudge_v1_router, casino_v1 as casino_v1_router, star_dust as star_dust_router, quests_v1 as quests_v1_router, achievements_v1 as achievements_v1_router, chests_v1 as chests_v1_router, shop_v1 as shop_v1_router, gifts_v2 as gifts_v2_router, inventory_v1 as inventory_v1_router, player_exchange_v1 as player_exchange_v1_router, season_pass as season_pass_router)
 from FastAPI.routers import legacy_combat_retirement as legacy_combat_retirement_router
 from FastAPI.routers import promo_redeem as promo_redeem_router  # ввод промокода игроком
+from FastAPI.routers import guide_v3 as guide_v3_router  # Путеводитель игрока: /guide-v3.json
 from FastAPI.routers import bot_admin as bot_admin_router  # новая админка бота: /bot-admin
 from FastAPI.routers import purge_v1 as purge_v1_router
 from FastAPI.routers import league_v1 as league_v1_router  # демо Лиги, только ранний доступ
+from FastAPI import game_shell
 from FastAPI.routers import notifications as notif_router  # алиас: FastAPI.notifications (WS) уже занял имя
 from services.cosmetics import ensure_tables as ensure_cosmetics
 from infrastructure.repositories.clans import ensure_tables as ensure_clans
@@ -291,6 +293,7 @@ for r in [profile.router, marriage.router, wallet.router, vip.router,
 app.include_router(player_exchange_v1_router.router)
 app.include_router(coin_market_v2_router.router)
 app.include_router(promo_redeem_router.router)   # ввод промокода в Mini App
+app.include_router(guide_v3_router.router)
 app.include_router(legacy_combat_retirement_router.router)
 app.include_router(bot_admin_router.router)
 app.include_router(purge_v1_router.router)
@@ -489,25 +492,25 @@ def _read_static(name: str) -> str:
 # app.03.js and app.05.js contained only retired pet, Battle-Pass and old
 # economy UI.  They are intentionally no longer delivered; archival database
 # records remain.
-_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56)]
+_APP_JS_PARTS = [f"app.{i:02d}.js" for i in (1, 2, 4, 6, 7, 11, 12, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57)]
 
 # Shell V3 stylesheets (loaded after app.css, in this order; admin-legacy.css is the old look of the admin screens, deleted with their rewrite); each is served at /static/<name>.
 _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-home.css", "mafia-online-v3.css", "fx-tiers-v3.css", "appearance-v3.css",
                  "appearance-ring-v3.css", "appearance-stage-v3.css", "looks-v3.css", "settings-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css", "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "skin-scene-v3.css", "skin-scene-a-v3.css", "skin-scene-b-v3.css", "skin-scene-c-v3.css", "skin-scene-d-v3.css", "skin-scene-e-v3.css", "skin-scene-f-v3.css", "skin-scene-g-v3.css", "skin-holidays-v3.css", "nickname-v3.css",
-                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "games-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css")
+                 "public-card-v3.css", "collect-v3.css", "toast-v3.css", "toast-gift-v3.css", "quests-v3.css", "marks-v3.css", "inventory-v3.css", "trail-v3.css", "guide-v3.css", "news-v3.css", "pass-v3.css", "store-v3.css", "motion-v3.css", "confirm-v3.css", "monolith-v3.css", "monolith-player-v3.css", "pets-v3.css", "promo-v3.css", "achievements-v3.css", "chests-v3.css", "art-v3.css", "casino-v3.css")
 
-# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script,
-# plus the «Обычный | Рейтинг» switch (game-mode-v3.js).
+# Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
+# The page look, the «Обычный | Рейтинг» switch and the shared header come from the League assets (/static/league-demo/…, FastAPI/game_shell.py).
 _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
-                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js", "game-mode-v3.js")
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js")
 
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
     *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
-    "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html",
-    "rhythm-v2.css", "rhythm-v2.js", "minesweeper-v2.css", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
-    "skin-runtime-v3.css", "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
+    "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
+    "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
+    "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
 )))
 _ASSET_VER = asset_version(_STATIC_DIR, _ASSET_SOURCES)
 # Absolute asset base so external CSS/JS resolve correctly under the /predvestnik
@@ -531,35 +534,13 @@ _INDEX_HTML = (
 )
 _APP_CSS = _read_static("app.css")
 _APP_JS = "".join(_read_static(p) for p in _APP_JS_PARTS)
-_RHYTHM_V2_HTML = (
-    _read_static("rhythm-v2.html")
-    .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
-    # The Mini App is mounted under /predvestnik in the local and tunnelled
-    # environments.  A literal href="/" leaves that mount and reaches a
-    # non-existent host root, which is the source of the visible 404 on ‹.
-    # The same holds for the link back to the games hub.
-    .replace('href="/"', f'href="{_ASSET_BASE}/"')
-    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
-    .replace('href="/static/rhythm-v2.css"', f'href="{_ASSET_BASE}/static/rhythm-v2.css?v={_ASSET_VER}"')
-    .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
-    .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
-    .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
-    .replace('src="/static/local-games-v1.js"', f'src="{_ASSET_BASE}/static/local-games-v1.js?v={_ASSET_VER}"')
-    .replace('src="/static/rhythm-v2.js"', f'src="{_ASSET_BASE}/static/rhythm-v2.js?v={_ASSET_VER}"')
-)
-_MINESWEEPER_V2_HTML = (
-    _read_static("minesweeper-v2.html")
-    .replace('data-app-base=""', f'data-app-base="{_ASSET_BASE}"')
-    .replace('href="/"', f'href="{_ASSET_BASE}/"')
-    .replace('href="/?startapp=games"', f'href="{_ASSET_BASE}/?startapp=games"')
-    .replace('href="/static/minesweeper-v2.css"', f'href="{_ASSET_BASE}/static/minesweeper-v2.css?v={_ASSET_VER}"')
-    .replace('href="/static/skin-runtime-v3.css"', f'href="{_ASSET_BASE}/static/skin-runtime-v3.css?v={_ASSET_VER}"')
-    .replace('href="/static/games-v3.css"', f'href="{_ASSET_BASE}/static/games-v3.css?v={_ASSET_VER}"')
-    .replace('src="/static/skin-runtime-v3.js"', f'src="{_ASSET_BASE}/static/skin-runtime-v3.js?v={_ASSET_VER}"')
-    .replace('src="/static/local-games-v1.js"', f'src="{_ASSET_BASE}/static/local-games-v1.js?v={_ASSET_VER}"')
-    .replace('src="/static/minesweeper-v2.js"', f'src="{_ASSET_BASE}/static/minesweeper-v2.js?v={_ASSET_VER}"')
-)
-
+def _game_page(source: str, *, title: str, game: str, script: str) -> str:
+    """A casual game page: the shared header and League look first, then the app's own versioned scripts."""
+    html = game_shell.render(_read_static(source), base=_ASSET_BASE, version=league_v1_router.ASSET_VERSION,
+                             eyebrow="Сезон · обычный", title=title, game=game, mode="casual")
+    for name in (script, "skin-runtime-v3.js", "local-games-v1.js"):
+        html = html.replace(f'src="/static/{name}"', f'src="{_ASSET_BASE}/static/{name}?v={_ASSET_VER}"')
+    return html
 
 
 def _with_game_board_assets(html: str) -> str:
@@ -569,8 +550,8 @@ def _with_game_board_assets(html: str) -> str:
     return html
 
 
-_RHYTHM_V2_HTML = _with_game_board_assets(_RHYTHM_V2_HTML)
-_MINESWEEPER_V2_HTML = _with_game_board_assets(_MINESWEEPER_V2_HTML)
+_RHYTHM_V2_HTML = _with_game_board_assets(_game_page("rhythm-v2.html", title="Ритм", game="rhythm", script="rhythm-v2.js"))
+_MINESWEEPER_V2_HTML = _with_game_board_assets(_game_page("minesweeper-v2.html", title="Сапёр", game="minesweeper", script="minesweeper-v2.js"))
 
 # Лента «Что нового»: владелец правит FastAPI/static/updates.json как текст
 # (при деплое перечитывается). Отдаётся как обычный JSON — фронт рендерит страницу.
@@ -666,11 +647,6 @@ async def static_js():
 
 
 
-@app.get("/static/rhythm-v2.css")
-async def rhythm_v2_css():
-    return Response(_read_static("rhythm-v2.css"), media_type="text/css; charset=utf-8")
-
-
 @app.get("/static/rhythm-v2.js")
 async def rhythm_v2_js():
     return Response(_read_static("rhythm-v2.js"), media_type="application/javascript; charset=utf-8")
@@ -685,8 +661,9 @@ async def nickname_js():
 async def local_games_worker():
     assets = [f"{_ASSET_BASE}/rhythm-v2", f"{_ASSET_BASE}/minesweeper"]
     assets += [f"{_ASSET_BASE}/static/{name}?v={_ASSET_VER}" for name in (
-        "local-games-v1.js", "rhythm-v2.js", "rhythm-v2.css", "minesweeper-v2.js", "minesweeper-v2.css",
-        "skin-runtime-v3.js", "skin-runtime-v3.css", "games-v3.css", "nickname-v3.js", *_GAME_BOARD_ASSETS)]
+        "local-games-v1.js", "rhythm-v2.js", "minesweeper-v2.js", "skin-runtime-v3.js", *_GAME_BOARD_ASSETS)]
+    # the look and the shared header of the casual pages come from the League assets: they must play offline too
+    assets += [f"{_ASSET_BASE}/static/league-demo/{name}?v={league_v1_router.ASSET_VERSION}" for name in league_v1_router.CASUAL_PAGE_ASSETS]
     source = _read_static("local-games-sw.js").replace("{{VERSION}}", _ASSET_VER).replace("{{PRECACHE}}", json.dumps(assets))
     return Response(source, media_type="application/javascript; charset=utf-8", headers={"Cache-Control": "no-cache"})
 
@@ -701,16 +678,6 @@ async def game_board_js():
     return Response(_read_static("game-board-v3.js"), media_type="application/javascript; charset=utf-8")
 
 
-@app.get("/static/game-mode-v3.js")
-async def game_mode_js():
-    return Response(_read_static("game-mode-v3.js"), media_type="application/javascript; charset=utf-8")
-
-
-@app.get("/static/minesweeper-v2.css")
-async def minesweeper_css():
-    return Response(_read_static("minesweeper-v2.css"), media_type="text/css; charset=utf-8")
-
-
 def _register_shell_css(name: str) -> None:
     async def _serve() -> Response:
         return Response(_read_static(name), media_type="text/css; charset=utf-8")
@@ -719,11 +686,6 @@ def _register_shell_css(name: str) -> None:
 
 for _css_name in _SHELL_V3_CSS:
     _register_shell_css(_css_name)
-
-
-@app.get("/static/skin-runtime-v3.css")
-async def skin_runtime_css():
-    return Response(_read_static("skin-runtime-v3.css"), media_type="text/css; charset=utf-8")
 
 
 @app.get("/static/skin-runtime-v3.js")

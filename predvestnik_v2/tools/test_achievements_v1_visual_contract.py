@@ -18,7 +18,7 @@ def run() -> None:
     ):
         assert phrase in client, phrase
     # How paths grow lives in the screen's guide now: tiles with a single line each, no prose under the list.
-    for phrase in ("guideDefine('ach'", "Мора за каждый уровень — приходит сама", "каждые 10 уровней — Эссенция"):
+    for phrase in ("guideDefine('ach'", "за каждый новый уровень Мора приходит сама", "каждые 10 уровней — Эссенция"):
         assert phrase in guides, phrase
     for family in ("rhythm", "minesweeper", "mafia", "chests", "pets"):
         assert f"{family}:" in client, family
