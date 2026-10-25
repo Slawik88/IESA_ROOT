@@ -55,13 +55,13 @@ def database(dsn, operation, room_id=None):
         return executor.submit(asyncio.run, run()).result()
 
 
-def check(dsn, shots, baseline=False):
+def check(dsn, shots, baseline=False, port=8408):
     shots.mkdir(parents=True, exist_ok=True)
-    with Stand(8403, dsn, skin='void', tier='SSS', rich=True) as stand, sync_playwright() as pw:
+    with Stand(port, dsn, skin='void', tier='SSS', rich=True) as stand, sync_playwright() as pw:
         database(dsn, 'reset')
         browser = pw.chromium.launch(executable_path=chromium_path())
         context = browser.new_context(viewport={'width': 390, 'height': 640}, is_mobile=True, has_touch=True)
-        context.add_init_script(INIT)
+        context.add_init_script(INIT + stand.browser_init)
         if baseline:
             context.route('**/static/app.js*', lambda route: route.fulfill(
                 body=(ROOT / '.local/mafia-baseline-bundle.js').read_text(encoding='utf-8'), content_type='application/javascript'))
@@ -75,7 +75,11 @@ def check(dsn, shots, baseline=False):
             'content_type': response.request.headers.get('content-type', '')
         }) if '/mafia-online/' in response.url and response.request.method == 'POST' else None)
         page.goto(stand.url, wait_until='domcontentloaded')
-        page.wait_for_function(PROFILE_READY, timeout=30000)
+        try:
+            page.wait_for_function(PROFILE_READY, timeout=30000)
+        except Exception:
+            (shots/'startup-failure.json').write_text(json.dumps({'errors':errors,'body':page.locator('body').inner_text()[:1800]},ensure_ascii=False),encoding='utf-8')
+            raise
         page.locator('#preloader').wait_for(state='hidden')
         page.evaluate('openMafiaOnline()')
         page.locator('#mo-quick').wait_for()
@@ -122,13 +126,12 @@ def check(dsn, shots, baseline=False):
             page.set_viewport_size({'width': 390, 'height': 640})
             # In the real dialog, host controls and their confirmation must be
             # reachable without squeezing them into the phase/header scrollbar.
-            page.locator('#mo-info-toggle').click()
-            page.locator('.mo-controls > summary').click()
-            page.get_by_role('button', name='Выйти из партии', exact=True).click()
-            page.get_by_role('button', name='Отмена', exact=True).wait_for(state='visible')
+            page.locator('#mo-tab-table').click()
+            page.get_by_role('button', name='Покинуть город', exact=True).click()
+            page.locator('#mo-sheet').get_by_role('button', name='Остаться', exact=True).wait_for(state='visible')
             page.screenshot(path=str(shots / '03-management-confirm-390.png'))
-            page.get_by_role('button', name='Отмена', exact=True).click()
-            page.locator('#mo-info-toggle').click()
+            page.locator('#mo-sheet').get_by_role('button', name='Остаться', exact=True).click()
+            page.locator('#mo-tab-chat').click()
             database(dsn, 'peers', room)
             page.evaluate('moRefresh()')
             page.get_by_role('button', name='Начать партию', exact=True).click()
@@ -150,7 +153,7 @@ def check(dsn, shots, baseline=False):
             # The authoritative first room reply may bind identity0 -> user;
             # a guard must not discard it and freeze all subsequent polling.
             cold = browser.new_context(viewport={'width': 320, 'height': 640}, is_mobile=True, has_touch=True)
-            cold.add_init_script(INIT + ''';(() => {
+            cold.add_init_script(INIT + stand.browser_init + ''';(() => {
               const original=window.fetch.bind(window);let delayed=false;
               window.fetch=async function(input,options){
                 if(!delayed&&String(input).includes('/profile/me')){
@@ -184,7 +187,8 @@ if __name__ == '__main__':
     parser.add_argument('--dsn', required=True)
     parser.add_argument('--shots', type=Path, default=ROOT / '.local/mafia-full-app')
     parser.add_argument('--baseline', action='store_true')
+    parser.add_argument('--port', type=int, default=8408)
     args = parser.parse_args()
     if urlparse(args.dsn).hostname not in ('127.0.0.1', 'localhost', '::1'):
         raise SystemExit('loopback database required')
-    check(args.dsn, args.shots, args.baseline)
+    check(args.dsn, args.shots, args.baseline, args.port)

@@ -1,3 +1,21 @@
+# ONLINE-MAFIA-UX-20261025 — VERIFIED RELEASE CANDIDATE
+
+User authorized continued Mafia polish and direct master push/production deployment.
+Managed checkout mafia-online-release starts at master f4c29f82. Existing production
+recovery/auth guards retained; master appearance/pets chunks preserved, Mafia55/56.
+Three visible panels, role/action/city presentation, searchable targets, night
+council, conversation menus/quotes, explicit uncertain-send review, animated game
+events with private-data boundaries, short keyboard layout, server metadata and
+host handoff. Local Mafia runtime/rules/rewards untouched. All task progress and
+70 accumulated audit points in docs/audits/AUTONOMOUS_RELEASE_BACKLOG.md.
+Local real-API/PG/browser suites PASS, including full production shell,90layouts,
+34complete simulated games, regressions and local Mafia tests. See backlog for
+exact evidence and limits. Patch-note draft prepared; no Telegram messages sent.
+Production flag already enabled. Next: authorized fast-forward push and verify
+served bundle/CSS/news hashes plus health/ready on both production domains.
+Live preview retained at http://127.0.0.1:8409/?user=3001&room=3 (synthetic players).
+Old patch-note-republish checkout is preserved with unrelated work.
+
 # ONLINE-MAFIA-FIX-20261023 — RELEASED AND LIVE
 
 User reported many production Mafia bugs with screenshots. Worktree casino-polish

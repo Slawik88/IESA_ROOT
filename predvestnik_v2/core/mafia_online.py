@@ -8,6 +8,9 @@ FLAG = "game_mafia_online"
 MAX_CHAT = 600
 LOBBY_TTL = 1200
 MAX_ROUNDS = 30
+POSTGAME_CHAT_TTL = 15 * 60
+PRESENCE_TTL = 75
+HOST_CLAIM_TTL = 90
 PHASE_NAMES = {"lobby": "Сбор игроков", "night": "Ночь", "discussion": "Обсуждение", "voting": "Голосование",
                "paused": "Пауза", "finished": "Игра окончена", "cancelled": "Партия закрыта"}
 
@@ -26,6 +29,12 @@ def label(person):
     return f"{person['name']} · #{person['seat']}" if person.get("seat") else person["name"]
 
 
+def host_claim_at(state):
+    host = player(state, state["host"])
+    # A handoff grants time to accept control without pretending an offline person is online.
+    return max((host or {}).get("seen", state["created"]), state.get("host_since", state["created"])) + HOST_CLAIM_TTL
+
+
 def channels(state, me):
     out = ["table"]
     if me and not me["alive"] and state["phase"] != "lobby":
@@ -37,11 +46,35 @@ def channels(state, me):
     return out
 
 
-def can_write(state, me, channel):
-    if not me or me.get("left") or me.get("muted") or me.get("staff_muted") or state["phase"] in TERMINAL or state["phase"] == "paused":
+def can_write(state, me, channel, now=None):
+    if channel not in channels(state, me):
         return False
+    if not me or me.get("left") or me.get("muted") or me.get("staff_muted") or state["phase"] == "paused":
+        return False
+    if state["phase"] in TERMINAL:
+        return bool(state["phase"] == "finished" and channel == "table" and now is not None
+                    and state.get("finished_at") is not None and now < state["finished_at"] + POSTGAME_CHAT_TTL)
     if channel == "afterlife":
         return not me["alive"] and state["phase"] != "lobby"
     if channel == "mafia":
         return channel in channels(state, me)
     return me["alive"] and state["phase"] in ("lobby", "discussion", "voting")
+
+
+def write_reason(state, me, channel, now):
+    """Short UI hint follows the same access rules as send(), without role disclosures."""
+    if can_write(state, me, channel, now):
+        return ""
+    if not me or me.get("left"):
+        return "Вы покинули стол"
+    if me.get("muted") or me.get("staff_muted"):
+        return "Чат временно ограничен модератором"
+    if state["phase"] == "paused":
+        return "Разговор продолжится после паузы"
+    if state["phase"] in TERMINAL:
+        return "Разговор завершён"
+    if channel == "table" and not me["alive"]:
+        return "Для выбывших открыт отдельный разговор"
+    if channel == "table" and state["phase"] == "night":
+        return "Город спит — общий чат откроется утром"
+    return "Этот разговор сейчас недоступен"

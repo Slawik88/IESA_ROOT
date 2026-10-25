@@ -10,7 +10,8 @@ async def notice(db, state, text):
 
 
 async def finish(db, state, winner=None, reason="victory"):
-    state.update(phase="finished" if winner else "cancelled", winner=winner, reason=reason, deadline=None)
+    state.update(phase="finished" if winner else "cancelled", winner=winner, reason=reason,
+                 deadline=None, finished_at=await repo.now(db))
     await repo.release(db, state["id"])
     text = {"town": "Мирные победили. Город может спать спокойно.", "mafia": "Мафия победила. Город остался в тени.",
             "draw": "Ничья. Город затих."}.get(winner, "Партия закрыта.")

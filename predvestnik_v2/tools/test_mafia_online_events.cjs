@@ -1,0 +1,33 @@
+// Exercise the production event classifier: precedence, authorized data and quiet reconnects.
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const source=fs.readFileSync(require('node:path').join(__dirname,'../FastAPI/static/app.56.js'),'utf8');
+const constants=fs.readFileSync(require('node:path').join(__dirname,'../FastAPI/static/app.55.js'),'utf8');
+const context={};
+vm.createContext(context);vm.runInContext(constants.match(/^const MO_ROLE=.*$/m)[0]+'\n'+constants.match(/^const MO_PHASE=.*$/m)[0]+'\n'+source,context);
+const base={id:1,host_id:1,phase:'night',phase_number:1,winner:null,players:[{id:1,name:'Лиса',seat:1,alive:true},{id:2,name:'Луна',seat:2,alive:true}],me:{id:1,role:'citizen',alive:true,left:false,checks:[],can_act:false,choice_reset:false}};
+const next=(patch={},mine={})=>({...structuredClone(base),...patch,me:{...structuredClone(base.me),...mine}});
+assert.equal(context.moEventFor(null,base),null,'opening a current game is not a new event');
+assert.equal(context.moEventFor(base,next({id:2,phase:'voting'})),null,'changing rooms must not replay the old city');
+assert.equal(context.moEventFor(base,next()),null,'unchanged poll remains quiet');
+assert.equal(context.moEventFor(base,next({version:999,online_count:1})),null,'presence and version changes are not chapters');
+const phase=(to,kind)=>{const event=context.moEventFor(base,next({phase:to,phase_number:2}));assert.equal(event.kind,kind);assert(event.title&&event.detail);return event;};
+phase('discussion','day');phase('voting','vote');phase('paused','pause');phase('finished','finale');phase('cancelled','closed');
+const dawn=next({phase:'discussion',phase_number:2,players:[base.players[0],{...base.players[1],alive:false}]});
+assert(context.moEventFor(base,dawn).detail.includes('Луна · №2'));
+assert(!context.moEventFor(base,dawn).detail.includes('Детектив'),'the city event does not guess a dead player role');
+const role=context.moEventFor(next({phase:'lobby'}, {role:null}),next({}, {role:'doctor',can_act:true}));
+assert.equal(role.kind,'role');assert.equal(role.role,'doctor');
+assert.equal(context.moEventFor(base,next({phase:'discussion',phase_number:2},{alive:false})).kind,'out','personal elimination wins over ordinary dawn');
+assert.equal(context.moEventFor(base,next({phase:'finished',phase_number:2,winner:'town'},{alive:false})).kind,'finale','final outcome wins over personal elimination');
+assert.equal(context.moEventFor(next({phase:'paused'}),base).kind,'resume');
+const check=context.moEventFor(next({}, {role:'detective'}),next({phase:'discussion',phase_number:2},{role:'detective',checks:[{id:2,name:'Луна',seat:2,mafia:true,round:1}]}));
+assert.equal(check.kind,'check');assert(check.detail.includes('Луна · №2 — мафия'));
+assert.equal(context.moEventFor(base,next({}, {choice_reset:true})).kind,'reset');
+assert.equal(context.moEventFor(base,next({host_id:2})).kind,'host');
+assert.equal(context.moEventFor(base,next({players:[{...base.players[0],role:'detective'},base.players[1]]})),null,'unrelated player metadata cannot disclose a role through events');
+assert.equal(context.moMyOutcome(next({phase:'finished',winner:'town'})),'Победа твоей стороны');
+assert.equal(context.moMyOutcome(next({phase:'finished',winner:'mafia'})),'Твоя сторона проиграла');
+assert.equal(context.moMyOutcome(next({phase:'finished',winner:'town'},{left:true})), '');
+console.log('PASS production Mafia event classification: chapters, own role/check/death, pause/resume, choice reset, host, result, privacy and quiet reconnects');
+
+const classes=new Set();context.document={body:{classList:{contains:name=>classes.has(name)}}};context.matchMedia=()=>({matches:false});assert(context.moMotionAllowed());classes.add('no-fx');assert(!context.moMotionAllowed());classes.clear();classes.add('ap-low');assert(!context.moMotionAllowed());classes.clear();context.matchMedia=()=>({matches:true});assert(!context.moMotionAllowed());

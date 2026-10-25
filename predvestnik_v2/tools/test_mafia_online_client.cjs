@@ -4,19 +4,19 @@ const files=['app.55.js','app.56.js'].map(n=>fs.readFileSync(path.join(__dirname
 function code(name){const start=files.search(new RegExp('^(?:async )?function '+name+'\\(','m'));assert(start>=0,name);const rest=files.slice(start),next=rest.slice(1).search(/^(?:async )?function /m);return next<0?rest:rest.slice(0,next+1);}
 const storage=new Map(),nodes=new Map();
 function node(id){if(!nodes.has(id))nodes.set(id,{value:'',textContent:'',innerHTML:'',setAttribute(){},removeAttribute(){}});return nodes.get(id);}
-const MO={gen:1,room:7,channel:'table',self:101,draftOwner:101,data:{me:{can_write:true}},busy:false,nonce:'',draft:'',reply:null};
+const MO={gen:1,room:7,channel:'table',self:101,draftOwner:101,data:{channel:'table',me:{can_write:true}},busy:false,nonce:'',draft:'',reply:null};
 let request=async()=>{},alive=true;
 const context={MO,_uid:101,BASE:'',Headers,AbortController,setTimeout,clearTimeout,crypto:require('node:crypto').webcrypto,
   sessionStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
   el:node,esc:String,moAlive:()=>alive,moReady:()=>alive,moRefresh:async()=>{},moReplyMarkup:()=>{},moRequest:(...args)=>request(...args),
-  moError:e=>e.message,document:{activeElement:null}};
+  moError:e=>e.message,moComposeState:()=>{},moPendingMessageDialog:()=>{},moSheetClose:()=>{},moPendingNotice:()=>{},moToast:()=>{},moShowError:e=>{node('mo-error').textContent=e.message;},document:{activeElement:null}};
 vm.createContext(context);
-for(const name of ['moOwner','moDraftKey','moStore','moRestore','moMessageKey','moPendingMessage','moMessagePendingNotice','moRetryMessage','moBusy','moRunMessage','moSend','moCommandKey','moPendingCommand','moPendingNotice','moRunControl','moControl','moDiscardMessage','moDiscardControl'])vm.runInContext(code(name),context);
+for(const name of ['moOwner','moDraftKey','moStore','moRestore','moMessageKey','moPendingMessage','moRetryMessage','moBusy','moRunMessage','moSend','moCommandKey','moPendingCommand','moRunControl','moControl','moDiscardMessage','moDiscardControl'])vm.runInContext(code(name),context);
 (async()=>{
   // Production hdrs() uses lowercase content-type; JSON must keep one value.
   const http={BASE:'',Headers,AbortController,setTimeout,clearTimeout,hdrs:()=>({'content-type':'application/json','x-user':'101'}),fetch:async(url,options)=>{
     assert.equal(options.headers.get('content-type'),'application/json');assert.equal(options.headers.get('x-user'),'101');return{ok:true,json:async()=>({ok:true})};}};
-  vm.createContext(http);vm.runInContext(code('moRequest'),http);await http.moRequest('/quick',{});
+  vm.createContext(http);vm.runInContext(code('moJSONHeaders'),http);vm.runInContext(code('moRequest'),http);await http.moRequest('/quick',{});
   // A lost ACK + editing keeps the old immutable body and new draft separately.
   const sent=[];request=async(path,body)=>{sent.push(JSON.parse(JSON.stringify(body)));throw Error('lost ACK');};
   node('mo-text').value='Первое';await context.moSend();const original=sent[0];assert(original.nonce);
@@ -31,6 +31,16 @@ for(const name of ['moOwner','moDraftKey','moStore','moRestore','moMessageKey','
     assert(context.moPendingMessage());storage.delete(context.moMessageKey());
     const payload={command:'pause',nonce:'control-'+status};storage.set(context.moCommandKey(),JSON.stringify(payload));await context.moRunControl(payload);assert(context.moPendingCommand());storage.delete(context.moCommandKey());
   }
+  // Discard is local-only and preserves a newer draft; it cannot undo a committed send.
+  let discardPosts=0;request=async()=>{discardPosts++;};
+  const pending={text:'Previous delivery',channel:'table',reply_to:null,nonce:'discard-test'};
+  storage.set(context.moMessageKey(),JSON.stringify(pending));
+  node('mo-text').value='New draft';MO.draft='New draft';MO.reply=null;
+  context.moDiscardMessage();assert.equal(context.moPendingMessage(),null);assert.equal(node('mo-text').value,'New draft');
+  storage.set(context.moMessageKey(),JSON.stringify(pending));node('mo-text').value=pending.text;MO.draft=pending.text;
+  context.moDiscardMessage();assert.equal(node('mo-text').value,'');assert.equal(MO.draft,'');
+  storage.set(context.moCommandKey(),JSON.stringify({command:'pause',nonce:'discard-command'}));
+  context.moDiscardControl();assert.equal(context.moPendingCommand(),null);assert.equal(discardPosts,0);
   // Success arriving after navigation removes the old committed draft; no resend.
   request=async()=>{alive=false;};node('mo-text').value='Уже отправлено';MO.draft=node('mo-text').value;await context.moSend();assert.equal(storage.has(context.moDraftKey()),false);alive=true;
   // A newly selected account cannot overwrite its storage with the previous text.

@@ -10,9 +10,11 @@ from services import mafia_online_phases as engine, mafia_online_views as views
 
 
 async def person(db, user, seat):
-    name = " ".join(str(user.get(k) or "") for k in ("first_name", "last_name")).strip()
-    name = name or user.get("username") or await repo.profile_name(db, int(user["id"])) or f"Игрок {seat}"
-    return {"id": int(user["id"]), "name": " ".join(str(name).split())[:60], "seat": seat, "role": None,
+    def clean(value):
+        return " ".join("".join(c for c in str(value or "") if c in "\t\n\r" or ord(c) >= 32).split())[:60]
+    name = clean(" ".join(str(user.get(k) or "") for k in ("first_name", "last_name")))
+    name = name or clean(user.get("username")) or clean(await repo.profile_name(db, int(user["id"]))) or f"Игрок {seat}"
+    return {"id": int(user["id"]), "name": name, "seat": seat, "role": None,
             "alive": True, "left": False, "muted": False, "checks": [], "seen": await repo.now(db)}
 
 
@@ -20,12 +22,12 @@ def settings(seats=8, tempo="normal", roles_auto=True, roles=(), vote_mode="secr
     if tempo not in ("fast", "normal", "slow") or visibility not in ("public", "invite"):
         raise rules.OnlineError("Выберите темп и доступ к столу.")
     try:
-        # In auto mode the deck is chosen from the actual player count at start.
-        # Inactive manual checkboxes must not prevent shrinking an automatic table.
-        validate_settings(max_players=seats, enabled_roles=() if roles_auto else roles, vote_mode=vote_mode)
+        enabled = validate_settings(max_players=seats, enabled_roles=() if roles_auto else roles, vote_mode=vote_mode)
     except ValueError:
+        if not roles_auto and "don" in roles and 4 <= seats < 8:
+            raise rules.OnlineError("Для Дона нужно хотя бы 8 мест. Можно включить роли автоматически.") from None
         raise rules.OnlineError("Выберите от 4 до 20 мест и подходящие роли.") from None
-    return dict(seats=seats, tempo=tempo, roles_auto=roles_auto, roles=list(roles), vote_mode=vote_mode, visibility=visibility)
+    return dict(seats=seats, tempo=tempo, roles_auto=roles_auto, roles=list(enabled), vote_mode=vote_mode, visibility=visibility)
 
 
 async def locked(db, room_id):
@@ -162,11 +164,11 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
         if command not in ("leave", "claim") and phase_number is not None and phase_number != state["phase_number"]:
             raise rules.OnlineError("Этап уже сменился. Проверьте стол перед действием.")
         if command == "claim":
-            host = rules.player(state, state["host"])
             now = await repo.now(db)
-            if not me["alive"] or now - (host or {}).get("seen", state["created"]) <= 90:
+            if not me["alive"] or now <= rules.host_claim_at(state):
                 raise rules.OnlineError("Хозяин ещё за столом.")
             state["host"] = uid
+            state["host_since"] = now
             me["seen"] = now
             await engine.notice(db, state, f"{rules.label(me)} теперь хозяин стола.")
             await repo.save(db, state)
@@ -193,14 +195,16 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
                         now = await repo.now(db)
                         full_deadline = state.get("phase_deadline", state["phase_started"] + rules.phase_seconds(state["tempo"], state["phase"]))
                         state["deadline"] = min(full_deadline, max(state["deadline"], now + 15))
-            if not state["players"]:
+            remaining = [p for p in state["players"] if not p.get("left")]
+            if not remaining:
                 await engine.finish(db, state, reason="empty")
             elif state["phase"] not in rules.TERMINAL:
                 if uid == state["host"]:
-                    state["host"] = next((p["id"] for p in state["players"] if not p.get("left")), uid)
-                    successor = rules.player(state, state["host"])
-                    if successor:
-                        successor["seen"] = await repo.now(db)
+                    now = await repo.now(db)
+                    # A living participant currently present can keep the party moving.
+                    successor = min(remaining, key=lambda p: (not p["alive"], now - p.get("seen", 0) > rules.PRESENCE_TTL, p.get("seat", 0)))
+                    state["host"] = successor["id"]
+                    state["host_since"] = now
                 await engine.notice(db, state, f"{rules.label(me)} покинул стол.")
                 if state["phase"] != "lobby":
                     winner = rules.winner(p["role"] for p in state["players"] if p["alive"])
@@ -219,6 +223,13 @@ async def control(db, room_id, uid, command, phase_number=None, nonce=None, expe
                 if config["seats"] < len(state["players"]):
                     raise rules.OnlineError("Мест не может быть меньше, чем игроков за столом.")
                 state.update(config)
+            elif command == "transfer":
+                target = rules.player(state, options.get("target"))
+                if not target or target.get("left") or target["id"] == uid:
+                    raise rules.OnlineError("Выберите другого участника за столом.")
+                state["host"] = target["id"]
+                state["host_since"] = now
+                await engine.notice(db, state, f"{rules.label(target)} теперь хозяин стола.")
             elif command == "cancel" and state["phase"] in rules.ACTIVE:
                 await engine.finish(db, state, reason="host")
             elif command == "pause" and state["phase"] in ("night", "discussion", "voting"):

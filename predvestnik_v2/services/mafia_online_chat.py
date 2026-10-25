@@ -9,19 +9,19 @@ async def send(db, room_id, uid, channel, text, nonce, reply_to=None):
     if not text or len(text) > rules.MAX_CHAT or any(ord(c) < 32 and c not in "\n\t" for c in text):
         raise rules.OnlineError("Сообщение — от 1 до 600 знаков.", 422)
     async with db.connection.transaction():
+        await repo.user_lock(db, uid)
         state = await locked(db, room_id)
-        previous = await repo.duplicate(db, room_id, uid, nonce)
+        previous = await repo.message_receipt(db, room_id, uid, nonce)
         if previous:
-            original = await repo.get_message(db, previous)
-            if (original["channel"], original["body"], original["reply_to"]) != (channel, text, reply_to):
+            if (previous["channel"], previous["body"], previous["reply_to"]) != (channel, text, reply_to):
                 raise rules.OnlineError("Этот запрос уже использован для другого сообщения.")
-            return {"id": previous, "replayed": True}
+            return {"id": previous["id"], "replayed": True}
         me = rules.player(state, uid)
         if not me or me.get("left"):
             raise rules.OnlineError("Разговор доступен участникам этого стола.", 403)
-        if channel not in rules.channels(state, me) or not rules.can_write(state, me, channel):
-            raise rules.OnlineError("Сейчас в этом разговоре писать нельзя.", 403)
         now = await repo.now(db)
+        if channel not in rules.channels(state, me) or not rules.can_write(state, me, channel, now):
+            raise rules.OnlineError("Сейчас в этом разговоре писать нельзя.", 403)
         last = await repo.last_message_at(db, uid)
         if last and now - last < 1.5:
             raise rules.OnlineError("Секунду — дайте другим ответить.", 429)
@@ -43,7 +43,7 @@ async def moderate(db, room_id, uid, kind, target=None, message_id=None, reason=
         if message_id and (not msg or msg["room_id"] != room_id):
             raise rules.OnlineError("Сообщение не найдено.", 404)
         if kind == "report":
-            if not me or not msg or msg["channel"] not in rules.channels(state, me) or msg["user_id"] is None:
+            if not me or me.get("left") or not msg or msg["channel"] not in rules.channels(state, me) or msg["user_id"] is None:
                 raise rules.OnlineError("Это сообщение недоступно.", 403)
             await repo.report(db, message_id, uid, reason.strip()[:200] or "Нарушение в разговоре")
             return
@@ -54,6 +54,8 @@ async def moderate(db, room_id, uid, kind, target=None, message_id=None, reason=
                 raise rules.OnlineError("Системные сообщения скрывать нельзя.")
             if not staff and msg["channel"] not in rules.channels(state, me):
                 raise rules.OnlineError("Этот разговор недоступен.", 403)
+            if msg["hidden"]:
+                return  # Lost acknowledgements must not repeatedly reset every client's chat cache.
             await repo.hide(db, message_id)
             state["redactions"] = state.get("redactions", 0) + 1
         elif kind in ("mute", "unmute") and (rules.player(state, target) or str(target) in state.get("restrictions", {})):
