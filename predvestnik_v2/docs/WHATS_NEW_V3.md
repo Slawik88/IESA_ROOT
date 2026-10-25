@@ -109,7 +109,7 @@
 | `vip` | Открыть VIP | `openStoreV3('vip')` | |
 | `settings` | Открыть Настройки | `openSettingsModal()` | |
 | `chats` | Открыть Мои чаты | `openChatTracker()` | |
-| `help` | Как пользоваться | `switchPage('help')` | |
+| `help` | Открыть Путеводитель | `openGuide()` (app.57.js) | |
 
 ## Как писать записи
 

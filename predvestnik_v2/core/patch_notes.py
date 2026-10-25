@@ -68,6 +68,7 @@ BUTTONS = {
     "vip": ("👑 Открыть VIP", "vip"),
     "settings": ("⚙️ Открыть настройки", "settings"),
     "news": ("🗞 Что нового", "news"),
+    "guide": ("📖 Открыть Путеводитель", "guide"),
     "exchange": ("📈 Открыть биржу", "exchange"),
 }
 MAX_BUTTON_LABEL = 40
