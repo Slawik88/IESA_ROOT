@@ -1,4 +1,4 @@
-# ONLINE-MAFIA-UX-20261025 — VERIFIED RELEASE CANDIDATE
+# ONLINE-MAFIA-UX-20261025 — RELEASED AND VERIFIED LIVE
 
 User authorized continued Mafia polish and direct master push/production deployment.
 Managed checkout mafia-online-release starts at master f4c29f82. Existing production
@@ -11,8 +11,10 @@ host handoff. Local Mafia runtime/rules/rewards untouched. All task progress and
 Local real-API/PG/browser suites PASS, including full production shell,90layouts,
 34complete simulated games, regressions and local Mafia tests. See backlog for
 exact evidence and limits. Patch-note draft prepared; no Telegram messages sent.
-Production flag already enabled. Next: authorized fast-forward push and verify
-served bundle/CSS/news hashes plus health/ready on both production domains.
+Code64f4310db87dea5bb2ab5a52eaea11f80e5dc4c2 fast-forward pushed to master.
+Both production domains serve exact expected JS/CSS/news/guide hashes; health/ready
+200, protected APIs401, flags unchanged (online Mafia was already enabled).
+Live evidence: external release-2026-10-25/production-live.json, details in backlog.
 Live preview retained at http://127.0.0.1:8409/?user=3001&room=3 (synthetic players).
 Old patch-note-republish checkout is preserved with unrelated work.
 

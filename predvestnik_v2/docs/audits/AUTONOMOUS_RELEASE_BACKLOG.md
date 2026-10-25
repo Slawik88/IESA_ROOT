@@ -1,4 +1,14 @@
-## ONLINE-MAFIA-UX-20261025 — release candidate verified, master publishing authorized
+## ONLINE-MAFIA-UX-20261025 — RELEASED TO MASTER AND VERIFIED LIVE
+
+Code commit64f4310db87dea5bb2ab5a52eaea11f80e5dc4c2 fast-forward pushed to
+origin/master with explicit owner authorization. Automatic deployment verified
+on both iesaroot-app-8kuyb.ondigitalocean.app/predvestnik and
+iesasport.ch/predvestnik: production-live.json in the evidence directory below.
+Full50-chunk JS1127449bytes SHA256b30aaca76f51e321ff5437f71b469fa8a98e81ad3e9ec4dcd3226e48d6c11e18;
+Mafia CSS36264bytes SHA256f8137846c093f40444a10d1ca9d0546017b8190d2bbdcc7f0cf0e8ec5792005c;
+news and guide also exact hashes. Health/ready200; online/local/staff APIs401
+without auth; rollout flags byte-equivalent to the pre-release response. No
+authenticated production mutations, flag changes or Telegram publications.
 
 Owner requested continued online Mafia improvements and direct master/production release.
 Release assembled on master f4c29f82 in managed worktree mafia-online-release; old
@@ -42,7 +52,7 @@ Guide and in-app news updated. TGK draft 2026-10-25-mafia-online.json uses cover
 creator sends manually. No Telegram publication. Live online flag already true;
 release does not change flags. Remaining validation limit: no new human party on
 physical Telegram devices or screen-reader certification. Production deployment
-must be verified by exact served asset hashes and health after the authorized push.
+verification completed above; retained local preview uses synthetic players only.
 
 The accumulated 70-point audit follows. Items already shipped on 23 October are
 preserved regression requirements, not counted again as new changes in this commit.
