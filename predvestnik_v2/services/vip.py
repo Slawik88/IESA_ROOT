@@ -227,9 +227,11 @@ async def complete_daily_mission_from_game(
         completion_no=completion_no, mora_reward=mora_reward,
         mora_operation_id=str(mutation.operation_id), chest_key_grant_id=key_grant_id,
     )
+    from services import league_pass
+    pass_xp = await league_pass.record_quest(db, user_id=int(user_id), kind='vip', event_id=day_key)
     return {"completed": True, "already_completed": False, "completion_no": completion_no,
             "streak_progress": completion_no % 7, "mora_reward": mora_reward,
-            "key_reward": bool(key_grant_id)}
+            "key_reward": bool(key_grant_id), "pass_xp": pass_xp}
 
 
 async def daily_reminder_candidates(db, *, now: datetime | None = None) -> list[int]:

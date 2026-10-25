@@ -1,6 +1,5 @@
-<script>try{var d=sessionStorage.getItem('pv_mode_dir');if(d){document.documentElement.dataset.gm=d;sessionStorage.removeItem('pv_mode_dir');}}catch(e){}
-/* Страницы меняет сам браузер (View Transitions). Отмена перехода — не ошибка: страницы просто сменятся, поэтому отказ обещаний гасим тут, до первой отрисовки */
-['pageswap','pagereveal'].forEach(function(n){addEventListener(n,function(e){var t=e.viewTransition;if(t)[t.ready,t.finished,t.updateCallbackDone].forEach(function(p){if(p)p.catch(function(){});});});});</script>
+<script src="{{BASE}}/static/page-transitions.js?v={{VER}}"></script>
+<script>try{var d=sessionStorage.getItem('pv_mode_dir');if(d){document.documentElement.dataset.gm=d;sessionStorage.removeItem('pv_mode_dir');}}catch(e){}</script>
     <header class="lg-hero">
       <svg class="lg-sky" viewBox="0 0 360 120" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <path d="M196 30L232 18L270 40L300 26L332 52M270 40L262 78L298 96M232 18L214 62L262 78" fill="none" stroke="currentColor" stroke-opacity=".22" stroke-width=".8"/>

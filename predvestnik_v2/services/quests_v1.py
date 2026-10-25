@@ -412,12 +412,15 @@ async def claim_reward(db, *, user_id: int, vip_active: bool, kind: str,
         # Any failed leg must roll everything back so a retry can deliver it.
         essence = await skins_service.grant_essence_in_transaction(
             db, user_id, REWARD_ESSENCE[kind], reason='quest_reward', reference=reward_id)
+        from services import league_pass
+        pass_xp = await league_pass.record_quest(db, user_id=user_id, kind=kind, event_id=reward_id)
         if kind == 'daily':
             await achievement_service.record_life_event(db, user_id=user_id, family='quester', fact=str(keys['daily']))
         state = await _overview_locked(db, user_id=user_id, keys=keys, vip_active=vip_active, sources=sources)
     return {**state, 'reward_result': {'kind': kind, 'already_claimed': False,
                                         'amount_mora': reward_mora(kind, vip_active=vip_active),
                                         'amount_essence': essence,
+                                        'pass_xp': pass_xp,
                                         'amount_keys': REWARD_KEYS[kind] if chests_enabled else 0,
                                         'key_grant_id': key_receipt.grant_id if key_receipt else None,
                                         'operation_id': mutation.operation_id}}

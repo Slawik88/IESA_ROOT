@@ -13,6 +13,7 @@
       <div class="lg-bar"><span class="lg-bar-t">Ритм · уровень ${run.level}</span><span id="lgr-restart"></span></div>
       <div class="lgr-hud"><span class="lgr-hearts" id="lgr-hearts" role="img"></span>
         <span class="lgr-score"><b id="lgr-score">0</b><small>очки</small></span><span class="lgr-sig"><b id="lgr-sig"></b><small>нажатий</small></span></div>
+      <div class="lgr-progress" id="lgr-progress" role="progressbar" aria-label="Пройдено нажатий уровня" aria-valuemin="0" aria-valuemax="${run.signals}" aria-valuenow="0"><i id="lgr-progress-fill"></i></div><small class="lgr-remaining" id="lgr-remaining"></small>
       <div class="lgr-owned" id="lgr-owned" aria-label="Взятые дары"></div>
       <div class="lgr-arena" id="lgr-arena">
         <svg class="lgr-timer" viewBox="0 0 120 120" aria-hidden="true"><circle class="lgr-timer-bg" r="54" cx="60" cy="60"/><circle class="lgr-timer-arc" id="lgr-arc" r="54" cx="60" cy="60" stroke-dasharray="${C.toFixed(2)}" stroke-dashoffset="0"/></svg>
@@ -52,7 +53,11 @@
     const s = engine.s;
     hearts(s.health, run.hearts);
     const score = $('lgr-score'); if (score) score.textContent = s.score;
-    const sig = $('lgr-sig'); if (sig) sig.textContent = `${Math.min(s.signal, run.signals)}/${run.signals}`;
+    const done = Math.min(run.signals, Math.max(0, s.signal - 1));
+    const sig = $('lgr-sig'); if (sig) sig.textContent = `${done}/${run.signals}`;
+    const progress = $('lgr-progress'); if (progress) progress.setAttribute('aria-valuenow', done);
+    const fill = $('lgr-progress-fill'); if (fill) fill.style.transform = `scaleX(${done / run.signals})`;
+    const remaining = $('lgr-remaining'); if (remaining) remaining.textContent = done === run.signals ? 'Уровень пройден' : `До конца уровня: ${run.signals - done} нажатий`;
     const tempo = $('lgr-tempo'); if (tempo) tempo.style.opacity = String(Math.min(1, (engine.pace() - 100) / 80));
     const owned = $('lgr-owned');
     if (owned) owned.innerHTML = Object.entries(s.perks.owned).map(([id, n]) => `<span class="lgr-chip is-${engine.cat[id].kind}">${L().esc(engine.cat[id].name)}${n > 1 ? ` ×${n}` : ''}</span>`).join('');

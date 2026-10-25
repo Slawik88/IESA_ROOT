@@ -27,7 +27,7 @@ _ASSETS = {"league-demo.css": _CSS, "league-games.css": _CSS, "league-pass.css":
            "league-art.js": _JS, "league-fx.js": _JS, "league-demo.js": _JS, "league-ladder.js": _JS, "league-result.js": _JS,
            "league-mines.js": _JS, "league-rhythm-fx.js": _JS, "league-rhythm.js": _JS, "league-pass.js": _JS, "league-help.js": _JS, "game-mode-v3.js": _JS,
            "game-shell-v3.js": _JS, "skin-runtime-v3.js": _JS}   # палитра надетого образа (--v3-acc), как в играх
-_VER = asset_version(_STATIC, ("league-demo.html", "game-shell-v3.html", *_ASSETS))
+_VER = asset_version(_STATIC, ("league-demo.html", "game-shell-v3.html", "page-transitions.js", *_ASSETS))
 # What the pages of the casual mode (Rhythm, Minesweeper) load from here: their look, the shared header and the mode switch
 CASUAL_PAGE_ASSETS = ("league-demo.css", "league-games.css", "casual-games-v3.css", "league-art.js", "league-fx.js", "game-mode-v3.js", "game-shell-v3.js")
 ASSET_VERSION = _VER   # страницы обычного режима грузят общие файлы Лиги по этой версии (FastAPI/main.py)

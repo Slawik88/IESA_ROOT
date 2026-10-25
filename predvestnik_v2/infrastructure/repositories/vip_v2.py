@@ -230,6 +230,14 @@ async def get_preferences(db, *, user_id: int):
         return await cursor.fetchone()
 
 
+async def pass_eligible(db, *, user_id: int, at, min_days: int) -> bool:
+    """Use the active continuous term, never remaining days or lifetime total_days."""
+    async with db.execute("SELECT 1 FROM vip_subscriptions WHERE user_id=? AND expires_at::timestamptz>?::text::timestamptz "
+                          "AND started_at IS NOT NULL AND expires_at-started_at>=make_interval(days => ?)",
+                          (int(user_id), at.isoformat(), int(min_days))) as cursor:
+        return await cursor.fetchone() is not None
+
+
 async def get_preferences_batch(db, *, user_ids: list[int]) -> dict[int, dict]:
     ids = sorted({int(value) for value in user_ids})
     if not ids:

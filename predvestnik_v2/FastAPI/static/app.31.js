@@ -36,7 +36,8 @@ function v3BalanceFx(prev, next, since) {
 
 // Награда летит туда, где будет лежать: из кнопки (элемент или точка {x, y}) в чип валюты. Пять искр по веерным дугам, и чип пульсирует по прилёту.
 function v3Fly(from, currency, glyph = '✦', count = 5) {
-  const chip = el(_V3_CHIP_IDS[currency])?.closest('.v3-chip'); if (!chip || !from || !_v3Moves() || !document.body.animate) return;
+  const chip = typeof currency === 'string' ? el(_V3_CHIP_IDS[currency])?.closest('.v3-chip') : currency;
+  if (!chip || !from || !_v3Moves() || !document.body.animate) return;
   const a = from.getBoundingClientRect ? from.getBoundingClientRect() : { left: from.x, top: from.y, width: 0, height: 0 }, b = chip.getBoundingClientRect();
   if (!b.width || (from.getBoundingClientRect && !a.width)) return;
   const x0 = a.left + a.width / 2, y0 = a.top + a.height / 2, x1 = b.left + b.width / 2, y1 = b.top + b.height / 2;
@@ -55,7 +56,17 @@ function v3Fly(from, currency, glyph = '✦', count = 5) {
 // Смена образа: палитра приложения перетекает, а не щёлкает. Только там, где устройство тянет снимок страницы (потолок 5 и выше).
 function v3Morph(update) {
   if (typeof document.startViewTransition !== 'function' || !_v3Moves() || _v3DeviceCap() < 5) { update(); return; }
-  try { document.startViewTransition(update); } catch (_) { update(); }
+  let updated = false;
+  const apply = () => { if (!updated) { updated = true; update(); } };
+  try {
+    const transition = document.startViewTransition(apply);
+    // WebViews may reject the visual transition during page startup. The update still runs once.
+    transition.ready.catch(() => {});
+    transition.updateCallbackDone.catch(error => {
+      if (!['AbortError', 'InvalidStateError'].includes(error?.name)) throw error;
+    });
+    transition.finished.catch(apply);
+  } catch (_) { apply(); }
 }
 
 // Квест выполнен на глазах у игрока: значок задания подпрыгивает один раз. Квесты, которые уже были выполнены при открытии вкладки, не трогаются.

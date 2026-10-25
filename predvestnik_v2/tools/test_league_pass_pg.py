@@ -10,6 +10,8 @@ import argparse
 import asyncio
 from datetime import timedelta
 import os
+import json
+from unittest.mock import patch
 
 os.environ.setdefault("BOT_TOKEN", "1:x")
 os.environ.setdefault("DATABASE_URL", "postgresql://unused@127.0.0.1/unused")
@@ -17,7 +19,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://unused@127.0.0.1/unused")
 from core import league_pass as rules, seasons  # noqa: E402
 from infrastructure.pg_adapter import PGAdapter  # noqa: E402
 from infrastructure.repositories import chests_v1 as chests_repo, economy_ledger  # noqa: E402
-from infrastructure.repositories import league_pass as repo  # noqa: E402
+from infrastructure.repositories import league_pass as repo, vip_v2  # noqa: E402
 from services import league_pass as service  # noqa: E402
 
 PLAYER, VIP, NEWBIE = 981001, 981002, 981003
@@ -97,8 +99,9 @@ async def claims(db) -> None:
     assert state["active"] and not state["vip"] and season["level"] == 7 and season["track"][0]["vip"]["state"] == "vip"
     result = await service.claim(db, user_id=PLAYER, season=2, now=DAY)
     assert [g["level"] for g in result["granted"]] == list(range(1, 8)) and {g["track"] for g in result["granted"]} == {"free"}
-    assert await balance(db, PLAYER, "mora") == 100 + 100 + 150 and await balance(db, PLAYER, "zarniki") == 5
-    assert await balance(db, PLAYER, "diamonds") == 0 and await keys(db, PLAYER) == {"pass_tier1": 2, "pass_tier3": 1}
+    for currency in ('mora', 'zarniki', 'diamonds'):
+        assert await balance(db, PLAYER, currency) == sum(rules.reward(n, 'free').get(currency, 0) for n in range(1, 8))
+    assert await keys(db, PLAYER) == {"pass_tier1": 2}
     try:
         await service.claim(db, user_id=PLAYER, season=2, now=DAY)
     except service.PassError:
@@ -132,6 +135,75 @@ async def claims(db) -> None:
         raise AssertionError("the claim window closes 30 days after the season")
 
 
+async def migration_and_repeat(db):
+    # A paid legacy row covers every child, on that lane only.
+    legacy_user = 981005
+    for level in range(1, 31):
+        await db.execute('INSERT INTO league_pass_claims(user_id,season,level,track,reward_json) VALUES (?,?,?,?,?::jsonb)',
+                         (legacy_user, 2, level, 'free', json.dumps(rules.LEGACY_TRACK[level][0])))
+    assert {(n, 'free') for n in range(1, 41)} == await repo.claims(db, user_id=legacy_user, season=2)
+    await db.execute('INSERT INTO league_pass_claims(user_id,season,level,track,reward_json) VALUES (?,?,?,?,?::jsonb)',
+                     (NEWBIE, 2, 1, 'free', '{"mora":100}'))
+    assert await repo.claims(db, user_id=NEWBIE, season=2) == {(1, 'free'), (2, 'free')}
+    assert await repo.insert_claim(db, user_id=NEWBIE, season=2, level=1, track='vip', reward=rules.reward(1, 'vip'))
+    assert (2, 'vip') not in await repo.claims(db, user_id=NEWBIE, season=2)
+    import asyncpg
+    try:
+        async with db.connection.transaction():
+            await db.execute('INSERT INTO league_pass_claims(user_id,season,level,track,reward_json) VALUES (?,?,?,?,?::jsonb)',
+                             (NEWBIE, 2, 2, 'vip', '{"key":3}'))
+    except asyncpg.RaiseError as error:
+        assert 'upgraded' in str(error)
+    else:
+        raise AssertionError('an old writer paid a full row after the new half')
+    # Lifetime total must not turn a one-day VIP into a monthly subscription.
+    for span, remaining, eligible in ((1, 1, False), (7, 1, False), (30, 1, True), (30, 0, False)):
+        end = (DAY + timedelta(days=remaining)).isoformat()
+        await db.execute('UPDATE vip_subscriptions SET started_at=(?::text::timestamptz)::timestamp-make_interval(days => ?),expires_at=?::text::timestamptz,total_days=999 WHERE user_id=?',
+                         (end, span, end, VIP))
+        assert await vip_v2.pass_eligible(db, user_id=VIP, at=DAY, min_days=30) == eligible, (span, remaining)
+    for side in (0, 1):
+        for kind in ('mora', 'diamonds', 'zarniki'):
+            assert sum(r[side].get(kind, 0) for r in rules.TRACK.values()) == sum(r[side].get(kind, 0) for r in rules.LEGACY_TRACK.values())
+        assert sorted(r[side]['key'] for r in rules.TRACK.values() if 'key' in r[side]) == sorted(r[side]['key'] for r in rules.LEGACY_TRACK.values() if 'key' in r[side])
+    await service.add_xp(db, user_id=VIP, source='proof', event_id='bank', xp=900, casual=False, at=DAY)
+    assert [g['level'] for g in (await service.claim(db, user_id=VIP, season=2, now=DAY))['granted']] == [41]
+    state = (await service.status(db, user_id=VIP, now=DAY))['seasons'][-1]['repeat']
+    assert (await repo.repeat_state(db, user_id=VIP, season=2))['next_claim_at'] == DAY + rules.REPEAT_WAIT
+    assert state['banked_xp'] == 600 and not state['ready'] and state['claimed'] == 1
+    for when in (DAY, DAY + rules.REPEAT_WAIT - timedelta(microseconds=1)):
+        try:
+            await service.claim(db, user_id=VIP, season=2, now=when)
+        except service.PassError:
+            pass
+        else:
+            raise AssertionError('cooldown bypass awarded another key')
+    assert (await service.claim(db, user_id=VIP, season=2, now=DAY + rules.REPEAT_WAIT))['granted'][0]['cycle'] == 2
+    before = await keys(db, VIP)
+    with patch.object(repo, 'save_repeat', side_effect=RuntimeError('injected repeat failure')):
+        try:
+            await service.claim(db, user_id=VIP, season=2, now=DAY + 2 * rules.REPEAT_WAIT)
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError('repeat failure was swallowed')
+    assert await keys(db, VIP) == before
+    assert (await repo.repeat_state(db, user_id=VIP, season=2))['claimed'] == 2
+    assert (await service.claim(db, user_id=VIP, season=2, now=DAY + 2 * rules.REPEAT_WAIT))['granted'][0]['cycle'] == 3
+    assert (await service.status(db, user_id=VIP, now=DAY + 2 * rules.REPEAT_WAIT))['seasons'][-1]['repeat']['banked_xp'] == 0
+    await service.add_xp(db, user_id=VIP, source='proof', event_id='old-bank', xp=300, casual=False, at=DAY)
+    try:
+        await service.claim(db, user_id=VIP, season=2, now=seasons.season_bounds(2)[1] + timedelta(hours=1))
+    except service.PassError:
+        pass
+    else:
+        raise AssertionError('past-season repeat farming')
+    for kind, amount in (('daily', 60), ('weekly', 180), ('vip', 20), ('combined', 0)):
+        assert await service.record_quest(db, user_id=PLAYER, kind=kind, event_id=kind, at=DAY) == amount
+        assert await service.record_quest(db, user_id=PLAYER, kind=kind, event_id=kind, at=DAY) == 0
+    print('PASS: unchanged budget, legacy claims, VIP term, banked XP, 12h boundary, atomic rollback, grace, quest XP replay')
+
+
 async def run(dsn: str) -> None:
     os.environ["DATABASE_URL"] = dsn
     from bot.core.database import init_db
@@ -148,6 +220,7 @@ async def run(dsn: str) -> None:
             await setup(db)
             await experience(db)
             await claims(db)
+            await migration_and_repeat(db)
         finally:
             await transaction.rollback()
     print("PASS season pass 2 on PostgreSQL: experience, casual cap, claims, VIP row, Mora/Diamonds/Zarniki/keys, deadlines")

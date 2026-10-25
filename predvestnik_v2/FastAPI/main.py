@@ -502,12 +502,12 @@ _SHELL_V3_CSS = ("admin-legacy.css", "shell-v3.css", "skins-v3.css", "shell-v3-h
 # Game pages render leaderboard nicks like the Mini App tops: they load the same skin CSS and one small script.
 # The page look, the «Обычный | Рейтинг» switch and the shared header come from the League assets (/static/league-demo/…, FastAPI/game_shell.py).
 _GAME_BOARD_ASSETS = ("fx-tiers-v3.css", "appearance-v3.css", "skin-signatures-v3.css", "skin-signatures-2-v3.css", "skins-exclusive-v3.css",
-                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js")
+                      "skin-sig-a-v3.css", "skin-sig-b-v3.css", "skin-sig-c-v3.css", "skin-sig-d-v3.css", "marks-v3.css", "nickname-v3.css", "nickname-v3.js", "game-board-v3.js", "page-transitions.js")
 
 # Buildpacks normalize mtimes (1980 on production), so only content identifies
 # a release. Hash source HTML before ASSET_VER substitution to avoid recursion.
 _ASSET_SOURCES = tuple(dict.fromkeys((
-    *_APP_JS_PARTS, "app.css", *_SHELL_V3_CSS,
+    *_APP_JS_PARTS, "page-transitions.js", "app.css", *_SHELL_V3_CSS,
     "nickname-v3.js", "index.html", "rhythm-v2.html", "minesweeper-v2.html", "game-shell-v3.html",
     "rhythm-v2.js", "minesweeper-v2.js", "local-games-v1.js", "local-games-sw.js",
     "skin-runtime-v3.js", "coin-market-v2.css", "coin-market-chart.js", "coin-market-v2.js", *_GAME_BOARD_ASSETS,
@@ -655,6 +655,11 @@ async def rhythm_v2_js():
 @app.get("/static/nickname-v3.js")
 async def nickname_js():
     return Response(_read_static("nickname-v3.js"), media_type="application/javascript; charset=utf-8")
+
+
+@app.get("/static/page-transitions.js")
+async def page_transitions_js():
+    return Response(_read_static("page-transitions.js"), media_type="application/javascript; charset=utf-8")
 
 
 @app.get("/local-games-sw.js")

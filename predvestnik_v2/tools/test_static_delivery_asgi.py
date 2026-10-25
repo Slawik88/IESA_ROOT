@@ -24,6 +24,7 @@ ALLOWED = {
     "/static/skin-scene-e-v3.css": "text/css",
     "/static/app.css": "text/css",
     "/static/app.js": "application/javascript",
+    "/static/page-transitions.js": "application/javascript",
     "/static/minesweeper-v2.js": "application/javascript",
     "/static/skin-runtime-v3.js": "application/javascript",
     "/static/appearance-v3.css": "text/css",

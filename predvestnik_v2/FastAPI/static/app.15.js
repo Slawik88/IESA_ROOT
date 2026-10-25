@@ -187,7 +187,7 @@ function v3ClaimQuestReward(kind) {
   api('/quests-v1/claim-reward', { method: 'POST', body: JSON.stringify({ kind }) }).then(d => {
     _v3Quests = d; renderV3Today();
     const reward = d.reward_result || {};
-    const note = reward.already_claimed ? 'Награда уже получена' : `Ваше: +${fmt(reward.amount_mora || 0)} Моры${reward.amount_essence ? ` и +${fmt(reward.amount_essence)} Эссенции` : ''}`;
+    const note = reward.already_claimed ? 'Награда уже получена' : `Получено: +${fmt(reward.amount_mora || 0)} Моры${reward.amount_essence ? ` и +${fmt(reward.amount_essence)} Эссенции` : ''}${reward.pass_xp ? ` · +${reward.pass_xp} опыта Пропуска` : ''}`;
     toast(note); const live = el('v3-today-status'); if (live) live.textContent = note;
     if (!reward.already_claimed) v3Reward(origin);
     _v3RefreshBalance();

@@ -318,11 +318,25 @@ function _trKey(...parts) {
 }
 function _trPost(path, body, ...parts) {
   const key = _trKey(...parts);
+  const origin = _tr.xpOrigin;
   return api(`/pets-v2/${path}`, { method: 'POST', body: JSON.stringify({ ...body, action_id: key.id }) }).then(
-    data => { ++_tr.seq; _tr.needsRefresh = !((path === 'track/start' || path === 'track/open') && data.track?.status === 'open'); delete _tr.keys[key.k]; return data; });
+    data => {
+      ++_tr.seq; _tr.needsRefresh = !((path === 'track/start' || path === 'track/open') && data.track?.status === 'open'); delete _tr.keys[key.k];
+      if (Number(data.pass_xp) > 0 && !data.idempotent_replay && path !== 'claim') {
+        setTimeout(() => {
+          if (_activePage !== 'pets') return;
+          toast(`+${data.pass_xp} опыта Пропуска`, true, {kind:'reward', icon:'🎟'});
+          v3Fly(origin, document.getElementById('toast'), '🎟', 4);
+        }, 0);
+      }
+      if (Number(data.pass_xp) > 0) _trPassAt = 0;
+      return data;
+    });
 }
 async function _trRun(button, job) {
   if (_tr.busy) return;
+  const box = button?.getBoundingClientRect();
+  _tr.xpOrigin = box ? {x:box.left + box.width / 2, y:box.top + box.height / 2} : null;
   const focus = button?.dataset?.f, navigation = _tr.nav || 0;
   _tr.busy = true; if (button) button.disabled = true;
   try {
@@ -587,6 +601,7 @@ function _trResultHtml(act, pet, r) {
   const me = _tr.me, rows = [];
   const add = (glyph, n, label, kind = '') => rows.push(`<li data-k="${kind}" style="--i:${rows.length}"><span class="tr-g" aria-hidden="true">${glyph}</span><span class="tr-gl">${label}</span><b class="tr-n">+${fmt(n)}</b></li>`);
   if (Number(r.xp_credited) >= 0.5) add('🐾', Math.round(r.xp_credited), 'Следы');
+  if (Number(r.pass_xp) > 0) add('🎟', r.pass_xp, 'Опыт Пропуска', 'pass_xp');
   Object.entries(_TR_FIND).forEach(([key, f]) => { const n = Number((r.finds || {})[key]) || 0; if (n > 0) add(f[0], n, f[1], key); });
   if (Number(r.star_dust?.amount) > 0) add('🌠', r.star_dust.amount, 'Звёздная пыль');
   if (Number(r.key) > 0) add('🗝', r.key, _trWord(r.key, 'Ключ', 'Ключа', 'Ключей'));
@@ -604,11 +619,13 @@ function _trResultHtml(act, pet, r) {
   const d = Object.assign({}, me.daily, { credited: Number(r.daily_credited) }), meter = _trTraces(Object.assign({}, me, { daily: d }));
   const body = `<p class="tr-who"><span class="tr-ic" aria-hidden="true">${_trE(pet.icon)}</span><span><b>${title}</b><small>${_trE(sub)}</small></span></p>${calm}
     <ul class="tr-gain" aria-label="Что получено">${rows.join('') || '<li class="tr-none">На этот раз без находок.</li>'}</ul>${r.star_dust?.shared_trail && !r.star_dust.amount ? `<p class="tr-note">🌠 ${r.star_dust.new_trail ? 'Частица звёздного следа сохранена до следующего возвращения.' : 'За это время звёздный след уже собран другим питомцем.'}</p>` : ''}${level}${energy}${companion}${meter}`;
-  return _trSheetHtml('Награда', body, '<button type="button" class="v3-pill v3-pill--full" onclick="trailClose()">Готово</button>');
+  const pass = Number(r.pass_xp) > 0 ? `<p class="tr-note" id="tr-pass-target">🎟 +${r.pass_xp} опыта в Пропуск сезона · <a href="${BASE}/league#pass">посмотреть уровни ›</a></p>` : '';
+  return _trSheetHtml('Награда', body + pass, '<button type="button" class="v3-pill v3-pill--full" onclick="trailClose()">Готово</button>');
 }
 function _trResult(act, pet, r) {
   if (!pet) { trailClose(); return; }
   const had = document.getElementById('tr-sheet');
   if (had) _trRepaint(_trResultHtml(act, pet, r)); else _trSheet(_trResultHtml(act, pet, r));
+  if (!r.idempotent_replay) v3Fly(document.querySelector('#tr-sheet [data-k="pass_xp"] .tr-g'), document.getElementById('tr-pass-target'), '🎟', 4);
   Object.entries(_TR_FIND).forEach(([key, f]) => { const n = Number((r.finds || {})[key]) > 0, row = n && f[2] && document.querySelector(`#tr-sheet .tr-gain li[data-k="${key}"] .tr-g`); if (row) v3Fly(row, f[2], f[0], 4); });   // награда летит из своей строки в чип валюты
 }

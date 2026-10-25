@@ -1,6 +1,6 @@
 """Season pass from season 2 (owner, 22.10.2026): experience from League levels and, less, from casual games.
 
-Two rows: free for everyone, VIP for an active VIP at the moment of claiming.  Rewards are Mora, Diamonds,
+Two rows: free for everyone, VIP for an active continuous term of at least 30 days.  Rewards are Mora, Diamonds,
 a few Zarniki (30 free / 80 VIP per season, owner's cap) and chest keys of every tier: the chests hold the
 food, pet cards and jokers.  Never skins.  Amounts live in this one table.
 """
@@ -13,8 +13,14 @@ from core import seasons
 from core.chests_v1 import KEY_TIER_NAMES
 
 FIRST_SEASON: Final = 2           # season 1 keeps the old free pass (core.season_pass)
-LEVELS: Final = 30
+LEVELS: Final = 40
 XP_PER_LEVEL: Final = 300
+REPEAT_LEVEL: Final = LEVELS + 1
+REPEAT_WAIT: Final = timedelta(hours=12)
+REPEAT_KEY_TIER: Final = 1
+VIP_MIN_DAYS: Final = 30
+QUEST_XP: Final = {"daily": 60, "weekly": 180}
+VIP_MISSION_XP: Final = 20
 CLAIM_GRACE: Final = timedelta(days=30)
 REASON: Final = "season_pass_v2_reward"
 TRACKS: Final = ("free", "vip")
@@ -27,7 +33,7 @@ RHYTHM_MAX_XP: Final = 60
 MINES_WIN_XP: Final = {"easy": 12, "normal": 20, "hard": 40}
 
 # Pets (owner, 23.10.2026): real progress with a pet gives a little experience, under its own daily cap, so
-# pets alone fill about a third of the pass (100 a day × a month ≈ 10 of 30 levels) and never replace play.
+# pets alone fill about a quarter of the pass (100 a day × a month ≈ 10 of 40 levels) and never replace play.
 # Only an action that costs something counts: food, energy, Mora, Essence, cards or a weekly attempt.
 # Free toggles (active pet, builds and presets, equip/unequip, opening a tracking cell, the starter gear)
 # give nothing — otherwise a tap loop would be a farm.  What takes time counts when it pays off: an activity
@@ -53,7 +59,7 @@ _PET_REQUEST_KIND: Final = {"feed": "feed", "choose_expedition": "expedition", "
                             "reforge": "reforge"}
 
 # level: (free, VIP).  A reward is {"mora": n} | {"diamonds": n} | {"zarniki": n} | {"key": tier}.
-TRACK: Final = {
+LEGACY_TRACK: Final = {
     1: ({"mora": 100}, {"mora": 300}), 2: ({"key": 1}, {"key": 3}), 3: ({"mora": 100}, {"diamonds": 5}),
     4: ({"key": 1}, {"key": 3}), 5: ({"zarniki": 5}, {"zarniki": 10}), 6: ({"mora": 150}, {"mora": 400}),
     7: ({"key": 3}, {"key": 4}), 8: ({"diamonds": 3}, {"diamonds": 5}), 9: ({"mora": 150}, {"mora": 400}),
@@ -65,6 +71,27 @@ TRACK: Final = {
     25: ({"zarniki": 5}, {"zarniki": 15}), 26: ({"key": 4}, {"key": 6}), 27: ({"mora": 250}, {"mora": 700}),
     28: ({"key": 3}, {"key": 4}), 29: ({"zarniki": 5}, {"zarniki": 20}), 30: ({"key": 6}, {"key": 6}),
 }
+# Keep the old receipt identities: a legacy claim already paid both new halves.
+SPLIT_LEVELS: Final = frozenset((1, 3, 5, 6, 8, 9, 10, 12, 14, 15))
+
+
+def _expanded_track() -> tuple[dict, dict]:
+    track, sources = {}, {}
+    for old, rows in LEGACY_TRACK.items():
+        halves = 2 if old in SPLIT_LEVELS else 1
+        for half in range(halves):
+            level = len(track) + 1
+            track[level] = tuple({kind: amount if halves == 1 else amount // 2 + (amount % 2 if half else 0)
+                                  for kind, amount in item.items()} for item in rows)
+            sources[level] = old
+    return track, sources
+
+
+TRACK, TRACK_SOURCES = _expanded_track()
+for _side in (0, 1):
+    for _kind in ("mora", "diamonds", "zarniki"):
+        assert sum(row[_side].get(_kind, 0) for row in TRACK.values()) == sum(row[_side].get(_kind, 0) for row in LEGACY_TRACK.values())
+    assert [row[_side]["key"] for row in TRACK.values() if "key" in row[_side]] == [row[_side]["key"] for row in LEGACY_TRACK.values() if "key" in row[_side]]
 _ICON = {"mora": "🪙", "diamonds": "💎", "zarniki": "✨"}
 _NAME = {"mora": "Моры", "diamonds": "Алмазов", "zarniki": "Зарников"}
 

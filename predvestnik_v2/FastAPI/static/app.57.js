@@ -5,7 +5,7 @@
 const _GV = { data: null, pending: null, view: 'hub', topic: '', faq: -1, q: '', index: null, history: [], offline: false };
 const _GV_STORE = 'pv_guide_v1';
 const _GV_LAST = 'pv_guide_last';
-const _GV_STOP = new Set(['как', 'где', 'что', 'это', 'для', 'мне', 'меня', 'мой', 'мои', 'моя', 'мою', 'его', 'или', 'такое', 'такой', 'почему', 'взять', 'найти', 'получить', 'дают', 'даются', 'видно']);
+const _GV_STOP = new Set(['как', 'где', 'что', 'это', 'для', 'мне', 'меня', 'мой', 'мои', 'моя', 'мою', 'его', 'или', 'такое', 'такой', 'почему', 'взять', 'найти', 'получить', 'дают', 'даются', 'видно', 'хочу', 'могу', 'ли', 'если', 'делать']);
 const _GV_ALIAS = { бп: 'пропуск', bp: 'пропуск', xp: 'опыт', хп: 'сердца', вип: 'vip', еду: 'еда', еды: 'еда', едой: 'еда' };
 const _GV_GO = {
   games: () => switchPage('arena'), rhythm: () => { location.href = BASE + '/rhythm-v2'; }, mines: () => { location.href = BASE + '/minesweeper'; }, rating: () => _gvRating(),

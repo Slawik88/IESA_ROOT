@@ -16,7 +16,7 @@
     const s = demoPass || (pass?.active && pass.seasons.find(x => x.current));
     if (!s) return null;
     const waiting = !demoPass && pass.account?.eligible
-      ? pass.seasons.reduce((n, x) => n + x.track.filter(r => r.free.state === 'ready').length + x.track.filter(r => r.vip.state === 'ready').length, 0) : 0;
+      ? pass.seasons.reduce((n, x) => n + x.track.filter(r => r.free.state === 'ready').length + x.track.filter(r => r.vip.state === 'ready').length + Number(!!(x.current && x.repeat?.ready)), 0) : 0;
     return {season: s.season ?? null, level: s.level, levels: s.levels, per: s.xp_per_level, toNext: s.xp_to_next, ready: waiting, endsAt: s.ends_at || null};
   }
 

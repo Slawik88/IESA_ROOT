@@ -78,7 +78,7 @@ PERKS: Final[tuple[Perk, ...]] = (
     Perk("breather", "safe", "Передышка", "+1 сердце", "скорость выше на 5%", max_stack=99, pace_pct=5, heal=1, filler=True),
     Perk("glass_cannon", "risk", "Стеклянная пушка", "очки выше на 60%", "сразу остаётся не больше 2 сердец", max_stack=1, score_pct=60, cap_health=2),
     # ── Серия 2026-10-25: награда за чистую игру и страховка от случайной ошибки (docs/audits/RHYTHM_SERIES_GIFTS_2026-10-25.md) ──
-    Perk("hot_streak", "boost", "Горячая серия", "когда верных нажатий подряд 10 и больше, очки выше на 40%", "пока серия короче 10, очки ниже на 25%", max_stack=1, since=POOL_WITH_SERIES, score_pct=-25, streak_bonus_from=10, streak_bonus_pct=40),
+    Perk("hot_streak", "boost", "Горячая серия", "после 10 верных нажатий подряд очки выше на 15%", "пока серия короче 10, очки ниже на 25%", max_stack=1, since=POOL_WITH_SERIES, score_pct=-25, streak_bonus_from=10, streak_bonus_pct=40),
     Perk("anchor", "boost", "Якорь", "ошибка сбрасывает серию лишь наполовину", "время на нажатие меньше на 8%", max_stack=1, since=POOL_WITH_SERIES, window_pct=-8, combo_keep_pct=50),
     Perk("recharge", "safe", "Зарядка щита", "каждые 20 верных подряд — щит, который принимает ошибку (про запас один)", "очки ниже на 10%", max_stack=1, since=POOL_WITH_SERIES, score_pct=-10, shield_every=20, shield_cap=1),
     Perk("phoenix", "safe", "Феникс", "когда сердца кончатся, забег продолжится с 2 сердцами (один раз)", "очки ниже на 10%", max_stack=1, since=POOL_WITH_SERIES, score_pct=-10, revive=2),

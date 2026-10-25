@@ -151,7 +151,10 @@ has("xp", league_pass.XP_PER_LEVEL, league_pass.CASUAL_DAILY_CAP, league_pass.PE
     *league_pass.MINES_WIN_XP.values(), f"{league_v1.XP_BY_STARS[1]}, {league_v1.XP_BY_STARS[2]} или {league_v1.XP_BY_STARS[3]}")
 pet_numbers = {str(v) for v in league_pass.PET_XP.values()}
 assert {m for m in re.findall(r"(\d+) опыта", " ".join(i["p"] for b in topics["xp"]["blocks"] if b["t"] == "list" for i in b["items"]))} <= pet_numbers, "опыт за действия питомцев не из PET_XP"
-has("pass", league_pass.LEVELS, league_pass.XP_PER_LEVEL, league_pass.CLAIM_GRACE.days, account_age.MIN_ACCOUNT_AGE.days, 30)
+has("pass", league_pass.LEVELS, league_pass.REPEAT_LEVEL, int(league_pass.REPEAT_WAIT.total_seconds() // 3600), league_pass.VIP_MIN_DAYS,
+    league_pass.XP_PER_LEVEL, league_pass.CLAIM_GRACE.days, account_age.MIN_ACCOUNT_AGE.days, 30)
+has("xp", *league_pass.QUEST_XP.values(), league_pass.VIP_MISSION_XP)
+has("quests", *league_pass.QUEST_XP.values(), league_pass.VIP_MISSION_XP)
 has("rating", int(league_v1.rhythm_level(1).star_pct[0]), int(league_v1.rhythm_level(1).star_pct[1]), league_v1.rhythm_level(1).hearts, "30–60", league_v1.XP_BY_STARS[1])
 has("rhythm", rhythm_v2.BASE_HEALTH, rhythm_v2.CHUNK_SIZE)
 has("gifts", rhythm_v2.RESUME_LEAD_MS // 1000)

@@ -1,8 +1,9 @@
 """Season pass from season 2: experience in, rewards out.
 
 Experience writes never stop a game or a level from finishing: they run in their own savepoint and a
-failure is only logged.  A claim grants one level of one row in one transaction (currency through the
-economy ledger, a chest key through the chest-key ledger); its receipt makes a retry harmless.
+failure is only logged. Quest reward XP is strict and rolls back with its reward. A claim grants every
+reached row in one transaction (currency through the economy ledger, keys through the chest-key ledger);
+its receipts make a retry harmless.
 """
 from __future__ import annotations
 
@@ -18,7 +19,7 @@ from infrastructure.repositories import account_age as account_age_repo
 from infrastructure.repositories import chests_v1 as chests_repo
 from infrastructure.repositories import economy_ledger
 from infrastructure.repositories import league_pass as repo
-from services import vip
+from infrastructure.repositories import vip_v2 as vip_repo
 
 
 class PassError(Exception):
@@ -26,7 +27,7 @@ class PassError(Exception):
 
 
 async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casual: bool,
-                 at: datetime | None = None, season: int | None = None, pet: bool = False) -> int:
+                 at: datetime | None = None, season: int | None = None, pet: bool = False, strict: bool = False) -> int:
     """Add experience once per event; casual games and pets each respect their daily cap.  Returns what was added.
 
     ``season`` pins the pass season (a League level counts for the season of its run); by default it is
@@ -37,7 +38,8 @@ async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casua
     if season < rules.FIRST_SEASON or int(xp) <= 0:
         return 0
     try:
-        async with db.connection.transaction():   # tables come from the app start (FastAPI/main.py lifespan)
+        async with db.connection.transaction():   # schema comes from bot/startup_schema.py or FastAPI lifespan
+            await chests_repo.lock_user(db, int(user_id))
             await repo.lock_user(db, user_id=user_id)
             gain, bucket = int(xp), "pet" if pet else "casual" if casual else None
             if bucket:
@@ -51,9 +53,28 @@ async def add_xp(db, *, user_id: int, source: str, event_id: str, xp: int, casua
                 await repo.add_xp(db, user_id=user_id, season=season, xp=gain)
             return gain
     except Exception:
+        if strict:
+            raise
         logger.exception("League pass experience failed for user {} ({}:{}); the game result is unaffected",
                          user_id, source, event_id)
         return 0
+
+
+async def record_quest(db, *, user_id: int, kind: str, event_id: str, at: datetime | None = None) -> int:
+    amount = rules.VIP_MISSION_XP if kind == 'vip' else rules.QUEST_XP.get(kind, 0)
+    if not amount:
+        return 0
+    return await add_xp(db, user_id=user_id, source='quest', event_id=f'{kind}:{event_id}',
+                        xp=amount, casual=False, at=at, strict=True)
+
+
+def _repeat_view(xp: int, state: dict, now: datetime) -> dict:
+    banked = max(0, xp - rules.LEVELS * rules.XP_PER_LEVEL - state['claimed'] * rules.XP_PER_LEVEL)
+    until = state['next_claim_at']
+    return {'level': rules.REPEAT_LEVEL, 'claimed': state['claimed'], 'banked_xp': banked,
+            'xp_per_claim': rules.XP_PER_LEVEL, 'next_claim_at': until.isoformat() if until else None,
+            'ready': banked >= rules.XP_PER_LEVEL and (until is None or now >= until),
+            'wait_hours': int(rules.REPEAT_WAIT.total_seconds() // 3600), 'key_tier': rules.REPEAT_KEY_TIER}
 
 
 async def record_pet(db, *, user_id: int, kind: str, event_id: str, at=None) -> int:
@@ -84,7 +105,7 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
     if not rules.active(now):
         return {"active": False, "starts_at": seasons.season_bounds(rules.FIRST_SEASON)[0].isoformat()}
     await repo.ensure_tables(db)
-    vip_open = await vip.is_vip_active(db, user_id)
+    vip_open = await vip_repo.pass_eligible(db, user_id=user_id, at=now, min_days=rules.VIP_MIN_DAYS)
     seen = (await account_age_repo.first_seen(db, [user_id])).get(int(user_id))
     views = []
     for season in rules.claimable_seasons(now):
@@ -95,12 +116,16 @@ async def status(db, *, user_id: int, now: datetime | None = None) -> dict:
             "levels": rules.LEVELS, "xp_per_level": rules.XP_PER_LEVEL,
             "xp_to_next": 0 if reached >= rules.LEVELS else rules.XP_PER_LEVEL - xp % rules.XP_PER_LEVEL,
             "ends_at": seasons.season_bounds(season)[1].isoformat(), "claim_until": rules.claim_deadline(season).isoformat(),
+            "repeat": {**_repeat_view(xp, await repo.repeat_state(db, user_id=user_id, season=season), now),
+                       **({'ready': False} if season != seasons.season_number(now) else {}),
+                       'current': season == seasons.season_number(now)},
             "track": [{"level": n, "free": _row(n, "free", reached, claimed, vip_open), "vip": _row(n, "vip", reached, claimed, vip_open)}
                       for n in range(1, rules.LEVELS + 1)],
         })
     async with db.connection.transaction():
         today = await repo.day_xp(db, user_id=user_id, day=now.date())
-    return {"active": True, "vip": vip_open, "seasons": views,
+    return {"active": True, "vip": vip_open, "vip_min_days": rules.VIP_MIN_DAYS, "seasons": views,
+            "quests": {**rules.QUEST_XP, 'vip': rules.VIP_MISSION_XP},
             "casual": {"today": today["casual"], "cap": rules.CASUAL_DAILY_CAP},
             "pets": {"today": today["pet"], "cap": rules.PET_DAILY_CAP, "xp": dict(rules.PET_XP)},
             "account": {"eligible": account_age.is_eligible(seen, now), "min_days": account_age.MIN_ACCOUNT_AGE.days}}
@@ -117,8 +142,8 @@ async def casual_receipt(db, *, user_id: int, source: str, event_id: str, now: d
     return {"active": True, "xp": gained or 0, "counted": gained is not None, "today": today, "cap": rules.CASUAL_DAILY_CAP}
 
 
-async def _grant(db, *, user_id: int, season: int, level: int, track: str, item: dict) -> None:
-    ref = f"{season}:{level}:{track}"
+async def _grant(db, *, user_id: int, season: int, level: int, track: str, item: dict, cycle: int = 0) -> None:
+    ref = f"40:{season}:{level}:{track}" + (f":{cycle}" if cycle else '')
     if "key" in item:
         await chests_repo.ensure_tables(db)
         await chests_repo.assert_delivery_ready(db)
@@ -142,7 +167,7 @@ async def _grant(db, *, user_id: int, season: int, level: int, track: str, item:
 
 
 async def claim(db, *, user_id: int, season: int, now: datetime | None = None) -> dict:
-    """Claim every reached, unclaimed level of both rows (VIP row only with an active VIP)."""
+    """Claim every reached, unclaimed level of both rows (VIP row only with a qualifying active term)."""
     now = now or datetime.now(timezone.utc)
     if int(season) not in rules.claimable_seasons(now):
         raise PassError("Награды этого сезона уже нельзя получить.")
@@ -151,17 +176,29 @@ async def claim(db, *, user_id: int, season: int, now: datetime | None = None) -
         raise PassError(f"Награды выдаются аккаунтам, которые в боте не меньше {account_age.MIN_ACCOUNT_AGE.days} дней. "
                         "Опыт копится, получить можно позже.")
     await repo.ensure_tables(db)
-    vip_open = await vip.is_vip_active(db, user_id)
     granted = []
     async with db.connection.transaction():
+        await chests_repo.lock_user(db, int(user_id))
+        await vip_repo.lock_user(db, user_id)
         await repo.lock_user(db, user_id=user_id)
-        reached = rules.level_of(await repo.xp(db, user_id=user_id, season=season))
+        vip_open = await vip_repo.pass_eligible(db, user_id=user_id, at=now, min_days=rules.VIP_MIN_DAYS)
+        xp = await repo.xp(db, user_id=user_id, season=season)
+        reached, claimed = rules.level_of(xp), await repo.claims(db, user_id=user_id, season=season)
         for level in range(1, reached + 1):
             for track in ("free", "vip") if vip_open else ("free",):
+                if (level, track) in claimed:
+                    continue
                 item = rules.reward(level, track)
                 if await repo.insert_claim(db, user_id=user_id, season=season, level=level, track=track, reward=item):
                     await _grant(db, user_id=user_id, season=int(season), level=level, track=track, item=item)
                     granted.append({"level": level, "track": track, "text": rules.reward_text(item)})
+        repeat = await repo.repeat_state(db, user_id=user_id, season=season)
+        if int(season) == seasons.season_number(now) and _repeat_view(xp, repeat, now)['ready']:
+            cycle = repeat['claimed'] + 1
+            item = {'key': rules.REPEAT_KEY_TIER}
+            await _grant(db, user_id=user_id, season=season, level=rules.REPEAT_LEVEL, track='free', item=item, cycle=cycle)
+            await repo.save_repeat(db, user_id=user_id, season=season, claimed=cycle, next_claim_at=now + rules.REPEAT_WAIT)
+            granted.append({'level': rules.REPEAT_LEVEL, 'track': 'free', 'text': rules.reward_text(item), 'cycle': cycle})
     if not granted:
         raise PassError("Нет новых наград для получения.")
     return {"season": int(season), "granted": granted}

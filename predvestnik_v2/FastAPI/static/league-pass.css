@@ -15,6 +15,10 @@
 .lgp-claim .lgp-chest { display: grid; place-items: center; width: 28px; height: 28px; }
 .lgp-claim .lga { width: 28px; height: 28px; }
 .lgp-claim.is-busy { opacity: .8; }
+.lgp-repeat { display: grid; gap: 8px; margin: 16px 0; padding: 16px; border: 1px solid var(--lg-gold); border-radius: 16px; background: var(--lg-surf); }
+.lgp-repeat p { margin: 0; color: var(--lg-dim); font-size: 13px; line-height: 1.5; }
+.lgp-repeat strong { color: var(--lg-gold); }
+.lgp-repeat small { color: var(--lg-dim); line-height: 1.5; }
 
 /* Лента: колонка на уровень — номер на линии прогресса, сверху бесплатная награда, снизу VIP («стекло» и замок без VIP) */
 .lgp-ribbon { position: relative; display: flex; margin: 14px -16px 0; padding: 4px 16px 10px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
@@ -22,7 +26,7 @@
 .lgp-rows { position: sticky; left: -16px; z-index: 3; display: grid; grid-template-rows: 24px 88px 88px; gap: 8px; flex: none; width: 22px; margin: 0 4px 0 -6px;
   background: linear-gradient(90deg, var(--lg-bg) 75%, transparent); }
 .lgp-rows span { grid-row: 2; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--lg-dim); font-size: 10px; font-weight: 700;
-  letter-spacing: .1em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
+  letter-spacing: .02em; text-transform: uppercase; writing-mode: vertical-rl; transform: rotate(180deg); }
 .lgp-rows span + span { grid-row: 3; color: var(--lg-gold); }
 .lgp-rows .lga { transform: rotate(90deg); }
 .lgp-ribbon ol { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }

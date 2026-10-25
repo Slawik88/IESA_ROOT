@@ -103,6 +103,21 @@ async def run(dsn: str) -> None:
         assert (await conn.fetchval('SELECT balance FROM skins_v3_essence_accounts WHERE user_id=$1', user) or 0) == essence_before
         assert await conn.fetchval('SELECT COUNT(*) FROM quest_v1_reward_receipts WHERE user_id=$1', user) == 0
         assert await conn.fetchval("SELECT COUNT(*) FROM economic_operations WHERE user_id=$1 AND reason_code='quest_reward'", user) == 0
+        from services import league_pass as pass_service
+        original_xp = pass_service.record_quest
+        async def xp_then_fail(*args, **kwargs):
+            await original_xp(*args, **kwargs)
+            raise RuntimeError('injected XP failure after writing')
+        with patch.object(pass_service, 'record_quest', xp_then_fail):
+            try:
+                await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
+            except RuntimeError:
+                pass
+            else:
+                raise AssertionError('XP failure consumed a quest reward')
+        assert await conn.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', user) == mora_before
+        assert await chest_repo.get_balance(db, user) == keys_before
+        assert await conn.fetchval('SELECT COUNT(*) FROM league_pass_receipts WHERE user_id=$1', user) == 0
         daily_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
         assert daily_reward['reward_result']['amount_essence'] == quests_v1.REWARD_ESSENCE['daily']
         repeat_daily = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='daily', sources=sources)
@@ -112,6 +127,14 @@ async def run(dsn: str) -> None:
         weekly_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='weekly', sources=sources)
         combined_reward = await quests_v1.claim_reward(db, user_id=user, vip_active=False, kind='combined', sources=sources)
         assert daily_reward['reward_result']['amount_mora'] == 20
+        from core import league_pass as pass_rules, seasons
+        from infrastructure.repositories import league_pass
+        from datetime import datetime, timezone
+        if pass_rules.active(datetime.now(timezone.utc)):
+            assert daily_reward['reward_result']['pass_xp'] == pass_rules.QUEST_XP['daily']
+            assert weekly_reward['reward_result']['pass_xp'] == pass_rules.QUEST_XP['weekly']
+            assert combined_reward['reward_result']['pass_xp'] == 0
+            assert await league_pass.xp(db, user_id=user, season=seasons.season_number(datetime.now(timezone.utc))) == sum(pass_rules.QUEST_XP.values())
         assert weekly_reward['reward_result']['amount_mora'] == 100
         assert combined_reward['reward_result']['amount_mora'] == 75
         assert daily_reward['reward_result']['amount_keys'] == 2

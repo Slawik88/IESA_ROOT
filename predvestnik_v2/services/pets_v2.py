@@ -591,8 +591,8 @@ async def claim_run(db, *, user_id: int, run_id: str, action_id: str, path: str 
             "companion": companion_reward, "idempotent_replay": False,
         }
         result["star_dust"] = await star_dust.grant_pet_in_transaction(db, user_id=user_id, run=run)
-        await repo.finish_run(db, run["id"], result)
         await save_v2_action(db, user_id, action_id, request, result)
+        await repo.finish_run(db, run["id"], result)
         await _record_progress(db, user_id, run, occurred_at=clock['now'])
     return result
 

@@ -7,6 +7,7 @@ import asyncio
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import sys
+from unittest.mock import AsyncMock, patch
 from urllib.parse import urlparse
 
 import asyncpg
@@ -90,6 +91,15 @@ async def _prepare(dsn: str) -> None:
         db = PGAdapter(connection)
         await economy_ledger.ensure_tables(db)
         await vip_repo.ensure_tables(db)
+        from infrastructure.repositories import league_pass
+        async def install_pass():
+            other, adapter = await _connect(dsn)
+            try:
+                await league_pass.ensure_tables(adapter)
+                assert await league_pass._schema_ready(adapter)
+            finally:
+                await other.close()
+        await asyncio.wait_for(asyncio.gather(install_pass(), install_pass()), timeout=10)
     finally:
         await connection.close()
 
@@ -108,6 +118,7 @@ async def _daily(dsn: str, user_id: int, day_key: str, source_event_id: str) -> 
     connection, db = await _connect(dsn)
     try:
         async with connection.transaction():
+            await db.execute('SELECT pg_advisory_xact_lock(?)', (user_id,))
             await vip_repo.lock_user(db, user_id)
             return await vip.complete_daily_mission_from_game(
                 db, user_id=user_id, day_key=day_key, source_event_id=source_event_id,
@@ -200,6 +211,33 @@ async def run(dsn: str) -> None:
         ) as cursor:
             receipt = await cursor.fetchone()
         assert tuple(map(int, receipt)) == (1, 1, 20)
+        from core import league_pass as pass_rules, seasons
+        from infrastructure.repositories import league_pass as pass_repo
+        from services import league_pass
+        now = datetime.now(timezone.utc)
+        if pass_rules.active(now):
+            assert await pass_repo.xp(db, user_id=buyer, season=seasons.season_number(now)) == pass_rules.VIP_MISSION_XP
+            await pass_repo.add_xp(db, user_id=buyer, season=seasons.season_number(now), xp=600-pass_rules.VIP_MISSION_XP)
+            async def collect():
+                other, adapter = await _connect(dsn)
+                try:
+                    return await league_pass.claim(adapter, user_id=buyer, season=seasons.season_number(now), now=now)
+                finally:
+                    await other.close()
+            async def game():
+                other, adapter = await _connect(dsn)
+                try:
+                    async with other.transaction():
+                        await adapter.execute('SELECT pg_advisory_xact_lock(?)', (buyer,))
+                        return await league_pass.record_quest(adapter, user_id=buyer, kind='vip', event_id='concurrent-game')
+                finally:
+                    await other.close()
+            with patch.object(league_pass.account_age_repo, 'first_seen', AsyncMock(return_value={buyer: now-timedelta(days=90)})):
+                race = await asyncio.wait_for(asyncio.gather(collect(), collect(), game(), return_exceptions=True), timeout=10)
+            assert sum(isinstance(r, dict) for r in race) == 1, race
+            assert sum(isinstance(r, league_pass.PassError) for r in race) == 1, race
+            assert race[2] == pass_rules.VIP_MISSION_XP, race
+            assert await connection.fetchval('SELECT user_balance_mora FROM users WHERE user_tg_id=$1', buyer) == 420
 
         reminder_user = 982603
         await db.execute(

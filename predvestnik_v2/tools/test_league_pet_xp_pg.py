@@ -45,12 +45,16 @@ async def run(dsn: str) -> None:
         await v2.ensure_tables(db)
         await repo.ensure_tables(db)
         await admin_access.ensure_schema(db)
+        from infrastructure.repositories import league_pass as pass_repo
+        await pass_repo.ensure_tables(db)
         for uid, rank in ((USER, 1), (PLAYER, 0)):
             await db.execute("INSERT INTO users(user_tg_id,bot_rank) VALUES (?,?) ON CONFLICT(user_tg_id) DO UPDATE SET bot_rank=EXCLUDED.bot_rank", (uid, rank))
             await repo.reset(db, user_id=uid, season=DEMO_SEASON)
             await db.execute("DELETE FROM pet_v2_runs WHERE user_id=?", (uid,))
             for table in ("pet_v1_actions", "pet_v2_actions"):
                 await db.execute(f"DELETE FROM {table} WHERE user_id=?", (uid,))
+            for table in ('league_pass_receipts', 'league_pass_days', 'league_pass_progress'):
+                await db.execute(f'DELETE FROM {table} WHERE user_id=?', (uid,))
         await db.execute("INSERT INTO admin_role_grants(key,min_rank,updated_by) VALUES (?,1,1) ON CONFLICT(key) DO UPDATE SET min_rank=1", (FLAG_KEY,))
         async with db.execute("INSERT INTO pets(owner_id,name,species_id,rarity) VALUES (?,'Demo pet','moss_cat','common') RETURNING id", (USER,)) as cur:
             pet = int((await cur.fetchone())[0])
@@ -126,6 +130,19 @@ async def run(dsn: str) -> None:
             await pet_actions.record_pet_event(db, user_id=USER, kind=None, event_id="free-toggle")
             award.assert_not_awaited()
             real.assert_awaited_once_with(db, user_id=USER, kind="feed", event_id="public-season")
+        # The response saved for an uncertain/retried action includes the credited pass XP.
+        from core import league_pass as pass_rules
+        from datetime import datetime, timezone
+        if pass_rules.active(datetime.now(timezone.utc)):
+            async with connection.transaction():
+                await food(2)
+                with patch.object(pet_actions, '_demo_active', return_value=False):
+                    public = await feeding('public-receipt')
+                    replay = await feeding('public-receipt')
+                assert public['pass_xp'] == FEED and not public.get('idempotent_replay')
+                assert replay['pass_xp'] == FEED and replay['idempotent_replay']
+                saved = await v2.cached_action(db, USER, 'public-receipt')
+                assert saved['response']['pass_xp'] == FEED
         assert await xp() == FEED
 
         # Combine game/pet progress without changing game stars/ranks.

@@ -124,3 +124,9 @@ html[data-theme="light"] body:not(.skin-v3) { --lg-cell: linear-gradient(180deg,
 .gd-rows b { color: var(--lg-gold); font-variant-numeric: tabular-nums; }
 .gd-more { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 6px; color: var(--v3-acc); font-size: 13px; font-weight: 600; text-decoration: none; }
 @media (max-width: 340px) { .gd-terms div { grid-template-columns: 1fr; gap: 2px; } .gd-card em { grid-column: 2 / 4; text-align: left; } }
+
+/* Прогресс конечного уровня Ритма: обычный бесконечный забег такой полосы не имеет. */
+.lgr-progress { height: 5px; overflow: hidden; border-radius: 4px; background: var(--lg-faint); }
+.lgr-progress i { display: block; height: 100%; background: var(--lg-gold); transform: scaleX(0); transform-origin: left; transition: transform .2s ease-out; }
+.lgr-remaining { display: block; margin: 6px 0 0; color: var(--lg-dim); text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .lgr-progress i { transition: none; } }
