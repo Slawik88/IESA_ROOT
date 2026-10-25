@@ -34,16 +34,19 @@ class Join(BaseModel):
 
 
 class Control(BaseModel):
-    command: Literal["start", "leave", "cancel", "pause", "resume", "skip", "settings", "claim"]
+    command: Literal["start", "leave", "cancel", "pause", "resume", "skip", "settings", "claim", "transfer"]
     phase_number: int | None = Field(default=None, ge=0)
     settings: Settings | None = None
     nonce: UUID | None = None
     expected_version: int | None = Field(default=None, ge=1)
+    target: int | None = Field(default=None, gt=0, le=MAX_ID)
 
     @model_validator(mode="after")
     def valid_settings(self):
         if self.command == "settings" and self.settings is None:
             raise ValueError("Для сохранения нужны настройки стола.")
+        if self.command == "transfer" and self.target is None:
+            raise ValueError("Выберите нового хозяина стола.")
         return self
 
 
@@ -104,6 +107,7 @@ async def room(room_id: RoomId, channel: Literal["table", "mafia", "afterlife"] 
 async def control(room_id: RoomId, body: Control, user=Depends(participant), db=Depends(get_db)):
     return await checked(game.control(db, room_id, int(user["id"]), body.command, body.phase_number,
                                nonce=body.nonce, expected_version=body.expected_version,
+                               **({"target": body.target} if body.command == "transfer" else {}),
                                **(body.settings.model_dump() if body.settings else {})))
 
 

@@ -1,3 +1,135 @@
+## ONLINE-MAFIA-UX-20261025 — RELEASED TO MASTER AND VERIFIED LIVE
+
+Code commit64f4310db87dea5bb2ab5a52eaea11f80e5dc4c2 fast-forward pushed to
+origin/master with explicit owner authorization. Automatic deployment verified
+on both iesaroot-app-8kuyb.ondigitalocean.app/predvestnik and
+iesasport.ch/predvestnik: production-live.json in the evidence directory below.
+Full50-chunk JS1127449bytes SHA256b30aaca76f51e321ff5437f71b469fa8a98e81ad3e9ec4dcd3226e48d6c11e18;
+Mafia CSS36264bytes SHA256f8137846c093f40444a10d1ca9d0546017b8190d2bbdcc7f0cf0e8ec5792005c;
+news and guide also exact hashes. Health/ready200; online/local/staff APIs401
+without auth; rollout flags byte-equivalent to the pre-release response. No
+authenticated production mutations, flag changes or Telegram publications.
+
+Owner requested continued online Mafia improvements and direct master/production release.
+Release assembled on master f4c29f82 in managed worktree mafia-online-release; old
+patch-note-republish checkout and its unrelated changes are preserved. Earlier
+production fixes from 91c7cdce remain: JSON headers, cold identity binding, exact
+uncertain receipts, expired-seat recovery and opposite-room lock ordering.
+Current master appearance/pets/guide chunks are intact; online Mafia uses app.55/56.
+
+Player result: city/role/action presentation, three visible panels (conversation,
+players, table), searchable targets and seats, night council, context message menus,
+quotes/history, read markers, explicit retry/discard, distinct finite game-event
+animations and concise event explanations. Reduced motion/no-fx/low devices keep
+the text. Events never derive hidden roles, replay on ordinary polls or take focus.
+Very short keyboard view keeps the role/clock in the header and composer in view.
+Server adds authorized action/channel metadata, genuine presence, explicit host
+handoff with independent lease, safe redaction, normalized settings/names and a
+15-minute common conversation after victory. No new dependency or destructive DDL.
+Local Mafia runtime, tables, Telegram adapters, commands, balance and rewards unchanged.
+
+Re-checks found and fixed: uncertainty error duplicated outside composer overflowed
+320x500; delivery acknowledgement pushed the composer below a 430px viewport;
+private composer had an outdated accessible label; tiny clock label lagged one tick.
+Canonical browser test updated rather than leaving a duplicate redesign suite.
+Read-only independent critic: no blocking regression; obsolete duplicate() removed.
+
+Evidence outside Git:
+`C:/Users/makss/.codex/visualizations/2026/10/22/01a1649c-2182-7b61-a921-ae28534fc832/mafia-online/release-2026-10-25/`.
+PASS: 90 settled phase layouts, 713 layout checks, 781 total audit checks; final
+70 functional checks include the corrected private composer label. Full production
+shell real signed auth/POST200, six mobile/keyboard views and cold invitation with
+delayed profile; canonical two-browser suite (lost committed ACK + newer draft,
+101-message burst, stale settings/history, phase events, departed target, private
+draft at dawn, real admin report/mute/unmute). Strict full-shell Mafia hub smoke:
+3 widths, zero failures/warnings. PostgreSQL audit: 15 full games/189 phases;
+seeded simulation: 34 complete games, sizes4..20, 456 phases,1630 moves,77 exits,
+85 pauses. Recovery/fullgame/lifecycle/resilience/access suites and local Mafia
+rules/service PG tests PASS. Client/poll/event VM, 50-chunk JS syntax, changed
+Python syntax, player-copy/guide,22patchnotes/news coverage/navigation contracts PASS.
+
+Guide and in-app news updated. TGK draft 2026-10-25-mafia-online.json uses cover;
+creator sends manually. No Telegram publication. Live online flag already true;
+release does not change flags. Remaining validation limit: no new human party on
+physical Telegram devices or screen-reader certification. Production deployment
+verification completed above; retained local preview uses synthetic players only.
+
+The accumulated 70-point audit follows. Items already shipped on 23 October are
+preserved regression requirements, not counted again as new changes in this commit.
+
+| # | Observed problem | Implemented result |
+|---:|---|---|
+| 1 | Хаб выглядел как перечень записей | Появились ночной город, игровое приглашение и существующий арт Предвестника. |
+| 2 | Главный вход терялся среди действий | Одна заметная кнопка «Играть» / «Вернуться в партию» находится до списка городов. |
+| 3 | Приходилось просматривать каждый стол | Поиск по номеру города и имени хозяина. |
+| 4 | Обновление хаба могло остановиться при открытых деталях | Периодическое обновление продолжает работать независимо от раскрытых блоков. |
+| 5 | Обновление сворачивало историю | Открытая история сохраняет раскрытое состояние. |
+| 6 | Создание и правила были спрятаны | Отдельные видимые действия, короткие правила и доступная форма создания. |
+| 7 | Настройка мест предлагала не все разрешённые размеры | Выбираются все значения от 4 до 20. |
+| 8 | Ручные роли оставались активными при Авто | Неактивный ручной список явно отключён. |
+| 9 | Несовместимый Дон обнаруживался только после запроса | При числе мест меньше восьми Дон отключён, рядом есть объяснение. |
+| 10 | Верхняя область содержала несколько вложенных прокруток | Разговор, игроки и стол получили самостоятельные панели. |
+| 11 | Навигация не имела клавиатурной модели вкладок | Стрелки, Home/End, roving tabindex и aria-selected. |
+| 12 | Роль приходилось раскрывать среди других деталей | Портрет и название своей роли постоянно видны. |
+| 13 | Этап и оставшееся время не складывались в ход партии | Показаны последовательность этапов, цель текущего этапа и полоска времени. |
+| 14 | Пауза и окончание разговора оставались неясны | На паузе виден сохранённый остаток; после игры — срок общего разговора и его закрытие. |
+| 15 | В партии на 20 человек цели вытесняли чат | Отдельное окно выбора со всеми доступными целями и кнопкой «Никого». |
+| 16 | Большой список целей неудобно искать | Поиск по имени и постоянному номеру места. |
+| 17 | Обновления и окна теряли инициатора фокуса | Нативное окно, Escape, возврат по ID после замены DOM. |
+| 18 | Новая проверка детектива терялась среди старых | Заметная отметка новой проверки; результаты показаны от новых к старым. |
+| 19 | Командный выбор мафии ощущался скрытым | Ночной «Совет» доступен из разговора и показывает подтверждённые выборы команды. |
+| 20 | Список игроков трудно было просмотреть | Поиск, порядок живых по местам и реальное присутствие. |
+| 21 | Участник не понимал настройки своего стола | Параметры доступны всем участникам для чтения во вкладке «Стол». |
+| 22 | Управление и смена хозяина были разбросаны | Пауза, продолжение, передача управления и настройки находятся в одной панели. |
+| 23 | Закрытие партии и выход не объясняли последствия | Отдельные подтверждения с конкретным результатом действия. |
+| 24 | Плохое прямое приглашение могло оставить вечную загрузку | Экран ошибки с возвратом; старые room/data больше не запускают фоновый опрос в пустой оболочке. |
+| 25 | Разговор выглядел как однообразный журнал | Различаются собственные, чужие и игровые сообщения. |
+| 26 | Время сообщения не давало контекста дня | Разделители дат, машинное datetime и полная дата по наведению. |
+| 27 | Действия сообщения возникали в общей ошибке внизу | Нативное контекстное окно с цитатой и уникальными доступными названиями кнопок. |
+| 28 | Цитата была тупиковой | Ответ показывает автора, отменяется отдельной кнопкой и ведёт к исходному сообщению с догрузкой истории. |
+| 29 | Жалоба и скрытие не объясняли результат | Причина жалобы необязательна, скрытие подтверждается, успех показывается рядом с действием. |
+| 30 | Лимит символов был невидим и неверно считал emoji | Счётчик по Unicode; 600 emoji помещаются и не обрезаются на 300. |
+| 31 | Многострочный текст неудобно редактировать | Поле растёт до разумной высоты; на коротком экране остаётся компактным. |
+| 32 | Адресат сообщения не был очевиден | Название и приватность разговора есть у поля ввода и в доступном имени. |
+| 33 | Новые сообщения и прочитанное состояние были непонятны | Числовой счётчик, переход вниз, позиция над текущим полем и сохранение прочитанного между перезагрузками. |
+| 34 | Догрузка истории блокировала остальные действия | Отдельный loadingOlder, сохранение прокрутки и защита от устаревшей истории. |
+| 35 | Повтор потерянной отправки мог стереть более новый текст | Неизменяемая сохранённая отправка и отдельный новый черновик/ответ. |
+| 36 | Отправка не имела понятного состояния | Отправляем / нет ответа / повтор без дубля / доставлено показаны у сообщения. |
+| 37 | Тикающий таймер мог бесконечно озвучивать весь статус | Отдельное тихое объявление этапа и события, время без aria-live. |
+| 38 | Смена этапов и личные события были будничными | Разные короткие анимации ночи, утра, роли, голосования, проверки, выбытия, результата, паузы и принятия хода. |
+| 39 | Эффекты могли стать шумом или мешать управлению | Приоритет событий, без повторов на опросе/reload, без перехвата фокуса; закрытие и reduced-motion. |
+| 40 | Длинный черновик + ответ + сбой отправки не помещались над клавиатурой | Исправлена составная компоновка 320×500; чат сохраняет не меньше 100 px. |
+| 41 | Финал выглядел обычной строкой состояния | Игровой заголовок, личный исход, раскрытие ролей, в том числе ушедших игроков, и следующая партия. |
+| 42 | Возврат из приватного разговора мог открывать начало журнала | Пустой канал не запоминает ложный scroll=0; прочитанный до конца разговор возвращается к новым сообщениям. |
+| 43 | Одно действие порождало событие и лишнее «Готово» | Убрано двойное уведомление, в том числе при автоматической смене канала. |
+| 44 | Права старых сообщений оставались такими, какими были ночью | Права меню обновляются по текущему снимку; на рассвете ответ снова доступен без замены самого сообщения. |
+| 45 | Наследуемая анимация обычной шторки сдвигала полный экран | Убрано конфликтующее движение полноэкранной оболочки; анимации остались у игровых событий. |
+| 46 | Повтор nonce с иным текстом | Повтор с изменённым содержимым отклоняется. |
+| 47 | Повтор nonce в ином канале | Отправка привязана к исходному разговору. |
+| 48 | Повтор nonce с иной цитатой | Родитель ответа входит в проверку повтора. |
+| 49 | Скрытое дочернее сообщение оставляло свою цитату | Убраны текст и метаданные цитаты скрытого сообщения. |
+| 50 | Скрытый родитель ответа не имел явного состояния | Возвращается reply_hidden без раскрытия прежнего текста. |
+| 51 | Меню угадывало права на сообщение | Снимок выдаёт can_reply/can_report/can_hide. |
+| 52 | Пустые и управляющие символы портили имена | Нормализация и понятное запасное имя. |
+| 53 | Новый игрок выглядел отсутствующим до первого опроса | Присутствие отмечается при создании/входе. |
+| 54 | Для присутствия требовались точные timestamps | Публичны только online и общее число присутствующих. |
+| 55 | Отсутствие хозяина было трудно объяснить | Явные host_online и claim_available_at. |
+| 56 | Нельзя было явно передать стол | Команда transfer с проверками прав, цели, фазы и повтора. |
+| 57 | Сведения о каналах могли стать источником утечек/лишних SQL | Только разрешённые каналы, их последний ID и доступность записи; один пакетный запрос. |
+| 58 | Клиент заново угадывал доступные действия | Сервер возвращает action_kind/targets/hint/can_act по настоящим правилам. |
+| 59 | Прогресс голосования требовал раскрытия голосов | Общее число голосовавших без целей и без сведений о ночных действиях. |
+| 60 | Время и пауза не имели полного контракта | Начало, длительность, сохранённый этап и остаток времени доступны явно. |
+| 61 | Истории не хватало контекста результата | Сводка включает доступ, голоса, живых, время завершения и причину. |
+| 62 | Проверка can_write принимала неизвестный канал | Неизвестные и недоступные каналы отклоняются. |
+| 63 | Ушедший игрок мог создавать новые жалобы | Новые жалобы доступны текущим участникам. |
+| 64 | Полностью покинутый город мог получить фиктивную победу | Пустая активная партия закрывается без победы мирных. |
+| 65 | Автосмена хозяина могла выбрать выбывшего/отсутствующего | Предпочтение живому присутствующему участнику. |
+| 66 | Повтор скрытия менял версии и сбрасывал разговор | Повторное скрытие идемпотентно. |
+| 67 | Авто-роли валидировали неактивный ручной список | Неактивный список игнорируется/очищается. |
+| 68 | Ручной список содержал дубликаты и разный порядок | Список нормализуется перед сохранением. |
+| 69 | Для несовместимого Дона была общая ошибка | Точное объяснение: нужно восемь мест или Авто. |
+| 70 | Переданный отсутствующему игроку стол можно было сразу перехватить | Отдельная host_since даёт 90 секунд без подделки online-присутствия. |
+
 ## PERF-SLICE-1-20261024 — completed locally (approved items 1,2,4,5,7,8,9)
 
 Owner approved specific optimization items; "startup DDL batching" rejected,
@@ -2162,3 +2294,4 @@ ambiguous durations and routes.
 - Проверки даров: Python/JS parity на 400 уровнях и 600 уровнях с принудительным новым даром; local games — 1130 случаев и 198 полей. Независимый read-only субагент не нашёл оставшихся блокеров.
 - Реальный локальный FastAPI + PG: получен ключ41-го, запас900→600 и дата следующей выдачи; выход из БП без error-toast; новый поиск; Ритм0/30. Ширины320/390/430 без горизонтальной прокрутки. Скриншот БП сохранён вне Git. Все UI-операции — только синтетический игрок990000001 в loopback-БД55434, production-балансы вручную не менялись.
 - Патч-ноут2026-10-25-pass-forty.json и «Что нового» готовы. Пост в канал отправляет создатель кнопкой админки; автоматическая отправка не запускалась. Статус production будет дописан после push и проверки.
+- Интеграция с новым master75910c94: сохранён уже выпущенный срез Мафии64f4310d, его статья Путеводителя и новость. Конфликт ленты решён объединением обеих записей. После merge: полный classic app syntax, guide/copy/patch-notes, pass UI, static ASGI и Mafia client/events — PASS.

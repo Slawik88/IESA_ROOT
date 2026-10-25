@@ -137,8 +137,16 @@ async def get_message(db, message_id):
     return dict(row) if row else None
 
 
-async def duplicate(db, room_id, user_id, nonce):
-    return await db.connection.fetchval("SELECT id FROM mafia_online_messages WHERE room_id=$1 AND user_id=$2 AND nonce=$3", room_id, user_id, nonce)
+async def message_receipt(db, room_id, user_id, nonce):
+    row = await db.connection.fetchrow("SELECT id,channel,body,reply_to FROM mafia_online_messages "
+                                     "WHERE room_id=$1 AND user_id=$2 AND nonce=$3", room_id, user_id, nonce)
+    return dict(row) if row else None
+
+
+async def channel_latest(db, room_id, allowed):
+    rows = await db.connection.fetch("SELECT channel,MAX(id) AS latest_id FROM mafia_online_messages "
+                                    "WHERE room_id=$1 AND channel=ANY($2::text[]) GROUP BY channel", room_id, allowed)
+    return {row["channel"]: row["latest_id"] for row in rows}
 
 
 async def last_message_at(db, user_id):
@@ -148,7 +156,7 @@ async def last_message_at(db, user_id):
 async def messages(db, room_id, channel, after, before=0):
     rows = await db.connection.fetch("SELECT m.id,m.user_id,m.name,m.seat,m.body,m.hidden,m.reply_to, "
         "EXTRACT(EPOCH FROM m.created_at)::float8 AS time, p.name AS reply_name, p.seat AS reply_seat, "
-        "CASE WHEN p.hidden THEN 'Сообщение скрыто' ELSE left(p.body,100) END AS reply_body "
+        "CASE WHEN p.hidden THEN 'Сообщение скрыто' ELSE left(p.body,100) END AS reply_body, p.hidden AS reply_hidden "
         "FROM mafia_online_messages m LEFT JOIN mafia_online_messages p ON p.id=m.reply_to AND p.room_id=m.room_id AND p.channel=m.channel "
         "WHERE m.room_id=$1 AND m.channel=$2 AND m.id>$3 AND ($4::bigint=0 OR m.id<$4) ORDER BY m.id " + ("ASC" if after else "DESC") + " LIMIT 80",
         room_id, channel, after, before)

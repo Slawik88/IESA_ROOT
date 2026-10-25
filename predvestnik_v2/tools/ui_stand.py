@@ -234,6 +234,14 @@ class Stand:
         return create_preprod_browser_ticket(PERSONA_ID)
 
     @property
+    def browser_init(self) -> str:
+        """Authenticate only this isolated persona on nonstandard loopback ports."""
+        if self.port == 8403:
+            return ""
+        from FastAPI.auth import create_session_token
+        return ";localStorage.setItem('pv_sess'," + json.dumps(create_session_token(PERSONA_ID)) + ");localStorage.removeItem('pv_uid');"
+
+    @property
     def url(self) -> str:
         return f"{self.base}/__preprod/activate?ticket={self.ticket}"
 
