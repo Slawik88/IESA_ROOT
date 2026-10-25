@@ -164,6 +164,7 @@ function _humanErr(msg, status){
 // чтобы действие без обработки ошибки не выглядело как «ничего не произошло».
 window.addEventListener('unhandledrejection', e => {
   const r = e.reason;
+  if (window.isCancelledPageTransition?.(r)) { e.preventDefault(); return; }
   // Строки — наши осмысленные reject'ы из api(), их показываем как есть.
   if (typeof r === 'string') {
     if (!r) return;

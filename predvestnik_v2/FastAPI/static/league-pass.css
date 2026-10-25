@@ -15,10 +15,6 @@
 .lgp-claim .lgp-chest { display: grid; place-items: center; width: 28px; height: 28px; }
 .lgp-claim .lga { width: 28px; height: 28px; }
 .lgp-claim.is-busy { opacity: .8; }
-.lgp-repeat { display: grid; gap: 8px; margin: 16px 0; padding: 16px; border: 1px solid var(--lg-gold); border-radius: 16px; background: var(--lg-surf); }
-.lgp-repeat p { margin: 0; color: var(--lg-dim); font-size: 13px; line-height: 1.5; }
-.lgp-repeat strong { color: var(--lg-gold); }
-.lgp-repeat small { color: var(--lg-dim); line-height: 1.5; }
 
 /* Лента: колонка на уровень — номер на линии прогресса, сверху бесплатная награда, снизу VIP («стекло» и замок без VIP) */
 .lgp-ribbon { position: relative; display: flex; margin: 14px -16px 0; padding: 4px 16px 10px; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; }
@@ -54,6 +50,19 @@
 .lgp-badge { position: absolute; top: 5px; right: 5px; width: 16px; height: 16px; }
 .lgp-badge.is-done { padding: 2px; border-radius: 50%; background: var(--lg-ok); color: var(--lg-bg); }
 .lgp-badge.is-lock { color: var(--lg-gold); }
+
+/* Возобновляемый уровень продолжает ленту и объединяет обе дорожки: одна награда для всех. */
+.lgp-col.lgp-repeat-col { width: 164px; }
+.lgp-repeat-col .lgp-num { color: var(--lg-gold); }
+.lgp-repeat-cell { grid-row: 2 / 4; gap: 4px; padding: 8px; border-color: var(--lg-gold); background: linear-gradient(155deg, rgba(245,207,115,.12), var(--lg-surf) 70%); }
+.lgp-repeat-badge { color: var(--lg-gold); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.lgp-repeat-cell .lgp-art, .lgp-repeat-cell .lgp-art .lga { width: 28px; height: 28px; }
+.lgp-repeat-cell strong { color: var(--lg-gold); font-size: 12px; font-variant-numeric: tabular-nums; }
+.lgp-repeat-cell small { color: var(--lg-dim); font-size: 12px; line-height: 1.35; }
+.lgp-repeat-state { min-height: 15px; }
+.lgp-repeat-state span { display: block; }
+.lgp-repeat-note { color: var(--lg-dim); font-size: 11px; }
+.lgp-repeat-cell.is-ready .lgp-repeat-state { color: var(--lg-gold); }
 
 /* Сводка полученного: ключи «повисают» и покачиваются (один раз, только с движением) */
 .lgp-sum { display: grid; gap: 10px; margin: 2px 0 12px; padding: 0; list-style: none; }

@@ -8,16 +8,30 @@
   const date = iso => new Date(iso).toLocaleDateString('ru-RU', {day: 'numeric', month: 'long', timeZone: 'UTC'});
   const STATE = {claimed: 'получено', ready: 'можно забрать', locked: 'ещё не открыто', vip: 'нужен VIP от 1 месяца'};
 
-  function repeat(s) {
+  function repeat(s, me) {
     const r = s.repeat;
-    if (!s.current || s.level < s.levels || !r) return '';
+    if (!s.current || !r) return '';
+    const locked = s.level < s.levels;
     const until = r.next_claim_at && new Date(r.next_claim_at);
-    const wait = until && until.getTime() > Date.now();
+    const wait = !r.ready && until && until.getTime() > Date.now();
     const time = wait ? until.toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}) : '';
-    return `<aside class="lgp-repeat"><b>Уровень ${r.level} · снова и снова</b>
-      <p>🗝 Обычный ключ: сундук от ${r.key_tier}★. Каждые ${r.xp_per_claim} опыта — ещё один ключ, не чаще раза в ${r.wait_hours} часов.</p>
-      <strong>${r.banked_xp} опыта в запасе</strong>
-      <small>${wait ? `Следующий ключ можно забрать ${time} (твоё время).` : r.ready ? 'Ключ готов — нажми «Забрать награды».' : `Осталось ${Math.max(0, r.xp_per_claim - r.banked_xp)} опыта до ключа.`} Опыт копится и во время ожидания.</small></aside>`;
+    let status = 'Обнови экран Пропуска';
+    if (locked) status = `После уровня ${s.levels}`;
+    else if (!me.account.eligible) status = `Аккаунту нужно ${me.account.min_days} дней`;
+    else if (r.ready) status = 'Можно забрать';
+    else if (wait) status = `Снова ${time}`;
+    else if (r.banked_xp < r.xp_per_claim) status = `Ещё ${r.xp_per_claim - r.banked_xp} опыта`;
+    return `<li class="lgp-col lgp-repeat-col ${locked ? '' : 'is-current is-reached'}">
+      <span class="lgp-num">${r.level}</span>
+      <div class="lgp-cell lgp-repeat-cell ${locked ? 'is-locked' : r.ready && me.account.eligible ? 'is-ready' : ''}" data-cell="${r.level}-free" role="listitem" aria-label="Уровень ${r.level}, возобновляемый, для всех. Обычный ключ от ${r.key_tier} звезды за ${r.xp_per_claim} опыта, раз в ${r.wait_hours} часов. ${L().esc(status)}">
+        <span class="lgp-repeat-badge">↻ Возобновляемый</span>
+        <span class="lgp-art">${A().icon('key', `lga-key--${A().METAL[r.key_tier] || 'iron'}`)}</span>
+        <b>Обычный ключ · ${r.key_tier}★+</b>
+        <small>${r.xp_per_claim} опыта · раз в ${r.wait_hours} ч</small>
+        <strong>${locked ? 'Откроется после финала' : `${r.banked_xp} опыта в запасе`}</strong>
+        <small class="lgp-repeat-state">${L().esc(status)}${wait && !locked && me.account.eligible ? '<span>твоё время</span>' : ''}</small>
+        <span class="lgp-repeat-note">Одна награда для всех</span>
+      </div></li>`;
   }
 
   function cell(level, track, item) {
@@ -30,10 +44,10 @@
   function season(s, me) {
     const ready = s.track.reduce((n, r) => n + (r.free.state === 'ready') + (r.vip.state === 'ready'), 0) + Number(!!(s.current && s.repeat?.ready)), can = ready && me.account.eligible;
     const max = s.level >= s.levels, into = max ? s.xp_per_level : s.xp_per_level - s.xp_to_next;
-    const cols = s.track.map(r => `<li class="lgp-col ${r.level <= s.level ? 'is-reached' : ''} ${r.level === Math.min(s.levels, s.level + 1) ? 'is-current' : ''} ${r.level % 10 === 0 ? 'is-mile' : ''}">
+    const cols = s.track.map(r => `<li class="lgp-col ${r.level <= s.level ? 'is-reached' : ''} ${r.level === s.level + 1 ? 'is-current' : ''} ${r.level % 10 === 0 ? 'is-mile' : ''}">
       <span class="lgp-num">${r.level}</span>${cell(r.level, 'free', r.free)}${cell(r.level, 'vip', r.vip)}</li>`).join('');
     const why = !me.account.eligible ? `Забрать награды можно, когда аккаунту исполнится ${me.account.min_days} дней. Опыт копится уже сейчас.`
-      : ready ? '' : s.current ? 'Новых наград пока нет — проходи уровни в режиме «Рейтинг».' : '';
+      : '';
     return `<section class="lgp" data-season="${s.season}" aria-label="Пропуск сезона ${s.season}">
       <div class="lgp-head"><div>${s.current ? '' : `<small class="lg-eyebrow">Пропуск сезона ${s.season} · закончился</small>`}
         <p class="lgp-lvl">Уровень <b data-count="pass-${s.season}">${s.level}</b><small> из ${s.levels}</small></p></div>
@@ -41,12 +55,10 @@
       <div class="lgp-xp"><div class="lgp-bar ${can ? 'is-ready' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="${s.xp_per_level}" aria-valuenow="${into}" aria-label="Опыт до следующего уровня">
         <i style="transform:scaleX(${(into / s.xp_per_level).toFixed(3)})"></i></div>
         <small>${max ? `Все уровни открыты · ${s.xp} опыта` : `${into}/${s.xp_per_level} до уровня ${s.level + 1} · ${s.current ? `до ${date(s.ends_at)}` : `забрать до ${date(s.claim_until)}`}`}</small></div>
-      ${repeat(s)}
       ${can ? `<button type="button" class="lg-cta lgp-claim" data-claim="${s.season}"><span class="lgp-chest">${A().icon('chest')}</span>Забрать награды · ${ready}</button>` : ''}
       ${why ? `<p class="lg-rules">${why}</p>` : ''}<p class="lg-error" role="alert" id="lp-err-${s.season}"></p>
-      <p class="lg-rules">VIP-дорожка: активная подписка сроком от ${me.vip_min_days} дней. Если до конца осталось меньше месяца, доступ сохраняется до окончания подписки.</p>
       <div class="lgp-ribbon" tabindex="0" aria-label="Награды по уровням, листай вбок"><div class="lgp-rows" aria-hidden="true"><span>Бесплатно</span><span>VIP от 1 месяца</span></div>
-        <ol role="list">${cols}</ol></div></section>`;
+        <ol role="list">${cols}${repeat(s, me)}</ol></div></section>`;
   }
 
   async function render(host, fresh = null) {
@@ -125,7 +137,7 @@
     const jobs = granted.slice(0, FLY_MAX).map((g, i) => {
       const c = sec.querySelector(`[data-cell="${g.level}-${g.track}"]`), r = c?.getBoundingClientRect();
       const from = r && r.left >= box.left - 4 && r.right <= box.right + 4 ? c : ribbon;
-      setTimeout(() => { c?.classList.add('is-claimed'); c?.classList.remove('is-ready'); }, i * 90);
+      setTimeout(() => { if (!c?.classList.contains('lgp-repeat-cell')) c?.classList.add('is-claimed'); c?.classList.remove('is-ready'); }, i * 90);
       return Fx().fly(from, chest, A().reward(g.text).art, i * 90);
     });
     await Promise.all(jobs);
