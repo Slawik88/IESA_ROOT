@@ -81,10 +81,31 @@ def test_gift_plan_is_shared() -> None:
     assert rules.gift_plan("s", 7, 2) != plan or rules.gift_plan("s", 8, 1) != plan
 
 
+def test_gift_pool_of_a_level_is_kept() -> None:
+    """A level started before the series gifts keeps offering the old gifts; a new one may offer the new ones."""
+    series = {item.id for item in rhythm.PERKS if item.since >= 8}
+    assert series and rules.GIFT_POOL_BEFORE_SERIES < rules.GIFT_POOL_NOW
+    for level in range(1, 120):
+        for draft in (1, 2):
+            assert not series & set(rules.gift_plan("s", level, draft, rules.GIFT_POOL_BEFORE_SERIES))
+            assert len(set(rules.gift_plan("s", level, draft))) == 3
+    assert any(series & set(rules.gift_plan("s", level, 1)) for level in range(1, 120))
+    rng, rejected = random.Random(9), 0
+    for level in range(5, 60):
+        seed = rng.randbytes(32)
+        old = honest_journal(level, seed, rng, gifts=True, pool_number=rules.GIFT_POOL_BEFORE_SERIES)
+        assert lr.replay(season="t", level=level, seed=seed, actions=old, pool_number=rules.GIFT_POOL_BEFORE_SERIES)["score"] >= 0
+        try:
+            lr.replay(season="t", level=level, seed=seed, actions=old)   # the new plan, same journal
+        except rules.LeagueRuleError:
+            rejected += 1
+    assert rejected, "the pool marker is what lets an old level finish: without it some old journals are refused"
+
+
 def honest_journal(level: int, seed: bytes, rng: random.Random, rt: float = 520, slip: float = 0.03,
-                   guess: float = 0.02, gifts: bool = True, season: str = "t") -> list[dict]:
+                   guess: float = 0.02, gifts: bool = True, season: str = "t", pool_number: int = rules.GIFT_POOL_NOW) -> list[dict]:
     """A human: log-normal reaction, a few wrong runes, a few anticipations (guesses before the rune is seen)."""
-    packet = lr.packet(season=season, level=level, seed=seed)
+    packet = lr.packet(season=season, level=level, seed=seed, pool_number=pool_number)
     spec = rules.rhythm_level(level)
     state, actions = lr._new_state(spec), []
     while state["health"] > 0 and state["signal"] <= spec.signals:

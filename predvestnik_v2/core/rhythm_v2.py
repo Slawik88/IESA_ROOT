@@ -11,19 +11,19 @@ the service layer; a browser only renders it and submits a rune tap.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import hashlib
 import hmac
 from typing import Final, Literal
 
 from core import rhythm_weather as weather
+from core.rhythm_gifts import PERK_BY_ID as _PERK_BY_ID, PERKS, Perk  # noqa: F401  (re-exported: the catalog lives in rhythm_gifts)
 
 
-RULESET_VERSION: Final = "rhythm-v2-rules-7"     # + chunk weather (core/rhythm_weather.py)
-PREVIOUS_RULESET_VERSION: Final = "rhythm-v2-rules-6"
+RULESET_VERSION: Final = "rhythm-v2-rules-8"     # + series gifts (core/rhythm_gifts.py); rules-7 added chunk weather
+PREVIOUS_RULESET_VERSION: Final = "rhythm-v2-rules-6"   # new runs before the season-2 switch (core/rhythm_weather.py)
 LEGACY_RULESET_VERSIONS: Final = frozenset({"rhythm-v2-rules-5"})   # offered gifts without the three newer ones
+SUPPORTED_RULESETS: Final = frozenset({"rhythm-v2-rules-5", "rhythm-v2-rules-6", "rhythm-v2-rules-7", RULESET_VERSION})
 Mode = Literal["normal", "augments"]  # "augments" is only a legacy alias of "normal"
-PerkKind = Literal["safe", "boost", "risk"]
 RUNES: Final = ("left", "center", "right")
 CHUNK_SIZE: Final = 20
 SPEED_GROWTH_PERCENT: Final = 8   # pace grows by this much per finished chunk, compounding
@@ -38,67 +38,12 @@ RESUME_LEAD_MS: Final = 3_000   # breathing room after a gift is taken
 TAP_GRACE_MS: Final = 250       # network slack: a tap this late past the window still counts (scored as the slowest tier)
 
 
-@dataclass(frozen=True)
-class Perk:
-    id: str
-    kind: PerkKind
-    name: str
-    bonus: str
-    cost: str
-    max_stack: int = 2
-    filler: bool = False        # only offered when fewer than three real gifts remain
-    # Permanent per-copy effects (summed over copies):
-    window_pct: int = 0
-    score_pct: int = 0
-    pace_pct: int = 0
-    damage_extra: int = 0       # extra hearts lost by every mistake
-    wrong_extra: int = 0        # extra hearts lost by a wrong rune only
-    combo_step: int = 0         # extra score per combo step (base 4)
-    combo_cap: int = 0          # extra combo bonus cap (base 80)
-    regen_every: int = 0        # +1 heart every N correct taps in a row
-    timeout_free: bool = False  # every second missed signal costs no heart
-    sharp_eye: bool = False     # exact taps pay more, slow taps pay less
-    cadence_every: int = 0     # periodic scoring within an unbroken combo
-    cadence_bonus_pct: int = 0
-    low_health_bonus_pct: int = 0
-    recovery_signals: int = 0  # wider windows after paid health loss, not shields
-    sacrifice: int = 0        # hearts paid immediately on selection
-    # One-off effects applied when the gift is taken:
-    heal: int = 0
-    shield: int = 0
-    ebb: int = 0                # signals with a wider window
-    bloody: int = 0             # taps with triple score
-    cap_health: int = 0         # health is cut to this value (0 = no cut)
-
-
-# Every gift changes authoritative fields and always carries a price.
-PERKS: Final[tuple[Perk, ...]] = (
-    Perk("iron_heart", "safe", "Железное сердце", "+2 сердца сразу", "окно нажатия уже на 10%", window_pct=-10, heal=2),
-    Perk("stone_shield", "safe", "Каменный щит", "гасит одну ошибку", "очки ниже на 12%", score_pct=-12, shield=1),
-    Perk("tailwind", "safe", "Попутный ветер", "окно нажатия шире на 18%", "очки ниже на 18%", window_pct=18, score_pct=-18),
-    Perk("vampire", "safe", "Вампир", "+1 сердце за каждые 15 верных подряд", "очки ниже на 10%", score_pct=-10, regen_every=15),
-    Perk("ebb_tide", "safe", "Отлив", "следующие 12 тактов окно шире на 40%", "темп выше на 8% навсегда", pace_pct=8, ebb=12),
-    Perk("gold_vein", "boost", "Золотая жила", "очки выше на 35%", "каждая ошибка отнимает на сердце больше", score_pct=35, damage_extra=1),
-    Perk("sprint", "boost", "Спринт", "очки выше на 30%", "темп выше на 12%", score_pct=30, pace_pct=12),
-    Perk("echo_chain", "boost", "Цепь эха", "серия растёт вдвое быстрее и копит больше", "окно нажатия уже на 8%", window_pct=-8, combo_step=4, combo_cap=80),
-    Perk("steady_hand", "boost", "Твёрдая рука", "пропущенные такты вдвое реже отнимают сердце", "неверная руна отнимает ещё одно сердце", max_stack=1, timeout_free=True, wrong_extra=1),
-    Perk("sharp_eye", "boost", "Меткий глаз", "точные нажатия дают в 1,5 раза больше очков", "медленные нажатия дают вдвое меньше", max_stack=1, sharp_eye=True),
-    Perk("gambit", "risk", "Ставка", "очки выше на 30%", "окно нажатия уже на 12%", score_pct=30, window_pct=-12),
-    Perk("blood_price", "risk", "Цена крови", "тройные очки на 20 верных нажатий", "теряешь сердце сразу", max_stack=1, bloody=20),
-    Perk("metronome", "boost", "Метроном", "каждое 4-е нажатие в серии: +115% очков", "остальные нажатия: −15% очков", max_stack=1, score_pct=-15, cadence_every=4, cadence_bonus_pct=130),
-    Perk("last_spark", "risk", "Последняя искра", "при 1–2 сердцах: +25% очков", "−1 сердце сразу; при 3+ сердцах: −8% очков", max_stack=1, score_pct=-8, low_health_bonus_pct=33, sacrifice=1),
-    Perk("second_wind", "safe", "Второе дыхание", "после потери сердца окно шире на 25% в течение 3 тактов", "очки ниже на 12%", max_stack=1, score_pct=-12, recovery_signals=3),
-    Perk("breather", "safe", "Передышка", "+1 сердце", "темп выше на 5%", max_stack=99, pace_pct=5, heal=1, filler=True),
-    Perk("glass_cannon", "risk", "Стеклянная пушка", "очки выше на 60%", "здоровье падает до 2 сердец", max_stack=1, score_pct=60, cap_health=2),
-)
-_PERK_BY_ID: Final = {item.id: item for item in PERKS}
-_NEW_PERK_IDS: Final = frozenset({"metronome", "last_spark", "second_wind"})
-assert len(_PERK_BY_ID) == len(PERKS) == 17
 
 COMBO_STEP: Final = 4
 COMBO_CAP: Final = 80
 MIN_SCORE_PCT: Final = -60
 MIN_WINDOW_PCT: Final = -45
+MAX_COMBO_KEEP_PCT: Final = 75   # no stack of gifts may make the series unbreakable
 
 
 class RhythmRuleError(ValueError):
@@ -114,7 +59,7 @@ def perk(perk_id: str) -> Perk:
 
 def new_perks() -> dict:
     """Live state of the gifts of one run; persisted next to the run row."""
-    return {"owned": {}, "shield": 0, "ebb": 0, "bloody": 0, "miss_debt": 0, "recovery": 0, "weather": 0}
+    return {"owned": {}, "shield": 0, "ebb": 0, "bloody": 0, "miss_debt": 0, "recovery": 0, "revive": 0, "weather": 0}
 
 
 def normalize_perks(value) -> dict:
@@ -123,9 +68,10 @@ def normalize_perks(value) -> dict:
     owned = value.get("owned") if isinstance(value.get("owned"), dict) else {}
     result["owned"] = {key: max(0, int(count)) for key, count in owned.items()
                        if key in _PERK_BY_ID and int(count) > 0}
-    for key in ("shield", "ebb", "bloody", "miss_debt", "recovery"):
+    for key in ("shield", "ebb", "bloody", "miss_debt", "recovery", "revive"):
         result[key] = max(0, int(value.get(key, 0) or 0))
     result["recovery"] = min(3, result["recovery"])
+    result["revive"] = min(BASE_HEALTH, result["revive"])
     result["weather"] = 1 if value.get("weather") else 0   # derived from the run's ruleset by the service
     return result
 
@@ -175,7 +121,20 @@ def _eligible(item: Perk, *, health: int, perks: dict) -> bool:
     return True
 
 
-def perk_offers(seed: bytes, draft_no: int, *, health: int, perks: dict, legacy: bool = False) -> tuple[str, ...]:
+def ruleset_number(version: str | None) -> int:
+    """The trailing number of "rhythm-v2-rules-N"; a missing or unreadable version means the current rules."""
+    try:
+        return int(str(version if version is not None else RULESET_VERSION).rsplit("-", 1)[1])
+    except (IndexError, ValueError):
+        return ruleset_number(None)
+
+
+def in_pool(item: Perk, ruleset_version: str | None) -> bool:
+    """A run offers only the gifts that existed in its ruleset, so a new gift never reshuffles a run in progress."""
+    return item.since <= ruleset_number(ruleset_version)
+
+
+def perk_offers(seed: bytes, draft_no: int, *, health: int, perks: dict, ruleset_version: str | None = None) -> tuple[str, ...]:
     """Three repeatable offers for one draft, always including a safe gift."""
     if draft_no < 1:
         raise RhythmRuleError("draft number must be positive")
@@ -184,7 +143,7 @@ def perk_offers(seed: bytes, draft_no: int, *, health: int, perks: dict, legacy:
             (item for item in items if _eligible(item, health=health, perks=perks)),
             key=lambda item: hmac.new(seed, f"perk:{draft_no}:{item.id}".encode(), hashlib.sha256).digest(),
         )
-    ranked = ranking(item for item in PERKS if not item.filler and (not legacy or item.id not in _NEW_PERK_IDS))
+    ranked = ranking(item for item in PERKS if not item.filler and in_pool(item, ruleset_version))
     chosen = ranked[:3]
     if len(chosen) < 3:
         chosen += ranking(item for item in PERKS if item.filler)[:3 - len(chosen)]
@@ -206,6 +165,7 @@ def apply_perk(perk_id: str, *, health: int, perks: dict) -> tuple[int, dict]:
     perks["shield"] += item.shield
     perks["ebb"] = max(perks["ebb"], item.ebb)
     perks["bloody"] = max(perks["bloody"], item.bloody)
+    perks["revive"] = max(perks.get("revive", 0), item.revive)
     if item.cap_health:
         health = min(health, item.cap_health)
     if item.id == "blood_price":
@@ -240,6 +200,20 @@ def initial_health() -> int:
     return BASE_HEALTH
 
 
+def situational_bonus_pct(perks: dict, *, combo_before: int, health: int) -> int:
+    """Score bonus that depends on the moment: the cadence tap, low health and a long unbroken series."""
+    bonus = sum(item.cadence_bonus_pct * count for key, count in perks["owned"].items()
+                if (item := _PERK_BY_ID[key]).cadence_every and (combo_before + 1) % item.cadence_every == 0)
+    bonus += sum(item.streak_bonus_pct * count for key, count in perks["owned"].items()
+                 if (item := _PERK_BY_ID[key]).streak_bonus_pct and combo_before >= item.streak_bonus_from)
+    return bonus + (_total(perks, "low_health_bonus_pct") if health <= 2 else 0)
+
+
+def combo_after_error(combo: int, perks: dict) -> int:
+    """The series after a mistake: zero, or the share an Anchor lets survive."""
+    return combo * min(MAX_COMBO_KEEP_PCT, _total(perks, "combo_keep_pct")) // 100
+
+
 def score_for_correct(*, elapsed_ms: int, allowed_window_ms: int, combo_before: int,
                       perks: dict | None = None, health: int = BASE_HEALTH, signal_no: int | None = None) -> int:
     perks = perks or new_perks()
@@ -254,10 +228,7 @@ def score_for_correct(*, elapsed_ms: int, allowed_window_ms: int, combo_before: 
     step = COMBO_STEP + _total(perks, "combo_step")
     cap = COMBO_CAP + _total(perks, "combo_cap")
     raw = (timing + min(cap, combo_before * step)) * (3 if perks["bloody"] > 0 else 1)
-    bonus = sum(item.cadence_bonus_pct * count for key, count in perks['owned'].items()
-                if (item := _PERK_BY_ID[key]).cadence_every and (combo_before + 1) % item.cadence_every == 0)
-    if health <= 2:
-        bonus += _total(perks, 'low_health_bonus_pct')
+    bonus = situational_bonus_pct(perks, combo_before=combo_before, health=health)
     percent = max(MIN_SCORE_PCT, _total(perks, "score_pct") + bonus + weather.score_pct(signal_no, perks))
     return max(1, raw * (100 + percent) // 100)
 
@@ -272,6 +243,10 @@ def after_correct(perks: dict, *, health: int, streak_after: int, signal_no: int
         every = min(every or weather.SPRING_EVERY, weather.regen_every(signal_no, perks))
     if every and streak_after > 0 and streak_after % every == 0:
         health = min(MAX_HEALTH, health + 1)
+    recharge = min((item.shield_every for key in perks["owned"] if (item := _PERK_BY_ID[key]).shield_every), default=0)
+    cap = max((item.shield_cap for key in perks["owned"] if (item := _PERK_BY_ID[key]).shield_every), default=0)
+    if recharge and streak_after > 0 and streak_after % recharge == 0 and perks["shield"] < cap:
+        perks["shield"] += 1
     return health, perks
 
 
@@ -290,6 +265,8 @@ def after_error(*, health: int, perks: dict, timed_out: bool, signal_no: int | N
             return health, perks
     damage = 1 + _total(perks, "damage_extra") + (0 if timed_out else _total(perks, "wrong_extra")) + weather.damage_extra(signal_no, perks)
     remaining = max(0, health - damage)
+    if remaining == 0 and perks.get("revive", 0) > 0:
+        remaining, perks["revive"] = perks["revive"], 0   # the Phoenix: once, the run goes on
     if remaining > 0:
         perks['recovery'] = max(perks['recovery'], max((item.recovery_signals for key in perks['owned'] if (item := _PERK_BY_ID[key]).recovery_signals), default=0))
     return remaining, perks

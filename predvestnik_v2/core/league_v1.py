@@ -155,10 +155,7 @@ def rhythm_score(*, elapsed_ms: int, window_ms: int, combo_before: int, perks: d
     step = rhythm.COMBO_STEP + rhythm._total(perks, "combo_step")
     cap = rhythm.COMBO_CAP + rhythm._total(perks, "combo_cap")
     raw = (timing + min(cap, combo_before * step)) * (3 if perks["bloody"] > 0 else 1)
-    bonus = sum(item.cadence_bonus_pct * count for key, count in perks["owned"].items()
-                if (item := rhythm.perk(key)).cadence_every and (combo_before + 1) % item.cadence_every == 0)
-    if health <= 2:
-        bonus += rhythm._total(perks, "low_health_bonus_pct")
+    bonus = rhythm.situational_bonus_pct(perks, combo_before=combo_before, health=health)
     percent = min(MAX_SCORE_BONUS_PCT, max(rhythm.MIN_SCORE_PCT, rhythm._total(perks, "score_pct") + bonus))
     return max(1, raw * (100 + percent) // 100)
 
@@ -168,10 +165,14 @@ def rhythm_drafts(spec: RhythmLevel) -> int:
     return (spec.signals - 1) // RHYTHM_CHUNK
 
 
-def gift_plan(season: str, level: int, draft_no: int) -> tuple[str, ...]:
+GIFT_POOL_NOW: Final = rhythm.ruleset_number(rhythm.RULESET_VERSION)   # a level keeps the gift pool it was started with
+GIFT_POOL_BEFORE_SERIES: Final = 7
+
+
+def gift_plan(season: str, level: int, draft_no: int, pool_number: int = GIFT_POOL_NOW) -> tuple[str, ...]:
     """Three gifts of one choice: the same for every player of this season and level (state never changes them)."""
     key = hashlib.sha256(f"league:{season}".encode()).digest()
-    pool = [item for item in rhythm.PERKS if not item.filler]
+    pool = [item for item in rhythm.PERKS if not item.filler and item.since <= pool_number]
     pool.sort(key=lambda item: hmac.new(key, f"{level}:{draft_no}:{item.id}".encode(), hashlib.sha256).digest())
     chosen = pool[:3]
     if not any(item.kind == "safe" for item in chosen):

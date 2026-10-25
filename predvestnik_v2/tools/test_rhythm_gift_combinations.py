@@ -14,7 +14,7 @@ def points(p,health=5,combo=0,elapsed=10):
 
 
 def run():
- ids=[p.id for p in r.PERKS if not p.filler];new=('metronome','last_spark','second_wind')
+ ids=[p.id for p in r.PERKS if not p.filler];new=tuple(p.id for p in r.PERKS if p.since>5 and not p.filler)
  cases=0
  for count in (1,2,3):
   for selected in product(ids,repeat=count):
@@ -43,8 +43,8 @@ def run():
  _,m=chain(('metronome',));assert points(m,combo=0)==85 and points(m,combo=3)==240
  assert points(m,combo=4)==98
  # Even maximally stacked score gifts keep the burst below the fixed bound.
- peak=r.new_perks();peak['owned']={item.id:item.max_stack for item in r.PERKS if item.score_pct>0 or item.combo_step or item.sharp_eye or item.id in ('metronome','last_spark')};peak['bloody']=20
- assert points(peak,health=2,combo=999)==5733
+ peak=r.new_perks();peak['owned']={item.id:item.max_stack for item in r.PERKS if item.score_pct>0 or item.combo_step or item.sharp_eye or item.streak_bonus_pct or item.id in ('metronome','last_spark')};peak['bloody']=20
+ assert points(peak,health=2,combo=999)==6259  # was 5733 before the series gifts: Hot streak and Trade add 9%, still one bounded burst
  # Recovery lasts three signals, never heals or triggers on shields/free misses.
  hp,p=chain(('second_wind','stone_shield'))
  hp,p=r.after_error(health=hp,perks=p,timed_out=False);assert hp==5 and p['recovery']==0
@@ -64,7 +64,8 @@ def run():
  before=points(p,health=hp);hp,p=r.after_correct(p,health=hp,streak_after=15)
  assert hp==3 and before>points(p,health=hp)
  for draft in range(1,101):
-  assert not set(new).intersection(r.perk_offers(b'legacy',draft,health=5,perks=r.new_perks(),legacy=True))
- print(f'PASS: {cases} eligible singles/ordered pairs/new triples across five health states; burst bounds, cadence, recovery, vampire timing and legacy pool')
+  assert not set(new).intersection(r.perk_offers(b'legacy',draft,health=5,perks=r.new_perks(),ruleset_version='rhythm-v2-rules-5'))
+  assert not {p.id for p in r.PERKS if p.since>=8}.intersection(r.perk_offers(b'legacy',draft,health=5,perks=r.new_perks(),ruleset_version='rhythm-v2-rules-7'))
+ print(f'PASS: {cases} eligible singles/ordered pairs/new triples across five health states; burst bounds, cadence, recovery, vampire timing, series gifts and legacy pools')
 
 if __name__=='__main__':run()

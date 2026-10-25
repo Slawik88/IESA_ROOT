@@ -23,7 +23,7 @@ def play(rng: random.Random, *, rt_median: float, slip: float, policy: str, limi
     while signal <= limit:
         if rules.draft_pending(next_signal_no=signal, picks=picks):
             picks += 1
-            offers = rules.perk_offers(seed, picks, health=health, perks=perks, legacy=legacy)
+            offers = rules.perk_offers(seed, picks, health=health, perks=perks, ruleset_version="rhythm-v2-rules-5" if legacy else None)
             if policy == "safe":
                 pool = [o for o in offers if rules.perk(o).kind == "safe"] or list(offers)
             elif policy == "score":

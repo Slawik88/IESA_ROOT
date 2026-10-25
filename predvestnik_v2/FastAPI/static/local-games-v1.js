@@ -31,7 +31,7 @@
       const p=clone(this.data.template);
       p.run_id=crypto.randomUUID();p.seed=Array.from(crypto.getRandomValues(new Uint8Array(32)),x=>x.toString(16).padStart(2,'0')).join('');
       p.origin={seed:p.seed,ruleset_version:p.ruleset_version||p.state.ruleset_version,difficulty:p.state.difficulty};
-      if(game==='rhythm')p.state={status:'active',selected:[],perks:{owned:{},shield:0,ebb:0,bloody:0,miss_debt:0,recovery:0,weather:0},health:5,score:0,combo:0,correct_streak:0,correct_taps:0,mistakes:0,next_signal_no:1,signal_opened_at:null,finished_at:null,analysis:null};
+      if(game==='rhythm')p.state={status:'active',selected:[],perks:{owned:{},shield:0,ebb:0,bloody:0,miss_debt:0,recovery:0,revive:0,weather:0},health:5,score:0,combo:0,correct_streak:0,correct_taps:0,mistakes:0,next_signal_no:1,signal_opened_at:null,finished_at:null,analysis:null};
       else {
         // Upgrade only NEW boards, never mutate an active packet or its journal.
         p.ruleset_version=p.origin.ruleset_version='minesweeper-v2';
@@ -139,7 +139,11 @@
       if (this.total('sharp_eye', p)) timing = tier === 0 ? floor(timing * 3 / 2) : tier === 2 ? floor(timing / 2) : timing;
       const raw = (timing + Math.min(80 + this.total('combo_cap', p), s.combo * (4 + this.total('combo_step', p)))) * (p.bloody > 0 ? 3 : 1);
       let bonus = 0;
-      for (const [id, count] of Object.entries(p.owned)) { const g = this.catalog[id]; if (g.cadence_every && (s.combo + 1) % g.cadence_every === 0) bonus += count * g.cadence_bonus_pct; }
+      for (const [id, count] of Object.entries(p.owned)) {
+        const g = this.catalog[id];
+        if (g.cadence_every && (s.combo + 1) % g.cadence_every === 0) bonus += count * g.cadence_bonus_pct;
+        if (g.streak_bonus_pct && s.combo >= g.streak_bonus_from) bonus += count * g.streak_bonus_pct;
+      }
       if (health <= 2) bonus += this.total('low_health_bonus_pct', p);
       return Math.max(1, floor(raw * (100 + Math.max(-60, this.total('score_pct', p) + bonus + this.fx('score_pct'))) / 100));
     }
@@ -148,10 +152,13 @@
       return g.filler || !((p.owned[g.id] || 0) >= g.max_stack || g.sacrifice && s.health <= g.sacrifice ||
         g.recovery_signals && s.health <= 1 || g.heal && s.health >= 7 || g.id === 'blood_price' && s.health < 3 || g.cap_health && s.health <= g.cap_health);
     }
+    // Набор даров забега — по версии правил, с которой он начат (core/rhythm_v2.py in_pool); у старых каталогов поля since нет
+    rulesetNumber() { const m = /-(\d+)$/.exec(this.packet.ruleset_version || ''); return m ? Number(m[1]) : this.packet.legacy ? 5 : 99; }
+    inPool(g) { return (g.since ?? (['metronome', 'last_spark', 'second_wind'].includes(g.id) ? 6 : 5)) <= this.rulesetNumber(); }
     async offers() {
       const number = this.state.selected.length + 1;
-      const sorted = await Promise.all(Object.values(this.catalog).filter(g => this.eligible(g) &&
-        !(this.packet.legacy && ['metronome', 'last_spark', 'second_wind'].includes(g.id))).map(async g => ({ g, h: await this.hash('perk:' + number + ':' + g.id) })));
+      const sorted = await Promise.all(Object.values(this.catalog).filter(g => this.eligible(g) && this.inPool(g))
+        .map(async g => ({ g, h: await this.hash('perk:' + number + ':' + g.id) })));
       sorted.sort((a, b) => { for (let i = 0; i < a.h.length; i++) if (a.h[i] !== b.h[i]) return a.h[i] - b.h[i]; return 0; });
       const ranked = sorted.filter(x => !x.g.filler).map(x => x.g), chosen = ranked.slice(0, 3);
       chosen.push(...sorted.filter(x => x.g.filler).map(x => x.g).slice(0, 3 - chosen.length));
@@ -161,7 +168,7 @@
     }
     apply(id) {
       const g = this.catalog[id], p = clone(this.state.perks);
-      p.owned[id] = (p.owned[id] || 0) + 1; p.shield += g.shield; p.ebb = Math.max(p.ebb, g.ebb); p.bloody = Math.max(p.bloody, g.bloody);
+      p.owned[id] = (p.owned[id] || 0) + 1; p.shield += g.shield; p.ebb = Math.max(p.ebb, g.ebb); p.bloody = Math.max(p.bloody, g.bloody); p.revive = Math.max(p.revive || 0, g.revive || 0);
       let health = Math.min(7, this.state.health + g.heal) - g.sacrifice;
       if (g.cap_health) health = Math.min(health, g.cap_health);
       if (id === 'blood_price') health--;
@@ -175,12 +182,15 @@
         p.bloody = Math.max(0, p.bloody - 1);
         const every = [...Object.keys(p.owned).map(id => this.catalog[id].regen_every), this.fx('regen_every')].filter(Boolean);
         if (every.length && s.correct_streak % Math.min(...every) === 0) s.health = Math.min(7, s.health + 1);
-      } else { s.combo = s.correct_streak = 0; s.mistakes++; }
+        const charged = Object.keys(p.owned).filter(id => this.catalog[id].shield_every).map(id => this.catalog[id]);
+        if (charged.length && s.correct_streak % Math.min(...charged.map(g => g.shield_every)) === 0 && p.shield < Math.max(...charged.map(g => g.shield_cap))) p.shield++;
+      } else { s.combo = floor(s.combo * Math.min(75, this.total('combo_keep_pct')) / 100); s.correct_streak = 0; s.mistakes++; }
       p.ebb = Math.max(0, p.ebb - 1); p.recovery = Math.max(0, p.recovery - 1);
       if (!correct) {
         if (p.shield > 0) p.shield--;
         else if (!(timeout && this.total('timeout_free') && ++p.miss_debt % 2 === 1)) {
           s.health = Math.max(0, s.health - 1 - this.total('damage_extra') - (timeout ? 0 : this.total('wrong_extra')) - this.fx('damage_extra'));
+          if (s.health === 0 && p.revive > 0) { s.health = p.revive; p.revive = 0; }   // Феникс: забег продолжается один раз
           if (s.health > 0) p.recovery = Math.max(p.recovery, ...Object.keys(p.owned).map(id => this.catalog[id].recovery_signals));
         }
       }

@@ -27,7 +27,7 @@ def runes(seed: bytes, count: int) -> list[str]:
             for i in range(1, count + 1)]
 
 
-def packet(*, season: str, level: int, seed: bytes) -> dict:
+def packet(*, season: str, level: int, seed: bytes, pool_number: int = rules.GIFT_POOL_NOW) -> dict:
     """Everything the phone needs for one level: no other level and no seed."""
     spec = rules.rhythm_level(level)
     windows = [spec.base_window_ms * 100 // rules.rhythm_pace(spec, i, rhythm.new_perks()) for i in range(1, spec.signals + 1)]
@@ -35,7 +35,7 @@ def packet(*, season: str, level: int, seed: bytes) -> dict:
         "level": spec.level, "signals": spec.signals, "hearts": spec.hearts, "base_window_ms": spec.base_window_ms,
         "growth_pct": spec.growth_pct, "floor_ms": rules.RHYTHM_FLOOR_MS, "chunk": rules.RHYTHM_CHUNK,
         "max_bonus_pct": rules.MAX_SCORE_BONUS_PCT, "runes": runes(seed, spec.signals), "plain_windows_ms": windows,
-        "drafts": [list(rules.gift_plan(season, level, n)) for n in range(1, rules.rhythm_drafts(spec) + 1)],
+        "drafts": [list(rules.gift_plan(season, level, n, pool_number)) for n in range(1, rules.rhythm_drafts(spec) + 1)],
         "reference": rules.rhythm_reference(spec), "star_pct": list(spec.star_pct),
         "catalog": [asdict(item) for item in rhythm.PERKS if not item.filler], "max_health": rhythm.MAX_HEALTH,
     }
@@ -77,15 +77,15 @@ def _tap(spec: rules.RhythmLevel, state: dict, action: dict, expected: str) -> N
     else:
         state["health"], state["perks"] = rhythm.after_error(health=state["health"], perks=state["perks"],
                                                              timed_out=rune is None or elapsed > window)
-        state["combo"] = state["streak"] = 0
+        state["combo"], state["streak"] = rhythm.combo_after_error(state["combo"], state["perks"]), 0
         state["mistakes"] += 1
     state["signal"] += 1
 
 
-def replay(*, season: str, level: int, seed: bytes, actions: list[dict]) -> dict:
+def replay(*, season: str, level: int, seed: bytes, actions: list[dict], pool_number: int = rules.GIFT_POOL_NOW) -> dict:
     """Authoritative result of one level journal; raises LeagueRuleError on anything an honest phone cannot send."""
     spec = rules.rhythm_level(level)
-    order, plan = runes(seed, spec.signals), packet(season=season, level=level, seed=seed)["drafts"]
+    order, plan = runes(seed, spec.signals), packet(season=season, level=level, seed=seed, pool_number=pool_number)["drafts"]
     state = _new_state(spec)
     pending = list(actions)
     while pending:

@@ -17,13 +17,13 @@ FIRST_VERSION_NUMBER: Final = 7
 SPRING_EVERY: Final = 8
 
 EVENTS: Final = {
-    "calm": {"name": "Затишье", "icon": "🌙", "effect": "окно шире на 25%, очки ниже на 20%",
+    "calm": {"name": "Затишье", "icon": "🌙", "effect": "времени на нажатие больше на 25%, очки ниже на 20%",
              "window_pct": 25, "score_pct": -20},
-    "gold": {"name": "Золотой такт", "icon": "✨", "effect": "очки выше на 50%, ошибка стоит на сердце больше",
+    "gold": {"name": "Золотой такт", "icon": "✨", "effect": "очки выше на 50%, но ошибка отнимает на сердце больше",
              "score_pct": 50, "damage_extra": 1},
-    "storm": {"name": "Буря", "icon": "⛈", "effect": "окно уже на 15%, очки выше на 30%",
+    "storm": {"name": "Буря", "icon": "⛈", "effect": "времени на нажатие меньше на 15%, очки выше на 30%",
               "window_pct": -15, "score_pct": 30},
-    "spring": {"name": "Родник", "icon": "💧", "effect": f"каждые {SPRING_EVERY} верных подряд — +1 сердце",
+    "spring": {"name": "Родник", "icon": "💧", "effect": f"каждые {SPRING_EVERY} верных нажатий подряд — +1 сердце",
                "regen_every": SPRING_EVERY},
 }
 CYCLE: Final = ("calm", "gold", "storm", "spring")

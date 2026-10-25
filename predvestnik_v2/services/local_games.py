@@ -78,7 +78,7 @@ def replay_rhythm(packet: dict, actions: list[dict]) -> dict:
             raise ValueError("Действие после завершения забега.")
         if rhythm._draft_pending(state):
             offered = rhythm_rules.perk_offers(seed, len(state["selected"]) + 1,
-                      health=state["health"], perks=state["perks"], legacy=packet["legacy"])
+                      health=state["health"], perks=state["perks"], ruleset_version=packet.get("ruleset_version"))
             if action.get("kind") != "pick" or action.get("perk_id") not in offered:
                 raise ValueError("Нужно выбрать предложенный дар.")
             choice = action["perk_id"]
@@ -102,7 +102,7 @@ def replay_rhythm(packet: dict, actions: list[dict]) -> dict:
             state["health"], state["perks"] = rhythm_rules.after_correct(state["perks"], health=state["health"], streak_after=state["correct_streak"], signal_no=signal)
         else:
             state["health"], state["perks"] = rhythm_rules.after_error(health=state["health"], perks=state["perks"], timed_out=rune is None or elapsed > window, signal_no=signal)
-            state["combo"] = state["correct_streak"] = 0
+            state["combo"], state["correct_streak"] = rhythm_rules.combo_after_error(state["combo"], state["perks"]), 0
             state["mistakes"] += 1
         rhythm_analysis.record(state["analysis"], signal=signal, chunk_size=rhythm_rules.CHUNK_SIZE,
             window=window, correct=correct, elapsed=elapsed, streak=state["correct_streak"],
@@ -155,7 +155,7 @@ async def _import_local_run(db, *, game: str, user_id: int, run_id: str, origin:
             raise ValueError("invalid run id")
         seed = bytes.fromhex(origin["seed"])
         version = origin.get("ruleset_version")
-        supported = {rhythm_rules.RULESET_VERSION, rhythm_rules.PREVIOUS_RULESET_VERSION, "rhythm-v2-rules-5"} if game == "rhythm" else mine_rules.SUPPORTED_RULESETS
+        supported = rhythm_rules.SUPPORTED_RULESETS if game == "rhythm" else mine_rules.SUPPORTED_RULESETS
         if len(seed) != 32 or version not in supported:
             raise ValueError("Обнови правила игры при подключении.")
         spec = mine_rules.difficulty(origin.get("difficulty", "normal")) if game != "rhythm" else None

@@ -10,7 +10,7 @@
     constructor(packet) {
       this.p = packet;
       this.cat = Object.fromEntries(packet.catalog.map(g => [g.id, g]));
-      this.s = {health: packet.hearts, perks: {owned: {}, shield: 0, ebb: 0, bloody: 0, miss_debt: 0, recovery: 0},
+      this.s = {health: packet.hearts, perks: {owned: {}, shield: 0, ebb: 0, bloody: 0, miss_debt: 0, recovery: 0, revive: 0},
         score: 0, combo: 0, streak: 0, signal: 1, selected: [], journal: []};
     }
     total(field, p = this.s.perks) { return Object.entries(p.owned).reduce((n, [id, c]) => n + (this.cat[id][field] || 0) * c, 0); }
@@ -30,7 +30,11 @@
       if (this.any('sharp_eye')) timing = tier === 0 ? floor(timing * 3 / 2) : tier === 2 ? floor(timing / 2) : timing;
       const raw = (timing + Math.min(80 + this.total('combo_cap'), s.combo * (4 + this.total('combo_step')))) * (p.bloody > 0 ? 3 : 1);
       let bonus = 0;
-      for (const [id, c] of Object.entries(p.owned)) { const g = this.cat[id]; if (g.cadence_every && (s.combo + 1) % g.cadence_every === 0) bonus += c * g.cadence_bonus_pct; }
+      for (const [id, c] of Object.entries(p.owned)) {
+        const g = this.cat[id];
+        if (g.cadence_every && (s.combo + 1) % g.cadence_every === 0) bonus += c * g.cadence_bonus_pct;
+        if (g.streak_bonus_pct && s.combo >= g.streak_bonus_from) bonus += c * g.streak_bonus_pct;
+      }
       if (s.health <= 2) bonus += this.total('low_health_bonus_pct');
       return Math.max(1, floor(raw * (100 + Math.min(this.p.max_bonus_pct, Math.max(-60, this.total('score_pct') + bonus))) / 100));
     }
@@ -45,7 +49,7 @@
       this.s.selected.push(id);
       if (id === null) return;
       const g = this.cat[id], p = this.s.perks;
-      p.owned[id] = (p.owned[id] || 0) + 1; p.shield += g.shield; p.ebb = Math.max(p.ebb, g.ebb); p.bloody = Math.max(p.bloody, g.bloody);
+      p.owned[id] = (p.owned[id] || 0) + 1; p.shield += g.shield; p.ebb = Math.max(p.ebb, g.ebb); p.bloody = Math.max(p.bloody, g.bloody); p.revive = Math.max(p.revive || 0, g.revive || 0);
       let h = Math.min(this.p.max_health, this.s.health + g.heal) - g.sacrifice;
       if (g.cap_health) h = Math.min(h, g.cap_health);
       if (id === 'blood_price') h--;
@@ -60,12 +64,15 @@
         p.bloody = Math.max(0, p.bloody - 1);
         const every = Object.keys(p.owned).map(id => this.cat[id].regen_every).filter(Boolean);
         if (every.length && s.streak % Math.min(...every) === 0) s.health = Math.min(this.p.max_health, s.health + 1);
-      } else { s.combo = s.streak = 0; }
+        const charged = Object.keys(p.owned).filter(id => this.cat[id].shield_every).map(id => this.cat[id]);
+        if (charged.length && s.streak % Math.min(...charged.map(g => g.shield_every)) === 0 && p.shield < Math.max(...charged.map(g => g.shield_cap))) p.shield++;
+      } else { s.combo = floor(s.combo * Math.min(75, this.total('combo_keep_pct')) / 100); s.streak = 0; }
       p.ebb = Math.max(0, p.ebb - 1); p.recovery = Math.max(0, p.recovery - 1);
       if (!correct) {
         if (p.shield > 0) p.shield--;
         else if (!(timeout && this.any('timeout_free') && ++p.miss_debt % 2 === 1)) {
           s.health = Math.max(0, s.health - 1 - this.total('damage_extra') - (timeout ? 0 : this.total('wrong_extra')));
+          if (s.health === 0 && p.revive > 0) { s.health = p.revive; p.revive = 0; }   // Феникс: уровень продолжается один раз
           if (s.health > 0) p.recovery = Math.max(p.recovery, ...Object.keys(p.owned).map(id => this.cat[id].recovery_signals || 0));
         }
       }
@@ -77,7 +84,17 @@
 
   // Ниже — ход уровня. Вид (сцена, сердца, таймер, отклики, веер даров) — league-rhythm-fx.js; Engine выше не меняется.
   const V = () => window.LeagueRhythmView, Fx = () => window.LeagueFx;
-  let engine = null, run = null, shownAt = 0, timeout = null, live = false, hiddenPause = false, prevStars = 0, epoch = 0;
+  let engine = null, run = null, shownAt = 0, timeout = null, live = false, hiddenPause = false, prevStars = 0, epoch = 0, phase = 'count', held = 'count';
+
+  // «Заново»: пока открыт вопрос, уровень стоит; после него тот же такт начинается заново с отсчётом (как после возврата в приложение).
+  // Не сыграно ни одного такта — спрашивать нечего. Звёзды, уже заработанные на этом уровне, остаются.
+  const restartPill = () => window.GameShell.restartPill({
+    risky: () => engine.s.signal > 1 || engine.s.selected.length > 0,
+    pause: () => { held = phase; epoch++; live = false; clearTimeout(timeout); V().freeze(); },
+    resume: () => { if (held !== 'draft') countdown(COUNTDOWN); },
+    onRestart: () => start(run.level).catch(e => Fx().toast(L().esc(e.message), 'is-bad')),
+    ask: {title: 'Начать уровень заново?', text: 'Этот проход не сохранится: очки и сердца пропадут. Звёзды, которые у тебя уже есть, останутся.', confirm: 'Да, начать заново'},
+  });
 
   async function start(level) {
     epoch++;
@@ -85,8 +102,8 @@
     engine = new Engine(run);
     prevStars = L().state.me?.games.rhythm.levels[String(level)]?.stars || 0;
     L().show(`<div class="lgm-head"><h2>Уровень ${run.level}</h2><button type="button" class="lg-link" id="lgr-exit">К уровням</button></div>
-      <div class="lgr-intro">${window.LeagueArt.icon('frame', 'lgr-intro-art')}<dl><div><dt>Тактов</dt><dd>${run.signals}</dd></div><div><dt>Сердца</dt><dd>${run.hearts}</dd></div><div><dt>Окно</dt><dd>${run.base_window_ms} мс</dd></div></dl></div>
-      <p class="lg-rules">Дойди до конца, сохранив сердце. ★★ — от ${Math.ceil(run.reference * run.star_pct[0] / 100)} очков, ★★★ — от ${Math.ceil(run.reference * run.star_pct[1] / 100)}.</p>
+      <div class="lgr-intro">${window.LeagueArt.icon('frame', 'lgr-intro-art')}<dl><div><dt>Нажатий</dt><dd>${run.signals}</dd></div><div><dt>Сердца</dt><dd>${run.hearts}</dd></div><div><dt>Время на нажатие</dt><dd>${(run.base_window_ms / 1000).toFixed(1).replace('.', ',')} с</dd></div></dl></div>
+      <p class="lg-rules">★ — дойди до конца, сохранив сердце. ★★ — от ${Math.ceil(run.reference * run.star_pct[0] / 100)} очков, ★★★ — от ${Math.ceil(run.reference * run.star_pct[1] / 100)}.</p>
       <button type="button" class="lg-cta" id="lgr-go">Старт</button>`, 1);
     L().$('lgr-go').onclick = () => countdown(COUNTDOWN);
     L().$('lgr-exit').onclick = exit;
@@ -96,8 +113,8 @@
 
   function countdown(n, mine = epoch) {
     if (mine !== epoch) return;
-    live = false;
-    V().stage(run, GLYPH, answer);
+    live = false; phase = 'count';
+    V().stage(run, GLYPH, answer, restartPill);
     V().hud(engine, run);
     V().count(n);
     if (n > 0) setTimeout(() => countdown(n - 1, mine), 1000); else next();
@@ -108,7 +125,8 @@
     const offers = engine.draftDue();
     if (offers) return draft(offers);
     const rune = run.runes[engine.s.signal - 1], mine = epoch;
-    V().stage(run, GLYPH, answer);
+    phase = 'play';
+    V().stage(run, GLYPH, answer, restartPill);
     V().hud(engine, run);
     V().rune(GLYPH[rune]);
     const w = engine.window();
@@ -134,7 +152,8 @@
   }
 
   function draft(offers) {
-    V().stage(run, GLYPH, answer);
+    phase = 'draft';
+    V().stage(run, GLYPH, answer, restartPill);
     V().hud(engine, run);
     V().draft(engine, offers, id => { engine.pick(id); V().hud(engine, run); countdown(COUNTDOWN); });
   }

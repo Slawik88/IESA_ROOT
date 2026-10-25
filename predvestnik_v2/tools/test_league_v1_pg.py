@@ -98,6 +98,10 @@ async def minesweeper(db) -> None:
 async def rhythm(db) -> None:
     packet = await league.start(db, user_id=TESTER, game="rhythm", level=1)
     assert "seed" not in packet and len(packet["runes"]) == packet["signals"]
+    async with db.execute("SELECT board_json FROM league_demo_runs WHERE run_id=?", (packet["run_id"],)) as cursor:
+        stored = league.repo.load((await cursor.fetchone())["board_json"])
+    assert stored == {"gifts": rules.GIFT_POOL_NOW}, "a rhythm level remembers the gift pool it was started with"
+    assert any(item["id"] == "phoenix" for item in packet["catalog"]), "the phone receives the whole catalog, new gifts included"
     journal = [{"kind": "tap", "signal_no": n, "rune": r, "elapsed_ms": 260 + n * 37 % 90} for n, r in enumerate(packet["runes"], 1)]
     for draft in range(len(packet["drafts"]), 0, -1):   # skip every gift: the score must equal the reference
         journal.insert(draft * rules.RHYTHM_CHUNK, {"kind": "pick", "perk_id": None})

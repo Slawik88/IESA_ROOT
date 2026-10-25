@@ -119,7 +119,7 @@ def _draft(row: dict, state: dict) -> dict | None:
     if not _draft_pending(state):
         return None
     number = len(state["selected"]) + 1
-    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"], legacy=row.get("ruleset_version") in rules.LEGACY_RULESET_VERSIONS)
+    offers = rules.perk_offers(bytes(row["seed"]), number, health=state["health"], perks=state["perks"], ruleset_version=row.get("ruleset_version"))
     return {"number": number, "offers": [
         {"id": item.id, "kind": item.kind, "name": item.name, "bonus": item.bonus, "cost": item.cost,
          "preview": _perk_preview(item.id, state)}
@@ -197,7 +197,7 @@ def _resolve_error(row: dict, state: dict, *, now: datetime, timed_out: bool) ->
     state["health"], state["perks"] = rules.after_error(
         health=state["health"], perks=state["perks"], timed_out=timed_out, signal_no=state["next_signal_no"],
     )
-    state["combo"] = 0
+    state["combo"] = rules.combo_after_error(state["combo"], state["perks"])
     state["mistakes"] += 1
     state["correct_streak"] = 0
     rhythm_analysis.record(state.get("analysis"), signal=state["next_signal_no"], chunk_size=rules.CHUNK_SIZE,

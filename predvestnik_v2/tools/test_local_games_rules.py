@@ -49,11 +49,38 @@ for gift in (None, *r.PERKS):
                 result["combo"] += 1; result["correct_streak"] += 1; result["correct_taps"] += 1
                 result["health"],result["perks"] = r.after_correct(s["perks"],health=4,streak_after=16,signal_no=signal)
             else:
-                result["combo"]=result["correct_streak"]=0;result["mistakes"]+=1
+                result["combo"]=r.combo_after_error(15,s["perks"]);result["correct_streak"]=0;result["mistakes"]+=1
                 result["health"],result["perks"] = r.after_error(health=4,perks=s["perks"],timed_out=True,signal_no=signal)
             result["next_signal_no"] += 1
             if result["health"] == 0: result["status"]="finished"
             tests.append(dict(game="rhythm",packet=packet(s, weather),actions=[action]));expected.append(result)
+
+# Series gifts (rules-8): the exact thresholds - Hot streak at 9/10 in a row, Зарядка at the 20th correct tap, Phoenix at the last heart, Anchor's half.
+for gift_id, combo, streak, health, extra in (
+        ("hot_streak", 9, 9, 4, {}), ("hot_streak", 10, 10, 4, {}), ("recharge", 19, 19, 4, {}), ("recharge", 19, 19, 4, {"shield": 1}),
+        ("recharge", 39, 39, 4, {"shield": 0}), ("anchor", 15, 15, 4, {}), ("anchor", 1, 1, 4, {}), ("phoenix", 3, 3, 1, {"revive": 2}),
+        ("phoenix", 3, 3, 1, {"revive": 0}), ("phoenix", 3, 3, 2, {"revive": 2}), ("phoenix", 5, 5, 1, {"revive": 2, "shield": 1})):
+    for timing in (0, 3):
+        signal = 7
+        s = state()
+        s.update(health=health, combo=combo, correct_streak=streak, next_signal_no=signal, selected=["test"] * ((signal - 1) // 20))
+        s["perks"]["owned"][gift_id] = 1
+        s["perks"].update(extra)
+        w = r.window_ms(signal, s["perks"])
+        elapsed = (0, w // 2, w, w + 1)[timing]
+        rune = r.expected_rune(seed, signal) if timing < 3 else None
+        action = dict(kind="tap", signal_no=signal, rune=rune, elapsed_ms=elapsed)
+        result = copy.deepcopy(s)
+        if timing < 3:
+            result["score"] += r.score_for_correct(elapsed_ms=elapsed, allowed_window_ms=w, combo_before=combo, perks=s["perks"], health=health, signal_no=signal)
+            result["combo"] += 1; result["correct_streak"] += 1; result["correct_taps"] += 1
+            result["health"], result["perks"] = r.after_correct(s["perks"], health=health, streak_after=streak + 1, signal_no=signal)
+        else:
+            result["combo"] = r.combo_after_error(combo, s["perks"]); result["correct_streak"] = 0; result["mistakes"] += 1
+            result["health"], result["perks"] = r.after_error(health=health, perks=s["perks"], timed_out=True, signal_no=signal)
+        result["next_signal_no"] += 1
+        if result["health"] == 0: result["status"] = "finished"
+        tests.append(dict(game="rhythm", packet=packet(s), actions=[action])); expected.append(result)
 
 # Gifts are offered with exactly the same HMAC order and eligibility filters.
 for health in (1, 2, 4, 7):
@@ -98,7 +125,7 @@ for index,(test,want,got) in enumerate(zip(tests,expected,results)):
         draft=got['initial']['draft']
         if draft:
             s=test['packet']['state']
-            assert [p['id'] for p in draft['offers']]==list(r.perk_offers(seed,1,health=s['health'],perks=s['perks']))
+            assert [p['id'] for p in draft['offers']]==list(r.perk_offers(seed,1,health=s['health'],perks=s['perks'],ruleset_version=test['packet']['ruleset_version']))
     else:
         assert got['status']==want['status'] and got['elapsed_ms']==want['elapsed_ms']
         assert set(got['revealed'])==set(want['revealed_json'])

@@ -24,7 +24,7 @@ def rhythm_journal(packet):
     # Two full chunks, two gifts and all their ongoing effects, then defeat.
     while state['health']:
         if r.draft_pending(next_signal_no=state['next_signal_no'],picks=len(state['selected'])):
-            choice=r.perk_offers(seed,len(state['selected'])+1,health=state['health'],perks=state['perks'],legacy=packet['legacy'])[0]
+            choice=r.perk_offers(seed,len(state['selected'])+1,health=state['health'],perks=state['perks'],ruleset_version=packet['ruleset_version'])[0]
             state['health'],state['perks']=r.apply_perk(choice,health=state['health'],perks=state['perks'])
             state['selected'].append(choice);actions.append(dict(kind='pick',perk_id=choice));continue
         signal=state['next_signal_no'];window=r.window_ms(signal,state['perks'])

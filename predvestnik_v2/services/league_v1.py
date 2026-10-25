@@ -84,7 +84,7 @@ async def start(db, *, user_id: int, game: str, level: int) -> dict:
     if level > unlocked(await repo.progress(db, user_id=user_id, season=season), game):
         raise LeagueError("Сначала пройди предыдущий уровень.")
     seed = secrets.token_bytes(32)
-    board = await asyncio.to_thread(_mines_board, seed, level) if game == "minesweeper" else {}
+    board = await asyncio.to_thread(_mines_board, seed, level) if game == "minesweeper" else {"gifts": rules.GIFT_POOL_NOW}
     run_id = str(uuid4())
     async with db.connection.transaction():
         await repo.lock_user(db, user_id=user_id)
@@ -200,8 +200,10 @@ async def rhythm_finish(db, *, user_id: int, run_id: str, actions: list) -> dict
                 return {**saved, "replay": True}
             raise LeagueError("Этот уровень уже закрыт. Начни его заново.")
         try:
+            # A level keeps the gift pool it was started with (older rows carry no marker: the pool before the series gifts).
+            pool = int(repo.load(row["board_json"]).get("gifts", rules.GIFT_POOL_BEFORE_SERIES))
             outcome = league_rhythm.replay(season=row["season"], level=int(row["level"]), seed=bytes(row["seed"]),
-                                           actions=list(actions))
+                                           actions=list(actions), pool_number=pool)
         except rules.LeagueRuleError as exc:
             raise LeagueError(str(exc)) from exc
         lived = row["server_now"] - row["started_at"]
