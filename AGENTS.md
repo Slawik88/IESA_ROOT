@@ -9,6 +9,7 @@
 @predvestnik_v2/CLEAN_CODE.md
 @predvestnik_v2/AUTONOMOUS_MODE.md
 @predvestnik_v2/AUTONOMOUS_AGENT_POLICY.md
+@predvestnik_v2/docs/PLAYER_COPY.md
 
 ## Предвестник: патч-ноуты в официальный канал (обязательно)
 

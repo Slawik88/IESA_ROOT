@@ -161,6 +161,9 @@ has("quests", quests_v1.DAILY_COUNT, quests_v1.WEEKLY_COUNT, quests_v1.STANDARD_
     *skins_v3.ESSENCE_QUEST_REWARD.values(), chests_v1.KEY_SOURCE_COUNTS["quest_daily_set_complete"], chests_v1.KEY_SOURCE_COUNTS["quest_weekly_set_complete"])
 has("trail", pets_v2.SLOTS, *pets_v2.RUN_HOURS, *pets_v2.WATCH_HOURS, pets_v2.PAIR_MIN_SPECIES)
 has("pets", len(chests_v1.PET_SPECIES))
+has("pet-growth", pets_v2.MAX_LEVEL)
+assert "можно обменять на Зарники" not in " ".join(f["a"] for f in guide["faq"]), "Обратного обмена Эссенции в Зарники нет"
+assert "автоматически за Следы" in body("pet-growth") and "Связь" in body("pet-growth"), "Тропа растёт за Следы и дни Связи"
 for d in minesweeper_v2.DIFFICULTIES.values():
     assert f"{d.size}×{d.size}, мин: {d.mines}" in body("mines"), f"Сапёр {d.key}: размер и число мин расходятся с кодом"
 vip_line = " ".join(registry.VIP_PERKS_PITCH)

@@ -45,6 +45,7 @@ ALLOWED = {
     "/static/marks-v3.css": "text/css",
     "/static/inventory-v3.css": "text/css",
     "/static/trail-v3.css": "text/css",
+    "/static/guide-v3.css": "text/css",
     "/static/news-v3.css": "text/css",
     "/static/pass-v3.css": "text/css",
     "/static/store-v3.css": "text/css",
@@ -72,6 +73,12 @@ BLOCKED = (
 
 
 def assert_surface(client: TestClient, prefix: str = "") -> None:
+    guide = client.get(f"{prefix}/guide-v3.json")
+    assert guide.status_code == 200 and len(guide.json()["topics"]) >= 25
+    assert guide.headers["cache-control"] == "no-cache" and guide.headers.get("etag")
+    unchanged = client.get(f"{prefix}/guide-v3.json", headers={"If-None-Match": guide.headers["etag"]})
+    assert unchanged.status_code == 304 and not unchanged.content
+    assert client.get(f"{prefix}/guide-v3.json", headers={"If-None-Match": '"old-guide"'}).status_code == 200
     for role in ("city", "citizen", "mafia", "don", "doctor", "detective"):
         for ext, mime in (("jpg", "image/jpeg"), ("webp", "image/webp")):
             ALLOWED[f"/static/mafia-art/{role}.{ext}"] = mime

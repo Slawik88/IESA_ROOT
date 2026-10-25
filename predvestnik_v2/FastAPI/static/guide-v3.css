@@ -3,11 +3,26 @@
    экран меняется сразу, поэтому «меньше движения» и слабый телефон не требуют отдельных правил. Правила текстов — docs/PLAYER_COPY.md. */
 
 .gv-scope { padding-bottom: 8px; }
+.gv-scope [hidden] { display: none !important; }
+.gv-scope button:focus-visible, .gv-filter input:focus-visible { outline: 2px solid var(--v3-acc); outline-offset: 3px; }
+.gv-scope .v3-link, .gv-scope .gv-chip { min-height: 44px; }
+.gv-all { margin: -4px 0 12px; color: var(--v3-acc); }
+.gv-sections { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.gv-group { scroll-margin-top: calc(var(--v3-safe-t, 0px) + 140px); }
+.gv-group h2 { margin-bottom: 4px; }
+.gv-resume { display: grid; gap: 5px; width: 100%; min-height: 64px; margin: 8px 0 14px; padding: 12px 14px; border: 0; border-radius: 14px; background: var(--v3-faint); color: var(--v3-ink); text-align: left; font: inherit; cursor: pointer; }
+.gv-resume small { color: var(--v3-dim); font-size: 12px; }
+.gv-resume b { font-size: 14px; line-height: 1.4; }
+.gv-filter { display: grid; gap: 8px; margin: 4px 0 16px; color: var(--v3-dim); font-size: 13px; }
+.gv-filter .v3-field { min-height: 48px; font-size: 16px; }
+.gv-offline { padding: 12px 14px; border-radius: 14px; background: var(--v3-faint); color: var(--v3-ink); font-size: 13px; line-height: 1.5; }
+.gv-gift-list { margin-top: 24px; }
+.gv-gift-list summary { padding: 12px 0; min-height: 48px; color: var(--v3-ink); font: 600 15px/1.4 var(--v3-font); cursor: pointer; }
 .gv-eb { display: block; margin-top: 24px; }
 .gv-sub { margin: 2px 0 0; color: var(--v3-dim); font-size: 12.5px; line-height: 1.4; }
 
 /* поиск: прилипает к верху, пока листаешь список тем */
-.gv-search { position: sticky; top: var(--v3-safe-t, 0px); z-index: 4; margin: 0 -22px 12px; padding: 6px 22px 8px; }
+.gv-search { position: sticky; top: calc(var(--v3-safe-t, 0px) + 52px); z-index: 4; margin: 0 -22px 12px; padding: 6px 22px 8px; }
 .gv-search .v3-field { min-height: 48px; border-radius: 14px; background: color-mix(in srgb, var(--v3-bg) 94%, var(--v3-ink)); box-shadow: inset 0 0 0 1.5px var(--v3-track), 0 6px 14px color-mix(in srgb, var(--v3-bg) 70%, transparent); font-size: 15px; }
 .gv-search .v3-field:focus { box-shadow: inset 0 0 0 1.5px var(--v3-acc), 0 6px 14px color-mix(in srgb, var(--v3-bg) 70%, transparent); }
 #gv-results { display: grid; gap: 10px; }
@@ -103,3 +118,5 @@
 .gv-q summary { display: block; min-height: 48px; padding: 12px 0; font: 600 15px/1.35 var(--v3-font); cursor: pointer; }
 .gv-q p { margin: 0 0 4px; color: var(--v3-dim); font-size: 14px; line-height: 1.5; }
 .gv-more { display: block; margin: 10px auto 0; color: var(--v3-acc); }
+.gv-tools { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.gv-scope .gv-term .v3-link, .gv-scope .gv-q .v3-link, .gv-scope .gv-card .v3-link { min-height: 44px; }
