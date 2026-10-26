@@ -387,22 +387,8 @@
 .mo-gameplay .mo-role-open>img { width:32px;height:32px; }
 .mo-gameplay .mo-guide { color:var(--v3-ink);font-size:12px;line-height:1.45;padding-block:7px; }
 .mo-gameplay .mo-tabs>button[aria-pressed=true] { border-bottom-color:var(--v3-ink);color:var(--v3-ink); }
-/* Phase flash: for a few seconds after a change and in the final seconds the
-   band grows back, so the clock stays readable; the rest of the time it is compact. */
-.mo-gameplay .mo-phase { transition:min-height .28s ease,padding .28s ease; }
-.mo-gameplay .mo-phase h2,.mo-gameplay .mo-phase time,.mo-gameplay .mo-phase small { transition:font-size .28s ease; }
-.mo-phase-flash .mo-gameplay .mo-phase,.mo-phase-urgent .mo-gameplay .mo-phase { min-height:64px;padding-block:11px; }
-.mo-phase-flash .mo-gameplay .mo-phase h2,.mo-phase-urgent .mo-gameplay .mo-phase h2 { font-size:21px; }
-.mo-phase-flash .mo-gameplay .mo-phase time,.mo-phase-urgent .mo-gameplay .mo-phase time { font-size:25px; }
 .mo-details-open .mo-gameplay,.mo-sheet-open .mo-gameplay { flex-basis:42%; }
 .mo-details-open .mo-gameplay #mo-status { display:none; }
-/* Reading mode: the story takes the room; tools are one tab away. Phone only. */
-@media (max-width:899px) {
-  .mo-reading #mo-rolebar,.mo-reading #mo-actionbar,.mo-reading .mo-gameplay .mo-guide { display:none; }
-  .mo-reading .mo-gameplay .mo-phase { min-height:32px;padding-block:4px; }
-  .mo-reading .mo-gameplay .mo-phase h2 { font-size:15px; }
-  .mo-reading .mo-gameplay .mo-phase time { font-size:16px;min-width:auto; }
-}
 .mo-workspace>.mo-conversation { flex:1;min-height:0; }
 .mo-workspace .mo-chat { min-height:60px; }
 .mo-sheet-open .mo-gameplay { overflow:hidden; }
@@ -422,8 +408,6 @@
   #modal.mo-mode { width:min(1180px,calc(100vw - 40px)); }
   .mo-room { padding-inline:24px; }
   .mo-workspace { display:grid;grid-template-columns:minmax(264px,320px) minmax(0,1fr);gap:20px;padding-top:12px; }
-  .mo-reading #mo-rolebar,.mo-reading #mo-actionbar { display:revert; }
-  .mo-reading .mo-gameplay .mo-guide { display:block; }
   .mo-gameplay,.mo-details-open .mo-gameplay,.mo-sheet-open .mo-gameplay { max-height:none;height:100%;padding-right:18px;border-right:1px solid var(--v3-faint); }
   .mo-gameplay .mo-phase { min-height:110px; }
   .mo-gameplay .mo-stages { display:flex; }
@@ -454,3 +438,42 @@
 /* Events sit in the flow above the workspace: nothing is covered, the room just
    borrows the space for the few seconds the banner is visible. */
 .mo-room>.mo-event { position:relative;top:auto;bottom:auto;left:auto;right:auto;width:auto;margin:8px 0 0;max-height:none;overflow:visible; }
+
+/* Phone overview: keep the city artwork and role together, then one clear instruction.
+   Scrolling a conversation must never make the role or a pending turn disappear. */
+#mo-actionbar:empty { display:none; }
+.mo-msg.system .mo-bubble { display:flex;align-items:baseline;gap:8px;padding-block:3px; }
+.mo-msg.system .mo-bubble>time { flex:none;margin:0;white-space:nowrap; }
+.mo-msg.system p { font-size:11.5px;line-height:1.4; }
+@media (max-width:899px) {
+  .mo-gameplay { display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-content:start;column-gap:10px; }
+  .mo-gameplay #mo-status { display:contents; }
+  .mo-gameplay .mo-phase { grid-area:1/1;min-height:62px;margin:0;padding:8px;border-radius:10px;gap:5px; }
+  .mo-gameplay .mo-phase h2 { font-size:16px; }
+  .mo-gameplay .mo-phase small { font-size:10px; }
+  .mo-gameplay .mo-phase time { min-width:40px;font-size:20px; }
+  .mo-gameplay .mo-guide { grid-column:1/-1;grid-row:2;padding:6px 0; }
+  .mo-gameplay #mo-rolebar { grid-area:1/2;align-self:stretch; }
+  .mo-gameplay .mo-role-open { height:100%;min-height:62px;gap:7px;border:0; }
+  .mo-gameplay .mo-role-open b { font-size:13px; }
+  .mo-gameplay .mo-role-more { max-width:38px;font-size:10px; }
+  .mo-gameplay #mo-actionbar { grid-column:1/-1;grid-row:3;padding:4px 0; }
+  .mo-gameplay .mo-tabs { grid-column:1/-1;grid-row:4; }
+  .mo-gameplay #mo-control-pending { grid-column:1/-1; }
+  .mo-gameplay .mo-turn { min-height:44px; }
+  .mo-details-open .mo-gameplay { display:block; }
+  .mo-details-open .mo-gameplay #mo-status { display:none; }
+  .mo-details-open .mo-gameplay #mo-rolebar { display:none; }
+  .mo-room>.mo-event { gap:8px;margin-top:4px;padding:8px; }
+  .mo-event-symbol { width:32px;height:32px; }
+  .mo-event-copy>b { font-size:13px; }
+  .mo-event-copy>p { margin-top:2px;font-size:11px; }
+  .mo-event .v3-link { align-self:flex-start; }
+}
+@media (max-width:899px) and (max-height:420px) {
+  .mo-gameplay #mo-status { display:none; }
+  .mo-gameplay #mo-rolebar { grid-column:1/-1; }
+  .mo-gameplay .mo-role-open { min-height:40px; }
+  .mo-gameplay #mo-actionbar { grid-row:2; }
+  .mo-gameplay .mo-tabs { grid-row:3; }
+}

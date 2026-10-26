@@ -49,26 +49,14 @@ def check_workspace(page, out):
     page.wait_for_timeout(50)
     assert page.evaluate("el('mo-text').placeholder.length > 5")
     page.evaluate("moChannel('table')")
-    # The phase band is compact by default and grows back for the flash.
-    compact = page.evaluate("el('mo-status').querySelector('.mo-phase').getBoundingClientRect().height")
-    page.evaluate('moPhaseFlash()')
-    flashed = page.evaluate("el('mo-status').querySelector('.mo-phase').getBoundingClientRect().height")
-    assert compact <= 56 and flashed >= compact + 8, (compact, flashed)
-    page.evaluate("el('mo-root').classList.remove('mo-phase-flash')")
-    # Reading mode: scrolling up hides the tool rows, returning to the bottom restores them.
+    # Reading history keeps identity and action visible without resizing the conversation.
     before = page.evaluate("el('mo-chat').getBoundingClientRect().height")
-    scrollable = page.evaluate("el('mo-chat').scrollHeight > el('mo-chat').clientHeight + 120")
     page.evaluate("el('mo-chat').scrollTop = 0")
     page.wait_for_timeout(80)
-    if scrollable:
-        assert page.evaluate("el('mo-root').classList.contains('mo-reading')")
-        assert not page.evaluate("el('mo-actionbar').getBoundingClientRect().height > 0")
-        during = page.evaluate("el('mo-chat').getBoundingClientRect().height")
-        assert during > before + 20, (before, during)
-        page.evaluate('moLatest()')
-        page.wait_for_timeout(80)
-        assert not page.evaluate("el('mo-root').classList.contains('mo-reading')")
-        assert page.evaluate("el('mo-actionbar').getBoundingClientRect().height > 0")
+    assert page.locator('#mo-rolebar').is_visible()
+    during = page.evaluate("el('mo-chat').getBoundingClientRect().height")
+    assert abs(during-before) < 2, (before, during)
+    page.evaluate('moLatest()')
     message = page.locator('.mo-msg:not(.system):not(.hidden-message)').last
     message.locator('.mo-direct-reply').click()
     assert page.locator('#mo-reply').inner_text().startswith('Ответ')

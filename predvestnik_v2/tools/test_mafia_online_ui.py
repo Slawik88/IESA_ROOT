@@ -308,6 +308,15 @@ def check(dsn, out):
             pa.wait_for_function("MO.data?.phase==='discussion'")
             pb.wait_for_function("MO.data?.phase==='discussion'")
             pa.screenshot(path=str(out / "day-430.png"), full_page=True)
+            pa.set_viewport_size({'width':390,'height':740})
+            pa.evaluate("moHideEvent(); const m=[...MO.messages.values()].find(m=>m.user_id!==null&&!m.hidden);moReply(m.id)")
+            pa.wait_for_timeout(80)
+            assert pa.locator('#mo-role-open').is_visible()
+            assert pa.locator('#mo-chat').bounding_box()['height'] >= 300, 'conversation keeps room even with a reply open'
+            pa.screenshot(path=str(out/'day-reply-390.png'))
+            pa.evaluate('moCancelReply()')
+            pa.set_viewport_size({'width':430,'height':740})
+
             roles = {uid: http.get(f"/mafia-online/rooms/{room}", headers={"x-test-user": str(uid)}).json()["me"]["role"]
                      for uid in (101, 102, 103, 104)}
             mafioso = next(uid for uid, role in roles.items() if role == "mafia")

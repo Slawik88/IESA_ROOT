@@ -74,8 +74,7 @@ async function moEnter(id){
   moChatGestures();
   input.onkeydown=e=>{if(e.key==='Escape'&&MO.reply){e.preventDefault();e.stopPropagation();moCancelReply();return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&(e.ctrlKey||e.metaKey||!matchMedia('(pointer:coarse)').matches)){e.preventDefault();moSend();}};
   el('mo-compose').onsubmit=e=>{e.preventDefault();moPendingMessage()?moPendingMessageDialog():moSend();};
-  el('mo-chat').onscroll=()=>{const c=el('mo-chat'),near=c.scrollHeight-c.scrollTop-c.clientHeight<60;if(near){MO.newCount=0;moMarkRead();}moReading(!near);moNewBadge();};
-  input.onfocus=()=>moReading(false);
+  el('mo-chat').onscroll=()=>{const c=el('mo-chat'),near=c.scrollHeight-c.scrollTop-c.clientHeight<60;if(near){MO.newCount=0;moMarkRead();}moNewBadge();};
   el('mo-tabs').onkeydown=e=>{const keys=['chat','players','table'],i=keys.indexOf(MO.tab);let next;if(e.key==='ArrowRight')next=(i+1)%3;else if(e.key==='ArrowLeft')next=(i+2)%3;else if(e.key==='Home')next=0;else if(e.key==='End')next=2;else return;e.preventDefault();moTab(keys[next],true);};
   moReplyMarkup();moPendingNotice();moComposeState();MO.clock=setInterval(moClock,1000);await moPoll(MO.gen);
 }

@@ -14,32 +14,15 @@ function moRoomShell(id){return `<div class="mo-room"><header class="mo-room-hea
 function moSetHTML(id,html){const box=el(id);if(!box||box._moHtml===html)return;const active=box.contains(document.activeElement)?document.activeElement.id:null;box.innerHTML=html;box._moHtml=html;if(active)el(active)?.focus({preventScroll:true});}
 function moTab(tab,focus=false){
  if(!moReady()||!['chat','players','table'].includes(tab))return;
- MO.tab=tab;moSheetClose();moReading(false);el('mo-root').querySelector('.mo-gameplay').scrollTop=0;
+ MO.tab=tab;moSheetClose();el('mo-root').querySelector('.mo-gameplay').scrollTop=0;
  for(const k of ['chat','players','table']){
    el(`mo-panel-${k}`).hidden=k!=='chat'&&k!==tab;
    el(`mo-tab-${k}`).setAttribute('aria-pressed',String(k===tab));
  }
  el('mo-root').classList.toggle('mo-details-open',tab!=='chat');
  if(focus)el(`mo-tab-${tab}`).focus();
- if(tab==='chat'){const c=el('mo-chat');moReading(c&&c.scrollHeight-c.scrollTop-c.clientHeight>=80);}
  if(tab==='players')moRenderPlayers();else if(tab==='table')moRenderTable();
  moNewBadge();moComposeState();
-}
-function moReading(away){
- const root=el('mo-root');if(!root)return;
- const on=!!away&&MO.tab==='chat'&&!el('mo-sheet')?.open,was=root.classList.contains('mo-reading');
- if(was===on)return;
- const chat=el('mo-chat'),before=chat?.clientHeight||0;
- root.classList.toggle('mo-reading',on);
- // Tool rows return or leave above the story; shift the scroll by the height
- // difference so the reader keeps their place and the bottom stays the bottom.
- if(chat&&chat.isConnected)chat.scrollTop+=before-chat.clientHeight;
-}
-function moPhaseFlash(){
- const root=el('mo-root');if(!root)return;
- root.classList.add('mo-phase-flash');
- clearTimeout(MO.phaseFlashTimer);
- MO.phaseFlashTimer=setTimeout(()=>el('mo-root')?.classList.remove('mo-phase-flash'),4000);
 }
 function moPhaseGuide(d){
  const p=d.me;
@@ -63,10 +46,10 @@ function moActionBar(d){const ended=['finished','cancelled'].includes(d.phase);i
  if(d.phase==='lobby')return d.host_id===d.me.id?`<button class="v3-pill v3-pill--full" onclick="moControl('start')" ${d.players.length<4?'disabled':''}>${d.players.length<4?'Ждём игроков':'Начать партию'}</button>`:`<div class="mo-waiting">Твоё место занято. Роль придёт после старта.</div>`;
  if(d.phase==='paused')return `<div class="mo-paused"><span>Игра на паузе</span>${d.host_id===d.me.id?'<button class="v3-pill" onclick="moControl(\'resume\')">Продолжить</button>':'<button class="v3-link" onclick="moTab(\'table\')">Посмотреть стол</button>'}</div>`;
  if(d.me.can_act){const t=d.players.find(p=>p.id===d.me.action?.target),chosen=d.me.action?(t?moLabel(t):'Никого'):null;return `<div class="mo-turn"><span><small>${d.phase==='voting'?'Твой голос':'Твой ход'}</small><b>${chosen?esc(chosen):({mafia_target:'Ночная цель',doctor_save:'Кого спасти?',detective_check:'Кого проверить?',vote:'Кто покинет город?'})[d.me.action_kind]}</b></span><button id="mo-action-open" class="v3-pill ${chosen?'v3-pill--ghost':''}" onclick="moChooseTarget()">${chosen?'Изменить':'Выбрать'}</button></div>${d.me.choice_reset?'<p class="mo-action-note">Прежняя цель вышла · нужен новый выбор</p>':''}`;}
- return `<div class="mo-waiting">${!d.me.alive&&!d.me.left?'Для тебя открыт разговор выбывших.':d.phase==='discussion'?'Обсудите подозрения. Затем город проголосует.':d.phase==='night'?'Тебе не нужно ходить этой ночью.':'Наблюдай за городом.'}</div>`;
+ return '';
 }
 function moRenderRoom(d){const nextEvent=moEventFor(MO.presented,d);MO.presented=d;if(nextEvent)MO.pendingEvent=nextEvent;const oldMarker=MO.phaseMarker,marker=`${d.id}:${d.phase_number}:${d.phase}:${d.me.alive}`,ended=['finished','cancelled'].includes(d.phase);MO.self=d.me.id;if(el('mo-mini-role'))el('mo-mini-role').textContent=MO_ROLE[d.me.role]||'Сбор игроков';MO.offset=Date.now()/1000-d.server_time;MO.launchBase=d.launch_url||MO.launchBase;
- if(marker!==oldMarker){MO.phaseMarker=marker;if(oldMarker){MO.phaseMoment=marker;moSheetClose();MO.tab='chat';moTab('chat');moPhaseFlash();}if(el('mo-announcement'))el('mo-announcement').textContent=`${MO_PHASE[d.phase]}. ${moPhaseGuide(d)}`;const preferred=!ended&&!d.me.left&&!d.me.alive?'afterlife':d.phase==='night'&&d.channels.includes('mafia')?'mafia':'table';if(preferred!==MO.channel&&d.channels.includes(preferred))return moChannel(preferred);}
+ if(marker!==oldMarker){MO.phaseMarker=marker;if(oldMarker){MO.phaseMoment=marker;moSheetClose();MO.tab='chat';moTab('chat');}if(el('mo-announcement'))el('mo-announcement').textContent=`${MO_PHASE[d.phase]}. ${moPhaseGuide(d)}`;const preferred=!ended&&!d.me.left&&!d.me.alive?'afterlife':d.phase==='night'&&d.channels.includes('mafia')?'mafia':'table';if(preferred!==MO.channel&&d.channels.includes(preferred))return moChannel(preferred);}
  if(MO.redactions!==d.redactions){MO.messages.clear();MO.redactions=d.redactions;}
  const phase=d.phase==='paused'?d.paused_phase:d.phase,index={lobby:0,night:1,discussion:2,voting:3}[phase];
  moSetHTML('mo-status',`<div class="mo-phase mo-phase-${d.phase}"><img src="${BASE}/static/mafia-art/city.webp" alt=""><div><small>${d.phase==='lobby'?'Здесь начинается история':ended?'Маски сняты':`Круг ${d.round} · в городе ${d.living_count??d.players.filter(p=>p.alive).length}`}</small><h2>${moPhaseTitle(d)}</h2></div><time id="mo-clock" aria-live="off"></time><span class="mo-phase-track" aria-hidden="true"><i id="mo-phase-progress"></i></span></div><ol class="mo-stages" aria-label="Этапы партии">${['Сбор','Ночь','Разговор','Голосование'].map((s,i)=>`<li ${i===index?'aria-current="step"':''} class="${i===index?'current':''}">${s}</li>`).join('')}</ol><p class="mo-guide">${esc(moPhaseGuide(d))}</p>`);
