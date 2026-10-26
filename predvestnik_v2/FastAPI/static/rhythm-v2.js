@@ -21,9 +21,9 @@
   const glyph = rune => ({left:'ᚠ',center:'ᚱ',right:'ᚦ'}[rune] || '—');
   const buttons = () => [...document.querySelectorAll('[data-rune]')];
   const err = text => { $('error').textContent = text || ''; };
-  async function api(path, options={}) { const response=await PVLocal.request(base+'/rhythm-v2'+path,{...options,headers:{...headers,...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;} return data; }
+  async function api(path, options={}) { const response=await PVLocal.request(base+'/rhythm-v2'+path,{...options,headers:{'Content-Type':'application/json',...(window.GameMode?.headers()||headers),...(options.headers||{})}}); const data=await response.json().catch(()=>({})); if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;} return data; }
   if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
-  fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
+  fetch(base+'/skins-v3/me',{headers:{'Content-Type':'application/json',...(window.GameMode?.headers()||headers)}}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function save(){if(engine){store.data.active={packet:engine.packet,state:engine.state,journal,remaining:remaining??Math.max(0,tickEnd-performance.now())};store.save();}}
   function setButtons(disabled, selected=null){buttons().forEach(b=>{b.disabled=disabled;b.classList.toggle('pending',b.dataset.rune===selected&&disabled)})}
   function connection(mark,text){const out=$('connection');if(!out)return;out.textContent=mark;out.setAttribute('aria-label',text);out.dataset.state=mark==='●'?'on':mark==='○'?'off':'wait'}

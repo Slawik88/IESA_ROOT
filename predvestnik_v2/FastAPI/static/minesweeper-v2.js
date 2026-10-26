@@ -15,9 +15,9 @@
   headers['x-minesweeper-ruleset']='minesweeper-v2';
   const finished=status=>['won','lost','cancelled'].includes(status);
   function haptic(kind){if(Number(tg?.version||0)>=6.1)tg.HapticFeedback?.impactOccurred(kind);}
-  async function api(path,options={}){const response=await PVLocal.request(base+'/minesweeper-v2'+path,{...options,headers:{...headers,...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;}return data;}
+  async function api(path,options={}){const response=await PVLocal.request(base+'/minesweeper-v2'+path,{...options,headers:{'Content-Type':'application/json','x-minesweeper-ruleset':'minesweeper-v2',...(window.GameMode?.headers()||headers),...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(data.detail||'Нет связи. Проверь интернет и попробуй ещё раз.');error.status=response.status;throw error;}return data;}
   if('serviceWorker' in navigator)navigator.serviceWorker.register(base+'/local-games-sw.js',{scope:base+'/'}).catch(()=>{});
-  fetch(base+'/skins-v3/me',{headers}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
+  fetch(base+'/skins-v3/me',{headers:{'Content-Type':'application/json',...(window.GameMode?.headers()||headers)}}).then(response=>response.ok?response.json():null).then(skin=>window.applyGlobalSkinV3?.(skin)).catch(()=>{});
   function format(ms){const seconds=Math.max(0,Math.floor(ms/1000));return `${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`;}
   const profileLink=player=>{const a=document.createElement('a');a.innerHTML=window.gameWhoV3?window.gameWhoV3(player):'';if(!a.innerHTML)a.textContent=player.display_name||'Игрок';a.href=base+'/?startapp=public&profile='+encodeURIComponent(player.profile_ref||'');a.setAttribute('aria-label','Открыть профиль '+(player.display_name||'Игрок'));return a;};
   // Тройка лидеров — подиум, остальные строками (как в рейтинге и в обычном Ритме)
