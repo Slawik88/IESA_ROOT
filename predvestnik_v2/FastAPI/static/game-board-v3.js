@@ -48,7 +48,8 @@
     let response;
     try { response = await fetch(`${base}/profile/avatar?profile_ref=${encodeURIComponent(ref)}`, {...options,signal:controller.signal}); }
     finally { clearTimeout(timeout); }
-    if (!response.ok) return {vip:false};
+    if ([403,404].includes(response.status)) return {vip:false};
+    if (!response.ok) throw new Error('Не удалось загрузить фото.');
     return response.json();
   }
   function pump() {

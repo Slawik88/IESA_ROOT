@@ -27,6 +27,17 @@ async function main() {
   context.api = async () => { active = false; return {vip:true, avatar:photo}; };
   assert.equal(await vm.runInContext("_requestVipAvatar('other-profile-ref', isCurrent)", context), null,
     'late public response discarded after switching player');
+  // The current shell has no legacy hdr-ava. Its real profile loader must still hydrate.
+  const modernNodes={'pro-main':{},'pro-showcase-ava':{}};
+  const modern=vm.createContext({Date,Promise,setTimeout:fn=>fn(),el:id=>modernNodes[id],
+    _profileData:null,_initChatId:0,_cid:0,_uid:0,_ws:{},v3PaintCachedProfile(){},
+    renderProfileHome:()=>'<profile>',updateCurrBar(){},v3SaveProfileCache(){},
+    api:async route=>route==='/profile/me'?{is_vip:true,user_id:101,username:'QA',avatar:null}:{vip:true,avatar:photo}});
+  vm.runInContext(block,modern);
+  vm.runInContext(source.slice(source.indexOf('function loadProfile()'),source.indexOf('function openBotAdmin()')),modern);
+  await vm.runInContext('loadProfile()',modern);
+  await vm.runInContext('_vipAvatarLoading',modern);
+  assert.match(modernNodes['pro-showcase-ava'].innerHTML,/data:image/,'modern profile recovers without hdr-ava');
   console.log('avatar UI: retry, single-flight, rerender, safe URI and stale-card guard OK');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; });

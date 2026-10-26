@@ -31,7 +31,7 @@ function loadProfile() {
     try { loadV3Today(); loadV3Path(); _v3TopCache = {}; v3LazyTop(); } catch (_) {}
     try { _tosGate(d); } catch (_) {}
     try { if(!_ws && _uid) connectWS(); } catch (_) {}
-    try { updateCurrBar(d); } catch (_) {}
+    try { updateCurrBar(d); if(d.is_vip){if(_validAvatar(d.avatar))_vipAvatar=d.avatar;_ensureVipAvatar();} } catch (_) {}
   }).catch(e=>{el('pro-main').innerHTML=`<div style="color:var(--red);padding:20px;font-size:12px">${typeof e==='string'?e:'Напишите боту чтобы создать профиль.'}</div>`;});
 }
 
