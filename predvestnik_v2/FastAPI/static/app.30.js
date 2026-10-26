@@ -137,7 +137,6 @@ function _svRing(days) {
 function _svStatus(v) {
   const tiers = v.tiers || [], min = tiers.length ? Math.min(...tiers.map(t => Number(t.price_zarniki))) : 0;
   const cta = !v.active && min ? `<button type="button" class="v3-pill sv-buy sv-hero-cta" onclick="svToTerms()">Оформить VIP · от ${fmt(min)} ✨</button>` : '';
-  const dust = _sysFlags.star_dust_v1 === true ? '<section class="sv-sec"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 VIP за звёздную пыль ›</button></section>' : '';
   return v.active
     ? `<section class="sv-status sv-hero is-on" role="status">${_svRing(v.days_left || 0)}<div><b>VIP активен</b><span>ещё ${fmt(v.days_left || 0)} дн. · до ${_profileDate(v.expires_at)}</span></div></section>`
     : `<section class="sv-status sv-hero" role="status">${_svRing(0)}<div><b>VIP не активен</b><span>С ним ваш образ видят все, а наград больше</span></div>${cta}</section>`;
@@ -244,6 +243,7 @@ function svBadgeSet(field, value) {
   }, 450);
 }
 function _svVip() {
+  const dust = _sysFlags.star_dust_v1 === true ? '<section class="sv-sec"><button type="button" class="v3-pill v3-pill--full" onclick="openStarDust()">🌠 VIP за звёздную пыль ›</button></section>' : '';
   const v = _sv.vip;
   if (_sv.vipFailed || !v) {
     // Cached/profile information is display-only: never enable purchases or preference writes from it.
