@@ -109,7 +109,7 @@ def check(dsn, shots, baseline=False, port=8408):
             page.wait_for_function('() => !MO.busy')
             assert page.locator('#mo-text').input_value() == ''
             assert not page.locator('#mo-error').inner_text().strip()
-            for width in (320, 390, 430):
+            for width in (320, 390, 430, 900, 1280):
                 for height in (640, 430):
                     page.set_viewport_size({'width': width, 'height': height})
                     geometry = page.evaluate('''() => {

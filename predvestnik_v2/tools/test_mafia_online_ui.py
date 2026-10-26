@@ -36,6 +36,7 @@ from FastAPI.routers.bot_admin import mafia_online as admin
 from infrastructure.pg_adapter import PGAdapter
 from infrastructure.repositories import mafia_online as repo
 from services import admin_people, mafia_online_scheduler as scheduler
+from mafia_workspace_checks import check_workspace
 
 
 def function(file, name):
@@ -226,6 +227,7 @@ def check(dsn, out):
             assert pa.locator('#mo-new').is_hidden()
             # Discard the synthetic UI-only row before further real-server polling.
             pa.evaluate("MO.messages.delete(999999);document.querySelector('[data-msg=\"999999\"]').remove()")
+            check_workspace(pa, out)
             pa.locator('#mo-tab-table').click()
             pa.locator('#mo-settings-form').wait_for(state='visible')
             for title in ('Закрыть партию для всех','Покинуть город'):
@@ -320,7 +322,7 @@ def check(dsn, out):
             phase = chooser.evaluate("MO.data.phase_number")
             alternative = next(x for x in roles if x not in (uid, mafioso))
             choose_target(chooser, alternative)
-            assert chooser.locator('#mo-tab-players').get_attribute('aria-selected') == 'true'
+            assert chooser.locator('#mo-tab-players').get_attribute('aria-pressed') == 'true'
             assert chooser.locator('#mo-public-votes').is_visible()
             assert chooser.locator('#mo-action-open').inner_text() == 'Изменить', 'a vote remains changeable'
             choose_target(chooser, mafioso)

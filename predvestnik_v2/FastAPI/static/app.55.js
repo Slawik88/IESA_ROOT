@@ -71,9 +71,10 @@ async function moEnter(id){
   moStore();moSheetClose();moStop();Object.assign(MO,{room:id,channel:'table',data:null,tab:'chat',statusKey:'',redactions:0,errors:0,hasOlder:false,settingsDraft:null,settingsVersion:null,phaseMarker:'',phaseMoment:null,presented:null,pendingEvent:null,checkSeen:0,playerQuery:'',newCount:0,sendState:'',sendError:false,read:{},scroll:{}});MO.messages.clear();moRestore();try{const read=JSON.parse(sessionStorage.getItem(`pv_mo_read_${moOwner()}_${id}`)||'{}');MO.read=read&&typeof read==='object'&&!Array.isArray(read)?read:{};}catch(_){MO.read={};}
   if(!el('mo-root'))moShell();el('mo-root').innerHTML=moRoomShell(id);
   const input=el('mo-text');input.value=MO.draft;input.oninput=()=>{MO.draft=input.value;MO.nonce='';MO.sendError=false;MO.sendState='';moStore();moComposeState();};
-  input.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&(e.ctrlKey||e.metaKey||!matchMedia('(pointer:coarse)').matches)){e.preventDefault();moSend();}};
+  moChatGestures();
+  input.onkeydown=e=>{if(e.key==='Escape'&&MO.reply){e.preventDefault();e.stopPropagation();moCancelReply();return;}if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&(e.ctrlKey||e.metaKey||!matchMedia('(pointer:coarse)').matches)){e.preventDefault();moSend();}};
   el('mo-compose').onsubmit=e=>{e.preventDefault();moPendingMessage()?moPendingMessageDialog():moSend();};
-  el('mo-chat').onscroll=()=>{const c=el('mo-chat');if(c.scrollHeight-c.scrollTop-c.clientHeight<60){MO.newCount=0;moMarkRead();moNewBadge();}};
+  el('mo-chat').onscroll=()=>{const c=el('mo-chat');if(c.scrollHeight-c.scrollTop-c.clientHeight<60){MO.newCount=0;moMarkRead();}moNewBadge();};
   el('mo-tabs').onkeydown=e=>{const keys=['chat','players','table'],i=keys.indexOf(MO.tab);let next;if(e.key==='ArrowRight')next=(i+1)%3;else if(e.key==='ArrowLeft')next=(i+2)%3;else if(e.key==='Home')next=0;else if(e.key==='End')next=2;else return;e.preventDefault();moTab(keys[next],true);};
   moReplyMarkup();moPendingNotice();moComposeState();MO.clock=setInterval(moClock,1000);await moPoll(MO.gen);
 }
@@ -107,6 +108,8 @@ function moInvite(){const d=MO.data;if(!d||d.phase!=='lobby'||d.me.left)return;c
 function moShareInvite(){const url='https://t.me/share/url?'+new URLSearchParams({url:MO.inviteUrl,text:'Мафия · присоединяйся к нашему городу'});if(tg?.openTelegramLink)tg.openTelegramLink(url);else window.open(url,'_blank','noopener');}
 async function moCopyInvite(){try{await navigator.clipboard.writeText(MO.inviteUrl);moToast('Приглашение скопировано');}catch(_){el('mo-invite-link')?.select();moShowError(new Error('Скопируйте выделенную ссылку.'));}}
 function moViewport(){const v=window.visualViewport,m=el('modal');if(!m?.classList.contains('mo-mode'))return;m.style.setProperty('--mo-height',`${v?.height||innerHeight}px`);m.style.setProperty('--mo-top',`${v?.offsetTop||0}px`);const height=v?.height||innerHeight;m.classList.toggle('mo-short',height<=440);m.classList.toggle('mo-small',height<=420);m.classList.toggle('mo-tiny',height<=380);m.classList.toggle('mo-keyboard',(v?.height||innerHeight)<520&&document.activeElement===el('mo-text'));}
+el('modal').addEventListener('keydown',e=>{if(e.key==='Escape'&&el('mo-sheet')?.open){e.preventDefault();e.stopPropagation();moSheetClose();}});
+el('modal').addEventListener('cancel',e=>{if(el('mo-sheet')?.open){e.preventDefault();moSheetClose();}});
 el('modal').addEventListener('close',()=>{if(el('modal').open)return;moStore();moStop();el('modal').classList.remove('mo-mode','mo-keyboard','mo-short','mo-small','mo-tiny');el('modal').style.removeProperty('--mo-height');el('modal').style.removeProperty('--mo-top');});
 new MutationObserver(()=>{if(el('modal').classList.contains('mo-mode')&&!el('mo-root')){moStop();el('modal').classList.remove('mo-mode');}}).observe(el('mb'),{childList:true});
 window.addEventListener('online',()=>{if(MO.room&&el('mo-root')&&el('modal').open)moRefresh();else if(el('mo-hub-search'))moHubRefresh(MO.gen);});
