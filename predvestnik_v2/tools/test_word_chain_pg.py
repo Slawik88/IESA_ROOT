@@ -77,12 +77,34 @@ async def run(dsn):
         alternate=await game.start(db,chat_id=cid,topic_id=11,actor=owner)
         assert alternate["round_id"]!=sid
         await db.execute("UPDATE chat_settings SET is_purging=TRUE WHERE chat_id=?",(cid,))
+        paused=await game.status(db,chat_id=cid,topic_id=0,hint=True)
+        assert paused["paused"]
+        await denied(game.play(db,chat_id=cid,topic_id=0,actor=peer,message_id=999,value=paused["hints"][0]),"Игра ждёт")
         await denied(game.start(db,chat_id=cid,topic_id=12,actor=owner),"закрыт")
         await db.execute("UPDATE chat_settings SET is_purging=FALSE WHERE chat_id=?",(cid,))
         await db.execute("UPDATE word_chain_rounds SET updated_at=CLOCK_TIMESTAMP()-INTERVAL '25 hours' WHERE id=?",(sid,))
         fresh=await game.start(db,chat_id=cid,topic_id=0,actor=owner)
         assert fresh["round_id"]!=sid
         await game.stop(db,chat_id=cid,topic_id=0,actor=owner,can_moderate=False)
+        # Correction buttons bind the original message to one round and turn.
+        correction=await game.start(db,chat_id=cid,topic_id=77,actor=owner)
+        choices=(await game.status(db,chat_id=cid,topic_id=77,hint=True))["hints"]
+        async def correction_attempt(adapter,value):
+            try:
+                return await game.play(adapter,chat_id=cid,topic_id=77,actor=owner,message_id=500,value=value,
+                                       expected_round=correction["round_id"],expected_turn=0)
+            except game.WordChainError:
+                return None
+        corrected=await asyncio.gather(correction_attempt(db,choices[0]),correction_attempt(other,choices[1]))
+        assert sum(x is not None for x in corrected)==1,corrected
+        winner=next(x for x in corrected if x is not None)
+        assert (await correction_attempt(db,winner["word"]))["replayed"]
+        await denied(game.play(db,chat_id=cid,topic_id=77,actor=owner,message_id=501,value=choices[0],
+                              expected_round=correction["round_id"],expected_turn=0),"продолжил")
+        await game.stop(db,chat_id=cid,topic_id=77,actor=owner,can_moderate=False)
+        await game.start(db,chat_id=cid,topic_id=77,actor=owner)
+        await denied(game.play(db,chat_id=cid,topic_id=77,actor=owner,message_id=501,value=choices[0],
+                              expected_round=correction["round_id"],expected_turn=0),"продолжил")
         # An empty last page clamps in one request rather than repeated page-back calls.
         ps=await purge.begin(db,chat_id=cid,actor=owner,norm=10,date_from="2026-10-01",date_to="2026-10-07",destination=cid,
                              action_id="qa",targets=[{"user_id":peer,"count":0,"days_in_chat":30,"warns":0,"required":10}])

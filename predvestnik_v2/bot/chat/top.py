@@ -11,6 +11,7 @@ from bot.chat.framework import Ctx, registry
 from bot.chat.style import profile_link, quote
 from bot.chat.tracking import local_now
 from services import chat_bots, member_tags, skins_chat
+from infrastructure.repositories import stats as stats_repo
 
 PAGE_SIZE = 25
 PERIODS = {"d": "День", "w": "Неделя", "lw": "Прошлая неделя"}
@@ -85,21 +86,9 @@ def keyboard(uid: int, scope: str, period: str, page: int, pages: int, chat: int
 async def build(db, scope: str, period: str, page: int, chat: int, bot=None) -> tuple[str, int]:
     a, b = period_range(period, local_now().date())
     if scope == "k":
-        async with db.execute(
-            "SELECT COUNT(DISTINCT chat_id) FROM daily_user_stats WHERE date BETWEEN ? AND ?", (a, b)
-        ) as cur:
-            total = (await cur.fetchone())[0] or 0
-        pages = max(1, -(-total // PAGE_SIZE))
-        page = min(page, pages - 1)
-        async with db.execute(
-            "SELECT d.chat_id, COALESCE(s.chat_title, 'Чат ' || d.chat_id) AS name, SUM(d.message_count) AS c "
-            "FROM daily_user_stats d LEFT JOIN chat_settings s ON s.chat_id = d.chat_id "
-            "WHERE d.date BETWEEN ? AND ? GROUP BY d.chat_id, s.chat_title "
-            "ORDER BY c DESC, d.chat_id LIMIT ? OFFSET ?",
-            (a, b, PAGE_SIZE, page * PAGE_SIZE),
-        ) as cur:
-            data = await cur.fetchall()
-        rows = [(page * PAGE_SIZE + i + 1, _esc(r[1]), int(r[2])) for i, r in enumerate(data)]
+        result = await stats_repo.chat_top_page(db,a,b,page=page,page_size=PAGE_SIZE)
+        page,pages = result["page"],result["pages"]
+        rows = [(page * PAGE_SIZE + i + 1,_esc(r["chat_title"]),int(r["msg_count"])) for i,r in enumerate(result["items"])]
         return render("Топ чатов", rows, page, pages, period, scope), pages
 
     where, params = f"d.date BETWEEN ? AND ? AND {chat_bots.NOT_BOT_DAILY}", [a, b]   # боты в рейтинге игроков не нужны

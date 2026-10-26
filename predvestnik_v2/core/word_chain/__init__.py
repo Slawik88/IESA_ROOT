@@ -11,6 +11,8 @@ TURN_COOLDOWN_SECONDS = 3
 SKIP_ENDINGS = frozenset("ьъый")
 WORD_RE = re.compile(r"[а-яё]{2,32}")
 WORDS = frozenset(Path(__file__).with_name("nouns.txt").read_text(encoding="utf-8").splitlines())
+SORTED_WORDS = tuple(sorted(WORDS))
+SUGGESTION_LIMIT = 3
 BY_LETTER = MappingProxyType({letter: tuple(sorted(w for w in WORDS if w.startswith(letter))) for letter in "абвгдежзиклмнопрстуфхцчшщэюя"})
 _COMMON = """абрикос автобус автомобиль автор адрес акула алмаз ананас апельсин арбуз артист астра
 бабочка баклажан балкон банан барабан барсук башня берег береза билет блин болото борщ бочка брат брусника буква бумага букет бутылка
@@ -44,7 +46,7 @@ COMMON_WORDS = tuple(w for w in _COMMON.split() if w in WORDS)
 
 
 def normalize(value: str) -> str:
-    return value.strip().lower().replace("ё", "е")
+    return value.strip().lower().replace("ё", "е").rstrip(".,!?…")
 
 
 def next_letter(word: str) -> str:

@@ -53,22 +53,6 @@ function v3Fly(from, currency, glyph = '✦', count = 5) {
   setTimeout(() => { chip.classList.remove('is-tick'); void chip.offsetWidth; chip.classList.add('is-tick'); }, 760 + (count - 1) * 70);
 }
 
-// Смена образа: палитра приложения перетекает, а не щёлкает. Только там, где устройство тянет снимок страницы (потолок 5 и выше).
-function v3Morph(update) {
-  if (typeof document.startViewTransition !== 'function' || !_v3Moves() || _v3DeviceCap() < 5) { update(); return; }
-  let updated = false;
-  const apply = () => { if (!updated) { updated = true; update(); } };
-  try {
-    const transition = document.startViewTransition(apply);
-    // WebViews may reject the visual transition during page startup. The update still runs once.
-    transition.ready.catch(() => {});
-    transition.updateCallbackDone.catch(error => {
-      if (!['AbortError', 'InvalidStateError'].includes(error?.name)) throw error;
-    });
-    transition.finished.catch(apply);
-  } catch (_) { apply(); }
-}
-
 // Квест выполнен на глазах у игрока: значок задания подпрыгивает один раз. Квесты, которые уже были выполнены при открытии вкладки, не трогаются.
 const _questDone = { seen: new Set(), ready: new Set() };
 function v3QuestsDone(root) {

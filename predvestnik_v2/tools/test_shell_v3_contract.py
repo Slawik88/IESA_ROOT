@@ -13,8 +13,8 @@ app = (STATIC / "app.01.js").read_text(encoding="utf-8")
 flags = (ROOT / "infrastructure/repositories/system_flags.py").read_text(encoding="utf-8")
 
 # Every game shown in the hub is controlled by a real server flag.
-hub_flags = re.findall(r"flag:'([a-z0-9_]+)'", hub)
-assert len(hub_flags) == 3, hub_flags
+hub_flags = re.findall(r"flag:'([a-z0-9_]+)'", hub.split("const _V3_GAMES = [",1)[1].split("];",1)[0])
+assert {"game_mafia_v1","game_rhythm_v2","game_minesweeper_v2"} <= set(hub_flags), hub_flags
 for key in hub_flags:
     assert f'("{key}"' in flags, f"unknown flag {key}"
 
@@ -181,10 +181,10 @@ for sheet_name, sheet in (("motion-v3.css", motion_css), ("marks-v3.css", (STATI
     for name, props in keyframe_props(sheet).items():
         assert props <= {"transform", "opacity"}, (sheet_name, name, props)
 assert "infinite" not in motion_css, "motion-v3.css is one-shot only"
-assert all(f"function {name}(" in motion_js for name in ("v3Dismiss", "v3BalanceFx", "v3Fly", "v3Morph", "_v3Moves")) and "_v3Class() !== 'low'" in motion_js
+assert all(f"function {name}(" in motion_js for name in ("v3Dismiss", "v3BalanceFx", "v3Fly", "_v3Moves")) and "_v3Class() !== 'low'" in motion_js
 assert "v3BalanceFx(" in bar_js and "Date.now() - since < 2500" in motion_js, "no fireworks at app start"
 assert "document.body.dataset.dir" in (STATIC / "app.01.js").read_text(encoding="utf-8") and 'body[data-dir="f"]' in motion_css and 'body[data-dev="low"]' in motion_css
-assert "v3Dismiss(" in marks_js and "v3Morph(" in (STATIC / "app.23.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.30.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.12.js").read_text(encoding="utf-8")
+assert "v3Dismiss(" in marks_js and "v3ApplyLook(look);" in (STATIC / "app.23.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.30.js").read_text(encoding="utf-8") and "v3Fly(" in (STATIC / "app.12.js").read_text(encoding="utf-8")
 assert "v3GrowStar(" in greet_js and "function v3GrowStar(" in (STATIC / "app.20.js").read_text(encoding="utf-8")
 assert "prefers-reduced-motion" in motion_css and ".no-fx" in motion_css, "calm mode leaves no motion behind"
 assert "function v3QuestsDone(" in motion_js and "v3QuestsDone(root)" in (STATIC / "app.12.js").read_text(encoding="utf-8") and 'data-q="${period}-${quest.slot}"' in (STATIC / "app.12.js").read_text(encoding="utf-8")

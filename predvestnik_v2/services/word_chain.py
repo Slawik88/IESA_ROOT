@@ -1,4 +1,5 @@
 """A shared, persistent word game. Activity uses ordinary chat tracking only."""
+import asyncio
 import secrets
 
 from core import word_chain as rules
@@ -66,6 +67,7 @@ async def status(db, *, chat_id: int, topic_id: int, hint: bool = False) -> dict
             previous = await repo.latest(db,chat_id,topic_id)
             return {**await _view(db,previous),"last_round":bool(previous)}
         result = await _view(db,row)
+        result["paused"] = await repo.paused(db,chat_id,topic_id)
         if hint and row:
             used = await repo.used(db,int(row["id"]))
             result["hints"] = [w for w in rules.COMMON_WORDS if w.startswith(result["letter"]) and w not in used][:3]
@@ -74,7 +76,8 @@ async def status(db, *, chat_id: int, topic_id: int, hint: bool = False) -> dict
         return result
 
 
-async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, value: str) -> dict:
+async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, value: str,
+               expected_round: int | None = None, expected_turn: int | None = None) -> dict:
     _scope(chat_id,topic_id)
     word = rules.normalize(value)
     if not rules.WORD_RE.fullmatch(word):
@@ -92,6 +95,9 @@ async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, 
         row = await _current(db,chat_id,topic_id)
         if not row:
             raise WordChainError("Партии нет или сутки никто не играл. Начни новую: «бот слова».")
+        if ((expected_round is not None and int(row["id"]) != expected_round)
+                or (expected_turn is not None and int(row["turns"]) != expected_turn)):
+            raise WordChainError("Кто-то уже продолжил цепочку. Попробуй слово на новую букву ниже.")
         if await repo.paused(db,chat_id,topic_id):
             raise WordChainError("Игра ждёт: чат закрыт или идёт Мафия. Слова и счёт сохранятся.")
         letter = rules.next_letter(row["last_word"])
@@ -112,6 +118,21 @@ async def play(db, *, chat_id: int, topic_id: int, actor: int, message_id: int, 
             result["leaders"] = await repo.leaders(db,int(row["id"]))
             await repo.save_reply(db,int(row["id"]),message_id,result)
         return result
+
+
+async def spelling_help(db, *, chat_id: int, topic_id: int, value: str) -> dict:
+    from core.word_chain.spelling import suggest
+    _scope(chat_id, topic_id)
+    await repo.ensure_tables(db)
+    async with db.connection.transaction():
+        await repo.lock(db, chat_id, topic_id)
+        row = await _current(db, chat_id, topic_id)
+        if not row or await repo.paused(db, chat_id, topic_id):
+            return {"active":False,"candidates":[]}
+        state = await _view(db, row)
+        used = await repo.used(db, int(row["id"]))
+    state["candidates"] = await asyncio.to_thread(suggest,value,state["letter"],used)
+    return state
 
 
 async def stop(db, *, chat_id: int, topic_id: int, actor: int, can_moderate: bool) -> dict:

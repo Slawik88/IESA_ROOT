@@ -77,7 +77,7 @@ async def _callback_gate(handler, event, data):
     return await handler(event, data)
 
 
-for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router):
+for sub in (top.router, help.router, family.router, games.router, mafia.router, rank_commands.router, moderation.router, purge.router, sanctions.router, transfer.router, members.router, vip.router, pets.router, star_dust.router, word_chain.router):
     sub.callback_query.middleware(_callback_gate)
     router.include_router(sub)
 

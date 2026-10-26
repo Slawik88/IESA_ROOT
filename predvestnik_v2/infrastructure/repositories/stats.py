@@ -5,6 +5,13 @@ import aiosqlite
 # so that stale lazy-reset counters can't show players who haven't written today.
 
 
+def _ranked_chat(chat_column: str) -> str:
+    if chat_column not in {"d.chat_id", "s.chat_tg_id"}:
+        raise ValueError("unsupported chat ranking column")
+    return ("COALESCE(c.include_in_global_top,1)=1 AND NOT EXISTS "
+            f"(SELECT 1 FROM chat_links l WHERE l.admin_chat_id={chat_column})")
+
+
 async def get_top_messages(
     db: aiosqlite.Connection, chat_id: int, period: str, limit: int = 500
 ) -> list[dict]:
@@ -91,7 +98,7 @@ async def get_top_chats_for_dates(
         "SELECT d.chat_id,COALESCE(NULLIF(MAX(c.chat_title),''),'Чат') AS chat_title,"
         "SUM(d.message_count) AS msg_count,COUNT(DISTINCT d.user_id) AS active_users "
         "FROM daily_user_stats d LEFT JOIN chat_settings c ON c.chat_id=d.chat_id "
-        "WHERE d.date>=? AND d.date<=? AND COALESCE(c.include_in_global_top,1)=1 "
+        f"WHERE d.date>=? AND d.date<=? AND {_ranked_chat('d.chat_id')} "
         "GROUP BY d.chat_id HAVING SUM(d.message_count)>0 "
         "ORDER BY msg_count DESC,d.chat_id ASC LIMIT ?",
         (date_start, date_end, limit),
@@ -107,12 +114,27 @@ async def get_top_chats_all_time(
         "SUM(s.user_messages_count_all_time) AS msg_count,"
         "COUNT(DISTINCT s.user_tg_id) FILTER (WHERE s.user_messages_count_all_time>0) AS active_users "
         "FROM user_chat_stats s LEFT JOIN chat_settings c ON c.chat_id=s.chat_tg_id "
-        "WHERE COALESCE(c.include_in_global_top,1)=1 "
+        f"WHERE {_ranked_chat('s.chat_tg_id')} "
         "GROUP BY s.chat_tg_id HAVING SUM(s.user_messages_count_all_time)>0 "
         "ORDER BY msg_count DESC,s.chat_tg_id ASC LIMIT ?",
         (limit,),
     ) as cursor:
         return [dict(row) for row in await cursor.fetchall()]
+
+
+async def chat_top_page(db, date_start: str, date_end: str, *, page: int, page_size: int) -> dict:
+    totals = ("SELECT d.chat_id,COALESCE(NULLIF(MAX(c.chat_title),''),'Чат') AS chat_title,SUM(d.message_count) AS msg_count "
+              "FROM daily_user_stats d LEFT JOIN chat_settings c ON c.chat_id=d.chat_id "
+              f"WHERE d.date>=? AND d.date<=? AND {_ranked_chat('d.chat_id')} "
+              "GROUP BY d.chat_id HAVING SUM(d.message_count)>0")
+    async with db.execute("SELECT COUNT(*) FROM ("+totals+") ranked", (date_start,date_end)) as cursor:
+        total = int((await cursor.fetchone())[0])
+    pages = max(1,(total+page_size-1)//page_size)
+    page = max(0,min(page,pages-1))
+    async with db.execute(totals+" ORDER BY msg_count DESC,d.chat_id ASC LIMIT ? OFFSET ?",
+                          (date_start,date_end,page_size,page*page_size)) as cursor:
+        rows = [dict(row) for row in await cursor.fetchall()]
+    return {"items":rows,"page":page,"pages":pages,"total":total}
 
 
 async def get_message_top_position(
@@ -163,7 +185,7 @@ async def get_message_top_position(
             )
             params = (excluded,)
     elif scope == "chats":
-        privacy = "COALESCE(c.include_in_global_top,1)=1"
+        privacy = _ranked_chat("d.chat_id" if period else "s.chat_tg_id")
         if period:
             totals_sql = (
                 "SELECT d.chat_id AS entity_id,SUM(d.message_count) AS msg_count "
