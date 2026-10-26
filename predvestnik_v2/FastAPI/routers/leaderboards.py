@@ -17,7 +17,7 @@ async def podium_avatars(db, rows: list[dict], *, nested: bool = False) -> list[
     """Фото VIP в строках топа (до 10 на странице), как в публичном профиле: перк VIP, аватарку видно везде. Самый маленький
     снимок из кэша на процесс, без ожидания Telegram; пока фото не скачалось, клиент рисует созвездие. nested — строки {player: {...}}."""
     from FastAPI.routers.profile import _vip_avatar
-    players = [(r.get("player") or {}) if nested else r for r in rows[:10]]
+    players = [(r.get("player") or {}) if nested else r for r in rows]
     refs = await public_profiles.resolve_references(db, [p.get("profile_ref" if nested else "ref") for p in players if p.get("is_vip")])
     for p in players:
         uid = refs.get(p.get("profile_ref" if nested else "ref"))

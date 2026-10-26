@@ -46,6 +46,7 @@ function renderV3Top(state) {
       <div class="v3-top-foot"><span class="v3-top-me">${data.personal && !inTop ? `Вы: #${fmt(data.personal.place)} · ${fmt(data.personal.value)} ${tab.unit}` : ''}</span><button type="button" class="v3-link" onclick="${['rhythm', 'minesweeper', 'mafia'].includes(tab.id) ? `openTopV3('${tab.id}')` : `openTopV3('global','${tab.id}')`}">Весь топ ›</button></div>`;
   }
   host.innerHTML = `${head}<div class="v3-top-body">${body}</div>`;
+  window.hydrateLeaderboardAvatars?.(host);
 }
 function loadV3Top() {
   const tabs = _v3TopTabs(), tab = tabs.find(t => t.id === _v3TopTab), mine = ++_v3TopSeq;
@@ -76,7 +77,8 @@ function v3LazyTop() {
 // Строка рейтинга: нажатие открывает публичную карточку игрока (ник со стилем виден только у VIP)
 // Фото VIP в строке топа (перк VIP: аватарку видно везде); без фото строка как раньше
 function _v3RowAva(row) {
-  return typeof row.avatar === 'string' && /^data:image\/(?:png|jpe?g|webp);base64,/i.test(row.avatar) ? `<span class="v3-row-ava"><img src="${_profileEsc(row.avatar)}" alt="" decoding="async" loading="lazy"></span>` : '';
+  const fallback = _v3Avatar({seed:row.ref || row.name,level:row.level,is_vip:row.is_vip});
+  return `<span class="v3-row-ava">${window.leaderboardAvatar ? window.leaderboardAvatar(row,fallback) : fallback}</span>`;
 }
 function _v3RowButton(row, value) {
   const open = row.ref && /^[A-Za-z0-9_-]{16,64}$/.test(row.ref) ? ` onclick="openPublicProfile('${row.ref}')"` : ' disabled';

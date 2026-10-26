@@ -3,7 +3,7 @@
 Minesweeper is server-authoritative (a click is one short request; the board never reaches the phone).
 Rhythm is played on the phone level by level and checked by the server in the pause after each level
 (services.league_rhythm).  Progress resets every season.  In the demo season experience is only shown; in a
-real season it goes to the season pass (services.league_pass), which is the only economy writer.
+real season it goes to the season pass (services.league_pass), and also advances the same achievements as casual play.
 """
 from __future__ import annotations
 
@@ -17,7 +17,8 @@ from core import league_pass as pass_rules
 from core import league_v1 as rules
 from infrastructure.repositories import league_v1 as repo
 from infrastructure.repositories import public_profiles_v1 as public_profiles
-from services import league_pass, league_rhythm
+from services import league_pass, league_rhythm, achievement_games
+from services.vip import is_vip_active_batch
 
 
 def _season(now: datetime | None = None) -> str:
@@ -46,6 +47,7 @@ async def overview(db, *, user_id: int) -> dict:
     names = await public_profiles.player_projection(
         db, user_ids=sorted({int(r["user_id"]) for top in tops.values() for r in top}),
     )
+    vips = await is_vip_active_batch(db,list(names))
     pet_xp = await repo.pet_xp(db, user_id=user_id, season=season) if rules.is_demo(season) else 0
     games = {}
     for game in rules.GAMES:
@@ -55,7 +57,8 @@ async def overview(db, *, user_id: int) -> dict:
             "unlocked": unlocked(rows, game), "stars": sum(r["stars"] for r in mine),
             "levels": {str(r["level"]): {"stars": r["stars"], "attempts": r["attempts"]} for r in mine},
             "top": [{"place": i + 1, "name": names[int(r["user_id"])]["display_name"], "level": int(r["best_level"]),
-                     "stars": int(r["stars"]), "me": int(r["user_id"]) == int(user_id)} for i, r in enumerate(top)],
+                     "stars": int(r["stars"]), "me": int(r["user_id"]) == int(user_id),
+                     "profile_ref":names[int(r["user_id"])]["profile_ref"],"is_vip":int(r["user_id"]) in vips} for i, r in enumerate(top)],
         }
     demo = rules.is_demo(season)
     return {"season": season, "demo": demo, "games": games, "xp_by_stars": rules.XP_BY_STARS,
@@ -232,6 +235,7 @@ async def _record(db, row: dict, stars: int, detail: dict) -> dict:
     if xp and not rules.is_demo(row["season"]):
         await league_pass.add_xp(db, user_id=user_id, source="league", event_id=f"{row['season']}:{game}:{level}:{stars}",
                                  xp=xp, casual=False, at=row["server_now"], season=int(row["season"].lstrip("s")))
+    await achievement_games.record_ranked(db,row)
     return {"run_id": row["run_id"], "game": game, "level": level, "stars": stars, "best_stars": max(old, stars),
             "xp": xp, "next_unlocked": stars > 0, "detail": detail}
 

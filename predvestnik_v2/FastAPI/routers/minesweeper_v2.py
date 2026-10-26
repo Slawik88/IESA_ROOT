@@ -60,7 +60,10 @@ async def action(run_id: str, body: ActionBody, db=Depends(get_db), user=Depends
 @router.get("/leaderboard/{difficulty}", dependencies=[_feature_gate])
 async def leaderboard(difficulty: Literal["easy", "normal", "hard"], db=Depends(get_db), user=Depends(require_tg_user)):
     try:
-        return await game.rankings(db, user_id=int(user["id"]), difficulty=difficulty)
+        board = await game.rankings(db, user_id=int(user["id"]), difficulty=difficulty)
+        from FastAPI.routers.leaderboards import podium_avatars
+        await podium_avatars(db, board.get("top") or [], nested=True)
+        return board
     except game.MinesweeperError as exc:
         _raise(exc)
 

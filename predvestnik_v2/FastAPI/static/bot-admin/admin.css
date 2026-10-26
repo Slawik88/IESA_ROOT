@@ -451,3 +451,6 @@ details.section:not([open]) > summary { margin-bottom: 0; }
 .pn-thumb .actions { gap: 4px; } .pn-thumb .btn.small { min-height: 32px; padding: 0 10px; }
 .pn-upload { display: inline-flex; align-items: center; }
 .pn-bar { padding: 14px 0 4px; border-top: 1px solid var(--line); }
+
+.list>button.prow { width:100%;min-height:44px;background:transparent;color:inherit;border:0;border-top:1px solid var(--line);text-align:left;font:inherit; }
+.list>button.prow:first-child { border-top:0; }

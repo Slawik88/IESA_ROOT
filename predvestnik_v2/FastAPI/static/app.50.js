@@ -47,8 +47,10 @@ function v3Hero(kind, title, sub = '', { eyebrow = '', end = '', stat = '' } = {
 // Подиум тройки лидеров (Топ и «Топ-10» в профиле): 2 · 1 · 3. Каждое место — карточка-сцена с тем же образом, что в публичном
 // профиле: фон и частицы, ореол, рамка, аватар (фото VIP или личное созвездие по ref и уровню), ник со стилем, титул, VIP и регалия
 function _v3PodId(r) {
+  if (r.kind==='chat') return `<span class="v3-pod-card chat-theme" style="${chatThemeStyle(r)}"><span class="v3-pod-id"><span class="v3-ring">${chatThemeAvatar(r)}<span class="v3-pod-medal" aria-hidden="true">${r.place}</span></span><b class="v3-pod-name">${esc(r.name)}</b></span></span>`;
   const ap = typeof apFromLook === 'function' ? apFromLook(r.look) : null;
-  const ava = typeof _v3Avatar === 'function' ? _v3Avatar({ avatar: r.avatar, seed: r.ref || r.name, level: r.level, is_vip: !!r.is_vip, display_name: r.name }) : '';
+  const fallback = typeof _v3Avatar === 'function' ? _v3Avatar({ seed: r.ref || r.name, level: r.level, is_vip: !!r.is_vip, display_name: r.name }) : '';
+  const ava = window.leaderboardAvatar ? window.leaderboardAvatar(r, fallback) : fallback;
   const name = ap ? apName(ap, esc(r.name)) : `<span class="ap-plain">${esc(r.name)}</span>`;
   const id = `<span class="v3-pod-id"><span class="v3-ring">${apHalo(ap)}<svg viewBox="0 0 76 76" aria-hidden="true"><circle cx="38" cy="38" r="35"/></svg><span class="v3-ava">${ava}</span>${apFrame(ap)}<span class="v3-pod-medal" aria-hidden="true">${r.place}</span></span>
     <b class="v3-pod-name">${name}${r.is_vip ? '<em class="v3-vipdot" aria-label="VIP"></em>' : ''}${typeof v3MarkDot === 'function' ? v3MarkDot(r.mark) : ''}</b>${ap ? apTitle(ap) : ''}</span>`;
@@ -58,8 +60,11 @@ function v3Podium(rows, value) {
   const top = [rows[1], rows[0], rows[2]].filter(Boolean);
   if (top.length < 2) return '';
   const open = r => r.ref && /^[A-Za-z0-9_-]{16,64}$/.test(r.ref) ? ` onclick="openPublicProfile('${r.ref}')"` : ' disabled';
-  return `<ol class="v3-podium" aria-label="Тройка лидеров">${top.map(r => `<li class="v3-pod is-p${r.place}${r.is_me ? ' is-me' : ''}"><button type="button" class="v3-pod-btn"${open(r)} aria-label="${r.place} место: ${esc(r.name)}, ${value(r)}">
-    ${_v3PodId(r)}<small>${value(r)}</small></button><i aria-hidden="true"></i></li>`).join('')}</ol>`;
+  return `<ol class="v3-podium" aria-label="Тройка лидеров">${top.map(r => {
+    const tag = r.kind==='chat' ? 'div' : 'button', attrs = r.kind==='chat' ? ' role="group"' : ` type="button"${open(r)}`;
+    return `<li class="v3-pod is-p${r.place}${r.is_me ? ' is-me' : ''}"><${tag} class="v3-pod-btn"${attrs} aria-label="${r.place} место: ${esc(r.name)}, ${value(r)}">
+    ${_v3PodId(r)}<small>${value(r)}</small></${tag}><i aria-hidden="true"></i></li>`;
+  }).join('')}</ol>`;
 }
 
 // Пустой рейтинг: пьедестал ждёт первых — три пустых места с медалями и подсказка, как туда попасть

@@ -5,6 +5,14 @@ from infrastructure.pg_adapter import PGAdapter
 
 
 async def ensure_operations(db) -> None:
+    # Inspect the actual database, rather than caching readiness across rollbacks.
+    async with db.execute("SELECT COUNT(*)=8 AND to_regclass('purge_start_receipt') IS NOT NULL "
+                          "FROM pg_attribute WHERE attrelid='purge_targets'::regclass "
+                          "AND attname=ANY(?::text[]) AND NOT attisdropped",
+                          (["decision_state", "decision_action", "decision_actor", "decision_key", "decision_error",
+                            "decision_started_at", "verdict_by", "verdict_at"],)) as cursor:
+        if (await cursor.fetchone())[0]:
+            return
     await db.execute("ALTER TABLE purge_sessions ADD COLUMN IF NOT EXISTS request_key TEXT")
     await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS purge_start_receipt ON purge_sessions(chat_id,initiator_id,request_key) WHERE request_key IS NOT NULL")
     await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS decision_state TEXT NOT NULL DEFAULT 'idle'")
@@ -15,21 +23,52 @@ async def ensure_operations(db) -> None:
     await db.execute("ALTER TABLE purge_targets ADD COLUMN IF NOT EXISTS decision_started_at TIMESTAMPTZ")
 
 
+async def insert_targets(db, session_id: int, targets: list[dict]) -> None:
+    if not targets:
+        return
+    await db.execute("INSERT INTO purge_targets(session_id,user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag) "
+                     "SELECT ?,t.* FROM unnest(?::bigint[],?::text[],?::integer[],?::integer[],?::integer[],?::integer[],?::text[]) "
+                     "AS t(user_id,username,msg_count,days_in_chat,warns,required_norm,member_tag)",
+                     (session_id,[t["user_id"] for t in targets],[t.get("username") for t in targets],
+                      [t["count"] for t in targets],[t["days_in_chat"] for t in targets],
+                      [t["warns"] for t in targets],[t["required"] for t in targets],[t.get("tag") for t in targets]))
+
+
 async def lock_chat(db, chat_id: int) -> None:
     await db.execute("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", (f"purge:{int(chat_id)}",))
 
 
+async def lock_delivery(db, session_id: int, user_id: int, *, wait: bool = True) -> bool:
+    function = "pg_advisory_xact_lock" if wait else "pg_try_advisory_xact_lock"
+    async with db.execute(f"SELECT {function}(hashtextextended(?,0))",
+                          (f"purge-delivery:{int(session_id)}:{int(user_id)}",)) as cursor:
+        row = await cursor.fetchone()
+    return True if wait else bool(row[0])
+
+
+async def delivery_failed(db, session_id: int, user_id: int, key: str, started_at, state: str, error: str) -> None:
+    # A delayed failure must not replace a newer decision or human verification.
+    await db.execute("UPDATE purge_targets SET decision_state=?,decision_error=? "
+                     "WHERE session_id=? AND user_id=? AND decision_key=? AND decision_started_at=?::text::timestamptz "
+                     "AND decision_state='sending' AND verdict IS NULL",
+                     (state, error, session_id, user_id, key, started_at.isoformat()))
+
+
 async def target_page(db, session_id: int, page: int, mode: str) -> list[dict]:
     condition = {"pending": "AND verdict IS NULL", "decided": "AND verdict IS NOT NULL", "all": ""}[mode]
-    async with db.execute(f"SELECT * FROM purge_targets WHERE session_id=? {condition} ORDER BY msg_count,user_id LIMIT 26 OFFSET ?",
+    async with db.execute(f"SELECT t.*,a.user_tg_name AS verdict_by_name,a.user_tg_username AS verdict_by_username, "
+                          "(t.decision_state='unknown' OR t.decision_started_at<CLOCK_TIMESTAMP()-INTERVAL '2 minutes') AS reconcile_ready "
+                          "FROM purge_targets t LEFT JOIN users a ON a.user_tg_id=t.verdict_by "
+                          f"WHERE session_id=? {condition} ORDER BY msg_count,user_id LIMIT 26 OFFSET ?",
                           (session_id, page * 25)) as cursor:
         return [dict(r) for r in await cursor.fetchall()]
 
 
-async def reserve(db, session_id: int, user_id: int, action: str, actor: int, action_id: str) -> None:
-    await db.execute("UPDATE purge_targets SET decision_state='sending',decision_action=?,decision_actor=?,decision_key=?,"
-                     "decision_error=NULL,decision_started_at=CLOCK_TIMESTAMP() WHERE session_id=? AND user_id=?",
-                     (action, actor, action_id, session_id, user_id))
+async def reserve(db, session_id: int, user_id: int, action: str, actor: int, action_id: str):
+    async with db.execute("UPDATE purge_targets SET decision_state='sending',decision_action=?,decision_actor=?,decision_key=?,"
+                          "decision_error=NULL,decision_started_at=CLOCK_TIMESTAMP() WHERE session_id=? AND user_id=? RETURNING decision_started_at",
+                          (action, actor, action_id, session_id, user_id)) as cursor:
+        return (await cursor.fetchone())[0]
 
 
 async def operation_state(db, session_id: int, user_id: int, state: str, error: str | None = None) -> None:
@@ -53,6 +92,13 @@ async def get_by_id(db: PGAdapter, session_id: int) -> dict | None:
     ) as c:
         r = await c.fetchone()
     return dict(r) if r else None
+
+
+async def latest_finished(db, chat_id: int) -> dict | None:
+    async with db.execute("SELECT id,norm,date_from,date_to,finished_at FROM purge_sessions "
+                          "WHERE chat_id=? AND status='finished' ORDER BY id DESC LIMIT 1", (chat_id,)) as cursor:
+        row = await cursor.fetchone()
+    return dict(row) if row else None
 
 
 async def start_receipt(db, chat_id: int, actor: int, request_key: str) -> dict | None:
@@ -126,6 +172,8 @@ async def counts(db: PGAdapter, session_id: int) -> dict:
         "COUNT(*) FILTER (WHERE verdict = 'warn') AS warned, "
         "COUNT(*) FILTER (WHERE verdict = 'kick') AS kicked, "
         "COUNT(*) FILTER (WHERE verdict = 'ban') AS banned, "
+        "COUNT(*) FILTER (WHERE verdict = 'mute') AS muted, "
+        "COUNT(*) FILTER (WHERE decision_state IN ('sending','unknown') AND verdict IS NULL) AS blocked, "
         "COUNT(*) FILTER (WHERE verdict IN ('skip','forgive')) AS skipped "
         "FROM purge_targets WHERE session_id = ?",
         (session_id,),

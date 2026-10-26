@@ -163,6 +163,12 @@ async def search(q: str = "", filter: str = "", offset: int = Query(0, ge=0, le=
     return await admin_people.search(db, q, flt=filter, offset=offset)
 
 
+@router.get("/my-chats")
+async def my_chats(offset: int = Query(0, ge=0, le=1_000_000), user=Depends(_user), db=Depends(get_db)):
+    from infrastructure.repositories import moderation_chats
+    return await moderation_chats.listing(db, user_id=int(user["id"]), offset=offset)
+
+
 @router.get("/chats/attention")
 async def chats_attention(kind: str = "", user=Depends(_user), db=Depends(get_db)):
     """Чаты, где что-то не так: бот без прав, тихо 30 дней, бота удалили."""

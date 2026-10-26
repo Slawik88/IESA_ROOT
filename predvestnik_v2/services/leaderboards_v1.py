@@ -195,8 +195,9 @@ async def message_top_page(
     visible = rows[page * PAGE_SIZE:(page + 1) * PAGE_SIZE]
     offset = page * PAGE_SIZE + 1
     if scope == "chats":
+        from services.chat_appearance import CACHE as chat_appearance
         items = [{"place": offset + i, "name": str(r.get("chat_title") or "Чат"), "count": int(r["msg_count"]),
-                  "users": int(r["active_users"]), "is_vip": False, "is_me": False} for i, r in enumerate(visible)]
+                  "users": int(r["active_users"]), "is_vip": False, "is_me": False, **chat_appearance.project(int(r["chat_id"]))} for i, r in enumerate(visible)]
         personal = None
     else:
         items = await _player_rows(db, visible, user_id, offset)

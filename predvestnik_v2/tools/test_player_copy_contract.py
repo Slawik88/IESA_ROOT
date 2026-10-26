@@ -3,11 +3,12 @@
 
 Run: PYTHONPATH=. python3 tools/test_player_copy_contract.py
 """
+import ast
 import json
 import re
 from pathlib import Path
 
-from core import account_age, chests_v1, league_pass, league_v1, minesweeper_v2, pets_v2, quests_v1, registry, rhythm_v2, rhythm_weather, skins_v3
+from core import account_age, chests_v1, league_pass, league_v1, minesweeper_v2, pets_v2, quests_v1, registry, rhythm_v2, rhythm_weather, skins_v3, word_chain
 from core.rhythm_gifts import PERKS
 from services import quests_v1 as quest_rewards
 
@@ -124,6 +125,14 @@ for item in guide["faq"]:
     assert_plain("вопросы", item["a"] + ("" if item["q"] == "Куда делась Лига?" else " " + item["q"]))
 assert "Рейтинг" in {x["w"] for x in guide["glossary"]} and "Мора" in {x["w"] for x in guide["glossary"]}, "ключевые слова в словаре"
 
+for relative in ("bot/chat/word_chain.py", "services/word_chain.py"):
+    tree = ast.parse((ROOT / relative).read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"[А-Яа-яЁё]", node.value):
+            assert_plain(relative, node.value)
+word_copy = json.dumps(topics["words"], ensure_ascii=False)
+for value in (word_chain.MIN_LENGTH, word_chain.MAX_LENGTH, word_chain.MAX_TURNS, word_chain.TURN_COOLDOWN_SECONDS):
+    assert str(value) in word_copy, f"words: число {value} расходится с правилами"
 assert not PROBLEMS, "\n".join(PROBLEMS)
 
 # ── Дары: Путеводитель показывает ровно то, что видит игрок в игре ──────────────────────────────────────────────────────
@@ -262,7 +271,7 @@ def ui_strings(name: str) -> list[str]:
 
 
 for name in ("rhythm-v2.html", "minesweeper-v2.html", "rhythm-v2.js", "minesweeper-v2.js", "league-help.js", "league-ladder.js", "league-rhythm.js", "league-rhythm-fx.js",
-             "league-result.js", "league-pass.js", "league-mines.js", "league-demo.js", "app.47.js", "app.57.js", "game-shell-v3.js", "game-shell-v3.html"):
+             "league-result.js", "league-pass.js", "league-mines.js", "league-demo.js", "app.47.js", "app.57.js", "app.04.js", "game-board-v3.js", "game-shell-v3.js", "game-shell-v3.html"):
     for line in ui_strings(name):
         assert_plain(name, line)
 assert not PROBLEMS, "\n".join(PROBLEMS)

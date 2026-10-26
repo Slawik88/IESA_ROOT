@@ -31,7 +31,7 @@ const SECTION_META = {
   settings: ['⚙', 'Настройки', 'Загружаем правила бота'],
   health: ['♥', 'Состояние', 'Проверяем бота, базу и очереди'],
   access: ['🛡', 'Права', 'Читаем права ролей и вход владельцев'],
-  mychats: ['💬', 'Мои чаты', 'Проверяем, что вы владелец, и собираем чат'],
+  mychats: ['💬', 'Мои чаты', 'Собираем ваши чаты и действия с участниками'],
   patchnotes: ['📣', 'Патч-ноуты', 'Собираем посты обновлений для канала'],
 };
 let _viewAbort = null, _viewRequest = 0, _loadStageTimers = [];
@@ -2329,7 +2329,23 @@ async function ownerView(main) {
     else run().catch(e => toast(e.message, true));
   };
 }
-SECTIONS.mychats = main => ownerView(main);
+async function staffChatsView(main, offset = 0) {
+  const d = await loadSectionData(main, `/my-chats?offset=${offset}`, () => staffChatsView(main, offset), 'mychats');
+  if (!d) return;
+  main.innerHTML = `${pageHead('💬', 'Мои чаты', 'Твои группы: открой чат, чтобы выдать варн или начать чистку')}
+    <p class="sub">Сначала чаты, которыми ты владеешь, затем чаты с твоим рангом. Название вводить не нужно.</p>
+    <div class="list">${d.items.map(c => `<button type="button" class="prow" data-chat="${c.id}">
+      <span class="ava chat" aria-hidden="true">#</span><span class="pmain"><span class="pname">${esc(c.title)}</span>
+      <span class="pmeta">${c.owned ? 'Владелец · ' : ''}Участников: ${num(c.members)}${c.purging ? ' · Идёт чистка' : ''}${c.bot_left ? ' · Бот вышел' : ''}</span></span></button>`).join('') ||
+      '<p class="empty">Чатов пока нет. Напиши боту команду в своём чате и обнови список.</p>'}</div>
+    <div class="actions"><button type="button" class="btn" id="mychats-refresh">Обновить</button>
+      ${d.offset ? '<button type="button" class="btn" id="mychats-prev">Назад</button>' : ''}
+      ${d.next_offset !== null ? '<button type="button" class="btn" id="mychats-next">Ещё чаты</button>' : ''}</div>`;
+  $('#mychats-refresh').onclick = () => staffChatsView(main, d.offset);
+  if ($('#mychats-prev')) $('#mychats-prev').onclick = () => staffChatsView(main, Math.max(0, d.offset-50));
+  if ($('#mychats-next')) $('#mychats-next').onclick = () => staffChatsView(main, d.next_offset);
+}
+SECTIONS.mychats = main => ME.owner ? ownerView(main) : staffChatsView(main);
 
 // Создатель: пускать ли владельцев чатов в админку и кого отозвать. По умолчанию вход закрыт.
 async function ownersAccessCard(main) {

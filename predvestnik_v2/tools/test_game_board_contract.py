@@ -3,7 +3,7 @@ from pathlib import Path
 
 static = Path(__file__).resolve().parents[1] / "FastAPI/static"
 board = (static / "game-board-v3.js").read_text(encoding="utf-8")
-assert "window.gameWhoV3" in board and "ap-name" in board and "v3-markdot" in board and "v3-vipdot" in board
+assert "window.gameWhoV3" in board and "skinNicknameV3" in board and "v3-markdot" in board and "v3-vipdot" in board
 assert "innerHTML" not in board, "the renderer builds a string; every dynamic value goes through esc()"
 for page, script in (("rhythm-v2", "rhythm-v2.js"), ("minesweeper-v2", "minesweeper-v2.js")):
     html = (static / f"{page}.html").read_text(encoding="utf-8")

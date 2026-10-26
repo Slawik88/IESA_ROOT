@@ -8,14 +8,15 @@ from typing import Final
 POLICY_VERSION: Final = "achievements-v1-2026-10-19-life"
 MAX_LEVEL: Final = 40
 MAX_ACTIVE_WEEKS: Final = 156
+GAME_HISTORY_BATCH: Final = 200
 
 # These are deliberately terminal server metrics, never page views, messages,
 # client scores, quest progress or historical counters.
 FAMILIES: Final = {
     "rhythm": {"title": "Пульс", "icon": "ᚱ", "category": "games", "metric": "rhythm_completed", "cap_events": 2400,
-               "source_kind": "rhythm_v2_terminal", "help": "Завершай забеги в Ритме.", "action_label": "Открыть Ритм"},
+               "source_kind": "rhythm_v2_terminal", "help": "Завершай забеги в Ритме: в обычном режиме или рейтинге.", "action_label": "Открыть Ритм"},
     "minesweeper": {"title": "Контур", "icon": "▦", "category": "games", "metric": "minesweeper_completed", "cap_events": 1600,
-                      "source_kind": "minesweeper_v2_terminal", "help": "Завершай партии в Сапёре.", "action_label": "Открыть Сапёр"},
+                      "source_kind": "minesweeper_v2_terminal", "help": "Завершай партии в Сапёре: в обычном режиме или рейтинге.", "action_label": "Открыть Сапёр"},
     "mafia": {"title": "Свидетель", "icon": "◐", "category": "games", "metric": "mafia_completed", "cap_events": 360,
                "source_kind": "mafia_v1_terminal", "help": "Завершай матчи в Мафии.", "action_label": "История Мафии"},
     "chests": {"title": "Искатель", "icon": "✦", "category": "collection", "metric": "chest_revealed", "cap_events": 1200,

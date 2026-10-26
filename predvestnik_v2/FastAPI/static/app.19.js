@@ -1,7 +1,7 @@
 // ── Shell V3 · экран «Топ»: то же, что «бот топ» в чате, но на сайте ─────────────
 const _V3_TOP_SCOPES = [{ id: 'global', label: 'Все игроки' }, { id: 'chats', label: 'Чаты' }, { id: 'local', label: 'Мой чат' }, { id: 'rhythm', label: 'Ритм', flag: 'game_rhythm_v2' }, { id: 'minesweeper', label: 'Сапёр', flag: 'game_minesweeper_v2' }, { id: 'mafia', label: 'Мафия', flag: 'game_mafia_v1' }];
 const _V3_TOP_PERIODS = [{ id: 'day', label: 'Сегодня' }, { id: 'week', label: 'Неделя' }, { id: 'month', label: 'Месяц' }, { id: 'all_time', label: 'Всё время' }];
-let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false, loading: false }, _v3FullSeq = 0;
+let _v3Full = { scope: 'global', period: 'week', chat: null, page: 0, data: null, failed: false, loading: false, photoRetries:0, photoTimer:null }, _v3FullSeq = 0;
 
 function openTopV3(scope, period) {
   if (scope) _v3Full.scope = scope;
@@ -9,18 +9,22 @@ function openTopV3(scope, period) {
   _v3Full.page = 0; _v3Full.data = null; _v3Full.failed = false;
   switchPage('top'); renderTopV3(); loadTopV3();
 }
-function loadTopV3() {
+function loadTopV3(quiet = false) {
+  clearTimeout(_v3Full.photoTimer); if (!quiet) _v3Full.photoRetries = 0;
   const mine = ++_v3FullSeq, f = _v3Full;
   if (f.scope === 'local' && f.chat == null) { const first = _profileData?.chats?.[0]?.chat_tg_id; if (first) f.chat = Number(first); }
   const query = new URLSearchParams({ scope: f.scope, period: f.period, page: String(f.page) });
   if (f.scope === 'local' && f.chat != null) query.set('chat_id', String(f.chat));
-  f.failed = false; f.loading = true; renderTopV3();   // прежний список остаётся на экране, пока идёт запрос: серого блока на долю секунды больше нет
+  f.failed = false; f.loading = !quiet; if (!quiet) renderTopV3();   // прежний список остаётся на экране, пока идёт запрос: серого блока на долю секунды больше нет
   const url = f.scope === 'rhythm' ? `/rhythm-v2/leaderboard/normal/full?page=${f.page}` : f.scope === 'minesweeper' || f.scope === 'mafia' ? `/leaderboards/game/${f.scope}?page=${f.page}` : `/leaderboards/messages/full?${query}`;
   return api(url).then(d => {
-    if (f.scope === 'rhythm') d = _v3RhythmFull(d);
     if (mine !== _v3FullSeq) return;
+    if (f.scope === 'rhythm') d = _v3RhythmFull(d);
     f.data = d; f.failed = false; f.loading = false; if (f.scope === 'local' && f.chat == null && d.chats?.length) f.chat = d.chats[0].chat_id;
     renderTopV3();
+    if (f.scope==='chats' && d.items?.some(r=>r.avatar_pending) && f.photoRetries++<3) {
+      f.photoTimer=setTimeout(()=>{ if (_activePage==='top' && mine===_v3FullSeq && !document.hidden) loadTopV3(true); },3000);
+    }
   }).catch(e => { if (mine !== _v3FullSeq) return; f.failed = String(e || 'Ошибка'); f.loading = false; renderTopV3(); });
 }
 // Сезонная таблица Ритма приводится к виду таблицы сообщений: очки идут в count
@@ -34,8 +38,16 @@ function v3FullSet(key, value) {
   f[key] = key === 'chat' ? Number(value) : value; if (key !== 'page') f.page = 0;
   _haptic('select'); loadTopV3();
 }
+function chatThemeStyle(r) {
+  const palette = Array.isArray(r.palette) && r.palette.length===3 && r.palette.every(c=>/^#[0-9a-f]{6}$/i.test(c)) ? r.palette : ['#8ba5df','#817ccf','#b6c3e4'];
+  return `--chat-a:${palette[0]};--chat-b:${palette[1]};--chat-c:${palette[2]}`;
+}
+function chatThemeAvatar(r) {
+  const photo = _validAvatar(r.avatar) ? `<img src="${_profileEsc(r.avatar)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">` : '';
+  return `<span class="chat-theme-avatar"><span aria-hidden="true">${_profileEsc(Array.from(r.name || 'Ч').slice(0,1).join(''))}</span>${photo}</span>`;
+}
 function _v3FullRow(r, scope) {
-  if (scope === 'chats') return `<li><div class="v3-rowbtn"><i>${r.place}</i><span>${_profileEsc(r.name)}<small>${fmt(r.users)} уч.</small></span><b>${fmt(r.count)}</b></div></li>`;
+  if (scope === 'chats') return `<li class="chat-theme" style="${chatThemeStyle(r)}"><div class="v3-rowbtn"><i>${r.place}</i>${chatThemeAvatar(r)}<span>${_profileEsc(r.name)}<small>${fmt(r.users)} уч.</small></span><b>${fmt(r.count)}</b></div></li>`;
   return `<li class="${r.is_me ? 'is-me' : ''}">${_v3RowButton(r, r.count)}</li>`;
 }
 function renderTopV3() {
@@ -67,4 +79,5 @@ function renderTopV3() {
     ${game ? '' : `<div class="v3-tabs v3-tabs--wide" role="tablist" aria-label="Период">${seg(_V3_TOP_PERIODS, f.period, 'period')}</div>`}
     ${chatPick}<div class="v3-top-body${f.loading && d ? ' is-loading' : ''}" aria-live="polite" aria-busy="${!!f.loading}">${body}</div>`;
   v3EnterSync(host);
+  window.hydrateLeaderboardAvatars?.(host);
 }

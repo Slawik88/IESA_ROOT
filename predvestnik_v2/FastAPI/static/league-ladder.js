@@ -35,12 +35,15 @@
     return `<div class="lgl-trail"><ol aria-label="Уровни">${steps.join('')}</ol></div>`;
   }
 
+  function playerAvatar(r) {
+    return window.leaderboardAvatar ? window.leaderboardAvatar({profile_ref:r.profile_ref,is_vip:r.is_vip,display_name:r.name,avatar:r.avatar}) : '';
+  }
   function podium(top) {
     if (!top.length) return '<p class="lg-muted">Пока никто не прошёл ни одного уровня — займи первое место.</p>';
     const medal = p => `<span class="lgl-medal-ico is-p${p}" aria-hidden="true">${p}</span>`;
     const head = [top[1], top[0], top[2]].filter(Boolean).map(r => `<li class="lgl-pod is-p${r.place} ${r.me ? 'is-me' : ''}">${medal(r.place)}
-      <b>${L().esc(r.name)}</b><small>ур. ${r.level} · ${r.stars}★</small><i aria-hidden="true"></i></li>`).join('');
-    const rest = top.slice(3).map(r => `<li class="${r.me ? 'is-me' : ''}"><span>${r.place}</span><span>${L().esc(r.name)}${r.me ? ' · это ты' : ''}</span><b>ур. ${r.level} · ${r.stars}★</b></li>`).join('');
+      ${playerAvatar(r)}<b>${L().esc(r.name)}</b><small>ур. ${r.level} · ${r.stars}★</small><i aria-hidden="true"></i></li>`).join('');
+    const rest = top.slice(3).map(r => `<li class="${r.me ? 'is-me' : ''}"><span>${r.place}</span><span class="lgl-player">${playerAvatar(r)}${L().esc(r.name)}${r.me ? ' · это ты' : ''}</span><b>ур. ${r.level} · ${r.stars}★</b></li>`).join('');
     return `<ol class="lgl-podium" aria-label="Тройка лидеров">${head}</ol>${rest ? `<ol class="lg-top" start="4">${rest}</ol>` : ''}`;
   }
 
@@ -55,6 +58,7 @@
       ${window.LeagueHelp.rules(game, me.xp_by_stars)}
       ${me.demo ? '<button type="button" class="lg-link" id="lg-reset">Сбросить мой прогресс демо</button>' : ''}`;
     Fx().count(host);
+    window.hydrateLeaderboardAvatars?.(host);
     host.querySelector('[data-play]').onclick = () => L().play(game, info.unlocked);
     host.querySelectorAll('[data-preview]').forEach(b => { b.onclick = () => preview(game, info, Number(b.dataset.preview)); });
     if (L().$('lg-reset')) L().$('lg-reset').onclick = L().resetDemo;

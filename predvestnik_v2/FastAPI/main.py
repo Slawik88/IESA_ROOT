@@ -74,6 +74,8 @@ from infrastructure.repositories.rhythm_v2 import ensure_tables as ensure_rhythm
 from infrastructure.repositories.supporter_cosmetics_v1 import ensure_tables as ensure_supporter_cosmetics_v1
 from infrastructure.repositories.minesweeper_v2 import ensure_tables as ensure_minesweeper_v2
 from infrastructure.repositories.mafia_v1 import ensure_tables as ensure_mafia_v1
+from infrastructure.repositories.purge_sessions import ensure_operations as ensure_purge_operations
+from infrastructure.repositories.word_chain import ensure_tables as ensure_word_chain
 from infrastructure.repositories.mafia_online import ensure_tables as ensure_mafia_online
 from FastAPI.routers import mafia_online as mafia_online_router
 from services.mafia_online_scheduler import run as run_mafia_online_scheduler
@@ -200,6 +202,8 @@ async def lifespan(app: FastAPI):
             (ensure_supporter_cosmetics_v1,    "supporter_cosmetics_v1"),
             (ensure_minesweeper_v2,             "minesweeper_v2"),
             (ensure_mafia_v1,                    "mafia_v1"),
+            (ensure_purge_operations,             "purge_operations"),
+            (ensure_word_chain,                   "word_chain"),
             (ensure_mafia_online,                "mafia_online"),
             (ensure_chests_v1,                   "chests_v1"),
             (ensure_shop_v1,                     "shop_v1"),

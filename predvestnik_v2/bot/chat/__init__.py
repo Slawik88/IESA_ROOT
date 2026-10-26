@@ -2,7 +2,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 
 # Импорт модулей регистрирует их команды в общем реестре.
-from bot.chat import account, achievements, admin_chat, cosmetics, family, games, help, mafia, members, migration, moderation, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, site, streak, star_dust, tags, top, transfer, vip, warps  # noqa: F401
+from bot.chat import account, achievements, admin_chat, cosmetics, family, games, help, mafia, members, migration, moderation, onboarding, pets, profile, promo, purge, rank_commands, reports, sanctions, site, streak, star_dust, tags, top, transfer, vip, warps, word_chain  # noqa: F401
 from bot.chat import aliases  # noqa: F401,E402  (после всех команд)
 from bot.chat import mafia_online  # noqa: F401,E402  (отдельный режим, локальная команда без изменений)
 from bot.chat.framework import dispatch, registry
@@ -149,6 +149,9 @@ async def on_message(message: Message, bot, db) -> None:
     except Exception as exc:
         logger.warning(f"mafia lobby repost failed: {exc}")
     handled = await dispatch(registry, message, bot, db)
+    if not handled and message.chat.type in ("group", "supergroup"):
+        if not await _silent(message, db) and await feature_switches.disabled(db, feature_switches.command_features("слово", "games", None), chat_id) is None:
+            handled = await word_chain.on_reply(db,bot,message)
     if not handled and message.chat.type == "private":   # «привет» в личке: не молчим, показываем, с чего начать
         try:
             if not await _silent(message, db):

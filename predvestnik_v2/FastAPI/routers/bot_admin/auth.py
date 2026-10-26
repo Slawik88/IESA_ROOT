@@ -121,7 +121,8 @@ async def me(request: Request, response: Response, user=Depends(staff_user), db=
                             samesite="none", path=(os.getenv("ROOT_PATH", "").rstrip("/") or "/"))
     return {
         "user_id": user["id"], "rank": user["rank"], "rank_name": bot_rank_name(user["rank"]),
-        "sections": [{"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
+        "sections": ([{"key": "mychats", "title": "Мои чаты", "min_rank": admin_access.min_rank(user, "section:people", SECTIONS["people"][1])}]
+                     if user["rank"] >= admin_access.min_rank(user, "section:people", SECTIONS["people"][1]) else []) + [{"key": k, "title": t, "min_rank": admin_access.min_rank(user, f"section:{k}", r)} for k, (t, r) in SECTIONS.items()
                      if user["rank"] >= admin_access.min_rank(user, f"section:{k}", r)],
         "ranks": [bot_rank_name(i) for i in range(len(BOT_RANKS))], "creator": user["rank"] >= CREATOR,
     }

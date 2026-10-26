@@ -89,3 +89,10 @@
 .v3-name:not(:has(.ap-name)) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
 
 @media (prefers-reduced-motion: reduce) { .ap-name, .ap-title, .ap-gl, .ap-gl > span { animation: none !important; } .ap-gl { display: none !important; } }
+
+/* One avatar container for message tops, podiums and standalone game boards. */
+.lb-avatar { position:relative;display:inline-flex;align-items:center;justify-content:center;width:100%;height:100%;min-width:0;overflow:hidden;border-radius:inherit;background:var(--v3-bg2,#151827);color:var(--v3-acc,#e8b54d);vertical-align:middle; }
+.lb-avatar>img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit; }
+.gb-player { display:inline-flex;align-items:center;gap:8px;min-width:0; }
+.gb-player>.lb-avatar { width:32px;height:32px;border-radius:50%;flex:0 0 32px;font-weight:700; }
+.v3-row-ava { flex-shrink:0; }

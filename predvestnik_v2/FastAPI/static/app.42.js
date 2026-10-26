@@ -245,8 +245,10 @@ function _wnTabDots(list) {
   _wnPaintDots();
 }
 function _wnPaintDots() {
-  document.querySelectorAll('.nb[data-page]').forEach(btn => {
-    const pages = btn.dataset.page === 'more' ? ['more', 'store', 'shop', 'promo'] : [btn.dataset.page];
+  const controls = [...document.querySelectorAll('.nb[data-page]')];
+  const primary = new Set(controls.filter(b => b.dataset.page !== 'more' && !b.hidden).map(b => b.dataset.page));
+  controls.forEach(btn => {
+    const pages = btn.dataset.page === 'more' ? Object.keys(_wnDots).filter(p => !primary.has(p)) : [btn.dataset.page];
     _wnDotSet(btn, pages.some(p => (_wnDots[p] || []).length));
   });
   document.querySelectorAll('[data-wn-page]').forEach(btn => _wnDotSet(btn, !!(_wnDots[btn.dataset.wnPage] || []).length));

@@ -1,4 +1,9 @@
 (() => {
+  if (window.MutationObserver) {
+    const hydrate = () => window.hydrateLeaderboardAvatars?.(document.getElementById('leaderboard-list')?.parentElement);
+    const observer = new MutationObserver(hydrate);
+    for (const id of ['leaderboard-list','leaderboard-podium']) { const host = document.getElementById(id); if (host) observer.observe(host,{childList:true}); }
+  }
   const tg = window.Telegram?.WebApp; tg?.ready(); tg?.expand();
   const base = document.body.dataset.appBase || location.pathname.replace(/\/rhythm-v2\/?$/, '');
   const init = tg?.initData || new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || '', session = (()=>{try{return localStorage.getItem('pv_sess')||''}catch(_){return ''}})(), headers = {'Content-Type':'application/json'};

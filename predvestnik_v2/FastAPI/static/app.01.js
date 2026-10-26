@@ -1,3 +1,24 @@
+// Higher priorities appear first. Stable IDs keep ordering independent of wording.
+const _NAV_PRIORITY = Object.freeze({
+  groups: Object.freeze({management:100, community:90, collection:80, help:70, shop:60, account:50}),
+  items: Object.freeze({purge:110, admin:90, chats:100, top:90, inventory:100, chests:95, looks:90, promo:80,
+    guide:100, news:90, 'community-link':80, 'updates-link':70, refresh:10, wallet:100, exchange:90, zarniki:70, vip:60, settings:100}),
+  dock: Object.freeze({profile:100, arena:95, pets:90, questlog:85, more:0})
+});
+function orderNavigation() {
+  const sort = (parent, selector, priorities, key) => {
+    if (!parent) return;
+    [...parent.querySelectorAll(selector)].filter(n => n.parentElement === parent)
+      .sort((a,b) => (priorities[b.dataset[key]] || 0) - (priorities[a.dataset[key]] || 0))
+      .forEach(n => { n.dataset.priority = priorities[n.dataset[key]] || 0; parent.appendChild(n); });
+  };
+  const more = document.getElementById('pg-more');
+  sort(more, '[data-nav-group]', _NAV_PRIORITY.groups, 'navGroup');
+  more?.querySelectorAll('[data-nav-group]').forEach(group => sort(group, '[data-nav-key]', _NAV_PRIORITY.items, 'navKey'));
+  sort(document.querySelector('nav.nav'), '[data-page]', _NAV_PRIORITY.dock, 'page');
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', orderNavigation); else orderNavigation();
+
 const tg = window.Telegram?.WebApp;
 if (tg) { tg.ready(); tg.expand(); }  // setHeaderColor removed — deprecated in TG WebApp v6.0
 

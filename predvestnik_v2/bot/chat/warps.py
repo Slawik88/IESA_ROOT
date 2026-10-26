@@ -99,7 +99,7 @@ async def cmd_warp_list(ctx: Ctx) -> None:
         if names:
             blocks.append(f"<b>{title}</b>\n" + quote([", ".join(f"{w.emoji}{w.name}" for w in names)]))
     body = "\n".join(blocks)
-    hint = ("Работают, только если игрок включил их для себя: <code>бот 18+ вкл</code>" if adult else
+    hint = ("Работают, только если игрок включил их для себя: <code>бот 18+ вкл</code>.\nТакже: <code>засосать</code>, <code>переспать</code>, <code>выебать</code>, <code>трахнуть</code>. Ответы — без откровенных подробностей." if adult else
             "Пишите <code>обнять @ник</code> или просто ответьте на сообщение словом. 18+: <code>бот варпы 18+</code>")
     if ctx.message.chat.type == "private":
         hint = "Варпы работают в группе: там есть кому отвечать. Здесь можно " + ("включить 18+ для себя: <code>бот 18+ вкл</code>" if adult else "посмотреть список")

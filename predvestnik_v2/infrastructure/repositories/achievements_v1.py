@@ -217,3 +217,29 @@ async def life_history_sources(db, user_id: int) -> dict:
         async with db.execute("SELECT reward_id FROM quest_v1_reward_receipts WHERE user_id=? AND granted_at<=CLOCK_TIMESTAMP() AND reward_kind='daily' AND amount_mora>0", (user_id,)) as c:
             result['quests'] = await c.fetchall()
     return result
+
+
+async def missing_game_terminals(db, user_id: int, limit: int) -> list[dict]:
+    """Only owned terminal records. Retired counters and cancelled runs never qualify."""
+    queries, params = [], []
+    async with db.execute("SELECT to_regclass('rhythm_v2_runs'),to_regclass('minesweeper_v2_runs'),to_regclass('league_demo_runs')") as cur:
+        tables = await cur.fetchone()
+    for exists,table,game,condition in (
+        (tables[0],"rhythm_v2_runs","rhythm","r.status='finished' AND r.integrity_status='clear'"),
+        (tables[1],"minesweeper_v2_runs","minesweeper","r.status IN ('won','lost')"),
+        (tables[2],"league_demo_runs",None,"((r.game='rhythm' AND r.status='finished') OR (r.game='minesweeper' AND r.status IN ('won','lost'))) AND r.season ~ '^s[1-9][0-9]*$' AND r.result_json <> '{}'::jsonb"),
+    ):
+        if not exists:
+            continue
+        family = "r.game" if game is None else f"'{game}'"
+        event = "'league:' || r.run_id" if game is None else "r.run_id"
+        mode = "'ranked'" if game is None else "'casual'"
+        queries.append(f"SELECT r.run_id,{family} AS game,{mode} AS mode,r.finished_at,r.status FROM {table} r "
+                       f"WHERE r.user_id=? AND r.finished_at IS NOT NULL AND r.finished_at<=CLOCK_TIMESTAMP() AND ({condition}) "
+                       "AND NOT EXISTS (SELECT 1 FROM achievement_v1_metric_receipts a WHERE a.user_id=r.user_id "
+                       f"AND a.family={family} AND a.source_event_id={event})")
+        params.append(user_id)
+    if not queries:
+        return []
+    async with db.execute("SELECT * FROM ("+" UNION ALL ".join(queries)+") terminals ORDER BY finished_at,run_id LIMIT ?",(*params,limit)) as cur:
+        return [dict(r) for r in await cur.fetchall()]

@@ -60,6 +60,7 @@ _AVATAR_MISS_TTL = 15  # a Telegram failure must not hide a photo for six hours
 # One Telegram download per user at a time; a request waits at most this long
 # (audit A13). A slow download keeps running and fills the cache for the next call.
 _AVATAR_INFLIGHT: dict[int, asyncio.Task] = {}
+_AVATAR_FETCH_GATE = asyncio.Semaphore(4)
 _AVATAR_BUDGET_SEC = 8.0
 _DEVELOPER_ID = int(os.getenv("DEVELOPER_ID", "0") or 0)
 
@@ -151,7 +152,8 @@ async def _essence_balance(db, user_id: int) -> int:
 
 
 async def _fetch_and_cache_avatar(user_id: int) -> str | None:
-    avatar = await _fetch_tg_avatar(user_id)
+    async with _AVATAR_FETCH_GATE:
+        avatar = await _fetch_tg_avatar(user_id)
     previous = _AVATAR_CACHE.get(user_id)
     if not avatar and previous and previous[0]:
         # Keep the last known photo during a transient Telegram outage, but

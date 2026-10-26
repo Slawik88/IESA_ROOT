@@ -26,7 +26,7 @@ from bot.chat import ranks
 from bot.chat.access import is_developer
 from bot.chat.admin_chat import admin_chat_of, ping_line
 from bot.chat.framework import Ctx, UsageError, registry
-from bot.chat.moderation import (FOREVER, TG_FAIL, active_warns, commit, do_ban, do_kick, do_mute, do_warn, log,
+from bot.chat.moderation import (FOREVER, TG_FAIL, commit, do_ban, do_kick, do_mute, do_warn, log,
                                  rank_block, warn_limit_alert)
 from bot.chat.tracking import PRESENCE_SQL, local_now, stay_start, tz_delta
 from bot.chat.style import quote
@@ -156,7 +156,9 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
         "COALESCE((SELECT SUM(d.message_count) FROM daily_user_stats d WHERE d.chat_id = s.chat_tg_id "
         "  AND d.user_id = s.user_tg_id AND d.date BETWEEN ? AND ?), 0), "
         "(SELECT MAX(l.created_at) FROM moderation_logs l WHERE l.chat_id = s.chat_tg_id "
-        "  AND l.user_id = s.user_tg_id AND l.action = 'mute'), s.member_tag "
+        "  AND l.user_id = s.user_tg_id AND l.action = 'mute'), s.member_tag, "
+        "(SELECT COUNT(*) FROM user_warnings w WHERE w.chat_id=s.chat_tg_id AND w.user_id=s.user_tg_id "
+        "AND w.revoked_at IS NULL AND (w.expires_at IS NULL OR w.expires_at>NOW())) "
         "FROM user_chat_stats s LEFT JOIN users u ON u.user_tg_id = s.user_tg_id "
         "WHERE s.chat_tg_id = ? AND s.is_left = FALSE AND COALESCE(s.is_bot, FALSE) = FALSE",
         (plan.start.isoformat(), plan.end.isoformat(), chat_id),
@@ -164,7 +166,7 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
         rows = await cur.fetchall()
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     out: list[Violator] = []
-    for uid, uname, rank, immune, shielded, joined_at, member_since, back_at, first_day, muted_until, total, count, mute_at, tag in rows:
+    for uid, uname, rank, immune, shielded, joined_at, member_since, back_at, first_day, muted_until, total, count, mute_at, tag, warn_count in rows:
         uid = int(uid)
         if is_developer(uid) or uid == owner or immune or shielded or chat_bots.is_service(uid):
             continue
@@ -176,7 +178,7 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
             blocked += (min(since_naive, end_dt) - start_dt).total_seconds() / 86400
             notes.append(f"в чате с {(since_naive + shift).strftime('%d.%m')}")
         if muted_until and mute_at:
-            a, b = max(mute_at, start_dt), min(muted_until, end_dt)
+            a, b = max(mute_at, start_dt, since_naive or start_dt), min(muted_until, end_dt)
             if b > a:
                 blocked += (b - a).total_seconds() / 86400
                 notes.append(f"в муте {(b - a).total_seconds() / 86400:.1f} дн")
@@ -185,17 +187,25 @@ async def find_violators(db, chat_id: int, plan: Plan) -> list[Violator]:
             continue
         days_in = (now - since_naive).days if since_naive else 0
         out.append(Violator(uid, uname, int(count), need, int(total or 0), days_in,
-                            len(await active_warns(db, chat_id, uid)), ", ".join(notes), member_tags.clean(tag)))
+                            int(warn_count), ", ".join(notes), member_tags.clean(tag)))
     out.sort(key=lambda v: (v.count - v.required, v.count))
     return out
 
 
-async def screen_violators(bot: Bot, db, chat_id: int, violators: list[Violator]) -> tuple[list[Violator], int]:
+async def screen_violators(bot: Bot, db, chat_id: int, violators: list[Violator], *, live: bool = True) -> tuple[list[Violator], int]:
     """Убрать из списка ботов, в том числе самого Предвестника: чистка людям, а не ботам. Бот не всегда помечен в базе,
     поэтому список сверяется с Telegram. Возвращает (список без ботов, сколько ботов убрано)."""
     if not violators:
         return violators, 0
-    bots = await chat_bots.screen(bot, db, chat_id, [v.user_id for v in violators])
+    ids = [v.user_id for v in violators]
+    if live:
+        bots = await chat_bots.screen(bot, db, chat_id, ids)
+    else:
+        # Web start must fit its request deadline. Unknown accounts are checked
+        # before each background dossier and again before any sanction.
+        bots = await chat_bots.known(db, ids)
+        bots |= {uid for uid in ids if chat_bots.is_service(uid)}
+        bots.add(int((await bot.me()).id))
     return [v for v in violators if v.user_id not in bots], len([v for v in violators if v.user_id in bots])
 
 
@@ -476,6 +486,13 @@ async def on_verdict(call: CallbackQuery, callback_data: PurgeCB, bot: Bot, db) 
 
 
 async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
+    try:
+        await asyncio.wait_for(_authorize_shared(bot,db,chat_id,actor,target,action),timeout=8)
+    except TimeoutError:
+        raise purge_flow.PurgeUnavailable("Проверка прав в Telegram затянулась. Попробуй ещё раз; решение не отправлено.") from None
+
+
+async def _authorize_shared(bot, db, chat_id: int, actor: int, target: int | None = None, action: str | None = None) -> None:
     """Current local delegation plus fresh Telegram membership and bot capability."""
     await ranks.sync_owner(db, bot, chat_id)
     if not await ranks.can(db, chat_id, actor, "purge"):
@@ -488,9 +505,9 @@ async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None
     try:
         member = await bot.get_chat_member(chat_id, actor)
         me = await bot.me()
-        own = await bot.get_chat_member(chat_id, me.id)
+        own = await bot.get_chat_member(chat_id, me.id) if action != "read" else None
     except Exception:
-        raise purge_flow.PurgeConflict("Не удалось проверить текущие права в Telegram. Повторите позже.") from None
+        raise purge_flow.PurgeUnavailable("Не удалось проверить текущие права в Telegram. Повторите позже.") from None
     if member.status in ("left", "kicked") or (member.status == "restricted" and not member.is_member):
         raise purge_flow.PurgeConflict("Вы больше не состоите в этом чате.")
     if action != "read" and (own.status != "administrator" or not own.can_delete_messages):
@@ -512,7 +529,9 @@ async def authorize_shared(bot, db, chat_id: int, actor: int, target: int | None
     try:
         live_target = await bot.get_chat_member(chat_id, target)
     except Exception:
-        raise purge_flow.PurgeConflict("Не удалось проверить текущий статус участника.") from None
+        raise purge_flow.PurgeUnavailable("Не удалось проверить текущий статус участника.") from None
+    if chat_bots.is_bot(live_target.user):
+        raise purge_flow.PurgeConflict("Боты не участвуют в чистке. Оставьте это досье без санкции.")
     if live_target.status in ("creator", "administrator"):
         raise purge_flow.PurgeConflict("Участник теперь администратор Telegram; санкция заблокирована.")
 
@@ -565,7 +584,7 @@ async def materialize_reconciled(bot, db, chat_id: int, row: dict, *, applied: b
     try:
         member = await bot.get_chat_member(chat_id, int(row["user_id"]))
     except Exception:
-        raise purge_flow.PurgeConflict("Не удалось сверить статус участника в Telegram.") from None
+        raise purge_flow.PurgeUnavailable("Не удалось сверить статус участника в Telegram.") from None
     action, uid, actor = row["decision_action"], int(row["user_id"]), int(row["decision_actor"])
     banned = member.status == "kicked"
     muted = member.status == "restricted" and not member.can_send_messages

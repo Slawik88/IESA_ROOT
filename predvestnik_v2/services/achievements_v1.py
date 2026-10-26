@@ -26,7 +26,7 @@ def _source_event_id(value: str) -> str:
 
 async def record_terminal(
     db, *, user_id: int, metric: str, source_event_id: str, source_snapshot: dict,
-    now: datetime | None = None,
+    now: datetime | None = None, source_kind: str | None = None,
 ) -> dict:
     """Project one verified terminal game event into its achievement family.
 
@@ -39,11 +39,15 @@ async def record_terminal(
     snapshot = dict(source_snapshot)
     now = now or datetime.now(timezone.utc)
     definition = rules.FAMILIES[family]
+    source_kind = source_kind or str(definition["source_kind"])
+    allowed = {str(definition["source_kind"])} | ({"league_v1_terminal"} if family in {"rhythm","minesweeper"} else set())
+    if source_kind not in allowed:
+        raise rules.AchievementPolicyError("Unsupported achievement source kind.")
     async with db.connection.transaction():
         await repo.lock_user(db, int(user_id))
         inserted = await repo.save_metric_receipt(
             db, user_id=int(user_id), family=family, source_event_id=source_event_id,
-            source_kind=str(definition["source_kind"]), source_snapshot=snapshot,
+            source_kind=source_kind, source_snapshot=snapshot,
         )
         progress = await repo.lock_progress(db, user_id=int(user_id), family=family)
         if not inserted:
@@ -110,7 +114,7 @@ async def overview(db, *, user_id: int) -> dict:
                         "claimed_mora": sum(receipt["amount_mora"] for (family, _), receipt in rewards.items()
                                             if family in rules.FAMILIES)},
             "families": families,
-            "message": "Серии за игры и приключения сохраняют прежние условия. Серии развития учитывают подтверждённые действия без требования активных недель."}
+            "message": "Ритм и Сапёр учитывают обычный режим и рейтинг. Для игровых серий нужны завершения и активные недели."}
 
 
 def _validate_life_fact(family: str, fact: str) -> str:
@@ -182,4 +186,6 @@ async def reconcile_history(db, *, user_id: int) -> dict:
                 await record_life_event(db, user_id=user_id, family=family, fact=fact)
                 count += 1
         await repo.mark_history_import(db, user_id, version)
-    return {'already_reconciled':imported_before, 'facts':count}
+    from services.achievement_games import reconcile as reconcile_games
+    games = await reconcile_games(db,user_id=user_id)
+    return {'already_reconciled':imported_before, 'facts':count, **games}

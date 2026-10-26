@@ -1003,7 +1003,7 @@
     // Карточка общего пути: кольцо открытых уровней и полученная Мора рисованной монетой (app.50.js); без неё — строка под заголовком
     const card = _achievementsV1Filter !== 'casino' && typeof v3GoalCard === 'function' ? v3GoalCard({ done: total, total: max, label: 'Открыто уровней · получено за них', reward: { amount_mora: summary.claimed_mora || 0 } }) : '';
     root.innerHTML = `${v3Head('Достижения', { back: 'achievementsV1Back()', sub: _achievementsV1Filter === 'casino' ? 'Значки за партии · прошлые игры тоже учитываются' : card ? 'Игры, приключения, развитие и чат' : sub, end: v3GuideBtn('ach') })}${card}${achievementTabs()}
-      ${badgeNote}<div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
+      ${badgeNote}${_achievementsV1Data.history_sync?.games_pending ? '<p class="ach-note" role="status">Восстанавливаем прошлые партии. Счёт обновится сам.</p>' : ''}<div id="ach-panel" role="tabpanel" aria-labelledby="ach-tab-${_achievementsV1Filter}">${achievementSections()}</div>`;
     const tab = root.querySelector('.ach-tabs .v3-tab.on'), nav = tab?.parentElement;
     if (nav) { const t = tab.getBoundingClientRect(), n = nav.getBoundingClientRect(); nav.scrollLeft += Math.max(0, t.right - n.right) + Math.min(0, t.left - n.left); }
     v3EnterSync(root);
@@ -1082,6 +1082,9 @@
       ]);
       if (mine !== _achievementsSeq) return;
       _achievementsV1Data = paths;
+      if (paths.history_sync?.games_pending) setTimeout(() => {
+        if (mine===_achievementsSeq && _activePage==='achievements-v1') openAchievementsV1();
+      },2000);
       _chatAchievementsData = chat || _chatAchievementsData;   // разовый сбой чата не стирает уже показанное
       _casinoAchievementsError = !casino;
       _casinoAchievementsData = casino?.badges || _casinoAchievementsData;
