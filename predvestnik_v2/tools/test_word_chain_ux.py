@@ -14,7 +14,7 @@ from bot.chat import word_chain as ui
 from core import word_chain as rules
 from core.word_chain.spelling import suggest
 
-BOT = SimpleNamespace(id=999,token="123456:local-test")
+BOT = SimpleNamespace(id=999,token="123456:local-test",me=AsyncMock(return_value=SimpleNamespace(username="qa_bot")))
 STATE = dict(active=True,created=True,round_id=100,turns=0,last_word="ананас",letter="с",leaders=[])
 RESULT = dict(active=True,round_id=100,turns=1,word="слон",bot_word="нос",letter="с",finished=False,replayed=False)
 
@@ -26,6 +26,7 @@ def message(*, actor=101, chat=-100, topic=7, text="слон", mid=50, reply=Tru
     return Message.model_validate(data)
 
 
+@patch.object(ui.feature_switches,"disabled",AsyncMock(return_value=None))
 async def run():
     assert "арбуз" in suggest("арбзу","а",set())
     assert "апельсин" in suggest("апилсин","а",set())

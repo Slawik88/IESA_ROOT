@@ -8,7 +8,7 @@ from aiogram import Router
 from aiogram.filters.callback_data import CallbackData
 from aiogram.types import CallbackQuery, ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Message, ReplyParameters
 
-from bot.chat.framework import Ctx, registry
+from bot.chat.framework import Ctx, Parsed, Unknown, parse, registry
 from bot.chat import ranks
 from core import word_chain as rules
 from services import feature_switches, global_moderation
@@ -145,13 +145,23 @@ async def play_message(db, bot, message, value: str) -> None:
     await message.reply(text,parse_mode="HTML",reply_markup=markup)
 
 
-async def on_reply(db, bot, message) -> bool:
+def is_reply(bot, message) -> bool:
     reply = message.reply_to_message
-    if not reply or not reply.from_user or not message.from_user or message.from_user.is_bot:
+    return bool(reply and reply.from_user and message.from_user and not message.from_user.is_bot
+                and reply.from_user.id == bot.id and (reply.text or "").startswith("🔤")
+                and message.text is not None)
+
+
+async def on_reply(db, bot, message) -> bool:
+    if not is_reply(bot, message):
         return False
-    if reply.from_user.id != bot.id or not (reply.text or "").startswith("🔤") or message.text is None:
+    me = await bot.me()
+    parsed = parse(registry, message.text, me.username)
+    if isinstance(parsed, Unknown) or isinstance(parsed, Parsed) and parsed.prefixed:
         return False
-    await play_message(db,bot,message,message.text)
+    if await feature_switches.disabled(db, feature_switches.command_features("слово", "games", None), message.chat.id) is not None:
+        return True
+    await play_message(db, bot, message, message.text)
     return True
 
 

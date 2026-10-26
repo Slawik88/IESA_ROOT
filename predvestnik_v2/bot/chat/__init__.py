@@ -148,10 +148,13 @@ async def on_message(message: Message, bot, db) -> None:
         await mafia.after_message(db, bot, message)
     except Exception as exc:
         logger.warning(f"mafia lobby repost failed: {exc}")
-    handled = await dispatch(registry, message, bot, db)
-    if not handled and message.chat.type in ("group", "supergroup"):
-        if not await _silent(message, db) and await feature_switches.disabled(db, feature_switches.command_features("слово", "games", None), chat_id) is None:
-            handled = await word_chain.on_reply(db,bot,message)
+    # Addressed word-game turns must win over bare actions such as «чай» and «торт».
+    handled = False
+    if message.chat.type in ("group", "supergroup") and word_chain.is_reply(bot, message):
+        if not await _silent(message, db):
+            handled = await word_chain.on_reply(db, bot, message)
+    if not handled:
+        handled = await dispatch(registry, message, bot, db)
     if not handled and message.chat.type == "private":   # «привет» в личке: не молчим, показываем, с чего начать
         try:
             if not await _silent(message, db):
