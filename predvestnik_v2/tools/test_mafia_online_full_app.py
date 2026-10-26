@@ -112,6 +112,9 @@ def check(dsn, shots, baseline=False, port=8408):
             for width in (320, 390, 430, 900, 1280):
                 for height in (640, 430):
                     page.set_viewport_size({'width': width, 'height': height})
+                    # The dialog height follows the visualViewport event asynchronously;
+                    # measuring before it settles reads the previous size.
+                    page.wait_for_function('(h) => Math.abs(document.getElementById("modal").getBoundingClientRect().height - h) < 2', arg=height)
                     geometry = page.evaluate('''() => {
                         const ids=['mo-root','mo-chat','mo-compose','mo-send'];
                         return Object.fromEntries(ids.map(id=>{const e=document.getElementById(id),r=e.getBoundingClientRect();
