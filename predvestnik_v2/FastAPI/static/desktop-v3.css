@@ -1,0 +1,36 @@
+/* Same screens, controls and skin tokens; desktop changes only available space. */
+@media (min-width: 900px) {
+  body { max-width:1120px; padding-inline:40px; }
+  .v3-bar { width:min(1120px,100%); padding-inline:40px; }
+  .v3-chips { justify-content:flex-start; gap:24px; }
+  .v3-chips-main { flex:0 1 auto; gap:16px; }
+  .nav { max-width:calc(100vw - 48px); padding:6px; gap:4px; }
+  .nb { flex-basis:clamp(56px,6vw,76px); min-height:52px; font-size:11px; }
+  .page { min-width:0; }
+  #pro-main { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 32px; align-items:start; }
+  #pro-main > :is(.ap-stage,.v3-id,.v3-list) { grid-column:1/-1; }
+  #pro-main > * { min-width:0; }
+  #pro-main .v3-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:32px; }
+  .v3-games--hub { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:32px; }
+  .v3-games--hub .v3-game { min-width:0; }
+  .lk-hero { max-width:640px; margin-inline:auto; }
+  .ch-action { max-width:560px; margin-inline:auto; }
+  .page > .v3-head { margin-bottom:24px; }
+  .v3-row { min-height:60px; }
+  .v3-row > span { min-width:0; }
+  .v3-row small { overflow-wrap:anywhere; }
+  #pg-more.active { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 32px; }
+  #pg-more > header { grid-column:1/-1; }
+  .inv-grid { grid-template-columns:repeat(6,minmax(0,1fr)); gap:14px; }
+  .inv-looks,.inv-pets { grid-template-columns:repeat(5,minmax(0,1fr)); gap:14px; }
+  #pg-pets .bestiary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+  #pg-settings,#pg-help,#pg-news,#pg-promo { max-width:800px; margin-inline:auto; }
+  dialog#modal:not(.mo-mode) { width:min(720px,calc(100vw - 64px)); max-width:720px; }
+  dialog#modal:not(.mo-mode) .sheet { max-width:100%; }
+  .mbody { overscroll-behavior:contain; }
+  :is(button,a,input,textarea,select,summary):focus-visible { outline:2px solid var(--v3-acc); outline-offset:3px; }
+}
+@media (hover:hover) and (pointer:fine) {
+  :is(.v3-row,.v3-link,.nb):hover { background:var(--v3-faint); }
+  :is(.v3-pill,.v3-link,.nb):active { transform:scale(.98); }
+}
