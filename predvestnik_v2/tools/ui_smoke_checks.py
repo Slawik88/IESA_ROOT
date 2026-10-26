@@ -94,6 +94,9 @@ DOCK_TABS = ("profile", "arena", "pets", "questlog", "looks", "chests", "invento
 # Response statuses that are the designed answer of the stand, not bugs: closed exchange.
 EXPECTED_HTTP = [
     ("/player-exchange/v1/", 404),
+    # These read endpoints intentionally return 404 while their rollout flag is off.
+    ("/shop-v1/me", 404),
+    ("/gifts-v2/me", 404),
 ]
 # Known open product question (reported to the owner, not a bug of the stand): the /vip router is deliberately not registered (tools/test_release_public_routes.py
 # lists /vip as retired), while the Zarniki/VIP page still asks it. Shown as a warning so that it does not hide new findings.
