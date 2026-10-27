@@ -16,7 +16,7 @@
 - **aiogram 3.22.0** (`requirements.txt:60`) = **Bot API 9.2** (`aiogram/__meta__.py`). Проверено в облаке 2026-10-27 по самим пакетам с PyPI:
   - **Business есть уже в 3.22.0:** события `business_connection`, `business_message`, `edited_business_message`, `deleted_business_messages`; типы `BusinessConnection`, `BusinessBotRights`; методы `get_business_connection`, `read_business_message`, `delete_business_messages` и др.
   - **Темы в личных чатах** (`User.has_topics_enabled`) появляются в **aiogram 3.24.0 = Bot API 9.3**; 3.23.0 (API 9.2) их не имеет. Последняя версия на PyPI на сегодня 3.31.0 (Bot API 10.3).
-  - Подъём версии = правка общего `requirements.txt` (сайт aiogram не использует, но деплой пересобирает оба компонента): отдельный коммит, полный прогон тестов бота, «ок» владельца.
+  - Подъём версии = правка общего `requirements.txt` (сайт aiogram не использует, но деплой пересобирает оба компонента): отдельный коммит, полный прогон тестов бота. **Владелец решил поднимать (2026-10-27)**: выполняет отдельная сессия S23а.
   - Нужен ли Premium игроку для Business и какие права запрашиваются — **сверить с официальной документацией** (`core.telegram.org/bots/api` из облачной среды недоступен: HTTP 000; PyPI доступен).
 
 ## 2. Команды чат-бота (≈76 основных + 122 варпа)

@@ -9,6 +9,8 @@ Verified locally (cloud session, Python 3.12, PostgreSQL 16 on :5433): `env-setu
 --widths 390` and `admin_stand --tabs health` pass; two independent cold-start dry runs of the protocol by a context-free read-only agent, findings fixed. Known pre-existing red:
 `tools/test_current_game_docs.py` also fails on the untouched `origin/master`.
 
+Owner decisions recorded 2026-10-27 (documentation only): "Shipirit" random pair per call and enabled by default, "my article" all topics with the assistant's fixed content boundary, aiogram upgrade as a separate session S23a, admin avatars for everyone and Mini App avatars VIP-only, skin issuing owner-only, env-setup.sh run by the sessions themselves.
+
 Not verified: production deploy health (production URLs are unreachable from the cloud session, HTTP 000). Owner confirms DigitalOcean `Healthy`, `/api/health`, `/api/ready`, Mini App opens.
 
 ## ONLINE-MAFIA-UX-20261025 — RELEASED TO MASTER AND VERIFIED LIVE
