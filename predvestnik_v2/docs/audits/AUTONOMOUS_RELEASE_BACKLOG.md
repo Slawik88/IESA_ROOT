@@ -1,6 +1,6 @@
 ## ROADMAP-S00 — DOCUMENTATION ONLY, PUSHED TO MASTER
 
-Session pipeline for the owner's 2026-10-27 work plan: `docs/roadmap/` (README protocol, STATUS journal, 25 session prompts S01-S25, findings from the code survey, ENV.md and
+Session pipeline for the owner's 2026-10-27 work plan: `docs/roadmap/` (README protocol, STATUS journal, 26 session prompts S01-S25 and S23a, findings from the code survey, ENV.md and
 `env-setup.sh`, `seed/nodb-render` skin stand seed, OWNER_REQUEST.md). Also: one pointer row in `AGENTS.md`, a Figma-replaced-by-stand note in `OWNER_WORK_PLAN_2026-10-06.md`, and an
 explicit exception for `docs/roadmap/` in `AUTONOMOUS_AGENT_POLICY.md` section 4. No runtime code, schema, flags or assets changed.
 

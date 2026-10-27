@@ -99,7 +99,7 @@
 - `bot/chat/ship.py` и `bot/chat/article.py`, тексты в `bot/chat/ship_texts/` и `bot/chat/article_texts/` по образцу `warp_texts`.
 - Регистрация: импорт в `bot/chat/__init__.py:5`; callback-кнопки — в цикл `for sub in (...)` на строке 80; алиасы — `aliases.py`; синонимы — `framework.SYNONYMS`; раздел справки — `help.SECTIONS`.
 - Триггеры без «бот»: `bare=True`, `private=False`; двухсловное имя «моя статья» разбирается по самому длинному совпадению (`framework.parse`); «кто сегодня» не конфликтует с командой «кто».
-- Выключатель: группа в `feature_switches.GROUPS` и `catalog()` (строки 42, 154); либо ключ в `core/chat_modules.py` и команда «бот шиппер вкл/выкл» по образцу «бот косметика»
+- Выключатель: группа в `feature_switches.GROUPS` и `catalog()` (строки 42, 154); либо ключ в `core/chat_modules.py` и команда «бот шипирить вкл/выкл» по образцу «бот косметика»
   (`chat_module_audit.set_chat_module`, право `rights`).
 - Источник «случайного участника»: `user_chat_stats` (`is_left=FALSE`, `is_bot`, `last_message_at`) и `daily_user_stats`. Боты отсеиваются через `services/chat_bots.py`. Мало писавших бот не знает
   (`NOT_FOUND`, `targets.py`).
